@@ -3,11 +3,10 @@
   import MonthView from './MonthView.svelte';
   import ListView from './ListView.svelte';
   import DateSelector from './DateSelector.svelte';
-  import type { CalendarEvent } from '$lib/server/db/schema';
   import type { DateTime } from 'luxon';
 
   export let currentDate: Writable<DateTime>;
-  export let events: CalendarEvent[];
+  export let events;
 
   let view: 'month' | 'list' = 'list';
 </script>
