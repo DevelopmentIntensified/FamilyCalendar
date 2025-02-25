@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { slide } from 'svelte/transition';
-  import Calendar from './icons/Calendar.svelte';
+	import calendarIcon from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg'; //https://www.svgrepo.com/svg/423010/calendar-note-date
 
   export let isAdmin: boolean;
   export let isLoggedIn: boolean;
@@ -40,7 +40,7 @@
     <div class="flex h-16 items-center justify-start">
       <div class="flex items-center">
         <a href="/" class="flex-shrink-0">
-            <Calendar class="h-12 w-12" />
+          <img class="h-12 w-12" src={calendarIcon} alt="Calendar Icon" />
         </a>
         <div class="hidden lg:block">
           <div class="ml-10 flex items-baseline space-x-4">
