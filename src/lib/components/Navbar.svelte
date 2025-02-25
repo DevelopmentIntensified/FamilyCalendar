@@ -10,11 +10,13 @@
 
   let isOpen = false;
 
-  const navItems = [
+  let navItems = [
     { href: '/', label: 'Home' },
     { href: '/about', label: 'About' },
+    { href: '/pricing', label: 'Pricing' },
     { href: '/contact', label: 'Contact' }
   ];
+
   if (isLoggedIn) {
     navItems.push({
       href: '/calendar',
@@ -33,8 +35,8 @@
   }
 </script>
 
-<nav class="bg-primary-600 text-white">
-  <div class="max-w-7xl px-4 md:px-6 lg:px-8">
+<nav class="bg-primary text-white">
+  <div class="max-w-7xl px-3 md:px-4 lg:px-5">
     <div class="flex h-16 items-center justify-start">
       <div class="flex items-center">
         <a href="/" class="flex-shrink-0">
@@ -45,9 +47,9 @@
             {#each navItems as item}
               <a
                 href={item.href}
-                class="rounded-md px-2 py-2 text-sm font-medium hover:bg-primary-700 {$page.url
+                class="rounded-md px-2 py-2 text-sm font-medium hover:bg-primary-800 {$page.url
                   .pathname === item.href
-                  ? 'bg-primary-700'
+                  ? 'bg-primary-800'
                   : ''}"
               >
                 {item.label}
@@ -57,9 +59,9 @@
               {#each adminItems as item}
                 <a
                   href={item.href}
-                  class="rounded-md px-3 py-2 text-sm font-medium hover:bg-primary-700 {$page.url
+                  class="rounded-md px-3 py-2 text-sm font-medium hover:bg-primary-800 {$page.url
                     .pathname === item.href
-                    ? 'bg-primary-700'
+                    ? 'bg-primary-800'
                     : ''}"
                 >
                   {item.label}
@@ -75,25 +77,31 @@
             <form action="/api/logout" class="absolute right-5" method="POST">
               <button
                 type="submit"
-                class="rounded-md px-3 py-2 text-sm font-medium hover:bg-primary-700">Logout</button
+                class="rounded-md px-3 py-2 text-sm font-medium hover:bg-primary-800">Logout</button
               >
             </form>
           {:else}
             <a
               href={'/login'}
-              class="absolute right-5 rounded bg-primary-600 px-4 py-2 font-bold text-white transition duration-300 hover:bg-primary-700"
+              class="absolute right-32 rounded bg-primary-600 px-4 py-2 font-bold text-white transition duration-300 hover:bg-primary-800"
             >
               Login
             </a>
-            <!-- <a href="/login" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-700">Login</a> -->
-            <!-- <a href="/register" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-700">Register</a> -->
+            <a
+              href={'/signup'}
+              class="absolute right-5 rounded bg-secondary px-4 py-2 font-bold text-white transition duration-300 hover:bg-secondary-600"
+            >
+              Sign up
+            </a>
+            <!-- <a href="/login" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-800">Login</a> -->
+            <!-- <a href="/register" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-800">Register</a> -->
           {/if}
         </div>
       </div>
       <div class="w-full lg:hidden">
         <button
           on:click={toggleMenu}
-          class="absolute right-5 top-3 inline-flex items-center justify-center rounded-md p-2 text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+          class="absolute right-5 top-3 inline-flex items-center justify-center rounded-md p-2 text-white hover:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
         >
           <span class="sr-only">Open main menu</span>
           {#if isOpen}
@@ -139,9 +147,9 @@
           <a
             href={item.href}
             on:click={closeMenu}
-            class="block rounded-md px-3 py-2 text-center text-base font-medium hover:bg-primary-700 {$page
+            class="block rounded-md px-3 py-2 text-center text-base font-medium hover:bg-primary-800 {$page
               .url.pathname === item.href
-              ? 'bg-primary-700'
+              ? 'bg-primary-800'
               : ''}"
           >
             {item.label}
@@ -152,9 +160,9 @@
             <a
               href={item.href}
               on:click={closeMenu}
-              class="block rounded-md px-3 py-2 text-center text-base font-medium hover:bg-primary-700 {$page
+              class="block rounded-md px-3 py-2 text-center text-base font-medium hover:bg-primary-800 {$page
                 .url.pathname === item.href
-                ? 'bg-primary-700'
+                ? 'bg-primary-800'
                 : ''}"
             >
               {item.label}
@@ -166,7 +174,7 @@
             <button
               type="submit"
               on:click={closeMenu}
-              class="w-full rounded-md px-3 py-2 text-center text-base font-medium hover:bg-primary-700"
+              class="w-full rounded-md px-3 py-2 text-center text-base font-medium hover:bg-primary-800"
               >Logout</button
             >
           </form>
@@ -174,15 +182,25 @@
           <a
             href={'/login'}
             on:click={closeMenu}
-            class="block rounded-md bg-primary-600 px-3 py-2 text-center text-base font-medium hover:bg-primary-700 {$page
+            class="block rounded-md bg-secondary px-3 py-2 text-center text-base font-medium hover:bg-primary-800 {$page
               .url.pathname === '/login'
-              ? 'bg-primary-700'
+              ? 'bg-primary-800'
               : ''}"
           >
-            Join Us
+            Login
           </a>
-          <!-- <a href="/login" on:click={closeMenu} class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-700">Login</a> -->
-          <!-- <a href="/register" on:click={closeMenu} class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-700">Register</a> -->
+          <a
+            href={'/signup'}
+            on:click={closeMenu}
+            class="block rounded-md bg-secondary px-3 py-2 text-center text-base font-medium hover:bg-primary-800 {$page
+              .url.pathname === '/signup'
+              ? 'bg-primary-800'
+              : ''}"
+          >
+           Sign Up 
+          </a>
+          <!-- <a href="/login" on:click={closeMenu} class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-800">Login</a> -->
+          <!-- <a href="/register" on:click={closeMenu} class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-800">Register</a> -->
         {/if}
       </div>
     </div>

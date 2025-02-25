@@ -55,6 +55,7 @@
 		"date-picker-svelte": "^2.15.1",
 		"drizzle-orm": "^0.38.4",
 		"luxon": "^3.5.0",
-		"postgres": "^3.4.5"
+		"postgres": "^3.4.5",
+		"resend": "^4.1.2"
 	}
 }
