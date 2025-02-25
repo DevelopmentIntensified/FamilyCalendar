@@ -22,7 +22,7 @@
 			<h1 class="mb-1 font-sans text-3xl font-bold md:p-3 md:text-5xl">
 				Keep Your Family's Schedule Synced
 			</h1>
-			<p class="mb-5 rounded-lg bg-white p-2 font-mono text-slate-700 opacity-80 md:text-lg">
+			<p class="mb-5 rounded-lg bg-white p-2 font-sans text-slate-700 opacity-80 md:text-lg">
 				Family Planz keeps your busy household organized and connected. Never miss an important
 				event again.
 			</p>
@@ -67,7 +67,7 @@
 	<section id="end" class="relative bg-secondary-100 px-10 py-10 text-center md:py-3">
 		<div class="h-64 w-full text-center">
 			<h1 class="mb-1 font-sans text-5xl font-bold md:p-3">Ready to get Started?</h1>
-			<p class="mb-2 rounded-lg p-2 py-3 font-mono text-slate-700 opacity-80 md:mx-20 md:mb-5">
+			<p class="mb-2 rounded-lg p-2 py-3 font-sans text-slate-700 opacity-80 md:mx-20 md:mb-5">
 				"A family that planz together, stays together" <br />~Unknown
 			</p>
 			<button class="rounded bg-secondary-500 p-3 text-xl font-bold text-white"
