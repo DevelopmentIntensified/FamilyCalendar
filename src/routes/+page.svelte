@@ -19,12 +19,12 @@
 			class="absolute inset-0 top-1 box-border h-full w-full object-cover blur-sm"
 		/>
 		<div class="absolute inset-0 m-auto my-10 rounded-lg p-10 lg:w-3/6">
-			<h1 class="mb-1 p-3 font-sans text-5xl font-bold">Keep Your Family's Schedule synced</h1>
-			<p class="mb-5 rounded-lg bg-white p-2 font-mono text-slate-700 opacity-80">
+			<h1 class="mb-1 md:p-3 font-sans text-3xl md:text-5xl font-bold">Keep Your Family's Schedule Synced</h1>
+			<p class="mb-5 rounded-lg bg-white p-2 md:text-lg font-mono text-slate-700 opacity-80">
 				Family Planz keeps your busy household organized and connected. Never miss an important
 				event again.
 			</p>
-			<button class="rounded bg-secondary-500 p-3 text-xl font-bold">Get Started for Free</button>
+			<button class="rounded bg-secondary-500 p-3 text-xl font-bold text-white">Get Started for Free</button>
 		</div>
 	</section>
 	<section id="features" class="relative bg-primary-100 px-10 py-3 pb-6 text-center">
@@ -66,7 +66,7 @@
 			<p class="md:mx-20 mb-2 md:mb-5 rounded-lg p-2 py-3 font-mono text-slate-700 opacity-80">
 				"A family that planz together, stays together" <br />~Unknown
 			</p>
-			<button class="rounded bg-secondary-500 p-3 text-xl font-bold">Get Started for Free</button>
+			<button class="rounded bg-secondary-500 text-white p-3 text-xl font-bold">Get Started for Free</button>
 		</div>
 	</section>
 </div>
