@@ -3,6 +3,8 @@
 	import todolistIcon from '$lib/assets/svgs/todo-list-svgrepo-com.svg'; //https://www.svgrepo.com/svg/475006/todo-list
 	import coloredFamilyIcon from '$lib/assets/svgs/family-svgrepo-com.svg'; //https://www.svgrepo.com/svg/131746/family
 	import Calendar from '$lib/components/icons/Calendar.svelte';
+
+	export let 
 </script>
 
 <svelte:head>
@@ -57,7 +59,7 @@
 	<section id="end" class="relative bg-secondary-100 px-10 py-3 text-center">
 		<div class="h-64 w-full text-center">
 			<h1 class="mb-1 p-3 font-sans text-5xl font-bold">Ready to get Started?</h1>
-			<p class="mb-5 rounded-lg bg-white p-2 font-mono text-slate-700 opacity-80">Join</p>
+			<!-- <p class="mb-5 rounded-lg bg-white p-2 font-mono text-slate-700 opacity-80">Join</p> -->
 			<button class="rounded bg-secondary-500 p-3 text-xl font-bold">Get Started for Free</button>
 		</div>
 	</section>
