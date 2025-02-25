@@ -8,16 +8,16 @@
 </script>
 
 <svelte:head>
-	<title>Family Calendar: Landing Page</title>
+	<title>Family Planz: Landing Page</title>
 </svelte:head>
 
 <div>
 	<section id="welcome" class="relative py-52 text-center">
-		<img src={bgCalImg} alt="Calendar page" class="absolute inset-0 h-full w-full object-cover" />
-			<div class="absolute inset-0 m-auto rounded-lg my-10 lg:w-3/6 backdrop-blur-sm p-10">
+		<img src={bgCalImg} alt="Calendar page" class="absolute inset-0 h-full w-full object-cover blur-sm box-border" />
+			<div class="absolute inset-0 m-auto rounded-lg my-10 lg:w-3/6 p-10">
 				<h1 class="mb-1 p-3 font-sans text-5xl font-bold">Keep Your Family's Schedule synced</h1>
 				<p class="mb-5 rounded-lg bg-white p-2 font-mono text-slate-700 opacity-80">
-					Family Calendar keeps your busy household organized and connected. Never miss an important
+					Family Planz keeps your busy household organized and connected. Never miss an important
 					event again.
 				</p>
 				<button class="rounded bg-secondary-500 p-3 text-xl font-bold">Get Started for Free</button>
@@ -59,7 +59,7 @@
 	<section id="end" class="relative bg-secondary-100 px-10 py-3 text-center">
 		<div class="h-64 w-full text-center">
 			<h1 class="mb-1 p-3 font-sans text-5xl font-bold">Ready to get Started?</h1>
-			<!-- <p class="mb-5 rounded-lg bg-white p-2 font-mono text-slate-700 opacity-80">Join</p> -->
+			<p class="mb-5 rounded-lg p-2 font-mono text-slate-700 opacity-80 mx-20">"A family that planz together, stays together" <br>~Unknown</p>
 			<button class="rounded bg-secondary-500 p-3 text-xl font-bold">Get Started for Free</button>
 		</div>
 	</section>
