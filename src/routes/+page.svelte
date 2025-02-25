@@ -4,7 +4,7 @@
 	import coloredFamilyIcon from '$lib/assets/svgs/family-svgrepo-com.svg'; //https://www.svgrepo.com/svg/131746/family
 	import Calendar from '$lib/components/icons/Calendar.svelte';
 
-	export let 
+	// export let 
 </script>
 
 <svelte:head>
