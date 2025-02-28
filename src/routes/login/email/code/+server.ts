@@ -1,17 +1,12 @@
 import type { RequestHandler } from './$types';
-import { generateId } from "lucia";
 import { getUrl } from '$lib/utils/getUrl';
 import { lucia } from '$lib/server/auth';
-import { accounts, users } from '$lib/server/db/schema';
-import { db } from '$lib/server/db/';
-import { eq } from 'drizzle-orm';
 import { deleteCode, deleteDeadCodes, getCode } from '$lib/server/db/actions/codes';
-import { createUser } from '$lib/server/db/actions/users';
-import { createAccount } from '$lib/server/db/actions/accounts';
+import { getAccount } from '$lib/server/db/actions/accounts';
 
 export const POST: RequestHandler = async function(event) {
   const siteUrl = getUrl();
-  const redirectUrl = new URL(siteUrl + "/signup")
+  const redirectUrl = new URL(siteUrl + '/login');
   redirectUrl.searchParams.set('error', 'The code incorrect. Please try again');
   const code = (await event.request.json()).code
   console.warn("DEBUGPRINT[1]: +server.ts:14: code=", code)
@@ -27,42 +22,23 @@ export const POST: RequestHandler = async function(event) {
   }
 
   try {
-    const { firstName, lastName, email } = codeToCheck
-    if (!email || !lastName || !firstName) {
+    const email = codeToCheck.email
+    if (!email) {
       return new Response(
         JSON.stringify({ success: false, error: 'Unexpected error, please try again' }),
         { status: 500 }
       );
     }
 
-    const userAccount = await db.select().from(accounts).where(eq(accounts.providerAccountId, email))
-    if (userAccount.length !== 0) {
-      await deleteCode(code)
+		let userAccount = await getAccount(email)
+    if (!userAccount) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Account with this email already Exists' }),
+        JSON.stringify({ success: false, error: 'No Account found' }),
         { status: 500 }
       );
     }
-
-    let user = await createUser({
-      id: generateId(15),
-      firstName,
-      lastName,
-      email,
-      emailVerified: true,
-      picture: "",
-      phonenumber: "",
-      phonenumberVerified: false,
-      roles: [],
-    })
-
-    await createAccount({
-      provider: 'email',
-      userId: user.id,
-      providerAccountId: email
-    });
-
-    const session = await lucia.createSession(user.id, {});
+		
+    const session = await lucia.createSession(userAccount.userId, {});
     const sessionCookie = lucia.createSessionCookie(session.id);
 
     let headers = new Headers();
@@ -84,3 +60,4 @@ export const POST: RequestHandler = async function(event) {
     );
   }
 };
+

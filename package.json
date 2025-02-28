@@ -16,7 +16,7 @@
     "test": "npm run test:unit -- --run && npm run test:e2e",
     "test:e2e": "playwright test",
     "test:e2e:generate": "playwright test codegen",
-    "test:e2e:ui": "playwright test -ui",
+    "test:e2e:ui": "playwright test --ui",
     "db:start": "docker compose up",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",

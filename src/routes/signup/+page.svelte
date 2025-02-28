@@ -6,6 +6,7 @@
 	// import FluentColorNumberSymbolSquare20 from '~icons/fluent-color/number-symbol-square-20';
 
 	export let data: PageData;
+	console.warn("DEBUGPRINT[16]: +page.svelte:8: data=", data)
 
 	let showEmail = false;
 	let emailSent = false;

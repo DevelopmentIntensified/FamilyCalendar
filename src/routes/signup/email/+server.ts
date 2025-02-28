@@ -8,6 +8,8 @@ import { getUrl } from '$lib/utils/getUrl';
 import { createJWT } from 'oslo/jwt';
 import { TimeSpan } from 'lucia';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
+import { createCode } from '$lib/server/db/actions/codes';
+import { getAccount } from '$lib/server/db/actions/accounts';
 
 export type emailTokenPayloadType =
 	{
@@ -29,15 +31,11 @@ export const POST = async (event: RequestEvent) => {
 		return new Response(JSON.stringify({ success: false, error: 'First and last name are required' }), { status: 400 });
 	}
 
-	const account = await db
-		.select()
-		.from(accounts)
-		.where(and(eq(accounts.provider, 'email'), eq(accounts.providerAccountId, email)));
+	const account = await getAccount(email)
 
-	if (account.length !== 0) {
+	if (account) {
 		return new Response(JSON.stringify({ success: false, error: 'Email already registered' }), { status: 400 });
 	} else {
-
 		const random: RandomReader = {
 			read(bytes) {
 				crypto.getRandomValues(bytes);
@@ -70,7 +68,7 @@ export const POST = async (event: RequestEvent) => {
 		signInUrl.pathname = '/signup/email/callback';
 		signInUrl.searchParams.set('token', token);
 
-		const { success, error } = await sendEmail({
+		const { success, error, data } = await sendEmail({
 			to: email,
 			from: NOREPLYEMAIL,
 			subject: 'Family Planz Email Confirmation for ' + email,
@@ -78,16 +76,18 @@ export const POST = async (event: RequestEvent) => {
 			or if you would rather, here is a link for loggin in: <a href="${signInUrl.toString()}"> link </a>
 `
 		});
+
 		if (success) {
-			await db.insert(codes).values([
+			await createCode(
 				{
 					code,
 					expiresAt: new Date(Date.now() + 60 * 1000 * 15),
 					email,
 					firstName,
-					lastName
+					lastName,
+					emailId: data?.id || null
 				}
-			]);
+			);
 
 			return new Response(JSON.stringify({ success: true }), { status: 200 });
 		}

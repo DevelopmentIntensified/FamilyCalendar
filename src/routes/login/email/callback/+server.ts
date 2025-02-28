@@ -7,6 +7,7 @@ import { lucia } from "$lib/server/auth";
 import { accounts, users } from "$lib/server/db/schema";
 import { db } from "$lib/server/db";
 import { eq } from "drizzle-orm";
+import { getAccount } from "$lib/server/db/actions/accounts";
 
 export const GET: RequestHandler = async function(event) {
 	const requestUrl = new URL(event.url)
@@ -68,8 +69,8 @@ export const GET: RequestHandler = async function(event) {
 	}
 
 	try {
-		const { userId, providerAccountId } = payload
-		const userAccount = await db.select().from(accounts).where(eq(accounts.providerAccountId, providerAccountId))
+		const { email } = payload
+		const userAccount = await getAccount(email)
 		if (userAccount.length === 0) {
 			return new Response(null, {
 				status: 302,
@@ -78,14 +79,15 @@ export const GET: RequestHandler = async function(event) {
 				}
 			})
 		}
+		let userId = userAccount.userId
 
-		await db.update(users).set({ lastLogin: new Date() }).where(eq(users.id, userId))
+		await db.update(users).set({ lastLogin: new Date() }).where(eq(users.id, userId ))
 		const session = await lucia.createSession(userId, {});
 		const sessionCookie = lucia.createSessionCookie(session.id);
 
 		let headers = new Headers()
 		headers.append("Set-Cookie", sessionCookie.serialize())
-		headers.append("Location", siteUrl + "/user/")
+		headers.append("Location", siteUrl + "/calendar/")
 
 		let result = new Response(null, {
 			status: 302,

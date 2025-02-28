@@ -11,7 +11,7 @@ export const sendEmail = async (data: { to; from; subject; html }) => {
   console.log(res.error);
 
   if (!res.error) {
-    return { success: true, error: undefined };
+    return { success: true, error: undefined, data: res.data };
   } else {
     return { success: false, error: res.error };
   }

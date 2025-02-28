@@ -8,7 +8,10 @@ export default defineConfig({
 
 	testDir: 'e2e',
 	use: {
-		headless: false,
+		headless: true,
 		baseURL: "http://localhost:5173",
+		launchOptions: {
+			slowMo: 50,
+		},
 	}
 });

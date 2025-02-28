@@ -6,9 +6,9 @@ export async function getAccounts() {
 	return await db.select().from(accounts);
 }
 
-export async function getAccount(id: number) {
-	const [Account] = await db.select().from(accounts).where(eq(accounts.providerAccountId, id));
-	return Account;
+export async function getAccount(id: string): Account {
+	const [account] = await db.select().from(accounts).where(eq(accounts.providerAccountId, id));
+	return account;
 }
 
 export async function createAccount(data: Omit<Omit<Omit<Omit<Account, 'id'>, 'createdAt'>, 'updatedAt'>, 'lastLogin'>) {

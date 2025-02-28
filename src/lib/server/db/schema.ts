@@ -95,6 +95,7 @@ export const codes = pgTable('codes', {
 	email: text('email').notNull(),
 	firstName: text('firstName'),
 	lastName: text('lastName'),
+	emailId: text('emailId'),
 });
 
 export const sessions = pgTable('sessions', {
