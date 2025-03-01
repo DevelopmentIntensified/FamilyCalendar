@@ -11,13 +11,19 @@ export async function getAccount(id: string): Account {
 	return account;
 }
 
-export async function createAccount(data: Omit<Omit<Omit<Omit<Account, 'id'>, 'createdAt'>, 'updatedAt'>, 'lastLogin'>) {
+export async function createAccount(
+	data: Omit<Omit<Omit<Omit<Account, 'id'>, 'createdAt'>, 'updatedAt'>, 'lastLogin'>
+) {
 	const [createdAccount] = await db.insert(accounts).values(data).returning();
 	return createdAccount;
 }
 
 export async function updateAccount(id: number, data: Partial<Omit<Account, 'id'>>) {
-	const [updatedAccount] = await db.update(accounts).set(data).where(eq(accounts.id, id)).returning();
+	const [updatedAccount] = await db
+		.update(accounts)
+		.set(data)
+		.where(eq(accounts.id, id))
+		.returning();
 	return updatedAccount;
 }
 

@@ -7,12 +7,15 @@ import {
 	integer,
 	json,
 	jsonb,
-	serial,
-	uuid
+	serial
 } from 'drizzle-orm/pg-core';
+import { generateId } from 'lucia';
 
 export const users = pgTable('users', {
-	id: text('id').notNull().primaryKey(),
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
 	firstName: text('firstName').notNull(),
 	lastName: text('lastName').notNull(),
 	email: text('email').notNull(),
@@ -29,8 +32,30 @@ export const users = pgTable('users', {
 	lastLogin: timestamp('lastLogin', { mode: 'date' }).defaultNow().notNull()
 });
 
+export const userSettings = pgTable('userSettings', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	weekStart: text('weekStart').default('sunday'),
+	timeZone: text('timeZone'),
+	color: text('color'),
+	updatedAt: timestamp('updatedAt', { mode: 'date' })
+		.defaultNow()
+		.$onUpdate(() => new Date())
+		.notNull(),
+	defaultCalendarId: text('defaultCalendarId').references(() => users.id, { onDelete: 'set null' }),
+	defaultView: text('defaultView').default('dayView'),
+	userId: text('userId')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' })
+});
+
 export const subscriptions = pgTable('activeSubscriptions', {
-	id: serial('id').notNull().primaryKey(),
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
 	userId: text('userId')
 		.notNull()
 		.references(() => users.id, { onDelete: 'no action' }),
@@ -56,7 +81,10 @@ export const subscriptions = pgTable('activeSubscriptions', {
 });
 
 export const subscriptionTypes = pgTable('subscriptionTypes', {
-	id: text('id').notNull().primaryKey(),
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
 	name: text('name').notNull(),
 	createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 	updatedAt: timestamp('updatedAt', { mode: 'date' })
@@ -95,7 +123,7 @@ export const codes = pgTable('codes', {
 	email: text('email').notNull(),
 	firstName: text('firstName'),
 	lastName: text('lastName'),
-	emailId: text('emailId'),
+	emailId: text('emailId')
 });
 
 export const sessions = pgTable('sessions', {
@@ -106,32 +134,111 @@ export const sessions = pgTable('sessions', {
 	expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull()
 });
 
-export const userFamilies = pgTable("userFamilies", {
-	id: serial('id').notNull().primaryKey(),
+export const userFamilies = pgTable('userFamilies', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id),
 	familyId: text('family_id')
 		.notNull()
-		.references(() => families.id),
-})
+		.references(() => families.id)
+});
 
-export const families = pgTable("families", {
-	id: text('id').notNull().primaryKey(),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-})
+export const familyGroups = pgTable('userFamilies', {
+	id: text('id').notNull().primaryKey().default(generateId(15)),
+	groupId: text('group_id')
+		.notNull()
+		.references(() => groups.id),
+	familyId: text('family_id')
+		.notNull()
+		.references(() => families.id)
+});
 
-export const calendars = pgTable("calendars", {
-	id: text('id').notNull().primaryKey(),
+export const groups = pgTable('groups', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	color: text('color'),
+	createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export const userGroups = pgTable('userGroups', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id),
-	createdAt: timestamp('created_at').defaultNow().notNull(),
-})
+	groupId: text('group_id')
+		.notNull()
+		.references(() => groups.id)
+});
 
+export const families = pgTable('families', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export const calendars = pgTable('calendars', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	ownerId: text('owner_id')
+		.notNull()
+		.references(() => users.id),
+	createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export const eventAttendance = pgTable('eventAttendance', {
+	eventId: text('event_id')
+		.notNull()
+		.references(() => events.id),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id),
+	status: text('status').default('undecided')
+});
+
+export const events = pgTable('events', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	calendarId: text('calendar_id')
+		.notNull()
+		.references(() => calendars.id),
+	ownerId: text('owner_id')
+		.notNull()
+		.references(() => users.id),
+	title: text('title').notNull(),
+	start: timestamp('start', {
+		withTimezone: true,
+		mode: 'string'
+	}).notNull(),
+	end: timestamp('end', {
+		withTimezone: true,
+		mode: 'string'
+	}).notNull(),
+	description: text('description'),
+	location: text('location'),
+	created_at: timestamp('created_at').defaultNow().notNull(),
+	type: text('type').notNull()
+});
 
 export type Session = typeof sessions.$inferSelect;
 export type Code = typeof codes.$inferSelect;
+export type CalendarEvent = typeof events.$inferSelect;
+export type Calendar = typeof calendars.$inferSelect;
 
 export type User = typeof users.$inferSelect;
+export type UserSettings = typeof userSettings.$inferSelect;
 export type Family = typeof families.$inferSelect;

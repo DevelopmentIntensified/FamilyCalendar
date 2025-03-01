@@ -11,22 +11,22 @@ const adapter = new DrizzlePostgreSQLAdapter(db, sessions, users);
 console.log(dev);
 
 export const lucia = new Lucia(adapter, {
-  sessionCookie: {
-    attributes: {
-      // set to `true` when using HTTPS
-      secure: !dev
-    }
-  },
-  getUserAttributes: (attributes) => {
-    return {
-      ...attributes
-    };
-  }
+	sessionCookie: {
+		attributes: {
+			// set to `true` when using HTTPS
+			secure: !dev
+		}
+	},
+	getUserAttributes: (attributes) => {
+		return {
+			...attributes
+		};
+	}
 });
 
 declare module 'lucia' {
-  interface Register {
-    Lucia: typeof lucia;
-    DatabaseUserAttributes: typeof users.$inferSelect;
-  }
+	interface Register {
+		Lucia: typeof lucia;
+		DatabaseUserAttributes: typeof users.$inferSelect;
+	}
 }

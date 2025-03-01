@@ -11,7 +11,9 @@ export async function getUser(id: string) {
 	return User;
 }
 
-export async function createUser(data: Omit<Omit<Omit<User, 'createdAt'>, 'updatedAt'>, 'lastLogin'>) {
+export async function createUser(
+	data: Omit<Omit<Omit<User, 'createdAt'>, 'updatedAt'>, 'lastLogin'>
+) {
 	const [createdUser] = await db.insert(users).values(data).returning();
 	return createdUser;
 }

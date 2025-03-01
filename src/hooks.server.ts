@@ -1,8 +1,8 @@
 import { lucia } from '$lib/server/auth';
 import { redirect, type Handle } from '@sveltejs/kit';
 
-const adminProtectedRoutes = ["admin"]
-const protectedRoutes = ["calendar", ...adminProtectedRoutes]
+const adminProtectedRoutes = ['admin'];
+const protectedRoutes = ['calendar', ...adminProtectedRoutes];
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const sessionId = event.cookies.get(lucia.sessionCookieName);
@@ -12,7 +12,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		for (let i = 0; i < protectedRoutes.length; i++) {
 			const route = protectedRoutes[i];
 			if (event.url.pathname.includes(route)) {
-				return redirect(302, "/login")
+				return redirect(302, '/login');
 			}
 		}
 		return resolve(event);
@@ -37,13 +37,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 	event.locals.user = user;
 	event.locals.session = session;
-	console.log(user)
+	console.log(user);
 	for (let i = 0; i < adminProtectedRoutes.length; i++) {
 		const route = adminProtectedRoutes[i];
 		if (event.url.pathname.includes(route)) {
-			return redirect(302, "/login")
+			return redirect(302, '/login');
 		}
 	}
 	return resolve(event);
 };
-

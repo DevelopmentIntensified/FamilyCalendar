@@ -1,6 +1,6 @@
-import { configDotenv } from "dotenv";
+import { configDotenv } from 'dotenv';
 
-configDotenv()
+configDotenv();
 
 export const RESEND_API = process.env.RESEND_API,
-	NOREPLYEMAIL = process.env.NOREPLYEMAIL
+	NOREPLYEMAIL = process.env.NOREPLYEMAIL;
