@@ -42,8 +42,8 @@
 	<title>Family Planz: Calendar Dashboard</title>
 </svelte:head>
 
-<div class="container mx-auto mt-3 px-4 py-12">
-	<div class="overflow-hidden rounded-lg bg-white shadow-xl">
+<div class="container mx-auto mt-3 pt-12">
+	<div class="overflow-hidden bg-white">
 		<Calendar {currentDate} {events} {timeZone} />
 	</div>
 </div>

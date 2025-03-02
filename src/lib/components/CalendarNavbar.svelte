@@ -7,9 +7,9 @@
 
 	let navItems = [
 		{ href: '/', label: 'Home' },
-		{ href: '/about', label: 'About' },
-		{ href: '/pricing', label: 'Pricing' },
-		{ href: '/contact', label: 'Contact' }
+		// { href: '/about', label: 'About' },
+		// { href: '/pricing', label: 'Pricing' },
+		// { href: '/contact', label: 'Contact' }
 	];
 
 	function toggleMenu() {
