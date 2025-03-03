@@ -3,8 +3,7 @@
 	import todolistIcon from '$lib/assets/svgs/todo-list-svgrepo-com.svg'; //https://www.svgrepo.com/svg/475006/todo-list
 	import coloredFamilyIcon from '$lib/assets/svgs/family-svgrepo-com.svg'; //https://www.svgrepo.com/svg/131746/family
 	import calendarIcon from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg'; //https://www.svgrepo.com/svg/423010/calendar-note-date
-
-	// export let
+	import { goto } from '$app/navigation';
 </script>
 
 <svelte:head>
@@ -26,8 +25,9 @@
 				Family Planz keeps your busy household organized and connected. Never miss an important
 				event again.
 			</p>
-			<button class="my-3 rounded bg-secondary-500 p-3 text-xl font-bold text-white"
-				>Get Started for Free</button
+			<button
+				class="my-3 rounded bg-secondary-500 p-3 text-xl font-bold text-white"
+				on:click={goto('/signup')}>Get Started for Free</button
 			>
 		</div>
 	</section>
@@ -70,7 +70,10 @@
 			<p class="mb-2 rounded-lg p-2 py-3 font-sans text-slate-700 opacity-80 md:mx-20 md:mb-5">
 				"A family that planz together, stays together" <br />~Unknown
 			</p>
-			<button class="rounded bg-secondary-500 p-3 text-xl font-bold text-white">Get Started</button>
+			<button
+				class="rounded bg-secondary-500 p-3 text-xl font-bold text-white"
+				on:click={goto('/signup')}>Get Started</button
+			>
 		</div>
 	</section>
 </div>
