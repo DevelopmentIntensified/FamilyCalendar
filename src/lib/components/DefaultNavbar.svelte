@@ -22,6 +22,10 @@
 			href: '/calendar',
 			label: 'Go To Calendar'
 		});
+		navItems.push({
+			href: '/family',
+			label: 'Manage Family'
+		});
 	}
 
 	const adminItems = [];

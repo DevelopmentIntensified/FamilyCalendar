@@ -7,7 +7,7 @@
 		"dev": "vite dev",
 		"build": "ADAPTER=vercel vite build",
 		"build:vercel": "ADAPTER=vercel vite build",
-"build:static": "ADAPTER=static vite build",
+		"build:static": "ADAPTER=static vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -80,6 +80,7 @@
 		"luxon": "^3.5.0",
 		"oslo": "^1.2.1",
 		"postgres": "^3.4.5",
-		"resend": "^4.1.2"
+		"resend": "^4.1.2",
+		"tailwind-extended-shadows": "^0.4.1"
 	}
 }

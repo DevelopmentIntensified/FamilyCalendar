@@ -20,6 +20,14 @@ export async function getCalendar(id: string) {
 	return calendar;
 }
 
+export async function getUserCalendar(userId: string) {
+	const [userCalendar] = await db
+		.select()
+		.from(calendars)
+		.where(eq(calendars.ownerId, userId))
+	return userCalendar
+}
+
 export async function createCalendar(data: typeof calendars.$inferInsert) {
 	const [createdCalendar] = await db.insert(calendars).values(data).returning();
 	return createdCalendar;

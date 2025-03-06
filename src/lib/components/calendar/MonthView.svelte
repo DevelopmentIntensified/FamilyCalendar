@@ -9,14 +9,14 @@
 	import type { Event } from '$lib/types';
 	import type { Writable } from 'svelte/store';
 	import { DateTime } from 'luxon';
+	import MonthDays from './MonthDays.svelte';
 
-	export let timeZone: string;
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[];
 	export let removeEvent: (id: string) => void;
 	export let preferedFirstDayOfWeek: string = 'Monday';
 
-	const today = DateTime.now().setZone(timeZone);
+	const today = DateTime.now();
 
 	//$: basically just makes the code revaluate each time the values change
 	let daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -29,10 +29,10 @@
 
 	$: year = $currentDate.year;
 	$: month = $currentDate.month;
-	$: daysInMonth = getDaysInMonth(year, month, timeZone); //uses luxon to get days in month
-	$: daysInLastMonth = getDaysInLastMonth(year, month, timeZone); //same as above, but last month
-	$: firstDayOfMonth = getFirstDayOfMonth(year, month, timeZone) - dayOffset; //gets the 1-7 first day of the week and changes based on what the prefered first day of the week is
-	$: firstDayInNextMonth = getFirstDayOfNextMonth(year, month, timeZone) - dayOffset; //same as above, but for next month
+	$: daysInMonth = getDaysInMonth(year, month); //uses luxon to get days in month
+	$: daysInLastMonth = getDaysInLastMonth(year, month); //same as above, but last month
+	$: firstDayOfMonth = getFirstDayOfMonth(year, month) - dayOffset; //gets the 1-7 first day of the week and changes based on what the prefered first day of the week is
+	$: firstDayInNextMonth = getFirstDayOfNextMonth(year, month) - dayOffset; //same as above, but for next month
 
 	$: days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 	$: lastMonthDays = Array.from(
@@ -48,70 +48,7 @@
 			{day}
 		</div>
 	{/each}
-	{#each lastMonthDays as day}
-		{@const date = formatDate($currentDate.plus({ month: -1 }).set({ day }), timeZone)}
-		{@const dayEvents = events.filter((event) => formatDate(event.date, timeZone) === date)}
-		<div
-			class="min-h-[70px] border p-1 sm:min-h-[100px] sm:p-2 {date === formatDate(today, timeZone)
-				? 'border-blue-200 shadow-md shadow-blue-200'
-				: 'border-gray-200'}"
-		>
-			<div class="font-medium text-gray-300">{day}</div>
-			<div class="space-y-1">
-				{#each dayEvents as event}
-					<a href="/calendar/event/{event.id}" class="block">
-						<div
-							class="flex items-center justify-between rounded {'bg-blue-200'} p-1 text-xs sm:text-sm"
-						>
-							<span class="truncate">{event.title}</span>
-						</div>
-					</a>
-				{/each}
-			</div>
-		</div>
-	{/each}
-	{#each days as day}
-		{@const date = formatDate($currentDate.set({ day }), timeZone)}
-		{@const dayEvents = events.filter((event) => formatDate(event.date, timeZone) === date)}
-		<div
-			class="min-h-[70px] border {date === formatDate(today, timeZone)
-				? 'border-blue-500 shadow-sm shadow-blue-500'
-				: 'border-gray-200'} p-1 sm:min-h-[100px] sm:p-2"
-		>
-			<div class="font-medium text-gray-700">{day}</div>
-			<div class="space-y-1">
-				{#each dayEvents as event}
-					<a href="/calendar/event/{event.id}" class="block">
-						<div
-							class="flex items-center justify-between rounded {'bg-blue-200'} p-1 text-xs sm:text-sm"
-						>
-							<span class="truncate">{event.title}</span>
-						</div>
-					</a>
-				{/each}
-			</div>
-		</div>
-	{/each}
-	{#each nextMonthDays as day}
-		{@const date = formatDate($currentDate.plus({ month: 1 }).set({ day }), timeZone)}
-		{@const dayEvents = events.filter((event) => formatDate(event.date, timeZone) === date)}
-		<div
-			class="min-h-[70px] border {date === formatDate(today, timeZone)
-				? 'border-blue-200 shadow-md shadow-blue-200'
-				: 'border-gray-200'} p-1 sm:min-h-[100px] sm:p-2"
-		>
-			<div class="font-medium text-gray-300">{day}</div>
-			<div class="space-y-1">
-				{#each dayEvents as event}
-					<a href="/calendar/event/{event.id}" class="block">
-						<div
-							class="flex items-center justify-between rounded {'bg-blue-200'} p-1 text-xs sm:text-sm"
-						>
-							<span class="truncate">{event.title}</span>
-						</div>
-					</a>
-				{/each}
-			</div>
-		</div>
-	{/each}
+	<MonthDays days={lastMonthDays} currentDate={$currentDate} {events} lastMonth={true} />
+	<MonthDays {days} currentDate={$currentDate} {events} />
+	<MonthDays days={nextMonthDays} currentDate={$currentDate} {events} nextMonth={true} />
 </div>

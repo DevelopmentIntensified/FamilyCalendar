@@ -1,5 +1,7 @@
 export default {
 	content: ['./src/**/*.{html,js,svelte,ts}'],
+	plugins: [require("tailwind-extended-shadows")],
+
 
 	theme: {
 		extend: {
