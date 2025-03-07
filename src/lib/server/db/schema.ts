@@ -147,7 +147,8 @@ export const familyMembers = pgTable('familyMembers', {
 		compoundKey: primaryKey({ columns: [userFamily.userId, userFamily.familyId] })
 	})
 );
-export const familyGroups = pgTable('userFamilies', {
+
+export const familyGroups = pgTable('familyGroups', {
 	groupId: text('group_id')
 		.notNull()
 		.references(() => groups.id),
@@ -187,6 +188,8 @@ export const families = pgTable('families', {
 		.notNull()
 		.primaryKey()
 		.$defaultFn(() => generateId(15)),
+	name: text('name').notNull(),
+	color: text('color'),
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
@@ -242,5 +245,6 @@ export type CalendarEvent = typeof events.$inferSelect;
 export type Calendar = typeof calendars.$inferSelect;
 
 export type User = typeof users.$inferSelect;
+export type Account = typeof accounts.$inferSelect;
 export type UserSettings = typeof userSettings.$inferSelect;
 export type Family = typeof families.$inferSelect;

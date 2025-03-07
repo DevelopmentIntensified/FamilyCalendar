@@ -6,7 +6,7 @@ export async function getAccounts() {
 	return await db.select().from(accounts);
 }
 
-export async function getAccount(id: string): Account {
+export async function getAccount(id: string): Promise<Account> {
 	const [account] = await db.select().from(accounts).where(eq(accounts.providerAccountId, id));
 	return account;
 }
