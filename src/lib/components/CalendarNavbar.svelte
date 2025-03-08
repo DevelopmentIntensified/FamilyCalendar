@@ -11,7 +11,7 @@
 	let isOpen = false;
 
 	let navItems = [
-		{ href: '/', label: 'Home' },
+		{ href: '/', label: 'Home' }
 		// { href: '/about', label: 'About' },
 		// { href: '/pricing', label: 'Pricing' },
 		// { href: '/contact', label: 'Contact' }
@@ -35,7 +35,7 @@
 	}
 </script>
 
-<nav class="l-0 z-10 fixed top-0 w-full bg-primary text-white">
+<nav class="l-0 fixed top-0 z-10 w-full bg-primary text-white">
 	<div class="max-w-7xl px-3 md:px-4 lg:px-5">
 		<div class="flex h-16 items-center justify-start">
 			<div class="flex items-center">
@@ -199,11 +199,8 @@
 					>
 						Sign Up
 					</a>
-					<!-- <a href="/login" on:click={closeMenu} class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-800">Login</a> -->
-					<!-- <a href="/register" on:click={closeMenu} class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-800">Register</a> -->
 				{/if}
 			</div>
 		</div>
 	{/if}
 </nav>
-

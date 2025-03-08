@@ -29,7 +29,7 @@
 				href="/calendar/event/new"
 				class="fixed inset-x-0 bottom-12 m-auto h-14 w-14 rounded-full bg-secondary shadow-md shadow-slate-300"
 			>
-				<CodexPlus class="m-auto h-10 w-10 text-white relative top-2" />
+				<CodexPlus class="relative top-2 m-auto h-10 w-10 text-white" />
 			</a>
 		{/if}
 		<!-- <div class="flex h-full w-full"> -->

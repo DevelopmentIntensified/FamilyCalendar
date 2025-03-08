@@ -45,7 +45,9 @@ export const userSettings = pgTable('userSettings', {
 		.defaultNow()
 		.$onUpdate(() => new Date())
 		.notNull(),
-	defaultCalendarId: text('defaultCalendarId').references(() => calendars.id, { onDelete: 'set null' }),
+	defaultCalendarId: text('defaultCalendarId').references(() => calendars.id, {
+		onDelete: 'set null'
+	}),
 	defaultView: text('defaultView').default('dayView'),
 	userId: text('userId')
 		.notNull()
@@ -135,27 +137,31 @@ export const sessions = pgTable('sessions', {
 	expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull()
 });
 
-export const familyMembers = pgTable('familyMembers', {
-	userId: text('user_id')
-		.notNull()
-		.references(() => users.id),
-	familyId: text('family_id')
-		.notNull()
-		.references(() => families.id)
-},
+export const familyMembers = pgTable(
+	'familyMembers',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
+		familyId: text('family_id')
+			.notNull()
+			.references(() => families.id)
+	},
 	(userFamily) => ({
 		compoundKey: primaryKey({ columns: [userFamily.userId, userFamily.familyId] })
 	})
 );
 
-export const familyGroups = pgTable('familyGroups', {
-	groupId: text('group_id')
-		.notNull()
-		.references(() => groups.id),
-	familyId: text('family_id')
-		.notNull()
-		.references(() => families.id)
-},
+export const familyGroups = pgTable(
+	'familyGroups',
+	{
+		groupId: text('group_id')
+			.notNull()
+			.references(() => groups.id),
+		familyId: text('family_id')
+			.notNull()
+			.references(() => families.id)
+	},
 	(familyGroup) => ({
 		compoundKey: primaryKey({ columns: [familyGroup.groupId, familyGroup.familyId] })
 	})
@@ -170,14 +176,16 @@ export const groups = pgTable('groups', {
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
-export const userGroups = pgTable('userGroups', {
-	userId: text('user_id')
-		.notNull()
-		.references(() => users.id),
-	groupId: text('group_id')
-		.notNull()
-		.references(() => groups.id)
-},
+export const userGroups = pgTable(
+	'userGroups',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
+		groupId: text('group_id')
+			.notNull()
+			.references(() => groups.id)
+	},
 	(familyGroup) => ({
 		compoundKey: primaryKey({ columns: [familyGroup.groupId, familyGroup.userId] })
 	})
@@ -198,10 +206,8 @@ export const calendars = pgTable('calendars', {
 		.notNull()
 		.primaryKey()
 		.$defaultFn(() => generateId(15)),
-	ownerId: text('owner_id')
-		.references(() => users.id),
-	familyId: text('family_id')
-		.references(() => families.id),
+	ownerId: text('owner_id').references(() => users.id),
+	familyId: text('family_id').references(() => families.id),
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
@@ -220,8 +226,7 @@ export const events = pgTable('events', {
 		.notNull()
 		.primaryKey()
 		.$defaultFn(() => generateId(15)),
-	calendarId: text('calendar_id')
-		.references(() => calendars.id),
+	calendarId: text('calendar_id').references(() => calendars.id),
 	ownerId: text('owner_id')
 		.notNull()
 		.references(() => users.id),
@@ -236,7 +241,7 @@ export const events = pgTable('events', {
 	}).notNull(),
 	description: text('description'),
 	location: text('location'),
-	created_at: timestamp('created_at').defaultNow().notNull(),
+	created_at: timestamp('created_at').defaultNow().notNull()
 });
 
 export type Session = typeof sessions.$inferSelect;

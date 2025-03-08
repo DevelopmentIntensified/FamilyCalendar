@@ -17,7 +17,7 @@
 		<DateSelector {currentDate} />
 	</div>
 	{#if view === 'month'}
-		<MonthView {currentDate} {events} {preferedFirstDayOfWeek}/>
+		<MonthView {currentDate} {events} {preferedFirstDayOfWeek} />
 	{:else}
 		<ListView {currentDate} {events} />
 	{/if}

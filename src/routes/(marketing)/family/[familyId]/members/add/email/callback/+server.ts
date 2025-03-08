@@ -8,7 +8,7 @@ import { db } from '$lib/server/db';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 import { getAccount } from '$lib/server/db/actions/accounts';
 
-export const GET: RequestHandler = async function(event) {
+export const GET: RequestHandler = async function (event) {
 	const requestUrl = new URL(event.url);
 	const siteUrl = getUrl();
 	const redirectUrl = new URL(siteUrl + '/login');
@@ -60,19 +60,19 @@ export const GET: RequestHandler = async function(event) {
 
 	try {
 		const { firstName, lastName, email, familyId } = payload;
-		const userAccount = await getAccount(email)
+		const userAccount = await getAccount(email);
 
 		if (!userAccount) {
 			const user = await createNewUser(firstName, lastName, email);
 			await db.insert(familyMembers).values({
 				userId: user.id,
 				familyId: familyId
-			})
+			});
 		} else {
 			await db.insert(familyMembers).values({
 				userId: userAccount.userId,
 				familyId: familyId
-			})
+			});
 		}
 
 		let headers = new Headers();

@@ -15,7 +15,7 @@ export type emailTokenPayloadType = {
 export const POST = async (event: RequestEvent) => {
 	const rData = await event.request.json();
 	const { email, firstName, lastName } = rData;
-	const user = event.locals.user
+	const user = event.locals.user;
 
 	const emailRegex =
 		/^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;

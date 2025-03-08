@@ -11,7 +11,7 @@
 	let isOpen = false;
 
 	let navItems = [
-		{ href: '/', label: 'Home' },
+		{ href: '/', label: 'Home' }
 		// { href: '/about', label: 'About' },
 		// { href: '/pricing', label: 'Pricing' },
 		// { href: '/contact', label: 'Contact' }
@@ -22,10 +22,10 @@
 			href: '/calendar',
 			label: 'Go To Calendar'
 		});
-		navItems.push({
-			href: '/family',
-			label: 'Manage Family'
-		});
+		// navItems.push({
+		// 	href: '/family',
+		// 	label: 'Manage Family'
+		// });
 	}
 
 	const adminItems = [];
@@ -39,7 +39,7 @@
 	}
 </script>
 
-<nav class="l-0 z-10 fixed top-0 w-full bg-primary text-white">
+<nav class="l-0 fixed top-0 z-10 w-full bg-primary text-white">
 	<div class="max-w-7xl px-3 md:px-4 lg:px-5">
 		<div class="flex h-16 items-center justify-start">
 			<div class="flex items-center">

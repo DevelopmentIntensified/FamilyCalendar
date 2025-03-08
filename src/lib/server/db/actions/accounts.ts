@@ -18,11 +18,11 @@ export async function createAccount(
 	return createdAccount;
 }
 
-export async function updateAccount(id: number, data: Partial<Omit<Account, 'id'>>) {
+export async function updateAccount(id: string, data: Partial<Omit<Account, 'id'>>) {
 	const [updatedAccount] = await db
 		.update(accounts)
 		.set(data)
-		.where(eq(accounts.id, id))
+		.where(eq(accounts.providerAccountId, id))
 		.returning();
 	return updatedAccount;
 }

@@ -1,5 +1,11 @@
 import { db } from '$lib/server/db';
-import { calendars, families, familyMembers, userSettings, type Family } from '$lib/server/db/schema';
+import {
+	calendars,
+	families,
+	familyMembers,
+	userSettings,
+	type Family
+} from '$lib/server/db/schema';
 import { count, eq } from 'drizzle-orm';
 
 export async function getFamiliesCount() {
@@ -15,19 +21,20 @@ export async function getFamily(id: string) {
 	return familiesItem;
 }
 
-export async function getUserFamily(userId:string){
-	const [userFamily] = await db.select()
+export async function getUserFamily(userId: string) {
+	const [userFamily] = await db
+		.select()
 		.from(familyMembers)
 		.leftJoin(families, eq(families.id, familyMembers.familyId))
-		.where(eq(familyMembers.userId, userId))
-	return userFamily
+		.where(eq(familyMembers.userId, userId));
+	return userFamily;
 }
 
 export async function createFamily(data: Omit<Family, 'id' | 'createdAt'>) {
 	const [createdFamilies] = await db.insert(families).values(data).returning();
 	await db.insert(calendars).values({
 		familyId: createdFamilies.id
-	})
+	});
 	return createdFamilies;
 }
 

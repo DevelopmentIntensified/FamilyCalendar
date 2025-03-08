@@ -25,9 +25,9 @@ export const getDaysInLastMonth = (year: number, month: number) => {
 	} else {
 		month = month - 1;
 	}
-	const daysInLastMonth = DateTime.fromObject({ year, month }).daysInMonth
+	const daysInLastMonth = DateTime.fromObject({ year, month }).daysInMonth;
 	if (!daysInLastMonth) {
-		return 0//fail gracefully, but this should never happen
+		return 0; //fail gracefully, but this should never happen
 	}
 	return daysInLastMonth;
 };
@@ -40,4 +40,3 @@ export const parseDate = (dateString: string) => {
 	const [year, month, day] = dateString.split('-').map(Number);
 	return new Date(year, month - 1, day);
 };
-

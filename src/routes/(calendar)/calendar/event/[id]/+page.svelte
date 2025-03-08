@@ -3,8 +3,6 @@
 	import { DateTime } from 'luxon';
 
 	export let data;
-	// In a real application, you would fetch the event data from an API
-	// For this example, we'll use mock data
 	const event = data.event;
 	function goBack() {
 		goto('/calendar');
@@ -45,6 +43,7 @@
 				<h2 class="mb-2 text-xl font-semibold text-gray-800">Description</h2>
 				<p class="mb-2 text-gray-700">{event.description}</p>
 			</div>
+			<a class="text-blue-400" href="/calendar/event/edit/{event.id}">Edit Event</a>
 		</div>
 	</div>
 </div>

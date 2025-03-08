@@ -10,7 +10,7 @@
 	<title>Family Planz: Create Event</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-100 px-4 py-12 pt-20 sm:px-6 lg:px-8 mb-16">
+<div class="mb-16 min-h-screen bg-gray-100 px-4 py-12 pt-20 sm:px-6 lg:px-8">
 	<div class="mx-auto max-w-3xl">
 		<div class="overflow-hidden rounded-lg bg-white shadow-xl">
 			<div class="bg-primary-600 px-4 py-6 sm:px-6">

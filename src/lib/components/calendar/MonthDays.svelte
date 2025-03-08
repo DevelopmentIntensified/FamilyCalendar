@@ -1,22 +1,22 @@
 <script lang="ts">
-	import { formatDate } from "$lib/utils/dateUtils";
-	import { DateTime } from "luxon";
+	import { formatDate } from '$lib/utils/dateUtils';
+	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 
 	export let currentDate: DateTime;
 	export let events: Event[];
 	export let days: number[];
-	export let nextMonth:boolean | undefined;
-	export let lastMonth:boolean | undefined;
+	export let nextMonth: boolean | undefined;
+	export let lastMonth: boolean | undefined;
 
-	$: if(nextMonth){
+	$: if (nextMonth) {
 		currentDate = currentDate.plus({
 			month: 1
-		})
-	} else if(lastMonth){
+		});
+	} else if (lastMonth) {
 		currentDate = currentDate.plus({
 			month: -1
-		})
+		});
 	}
 
 	const today = DateTime.now();
@@ -32,7 +32,9 @@
 			? 'border-blue-500 shadow-sm shadow-blue-500'
 			: 'border-gray-200'} sm:min-h-[100px]"
 	>
-		<div class="font-medium pl-1 { nextMonth || lastMonth ? "text-gray-400" : "text-gray-700"}">{day}</div>
+		<div class="pl-1 font-medium {nextMonth || lastMonth ? 'text-gray-400' : 'text-gray-700'}">
+			{day}
+		</div>
 		<div class="space-y-1">
 			{#each dayEvents as event, i}
 				<a href="/calendar/event/{event.id}" class="block">

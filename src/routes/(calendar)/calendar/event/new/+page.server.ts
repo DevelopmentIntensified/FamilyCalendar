@@ -11,27 +11,26 @@ import { getUserCalendar } from '$lib/server/db/actions/calendar';
 
 // get the possible calendar ids for the current user
 export const load: PageServerLoad = async (event) => {
-	let calendarIds: { id: string, name: string }[] = []
-	let userId = event.locals.user.id
-	const userFamily = await getUserFamily(userId)
+	let calendarIds: { id: string; name: string }[] = [];
+	let userId = event.locals.user.id;
+	const userFamily = await getUserFamily(userId);
 
-	let familyCalendar = []
+	let familyCalendar = [];
 	if (!!userFamily) {
 		//get the family calendar if the user is part of a family to add it to the list of ids
 		familyCalendar = await db
 			.select()
 			.from(calendars)
-			.where(eq(calendars.familyId, userFamily.familyMembers.familyId))
-		calendarIds.push({ id: familyCalendar[0].id, name: "Family Calendar" })
+			.where(eq(calendars.familyId, userFamily.familyMembers.familyId));
+		calendarIds.push({ id: familyCalendar[0].id, name: 'Family Calendar' });
 	}
-	let userCalendar = await getUserCalendar(userId) // get the user calendar so we can get its id
-	calendarIds.push({ id: userCalendar.id, name: "User Calendar" })
+	let userCalendar = await getUserCalendar(userId); // get the user calendar so we can get its id
+	calendarIds.push({ id: userCalendar.id, name: 'User Calendar' });
 
 	return {
 		calendarIds
-	}
+	};
 };
-
 
 export const actions: Actions = {
 	createEvent: async ({ request }) => {
@@ -44,17 +43,19 @@ export const actions: Actions = {
 		const description = formData.get('description') as string;
 		const ownerId = formData.get('ownerId') as string;
 
+		//require certain fields
 		if (!title || !start || !end || !location || !calendarId) {
 			return fail(400, { message: 'All fields are required' });
 		}
-		const offset = formData.get("offset") as string
 
-		let start2 = DateTime.fromISO(start.replace(" ", "T"))
-		let end2 = DateTime.fromISO(end.replace(" ", "T"))
+		// @ts-ignore
+		let start2 = DateTime.fromISO(start.replace(' ', 'T')); //Add the T to make it ISO date
+		// @ts-ignore
+		let end2 = DateTime.fromISO(end.replace(' ', 'T'));
 
 		const newEvent = await createEvent({
 			description: description,
-			title: title.toString(),
+			title: title.toString(), // tostring to stop the type complaining
 			start: start2.toString(),
 			end: end2.toString(),
 			location: location.toString(),
@@ -69,4 +70,3 @@ export const actions: Actions = {
 		}
 	}
 };
-
