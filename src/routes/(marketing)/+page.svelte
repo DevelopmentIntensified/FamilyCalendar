@@ -1,79 +1,220 @@
 <script lang="ts">
-	import bgCalImg from '$lib/assets/images/CalendarBackgroundImage.jpg'; //  https://wallpapersafari.com/w/3ofAZQ
-	import todolistIcon from '$lib/assets/svgs/todo-list-svgrepo-com.svg'; //https://www.svgrepo.com/svg/475006/todo-list
-	import coloredFamilyIcon from '$lib/assets/svgs/family-svgrepo-com.svg'; //https://www.svgrepo.com/svg/131746/family
-	import calendarIcon from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg'; //https://www.svgrepo.com/svg/423010/calendar-note-date
 	import { goto } from '$app/navigation';
 </script>
 
 <svelte:head>
-	<title>Family Planz: Landing Page</title>
+	<title>Family Planz - Keep Your Family Organized</title>
 </svelte:head>
 
-<div>
-	<section id="welcome" class="relative py-52 text-center md:py-52">
-		<img
-			src={bgCalImg}
-			alt="Calendar page"
-			class="absolute inset-0 top-1 box-border h-full w-full object-cover blur-sm"
-		/>
-		<div class="absolute inset-0 m-auto my-10 rounded-lg p-10 lg:w-3/6">
-			<h1 class="mb-1 font-sans text-3xl font-bold md:p-3 md:text-5xl">
-				Keep Your Family's Schedule Synced
-			</h1>
-			<p class="mb-5 rounded-lg bg-white p-2 font-sans text-slate-700 opacity-80 md:text-lg">
-				Family Planz keeps your busy household organized and connected. Never miss an important
-				event again.
-			</p>
-			<button
-				class="my-3 rounded bg-secondary-500 p-3 text-xl font-bold text-white"
-				on:click={goto('/signup')}>Get Started for Free</button
-			>
+<div class="min-h-screen bg-slate-50">
+	<!-- Navigation -->
+	<nav class="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm">
+		<div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+			<div class="flex items-center gap-2">
+				<svg class="h-8 w-8 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="3" y="4" width="18" height="18" rx="2" />
+					<line x1="16" y1="2" x2="16" y2="6" />
+					<line x1="8" y1="2" x2="8" y2="6" />
+					<line x1="3" y1="10" x2="21" y2="10" />
+				</svg>
+				<span class="text-xl font-bold text-slate-800">Family Planz</span>
+			</div>
+			<div class="flex items-center gap-4">
+				<a href="/login" class="text-sm font-medium text-slate-600 hover:text-slate-900">Sign In</a>
+				<a href="/signup" class="rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700">Get Started</a>
+			</div>
 		</div>
-	</section>
-	<section id="features" class="relative bg-primary-100 px-10 py-3 pb-6 text-center">
-		<h1 class="mb-1 p-3 font-sans text-2xl font-bold">Features</h1>
-		<div class="px-2">
-			<div class="-mx-2 flex flex-auto flex-wrap gap-y-5">
-				<div class="m-auto px-2 lg:w-1/3 lg:px-10">
-					<div class="h-96 w-72 rounded-2xl bg-primary-300 sm:w-96 md:w-72 lg:max-w-none xl:w-full">
-						<div class="w-full p-2 py-10 text-center">
-							<!-- <img src={familyIcon} alt="Family Icon" class="m-auto mb-5 w-64 h-64"/> -->
-							<!-- <h3 class="font-bold text-xl"> Built by Large Families for large families</h3> -->
-							<img src={calendarIcon} alt="Calendar Icon" class="m-auto mb-5 h-64 w-64" />
-							<h3 class="text-xl font-bold">A Highly Configurable Month View</h3>
-						</div>
-					</div>
-				</div>
-				<div class="m-auto px-2 lg:w-1/3 lg:px-10">
-					<div class="h-96 w-72 rounded-2xl bg-primary-300 sm:w-96 md:w-72 lg:max-w-none xl:w-full">
-						<div class="w-full p-2 py-10 text-center">
-							<img src={todolistIcon} alt="Todo list Icon" class="m-auto mb-5 h-64 w-64" />
-							<h3 class="text-xl font-bold">Daily Todo List</h3>
-						</div>
-					</div>
-				</div>
-				<div class="m-auto px-2 lg:w-1/3 lg:px-10">
-					<div class="h-96 w-72 rounded-2xl bg-primary-300 sm:w-96 md:w-72 lg:max-w-none xl:w-full">
-						<div class="w-full p-2 py-10 text-center">
-							<img src={coloredFamilyIcon} alt="Colord Family Icon" class="m-auto mb-5 h-64 w-64" />
-							<h3 class="px-1 text-xl font-bold">Color-code Each Family Member's Events</h3>
-						</div>
-					</div>
+	</nav>
+
+	<!-- Hero Section -->
+	<section class="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-32">
+		<div class="absolute inset-0 bg-gradient-to-br from-orange-50 via-white to-amber-50"></div>
+		<div class="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-primary-100/50 blur-3xl"></div>
+		<div class="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-amber-100/50 blur-3xl"></div>
+		
+		<div class="relative mx-auto max-w-7xl px-6">
+			<div class="mx-auto max-w-3xl text-center">
+				<h1 class="mb-6 text-4xl font-bold leading-tight text-slate-900 md:text-6xl">
+					Stop juggling your family's schedule.
+					<span class="text-primary-600">Start syncing it.</span>
+				</h1>
+				<p class="mx-auto mb-10 max-w-2xl text-lg text-slate-600 md:text-xl">
+					Family Planz brings everyone's calendar into one place. No more scheduling conflicts, 
+					missed appointments, or "what's for dinner?" texts. Just organized, happy families.
+				</p>
+				<div class="flex flex-col items-center justify-center gap-4 sm:flex-row">
+					<a href="/signup" class="w-full rounded-full bg-primary-600 px-8 py-4 text-center text-lg font-semibold text-white shadow-lg shadow-primary-600/30 transition-all hover:bg-primary-700 hover:shadow-xl sm:w-auto">
+						Start Free Today
+					</a>
+					<a href="#features" class="w-full rounded-full border-2 border-slate-300 px-8 py-4 text-center text-lg font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 sm:w-auto">
+						See How It Works
+					</a>
 				</div>
 			</div>
 		</div>
 	</section>
-	<section id="end" class="relative bg-secondary-100 px-10 py-10 text-center md:py-3">
-		<div class="h-64 w-full text-center">
-			<h1 class="mb-1 font-sans text-5xl font-bold md:p-3">Ready to get Started?</h1>
-			<p class="mb-2 rounded-lg p-2 py-3 font-sans text-slate-700 opacity-80 md:mx-20 md:mb-5">
-				"A family that planz together, stays together" <br />~Unknown
-			</p>
-			<button
-				class="rounded bg-secondary-500 p-3 text-xl font-bold text-white"
-				on:click={goto('/signup')}>Get Started</button
-			>
+
+	<!-- Problem/Solution Section -->
+	<section class="bg-white py-20">
+		<div class="mx-auto max-w-7xl px-6">
+			<div class="grid gap-12 md:grid-cols-2">
+				<div class="rounded-2xl bg-slate-50 p-8">
+					<div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
+						<svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Sound familiar?</h3>
+					<ul class="space-y-3 text-slate-600">
+						<li class="flex items-start gap-3">
+							<span class="text-red-500">✕</span>
+							<span>Three different calendars, none of them matching</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-red-500">✕</span>
+							<span>Missing your kid's soccer practice <em>again</em></span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-red-500">✕</span>
+							<span>Dinner plans that conflict with dance class</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-red-500">✕</span>
+							<span>"Who has Emma this weekend?" texts at midnight</span>
+						</li>
+					</ul>
+				</div>
+				<div class="rounded-2xl bg-primary-50 p-8">
+					<div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Family Planz fixes that</h3>
+					<ul class="space-y-3 text-slate-700">
+						<li class="flex items-start gap-3">
+							<span class="text-primary-600">✓</span>
+							<span>One shared calendar for the whole family</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-primary-600">✓</span>
+							<span>Color-coded events by family member</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-primary-600">✓</span>
+							<span>See everyone's schedule at a glance</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-primary-600">✓</span>
+							<span>Real-time sync across all devices</span>
+						</li>
+					</ul>
+				</div>
+			</div>
 		</div>
 	</section>
+
+	<!-- Features Section -->
+	<section id="features" class="py-20">
+		<div class="mx-auto max-w-7xl px-6">
+			<div class="mb-16 text-center">
+				<h2 class="mb-4 text-3xl font-bold text-slate-900 md:text-4xl">Everything your family needs</h2>
+				<p class="mx-auto max-w-2xl text-lg text-slate-600">
+					Simple, powerful features designed for the chaos of real family life.
+				</p>
+			</div>
+			
+			<div class="grid gap-8 md:grid-cols-3">
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<rect x="3" y="4" width="18" height="18" rx="2" />
+							<line x1="16" y1="2" x2="16" y2="6" />
+							<line x1="8" y1="2" x2="8" y2="6" />
+							<line x1="3" y1="10" x2="21" y2="10" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Shared Family Calendar</h3>
+					<p class="text-slate-600">
+						Everyone's events in one place. See at a glance who's doing what and when—no more double-booking.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<circle cx="12" cy="12" r="10" />
+							<path d="M12 6v6l4 2" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Smart Scheduling</h3>
+					<p class="text-slate-600">
+						Color-code by family member. Set reminders. See conflicts before they happen.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+							<circle cx="9" cy="7" r="4" />
+							<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+							<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Family Groups</h3>
+					<p class="text-slate-600">
+						Create groups for sports teams, school events, or extended family. Everyone stays in the loop.
+					</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Quote Section -->
+	<section class="bg-slate-900 py-20">
+		<div class="mx-auto max-w-4xl px-6 text-center">
+			<svg class="mx-auto mb-6 h-12 w-12 text-primary-500" fill="currentColor" viewBox="0 0 24 24">
+				<path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+			</svg>
+			<blockquote class="mb-8 text-2xl font-medium italic text-white md:text-3xl">
+				"A family that planz together, stays together."
+			</blockquote>
+			<p class="text-lg text-slate-400">~ Unknown</p>
+		</div>
+	</section>
+
+	<!-- CTA Section -->
+	<section class="bg-gradient-to-br from-primary-600 to-primary-700 py-20">
+		<div class="mx-auto max-w-4xl px-6 text-center">
+			<h2 class="mb-4 text-3xl font-bold text-white md:text-4xl">Ready to get organized?</h2>
+			<p class="mx-auto mb-10 max-w-2xl text-xl text-primary-100">
+				Join thousands of families who've simplified their chaos.
+			</p>
+			<a href="/signup" class="inline-block rounded-full bg-white px-10 py-4 text-lg font-bold text-primary-700 shadow-lg transition-transform hover:scale-105">
+				Get Started for Free
+			</a>
+			<p class="mt-4 text-sm text-primary-200">No credit card required. Free forever for individuals.</p>
+		</div>
+	</section>
+
+	<!-- Footer -->
+	<footer class="border-t border-slate-200 bg-white py-12">
+		<div class="mx-auto max-w-7xl px-6">
+			<div class="flex flex-col items-center justify-between gap-6 md:flex-row">
+				<div class="flex items-center gap-2">
+					<svg class="h-6 w-6 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<rect x="3" y="4" width="18" height="18" rx="2" />
+						<line x1="16" y1="2" x2="16" y2="6" />
+						<line x1="8" y1="2" x2="8" y2="6" />
+						<line x1="3" y1="10" x2="21" y2="10" />
+					</svg>
+					<span class="font-bold text-slate-800">Family Planz</span>
+				</div>
+				<p class="text-sm text-slate-500">
+					© {new Date().getFullYear()} Family Planz. Keeping families organized.
+				</p>
+			</div>
+		</div>
+	</footer>
 </div>
