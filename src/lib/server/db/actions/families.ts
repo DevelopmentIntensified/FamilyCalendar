@@ -93,7 +93,7 @@ export async function verifyInviteCode(code: string): Promise<{ family: Family; 
 	const [family] = await db.select().from(families).where(eq(families.id, inviteCode.familyId));
 	if (!family) return null;
 
-	if (inviteCode.maxUses !== null && inviteCode.useCount >= inviteCode.maxUses) {
+	if (inviteCode.maxUses !== null && inviteCode.useCount !== null && inviteCode.useCount >= inviteCode.maxUses) {
 		return null;
 	}
 
@@ -123,8 +123,15 @@ export async function acceptInvite(userId: string, code: string): Promise<boolea
 
 	await db
 		.update(familyInviteCodes)
-		.set({ useCount: verification.inviteCode.useCount + 1 })
+	.set({ useCount: (verification.inviteCode.useCount ?? 0) + 1 })
 		.where(eq(familyInviteCodes.code, code));
 
 	return true;
+}
+
+export async function getFamilyInviteCodes(familyId: string) {
+	return await db
+		.select()
+		.from(familyInviteCodes)
+		.where(eq(familyInviteCodes.familyId, familyId));
 }

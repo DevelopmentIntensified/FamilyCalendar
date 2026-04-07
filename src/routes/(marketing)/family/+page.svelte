@@ -22,7 +22,7 @@
 			Create New Family
 		</a>
 		<button class="mt-2 rounded bg-yellow-500 px-4 py-2 font-bold text-white hover:bg-yellow-700">
-			view family invitations
+			<a href="/family/invitations">view family invitations</a>
 		</button>
 	</div>
 </div>
