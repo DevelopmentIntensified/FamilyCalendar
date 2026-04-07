@@ -6,7 +6,7 @@ import { createJWT } from 'oslo/jwt';
 import { TimeSpan } from 'lucia';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { getAccount } from '$lib/server/db/actions/accounts';
-import { getUser } from '$lib/server/db/actions/users';
+import { getUser, getUserByEmail } from '$lib/server/db/actions/users';
 import { createCode } from '$lib/server/db/actions/codes';
 
 export type EmailTokenPayload = {
@@ -26,16 +26,16 @@ export const POST = async (event: RequestEvent) => {
 		});
 	}
 
+	let user = null;
 	const account = await getAccount(email);
-	const user = await getUser(account.userId);
+	if (account) {
+		user = await getUser(account.userId);
+	} else {
+		user = await getUserByEmail(email);
+	}
 
 	if (!user) {
-		return new Response(JSON.stringify({ success: false, error: 'User not found' }), {
-			status: 400
-		});
-	}
-	if (!account) {
-		return new Response(JSON.stringify({ success: false, error: 'Account not found' }), {
+		return new Response(JSON.stringify({ success: false, error: 'User not found. Please sign up first.' }), {
 			status: 400
 		});
 	}
