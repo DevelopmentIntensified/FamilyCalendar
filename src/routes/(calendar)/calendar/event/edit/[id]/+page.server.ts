@@ -6,13 +6,13 @@ import type { PageServerLoad } from './$types';
 import { calendars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { getUserFamily } from '$lib/server/db/actions/families';
+import { getUserFamilies } from '$lib/server/db/actions/families';
 import { getUserCalendar } from '$lib/server/db/actions/calendar';
 
 export const load: PageServerLoad = async (event) => {
 	let calendarIds: { id: string; name: string }[] = [];
 	let userId = event.locals.user.id;
-	const userFamily = await getUserFamily(userId);
+	const userFamily = await getUserFamilies(userId);
 
 	let familyCalendar = [];
 	if (!!userFamily) {
