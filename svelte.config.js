@@ -6,7 +6,9 @@ const config = {
 	preprocess: vitePreprocess(),
 
 	kit: {
-		adapter: adapterVercel()
+		adapter: adapterVercel({
+			runtime: 'nodejs18.x'
+		})
 	}
 };
 

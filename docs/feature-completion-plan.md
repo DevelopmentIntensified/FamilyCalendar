@@ -127,21 +127,6 @@ Complete all incomplete core features to make the application production-ready.
 
 ---
 
-## Branch Strategy
-
-### Branch: `feature/complete-core-features`
-Main feature branch for all incomplete features.
-
-### Sub-branches (parallel work):
-1. `fix/schema-integrity` - Schema fixes and debug cleanup
-2. `feat/event-management` - Complete event CRUD
-3. `feat/family-invites` - Family invitation system
-4. `feat/settings-completion` - Settings form actions
-5. `feat/account-management` - User account pages
-6. `feat/marketing-content` - Marketing page content
-
----
-
 ## Testing Requirements
 - [ ] Update e2e tests for event creation flow
 - [ ] Add e2e tests for family management
