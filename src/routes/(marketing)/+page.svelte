@@ -125,8 +125,91 @@
 		</div>
 	</section>
 
-	<!-- Problem/Solution Section -->
+	<!-- Import Methods Section -->
 	<section class="bg-slate-50 py-20">
+		<div class="mx-auto max-w-6xl px-6">
+			<div class="mb-12 text-center">
+				<h2 class="mb-4 text-3xl font-bold text-slate-900 md:text-4xl">Import events any way you want</h2>
+				<p class="mx-auto max-w-2xl text-lg text-slate-600">
+					We support multiple ways to get your events into Family Planz—no retyping required.
+				</p>
+			</div>
+			
+			<div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+				<!-- Smart Paste (Available) -->
+				<div class="group rounded-xl border-2 border-primary-200 bg-white p-6 transition-all hover:shadow-lg hover:shadow-primary-100">
+					<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+						</svg>
+					</div>
+					<h3 class="mb-2 text-lg font-bold text-slate-900">Smart Paste</h3>
+					<p class="mb-3 text-sm text-slate-600">Copy text from anywhere—emails, texts, notes—and our AI extracts the event details.</p>
+					<span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M5 13l4 4L19 7" />
+						</svg>
+						Available Now
+					</span>
+				</div>
+
+				<!-- Calendar Import -->
+				<div class="group rounded-xl border-2 border-slate-200 bg-white p-6 transition-all hover:shadow-lg">
+					<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
+						<svg class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+						</svg>
+					</div>
+					<h3 class="mb-2 text-lg font-bold text-slate-900">Calendar Import</h3>
+					<p class="mb-3 text-sm text-slate-600">Import from Google Calendar, Apple Calendar, Outlook, and more with one click.</p>
+					<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						Coming Soon
+					</span>
+				</div>
+
+				<!-- OCR Import -->
+				<div class="group rounded-xl border-2 border-slate-200 bg-white p-6 transition-all hover:shadow-lg">
+					<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
+						<svg class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+							<path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+						</svg>
+					</div>
+					<h3 class="mb-2 text-lg font-bold text-slate-900">Photo Import (OCR)</h3>
+					<p class="mb-3 text-sm text-slate-600">Take a photo of a paper calendar or whiteboard. Our AI reads it and adds events.</p>
+					<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						Coming Soon
+					</span>
+				</div>
+
+				<!-- Export -->
+				<div class="group rounded-xl border-2 border-slate-200 bg-white p-6 transition-all hover:shadow-lg">
+					<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
+						<svg class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+						</svg>
+					</div>
+					<h3 class="mb-2 text-lg font-bold text-slate-900">Calendar Export</h3>
+					<p class="mb-3 text-sm text-slate-600">Export your calendar to Google, Apple, Outlook, or as ICS/CSV files.</p>
+					<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						Coming Soon
+					</span>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Problem/Solution Section -->
+	<section class="bg-white py-20">
 		<div class="mx-auto max-w-7xl px-6">
 			<div class="mb-12 text-center">
 				<h2 class="mb-4 text-3xl font-bold text-slate-900 md:text-4xl">More than just a calendar</h2>
@@ -136,7 +219,7 @@
 			</div>
 			
 			<div class="grid gap-12 md:grid-cols-2">
-				<div class="rounded-2xl bg-white p-8 shadow-sm">
+				<div class="rounded-2xl bg-slate-50 p-8">
 					<div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
 						<svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -154,7 +237,7 @@
 						</li>
 						<li class="flex items-start gap-3">
 							<span class="text-red-500">✕</span>
-							<span>Missing appointments because you forgot to add them</span>
+							<span>Missed appointments because you forgot to add them</span>
 						</li>
 						<li class="flex items-start gap-3">
 							<span class="text-red-500">✕</span>
@@ -192,8 +275,8 @@
 		</div>
 	</section>
 
-	<!-- Features Section -->
-	<section id="features" class="bg-white py-20">
+	<!-- Features Grid -->
+	<section id="features" class="bg-slate-50 py-20">
 		<div class="mx-auto max-w-7xl px-6">
 			<div class="mb-16 text-center">
 				<h2 class="mb-4 text-3xl font-bold text-slate-900 md:text-4xl">Everything your family needs</h2>
@@ -242,6 +325,42 @@
 					<h3 class="mb-3 text-xl font-bold text-slate-900">Family Groups</h3>
 					<p class="text-slate-600">
 						Organize by family, sports teams, or school events. Everyone stays in the loop.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Print Your Calendar</h3>
+					<p class="text-slate-600">
+						Need a paper copy? Print your weekly or monthly calendar with one click.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Mobile Friendly</h3>
+					<p class="text-slate-600">
+						Access your calendar from any device. Perfect for busy families on the go.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Smart Reminders</h3>
+					<p class="text-slate-600">
+						Never miss an event with customizable reminders for you and your family members.
 					</p>
 				</div>
 			</div>
