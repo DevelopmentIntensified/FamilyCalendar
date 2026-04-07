@@ -4,19 +4,15 @@
 
 	export let data: PageData;
 
-	let mode: 'password' | 'magic-link' = 'password';
 	let email = '';
 	let password = '';
 	let confirmPassword = '';
 	let firstName = '';
 	let lastName = '';
 	let error = '';
-	let success = false;
 	let waiting = false;
-	let emailSent = false;
-	let code = '';
 
-	async function handlePasswordSignup() {
+	async function handleSignup() {
 		waiting = true;
 		error = '';
 
@@ -53,60 +49,6 @@
 
 		waiting = false;
 	}
-
-	async function handleMagicLinkSignup() {
-		waiting = true;
-		error = '';
-
-		try {
-			const res = await fetch('/signup/email', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email, firstName, lastName })
-			});
-
-			const json = await res.json();
-
-			if (json.error) {
-				error = json.error;
-			} else {
-				emailSent = true;
-			}
-		} catch (e) {
-			error = 'Failed to send verification email';
-		}
-
-		waiting = false;
-	}
-
-	async function handleCodeVerification() {
-		waiting = true;
-		error = '';
-
-		try {
-			const res = await fetch('/signup/email/code', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code })
-			});
-
-			if (res.ok) {
-				await goto('/calendar');
-				location.reload();
-			} else {
-				const json = await res.json();
-				error = json.error || 'Invalid code';
-			}
-		} catch (e) {
-			error = 'Verification failed';
-		}
-
-		waiting = false;
-	}
-
-	async function resendCode() {
-		await handleMagicLinkSignup();
-	}
 </script>
 
 <svelte:head>
@@ -138,172 +80,73 @@
 					</div>
 				{/if}
 
-				{#if emailSent}
-					<div class="text-center">
-						<div class="mb-4 text-6xl">📧</div>
-						<h2 class="mb-2 text-xl font-semibold">Check Your Email</h2>
-						<p class="mb-6 text-gray-600">
-							We've sent a verification code to <strong>{email}</strong>
-						</p>
-						
-						<form on:submit|preventDefault={handleCodeVerification} class="space-y-4">
+				<form on:submit|preventDefault={handleSignup} class="space-y-4">
+					<div class="grid grid-cols-2 gap-4">
+						<div>
+							<label for="firstName" class="block text-sm font-medium text-gray-700">First Name</label>
 							<input
+								id="firstName"
 								type="text"
-								bind:value={code}
-								placeholder="Enter verification code"
-								class="w-full rounded-md border border-gray-300 px-4 py-3 text-center text-lg tracking-widest focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+								bind:value={firstName}
+								class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 								required
 							/>
-							<button
-								type="submit"
-								disabled={waiting}
-								class="w-full rounded-md bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:bg-gray-400"
-							>
-								{waiting ? 'Verifying...' : 'Verify Code'}
-							</button>
-						</form>
-
-						<button
-							on:click={resendCode}
-							class="mt-4 text-sm text-gray-600 hover:text-primary-600"
-						>
-							Didn't receive the code? Resend
-						</button>
-					</div>
-				{:else}
-					<div class="mb-4 flex rounded-lg bg-gray-100 p-1">
-						<button
-							on:click={() => (mode = 'password')}
-							class="flex-1 rounded-md py-2 px-4 text-sm font-medium transition-colors {mode === 'password'
-								? 'bg-white text-gray-900 shadow'
-								: 'text-gray-600 hover:text-gray-900'}"
-						>
-							Password
-						</button>
-						<button
-							on:click={() => (mode = 'magic-link')}
-							class="flex-1 rounded-md py-2 px-4 text-sm font-medium transition-colors {mode === 'magic-link'
-								? 'bg-white text-gray-900 shadow'
-								: 'text-gray-600 hover:text-gray-900'}"
-						>
-							Email Link
-						</button>
+						</div>
+						<div>
+							<label for="lastName" class="block text-sm font-medium text-gray-700">Last Name</label>
+							<input
+								id="lastName"
+								type="text"
+								bind:value={lastName}
+								class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+								required
+							/>
+						</div>
 					</div>
 
-					{#if mode === 'password'}
-						<form on:submit|preventDefault={handlePasswordSignup} class="space-y-4">
-							<div class="grid grid-cols-2 gap-4">
-								<div>
-									<label for="firstName" class="block text-sm font-medium text-gray-700">First Name</label>
-									<input
-										id="firstName"
-										type="text"
-										bind:value={firstName}
-										class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-										required
-									/>
-								</div>
-								<div>
-									<label for="lastName" class="block text-sm font-medium text-gray-700">Last Name</label>
-									<input
-										id="lastName"
-										type="text"
-										bind:value={lastName}
-										class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-										required
-									/>
-								</div>
-							</div>
+					<div>
+						<label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+						<input
+							id="email"
+							type="email"
+							bind:value={email}
+							class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+							required
+						/>
+					</div>
 
-							<div>
-								<label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-								<input
-									id="email"
-									type="email"
-									bind:value={email}
-									class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-									required
-								/>
-							</div>
+					<div>
+						<label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+						<input
+							id="password"
+							type="password"
+							bind:value={password}
+							class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+							required
+							minlength="8"
+						/>
+						<p class="mt-1 text-xs text-gray-500">At least 8 characters</p>
+					</div>
 
-							<div>
-								<label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-								<input
-									id="password"
-									type="password"
-									bind:value={password}
-									class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-									required
-									minlength="8"
-								/>
-								<p class="mt-1 text-xs text-gray-500">At least 8 characters</p>
-							</div>
+					<div>
+						<label for="confirmPassword" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+						<input
+							id="confirmPassword"
+							type="password"
+							bind:value={confirmPassword}
+							class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+							required
+						/>
+					</div>
 
-							<div>
-								<label for="confirmPassword" class="block text-sm font-medium text-gray-700">Confirm Password</label>
-								<input
-									id="confirmPassword"
-									type="password"
-									bind:value={confirmPassword}
-									class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-									required
-								/>
-							</div>
-
-							<button
-								type="submit"
-								disabled={waiting}
-								class="w-full rounded-md bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:bg-gray-400"
-							>
-								{waiting ? 'Creating Account...' : 'Create Account'}
-							</button>
-						</form>
-					{:else}
-						<form on:submit|preventDefault={handleMagicLinkSignup} class="space-y-4">
-							<div class="grid grid-cols-2 gap-4">
-								<div>
-									<label for="firstNameML" class="block text-sm font-medium text-gray-700">First Name</label>
-									<input
-										id="firstNameML"
-										type="text"
-										bind:value={firstName}
-										class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-										required
-									/>
-								</div>
-								<div>
-									<label for="lastNameML" class="block text-sm font-medium text-gray-700">Last Name</label>
-									<input
-										id="lastNameML"
-										type="text"
-										bind:value={lastName}
-										class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-										required
-									/>
-								</div>
-							</div>
-
-							<div>
-								<label for="emailML" class="block text-sm font-medium text-gray-700">Email</label>
-								<input
-									id="emailML"
-									type="email"
-									bind:value={email}
-									class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-									required
-								/>
-							</div>
-
-							<button
-								type="submit"
-								disabled={waiting}
-								class="w-full rounded-md bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:bg-gray-400"
-							>
-								{waiting ? 'Sending...' : 'Send Verification Link'}
-							</button>
-						</form>
-					{/if}
-				{/if}
+					<button
+						type="submit"
+						disabled={waiting}
+						class="w-full rounded-md bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:bg-gray-400"
+					>
+						{waiting ? 'Creating Account...' : 'Create Account'}
+					</button>
+				</form>
 			{/if}
 		</div>
 	</div>
