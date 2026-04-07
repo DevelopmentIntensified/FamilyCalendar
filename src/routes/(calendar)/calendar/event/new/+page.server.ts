@@ -22,10 +22,12 @@ export const load: PageServerLoad = async (event) => {
 			.select()
 			.from(calendars)
 			.where(eq(calendars.familyId, userFamily.familyMembers.familyId));
-		calendarIds.push({ id: familyCalendar[0].id, name: 'Family Calendar' });
+		if (familyCalendar.length > 0) {
+			calendarIds.push({ id: familyCalendar[0].id, name: familyCalendar[0].name || 'Family Calendar' });
+		}
 	}
 	let userCalendar = await getUserCalendar(userId); // get the user calendar so we can get its id
-	calendarIds.push({ id: userCalendar.id, name: 'User Calendar' });
+	calendarIds.push({ id: userCalendar.id, name: userCalendar.name || 'User Calendar' });
 
 	return {
 		calendarIds

@@ -8,8 +8,6 @@ import { sessions, users } from '$lib/server/db/schema';
 
 const adapter = new DrizzlePostgreSQLAdapter(db, sessions, users);
 
-console.log(dev);
-
 export const lucia = new Lucia(adapter, {
 	sessionCookie: {
 		attributes: {

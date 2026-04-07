@@ -6,8 +6,6 @@
 	export let isAdmin: boolean;
 	export let isLoggedIn: boolean;
 
-	console.warn('DEBUGPRINT[2]: Navbar.svelte:7: isAdmin=', isAdmin);
-
 	let isOpen = false;
 
 	let navItems = [

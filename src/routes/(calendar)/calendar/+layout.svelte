@@ -8,7 +8,6 @@
 	import CodexPlus from 'virtual:icons/codex/plus';
 
 	export let data: LayoutData;
-	console.warn('DEBUGPRINT[3]: +layout.svelte:6: data=', data);
 	$: pathname = data.pathname;
 </script>
 

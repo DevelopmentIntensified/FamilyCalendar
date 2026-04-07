@@ -33,7 +33,6 @@ export const GET: RequestHandler = async function (event) {
 	try {
 		await validateJWT('HS256', secret, token);
 	} catch (error) {
-		console.log(error);
 		return new Response(null, {
 			status: 302,
 			headers: {
@@ -102,7 +101,6 @@ export const GET: RequestHandler = async function (event) {
 
 		return result;
 	} catch (error) {
-		console.log(error);
 		return new Response(null, {
 			status: 302,
 			headers: {

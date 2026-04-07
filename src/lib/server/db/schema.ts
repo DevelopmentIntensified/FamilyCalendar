@@ -152,6 +152,17 @@ export const familyMembers = pgTable(
 	})
 );
 
+export const familyInviteCodes = pgTable('familyInviteCodes', {
+	code: text('code').notNull().primaryKey(),
+	familyId: text('familyId')
+		.notNull()
+		.references(() => families.id),
+	expiresAt: timestamp('expiresAt', { withTimezone: true, mode: 'date' }).notNull(),
+	maxUses: integer('maxUses').default(1),
+	useCount: integer('useCount').default(0),
+	createdBy: text('createdBy').references(() => users.id)
+});
+
 export const familyGroups = pgTable(
 	'familyGroups',
 	{
@@ -208,6 +219,7 @@ export const calendars = pgTable('calendars', {
 		.$defaultFn(() => generateId(15)),
 	ownerId: text('owner_id').references(() => users.id),
 	familyId: text('family_id').references(() => families.id),
+	name: text('name'),
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
@@ -253,3 +265,4 @@ export type User = typeof users.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
 export type UserSettings = typeof userSettings.$inferSelect;
 export type Family = typeof families.$inferSelect;
+export type FamilyInviteCode = typeof familyInviteCodes.$inferSelect;
