@@ -35,12 +35,10 @@
 		<div class="relative mx-auto max-w-7xl px-6">
 			<div class="mx-auto max-w-3xl text-center">
 				<h1 class="mb-6 text-4xl font-bold leading-tight text-slate-900 md:text-6xl">
-					Stop juggling your family's schedule.
-					<span class="text-primary-600">Start syncing it.</span>
+					The easiest way to bring all your events together.
 				</h1>
 				<p class="mx-auto mb-10 max-w-2xl text-lg text-slate-600 md:text-xl">
-					Family Planz brings everyone's calendar into one place. No more scheduling conflicts, 
-					missed appointments, or "what's for dinner?" texts. Just organized, happy families.
+					Copy a text. Paste it in. Done. Family Planz reads the event details and adds them to your calendar automatically—no manual entry needed.
 				</p>
 				<div class="flex flex-col items-center justify-center gap-4 sm:flex-row">
 					<a href="/signup" class="w-full rounded-full bg-primary-600 px-8 py-4 text-center text-lg font-semibold text-white shadow-lg shadow-primary-600/30 transition-all hover:bg-primary-700 hover:shadow-xl sm:w-auto">
@@ -54,11 +52,91 @@
 		</div>
 	</section>
 
+	<!-- AI Feature Highlight -->
+	<section class="bg-white py-16">
+		<div class="mx-auto max-w-6xl px-6">
+			<div class="grid gap-12 lg:grid-cols-2 lg:items-center">
+				<div>
+					<div class="inline-flex items-center gap-2 rounded-full bg-primary-100 px-4 py-1.5 text-sm font-medium text-primary-700">
+						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M13 10V3L4 14h7v7l9-11h-7z" />
+						</svg>
+						Smart Event Import
+					</div>
+					<h2 class="mt-4 text-3xl font-bold text-slate-900 md:text-4xl">
+						Text to Calendar in seconds
+					</h2>
+					<p class="mt-4 text-lg text-slate-600">
+						Got an event in a text, email, or anywhere else? Just paste it. Our AI reads the details—date, time, location—and creates the event for you.
+					</p>
+					<ul class="mt-6 space-y-3">
+						<li class="flex items-center gap-3 text-slate-700">
+							<svg class="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path d="M5 13l4 4L19 7" />
+							</svg>
+							<span>Works with any text—emails, texts, messages</span>
+						</li>
+						<li class="flex items-center gap-3 text-slate-700">
+							<svg class="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path d="M5 13l4 4L19 7" />
+							</svg>
+							<span>Extracts date, time, and location automatically</span>
+						</li>
+						<li class="flex items-center gap-3 text-slate-700">
+							<svg class="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path d="M5 13l4 4L19 7" />
+							</svg>
+							<span>One tap to confirm and add to your calendar</span>
+						</li>
+					</ul>
+				</div>
+				<div class="relative">
+					<div class="rounded-2xl bg-slate-900 p-6 font-mono text-sm shadow-2xl">
+						<div class="mb-4 flex items-center gap-2">
+							<div class="h-3 w-3 rounded-full bg-red-500"></div>
+							<div class="h-3 w-3 rounded-full bg-yellow-500"></div>
+							<div class="h-3 w-3 rounded-full bg-green-500"></div>
+						</div>
+						<div class="rounded-lg bg-slate-800 p-4">
+							<p class="mb-2 text-xs text-slate-400">// Paste this text anywhere in Family Planz:</p>
+							<p class="text-green-400">"Dinner with the Smiths at</p>
+							<p class="text-green-400">Olive Garden, next Friday at 7pm"</p>
+						</div>
+						<div class="mt-4 flex items-center justify-center text-slate-500">
+							<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+							</svg>
+						</div>
+						<div class="mt-4 rounded-lg bg-primary-900/50 p-4">
+							<div class="flex items-center gap-2 text-primary-400">
+								<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<rect x="3" y="4" width="18" height="18" rx="2" />
+									<line x1="16" y1="2" x2="16" y2="6" />
+									<line x1="8" y1="2" x2="8" y2="6" />
+									<line x1="3" y1="10" x2="21" y2="10" />
+								</svg>
+								<span class="font-semibold">Event Created!</span>
+							</div>
+							<p class="mt-2 text-sm text-slate-300">Friday, 7:00 PM — Olive Garden</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
 	<!-- Problem/Solution Section -->
-	<section class="bg-white py-20">
+	<section class="bg-slate-50 py-20">
 		<div class="mx-auto max-w-7xl px-6">
+			<div class="mb-12 text-center">
+				<h2 class="mb-4 text-3xl font-bold text-slate-900 md:text-4xl">More than just a calendar</h2>
+				<p class="mx-auto max-w-2xl text-lg text-slate-600">
+					Family coordination made simple, without the chaos.
+				</p>
+			</div>
+			
 			<div class="grid gap-12 md:grid-cols-2">
-				<div class="rounded-2xl bg-slate-50 p-8">
+				<div class="rounded-2xl bg-white p-8 shadow-sm">
 					<div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
 						<svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -72,15 +150,15 @@
 						</li>
 						<li class="flex items-start gap-3">
 							<span class="text-red-500">✕</span>
-							<span>Missing your kid's soccer practice <em>again</em></span>
+							<span>Events scattered across emails, texts, and notes</span>
 						</li>
 						<li class="flex items-start gap-3">
 							<span class="text-red-500">✕</span>
-							<span>Dinner plans that conflict with dance class</span>
+							<span>Missing appointments because you forgot to add them</span>
 						</li>
 						<li class="flex items-start gap-3">
 							<span class="text-red-500">✕</span>
-							<span>"Who has Emma this weekend?" texts at midnight</span>
+							<span>Family members not knowing each other's schedules</span>
 						</li>
 					</ul>
 				</div>
@@ -98,11 +176,11 @@
 						</li>
 						<li class="flex items-start gap-3">
 							<span class="text-primary-600">✓</span>
-							<span>Color-coded events by family member</span>
+							<span>Smart import—copy text, add events instantly</span>
 						</li>
 						<li class="flex items-start gap-3">
 							<span class="text-primary-600">✓</span>
-							<span>See everyone's schedule at a glance</span>
+							<span>Color-coded by family member</span>
 						</li>
 						<li class="flex items-start gap-3">
 							<span class="text-primary-600">✓</span>
@@ -115,12 +193,12 @@
 	</section>
 
 	<!-- Features Section -->
-	<section id="features" class="py-20">
+	<section id="features" class="bg-white py-20">
 		<div class="mx-auto max-w-7xl px-6">
 			<div class="mb-16 text-center">
 				<h2 class="mb-4 text-3xl font-bold text-slate-900 md:text-4xl">Everything your family needs</h2>
 				<p class="mx-auto max-w-2xl text-lg text-slate-600">
-					Simple, powerful features designed for the chaos of real family life.
+					Simple, powerful features designed for real family life.
 				</p>
 			</div>
 			
@@ -143,13 +221,12 @@
 				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
 					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
 						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<circle cx="12" cy="12" r="10" />
-							<path d="M12 6v6l4 2" />
+							<path d="M13 10V3L4 14h7v7l9-11h-7z" />
 						</svg>
 					</div>
-					<h3 class="mb-3 text-xl font-bold text-slate-900">Smart Scheduling</h3>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Smart Event Import</h3>
 					<p class="text-slate-600">
-						Color-code by family member. Set reminders. See conflicts before they happen.
+						Copy text from anywhere. Our AI reads the details and creates the event automatically.
 					</p>
 				</div>
 
@@ -164,7 +241,7 @@
 					</div>
 					<h3 class="mb-3 text-xl font-bold text-slate-900">Family Groups</h3>
 					<p class="text-slate-600">
-						Create groups for sports teams, school events, or extended family. Everyone stays in the loop.
+						Organize by family, sports teams, or school events. Everyone stays in the loop.
 					</p>
 				</div>
 			</div>
@@ -187,14 +264,14 @@
 	<!-- CTA Section -->
 	<section class="bg-gradient-to-br from-primary-600 to-primary-700 py-20">
 		<div class="mx-auto max-w-4xl px-6 text-center">
-			<h2 class="mb-4 text-3xl font-bold text-white md:text-4xl">Ready to get organized?</h2>
+			<h2 class="mb-4 text-3xl font-bold text-white md:text-4xl">Ready to simplify your family's schedule?</h2>
 			<p class="mx-auto mb-10 max-w-2xl text-xl text-primary-100">
-				Join thousands of families who've simplified their chaos.
+				Start adding events the easy way today.
 			</p>
 			<a href="/signup" class="inline-block rounded-full bg-white px-10 py-4 text-lg font-bold text-primary-700 shadow-lg transition-transform hover:scale-105">
 				Get Started for Free
 			</a>
-			<p class="mt-4 text-sm text-primary-200">No credit card required. Free forever for individuals.</p>
+			<p class="mt-4 text-sm text-primary-200">No credit card required.</p>
 		</div>
 	</section>
 
