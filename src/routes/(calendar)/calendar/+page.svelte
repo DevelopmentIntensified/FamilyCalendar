@@ -1,6 +1,5 @@
 <script lang="ts">
 	export let data: PageData;
-	console.warn('DEBUGPRINT[1]: +page.svelte:9: data=', data);
 
 	import { writable } from 'svelte/store';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
@@ -11,7 +10,8 @@
 
 	let timeZone = data.userSettings.timeZone;
 	const currentDate = writable(DateTime.now().setZone(timeZone as string));
-	let events: CalendarEvent[] = data.userEvents;
+	type ParsedEvent = CalendarEvent & { date: Date; color: string };
+	let events: ParsedEvent[] = data.userEvents;
 
 	onMount(async () => {
 		if (!data.userSettings.timeZone) {
@@ -53,8 +53,7 @@
 			end: DateTime.fromJSDate(e.end),
 			color: 'bg-[#e0ffff]'
 		}))
-	];
-	console.warn('DEBUGPRINT[28]: +page.svelte:38: events=', events);
+	] as ParsedEvent[];
 </script>
 
 <svelte:head>

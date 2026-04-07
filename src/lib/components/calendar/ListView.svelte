@@ -17,7 +17,6 @@
 	$: year = $currentDate.year;
 	$: month = $currentDate.month;
 
-	console.log(events);
 	$: filteredEvents = events
 		.filter((event) => {
 			const eventDate = event.date;

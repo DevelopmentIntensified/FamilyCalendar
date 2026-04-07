@@ -68,7 +68,6 @@ It will Expire in 24hrs.
 	if (success) {
 		return new Response(JSON.stringify({ success: true }), { status: 200 });
 	}
-	console.log(JSON.stringify(error));
 	return new Response(
 		JSON.stringify({ success: false, error: 'There was an error. Please try again.' }),
 		{ status: 500 }

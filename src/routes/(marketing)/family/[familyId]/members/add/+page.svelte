@@ -3,7 +3,6 @@
 	import type { PageData } from './$types';
 
 	export let data: PageData;
-	console.warn('DEBUGPRINT[16]: +page.svelte:8: data=', data);
 
 	let showEmail = false;
 	let emailSent = false;

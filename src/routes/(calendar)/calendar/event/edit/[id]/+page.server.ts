@@ -1,15 +1,14 @@
-import { createEvent, updateEvent } from '$lib/server/db/actions/events';
+import { updateEvent, deleteEvent, getEvent } from '$lib/server/db/actions/events';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
 import { DateTime } from 'luxon';
 import type { PageServerLoad } from './$types';
-import { calendars, families, familyMembers } from '$lib/server/db/schema';
+import { calendars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { getUserFamily } from '$lib/server/db/actions/families';
 import { getUserCalendar } from '$lib/server/db/actions/calendar';
 
-// get the possible calendar ids for the current user
 export const load: PageServerLoad = async (event) => {
 	let calendarIds: { id: string; name: string }[] = [];
 	let userId = event.locals.user.id;
@@ -17,24 +16,27 @@ export const load: PageServerLoad = async (event) => {
 
 	let familyCalendar = [];
 	if (!!userFamily) {
-		//get the family calendar if the user is part of a family to add it to the list of ids
 		familyCalendar = await db
 			.select()
 			.from(calendars)
 			.where(eq(calendars.familyId, userFamily.familyMembers.familyId));
-		calendarIds.push({ id: familyCalendar[0].id, name: 'Family Calendar' });
+		if (familyCalendar.length > 0) {
+			calendarIds.push({ id: familyCalendar[0].id, name: familyCalendar[0].name || 'Family Calendar' });
+		}
 	}
-	let userCalendar = await getUserCalendar(userId); // get the user calendar so we can get its id
-	calendarIds.push({ id: userCalendar.id, name: 'User Calendar' });
+	let userCalendar = await getUserCalendar(userId);
+	calendarIds.push({ id: userCalendar.id, name: userCalendar.name || 'User Calendar' });
+
+	const eventData = await getEvent(event.params.id);
 
 	return {
 		calendarIds,
-		eventId: event.params.id
+		event: eventData
 	};
 };
 
 export const actions: Actions = {
-	editEvent: async ({ request }) => {
+	default: async ({ request }) => {
 		const formData = await request.formData();
 		const title = formData.get('title');
 		const start = formData.get('start');
@@ -48,12 +50,11 @@ export const actions: Actions = {
 		if (!title || !start || !end || !location || !calendarId || !eventId) {
 			return fail(400, { message: 'All fields are required' });
 		}
-		const offset = formData.get('offset') as string;
 
 		let start2 = DateTime.fromISO(start.replace(' ', 'T'));
 		let end2 = DateTime.fromISO(end.replace(' ', 'T'));
 
-		const newEvent = await updateEvent(eventId, {
+		const updatedEvent = await updateEvent(eventId, {
 			description: description,
 			title: title.toString(),
 			start: start2.toString(),
@@ -63,10 +64,21 @@ export const actions: Actions = {
 			ownerId
 		});
 
-		if (newEvent) {
+		if (updatedEvent) {
 			throw redirect(302, '/calendar');
 		} else {
-			return fail(500, { message: 'Failed to create event' });
+			return fail(500, { message: 'Failed to update event' });
 		}
+	},
+	deleteEvent: async ({ request }) => {
+		const formData = await request.formData();
+		const eventId = formData.get('eventId') as string;
+
+		if (!eventId) {
+			return fail(400, { message: 'Event ID is required' });
+		}
+
+		await deleteEvent(eventId);
+		throw redirect(302, '/calendar');
 	}
 };
