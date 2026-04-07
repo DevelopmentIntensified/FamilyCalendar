@@ -5,10 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build",
-		"build:local": "drizzle-kit push --strict --verbose --force && vite build",
-		"build:vercel": "vite build",
-		"build:static": "vite build",
+		"build": "drizzle-kit push --strict --verbose --force && vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
