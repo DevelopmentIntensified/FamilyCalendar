@@ -6,7 +6,9 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
-		"db:push": "drizzle-kit push --strict --verbose --force",
+		"db:push": "drizzle-kit push",
+		"db:push:preview": "dotenv -e .env.preview -- drizzle-kit push --strict --force",
+		"db:push:prod": "dotenv -e .env.prod -- drizzle-kit push --strict --force",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -19,7 +21,6 @@
 		"test:e2e:generate": "playwright test codegen",
 		"test:e2e:ui": "playwright test --ui",
 		"db:start": "docker compose up",
-		"db:push": "drizzle-kit push",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
 		"test-ct": "playwright test -c playwright-ct.config.ts"
@@ -45,6 +46,7 @@
 		"@types/luxon": "^3.4.2",
 		"@types/node": "^22.13.5",
 		"autoprefixer": "^10.4.20",
+		"dotenv-cli": "^11.0.0",
 		"drizzle-kit": "^0.31.10",
 		"eslint": "^9.18.0",
 		"eslint-config-prettier": "^10.0.1",
