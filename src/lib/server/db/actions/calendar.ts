@@ -30,6 +30,17 @@ export async function createCalendar(data: typeof calendars.$inferInsert) {
 	return createdCalendar;
 }
 
+export async function createUserCalendar(userId: string) {
+	const [createdCalendar] = await db
+		.insert(calendars)
+		.values({
+			ownerId: userId,
+			name: 'My Calendar'
+		})
+		.returning();
+	return createdCalendar;
+}
+
 export async function updateCalendar(
 	id: string,
 	data: Partial<Omit<Calendar, 'id' | 'createdAt'>>
