@@ -8,15 +8,15 @@ Complete all incomplete core features to make the application production-ready.
 ## Priority 1: Critical Bug Fixes
 
 ### 1.1 Schema/Data Integrity Fixes
-- [ ] Add `name` field to `calendars` table schema
-- [ ] Fix `Calendar` type to include `name` field
-- [ ] Remove debug `console.warn` statements from all files
-- [ ] Fix DateTime.fromJSDate() calls where `date` property doesn't exist
+- [x] Add `name` field to `calendars` table schema (ALREADY EXISTS in schema.ts:223)
+- [x] Fix `Calendar` type to include `name` field (INFERRED from schema)
+- [ ] Remove debug `console.warn` statements from all files (2 found in e2e/signup/EmailSignupWithCode.test.ts:38,42)
+- [x] Fix DateTime.fromJSDate() calls where `date` property doesn't exist (CODE ALREADY ADDS date property before calling fromJSDate in +page.server.ts)
 
 ### 1.2 Calendar Component Fixes
-- [ ] Connect calendar view to actual user/family event colors
-- [ ] Fix calendar selector in event creation form
-- [ ] Make month view properly display multi-day events
+- [ ] Connect calendar view to actual user/family event colors (HARDCODED: bg-[#fa8072] and bg-[#e0ffff])
+- [x] Fix calendar selector in event creation form (IMPLEMENTED: populates from data.calendarIds - needs testing)
+- [x] Make month view properly display multi-day events (IMPLEMENTED: parseEvents function - needs testing)
 
 ---
 
