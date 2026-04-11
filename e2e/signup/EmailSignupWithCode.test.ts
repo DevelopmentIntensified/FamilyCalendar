@@ -13,10 +13,12 @@ const email = 'emailSignUpWithCode@familyplanz.com';
 
 test.afterEach(async () => {
 	const user = await db.select().from(users).where(eq(users.email, email));
-	await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
-	await deleteAccount(email);
-	await deleteUserByEmail(email);
-	await deleteCodesByEmail(email);
+	if (user[0]) {
+		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
+		await deleteAccount(email);
+		await deleteUserByEmail(email);
+		await deleteCodesByEmail(email);
+	}
 });
 
 test('Email Sign Up With Code', async ({ page }) => {
