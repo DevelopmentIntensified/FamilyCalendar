@@ -31,7 +31,7 @@ test.afterEach(async () => {
 	await deleteCodesByEmail(email);
 });
 
-test('Email Login With Code', async ({ page }) => {
+test('Email Login With Link', async ({ page }) => {
 	const loginPage = new LoginPage(page);
 	await test.step('Navigate to the page', async () => {
 		await loginPage.goto();
