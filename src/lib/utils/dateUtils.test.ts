@@ -6,7 +6,12 @@ import {
 	getFirstDayOfNextMonth,
 	getDaysInLastMonth,
 	formatDate,
-	parseDate
+	parseDate,
+	parseDateTimeInZone,
+	formatDateTimeInZone,
+	convertToUserTimeZone,
+	isValidTimeZone,
+	getTimeZoneOffset
 } from './dateUtils';
 
 describe('getDaysInMonth', () => {
@@ -156,5 +161,84 @@ describe('parseDate', () => {
 	it('returns Date object', () => {
 		const result = parseDate('01-01-2024');
 		expect(result instanceof Date).toBe(true);
+	});
+});
+
+describe('parseDateTimeInZone', () => {
+	it('parses datetime string with user timezone', () => {
+		const result = parseDateTimeInZone('2024-03-15 10:00', 'America/New_York');
+		expect(result.isValid).toBe(true);
+		expect(result.zoneName).toBe('America/New_York');
+	});
+
+	it('handles 24-hour format', () => {
+		const result = parseDateTimeInZone('2024-06-15 14:30', 'America/Los_Angeles');
+		expect(result.isValid).toBe(true);
+		expect(result.hour).toBe(14);
+		expect(result.minute).toBe(30);
+	});
+
+	it('handles DST transition - before DST', () => {
+		const result = parseDateTimeInZone('2024-03-10 02:00', 'America/New_York');
+		expect(result.isValid).toBe(true);
+	});
+
+	it('handles DST transition - after DST', () => {
+		const result = parseDateTimeInZone('2024-03-15 02:00', 'America/New_York');
+		expect(result.isValid).toBe(true);
+	});
+});
+
+describe('formatDateTimeInZone', () => {
+	it('formats datetime with timezone offset', () => {
+		const dt = DateTime.fromObject({ year: 2024, month: 6, day: 15, hour: 10 }, { zone: 'America/New_York' });
+		const result = formatDateTimeInZone(dt, 'America/New_York');
+		expect(result).toContain('2024-06-15');
+	});
+
+	it('preserves timezone in ISO string', () => {
+		const dt = DateTime.fromObject({ year: 2024, month: 1, day: 15, hour: 10 }, { zone: 'America/Los_Angeles' });
+		const result = formatDateTimeInZone(dt, 'America/Los_Angeles');
+		expect(result).toContain('-08:00');
+	});
+});
+
+describe('convertToUserTimeZone', () => {
+	it('converts datetime to specified timezone', () => {
+		const dt = DateTime.fromISO('2024-06-15T10:00:00', { zone: 'UTC' });
+		const result = convertToUserTimeZone(dt, 'America/New_York');
+		expect(result.zoneName).toBe('America/New_York');
+	});
+
+	it('handles different timezones correctly', () => {
+		const dt = DateTime.fromISO('2024-12-25T12:00:00', { zone: 'America/Los_Angeles' });
+		const result = convertToUserTimeZone(dt, 'America/New_York');
+		expect(result.zoneName).toBe('America/New_York');
+	});
+});
+
+describe('isValidTimeZone', () => {
+	it('returns true for valid timezone', () => {
+		expect(isValidTimeZone('America/New_York')).toBe(true);
+		expect(isValidTimeZone('Europe/London')).toBe(true);
+		expect(isValidTimeZone('Asia/Tokyo')).toBe(true);
+	});
+
+	it('returns false for invalid timezone', () => {
+		expect(isValidTimeZone('Invalid/Timezone')).toBe(false);
+		expect(isValidTimeZone('fake_zone')).toBe(false);
+	});
+});
+
+describe('getTimeZoneOffset', () => {
+	it('returns offset string for valid timezone', () => {
+		const result = getTimeZoneOffset('America/New_York');
+		expect(result).toMatch(/^[+-]\d{2}:\d{2}$/);
+	});
+
+	it('returns different offsets for different timezones', () => {
+		const nyOffset = getTimeZoneOffset('America/New_York');
+		const tokyoOffset = getTimeZoneOffset('Asia/Tokyo');
+		expect(nyOffset).not.toBe(tokyoOffset);
 	});
 });

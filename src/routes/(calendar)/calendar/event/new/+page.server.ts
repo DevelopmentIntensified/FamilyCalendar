@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { getUserFamilies } from '$lib/server/db/actions/families';
 import { getUserCalendar } from '$lib/server/db/actions/calendar';
+import { getUserSettings } from '$lib/server/db/actions/userSettings';
 
 // get the possible calendar ids for the current user
 export const load: PageServerLoad = async (event) => {
@@ -35,7 +36,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions: Actions = {
-	createEvent: async ({ request }) => {
+	createEvent: async ({ request, locals }) => {
 		const formData = await request.formData();
 		const title = formData.get('title');
 		const start = formData.get('start');
@@ -50,16 +51,21 @@ export const actions: Actions = {
 			return fail(400, { message: 'All fields are required' });
 		}
 
-		// @ts-ignore
-		let start2 = DateTime.fromISO(start.replace(' ', 'T')); //Add the T to make it ISO date
-		// @ts-ignore
-		let end2 = DateTime.fromISO(end.replace(' ', 'T'));
+		const userSettings = await getUserSettings(locals.user.id);
+		const userTimeZone = userSettings?.timeZone || 'UTC';
+
+		const startDateTime = DateTime.fromISO(start.replace(' ', 'T'), { zone: userTimeZone });
+		const endDateTime = DateTime.fromISO(end.replace(' ', 'T'), { zone: userTimeZone });
+
+		if (!startDateTime.isValid || !endDateTime.isValid) {
+			return fail(400, { message: 'Invalid date/time format' });
+		}
 
 		const newEvent = await createEvent({
 			description: description,
-			title: title.toString(), // tostring to stop the type complaining
-			start: start2.toString(),
-			end: end2.toString(),
+			title: title.toString(),
+			start: startDateTime.toString(),
+			end: endDateTime.toString(),
 			location: location.toString(),
 			calendarId: calendarId.toString(),
 			ownerId

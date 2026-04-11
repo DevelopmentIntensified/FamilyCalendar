@@ -6,6 +6,7 @@
 	export let data;
 	const event = data.event;
 	const currentAttendance = data.userAttendance;
+	const timeZone = data.userSettings?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 	let showDeleteConfirm = false;
 
@@ -44,7 +45,7 @@
 								<line x1="3" y1="10" x2="21" y2="10"></line>
 							</svg>
 							<span class="text-gray-700">
-								{DateTime.fromJSDate(event.date).toLocaleString(DateTime.DATE_MED_WITH_WEEKDAY)}
+								{DateTime.fromJSDate(event.date).setZone(timeZone).toLocaleString(DateTime.DATE_MED_WITH_WEEKDAY)}
 							</span>
 						</div>
 						<div class="flex items-center">
@@ -53,7 +54,7 @@
 								<polyline points="12 6 12 12 16 14"></polyline>
 							</svg>
 							<span class="text-gray-700">
-								{DateTime.fromJSDate(event.start).toLocaleString(DateTime.TIME_SIMPLE)} - {DateTime.fromJSDate(event.end).toLocaleString(DateTime.TIME_SIMPLE)}
+								{DateTime.fromJSDate(event.start).setZone(timeZone).toLocaleString(DateTime.TIME_SIMPLE)} - {DateTime.fromJSDate(event.end).setZone(timeZone).toLocaleString(DateTime.TIME_SIMPLE)}
 							</span>
 						</div>
 						<div class="flex items-center">

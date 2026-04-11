@@ -5,8 +5,11 @@ import { eq } from 'drizzle-orm';
 import type { Actions } from './$types';
 import { deleteEvent } from '$lib/server/db/actions/events';
 import { fail, redirect } from '@sveltejs/kit';
+import { getUserSettings } from '$lib/server/db/actions/userSettings';
 
 export const load: PageServerLoad = async (e) => {
+	const userSettings = await getUserSettings(e.locals.user.id);
+	
 	const eventsData = await db
 		.select()
 		.from(events)
@@ -27,7 +30,8 @@ export const load: PageServerLoad = async (e) => {
 			start: new Date(ev.start),
 			end: new Date(ev.end)
 		}))[0],
-		userAttendance: userAttendance?.status || 'undecided'
+		userAttendance: userAttendance?.status || 'undecided',
+		userSettings
 	};
 };
 
