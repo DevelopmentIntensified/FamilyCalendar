@@ -17,7 +17,7 @@
 		"lint": "prettier --check . && eslint .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
-		"test:e2e": "dotenv -e .env.test -- playwright test",
+		"test:e2e": "playwright test",
 		"test:e2e:generate": "playwright test codegen",
 		"test:e2e:ui": "playwright test --ui",
 		"db:start": "docker compose up",
