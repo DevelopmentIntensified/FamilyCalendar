@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
 	webServer: {
@@ -19,6 +19,8 @@ export default defineConfig({
 		timeout: 10000
 	},
 
+	tsconfig: './tsconfig.json',
+
 	use: {
 		headless: true,
 		baseURL: 'http://localhost:4173',
@@ -33,7 +35,7 @@ export default defineConfig({
 	projects: [
 		{
 			name: 'chromium',
-			use: { browserName: 'chromium' }
+			use: { ...devices['Desktop Chrome'] }
 		}
 	]
 });
