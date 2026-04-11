@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import 'dotenv/config';
 
 export default defineConfig({
 	webServer: {
@@ -7,7 +8,15 @@ export default defineConfig({
 		timeout: 120000,
 		reuseExistingServer: !process.env.CI,
 		stdout: 'pipe',
-		stderr: 'pipe'
+		stderr: 'pipe',
+		env: {
+			DATABASE_URL: process.env.DATABASE_URL,
+			RESEND_API: process.env.RESEND_API,
+			NOREPLYEMAIL: process.env.NOREPLYEMAIL,
+			EMAILSECRET: process.env.EMAILSECRET,
+			ADAPTER: process.env.ADAPTER,
+			NODE_ENV: process.env.NODE_ENV
+		}
 	},
 
 	testDir: 'e2e',
