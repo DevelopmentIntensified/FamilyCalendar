@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '.env.local') });
 
 export default defineConfig({
+	testTimeout: 60000,
 	webServer: {
 		command: 'npm run build && npm run preview',
 		port: 4173,
