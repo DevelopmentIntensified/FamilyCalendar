@@ -38,20 +38,18 @@
 
 	events = [
 		...data.userEvents.map((e) => ({
-			// we gotta convert the dates and times to luxon times because its easier to use
 			...e,
 			date: DateTime.fromJSDate(e.date),
 			start: DateTime.fromJSDate(e.start),
 			end: DateTime.fromJSDate(e.end),
-			color: 'bg-[#fa8072]'
+			color: `bg-[${data.userCalendarColor}]`
 		})),
 		...data.familyEvents.map((e) => ({
-			// do it again for family events
 			...e,
 			date: DateTime.fromJSDate(e.date),
 			start: DateTime.fromJSDate(e.start),
 			end: DateTime.fromJSDate(e.end),
-			color: 'bg-[#e0ffff]'
+			color: `bg-[${data.familyCalendarColor}]`
 		}))
 	] as ParsedEvent[];
 </script>

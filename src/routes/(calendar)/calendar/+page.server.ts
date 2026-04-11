@@ -72,6 +72,8 @@ export const load: PageServerLoad = async (event) => {
 	return {
 		userEvents: parseEvents(eventsData),
 		familyEvents: parseEvents(familyEventsData),
-		userSettings
+		userSettings,
+		userCalendarColor: userSettings?.color || '#fa8072',
+		familyCalendarColor: userFamily?.families?.color || '#e0ffff'
 	};
 };
