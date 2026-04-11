@@ -35,11 +35,9 @@ test('Email Sign Up With Code', async ({ page }) => {
 	const signUpCode = await test.step('Check that an email was sent', async () => {
 		await page.waitForTimeout(3000);
 		const codes = await getCodesByEmail(email);
-		console.warn('DEBUGPRINT[19]: EmailSignupWithCode.test.ts:32: codes=', codes);
 
 		expect(codes.length).toBe(1);
 		const emailId = codes[0].emailId;
-		console.warn('DEBUGPRINT[20]: EmailSignupWithCode.test.ts:36: emailId=', emailId);
 		expect(emailId).not.toBeNull();
 		return codes[0].code;
 	});
