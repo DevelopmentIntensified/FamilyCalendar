@@ -6,6 +6,8 @@ export class SignUpPage {
 	lastNameInput: Locator;
 	emailInput: Locator;
 	signupButton: Locator;
+	emailModeButton: Locator;
+	sendLinkButton: Locator;
 	verificationInput: Locator;
 	verificationCodeButton: Locator;
 	sendEmailAgainButton: Locator;
@@ -15,6 +17,8 @@ export class SignUpPage {
 		this.lastNameInput = page.getByRole('textbox', { name: 'Last Name' });
 		this.emailInput = this.page.getByRole('textbox', { name: 'Email' });
 		this.signupButton = this.page.getByRole('button', { name: 'Create Account' });
+		this.emailModeButton = this.page.getByRole('button', { name: 'Email Link' });
+		this.sendLinkButton = this.page.getByRole('button', { name: 'Send Verification Link' });
 		this.verificationInput = this.page.getByRole('textbox', { name: 'Enter verification code' });
 		this.verificationCodeButton = this.page.getByRole('button', { name: 'Verify Code' });
 		this.sendEmailAgainButton = this.page.getByRole('button', {

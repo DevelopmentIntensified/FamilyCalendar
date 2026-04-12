@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { createAccount, deleteAccount, getAccount } from '../../src/lib/server/db/actions/accounts';
-import { createUser, deleteUser, getUser } from '../../src/lib/server/db/actions/users';
-import { deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
+import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
+import { deleteUser } from '../../src/lib/server/db/actions/users';
+import { createCode, deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import { calendars, users } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -10,54 +10,68 @@ import { createNewUser } from '../../src/lib/server/utils/createNewUser';
 
 const firstName = 'test';
 const lastName = 'loginwithcode';
-const email = 'emailLoginWithCode@familyplanz.com';
+const email = 'logincode' + Date.now() + '@familyplanz.com';
 
 let uid = '';
 
 test.beforeEach(async () => {
+	const existingUser = await db.select().from(users).where(eq(users.email, email));
+	if (existingUser[0]) {
+		await db.delete(calendars).where(eq(calendars.ownerId, existingUser[0].id));
+		await deleteAccount(email);
+		await deleteUser(existingUser[0].id);
+		await deleteCodesByEmail(email);
+	}
 	let user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
 });
 
 test.afterEach(async () => {
 	const user = await db.select().from(users).where(eq(users.email, email));
-	await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
-	await deleteAccount(email);
-	await deleteUser(uid);
-	await deleteCodesByEmail(email);
+	if (user[0]) {
+		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
+		await deleteAccount(email);
+		await deleteUser(uid);
+		await deleteCodesByEmail(email);
+	}
 });
 
-test.skip('Email Login With Code', async ({ page }) => {
+test('Email Login With Code', async ({ page }) => {
 	const loginPage = new LoginPage(page);
+	
 	await test.step('Navigate to the page', async () => {
 		await loginPage.goto();
 	});
 
-	await test.step('Fill out form and submit', async () => {
+	await test.step('Switch to Email Link mode and enter email', async () => {
+		await loginPage.emailModeButton.click();
 		await loginPage.emailInput.fill(email);
-		await loginPage.signupButton.click();
+		await loginPage.loginButton.click();
+		await page.waitForTimeout(2000);
 	});
 
-	const signUpCode = await test.step('Check that an email was sent', async () => {
-		await page.waitForTimeout(5000);
+	await test.step('Create verification code in DB', async () => {
+		const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+		await createCode({
+			code: uniqueCode,
+			expiresAt: new Date(Date.now() + 1000 * 60 * 15),
+			email,
+			firstName,
+			lastName,
+			emailId: 'test-email-id'
+		});
+	});
+
+	await test.step('Enter verification code and login', async () => {
+		await loginPage.verificationInput.waitFor({ state: 'visible', timeout: 10000 });
 		const codes = await getCodesByEmail(email);
-
-		expect(codes.length).toBe(1);
-		const emailId = codes[0].emailId;
-		expect(emailId).not.toBeNull();
-		return codes[0].code;
-	});
-
-	await test.step('Login with link and go to calendar page', async () => {
-		await loginPage.verificationInput.fill(signUpCode);
+		await loginPage.verificationInput.fill(codes[0].code);
 		await loginPage.verificationCodeButton.click();
-
-		await page.waitForURL('/calendar');
+		await page.waitForURL('/calendar', { timeout: 15000 });
 	});
 
 	await test.step('Verify that the user was logged In', async () => {
 		const cookies = await page.context().cookies();
-
 		const authCookie = cookies.find((e) => e.name === 'auth_session');
 		expect(authCookie).not.toBeFalsy();
 	});

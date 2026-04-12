@@ -10,7 +10,7 @@ import { eq } from 'drizzle-orm';
 
 const firstName = 'test';
 const lastName = 'alreadyregistered';
-const email = 'emailAlreadyRegistered@familyplanz.com';
+const email = 'alreadyregistered' + Date.now() + '@familyplanz.com';
 
 let uid = '';
 
@@ -29,17 +29,18 @@ test.afterEach(async () => {
 	await deleteCodesByEmail(email);
 });
 
-test.skip('Email Sign Up With Already Registered Email', async ({ page }) => {
+test('Email Sign Up With Already Registered Email', async ({ page }) => {
 	const signUpPage = new SignUpPage(page);
 	await test.step('Navigate to the page', async () => {
 		await page.goto('/signup');
 	});
 
-	await test.step('Fill form with already registered email and submit', async () => {
+	await test.step('Switch to email mode and fill form with already registered email', async () => {
+		await signUpPage.emailModeButton.click();
 		await signUpPage.firstNameInput.fill(firstName);
 		await signUpPage.lastNameInput.fill(lastName);
 		await signUpPage.emailInput.fill(email);
-		await signUpPage.signupButton.click();
+		await signUpPage.sendLinkButton.click();
 	});
 
 	await test.step('Expect error message about email already exists', async () => {
