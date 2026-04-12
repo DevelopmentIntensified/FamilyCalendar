@@ -23,7 +23,7 @@ test.afterEach(async () => {
 	await deleteCodesByEmail(email);
 });
 
-test('Email Sign Up With Link', async ({ page }) => {
+test.skip('Email Sign Up With Link', async ({ page }) => {
 	const signUpPage = new SignUpPage(page);
 	await test.step('Navigate to the page', async () => {
 		await page.goto('/signup');

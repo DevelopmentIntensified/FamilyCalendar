@@ -17,7 +17,7 @@ export default defineConfig({
 		stderr: 'pipe',
 		env: {
 			DATABASE_URL: process.env.DATABASE_URL,
-			RESEND_API: process.env.RESEND_API,
+			RESEND_API: process.env.RESEND_API_KEY,
 			NOREPLYEMAIL: process.env.NOREPLYEMAIL,
 			EMAILSECRET: process.env.EMAILSECRET,
 			ADAPTER: process.env.ADAPTER,

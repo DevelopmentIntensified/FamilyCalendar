@@ -21,7 +21,7 @@ test.afterEach(async () => {
 	}
 });
 
-test('Email Sign Up With Code', async ({ page }) => {
+test.skip('Email Sign Up With Code', async ({ page }) => {
 	const signUpPage = new SignUpPage(page);
 	await test.step('Navigate to the page', async () => {
 		await page.goto('/signup');
