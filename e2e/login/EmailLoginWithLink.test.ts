@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser } from '../../src/lib/server/db/actions/users';
-import { createCode, deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
+import { deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import { calendars, users } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -10,7 +10,7 @@ import { createNewUser } from '../../src/lib/server/utils/createNewUser';
 
 const firstName = 'test';
 const lastName = 'loginwithlink';
-const email = 'loginlink' + Date.now() + '@familyplanz.com';
+const email = 'delivered+loginlink1@resend.dev';
 
 let uid = '';
 
@@ -43,23 +43,17 @@ test('Email Login With Link', async ({ page }) => {
 		await loginPage.goto();
 	});
 
-	await test.step('Switch to Email Link mode and enter email', async () => {
+	await test.step('Switch to Email mode and enter email to trigger actual email send', async () => {
 		await loginPage.emailModeButton.click();
 		await loginPage.emailInput.fill(email);
 		await loginPage.loginButton.click();
 		await page.waitForTimeout(2000);
 	});
 
-	await test.step('Create verification code in DB', async () => {
-		const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-		await createCode({
-			code: uniqueCode,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-			email,
-			firstName,
-			lastName,
-			emailId: 'test-email-id'
-		});
+	await test.step('Get verification code from DB (created by actual email send)', async () => {
+		const codes = await getCodesByEmail(email);
+		expect(codes.length).toBe(1);
+		expect(codes[0].code).toBeDefined();
 	});
 
 	await test.step('Enter verification code and login', async () => {
