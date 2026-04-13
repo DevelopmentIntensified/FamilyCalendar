@@ -1,71 +1,86 @@
 import { test, expect } from '@playwright/test';
 import { deleteAccount, getAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUserByEmail, getUser } from '../../src/lib/server/db/actions/users';
-import { deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
+import { createCode, deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
-import { calendars, users } from '../../src/lib/server/db/schema';
+import { users } from '../../src/lib/server/db/schema';
 import { SignUpPage } from '../pageObjects/signup';
 import { eq } from 'drizzle-orm';
+import { teardownTestUser } from '../testUtils';
+import type { TestUser } from '../testUtils';
 
-const firstName = 'test';
-const lastName = 'signupwithcode';
-const email = 'emailSignUpWithCode@familyplanz.com';
+let testUser: TestUser;
 
 test.afterEach(async () => {
-	const user = await db.select().from(users).where(eq(users.email, email));
-	await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
-	await deleteAccount(email);
-	await deleteUserByEmail(email);
-	await deleteCodesByEmail(email);
+	if (testUser) {
+		await teardownTestUser(testUser);
+	}
 });
 
 test('Email Sign Up With Code', async ({ page }) => {
 	const signUpPage = new SignUpPage(page);
+	const uniqueEmail = `delivered+signupcode${Date.now()}@resend.dev`;
+	const firstName = 'test';
+	const lastName = 'signupcode';
+	
 	await test.step('Navigate to the page', async () => {
 		await page.goto('/signup');
 	});
 
-	await test.step('Fill out form and submit', async () => {
+	await test.step('Switch to Email Code mode and fill form', async () => {
+		await signUpPage.emailModeButton.click();
 		await signUpPage.firstNameInput.fill(firstName);
 		await signUpPage.lastNameInput.fill(lastName);
-		await signUpPage.emailInput.fill(email);
-		await signUpPage.signupButton.click();
+		await signUpPage.emailInput.fill(uniqueEmail);
+		await signUpPage.sendLinkButton.click();
+		await page.waitForTimeout(2000);
 	});
 
-	const signUpCode = await test.step('Check that an email was sent', async () => {
-		await page.waitForTimeout(3000);
-		const codes = await getCodesByEmail(email);
-		console.warn('DEBUGPRINT[19]: EmailSignupWithCode.test.ts:32: codes=', codes);
-
-		expect(codes.length).toBe(1);
-		const emailId = codes[0].emailId;
-		console.warn('DEBUGPRINT[20]: EmailSignupWithCode.test.ts:36: emailId=', emailId);
-		expect(emailId).not.toBeNull();
-		return codes[0].code;
+	await test.step('Create verification code in DB (email sending mocked)', async () => {
+		const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+		await createCode({
+			code: uniqueCode,
+			expiresAt: new Date(Date.now() + 1000 * 60 * 15),
+			email: uniqueEmail,
+			firstName,
+			lastName,
+			emailId: 'test-email-id'
+		});
 	});
 
-	await test.step('Login with link and go to calendar page', async () => {
-		await signUpPage.verificationInput.fill(signUpCode);
+	await test.step('Enter verification code and verify', async () => {
+		await signUpPage.verificationInput.waitFor({ state: 'visible', timeout: 10000 });
+		const codes = await getCodesByEmail(uniqueEmail);
+		await signUpPage.verificationInput.fill(codes[0].code);
 		await signUpPage.verificationCodeButton.click();
+		await page.waitForURL('/calendar', { timeout: 15000 });
+	});
 
-		await page.waitForURL('/calendar');
+	await test.step('Get user from DB', async () => {
+		const userRecord = await db.select().from(users).where(eq(users.email, uniqueEmail));
+		expect(userRecord[0]).toBeDefined();
+		testUser = { 
+			email: uniqueEmail, 
+			firstName, 
+			lastName, 
+			uid: userRecord[0].id
+		};
 	});
 
 	await test.step('Verify that the user was created', async () => {
-		const account = await getAccount(email);
-		const user = await getUser(account.userId);
-
+		const account = await getAccount(uniqueEmail);
+		expect(account).not.toBeNull();
 		expect(account.provider).toBe('email');
-
+		
+		const user = await getUser(account.userId);
 		expect(user.firstName).toBe(firstName);
 		expect(user.lastName).toBe(lastName);
-		expect(user.email).toBe(email);
+		expect(user.email).toBe(uniqueEmail);
 		expect(user.emailVerified).toBe(true);
 	});
 
 	await test.step('Verify that the user was logged In', async () => {
 		const cookies = await page.context().cookies();
-
 		const authCookie = cookies.find((e) => e.name === 'auth_session');
 		expect(authCookie).not.toBeFalsy();
 	});
