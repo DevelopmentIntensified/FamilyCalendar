@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import type { PageData } from './$types';
+	import type { PageData, ActionData } from './$types';
 
-	let error = '';
 	export let data: PageData;
+	export let form: ActionData;
 </script>
 
 <svelte:head>
@@ -89,8 +89,8 @@
 						</select>
 					</div>
 
-					{#if error}
-						<div class="text-sm text-red-500">{error}</div>
+					{#if form?.message}
+						<div class="text-sm text-red-500">{form.message}</div>
 					{/if}
 					<div>
 						<button

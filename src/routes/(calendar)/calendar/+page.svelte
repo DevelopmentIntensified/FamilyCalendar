@@ -1,6 +1,5 @@
 <script lang="ts">
 	export let data: PageData;
-	console.warn('DEBUGPRINT[1]: +page.svelte:9: data=', data);
 
 	import { writable } from 'svelte/store';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
@@ -9,52 +8,44 @@
 	import type { PageData } from './$types';
 	import { onMount } from 'svelte';
 
-	let timeZone = data.userSettings.timeZone;
-	const currentDate = writable(DateTime.now().setZone(timeZone as string));
-	let events: CalendarEvent[] = data.userEvents;
+	const timeZone = data.userSettings?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const currentDate = writable(DateTime.now().setZone(timeZone));
+	type ParsedEvent = CalendarEvent & { date: Date; color: string };
+	let events: ParsedEvent[] = data.userEvents;
 
 	onMount(async () => {
-		if (!data.userSettings.timeZone) {
-			timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone; // set the default timezone
+		if (!data.userSettings?.timeZone) {
+			const newTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 			await fetch('/calendar/setUserDefaultTimeZone', {
-				//set the default user timezone in the settings
 				method: 'post',
 				headers: {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					timeZone: timeZone
+					timeZone: newTimeZone
 				})
 			});
 		}
 
-		Settings.defaultZone = timeZone; // set the default timezone for luxon
-
-		// if(data.userSettings.defaultCalendarId){
-		// 	let userCalendarId = data.userEvents[0].id
-		// 	let familyCalendarId = data.familyEvents[0].id
-		// }
+		Settings.defaultZone = timeZone as string;
 	});
 
 	events = [
-		...data.userEvents.map((e) => ({
-			// we gotta convert the dates and times to luxon times because its easier to use
+		...data.userEvents.map((e: ParsedEvent) => ({
 			...e,
-			date: DateTime.fromJSDate(e.date),
-			start: DateTime.fromJSDate(e.start),
-			end: DateTime.fromJSDate(e.end),
-			color: 'bg-[#fa8072]'
+			date: DateTime.fromJSDate(e.date).setZone(timeZone),
+			start: DateTime.fromJSDate(e.start).setZone(timeZone),
+			end: DateTime.fromJSDate(e.end).setZone(timeZone),
+			color: `bg-[${data.userCalendarColor}]`
 		})),
-		...data.familyEvents.map((e) => ({
-			// do it again for family events
+		...data.familyEvents.map((e: ParsedEvent) => ({
 			...e,
-			date: DateTime.fromJSDate(e.date),
-			start: DateTime.fromJSDate(e.start),
-			end: DateTime.fromJSDate(e.end),
-			color: 'bg-[#e0ffff]'
+			date: DateTime.fromJSDate(e.date).setZone(timeZone),
+			start: DateTime.fromJSDate(e.start).setZone(timeZone),
+			end: DateTime.fromJSDate(e.end).setZone(timeZone),
+			color: `bg-[${data.familyCalendarColor}]`
 		}))
-	];
-	console.warn('DEBUGPRINT[28]: +page.svelte:38: events=', events);
+	] as ParsedEvent[];
 </script>
 
 <svelte:head>

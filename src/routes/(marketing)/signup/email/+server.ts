@@ -1,15 +1,13 @@
 import { sendEmail } from '$lib/utils/sendEmail';
 import { type RequestEvent } from '@sveltejs/kit';
 import { NOREPLYEMAIL, EMAILSECRET } from '$env/static/private';
-import { accounts, codes } from '$lib/server/db/schema';
-import { db } from '$lib/server/db';
-import { and, eq } from 'drizzle-orm';
 import { getUrl } from '$lib/utils/getUrl';
 import { createJWT } from 'oslo/jwt';
 import { TimeSpan } from 'lucia';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { createCode } from '$lib/server/db/actions/codes';
 import { getAccount } from '$lib/server/db/actions/accounts';
+import { getUserByEmail } from '$lib/server/db/actions/users';
 
 export type emailTokenPayloadType = {
 	email: string;
@@ -36,8 +34,9 @@ export const POST = async (event: RequestEvent) => {
 	}
 
 	const account = await getAccount(email);
+	const existingUser = await getUserByEmail(email);
 
-	if (account) {
+	if (account || existingUser) {
 		return new Response(JSON.stringify({ success: false, error: 'Email already registered' }), {
 			status: 400
 		});
@@ -95,7 +94,6 @@ export const POST = async (event: RequestEvent) => {
 
 			return new Response(JSON.stringify({ success: true }), { status: 200 });
 		}
-		console.log(JSON.stringify(error));
 		return new Response(
 			JSON.stringify({ success: false, error: 'There was an error. Please try again.' }),
 			{ status: 500 }

@@ -9,7 +9,6 @@ export const POST: RequestHandler = async function (event) {
 	const redirectUrl = new URL(siteUrl + '/login');
 	redirectUrl.searchParams.set('error', 'The code incorrect. Please try again');
 	const code = (await event.request.json()).code;
-	console.warn('DEBUGPRINT[1]: +server.ts:14: code=', code);
 
 	await deleteDeadCodes();
 
@@ -52,7 +51,6 @@ export const POST: RequestHandler = async function (event) {
 
 		return result;
 	} catch (error) {
-		console.log(error);
 		return new Response(
 			JSON.stringify({ success: false, error: 'Unexpected error, please try again' }),
 			{ status: 500 }

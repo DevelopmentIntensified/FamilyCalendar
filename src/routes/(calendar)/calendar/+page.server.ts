@@ -10,6 +10,7 @@ import {
 	type CalendarEvent
 } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { createUserCalendar } from '$lib/server/db/actions/calendar';
 
 const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
 
@@ -39,45 +40,54 @@ const parseEvents = function (eventsData) {
 };
 
 export const load: PageServerLoad = async (event) => {
-	console.log('testf');
+	if (!event.locals.user) {
+		return redirect(302, '/login');
+	}
 	let userId = event.locals.user.id;
 	let userSettings = await getUserSettings(userId);
-	const [userCalendar] = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
-	console.warn('DEBUGPRINT[23]: +page.server.ts:37: userCalendar=', userCalendar);
+	let userCalendar = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
 
-	const [userFamily] = await db
-		.select()
-		.from(familyMembers)
-		.leftJoin(families, eq(families.id, familyMembers.familyId))
-		.where(eq(familyMembers.userId, userId));
-	console.warn('DEBUGPRINT[24]: +page.server.ts:44: userFamily=', userFamily);
-
-	let familyEventsData: [] | CalendarEvent[] = [];
-	let familyCalendar = [];
-	if (!!userFamily) {
-		familyCalendar = await db
-			.select()
-			.from(calendars)
-			.where(eq(calendars.familyId, userFamily.familyMembers.familyId));
-		console.warn('DEBUGPRINT[25]: +page.server.ts:53: familyCalendar=', familyCalendar);
-		familyEventsData = await db
-			.select()
-			.from(events)
-			.where(eq(events.calendarId, familyCalendar[0].id))
-			.orderBy(events.start); //get the events
-		console.warn('DEBUGPRINT[26]: +page.server.ts:58: familyEventsData=', familyEventsData);
+	if (userCalendar.length === 0) {
+		await createUserCalendar(userId);
+		userCalendar = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
 	}
 
-	const eventsData = await db
+	let userEvents: CalendarEvent[] = [];
+	if (userCalendar.length > 0) {
+		userEvents = await db
+			.select()
+			.from(events)
+			.where(eq(events.calendarId, userCalendar[0].id))
+			.orderBy(events.start);
+	}
+
+	const [member] = await db
 		.select()
-		.from(events)
-		.where(eq(events.calendarId, userCalendar.id))
-		.orderBy(events.start); //get the events
-	console.warn('DEBUGPRINT[27]: +page.server.ts:66: eventsData=', eventsData);
+		.from(familyMembers)
+		.where(eq(familyMembers.userId, userId));
+
+	let familyId = member?.familyId;
+	let familyEventsData: CalendarEvent[] = [];
+	let familyCalendarColor = '#e0ffff';
+	if (familyId) {
+		const [family] = await db.select().from(families).where(eq(families.id, familyId));
+		familyCalendarColor = family?.color || '#e0ffff';
+		
+		let familyCals = await db.select().from(calendars).where(eq(calendars.familyId, familyId));
+		if (familyCals.length > 0) {
+			familyEventsData = await db
+				.select()
+				.from(events)
+				.where(eq(events.calendarId, familyCals[0].id))
+				.orderBy(events.start);
+		}
+	}
 
 	return {
-		userEvents: parseEvents(eventsData),
+		userEvents: parseEvents(userEvents),
 		familyEvents: parseEvents(familyEventsData),
-		userSettings
+		userSettings,
+		userCalendarColor: userSettings?.color || '#fa8072',
+		familyCalendarColor
 	};
 };

@@ -6,34 +6,48 @@ import type { PageServerLoad } from './$types';
 import { calendars, families, familyMembers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { getUserFamily } from '$lib/server/db/actions/families';
-import { getUserCalendar } from '$lib/server/db/actions/calendar';
+import { getUserFamilies } from '$lib/server/db/actions/families';
+import { getUserCalendar, createUserCalendar } from '$lib/server/db/actions/calendar';
+import { getUserSettings } from '$lib/server/db/actions/userSettings';
 
 // get the possible calendar ids for the current user
 export const load: PageServerLoad = async (event) => {
+	if (!event.locals.user) {
+		return redirect(302, '/login');
+	}
 	let calendarIds: { id: string; name: string }[] = [];
 	let userId = event.locals.user.id;
-	const userFamily = await getUserFamily(userId);
+	const userFamily = await getUserFamilies(userId);
 
-	let familyCalendar = [];
-	if (!!userFamily) {
-		//get the family calendar if the user is part of a family to add it to the list of ids
+	let familyCalendar: any[] = [];
+	if (userFamily?.familyMembers?.familyId) {
 		familyCalendar = await db
 			.select()
 			.from(calendars)
 			.where(eq(calendars.familyId, userFamily.familyMembers.familyId));
-		calendarIds.push({ id: familyCalendar[0].id, name: 'Family Calendar' });
+		if (familyCalendar.length > 0) {
+			calendarIds.push({ id: familyCalendar[0].id, name: 'Family Calendar' });
+		}
 	}
-	let userCalendar = await getUserCalendar(userId); // get the user calendar so we can get its id
-	calendarIds.push({ id: userCalendar.id, name: 'User Calendar' });
+	let userCalendar = await getUserCalendar(userId);
+	if (!userCalendar) {
+		userCalendar = await createUserCalendar(userId);
+	}
+	if (userCalendar) {
+		calendarIds.push({ id: userCalendar.id, name: 'User Calendar' });
+	}
+
+	const userSettings = await getUserSettings(userId);
 
 	return {
-		calendarIds
+		calendarIds,
+		user: { id: userId },
+		userSettings
 	};
 };
 
 export const actions: Actions = {
-	createEvent: async ({ request }) => {
+	createEvent: async ({ request, locals }) => {
 		const formData = await request.formData();
 		const title = formData.get('title');
 		const start = formData.get('start');
@@ -48,16 +62,21 @@ export const actions: Actions = {
 			return fail(400, { message: 'All fields are required' });
 		}
 
-		// @ts-ignore
-		let start2 = DateTime.fromISO(start.replace(' ', 'T')); //Add the T to make it ISO date
-		// @ts-ignore
-		let end2 = DateTime.fromISO(end.replace(' ', 'T'));
+		const userSettings = await getUserSettings(locals.user.id);
+		const userTimeZone = userSettings?.timeZone || 'UTC';
+
+		const startDateTime = DateTime.fromISO(start.replace(' ', 'T'), { zone: userTimeZone });
+		const endDateTime = DateTime.fromISO(end.replace(' ', 'T'), { zone: userTimeZone });
+
+		if (!startDateTime.isValid || !endDateTime.isValid) {
+			return fail(400, { message: 'Invalid date/time format' });
+		}
 
 		const newEvent = await createEvent({
 			description: description,
-			title: title.toString(), // tostring to stop the type complaining
-			start: start2.toString(),
-			end: end2.toString(),
+			title: title.toString(),
+			start: startDateTime.toString(),
+			end: endDateTime.toString(),
 			location: location.toString(),
 			calendarId: calendarId.toString(),
 			ownerId
