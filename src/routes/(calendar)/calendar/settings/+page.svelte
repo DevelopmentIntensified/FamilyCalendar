@@ -69,14 +69,14 @@
 </script>
 
 <div class="mx-auto max-w-2xl p-6">
-	<h1 class="mb-6 text-2xl font-bold">Calendar Settings</h1>
+	<h1 class="mb-6 text-2xl font-bold text-slate-900">Calendar Settings</h1>
 
 	{#if success}
-		<div class="mb-4 rounded-md bg-green-100 p-4 text-green-800">
+		<div class="mb-4 rounded-lg bg-green-50 p-4 text-green-700 border border-green-200">
 			{message}
 		</div>
 	{:else if form && !form.success}
-		<div class="mb-4 rounded-md bg-red-100 p-4 text-red-800">
+		<div class="mb-4 rounded-lg bg-red-50 p-4 text-red-700 border border-red-200">
 			{form.message}
 		</div>
 	{/if}
@@ -94,11 +94,11 @@
 		class="space-y-6"
 	>
 		<div class="space-y-2">
-			<label for="weekStart" class="block font-medium">Week Start</label>
+			<label for="weekStart" class="block text-sm font-medium text-slate-700">Week Starts On</label>
 			<select
 				id="weekStart"
 				name="weekStart"
-				class="w-full rounded-md border p-2"
+				class="w-full rounded-lg border border-slate-300 px-4 py-2.5"
 				value={settings.weekStart}
 			>
 				<option value="sunday" selected={settings.weekStart === 'sunday'}>Sunday</option>
@@ -107,11 +107,11 @@
 		</div>
 
 		<div class="space-y-2">
-			<label for="timeZone" class="block font-medium">Time Zone</label>
+			<label for="timeZone" class="block text-sm font-medium text-slate-700">Time Zone</label>
 			<select
 				id="timeZone"
 				name="timeZone"
-				class="w-full rounded-md border p-2"
+				class="w-full rounded-lg border border-slate-300 px-4 py-2.5"
 				value={settings.timeZone}
 			>
 				{#each timeZones as tz}
@@ -121,11 +121,11 @@
 		</div>
 
 		<div class="space-y-2">
-			<label for="defaultView" class="block font-medium">Default View</label>
+			<label for="defaultView" class="block text-sm font-medium text-slate-700">Default View</label>
 			<select
 				id="defaultView"
 				name="defaultView"
-				class="w-full rounded-md border p-2"
+				class="w-full rounded-lg border border-slate-300 px-4 py-2.5"
 				value={settings.defaultView}
 			>
 				{#each viewOptions as view}
@@ -135,31 +135,31 @@
 		</div>
 
 		<div class="space-y-2">
-			<label for="color" class="block font-medium">Default Event Color</label>
+			<label for="color" class="block text-sm font-medium text-slate-700">Default Event Color</label>
 			<input
 				type="color"
 				id="color"
 				name="color"
-				class="h-10 w-full rounded-md border p-1"
+				class="h-12 w-full rounded-lg border border-slate-300 p-1"
 				value={settings.color || '#3b82f6'}
 			/>
 		</div>
 
-		<div class="flex items-center space-x-2">
+		<div class="flex items-center gap-3">
 			<input
 				type="checkbox"
 				id="syncEventsToFamilyCalendar"
 				name="syncEventsToFamilyCalendar"
-				class="h-4 w-4 rounded border-gray-300"
+				class="h-5 w-5 rounded border-slate-300"
 				checked={settings.syncEventsToFamilyCalendar}
 			/>
-			<label for="syncEventsToFamilyCalendar" class="font-medium">Sync events to family calendar</label>
+			<label for="syncEventsToFamilyCalendar" class="text-sm font-medium text-slate-700">Sync events to family calendar</label>
 		</div>
 
 		<button
 			type="submit"
 			disabled={loading}
-			class="w-full rounded-md bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+			class="w-full rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
 		>
 			{loading ? 'Saving...' : 'Save Settings'}
 		</button>
