@@ -3,7 +3,7 @@ import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser } from '../../src/lib/server/db/actions/users';
 import { deleteCodesByEmail, getCodesByEmail, createCode } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
-import { calendars, users } from '../../src/lib/server/db/schema';
+import { calendars, users, sessions, userSettings, events } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { LoginPage } from '../pageObjects/login';
 import { createNewUser } from '../../src/lib/server/utils/createNewUser';
@@ -17,7 +17,10 @@ let uid = '';
 test.beforeEach(async () => {
 	const existingUser = await db.select().from(users).where(eq(users.email, email));
 	if (existingUser[0]) {
+		await db.delete(events).where(eq(events.ownerId, existingUser[0].id));
 		await db.delete(calendars).where(eq(calendars.ownerId, existingUser[0].id));
+		await db.delete(userSettings).where(eq(userSettings.userId, existingUser[0].id));
+		await db.delete(sessions).where(eq(sessions.userId, existingUser[0].id));
 		await deleteAccount(email);
 		await deleteUser(existingUser[0].id);
 		await deleteCodesByEmail(email);
@@ -29,7 +32,10 @@ test.beforeEach(async () => {
 test.afterEach(async () => {
 	const user = await db.select().from(users).where(eq(users.email, email));
 	if (user[0]) {
+		await db.delete(events).where(eq(events.ownerId, user[0].id));
 		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
+		await db.delete(userSettings).where(eq(userSettings.userId, user[0].id));
+		await db.delete(sessions).where(eq(sessions.userId, user[0].id));
 		await deleteAccount(email);
 		await deleteUser(uid);
 		await deleteCodesByEmail(email);
