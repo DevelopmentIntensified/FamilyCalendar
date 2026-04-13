@@ -19,7 +19,10 @@
 				</svg>
 				<span class="text-xl font-bold text-slate-800">Family Planz</span>
 			</div>
-			<div class="flex items-center gap-4">
+			<div class="flex items-center gap-6">
+				<a href="/about" class="text-sm font-medium text-slate-600 hover:text-slate-900">About</a>
+				<a href="/pricing" class="text-sm font-medium text-slate-600 hover:text-slate-900">Pricing</a>
+				<a href="/contact" class="text-sm font-medium text-slate-600 hover:text-slate-900">Contact</a>
 				<a href="/login" class="text-sm font-medium text-slate-600 hover:text-slate-900">Sign In</a>
 				<a href="/signup" class="rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700">Get Started</a>
 			</div>
