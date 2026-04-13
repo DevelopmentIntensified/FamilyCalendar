@@ -11,10 +11,32 @@ export async function getUser(id: string) {
 	return User;
 }
 
-export async function createUser(
-	data: Omit<Omit<Omit<User, 'createdAt'>, 'updatedAt'>, 'lastLogin'>
-) {
-	const [createdUser] = await db.insert(users).values(data).returning();
+export async function getUserByEmail(email: string) {
+	const [User] = await db.select().from(users).where(eq(users.email, email));
+	return User;
+}
+
+export async function emailExists(email: string): Promise<boolean> {
+	const [User] = await db.select().from(users).where(eq(users.email, email));
+	return !!User;
+}
+
+export async function createUser(data: {
+	email: string;
+	passwordHash: string;
+	firstName: string;
+	lastName: string;
+	emailVerified?: boolean;
+	roles?: string[];
+}) {
+	const [createdUser] = await db
+		.insert(users)
+		.values({
+			...data,
+			emailVerified: data.emailVerified ?? false,
+			roles: data.roles ?? []
+		})
+		.returning();
 	return createdUser;
 }
 

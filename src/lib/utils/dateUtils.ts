@@ -37,6 +37,27 @@ export const formatDate = (date: DateTime) => {
 };
 
 export const parseDate = (dateString: string) => {
-	const [year, month, day] = dateString.split('-').map(Number);
+	const [month, day, year] = dateString.split('-').map(Number);
 	return new Date(year, month - 1, day);
+};
+
+export const parseDateTimeInZone = (dateTimeString: string, timeZone: string): DateTime => {
+	return DateTime.fromISO(dateTimeString.replace(' ', 'T'), { zone: timeZone });
+};
+
+export const formatDateTimeInZone = (dateTime: DateTime, timeZone: string): string => {
+	return dateTime.setZone(timeZone).toISO() || '';
+};
+
+export const convertToUserTimeZone = (dateTime: DateTime, timeZone: string): DateTime => {
+	return dateTime.setZone(timeZone);
+};
+
+export const isValidTimeZone = (timeZone: string): boolean => {
+	const dt = DateTime.now().setZone(timeZone);
+	return dt.isValid && dt.zoneName !== 'fixed';
+};
+
+export const getTimeZoneOffset = (timeZone: string): string => {
+	return DateTime.now().setZone(timeZone).toFormat('ZZ');
 };

@@ -1,0 +1,11 @@
+{
+  "regions": ["iad1"],
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "test": true,
+      "production": false
+    },
+    "ignoreGitIgnore": true
+  }
+}

@@ -7,7 +7,8 @@
 
 	export let currentDate: Writable<DateTime>;
 	export let events;
-	export let preferedFirstDayOfWeek: string;
+	export let removeEvent: (id: string) => void = () => {};
+	export let preferedFirstDayOfWeek: string = 'sunday';
 
 	let view: 'month' | 'list' = 'month';
 </script>
@@ -17,8 +18,8 @@
 		<DateSelector {currentDate} />
 	</div>
 	{#if view === 'month'}
-		<MonthView {currentDate} {events} {preferedFirstDayOfWeek} />
+		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} />
 	{:else}
-		<ListView {currentDate} {events} />
+		<ListView {currentDate} {events} {removeEvent} />
 	{/if}
 </div>

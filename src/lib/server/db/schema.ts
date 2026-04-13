@@ -127,7 +127,9 @@ export const codes = pgTable('codes', {
 	email: text('email').notNull(),
 	firstName: text('firstName'),
 	lastName: text('lastName'),
-	emailId: text('emailId')
+	emailId: text('emailId'),
+	type: text('type').default('signup'),
+	pendingEmail: text('pendingEmail')
 });
 
 export const sessions = pgTable('sessions', {
