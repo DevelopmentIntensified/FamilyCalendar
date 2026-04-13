@@ -221,7 +221,7 @@ export const calendars = pgTable('calendars', {
 		.primaryKey()
 		.$defaultFn(() => generateId(15)),
 	ownerId: text('owner_id').references(() => users.id, { onDelete: 'cascade' }),
-	familyId: text('family_id').references(() => families.id),
+	familyId: text('family_id').references(() => families.id, { onDelete: 'cascade' }),
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
