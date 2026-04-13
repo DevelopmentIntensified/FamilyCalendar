@@ -33,13 +33,13 @@
 	}
 </script>
 
-<nav class="fixed top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+<nav class="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm">
 	<div class="mx-auto max-w-7xl px-3 sm:px-4 lg:px-5">
 		<div class="flex h-16 items-center justify-between">
 			<div class="flex items-center gap-3">
 				<a href="/" class="flex items-center gap-2">
 					<img class="h-10 w-10" src={calendarIcon} alt="FamilyPlanz" />
-					<span class="text-xl font-bold text-gray-900">FamilyPlanz</span>
+					<span class="text-xl font-bold text-slate-900">FamilyPlanz</span>
 				</a>
 			</div>
 
@@ -51,7 +51,7 @@
 							class="rounded-lg px-3 py-2 text-sm font-medium transition-colors
 								{isActive(item.href)
 									? 'bg-primary-100 text-primary-700'
-									: 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}"
+									: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
 						>
 							{item.label}
 						</a>
@@ -61,7 +61,7 @@
 
 			<div class="hidden md:flex items-center gap-3">
 				{#if isLoggedIn}
-					<a href="/account" class="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
+					<a href="/account" class="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200">
 						My Account
 					</a>
 					<form action="/api/logout" method="POST">
@@ -70,7 +70,7 @@
 						</button>
 					</form>
 				{:else}
-					<a href="/login" class="text-sm font-medium text-gray-600 hover:text-gray-900">
+					<a href="/login" class="text-sm font-medium text-slate-600 hover:text-slate-900">
 						Login
 					</a>
 					<a href="/signup" class="rounded-full bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700">
@@ -81,7 +81,7 @@
 
 			<button
 				on:click={toggleMenu}
-				class="rounded-lg p-2 text-gray-600 hover:bg-gray-100 md:hidden"
+				class="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden"
 			>
 				<span class="sr-only">Open menu</span>
 				{#if isOpen}
@@ -98,7 +98,7 @@
 	</div>
 
 	{#if isOpen}
-		<div transition:slide={{ duration: 200 }} class="border-t border-gray-200 bg-white md:hidden">
+		<div transition:slide={{ duration: 200 }} class="border-t border-slate-200 bg-white md:hidden">
 			<div class="space-y-1 px-3 py-3">
 				{#each navItems as item}
 					<a
@@ -107,14 +107,14 @@
 						class="block rounded-lg px-3 py-2.5 text-base font-medium transition-colors
 							{isActive(item.href)
 								? 'bg-primary-100 text-primary-700'
-								: 'text-gray-600 hover:bg-gray-100'}"
+								: 'text-slate-600 hover:bg-slate-100'}"
 					>
 						{item.label}
 					</a>
 				{/each}
-				<div class="mt-4 flex flex-col gap-2 border-t border-gray-200 pt-3">
+				<div class="mt-4 flex flex-col gap-2 border-t border-slate-200 pt-3">
 					{#if isLoggedIn}
-						<a href="/account" on:click={closeMenu} class="block rounded-lg bg-gray-100 px-3 py-2.5 text-center text-base font-medium text-gray-700">
+						<a href="/account" on:click={closeMenu} class="block rounded-lg bg-slate-100 px-3 py-2.5 text-center text-base font-medium text-slate-700">
 							My Account
 						</a>
 						<form action="/api/logout" method="POST" class="block">
@@ -123,7 +123,7 @@
 							</button>
 						</form>
 					{:else}
-						<a href="/login" on:click={closeMenu} class="block rounded-lg border border-gray-300 px-3 py-2.5 text-center text-base font-medium text-gray-700">
+						<a href="/login" on:click={closeMenu} class="block rounded-lg border border-slate-300 px-3 py-2.5 text-center text-base font-medium text-slate-700">
 							Login
 						</a>
 						<a href="/signup" on:click={closeMenu} class="block rounded-lg bg-primary-600 px-3 py-2.5 text-center text-base font-medium text-white">

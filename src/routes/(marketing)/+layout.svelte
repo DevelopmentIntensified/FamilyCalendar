@@ -17,6 +17,6 @@
 	{/key}
 </div>
 
-<footer class="bg-gray-100 py-6 text-center">
-	<p class="text-sm text-gray-500">&copy; {new Date().getFullYear()} FamilyPlanz. All rights reserved.</p>
+<footer class="border-t border-slate-200 bg-white py-6 text-center">
+	<p class="text-sm text-slate-500">&copy; {new Date().getFullYear()} FamilyPlanz. All rights reserved.</p>
 </footer>

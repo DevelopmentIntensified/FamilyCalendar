@@ -125,8 +125,8 @@
 				{#if emailSent}
 					<div class="text-center">
 						<div class="mb-4 text-6xl">📧</div>
-						<h2 class="mb-2 text-xl font-semibold">Check Your Email</h2>
-						<p class="mb-6 text-gray-600">
+						<h2 class="mb-2 text-xl font-semibold text-slate-900">Check Your Email</h2>
+						<p class="mb-6 text-slate-600">
 							We've sent a login code to <strong>{email}</strong>
 						</p>
 						
@@ -135,13 +135,13 @@
 								type="text"
 								bind:value={code}
 								placeholder="Enter login code"
-								class="w-full rounded-lg border border-slate-300 px-4 py-3 text-center text-lg tracking-widest focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+								class="w-full rounded-lg border border-slate-300 px-4 py-3 text-center text-lg tracking-widest text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 								required
 							/>
 							<button
 								type="submit"
 								disabled={waiting}
-								class="w-full rounded-md bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:bg-gray-400"
+								class="w-full rounded-full bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:bg-slate-400"
 							>
 								{waiting ? 'Logging in...' : 'Login'}
 							</button>
@@ -149,7 +149,7 @@
 
 						<button
 							on:click={resendCode}
-							class="mt-4 text-sm text-gray-600 hover:text-primary-600"
+							class="mt-4 text-sm text-slate-600 hover:text-primary-600"
 						>
 							Didn't receive the code? Resend
 						</button>
@@ -209,12 +209,12 @@
 					{:else}
 						<form on:submit|preventDefault={handleMagicLinkLogin} class="space-y-4">
 							<div>
-								<label for="emailML" class="block text-sm font-medium text-gray-700">Email</label>
+								<label for="emailML" class="block text-sm font-medium text-slate-700">Email</label>
 								<input
 									id="emailML"
 									type="email"
 									bind:value={email}
-									class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 									required
 								/>
 							</div>
@@ -222,7 +222,7 @@
 							<button
 								type="submit"
 								disabled={waiting}
-								class="w-full rounded-md bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:bg-gray-400"
+								class="w-full rounded-full bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:bg-slate-400"
 							>
 								{waiting ? 'Sending...' : 'Send Login Link'}
 							</button>

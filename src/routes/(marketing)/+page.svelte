@@ -396,24 +396,4 @@
 			<p class="mt-4 text-sm text-primary-200">No credit card required.</p>
 		</div>
 	</section>
-
-	<!-- Footer -->
-	<footer class="border-t border-slate-200 bg-white py-12">
-		<div class="mx-auto max-w-7xl px-6">
-			<div class="flex flex-col items-center justify-between gap-6 md:flex-row">
-				<div class="flex items-center gap-2">
-					<svg class="h-6 w-6 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<rect x="3" y="4" width="18" height="18" rx="2" />
-						<line x1="16" y1="2" x2="16" y2="6" />
-						<line x1="8" y1="2" x2="8" y2="6" />
-						<line x1="3" y1="10" x2="21" y2="10" />
-					</svg>
-					<span class="font-bold text-slate-800">Family Planz</span>
-				</div>
-				<p class="text-sm text-slate-500">
-					© {new Date().getFullYear()} Family Planz. Keeping families organized.
-				</p>
-			</div>
-		</div>
-	</footer>
 </div>
