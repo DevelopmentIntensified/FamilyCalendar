@@ -1,8 +1,9 @@
-import { getUserFamilies } from '$lib/server/db/actions/families';
+import { getUserFamilies, removeFamilyMember, updateFamilies } from '$lib/server/db/actions/families';
 import { db } from '$lib/server/db';
 import { families, familyMembers, users } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad, Actions } from './$types';
+import { fail } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const userFamilies = await getUserFamilies(locals.user.id);
@@ -30,4 +31,32 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.where(eq(familyMembers.familyId, params.familyId));
 
 	return { family, members };
+};
+
+export const actions: Actions = {
+	removeMember: async ({ request, params }) => {
+		const formData = await request.formData();
+		const userId = formData.get('userId') as string;
+		
+		if (!userId) {
+			return fail(400, { error: 'User ID is required' });
+		}
+		
+		await removeFamilyMember(params.familyId, userId);
+		return { success: true };
+	},
+	updateFamily: async ({ request, params }) => {
+		const formData = await request.formData();
+		const name = formData.get('name') as string;
+		const color = formData.get('color') as string;
+		
+		const updateData: { name?: string; color?: string } = {};
+		if (name) updateData.name = name;
+		if (color) updateData.color = color;
+		
+		if (Object.keys(updateData).length > 0) {
+			await updateFamilies(params.familyId, updateData);
+		}
+		return { success: true };
+	}
 };

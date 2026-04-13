@@ -4,10 +4,11 @@ import {
 	families,
 	familyMembers,
 	familyInviteCodes,
+	users,
 	type Family,
 	type FamilyInviteCode
 } from '$lib/server/db/schema';
-import { count, eq, and, gt } from 'drizzle-orm';
+import { count, eq, and, gt, ilike, or, sql } from 'drizzle-orm';
 import { generateId } from 'lucia';
 
 export async function getFamiliesCount() {
@@ -140,4 +141,43 @@ export async function getFamilyInviteCodes(familyId: string) {
 		.select()
 		.from(familyInviteCodes)
 		.where(eq(familyInviteCodes.familyId, familyId));
+}
+
+export async function removeFamilyMember(familyId: string, userId: string) {
+	await db.delete(familyMembers).where(
+		and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId))
+	);
+}
+
+export async function searchUsers(query: string, familyId: string) {
+	const lowerQuery = `%${query.toLowerCase()}%`;
+	const existingMembers = await db
+		.select({ userId: familyMembers.userId })
+		.from(familyMembers)
+		.where(eq(familyMembers.familyId, familyId));
+	
+	const excludeUserIds = existingMembers.map(m => m.userId);
+	excludeUserIds.push('');
+	
+	const allUsers = await db
+		.select({
+			id: users.id,
+			firstName: users.firstName,
+			lastName: users.lastName,
+			email: users.email
+		})
+		.from(users)
+		.where(eq(users.emailVerified, true));
+	
+	const queryLower = query.toLowerCase();
+	return allUsers
+		.filter(u => 
+			!excludeUserIds.includes(u.id) && (
+				u.email.toLowerCase().includes(queryLower) ||
+				u.firstName.toLowerCase().includes(queryLower) ||
+				u.lastName.toLowerCase().includes(queryLower) ||
+				`${u.firstName} ${u.lastName}`.toLowerCase().includes(queryLower)
+			)
+		)
+		.slice(0, 10);
 }
