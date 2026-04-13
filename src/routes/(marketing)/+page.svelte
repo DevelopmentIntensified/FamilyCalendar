@@ -8,7 +8,7 @@
 
 <div class="min-h-screen bg-slate-50">
 	<!-- Hero Section -->
-	<section class="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-32">
+	<section class="relative overflow-hidden pt-16 pb-20 md:pt-20 md:pb-32">
 		<div class="absolute inset-0 bg-gradient-to-br from-orange-50 via-white to-amber-50"></div>
 		<div class="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-primary-100/50 blur-3xl"></div>
 		<div class="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-amber-100/50 blur-3xl"></div>
