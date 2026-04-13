@@ -18,7 +18,8 @@ export const users = pgTable('users', {
 		.$defaultFn(() => generateId(15)),
 	firstName: text('firstName').notNull(),
 	lastName: text('lastName').notNull(),
-	email: text('email').notNull(),
+	email: text('email').notNull().unique(),
+	passwordHash: text('passwordhash'),
 	emailVerified: boolean('emailVerified'),
 	picture: text('picture'),
 	roles: json('roles').default([]).$type<string[]>().notNull(),
@@ -142,15 +143,26 @@ export const familyMembers = pgTable(
 	{
 		userId: text('user_id')
 			.notNull()
-			.references(() => users.id),
+			.references(() => users.id, { onDelete: 'cascade' }),
 		familyId: text('family_id')
 			.notNull()
-			.references(() => families.id)
+			.references(() => families.id, { onDelete: 'cascade' })
 	},
 	(userFamily) => ({
 		compoundKey: primaryKey({ columns: [userFamily.userId, userFamily.familyId] })
 	})
 );
+
+export const familyInviteCodes = pgTable('familyInviteCodes', {
+	code: text('code').notNull().primaryKey(),
+	familyId: text('familyId')
+		.notNull()
+		.references(() => families.id),
+	expiresAt: timestamp('expiresAt', { withTimezone: true, mode: 'date' }).notNull(),
+	maxUses: integer('maxUses').default(1),
+	useCount: integer('useCount').default(0),
+	createdBy: text('createdBy').references(() => users.id)
+});
 
 export const familyGroups = pgTable(
 	'familyGroups',
@@ -206,7 +218,7 @@ export const calendars = pgTable('calendars', {
 		.notNull()
 		.primaryKey()
 		.$defaultFn(() => generateId(15)),
-	ownerId: text('owner_id').references(() => users.id),
+	ownerId: text('owner_id').references(() => users.id, { onDelete: 'cascade' }),
 	familyId: text('family_id').references(() => families.id),
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
@@ -214,10 +226,10 @@ export const calendars = pgTable('calendars', {
 export const eventAttendance = pgTable('eventAttendance', {
 	eventId: text('event_id')
 		.notNull()
-		.references(() => events.id),
+		.references(() => events.id, { onDelete: 'cascade' }),
 	userId: text('user_id')
 		.notNull()
-		.references(() => users.id),
+		.references(() => users.id, { onDelete: 'cascade' }),
 	status: text('status').default('undecided')
 });
 
@@ -226,10 +238,10 @@ export const events = pgTable('events', {
 		.notNull()
 		.primaryKey()
 		.$defaultFn(() => generateId(15)),
-	calendarId: text('calendar_id').references(() => calendars.id),
+	calendarId: text('calendar_id').references(() => calendars.id, { onDelete: 'cascade' }),
 	ownerId: text('owner_id')
 		.notNull()
-		.references(() => users.id),
+		.references(() => users.id, { onDelete: 'cascade' }),
 	title: text('title').notNull(),
 	start: timestamp('start', {
 		withTimezone: true,
@@ -253,3 +265,4 @@ export type User = typeof users.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
 export type UserSettings = typeof userSettings.$inferSelect;
 export type Family = typeof families.$inferSelect;
+export type FamilyInviteCode = typeof familyInviteCodes.$inferSelect;

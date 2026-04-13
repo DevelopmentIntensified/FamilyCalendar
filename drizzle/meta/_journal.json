@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1775932065765,
+      "tag": "0000_numerous_northstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776092659743,
+      "tag": "0001_careless_wind_dancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776093997255,
+      "tag": "0002_worried_jack_murdock",
+      "breakpoints": true
+    }
+  ]
+}
