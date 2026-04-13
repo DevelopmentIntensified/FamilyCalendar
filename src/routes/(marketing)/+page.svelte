@@ -7,28 +7,6 @@
 </svelte:head>
 
 <div class="min-h-screen bg-slate-50">
-	<!-- Navigation -->
-	<nav class="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm">
-		<div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-			<div class="flex items-center gap-2">
-				<svg class="h-8 w-8 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<rect x="3" y="4" width="18" height="18" rx="2" />
-					<line x1="16" y1="2" x2="16" y2="6" />
-					<line x1="8" y1="2" x2="8" y2="6" />
-					<line x1="3" y1="10" x2="21" y2="10" />
-				</svg>
-				<span class="text-xl font-bold text-slate-800">Family Planz</span>
-			</div>
-			<div class="flex items-center gap-6">
-				<a href="/about" class="text-sm font-medium text-slate-600 hover:text-slate-900">About</a>
-				<a href="/pricing" class="text-sm font-medium text-slate-600 hover:text-slate-900">Pricing</a>
-				<a href="/contact" class="text-sm font-medium text-slate-600 hover:text-slate-900">Contact</a>
-				<a href="/login" class="text-sm font-medium text-slate-600 hover:text-slate-900">Sign In</a>
-				<a href="/signup" class="rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700">Get Started</a>
-			</div>
-		</div>
-	</nav>
-
 	<!-- Hero Section -->
 	<section class="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-32">
 		<div class="absolute inset-0 bg-gradient-to-br from-orange-50 via-white to-amber-50"></div>
