@@ -151,18 +151,13 @@ export const actions: Actions = {
 			return fail(400, { success: false, message: 'Confirmation does not match' });
 		}
 
-		try {
-			await lucia.invalidateSession(locals.session!.id);
-			
-			await db.delete(sessions).where(eq(sessions.userId, userId));
-			
-			const { deleteUser } = await import('$lib/server/db/actions/users');
-			await deleteUser(userId);
+		await lucia.invalidateSession(locals.session!.id);
+		
+		await db.delete(sessions).where(eq(sessions.userId, userId));
+		
+		const { deleteUser } = await import('$lib/server/db/actions/users');
+		await deleteUser(userId);
 
-			return redirect(302, '/');
-		} catch (error) {
-			console.error('Failed to delete account:', error);
-			return fail(500, { success: false, message: 'Failed to delete account' });
-		}
+		return redirect(302, '/');
 	}
 };
