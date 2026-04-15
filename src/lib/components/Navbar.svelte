@@ -7,7 +7,6 @@
 	let isOpen = false;
 
 	const marketingNavItems = [
-		{ href: '/', label: 'Home' },
 		{ href: '/about', label: 'About' },
 		{ href: '/pricing', label: 'Pricing' },
 		{ href: '/contact', label: 'Contact' }
@@ -35,13 +34,15 @@
 <nav class="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm">
 	<div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 		<div class="flex items-center gap-2">
-			<svg class="h-8 w-8 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<rect x="3" y="4" width="18" height="18" rx="2" />
-				<line x1="16" y1="2" x2="16" y2="6" />
-				<line x1="8" y1="2" x2="8" y2="6" />
-				<line x1="3" y1="10" x2="21" y2="10" />
-			</svg>
-			<span class="text-xl font-bold text-slate-800">Family Planz</span>
+			<a href="/" class="flex items-center gap-2">
+				<svg class="h-8 w-8 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="3" y="4" width="18" height="18" rx="2" />
+					<line x1="16" y1="2" x2="16" y2="6" />
+					<line x1="8" y1="2" x2="8" y2="6" />
+					<line x1="3" y1="10" x2="21" y2="10" />
+				</svg>
+				<span class="text-xl font-bold text-slate-800">Family Planz</span>
+			</a>
 		</div>
 		<div class="hidden md:flex items-center gap-6">
 			{#each navItems as item}
