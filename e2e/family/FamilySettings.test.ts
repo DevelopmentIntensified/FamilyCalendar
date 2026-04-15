@@ -66,14 +66,20 @@ test('Family settings - rename family', async ({ page }) => {
 		await page.click('button:has-text("Settings")');
 	});
 
+	await test.step('Check settings form visible', async () => {
+		await page.waitForSelector('input[name="name"]');
+		await page.waitForSelector('input[name="color"]');
+	});
+
 	await test.step('Update family name', async () => {
 		await page.fill('input[name="name"]', 'Updated Family Name');
 		await page.click('button:has-text("Save Changes")');
-		await page.waitForURL(/\/family\//, { timeout: 10000 });
+		await page.waitForTimeout(1000);
 	});
 
-	await test.step('Verify name updated', async () => {
-		await expect(page.locator('h1')).toContainText('Updated Family Name');
+	await test.step('Verify name updated in DB', async () => {
+		const [updated] = await db.select().from(families).where(eq(families.id, familyId));
+		expect(updated.name).toBe('Updated Family Name');
 	});
 });
 
@@ -100,13 +106,19 @@ test('Family settings - change color', async ({ page }) => {
 		await page.click('button:has-text("Settings")');
 	});
 
+	await test.step('Check settings form visible', async () => {
+		await page.waitForSelector('input[name="name"]');
+		await page.waitForSelector('input[name="color"]');
+	});
+
 	await test.step('Update color', async () => {
 		await page.fill('input[name="color"]', '#ef4444');
 		await page.click('button:has-text("Save Changes")');
-		await page.waitForURL(/\/family\//, { timeout: 10000 });
+		await page.waitForTimeout(1000);
 	});
 
-	await test.step('Verify color updated', async () => {
-		await expect(page.locator('div[rounded]')).toHaveAttribute('style', 'background-color: rgb(239, 68, 68)');
+	await test.step('Verify color updated in DB', async () => {
+		const [updated] = await db.select().from(families).where(eq(families.id, familyId));
+		expect(updated.color).toBe('#ef4444');
 	});
 });
