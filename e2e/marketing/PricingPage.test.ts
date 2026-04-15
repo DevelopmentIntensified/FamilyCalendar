@@ -41,7 +41,7 @@ test.describe('Pricing Page', () => {
 
 	test('Pricing page has working CTA buttons', async ({ page }) => {
 		await page.goto('/pricing');
-		await expect(page.locator('a:has-text("Get Started")')).toBeVisible();
+		await expect(page.getByRole('main').locator('a:has-text("Get Started")')).toBeVisible();
 		await expect(page.locator('a:has-text("Start Free Trial")')).toBeVisible();
 	});
 
