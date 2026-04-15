@@ -3,8 +3,18 @@
 	import { slide } from 'svelte/transition';
 
 	export let isLoggedIn = false;
+	export let user: { firstName?: string; lastName?: string; email?: string } | null = null;
 
 	let isOpen = false;
+	let profileDropdownOpen = false;
+
+	function toggleProfileDropdown() {
+		profileDropdownOpen = !profileDropdownOpen;
+	}
+
+	function closeProfileDropdown() {
+		profileDropdownOpen = false;
+	}
 
 	const marketingNavItems = [
 		{ href: '/about', label: 'About' },
@@ -59,14 +69,45 @@
 		</div>
 		<div class="hidden md:flex items-center gap-3">
 			{#if isLoggedIn}
-				<a href="/account" class="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200">
-					My Account
-				</a>
-				<form action="/api/logout" method="POST">
-					<button type="submit" class="rounded-full bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700">
-						Logout
+				<div class="relative" data-testid="profile-dropdown-container">
+					<button
+						on:click={toggleProfileDropdown}
+						class="flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
+						aria-expanded={profileDropdownOpen}
+						aria-haspopup="true"
+					>
+						<div class="flex h-7 w-7 items-center justify-center rounded-full bg-primary-600 text-white text-xs font-bold">
+							{user?.firstName?.[0] || user?.email?.[0] || 'U'}
+						</div>
+						<span class="max-w-32 truncate">{user?.firstName || 'User'}</span>
+						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+						</svg>
 					</button>
-				</form>
+					{#if profileDropdownOpen}
+						<div transition:slide={{ duration: 150 }} class="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-2 shadow-lg">
+							{#if user?.email}
+								<div class="border-b border-slate-100 px-4 pb-2">
+									<p class="truncate text-sm font-medium text-slate-900">{user.firstName} {user.lastName}</p>
+									<p class="truncate text-xs text-slate-500">{user.email}</p>
+								</div>
+							{/if}
+							<a href="/account" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+								Account Settings
+							</a>
+							<a href="/family" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+								Family Management
+							</a>
+							<div class="border-t border-slate-100 mt-2 pt-2">
+								<form action="/api/logout" method="POST">
+									<button type="submit" class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+										Logout
+									</button>
+								</form>
+							</div>
+						</div>
+					{/if}
+				</div>
 			{:else}
 				<a href="/login" class="text-sm font-medium text-slate-600 hover:text-slate-900">
 					Sign In
