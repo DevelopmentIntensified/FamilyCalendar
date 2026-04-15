@@ -148,7 +148,8 @@ export const familyMembers = pgTable(
 			.references(() => users.id, { onDelete: 'cascade' }),
 		familyId: text('family_id')
 			.notNull()
-			.references(() => families.id, { onDelete: 'cascade' })
+			.references(() => families.id, { onDelete: 'cascade' }),
+		role: text('role').default('member')
 	},
 	(userFamily) => ({
 		compoundKey: primaryKey({ columns: [userFamily.userId, userFamily.familyId] })

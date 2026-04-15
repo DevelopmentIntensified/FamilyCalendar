@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import type { PageData, ActionData } from './$types';
 	export let data: PageData;
 	export let form: ActionData;
-	const { family, members } = data;
+	const { family, members, currentUserRole } = data;
 	
 	let showSettings = false;
 	let showRemoveConfirm: string | null = null;
@@ -90,7 +91,13 @@
 								{#if showRemoveConfirm === member.userId}
 									<div class="flex items-center gap-1">
 										<span class="text-sm text-red-600">Remove?</span>
-										<form method="POST" action="?/removeMember" use:enhance>
+										<form method="POST" action="?/removeMember" use:enhance={() => {
+											return async ({ result, update }) => {
+												await update();
+												await invalidateAll();
+												showRemoveConfirm = null;
+											};
+										}}>
 											<input type="hidden" name="userId" value={member.userId} />
 											<button
 												type="submit"
@@ -106,7 +113,7 @@
 											No
 										</button>
 									</div>
-								{:else}
+								{:else if currentUserRole === 'admin' && member.role !== 'admin'}
 									<button
 										on:click={() => showRemoveConfirm = member.userId}
 										class="rounded-md border border-red-300 bg-white px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"

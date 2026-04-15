@@ -144,9 +144,8 @@ export async function getFamilyInviteCodes(familyId: string) {
 }
 
 export async function removeFamilyMember(familyId: string, userId: string) {
-	await db.delete(familyMembers).where(
-		and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId))
-	);
+	const result = await db.execute(sql`DELETE FROM "familyMembers" WHERE "family_id" = ${familyId} AND "user_id" = ${userId} RETURNING *`);
+	console.log('[removeFamilyMember] Deleted rows:', JSON.stringify(result));
 }
 
 export async function searchUsers(query: string, familyId: string) {

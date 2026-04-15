@@ -6,43 +6,65 @@ import type { PageServerLoad, Actions } from './$types';
 import { fail } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	const userFamilies = await getUserFamilies(locals.user.id);
-	
-	if (!userFamilies || userFamilies.families?.id !== params.familyId) {
-		return { family: null, members: [] };
+	try {
+		const userFamilies = await getUserFamilies(locals.user.id);
+		
+		console.log('[load] userFamilies check:', { 
+			hasUserFamilies: !!userFamilies, 
+			hasFamilies: !!userFamilies?.families,
+			familiesId: userFamilies?.families?.id 
+		});
+		
+		if (!userFamilies || !userFamilies.families) {
+			console.log('[load] Returning null - no user families');
+			return { family: null, members: [], currentUserRole: null };
+		}
+		
+		if (userFamilies.families.id !== params.familyId) {
+			console.log('[load] Returning null - family id mismatch');
+			return { family: null, members: [], currentUserRole: null };
+		}
+
+		const familyResult = await db
+			.select()
+			.from(families)
+			.where(eq(families.id, params.familyId));
+		const family = familyResult[0] || null;
+
+		if (!family) {
+			return { family: null, members: [], currentUserRole: null };
+		}
+
+		const members = await db
+			.select({
+				userId: familyMembers.userId,
+				role: familyMembers.role,
+				firstName: users.firstName,
+				lastName: users.lastName,
+				email: users.email
+			})
+			.from(familyMembers)
+			.innerJoin(users, eq(familyMembers.userId, users.id))
+			.where(eq(familyMembers.familyId, params.familyId));
+
+		return { family, members, currentUserRole: userFamilies.familyMembers?.role || null };
+	} catch (error) {
+		console.error('[load] Error:', error);
+		return { family: null, members: [], currentUserRole: null };
 	}
-
-	const family = await db
-		.select()
-		.from(families)
-		.where(eq(families.id, params.familyId))[0];
-
-	const members = await db
-		.select({
-			id: familyMembers.id,
-			userId: familyMembers.userId,
-			role: familyMembers.role,
-			firstName: users.firstName,
-			lastName: users.lastName,
-			email: users.email
-		})
-		.from(familyMembers)
-		.innerJoin(users, eq(familyMembers.userId, users.id))
-		.where(eq(familyMembers.familyId, params.familyId));
-
-	return { family, members };
 };
 
 export const actions: Actions = {
 	removeMember: async ({ request, params }) => {
 		const formData = await request.formData();
 		const userId = formData.get('userId') as string;
+		const familyId = params.familyId;
 		
 		if (!userId) {
 			return fail(400, { error: 'User ID is required' });
 		}
 		
-		await removeFamilyMember(params.familyId, userId);
+		await removeFamilyMember(familyId, userId);
 		return { success: true };
 	},
 	updateFamily: async ({ request, params }) => {
