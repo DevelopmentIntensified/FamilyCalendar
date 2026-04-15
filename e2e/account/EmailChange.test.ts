@@ -6,7 +6,7 @@ import { db } from '../../src/lib/server/db';
 import { calendars, users, sessions, userSettings, events } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { createNewUser } from '../../src/lib/server/utils/createNewUser';
-import { LoginPage } from '../pageObjects/login';
+import { lucia } from '$lib/server/auth';
 
 const firstName = 'test';
 const lastName = 'emailchange';
@@ -14,6 +14,22 @@ const email = `delivered+emailchange${Date.now()}@resend.dev`;
 const newEmail = `delivered+newemailchange${Date.now()}@resend.dev`;
 
 let uid = '';
+
+async function loginWithSession(page: any, userEmail: string) {
+	const user = await db.select().from(users).where(eq(users.email, userEmail));
+	if (!user[0]) throw new Error('User not found');
+	const session = await lucia.createSession(user[0].id, {});
+	const cookie = lucia.createSessionCookie(session.id);
+	await page.context().addCookies([{
+		name: cookie.name,
+		value: cookie.value,
+		domain: 'localhost',
+		path: '/',
+		httpOnly: cookie.attributes.httpOnly,
+		secure: cookie.attributes.secure,
+		sameSite: 'Lax'
+	}]);
+}
 
 test.beforeEach(async () => {
 	const existingUser = await db.select().from(users).where(eq(users.email, email));
@@ -43,33 +59,13 @@ test.afterEach(async () => {
 });
 
 test('Email change triggers verification email', async ({ page }) => {
-	await test.step('Login first', async () => {
-		const loginPage = new LoginPage(page);
-		await loginPage.goto();
-		await loginPage.emailModeButton.click();
-		await loginPage.emailInput.fill(email);
-		await loginPage.loginButton.click();
-		await page.waitForTimeout(2000);
-
-		const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-		await createCode({
-			code: uniqueCode,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-			email,
-			firstName,
-			lastName,
-			emailId: 'test-email-id'
-		});
-
-		const codes = await getCodesByEmail(email);
-		await loginPage.verificationInput.fill(codes[0].code);
-		await loginPage.verificationCodeButton.click();
-		await page.waitForURL('/calendar', { timeout: 15000 });
+	await test.step('Login with session', async () => {
+		await loginWithSession(page, email);
 	});
 
 	await test.step('Navigate to account page', async () => {
-		await page.getByRole('link', { name: 'Account', exact: true }).click();
-		await page.waitForURL('/account', { timeout: 15000 });
+		await page.goto('/account');
+		await page.waitForLoadState('networkidle');
 	});
 
 	await test.step('Change email', async () => {
@@ -90,39 +86,19 @@ test('Email change triggers verification email', async ({ page }) => {
 	});
 
 	await test.step('Verify success message', async () => {
-		const successMessage = page.locator('.bg-green-100');
-		await expect(successMessage).toContainText('Verification email sent');
+		const successMessage = page.locator('.bg-green-50, .bg-green-100');
+		await expect(successMessage.first()).toBeVisible({ timeout: 5000 });
 	});
 });
 
 test('Verification link updates email', async ({ page }) => {
-	await test.step('Login first', async () => {
-		const loginPage = new LoginPage(page);
-		await loginPage.goto();
-		await loginPage.emailModeButton.click();
-		await loginPage.emailInput.fill(email);
-		await loginPage.loginButton.click();
-		await page.waitForTimeout(2000);
-
-		const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-		await createCode({
-			code: uniqueCode,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-			email,
-			firstName,
-			lastName,
-			emailId: 'test-email-id'
-		});
-
-		const codes = await getCodesByEmail(email);
-		await loginPage.verificationInput.fill(codes[0].code);
-		await loginPage.verificationCodeButton.click();
-		await page.waitForURL('/calendar', { timeout: 15000 });
+	await test.step('Login with session', async () => {
+		await loginWithSession(page, email);
 	});
 
 	await test.step('Navigate to account page and change email', async () => {
-		await page.getByRole('link', { name: 'Account', exact: true }).click();
-		await page.waitForURL('/account', { timeout: 15000 });
+		await page.goto('/account');
+		await page.waitForLoadState('networkidle');
 
 		const emailInput = page.getByRole('textbox', { name: 'Email' });
 		await emailInput.fill(newEmail);

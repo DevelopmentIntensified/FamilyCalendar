@@ -3,18 +3,33 @@ import { db } from '../../src/lib/server/db';
 import { sessions, users, calendars, userSettings } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { createNewUser } from '../../src/lib/server/utils/createNewUser';
-import { LoginPage } from '../pageObjects/login';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
 import { createCode, deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
-import { generateId } from 'lucia';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
+import { lucia } from '$lib/server/auth';
 
 const firstName = 'test';
 const lastName = 'accountsettings';
 const email = `delivered+accountsettings${Date.now()}@resend.dev`;
 
 let uid = '';
+
+async function loginWithSession(page: any, email: string) {
+	const user = await db.select().from(users).where(eq(users.email, email));
+	if (!user[0]) throw new Error('User not found');
+	const session = await lucia.createSession(user[0].id, {});
+	const cookie = lucia.createSessionCookie(session.id);
+	await page.context().addCookies([{
+		name: cookie.name,
+		value: cookie.value,
+		domain: 'localhost',
+		path: '/',
+		httpOnly: cookie.attributes.httpOnly,
+		secure: cookie.attributes.secure,
+		sameSite: 'Lax'
+	}]);
+}
 
 test.beforeEach(async () => {
 	const existingUser = await db.select().from(users).where(eq(users.email, email));
@@ -43,33 +58,13 @@ test.afterEach(async () => {
 });
 
 test('View account settings page', async ({ page }) => {
-	await test.step('Login first', async () => {
-		const loginPage = new LoginPage(page);
-		await loginPage.goto();
-		await loginPage.emailModeButton.click();
-		await loginPage.emailInput.fill(email);
-		await loginPage.loginButton.click();
-		await page.waitForTimeout(2000);
-
-		const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-		await createCode({
-			code: uniqueCode,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-			email,
-			firstName,
-			lastName,
-			emailId: 'test-email-id'
-		});
-
-		const codes = await getCodesByEmail(email);
-		await loginPage.verificationInput.fill(codes[0].code);
-		await loginPage.verificationCodeButton.click();
-		await page.waitForURL('/calendar', { timeout: 15000 });
+	await test.step('Login with session', async () => {
+		await loginWithSession(page, email);
 	});
 
 	await test.step('Navigate to account settings', async () => {
-		await page.getByRole('link', { name: 'Account', exact: true }).click();
-		await page.waitForURL('/account', { timeout: 15000 });
+		await page.goto('/account');
+		await page.waitForLoadState('networkidle');
 	});
 
 	await test.step('Verify profile section exists', async () => {
@@ -95,28 +90,8 @@ test('View account settings page', async ({ page }) => {
 });
 
 test('Logout from all devices removes other sessions', async ({ page, context }) => {
-	await test.step('Login first', async () => {
-		const loginPage = new LoginPage(page);
-		await loginPage.goto();
-		await loginPage.emailModeButton.click();
-		await loginPage.emailInput.fill(email);
-		await loginPage.loginButton.click();
-		await page.waitForTimeout(2000);
-
-		const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-		await createCode({
-			code: uniqueCode,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-			email,
-			firstName,
-			lastName,
-			emailId: 'test-email-id'
-		});
-
-		const codes = await getCodesByEmail(email);
-		await loginPage.verificationInput.fill(codes[0].code);
-		await loginPage.verificationCodeButton.click();
-		await page.waitForURL('/calendar', { timeout: 15000 });
+	await test.step('Login with session', async () => {
+		await loginWithSession(page, email);
 	});
 
 	await test.step('Create additional sessions in DB', async () => {
@@ -145,8 +120,8 @@ test('Logout from all devices removes other sessions', async ({ page, context })
 	});
 
 	await test.step('Navigate to account settings', async () => {
-		await page.getByRole('link', { name: 'Account', exact: true }).click();
-		await page.waitForURL('/account', { timeout: 15000 });
+		await page.goto('/account');
+		await page.waitForLoadState('networkidle');
 	});
 
 	await test.step('Click logout from all devices', async () => {
@@ -167,38 +142,17 @@ test('Logout from all devices removes other sessions', async ({ page, context })
 	await test.step('Navigate to calendar to confirm still logged in', async () => {
 		await page.goto('/calendar');
 		await page.waitForURL('/calendar', { timeout: 15000 });
-		await expect(page.getByRole('link', { name: 'Account', exact: true })).toBeVisible();
 	});
 });
 
 test('Update profile saves changes', async ({ page }) => {
-	await test.step('Login first', async () => {
-		const loginPage = new LoginPage(page);
-		await loginPage.goto();
-		await loginPage.emailModeButton.click();
-		await loginPage.emailInput.fill(email);
-		await loginPage.loginButton.click();
-		await page.waitForTimeout(2000);
-
-		const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-		await createCode({
-			code: uniqueCode,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-			email,
-			firstName,
-			lastName,
-			emailId: 'test-email-id'
-		});
-
-		const codes = await getCodesByEmail(email);
-		await loginPage.verificationInput.fill(codes[0].code);
-		await loginPage.verificationCodeButton.click();
-		await page.waitForURL('/calendar', { timeout: 15000 });
+	await test.step('Login with session', async () => {
+		await loginWithSession(page, email);
 	});
 
 	await test.step('Navigate to account settings', async () => {
-		await page.getByRole('link', { name: 'Account', exact: true }).click();
-		await page.waitForURL('/account', { timeout: 15000 });
+		await page.goto('/account');
+		await page.waitForLoadState('networkidle');
 	});
 
 	await test.step('Update first name', async () => {

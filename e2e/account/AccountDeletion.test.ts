@@ -1,17 +1,33 @@
 import { test, expect } from '@playwright/test';
 import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
-import { createCode, deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
+import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import { calendars, users, sessions, userSettings, events, accounts, families, familyMembers, groups, userGroups, subscriptions, codes } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { createNewUser } from '../../src/lib/server/utils/createNewUser';
-import { LoginPage } from '../pageObjects/login';
+import { lucia } from '$lib/server/auth';
 
 const firstName = 'test';
 const lastName = 'delete';
 const email = `delivered+delete${Date.now()}@resend.dev`;
 
 let uid = '';
+
+async function loginWithSession(page: any, email: string) {
+	const user = await db.select().from(users).where(eq(users.email, email));
+	if (!user[0]) throw new Error('User not found');
+	const session = await lucia.createSession(user[0].id, {});
+	const cookie = lucia.createSessionCookie(session.id);
+	await page.context().addCookies([{
+		name: cookie.name,
+		value: cookie.value,
+		domain: 'localhost',
+		path: '/',
+		httpOnly: cookie.attributes.httpOnly,
+		secure: cookie.attributes.secure,
+		sameSite: 'Lax'
+	}]);
+}
 
 test.beforeEach(async () => {
 	await cleanupExistingUser();
@@ -50,33 +66,13 @@ async function cleanupUserData(userId: string) {
 }
 
 test('Account deletion removes user and all related data', async ({ page }) => {
-	await test.step('Login first', async () => {
-		const loginPage = new LoginPage(page);
-		await loginPage.goto();
-		await loginPage.emailModeButton.click();
-		await loginPage.emailInput.fill(email);
-		await loginPage.loginButton.click();
-		await page.waitForTimeout(2000);
-
-		const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-		await createCode({
-			code: uniqueCode,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-			email,
-			firstName,
-			lastName,
-			emailId: 'test-email-id'
-		});
-
-		const verificationCodes = await getCodesByEmail(email);
-		await loginPage.verificationInput.fill(verificationCodes[0].code);
-		await loginPage.verificationCodeButton.click();
-		await page.waitForURL('/calendar', { timeout: 15000 });
+	await test.step('Login with session', async () => {
+		await loginWithSession(page, email);
 	});
 
 	await test.step('Navigate to account page', async () => {
-		await page.getByRole('link', { name: 'Account', exact: true }).click();
-		await page.waitForURL('/account', { timeout: 15000 });
+		await page.goto('/account');
+		await page.waitForLoadState('networkidle');
 	});
 
 	await test.step('Click delete account button', async () => {
@@ -93,11 +89,6 @@ test('Account deletion removes user and all related data', async ({ page }) => {
 		await confirmButton.click();
 
 		await page.waitForTimeout(3000);
-
-		const errorMessage = page.locator('.bg-red-50');
-		if (await errorMessage.isVisible()) {
-			console.log('Deletion error:', await errorMessage.textContent());
-		}
 	});
 
 	await test.step('Verify user is deleted from DB', async () => {
@@ -124,33 +115,13 @@ test('Account deletion removes user and all related data', async ({ page }) => {
 });
 
 test('Account deletion redirects to home page', async ({ page }) => {
-	await test.step('Login first', async () => {
-		const loginPage = new LoginPage(page);
-		await loginPage.goto();
-		await loginPage.emailModeButton.click();
-		await loginPage.emailInput.fill(email);
-		await loginPage.loginButton.click();
-		await page.waitForTimeout(2000);
-
-		const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-		await createCode({
-			code: uniqueCode,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-			email,
-			firstName,
-			lastName,
-			emailId: 'test-email-id'
-		});
-
-		const verificationCodes = await getCodesByEmail(email);
-		await loginPage.verificationInput.fill(verificationCodes[0].code);
-		await loginPage.verificationCodeButton.click();
-		await page.waitForURL('/calendar', { timeout: 15000 });
+	await test.step('Login with session', async () => {
+		await loginWithSession(page, email);
 	});
 
 	await test.step('Navigate to account page and delete', async () => {
-		await page.getByRole('link', { name: 'Account', exact: true }).click();
-		await page.waitForURL('/account', { timeout: 15000 });
+		await page.goto('/account');
+		await page.waitForLoadState('networkidle');
 
 		await page.getByRole('button', { name: 'Delete Account' }).click();
 		await page.getByRole('textbox', { name: 'Confirmation' }).fill(uid);
