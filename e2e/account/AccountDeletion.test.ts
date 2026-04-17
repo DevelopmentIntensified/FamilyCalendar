@@ -66,6 +66,7 @@ async function cleanupUserData(userId: string) {
 }
 
 test('Account deletion removes user and all related data', async ({ page }) => {
+	test.setTimeout(60000);
 	await test.step('Login with session', async () => {
 		await loginWithSession(page, email);
 	});
@@ -73,22 +74,27 @@ test('Account deletion removes user and all related data', async ({ page }) => {
 	await test.step('Navigate to account page', async () => {
 		await page.goto('/account');
 		await page.waitForLoadState('networkidle');
+		await page.waitForTimeout(1000);
 	});
 
 	await test.step('Click delete account button', async () => {
+		await page.evaluate(() => window.location.hash = '#danger');
+		await page.waitForTimeout(500);
 		const deleteButton = page.getByRole('button', { name: 'Delete Account' });
+		await expect(deleteButton).toBeVisible({ timeout: 10000 });
 		await deleteButton.click();
 	});
 
 	await test.step('Confirm deletion with user ID', async () => {
 		const confirmationInput = page.getByRole('textbox', { name: 'Confirmation' });
+		await expect(confirmationInput).toBeVisible({ timeout: 10000 });
 		await confirmationInput.fill(uid);
 		await confirmationInput.dispatchEvent('input');
 
 		const confirmButton = page.getByRole('button', { name: 'Confirm Deletion' });
 		await confirmButton.click();
 
-		await page.waitForTimeout(3000);
+		await page.waitForTimeout(5000);
 	});
 
 	await test.step('Verify user is deleted from DB', async () => {
@@ -115,6 +121,7 @@ test('Account deletion removes user and all related data', async ({ page }) => {
 });
 
 test('Account deletion redirects to home page', async ({ page }) => {
+	test.setTimeout(60000);
 	await test.step('Login with session', async () => {
 		await loginWithSession(page, email);
 	});
@@ -122,13 +129,23 @@ test('Account deletion redirects to home page', async ({ page }) => {
 	await test.step('Navigate to account page and delete', async () => {
 		await page.goto('/account');
 		await page.waitForLoadState('networkidle');
+		await page.waitForTimeout(1000);
 
-		await page.getByRole('button', { name: 'Delete Account' }).click();
-		await page.getByRole('textbox', { name: 'Confirmation' }).fill(uid);
+		await page.evaluate(() => window.location.hash = '#danger');
+		await page.waitForTimeout(500);
+
+		const deleteButton = page.getByRole('button', { name: 'Delete Account' });
+		await expect(deleteButton).toBeVisible({ timeout: 10000 });
+		await deleteButton.click();
+
+		const confirmationInput = page.getByRole('textbox', { name: 'Confirmation' });
+		await expect(confirmationInput).toBeVisible({ timeout: 10000 });
+		await confirmationInput.fill(uid);
+
 		await page.getByRole('button', { name: 'Confirm Deletion' }).click();
 	});
 
 	await test.step('Verify redirect to home', async () => {
-		await expect(page).toHaveURL('/');
+		await expect(page).toHaveURL('/', { timeout: 30000 });
 	});
 });

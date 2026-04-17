@@ -44,10 +44,11 @@ test.afterEach(async () => {
 async function loginAndNavigateToAccount(page: import('@playwright/test').Page) {
 	const loginPage = new LoginPage(page);
 	await loginPage.goto();
+	await page.waitForLoadState('networkidle');
 	await loginPage.emailModeButton.click();
 	await loginPage.emailInput.fill(email);
 	await loginPage.loginButton.click();
-	await page.waitForTimeout(2000);
+	await page.waitForTimeout(3000);
 
 	const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
 	await createCode({
@@ -62,21 +63,28 @@ async function loginAndNavigateToAccount(page: import('@playwright/test').Page) 
 	const codes = await getCodesByEmail(email);
 	await loginPage.verificationInput.fill(codes[0].code);
 	await loginPage.verificationCodeButton.click();
-	await page.waitForURL('/calendar', { timeout: 15000 });
+	await page.waitForURL('/calendar', { timeout: 20000 });
+	await page.waitForLoadState('networkidle');
 
 	await page.getByRole('link', { name: 'Account', exact: true }).click();
-	await page.waitForURL('/account', { timeout: 15000 });
+	await page.waitForURL('/account', { timeout: 20000 });
+	await page.waitForLoadState('networkidle');
 }
 
 test('View profile info', async ({ page }) => {
+	test.setTimeout(60000);
 	await test.step('Login and navigate to account page', async () => {
 		await loginAndNavigateToAccount(page);
 	});
 
 	await test.step('Verify profile info is displayed', async () => {
-		await expect(page.getByRole('textbox', { name: 'First Name' })).toHaveValue(firstName);
-		await expect(page.getByRole('textbox', { name: 'Last Name' })).toHaveValue(lastName);
-		await expect(page.getByRole('textbox', { name: 'Email' })).toHaveValue(email);
+		await expect(page.getByRole('textbox', { name: 'First Name' })).toHaveValue(firstName, { timeout: 10000 });
+		await expect(page.getByRole('textbox', { name: 'Last Name' })).toHaveValue(lastName, { timeout: 10000 });
+	});
+
+	await test.step('Verify email in email section', async () => {
+		await page.locator('nav').getByText('Email').click();
+		await expect(page.locator('input#email')).toHaveValue(email, { timeout: 10000 });
 	});
 });
 

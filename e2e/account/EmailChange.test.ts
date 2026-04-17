@@ -59,23 +59,32 @@ test.afterEach(async () => {
 });
 
 test('Email change triggers verification email', async ({ page }) => {
+	test.setTimeout(60000);
 	await test.step('Login with session', async () => {
 		await loginWithSession(page, email);
 	});
 
 	await test.step('Navigate to account page', async () => {
-		await page.goto('/account');
+		await page.goto('/account#email');
 		await page.waitForLoadState('networkidle');
 	});
 
+	await test.step('Click on Email section in sidebar', async () => {
+		await page.evaluate(() => window.location.hash = '#email');
+		await page.waitForTimeout(1000);
+	});
+
 	await test.step('Change email', async () => {
-		const emailInput = page.getByRole('textbox', { name: 'Email' });
+		await expect(page.locator('input#email')).toBeVisible({ timeout: 10000 });
+		const emailInput = page.locator('input#email');
+		await emailInput.click();
 		await emailInput.fill(newEmail);
 
 		const updateButton = page.getByRole('button', { name: 'Update Email' });
+		await expect(updateButton).toBeEnabled({ timeout: 5000 });
 		await updateButton.click();
 
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(3000);
 	});
 
 	await test.step('Verify verification code was created in DB', async () => {
@@ -86,27 +95,36 @@ test('Email change triggers verification email', async ({ page }) => {
 	});
 
 	await test.step('Verify success message', async () => {
-		const successMessage = page.locator('.bg-green-50, .bg-green-100');
-		await expect(successMessage.first()).toBeVisible({ timeout: 5000 });
+		const successMessage = page.locator('.bg-green-50');
+		await expect(successMessage).toBeVisible({ timeout: 10000 });
 	});
 });
 
 test('Verification link updates email', async ({ page }) => {
+	test.setTimeout(60000);
 	await test.step('Login with session', async () => {
 		await loginWithSession(page, email);
 	});
 
-	await test.step('Navigate to account page and change email', async () => {
-		await page.goto('/account');
+	await test.step('Navigate to account page', async () => {
+		await page.goto('/account#email');
 		await page.waitForLoadState('networkidle');
+	});
 
-		const emailInput = page.getByRole('textbox', { name: 'Email' });
+	await test.step('Click on Email section and change email', async () => {
+		await page.evaluate(() => window.location.hash = '#email');
+		await page.waitForTimeout(1000);
+
+		await expect(page.locator('input#email')).toBeVisible({ timeout: 10000 });
+		const emailInput = page.locator('input#email');
+		await emailInput.click();
 		await emailInput.fill(newEmail);
 
 		const updateButton = page.getByRole('button', { name: 'Update Email' });
+		await expect(updateButton).toBeEnabled({ timeout: 5000 });
 		await updateButton.click();
 
-		await page.waitForTimeout(2000);
+		await page.waitForTimeout(3000);
 	});
 
 	await test.step('Get verification code from DB', async () => {

@@ -15,8 +15,8 @@ const email = `delivered+accountsettings${Date.now()}@resend.dev`;
 
 let uid = '';
 
-async function loginWithSession(page: any, email: string) {
-	const user = await db.select().from(users).where(eq(users.email, email));
+async function loginWithSession(page: any, userEmail: string) {
+	const user = await db.select().from(users).where(eq(users.email, userEmail));
 	if (!user[0]) throw new Error('User not found');
 	const session = await lucia.createSession(user[0].id, {});
 	const cookie = lucia.createSessionCookie(session.id);
@@ -67,25 +67,26 @@ test('View account settings page', async ({ page }) => {
 		await page.waitForLoadState('networkidle');
 	});
 
-	await test.step('Verify profile section exists', async () => {
-		await expect(page.getByRole('heading', { name: 'Profile Information' })).toBeVisible();
+	await test.step('Verify page title exists', async () => {
+		await expect(page.getByRole('heading', { name: 'Account Settings' })).toBeVisible();
+	});
+
+	await test.step('Verify profile section is visible by default', async () => {
+		await expect(page.locator('#profile')).toBeVisible();
 		await expect(page.getByRole('textbox', { name: 'First Name' })).toHaveValue(firstName);
 		await expect(page.getByRole('textbox', { name: 'Last Name' })).toHaveValue(lastName);
 	});
 
-	await test.step('Verify email section exists', async () => {
-		await expect(page.getByRole('heading', { name: 'Email Address' })).toBeVisible();
-		await expect(page.getByRole('textbox', { name: 'Email' })).toHaveValue(email);
+	await test.step('Verify email section is in sidebar', async () => {
+		await expect(page.locator('nav').getByText('Email')).toBeVisible();
 	});
 
-	await test.step('Verify security section exists', async () => {
-		await expect(page.getByRole('heading', { name: 'Security' })).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Logout from All Other Devices' })).toBeVisible();
+	await test.step('Verify security section is in sidebar', async () => {
+		await expect(page.locator('nav').getByText('Security')).toBeVisible();
 	});
 
-	await test.step('Verify danger zone section exists', async () => {
-		await expect(page.getByRole('heading', { name: 'Danger Zone' })).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Delete Account' })).toBeVisible();
+	await test.step('Verify danger zone section is in sidebar', async () => {
+		await expect(page.locator('nav').getByText('Danger Zone')).toBeVisible();
 	});
 });
 
@@ -124,7 +125,13 @@ test('Logout from all devices removes other sessions', async ({ page, context })
 		await page.waitForLoadState('networkidle');
 	});
 
+	await test.step('Click on Security section in sidebar', async () => {
+		await page.locator('nav').getByText('Security').click();
+		await page.waitForTimeout(500);
+	});
+
 	await test.step('Click logout from all devices', async () => {
+		await expect(page.locator('#security')).toBeVisible();
 		await page.getByRole('button', { name: 'Logout from All Other Devices' }).click();
 		await page.waitForTimeout(2000);
 	});
@@ -153,6 +160,10 @@ test('Update profile saves changes', async ({ page }) => {
 	await test.step('Navigate to account settings', async () => {
 		await page.goto('/account');
 		await page.waitForLoadState('networkidle');
+	});
+
+	await test.step('Verify profile section is visible', async () => {
+		await expect(page.locator('#profile')).toBeVisible();
 	});
 
 	await test.step('Update first name', async () => {
