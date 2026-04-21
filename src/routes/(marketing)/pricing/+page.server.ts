@@ -1,20 +1,15 @@
 import type { PageServerLoad } from './$types';
-import { getUserEligibleDiscounts, getBasePrice, getPlanPricing, type PlanType } from '$lib/server/services/checkoutService';
+import { getBasePrice, getPlanPricing, type PlanType } from '$lib/server/services/checkoutService';
 
 export const load: PageServerLoad = async (event) => {
 	const user = event.locals.user;
-	let userDiscounts: {
+	const userDiscounts: {
 		eligible: boolean;
 		discountType: string;
 		percentage: number;
 		description: string;
 	}[] = [];
-	let showDiscountedPrices = false;
-
-	if (user) {
-		userDiscounts = await getUserEligibleDiscounts(user.id);
-		showDiscountedPrices = userDiscounts.some(d => d.eligible);
-	}
+	const showDiscountedPrices = false;
 
 	const plans: {
 		type: PlanType;
@@ -46,15 +41,6 @@ export const load: PageServerLoad = async (event) => {
 			billingPeriod: ' one-time'
 		}
 	];
-
-	if (user && showDiscountedPrices) {
-		for (const plan of plans) {
-			const pricing = await import('$lib/server/services/checkoutService').then(m =>
-				m.calculateCheckoutPrice(user.id, plan.type)
-			);
-			plan.displayPrice = pricing.finalPrice;
-		}
-	}
 
 	return {
 		user: user ? { id: user.id, email: user.email } : null,
