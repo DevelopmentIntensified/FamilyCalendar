@@ -328,7 +328,13 @@ export async function recordAiUsage(userId: string): Promise<{ success: boolean;
 				aiEventCreationsUsed: existing.aiEventCreationsUsed + 1,
 				updatedAt: new Date()
 			})
-			.where(eq(aiUsageTracking.id, existing.id));
+			.where(
+				and(
+					eq(aiUsageTracking.userId, userId),
+					eq(aiUsageTracking.month, month),
+					eq(aiUsageTracking.year, year)
+				)
+			);
 	} else {
 		await db.insert(aiUsageTracking).values({
 			userId,

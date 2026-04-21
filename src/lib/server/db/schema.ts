@@ -138,6 +138,7 @@ export const subscriptionTypes = pgTable('subscriptionTypes', {
 		.$defaultFn(() => generateId(15)),
 	name: text('name').notNull(),
 	tierName: text('tierName').notNull(),
+	planType: text('planType').notNull().default('individual'),
 	displayName: text('displayName').notNull(),
 	createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 	updatedAt: timestamp('updatedAt', { mode: 'date' })
@@ -292,10 +293,6 @@ export const eventAttendance = pgTable('eventAttendance', {
 });
 
 export const aiUsageTracking = pgTable('aiUsageTracking', {
-	id: text('id')
-		.notNull()
-		.primaryKey()
-		.$defaultFn(() => generateId(15)),
 	userId: text('userId')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),

@@ -26,7 +26,7 @@ export async function calculateFamilyMemberDiscount(
 
 	const memberCount = familyMembersResult.length;
 
-	if (memberCount >= 5) {
+	if (memberCount >= 4) {
 		return { eligible: true, discountPercentage: 40 };
 	}
 
@@ -91,7 +91,7 @@ export async function calculateDiscounts(
 		breakdown.push({
 			discountType: 'family_size',
 			percentage: familyDiscount.discountPercentage,
-			description: 'Family member discount (5+ members)',
+			description: 'Family member discount',
 			stackable: true
 		});
 		totalDiscount += familyDiscount.discountPercentage;
