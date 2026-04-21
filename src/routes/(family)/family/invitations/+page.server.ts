@@ -14,13 +14,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const familyId = userFamilies.families.id;
 
 	const invites = await db
-		.select({
-			code: familyInviteCodes.code,
-			expiresAt: familyInviteCodes.expiresAt,
-			maxUses: familyInviteCodes.maxUses,
-			useCount: familyInviteCodes.useCount,
-			createdAt: familyInviteCodes.expiresAt
-		})
+		.select()
 		.from(familyInviteCodes)
 		.where(eq(familyInviteCodes.familyId, familyId));
 

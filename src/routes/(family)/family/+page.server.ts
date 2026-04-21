@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     }
     
     const family = userFamily.families;
-    const memberCount = await db.select({ id: familyMembers.id }).from(familyMembers).where(eq(familyMembers.familyId, family.id));
+    const memberCount = await db.select().from(familyMembers).where(eq(familyMembers.familyId, family.id));
     
     return { families: [{ ...family, memberCount: memberCount.length }] };
 }

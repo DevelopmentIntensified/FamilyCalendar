@@ -8,7 +8,7 @@ export const load: PageServerLoad = async (event) => {
 	
 	let familyName = 'Family';
 	try {
-		const family = await db.select({ name: families.name }).from(families).where(eq(families.id, familyId)).limit(1);
+		const family = await db.select().from(families).where(eq(families.id, familyId)).limit(1);
 		if (family[0]) {
 			familyName = family[0].name;
 		}
