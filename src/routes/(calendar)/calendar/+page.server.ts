@@ -1,6 +1,7 @@
 // Intl.DateTimeFormat().resolvedOptions().timeZone
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import type { PageServerLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import {
 	calendars,
