@@ -9,6 +9,7 @@ import { db } from '$lib/server/db';
 import { getUserFamilies } from '$lib/server/db/actions/families';
 import { getUserCalendar, createUserCalendar } from '$lib/server/db/actions/calendar';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
+import { canUploadAttachment, getUserSubscriptionLimits } from '$lib/server/services/subscriptionService';
 
 // get the possible calendar ids for the current user
 export const load: PageServerLoad = async (event) => {
@@ -18,6 +19,8 @@ export const load: PageServerLoad = async (event) => {
 	let calendarIds: { id: string; name: string }[] = [];
 	let userId = event.locals.user.id;
 	const userFamily = await getUserFamilies(userId);
+
+	const limits = await getUserSubscriptionLimits(userId);
 
 	let familyCalendar: any[] = [];
 	if (userFamily?.familyMembers?.familyId) {
@@ -42,7 +45,8 @@ export const load: PageServerLoad = async (event) => {
 	return {
 		calendarIds,
 		user: { id: userId },
-		userSettings
+		userSettings,
+		attachmentLimit: limits.attachmentLimitBytes
 	};
 };
 
@@ -56,6 +60,21 @@ export const actions: Actions = {
 		const calendarId = formData.get('calendarId');
 		const description = formData.get('description') as string;
 		const ownerId = formData.get('ownerId') as string;
+		const attachment = formData.get('attachment') as File | null;
+
+		if (!locals.user) {
+			throw redirect(302, '/login');
+		}
+
+		if (attachment && attachment.size > 0) {
+			const attachmentCheck = await canUploadAttachment(locals.user.id, attachment.size);
+			if (!attachmentCheck.allowed) {
+				return fail(403, {
+					message: attachmentCheck.reason,
+					upgradeRequired: true
+				});
+			}
+		}
 
 		//require certain fields
 		if (!title || !start || !end || !location || !calendarId) {

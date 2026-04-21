@@ -149,7 +149,9 @@ export const subscriptionTypes = pgTable('subscriptionTypes', {
 	familyLimit: integer('familyLimit').default(1).notNull(),
 	retentionViewDays: integer('retentionViewDays').default(30).notNull(),
 	archivedRetentionDays: integer('archivedRetentionDays').default(90).notNull(),
-	attachmentLimitBytes: integer('attachmentLimitBytes').default(10485760).notNull()
+	attachmentLimitBytes: integer('attachmentLimitBytes').default(10485760).notNull(),
+	aiEventCreationsPerMonth: integer('aiEventCreationsPerMonth').default(10).notNull(),
+	exportImportEnabled: boolean('exportImportEnabled').default(true).notNull()
 });
 
 export const accounts = pgTable(
@@ -288,6 +290,26 @@ export const eventAttendance = pgTable('eventAttendance', {
 		.references(() => users.id, { onDelete: 'cascade' }),
 	status: text('status').default('undecided')
 });
+
+export const aiUsageTracking = pgTable('aiUsageTracking', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	userId: text('userId')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	month: integer('month').notNull(),
+	year: integer('year').notNull(),
+	aiEventCreationsUsed: integer('aiEventCreationsUsed').default(0).notNull(),
+	createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+	updatedAt: timestamp('updatedAt', { mode: 'date' })
+		.defaultNow()
+		.$onUpdate(() => new Date())
+		.notNull()
+}, (table) => ({
+	compoundKey: primaryKey({ columns: [table.userId, table.month, table.year] })
+}));
 
 export const events = pgTable('events', {
 	id: text('id')

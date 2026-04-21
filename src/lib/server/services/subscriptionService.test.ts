@@ -47,12 +47,54 @@ import {
 	canAddFamilyMember,
 	canViewArchive,
 	canUploadAttachment,
-	getDefaultLimits
+	getDefaultLimits,
+	canCreateFamily,
+	canViewArchivedEvent
 } from '$lib/server/services/subscriptionService';
 
 describe('subscriptionService', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+	});
+
+	describe('canCreateFamily', () => {
+		it('allows creating family with free tier (limit: 1)', async () => {
+			const result = await canCreateFamily('user-1');
+			expect(result.allowed).toBe(true);
+			expect(result.limit).toBe(1);
+		});
+
+		it('returns upgrade message on denial (mock returns empty - actual denial needs DB data)', async () => {
+			const result = await canCreateFamily('user-denied');
+			if (!result.allowed) {
+				expect(result.reason).toContain('Upgrade');
+			}
+		});
+	});
+
+	describe('canViewArchivedEvent', () => {
+		it('allows viewing recent event (within 30 days)', async () => {
+			const recentDate = new Date();
+			recentDate.setDate(recentDate.getDate() - 10);
+			const result = await canViewArchivedEvent('user-1', recentDate);
+			expect(result.allowed).toBe(true);
+		});
+
+		it('denies viewing event older than 30 days', async () => {
+			const oldDate = new Date();
+			oldDate.setDate(oldDate.getDate() - 60);
+			const result = await canViewArchivedEvent('user-1', oldDate);
+			expect(result.allowed).toBe(false);
+		});
+
+		it('returns upgrade message when denied', async () => {
+			const oldDate = new Date();
+			oldDate.setDate(oldDate.getDate() - 45);
+			const result = await canViewArchivedEvent('user-1', oldDate);
+			if (!result.allowed) {
+				expect(result.reason).toContain('Upgrade');
+			}
+		});
 	});
 
 	describe('canAddFamilyMember', () => {

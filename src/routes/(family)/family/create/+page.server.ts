@@ -3,10 +3,19 @@ import { fail, redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { families, familyMembers, calendars } from '$lib/server/db/schema';
 import { generateId } from 'lucia';
+import { canCreateFamily } from '$lib/server/services/subscriptionService';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	if (!locals.user) {
+		throw redirect(302, '/login');
+	}
+
+	const familyCheck = await canCreateFamily(locals.user.id);
+
 	return {
-		user: locals.user
+		user: locals.user,
+		familyLimit: familyCheck.limit,
+		familyLimitReached: !familyCheck.allowed
 	};
 };
 
@@ -34,6 +43,14 @@ export const actions: Actions = {
 	default: async ({ request, locals }) => {
 		if (!locals.user) {
 			throw redirect(302, '/login');
+		}
+
+		const familyCheck = await canCreateFamily(locals.user.id);
+		if (!familyCheck.allowed) {
+			return fail(403, {
+				error: familyCheck.reason,
+				upgradeRequired: true
+			});
 		}
 
 		const formData = await request.formData();

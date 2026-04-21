@@ -6,6 +6,8 @@
 	export let data: PageData;
 	export let form: ActionData;
 
+	$: limitReached = form?.upgradeRequired || data.familyLimitReached;
+
 	const colors = [
 		{ name: 'Red', value: '#EF4444' },
 		{ name: 'Orange', value: '#F97316' },
@@ -48,6 +50,21 @@
 				<p class="mt-1 text-sm text-slate-500">Start a new family group to share calendars and events</p>
 			</div>
 
+			{#if limitReached}
+				<div class="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-4">
+					<p class="text-sm text-amber-800">
+						You've reached your family limit ({data.familyLimit || 1} family).
+						Upgrade to Family Master to create unlimited families.
+					</p>
+					<a
+						href="/pricing"
+						class="mt-3 inline-flex rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+					>
+						Upgrade Now
+					</a>
+				</div>
+			{/if}
+
 			{#if form?.error}
 				<div class="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
 					{form.error}
@@ -65,6 +82,7 @@
 					};
 				}}
 				class="space-y-6"
+				onsubmit={(e) => limitReached && e.preventDefault()}
 			>
 				<div class="space-y-2">
 					<label for="name" class="block text-sm font-medium text-slate-700">Family Name</label>
@@ -122,7 +140,7 @@
 					</a>
 					<button
 						type="submit"
-						disabled={loading}
+						disabled={loading || limitReached}
 						class="flex-1 rounded-full bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
 					>
 						{loading ? 'Creating...' : 'Create Family'}
