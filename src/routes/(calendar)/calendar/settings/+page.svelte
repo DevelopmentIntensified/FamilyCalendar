@@ -164,4 +164,23 @@
 			{loading ? 'Saving...' : 'Save Settings'}
 		</button>
 	</form>
+
+	<div class="mt-8 rounded-lg border border-slate-200 bg-slate-50 p-6">
+		<h2 class="mb-4 text-lg font-semibold text-slate-900">Premium</h2>
+		<p class="mb-4 text-sm text-slate-600">Upgrade to unlock unlimited families, custom colors, and more.</p>
+		<div class="flex flex-wrap gap-3">
+			<a
+				href="/pricing"
+				class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+			>
+				Buy Premium
+			</a>
+			<a
+				href="/pricing?plan=lifetime"
+				class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+			>
+				Buy It for Life
+			</a>
+		</div>
+	</div>
 </div>
