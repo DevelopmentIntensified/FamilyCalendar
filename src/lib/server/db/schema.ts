@@ -363,7 +363,11 @@ export const userAdConsent = pgTable(
 	{
 		userId: text('userId')
 			.notNull()
-			.references(() => users.id, { onDelete: 'cascade' })
+			.references(() => users.id, { onDelete: 'cascade' }),
+		showAdsAsEvents: boolean('showAdsAsEvents').default(true),
+		showAdMarkers: boolean('showAdMarkers').default(true),
+		personalizedAds: boolean('personalizedAds').default(true),
+		updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow()
 	},
 	(userAdConsent) => ({
 		compoundKey: primaryKey({ columns: [userAdConsent.userId] })

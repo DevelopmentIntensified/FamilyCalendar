@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { adEvents, userAdConsent, events } from '$lib/server/db/schema';
+import { adEvents, userAdConsent, events, type CalendarEvent } from '$lib/server/db/schema';
 import { eq, and, sql, gte, lte, asc } from 'drizzle-orm';
 import { generateId } from 'lucia';
 import {
@@ -279,4 +279,44 @@ export async function deleteAdImage(filename: string): Promise<void> {
 export async function listAdImages(prefix?: string): Promise<string[]> {
 	const assets = await listBlobAssets(prefix);
 	return assets.map((asset) => asset.url);
+}
+
+export async function getAdEventsForUser(
+	userId: string,
+	month: number,
+	year: number
+): Promise<CalendarEvent[]> {
+	const existingAds = await getExistingAdEventsForMonth(userId, month, year);
+	
+	if (existingAds.length > 0) {
+		return existingAds.map((ad) => ({
+			id: ad.eventId,
+			title: `📢 ${ad.adContent.message}`,
+			description: ad.adContent.description || '',
+			start: ad.eventDate,
+			end: ad.eventDate,
+			allDay: true,
+			calendarId: '',
+			ownerId: userId,
+			familyId: null,
+			createdAt: new Date(),
+			updatedAt: new Date()
+		}));
+	}
+	
+	const generatedAds = await generateAdEventsForMonth({ userId, month, year, adsPerMonth: 3 });
+	
+	return generatedAds.map((ad) => ({
+		id: ad.eventId,
+		title: `📢 ${ad.adContent.message}`,
+		description: ad.adContent.description || '',
+		start: ad.eventDate,
+		end: ad.eventDate,
+		allDay: true,
+		calendarId: '',
+		ownerId: userId,
+		familyId: null,
+		createdAt: new Date(),
+		updatedAt: new Date()
+	}));
 }

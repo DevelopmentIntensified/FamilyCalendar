@@ -12,6 +12,7 @@ import {
 } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { createUserCalendar } from '$lib/server/db/actions/calendar';
+import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
 
 const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
 
@@ -84,11 +85,22 @@ export const load: PageServerLoad = async (event) => {
 		}
 	}
 
+	const hasAdConsent = await checkUserAdConsent(userId);
+	const showAds = hasAdConsent && (userSettings?.showAdsAsEvents ?? false);
+	let adEventsData: CalendarEvent[] = [];
+	
+	if (showAds) {
+		const now = new Date();
+		adEventsData = await getAdEventsForUser(userId, now.getMonth() + 1, now.getFullYear());
+	}
+
 	return {
 		userEvents: parseEvents(userEvents),
 		familyEvents: parseEvents(familyEventsData),
+		adEvents: parseEvents(adEventsData),
 		userSettings,
 		userCalendarColor: userSettings?.color || '#fa8072',
-		familyCalendarColor
+		familyCalendarColor,
+		showAds
 	};
 };
