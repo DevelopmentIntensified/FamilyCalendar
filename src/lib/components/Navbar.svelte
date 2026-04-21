@@ -24,8 +24,6 @@
 
 	const loggedInNavItems = [
 		{ href: '/calendar', label: 'Calendar' },
-		{ href: '/calendar/settings', label: 'Settings' },
-		{ href: '/account', label: 'Account' },
 		{ href: '/family', label: 'Family' }
 	];
 
@@ -95,6 +93,9 @@
 							<a href="/account" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
 								Account Settings
 							</a>
+							<a href="/calendar/settings" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+								Calendar Settings
+							</a>
 							<a href="/family" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
 								Family Management
 							</a>
@@ -152,9 +153,6 @@
 				{/each}
 				<div class="mt-4 flex flex-col gap-2 border-t border-slate-200 pt-3">
 					{#if isLoggedIn}
-						<a href="/account" on:click={closeMenu} class="block rounded-lg bg-slate-100 px-3 py-2.5 text-center text-base font-medium text-slate-700">
-							My Account
-						</a>
 						<form action="/api/logout" method="POST" class="block">
 							<button type="submit" class="w-full rounded-lg bg-primary-600 px-3 py-2.5 text-center text-base font-medium text-white">
 								Logout
