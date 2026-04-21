@@ -106,7 +106,7 @@
 						{#each colors as color}
 							<button
 								type="button"
-								on:click={() => selectedColor = color.value}
+								onclick={() => selectedColor = color.value}
 								class="group relative h-10 w-10 rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
 								style="background-color: {color.value}"
 								title={color.name}

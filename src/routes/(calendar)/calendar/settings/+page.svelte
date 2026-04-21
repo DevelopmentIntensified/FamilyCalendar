@@ -207,6 +207,9 @@
 		<form method="POST" action="?/ads" use:enhance class="space-y-4">
 			<div class="flex items-center justify-between rounded-lg bg-white p-4">
 				<div>
+					<!-- Ad preferences disabled until migration runs
+			<div class="flex items-center justify-between rounded-lg bg-white p-4">
+				<div>
 					<h3 class="font-medium text-slate-900">Show ads as calendar events</h3>
 					<p class="text-sm text-slate-500">When enabled, sponsored events appear on your calendar with a subtle marker.</p>
 				</div>
@@ -263,6 +266,7 @@
 			>
 				{loading ? 'Saving...' : 'Save Ad Preferences'}
 			</button>
+			-->
 		</form>
 
 		<div class="mt-4 text-sm text-slate-500">
