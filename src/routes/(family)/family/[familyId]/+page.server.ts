@@ -38,7 +38,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		const members = await db
 			.select({
 				userId: familyMembers.userId,
-				role: familyMembers.role,
 				firstName: users.firstName,
 				lastName: users.lastName,
 				email: users.email
@@ -47,7 +46,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			.innerJoin(users, eq(familyMembers.userId, users.id))
 			.where(eq(familyMembers.familyId, params.familyId));
 
-		return { family, members, currentUserRole: userFamilies.familyMembers?.role || null };
+		return { family, members, currentUserRole: 'member' };
 	} catch (error) {
 		console.error('[load] Error:', error);
 		return { family: null, members: [], currentUserRole: null };

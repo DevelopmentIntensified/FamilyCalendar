@@ -20,7 +20,7 @@ export async function calculateFamilyMemberDiscount(
 	userId: string
 ): Promise<{ eligible: boolean; discountPercentage: number }> {
 	const familyMembersResult = await db
-		.select()
+		.select({ userId: familyMembers.userId, familyId: familyMembers.familyId })
 		.from(familyMembers)
 		.where(eq(familyMembers.userId, userId));
 
