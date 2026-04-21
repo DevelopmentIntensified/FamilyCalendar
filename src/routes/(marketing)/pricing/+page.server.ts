@@ -1,8 +1,14 @@
 import type { PageServerLoad } from './$types';
 import { getUserEligibleDiscounts, getBasePrice, getPlanPricing, type PlanType } from '$lib/server/services/checkoutService';
+import { trackPricingView } from '$lib/server/services/analyticsService';
 
 export const load: PageServerLoad = async (event) => {
 	const user = event.locals.user;
+	
+	if (user) {
+		trackPricingView(user.id, 'view');
+	}
+	
 	let userDiscounts: {
 		eligible: boolean;
 		discountType: string;
