@@ -15,19 +15,23 @@
 			<slot />
 		</main>
 	{/key}
-	<footer
-		class="fixed bottom-0 left-0 block h-16 w-full border-slate-200 bg-white py-4 text-center shadow-xl shadow-slate-900"
-	>
-		{#if !pathname.includes('new')}
-			<a
-				title="New Event"
-				href="/calendar/event/new"
-				class="fixed inset-x-0 bottom-12 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-secondary shadow-md shadow-slate-300"
-			>
-				<svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-				</svg>
-			</a>
-		{/if}
+	<footer class="fixed bottom-0 left-0 w-full border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-500">
+		<div class="flex items-center justify-center gap-4">
+			<span>&copy; {new Date().getFullYear()} FamilyPlanz</span>
+			<span class="text-slate-300">|</span>
+			<a href="/about" class="hover:text-primary-600">About</a>
+			<a href="/privacy" class="hover:text-primary-600">Privacy</a>
+			<a href="/contact" class="hover:text-primary-600">Contact</a>
+		</div>
 	</footer>
+	{#if !pathname.includes('new') && !pathname.includes('edit')}
+		<a
+			href="/calendar/event/new"
+			class="fixed bottom-20 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 shadow-lg hover:bg-primary-700"
+		>
+			<svg class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+			</svg>
+		</a>
+	{/if}
 </div>
