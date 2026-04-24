@@ -1,17 +1,11 @@
 <script lang="ts">
 	import { DateTime } from 'luxon';
 	import type { Writable } from 'svelte/store';
+	import { formatDate } from '$lib/utils/dateUtils';
+	import type { Event } from '$lib/types';
 
 	export let currentDate: Writable<DateTime>;
-	export let events: {
-		start: DateTime;
-		end: DateTime;
-		date: DateTime;
-		title: string;
-		location: string;
-		type: string;
-		description: string;
-	}[];
+	export let events: Event[];
 	export let removeEvent: (id: string) => void;
 
 	$: year = $currentDate.year;
@@ -23,53 +17,89 @@
 			return eventDate.year === year && eventDate.month === month;
 		})
 		.sort((a, b) => a.date.toUnixInteger() - b.date.toUnixInteger());
+
+	// Group by date
+	$: groupedEvents = filteredEvents.reduce((acc, event) => {
+		const dateKey = formatDate(event.date);
+		if (!acc[dateKey]) acc[dateKey] = [];
+		acc[dateKey].push(event);
+		return acc;
+	}, {} as Record<string, Event[]>);
 </script>
 
-<div class="space-y-4">
+<div class="space-y-6">
 	{#if filteredEvents.length === 0}
-		<div class="w-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-			<div class="mb-2 w-full items-center justify-between text-center font-bold">
-				There are no events this month.
-			</div>
+		<div class="flex flex-col items-center justify-center py-12 text-center">
+			<svg class="mb-4 h-16 w-16 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+			</svg>
+			<p class="text-lg font-medium text-slate-700">No events this month</p>
+			<p class="text-sm text-slate-500">Create an event to get started</p>
 		</div>
 	{/if}
-	{#each filteredEvents as event}
-		<a href="/schedule/event/{event.id}" class="block">
-			<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-				<div class="mb-2 flex items-center justify-between">
-					<h3 class="text-lg font-semibold text-gray-800">{event.title}</h3>
-					<!-- <button -->
-					<!--   class="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" -->
-					<!--   on:click={() => removeEvent(event.id)} -->
-					<!-- > -->
-					<!--   <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> -->
-					<!-- </button> -->
-				</div>
-				<p class="mb-2 text-sm text-gray-600">
-					{event.date.setZone('America/New_York').toLocaleString(DateTime.DATETIME_SHORT)}
-				</p>
-				<p class="mb-2 text-sm text-gray-600">{event.location}</p>
-				<p class="mb-2 text-gray-700">{event.description}</p>
-				{#if event.type.includes('Indoor')}
-					<span class="rounded bg-orange-300 p-1">Indoor Race</span>
-				{:else if event.type.includes('Practice')}
-					<span class="rounded bg-yellow-300 p-1">Practice</span>
-				{:else if !event.type.includes('Social')}
-					<span class="rounded bg-yellow-300 p-1">Outdoor Race</span>
+
+	{#each Object.entries(groupedEvents) as [date, dayEvents]}
+		{@const dayDate = DateTime.fromISO(date)}
+		{@const isToday = formatDate(dayDate) === formatDate(DateTime.now())}
+		<div>
+			<h3 class="mb-3 sticky top-0 z-10 bg-white py-2 text-sm font-semibold text-slate-500 {isToday ? 'text-primary-600' : ''}">
+				{dayDate.toFormat('EEEE, MMMM d')}
+				{#if isToday}
+					<span class="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">Today</span>
 				{/if}
-				{#if event.type.includes('NIRCA')}
-					<span class="rounded bg-red-300 p-1">{event.type}</span>
-				{/if}
-				{#if event.type.includes('NCAA')}
-					<span class="rounded bg-blue-300 p-1">{event.type}</span>
-				{/if}
-				{#if event.type.includes('Social')}
-					<span class="rounded bg-purple-300 p-1">{event.type}</span>
-				{/if}
-				{#if event.type.includes('Trail Race')}
-					<span class="rounded bg-green-300 p-1">{event.type}</span>
-				{/if}
+			</h3>
+			<div class="space-y-2">
+				{#each dayEvents as event}
+					<a href="/calendar/event/{event.id}" class="block group">
+						<div class="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-slate-300 hover:shadow-md">
+							<!-- Color indicator -->
+							<div class="shrink-0 h-12 w-1 rounded-full {event.color?.replace('bg-', 'bg-') || 'bg-slate-400'}"></div>
+							
+							<div class="flex-1 min-w-0">
+								<div class="flex items-center gap-2">
+									<h4 class="truncate font-medium text-slate-900 group-hover:text-primary-600">{event.title}</h4>
+									{#if event.isAd}
+										<span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Ad</span>
+									{/if}
+								</div>
+								<div class="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-slate-500">
+									{#if event.allDay}
+										<span class="flex items-center gap-1">
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+											</svg>
+											All day
+										</span>
+									{:else if event.startTime}
+										<span class="flex items-center gap-1">
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+											</svg>
+											{event.startTime}
+											{#if event.endTime}
+												- {event.endTime}
+											{/if}
+										</span>
+									{/if}
+									{#if event.location}
+										<span class="flex items-center gap-1">
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+											</svg>
+											<span class="truncate max-w-[150px]">{event.location}</span>
+										</span>
+									{/if}
+								</div>
+							</div>
+							
+							<svg class="h-5 w-5 shrink-0 text-slate-400 group-hover:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+							</svg>
+						</div>
+					</a>
+				{/each}
 			</div>
-		</a>
+		</div>
 	{/each}
 </div>

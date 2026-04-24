@@ -123,7 +123,19 @@ Last updated: 2026-04-21
 - Data migration risk: backups, rollback plan
 - Compliance: consent management, privacy policy updates
 
-## Next Steps
+## Next Steps - Calendar Modernization (April 2026)
+- [x] Modern header with view toggle (Month/Week/List)
+- [x] Add Today button for quick navigation
+- [x] Create WeekView component
+- [x] Improve event chip styling and colors
+- [x] Add mini calendar date picker
+- [x] Better mobile responsive design
+- [ ] Add drag-to-create events
+- [ ] Add keyboard shortcuts
+- [ ] Add search events feature
+- [ ] Add filter by family member
+
+## Previous Next Steps
 - Run DB migration on Vercel preview/prod
 - Test pricing page with discounts
 - Test waitlist signup
