@@ -521,27 +521,27 @@
 					</div>
 				</div>
 
-				<!-- Action Buttons -->
-				<div class="flex gap-3 mt-6">
-					<button
-						type="button"
-						onclick={showAllFields}
-						class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-700 hover:bg-slate-100"
-					>
-						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-						</svg>
-						More Options
-					</button>
-					<button
-						type="submit"
-						disabled={loading || !form.title.value.trim()}
-						class="flex-1 rounded-xl bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-					>
-						{loading ? 'Creating...' : 'Create'}
-					</button>
-				</div>
-			</form>
-		</div>
+				<!-- Expand/Collapse Button -->
+				<button
+					type="button"
+					onclick={() => allFieldsVisible ? hideAllExtra() : showAllFields()}
+					class="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 font-medium text-amber-700 hover:bg-amber-100"
+				>
+					<svg class="h-4 w-4 transition-transform {allFieldsVisible ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+					</svg>
+					{allFieldsVisible ? 'Less Options' : 'More Options'}
+				</button>
+				
+				<!-- Create Button -->
+				<button
+					type="submit"
+					disabled={loading || !form.title.value.trim()}
+					class="flex-1 rounded-xl bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+				>
+					{loading ? 'Creating...' : 'Create'}
+				</button>
+			</div>
+		</form>
 	</div>
 {/if}
