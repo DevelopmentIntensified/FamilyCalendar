@@ -36,18 +36,69 @@ function parseDayOfWeek(day: string): number | null {
 	return map[day.toLowerCase()] ?? null;
 }
 
+function getNextDayOfWeek(day: string): DateTime {
+	const dayNum = parseDayOfWeek(day);
+	if (dayNum === null) return DateTime.now();
+	const now = DateTime.now();
+	const currentDay = now.weekday % 7;
+	let daysUntil = dayNum - currentDay;
+	if (daysUntil <= 0) daysUntil += 7;
+	return now.plus({ days: daysUntil });
+}
+
 export function parseEventInput(input: string): ParseResult {
 	const result: Partial<ParsedEvent> = { allDay: false };
 	let confidence = 0;
 	const now = DateTime.now();
 	const doc = nlp(input);
+	const lower = input.toLowerCase();
 
+	// 0. Handle relative dates first
+	// "this Friday", "this Saturday"
+	const thisDayMatch = input.match(/\bthis\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
+	if (thisDayMatch) {
+		const targetDate = getNextDayOfWeek(thisDayMatch[1]);
+		result.date = targetDate.toFormat('yyyy-MM-dd');
+		confidence += 0.25;
+	}
+	
+	// "next Wednesday", "next Tuesday"
+	const nextDayMatch = input.match(/\bnext\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
+	if (nextDayMatch && !result.date) {
+		const targetDate = getNextDayOfWeek(nextDayMatch[1]).plus({ weeks: 1 });
+		result.date = targetDate.toFormat('yyyy-MM-dd');
+		confidence += 0.25;
+	}
+	
+	// "early tomorrow morning", "tomorrow morning"
+	const tomorrowMatch = input.match(/\btomorrow\b/i);
+	if (tomorrowMatch && !result.date) {
+		result.date = now.plus({ days: 1 }).toFormat('yyyy-MM-dd');
+		confidence += 0.2;
+	}
+	
+	// "early morning", "early tomorrow", "tomorrow early"
+	const earlyTomorrowMatch = input.match(/\b(?:early\s+)?tomorrow(?:\s+morning)?\b/i);
+	if (earlyTomorrowMatch && !result.startTime && !foundTime) {
+		result.startTime = '06:00';
+		confidence += 0.15;
+	}
+	
+	// "next month" - e.g., "next May"
+	const nextMonthMatch = input.match(/\bnext\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b/i);
+	if (nextMonthMatch && !result.date) {
+		const month = MONTH_MAP[nextMonthMatch[1].toLowerCase()];
+		let year = now.month > month ? now.year + 1 : now.year;
+		result.date = DateTime.fromObject({ year, month, day: 1 }).toFormat('yyyy-MM-dd');
+		confidence += 0.2;
+	}
+	
 	// 1. Extract date using compromise + manual patterns
-	let foundDate = false;
+	let foundDate = !!result.date;
 	
 	// Try compromise date plugin
 	const dates = doc.dates().out('array');
-	if (dates.length > 0) {
+	if (dates.length > 0 && !foundDate) {
 		const dateStr = dates[0].toLowerCase();
 		
 		// Handle "this Saturday", "this Friday" etc
@@ -219,6 +270,82 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.1;
 	}
 	
+	// Handle "leaving at 6 AM", "departing at 5 AM"
+	const leaveMatch = input.match(/(?:leaving|departing)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	if (leaveMatch && !foundTime) {
+		let hour = parseInt(leaveMatch[1]);
+		const minute = leaveMatch[2] ? parseInt(leaveMatch[2]) : 0;
+		const period = leaveMatch[3]?.toLowerCase();
+		if (period === 'pm' && hour < 12) hour += 12;
+		if (period === 'am' && hour === 12) hour = 0;
+		result.startTime = normalizeTime(hour, minute);
+		foundTime = true;
+		confidence += 0.2;
+	}
+	
+	// Handle "returning by 2 PM", "arriving by 1 PM", "wrapping up around 9 PM"
+	const returnMatch = input.match(/(?:returning|arriving|wrapping\s+up)\s+(?:by\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	if (returnMatch && !result.endTime) {
+		let hour = parseInt(returnMatch[1]);
+		const minute = returnMatch[2] ? parseInt(returnMatch[2]) : 0;
+		const period = returnMatch[3]?.toLowerCase();
+		if (period === 'pm' && hour < 12) hour += 12;
+		if (period === 'am' && hour === 12) hour = 0;
+		result.endTime = normalizeTime(hour, minute);
+		confidence += 0.15;
+	}
+	
+	// Handle "kicking off at 6 PM", "going on until late evening" (estimate)
+	const kickOffMatch = input.match(/kicking\s+off\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	if (kickOffMatch && !foundTime) {
+		let hour = parseInt(kickOffMatch[1]);
+		const period = kickOffMatch[3]?.toLowerCase();
+		if (period === 'pm' && hour < 12) hour += 12;
+		result.startTime = normalizeTime(hour);
+		foundTime = true;
+		confidence += 0.2;
+	}
+	
+	// Handle "goes on until", "continuing until"
+	const continuesMatch = input.match(/(?:goes\s+on|continuing)\s+until\s+(?:around\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	if (continuesMatch && !result.endTime) {
+		let hour = parseInt(continuesMatch[1]);
+		const period = continuesMatch[3]?.toLowerCase();
+		if (period === 'pm' && hour < 12) hour += 12;
+		result.endTime = normalizeTime(hour);
+		confidence += 0.15;
+	}
+	
+	// Handle "for about 15 minutes" - short duration
+	const shortDurMatch = input.match(/for\s+(?:about\s+)?(\d+)\s+(minutes?|mins?)\b/i);
+	if (shortDurMatch && result.startTime) {
+		const minutes = parseInt(shortDurMatch[1]);
+		const start = DateTime.fromFormat(result.startTime, 'HH:mm');
+		result.endTime = start.plus({ minutes }).toFormat('HH:mm');
+		confidence += 0.1;
+	}
+	
+	// Handle "beginning at dusk around 8 PM" - approximate evening time
+	const duskMatch = input.match(/beginning\s+at\s+dusk\s+around\s+(\d{1,2})\s*(am|pm)?/i);
+	if (duskMatch && !foundTime) {
+		let hour = parseInt(duskMatch[1]);
+		const period = duskMatch[2]?.toLowerCase();
+		if (period === 'pm' && hour < 12) hour += 12;
+		result.startTime = normalizeTime(hour);
+		foundTime = true;
+		confidence += 0.15;
+	}
+	
+	// Handle "until the film concludes around 10 PM"
+	const concludesMatch = input.match(/until\s+(?:the\s+film\s+)?concludes?\s+(?:around\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	if (concludesMatch && !result.endTime) {
+		let hour = parseInt(concludesMatch[1]);
+		const period = concludesMatch[3]?.toLowerCase();
+		if (period === 'pm' && hour < 12) hour += 12;
+		result.endTime = normalizeTime(hour);
+		confidence += 0.15;
+	}
+	
 	// 4. Extract location
 	const places = doc.places().out('array');
 	if (places.length > 0) {
@@ -233,10 +360,24 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.15;
 	}
 	
+	// "at my apartment", "at my backyard", "at my driveway"
+	const myPlaceMatch = input.match(/at\s+(?:my|our)\s+([a-z]+)/i);
+	if (myPlaceMatch && !result.location) {
+		result.location = myPlaceMatch[1].charAt(0).toUpperCase() + myPlaceMatch[1].slice(1);
+		confidence += 0.1;
+	}
+	
 	// Address pattern - "at 450 Main Street"
 	const addressMatch = input.match(/at\s+(\d+\s+[A-Za-z]+\s+[A-Za-z]+)/);
 	if (addressMatch && !result.location) {
 		result.location = addressMatch[1];
+		confidence += 0.15;
+	}
+	
+	// "at the [place] Studio", "at the [place] Theater"
+	const venueMatch = input.match(/at\s+the\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:Studio|Theatre|Center|Hub|Museum|Park|Clubhouse|Library|Yoga|Shelter))/i);
+	if (venueMatch && !result.location) {
+		result.location = venueMatch[1];
 		confidence += 0.15;
 	}
 	
@@ -255,13 +396,22 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.15;
 	}
 	
-	// Handle audience/groups - "designed for X" or "welcome to X"
-	const audienceMatch = input.match(/(?:designed\s+for|welcome\s+(?:to\s+)?|including|for)\s+([^\.]+?)(?:\s+looking|\s+to\s+|\s+who|\s+and\s+|$)/gi);
-	if (audienceMatch && (!result.attendants || result.attendants.length === 0)) {
-		const audience = audienceMatch[0].replace(/^(designed\s+for|welcome\s+to|welcome\s+|including|for)\s+/i, '').replace(/\s+looking.*$/, '').replace(/\s+to\s+explore.*$/, '').replace(/\s+who\s+will.*$/, '').trim();
-		if (audience.length > 0 && audience.length < 50) {
-			result.attendants = [audience];
-			confidence += 0.1;
+	// Handle audience/groups - "designed for X" or "welcome to X" or "are invited" or "are coming" or "will be there"
+	const audiencePatterns = [
+		/(?:designed\s+for|welcome\s+(?:to\s+)?|including|for)\s+([^\.]+?)(?:\s+looking|\s+to\s+|\s+who|\s+and\s+|$)/gi,
+		/(?:are\s+invited|are\s+coming|will\s+be\s+(?:there|performing|walking|cleaning|browsing|involved|attending|participating))\s+([^\.]+?)(?:\s+(?:and|to|for|$))/gi,
+		/(?:expecting?|a\s+crowd\s+of)\s+([^\.]+?)(?:\s+(?:who|to|$))/gi,
+		/(?:the\s+(?:whole|regular)\s+)?(\w+\s+department|group|team|friends|members|students|volunteers|residents|neighbors|participants)\b(?!s?\s+are)/gi
+	];
+	
+	if ((!result.attendants || result.attendants.length === 0) && audiencePatterns.length > 0) {
+		for (const pattern of audiencePatterns) {
+			const match = input.match(pattern);
+			if (match && match[1] && match[1].length > 2 && match[1].length < 60) {
+				result.attendants = [match[1].trim()];
+				confidence += 0.1;
+				break;
+			}
 		}
 	}
 	
