@@ -33,6 +33,9 @@ export const actions: Actions = {
 		const color = formData.get('color') as string;
 		const defaultView = formData.get('defaultView') as string;
 		const syncEventsToFamilyCalendar = formData.get('syncEventsToFamilyCalendar') === 'on';
+		const autoParseEventDetails = formData.get('autoParseEventDetails') === 'true';
+		const useCloudAI = formData.get('useCloudAI') === 'true';
+		const useLocalAI = formData.get('useLocalAI') === 'true';
 
 		try {
 			const existingSettings = await getUserSettings(userId);
@@ -45,7 +48,10 @@ export const actions: Actions = {
 						timeZone,
 						color,
 						defaultView,
-						syncEventsToFamilyCalendar
+						syncEventsToFamilyCalendar,
+						autoParseEventDetails,
+						useCloudAI,
+						useLocalAI
 					});
 				});
 			} else {
@@ -54,7 +60,10 @@ export const actions: Actions = {
 					timeZone,
 					color,
 					defaultView,
-					syncEventsToFamilyCalendar
+					syncEventsToFamilyCalendar,
+					autoParseEventDetails,
+					useCloudAI,
+					useLocalAI
 				});
 			}
 

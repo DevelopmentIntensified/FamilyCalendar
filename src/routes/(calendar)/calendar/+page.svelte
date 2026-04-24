@@ -88,10 +88,26 @@
 		parsing = true;
 		parseError = '';
 		
+		// Check if AI is disabled
+		const useAI = data.userSettings?.autoParseEventDetails ?? true;
+		const useCloud = data.userSettings?.useCloudAI ?? true;
+		const useLocal = data.userSettings?.useLocalAI ?? true;
+		
+		if (!useAI) {
+			parseError = 'AI parsing disabled in settings';
+			showAllFields();
+			parsing = false;
+			return;
+		}
+		
 		try {
 			const res = await fetch('/api/parse-event', {
 				method: 'POST',
-				body: JSON.stringify({ input: nlInput })
+				body: JSON.stringify({ 
+					input: nlInput,
+					useCloud,
+					useLocal
+				})
 			});
 			const result = await res.json();
 			
@@ -99,7 +115,7 @@
 				parsedResult = result;
 				applyParsedResult(result.parsed);
 			} else if (result.error) {
-				parseError = 'Could not understand input';
+				parseError = result.error || 'Could not understand input';
 				showAllFields();
 			}
 		} catch (e) {

@@ -165,6 +165,70 @@
 		</button>
 	</form>
 
+	<!-- AI Settings -->
+	<div class="mt-8 rounded-lg border border-purple-200 bg-purple-50 p-6">
+		<div class="mb-4 flex items-center gap-3">
+			<svg class="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.99-2.253l-.707-.707m-2.829 7.096a5 5 0 006.828 0l2.828-2.828m-9.9 2.828l2.828 2.828" />
+			</svg>
+			<h2 class="text-lg font-semibold text-slate-900">AI Event Creation</h2>
+		</div>
+		<p class="mb-4 text-sm text-slate-600">Intelligent parsing helps quickly create events from natural language.</p>
+		
+		<div class="space-y-4">
+			<div class="flex items-center justify-between rounded-lg bg-white p-4">
+				<div>
+					<h3 class="font-medium text-slate-900">Auto-parse event details</h3>
+					<p class="text-sm text-slate-500">Automatically extract details from event descriptions.</p>
+				</div>
+				<label class="relative inline-flex cursor-pointer items-center">
+					<input
+						type="checkbox"
+						name="autoParseEventDetails"
+						value="true"
+						checked={settings.autoParseEventDetails ?? true}
+						class="peer sr-only"
+					/>
+					<div class="h-6 w-11 rounded-full bg-slate-200 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:bg-white"></div>
+				</label>
+			</div>
+
+			<div class="flex items-center justify-between rounded-lg bg-white p-4">
+				<div>
+					<h3 class="font-medium text-slate-900">Use cloud AI (recommended)</h3>
+					<p class="text-sm text-slate-500">Uses Cerebras cloud API for better parsing. Requires internet.</p>
+				</div>
+				<label class="relative inline-flex cursor-pointer items-center">
+					<input
+						type="checkbox"
+						name="useCloudAI"
+						value="true"
+						checked={settings.useCloudAI ?? true}
+						class="peer sr-only"
+					/>
+					<div class="h-6 w-11 rounded-full bg-slate-200 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:bg-white"></div>
+				</label>
+			</div>
+
+			<div class="flex items-center justify-between rounded-lg bg-white p-4">
+				<div>
+					<h3 class="font-medium text-slate-900">Use local AI</h3>
+					<p class="text-sm text-slate-500">Fallback when cloud unavailable. Works offline (experimental).</p>
+				</div>
+				<label class="relative inline-flex cursor-pointer items-center">
+					<input
+						type="checkbox"
+						name="useLocalAI"
+						value="true"
+						checked={settings.useLocalAI ?? true}
+						class="peer sr-only"
+					/>
+					<div class="h-6 w-11 rounded-full bg-slate-200 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:bg-white"></div>
+				</label>
+			</div>
+		</div>
+	</div>
+
 	<div class="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-6">
 		<div class="mb-4 flex items-center gap-3">
 			<svg class="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

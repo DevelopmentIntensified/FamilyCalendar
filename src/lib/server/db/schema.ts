@@ -46,6 +46,8 @@ export const userSettings = pgTable('userSettings', {
 	showAdMarkers: boolean().default(true),
 	personalizedAds: boolean().default(true),
 	autoParseEventDetails: boolean().default(true),
+	useCloudAI: boolean().default(true),
+	useLocalAI: boolean().default(true),
 	updatedAt: timestamp('updatedAt', { mode: 'date' })
 		.defaultNow()
 		.$onUpdate(() => new Date())
