@@ -196,7 +196,7 @@
 			<div class="flex items-center justify-between rounded-lg bg-white p-4">
 				<div>
 					<h3 class="font-medium text-slate-900">Use cloud AI (recommended)</h3>
-					<p class="text-sm text-slate-500">Uses Cerebras cloud API for better parsing. Requires internet.</p>
+					<p class="text-sm text-slate-500">Uses Cerebras API for better parsing. Requires internet.</p>
 				</div>
 				<label class="relative inline-flex cursor-pointer items-center">
 					<input
@@ -204,23 +204,6 @@
 						name="useCloudAI"
 						value="true"
 						checked={settings.useCloudAI ?? true}
-						class="peer sr-only"
-					/>
-					<div class="h-6 w-11 rounded-full bg-slate-200 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:bg-white"></div>
-				</label>
-			</div>
-
-			<div class="flex items-center justify-between rounded-lg bg-white p-4">
-				<div>
-					<h3 class="font-medium text-slate-900">Use local AI</h3>
-					<p class="text-sm text-slate-500">Fallback when cloud unavailable. Works offline (experimental).</p>
-				</div>
-				<label class="relative inline-flex cursor-pointer items-center">
-					<input
-						type="checkbox"
-						name="useLocalAI"
-						value="true"
-						checked={settings.useLocalAI ?? true}
 						class="peer sr-only"
 					/>
 					<div class="h-6 w-11 rounded-full bg-slate-200 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:bg-white"></div>
