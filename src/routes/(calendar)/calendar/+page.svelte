@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { fly, fade } from 'svelte/transition';
-	import { writable } from 'svelte/store';
+	import { writable, get } from 'svelte/store';
 	import { DateTime } from 'luxon';
 	import type { PageData } from './$types';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
@@ -17,6 +17,8 @@
 	let endDate = startDate;
 	let endTime = '10:00';
 	let loading = false;
+	let startValue = '';
+	let endValue = '';
 
 	function openQuickAdd(date?: string, time?: string) {
 		if (date) startDate = date;
@@ -30,6 +32,19 @@
 		allDay = true;
 		startDate = new Date().toISOString().split('T')[0];
 		startTime = '09:00';
+		endDate = startDate;
+		endTime = '10:00';
+	}
+
+	// Build start/end values when modal opens
+	$: if (showModal) {
+		if (allDay) {
+			startValue = startDate;
+			endValue = endDate;
+		} else {
+			startValue = `${startDate}T${startTime}`;
+			endValue = `${endDate}T${endTime}`;
+		}
 	}
 
 	// Combine all events
@@ -87,10 +102,11 @@
 					</button>
 				</div>
 
-				<input type="hidden" name="start" value="" />
-				<input type="hidden" name="end" value="" />
+				<input type="hidden" name="start" value={startValue} />
+				<input type="hidden" name="end" value={endValue} />
 				<input type="hidden" name="ownerId" value={data.user.id} />
-				<input type="hidden" name="calendarId" value={data.userSettings.defaultCalendarId || ''} />
+				<input type="hidden" name="calendarId" value={data.userSettings?.defaultCalendarId || ''} />
+				<input type="hidden" name="location" value="" />
 
 				<input
 					type="text"
