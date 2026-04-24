@@ -267,10 +267,10 @@
 <!-- Floating Quick Add Button -->
 <button
 	onclick={() => openQuickAdd()}
-	class="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 shadow-lg shadow-primary-300 hover:bg-primary-700 hover:scale-105 transition-all"
+	class="fixed bottom-24 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-primary-600 shadow-xl shadow-primary-400/50 hover:bg-primary-700 hover:scale-105 transition-all"
 	title="Quick Add Event"
 >
-	<svg class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+	<svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
 	</svg>
 </button>
@@ -301,14 +301,9 @@
 						autofocus
 						class="w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-base placeholder:text-slate-400 focus:border-primary-500 focus:bg-white focus:outline-none"
 					/>
-					<button 
-						type="button"
-						onclick={parseInput}
-						disabled={parsing || !nlInput.trim()}
-						class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-					>
-						{parsing ? 'Parsing...' : 'Parse'}
-					</button>
+					{#if parsing}
+						<p class="mt-1 text-xs text-primary-600">Parsing...</p>
+					{/if}
 					{#if parseError}
 						<p class="mt-1 text-xs text-red-500">{parseError}</p>
 					{/if}
@@ -509,17 +504,17 @@
 				</div>
 
 				<!-- Expand/Collapse Button -->
-				<button type="button" onclick={() => allFieldsVisible ? hideAllExtra() : showAllFields()} class="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 font-medium text-amber-700 hover:bg-amber-100">
+				<button type="button" onclick={() => allFieldsVisible ? hideAllExtra() : showAllFields()} class="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-2.5 font-medium text-slate-600 hover:bg-slate-50 transition-colors">
 					<svg class="h-4 w-4 transition-transform {allFieldsVisible ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 					</svg>
-					{allFieldsVisible ? 'Less Options' : 'More Options'}
+					{allFieldsVisible ? 'Show Less' : 'More Options'}
 				</button>
 				
 				<!-- Create Button -->
-				<button type="submit" disabled={loading || !form.title.value.trim()} class="flex-1 rounded-xl bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:opacity-50">
-					{loading ? 'Creating...' : 'Create'}
-				</button>
+					<button type="submit" disabled={loading || !form.title.value.trim()} class="w-full rounded-xl bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:opacity-50 mt-3 transition-colors">
+						{loading ? 'Creating...' : 'Create Event'}
+					</button>
 			</form>
 		</div>
 	</div>
