@@ -274,34 +274,14 @@
 		<button class="absolute inset-0 bg-black/40" onclick={close}></button>
 		
 		<div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl" transition:fly={{ y: 10, duration: 150 }}>
-			<form 
-				method="POST" 
-				action="/calendar/event/new?/createEvent" 
-				use:enhance={() => {
-					loading = true;
-					return async ({ update }) => {
-						await update();
-						close();
-					};
-				}}
-				class="p-6"
-			>
+			<form method="POST" action="/calendar/event/new?/createEvent" use:enhance={() => { loading = true; return async ({ update }) => { await update(); close(); }; }} class="p-6">
 				<div class="flex items-center justify-between mb-4">
 					<h2 class="text-lg font-bold text-slate-900">New Event</h2>
-					<div class="flex items-center gap-2">
-						<button 
-							type="button" 
-							onclick={showAllFields}
-							class="text-xs text-primary-600 hover:text-primary-700"
-						>
-							Expand all
-						</button>
-						<button type="button" onclick={close} class="text-slate-400 hover:text-slate-600">
-							<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-							</svg>
-						</button>
-					</div>
+					<button type="button" onclick={close} class="text-slate-400 hover:text-slate-600">
+						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
 				</div>
 
 				<!-- NL Input -->
