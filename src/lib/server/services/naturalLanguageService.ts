@@ -128,7 +128,7 @@ export function parseEventInput(input: string): ParseResult {
 
 	// 3. Check for all-day events
 	const allDayPatterns = ['all day', 'all-day', 'whole day', 'birthday', 'holiday', 'convention'];
-	if (allDayPatterns.some(p => lower.includes(p)) {
+	if (allDayPatterns.some(p => lower.includes(p))) {
 		result.allDay = true;
 		confidence += 0.15;
 	}
