@@ -74,29 +74,36 @@ export const load: PageServerLoad = async (event) => {
 	
 	// Get family members for contacts
 	let familyMembersList: { id: string; name: string; email: string; userId: string }[] = [];
-	if (familyId) {
-		const [family] = await db.select().from(families).where(eq(families.id, familyId));
-		familyCalendarColor = family?.color || '#e0ffff';
-		
-		let familyCals = await db.select().from(calendars).where(eq(calendars.familyId, familyId));
-		if (familyCals.length > 0) {
-			familyEventsData = await db
-				.select()
-				.from(events)
-				.where(eq(events.calendarId, familyCals[0].id))
-				.orderBy(events.start);
+	try {
+		if (familyId) {
+			const [family] = await db.select().from(families).where(eq(families.id, familyId));
+			familyCalendarColor = family?.color || '#e0ffff';
+			
+			let familyCals = await db.select().from(calendars).where(eq(calendars.familyId, familyId));
+			if (familyCals.length > 0) {
+				familyEventsData = await db
+					.select()
+					.from(events)
+					.where(eq(events.calendarId, familyCals[0].id))
+					.orderBy(events.start);
+			}
+			
+			// Get all family members
+			const members = await db
+				.select({
+					id: familyMembers.id,
+					name: familyMembers.name,
+					email: familyMembers.email,
+					userId: familyMembers.userId
+				})
+				.from(familyMembers)
+				.where(eq(familyMembers.familyId, familyId));
+				
+			familyMembersList = members || [];
 		}
-		
-		// Get all family members
-		familyMembersList = await db
-			.select({
-				id: familyMembers.id,
-				name: familyMembers.name,
-				email: familyMembers.email,
-				userId: familyMembers.userId
-			})
-			.from(familyMembers)
-			.where(eq(familyMembers.familyId, familyId));
+	} catch (e) {
+		console.error('Error fetching family members:', e);
+		familyMembersList = [];
 	}
 
 	const hasAdConsent = await checkUserAdConsent(userId);
