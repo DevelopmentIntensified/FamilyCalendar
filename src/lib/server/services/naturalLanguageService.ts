@@ -9,6 +9,7 @@ export interface ParsedEvent {
 	description?: string;
 	allDay: boolean;
 	recurring?: string;
+	attendants?: string[];
 }
 
 interface ParseResult {
@@ -160,7 +161,15 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.1;
 	}
 
-	// 7. Extract title (what's left after removing patterns)
+	// 7. Extract attendants (names after "with")
+	const withMatch = lower.match(/with\s+([a-z\s]+?)(?:\s+on|\s+at|\s+in|\s+for|$)/);
+	if (withMatch) {
+		const names = withMatch[1].trim().split(/\s+and\s+/);
+		result.attendants = names.map(n => n.trim());
+		confidence += 0.15;
+	}
+
+	// 8. Extract title (what's left after removing patterns)
 	let title = lower
 		.replace(/\b(at|in|on|for|to)\s+\d+/g, '')
 		.replace(/\b\d{1,2}:\d{2}\s*(am|pm)?/g, '')

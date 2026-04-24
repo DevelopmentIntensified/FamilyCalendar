@@ -168,6 +168,13 @@
 			form.description.detected = true;
 			form.description.visible = true;
 		}
+		
+		// Attendants - create entries for any names found
+		if (parsed.attendants && parsed.attendants.length > 0) {
+			form.attendants.value = parsed.attendants;
+			form.attendants.detected = true;
+			form.attendants.visible = true;
+		}
 	}
 
 	function handleFieldChange(field: string) {
