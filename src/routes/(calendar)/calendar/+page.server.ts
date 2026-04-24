@@ -71,6 +71,9 @@ export const load: PageServerLoad = async (event) => {
 	let familyId = member?.familyId;
 	let familyEventsData: CalendarEvent[] = [];
 	let familyCalendarColor = '#e0ffff';
+	
+	// Get family members for contacts
+	let familyMembersList: { id: string; name: string; email: string; userId: string }[] = [];
 	if (familyId) {
 		const [family] = await db.select().from(families).where(eq(families.id, familyId));
 		familyCalendarColor = family?.color || '#e0ffff';
@@ -83,6 +86,17 @@ export const load: PageServerLoad = async (event) => {
 				.where(eq(events.calendarId, familyCals[0].id))
 				.orderBy(events.start);
 		}
+		
+		// Get all family members
+		familyMembersList = await db
+			.select({
+				id: familyMembers.id,
+				name: familyMembers.name,
+				email: familyMembers.email,
+				userId: familyMembers.userId
+			})
+			.from(familyMembers)
+			.where(eq(familyMembers.familyId, familyId));
 	}
 
 	const hasAdConsent = await checkUserAdConsent(userId);
@@ -101,6 +115,7 @@ export const load: PageServerLoad = async (event) => {
 		userSettings,
 		userCalendarColor: userSettings?.color || '#fa8072',
 		familyCalendarColor,
-		showAds
+		showAds,
+		familyMembers: familyMembersList
 	};
 };

@@ -45,6 +45,7 @@ export const userSettings = pgTable('userSettings', {
 	showAdsAsEvents: boolean().default(true),
 	showAdMarkers: boolean().default(true),
 	personalizedAds: boolean().default(true),
+	autoParseEventDetails: boolean().default(true),
 	updatedAt: timestamp('updatedAt', { mode: 'date' })
 		.defaultNow()
 		.$onUpdate(() => new Date())
