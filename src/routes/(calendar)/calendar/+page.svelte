@@ -197,20 +197,24 @@
 
 	function showAllFields() {
 		allFieldsVisible = true;
-		Object.keys(form).forEach(k => {
-			form[k as keyof typeof form] = { ...form[k as any, visible: true };
-		});
+		form.title.visible = true;
+		form.date.visible = true;
+		form.startTime.visible = true;
+		form.endTime.visible = true;
+		form.location.visible = true;
+		form.description.visible = true;
+		form.attendants.visible = true;
 	}
 
 	function hideAllExtra() {
 		allFieldsVisible = false;
 		form.title.visible = true;
-		['date', 'startTime', 'endTime', 'location', 'description', 'attendants'].forEach(k => {
-			const f = form[k as keyof typeof form] as any;
-			if (!f.detected && !f.userEdited) {
-				f.visible = false;
-			}
-		});
+		if (!form.date.detected && !form.date.userEdited) form.date.visible = false;
+		if (!form.startTime.detected && !form.startTime.userEdited) form.startTime.visible = false;
+		if (!form.endTime.detected && !form.endTime.userEdited) form.endTime.visible = false;
+		if (!form.location.detected && !form.location.userEdited) form.location.visible = false;
+		if (!form.description.detected && !form.description.userEdited) form.description.visible = false;
+		if (!form.attendants.detected && !form.attendants.userEdited) form.attendants.visible = false;
 	}
 
 	function onNlInput() {
