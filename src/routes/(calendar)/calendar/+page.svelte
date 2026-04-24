@@ -143,10 +143,13 @@
 				<div class="flex gap-3">
 					<button
 						type="button"
-						onclick={close}
-						class="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-700 hover:bg-slate-100"
+						onclick={() => window.location.href = '/calendar/event/new'}
+						class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-700 hover:bg-slate-100"
 					>
-						Cancel
+						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+						</svg>
+						More Options
 					</button>
 					<button
 						type="submit"
