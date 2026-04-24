@@ -77,6 +77,7 @@
 		"@vercel/blob": "^0.27.3",
 		"arctic": "^3.4.0",
 		"bcryptjs": "^3.0.3",
+		"compromise": "^14.15.0",
 		"date-picker-svelte": "^2.15.1",
 		"dotenv": "^16.4.7",
 		"drizzle-orm": "^0.38.4",

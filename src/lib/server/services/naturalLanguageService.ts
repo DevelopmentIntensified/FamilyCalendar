@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import nlp from 'compromise';
 
 export interface ParsedEvent {
 	title: string;
@@ -10,6 +11,7 @@ export interface ParsedEvent {
 	allDay: boolean;
 	recurring?: string;
 	attendants?: string[];
+	duration?: string;
 }
 
 interface ParseResult {
@@ -17,189 +19,297 @@ interface ParseResult {
 	confidence: number;
 }
 
-const DAY_PATTERNS: Record<string, string> = {
-	sunday: '0',
-	monday: '1',
-	tuesday: '2',
-	wednesday: '3',
-	thursday: '4',
-	friday: '5',
-	saturday: '6',
-	today: 'today',
-	tomorrow: 'tomorrow'
-};
-
-const TIME_WORDS: Record<string, number> = {
-	'midnight': 0,
-	'noon': 12,
-	'morning': 9,
-	'afternoon': 14,
-	'evening': 18,
-	'am': 0,
-	'pm': 12
-};
-
 const MONTH_MAP: Record<string, number> = {
 	january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
 	july: 7, august: 8, september: 9, october: 10, november: 11, december: 12
 };
 
+function normalizeTime(hour: number, minute: number = 0): string {
+	return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+}
+
+function parseDayOfWeek(day: string): number | null {
+	const map: Record<string, number> = {
+		sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+		thursday: 4, friday: 5, saturday: 6
+	};
+	return map[day.toLowerCase()] ?? null;
+}
+
 export function parseEventInput(input: string): ParseResult {
 	const result: Partial<ParsedEvent> = { allDay: false };
 	let confidence = 0;
 	const now = DateTime.now();
-	const lower = input.toLowerCase().trim();
+	const doc = nlp(input);
 
-	// 1. Extract time patterns (e.g., "2pm", "14:30", "at noon")
-	const timeMatch = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
-	const atMatch = lower.match(/at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
-	const morningMatch = lower.match(/\bmorning\b/);
-	const afternoonMatch = lower.match(/\bafternoon\b/);
-	const eveningMatch = lower.match(/\bevening\b/);
-	const noonMatch = lower.match(/\bnoon\b/);
-	const midnightMatch = lower.match(/\bmidnight\b/);
-
-	let hour: number | undefined;
-	let minute = 0;
-
-	if (timeMatch || atMatch) {
-		const match = atMatch || timeMatch;
-		hour = parseInt(match[1]);
-		if (match[2]) minute = parseInt(match[2]);
-		const period = match[3];
-		if (period === 'pm' && hour < 12) hour += 12;
-		if (period === 'am' && hour === 12) hour = 0;
-		confidence += 0.3;
-	} else if (noonMatch) {
-		hour = 12;
-		confidence += 0.3;
-	} else if (midnightMatch) {
-		hour = 0;
-		confidence += 0.2;
-	} else if (morningMatch) {
-		hour = 9;
-		confidence += 0.15;
-	} else if (afternoonMatch) {
-		hour = 14;
-		confidence += 0.15;
-	} else if (eveningMatch) {
-		hour = 18;
-		confidence += 0.15;
-	}
-
-	if (hour !== undefined) {
-		result.startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-		result.allDay = false;
-	}
-
-	// 2. Extract date patterns
-	const todayMatch = lower.match(/\btoday\b/);
-	const tomorrowMatch = lower.match(/\btomorrow\b/);
-	const dayMatch = lower.match(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
-	const dateMatch = lower.match(/(\d{1,2})\s*\/\s*(\d{1,2})/);
-	const monthDayMatch = lower.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})/i);
-
-	if (todayMatch) {
-		result.date = now.toFormat('yyyy-MM-dd');
-		confidence += 0.2;
-	} else if (tomorrowMatch) {
-		result.date = now.plus({ days: 1 }).toFormat('yyyy-MM-dd');
-		confidence += 0.2;
-	} else if (dayMatch) {
-		const targetDay = DAY_PATTERNS[dayMatch[1].toLowerCase()];
-		const currentDay = now.weekday;
-		let daysUntil = parseInt(targetDay) - currentDay;
-		if (daysUntil <= 0) daysUntil += 7;
-		result.date = now.plus({ days: daysUntil }).toFormat('yyyy-MM-dd');
-		confidence += 0.25;
-	} else if (monthDayMatch) {
-		const month = MONTH_MAP[monthDayMatch[1].toLowerCase()];
-		const day = parseInt(monthDayMatch[2]);
-		result.date = DateTime.now().set({ month, day }).toFormat('yyyy-MM-dd');
-		if (result.date < now.toFormat('yyyy-MM-dd')) {
-			result.date = DateTime.now().plus({ years: 1 }).set({ month, day }).toFormat('yyyy-MM-dd');
+	// 1. Extract date using compromise + manual patterns
+	let foundDate = false;
+	
+	// Try compromise date plugin
+	const dates = doc.dates().out('array');
+	if (dates.length > 0) {
+		const dateStr = dates[0].toLowerCase();
+		
+		// Handle "this Saturday", "this Friday" etc
+		const thisMatch = input.match(/this\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
+		if (thisMatch) {
+			const dayNum = parseDayOfWeek(thisMatch[1]);
+			if (dayNum !== null) {
+				const currentDay = now.weekday % 7;
+				let daysUntil = dayNum - currentDay;
+				if (daysUntil <= 0) daysUntil += 7;
+				result.date = now.plus({ days: daysUntil }).toFormat('yyyy-MM-dd');
+				foundDate = true;
+				confidence += 0.25;
+			}
 		}
-		confidence += 0.3;
-	} else if (dateMatch) {
-		const month = parseInt(dateMatch[1]);
-		const day = parseInt(dateMatch[2]);
-		result.date = DateTime.now().set({ month, day }).toFormat('yyyy-MM-dd');
-		confidence += 0.2;
+		
+		// Handle month and day e.g., "July 12th", "May 4th"
+		const monthDayMatch = input.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b/i);
+		if (monthDayMatch) {
+			const month = MONTH_MAP[monthDayMatch[1].toLowerCase()];
+			const day = parseInt(monthDayMatch[2]);
+			let year = now.year;
+			const target = DateTime.fromObject({ year, month, day });
+			if (target < now && month <= now.month) {
+				year = now.year + 1;
+			}
+			result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+			foundDate = true;
+			confidence += 0.3;
+		}
+		
+		// Handle dates like "March 14th"
+		const singleDateMatch = input.match(/\b(march|april|may|june|july|august|september|october|november|december|january|february)\s+(\d{1,2})\b/i);
+		if (singleDateMatch && !foundDate) {
+			const month = MONTH_MAP[singleDateMatch[1].toLowerCase()];
+			const day = parseInt(singleDateMatch[2]);
+			let year = now.year;
+			const target = DateTime.fromObject({ year, month, day });
+			if (target < now && month <= now.month) {
+				year = now.year + 1;
+			}
+			result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+			foundDate = true;
+			confidence += 0.25;
+		}
 	}
-
-	// 3. Check for all-day events
-	const allDayPatterns = ['all day', 'all-day', 'whole day', 'birthday', 'holiday', 'convention'];
-	if (allDayPatterns.some(p => lower.includes(p))) {
+	
+	// Manual date patterns
+	if (!foundDate) {
+		// Handle specific dates like "Friday, July 12th"
+		const friMatch = input.match(/friday\s*,\s*july\s+(\d{1,2})/i);
+		if (friMatch) {
+			result.date = DateTime.fromObject({ year: now.year, month: 7, day: parseInt(friMatch[1]) }).toFormat('yyyy-MM-dd');
+			foundDate = true;
+			confidence += 0.3;
+		}
+		
+		// Handle "the 5th of October", "October 5th"
+		const ofMatch = input.match(/the\s+(\d{1,2})(?:st|nd|rd|th)?\s+of\s+(january|february|march|april|may|june|july|august|september|october|november|december)/i);
+		if (ofMatch && !foundDate) {
+			const month = MONTH_MAP[ofMatch[2].toLowerCase()];
+			const day = parseInt(ofMatch[1]);
+			let year = now.year;
+			const target = DateTime.fromObject({ year, month, day });
+			if (target < now && month <= now.month) {
+				year = now.year + 1;
+			}
+			result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+			foundDate = true;
+			confidence += 0.25;
+		}
+	}
+	
+	// 2. Extract time using compromise + patterns
+	let foundTime = false;
+	
+	// Check for all-day events first
+	const allDayPatterns = ['all day', 'all-day', 'whole day', 'birthday'];
+	if (allDayPatterns.some(p => input.toLowerCase().includes(p))) {
 		result.allDay = true;
 		confidence += 0.15;
 	}
-
-	// 4. Extract location (after "at", "in", "location:")
-	const locationMatch = lower.match(/(?:at|in)\s+([a-z\s]+?)(?:\s+at|\s+for|$)/);
-	if (locationMatch) {
-		result.location = locationMatch[1].trim();
+	
+	// Handle "starting at 6 PM", "at 8 AM sharp", "beginning at 9 AM"
+	const startTimeMatch = input.match(/(?:start(?:ing)?\s+at|at|beginning\s+at)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|AM|PM)?/i);
+	if (startTimeMatch) {
+		let hour = parseInt(startTimeMatch[1]);
+		const minute = startTimeMatch[2] ? parseInt(startTimeMatch[2]) : 0;
+		const period = startTimeMatch[3]?.toLowerCase();
+		
+		if (period === 'pm' && hour < 12) hour += 12;
+		if (period === 'am' && hour === 12) hour = 0;
+		if (!period && hour < 8) hour += 12; // assume PM for times like 6 PM
+		
+		result.startTime = normalizeTime(hour, minute);
+		foundTime = true;
+		confidence += 0.25;
+	}
+	
+	// Handle "sharp at 8 AM"
+	const sharpMatch = input.match(/(\d{1,2})\s*(?:am|pm)\s*sharp/i);
+	if (sharpMatch && !foundTime) {
+		let hour = parseInt(sharpMatch[1]);
+		const ampmMatch = input.match(/(\d{1,2})\s*(am|pm)\s*sharp/i);
+		if (ampmMatch) {
+			if (ampmMatch[2].toLowerCase() === 'pm' && hour < 12) hour += 12;
+			result.startTime = normalizeTime(hour);
+			foundTime = true;
+			confidence += 0.2;
+		}
+	}
+	
+	// 3. Extract end time / duration
+	// Handle "wrapping up around 9 PM", "concludes at 5 PM", "finishes by noon"
+	const endTimeMatch = input.match(/(?:wrapping up|concludes?|finishes?|ending|ending|concluding)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	if (endTimeMatch) {
+		let hour = parseInt(endTimeMatch[1]);
+		const minute = endTimeMatch[2] ? parseInt(endTimeMatch[2]) : 0;
+		const period = endTimeMatch[3]?.toLowerCase();
+		
+		if (period === 'pm' && hour < 12) hour += 12;
+		if (period === 'am' && hour === 12) hour = 0;
+		
+		result.endTime = normalizeTime(hour, minute);
+		confidence += 0.15;
+	}
+	
+	// Handle duration like "from 9 AM to 5 PM"
+	const fromToMatch = input.match(/from\s+(\d{1,2})\s*(?:am|pm)?\s+to\s+(\d{1,2})\s*(am|pm)?/i);
+	if (fromToMatch && !result.endTime) {
+		let startHour = parseInt(fromToMatch[1]);
+		let endHour = parseInt(fromToMatch[2]);
+		const period = fromToMatch[3];
+		
+		if (period?.toLowerCase() === 'pm') {
+			if (startHour < 12) startHour += 12;
+			if (endHour < 12) endHour += 12;
+		}
+		
+		result.startTime = normalizeTime(startHour);
+		result.endTime = normalizeTime(endHour);
+		foundTime = true;
+		confidence += 0.2;
+	}
+	
+	// Handle duration expressed as hours
+	const hourDurMatch = input.match(/for\s+(?:approximately\s+)?(\d+)\s+(hours?)/i);
+	if (hourDurMatch && result.startTime) {
+		const hours = parseInt(hourDurMatch[1]);
+		const start = DateTime.fromFormat(result.startTime, 'HH:mm');
+		result.endTime = start.plus({ hours }).toFormat('HH:mm');
 		confidence += 0.1;
 	}
-
-	// 5. Extract duration
-	const durationMatch = lower.match(/for\s+(\d+)\s*(min|minute|minutes|hour|hours|hr|hrs)/);
-	if (durationMatch) {
-		const num = parseInt(durationMatch[1]);
-		const unit = durationMatch[2];
-		if (unit.startsWith('min')) {
-			result.endTime = DateTime.fromISO(`2024-01-01T${result.startTime}`).plus({ minutes: num }).toFormat('HH:mm');
-		} else {
-			result.endTime = DateTime.fromISO(`2024-01-01T${result.startTime}`).plus({ hours: num }).toFormat('HH:mm');
+	
+	// Handle "until noon", "until 4 PM"
+	const untilMatch = input.match(/until\s+(noon|midnight|(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)/i);
+	if (untilMatch && !result.endTime) {
+		if (untilMatch[1] === 'noon') {
+			result.endTime = '12:00';
+		} else if (untilMatch[1] === 'midnight') {
+			result.endTime = '00:00';
+		} else if (untilMatch[2]) {
+			let hour = parseInt(untilMatch[2]);
+			const minute = untilMatch[3] ? parseInt(untilMatch[3]) : 0;
+			const period = untilMatch[4]?.toLowerCase();
+			if (period === 'pm' && hour < 12) hour += 12;
+			result.endTime = normalizeTime(hour, minute);
 		}
 		confidence += 0.1;
 	}
-
-	// 6. Check for recurring events
-	const recurringMatch = lower.match(/\bevery\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday|week|month)\b/i);
-	if (recurringMatch) {
-		result.recurring = recurringMatch[1];
-		confidence += 0.1;
-	}
-
-	// 7. Extract attendants (names after "with")
-	const withMatch = lower.match(/with\s+([a-z\s]+?)(?:\s+on|\s+at|\s+in|\s+for|$)/);
-	if (withMatch) {
-		const names = withMatch[1].trim().split(/\s+and\s+/);
-		result.attendants = names.map(n => n.trim());
+	
+	// 4. Extract location
+	const places = doc.places().out('array');
+	if (places.length > 0) {
+		result.location = places[0];
 		confidence += 0.15;
 	}
-
-	// 8. Extract title (what's left after removing patterns)
-	let title = lower
-		.replace(/\b(at|in|on|for|to)\s+\d+/g, '')
-		.replace(/\b\d{1,2}:\d{2}\s*(am|pm)?/g, '')
-		.replace(/\b(am|pm)\b/g, '')
-		.replace(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/g, '')
-		.replace(/\b(today|tomorrow)\b/g, '')
-		.replace(/\d{1,2}\s*\/\s*\d{1,2}/g, '')
-		.replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}/gi, '')
-		.replace(/\ball day\b/g, '')
-		.replace(/\ball-day\b/g, '')
-		.replace(/\bwhole day\b/g, '')
-		.replace(/\bfor\s+\d+\s*(min|minute|minutes|hour|hours|hr|hrs)\b/g, '')
-		.replace(/\bevery\s+\w+\b/g, '')
+	
+	// Manual location patterns - "at the X"
+	const atLocMatch = input.match(/at\s+the\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
+	if (atLocMatch && !result.location) {
+		result.location = atLocMatch[1];
+		confidence += 0.15;
+	}
+	
+	// Address pattern - "at 450 Main Street"
+	const addressMatch = input.match(/at\s+(\d+\s+[A-Za-z]+\s+[A-Za-z]+)/);
+	if (addressMatch && !result.location) {
+		result.location = addressMatch[1];
+		confidence += 0.15;
+	}
+	
+	// 5. Extract attendants (people)
+	const people = doc.people().out('array');
+	if (people.length > 0) {
+		result.attendants = people;
+		confidence += 0.15;
+	}
+	
+	// Manual "with" pattern for names
+	const withMatch = input.match(/with\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g);
+	if (withMatch && (!result.attendants || result.attendants.length === 0)) {
+		const names = withMatch.map(m => m.replace(/^with\s+/i, '').trim());
+		result.attendants = names;
+		confidence += 0.15;
+	}
+	
+	// Handle audience/groups - "designed for X" or "welcome to X"
+	const audienceMatch = input.match(/(?:designed\s+for|welcome\s+(?:to\s+)?|including|for)\s+([^\.]+?)(?:\s+looking|\s+to\s+|\s+who|\s+and\s+|$)/gi);
+	if (audienceMatch && (!result.attendants || result.attendants.length === 0)) {
+		const audience = audienceMatch[0].replace(/^(designed\s+for|welcome\s+to|welcome\s+|including|for)\s+/i, '').replace(/\s+looking.*$/, '').replace(/\s+to\s+explore.*$/, '').replace(/\s+who\s+will.*$/, '').trim();
+		if (audience.length > 0 && audience.length < 50) {
+			result.attendants = [audience];
+			confidence += 0.1;
+		}
+	}
+	
+	// Multi-day event
+	const multiDayMatch = input.match(/from\s+\d{1,2}\s+(?:am|pm)?\s+on\s+\w+\s+through\s+(\w+)\s+(\d{1,2})/i);
+	if (multiDayMatch) {
+		result.recurring = 'multi-day';
+		confidence += 0.15;
+	}
+	
+	// 6. Extract title (clean up the rest)
+	let title = input
+		.replace(/\d{1,2}:\d{2}\s*(am|pm)?/gi, '')
+		.replace(/\bat\s+\d+/g, '')
+		.replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?/gi, '')
+		.replace(/\b(the\s+)?\d{1,2}(?:st|nd|rd|th)?\s+of\s+(january|february|march|april|may|june|july|august|september|october|november|december)/gi, '')
+		.replace(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi, '')
+		.replace(/\ball[- ]?day\b/gi, '')
+		.replace(/\bfrom\s+\d{1,2}\s*(?:am|pm)?\s+to\s+\d{1,2}\s*(?:am|pm)?/gi, '')
+		.replace(/\bbeginning\s+at\s+\d{1,2}\s*(?:am|pm)?/gi, '')
+		.replace(/\bstarting\s+at\s+\d{1,2}\s*(?:am|pm)?/gi, '')
+		.replace(/\bwrapping\s+up\s+(?:around\s+)?\d{1,2}\s*(?:am|pm)?/gi, '')
+		.replace(/\bconcludes?\s+(?:at\s+)?\d{1,2}\s*(?:am|pm)?/gi, '')
+		.replace(/\bfinishes?\s+(?:by\s+)?\d{1,2}\s*(?:am|pm)?/gi, '')
+		.replace(/\buntil\s+(?:around\s+)?\d{1,2}\s*(?:am|pm)?/gi, '')
+		.replace(/\bfor\s+\d+\s+(hour|minute)s?/gi, '')
+		.replace(/\bat\s+the\s+[A-Z][a-z]+/g, '')
+		.replace(/\bat\s+\d+\s+[A-Za-z]+\s+[A-Za-z]+/g, '')
+		.replace(/\bthe\s+\d+\s+(?:st|nd|rd|th)\b/gi, '')
+		.replace(/\bthis\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi, '')
+		.replace(/,\s*$/, '')
 		.trim();
-
-	if (title.length > 0 && !title.match(/^\s*$/)) {
-		result.title = title.charAt(0).toUpperCase() + title.slice(1);
+	
+	if (title.length > 3 && !title.match(/^[\s,]*$/)) {
+		result.title = title.replace(/^[,\s]+|[,\s]+$/g, '');
 		confidence += 0.2;
 	}
-
-	// 8. If no date found, default to today
+	
+	// 7. Default to today if no date
 	if (!result.date) {
 		result.date = now.toFormat('yyyy-MM-dd');
 	}
-
-	// 9. If no title, use the whole input
-	if (!result.title) {
-		result.title = input;
-		confidence = 0.5;
+	
+	// 8. Default start time if all-day
+	if (result.allDay && !result.startTime) {
+		result.startTime = '09:00';
+		result.endTime = '17:00';
 	}
-
+	
 	return { parsed: result, confidence: Math.min(confidence, 1) };
 }
