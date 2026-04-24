@@ -75,7 +75,8 @@ export const load: PageServerLoad = async (event) => {
 	// Get family members for contacts
 	let familyMembersList: { id: string; name: string; email: string; userId: string }[] = [];
 	try {
-		if (familyId) {
+		// Only query if familyId is a valid string
+		if (familyId && typeof familyId === 'string') {
 			const [family] = await db.select().from(families).where(eq(families.id, familyId));
 			familyCalendarColor = family?.color || '#e0ffff';
 			
