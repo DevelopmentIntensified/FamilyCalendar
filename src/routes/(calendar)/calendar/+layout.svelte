@@ -11,7 +11,7 @@
 <div class="flex min-h-screen flex-col">
 	<Navbar isLoggedIn={true} user={data.user} />
 	{#key pathname}
-		<main class="pt-16 flex-grow" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
+		<main class="pt-16 flex-grow pb-24" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
 			<slot />
 		</main>
 	{/key}
@@ -24,14 +24,4 @@
 			<a href="/contact" class="hover:text-primary-600">Contact</a>
 		</div>
 	</footer>
-	{#if !pathname.includes('new') && !pathname.includes('edit')}
-		<a
-			href="/calendar/event/new"
-			class="fixed bottom-20 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 shadow-lg hover:bg-primary-700"
-		>
-			<svg class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
-			</svg>
-		</a>
-	{/if}
 </div>

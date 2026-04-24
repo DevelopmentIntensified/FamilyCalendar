@@ -1,10 +1,14 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { fly, fade } from 'svelte/transition';
+	import { writable } from 'svelte/store';
+	import { DateTime } from 'luxon';
 	import type { PageData } from './$types';
+	import Calendar from '$lib/components/calendar/Calendar.svelte';
 
 	export let data: PageData;
 
+	const currentDate = writable(DateTime.now());
 	let showModal = false;
 	let title = '';
 	let allDay = true;
@@ -28,11 +32,22 @@
 		startTime = '09:00';
 	}
 
-	function handleSubmit({ cancel }) {
-		cancel();
-		loading = true;
-	}
+	// Combine all events
+	$: allEvents = [
+		...(data.userEvents || []),
+		...(data.familyEvents || []),
+		...(data.adEvents || [])
+	];
 </script>
+
+<div class="pb-24">
+	<Calendar 
+		{currentDate} 
+		events={allEvents} 
+		removeEvent={() => {}}
+		preferedFirstDayOfWeek={data.user?.firstDayOfWeek || 'sunday'}
+	/>
+</div>
 
 <!-- Floating Quick Add Button -->
 <button
