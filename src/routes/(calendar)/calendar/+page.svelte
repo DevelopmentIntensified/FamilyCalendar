@@ -219,7 +219,7 @@
 
 	function onNlInput() {
 		clearTimeout(parseTimer);
-		parseTimer = setTimeout(parseInput, 500);
+		parseTimer = setTimeout(parseInput, 300);
 	}
 
 	// Build start/end values when submitting
