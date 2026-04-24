@@ -515,16 +515,6 @@
 											No family members found
 										</div>
 									{/if}
-									<button 
-										type="button"
-										onclick={() => window.location.href = '/calendar/settings'}
-										class="flex w-full items-center justify-center gap-2 border-t border-slate-100 p-2 text-sm text-primary-600 hover:bg-slate-50"
-									>
-										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-										</svg>
-										Add from contacts
-									</button>
 								</div>
 							{/if}
 						</div>
@@ -535,7 +525,7 @@
 				<div class="flex gap-3 mt-6">
 					<button
 						type="button"
-						onclick={() => window.location.href = '/calendar/event/new'}
+						onclick={showAllFields}
 						class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-700 hover:bg-slate-100"
 					>
 						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
