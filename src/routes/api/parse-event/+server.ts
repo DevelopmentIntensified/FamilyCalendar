@@ -9,50 +9,95 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ error: 'Input required' }, { status: 400 });
 	}
 
+	const systemPrompt = `Parse this calendar event. Return JSON with exactly these fields:
+- title: string (event name)
+- date: string in YYYY-MM-DD format
+- startTime: string in HH:MM format
+- endTime: string in HH:MM format  
+- location: string
+- description: string
+- allDay: boolean
+- attendants: array of names`;
+
 	try {
-		// Hierarchical fallback: Cloud AI -> Local AI -> Regex
 		let result = { parsed: null, confidence: 0, method: 'none' };
 		
-		// 1. Try cloud AI first (if enabled)
-		if (useCloud) {
+		// 1. Try cloud AI first (Cerebras)
+		if (useCloud && !result.parsed) {
 			try {
-				const cloudRes = await fetch(process.env.CEREBRAS_API_URL || 'https://api.cerebras.ai/v1/chat/completions', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'Authorization': `Bearer ${process.env.CEREBRAS_API_KEY || ''}`
-					},
-					body: JSON.stringify({
-						model: 'llama-3.3-70b',
-						messages: [{
-							role: 'system',
-							content: 'Parse this calendar event. Return JSON with: title, date (YYYY-MM-DD), startTime (HH:MM), endTime (HH:MM), location, description, allDay (boolean), attendants (array of names).'
-						}, {
-							role: 'user',
-							content: input
-						}],
-						response_format: { type: 'json_object' }
-					})
-				});
+				const apiKey = process.env.CEREBRAS_API_KEY;
+				const apiUrl = process.env.CEREBRAS_API_URL || 'https://api.cerebras.ai/v1/chat/completions';
 				
-				if (cloudRes.ok) {
-					const cloudData = await cloudRes.json();
-					const parsedContent = JSON.parse(cloudData.choices?.[0]?.message?.content || '{}');
-					result = { parsed: parsedContent, confidence: 0.9, method: 'cloud' };
+				if (apiKey) {
+					const cloudRes = await fetch(apiUrl, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'Authorization': `Bearer ${apiKey}`
+						},
+						body: JSON.stringify({
+							model: 'llama-3.3-70b',
+							messages: [
+								{ role: 'system', content: systemPrompt },
+								{ role: 'user', content: input }
+							],
+							response_format: { type: 'json_object' }
+						})
+					});
+					
+					if (cloudRes.ok) {
+						const cloudData = await cloudRes.json();
+						const content = cloudData.choices?.[0]?.message?.content || '{}';
+						const parsed = JSON.parse(content);
+						if (parsed.title || parsed.date) {
+							result = { parsed, confidence: 0.85, method: 'cloud' };
+						}
+					}
 				}
 			} catch (cloudError) {
-				console.log('Cloud AI failed, trying local...');
+				console.log('Cloud AI error:', cloudError);
 			}
 		}
 		
-		// 2. Try local AI if cloud failed or disabled
+		// 2. Try local AI via Ollama
 		if (!result.parsed && useLocal) {
-			// Try local model (Ollama, etc.) - experimental
 			try {
-				// TODO: Implement local model call
-				// For now, skip to regex
+				const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+				const model = process.env.OLLAMA_MODEL || 'llama3.2:1b';
+				
+				// Check if Ollama is running
+				const healthCheck = await fetch(`${ollamaUrl}/api/tags`, { 
+					method: 'GET'
+				}).catch(() => null);
+				
+				if (healthCheck?.ok) {
+					const localRes = await fetch(`${ollamaUrl}/api/chat`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							model,
+							messages: [
+								{ role: 'system', content: systemPrompt },
+								{ role: 'user', content: input }
+							],
+							format: 'json',
+							options: {
+								temperature: 0.1
+							}
+						})
+					});
+					
+					if (localRes.ok) {
+						const localData = await localRes.json();
+						const content = localData.message?.content || '{}';
+						const parsed = JSON.parse(content);
+						if (parsed.title || parsed.date) {
+							result = { parsed, confidence: 0.7, method: 'local' };
+						}
+					}
+				}
 			} catch (localError) {
-				console.log('Local AI not available, using regex...');
+				console.log('Local AI not available:', localError);
 			}
 		}
 		
@@ -65,7 +110,6 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json(result);
 	} catch (error) {
 		console.error('Parse error:', error);
-		// Last resort: regex only
 		const result = parseEventInput(input);
 		return json({ ...result, method: 'regex-fallback' });
 	}
