@@ -46,10 +46,11 @@
 	}
 
 	function handleInput() {
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => {
-			searchLocations(value);
-		}, 300);
+		if (value.length < 2) {
+			suggestions = [];
+			return;
+		}
+		searchLocations(value);
 	}
 
 	function handleFocus() {
