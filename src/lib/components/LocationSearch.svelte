@@ -35,7 +35,7 @@
 		}
 		loading = true;
 		try {
-			const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`);
+			const res = await fetch(`https://geocode.maps.co/search?q=${encodeURIComponent(searchQuery)}&limit=5`);
 			const data = await res.json();
 			suggestions = data.map((item: any) => item.display_name);
 			if (suggestions.length > 0) {
