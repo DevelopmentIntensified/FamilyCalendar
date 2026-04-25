@@ -35,9 +35,9 @@
 		}
 		loading = true;
 		try {
-			const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`);
+			const res = await fetch(`https://photon.komoot.io/search?q=${encodeURIComponent(searchQuery)}&limit=5`);
 			const data = await res.json();
-			suggestions = data.map((item: any) => item.display_name);
+			suggestions = data.features.map((item: any) => item.properties.display_name);
 			if (suggestions.length > 0) {
 				showDropdown = true;
 			}
