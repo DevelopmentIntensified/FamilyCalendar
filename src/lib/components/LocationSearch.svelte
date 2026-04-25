@@ -38,6 +38,9 @@
 			const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`);
 			const data = await res.json();
 			suggestions = data.map((item: any) => item.display_name);
+			if (suggestions.length > 0) {
+				showDropdown = true;
+			}
 		} catch {
 			suggestions = [];
 		} finally {
@@ -46,11 +49,15 @@
 	}
 
 	function handleInput() {
+		clearTimeout(searchTimer);
 		if (value.length < 2) {
 			suggestions = [];
+			showDropdown = false;
 			return;
 		}
-		searchLocations(value);
+		searchTimer = setTimeout(() => {
+			searchLocations(value);
+		}, 300);
 	}
 
 	function handleFocus() {
