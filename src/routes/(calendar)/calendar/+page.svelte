@@ -5,11 +5,16 @@
 	import { DateTime } from 'luxon';
 	import type { PageData } from './$types';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
+	import LocationSearch from '$lib/components/LocationSearch.svelte';
 
 	export let data: PageData;
 
 	const currentDate = writable(DateTime.now());
 	let showModal = false;
+	let loading = false;
+	let parseTimer: ReturnType<typeof setTimeout>;
+	let startValue = '';
+	let endValue = '';
 	
 	// NL Input
 	let nlInput = '';
@@ -46,14 +51,8 @@
 		attendants: { value: [], detected: false, userEdited: false, visible: false }
 	};
 	
-	let allFieldsVisible = false;
+let allFieldsVisible = false;
 	let showAttendantsDropdown = false;
-	let loading = false;
-	let startValue = '';
-	let endValue = '';
-
-	// Debounce timer for auto-parse
-	let parseTimer: ReturnType<typeof setTimeout>;
 
 	function openQuickAdd(date?: string, time?: string) {
 		resetForm();
@@ -398,27 +397,15 @@
 						</div>
 					</div>
 
-					<!-- Location -->
+<!-- Location -->
 					<div class="relative" class:hidden={!form.location.visible && !allFieldsVisible}>
 						<label class="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
 							<span>Location</span>
 							{#if form.location.detected}
 								<span class="text-green-600">✓ detected</span>
 							{/if}
-							<button type="button" onclick={() => toggleField('location')} class="text-slate-400 hover:text-slate-600">
-								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-								</svg>
-							</button>
 						</label>
-						<input 
-							type="text" 
-							bind:value={form.location.value}
-							oninput={() => handleFieldChange('location')}
-							placeholder="Where?"
-							class="w-full rounded-lg border border-slate-200 px-3 py-2.5"
-						/>
+						<LocationSearch bind:value={form.location.value} />
 					</div>
 
 					<!-- Description -->
