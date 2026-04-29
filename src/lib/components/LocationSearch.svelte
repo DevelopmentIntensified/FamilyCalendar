@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { type Writable } from 'svelte/store';
 
-	export let value = '';
+	export let value = $state('');
 	export let placeholder = 'Where? (address or any place)';
 	export let inputClass = 'w-full rounded-lg border border-slate-200 px-3 py-2.5';
 
-	let showDropdown = false;
-	let suggestions: string[] = [];
-	let recentLocations: string[] = [];
+	let showDropdown = $state(false);
+	let suggestions = $state<string[]>([]);
+	let recentLocations = $state<string[]>([]);
 	let searchTimer: ReturnType<typeof setTimeout>;
-	let loading = false;
+	let loading = $state(false);
 
 	function loadRecentLocations() {
 		if (typeof localStorage !== 'undefined') {
@@ -60,7 +61,7 @@
 		}
 		searchTimer = setTimeout(() => {
 			searchLocations(value);
-		}, 300);
+		}, 150);
 	}
 
 	function handleFocus() {
