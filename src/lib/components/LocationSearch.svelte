@@ -35,9 +35,12 @@
 		}
 		loading = true;
 		try {
-			const res = await fetch(`https://photon.komoot.io/search?q=${encodeURIComponent(searchQuery)}&limit=5`);
+			const res = await fetch(`https://photon.komoot.io/search?q=${encodeURIComponent(searchQuery)}&limit=10`);
 			const data = await res.json();
-			suggestions = data.features.map((item: any) => item.properties.display_name);
+			suggestions = data.features
+				.filter((item: any) => item.properties.housenumber && item.properties.street)
+				.map((item: any) => item.properties.display_name)
+				.slice(0, 5);
 			if (suggestions.length > 0) {
 				showDropdown = true;
 			}
