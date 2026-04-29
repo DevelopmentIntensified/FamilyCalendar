@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { type Writable } from 'svelte/store';
 
 	export let value = $state('');
 	export let placeholder = 'Where? (address or any place)';
@@ -11,6 +10,7 @@
 	let recentLocations = $state<string[]>([]);
 	let searchTimer: ReturnType<typeof setTimeout>;
 	let loading = $state(false);
+	let abortController: AbortController | null = null;
 
 	function loadRecentLocations() {
 		if (typeof localStorage !== 'undefined') {
@@ -34,21 +34,38 @@
 			suggestions = [];
 			return;
 		}
+		
+		// Cancel previous request
+		if (abortController) {
+			abortController.abort();
+		}
+		abortController = new AbortController();
+		
 		loading = true;
 		try {
-			const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(searchQuery)}&limit=10`);
+			const res = await fetch(
+				`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(searchQuery)}&limit=10`,
+				{ signal: abortController.signal }
+			);
 			const data = await res.json();
 			suggestions = (data as any[])
 				.filter((item: any) => item.address?.house_number && item.address?.road)
 				.map((item: any) => item.display_name)
 				.slice(0, 5);
+			
+			// Show dropdown immediately when results arrive
 			if (suggestions.length > 0) {
 				showDropdown = true;
+			} else {
+				showDropdown = false;
 			}
-		} catch {
-			suggestions = [];
+		} catch (e: any) {
+			if (e.name !== 'AbortError') {
+				suggestions = [];
+			}
 		} finally {
 			loading = false;
+			abortController = null;
 		}
 	}
 
@@ -59,13 +76,14 @@
 			showDropdown = false;
 			return;
 		}
+		// Minimal debounce for immediate feel
 		searchTimer = setTimeout(() => {
 			searchLocations(value);
-		}, 150);
+		}, 50);
 	}
 
 	function handleFocus() {
-		if (recentLocations.length > 0) {
+		if (recentLocations.length > 0 || suggestions.length > 0) {
 			showDropdown = true;
 		}
 	}
