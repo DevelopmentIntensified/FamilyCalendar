@@ -4,6 +4,8 @@
 	export let value = $state('');
 	export let placeholder = 'Where? (address or any place)';
 	export let inputClass = 'w-full rounded-lg border border-slate-200 px-3 py-2.5';
+	export let searchEndpoint = ''; // Custom endpoint, e.g. '/api/geocode?q='
+	export let searchFunction: ((query: string) => Promise<string[]>) | null = null; // Custom search function
 
 	let showDropdown = $state(false);
 	let suggestions = $state<string[]>([]);
@@ -35,6 +37,23 @@
 			return;
 		}
 		
+		// Use custom search function if provided
+		if (searchFunction) {
+			try {
+				suggestions = await searchFunction(searchQuery);
+				if (suggestions.length > 0) {
+					showDropdown = true;
+				} else {
+					showDropdown = false;
+				}
+			} catch {
+				suggestions = [];
+			} finally {
+				loading = false;
+			}
+			return;
+		}
+		
 		// Cancel previous request
 		if (abortController) {
 			abortController.abort();
@@ -43,17 +62,23 @@
 		
 		loading = true;
 		try {
-			const res = await fetch(
-				`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(searchQuery)}&limit=10`,
-				{ signal: abortController.signal }
-			);
-			const data = await res.json();
-			suggestions = (data as any[])
-				.filter((item: any) => item.address?.house_number && item.address?.road)
-				.map((item: any) => item.display_name)
-				.slice(0, 5);
+			const url = searchEndpoint 
+				? `${searchEndpoint}${encodeURIComponent(searchQuery)}`
+				: `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(searchQuery)}&limit=10`;
 			
-			// Show dropdown immediately when results arrive
+			const res = await fetch(url, { signal: abortController.signal });
+			const data = await res.json();
+			
+			if (searchEndpoint) {
+				// Assume custom endpoint returns string[]
+				suggestions = data.slice(0, 5);
+			} else {
+				suggestions = (data as any[])
+					.filter((item: any) => item.address?.house_number && item.address?.road)
+					.map((item: any) => item.display_name)
+					.slice(0, 5);
+			}
+			
 			if (suggestions.length > 0) {
 				showDropdown = true;
 			} else {
