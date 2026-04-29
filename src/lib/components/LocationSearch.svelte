@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
-	export let value = $state('');
-	export let placeholder = 'Where? (address or any place)';
-	export let inputClass = 'w-full rounded-lg border border-slate-200 px-3 py-2.5';
-	export let searchEndpoint = ''; // Custom endpoint, e.g. '/api/geocode?q='
-	export let searchFunction: ((query: string) => Promise<string[]>) | null = null; // Custom search function
+	let {
+		value = $bindable(''),
+		placeholder = 'Where? (address or any place)',
+		inputClass = 'w-full rounded-lg border border-slate-200 px-3 py-2.5',
+		searchEndpoint = '',
+		searchFunction = null
+	} = $props();
 
 	let showDropdown = $state(false);
 	let suggestions = $state<string[]>([]);
@@ -70,7 +72,6 @@
 			const data = await res.json();
 			
 			if (searchEndpoint) {
-				// Assume custom endpoint returns string[]
 				suggestions = data.slice(0, 5);
 			} else {
 				suggestions = (data as any[])
@@ -101,7 +102,6 @@
 			showDropdown = false;
 			return;
 		}
-		// Minimal debounce for immediate feel
 		searchTimer = setTimeout(() => {
 			searchLocations(value);
 		}, 50);
