@@ -35,11 +35,11 @@
 		}
 		loading = true;
 		try {
-			const res = await fetch(`https://photon.komoot.io/search?q=${encodeURIComponent(searchQuery)}&limit=10`);
+			const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(searchQuery)}&limit=10`);
 			const data = await res.json();
-			suggestions = data.features
-				.filter((item: any) => item.properties.housenumber && item.properties.street)
-				.map((item: any) => item.properties.display_name)
+			suggestions = (data as any[])
+				.filter((item: any) => item.address?.house_number && item.address?.road)
+				.map((item: any) => item.display_name)
 				.slice(0, 5);
 			if (suggestions.length > 0) {
 				showDropdown = true;
