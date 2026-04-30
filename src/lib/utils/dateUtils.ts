@@ -32,7 +32,14 @@ export const getDaysInLastMonth = (year: number, month: number) => {
 	return daysInLastMonth;
 };
 
-export const formatDate = (date: DateTime) => {
+export const formatDate = (date: DateTime | string | Date) => {
+	if (typeof date === 'string') {
+		return DateTime.fromISO(date).toFormat('MM-dd-yyyy');
+	}
+	if (date instanceof Date) {
+		return DateTime.fromJSDate(date).toFormat('MM-dd-yyyy');
+	}
+	// Assume it's a Luxon DateTime
 	return date.toFormat('MM-dd-yyyy');
 };
 
