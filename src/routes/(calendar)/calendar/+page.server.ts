@@ -1,6 +1,6 @@
 // Intl.DateTimeFormat().resolvedOptions().timeZone
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad, Actions } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import {
@@ -13,6 +13,7 @@ import {
 import { eq } from 'drizzle-orm';
 import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
+import { createEvent, updateRsvp, getUserRsvp } from '$lib/server/db/actions/events';
 
 const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
 
@@ -126,4 +127,44 @@ export const load: PageServerLoad = async (event) => {
 		showAds,
 		familyMembers: familyMembersList
 	};
+};
+
+export const actions: Actions = {
+	createEvent: async (event) => {
+		const userId = event.locals.user!.id;
+		const data = await event.request.formData();
+		
+		const title = data.get('title') as string;
+		const start = data.get('start') as string;
+		const end = data.get('end') as string;
+		const description = data.get('description') as string || null;
+		const location = data.get('location') as string || null;
+		const calendarId = data.get('calendarId') as string;
+		const allDay = data.get('allDay') === 'true';
+		
+		const eventData = {
+			calendarId,
+			ownerId: userId,
+			title,
+			start: new Date(start).toISOString(),
+			end: new Date(end).toISOString(),
+			description,
+			location,
+			allDay
+		};
+		
+		const created = await createEvent(eventData, userId);
+		return { success: true, event: created };
+	},
+	
+	updateRsvp: async (event) => {
+		const userId = event.locals.user!.id;
+		const data = await event.request.formData();
+		
+		const eventId = data.get('eventId') as string;
+		const status = data.get('status') as 'going' | 'maybe' | 'declined' | 'undecided';
+		
+		await updateRsvp(eventId, userId, status);
+		return { success: true, status };
+	}
 };

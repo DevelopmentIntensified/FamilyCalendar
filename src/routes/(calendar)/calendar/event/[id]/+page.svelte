@@ -7,11 +7,19 @@
 	const event = data.event;
 	const currentAttendance = data.userAttendance;
 	const timeZone = data.userSettings?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const isFamilyEvent = data.isFamilyEvent;
 
 	let showDeleteConfirm = false;
+	let rsvpStatus = currentAttendance;
 
 	function goBack() {
 		goto('/calendar');
+	}
+
+	function handleRsvp(response: any) {
+		if (response?.result?.status) {
+			rsvpStatus = response.result.status;
+		}
 	}
 </script>
 
@@ -71,41 +79,43 @@
 					</div>
 				</div>
 
-				<div class="border-t pt-6">
-					<h3 class="mb-3 text-lg font-semibold text-gray-800">Your RSVP</h3>
-					<div class="flex flex-wrap gap-2">
-						<form action="?/rsvp" method="POST" use:enhance class="inline">
-							<input type="text" value={event.id} class="hidden" name="eventId" />
-							<input type="text" value="going" class="hidden" name="status" />
-							<button
-								type="submit"
-								class="rounded-md px-4 py-2 text-sm font-medium transition-colors {currentAttendance === 'going' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
-							>
-								Going
-							</button>
-						</form>
-						<form action="?/rsvp" method="POST" use:enhance class="inline">
-							<input type="text" value={event.id} class="hidden" name="eventId" />
-							<input type="text" value="maybe" class="hidden" name="status" />
-							<button
-								type="submit"
-								class="rounded-md px-4 py-2 text-sm font-medium transition-colors {currentAttendance === 'maybe' ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
-							>
-								Maybe
-							</button>
-						</form>
-						<form action="?/rsvp" method="POST" use:enhance class="inline">
-							<input type="text" value={event.id} class="hidden" name="eventId" />
-							<input type="text" value="not_going" class="hidden" name="status" />
-							<button
-								type="submit"
-								class="rounded-md px-4 py-2 text-sm font-medium transition-colors {currentAttendance === 'not_going' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
-							>
-								Not Going
-							</button>
-						</form>
+				{#if isFamilyEvent}
+					<div class="border-t pt-6">
+						<h3 class="mb-3 text-lg font-semibold text-gray-800">Your RSVP</h3>
+						<div class="flex flex-wrap gap-2">
+							<form action="?/rsvp" method="POST" use:enhance={handleRsvp} class="inline">
+								<input type="text" value={event.id} class="hidden" name="eventId" />
+								<input type="text" value="going" class="hidden" name="status" />
+								<button
+									type="submit"
+									class="rounded-md px-4 py-2 text-sm font-medium transition-colors {rsvpStatus === 'going' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+								>
+									Going
+								</button>
+							</form>
+							<form action="?/rsvp" method="POST" use:enhance={handleRsvp} class="inline">
+								<input type="text" value={event.id} class="hidden" name="eventId" />
+								<input type="text" value="maybe" class="hidden" name="status" />
+								<button
+									type="submit"
+									class="rounded-md px-4 py-2 text-sm font-medium transition-colors {rsvpStatus === 'maybe' ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+								>
+									Maybe
+								</button>
+							</form>
+							<form action="?/rsvp" method="POST" use:enhance={handleRsvp} class="inline">
+								<input type="text" value={event.id} class="hidden" name="eventId" />
+								<input type="text" value="not_going" class="hidden" name="status" />
+								<button
+									type="submit"
+									class="rounded-md px-4 py-2 text-sm font-medium transition-colors {rsvpStatus === 'not_going' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+								>
+									Not Going
+								</button>
+							</form>
+						</div>
 					</div>
-				</div>
+				{/if}
 
 				<div class="mt-6 flex flex-wrap gap-3 border-t pt-6">
 					<a

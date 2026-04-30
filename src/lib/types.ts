@@ -6,6 +6,8 @@ export type Event = CalendarEvent & {
 	date?: Date;
 	startTime?: string;
 	endTime?: string;
+	rsvpStatus?: 'going' | 'maybe' | 'declined' | 'undecided';
+	isFamilyEvent?: boolean;
 };
 
 export type FamilyMember = {

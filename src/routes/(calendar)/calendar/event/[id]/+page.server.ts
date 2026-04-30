@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
-import { events, eventAttendance } from '$lib/server/db/schema';
+import { events, eventAttendance, calendars, families } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { Actions } from './$types';
 import { deleteEvent } from '$lib/server/db/actions/events';
@@ -14,10 +14,17 @@ export const load: PageServerLoad = async (e) => {
 	const userSettings = await getUserSettings(e.locals.user.id);
 	
 	const eventsData = await db
-		.select()
+		.select({
+			event: events,
+			calendar: calendars
+		})
 		.from(events)
+		.leftJoin(calendars, eq(events.calendarId, calendars.id))
 		.where(eq(events.id, e.params.id))
 		.orderBy(events.start);
+
+	const event = eventsData[0];
+	const isFamilyEvent = !!event?.calendar?.familyId;
 
 	const attendanceData = await db
 		.select()
@@ -27,14 +34,15 @@ export const load: PageServerLoad = async (e) => {
 	const userAttendance = attendanceData.find(a => a.userId === e.locals.user.id);
 
 	return {
-		event: eventsData.map((ev) => ({
+		event: eventsData.map(({ event: ev }) => ({
 			date: new Date(ev.start),
 			...ev,
 			start: new Date(ev.start),
 			end: new Date(ev.end)
 		}))[0],
 		userAttendance: userAttendance?.status || 'undecided',
-		userSettings
+		userSettings,
+		isFamilyEvent
 	};
 };
 
