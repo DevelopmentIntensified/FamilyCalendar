@@ -109,6 +109,18 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.3;
 	}
 
+	// Numeric date: "05/03", "12/25" (MM/DD format)
+	const numericDateMatch = input.match(/\b(\d{1,2})\/(\d{1,2})\b/);
+	if (numericDateMatch && !result.date) {
+		const month = parseInt(numericDateMatch[1]);
+		const day = parseInt(numericDateMatch[2]);
+		let year = now.year;
+		const target = DateTime.fromObject({ year, month, day });
+		if (target < now) year = now.year + 1;
+		result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+		confidence += 0.3;
+	}
+
 	// ===== TIME PATTERNS =====
 	let foundTime = false;
 
@@ -118,8 +130,8 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.15;
 	}
 
-	// "starting at 6 PM", "at 8 AM", "beginning at 9 AM"
-	const startTimeMatch = input.match(/(?:start(?:ing)?\s+at|at|beginning\s+at)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|AM|PM)?/i);
+	// "starting at 6 PM", "at 8 AM", "beginning at 9 AM", "7:15A"
+	const startTimeMatch = input.match(/(?:start(?:ing)?\s+at|at|beginning\s+at)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?|AM?|PM?)?/i);
 	if (startTimeMatch) {
 		let hour = parseInt(startTimeMatch[1]);
 		const minute = startTimeMatch[2] ? parseInt(startTimeMatch[2]) : 0;
@@ -151,7 +163,7 @@ export function parseEventInput(input: string): ParseResult {
 	}
 
 	// "kicking off at 5 PM"
-	const kickOffMatch = input.match(/kicking\s+off\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	const kickOffMatch = input.match(/kicking\s+off\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
 	if (kickOffMatch && !foundTime) {
 		let hour = parseInt(kickOffMatch[1]);
 		const period = kickOffMatch[3]?.toLowerCase();
@@ -162,7 +174,7 @@ export function parseEventInput(input: string): ParseResult {
 	}
 
 	// "departing at 5 AM", "leaving at 6 AM"
-	const leaveMatch = input.match(/(?:leaving|departing)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	const leaveMatch = input.match(/(?:leaving|departing)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
 	if (leaveMatch && !foundTime) {
 		let hour = parseInt(leaveMatch[1]);
 		const minute = leaveMatch[2] ? parseInt(leaveMatch[2]) : 0;
@@ -175,7 +187,7 @@ export function parseEventInput(input: string): ParseResult {
 	}
 
 	// "arriving at 10 AM", "arriving by 1 PM"
-	const arriveMatch = input.match(/arriving\s+(?:at|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	const arriveMatch = input.match(/arriving\s+(?:at|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
 	if (arriveMatch && !foundTime) {
 		let hour = parseInt(arriveMatch[1]);
 		const minute = arriveMatch[2] ? parseInt(arriveMatch[2]) : 0;
@@ -187,7 +199,7 @@ export function parseEventInput(input: string): ParseResult {
 	}
 
 	// "from 9 AM to 5 PM"
-	const fromToMatch = input.match(/from\s+(\d{1,2})(?:(?::(\d{2})))?\s*(am|pm)?\s+to\s+(\d{1,2})(?:(?::(\d{2})))?\s*(am|pm)?/i);
+	const fromToMatch = input.match(/from\s+(\d{1,2})(?:(?::(\d{2})))?\s*(am?|pm?)?\s+to\s+(\d{1,2})(?:(?::(\d{2})))?\s*(am?|pm?)?/i);
 	if (fromToMatch && !foundTime) {
 		let startHour = parseInt(fromToMatch[1]);
 		let startMin = fromToMatch[2] ? parseInt(fromToMatch[2]) : 0;
@@ -215,8 +227,8 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.15;
 	}
 
-// "finishing around 11 AM", "finishes around 11 AM", "finishing at 7 AM", "concludes at 7 AM"
-	const finishMatch = input.match(/(?:finishes?(?:\s+around\s+)?|(?:finishing|concludes?)(?:\s+at\s+)?)(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	// "finishing around 11 AM", "finishes around 11 AM", "finishing at 7 AM", "concludes at 7 AM"
+	const finishMatch = input.match(/(?:finishes?(?:\s+around\s+)?|(?:finishing|concludes?)(?:\s+at\s+)?)(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
 	if (finishMatch && !result.endTime) {
 		let hour = parseInt(finishMatch[1]);
 		const period = finishMatch[3]?.toLowerCase();
@@ -226,7 +238,7 @@ export function parseEventInput(input: string): ParseResult {
 	}
 
 	// "going on until 9 PM", "continuing until 9 PM"
-	const continueMatch = input.match(/(?:going\s+on|continuing)\s+until\s+(?:around\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	const continueMatch = input.match(/(?:going\s+on|continuing)\s+until\s+(?:around\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
 	if (continueMatch && !result.endTime) {
 		let hour = parseInt(continueMatch[1]);
 		const period = continueMatch[3]?.toLowerCase();
@@ -254,17 +266,38 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.1;
 	}
 
-	// Duration: "for 2 hours"
-	const hourDurMatch = input.match(/for\s+(\d+)\s+hours?/i);
-	if (hourDurMatch && result.startTime && !result.endTime) {
-		const hours = parseInt(hourDurMatch[1]);
+	// Duration: "for 2 hours" or "for 15 minutes"
+	const hourDurMatch = input.match(/for\s+(\d+)\s+hours?\b/i);
+	const minDurMatch = input.match(/for\s+(\d+)\s+minutes?\b/i);
+
+	if (result.startTime && !result.endTime) {
 		const start = DateTime.fromFormat(result.startTime, 'HH:mm');
-		result.endTime = start.plus({ hours }).toFormat('HH:mm');
+		if (minDurMatch) {
+			const minutes = parseInt(minDurMatch[1]);
+			result.endTime = start.plus({ minutes }).toFormat('HH:mm');
+			confidence += 0.1;
+		} else if (hourDurMatch) {
+			const hours = parseInt(hourDurMatch[1]);
+			result.endTime = start.plus({ hours }).toFormat('HH:mm');
+			confidence += 0.1;
+		}
+	}
+
+	// Also check "lasting for X minutes/hours"
+	const lastingMatch = input.match(/lasting\s+for\s+(?:about\s+)?(\d+)\s+(minutes?|hours?)/i);
+	if (lastingMatch && result.startTime && !result.endTime) {
+		const start = DateTime.fromFormat(result.startTime, 'HH:mm');
+		const amount = parseInt(lastingMatch[1]);
+		if (lastingMatch[2].toLowerCase().startsWith('min')) {
+			result.endTime = start.plus({ minutes: amount }).toFormat('HH:mm');
+		} else {
+			result.endTime = start.plus({ hours: amount }).toFormat('HH:mm');
+		}
 		confidence += 0.1;
 	}
 
 	// "closing at 6 PM", "ending at 4 PM"
-	const closeMatch = input.match(/(?:closing|ending)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	const closeMatch = input.match(/(?:closing|ending)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
 	if (closeMatch && !result.endTime) {
 		let hour = parseInt(closeMatch[1]);
 		const period = closeMatch[3]?.toLowerCase();
@@ -274,7 +307,7 @@ export function parseEventInput(input: string): ParseResult {
 	}
 
 	// "opening at 11 AM"
-	const openMatch = input.match(/opening\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	const openMatch = input.match(/opening\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
 	if (openMatch && !foundTime) {
 		let hour = parseInt(openMatch[1]);
 		const period = openMatch[3]?.toLowerCase();
@@ -282,6 +315,42 @@ export function parseEventInput(input: string): ParseResult {
 		result.startTime = normalizeTime(hour);
 		foundTime = true;
 		confidence += 0.15;
+	}
+
+	// "ends at 9 PM", "ends at around 8 PM", "finishing at 10 PM" → end time
+	const endsAtMatch = input.match(/(?:ends?|finishing)\s+(?:at|around)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)/i);
+	if (endsAtMatch && !result.endTime) {
+		let hour = parseInt(endsAtMatch[1]);
+		const minute = endsAtMatch[2] ? parseInt(endsAtMatch[2]) : 0;
+		const ampm = endsAtMatch[3].toLowerCase();
+		if (ampm === 'pm' && hour < 12) hour += 12;
+		if (ampm === 'am' && hour === 12) hour = 0;
+		result.endTime = normalizeTime(hour, minute);
+		confidence += 0.2;
+	}
+
+	// "till 5 PM", "till 18:00", "until 9 PM" → end time
+	const tillMatch = input.match(/\b(?:till|until)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)/i);
+	if (tillMatch && !result.endTime) {
+		let hour = parseInt(tillMatch[1]);
+		const minute = tillMatch[2] ? parseInt(tillMatch[2]) : 0;
+		const ampm = tillMatch[3].toLowerCase();
+		if (ampm === 'pm' && hour < 12) hour += 12;
+		if (ampm === 'am' && hour === 12) hour = 0;
+		result.endTime = normalizeTime(hour, minute);
+		confidence += 0.2;
+	}
+
+	// "returning by 2 PM", "back by 6 PM" → end time
+	const returnByMatch = input.match(/(?:returning|back)\s+by\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)/i);
+	if (returnByMatch && !result.endTime) {
+		let hour = parseInt(returnByMatch[1]);
+		const minute = returnByMatch[2] ? parseInt(returnByMatch[2]) : 0;
+		const ampm = returnByMatch[3].toLowerCase();
+		if (ampm === 'pm' && hour < 12) hour += 12;
+		if (ampm === 'am' && hour === 12) hour = 0;
+		result.endTime = normalizeTime(hour, minute);
+		confidence += 0.2;
 	}
 
 	// ===== LOCATION PATTERNS =====
@@ -293,25 +362,60 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.15;
 	}
 
-	// "at the X"
-	const atLocMatch = input.match(/at\s+the\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/);
+	// "at the X" - capture multi-word locations like "neighborhood clubhouse", "yoga studio"
+	const atLocMatch = input.match(/at\s+the\s+([A-Za-z][a-z]+(?:\s+[A-Za-z][a-z]+)*)/);
 	if (atLocMatch && !result.location) {
-		result.location = atLocMatch[1];
+		let loc = atLocMatch[1];
+		// Stop at conjunctions/prepositions
+		loc = loc.replace(/\s+(?:and|but|with|for|to|by|because|since)\s+.*$/, '');
+		result.location = loc;
 		confidence += 0.15;
 	}
 
-	// "at my apartment", "at my backyard", "at home"
-	const myPlaceMatch = input.match(/at\s+(?:my|our)\s+([a-z]+)|at\s+home\b/i);
-	if (myPlaceMatch && !result.location) {
-		result.location = myPlaceMatch[1] ? myPlaceMatch[1].charAt(0).toUpperCase() + myPlaceMatch[1].slice(1) : 'Home';
+	// "in the X" - capture locations like "downtown square"
+	const inLocMatch = input.match(/in\s+the\s+([a-z]+(?:\s+[a-z]+)*)/i);
+	if (inLocMatch && !result.location) {
+		result.location = inLocMatch[1];
+		confidence += 0.15;
+	}
+
+	// "at home"
+	const atHomeMatch = input.match(/\bat\s+home\b/i);
+	if (atHomeMatch && !result.location) {
+		result.location = 'Home';
 		confidence += 0.1;
 	}
 
-	// Address: "at 450 Main Street"
-	const addressMatch = input.match(/at\s+(\d+\s+[A-Za-z]+\s+[A-Za-z]+)/);
+	// "at my apartment on 42 Maple Drive" or "at my apartment"
+	const myPlaceMatch = input.match(/at\s+(?:my|our)\s+([a-z]+)(?:\s+on\s+(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*))?/i);
+	if (myPlaceMatch && !result.location) {
+		if (myPlaceMatch[2]) {
+			// Has address after "on"
+			result.location = myPlaceMatch[2].trim();
+		} else {
+			result.location = myPlaceMatch[1] ? myPlaceMatch[1].charAt(0).toUpperCase() + myPlaceMatch[1].slice(1) : 'Home';
+		}
+		confidence += 0.1;
+	}
+
+	// Address: "at 450 Main Street" or standalone address
+	// Match address pattern: number + street name, possibly after "on"
+	const addressMatch = input.match(/\bon\s+(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
 	if (addressMatch && !result.location) {
-		result.location = addressMatch[1];
+		result.location = addressMatch[1].trim();
 		confidence += 0.15;
+	}
+
+	// "at X studio", "at X center", "at X park" - general location patterns
+	const generalLocMatch = input.match(/at\s+(?:the\s+)?([A-Za-z][a-z]+(?:\s+[A-Za-z][a-z]+)*\s+(?:studio|center|park|garden|square|clubhouse|trailhead))/i);
+	if (generalLocMatch && !result.location) {
+		result.location = generalLocMatch[1].trim();
+		confidence += 0.15;
+	}
+
+	// Strip trailing punctuation from location
+	if (result.location) {
+		result.location = result.location.replace(/[.,;:!?]+$/, '');
 	}
 
 	// ===== ATTENDANT PATTERNS =====

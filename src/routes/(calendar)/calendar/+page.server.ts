@@ -133,26 +133,41 @@ export const actions: Actions = {
 	createEvent: async (event) => {
 		const userId = event.locals.user!.id;
 		const data = await event.request.formData();
-		
+
 		const title = data.get('title') as string;
 		const start = data.get('start') as string;
-		const end = data.get('end') as string;
+		const end = data.get('end') as string || null;
 		const description = data.get('description') as string || null;
 		const location = data.get('location') as string || null;
-		const calendarId = data.get('calendarId') as string;
+		let calendarId = data.get('calendarId') as string || null;
 		const allDay = data.get('allDay') === 'true';
-		
+
+		// Auto-get or create user calendar if not provided
+		if (!calendarId || calendarId === '') {
+			let userCalendar = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
+			if (userCalendar.length === 0) {
+				const [newCal] = await db.insert(calendars).values({ ownerId: userId }).returning();
+				calendarId = newCal.id;
+			} else {
+				calendarId = userCalendar[0].id;
+			}
+		}
+
+		// Default end to start + 1 hour if not provided
+		const startDate = new Date(start);
+		const endDate = end ? new Date(end) : new Date(startDate.getTime() + 60 * 60 * 1000);
+
 		const eventData = {
 			calendarId,
 			ownerId: userId,
 			title,
-			start: new Date(start).toISOString(),
-			end: new Date(end).toISOString(),
+			start: startDate.toISOString(),
+			end: endDate.toISOString(),
 			description,
 			location,
 			allDay
 		};
-		
+
 		const created = await createEvent(eventData, userId);
 		return { success: true, event: created };
 	},

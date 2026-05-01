@@ -76,9 +76,9 @@ export const actions: Actions = {
 			}
 		}
 
-		//require certain fields
-		if (!title || !start || !end || !location || !calendarId) {
-			return fail(400, { message: 'All fields are required' });
+		// Only title and start are required; end defaults to start if not provided
+		if (!title || !start) {
+			return fail(400, { message: 'Title and start date are required' });
 		}
 
 		const userSettings = await getUserSettings(locals.user.id);
@@ -91,13 +91,29 @@ export const actions: Actions = {
 			return fail(400, { message: 'Invalid date/time format' });
 		}
 
+		// Default end to start if not provided
+		const finalEndDateTime = endDateTime.isValid ? endDateTime : startDateTime.plus({ hours: 1 });
+
+		// Default to user's first calendar if none specified
+		let finalCalendarId = calendarId?.toString() || '';
+		if (!finalCalendarId && locals.user) {
+			const userCalendar = await getUserCalendar(locals.user.id);
+			if (userCalendar) {
+				finalCalendarId = userCalendar.id;
+			} else {
+				// Create default calendar if none exists
+				const newCal = await createUserCalendar(locals.user.id);
+				finalCalendarId = newCal.id;
+			}
+		}
+
 		const newEvent = await createEvent({
-			description: description,
+			description: description || null,
 			title: title.toString(),
 			start: startDateTime.toString(),
-			end: endDateTime.toString(),
-			location: location.toString(),
-			calendarId: calendarId.toString(),
+			end: finalEndDateTime.toString(),
+			location: location?.toString() || null,
+			calendarId: finalCalendarId,
 			ownerId
 		});
 

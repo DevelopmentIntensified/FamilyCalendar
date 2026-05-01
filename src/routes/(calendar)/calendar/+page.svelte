@@ -40,6 +40,7 @@
 		endTime: FieldState;
 		location: FieldState;
 		description: FieldState;
+		calendarId: string;
 		attendants: { value: string[]; detected: boolean; userEdited: boolean; visible: boolean };
 	} = {
 		title: { value: '', detected: false, userEdited: false, visible: true },
@@ -48,6 +49,7 @@
 		endTime: { value: '', detected: false, userEdited: false, visible: false },
 		location: { value: '', detected: false, userEdited: false, visible: false },
 		description: { value: '', detected: false, userEdited: false, visible: false },
+		calendarId: data.userSettings?.defaultCalendarId || '',
 		attendants: { value: [], detected: false, userEdited: false, visible: false }
 	};
 	
@@ -126,6 +128,11 @@ let allFieldsVisible = false;
 	}
 
 	function applyParsedResult(parsed: any) {
+		// Always save raw input as description
+		form.description.value = nlInput;
+		form.description.detected = true;
+		form.description.visible = true;
+
 		// Title - always visible
 		if (parsed.title) {
 			form.title.value = parsed.title;
@@ -159,13 +166,6 @@ let allFieldsVisible = false;
 			form.location.value = parsed.location;
 			form.location.detected = true;
 			form.location.visible = true;
-		}
-		
-		// Description
-		if (parsed.description) {
-			form.description.value = parsed.description;
-			form.description.detected = true;
-			form.description.visible = true;
 		}
 		
 		// Attendants - create entries for any names found
@@ -312,8 +312,9 @@ let allFieldsVisible = false;
 				<input type="hidden" name="start" value={startValue} />
 				<input type="hidden" name="end" value={endValue} />
 				<input type="hidden" name="ownerId" value={data.user.id} />
-				<input type="hidden" name="calendarId" value={data.userSettings?.defaultCalendarId || ''} />
+				<input type="hidden" name="calendarId" value={form.calendarId} />
 				<input type="hidden" name="location" value={form.location.value} />
+				<input type="hidden" name="description" value={form.description.value} />
 				<input type="hidden" name="attendants" value={form.attendants.value.join(',')} />
 
 				<!-- Form Fields Grid -->
@@ -488,6 +489,23 @@ let allFieldsVisible = false;
 							{/if}
 						</div>
 					</div>
+
+					<!-- Calendar Selection -->
+					{#if data.calendarIds && data.calendarIds.length > 1}
+						<div class="relative" class:hidden={!allFieldsVisible}>
+							<label class="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
+								<span>Calendar</span>
+							</label>
+							<select
+								bind:value={form.calendarId}
+								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
+							>
+								{#each data.calendarIds as cal}
+									<option value={cal.id}>{cal.name}</option>
+								{/each}
+							</select>
+						</div>
+					{/if}
 				</div>
 
 				<!-- Expand/Collapse Button -->

@@ -328,7 +328,7 @@ export const events = pgTable('events', {
 	end: timestamp('end', {
 		withTimezone: true,
 		mode: 'string'
-	}).notNull(),
+	}),
 	description: text('description'),
 	location: text('location'),
 	created_at: timestamp('created_at').defaultNow().notNull()

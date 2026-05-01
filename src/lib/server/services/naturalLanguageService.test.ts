@@ -175,7 +175,10 @@ describe('NLP Event Parser', () => {
 			);
 			expect(result.parsed.title).toContain('board game night');
 			expect(result.parsed.startTime).toBe('19:00');
-			expect(result.parsed.location).toBeDefined();
+			expect(result.parsed.endTime).toBe('00:00'); // midnight
+			expect(result.parsed.date).toMatch(/^\d{4}-\d{2}-\d{2}$/); // Friday date
+			expect(result.parsed.location).toBe('42 Maple Drive');
+			expect(result.confidence).toBeGreaterThan(0.5);
 		});
 
 		it('parses hiking trip', () => {
@@ -183,7 +186,10 @@ describe('NLP Event Parser', () => {
 				"We are doing a team building hiking trip early tomorrow morning, leaving at 6 AM and returning by 2 PM from the Blue Ridge Trailhead."
 			);
 			expect(result.parsed.startTime).toBe('06:00');
-			expect(result.parsed.date).toBeDefined();
+			expect(result.parsed.endTime).toBe('14:00'); // returning by 2 PM
+			expect(result.parsed.date).toMatch(/^\d{4}-\d{2}-\d{2}$/); // tomorrow
+			expect(result.parsed.location).toBe('Blue Ridge Trailhead');
+			expect(result.confidence).toBeGreaterThan(0.5);
 		});
 
 		it('parses birthday dinner', () => {
@@ -192,7 +198,11 @@ describe('NLP Event Parser', () => {
 			);
 			expect(result.parsed.startTime).toBe('18:00');
 			expect(result.parsed.endTime).toBe('21:00');
-			expect(result.parsed.location).toBeDefined();
+			expect(result.parsed.date).toMatch(/^\d{4}-\d{2}-\d{2}$/); // Saturday
+			expect(result.parsed.location).toBe('The Olive Garden');
+			expect(result.parsed.title).toContain('birthday dinner');
+			expect(result.parsed.title).toContain('Sarah');
+			expect(result.confidence).toBeGreaterThan(0.5);
 		});
 
 		it('parses charity run', () => {
@@ -200,7 +210,11 @@ describe('NLP Event Parser', () => {
 				"I'm putting on a 5k charity run next month, with the race beginning at 8 AM on May 15th and finishing around 11 AM at City Park."
 			);
 			expect(result.parsed.startTime).toBe('08:00');
-			expect(result.parsed.date).toBeDefined();
+			expect(result.parsed.endTime).toBe('11:00'); // finishing around 11 AM
+			expect(result.parsed.date).toMatch(/^\d{4}-05-15$/); // May 15th
+			expect(result.parsed.location).toBe('City Park');
+			expect(result.parsed.title).toContain('charity run');
+			expect(result.confidence).toBeGreaterThan(0.5);
 		});
 
 		it('parses workshop', () => {
@@ -209,6 +223,11 @@ describe('NLP Event Parser', () => {
 			);
 			expect(result.parsed.startTime).toBe('10:00');
 			expect(result.parsed.endTime).toBe('13:00');
+			expect(result.parsed.date).toMatch(/^\d{4}-\d{2}-\d{2}$/); // next Wednesday
+			expect(result.parsed.location).toBe('Community Center');
+			expect(result.parsed.title).toContain('workshop');
+			expect(result.parsed.title).toContain('financial literacy');
+			expect(result.confidence).toBeGreaterThan(0.5);
 		});
 
 		it('parses potluck', () => {
@@ -217,13 +236,28 @@ describe('NLP Event Parser', () => {
 			);
 			expect(result.parsed.startTime).toBe('17:00');
 			expect(result.parsed.endTime).toBe('21:00');
+			expect(result.parsed.date).toMatch(/^\d{4}-\d{2}-\d{2}$/); // Sunday
+			expect(result.parsed.location).toBe('neighborhood clubhouse');
+			expect(result.parsed.title).toContain('potluck');
+			expect(result.confidence).toBeGreaterThan(0.5);
 		});
 
-		it('parses flash mob', () => {
+		it('calculates endTime from startTime + duration', () => {
 			const result = parseEventInput(
-				"We are staging a flash mob in the downtown square, starting at noon this Friday and lasting for about 15 minutes."
+				"flash mob starting at noon and lasting for about 15 minutes."
 			);
 			expect(result.parsed.startTime).toBe('12:00');
+			expect(result.parsed.endTime).toBe('12:15'); // noon + 15 min
+		});
+
+		it('parses production call time with AM/PM shorthand', () => {
+			const result = parseEventInput(
+				'Production (Camera Controller) Call Time, BAND, SOUND, & PRODUCTION: 05/03 at 7:15A'
+			);
+			expect(result.parsed.date).toMatch(/^\d{4}-05-03$/); // May 3rd this year
+			expect(result.parsed.startTime).toBe('07:15'); // 7:15 AM not PM
+			expect(result.parsed.title).toContain('Production');
+			expect(result.confidence).toBeGreaterThan(0.3);
 		});
 
 		it('parses meditation session', () => {
@@ -232,6 +266,10 @@ describe('NLP Event Parser', () => {
 			);
 			expect(result.parsed.startTime).toBe('06:00');
 			expect(result.parsed.endTime).toBe('07:00');
+			expect(result.parsed.date).toMatch(/^\d{4}-\d{2}-\d{2}$/); // tomorrow
+			expect(result.parsed.location).toBe('yoga studio');
+			expect(result.parsed.title).toContain('meditation');
+			expect(result.confidence).toBeGreaterThan(0.5);
 		});
 
 		it('parses beach day with sunset', () => {
@@ -240,6 +278,9 @@ describe('NLP Event Parser', () => {
 			);
 			expect(result.parsed.startTime).toBe('10:00');
 			expect(result.parsed.endTime).toBe('20:00');
+			expect(result.parsed.date).toMatch(/^\d{4}-\d{2}-\d{2}$/); // Saturday
+			expect(result.parsed.title).toContain('beach');
+			expect(result.confidence).toBeGreaterThan(0.5);
 		});
 
 		it('parses game night late', () => {
@@ -248,6 +289,9 @@ describe('NLP Event Parser', () => {
 			);
 			expect(result.parsed.startTime).toBe('19:00');
 			expect(result.parsed.endTime).toBe('23:00');
+			expect(result.parsed.date).toMatch(/^\d{4}-\d{2}-\d{2}$/); // Friday
+			expect(result.parsed.title).toContain('game night');
+			expect(result.confidence).toBeGreaterThan(0.5);
 		});
 	});
 
