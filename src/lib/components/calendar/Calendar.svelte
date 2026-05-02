@@ -24,6 +24,22 @@
 		currentDate.set(DateTime.now());
 	}
 
+	function goPrevious() {
+		if (view === 'week') {
+			currentDate.update(d => d.minus({ week: 1 }));
+		} else {
+			currentDate.update(d => d.minus({ month: 1 }));
+		}
+	}
+
+	function goNext() {
+		if (view === 'week') {
+			currentDate.update(d => d.plus({ week: 1 }));
+		} else {
+			currentDate.update(d => d.plus({ month: 1 }));
+		}
+	}
+
 	function changeView(newView: typeof view) {
 		view = newView;
 	}
@@ -55,26 +71,26 @@
 			>
 				Today
 			</button>
-			<div class="flex items-center gap-1">
-				<button
-					onclick={() => currentDate.update(d => d.minus({ month: 1 }))}
-					class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-					aria-label="Previous month"
-				>
-					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-					</svg>
-				</button>
-				<button
-					onclick={() => currentDate.update(d => d.plus({ month: 1 }))}
-					class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-					aria-label="Next month"
-				>
-					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-					</svg>
-				</button>
-			</div>
+		<div class="flex items-center gap-1">
+			<button
+				onclick={goPrevious}
+				class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+				aria-label="Previous"
+			>
+				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+				</svg>
+			</button>
+			<button
+				onclick={goNext}
+				class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+				aria-label="Next"
+			>
+				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+				</svg>
+			</button>
+		</div>
 			<!-- Mini Month Picker -->
 			<div class="relative">
 				<button

@@ -33,12 +33,9 @@
 		return formatDate(day) === formatDate(today);
 	}
 
-	function isCurrentHour(hour: number): boolean {
-		return today.weekday === day.weekday && today.hour === hour;
+	function isCurrentHour(hour: number, day: DateTime): boolean {
+		return today.hasSame(day, 'day') && today.hour === hour;
 	}
-
-	// For binding in each loop
-	let day: DateTime;
 </script>
 
 <div class="overflow-x-auto">
@@ -57,12 +54,29 @@
 		{/each}
 	</div>
 
+	<!-- All-Day Events Row -->
+	<div class="grid grid-cols-8 border-b border-slate-200 bg-slate-50/50">
+		<div class="w-14 shrink-0 border-r border-slate-200 py-1 px-1 text-xs text-slate-500 flex items-center justify-end pr-2">
+			All day
+		</div>
+		{#each weekDays as wd}
+			{@const allDayEvents = getEventsForDay(wd).filter(e => e.allDay)}
+			<div class="flex-1 min-h-[40px] border-r border-slate-100 last:border-r-0 p-0.5">
+				{#each allDayEvents as event}
+					<a href="/calendar/event/{event.id}" class="block">
+						<div class="{event.color} rounded px-1 py-0.5 text-xs font-medium truncate hover:opacity-90 transition-opacity">
+							{event.title}
+						</div>
+					</a>
+				{/each}
+			</div>
+		{/each}
+	</div>
+
 	<!-- Week Body - Scrollable -->
-	<div class="max-h-[70vh] overflow-y-auto">
+	<div class="max-h-[60vh] overflow-y-auto">
 		{#each hours as hour}
-			{@const hourDate = DateTime.now().set({ hour })}
-			{@const isCurrentHourNow = today.hasSame(today.set({ hour }), 'hour')}
-			<div class="grid grid-cols-8 border-b border-slate-100 {isCurrentHourNow && today.weekday === day?.weekday ? 'bg-primary-50/30' : ''}">
+			<div class="grid grid-cols-8 border-b border-slate-100">
 				<!-- Time column -->
 				<div class="w-14 shrink-0 border-r border-slate-200 py-3 text-right pr-2">
 					<span class="text-xs font-medium text-slate-500">
@@ -78,7 +92,7 @@
 						const eventHour = parseInt(e.startTime.split(':')[0]);
 						return eventHour === hour;
 					})}
-					<div class="relative flex-1 min-h-[60px] border-r border-slate-100 last:border-r-0 p-0.5 hover:bg-slate-50 transition-colors">
+					<div class="relative flex-1 min-h-[60px] border-r border-slate-100 last:border-r-0 p-0.5 hover:bg-slate-50 transition-colors {isCurrentHour(hour, wd) ? 'bg-primary-50/30' : ''}">
 						{#each hourEvents as event}
 							<a href="/calendar/event/{event.id}" class="block">
 								<div class="{event.color} rounded px-1.5 py-1 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity">
