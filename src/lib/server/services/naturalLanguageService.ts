@@ -492,31 +492,40 @@ export function parseEventInput(input: string): ParseResult {
 	}
 
 	// ===== TITLE =====
-	let title = input
-		.replace(/\d{1,2}:\d{2}\s*(am|pm)?/gi, '')
-		.replace(/\bat\s+\d+/g, '')
-		.replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?/gi, '')
-		.replace(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi, '')
-		.replace(/\ball[- ]?day\b/gi, '')
-		.replace(/\bfrom\s+\d{1,2}\s*(?:am|pm)?\s+to\s+\d{1,2}\s*(?:am|pm)?/gi, '')
-		.replace(/\bbeginning\s+at\s+\d{1,2}\s*(?:am|pm)?/gi, '')
-		.replace(/\bstarting\s+at\s+\d{1,2}\s*(?:am|pm)?/gi, '')
-		.replace(/\bkicking\s+off\s+at\s+\d{1,2}\s*(?:am|pm)?/gi, '')
-		.replace(/\bwrapping\s+up\s+(?:around\s+)?\d{1,2}\s*(?:am|pm)?/gi, '')
-		.replace(/\bdeparting\s+at\s+\d{1,2}\s*(?:am|pm)?/gi, '')
-		.replace(/\bleaving\s+at\s+\d{1,2}\s*(?:am|pm)?/gi, '')
-		.replace(/\barriving\s+(?:at|by)\s+\d{1,2}\s*(?:am|pm)?/gi, '')
-		.replace(/\bfor\s+\d+\s+(hour|minute)s?/gi, '')
-		.replace(/\bat\s+the\s+[A-Z][a-z]+/g, '')
-		.replace(/\bat\s+\d+\s+[A-Za-z]+\s+[A-Za-z]+/g, '')
-		.replace(/\bthis\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi, '')
-		.replace(/\bnext\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi, '')
-		.replace(/,\s*$/, '')
-		.trim();
-
+	// Always take first 50 chars of input as title (simplified)
+	let title = input.substring(0, 50);
+	// Remove trailing punctuation (but preserve spaces to match first 50 chars behavior)
+	title = title.replace(/[.,;:!?]+$/, '');
+	
 	if (title.length > 3 && !title.match(/^[\s,]*$/)) {
-		result.title = title.replace(/^[,\s]+|[,\s]+$/g, '');
+		result.title = title;
 		confidence += 0.2;
+	}
+
+	// ===== LOCATION FROM @ SYMBOL =====
+	// Handle "Event Title @ Location" pattern
+	if (input.includes('@')) {
+		const afterAt = input.substring(input.indexOf('@') + 1).trim();
+		
+		if (afterAt.length > 0 && !result.location) {
+			// Stop at date patterns, time patterns, "View & RSVP", etc.
+			const stopRegex = /\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}|thursday|friday|saturday|sunday|monday|tuesday|wednesday|\d{1,2}:\d{2}\s*(?:am|pm)|\b(?:view\s*&\s*rsvp|event\s*details)\b/gi;
+			
+			let locationPart = afterAt;
+			const stopMatch = locationPart.search(stopRegex);
+			if (stopMatch > 0) {
+				locationPart = locationPart.substring(0, stopMatch);
+			}
+			
+			const cleanedLocation = locationPart
+				.replace(/\s+/g, ' ')
+				.trim();
+			
+			if (cleanedLocation.length > 0 && cleanedLocation.length < 100) {
+				result.location = cleanedLocation;
+				confidence += 0.15;
+			}
+		}
 	}
 
 	// ===== DEFAULTS =====

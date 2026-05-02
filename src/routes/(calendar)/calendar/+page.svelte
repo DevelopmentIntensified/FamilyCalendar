@@ -132,12 +132,14 @@ let allFieldsVisible = false;
 		form.description.value = nlInput;
 		form.description.detected = true;
 		form.description.visible = true;
+		form.description.userEdited = false;
 
 		// Title - always visible
 		if (parsed.title) {
 			form.title.value = parsed.title;
 			form.title.detected = true;
 			form.title.visible = true;
+			form.title.userEdited = false;
 		}
 		
 		// Date
@@ -145,6 +147,7 @@ let allFieldsVisible = false;
 			form.date.value = parsed.date;
 			form.date.detected = true;
 			form.date.visible = true;
+			form.date.userEdited = false;
 		}
 		
 		// Start time
@@ -152,6 +155,7 @@ let allFieldsVisible = false;
 			form.startTime.value = parsed.startTime;
 			form.startTime.detected = true;
 			form.startTime.visible = true;
+			form.startTime.userEdited = false;
 		}
 		
 		// End time
@@ -159,6 +163,7 @@ let allFieldsVisible = false;
 			form.endTime.value = parsed.endTime;
 			form.endTime.detected = true;
 			form.endTime.visible = true;
+			form.endTime.userEdited = false;
 		}
 		
 		// Location
@@ -166,6 +171,7 @@ let allFieldsVisible = false;
 			form.location.value = parsed.location;
 			form.location.detected = true;
 			form.location.visible = true;
+			form.location.userEdited = false;
 		}
 		
 		// Attendants - create entries for any names found
@@ -173,6 +179,7 @@ let allFieldsVisible = false;
 			form.attendants.value = parsed.attendants;
 			form.attendants.detected = true;
 			form.attendants.visible = true;
+			form.attendants.userEdited = false;
 		}
 	}
 
@@ -223,9 +230,49 @@ let allFieldsVisible = false;
 		if (!form.attendants.detected && !form.attendants.userEdited) form.attendants.visible = false;
 	}
 
+	function clearDetectedFields() {
+		// Only clear fields that were detected and not user-edited
+		if (form.title.detected && !form.title.userEdited) {
+			form.title.value = '';
+			form.title.detected = false;
+		}
+		if (form.date.detected && !form.date.userEdited) {
+			form.date.value = '';
+			form.date.detected = false;
+		}
+		if (form.startTime.detected && !form.startTime.userEdited) {
+			form.startTime.value = '';
+			form.startTime.detected = false;
+		}
+		if (form.endTime.detected && !form.endTime.userEdited) {
+			form.endTime.value = '';
+			form.endTime.detected = false;
+		}
+		if (form.location.detected && !form.location.userEdited) {
+			form.location.value = '';
+			form.location.detected = false;
+		}
+		if (form.description.detected && !form.description.userEdited) {
+			form.description.value = '';
+			form.description.detected = false;
+		}
+		if (form.attendants.detected && !form.attendants.userEdited) {
+			form.attendants.value = [];
+			form.attendants.detected = false;
+		}
+		
+		// Also clear parsed result
+		parsedResult = null;
+		parseError = '';
+	}
+
 	function onNlInput() {
 		clearTimeout(parseTimer);
-		parseTimer = setTimeout(parseInput, 300);
+		if (!nlInput.trim()) {
+			clearDetectedFields();
+		} else {
+			parseTimer = setTimeout(parseInput, 300);
+		}
 	}
 
 	// Build start/end values when submitting
@@ -292,14 +339,28 @@ let allFieldsVisible = false;
 
 				<!-- NL Input -->
 				<div class="mb-4 relative">
-					<input
-						type="text"
-						bind:value={nlInput}
-						oninput={onNlInput}
-						placeholder="Try: Lunch Friday at noon with John in Conference A"
-						autofocus
-						class="w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-base placeholder:text-slate-400 focus:border-primary-500 focus:bg-white focus:outline-none"
-					/>
+					<div class="relative">
+						<input
+							type="text"
+							bind:value={nlInput}
+							oninput={onNlInput}
+							placeholder="Try: Lunch Friday at noon with John in Conference A"
+							autofocus
+							class="w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-4 py-3 pr-10 text-base placeholder:text-slate-400 focus:border-primary-500 focus:bg-white focus:outline-none"
+						/>
+						{#if nlInput}
+							<button
+								type="button"
+								onclick={() => { nlInput = ''; clearDetectedFields(); }}
+								class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+								title="Clear input"
+							>
+								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+								</svg>
+							</button>
+						{/if}
+					</div>
 					{#if parsing}
 						<p class="mt-1 text-xs text-primary-600">Parsing...</p>
 					{/if}
@@ -340,14 +401,8 @@ let allFieldsVisible = false;
 
 					<!-- Date -->
 					<div class="relative" class:hidden={!form.date.visible && !allFieldsVisible}>
-						<label class="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
+						<label class="flex items-center text-xs font-medium text-slate-500 mb-1">
 							<span>Date</span>
-							<button type="button" onclick={() => toggleField('date')} class="text-slate-400 hover:text-slate-600">
-								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-								</svg>
-							</button>
 						</label>
 						<input 
 							type="date" 
@@ -361,14 +416,8 @@ let allFieldsVisible = false;
 					<div class="grid grid-cols-2 gap-3">
 						<!-- Start Time -->
 						<div class="relative" class:hidden={!form.startTime.visible && !allFieldsVisible}>
-							<label class="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
+							<label class="flex items-center text-xs font-medium text-slate-500 mb-1">
 								<span>Start Time</span>
-								<button type="button" onclick={() => toggleField('startTime')} class="text-slate-400 hover:text-slate-600">
-									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-									</svg>
-								</button>
 							</label>
 							<input 
 								type="time" 
@@ -377,17 +426,11 @@ let allFieldsVisible = false;
 								class="w-full rounded-lg border border-slate-200 px-3 py-2.5"
 							/>
 						</div>
-
+						
 						<!-- End Time -->
 						<div class="relative" class:hidden={!form.endTime.visible && !allFieldsVisible}>
-							<label class="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
+							<label class="flex items-center text-xs font-medium text-slate-500 mb-1">
 								<span>End Time</span>
-								<button type="button" onclick={() => toggleField('endTime')} class="text-slate-400 hover:text-slate-600">
-									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-									</svg>
-								</button>
 							</label>
 							<input 
 								type="time" 
@@ -397,6 +440,28 @@ let allFieldsVisible = false;
 							/>
 						</div>
 					</div>
+					
+					<!-- All Day Checkbox (visible when show more is expanded) -->
+					{#if allFieldsVisible}
+						<div class="flex items-center gap-2" class:hidden={form.startTime.value || form.endTime.value}>
+							<input 
+								type="checkbox" 
+								id="allDay"
+								checked={form.title.value.includes('all day')}
+								onchange={(e) => {
+									if (e.currentTarget.checked && !form.title.value.includes('all day')) {
+										form.title.value = form.title.value + ' all day';
+										form.title.userEdited = true;
+									} else if (!e.currentTarget.checked && form.title.value.includes('all day')) {
+										form.title.value = form.title.value.replace(/\s*all day\s*$/, '');
+										form.title.userEdited = true;
+									}
+								}}
+								class="rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+							/>
+							<label for="allDay" class="text-sm text-slate-700">All Day Event</label>
+						</div>
+					{/if}
 
 <!-- Location -->
 					<div class="relative" class:hidden={!form.location.visible && !allFieldsVisible}>
@@ -509,7 +574,7 @@ let allFieldsVisible = false;
 				</div>
 
 				<!-- Expand/Collapse Button -->
-				<button type="button" onclick={() => allFieldsVisible ? hideAllExtra() : showAllFields()} class="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-2.5 font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+				<button type="button" onclick={() => allFieldsVisible ? hideAllExtra() : showAllFields()} class="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-2.5 font-medium text-slate-600 hover:bg-slate-50 transition-colors mt-3">
 					<svg class="h-4 w-4 transition-transform {allFieldsVisible ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 					</svg>
