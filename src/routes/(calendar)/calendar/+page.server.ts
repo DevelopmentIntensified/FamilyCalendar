@@ -76,6 +76,13 @@ export const load: PageServerLoad = async (event) => {
 	
 	// Get family members for contacts
 	let familyMembersList: { id: string; name: string; email: string; userId: string }[] = [];
+	let calendarIds: { id: string; name: string }[] = [];
+	
+	// Add user's personal calendar(s)
+	if (userCalendar.length > 0) {
+		calendarIds.push({ id: userCalendar[0].id, name: 'Personal Calendar' });
+	}
+	
 	try {
 		// Only query if familyId is a valid string
 		if (familyId && typeof familyId === 'string') {
@@ -89,7 +96,28 @@ export const load: PageServerLoad = async (event) => {
 					.from(events)
 					.where(eq(events.calendarId, familyCals[0].id))
 					.orderBy(events.start);
+				// Add family calendar to calendarIds
+				calendarIds.push({ id: familyCals[0].id, name: family?.name || 'Family Calendar' });
 			}
+			
+			// Get all family members with user details
+			const members = await db
+				.select({
+					id: familyMembers.userId,
+					name: users.firstName,
+					email: users.email,
+					userId: familyMembers.userId
+				})
+				.from(familyMembers)
+				.innerJoin(users, eq(familyMembers.userId, users.id))
+				.where(eq(familyMembers.familyId, familyId));
+				
+			familyMembersList = members || [];
+		}
+	} catch (e) {
+		console.error('Error fetching family members:', e);
+		familyMembersList = [];
+	}
 			
 			// Get all family members with user details
 			const members = await db
@@ -127,7 +155,8 @@ export const load: PageServerLoad = async (event) => {
 		userCalendarColor: userSettings?.color || '#fa8072',
 		familyCalendarColor,
 		showAds,
-		familyMembers: familyMembersList
+		familyMembers: familyMembersList,
+		calendarIds
 	};
 };
 

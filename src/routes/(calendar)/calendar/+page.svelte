@@ -549,22 +549,22 @@ let allFieldsVisible = false;
 						</div>
 					</div>
 
-					<!-- Calendar Selection -->
-					{#if data.calendarIds && data.calendarIds.length > 1}
-						<div class="relative" class:hidden={!allFieldsVisible}>
-							<label class="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
-								<span>Calendar</span>
-							</label>
-							<select
-								bind:value={form.calendarId}
-								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
-							>
-								{#each data.calendarIds as cal}
-									<option value={cal.id}>{cal.name}</option>
-								{/each}
-							</select>
-						</div>
-					{/if}
+				<!-- Calendar Selection -->
+				{#if data.calendarIds && data.calendarIds.length > 1}
+					<div class="relative">
+						<label class="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
+							<span>Calendar</span>
+						</label>
+						<select
+							bind:value={form.calendarId}
+							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm"
+						>
+							{#each data.calendarIds as cal}
+								<option value={cal.id}>{cal.name}</option>
+							{/each}
+						</select>
+					</div>
+				{/if}
 				</div>
 
 				<!-- Expand/Collapse Button -->
