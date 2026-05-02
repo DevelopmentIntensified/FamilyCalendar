@@ -20,26 +20,34 @@ const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
 
 const parseEvents = function (eventsData) {
 	return eventsData.flatMap((e) => {
-		e.start = new Date(e.start);
-		e.end = new Date(e.end);
-		if (e.start.getDate() === e.end.getDate()) {
-			// Add the date attribute to the event
+		// Ensure start and end are Date objects
+		const startDate = new Date(e.start);
+		const endDate = new Date(e.end);
+		
+		if (startDate.getDate() === endDate.getDate()) {
+			// Single day event
 			return {
-				date: e.start,
-				...e
+				...e,
+				start: startDate,
+				end: endDate,
+				date: startDate
 			};
 		}
-		const diffDays = Math.round(Math.abs((e.start.getTime() - e.end.getTime()) / oneDay)); // get how many days appart the start and end tiems are apart
+		
+		// Multi-day event - create one entry per day
+		const diffDays = Math.round(Math.abs((startDate.getTime() - endDate.getTime()) / oneDay));
 		const days = [];
-
+		
 		for (let i = 0; i <= diffDays; i++) {
 			days.push({
-				date: new Date(e.start.getTime() + oneDay * i),
-				...e
-			}); //add events for each day
+				...e,
+				start: startDate,
+				end: endDate,
+				date: new Date(startDate.getTime() + oneDay * i)
+			});
 		}
-
-		return days; // cause it flattens the array we can return an array of days
+		
+		return days;
 	});
 };
 
