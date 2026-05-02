@@ -7,7 +7,7 @@
 	import DateSelector from './DateSelector.svelte';
 
 	export let currentDate: Writable<DateTime>;
-	export let events;
+	export let events: any[] = [];
 	export let removeEvent: (id: string) => void = () => {};
 	export let preferedFirstDayOfWeek: string = 'sunday';
 	let view: 'month' | 'week' | 'list' = 'month';
