@@ -551,7 +551,7 @@ let allFieldsVisible = false;
 
 				<!-- Calendar Selection -->
 				{#if data.calendarIds && data.calendarIds.length > 1}
-					<div class="relative">
+					<div class="relative" class:hidden={!allFieldsVisible}>
 						<label class="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
 							<span>Calendar</span>
 						</label>
