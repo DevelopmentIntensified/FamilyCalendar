@@ -13,10 +13,15 @@
 
 	$: filteredEvents = events
 		.filter((event) => {
-			const eventDate = event.date;
+			if (!event.date) return false;
+			const eventDate = event.date instanceof Date ? DateTime.fromJSDate(event.date) : event.date;
 			return eventDate.year === year && eventDate.month === month;
 		})
-		.sort((a, b) => a.date.toUnixInteger() - b.date.toUnixInteger());
+		.sort((a, b) => {
+			const dateA = a.date instanceof Date ? DateTime.fromJSDate(a.date) : a.date;
+			const dateB = b.date instanceof Date ? DateTime.fromJSDate(b.date) : b.date;
+			return dateA.toUnixInteger() - dateB.toUnixInteger();
+		});
 
 	// Group by date
 	$: groupedEvents = filteredEvents.reduce((acc, event) => {

@@ -26,7 +26,10 @@
 
 	function getEventsForDay(day: DateTime): Event[] {
 		const dateStr = formatDate(day);
-		return events.filter(e => formatDate(e.date) === dateStr);
+		return events.filter(e => {
+			if (!e.date) return false;
+			return formatDate(e.date) === dateStr;
+		});
 	}
 
 	function isToday(day: DateTime): boolean {
