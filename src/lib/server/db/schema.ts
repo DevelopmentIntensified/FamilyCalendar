@@ -7,8 +7,10 @@ import {
 	integer,
 	json,
 	jsonb,
-	serial
+	serial,
+	uniqueIndex
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { generateId } from 'lucia';
 
 export const users = pgTable('users', {
@@ -286,14 +288,24 @@ export const calendars = pgTable('calendars', {
 });
 
 export const eventAttendance = pgTable('eventAttendance', {
+	id: text('id').primaryKey(),
 	eventId: text('event_id')
 		.notNull()
 		.references(() => events.id, { onDelete: 'cascade' }),
 	userId: text('user_id')
-		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
+	name: text('name'), // For non-user attendees
 	status: text('status').default('undecided')
-});
+}, (table) => ({
+	// Unique constraint for user attendees
+	userUnique: uniqueIndex('event_attendance_user_unique')
+		.on(table.eventId, table.userId)
+		.where(sql`user_id IS NOT NULL`),
+	// Unique constraint for named attendees
+	nameUnique: uniqueIndex('event_attendance_name_unique')
+		.on(table.eventId, table.name)
+		.where(sql`name IS NOT NULL`)
+}));
 
 export const aiUsageTracking = pgTable('aiUsageTracking', {
 	userId: text('userId')

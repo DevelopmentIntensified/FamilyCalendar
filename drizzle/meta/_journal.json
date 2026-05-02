@@ -29,6 +29,20 @@
       "when": 1776098098207,
       "tag": "0003_loud_thunderbolts",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777647473903,
+      "tag": "0004_dusty_hammerhead",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777647538157,
+      "tag": "0005_spicy_giant_man",
+      "breakpoints": true
     }
   ]
 }

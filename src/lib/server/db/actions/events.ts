@@ -23,7 +23,7 @@ export async function getEventAttendance(id: string) {
 export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>, ownerId: string) {
 	const [createdEvent] = await db.insert(events).values(data).returning();
 	// Auto-RSVP creator as "going"
-	if (createdEvent) {
+	if (createdEvent && ownerId) {
 		await db.insert(eventAttendance).values({
 			eventId: createdEvent.id,
 			userId: ownerId,

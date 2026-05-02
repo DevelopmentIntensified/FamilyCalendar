@@ -8,6 +8,7 @@ import {
 	events,
 	families,
 	familyMembers,
+	users,
 	type CalendarEvent
 } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -90,15 +91,16 @@ export const load: PageServerLoad = async (event) => {
 					.orderBy(events.start);
 			}
 			
-			// Get all family members
+			// Get all family members with user details
 			const members = await db
 				.select({
-					id: familyMembers.id,
-					name: familyMembers.name,
-					email: familyMembers.email,
+					id: familyMembers.userId,
+					name: users.firstName,
+					email: users.email,
 					userId: familyMembers.userId
 				})
 				.from(familyMembers)
+				.innerJoin(users, eq(familyMembers.userId, users.id))
 				.where(eq(familyMembers.familyId, familyId));
 				
 			familyMembersList = members || [];
