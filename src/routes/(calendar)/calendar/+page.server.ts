@@ -118,25 +118,6 @@ export const load: PageServerLoad = async (event) => {
 		console.error('Error fetching family members:', e);
 		familyMembersList = [];
 	}
-			
-			// Get all family members with user details
-			const members = await db
-				.select({
-					id: familyMembers.userId,
-					name: users.firstName,
-					email: users.email,
-					userId: familyMembers.userId
-				})
-				.from(familyMembers)
-				.innerJoin(users, eq(familyMembers.userId, users.id))
-				.where(eq(familyMembers.familyId, familyId));
-				
-			familyMembersList = members || [];
-		}
-	} catch (e) {
-		console.error('Error fetching family members:', e);
-		familyMembersList = [];
-	}
 
 	const hasAdConsent = await checkUserAdConsent(userId);
 	const showAds = hasAdConsent && (userSettings?.showAdsAsEvents ?? false);
