@@ -10,7 +10,6 @@
 	export let events;
 	export let removeEvent: (id: string) => void = () => {};
 	export let preferedFirstDayOfWeek: string = 'sunday';
-
 	let view: 'month' | 'week' | 'list' = 'month';
 	let showMiniPicker = false;
 
