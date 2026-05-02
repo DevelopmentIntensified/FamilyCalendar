@@ -217,6 +217,25 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.2;
 	}
 
+	// "6:00PM - 8:00PM" (time range with hyphen)
+	const hyphenRangeMatch = input.match(/(\d{1,2}):(\d{2})\s*(am?|pm?)\s*-\s*(\d{1,2}):(\d{2})\s*(am?|pm?)/i);
+	if (hyphenRangeMatch && !foundTime) {
+		let startHour = parseInt(hyphenRangeMatch[1]);
+		let startMin = parseInt(hyphenRangeMatch[2]);
+		let endHour = parseInt(hyphenRangeMatch[4]);
+		let endMin = parseInt(hyphenRangeMatch[5]);
+		const startPeriod = hyphenRangeMatch[3]?.toLowerCase();
+		const endPeriod = hyphenRangeMatch[6]?.toLowerCase();
+		if (startPeriod === 'pm' && startHour < 12) startHour += 12;
+		if (startPeriod === 'am' && startHour === 12) startHour = 0;
+		if (endPeriod === 'pm' && endHour < 12) endHour += 12;
+		if (endPeriod === 'am' && endHour === 12) endHour = 0;
+		result.startTime = normalizeTime(startHour, startMin);
+		result.endTime = normalizeTime(endHour, endMin);
+		foundTime = true;
+		confidence += 0.2;
+	}
+
 	// End time: "wrapping up around 9 PM"
 	const wrapMatch = input.match(/wrapping\s+up\s+(?:around\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
 	if (wrapMatch && !result.endTime) {

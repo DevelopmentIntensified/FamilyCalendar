@@ -345,5 +345,17 @@ describe('NLP Event Parser', () => {
 			const result = parseEventInput('trip returning Sunday evening');
 			expect(result.parsed.endTime).toBe('18:00');
 		});
+
+		it('handles hyphenated time range "6:00PM - 8:00PM"', () => {
+			const result = parseEventInput('Clients & Friends Appreciation Night 6:00PM - 8:00PM');
+			expect(result.parsed.startTime).toBe('18:00');
+			expect(result.parsed.endTime).toBe('20:00');
+		});
+
+		it('handles hyphenated time range with spaces', () => {
+			const result = parseEventInput('event 7:30 AM - 9:00 PM');
+			expect(result.parsed.startTime).toBe('07:30');
+			expect(result.parsed.endTime).toBe('21:00');
+		});
 	});
 });
