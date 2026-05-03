@@ -5,6 +5,7 @@
 	import type { Event } from '$lib/types';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
 	import EventFormModal from '$lib/components/calendar/EventFormModal.svelte';
+	import { invalidateAll } from '$app/navigation';
 
 	export let data: PageData;
 
@@ -29,17 +30,25 @@
 	}
 
 	async function handleEventCreated(event: CustomEvent) {
-		console.log('Event created:', event.detail);
+		await invalidateAll();
 		close();
 	}
 
 	async function handleEventUpdate(event: CustomEvent) {
-		console.log('Event updated:', event.detail);
+		await invalidateAll();
 		close();
 	}
 
-	function handleEventDelete(event: CustomEvent) {
-		console.log('Event deleted:', event.detail.id);
+	async function handleEventDelete(event: CustomEvent) {
+		const eventId = event.detail.id;
+		try {
+			const res = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+			if (res.ok) {
+				await invalidateAll();
+			}
+		} catch (e) {
+			console.error('Failed to delete event:', e);
+		}
 		close();
 	}
 

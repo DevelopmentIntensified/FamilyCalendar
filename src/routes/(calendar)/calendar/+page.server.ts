@@ -1,6 +1,6 @@
 // Intl.DateTimeFormat().resolvedOptions().timeZone
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
-import type { PageServerLoad, Actions } from './$types';
+import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import {
@@ -14,18 +14,15 @@ import {
 import { eq } from 'drizzle-orm';
 import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
-import { createEvent, updateRsvp, getUserRsvp } from '$lib/server/db/actions/events';
 
 const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
 
 const parseEvents = function (eventsData) {
 	return eventsData.flatMap((e) => {
-		// Ensure start and end are Date objects
 		const startDate = new Date(e.start);
 		const endDate = new Date(e.end);
 		
 		if (startDate.getDate() === endDate.getDate()) {
-			// Single day event
 			return {
 				...e,
 				start: startDate,
@@ -34,7 +31,6 @@ const parseEvents = function (eventsData) {
 			};
 		}
 		
-		// Multi-day event - create one entry per day
 		const diffDays = Math.round(Math.abs((startDate.getTime() - endDate.getTime()) / oneDay));
 		const days = [];
 		
@@ -82,17 +78,14 @@ export const load: PageServerLoad = async (event) => {
 	let familyEventsData: CalendarEvent[] = [];
 	let familyCalendarColor = '#e0ffff';
 	
-	// Get family members for contacts
 	let familyMembersList: { id: string; name: string; email: string; userId: string }[] = [];
 	let calendarIds: { id: string; name: string }[] = [];
 	
-	// Add user's personal calendar(s)
 	if (userCalendar.length > 0) {
 		calendarIds.push({ id: userCalendar[0].id, name: 'Personal Calendar' });
 	}
 	
 	try {
-		// Only query if familyId is a valid string
 		if (familyId && typeof familyId === 'string') {
 			const [family] = await db.select().from(families).where(eq(families.id, familyId));
 			familyCalendarColor = family?.color || '#e0ffff';
@@ -104,11 +97,9 @@ export const load: PageServerLoad = async (event) => {
 					.from(events)
 					.where(eq(events.calendarId, familyCals[0].id))
 					.orderBy(events.start);
-				// Add family calendar to calendarIds
 				calendarIds.push({ id: familyCals[0].id, name: family?.name || 'Family Calendar' });
 			}
 			
-			// Get all family members with user details
 			const members = await db
 				.select({
 					id: familyMembers.userId,
@@ -147,93 +138,4 @@ export const load: PageServerLoad = async (event) => {
 		familyMembers: familyMembersList,
 		calendarIds
 	};
-};
-
-export const actions: Actions = {
-	createEvent: async (event) => {
-		const userId = event.locals.user!.id;
-		const data = await event.request.formData();
-
-		const title = data.get('title') as string;
-		const start = data.get('start') as string;
-		const end = data.get('end') as string || null;
-		const description = data.get('description') as string || null;
-		const location = data.get('location') as string || null;
-		let calendarId = data.get('calendarId') as string || null;
-		const allDay = data.get('allDay') === 'true';
-
-		// Auto-get or create user calendar if not provided
-		if (!calendarId || calendarId === '') {
-			let userCalendar = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
-			if (userCalendar.length === 0) {
-				const [newCal] = await db.insert(calendars).values({ ownerId: userId }).returning();
-				calendarId = newCal.id;
-			} else {
-				calendarId = userCalendar[0].id;
-			}
-		}
-
-		// Default end to start + 1 hour if not provided
-		const startDate = new Date(start);
-		const endDate = end ? new Date(end) : new Date(startDate.getTime() + 60 * 60 * 1000);
-
-		const eventData = {
-			calendarId,
-			ownerId: userId,
-			title,
-			start: startDate.toISOString(),
-			end: endDate.toISOString(),
-			description,
-			location,
-			allDay
-		};
-
-		const created = await createEvent(eventData, userId);
-		return { success: true, event: created };
-	},
-	
-	updateRsvp: async (event) => {
-		const userId = event.locals.user!.id;
-		const data = await event.request.formData();
-		
-		const eventId = data.get('eventId') as string;
-		const status = data.get('status') as 'going' | 'maybe' | 'declined' | 'undecided';
-		
-		await updateRsvp(eventId, userId, status);
-		return { success: true, status };
-	},
-
-	updateEvent: async (event) => {
-		const userId = event.locals.user!.id;
-		const data = await event.request.formData();
-		
-		const eventId = data.get('id') as string;
-		const title = data.get('title') as string;
-		const date = data.get('date') as string;
-		const startTime = data.get('startTime') as string || null;
-		const endTime = data.get('endTime') as string || null;
-		const description = data.get('description') as string || null;
-		const location = data.get('location') as string || null;
-		const allDay = data.get('allDay') === 'true';
-		const calendarId = data.get('calendarId') as string || null;
-
-		// Build start and end dates
-		const startDate = new Date(date + (startTime ? `T${startTime}:00` : 'T00:00:00'));
-		const endDate = endTime 
-			? new Date(date + `T${endTime}:00`)
-			: new Date(startDate.getTime() + 60 * 60 * 1000);
-
-		const eventData = {
-			title,
-			start: startDate.toISOString(),
-			end: endDate.toISOString(),
-			description,
-			location,
-			allDay,
-			calendarId
-		};
-
-		const updated = await updateEventById(eventId, eventData, userId);
-		return { success: true, event: updated };
-	}
 };

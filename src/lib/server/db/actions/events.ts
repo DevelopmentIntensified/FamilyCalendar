@@ -33,12 +33,21 @@ export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>
 	return createdEvent;
 }
 
+export async function updateEventById(id: string, data: Partial<Omit<CalendarEvent, 'id'>>, userId: string) {
+	const [updatedEvent] = await db.update(events).set(data).where(eq(events.id, id)).returning();
+	return updatedEvent;
+}
+
 export async function updateEvent(id: string, data: Partial<Omit<CalendarEvent, 'id'>>) {
 	const [updatedEvent] = await db.update(events).set(data).where(eq(events.id, id)).returning();
 	return updatedEvent;
 }
 
 export async function deleteEvent(id: string) {
+	await db.delete(events).where(eq(events.id, id));
+}
+
+export async function deleteEventById(id: string, userId: string) {
 	await db.delete(events).where(eq(events.id, id));
 }
 
