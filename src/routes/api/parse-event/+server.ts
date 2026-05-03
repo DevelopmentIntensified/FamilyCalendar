@@ -28,7 +28,7 @@ export const POST: RequestHandler = async ({ request }) => {
 						body: JSON.stringify({
 							model: 'llama-3.3-70b',
 							messages: [
-								{ role: 'system', content: 'Parse this calendar event. Return JSON with: title, date (YYYY-MM-DD), startTime (HH:MM), endTime (HH:MM), location, description, allDay (boolean), attendants (array of names).' },
+								{ role: 'system', content: 'Parse this calendar event. Return JSON with: title, date (YYYY-MM-DD), startTime (HH:MM), endTime (HH:MM), location, description, allDay (boolean), attendants (array of names).\n\nIMPORTANT RULES:\n- Location: places, buildings, rooms, addresses, venues (e.g. "LU", "Conference A", "Main Hall", "123 Main St")\n- Attendants: ONLY actual people\'s names. Do NOT treat location names, building names, room names, or venue names as attendants.\n- If a word could be either a location or a person, prefer location.\n- Short uppercase tokens (like "LU", "NYC", "USA", "HR", "IT") are locations, not people.' },
 								{ role: 'user', content: input }
 							],
 							response_format: { type: 'json_object' }

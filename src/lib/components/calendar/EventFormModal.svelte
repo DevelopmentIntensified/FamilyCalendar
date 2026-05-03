@@ -47,6 +47,9 @@
 	$: showNlInput = true;
 	$: hasDetectedFields = Object.values(detectedFields).some(Boolean);
 
+	// Helper: show a field if it's detected, or if edit mode, or if Show More is open
+	$: shouldShowField = (field) => detectedFields[field] || isEditMode || showMore;
+
 	// Populate form when editing
 	$: if (event && isEditMode) {
 		title = event.title || '';
@@ -320,39 +323,6 @@
 					</div>
 
 					<!-- Detected Fields Summary (visible even when collapsed) -->
-					{#if hasDetectedFields && !isEditMode}
-						<div class="rounded-xl border border-green-200 bg-green-50 p-4">
-							<div class="mb-2 flex items-center gap-2">
-								<svg class="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-								</svg>
-								<span class="text-xs font-semibold text-green-700">Detected Fields</span>
-							</div>
-							<div class="space-y-1 text-sm text-green-800">
-								{#if detectedFields.title && title}
-									<p>Title: <span class="font-medium">{title}</span></p>
-								{/if}
-								{#if detectedFields.date && date}
-									<p>Date: <span class="font-medium">{date}</span></p>
-								{/if}
-								{#if detectedFields.startTime && startTime}
-									<p>Start Time: <span class="font-medium">{startTime}</span></p>
-								{/if}
-								{#if detectedFields.endTime && endTime}
-									<p>End Time: <span class="font-medium">{endTime}</span></p>
-								{/if}
-								{#if detectedFields.endDate && endDate}
-									<p>End Date: <span class="font-medium">{endDate}</span></p>
-								{/if}
-								{#if detectedFields.location && location}
-									<p>Location: <span class="font-medium">{location}</span></p>
-								{/if}
-								{#if detectedFields.attendants && attendants.length > 0}
-									<p>Attendants: <span class="font-medium">{attendants.join(', ')}</span></p>
-								{/if}
-							</div>
-						</div>
-					{/if}
 
 					{#if !isEditMode}
 						<!-- Show More/Less Button -->
@@ -374,16 +344,50 @@
 						</button>
 					{/if}
 
-					<!-- Hidden Fields (behind Show More in create mode, always visible in edit mode) -->
-					{#if isEditMode || showMore}
-						<!-- All-Day & Multi-Day Row -->
+					<!-- Date (always visible if detected or expanded) -->
+					{#if shouldShowField('date')}
+						<div class="group">
+							<label for="event-date" class="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+								{#if detectedFields.date}
+									<svg class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+									</svg>
+								{/if}
+								Date
+							</label>
+							<div class="relative">
+								<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+									<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+									</svg>
+								</div>
+								<input
+									id="event-date"
+									type="date"
+									bind:value={date}
+									required
+									class="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+								/>
+							</div>
+						</div>
+					{/if}
+
+					<!-- All-Day & Multi-Day Row -->
+					{#if shouldShowField('allDay') || shouldShowField('endDate')}
 						<div class="grid grid-cols-2 gap-4">
 							<div class="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
 								<div class="flex items-center gap-2">
 									<svg class="h-4 w-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 										<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
 									</svg>
-									<label for="all-day" class="text-sm font-medium text-slate-700">All-day</label>
+									<label for="all-day" class="flex items-center gap-1 text-sm font-medium text-slate-700">
+										{#if detectedFields.allDay}
+											<svg class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+											</svg>
+										{/if}
+										All-day
+									</label>
 								</div>
 								<input
 									type="checkbox"
@@ -398,7 +402,14 @@
 									<svg class="h-4 w-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 										<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 									</svg>
-									<label for="multi-day" class="text-sm font-medium text-slate-700">Multi-day</label>
+									<label for="multi-day" class="flex items-center gap-1 text-sm font-medium text-slate-700">
+										{#if detectedFields.endDate}
+											<svg class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+											</svg>
+										{/if}
+										Multi-day
+									</label>
 								</div>
 								<input
 									type="checkbox"
@@ -408,109 +419,99 @@
 								/>
 							</div>
 						</div>
+					{/if}
 
-						<!-- Date Grid -->
-						{#if multiDay}
-							<!-- Start Date | End Date (side by side when multi-day) -->
-							<div class="grid grid-cols-2 gap-4">
-								<div class="group">
-									<label for="event-date" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Start Date</label>
-									<div class="relative">
-										<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-											<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-											</svg>
-										</div>
-										<input
-											id="event-date"
-											type="date"
-											bind:value={date}
-											required
-											class="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-										/>
-									</div>
+					<!-- End Date (only when multi-day) -->
+					{#if multiDay && shouldShowField('endDate')}
+						<div class="group">
+							<label for="event-end-date" class="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+								{#if detectedFields.endDate}
+									<svg class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+									</svg>
+								{/if}
+								End Date
+							</label>
+							<div class="relative">
+								<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+									<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+									</svg>
 								</div>
-
-								<div class="group">
-									<label for="event-end-date" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">End Date</label>
-									<div class="relative">
-										<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-											<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-											</svg>
-										</div>
-										<input
-											id="event-end-date"
-											type="date"
-											bind:value={endDate}
-											class="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-										/>
-									</div>
-								</div>
+								<input
+									id="event-end-date"
+									type="date"
+									bind:value={endDate}
+									class="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+								/>
 							</div>
-						{:else}
-							<!-- Start Date only (single day) -->
+						</div>
+					{/if}
+
+					<!-- Start Time | End Time (side by side, hidden when all-day) -->
+					{#if !allDay && (shouldShowField('startTime') || shouldShowField('endTime'))}
+						<div class="grid grid-cols-2 gap-4">
 							<div class="group">
-								<label for="event-date" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Date</label>
+								<label for="start-time" class="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+									{#if detectedFields.startTime}
+										<svg class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+										</svg>
+									{/if}
+									Start Time
+								</label>
 								<div class="relative">
 									<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
 										<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-											<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+											<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a8 8 0 11-16 0 8 8 0 0116 0z" />
 										</svg>
 									</div>
 									<input
-										id="event-date"
-										type="date"
-										bind:value={date}
-										required
+										id="start-time"
+										type="time"
+										bind:value={startTime}
 										class="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 									/>
 								</div>
 							</div>
-						{/if}
 
-						<!-- Start Time | End Time (side by side, hidden when all-day) -->
-						{#if !allDay}
-							<div class="grid grid-cols-2 gap-4">
-								<div class="group">
-									<label for="start-time" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Start Time</label>
-									<div class="relative">
-										<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-											<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a8 8 0 11-16 0 8 8 0 0116 0z" />
-											</svg>
-										</div>
-										<input
-											id="start-time"
-											type="time"
-											bind:value={startTime}
-											class="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-										/>
+							<div class="group">
+								<label for="end-time" class="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+									{#if detectedFields.endTime}
+										<svg class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+										</svg>
+									{/if}
+									End Time
+								</label>
+								<div class="relative">
+									<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+										<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+										</svg>
 									</div>
-								</div>
-
-								<div class="group">
-									<label for="end-time" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">End Time</label>
-									<div class="relative">
-										<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-											<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-											</svg>
-										</div>
-										<input
-											id="end-time"
-											type="time"
-											bind:value={endTime}
-											class="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-										/>
-									</div>
+									<input
+										id="end-time"
+										type="time"
+										bind:value={endTime}
+										class="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+									/>
 								</div>
 							</div>
-						{/if}
+						</div>
+					{/if}
 
-						<!-- Location -->
+					<!-- Location -->
+					{#if shouldShowField('location')}
 						<div class="group">
-							<label for="event-location" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Location</label>
+							<label for="event-location" class="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+								{#if detectedFields.location}
+									<svg class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+									</svg>
+								{/if}
+								Location
+							</label>
 							<div class="relative">
 								<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
 									<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -523,11 +524,20 @@
 								</div>
 							</div>
 						</div>
+					{/if}
 
-						<!-- Attendants Section -->
+					<!-- Attendants Section -->
+					{#if shouldShowField('attendants') || isEditMode}
 						<div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
 							<div class="mb-3 flex items-center justify-between">
-								<span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Attendants</span>
+								<span class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+									{#if detectedFields.attendants}
+										<svg class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+										</svg>
+									{/if}
+									Attendants
+								</span>
 								<button
 									type="button"
 									on:click={() => showMoreAttendants = !showMoreAttendants}
@@ -651,22 +661,22 @@
 								</div>
 							{/if}
 						</div>
+					{/if}
 
-						<!-- Calendar Selector -->
-						{#if calendarIds.length > 1}
-							<div class="group">
-								<label for="event-calendar" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Calendar</label>
-								<select
-									id="event-calendar"
-									bind:value={selectedCalendarId}
-									class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-								>
-									{#each calendarIds as cal}
-										<option value={cal.id}>{cal.name}</option>
-									{/each}
-								</select>
-							</div>
-						{/if}
+					<!-- Calendar Selector -->
+					{#if calendarIds.length > 1}
+						<div class="group">
+							<label for="event-calendar" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Calendar</label>
+							<select
+								id="event-calendar"
+								bind:value={selectedCalendarId}
+								class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+							>
+								{#each calendarIds as cal}
+									<option value={cal.id}>{cal.name}</option>
+								{/each}
+							</select>
+						</div>
 					{/if}
 				</div>
 

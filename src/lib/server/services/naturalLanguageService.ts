@@ -374,6 +374,27 @@ export function parseEventInput(input: string): ParseResult {
 
 	// ===== LOCATION PATTERNS =====
 	
+	// "Location: X" or "location: X" - explicit location keyword (highest priority)
+	const explicitLocMatch = input.match(/\blocation\s*:\s*(.+?)(?:\n|$|type:|date:|time:|description:)/i);
+	if (explicitLocMatch) {
+		result.location = explicitLocMatch[1].trim();
+		confidence += 0.25;
+	}
+
+	// "location at X" or "location is X"
+	const locKeywordMatch = input.match(/\blocation\s+(?:at|is|in)\s+([A-Za-z][a-z0-9 ]*)/i);
+	if (locKeywordMatch && !result.location) {
+		result.location = locKeywordMatch[1].trim();
+		confidence += 0.2;
+	}
+
+	// "at X" where X is a short uppercase token (e.g. "at LU", "at HR")
+	const atShortLocMatch = input.match(/\bat\s+([A-Z]{1,4})\b/);
+	if (atShortLocMatch && !result.location) {
+		result.location = atShortLocMatch[1];
+		confidence += 0.15;
+	}
+
 	// Try compromise places
 	const places = doc.places().out('array');
 	if (places.length > 0) {
@@ -439,11 +460,22 @@ export function parseEventInput(input: string): ParseResult {
 
 	// ===== ATTENDANT PATTERNS =====
 
-	// Try compromise people
-	const people = doc.people().out('array');
+	// Remove already-detected location from text so compromise doesn't treat it as a person
+	let attendantText = input;
+	if (result.location) {
+		attendantText = input.replace(new RegExp(result.location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '');
+	}
+	const attendantDoc = nlp(attendantText);
+
+	// Try compromise people (on text with location removed)
+	const people = attendantDoc.people().out('array');
 	if (people.length > 0) {
-		result.attendants = people;
-		confidence += 0.15;
+		// Filter out short tokens (<=2 chars) which are likely locations/abbreviations, not people
+		const filteredPeople = people.filter(p => p.length > 2);
+		if (filteredPeople.length > 0) {
+			result.attendants = filteredPeople;
+			confidence += 0.15;
+		}
 	}
 
 	// "with X"

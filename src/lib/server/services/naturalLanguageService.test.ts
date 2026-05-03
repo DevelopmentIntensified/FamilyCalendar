@@ -296,6 +296,32 @@ describe('NLP Event Parser', () => {
 		});
 	});
 
+	describe('Location Keyword Parsing', () => {
+		it('parses "Location: LU" as location, not attendant', () => {
+			const result = parseEventInput(
+				'Finals! And Goodbye for the Summer!\nDate: Thu, May 7, 2026\nTime: 5:00 PM - 3:59 PM\nLocation: LU\nType: Social'
+			);
+			expect(result.parsed.location).toBe('LU');
+			expect(result.parsed.attendants).toBeUndefined();
+		});
+
+		it('parses "location at the park" as location', () => {
+			const result = parseEventInput('meeting location at the park');
+			expect(result.parsed.location).toBe('the park');
+		});
+
+		it('parses "Location: Room 201" as location', () => {
+			const result = parseEventInput('Conference\nLocation: Room 201\nTime: 2 PM');
+			expect(result.parsed.location).toBe('Room 201');
+		});
+
+		it('does not treat short uppercase tokens after location as attendants', () => {
+			const result = parseEventInput('Party at LU with friends');
+			expect(result.parsed.location).toBeDefined();
+			expect(result.parsed.attendants).toBeUndefined();
+		});
+	});
+
 	describe('Creative Edge Cases', () => {
 		it('handles "sharp" time', () => {
 			const result = parseEventInput('meeting at 8 AM sharp');
