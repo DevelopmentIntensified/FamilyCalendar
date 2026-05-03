@@ -9,7 +9,6 @@
 	export let calendarIds: { id: string; name: string }[] = [];
 	export let familyMembers: { userId: string; firstName: string; lastName: string; email: string }[] = [];
 	export let rsvpData: { userId: string; status: string; firstName?: string; lastName?: string }[] = [];
-	export let userSettings: any = null;
 
 	const dispatch = createEventDispatcher();
 
@@ -45,8 +44,7 @@
 	};
 
 	$: isEditMode = event !== null;
-	$: aiEnabled = !isEditMode && userSettings && (userSettings.autoParseEventDetails !== false && (userSettings.useCloudAI || userSettings.useLocalAI));
-	$: showNlInput = aiEnabled;
+	$: showNlInput = true;
 	$: hasDetectedFields = Object.values(detectedFields).some(Boolean);
 
 	// Populate form when editing

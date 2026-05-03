@@ -86,7 +86,6 @@
 		show={true}
 		calendarIds={data.calendarIds || []}
 		familyMembers={data.familyMembers || []}
-		userSettings={data.userSettings}
 		on:close={close}
 		on:create={handleEventCreated}
 	/>
