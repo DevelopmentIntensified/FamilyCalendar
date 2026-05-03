@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { formatDate, getDaysInMonth, getFirstDayOfMonth, getDaysInLastMonth } from '$lib/utils/dateUtils';
+	import { formatDate } from '$lib/utils/dateUtils';
 	import { DateTime } from 'luxon';
 	import type { Writable } from 'svelte/store';
 	import type { Event } from '$lib/types';
+	import EventModal from './EventModal.svelte';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[];
@@ -28,7 +29,9 @@
 		const dateStr = formatDate(day);
 		return events.filter(e => {
 			if (!e.date) return false;
-			return formatDate(e.date) === dateStr;
+			// Handle both Date objects and string dates
+			const eventDate = e.date instanceof Date ? formatDate(e.date) : formatDate(e.date);
+			return eventDate === dateStr;
 		});
 	}
 
@@ -38,6 +41,21 @@
 
 	function isCurrentHour(hour: number, day: DateTime): boolean {
 		return today.hasSame(day, 'day') && today.hour === hour;
+	}
+
+	let selectedEvent: Event | null = null;
+
+	function handleEventClick(event: Event) {
+		selectedEvent = event;
+	}
+
+	function closeModal() {
+		selectedEvent = null;
+	}
+
+	function handleDelete(event: CustomEvent) {
+		console.log('Delete event:', event.detail.id);
+		closeModal();
 	}
 </script>
 
@@ -66,11 +84,13 @@
 			{@const allDayEvents = getEventsForDay(wd).filter(e => e.allDay)}
 			<div class="flex-1 min-h-[40px] border-r border-slate-100 last:border-r-0 p-0.5">
 				{#each allDayEvents as event}
-					<a href="/calendar/event/{event.id}" class="block">
-						<div class="{event.color} rounded px-1 py-0.5 text-xs font-medium truncate hover:opacity-90 transition-opacity">
-							{event.title}
-						</div>
-					</a>
+					<button
+						type="button"
+						onclick={() => handleEventClick(event)}
+						class="{event.color} rounded px-1 py-0.5 text-xs font-medium truncate hover:opacity-90 transition-opacity cursor-pointer w-full text-left"
+					>
+						{event.title}
+					</button>
 				{/each}
 			</div>
 		{/each}
@@ -79,7 +99,7 @@
 	<!-- Week Body - Scrollable -->
 	<div class="max-h-[60vh] overflow-y-auto">
 		{#each hours as hour}
-			<div class="grid grid-cols-8 border-b border-slate-100">
+			<div class="grid grid-cols-8 border-b border-slate-100 {isCurrentHour(hour, $currentDate) ? 'bg-primary-50/30' : ''}">
 				<!-- Time column -->
 				<div class="w-14 shrink-0 border-r border-slate-200 py-3 text-right pr-2">
 					<span class="text-xs font-medium text-slate-500">
@@ -95,13 +115,15 @@
 						const eventHour = parseInt(e.startTime.split(':')[0]);
 						return eventHour === hour;
 					})}
-					<div class="relative flex-1 min-h-[60px] border-r border-slate-100 last:border-r-0 p-0.5 hover:bg-slate-50 transition-colors {isCurrentHour(hour, wd) ? 'bg-primary-50/30' : ''}">
+					<div class="relative flex-1 min-h-[60px] border-r border-slate-100 last:border-r-0 p-0.5 hover:bg-slate-50 transition-colors">
 						{#each hourEvents as event}
-							<a href="/calendar/event/{event.id}" class="block">
-								<div class="{event.color} rounded px-1.5 py-1 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity">
-									{event.title}
-								</div>
-							</a>
+							<button
+								type="button"
+								onclick={() => handleEventClick(event)}
+								class="{event.color} rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer w-full text-left"
+							>
+								{event.title}
+							</button>
 						{/each}
 					</div>
 				{/each}
@@ -109,3 +131,13 @@
 		{/each}
 	</div>
 </div>
+
+<!-- Event Detail Modal -->
+{#if selectedEvent}
+	<EventModal
+		event={selectedEvent}
+		show={true}
+		on:close={closeModal}
+		on:delete={handleDelete}
+	/>
+{/if}

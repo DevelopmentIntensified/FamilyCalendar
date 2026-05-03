@@ -3,6 +3,7 @@
 	import type { Writable } from 'svelte/store';
 	import { formatDate } from '$lib/utils/dateUtils';
 	import type { Event } from '$lib/types';
+	import EventModal from './EventModal.svelte';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[];
@@ -30,6 +31,21 @@
 		acc[dateKey].push(event);
 		return acc;
 	}, {} as Record<string, Event[]>);
+
+	let selectedEvent: Event | null = null;
+
+	function handleEventClick(event: Event) {
+		selectedEvent = event;
+	}
+
+	function closeModal() {
+		selectedEvent = null;
+	}
+
+	function handleDelete(event: CustomEvent) {
+		console.log('Delete event:', event.detail.id);
+		closeModal();
+	}
 </script>
 
 <div class="space-y-6">
@@ -55,8 +71,12 @@
 			</h3>
 			<div class="space-y-2">
 				{#each dayEvents as event}
-					<a href="/calendar/event/{event.id}" class="block group">
-						<div class="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-slate-300 hover:shadow-md">
+					<button
+						type="button"
+						onclick={() => handleEventClick(event)}
+						class="w-full text-left"
+					>
+						<div class="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-slate-300 hover:shadow-md">
 							<!-- Color indicator -->
 							<div class="shrink-0 h-12 w-1 rounded-full {event.color?.replace('bg-', 'bg-') || 'bg-slate-400'}"></div>
 							
@@ -97,14 +117,23 @@
 									{/if}
 								</div>
 							</div>
-							
 							<svg class="h-5 w-5 shrink-0 text-slate-400 group-hover:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 							</svg>
 						</div>
-					</a>
+					</button>
 				{/each}
 			</div>
 		</div>
 	{/each}
 </div>
+
+<!-- Event Detail Modal -->
+{#if selectedEvent}
+	<EventModal
+		event={selectedEvent}
+		show={true}
+		on:close={closeModal}
+		on:delete={handleDelete}
+	/>
+{/if}

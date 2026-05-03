@@ -201,5 +201,39 @@ export const actions: Actions = {
 		
 		await updateRsvp(eventId, userId, status);
 		return { success: true, status };
+	},
+
+	updateEvent: async (event) => {
+		const userId = event.locals.user!.id;
+		const data = await event.request.formData();
+		
+		const eventId = data.get('id') as string;
+		const title = data.get('title') as string;
+		const date = data.get('date') as string;
+		const startTime = data.get('startTime') as string || null;
+		const endTime = data.get('endTime') as string || null;
+		const description = data.get('description') as string || null;
+		const location = data.get('location') as string || null;
+		const allDay = data.get('allDay') === 'true';
+		const calendarId = data.get('calendarId') as string || null;
+
+		// Build start and end dates
+		const startDate = new Date(date + (startTime ? `T${startTime}:00` : 'T00:00:00'));
+		const endDate = endTime 
+			? new Date(date + `T${endTime}:00`)
+			: new Date(startDate.getTime() + 60 * 60 * 1000);
+
+		const eventData = {
+			title,
+			start: startDate.toISOString(),
+			end: endDate.toISOString(),
+			description,
+			location,
+			allDay,
+			calendarId
+		};
+
+		const updated = await updateEventById(eventId, eventData, userId);
+		return { success: true, event: updated };
 	}
 };

@@ -44,7 +44,7 @@
 
 <div class="grid grid-cols-7 sm:gap-2">
 	{#each daysOfWeek as day}
-		<div class="p-1 text-center text-sm font-semibold text-gray-600 sm:p-2 sm:text-base">
+		<div class="p-2 text-center text-xs font-semibold text-slate-500 sm:p-3 sm:text-sm uppercase tracking-wide">
 			{day}
 		</div>
 	{/each}
