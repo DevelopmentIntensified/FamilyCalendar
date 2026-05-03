@@ -157,8 +157,8 @@ describe('EventFormModal - Date & Time Layout', () => {
 		await fireEvent.click(showMoreBtn);
 
 		const startDateInput = screen.getByLabelText(/start date/i);
-		const dateGrid = startDateInput.closest('.grid');
-		expect(dateGrid?.classList.contains('grid-cols-2')).toBe(false);
+		const dateContainer = startDateInput.parentElement?.parentElement;
+		expect(dateContainer?.classList.contains('grid-cols-2')).toBe(false);
 	});
 
 	it('should show start and end dates side by side when multi-day is checked', async () => {
@@ -186,7 +186,7 @@ describe('EventFormModal - Date & Time Layout', () => {
 		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
 		await fireEvent.click(showMoreBtn);
 
-		const allDayLabel = screen.getByText(/All day event/i).closest('label');
+		const allDayLabel = screen.getByText(/All day/i).closest('label');
 		const allDayInput = allDayLabel?.querySelector('input[type="checkbox"]');
 		await fireEvent.click(allDayInput!);
 
@@ -222,15 +222,10 @@ describe('EventFormModal - Description Field', () => {
 		cleanup();
 	});
 
-	it('should show Description textarea after clicking Show More', async () => {
+	it('should show Description textarea by default', async () => {
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
-
-		expect(screen.queryByLabelText(/description/i)).not.toBeInTheDocument();
-
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
-		await fireEvent.click(showMoreBtn);
 
 		expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
 		const descEl = screen.getByLabelText(/description/i) as HTMLTextAreaElement;
@@ -241,9 +236,6 @@ describe('EventFormModal - Description Field', () => {
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
-
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
-		await fireEvent.click(showMoreBtn);
 
 		const descEl = screen.getByLabelText(/description/i) as HTMLTextAreaElement;
 		await fireEvent.input(descEl, { target: { value: 'Test description' } });
@@ -431,12 +423,12 @@ describe('EventFormModal - All-Day & Multi-day Checkboxes', () => {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
 
-		expect(screen.queryByText(/All day event/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/All day/i)).not.toBeInTheDocument();
 
 		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
 		await fireEvent.click(showMoreBtn);
 
-		const allDayLabel = screen.getByText(/All day event/i).closest('label');
+		const allDayLabel = screen.getByText(/All day/i).closest('label');
 		const allDayInput = allDayLabel?.querySelector('input[type="checkbox"]') as HTMLInputElement;
 		expect(allDayInput.checked).toBe(true);
 	});

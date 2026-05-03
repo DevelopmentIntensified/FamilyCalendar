@@ -450,6 +450,18 @@
 						/>
 					</div>
 
+					<div>
+						<label for="event-desc" class="mb-1 block text-sm font-medium text-slate-700">Description</label>
+						<textarea
+							id="event-desc"
+							bind:value={description}
+							on:input={() => markTouched('description')}
+							placeholder="Add details..."
+							rows="2"
+							class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+						></textarea>
+					</div>
+
 					{#if !isEditMode}
 						<button
 							type="button"
@@ -682,18 +694,6 @@
 								</div>
 							</div>
 						{/if}
-
-						<div>
-							<label for="event-desc" class="mb-1 block text-sm font-medium text-slate-700">Description</label>
-							<textarea
-								id="event-desc"
-								bind:value={description}
-								on:input={() => markTouched('description')}
-								placeholder="Add details..."
-								rows="2"
-								class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
-							></textarea>
-						</div>
 
 						{#if calendarIds.length > 1}
 							<div>
