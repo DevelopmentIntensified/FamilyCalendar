@@ -6,56 +6,108 @@
 
 **Behavior**:
 - Opens via floating "+" button
-- **Collapsed initially**: Shows only "Quick Add" NL input field with Clear button
+- **Collapsed initially**: Shows only **Title** and **Description** fields
 - After parsing detects fields → **detected fields display** even when Show More is collapsed
 - **Date input** applies to BOTH start and end timestamps (for single-day events)
 - **Multi-day checkbox**: when checked, reveals **End Date** input
-- NLP populates: date + startTime, endDate + endTime, attendants
+- NLP populates: date + startTime, endDate + endTime, location, attendants
 - **Clear button** (next to NL input) resets all detected fields
 - **Required**: Title + Date
 - Calendar selector appears only when user has 2+ calendars
 - **Attendants section**: Shows auto-detected names from NLP + allows adding family members
 - Submit dispatches `create` event, modal closes
-- **Description** is hidden by default in create mode (behind Show More)
 
 When creating event:
 - **Title** - visible by default (required)
-- **Description** - **hidden by default** (inside Show More)
-- **Quick Add** (NL input) - visible by default, triggers parsing + expand, with Clear button
+- **Description** - visible by default
+- **Quick Add** (NL input) - hidden by default (inside Show More)
 - **Detected fields** - shown in a summary box even when Show More is collapsed
-- **Show More/Less** button reveals: Date, Time, All-Day, Multi-Day, Location, Attendants, Calendar, Description
+- **Show More/Less** button reveals: NL Input, Date, Time, All-Day, Multi-Day, Location, Attendants, Calendar
 
 When editing event:
 - All fields visible (Title, Description, Date, Time, All-Day, Multi-Day, Location, Attendants, Calendar, RSVP Status)
+- Show More button is NOT shown - all fields expanded by default
 
 **Fields**:
-- **Quick Add** (NL input) - optional, triggers parsing + expand, Clear button positioned to the right
-- **Title** *required*
-- **Description** - **hidden by default in create mode** (inside Show More section)
-- **Date** *required* (date picker, applies to start date)
+- **Title** *required* - always visible
+- **Description** - always visible in both create and edit mode
+- **Quick Add** (NL input) - hidden by default (inside Show More), triggers parsing, Clear button positioned to the right
+- **Date** *required* (date picker, applies to start date) - hidden by default in create mode (inside Show More section)
 - **Start Time** (time picker, hidden when all-day is checked)
 - **End Time** (time picker, optional, hidden when all-day is checked)
-- **All-day** (checkbox) → hides start/end time inputs when checked - **DEFAULT CHECKED**
+- **All-day** (checkbox) → hides start/end time inputs when checked
   - When all-day is checked: start/end time inputs are hidden
   - When start/end time are auto-detected: all-day checkbox is unchecked and time inputs are displayed
-- **Multi-day** (checkbox) → reveals End Date if checked - placed **above** dates section
+- **Multi-day** (checkbox) → reveals End Date if checked
 - **Start/End Time** → displayed on **same line** (side by side in grid-cols-2)
 - **Start Date / End Date** → displayed on **same line** (side by side in grid-cols-2, when multi-day)
 - **End Date** (date picker, only if multi-day, applies to end date)
-- **Location** (LocationSearch component)
+- **Location** (LocationSearch component) - hidden by default (inside Show More)
 - **Attendants** (uses AttendantSelector component):
-  - Family members from families user is part of - **improved UI with cards**
+  - Family members from families user is part of - card-based UI with avatars
   - Recent attendants: non-user attendants previously added
   - Manual entry for non-user attendants
   - Display chips for all attendants
-  - **Beautiful card-based layout** in selector with avatars
-- **Calendar selector** (only if 2+ calendars)
-  - Uses CalendarSelector component
-  - Shows calendar name with icon/color indicator
-  - Dropdown with modern card-based layout
-  - Displays calendar name and type (Personal/Family)
-  - Highlights currently selected calendar
-- **Description** (textarea, inside Show More in create mode, always visible in edit mode)
+- **Calendar selector** (only if 2+ calendars) - hidden by default (inside Show More)
+
+**Layout (Create Mode)**:
+```
+┌─────────────────────────────────┐
+│ Title                           │  ← always visible
+│ Description                     │  ← always visible
+│ [Detected Fields Summary]       │  ← visible only when NLP detects fields
+│                                 │
+│ [Show More ▼]                   │  ← toggle button
+│                                 │
+│ ── Inside Show More ──         │
+│ Quick Add (NL Input)            │
+│ [Clear] button next to input    │
+│                                 │
+│ [All-Day ☐]  [Multi-Day ☐]     │  ← side by side
+│                                 │
+│ ┌────────────┐ ┌──────────────┐ │
+│ │ Start Date │ │  End Date    │ │ ← side by side (only when multi-day)
+│ └────────────┘ └──────────────┘ │
+│                                 │
+│ ┌────────────┐ ┌──────────────┐ │
+│ │ Start Time │ │  End Time    │ │ ← side by side (hidden when all-day)
+│ └────────────┘ └──────────────┘ │
+│                                 │
+│ Location                        │
+│ Attendants                      │
+│ Calendar (if 2+)                │
+└─────────────────────────────────┘
+```
+
+**Layout (Edit Mode)**:
+```
+┌─────────────────────────────────┐
+│ Title                           │
+│ Description                     │
+│                                 │
+│ [All-Day ☐]  [Multi-Day ☐]     │
+│                                 │
+│ ┌────────────┐ ┌──────────────┐ │
+│ │ Start Date │ │  End Date    │ │ ← side by side (only when multi-day)
+│ └────────────┘ └──────────────┘ │
+│                                 │
+│ ┌────────────┐ ┌──────────────┐ │
+│ │ Start Time │ │  End Time    │ │ ← side by side (hidden when all-day)
+│ └────────────┘ └──────────────┘ │
+│                                 │
+│ Location                        │
+│ Attendants                      │
+│ Calendar                        │
+│                                 │
+│ ── RSVP Status ──               │
+│ Going: [...]                    │
+│ Maybe: [...]                    │
+│ Not Going: [...]                │
+│ Non-user Attendants: [...]      │
+│                                 │
+│ [Delete]          [Update Event]│
+└─────────────────────────────────┘
+```
 
 ---
 
@@ -80,15 +132,17 @@ When editing event:
 
 **Fields** (all editable, pre-filled):
 - **Title**
+- **Description**
 - **Date** (date picker, applies to start date)
 - **Start Time** (time picker)
 - **End Time** (time picker, optional)
+- **All-day** (checkbox)
 - **Multi-day** (checkbox) → reveals End Date if checked
 - **End Date** (date picker, only if multi-day)
 - **Location** (LocationSearch component)
 - **Description** (textarea)
 - **Attendants**:
-  - Family member selector (multi-select dropdown) - users in families that the user is a part of
+  - Family member selector (multi-select) - users in families that the user is a part of
   - Recent attendants: non-user attendants that the user has previously added to events
   - Manual entry for non-user attendants
   - Display chips for all attendants
@@ -149,12 +203,12 @@ When editing event:
 - [x] Date input applies to both start/end
 - [x] Multi-day checkbox with end date
 - [x] Attendants field (user + non-user)
-- [x] Description hidden by default in create mode (Show More)
+- [x] Description visible by default (both create and edit mode)
 - [x] Start/End time on same line (grid-cols-2)
 - [x] Start/End date on same line (grid-cols-2, multi-day)
-- [x] Clear button moved next to NL input
+- [x] Clear button next to NL input
 - [x] Detected fields shown even when Show More collapsed
-- [ ] Improve AttendantSelector UI (card-based layout)
-- [ ] RSVP info section in Edit Event Modal
-- [ ] EventModal shows RSVP details
+- [x] AttendantSelector UI (card-based layout with avatars)
+- [x] RSVP info section in Edit Event Modal
+- [x] EventModal shows RSVP details
 - [ ] All modal functionality tested
