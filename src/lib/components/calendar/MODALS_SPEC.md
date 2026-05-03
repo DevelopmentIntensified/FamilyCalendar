@@ -6,7 +6,7 @@
 
 **Behavior**:
 - Opens via floating "+" button
-- **Collapsed initially**: Shows only **Title** and **Description** fields
+- **Collapsed initially**: Shows only **Quick Add (NLP)**, **Title**, and **Description** fields
 - After parsing detects fields → **detected fields display** even when Show More is collapsed
 - **Date input** applies to BOTH start and end timestamps (for single-day events)
 - **Multi-day checkbox**: when checked, reveals **End Date** input
@@ -17,21 +17,23 @@
 - **Attendants section**: Shows auto-detected names from NLP + allows adding family members
 - Submit dispatches `create` event, modal closes
 
+- **AI Quick Add visibility**: The Quick Add (NLP) input is **always visible at the top** in create mode unless the user has disabled AI features in settings (`autoParseEventDetails`, `useCloudAI`, `useLocalAI`). If all AI-related settings are off, Quick Add is hidden entirely.
+
 When creating event:
+- **Quick Add** (NL input) - always visible at the top (unless AI features are disabled in user settings)
 - **Title** - visible by default (required)
 - **Description** - visible by default
-- **Quick Add** (NL input) - hidden by default (inside Show More)
 - **Detected fields** - shown in a summary box even when Show More is collapsed
-- **Show More/Less** button reveals: NL Input, Date, Time, All-Day, Multi-Day, Location, Attendants, Calendar
+- **Show More/Less** button reveals: Date, Time, All-Day, Multi-Day, Location, Attendants, Calendar
 
 When editing event:
 - All fields visible (Title, Description, Date, Time, All-Day, Multi-Day, Location, Attendants, Calendar, RSVP Status)
 - Show More button is NOT shown - all fields expanded by default
 
 **Fields**:
+- **Quick Add** (NL input) - always visible at top in create mode unless AI features are disabled in user settings (`autoParseEventDetails`, `useCloudAI`, `useLocalAI`). Triggers parsing on input, Clear button positioned to the right
 - **Title** *required* - always visible
 - **Description** - always visible in both create and edit mode
-- **Quick Add** (NL input) - hidden by default (inside Show More), triggers parsing, Clear button positioned to the right
 - **Date** *required* (date picker, applies to start date) - hidden by default in create mode (inside Show More section)
 - **Start Time** (time picker, hidden when all-day is checked)
 - **End Time** (time picker, optional, hidden when all-day is checked)
@@ -53,6 +55,8 @@ When editing event:
 **Layout (Create Mode)**:
 ```
 ┌─────────────────────────────────┐
+│ Quick Add (NL Input)            │  ← always visible (unless AI disabled)
+│ [Clear] button next to input    │
 │ Title                           │  ← always visible
 │ Description                     │  ← always visible
 │ [Detected Fields Summary]       │  ← visible only when NLP detects fields
@@ -60,9 +64,6 @@ When editing event:
 │ [Show More ▼]                   │  ← toggle button
 │                                 │
 │ ── Inside Show More ──         │
-│ Quick Add (NL Input)            │
-│ [Clear] button next to input    │
-│                                 │
 │ [All-Day ☐]  [Multi-Day ☐]     │  ← side by side
 │                                 │
 │ ┌────────────┐ ┌──────────────┐ │
@@ -133,9 +134,10 @@ When editing event:
 **Fields** (all editable, pre-filled):
 - **Title**
 - **Description**
-- **Date** (date picker, applies to start date)
-- **Start Time** (time picker)
-- **End Time** (time picker, optional)
+-- all below fields are hidden by default in create mode, but visible by default in edit mode unless show more is clicked --
+- **Date** (date picker, applies to start date and end date if not multi-day)
+- **Start Time** (time picker, optional if all-day, hidden when all-day is checked)
+- **End Time** (time picker, optional, hidden when all-day is checked)
 - **All-day** (checkbox)
 - **Multi-day** (checkbox) → reveals End Date if checked
 - **End Date** (date picker, only if multi-day)

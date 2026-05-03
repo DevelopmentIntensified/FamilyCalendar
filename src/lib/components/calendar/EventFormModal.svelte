@@ -9,6 +9,7 @@
 	export let calendarIds: { id: string; name: string }[] = [];
 	export let familyMembers: { userId: string; firstName: string; lastName: string; email: string }[] = [];
 	export let rsvpData: { userId: string; status: string; firstName?: string; lastName?: string }[] = [];
+	export let userSettings: any = null;
 
 	const dispatch = createEventDispatcher();
 
@@ -44,7 +45,8 @@
 	};
 
 	$: isEditMode = event !== null;
-	$: showNlInput = !isEditMode;
+	$: aiEnabled = !isEditMode && userSettings && (userSettings.autoParseEventDetails !== false && (userSettings.useCloudAI || userSettings.useLocalAI));
+	$: showNlInput = aiEnabled;
 	$: hasDetectedFields = Object.values(detectedFields).some(Boolean);
 
 	// Populate form when editing
@@ -251,6 +253,42 @@
 
 			<form on:submit={handleSubmit}>
 				<div class="space-y-5 p-6">
+					<!-- Quick Add (NLP) - always at top, visible unless AI disabled -->
+					{#if showNlInput}
+						<div class="group">
+							<label for="nl-input" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Quick Add</label>
+							<div class="flex gap-2">
+								<div class="relative flex-1">
+									<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+										<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+										</svg>
+									</div>
+									<input
+										id="nl-input"
+										type="text"
+										bind:value={nlInput}
+										on:input={onNlInputChange}
+										placeholder="Try: Lunch Friday at noon with John in Conference A"
+										class="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+									/>
+									{#if parsing}
+										<div class="absolute right-3 top-1/2 -translate-y-1/2">
+											<div class="h-4 w-4 animate-spin rounded-full border-2 border-primary-600 border-t-transparent"></div>
+										</div>
+									{/if}
+								</div>
+								<button
+									type="button"
+									on:click={clearDetected}
+									class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-all"
+								>
+									Clear
+								</button>
+							</div>
+						</div>
+					{/if}
+
 					<!-- Title (always visible) -->
 					<div class="group">
 						<label for="event-title" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Title</label>
@@ -340,41 +378,6 @@
 
 					<!-- Hidden Fields (behind Show More in create mode, always visible in edit mode) -->
 					{#if isEditMode || showMore}
-						<!-- NL Input (create mode only) -->
-						{#if showNlInput}
-							<div class="group">
-								<label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Quick Add</label>
-								<div class="flex gap-2">
-									<div class="relative flex-1">
-										<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-											<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-											</svg>
-										</div>
-										<input
-											type="text"
-											bind:value={nlInput}
-											on:input={onNlInputChange}
-											placeholder="Try: Lunch Friday at noon with John in Conference A"
-											class="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm transition-all focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-										/>
-										{#if parsing}
-											<div class="absolute right-3 top-1/2 -translate-y-1/2">
-												<div class="h-4 w-4 animate-spin rounded-full border-2 border-primary-600 border-t-transparent"></div>
-											</div>
-										{/if}
-									</div>
-									<button
-										type="button"
-										on:click={clearDetected}
-										class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-all"
-									>
-										Clear
-									</button>
-								</div>
-							</div>
-						{/if}
-
 						<!-- All-Day & Multi-Day Row -->
 						<div class="grid grid-cols-2 gap-4">
 							<div class="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
