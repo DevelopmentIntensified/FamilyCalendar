@@ -10,6 +10,11 @@ export type Event = CalendarEvent & {
 	endTime?: string;
 	rsvpStatus?: RSVPStatus;
 	isFamilyEvent?: boolean;
+	attendants?: string[];
+	calendar?: {
+		id: string;
+		name: string;
+	};
 };
 
 export type FamilyMember = {

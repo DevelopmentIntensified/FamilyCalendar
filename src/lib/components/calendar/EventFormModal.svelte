@@ -520,7 +520,7 @@
 							</div>
 						{/if}
 
-						{#if calendarIds.length > 1 && (form.isEditMode || showMore)}
+						{#if (form.isEditMode || showMore) && calendarIds.length >= 1}
 							<div class="relative">
 								<label class="mb-1 block text-sm font-medium text-slate-700">Calendar</label>
 								<button

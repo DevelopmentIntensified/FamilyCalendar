@@ -96,6 +96,9 @@ export function createEventForm(config: EventFormConfig) {
 				endDate = endDt.toFormat('yyyy-MM-dd');
 			}
 		}
+		if (initialEvent.attendants && Array.isArray(initialEvent.attendants)) {
+			attendants = [...initialEvent.attendants];
+		}
 	}
 
 	function clearUntouchedNlpFields() {

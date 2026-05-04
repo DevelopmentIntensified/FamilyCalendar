@@ -24,9 +24,21 @@
 		dispatch('close');
 	}
 
-	function handleDelete() {
-		if (confirm('Delete this event?')) {
-			dispatch('delete', { id: event.id });
+	async function handleDelete() {
+		if (!confirm('Delete this event?')) return;
+
+		try {
+			const response = await fetch(`/api/events/${event.id}`, {
+				method: 'DELETE'
+			});
+			if (response.ok) {
+				dispatch('delete', { id: event.id });
+				show = false;
+			} else {
+				console.error('Failed to delete event');
+			}
+		} catch (error) {
+			console.error('Delete error:', error);
 		}
 	}
 
