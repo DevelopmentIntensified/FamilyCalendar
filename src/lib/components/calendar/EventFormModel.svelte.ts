@@ -83,13 +83,13 @@ export function createEventForm(config: EventFormConfig) {
 		initializeCalendar();
 
 		if (initialEvent.start) {
-			const dt = DateTime.fromISO(initialEvent.start);
+			const dt = initialEvent.start instanceof Date ? DateTime.fromJSDate(initialEvent.start) : DateTime.fromISO(initialEvent.start);
 			date = dt.toFormat('yyyy-MM-dd');
 			startTime = dt.toFormat('HH:mm');
 			allDay = initialEvent.allDay || false;
 		}
 		if (initialEvent.end) {
-			const endDt = DateTime.fromISO(initialEvent.end);
+			const endDt = initialEvent.end instanceof Date ? DateTime.fromJSDate(initialEvent.end) : DateTime.fromISO(initialEvent.end);
 			endTime = endDt.toFormat('HH:mm');
 			if (endDt.toFormat('yyyy-MM-dd') !== date) {
 				multiDay = true;
