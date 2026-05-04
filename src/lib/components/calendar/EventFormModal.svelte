@@ -552,20 +552,85 @@
 							</div>
 						{/if}
 
-						{#if isEditMode || showMore || nlpDetectedFields.location}
+						{#if isEditMode || showMore || nlpDetectedFields.location || nlpDetectedFields.calendar}
+							<div class="grid grid-cols-2 gap-3">
+								{#if isEditMode || showMore || nlpDetectedFields.location}
+									<div>
+										<label for="event-location" class="mb-1 block text-sm font-medium text-slate-700">
+											Location
+											{#if isDetected('location')}<span class="text-emerald-600 ml-1">✓</span>{/if}
+										</label>
+										<input
+											id="event-location"
+											type="text"
+											bind:value={location}
+											on:input={() => markTouched('location')}
+											placeholder="e.g., Home, 123 Main St"
+											class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+										/>
+									</div>
+								{/if}
+								{#if calendarIds.length > 1}
+									<div>
+										<label class="mb-1 block text-sm font-medium text-slate-700">Calendar</label>
+										<div class="mt-1 flex flex-wrap gap-2">
+											{#each calendarIds as cal}
+												{@const color = getContactColor(cal.name)}
+												<button
+													type="button"
+													on:click={() => { selectedCalendarId = cal.id; markTouched('calendar'); }}
+													class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all {
+														selectedCalendarId === cal.id
+															? 'border-primary-300 bg-primary-50 ring-1 ring-primary-200'
+															: 'border-slate-200 bg-white hover:border-slate-300'
+													}"
+												>
+													<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+														style="background-color: {color.bg}; color: {color.text}">
+														{cal.name.charAt(0).toUpperCase()}
+													</span>
+													<span class="truncate font-medium {selectedCalendarId === cal.id ? 'text-primary-700' : 'text-slate-700'}">{cal.name}</span>
+													{#if selectedCalendarId === cal.id}
+														<svg class="h-3.5 w-3.5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+															<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+														</svg>
+													{/if}
+												</button>
+											{/each}
+										</div>
+									</div>
+								{/if}
+							</div>
+						{/if}
+
+						{#if !(isEditMode || showMore || nlpDetectedFields.location) && calendarIds.length > 1}
 							<div>
-								<label for="event-location" class="mb-1 block text-sm font-medium text-slate-700">
-									Location
-									{#if isDetected('location')}<span class="text-emerald-600 ml-1">✓</span>{/if}
-								</label>
-								<input
-									id="event-location"
-									type="text"
-									bind:value={location}
-									on:input={() => markTouched('location')}
-									placeholder="e.g., Home, 123 Main St"
-									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-								/>
+								<label class="mb-1 block text-sm font-medium text-slate-700">Calendar</label>
+								<div class="mt-1 flex flex-wrap gap-2">
+									{#each calendarIds as cal}
+										{@const color = getContactColor(cal.name)}
+										<button
+											type="button"
+											on:click={() => { selectedCalendarId = cal.id; markTouched('calendar'); }}
+											class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all {
+												selectedCalendarId === cal.id
+													? 'border-primary-300 bg-primary-50 ring-1 ring-primary-200'
+													: 'border-slate-200 bg-white hover:border-slate-300'
+											}"
+										>
+											<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+												style="background-color: {color.bg}; color: {color.text}">
+												{cal.name.charAt(0).toUpperCase()}
+											</span>
+											<span class="truncate font-medium {selectedCalendarId === cal.id ? 'text-primary-700' : 'text-slate-700'}">{cal.name}</span>
+											{#if selectedCalendarId === cal.id}
+												<svg class="h-3.5 w-3.5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+													<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+												</svg>
+											{/if}
+										</button>
+									{/each}
+								</div>
 							</div>
 						{/if}
 
@@ -692,21 +757,6 @@
 										</button>
 									{/if}
 								</div>
-							</div>
-						{/if}
-
-						{#if calendarIds.length > 1}
-							<div>
-								<label for="event-calendar" class="mb-1 block text-sm font-medium text-slate-700">Calendar</label>
-								<select
-									id="event-calendar"
-									bind:value={selectedCalendarId}
-									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-								>
-									{#each calendarIds as cal}
-										<option value={cal.id}>{cal.name}</option>
-									{/each}
-								</select>
 							</div>
 						{/if}
 					{/if}

@@ -433,3 +433,83 @@ describe('EventFormModal - All-Day & Multi-day Checkboxes', () => {
 		expect(allDayInput.checked).toBe(true);
 	});
 });
+
+describe('EventFormModal - Calendar Selector', () => {
+	beforeEach(() => {
+		vi.stubGlobal('localStorage', createMockLocalStorage());
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('should not show calendar selector with only one calendar', async () => {
+		render(EventFormModal, {
+			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
+		});
+
+		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		await fireEvent.click(showMoreBtn);
+
+		expect(screen.queryByText('Personal')).not.toBeInTheDocument();
+		expect(screen.queryByText('Family')).not.toBeInTheDocument();
+	});
+
+	it('should show calendar selector when user has 2+ calendars', async () => {
+		render(EventFormModal, {
+			props: { show: true, calendarIds: [
+				{ id: 'cal1', name: 'Personal' },
+				{ id: 'cal2', name: 'Family' }
+			]}
+		});
+
+		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		await fireEvent.click(showMoreBtn);
+
+		expect(screen.getByText('Personal')).toBeInTheDocument();
+		expect(screen.getByText('Family')).toBeInTheDocument();
+	});
+
+	it('should show calendar selector by default in edit mode', async () => {
+		const mockEvent = {
+			id: 'evt1',
+			title: 'Meeting',
+			start: '2024-05-03T10:00:00Z',
+			end: '2024-05-03T11:00:00Z',
+			allDay: false,
+			calendarId: 'cal2',
+			description: '',
+			location: ''
+		};
+
+		render(EventFormModal, {
+			props: { show: true, event: mockEvent, calendarIds: [
+				{ id: 'cal1', name: 'Personal' },
+				{ id: 'cal2', name: 'Family' }
+			]}
+		});
+
+		expect(screen.getByText('Personal')).toBeInTheDocument();
+		expect(screen.getByText('Family')).toBeInTheDocument();
+	});
+
+	it('should allow selecting a different calendar', async () => {
+		render(EventFormModal, {
+			props: { show: true, calendarIds: [
+				{ id: 'cal1', name: 'Personal' },
+				{ id: 'cal2', name: 'Family' }
+			]}
+		});
+
+		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		await fireEvent.click(showMoreBtn);
+
+		const familyBtn = screen.getByText('Family').closest('button');
+		await fireEvent.click(familyBtn!);
+
+		const personalBtn = screen.getByText('Personal').closest('button');
+		const personalSelected = personalBtn?.classList.contains('bg-primary-50');
+		expect(personalSelected).toBe(false);
+	});
+});
