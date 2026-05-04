@@ -43,6 +43,13 @@
       "when": 1777647538157,
       "tag": "0005_spicy_giant_man",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777903714202,
+      "tag": "0006_slim_shocker",
+      "breakpoints": true
     }
   ]
 }

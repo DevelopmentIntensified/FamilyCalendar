@@ -288,7 +288,7 @@ export const calendars = pgTable('calendars', {
 });
 
 export const eventAttendance = pgTable('eventAttendance', {
-	id: text('id').primaryKey(),
+	id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()).default(sql`gen_random_uuid()::text`),
 	eventId: text('event_id')
 		.notNull()
 		.references(() => events.id, { onDelete: 'cascade' }),
