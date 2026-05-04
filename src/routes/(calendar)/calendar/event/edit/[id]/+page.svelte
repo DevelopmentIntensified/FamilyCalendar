@@ -28,17 +28,21 @@
 
 	let showDeleteConfirm = false;
 
-	function handleSubmit(e: Event) {
-		const form = e.target as HTMLFormElement;
+	function handleSubmit() {
+		const form = document.querySelector('form') as HTMLFormElement;
 		
 		if (allDay) {
-			form.start.value = startDate + 'T00:00:00';
+			const startVal = startDate + 'T00:00:00';
 			const endD = new Date(endDate);
 			endD.setDate(endD.getDate() + 1);
-			form.end.value = endD.toISOString().split('T')[0] + 'T00:00:00';
+			const endVal = endD.toISOString().split('T')[0] + 'T00:00:00';
+			(form.querySelector('input[name="start"]') as HTMLInputElement).value = startVal;
+			(form.querySelector('input[name="end"]') as HTMLInputElement).value = endVal;
 		} else {
-			form.start.value = startDate + 'T' + startTime + ':00';
-			form.end.value = endDate + 'T' + endTime + ':00';
+			const startVal = startDate + 'T' + startTime + ':00';
+			const endVal = endDate + 'T' + endTime + ':00';
+			(form.querySelector('input[name="start"]') as HTMLInputElement).value = startVal;
+			(form.querySelector('input[name="end"]') as HTMLInputElement).value = endVal;
 		}
 	}
 </script>
@@ -64,7 +68,12 @@
 				<p class="mt-1 text-primary-100">Update your event details</p>
 			</div>
 			
-			<form action="?/default" method="POST" use:enhance={handleSubmit} class="space-y-6 p-6">
+			<form action="?/default" method="POST" use:enhance={() => {
+				return async ({ update }) => {
+					handleSubmit();
+					await update();
+				};
+			}} class="space-y-6 p-6">
 				<input type="hidden" name="ownerId" value={data.user.id} />
 				<input type="hidden" name="eventId" value={event.id} />
 				<input type="hidden" name="start" value="" />
