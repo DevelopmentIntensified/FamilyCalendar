@@ -222,7 +222,11 @@
 					<div class="rounded-lg bg-red-50 p-4">
 						<p class="mb-3 text-sm text-red-800">Are you sure you want to delete this event? This action cannot be undone.</p>
 						<div class="flex gap-3">
-							<form action="?/deleteEvent" method="POST" use:enhance class="flex-1">
+							<form action="?/deleteEvent" method="POST" use:enhance={() => {
+								return async ({ update }) => {
+									await update();
+								};
+							}} class="flex-1">
 								<input type="hidden" name="eventId" value={event.id} />
 								<button
 									type="submit"

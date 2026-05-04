@@ -55,7 +55,7 @@ export async function deleteEvent(id: string) {
 }
 
 export async function deleteEventById(id: string, userId: string) {
-	await db.delete(events).where(eq(events.id, id));
+	await db.delete(events).where(and(eq(events.id, id), eq(events.ownerId, userId)));
 }
 
 export async function updateRsvp(eventId: string, userId: string, status: 'going' | 'maybe' | 'declined' | 'undecided') {
