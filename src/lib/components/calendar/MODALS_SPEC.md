@@ -16,8 +16,10 @@
 - NLP populates: date + startTime, endDate + endTime, location, attendants
 - **Clear button** (next to NL input) resets all detected fields
 - **Required**: Title + Date
-- Calendar selector appears only when user has 2+ calendars
-- **Attendants section**: Uses contact-style select with deduplicated family users (by `userId`) + recent non-user attendants from `localStorage`. Mixed array: `userId` strings for family members, plain names for recent non-users. Manual entry supported.
+- Calendar selector appears only when user has 2+ calendars, **hidden inside Show More** section
+- **Attendants**: Search bar with suggestions dropdown. Shows family members (with avatars), recent attendants, and supports manual entry. Selected attendants displayed as chips above search.
+- **Location**: Uses `LocationSearch` component - full-width input with address suggestions dropdown (Nominatim API + recent locations)
+- **Default calendar**: Pre-selected based on user's `defaultCalendarId` setting. Falls back to first available calendar.
 - **Form submission**: Modal directly POSTs to `/api/events` (create) or PUTs to `/api/events/{id}` (edit) via `fetch()`. Loading state shown during submission. Page handlers (`+page.svelte`) only close modals on dispatch events.
 - Submit dispatches `create`/`update` event, modal closes
 
@@ -26,7 +28,7 @@ When creating event:
 - **Title** - visible by default (required)
 - **Description** - visible by default
 - **Detected fields** - shown inline when NLP detects them, hidden on Quick Add change unless user-touched
-- **Show More/Less** button reveals: Date, Time, All-Day, Multi-Day, Location, Attendants, Calendar
+- **Show More/Less** button: Initially positioned below Description in create mode. When "Show More" is toggled, it moves to the **end of the modal** (above action buttons) and changes to "Show Less". When clicked to collapse, it returns to its original position below Description.
 
 When editing event:
 - All fields visible (Title, Description, Date, Time, All-Day, Multi-Day, Location, Attendants, Calendar, RSVP Status)
@@ -40,23 +42,24 @@ When editing event:
 - **Date** *required* (date picker, applies to start date) - hidden by default in create mode (inside Show More section)
 - **Start Time** (time picker, hidden when all-day is checked)
 - **End Time** (time picker, optional, hidden when all-day is checked)
-- **All-day** (checkbox) → hides start/end time inputs when checked
+- **All-day** (toggle switch) → hides start/end time inputs when checked
   - When all-day is checked: start/end time inputs are hidden
-  - When start/end time are auto-detected: all-day checkbox is unchecked and time inputs are displayed
-  - **All-day checkbox is NOT shown when start/end times are detected by NLP**
-- **Multi-day** (checkbox) → reveals End Date if checked
-  - **Multi-day checkbox is NOT shown when start/end times are detected by NLP**
+  - When start/end time are auto-detected: all-day toggle is off and time inputs are displayed
+  - **All-day toggle is NOT shown when start/end times are detected by NLP**
+- **Multi-day** (toggle switch) → reveals End Date if checked
+  - **Multi-day toggle is NOT shown when start/end times are detected by NLP**
 - **Start/End Time** → displayed on **same line** (side by side in grid-cols-2)
-- **All-Day and Multi-Day checkboxes** → displayed on **same line** (side by side), **above** the date/time fields
-- **Start Date / End Date** → displayed on **same line** (side by side in grid-cols-2, when multi-day), **below** the All-Day/Multi-Day checkboxes
+- **All-Day and Multi-Day toggles** → displayed on **same line** (side by side), **above** the date/time fields, styled as rounded toggle pills
+- **Start Date / End Date** → displayed on **same line** (side by side in grid-cols-2, when multi-day), **below** the All-Day/Multi-Day toggles
 - **End Date** (date picker, only if multi-day, applies to end date)
-- **Location** (LocationSearch component) - hidden by default (inside Show More)
-- **Attendants** (uses AttendantSelector component):
-  - **Contact-style select**: Deduplicated family users (by `userId`) displayed as scrollable cards with avatars
+- **Location** (`LocationSearch` component) - full width, hidden by default (inside Show More). Shows address suggestions from Nominatim API + recent locations dropdown.
+- **Attendants** (search bar with suggestions dropdown):
+  - **Search input**: Single full-width input that filters and shows suggestions
+  - **Suggestions dropdown**: Lists matching family members (with avatars), recent non-user attendants, and option to add custom name
+  - **Selected chips**: Displayed above search bar with avatar + name + remove button
   - Recent attendants: non-user attendants previously added, cached in `localStorage` under key `recent_attendants`
-  - Manual entry for non-user attendants
-  - Display chips for all selected attendants
-- **Calendar selector** (only if 2+ calendars) - hidden by default (inside Show More)
+  - Manual entry supported via "Add '{name}'" option when no matches found
+- **Calendar selector** (only if 2+ calendars) - hidden by default (inside Show More). Full-width dropdown with contact-style cards (colored initials + checkmark). No search. Default pre-selected from user settings (`defaultCalendarId`).
 
 **Layout (Create Mode)**:
 ```
@@ -65,25 +68,31 @@ When editing event:
 │ [Clear] button next to input    │
 │ Title                           │  ← always visible
 │ Description                     │  ← always visible
+│ [Show More ▼]                   │  ← initially here (collapsed state)
+│                                 │
+│ ── Inside Show More ──         │  ← when expanded
+│ [All-Day ⬤○]  [Multi-Day ⬤○]   │  ← toggle pills, side by side
 │                                 │
 │ ┌────────────┐ ┌──────────────┐ │
-│ │ Start Date │ │  End Date    │ │ ← side by side (only when multi-day detected/enabled)
-│ └────────────┘ └──────────────┘ │  ← below All-Day/Multi-Day checkboxes
-│                                 │
-│ [All-Day ☐]  [Multi-Day ☐]     │  ← side by side, NOT shown when times detected
-│                                 │
-│ ┌────────────┐ ┌──────────────┐ │
-│ │ Start Time │ │  End Time    │ │ ← side by side (hidden when all-day or times detected)
+│ │ Start Date │ │  End Date    │ │ ← side by side (only when multi-day)
 │ └────────────┘ └──────────────┘ │
 │                                 │
-│ Location (if detected/touched)  │
-│ Attendants (if detected/touched)│
-│ Calendar (if 2+, detected/touched)
+│ ┌────────────┐ ┌──────────────┐ │
+│ │ Start Time │ │  End Time    │ │ ← side by side (hidden when all-day)
+│ └────────────┘ └──────────────┘ │
 │                                 │
-│ [Show More ▼]                   │  ← toggle button (reveals hidden fields)
+│ Location (full-width, with      │
+│   address suggestions dropdown) │
 │                                 │
-│ ── Inside Show More ──         │
-│ (any fields not yet shown)      │
+│ Attendants                      │
+│   [Alice ✓] [Bob ✓]            │  ← selected chips
+│   [Search attendants...]       │  ← search bar
+│   ↓ dropdown with suggestions   │
+│                                 │
+│ Calendar (dropdown, contact-    │
+│   style cards, default from     │
+│   user settings)                │
+│ [Show Less ▲]                   │  ← moves here when expanded
 └─────────────────────────────────┘
 ```
 
@@ -93,7 +102,7 @@ When editing event:
 │ Title                           │
 │ Description                     │
 │                                 │
-│ [All-Day ☐]  [Multi-Day ☐]     │
+│ [All-Day ⬤○]  [Multi-Day ⬤○]   │  ← toggle pills
 │                                 │
 │ ┌────────────┐ ┌──────────────┐ │
 │ │ Start Date │ │  End Date    │ │ ← side by side (only when multi-day)
@@ -103,64 +112,11 @@ When editing event:
 │ │ Start Time │ │  End Time    │ │ ← side by side (hidden when all-day)
 │ └────────────┘ └──────────────┘ │
 │                                 │
-│ Location                        │
-│ Attendants                      │
-│ Calendar                        │
+│ Location (full-width, with      │
+│   address suggestions dropdown) │
 │                                 │
-│ ── RSVP Status ──               │
-│ Going: [...]                    │
-│ Maybe: [...]                    │
-│ Not Going: [...]                │
-│ Non-user Attendants: [...]      │
-│                                 │
-│ [Delete]          [Update Event]│
-└─────────────────────────────────┘
-```
-┌─────────────────────────────────┐
-│ Quick Add (NL Input)            │  ← always visible (unless AI disabled)
-│ [Clear] button next to input    │
-│ Title                           │  ← always visible
-│ Description                     │  ← always visible
-│ [Detected Fields Summary]       │  ← visible only when NLP detects fields
-│                                 │
-│ [Show More ▼]                   │  ← toggle button
-│                                 │
-│ ── Inside Show More ──         │
-│ [All-Day ☐]  [Multi-Day ☐]     │  ← side by side
-│                                 │
-│ ┌────────────┐ ┌──────────────┐ │
-│ │ Start Date │ │  End Date    │ │ ← side by side (only when multi-day)
-│ └────────────┘ └──────────────┘ │
-│                                 │
-│ ┌────────────┐ ┌──────────────┐ │
-│ │ Start Time │ │  End Time    │ │ ← side by side (hidden when all-day)
-│ └────────────┘ └──────────────┘ │
-│                                 │
-│ Location                        │
-│ Attendants                      │
-│ Calendar (if 2+)                │
-└─────────────────────────────────┘
-```
-
-**Layout (Edit Mode)**:
-```
-┌─────────────────────────────────┐
-│ Title                           │
-│ Description                     │
-│                                 │
-│ [All-Day ☐]  [Multi-Day ☐]     │
-│                                 │
-│ ┌────────────┐ ┌──────────────┐ │
-│ │ Start Date │ │  End Date    │ │ ← side by side (only when multi-day)
-│ └────────────┘ └──────────────┘ │
-│                                 │
-│ ┌────────────┐ ┌──────────────┐ │
-│ │ Start Time │ │  End Time    │ │ ← side by side (hidden when all-day)
-│ └────────────┘ └──────────────┘ │
-│                                 │
-│ Location                        │
-│ Attendants                      │
-│ Calendar                        │
+│ Attendants (search + dropdown)  │
+│ Calendar (dropdown)             │
 │                                 │
 │ ── RSVP Status ──               │
 │ Going: [...]                    │

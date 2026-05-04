@@ -1,12 +1,14 @@
 import type { CalendarEvent } from './server/db/schema';
 
+export type RSVPStatus = 'going' | 'maybe' | 'declined' | 'undecided';
+
 export type Event = CalendarEvent & {
 	isAd?: boolean;
 	color?: string;
 	date?: Date;
 	startTime?: string;
 	endTime?: string;
-	rsvpStatus?: 'going' | 'maybe' | 'declined' | 'undecided';
+	rsvpStatus?: RSVPStatus;
 	isFamilyEvent?: boolean;
 };
 
@@ -18,7 +20,7 @@ export type FamilyMember = {
 	role?: string;
 };
 
-export type PageData = {
+export type CalendarPageData = {
 	user?: any;
 	userEvents?: Event[];
 	familyEvents?: Event[];
@@ -28,4 +30,5 @@ export type PageData = {
 	familyCalendarColor?: string;
 	showAds?: boolean;
 	familyMembers?: FamilyMember[];
+	calendarIds?: { id: string; name: string }[];
 };

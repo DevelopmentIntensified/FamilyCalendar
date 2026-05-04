@@ -144,21 +144,45 @@ export async function getFamilyInviteCodes(familyId: string) {
 }
 
 export async function removeFamilyMember(familyId: string, userId: string) {
-	const result = await db.execute(sql`DELETE FROM "familyMembers" WHERE "family_id" = ${familyId} AND "user_id" = ${userId} RETURNING *`);
-	console.log('[removeFamilyMember] Deleted rows:', JSON.stringify(result));
+	await db.execute(sql`DELETE FROM "familyMembers" WHERE "family_id" = ${familyId} AND "user_id" = ${userId}`);
 }
 
 export async function searchUsers(query: string, familyId: string) {
 	const lowerQuery = `%${query.toLowerCase()}%`;
+
 	const existingMembers = await db
 		.select({ userId: familyMembers.userId })
 		.from(familyMembers)
 		.where(eq(familyMembers.familyId, familyId));
-	
+
 	const excludeUserIds = existingMembers.map(m => m.userId);
-	excludeUserIds.push('');
-	
-	const allUsers = await db
+
+	if (excludeUserIds.length === 0) {
+		return await db
+			.select({
+				id: users.id,
+				firstName: users.firstName,
+				lastName: users.lastName,
+				email: users.email
+			})
+			.from(users)
+			.where(
+				and(
+					eq(users.emailVerified, true),
+					or(
+						ilike(users.email, lowerQuery),
+						ilike(users.firstName, lowerQuery),
+						ilike(users.lastName, lowerQuery),
+						sql`${users.firstName} || ' ' || ${users.lastName} ILIKE ${lowerQuery}`
+					)
+				)
+			)
+			.limit(10);
+	}
+
+	const placeholders = excludeUserIds.map(() => sql`id != ${excludeUserIds[excludeUserIds.indexOf(excludeUserIds[0])]}`);
+
+	return await db
 		.select({
 			id: users.id,
 			firstName: users.firstName,
@@ -166,17 +190,17 @@ export async function searchUsers(query: string, familyId: string) {
 			email: users.email
 		})
 		.from(users)
-		.where(eq(users.emailVerified, true));
-	
-	const queryLower = query.toLowerCase();
-	return allUsers
-		.filter(u => 
-			!excludeUserIds.includes(u.id) && (
-				u.email.toLowerCase().includes(queryLower) ||
-				u.firstName.toLowerCase().includes(queryLower) ||
-				u.lastName.toLowerCase().includes(queryLower) ||
-				`${u.firstName} ${u.lastName}`.toLowerCase().includes(queryLower)
+		.where(
+			and(
+				eq(users.emailVerified, true),
+				sql`${users.id} NOT IN (${sql.join(excludeUserIds.map(id => sql`${id}`), sql`, `)})`,
+				or(
+					ilike(users.email, lowerQuery),
+					ilike(users.firstName, lowerQuery),
+					ilike(users.lastName, lowerQuery),
+					sql`${users.firstName} || ' ' || ${users.lastName} ILIKE ${lowerQuery}`
+				)
 			)
 		)
-		.slice(0, 10);
+		.limit(10);
 }

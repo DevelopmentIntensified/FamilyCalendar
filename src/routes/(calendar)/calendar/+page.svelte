@@ -82,7 +82,7 @@
 <button
 	onclick={() => showModal = true}
 	class="fixed bottom-24 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-primary-600 shadow-xl shadow-primary-400/50 hover:bg-primary-700 hover:scale-105 transition-all"
-	title="Quick Add Event"
+	aria-label="Quick Add Event"
 >
 	<svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />

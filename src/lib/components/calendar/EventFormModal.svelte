@@ -1,40 +1,46 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type { Event } from '$lib/types';
-	import { DateTime } from 'luxon';
+	import LocationSearch from '$lib/components/LocationSearch.svelte';
+	import { getContactColor, getInitials } from '$lib/utils/contactColors';
+	import { createEventForm } from './EventFormModel.svelte';
 
 	export let show = false;
 	export let event: Event | null = null;
 	export let calendarIds: { id: string; name: string }[] = [];
 	export let familyMembers: { userId: string; firstName: string; lastName: string; email: string }[] = [];
 	export let rsvpData: { userId: string; status: string; firstName?: string; lastName?: string }[] = [];
+	export let userSettings: { defaultCalendarId?: string | null } | null = null;
 
 	const dispatch = createEventDispatcher();
 
 	let nlInput = '';
-	let title = '';
-	let date = '';
-	let startTime = '';
-	let endTime = '';
-	let allDay = true;
-	let multiDay = false;
-	let endDate = '';
-	let location = '';
-	let description = '';
-	let selectedCalendarId = '';
-	let attendants: string[] = [];
-	let recentAttendants: string[] = [];
 	let showMore = false;
 	let parsing = false;
 	let parseTimeout: ReturnType<typeof setTimeout>;
 	let submitting = false;
 	let contactSearch = '';
+	let attendantDropdownOpen = false;
+	let calendarDropdownOpen = false;
 
-	let userTouchedFields: Record<string, boolean> = {};
-	let nlpDetectedFields: Record<string, boolean> = {};
-	let lastNlpValues: Record<string, string | boolean | string[]> = {};
+	let form: ReturnType<typeof createEventForm>;
 
-	$: isEditMode = event !== null;
+	$: form = createEventForm({
+		calendars: calendarIds,
+		familyMembers,
+		defaultCalendarId: userSettings?.defaultCalendarId,
+		initialEvent: event ? {
+			id: event.id,
+			title: event.title || '',
+			description: event.description || '',
+			location: event.location || '',
+			calendarId: event.calendarId || '',
+			start: event.start || '',
+			end: event.end || undefined,
+			allDay: event.allDay || false
+		} : undefined
+	});
+
 	$: dedupedFamilyMembers = dedupeFamilyMembers(familyMembers);
 
 	$: filteredFamilyMembers = dedupedFamilyMembers.filter(m => {
@@ -47,38 +53,19 @@
 		);
 	});
 
-	$: filteredRecentAttendants = recentAttendants.filter(att => {
+	$: filteredRecentAttendants = form.recentAttendants.filter((att: string) => {
 		if (!contactSearch.trim()) return true;
 		return att.toLowerCase().includes(contactSearch.toLowerCase());
 	});
 
-	$: if (event && isEditMode) {
-		title = event.title || '';
-		description = event.description || '';
-		location = event.location || '';
-		selectedCalendarId = event.calendarId || (calendarIds.length > 0 ? calendarIds[0].id : '');
-
-		if (event.start) {
-			const dt = DateTime.fromISO(event.start);
-			date = dt.toFormat('yyyy-MM-dd');
-			startTime = dt.toFormat('HH:mm');
-			allDay = event.allDay || false;
-		}
-		if (event.end) {
-			const endDt = DateTime.fromISO(event.end);
-			endTime = endDt.toFormat('HH:mm');
-			if (endDt.toFormat('yyyy-MM-dd') !== date) {
-				multiDay = true;
-				endDate = endDt.toFormat('yyyy-MM-dd');
-			}
-		}
-	}
+	$: selectedCal = calendarIds.find(c => c.id === form.selectedCalendarId) || null;
+	$: calColor = selectedCal ? getContactColor(selectedCal.name) : { bg: '#F1F5F9', text: '#64748B' };
 
 	onMount(() => {
 		try {
 			const stored = localStorage.getItem('recent_attendants');
 			if (stored) {
-				recentAttendants = JSON.parse(stored);
+				form.recentAttendants = JSON.parse(stored);
 			}
 		} catch (e) { /* ignore */ }
 	});
@@ -90,38 +77,6 @@
 			seen.add(m.userId);
 			return true;
 		});
-	}
-
-	function getContactColor(name: string) {
-		const colors = [
-			{ bg: '#DBEAFE', text: '#1D4ED8' },
-			{ bg: '#D1FAE5', text: '#065F46' },
-			{ bg: '#FEF3C7', text: '#92400E' },
-			{ bg: '#FCE7F3', text: '#9D174D' },
-			{ bg: '#E0E7FF', text: '#3730A3' },
-			{ bg: '#FEE2E2', text: '#991B1B' },
-			{ bg: '#CCFBF1', text: '#115E59' },
-			{ bg: '#F3E8FF', text: '#6B21A8' },
-			{ bg: '#FFF7ED', text: '#9A3412' },
-			{ bg: '#ECFDF5', text: '#047857' },
-		];
-		let hash = 0;
-		for (let i = 0; i < name.length; i++) {
-			hash = name.charCodeAt(i) + ((hash << 5) - hash);
-		}
-		return colors[Math.abs(hash) % colors.length];
-	}
-
-	function saveRecentAttendants() {
-		const nonUserAtts = attendants.filter(a => !a.includes('@') && a.length < 50 && !familyMembers.some(m => m.userId === a));
-		const existing = new Set(recentAttendants);
-		const toAdd = nonUserAtts.filter(a => !existing.has(a));
-		if (toAdd.length > 0) {
-			recentAttendants = [...recentAttendants, ...toAdd].slice(-20);
-			try {
-				localStorage.setItem('recent_attendants', JSON.stringify(recentAttendants));
-			} catch (e) { /* ignore */ }
-		}
 	}
 
 	async function parseNlInput() {
@@ -137,52 +92,8 @@
 
 			if (response.ok) {
 				const result = await response.json();
-				const parsed = result.parsed;
-
-				if (parsed) {
-					clearUntouchedNlpFields();
-
-					if (parsed.title && !userTouchedFields.title) {
-						title = parsed.title;
-						nlpDetectedFields.title = true;
-						lastNlpValues.title = parsed.title;
-					}
-					if (parsed.date && !userTouchedFields.date) {
-						date = parsed.date;
-						nlpDetectedFields.date = true;
-						lastNlpValues.date = parsed.date;
-					}
-					if (parsed.startTime && !userTouchedFields.startTime) {
-						startTime = parsed.startTime;
-						allDay = false;
-						nlpDetectedFields.startTime = true;
-						lastNlpValues.startTime = parsed.startTime;
-					}
-					if (parsed.endTime && !userTouchedFields.endTime) {
-						endTime = parsed.endTime;
-						nlpDetectedFields.endTime = true;
-						lastNlpValues.endTime = parsed.endTime;
-					}
-					if (parsed.endDate && !userTouchedFields.endDate) {
-						endDate = parsed.endDate;
-						multiDay = true;
-						nlpDetectedFields.endDate = true;
-						lastNlpValues.endDate = parsed.endDate;
-					}
-					if (parsed.location && !userTouchedFields.location) {
-						location = parsed.location;
-						nlpDetectedFields.location = true;
-						lastNlpValues.location = parsed.location;
-					}
-					if (parsed.attendants && Array.isArray(parsed.attendants) && !userTouchedFields.attendants) {
-						attendants = [...parsed.attendants];
-						nlpDetectedFields.attendants = true;
-						lastNlpValues.attendants = [...parsed.attendants];
-					}
-					if (parsed.allDay !== undefined && !userTouchedFields.allDay) {
-						allDay = parsed.allDay;
-						lastNlpValues.allDay = parsed.allDay;
-					}
+				if (result.parsed) {
+					form.applyNlpResult(result.parsed);
 				}
 			}
 		} catch (error) {
@@ -192,65 +103,28 @@
 		}
 	}
 
-	function clearUntouchedNlpFields() {
-		if (lastNlpValues.title && !userTouchedFields.title && title === lastNlpValues.title) {
-			title = '';
-			nlpDetectedFields.title = false;
-		}
-		if (lastNlpValues.date && !userTouchedFields.date && date === lastNlpValues.date) {
-			date = '';
-			nlpDetectedFields.date = false;
-		}
-		if (lastNlpValues.startTime && !userTouchedFields.startTime && startTime === lastNlpValues.startTime) {
-			startTime = '';
-			allDay = true;
-			nlpDetectedFields.startTime = false;
-		}
-		if (lastNlpValues.endTime && !userTouchedFields.endTime && endTime === lastNlpValues.endTime) {
-			endTime = '';
-			nlpDetectedFields.endTime = false;
-		}
-		if (lastNlpValues.endDate && !userTouchedFields.endDate && endDate === lastNlpValues.endDate) {
-			endDate = '';
-			multiDay = false;
-			nlpDetectedFields.endDate = false;
-		}
-		if (lastNlpValues.location && !userTouchedFields.location && location === lastNlpValues.location) {
-			location = '';
-			nlpDetectedFields.location = false;
-		}
-		if (lastNlpValues.attendants && !userTouchedFields.attendants && arraysEqual(attendants, lastNlpValues.attendants as string[])) {
-			attendants = [];
-			nlpDetectedFields.attendants = false;
-		}
-		lastNlpValues = {};
-	}
-
-	function arraysEqual(a: string[], b: string[]) {
-		if (a.length !== b.length) return false;
-		return a.every((v, i) => v === b[i]);
-	}
-
 	function onNlInputChange() {
+		if (!form.isDetected('description')) {
+			form.description = nlInput;
+		}
 		clearTimeout(parseTimeout);
 		parseTimeout = setTimeout(() => parseNlInput(), 300);
 	}
 
-	function markTouched(field: string) {
-		userTouchedFields[field] = true;
-	}
-
-	function isDetected(field: string) {
-		return nlpDetectedFields[field] && !userTouchedFields[field];
-	}
-
-	function toggleAttendant(value: string) {
-		if (attendants.includes(value)) {
-			attendants = attendants.filter(a => a !== value);
-		} else {
-			attendants = [...attendants, value];
+	function selectAttendantFromDropdown(value: string) {
+		if (!form.attendants.includes(value)) {
+			form.toggleAttendant(value);
 		}
-		markTouched('attendants');
+		contactSearch = '';
+		attendantDropdownOpen = false;
+	}
+
+	function addCustomAttendant() {
+		if (contactSearch.trim() && !form.attendants.includes(contactSearch.trim())) {
+			form.toggleAttendant(contactSearch.trim());
+			contactSearch = '';
+			attendantDropdownOpen = false;
+		}
 	}
 
 	function close() {
@@ -262,49 +136,21 @@
 		e.preventDefault();
 		submitting = true;
 
-		let startTimestamp = '';
-		if (date && startTime && !allDay) {
-			startTimestamp = DateTime.fromFormat(`${date} ${startTime}`, 'yyyy-MM-dd HH:mm').toISO();
-		} else if (date) {
-			startTimestamp = DateTime.fromFormat(date, 'yyyy-MM-dd').startOf('day').toISO();
+		const eventData = form.submitPreparation();
+		if (!eventData) {
+			submitting = false;
+			return;
 		}
 
-		let endTimestamp = '';
-		if (multiDay && endDate) {
-			if (endTime && !allDay) {
-				endTimestamp = DateTime.fromFormat(`${endDate} ${endTime}`, 'yyyy-MM-dd HH:mm').toISO();
-			} else {
-				endTimestamp = DateTime.fromFormat(endDate, 'yyyy-MM-dd').endOf('day').toISO();
-			}
-		} else if (endTime && !allDay) {
-			endTimestamp = DateTime.fromFormat(`${date} ${endTime}`, 'yyyy-MM-dd HH:mm').toISO();
-		} else if (!multiDay && !endTime) {
-			const startDt = DateTime.fromFormat(`${date} ${startTime || '09:00'}`, 'yyyy-MM-dd HH:mm');
-			endTimestamp = startDt.plus({ hours: 1 }).toISO();
-		}
-
-		saveRecentAttendants();
-
-		const eventData = {
-			title,
-			start: startTimestamp,
-			end: endTimestamp || null,
-			location,
-			description,
-			calendarId: selectedCalendarId,
-			allDay,
-			attendants
-		};
-
-		if (isEditMode && event) {
+		if (form.isEditMode && form.eventId) {
 			try {
-				const res = await fetch(`/api/events/${event.id}`, {
+				const res = await fetch(`/api/events/${form.eventId}`, {
 					method: 'PUT',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(eventData)
 				});
 				if (res.ok) {
-					dispatch('update', { id: event.id, ...eventData });
+					dispatch('update', { id: form.eventId, ...eventData });
 				}
 			} catch (err) {
 				console.error('Update failed:', err);
@@ -328,24 +174,12 @@
 	}
 
 	function handleDelete() {
-		if (event) dispatch('delete', { id: event.id });
+		if (form.eventId) dispatch('delete', { id: form.eventId });
 	}
 
 	function clearAll() {
-		title = '';
-		date = '';
-		startTime = '';
-		endTime = '';
-		endDate = '';
-		location = '';
-		description = '';
-		attendants = [];
+		form.reset();
 		nlInput = '';
-		allDay = true;
-		multiDay = false;
-		userTouchedFields = {};
-		nlpDetectedFields = {};
-		lastNlpValues = {};
 	}
 </script>
 
@@ -384,9 +218,9 @@
 				<div class="flex items-center justify-between">
 					<div>
 						<h2 id="modal-title" class="text-lg font-semibold text-white">
-							{isEditMode ? 'Edit Event' : 'Create New Event'}
+							{form.isEditMode ? 'Edit Event' : 'Create New Event'}
 						</h2>
-						{#if !isEditMode}
+						{#if !form.isEditMode}
 							<p class="mt-0.5 text-xs text-primary-100">Type naturally, we'll fill in the rest</p>
 						{/if}
 					</div>
@@ -404,8 +238,8 @@
 			</div>
 
 			<form on:submit={handleSubmit}>
-				<div class="space-y-3 p-5">
-					{#if !isEditMode}
+				<div class="p-5 space-y-3">
+					{#if !form.isEditMode}
 						<div>
 							<label for="nl-input" class="mb-1 block text-sm font-medium text-slate-700">Quick Add</label>
 							<div class="mt-1 flex gap-2">
@@ -437,13 +271,13 @@
 
 					<div>
 						<label for="event-title" class="mb-1 block text-sm font-medium text-slate-700">
-							Event Title {#if isDetected('title')}<span class="text-emerald-600 ml-1">✓</span>{/if}*
+							Event Title {#if form.isDetected('title')}<span class="text-emerald-600 ml-1">✓</span>{/if}*
 						</label>
 						<input
 							id="event-title"
 							type="text"
-							bind:value={title}
-							on:input={() => markTouched('title')}
+							bind:value={form.title}
+							on:input={() => form.markTouched('title')}
 							placeholder="e.g., Family Dinner, Doctor Appointment"
 							required
 							class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm transition-all focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -454,144 +288,275 @@
 						<label for="event-desc" class="mb-1 block text-sm font-medium text-slate-700">Description</label>
 						<textarea
 							id="event-desc"
-							bind:value={description}
-							on:input={() => markTouched('description')}
+							bind:value={form.description}
+							on:input={() => form.markTouched('description')}
 							placeholder="Add details..."
 							rows="2"
 							class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
 						></textarea>
 					</div>
 
-					{#if !isEditMode}
+					{#if !form.isEditMode && !showMore}
 						<button
 							type="button"
-							on:click={() => showMore = !showMore}
+							on:click={() => showMore = true}
 							class="flex w-full items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
 						>
-							{showMore ? 'Show Less' : 'Show More'}
-							<svg class="h-3.5 w-3.5 transition-transform {showMore ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							Show More
+							<svg class="h-3.5 w-3.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
 							</svg>
 						</button>
 					{/if}
 
-					{#if isEditMode || showMore || nlpDetectedFields.date || nlpDetectedFields.startTime || nlpDetectedFields.location || nlpDetectedFields.attendants}
-						{#if showMore || isEditMode}
-							<div class="flex items-center gap-4">
-								<label class="flex items-center gap-1.5">
-									<input type="checkbox" bind:checked={allDay} on:change={() => markTouched('allDay')} class="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
-									<span class="text-sm font-medium text-slate-700">All day</span>
-								</label>
-								<label class="flex items-center gap-1.5">
-									<input type="checkbox" bind:checked={multiDay} on:change={() => markTouched('endDate')} class="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
-									<span class="text-sm font-medium text-slate-700">Multi-day</span>
-								</label>
+					{#if form.isEditMode || showMore || form.isDetected('date') || form.isDetected('startTime') || form.isDetected('location') || form.isDetected('attendants')}
+						{#if showMore || form.isEditMode}
+							<div class="flex items-center gap-3">
+								<button
+									type="button"
+									on:click={() => { form.allDay = !form.allDay; form.markTouched('allDay'); }}
+									class="flex-1 flex items-center justify-between rounded-full border px-4 py-2 text-sm font-medium transition-all {
+										form.allDay
+											? 'border-primary-300 bg-primary-50 text-primary-700'
+											: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+									}"
+								>
+									<span>All day</span>
+									<div class="relative w-8 h-4 rounded-full transition-colors {form.allDay ? 'bg-primary-500' : 'bg-slate-300'}">
+										<div class="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform {form.allDay ? 'translate-x-4' : ''}"></div>
+									</div>
+								</button>
+								<button
+									type="button"
+									on:click={() => { form.multiDay = !form.multiDay; form.markTouched('endDate'); }}
+									class="flex-1 flex items-center justify-between rounded-full border px-4 py-2 text-sm font-medium transition-all {
+										form.multiDay
+											? 'border-primary-300 bg-primary-50 text-primary-700'
+											: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+									}"
+								>
+									<span>Multi-day</span>
+									<div class="relative w-8 h-4 rounded-full transition-colors {form.multiDay ? 'bg-primary-500' : 'bg-slate-300'}">
+										<div class="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform {form.multiDay ? 'translate-x-4' : ''}"></div>
+									</div>
+								</button>
 							</div>
 						{/if}
 
-						<div class="{multiDay ? 'grid grid-cols-2 gap-3' : ''}">
+						<div class="{form.multiDay ? 'grid grid-cols-2 gap-3' : ''}">
 							<div>
 								<label for="event-date" class="mb-1 block text-sm font-medium text-slate-700">
 									Start Date
-									{#if isDetected('date')}<span class="text-emerald-600 ml-1">✓</span>{/if}
+									{#if form.isDetected('date')}<span class="text-emerald-600 ml-1">✓</span>{/if}
 								</label>
 								<input
 									id="event-date"
 									type="date"
-									bind:value={date}
-									on:input={() => markTouched('date')}
+									bind:value={form.date}
+									on:input={() => form.markTouched('date')}
 									required
 									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 								/>
 							</div>
-							{#if multiDay}
+							{#if form.multiDay}
 								<div>
 									<label for="event-end-date" class="mb-1 block text-sm font-medium text-slate-700">
 										End Date
-										{#if isDetected('endDate')}<span class="text-emerald-600 ml-1">✓</span>{/if}
+										{#if form.isDetected('endDate')}<span class="text-emerald-600 ml-1">✓</span>{/if}
 									</label>
 									<input
 										id="event-end-date"
 										type="date"
-										bind:value={endDate}
-										on:input={() => markTouched('endDate')}
+										bind:value={form.endDate}
+										on:input={() => form.markTouched('endDate')}
 										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 									/>
 								</div>
 							{/if}
 						</div>
 
-						{#if !allDay}
+						{#if !form.allDay}
 							<div class="grid grid-cols-2 gap-3">
 								<div>
 									<label for="start-time" class="mb-1 block text-sm font-medium text-slate-700">
 										Start Time
-										{#if isDetected('startTime')}<span class="text-emerald-600 ml-1">✓</span>{/if}
+										{#if form.isDetected('startTime')}<span class="text-emerald-600 ml-1">✓</span>{/if}
 									</label>
 									<input
 										id="start-time"
 										type="time"
-										bind:value={startTime}
-										on:input={() => markTouched('startTime')}
+										bind:value={form.startTime}
+										on:input={() => form.markTouched('startTime')}
 										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 									/>
 								</div>
 								<div>
 									<label for="end-time" class="mb-1 block text-sm font-medium text-slate-700">
 										End Time
-										{#if isDetected('endTime')}<span class="text-emerald-600 ml-1">✓</span>{/if}
+										{#if form.isDetected('endTime')}<span class="text-emerald-600 ml-1">✓</span>{/if}
 									</label>
 									<input
 										id="end-time"
 										type="time"
-										bind:value={endTime}
-										on:input={() => markTouched('endTime')}
+										bind:value={form.endTime}
+										on:input={() => form.markTouched('endTime')}
 										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 									/>
 								</div>
 							</div>
 						{/if}
 
-						{#if isEditMode || showMore || nlpDetectedFields.location || nlpDetectedFields.calendar}
-							<div class="grid grid-cols-2 gap-3">
-								{#if isEditMode || showMore || nlpDetectedFields.location}
-									<div>
-										<label for="event-location" class="mb-1 block text-sm font-medium text-slate-700">
-											Location
-											{#if isDetected('location')}<span class="text-emerald-600 ml-1">✓</span>{/if}
-										</label>
-										<input
-											id="event-location"
-											type="text"
-											bind:value={location}
-											on:input={() => markTouched('location')}
-											placeholder="e.g., Home, 123 Main St"
-											class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-										/>
+						<div>
+							<label class="mb-1 block text-sm font-medium text-slate-700">
+								Location
+								{#if form.isDetected('location')}<span class="text-emerald-600 ml-1">✓</span>{/if}
+							</label>
+							<LocationSearch bind:value={form.location} />
+						</div>
+
+						{#if form.isEditMode || showMore || form.isDetected('attendants')}
+							<div class="relative">
+								<label class="mb-1 block text-sm font-medium text-slate-700">
+									Attendees
+									{#if form.isDetected('attendants')}<span class="text-emerald-600 ml-1">✓</span>{/if}
+								</label>
+
+								{#if form.attendants.length > 0}
+									<div class="flex flex-wrap gap-2 mb-2">
+										{#each form.attendants as att}
+											{@const member = familyMembers.find(m => m.userId === att)}
+											{@const color = getContactColor(att)}
+											{@const initials = member ? getInitials(member.firstName, member.lastName) : getInitials(att)}
+											{@const displayName = member ? `${member.firstName} ${member.lastName}` : att}
+											<span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 pr-3 text-sm">
+												<span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold"
+													style="background-color: {color.bg}; color: {color.text}">
+													{initials}
+												</span>
+												<span class="text-slate-700">{displayName}</span>
+												<button type="button" on:click={() => form.toggleAttendant(att)} class="text-slate-400 hover:text-slate-600" aria-label="Remove {att}">
+													<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+														<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+													</svg>
+												</button>
+											</span>
+										{/each}
 									</div>
 								{/if}
-								{#if calendarIds.length > 1}
-									<div>
-										<label class="mb-1 block text-sm font-medium text-slate-700">Calendar</label>
-										<div class="mt-1 flex flex-wrap gap-2">
-											{#each calendarIds as cal}
-												{@const color = getContactColor(cal.name)}
+
+								<div class="relative">
+									<input
+										type="text"
+										bind:value={contactSearch}
+										on:focus={() => attendantDropdownOpen = true}
+										on:blur={() => setTimeout(() => attendantDropdownOpen = false, 150)}
+										placeholder="Search family or type a name..."
+										class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm transition-all focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+									/>
+									{#if attendantDropdownOpen && (filteredFamilyMembers.length > 0 || filteredRecentAttendants.length > 0 || contactSearch.trim())}
+										<div class="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-52 overflow-y-auto">
+											{#if filteredFamilyMembers.length > 0}
+												<div class="p-1">
+													{#each filteredFamilyMembers as member}
+														{@const color = getContactColor(member.firstName + member.lastName)}
+														{@const selected = form.attendants.includes(member.userId)}
+														<button
+															type="button"
+															on:click={() => selectAttendantFromDropdown(member.userId)}
+															class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-slate-50 {selected ? 'bg-primary-50' : ''}"
+														>
+															<div class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+																style="background-color: {color.bg}; color: {color.text}">
+																{member.firstName?.charAt(0)}{member.lastName?.charAt(0)}
+																{#if selected}
+																	<div class="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-white">
+																		<svg class="h-2 w-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+																			<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+																		</svg>
+																	</div>
+																{/if}
+															</div>
+															<div class="flex-1 min-w-0">
+																<p class="truncate text-sm font-medium text-slate-700">{member.firstName} {member.lastName}</p>
+															</div>
+														</button>
+													{/each}
+												</div>
+											{/if}
+
+											{#if filteredRecentAttendants.length > 0}
+												<div class="border-t border-slate-100 p-1">
+													<div class="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Recent</div>
+													{#each filteredRecentAttendants as att}
+														{@const color = getContactColor(att)}
+														{@const selected = form.attendants.includes(att)}
+														<button
+															type="button"
+															on:click={() => selectAttendantFromDropdown(att)}
+															class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-slate-50 {selected ? 'bg-primary-50' : ''}"
+														>
+															<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold"
+																style="background-color: {color.bg}; color: {color.text}">
+																{att.charAt(0).toUpperCase()}
+															</span>
+															<span class="truncate text-sm text-slate-700">{att}</span>
+														</button>
+													{/each}
+												</div>
+											{/if}
+
+											{#if contactSearch.trim() && !filteredFamilyMembers.length && !filteredRecentAttendants.length}
 												<button
 													type="button"
-													on:click={() => { selectedCalendarId = cal.id; markTouched('calendar'); }}
-													class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all {
-														selectedCalendarId === cal.id
-															? 'border-primary-300 bg-primary-50 ring-1 ring-primary-200'
-															: 'border-slate-200 bg-white hover:border-slate-300'
-													}"
+													on:click={addCustomAttendant}
+													class="w-full rounded-lg border-2 border-dashed border-slate-200 m-1 py-2 text-sm text-slate-500 transition-all hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
 												>
-													<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+													Add "{contactSearch.trim()}"
+												</button>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							</div>
+						{/if}
+
+						{#if calendarIds.length > 1 && (form.isEditMode || showMore)}
+							<div class="relative">
+								<label class="mb-1 block text-sm font-medium text-slate-700">Calendar</label>
+								<button
+									type="button"
+									on:click={() => calendarDropdownOpen = !calendarDropdownOpen}
+									on:blur={() => setTimeout(() => calendarDropdownOpen = false, 150)}
+									class="flex w-full items-center gap-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm transition-all focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+								>
+									<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+										style="background-color: {calColor.bg}; color: {calColor.text}">
+										{selectedCal ? selectedCal.name.charAt(0).toUpperCase() : '?'}
+									</span>
+									<span class="flex-1 truncate text-left font-medium text-slate-700">{selectedCal?.name || 'Select calendar'}</span>
+									<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+									</svg>
+								</button>
+
+								{#if calendarDropdownOpen}
+									<div class="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-52 overflow-y-auto">
+										<div class="p-1">
+											{#each calendarIds as cal}
+												{@const color = getContactColor(cal.name)}
+												{@const selected = form.selectedCalendarId === cal.id}
+												<button
+													type="button"
+													on:click={() => { form.selectedCalendarId = cal.id; form.markTouched('calendar'); calendarDropdownOpen = false; }}
+													class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-slate-50 {selected ? 'bg-primary-50' : ''}"
+												>
+													<span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
 														style="background-color: {color.bg}; color: {color.text}">
 														{cal.name.charAt(0).toUpperCase()}
 													</span>
-													<span class="truncate font-medium {selectedCalendarId === cal.id ? 'text-primary-700' : 'text-slate-700'}">{cal.name}</span>
-													{#if selectedCalendarId === cal.id}
-														<svg class="h-3.5 w-3.5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+													<span class="flex-1 truncate font-medium text-slate-700">{cal.name}</span>
+													{#if selected}
+														<svg class="h-4 w-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
 															<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 														</svg>
 													{/if}
@@ -602,167 +567,25 @@
 								{/if}
 							</div>
 						{/if}
-
-						{#if !(isEditMode || showMore || nlpDetectedFields.location) && calendarIds.length > 1}
-							<div>
-								<label class="mb-1 block text-sm font-medium text-slate-700">Calendar</label>
-								<div class="mt-1 flex flex-wrap gap-2">
-									{#each calendarIds as cal}
-										{@const color = getContactColor(cal.name)}
-										<button
-											type="button"
-											on:click={() => { selectedCalendarId = cal.id; markTouched('calendar'); }}
-											class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all {
-												selectedCalendarId === cal.id
-													? 'border-primary-300 bg-primary-50 ring-1 ring-primary-200'
-													: 'border-slate-200 bg-white hover:border-slate-300'
-											}"
-										>
-											<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-												style="background-color: {color.bg}; color: {color.text}">
-												{cal.name.charAt(0).toUpperCase()}
-											</span>
-											<span class="truncate font-medium {selectedCalendarId === cal.id ? 'text-primary-700' : 'text-slate-700'}">{cal.name}</span>
-											{#if selectedCalendarId === cal.id}
-												<svg class="h-3.5 w-3.5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-													<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-												</svg>
-											{/if}
-										</button>
-									{/each}
-								</div>
-							</div>
-						{/if}
-
-						{#if isEditMode || showMore || nlpDetectedFields.attendants}
-							<div class="rounded-lg border border-slate-200">
-								<div class="px-4 py-2.5 border-b border-slate-200">
-									<div class="flex items-center justify-between">
-										<span class="text-sm font-medium text-slate-700">
-											Attendees
-											{#if isDetected('attendants')}<span class="text-emerald-600 ml-1">✓</span>{/if}
-										</span>
-										{#if attendants.length > 0}
-											<span class="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">{attendants.length}</span>
-										{/if}
-									</div>
-								</div>
-
-								{#if attendants.length > 0}
-									<div class="px-4 py-2 border-b border-slate-200 flex flex-wrap gap-2">
-										{#each attendants as att}
-											{@const member = familyMembers.find(m => m.userId === att)}
-											{@const color = getContactColor(att)}
-											{@const initials = member ? `${member.firstName.charAt(0)}${member.lastName.charAt(0)}` : att.charAt(0).toUpperCase()}
-											{@const displayName = member ? `${member.firstName} ${member.lastName}` : att}
-											<span class="contact-chip inline-flex items-center gap-2 rounded-full border border-slate-200 px-2 py-1 pr-3 text-sm">
-												<span class="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold"
-													style="background-color: {color.bg}; color: {color.text}">
-													{initials}
-												</span>
-												<span class="text-slate-700">{displayName}</span>
-												<button type="button" on:click={() => toggleAttendant(att)} class="ml-1 text-slate-400 hover:text-slate-600" aria-label="Remove {att}">
-													<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-														<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-													</svg>
-												</button>
-											</span>
-										{/each}
-									</div>
-								{/if}
-
-								<div class="p-3">
-									<div class="relative mb-2">
-										<div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-											<svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-											</svg>
-										</div>
-										<input
-											type="text"
-											bind:value={contactSearch}
-											placeholder="Search family or type a name..."
-											class="w-full rounded-lg border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-sm transition-all focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-										/>
-									</div>
-
-									{#if filteredFamilyMembers.length > 0}
-										<div class="max-h-36 overflow-y-auto space-y-1 modal-scroll">
-											{#each filteredFamilyMembers as member}
-												{@const color = getContactColor(member.firstName + member.lastName)}
-												<button
-													type="button"
-													on:click={() => toggleAttendant(member.userId)}
-													class="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-all hover:bg-primary-50/50 {
-														attendants.includes(member.userId)
-															? 'bg-primary-50 ring-1 ring-primary-200'
-															: ''
-													}"
-												>
-													<div class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-														style="background-color: {color.bg}; color: {color.text}">
-														{member.firstName?.charAt(0)}{member.lastName?.charAt(0)}
-														{#if attendants.includes(member.userId)}
-															<div class="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-white">
-																<svg class="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-																	<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-																</svg>
-															</div>
-														{/if}
-													</div>
-													<div class="flex-1 min-w-0">
-														<p class="truncate text-sm font-medium text-slate-700">{member.firstName} {member.lastName}</p>
-														<p class="truncate text-xs text-slate-400">{member.email}</p>
-													</div>
-												</button>
-											{/each}
-										</div>
-									{/if}
-
-									{#if filteredRecentAttendants.length > 0}
-										<div class="mt-2">
-											<p class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Recent</p>
-											<div class="flex flex-wrap gap-2">
-												{#each filteredRecentAttendants as att}
-													{@const color = getContactColor(att)}
-													<button
-														type="button"
-														on:click={() => { if (!attendants.includes(att)) { toggleAttendant(att); } }}
-														class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600 transition-all hover:border-primary-300 hover:bg-primary-50"
-													>
-														<span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold"
-															style="background-color: {color.bg}; color: {color.text}">
-															{att.charAt(0).toUpperCase()}
-														</span>
-														{att}
-													</button>
-												{/each}
-											</div>
-										</div>
-									{/if}
-
-									{#if contactSearch && !filteredFamilyMembers.length && !filteredRecentAttendants.length}
-										<button
-											type="button"
-											on:click={() => {
-												if (contactSearch.trim() && !attendants.includes(contactSearch.trim())) {
-													attendants = [...attendants, contactSearch.trim()];
-													contactSearch = '';
-													markTouched('attendants');
-												}
-											}}
-											class="w-full rounded-lg border-2 border-dashed border-slate-200 py-2 text-sm text-slate-500 transition-all hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
-										>
-											Add "{contactSearch.trim()}"
-										</button>
-									{/if}
-								</div>
-							</div>
-						{/if}
 					{/if}
 				</div>
 
-				{#if isEditMode && rsvpData.length > 0}
+				{#if !form.isEditMode && showMore}
+					<div class="px-5 pb-3">
+						<button
+							type="button"
+							on:click={() => showMore = false}
+							class="flex w-full items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+						>
+							Show Less
+							<svg class="h-3.5 w-3.5 transition-transform rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+							</svg>
+						</button>
+					</div>
+				{/if}
+
+				{#if form.isEditMode && rsvpData.length > 0}
 					<div class="border-t border-slate-100 p-5">
 						<h3 class="mb-2 text-sm font-semibold text-slate-700">RSVP Status</h3>
 						{#if rsvpData.filter(r => r.status === 'going').length > 0}
@@ -799,25 +622,25 @@
 				{/if}
 
 				<div class="flex items-center justify-end gap-2 border-t border-slate-100 p-5">
-					{#if isEditMode}
+					{#if form.isEditMode}
 						<button type="button" on:click={handleDelete} class="mr-auto rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">Delete</button>
 					{/if}
 					<button type="button" on:click={close} class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Cancel</button>
-					{#if !isEditMode}
+					{#if !form.isEditMode}
 						<button type="button" on:click={clearAll} class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Clear</button>
 					{/if}
 					<button
 						type="submit"
 						class="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-						disabled={!title || !date || submitting}
+						disabled={!form.title || !form.date || submitting}
 					>
 						{#if submitting}
 							<div class="flex items-center gap-2">
 								<div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-								{isEditMode ? 'Updating...' : 'Creating...'}
+								{form.isEditMode ? 'Updating...' : 'Creating...'}
 							</div>
 						{:else}
-							{isEditMode ? 'Update' : 'Create'}
+							{form.isEditMode ? 'Update' : 'Create'}
 						{/if}
 					</button>
 				</div>

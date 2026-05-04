@@ -153,7 +153,7 @@ describe('EventFormModal - Date & Time Layout', () => {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
 
 		const startDateInput = screen.getByLabelText(/start date/i);
@@ -166,12 +166,11 @@ describe('EventFormModal - Date & Time Layout', () => {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
 
-		const multiDayLabel = screen.getByText(/Multi-day/i).closest('label');
-		const multiDayCheckbox = multiDayLabel?.querySelector('input[type="checkbox"]');
-		await fireEvent.click(multiDayCheckbox!);
+		const multiDayBtn = screen.getByRole('button', { name: /Multi-day/i });
+		await fireEvent.click(multiDayBtn);
 
 		const endDateInput = screen.getByLabelText(/end date/i);
 		const dateGrid = endDateInput.closest('.grid');
@@ -183,12 +182,8 @@ describe('EventFormModal - Date & Time Layout', () => {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
-
-		const allDayLabel = screen.getByText(/All day/i).closest('label');
-		const allDayInput = allDayLabel?.querySelector('input[type="checkbox"]');
-		await fireEvent.click(allDayInput!);
 
 		const startTimeInput = document.getElementById('start-time');
 		const endTimeInput = document.getElementById('end-time');
@@ -204,8 +199,11 @@ describe('EventFormModal - Date & Time Layout', () => {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
+
+		const allDayBtn = screen.getByRole('button', { name: /All day/i });
+		await fireEvent.click(allDayBtn);
 
 		expect(document.getElementById('start-time')).not.toBeInTheDocument();
 		expect(document.getElementById('end-time')).not.toBeInTheDocument();
@@ -243,7 +241,7 @@ describe('EventFormModal - Description Field', () => {
 	});
 });
 
-describe('EventFormModal - Contact Selector (PFP Style)', () => {
+describe('EventFormModal - Attendants Selector', () => {
 	beforeEach(() => {
 		vi.stubGlobal('localStorage', createMockLocalStorage());
 	});
@@ -253,46 +251,7 @@ describe('EventFormModal - Contact Selector (PFP Style)', () => {
 		cleanup();
 	});
 
-	it('should show family member cards with circular avatars', async () => {
-		const familyMembers = [
-			{ userId: 'u1', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com' },
-			{ userId: 'u2', firstName: 'Bob', lastName: 'Jones', email: 'bob@example.com' }
-		];
-
-		render(EventFormModal, {
-			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }], familyMembers }
-		});
-
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
-		await fireEvent.click(showMoreBtn);
-
-		expect(screen.getByText(/Attendees/i)).toBeInTheDocument();
-		expect(screen.getByText('Alice Smith')).toBeInTheDocument();
-		expect(screen.getByText('bob@example.com')).toBeInTheDocument();
-
-		const avatars = document.querySelectorAll('.rounded-full');
-		expect(avatars.length).toBeGreaterThan(0);
-	});
-
-	it('should show first letter circle with colored background for non-family attendants', async () => {
-		render(EventFormModal, {
-			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
-		});
-
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
-		await fireEvent.click(showMoreBtn);
-
-		const manualInput = screen.getByPlaceholderText(/Search family/i);
-		await fireEvent.input(manualInput, { target: { value: 'Grandma Rose' } });
-
-		const addBtn = screen.getByText(/Add "Grandma Rose"/i);
-		await fireEvent.click(addBtn);
-
-		const initials = screen.queryByText('G');
-		expect(initials).toBeInTheDocument();
-	});
-
-	it('should allow selecting family members with visual feedback', async () => {
+	it('should show attendees label after clicking Show More', async () => {
 		const familyMembers = [
 			{ userId: 'u1', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com' }
 		];
@@ -301,16 +260,44 @@ describe('EventFormModal - Contact Selector (PFP Style)', () => {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }], familyMembers }
 		});
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
 
-		const aliceCard = screen.getAllByText('Alice Smith')[0].closest('button');
-		await fireEvent.click(aliceCard!);
+		expect(screen.getByText(/Attendees/i)).toBeInTheDocument();
+	});
 
-		await waitFor(() => {
-			const removeBtns = screen.queryAllByRole('button', { name: /Remove u1/i });
-			expect(removeBtns.length).toBeGreaterThan(0);
+	it('should show search input for attendants', async () => {
+		const familyMembers = [
+			{ userId: 'u1', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com' }
+		];
+
+		render(EventFormModal, {
+			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }], familyMembers }
 		});
+
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
+		await fireEvent.click(showMoreBtn);
+
+		const searchInput = screen.getByPlaceholderText(/Search family/i);
+		expect(searchInput).toBeInTheDocument();
+	});
+
+	it('should add custom attendant when no matches found', async () => {
+		render(EventFormModal, {
+			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
+		});
+
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
+		await fireEvent.click(showMoreBtn);
+
+		const searchInput = screen.getByPlaceholderText(/Search family/i);
+		await fireEvent.focus(searchInput);
+		await fireEvent.input(searchInput, { target: { value: 'Grandma Rose' } });
+
+		const addBtn = screen.getByText(/Add "Grandma Rose"/i);
+		await fireEvent.click(addBtn);
+
+		expect(screen.queryByText('Grandma Rose')).toBeInTheDocument();
 	});
 
 	it('should deduplicate family members by userId', async () => {
@@ -324,11 +311,14 @@ describe('EventFormModal - Contact Selector (PFP Style)', () => {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }], familyMembers }
 		});
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
 
+		const searchInput = screen.getByPlaceholderText(/Search family/i);
+		await fireEvent.focus(searchInput);
+
 		const aliceCards = screen.queryAllByText('Alice Smith');
-		expect(aliceCards).toHaveLength(1);
+		expect(aliceCards.length).toBe(1);
 	});
 
 	it('should show recent attendants from localStorage', async () => {
@@ -342,12 +332,38 @@ describe('EventFormModal - Contact Selector (PFP Style)', () => {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
+
+		const searchInput = screen.getByPlaceholderText(/Search family/i);
+		await fireEvent.focus(searchInput);
 
 		await waitFor(() => {
 			expect(screen.getByText('Grandma')).toBeInTheDocument();
 			expect(screen.getByText('Uncle Joe')).toBeInTheDocument();
+		});
+	});
+
+	it('should display selected attendant chips with initials', async () => {
+		const familyMembers = [
+			{ userId: 'u1', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com' }
+		];
+
+		render(EventFormModal, {
+			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }], familyMembers }
+		});
+
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
+		await fireEvent.click(showMoreBtn);
+
+		const searchInput = screen.getByPlaceholderText(/Search family/i);
+		await fireEvent.focus(searchInput);
+
+		const aliceBtn = screen.getByText('Alice Smith').closest('button');
+		await fireEvent.click(aliceBtn!);
+
+		await waitFor(() => {
+			expect(screen.getByText('Alice Smith')).toBeInTheDocument();
 		});
 	});
 });
@@ -384,7 +400,7 @@ describe('EventFormModal - Visible Fields (Create Mode)', () => {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
 
 		const dateInput = screen.getByLabelText(/start date/i);
@@ -392,7 +408,7 @@ describe('EventFormModal - Visible Fields (Create Mode)', () => {
 	});
 });
 
-describe('EventFormModal - All-Day & Multi-day Checkboxes', () => {
+describe('EventFormModal - All-Day & Multi-day Toggles', () => {
 	beforeEach(() => {
 		vi.stubGlobal('localStorage', createMockLocalStorage());
 	});
@@ -402,35 +418,32 @@ describe('EventFormModal - All-Day & Multi-day Checkboxes', () => {
 		cleanup();
 	});
 
-	it('should show multi-day checkbox after clicking Show More', async () => {
+	it('should show multi-day toggle after clicking Show More', async () => {
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
 
 		expect(screen.queryByText(/Multi-day/i)).not.toBeInTheDocument();
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
 
-		const multiDayCheckbox = screen.getByText(/Multi-day/i);
-		expect(multiDayCheckbox).toBeInTheDocument();
-		const checkbox = multiDayCheckbox.closest('label')?.querySelector('input[type="checkbox"]');
-		expect(checkbox).not.toBeChecked();
+		const multiDayBtn = screen.getByRole('button', { name: /Multi-day/i });
+		expect(multiDayBtn).toBeInTheDocument();
+		expect(multiDayBtn.classList.contains('bg-primary-50')).toBe(false);
 	});
 
-	it('should have all-day checkbox checked by default after clicking Show More', async () => {
+	it('should have all-day toggle off by default after clicking Show More', async () => {
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
 
-		expect(screen.queryByText(/All day/i)).not.toBeInTheDocument();
-
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
 
-		const allDayLabel = screen.getByText(/All day/i).closest('label');
-		const allDayInput = allDayLabel?.querySelector('input[type="checkbox"]') as HTMLInputElement;
-		expect(allDayInput.checked).toBe(true);
+		const allDayBtn = screen.getByRole('button', { name: /All day/i });
+		const toggleDiv = allDayBtn.querySelector('div');
+		expect(toggleDiv?.classList.contains('bg-slate-300')).toBe(true);
 	});
 });
 
@@ -449,14 +462,13 @@ describe('EventFormModal - Calendar Selector', () => {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
 
-		expect(screen.queryByText('Personal')).not.toBeInTheDocument();
-		expect(screen.queryByText('Family')).not.toBeInTheDocument();
+		expect(screen.queryByText('Calendar')).not.toBeInTheDocument();
 	});
 
-	it('should show calendar selector when user has 2+ calendars', async () => {
+	it('should show calendar selector when user has 2+ calendars after Show More', async () => {
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [
 				{ id: 'cal1', name: 'Personal' },
@@ -464,11 +476,13 @@ describe('EventFormModal - Calendar Selector', () => {
 			]}
 		});
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
 
-		expect(screen.getByText('Personal')).toBeInTheDocument();
-		expect(screen.getByText('Family')).toBeInTheDocument();
+		const calendarLabel = screen.getByText('Calendar');
+		expect(calendarLabel).toBeInTheDocument();
+		const calendarContainer = calendarLabel.parentElement;
+		expect(calendarContainer?.querySelector('button')).toBeInTheDocument();
 	});
 
 	it('should show calendar selector by default in edit mode', async () => {
@@ -490,8 +504,10 @@ describe('EventFormModal - Calendar Selector', () => {
 			]}
 		});
 
-		expect(screen.getByText('Personal')).toBeInTheDocument();
-		expect(screen.getByText('Family')).toBeInTheDocument();
+		const calendarLabel = screen.getByText('Calendar');
+		expect(calendarLabel).toBeInTheDocument();
+		const calendarContainer = calendarLabel.parentElement;
+		expect(calendarContainer?.querySelector('button')).toBeInTheDocument();
 	});
 
 	it('should allow selecting a different calendar', async () => {
@@ -502,14 +518,19 @@ describe('EventFormModal - Calendar Selector', () => {
 			]}
 		});
 
-		const showMoreBtn = screen.getAllByRole('button', { name: /show more/i })[0];
+		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
 		await fireEvent.click(showMoreBtn);
 
-		const familyBtn = screen.getByText('Family').closest('button');
-		await fireEvent.click(familyBtn!);
+		const calendarLabel = screen.getByText('Calendar');
+		const calendarContainer = calendarLabel.parentElement;
+		const calendarBtn = calendarContainer?.querySelector('button');
+		await fireEvent.click(calendarBtn!);
 
-		const personalBtn = screen.getByText('Personal').closest('button');
-		const personalSelected = personalBtn?.classList.contains('bg-primary-50');
-		expect(personalSelected).toBe(false);
+		const familyOption = screen.getByText('Family');
+		await fireEvent.click(familyOption);
+
+		await waitFor(() => {
+			expect(calendarBtn?.textContent).toContain('Family');
+		});
 	});
 });

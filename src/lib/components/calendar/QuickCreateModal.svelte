@@ -1,9 +1,18 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { createEvent } from '$lib/components/calendar/QuickCreateModal.svelte';
 	import { fly, fade } from 'svelte/transition';
 
-	let { show = $bindable(false) }: { show?: boolean } = $props();
+	let {
+		show = $bindable(false),
+		ownerId = '',
+		calendarId = '',
+		onCreated = () => {}
+	}: {
+		show?: boolean;
+		ownerId?: string;
+		calendarId?: string;
+		onCreated?: () => void;
+	} = $props();
 
 	let title = '';
 	let allDay = true;
@@ -30,38 +39,55 @@
 		show = false;
 		reset();
 	}
+
+	async function handleSubmit(e: Event) {
+		e.preventDefault();
+		if (!title.trim() || !ownerId) return;
+
+		loading = true;
+		try {
+			const endDateTime = allDay ? startDate : `${endDate}T${endTime}`;
+			const startDateTime = `${startDate}T${startTime}`;
+
+			const res = await fetch('/api/events', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					title: title.trim(),
+					start: startDateTime,
+					end: endDateTime,
+					location: location || null,
+					description: description || null,
+					allDay,
+					calendarId: calendarId || undefined
+				})
+			});
+
+			if (res.ok) {
+				onCreated();
+				handleClose();
+			}
+		} catch (err) {
+			console.error('Quick create failed:', err);
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 {#if show}
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4" transition:fade={{ duration: 150 }}>
-		<button class="absolute inset-0 bg-black/50" onclick={handleClose}></button>
+		<button class="absolute inset-0 bg-black/50" onclick={handleClose} aria-label="Close quick create"></button>
 		
 		<div class="relative w-full max-w-md rounded-xl bg-white shadow-2xl" transition:fly={{ y: 20, duration: 200 }}>
 			<div class="rounded-t-xl bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4">
 				<h2 class="text-xl font-bold text-white">Quick Create Event</h2>
 			</div>
 			
-			<form 
-				method="POST" 
-				action="/calendar/event/new?/createEvent" 
-				use:enhance={() => {
-					loading = true;
-					return async ({ update }) => {
-						await update();
-						loading = false;
-						handleClose();
-						window.location.reload();
-					};
-				}}
-				class="space-y-4 p-6"
-			>
-				<input type="hidden" name="ownerId" value="" />
-				<input type="hidden" name="calendarId" value="" />
-				
+			<form on:submit={handleSubmit} class="space-y-4 p-6">
 				<div>
 					<input
 						type="text"
-						name="title"
 						bind:value={title}
 						placeholder="What's the event?"
 						required
@@ -77,13 +103,13 @@
 
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="block text-xs font-medium text-slate-500">Start</label>
-						<input type="date" name="startDate" bind:value={startDate} class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+						<label for="quickStartDate" class="block text-xs font-medium text-slate-500">Start</label>
+						<input type="date" id="quickStartDate" bind:value={startDate} class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
 					</div>
 					{#if !allDay}
 						<div>
-							<label class="block text-xs font-medium text-slate-500">Time</label>
-							<input type="time" name="startTime" bind:value={startTime} class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+							<label for="quickStartTime" class="block text-xs font-medium text-slate-500">Time</label>
+							<input type="time" id="quickStartTime" bind:value={startTime} class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
 						</div>
 					{/if}
 				</div>

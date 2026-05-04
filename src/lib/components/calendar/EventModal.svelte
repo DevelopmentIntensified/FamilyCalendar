@@ -14,6 +14,10 @@
 
 	let showEditForm = false;
 
+	$: goingList = attendees.filter(a => a.status === 'going');
+	$: maybeList = attendees.filter(a => a.status === 'maybe');
+	$: notGoingList = attendees.filter(a => a.status === 'declined' || a.status === 'not_going');
+
 	function close() {
 		show = false;
 		showEditForm = false;
@@ -34,8 +38,8 @@
 		showEditForm = false;
 	}
 
-	function handleUpdate(event: CustomEvent) {
-		dispatch('update', event.detail);
+	function handleUpdate(e: CustomEvent) {
+		dispatch('update', e.detail);
 		showEditForm = false;
 	}
 
@@ -54,10 +58,6 @@
 	function getInitials(firstName: string, lastName: string): string {
 		return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
 	}
-
-	$: goingList = attendees.filter(a => a.status === 'going');
-	$: maybeList = attendees.filter(a => a.status === 'maybe');
-	$: notGoingList = attendees.filter(a => a.status === 'declined' || a.status === 'not_going');
 </script>
 
 {#if show}

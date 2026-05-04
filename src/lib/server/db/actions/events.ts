@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { eventAttendance, events, type CalendarEvent } from '$lib/server/db/schema';
+import { eventAttendance, events, users, type CalendarEvent } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export async function getEvents() {
@@ -12,12 +12,19 @@ export async function getEvent(id: string) {
 }
 
 export async function getEventAttendance(id: string) {
-	const [event] = await db
-		.select()
-		.from(events)
-		.leftJoin(eventAttendance, eq(eventAttendance.eventId, events.id))
-		.where(eq(events.id, id));
-	return event;
+	return await db
+		.select({
+			id: eventAttendance.id,
+			eventId: eventAttendance.eventId,
+			userId: eventAttendance.userId,
+			name: eventAttendance.name,
+			status: eventAttendance.status,
+			firstName: users.firstName,
+			lastName: users.lastName
+		})
+		.from(eventAttendance)
+		.leftJoin(users, eq(eventAttendance.userId, users.id))
+		.where(eq(eventAttendance.eventId, id));
 }
 
 export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>, ownerId: string) {
