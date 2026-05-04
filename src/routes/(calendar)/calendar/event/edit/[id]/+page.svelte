@@ -3,8 +3,7 @@
 	import type { PageData, ActionData } from './$types';
 	import { DateTime } from 'luxon';
 
-	export let data: PageData;
-	export let form: ActionData;
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	function formatDateForInput(dateStr: string | Date): string {
 		const dt = typeof dateStr === 'string' ? DateTime.fromISO(dateStr) : DateTime.fromJSDate(dateStr);
