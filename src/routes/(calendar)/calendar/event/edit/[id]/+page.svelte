@@ -15,13 +15,13 @@
 		return dt.toFormat('HH:mm');
 	}
 
-	// Prefill form state from event data - use $derived for reactive values
+	// Prefill form state from event data
 	let event = $derived(data.event);
 	let allDay = $state(event?.allDay ?? false);
-	let startDate = $state($derived(event ? formatDateForInput(event.start) : ''));
-	let startTime = $state($derived(event ? formatTimeForInput(event.start) : ''));
-	let endDate = $state($derived(event ? formatDateForInput(event.end) : ''));
-	let endTime = $state($derived(event ? formatTimeForInput(event.end) : ''));
+	let startDate = $state(event ? formatDateForInput(event.start) : '');
+	let startTime = $state(event ? formatTimeForInput(event.start) : '');
+	let endDate = $state(event ? formatDateForInput(event.end) : '');
+	let endTime = $state(event ? formatTimeForInput(event.end) : '');
 
 	let showDeleteConfirm = $state(false);
 
@@ -30,7 +30,7 @@
 		
 		if (allDay) {
 			const startVal = startDate + 'T00:00:00';
-			const endD = new Date(endDate + 'T00:00:00');
+			const endD = new Date(endDate);
 			endD.setDate(endD.getDate() + 1);
 			const endVal = endD.toISOString().split('T')[0] + 'T00:00:00';
 			(form.querySelector('input[name="start"]') as HTMLInputElement).value = startVal;
@@ -72,7 +72,7 @@
 				};
 			}} class="space-y-6 p-6">
 				<input type="hidden" name="ownerId" value={data.user.id} />
-				<input type="hidden" name="eventId" value={event.id} />
+				<input type="hidden" name="eventId" value={event?.id} />
 				<input type="hidden" name="start" value="" />
 				<input type="hidden" name="end" value="" />
 
@@ -82,7 +82,7 @@
 						type="text"
 						id="title"
 						name="title"
-						value={event.title}
+						value={event?.title || ''}
 						required
 						class="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-3 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
 					/>
@@ -150,7 +150,7 @@
 						type="text"
 						id="location"
 						name="location"
-						value={event.location || ''}
+						value={event?.location || ''}
 						placeholder="e.g., Home, 123 Main St"
 						class="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-3 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
 					/>
@@ -164,7 +164,7 @@
 						rows="3"
 						placeholder="Add details about your event..."
 						class="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-3 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-					>{event.description || ''}</textarea>
+					>{event?.description || ''}</textarea>
 				</div>
 
 				<div>
@@ -172,7 +172,7 @@
 					<select
 						id="calendarId"
 						name="calendarId"
-						value={event.calendarId || data.calendarIds[0]?.id}
+						value={event?.calendarId || data.calendarIds[0]?.id}
 						class="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-3 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
 					>
 						{#each data.calendarIds as calendar (calendar.id)}
@@ -224,7 +224,7 @@
 									await update();
 								};
 							}} class="flex-1">
-								<input type="hidden" name="eventId" value={event.id} />
+								<input type="hidden" name="eventId" value={event?.id} />
 								<button
 									type="submit"
 									class="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
