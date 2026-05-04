@@ -132,6 +132,21 @@ export function parseEventInput(input: string): ParseResult {
 
 	// "starting at 6 PM", "at 8 AM", "beginning at 9 AM", "7:15A"
 	const startTimeMatch = input.match(/(?:start(?:ing)?\s+at|at|beginning\s+at)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?|AM?|PM?)?/i);
+
+	// Standalone time: "9:00 AM", "7:15P", "3:30 PM" (may appear after date)
+	if (!startTimeMatch) {
+		const standaloneTimeMatch = input.match(/\b(\d{1,2}):(\d{2})\s*(am?|pm?|AM?|PM?)\b/i);
+		if (standaloneTimeMatch) {
+			let hour = parseInt(standaloneTimeMatch[1]);
+			const minute = parseInt(standaloneTimeMatch[2]);
+			const period = standaloneTimeMatch[3]?.toLowerCase();
+			if (period === 'pm' && hour < 12) hour += 12;
+			if (period === 'am' && hour === 12) hour = 0;
+			result.startTime = normalizeTime(hour, minute);
+			foundTime = true;
+			confidence += 0.25;
+		}
+	}
 	if (startTimeMatch) {
 		let hour = parseInt(startTimeMatch[1]);
 		const minute = startTimeMatch[2] ? parseInt(startTimeMatch[2]) : 0;

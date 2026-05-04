@@ -7,11 +7,13 @@
 
 	// Prefill form state from event data
 	let event = $derived(data.event);
-	let allDay = $state(event?.allDay ?? false);
-	let title = $state(event?.title ?? '');
-	let location = $state(event?.location ?? '');
-	let description = $state(event?.description ?? '');
-	let calendarId = $state(event?.calendarId ?? data.calendarIds?.[0]?.id ?? '');
+
+	// Initialize state directly from data.event to avoid referencing derived in initializer
+	let allDay = $state(data.event?.allDay ?? false);
+	let title = $state(data.event?.title ?? '');
+	let location = $state(data.event?.location ?? '');
+	let description = $state(data.event?.description ?? '');
+	let calendarId = $state(data.event?.calendarId ?? data.calendarIds?.[0]?.id ?? '');
 
 	// Format dates for input fields
 	function formatDate(dateStr: string | Date): string {
@@ -24,10 +26,10 @@
 		return dt.toFormat('HH:mm');
 	}
 
-	let startDate = $state(event?.start ? formatDate(event.start) : '');
-	let startTime = $state(event?.start ? formatTime(event.start) : '');
-	let endDate = $state(event?.end ? formatDate(event.end) : '');
-	let endTime = $state(event?.end ? formatTime(event.end) : '');
+	let startDate = $state(data.event?.start ? formatDate(data.event.start) : '');
+	let startTime = $state(data.event?.start ? formatTime(data.event.start) : '');
+	let endDate = $state(data.event?.end ? formatDate(data.event.end) : '');
+	let endTime = $state(data.event?.end ? formatTime(data.event.end) : '');
 
 	let showDeleteConfirm = $state(false);
 
