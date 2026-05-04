@@ -2,7 +2,6 @@
 	import { enhance } from '$app/forms';
 	import type { PageData, ActionData } from './$types';
 	import { DateTime } from 'luxon';
-	import { SvelteDate } from 'svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -16,13 +15,13 @@
 		return dt.toFormat('HH:mm');
 	}
 
-	// Prefill form state from event data
+	// Prefill form state from event data - use $derived for reactive values
 	let event = $derived(data.event);
 	let allDay = $state(event?.allDay ?? false);
-	let startDate = $state(event ? formatDateForInput(event.start) : '');
-	let startTime = $state(event ? formatTimeForInput(event.start) : '');
-	let endDate = $state(event ? formatDateForInput(event.end) : '');
-	let endTime = $state(event ? formatTimeForInput(event.end) : '');
+	let startDate = $state($derived(event ? formatDateForInput(event.start) : ''));
+	let startTime = $state($derived(event ? formatTimeForInput(event.start) : ''));
+	let endDate = $state($derived(event ? formatDateForInput(event.end) : ''));
+	let endTime = $state($derived(event ? formatTimeForInput(event.end) : ''));
 
 	let showDeleteConfirm = $state(false);
 
@@ -31,7 +30,7 @@
 		
 		if (allDay) {
 			const startVal = startDate + 'T00:00:00';
-			const endD = new SvelteDate(endDate);
+			const endD = new Date(endDate + 'T00:00:00');
 			endD.setDate(endD.getDate() + 1);
 			const endVal = endD.toISOString().split('T')[0] + 'T00:00:00';
 			(form.querySelector('input[name="start"]') as HTMLInputElement).value = startVal;
