@@ -17,9 +17,6 @@
 	}
 
 	let event = $derived(data.event);
-	let eventStart = $derived(typeof event.start === 'string' ? DateTime.fromISO(event.start) : DateTime.fromJSDate(event.start));
-	let eventEnd = $derived(typeof event.end === 'string' ? DateTime.fromISO(event.end) : DateTime.fromJSDate(event.end));
-	
 	let allDay = $state(event.allDay ?? false);
 	let startDate = $state(formatDateForInput(event.start));
 	let startTime = $state(formatTimeForInput(event.start));
@@ -54,7 +51,7 @@
 <div class="min-h-screen bg-slate-50 px-4 py-8 pt-20">
 	<div class="mx-auto max-w-2xl">
 		<div class="mb-6">
-			<a href="/calendar" class="text-primary-600 hover:text-primary-700 flex items-center gap-2 text-sm font-medium" data-sveltekit-preload-data="hover">
+			<a href="/calendar" class="text-primary-600 hover:text-primary-700 flex items-center gap-2 text-sm font-medium">
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
 				</svg>
@@ -194,7 +191,6 @@
 					<a
 						href="/calendar"
 						class="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
-						data-sveltekit-preload-data="hover"
 					>
 						Cancel
 					</a>
