@@ -76,12 +76,18 @@ export const actions: Actions = {
 			return fail(500, { message: 'Failed to update event' });
 		}
 	},
-	deleteEvent: async ({ request }) => {
+	deleteEvent: async ({ request, locals }) => {
 		const formData = await request.formData();
 		const eventId = formData.get('eventId') as string;
 
 		if (!eventId) {
 			return fail(400, { message: 'Event ID is required' });
+		}
+
+		// Check ownership
+		const eventData = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
+		if (!eventData.length || eventData[0].ownerId !== locals.user.id) {
+			return fail(403, { message: 'Not authorized to delete this event' });
 		}
 
 		await deleteEvent(eventId);

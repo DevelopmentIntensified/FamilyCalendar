@@ -2,15 +2,17 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { DateTime } from 'luxon';
+	import type { PageData, ActionData } from './$types';
 
-	export let data;
-	const event = data.event;
-	const currentAttendance = data.userAttendance;
-	const timeZone = data.userSettings?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-	const isFamilyEvent = data.isFamilyEvent;
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	let showDeleteConfirm = false;
-	let rsvpStatus = currentAttendance;
+	const event = $derived(data.event);
+	const currentAttendance = $derived(data.userAttendance);
+	const timeZone = $derived(data.userSettings?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+	const isFamilyEvent = $derived(data.isFamilyEvent);
+
+	let showDeleteConfirm = $state(false);
+	let rsvpStatus = $state(currentAttendance);
 
 	function goBack() {
 		goto('/calendar');
@@ -25,7 +27,7 @@
 
 <div class="container mx-auto min-h-screen bg-gray-100 p-4 pt-20">
 	<div class="mx-auto max-w-3xl">
-		<button on:click={goBack} class="mb-4 flex items-center text-primary-600 hover:text-primary-700">
+		<button onclick={goBack} class="mb-4 flex items-center text-primary-600 hover:text-primary-700">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="mr-1 h-5 w-5"
@@ -129,11 +131,11 @@
 						Edit Event
 					</a>
 					{#if !showDeleteConfirm}
-						<button
-							type="button"
-							on:click={() => showDeleteConfirm = true}
-							class="flex items-center rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-						>
+					<button
+						type="button"
+						onclick={() => showDeleteConfirm = true}
+						class="flex items-center rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+					>
 							<svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 								<polyline points="3 6 5 6 21 6"></polyline>
 								<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -154,7 +156,7 @@
 							</form>
 							<button
 								type="button"
-								on:click={() => showDeleteConfirm = false}
+								onclick={() => showDeleteConfirm = false}
 								class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
 							>
 								Cancel

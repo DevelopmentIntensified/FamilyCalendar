@@ -32,21 +32,30 @@
 	let endTime = $state(data.event?.end ? formatTime(data.event.end) : '');
 
 	let showDeleteConfirm = $state(false);
+	let allDayValue = $state('false');
+
+	// Update allDayValue when allDay changes
+	$effect(() => {
+		allDayValue = allDay ? 'true' : 'false';
+	});
 
 	function handleSubmit() {
-		const form = document.querySelector('form') as HTMLFormElement;
 		if (allDay) {
 			const startVal = startDate + 'T00:00:00';
 			const endD = new Date(endDate + 'T00:00:00');
 			endD.setDate(endD.getDate() + 1);
 			const endVal = endD.toISOString().split('T')[0] + 'T00:00:00';
-			(form.querySelector('input[name="start"]') as HTMLInputElement).value = startVal;
-			(form.querySelector('input[name="end"]') as HTMLInputElement).value = endVal;
+			const startInput = document.querySelector('input[name="start"]') as HTMLInputElement;
+			const endInput = document.querySelector('input[name="end"]') as HTMLInputElement;
+			if (startInput) startInput.value = startVal;
+			if (endInput) endInput.value = endVal;
 		} else {
 			const startVal = startDate + 'T' + startTime + ':00';
 			const endVal = endDate + 'T' + endTime + ':00';
-			(form.querySelector('input[name="start"]') as HTMLInputElement).value = startVal;
-			(form.querySelector('input[name="end"]') as HTMLInputElement).value = endVal;
+			const startInput = document.querySelector('input[name="start"]') as HTMLInputElement;
+			const endInput = document.querySelector('input[name="end"]') as HTMLInputElement;
+			if (startInput) startInput.value = startVal;
+			if (endInput) endInput.value = endVal;
 		}
 	}
 </script>
@@ -82,6 +91,7 @@
 				<input type="hidden" name="eventId" value={event?.id} />
 				<input type="hidden" name="start" value="" />
 				<input type="hidden" name="end" value="" />
+				<input type="hidden" name="allDay" value={allDayValue} />
 
 				<div>
 					<label for="title" class="block text-sm font-medium text-slate-700">Event Title *</label>
