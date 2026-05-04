@@ -3,12 +3,14 @@
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
+	import DayEventsModal from './DayEventsModal.svelte';
 
 	export let currentDate: DateTime;
 	export let events: Event[];
 	export let days: number[];
 	export let nextMonth: boolean | undefined;
 	export let lastMonth: boolean | undefined;
+	export let calendars: { id: string; name: string }[] = [];
 
 	$: if (nextMonth) {
 		currentDate = currentDate.plus({
@@ -27,6 +29,9 @@
 	}
 
 	let selectedEvent: Event | null = null;
+	let showDayModal = false;
+	let selectedDate = '';
+	let selectedDayEvents: Event[] = [];
 
 	function handleEventClick(event: Event) {
 		selectedEvent = event;
@@ -34,6 +39,23 @@
 
 	function closeModal() {
 		selectedEvent = null;
+	}
+
+	function handleDayClick(date: string, dayEvents: Event[]) {
+		selectedDate = date;
+		selectedDayEvents = dayEvents;
+		showDayModal = true;
+	}
+
+	function closeDayModal() {
+		showDayModal = false;
+		selectedDate = '';
+		selectedDayEvents = [];
+	}
+
+	function handleDayEventClick(event: Event) {
+		closeDayModal();
+		selectedEvent = event;
 	}
 
 	function handleDelete(event: CustomEvent) {
@@ -77,7 +99,11 @@
 				</button>
 			{/each}
 			{#if dayEvents.length > 3}
-				<button class="text-xs font-medium text-slate-500 hover:text-primary-600">
+				<button
+					type="button"
+					onclick={() => handleDayClick(date, dayEvents)}
+					class="text-xs font-medium text-slate-500 hover:text-primary-600"
+				>
 					+{dayEvents.length - 3} more
 				</button>
 			{/if}
@@ -92,5 +118,17 @@
 		show={true}
 		on:close={closeModal}
 		on:delete={handleDelete}
+	/>
+{/if}
+
+<!-- Day Events Modal (for +more clicks) -->
+{#if showDayModal}
+	<DayEventsModal
+		show={true}
+		date={selectedDate}
+		events={selectedDayEvents}
+		calendars={calendars}
+		on:eventClick={(e) => handleDayEventClick(e.detail)}
+		on:close={closeDayModal}
 	/>
 {/if}

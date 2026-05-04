@@ -18,6 +18,10 @@
 	$: maybeList = attendees.filter(a => a.status === 'maybe');
 	$: notGoingList = attendees.filter(a => a.status === 'declined' || a.status === 'not_going');
 
+	// Get calendar name
+	$: calendarName = event.calendar?.name ||
+		(event.calendarId ? 'Calendar' : '');
+
 	function close() {
 		show = false;
 		showEditForm = false;
@@ -88,11 +92,11 @@
 			<div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
 				<!-- Header -->
 				<div class="flex items-center justify-between border-b border-slate-100 p-6">
-					<div class="flex items-center gap-3">
-						<div class="h-3 w-3 rounded-full {event.color || 'bg-slate-400'}"></div>
+					<div class="flex items-center gap-3 min-w-0 flex-1">
+						<div class="h-3 w-3 rounded-full shrink-0 {event.color || 'bg-slate-400'}"></div>
 						<h2 class="text-xl font-bold text-slate-900 truncate">{event.title}</h2>
 					</div>
-					<button type="button" onclick={close} class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors" aria-label="Close">
+					<button type="button" onclick={close} class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors shrink-0" aria-label="Close">
 						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 						</svg>
@@ -104,33 +108,50 @@
 					<!-- Date & Time -->
 					{#if event.date}
 						{@const eventDate = event.date instanceof Date ? DateTime.fromJSDate(event.date) : DateTime.fromISO(event.date)}
-						<div class="flex items-center gap-3 text-slate-700">
-							<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
+						<div class="flex items-start gap-3 text-slate-700">
+							<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 shrink-0">
 								<svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 								</svg>
 							</div>
-							<div>
-								<span class="font-medium">{eventDate.toFormat('EEEE, MMMM d, yyyy')}</span>
+							<div class="min-w-0 flex-1">
+								<div class="font-medium">{eventDate.toFormat('EEEE, MMMM d, yyyy')}</div>
 								{#if event.allDay}
-									<span class="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">All day</span>
+									<span class="inline-block mt-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">All day</span>
 								{:else if event.startTime}
-									<span class="ml-2 text-sm text-slate-500">{formatTime(event.startTime)}{#if event.endTime} - {formatTime(event.endTime)}{/if}</span>
+									<div class="mt-1 text-sm text-slate-600">
+										{formatTime(event.startTime)}
+										{#if event.endTime}
+											<span class="text-slate-400"> - {formatTime(event.endTime)}</span>
+										{/if}
+									</div>
 								{/if}
 							</div>
 						</div>
 					{/if}
 
+					<!-- Calendar -->
+					{#if calendarName}
+						<div class="flex items-center gap-3 text-slate-700">
+							<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 shrink-0">
+								<svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
+								</svg>
+							</div>
+							<span class="text-sm font-medium text-slate-600">{calendarName}</span>
+						</div>
+					{/if}
+
 					<!-- Location -->
 					{#if event.location}
-						<div class="flex items-center gap-3 text-slate-700">
-							<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
+						<div class="flex items-start gap-3 text-slate-700">
+							<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 shrink-0">
 								<svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
 								</svg>
 							</div>
-							<span class="truncate">{event.location}</span>
+							<span class="text-sm break-words">{event.location}</span>
 						</div>
 					{/if}
 
