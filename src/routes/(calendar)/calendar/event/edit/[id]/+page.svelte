@@ -18,11 +18,11 @@
 
 	// Prefill form state from event data
 	let event = $derived(data.event);
-	let allDay = $state(event?.allDay ?? false);
-	let startDate = $state(event ? formatDateForInput(event.start) : '');
-	let startTime = $state(event ? formatTimeForInput(event.start) : '');
-	let endDate = $state(event ? formatDateForInput(event.end) : '');
-	let endTime = $state(event ? formatTimeForInput(event.end) : '');
+	let allDay = $state($derived(event?.allDay ?? false));
+	let startDate = $state($derived(event ? formatDateForInput(event.start) : ''));
+	let startTime = $state($derived(event ? formatTimeForInput(event.start) : ''));
+	let endDate = $state($derived(event ? formatDateForInput(event.end) : ''));
+	let endTime = $state($derived(event ? formatTimeForInput(event.end) : ''));
 
 	let showDeleteConfirm = $state(false);
 
@@ -52,7 +52,7 @@
 <div class="min-h-screen bg-slate-50 px-4 py-8 pt-20">
 	<div class="mx-auto max-w-2xl">
 		<div class="mb-6">
-			<a href="/calendar" class="text-primary-600 hover:text-primary-700 flex items-center gap-2 text-sm font-medium" data-sveltekit-preload-data="hover">
+			<a href="/calendar" class="text-primary-600 hover:text-primary-700 flex items-center gap-2 text-sm font-medium">
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
 				</svg>
@@ -192,7 +192,6 @@
 					<a
 						href="/calendar"
 						class="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
-						data-sveltekit-preload-data="hover"
 					>
 						Cancel
 					</a>
