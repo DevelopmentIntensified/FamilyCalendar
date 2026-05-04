@@ -18,11 +18,11 @@
 
 	// Prefill form state from event data
 	let event = $derived(data.event);
-	let allDay = $state($derived(event?.allDay ?? false));
-	let startDate = $state($derived(event ? formatDateForInput(event.start) : ''));
-	let startTime = $state($derived(event ? formatTimeForInput(event.start) : ''));
-	let endDate = $state($derived(event ? formatDateForInput(event.end) : ''));
-	let endTime = $state($derived(event ? formatTimeForInput(event.end) : ''));
+	let allDay = $state(event?.allDay ?? false);
+	let startDate = $state(event ? formatDateForInput(event.start) : '');
+	let startTime = $state(event ? formatTimeForInput(event.start) : '');
+	let endDate = $state(event ? formatDateForInput(event.end) : '');
+	let endTime = $state(event ? formatTimeForInput(event.end) : '');
 
 	let showDeleteConfirm = $state(false);
 
