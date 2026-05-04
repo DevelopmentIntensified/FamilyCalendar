@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import type { PageData, ActionData } from './$types';
 	import { DateTime } from 'luxon';
+	import { SvelteDate } from 'svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -19,20 +20,20 @@
 	const eventStart = typeof event.start === 'string' ? DateTime.fromISO(event.start) : DateTime.fromJSDate(event.start);
 	const eventEnd = typeof event.end === 'string' ? DateTime.fromISO(event.end) : DateTime.fromJSDate(event.end);
 	
-	let allDay = event.allDay ?? false;
-	let startDate = formatDateForInput(event.start);
-	let startTime = formatTimeForInput(event.start);
-	let endDate = formatDateForInput(event.end);
-	let endTime = formatTimeForInput(event.end);
+	let allDay = $state(event.allDay ?? false);
+	let startDate = $state(formatDateForInput(event.start));
+	let startTime = $state(formatTimeForInput(event.start));
+	let endDate = $state(formatDateForInput(event.end));
+	let endTime = $state(formatTimeForInput(event.end));
 
-	let showDeleteConfirm = false;
+	let showDeleteConfirm = $state(false);
 
 	function handleSubmit() {
 		const form = document.querySelector('form') as HTMLFormElement;
 		
 		if (allDay) {
 			const startVal = startDate + 'T00:00:00';
-			const endD = new Date(endDate);
+			const endD = new SvelteDate(endDate);
 			endD.setDate(endD.getDate() + 1);
 			const endVal = endD.toISOString().split('T')[0] + 'T00:00:00';
 			(form.querySelector('input[name="start"]') as HTMLInputElement).value = startVal;
@@ -209,7 +210,7 @@
 				{#if !showDeleteConfirm}
 					<button
 						type="button"
-						on:click={() => showDeleteConfirm = true}
+						onclick={() => showDeleteConfirm = true}
 						class="flex w-full items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
 					>
 						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -236,7 +237,7 @@
 							</form>
 							<button
 								type="button"
-								on:click={() => showDeleteConfirm = false}
+								onclick={() => showDeleteConfirm = false}
 								class="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
 							>
 								Cancel
