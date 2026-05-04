@@ -5,32 +5,37 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	function formatDateForInput(dateStr: string | Date): string {
+	// Prefill form state from event data
+	let event = $derived(data.event);
+	let allDay = $state(event?.allDay ?? false);
+	let title = $state(event?.title ?? '');
+	let location = $state(event?.location ?? '');
+	let description = $state(event?.description ?? '');
+	let calendarId = $state(event?.calendarId ?? data.calendarIds?.[0]?.id ?? '');
+
+	// Format dates for input fields
+	function formatDate(dateStr: string | Date): string {
 		const dt = typeof dateStr === 'string' ? DateTime.fromISO(dateStr) : DateTime.fromJSDate(dateStr);
 		return dt.toFormat('yyyy-MM-dd');
 	}
 
-	function formatTimeForInput(dateStr: string | Date): string {
+	function formatTime(dateStr: string | Date): string {
 		const dt = typeof dateStr === 'string' ? DateTime.fromISO(dateStr) : DateTime.fromJSDate(dateStr);
 		return dt.toFormat('HH:mm');
 	}
 
-	// Prefill form state from event data
-	let event = $derived(data.event);
-	let allDay = $state(event?.allDay ?? false);
-	let startDate = $state(event ? formatDateForInput(event.start) : '');
-	let startTime = $state(event ? formatTimeForInput(event.start) : '');
-	let endDate = $state(event ? formatDateForInput(event.end) : '');
-	let endTime = $state(event ? formatTimeForInput(event.end) : '');
+	let startDate = $state(event?.start ? formatDate(event.start) : '');
+	let startTime = $state(event?.start ? formatTime(event.start) : '');
+	let endDate = $state(event?.end ? formatDate(event.end) : '');
+	let endTime = $state(event?.end ? formatTime(event.end) : '');
 
 	let showDeleteConfirm = $state(false);
 
 	function handleSubmit() {
 		const form = document.querySelector('form') as HTMLFormElement;
-		
 		if (allDay) {
 			const startVal = startDate + 'T00:00:00';
-			const endD = new Date(endDate);
+			const endD = new Date(endDate + 'T00:00:00');
 			endD.setDate(endD.getDate() + 1);
 			const endVal = endD.toISOString().split('T')[0] + 'T00:00:00';
 			(form.querySelector('input[name="start"]') as HTMLInputElement).value = startVal;
@@ -64,7 +69,7 @@
 				<h1 class="text-2xl font-bold text-white">Edit Event</h1>
 				<p class="mt-1 text-primary-100">Update your event details</p>
 			</div>
-			
+
 			<form action="?/default" method="POST" use:enhance={() => {
 				return async ({ update }) => {
 					handleSubmit();
@@ -82,7 +87,7 @@
 						type="text"
 						id="title"
 						name="title"
-						value={event?.title || ''}
+						bind:value={title}
 						required
 						class="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-3 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
 					/>
@@ -150,7 +155,7 @@
 						type="text"
 						id="location"
 						name="location"
-						value={event?.location || ''}
+						bind:value={location}
 						placeholder="e.g., Home, 123 Main St"
 						class="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-3 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
 					/>
@@ -161,10 +166,11 @@
 					<textarea
 						id="description"
 						name="description"
+						bind:value={description}
 						rows="3"
 						placeholder="Add details about your event..."
 						class="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-3 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-					>{event?.description || ''}</textarea>
+					></textarea>
 				</div>
 
 				<div>
@@ -172,7 +178,7 @@
 					<select
 						id="calendarId"
 						name="calendarId"
-						value={event?.calendarId || data.calendarIds[0]?.id}
+						bind:value={calendarId}
 						class="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-3 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
 					>
 						{#each data.calendarIds as calendar (calendar.id)}
@@ -219,11 +225,7 @@
 					<div class="rounded-lg bg-red-50 p-4">
 						<p class="mb-3 text-sm text-red-800">Are you sure you want to delete this event? This action cannot be undone.</p>
 						<div class="flex gap-3">
-							<form action="?/deleteEvent" method="POST" use:enhance={() => {
-								return async ({ update }) => {
-									await update();
-								};
-							}} class="flex-1">
+							<form action="?/deleteEvent" method="POST" use:enhance class="flex-1">
 								<input type="hidden" name="eventId" value={event?.id} />
 								<button
 									type="submit"
