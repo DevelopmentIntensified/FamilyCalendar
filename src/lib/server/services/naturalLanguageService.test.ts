@@ -33,6 +33,37 @@ describe('NLP Event Parser', () => {
 			const result = parseEventInput('event next May');
 			expect(result.parsed.date).toBeDefined();
 		});
+
+		it('parses "3rd of may"', () => {
+			const result = parseEventInput('test event on the 3rd of may at 5pm');
+			expect(result.parsed.date).toContain('05-03');
+			expect(result.parsed.startTime).toBe('17:00');
+		});
+
+		it('parses "third of may" (word ordinal)', () => {
+			const result = parseEventInput('event third of June');
+			expect(result.parsed.date).toContain('06-03');
+		});
+
+		it('parses "1st of January"', () => {
+			const result = parseEventInput('party 1st of January');
+			expect(result.parsed.date).toContain('01-01');
+		});
+
+		it('parses "2nd of February"', () => {
+			const result = parseEventInput('meeting 2nd of February');
+			expect(result.parsed.date).toContain('02-02');
+		});
+
+		it('parses "twenty-first of December"', () => {
+			const result = parseEventInput('gala on the twenty-first of December');
+			expect(result.parsed.date).toContain('12-21');
+		});
+
+		it('parses "fourteenth of March"', () => {
+			const result = parseEventInput('event fourteenth of March');
+			expect(result.parsed.date).toContain('03-14');
+		});
 	});
 
 	describe('Time Patterns', () => {
@@ -248,6 +279,36 @@ describe('NLP Event Parser', () => {
 			);
 			expect(result.parsed.startTime).toBe('12:00');
 			expect(result.parsed.endTime).toBe('12:15'); // noon + 15 min
+		});
+
+		it('parses "about 15 min" duration', () => {
+			const result = parseEventInput('flash mob starting at noon and about 15 min');
+			expect(result.parsed.startTime).toBe('12:00');
+			expect(result.parsed.endTime).toBe('12:15');
+		});
+
+		it('parses "for about 15 min" duration', () => {
+			const result = parseEventInput('meeting at 3pm for about 15 min');
+			expect(result.parsed.startTime).toBe('15:00');
+			expect(result.parsed.endTime).toBe('15:15');
+		});
+
+		it('parses "for about 2 hr" duration', () => {
+			const result = parseEventInput('workshop at 1pm for about 2 hr');
+			expect(result.parsed.startTime).toBe('13:00');
+			expect(result.parsed.endTime).toBe('15:00');
+		});
+
+		it('parses "lasting about 20 min" duration', () => {
+			const result = parseEventInput('presentation at 10am lasting about 20 min');
+			expect(result.parsed.startTime).toBe('10:00');
+			expect(result.parsed.endTime).toBe('10:20');
+		});
+
+		it('parses "for 30 mins" duration', () => {
+			const result = parseEventInput('call at 2pm for 30 mins');
+			expect(result.parsed.startTime).toBe('14:00');
+			expect(result.parsed.endTime).toBe('14:30');
 		});
 
 		it('parses production call time with AM/PM shorthand', () => {

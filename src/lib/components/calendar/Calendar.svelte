@@ -10,6 +10,7 @@
 	export let events: any[] = [];
 	export let removeEvent: (id: string) => void = () => {};
 	export let preferedFirstDayOfWeek: string = 'sunday';
+	export let calendarIds: { id: string; name: string }[] = [];
 	let view: 'month' | 'week' | 'list' = 'month';
 	let showMiniPicker = false;
 
@@ -151,7 +152,7 @@
 	</div>
 
 	{#if view === 'month'}
-		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} />
+		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} />
 	{:else if view === 'week'}
 		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} />
 	{:else if view === 'list'}

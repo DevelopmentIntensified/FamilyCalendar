@@ -58,6 +58,11 @@
 		return att.toLowerCase().includes(contactSearch.toLowerCase());
 	});
 
+	$: hasDetectedFields = form.isDetected('date') || form.isDetected('startTime') || form.isDetected('location') || form.isDetected('attendants');
+	$: if (hasDetectedFields && !showMore && !form.isEditMode) {
+		showMore = true;
+	}
+
 	$: selectedCal = calendarIds.find(c => c.id === form.selectedCalendarId) || null;
 	$: calColor = selectedCal ? getContactColor(selectedCal.name) : { bg: '#F1F5F9', text: '#64748B' };
 
@@ -520,7 +525,7 @@
 							</div>
 						{/if}
 
-						{#if (form.isEditMode || showMore) && calendarIds.length >= 1}
+						{#if (form.isEditMode || showMore) && calendarIds.length > 1}
 							<div class="relative">
 								<label class="mb-1 block text-sm font-medium text-slate-700">Calendar</label>
 								<button

@@ -29,6 +29,17 @@ const DAY_MAP: Record<string, number> = {
 	thursday: 4, friday: 5, saturday: 6
 };
 
+const ORDINAL_WORD_MAP: Record<string, number> = {
+	first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10,
+	eleventh: 11, twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15, sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19,
+	twentieth: 20, 'twenty-first': 21, 'twenty second': 21, 'twenty-second': 22, 'twenty second': 22, 'twenty-third': 23, 'twenty third': 23,
+	twentyfourth: 24, 'twenty-fourth': 24, 'twenty fourth': 24, 'twenty-fifth': 25, 'twenty fifth': 25, 'twenty-sixth': 26, 'twenty sixth': 26,
+	'twenty-seventh': 27, 'twenty seventh': 27, 'twenty-eighth': 28, 'twenty eighth': 28, 'twenty-ninth': 29, 'twenty ninth': 29,
+	thirtieth: 30, 'thirty-first': 31, 'thirty first': 31
+};
+
+const ORDINAL_WORDS_PATTERN = '(?:twenty-(?:first|second|third|fifth|sixth|seventh|eighth|ninth)|thirty-first|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twentyfourth|twentyfifth|twentysixth|twentyseventh|twentyeighth|twentyninth|thirtieth|thirtyfirst)';
+
 function normalizeTime(hour: number, minute: number = 0): string {
 	return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 }
@@ -109,6 +120,36 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.3;
 	}
 
+	// Ordinal-first: "3rd of May", "third of June", "twenty-first of December"
+	const ordinalFirstMatch = input.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)\\s+of\\s+(january|february|march|april|may|june|july|august|september|october|november|december)\\b`, 'i'));
+	if (ordinalFirstMatch && !result.date) {
+		const month = MONTH_MAP[ordinalFirstMatch[2].toLowerCase()];
+		const day = parseInt(ordinalFirstMatch[1]);
+		if (day >= 1 && day <= 31) {
+			let year = now.year;
+			const target = DateTime.fromObject({ year, month, day });
+			if (target < now && month <= now.month) year = now.year + 1;
+			result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+			confidence += 0.3;
+		}
+	}
+
+	// Ordinal word-first: "third of May", "twenty-first of December"
+	const ordinalWordMatch = input.match(new RegExp(`\\b(${ORDINAL_WORDS_PATTERN})\\s+of\\s+(january|february|march|april|may|june|july|august|september|october|november|december)\\b`, 'i'));
+	if (ordinalWordMatch && !result.date) {
+		const month = MONTH_MAP[ordinalWordMatch[2].toLowerCase()];
+		const rawWord = ordinalWordMatch[1].toLowerCase();
+		const normalized = rawWord.replace(/\s+/g, ' ').trim();
+		const day = ORDINAL_WORD_MAP[normalized];
+		if (day) {
+			let year = now.year;
+			const target = DateTime.fromObject({ year, month, day });
+			if (target < now && month <= now.month) year = now.year + 1;
+			result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+			confidence += 0.3;
+		}
+	}
+
 	// Numeric date: "05/03", "12/25" (MM/DD format)
 	const numericDateMatch = input.match(/\b(\d{1,2})\/(\d{1,2})\b/);
 	if (numericDateMatch && !result.date) {
@@ -124,6 +165,25 @@ export function parseEventInput(input: string): ParseResult {
 	// ===== TIME PATTERNS =====
 	let foundTime = false;
 
+	// "6:00PM - 8:00PM" (time range with hyphen) — must check BEFORE standalone time
+	const hyphenRangeMatch = input.match(/(\d{1,2}):(\d{2})\s*(am?|pm?)\s*[-–—]\s*(\d{1,2}):(\d{2})\s*(am?|pm?)/i);
+	if (hyphenRangeMatch) {
+		let startHour = parseInt(hyphenRangeMatch[1]);
+		let startMin = parseInt(hyphenRangeMatch[2]);
+		let endHour = parseInt(hyphenRangeMatch[4]);
+		let endMin = parseInt(hyphenRangeMatch[5]);
+		const startPeriod = hyphenRangeMatch[3]?.toLowerCase();
+		const endPeriod = hyphenRangeMatch[6]?.toLowerCase();
+		if (startPeriod === 'pm' && startHour < 12) startHour += 12;
+		if (startPeriod === 'am' && startHour === 12) startHour = 0;
+		if (endPeriod === 'pm' && endHour < 12) endHour += 12;
+		if (endPeriod === 'am' && endHour === 12) endHour = 0;
+		result.startTime = normalizeTime(startHour, startMin);
+		result.endTime = normalizeTime(endHour, endMin);
+		foundTime = true;
+		confidence += 0.2;
+	}
+
 	// Check all-day first
 	if (['all day', 'all-day', 'whole day', 'birthday'].some(p => lower.includes(p))) {
 		result.allDay = true;
@@ -134,7 +194,7 @@ export function parseEventInput(input: string): ParseResult {
 	const startTimeMatch = input.match(/(?:start(?:ing)?\s+at|at|beginning\s+at)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?|AM?|PM?)?/i);
 
 	// Standalone time: "9:00 AM", "7:15P", "3:30 PM" (may appear after date)
-	if (!startTimeMatch) {
+	if (!startTimeMatch && !foundTime) {
 		const standaloneTimeMatch = input.match(/\b(\d{1,2}):(\d{2})\s*(am?|pm?|AM?|PM?)\b/i);
 		if (standaloneTimeMatch) {
 			let hour = parseInt(standaloneTimeMatch[1]);
@@ -232,25 +292,6 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.2;
 	}
 
-	// "6:00PM - 8:00PM" (time range with hyphen)
-	const hyphenRangeMatch = input.match(/(\d{1,2}):(\d{2})\s*(am?|pm?)\s*-\s*(\d{1,2}):(\d{2})\s*(am?|pm?)/i);
-	if (hyphenRangeMatch && !foundTime) {
-		let startHour = parseInt(hyphenRangeMatch[1]);
-		let startMin = parseInt(hyphenRangeMatch[2]);
-		let endHour = parseInt(hyphenRangeMatch[4]);
-		let endMin = parseInt(hyphenRangeMatch[5]);
-		const startPeriod = hyphenRangeMatch[3]?.toLowerCase();
-		const endPeriod = hyphenRangeMatch[6]?.toLowerCase();
-		if (startPeriod === 'pm' && startHour < 12) startHour += 12;
-		if (startPeriod === 'am' && startHour === 12) startHour = 0;
-		if (endPeriod === 'pm' && endHour < 12) endHour += 12;
-		if (endPeriod === 'am' && endHour === 12) endHour = 0;
-		result.startTime = normalizeTime(startHour, startMin);
-		result.endTime = normalizeTime(endHour, endMin);
-		foundTime = true;
-		confidence += 0.2;
-	}
-
 	// End time: "wrapping up around 9 PM"
 	const wrapMatch = input.match(/wrapping\s+up\s+(?:around\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
 	if (wrapMatch && !result.endTime) {
@@ -300,9 +341,9 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.1;
 	}
 
-	// Duration: "for 2 hours" or "for 15 minutes"
-	const hourDurMatch = input.match(/for\s+(\d+)\s+hours?\b/i);
-	const minDurMatch = input.match(/for\s+(\d+)\s+minutes?\b/i);
+	// Duration: "for 2 hours", "for 15 minutes", "for about 15 min", "about 15 min"
+	const hourDurMatch = input.match(/for\s+(?:about\s+)?(\d+)\s+(hours?|hrs?|hr)\b/i);
+	const minDurMatch = input.match(/for\s+(?:about\s+)?(\d+)\s+(minutes?|mins?|min)\b/i);
 
 	if (result.startTime && !result.endTime) {
 		const start = DateTime.fromFormat(result.startTime, 'HH:mm');
@@ -317,15 +358,30 @@ export function parseEventInput(input: string): ParseResult {
 		}
 	}
 
-	// Also check "lasting for X minutes/hours"
-	const lastingMatch = input.match(/lasting\s+for\s+(?:about\s+)?(\d+)\s+(minutes?|hours?)/i);
+	// Also check standalone "about X min/hr" (without "for")
+	if (result.startTime && !result.endTime) {
+		const aboutDurMatch = input.match(/about\s+(\d+)\s+(minutes?|mins?|min|hours?|hrs?|hr)\b/i);
+		if (aboutDurMatch) {
+			const start = DateTime.fromFormat(result.startTime, 'HH:mm');
+			const amount = parseInt(aboutDurMatch[1]);
+			if (aboutDurMatch[2].toLowerCase().startsWith('h')) {
+				result.endTime = start.plus({ hours: amount }).toFormat('HH:mm');
+			} else {
+				result.endTime = start.plus({ minutes: amount }).toFormat('HH:mm');
+			}
+			confidence += 0.1;
+		}
+	}
+
+	// Also check "lasting for X minutes/hours" or "lasting about X minutes"
+	const lastingMatch = input.match(/lasting\s+(?:for\s+)?(?:about\s+)?(\d+)\s+(minutes?|mins?|min|hours?|hrs?|hr)\b/i);
 	if (lastingMatch && result.startTime && !result.endTime) {
 		const start = DateTime.fromFormat(result.startTime, 'HH:mm');
 		const amount = parseInt(lastingMatch[1]);
-		if (lastingMatch[2].toLowerCase().startsWith('min')) {
-			result.endTime = start.plus({ minutes: amount }).toFormat('HH:mm');
-		} else {
+		if (lastingMatch[2].toLowerCase().startsWith('h')) {
 			result.endTime = start.plus({ hours: amount }).toFormat('HH:mm');
+		} else {
+			result.endTime = start.plus({ minutes: amount }).toFormat('HH:mm');
 		}
 		confidence += 0.1;
 	}

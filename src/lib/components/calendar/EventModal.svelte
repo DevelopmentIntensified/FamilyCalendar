@@ -9,6 +9,7 @@
 	export let attendees: { userId: string; status: string; firstName?: string; lastName?: string }[] = [];
 	export let nonUserAttendants: string[] = [];
 	export let currentUserRsvpStatus: string = 'undecided';
+	export let calendars: { id: string; name: string }[] = [];
 
 	const dispatch = createEventDispatcher();
 
@@ -18,9 +19,15 @@
 	$: maybeList = attendees.filter(a => a.status === 'maybe');
 	$: notGoingList = attendees.filter(a => a.status === 'declined' || a.status === 'not_going');
 
-	// Get calendar name
+	// Get calendar name from prop or event
 	$: calendarName = event.calendar?.name ||
+		(calendars.find(c => c.id === event.calendarId)?.name) ||
 		(event.calendarId ? 'Calendar' : '');
+
+	// Extract start/end times from ISO strings if not available as separate fields
+	$: startTime = event.startTime || (event.start ? (event.start instanceof Date ? DateTime.fromJSDate(event.start).toFormat('HH:mm') : DateTime.fromISO(event.start).toFormat('HH:mm')) : undefined);
+	$: endTime = event.endTime || (event.end ? (event.end instanceof Date ? DateTime.fromJSDate(event.end).toFormat('HH:mm') : DateTime.fromISO(event.end).toFormat('HH:mm')) : undefined);
+	$: eventDate = event.date || (event.start ? (event.start instanceof Date ? event.start : new Date(event.start)) : undefined);
 
 	function close() {
 		show = false;
@@ -59,8 +66,23 @@
 		showEditForm = false;
 	}
 
-	function handleRsvp(status: string) {
-		dispatch('rsvp', { id: event.id, status });
+	async function handleRsvp(status: string) {
+		try {
+			const response = await fetch(`/api/events/${event.id}/rsvp`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ status })
+			});
+			if (response.ok) {
+				const data = await response.json();
+				currentUserRsvpStatus = status;
+				attendees = data.attendance.filter(a => a.userId);
+				nonUserAttendants = data.attendance.filter(a => !a.userId && a.name).map(a => a.name);
+				dispatch('rsvp', { id: event.id, status });
+			}
+		} catch (error) {
+			console.error('RSVP error:', error);
+		}
 	}
 
 	function formatTime(time: string | undefined): string {
@@ -81,20 +103,20 @@
 		<EventFormModal
 			show={true}
 			event={event}
-			calendarIds={[]}
+			calendarIds={calendars}
 			on:close={handleFormClose}
 			on:update={handleUpdate}
 		/>
 	{:else}
-		<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-			<button class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick={close}></button>
+		<div class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-x-hidden">
+			<button class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick={close} aria-label="Close modal"></button>
 			
-			<div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+			<div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl overflow-x-hidden">
 				<!-- Header -->
 				<div class="flex items-center justify-between border-b border-slate-100 p-6">
 					<div class="flex items-center gap-3 min-w-0 flex-1">
 						<div class="h-3 w-3 rounded-full shrink-0 {event.color || 'bg-slate-400'}"></div>
-						<h2 class="text-xl font-bold text-slate-900 truncate">{event.title}</h2>
+						<h2 class="text-xl font-bold text-slate-900 truncate" title={event.title}>{event.title}</h2>
 					</div>
 					<button type="button" onclick={close} class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors shrink-0" aria-label="Close">
 						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -106,8 +128,8 @@
 				<!-- Content -->
 				<div class="space-y-4 p-6">
 					<!-- Date & Time -->
-					{#if event.date}
-						{@const eventDate = event.date instanceof Date ? DateTime.fromJSDate(event.date) : DateTime.fromISO(event.date)}
+					{#if eventDate}
+						{@const parsedDate = eventDate instanceof Date ? DateTime.fromJSDate(eventDate) : DateTime.fromISO(String(eventDate))}
 						<div class="flex items-start gap-3 text-slate-700">
 							<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 shrink-0">
 								<svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -115,14 +137,14 @@
 								</svg>
 							</div>
 							<div class="min-w-0 flex-1">
-								<div class="font-medium">{eventDate.toFormat('EEEE, MMMM d, yyyy')}</div>
+								<div class="font-medium">{parsedDate.toFormat('EEEE, MMMM d, yyyy')}</div>
 								{#if event.allDay}
 									<span class="inline-block mt-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">All day</span>
-								{:else if event.startTime}
+								{:else if startTime}
 									<div class="mt-1 text-sm text-slate-600">
-										{formatTime(event.startTime)}
-										{#if event.endTime}
-											<span class="text-slate-400"> - {formatTime(event.endTime)}</span>
+										{formatTime(startTime)}
+										{#if endTime}
+											<span class="text-slate-400"> - {formatTime(endTime)}</span>
 										{/if}
 									</div>
 								{/if}
@@ -233,7 +255,7 @@
 							<div>
 								<div class="mb-1.5 flex items-center gap-2">
 									<div class="h-2 w-2 rounded-full bg-slate-400"></div>
-									<span class="text-xs font-medium text-slate-600">Attendants ({nonUserAttendants.length})</span>
+									<span class="text-xs font-medium text-slate-600">Guests ({nonUserAttendants.length})</span>
 								</div>
 								<div class="flex flex-wrap gap-1.5">
 									{#each nonUserAttendants as att}

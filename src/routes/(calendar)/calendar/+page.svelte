@@ -74,6 +74,7 @@
 		events={allEvents} 
 		removeEvent={() => {}}
 		preferedFirstDayOfWeek={data.user?.firstDayOfWeek || 'sunday'}
+		calendarIds={data.calendarIds || []}
 		on:eventClick={handleEventClick}
 	/>
 </div>
