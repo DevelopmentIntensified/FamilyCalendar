@@ -5,8 +5,18 @@ import { sessions } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { sendEmail } from '$lib/utils/sendEmail';
+import { NOREPLYEMAIL, EMAILSECRET } from '$env/static/private';
+import { getUrl } from '$lib/utils/getUrl';
+import { createJWT } from 'oslo/jwt';
+import { TimeSpan } from 'lucia';
+import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
+import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
 
 export const load: PageServerLoad = async (event) => {
+	if (!event.locals.user) {
+		return redirect(302, '/login');
+	}
 	const userId = event.locals.user.id;
 	const user = await getUser(userId);
 
@@ -45,6 +55,7 @@ export const actions: Actions = {
 
 	updateEmail: async ({ request, locals }) => {
 		const userId = locals.user.id;
+		const currentUser = await getUser(userId);
 		const formData = await request.formData();
 
 		const email = formData.get('email') as string;
@@ -53,12 +64,57 @@ export const actions: Actions = {
 			return fail(400, { success: false, message: 'Valid email is required' });
 		}
 
+		if (email === currentUser?.email) {
+			return fail(400, { success: false, message: 'New email must be different from current email' });
+		}
+
 		try {
-			await updateUser(userId, { email, emailVerified: false });
-			return { success: true, message: 'Email updated. Please verify your new email address.' };
+			const random: RandomReader = {
+				read(bytes) {
+					crypto.getRandomValues(bytes);
+				}
+			};
+			const nums = '0123456789';
+			const code = generateRandomString(random, nums, 8);
+
+			const secret = new TextEncoder().encode(EMAILSECRET);
+			const token = await createJWT(
+				'HS256',
+				secret,
+				{ code, pendingEmail: email },
+				{
+					headers: { alg: 'HS256', typ: 'JWT' },
+					expiresIn: new TimeSpan(15, 'm')
+				}
+			);
+
+			const verifyUrl = new URL(getUrl());
+			verifyUrl.pathname = '/account/verify-email';
+			verifyUrl.searchParams.set('token', token);
+
+			await sendEmail({
+				to: email,
+				from: NOREPLYEMAIL,
+				subject: 'Family Planz Email Change Verification',
+				html: `<h1>Your verification code is: ${code}</h1>
+<p>Or click this link to verify: <a href="${verifyUrl.toString()}">Verify Email</a></p>`
+			});
+
+			await deleteCodesByEmail(currentUser!.email);
+			await createCode({
+				code,
+				expiresAt: new Date(Date.now() + 60 * 1000 * 15),
+				email: currentUser!.email,
+				firstName: currentUser!.firstName,
+				lastName: currentUser!.lastName,
+				type: 'email_change',
+				pendingEmail: email
+			});
+
+			return { success: true, message: 'Verification email sent. Please check your inbox.' };
 		} catch (error) {
 			console.error('Failed to update email:', error);
-			return fail(500, { success: false, message: 'Failed to update email' });
+			return fail(500, { success: false, message: 'Failed to send verification email' });
 		}
 	},
 
@@ -95,18 +151,13 @@ export const actions: Actions = {
 			return fail(400, { success: false, message: 'Confirmation does not match' });
 		}
 
-		try {
-			await lucia.invalidateSession(locals.session!.id);
-			
-			await db.delete(sessions).where(eq(sessions.userId, userId));
-			
-			const { deleteUser } = await import('$lib/server/db/actions/users');
-			await deleteUser(userId);
+		await lucia.invalidateSession(locals.session!.id);
+		
+		await db.delete(sessions).where(eq(sessions.userId, userId));
+		
+		const { deleteUser } = await import('$lib/server/db/actions/users');
+		await deleteUser(userId);
 
-			return redirect(302, '/');
-		} catch (error) {
-			console.error('Failed to delete account:', error);
-			return fail(500, { success: false, message: 'Failed to delete account' });
-		}
+		return redirect(302, '/');
 	}
 };

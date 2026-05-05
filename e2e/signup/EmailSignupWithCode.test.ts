@@ -19,7 +19,7 @@ test.afterEach(async () => {
 
 test('Email Sign Up With Code', async ({ page }) => {
 	const signUpPage = new SignUpPage(page);
-	const uniqueEmail = `signupcode${Date.now()}@familyplanz.com`;
+	const uniqueEmail = `delivered+signupcode${Date.now()}@resend.dev`;
 	const firstName = 'test';
 	const lastName = 'signupcode';
 	

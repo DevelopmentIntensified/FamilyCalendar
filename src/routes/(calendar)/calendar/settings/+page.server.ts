@@ -1,8 +1,14 @@
 import { getUserSettings, updateUserSettings } from '$lib/server/db/actions/userSettings';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { db } from '$lib/server/db';
+import { userAdConsent } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const load: PageServerLoad = async (event) => {
+	if (!event.locals.user) {
+		return redirect(302, '/login');
+	}
 	const userId = event.locals.user.id;
 	const userSettings = await getUserSettings(userId);
 
@@ -27,6 +33,9 @@ export const actions: Actions = {
 		const color = formData.get('color') as string;
 		const defaultView = formData.get('defaultView') as string;
 		const syncEventsToFamilyCalendar = formData.get('syncEventsToFamilyCalendar') === 'on';
+		const autoParseEventDetails = formData.get('autoParseEventDetails') === 'true';
+		const useCloudAI = formData.get('useCloudAI') === 'true';
+		const useLocalAI = formData.get('useLocalAI') === 'true';
 
 		try {
 			const existingSettings = await getUserSettings(userId);
@@ -39,7 +48,10 @@ export const actions: Actions = {
 						timeZone,
 						color,
 						defaultView,
-						syncEventsToFamilyCalendar
+						syncEventsToFamilyCalendar,
+						autoParseEventDetails,
+						useCloudAI,
+						useLocalAI
 					});
 				});
 			} else {
@@ -48,7 +60,10 @@ export const actions: Actions = {
 					timeZone,
 					color,
 					defaultView,
-					syncEventsToFamilyCalendar
+					syncEventsToFamilyCalendar,
+					autoParseEventDetails,
+					useCloudAI,
+					useLocalAI
 				});
 			}
 
@@ -56,6 +71,40 @@ export const actions: Actions = {
 		} catch (error) {
 			console.error('Failed to save settings:', error);
 			return fail(500, { success: false, message: 'Failed to save settings' });
+		}
+	},
+	ads: async ({ request, locals }) => {
+		const userId = locals.user.id;
+		const formData = await request.formData();
+
+		const showAdsAsEvents = formData.get('showAdsAsEvents') === 'true';
+		const showAdMarkers = formData.get('showAdMarkers') === 'true';
+		const personalizedAds = formData.get('personalizedAds') === 'true';
+
+		try {
+			const existing = await db.select().from(userAdConsent).where(eq(userAdConsent.userId, userId));
+			
+			if (existing.length > 0) {
+				await db.update(userAdConsent).set({
+					showAdsAsEvents,
+					showAdMarkers,
+					personalizedAds,
+					updatedAt: new Date()
+				}).where(eq(userAdConsent.userId, userId));
+			} else {
+				await db.insert(userAdConsent).values({
+					userId,
+					showAdsAsEvents,
+					showAdMarkers,
+					personalizedAds,
+					updatedAt: new Date()
+				});
+			}
+
+			return { success: true, message: 'Ad preferences saved' };
+		} catch (error) {
+			console.error('Failed to save ad preferences:', error);
+			return fail(500, { success: false, message: 'Failed to save ad preferences' });
 		}
 	}
 };

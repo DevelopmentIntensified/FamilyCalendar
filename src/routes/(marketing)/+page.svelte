@@ -7,27 +7,8 @@
 </svelte:head>
 
 <div class="min-h-screen bg-slate-50">
-	<!-- Navigation -->
-	<nav class="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm">
-		<div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-			<div class="flex items-center gap-2">
-				<svg class="h-8 w-8 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<rect x="3" y="4" width="18" height="18" rx="2" />
-					<line x1="16" y1="2" x2="16" y2="6" />
-					<line x1="8" y1="2" x2="8" y2="6" />
-					<line x1="3" y1="10" x2="21" y2="10" />
-				</svg>
-				<span class="text-xl font-bold text-slate-800">Family Planz</span>
-			</div>
-			<div class="flex items-center gap-4">
-				<a href="/login" class="text-sm font-medium text-slate-600 hover:text-slate-900">Sign In</a>
-				<a href="/signup" class="rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700">Get Started</a>
-			</div>
-		</div>
-	</nav>
-
 	<!-- Hero Section -->
-	<section class="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-32">
+	<section class="relative overflow-hidden pt-16 pb-20 md:pt-20 md:pb-32">
 		<div class="absolute inset-0 bg-gradient-to-br from-orange-50 via-white to-amber-50"></div>
 		<div class="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-primary-100/50 blur-3xl"></div>
 		<div class="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-amber-100/50 blur-3xl"></div>
@@ -205,6 +186,192 @@
 					</span>
 				</div>
 			</div>
+		</div>
+	</section>
+
+	<!-- Problem/Solution Section -->
+	<section class="bg-white py-20">
+		<div class="mx-auto max-w-7xl px-6">
+			<div class="mb-12 text-center">
+				<h2 class="mb-4 text-3xl font-bold text-slate-900 md:text-4xl">More than just a calendar</h2>
+				<p class="mx-auto max-w-2xl text-lg text-slate-600">
+					Family coordination made simple, without the chaos.
+				</p>
+			</div>
+			
+			<div class="grid gap-12 md:grid-cols-2">
+				<div class="rounded-2xl bg-slate-50 p-8">
+					<div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
+						<svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Sound familiar?</h3>
+					<ul class="space-y-3 text-slate-600">
+						<li class="flex items-start gap-3">
+							<span class="text-red-500">✕</span>
+							<span>Three different calendars, none of them matching</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-red-500">✕</span>
+							<span>Events scattered across emails, texts, and notes</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-red-500">✕</span>
+							<span>Missed appointments because you forgot to add them</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-red-500">✕</span>
+							<span>Family members not knowing each other's schedules</span>
+						</li>
+					</ul>
+				</div>
+				<div class="rounded-2xl bg-primary-50 p-8">
+					<div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Family Planz fixes that</h3>
+					<ul class="space-y-3 text-slate-700">
+						<li class="flex items-start gap-3">
+							<span class="text-primary-600">✓</span>
+							<span>One shared calendar for the whole family</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-primary-600">✓</span>
+							<span>Smart import—copy text, add events instantly</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-primary-600">✓</span>
+							<span>Color-coded by family member</span>
+						</li>
+						<li class="flex items-start gap-3">
+							<span class="text-primary-600">✓</span>
+							<span>Real-time sync across all devices</span>
+						</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Features Grid -->
+	<section id="features" class="bg-slate-50 py-20">
+		<div class="mx-auto max-w-7xl px-6">
+			<div class="mb-16 text-center">
+				<h2 class="mb-4 text-3xl font-bold text-slate-900 md:text-4xl">Everything your family needs</h2>
+				<p class="mx-auto max-w-2xl text-lg text-slate-600">
+					Simple, powerful features designed for real family life.
+				</p>
+			</div>
+			
+			<div class="grid gap-8 md:grid-cols-3">
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<rect x="3" y="4" width="18" height="18" rx="2" />
+							<line x1="16" y1="2" x2="16" y2="6" />
+							<line x1="8" y1="2" x2="8" y2="6" />
+							<line x1="3" y1="10" x2="21" y2="10" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Shared Family Calendar</h3>
+					<p class="text-slate-600">
+						Everyone's events in one place. See at a glance who's doing what and when—no more double-booking.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M13 10V3L4 14h7v7l9-11h-7z" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Smart Event Import</h3>
+					<p class="text-slate-600">
+						Copy text from anywhere. Our AI reads the details and creates the event automatically.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+							<circle cx="9" cy="7" r="4" />
+							<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+							<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Family Groups</h3>
+					<p class="text-slate-600">
+						Organize by family, sports teams, or school events. Everyone stays in the loop.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Print Your Calendar</h3>
+					<p class="text-slate-600">
+						Need a paper copy? Print your weekly or monthly calendar with one click.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Mobile Friendly</h3>
+					<p class="text-slate-600">
+						Access your calendar from any device. Perfect for busy families on the go.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 transition-shadow hover:shadow-lg">
+					<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-100">
+						<svg class="h-7 w-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+						</svg>
+					</div>
+					<h3 class="mb-3 text-xl font-bold text-slate-900">Smart Reminders</h3>
+					<p class="text-slate-600">
+						Never miss an event with customizable reminders for you and your family members.
+					</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Quote Section -->
+	<section class="bg-slate-900 py-20">
+		<div class="mx-auto max-w-4xl px-6 text-center">
+			<svg class="mx-auto mb-6 h-12 w-12 text-primary-500" fill="currentColor" viewBox="0 0 24 24">
+				<path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+			</svg>
+			<blockquote class="mb-8 text-2xl font-medium italic text-white md:text-3xl">
+				"A family that planz together, stays together."
+			</blockquote>
+			<p class="text-lg text-slate-400">~ Unknown</p>
+		</div>
+	</section>
+
+	<!-- CTA Section -->
+	<section class="bg-gradient-to-br from-primary-600 to-primary-700 py-20">
+		<div class="mx-auto max-w-4xl px-6 text-center">
+			<h2 class="mb-4 text-3xl font-bold text-white md:text-4xl">Ready to simplify your family's schedule?</h2>
+			<p class="mx-auto mb-10 max-w-2xl text-xl text-primary-100">
+				Start adding events the easy way today.
+			</p>
+			<a href="/signup" class="inline-block rounded-full bg-white px-10 py-4 text-lg font-bold text-primary-700 shadow-lg transition-transform hover:scale-105">
+				Get Started for Free
+			</a>
+			<p class="mt-4 text-sm text-primary-200">No credit card required.</p>
 		</div>
 	</section>
 

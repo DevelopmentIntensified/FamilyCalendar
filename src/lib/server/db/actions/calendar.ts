@@ -21,8 +21,8 @@ export async function getCalendar(id: string) {
 }
 
 export async function getUserCalendar(userId: string) {
-	const [userCalendar] = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
-	return userCalendar;
+	const cals = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
+	return cals[0] || null;
 }
 
 export async function createCalendar(data: typeof calendars.$inferInsert) {
@@ -34,8 +34,7 @@ export async function createUserCalendar(userId: string) {
 	const [createdCalendar] = await db
 		.insert(calendars)
 		.values({
-			ownerId: userId,
-			name: 'My Calendar'
+			ownerId: userId
 		})
 		.returning();
 	return createdCalendar;

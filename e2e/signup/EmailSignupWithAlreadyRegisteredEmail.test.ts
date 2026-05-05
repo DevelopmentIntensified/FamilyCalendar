@@ -10,7 +10,7 @@ import { eq } from 'drizzle-orm';
 
 const firstName = 'test';
 const lastName = 'alreadyregistered';
-const email = 'alreadyregistered' + Date.now() + '@familyplanz.com';
+const email = 'delivered+alreadyregistered' + Date.now() + '@resend.dev';
 
 let uid = '';
 

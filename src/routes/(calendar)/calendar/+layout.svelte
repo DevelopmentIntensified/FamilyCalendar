@@ -2,38 +2,26 @@
 	import { fade } from 'svelte/transition';
 	import '../../../app.css';
 	import type { LayoutData } from './$types';
-	import CalendarNavbar from '$lib/components/CalendarNavbar.svelte';
-	import DefaultNavbar from '$lib/components/DefaultNavbar.svelte';
-	import { goto } from '$app/navigation';
-	import CodexPlus from 'virtual:icons/codex/plus';
+	import Navbar from '$lib/components/Navbar.svelte';
 
 	export let data: LayoutData;
 	$: pathname = data.pathname;
 </script>
 
 <div class="flex min-h-screen flex-col">
-	<DefaultNavbar isAdmin={false} isLoggedIn={true} />
+	<Navbar isLoggedIn={true} user={data.user} />
 	{#key pathname}
-		<main class="flex-grow" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
+		<main class="pt-16 flex-grow pb-24" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
 			<slot />
 		</main>
 	{/key}
-	<footer
-		class="fixed bottom-0 left-0 block h-16 w-full border-slate-200 bg-white py-4 text-center shadow-xl shadow-slate-900"
-	>
-		{#if !pathname.includes('new')}
-			<!-- content here -->
-			<a
-				title="New Event"
-				href="/calendar/event/new"
-				class="fixed inset-x-0 bottom-12 m-auto h-14 w-14 rounded-full bg-secondary shadow-md shadow-slate-300"
-			>
-				<CodexPlus class="relative top-2 m-auto h-10 w-10 text-white" />
-			</a>
-		{/if}
-		<!-- <div class="flex h-full w-full"> -->
-		<!-- 	<a class="flex-1" href="/calendar/listview">list view</a> -->
-		<!-- 	<a class="flex-1" href="/calendar/weekview">week view </a> -->
-		<!-- </div> -->
+	<footer class="fixed bottom-0 left-0 w-full border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-500">
+		<div class="flex items-center justify-center gap-4">
+			<span>&copy; {new Date().getFullYear()} FamilyPlanz</span>
+			<span class="text-slate-300">|</span>
+			<a href="/about" class="hover:text-primary-600">About</a>
+			<a href="/privacy" class="hover:text-primary-600">Privacy</a>
+			<a href="/contact" class="hover:text-primary-600">Contact</a>
+		</div>
 	</footer>
 </div>

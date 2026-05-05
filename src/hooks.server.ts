@@ -2,7 +2,7 @@ import { lucia } from '$lib/server/auth';
 import { redirect, type Handle } from '@sveltejs/kit';
 
 const adminProtectedRoutes = ['admin'];
-const protectedRoutes = ['calendar', ...adminProtectedRoutes];
+const protectedRoutes = ['calendar', 'account', ...adminProtectedRoutes];
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const sessionId = event.cookies.get(lucia.sessionCookieName);

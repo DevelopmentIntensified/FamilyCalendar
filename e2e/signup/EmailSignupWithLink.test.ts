@@ -9,7 +9,7 @@ import { eq } from 'drizzle-orm';
 
 const firstName = 'test';
 const lastName = 'signupwithlink';
-const email = 'signuplink' + Date.now() + '@familyplanz.com';
+const email = 'delivered+signuplink' + Date.now() + '@resend.dev';
 
 test.afterEach(async () => {
 	const user = await db.select().from(users).where(eq(users.email, email));

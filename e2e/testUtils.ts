@@ -1,5 +1,6 @@
+import { test as base } from '@playwright/test';
 import { db } from '$lib/server/db';
-import { sessions, users, calendars } from '$lib/server/db/schema';
+import { sessions, users, calendars, events, userSettings } from '$lib/server/db/schema';
 import { lucia } from '$lib/server/auth';
 import { eq } from 'drizzle-orm';
 import { createNewUser } from '$lib/server/utils/createNewUser';
@@ -19,7 +20,7 @@ export async function setupTestUser(overrides?: Partial<TestUser>): Promise<Test
 	const timestamp = Date.now() + Math.floor(Math.random() * 10000);
 	const firstName = overrides?.firstName || 'test';
 	const lastName = overrides?.lastName || 'user';
-	const email = overrides?.email || `${firstName}${lastName}${timestamp}@familyplanz.com`;
+	const email = overrides?.email || `delivered+${firstName}${lastName}${timestamp}@resend.dev`;
 
 	const user = await createNewUser(firstName, lastName, email);
 
@@ -34,12 +35,28 @@ export async function setupTestUser(overrides?: Partial<TestUser>): Promise<Test
 export async function teardownTestUser(testUser: TestUser) {
 	const user = await db.select().from(users).where(eq(users.email, testUser.email));
 	if (user[0]) {
+		await db.delete(events).where(eq(events.ownerId, user[0].id));
+		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
+		await db.delete(userSettings).where(eq(userSettings.userId, user[0].id));
+		await db.delete(sessions).where(eq(sessions.userId, user[0].id));
 		await deleteCodesByEmail(testUser.email);
 		await deleteAccount(testUser.email);
-		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
 		await deleteUser(testUser.uid);
 	}
 }
+
+export const test = base.extend<{ testUser: TestUser }>({
+	testUser: [
+		async ({}, use) => {
+			const testUser = await setupTestUser();
+			await use(testUser);
+			await teardownTestUser(testUser);
+		},
+		{ scope: 'test' as const, timeout: 30000 }
+	]
+});
+
+export { expect } from '@playwright/test';
 
 export async function loginWithSession(page: Page, email: string) {
 	const cookie = await getSessionCookie(email);

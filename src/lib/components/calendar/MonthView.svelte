@@ -15,6 +15,7 @@
 	export let events: Event[];
 	export let removeEvent: (id: string) => void;
 	export let preferedFirstDayOfWeek: string = 'Monday';
+	export let calendarIds: { id: string; name: string }[] = [];
 
 	const today = DateTime.now();
 
@@ -44,11 +45,11 @@
 
 <div class="grid grid-cols-7 sm:gap-2">
 	{#each daysOfWeek as day}
-		<div class="p-1 text-center text-sm font-semibold text-gray-600 sm:p-2 sm:text-base">
+		<div class="p-2 text-center text-xs font-semibold text-slate-500 sm:p-3 sm:text-sm uppercase tracking-wide">
 			{day}
 		</div>
 	{/each}
-	<MonthDays days={lastMonthDays} currentDate={$currentDate} {events} lastMonth={true} />
-	<MonthDays {days} currentDate={$currentDate} {events} />
-	<MonthDays days={nextMonthDays} currentDate={$currentDate} {events} nextMonth={true} />
+	<MonthDays days={lastMonthDays} currentDate={$currentDate} {events} lastMonth={true} {calendarIds} />
+	<MonthDays {days} currentDate={$currentDate} {events} {calendarIds} />
+	<MonthDays days={nextMonthDays} currentDate={$currentDate} {events} nextMonth={true} {calendarIds} />
 </div>

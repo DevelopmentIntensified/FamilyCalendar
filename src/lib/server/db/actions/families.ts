@@ -4,10 +4,11 @@ import {
 	families,
 	familyMembers,
 	familyInviteCodes,
+	users,
 	type Family,
 	type FamilyInviteCode
 } from '$lib/server/db/schema';
-import { count, eq, and, gt } from 'drizzle-orm';
+import { count, eq, and, gt, ilike, or, sql } from 'drizzle-orm';
 import { generateId } from 'lucia';
 
 export async function getFamiliesCount() {
@@ -24,12 +25,18 @@ export async function getFamily(id: string) {
 }
 
 export async function getUserFamilies(userId: string) {
-	const [userFamily] = await db
+	const [member] = await db
 		.select()
 		.from(familyMembers)
-		.leftJoin(families, eq(families.id, familyMembers.familyId))
 		.where(eq(familyMembers.userId, userId));
-	return userFamily;
+	
+	if (!member) return null;
+	
+	const family = member.familyId
+		? (await db.select().from(families).where(eq(families.id, member.familyId)))[0]
+		: null;
+	
+	return { families: family, familyMembers: member };
 }
 
 export async function createFamily(data: Omit<Family, 'id' | 'createdAt'>) {
@@ -134,4 +141,66 @@ export async function getFamilyInviteCodes(familyId: string) {
 		.select()
 		.from(familyInviteCodes)
 		.where(eq(familyInviteCodes.familyId, familyId));
+}
+
+export async function removeFamilyMember(familyId: string, userId: string) {
+	await db.execute(sql`DELETE FROM "familyMembers" WHERE "family_id" = ${familyId} AND "user_id" = ${userId}`);
+}
+
+export async function searchUsers(query: string, familyId: string) {
+	const lowerQuery = `%${query.toLowerCase()}%`;
+
+	const existingMembers = await db
+		.select({ userId: familyMembers.userId })
+		.from(familyMembers)
+		.where(eq(familyMembers.familyId, familyId));
+
+	const excludeUserIds = existingMembers.map(m => m.userId);
+
+	if (excludeUserIds.length === 0) {
+		return await db
+			.select({
+				id: users.id,
+				firstName: users.firstName,
+				lastName: users.lastName,
+				email: users.email
+			})
+			.from(users)
+			.where(
+				and(
+					eq(users.emailVerified, true),
+					or(
+						ilike(users.email, lowerQuery),
+						ilike(users.firstName, lowerQuery),
+						ilike(users.lastName, lowerQuery),
+						sql`${users.firstName} || ' ' || ${users.lastName} ILIKE ${lowerQuery}`
+					)
+				)
+			)
+			.limit(10);
+	}
+
+	const placeholders = excludeUserIds.map(() => sql`id != ${excludeUserIds[excludeUserIds.indexOf(excludeUserIds[0])]}`);
+
+	return await db
+		.select({
+			id: users.id,
+			firstName: users.firstName,
+			lastName: users.lastName,
+			email: users.email
+		})
+		.from(users)
+		.where(
+			and(
+				eq(users.emailVerified, true),
+				sql`${users.id} NOT IN (${sql.join(excludeUserIds.map(id => sql`${id}`), sql`, `)})`,
+				or(
+					ilike(users.email, lowerQuery),
+					ilike(users.firstName, lowerQuery),
+					ilike(users.lastName, lowerQuery),
+					sql`${users.firstName} || ' ' || ${users.lastName} ILIKE ${lowerQuery}`
+				)
+			)
+		)
+		.limit(10);
 }
