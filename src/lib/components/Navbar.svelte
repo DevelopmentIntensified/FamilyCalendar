@@ -17,8 +17,9 @@
 	}
 
 	const marketingNavItems = [
-		{ href: '/about', label: 'About' },
+		{ href: '/features', label: 'Features' },
 		{ href: '/pricing', label: 'Pricing' },
+		{ href: '/about', label: 'About' },
 		{ href: '/contact', label: 'Contact' }
 	];
 
@@ -91,10 +92,7 @@
 								</div>
 							{/if}
 							<a href="/account" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-								Account Settings
-							</a>
-							<a href="/calendar/settings" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-								Calendar Settings
+								Settings
 							</a>
 							<a href="/family" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
 								Family Management
