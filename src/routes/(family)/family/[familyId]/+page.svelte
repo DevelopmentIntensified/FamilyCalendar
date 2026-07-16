@@ -142,9 +142,9 @@
 											<button type="button" on:click={() => editingRole = null} class="ml-1 rounded bg-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-300">Cancel</button>
 										</form>
 									{:else}
-										<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase text-slate-700">
-											{member.role || 'member'}
-										</span>
+									<span class="rounded-full px-3 py-1 text-xs font-medium uppercase {member.role === 'admin' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}">
+										{member.role || 'member'}
+									</span>
 									{/if}
 									{#if currentUserRole === 'admin' && member.userId !== currentUserId}
 										<button
