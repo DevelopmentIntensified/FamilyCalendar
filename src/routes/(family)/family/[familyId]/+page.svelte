@@ -137,16 +137,17 @@
 											<select name="role" class="rounded-lg border border-slate-300 px-2 py-1 text-xs">
 												<option value="member" selected={member.role === 'member'}>member</option>
 												<option value="admin" selected={member.role === 'admin'}>admin</option>
+												{#if currentUserRole === 'creator'}<option value="creator" selected={member.role === 'creator'}>creator</option>{/if}
 											</select>
 											<button type="submit" class="ml-1 rounded bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700">Save</button>
 											<button type="button" on:click={() => editingRole = null} class="ml-1 rounded bg-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-300">Cancel</button>
 										</form>
 									{:else}
-									<span class="rounded-full px-3 py-1 text-xs font-medium uppercase {member.role === 'admin' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}">
-										{member.role || 'member'}
-									</span>
+										<span class="rounded-full px-3 py-1 text-xs font-medium uppercase {member.role === 'creator' ? 'bg-amber-100 text-amber-700' : member.role === 'admin' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">
+											{member.role || 'member'}
+										</span>
 									{/if}
-									{#if currentUserRole === 'admin' && member.userId !== currentUserId}
+									{#if (currentUserRole === 'creator' || currentUserRole === 'admin') && member.userId !== currentUserId && (currentUserRole === 'creator' || member.role === 'member')}
 										<button
 											on:click={() => editingRole = member.userId}
 											class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
@@ -179,7 +180,7 @@
 												No
 											</button>
 										</div>
-									{:else if currentUserRole === 'admin' && member.role !== 'admin' && member.userId !== currentUserId}
+									{:else if (currentUserRole === 'creator' || currentUserRole === 'admin') && member.userId !== currentUserId && member.role !== 'creator' && (currentUserRole === 'creator' || member.role === 'member')}
 										<button
 											on:click={() => showRemoveConfirm = member.userId}
 											class="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"

@@ -78,7 +78,7 @@ export const actions: Actions = {
 			await db.insert(familyMembers).values({
 				userId,
 				familyId,
-				role: 'admin'
+				role: 'creator'
 			});
 
 			await db.insert(calendars).values({

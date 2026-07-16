@@ -47,16 +47,22 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	}
 };
 
-async function requireAdmin(familyId: string, userId: string) {
+const PRIVILEGE = { creator: 2, admin: 1, member: 0 } as const;
+
+async function getMemberRole(familyId: string, userId: string) {
 	const [member] = await db
 		.select({ role: familyMembers.role })
 		.from(familyMembers)
 		.where(eq(familyMembers.familyId, familyId))
 		.where(eq(familyMembers.userId, userId))
 		.limit(1);
+	return member?.role || null;
+}
 
-	if (!member || member.role !== 'admin') {
-		return fail(403, { error: 'Only admins can perform this action' });
+async function requireMinRole(familyId: string, userId: string, minRole: 'creator' | 'admin') {
+	const role = await getMemberRole(familyId, userId);
+	if (!role || PRIVILEGE[role as keyof typeof PRIVILEGE] < PRIVILEGE[minRole]) {
+		return fail(403, { error: 'You do not have permission to perform this action' });
 	}
 }
 
@@ -70,7 +76,12 @@ export const actions: Actions = {
 			return fail(400, { error: 'User ID is required' });
 		}
 
-		const roleCheck = await requireAdmin(familyId, locals.user.id);
+		const targetRole = await getMemberRole(familyId, userId);
+		if (targetRole === 'creator') {
+			return fail(403, { error: 'Cannot remove the family creator' });
+		}
+
+		const roleCheck = await requireMinRole(familyId, locals.user.id, 'admin');
 		if (roleCheck) return roleCheck;
 		
 		await removeFamilyMember(familyId, userId);
@@ -86,12 +97,24 @@ export const actions: Actions = {
 			return fail(400, { error: 'User ID and role are required' });
 		}
 
-		if (role !== 'admin' && role !== 'member') {
-			return fail(400, { error: 'Role must be admin or member' });
+		if (!['creator', 'admin', 'member'].includes(role)) {
+			return fail(400, { error: 'Role must be creator, admin, or member' });
 		}
 
-		const roleCheck = await requireAdmin(familyId, locals.user.id);
-		if (roleCheck) return roleCheck;
+		const currentUserRole = await getMemberRole(familyId, locals.user.id);
+		if (!currentUserRole) return fail(403, { error: 'You do not have permission' });
+
+		const isSelf = userId === locals.user.id;
+		if (isSelf) return fail(400, { error: 'Cannot change your own role' });
+
+		const targetRole = await getMemberRole(familyId, userId);
+		if (!targetRole) return fail(400, { error: 'Member not found' });
+
+		if (role === 'creator') {
+			if (currentUserRole !== 'creator') return fail(403, { error: 'Only the creator can promote to creator' });
+		} else {
+			if (currentUserRole === 'member') return fail(403, { error: 'You do not have permission' });
+		}
 
 		await db.update(familyMembers).set({ role }).where(eq(familyMembers.familyId, familyId)).where(eq(familyMembers.userId, userId));
 		return { success: true };
@@ -101,7 +124,7 @@ export const actions: Actions = {
 		const name = formData.get('name') as string;
 		const color = formData.get('color') as string;
 		
-		const roleCheck = await requireAdmin(params.familyId, locals.user.id);
+		const roleCheck = await requireMinRole(params.familyId, locals.user.id, 'admin');
 		if (roleCheck) return roleCheck;
 
 		const updateData: { name?: string; color?: string } = {};
