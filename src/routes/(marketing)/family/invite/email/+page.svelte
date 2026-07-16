@@ -27,12 +27,18 @@
 			<div class="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-600">{form.error}</div>
 		{/if}
 
+		<form method="POST" action="?/skip" class="mb-4">
+			<input type="hidden" name="token" value={data.token} />
+			<button
+				type="submit"
+				class="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+			>
+				Skip for now &rarr;
+			</button>
+		</form>
+
 		<form method="POST" class="space-y-4">
 			<input type="hidden" name="token" value={data.token} />
-			<input type="hidden" name="email" value={data.email} />
-			<input type="hidden" name="firstName" value={data.firstName} />
-			<input type="hidden" name="lastName" value={data.lastName} />
-			<input type="hidden" name="familyId" value={data.familyId} />
 
 			<div>
 				<label for="password" class="mb-2 block text-sm font-medium text-slate-700">Password</label>

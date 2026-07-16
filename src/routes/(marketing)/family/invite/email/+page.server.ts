@@ -43,6 +43,57 @@ export const load: PageServerLoad = async ({ url }) => {
 	};
 };
 
+async function validateToken(token: string) {
+	const secret = new TextEncoder().encode(EMAILSECRET);
+	await validateJWT('HS256', secret, token);
+	const parsed = parseJWT(token);
+	if (!parsed?.payload) throw new Error('Invalid token');
+	const payload = parsed.payload as { email: string; firstName: string; lastName: string; familyId: string };
+	if (!payload.email || !payload.firstName || !payload.lastName || !payload.familyId) throw new Error('Invalid token');
+	return payload;
+}
+
+async function createAccountAndJoin(payload: { email: string; firstName: string; lastName: string; familyId: string }, passwordHash?: string) {
+	const { email, firstName, lastName, familyId } = payload;
+	const existingAccount = await getAccount(email);
+	if (existingAccount) {
+		await db.insert(familyMembers).values({
+			userId: existingAccount.userId,
+			familyId
+		});
+		const session = await lucia.createSession(existingAccount.userId, {});
+		const sessionCookie = lucia.createSessionCookie(session.id);
+		return new Response(null, {
+			status: 302,
+			headers: {
+				Location: getUrl() + '/family/' + familyId,
+				'Set-Cookie': sessionCookie.serialize()
+			}
+		});
+	}
+
+	const user = await createNewUser(firstName, lastName, email);
+	if (passwordHash) {
+		await db.update(users).set({ passwordHash }).where(eq(users.id, user.id));
+	}
+
+	await db.insert(familyMembers).values({
+		userId: user.id,
+		familyId
+	});
+
+	const session = await lucia.createSession(user.id, {});
+	const sessionCookie = lucia.createSessionCookie(session.id);
+
+	return new Response(null, {
+		status: 302,
+		headers: {
+			Location: getUrl() + '/family/' + familyId,
+			'Set-Cookie': sessionCookie.serialize()
+		}
+	});
+}
+
 export const actions: Actions = {
 	default: async (event) => {
 		const formData = await event.request.formData();
@@ -62,62 +113,32 @@ export const actions: Actions = {
 			return fail(400, { error: 'Passwords do not match' });
 		}
 
-		const secret = new TextEncoder().encode(EMAILSECRET);
 		try {
-			await validateJWT('HS256', secret, token);
+			const payload = await validateToken(token);
+			const passwordHash = await hash(password, {
+				memoryCost: 19456,
+				timeCost: 2,
+				outputLen: 32,
+				parallelism: 1
+			});
+			return await createAccountAndJoin(payload, passwordHash);
 		} catch {
 			return fail(400, { error: 'Invalid or expired token' });
 		}
+	},
+	skip: async (event) => {
+		const formData = await event.request.formData();
+		const token = formData.get('token') as string;
 
-		const parsed = parseJWT(token);
-		if (!parsed?.payload) {
-			return fail(400, { error: 'Invalid token' });
+		if (!token) {
+			return fail(400, { error: 'Missing token' });
 		}
 
-		const payload = parsed.payload as { email: string; firstName: string; lastName: string; familyId: string };
-		const { email, firstName, lastName, familyId } = payload;
-
-		const existingAccount = await getAccount(email);
-		if (existingAccount) {
-			await db.insert(familyMembers).values({
-				userId: existingAccount.userId,
-				familyId
-			});
-			const session = await lucia.createSession(existingAccount.userId, {});
-			const sessionCookie = lucia.createSessionCookie(session.id);
-			return new Response(null, {
-				status: 302,
-				headers: {
-					Location: getUrl() + '/family/' + familyId,
-					'Set-Cookie': sessionCookie.serialize()
-				}
-			});
+		try {
+			const payload = await validateToken(token);
+			return await createAccountAndJoin(payload);
+		} catch {
+			return fail(400, { error: 'Invalid or expired token' });
 		}
-
-		const passwordHash = await hash(password, {
-			memoryCost: 19456,
-			timeCost: 2,
-			outputLen: 32,
-			parallelism: 1
-		});
-
-		const user = await createNewUser(firstName, lastName, email);
-		await db.update(users).set({ passwordHash }).where(eq(users.id, user.id));
-
-		await db.insert(familyMembers).values({
-			userId: user.id,
-			familyId
-		});
-
-		const session = await lucia.createSession(user.id, {});
-		const sessionCookie = lucia.createSessionCookie(session.id);
-
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: getUrl() + '/family/' + familyId,
-				'Set-Cookie': sessionCookie.serialize()
-			}
-		});
 	}
 };
