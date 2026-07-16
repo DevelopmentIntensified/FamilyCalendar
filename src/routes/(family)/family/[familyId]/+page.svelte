@@ -5,10 +5,11 @@
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	export let data: PageData;
 	export let form: ActionData;
-	const { family, members, currentUserRole } = data;
+	const { family, members, currentUserRole, currentUserId } = data;
 	
 	let showSettings = false;
 	let showRemoveConfirm: string | null = null;
+	let editingRole: string | null = null;
 	let editingName = family?.name || '';
 	let editingColor = family?.color || '#3b82f6';
 </script>
@@ -123,10 +124,36 @@
 										<p class="text-sm text-slate-500">{member.email}</p>
 									</div>
 								</div>
-								<div class="flex items-center gap-3">
-									<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase text-slate-700">
-										{member.role || 'member'}
-									</span>
+								<div class="flex items-center gap-2">
+									{#if editingRole === member.userId}
+										<form method="POST" action="?/updateRole" use:enhance={() => {
+											return async ({ result, update }) => {
+												await update();
+												await invalidateAll();
+												editingRole = null;
+											};
+										}}>
+											<input type="hidden" name="userId" value={member.userId} />
+											<select name="role" class="rounded-lg border border-slate-300 px-2 py-1 text-xs">
+												<option value="member" selected={member.role === 'member'}>member</option>
+												<option value="admin" selected={member.role === 'admin'}>admin</option>
+											</select>
+											<button type="submit" class="ml-1 rounded bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700">Save</button>
+											<button type="button" on:click={() => editingRole = null} class="ml-1 rounded bg-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-300">Cancel</button>
+										</form>
+									{:else}
+										<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase text-slate-700">
+											{member.role || 'member'}
+										</span>
+									{/if}
+									{#if currentUserRole === 'admin' && member.userId !== currentUserId}
+										<button
+											on:click={() => editingRole = member.userId}
+											class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+										>
+											Edit
+										</button>
+									{/if}
 									{#if showRemoveConfirm === member.userId}
 										<div class="flex items-center gap-2">
 											<span class="text-sm text-red-600">Remove?</span>
@@ -152,7 +179,7 @@
 												No
 											</button>
 										</div>
-									{:else if currentUserRole === 'admin' && member.role !== 'admin'}
+									{:else if currentUserRole === 'admin' && member.role !== 'admin' && member.userId !== currentUserId}
 										<button
 											on:click={() => showRemoveConfirm = member.userId}
 											class="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
