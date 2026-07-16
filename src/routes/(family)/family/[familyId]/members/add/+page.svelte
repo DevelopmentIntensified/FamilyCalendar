@@ -15,6 +15,8 @@
 	let success = false;
 	let searching = false;
 	let inviting = false;
+	let inviteLink = '';
+	let generatingLink = false;
 
 	const searchUsers = async () => {
 		if (searchQuery.length < 2) {
@@ -71,6 +73,34 @@
 			success = true;
 		}
 		inviting = false;
+	};
+
+	const generateInviteLink = async () => {
+		generatingLink = true;
+		error = '';
+		inviteLink = '';
+		const res = await fetch('/family/' + data.familyId + '/members/add/email/link', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				email: inviteEmail,
+				firstName: inviteFirstName,
+				lastName: inviteLastName
+			})
+		});
+		const json = await res.json();
+		if (json.error) {
+			error = json.error;
+		} else if (json.link) {
+			inviteLink = json.link;
+		}
+		generatingLink = false;
+	};
+
+	const copyLink = async () => {
+		if (inviteLink) {
+			await navigator.clipboard.writeText(inviteLink);
+		}
 	};
 </script>
 
@@ -222,14 +252,45 @@
 								class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 							/>
 						</div>
-						<button
-							type="submit"
-							disabled={inviting}
-							class="w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-						>
-							{inviting ? 'Sending Invite...' : 'Send Invite'}
-						</button>
+						<div class="flex gap-3">
+							<button
+								type="submit"
+								disabled={inviting}
+								class="flex-1 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+							>
+								{inviting ? 'Sending Invite...' : 'Send Invite'}
+							</button>
+							<button
+								type="button"
+								on:click={generateInviteLink}
+								disabled={generatingLink || !inviteEmail || !inviteFirstName || !inviteLastName}
+								class="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+							>
+								{generatingLink ? 'Generating...' : 'Get Invite Link'}
+							</button>
+						</div>
 					</form>
+
+					{#if inviteLink}
+						<div class="mt-4 rounded-lg border border-primary-200 bg-primary-50 p-4">
+							<p class="mb-2 text-sm font-medium text-primary-800">Share this link with {inviteFirstName}:</p>
+							<div class="flex gap-2">
+								<input
+									type="text"
+									readonly
+									value={inviteLink}
+									class="flex-1 rounded-lg border border-primary-300 bg-white px-3 py-2 text-xs text-slate-700"
+								/>
+								<button
+									on:click={copyLink}
+									class="rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700"
+								>
+									Copy
+								</button>
+							</div>
+							<p class="mt-2 text-xs text-primary-600">Expires in 24 hours</p>
+						</div>
+					{/if}
 				{/if}
 
 				<div class="mt-6 border-t border-slate-200 pt-6">
