@@ -8,6 +8,7 @@ import { accounts, users } from '$lib/server/db/schema';
 import { db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 import { getAccount } from '$lib/server/db/actions/accounts';
+import { getUserByEmail } from '$lib/server/db/actions/users';
 
 export const GET: RequestHandler = async function (event) {
 	const requestUrl = new URL(event.url);
@@ -69,14 +70,18 @@ export const GET: RequestHandler = async function (event) {
 
 	try {
 		const { email } = payload;
-		const userAccount = await getAccount(email);
-		if (userAccount.length === 0) {
-			return new Response(null, {
-				status: 302,
-				headers: {
-					Location: redirectUrl.toString()
-				}
-			});
+		let userAccount = await getAccount(email);
+		if (!userAccount) {
+			const user = await getUserByEmail(email);
+			if (!user) {
+				return new Response(null, {
+					status: 302,
+					headers: {
+						Location: redirectUrl.toString()
+					}
+				});
+			}
+			userAccount = { userId: user.id } as any;
 		}
 		let userId = userAccount.userId;
 

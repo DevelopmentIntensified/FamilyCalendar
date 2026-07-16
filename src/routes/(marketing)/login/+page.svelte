@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
 
 	export let data: PageData;
 
@@ -11,6 +13,16 @@
 	let waiting = false;
 	let emailSent = false;
 	let code = '';
+
+	onMount(() => {
+		const urlError = $page.url.searchParams.get('error');
+		if (urlError) {
+			error = urlError;
+			const url = new URL($page.url);
+			url.searchParams.delete('error');
+			goto(url.pathname + url.search, { replaceState: true });
+		}
+	});
 
 	async function handlePasswordLogin() {
 		waiting = true;
@@ -196,6 +208,9 @@
 									class="mt-1.5 block w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 									required
 								/>
+								<div class="mt-1 text-right">
+									<a href="/forgot-password" class="text-sm text-primary-600 hover:text-primary-700">Forgot your password?</a>
+								</div>
 							</div>
 
 							<button
