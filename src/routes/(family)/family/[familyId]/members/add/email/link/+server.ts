@@ -38,7 +38,7 @@ export const POST = async (event: RequestEvent) => {
 	);
 
 	const siteUrl = getUrl();
-	const link = `${siteUrl}/family/${event.params.familyId}/members/add/email/callback?token=${token}`;
+	const link = `${siteUrl}/family/invite/email?token=${token}`;
 
 	return json({ success: true, link });
 };

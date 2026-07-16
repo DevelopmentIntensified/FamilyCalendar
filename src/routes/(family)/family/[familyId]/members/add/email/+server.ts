@@ -52,7 +52,7 @@ export const POST = async (event: RequestEvent) => {
 	);
 
 	const signInUrl = new URL(getUrl());
-	signInUrl.pathname = '/family' + event.params.familyId + '/members/add/email/callback';
+	signInUrl.pathname = '/family/invite/email';
 	signInUrl.searchParams.set('token', token);
 
 	const { success, error, data } = await sendEmail({
