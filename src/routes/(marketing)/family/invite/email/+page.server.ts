@@ -9,8 +9,6 @@ import { getAccount } from '$lib/server/db/actions/accounts';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 import { lucia } from '$lib/server/auth';
 import { hash } from '@node-rs/argon2';
-import { getUrl } from '$lib/utils/getUrl';
-
 export const load: PageServerLoad = async ({ url }) => {
 	const token = url.searchParams.get('token');
 	if (!token) {
@@ -53,7 +51,18 @@ async function validateToken(token: string) {
 	return payload;
 }
 
-async function createAccountAndJoin(payload: { email: string; firstName: string; lastName: string; familyId: string }, passwordHash?: string) {
+async function setSessionCookie(event: { cookies: import('@sveltejs/kit').Cookies }, userId: string) {
+	const session = await lucia.createSession(userId, {});
+	const sessionCookie = lucia.createSessionCookie(session.id);
+	event.cookies.set(sessionCookie.name, sessionCookie.value, {
+		path: '/',
+		httpOnly: true,
+		sameSite: 'lax',
+		secure: import.meta.env.PROD
+	});
+}
+
+async function createAccountAndJoin(event: import('./$types').RequestEvent, payload: { email: string; firstName: string; lastName: string; familyId: string }, passwordHash?: string) {
 	const { email, firstName, lastName, familyId } = payload;
 	const existingAccount = await getAccount(email);
 	if (existingAccount) {
@@ -61,15 +70,8 @@ async function createAccountAndJoin(payload: { email: string; firstName: string;
 			userId: existingAccount.userId,
 			familyId
 		});
-		const session = await lucia.createSession(existingAccount.userId, {});
-		const sessionCookie = lucia.createSessionCookie(session.id);
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: getUrl() + '/family/' + familyId,
-				'Set-Cookie': sessionCookie.serialize()
-			}
-		});
+		await setSessionCookie(event, existingAccount.userId);
+		throw redirect(303, '/family/' + familyId);
 	}
 
 	const user = await createNewUser(firstName, lastName, email);
@@ -82,28 +84,32 @@ async function createAccountAndJoin(payload: { email: string; firstName: string;
 		familyId
 	});
 
-	const session = await lucia.createSession(user.id, {});
-	const sessionCookie = lucia.createSessionCookie(session.id);
-
-	return new Response(null, {
-		status: 302,
-		headers: {
-			Location: getUrl() + '/family/' + familyId,
-			'Set-Cookie': sessionCookie.serialize()
-		}
-	});
+	await setSessionCookie(event, user.id);
+	throw redirect(303, '/family/' + familyId);
 }
 
 export const actions: Actions = {
 	default: async (event) => {
 		const formData = await event.request.formData();
-		const password = formData.get('password') as string;
-		const passwordConfirm = formData.get('passwordConfirm') as string;
+		const action = formData.get('_action') as string;
 		const token = formData.get('token') as string;
 
 		if (!token) {
 			return fail(400, { error: 'Missing token' });
 		}
+
+		if (action === 'skip') {
+			let payload: { email: string; firstName: string; lastName: string; familyId: string };
+			try {
+				payload = await validateToken(token);
+			} catch {
+				return fail(400, { error: 'Invalid or expired token' });
+			}
+			return await createAccountAndJoin(event, payload);
+		}
+
+		const password = formData.get('password') as string;
+		const passwordConfirm = formData.get('passwordConfirm') as string;
 
 		if (!password || password.length < 6) {
 			return fail(400, { error: 'Password must be at least 6 characters' });
@@ -113,32 +119,20 @@ export const actions: Actions = {
 			return fail(400, { error: 'Passwords do not match' });
 		}
 
+		let payload: { email: string; firstName: string; lastName: string; familyId: string };
 		try {
-			const payload = await validateToken(token);
-			const passwordHash = await hash(password, {
-				memoryCost: 19456,
-				timeCost: 2,
-				outputLen: 32,
-				parallelism: 1
-			});
-			return await createAccountAndJoin(payload, passwordHash);
+			payload = await validateToken(token);
 		} catch {
 			return fail(400, { error: 'Invalid or expired token' });
 		}
-	},
-	skip: async (event) => {
-		const formData = await event.request.formData();
-		const token = formData.get('token') as string;
 
-		if (!token) {
-			return fail(400, { error: 'Missing token' });
-		}
+		const passwordHash = await hash(password, {
+			memoryCost: 19456,
+			timeCost: 2,
+			outputLen: 32,
+			parallelism: 1
+		});
 
-		try {
-			const payload = await validateToken(token);
-			return await createAccountAndJoin(payload);
-		} catch {
-			return fail(400, { error: 'Invalid or expired token' });
-		}
+		return await createAccountAndJoin(event, payload, passwordHash);
 	}
 };

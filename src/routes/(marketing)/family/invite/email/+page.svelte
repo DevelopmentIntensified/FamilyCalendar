@@ -27,7 +27,8 @@
 			<div class="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-600">{form.error}</div>
 		{/if}
 
-		<form method="POST" action="?/skip" class="mb-4">
+		<form method="POST" class="mb-4">
+			<input type="hidden" name="_action" value="skip" />
 			<input type="hidden" name="token" value={data.token} />
 			<button
 				type="submit"
@@ -38,6 +39,7 @@
 		</form>
 
 		<form method="POST" class="space-y-4">
+			<input type="hidden" name="_action" value="setPassword" />
 			<input type="hidden" name="token" value={data.token} />
 
 			<div>
