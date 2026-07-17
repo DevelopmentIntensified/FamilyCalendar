@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { generateInviteCode, verifyInviteCode } from '$lib/server/db/actions/families';
+import { generateInviteCode, verifyInviteCode, deleteInviteCode } from '$lib/server/db/actions/families';
 import { getUserFamilies } from '$lib/server/db/actions/families';
 import { db } from '$lib/server/db';
-import { familyMembers } from '$lib/server/db/schema';
+import { familyMembers, familyInviteCodes } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -72,4 +72,29 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		},
 		isAlreadyMember
 	});
+};
+
+export const DELETE: RequestHandler = async ({ request, locals }) => {
+	if (!locals.user) {
+		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
+	const body = await request.json();
+	const { code } = body;
+	if (!code) {
+		return json({ error: 'Invite code is required' }, { status: 400 });
+	}
+
+	const [invite] = await db.select().from(familyInviteCodes).where(eq(familyInviteCodes.code, code));
+	if (!invite) {
+		return json({ error: 'Invite code not found' }, { status: 404 });
+	}
+
+	const userFamilies = await getUserFamilies(locals.user.id);
+	if (!userFamilies || userFamilies.families?.id !== invite.familyId) {
+		return json({ error: 'You do not have permission to revoke this invitation' }, { status: 403 });
+	}
+
+	await deleteInviteCode(code);
+	return json({ success: true });
 };

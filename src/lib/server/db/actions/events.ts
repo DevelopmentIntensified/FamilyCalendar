@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { eventAttendance, events, users, type CalendarEvent } from '$lib/server/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 export async function getEvents() {
 	return await db.select().from(events).orderBy(events.start);
@@ -27,7 +27,27 @@ export async function getEventAttendance(id: string) {
 		.where(eq(eventAttendance.eventId, id));
 }
 
-export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>, ownerId: string) {
+export async function addEventAttendants(eventId: string, names: string[]) {
+	if (names.length === 0) return;
+	const insertData = names.map(name => ({
+		eventId,
+		name,
+		status: 'undecided' as const
+	}));
+	await db.insert(eventAttendance).values(insertData);
+}
+
+export async function syncEventAttendants(eventId: string, names: string[]) {
+	// Delete existing non-user attendants
+	await db.delete(eventAttendance)
+		.where(and(eq(eventAttendance.eventId, eventId), sql`${eventAttendance.name} IS NOT NULL`));
+	// Re-insert provided names
+	if (names.length > 0) {
+		await addEventAttendants(eventId, names);
+	}
+}
+
+export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>, ownerId: string, attendantNames?: string[]) {
 	const [createdEvent] = await db.insert(events).values(data).returning();
 	// Auto-RSVP creator as "going"
 	if (createdEvent && ownerId) {
@@ -37,11 +57,18 @@ export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>
 			status: 'going'
 		});
 	}
+	// Save non-user attendants
+	if (createdEvent && attendantNames && attendantNames.length > 0) {
+		await addEventAttendants(createdEvent.id, attendantNames);
+	}
 	return createdEvent;
 }
 
-export async function updateEventById(id: string, data: Partial<Omit<CalendarEvent, 'id'>>, userId: string) {
+export async function updateEventById(id: string, data: Partial<Omit<CalendarEvent, 'id'>>, userId: string, attendantNames?: string[]) {
 	const [updatedEvent] = await db.update(events).set(data).where(eq(events.id, id)).returning();
+	if (updatedEvent && attendantNames !== undefined) {
+		await syncEventAttendants(id, attendantNames);
+	}
 	return updatedEvent;
 }
 

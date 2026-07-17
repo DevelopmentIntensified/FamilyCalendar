@@ -147,6 +147,10 @@ export async function removeFamilyMember(familyId: string, userId: string) {
 	await db.execute(sql`DELETE FROM "familyMembers" WHERE "family_id" = ${familyId} AND "user_id" = ${userId}`);
 }
 
+export async function deleteInviteCode(code: string) {
+	await db.delete(familyInviteCodes).where(eq(familyInviteCodes.code, code));
+}
+
 export async function searchUsers(query: string, familyId: string) {
 	const lowerQuery = `%${query.toLowerCase()}%`;
 

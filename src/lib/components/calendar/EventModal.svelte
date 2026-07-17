@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import type { Event } from '$lib/types';
 	import { DateTime } from 'luxon';
 	import EventFormModal from './EventFormModal.svelte';
@@ -14,6 +14,25 @@
 	const dispatch = createEventDispatcher();
 
 	let showEditForm = false;
+
+	onMount(async () => {
+		if (!show || !event?.id) return;
+		try {
+			const res = await fetch(`/api/events/${event.id}/rsvp`);
+			if (res.ok) {
+				const data = await res.json();
+				if (data.attendance) {
+					attendees = data.attendance.filter((a: any) => a.userId);
+					nonUserAttendants = data.attendance.filter((a: any) => !a.userId && a.name).map((a: any) => a.name);
+				}
+				if (data.userRsvpStatus) {
+					currentUserRsvpStatus = data.userRsvpStatus;
+				}
+			}
+		} catch (e) {
+			console.error('Failed to load attendance:', e);
+		}
+	});
 
 	$: goingList = attendees.filter(a => a.status === 'going');
 	$: maybeList = attendees.filter(a => a.status === 'maybe');

@@ -57,7 +57,7 @@
 		selectedEvent = event.detail;
 		// Fetch RSVP data for this event
 		try {
-			const res = await fetch(`/api/events/${selectedEvent.id}/attendance`);
+			const res = await fetch(`/api/events/${selectedEvent.id}/rsvp`);
 			if (res.ok) {
 				selectedEventRsvp = await res.json();
 			}

@@ -9,6 +9,7 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 
 	const userId = locals.user.id;
 	const body = await request.json();
+	const attendantNames: string[] = Array.isArray(body.attendants) ? body.attendants : [];
 
 	const eventData = {
 		title: body.title,
@@ -21,7 +22,7 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 	};
 
 	try {
-		const updated = await updateEventById(params.id, eventData, userId);
+		const updated = await updateEventById(params.id, eventData, userId, attendantNames);
 		if (!updated) {
 			return json({ error: 'Event not found' }, { status: 404 });
 		}

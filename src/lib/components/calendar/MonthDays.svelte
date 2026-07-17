@@ -116,6 +116,7 @@
 	<EventModal
 		event={selectedEvent}
 		show={true}
+		{calendars}
 		on:close={closeModal}
 		on:delete={handleDelete}
 	/>

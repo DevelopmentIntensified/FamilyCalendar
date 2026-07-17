@@ -1,8 +1,8 @@
 import { DateTime } from 'luxon';
 import type { RSVPStatus } from '$lib/types';
-import type { ParsedEvent } from '$lib/server/services/naturalLanguageService';
+import type { ParsedEvent as ParsedEventNlp } from '$lib/server/services/naturalLanguageService';
 
-export type NlpFormInput = Partial<ParsedEvent> & { endDate?: string };
+export type NlpFormInput = Partial<ParsedEventNlp> & { endDate?: string };
 
 export interface ParsedEvent {
 	title?: string;
@@ -40,6 +40,25 @@ function saveRecentAttendantsToStorage(recent: string[], familyMemberIds: Set<st
 	try {
 		localStorage.setItem('recent_attendants', JSON.stringify(toSave));
 	} catch { /* ignore */ }
+}
+
+interface InitialEvent {
+	id: string;
+	title: string;
+	description: string;
+	location: string;
+	calendarId: string;
+	start: string | Date;
+	end?: string | Date | null;
+	allDay: boolean;
+	attendants?: string[];
+}
+
+interface EventFormConfig {
+	calendars: { id: string; name: string }[];
+	familyMembers: { userId: string; firstName: string; lastName: string; email: string }[];
+	defaultCalendarId?: string | null;
+	initialEvent?: InitialEvent;
 }
 
 export function createEventForm(config: EventFormConfig) {
@@ -193,6 +212,7 @@ export function createEventForm(config: EventFormConfig) {
 		set selectedCalendarId(v: string) { selectedCalendarId = v; },
 
 		get attendants() { return attendants; },
+		set attendants(v: string[]) { attendants = v; },
 
 		get recentAttendants() { return recentAttendants; },
 

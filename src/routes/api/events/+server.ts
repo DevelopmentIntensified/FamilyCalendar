@@ -13,6 +13,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const userId = locals.user.id;
 	const body = await request.json();
 
+	const attendantNames: string[] = Array.isArray(body.attendants) ? body.attendants : [];
+
 	let calendarId = body.calendarId;
 	if (!calendarId) {
 		let userCalendar = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
@@ -36,7 +38,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	};
 
 	try {
-		const created = await createEvent(eventData, userId);
+		const created = await createEvent(eventData, userId, attendantNames);
 		return json({ success: true, event: created }, { status: 201 });
 	} catch (error) {
 		console.error('Failed to create event:', error);
@@ -57,6 +59,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	}
 
 	const body = await request.json();
+	const attendantNames: string[] = Array.isArray(body.attendants) ? body.attendants : [];
 
 	const eventData = {
 		title: body.title,
@@ -69,7 +72,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	};
 
 	try {
-		const updated = await updateEventById(eventId, eventData, userId);
+		const updated = await updateEventById(eventId, eventData, userId, attendantNames);
 		if (!updated) {
 			return json({ error: 'Event not found' }, { status: 404 });
 		}
