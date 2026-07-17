@@ -9,6 +9,7 @@
 	export let events: Event[];
 	export let removeEvent: (id: string) => void;
 	export let preferedFirstDayOfWeek: string = 'sunday';
+	export let calendarIds: { id: string; name: string }[] = [];
 
 	const today = DateTime.now();
 	const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -111,6 +112,7 @@
 				{#each weekDays as wd}
 					{@const dayEvents = getEventsForDay(wd)}
 					{@const hourEvents = dayEvents.filter(e => {
+						if (e.allDay) return false;
 						if (!e.startTime) return false;
 						const eventHour = parseInt(e.startTime.split(':')[0]);
 						return eventHour === hour;
@@ -137,6 +139,7 @@
 	<EventModal
 		event={selectedEvent}
 		show={true}
+		calendars={calendarIds}
 		on:close={closeModal}
 		on:delete={handleDelete}
 	/>

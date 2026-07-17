@@ -154,7 +154,7 @@
 	{#if view === 'month'}
 		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} />
 	{:else if view === 'week'}
-		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} />
+		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} />
 	{:else if view === 'list'}
 		<ListView {currentDate} {events} {removeEvent} />
 	{/if}

@@ -17,30 +17,35 @@ import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adS
 
 const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
 
+function deriveEventProps(e: Record<string, any>, date: Date, end: Date | null) {
+	const startTime = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+	const endTime = end ? `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}` : undefined;
+	const allDay = date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0;
+	return {
+		...e,
+		start: date,
+		end: end || e.end,
+		date,
+		startTime,
+		endTime,
+		allDay
+	};
+}
+
 const parseEvents = function (eventsData) {
 	return eventsData.flatMap((e) => {
 		const startDate = new Date(e.start);
-		const endDate = new Date(e.end);
+		const endDate = e.end ? new Date(e.end) : null;
 		
-		if (startDate.getDate() === endDate.getDate()) {
-			return {
-				...e,
-				start: startDate,
-				end: endDate,
-				date: startDate
-			};
+		if (!endDate || startDate.getDate() === endDate.getDate()) {
+			return deriveEventProps(e, startDate, endDate);
 		}
 		
 		const diffDays = Math.round(Math.abs((startDate.getTime() - endDate.getTime()) / oneDay));
 		const days = [];
 		
 		for (let i = 0; i <= diffDays; i++) {
-			days.push({
-				...e,
-				start: startDate,
-				end: endDate,
-				date: new Date(startDate.getTime() + oneDay * i)
-			});
+			days.push(deriveEventProps(e, new Date(startDate.getTime() + oneDay * i), endDate));
 		}
 		
 		return days;
