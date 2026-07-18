@@ -343,6 +343,7 @@ export const events = pgTable('events', {
 	}),
 	description: text('description'),
 	location: text('location'),
+	allDay: boolean('all_day').default(false).notNull(),
 	created_at: timestamp('created_at').defaultNow().notNull()
 });
 

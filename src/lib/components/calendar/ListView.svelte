@@ -9,6 +9,11 @@
 	export let events: Event[];
 	export let removeEvent: (id: string) => void;
 
+	function formatEventTime(d: Date | string): string {
+		const dt = d instanceof Date ? DateTime.fromJSDate(d) : DateTime.fromISO(d);
+		return dt.toFormat('h:mm a');
+	}
+
 	$: year = $currentDate.year;
 	$: month = $currentDate.month;
 
@@ -95,16 +100,17 @@
 											</svg>
 											All day
 										</span>
-									{:else if event.startTime}
-										<span class="flex items-center gap-1">
-											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-											</svg>
-											{event.startTime}
-											{#if event.endTime}
-												- {event.endTime}
-											{/if}
-										</span>
+									{:else}
+										{@const st = event.startTime || (event.start ? formatEventTime(event.start) : undefined)}
+										{@const et = event.endTime || (event.end ? formatEventTime(event.end) : undefined)}
+										{#if st}
+											<span class="flex items-center gap-1">
+												<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+												</svg>
+												{st}{#if et} - {et}{/if}
+											</span>
+										{/if}
 									{/if}
 									{#if event.location}
 										<span class="flex items-center gap-1">

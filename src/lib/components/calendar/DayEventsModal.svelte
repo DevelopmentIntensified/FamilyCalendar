@@ -26,6 +26,11 @@
 		if (!calendarId) return '';
 		return calendars.find(c => c.id === calendarId)?.name || '';
 	}
+
+	function formatEventTime(d: Date | string): string {
+		const dt = d instanceof Date ? DateTime.fromJSDate(d) : DateTime.fromISO(d);
+		return dt.toFormat('h:mm a');
+	}
 </script>
 
 {#if show}
@@ -65,6 +70,10 @@
 										<span>All day</span>
 									{:else if event.startTime}
 										<span>{event.startTime}{#if event.endTime} - {event.endTime}{/if}</span>
+									{:else if event.start}
+										{@const st = formatEventTime(event.start)}
+										{@const et = event.end ? formatEventTime(event.end) : undefined}
+										<span>{st}{#if et} - {et}{/if}</span>
 									{/if}
 									{#if event.location}
 										<span class="truncate">· {event.location}</span>

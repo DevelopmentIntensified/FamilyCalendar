@@ -21,16 +21,26 @@
 		}
 	}
 
-	// Get start of week
 	$: current = $currentDate;
 	$: startOfWeek = current.startOf('week').plus({ day: dayOffset });
 	$: weekDays = Array.from({ length: 7 }, (_, i) => startOfWeek.plus({ day: i }));
+
+	function getStartHour(e: Event): number | null {
+		if (!e.start) return null;
+		const d = e.start instanceof Date ? e.start : new Date(e.start);
+		return d.getHours();
+	}
+
+	function formatTime(d: Date | string | undefined): string {
+		if (!d) return '';
+		const dt = d instanceof Date ? DateTime.fromJSDate(d) : DateTime.fromISO(d);
+		return dt.toFormat('h:mm a');
+	}
 
 	function getEventsForDay(day: DateTime): Event[] {
 		const dateStr = formatDate(day);
 		return events.filter(e => {
 			if (!e.date) return false;
-			// Handle both Date objects and string dates
 			const eventDate = e.date instanceof Date ? formatDate(e.date) : formatDate(e.date);
 			return eventDate === dateStr;
 		});
@@ -113,9 +123,8 @@
 					{@const dayEvents = getEventsForDay(wd)}
 					{@const hourEvents = dayEvents.filter(e => {
 						if (e.allDay) return false;
-						if (!e.startTime) return false;
-						const eventHour = parseInt(e.startTime.split(':')[0]);
-						return eventHour === hour;
+						const h = getStartHour(e);
+						return h !== null && h === hour;
 					})}
 					<div class="relative flex-1 min-h-[60px] border-r border-slate-100 last:border-r-0 p-0.5 hover:bg-slate-50 transition-colors">
 						{#each hourEvents as event}
@@ -124,7 +133,10 @@
 								onclick={() => handleEventClick(event)}
 								class="{event.color} rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer w-full text-left"
 							>
-								{event.title}
+								<span class="block truncate">{event.title}</span>
+								<span class="block text-[10px] opacity-75 truncate">
+									{formatTime(event.start)}{#if event.end} - {formatTime(event.end)}{/if}
+								</span>
 							</button>
 						{/each}
 					</div>

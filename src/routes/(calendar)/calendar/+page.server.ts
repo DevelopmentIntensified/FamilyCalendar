@@ -18,17 +18,11 @@ import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adS
 const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
 
 function deriveEventProps(e: Record<string, any>, date: Date, end: Date | null) {
-	const startTime = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-	const endTime = end ? `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}` : undefined;
-	const allDay = date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0;
 	return {
 		...e,
 		start: date,
 		end: end || e.end,
-		date,
-		startTime,
-		endTime,
-		allDay
+		date
 	};
 }
 
