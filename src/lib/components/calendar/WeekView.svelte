@@ -25,16 +25,29 @@
 	$: startOfWeek = current.startOf('week').plus({ day: dayOffset });
 	$: weekDays = Array.from({ length: 7 }, (_, i) => startOfWeek.plus({ day: i }));
 
-	function getStartHour(e: Event): number | null {
-		if (!e.start) return null;
-		const d = e.start instanceof Date ? e.start : new Date(e.start);
-		return d.getHours();
-	}
-
 	function formatTime(d: Date | string | undefined): string {
 		if (!d) return '';
 		const dt = d instanceof Date ? DateTime.fromJSDate(d) : DateTime.fromISO(d);
 		return dt.toFormat('h:mm a');
+	}
+
+	function getEventTop(event: Event): number {
+		if (!event.start) return 0;
+		const d = event.start instanceof Date ? event.start : new Date(event.start);
+		return ((d.getHours() * 60 + d.getMinutes()) / (24 * 60)) * 100;
+	}
+
+	function getEventHeight(event: Event): number {
+		if (!event.start) return 5;
+		const start = event.start instanceof Date ? event.start : new Date(event.start);
+		const startMin = start.getHours() * 60 + start.getMinutes();
+		let endMin = startMin + 60;
+		if (event.end) {
+			const end = event.end instanceof Date ? event.end : new Date(event.end);
+			endMin = end.getHours() * 60 + end.getMinutes();
+			if (endMin <= startMin) endMin = startMin + 60;
+		}
+		return Math.max(((endMin - startMin) / (24 * 60)) * 100, 2.5);
 	}
 
 	function getEventsForDay(day: DateTime): Event[] {
@@ -109,42 +122,43 @@
 	</div>
 
 	<!-- Week Body - Scrollable -->
-	<div class="max-h-[60vh] overflow-y-auto">
+	<div class="max-h-[60vh] overflow-y-auto relative">
+		<!-- Hour background grid -->
 		{#each hours as hour}
 			<div class="grid grid-cols-8 border-b border-slate-100 {isCurrentHour(hour, $currentDate) ? 'bg-primary-50/30' : ''}">
-				<!-- Time column -->
 				<div class="w-14 shrink-0 border-r border-slate-200 py-3 text-right pr-2">
 					<span class="text-xs font-medium text-slate-500">
 						{hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
 					</span>
 				</div>
-				
-				<!-- Day columns -->
 				{#each weekDays as wd}
-					{@const dayEvents = getEventsForDay(wd)}
-					{@const hourEvents = dayEvents.filter(e => {
-						if (e.allDay) return false;
-						const h = getStartHour(e);
-						return h !== null && h === hour;
-					})}
-					<div class="relative flex-1 min-h-[60px] border-r border-slate-100 last:border-r-0 p-0.5 hover:bg-slate-50 transition-colors">
-						{#each hourEvents as event}
-							<button
-								type="button"
-								onclick={() => handleEventClick(event)}
-								class="rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer w-full text-left bg-white"
-								style="border-left: 3px solid {event.color || '#94a3b8'}"
-							>
-								<span class="block truncate">{event.title}</span>
-								<span class="block text-[10px] opacity-75 truncate">
-									{formatTime(event.start)}{#if event.end} - {formatTime(event.end)}{/if}
-								</span>
-							</button>
-						{/each}
-					</div>
+					<div class="flex-1 min-h-[60px] border-r border-slate-100 last:border-r-0"></div>
 				{/each}
 			</div>
 		{/each}
+
+		<!-- Event overlay -->
+		<div class="absolute inset-0 grid grid-cols-8 pointer-events-none">
+			<div class="w-14 shrink-0"></div>
+			{#each weekDays as wd}
+				{@const dayEvents = getEventsForDay(wd).filter(e => !e.allDay)}
+				<div class="relative pointer-events-auto">
+					{#each dayEvents as event}
+						<button
+							type="button"
+							onclick={() => handleEventClick(event)}
+							class="absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer text-left overflow-hidden bg-white"
+							style="top: {getEventTop(event)}%; height: {getEventHeight(event)}%; border-left: 3px solid {event.color || '#94a3b8'}; min-height: 18px;"
+						>
+							<span class="block truncate">{event.title}</span>
+							<span class="block text-[10px] opacity-75 truncate">
+								{formatTime(event.start)}{#if event.end} - {formatTime(event.end)}{/if}
+							</span>
+						</button>
+					{/each}
+				</div>
+			{/each}
+		</div>
 	</div>
 </div>
 
