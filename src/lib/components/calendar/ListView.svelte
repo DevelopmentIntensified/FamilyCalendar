@@ -83,7 +83,7 @@
 					>
 						<div class="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-slate-300 hover:shadow-md">
 							<!-- Color indicator -->
-							<div class="shrink-0 h-12 w-1 rounded-full {event.color?.replace('bg-', 'bg-') || 'bg-slate-400'}"></div>
+							<div class="shrink-0 h-12 w-1 rounded-full" style="background-color: {event.color || '#94a3b8'}"></div>
 							
 							<div class="flex-1 min-w-0">
 								<div class="flex items-center gap-2">

@@ -55,7 +55,7 @@ interface InitialEvent {
 }
 
 interface EventFormConfig {
-	calendars: { id: string; name: string }[];
+	calendars: { id: string; name: string; color?: string }[];
 	familyMembers: { userId: string; firstName: string; lastName: string; email: string }[];
 	defaultCalendarId?: string | null;
 	initialEvent?: InitialEvent;

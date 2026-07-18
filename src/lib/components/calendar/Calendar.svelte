@@ -10,7 +10,7 @@
 	export let events: any[] = [];
 	export let removeEvent: (id: string) => void = () => {};
 	export let preferedFirstDayOfWeek: string = 'sunday';
-	export let calendarIds: { id: string; name: string }[] = [];
+	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	let view: 'month' | 'week' | 'list' = 'month';
 	let showMiniPicker = false;
 

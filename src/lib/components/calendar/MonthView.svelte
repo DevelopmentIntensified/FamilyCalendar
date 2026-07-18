@@ -15,7 +15,7 @@
 	export let events: Event[];
 	export let removeEvent: (id: string) => void;
 	export let preferedFirstDayOfWeek: string = 'Monday';
-	export let calendarIds: { id: string; name: string }[] = [];
+	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 
 	const today = DateTime.now();
 

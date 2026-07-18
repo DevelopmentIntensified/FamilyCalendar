@@ -7,7 +7,7 @@
 
 	export let show = false;
 	export let event: Event | null = null;
-	export let calendarIds: { id: string; name: string }[] = [];
+	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let familyMembers: { userId: string; firstName: string; lastName: string; email: string }[] = [];
 	export let rsvpData: { userId: string; status: string; firstName?: string; lastName?: string }[] = [];
 	export let userSettings: { defaultCalendarId?: string | null } | null = null;
@@ -64,7 +64,9 @@
 	}
 
 	$: selectedCal = calendarIds.find(c => c.id === form.selectedCalendarId) || null;
-	$: calColor = selectedCal ? getContactColor(selectedCal.name) : { bg: '#F1F5F9', text: '#64748B' };
+	$: calColor = selectedCal
+		? (selectedCal.color ? { bg: selectedCal.color, text: '#ffffff' } : getContactColor(selectedCal.name))
+		: { bg: '#F1F5F9', text: '#64748B' };
 
 	onMount(() => {
 		try {
@@ -548,7 +550,7 @@
 									<div class="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-52 overflow-y-auto">
 										<div class="p-1">
 											{#each calendarIds as cal}
-												{@const color = getContactColor(cal.name)}
+												{@const color = cal.color ? { bg: cal.color, text: '#ffffff' } : getContactColor(cal.name)}
 												{@const selected = form.selectedCalendarId === cal.id}
 												<button
 													type="button"

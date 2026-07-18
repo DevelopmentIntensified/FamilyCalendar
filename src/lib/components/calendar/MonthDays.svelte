@@ -10,7 +10,7 @@
 	export let days: number[];
 	export let nextMonth: boolean | undefined;
 	export let lastMonth: boolean | undefined;
-	export let calendars: { id: string; name: string }[] = [];
+	export let calendars: { id: string; name: string; color?: string }[] = [];
 
 	$: if (nextMonth) {
 		currentDate = currentDate.plus({
@@ -86,7 +86,8 @@
 				<button
 					type="button"
 					onclick={() => handleEventClick(event)}
-					class="w-full text-left {event.color} rounded px-1 py-0.5 text-xs font-medium truncate transition-all hover:scale-[1.02] hover:shadow-sm {isAdEvent(event) ? 'border border-amber-300 bg-amber-100' : ''}"
+					class="w-full text-left rounded px-1 py-0.5 text-xs font-medium truncate transition-all hover:scale-[1.02] hover:shadow-sm {isAdEvent(event) ? 'border border-amber-300 bg-amber-100' : 'bg-white'}"
+					style="border-left: 3px solid {event.color || '#94a3b8'}"
 				>
 					<span class="flex items-center gap-0.5 truncate">
 						{#if isAdEvent(event)}

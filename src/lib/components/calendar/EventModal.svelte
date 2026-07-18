@@ -9,7 +9,7 @@
 	export let attendees: { userId: string; status: string; firstName?: string; lastName?: string }[] = [];
 	export let nonUserAttendants: string[] = [];
 	export let currentUserRsvpStatus: string = 'undecided';
-	export let calendars: { id: string; name: string }[] = [];
+	export let calendars: { id: string; name: string; color?: string }[] = [];
 	export let userSettings: { defaultCalendarId?: string | null } | null = null;
 	export let familyMembers: { userId: string; firstName: string; lastName: string; email: string }[] = [];
 

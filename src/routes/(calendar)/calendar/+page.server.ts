@@ -78,10 +78,11 @@ export const load: PageServerLoad = async (event) => {
 	let familyCalendarColor = '#e0ffff';
 	
 	let familyMembersList: { id: string; name: string; email: string; userId: string }[] = [];
-	let calendarIds: { id: string; name: string }[] = [];
+	const userCalendarColor = userSettings?.color || '#fa8072';
+	let calendarIds: { id: string; name: string; color: string }[] = [];
 	
 	if (userCalendar.length > 0) {
-		calendarIds.push({ id: userCalendar[0].id, name: 'Personal Calendar' });
+		calendarIds.push({ id: userCalendar[0].id, name: 'Personal Calendar', color: userCalendarColor });
 	}
 	
 	try {
@@ -96,7 +97,7 @@ export const load: PageServerLoad = async (event) => {
 					.from(events)
 					.where(eq(events.calendarId, familyCals[0].id))
 					.orderBy(events.start);
-				calendarIds.push({ id: familyCals[0].id, name: family?.name || 'Family Calendar' });
+				calendarIds.push({ id: familyCals[0].id, name: family?.name || 'Family Calendar', color: familyCalendarColor });
 			}
 			
 			const members = await db
@@ -127,11 +128,11 @@ export const load: PageServerLoad = async (event) => {
 	}
 
 	return {
-		userEvents: parseEvents(userEvents),
-		familyEvents: parseEvents(familyEventsData),
-		adEvents: parseEvents(adEventsData),
+		userEvents: parseEvents(userEvents).map(e => ({ ...e, color: userCalendarColor })),
+		familyEvents: parseEvents(familyEventsData).map(e => ({ ...e, color: familyCalendarColor })),
+		adEvents: parseEvents(adEventsData).map(e => ({ ...e, color: '#f59e0b' })),
 		userSettings,
-		userCalendarColor: userSettings?.color || '#fa8072',
+		userCalendarColor,
 		familyCalendarColor,
 		showAds,
 		familyMembers: familyMembersList,

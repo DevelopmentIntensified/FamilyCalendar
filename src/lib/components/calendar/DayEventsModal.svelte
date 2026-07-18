@@ -5,7 +5,7 @@
 	export let show = false;
 	export let date: string = '';
 	export let events: Event[] = [];
-	export let calendars: { id: string; name: string }[] = [];
+	export let calendars: { id: string; name: string; color?: string }[] = [];
 
 	function close() {
 		show = false;
@@ -62,7 +62,7 @@
 						onclick={() => handleEventClick(event)}
 					>
 						<div class="flex items-start gap-3">
-							<div class="h-3 w-3 mt-1 rounded-full {event.color || 'bg-slate-400'} shrink-0"></div>
+							<div class="h-3 w-3 mt-1 rounded-full shrink-0" style="background-color: {event.color || '#94a3b8'}"></div>
 							<div class="flex-1 min-w-0">
 								<h3 class="font-semibold text-slate-900 truncate">{event.title}</h3>
 								<div class="flex flex-wrap items-center gap-2 mt-1 text-sm text-slate-600">

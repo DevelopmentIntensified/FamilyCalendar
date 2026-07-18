@@ -35,5 +35,5 @@ export type CalendarPageData = {
 	familyCalendarColor?: string;
 	showAds?: boolean;
 	familyMembers?: FamilyMember[];
-	calendarIds?: { id: string; name: string }[];
+	calendarIds?: { id: string; name: string; color?: string }[];
 };

@@ -9,7 +9,7 @@
 	export let events: Event[];
 	export let removeEvent: (id: string) => void;
 	export let preferedFirstDayOfWeek: string = 'sunday';
-	export let calendarIds: { id: string; name: string }[] = [];
+	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 
 	const today = DateTime.now();
 	const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -98,7 +98,8 @@
 					<button
 						type="button"
 						onclick={() => handleEventClick(event)}
-						class="{event.color} rounded px-1 py-0.5 text-xs font-medium truncate hover:opacity-90 transition-opacity cursor-pointer w-full text-left"
+						class="rounded px-1 py-0.5 text-xs font-medium truncate hover:opacity-90 transition-opacity cursor-pointer w-full text-left bg-white"
+						style="border-left: 3px solid {event.color || '#94a3b8'}"
 					>
 						{event.title}
 					</button>
@@ -131,7 +132,8 @@
 							<button
 								type="button"
 								onclick={() => handleEventClick(event)}
-								class="{event.color} rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer w-full text-left"
+								class="rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer w-full text-left bg-white"
+								style="border-left: 3px solid {event.color || '#94a3b8'}"
 							>
 								<span class="block truncate">{event.title}</span>
 								<span class="block text-[10px] opacity-75 truncate">
