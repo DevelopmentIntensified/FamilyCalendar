@@ -135,6 +135,21 @@
 		</div>
 
 		<div class="space-y-2">
+			<label for="defaultCalendarId" class="block text-sm font-medium text-slate-700">Default Calendar</label>
+			<select
+				id="defaultCalendarId"
+				name="defaultCalendarId"
+				class="w-full rounded-lg border border-slate-300 px-4 py-2.5"
+				value={settings.defaultCalendarId || ''}
+			>
+				<option value="">None (use first available)</option>
+				{#each data.calendars || [] as cal}
+					<option value={cal.id} selected={settings.defaultCalendarId === cal.id}>{cal.name}</option>
+				{/each}
+			</select>
+		</div>
+
+		<div class="space-y-2">
 			<label for="color" class="block text-sm font-medium text-slate-700">Default Event Color</label>
 			<input
 				type="color"

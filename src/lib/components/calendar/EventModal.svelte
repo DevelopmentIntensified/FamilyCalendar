@@ -10,6 +10,8 @@
 	export let nonUserAttendants: string[] = [];
 	export let currentUserRsvpStatus: string = 'undecided';
 	export let calendars: { id: string; name: string }[] = [];
+	export let userSettings: { defaultCalendarId?: string | null } | null = null;
+	export let familyMembers: { userId: string; firstName: string; lastName: string; email: string }[] = [];
 
 	const dispatch = createEventDispatcher();
 
@@ -123,8 +125,11 @@
 			show={true}
 			event={event}
 			calendarIds={calendars}
+			{userSettings}
+			{familyMembers}
 			on:close={handleFormClose}
 			on:update={handleUpdate}
+			on:delete={handleDelete}
 		/>
 	{:else}
 		<div class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-x-hidden">

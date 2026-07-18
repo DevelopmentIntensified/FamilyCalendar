@@ -178,6 +178,7 @@ export function createEventForm(config: EventFormConfig) {
 	}
 
 	// Initialize
+	initializeCalendar();
 	populateFromEvent();
 
 	return {

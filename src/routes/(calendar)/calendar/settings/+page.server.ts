@@ -2,7 +2,7 @@ import { getUserSettings, updateUserSettings } from '$lib/server/db/actions/user
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
-import { userAdConsent } from '$lib/server/db/schema';
+import { calendars, families, familyMembers, userAdConsent } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const load: PageServerLoad = async (event) => {
@@ -12,6 +12,18 @@ export const load: PageServerLoad = async (event) => {
 	const userId = event.locals.user.id;
 	const userSettings = await getUserSettings(userId);
 
+	const userCals = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
+	const calendarList: { id: string; name: string }[] = userCals.map(c => ({ id: c.id, name: 'Personal Calendar' }));
+
+	const [member] = await db.select().from(familyMembers).where(eq(familyMembers.userId, userId));
+	if (member) {
+		const familyCals = await db.select().from(calendars).where(eq(calendars.familyId, member.familyId));
+		const [family] = await db.select().from(families).where(eq(families.id, member.familyId));
+		for (const fc of familyCals) {
+			calendarList.push({ id: fc.id, name: family?.name || 'Family Calendar' });
+		}
+	}
+
 	return {
 		userSettings: userSettings ?? {
 			weekStart: 'sunday',
@@ -19,7 +31,8 @@ export const load: PageServerLoad = async (event) => {
 			color: '#3b82f6',
 			defaultView: 'dayView',
 			syncEventsToFamilyCalendar: false
-		}
+		},
+		calendars: calendarList
 	};
 };
 
@@ -32,6 +45,7 @@ export const actions: Actions = {
 		const timeZone = formData.get('timeZone') as string;
 		const color = formData.get('color') as string;
 		const defaultView = formData.get('defaultView') as string;
+		const defaultCalendarId = formData.get('defaultCalendarId') as string || null;
 		const syncEventsToFamilyCalendar = formData.get('syncEventsToFamilyCalendar') === 'on';
 		const autoParseEventDetails = formData.get('autoParseEventDetails') === 'true';
 		const useCloudAI = formData.get('useCloudAI') === 'true';
@@ -48,6 +62,7 @@ export const actions: Actions = {
 						timeZone,
 						color,
 						defaultView,
+						defaultCalendarId,
 						syncEventsToFamilyCalendar,
 						autoParseEventDetails,
 						useCloudAI,
@@ -60,6 +75,7 @@ export const actions: Actions = {
 					timeZone,
 					color,
 					defaultView,
+					defaultCalendarId,
 					syncEventsToFamilyCalendar,
 					autoParseEventDetails,
 					useCloudAI,
