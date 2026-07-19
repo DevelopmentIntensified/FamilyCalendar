@@ -9,8 +9,10 @@
 	export let events: Event[];
 	export let removeEvent: (id: string) => void;
 
-	function formatEventTime(d: Date | string): string {
+	function formatEventTime(d: Date | string | undefined | null): string {
+		if (!d) return '';
 		const dt = d instanceof Date ? DateTime.fromJSDate(d) : DateTime.fromISO(d);
+		if (!dt.isValid) return '';
 		return dt.toFormat('h:mm a');
 	}
 

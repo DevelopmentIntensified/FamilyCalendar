@@ -46,8 +46,17 @@
 		(event.calendarId ? 'Calendar' : '');
 
 	// Extract start/end times from ISO strings if not available as separate fields
-	$: startTime = event.startTime || (event.start ? (event.start instanceof Date ? DateTime.fromJSDate(event.start).toFormat('HH:mm') : DateTime.fromISO(event.start).toFormat('HH:mm')) : undefined);
-	$: endTime = event.endTime || (event.end ? (event.end instanceof Date ? DateTime.fromJSDate(event.end).toFormat('HH:mm') : DateTime.fromISO(event.end).toFormat('HH:mm')) : undefined);
+	function tryFormat(d: Date | string | undefined | null): string | undefined {
+		if (!d) return undefined;
+		if (d instanceof Date) {
+			const dt = DateTime.fromJSDate(d);
+			return dt.isValid ? dt.toFormat('HH:mm') : undefined;
+		}
+		const dt = DateTime.fromISO(d);
+		return dt.isValid ? dt.toFormat('HH:mm') : undefined;
+	}
+	$: startTime = event.startTime || tryFormat(event.start);
+	$: endTime = event.endTime || tryFormat(event.end);
 	$: eventDate = event.date || (event.start ? (event.start instanceof Date ? event.start : new Date(event.start)) : undefined);
 
 	function close() {
