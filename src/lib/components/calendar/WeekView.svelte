@@ -122,42 +122,44 @@
 	</div>
 
 	<!-- Week Body - Scrollable -->
-	<div class="max-h-[60vh] overflow-y-auto relative">
-		<!-- Hour background grid -->
-		{#each hours as hour}
-			<div class="grid grid-cols-8 border-b border-slate-100 {isCurrentHour(hour, $currentDate) ? 'bg-primary-50/30' : ''}">
-				<div class="w-14 shrink-0 border-r border-slate-200 py-3 text-right pr-2">
-					<span class="text-xs font-medium text-slate-500">
-						{hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
-					</span>
-				</div>
-				{#each weekDays as wd}
-					<div class="flex-1 min-h-[60px] border-r border-slate-100 last:border-r-0"></div>
-				{/each}
-			</div>
-		{/each}
-
-		<!-- Event overlay -->
-		<div class="absolute inset-0 grid grid-cols-8 pointer-events-none">
-			<div class="w-14 shrink-0"></div>
-			{#each weekDays as wd}
-				{@const dayEvents = getEventsForDay(wd).filter(e => !e.allDay)}
-				<div class="relative pointer-events-auto">
-					{#each dayEvents as event}
-						<button
-							type="button"
-							onclick={() => handleEventClick(event)}
-							class="absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer text-left overflow-hidden bg-white"
-							style="top: {getEventTop(event)}%; height: {getEventHeight(event)}%; border-left: 3px solid {event.color || '#94a3b8'}; min-height: 18px;"
-						>
-							<span class="block truncate">{event.title}</span>
-							<span class="block text-[10px] opacity-75 truncate">
-								{formatTime(event.start)}{#if event.end} - {formatTime(event.end)}{/if}
-							</span>
-						</button>
+	<div class="max-h-[60vh] overflow-y-auto">
+		<div class="relative" style="height: calc(24 * 60px);">
+			<!-- Hour background grid -->
+			{#each hours as hour}
+				<div class="grid grid-cols-8 border-b border-slate-100 {isCurrentHour(hour, $currentDate) ? 'bg-primary-50/30' : ''}" style="height: 60px;">
+					<div class="w-14 shrink-0 border-r border-slate-200 py-3 text-right pr-2">
+						<span class="text-xs font-medium text-slate-500">
+							{hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
+						</span>
+					</div>
+					{#each weekDays as wd}
+						<div class="flex-1 border-r border-slate-100 last:border-r-0"></div>
 					{/each}
 				</div>
 			{/each}
+
+			<!-- Event overlay -->
+			<div class="absolute inset-0 grid grid-cols-8 pointer-events-none">
+				<div class="w-14 shrink-0"></div>
+				{#each weekDays as wd}
+					{@const dayEvents = getEventsForDay(wd).filter(e => !e.allDay)}
+					<div class="relative pointer-events-auto">
+						{#each dayEvents as event}
+							<button
+								type="button"
+								onclick={() => handleEventClick(event)}
+								class="absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer text-left overflow-hidden bg-white"
+								style="top: {getEventTop(event)}%; height: {getEventHeight(event)}%; border-left: 3px solid {event.color || '#94a3b8'}; min-height: 18px;"
+							>
+								<span class="block truncate">{event.title}</span>
+								<span class="block text-[10px] opacity-75 truncate">
+									{formatTime(event.start)}{#if event.end} - {formatTime(event.end)}{/if}
+								</span>
+							</button>
+						{/each}
+					</div>
+				{/each}
+			</div>
 		</div>
 	</div>
 </div>
