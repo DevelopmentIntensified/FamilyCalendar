@@ -73,6 +73,7 @@
 		const isOccurrence = !!(event.recurrenceFrequency && event.occurrenceDate);
 		let url = `/api/events/${event.masterId || event.id}`;
 		const options: RequestInit = { method: 'DELETE' };
+		const taskWarning = eventTasks.length > 0 ? `\n\n⚠️ ${eventTasks.length} attached task(s) will also be deleted.` : '';
 
 		if (isOccurrence) {
 			if (!scope) {
@@ -82,9 +83,10 @@
 					? 'this'
 					: 'all';
 			}
+			if (scope === 'all' && !confirm(`Delete the whole series?${taskWarning}`)) return;
 			options.headers = { 'Content-Type': 'application/json' };
 			options.body = JSON.stringify({ scope, occurrenceDate: event.occurrenceDate });
-		} else if (!confirm('Delete this event?')) {
+		} else if (!confirm(`Delete this event?${taskWarning}`)) {
 			return;
 		}
 

@@ -188,6 +188,7 @@
 		</a>
 	</div>
 
+	<div class="mx-auto w-full max-w-screen-2xl px-2 sm:px-4 lg:px-8">
 	{#if view === 'month'}
 		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} />
 	{:else if view === 'week'}
@@ -197,4 +198,5 @@
 	{:else if view === 'list'}
 		<ListView {currentDate} {events} {removeEvent} />
 	{/if}
+	</div>
 </div>
