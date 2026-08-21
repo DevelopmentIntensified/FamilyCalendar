@@ -65,15 +65,29 @@
 		dispatch('close');
 	}
 
-	async function handleDelete() {
-		if (!confirm('Delete this event?')) return;
+	async function handleDelete(scope?: 'this' | 'all') {
+		const isOccurrence = !!(event.recurrenceFrequency && event.occurrenceDate);
+		let url = `/api/events/${event.masterId || event.id}`;
+		const options: RequestInit = { method: 'DELETE' };
+
+		if (isOccurrence) {
+			if (!scope) {
+				scope = confirm(
+					'OK = delete just this occurrence\nCancel = delete the whole series'
+				)
+					? 'this'
+					: 'all';
+			}
+			options.headers = { 'Content-Type': 'application/json' };
+			options.body = JSON.stringify({ scope, occurrenceDate: event.occurrenceDate });
+		} else if (!confirm('Delete this event?')) {
+			return;
+		}
 
 		try {
-			const response = await fetch(`/api/events/${event.id}`, {
-				method: 'DELETE'
-			});
+			const response = await fetch(url, options);
 			if (response.ok) {
-				dispatch('delete', { id: event.id });
+				dispatch('delete', { id: event.masterId || event.id });
 				show = false;
 			} else {
 				console.error('Failed to delete event');
@@ -138,7 +152,7 @@
 			{familyMembers}
 			on:close={handleFormClose}
 			on:update={handleUpdate}
-			on:delete={handleDelete}
+			on:delete={() => handleDelete()}
 		/>
 	{:else}
 		<div class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-x-hidden">
@@ -148,8 +162,19 @@
 				<!-- Header -->
 				<div class="flex items-center justify-between border-b border-slate-100 p-6">
 					<div class="flex items-center gap-3 min-w-0 flex-1">
-						<div class="h-3 w-3 rounded-full shrink-0 {event.color || 'bg-slate-400'}"></div>
-						<h2 class="text-xl font-bold text-slate-900 truncate" title={event.title}>{event.title}</h2>
+						<div class="h-3 w-3 rounded-full shrink-0" style="background-color: {event.color || '#94a3b8'}"></div>
+						<div class="min-w-0">
+							<h2 class="text-xl font-bold text-slate-900 truncate" title={event.title}>{event.title}</h2>
+							{#if event.recurrenceFrequency}
+								{@const unit = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' }[event.recurrenceFrequency] || ''}
+								<p class="text-xs font-medium text-purple-600">
+									🔁 Repeats
+									{(event.recurrenceInterval ?? 1) > 1
+										? `every ${event.recurrenceInterval} ${unit}s`
+										: unit ? `${unit}ly` : ''}
+								</p>
+							{/if}
+						</div>
 					</div>
 					<button type="button" onclick={close} class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors shrink-0" aria-label="Close">
 						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -361,7 +386,7 @@
 				<div class="flex items-center justify-between border-t border-slate-100 p-6">
 					<button
 						type="button"
-						onclick={handleDelete}
+						onclick={() => handleDelete()}
 						class="rounded-lg px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
 						<div class="flex items-center gap-1.5">
 							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -24,6 +24,8 @@ export interface FormEventData {
 	calendarId: string;
 	allDay: boolean;
 	attendants: string[];
+	recurrenceFrequency: string | null;
+	recurrenceInterval: number | null;
 }
 
 function loadRecentAttendants(): string[] {
@@ -52,6 +54,10 @@ interface InitialEvent {
 	end?: string | Date | null;
 	allDay: boolean;
 	attendants?: string[];
+	recurrenceFrequency?: string | null;
+	recurrenceInterval?: number | null;
+	masterId?: string;
+	occurrenceDate?: string;
 }
 
 interface EventFormConfig {
@@ -75,6 +81,8 @@ export function createEventForm(config: EventFormConfig) {
 	let description = $state('');
 	let selectedCalendarId = $state('');
 	let attendants = $state<string[]>([]);
+	let recurrenceFrequency = $state<string | null>(null);
+	let recurrenceInterval = $state(1);
 	let recentAttendants = $state<string[]>(loadRecentAttendants());
 
 	let userTouchedFields = $state<Record<string, boolean>>({});
@@ -118,6 +126,8 @@ export function createEventForm(config: EventFormConfig) {
 		if (initialEvent.attendants && Array.isArray(initialEvent.attendants)) {
 			attendants = [...initialEvent.attendants];
 		}
+		recurrenceFrequency = initialEvent.recurrenceFrequency || null;
+		recurrenceInterval = initialEvent.recurrenceInterval ?? 1;
 	}
 
 	function clearUntouchedNlpFields() {
@@ -215,6 +225,20 @@ export function createEventForm(config: EventFormConfig) {
 		get attendants() { return attendants; },
 		set attendants(v: string[]) { attendants = v; },
 
+		get recurrenceFrequency() { return recurrenceFrequency; },
+		set recurrenceFrequency(v: string | null) { recurrenceFrequency = v; },
+
+		get recurrenceInterval() { return recurrenceInterval; },
+		set recurrenceInterval(v: number) { recurrenceInterval = Math.max(1, Math.floor(v) || 1); },
+
+		get isRecurringOccurrence() {
+			return !!(config.initialEvent?.recurrenceFrequency && config.initialEvent?.occurrenceDate);
+		},
+
+		get occurrenceDate() { return config.initialEvent?.occurrenceDate || null; },
+
+		get masterId() { return config.initialEvent?.masterId || config.initialEvent?.id || null; },
+
 		get recentAttendants() { return recentAttendants; },
 
 		get isEditMode() { return !!config.initialEvent; },
@@ -305,16 +329,18 @@ export function createEventForm(config: EventFormConfig) {
 				endTimestamp = startDt.plus({ hours: 1 }).toISO();
 			}
 
-			return {
-				title,
-				start: startTimestamp,
-				end: endTimestamp,
-				location,
-				description,
-				calendarId: selectedCalendarId,
-				allDay,
-				attendants: [...attendants]
-			};
+		return {
+			title,
+			start: startTimestamp,
+			end: endTimestamp,
+			location,
+			description,
+			calendarId: selectedCalendarId,
+			allDay,
+			attendants: [...attendants],
+			recurrenceFrequency,
+			recurrenceInterval: recurrenceFrequency ? recurrenceInterval : null
+		};
 		},
 
 		submitPreparation() {
@@ -333,6 +359,8 @@ export function createEventForm(config: EventFormConfig) {
 			attendants = [];
 			allDay = false;
 			multiDay = false;
+			recurrenceFrequency = null;
+			recurrenceInterval = 1;
 			userTouchedFields = {};
 			nlpDetectedFields = {};
 			lastNlpValues = {};

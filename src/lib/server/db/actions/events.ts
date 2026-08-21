@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
-import { eventAttendance, events, users, type CalendarEvent } from '$lib/server/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eventAttendance, eventExceptions, events, users, type CalendarEvent } from '$lib/server/db/schema';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 
 export async function getEvents() {
 	return await db.select().from(events).orderBy(events.start);
@@ -9,6 +9,64 @@ export async function getEvents() {
 export async function getEvent(id: string) {
 	const [event] = await db.select().from(events).where(eq(events.id, id));
 	return event;
+}
+
+export async function getExceptionsByEventIds(eventIds: string[]) {
+	if (eventIds.length === 0) return [];
+	return await db.select().from(eventExceptions).where(inArray(eventExceptions.eventId, eventIds));
+}
+
+export async function findException(eventId: string, originalDateIso: string) {
+	const [exception] = await db
+		.select()
+		.from(eventExceptions)
+		.where(and(eq(eventExceptions.eventId, eventId), eq(eventExceptions.originalDate, originalDateIso)));
+	return exception;
+}
+
+export async function upsertException(data: {
+	eventId: string;
+	originalDate: string;
+	isCancelled?: boolean;
+	title?: string | null;
+	description?: string | null;
+	location?: string | null;
+	start?: string | null;
+	end?: string | null;
+	allDay?: boolean | null;
+}) {
+	const existing = await findException(data.eventId, data.originalDate);
+	if (existing) {
+		const [updated] = await db
+			.update(eventExceptions)
+			.set({
+				isCancelled: data.isCancelled ?? existing.isCancelled,
+				title: data.title !== undefined ? data.title : existing.title,
+				description: data.description !== undefined ? data.description : existing.description,
+				location: data.location !== undefined ? data.location : existing.location,
+				start: data.start !== undefined ? data.start : existing.start,
+				end: data.end !== undefined ? data.end : existing.end,
+				allDay: data.allDay !== undefined ? data.allDay : existing.allDay
+			})
+			.where(eq(eventExceptions.id, existing.id))
+			.returning();
+		return updated;
+	}
+	const [created] = await db
+		.insert(eventExceptions)
+		.values({
+			eventId: data.eventId,
+			originalDate: data.originalDate,
+			isCancelled: data.isCancelled ?? false,
+			title: data.title ?? null,
+			description: data.description ?? null,
+			location: data.location ?? null,
+			start: data.start ?? null,
+			end: data.end ?? null,
+			allDay: data.allDay ?? null
+		})
+		.returning();
+	return created;
 }
 
 export async function getEventAttendance(id: string) {

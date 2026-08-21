@@ -11,6 +11,10 @@ export type Event = CalendarEvent & {
 	rsvpStatus?: RSVPStatus;
 	isFamilyEvent?: boolean;
 	attendants?: string[];
+	recurrenceFrequency?: string | null;
+	recurrenceInterval?: number | null;
+	masterId?: string;
+	occurrenceDate?: string;
 	calendar?: {
 		id: string;
 		name: string;

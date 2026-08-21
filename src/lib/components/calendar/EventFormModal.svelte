@@ -4,6 +4,7 @@
 	import LocationSearch from '$lib/components/LocationSearch.svelte';
 	import { getContactColor, getInitials } from '$lib/utils/contactColors';
 	import { createEventForm } from './EventFormModel.svelte';
+	import { SMART_EVENT_TEMPLATES, CATEGORY_META, type SmartEventTemplate, type SmartEventCategory } from '$lib/data/smartEventTemplates';
 
 	export let show = false;
 	export let event: Event | null = null;
@@ -37,9 +38,22 @@
 			calendarId: event.calendarId || '',
 			start: event.start || '',
 			end: event.end || undefined,
-			allDay: event.allDay || false
+			allDay: event.allDay || false,
+			recurrenceFrequency: event.recurrenceFrequency,
+			recurrenceInterval: event.recurrenceInterval,
+			masterId: event.masterId,
+			occurrenceDate: event.occurrenceDate
 		} : undefined
 	});
+
+	let editScope: 'this' | 'all' = 'this';
+
+	function applySmartTemplate(template: SmartEventTemplate) {
+		form.title = template.name;
+		if (template.description) form.description = template.description;
+		form.recurrenceFrequency = template.recurrenceFrequency;
+		form.recurrenceInterval = template.recurrenceInterval;
+	}
 
 	$: dedupedFamilyMembers = dedupeFamilyMembers(familyMembers);
 
@@ -151,13 +165,18 @@
 
 		if (form.isEditMode && form.eventId) {
 			try {
-				const res = await fetch(`/api/events/${form.eventId}`, {
+				const isOccurrence = form.isRecurringOccurrence;
+				const targetId = isOccurrence ? form.masterId : form.eventId;
+				const payload = isOccurrence
+					? { ...eventData, scope: editScope, occurrenceDate: form.occurrenceDate }
+					: eventData;
+				const res = await fetch(`/api/events/${targetId}`, {
 					method: 'PUT',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(eventData)
+					body: JSON.stringify(payload)
 				});
 				if (res.ok) {
-					dispatch('update', { id: form.eventId, ...eventData });
+					dispatch('update', { id: targetId, ...eventData });
 				}
 			} catch (err) {
 				console.error('Update failed:', err);
@@ -181,7 +200,12 @@
 	}
 
 	function handleDelete() {
-		if (form.eventId) dispatch('delete', { id: form.eventId });
+		if (!form.eventId) return;
+		if (form.isRecurringOccurrence) {
+			dispatch('delete', { id: form.masterId, scope: editScope, occurrenceDate: form.occurrenceDate });
+		} else {
+			dispatch('delete', { id: form.eventId });
+		}
 	}
 
 	function clearAll() {
@@ -291,6 +315,37 @@
 						/>
 					</div>
 
+					{#if !form.isEditMode}
+						<div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+							<div class="mb-2 flex items-center gap-1.5">
+								<span class="text-sm">✨</span>
+								<h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Smart schedules</h4>
+							</div>
+							{#each Object.keys(CATEGORY_META) as cat}
+								{@const templates = SMART_EVENT_TEMPLATES.filter(t => t.category === (cat as SmartEventCategory))}
+								<details class="mb-1 last:mb-0">
+									<summary class="cursor-pointer select-none rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 hover:bg-white">
+										{CATEGORY_META[cat as SmartEventCategory].icon}
+										{CATEGORY_META[cat as SmartEventCategory].label}
+										<span class="ml-1 text-xs font-normal text-slate-400">({templates.length})</span>
+									</summary>
+									<div class="mt-1 flex flex-wrap gap-1.5 pl-2">
+										{#each templates as template}
+											<button
+												type="button"
+												on:click={() => applySmartTemplate(template)}
+												title={template.description || ''}
+												class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 {CATEGORY_META[template.category].color}"
+											>
+												{template.name}
+											</button>
+										{/each}
+									</div>
+								</details>
+							{/each}
+						</div>
+					{/if}
+
 					<div>
 						<label for="event-desc" class="mb-1 block text-sm font-medium text-slate-700">Description</label>
 						<textarea
@@ -348,6 +403,54 @@
 									</div>
 								</button>
 							</div>
+
+							<!-- Repeat picker -->
+							<div class="flex items-center gap-2">
+								<select
+									on:change={(e) => { form.recurrenceFrequency = e.currentTarget.value || null; }}
+									value={form.recurrenceFrequency || ''}
+									class="rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+									aria-label="Repeat"
+								>
+									<option value="">Doesn't repeat</option>
+									<option value="daily">Daily</option>
+									<option value="weekly">Weekly</option>
+									<option value="monthly">Monthly</option>
+									<option value="yearly">Yearly</option>
+								</select>
+								{#if form.recurrenceFrequency}
+									<span class="whitespace-nowrap text-sm text-slate-600">every</span>
+									<input
+										type="number"
+										min="1"
+										max="365"
+										bind:value={form.recurrenceInterval}
+										class="w-16 rounded-lg border border-slate-300 px-2 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+										aria-label="Repeat interval"
+									/>
+									<span class="text-sm text-slate-600">
+										{form.recurrenceInterval === 1
+											? { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' }[form.recurrenceFrequency]
+											: { daily: 'days', weekly: 'weeks', monthly: 'months', yearly: 'years' }[form.recurrenceFrequency]}
+									</span>
+								{/if}
+							</div>
+
+							{#if form.isRecurringOccurrence}
+								<div class="rounded-lg border border-purple-200 bg-purple-50 p-3">
+									<h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-purple-700">This event repeats — save changes for:</h4>
+									<div class="flex gap-4 text-sm text-slate-700">
+										<label class="flex cursor-pointer items-center gap-1.5">
+											<input type="radio" bind:group={editScope} value="this" name="editScope" />
+											This event only
+										</label>
+										<label class="flex cursor-pointer items-center gap-1.5">
+											<input type="radio" bind:group={editScope} value="all" name="editScope" />
+											All events in series
+										</label>
+									</div>
+								</div>
+							{/if}
 						{/if}
 
 						<div class="{form.multiDay ? 'grid grid-cols-2 gap-3' : ''}">

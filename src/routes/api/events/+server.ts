@@ -1,9 +1,19 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createEvent, updateEventById, deleteEventById } from '$lib/server/db/actions/events';
+import { createEvent, updateEventById, deleteEventById, upsertException } from '$lib/server/db/actions/events';
 import { db } from '$lib/server/db';
 import { calendars, events } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+
+const VALID_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
+
+function normalizeRecurrence(body: { recurrenceFrequency?: string | null; recurrenceInterval?: number | null }) {
+	const frequency = VALID_FREQUENCIES.includes(body.recurrenceFrequency || '')
+		? body.recurrenceFrequency
+		: null;
+	const interval = frequency ? Math.max(1, Math.floor(body.recurrenceInterval ?? 1)) : null;
+	return { recurrenceFrequency: frequency, recurrenceInterval: interval };
+}
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
@@ -34,7 +44,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		end: body.end || null,
 		description: body.description || null,
 		location: body.location || null,
-		allDay: body.allDay || false
+		allDay: body.allDay || false,
+		...normalizeRecurrence(body)
 	};
 
 	try {
@@ -68,10 +79,27 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 		description: body.description || null,
 		location: body.location || null,
 		allDay: body.allDay || false,
-		calendarId: body.calendarId || null
+		calendarId: body.calendarId || null,
+		...normalizeRecurrence(body)
 	};
 
 	try {
+		// Exception Override: scope=this edits a single occurrence of a
+		// Recurring Event without altering the schedule.
+		if (body.scope === 'this' && body.occurrenceDate) {
+			await upsertException({
+				eventId: eventId,
+				originalDate: body.occurrenceDate,
+				title: eventData.title,
+				description: eventData.description,
+				location: eventData.location,
+				start: eventData.start,
+				end: eventData.end,
+				allDay: eventData.allDay
+			});
+			return json({ success: true, scopedToOccurrence: true });
+		}
+
 		const updated = await updateEventById(eventId, eventData, userId, attendantNames);
 		if (!updated) {
 			return json({ error: 'Event not found' }, { status: 404 });
@@ -83,7 +111,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ locals, url }) => {
+export const DELETE: RequestHandler = async ({ request, locals, url }) => {
 	if (!locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
@@ -96,6 +124,26 @@ export const DELETE: RequestHandler = async ({ locals, url }) => {
 	}
 
 	try {
+		// Exception Override: cancel a single occurrence.
+		let scope: string | null = null;
+		let occurrenceDate: string | null = null;
+		try {
+			const body = await request.json();
+			scope = body?.scope ?? null;
+			occurrenceDate = body?.occurrenceDate ?? null;
+		} catch {
+			// no body provided
+		}
+
+		if (scope === 'this' && occurrenceDate) {
+			await upsertException({
+				eventId,
+				originalDate: occurrenceDate,
+				isCancelled: true
+			});
+			return json({ success: true, cancelledOccurrence: true });
+		}
+
 		await deleteEventById(eventId, userId);
 		return json({ success: true }, { status: 200 });
 	} catch (error) {

@@ -344,8 +344,40 @@ export const events = pgTable('events', {
 	description: text('description'),
 	location: text('location'),
 	allDay: boolean('all_day').default(false).notNull(),
+	recurrenceFrequency: text('recurrence_frequency'),
+	recurrenceInterval: integer('recurrence_interval'),
 	created_at: timestamp('created_at').defaultNow().notNull()
 });
+
+export const eventExceptions = pgTable('event_exceptions', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	eventId: text('event_id')
+		.notNull()
+		.references(() => events.id, { onDelete: 'cascade' }),
+	originalDate: timestamp('original_date', {
+		withTimezone: true,
+		mode: 'string'
+	}).notNull(),
+	isCancelled: boolean('is_cancelled').default(false).notNull(),
+	title: text('title'),
+	description: text('description'),
+	location: text('location'),
+	start: timestamp('start', {
+		withTimezone: true,
+		mode: 'string'
+	}),
+	end: timestamp('end', {
+		withTimezone: true,
+		mode: 'string'
+	}),
+	allDay: boolean('all_day'),
+	createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export type EventException = typeof eventExceptions.$inferSelect;
 
 export type Session = typeof sessions.$inferSelect;
 export type Code = typeof codes.$inferSelect;

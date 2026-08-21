@@ -12,12 +12,12 @@ Decisions locked in the planning session of 2026-08-21. Domain language lives in
 | Calendar mobile | Week view gets `min-w-[700px]` so phones scroll horizontally instead of crushing 8 columns to ~47px each |
 | Day drill-down | Tap a day cell (month) or day header (week) → agenda-style **Day View** for that date; back returns to previous view; prev/next step by day while in day view. Replaces the old "+more" modal |
 
-## Tier 2 — next up
+## Tier 2 — shipped
 
 | Item | Locked design |
 |------|---------------|
-| Recurring Events | `frequency` (day/week/month/year) + `interval` (every N) as structured columns. Occurrences expanded virtually at read time; edits stored as **Exception Overrides**. Full iCalendar RRULE is a later upgrade — schema chosen so it migrates cleanly |
-| Smart Event templates | Static TS catalog of maintenance templates (car / home / cleaning), researched from real-world schedules. Picking one prefills the recurring-event form. No completion tracking in v1 |
+| Recurring Events | `frequency` (day/week/month/year) + `interval` (every N) as structured columns (`recurrence_frequency`, `recurrence_interval`). Occurrences expanded virtually at read time (±2y window, 500 cap) with composite ids `{masterId}~{occISO}`; anchor-based generation so "monthly on the 31st" re-anchors after short months and Feb 29 yearly rolls to Mar 1. **Exception Overrides** in `event_exceptions`: edit/delete of a single occurrence ("This event only" vs "All events in series" choice); cancelled occurrences skipped during expansion. Full iCalendar RRULE is a later upgrade — schema migrates cleanly |
+| Smart Event templates | Static catalog `src/lib/data/smartEventTemplates.ts` (car / home / cleaning, 34 templates from standard maintenance schedules). "Smart schedules" panel in the create form prefills title/description/frequency/interval |
 
 ## Tier 3 — designed, not built
 
