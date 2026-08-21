@@ -16,6 +16,8 @@
 	let emailLoading = false;
 	let logoutAllLoading = false;
 	let deleteLoading = false;
+	let calendarLoading = false;
+	let adsLoading = false;
 	let showDeleteConfirmation = false;
 
 	$: activeSection = $page.url.hash.replace('#', '') || 'profile';
@@ -55,8 +57,6 @@
 		{ value: 'monthView', label: 'Month View' },
 		{ value: 'listView', label: 'List View' }
 	];
-
-	let calendarLoading = false;
 </script>
 
 <svelte:head>
@@ -238,13 +238,43 @@
 												class="h-5 w-5 rounded border-slate-300"
 												checked={data.userSettings.syncEventsToFamilyCalendar}
 											/>
-											<span class="text-sm font-medium text-slate-700">Sync events to family calendar</span>
+											<span class="text-sm font-medium text-slate-700">Share new events to family calendar</span>
 										</label>
 									</div>
 								</div>
 
-								<input type="hidden" name="autoParseEventDetails" value={String(data.userSettings.autoParseEventDetails ?? true)} />
-								<input type="hidden" name="useCloudAI" value={String(data.userSettings.useCloudAI ?? true)} />
+								<!-- Smart parsing toggles -->
+								<div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+									<h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Smart event creation</h3>
+
+									<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
+										<span>
+											<span class="block text-sm font-medium text-slate-800">Auto-parse event details</span>
+											<span class="mt-0.5 block text-xs text-slate-500">Read dates, times and places as you type a description.</span>
+										</span>
+										<input
+											type="checkbox"
+											name="autoParseEventDetails"
+											value="true"
+											class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300"
+											checked={data.userSettings.autoParseEventDetails ?? true}
+										/>
+									</label>
+
+									<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
+										<span>
+											<span class="block text-sm font-medium text-slate-800">Use cloud AI <span class="ml-1 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">recommended</span></span>
+											<span class="mt-0.5 block text-xs text-slate-500">Better parsing via Cerebras. Falls back to on-device rules when off.</span>
+										</span>
+										<input
+											type="checkbox"
+											name="useCloudAI"
+											value="true"
+											class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300"
+											checked={data.userSettings.useCloudAI ?? true}
+										/>
+									</label>
+								</div>
 
 								<button
 									type="submit"
@@ -254,6 +284,55 @@
 									{calendarLoading ? 'Saving...' : 'Save Calendar Settings'}
 								</button>
 							</form>
+
+							<!-- Ad Preferences -->
+							<div class="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-4">
+								<h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-amber-700">Ad preferences</h3>
+								<form
+									method="POST"
+									action="?/saveAds"
+									use:enhance={() => {
+										adsLoading = true;
+										return async ({ update }) => {
+											adsLoading = false;
+											await update();
+										};
+									}}
+									class="space-y-2"
+								>
+									<label class="flex cursor-pointer items-center justify-between gap-4 rounded-lg bg-white p-3">
+										<span>
+											<span class="block text-sm font-medium text-slate-800">Show ads as calendar events</span>
+											<span class="mt-0.5 block text-xs text-slate-500">Sponsored entries appear with a subtle marker.</span>
+										</span>
+										<input type="checkbox" name="showAdsAsEvents" value="true" class="h-5 w-5 shrink-0 rounded border-slate-300" checked={data.adConsent.showAdsAsEvents} />
+									</label>
+
+									<label class="flex cursor-pointer items-center justify-between gap-4 rounded-lg bg-white p-3">
+										<span>
+											<span class="block text-sm font-medium text-slate-800">Show ad markers</span>
+											<span class="mt-0.5 block text-xs text-slate-500">Visual indicators on sponsored content.</span>
+										</span>
+										<input type="checkbox" name="showAdMarkers" value="true" class="h-5 w-5 shrink-0 rounded border-slate-300" checked={data.adConsent.showAdMarkers} />
+									</label>
+
+									<label class="flex cursor-pointer items-center justify-between gap-4 rounded-lg bg-white p-3">
+										<span>
+											<span class="block text-sm font-medium text-slate-800">Personalized ads</span>
+											<span class="mt-0.5 block text-xs text-slate-500">Relevant ads based on your activity. Never shared with advertisers.</span>
+										</span>
+										<input type="checkbox" name="personalizedAds" value="true" class="h-5 w-5 shrink-0 rounded border-slate-300" checked={data.adConsent.personalizedAds} />
+									</label>
+
+									<button
+										type="submit"
+										disabled={adsLoading}
+										class="w-full rounded-lg bg-slate-600 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+									>
+										{adsLoading ? 'Saving...' : 'Save Ad Preferences'}
+									</button>
+								</form>
+							</div>
 						</div>
 					{:else if activeSection === 'email'}
 						<div id="email">

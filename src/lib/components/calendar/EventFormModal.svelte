@@ -11,7 +11,11 @@
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let familyMembers: { userId: string; firstName: string; lastName: string; email: string }[] = [];
 	export let rsvpData: { userId: string; status: string; firstName?: string; lastName?: string }[] = [];
-	export let userSettings: { defaultCalendarId?: string | null } | null = null;
+	export let userSettings: {
+		defaultCalendarId?: string | null;
+		autoParseEventDetails?: boolean;
+		useCloudAI?: boolean;
+	} | null = null;
 
 	const dispatch = createEventDispatcher();
 
@@ -197,7 +201,10 @@
 			const response = await fetch('/api/parse-event', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ input: nlInput })
+				body: JSON.stringify({
+					input: nlInput,
+					useCloud: userSettings?.useCloudAI ?? true
+				})
 			});
 
 			if (response.ok) {
@@ -218,6 +225,7 @@
 			form.description = nlInput;
 		}
 		clearTimeout(parseTimeout);
+		if (userSettings?.autoParseEventDetails === false) return;
 		parseTimeout = setTimeout(() => parseNlInput(), 300);
 	}
 

@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createEvent, updateEventById, deleteEventById, upsertException } from '$lib/server/db/actions/events';
 import { db } from '$lib/server/db';
-import { calendars, events } from '$lib/server/db/schema';
+import { calendars, events, familyMembers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 const VALID_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
@@ -50,6 +50,36 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	try {
 		const created = await createEvent(eventData, userId, attendantNames);
+
+		// syncEventsToFamilyCalendar: mirror personal-calendar creations
+		// onto the family calendar so everyone sees them.
+		try {
+			const { getUserSettings } = await import('$lib/server/db/actions/userSettings');
+			const settings = await getUserSettings(userId);
+			if (settings?.syncEventsToFamilyCalendar) {
+				const [member] = await db
+					.select()
+					.from(familyMembers)
+					.where(eq(familyMembers.userId, userId));
+				if (member?.familyId) {
+					const familyCals = await db
+						.select()
+						.from(calendars)
+						.where(eq(calendars.familyId, member.familyId));
+					const familyCal = familyCals[0];
+					if (familyCal && familyCal.id !== calendarId) {
+						await createEvent(
+							{ ...eventData, calendarId: familyCal.id },
+							userId,
+							attendantNames
+						);
+					}
+				}
+			}
+		} catch (mirrorError) {
+			console.error('Family sync mirror failed (event still created):', mirrorError);
+		}
+
 		return json({ success: true, event: created }, { status: 201 });
 	} catch (error) {
 		console.error('Failed to create event:', error);

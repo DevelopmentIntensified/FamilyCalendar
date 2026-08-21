@@ -2,7 +2,7 @@ import { getUser, updateUser } from '$lib/server/db/actions/users';
 import { getUserSettings, updateUserSettings } from '$lib/server/db/actions/userSettings';
 import { lucia } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { sessions, calendars, families, familyMembers } from '$lib/server/db/schema';
+import { sessions, calendars, families, familyMembers, userAdConsent } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -38,6 +38,11 @@ export const load: PageServerLoad = async (event) => {
 		}
 	}
 
+	const [adConsentRow] = await db
+		.select()
+		.from(userAdConsent)
+		.where(eq(userAdConsent.userId, userId));
+
 	return {
 		user: {
 			id: user!.id,
@@ -54,6 +59,11 @@ export const load: PageServerLoad = async (event) => {
 			defaultView: 'dayView',
 			defaultCalendarId: null,
 			syncEventsToFamilyCalendar: false
+		},
+		adConsent: adConsentRow ?? {
+			showAdsAsEvents: true,
+			showAdMarkers: true,
+			personalizedAds: true
 		},
 		calendars: calendarList
 	};
@@ -72,7 +82,6 @@ export const actions: Actions = {
 		const syncEventsToFamilyCalendar = formData.get('syncEventsToFamilyCalendar') === 'on';
 		const autoParseEventDetails = formData.get('autoParseEventDetails') === 'true';
 		const useCloudAI = formData.get('useCloudAI') === 'true';
-		const useLocalAI = formData.get('useLocalAI') === 'true';
 
 		try {
 			const existingSettings = await getUserSettings(userId);
@@ -88,8 +97,7 @@ export const actions: Actions = {
 					defaultCalendarId,
 					syncEventsToFamilyCalendar,
 					autoParseEventDetails,
-					useCloudAI,
-					useLocalAI
+					useCloudAI
 				});
 			} else {
 				await updateUserSettings(userId, {
@@ -100,8 +108,7 @@ export const actions: Actions = {
 					defaultCalendarId,
 					syncEventsToFamilyCalendar,
 					autoParseEventDetails,
-					useCloudAI,
-					useLocalAI
+					useCloudAI
 				});
 			}
 
@@ -109,6 +116,42 @@ export const actions: Actions = {
 		} catch (error) {
 			console.error('Failed to save calendar settings:', error);
 			return fail(500, { success: false, message: 'Failed to save calendar settings' });
+		}
+	},
+
+	saveAds: async ({ request, locals }) => {
+		const userId = locals.user.id;
+		const formData = await request.formData();
+
+		const showAdsAsEvents = formData.get('showAdsAsEvents') === 'true';
+		const showAdMarkers = formData.get('showAdMarkers') === 'true';
+		const personalizedAds = formData.get('personalizedAds') === 'true';
+
+		try {
+			const existing = await db
+				.select()
+				.from(userAdConsent)
+				.where(eq(userAdConsent.userId, userId));
+
+			if (existing.length > 0) {
+				await db
+					.update(userAdConsent)
+					.set({ showAdsAsEvents, showAdMarkers, personalizedAds, updatedAt: new Date() })
+					.where(eq(userAdConsent.userId, userId));
+			} else {
+				await db.insert(userAdConsent).values({
+					userId,
+					showAdsAsEvents,
+					showAdMarkers,
+					personalizedAds,
+					updatedAt: new Date()
+				});
+			}
+
+			return { success: true, message: 'Ad preferences saved' };
+		} catch (error) {
+			console.error('Failed to save ad preferences:', error);
+			return fail(500, { success: false, message: 'Failed to save ad preferences' });
 		}
 	},
 
