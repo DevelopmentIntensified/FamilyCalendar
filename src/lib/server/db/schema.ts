@@ -20,12 +20,13 @@ export const users = pgTable('users', {
 		.$defaultFn(() => generateId(15)),
 	firstName: text('firstName').notNull(),
 	lastName: text('lastName').notNull(),
-	email: text('email').notNull().unique(),
+	email: text('email').unique(),
 	passwordHash: text('passwordhash'),
 	emailVerified: boolean('emailVerified'),
 	picture: text('picture'),
 	roles: json('roles').default([]).$type<string[]>().notNull(),
 	createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+	lastActiveAt: timestamp('lastActiveAt', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp('updatedAt', { mode: 'date' })
 		.defaultNow()
 		.$onUpdate(() => new Date())
@@ -378,6 +379,22 @@ export const eventExceptions = pgTable('event_exceptions', {
 });
 
 export type EventException = typeof eventExceptions.$inferSelect;
+
+export const claimTokens = pgTable('claim_tokens', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	tokenHash: text('token_hash').notNull().unique(),
+	email: text('email').notNull(),
+	expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+	createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export type ClaimToken = typeof claimTokens.$inferSelect;
 
 export type Session = typeof sessions.$inferSelect;
 export type Code = typeof codes.$inferSelect;

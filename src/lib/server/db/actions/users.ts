@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { users, type User } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and, lt, sql } from 'drizzle-orm';
 
 export async function getUsers() {
 	return await db.select().from(users);
@@ -51,4 +51,38 @@ export async function deleteUser(id: string) {
 
 export async function deleteUserByEmail(email: string) {
 	await db.delete(users).where(eq(users.email, email));
+}
+
+export async function createAnonymousUser() {
+	const [createdUser] = await db
+		.insert(users)
+		.values({
+			firstName: 'Guest',
+			lastName: '',
+			email: null,
+			emailVerified: false,
+			roles: []
+		})
+		.returning();
+	return createdUser;
+}
+
+export async function touchLastActiveAt(userId: string) {
+	await db.update(users).set({ lastActiveAt: new Date() }).where(eq(users.id, userId));
+}
+
+export async function claimEmailForUser(userId: string, email: string) {
+	const [updated] = await db
+		.update(users)
+		.set({ email, emailVerified: true })
+		.where(eq(users.id, userId))
+		.returning();
+	return updated;
+}
+
+export async function getStaleAnonymousUsers(inactivityCutoff: Date) {
+	return await db
+		.select()
+		.from(users)
+		.where(and(sql`${users.email} IS NULL`, lt(users.lastActiveAt, inactivityCutoff)));
 }
