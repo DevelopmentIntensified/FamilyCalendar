@@ -21,8 +21,14 @@ interface ParseResult {
 
 const MONTH_MAP: Record<string, number> = {
 	january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
-	july: 7, august: 8, september: 9, october: 10, november: 11, december: 12
+	july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+	// Common abbreviations
+	jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8,
+	sept: 9, sep: 9, oct: 10, nov: 11, dec: 12
 };
+
+// Longest-first so "september" wins over "sep", "june" over "jun", etc.
+const MONTH_ALT = 'january|february|september|december|november|october|august|april|march|june|july|may|sept|jan|feb|mar|apr|aug|sep|oct|nov|dec';
 
 const DAY_MAP: Record<string, number> = {
 	sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
@@ -42,6 +48,13 @@ const ORDINAL_WORDS_PATTERN = '(?:twenty-(?:first|second|third|fifth|sixth|seven
 
 function normalizeTime(hour: number, minute: number = 0): string {
 	return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+}
+
+function applyPeriod(hour: number, period?: string): number {
+	const p = period?.toLowerCase();
+	if (p === 'pm' && hour < 12) return hour + 12;
+	if (p === 'am' && hour === 12) return 0;
+	return hour;
 }
 
 function parseDayOfWeek(day: string): number | null {
@@ -88,8 +101,25 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.2;
 	}
 
+	// "in 3 days", "in 2 weeks", "in a month"
+	const relativeMatch = input.match(/\bin\s+(a|\d+)\s+(day|week|month)s?\b/i);
+	if (relativeMatch && !result.date) {
+		const n = relativeMatch[1].toLowerCase() === 'a' ? 1 : parseInt(relativeMatch[1]);
+		result.date = now.plus({ [`${relativeMatch[2].toLowerCase()}s`]: n } as any).toFormat('yyyy-MM-dd');
+		confidence += 0.25;
+	}
+
+	// "this weekend", "weekend" -> the upcoming Saturday
+	const weekendMatch = input.match(/\b(?:this\s+|next\s+)?weekend\b/i);
+	if (weekendMatch && !result.date) {
+		let daysUntilSat = (6 - (now.weekday % 7) + 7) % 7;
+		if (daysUntilSat === 0) daysUntilSat = 7;
+		result.date = now.plus({ days: daysUntilSat }).toFormat('yyyy-MM-dd');
+		confidence += 0.2;
+	}
+
 	// "next month" - "next May", "next July"
-	const nextMonthMatch = input.match(/\bnext\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b/i);
+	const nextMonthMatch = input.match(new RegExp(`\\bnext\\s+(${MONTH_ALT})\\b`, 'i'));
 	if (nextMonthMatch && !result.date) {
 		const month = MONTH_MAP[nextMonthMatch[1].toLowerCase()];
 		let year = now.month >= month ? now.year + 1 : now.year;
@@ -108,16 +138,45 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.2;
 	}
 
-	// Month and day: "July 12th", "May 4th", "October 5th"
-	const monthDayMatch = input.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b/i);
+	// Month and day: "July 12th", "Aug 30", "Sept 5", "Dec 25, 2026"
+	const monthDayMatch = input.match(new RegExp(`\\b(${MONTH_ALT})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?\\b`, 'i'));
 	if (monthDayMatch && !result.date) {
 		const month = MONTH_MAP[monthDayMatch[1].toLowerCase()];
 		const day = parseInt(monthDayMatch[2]);
-		let year = now.year;
-		const target = DateTime.fromObject({ year, month, day });
-		if (target < now && month <= now.month) year = now.year + 1;
+		let year: number;
+		if (monthDayMatch[3]) {
+			year = parseInt(monthDayMatch[3]);
+		} else {
+			year = now.year;
+			if (DateTime.fromObject({ year, month, day }) < now && month <= now.month) year += 1;
+		}
 		result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
 		confidence += 0.3;
+	}
+
+	// Day-first with optional year: "21 Mar 2027", "12 August"
+	const dayFirstMatch = input.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})\\.?(?:,?\\s*(20\\d{2}))?\\b`, 'i'));
+	if (dayFirstMatch && !result.date) {
+		const day = parseInt(dayFirstMatch[1]);
+		const month = MONTH_MAP[dayFirstMatch[2].toLowerCase()];
+		if (day >= 1 && day <= 31) {
+			let year: number;
+			if (dayFirstMatch[3]) {
+				year = parseInt(dayFirstMatch[3]);
+			} else {
+				year = now.year;
+				if (DateTime.fromObject({ year, month, day }) < now && month <= now.month) year += 1;
+			}
+			result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+			confidence += 0.3;
+		}
+	}
+
+	// ISO date: "2026-08-30"
+	const isoDateMatch = input.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+	if (isoDateMatch && !result.date) {
+		result.date = `${isoDateMatch[1]}-${isoDateMatch[2]}-${isoDateMatch[3]}`;
+		confidence += 0.35;
 	}
 
 	// Ordinal-first: "3rd of May", "third of June", "twenty-first of December"
@@ -184,14 +243,63 @@ export function parseEventInput(input: string): ParseResult {
 		confidence += 0.2;
 	}
 
+	// "from 2-4pm", "from 9 to 5 pm" (no colons; end carries the meridiem)
+	const shortRangeMatch = input.match(/\bfrom\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?\s*(?:-|–|—|to)\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/i);
+	if (shortRangeMatch && !foundTime) {
+		const startPeriod = shortRangeMatch[3]?.toLowerCase();
+		const endPeriod = shortRangeMatch[6]?.toLowerCase();
+		const effectiveStartPeriod = startPeriod || endPeriod;
+		result.startTime = normalizeTime(applyPeriod(parseInt(shortRangeMatch[1]), effectiveStartPeriod), shortRangeMatch[2] ? parseInt(shortRangeMatch[2]) : 0);
+		result.endTime = normalizeTime(applyPeriod(parseInt(shortRangeMatch[4]), endPeriod), shortRangeMatch[5] ? parseInt(shortRangeMatch[5]) : 0);
+		foundTime = true;
+		confidence += 0.25;
+	}
+
+	// "between 2 and 4 PM"
+	const betweenRangeMatch = input.match(/\bbetween\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s+and\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+	if (betweenRangeMatch && !foundTime) {
+		const endPeriod = betweenRangeMatch[6]?.toLowerCase();
+		const startPeriod = betweenRangeMatch[3]?.toLowerCase() || endPeriod;
+		result.startTime = normalizeTime(applyPeriod(parseInt(betweenRangeMatch[1]), startPeriod), betweenRangeMatch[2] ? parseInt(betweenRangeMatch[2]) : 0);
+		result.endTime = normalizeTime(applyPeriod(parseInt(betweenRangeMatch[4]), endPeriod), betweenRangeMatch[5] ? parseInt(betweenRangeMatch[5]) : 0);
+		foundTime = true;
+		confidence += 0.25;
+	}
+
 	// Check all-day first
 	if (['all day', 'all-day', 'whole day', 'birthday'].some(p => lower.includes(p))) {
 		result.allDay = true;
 		confidence += 0.15;
 	}
 
+	// ===== RECURRENCE =====
+	// Compound phrases must come before bare words so we capture the full
+	// expression ("every other week", not just "week"-less fragments).
+	const recurrencePatterns: [RegExp, string | ((m: RegExpMatchArray) => string)][] = [
+		[/\bmonthly\s+on\s+the\s+\d{1,2}(?:st|nd|rd|th)?\b/i, () => 'monthly'],
+		[/\bweekly\s+on\s+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)s?\b/i, () => 'weekly'],
+		[/\bevery other\s+(?:day|week|month)\b/i, () => 'biweekly'],
+		[/\bevery\s+(\d+)\s+(days?|weeks?|months?|years?)\b/i, (m) => `every_${m[1]}_${m[2].toLowerCase()}`],
+		[/\bevery\s+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i, () => 'weekly'],
+		[/\b(?:daily|every day)\b/i, () => 'daily'],
+		[/\bweekly\b/i, () => 'weekly'],
+		[/\bmonthly\b/i, () => 'monthly'],
+		[/\b(?:yearly|annually)\b/i, () => 'yearly']
+	];
+	const recurrencePhrases: string[] = [];
+	for (const [pattern, value] of recurrencePatterns) {
+		const m = input.match(pattern);
+		if (m) {
+			result.recurring = typeof value === 'function' ? value(m) : value;
+			recurrencePhrases.push(m[0]);
+			confidence += 0.2;
+			break;
+		}
+	}
+
 	// "starting at 6 PM", "at 8 AM", "beginning at 9 AM", "7:15A"
-	const startTimeMatch = input.match(/(?:start(?:ing)?\s+at|at|beginning\s+at)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?|AM?|PM?)?/i);
+	// (?!\d) keeps bare 4-digit military time ("1830") from matching here.
+	const startTimeMatch = input.match(/(?:start(?:ing)?\s+at|at|beginning\s+at)\s+(\d{1,2})(?::(\d{2}))?(?!\d)\s*(am?|pm?|AM?|PM?)?/i);
 
 	// Standalone time: "9:00 AM", "7:15P", "3:30 PM" (may appear after date)
 	if (!startTimeMatch && !foundTime) {
@@ -226,6 +334,39 @@ export function parseEventInput(input: string): ParseResult {
 		result.startTime = timeMap[specialTimeMatch[1].toLowerCase()];
 		foundTime = true;
 		confidence += 0.2;
+	}
+
+	// Colloquial fractions: "half past seven pm", "quarter to nine am", "quarter past two pm"
+	const WORD_HOUR: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12 };
+	const colloquialMatch = input.match(new RegExp(`\\b(half\\s+past|quarter\\s+to|quarter\\s+past)\\s+(\\d{1,2}|${Object.keys(WORD_HOUR).join('|')})\\s*(am|pm)?\\b`, 'i'));
+	if (colloquialMatch && !foundTime) {
+		const kind = colloquialMatch[1].toLowerCase().replace(/\s+/g, ' ');
+		const rawHour = colloquialMatch[2].toLowerCase();
+		let hour = /^\d+$/.test(rawHour) ? parseInt(rawHour) : WORD_HOUR[rawHour];
+		const period = colloquialMatch[3]?.toLowerCase();
+		if (kind === 'half past') {
+			result.startTime = normalizeTime(applyPeriod(hour, period), 30);
+		} else if (kind === 'quarter past') {
+			result.startTime = normalizeTime(applyPeriod(hour, period), 15);
+		} else {
+			// quarter TO nine = 8:45
+			result.startTime = normalizeTime(applyPeriod(hour - 1, period), 45);
+		}
+		foundTime = true;
+		confidence += 0.25;
+	}
+
+	// Military / compact 24h: "1830" (not years like 2026)
+	const militaryMatch = input.match(/(?<![\d:])(\d{2})(\d{2})(?!\d)/);
+	if (militaryMatch && !foundTime) {
+		const whole = militaryMatch[0];
+		const hh = parseInt(militaryMatch[1]);
+		const mm = parseInt(militaryMatch[2]);
+		if (!/^20\d{2}$/.test(whole) && hh <= 23 && mm <= 59) {
+			result.startTime = normalizeTime(hh, mm);
+			foundTime = true;
+			confidence += 0.25;
+		}
 	}
 
 	// Time of day: "early morning", "morning", "afternoon", "evening"
@@ -596,10 +737,17 @@ export function parseEventInput(input: string): ParseResult {
 
 	// ===== TITLE =====
 	// Always take first 50 chars of input as title (simplified)
-	let title = input.substring(0, 50);
+	let titleSource = input;
+	// Recurrence phrases describe the schedule, not the event name.
+	for (const phrase of recurrencePhrases) {
+		const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		titleSource = titleSource.replace(new RegExp(escaped, 'i'), ' ');
+	}
+	titleSource = titleSource.replace(/\s{2,}/g, ' ').trimStart();
+	let title = titleSource.substring(0, 50);
 	// Remove trailing punctuation (but preserve spaces to match first 50 chars behavior)
 	title = title.replace(/[.,;:!?]+$/, '');
-	
+
 	if (title.length > 3 && !title.match(/^[\s,]*$/)) {
 		result.title = title;
 		confidence += 0.2;

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { DateTime } from 'luxon';
 import { parseEventInput, type ParseResult } from './naturalLanguageService';
 
 describe('NLP Event Parser', () => {
@@ -453,6 +454,146 @@ describe('NLP Event Parser', () => {
 			expect(result.parsed.location).toBe('Mr. Goodies');
 			expect(result.parsed.startTime).toBe('18:00');
 			expect(result.parsed.endTime).toBe('20:00');
+		});
+	});
+
+	describe('Relative Date Offsets', () => {
+		it('parses "in 3 days"', () => {
+			const result = parseEventInput('checkup in 3 days');
+			const expected = DateTime.now().plus({ days: 3 }).toFormat('MM-dd');
+			expect(result.parsed.date).toContain(expected);
+		});
+
+		it('parses "in 2 weeks"', () => {
+			const result = parseEventInput('review in 2 weeks');
+			const expected = DateTime.now().plus({ weeks: 2 }).toFormat('MM-dd');
+			expect(result.parsed.date).toContain(expected);
+		});
+
+		it('parses "in a month"', () => {
+			const result = parseEventInput('follow up in a month');
+			const expected = DateTime.now().plus({ months: 1 }).toFormat('MM-dd');
+			expect(result.parsed.date).toContain(expected);
+		});
+
+		it('parses "this weekend" as the upcoming Saturday', () => {
+			const result = parseEventInput('camping this weekend');
+			const daysUntilSat = (6 - DateTime.now().weekday % 7 + 7) % 7 || 7;
+			const expected = DateTime.now().plus({ days: daysUntilSat }).toFormat('MM-dd');
+			expect(result.parsed.date).toContain(expected);
+		});
+	});
+
+	describe('Additional Date Formats', () => {
+		it('parses month abbreviation "Aug 30"', () => {
+			const result = parseEventInput('barbecue Aug 30');
+			expect(result.parsed.date).toContain('08-30');
+		});
+
+		it('parses four-letter abbreviation "Sept 5"', () => {
+			const result = parseEventInput('picnic Sept 5');
+			expect(result.parsed.date).toContain('09-05');
+		});
+
+		it('parses day-first with year "21 Mar 2027"', () => {
+			const result = parseEventInput('launch 21 Mar 2027');
+			expect(result.parsed.date).toContain('2027-03-21');
+		});
+
+		it('parses ISO date "2026-08-30"', () => {
+			const result = parseEventInput('deadline 2026-08-30');
+			expect(result.parsed.date).toContain('2026-08-30');
+		});
+
+		it('parses year suffix "July 12th 2027"', () => {
+			const result = parseEventInput('reunion July 12th 2027');
+			expect(result.parsed.date).toContain('2027-07-12');
+		});
+
+		it('parses comma style "Dec 25, 2026"', () => {
+			const result = parseEventInput('dinner Dec 25, 2026');
+			expect(result.parsed.date).toContain('2026-12-25');
+		});
+	});
+
+	describe('Colloquial & Military Times', () => {
+		it('parses "half past seven pm"', () => {
+			const result = parseEventInput('movie half past seven pm');
+			expect(result.parsed.startTime).toBe('19:30');
+		});
+
+		it('parses "quarter to nine am"', () => {
+			const result = parseEventInput('standup quarter to nine am');
+			expect(result.parsed.startTime).toBe('08:45');
+		});
+
+		it('parses "quarter past two pm"', () => {
+			const result = parseEventInput('tea quarter past two pm');
+			expect(result.parsed.startTime).toBe('14:15');
+		});
+
+		it('parses military time "1830"', () => {
+			const result = parseEventInput('call grandma at 1830');
+			expect(result.parsed.startTime).toBe('18:30');
+		});
+
+		it('parses dash range "from 2-4pm"', () => {
+			const result = parseEventInput('workshop from 2-4pm');
+			expect(result.parsed.startTime).toBe('14:00');
+			expect(result.parsed.endTime).toBe('16:00');
+		});
+
+		it('parses "between 2 and 4 PM"', () => {
+			const result = parseEventInput('window between 2 and 4 PM');
+			expect(result.parsed.startTime).toBe('14:00');
+			expect(result.parsed.endTime).toBe('16:00');
+		});
+	});
+
+	describe('Recurrence Detection', () => {
+		it('parses "every Tuesday" as weekly', () => {
+			const result = parseEventInput('soccer practice every Tuesday at 4pm');
+			expect(result.parsed.recurring).toBe('weekly');
+		});
+
+		it('parses "daily" as daily', () => {
+			const result = parseEventInput('standup daily at 9am');
+			expect(result.parsed.recurring).toBe('daily');
+		});
+
+		it('parses "every day" as daily', () => {
+			const result = parseEventInput('water the plants every day');
+			expect(result.parsed.recurring).toBe('daily');
+		});
+
+		it('parses "weekly on Mondays"', () => {
+			const result = parseEventInput('trash pickup weekly on Mondays');
+			expect(result.parsed.recurring).toBe('weekly');
+		});
+
+		it('parses "every other week" as biweekly', () => {
+			const result = parseEventInput('payday every other week');
+			expect(result.parsed.recurring).toBe('biweekly');
+		});
+
+		it('parses "monthly on the 15th" as monthly', () => {
+			const result = parseEventInput('rent due monthly on the 15th');
+			expect(result.parsed.recurring).toBe('monthly');
+		});
+
+		it('parses "annually" as yearly', () => {
+			const result = parseEventInput('insurance renewal annually');
+			expect(result.parsed.recurring).toBe('yearly');
+		});
+
+		it('parses "every 3 days" as interval form', () => {
+			const result = parseEventInput('medication every 3 days');
+			expect(result.parsed.recurring).toBe('every_3_days');
+		});
+
+		it('does not leak the recurrence phrase into the title', () => {
+			const result = parseEventInput('soccer practice every Tuesday at 4pm');
+			expect(result.parsed.title?.toLowerCase()).not.toContain('every tuesday');
 		});
 	});
 });
