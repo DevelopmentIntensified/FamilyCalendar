@@ -19,13 +19,13 @@ Decisions locked in the planning session of 2026-08-21. Domain language lives in
 | Recurring Events | `frequency` (day/week/month/year) + `interval` (every N) as structured columns (`recurrence_frequency`, `recurrence_interval`). Occurrences expanded virtually at read time (±2y window, 500 cap) with composite ids `{masterId}~{occISO}`; anchor-based generation so "monthly on the 31st" re-anchors after short months and Feb 29 yearly rolls to Mar 1. **Exception Overrides** in `event_exceptions`: edit/delete of a single occurrence ("This event only" vs "All events in series" choice); cancelled occurrences skipped during expansion. Full iCalendar RRULE is a later upgrade — schema migrates cleanly |
 | Smart Event templates | Static catalog `src/lib/data/smartEventTemplates.ts` (car / home / cleaning, 34 templates from standard maintenance schedules). "Smart schedules" panel in the create form prefills title/description/frequency/interval |
 
-## Tier 3 — designed, not built
+## Tier 3 — shipped
 
 | Item | Locked design |
 |------|---------------|
-| Onboarding redesign | **Anonymous Accounts**: server account created silently on first visit, no email. **Claiming** attaches a verified email via magic link → sync across devices. **Claim Conflict** (email already registered): block + escape hatch ("log in first, then merge") — never silent merge. Anonymous users warned data won't sync without Claiming |
-| Retention | Weekly cron deletes unclaimed Anonymous Accounts idle > 90 days (**Inactivity Window**). "No action" = any authenticated request refreshes `lastActiveAt` in hooks. In-app warning when < 14 days remain. No cron infra exists yet — needs an endpoint + host scheduler or lazy sweep |
-| Tasks | Separate `tasks` entity (title, optional due date, assignee, family/person scope). **Events can have Tasks attached**. Completion history + stats are future. When smart-event completion tracking lands, occurrence completions write into this model |
+| Onboarding redesign | **Anonymous Accounts**: server account created silently on first visit to a protected route, no email. **Claiming** attaches a verified email via magic link (`/claim`, sha256-hashed tokens, 15-min TTL) → sync across devices. **Claim Conflict** (email already registered): block + escape hatch ("log in first"), re-checked at click time — never silent merge. Guest banner shows sync warning + days remaining; red under 14 days |
+| Retention | `/api/cron/cleanup` (protected by `x-cron-secret`) deletes unclaimed Anonymous Accounts idle > 90 days (**Inactivity Window**); "no action" = any authenticated request refreshes `lastActiveAt` in hooks (1h throttle). Expired claim tokens cleaned in same job. Wire to a weekly external scheduler with `CRON_SECRET` set |
+| Tasks | `tasks` table: title/notes/optional due date/completedAt, owner, optional family scope, optional event attachment. `/calendar/tasks` page (quick-add, overdue highlighting, completed section) + full API. Events-attached task UI and completion stats are future |
 
 ## Future ideas (from research, not committed)
 
