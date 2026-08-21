@@ -59,7 +59,7 @@
 	<div class="mb-4 flex items-center gap-3 border-b border-slate-200 pb-3">
 		<button
 			type="button"
-			on:click={() => dispatch('back')}
+			onclick={() => dispatch('back')}
 			class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
 			aria-label="Back"
 		>
