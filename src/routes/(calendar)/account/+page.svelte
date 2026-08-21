@@ -22,11 +22,41 @@
 
 	const sections = [
 		{ id: 'profile', label: 'Profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
+		{ id: 'calendar', label: 'Calendar', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
 		{ id: 'subscription', label: 'Subscription', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z' },
 		{ id: 'email', label: 'Email', icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
 		{ id: 'security', label: 'Security', icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' },
 		{ id: 'danger', label: 'Danger Zone', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' }
 	];
+
+	const timeZones = [
+		{ value: 'Pacific/Honolulu', label: 'Hawaii (HST)' },
+		{ value: 'America/Anchorage', label: 'Alaska (AKST)' },
+		{ value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+		{ value: 'America/Denver', label: 'Mountain Time (MT)' },
+		{ value: 'America/Phoenix', label: 'Arizona (MST)' },
+		{ value: 'America/Chicago', label: 'Central Time (CT)' },
+		{ value: 'America/New_York', label: 'Eastern Time (ET)' },
+		{ value: 'America/Toronto', label: 'Toronto (EST)' },
+		{ value: 'Europe/London', label: 'London (GMT/BST)' },
+		{ value: 'Europe/Paris', label: 'Paris (CET)' },
+		{ value: 'Europe/Berlin', label: 'Berlin (CET)' },
+		{ value: 'Asia/Dubai', label: 'Dubai (GST)' },
+		{ value: 'Asia/Kolkata', label: 'India (IST)' },
+		{ value: 'Asia/Singapore', label: 'Singapore (SGT)' },
+		{ value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+		{ value: 'Australia/Sydney', label: 'Sydney (AEST)' },
+		{ value: 'UTC', label: 'UTC' }
+	];
+
+	const viewOptions = [
+		{ value: 'dayView', label: 'Day View' },
+		{ value: 'weekView', label: 'Week View' },
+		{ value: 'monthView', label: 'Month View' },
+		{ value: 'listView', label: 'List View' }
+	];
+
+	let calendarLoading = false;
 </script>
 
 <svelte:head>
@@ -134,6 +164,94 @@
 									class="rounded-full bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
 								>
 									{profileLoading ? 'Saving...' : 'Update Profile'}
+								</button>
+							</form>
+						</div>
+					{:else if activeSection === 'calendar'}
+						<div id="calendar">
+							<h2 class="mb-4 text-lg font-semibold text-slate-900">Calendar Settings</h2>
+							<form
+								method="POST"
+								action="?/saveCalendarSettings"
+								use:enhance={() => {
+									calendarLoading = true;
+									return async ({ update }) => {
+										calendarLoading = false;
+										await update();
+									};
+								}}
+								class="space-y-4"
+							>
+								<div class="grid gap-4 sm:grid-cols-2">
+									<div class="space-y-2">
+										<label for="weekStart" class="block text-sm font-medium text-slate-700">Week Starts On</label>
+										<select id="weekStart" name="weekStart" class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
+											<option value="sunday" selected={data.userSettings.weekStart === 'sunday'}>Sunday</option>
+											<option value="monday" selected={data.userSettings.weekStart === 'monday'}>Monday</option>
+										</select>
+									</div>
+
+									<div class="space-y-2">
+										<label for="timeZone" class="block text-sm font-medium text-slate-700">Time Zone</label>
+										<select id="timeZone" name="timeZone" class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
+											{#each timeZones as tz}
+												<option value={tz.value} selected={data.userSettings.timeZone === tz.value}>{tz.label}</option>
+											{/each}
+										</select>
+									</div>
+
+									<div class="space-y-2">
+										<label for="defaultView" class="block text-sm font-medium text-slate-700">Default View</label>
+										<select id="defaultView" name="defaultView" class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
+											{#each viewOptions as view}
+												<option value={view.value} selected={data.userSettings.defaultView === view.value}>{view.label}</option>
+											{/each}
+										</select>
+									</div>
+
+									<div class="space-y-2">
+										<label for="defaultCalendarId" class="block text-sm font-medium text-slate-700">Default Calendar</label>
+										<select id="defaultCalendarId" name="defaultCalendarId" class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
+											<option value="">None (use first available)</option>
+											{#each data.calendars || [] as cal}
+												<option value={cal.id} selected={data.userSettings.defaultCalendarId === cal.id}>{cal.name}</option>
+											{/each}
+										</select>
+									</div>
+
+									<div class="space-y-2">
+										<label for="color" class="block text-sm font-medium text-slate-700">Default Event Color</label>
+										<input
+											type="color"
+											id="color"
+											name="color"
+											class="h-11 w-full rounded-lg border border-slate-300 p-1"
+											value={data.userSettings.color || '#3b82f6'}
+										/>
+									</div>
+
+									<div class="flex items-end pb-1">
+										<label class="flex cursor-pointer items-center gap-3">
+											<input
+												type="checkbox"
+												name="syncEventsToFamilyCalendar"
+												class="h-5 w-5 rounded border-slate-300"
+												checked={data.userSettings.syncEventsToFamilyCalendar}
+											/>
+											<span class="text-sm font-medium text-slate-700">Sync events to family calendar</span>
+										</label>
+									</div>
+								</div>
+
+								<input type="hidden" name="autoParseEventDetails" value={String(data.userSettings.autoParseEventDetails ?? true)} />
+								<input type="hidden" name="useCloudAI" value={String(data.userSettings.useCloudAI ?? true)} />
+
+								<button
+									type="submit"
+									disabled={calendarLoading}
+									class="rounded-full bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+								>
+									{calendarLoading ? 'Saving...' : 'Save Calendar Settings'}
 								</button>
 							</form>
 						</div>

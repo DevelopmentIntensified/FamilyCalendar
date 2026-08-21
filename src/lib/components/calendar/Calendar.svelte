@@ -71,9 +71,9 @@
 		currentDate.set(current);
 	}
 
-	$: currentMonthYear = get(currentDate).toFormat('MMMM yyyy');
-	$: currentYear = get(currentDate).year;
-	$: currentMonth = get(currentDate).month;
+	$: currentMonthYear = $currentDate.toFormat('MMMM yyyy');
+	$: currentYear = $currentDate.year;
+	$: currentMonth = $currentDate.month;
 	$: months = Info.monthNamesLong;
 </script>
 
@@ -167,7 +167,7 @@
 		</div>
 
 		<a
-			href="/calendar/settings"
+			href="/account#calendar"
 			class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
 			aria-label="Calendar Settings"
 		>
