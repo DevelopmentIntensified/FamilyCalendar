@@ -111,4 +111,30 @@ describe('expandRecurrence', () => {
 		const result = expandRecurrence(event, d('2020-01-01T00:00:00Z'), d('2030-01-01T00:00:00Z'));
 		expect(result.length).toBeLessThanOrEqual(500);
 	});
+
+	it('accepts Date instances (drizzle/postgres.js runtime shape)', () => {
+		const event: RecurringEventInput = {
+			id: 'e1',
+			start: new Date('2026-08-10T18:00:00Z'),
+			recurrenceFrequency: null,
+			recurrenceInterval: null
+		};
+		const result = expandRecurrence(event, d('2026-08-01T00:00:00Z'), d('2026-09-01T00:00:00Z'));
+		expect(result).toHaveLength(1);
+	});
+
+	it('accepts pg space-separated timestamp strings', () => {
+		const event: RecurringEventInput = {
+			id: 'e1',
+			start: '2026-08-10 18:00:00+00',
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1
+		};
+		const result = expandRecurrence(event, d('2026-08-01T00:00:00Z'), d('2026-08-25T00:00:00Z'));
+		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+			'2026-08-10',
+			'2026-08-17',
+			'2026-08-24'
+		]);
+	});
 });

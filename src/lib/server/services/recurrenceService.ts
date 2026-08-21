@@ -4,13 +4,24 @@ export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export interface RecurringEventInput {
 	id: string;
-	start: string;
-	end?: string | null;
+	start: string | Date;
+	end?: string | Date | null;
 	recurrenceFrequency: string | null;
 	recurrenceInterval: number | null;
 }
 
 const MAX_OCCURRENCES = 500;
+
+/**
+ * Drizzle's timestamptz columns are declared mode:'string', but the
+ * postgres.js driver hands back Date objects at runtime, and raw pg
+ * strings use the space-separated form. Normalize all three shapes.
+ */
+function parseTimestamp(v: unknown): DateTime {
+	if (v instanceof Date) return DateTime.fromJSDate(v, { zone: 'utc' });
+	const s = String(v ?? '').trim().replace(' ', 'T');
+	return DateTime.fromISO(s, { zone: 'utc' });
+}
 
 function generateOccurrence(
 	anchor: DateTime,
@@ -56,12 +67,12 @@ export function expandRecurrence(
 	windowStart: Date,
 	windowEnd: Date
 ): Date[] {
-	const anchor = DateTime.fromISO(event.start, { zone: 'utc' });
+	const anchor = parseTimestamp(event.start);
 	if (!anchor.isValid) return [];
 
 	const frequency = event.recurrenceFrequency as RecurrenceFrequency | null;
 	if (!frequency) {
-		const s = new Date(event.start);
+		const s = anchor.toJSDate();
 		return s >= windowStart && s < windowEnd ? [s] : [];
 	}
 
