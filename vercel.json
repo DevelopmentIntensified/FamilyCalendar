@@ -1,11 +1,8 @@
 {
-  "regions": ["iad1"],
-  "git": {
-    "deploymentEnabled": {
-      "main": true,
-      "test": true,
-      "production": false
-    },
-    "ignoreGitIgnore": true
-  }
+	"crons": [
+		{
+			"path": "/api/cron/cleanup",
+			"schedule": "0 4 * * 1"
+		}
+	]
 }

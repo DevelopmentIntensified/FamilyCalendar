@@ -30,9 +30,18 @@ async function runCleanup() {
 	};
 }
 
-export const GET: RequestHandler = async ({ request }) => {
+function isAuthorized(request: Request): boolean {
 	const secret = process.env.CRON_SECRET;
-	if (!secret || request.headers.get('x-cron-secret') !== secret) {
+	if (!secret) return false;
+	// Vercel Cron sends: Authorization: Bearer ${CRON_SECRET}
+	const authHeader = request.headers.get('authorization');
+	if (authHeader === `Bearer ${secret}`) return true;
+	// Manual/external schedulers can use a plain header.
+	return request.headers.get('x-cron-secret') === secret;
+}
+
+export const GET: RequestHandler = async ({ request }) => {
+	if (!isAuthorized(request)) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 	const result = await runCleanup();
