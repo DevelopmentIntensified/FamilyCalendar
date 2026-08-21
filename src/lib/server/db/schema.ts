@@ -396,6 +396,25 @@ export const claimTokens = pgTable('claim_tokens', {
 
 export type ClaimToken = typeof claimTokens.$inferSelect;
 
+export const tasks = pgTable('tasks', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	title: text('title').notNull(),
+	notes: text('notes'),
+	dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
+	completedAt: timestamp('completed_at', { withTimezone: true, mode: 'string' }),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	familyId: text('family_id').references(() => families.id, { onDelete: 'cascade' }),
+	eventId: text('event_id').references(() => events.id, { onDelete: 'cascade' }),
+	createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export type Task = typeof tasks.$inferSelect;
+
 export type Session = typeof sessions.$inferSelect;
 export type Code = typeof codes.$inferSelect;
 export type CalendarEvent = typeof events.$inferSelect;

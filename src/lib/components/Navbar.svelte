@@ -25,6 +25,7 @@
 
 	const loggedInNavItems = [
 		{ href: '/calendar', label: 'Calendar' },
+		{ href: '/calendar/tasks', label: 'Tasks' },
 		{ href: '/family', label: 'Family' }
 	];
 
