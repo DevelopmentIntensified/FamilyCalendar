@@ -15,11 +15,33 @@
 	let selectedEvent: Event | null = null;
 	let selectedEventRsvp: any[] = [];
 
+	// Optimistically shown events between creation and the next load refresh.
+	let localExtras: Event[] = [];
+
+	const oneDayMs = 24 * 60 * 60 * 1000;
+
+	function toDisplayEvent(row: any): Event[] {
+		// Mirror parseEvents: split multi-day rows into per-day entries.
+		const start = new Date(row.start);
+		const end = row.end ? new Date(row.end) : null;
+		const base = { ...row, start, end };
+		if (!end || start.getDate() === end.getDate()) {
+			return [{ ...base, date: start }];
+		}
+		const diffDays = Math.round(Math.abs((start.getTime() - end.getTime()) / oneDayMs));
+		const days: Event[] = [];
+		for (let i = 0; i <= diffDays; i++) {
+			days.push({ ...base, date: new Date(start.getTime() + oneDayMs * i) });
+		}
+		return days;
+	}
+
 	// Combine all events
 	$: allEvents = [
 		...(data.userEvents || []),
 		...(data.familyEvents || []),
-		...(data.adEvents || [])
+		...(data.adEvents || []),
+		...localExtras
 	];
 
 	function close() {
@@ -30,7 +52,16 @@
 	}
 
 	async function handleEventCreated(event: CustomEvent) {
+		const created = event.detail?.created;
+		if (created) {
+			const familyCalIds = new Set((data.calendarIds || []).slice(1).map((c: any) => c.id));
+			const color = familyCalIds.has(created.calendarId)
+				? data.familyCalendarColor
+				: data.userCalendarColor;
+			localExtras = [...localExtras, ...toDisplayEvent({ ...created, color })];
+		}
 		await invalidateAll();
+		localExtras = [];
 		close();
 	}
 

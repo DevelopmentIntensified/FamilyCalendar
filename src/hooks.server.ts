@@ -67,3 +67,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 	return resolve(event);
 };
+
+// Expected 404s (bot probes like /xmlrpc.php, mistyped URLs) shouldn't
+// spam the logs with stack traces — the styled error page still renders.
+export const handleError = ({ status, error }: { status?: number; error: unknown }) => {
+	if (status === 404) return;
+	console.error(error);
+};

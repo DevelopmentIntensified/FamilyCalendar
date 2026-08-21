@@ -29,6 +29,19 @@
 		return event.isAd === true;
 	}
 
+	function chipColor(event: Event): string {
+		return event.color || '#94a3b8';
+	}
+
+	function chipStyle(event: Event): string {
+		if (isAdEvent(event)) return '';
+		const color = chipColor(event);
+		// All-day events read as solid blocks; timed ones stay light.
+		return event.allDay
+			? `background-color: ${color}33; border-left: 3px solid ${color};`
+			: `border-left: 3px solid ${color};`;
+	}
+
 	let selectedEvent: Event | null = null;
 
 	function handleEventClick(event: Event) {
@@ -48,49 +61,56 @@
 {#each days as day}
 	{@const cellDate = currentDate.set({ day })}
 	{@const date = formatDate(cellDate)}
-	{@const lastDate = formatDate(currentDate.set({ day }).plus({ day: -1 }))}
-	{@const pastDaysEvents = events.filter((event) => formatDate(event.date) === lastDate)}
 	{@const dayEvents = events.filter((event) => formatDate(event.date) === date)}
 	{@const isTodayDate = date === formatDate(today)}
+	{@const isOtherMonth = nextMonth || lastMonth}
 	<div
-		class="relative min-h-[70px] border transition-colors hover:bg-slate-50 {isTodayDate
-			? 'border-primary-500 bg-primary-50/30'
-			: 'border-slate-200'} sm:min-h-[100px]"
+		class="group relative min-h-[72px] rounded-lg border p-0.5 transition-colors {isTodayDate
+			? 'border-primary-300 bg-primary-50/40 ring-1 ring-inset ring-primary-200'
+			: isOtherMonth
+				? 'border-slate-100 bg-slate-50/50'
+				: 'border-slate-100 hover:bg-slate-50'} sm:min-h-[104px]"
 	>
 		<button
 			type="button"
-			class="absolute inset-0 z-0 rounded-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+			class="absolute inset-0 z-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
 			aria-label="Open {date}"
 			onclick={() => openDay(cellDate)}
 		></button>
-		<div class="pointer-events-none relative z-10 flex items-center justify-between pl-1 {nextMonth || lastMonth ? 'text-slate-400' : ''}">
-			<span class="font-medium {isTodayDate ? 'flex h-6 w-6 items-center justify-center rounded-full bg-primary-600 text-white' : 'text-slate-700'}">
+		<div class="pointer-events-none relative z-10 flex items-center justify-between pl-1.5 pt-0.5 pr-1">
+			<span class="flex h-5 w-5 items-center justify-center text-xs font-semibold {isTodayDate ? 'rounded-full bg-primary-600 text-white' : isOtherMonth ? 'text-slate-400' : 'text-slate-600'}">
 				{day}
 			</span>
+			{#if isTodayDate}
+				<span class="pr-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-500">today</span>
+			{/if}
 		</div>
-		<div class="relative z-10 space-y-0.5 px-0.5">
+		<div class="relative z-10 mt-0.5 space-y-[3px] px-0.5 pb-0.5">
 			{#each dayEvents.slice(0, 3) as event}
 				<button
 					type="button"
 					onclick={() => handleEventClick(event)}
-					class="w-full text-left rounded px-1 py-0.5 text-xs font-medium truncate transition-all hover:scale-[1.02] hover:shadow-sm {isAdEvent(event) ? 'border border-amber-300 bg-amber-100' : 'bg-white'}"
-					style="border-left: 3px solid {event.color || '#94a3b8'}"
+					class="flex w-full items-center gap-1 overflow-hidden rounded-md px-1 py-[3px] text-left text-[11px] font-medium leading-tight transition-colors {isAdEvent(event)
+						? 'border border-amber-300 bg-amber-100'
+						: 'bg-white hover:brightness-95'}"
+					style={chipStyle(event)}
 				>
-					<span class="flex items-center gap-0.5 truncate">
-						{#if isAdEvent(event)}
-							<svg class="h-3 w-3 shrink-0 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-								<path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
-							</svg>
-						{/if}
-						<span class="truncate">{event.title}</span>
-					</span>
+					{#if !event.allDay && !isAdEvent(event)}
+						<span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background-color: {chipColor(event)}"></span>
+					{/if}
+					{#if isAdEvent(event)}
+						<svg class="h-3 w-3 shrink-0 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+							<path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+						</svg>
+					{/if}
+					<span class="truncate">{event.title}</span>
 				</button>
 			{/each}
 			{#if dayEvents.length > 3}
 				<button
 					type="button"
 					onclick={() => openDay(cellDate)}
-					class="text-xs font-medium text-slate-500 hover:text-primary-600"
+					class="rounded px-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-primary-600"
 				>
 					+{dayEvents.length - 3} more
 				</button>
