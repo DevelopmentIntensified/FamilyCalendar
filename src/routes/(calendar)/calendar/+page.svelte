@@ -40,9 +40,13 @@
 	}
 
 	async function handleEventDelete(event: CustomEvent) {
-		const eventId = event.detail.id;
+		const { id, scope, occurrenceDate } = event.detail;
 		try {
-			const res = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+			const res = await fetch(`/api/events/${id}`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(scope && occurrenceDate ? { scope, occurrenceDate } : {})
+			});
 			if (res.ok) {
 				await invalidateAll();
 			}
@@ -55,9 +59,11 @@
 	// Handle event click from calendar views
 	async function handleEventClick(event: CustomEvent) {
 		selectedEvent = event.detail;
+		// Occurrences share the series master's API identity.
+		const serverId = selectedEvent.masterId || selectedEvent.id;
 		// Fetch RSVP data for this event
 		try {
-			const res = await fetch(`/api/events/${selectedEvent.id}/rsvp`);
+			const res = await fetch(`/api/events/${serverId}/rsvp`);
 			if (res.ok) {
 				selectedEventRsvp = await res.json();
 			}
@@ -69,12 +75,13 @@
 </script>
 
 <div class="pb-24">
-	<Calendar 
-		{currentDate} 
-		events={allEvents} 
+	<Calendar
+		{currentDate}
+		events={allEvents}
 		removeEvent={() => {}}
-		preferedFirstDayOfWeek={data.user?.firstDayOfWeek || 'sunday'}
+		preferedFirstDayOfWeek={data.userSettings?.weekStart || data.user?.firstDayOfWeek || 'sunday'}
 		calendarIds={data.calendarIds || []}
+		defaultViewSetting={data.userSettings?.defaultView || 'monthView'}
 		on:eventClick={handleEventClick}
 	/>
 </div>

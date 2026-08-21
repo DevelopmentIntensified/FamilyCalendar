@@ -3,7 +3,7 @@ import { redirect, type Handle } from '@sveltejs/kit';
 import { createAnonymousUser, touchLastActiveAt } from '$lib/server/db/actions/users';
 
 const adminProtectedRoutes = ['admin'];
-const protectedRoutes = ['calendar', 'account', ...adminProtectedRoutes];
+const protectedRoutes = ['calendar', 'account', 'claim', ...adminProtectedRoutes];
 
 const LAST_ACTIVE_TOUCH_MS = 60 * 60 * 1000;
 

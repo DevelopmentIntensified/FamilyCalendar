@@ -12,7 +12,17 @@
 	export let removeEvent: (id: string) => void = () => {};
 	export let preferedFirstDayOfWeek: string = 'sunday';
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
-	let view: 'month' | 'week' | 'list' | 'day' = 'month';
+	export let defaultViewSetting: string = 'monthView';
+
+	let view: 'month' | 'week' | 'list' | 'day' = (() => {
+		const map: Record<string, 'month' | 'week' | 'list' | 'day'> = {
+			monthView: 'month',
+			weekView: 'week',
+			listView: 'list',
+			dayView: 'day'
+		};
+		return map[defaultViewSetting] ?? 'month';
+	})();
 	let previousView: 'month' | 'week' | 'list' = 'month';
 	let showMiniPicker = false;
 

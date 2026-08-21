@@ -3,6 +3,7 @@
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
+	import { invalidateAll } from '$app/navigation';
 
 	export let currentDate: DateTime;
 	export let events: Event[];
@@ -39,9 +40,8 @@
 	}
 
 	function handleDelete(event: CustomEvent) {
-		// Dispatch delete action - parent should handle this
-		console.log('Delete event:', event.detail.id);
-		closeModal();
+		// EventModal performs the API call; refresh server data here.
+		invalidateAll().then(closeModal);
 	}
 </script>
 

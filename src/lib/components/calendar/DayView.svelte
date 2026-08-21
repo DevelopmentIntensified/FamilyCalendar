@@ -5,6 +5,7 @@
 	import type { Event } from '$lib/types';
 	import { formatDate } from '$lib/utils/dateUtils';
 	import EventModal from './EventModal.svelte';
+	import { invalidateAll } from '$app/navigation';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[] = [];
@@ -49,8 +50,8 @@
 	}
 
 	function handleDelete(event: CustomEvent) {
-		console.log('Delete event:', event.detail.id);
-		closeModal();
+		// EventModal performs the API call; refresh server data here.
+		invalidateAll().then(closeModal);
 	}
 </script>
 

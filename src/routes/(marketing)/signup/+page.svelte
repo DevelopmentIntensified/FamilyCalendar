@@ -304,6 +304,18 @@
 					{/if}
 				{/if}
 			{/if}
+
+			<div class="mt-6 border-t border-slate-100 pt-5 text-center">
+				<a
+					href="/calendar"
+					class="block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
+				>
+					Skip this — start planning now
+				</a>
+				<p class="mt-2 text-xs text-slate-400">
+					Creates a private calendar on this device. Add an email later to sync.
+				</p>
+			</div>
 		</div>
 	</div>
 </div>

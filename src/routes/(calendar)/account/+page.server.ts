@@ -137,6 +137,19 @@ export const actions: Actions = {
 		const currentUser = await getUser(userId);
 		const formData = await request.formData();
 
+		if (!currentUser) {
+			return fail(401, { success: false, message: 'Not signed in' });
+		}
+
+		// Anonymous Accounts have no email yet — they claim their first
+		// email via the magic-link save flow, not the change-email flow.
+		if (!currentUser.email) {
+			return fail(400, {
+				success: false,
+				message: "You're using a guest calendar — add your first email with the 'Save your calendar' link instead."
+			});
+		}
+
 		const email = formData.get('email') as string;
 
 		if (!email || !email.includes('@')) {

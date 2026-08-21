@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
+	import { page } from '$app/stores';
 	import '../../../app.css';
 	import type { LayoutData } from './$types';
 	import Navbar from '$lib/components/Navbar.svelte';
@@ -15,11 +16,30 @@
 		return Math.max(0, Math.ceil(INACTIVITY_WINDOW_DAYS - elapsed / (24 * 60 * 60 * 1000)));
 	})();
 	$: urgent = isAnonymous && daysRemaining <= 14;
+	$: justClaimed = $page.url.searchParams.get('claimed') === '1' && !isAnonymous;
+	let claimedDismissed = false;
+	$: showTopNotice = isAnonymous || (justClaimed && !claimedDismissed);
 </script>
 
 <div class="flex min-h-screen flex-col">
 	<Navbar isLoggedIn={true} user={data.user} />
-	{#if isAnonymous}
+	{#if justClaimed && !claimedDismissed}
+		<div
+			class="fixed top-16 left-0 z-40 flex w-full items-center justify-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800"
+			role="status"
+			transition:fade={{ duration: 150 }}
+		>
+			<span>✅ Email added — your calendar now syncs across devices.</span>
+			<button
+				type="button"
+				class="rounded-full p-1 font-semibold hover:bg-green-100"
+				aria-label="Dismiss"
+				onclick={() => (claimedDismissed = true)}
+			>
+				✕
+			</button>
+		</div>
+	{:else if isAnonymous}
 		<div
 			class="fixed top-16 left-0 z-40 w-full px-4 py-2.5 text-center text-sm {urgent
 				? 'bg-red-50 text-red-800 border-b border-red-200'
@@ -38,7 +58,7 @@
 		</div>
 	{/if}
 	{#key pathname}
-		<main class="pt-16 flex-grow pb-24 {isAnonymous ? 'mt-10' : ''}" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
+		<main class="pt-16 flex-grow pb-24 {showTopNotice ? 'mt-10' : ''}" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
 			<slot />
 		</main>
 	{/key}

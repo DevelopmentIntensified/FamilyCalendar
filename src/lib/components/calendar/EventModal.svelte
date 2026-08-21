@@ -17,10 +17,13 @@
 
 	let showEditForm = false;
 
+	// Occurrences share the series master's API identity.
+	$: serverId = event.masterId || event.id;
+
 	onMount(async () => {
 		if (!show || !event?.id) return;
 		try {
-			const res = await fetch(`/api/events/${event.id}/rsvp`);
+			const res = await fetch(`/api/events/${serverId}/rsvp`);
 			if (res.ok) {
 				const data = await res.json();
 				if (data.attendance) {
@@ -112,7 +115,7 @@
 
 	async function handleRsvp(status: string) {
 		try {
-			const response = await fetch(`/api/events/${event.id}/rsvp`, {
+			const response = await fetch(`/api/events/${serverId}/rsvp`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ status })
@@ -122,7 +125,7 @@
 				currentUserRsvpStatus = status;
 				attendees = data.attendance.filter(a => a.userId);
 				nonUserAttendants = data.attendance.filter(a => !a.userId && a.name).map(a => a.name);
-				dispatch('rsvp', { id: event.id, status });
+				dispatch('rsvp', { id: serverId, status });
 			}
 		} catch (error) {
 			console.error('RSVP error:', error);
