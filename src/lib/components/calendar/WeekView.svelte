@@ -10,6 +10,7 @@
 	export let removeEvent: (id: string) => void;
 	export let preferedFirstDayOfWeek: string = 'sunday';
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
+	export let openDay: (date: DateTime) => void = () => {};
 
 	const today = DateTime.now();
 	const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -31,19 +32,23 @@
 		return dt.toFormat('h:mm a');
 	}
 
+	function toDate(v: unknown): Date {
+		return v instanceof Date ? v : new Date(v as string);
+	}
+
 	function getEventTop(event: Event): number {
 		if (!event.start) return 0;
-		const d = event.start instanceof Date ? event.start : new Date(event.start);
+		const d = toDate(event.start);
 		return ((d.getHours() * 60 + d.getMinutes()) / (24 * 60)) * 100;
 	}
 
 	function getEventHeight(event: Event): number {
 		if (!event.start) return 5;
-		const start = event.start instanceof Date ? event.start : new Date(event.start);
+		const start = toDate(event.start);
 		const startMin = start.getHours() * 60 + start.getMinutes();
 		let endMin = startMin + 60;
 		if (event.end) {
-			const end = event.end instanceof Date ? event.end : new Date(event.end);
+			const end = toDate(event.end);
 			endMin = end.getHours() * 60 + end.getMinutes();
 			if (endMin <= startMin) endMin = startMin + 60;
 		}
@@ -84,17 +89,25 @@
 </script>
 
 <div class="overflow-x-auto">
+	<div class="min-w-[700px]">
 	<!-- Week Header -->
 	<div class="grid grid-cols-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
 		<div class="w-14 shrink-0 border-r border-slate-200"></div>
 		{#each weekDays as wd}
-			<div class="flex-1 py-2 text-center border-r border-slate-100 last:border-r-0">
-				<div class="text-xs font-medium uppercase text-slate-500 {isToday(wd) ? 'text-primary-600' : ''}">
-					{wd.toFormat('EEE')}
-				</div>
-				<div class="text-lg font-semibold {isToday(wd) ? 'text-primary-600' : 'text-slate-900'}">
-					{wd.day}
-				</div>
+			<div class="flex-1 border-r border-slate-100 last:border-r-0">
+				<button
+					type="button"
+					class="w-full py-2 text-center hover:bg-slate-100 transition-colors"
+					onclick={() => openDay(wd)}
+					aria-label="Open {wd.toFormat('EEEE, MMMM d')}"
+				>
+					<div class="text-xs font-medium uppercase text-slate-500 {isToday(wd) ? 'text-primary-600' : ''}">
+						{wd.toFormat('EEE')}
+					</div>
+					<div class="text-lg font-semibold {isToday(wd) ? 'text-primary-600' : 'text-slate-900'}">
+						{wd.day}
+					</div>
+				</button>
 			</div>
 		{/each}
 	</div>
@@ -161,6 +174,7 @@
 				{/each}
 			</div>
 		</div>
+	</div>
 	</div>
 </div>
 

@@ -6,7 +6,7 @@ import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { hashPassword } from '$lib/server/utils/password';
 import { lucia } from '$lib/server/auth';
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, cookies }) => {
 	try {
 		const { email, password, firstName, lastName } = await request.json();
 
@@ -39,14 +39,14 @@ export const POST: RequestHandler = async ({ request }) => {
 		const session = await lucia.createSession(user.id, {});
 		const sessionCookie = lucia.createSessionCookie(session.id);
 
+		cookies.set(sessionCookie.name, sessionCookie.value, {
+			path: '/',
+			...sessionCookie.attributes
+		});
+
 		return json(
 			{ success: true, user: { id: user.id, email: user.email, firstName: user.firstName } },
-			{
-				status: 201,
-				headers: {
-					'Set-Cookie': `${sessionCookie.name}=${sessionCookie.value}; Path=${sessionCookie.attributes.path || '/'}; HttpOnly; SameSite=Lax`
-				}
-			}
+			{ status: 201 }
 		);
 	} catch (error) {
 		console.error('Signup error:', error);

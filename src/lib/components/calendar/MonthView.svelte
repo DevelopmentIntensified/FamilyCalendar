@@ -16,6 +16,7 @@
 	export let removeEvent: (id: string) => void;
 	export let preferedFirstDayOfWeek: string = 'Monday';
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
+	export let openDay: (date: DateTime) => void = () => {};
 
 	const today = DateTime.now();
 
@@ -49,7 +50,7 @@
 			{day}
 		</div>
 	{/each}
-	<MonthDays days={lastMonthDays} currentDate={$currentDate} {events} lastMonth={true} {calendarIds} />
-	<MonthDays {days} currentDate={$currentDate} {events} {calendarIds} />
-	<MonthDays days={nextMonthDays} currentDate={$currentDate} {events} nextMonth={true} {calendarIds} />
+	<MonthDays days={lastMonthDays} currentDate={$currentDate} {events} lastMonth={true} {calendarIds} {openDay} />
+	<MonthDays {days} currentDate={$currentDate} {events} {calendarIds} {openDay} />
+	<MonthDays days={nextMonthDays} currentDate={$currentDate} {events} nextMonth={true} {calendarIds} {openDay} />
 </div>

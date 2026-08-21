@@ -22,17 +22,20 @@
 	$: filteredEvents = events
 		.filter((event) => {
 			if (!event.date) return false;
-			const eventDate = event.date instanceof Date ? DateTime.fromJSDate(event.date) : event.date;
+			const eventDate = event.date instanceof Date ? DateTime.fromJSDate(event.date) : DateTime.fromISO(String(event.date));
 			return eventDate.year === year && eventDate.month === month;
 		})
 		.sort((a, b) => {
-			const dateA = a.date instanceof Date ? DateTime.fromJSDate(a.date) : a.date;
-			const dateB = b.date instanceof Date ? DateTime.fromJSDate(b.date) : b.date;
-			return dateA.toUnixInteger() - dateB.toUnixInteger();
+			const toMs = (d: Event['date']): number => {
+				if (!d) return 0;
+				return d instanceof Date ? d.getTime() : DateTime.fromISO(String(d)).toMillis();
+			};
+			return toMs(a.date) - toMs(b.date);
 		});
 
 	// Group by date
 	$: groupedEvents = filteredEvents.reduce((acc, event) => {
+		if (!event.date) return acc;
 		const dateKey = formatDate(event.date);
 		if (!acc[dateKey]) acc[dateKey] = [];
 		acc[dateKey].push(event);

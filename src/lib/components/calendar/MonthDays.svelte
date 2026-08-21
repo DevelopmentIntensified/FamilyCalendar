@@ -3,7 +3,6 @@
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
-	import DayEventsModal from './DayEventsModal.svelte';
 
 	export let currentDate: DateTime;
 	export let events: Event[];
@@ -11,6 +10,7 @@
 	export let nextMonth: boolean | undefined;
 	export let lastMonth: boolean | undefined;
 	export let calendars: { id: string; name: string; color?: string }[] = [];
+	export let openDay: (date: DateTime) => void = () => {};
 
 	$: if (nextMonth) {
 		currentDate = currentDate.plus({
@@ -29,9 +29,6 @@
 	}
 
 	let selectedEvent: Event | null = null;
-	let showDayModal = false;
-	let selectedDate = '';
-	let selectedDayEvents: Event[] = [];
 
 	function handleEventClick(event: Event) {
 		selectedEvent = event;
@@ -39,23 +36,6 @@
 
 	function closeModal() {
 		selectedEvent = null;
-	}
-
-	function handleDayClick(date: string, dayEvents: Event[]) {
-		selectedDate = date;
-		selectedDayEvents = dayEvents;
-		showDayModal = true;
-	}
-
-	function closeDayModal() {
-		showDayModal = false;
-		selectedDate = '';
-		selectedDayEvents = [];
-	}
-
-	function handleDayEventClick(event: Event) {
-		closeDayModal();
-		selectedEvent = event;
 	}
 
 	function handleDelete(event: CustomEvent) {
@@ -66,7 +46,8 @@
 </script>
 
 {#each days as day}
-	{@const date = formatDate(currentDate.set({ day }))}
+	{@const cellDate = currentDate.set({ day })}
+	{@const date = formatDate(cellDate)}
 	{@const lastDate = formatDate(currentDate.set({ day }).plus({ day: -1 }))}
 	{@const pastDaysEvents = events.filter((event) => formatDate(event.date) === lastDate)}
 	{@const dayEvents = events.filter((event) => formatDate(event.date) === date)}
@@ -76,12 +57,18 @@
 			? 'border-primary-500 bg-primary-50/30'
 			: 'border-slate-200'} sm:min-h-[100px]"
 	>
-		<div class="flex items-center justify-between pl-1 {nextMonth || lastMonth ? 'text-slate-400' : ''}">
+		<button
+			type="button"
+			class="absolute inset-0 z-0 rounded-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+			aria-label="Open {date}"
+			onclick={() => openDay(cellDate)}
+		></button>
+		<div class="pointer-events-none relative z-10 flex items-center justify-between pl-1 {nextMonth || lastMonth ? 'text-slate-400' : ''}">
 			<span class="font-medium {isTodayDate ? 'flex h-6 w-6 items-center justify-center rounded-full bg-primary-600 text-white' : 'text-slate-700'}">
 				{day}
 			</span>
 		</div>
-		<div class="space-y-0.5 px-0.5">
+		<div class="relative z-10 space-y-0.5 px-0.5">
 			{#each dayEvents.slice(0, 3) as event}
 				<button
 					type="button"
@@ -102,7 +89,7 @@
 			{#if dayEvents.length > 3}
 				<button
 					type="button"
-					onclick={() => handleDayClick(date, dayEvents)}
+					onclick={() => openDay(cellDate)}
 					class="text-xs font-medium text-slate-500 hover:text-primary-600"
 				>
 					+{dayEvents.length - 3} more
@@ -120,17 +107,5 @@
 		{calendars}
 		on:close={closeModal}
 		on:delete={handleDelete}
-	/>
-{/if}
-
-<!-- Day Events Modal (for +more clicks) -->
-{#if showDayModal}
-	<DayEventsModal
-		show={true}
-		date={selectedDate}
-		events={selectedDayEvents}
-		calendars={calendars}
-		on:eventClick={(e) => handleDayEventClick(e.detail)}
-		on:close={closeDayModal}
 	/>
 {/if}

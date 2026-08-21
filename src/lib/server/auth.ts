@@ -1,5 +1,5 @@
 // src/lib/server/auth.ts
-import { Lucia } from 'lucia';
+import { Lucia, TimeSpan, type SessionCookieAttributesOptions } from 'lucia';
 
 import { DrizzlePostgreSQLAdapter } from '@lucia-auth/adapter-drizzle';
 import { db } from '$lib/server/db';
@@ -14,15 +14,20 @@ declare module 'lucia' {
 
 let luciaInstance: Lucia | null = null;
 
+const SESSION_LIFETIME_DAYS = 90;
+
 export function getLucia() {
 	if (luciaInstance) return luciaInstance;
 
 	const adapter = new DrizzlePostgreSQLAdapter(db, sessions, users);
 	luciaInstance = new Lucia(adapter, {
+		sessionExpiresIn: new TimeSpan(SESSION_LIFETIME_DAYS, 'd'),
+		idlePeriodExpiresIn: new TimeSpan(30, 'd'),
 		sessionCookie: {
 			attributes: {
-				secure: process.env.NODE_ENV === 'production'
-			}
+				secure: process.env.NODE_ENV === 'production',
+				maxAge: 60 * 60 * 24 * SESSION_LIFETIME_DAYS
+			} as SessionCookieAttributesOptions
 		},
 		getUserAttributes: (attributes) => {
 			return { ...attributes };

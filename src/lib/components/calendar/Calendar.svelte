@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { writable, type Writable, get } from 'svelte/store';
-	import { DateTime } from 'luxon';
+	import { DateTime, Info } from 'luxon';
 	import MonthView from './MonthView.svelte';
 	import ListView from './ListView.svelte';
 	import WeekView from './WeekView.svelte';
+	import DayView from './DayView.svelte';
 	import DateSelector from './DateSelector.svelte';
 
 	export let currentDate: Writable<DateTime>;
@@ -11,7 +12,8 @@
 	export let removeEvent: (id: string) => void = () => {};
 	export let preferedFirstDayOfWeek: string = 'sunday';
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
-	let view: 'month' | 'week' | 'list' = 'month';
+	let view: 'month' | 'week' | 'list' | 'day' = 'month';
+	let previousView: 'month' | 'week' | 'list' = 'month';
 	let showMiniPicker = false;
 
 	const views = [
@@ -25,7 +27,9 @@
 	}
 
 	function goPrevious() {
-		if (view === 'week') {
+		if (view === 'day') {
+			currentDate.update(d => d.minus({ day: 1 }));
+		} else if (view === 'week') {
 			currentDate.update(d => d.minus({ week: 1 }));
 		} else {
 			currentDate.update(d => d.minus({ month: 1 }));
@@ -33,7 +37,9 @@
 	}
 
 	function goNext() {
-		if (view === 'week') {
+		if (view === 'day') {
+			currentDate.update(d => d.plus({ day: 1 }));
+		} else if (view === 'week') {
 			currentDate.update(d => d.plus({ week: 1 }));
 		} else {
 			currentDate.update(d => d.plus({ month: 1 }));
@@ -42,6 +48,16 @@
 
 	function changeView(newView: typeof view) {
 		view = newView;
+	}
+
+	function openDay(date: DateTime) {
+		if (view !== 'day') previousView = view as 'month' | 'week' | 'list';
+		currentDate.set(date);
+		view = 'day';
+	}
+
+	function backFromDay() {
+		view = previousView;
 	}
 
 	function handleMonthSelect(month: number) {
@@ -58,7 +74,7 @@
 	$: currentMonthYear = get(currentDate).toFormat('MMMM yyyy');
 	$: currentYear = get(currentDate).year;
 	$: currentMonth = get(currentDate).month;
-	$: months = DateTime.now().monthNamesLong;
+	$: months = Info.monthNamesLong;
 </script>
 
 <div class="mb-2 bg-white pt-4">
@@ -163,9 +179,11 @@
 	</div>
 
 	{#if view === 'month'}
-		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} />
+		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} />
 	{:else if view === 'week'}
-		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} />
+		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} />
+	{:else if view === 'day'}
+		<DayView {currentDate} {events} {calendarIds} on:back={backFromDay} />
 	{:else if view === 'list'}
 		<ListView {currentDate} {events} {removeEvent} />
 	{/if}
