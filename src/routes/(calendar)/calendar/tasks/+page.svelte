@@ -10,6 +10,9 @@
 		notes: string | null;
 		dueDate: string | null;
 		completedAt: string | null;
+		eventId: string | null;
+		eventTitle?: string | null;
+		eventStart?: string | Date | null;
 	};
 
 	let newTitle = '';
@@ -165,12 +168,19 @@
 					class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors hover:border-primary-500"
 					aria-label="Complete task"
 				></button>
-				<div class="min-w-0 flex-1">
-					<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
-					{#if task.notes}
-						<p class="truncate text-xs text-slate-500">{task.notes}</p>
-					{/if}
-				</div>
+							<div class="min-w-0 flex-1">
+									<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+									{#if task.eventTitle}
+										<p class="mt-0.5 flex items-center gap-1 truncate text-xs font-medium text-primary-500">
+											<svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+											</svg>
+											{task.eventTitle}
+										</p>
+									{:else if task.notes}
+										<p class="truncate text-xs text-slate-500">{task.notes}</p>
+									{/if}
+								</div>
 				{#if task.dueDate}
 					<span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task) ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}">
 						{formatDue(task.dueDate)}
@@ -213,7 +223,10 @@
 							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 						</svg>
 					</button>
-					<p class="min-w-0 flex-1 truncate text-sm text-slate-400 line-through">{task.title}</p>
+								<p class="min-w-0 flex-1 truncate text-sm text-slate-400 line-through">
+										{task.title}
+										{#if task.eventTitle}<span class="ml-1 text-xs font-normal text-slate-400 no-underline">({task.eventTitle})</span>{/if}
+									</p>
 					<button
 						type="button"
 						onclick={() => deleteTask(task.id)}

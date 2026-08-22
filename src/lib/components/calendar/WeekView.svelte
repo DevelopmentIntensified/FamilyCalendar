@@ -4,6 +4,8 @@
 	import type { Writable } from 'svelte/store';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
+	import { chipTooltip } from '$lib/utils/eventChip';
+	import { formatEventTime } from '$lib/utils/eventTime';
 	import { invalidateAll } from '$app/navigation';
 
 	export let currentDate: Writable<DateTime>;
@@ -27,11 +29,6 @@
 	$: startOfWeek = current.startOf('week').plus({ day: dayOffset });
 	$: weekDays = Array.from({ length: 7 }, (_, i) => startOfWeek.plus({ day: i }));
 
-	function formatTime(d: Date | string | undefined): string {
-		if (!d) return '';
-		const dt = d instanceof Date ? DateTime.fromJSDate(d) : DateTime.fromISO(d);
-		return dt.toFormat('h:mm a');
-	}
 
 	function toDate(v: unknown): Date {
 		return v instanceof Date ? v : new Date(v as string);
@@ -157,18 +154,18 @@
 				<div class="w-14 shrink-0"></div>
 				{#each weekDays as wd}
 					{@const dayEvents = getEventsForDay(wd).filter(e => !e.allDay)}
-					<div class="relative pointer-events-auto">
+					<div class="relative pointer-events-auto transition-colors hover:bg-slate-50/60">
 						{#each dayEvents as event}
 							<button
 								type="button"
 								onclick={() => handleEventClick(event)}
-								title={calendarIds.length > 1 ? `${event.title} · ${calendarIds.find(c => c.id === event.calendarId)?.name || ''}` : event.title}
+								title={chipTooltip(event, calendarIds)}
 								class="absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer text-left overflow-hidden bg-white"
 								style="top: {getEventTop(event)}%; height: {getEventHeight(event)}%; border-left: 3px solid {event.color || '#94a3b8'}; min-height: 18px;"
 							>
 								<span class="block truncate">{event.title}</span>
 								<span class="block text-[10px] opacity-75 truncate">
-									{formatTime(event.start)}{#if event.end} - {formatTime(event.end)}{/if}
+									{formatEventTime(event.start)}{#if event.end} - {formatEventTime(event.end)}{/if}
 								</span>
 							</button>
 						{/each}

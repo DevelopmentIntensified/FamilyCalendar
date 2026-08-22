@@ -5,6 +5,7 @@
 	import type { Event } from '$lib/types';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
 	import EventFormModal from '$lib/components/calendar/EventFormModal.svelte';
+	import { parseEvents } from '$lib/utils/eventDisplay';
 	import { invalidateAll } from '$app/navigation';
 
 	export let data: PageData;
@@ -18,22 +19,9 @@
 	// Optimistically shown events between creation and the next load refresh.
 	let localExtras: Event[] = [];
 
-	const oneDayMs = 24 * 60 * 60 * 1000;
-
 	function toDisplayEvent(row: any): Event[] {
-		// Mirror parseEvents: split multi-day rows into per-day entries.
-		const start = new Date(row.start);
-		const end = row.end ? new Date(row.end) : null;
-		const base = { ...row, start, end };
-		if (!end || start.getDate() === end.getDate()) {
-			return [{ ...base, date: start }];
-		}
-		const diffDays = Math.round(Math.abs((start.getTime() - end.getTime()) / oneDayMs));
-		const days: Event[] = [];
-		for (let i = 0; i <= diffDays; i++) {
-			days.push({ ...base, date: new Date(start.getTime() + oneDayMs * i) });
-		}
-		return days;
+		// Same multi-day split as the server pipeline (shared parseEvents).
+		return parseEvents([row]) as Event[];
 	}
 
 	// Combine all events
@@ -121,7 +109,7 @@
 <!-- Floating Quick Add Button -->
 <button
 	onclick={() => showModal = true}
-	class="fixed bottom-24 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-primary-600 shadow-xl shadow-primary-400/50 hover:bg-primary-700 hover:scale-105 transition-all"
+	class="fixed bottom-24 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-primary-600 shadow-xl shadow-primary-400/50 hover:bg-primary-700 hover:scale-105 active:scale-95 transition-all"
 	aria-label="Quick Add Event"
 >
 	<svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">

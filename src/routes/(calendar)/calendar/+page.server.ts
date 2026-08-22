@@ -93,8 +93,9 @@ export const load: PageServerLoad = async (event) => {
 				.from(familyMembers)
 				.innerJoin(users, eq(familyMembers.userId, users.id))
 				.where(eq(familyMembers.familyId, familyId));
-				
-			familyMembersList = members || [];
+
+			// Anonymous members have no email yet — render as blank.
+			familyMembersList = (members || []).map((m) => ({ ...m, email: m.email ?? '' }));
 		}
 	} catch (e) {
 		console.error('Error fetching family members:', e);

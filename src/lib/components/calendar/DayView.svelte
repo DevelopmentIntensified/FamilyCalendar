@@ -4,6 +4,7 @@
 	import type { Writable } from 'svelte/store';
 	import type { Event } from '$lib/types';
 	import { formatDate } from '$lib/utils/dateUtils';
+	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import EventModal from './EventModal.svelte';
 	import { invalidateAll } from '$app/navigation';
 
@@ -16,16 +17,6 @@
 	const today = DateTime.now();
 
 	$: selectedDate = $currentDate;
-
-	function toDate(v: unknown): Date {
-		return v instanceof Date ? v : new Date(v as string);
-	}
-
-	function formatTime(d: unknown): string {
-		if (!d) return '';
-		const dt = DateTime.fromJSDate(toDate(d));
-		return dt.isValid ? dt.toFormat('h:mm a') : '';
-	}
 
 	$: dayEvents = events
 		.filter((e) => e.date && formatDate(e.date) === formatDate(selectedDate))
@@ -111,9 +102,9 @@
 					class="group flex w-full items-stretch gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition-all hover:border-slate-300 hover:shadow-md"
 				>
 					<div class="w-20 shrink-0 pt-0.5 text-right sm:w-24">
-						<span class="block text-sm font-semibold text-slate-900">{formatTime(event.start)}</span>
+						<span class="block text-sm font-semibold text-slate-900">{formatEventTime(event.start)}</span>
 						{#if event.end}
-							<span class="block text-xs text-slate-500">{formatTime(event.end)}</span>
+							<span class="block text-xs text-slate-500">{formatEventTime(event.end)}</span>
 						{/if}
 					</div>
 					<div class="w-1 shrink-0 rounded-full" style="background-color: {event.color || '#94a3b8'}"></div>

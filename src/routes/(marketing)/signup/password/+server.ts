@@ -4,7 +4,7 @@ import { getUserByEmail, createUser, getUser } from '$lib/server/db/actions/user
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { hashPassword } from '$lib/server/utils/password';
-import { lucia } from '$lib/server/auth';
+import { lucia, setSessionCookie } from '$lib/server/auth';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	try {
@@ -37,12 +37,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		await createUserCalendar(user.id);
 
 		const session = await lucia.createSession(user.id, {});
-		const sessionCookie = lucia.createSessionCookie(session.id);
-
-		cookies.set(sessionCookie.name, sessionCookie.value, {
-			path: '/',
-			...sessionCookie.attributes
-		});
+		setSessionCookie(cookies, lucia.createSessionCookie(session.id));
 
 		return json(
 			{ success: true, user: { id: user.id, email: user.email, firstName: user.firstName } },

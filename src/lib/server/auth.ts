@@ -38,3 +38,19 @@ export function getLucia() {
 }
 
 export const lucia = getLucia();
+
+/**
+ * One place for setting Lucia's session cookie, so path/attribute policy
+ * never drifts between call sites.
+ */
+export function setSessionCookie(
+	cookies: {
+		set: (name: string, value: string, opts: Record<string, unknown>) => void;
+	},
+	sessionCookie: { name: string; value: string; attributes?: Record<string, unknown> }
+) {
+	cookies.set(sessionCookie.name, sessionCookie.value, {
+		path: '/',
+		...sessionCookie.attributes
+	});
+}

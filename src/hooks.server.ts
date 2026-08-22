@@ -1,4 +1,4 @@
-import { lucia } from '$lib/server/auth';
+import { lucia, setSessionCookie } from '$lib/server/auth';
 import { redirect, type Handle } from '@sveltejs/kit';
 import { createAnonymousUser, touchLastActiveAt } from '$lib/server/db/actions/users';
 
@@ -19,11 +19,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				// with no email so the app is usable immediately.
 				const anonUser = await createAnonymousUser();
 				const session = await lucia.createSession(anonUser.id, {});
-				const sessionCookie = lucia.createSessionCookie(session.id);
-				event.cookies.set(sessionCookie.name, sessionCookie.value, {
-					path: '/',
-					...sessionCookie.attributes
-				});
+				setSessionCookie(event.cookies, lucia.createSessionCookie(session.id));
 				event.locals.user = anonUser;
 				event.locals.session = session;
 				return resolve(event);
@@ -34,20 +30,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	const { session, user } = await lucia.validateSession(sessionId);
 	if (session && session.fresh) {
-		const sessionCookie = lucia.createSessionCookie(session.id);
-		// sveltekit types deviates from the de-facto standard
-		// you can use 'as any' too
-		event.cookies.set(sessionCookie.name, sessionCookie.value, {
-			path: '.',
-			...sessionCookie.attributes
-		});
+		setSessionCookie(event.cookies, lucia.createSessionCookie(session.id));
 	}
 	if (!session) {
-		const sessionCookie = lucia.createBlankSessionCookie();
-		event.cookies.set(sessionCookie.name, sessionCookie.value, {
-			path: '.',
-			...sessionCookie.attributes
-		});
+		setSessionCookie(event.cookies, lucia.createBlankSessionCookie());
 	}
 	if (session && user) {
 		// Inactivity Window: any authenticated request counts as activity,

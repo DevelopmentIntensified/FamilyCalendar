@@ -2,36 +2,9 @@ import type { CalendarEvent } from '$lib/server/db/schema';
 import { getExceptionsByEventIds } from '$lib/server/db/actions/events';
 import { expandRecurrence } from './recurrenceService';
 
+export { parseEvents } from '$lib/utils/eventDisplay';
+
 const oneDayMs = 24 * 60 * 60 * 1000;
-
-function deriveEventProps(e: Record<string, any>, date: Date, end: Date | null) {
-	return {
-		...e,
-		start: date,
-		end: end || e.end,
-		date
-	};
-}
-
-export function parseEvents(eventsData: Record<string, any>[]) {
-	return eventsData.flatMap((e) => {
-		const startDate = new Date(e.start);
-		const endDate = e.end ? new Date(e.end) : null;
-
-		if (!endDate || startDate.getDate() === endDate.getDate()) {
-			return deriveEventProps(e, startDate, endDate);
-		}
-
-		const diffDays = Math.round(Math.abs((startDate.getTime() - endDate.getTime()) / oneDayMs));
-		const days = [];
-
-		for (let i = 0; i <= diffDays; i++) {
-			days.push(deriveEventProps(e, new Date(startDate.getTime() + oneDayMs * i), endDate));
-		}
-
-		return days;
-	});
-}
 
 /**
  * Expands recurring event masters into virtual occurrences with composite

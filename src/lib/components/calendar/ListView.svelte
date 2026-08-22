@@ -4,6 +4,8 @@
 	import { formatDate } from '$lib/utils/dateUtils';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
+	import { formatEventTime } from '$lib/utils/eventTime';
+	import { chipColor } from '$lib/utils/eventChip';
 	import { invalidateAll } from '$app/navigation';
 
 	export let currentDate: Writable<DateTime>;
@@ -11,12 +13,6 @@
 	export let removeEvent: (id: string) => void;
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 
-	function formatEventTime(d: Date | string | undefined | null): string {
-		if (!d) return '';
-		const dt = d instanceof Date ? DateTime.fromJSDate(d) : DateTime.fromISO(d);
-		if (!dt.isValid) return '';
-		return dt.toFormat('h:mm a');
-	}
 
 	$: year = $currentDate.year;
 	$: month = $currentDate.month;
@@ -90,7 +86,7 @@
 					>
 						<div class="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-slate-300 hover:shadow-md">
 							<!-- Color indicator -->
-							<div class="shrink-0 h-12 w-1 rounded-full" style="background-color: {event.color || '#94a3b8'}"></div>
+							<div class="shrink-0 h-12 w-1 rounded-full" style="background-color: {chipColor(event)}"></div>
 							
 							<div class="flex-1 min-w-0">
 								<div class="flex items-center gap-2">
@@ -102,7 +98,7 @@
 								<div class="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-slate-500">
 									{#if calendarIds.length > 1 && calendarIds.find(c => c.id === event.calendarId)}
 										<span class="flex items-center gap-1">
-											<span class="h-2 w-2 rounded-full" style="background-color: {event.color || '#94a3b8'}"></span>
+											<span class="h-2 w-2 rounded-full" style="background-color: {chipColor(event)}"></span>
 											{calendarIds.find(c => c.id === event.calendarId)?.name}
 										</span>
 									{/if}
