@@ -22,7 +22,6 @@
 	let selectedIds: string[] = [];
 	let bulkBusy = false;
 	let bulkError = '';
-	let bulkCalendarId = '';
 	let bulkLocation = '';
 	let bulkAttendants = '';
 	let bulkInstruction = '';
@@ -37,6 +36,13 @@
 		if (e.key === 'Escape' && !showModal && !showEditModal && selectionMode) {
 			setSelectionMode(false);
 		}
+	}
+
+	function applyBulkCalendar(e: Event) {
+		const select = e.currentTarget as HTMLSelectElement;
+		const calendarId = select.value;
+		select.value = '';
+		if (calendarId) runBulk({ type: 'calendar', calendarId });
 	}
 
 	async function runBulk(op: Record<string, unknown>) {
@@ -65,13 +71,6 @@
 		} finally {
 			bulkBusy = false;
 		}
-	}
-
-	function applyBulkCalendar() {
-		if (!bulkCalendarId) return;
-		const calendarId = bulkCalendarId;
-		bulkCalendarId = '';
-		runBulk({ type: 'calendar', calendarId });
 	}
 
 	// Optimistically shown events between creation and the next load refresh.
@@ -211,13 +210,12 @@
 			</span>
 
 			<select
-				bind:value={bulkCalendarId}
 				onchange={applyBulkCalendar}
 				disabled={bulkBusy || selectedIds.length === 0}
 				aria-label="Move to calendar"
-				class="rounded-lg border border-slate-300 px-2 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
+				class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
 			>
-				<option value="" disabled>Calendar…</option>
+				<option value="">Calendar…</option>
 				{#each data.calendarIds || [] as c (c.id)}
 					<option value={c.id}>{c.name}</option>
 				{/each}
