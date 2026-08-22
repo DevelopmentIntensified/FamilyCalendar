@@ -5,6 +5,7 @@
 	import EventModal from './EventModal.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { chipStyle, chipColor, chipTooltip } from '$lib/utils/eventChip';
+	import { toDate } from '$lib/utils/eventTime';
 
 	export let currentDate: DateTime;
 	export let events: Event[];
@@ -24,10 +25,6 @@
 
 	function isSelected(event: Event): boolean {
 		return selectedIds.includes(event.id);
-	}
-
-	function normalizeDate(v: Date | string): Date {
-		return v instanceof Date ? v : new Date(v);
 	}
 
 	$: if (nextMonth) {
@@ -71,7 +68,7 @@
 	{@const cellDate = currentDate.set({ day })}
 	{@const date = formatDate(cellDate)}
 	{@const dayEvents = events.filter((event) => formatDate(event.date) === date)}
-	{@const dayTasks = dueTasks.filter((t) => formatDate(normalizeDate(t.dueDate)) === date)}
+			{@const dayTasks = dueTasks.filter((t) => formatDate(toDate(t.dueDate)) === date)}
 	{@const isTodayDate = date === formatDate(today)}
 	{@const isOtherMonth = nextMonth || lastMonth}
 	<div

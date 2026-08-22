@@ -5,7 +5,7 @@
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
 	import { chipTooltip } from '$lib/utils/eventChip';
-	import { formatEventTime } from '$lib/utils/eventTime';
+	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import { invalidateAll } from '$app/navigation';
 
 	export let currentDate: Writable<DateTime>;
@@ -29,10 +29,6 @@
 	$: startOfWeek = current.startOf('week').plus({ day: dayOffset });
 	$: weekDays = Array.from({ length: 7 }, (_, i) => startOfWeek.plus({ day: i }));
 
-
-	function toDate(v: unknown): Date {
-		return v instanceof Date ? v : new Date(v as string);
-	}
 
 	function getEventTop(event: Event): number {
 		if (!event.start) return 0;

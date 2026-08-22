@@ -4,6 +4,22 @@ import { expandRecurrence } from './recurrenceService';
 
 export { parseEvents } from '$lib/utils/eventDisplay';
 
+/**
+ * A master row flattened into one displayable occurrence. Occurrence
+ * fields carry ISO strings; parseEvents later adds Date instances.
+ */
+export interface DisplayEvent extends CalendarEvent {
+	id: string;
+	masterId: string;
+	occurrenceDate: string;
+	start: string;
+	end: string | null;
+	title: string;
+	description: string | null;
+	location: string | null;
+	allDay: boolean;
+}
+
 const oneDayMs = 24 * 60 * 60 * 1000;
 
 /**
@@ -11,7 +27,7 @@ const oneDayMs = 24 * 60 * 60 * 1000;
  * ids (`{masterId}~{occurrenceISO}`), then applies Exception Overrides:
  * cancelled occurrences are dropped, edited ones are merged in place.
  */
-export async function expandEventsForUser(eventsData: CalendarEvent[]) {
+export async function expandEventsForUser(eventsData: CalendarEvent[]): Promise<DisplayEvent[]> {
 	const exceptions = await getExceptionsByEventIds(eventsData.map((e) => e.id));
 
 	const exceptionByKey = new Map(
@@ -22,7 +38,7 @@ export async function expandEventsForUser(eventsData: CalendarEvent[]) {
 	const windowStart = new Date(now - 2 * 365 * oneDayMs);
 	const windowEnd = new Date(now + 2 * 365 * oneDayMs);
 
-	const result: Record<string, any>[] = [];
+	const result: DisplayEvent[] = [];
 	for (const e of eventsData) {
 		const occurrences = expandRecurrence(e, windowStart, windowEnd);
 		if (occurrences.length === 0) continue;

@@ -13,6 +13,7 @@ import {
 } from '$lib/server/db/actions/events';
 import { planBulkEdits, type BulkPlanOp } from '$lib/server/services/bulkAiService';
 import { llmConfigured } from '$lib/server/services/llm';
+import { toDateTime } from '$lib/server/utils/eventTimes';
 
 type BulkItem = { id: string; occurrenceDate?: string };
 
@@ -26,13 +27,6 @@ type BulkOp =
 function resolveMasterId(rawId: string): string | null {
 	const master = String(rawId).split('~')[0].trim();
 	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(master) ? master : null;
-}
-
-// postgres.js returns Date objects despite drizzle's mode:'string' typing.
-function toDateTime(v: unknown): DateTime | null {
-	if (v instanceof Date) return DateTime.fromJSDate(v);
-	const dt = DateTime.fromISO(String(v ?? ''));
-	return dt.isValid ? dt : null;
 }
 
 async function applySmartOp(op: BulkPlanOp, userId: string): Promise<boolean> {
