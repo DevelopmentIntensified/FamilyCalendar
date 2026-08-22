@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { tasks, type Task } from '$lib/server/db/schema';
+import { tasks, events, type Task } from '$lib/server/db/schema';
 import { and, eq, or, desc, isNotNull } from 'drizzle-orm';
 
 export async function createTask(data: {
