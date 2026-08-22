@@ -5,6 +5,7 @@
 	import LocationSearch from '$lib/components/LocationSearch.svelte';
 	import { getContactColor, getInitials } from '$lib/utils/contactColors';
 	import { createEventForm } from './EventFormModel.svelte';
+	import ChecklistSection from './ChecklistSection.svelte';
 
 	export let show = false;
 	export let event: Event | null = null;
@@ -57,94 +58,11 @@
 
 	let editScope: 'this' | 'all' = 'this';
 
-	// Event checklist: real rows when editing, pending titles when creating.
-	let eventTasks: any[] = [];
+	// Pending checklist titles queued during create; flushed after POST /api/events.
 	let pendingTaskTitles: string[] = [];
-	let showChecklistInput = false;
-	let checklistTitle = '';
-	let checklistBusy = false;
-	let tasksLoadedFor: string | null = null;
+	let attachedTaskCount = 0;
 
 	$: eventIdForTasks = form?.isEditMode ? form.masterId || form.eventId : null;
-	$: if (eventIdForTasks && eventIdForTasks !== tasksLoadedFor) {
-		tasksLoadedFor = eventIdForTasks;
-		fetchChecklistTasks(eventIdForTasks);
-	}
-
-	async function fetchChecklistTasks(id: string) {
-		try {
-			const res = await fetch(`/api/tasks?eventId=${id}`);
-			if (res.ok) {
-				eventTasks = (await res.json()).tasks ?? [];
-			}
-		} catch (e) {
-			console.error('Failed to load event tasks:', e);
-		}
-	}
-
-	function addChecklistItem() {
-		const title = checklistTitle.trim();
-		if (!title || checklistBusy) return;
-		if (!form.isEditMode) {
-			pendingTaskTitles = [...pendingTaskTitles, title];
-			checklistTitle = '';
-			return;
-		}
-		createChecklistRow(title);
-	}
-
-	async function createChecklistRow(title: string) {
-		checklistBusy = true;
-		try {
-			const res = await fetch('/api/tasks', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title, eventId: eventIdForTasks })
-			});
-			if (res.ok) {
-				const json = await res.json();
-				eventTasks = [...eventTasks, json.task];
-				checklistTitle = '';
-			}
-		} finally {
-			checklistBusy = false;
-		}
-	}
-
-	function removePendingItem(index: number) {
-		pendingTaskTitles = pendingTaskTitles.filter((_, i) => i !== index);
-	}
-
-	async function toggleChecklistItem(task: any) {
-		if (checklistBusy) return;
-		checklistBusy = true;
-		try {
-			const res = await fetch(`/api/tasks/${task.id}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ toggleComplete: true })
-			});
-			if (res.ok) {
-				const json = await res.json();
-				eventTasks = eventTasks.map(t => (t.id === task.id ? json.task : t));
-			}
-		} finally {
-			checklistBusy = false;
-		}
-	}
-
-	async function deleteChecklistItem(taskId: string) {
-		if (checklistBusy) return;
-		checklistBusy = true;
-		try {
-			const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
-			if (res.ok) {
-				eventTasks = eventTasks.filter(t => t.id !== taskId);
-			}
-		} finally {
-			checklistBusy = false;
-		}
-	}
 
 	$: dedupedFamilyMembers = dedupeFamilyMembers(familyMembers);
 
@@ -341,7 +259,7 @@
 	function handleDelete() {
 		if (!form.eventId) return;
 
-		const attachedCount = eventTasks.length;
+		const attachedCount = attachedTaskCount;
 		let scope: 'this' | 'all' | null = null;
 
 		if (form.isRecurringOccurrence) {
@@ -911,105 +829,11 @@
 				{/if}
 
 				{#if entryType === 'event'}
-				<!-- Checklist -->
-				<div class="border-t border-slate-100 px-5 py-3">
-					<div class="mb-1 flex items-center justify-between">
-						<h4 class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-							Checklist{#if eventTasks.length > 0} · {eventTasks.filter(t => t.completedAt).length}/{eventTasks.length}{/if}
-						</h4>
-						{#if !showChecklistInput}
-							<button
-								type="button"
-								class="rounded px-1.5 py-0.5 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
-								on:click={() => (showChecklistInput = true)}
-							>
-								+ Add task
-							</button>
-						{/if}
-					</div>
-
-					<ul class="space-y-0.5">
-						{#each pendingTaskTitles as title, i (i)}
-							<li class="flex items-center gap-2 rounded px-1 py-1">
-								<span class="h-4 w-4 shrink-0 rounded-full border border-dashed border-slate-300"></span>
-								<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{title}</span>
-								<button
-									type="button"
-									class="shrink-0 rounded p-0.5 text-slate-300 hover:text-red-500"
-									aria-label="Remove task"
-									on:click={() => removePendingItem(i)}
-								>
-									<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-									</svg>
-								</button>
-							</li>
-						{/each}
-						{#each eventTasks as task (task.id)}
-							<li class="group flex items-center gap-2 rounded px-1 py-1 hover:bg-slate-50">
-								<button
-									type="button"
-									disabled={checklistBusy}
-									on:click={() => toggleChecklistItem(task)}
-									class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border {task.completedAt
-										? 'border-primary-500 bg-primary-500 text-white'
-										: 'border-slate-300 hover:border-primary-400'}"
-									aria-label={task.completedAt ? 'Mark incomplete' : 'Complete'}
-								>
-									{#if task.completedAt}
-										<svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-											<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-										</svg>
-									{/if}
-								</button>
-								<span class="min-w-0 flex-1 truncate text-sm {task.completedAt ? 'text-slate-400 line-through' : 'text-slate-700'}">
-									{task.title}
-								</span>
-								<button
-									type="button"
-									disabled={checklistBusy}
-									on:click={() => deleteChecklistItem(task.id)}
-									class="shrink-0 rounded p-0.5 text-slate-300 opacity-0 transition-all hover:text-red-500 group-hover:opacity-100"
-									aria-label="Remove task"
-								>
-									<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-									</svg>
-								</button>
-							</li>
-						{/each}
-					</ul>
-
-					{#if showChecklistInput}
-						<div class="mt-1.5 flex gap-1.5">
-							<input
-								type="text"
-								bind:value={checklistTitle}
-								placeholder="Add a task..."
-								on:keydown={(e) => e.key === 'Enter' && addChecklistItem()}
-								class="flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:border-primary-500 focus:outline-none"
-							/>
-							<button
-								type="button"
-								disabled={checklistBusy || !checklistTitle.trim()}
-								on:click={addChecklistItem}
-								class="rounded-lg bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-							>
-								Add
-							</button>
-							<button
-								type="button"
-								class="rounded-lg px-2 text-sm text-slate-400 hover:text-slate-600"
-								on:click={() => {
-									showChecklistInput = false;
-									checklistTitle = '';
-								}}
-							>
-								Done
-							</button>
-						</div>
-					{/if}
-				</div>
+					<ChecklistSection
+						eventId={eventIdForTasks}
+						bind:pendingTitles={pendingTaskTitles}
+						bind:attachedCount={attachedTaskCount}
+					/>
 				{/if}
 
 				<div class="flex items-center justify-end gap-2 border-t border-slate-100 p-5">
