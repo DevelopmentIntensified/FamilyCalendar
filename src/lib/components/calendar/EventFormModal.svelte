@@ -389,11 +389,12 @@
 	}
 </style>
 
+<svelte:window on:keydown={(e) => show && e.key === 'Escape' && close()} />
+
 {#if show}
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
 		on:click={close}
-		on:keydown={(e) => e.key === 'Escape' && close()}
 		role="presentation"
 	>
 		<div
@@ -671,19 +672,19 @@
 						{/if}
 
 						<div>
-							<label class="mb-1 block text-sm font-medium text-slate-700">
+							<div class="mb-1 text-sm font-medium text-slate-700">
 								Location
 								{#if form.isDetected('location')}<span class="text-emerald-600 ml-1">✓</span>{/if}
-							</label>
+							</div>
 							<LocationSearch bind:value={form.location} />
 						</div>
 
 						{#if form.isEditMode || showMore || form.isDetected('attendants')}
 							<div class="relative">
-								<label class="mb-1 block text-sm font-medium text-slate-700">
+								<div class="mb-1 text-sm font-medium text-slate-700">
 									Attendees
 									{#if form.isDetected('attendants')}<span class="text-emerald-600 ml-1">✓</span>{/if}
-								</label>
+								</div>
 
 								{#if form.attendants.length > 0}
 									<div class="flex flex-wrap gap-2 mb-2">
@@ -786,7 +787,7 @@
 
 						{#if (form.isEditMode || showMore) && calendarIds.length > 1}
 							<div class="relative">
-								<label class="mb-1 block text-sm font-medium text-slate-700">Calendar</label>
+								<div class="mb-1 text-sm font-medium text-slate-700">Calendar</div>
 								<button
 									type="button"
 									on:click={() => calendarDropdownOpen = !calendarDropdownOpen}
@@ -980,21 +981,18 @@
 					</ul>
 
 					{#if showChecklistInput}
-						<form
-							class="mt-1.5 flex gap-1.5"
-							on:submit|preventDefault={() => {
-								addChecklistItem();
-							}}
-						>
+						<div class="mt-1.5 flex gap-1.5">
 							<input
 								type="text"
 								bind:value={checklistTitle}
 								placeholder="Add a task..."
+								on:keydown={(e) => e.key === 'Enter' && addChecklistItem()}
 								class="flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:border-primary-500 focus:outline-none"
 							/>
 							<button
-								type="submit"
+								type="button"
 								disabled={checklistBusy || !checklistTitle.trim()}
+								on:click={addChecklistItem}
 								class="rounded-lg bg-primary-600 px-3 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
 							>
 								Add
@@ -1009,7 +1007,7 @@
 							>
 								Done
 							</button>
-						</form>
+						</div>
 					{/if}
 				</div>
 				{/if}

@@ -135,19 +135,21 @@
 				{#if showMiniPicker}
 					<div class="absolute top-full left-0 z-20 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
 						<div class="mb-4 flex items-center justify-between">
-							<button
-								onclick={() => handleYearSelect(currentYear - 1)}
-								class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-							>
+				<button
+					onclick={() => handleYearSelect(currentYear - 1)}
+					class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+					aria-label="Previous year"
+				>
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
 								</svg>
 							</button>
 							<span class="font-semibold text-slate-900">{currentYear}</span>
-							<button
-								onclick={() => handleYearSelect(currentYear + 1)}
-								class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-							>
+				<button
+					onclick={() => handleYearSelect(currentYear + 1)}
+					class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+					aria-label="Next year"
+				>
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 								</svg>

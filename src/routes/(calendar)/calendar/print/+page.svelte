@@ -120,7 +120,7 @@
 			size: A4 landscape;
 			margin: 8mm;
 		}
-		body {
+		:global(body) {
 			background: white !important;
 		}
 		.fridge-sheet header {
