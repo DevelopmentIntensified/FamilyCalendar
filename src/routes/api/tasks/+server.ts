@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createTask, getTasksForUser, getTasksForEvent } from '$lib/server/db/actions/tasks';
+import { createTask, getTasksForUser, getTasksForEvent, TASK_FREQUENCIES } from '$lib/server/db/actions/tasks';
 import { db } from '$lib/server/db';
 import { familyMembers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -45,10 +45,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			familyId = member?.familyId ?? null;
 		}
 
+		const frequency = TASK_FREQUENCIES.includes(body.recurrenceFrequency)
+			? body.recurrenceFrequency
+			: null;
 		const created = await createTask({
 			title: body.title.trim(),
 			notes: body.notes || null,
 			dueDate: body.dueDate || null,
+			recurrenceFrequency: frequency,
+			recurrenceInterval: frequency ? Math.max(1, Math.floor(body.recurrenceInterval ?? 1)) : null,
 			eventId: body.eventId || null,
 			familyId,
 			userId: locals.user.id

@@ -43,6 +43,10 @@ _Avoid_: edit exception, split
 A completable item, optionally due on a date, belonging to a person or family. Carries completion history and stats (future).
 _Avoid_: todo, chore, checklist item
 
+**Recurring Task**:
+A Task with a schedule (frequency + interval) whose due date is a cursor: completing it materializes the next due occurrence in place. One row per task — no occurrence expansion.
+_Avoid_: repeating task, series
+
 ## Relationships
 
 - An **Anonymous Account** becomes a permanent account through **Claiming**

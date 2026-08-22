@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { updateTask, toggleTaskComplete, deleteTask } from '$lib/server/db/actions/tasks';
+import { updateTask, toggleTaskComplete, deleteTask, TASK_FREQUENCIES } from '$lib/server/db/actions/tasks';
 
 export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	if (!locals.user) {
@@ -19,10 +19,17 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 		if (body.toggleComplete) {
 			updated = await toggleTaskComplete(taskId, locals.user.id);
 		} else {
+			const frequency =
+				body.recurrenceFrequency === null || TASK_FREQUENCIES.includes(body.recurrenceFrequency)
+					? body.recurrenceFrequency
+					: undefined;
 			updated = await updateTask(taskId, locals.user.id, {
-				title: body.title,
-				notes: body.notes,
-				dueDate: body.dueDate,
+				title: typeof body.title === 'string' && body.title.trim() ? body.title.trim() : undefined,
+				notes: body.notes === undefined ? undefined : body.notes,
+				dueDate: body.dueDate === undefined ? undefined : body.dueDate || null,
+				recurrenceFrequency: frequency,
+				recurrenceInterval:
+					frequency === null ? null : frequency ? Math.max(1, Math.floor(body.recurrenceInterval ?? 1)) : undefined,
 				completedAt: body.completedAt
 			});
 		}
