@@ -16,6 +16,13 @@
 		profileDropdownOpen = false;
 	}
 
+	function handleOutsideClick(e: MouseEvent) {
+		const target = e.target as HTMLElement | null;
+		if (!target?.closest?.('[data-testid="profile-dropdown-container"]')) {
+			closeProfileDropdown();
+		}
+	}
+
 	const marketingNavItems = [
 		{ href: '/features', label: 'Features' },
 		{ href: '/pricing', label: 'Pricing' },
@@ -41,7 +48,9 @@
 	}
 </script>
 
-<nav class="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm">
+<svelte:window on:click={handleOutsideClick} on:keydown={(e) => e.key === 'Escape' && closeProfileDropdown()} />
+
+<nav class="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm print:hidden">
 	<div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 		<div class="flex items-center gap-2">
 			<a href="/" class="flex items-center gap-2">
