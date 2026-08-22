@@ -8,6 +8,10 @@ import { getUserByEmail } from '$lib/server/db/actions/users';
 export const POST: RequestHandler = async function (event) {
 	const code = (await event.request.json()).code;
 
+	// Remember any anonymous session so its data can be merged after auth.
+	const { stashGuestFromCookies } = await import('$lib/server/services/guestMergeService');
+	await stashGuestFromCookies(event.cookies);
+
 	await deleteDeadCodes();
 
 	const codeToCheck = await getCode(code);

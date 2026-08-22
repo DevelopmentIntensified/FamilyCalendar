@@ -24,15 +24,29 @@ export async function createTask(data: {
 	return created;
 }
 
-/** Personal tasks + family tasks + tasks attached to the given events. */
+/** Personal tasks + family tasks + tasks attached to the given events,
+ *  with the parent event's title/start so lists can attribute them. */
 export async function getTasksForUser(userId: string, familyId?: string | null) {
 	const conditions = [eq(tasks.userId, userId)];
 	if (familyId) {
 		conditions.push(eq(tasks.familyId, familyId));
 	}
 	return await db
-		.select()
+		.select({
+			id: tasks.id,
+			title: tasks.title,
+			notes: tasks.notes,
+			dueDate: tasks.dueDate,
+			completedAt: tasks.completedAt,
+			userId: tasks.userId,
+			familyId: tasks.familyId,
+			eventId: tasks.eventId,
+			createdAt: tasks.createdAt,
+			eventTitle: events.title,
+			eventStart: events.start
+		})
 		.from(tasks)
+		.leftJoin(events, eq(tasks.eventId, events.id))
 		.where(or(...conditions))
 		.orderBy(desc(tasks.createdAt));
 }

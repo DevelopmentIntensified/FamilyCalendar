@@ -15,12 +15,25 @@ import { eq } from 'drizzle-orm';
 import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
 import { parseEvents, expandEventsForUser } from '$lib/server/services/eventDisplayService';
+import { getTasksForUser } from '$lib/server/db/actions/tasks';
+import { GUEST_MERGE_COOKIE } from '$lib/server/services/guestMergeService';
 
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
 		return redirect(302, '/login');
 	}
 	let userId = event.locals.user.id;
+
+	// Pending guest-merge from a recent login? Prompt before anything else.
+	const stashCookie = event.cookies.get(GUEST_MERGE_COOKIE);
+	if (stashCookie && event.locals.user.email !== null && stashCookie !== userId) {
+		const { isClaimableGuest } = await import('$lib/server/services/guestMergeService');
+		if (await isClaimableGuest(stashCookie)) {
+			return redirect(302, '/merge-guest');
+		}
+		event.cookies.delete(GUEST_MERGE_COOKIE, { path: '/' });
+	}
+
 	let userSettings = await getUserSettings(userId);
 	let userCalendar = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
 
@@ -97,10 +110,21 @@ export const load: PageServerLoad = async (event) => {
 		adEventsData = await getAdEventsForUser(userId, now.getMonth() + 1, now.getFullYear());
 	}
 
+	// Open tasks with due dates render as distinct chips on month-view days.
+	const allTasks = await getTasksForUser(userId, member?.familyId ?? null);
+	const dueTasks = allTasks
+		.filter((t) => t.dueDate && !t.completedAt)
+		.map((t) => ({
+			id: t.id,
+			title: t.title,
+			dueDate: new Date(t.dueDate as unknown as string)
+		}));
+
 	return {
 		userEvents: parseEvents(await expandEventsForUser(userEvents)).map(e => ({ ...e, color: userCalendarColor })),
 		familyEvents: parseEvents(await expandEventsForUser(familyEventsData)).map(e => ({ ...e, color: familyCalendarColor })),
 		adEvents: parseEvents(adEventsData).map(e => ({ ...e, color: '#f59e0b' })),
+		dueTasks,
 		userSettings,
 		userCalendarColor,
 		familyCalendarColor,

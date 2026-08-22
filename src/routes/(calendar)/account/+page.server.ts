@@ -189,7 +189,8 @@ export const actions: Actions = {
 		if (!currentUser.email) {
 			return fail(400, {
 				success: false,
-				message: "You're using a guest calendar — add your first email with the 'Save your calendar' link instead."
+				message: "You're using a guest calendar — add your first email from the Save-your-calendar banner instead.",
+				guestNeedsClaim: true
 			});
 		}
 

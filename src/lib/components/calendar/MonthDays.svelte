@@ -12,6 +12,14 @@
 	export let lastMonth: boolean | undefined;
 	export let calendars: { id: string; name: string; color?: string }[] = [];
 	export let openDay: (date: DateTime) => void = () => {};
+	export let dueTasks: { id: string; title: string; dueDate: Date | string }[] = [];
+
+	const MAX_CHIPS = 3;
+	const MAX_TASK_CHIPS = 2;
+
+	function normalizeDate(v: Date | string): Date {
+		return v instanceof Date ? v : new Date(v);
+	}
 
 	$: if (nextMonth) {
 		currentDate = currentDate.plus({
@@ -72,6 +80,7 @@
 	{@const cellDate = currentDate.set({ day })}
 	{@const date = formatDate(cellDate)}
 	{@const dayEvents = events.filter((event) => formatDate(event.date) === date)}
+	{@const dayTasks = dueTasks.filter((t) => formatDate(normalizeDate(t.dueDate)) === date)}
 	{@const isTodayDate = date === formatDate(today)}
 	{@const isOtherMonth = nextMonth || lastMonth}
 	<div
@@ -96,7 +105,7 @@
 			{/if}
 		</div>
 		<div class="relative z-10 mt-0.5 space-y-[3px] px-0.5 pb-0.5">
-			{#each dayEvents.slice(0, 3) as event}
+			{#each dayEvents.slice(0, MAX_CHIPS) as event}
 				<button
 					type="button"
 					onclick={() => handleEventClick(event)}
@@ -117,14 +126,30 @@
 					<span class="truncate">{event.title}</span>
 				</button>
 			{/each}
-			{#if dayEvents.length > 3}
-				<button
-					type="button"
-					onclick={() => openDay(cellDate)}
-					class="rounded px-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-primary-600"
+
+			{#each dayTasks.slice(0, MAX_TASK_CHIPS) as task (task.id)}
+				<span
+					class="flex w-full items-center gap-1 rounded-md border border-dashed border-slate-400 bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600"
+					title="Task due: {task.title}"
 				>
-					+{dayEvents.length - 3} more
-				</button>
+					<svg class="h-3 w-3 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+					</svg>
+					<span class="truncate">{task.title}</span>
+				</span>
+			{/each}
+
+			{#if dayEvents.length + dayTasks.length > MAX_CHIPS + Math.min(dayTasks.length, MAX_TASK_CHIPS) || dayEvents.length > MAX_CHIPS || dayTasks.length > MAX_TASK_CHIPS}
+				{@const overflow = dayEvents.length - Math.min(dayEvents.length, MAX_CHIPS) + dayTasks.length - Math.min(dayTasks.length, MAX_TASK_CHIPS)}
+				{#if overflow > 0}
+					<button
+						type="button"
+						onclick={() => openDay(cellDate)}
+						class="rounded px-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-primary-600"
+					>
+						+{overflow} more
+					</button>
+				{/if}
 			{/if}
 		</div>
 	</div>

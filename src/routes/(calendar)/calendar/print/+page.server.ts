@@ -45,7 +45,29 @@ export const load: PageServerLoad = async (event) => {
 		? await db.select().from(events).where(eq(events.calendarId, userCalendar[0].id)).orderBy(events.start)
 		: [];
 
-	const displayEvents = parseEvents(await expandEventsForUser(rawEvents));
+	// Family events appear on the fridge too.
+	let familyRawEvents: typeof rawEvents = [];
+	if (member?.familyId) {
+		const famCals = await db.select().from(calendars).where(eq(calendars.familyId, member.familyId));
+		if (famCals.length > 0) {
+			familyRawEvents = await db
+				.select()
+				.from(events)
+				.where(eq(events.calendarId, famCals[0].id))
+				.orderBy(events.start);
+		}
+	}
+
+	const colorByCalId = new Map<string, string>();
+	if (userCalendar[0]) colorByCalId.set(userCalendar[0].id, personalColor);
+
+	const displayEvents = [
+		...parseEvents(await expandEventsForUser(rawEvents)).map((e) => ({
+			...e,
+			color: colorByCalId.get(String(e.calendarId)) || personalColor
+		})),
+		...parseEvents(await expandEventsForUser(familyRawEvents)).map((e) => ({ ...e, color: familyColor }))
+	];
 
 	// Build the 6x7 grid for the requested month.
 	const firstOfMonth = new Date(year, month - 1, 1);

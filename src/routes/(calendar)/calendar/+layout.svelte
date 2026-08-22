@@ -17,8 +17,12 @@
 	})();
 	$: urgent = isAnonymous && daysRemaining <= 14;
 	$: justClaimed = $page.url.searchParams.get('claimed') === '1' && !isAnonymous;
+	$: mergedCount = parseInt($page.url.searchParams.get('merged') || '');
+	$: mergedTasks = parseInt($page.url.searchParams.get('tasks') || '0');
+	$: justMerged = Number.isFinite(mergedCount) && mergedCount >= 0 && !isAnonymous;
 	let claimedDismissed = false;
-	$: showTopNotice = isAnonymous || (justClaimed && !claimedDismissed);
+	let mergedDismissed = false;
+	$: showTopNotice = isAnonymous || (justClaimed && !claimedDismissed) || (justMerged && !mergedDismissed);
 </script>
 
 <div class="flex min-h-screen flex-col">
@@ -35,6 +39,24 @@
 				class="rounded-full p-1 font-semibold hover:bg-green-100"
 				aria-label="Dismiss"
 				onclick={() => (claimedDismissed = true)}
+			>
+				✕
+			</button>
+		</div>
+	{:else if justMerged && !mergedDismissed}
+		<div
+			class="fixed top-16 left-0 z-40 flex w-full items-center justify-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800"
+			role="status"
+			transition:fade={{ duration: 150 }}
+		>
+			<span>
+				✅ Brought over {mergedCount} event{mergedCount === 1 ? '' : 's'}{mergedTasks > 0 ? ` and ${mergedTasks} task${mergedTasks === 1 ? '' : 's'}` : ''} from your guest calendar.
+			</span>
+			<button
+				type="button"
+				class="rounded-full p-1 font-semibold hover:bg-green-100"
+				aria-label="Dismiss"
+				onclick={() => (mergedDismissed = true)}
 			>
 				✕
 			</button>

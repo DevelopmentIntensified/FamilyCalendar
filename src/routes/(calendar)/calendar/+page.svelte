@@ -112,6 +112,7 @@
 		removeEvent={() => {}}
 		preferedFirstDayOfWeek={data.userSettings?.weekStart || data.user?.firstDayOfWeek || 'sunday'}
 		calendarIds={data.calendarIds || []}
+		dueTasks={data.dueTasks || []}
 		defaultViewSetting={data.userSettings?.defaultView || 'monthView'}
 		on:eventClick={handleEventClick}
 	/>
@@ -133,7 +134,7 @@
 	<EventFormModal
 		show={true}
 		calendarIds={data.calendarIds || []}
-		familyMembers={data.familyMembers || []}
+	\tfamilyMembers={data.familyMembers || []}
 		userSettings={data.userSettings}
 		on:close={close}
 		on:create={handleEventCreated}
@@ -146,7 +147,7 @@
 		show={true}
 		event={selectedEvent}
 		calendarIds={data.calendarIds || []}
-		familyMembers={data.familyMembers || []}
+	\tfamilyMembers={data.familyMembers || []}
 		rsvpData={selectedEventRsvp}
 		userSettings={data.userSettings}
 		on:close={close}

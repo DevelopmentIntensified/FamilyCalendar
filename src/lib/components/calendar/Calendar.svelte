@@ -13,6 +13,7 @@
 	export let preferedFirstDayOfWeek: string = 'sunday';
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let defaultViewSetting: string = 'monthView';
+	export let dueTasks: { id: string; title: string; dueDate: Date | string }[] = [];
 
 	let view: 'month' | 'week' | 'list' | 'day' = (() => {
 		const map: Record<string, 'month' | 'week' | 'list' | 'day'> = {
@@ -200,7 +201,7 @@
 
 	<div class="mx-auto w-full max-w-screen-2xl px-2 sm:px-4 lg:px-8">
 	{#if view === 'month'}
-		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} />
+		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} {dueTasks} />
 	{:else if view === 'week'}
 		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} />
 	{:else if view === 'day'}
