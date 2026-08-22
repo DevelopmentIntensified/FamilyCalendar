@@ -1,3 +1,5 @@
+import { chatJson } from './llm';
+
 export interface BulkEventSummary {
 	id: string;
 	title: string;
@@ -64,29 +66,12 @@ export function parseBulkPlan(content: string, allowedIds: string[]): BulkPlanOp
 export async function planBulkEdits(
 	instruction: string,
 	events: BulkEventSummary[],
-	apiKey: string,
-	today: string,
-	apiUrl?: string
+	today: string
 ): Promise<BulkPlanOp[]> {
-	const res = await fetch(apiUrl || process.env.CEREBRAS_API_URL || 'https://api.cerebras.ai/v1/chat/completions', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${apiKey}`
-		},
-		body: JSON.stringify({
-			model: 'llama-3.3-70b',
-			messages: [
-				{ role: 'system', content: BULK_SYSTEM_PROMPT },
-				{
-					role: 'user',
-					content: `Today is ${today}.\nInstruction: ${instruction}\nEvents: ${JSON.stringify(events)}`
-				}
-			],
-			response_format: { type: 'json_object' }
-		})
-	});
-	if (!res.ok) return [];
-	const data = await res.json();
-	return parseBulkPlan(data.choices?.[0]?.message?.content || '', events.map((e) => e.id));
+	const json = await chatJson(
+		BULK_SYSTEM_PROMPT,
+		`Today is ${today}.\nInstruction: ${instruction}\nEvents: ${JSON.stringify(events)}`
+	);
+	if (!json) return [];
+	return parseBulkPlan(JSON.stringify(json), events.map((e) => e.id));
 }
