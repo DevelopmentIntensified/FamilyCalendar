@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createEvent, updateEventById, deleteEventById, upsertException } from '$lib/server/db/actions/events';
+import { createEvent } from '$lib/server/db/actions/events';
 import { db } from '$lib/server/db';
 import { calendars, events, familyMembers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -84,100 +84,5 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	} catch (error) {
 		console.error('Failed to create event:', error);
 		return json({ error: 'Failed to create event' }, { status: 500 });
-	}
-};
-
-export const PUT: RequestHandler = async ({ request, locals, url }) => {
-	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
-
-	const userId = locals.user.id;
-	const eventId = url.pathname.split('/').pop();
-
-	if (!eventId) {
-		return json({ error: 'Event ID required' }, { status: 400 });
-	}
-
-	const body = await request.json();
-	const attendantNames: string[] = Array.isArray(body.attendants) ? body.attendants : [];
-
-	const eventData = {
-		title: body.title,
-		start: body.start,
-		end: body.end || null,
-		description: body.description || null,
-		location: body.location || null,
-		allDay: body.allDay || false,
-		calendarId: body.calendarId || null,
-		...normalizeRecurrence(body)
-	};
-
-	try {
-		// Exception Override: scope=this edits a single occurrence of a
-		// Recurring Event without altering the schedule.
-		if (body.scope === 'this' && body.occurrenceDate) {
-			await upsertException({
-				eventId: eventId,
-				originalDate: body.occurrenceDate,
-				title: eventData.title,
-				description: eventData.description,
-				location: eventData.location,
-				start: eventData.start,
-				end: eventData.end,
-				allDay: eventData.allDay
-			});
-			return json({ success: true, scopedToOccurrence: true });
-		}
-
-		const updated = await updateEventById(eventId, eventData, userId, attendantNames);
-		if (!updated) {
-			return json({ error: 'Event not found' }, { status: 404 });
-		}
-		return json({ success: true, event: updated });
-	} catch (error) {
-		console.error('Failed to update event:', error);
-		return json({ error: 'Failed to update event' }, { status: 500 });
-	}
-};
-
-export const DELETE: RequestHandler = async ({ request, locals, url }) => {
-	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
-
-	const userId = locals.user.id;
-	const eventId = url.pathname.split('/').pop();
-
-	if (!eventId) {
-		return json({ error: 'Event ID required' }, { status: 400 });
-	}
-
-	try {
-		// Exception Override: cancel a single occurrence.
-		let scope: string | null = null;
-		let occurrenceDate: string | null = null;
-		try {
-			const body = await request.json();
-			scope = body?.scope ?? null;
-			occurrenceDate = body?.occurrenceDate ?? null;
-		} catch {
-			// no body provided
-		}
-
-		if (scope === 'this' && occurrenceDate) {
-			await upsertException({
-				eventId,
-				originalDate: occurrenceDate,
-				isCancelled: true
-			});
-			return json({ success: true, cancelledOccurrence: true });
-		}
-
-		await deleteEventById(eventId, userId);
-		return json({ success: true }, { status: 200 });
-	} catch (error) {
-		console.error('Failed to delete event:', error);
-		return json({ error: 'Failed to delete event' }, { status: 500 });
 	}
 };
