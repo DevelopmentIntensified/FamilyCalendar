@@ -14,6 +14,7 @@
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let defaultViewSetting: string = 'monthView';
 	export let dueTasks: { id: string; title: string; dueDate: Date | string }[] = [];
+	export let createAt: (date: DateTime) => void = () => {};
 
 	let view: 'month' | 'week' | 'list' | 'day' = (() => {
 		const map: Record<string, 'month' | 'week' | 'list' | 'day'> = {
@@ -190,7 +191,7 @@
 					title="Import from Google / Apple / Outlook (.ics)"
 				>
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+						<path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
 					</svg>
 				</a>
 				<a
@@ -221,7 +222,7 @@
 
 	<div class="mx-auto w-full max-w-screen-2xl px-2 sm:px-4 lg:px-8">
 	{#if view === 'month'}
-		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} {dueTasks} />
+		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} {dueTasks} {createAt} />
 	{:else if view === 'week'}
 		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} />
 	{:else if view === 'day'}

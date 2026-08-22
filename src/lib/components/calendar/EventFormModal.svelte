@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
+	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import LocationSearch from '$lib/components/LocationSearch.svelte';
 	import { getContactColor, getInitials } from '$lib/utils/contactColors';
@@ -16,6 +17,7 @@
 		autoParseEventDetails?: boolean;
 		useCloudAI?: boolean;
 	} | null = null;
+	export let initialDate: string | undefined = undefined;
 
 	const dispatch = createEventDispatcher();
 
@@ -27,6 +29,9 @@
 	let contactSearch = '';
 	let attendantDropdownOpen = false;
 	let calendarDropdownOpen = false;
+	let entryType: 'event' | 'task' = 'event';
+	let taskTitle = '';
+	let taskDueDate = initialDate || DateTime.now().toISODate() || '';
 
 	let form: ReturnType<typeof createEventForm>;
 
@@ -34,6 +39,7 @@
 		calendars: calendarIds,
 		familyMembers,
 		defaultCalendarId: userSettings?.defaultCalendarId,
+		initialDate,
 		initialEvent: event ? {
 			id: event.id,
 			title: event.title || '',
@@ -250,8 +256,35 @@
 		dispatch('close');
 	}
 
+	async function submitTask() {
+		const title = taskTitle.trim();
+		if (!title || submitting) return;
+		submitting = true;
+		try {
+			const res = await fetch('/api/tasks', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ title, dueDate: taskDueDate || null })
+			});
+			if (res.ok) {
+				const json = await res.json();
+				dispatch('createTask', json.task);
+				taskTitle = '';
+				taskDueDate = initialDate || DateTime.now().toISODate() || '';
+			}
+		} catch (err) {
+			console.error('Create task failed:', err);
+		} finally {
+			submitting = false;
+		}
+	}
+
 	async function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
+		if (entryType === 'task') {
+			await submitTask();
+			return;
+		}
 		submitting = true;
 
 		const eventData = form.submitPreparation();
@@ -383,10 +416,12 @@
 				<div class="flex items-center justify-between">
 					<div>
 						<h2 id="modal-title" class="text-lg font-semibold text-white">
-							{form.isEditMode ? 'Edit Event' : 'Create New Event'}
+							{form.isEditMode ? 'Edit Event' : entryType === 'task' ? 'Add Task' : 'Create New Event'}
 						</h2>
-						{#if !form.isEditMode}
+						{#if !form.isEditMode && entryType === 'event'}
 							<p class="mt-0.5 text-xs text-primary-100">Type naturally, we'll fill in the rest</p>
+						{:else if !form.isEditMode && entryType === 'task'}
+							<p class="mt-0.5 text-xs text-primary-100">A completable item — no event needed</p>
 						{/if}
 					</div>
 					<button
@@ -404,6 +439,30 @@
 
 			<form on:submit={handleSubmit}>
 				<div class="p-5 space-y-3">
+					{#if !form.isEditMode}
+						<div class="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1" role="tablist" aria-label="What are you adding?">
+							<button
+								type="button"
+								on:click={() => (entryType = 'event')}
+								class="rounded-md px-3 py-1.5 text-sm font-medium transition-all {entryType === 'event'
+									? 'bg-white text-slate-900 shadow-sm'
+									: 'text-slate-500 hover:text-slate-700'}"
+							>
+								Event
+							</button>
+							<button
+								type="button"
+								on:click={() => (entryType = 'task')}
+								class="rounded-md px-3 py-1.5 text-sm font-medium transition-all {entryType === 'task'
+									? 'bg-white text-slate-900 shadow-sm'
+									: 'text-slate-500 hover:text-slate-700'}"
+							>
+								Task
+							</button>
+						</div>
+					{/if}
+
+					{#if entryType === 'event'}
 					{#if !form.isEditMode}
 						<div>
 							<label for="nl-input" class="mb-1 block text-sm font-medium text-slate-700">Quick Add</label>
@@ -816,9 +875,33 @@
 							</div>
 						{/if}
 					{/if}
+					{:else}
+						<div>
+							<label for="task-title" class="mb-1 block text-sm font-medium text-slate-700">Task Title *</label>
+							<input
+								id="task-title"
+								type="text"
+								bind:value={taskTitle}
+								placeholder="e.g., Pay water bill"
+								required
+								class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+							/>
+						</div>
+
+						<div>
+							<label for="task-due-date" class="mb-1 block text-sm font-medium text-slate-700">Due Date</label>
+							<input
+								id="task-due-date"
+								type="date"
+								bind:value={taskDueDate}
+								class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+							/>
+							<p class="mt-1 text-xs text-slate-400">Optional — shows as a dashed chip on its due day.</p>
+						</div>
+					{/if}
 				</div>
 
-				{#if !form.isEditMode && showMore}
+				{#if !form.isEditMode && showMore && entryType === 'event'}
 					<div class="px-5 pb-3">
 						<button
 							type="button"
@@ -869,6 +952,7 @@
 					</div>
 				{/if}
 
+				{#if entryType === 'event'}
 				<!-- Checklist -->
 				<div class="border-t border-slate-100 px-5 py-3">
 					<div class="mb-1 flex items-center justify-between">
@@ -971,29 +1055,30 @@
 						</form>
 					{/if}
 				</div>
+				{/if}
 
 				<div class="flex items-center justify-end gap-2 border-t border-slate-100 p-5">
 					{#if form.isEditMode}
 						<button type="button" on:click={handleDelete} class="mr-auto rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">Delete</button>
 					{/if}
-					<button type="button" on:click={close} class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Cancel</button>
-					{#if !form.isEditMode}
-						<button type="button" on:click={clearAll} class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Clear</button>
+				<button type="button" on:click={close} class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Cancel</button>
+				{#if !form.isEditMode && entryType === 'event'}
+					<button type="button" on:click={clearAll} class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Clear</button>
+				{/if}
+				<button
+					type="submit"
+					class="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+					disabled={(entryType === 'task' ? !taskTitle.trim() : !form.title || !form.date) || submitting}
+				>
+					{#if submitting}
+						<div class="flex items-center gap-2">
+							<div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+							{form.isEditMode ? 'Updating...' : entryType === 'task' ? 'Adding...' : 'Creating...'}
+						</div>
+					{:else}
+						{form.isEditMode ? 'Update' : entryType === 'task' ? 'Add Task' : 'Create'}
 					{/if}
-					<button
-						type="submit"
-						class="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-						disabled={!form.title || !form.date || submitting}
-					>
-						{#if submitting}
-							<div class="flex items-center gap-2">
-								<div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-								{form.isEditMode ? 'Updating...' : 'Creating...'}
-							</div>
-						{:else}
-							{form.isEditMode ? 'Update' : 'Create'}
-						{/if}
-					</button>
+				</button>
 				</div>
 			</form>
 		</div>

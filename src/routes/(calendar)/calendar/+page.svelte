@@ -15,6 +15,7 @@
 	let showEditModal = false;
 	let selectedEvent: Event | null = null;
 	let selectedEventRsvp: any[] = [];
+	let createInitialDate: string | undefined = undefined;
 
 	// Optimistically shown events between creation and the next load refresh.
 	let localExtras: Event[] = [];
@@ -37,6 +38,18 @@
 		showEditModal = false;
 		selectedEvent = null;
 		selectedEventRsvp = [];
+		createInitialDate = undefined;
+	}
+
+	function openCreateAt(date: DateTime) {
+		currentDate.set(date);
+		createInitialDate = date.toISODate() ?? undefined;
+		showModal = true;
+	}
+
+	async function handleTaskCreated() {
+		await invalidateAll();
+		close();
 	}
 
 	async function handleEventCreated(event: CustomEvent) {
@@ -102,13 +115,14 @@
 		calendarIds={data.calendarIds || []}
 		dueTasks={data.dueTasks || []}
 		defaultViewSetting={data.userSettings?.defaultView || 'monthView'}
+		createAt={openCreateAt}
 		on:eventClick={handleEventClick}
 	/>
 </div>
 
 <!-- Floating Quick Add Button -->
 <button
-	onclick={() => showModal = true}
+	onclick={() => { createInitialDate = undefined; showModal = true; }}
 	class="fixed bottom-24 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-primary-600 shadow-xl shadow-primary-400/50 hover:bg-primary-700 hover:scale-105 active:scale-95 transition-all"
 	aria-label="Quick Add Event"
 >
@@ -122,10 +136,12 @@
 	<EventFormModal
 		show={true}
 		calendarIds={data.calendarIds || []}
-	\tfamilyMembers={data.familyMembers || []}
+		familyMembers={data.familyMembers || []}
 		userSettings={data.userSettings}
+		initialDate={createInitialDate}
 		on:close={close}
 		on:create={handleEventCreated}
+		on:createTask={handleTaskCreated}
 	/>
 {/if}
 

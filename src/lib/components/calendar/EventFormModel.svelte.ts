@@ -65,6 +65,7 @@ interface EventFormConfig {
 	familyMembers: { userId: string; firstName: string; lastName: string; email: string }[];
 	defaultCalendarId?: string | null;
 	initialEvent?: InitialEvent;
+	initialDate?: string;
 }
 
 export function createEventForm(config: EventFormConfig) {
@@ -190,6 +191,11 @@ export function createEventForm(config: EventFormConfig) {
 	// Initialize
 	initializeCalendar();
 	populateFromEvent();
+
+	if (!config.initialEvent && config.initialDate) {
+		date = config.initialDate;
+		userTouchedFields.date = true;
+	}
 
 	return {
 		get title() { return title; },

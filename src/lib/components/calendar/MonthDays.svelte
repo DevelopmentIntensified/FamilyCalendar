@@ -14,6 +14,7 @@
 	export let calendars: { id: string; name: string; color?: string }[] = [];
 	export let openDay: (date: DateTime) => void = () => {};
 	export let dueTasks: { id: string; title: string; dueDate: Date | string }[] = [];
+	export let createAt: (date: DateTime) => void = () => {};
 
 	const MAX_CHIPS = 3;
 	const MAX_TASK_CHIPS = 2;
@@ -83,9 +84,24 @@
 			<span class="flex h-5 w-5 items-center justify-center text-xs font-semibold {isTodayDate ? 'rounded-full bg-primary-600 text-white' : isOtherMonth ? 'text-slate-400' : 'text-slate-600'}">
 				{day}
 			</span>
-			{#if isTodayDate}
-				<span class="pr-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-500">today</span>
-			{/if}
+			<div class="flex items-center gap-0.5">
+				{#if !isOtherMonth}
+					<button
+						type="button"
+						class="pointer-events-auto flex h-5 w-5 items-center justify-center rounded text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
+						aria-label="Add on {date}"
+						title="Add on {date}"
+						onclick={(e) => { e.stopPropagation(); createAt(cellDate); }}
+					>
+						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+						</svg>
+					</button>
+				{/if}
+				{#if isTodayDate}
+					<span class="pr-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-500">today</span>
+				{/if}
+			</div>
 		</div>
 		<div class="relative z-10 mt-0.5 space-y-[3px] px-0.5 pb-0.5">
 			{#each dayEvents.slice(0, MAX_CHIPS) as event}

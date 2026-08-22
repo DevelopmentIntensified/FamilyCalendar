@@ -18,6 +18,7 @@
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let openDay: (date: DateTime) => void = () => {};
 	export let dueTasks: { id: string; title: string; dueDate: Date | string }[] = [];
+	export let createAt: (date: DateTime) => void = () => {};
 
 	const today = DateTime.now();
 
@@ -51,7 +52,7 @@
 			{day}
 		</div>
 	{/each}
-	<MonthDays days={lastMonthDays} currentDate={$currentDate} {events} lastMonth={true} {calendarIds} {openDay} />
-	<MonthDays {days} currentDate={$currentDate} {events} {calendarIds} {openDay} {dueTasks} />
-	<MonthDays days={nextMonthDays} currentDate={$currentDate} {events} nextMonth={true} {calendarIds} {openDay} />
+	<MonthDays days={lastMonthDays} currentDate={$currentDate} {events} lastMonth={true} {calendarIds} {openDay} {createAt} />
+	<MonthDays {days} currentDate={$currentDate} {events} {calendarIds} {openDay} {dueTasks} {createAt} />
+	<MonthDays days={nextMonthDays} currentDate={$currentDate} {events} nextMonth={true} {calendarIds} {openDay} {createAt} />
 </div>
