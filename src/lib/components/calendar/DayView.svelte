@@ -122,9 +122,9 @@
 						{#if event.location}
 							<p class="mt-0.5 truncate text-sm text-slate-500">{event.location}</p>
 						{/if}
-						{#if calendarIds.length > 1 && calendars.find(c => c.id === event.calendarId)}
+						{#if calendarIds.length > 1 && calendarIds.find(c => c.id === event.calendarId)}
 							<p class="mt-0.5 text-xs font-medium text-slate-400">
-								{calendars.find(c => c.id === event.calendarId)?.name}
+								{calendarIds.find(c => c.id === event.calendarId)?.name}
 							</p>
 						{/if}
 					</div>
