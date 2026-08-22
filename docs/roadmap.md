@@ -37,6 +37,8 @@ Superseded planning docs live in [docs/archive/](./archive/).
 - Events show their calendar: tooltips on chips, inline labels in day/list views
 - Instant UI after event creation (optimistic merge)
 - NLP parser v2: recurrence phrases, relative offsets ("in 2 weeks"), weekend, month abbreviations incl. "Sept", explicit years, day-first dates, ISO dates, colloquial times ("half past seven pm"), military time, colon-less ranges — 94 parser tests
+- Hour-grid Day View: 24h lane-packed blocks with now-line and auto-scroll (free/busy at a glance)
+- Bulk edit: selection mode on month chips; floating bar for calendar move / location / attendants / delete; Smart mode plans edits via Cerebras
 
 ## Tiers (original plan, all shipped)
 

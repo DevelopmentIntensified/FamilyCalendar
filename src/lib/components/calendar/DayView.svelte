@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { DateTime } from 'luxon';
 	import type { Writable } from 'svelte/store';
 	import type { Event } from '$lib/types';
@@ -15,6 +15,8 @@
 	const dispatch = createEventDispatcher<{ back: void }>();
 
 	const today = DateTime.now();
+	const PX_PER_HOUR = 56;
+	const GRID_HEIGHT = 24 * PX_PER_HOUR;
 
 	$: selectedDate = $currentDate;
 
@@ -29,6 +31,51 @@
 
 	$: allDayEvents = dayEvents.filter((e) => e.allDay);
 	$: timedEvents = dayEvents.filter((e) => !e.allDay);
+
+	interface LaidOutEvent {
+		event: Event;
+		lane: number;
+		lanes: number;
+		topPct: number;
+		heightPct: number;
+	}
+
+	function layoutTimed(list: Event[]): LaidOutEvent[] {
+		const laneEnds: number[] = [];
+		const out: Omit<LaidOutEvent, 'lanes'>[] = [];
+		for (const event of list) {
+			const s = toDate(event.start);
+			const startMin = s.getHours() * 60 + s.getMinutes();
+			let endMin = startMin + 60;
+			if (event.end) {
+				const e2 = toDate(event.end);
+				endMin = Math.max(endMin, e2.getHours() * 60 + e2.getMinutes());
+			}
+			let lane = laneEnds.findIndex((t) => startMin >= t);
+			if (lane === -1) lane = laneEnds.length;
+			laneEnds[lane] = endMin;
+			out.push({
+				event,
+				lane,
+				topPct: (startMin / 1440) * 100,
+				heightPct: (Math.min(endMin - startMin, 1440 - startMin) / 1440) * 100
+			});
+		}
+		const lanes = Math.max(laneEnds.length, 1);
+		return out.map((o) => ({ ...o, lanes }));
+	}
+
+	$: laidOut = layoutTimed(timedEvents);
+
+	$: isToday = formatDate(selectedDate) === formatDate(today);
+	$: nowPct = ((new Date().getHours() * 60 + new Date().getMinutes()) / 1440) * 100;
+
+	let gridBody: HTMLElement | undefined;
+	onMount(() => {
+		if (!gridBody) return;
+		const targetHour = isToday ? Math.max(0, new Date().getHours() - 1) : 7;
+		gridBody.scrollTop = targetHour * PX_PER_HOUR;
+	});
 
 	let selectedEvent: Event | null = null;
 
@@ -67,6 +114,24 @@
 		</h2>
 	</div>
 
+	{#if allDayEvents.length > 0}
+		<div class="mb-3 rounded-xl bg-slate-50 p-3">
+			<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">All day</h3>
+			<div class="space-y-1.5">
+				{#each allDayEvents as event}
+					<button
+						type="button"
+						onclick={() => handleEventClick(event)}
+						class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 hover:opacity-90"
+						style="border-left: 3px solid {event.color || '#94a3b8'}"
+					>
+						{event.title}
+					</button>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
 	{#if dayEvents.length === 0}
 		<div class="flex flex-col items-center justify-center py-16 text-center">
 			<svg class="mb-4 h-14 w-14 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -76,54 +141,55 @@
 			<p class="text-sm text-slate-500">Enjoy the free day</p>
 		</div>
 	{:else}
-		<div class="space-y-2">
-			{#if allDayEvents.length > 0}
-				<div class="mb-3 rounded-xl bg-slate-50 p-3">
-					<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">All day</h3>
-					<div class="space-y-1.5">
-						{#each allDayEvents as event}
-							<button
-								type="button"
-								onclick={() => handleEventClick(event)}
-								class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 hover:opacity-90"
-								style="border-left: 3px solid {event.color || '#94a3b8'}"
-							>
-								{event.title}
-							</button>
-						{/each}
+		<!-- Hour grid -->
+		<div class="flex max-h-[65vh] overflow-y-auto rounded-xl border border-slate-200" bind:this={gridBody}>
+			<!-- Gutter -->
+			<div class="w-14 shrink-0 select-none sm:w-16" aria-hidden="true">
+				{#each Array(24) as _, h}
+					<div class="pr-2 text-right text-[10px] font-medium text-slate-400" style="height: {PX_PER_HOUR}px">
+						<span class="-translate-y-1.5 inline-block">{String(h).padStart(2, '0')}</span>
 					</div>
-				</div>
-			{/if}
+				{/each}
+			</div>
 
-			{#each timedEvents as event}
-				<button
-					type="button"
-					onclick={() => handleEventClick(event)}
-					class="group flex w-full items-stretch gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition-all hover:border-slate-300 hover:shadow-md"
-				>
-					<div class="w-20 shrink-0 pt-0.5 text-right sm:w-24">
-						<span class="block text-sm font-semibold text-slate-900">{formatEventTime(event.start)}</span>
-						{#if event.end}
-							<span class="block text-xs text-slate-500">{formatEventTime(event.end)}</span>
-						{/if}
+			<!-- Grid body -->
+			<div class="relative flex-1 border-l border-slate-200" style="height: {GRID_HEIGHT}px">
+				{#each Array(24) as _, h}
+					<div class="absolute inset-x-0 border-t border-slate-100 {h % 6 === 0 ? 'border-slate-200' : ''}" style="top: {h * PX_PER_HOUR}px"></div>
+				{/each}
+
+				{#if isToday}
+					<div class="pointer-events-none absolute inset-x-0 z-20 flex items-center" style="top: {nowPct}%" aria-hidden="true">
+						<span class="-ml-1 h-2 w-2 rounded-full bg-red-500"></span>
+						<span class="h-px flex-1 bg-red-400"></span>
 					</div>
-					<div class="w-1 shrink-0 rounded-full" style="background-color: {event.color || '#94a3b8'}"></div>
-					<div class="min-w-0 flex-1">
-						<h4 class="truncate font-medium text-slate-900 group-hover:text-primary-600">{event.title}</h4>
-						{#if event.location}
-							<p class="mt-0.5 truncate text-sm text-slate-500">{event.location}</p>
+				{/if}
+
+				{#each laidOut as slot (slot.event.id)}
+					{@const widthPct = (1 / slot.lanes) * 100}
+					<button
+						type="button"
+						onclick={() => handleEventClick(slot.event)}
+						class="absolute z-10 overflow-hidden rounded-md border border-slate-200 bg-white px-1.5 py-1 text-left shadow-sm transition-colors hover:brightness-95"
+						style="
+							top: {slot.topPct}%;
+							height: {Math.max(slot.heightPct, (26 / GRID_HEIGHT) * 100)}%;
+							left: calc({slot.lane * widthPct}% + 2px);
+							width: calc({widthPct}% - 4px);
+							border-left: 3px solid {slot.event.color || '#94a3b8'};
+						"
+						title="{formatEventTime(slot.event.start)} {slot.event.title}"
+					>
+						<span class="block truncate text-[11px] font-semibold leading-tight text-slate-800">{slot.event.title}</span>
+						{#if slot.heightPct >= 4}
+							<span class="block truncate text-[10px] leading-tight text-slate-400">{formatEventTime(slot.event.start)}</span>
 						{/if}
-						{#if calendarIds.length > 1 && calendarIds.find(c => c.id === event.calendarId)}
-							<p class="mt-0.5 text-xs font-medium text-slate-400">
-								{calendarIds.find(c => c.id === event.calendarId)?.name}
-							</p>
+						{#if slot.heightPct >= 6 && slot.event.location}
+							<span class="block truncate text-[10px] leading-tight text-slate-400">{slot.event.location}</span>
 						{/if}
-					</div>
-					<svg class="h-5 w-5 shrink-0 self-center text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-					</svg>
-				</button>
-			{/each}
+					</button>
+				{/each}
+			</div>
 		</div>
 	{/if}
 </div>
