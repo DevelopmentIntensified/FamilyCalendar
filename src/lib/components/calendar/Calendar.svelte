@@ -5,7 +5,6 @@
 	import ListView from './ListView.svelte';
 	import WeekView from './WeekView.svelte';
 	import DayView from './DayView.svelte';
-	import DateSelector from './DateSelector.svelte';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: any[] = [];

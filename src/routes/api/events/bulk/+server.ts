@@ -12,6 +12,7 @@ import {
 	syncEventAttendants
 } from '$lib/server/db/actions/events';
 import { planBulkEdits, type BulkPlanOp } from '$lib/server/services/bulkAiService';
+import { llmConfigured } from '$lib/server/services/llm';
 
 type BulkItem = { id: string; occurrenceDate?: string };
 
@@ -150,9 +151,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		if (op.type === 'smart') {
 			const instruction = String(op.instruction ?? '').trim();
 			if (!instruction) return json({ error: 'instruction required' }, { status: 400 });
-
-			const apiKey = process.env.CEREBRAS_API_KEY;
-			if (!apiKey) return json({ error: 'AI features not configured' }, { status: 503 });
+			if (!llmConfigured()) return json({ error: 'AI features not configured' }, { status: 503 });
 
 			const rows = await db
 				.select({ id: events.id, title: events.title, start: events.start, location: events.location })
@@ -168,7 +167,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				};
 			});
 
-			const plan = await planBulkEdits(instruction, summaries, apiKey, DateTime.now().toISODate()!);
+			const plan = await planBulkEdits(instruction, summaries, DateTime.now().toISODate()!);
 			if (plan.length === 0) {
 				return json({ error: 'AI returned no applicable changes' }, { status: 422 });
 			}
