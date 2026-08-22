@@ -174,8 +174,8 @@
 		}
 	}
 
-	// Templates were built for recurring events; standalone tasks keep the
-	// cadence as a note so the guidance survives the move.
+	// Template descriptions explain the cadence; fall back to a
+	// generated phrase for templates without one.
 	function cadenceNote(t: SmartEventTemplate): string {
 		if (t.description) return t.description;
 		const unit = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' }[t.recurrenceFrequency];
@@ -190,7 +190,13 @@
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title: t.name, notes: cadenceNote(t) })
+				body: JSON.stringify({
+					title: t.name,
+					// First occurrence lands today; cadence keeps it coming back.
+					dueDate: new Date(new Date().setHours(23, 59, 0, 0)).toISOString(),
+					recurrenceFrequency: t.recurrenceFrequency,
+					recurrenceInterval: t.recurrenceInterval
+				})
 			});
 			if (res.ok) await invalidateAll();
 		} finally {
