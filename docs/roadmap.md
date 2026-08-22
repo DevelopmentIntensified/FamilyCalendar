@@ -1,45 +1,54 @@
 # Family Planz Roadmap
 
-Decisions locked in the planning session of 2026-08-21. Domain language lives in [CONTEXT.md](../CONTEXT.md).
+Decisions locked in planning sessions (latest 2026-08-21). Domain language lives in [CONTEXT.md](../CONTEXT.md).
+Superseded planning docs live in [docs/archive/](./archive/).
 
-## Tier 1 — shipped this push
+## Shipped — full log
 
-| Item | Decisions |
-|------|-----------|
-| Session persistence (mobile logout bug) | Root cause: Lucia cookie had no `maxAge` → browser-session cookie; two endpoints hand-built `Set-Cookie` without expiry. Fix: 90-day session / 30-day idle window, explicit `maxAge` on cookie, proper `cookies.set()` everywhere |
-| PWA manifest | `static/manifest.webmanifest`, 192/512 icons, theme color, `viewport-fit=cover`. Android "Add to Home Screen" now installs standalone with persistent cookies |
-| Marketing pages mobile | Audit found pages already responsive (`md:` stacking throughout); fixed trust-strip clipping on landing page |
-| Calendar mobile | Week view gets `min-w-[700px]` so phones scroll horizontally instead of crushing 8 columns to ~47px each |
-| Day drill-down | Tap a day cell (month) or day header (week) → agenda-style **Day View** for that date; back returns to previous view; prev/next step by day while in day view. Replaces the old "+more" modal |
+**Foundations & fixes**
+- Session persistence bug (no cookie `maxAge` → constant mobile logouts); manual Set-Cookie headers fixed; 90d/30d session config
+- PWA manifest + icons; Android homescreen installs standalone
+- Month header reactivity fix (`get(store)` in `$:` isn't reactive)
+- Week view: events span their true time range; correct grid-height math; horizontal scroll on phones
+- Day drill-down: tap a day → agenda-style Day View, back returns
+- Settings gear + print icon on calendar toolbar
+- Calendar settings consolidated into `/account`; ad preferences restored there too
 
-## Tier 2 — shipped
+**Recurring events & smart schedules**
+- `frequency`+`interval` columns; virtual occurrence expansion with anchor-correct month/year math; Exception Overrides (edit/cancel single occurrences vs series)
+- Runtime Date-object normalization fix (postgres.js hands back Dates despite mode:'string')
+- 34-template Smart Schedules catalog (car/home/cleaning) in create form
 
-| Item | Locked design |
-|------|---------------|
-| Recurring Events | `frequency` (day/week/month/year) + `interval` (every N) as structured columns (`recurrence_frequency`, `recurrence_interval`). Occurrences expanded virtually at read time (±2y window, 500 cap) with composite ids `{masterId}~{occISO}`; anchor-based generation so "monthly on the 31st" re-anchors after short months and Feb 29 yearly rolls to Mar 1. **Exception Overrides** in `event_exceptions`: edit/delete of a single occurrence ("This event only" vs "All events in series" choice); cancelled occurrences skipped during expansion. Full iCalendar RRULE is a later upgrade — schema migrates cleanly |
-| Smart Event templates | Static catalog `src/lib/data/smartEventTemplates.ts` (car / home / cleaning, 34 templates from standard maintenance schedules). "Smart schedules" panel in the create form prefills title/description/frequency/interval |
+**Accounts**
+- Anonymous Accounts: silent server account on first protected visit, no signup wall; guest entry CTAs on login/signup pages
+- Claiming via magic link (hashed tokens) → sync across devices; Claim Conflict escape hatch
+- Inactivity Window: weekly Vercel cron deletes idle-90d unclaimed accounts; warning banner with days remaining
+- Guest email-change guard + claim success toast
 
-## Tier 3 — shipped
+**Tasks**
+- Tasks entity + `/calendar/tasks` page (quick-add with due-date keywords: "clean gutters saturday") + full API
+- Event checklists in create form, edit form and detail modal; cascade-safe delete warnings
+- Weekly completion counter (baseline framing)
 
-| Item | Locked design |
-|------|---------------|
-| Onboarding redesign | **Anonymous Accounts**: server account created silently on first visit to a protected route, no email. **Claiming** attaches a verified email via magic link (`/claim`, sha256-hashed tokens, 15-min TTL) → sync across devices. **Claim Conflict** (email already registered): block + escape hatch ("log in first"), re-checked at click time — never silent merge. Guest banner shows sync warning + days remaining; red under 14 days |
-| Retention | `/api/cron/cleanup` (protected by `x-cron-secret`) deletes unclaimed Anonymous Accounts idle > 90 days (**Inactivity Window**); "no action" = any authenticated request refreshes `lastActiveAt` in hooks (1h throttle). Expired claim tokens cleaned in same job. Wire to a weekly external scheduler with `CRON_SECRET` set |
-| Tasks | `tasks` table: title/notes/optional due date/completedAt, owner, optional family scope, optional event attachment. `/calendar/tasks` page (quick-add, overdue highlighting, completed section) + full API. Events-attached task UI and completion stats are future |
+**Calendar power features**
+- ICS import from Google/Apple/Outlook exports: file upload, ownership-checked target calendar, duplicate skip, RRULE FREQ/INTERVAL mapping, 500-event cap
+- Print for fridge: landscape one-pager per month, colored dots, today ring, auto-print option
+- Duplicate event action
+- Events show their calendar: tooltips on chips, inline labels in day/list views
+- Instant UI after event creation (optimistic merge)
+- NLP parser v2: recurrence phrases, relative offsets ("in 2 weeks"), weekend, month abbreviations incl. "Sept", explicit years, day-first dates, ISO dates, colloquial times ("half past seven pm"), military time, colon-less ranges — 94 parser tests
+
+## Tiers (original plan, all shipped)
+
+| Tier | Items |
+|------|-------|
+| ~~1~~ ✓ | Marketing/calendar mobile, session fix, PWA |
+| ~~2~~ ✓ | Recurring events → smart templates |
+| ~~3~~ ✓ | Anonymous accounts/claiming/retention, tasks |
 
 ## Future ideas (from research, not committed)
 
-- Hour-grid Day View upgrade (free/busy at a glance) once recurring events exist
-- Full RRULE recurrence (BYDAY/BYMONTHDAY/UNTIL)
-- Family availability traffic lights (timeanddate pattern)
-- Shareable URL views — serialize filter/view state into querystring; works pre-Claiming
-- Weekly family digest email (next week + who hasn't RSVP'd + completions vs baseline)
-- Smart nudges — remind only members who haven't acted, before AND after deadline
-- Schedule-aware forgiving streaks with streak freeze + tiered daily credit (see mindfulness research)
-- Cooperative family weekly meter + gentle nudges (no leaderboards)
-- Cursor-based materialization for recurring *Tasks* (completions need concrete rows; timeto.me pattern)
-- Single-field quick-add with inline markup (`@person`, `!!`, durations)
-- Demo-data seeding for first-run empty states
-- Service worker for offline capture (beyond manifest-only PWA)
-
-See `docs/research/` for full findings.
+- **Event chat**: comment thread per event so family members coordinate in-context ("who's bringing snacks?"). Needs a `event_messages` table, realtime or poll-based thread UI inside EventModal, and permission rules tied to family membership. Natural extension of the existing checklist pattern.
+- Hour-grid Day View upgrade (free/busy at a glance)
+- Full iCalendar RRULE upgrade (BYDAY/BYMONTHDAY/UNTIL) — current schema migrates cleanly
+- Family availability traffic lights; shareable URL views; weekly digest email; smart nudges (only non-actors, before+after deadline); forgiving schedule-aware streaks with freeze + tiered credit; cooperative family weekly meter; cursor-materialized recurring tasks; single-field quick-add markup; service worker offline capture

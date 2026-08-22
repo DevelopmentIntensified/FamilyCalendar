@@ -33,6 +33,16 @@
 		return event.color || '#94a3b8';
 	}
 
+	function calendarLabel(event: Event): string {
+		if (calendars.length < 2) return '';
+		return calendars.find((c) => c.id === event.calendarId)?.name || '';
+	}
+
+	function chipTooltip(event: Event): string {
+		const name = calendarLabel(event);
+		return name ? `${event.title} · ${name}` : event.title;
+	}
+
 	function chipStyle(event: Event): string {
 		if (isAdEvent(event)) return '';
 		const color = chipColor(event);
@@ -90,6 +100,7 @@
 				<button
 					type="button"
 					onclick={() => handleEventClick(event)}
+					title={chipTooltip(event)}
 					class="flex w-full items-center gap-1 overflow-hidden rounded-md px-1 py-[3px] text-left text-[11px] font-medium leading-tight transition-colors {isAdEvent(event)
 						? 'border border-amber-300 bg-amber-100'
 						: 'bg-white hover:brightness-95'}"

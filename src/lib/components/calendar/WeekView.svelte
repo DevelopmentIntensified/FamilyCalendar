@@ -162,6 +162,7 @@
 							<button
 								type="button"
 								onclick={() => handleEventClick(event)}
+								title={calendarIds.length > 1 ? `${event.title} · ${calendarIds.find(c => c.id === event.calendarId)?.name || ''}` : event.title}
 								class="absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer text-left overflow-hidden bg-white"
 								style="top: {getEventTop(event)}%; height: {getEventHeight(event)}%; border-left: 3px solid {event.color || '#94a3b8'}; min-height: 18px;"
 							>

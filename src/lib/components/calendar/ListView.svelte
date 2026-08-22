@@ -9,6 +9,7 @@
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[];
 	export let removeEvent: (id: string) => void;
+	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 
 	function formatEventTime(d: Date | string | undefined | null): string {
 		if (!d) return '';
@@ -99,6 +100,12 @@
 									{/if}
 								</div>
 								<div class="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-slate-500">
+									{#if calendarIds.length > 1 && calendarIds.find(c => c.id === event.calendarId)}
+										<span class="flex items-center gap-1">
+											<span class="h-2 w-2 rounded-full" style="background-color: {event.color || '#94a3b8'}"></span>
+											{calendarIds.find(c => c.id === event.calendarId)?.name}
+										</span>
+									{/if}
 									{#if event.allDay}
 										<span class="flex items-center gap-1">
 											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

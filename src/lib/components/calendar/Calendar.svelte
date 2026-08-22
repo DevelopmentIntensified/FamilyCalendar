@@ -177,6 +177,16 @@
 		</div>
 
 		<a
+			href="/calendar/print"
+			class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+			aria-label="Print month for the fridge"
+		>
+			<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+			</svg>
+		</a>
+
+		<a
 			href="/account#calendar"
 			class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
 			aria-label="Calendar Settings"
@@ -196,7 +206,7 @@
 	{:else if view === 'day'}
 		<DayView {currentDate} {events} {calendarIds} on:back={backFromDay} />
 	{:else if view === 'list'}
-		<ListView {currentDate} {events} {removeEvent} />
+		<ListView {currentDate} {events} {removeEvent} {calendarIds} />
 	{/if}
 	</div>
 </div>

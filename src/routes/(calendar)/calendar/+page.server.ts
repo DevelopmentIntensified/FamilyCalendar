@@ -14,86 +14,7 @@ import {
 import { eq } from 'drizzle-orm';
 import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
-import { expandRecurrence } from '$lib/server/services/recurrenceService';
-import { getExceptionsByEventIds } from '$lib/server/db/actions/events';
-
-const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
-
-function deriveEventProps(e: Record<string, any>, date: Date, end: Date | null) {
-	return {
-		...e,
-		start: date,
-		end: end || e.end,
-		date
-	};
-}
-
-/**
- * Expands recurring event masters into virtual occurrences with composite
- * ids (`{masterId}~{occurrenceISO}`), then applies Exception Overrides:
- * cancelled occurrences are dropped, edited ones are merged in place.
- */
-function expandRecurringEvents(
-	eventsData: CalendarEvent[],
-	exceptions: Awaited<ReturnType<typeof getExceptionsByEventIds>>
-) {
-	const exceptionByKey = new Map(
-		exceptions.map((x) => [`${x.eventId}~${new Date(x.originalDate).toISOString()}`, x])
-	);
-
-	const windowStart = new Date(Date.now() - 2 * 365 * oneDay);
-	const windowEnd = new Date(Date.now() + 2 * 365 * oneDay);
-
-	const result: Record<string, any>[] = [];
-	for (const e of eventsData) {
-		const occurrences = expandRecurrence(e, windowStart, windowEnd);
-		if (occurrences.length === 0) continue;
-
-		const durationMs = e.end ? new Date(e.end).getTime() - new Date(e.start).getTime() : null;
-
-		for (const occ of occurrences) {
-			const occIso = occ.toISOString();
-			const key = `${e.id}~${occIso}`;
-			const exception = exceptionByKey.get(key);
-			if (exception?.isCancelled) continue;
-
-			const occEnd = durationMs !== null ? new Date(occ.getTime() + durationMs) : null;
-			result.push({
-				...e,
-				id: key,
-				masterId: e.id,
-				occurrenceDate: occIso,
-				start: occ.toISOString(),
-				end: occEnd ? occEnd.toISOString() : null,
-				title: exception?.title ?? e.title,
-				description: exception?.description ?? e.description,
-				location: exception?.location ?? e.location,
-				allDay: exception?.allDay ?? e.allDay
-			});
-		}
-	}
-	return result;
-}
-
-const parseEvents = function (eventsData) {
-	return eventsData.flatMap((e) => {
-		const startDate = new Date(e.start);
-		const endDate = e.end ? new Date(e.end) : null;
-		
-		if (!endDate || startDate.getDate() === endDate.getDate()) {
-			return deriveEventProps(e, startDate, endDate);
-		}
-		
-		const diffDays = Math.round(Math.abs((startDate.getTime() - endDate.getTime()) / oneDay));
-		const days = [];
-		
-		for (let i = 0; i <= diffDays; i++) {
-			days.push(deriveEventProps(e, new Date(startDate.getTime() + oneDay * i), endDate));
-		}
-		
-		return days;
-	});
-};
+import { parseEvents, expandEventsForUser } from '$lib/server/services/eventDisplayService';
 
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
@@ -176,12 +97,9 @@ export const load: PageServerLoad = async (event) => {
 		adEventsData = await getAdEventsForUser(userId, now.getMonth() + 1, now.getFullYear());
 	}
 
-	const allUserEventIds = [...userEvents, ...familyEventsData].map((e) => e.id);
-	const exceptions = await getExceptionsByEventIds(allUserEventIds);
-
 	return {
-		userEvents: parseEvents(expandRecurringEvents(userEvents, exceptions)).map(e => ({ ...e, color: userCalendarColor })),
-		familyEvents: parseEvents(expandRecurringEvents(familyEventsData, exceptions)).map(e => ({ ...e, color: familyCalendarColor })),
+		userEvents: parseEvents(await expandEventsForUser(userEvents)).map(e => ({ ...e, color: userCalendarColor })),
+		familyEvents: parseEvents(await expandEventsForUser(familyEventsData)).map(e => ({ ...e, color: familyCalendarColor })),
 		adEvents: parseEvents(adEventsData).map(e => ({ ...e, color: '#f59e0b' })),
 		userSettings,
 		userCalendarColor,

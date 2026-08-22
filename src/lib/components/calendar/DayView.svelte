@@ -122,6 +122,11 @@
 						{#if event.location}
 							<p class="mt-0.5 truncate text-sm text-slate-500">{event.location}</p>
 						{/if}
+						{#if calendarIds.length > 1 && calendars.find(c => c.id === event.calendarId)}
+							<p class="mt-0.5 text-xs font-medium text-slate-400">
+								{calendars.find(c => c.id === event.calendarId)?.name}
+							</p>
+						{/if}
 					</div>
 					<svg class="h-5 w-5 shrink-0 self-center text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
