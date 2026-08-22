@@ -16,6 +16,8 @@
 		notes: string | null;
 		dueDate: string | null;
 		completedAt: string | null;
+		recurrenceFrequency?: string | null;
+		recurrenceInterval?: number | null;
 		eventId: string | null;
 		eventTitle?: string | null;
 		eventStart?: string | Date | null;
@@ -26,6 +28,83 @@
 	let adding = false;
 	let busyId: string | null = null;
 	let busyTemplateId: string | null = null;
+
+	// Edit dialog
+	const FREQ_OPTIONS = [
+		{ value: '', label: "Doesn't repeat" },
+		{ value: 'daily', label: 'Daily' },
+		{ value: 'weekly', label: 'Weekly' },
+		{ value: 'monthly', label: 'Monthly' },
+		{ value: 'yearly', label: 'Yearly' }
+	];
+	const FREQ_NOUN: Record<string, string> = {
+		daily: 'day',
+		weekly: 'week',
+		monthly: 'month',
+		yearly: 'year'
+	};
+
+	let editing: TaskItem | null = null;
+	let editTitle = '';
+	let editNotes = '';
+	let editDue = '';
+	let editFreq = '';
+	let editInterval = 1;
+	let editSaving = false;
+
+	function openEdit(task: TaskItem) {
+		if (busyId || busyTemplateId) return;
+		editing = task;
+		editTitle = task.title;
+		editNotes = task.notes ?? '';
+		editDue = toInputDate(task.dueDate);
+		editFreq = task.recurrenceFrequency ?? '';
+		editInterval = task.recurrenceInterval ?? 1;
+	}
+
+	function closeEdit() {
+		editing = null;
+	}
+
+	function pad(n: number): string {
+		return String(n).padStart(2, '0');
+	}
+
+	function toInputDate(iso: string | null): string {
+		if (!iso) return '';
+		const d = new Date(iso);
+		return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+	}
+
+	function inputToIso(value: string): string | null {
+		if (!value) return null;
+		const [y, m, d] = value.split('-').map(Number);
+		return new Date(y, m - 1, d, 23, 59, 0, 0).toISOString();
+	}
+
+	async function saveEdit() {
+		if (!editing || !editTitle.trim() || editSaving) return;
+		editSaving = true;
+		try {
+			const res = await fetch(`/api/tasks/${editing.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					title: editTitle.trim(),
+					notes: editNotes.trim() || null,
+					dueDate: inputToIso(editDue),
+					recurrenceFrequency: editFreq || null,
+					recurrenceInterval: editFreq ? Math.max(1, Math.floor(editInterval)) : null
+				})
+			});
+			if (res.ok) {
+				closeEdit();
+				await invalidateAll();
+			}
+		} finally {
+			editSaving = false;
+		}
+	}
 
 	$: openTasks = (data.tasks as TaskItem[]).filter((t) => !t.completedAt);
 	$: completedTasks = (data.tasks as TaskItem[]).filter((t) => t.completedAt);
@@ -235,18 +314,34 @@
 					aria-label="Complete task"
 				></button>
 							<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
-									{#if task.eventTitle}
-										<p class="mt-0.5 flex items-center gap-1 truncate text-xs font-medium text-primary-500">
-											<svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-											</svg>
-											{task.eventTitle}
-										</p>
-									{:else if task.notes}
-										<p class="truncate text-xs text-slate-500">{task.notes}</p>
-									{/if}
-								</div>
+								<button
+									type="button"
+									onclick={() => openEdit(task)}
+									class="block w-full truncate text-left text-sm font-medium text-slate-900 hover:text-primary-600"
+									title="Edit task"
+								>
+									{task.title}
+								</button>
+								{#if task.recurrenceFrequency}
+									<p class="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-purple-500">
+										<svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 9a8 8 0 01-14 3" />
+										</svg>
+										{task.recurrenceInterval && task.recurrenceInterval > 1
+											? `every ${task.recurrenceInterval} ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}s`
+											: `every ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}`}
+									</p>
+								{:else if task.eventTitle}
+									<p class="mt-0.5 flex items-center gap-1 truncate text-xs font-medium text-primary-500">
+										<svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+										</svg>
+										{task.eventTitle}
+									</p>
+								{:else if task.notes}
+									<p class="truncate text-xs text-slate-500">{task.notes}</p>
+								{/if}
+							</div>
 				{#if task.dueDate}
 					<span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task) ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}">
 						{formatDue(task.dueDate)}
@@ -309,3 +404,125 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Edit task dialog -->
+{#if editing}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+		onclick={closeEdit}
+		onkeydown={(e) => e.key === 'Escape' && closeEdit()}
+		role="presentation"
+	>
+		<div
+			class="w-full max-w-md rounded-xl bg-white shadow-2xl"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
+			role="dialog"
+			aria-modal="true"
+			aria-label="Edit task"
+		>
+			<div class="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
+				<h2 class="text-base font-semibold text-slate-900">Edit Task</h2>
+				<button
+					type="button"
+					onclick={closeEdit}
+					class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+					aria-label="Close"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+
+			<form
+				class="space-y-3 p-5"
+				onsubmit={(e) => {
+					e.preventDefault();
+					saveEdit();
+				}}
+			>
+				<div>
+					<label for="edit-title" class="mb-1 block text-sm font-medium text-slate-700">Title *</label>
+					<input
+						id="edit-title"
+						type="text"
+						bind:value={editTitle}
+						required
+						class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+					/>
+				</div>
+
+				<div>
+					<label for="edit-notes" class="mb-1 block text-sm font-medium text-slate-700">Notes</label>
+					<textarea
+						id="edit-notes"
+						bind:value={editNotes}
+						rows="2"
+						class="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+					></textarea>
+				</div>
+
+				<div class="grid grid-cols-2 gap-3">
+					<div>
+						<label for="edit-due" class="mb-1 block text-sm font-medium text-slate-700">Due date</label>
+						<input
+							id="edit-due"
+							type="date"
+							bind:value={editDue}
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+						/>
+					</div>
+					<div>
+						<label for="edit-freq" class="mb-1 block text-sm font-medium text-slate-700">Repeats</label>
+						<select
+							id="edit-freq"
+							bind:value={editFreq}
+							class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+						>
+							{#each FREQ_OPTIONS as opt (opt.value)}
+								<option value={opt.value}>{opt.label}</option>
+							{/each}
+						</select>
+					</div>
+				</div>
+
+				{#if editFreq}
+					<div class="flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-2">
+						<span class="text-sm text-purple-800">Every</span>
+						<input
+							type="number"
+							min="1"
+							max="365"
+							bind:value={editInterval}
+							aria-label="Repeat interval"
+							class="w-16 rounded-lg border border-purple-200 px-2 py-1 text-sm focus:border-purple-400 focus:outline-none"
+						/>
+						<span class="text-sm text-purple-800">{FREQ_NOUN[editFreq]}{editInterval > 1 ? 's' : ''}</span>
+					</div>
+				{/if}
+
+				{#if editFreq}
+					<p class="text-xs text-slate-400">Completing it rolls the due date forward automatically.</p>
+				{/if}
+
+				<div class="flex justify-end gap-2 pt-1">
+					<button
+						type="button"
+						onclick={closeEdit}
+						class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+					>
+						Cancel
+					</button>
+					<button
+						type="submit"
+						disabled={editSaving || !editTitle.trim()}
+						class="rounded-lg bg-primary-600 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+					>
+						{editSaving ? 'Saving…' : 'Save'}
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
