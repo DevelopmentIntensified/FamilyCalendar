@@ -25,7 +25,7 @@
 
 <div class="mx-auto max-w-6xl p-4 print:p-0">
 	<!-- Controls (never printed) -->
-	<div class="no-print mb-5 flex flex-wrap items-center justify-between gap-3">
+	<div class="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
 		<a href="/calendar" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700">
 			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -61,7 +61,7 @@
 				{data.monthName} {data.year}
 			</h1>
 			<p class="text-xs uppercase tracking-[0.25em] text-slate-400">
-				{data.familyName ?? 'Family Planz'}
+				{data.familyName ? `${data.familyName} · Personal` : 'Personal Calendar'}
 			</p>
 		</header>
 

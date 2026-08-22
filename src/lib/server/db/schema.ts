@@ -405,6 +405,8 @@ export const tasks = pgTable('tasks', {
 	notes: text('notes'),
 	dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
 	completedAt: timestamp('completed_at', { withTimezone: true, mode: 'string' }),
+	recurrenceFrequency: text('recurrence_frequency'),
+	recurrenceInterval: integer('recurrence_interval'),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
