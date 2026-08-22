@@ -19,6 +19,9 @@
 	export let openDay: (date: DateTime) => void = () => {};
 	export let dueTasks: { id: string; title: string; dueDate: Date | string }[] = [];
 	export let createAt: (date: DateTime) => void = () => {};
+	export let selectionMode: boolean = false;
+	export let selectedIds: string[] = [];
+	export let onToggleSelect: (event: Event) => void = () => {};
 
 	const today = DateTime.now();
 
@@ -52,7 +55,7 @@
 			{day}
 		</div>
 	{/each}
-	<MonthDays days={lastMonthDays} currentDate={$currentDate} {events} lastMonth={true} {calendarIds} {openDay} {createAt} />
-	<MonthDays {days} currentDate={$currentDate} {events} {calendarIds} {openDay} {dueTasks} {createAt} />
-	<MonthDays days={nextMonthDays} currentDate={$currentDate} {events} nextMonth={true} {calendarIds} {openDay} {createAt} />
+	<MonthDays days={lastMonthDays} currentDate={$currentDate} {events} lastMonth={true} calendars={calendarIds} {openDay} {createAt} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
+	<MonthDays {days} currentDate={$currentDate} {events} calendars={calendarIds} {openDay} {dueTasks} {createAt} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
+	<MonthDays days={nextMonthDays} currentDate={$currentDate} {events} nextMonth={true} calendars={calendarIds} {openDay} {createAt} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
 </div>

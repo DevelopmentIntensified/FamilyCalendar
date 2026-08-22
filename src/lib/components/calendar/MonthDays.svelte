@@ -15,9 +15,16 @@
 	export let openDay: (date: DateTime) => void = () => {};
 	export let dueTasks: { id: string; title: string; dueDate: Date | string }[] = [];
 	export let createAt: (date: DateTime) => void = () => {};
+	export let selectionMode: boolean = false;
+	export let selectedIds: string[] = [];
+	export let onToggleSelect: (event: Event) => void = () => {};
 
 	const MAX_CHIPS = 3;
 	const MAX_TASK_CHIPS = 2;
+
+	function isSelected(event: Event): boolean {
+		return selectedIds.includes(event.id);
+	}
 
 	function normalizeDate(v: Date | string): Date {
 		return v instanceof Date ? v : new Date(v);
@@ -107,13 +114,28 @@
 			{#each dayEvents.slice(0, MAX_CHIPS) as event}
 				<button
 					type="button"
-					onclick={() => handleEventClick(event)}
-					title={chipTooltip(event, calendars)}
+					onclick={() => (selectionMode ? onToggleSelect(event) : handleEventClick(event))}
+					aria-pressed={selectionMode ? isSelected(event) : undefined}
+					title={selectionMode ? (isSelected(event) ? 'Deselect' : 'Select') : chipTooltip(event, calendars)}
 					class="flex w-full items-center gap-1 overflow-hidden rounded-md px-1 py-[3px] text-left text-[11px] font-medium leading-tight transition-colors {isAdEvent(event)
 						? 'border border-amber-300 bg-amber-100'
-						: 'bg-white hover:brightness-95'}"
+						: 'bg-white hover:brightness-95'} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400' : ''}"
 					style={chipStyle(event)}
 				>
+					{#if selectionMode}
+						<span
+							class="flex h-3 w-3 shrink-0 items-center justify-center rounded-sm border {isSelected(event)
+								? 'border-primary-600 bg-primary-600 text-white'
+								: 'border-slate-400 bg-white'}"
+							aria-hidden="true"
+						>
+							{#if isSelected(event)}
+								<svg class="h-2 w-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+								</svg>
+							{/if}
+						</span>
+					{/if}
 					{#if !event.allDay && !isAdEvent(event)}
 						<span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background-color: {chipColor(event)}"></span>
 					{/if}

@@ -15,6 +15,10 @@
 	export let defaultViewSetting: string = 'monthView';
 	export let dueTasks: { id: string; title: string; dueDate: Date | string }[] = [];
 	export let createAt: (date: DateTime) => void = () => {};
+	export let selectionMode: boolean = false;
+	export let selectedIds: string[] = [];
+	export let onToggleSelectionMode: (on: boolean) => void = () => {};
+	export let onToggleSelect: (event: any) => void = () => {};
 
 	let view: 'month' | 'week' | 'list' | 'day' = (() => {
 		const map: Record<string, 'month' | 'week' | 'list' | 'day'> = {
@@ -182,6 +186,21 @@
 				{/each}
 			</div>
 
+			<!-- Selection mode toggle -->
+			<button
+				onclick={() => onToggleSelectionMode(!selectionMode)}
+				aria-pressed={selectionMode}
+				title="Select events to edit in bulk"
+				class="flex h-9 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-all active:scale-[0.97] {selectionMode
+					? 'border-primary-300 bg-primary-50 text-primary-700'
+					: 'border-slate-200 bg-white text-slate-400 hover:text-slate-800'}"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+				</svg>
+				<span class="hidden sm:inline">Select</span>
+			</button>
+
 			<!-- Actions: import · print · settings -->
 			<div class="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white divide-x divide-slate-200 shadow-sm">
 				<a
@@ -222,7 +241,7 @@
 
 	<div class="mx-auto w-full max-w-screen-2xl px-2 sm:px-4 lg:px-8">
 	{#if view === 'month'}
-		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} {dueTasks} {createAt} />
+		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} {dueTasks} {createAt} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
 	{:else if view === 'week'}
 		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} />
 	{:else if view === 'day'}
