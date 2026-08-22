@@ -5,7 +5,6 @@
 	import LocationSearch from '$lib/components/LocationSearch.svelte';
 	import { getContactColor, getInitials } from '$lib/utils/contactColors';
 	import { createEventForm } from './EventFormModel.svelte';
-	import { SMART_EVENT_TEMPLATES, CATEGORY_META, type SmartEventTemplate, type SmartEventCategory } from '$lib/data/smartEventTemplates';
 
 	export let show = false;
 	export let event: Event | null = null;
@@ -145,13 +144,6 @@
 		} finally {
 			checklistBusy = false;
 		}
-	}
-
-	function applySmartTemplate(template: SmartEventTemplate) {
-		form.title = template.name;
-		if (template.description) form.description = template.description;
-		form.recurrenceFrequency = template.recurrenceFrequency;
-		form.recurrenceInterval = template.recurrenceInterval;
 	}
 
 	$: dedupedFamilyMembers = dedupeFamilyMembers(familyMembers);
@@ -507,41 +499,6 @@
 							class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm transition-all focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 						/>
 					</div>
-
-					{#if !form.isEditMode}
-						<details class="group -mt-1">
-							<summary class="flex w-fit cursor-pointer select-none items-center gap-1 rounded-full px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
-								<span>✨ Smart tasks</span>
-								<svg class="h-3 w-3 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-								</svg>
-							</summary>
-							<div class="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-								{#each Object.keys(CATEGORY_META) as cat}
-									{@const templates = SMART_EVENT_TEMPLATES.filter(t => t.category === (cat as SmartEventCategory))}
-									<details class="mb-1 last:mb-0" open={Object.keys(CATEGORY_META).indexOf(cat) === 0}>
-										<summary class="cursor-pointer select-none rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 hover:bg-white">
-											{CATEGORY_META[cat as SmartEventCategory].icon}
-											{CATEGORY_META[cat as SmartEventCategory].label}
-											<span class="ml-1 text-xs font-normal text-slate-400">({templates.length})</span>
-										</summary>
-										<div class="mt-1 flex flex-wrap gap-1.5 pl-2">
-											{#each templates as template}
-												<button
-													type="button"
-													on:click={() => applySmartTemplate(template)}
-													title={template.description || ''}
-													class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 {CATEGORY_META[template.category].color}"
-												>
-													{template.name}
-												</button>
-											{/each}
-										</div>
-									</details>
-								{/each}
-							</div>
-						</details>
-					{/if}
 
 					<div>
 						<label for="event-desc" class="mb-1 block text-sm font-medium text-slate-700">Description</label>

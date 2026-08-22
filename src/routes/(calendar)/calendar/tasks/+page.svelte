@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
+	import {
+		CATEGORY_META,
+		SMART_EVENT_TEMPLATES,
+		type SmartEventCategory,
+		type SmartEventTemplate
+	} from '$lib/data/smartEventTemplates';
 
 	export let data: PageData;
 
@@ -19,6 +25,7 @@
 	let newDueDate = '';
 	let adding = false;
 	let busyId: string | null = null;
+	let busyTemplateId: string | null = null;
 
 	$: openTasks = (data.tasks as TaskItem[]).filter((t) => !t.completedAt);
 	$: completedTasks = (data.tasks as TaskItem[]).filter((t) => t.completedAt);
@@ -88,6 +95,30 @@
 		}
 	}
 
+	// Templates were built for recurring events; standalone tasks keep the
+	// cadence as a note so the guidance survives the move.
+	function cadenceNote(t: SmartEventTemplate): string {
+		if (t.description) return t.description;
+		const unit = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' }[t.recurrenceFrequency];
+		const units = { daily: 'days', weekly: 'weeks', monthly: 'months', yearly: 'years' }[t.recurrenceFrequency];
+		return t.recurrenceInterval > 1 ? `Every ${t.recurrenceInterval} ${units}` : `Every ${unit}`;
+	}
+
+	async function addSmartTask(t: SmartEventTemplate) {
+		if (busyTemplateId) return;
+		busyTemplateId = t.id;
+		try {
+			const res = await fetch('/api/tasks', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ title: t.name, notes: cadenceNote(t) })
+			});
+			if (res.ok) await invalidateAll();
+		} finally {
+			busyTemplateId = null;
+		}
+	}
+
 	async function toggleTask(id: string) {
 		busyId = id;
 		try {
@@ -144,6 +175,41 @@
 			Add
 		</button>
 	</form>
+
+	<!-- Smart task templates -->
+	<details class="group mb-6">
+		<summary class="flex w-fit cursor-pointer select-none items-center gap-1 rounded-full px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
+			<span>✨ Smart tasks</span>
+			<svg class="h-3 w-3 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+			</svg>
+		</summary>
+		<div class="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+			{#each Object.keys(CATEGORY_META) as cat}
+				{@const templates = SMART_EVENT_TEMPLATES.filter((t) => t.category === (cat as SmartEventCategory))}
+				<details class="mb-1 last:mb-0" open={Object.keys(CATEGORY_META).indexOf(cat) === 0}>
+					<summary class="cursor-pointer select-none rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 hover:bg-white">
+						{CATEGORY_META[cat as SmartEventCategory].icon}
+						{CATEGORY_META[cat as SmartEventCategory].label}
+						<span class="ml-1 text-xs font-normal text-slate-400">({templates.length})</span>
+					</summary>
+					<div class="mt-1 flex flex-wrap gap-1.5 pl-2">
+						{#each templates as template (template.id)}
+							<button
+								type="button"
+								onclick={() => addSmartTask(template)}
+								disabled={busyTemplateId === template.id}
+								title={cadenceNote(template)}
+								class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 disabled:opacity-50 {CATEGORY_META[template.category].color}"
+							>
+								{template.name}
+							</button>
+						{/each}
+					</div>
+				</details>
+			{/each}
+		</div>
+	</details>
 
 	{#if openTasks.length === 0 && completedTasks.length === 0}
 		<div class="flex flex-col items-center justify-center py-16 text-center">
