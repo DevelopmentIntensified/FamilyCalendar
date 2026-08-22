@@ -90,39 +90,41 @@
 
 <div class="mb-2 bg-white pt-4">
 	<!-- Modern Header -->
-	<div class="mb-6 flex flex-col items-center gap-4 px-4 sm:flex-row sm:justify-between">
-		<div class="flex items-center gap-2">
-			<button
-				onclick={goToday}
-				class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-			>
-				Today
-			</button>
-		<div class="flex items-center gap-1">
-			<button
-				onclick={goPrevious}
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-				aria-label="Previous"
-			>
-				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-				</svg>
-			</button>
-			<button
-				onclick={goNext}
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-				aria-label="Next"
-			>
-				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-				</svg>
-			</button>
-		</div>
+	<div class="mb-6 flex flex-col items-center gap-3 px-4 sm:flex-row sm:justify-between sm:gap-4">
+		<div class="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
+			<!-- Nav cluster: Today / prev / next as one joined control -->
+			<div class="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+				<button
+					onclick={goToday}
+					class="px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 active:bg-slate-200"
+				>
+					Today
+				</button>
+				<button
+					onclick={goPrevious}
+					class="flex h-9 w-10 items-center justify-center text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 active:bg-slate-200"
+					aria-label="Previous"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+					</svg>
+				</button>
+				<button
+					onclick={goNext}
+					class="flex h-9 w-10 items-center justify-center text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 active:bg-slate-200"
+					aria-label="Next"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+					</svg>
+				</button>
+			</div>
+
 			<!-- Mini Month Picker -->
 			<div class="relative">
 				<button
 					onclick={() => showMiniPicker = !showMiniPicker}
-					class="text-xl font-semibold text-slate-900 sm:text-2xl hover:text-primary-600 transition-colors"
+					class="text-lg font-bold tracking-tight text-slate-900 transition-colors hover:text-primary-600 sm:text-2xl"
 				>
 					{currentMonthYear}
 				</button>
@@ -162,41 +164,59 @@
 			</div>
 		</div>
 
-		<!-- View Toggle -->
-		<div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
-			{#each views as v}
-				<button
-					onclick={() => changeView(v.id)}
-					class="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-all {view === v.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}"
+		<!-- Right cluster: views + actions, one cohesive control row -->
+		<div class="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
+			<!-- View Toggle -->
+			<div class="flex items-center gap-1 rounded-xl bg-slate-100 p-1 shadow-sm">
+				{#each views as v}
+					<button
+						onclick={() => changeView(v.id)}
+						class="flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all active:scale-[0.97] {view === v.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}"
+					>
+						<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+							<path d={v.icon} />
+						</svg>
+						<span class="hidden sm:inline">{v.label}</span>
+					</button>
+				{/each}
+			</div>
+
+			<!-- Actions: import · print · settings -->
+			<div class="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white divide-x divide-slate-200 shadow-sm">
+				<a
+					href="/calendar/import"
+					class="flex h-9 w-10 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
+					aria-label="Import events from a file"
+					title="Import from Google / Apple / Outlook (.ics)"
 				>
-					<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-						<path d={v.icon} />
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
 					</svg>
-					<span class="hidden sm:inline">{v.label}</span>
-				</button>
-			{/each}
+				</a>
+				<a
+					href="/calendar/print"
+					class="flex h-9 w-10 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
+					aria-label="Print month for the fridge"
+					title="Print for the fridge"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+					</svg>
+				</a>
+
+				<a
+					href="/account#calendar"
+					class="flex h-9 w-10 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
+					aria-label="Calendar Settings"
+					title="Calendar settings"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+						<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+					</svg>
+				</a>
+			</div>
 		</div>
-
-		<a
-			href="/calendar/print"
-			class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-			aria-label="Print month for the fridge"
-		>
-			<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-			</svg>
-		</a>
-
-		<a
-			href="/account#calendar"
-			class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-			aria-label="Calendar Settings"
-		>
-			<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-				<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-			</svg>
-		</a>
 	</div>
 
 	<div class="mx-auto w-full max-w-screen-2xl px-2 sm:px-4 lg:px-8">

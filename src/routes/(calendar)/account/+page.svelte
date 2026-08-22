@@ -286,6 +286,19 @@
 								>
 									{calendarLoading ? 'Saving...' : 'Save Calendar Settings'}
 								</button>
+
+								<a
+									href="/calendar/import"
+									class="mt-3 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-primary-300 hover:bg-primary-50/40"
+								>
+									<span>
+										<span class="block text-sm font-medium text-slate-800">Import from Google, Apple or Outlook</span>
+										<span class="mt-0.5 block text-xs text-slate-500">Bring in an .ics export — up to 500 events at once.</span>
+									</span>
+									<svg class="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+									</svg>
+								</a>
 							</form>
 
 							<!-- Ad Preferences -->
