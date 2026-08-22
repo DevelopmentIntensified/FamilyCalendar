@@ -74,7 +74,7 @@
 
 			{#each data.grid as cell (cell.iso)}
 				<div
-					class="min-h-[92px] bg-white p-1 sm:min-h-[110px] {cell.inMonth ? '' : 'bg-slate-50/70'} {cell.isToday ? 'ring-2 ring-inset ring-primary-400' : ''}"
+					class="cell bg-white p-1 {cell.inMonth ? '' : 'bg-slate-50/70'} {cell.isToday ? 'ring-2 ring-inset ring-primary-400' : ''}"
 				>
 					<div class="mb-0.5 flex items-center justify-between px-0.5">
 						<span
@@ -107,16 +107,28 @@
 </div>
 
 <style>
+	.cell {
+		min-height: 96px;
+	}
+	@media screen and (min-width: 640px) {
+		.cell {
+			min-height: 112px;
+		}
+	}
 	@media print {
 		@page {
 			size: A4 landscape;
-			margin: 10mm;
+			margin: 8mm;
 		}
 		body {
 			background: white !important;
 		}
-		.fridge-sheet {
-			zoom: 1.05;
+		.fridge-sheet header {
+			margin-bottom: 1.5mm;
+		}
+		.cell {
+			min-height: 0 !important;
+			height: 22mm;
 		}
 	}
 </style>
