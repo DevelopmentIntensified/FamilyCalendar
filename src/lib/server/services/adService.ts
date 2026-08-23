@@ -16,6 +16,7 @@ export interface AdEventData {
 	adContent: {
 		sponsorName: string;
 		message: string;
+		description?: string;
 		ctaText?: string;
 		ctaLink?: string;
 		targetPlan?: string;
@@ -293,30 +294,34 @@ export async function getAdEventsForUser(
 			id: ad.eventId,
 			title: `📢 ${ad.adContent.message}`,
 			description: ad.adContent.description || '',
-			start: ad.eventDate,
-			end: ad.eventDate,
+			start: ad.eventDate.toISOString(),
+			end: ad.eventDate.toISOString(),
 			allDay: true,
 			calendarId: '',
 			ownerId: userId,
 			familyId: null,
-			createdAt: new Date(),
-			updatedAt: new Date()
+			location: null,
+			recurrenceFrequency: null,
+			recurrenceInterval: null,
+			created_at: new Date()
 		}));
 	}
-	
+
 	const generatedAds = await generateAdEventsForMonth({ userId, month, year, adsPerMonth: 3 });
 	
 	return generatedAds.map((ad) => ({
 		id: ad.eventId,
 		title: `📢 ${ad.adContent.message}`,
 		description: ad.adContent.description || '',
-		start: ad.eventDate,
-		end: ad.eventDate,
+		start: ad.eventDate.toISOString(),
+		end: ad.eventDate.toISOString(),
 		allDay: true,
 		calendarId: '',
 		ownerId: userId,
 		familyId: null,
-		createdAt: new Date(),
-		updatedAt: new Date()
+		location: null,
+		recurrenceFrequency: null,
+		recurrenceInterval: null,
+		created_at: new Date()
 	}));
 }

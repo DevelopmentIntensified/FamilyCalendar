@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { subscriptions, userSettings } from '$lib/server/db/schema';
-import { eq, and, gte, asc, sql } from 'drizzle-orm';
+import { eq, and, gte, asc, sql, or, isNull, isNotNull } from 'drizzle-orm';
 
 export interface KPIStats {
 	totalUsers: number;
@@ -14,8 +14,21 @@ export interface KPIStats {
 
 export async function getKPIMetrics(): Promise<KPIStats> {
 	const [totalUsers] = await db.select({ count: sql`count(*)` }).from(userSettings);
-	const [activeSubs] = await db.select({ count: sql`count(*)` }).from(subscriptions).where(eq(subscriptions.status, 'active'));
-	const [paidSubs] = await db.select({ count: sql`count(*)` }).from(subscriptions).where(and(eq(subscriptions.status, 'active'), sql`${subscriptions.subscriptionTypeId} IS NOT NULL`));
+	// Same active rule as subscriptionService: live date window; a plan
+	// type marks the subscription as paid.
+	const [activeSubs] = await db
+		.select({ count: sql`count(*)` })
+		.from(subscriptions)
+		.where(or(sql`${subscriptions.endDate} > NOW()`, isNull(subscriptions.endDate)));
+	const [paidSubs] = await db
+		.select({ count: sql`count(*)` })
+		.from(subscriptions)
+		.where(
+			and(
+				or(sql`${subscriptions.endDate} > NOW()`, isNull(subscriptions.endDate)),
+				isNotNull(subscriptions.subscriptionTypeId)
+			)
+		);
 	
 	return {
 		totalUsers: Number(totalUsers?.count || 0),

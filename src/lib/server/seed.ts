@@ -151,7 +151,6 @@ async function seed() {
 
 			await db.insert(adEvents).values({
 				id: `test-ad-${i + 1}`,
-				userId: testUsers[0].id,
 				sponsorName: template.sponsorName,
 				message: template.message,
 				ctaText: template.ctaText,

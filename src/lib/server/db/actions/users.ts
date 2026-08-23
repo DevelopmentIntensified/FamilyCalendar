@@ -22,12 +22,16 @@ export async function emailExists(email: string): Promise<boolean> {
 }
 
 export async function createUser(data: {
+	id?: string;
 	email: string;
-	passwordHash: string;
+	passwordHash?: string;
 	firstName: string;
 	lastName: string;
 	emailVerified?: boolean;
 	roles?: string[];
+	picture?: string;
+	phonenumber?: string;
+	phonenumberVerified?: boolean;
 }) {
 	const [createdUser] = await db
 		.insert(users)

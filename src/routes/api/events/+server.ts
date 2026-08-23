@@ -9,7 +9,7 @@ const VALID_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
 
 function normalizeRecurrence(body: { recurrenceFrequency?: string | null; recurrenceInterval?: number | null }) {
 	const frequency = VALID_FREQUENCIES.includes(body.recurrenceFrequency || '')
-		? body.recurrenceFrequency
+		? body.recurrenceFrequency ?? null
 		: null;
 	const interval = frequency ? Math.max(1, Math.floor(body.recurrenceInterval ?? 1)) : null;
 	return { recurrenceFrequency: frequency, recurrenceInterval: interval };

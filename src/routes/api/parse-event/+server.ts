@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { parseEventInput } from '$lib/server/services/naturalLanguageService';
+import { parseEventInput, type ParsedEvent } from '$lib/server/services/naturalLanguageService';
 import { chatJson, llmConfigured } from '$lib/server/services/llm';
 
 const PARSE_SYSTEM_PROMPT = `Parse this calendar event. Return JSON with: title, date (YYYY-MM-DD), startTime (HH:MM), endTime (HH:MM), location, description, allDay (boolean), attendants (array of names).
@@ -11,6 +11,12 @@ IMPORTANT RULES:
 - If a word could be either a location or a person, prefer location.
 - Short uppercase tokens (like "LU", "NYC", "USA", "HR", "IT") are locations, not people.`;
 
+type ParseOutcome = {
+	parsed: Partial<ParsedEvent> | Record<string, any> | null;
+	confidence: number;
+	method: string;
+};
+
 export const POST: RequestHandler = async ({ request }) => {
 	const { input, useCloud = true, useLocal = true } = await request.json();
 
@@ -19,7 +25,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	try {
-		let result = { parsed: null, confidence: 0, method: 'none' };
+		let result: ParseOutcome = { parsed: null, confidence: 0, method: 'none' };
 
 		// 1. Cloud AI - default
 		if (useCloud && llmConfigured()) {

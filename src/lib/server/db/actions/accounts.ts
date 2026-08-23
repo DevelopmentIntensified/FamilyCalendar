@@ -11,9 +11,11 @@ export async function getAccount(id: string): Promise<Account> {
 	return account;
 }
 
-export async function createAccount(
-	data: Omit<Omit<Omit<Omit<Account, 'id'>, 'createdAt'>, 'updatedAt'>, 'lastLogin'>
-) {
+export async function createAccount(data: {
+	userId: string;
+	provider: string;
+	providerAccountId: string;
+}) {
 	const [createdAccount] = await db.insert(accounts).values(data).returning();
 	return createdAccount;
 }
