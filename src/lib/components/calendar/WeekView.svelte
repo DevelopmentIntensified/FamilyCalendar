@@ -14,6 +14,18 @@
 	export let preferedFirstDayOfWeek: string = 'sunday';
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let openDay: (date: DateTime) => void = () => {};
+	export let dueTasks: {
+		id: string;
+		title: string;
+		dueDate: Date | string;
+		recurrenceFrequency?: string | null;
+		recurrenceInterval?: number | null;
+	}[] = [];
+
+	function getTasksForDay(day: DateTime) {
+		const dateStr = formatDate(day);
+		return dueTasks.filter((t) => t.dueDate && formatDate(toDate(t.dueDate)) === dateStr);
+	}
 
 	const today = DateTime.now();
 	const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -113,7 +125,8 @@
 		</div>
 		{#each weekDays as wd}
 			{@const allDayEvents = getEventsForDay(wd).filter(e => e.allDay)}
-			<div class="flex-1 min-h-[40px] border-r border-slate-100 last:border-r-0 p-0.5">
+			{@const dayTasks = getTasksForDay(wd)}
+			<div class="flex-1 min-h-[40px] border-r border-slate-100 last:border-r-0 p-0.5 space-y-0.5">
 				{#each allDayEvents as event}
 					<button
 						type="button"
@@ -123,6 +136,17 @@
 					>
 						{event.title}
 					</button>
+				{/each}
+				{#each dayTasks as task (task.id)}
+					<span
+						class="flex w-full items-center gap-1 rounded border border-dashed border-slate-400 bg-slate-50 px-1 py-0.5 text-xs font-medium text-slate-600"
+						title="Task due this day"
+					>
+						<svg class="h-3 w-3 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+						</svg>
+						<span class="truncate">{task.title}</span>
+					</span>
 				{/each}
 			</div>
 		{/each}

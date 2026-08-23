@@ -37,7 +37,17 @@
 	];
 
 	$: navItems = isLoggedIn ? loggedInNavItems : marketingNavItems;
-	$: isActive = (href: string) => $page.url.pathname === href || $page.url.pathname.startsWith(href + '/');
+
+	// Longest prefix wins, so /calendar/tasks highlights Tasks - not Calendar.
+	$: activeHref = (() => {
+		const path = $page.url.pathname;
+		const matches = navItems.filter(
+			(item) => path === item.href || path.startsWith(item.href + '/')
+		);
+		if (matches.length === 0) return null;
+		return matches.reduce((a, b) => (b.href.length > a.href.length ? b : a)).href;
+	})();
+	$: isActive = (href: string) => activeHref === href;
 
 	function toggleMenu() {
 		isOpen = !isOpen;

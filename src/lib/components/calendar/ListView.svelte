@@ -12,7 +12,20 @@
 	export let events: Event[];
 	export let removeEvent: (id: string) => void;
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
+	export let dueTasks: {
+		id: string;
+		title: string;
+		dueDate: Date | string;
+		recurrenceFrequency?: string | null;
+		recurrenceInterval?: number | null;
+	}[] = [];
 
+	const FREQ_NOUN: Record<string, string> = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' };
+
+	function toDateMs(d: unknown): number {
+		if (d instanceof Date) return d.getTime();
+		return DateTime.fromISO(String(d ?? '')).toMillis();
+	}
 
 	$: year = $currentDate.year;
 	$: month = $currentDate.month;
@@ -31,14 +44,38 @@
 			return toMs(a.date) - toMs(b.date);
 		});
 
-	// Group by date
+	$: monthTasks = dueTasks
+		.filter((t) => t.dueDate)
+		.filter((t) => {
+			const d = DateTime.fromJSDate(t.dueDate instanceof Date ? t.dueDate : new Date(String(t.dueDate)));
+			return d.year === year && d.month === month;
+		})
+		.sort((a, b) => toDateMs(a.dueDate) - toDateMs(b.dueDate));
+
+	// Group by date (events + tasks share buckets). Keys are ISO dates so
+	// headers can fromISO() them and sorting stays chronological.
+	function dateKeyOf(d: Date | string): string {
+		const dt = d instanceof Date ? DateTime.fromJSDate(d) : DateTime.fromISO(String(d));
+		return dt.toISODate() ?? '';
+	}
+
 	$: groupedEvents = filteredEvents.reduce((acc, event) => {
 		if (!event.date) return acc;
-		const dateKey = formatDate(event.date);
+		const dateKey = dateKeyOf(event.date);
 		if (!acc[dateKey]) acc[dateKey] = [];
 		acc[dateKey].push(event);
 		return acc;
 	}, {} as Record<string, Event[]>);
+
+	$: groupedTasks = monthTasks.reduce((acc, task) => {
+		if (!task.dueDate) return acc;
+		const dateKey = dateKeyOf(task.dueDate);
+		if (!acc[dateKey]) acc[dateKey] = [];
+		acc[dateKey].push(task);
+		return acc;
+	}, {} as Record<string, typeof monthTasks>);
+
+	$: allDates = Array.from(new Set([...Object.keys(groupedEvents), ...Object.keys(groupedTasks)])).sort();
 
 	let selectedEvent: Event | null = null;
 
@@ -57,17 +94,19 @@
 </script>
 
 <div class="space-y-6">
-	{#if filteredEvents.length === 0}
+	{#if filteredEvents.length === 0 && monthTasks.length === 0}
 		<div class="flex flex-col items-center justify-center py-12 text-center">
 			<svg class="mb-4 h-16 w-16 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 			</svg>
-			<p class="text-lg font-medium text-slate-700">No events this month</p>
-			<p class="text-sm text-slate-500">Create an event to get started</p>
+			<p class="text-lg font-medium text-slate-700">Nothing scheduled this month</p>
+			<p class="text-sm text-slate-500">Create an event or task to get started</p>
 		</div>
 	{/if}
 
-	{#each Object.entries(groupedEvents) as [date, dayEvents]}
+	{#each allDates as date}
+		{@const dayEvents = groupedEvents[date] ?? []}
+		{@const dayTasks = groupedTasks[date] ?? []}
 		{@const dayDate = DateTime.fromISO(date)}
 		{@const isToday = formatDate(dayDate) === formatDate(DateTime.now())}
 		<div>
@@ -137,6 +176,27 @@
 							</svg>
 						</div>
 					</button>
+				{/each}
+
+				{#each dayTasks as task (task.id)}
+					<div class="flex items-center gap-4 rounded-xl border border-dashed border-slate-400 bg-slate-50 p-4">
+						<div class="flex h-12 w-1 shrink-0 items-center justify-center rounded-full">
+							<svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+							</svg>
+						</div>
+						<div class="min-w-0 flex-1">
+							<h4 class="truncate font-medium text-slate-700">{task.title}</h4>
+							<div class="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-slate-500">
+								<span class="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">Task</span>
+								{#if task.recurrenceFrequency}
+									<span class="text-purple-500">
+										🔁 {task.recurrenceInterval && task.recurrenceInterval > 1 ? `every ${task.recurrenceInterval} ${FREQ_NOUN[task.recurrenceFrequency]}s` : `every ${FREQ_NOUN[task.recurrenceFrequency]}`}
+									</span>
+								{/if}
+							</div>
+						</div>
+					</div>
 				{/each}
 			</div>
 		</div>

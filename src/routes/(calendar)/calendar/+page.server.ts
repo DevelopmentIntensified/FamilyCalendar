@@ -118,7 +118,9 @@ export const load: PageServerLoad = async (event) => {
 		.map((t) => ({
 			id: t.id,
 			title: t.title,
-			dueDate: new Date(t.dueDate as unknown as string)
+			dueDate: new Date(t.dueDate as unknown as string),
+			recurrenceFrequency: t.recurrenceFrequency,
+			recurrenceInterval: t.recurrenceInterval
 		}));
 
 	return {

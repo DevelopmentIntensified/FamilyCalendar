@@ -14,7 +14,13 @@
 	export let lastMonth = false;
 	export let calendars: { id: string; name: string; color?: string }[] = [];
 	export let openDay: (date: DateTime) => void = () => {};
-	export let dueTasks: { id: string; title: string; dueDate: Date | string }[] = [];
+	export let dueTasks: {
+		id: string;
+		title: string;
+		dueDate: Date | string;
+		recurrenceFrequency?: string | null;
+		recurrenceInterval?: number | null;
+	}[] = [];
 	export let createAt: (date: DateTime) => void = () => {};
 	export let selectionMode: boolean = false;
 	export let selectedIds: string[] = [];
@@ -146,14 +152,22 @@
 			{/each}
 
 			{#each dayTasks.slice(0, MAX_TASK_CHIPS) as task (task.id)}
+				{@const overdue = toDate(task.dueDate).getTime() < today.toMillis()}
 				<span
-					class="flex w-full items-center gap-1 rounded-md border border-dashed border-slate-400 bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600"
+					class="flex w-full items-center gap-1 rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 {overdue
+						? 'border-red-400 text-red-600'
+						: 'border-slate-400'}"
 					title="Task due: {task.title}"
 				>
-					<svg class="h-3 w-3 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<svg class="h-3 w-3 shrink-0 {overdue ? 'text-red-400' : 'text-slate-400'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
 					</svg>
 					<span class="truncate">{task.title}</span>
+					{#if task.recurrenceFrequency}
+						<svg class="ml-auto h-3 w-3 shrink-0 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-label="Recurring">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 9a8 8 0 01-14 3" />
+						</svg>
+					{/if}
 				</span>
 			{/each}
 

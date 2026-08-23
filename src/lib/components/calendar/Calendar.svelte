@@ -12,7 +12,13 @@
 	export let preferedFirstDayOfWeek: string = 'sunday';
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let defaultViewSetting: string = 'monthView';
-	export let dueTasks: { id: string; title: string; dueDate: Date | string }[] = [];
+	export let dueTasks: {
+		id: string;
+		title: string;
+		dueDate: Date | string;
+		recurrenceFrequency?: string | null;
+		recurrenceInterval?: number | null;
+	}[] = [];
 	export let createAt: (date: DateTime) => void = () => {};
 	export let selectionMode: boolean = false;
 	export let selectedIds: string[] = [];
@@ -84,6 +90,26 @@
 	function handleYearSelect(year: number) {
 		const current = get(currentDate).set({ year });
 		currentDate.set(current);
+	}
+
+	// Swipe / edge navigation
+	let touchStartX = 0;
+	let touchStartY = 0;
+
+	function handleTouchStart(e: TouchEvent) {
+		touchStartX = e.touches[0].clientX;
+		touchStartY = e.touches[0].clientY;
+	}
+
+	function handleTouchEnd(e: TouchEvent) {
+		const touch = e.changedTouches[0];
+		const dx = touch.clientX - touchStartX;
+		const dy = touch.clientY - touchStartY;
+		// Horizontal flings navigate; taps and vertical scrolls pass through.
+		if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+			if (dx < 0) goNext();
+			else goPrevious();
+		}
 	}
 
 	$: currentMonthYear = $currentDate.toFormat('MMMM yyyy');
@@ -240,15 +266,36 @@
 		</div>
 	</div>
 
-	<div class="mx-auto w-full max-w-screen-2xl px-2 sm:px-4 lg:px-8">
+	<div class="group/cal relative mx-auto w-full max-w-screen-2xl px-2 sm:px-4 lg:px-8"
+		ontouchstart={handleTouchStart}
+		ontouchend={handleTouchEnd}
+	>
+		<button
+			onclick={goPrevious}
+			aria-label="Previous period"
+			class="absolute -left-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md opacity-0 transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
+		>
+			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+			</svg>
+		</button>
+		<button
+			onclick={goNext}
+			aria-label="Next period"
+			class="absolute -right-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md opacity-0 transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
+		>
+			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+			</svg>
+		</button>
 	{#if view === 'month'}
 		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} {dueTasks} {createAt} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
 	{:else if view === 'week'}
-		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} />
+		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} {dueTasks} />
 	{:else if view === 'day'}
-		<DayView {currentDate} {events} {calendarIds} on:back={backFromDay} />
+		<DayView {currentDate} {events} {calendarIds} {dueTasks} on:back={backFromDay} />
 	{:else if view === 'list'}
-		<ListView {currentDate} {events} {removeEvent} {calendarIds} />
+		<ListView {currentDate} {events} {removeEvent} {calendarIds} {dueTasks} />
 	{/if}
 	</div>
 </div>

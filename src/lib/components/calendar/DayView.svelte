@@ -11,6 +11,13 @@
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[] = [];
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
+	export let dueTasks: {
+		id: string;
+		title: string;
+		dueDate: Date | string;
+		recurrenceFrequency?: string | null;
+		recurrenceInterval?: number | null;
+	}[] = [];
 
 	const dispatch = createEventDispatcher<{ back: void }>();
 
@@ -31,6 +38,10 @@
 
 	$: allDayEvents = dayEvents.filter((e) => e.allDay);
 	$: timedEvents = dayEvents.filter((e) => !e.allDay);
+	$: dayTasks = dueTasks.filter(
+		(t) => t.dueDate && formatDate(toDate(t.dueDate)) === formatDate(selectedDate)
+	);
+	const FREQ_NOUN: Record<string, string> = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' };
 
 	interface LaidOutEvent {
 		event: Event;
@@ -132,7 +143,30 @@
 		</div>
 	{/if}
 
-	{#if dayEvents.length === 0}
+	{#if dayTasks.length > 0}
+		<div class="mb-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+			<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tasks</h3>
+			<div class="space-y-1.5">
+				{#each dayTasks as task (task.id)}
+					<div
+						class="flex w-full items-center gap-2 rounded border border-dashed border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-700"
+					>
+						<svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+						</svg>
+						<span class="truncate">{task.title}</span>
+						{#if task.recurrenceFrequency}
+							<span class="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wide text-purple-500">
+								🔁 {task.recurrenceInterval && task.recurrenceInterval > 1 ? `${task.recurrenceInterval}× ` : ''}{FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}
+							</span>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
+	{#if dayEvents.length === 0 && dayTasks.length === 0}
 		<div class="flex flex-col items-center justify-center py-16 text-center">
 			<svg class="mb-4 h-14 w-14 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -140,7 +174,7 @@
 			<p class="text-lg font-medium text-slate-700">Nothing scheduled</p>
 			<p class="text-sm text-slate-500">Enjoy the free day</p>
 		</div>
-	{:else}
+	{:else if dayEvents.length > 0}
 		<!-- Hour grid -->
 		<div class="flex max-h-[65vh] overflow-y-auto rounded-xl border border-slate-200" bind:this={gridBody}>
 			<!-- Gutter -->
