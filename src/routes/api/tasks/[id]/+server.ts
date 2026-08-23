@@ -23,6 +23,24 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				body.recurrenceFrequency === null || TASK_FREQUENCIES.includes(body.recurrenceFrequency)
 					? body.recurrenceFrequency
 					: undefined;
+
+			// Assignment transitions. Only the assignee may accept; declining
+			// releases the task back to the pool.
+			let assignmentPatch: { assignedTo?: string | null; assignmentStatus?: string | null } = {};
+			if (body.assignedTo === null) {
+				assignmentPatch = { assignedTo: null, assignmentStatus: 'none' };
+			} else if (typeof body.assignedTo === 'string' && body.assignedTo) {
+				assignmentPatch = {
+					assignedTo: body.assignedTo,
+					assignmentStatus:
+						body.assignedTo === locals.user.id ? 'accepted' : 'pending'
+				};
+			} else if (body.assignmentStatus === 'accepted') {
+				assignmentPatch = { assignmentStatus: 'accepted' };
+			} else if (body.assignmentStatus === 'declined') {
+				assignmentPatch = { assignedTo: null, assignmentStatus: 'none' };
+			}
+
 			updated = await updateTask(taskId, locals.user.id, {
 				title: typeof body.title === 'string' && body.title.trim() ? body.title.trim() : undefined,
 				notes: body.notes === undefined ? undefined : body.notes,
@@ -30,7 +48,8 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				recurrenceFrequency: frequency,
 				recurrenceInterval:
 					frequency === null ? null : frequency ? Math.max(1, Math.floor(body.recurrenceInterval ?? 1)) : undefined,
-				completedAt: body.completedAt
+				completedAt: body.completedAt,
+				...assignmentPatch
 			});
 		}
 		if (!updated) {

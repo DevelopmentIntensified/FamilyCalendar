@@ -18,6 +18,10 @@
 		completedAt: string | null;
 		recurrenceFrequency?: string | null;
 		recurrenceInterval?: number | null;
+		assignedTo?: string | null;
+		assignmentStatus?: string | null;
+		assigneeFirstName?: string | null;
+		assigneeLastName?: string | null;
 		eventId: string | null;
 		eventTitle?: string | null;
 		eventStart?: string | Date | null;
@@ -50,7 +54,23 @@
 	let editDue = '';
 	let editFreq = '';
 	let editInterval = 1;
+	let editAssignedTo = '';
 	let editSaving = false;
+
+	$: data.familyMembers = data.familyMembers ?? [];
+	$: familyRoster = (data.familyMembers || []) as {
+		userId: string;
+		firstName: string;
+		lastName: string;
+		email: string;
+	}[];
+
+	function memberName(userId: string): string {
+		const m = familyRoster.find((f) => f.userId === userId);
+		if (m) return `${m.firstName} ${m.lastName}`.trim();
+		if (userId === data.user?.id) return 'You';
+		return userId.slice(0, 8);
+	}
 
 	function openEdit(task: TaskItem) {
 		if (busyId || busyTemplateId) return;
@@ -60,6 +80,22 @@
 		editDue = toInputDate(task.dueDate);
 		editFreq = task.recurrenceFrequency ?? '';
 		editInterval = task.recurrenceInterval ?? 1;
+		editAssignedTo = task.assignedTo ?? '';
+	}
+
+	async function respondAssignment(task: TaskItem, accept: boolean) {
+		if (busyId) return;
+		busyId = task.id;
+		try {
+			const res = await fetch(`/api/tasks/${task.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ assignmentStatus: accept ? 'accepted' : 'declined' })
+			});
+			if (res.ok) await invalidateAll();
+		} finally {
+			busyId = null;
+		}
 	}
 
 	function closeEdit() {
@@ -86,6 +122,12 @@
 		if (!editing || !editTitle.trim() || editSaving) return;
 		editSaving = true;
 		try {
+			const prevAssignee = editing.assignedTo ?? '';
+			let assignedTo: string | null = editAssignedTo || null;
+			let assignmentStatus: string | null = null;
+			if (assignedTo !== prevAssignee) {
+				assignmentStatus = assignedTo ? (assignedTo === data.user?.id ? 'accepted' : 'pending') : null;
+			}
 			const res = await fetch(`/api/tasks/${editing.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
@@ -94,7 +136,9 @@
 					notes: editNotes.trim() || null,
 					dueDate: inputToIso(editDue),
 					recurrenceFrequency: editFreq || null,
-					recurrenceInterval: editFreq ? Math.max(1, Math.floor(editInterval)) : null
+					recurrenceInterval: editFreq ? Math.max(1, Math.floor(editInterval)) : null,
+					assignedTo,
+					...(assignmentStatus ? { assignmentStatus } : {})
 				})
 			});
 			if (res.ok) {
@@ -353,6 +397,45 @@
 						{formatDue(task.dueDate)}
 					</span>
 				{/if}
+				{#if task.assignedTo && task.assignmentStatus !== 'none'}
+					{@const mine = task.assignedTo === data.user?.id}
+					{@const pending = task.assignmentStatus === 'pending'}
+					{#if mine && pending}
+						<span class="flex shrink-0 items-center gap-1">
+							<button
+								type="button"
+								onclick={() => respondAssignment(task, true)}
+								disabled={busyId === task.id}
+								class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200"
+								title="Accept"
+							>
+								✓ Accept
+							</button>
+							<button
+								type="button"
+								onclick={() => respondAssignment(task, false)}
+								disabled={busyId === task.id}
+								class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 hover:bg-red-200"
+								title="Decline"
+							>
+								✕
+							</button>
+						</span>
+					{:else}
+						<span
+							class="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-0.5 pr-2 text-xs font-medium text-slate-600"
+							title="Assigned to {memberName(task.assignedTo)}"
+						>
+							<span class="flex h-4 w-4 items-center justify-center rounded-full bg-primary-600 text-[9px] font-bold text-white">
+								{(task.assigneeFirstName?.[0] ?? memberName(task.assignedTo)[0] ?? '?').toUpperCase()}
+							</span>
+							{memberName(task.assignedTo).split(' ')[0]}
+							{#if task.assignmentStatus === 'pending'}
+								<span class="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700">pending</span>
+							{/if}
+						</span>
+					{/if}
+				{/if}
 				<button
 					type="button"
 					onclick={() => deleteTask(task.id)}
@@ -505,6 +588,26 @@
 							class="w-16 rounded-lg border border-purple-200 px-2 py-1 text-sm focus:border-purple-400 focus:outline-none"
 						/>
 						<span class="text-sm text-purple-800">{FREQ_NOUN[editFreq]}{editInterval > 1 ? 's' : ''}</span>
+					</div>
+				{/if}
+
+				{#if familyRoster.length > 0}
+					<div>
+						<label for="edit-assignee" class="mb-1 block text-sm font-medium text-slate-700">Assign to</label>
+						<select
+							id="edit-assignee"
+							bind:value={editAssignedTo}
+							class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+						>
+							<option value="">Unassigned</option>
+							<option value={data.user?.id}>Me</option>
+							{#each familyRoster.filter((m) => m.userId !== data.user?.id) as m (m.userId)}
+								<option value={m.userId}>{m.firstName} {m.lastName}</option>
+							{/each}
+						</select>
+						{#if editAssignedTo && editAssignedTo !== data.user?.id}
+							<p class="mt-1 text-xs text-slate-400">They'll see it as pending until they accept.</p>
+						{/if}
 					</div>
 				{/if}
 

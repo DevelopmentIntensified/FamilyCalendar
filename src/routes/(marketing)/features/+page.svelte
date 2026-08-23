@@ -45,7 +45,7 @@
 						</svg>
 					</div>
 					<h3 class="mb-2 text-lg font-bold text-slate-900">Smart Event Import</h3>
-					<p class="text-slate-600">Paste a text from your partner or email from school. Our smart algorithm creates the event.</p>
+					<p class="text-slate-600">Paste a text from your spouse or email from school. Our smart algorithm creates the event.</p>
 				</div>
 
 				<div class="rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-lg">
@@ -58,7 +58,7 @@
 						</svg>
 					</div>
 					<h3 class="mb-2 text-lg font-bold text-slate-900">Family Groups & Invites</h3>
-					<p class="text-slate-600">Invite partner, kids, grandparents—anyone who needs to be in the loop.</p>
+					<p class="text-slate-600">Invite your spouse, kids, grandparents—anyone who needs to be in the loop.</p>
 				</div>
 
 				<div class="rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-lg">

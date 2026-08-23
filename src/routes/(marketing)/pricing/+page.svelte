@@ -184,7 +184,7 @@
 				<div class="space-y-6">
 					<div>
 						<h3 class="mb-2 font-semibold text-slate-900">What counts as a "family member"?</h3>
-						<p class="text-slate-600">Anyone you invite to your family calendar—partner, kids, grandparents, babysitters, or caregivers. You control who's in.</p>
+						<p class="text-slate-600">Anyone you invite to your family calendar—your spouse, kids, grandparents, babysitters, or caregivers. You control who's in.</p>
 					</div>
 					<div>
 						<h3 class="mb-2 font-semibold text-slate-900">Can I try Family Planz before paying?</h3>

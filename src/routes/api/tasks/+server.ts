@@ -48,12 +48,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const frequency = TASK_FREQUENCIES.includes(body.recurrenceFrequency)
 			? body.recurrenceFrequency
 			: null;
+
+		// Assignment: self-assign is instant-accept; assigning someone
+		// else starts a pending request they accept or decline.
+		const assignedTo =
+			typeof body.assignedTo === 'string' && body.assignedTo ? body.assignedTo : null;
+		let assignmentStatus = 'none';
+		if (assignedTo) {
+			assignmentStatus = assignedTo === locals.user.id ? 'accepted' : 'pending';
+		}
+
 		const created = await createTask({
 			title: body.title.trim(),
 			notes: body.notes || null,
 			dueDate: body.dueDate || null,
 			recurrenceFrequency: frequency,
 			recurrenceInterval: frequency ? Math.max(1, Math.floor(body.recurrenceInterval ?? 1)) : null,
+			assignedTo,
+			assignmentStatus,
 			eventId: body.eventId || null,
 			familyId,
 			userId: locals.user.id

@@ -191,7 +191,7 @@
 							<div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#FED5CF] text-lg font-bold text-[#c45e38]">1</div>
 							<div>
 								<h4 class="font-semibold text-slate-900">Copy a message</h4>
-								<p class="text-slate-600">From your partner, the school, or the family group chat</p>
+								<p class="text-slate-600">From your spouse, the school, or the family group chat</p>
 							</div>
 						</div>
 						<div class="flex gap-4">
@@ -221,7 +221,7 @@
 							<span class="ml-2 text-xs text-slate-400">Family Planz</span>
 						</div>
 						<div class="rounded-2xl bg-slate-800 p-4">
-							<p class="mb-3 text-xs text-slate-400">// Text from your partner:</p>
+							<p class="mb-3 text-xs text-slate-400">// Text from your spouse:</p>
 							<div class="rounded-xl bg-slate-700/50 p-3">
 								<div class="flex items-start gap-2">
 									<div class="h-6 w-6 rounded-full bg-[#F1B598] flex items-center justify-center text-xs font-bold text-white">D</div>
