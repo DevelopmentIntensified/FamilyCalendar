@@ -1,9 +1,9 @@
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
-import { events, eventAttendance, calendars } from '$lib/server/db/schema';
+import { events, calendars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Actions } from './$types';
-import { deleteEvent } from '$lib/server/db/actions/events';
+import { deleteEvent, getEventAttendance } from '$lib/server/db/actions/events';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 
@@ -27,10 +27,8 @@ export const load: PageServerLoad = async (e) => {
 		error(404, 'Event not found');
 	}
 
-	const attendanceData = await db
-		.select()
-		.from(eventAttendance)
-		.where(eq(eventAttendance.eventId, e.params.id));
+	// Joined with users so the UI can show names instead of raw ids.
+	const attendanceData = await getEventAttendance(e.params.id);
 
 	const userAttendance = attendanceData.find((a) => a.userId === e.locals.user.id);
 

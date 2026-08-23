@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { DateTime } from 'luxon';
 	import type { PageData, ActionData } from './$types';
 
@@ -15,6 +15,47 @@
 
 	let showDeleteConfirm = $state(false);
 	let rsvpStatus = $state(userAttendance);
+	let rsvpPending = $state(false);
+
+	async function setRsvp(status: string) {
+		if (rsvpPending) return;
+		const next = rsvpStatus === status ? 'undecided' : status;
+		const previous = rsvpStatus;
+		rsvpStatus = next; // optimistic
+		rsvpPending = true;
+		try {
+			const res = await fetch(`/api/events/${data.event.id}/rsvp`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ status: next })
+			});
+			if (res.ok) {
+				await invalidateAll(); // refresh attendee list from server
+			} else {
+				rsvpStatus = previous;
+			}
+		} catch {
+			rsvpStatus = previous;
+		} finally {
+			rsvpPending = false;
+		}
+	}
+
+	const counts = $derived<Record<string, number>>({
+		going: attendees.filter((a: any) => a.status === 'going').length,
+		maybe: attendees.filter((a: any) => a.status === 'maybe').length,
+		declined: attendees.filter((a: any) => a.status === 'declined' || a.status === 'not_going').length
+	});
+	const RSVP_OPTIONS = [
+		{ status: 'going', label: 'Going' },
+		{ status: 'maybe', label: 'Maybe' },
+		{ status: 'declined', label: "Can't go" }
+	];
+
+	function displayName(a: any): string {
+		const name = [a.firstName, a.lastName].filter(Boolean).join(' ').trim();
+		return name || a.name || a.userId || 'Guest';
+	}
 
 	function goBack() {
 		goto('/calendar');
@@ -107,25 +148,25 @@
 						</div>
 					</div>
 
-					<!-- Attendees -->
-					{#if attendees.length > 0}
-					<div>
-						<h3 class="mb-2 text-lg font-semibold text-gray-800">Attendees ({attendees.length})</h3>
-						<div class="space-y-2">
-							{#each attendees as attendee (attendee.id)}
+			<!-- Attendees -->
+			{#if attendees.length > 0}
+				<div>
+					<h3 class="mb-2 text-lg font-semibold text-gray-800">Attendees ({attendees.length})</h3>
+					<div class="space-y-2">
+						{#each attendees as attendee (attendee.id)}
 							<div class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-								<span class="text-sm text-gray-700">{attendee.userId}</span>
+								<span class="text-sm text-gray-700">{displayName(attendee)}</span>
 								<span class="rounded-full px-2 py-1 text-xs font-medium {
 									attendee.status === 'going' ? 'bg-green-100 text-green-800' :
 									attendee.status === 'maybe' ? 'bg-yellow-100 text-yellow-800' :
-									attendee.status === 'not_going' ? 'bg-red-100 text-red-800' :
+									attendee.status === 'not_going' || attendee.status === 'declined' ? 'bg-red-100 text-red-800' :
 									'bg-gray-100 text-gray-800'
-								}">{attendee.status}</span>
+								}">{attendee.status === 'declined' ? 'not going' : attendee.status}</span>
 							</div>
-							{/each}
-						</div>
+						{/each}
 					</div>
-					{/if}
+				</div>
+				{/if}
 				</div>
 
 				<!-- Description -->
@@ -136,44 +177,48 @@
 				</div>
 				{/if}
 
-				<!-- RSVP Section -->
-				{#if isFamilyEvent}
-				<div class="mb-6 border-t pt-6">
-					<h3 class="mb-3 text-lg font-semibold text-gray-800">Your RSVP</h3>
-					<div class="flex flex-wrap gap-2">
-						<form action="?/rsvp" method="POST" use:enhance={handleRsvp} class="inline">
-							<input type="text" value={event.id} class="hidden" name="eventId" />
-							<input type="text" value="going" class="hidden" name="status" />
-							<button
-								type="submit"
-								class="rounded-md px-4 py-2 text-sm font-medium transition-colors {rsvpStatus === 'going' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
-							>
-								Going
-							</button>
-						</form>
-						<form action="?/rsvp" method="POST" use:enhance={handleRsvp} class="inline">
-							<input type="text" value={event.id} class="hidden" name="eventId" />
-							<input type="text" value="maybe" class="hidden" name="status" />
-							<button
-								type="submit"
-								class="rounded-md px-4 py-2 text-sm font-medium transition-colors {rsvpStatus === 'maybe' ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
-							>
-								Maybe
-							</button>
-						</form>
-						<form action="?/rsvp" method="POST" use:enhance={handleRsvp} class="inline">
-							<input type="text" value={event.id} class="hidden" name="eventId" />
-							<input type="text" value="not_going" class="hidden" name="status" />
-							<button
-								type="submit"
-								class="rounded-md px-4 py-2 text-sm font-medium transition-colors {rsvpStatus === 'not_going' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
-							>
-								Not Going
-							</button>
-						</form>
-					</div>
+			<!-- RSVP Section -->
+			{#if isFamilyEvent}
+			<div class="mb-6 border-t pt-6">
+				<div class="mb-3 flex items-center justify-between">
+					<h3 class="text-lg font-semibold text-gray-800">Your RSVP</h3>
+					{#if rsvpStatus !== 'undecided'}
+						<span class="text-xs text-gray-400">tap again to clear</span>
+					{/if}
 				</div>
-				{/if}
+				<div role="group" aria-label="Your RSVP" class="flex overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-1">
+					{#each RSVP_OPTIONS as option (option.status)}
+						{@const active = rsvpStatus === option.status}
+						<button
+							type="button"
+							onclick={() => setRsvp(option.status)}
+							disabled={rsvpPending}
+							aria-pressed={active}
+							class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-sm font-medium transition-all disabled:opacity-60 {
+								option.status === 'going'
+									? active
+										? 'bg-green-600 text-white shadow-md shadow-green-600/30'
+										: 'text-green-700 hover:bg-green-100/70'
+									: option.status === 'maybe'
+										? active
+											? 'bg-yellow-500 text-white shadow-md shadow-yellow-500/30'
+											: 'text-yellow-700 hover:bg-yellow-100/70'
+										: active
+											? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+											: 'text-red-700 hover:bg-red-100/70'
+							}"
+						>
+							{option.label}
+							{#if counts[option.status] > 0}
+								<span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {active ? 'bg-white/25' : 'bg-gray-200 text-gray-600'}">
+									{counts[option.status]}
+								</span>
+							{/if}
+						</button>
+					{/each}
+				</div>
+			</div>
+			{/if}
 
 				<!-- Action Buttons -->
 				<div class="flex flex-wrap gap-3 border-t pt-6">

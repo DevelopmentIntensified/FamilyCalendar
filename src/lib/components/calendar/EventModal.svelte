@@ -119,24 +119,48 @@
 		showEditForm = false;
 	}
 
+	let rsvpPending = false;
+
 	async function handleRsvp(status: string) {
+		if (rsvpPending) return;
+		// Clicking the active choice again = "no answer yet".
+		const next = currentUserRsvpStatus === status ? 'undecided' : status;
+		const previous = currentUserRsvpStatus;
+		currentUserRsvpStatus = next; // optimistic
+		rsvpPending = true;
 		try {
 			const response = await fetch(`/api/events/${serverId}/rsvp`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ status })
+				body: JSON.stringify({ status: next })
 			});
 			if (response.ok) {
 				const data = await response.json();
-				currentUserRsvpStatus = status;
 				attendees = data.attendance.filter((a: any) => a.userId);
 				nonUserAttendants = data.attendance.filter((a: any) => !a.userId && a.name).map((a: any) => a.name);
-				dispatch('rsvp', { id: serverId, status });
+				currentUserRsvpStatus = data.rsvpStatus || next;
+				dispatch('rsvp', { id: serverId, status: next });
+			} else {
+				currentUserRsvpStatus = previous;
 			}
 		} catch (error) {
 			console.error('RSVP error:', error);
+			currentUserRsvpStatus = previous;
+		} finally {
+			rsvpPending = false;
 		}
 	}
+
+	const RSVP_OPTIONS = [
+		{ status: 'going', label: 'Going' },
+		{ status: 'maybe', label: 'Maybe' },
+		{ status: 'declined', label: "Can't go" }
+	];
+	$: rsvpCounts = {
+		going: goingList.length,
+		maybe: maybeList.length,
+		declined: notGoingList.length
+	} as Record<string, number>;
 
 	// Event checklist — hidden until it has content.
 	let eventTasks: any[] = [];
@@ -531,53 +555,59 @@
 
 				<!-- Your RSVP Section -->
 				<div class="border-t border-slate-100 px-6 py-4">
-					<h3 class="mb-3 text-sm font-semibold text-slate-700">Your RSVP</h3>
-					<div class="flex gap-2">
-						<button
-							type="button"
-							onclick={() => handleRsvp('going')}
-							class="flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all {
-								currentUserRsvpStatus === 'going'
-									? 'bg-green-600 text-white shadow-md shadow-green-600/30'
-									: 'bg-green-50 text-green-700 hover:bg-green-100'
-							}">
-							<div class="flex items-center justify-center gap-1.5">
-								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-								</svg>
-								Going
-							</div>
-						</button>
-						<button
-							type="button"
-							onclick={() => handleRsvp('maybe')}
-							class="flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all {
-								currentUserRsvpStatus === 'maybe'
-									? 'bg-yellow-500 text-white shadow-md shadow-yellow-500/30'
-									: 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
-							}">
-							<div class="flex items-center justify-center gap-1.5">
-								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-								</svg>
-								Maybe
-							</div>
-						</button>
-						<button
-							type="button"
-							onclick={() => handleRsvp('declined')}
-							class="flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all {
-								currentUserRsvpStatus === 'declined'
-									? 'bg-red-600 text-white shadow-md shadow-red-600/30'
-									: 'bg-red-50 text-red-700 hover:bg-red-100'
-							}">
-							<div class="flex items-center justify-center gap-1.5">
-								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-								</svg>
-								Not Going
-							</div>
-						</button>
+					<div class="mb-2 flex items-center justify-between">
+						<h3 class="text-sm font-semibold text-slate-700">Your RSVP</h3>
+						{#if currentUserRsvpStatus !== 'undecided'}
+							<span class="text-[11px] text-slate-400">tap again to clear</span>
+						{/if}
+					</div>
+					<div
+						role="group"
+						aria-label="Your RSVP"
+						class="flex overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-1"
+					>
+						{#each RSVP_OPTIONS as option (option.status)}
+							{@const active = currentUserRsvpStatus === option.status}
+							<button
+								type="button"
+								onclick={() => handleRsvp(option.status)}
+								disabled={rsvpPending}
+								aria-pressed={active}
+								class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-sm font-medium transition-all disabled:opacity-60 {
+									option.status === 'going'
+										? active
+											? 'bg-green-600 text-white shadow-md shadow-green-600/30'
+											: 'text-green-700 hover:bg-green-100/70'
+										: option.status === 'maybe'
+											? active
+												? 'bg-yellow-500 text-white shadow-md shadow-yellow-500/30'
+												: 'text-yellow-700 hover:bg-yellow-100/70'
+											: active
+												? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+												: 'text-red-700 hover:bg-red-100/70'
+								}"
+							>
+								{#if option.status === 'going'}
+									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+									</svg>
+								{:else if option.status === 'maybe'}
+									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+									</svg>
+								{:else}
+									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+									</svg>
+								{/if}
+								{option.label}
+								{#if rsvpCounts[option.status] > 0}
+									<span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {active ? 'bg-white/25' : 'bg-slate-200 text-slate-600'}">
+										{rsvpCounts[option.status]}
+									</span>
+								{/if}
+							</button>
+						{/each}
 					</div>
 				</div>
 
