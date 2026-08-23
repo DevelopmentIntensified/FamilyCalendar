@@ -36,7 +36,7 @@ export const actions: Actions = {
 		const currentUser = await getUser(userId);
 
 		try {
-			let pendingEmail: string;
+			let pendingEmail: string | null;
 
 			if (token) {
 				try {

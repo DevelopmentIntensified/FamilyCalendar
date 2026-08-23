@@ -495,7 +495,7 @@ describe('EventFormModal - Calendar Selector', () => {
 			calendarId: 'cal2',
 			description: '',
 			location: ''
-		};
+		} as any;
 
 		render(EventFormModal, {
 			props: { show: true, event: mockEvent, calendarIds: [

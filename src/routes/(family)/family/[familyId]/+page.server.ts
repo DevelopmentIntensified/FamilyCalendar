@@ -1,7 +1,7 @@
 import { getUserFamilies, removeFamilyMember, updateFamilies } from '$lib/server/db/actions/families';
 import { db } from '$lib/server/db';
 import { families, familyMembers, users } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { PageServerLoad, Actions } from './$types';
 import { fail } from '@sveltejs/kit';
 

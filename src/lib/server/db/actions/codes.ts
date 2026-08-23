@@ -17,7 +17,7 @@ export async function getCode(code: string) {
 
 export async function createCode(data: {
 	code: string;
-	expiresAt: Date | string;
+	expiresAt: Date;
 	email: string;
 	firstName?: string | null;
 	lastName?: string | null;

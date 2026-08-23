@@ -67,8 +67,8 @@ describe('GET /login/email/callback', () => {
 		vi.mocked(validateJWT).mockResolvedValue(undefined as any);
 		vi.mocked(parseJWT).mockReturnValue({ payload: { email: 'pw@user.com' } } as any);
 		vi.mocked(getAccount).mockResolvedValue(undefined as any);
-		vi.mocked(getUserByEmail).mockResolvedValue({ id: 'user-pw', email: 'pw@user.com' });
-		vi.mocked(lucia.createSession).mockResolvedValue({ id: 'session-pw' });
+		vi.mocked(getUserByEmail).mockResolvedValue({ id: 'user-pw', email: 'pw@user.com' } as any);
+		vi.mocked(lucia.createSession).mockResolvedValue({ id: 'session-pw' } as any);
 		vi.mocked(lucia.createSessionCookie).mockReturnValue({ serialize: () => 'auth_session=pw123; Path=/' } as any);
 
 		const response = await GET(mockEvent('valid.jwt.token'));

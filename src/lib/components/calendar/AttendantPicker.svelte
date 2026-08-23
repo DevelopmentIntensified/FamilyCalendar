@@ -64,7 +64,7 @@
 			{#each selected as att}
 				{@const member = familyMembers.find((m) => m.userId === att)}
 				{@const color = getContactColor(att)}
-				{@const initials = member ? getInitials(member.firstName, member.lastName) : getInitials(att)}
+				{@const initials = member ? getInitials(member.firstName ?? '', member.lastName ?? '') : getInitials(att)}
 				{@const displayName = member
 					? [member.firstName, member.lastName].filter(Boolean).join(' ') || member.email
 					: att}
@@ -98,7 +98,7 @@
 				{#if filteredFamilyMembers.length > 0}
 					<div class="p-1">
 						{#each filteredFamilyMembers as member}
-							{@const color = getContactColor(member.firstName + member.lastName)}
+							{@const color = getContactColor((member.firstName ?? '') + (member.lastName ?? ''))}
 							{@const isSelected = selected.includes(member.userId)}
 							<button
 								type="button"

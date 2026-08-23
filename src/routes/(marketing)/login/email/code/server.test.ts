@@ -74,7 +74,7 @@ describe('POST /login/email/code', () => {
 		const { getAccount } = await import('$lib/server/db/actions/accounts');
 		const { getUserByEmail } = await import('$lib/server/db/actions/users');
 
-		vi.mocked(getCode).mockResolvedValue({ code: 'DEF456', email: 'unknown@user.com' });
+		vi.mocked(getCode).mockResolvedValue({ code: 'DEF456', email: 'unknown@user.com' } as any);
 		vi.mocked(getAccount).mockResolvedValue(undefined as any);
 		vi.mocked(getUserByEmail).mockResolvedValue(undefined as any);
 
@@ -90,7 +90,7 @@ describe('POST /login/email/code', () => {
 		const { getAccount } = await import('$lib/server/db/actions/accounts');
 		const { lucia } = await import('$lib/server/auth');
 
-		vi.mocked(getCode).mockResolvedValue({ code: 'GHI789', email: 'email@user.com' });
+		vi.mocked(getCode).mockResolvedValue({ code: 'GHI789', email: 'email@user.com' } as any);
 		vi.mocked(getAccount).mockResolvedValue({ userId: 'user-456', providerAccountId: 'email@user.com' } as any);
 		vi.mocked(lucia.createSession).mockResolvedValue({ id: 'session-456' } as any);
 		vi.mocked(lucia.createSessionCookie).mockReturnValue({ serialize: () => 'auth_session=xyz; Path=/' } as any);

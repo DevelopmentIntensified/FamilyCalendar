@@ -27,7 +27,7 @@ describe('/login page URL error display', () => {
 			return () => {};
 		});
 
-		render(LoginPage, { props: { data: { isLoggedIn: false } } });
+		render(LoginPage, { props: { data: { isLoggedIn: false, user: null, pathname: '/login' } } });
 
 		expect(screen.getByText('Token expired')).toBeInTheDocument();
 	});
@@ -40,7 +40,7 @@ describe('/login page URL error display', () => {
 			return () => {};
 		});
 
-		render(LoginPage, { props: { data: { isLoggedIn: false } } });
+		render(LoginPage, { props: { data: { isLoggedIn: false, user: null, pathname: '/login' } } });
 
 		expect(screen.queryByText(/Token expired|Invalid|Error/)).not.toBeInTheDocument();
 	});

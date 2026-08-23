@@ -1,10 +1,16 @@
 const oneDayMs = 24 * 60 * 60 * 1000;
 
-export function deriveEventProps(e: Record<string, any>, date: Date, end: Date | null) {
+export type ParsedDay<T> = T & { start: Date; end: Date | null; date: Date };
+
+export function deriveEventProps<T extends Record<string, any>>(
+	e: T,
+	date: Date,
+	end: Date | null
+): ParsedDay<T> {
 	return {
 		...e,
 		start: date,
-		end: end || e.end,
+		end,
 		date
 	};
 }
@@ -13,8 +19,6 @@ export function deriveEventProps(e: Record<string, any>, date: Date, end: Date |
  * Splits events that span multiple days into one entry per day, each
  * carrying its own `date`. Single-day events pass through untouched.
  */
-export type ParsedDay<T> = T & { start: Date; end: Date | null; date: Date };
-
 export function parseEvents<T extends Record<string, any>>(
 	eventsData: T[]
 ): ParsedDay<T>[] {
