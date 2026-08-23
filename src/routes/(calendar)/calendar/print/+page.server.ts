@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import { DateTime } from 'luxon';
 import { db } from '$lib/server/db';
 import { calendars, events, families, familyMembers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -18,11 +19,13 @@ export const load: PageServerLoad = async (event) => {
 	}
 	const userId = event.locals.user.id;
 
-	const now = new Date();
-	const year = parseInt(event.url.searchParams.get('year') || '') || now.getFullYear();
-	const month = Math.min(12, Math.max(1, parseInt(event.url.searchParams.get('month') || '') || now.getMonth() + 1));
-
 	const userSettings = await getUserSettings(userId);
+	// "Today" must be the viewer's date, not the server's - Vercel runs UTC,
+	// so an evening visit would highlight tomorrow.
+	const now = DateTime.now().setZone(userSettings?.timeZone || 'utc');
+	const year = parseInt(event.url.searchParams.get('year') || '') || now.year;
+	const month = Math.min(12, Math.max(1, parseInt(event.url.searchParams.get('month') || '') || now.month));
+
 	const weekStart = userSettings?.weekStart === 'monday' ? 'monday' : 'sunday';
 	const personalColor = userSettings?.color || '#fa8072';
 
@@ -80,7 +83,7 @@ export const load: PageServerLoad = async (event) => {
 	type CellItem = { title: string; color: string; allDay: boolean };
 	const grid: { day: number; iso: string; inMonth: boolean; isToday: boolean; items: CellItem[] }[] = [];
 
-	const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+	const todayIso = now.toISODate() ?? '';
 
 	for (let i = 0; i < totalCells; i++) {
 		const cellDateNum = i - leading + 1;
@@ -114,6 +117,6 @@ export const load: PageServerLoad = async (event) => {
 		grid,
 		prev: prevMonth,
 		next: nextMonth,
-		isCurrentMonth: year === now.getFullYear() && month === now.getMonth() + 1
+		isCurrentMonth: year === now.year && month === now.month
 	};
 };
