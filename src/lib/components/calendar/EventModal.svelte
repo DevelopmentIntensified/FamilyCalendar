@@ -2,6 +2,7 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { Event } from '$lib/types';
+	import { toDate } from '$lib/utils/eventTime';
 	import { DateTime } from 'luxon';
 	import EventFormModal from './EventFormModal.svelte';
 
@@ -54,16 +55,16 @@
 	// Extract start/end times from ISO strings if not available as separate fields
 	function tryFormat(d: Date | string | undefined | null): string | undefined {
 		if (!d) return undefined;
-		if (d instanceof Date) {
-			const dt = DateTime.fromJSDate(d);
-			return dt.isValid ? dt.toFormat('HH:mm') : undefined;
-		}
-		const dt = DateTime.fromISO(d);
+		const dt = DateTime.fromJSDate(toDate(d));
 		return dt.isValid ? dt.toFormat('HH:mm') : undefined;
+	}
+
+	function toIsoString(v: unknown): string {
+		return toDate(v).toISOString();
 	}
 	$: startTime = event.startTime || tryFormat(event.start);
 	$: endTime = event.endTime || tryFormat(event.end);
-	$: eventDate = event.date || (event.start ? (event.start instanceof Date ? event.start : new Date(event.start)) : undefined);
+	$: eventDate = event.date || (event.start ? toDate(event.start) : undefined);
 
 	function close() {
 		show = false;
@@ -128,8 +129,8 @@
 			if (response.ok) {
 				const data = await response.json();
 				currentUserRsvpStatus = status;
-				attendees = data.attendance.filter(a => a.userId);
-				nonUserAttendants = data.attendance.filter(a => !a.userId && a.name).map(a => a.name);
+				attendees = data.attendance.filter((a: any) => a.userId);
+				nonUserAttendants = data.attendance.filter((a: any) => !a.userId && a.name).map((a: any) => a.name);
 				dispatch('rsvp', { id: serverId, status });
 			}
 		} catch (error) {
@@ -212,8 +213,8 @@
 		try {
 			const payload = {
 				title: `${event.title} (copy)`,
-				start: event.start instanceof Date ? event.start.toISOString() : event.start,
-				end: event.end ? (event.end instanceof Date ? event.end.toISOString() : event.end) : null,
+				start: toIsoString(event.start),
+				end: event.end ? toIsoString(event.end) : null,
 				description: event.description || null,
 				location: event.location || null,
 				allDay: !!event.allDay,

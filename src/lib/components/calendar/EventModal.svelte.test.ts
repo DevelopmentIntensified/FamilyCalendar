@@ -1,6 +1,22 @@
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { Event } from '$lib/types';
 import EventModal from './EventModal.svelte';
+
+const baseEvent: Event = {
+	id: 'evt1',
+	title: 'Test Event',
+	start: '2026-07-17T10:00:00Z',
+	end: '2026-07-17T11:00:00Z',
+	allDay: false,
+	location: 'Conference Room A',
+	description: 'Team standup meeting',
+	calendarId: 'cal1',
+	ownerId: 'user1',
+	created_at: new Date('2026-07-01T00:00:00Z'),
+	recurrenceFrequency: null,
+	recurrenceInterval: null
+} as unknown as Event;
 
 describe('EventModal - display details', () => {
 	beforeEach(() => {
@@ -10,18 +26,6 @@ describe('EventModal - display details', () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
 	});
-
-	const baseEvent = {
-		id: 'evt1',
-		title: 'Test Event',
-		start: '2026-07-17T10:00:00Z',
-		end: '2026-07-17T11:00:00Z',
-		allDay: false,
-		location: 'Conference Room A',
-		description: 'Team standup meeting',
-		calendarId: 'cal1',
-		ownerId: 'user1'
-	};
 
 	it('should show location when event has location', () => {
 		render(EventModal, {
