@@ -14,7 +14,7 @@ export interface ParsedEvent {
 	duration?: string;
 }
 
-interface ParseResult {
+export interface ParseResult {
 	parsed: Partial<ParsedEvent>;
 	confidence: number;
 }
@@ -38,7 +38,7 @@ const DAY_MAP: Record<string, number> = {
 const ORDINAL_WORD_MAP: Record<string, number> = {
 	first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10,
 	eleventh: 11, twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15, sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19,
-	twentieth: 20, 'twenty-first': 21, 'twenty second': 21, 'twenty-second': 22, 'twenty second': 22, 'twenty-third': 23, 'twenty third': 23,
+	twentieth: 20, 'twenty-first': 21, 'twenty first': 21, 'twenty-second': 22, 'twenty second': 22, 'twenty-third': 23, 'twenty third': 23,
 	twentyfourth: 24, 'twenty-fourth': 24, 'twenty fourth': 24, 'twenty-fifth': 25, 'twenty fifth': 25, 'twenty-sixth': 26, 'twenty sixth': 26,
 	'twenty-seventh': 27, 'twenty seventh': 27, 'twenty-eighth': 28, 'twenty eighth': 28, 'twenty-ninth': 29, 'twenty ninth': 29,
 	thirtieth: 30, 'thirty-first': 31, 'thirty first': 31
@@ -683,7 +683,7 @@ export function parseEventInput(input: string): ParseResult {
 	const people = attendantDoc.people().out('array');
 	if (people.length > 0) {
 		// Filter out short tokens (<=2 chars) which are likely locations/abbreviations, not people
-		const filteredPeople = people.filter(p => p.length > 2);
+		const filteredPeople = people.filter((p: string) => p.length > 2);
 		if (filteredPeople.length > 0) {
 			result.attendants = filteredPeople;
 			confidence += 0.15;
