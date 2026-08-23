@@ -4,7 +4,7 @@ import { events, eventAttendance, calendars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Actions } from './$types';
 import { deleteEvent } from '$lib/server/db/actions/events';
-import { fail, redirect } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 
 export const load: PageServerLoad = async (e) => {
@@ -24,7 +24,7 @@ export const load: PageServerLoad = async (e) => {
 		.limit(1);
 
 	if (!eventData.length) {
-		return fail(404, { message: 'Event not found' });
+		error(404, 'Event not found');
 	}
 
 	const attendanceData = await db
@@ -32,13 +32,13 @@ export const load: PageServerLoad = async (e) => {
 		.from(eventAttendance)
 		.where(eq(eventAttendance.eventId, e.params.id));
 
-	const userAttendance = attendanceData.find(a => a.userId === e.locals.user.id);
+	const userAttendance = attendanceData.find((a) => a.userId === e.locals.user.id);
 
 	return {
 		event: {
 			...eventData[0].event,
 			start: new Date(eventData[0].event.start),
-			end: new Date(eventData[0].event.end),
+			end: new Date(eventData[0].event.end ?? eventData[0].event.start),
 			date: new Date(eventData[0].event.start)
 		},
 		calendar: eventData[0].calendar,
