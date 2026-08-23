@@ -89,7 +89,7 @@
 	$: currentMonthYear = $currentDate.toFormat('MMMM yyyy');
 	$: currentYear = $currentDate.year;
 	$: currentMonth = $currentDate.month;
-	$: months = Info.monthNamesLong;
+	$: months = Info.months('long');
 </script>
 
 <div class="mb-2 bg-white pt-4">

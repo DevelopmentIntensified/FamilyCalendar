@@ -1,21 +1,21 @@
 import { DateTime } from 'luxon';
 
-export const getDaysInMonth = (year: number, month: number) => {
-	return DateTime.fromObject({ year, month }).daysInMonth;
+export const getDaysInMonth = (year: number, month: number): number => {
+	return DateTime.fromObject({ year, month }).daysInMonth ?? 30;
 };
 
-export const getFirstDayOfMonth = (year: number, month: number) => {
-	return DateTime.fromObject({ year, month, day: 1 }).weekday;
+export const getFirstDayOfMonth = (year: number, month: number): number => {
+	return DateTime.fromObject({ year, month, day: 1 }).weekday ?? 7;
 };
 
-export const getFirstDayOfNextMonth = (year: number, month: number) => {
+export const getFirstDayOfNextMonth = (year: number, month: number): number => {
 	if (month === 12) {
 		year = year + 1;
 		month = 1;
 	} else {
 		month = month + 1;
 	}
-	return DateTime.fromObject({ year, month, day: 1 }).weekday;
+	return DateTime.fromObject({ year, month, day: 1 }).weekday ?? 7;
 };
 
 export const getDaysInLastMonth = (year: number, month: number) => {

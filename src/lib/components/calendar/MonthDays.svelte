@@ -10,8 +10,8 @@
 	export let currentDate: DateTime;
 	export let events: Event[];
 	export let days: number[];
-	export let nextMonth: boolean | undefined;
-	export let lastMonth: boolean | undefined;
+	export let nextMonth = false;
+	export let lastMonth = false;
 	export let calendars: { id: string; name: string; color?: string }[] = [];
 	export let openDay: (date: DateTime) => void = () => {};
 	export let dueTasks: { id: string; title: string; dueDate: Date | string }[] = [];
@@ -68,7 +68,7 @@
 	{@const cellDate = currentDate.set({ day })}
 	{@const date = formatDate(cellDate)}
 	{@const dayEvents = events.filter((event) => formatDate(event.date) === date)}
-			{@const dayTasks = dueTasks.filter((t) => formatDate(toDate(t.dueDate)) === date)}
+			{@const dayTasks = dueTasks.filter((t) => t.dueDate && formatDate(toDate(t.dueDate)) === date)}
 	{@const isTodayDate = date === formatDate(today)}
 	{@const isOtherMonth = nextMonth || lastMonth}
 	<div
