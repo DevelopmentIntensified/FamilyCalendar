@@ -38,7 +38,7 @@
 		}
 	}
 
-	function applyBulkCalendar(e: Event) {
+	function applyBulkCalendar(e: globalThis.Event) {
 		const select = e.currentTarget as HTMLSelectElement;
 		const calendarId = select.value;
 		select.value = '';
@@ -327,7 +327,7 @@
 		show={true}
 		event={selectedEvent}
 		calendarIds={data.calendarIds || []}
-	\tfamilyMembers={data.familyMembers || []}
+		familyMembers={data.familyMembers || []}
 		rsvpData={selectedEventRsvp}
 		userSettings={data.userSettings}
 		on:close={close}

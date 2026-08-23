@@ -15,7 +15,16 @@ export async function getCode(code: string) {
 	return code1;
 }
 
-export async function createCode(data: Omit<Code, 'id'>) {
+export async function createCode(data: {
+	code: string;
+	expiresAt: Date | string;
+	email: string;
+	firstName?: string | null;
+	lastName?: string | null;
+	emailId?: string | null;
+	type?: string | null;
+	pendingEmail?: string | null;
+}) {
 	const [createdCode] = await db.insert(codes).values(data).returning();
 	return createdCode;
 }

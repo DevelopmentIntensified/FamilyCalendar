@@ -30,9 +30,9 @@ describe('POST /forgot-password/reset', () => {
 		const { getUserByEmail, updateUser } = await import('$lib/server/db/actions/users');
 		const { hashPassword } = await import('$lib/server/utils/password');
 
-		vi.mocked(validateJWT).mockResolvedValue(undefined);
+		vi.mocked(validateJWT).mockResolvedValue(undefined as never);
 		vi.mocked(parseJWT).mockReturnValue({ payload: { email: 'user@test.com' } } as any);
-		vi.mocked(getUserByEmail).mockResolvedValue({ id: 'user-1', email: 'user@test.com' });
+		vi.mocked(getUserByEmail).mockResolvedValue({ id: 'user-1', email: 'user@test.com' } as any);
 		vi.mocked(hashPassword).mockResolvedValue('hashed-password');
 
 		const response = await POST({
@@ -64,7 +64,7 @@ describe('POST /forgot-password/reset', () => {
 	it('returns 400 for short password', async () => {
 		const { validateJWT } = await import('oslo/jwt');
 
-		vi.mocked(validateJWT).mockResolvedValue(undefined);
+		vi.mocked(validateJWT).mockResolvedValue(undefined as never);
 
 		const response = await POST({
 			request: { json: () => Promise.resolve({ token: 'valid.jwt', password: '123' }) }

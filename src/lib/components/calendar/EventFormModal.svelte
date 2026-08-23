@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import { getContactColor } from '$lib/utils/contactColors';
@@ -72,15 +72,6 @@
 	$: calColor = selectedCal
 		? (selectedCal.color ? { bg: selectedCal.color, text: '#ffffff' } : getContactColor(selectedCal.name))
 		: { bg: '#F1F5F9', text: '#64748B' };
-
-	onMount(() => {
-		try {
-			const stored = localStorage.getItem('recent_attendants');
-			if (stored) {
-				form.recentAttendants = JSON.parse(stored);
-			}
-		} catch (e) { /* ignore */ }
-	});
 
 	async function parseNlInput() {
 		if (!nlInput.trim()) return;

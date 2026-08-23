@@ -70,7 +70,7 @@ export const actions: Actions = {
 					return fail(400, { success: false, message: 'Invalid code type' });
 				}
 
-				pendingEmail = existingCode.pendingEmail;
+				pendingEmail = existingCode.pendingEmail ?? null;
 				if (!pendingEmail) {
 					return fail(400, { success: false, message: 'No pending email found' });
 				}

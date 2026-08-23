@@ -33,7 +33,7 @@ describe('POST /forgot-password', () => {
 		const { sendEmail } = await import('$lib/utils/sendEmail');
 		const { createJWT } = await import('oslo/jwt');
 
-		vi.mocked(getUserByEmail).mockResolvedValue({ id: 'user-1', email: 'existing@user.com' });
+		vi.mocked(getUserByEmail).mockResolvedValue({ id: 'user-1', email: 'existing@user.com' } as any);
 		vi.mocked(createJWT).mockResolvedValue('mock.jwt.token');
 		vi.mocked(sendEmail).mockResolvedValue({ success: true, error: undefined, data: { id: 'email-1' } });
 
@@ -53,7 +53,7 @@ describe('POST /forgot-password', () => {
 	it('returns generic success for unknown email (no info leak)', async () => {
 		const { getUserByEmail } = await import('$lib/server/db/actions/users');
 
-		vi.mocked(getUserByEmail).mockResolvedValue(undefined);
+		vi.mocked(getUserByEmail).mockResolvedValue(undefined as any);
 
 		const response = await POST({
 			request: { json: () => Promise.resolve({ email: 'unknown@user.com' }) }

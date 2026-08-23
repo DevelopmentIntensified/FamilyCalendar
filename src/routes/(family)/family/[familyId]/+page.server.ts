@@ -10,8 +10,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		const [currentMember] = await db
 			.select({ role: familyMembers.role })
 			.from(familyMembers)
-			.where(eq(familyMembers.familyId, params.familyId))
-			.where(eq(familyMembers.userId, locals.user.id))
+			.where(
+				and(eq(familyMembers.familyId, params.familyId), eq(familyMembers.userId, locals.user.id))
+			)
 			.limit(1);
 
 		if (!currentMember) {
@@ -53,8 +54,7 @@ async function getMemberRole(familyId: string, userId: string) {
 	const [member] = await db
 		.select({ role: familyMembers.role })
 		.from(familyMembers)
-		.where(eq(familyMembers.familyId, familyId))
-		.where(eq(familyMembers.userId, userId))
+		.where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)))
 		.limit(1);
 	return member?.role || null;
 }
@@ -116,7 +116,10 @@ export const actions: Actions = {
 			if (currentUserRole === 'member') return fail(403, { error: 'You do not have permission' });
 		}
 
-		await db.update(familyMembers).set({ role }).where(eq(familyMembers.familyId, familyId)).where(eq(familyMembers.userId, userId));
+		await db
+			.update(familyMembers)
+			.set({ role })
+			.where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)));
 		return { success: true };
 	},
 	updateFamily: async ({ request, params, locals }) => {

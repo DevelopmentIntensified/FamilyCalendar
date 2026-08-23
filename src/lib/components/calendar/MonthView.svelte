@@ -30,8 +30,8 @@
 	let dayOffset = 0;
 	if (preferedFirstDayOfWeek === 'monday') {
 		dayOffset = 1;
-		let firstDay = daysOfWeek.shift();
-		daysOfWeek.push(firstDay);
+		const firstDay = daysOfWeek.shift();
+		if (firstDay) daysOfWeek.push(firstDay);
 	}
 
 	$: year = $currentDate.year;

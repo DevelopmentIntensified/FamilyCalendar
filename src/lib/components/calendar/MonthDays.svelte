@@ -67,8 +67,8 @@
 {#each days as day}
 	{@const cellDate = currentDate.set({ day })}
 	{@const date = formatDate(cellDate)}
-	{@const dayEvents = events.filter((event) => formatDate(event.date) === date)}
-			{@const dayTasks = dueTasks.filter((t) => t.dueDate && formatDate(toDate(t.dueDate)) === date)}
+	{@const dayEvents = events.filter((event) => event.date && formatDate(event.date) === date)}
+	{@const dayTasks = dueTasks.filter((t) => t.dueDate && formatDate(toDate(t.dueDate)) === date)}
 	{@const isTodayDate = date === formatDate(today)}
 	{@const isOtherMonth = nextMonth || lastMonth}
 	<div

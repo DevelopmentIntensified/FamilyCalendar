@@ -18,16 +18,16 @@ export type ParsedDay<T> = T & { start: Date; end: Date | null; date: Date };
 export function parseEvents<T extends Record<string, any>>(
 	eventsData: T[]
 ): ParsedDay<T>[] {
-	return eventsData.flatMap((e) => {
+	return eventsData.flatMap((e): ParsedDay<T>[] => {
 		const startDate = new Date(e.start);
 		const endDate = e.end ? new Date(e.end) : null;
 
 		if (!endDate || startDate.getDate() === endDate.getDate()) {
-			return deriveEventProps(e, startDate, endDate);
+			return [deriveEventProps(e, startDate, endDate)];
 		}
 
 		const diffDays = Math.round(Math.abs((startDate.getTime() - endDate.getTime()) / oneDayMs));
-		const days = [];
+		const days: ParsedDay<T>[] = [];
 
 		for (let i = 0; i <= diffDays; i++) {
 			days.push(deriveEventProps(e, new Date(startDate.getTime() + oneDayMs * i), endDate));

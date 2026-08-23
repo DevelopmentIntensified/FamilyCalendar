@@ -17,13 +17,13 @@ const SESSION_LIFETIME_DAYS = 90;
 
 function createLucia() {
 	const adapter = new DrizzlePostgreSQLAdapter(db, sessions, users);
-	// NOTE: lucia 3.2.2 has no idle-period option; only expiresIn applies.
+	// NOTE: lucia 3.2.2 has no idle-period option, and it derives cookie
+	// maxAge from expiresIn itself.
 	return new Lucia(adapter, {
 		sessionExpiresIn: new TimeSpan(SESSION_LIFETIME_DAYS, 'd'),
 		sessionCookie: {
 			attributes: {
-				secure: process.env.NODE_ENV === 'production',
-				maxAge: 60 * 60 * 24 * SESSION_LIFETIME_DAYS
+				secure: process.env.NODE_ENV === 'production'
 			}
 		},
 		getUserAttributes: (attributes) => {
@@ -49,7 +49,7 @@ export const lucia = getLucia();
  */
 export function setSessionCookie(
 	cookies: Pick<Cookies, 'set'>,
-	sessionCookie: { name: string; value: string; attributes?: Record<string, unknown> }
+	sessionCookie: { name: string; value: string; attributes?: object }
 ) {
 	cookies.set(sessionCookie.name, sessionCookie.value, {
 		path: '/',
