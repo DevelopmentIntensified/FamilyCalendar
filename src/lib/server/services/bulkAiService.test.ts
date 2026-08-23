@@ -62,4 +62,16 @@ describe('parseBulkPlan', () => {
 	it('returns [] on invalid JSON', () => {
 		expect(parseBulkPlan('not json at all', IDS)).toEqual([]);
 	});
+
+	it('accepts delete ops and calendar moves', () => {
+		const content = JSON.stringify({
+			ops: [
+				{ id: 'evt-1', delete: true, title: 'ignored' },
+				{ id: 'evt-2', calendarId: 'cal-9-abcde' }
+			]
+		});
+		const ops = parseBulkPlan(content, [...IDS, 'cal-9-abcde']);
+		expect(ops[0]).toEqual({ id: 'evt-1', delete: true });
+		expect(ops[1].calendarId).toBe('cal-9-abcde');
+	});
 });

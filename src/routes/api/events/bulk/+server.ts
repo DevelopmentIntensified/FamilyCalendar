@@ -2,8 +2,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { DateTime } from 'luxon';
 import { db } from '$lib/server/db';
-import { events } from '$lib/server/db/schema';
-import { and, eq, inArray } from 'drizzle-orm';
+import { calendars, events, families, familyMembers } from '$lib/server/db/schema';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import {
 	updateEventById,
 	deleteEventById,
@@ -11,9 +11,10 @@ import {
 	getEventAttendance,
 	syncEventAttendants
 } from '$lib/server/db/actions/events';
-import { planBulkEdits, type BulkPlanOp } from '$lib/server/services/bulkAiService';
+import { planBulkEdits, parseBulkPlan, type BulkPlanOp } from '$lib/server/services/bulkAiService';
 import { llmConfigured } from '$lib/server/services/llm';
 import { toDateTime } from '$lib/server/utils/eventTimes';
+import { resolveMasterId } from '$lib/server/utils/eventIds';
 
 type BulkItem = { id: string; occurrenceDate?: string };
 
@@ -24,14 +25,29 @@ type BulkOp =
 	| { type: 'attendants'; add: string[] }
 	| { type: 'smart'; instruction: string };
 
-function resolveMasterId(rawId: string): string | null {
-	const master = String(rawId).split('~')[0].trim();
-	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(master) ? master : null;
-}
-
-async function applySmartOp(op: BulkPlanOp, userId: string): Promise<boolean> {
+async function applySmartOp(
+	op: BulkPlanOp,
+	userId: string,
+	allowedCalIds?: Set<string>
+): Promise<boolean> {
 	const ev = await getEvent(op.id);
 	if (!ev) return false;
+
+	const calendarId =
+		op.calendarId && allowedCalIds?.has(op.calendarId) ? op.calendarId : undefined;
+
+	if (
+		calendarId &&
+		!op.title &&
+		!op.date &&
+		!op.startTime &&
+		!op.endTime &&
+		!op.location &&
+		typeof op.allDay !== 'boolean'
+	) {
+		const moved = await updateEventById(op.id, { calendarId }, userId);
+		return !!moved;
+	}
 
 	const startDt = toDateTime(ev.start);
 	if (!startDt) return false;
@@ -58,7 +74,8 @@ async function applySmartOp(op: BulkPlanOp, userId: string): Promise<boolean> {
 			start,
 			end,
 			allDay,
-			location: op.location ?? ev.location
+			location: op.location ?? ev.location,
+			calendarId: calendarId ?? ev.calendarId
 		},
 		userId
 	);
@@ -147,28 +164,83 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			if (!instruction) return json({ error: 'instruction required' }, { status: 400 });
 			if (!llmConfigured()) return json({ error: 'AI features not configured' }, { status: 503 });
 
-			const rows = await db
-				.select({ id: events.id, title: events.title, start: events.start, location: events.location })
-				.from(events)
-				.where(inArray(events.id, ownedIds));
-			const summaries = rows.map((r) => {
-				const dt = toDateTime(r.start);
-				return {
-					id: r.id,
-					title: r.title,
-					start: (dt ?? DateTime.now()).toISO()!,
-					location: r.location
-				};
-			});
+			let rawOps: unknown[];
+			if (Array.isArray(body.plan)) {
+				// Phase 2: client echoes the reviewed plan - execute it exactly.
+				rawOps = body.plan;
+			} else {
+				const rows = await db
+					.select({ id: events.id, title: events.title, start: events.start, location: events.location })
+					.from(events)
+					.where(inArray(events.id, ownedIds));
+				const summaries = rows.map((r) => {
+					const dt = toDateTime(r.start);
+					return {
+						id: r.id,
+						title: r.title,
+						start: (dt ?? DateTime.now()).toISO()!,
+						location: r.location
+					};
+				});
 
-			const plan = await planBulkEdits(instruction, summaries, DateTime.now().toISODate()!);
-			if (plan.length === 0) {
-				return json({ error: 'AI returned no applicable changes' }, { status: 422 });
+				const [member] = await db
+					.select()
+					.from(familyMembers)
+					.where(eq(familyMembers.userId, userId));
+				const calWhere = member?.familyId
+					? or(eq(calendars.ownerId, userId), eq(calendars.familyId, member.familyId))
+					: eq(calendars.ownerId, userId);
+				const calRows = await db
+					.select({
+						id: calendars.id,
+						familyId: calendars.familyId,
+						familyName: families.name
+					})
+					.from(calendars)
+					.leftJoin(families, eq(calendars.familyId, families.id))
+					.where(calWhere);
+				const calRefs = calRows.map((c) => ({
+					id: c.id,
+					name: c.familyId ? c.familyName || 'Family Calendar' : 'Personal Calendar'
+				}));
+
+				rawOps = await planBulkEdits(instruction, summaries, DateTime.now().toISODate()!, calRefs);
+				if (rawOps.length === 0) {
+					return json(
+						{ error: 'AI could not match a change. Try naming a date or the events.' },
+						{ status: 422 }
+					);
+				}
+				if (body.dryRun) {
+					return json({ success: true, plan: rawOps });
+				}
 			}
+
+			// Re-validate whatever plan we have against owned ids only.
+			const plan = parseBulkPlan(JSON.stringify({ ops: rawOps }), ownedIds);
+			if (plan.length === 0) {
+				return json({ error: 'No valid changes in plan' }, { status: 422 });
+			}
+
+			const [member] = await db
+				.select()
+				.from(familyMembers)
+				.where(eq(familyMembers.userId, userId));
+			const calWhere = member?.familyId
+				? or(eq(calendars.ownerId, userId), eq(calendars.familyId, member.familyId))
+				: eq(calendars.ownerId, userId);
+			const allowedCalIds = new Set(
+				(await db.select({ id: calendars.id }).from(calendars).where(calWhere)).map((c) => c.id)
+			);
 
 			let applied = 0;
 			for (const planOp of plan) {
-				if (await applySmartOp(planOp, userId)) applied++;
+				if (planOp.delete) {
+					await deleteEventById(planOp.id, userId);
+					applied++;
+					continue;
+				}
+				if (await applySmartOp(planOp, userId, allowedCalIds)) applied++;
 			}
 			return json({ success: true, applied });
 		}

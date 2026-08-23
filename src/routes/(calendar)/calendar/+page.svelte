@@ -30,6 +30,7 @@
 		selectionMode = on;
 		selectedIds = [];
 		bulkError = '';
+		smartPlan = null;
 	}
 
 	function handleEscape(e: KeyboardEvent) {
@@ -68,6 +69,70 @@
 			}
 		} catch {
 			bulkError = 'Bulk edit failed';
+		} finally {
+			bulkBusy = false;
+		}
+	}
+
+	// Smart mode, phase 1: dry-run returns a plan; phase 2 echoes it for execution.
+	let smartPlan: { id: string; label: string }[] | null = null;
+
+	function describePlanOp(po: any): string {
+		const ev: any = allEvents.find((e: any) => (e.masterId || e.id) === po.id || e.id === po.id);
+		const name = ev?.title || po.title || 'Event';
+		if (po.delete) return `Delete "${name}"`;
+		const parts: string[] = [];
+		if (po.title && po.title !== ev?.title) parts.push(`rename to "${po.title}"`);
+		if (po.date) parts.push(`move to ${DateTime.fromISO(po.date).toFormat('ccc, MMM d')}`);
+		if (po.startTime) parts.push(`start ${po.startTime}`);
+		if (po.endTime) parts.push(`end ${po.endTime}`);
+		if (po.location) parts.push(`at ${po.location}`);
+		if (typeof po.allDay === 'boolean') parts.push(po.allDay ? 'all day' : 'timed');
+		if (po.calendarId) {
+			const cal = (data.calendarIds || []).find((c: any) => c.id === po.calendarId);
+			if (cal) parts.push(`→ ${cal.name}`);
+		}
+		return parts.length ? `${name}: ${parts.join(', ')}` : name;
+	}
+
+	async function runSmart() {
+		const instruction = bulkInstruction.trim();
+		if (!instruction || !selectedIds.length || bulkBusy) return;
+		bulkBusy = true;
+		bulkError = '';
+		try {
+			const res = await fetch('/api/events/bulk', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					ids: selectedIds.map((id) => ({ id })),
+					op: { type: 'smart', instruction },
+					dryRun: !smartPlan,
+					plan: smartPlan ?? undefined
+				})
+			});
+			const j = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				bulkError = j.error || 'Smart edit failed';
+				smartPlan = null;
+				return;
+			}
+			if (smartPlan) {
+				// Phase 2 applied server-side.
+				smartPlan = null;
+				selectedIds = [];
+				bulkInstruction = '';
+				await invalidateAll();
+			} else {
+				const plan: any[] = j.plan ?? [];
+				if (plan.length === 0) {
+					bulkError = 'AI found nothing to change';
+					return;
+				}
+				smartPlan = plan.map((po) => ({ id: po.id, label: describePlanOp(po) }));
+			}
+		} catch {
+			bulkError = 'Smart edit failed';
 		} finally {
 			bulkBusy = false;
 		}
@@ -205,6 +270,19 @@
 		role="toolbar"
 		aria-label="Bulk edit selected events"
 	>
+		{#if smartPlan}
+			<div class="mb-2 rounded-lg border border-purple-200 bg-purple-50/70 p-2.5">
+				<p class="mb-1 text-[10px] font-bold uppercase tracking-wide text-purple-700">
+					Planned changes — review, then apply
+				</p>
+				<ul class="max-h-28 space-y-0.5 overflow-y-auto text-xs text-slate-700">
+					{#each smartPlan as p (p.id)}
+						<li class="truncate">• {p.label}</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+
 		<div class="flex flex-wrap items-center gap-2">
 			<span class="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700">
 				{selectedIds.length} selected
@@ -263,34 +341,54 @@
 			</div>
 
 			<div class="ml-auto flex items-center gap-2">
-				<div class="flex items-center gap-1">
-					<input
-						type="text"
-						bind:value={bulkInstruction}
-						placeholder='e.g. "move all to next Friday"'
-						aria-label="Smart instruction"
-						class="w-44 rounded-lg border border-purple-200 bg-purple-50/40 px-2 py-1.5 text-xs placeholder:text-purple-300 disabled:opacity-50"
-						disabled={bulkBusy || selectedIds.length === 0}
-						onkeydown={(e) => e.key === 'Enter' && runBulk({ type: 'smart', instruction: bulkInstruction })}
-					/>
+				{#if smartPlan}
 					<button
 						type="button"
-						onclick={() => runBulk({ type: 'smart', instruction: bulkInstruction })}
-						disabled={bulkBusy || selectedIds.length === 0 || !bulkInstruction.trim()}
-						class="rounded-lg bg-purple-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
+						onclick={() => (smartPlan = null)}
+						disabled={bulkBusy}
+						class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
 					>
-						✨ Smart…
+						Discard
 					</button>
-				</div>
+					<button
+						type="button"
+						onclick={runSmart}
+						disabled={bulkBusy}
+						class="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
+					>
+						{bulkBusy ? 'Applying…' : `Apply ${smartPlan.length} change${smartPlan.length === 1 ? '' : 's'}`}
+					</button>
+				{:else}
+					<div class="flex items-center gap-1">
+						<input
+							type="text"
+							bind:value={bulkInstruction}
+							placeholder='e.g. "move all to next friday"'
+							aria-label="Smart instruction"
+							class="w-44 rounded-lg border border-purple-200 bg-purple-50/40 px-2 py-1.5 text-xs placeholder:text-purple-300 disabled:opacity-50"
+							disabled={bulkBusy || selectedIds.length === 0}
+							onkeydown={(e) => e.key === 'Enter' && runSmart()}
+						/>
+						<button
+							type="button"
+							onclick={runSmart}
+							disabled={bulkBusy || selectedIds.length === 0 || !bulkInstruction.trim()}
+							title="Rename, reschedule, relocate, move calendars or delete — previewed before anything applies"
+							class="rounded-lg bg-purple-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
+						>
+							✨ Smart…
+						</button>
+					</div>
 
-				<button
-					type="button"
-					onclick={() => runBulk({ type: 'delete' })}
-					disabled={bulkBusy || selectedIds.length === 0}
-					class="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
-				>
-					Delete
-				</button>
+					<button
+						type="button"
+						onclick={() => runBulk({ type: 'delete' })}
+						disabled={bulkBusy || selectedIds.length === 0}
+						class="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+					>
+						Delete
+					</button>
+				{/if}
 
 				<button
 					type="button"
