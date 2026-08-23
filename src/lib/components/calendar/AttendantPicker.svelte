@@ -8,7 +8,7 @@
 	 * via `toggle` so the caller's model stays authoritative.
 	 */
 	export let selected: string[] = [];
-	export let familyMembers: { userId: string; firstName: string; lastName: string; email: string }[] = [];
+	export let familyMembers: { userId: string; firstName?: string; lastName?: string; email: string }[] = [];
 	export let recent: string[] = [];
 
 	const dispatch = createEventDispatcher<{ toggle: string }>();
@@ -65,7 +65,9 @@
 				{@const member = familyMembers.find((m) => m.userId === att)}
 				{@const color = getContactColor(att)}
 				{@const initials = member ? getInitials(member.firstName, member.lastName) : getInitials(att)}
-				{@const displayName = member ? `${member.firstName} ${member.lastName}` : att}
+				{@const displayName = member
+					? [member.firstName, member.lastName].filter(Boolean).join(' ') || member.email
+					: att}
 				<span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 pr-3 text-sm">
 					<span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold"
 						style="background-color: {color.bg}; color: {color.text}">

@@ -147,6 +147,7 @@
 	// Handle event click from calendar views
 	async function handleEventClick(event: CustomEvent) {
 		selectedEvent = event.detail;
+		if (!selectedEvent) return;
 		// Occurrences share the series master's API identity.
 		const serverId = selectedEvent.masterId || selectedEvent.id;
 		// Fetch RSVP data for this event

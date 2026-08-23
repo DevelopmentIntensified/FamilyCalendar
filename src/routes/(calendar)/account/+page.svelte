@@ -116,7 +116,7 @@
 					{:else if form && !form.success}
 						<div class="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-800">
 							{form.message}
-							{#if form.guestNeedsClaim}
+							{#if 'guestNeedsClaim' in form && form.guestNeedsClaim}
 								<a href="/claim" class="ml-1 font-semibold underline">Open the save-your-calendar flow →</a>
 							{/if}
 						</div>

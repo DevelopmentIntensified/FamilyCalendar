@@ -49,7 +49,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.from(familyMembers)
 		.where(eq(familyMembers.userId, userId));
 
-	let familyCalendarEvents = [];
+	let familyCalendarEvents: (typeof events.$inferSelect)[] = [];
 	if (member?.familyId) {
 		const familyCalendars = await db
 			.select()

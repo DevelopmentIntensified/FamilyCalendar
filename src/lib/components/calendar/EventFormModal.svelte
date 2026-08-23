@@ -11,12 +11,12 @@
 	export let show = false;
 	export let event: Event | null = null;
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
-	export let familyMembers: { userId: string; firstName: string; lastName: string; email: string }[] = [];
+	export let familyMembers: { userId: string; firstName?: string; lastName?: string; email: string }[] = [];
 	export let rsvpData: { userId: string; status: string; firstName?: string; lastName?: string }[] = [];
 	export let userSettings: {
 		defaultCalendarId?: string | null;
-		autoParseEventDetails?: boolean;
-		useCloudAI?: boolean;
+		autoParseEventDetails?: boolean | null;
+		useCloudAI?: boolean | null;
 	} | null = null;
 	export let initialDate: string | undefined = undefined;
 

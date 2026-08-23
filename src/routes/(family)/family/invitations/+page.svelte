@@ -85,7 +85,7 @@
 				<div class="space-y-4">
 					{#each invitations as invite}
 						{@const isExpired = new Date(invite.expiresAt) < new Date()}
-						{@const isUsedUp = invite.maxUses !== null && invite.useCount >= invite.maxUses}
+						{@const isUsedUp = invite.maxUses !== null && (invite.useCount ?? 0) >= invite.maxUses}
 						{@const isActive = !isExpired && !isUsedUp}
 						{@const inviteUrl = origin + '/family/join/' + invite.code}
 						<div class="rounded-lg border border-slate-200 p-4 transition-colors hover:bg-slate-50">
