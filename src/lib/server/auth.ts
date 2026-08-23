@@ -1,5 +1,6 @@
 // src/lib/server/auth.ts
-import { Lucia, TimeSpan, type SessionCookieAttributesOptions } from 'lucia';
+import { Lucia, TimeSpan } from 'lucia';
+import type { Cookies } from '@sveltejs/kit';
 
 import { DrizzlePostgreSQLAdapter } from '@lucia-auth/adapter-drizzle';
 import { db } from '$lib/server/db';
@@ -12,28 +13,31 @@ declare module 'lucia' {
 	}
 }
 
-let luciaInstance: Lucia | null = null;
-
 const SESSION_LIFETIME_DAYS = 90;
 
-export function getLucia() {
-	if (luciaInstance) return luciaInstance;
-
+function createLucia() {
 	const adapter = new DrizzlePostgreSQLAdapter(db, sessions, users);
-	luciaInstance = new Lucia(adapter, {
+	// NOTE: lucia 3.2.2 has no idle-period option; only expiresIn applies.
+	return new Lucia(adapter, {
 		sessionExpiresIn: new TimeSpan(SESSION_LIFETIME_DAYS, 'd'),
-		idlePeriodExpiresIn: new TimeSpan(30, 'd'),
 		sessionCookie: {
 			attributes: {
 				secure: process.env.NODE_ENV === 'production',
 				maxAge: 60 * 60 * 24 * SESSION_LIFETIME_DAYS
-			} as SessionCookieAttributesOptions
+			}
 		},
 		getUserAttributes: (attributes) => {
 			return { ...attributes };
 		}
 	});
+}
 
+// Keep the concrete generic type: a bare `Lucia` annotation would erase
+// the user-attribute inference that hooks.server.ts relies on.
+let luciaInstance: ReturnType<typeof createLucia> | null = null;
+
+export function getLucia() {
+	if (!luciaInstance) luciaInstance = createLucia();
 	return luciaInstance;
 }
 
@@ -44,9 +48,7 @@ export const lucia = getLucia();
  * never drifts between call sites.
  */
 export function setSessionCookie(
-	cookies: {
-		set: (name: string, value: string, opts: Record<string, unknown>) => void;
-	},
+	cookies: Pick<Cookies, 'set'>,
 	sessionCookie: { name: string; value: string; attributes?: Record<string, unknown> }
 ) {
 	cookies.set(sessionCookie.name, sessionCookie.value, {

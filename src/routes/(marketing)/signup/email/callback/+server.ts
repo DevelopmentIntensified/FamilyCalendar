@@ -1,5 +1,5 @@
 import { parseJWT, validateJWT } from 'oslo/jwt';
-import type { RequestHandler } from '../../../../signup/email/callback/$types';
+import type { RequestHandler } from './$types';
 import { getUrl } from '$lib/utils/getUrl';
 import { EMAILSECRET } from '$env/static/private';
 import type { emailTokenPayloadType } from '../+server';

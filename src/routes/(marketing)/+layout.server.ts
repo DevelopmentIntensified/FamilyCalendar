@@ -1,6 +1,6 @@
 // +page.server.ts
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
-import type { LayoutServerLoad } from '../$types';
+import type { LayoutServerLoad } from './$types';
 import { ADAPTER } from '$env/static/private';
 
 export const prerender = ADAPTER === 'static';

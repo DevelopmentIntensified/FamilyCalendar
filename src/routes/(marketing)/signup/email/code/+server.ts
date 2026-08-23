@@ -1,4 +1,4 @@
-import type { RequestHandler } from '../../../../signup/email/code/$types';
+import type { RequestHandler } from './$types';
 import { getUrl } from '$lib/utils/getUrl';
 import { lucia } from '$lib/server/auth';
 import { accounts, users } from '$lib/server/db/schema';

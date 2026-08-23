@@ -8,6 +8,7 @@ import {
 	familyMembers
 } from '$lib/server/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
+import type { Cookies } from '@sveltejs/kit';
 import { lucia } from '$lib/server/auth';
 
 export const GUEST_MERGE_COOKIE = 'guest_merge';
@@ -17,11 +18,7 @@ export const GUEST_MERGE_COOKIE = 'guest_merge';
  * an Anonymous Account, stash its id in a short-lived cookie so the merge
  * prompt can fire once the user is authenticated.
  */
-export async function stashGuestFromCookies(cookies: {
-	get: (name: string) => string | undefined;
-	set: (name: string, value: string, opts?: Record<string, unknown>) => void;
-	delete: (name: string, opts?: Record<string, unknown>) => void;
-}) {
+export async function stashGuestFromCookies(cookies: Pick<Cookies, 'get' | 'set' | 'delete'>) {
 	try {
 		const sessionId = cookies.get(lucia.sessionCookieName);
 		if (!sessionId) return;
