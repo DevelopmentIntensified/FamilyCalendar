@@ -95,7 +95,9 @@
 </script>
 
 <div class="overflow-x-auto">
-	<div class="min-w-[700px]">
+	<!-- Mobile keeps a 700px scroll floor; desktop flexes to the container
+		so no side scrolling is ever needed. -->
+	<div class="min-w-[700px] md:min-w-0">
 	<!-- Week Header -->
 	<div class="grid grid-cols-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
 		<div class="w-14 shrink-0 border-r border-slate-200"></div>
