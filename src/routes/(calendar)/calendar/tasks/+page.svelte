@@ -7,6 +7,7 @@
 		type SmartEventCategory,
 		type SmartEventTemplate
 	} from '$lib/data/smartEventTemplates';
+	import { avatarColor } from '$lib/utils/avatarColor';
 
 	export let data: PageData;
 
@@ -166,8 +167,16 @@
 		}
 	}
 
-	$: openTasks = (data.tasks as TaskItem[]).filter((t) => !t.completedAt);
-	$: completedTasks = (data.tasks as TaskItem[]).filter((t) => t.completedAt);
+	// Optimistic toggle overrides applied on top of server data until the
+	// request resolves; referenced inline so $: picks up reassignment.
+	let completedOverride: Record<string, boolean> = {};
+	$: openTasks = (data.tasks as TaskItem[]).filter(
+		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === false
+	);
+	$: completedTasks = (data.tasks as TaskItem[]).filter(
+		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === true
+	);
+
 	// Baseline framing (time-tracker research): show completions vs recent
 	// activity, not streaks or leaderboards.
 	$: completedThisWeek = completedTasks.filter(
@@ -271,8 +280,12 @@
 	}
 
 	async function toggleTask(id: string) {
+		const task = (data.tasks as TaskItem[]).find((t) => t.id === id);
+		if (!task || busyId) return;
+		const completing = !(task.id in completedOverride ? completedOverride[task.id] : !!task.completedAt);
 		busyId = id;
 		actionError = '';
+		completedOverride = { ...completedOverride, [id]: completing };
 		try {
 			const res = await fetch(`/api/tasks/${id}`, {
 				method: 'PUT',
@@ -282,14 +295,33 @@
 			if (!res.ok) {
 				const j = await res.json().catch(() => ({}));
 				actionError = j.error || "That didn't work. Try again.";
+				clearOverride(id);
 			} else {
 				await invalidateAll();
+				clearOverride(id);
+				if (completing && task.recurrenceFrequency) celebrate(id);
 			}
 		} catch {
 			actionError = 'Network problem. Try again.';
+			clearOverride(id);
 		} finally {
 			busyId = null;
 		}
+	}
+
+	let celebratingId: string | null = null;
+	let celebrateTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function clearOverride(id: string) {
+		const { [id]: _dropped, ...rest } = completedOverride;
+		completedOverride = rest;
+	}
+
+	function celebrate(id: string) {
+		clearTimeout(celebrateTimer);
+		celebratingId = id;
+		if ('vibrate' in navigator) navigator.vibrate?.(15);
+		celebrateTimer = setTimeout(() => (celebratingId = null), 900);
 	}
 
 	async function deleteTask(id: string) {
@@ -410,7 +442,7 @@
 	<div class="space-y-1.5">
 		{#each openTasks as task (task.id)}
 			<div
-				class="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300"
+				class="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 {celebratingId === task.id ? 'celebrate' : ''}"
 			>
 				<button
 					type="button"
@@ -482,7 +514,7 @@
 							class="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-0.5 pr-2 text-xs font-medium text-slate-600"
 							title="Assigned to {memberName(task.assignedTo)}"
 						>
-							<span class="flex h-4 w-4 items-center justify-center rounded-full bg-primary-600 text-[9px] font-bold text-white">
+							<span class="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold {avatarColor(task.assignedTo)}">
 								{(task.assigneeFirstName?.[0] ?? memberName(task.assignedTo)[0] ?? '?').toUpperCase()}
 							</span>
 							{memberName(task.assignedTo).split(' ')[0]}
@@ -517,7 +549,7 @@
 		</h2>
 		<div class="space-y-1.5">
 			{#each completedTasks as task (task.id)}
-				<div class="group flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+				<div class="group flex items-center gap-3 rounded-xl bg-slate-50 p-3 {celebratingId === task.id ? 'celebrate' : ''}">
 					<button
 						type="button"
 						onclick={() => toggleTask(task.id)}
@@ -691,3 +723,22 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	@media (prefers-reduced-motion: no-preference) {
+		@keyframes pop {
+			0% {
+				transform: scale(1);
+			}
+			50% {
+				transform: scale(1.02);
+			}
+			100% {
+				transform: scale(1);
+			}
+		}
+		.celebrate {
+			animation: pop 0.45s ease;
+		}
+	}
+</style>

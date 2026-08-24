@@ -99,8 +99,7 @@
 			<svg class="mb-4 h-16 w-16 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 			</svg>
-			<p class="text-lg font-medium text-slate-700">Nothing scheduled this month</p>
-			<p class="text-sm text-slate-500">Create an event or task to get started</p>
+			<p class="max-w-xs text-lg font-medium text-slate-700">A whole month of nothing. Suspicious. Add something fun?</p>
 		</div>
 	{/if}
 

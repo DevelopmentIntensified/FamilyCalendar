@@ -3,6 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData, ActionData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import { avatarColor } from '$lib/utils/avatarColor';
 	export let data: PageData;
 	export let form: ActionData;
 	const { family, members, currentUserRole, currentUserId } = data;
@@ -140,7 +141,9 @@
 							>
 								<div class="flex items-center gap-3">
 									<div
-										class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 font-semibold text-primary-700"
+										class="flex h-10 w-10 items-center justify-center rounded-full font-semibold {avatarColor(
+											member.userId
+										)}"
 									>
 										{member.firstName?.[0] || member.email?.[0] || '?'}
 									</div>

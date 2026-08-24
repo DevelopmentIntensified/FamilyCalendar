@@ -66,10 +66,10 @@
 				await invalidateAll();
 			} else {
 				const j = await res.json().catch(() => ({}));
-				bulkError = j.error || 'Bulk edit failed';
+				bulkError = j.error || "Hmm, that didn't take. Try again.";
 			}
 		} catch {
-			bulkError = 'Bulk edit failed';
+			bulkError = "Hmm, that didn't take. Try again.";
 		} finally {
 			bulkBusy = false;
 		}
@@ -138,7 +138,7 @@
 			});
 			const j = await res.json().catch(() => ({}));
 			if (!res.ok) {
-				bulkError = j.error || 'Smart edit failed';
+				bulkError = j.error || "Hmm, that didn't take. Try again.";
 				smartPlan = null;
 				return;
 			}
@@ -160,7 +160,7 @@
 				};
 			}
 		} catch {
-			bulkError = 'Smart edit failed';
+			bulkError = "Hmm, that didn't take. Try again.";
 		} finally {
 			bulkBusy = false;
 		}

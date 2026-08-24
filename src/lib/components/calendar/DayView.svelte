@@ -171,8 +171,7 @@
 			<svg class="mb-4 h-14 w-14 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 			</svg>
-			<p class="text-lg font-medium text-slate-700">Nothing scheduled</p>
-			<p class="text-sm text-slate-500">Enjoy the free day</p>
+			<p class="max-w-xs text-lg font-medium text-slate-700">Nothing scheduled. A free day is a gift — or add something fun.</p>
 		</div>
 	{:else if dayEvents.length > 0}
 		<!-- Hour grid -->

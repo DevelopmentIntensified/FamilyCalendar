@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import { avatarColor } from '$lib/utils/avatarColor';
 
 	export let data: PageData;
 
@@ -269,7 +270,9 @@
 				class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
 			>
 				<span
-					class="flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white"
+					class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold {avatarColor(
+						group.member.userId
+					)}"
 				>
 					{group.member.firstName?.[0]?.toUpperCase() ?? '?'}
 				</span>

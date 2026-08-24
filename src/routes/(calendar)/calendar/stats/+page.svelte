@@ -10,7 +10,7 @@
 <div class="min-h-screen bg-slate-50 px-4 py-8 pt-20">
 	<div class="mx-auto max-w-4xl">
 		<h1 class="mb-1 text-2xl font-bold text-slate-900">Task Stats</h1>
-		<p class="mb-6 text-sm text-slate-500">Your completions, recurring load and assignment partners.</p>
+		<p class="mb-6 text-sm text-slate-500">Your wins, your recurring rhythms, and who keeps you busiest.</p>
 
 		<div class="mb-8 grid gap-4 sm:grid-cols-3">
 			<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -41,7 +41,7 @@
 							</span>
 						</li>
 					{:else}
-						<li class="text-sm text-slate-400">No one yet</li>
+						<li class="text-sm text-slate-400">No assignments yet — be the first to delegate.</li>
 					{/each}
 				</ul>
 			</section>
@@ -59,7 +59,7 @@
 							</span>
 						</li>
 					{:else}
-						<li class="text-sm text-slate-400">No one yet</li>
+						<li class="text-sm text-slate-400">You haven't delegated anything yet — share the load.</li>
 					{/each}
 				</ul>
 			</section>
@@ -85,7 +85,7 @@
 						</span>
 					</li>
 				{:else}
-					<li class="py-2 text-sm text-slate-400">Nothing completed yet</li>
+					<li class="py-2 text-sm text-slate-400">Nothing checked off yet — your first win awaits.</li>
 				{/each}
 			</ul>
 		</section>
