@@ -17,30 +17,48 @@
 	let inviting = false;
 	let inviteLink = '';
 	let generatingLink = false;
+	let searchedFor = '';
+	let searchTimer: ReturnType<typeof setTimeout> | undefined;
+	let searchRequestId = 0;
 
 	const searchUsers = async () => {
-		if (searchQuery.length < 2) {
+		const requestId = ++searchRequestId;
+		const query = searchQuery;
+		if (query.length < 2) {
 			searchResults = [];
+			searchedFor = '';
 			return;
 		}
 		searching = true;
 		try {
-			const res = await fetch(`/api/family/search?q=${encodeURIComponent(searchQuery)}&familyId=${data.familyId}`);
+			const res = await fetch(`/api/family/search?q=${encodeURIComponent(query)}&familyId=${data.familyId}`);
 			const json = await res.json().catch(() => ({}));
+			if (requestId !== searchRequestId) return;
 			if (json.users) {
 				searchResults = json.users;
+				searchedFor = query;
 			}
 		} catch {
+			if (requestId !== searchRequestId) return;
 			error = 'Network problem. Please try again.';
 		} finally {
-			searching = false;
+			if (requestId === searchRequestId) {
+				searching = false;
+			}
 		}
 	};
 
+	const handleSearchInput = () => {
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(searchUsers, 300);
+	};
+
 	const selectUser = (user: { id: string; firstName: string; lastName: string; email: string }) => {
+		clearTimeout(searchTimer);
 		selectedUser = user;
 		searchQuery = '';
 		searchResults = [];
+		searchedFor = '';
 	};
 
 	const addSelectedUser = async () => {
@@ -212,7 +230,7 @@
 								id="search"
 								placeholder="Type to search..."
 								bind:value={searchQuery}
-								on:input={searchUsers}
+								on:input={handleSearchInput}
 								class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 							/>
 						</div>
@@ -236,8 +254,10 @@
 											</div>
 										</button>
 									</li>
-								{/each}
-							</ul>
+							{/each}
+						</ul>
+						{:else if searchedFor && searchQuery === searchedFor}
+							<div class="py-4 text-center text-sm text-slate-400">No users found for '{searchedFor}'</div>
 						{/if}
 					{/if}
 				{:else}

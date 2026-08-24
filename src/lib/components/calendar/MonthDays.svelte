@@ -98,7 +98,7 @@
 				{#if !isOtherMonth}
 					<button
 						type="button"
-						class="pointer-events-auto flex h-5 w-5 items-center justify-center rounded text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
+						class="pointer-events-auto -m-1 flex h-5 w-5 items-center justify-center rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 sm:m-0 sm:p-0"
 						aria-label="Add on {date}"
 						title="Add on {date}"
 						onclick={(e) => { e.stopPropagation(); createAt(cellDate); }}
@@ -120,7 +120,7 @@
 					onclick={() => (selectionMode ? onToggleSelect(event) : handleEventClick(event))}
 					aria-pressed={selectionMode ? isSelected(event) : undefined}
 					title={selectionMode ? (isSelected(event) ? 'Deselect' : 'Select') : chipTooltip(event, calendars)}
-					class="flex w-full items-center gap-1 overflow-hidden rounded-md px-1 py-[3px] text-left text-[11px] font-medium leading-tight transition-colors {isAdEvent(event)
+					class="flex min-h-[26px] w-full items-center gap-1 overflow-hidden rounded-md px-1 py-[3px] text-left text-[11px] font-medium leading-tight transition-colors sm:min-h-0 {isAdEvent(event)
 						? 'border border-amber-300 bg-amber-100'
 						: 'bg-white hover:brightness-95'} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400' : ''}"
 					style={chipStyle(event)}
@@ -177,7 +177,7 @@
 					<button
 						type="button"
 						onclick={() => openDay(cellDate)}
-						class="rounded px-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-primary-600"
+						class="inline-flex min-h-[26px] items-center rounded px-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-primary-600 sm:min-h-0"
 					>
 						+{overflow} more
 					</button>

@@ -45,6 +45,7 @@
 	let bulkLocation = '';
 	let bulkAttendants = '';
 	let bulkInstruction = '';
+	let moreToolsOpen = false;
 
 	function setSelectionMode(on: boolean) {
 		selectionMode = on;
@@ -363,56 +364,58 @@
 				{selectedIds.length} selected
 			</span>
 
-			<select
-				onchange={applyBulkCalendar}
-				disabled={bulkBusy || selectedIds.length === 0}
-				aria-label="Move to calendar"
-				class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
-			>
-				<option value="">Calendar…</option>
-				{#each data.calendarIds || [] as c (c.id)}
-					<option value={c.id}>{c.name}</option>
-				{/each}
-			</select>
-
-			<div class="flex items-center gap-1">
-				<input
-					type="text"
-					bind:value={bulkLocation}
-					placeholder="Location…"
-					aria-label="Set location"
-					class="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-xs disabled:opacity-50"
+			<div class="flex flex-wrap items-center gap-2 {moreToolsOpen ? '' : 'hidden'} sm:contents">
+				<select
+					onchange={applyBulkCalendar}
 					disabled={bulkBusy || selectedIds.length === 0}
-					onkeydown={(e) => e.key === 'Enter' && runBulk({ type: 'location', location: bulkLocation })}
-				/>
-				<button
-					type="button"
-					onclick={() => runBulk({ type: 'location', location: bulkLocation })}
-					disabled={bulkBusy || selectedIds.length === 0 || !bulkLocation.trim()}
-					class="rounded-lg border border-slate-300 px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+					aria-label="Move to calendar"
+					class="rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs font-medium text-slate-700 disabled:opacity-50 sm:py-1.5"
 				>
-					Set
-				</button>
-			</div>
+					<option value="">Calendar…</option>
+					{#each data.calendarIds || [] as c (c.id)}
+						<option value={c.id}>{c.name}</option>
+					{/each}
+				</select>
 
-			<div class="flex items-center gap-1">
-				<input
-					type="text"
-					bind:value={bulkAttendants}
-					placeholder="+ Attendant…"
-					aria-label="Add attendant"
-					class="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-xs disabled:opacity-50"
-					disabled={bulkBusy || selectedIds.length === 0}
-					onkeydown={(e) => e.key === 'Enter' && runBulk({ type: 'attendants', add: [bulkAttendants] })}
-				/>
-				<button
-					type="button"
-					onclick={() => runBulk({ type: 'attendants', add: bulkAttendants.split(',').map((s) => s.trim()).filter(Boolean) })}
-					disabled={bulkBusy || selectedIds.length === 0 || !bulkAttendants.trim()}
-					class="rounded-lg border border-slate-300 px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-				>
-					Add
-				</button>
+				<div class="flex items-center gap-1">
+					<input
+						type="text"
+						bind:value={bulkLocation}
+						placeholder="Location…"
+						aria-label="Set location"
+						class="w-28 rounded-lg border border-slate-300 px-2 py-2 text-xs disabled:opacity-50 sm:py-1.5"
+						disabled={bulkBusy || selectedIds.length === 0}
+						onkeydown={(e) => e.key === 'Enter' && runBulk({ type: 'location', location: bulkLocation })}
+					/>
+					<button
+						type="button"
+						onclick={() => runBulk({ type: 'location', location: bulkLocation })}
+						disabled={bulkBusy || selectedIds.length === 0 || !bulkLocation.trim()}
+						class="rounded-lg border border-slate-300 px-2 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:py-1.5"
+					>
+						Set
+					</button>
+				</div>
+
+				<div class="flex items-center gap-1">
+					<input
+						type="text"
+						bind:value={bulkAttendants}
+						placeholder="+ Attendant…"
+						aria-label="Add attendant"
+						class="w-28 rounded-lg border border-slate-300 px-2 py-2 text-xs disabled:opacity-50 sm:py-1.5"
+						disabled={bulkBusy || selectedIds.length === 0}
+						onkeydown={(e) => e.key === 'Enter' && runBulk({ type: 'attendants', add: [bulkAttendants] })}
+					/>
+					<button
+						type="button"
+						onclick={() => runBulk({ type: 'attendants', add: bulkAttendants.split(',').map((s) => s.trim()).filter(Boolean) })}
+						disabled={bulkBusy || selectedIds.length === 0 || !bulkAttendants.trim()}
+						class="rounded-lg border border-slate-300 px-2 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:py-1.5"
+					>
+						Add
+					</button>
+				</div>
 			</div>
 
 			<div class="ml-auto flex items-center gap-2">
@@ -421,7 +424,7 @@
 						type="button"
 						onclick={() => (smartPlan = null)}
 						disabled={bulkBusy}
-						class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+						class="rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:py-1.5"
 					>
 						Discard
 					</button>
@@ -429,20 +432,20 @@
 						type="button"
 						onclick={runSmart}
 						disabled={bulkBusy}
-						class="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
+						class="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50 sm:py-1.5"
 					>
 						{bulkBusy
 							? 'Applying…'
 							: `Apply ${smartPlan.items.length} change${smartPlan.items.length === 1 ? '' : 's'}`}
 					</button>
 				{:else}
-					<div class="flex items-center gap-1">
+					<div class="flex items-center gap-1 {moreToolsOpen ? '' : 'hidden'} sm:contents">
 						<input
 							type="text"
 							bind:value={bulkInstruction}
 							placeholder='e.g. "move all to next friday"'
 							aria-label="Smart instruction"
-							class="w-44 rounded-lg border border-purple-200 bg-purple-50/40 px-2 py-1.5 text-xs placeholder:text-purple-300 disabled:opacity-50"
+							class="w-44 rounded-lg border border-purple-200 bg-purple-50/40 px-2 py-2 text-xs placeholder:text-purple-300 disabled:opacity-50 sm:py-1.5"
 							disabled={bulkBusy || selectedIds.length === 0}
 							onkeydown={(e) => e.key === 'Enter' && runSmart()}
 						/>
@@ -451,7 +454,7 @@
 							onclick={runSmart}
 							disabled={bulkBusy || selectedIds.length === 0 || !bulkInstruction.trim()}
 							title="Rename, reschedule, relocate, move calendars or delete — previewed before anything applies"
-							class="rounded-lg bg-purple-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
+							class="rounded-lg bg-purple-600 px-2.5 py-2 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50 sm:py-1.5"
 						>
 							✨ Smart…
 						</button>
@@ -461,7 +464,7 @@
 						type="button"
 						onclick={() => runBulk({ type: 'delete' })}
 						disabled={bulkBusy || selectedIds.length === 0}
-						class="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+						class="rounded-lg border border-red-200 px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 sm:py-1.5"
 					>
 						Delete
 					</button>
@@ -470,11 +473,20 @@
 				<button
 					type="button"
 					onclick={() => setSelectionMode(false)}
-					class="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-800"
+					class="rounded-lg px-2 py-2 text-xs font-medium text-slate-500 hover:text-slate-800 sm:py-1.5"
 				>
 					Done
 				</button>
 			</div>
+
+			<button
+				type="button"
+				onclick={() => (moreToolsOpen = !moreToolsOpen)}
+				aria-expanded={moreToolsOpen}
+				class="rounded-lg border border-slate-300 px-2 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 sm:hidden"
+			>
+				{moreToolsOpen ? 'Less tools' : 'More tools'}
+			</button>
 		</div>
 		{#if bulkError}
 			<div class="mt-2 flex items-center gap-2">

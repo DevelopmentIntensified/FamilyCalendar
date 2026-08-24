@@ -8,6 +8,7 @@
 		type SmartEventTemplate
 	} from '$lib/data/smartEventTemplates';
 	import { avatarColor } from '$lib/utils/avatarColor';
+	import { trapFocusAction } from '$lib/utils/focusTrap';
 
 	export let data: PageData;
 
@@ -597,6 +598,7 @@
 			role="dialog"
 			aria-modal="true"
 			aria-label="Edit task"
+			use:trapFocusAction
 		>
 			<div class="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
 				<h2 class="text-base font-semibold text-slate-900">Edit Task</h2>

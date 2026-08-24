@@ -70,6 +70,15 @@
 		});
 	}
 
+	let totalWeekItems = 0;
+	$: totalWeekItems =
+		events.length + dueTasks.length === 0
+			? 0
+			: weekDays.reduce(
+					(total, day) => total + getEventsForDay(day).length + getTasksForDay(day).length,
+					0
+				);
+
 	function isToday(day: DateTime): boolean {
 		return formatDate(day) === formatDate(today);
 	}
@@ -194,6 +203,14 @@
 					</div>
 				{/each}
 			</div>
+
+			{#if totalWeekItems === 0}
+				<div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+					<p class="rounded-xl bg-white/60 px-6 py-4 text-sm text-slate-400 backdrop-blur-sm">
+						Nothing this week — a blank week is full of options.
+					</p>
+				</div>
+			{/if}
 		</div>
 	</div>
 	</div>

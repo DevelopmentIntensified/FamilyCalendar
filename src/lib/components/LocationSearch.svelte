@@ -15,6 +15,8 @@
 	let searchTimer: ReturnType<typeof setTimeout>;
 	let loading = $state(false);
 	let abortController: AbortController | null = null;
+	let activeIndex = $state(-1);
+	const listboxId = $props.id();
 
 	function loadRecentLocations() {
 		if (typeof localStorage !== 'undefined') {
@@ -66,7 +68,7 @@
 		try {
 			const url = searchEndpoint 
 				? `${searchEndpoint}${encodeURIComponent(searchQuery)}`
-				: `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(searchQuery)}&limit=10`;
+				: `/api/location-search?q=${encodeURIComponent(searchQuery)}`;
 			
 			const res = await fetch(url, { signal: abortController.signal });
 			const data = await res.json();
@@ -74,11 +76,10 @@
 			if (searchEndpoint) {
 				suggestions = data.slice(0, 5);
 			} else {
-				suggestions = (data as any[])
-					.filter((item: any) => item.address?.house_number && item.address?.road)
-					.map((item: any) => item.display_name)
-					.slice(0, 5);
+				const results: { label: string }[] = data.results ?? [];
+				suggestions = results.map((r) => r.label).slice(0, 5);
 			}
+			activeIndex = -1;
 			
 			if (suggestions.length > 0) {
 				showDropdown = true;
@@ -100,6 +101,7 @@
 		if (value.length < 2) {
 			suggestions = [];
 			showDropdown = false;
+			activeIndex = -1;
 			return;
 		}
 		searchTimer = setTimeout(() => {
@@ -114,15 +116,41 @@
 	}
 
 	function handleBlur() {
-		setTimeout(() => {
+		showDropdown = false;
+		activeIndex = -1;
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
 			showDropdown = false;
-		}, 150);
+			activeIndex = -1;
+			return;
+		}
+		if (!showDropdown || suggestions.length === 0) return;
+
+		switch (event.key) {
+			case 'ArrowDown':
+				event.preventDefault();
+				activeIndex = activeIndex >= suggestions.length - 1 ? 0 : activeIndex + 1;
+				break;
+			case 'ArrowUp':
+				event.preventDefault();
+				activeIndex = activeIndex <= 0 ? suggestions.length - 1 : activeIndex - 1;
+				break;
+			case 'Enter':
+				if (activeIndex >= 0 && activeIndex < suggestions.length) {
+					event.preventDefault();
+					selectLocation(suggestions[activeIndex]);
+				}
+				break;
+		}
 	}
 
 	function selectLocation(location: string) {
 		value = location;
 		showDropdown = false;
 		suggestions = [];
+		activeIndex = -1;
 		saveLocation(location);
 	}
 
@@ -138,22 +166,32 @@
 		oninput={handleInput}
 		onfocus={handleFocus}
 		onblur={handleBlur}
+		onkeydown={handleKeydown}
 		{placeholder}
 		class={inputClass}
+		role="combobox"
+		aria-expanded={showDropdown}
+		aria-controls={listboxId}
+		autocomplete="off"
 	/>
 	
 	{#if showDropdown && (suggestions.length > 0 || recentLocations.length > 0)}
-		<div class="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-64 overflow-y-auto">
+		<div id={listboxId} role="listbox" class="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-64 overflow-y-auto">
 			{#if suggestions.length > 0}
 				<div class="p-1">
 					<div class="px-3 py-1 text-xs font-medium text-slate-500">
 						{loading ? 'Searching...' : 'Address Suggestions'}
 					</div>
-					{#each suggestions as suggestion}
+					{#each suggestions as suggestion, i}
 						<button 
 							type="button"
-							onclick={() => selectLocation(suggestion)}
-							class="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
+							role="option"
+							aria-selected={i === activeIndex}
+							onmousedown={(e) => {
+								e.preventDefault();
+								selectLocation(suggestion);
+							}}
+							class="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 {i === activeIndex ? 'bg-slate-50' : ''}"
 						>
 							<svg class="h-4 w-4 mt-0.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -170,7 +208,12 @@
 					{#each recentLocations as recent}
 						<button 
 							type="button"
-							onclick={() => selectLocation(recent)}
+							role="option"
+							aria-selected="false"
+							onmousedown={(e) => {
+								e.preventDefault();
+								selectLocation(recent);
+							}}
 							class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
 						>
 							<svg class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

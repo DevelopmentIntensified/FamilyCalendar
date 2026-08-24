@@ -3,6 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { Event } from '$lib/types';
 	import { toDate } from '$lib/utils/eventTime';
+	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { DateTime } from 'luxon';
 	import EventFormModal from './EventFormModal.svelte';
 
@@ -301,7 +302,7 @@
 				role="presentation"
 			></div>
 
-			<div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl overflow-x-hidden" role="dialog" aria-modal="true">
+			<div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl overflow-x-hidden" role="dialog" aria-modal="true" use:trapFocusAction>
 				<!-- Header -->
 				<div class="flex items-center justify-between border-b border-slate-100 p-6">
 					<div class="flex items-center gap-3 min-w-0 flex-1">

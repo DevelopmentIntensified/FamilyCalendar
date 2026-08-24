@@ -3,6 +3,7 @@
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import { getContactColor } from '$lib/utils/contactColors';
+	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import LocationSearch from '$lib/components/LocationSearch.svelte';
 	import { createEventForm } from './EventFormModel.svelte';
 	import ChecklistSection from './ChecklistSection.svelte';
@@ -297,6 +298,7 @@
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="modal-title"
+			use:trapFocusAction
 		>
 			<div class="sticky top-0 z-10 bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4">
 				<div class="flex items-center justify-between">
