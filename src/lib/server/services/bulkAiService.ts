@@ -63,43 +63,69 @@ export function resolveBulkDate(lower: string, today: DateTime): string | null {
 		if (dt.isValid) return dt.toISODate()!;
 	}
 
-	// Month-day: "aug 28", "august 28th", "sept 5, 2026"
+	// Month-day: "aug 28", "august 28th", "sept 5, 2026".
+	// Without an explicit year, stay in the current year (past dates are
+	// allowed, confirm-gated client-side); only roll to next year when
+	// the request lands in December for a non-December month.
 	const monthDay = lower.match(new RegExp(`\\b(${MONTH_ALT})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?\\b`));
 	if (monthDay) {
 		const month = MONTH_MAP[monthDay[1]];
 		const day = +monthDay[2];
 		let year = monthDay[3] ? +monthDay[3] : today.year;
-		if (!monthDay[3] && DateTime.fromObject({ year, month, day }) < today && month <= today.month) year += 1;
+		if (!monthDay[3] && today.month === 12 && month !== 12) year += 1;
 		const dt = DateTime.fromObject({ year, month, day });
 		if (dt.isValid) return dt.toISODate()!;
 	}
 
-	// Day-month: "28 aug", "21st of september"
+	// Day-month: "28 aug", "21st of september" (same year rule as above)
 	const dayMonth = lower.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_ALT})\\.?(?:,?\\s*(20\\d{2}))?\\b`));
 	if (dayMonth) {
 		const day = +dayMonth[1];
 		const month = MONTH_MAP[dayMonth[2]];
 		let year = dayMonth[3] ? +dayMonth[3] : today.year;
-		if (!dayMonth[3] && DateTime.fromObject({ year, month, day }) < today && month <= today.month) year += 1;
+		if (!dayMonth[3] && today.month === 12 && month !== 12) year += 1;
 		if (day >= 1 && day <= 31) {
 			const dt = DateTime.fromObject({ year, month, day });
 			if (dt.isValid) return dt.toISODate()!;
 		}
 	}
 
-	// "tomorrow" / "today"
+	// "yesterday" / "tomorrow" / "today" — past moves are allowed but the
+	// client asks for confirmation before applying them.
+	if (/\byesterday\b/.test(lower)) return today.minus({ days: 1 }).toISODate()!;
 	if (/\btomorrow\b/.test(lower)) return today.plus({ days: 1 }).toISODate()!;
 	if (/\btoday\b/.test(lower)) return today.toISODate()!;
 
-	// "next week" / "next month" — same position, one unit later
+	// "last week" / "last month" / "next week" / "next month"
+	if (/\blast week\b/.test(lower)) return today.minus({ weeks: 1 }).toISODate()!;
+	if (/\blast month\b/.test(lower)) return today.minus({ months: 1 }).toISODate()!;
 	if (/\bnext week\b/.test(lower)) return today.plus({ weeks: 1 }).toISODate()!;
 	if (/\bnext month\b/.test(lower)) return today.plus({ months: 1 }).toISODate()!;
+
+	// "last weekend" — the Saturday just gone
+	if (/\blast weekend\b/.test(lower)) {
+		let daysSinceSat = ((today.weekday % 7) - 6 + 7) % 7;
+		if (daysSinceSat === 0) daysSinceSat = 7;
+		return today.minus({ days: daysSinceSat }).toISODate()!;
+	}
 
 	// "this weekend" / "next weekend" / "weekend" -> upcoming Saturday
 	if (/\b(?:this|next)?\s*weekend\b/.test(lower)) {
 		let daysUntilSat = (6 - (today.weekday % 7) + 7) % 7;
 		if (daysUntilSat === 0) daysUntilSat = 7;
 		return today.plus({ days: daysUntilSat }).toISODate()!;
+	}
+
+	// "last <weekday>" — most recent past occurrence (1-7 days back).
+	// Must run before the generic weekday match, which would otherwise
+	// read "last friday" as a forward "friday".
+	const lastDayMatch = lower.match(new RegExp(`\\blast\\s+(${DAY_ALT})\\b`));
+	if (lastDayMatch) {
+		const target = DAY_MAP[lastDayMatch[1]];
+		const current = today.weekday % 7;
+		let daysSince = (current - target + 7) % 7;
+		if (daysSince === 0) daysSince = 7;
+		return today.minus({ days: daysSince }).toISODate()!;
 	}
 
 	// Weekday, optionally "next/this/on <day>": upcoming occurrence (1-7 days out)

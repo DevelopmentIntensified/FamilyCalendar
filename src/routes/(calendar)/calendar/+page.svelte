@@ -85,7 +85,10 @@
 		if (po.delete) return `Delete "${name}"`;
 		const parts: string[] = [];
 		if (po.title && po.title !== ev?.title) parts.push(`rename to "${po.title}"`);
-		if (po.date) parts.push(`move to ${DateTime.fromISO(po.date).toFormat('ccc, MMM d')}`);
+		if (po.date) {
+			const marker = isPastDate(po.date) ? ' (past)' : '';
+			parts.push(`move to ${DateTime.fromISO(po.date).toFormat('ccc, MMM d')}${marker}`);
+		}
 		if (po.startTime) parts.push(`start ${po.startTime}`);
 		if (po.endTime) parts.push(`end ${po.endTime}`);
 		if (po.location) parts.push(`at ${po.location}`);
@@ -97,9 +100,28 @@
 		return parts.length ? `${name}: ${parts.join(', ')}` : name;
 	}
 
+	function isPastDate(dateIso: string): boolean {
+		return DateTime.fromISO(dateIso) < DateTime.now().startOf('day');
+	}
+
+	function planMovesToPast(): boolean {
+		return !!smartPlan?.ops.some(
+			(op) => typeof op.date === 'string' && isPastDate(op.date)
+		);
+	}
+
 	async function runSmart() {
 		const instruction = bulkInstruction.trim();
 		if (!instruction || !selectedIds.length || bulkBusy) return;
+		// Moving events into the past is allowed, but confirm first.
+		if (smartPlan && planMovesToPast()) {
+			const pastCount = smartPlan.ops.filter(
+				(op) => typeof op.date === 'string' && isPastDate(op.date)
+			).length;
+			if (!confirm(`${pastCount} change${pastCount === 1 ? '' : 's'} move${pastCount === 1 ? 's' : ''} events to past dates. Apply anyway?`)) {
+				return;
+			}
+		}
 		bulkBusy = true;
 		bulkError = '';
 		try {

@@ -161,3 +161,37 @@ describe('timezone-sensitive bulk dates', () => {
 		expect(resolveBulkDate('move to friday', nyToday)).toBe('2026-08-28');
 	});
 });
+
+describe('past-date expressions', () => {
+	const SUN = DateTime.fromISO('2026-08-23T12:00:00'); // Sunday Aug 23
+
+	it('parses yesterday', () => {
+		expect(resolveBulkDate('move to yesterday', SUN)).toBe('2026-08-22');
+	});
+
+	it('parses last <weekday> as the most recent past occurrence', () => {
+		expect(resolveBulkDate('move to last friday', SUN)).toBe('2026-08-21');
+		expect(resolveBulkDate('move to last sunday', SUN)).toBe('2026-08-16');
+	});
+
+	it('parses last week and last weekend', () => {
+		expect(resolveBulkDate('move to last week', SUN)).toBe('2026-08-16');
+		// From a Sunday, the Saturday just gone is yesterday.
+		expect(resolveBulkDate('move to last weekend', SUN)).toBe('2026-08-22');
+	});
+
+	it('keeps bare month-day in the current year even when past', () => {
+		// Aug 11 is behind Aug 23 — still this year, confirm-gated client-side.
+		expect(resolveBulkDate('move to aug 11', SUN)).toBe('2026-08-11');
+	});
+
+	it('rolls to next year only from December', () => {
+		const dec15 = DateTime.fromISO('2026-12-15T12:00:00');
+		expect(resolveBulkDate('move to jan 5', dec15)).toBe('2027-01-05');
+		expect(resolveBulkDate('move to dec 20', dec15)).toBe('2026-12-20');
+	});
+
+	it('honors an explicit year over the rollover rule', () => {
+		expect(resolveBulkDate('move to jan 5, 2028', SUN)).toBe('2028-01-05');
+	});
+});
