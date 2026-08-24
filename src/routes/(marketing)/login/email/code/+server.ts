@@ -4,8 +4,16 @@ import { lucia } from '$lib/server/auth';
 import { deleteCode, deleteDeadCodes, getCode } from '$lib/server/db/actions/codes';
 import { getAccount } from '$lib/server/db/actions/accounts';
 import { getUserByEmail } from '$lib/server/db/actions/users';
+import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
 export const POST: RequestHandler = async function (event) {
+	if (!rateLimit(clientKey(event.request, 'verify-login-code'), 10, 15 * 60 * 1000)) {
+		return new Response(
+			JSON.stringify({ success: false, error: 'Too many attempts. Try again shortly.' }),
+			{ status: 429 }
+		);
+	}
+
 	const code = (await event.request.json()).code;
 
 	// Remember any anonymous session so its data can be merged after auth.

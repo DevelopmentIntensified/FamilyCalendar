@@ -2,9 +2,10 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createEvent } from '$lib/server/db/actions/events';
 import { db } from '$lib/server/db';
-import { calendars, events, familyMembers } from '$lib/server/db/schema';
+import { calendars, events } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
+import { getUserFamilyId } from '$lib/server/db/actions/families';
 
 const VALID_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
 
@@ -63,15 +64,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			const { getUserSettings } = await import('$lib/server/db/actions/userSettings');
 			const settings = await getUserSettings(userId);
 			if (settings?.syncEventsToFamilyCalendar) {
-				const [member] = await db
-					.select()
-					.from(familyMembers)
-					.where(eq(familyMembers.userId, userId));
-				if (member?.familyId) {
+				const memberFamilyId = await getUserFamilyId(userId);
+				if (memberFamilyId) {
 					const familyCals = await db
 						.select()
 						.from(calendars)
-						.where(eq(calendars.familyId, member.familyId));
+						.where(eq(calendars.familyId, memberFamilyId));
 					const familyCal = familyCals[0];
 					if (familyCal && familyCal.id !== calendarId) {
 						await createEvent(

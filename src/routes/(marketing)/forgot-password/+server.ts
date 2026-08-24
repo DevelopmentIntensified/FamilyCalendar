@@ -6,6 +6,7 @@ import { NOREPLYEMAIL, EMAILSECRET } from '$env/static/private';
 import { getUrl } from '$lib/utils/getUrl';
 import { createJWT } from 'oslo/jwt';
 import { TimeSpan } from 'lucia';
+import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -13,6 +14,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		if (!email) {
 			return json({ error: 'Email is required' }, { status: 400 });
+		}
+
+		if (!rateLimit(clientKey(request, `reset:${email.toLowerCase()}`), 5, 15 * 60 * 1000)) {
+			return json({ error: 'Too many attempts. Try again shortly.' }, { status: 429 });
 		}
 
 		const user = await getUserByEmail(email);

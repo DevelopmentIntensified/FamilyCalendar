@@ -4,6 +4,7 @@ import { parseEventInput, type ParsedEvent } from '$lib/server/services/naturalL
 import { chatJson, llmConfigured } from '$lib/server/services/llm';
 import { reportUnmatchedPhrase } from '$lib/server/db/actions/unmatchedPhrases';
 import { getUserZone } from '$lib/server/utils/userTimezone';
+import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
 // Below this the regex fallback likely missed the intent — log for the
 // parsing library so admins can add the pattern.
@@ -33,11 +34,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// Relative dates ("tomorrow", "next friday") resolve in the user's zone.
 	const zone = locals.user ? await getUserZone(locals.user.id) : undefined;
 
+	// Paid-LLM abuse guard: when over limit, skip cloud AI but still serve the
+	// local regex fallback below instead of hard-failing.
+	const cloudAllowed = rateLimit(clientKey(request, 'parse-event'), 20, 5 * 60 * 1000);
+
 	try {
 		let result: ParseOutcome = { parsed: null, confidence: 0, method: 'none' };
 
 		// 1. Cloud AI - default
-		if (useCloud && llmConfigured()) {
+		if (useCloud && cloudAllowed && llmConfigured()) {
 			const parsed = await chatJson(
 				PARSE_SYSTEM_PROMPT,
 				zone ? `${input}\n(The user's timezone is ${zone}.)` : input

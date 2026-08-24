@@ -1,6 +1,6 @@
-import { getUserFamilies, removeFamilyMember, updateFamilies } from '$lib/server/db/actions/families';
+import { getUserFamilies, getFamilyRoster, removeFamilyMember, updateFamilies } from '$lib/server/db/actions/families';
 import { db } from '$lib/server/db';
-import { families, familyMembers, users } from '$lib/server/db/schema';
+import { families, familyMembers } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { PageServerLoad, Actions } from './$types';
 import { fail } from '@sveltejs/kit';
@@ -29,17 +29,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			return { family: null, members: [], currentUserRole: null };
 		}
 
-		const members = await db
-			.select({
-				userId: familyMembers.userId,
-				firstName: users.firstName,
-				lastName: users.lastName,
-				email: users.email,
-				role: familyMembers.role
-			})
-			.from(familyMembers)
-			.innerJoin(users, eq(familyMembers.userId, users.id))
-			.where(eq(familyMembers.familyId, params.familyId));
+		const members = await getFamilyRoster(params.familyId);
 
 		return { family, members, currentUserRole: currentMember.role || 'member', currentUserId: locals.user.id };
 	} catch (error) {

@@ -1,8 +1,9 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
-import { events, calendars, familyMembers } from '$lib/server/db/schema';
+import { events, calendars } from '$lib/server/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
+import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { canViewArchive, getUserSubscriptionLimits } from '$lib/server/services/subscriptionService';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -44,17 +45,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.orderBy(events.start)
 		: [];
 
-	const [member] = await db
-		.select()
-		.from(familyMembers)
-		.where(eq(familyMembers.userId, userId));
+	const memberFamilyId = await getUserFamilyId(userId);
 
 	let familyCalendarEvents: (typeof events.$inferSelect)[] = [];
-	if (member?.familyId) {
+	if (memberFamilyId) {
 		const familyCalendars = await db
 			.select()
 			.from(calendars)
-			.where(eq(calendars.familyId, member.familyId));
+			.where(eq(calendars.familyId, memberFamilyId));
 
 		if (familyCalendars.length > 0) {
 			familyCalendarEvents = await db

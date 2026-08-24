@@ -3,8 +3,9 @@ import type { PageServerLoad } from './$types';
 import { getTasksForFamily, syncRecurringCursors } from '$lib/server/db/actions/tasks';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 import { db } from '$lib/server/db';
-import { families, familyMembers, users } from '$lib/server/db/schema';
+import { families, familyMembers } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
+import { getFamilyRoster } from '$lib/server/db/actions/families';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const [member] = await db
@@ -29,22 +30,18 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const [familyTasks, roster] = await Promise.all([
 		getTasksForFamily(params.familyId),
-		db
-			.select({
-				userId: users.id,
-				firstName: users.firstName,
-				lastName: users.lastName,
-				email: users.email
-			})
-			.from(familyMembers)
-			.innerJoin(users, eq(familyMembers.userId, users.id))
-			.where(eq(familyMembers.familyId, params.familyId))
+		getFamilyRoster(params.familyId)
 	]);
 
 	return {
 		family,
 		tasks: familyTasks,
-		members: roster,
+		members: roster.map(({ userId, firstName, lastName, email }) => ({
+			userId,
+			firstName,
+			lastName,
+			email
+		})),
 		currentUserId: locals.user.id
 	};
 };

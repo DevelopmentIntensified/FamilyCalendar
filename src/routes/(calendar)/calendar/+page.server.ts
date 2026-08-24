@@ -7,12 +7,11 @@ import {
 	calendars,
 	events,
 	families,
-	familyMembers,
-	users,
 	type CalendarEvent
 } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { createUserCalendar } from '$lib/server/db/actions/calendar';
+import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
 import { parseEvents, expandEventsForUser } from '$lib/server/services/eventDisplayService';
 import { getTasksForUser, syncRecurringCursors } from '$lib/server/db/actions/tasks';
@@ -52,12 +51,8 @@ export const load: PageServerLoad = async (event) => {
 			.orderBy(events.start);
 	}
 
-	const [member] = await db
-		.select()
-		.from(familyMembers)
-		.where(eq(familyMembers.userId, userId));
+	const familyId = await getUserFamilyId(userId);
 
-	let familyId = member?.familyId;
 	let familyEventsData: CalendarEvent[] = [];
 	let familyCalendarColor = '#e0ffff';
 	
@@ -84,19 +79,15 @@ export const load: PageServerLoad = async (event) => {
 				calendarIds.push({ id: familyCals[0].id, name: family?.name || 'Family Calendar', color: familyCalendarColor });
 			}
 			
-			const members = await db
-				.select({
-					id: familyMembers.userId,
-					name: users.firstName,
-					email: users.email,
-					userId: familyMembers.userId
-				})
-				.from(familyMembers)
-				.innerJoin(users, eq(familyMembers.userId, users.id))
-				.where(eq(familyMembers.familyId, familyId));
+			const members = await getFamilyRoster(familyId);
 
 			// Anonymous members have no email yet — render as blank.
-			familyMembersList = (members || []).map((m) => ({ ...m, email: m.email ?? '' }));
+			familyMembersList = members.map((m) => ({
+				id: m.userId,
+				name: m.firstName,
+				email: m.email ?? '',
+				userId: m.userId
+			}));
 		}
 	} catch (e) {
 		console.error('Error fetching family members:', e);
@@ -114,8 +105,8 @@ export const load: PageServerLoad = async (event) => {
 
 	// Open tasks with due dates render as distinct chips on month-view days.
 	// Overdue Recurring Tasks first stick to today (cursor v3).
-	await syncRecurringCursors(userId, member?.familyId ?? null, await getUserZone(userId));
-	const allTasks = await getTasksForUser(userId, member?.familyId ?? null);
+	await syncRecurringCursors(userId, familyId, await getUserZone(userId));
+	const allTasks = await getTasksForUser(userId, familyId);
 	const dueTasks = allTasks
 		.filter((t) => t.dueDate && !t.completedAt)
 		.map((t) => ({

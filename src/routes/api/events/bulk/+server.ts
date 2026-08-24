@@ -2,8 +2,9 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { DateTime } from 'luxon';
 import { db } from '$lib/server/db';
-import { calendars, events, families, familyMembers, eventAttendance } from '$lib/server/db/schema';
+import { calendars, events, families, eventAttendance } from '$lib/server/db/schema';
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { getUserFamilyId } from '$lib/server/db/actions/families';
 import {
 	updateEventById,
 	deleteEventInScope,
@@ -109,12 +110,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	// Editable = events the caller owns OR events on a calendar they can
 	// see (personal or their family's) — mirrors the calendar read scope.
-	const [member] = await db
-		.select()
-		.from(familyMembers)
-		.where(eq(familyMembers.userId, userId));
-	const calWhere = member?.familyId
-		? or(eq(calendars.ownerId, userId), eq(calendars.familyId, member.familyId))
+	const memberFamilyId = await getUserFamilyId(userId);
+	const calWhere = memberFamilyId
+		? or(eq(calendars.ownerId, userId), eq(calendars.familyId, memberFamilyId))
 		: eq(calendars.ownerId, userId);
 	const accessibleCalIds = (
 		await db.select({ id: calendars.id }).from(calendars).where(calWhere)

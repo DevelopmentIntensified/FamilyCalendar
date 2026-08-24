@@ -4,8 +4,7 @@ import {
 	events,
 	sessions,
 	tasks,
-	users,
-	familyMembers
+	users
 } from '$lib/server/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import type { Cookies } from '@sveltejs/kit';
@@ -102,13 +101,4 @@ export async function mergeGuestIntoUser(guestId: string, targetUserId: string):
 export async function isClaimableGuest(guestId: string): Promise<boolean> {
 	const guest = await getAnonymousUser(guestId);
 	return !!guest;
-}
-
-/** Family membership check helper reused by prompts. */
-export async function getUserFamilyId(userId: string): Promise<string | null> {
-	const [member] = await db
-		.select({ familyId: familyMembers.familyId })
-		.from(familyMembers)
-		.where(eq(familyMembers.userId, userId));
-	return member?.familyId ?? null;
 }

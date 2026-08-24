@@ -196,6 +196,53 @@ export async function updateTask(
 	return updated;
 }
 
+/**
+ * Completing a Recurring Task rolls the cursor onto the next
+ * scheduled occurrence instead of closing it out.
+ */
+async function advanceRecurringTask(task: Task, zone?: string): Promise<Task | undefined> {
+	if (!task.completedAt || !task.recurrenceFrequency) return undefined;
+	const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
+	const next = advanceCursor(
+		task.dueDate,
+		task.recurrenceFrequency,
+		task.recurrenceInterval ?? 1,
+		nowIso
+	);
+	// Optimistic guard: a second rapid click must not advance the
+	// cursor again or lose the completionCount increment.
+	const guard = [eq(tasks.id, task.id)];
+	if (task.dueDate !== null) guard.push(eq(tasks.dueDate, task.dueDate));
+	const [advanced] = await db
+		.update(tasks)
+		.set({ dueDate: next, completionCount: sql`${tasks.completionCount} + 1` })
+		.where(and(...guard))
+		.returning();
+	if (advanced) return advanced;
+	const [fresh] = await db.select().from(tasks).where(eq(tasks.id, task.id));
+	return fresh;
+}
+
+/**
+ * Double-click protection: only complete when still open, only
+ * un-complete when still completed.
+ */
+async function toggleCompletion(task: Task): Promise<Task> {
+	const id = task.id;
+	const completing = !task.completedAt;
+	const guard = [eq(tasks.id, id)];
+	if (completing) guard.push(isNull(tasks.completedAt));
+	else if (task.completedAt !== null) guard.push(eq(tasks.completedAt, task.completedAt));
+	const [updated] = await db
+		.update(tasks)
+		.set({ completedAt: completing ? new Date().toISOString() : null })
+		.where(and(...guard))
+		.returning();
+	if (updated) return updated;
+	const [fresh] = await db.select().from(tasks).where(eq(tasks.id, id));
+	return fresh;
+}
+
 export async function toggleTaskComplete(
 	id: string,
 	userId: string,
@@ -211,41 +258,9 @@ export async function toggleTaskComplete(
 	// Completing a Recurring Task rolls the cursor onto the next
 	// scheduled occurrence instead of closing it out.
 	if (!task.completedAt && task.recurrenceFrequency) {
-		const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
-		const next = advanceCursor(
-			task.dueDate,
-			task.recurrenceFrequency,
-			task.recurrenceInterval ?? 1,
-			nowIso
-		);
-		// Optimistic guard: a second rapid click must not advance the
-		// cursor again or lose the completionCount increment.
-		const guard = [eq(tasks.id, id)];
-		if (task.dueDate !== null) guard.push(eq(tasks.dueDate, task.dueDate));
-		const [advanced] = await db
-			.update(tasks)
-			.set({ dueDate: next, completionCount: sql`${tasks.completionCount} + 1` })
-			.where(and(...guard))
-			.returning();
-		if (advanced) return advanced;
-		const [fresh] = await db.select().from(tasks).where(eq(tasks.id, id));
-		return fresh;
+		return advanceRecurringTask(task, zone);
 	}
-
-	// Double-click protection: only complete when still open, only
-	// un-complete when still completed.
-	const completing = !task.completedAt;
-	const guard = [eq(tasks.id, id)];
-	if (completing) guard.push(isNull(tasks.completedAt));
-	else if (task.completedAt !== null) guard.push(eq(tasks.completedAt, task.completedAt));
-	const [updated] = await db
-		.update(tasks)
-		.set({ completedAt: completing ? new Date().toISOString() : null })
-		.where(and(...guard))
-		.returning();
-	if (updated) return updated;
-	const [fresh] = await db.select().from(tasks).where(eq(tasks.id, id));
-	return fresh;
+	return toggleCompletion(task);
 }
 
 export async function deleteTask(id: string, userId: string) {
@@ -265,41 +280,9 @@ export async function toggleTaskCompleteFamily(
 	if (!task) return undefined;
 
 	if (!task.completedAt && task.recurrenceFrequency) {
-		const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
-		const next = advanceCursor(
-			task.dueDate,
-			task.recurrenceFrequency,
-			task.recurrenceInterval ?? 1,
-			nowIso
-		);
-		// Optimistic guard: a second rapid click must not advance the
-		// cursor again or lose the completionCount increment.
-		const guard = [eq(tasks.id, id)];
-		if (task.dueDate !== null) guard.push(eq(tasks.dueDate, task.dueDate));
-		const [advanced] = await db
-			.update(tasks)
-			.set({ dueDate: next, completionCount: sql`${tasks.completionCount} + 1` })
-			.where(and(...guard))
-			.returning();
-		if (advanced) return advanced;
-		const [fresh] = await db.select().from(tasks).where(eq(tasks.id, id));
-		return fresh;
+		return advanceRecurringTask(task, zone);
 	}
-
-	// Double-click protection: only complete when still open, only
-	// un-complete when still completed.
-	const completing = !task.completedAt;
-	const guard = [eq(tasks.id, id)];
-	if (completing) guard.push(isNull(tasks.completedAt));
-	else if (task.completedAt !== null) guard.push(eq(tasks.completedAt, task.completedAt));
-	const [updated] = await db
-		.update(tasks)
-		.set({ completedAt: completing ? new Date().toISOString() : null })
-		.where(and(...guard))
-		.returning();
-	if (updated) return updated;
-	const [fresh] = await db.select().from(tasks).where(eq(tasks.id, id));
-	return fresh;
+	return toggleCompletion(task);
 }
 
 /** Family-scoped assignment responses (accept/decline/release). */

@@ -6,8 +6,16 @@ import { db } from '$lib/server/db/';
 import { eq } from 'drizzle-orm';
 import { deleteCode, deleteDeadCodes, getCode } from '$lib/server/db/actions/codes';
 import { createNewUser } from '$lib/server/utils/createNewUser';
+import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
 export const POST: RequestHandler = async function (event) {
+	if (!rateLimit(clientKey(event.request, 'verify-signup-code'), 10, 15 * 60 * 1000)) {
+		return new Response(
+			JSON.stringify({ success: false, error: 'Too many attempts. Try again shortly.' }),
+			{ status: 429 }
+		);
+	}
+
 	// Remember any anonymous session so its data can be merged after auth.
 	const { stashGuestFromCookies } = await import('$lib/server/services/guestMergeService');
 	await stashGuestFromCookies(event.cookies);

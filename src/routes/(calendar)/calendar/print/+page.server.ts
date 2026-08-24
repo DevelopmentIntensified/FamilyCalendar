@@ -2,8 +2,9 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { DateTime } from 'luxon';
 import { db } from '$lib/server/db';
-import { calendars, events, families, familyMembers } from '$lib/server/db/schema';
+import { calendars, events, families } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { parseEvents, expandEventsForUser } from '$lib/server/services/eventDisplayService';
@@ -37,9 +38,9 @@ export const load: PageServerLoad = async (event) => {
 
 	let familyColor = '#e0ffff';
 	let familyName: string | null = null;
-	const [member] = await db.select().from(familyMembers).where(eq(familyMembers.userId, userId));
-	if (member?.familyId) {
-		const [family] = await db.select().from(families).where(eq(families.id, member.familyId));
+	const memberFamilyId = await getUserFamilyId(userId);
+	if (memberFamilyId) {
+		const [family] = await db.select().from(families).where(eq(families.id, memberFamilyId));
 		familyName = family?.name ?? null;
 		familyColor = family?.color || familyColor;
 	}
@@ -50,8 +51,8 @@ export const load: PageServerLoad = async (event) => {
 
 	// Family events appear on the fridge too.
 	let familyRawEvents: typeof rawEvents = [];
-	if (member?.familyId) {
-		const famCals = await db.select().from(calendars).where(eq(calendars.familyId, member.familyId));
+	if (memberFamilyId) {
+		const famCals = await db.select().from(calendars).where(eq(calendars.familyId, memberFamilyId));
 		if (famCals.length > 0) {
 			familyRawEvents = await db
 				.select()

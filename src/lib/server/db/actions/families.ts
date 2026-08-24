@@ -136,6 +136,32 @@ export async function acceptInvite(userId: string, code: string): Promise<boolea
 	return true;
 }
 
+/** The user's family id, or null. Single-membership assumption. */
+export async function getUserFamilyId(userId: string): Promise<string | null> {
+	const [member] = await db
+		.select({ familyId: familyMembers.familyId })
+		.from(familyMembers)
+		.where(eq(familyMembers.userId, userId));
+	return member?.familyId ?? null;
+}
+
+/** Full roster of a family with user info. Canonical shape. */
+export async function getFamilyRoster(
+	familyId: string
+): Promise<{ userId: string; firstName: string; lastName: string; email: string | null; role: string | null }[]> {
+	return await db
+		.select({
+			userId: familyMembers.userId,
+			firstName: users.firstName,
+			lastName: users.lastName,
+			email: users.email,
+			role: familyMembers.role
+		})
+		.from(familyMembers)
+		.innerJoin(users, eq(familyMembers.userId, users.id))
+		.where(eq(familyMembers.familyId, familyId));
+}
+
 export async function getFamilyInviteCodes(familyId: string) {
 	return await db
 		.select()

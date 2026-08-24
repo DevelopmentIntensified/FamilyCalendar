@@ -27,7 +27,11 @@ export async function chatJson(system: string, user: string): Promise<Record<str
 				response_format: { type: 'json_object' }
 			})
 		});
-		if (!res.ok) return null;
+		if (!res.ok) {
+			const text = await res.text().then(t => t.slice(0, 200)).catch(() => '');
+			console.error('[llm] request failed:', res.status, text);
+			return null;
+		}
 
 		const data = await res.json();
 		const content = data.choices?.[0]?.message?.content;

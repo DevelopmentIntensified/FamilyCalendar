@@ -1,5 +1,12 @@
 import { DateTime } from 'luxon';
 import nlp from 'compromise';
+import {
+	applyPeriod,
+	DAY_MAP,
+	MONTH_ALT,
+	MONTH_MAP,
+	normalizeTime
+} from '$lib/server/utils/dateParsing';
 
 export interface ParsedEvent {
 	title: string;
@@ -19,22 +26,6 @@ export interface ParseResult {
 	confidence: number;
 }
 
-const MONTH_MAP: Record<string, number> = {
-	january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
-	july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
-	// Common abbreviations
-	jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8,
-	sept: 9, sep: 9, oct: 10, nov: 11, dec: 12
-};
-
-// Longest-first so "september" wins over "sep", "june" over "jun", etc.
-const MONTH_ALT = 'january|february|september|december|november|october|august|april|march|june|july|may|sept|jan|feb|mar|apr|aug|sep|oct|nov|dec';
-
-const DAY_MAP: Record<string, number> = {
-	sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
-	thursday: 4, friday: 5, saturday: 6
-};
-
 const ORDINAL_WORD_MAP: Record<string, number> = {
 	first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10,
 	eleventh: 11, twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15, sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19,
@@ -45,17 +36,6 @@ const ORDINAL_WORD_MAP: Record<string, number> = {
 };
 
 const ORDINAL_WORDS_PATTERN = '(?:twenty-(?:first|second|third|fifth|sixth|seventh|eighth|ninth)|thirty-first|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twentyfourth|twentyfifth|twentysixth|twentyseventh|twentyeighth|twentyninth|thirtieth|thirtyfirst)';
-
-function normalizeTime(hour: number, minute: number = 0): string {
-	return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-}
-
-function applyPeriod(hour: number, period?: string): number {
-	const p = period?.toLowerCase();
-	if (p === 'pm' && hour < 12) return hour + 12;
-	if (p === 'am' && hour === 12) return 0;
-	return hour;
-}
 
 function parseDayOfWeek(day: string): number | null {
 	return DAY_MAP[day.toLowerCase()] ?? null;

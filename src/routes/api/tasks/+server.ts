@@ -10,6 +10,7 @@ import { db } from '$lib/server/db';
 import { events, familyMembers } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
+import { getUserFamilyId } from '$lib/server/db/actions/families';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
 	if (!locals.user) {
@@ -35,12 +36,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		return json({ tasks: eventTasks });
 	}
 
-	const [member] = await db
-		.select()
-		.from(familyMembers)
-		.where(eq(familyMembers.userId, locals.user.id));
-
-	const userTasks = await getTasksForUser(locals.user.id, member?.familyId ?? null);
+	const userTasks = await getTasksForUser(locals.user.id, await getUserFamilyId(locals.user.id));
 	return json({ tasks: userTasks });
 };
 
@@ -57,11 +53,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
 		let familyId: string | null = null;
 		if (body.familyId === undefined) {
-			const [member] = await db
-				.select()
-				.from(familyMembers)
-				.where(eq(familyMembers.userId, locals.user.id));
-			familyId = member?.familyId ?? null;
+			familyId = await getUserFamilyId(locals.user.id);
 		} else if (body.familyId !== null) {
 			const [member] = await db
 				.select()

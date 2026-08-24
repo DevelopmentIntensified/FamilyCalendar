@@ -2,8 +2,9 @@ import { getUser, updateUser } from '$lib/server/db/actions/users';
 import { getUserSettings, updateUserSettings } from '$lib/server/db/actions/userSettings';
 import { lucia } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { sessions, calendars, families, familyMembers, userAdConsent } from '$lib/server/db/schema';
+import { sessions, calendars, families, userAdConsent } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { sendEmail } from '$lib/utils/sendEmail';
@@ -29,10 +30,10 @@ export const load: PageServerLoad = async (event) => {
 		color: userSettings?.color || undefined
 	}));
 
-	const [member] = await db.select().from(familyMembers).where(eq(familyMembers.userId, userId));
-	if (member) {
-		const familyCals = await db.select().from(calendars).where(eq(calendars.familyId, member.familyId));
-		const [family] = await db.select().from(families).where(eq(families.id, member.familyId));
+	const memberFamilyId = await getUserFamilyId(userId);
+	if (memberFamilyId) {
+		const familyCals = await db.select().from(calendars).where(eq(calendars.familyId, memberFamilyId));
+		const [family] = await db.select().from(families).where(eq(families.id, memberFamilyId));
 		for (const fc of familyCals) {
 			calendarList.push({ id: fc.id, name: family?.name || 'Family Calendar' });
 		}

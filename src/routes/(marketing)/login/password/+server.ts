@@ -4,6 +4,7 @@ import { getUserByEmail } from '$lib/server/db/actions/users';
 import { verifyPassword } from '$lib/server/utils/password';
 import { lucia, setSessionCookie } from '$lib/server/auth';
 import { getUserSettings, createUserSettings } from '$lib/server/db/actions/userSettings';
+import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	// Remember any anonymous session so its data can be merged after auth.
@@ -15,6 +16,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		if (!email || !password) {
 			return json({ error: 'Email and password are required' }, { status: 400 });
+		}
+
+		if (!rateLimit(clientKey(request, `pw-login:${email.toLowerCase()}`), 10, 5 * 60 * 1000)) {
+			return json({ error: 'Too many attempts. Try again shortly.' }, { status: 429 });
 		}
 
 		const user = await getUserByEmail(email);

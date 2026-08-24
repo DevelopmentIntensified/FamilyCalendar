@@ -8,6 +8,7 @@ import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { createCode } from '$lib/server/db/actions/codes';
 import { getAccount } from '$lib/server/db/actions/accounts';
 import { getUserByEmail } from '$lib/server/db/actions/users';
+import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
 export type emailTokenPayloadType = {
 	email: string;
@@ -30,6 +31,13 @@ export const POST = async (event: RequestEvent) => {
 		return new Response(
 			JSON.stringify({ success: false, error: 'First and last name are required' }),
 			{ status: 400 }
+		);
+	}
+
+	if (!rateLimit(clientKey(event.request, `signup-code:${email.toLowerCase()}`), 5, 15 * 60 * 1000)) {
+		return new Response(
+			JSON.stringify({ success: false, error: 'Too many attempts. Try again shortly.' }),
+			{ status: 429 }
 		);
 	}
 

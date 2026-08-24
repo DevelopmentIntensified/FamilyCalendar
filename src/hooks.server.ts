@@ -1,5 +1,6 @@
 import { lucia, setSessionCookie } from '$lib/server/auth';
 import { redirect, type Handle } from '@sveltejs/kit';
+import { sequence } from '@sveltejs/kit/hooks';
 import { createAnonymousUser, touchLastActiveAt } from '$lib/server/db/actions/users';
 
 const adminProtectedRoutes = ['admin'];
@@ -21,7 +22,7 @@ function isAdminRoute(pathname: string): boolean {
 	return matchesRoute(pathname, adminProtectedRoutes);
 }
 
-export const handle: Handle = async ({ event, resolve }) => {
+const sessionHandle: Handle = async ({ event, resolve }) => {
 	const sessionId = event.cookies.get(lucia.sessionCookieName);
 	if (!sessionId) {
 		event.locals.user = null;
@@ -76,6 +77,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 	return resolve(event);
 };
+
+// Security headers on every response. No CSP here on purpose — inline scripts
+// would break; that's a separate task.
+const securityHeaders: Handle = async ({ event, resolve }) => {
+	const res = await resolve(event);
+	res.headers.set('X-Frame-Options', 'DENY');
+	res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+	res.headers.set('X-Content-Type-Options', 'nosniff');
+	res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+	return res;
+};
+
+export const handle = sequence(securityHeaders, sessionHandle);
 
 // Expected 404s (bot probes like /xmlrpc.php, mistyped URLs) shouldn't
 // spam the logs with stack traces — the styled error page still renders.

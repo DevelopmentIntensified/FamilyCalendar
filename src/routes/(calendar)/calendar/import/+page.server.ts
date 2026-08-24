@@ -1,8 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
-import { calendars, events, familyMembers } from '$lib/server/db/schema';
+import { calendars, events } from '$lib/server/db/schema';
 import { eq, and, or } from 'drizzle-orm';
+import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { parseIcs } from '$lib/server/services/icsImportService';
 import { createEvent } from '$lib/server/db/actions/events';
 
@@ -14,9 +15,9 @@ export const load: PageServerLoad = async (event) => {
 	const userCals = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
 	let list = userCals.map((c) => ({ id: c.id, name: 'Personal Calendar' }));
 
-	const [member] = await db.select().from(familyMembers).where(eq(familyMembers.userId, userId));
-	if (member?.familyId) {
-		const famCals = await db.select().from(calendars).where(eq(calendars.familyId, member.familyId));
+	const memberFamilyId = await getUserFamilyId(userId);
+	if (memberFamilyId) {
+		const famCals = await db.select().from(calendars).where(eq(calendars.familyId, memberFamilyId));
 		list = [...list, ...famCals.map((c) => ({ id: c.id, name: 'Family Calendar' }))];
 	}
 
@@ -43,15 +44,15 @@ export const actions: Actions = {
 		}
 
 		// Ownership check: calendar must belong to the user or their family.
-		const [member] = await db.select().from(familyMembers).where(eq(familyMembers.userId, userId));
+		const memberFamilyId = await getUserFamilyId(userId);
 		const [targetCal] = await db
 			.select()
 			.from(calendars)
 			.where(
 				and(
 					eq(calendars.id, calendarId),
-					member
-						? or(eq(calendars.ownerId, userId), eq(calendars.familyId, member.familyId))
+					memberFamilyId
+						? or(eq(calendars.ownerId, userId), eq(calendars.familyId, memberFamilyId))
 						: eq(calendars.ownerId, userId)
 				)
 			);
