@@ -1,6 +1,7 @@
 import { db } from '$lib/server/db';
 import { eventAttendance, eventExceptions, events, users, type CalendarEvent } from '$lib/server/db/schema';
 import { eq, and, sql, inArray, or } from 'drizzle-orm';
+import { getAccessibleCalendarIds, eventAccessFilter } from '$lib/server/utils/calendarScope';
 
 export async function getEvents() {
 	return await db.select().from(events).orderBy(events.start);
@@ -123,7 +124,12 @@ export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>
 }
 
 export async function updateEventById(id: string, data: Partial<Omit<CalendarEvent, 'id'>>, userId: string, attendantNames?: string[]) {
-	const [updatedEvent] = await db.update(events).set(data).where(eq(events.id, id)).returning();
+	const accessibleCalIds = await getAccessibleCalendarIds(userId);
+	const [updatedEvent] = await db
+		.update(events)
+		.set(data)
+		.where(and(eq(events.id, id), eventAccessFilter(userId, accessibleCalIds)))
+		.returning();
 	if (updatedEvent && attendantNames !== undefined) {
 		await syncEventAttendants(id, attendantNames);
 	}
@@ -140,7 +146,11 @@ export async function deleteEvent(id: string) {
 }
 
 export async function deleteEventById(id: string, userId: string) {
-	await db.delete(events).where(and(eq(events.id, id), eq(events.ownerId, userId)));
+	const removed = await db
+		.delete(events)
+		.where(and(eq(events.id, id), eq(events.ownerId, userId)))
+		.returning({ id: events.id });
+	return removed.length;
 }
 
 /** Delete an event the user owns OR one living on an accessible calendar

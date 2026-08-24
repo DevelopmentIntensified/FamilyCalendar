@@ -7,11 +7,24 @@ const protectedRoutes = ['calendar', 'account', 'claim', ...adminProtectedRoutes
 
 const LAST_ACTIVE_TOUCH_MS = 60 * 60 * 1000;
 
+function isAdminRoute(pathname: string): boolean {
+	for (let i = 0; i < adminProtectedRoutes.length; i++) {
+		if (pathname.includes(adminProtectedRoutes[i])) return true;
+	}
+	return false;
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
 	const sessionId = event.cookies.get(lucia.sessionCookieName);
 	if (!sessionId) {
 		event.locals.user = null;
 		event.locals.session = null;
+		// Admin routes must never be served anonymously — gate BEFORE the
+		// anonymous-account fallback below, otherwise POSTs would run ahead
+		// of the (admin) layout's role check.
+		if (isAdminRoute(event.url.pathname)) {
+			return redirect(302, '/login');
+		}
 		for (let i = 0; i < protectedRoutes.length; i++) {
 			const route = protectedRoutes[i];
 			if (event.url.pathname.includes(route)) {
@@ -45,11 +58,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 	event.locals.user = user;
 	event.locals.session = session;
-	for (let i = 0; i < adminProtectedRoutes.length; i++) {
-		const route = adminProtectedRoutes[i];
-		if (event.url.pathname.includes(route)) {
-			return redirect(302, '/login');
-		}
+	if (isAdminRoute(event.url.pathname) && !event.locals.user?.roles?.includes('admin')) {
+		return redirect(302, '/login');
 	}
 	return resolve(event);
 };

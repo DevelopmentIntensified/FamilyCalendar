@@ -1,6 +1,27 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { updateEventById, deleteEventById } from '$lib/server/db/actions/events';
+import { db } from '$lib/server/db';
+import { eventExceptions } from '$lib/server/db/schema';
+import { updateEventById, deleteEventById, getEvent, upsertException } from '$lib/server/db/actions/events';
+import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
+import { toDateTime } from '$lib/server/utils/eventTimes';
+import { eq } from 'drizzle-orm';
+
+interface EventScopeRef {
+	ownerId: string;
+	calendarId: string | null;
+	recurrenceFrequency: string | null;
+}
+
+function isAccessibleEvent(event: EventScopeRef, userId: string, accessibleCalIds: string[]) {
+	return event.ownerId === userId || (!!event.calendarId && accessibleCalIds.includes(event.calendarId));
+}
+
+/** Normalize any timestamp shape into the exact UTC ISO form
+ *  expandEventsForUser keys exceptions by (`{eventId}~{occ.toISOString()}`). */
+function normalizeOccurrence(value: unknown): string | null {
+	return toDateTime(value)?.toUTC().toISO() ?? null;
+}
 
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
 	if (!locals.user) {
@@ -11,17 +32,55 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 	const body = await request.json();
 	const attendantNames: string[] = Array.isArray(body.attendants) ? body.attendants : [];
 
-	const eventData = {
-		title: body.title,
-		start: body.start,
-		end: body.end || null,
-		description: body.description || null,
-		location: body.location || null,
-		allDay: body.allDay || false,
-		calendarId: body.calendarId || null
-	};
-
 	try {
+		const [existing, accessibleCalIds] = await Promise.all([
+			getEvent(params.id),
+			getAccessibleCalendarIds(userId)
+		]);
+		if (!existing) {
+			return json({ error: 'Event not found' }, { status: 404 });
+		}
+
+		if (body.scope === 'this' && existing.recurrenceFrequency) {
+			if (!isAccessibleEvent(existing, userId, accessibleCalIds)) {
+				return json({ error: 'Event not accessible' }, { status: 403 });
+			}
+			const originalDate = normalizeOccurrence(body.occurrenceDate);
+			if (!originalDate) {
+				return json({ error: 'A valid occurrenceDate is required' }, { status: 400 });
+			}
+			await upsertException({
+				eventId: params.id,
+				originalDate,
+				isCancelled: false,
+				title: body.title,
+				description: body.description,
+				location: body.location,
+				start: body.start,
+				end: body.end,
+				allDay: body.allDay
+			});
+			return json({ success: true });
+		}
+
+		let calendarId = existing.calendarId;
+		if (body.calendarId) {
+			if (!accessibleCalIds.includes(body.calendarId)) {
+				return json({ error: 'Calendar not accessible' }, { status: 403 });
+			}
+			calendarId = body.calendarId;
+		}
+
+		const eventData = {
+			title: body.title,
+			start: body.start,
+			end: body.end || null,
+			description: body.description || null,
+			location: body.location || null,
+			allDay: body.allDay || false,
+			calendarId
+		};
+
 		const updated = await updateEventById(params.id, eventData, userId, attendantNames);
 		if (!updated) {
 			return json({ error: 'Event not found' }, { status: 404 });
@@ -33,14 +92,54 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ locals, params }) => {
+export const DELETE: RequestHandler = async ({ request, locals, params }) => {
 	if (!locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
+	const userId = locals.user.id;
+	const body = await request.json().catch(() => ({}));
+	const scope = body.scope === 'this' ? 'this' : 'all';
+
 	try {
-		await deleteEventById(params.id, locals.user.id);
-		return json({ success: true }, { status: 200 });
+		if (scope === 'this') {
+			const [existing, accessibleCalIds] = await Promise.all([
+				getEvent(params.id),
+				getAccessibleCalendarIds(userId)
+			]);
+			if (!existing) {
+				return json({ error: 'Event not found' }, { status: 404 });
+			}
+			if (!isAccessibleEvent(existing, userId, accessibleCalIds)) {
+				return json({ error: 'Event not accessible' }, { status: 403 });
+			}
+
+			if (!existing.recurrenceFrequency) {
+				const deletedCount = await deleteEventById(params.id, userId);
+				if (deletedCount === 0) {
+					return json({ error: 'Event not found' }, { status: 404 });
+				}
+				return json({ success: true });
+			}
+
+			const originalDate = normalizeOccurrence(body.occurrenceDate);
+			if (!originalDate) {
+				return json({ error: 'A valid occurrenceDate is required' }, { status: 400 });
+			}
+			await upsertException({
+				eventId: params.id,
+				originalDate,
+				isCancelled: true
+			});
+			return json({ success: true });
+		}
+
+		const deletedCount = await deleteEventById(params.id, userId);
+		if (deletedCount === 0) {
+			return json({ error: 'Event not found' }, { status: 404 });
+		}
+		await db.delete(eventExceptions).where(eq(eventExceptions.eventId, params.id));
+		return json({ success: true });
 	} catch (error) {
 		console.error('Failed to delete event:', error);
 		return json({ error: 'Failed to delete event' }, { status: 500 });

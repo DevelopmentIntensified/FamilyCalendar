@@ -150,6 +150,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		if (op.type === 'calendar') {
 			if (!op.calendarId) return json({ error: 'calendarId required' }, { status: 400 });
+			if (!accessibleCalIds.includes(op.calendarId)) return json({ error: 'Calendar not accessible' }, { status: 403 });
 			for (const id of ownedIds) {
 				await updateEventById(id, { calendarId: op.calendarId }, userId);
 			}

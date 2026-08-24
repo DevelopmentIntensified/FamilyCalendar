@@ -3,8 +3,30 @@ import { EMAILSECRET } from '$env/static/private';
 import { getUrl } from '$lib/utils/getUrl';
 import { createJWT } from 'oslo/jwt';
 import { TimeSpan } from 'lucia';
+import { db } from '$lib/server/db';
+import { familyMembers } from '$lib/server/db/schema';
+import { and, eq } from 'drizzle-orm';
 
 export const POST = async (event: RequestEvent) => {
+	if (!event.locals.user) {
+		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
+	const [member] = await db
+		.select({ userId: familyMembers.userId })
+		.from(familyMembers)
+		.where(
+			and(
+				eq(familyMembers.familyId, event.params.familyId!),
+				eq(familyMembers.userId, event.locals.user.id)
+			)
+		)
+		.limit(1);
+
+	if (!member) {
+		return json({ error: 'Not a member of this family' }, { status: 403 });
+	}
+
 	const rData = await event.request.json();
 	const { email, firstName, lastName } = rData;
 

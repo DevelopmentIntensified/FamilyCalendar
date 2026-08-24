@@ -7,8 +7,9 @@ import {
 	TASK_FREQUENCIES
 } from '$lib/server/db/actions/tasks';
 import { db } from '$lib/server/db';
-import { familyMembers } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { events, familyMembers } from '$lib/server/db/schema';
+import { and, eq } from 'drizzle-orm';
+import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
 	if (!locals.user) {
@@ -17,6 +18,19 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
 	const eventId = url.searchParams.get('eventId');
 	if (eventId) {
+		const [event] = await db
+			.select({ id: events.id, calendarId: events.calendarId, ownerId: events.ownerId })
+			.from(events)
+			.where(eq(events.id, eventId))
+			.limit(1);
+		if (!event) {
+			return json({ tasks: [] });
+		}
+		const calIds = await getAccessibleCalendarIds(locals.user.id);
+		const hasCalendarAccess = !!event.calendarId && calIds.includes(event.calendarId);
+		if (event.ownerId !== locals.user.id && !hasCalendarAccess) {
+			return json({ error: 'No access to this event' }, { status: 403 });
+		}
 		const eventTasks = await getTasksForEvent(eventId);
 		return json({ tasks: eventTasks });
 	}
@@ -41,13 +55,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	try {
-		let familyId = body.familyId ?? null;
-		if (familyId === undefined) {
+		let familyId: string | null = null;
+		if (body.familyId === undefined) {
 			const [member] = await db
 				.select()
 				.from(familyMembers)
 				.where(eq(familyMembers.userId, locals.user.id));
 			familyId = member?.familyId ?? null;
+		} else if (body.familyId !== null) {
+			const [member] = await db
+				.select()
+				.from(familyMembers)
+				.where(
+					and(eq(familyMembers.userId, locals.user.id), eq(familyMembers.familyId, body.familyId))
+				);
+			if (!member) {
+				return json({ error: 'Not a member of this family' }, { status: 403 });
+			}
+			familyId = body.familyId;
 		}
 
 		const frequency = TASK_FREQUENCIES.includes(body.recurrenceFrequency)

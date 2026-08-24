@@ -4,6 +4,7 @@ import { createEvent } from '$lib/server/db/actions/events';
 import { db } from '$lib/server/db';
 import { calendars, events, familyMembers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
 
 const VALID_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
 
@@ -33,6 +34,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			calendarId = newCal.id;
 		} else {
 			calendarId = userCalendar[0].id;
+		}
+	} else {
+		const accessibleCalIds = await getAccessibleCalendarIds(userId);
+		if (!accessibleCalIds.includes(calendarId)) {
+			return json({ error: 'Calendar not accessible' }, { status: 403 });
 		}
 	}
 

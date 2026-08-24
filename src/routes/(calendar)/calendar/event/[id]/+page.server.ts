@@ -6,6 +6,7 @@ import type { Actions } from './$types';
 import { deleteEvent, getEventAttendance } from '$lib/server/db/actions/events';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
+import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
 
 export const load: PageServerLoad = async (e) => {
 	if (!e.locals.user) {
@@ -25,6 +26,13 @@ export const load: PageServerLoad = async (e) => {
 
 	if (!eventData.length) {
 		error(404, 'Event not found');
+	}
+
+	const event = eventData[0].event;
+	const calIds = await getAccessibleCalendarIds(e.locals.user.id);
+	const hasCalendarAccess = !!event.calendarId && calIds.includes(event.calendarId);
+	if (event.ownerId !== e.locals.user.id && !hasCalendarAccess) {
+		error(403, 'No access to this event');
 	}
 
 	// Joined with users so the UI can show names instead of raw ids.
