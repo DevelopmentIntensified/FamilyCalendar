@@ -3,7 +3,8 @@
 	import { slide } from 'svelte/transition';
 
 	export let isLoggedIn = false;
-	export let user: { firstName?: string; lastName?: string; email?: string } | null = null;
+	export let user: { firstName?: string; lastName?: string; email?: string; roles?: string[] } | null =
+		null;
 
 	let isOpen = false;
 	let profileDropdownOpen = false;
@@ -110,6 +111,11 @@
 									<p class="truncate text-sm font-medium text-slate-900">{user.firstName} {user.lastName}</p>
 									<p class="truncate text-xs text-slate-500">{user.email}</p>
 								</div>
+							{/if}
+							{#if user?.roles?.includes?.('admin')}
+								<a href="/admin/nlp" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+									Admin
+								</a>
 							{/if}
 							<a href="/account" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
 								Settings

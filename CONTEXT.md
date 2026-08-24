@@ -44,7 +44,7 @@ A completable item, optionally due on a date, belonging to a person or family. D
 _Avoid_: todo, chore, checklist item
 
 **Recurring Task**:
-A Task with a schedule (frequency + interval). Exactly one live occurrence exists at a time — the cursor. An overdue occurrence sticks to today until done; completing snaps the next one onto the schedule anchored at `max(due, today) + interval` (early checks keep the slot, late ones slide). One row per task — no occurrence expansion.
+A Task with a schedule (frequency + interval). Exactly one live occurrence exists at a time — the cursor. Completing snaps the next one to today + n×interval, where n is the smallest multiple landing strictly past the current due date (early checks advance from today; a due date already one interval out pushes the next check two intervals out). Each completion increments the task's completion count. One row per task — no occurrence expansion.
 _Avoid_: repeating task, series, materialized backlog
 
 ## Relationships

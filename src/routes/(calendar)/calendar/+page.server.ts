@@ -16,6 +16,7 @@ import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
 import { parseEvents, expandEventsForUser } from '$lib/server/services/eventDisplayService';
 import { getTasksForUser, syncRecurringCursors } from '$lib/server/db/actions/tasks';
+import { getUserZone } from '$lib/server/utils/userTimezone';
 import { GUEST_MERGE_COOKIE } from '$lib/server/services/guestMergeService';
 
 export const load: PageServerLoad = async (event) => {
@@ -112,8 +113,8 @@ export const load: PageServerLoad = async (event) => {
 	}
 
 	// Open tasks with due dates render as distinct chips on month-view days.
-	// Overdue Recurring Tasks first stick to today (cursor v2).
-	await syncRecurringCursors(userId, member?.familyId ?? null);
+	// Overdue Recurring Tasks first stick to today (cursor v3).
+	await syncRecurringCursors(userId, member?.familyId ?? null, await getUserZone(userId));
 	const allTasks = await getTasksForUser(userId, member?.familyId ?? null);
 	const dueTasks = allTasks
 		.filter((t) => t.dueDate && !t.completedAt)

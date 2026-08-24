@@ -8,12 +8,28 @@ function iso(s: string): string {
 	return DateTime.fromISO(s).toISO()!;
 }
 
-describe('advanceCursor (Recurring Task cursor v2)', () => {
-	it('early check keeps the scheduled slot: due Fri, checked Wed -> next Fri', () => {
+describe('advanceCursor (Recurring Task cursor v3)', () => {
+	it('early check advances from today by one interval when it lands past the due date', () => {
+		// Due Fri Aug 21, checked Wed Aug 19: today + 1 week (Aug 26) is past due.
 		const wed = iso('2026-08-19T12:00:00Z'); // Wednesday
 		const friDue = iso('2026-08-21T23:59:00Z');
 		const next = DateTime.fromISO(advanceCursor(friDue, 'weekly', 1, wed));
-		expect(next.toISODate()).toBe(iso('2026-08-28T23:59:00Z').slice(0, 10));
+		expect(next.toISODate()).toBe('2026-08-26');
+	});
+
+	it('due exactly one interval out takes two intervals', () => {
+		const fri = iso('2026-08-21T12:00:00Z'); // today
+		const nextFriDue = iso('2026-08-28T12:00:00Z'); // exactly +1 week
+		const next = DateTime.fromISO(advanceCursor(nextFriDue, 'weekly', 1, fri));
+		expect(next.toISODate()).toBe(iso('2026-09-04T12:00:00Z').slice(0, 10));
+	});
+
+	it('due partway into the second interval skips past it', () => {
+		// Daily every 2 days: due +3 days out needs today + 4 days.
+		const today = iso('2026-08-22T12:00:00Z');
+		const due = iso('2026-08-25T12:00:00Z');
+		const next = DateTime.fromISO(advanceCursor(due, 'daily', 2, today));
+		expect(next.toISODate()).toBe('2026-08-26');
 	});
 
 	it('late/pinned completion slides from today', () => {
@@ -27,12 +43,12 @@ describe('advanceCursor (Recurring Task cursor v2)', () => {
 		expect(next.month).toBe(11);
 	});
 
-	it('clamps end-of-month anchors on monthly cadence (early check)', () => {
+	it('anchors at the completion day, not the due weekday (monthly)', () => {
 		const next = DateTime.fromISO(
 			advanceCursor(iso('2026-01-31T12:00:00Z'), 'monthly', 1, '2026-01-15T12:00:00Z')
 		);
 		expect(next.month).toBe(2);
-		expect(next.day).toBe(28);
+		expect(next.day).toBe(15);
 	});
 
 	it('null due anchors at today + interval', () => {

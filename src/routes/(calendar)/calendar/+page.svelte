@@ -75,7 +75,9 @@
 	}
 
 	// Smart mode, phase 1: dry-run returns a plan; phase 2 echoes it for execution.
-	let smartPlan: { id: string; label: string }[] | null = null;
+	// ops = raw plan sent back verbatim on apply; items = display labels.
+	let smartPlan: { ops: Record<string, unknown>[]; items: { id: string; label: string }[] } | null =
+		null;
 
 	function describePlanOp(po: any): string {
 		const ev: any = allEvents.find((e: any) => (e.masterId || e.id) === po.id || e.id === po.id);
@@ -108,7 +110,7 @@
 					ids: selectedIds.map((id) => ({ id })),
 					op: { type: 'smart', instruction },
 					dryRun: !smartPlan,
-					plan: smartPlan ?? undefined
+					plan: smartPlan?.ops ?? undefined
 				})
 			});
 			const j = await res.json().catch(() => ({}));
@@ -129,7 +131,10 @@
 					bulkError = 'Could not match that instruction. Try naming a date or the events.';
 					return;
 				}
-				smartPlan = plan.map((po) => ({ id: po.id, label: describePlanOp(po) }));
+				smartPlan = {
+					ops: plan,
+					items: plan.map((po) => ({ id: po.id, label: describePlanOp(po) }))
+				};
 			}
 		} catch {
 			bulkError = 'Smart edit failed';
@@ -276,7 +281,7 @@
 					Planned changes — review, then apply
 				</p>
 				<ul class="max-h-28 space-y-0.5 overflow-y-auto text-xs text-slate-700">
-					{#each smartPlan as p (p.id)}
+					{#each smartPlan.items as p (p.id)}
 						<li class="truncate">• {p.label}</li>
 					{/each}
 				</ul>
@@ -356,7 +361,9 @@
 						disabled={bulkBusy}
 						class="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
 					>
-						{bulkBusy ? 'Applying…' : `Apply ${smartPlan.length} change${smartPlan.length === 1 ? '' : 's'}`}
+						{bulkBusy
+							? 'Applying…'
+							: `Apply ${smartPlan.items.length} change${smartPlan.items.length === 1 ? '' : 's'}`}
 					</button>
 				{:else}
 					<div class="flex items-center gap-1">

@@ -61,20 +61,20 @@ function parseDayOfWeek(day: string): number | null {
 	return DAY_MAP[day.toLowerCase()] ?? null;
 }
 
-function getNextDayOfWeek(day: string): DateTime {
+function getNextDayOfWeek(day: string, zone?: string): DateTime {
 	const dayNum = parseDayOfWeek(day);
 	if (dayNum === null) return DateTime.now();
-	const now = DateTime.now();
+	const now = zone ? DateTime.now().setZone(zone) : DateTime.now();
 	const currentDay = now.weekday % 7;
 	let daysUntil = dayNum - currentDay;
 	if (daysUntil <= 0) daysUntil += 7;
 	return now.plus({ days: daysUntil });
 }
 
-export function parseEventInput(input: string): ParseResult {
+export function parseEventInput(input: string, zone?: string): ParseResult {
 	const result: Partial<ParsedEvent> = { allDay: false };
 	let confidence = 0;
-	const now = DateTime.now();
+	const now = zone ? DateTime.now().setZone(zone) : DateTime.now();
 	const doc = nlp(input);
 	const lower = input.toLowerCase();
 

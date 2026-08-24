@@ -14,6 +14,7 @@ import {
 import { planBulkEdits, parseBulkPlan, type BulkPlanOp } from '$lib/server/services/bulkAiService';
 import { llmConfigured } from '$lib/server/services/llm';
 import { reportUnmatchedPhrase } from '$lib/server/db/actions/unmatchedPhrases';
+import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
 import { toDateTime } from '$lib/server/utils/eventTimes';
 import { resolveMasterId } from '$lib/server/utils/eventIds';
 
@@ -29,7 +30,8 @@ type BulkOp =
 async function applySmartOp(
 	op: BulkPlanOp,
 	userId: string,
-	allowedCalIds?: Set<string>
+	allowedCalIds?: Set<string>,
+	zone?: string
 ): Promise<boolean> {
 	const ev = await getEvent(op.id);
 	if (!ev) return false;
@@ -50,22 +52,28 @@ async function applySmartOp(
 		return !!moved;
 	}
 
-	const startDt = toDateTime(ev.start);
+	const startDt = toDateTime(ev.start)?.setZone(zone ?? 'system');
 	if (!startDt) return false;
 
+	// The plan's date is a user-zone calendar date; interpret it in the
+	// same zone so the stored instant lands on the user's intended day.
 	const date = op.date ?? startDt.toISODate()!;
 	const allDay = typeof op.allDay === 'boolean' ? op.allDay : ev.allDay;
 
 	let startTime: string | null = allDay ? '00:00' : op.startTime ?? startDt.toFormat('HH:mm');
-	const endDt = toDateTime(ev.end);
+	const endDt = toDateTime(ev.end)?.setZone(zone ?? 'system');
 	let endTime: string | null = allDay
 		? '23:59'
 		: op.endTime ?? (endDt && endDt.toISODate() === date ? endDt.toFormat('HH:mm') : null);
 
-	if (startTime && !endTime) endTime = DateTime.fromFormat(startTime, 'HH:mm').plus({ hours: 1 }).toFormat('HH:mm');
+	if (startTime && !endTime) {
+		endTime = DateTime.fromFormat(startTime, 'HH:mm', { zone }).plus({ hours: 1 }).toFormat('HH:mm');
+	}
 
-	const start = DateTime.fromFormat(`${date} ${startTime}`, 'yyyy-MM-dd HH:mm').toISO();
-	const end = endTime ? DateTime.fromFormat(`${date} ${endTime}`, 'yyyy-MM-dd HH:mm').toISO() : null;
+	const start = DateTime.fromFormat(`${date} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone }).toISO();
+	const end = endTime
+		? DateTime.fromFormat(`${date} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone }).toISO()
+		: null;
 	if (!start) return false;
 
 	const updated = await updateEventById(
@@ -164,6 +172,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			const instruction = String(op.instruction ?? '').trim();
 			if (!instruction) return json({ error: 'instruction required' }, { status: 400 });
 
+			// All relative dates resolve and land in the user's timezone.
+			const zone = await getUserZone(userId);
+			const now = zonedNow(zone);
+
 			let rawOps: unknown[];
 			if (Array.isArray(body.plan)) {
 				// Phase 2: client echoes the reviewed plan - execute it exactly.
@@ -174,11 +186,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					.from(events)
 					.where(inArray(events.id, ownedIds));
 				const summaries = rows.map((r) => {
-					const dt = toDateTime(r.start);
+					const dt = toDateTime(r.start)?.setZone(zone ?? 'system');
 					return {
 						id: r.id,
 						title: r.title,
-						start: (dt ?? DateTime.now()).toISO()!,
+						start: (dt ?? now).toISO()!,
 						location: r.location
 					};
 				});
@@ -204,7 +216,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					name: c.familyId ? c.familyName || 'Family Calendar' : 'Personal Calendar'
 				}));
 
-				rawOps = planBulkEdits(instruction, summaries, DateTime.now().toISODate()!, calRefs);
+				rawOps = planBulkEdits(instruction, summaries, now.toISODate()!, calRefs);
 				if (rawOps.length === 0) {
 					await reportUnmatchedPhrase('bulk_edit', instruction);
 					return json(
@@ -241,7 +253,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					applied++;
 					continue;
 				}
-				if (await applySmartOp(planOp, userId, allowedCalIds)) applied++;
+				if (await applySmartOp(planOp, userId, allowedCalIds, zone)) applied++;
 			}
 			return json({ success: true, applied });
 		}

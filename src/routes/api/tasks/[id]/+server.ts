@@ -11,6 +11,7 @@ import {
 import { db } from '$lib/server/db';
 import { tasks, familyMembers } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { getUserZone } from '$lib/server/utils/userTimezone';
 
 /** Family membership grants toggle rights on family tasks. */
 async function familyMembership(taskId: string, userId: string): Promise<string | null> {
@@ -39,12 +40,13 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	const body = await request.json();
 
 	try {
+		const zone = await getUserZone(locals.user.id);
 		let updated;
 		if (body.toggleComplete) {
-			updated = await toggleTaskComplete(taskId, locals.user.id);
+			updated = await toggleTaskComplete(taskId, locals.user.id, zone);
 			if (!updated) {
 				const familyId = await familyMembership(taskId, locals.user.id);
-				if (familyId) updated = await toggleTaskCompleteFamily(taskId, familyId);
+				if (familyId) updated = await toggleTaskCompleteFamily(taskId, familyId, zone);
 			}
 		} else {
 			const frequency =

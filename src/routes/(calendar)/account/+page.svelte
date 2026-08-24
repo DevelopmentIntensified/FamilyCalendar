@@ -264,6 +264,7 @@
 										/>
 									</label>
 
+									<!--
 									<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
 										<span>
 											<span class="block text-sm font-medium text-slate-800">Use cloud AI <span class="ml-1 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">recommended</span></span>
@@ -277,6 +278,7 @@
 											checked={data.userSettings.useCloudAI ?? true}
 										/>
 									</label>
+-->
 								</div>
 
 								<button
@@ -316,6 +318,7 @@
 									}}
 									class="space-y-2"
 								>
+									<!--
 									<label class="flex cursor-pointer items-center justify-between gap-4 rounded-lg bg-white p-3">
 										<span>
 											<span class="block text-sm font-medium text-slate-800">Show ads as calendar events</span>
@@ -339,6 +342,7 @@
 										</span>
 										<input type="checkbox" name="personalizedAds" value="true" class="h-5 w-5 shrink-0 rounded border-slate-300" checked={data.adConsent.personalizedAds} />
 									</label>
+									-->
 
 									<button
 										type="submit"

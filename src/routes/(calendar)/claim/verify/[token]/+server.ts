@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { consumeClaimToken } from '$lib/server/services/claimService';
 import { claimEmailForUser, getUserByEmail } from '$lib/server/db/actions/users';
+import { getUserSettings, createUserSettings } from '$lib/server/db/actions/userSettings';
 
 export const GET: RequestHandler = async (event) => {
 	if (!event.locals.user) {
@@ -28,6 +29,13 @@ export const GET: RequestHandler = async (event) => {
 	}
 
 	await claimEmailForUser(claimed.userId, claimed.email);
+
+	// Claiming promotes the guest to a real account — make sure settings
+	// (and the timezone) carried over from guest mode still exist.
+	const existingSettings = await getUserSettings(claimed.userId);
+	if (!existingSettings) {
+		await createUserSettings({ userId: claimed.userId, timeZone: 'UTC' });
+	}
 
 	throw redirect(302, '/calendar?claimed=1');
 };

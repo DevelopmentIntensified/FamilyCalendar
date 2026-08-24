@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getTasksForUser, syncRecurringCursors } from '$lib/server/db/actions/tasks';
+import { getUserZone } from '$lib/server/utils/userTimezone';
 import { db } from '$lib/server/db';
 import { familyMembers, users } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -15,8 +16,8 @@ export const load: PageServerLoad = async (event) => {
 		.from(familyMembers)
 		.where(eq(familyMembers.userId, event.locals.user.id));
 
-	// Overdue Recurring Tasks stick to today until done (cursor v2).
-	await syncRecurringCursors(event.locals.user.id, member?.familyId ?? null);
+	// Overdue Recurring Tasks stick to today until done (cursor v3).
+	await syncRecurringCursors(event.locals.user.id, member?.familyId ?? null, await getUserZone(event.locals.user.id));
 
 	const userTasks = await getTasksForUser(event.locals.user.id, member?.familyId ?? null);
 

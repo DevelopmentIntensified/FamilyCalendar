@@ -1,5 +1,6 @@
 import { db } from '$lib/server/db';
 import { users, type User } from '$lib/server/db/schema';
+import { createUserSettings } from '$lib/server/db/actions/userSettings';
 import { eq, and, lt, sql } from 'drizzle-orm';
 
 export async function getUsers() {
@@ -68,6 +69,9 @@ export async function createAnonymousUser() {
 			roles: []
 		})
 		.returning();
+	// Guest settings exist from the first request so the timezone prompt
+	// has something to prefill and server date math has a zone to read.
+	await createUserSettings({ userId: createdUser.id, timeZone: 'UTC' });
 	return createdUser;
 }
 

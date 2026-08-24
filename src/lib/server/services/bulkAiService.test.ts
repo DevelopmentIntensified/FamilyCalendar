@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { parseBulkPlan, planBulkEdits, type BulkEventSummary } from './bulkAiService';
+import { DateTime } from 'luxon';
+import {
+	parseBulkPlan,
+	planBulkEdits,
+	resolveBulkDate,
+	type BulkEventSummary
+} from './bulkAiService';
 
 const IDS = ['evt-1', 'evt-2', 'evt-3'];
 
@@ -138,5 +144,20 @@ describe('planBulkEdits (local parser)', () => {
 
 	it('returns [] when nothing matches', () => {
 		expect(planBulkEdits('make it purple', EVENTS, TODAY)).toEqual([]);
+	});
+});
+
+describe('timezone-sensitive bulk dates', () => {
+	it('accepts a zoned "today" and resolves relative dates from it', () => {
+		// Sunday Aug 23 23:30 in New York is already Monday Aug 24 in Auckland.
+		const nyToday = DateTime.fromISO('2026-08-23T23:30', { zone: 'America/New_York' });
+		const akltoday = DateTime.fromISO('2026-08-24T17:30', { zone: 'Pacific/Auckland' });
+		expect(resolveBulkDate('move to tomorrow', nyToday)).toBe('2026-08-24');
+		expect(resolveBulkDate('move to tomorrow', akltoday)).toBe('2026-08-25');
+	});
+
+	it('weekday resolution crosses week boundaries from a zoned today', () => {
+		const nyToday = DateTime.fromISO('2026-08-23T23:30', { zone: 'America/New_York' });
+		expect(resolveBulkDate('move to friday', nyToday)).toBe('2026-08-28');
 	});
 });

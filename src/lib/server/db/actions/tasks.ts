@@ -3,6 +3,7 @@ import { tasks, events, users, type Task } from '$lib/server/db/schema';
 import { and, eq, or, desc, isNotNull, isNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { DateTime } from 'luxon';
+import { zonedNow } from '$lib/server/utils/userTimezone';
 
 const assignee = alias(users, 'assignee');
 const creator = alias(users, 'creator');
@@ -11,11 +12,25 @@ export const TASK_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'] as cons
 export type TaskFrequency = (typeof TASK_FREQUENCIES)[number];
 
 /**
- * Recurring Task cursor v2. Exactly one live occurrence exists at a
- * time. Completing snaps the next one onto the schedule anchored at
- * max(due, today) — early checks keep the Friday slot, late/pinned
- * ones slide from today.
+ * Recurring Task cursor v3. Exactly one live occurrence exists at a
+ * time. Completing snaps the next one to today + n*interval, where n
+ * is the smallest multiple that lands strictly past the current due
+ * date (early checks advance; if the due date already sits one
+ * interval out, the next check takes two intervals, and so on).
  */
+function plusInterval(dt: DateTime, frequency: string, step: number): DateTime {
+	switch (frequency) {
+		case 'weekly':
+			return dt.plus({ weeks: step });
+		case 'monthly':
+			return dt.plus({ months: step });
+		case 'yearly':
+			return dt.plus({ years: step });
+		default:
+			return dt.plus({ days: step });
+	}
+}
+
 export function advanceCursor(
 	dueIso: string | null,
 	frequency: string,
@@ -24,22 +39,13 @@ export function advanceCursor(
 ): string {
 	const step = Math.max(1, Math.floor(interval) || 1);
 	const now = DateTime.fromISO(nowIso).startOf('day');
-	let anchor = dueIso ? DateTime.fromISO(dueIso) : now;
-	if (!anchor.isValid || anchor < now) anchor = now;
-	let next: DateTime;
-	switch (frequency) {
-		case 'weekly':
-			next = anchor.plus({ weeks: step });
-			break;
-		case 'monthly':
-			next = anchor.plus({ months: step });
-			break;
-		case 'yearly':
-			next = anchor.plus({ years: step });
-			break;
-		case 'daily':
-		default:
-			next = anchor.plus({ days: step });
+	const due = dueIso && DateTime.fromISO(dueIso).isValid ? DateTime.fromISO(dueIso) : null;
+
+	let n = 1;
+	let next = plusInterval(now, frequency, step);
+	while (due && next <= due && n < 1000) {
+		n += 1;
+		next = plusInterval(now, frequency, step * n);
 	}
 	return next.toISO()!;
 }
@@ -98,6 +104,7 @@ export async function getTasksForUser(userId: string, familyId?: string | null) 
 			completedAt: tasks.completedAt,
 			recurrenceFrequency: tasks.recurrenceFrequency,
 			recurrenceInterval: tasks.recurrenceInterval,
+			completionCount: tasks.completionCount,
 			assignedTo: tasks.assignedTo,
 			assignmentStatus: tasks.assignmentStatus,
 			assigneeFirstName: assignee.firstName,
@@ -131,6 +138,7 @@ export async function getTasksForFamily(familyId: string) {
 			completedAt: tasks.completedAt,
 			recurrenceFrequency: tasks.recurrenceFrequency,
 			recurrenceInterval: tasks.recurrenceInterval,
+			completionCount: tasks.completionCount,
 			assignedTo: tasks.assignedTo,
 			assignmentStatus: tasks.assignmentStatus,
 			assigneeFirstName: assignee.firstName,
@@ -184,7 +192,11 @@ export async function updateTask(
 	return updated;
 }
 
-export async function toggleTaskComplete(id: string, userId: string): Promise<Task | undefined> {
+export async function toggleTaskComplete(
+	id: string,
+	userId: string,
+	zone?: string
+): Promise<Task | undefined> {
 	// The assignee can check off their own task; the creator always can.
 	const [task] = await db
 		.select()
@@ -195,15 +207,16 @@ export async function toggleTaskComplete(id: string, userId: string): Promise<Ta
 	// Completing a Recurring Task rolls the cursor onto the next
 	// scheduled occurrence instead of closing it out.
 	if (!task.completedAt && task.recurrenceFrequency) {
+		const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
 		const next = advanceCursor(
 			task.dueDate,
 			task.recurrenceFrequency,
 			task.recurrenceInterval ?? 1,
-			new Date().toISOString()
+			nowIso
 		);
 		const [advanced] = await db
 			.update(tasks)
-			.set({ dueDate: next })
+			.set({ dueDate: next, completionCount: task.completionCount + 1 })
 			.where(eq(tasks.id, id))
 			.returning();
 		return advanced;
@@ -224,7 +237,8 @@ export async function deleteTask(id: string, userId: string) {
 /** Family members may toggle any task inside their family. */
 export async function toggleTaskCompleteFamily(
 	id: string,
-	familyId: string
+	familyId: string,
+	zone?: string
 ): Promise<Task | undefined> {
 	const [task] = await db
 		.select()
@@ -233,13 +247,18 @@ export async function toggleTaskCompleteFamily(
 	if (!task) return undefined;
 
 	if (!task.completedAt && task.recurrenceFrequency) {
+		const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
 		const next = advanceCursor(
 			task.dueDate,
 			task.recurrenceFrequency,
 			task.recurrenceInterval ?? 1,
-			new Date().toISOString()
+			nowIso
 		);
-		const [advanced] = await db.update(tasks).set({ dueDate: next }).where(eq(tasks.id, id)).returning();
+		const [advanced] = await db
+			.update(tasks)
+			.set({ dueDate: next, completionCount: task.completionCount + 1 })
+			.where(eq(tasks.id, id))
+			.returning();
 		return advanced;
 	}
 
@@ -275,8 +294,8 @@ export async function deleteCompletedTasks(userId: string) {
  * Overdue Recurring Tasks stick to today: their due date follows the
  * current date until dismissed. Piggybacked on task/calendar loads.
  */
-export async function syncRecurringCursors(userId: string, familyId?: string | null) {
-	const nowIso = new Date().toISOString();
+export async function syncRecurringCursors(userId: string, familyId?: string | null, zone?: string) {
+	const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
 	const todayEnd = DateTime.fromISO(nowIso)
 		.set({ hour: 23, minute: 59, second: 0, millisecond: 0 })
 		.toISO()!;

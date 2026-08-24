@@ -19,9 +19,10 @@ export const load: PageServerLoad = async (event) => {
 		return redirect(302, '/family');
 	}
 
-	// Overdue Recurring Tasks stick to today until done (cursor v2).
+	// Overdue Recurring Tasks stick to today until done (cursor v3).
 	const { syncRecurringCursors } = await import('$lib/server/db/actions/tasks');
-	await syncRecurringCursors(event.locals.user.id, member.familyId);
+	const { getUserZone } = await import('$lib/server/utils/userTimezone');
+	await syncRecurringCursors(event.locals.user.id, member.familyId, await getUserZone(event.locals.user.id));
 
 	const tasks = await getTasksForFamily(member.familyId);
 

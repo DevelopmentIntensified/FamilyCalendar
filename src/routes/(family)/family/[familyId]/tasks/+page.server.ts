@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getTasksForFamily, syncRecurringCursors } from '$lib/server/db/actions/tasks';
+import { getUserZone } from '$lib/server/utils/userTimezone';
 import { db } from '$lib/server/db';
 import { families, familyMembers, users } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
@@ -23,8 +24,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		return redirect(302, '/family');
 	}
 
-	// Overdue Recurring Tasks stick to today until done (cursor v2).
-	await syncRecurringCursors(locals.user.id, params.familyId);
+	// Overdue Recurring Tasks stick to today until done (cursor v3).
+	await syncRecurringCursors(locals.user.id, params.familyId, await getUserZone(locals.user.id));
 
 	const [familyTasks, roster] = await Promise.all([
 		getTasksForFamily(params.familyId),

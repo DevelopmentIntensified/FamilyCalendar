@@ -407,6 +407,8 @@ export const tasks = pgTable('tasks', {
 	completedAt: timestamp('completed_at', { withTimezone: true, mode: 'string' }),
 	recurrenceFrequency: text('recurrence_frequency'),
 	recurrenceInterval: integer('recurrence_interval'),
+	// Times a Recurring Task occurrence has been checked off.
+	completionCount: integer('completion_count').default(0).notNull(),
 	assignedTo: text('assigned_to').references(() => users.id, { onDelete: 'set null' }),
 	assignmentStatus: text('assignment_status').default('none'),
 	userId: text('user_id')

@@ -597,3 +597,27 @@ describe('NLP Event Parser', () => {
 		});
 	});
 });
+describe('Timezone-aware parsing', () => {
+	it('resolves "tomorrow" in a zone ahead of UTC', () => {
+		// 2026-08-24T00:30Z is still Aug 23 in New York but Aug 24 in Auckland.
+		const utcTomorrow = parseEventInput('meeting tomorrow', 'UTC').parsed.date;
+		const auckland = parseEventInput('meeting tomorrow', 'Pacific/Auckland').parsed.date;
+		const ny = parseEventInput('meeting tomorrow', 'America/New_York').parsed.date;
+		// All three must be defined; Auckland must never trail New York.
+		expect(auckland).toBeDefined();
+		expect(ny).toBeDefined();
+		expect(utcTomorrow).toBeDefined();
+		expect(auckland! >= ny!).toBe(true);
+	});
+
+	it('resolves "this friday" against the zone-provided today', () => {
+		// Pin: 2026-08-23 (Sunday) late in Auckland -> already Monday Aug 24 there.
+		const nyResult = parseEventInput('meet this friday', 'America/New_York').parsed.date;
+		expect(nyResult).toBe('2026-08-28');
+	});
+
+	it('defaults to server-local when no zone given', () => {
+		const result = parseEventInput('meeting tomorrow');
+		expect(result.parsed.date).toBe(DateTime.now().plus({ days: 1 }).toISODate());
+	});
+});

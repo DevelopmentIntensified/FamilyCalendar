@@ -31,13 +31,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Invalid email or password' }, { status: 401 });
 		}
 
-		// Settings follow the account: create the row on first login so the
-		// timezone prompt prefills and server date math has a zone.
-		const existingSettings = await getUserSettings(user.id);
-		if (!existingSettings) {
-			await createUserSettings({ userId: user.id, timeZone: 'UTC' });
-		}
-
 		const session = await lucia.createSession(user.id, {});
 		setSessionCookie(cookies, lucia.createSessionCookie(session.id));
 
