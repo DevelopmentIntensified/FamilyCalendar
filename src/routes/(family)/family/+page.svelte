@@ -15,12 +15,20 @@
 		<div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 			<div class="mb-6 flex items-center justify-between">
 				<h1 class="text-2xl font-bold text-slate-900">My Families</h1>
-				<a
-					href="/family/create"
-					class="rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
-				>
-					Create New Family
-				</a>
+				<div class="flex items-center gap-2">
+					<a
+						href="/family/tasks"
+						class="rounded-full border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+					>
+						Family Tasks
+					</a>
+					<a
+						href="/family/create"
+						class="rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+					>
+						Create New Family
+					</a>
+				</div>
 			</div>
 
 			{#if families.length > 0}

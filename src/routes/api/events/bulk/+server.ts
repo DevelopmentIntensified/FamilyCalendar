@@ -13,6 +13,7 @@ import {
 } from '$lib/server/db/actions/events';
 import { planBulkEdits, parseBulkPlan, type BulkPlanOp } from '$lib/server/services/bulkAiService';
 import { llmConfigured } from '$lib/server/services/llm';
+import { reportUnmatchedPhrase } from '$lib/server/db/actions/unmatchedPhrases';
 import { toDateTime } from '$lib/server/utils/eventTimes';
 import { resolveMasterId } from '$lib/server/utils/eventIds';
 
@@ -162,7 +163,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		if (op.type === 'smart') {
 			const instruction = String(op.instruction ?? '').trim();
 			if (!instruction) return json({ error: 'instruction required' }, { status: 400 });
-			if (!llmConfigured()) return json({ error: 'AI features not configured' }, { status: 503 });
 
 			let rawOps: unknown[];
 			if (Array.isArray(body.plan)) {
@@ -204,10 +204,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					name: c.familyId ? c.familyName || 'Family Calendar' : 'Personal Calendar'
 				}));
 
-				rawOps = await planBulkEdits(instruction, summaries, DateTime.now().toISODate()!, calRefs);
+				rawOps = planBulkEdits(instruction, summaries, DateTime.now().toISODate()!, calRefs);
 				if (rawOps.length === 0) {
+					await reportUnmatchedPhrase('bulk_edit', instruction);
 					return json(
-						{ error: 'AI could not match a change. Try naming a date or the events.' },
+						{ error: 'Could not match that instruction. Try naming a date or the events.' },
 						{ status: 422 }
 					);
 				}

@@ -22,6 +22,7 @@
 		assignmentStatus?: string | null;
 		assigneeFirstName?: string | null;
 		assigneeLastName?: string | null;
+		userId: string;
 		eventId: string | null;
 		eventTitle?: string | null;
 		eventStart?: string | Date | null;
@@ -397,7 +398,7 @@
 						{formatDue(task.dueDate)}
 					</span>
 				{/if}
-				{#if task.assignedTo && task.assignmentStatus !== 'none'}
+				{#if task.assignedTo && task.assignmentStatus !== 'none' && !(task.assignedTo === task.userId && task.assignmentStatus === 'accepted')}
 					{@const mine = task.assignedTo === data.user?.id}
 					{@const pending = task.assignmentStatus === 'pending'}
 					{#if mine && pending}

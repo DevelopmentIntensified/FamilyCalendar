@@ -478,9 +478,38 @@ export const waitlist = pgTable('waitlist', {
 	createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull()
 });
 
+export const unmatchedPhrases = pgTable(
+	'unmatchedPhrases',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		// 'event_parse' (natural-language event input) or 'bulk_edit' (bulk smart op)
+		source: text('source').notNull(),
+		// Normalized for dedup (lowercased, whitespace collapsed, trimmed)
+		phrase: text('phrase').notNull(),
+		sample: text('sample').notNull(),
+		count: integer('count').default(1).notNull(),
+		resolved: boolean('resolved').default(false).notNull(),
+		createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+		updatedAt: timestamp('updatedAt', { mode: 'date' })
+			.defaultNow()
+			.$onUpdate(() => new Date())
+			.notNull()
+	},
+	(table) => ({
+		sourcePhraseIdx: uniqueIndex('unmatched_phrases_source_phrase_idx').on(
+			table.source,
+			table.phrase
+		)
+	})
+);
+
 export type Family = typeof families.$inferSelect;
 export type FamilyInviteCode = typeof familyInviteCodes.$inferSelect;
 export type Discount = typeof discounts.$inferSelect;
 export type UserDiscount = typeof userDiscounts.$inferSelect;
 export type AdEvent = typeof adEvents.$inferSelect;
 export type WaitlistEntry = typeof waitlist.$inferSelect;
+export type UnmatchedPhrase = typeof unmatchedPhrases.$inferSelect;

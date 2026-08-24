@@ -1,6 +1,30 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { updateTask, toggleTaskComplete, deleteTask, TASK_FREQUENCIES } from '$lib/server/db/actions/tasks';
+import {
+	updateTask,
+	toggleTaskComplete,
+	toggleTaskCompleteFamily,
+	updateTaskInFamily,
+	deleteTask,
+	TASK_FREQUENCIES
+} from '$lib/server/db/actions/tasks';
+import { db } from '$lib/server/db';
+import { tasks, familyMembers } from '$lib/server/db/schema';
+import { eq, and } from 'drizzle-orm';
+
+/** Family membership grants toggle rights on family tasks. */
+async function familyMembership(taskId: string, userId: string): Promise<string | null> {
+	const [task] = await db
+		.select({ familyId: tasks.familyId })
+		.from(tasks)
+		.where(eq(tasks.id, taskId));
+	if (!task?.familyId) return null;
+	const [member] = await db
+		.select({ familyId: familyMembers.familyId })
+		.from(familyMembers)
+		.where(and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, task.familyId)));
+	return member ? task.familyId : null;
+}
 
 export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	if (!locals.user) {
@@ -18,6 +42,10 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 		let updated;
 		if (body.toggleComplete) {
 			updated = await toggleTaskComplete(taskId, locals.user.id);
+			if (!updated) {
+				const familyId = await familyMembership(taskId, locals.user.id);
+				if (familyId) updated = await toggleTaskCompleteFamily(taskId, familyId);
+			}
 		} else {
 			const frequency =
 				body.recurrenceFrequency === null || TASK_FREQUENCIES.includes(body.recurrenceFrequency)
@@ -51,6 +79,12 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				completedAt: body.completedAt,
 				...assignmentPatch
 			});
+
+			// Non-owner family members: assignment responses only.
+			if (!updated && Object.keys(assignmentPatch).length > 0) {
+				const familyId = await familyMembership(taskId, locals.user.id);
+				if (familyId) updated = await updateTaskInFamily(taskId, familyId, assignmentPatch);
+			}
 		}
 		if (!updated) {
 			return json({ error: 'Task not found' }, { status: 404 });

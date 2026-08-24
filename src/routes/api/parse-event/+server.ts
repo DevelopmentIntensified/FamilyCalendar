@@ -2,6 +2,11 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { parseEventInput, type ParsedEvent } from '$lib/server/services/naturalLanguageService';
 import { chatJson, llmConfigured } from '$lib/server/services/llm';
+import { reportUnmatchedPhrase } from '$lib/server/db/actions/unmatchedPhrases';
+
+// Below this the regex fallback likely missed the intent — log for the
+// parsing library so admins can add the pattern.
+const WEAK_PARSE_CONFIDENCE = 0.4;
 
 const PARSE_SYSTEM_PROMPT = `Parse this calendar event. Return JSON with: title, date (YYYY-MM-DD), startTime (HH:MM), endTime (HH:MM), location, description, allDay (boolean), attendants (array of names).
 
@@ -38,6 +43,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		// 2. Regex fallback
 		if (!result.parsed) {
 			result = { ...parseEventInput(input), method: 'regex' };
+		}
+
+		if (result.method !== 'cloud' && result.confidence < WEAK_PARSE_CONFIDENCE) {
+			await reportUnmatchedPhrase('event_parse', input);
 		}
 
 		return json(result);

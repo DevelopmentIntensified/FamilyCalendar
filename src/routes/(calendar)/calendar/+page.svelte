@@ -126,7 +126,7 @@
 			} else {
 				const plan: any[] = j.plan ?? [];
 				if (plan.length === 0) {
-					bulkError = 'AI found nothing to change';
+					bulkError = 'Could not match that instruction. Try naming a date or the events.';
 					return;
 				}
 				smartPlan = plan.map((po) => ({ id: po.id, label: describePlanOp(po) }));
