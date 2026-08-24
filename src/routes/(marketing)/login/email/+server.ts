@@ -43,9 +43,13 @@ export const POST = async (event: RequestEvent) => {
 	}
 
 	if (!user) {
-		return new Response(JSON.stringify({ success: false, error: 'User not found. Please sign up first.' }), {
-			status: 400
-		});
+		// Same response as the known-email path (without sending anything)
+		// so this endpoint cannot be used to enumerate registered accounts.
+		const genericBody = {
+			success: true,
+			message: "If that email has an account, we've sent a login link."
+		};
+		return new Response(JSON.stringify(genericBody), { status: 200 });
 	}
 
 	const random: RandomReader = {
@@ -97,7 +101,13 @@ export const POST = async (event: RequestEvent) => {
 			emailId: data?.id || null
 		});
 
-		return new Response(JSON.stringify({ success: true }), { status: 200 });
+		return new Response(
+			JSON.stringify({
+				success: true,
+				message: "If that email has an account, we've sent a login link."
+			}),
+			{ status: 200 }
+		);
 	}
 	return new Response(
 		JSON.stringify({ success: false, error: 'There was an error. Please try again.' }),

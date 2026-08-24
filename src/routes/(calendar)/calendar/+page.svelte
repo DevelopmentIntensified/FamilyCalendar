@@ -23,6 +23,25 @@
 	let selectedIds: string[] = [];
 	let bulkBusy = false;
 	let bulkError = '';
+	let reportingPhrase = false;
+	let phraseReported = false;
+
+	async function reportPhrase(phrase: string, source: 'bulk_edit' | 'event_parse') {
+		if (reportingPhrase) return;
+		reportingPhrase = true;
+		try {
+			const res = await fetch('/api/report-phrase', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ phrase, source })
+			});
+			if (res.ok) phraseReported = true;
+		} catch {
+			// Reporting is best-effort; leave the button for a retry.
+		} finally {
+			reportingPhrase = false;
+		}
+	}
 	let bulkLocation = '';
 	let bulkAttendants = '';
 	let bulkInstruction = '';
@@ -31,6 +50,7 @@
 		selectionMode = on;
 		selectedIds = [];
 		bulkError = '';
+		phraseReported = false;
 		smartPlan = null;
 	}
 
@@ -52,6 +72,7 @@
 		if (op.type === 'delete' && !confirm(`Delete ${selectedIds.length} event(s)? Attached checklists go too.`)) return;
 		bulkBusy = true;
 		bulkError = '';
+		phraseReported = false;
 		try {
 			const res = await fetch('/api/events/bulk', {
 				method: 'POST',
@@ -125,6 +146,7 @@
 		}
 		bulkBusy = true;
 		bulkError = '';
+		phraseReported = false;
 		try {
 			const res = await fetch('/api/events/bulk', {
 				method: 'POST',
@@ -455,7 +477,23 @@
 			</div>
 		</div>
 		{#if bulkError}
-			<p class="mt-2 text-xs font-medium text-red-600" role="alert">{bulkError}</p>
+			<div class="mt-2 flex items-center gap-2">
+				<p class="text-xs font-medium text-red-600" role="alert">{bulkError}</p>
+				{#if bulkInstruction.trim()}
+					{#if phraseReported}
+						<span class="text-xs text-slate-400">Thanks — reported.</span>
+					{:else}
+						<button
+							type="button"
+							onclick={() => reportPhrase(bulkInstruction.trim(), 'bulk_edit')}
+							disabled={reportingPhrase}
+							class="text-xs text-slate-400 underline hover:text-slate-600 disabled:opacity-50"
+						>
+							{reportingPhrase ? 'Reporting…' : 'Report this'}
+						</button>
+					{/if}
+				{/if}
+			</div>
 		{/if}
 	</div>
 {/if}

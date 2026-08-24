@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import { getAccount } from '$lib/server/db/actions/accounts';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 import { lucia } from '$lib/server/auth';
-import { hash } from '@node-rs/argon2';
+import { hashPassword } from '$lib/server/utils/password';
 export const load: PageServerLoad = async ({ url }) => {
 	const token = url.searchParams.get('token');
 	if (!token) {
@@ -126,12 +126,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Invalid or expired token' });
 		}
 
-		const passwordHash = await hash(password, {
-			memoryCost: 19456,
-			timeCost: 2,
-			outputLen: 32,
-			parallelism: 1
-		});
+		const passwordHash = await hashPassword(password);
 
 		return await createAccountAndJoin(event, payload, passwordHash);
 	}

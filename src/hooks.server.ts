@@ -89,7 +89,38 @@ const securityHeaders: Handle = async ({ event, resolve }) => {
 	return res;
 };
 
-export const handle = sequence(securityHeaders, sessionHandle);
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+// CSRF defense-in-depth for the JSON API: SvelteKit's built-in check only
+// rejects form-encoded cross-origin POSTs, so /api/* JSON mutations rely on
+// SameSite=Lax alone. Browsers always send a parseable Origin on cross-site
+// requests — if it's present and its host differs from the request's host,
+// reject. Absent Origin (curl, server-to-server, same-origin fetches) passes.
+const apiOriginCheck: Handle = async ({ event, resolve }) => {
+	const isApiMutation =
+		event.url.pathname.startsWith('/api/') &&
+		event.request.method !== 'GET' &&
+		(MUTATING_METHODS.has(event.request.method) ||
+			(event.request.headers.get('content-type')?.includes('application/json') ?? false));
+
+	if (isApiMutation) {
+		const origin = event.request.headers.get('origin');
+		if (origin) {
+			let originHost: string | null = null;
+			try {
+				originHost = new URL(origin).host;
+			} catch {
+				originHost = null;
+			}
+			if (!originHost || originHost !== event.url.host) {
+				return new Response('Forbidden', { status: 403 });
+			}
+		}
+	}
+	return resolve(event);
+};
+
+export const handle = sequence(securityHeaders, apiOriginCheck, sessionHandle);
 
 // Expected 404s (bot probes like /xmlrpc.php, mistyped URLs) shouldn't
 // spam the logs with stack traces — the styled error page still renders.

@@ -50,8 +50,21 @@ export const POST: RequestHandler = async function (event) {
 			userAccount = { userId: user.id } as any;
 		}
 
+		const oldSessionId = event.locals?.session?.id;
+		const oldUser = event.locals?.user;
+
 		const session = await lucia.createSession(userAccount.userId, {});
 		const sessionCookie = lucia.createSessionCookie(session.id);
+
+		if (
+			oldSessionId &&
+			oldUser &&
+			!oldUser.email &&
+			oldUser.id !== userAccount.userId &&
+			oldSessionId !== session.id
+		) {
+			await lucia.invalidateSession(oldSessionId).catch(() => {});
+		}
 
 		let headers = new Headers();
 		headers.append('Set-Cookie', sessionCookie.serialize());

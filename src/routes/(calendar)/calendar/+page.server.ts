@@ -9,7 +9,7 @@ import {
 	families,
 	type CalendarEvent
 } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
@@ -35,11 +35,17 @@ export const load: PageServerLoad = async (event) => {
 	}
 
 	let userSettings = await getUserSettings(userId);
-	let userCalendar = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
+	let userCalendar = await db
+		.select()
+		.from(calendars)
+		.where(and(eq(calendars.ownerId, userId), isNull(calendars.familyId)));
 
 	if (userCalendar.length === 0) {
 		await createUserCalendar(userId);
-		userCalendar = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
+		userCalendar = await db
+			.select()
+			.from(calendars)
+			.where(and(eq(calendars.ownerId, userId), isNull(calendars.familyId)));
 	}
 
 	let userEvents: CalendarEvent[] = [];

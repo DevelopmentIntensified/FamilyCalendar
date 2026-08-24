@@ -25,6 +25,9 @@
 	let nlInput = '';
 	let showMore = false;
 	let parsing = false;
+	let reportingPhrase = false;
+	let phraseReported = false;
+	let phraseReportable = false;
 	let parseTimeout: ReturnType<typeof setTimeout>;
 	let submitting = false;
 	let submitError = '';
@@ -79,6 +82,7 @@
 		if (!nlInput.trim()) return;
 
 		parsing = true;
+		phraseReported = false;
 		try {
 			const response = await fetch('/api/parse-event', {
 				method: 'POST',
@@ -93,12 +97,30 @@
 				const result = await response.json();
 				if (result.parsed) {
 					form.applyNlpResult(result.parsed);
+					phraseReportable = true;
 				}
 			}
 		} catch (error) {
 			console.error('Parse error:', error);
 		} finally {
 			parsing = false;
+		}
+	}
+
+	async function reportPhrase() {
+		if (reportingPhrase || !nlInput.trim()) return;
+		reportingPhrase = true;
+		try {
+			const res = await fetch('/api/report-phrase', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ phrase: nlInput.trim(), source: 'event_parse' })
+			});
+			if (res.ok) phraseReported = true;
+		} catch {
+			// Best-effort; leave the link for retry.
+		} finally {
+			reportingPhrase = false;
 		}
 	}
 
@@ -354,6 +376,22 @@
 									Clear
 								</button>
 							</div>
+							{#if phraseReportable && nlInput.trim()}
+								<div class="mt-1 text-right">
+									{#if phraseReported}
+										<span class="text-xs text-slate-400">Thanks — we'll teach the parser.</span>
+									{:else}
+										<button
+											type="button"
+											on:click={reportPhrase}
+											disabled={reportingPhrase}
+											class="text-xs text-slate-400 underline hover:text-slate-600 disabled:opacity-50"
+										>
+											{reportingPhrase ? 'Reporting…' : 'Parsed wrong? Report this phrase'}
+										</button>
+									{/if}
+								</div>
+							{/if}
 						</div>
 					{/if}
 

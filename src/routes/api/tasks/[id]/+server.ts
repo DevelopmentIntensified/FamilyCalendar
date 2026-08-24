@@ -78,7 +78,10 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				recurrenceFrequency: frequency,
 				recurrenceInterval:
 					frequency === null ? null : frequency ? Math.max(1, Math.floor(body.recurrenceInterval ?? 1)) : undefined,
-				completedAt: body.completedAt,
+				completedAt:
+					typeof body.completedAt === 'string' && !isNaN(Date.parse(body.completedAt))
+						? body.completedAt
+						: undefined,
 				...assignmentPatch
 			});
 

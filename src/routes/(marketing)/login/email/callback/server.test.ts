@@ -8,6 +8,10 @@ vi.mock('$lib/server/db/actions/users', () => ({
 	getUserByEmail: vi.fn()
 }));
 
+vi.mock('$lib/server/db/actions/codes', () => ({
+	deleteCodesByEmail: vi.fn()
+}));
+
 vi.mock('$lib/server/auth', () => ({
 	lucia: {
 		createSession: vi.fn(),
@@ -62,6 +66,7 @@ describe('GET /login/email/callback', () => {
 		const { validateJWT, parseJWT } = await import('oslo/jwt');
 		const { getAccount } = await import('$lib/server/db/actions/accounts');
 		const { getUserByEmail } = await import('$lib/server/db/actions/users');
+		const { deleteCodesByEmail } = await import('$lib/server/db/actions/codes');
 		const { lucia } = await import('$lib/server/auth');
 
 		vi.mocked(validateJWT).mockResolvedValue(undefined as any);
@@ -77,6 +82,7 @@ describe('GET /login/email/callback', () => {
 		const location = response.headers.get('Location');
 		expect(location).toContain('/calendar');
 		expect(getUserByEmail).toHaveBeenCalledWith('pw@user.com');
+		expect(deleteCodesByEmail).toHaveBeenCalledWith('pw@user.com');
 	});
 
 	it('redirects to /login?error for invalid token', async () => {

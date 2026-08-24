@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { events, calendars } from '$lib/server/db/schema';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { eq, and, gte, lte, isNull } from 'drizzle-orm';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { canViewArchive, getUserSubscriptionLimits } from '$lib/server/services/subscriptionService';
 
@@ -30,7 +30,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const userCalendar = await db
 		.select()
 		.from(calendars)
-		.where(eq(calendars.ownerId, userId));
+		.where(and(eq(calendars.ownerId, userId), isNull(calendars.familyId)));
 
 	const userCalendarEvents = userCalendar.length > 0
 		? await db

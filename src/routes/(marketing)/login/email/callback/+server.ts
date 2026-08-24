@@ -9,6 +9,7 @@ import { db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 import { getAccount } from '$lib/server/db/actions/accounts';
 import { getUserByEmail } from '$lib/server/db/actions/users';
+import { deleteCodesByEmail } from '$lib/server/db/actions/codes';
 
 export const GET: RequestHandler = async function (event) {
 	// Remember any anonymous session so its data can be merged after auth.
@@ -89,9 +90,24 @@ export const GET: RequestHandler = async function (event) {
 		}
 		let userId = userAccount.userId;
 
+		const oldSessionId = event.locals.session?.id;
+		const oldUser = event.locals.user;
+
 		await db.update(users).set({ lastLogin: new Date() }).where(eq(users.id, userId));
 		const session = await lucia.createSession(userId, {});
 		const sessionCookie = lucia.createSessionCookie(session.id);
+
+		if (
+			oldSessionId &&
+			oldUser &&
+			!oldUser.email &&
+			oldUser.id !== userId &&
+			oldSessionId !== session.id
+		) {
+			await lucia.invalidateSession(oldSessionId).catch(() => {});
+		}
+
+		await deleteCodesByEmail(email);
 
 		let headers = new Headers();
 		headers.append('Set-Cookie', sessionCookie.serialize());

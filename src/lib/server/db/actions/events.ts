@@ -2,6 +2,7 @@ import { db } from '$lib/server/db';
 import { eventAttendance, eventExceptions, events, users, type CalendarEvent } from '$lib/server/db/schema';
 import { eq, and, sql, inArray, or } from 'drizzle-orm';
 import { getAccessibleCalendarIds, eventAccessFilter } from '$lib/server/utils/calendarScope';
+import { toDateTime } from '$lib/server/utils/eventTimes';
 
 export async function getEvent(id: string) {
 	const [event] = await db.select().from(events).where(eq(events.id, id));
@@ -14,10 +15,13 @@ export async function getExceptionsByEventIds(eventIds: string[]) {
 }
 
 export async function findException(eventId: string, originalDateIso: string) {
+	// timestamptz equality only matches when the string renders exactly like
+	// Postgres would; normalize any ISO-ish input to UTC ISO first.
+	const originalDate = toDateTime(originalDateIso)?.toUTC().toISO() ?? originalDateIso;
 	const [exception] = await db
 		.select()
 		.from(eventExceptions)
-		.where(and(eq(eventExceptions.eventId, eventId), eq(eventExceptions.originalDate, originalDateIso)));
+		.where(and(eq(eventExceptions.eventId, eventId), eq(eventExceptions.originalDate, originalDate)));
 	return exception;
 }
 
@@ -32,7 +36,12 @@ export async function upsertException(data: {
 	end?: string | null;
 	allDay?: boolean | null;
 }) {
-	const existing = await findException(data.eventId, data.originalDate);
+	// Select-then-write is racy without a unique index on (event_id, original_date):
+	// two concurrent edits can both miss the select and insert duplicates.
+	// Once that unique index exists this can become a single
+	// insert(...).onConflictDoUpdate({ target: [eventId, originalDate] }).
+	const originalDate = toDateTime(data.originalDate)?.toUTC().toISO() ?? data.originalDate;
+	const existing = await findException(data.eventId, originalDate);
 	if (existing) {
 		const [updated] = await db
 			.update(eventExceptions)
@@ -53,7 +62,7 @@ export async function upsertException(data: {
 		.insert(eventExceptions)
 		.values({
 			eventId: data.eventId,
-			originalDate: data.originalDate,
+			originalDate,
 			isCancelled: data.isCancelled ?? false,
 			title: data.title ?? null,
 			description: data.description ?? null,

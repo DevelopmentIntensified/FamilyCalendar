@@ -6,7 +6,11 @@ import { lucia, setSessionCookie } from '$lib/server/auth';
 import { getUserSettings, createUserSettings } from '$lib/server/db/actions/userSettings';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
-export const POST: RequestHandler = async ({ request, cookies }) => {
+// Constant dummy bcrypt hash: compared against when the email is unknown so
+// response timing matches the known-email path (user enumeration defense).
+const DUMMY_BCRYPT_HASH = '$2a$10$C6UzMDM.H6dfI/f/IKcEeO7ZBpEbF1nZ.PnI1fT4/eqSYQ0xJ0fSO';
+
+export const POST: RequestHandler = async ({ request, cookies, locals }) => {
 	// Remember any anonymous session so its data can be merged after auth.
 	const { stashGuestFromCookies } = await import('$lib/server/services/guestMergeService');
 	await stashGuestFromCookies(cookies);
@@ -24,6 +28,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		const user = await getUserByEmail(email);
 		if (!user) {
+			await verifyPassword(password, DUMMY_BCRYPT_HASH);
 			return json({ error: 'Invalid email or password' }, { status: 401 });
 		}
 
@@ -43,8 +48,21 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			await createUserSettings({ userId: user.id, timeZone: 'UTC' });
 		}
 
+		const oldSessionId = locals.session?.id;
+		const oldUser = locals.user;
+
 		const session = await lucia.createSession(user.id, {});
 		setSessionCookie(cookies, lucia.createSessionCookie(session.id));
+
+		if (
+			oldSessionId &&
+			oldUser &&
+			!oldUser.email &&
+			oldUser.id !== user.id &&
+			oldSessionId !== session.id
+		) {
+			await lucia.invalidateSession(oldSessionId).catch(() => {});
+		}
 
 		return json(
 			{ success: true, user: { id: user.id, email: user.email, firstName: user.firstName } },

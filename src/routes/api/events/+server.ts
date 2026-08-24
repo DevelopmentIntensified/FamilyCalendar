@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { createEvent } from '$lib/server/db/actions/events';
 import { db } from '$lib/server/db';
 import { calendars, events } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 
@@ -29,7 +29,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	let calendarId = body.calendarId;
 	if (!calendarId) {
-		let userCalendar = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
+		let userCalendar = await db
+			.select()
+			.from(calendars)
+			.where(and(eq(calendars.ownerId, userId), isNull(calendars.familyId)));
 		if (userCalendar.length === 0) {
 			const [newCal] = await db.insert(calendars).values({ ownerId: userId }).returning();
 			calendarId = newCal.id;
