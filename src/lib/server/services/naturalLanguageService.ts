@@ -118,12 +118,11 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		confidence += 0.2;
 	}
 
-	// "next month" - "next May", "next July"
+	// "next <month>" - "next May", "next September" — always next year
 	const nextMonthMatch = input.match(new RegExp(`\\bnext\\s+(${MONTH_ALT})\\b`, 'i'));
 	if (nextMonthMatch && !result.date) {
 		const month = MONTH_MAP[nextMonthMatch[1].toLowerCase()];
-		let year = now.month >= month ? now.year + 1 : now.year;
-		result.date = DateTime.fromObject({ year, month, day: 1 }).toFormat('yyyy-MM-dd');
+		result.date = DateTime.fromObject({ year: now.year + 1, month, day: 1 }).toFormat('yyyy-MM-dd');
 		confidence += 0.2;
 	}
 

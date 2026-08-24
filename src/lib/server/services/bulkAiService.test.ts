@@ -185,10 +185,22 @@ describe('past-date expressions', () => {
 		expect(resolveBulkDate('move to aug 11', SUN)).toBe('2026-08-11');
 	});
 
-	it('rolls to next year only from December', () => {
+	it('keeps bare month-day in the current year when under 3 months past', () => {
+		// Aug 11 from Oct 1 is ~7 weeks back — stays this year (confirm-gated).
+		const oct1 = DateTime.fromISO('2026-10-01T12:00:00');
+		expect(resolveBulkDate('move to aug 11', oct1)).toBe('2026-08-11');
+	});
+
+	it('rolls bare month-day to next year when more than 3 months past', () => {
 		const dec15 = DateTime.fromISO('2026-12-15T12:00:00');
-		expect(resolveBulkDate('move to jan 5', dec15)).toBe('2027-01-05');
-		expect(resolveBulkDate('move to dec 20', dec15)).toBe('2026-12-20');
+		expect(resolveBulkDate('move to aug 11', dec15)).toBe('2027-08-11');
+		expect(resolveBulkDate('move to 11 aug', dec15)).toBe('2027-08-11');
+	});
+
+	it('next <month> always means next year', () => {
+		const aug23 = DateTime.fromISO('2026-08-23T12:00:00');
+		expect(resolveBulkDate('move to next september', aug23)).toBe('2027-09-01');
+		expect(resolveBulkDate('move to next august', aug23)).toBe('2027-08-01');
 	});
 
 	it('honors an explicit year over the rollover rule', () => {

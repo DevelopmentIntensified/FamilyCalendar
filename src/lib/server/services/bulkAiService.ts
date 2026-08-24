@@ -63,17 +63,27 @@ export function resolveBulkDate(lower: string, today: DateTime): string | null {
 		if (dt.isValid) return dt.toISODate()!;
 	}
 
+	// "next <month>" — always next year, day 1.
+	const nextMonthName = lower.match(new RegExp(`\\bnext\\s+(${MONTH_ALT})\\b`));
+	if (nextMonthName) {
+		const month = MONTH_MAP[nextMonthName[1]];
+		const dt = DateTime.fromObject({ year: today.year + 1, month, day: 1 });
+		if (dt.isValid) return dt.toISODate()!;
+	}
+
 	// Month-day: "aug 28", "august 28th", "sept 5, 2026".
-	// Without an explicit year, stay in the current year (past dates are
-	// allowed, confirm-gated client-side); only roll to next year when
-	// the request lands in December for a non-December month.
+	// Without an explicit year, stay in the current year; roll to next
+	// year only when the date sits more than 3 months in the past.
 	const monthDay = lower.match(new RegExp(`\\b(${MONTH_ALT})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?\\b`));
 	if (monthDay) {
 		const month = MONTH_MAP[monthDay[1]];
 		const day = +monthDay[2];
 		let year = monthDay[3] ? +monthDay[3] : today.year;
-		if (!monthDay[3] && today.month === 12 && month !== 12) year += 1;
-		const dt = DateTime.fromObject({ year, month, day });
+		let dt = DateTime.fromObject({ year, month, day });
+		if (!monthDay[3] && dt.isValid && dt < today.minus({ months: 3 })) {
+			year += 1;
+			dt = DateTime.fromObject({ year, month, day });
+		}
 		if (dt.isValid) return dt.toISODate()!;
 	}
 
@@ -83,11 +93,12 @@ export function resolveBulkDate(lower: string, today: DateTime): string | null {
 		const day = +dayMonth[1];
 		const month = MONTH_MAP[dayMonth[2]];
 		let year = dayMonth[3] ? +dayMonth[3] : today.year;
-		if (!dayMonth[3] && today.month === 12 && month !== 12) year += 1;
-		if (day >= 1 && day <= 31) {
-			const dt = DateTime.fromObject({ year, month, day });
-			if (dt.isValid) return dt.toISODate()!;
+		let dt = DateTime.fromObject({ year, month, day });
+		if (!dayMonth[3] && day >= 1 && day <= 31 && dt.isValid && dt < today.minus({ months: 3 })) {
+			year += 1;
+			dt = DateTime.fromObject({ year, month, day });
 		}
+		if (day >= 1 && day <= 31 && dt.isValid) return dt.toISODate()!;
 	}
 
 	// "yesterday" / "tomorrow" / "today" — past moves are allowed but the
