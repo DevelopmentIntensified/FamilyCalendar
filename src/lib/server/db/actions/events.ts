@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { eventAttendance, eventExceptions, events, users, type CalendarEvent } from '$lib/server/db/schema';
-import { eq, and, sql, inArray } from 'drizzle-orm';
+import { eq, and, sql, inArray, or } from 'drizzle-orm';
 
 export async function getEvents() {
 	return await db.select().from(events).orderBy(events.start);
@@ -141,6 +141,22 @@ export async function deleteEvent(id: string) {
 
 export async function deleteEventById(id: string, userId: string) {
 	await db.delete(events).where(and(eq(events.id, id), eq(events.ownerId, userId)));
+}
+
+/** Delete an event the user owns OR one living on an accessible calendar
+ *  (personal or family) — mirrors the calendar's read scope. */
+export async function deleteEventInScope(id: string, userId: string, calendarIds: string[]) {
+	await db
+		.delete(events)
+		.where(
+			and(
+				eq(events.id, id),
+				or(
+					eq(events.ownerId, userId),
+					calendarIds.length > 0 ? inArray(events.calendarId, calendarIds) : sql`false`
+				)
+			)
+		);
 }
 
 export async function updateRsvp(eventId: string, userId: string, status: 'going' | 'maybe' | 'declined' | 'undecided') {

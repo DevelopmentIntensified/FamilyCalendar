@@ -3,16 +3,15 @@ import type { RequestHandler } from './$types';
 import { DateTime } from 'luxon';
 import { db } from '$lib/server/db';
 import { calendars, events, families, familyMembers } from '$lib/server/db/schema';
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import {
 	updateEventById,
-	deleteEventById,
+	deleteEventInScope,
 	getEvent,
 	getEventAttendance,
 	syncEventAttendants
 } from '$lib/server/db/actions/events';
 import { planBulkEdits, parseBulkPlan, type BulkPlanOp } from '$lib/server/services/bulkAiService';
-import { llmConfigured } from '$lib/server/services/llm';
 import { reportUnmatchedPhrase } from '$lib/server/db/actions/unmatchedPhrases';
 import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
 import { toDateTime } from '$lib/server/utils/eventTimes';
@@ -110,12 +109,32 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'No valid event ids' }, { status: 400 });
 	}
 
-	// Only touch rows the caller owns.
-	const ownedRows = await db
+	// Editable = events the caller owns OR events on a calendar they can
+	// see (personal or their family's) — mirrors the calendar read scope.
+	const [member] = await db
+		.select()
+		.from(familyMembers)
+		.where(eq(familyMembers.userId, userId));
+	const calWhere = member?.familyId
+		? or(eq(calendars.ownerId, userId), eq(calendars.familyId, member.familyId))
+		: eq(calendars.ownerId, userId);
+	const accessibleCalIds = (
+		await db.select({ id: calendars.id }).from(calendars).where(calWhere)
+	).map((c) => c.id);
+
+	const editableRows = await db
 		.select({ id: events.id })
 		.from(events)
-		.where(and(inArray(events.id, masterIds), eq(events.ownerId, userId)));
-	const ownedIds = ownedRows.map((r) => r.id);
+		.where(
+			and(
+				inArray(events.id, masterIds),
+				or(
+					eq(events.ownerId, userId),
+					accessibleCalIds.length > 0 ? inArray(events.calendarId, accessibleCalIds) : sql`false`
+				)
+			)
+		);
+	const ownedIds = editableRows.map((r) => r.id);
 
 	if (ownedIds.length === 0) {
 		return json({ error: 'No editable events matched' }, { status: 403 });
@@ -124,7 +143,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
 		if (op.type === 'delete') {
 			for (const id of ownedIds) {
-				await deleteEventById(id, userId);
+				await deleteEventInScope(id, userId, accessibleCalIds);
 			}
 			return json({ success: true, applied: ownedIds.length });
 		}
@@ -195,13 +214,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					};
 				});
 
-				const [member] = await db
-					.select()
-					.from(familyMembers)
-					.where(eq(familyMembers.userId, userId));
-				const calWhere = member?.familyId
-					? or(eq(calendars.ownerId, userId), eq(calendars.familyId, member.familyId))
-					: eq(calendars.ownerId, userId);
 				const calRows = await db
 					.select({
 						id: calendars.id,
@@ -229,27 +241,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				}
 			}
 
-			// Re-validate whatever plan we have against owned ids only.
+			// Re-validate whatever plan we have against editable ids only.
 			const plan = parseBulkPlan(JSON.stringify({ ops: rawOps }), ownedIds);
 			if (plan.length === 0) {
 				return json({ error: 'No valid changes in plan' }, { status: 422 });
 			}
 
-			const [member] = await db
-				.select()
-				.from(familyMembers)
-				.where(eq(familyMembers.userId, userId));
-			const calWhere = member?.familyId
-				? or(eq(calendars.ownerId, userId), eq(calendars.familyId, member.familyId))
-				: eq(calendars.ownerId, userId);
-			const allowedCalIds = new Set(
-				(await db.select({ id: calendars.id }).from(calendars).where(calWhere)).map((c) => c.id)
-			);
+			const allowedCalIds = new Set(accessibleCalIds);
 
 			let applied = 0;
 			for (const planOp of plan) {
 				if (planOp.delete) {
-					await deleteEventById(planOp.id, userId);
+					await deleteEventInScope(planOp.id, userId, accessibleCalIds);
 					applied++;
 					continue;
 				}
