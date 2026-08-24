@@ -13,6 +13,10 @@ import { createAccount } from '$lib/server/db/actions/accounts';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 
 export const GET: RequestHandler = async function (event) {
+	// Remember any anonymous session so its data can be merged after auth.
+	const { stashGuestFromCookies } = await import('$lib/server/services/guestMergeService');
+	await stashGuestFromCookies(event.cookies);
+
 	const requestUrl = new URL(event.url);
 	const siteUrl = getUrl();
 	const redirectUrl = new URL(siteUrl + '/signup');
@@ -61,7 +65,7 @@ export const GET: RequestHandler = async function (event) {
 		});
 	}
 
-	if (!!event.locals.user) {
+	if (event.locals.user?.email) {
 		return new Response(null, {
 			status: 302,
 			headers: {

@@ -160,10 +160,9 @@ export async function canViewArchivedEvent(
 export async function canViewArchive(userId: string): Promise<{ allowed: boolean; reason?: string }> {
 	const limits = await getUserSubscriptionLimits(userId);
 
-	const now = new Date();
-	const cutoffDate = new Date(now.getTime() - limits.retentionViewDays * 24 * 60 * 60 * 1000);
-
-	if (cutoffDate > now) {
+	// Archive access is a plan capability: tiers without archive storage set
+	// archivedRetentionDays to 0.
+	if (limits.archivedRetentionDays <= 0) {
 		return { allowed: false, reason: 'Archive view not available on your plan' };
 	}
 

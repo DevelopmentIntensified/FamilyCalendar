@@ -11,6 +11,10 @@ import { getAccount } from '$lib/server/db/actions/accounts';
 import { getUserByEmail } from '$lib/server/db/actions/users';
 
 export const GET: RequestHandler = async function (event) {
+	// Remember any anonymous session so its data can be merged after auth.
+	const { stashGuestFromCookies } = await import('$lib/server/services/guestMergeService');
+	await stashGuestFromCookies(event.cookies);
+
 	const requestUrl = new URL(event.url);
 	const siteUrl = getUrl();
 	const redirectUrl = new URL(siteUrl + '/login');

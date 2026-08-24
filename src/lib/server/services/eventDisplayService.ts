@@ -50,14 +50,25 @@ export async function expandEventsForUser(eventsData: CalendarEvent[]): Promise<
 			const exception = exceptionByKey.get(`${e.id}~${occIso}`);
 			if (exception?.isCancelled) continue;
 
-			const occEnd = durationMs !== null ? new Date(occ.getTime() + durationMs) : null;
+			// Start/end overrides shift the occurrence itself; without an
+			// override, start stays on the recurrence slot and end derives
+			// from master duration. Composite id/occurrenceDate keep keying
+			// off the original recurrence slot.
+			const effectiveStart =
+				exception?.start != null ? new Date(exception.start) : occ;
+			const effectiveEnd =
+				exception?.end != null
+					? new Date(exception.end)
+					: durationMs !== null
+						? new Date(effectiveStart.getTime() + durationMs)
+						: null;
 			result.push({
 				...e,
 				id: `${e.id}~${occIso}`,
 				masterId: e.id,
 				occurrenceDate: occIso,
-				start: occ.toISOString(),
-				end: occEnd ? occEnd.toISOString() : null,
+				start: effectiveStart.toISOString(),
+				end: effectiveEnd ? effectiveEnd.toISOString() : null,
 				title: exception?.title ?? e.title,
 				description: exception?.description ?? e.description,
 				location: exception?.location ?? e.location,

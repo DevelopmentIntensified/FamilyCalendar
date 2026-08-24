@@ -7,6 +7,10 @@ import { hashPassword } from '$lib/server/utils/password';
 import { lucia, setSessionCookie } from '$lib/server/auth';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
+	// Remember any anonymous session so its data can be merged after auth.
+	const { stashGuestFromCookies } = await import('$lib/server/services/guestMergeService');
+	await stashGuestFromCookies(cookies);
+
 	try {
 		const { email, password, firstName, lastName } = await request.json();
 

@@ -16,7 +16,7 @@ import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
 import { parseEvents, expandEventsForUser } from '$lib/server/services/eventDisplayService';
 import { getTasksForUser, syncRecurringCursors } from '$lib/server/db/actions/tasks';
-import { getUserZone } from '$lib/server/utils/userTimezone';
+import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
 import { GUEST_MERGE_COOKIE } from '$lib/server/services/guestMergeService';
 
 export const load: PageServerLoad = async (event) => {
@@ -108,8 +108,8 @@ export const load: PageServerLoad = async (event) => {
 	let adEventsData: CalendarEvent[] = [];
 
 	if (showAds) {
-		const now = new Date();
-		adEventsData = await getAdEventsForUser(userId, now.getMonth() + 1, now.getFullYear());
+		const now = zonedNow(await getUserZone(userId));
+		adEventsData = await getAdEventsForUser(userId, now.month, now.year);
 	}
 
 	// Open tasks with due dates render as distinct chips on month-view days.

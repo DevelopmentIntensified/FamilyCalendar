@@ -1,7 +1,9 @@
 import { db } from '$lib/server/db';
 import { adEvents, userAdConsent, events, type CalendarEvent } from '$lib/server/db/schema';
-import { eq, and, sql, gte, lte, asc } from 'drizzle-orm';
+import { eq, and, sql, gte, lt, asc } from 'drizzle-orm';
 import { generateId } from 'lucia';
+import { DateTime } from 'luxon';
+import { getUserZone } from '$lib/server/utils/userTimezone';
 import {
 	uploadAdAsset,
 	getBlobUrl,
@@ -106,8 +108,9 @@ export async function getExistingAdEventsForMonth(
 	month: number,
 	year: number
 ): Promise<AdEventData[]> {
-	const startDate = new Date(year, month - 1, 1);
-	const endDate = new Date(year, month, 0);
+	const zone = await getUserZone(userId);
+	const monthStart = DateTime.fromObject({ year, month, day: 1 }, { zone }).startOf('month');
+	const monthEnd = monthStart.plus({ months: 1 });
 
 	const existingAds = await db
 		.select()
@@ -116,8 +119,8 @@ export async function getExistingAdEventsForMonth(
 			and(
 				eq(events.ownerId, userId),
 				sql`${events.title} LIKE '📢%'`,
-				gte(events.start, startDate.toISOString()),
-				lte(events.start, endDate.toISOString())
+				gte(events.start, monthStart.toJSDate().toISOString()),
+				lt(events.start, monthEnd.toJSDate().toISOString())
 			)
 		)
 		.orderBy(asc(events.start));
@@ -158,7 +161,8 @@ export async function generateAdEventsForMonth({
 	}
 
 	const generatedAds: AdEventData[] = [];
-	const daysInMonth = new Date(year, month, 0).getDate();
+	const zone = await getUserZone(userId);
+	const daysInMonth = DateTime.fromObject({ year, month }, { zone }).daysInMonth ?? 30;
 
 	const usedTemplates: number[] = [];
 
@@ -172,7 +176,10 @@ export async function generateAdEventsForMonth({
 
 		const template = AD_TEMPLATES[templateIndex];
 		const dayOffset = Math.floor(Math.random() * daysInMonth);
-		const eventDate = new Date(year, month - 1, dayOffset + 1, 10, 0, 0, 0);
+		const eventDate = DateTime.fromObject(
+			{ year, month, day: dayOffset + 1, hour: 10 },
+			{ zone }
+		).toJSDate();
 
 		const adEvent: AdEventData = {
 			eventId: generateId(15),

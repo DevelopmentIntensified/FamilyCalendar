@@ -81,7 +81,6 @@ export const actions: Actions = {
 		const defaultCalendarId = (formData.get('defaultCalendarId') as string) || null;
 		const syncEventsToFamilyCalendar = formData.get('syncEventsToFamilyCalendar') === 'on';
 		const autoParseEventDetails = formData.get('autoParseEventDetails') === 'true';
-		const useCloudAI = formData.get('useCloudAI') === 'true';
 
 		try {
 			const existingSettings = await getUserSettings(userId);
@@ -96,8 +95,7 @@ export const actions: Actions = {
 					defaultView,
 					defaultCalendarId,
 					syncEventsToFamilyCalendar,
-					autoParseEventDetails,
-					useCloudAI
+					autoParseEventDetails
 				});
 			} else {
 				await updateUserSettings(userId, {
@@ -107,8 +105,7 @@ export const actions: Actions = {
 					defaultView,
 					defaultCalendarId,
 					syncEventsToFamilyCalendar,
-					autoParseEventDetails,
-					useCloudAI
+					autoParseEventDetails
 				});
 			}
 
@@ -119,40 +116,9 @@ export const actions: Actions = {
 		}
 	},
 
-	saveAds: async ({ request, locals }) => {
-		const userId = locals.user.id;
-		const formData = await request.formData();
-
-		const showAdsAsEvents = formData.get('showAdsAsEvents') === 'true';
-		const showAdMarkers = formData.get('showAdMarkers') === 'true';
-		const personalizedAds = formData.get('personalizedAds') === 'true';
-
-		try {
-			const existing = await db
-				.select()
-				.from(userAdConsent)
-				.where(eq(userAdConsent.userId, userId));
-
-			if (existing.length > 0) {
-				await db
-					.update(userAdConsent)
-					.set({ showAdsAsEvents, showAdMarkers, personalizedAds, updatedAt: new Date() })
-					.where(eq(userAdConsent.userId, userId));
-			} else {
-				await db.insert(userAdConsent).values({
-					userId,
-					showAdsAsEvents,
-					showAdMarkers,
-					personalizedAds,
-					updatedAt: new Date()
-				});
-			}
-
-			return { success: true, message: 'Ad preferences saved' };
-		} catch (error) {
-			console.error('Failed to save ad preferences:', error);
-			return fail(500, { success: false, message: 'Failed to save ad preferences' });
-		}
+	// UI is disabled; no-op preserves existing ad consent.
+	saveAds: async () => {
+		return { success: true };
 	},
 
 	updateProfile: async ({ request, locals }) => {

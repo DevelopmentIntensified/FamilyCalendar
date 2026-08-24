@@ -8,6 +8,10 @@ import { deleteCode, deleteDeadCodes, getCode } from '$lib/server/db/actions/cod
 import { createNewUser } from '$lib/server/utils/createNewUser';
 
 export const POST: RequestHandler = async function (event) {
+	// Remember any anonymous session so its data can be merged after auth.
+	const { stashGuestFromCookies } = await import('$lib/server/services/guestMergeService');
+	await stashGuestFromCookies(event.cookies);
+
 	const siteUrl = getUrl();
 	const redirectUrl = new URL(siteUrl + '/signup');
 	redirectUrl.searchParams.set('error', 'The code incorrect. Please try again');

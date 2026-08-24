@@ -7,11 +7,18 @@ const protectedRoutes = ['calendar', 'account', 'claim', ...adminProtectedRoutes
 
 const LAST_ACTIVE_TOUCH_MS = 60 * 60 * 1000;
 
-function isAdminRoute(pathname: string): boolean {
-	for (let i = 0; i < adminProtectedRoutes.length; i++) {
-		if (pathname.includes(adminProtectedRoutes[i])) return true;
+// Segment-based match: '/disclaimer' must not match 'claim', and any path
+// containing 'calendar' as a substring must not match either.
+function matchesRoute(pathname: string, routes: string[]): boolean {
+	const segments = pathname.split('/');
+	for (let i = 0; i < routes.length; i++) {
+		if (segments.includes(routes[i])) return true;
 	}
 	return false;
+}
+
+function isAdminRoute(pathname: string): boolean {
+	return matchesRoute(pathname, adminProtectedRoutes);
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
@@ -25,18 +32,24 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (isAdminRoute(event.url.pathname)) {
 			return redirect(302, '/login');
 		}
-		for (let i = 0; i < protectedRoutes.length; i++) {
-			const route = protectedRoutes[i];
-			if (event.url.pathname.includes(route)) {
-				// Anonymous Account: silently create a server-side account
-				// with no email so the app is usable immediately.
-				const anonUser = await createAnonymousUser();
-				const session = await lucia.createSession(anonUser.id, {});
-				setSessionCookie(event.cookies, lucia.createSessionCookie(session.id));
-				event.locals.user = anonUser;
-				event.locals.session = session;
-				return resolve(event);
-			}
+		// Only create the anonymous account for document navigations (GET +
+		// text/html Accept). Prefetches, API calls and other non-HTML requests
+		// skip creation — otherwise parallel first requests each create a
+		// user+session while only one cookie survives, orphaning the data
+		// created under the lost session. They get a 302/401 naturally or the
+		// user retries after the document request sets the cookie.
+		const isDocumentNavigation =
+			event.request.method === 'GET' &&
+			(event.request.headers.get('accept')?.includes('text/html') ?? false);
+		if (isDocumentNavigation && matchesRoute(event.url.pathname, protectedRoutes)) {
+			// Anonymous Account: silently create a server-side account
+			// with no email so the app is usable immediately.
+			const anonUser = await createAnonymousUser();
+			const session = await lucia.createSession(anonUser.id, {});
+			setSessionCookie(event.cookies, lucia.createSessionCookie(session.id));
+			event.locals.user = anonUser;
+			event.locals.session = session;
+			return resolve(event);
 		}
 		return resolve(event);
 	}
