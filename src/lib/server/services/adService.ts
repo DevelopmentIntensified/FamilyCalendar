@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { adEvents, userAdConsent, events, type CalendarEvent } from '$lib/server/db/schema';
+import { adEvents, userAdConsent, events } from '$lib/server/db/schema';
 import { eq, and, sql, gte, lt, asc } from 'drizzle-orm';
 import { generateId } from 'lucia';
 import { DateTime } from 'luxon';
@@ -289,13 +289,33 @@ export async function listAdImages(prefix?: string): Promise<string[]> {
 	return assets.map((asset) => asset.url);
 }
 
+/**
+ * Display projection of an ad for the calendar UI. Not a stored CalendarEvent:
+ * ads belong to no calendar row, so calendar-scoped fields are placeholders.
+ */
+export interface AdDisplayEvent {
+	id: string;
+	title: string;
+	description: string;
+	start: string;
+	end: string;
+	allDay: boolean;
+	/** Placeholder — ads render on the calendar but are not attached to a calendar. */
+	calendarId: string;
+	ownerId: string;
+	location: null;
+	recurrenceFrequency: null;
+	recurrenceInterval: null;
+	created_at: Date;
+}
+
 export async function getAdEventsForUser(
 	userId: string,
 	month: number,
 	year: number
-): Promise<CalendarEvent[]> {
+): Promise<AdDisplayEvent[]> {
 	const existingAds = await getExistingAdEventsForMonth(userId, month, year);
-	
+
 	if (existingAds.length > 0) {
 		return existingAds.map((ad) => ({
 			id: ad.eventId,
@@ -306,7 +326,6 @@ export async function getAdEventsForUser(
 			allDay: true,
 			calendarId: '',
 			ownerId: userId,
-			familyId: null,
 			location: null,
 			recurrenceFrequency: null,
 			recurrenceInterval: null,
@@ -315,7 +334,7 @@ export async function getAdEventsForUser(
 	}
 
 	const generatedAds = await generateAdEventsForMonth({ userId, month, year, adsPerMonth: 3 });
-	
+
 	return generatedAds.map((ad) => ({
 		id: ad.eventId,
 		title: `📢 ${ad.adContent.message}`,
@@ -325,7 +344,6 @@ export async function getAdEventsForUser(
 		allDay: true,
 		calendarId: '',
 		ownerId: userId,
-		familyId: null,
 		location: null,
 		recurrenceFrequency: null,
 		recurrenceInterval: null,

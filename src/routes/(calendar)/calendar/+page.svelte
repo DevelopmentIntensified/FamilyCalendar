@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 	import { DateTime } from 'luxon';
 	import type { PageData } from './$types';
 	import type { Event } from '$lib/types';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
 	import EventFormModal from '$lib/components/calendar/EventFormModal.svelte';
+	import EmptyState from '$lib/components/calendar/EmptyState.svelte';
+	import calendarNoteDate from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg';
 	import { parseEvents } from '$lib/utils/eventDisplay';
 	import { invalidateAll, goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -205,6 +208,24 @@
 		...localExtras
 	];
 
+	// First-run card: shown only when there is truly nothing on the calendar.
+	let dismissedFirstRun = false;
+
+	onMount(() => {
+		dismissedFirstRun = localStorage.getItem('familyplanz:firstRunDismissed') === 'true';
+	});
+
+	function dismissFirstRun() {
+		dismissedFirstRun = true;
+		try {
+			localStorage.setItem('familyplanz:firstRunDismissed', 'true');
+		} catch {
+			// Storage may be unavailable (private mode); dismissal still applies for this session.
+		}
+	}
+
+	$: showFirstRunCard = !dismissedFirstRun && allEvents.length === 0 && (data.dueTasks || []).length === 0;
+
 	function close() {
 		showModal = false;
 		showEditModal = false;
@@ -305,6 +326,32 @@
 </script>
 
 <div class="pb-24">
+	{#if showFirstRunCard}
+		<div class="relative mx-auto mb-4 max-w-xl px-4 pt-4">
+			<EmptyState
+				illustration={calendarNoteDate}
+				title="Blank calendar!"
+				hint="Add your first thing — or import a year of home upkeep in two taps."
+			>
+				<a
+					href="/calendar/tasks"
+					class="mt-4 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
+				>
+					Browse ✨ Smart tasks
+				</a>
+			</EmptyState>
+			<button
+				type="button"
+				onclick={dismissFirstRun}
+				aria-label="Dismiss"
+				class="absolute right-6 top-6 flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-white hover:text-slate-600"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+				</svg>
+			</button>
+		</div>
+	{/if}
 	<Calendar
 		{currentDate}
 		events={allEvents}

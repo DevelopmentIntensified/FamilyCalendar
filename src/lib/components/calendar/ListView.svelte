@@ -7,6 +7,7 @@
 	import { formatEventTime } from '$lib/utils/eventTime';
 	import { chipColor } from '$lib/utils/eventChip';
 	import { invalidateAll } from '$app/navigation';
+	import todoList from '$lib/assets/svgs/todo-list-svgrepo-com.svg';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[];
@@ -96,9 +97,7 @@
 <div class="space-y-6">
 	{#if filteredEvents.length === 0 && monthTasks.length === 0}
 		<div class="flex flex-col items-center justify-center py-12 text-center">
-			<svg class="mb-4 h-16 w-16 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-			</svg>
+			<img src={todoList} alt="" class="mb-4 mx-auto h-24 w-auto opacity-80" />
 			<p class="max-w-xs text-lg font-medium text-slate-700">A whole month of nothing. Suspicious. Add something fun?</p>
 		</div>
 	{/if}

@@ -11,11 +11,11 @@ import { events, familyMembers } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
+import { requireUserJson } from '$lib/server/utils/requireUser';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
-	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+	const auth = requireUserJson(locals);
+	if (auth.response) return auth.response;
 
 	const eventId = url.searchParams.get('eventId');
 	if (eventId) {
@@ -27,23 +27,22 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		if (!event) {
 			return json({ tasks: [] });
 		}
-		const calIds = await getAccessibleCalendarIds(locals.user.id);
+		const calIds = await getAccessibleCalendarIds(auth.user.id);
 		const hasCalendarAccess = !!event.calendarId && calIds.includes(event.calendarId);
-		if (event.ownerId !== locals.user.id && !hasCalendarAccess) {
+		if (event.ownerId !== auth.user.id && !hasCalendarAccess) {
 			return json({ error: 'No access to this event' }, { status: 403 });
 		}
 		const eventTasks = await getTasksForEvent(eventId);
 		return json({ tasks: eventTasks });
 	}
 
-	const userTasks = await getTasksForUser(locals.user.id, await getUserFamilyId(locals.user.id));
+	const userTasks = await getTasksForUser(auth.user.id, await getUserFamilyId(auth.user.id));
 	return json({ tasks: userTasks });
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
+	const auth = requireUserJson(locals);
+	if (auth.response) return auth.response;
 
 	const body = await request.json();
 	if (!body.title || typeof body.title !== 'string' || !body.title.trim()) {
@@ -53,13 +52,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
 		let familyId: string | null = null;
 		if (body.familyId === undefined) {
-			familyId = await getUserFamilyId(locals.user.id);
+			familyId = await getUserFamilyId(auth.user.id);
 		} else if (body.familyId !== null) {
 			const [member] = await db
 				.select()
 				.from(familyMembers)
 				.where(
-					and(eq(familyMembers.userId, locals.user.id), eq(familyMembers.familyId, body.familyId))
+					and(eq(familyMembers.userId, auth.user.id), eq(familyMembers.familyId, body.familyId))
 				);
 			if (!member) {
 				return json({ error: 'Not a member of this family' }, { status: 403 });
@@ -75,8 +74,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		// person is specified. Self-assign is instant-accept; assigning
 		// someone else starts a pending request they accept or decline.
 		const assignedTo =
-			typeof body.assignedTo === 'string' && body.assignedTo ? body.assignedTo : locals.user.id;
-		const assignmentStatus = assignedTo === locals.user.id ? 'accepted' : 'pending';
+			typeof body.assignedTo === 'string' && body.assignedTo ? body.assignedTo : auth.user.id;
+		const assignmentStatus = assignedTo === auth.user.id ? 'accepted' : 'pending';
 
 		const created = await createTask({
 			title: body.title.trim(),
@@ -88,7 +87,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			assignmentStatus,
 			eventId: body.eventId || null,
 			familyId,
-			userId: locals.user.id
+			userId: auth.user.id
 		});
 		return json({ success: true, task: created }, { status: 201 });
 	} catch (error) {

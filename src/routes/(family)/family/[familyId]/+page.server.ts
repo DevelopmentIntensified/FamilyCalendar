@@ -1,4 +1,5 @@
 import { getUserFamilies, getFamilyRoster, removeFamilyMember, updateFamilies } from '$lib/server/db/actions/families';
+import { getRecentFamilyActivity } from '$lib/server/db/actions/familyActivity';
 import { db } from '$lib/server/db';
 import { families, familyMembers } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -30,8 +31,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		}
 
 		const members = await getFamilyRoster(params.familyId);
+		const activity = await getRecentFamilyActivity(params.familyId);
 
-		return { family, members, currentUserRole: currentMember.role || 'member', currentUserId: locals.user.id };
+		return { family, members, currentUserRole: currentMember.role || 'member', currentUserId: locals.user.id, activity };
 	} catch (error) {
 		console.error('[load] Error:', error);
 		return { family: null, members: [], currentUserRole: null };

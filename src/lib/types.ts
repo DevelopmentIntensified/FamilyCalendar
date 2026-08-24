@@ -1,4 +1,4 @@
-import type { CalendarEvent } from './server/db/schema';
+import type { CalendarEvent, User, UserSettings } from './server/db/schema';
 
 export type RSVPStatus = 'going' | 'maybe' | 'declined' | 'undecided';
 
@@ -30,11 +30,11 @@ export type FamilyMember = {
 };
 
 export type CalendarPageData = {
-	user?: any;
+	user?: User;
 	userEvents?: Event[];
 	familyEvents?: Event[];
 	adEvents?: Event[];
-	userSettings?: any;
+	userSettings?: UserSettings;
 	userCalendarColor?: string;
 	familyCalendarColor?: string;
 	showAds?: boolean;

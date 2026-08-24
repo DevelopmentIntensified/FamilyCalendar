@@ -4,9 +4,14 @@
 	import type { PageData, ActionData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
+	import { DateTime } from 'luxon';
 	export let data: PageData;
 	export let form: ActionData;
-	const { family, members, currentUserRole, currentUserId } = data;
+	const { family, members, currentUserRole, currentUserId, activity = [] } = data;
+
+	function relativeTime(iso: string): string {
+		return DateTime.fromISO(iso).toRelative() ?? '';
+	}
 
 	let showSettings = false;
 	let showRemoveConfirm: string | null = null;
@@ -253,6 +258,33 @@
 				{:else}
 					<div class="py-8 text-center">
 						<p class="text-slate-500">No members found.</p>
+					</div>
+				{/if}
+			</div>
+
+			<div class="mb-6 border-t border-slate-200 pt-6">
+				<h2 class="mb-4 text-lg font-semibold text-slate-900">Recent Activity</h2>
+				{#if activity.length > 0}
+					<ul class="space-y-2">
+						{#each activity as item}
+							<li
+								class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3 transition-colors hover:bg-slate-50"
+							>
+								<span class="text-sm text-slate-700">
+									{item.kind === 'completed' ? '✅' : '📋'}
+									{item.actorName}
+									{item.kind === 'completed' ? 'completed' : 'assigned'}
+									'{item.title}'{item.kind === 'assigned' && item.targetName
+										? ` to ${item.targetName}`
+										: ''}
+								</span>
+								<span class="shrink-0 text-xs text-slate-400">{relativeTime(item.at)}</span>
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<div class="py-8 text-center">
+						<p class="text-slate-500">No activity yet — complete something to get things moving.</p>
 					</div>
 				{/if}
 			</div>
