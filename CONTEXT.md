@@ -40,7 +40,7 @@ _Avoid_: edit exception, split
 ### Work Items
 
 **Task**:
-A completable item, optionally due on a date, belonging to a person or family. Carries completion history and stats (future).
+A completable item, optionally due on a date, belonging to a person or family. Defaults to its creator unless explicitly assigned to a person; assigning someone else starts pending until they accept. Carries completion history and stats (future).
 _Avoid_: todo, chore, checklist item
 
 **Recurring Task**:

@@ -1,6 +1,6 @@
 // Single Adapter for JSON-mode chat completions. Callers get a parsed
 // object or null; provider, model, key resolution, and error modes live here.
-const MODEL = 'llama-3.3-70b';
+const MODEL = process.env.CEREBRAS_MODEL || 'gpt-oss-120b';
 const DEFAULT_API_URL = 'https://api.cerebras.ai/v1/chat/completions';
 
 export function llmConfigured(): boolean {

@@ -5,6 +5,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { DateTime } from 'luxon';
 
 const assignee = alias(users, 'assignee');
+const creator = alias(users, 'creator');
 
 export const TASK_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'] as const;
 export type TaskFrequency = (typeof TASK_FREQUENCIES)[number];
@@ -119,6 +120,37 @@ export async function getTasksForEvent(eventId: string) {
 	return await db.select().from(tasks).where(eq(tasks.eventId, eventId)).orderBy(tasks.createdAt);
 }
 
+/** Every task in a family, with assignee and creator attribution. */
+export async function getTasksForFamily(familyId: string) {
+	return await db
+		.select({
+			id: tasks.id,
+			title: tasks.title,
+			notes: tasks.notes,
+			dueDate: tasks.dueDate,
+			completedAt: tasks.completedAt,
+			recurrenceFrequency: tasks.recurrenceFrequency,
+			recurrenceInterval: tasks.recurrenceInterval,
+			assignedTo: tasks.assignedTo,
+			assignmentStatus: tasks.assignmentStatus,
+			assigneeFirstName: assignee.firstName,
+			assigneeLastName: assignee.lastName,
+			userId: tasks.userId,
+			familyId: tasks.familyId,
+			eventId: tasks.eventId,
+			createdAt: tasks.createdAt,
+			eventTitle: events.title,
+			eventStart: events.start,
+			creatorFirstName: creator.firstName
+		})
+		.from(tasks)
+		.leftJoin(events, eq(tasks.eventId, events.id))
+		.leftJoin(assignee, eq(tasks.assignedTo, assignee.id))
+		.leftJoin(creator, eq(tasks.userId, creator.id))
+		.where(eq(tasks.familyId, familyId))
+		.orderBy(desc(tasks.createdAt));
+}
+
 export async function updateTask(
 	id: string,
 	userId: string,
@@ -153,7 +185,11 @@ export async function updateTask(
 }
 
 export async function toggleTaskComplete(id: string, userId: string): Promise<Task | undefined> {
-	const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+	// The assignee can check off their own task; the creator always can.
+	const [task] = await db
+		.select()
+		.from(tasks)
+		.where(and(eq(tasks.id, id), or(eq(tasks.userId, userId), eq(tasks.assignedTo, userId))));
 	if (!task) return undefined;
 
 	// Completing a Recurring Task rolls the cursor onto the next
@@ -185,10 +221,54 @@ export async function deleteTask(id: string, userId: string) {
 	await db.delete(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
 }
 
+/** Family members may toggle any task inside their family. */
+export async function toggleTaskCompleteFamily(
+	id: string,
+	familyId: string
+): Promise<Task | undefined> {
+	const [task] = await db
+		.select()
+		.from(tasks)
+		.where(and(eq(tasks.id, id), eq(tasks.familyId, familyId)));
+	if (!task) return undefined;
+
+	if (!task.completedAt && task.recurrenceFrequency) {
+		const next = advanceCursor(
+			task.dueDate,
+			task.recurrenceFrequency,
+			task.recurrenceInterval ?? 1,
+			new Date().toISOString()
+		);
+		const [advanced] = await db.update(tasks).set({ dueDate: next }).where(eq(tasks.id, id)).returning();
+		return advanced;
+	}
+
+	const [updated] = await db
+		.update(tasks)
+		.set({ completedAt: task.completedAt ? null : new Date().toISOString() })
+		.where(eq(tasks.id, id))
+		.returning();
+	return updated;
+}
+
+/** Family-scoped assignment responses (accept/decline/release). */
+export async function updateTaskInFamily(
+	id: string,
+	familyId: string,
+	data: Partial<Pick<Task, 'assignmentStatus' | 'assignedTo'>>
+) {
+	const patch = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
+	if (Object.keys(patch).length === 0) return undefined;
+	const [updated] = await db
+		.update(tasks)
+		.set(patch)
+		.where(and(eq(tasks.id, id), eq(tasks.familyId, familyId)))
+		.returning();
+	return updated;
+}
+
 export async function deleteCompletedTasks(userId: string) {
-	await db
-		.delete(tasks)
-		.where(and(eq(tasks.userId, userId), isNotNull(tasks.completedAt)));
+	await db.delete(tasks).where(and(eq(tasks.userId, userId), isNotNull(tasks.completedAt)));
 }
 
 /**
@@ -197,7 +277,9 @@ export async function deleteCompletedTasks(userId: string) {
  */
 export async function syncRecurringCursors(userId: string, familyId?: string | null) {
 	const nowIso = new Date().toISOString();
-	const todayEnd = DateTime.fromISO(nowIso).set({ hour: 23, minute: 59, second: 0, millisecond: 0 }).toISO()!;
+	const todayEnd = DateTime.fromISO(nowIso)
+		.set({ hour: 23, minute: 59, second: 0, millisecond: 0 })
+		.toISO()!;
 
 	const conditions = [
 		eq(tasks.userId, userId),
@@ -207,11 +289,12 @@ export async function syncRecurringCursors(userId: string, familyId?: string | n
 	];
 	if (familyId) conditions.push(eq(tasks.familyId, familyId));
 
-	const stale = (await db
-		.select({ id: tasks.id, dueDate: tasks.dueDate })
-		.from(tasks)
-		.where(and(...conditions)))
-		.filter((t) => needsOverduePin(t.dueDate, nowIso));
+	const stale = (
+		await db
+			.select({ id: tasks.id, dueDate: tasks.dueDate })
+			.from(tasks)
+			.where(and(...conditions))
+	).filter((t) => needsOverduePin(t.dueDate, nowIso));
 
 	for (const row of stale) {
 		await db.update(tasks).set({ dueDate: todayEnd }).where(eq(tasks.id, row.id));

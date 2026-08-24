@@ -1,6 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createTask, getTasksForUser, getTasksForEvent, TASK_FREQUENCIES } from '$lib/server/db/actions/tasks';
+import {
+	createTask,
+	getTasksForUser,
+	getTasksForEvent,
+	TASK_FREQUENCIES
+} from '$lib/server/db/actions/tasks';
 import { db } from '$lib/server/db';
 import { familyMembers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -49,14 +54,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			? body.recurrenceFrequency
 			: null;
 
-		// Assignment: self-assign is instant-accept; assigning someone
-		// else starts a pending request they accept or decline.
+		// Assignment: a Task defaults to its creator unless another
+		// person is specified. Self-assign is instant-accept; assigning
+		// someone else starts a pending request they accept or decline.
 		const assignedTo =
-			typeof body.assignedTo === 'string' && body.assignedTo ? body.assignedTo : null;
-		let assignmentStatus = 'none';
-		if (assignedTo) {
-			assignmentStatus = assignedTo === locals.user.id ? 'accepted' : 'pending';
-		}
+			typeof body.assignedTo === 'string' && body.assignedTo ? body.assignedTo : locals.user.id;
+		const assignmentStatus = assignedTo === locals.user.id ? 'accepted' : 'pending';
 
 		const created = await createTask({
 			title: body.title.trim(),
