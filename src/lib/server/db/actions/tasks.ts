@@ -1,9 +1,10 @@
 import { db } from '$lib/server/db';
 import { tasks, events, users, type Task } from '$lib/server/db/schema';
-import { and, eq, or, desc, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, or, desc, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { DateTime } from 'luxon';
 import { zonedNow } from '$lib/server/utils/userTimezone';
+import { toDateTime } from '$lib/server/utils/eventTimes';
 
 const assignee = alias(users, 'assignee');
 const creator = alias(users, 'creator');
@@ -38,8 +39,10 @@ export function advanceCursor(
 	nowIso: string
 ): string {
 	const step = Math.max(1, Math.floor(interval) || 1);
-	const now = DateTime.fromISO(nowIso).startOf('day');
-	const due = dueIso && DateTime.fromISO(dueIso).isValid ? DateTime.fromISO(dueIso) : null;
+	// postgres.js can return Date objects despite mode:'string', so
+	// normalize through toDateTime before comparing.
+	const now = (toDateTime(nowIso) ?? DateTime.fromISO(nowIso)).startOf('day');
+	const due = dueIso !== null ? toDateTime(dueIso) : null;
 
 	let n = 1;
 	let next = plusInterval(now, frequency, step);
@@ -52,10 +55,11 @@ export function advanceCursor(
 
 /** One overdue recurring row: does it need pinning to today? */
 export function needsOverduePin(dueIso: string | null, nowIso: string): boolean {
-	if (!dueIso) return false;
-	const due = DateTime.fromISO(dueIso);
-	const todayStart = DateTime.fromISO(nowIso).startOf('day');
-	return due.isValid && due < todayStart;
+	// toDateTime handles Date objects and odd string shapes from the driver.
+	const due = toDateTime(dueIso);
+	if (!due) return false;
+	const todayStart = (toDateTime(nowIso) ?? DateTime.fromISO(nowIso)).startOf('day');
+	return due < todayStart;
 }
 
 export async function createTask(data: {
@@ -214,20 +218,34 @@ export async function toggleTaskComplete(
 			task.recurrenceInterval ?? 1,
 			nowIso
 		);
+		// Optimistic guard: a second rapid click must not advance the
+		// cursor again or lose the completionCount increment.
+		const guard = [eq(tasks.id, id)];
+		if (task.dueDate !== null) guard.push(eq(tasks.dueDate, task.dueDate));
 		const [advanced] = await db
 			.update(tasks)
-			.set({ dueDate: next, completionCount: task.completionCount + 1 })
-			.where(eq(tasks.id, id))
+			.set({ dueDate: next, completionCount: sql`${tasks.completionCount} + 1` })
+			.where(and(...guard))
 			.returning();
-		return advanced;
+		if (advanced) return advanced;
+		const [fresh] = await db.select().from(tasks).where(eq(tasks.id, id));
+		return fresh;
 	}
 
+	// Double-click protection: only complete when still open, only
+	// un-complete when still completed.
+	const completing = !task.completedAt;
+	const guard = [eq(tasks.id, id)];
+	if (completing) guard.push(isNull(tasks.completedAt));
+	else if (task.completedAt !== null) guard.push(eq(tasks.completedAt, task.completedAt));
 	const [updated] = await db
 		.update(tasks)
-		.set({ completedAt: task.completedAt ? null : new Date().toISOString() })
-		.where(eq(tasks.id, id))
+		.set({ completedAt: completing ? new Date().toISOString() : null })
+		.where(and(...guard))
 		.returning();
-	return updated;
+	if (updated) return updated;
+	const [fresh] = await db.select().from(tasks).where(eq(tasks.id, id));
+	return fresh;
 }
 
 export async function deleteTask(id: string, userId: string) {
@@ -254,20 +272,34 @@ export async function toggleTaskCompleteFamily(
 			task.recurrenceInterval ?? 1,
 			nowIso
 		);
+		// Optimistic guard: a second rapid click must not advance the
+		// cursor again or lose the completionCount increment.
+		const guard = [eq(tasks.id, id)];
+		if (task.dueDate !== null) guard.push(eq(tasks.dueDate, task.dueDate));
 		const [advanced] = await db
 			.update(tasks)
-			.set({ dueDate: next, completionCount: task.completionCount + 1 })
-			.where(eq(tasks.id, id))
+			.set({ dueDate: next, completionCount: sql`${tasks.completionCount} + 1` })
+			.where(and(...guard))
 			.returning();
-		return advanced;
+		if (advanced) return advanced;
+		const [fresh] = await db.select().from(tasks).where(eq(tasks.id, id));
+		return fresh;
 	}
 
+	// Double-click protection: only complete when still open, only
+	// un-complete when still completed.
+	const completing = !task.completedAt;
+	const guard = [eq(tasks.id, id)];
+	if (completing) guard.push(isNull(tasks.completedAt));
+	else if (task.completedAt !== null) guard.push(eq(tasks.completedAt, task.completedAt));
 	const [updated] = await db
 		.update(tasks)
-		.set({ completedAt: task.completedAt ? null : new Date().toISOString() })
-		.where(eq(tasks.id, id))
+		.set({ completedAt: completing ? new Date().toISOString() : null })
+		.where(and(...guard))
 		.returning();
-	return updated;
+	if (updated) return updated;
+	const [fresh] = await db.select().from(tasks).where(eq(tasks.id, id));
+	return fresh;
 }
 
 /** Family-scoped assignment responses (accept/decline/release). */

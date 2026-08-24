@@ -170,24 +170,16 @@ export async function deleteEventInScope(id: string, userId: string, calendarIds
 }
 
 export async function updateRsvp(eventId: string, userId: string, status: 'going' | 'maybe' | 'declined' | 'undecided') {
-	// Upsert: update if exists, insert if not
-	const existing = await db
-		.select()
-		.from(eventAttendance)
-		.where(and(eq(eventAttendance.eventId, eventId), eq(eventAttendance.userId, userId)));
-
-	if (existing.length > 0) {
-		await db
-			.update(eventAttendance)
-			.set({ status })
-			.where(and(eq(eventAttendance.eventId, eventId), eq(eventAttendance.userId, userId)));
-	} else {
-		await db.insert(eventAttendance).values({
-			eventId,
-			userId,
-			status
+	// Atomic upsert against the partial unique index
+	// event_attendance_user_unique (userId is non-null, so the insert
+	// satisfies its WHERE user_id IS NOT NULL predicate).
+	await db
+		.insert(eventAttendance)
+		.values({ eventId, userId, status })
+		.onConflictDoUpdate({
+			target: [eventAttendance.eventId, eventAttendance.userId],
+			set: { status }
 		});
-	}
 }
 
 export async function getEventRsvpStatus(eventId: string) {

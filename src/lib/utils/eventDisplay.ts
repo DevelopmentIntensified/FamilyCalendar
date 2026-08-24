@@ -1,4 +1,4 @@
-const oneDayMs = 24 * 60 * 60 * 1000;
+import { DateTime } from 'luxon';
 
 export type ParsedDay<T> = T & { start: Date; end: Date | null; date: Date };
 
@@ -20,21 +20,25 @@ export function deriveEventProps<T extends Record<string, any>>(
  * carrying its own `date`. Single-day events pass through untouched.
  */
 export function parseEvents<T extends Record<string, any>>(
-	eventsData: T[]
+	eventsData: T[],
+	zone?: string
 ): ParsedDay<T>[] {
 	return eventsData.flatMap((e): ParsedDay<T>[] => {
 		const startDate = new Date(e.start);
 		const endDate = e.end ? new Date(e.end) : null;
 
-		if (!endDate || startDate.getDate() === endDate.getDate()) {
+		const start = DateTime.fromJSDate(startDate, { zone });
+		const end = endDate ? DateTime.fromJSDate(endDate, { zone }) : null;
+
+		if (!end || start.hasSame(end, 'day')) {
 			return [deriveEventProps(e, startDate, endDate)];
 		}
 
-		const diffDays = Math.round(Math.abs((startDate.getTime() - endDate.getTime()) / oneDayMs));
+		const diffDays = Math.round(Math.abs(end.diff(start, 'days').days));
 		const days: ParsedDay<T>[] = [];
 
 		for (let i = 0; i <= diffDays; i++) {
-			days.push(deriveEventProps(e, new Date(startDate.getTime() + oneDayMs * i), endDate));
+			days.push(deriveEventProps(e, start.plus({ days: i }).toJSDate(), endDate));
 		}
 
 		return days;

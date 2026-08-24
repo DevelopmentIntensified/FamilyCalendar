@@ -83,14 +83,14 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// "this Friday", "this Saturday"
 	const thisDayMatch = input.match(/\bthis\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
 	if (thisDayMatch) {
-		result.date = getNextDayOfWeek(thisDayMatch[1]).toFormat('yyyy-MM-dd');
+		result.date = getNextDayOfWeek(thisDayMatch[1], zone).toFormat('yyyy-MM-dd');
 		confidence += 0.25;
 	}
 
 	// "next Wednesday", "next Tuesday"
 	const nextDayMatch = input.match(/\bnext\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
 	if (nextDayMatch && !result.date) {
-		result.date = getNextDayOfWeek(nextDayMatch[1]).plus({ weeks: 1 }).toFormat('yyyy-MM-dd');
+		result.date = getNextDayOfWeek(nextDayMatch[1], zone).plus({ weeks: 1 }).toFormat('yyyy-MM-dd');
 		confidence += 0.25;
 	}
 
@@ -129,7 +129,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// "returning this Sunday", "returning by Saturday"
 	const returnDayMatch = input.match(/returning\s+(?:by\s+)?(?:this\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)(?:\s+(morning|afternoon|evening|noon))?/i);
 	if (returnDayMatch && !result.date) {
-		result.date = getNextDayOfWeek(returnDayMatch[1]).toFormat('yyyy-MM-dd');
+		result.date = getNextDayOfWeek(returnDayMatch[1], zone).toFormat('yyyy-MM-dd');
 		if (returnDayMatch[2]) {
 			const timeMap: Record<string, string> = { morning: '09:00', afternoon: '14:00', evening: '18:00', noon: '12:00' };
 			result.endTime = timeMap[returnDayMatch[2].toLowerCase()] || '18:00';

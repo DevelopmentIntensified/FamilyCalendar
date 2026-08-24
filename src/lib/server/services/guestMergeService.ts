@@ -61,38 +61,41 @@ export async function mergeGuestIntoUser(guestId: string, targetUserId: string):
 	const guest = await getAnonymousUser(guestId);
 	if (!guest || guestId === targetUserId) return null;
 
-	// Target personal calendar (family calendars excluded).
-	let [personalCal] = await db
-		.select()
-		.from(calendars)
-		.where(and(eq(calendars.ownerId, targetUserId), isNull(calendars.familyId)));
-	if (!personalCal) {
-		await db.insert(calendars).values({ ownerId: targetUserId });
-		const [created] = await db
+	return db.transaction(async (tx) => {
+		// Target personal calendar (family calendars excluded), re-checked inside
+		// the transaction so concurrent merges can't double-create it.
+		let [personalCal] = await tx
 			.select()
 			.from(calendars)
 			.where(and(eq(calendars.ownerId, targetUserId), isNull(calendars.familyId)));
-		personalCal = created;
-	}
-	if (!personalCal) return null;
+		if (!personalCal) {
+			await tx.insert(calendars).values({ ownerId: targetUserId });
+			const [created] = await tx
+				.select()
+				.from(calendars)
+				.where(and(eq(calendars.ownerId, targetUserId), isNull(calendars.familyId)));
+			personalCal = created;
+		}
+		if (!personalCal) return null;
 
-	const movedEvents = await db
-		.update(events)
-		.set({ ownerId: targetUserId, calendarId: personalCal.id })
-		.where(eq(events.ownerId, guestId))
-		.returning({ id: events.id });
+		const movedEvents = await tx
+			.update(events)
+			.set({ ownerId: targetUserId, calendarId: personalCal.id })
+			.where(eq(events.ownerId, guestId))
+			.returning({ id: events.id });
 
-	const movedTasks = await db
-		.update(tasks)
-		.set({ userId: targetUserId })
-		.where(eq(tasks.userId, guestId))
-		.returning({ id: tasks.id });
+		const movedTasks = await tx
+			.update(tasks)
+			.set({ userId: targetUserId })
+			.where(eq(tasks.userId, guestId))
+			.returning({ id: tasks.id });
 
-	// Kill guest sessions first so cascade order stays clean.
-	await db.delete(sessions).where(eq(sessions.userId, guestId));
-	await db.delete(users).where(eq(users.id, guestId));
+		// Kill guest sessions first so cascade order stays clean.
+		await tx.delete(sessions).where(eq(sessions.userId, guestId));
+		await tx.delete(users).where(eq(users.id, guestId));
 
-	return { events: movedEvents.length, tasks: movedTasks.length };
+		return { events: movedEvents.length, tasks: movedTasks.length };
+	});
 }
 
 /** Used by the merge prompt to confirm the guest still exists & is anonymous. */

@@ -154,14 +154,16 @@ export function resolveBulkDate(lower: string, today: DateTime): string | null {
 
 /** Resolve a time expression. Returns HH:mm or null. */
 export function resolveBulkTime(lower: string): string | null {
-	// "at 3pm", "3:30 pm", "15:00"
-	const m = lower.match(/\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/);
+	// A number is only a time when anchored: "at 6pm", "3pm" or "15:00".
+	// Unanchored bare numbers are day-of-months, counts, etc.
+	let m = lower.match(/\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/);
+	if (!m) m = lower.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
+	if (!m) m = lower.match(/\b(\d{1,2}):(\d{2})\b/);
 	if (!m) return null;
 	const hour = +m[1];
 	if (hour > 23) return null;
 	const minute = m[2] ? +m[2] : 0;
 	if (minute > 59) return null;
-	if (!m[3] && !m[2] && hour <= 7) return null; // bare small numbers ("2 selected") aren't times
 	return normalizeTime(applyPeriod(hour, m[3]));
 }
 
@@ -172,16 +174,22 @@ export function resolveBulkCalendar(
 ): string | null {
 	for (const cal of calendars) {
 		const name = cal.name.toLowerCase().trim();
-		if (name && lower.includes(name)) return cal.id;
+		// Word-boundary match so "test" doesn't hit "latest"; skip very short
+		// names that would boundary-match too eagerly.
+		if (name.length >= 3 && new RegExp(`\\b${escapeRegExp(name)}\\b`).test(lower)) return cal.id;
 	}
 	// Try name without the "calendar" suffix: "to family" matches "Family Calendar"
 	for (const cal of calendars) {
 		const stem = cal.name.toLowerCase().replace(/\bcalendar(s)?\b/g, '').trim();
-		if (stem.length >= 3 && new RegExp(`\\b${stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(lower)) {
+		if (stem.length >= 3 && new RegExp(`\\b${escapeRegExp(stem)}\\b`).test(lower)) {
 			return cal.id;
 		}
 	}
 	return null;
+}
+
+function escapeRegExp(s: string): string {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /** Events explicitly named in the instruction; empty means "all selected". */
@@ -207,15 +215,25 @@ export function planBulkEdits(
 	const lower = instruction.toLowerCase();
 	const todayDt = DateTime.fromISO(today);
 
-	const isDelete = /\b(deletes?|removes?|cancel|trash|scrap)\b/.test(lower);
-	const date = isDelete ? null : resolveBulkDate(lower, todayDt);
-	const time = isDelete ? null : resolveBulkTime(lower);
-	const calendarId = isDelete ? null : resolveBulkCalendar(lower, calendars);
+	// Named events first, so delete verbs can be tested with event titles
+	// stripped out ("move Trash pickup to friday" is a move, not a wipe).
+	const targets = selectTargets(lower, events);
+	const titleStripped = targets.reduce(
+		(acc, e) => acc.split(e.title.toLowerCase()).join(' '),
+		lower
+	);
+	const deleteWord = /\b(deletes?|removes?|cancel|trash|scrap)\b/.test(titleStripped);
+
+	const date = resolveBulkDate(lower, todayDt);
+	const time = resolveBulkTime(lower);
+	const calendarId = resolveBulkCalendar(lower, calendars);
+
+	// A delete verb alongside a concrete edit ("cancel the picnic and move
+	// to monday") is ambiguous — prefer the non-destructive operation.
+	const isDelete = deleteWord && !date && !time && !calendarId;
 
 	if (!isDelete && !date && !time && !calendarId) return [];
 
-	// Named events only; otherwise the whole selection.
-	const targets = selectTargets(lower, events);
 	const affected = targets.length > 0 ? targets : events;
 
 	return affected.map((e) => {

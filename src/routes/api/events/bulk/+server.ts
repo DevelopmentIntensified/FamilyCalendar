@@ -2,14 +2,12 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { DateTime } from 'luxon';
 import { db } from '$lib/server/db';
-import { calendars, events, families, familyMembers } from '$lib/server/db/schema';
+import { calendars, events, families, familyMembers, eventAttendance } from '$lib/server/db/schema';
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import {
 	updateEventById,
 	deleteEventInScope,
-	getEvent,
-	getEventAttendance,
-	syncEventAttendants
+	getEvent
 } from '$lib/server/db/actions/events';
 import { planBulkEdits, parseBulkPlan, type BulkPlanOp } from '$lib/server/services/bulkAiService';
 import { reportUnmatchedPhrase } from '$lib/server/db/actions/unmatchedPhrases';
@@ -171,18 +169,38 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 			let applied = 0;
 			for (const id of ownedIds) {
-				// Read-merge-write so each event keeps its own attendant list.
-				const attendance = await getEventAttendance(id);
-				const existing = attendance.filter((a) => a.name).map((a) => a.name!);
-				const mergedSet = new Set(existing.map((n) => n.toLowerCase()));
-				const merged = [...existing];
-				for (const name of add) {
-					if (!mergedSet.has(name.toLowerCase())) {
-						merged.push(name);
-						mergedSet.add(name.toLowerCase());
+				await db.transaction(async (tx) => {
+					// Read-merge-write inside one transaction so concurrent
+					// merges can't lose attendant names.
+					const attendance = await tx
+						.select({ name: eventAttendance.name })
+						.from(eventAttendance)
+						.where(eq(eventAttendance.eventId, id));
+					const existing = attendance.filter((a) => a.name).map((a) => a.name!);
+					const mergedSet = new Set(existing.map((n) => n.toLowerCase()));
+					const merged = [...existing];
+					for (const name of add) {
+						if (!mergedSet.has(name.toLowerCase())) {
+							merged.push(name);
+							mergedSet.add(name.toLowerCase());
+						}
 					}
-				}
-				await syncEventAttendants(id, merged);
+					// Inline syncEventAttendants so the delete + insert share tx.
+					await tx
+						.delete(eventAttendance)
+						.where(
+							and(eq(eventAttendance.eventId, id), sql`${eventAttendance.name} IS NOT NULL`)
+						);
+					if (merged.length > 0) {
+						await tx.insert(eventAttendance).values(
+							merged.map((name) => ({
+								eventId: id,
+								name,
+								status: 'undecided' as const
+							}))
+						);
+					}
+				});
 				applied++;
 			}
 			return json({ success: true, applied });

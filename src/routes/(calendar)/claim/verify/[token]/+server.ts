@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { consumeClaimToken } from '$lib/server/services/claimService';
+import { consumeClaimToken, peekClaimToken } from '$lib/server/services/claimService';
 import { claimEmailForUser, getUserByEmail } from '$lib/server/db/actions/users';
 import { getUserSettings, createUserSettings } from '$lib/server/db/actions/userSettings';
 
@@ -10,7 +10,10 @@ export const GET: RequestHandler = async (event) => {
 	}
 
 	const token = event.params.token || '';
-	const claimed = await consumeClaimToken(token);
+
+	// Peek without consuming so previewing the link in another browser
+	// (failing the ownership check) doesn't burn the token.
+	const claimed = await peekClaimToken(token);
 
 	if (!claimed) {
 		throw redirect(302, '/claim?error=invalid');
@@ -26,6 +29,11 @@ export const GET: RequestHandler = async (event) => {
 	const existingUser = await getUserByEmail(claimed.email);
 	if (existingUser && existingUser.id !== claimed.userId) {
 		throw redirect(302, `/claim?conflict=1&email=${encodeURIComponent(claimed.email)}`);
+	}
+
+	// All checks passed — now atomically consume exactly once.
+	if (!(await consumeClaimToken(token))) {
+		throw redirect(302, '/claim?error=invalid');
 	}
 
 	await claimEmailForUser(claimed.userId, claimed.email);

@@ -4,6 +4,7 @@ import {
 	parseBulkPlan,
 	planBulkEdits,
 	resolveBulkDate,
+	resolveBulkTime,
 	type BulkEventSummary
 } from './bulkAiService';
 
@@ -144,6 +145,73 @@ describe('planBulkEdits (local parser)', () => {
 
 	it('returns [] when nothing matches', () => {
 		expect(planBulkEdits('make it purple', EVENTS, TODAY)).toEqual([]);
+	});
+
+	it('does not delete when an event title contains a delete verb', () => {
+		const trash: BulkEventSummary[] = [
+			{ id: 'evt-trash', title: 'Trash pickup reminder', start: '2026-08-26T08:00:00.000-04:00', location: null }
+		];
+		const ops = planBulkEdits('move Trash pickup reminder to friday', trash, TODAY);
+		expect(ops).toEqual([{ id: 'evt-trash', date: '2026-08-28' }]);
+		expect(ops.every((op) => !op.delete)).toBe(true);
+	});
+
+	it('prefers the date move when a delete verb rides along', () => {
+		const ops = planBulkEdits('cancel the picnic and move to monday', EVENTS, TODAY);
+		expect(ops).toHaveLength(3);
+		expect(ops.every((op) => op.date === '2026-08-24')).toBe(true);
+		expect(ops.every((op) => !op.delete)).toBe(true);
+	});
+
+	it('still deletes for pure delete instructions', () => {
+		const ops = planBulkEdits('cancel these', EVENTS, TODAY);
+		expect(ops).toEqual([
+			{ id: 'evt-1', delete: true },
+			{ id: 'evt-2', delete: true },
+			{ id: 'evt-3', delete: true }
+		]);
+	});
+
+	it('does not match a calendar name embedded in another word', () => {
+		const ops = planBulkEdits('move to latest friday', EVENTS, TODAY, [
+			{ id: 'cal-test-12345', name: 'test' }
+		]);
+		expect(ops[0].calendarId).toBeUndefined();
+		expect(ops[0].date).toBe('2026-08-28');
+	});
+
+	it('matches multi-word calendar names by word boundary', () => {
+		const ops = planBulkEdits('move to family calendar', EVENTS, TODAY, [
+			...CALS,
+			{ id: 'cal-test-12345', name: 'test' }
+		]);
+		expect(ops[0].calendarId).toBe('cal-fam-12345');
+	});
+});
+
+describe('resolveBulkTime (anchored)', () => {
+	it('reads "to 3pm" as 15:00', () => {
+		expect(resolveBulkTime('move to 3pm')).toBe('15:00');
+	});
+
+	it('reads "at 15:00" as 15:00', () => {
+		expect(resolveBulkTime('at 15:00')).toBe('15:00');
+	});
+
+	it('prefers the anchored clock time over a day-of-month', () => {
+		expect(resolveBulkTime('august 15 at 6pm')).toBe('18:00');
+	});
+
+	it('does not read a bare day-of-month as a time', () => {
+		expect(resolveBulkTime('move to september 9')).toBeNull();
+	});
+
+	it('ignores weekday phrases', () => {
+		expect(resolveBulkTime('move to next friday')).toBeNull();
+	});
+
+	it('ignores bare small numbers', () => {
+		expect(resolveBulkTime('move to 2')).toBeNull();
 	});
 });
 

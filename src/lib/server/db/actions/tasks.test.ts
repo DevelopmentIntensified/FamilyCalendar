@@ -62,6 +62,14 @@ describe('advanceCursor (Recurring Task cursor v3)', () => {
 		expect(a.toISODate()).toBe(b.toISODate());
 	});
 
+	it('accepts a JS Date as dueIso (postgres.js driver shape)', () => {
+		const dueStr = iso('2026-08-21T23:59:00Z');
+		const asString = advanceCursor(dueStr, 'weekly', 1, NOW);
+		// Driver can hand back Date objects despite mode:'string'.
+		const asDate = advanceCursor(new Date(dueStr) as any, 'weekly', 1, NOW);
+		expect(asDate).toBe(asString);
+	});
+
 	it('exposes the supported frequency set', () => {
 		expect(TASK_FREQUENCIES).toEqual(['daily', 'weekly', 'monthly', 'yearly']);
 	});

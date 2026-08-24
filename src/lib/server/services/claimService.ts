@@ -20,7 +20,7 @@ export async function issueClaimToken(userId: string, email: string): Promise<st
 	return token;
 }
 
-export async function consumeClaimToken(
+export async function peekClaimToken(
 	token: string
 ): Promise<{ userId: string; email: string } | null> {
 	const [row] = await db
@@ -28,10 +28,22 @@ export async function consumeClaimToken(
 		.from(claimTokens)
 		.where(eq(claimTokens.tokenHash, hashToken(token)));
 
-	if (!row) return null;
-	await db.delete(claimTokens).where(eq(claimTokens.id, row.id));
-	if (row.expiresAt < new Date()) return null;
+	if (!row || row.expiresAt < new Date()) return null;
+	return { userId: row.userId, email: row.email };
+}
 
+/** Atomically consumes the token (single DELETE ... RETURNING): the row is
+ *  removed for exactly one caller; simultaneous clicks see an empty result. */
+export async function consumeClaimToken(
+	token: string
+): Promise<{ userId: string; email: string } | null> {
+	const rows = await db
+		.delete(claimTokens)
+		.where(eq(claimTokens.tokenHash, hashToken(token)))
+		.returning();
+	const row = rows[0];
+
+	if (!row || row.expiresAt < new Date()) return null;
 	return { userId: row.userId, email: row.email };
 }
 

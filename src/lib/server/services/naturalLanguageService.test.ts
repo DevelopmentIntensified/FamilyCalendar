@@ -621,3 +621,29 @@ describe('Timezone-aware parsing', () => {
 		expect(result.parsed.date).toBe(DateTime.now().plus({ days: 1 }).toISODate());
 	});
 });
+
+describe('Weekday parsing respects zone', () => {
+	it('resolves "this Friday" against the provided zone', () => {
+		const zone = 'Pacific/Auckland';
+		const now = DateTime.now().setZone(zone);
+		const daysUntilFriday = (5 - (now.weekday % 7) + 7) % 7 || 7;
+		const result = parseEventInput('meeting this Friday', zone);
+		expect(result.parsed.date).toBe(now.plus({ days: daysUntilFriday }).toISODate());
+	});
+
+	it('resolves "next Wednesday" against the provided zone', () => {
+		const zone = 'America/New_York';
+		const now = DateTime.now().setZone(zone);
+		const daysUntilNextWed = ((3 - (now.weekday % 7) + 7) % 7 || 7) + 7;
+		const result = parseEventInput('workshop next Wednesday', zone);
+		expect(result.parsed.date).toBe(now.plus({ days: daysUntilNextWed }).toISODate());
+	});
+
+	it('resolves "returning Saturday" against the provided zone', () => {
+		const zone = 'UTC';
+		const now = DateTime.now().setZone(zone);
+		const daysUntilSaturday = (6 - (now.weekday % 7) + 7) % 7 || 7;
+		const result = parseEventInput('trip returning Saturday', zone);
+		expect(result.parsed.date).toBe(now.plus({ days: daysUntilSaturday }).toISODate());
+	});
+});
