@@ -243,6 +243,15 @@ export function createEventForm(config: EventFormConfig) {
 
 		get occurrenceDate() { return config.initialEvent?.occurrenceDate || null; },
 
+		get endBeforeStart() {
+			if (allDay || !date || !endTime) return false;
+			const endDateStr = multiDay && endDate ? endDate : date;
+			const startDt = DateTime.fromFormat(`${date} ${startTime || '00:00'}`, 'yyyy-MM-dd HH:mm');
+			const endDt = DateTime.fromFormat(`${endDateStr} ${endTime}`, 'yyyy-MM-dd HH:mm');
+			if (!startDt.isValid || !endDt.isValid) return false;
+			return endDt.valueOf() < startDt.valueOf();
+		},
+
 		get masterId() { return config.initialEvent?.masterId || config.initialEvent?.id || null; },
 
 		get recentAttendants() { return recentAttendants; },
@@ -349,7 +358,8 @@ export function createEventForm(config: EventFormConfig) {
 		};
 		},
 
-		submitPreparation() {
+		submitPreparation(): FormEventData | null {
+			if (this.endBeforeStart) return null;
 			saveRecentAttendants();
 			return this.toEventData();
 		},

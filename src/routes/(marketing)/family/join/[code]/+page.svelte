@@ -82,7 +82,7 @@
 						Log in to Join
 					</a>
 					<a
-						href="/register?redirect=/family/join/{data.code}"
+						href="/signup?redirect=/family/join/{data.code}"
 						class="block w-full rounded border border-gray-300 px-4 py-3 text-center font-semibold text-gray-700 hover:bg-gray-50"
 					>
 						Create Account to Join

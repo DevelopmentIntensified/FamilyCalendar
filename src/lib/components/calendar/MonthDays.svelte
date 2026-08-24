@@ -194,6 +194,7 @@
 		show={true}
 		{calendars}
 		on:close={closeModal}
+		on:update={() => invalidateAll()}
 		on:delete={handleDelete}
 	/>
 {/if}

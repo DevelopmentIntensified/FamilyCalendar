@@ -19,6 +19,8 @@
 
 	let showEditForm = false;
 	let duplicating = false;
+	let showDeleteConfirm = false;
+	let actionError = '';
 
 	// Occurrences share the series master's API identity.
 	$: serverId = event.masterId || event.id;
@@ -69,28 +71,23 @@
 	function close() {
 		show = false;
 		showEditForm = false;
+		showDeleteConfirm = false;
+		actionError = '';
 		dispatch('close');
 	}
 
-	async function handleDelete(scope?: 'this' | 'all') {
-		const isOccurrence = !!(event.recurrenceFrequency && event.occurrenceDate);
-		let url = `/api/events/${event.masterId || event.id}`;
-		const options: RequestInit = { method: 'DELETE' };
-		const taskWarning = eventTasks.length > 0 ? `\n\n⚠️ ${eventTasks.length} attached task(s) will also be deleted.` : '';
+	function beginDelete() {
+		actionError = '';
+		showDeleteConfirm = true;
+	}
 
-		if (isOccurrence) {
-			if (!scope) {
-				scope = confirm(
-					'OK = delete just this occurrence\nCancel = delete the whole series'
-				)
-					? 'this'
-					: 'all';
-			}
-			if (scope === 'all' && !confirm(`Delete the whole series?${taskWarning}`)) return;
+	async function performDelete(scope?: 'this' | 'all') {
+		const url = `/api/events/${event.masterId || event.id}`;
+		const options: RequestInit = { method: 'DELETE' };
+
+		if (scope !== undefined && event.occurrenceDate) {
 			options.headers = { 'Content-Type': 'application/json' };
 			options.body = JSON.stringify({ scope, occurrenceDate: event.occurrenceDate });
-		} else if (!confirm(`Delete this event?${taskWarning}`)) {
-			return;
 		}
 
 		try {
@@ -99,10 +96,12 @@
 				dispatch('delete', { id: event.masterId || event.id });
 				show = false;
 			} else {
-				console.error('Failed to delete event');
+				const j = await response.json().catch(() => ({}));
+				actionError = j.error || 'Something went wrong. Try again.';
 			}
 		} catch (error) {
 			console.error('Delete error:', error);
+			actionError = 'Network error. Check your connection and try again.';
 		}
 	}
 
@@ -233,6 +232,7 @@
 
 	async function duplicateEvent() {
 		if (duplicating) return;
+		actionError = '';
 		duplicating = true;
 		try {
 			const payload = {
@@ -254,9 +254,13 @@
 			if (res.ok) {
 				await invalidateAll();
 				close();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				actionError = j.error || 'Something went wrong. Try again.';
 			}
 		} catch (e) {
 			console.error('Duplicate failed:', e);
+			actionError = 'Network error. Check your connection and try again.';
 		} finally {
 			duplicating = false;
 		}
@@ -275,6 +279,8 @@
 	}
 </script>
 
+<svelte:window on:keydown={(e) => show && !showEditForm && e.key === 'Escape' && close()} />
+
 {#if show}
 	{#if showEditForm}
 		<EventFormModal
@@ -285,13 +291,17 @@
 			{familyMembers}
 			on:close={handleFormClose}
 			on:update={handleUpdate}
-			on:delete={() => handleDelete()}
+			on:delete={(e) => performDelete(e.detail?.scope)}
 		/>
 	{:else}
 		<div class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-x-hidden">
-			<button class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick={close} aria-label="Close modal"></button>
-			
-			<div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl overflow-x-hidden">
+			<div
+				class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+				onclick={close}
+				role="presentation"
+			></div>
+
+			<div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl overflow-x-hidden" role="dialog" aria-modal="true">
 				<!-- Header -->
 				<div class="flex items-center justify-between border-b border-slate-100 p-6">
 					<div class="flex items-center gap-3 min-w-0 flex-1">
@@ -611,11 +621,62 @@
 					</div>
 				</div>
 
- 				<!-- Actions -->
- 				<div class="flex items-center justify-between gap-2 border-t border-slate-100 px-6 py-4">
+ 			<!-- Delete confirmation -->
+ 			{#if showDeleteConfirm}
+ 				<div class="border-t border-slate-100 px-6 py-4">
+ 					<div class="rounded-xl border border-red-200 bg-red-50 p-4">
+ 						<p class="text-sm font-medium text-red-700">Delete this event?</p>
+ 						{#if eventTasks.length > 0}
+ 							<p class="mt-1 text-xs text-red-600">⚠️ {eventTasks.length} attached task(s) will also be deleted.</p>
+ 						{/if}
+ 						<div class="mt-3 flex flex-wrap items-center gap-2">
+ 							{#if event.recurrenceFrequency}
+ 								<button
+ 									type="button"
+ 									onclick={() => performDelete('this')}
+ 									class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+ 								>
+ 									This occurrence
+ 								</button>
+ 								<button
+ 									type="button"
+ 									onclick={() => performDelete('all')}
+ 									class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+ 								>
+ 									Whole series
+ 								</button>
+ 							{:else}
+ 								<button
+ 									type="button"
+ 									onclick={() => performDelete()}
+ 									class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+ 								>
+ 									Delete
+ 								</button>
+ 							{/if}
+ 							<button
+ 								type="button"
+ 								onclick={() => (showDeleteConfirm = false)}
+ 								class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+ 							>
+ 								Cancel
+ 							</button>
+ 						</div>
+ 					</div>
+ 				</div>
+ 			{/if}
+
+ 			{#if actionError}
+ 				<div class="px-6 pb-3">
+ 					<p role="alert" class="text-sm text-red-600">{actionError}</p>
+ 				</div>
+ 			{/if}
+
+ 			<!-- Actions -->
+ 			<div class="flex items-center justify-between gap-2 border-t border-slate-100 px-6 py-4">
  					<button
  						type="button"
- 						onclick={() => handleDelete()}
+ 						onclick={beginDelete}
  						class="rounded-lg px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
  						<div class="flex items-center gap-1.5">
  							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

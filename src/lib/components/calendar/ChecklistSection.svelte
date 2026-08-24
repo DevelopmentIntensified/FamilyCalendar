@@ -156,7 +156,7 @@
 					type="button"
 					disabled={checklistBusy}
 					on:click={() => deleteItem(task.id)}
-					class="shrink-0 rounded p-0.5 text-slate-300 opacity-0 transition-all hover:text-red-500 group-hover:opacity-100"
+					class="shrink-0 rounded p-0.5 text-slate-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all hover:text-red-500"
 					aria-label="Remove task"
 				>
 					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

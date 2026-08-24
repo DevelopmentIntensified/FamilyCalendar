@@ -206,6 +206,7 @@
 		show={true}
 		calendars={calendarIds}
 		on:close={closeModal}
+		on:update={() => invalidateAll()}
 		on:delete={handleDelete}
 	/>
 {/if}

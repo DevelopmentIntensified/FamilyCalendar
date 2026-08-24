@@ -27,6 +27,7 @@
 	let parsing = false;
 	let parseTimeout: ReturnType<typeof setTimeout>;
 	let submitting = false;
+	let submitError = '';
 	let calendarDropdownOpen = false;
 	let entryType: 'event' | 'task' = 'event';
 	let taskTitle = '';
@@ -56,6 +57,7 @@
 	});
 
 	let editScope: 'this' | 'all' = 'this';
+	let showDeleteConfirm = false;
 
 	// Pending checklist titles queued during create; flushed after POST /api/events.
 	let pendingTaskTitles: string[] = [];
@@ -111,6 +113,8 @@
 
 	function close() {
 		show = false;
+		submitError = '';
+		showDeleteConfirm = false;
 		dispatch('close');
 	}
 
@@ -143,6 +147,7 @@
 			await submitTask();
 			return;
 		}
+		submitError = '';
 		submitting = true;
 
 		const eventData = form.submitPreparation();
@@ -165,9 +170,13 @@
 				});
 				if (res.ok) {
 					dispatch('update', { id: targetId, ...eventData });
+				} else {
+					const j = await res.json().catch(() => ({}));
+					submitError = j.error || 'Something went wrong. Try again.';
 				}
 			} catch (err) {
 				console.error('Update failed:', err);
+				submitError = 'Network error. Check your connection and try again.';
 			}
 		} else {
 			try {
@@ -195,9 +204,13 @@
 						pendingTaskTitles = [];
 					}
 					dispatch('create', { ...eventData, created: json.event ?? null });
+				} else {
+					const j = await res.json().catch(() => ({}));
+					submitError = j.error || 'Something went wrong. Try again.';
 				}
 			} catch (err) {
 				console.error('Create failed:', err);
+				submitError = 'Network error. Check your connection and try again.';
 			}
 		}
 
@@ -206,31 +219,23 @@
 
 	function handleDelete() {
 		if (!form.eventId) return;
+		showDeleteConfirm = true;
+	}
 
-		const attachedCount = attachedTaskCount;
-		let scope: 'this' | 'all' | null = null;
+	function deleteThisOccurrence() {
+		// Occurrence cancellation keeps the event row, so tasks survive.
+		dispatch('delete', { id: form.masterId, scope: 'this', occurrenceDate: form.occurrenceDate });
+		showDeleteConfirm = false;
+	}
 
-		if (form.isRecurringOccurrence) {
-			scope = confirm(
-				'OK = delete just this occurrence\nCancel = delete the whole series'
-			)
-				? 'this'
-				: 'all';
-			if (scope === 'this') {
-				// Occurrence cancellation keeps the event row, so tasks survive.
-				dispatch('delete', { id: form.masterId, scope, occurrenceDate: form.occurrenceDate });
-				return;
-			}
-		}
+	function deleteWholeSeries() {
+		dispatch('delete', { id: form.masterId, scope: 'all', occurrenceDate: form.occurrenceDate });
+		showDeleteConfirm = false;
+	}
 
-		const taskWarning = attachedCount > 0 ? `\n\n⚠️ ${attachedCount} attached task(s) will also be deleted.` : '';
-		if (!confirm(`Delete this event?${taskWarning}`)) return;
-
-		if (form.isRecurringOccurrence) {
-			dispatch('delete', { id: form.masterId, scope: 'all', occurrenceDate: form.occurrenceDate });
-		} else {
-			dispatch('delete', { id: form.eventId });
-		}
+	function deleteSingleEvent() {
+		dispatch('delete', { id: form.eventId });
+		showDeleteConfirm = false;
 	}
 
 	function clearAll() {
@@ -526,13 +531,16 @@
 										End Time
 										{#if form.isDetected('endTime')}<span class="text-emerald-600 ml-1">✓</span>{/if}
 									</label>
-									<input
-										id="end-time"
-										type="time"
-										bind:value={form.endTime}
-										on:input={() => form.markTouched('endTime')}
-										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-									/>
+								<input
+									id="end-time"
+									type="time"
+									bind:value={form.endTime}
+									on:input={() => form.markTouched('endTime')}
+									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+								/>
+								{#if form.endBeforeStart}
+									<p class="mt-1 text-xs text-red-600">End must be after start</p>
+								{/if}
 								</div>
 							</div>
 						{/if}
@@ -693,7 +701,55 @@
 					/>
 				{/if}
 
-				<div class="flex items-center justify-end gap-2 border-t border-slate-100 p-5">
+				{#if showDeleteConfirm}
+				<div class="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 p-3">
+					<p class="text-sm font-medium text-red-700">Delete this event?</p>
+					{#if attachedTaskCount > 0}
+						<p class="mt-0.5 text-xs text-red-600">⚠️ {attachedTaskCount} attached task(s) will also be deleted.</p>
+					{/if}
+					<div class="mt-2 flex flex-wrap items-center gap-2">
+						{#if form.isRecurringOccurrence}
+							<button
+								type="button"
+								on:click={deleteThisOccurrence}
+								class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+							>
+								This occurrence
+							</button>
+							<button
+								type="button"
+								on:click={deleteWholeSeries}
+								class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+							>
+								Whole series
+							</button>
+						{:else}
+							<button
+								type="button"
+								on:click={deleteSingleEvent}
+								class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+							>
+								Delete
+							</button>
+						{/if}
+						<button
+							type="button"
+							on:click={() => (showDeleteConfirm = false)}
+							class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+						>
+							Cancel
+						</button>
+					</div>
+				</div>
+			{/if}
+
+			{#if submitError}
+				<div class="px-5 pb-3">
+					<p role="alert" class="text-sm text-red-600">{submitError}</p>
+				</div>
+			{/if}
+
+			<div class="flex items-center justify-end gap-2 border-t border-slate-100 p-5">
 					{#if form.isEditMode}
 						<button type="button" on:click={handleDelete} class="mr-auto rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">Delete</button>
 					{/if}
@@ -704,7 +760,7 @@
 				<button
 					type="submit"
 					class="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-					disabled={(entryType === 'task' ? !taskTitle.trim() : !form.title || !form.date) || submitting}
+					disabled={(entryType === 'task' ? !taskTitle.trim() : !form.title || !form.date || form.endBeforeStart) || submitting}
 				>
 					{#if submitting}
 						<div class="flex items-center gap-2">

@@ -24,12 +24,17 @@
 			return;
 		}
 		searching = true;
-		const res = await fetch(`/api/family/search?q=${encodeURIComponent(searchQuery)}&familyId=${data.familyId}`);
-		const json = await res.json();
-		if (json.users) {
-			searchResults = json.users;
+		try {
+			const res = await fetch(`/api/family/search?q=${encodeURIComponent(searchQuery)}&familyId=${data.familyId}`);
+			const json = await res.json().catch(() => ({}));
+			if (json.users) {
+				searchResults = json.users;
+			}
+		} catch {
+			error = 'Network problem. Please try again.';
+		} finally {
+			searching = false;
 		}
-		searching = false;
 	};
 
 	const selectUser = (user: { id: string; firstName: string; lastName: string; email: string }) => {
@@ -41,60 +46,75 @@
 	const addSelectedUser = async () => {
 		if (!selectedUser) return;
 		inviting = true;
-		const res = await fetch('/family/' + data.familyId + '/members/add/direct', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ userId: selectedUser.id })
-		});
-		const json = await res.json();
-		if (json.error) {
-			error = json.error;
-		} else {
-			success = true;
+		try {
+			const res = await fetch('/family/' + data.familyId + '/members/add/direct', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ userId: selectedUser.id })
+			});
+			const json = await res.json().catch(() => ({}));
+			if (json.error) {
+				error = json.error;
+			} else {
+				success = true;
+			}
+		} catch {
+			error = 'Network problem. Please try again.';
+		} finally {
+			inviting = false;
 		}
-		inviting = false;
 	};
 
 	const sendInvite = async () => {
 		inviting = true;
-		const res = await fetch('/family/' + data.familyId + '/members/add/email', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				email: inviteEmail,
-				firstName: inviteFirstName,
-				lastName: inviteLastName
-			})
-		});
-		const json = await res.json();
-		if (json.error) {
-			error = json.error;
-		} else {
-			success = true;
+		try {
+			const res = await fetch('/family/' + data.familyId + '/members/add/email', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					email: inviteEmail,
+					firstName: inviteFirstName,
+					lastName: inviteLastName
+				})
+			});
+			const json = await res.json().catch(() => ({}));
+			if (json.error) {
+				error = json.error;
+			} else {
+				success = true;
+			}
+		} catch {
+			error = 'Network problem. Please try again.';
+		} finally {
+			inviting = false;
 		}
-		inviting = false;
 	};
 
 	const generateInviteLink = async () => {
 		generatingLink = true;
 		error = '';
 		inviteLink = '';
-		const res = await fetch('/family/' + data.familyId + '/members/add/email/link', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				email: inviteEmail,
-				firstName: inviteFirstName,
-				lastName: inviteLastName
-			})
-		});
-		const json = await res.json();
-		if (json.error) {
-			error = json.error;
-		} else if (json.link) {
-			inviteLink = json.link;
+		try {
+			const res = await fetch('/family/' + data.familyId + '/members/add/email/link', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					email: inviteEmail,
+					firstName: inviteFirstName,
+					lastName: inviteLastName
+				})
+			});
+			const json = await res.json().catch(() => ({}));
+			if (json.error) {
+				error = json.error;
+			} else if (json.link) {
+				inviteLink = json.link;
+			}
+		} catch {
+			error = 'Network problem. Please try again.';
+		} finally {
+			generatingLink = false;
 		}
-		generatingLink = false;
 	};
 
 	const copyLink = async () => {

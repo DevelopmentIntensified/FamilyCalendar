@@ -223,7 +223,7 @@
 				<!-- Action Buttons -->
 				<div class="flex flex-wrap gap-3 border-t pt-6">
 					<a
-						href="/calendar/event/edit/{event.id}"
+						href="/calendar?edit={event.id}"
 						class="flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

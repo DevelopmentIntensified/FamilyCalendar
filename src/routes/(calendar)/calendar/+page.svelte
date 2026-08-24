@@ -6,7 +6,8 @@
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
 	import EventFormModal from '$lib/components/calendar/EventFormModal.svelte';
 	import { parseEvents } from '$lib/utils/eventDisplay';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	export let data: PageData;
 
@@ -209,9 +210,12 @@
 				: data.userCalendarColor;
 			localExtras = [...localExtras, ...toDisplayEvent({ ...created, color })];
 		}
+	try {
 		await invalidateAll();
+	} finally {
 		localExtras = [];
-		close();
+	}
+	close();
 	}
 
 	async function handleEventUpdate(event: CustomEvent) {
@@ -238,20 +242,42 @@
 
 	// Handle event click from calendar views
 	async function handleEventClick(event: CustomEvent) {
-		selectedEvent = event.detail;
+		await openEditModal(event.detail);
+	}
+
+	async function openEditModal(target: Event) {
+		selectedEvent = target;
 		if (!selectedEvent) return;
 		// Occurrences share the series master's API identity.
 		const serverId = selectedEvent.masterId || selectedEvent.id;
+		const eventId = selectedEvent.id;
 		// Fetch RSVP data for this event
 		try {
 			const res = await fetch(`/api/events/${serverId}/rsvp`);
 			if (res.ok) {
-				selectedEventRsvp = await res.json();
+				const rsvp = await res.json();
+				// Ignore a stale response if the selection changed while fetching.
+				if (selectedEvent?.id === eventId) selectedEventRsvp = rsvp;
 			}
 		} catch (e) {
 			console.error('Failed to fetch RSVP data:', e);
 		}
 		showEditModal = true;
+	}
+
+	// Deep link: /calendar?edit=<eventId> opens the edit modal once data is loaded.
+	let autoOpenedEditId: string | null = null;
+
+	$: if (allEvents.length > 0 && $page.url.searchParams.has('edit')) {
+		const editId = $page.url.searchParams.get('edit');
+		if (editId && autoOpenedEditId !== editId) {
+			autoOpenedEditId = editId;
+			goto('/calendar', { replaceState: true });
+			const target = allEvents.find(
+				(e) => e.id === editId || ('masterId' in e && e.masterId === editId)
+			);
+			if (target) openEditModal(target as Event);
+		}
 	}
 </script>
 

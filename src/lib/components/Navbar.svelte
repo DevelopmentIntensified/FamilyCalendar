@@ -123,6 +123,12 @@
 							<a href="/family" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
 								Family Management
 							</a>
+							<a href="/calendar/stats" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+								Task Stats
+							</a>
+							<a href="/calendar/archive" on:click={closeProfileDropdown} class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+								Archive
+							</a>
 							<div class="border-t border-slate-100 mt-2 pt-2">
 								<form action="/api/logout" method="POST">
 									<button type="submit" class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">

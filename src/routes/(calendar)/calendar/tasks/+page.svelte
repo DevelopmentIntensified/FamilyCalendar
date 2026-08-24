@@ -33,6 +33,7 @@
 	let adding = false;
 	let busyId: string | null = null;
 	let busyTemplateId: string | null = null;
+	let actionError = '';
 
 	// Edit dialog
 	const FREQ_OPTIONS = [
@@ -87,13 +88,21 @@
 	async function respondAssignment(task: TaskItem, accept: boolean) {
 		if (busyId) return;
 		busyId = task.id;
+		actionError = '';
 		try {
 			const res = await fetch(`/api/tasks/${task.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ assignmentStatus: accept ? 'accepted' : 'declined' })
 			});
-			if (res.ok) await invalidateAll();
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				actionError = j.error || "That didn't work. Try again.";
+			} else {
+				await invalidateAll();
+			}
+		} catch {
+			actionError = 'Network problem. Try again.';
 		} finally {
 			busyId = null;
 		}
@@ -122,6 +131,7 @@
 	async function saveEdit() {
 		if (!editing || !editTitle.trim() || editSaving) return;
 		editSaving = true;
+		actionError = '';
 		try {
 			const prevAssignee = editing.assignedTo ?? '';
 			let assignedTo: string | null = editAssignedTo || null;
@@ -145,7 +155,12 @@
 			if (res.ok) {
 				closeEdit();
 				await invalidateAll();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				actionError = j.error || "That didn't work. Try again.";
 			}
+		} catch {
+			actionError = 'Network problem. Try again.';
 		} finally {
 			editSaving = false;
 		}
@@ -202,6 +217,7 @@
 	async function addTask() {
 		if (!newTitle.trim()) return;
 		adding = true;
+		actionError = '';
 		try {
 			const parsed = parseQuickAdd(newTitle);
 			const res = await fetch('/api/tasks', {
@@ -213,7 +229,12 @@
 				newTitle = '';
 				newDueDate = '';
 				await invalidateAll();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				actionError = j.error || "That didn't work. Try again.";
 			}
+		} catch {
+			actionError = 'Network problem. Try again.';
 		} finally {
 			adding = false;
 		}
@@ -251,23 +272,40 @@
 
 	async function toggleTask(id: string) {
 		busyId = id;
+		actionError = '';
 		try {
-			await fetch(`/api/tasks/${id}`, {
+			const res = await fetch(`/api/tasks/${id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ toggleComplete: true })
 			});
-			await invalidateAll();
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				actionError = j.error || "That didn't work. Try again.";
+			} else {
+				await invalidateAll();
+			}
+		} catch {
+			actionError = 'Network problem. Try again.';
 		} finally {
 			busyId = null;
 		}
 	}
 
 	async function deleteTask(id: string) {
+		if (!confirm('Delete this task?')) return;
 		busyId = id;
+		actionError = '';
 		try {
-			await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
-			await invalidateAll();
+			const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				actionError = j.error || "That didn't work. Try again.";
+			} else {
+				await invalidateAll();
+			}
+		} catch {
+			actionError = 'Network problem. Try again.';
 		} finally {
 			busyId = null;
 		}
@@ -340,6 +378,23 @@
 			{/each}
 		</div>
 	</details>
+
+	{#if actionError}
+		<div
+			role="alert"
+			class="mb-4 flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600"
+		>
+			<span>{actionError}</span>
+			<button
+				type="button"
+				onclick={() => (actionError = '')}
+				class="shrink-0 rounded-full p-0.5 text-red-400 transition-colors hover:bg-red-100 hover:text-red-600"
+				aria-label="Dismiss error"
+			>
+				✕
+			</button>
+		</div>
+	{/if}
 
 	{#if openTasks.length === 0 && completedTasks.length === 0}
 		<div class="flex flex-col items-center justify-center py-16 text-center">

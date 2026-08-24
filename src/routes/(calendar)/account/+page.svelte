@@ -31,25 +31,9 @@
 		{ id: 'danger', label: 'Danger Zone', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' }
 	];
 
-	const timeZones = [
-		{ value: 'Pacific/Honolulu', label: 'Hawaii (HST)' },
-		{ value: 'America/Anchorage', label: 'Alaska (AKST)' },
-		{ value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-		{ value: 'America/Denver', label: 'Mountain Time (MT)' },
-		{ value: 'America/Phoenix', label: 'Arizona (MST)' },
-		{ value: 'America/Chicago', label: 'Central Time (CT)' },
-		{ value: 'America/New_York', label: 'Eastern Time (ET)' },
-		{ value: 'America/Toronto', label: 'Toronto (EST)' },
-		{ value: 'Europe/London', label: 'London (GMT/BST)' },
-		{ value: 'Europe/Paris', label: 'Paris (CET)' },
-		{ value: 'Europe/Berlin', label: 'Berlin (CET)' },
-		{ value: 'Asia/Dubai', label: 'Dubai (GST)' },
-		{ value: 'Asia/Kolkata', label: 'India (IST)' },
-		{ value: 'Asia/Singapore', label: 'Singapore (SGT)' },
-		{ value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-		{ value: 'Australia/Sydney', label: 'Sydney (AEST)' },
-		{ value: 'UTC', label: 'UTC' }
-	];
+	const timeZones = (typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : ['UTC'])
+		.map((v) => ({ value: v, label: v.replace(/_/g, ' ') }))
+		.sort((a, b) => a.label.localeCompare(b.label));
 
 	const viewOptions = [
 		{ value: 'dayView', label: 'Day View' },
