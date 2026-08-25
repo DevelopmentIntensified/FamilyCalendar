@@ -49,9 +49,9 @@
 	$: nextMonthDays = Array.from({ length: 7 - firstDayInNextMonth }, (_, i) => i + 1); //similar to above, but for next month
 </script>
 
-<div class="grid grid-cols-7 sm:gap-2">
+<div class="grid min-w-0 grid-cols-7 sm:gap-2 lg:overflow-x-hidden">
 	{#each daysOfWeek as day}
-		<div class="p-2 text-center text-xs font-semibold text-slate-500 sm:p-3 sm:text-sm uppercase tracking-wide">
+		<div class="min-w-0 p-2 text-center text-xs font-semibold text-slate-500 sm:p-3 sm:text-sm uppercase tracking-wide">
 			{day}
 		</div>
 	{/each}

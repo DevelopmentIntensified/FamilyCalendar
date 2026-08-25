@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { slide } from 'svelte/transition';
+	import NotificationBell from '$lib/components/NotificationBell.svelte';
 
 	export let isLoggedIn = false;
 	export let user: { firstName?: string; lastName?: string; email?: string; roles?: string[] } | null =
@@ -89,6 +90,7 @@
 		</div>
 		<div class="hidden md:flex items-center gap-3">
 			{#if isLoggedIn}
+				<NotificationBell />
 				<div class="relative" data-testid="profile-dropdown-container">
 					<button
 						on:click={toggleProfileDropdown}
@@ -169,6 +171,11 @@
 	{#if isOpen}
 		<div transition:slide={{ duration: 200 }} class="border-t border-slate-200 bg-white md:hidden">
 			<div class="space-y-1 px-3 py-3">
+				{#if isLoggedIn}
+					<div class="flex items-center justify-end border-b border-slate-200 pb-2">
+						<NotificationBell />
+					</div>
+				{/if}
 				{#each navItems as item}
 					<a
 						href={item.href}

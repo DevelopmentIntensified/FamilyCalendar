@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { writable } from 'svelte/store';
 	import { DateTime } from 'luxon';
 	import type { PageData } from './$types';
@@ -7,6 +7,7 @@
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
 	import EventFormModal from '$lib/components/calendar/EventFormModal.svelte';
 	import EmptyState from '$lib/components/calendar/EmptyState.svelte';
+	import DailyVerseCard from '$lib/components/calendar/DailyVerseCard.svelte';
 	import calendarNoteDate from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg';
 	import { parseEvents } from '$lib/utils/eventDisplay';
 	import { invalidateAll, goto } from '$app/navigation';
@@ -20,6 +21,7 @@
 	let selectedEvent: Event | null = null;
 	let selectedEventRsvp: any[] = [];
 	let createInitialDate: string | undefined = undefined;
+	let createInitialTitle: string | undefined = undefined;
 
 	// Bulk edit (selection mode)
 	let selectionMode = false;
@@ -211,8 +213,65 @@
 	// First-run card: shown only when there is truly nothing on the calendar.
 	let dismissedFirstRun = false;
 
+	// Text-selection quick create: watch document selections, offer a pill when a
+	// usable phrase (>= 3 chars) is selected outside any editable field.
+	let selectionText = '';
+
+	function isInsideEditable(node: Node | null): boolean {
+		const el = node
+			? node.nodeType === Node.TEXT_NODE
+				? node.parentElement
+				: (node as HTMLElement)
+			: null;
+		if (!el) return true;
+		return el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
+	}
+
+	function handleSelectionChange() {
+		const sel = document.getSelection();
+		const text = (sel?.toString() ?? '').trim();
+		const active = document.activeElement as HTMLElement | null;
+		const activeEditable =
+			!!active &&
+			(active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+		selectionText =
+			text.length >= 3 &&
+			!activeEditable &&
+			sel !== null &&
+			sel.rangeCount > 0 &&
+			!isInsideEditable(sel.anchorNode) &&
+			!showModal &&
+			!showEditModal
+				? text
+				: '';
+	}
+
+	function createFromSelection() {
+		const sel = document.getSelection();
+		const text = selectionText || (sel?.toString().trim() ?? '');
+		sel?.removeAllRanges();
+		createInitialDate = undefined;
+		createInitialTitle = text.length >= 3 ? text : undefined;
+		selectionText = '';
+		showModal = true;
+	}
+
 	onMount(() => {
 		dismissedFirstRun = localStorage.getItem('familyplanz:firstRunDismissed') === 'true';
+
+		document.addEventListener('selectionchange', handleSelectionChange);
+
+		// Deep link: /calendar?quickadd=<title> opens the create modal prefilled.
+		const quickAddTitle = $page.url.searchParams.get('quickadd');
+		if (quickAddTitle && quickAddTitle.trim()) {
+			createInitialTitle = quickAddTitle;
+			showModal = true;
+			goto('/calendar', { replaceState: true });
+		}
+	});
+
+	onDestroy(() => {
+		document.removeEventListener('selectionchange', handleSelectionChange);
 	});
 
 	function dismissFirstRun() {
@@ -232,6 +291,7 @@
 		selectedEvent = null;
 		selectedEventRsvp = [];
 		createInitialDate = undefined;
+		createInitialTitle = undefined;
 	}
 
 	function openCreateAt(date: DateTime) {
@@ -326,6 +386,11 @@
 </script>
 
 <div class="pb-24">
+	{#if data.dailyVerse}
+		<div class="mx-auto mb-4 max-w-xl px-4 pt-4">
+			<DailyVerseCard reference={data.dailyVerse.reference} text={data.dailyVerse.text} />
+		</div>
+	{/if}
 	{#if showFirstRunCard}
 		<div class="relative mx-auto mb-4 max-w-xl px-4 pt-4">
 			<EmptyState
@@ -383,6 +448,17 @@
 		<svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
 		</svg>
+	</button>
+{/if}
+
+{#if selectionText && !showModal && !showEditModal}
+	<!-- Text-selection quick create pill -->
+	<button
+		type="button"
+		onclick={createFromSelection}
+		class="fixed bottom-6 left-1/2 z-30 max-w-[90vw] -translate-x-1/2 truncate rounded-full bg-slate-900/90 px-4 py-2.5 text-sm font-medium text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-slate-900"
+	>
+		Create event from selection
 	</button>
 {/if}
 
@@ -565,6 +641,7 @@
 		familyMembers={data.familyMembers || []}
 		userSettings={data.userSettings}
 		initialDate={createInitialDate}
+		initialTitle={createInitialTitle}
 		on:close={close}
 		on:create={handleEventCreated}
 		on:createTask={handleTaskCreated}

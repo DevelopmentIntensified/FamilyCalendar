@@ -20,6 +20,7 @@
 		useCloudAI?: boolean | null;
 	} | null = null;
 	export let initialDate: string | undefined = undefined;
+	export let initialTitle: string | undefined = undefined;
 
 	const dispatch = createEventDispatcher();
 
@@ -62,6 +63,14 @@
 
 	let editScope: 'this' | 'all' = 'this';
 	let showDeleteConfirm = false;
+
+	// Seed the title from initialTitle once per open, mirroring initialDate.
+	let initialTitleApplied = false;
+	$: if (show && initialTitle && !initialTitleApplied) {
+		if (!form.title) form.title = initialTitle;
+		initialTitleApplied = true;
+	}
+	$: if (!show) initialTitleApplied = false;
 
 	// Pending checklist titles queued during create; flushed after POST /api/events.
 	let pendingTaskTitles: string[] = [];

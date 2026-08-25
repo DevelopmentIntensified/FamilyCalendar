@@ -51,6 +51,8 @@ export const userSettings = pgTable('userSettings', {
 	autoParseEventDetails: boolean().default(true),
 	useCloudAI: boolean().default(true),
 	useLocalAI: boolean().default(true),
+	// Daily scripture verse card on the calendar dashboard (off by default).
+	showDailyVerse: boolean('showDailyVerse').default(false),
 	updatedAt: timestamp('updatedAt', { mode: 'date' })
 		.defaultNow()
 		.$onUpdate(() => new Date())
@@ -396,8 +398,7 @@ export const claimTokens = pgTable('claim_tokens', {
 
 export type ClaimToken = typeof claimTokens.$inferSelect;
 
-export const tasks = pgTable('tasks', {
-	id: text('id')
+export const tasks = pgTable('tasks', {	id: text('id')
 		.notNull()
 		.primaryKey()
 		.$defaultFn(() => generateId(15)),
@@ -420,6 +421,49 @@ export const tasks = pgTable('tasks', {
 });
 
 export type Task = typeof tasks.$inferSelect;
+
+/**
+ * One row per Recurring Task check-off (and per one-off completion).
+ * Powers streaks and completion history — tasks.completionCount alone
+ * can't answer "when".
+ */
+export const taskCompletions = pgTable('taskCompletions', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	taskId: text('taskId')
+		.notNull()
+		.references(() => tasks.id, { onDelete: 'cascade' }),
+	// Who checked it off (creator or assignee).
+	userId: text('userId')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	familyId: text('familyId').references(() => families.id, { onDelete: 'cascade' }),
+	completedAt: timestamp('completedAt', { withTimezone: true, mode: 'string' })
+		.defaultNow()
+		.notNull()
+});
+
+/**
+ * In-app notification for one user. Written on assignment outcomes and
+ * completions by others; read once from the navbar bell.
+ */
+export const notifications = pgTable('notifications', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	userId: text('userId')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	type: text('type').notNull(), // 'assignment_accepted' | 'assignment_declined' | 'task_completed'
+	actorName: text('actorName').notNull(),
+	message: text('message').notNull(),
+	link: text('link'),
+	readAt: timestamp('readAt', { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp('createdAt', { withTimezone: true, mode: 'string' }).defaultNow().notNull()
+});
 
 export type Session = typeof sessions.$inferSelect;
 export type Code = typeof codes.$inferSelect;
@@ -515,3 +559,5 @@ export type UserDiscount = typeof userDiscounts.$inferSelect;
 export type AdEvent = typeof adEvents.$inferSelect;
 export type WaitlistEntry = typeof waitlist.$inferSelect;
 export type UnmatchedPhrase = typeof unmatchedPhrases.$inferSelect;
+export type TaskCompletion = typeof taskCompletions.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;

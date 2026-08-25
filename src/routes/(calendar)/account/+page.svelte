@@ -248,6 +248,20 @@
 										/>
 									</label>
 
+									<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
+										<span>
+											<span class="block text-sm font-medium text-slate-800">Show daily verse</span>
+											<span class="mt-0.5 block text-xs text-slate-500">An optional King James Bible verse on your dashboard each day.</span>
+										</span>
+										<input
+											type="checkbox"
+											name="showDailyVerse"
+											value="true"
+											class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300"
+											checked={data.userSettings.showDailyVerse ?? false}
+										/>
+									</label>
+
 									<!--
 									<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
 										<span>

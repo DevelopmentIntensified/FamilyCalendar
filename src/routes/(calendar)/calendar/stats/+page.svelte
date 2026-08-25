@@ -5,6 +5,7 @@
 	export let data: PageData;
 
 	$: stats = data.stats;
+	$: streak = data.streak;
 </script>
 
 <div class="min-h-screen bg-slate-50 px-4 py-8 pt-20">
@@ -12,7 +13,17 @@
 		<h1 class="mb-1 text-2xl font-bold text-slate-900">Task Stats</h1>
 		<p class="mb-6 text-sm text-slate-500">Your wins, your recurring rhythms, and who keeps you busiest.</p>
 
-		<div class="mb-8 grid gap-4 sm:grid-cols-3">
+		<div class="mb-8 grid gap-4 sm:grid-cols-4">
+			<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+				<p class="text-3xl font-bold text-orange-500">{streak.current}</p>
+				<p class="text-sm text-slate-500">week streak 🔥</p>
+				<p class="mt-1 text-xs text-slate-400">
+					Best: {streak.best} weeks
+					{#if streak.freezeUsedInCurrentGap}
+						· Freeze kept this alive — no biggie.
+					{/if}
+				</p>
+			</div>
 			<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
 				<p class="text-3xl font-bold text-primary-600">{stats.completedOnce}</p>
 				<p class="text-sm text-slate-500">Completed tasks</p>

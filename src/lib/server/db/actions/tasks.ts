@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { tasks, events, users, type Task } from '$lib/server/db/schema';
+import { tasks, events, users, taskCompletions, type Task } from '$lib/server/db/schema';
 import { and, eq, or, desc, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { DateTime } from 'luxon';
@@ -218,7 +218,16 @@ async function advanceRecurringTask(task: Task, zone?: string): Promise<Task | u
 		.set({ dueDate: next, completionCount: sql`${tasks.completionCount} + 1` })
 		.where(and(...guard))
 		.returning();
-	if (advanced) return advanced;
+	if (advanced) {
+		// History row for the check-off; only written when the guarded
+		// update actually matched (double-clicks insert nothing).
+		await db.insert(taskCompletions).values({
+			taskId: advanced.id,
+			userId: advanced.userId,
+			familyId: advanced.familyId ?? null
+		});
+		return advanced;
+	}
 	const [fresh] = await db.select().from(tasks).where(eq(tasks.id, task.id));
 	return fresh;
 }
@@ -238,7 +247,19 @@ async function toggleCompletion(task: Task): Promise<Task> {
 		.set({ completedAt: completing ? new Date().toISOString() : null })
 		.where(and(...guard))
 		.returning();
-	if (updated) return updated;
+	if (updated) {
+		// History is append-only: record completions only, never
+		// un-completions. If the task is un-completed later, the row
+		// stays — history records that it happened.
+		if (completing) {
+			await db.insert(taskCompletions).values({
+				taskId: updated.id,
+				userId: updated.userId,
+				familyId: updated.familyId ?? null
+			});
+		}
+		return updated;
+	}
 	const [fresh] = await db.select().from(tasks).where(eq(tasks.id, id));
 	return fresh;
 }

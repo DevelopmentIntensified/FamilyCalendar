@@ -82,6 +82,7 @@ export const actions: Actions = {
 		const defaultCalendarId = (formData.get('defaultCalendarId') as string) || null;
 		const syncEventsToFamilyCalendar = formData.get('syncEventsToFamilyCalendar') === 'on';
 		const autoParseEventDetails = formData.get('autoParseEventDetails') === 'true';
+		const showDailyVerse = formData.get('showDailyVerse') === 'true';
 
 		try {
 			const existingSettings = await getUserSettings(userId);
@@ -96,7 +97,8 @@ export const actions: Actions = {
 					defaultView,
 					defaultCalendarId,
 					syncEventsToFamilyCalendar,
-					autoParseEventDetails
+					autoParseEventDetails,
+					showDailyVerse
 				});
 			} else {
 				await updateUserSettings(userId, {
@@ -106,7 +108,8 @@ export const actions: Actions = {
 					defaultView,
 					defaultCalendarId,
 					syncEventsToFamilyCalendar,
-					autoParseEventDetails
+					autoParseEventDetails,
+					showDailyVerse
 				});
 			}
 

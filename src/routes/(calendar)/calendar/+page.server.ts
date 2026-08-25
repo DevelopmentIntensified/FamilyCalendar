@@ -15,7 +15,8 @@ import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/familie
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
 import { parseEvents, expandEventsForUser } from '$lib/server/services/eventDisplayService';
 import { getTasksForUser, syncRecurringCursors } from '$lib/server/db/actions/tasks';
-import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
+import { getUserZone } from '$lib/server/utils/userTimezone';
+import { getTodayVerse } from '$lib/server/services/verseService';
 import { GUEST_MERGE_COOKIE } from '$lib/server/services/guestMergeService';
 
 export const load: PageServerLoad = async (event) => {
@@ -123,6 +124,8 @@ export const load: PageServerLoad = async (event) => {
 			recurrenceInterval: t.recurrenceInterval
 		}));
 
+	const dailyVerse = userSettings?.showDailyVerse ? getTodayVerse() : null;
+
 	return {
 		userEvents: parseEvents(await expandEventsForUser(userEvents)).map(e => ({ ...e, color: userCalendarColor })),
 		familyEvents: parseEvents(await expandEventsForUser(familyEventsData)).map(e => ({ ...e, color: familyCalendarColor })),
@@ -133,6 +136,7 @@ export const load: PageServerLoad = async (event) => {
 		familyCalendarColor,
 		showAds,
 		familyMembers: familyMembersList,
-		calendarIds
+		calendarIds,
+		dailyVerse
 	};
 };

@@ -1,12 +1,12 @@
 {
-	"name": "Family Planz",
-	"short_name": "Family Planz",
+	"name": "FamilyPlanz",
+	"short_name": "FamilyPlanz",
 	"description": "A shared calendar for your family - events, RSVPs, and tasks in one place.",
-	"start_url": "/calendar/",
+	"start_url": "/calendar",
 	"scope": "/",
 	"display": "standalone",
 	"background_color": "#ffffff",
-	"theme_color": "#0ea5e9",
+	"theme_color": "#dd5822",
 	"icons": [
 		{
 			"src": "/icon-192.png",
@@ -26,5 +26,14 @@
 			"type": "image/svg+xml",
 			"purpose": "any"
 		}
-	]
+	],
+	"share_target": {
+		"action": "/share-target",
+		"method": "GET",
+		"params": {
+			"title": "title",
+			"text": "text",
+			"url": "url"
+		}
+	}
 }

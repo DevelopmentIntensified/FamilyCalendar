@@ -9,7 +9,8 @@ import {
 	TASK_FREQUENCIES
 } from '$lib/server/db/actions/tasks';
 import { db } from '$lib/server/db';
-import { tasks, familyMembers } from '$lib/server/db/schema';
+import { tasks, users, familyMembers } from '$lib/server/db/schema';
+import { createNotification } from '$lib/server/db/actions/notifications';
 import { eq, and } from 'drizzle-orm';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 
@@ -40,13 +41,31 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	const body = await request.json();
 
 	try {
-		const zone = await getUserZone(locals.user.id);
+		const user = locals.user;
+		const zone = await getUserZone(user.id);
+		let actorNamePromise: Promise<string> | undefined;
+		const getActorName = () =>
+			(actorNamePromise ??= db
+				.select({ firstName: users.firstName })
+				.from(users)
+				.where(eq(users.id, user.id))
+				.then(([row]) => row?.firstName || 'Someone'));
 		let updated;
 		if (body.toggleComplete) {
-			updated = await toggleTaskComplete(taskId, locals.user.id, zone);
+			updated = await toggleTaskComplete(taskId, user.id, zone);
 			if (!updated) {
-				const familyId = await familyMembership(taskId, locals.user.id);
+				const familyId = await familyMembership(taskId, user.id);
 				if (familyId) updated = await toggleTaskCompleteFamily(taskId, familyId, zone);
+			}
+			if (updated && updated.userId !== user.id) {
+				const actorName = await getActorName();
+				await createNotification({
+					userId: updated.userId,
+					type: 'task_completed',
+					actorName,
+					message: `${actorName} completed '${updated.title}'`,
+					link: '/calendar/tasks'
+				});
 			}
 		} else {
 			const frequency =
@@ -71,7 +90,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				assignmentPatch = { assignedTo: null, assignmentStatus: 'none' };
 			}
 
-			updated = await updateTask(taskId, locals.user.id, {
+			updated = await updateTask(taskId, user.id, {
 				title: typeof body.title === 'string' && body.title.trim() ? body.title.trim() : undefined,
 				notes: body.notes === undefined ? undefined : body.notes,
 				dueDate: body.dueDate === undefined ? undefined : body.dueDate || null,
@@ -87,8 +106,23 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 
 			// Non-owner family members: assignment responses only.
 			if (!updated && Object.keys(assignmentPatch).length > 0) {
-				const familyId = await familyMembership(taskId, locals.user.id);
+				const familyId = await familyMembership(taskId, user.id);
 				if (familyId) updated = await updateTaskInFamily(taskId, familyId, assignmentPatch);
+			}
+
+			const accepted = assignmentPatch.assignmentStatus === 'accepted';
+			const declined = body.assignmentStatus === 'declined';
+			if (updated && (accepted || declined) && updated.userId !== user.id) {
+				const actorName = await getActorName();
+				await createNotification({
+					userId: updated.userId,
+					type: accepted ? 'assignment_accepted' : 'assignment_declined',
+					actorName,
+					message: accepted
+						? `${actorName} accepted '${updated.title}'`
+						: `${actorName} declined '${updated.title}'`,
+					link: '/calendar/tasks'
+				});
 			}
 		}
 		if (!updated) {

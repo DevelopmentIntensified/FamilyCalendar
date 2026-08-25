@@ -78,7 +78,7 @@
 	{@const isTodayDate = date === formatDate(today)}
 	{@const isOtherMonth = nextMonth || lastMonth}
 	<div
-		class="group relative min-h-[72px] rounded-lg border p-0.5 transition-colors {isTodayDate
+		class="group relative min-h-[72px] min-w-0 rounded-lg border p-0.5 transition-colors {isTodayDate
 			? 'border-primary-300 bg-primary-50/40 ring-1 ring-inset ring-primary-200'
 			: isOtherMonth
 				? 'border-slate-100 bg-slate-50/50'
@@ -154,7 +154,7 @@
 			{#each dayTasks.slice(0, MAX_TASK_CHIPS) as task (task.id)}
 				{@const overdue = toDate(task.dueDate).getTime() < today.toMillis()}
 				<span
-					class="flex w-full items-center gap-1 rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 {overdue
+					class="flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 {overdue
 						? 'border-red-400 text-red-600'
 						: 'border-slate-400'}"
 					title="Task due: {task.title}"
