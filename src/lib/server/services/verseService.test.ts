@@ -7,17 +7,13 @@ import {
 	TRANSLATIONS
 } from './verseService';
 
-const ENV_KEYS = ['BIBLE_API_KEY', 'BIBLE_ID_NIV', 'BIBLE_ID_NKJV', 'BIBLE_ID_NASB', 'BIBLE_ID_ESV'];
-
 beforeEach(() => {
-	for (const key of ENV_KEYS) {
-		delete process.env[key];
-	}
+	delete process.env.ESV_API_KEY;
 });
 
 describe('TRANSLATIONS', () => {
-	it('exposes exactly the five supported translations', () => {
-		expect(Object.keys(TRANSLATIONS).sort()).toEqual(['esv', 'kjv', 'nasb', 'niv', 'nkjv']);
+	it('exposes exactly the two supported translations', () => {
+		expect(Object.keys(TRANSLATIONS).sort()).toEqual(['esv', 'kjv']);
 	});
 
 	it('every entry has the required shape and non-empty strings', () => {
@@ -29,19 +25,13 @@ describe('TRANSLATIONS', () => {
 			expect(typeof info.attribution).toBe('string');
 			expect(info.attribution.length).toBeGreaterThan(0);
 			expect(typeof info.bundled).toBe('boolean');
-			expect(info.id).toBeTruthy();
 		}
 	});
 
-	it('marks only KJV as bundled (copyrighted texts are not bundled)', () => {
-		for (const [id, info] of Object.entries(TRANSLATIONS)) {
-			if (id === 'kjv') {
-				expect(info.bundled).toBe(true);
-				expect(info.attribution).toBe('Public domain. King James Version, 1611.');
-			} else {
-				expect(info.bundled).toBe(false);
-			}
-		}
+	it('marks only KJV as bundled (ESV text is fetched, not bundled)', () => {
+		expect(TRANSLATIONS.kjv.bundled).toBe(true);
+		expect(TRANSLATIONS.kjv.attribution).toBe('Public domain. King James Version, 1611.');
+		expect(TRANSLATIONS.esv.bundled).toBe(false);
 	});
 });
 
@@ -102,9 +92,9 @@ describe('getVerseForDate (KJV)', () => {
 	});
 });
 
-describe('getVerseForDate (non-bundled translations)', () => {
-	it('falls back to bundled KJV text when no API key is configured', async () => {
-		const verse = await getVerseForDate('2026-08-24', 'niv');
+describe('getVerseForDate (ESV)', () => {
+	it('falls back to bundled KJV text when no ESV_API_KEY is configured', async () => {
+		const verse = await getVerseForDate('2026-08-24', 'esv');
 		expect(verse.text.length).toBeGreaterThan(0);
 		expect(DAILY_VERSES.some((v) => v.text === verse.text)).toBe(true);
 		expect(verse.fallback).toBe(true);
@@ -113,18 +103,13 @@ describe('getVerseForDate (non-bundled translations)', () => {
 		expect(verse.attribution).toBe(TRANSLATIONS.kjv.attribution);
 	});
 
-	it('falls back when the API key exists but the translation has no BIBLE_ID', async () => {
-		process.env.BIBLE_API_KEY = 'test-key';
+	it('falls back gracefully when the key is set but the API is unreachable', async () => {
+		// Pointless key: fetch fails or 401s -> fallback path, never throws.
+		process.env.ESV_API_KEY = 'invalid-test-key';
 		const verse = await getVerseForDate('2026-08-24', 'esv');
 		expect(verse.fallback).toBe(true);
 		expect(verse.translation).toBe('kjv');
-	});
-
-	it('does not fall back for every supported translation without config', async () => {
-		for (const id of ['niv', 'nkjv', 'nasb', 'esv']) {
-			const verse = await getVerseForDate('2026-08-24', id);
-			expect(verse.fallback).toBe(true);
-		}
+		expect(DAILY_VERSES.some((v) => v.text === verse.text)).toBe(true);
 	});
 });
 
@@ -138,7 +123,7 @@ describe('getTodayVerse', () => {
 
 	it('passes the translation through', async () => {
 		const today = DateTime.now().toISODate()!;
-		expect(await getTodayVerse('nkjv')).toEqual(await getVerseForDate(today, 'nkjv'));
-		expect((await getTodayVerse('nasb')).fallback).toBe(true);
+		expect(await getTodayVerse('esv')).toEqual(await getVerseForDate(today, 'esv'));
+		expect((await getTodayVerse('esv')).fallback).toBe(true);
 	});
 });
