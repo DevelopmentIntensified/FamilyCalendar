@@ -1,7 +1,7 @@
-import { createRequire } from 'node:module';
 import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { pushSubscriptions } from '$lib/server/db/schema';
+import webpushModule from 'web-push';
 
 interface WebPushModule {
 	sendNotification(
@@ -13,7 +13,10 @@ interface WebPushModule {
 	): Promise<void>;
 }
 
-const webpush = createRequire(import.meta.url)('web-push') as WebPushModule;
+// Static import (not createRequire): Vercel's file tracer can't see dynamic
+// requires, so the lambda shipped without web-push and every route importing
+// pushService 500'd on module load.
+const webpush = webpushModule as unknown as WebPushModule;
 
 export function getVapidPublicKey(): string | null {
 	return process.env.VAPID_PUBLIC_KEY ?? null;
