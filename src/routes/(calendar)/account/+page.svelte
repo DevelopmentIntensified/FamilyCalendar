@@ -17,7 +17,6 @@
 	let logoutAllLoading = false;
 	let deleteLoading = false;
 	let calendarLoading = false;
-	let adsLoading = false;
 	let showDeleteConfirmation = false;
 
 	$: activeSection = $page.url.hash.replace('#', '') || 'profile';
@@ -253,35 +252,6 @@
 										/>
 									</label>
 
-								<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
-									<span>
-										<span class="block text-sm font-medium text-slate-800">Show daily verse</span>
-										<span class="mt-0.5 block text-xs text-slate-500">An optional daily Bible verse on your dashboard.</span>
-									</span>
-									<input
-										type="checkbox"
-										name="showDailyVerse"
-										value="true"
-										class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300"
-										checked={data.userSettings.showDailyVerse ?? false}
-									/>
-								</label>
-
-								<div class="space-y-2 rounded-lg bg-white p-3">
-									<label for="verseTranslation" class="block text-sm font-medium text-slate-800">Translation</label>
-									<select
-										id="verseTranslation"
-										name="verseTranslation"
-										bind:value={selectedTranslation}
-										class="w-full rounded-lg border border-slate-300 px-4 py-2.5"
-									>
-										{#each data.verseTranslations as translation (translation.id)}
-											<option value={translation.id}>{translation.label}</option>
-										{/each}
-									</select>
-									<p class="text-xs text-slate-400">{selectedAttribution}</p>
-								</div>
-
 									<!--
 									<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
 										<span>
@@ -297,6 +267,40 @@
 										/>
 									</label>
 -->
+								</div>
+
+								<!-- Daily verse -->
+								<div class="mt-6 space-y-2 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+									<h3 class="text-xs font-semibold uppercase tracking-wide text-amber-700">Daily verse</h3>
+
+									<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
+										<span>
+											<span class="block text-sm font-medium text-slate-800">Show daily verse</span>
+											<span class="mt-0.5 block text-xs text-slate-500">An optional daily Bible verse on your dashboard.</span>
+										</span>
+										<input
+											type="checkbox"
+											name="showDailyVerse"
+											value="true"
+											class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300"
+											checked={data.userSettings.showDailyVerse ?? false}
+										/>
+									</label>
+
+									<div class="space-y-2 rounded-lg bg-white p-3">
+										<label for="verseTranslation" class="block text-sm font-medium text-slate-800">Translation</label>
+										<select
+											id="verseTranslation"
+											name="verseTranslation"
+											bind:value={selectedTranslation}
+											class="w-full rounded-lg border border-slate-300 px-4 py-2.5"
+										>
+											{#each data.verseTranslations as translation (translation.id)}
+												<option value={translation.id}>{translation.label}</option>
+											{/each}
+										</select>
+										<p class="text-xs text-slate-400">{selectedAttribution}</p>
+									</div>
 								</div>
 
 								<button
@@ -320,57 +324,6 @@
 									</svg>
 								</a>
 							</form>
-
-							<!-- Ad Preferences -->
-							<div class="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-4">
-								<h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-amber-700">Ad preferences</h3>
-								<form
-									method="POST"
-									action="?/saveAds"
-									use:enhance={() => {
-										adsLoading = true;
-										return async ({ update }) => {
-											adsLoading = false;
-											await update();
-										};
-									}}
-									class="space-y-2"
-								>
-									<!--
-									<label class="flex cursor-pointer items-center justify-between gap-4 rounded-lg bg-white p-3">
-										<span>
-											<span class="block text-sm font-medium text-slate-800">Show ads as calendar events</span>
-											<span class="mt-0.5 block text-xs text-slate-500">Sponsored entries appear with a subtle marker.</span>
-										</span>
-										<input type="checkbox" name="showAdsAsEvents" value="true" class="h-5 w-5 shrink-0 rounded border-slate-300" checked={data.adConsent.showAdsAsEvents} />
-									</label>
-
-									<label class="flex cursor-pointer items-center justify-between gap-4 rounded-lg bg-white p-3">
-										<span>
-											<span class="block text-sm font-medium text-slate-800">Show ad markers</span>
-											<span class="mt-0.5 block text-xs text-slate-500">Visual indicators on sponsored content.</span>
-										</span>
-										<input type="checkbox" name="showAdMarkers" value="true" class="h-5 w-5 shrink-0 rounded border-slate-300" checked={data.adConsent.showAdMarkers} />
-									</label>
-
-									<label class="flex cursor-pointer items-center justify-between gap-4 rounded-lg bg-white p-3">
-										<span>
-											<span class="block text-sm font-medium text-slate-800">Personalized ads</span>
-											<span class="mt-0.5 block text-xs text-slate-500">Relevant ads based on your activity. Never shared with advertisers.</span>
-										</span>
-										<input type="checkbox" name="personalizedAds" value="true" class="h-5 w-5 shrink-0 rounded border-slate-300" checked={data.adConsent.personalizedAds} />
-									</label>
-									-->
-
-									<button
-										type="submit"
-										disabled={adsLoading}
-										class="w-full rounded-lg bg-slate-600 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
-									>
-										{adsLoading ? 'Saving...' : 'Save Ad Preferences'}
-									</button>
-								</form>
-							</div>
 						</div>
 					{:else if activeSection === 'email'}
 						<div id="email">
