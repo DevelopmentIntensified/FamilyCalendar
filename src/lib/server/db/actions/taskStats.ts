@@ -6,6 +6,15 @@ import { alias } from 'drizzle-orm/pg-core';
 const creator = alias(users, 'creator');
 const assignee = alias(users, 'assignee');
 
+/** Postgres returns timestamptz as 'YYYY-MM-DD HH:mm:ss+00'; the client renders
+ *  these with DateTime.fromISO, which needs the 'T' separator. Normalize to ISO
+ *  (and never hand back an unparseable value). */
+export function toIsoTimestamp(value: string | null): string {
+	if (!value) return '';
+	const date = new Date(value);
+	return isNaN(date.getTime()) ? '' : date.toISOString();
+}
+
 export interface TaskStats {
 	completedOnce: number;
 	recurringTasks: number;
@@ -71,7 +80,7 @@ export async function getTaskStats(userId: string): Promise<TaskStats> {
 		topAssignees: assigneeRows.map((r) => ({ name: r.name, total: r.total })),
 		recentlyCompleted: recentRows.map((r) => ({
 			title: r.title,
-			completedAt: r.completedAt as unknown as string,
+			completedAt: toIsoTimestamp(r.completedAt),
 			recurring: !!r.recurrenceFrequency && r.completionCount > 0
 		}))
 	};
