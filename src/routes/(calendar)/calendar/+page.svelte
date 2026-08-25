@@ -11,6 +11,7 @@
 	import calendarNoteDate from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg';
 	import { parseEvents } from '$lib/utils/eventDisplay';
 	import { invalidateAll, goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 
 	export let data: PageData;
@@ -271,7 +272,8 @@
 	});
 
 	onDestroy(() => {
-		document.removeEventListener('selectionchange', handleSelectionChange);
+		// onDestroy runs during SSR too — document only exists in the browser.
+		if (browser) document.removeEventListener('selectionchange', handleSelectionChange);
 	});
 
 	function dismissFirstRun() {
