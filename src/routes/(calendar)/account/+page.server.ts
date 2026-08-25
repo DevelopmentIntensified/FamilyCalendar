@@ -14,6 +14,7 @@ import { createJWT } from 'oslo/jwt';
 import { TimeSpan } from 'lucia';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
+import { TRANSLATIONS } from '$lib/server/services/verseService';
 
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
@@ -59,14 +60,20 @@ export const load: PageServerLoad = async (event) => {
 			color: '#3b82f6',
 			defaultView: 'dayView',
 			defaultCalendarId: null,
-			syncEventsToFamilyCalendar: false
+			syncEventsToFamilyCalendar: false,
+			verseTranslation: 'kjv'
 		},
 		adConsent: adConsentRow ?? {
 			showAdsAsEvents: true,
 			showAdMarkers: true,
 			personalizedAds: true
 		},
-		calendars: calendarList
+		calendars: calendarList,
+		verseTranslations: Object.values(TRANSLATIONS).map(({ id, label, attribution }) => ({
+			id,
+			label,
+			attribution
+		}))
 	};
 };
 
@@ -83,6 +90,9 @@ export const actions: Actions = {
 		const syncEventsToFamilyCalendar = formData.get('syncEventsToFamilyCalendar') === 'on';
 		const autoParseEventDetails = formData.get('autoParseEventDetails') === 'true';
 		const showDailyVerse = formData.get('showDailyVerse') === 'true';
+		const rawTranslation = (formData.get('verseTranslation') as string) || '';
+		const verseTranslation =
+			rawTranslation in TRANSLATIONS ? rawTranslation : 'kjv';
 
 		try {
 			const existingSettings = await getUserSettings(userId);
@@ -98,7 +108,8 @@ export const actions: Actions = {
 					defaultCalendarId,
 					syncEventsToFamilyCalendar,
 					autoParseEventDetails,
-					showDailyVerse
+					showDailyVerse,
+					verseTranslation
 				});
 			} else {
 				await updateUserSettings(userId, {
@@ -109,7 +120,8 @@ export const actions: Actions = {
 					defaultCalendarId,
 					syncEventsToFamilyCalendar,
 					autoParseEventDetails,
-					showDailyVerse
+					showDailyVerse,
+					verseTranslation
 				});
 			}
 

@@ -95,3 +95,38 @@ self.addEventListener('fetch', (event) => {
 		);
 	}
 });
+
+self.addEventListener('push', (event) => {
+	let payload = {};
+	try {
+		payload = event.data ? event.data.json() : {};
+	} catch {}
+	const title = payload.title || 'FamilyPlanz';
+	event.waitUntil(
+		self.registration.showNotification(title, {
+			body: payload.body,
+			icon: '/icon-192.png',
+			badge: '/icon-192.png',
+			data: { link: payload.link || '/calendar' }
+		})
+	);
+});
+
+self.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const link = (event.notification.data && event.notification.data.link) || '/calendar';
+	event.waitUntil(
+		(async () => {
+			const clientList = await self.clients.matchAll({
+				type: 'window',
+				includeUncontrolled: true
+			});
+			const client = clientList[0];
+			if (client && 'focus' in client) {
+				await client.focus();
+			} else {
+				await self.clients.openWindow(link);
+			}
+		})()
+	);
+});

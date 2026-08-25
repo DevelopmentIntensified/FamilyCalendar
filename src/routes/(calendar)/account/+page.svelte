@@ -41,6 +41,11 @@
 		{ value: 'monthView', label: 'Month View' },
 		{ value: 'listView', label: 'List View' }
 	];
+
+	let selectedTranslation: string = data.userSettings.verseTranslation ?? 'kjv';
+	$: selectedAttribution = data.verseTranslations?.find(
+		(t) => t.id === selectedTranslation
+	)?.attribution;
 </script>
 
 <svelte:head>
@@ -248,19 +253,34 @@
 										/>
 									</label>
 
-									<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
-										<span>
-											<span class="block text-sm font-medium text-slate-800">Show daily verse</span>
-											<span class="mt-0.5 block text-xs text-slate-500">An optional King James Bible verse on your dashboard each day.</span>
-										</span>
-										<input
-											type="checkbox"
-											name="showDailyVerse"
-											value="true"
-											class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300"
-											checked={data.userSettings.showDailyVerse ?? false}
-										/>
-									</label>
+								<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
+									<span>
+										<span class="block text-sm font-medium text-slate-800">Show daily verse</span>
+										<span class="mt-0.5 block text-xs text-slate-500">An optional daily Bible verse on your dashboard.</span>
+									</span>
+									<input
+										type="checkbox"
+										name="showDailyVerse"
+										value="true"
+										class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300"
+										checked={data.userSettings.showDailyVerse ?? false}
+									/>
+								</label>
+
+								<div class="space-y-2 rounded-lg bg-white p-3">
+									<label for="verseTranslation" class="block text-sm font-medium text-slate-800">Translation</label>
+									<select
+										id="verseTranslation"
+										name="verseTranslation"
+										bind:value={selectedTranslation}
+										class="w-full rounded-lg border border-slate-300 px-4 py-2.5"
+									>
+										{#each data.verseTranslations as translation (translation.id)}
+											<option value={translation.id}>{translation.label}</option>
+										{/each}
+									</select>
+									<p class="text-xs text-slate-400">{selectedAttribution}</p>
+								</div>
 
 									<!--
 									<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">

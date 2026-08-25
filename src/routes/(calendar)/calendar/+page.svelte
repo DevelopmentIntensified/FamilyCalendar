@@ -388,7 +388,12 @@
 <div class="pb-24">
 	{#if data.dailyVerse}
 		<div class="mx-auto mb-4 max-w-xl px-4 pt-4">
-			<DailyVerseCard reference={data.dailyVerse.reference} text={data.dailyVerse.text} />
+			<DailyVerseCard
+				reference={data.dailyVerse.reference}
+				text={data.dailyVerse.text}
+				attribution={data.dailyVerse.attribution}
+				translation={data.dailyVerse.translation}
+			/>
 		</div>
 	{/if}
 	{#if showFirstRunCard}

@@ -3,6 +3,14 @@
 	import { goto } from '$app/navigation';
 	import { slide } from 'svelte/transition';
 	import { DateTime } from 'luxon';
+	import {
+		getPushState,
+		getServerPublicKey,
+		isPushSupported,
+		subscribeToPush,
+		unsubscribeFromPush,
+		type PushState
+	} from '$lib/utils/pushClient';
 
 	interface Notification {
 		id: string;
@@ -92,7 +100,41 @@
 		}).catch(() => {});
 	}
 
-	onMount(fetchSummary);
+	let pushState: PushState | null = null;
+	let pushServerReady = false;
+	let pushBusy = false;
+	let pushFeedback: '' | 'success' | 'error' = '';
+	let pushFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function showPushFeedback(value: '' | 'success' | 'error') {
+		pushFeedback = value;
+		clearTimeout(pushFeedbackTimer);
+		if (value) pushFeedbackTimer = setTimeout(() => (pushFeedback = ''), 3000);
+	}
+
+	async function enablePush() {
+		pushBusy = true;
+		showPushFeedback('');
+		const result = await subscribeToPush();
+		pushState = await getPushState();
+		pushBusy = false;
+		showPushFeedback(result.ok ? 'success' : 'error');
+	}
+
+	async function disablePush() {
+		pushBusy = true;
+		await unsubscribeFromPush();
+		pushState = await getPushState();
+		pushBusy = false;
+	}
+
+	onMount(async () => {
+		fetchSummary();
+		if (!(await isPushSupported())) return;
+		const [state, publicKey] = await Promise.all([getPushState(), getServerPublicKey()]);
+		pushState = state;
+		pushServerReady = publicKey !== null;
+	});
 </script>
 
 <svelte:window on:click={closeDropdown} />
@@ -155,16 +197,49 @@
 					{/each}
 				</ul>
 			{/if}
-			{#if unreadCount > 0}
-				<div class="border-t border-slate-100 mt-2 pt-2">
+		{#if unreadCount > 0}
+			<div class="border-t border-slate-100 mt-2 pt-2">
+				<button
+					on:click={markAllRead}
+					class="w-full px-4 py-2 text-left text-sm font-medium text-primary-600 hover:bg-primary-50"
+				>
+					Mark all read
+				</button>
+			</div>
+		{/if}
+		{#if pushState && (pushState === 'denied' || (pushState !== 'unsupported' && pushServerReady))}
+			<div class="border-t border-slate-100 mt-2 pt-2 text-sm">
+				{#if pushState === 'unsubscribed'}
 					<button
-						on:click={markAllRead}
-						class="w-full px-4 py-2 text-left text-sm font-medium text-primary-600 hover:bg-primary-50"
+						on:click={enablePush}
+						disabled={pushBusy}
+						class="w-full px-4 py-2 text-left text-sm font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50"
 					>
-						Mark all read
+						{pushBusy ? 'Enabling…' : 'Enable push notifications'}
 					</button>
-				</div>
-			{/if}
+					{#if pushFeedback === 'success'}
+						<p class="px-4 pt-1 pb-1.5 text-xs text-green-600">Push notifications enabled.</p>
+					{:else if pushFeedback === 'error'}
+						<p class="px-4 pt-1 pb-1.5 text-xs text-red-500">Couldn't enable notifications.</p>
+					{/if}
+				{:else if pushState === 'subscribed'}
+					<div class="flex items-center justify-between px-4 py-2">
+						<span class="text-slate-500">
+							<span class="text-green-600" aria-hidden="true">✓</span> Push notifications on
+						</span>
+						<button
+							on:click={disablePush}
+							disabled={pushBusy}
+							class="text-xs text-slate-400 hover:text-slate-600 disabled:opacity-50"
+						>
+							Turn off
+						</button>
+					</div>
+				{:else if pushState === 'denied'}
+					<p class="px-4 py-2 text-slate-400">Notifications blocked in browser settings.</p>
+				{/if}
+			</div>
+		{/if}
 		</div>
 	{/if}
 </div>

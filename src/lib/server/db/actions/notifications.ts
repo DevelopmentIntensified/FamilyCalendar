@@ -1,5 +1,6 @@
 import { db } from '$lib/server/db';
 import { notifications, type Notification } from '$lib/server/db/schema';
+import { sendPushToUser } from '$lib/server/services/pushService';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
 export async function createNotification(data: {
@@ -16,6 +17,11 @@ export async function createNotification(data: {
 			actorName: data.actorName,
 			message: data.message,
 			link: data.link ?? null
+		});
+		void sendPushToUser(data.userId, {
+			title: data.actorName,
+			body: data.message,
+			link: data.link ?? '/calendar/tasks'
 		});
 	} catch (error) {
 		console.error('Failed to create notification:', error);

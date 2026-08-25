@@ -53,6 +53,9 @@ export const userSettings = pgTable('userSettings', {
 	useLocalAI: boolean().default(true),
 	// Daily scripture verse card on the calendar dashboard (off by default).
 	showDailyVerse: boolean('showDailyVerse').default(false),
+	// Which translation the daily verse renders in. NIV/NKJV/NASB/ESV need
+	// an API (BIBLE_API_KEY); KJV is bundled (public domain).
+	verseTranslation: text('verseTranslation').default('kjv'),
 	updatedAt: timestamp('updatedAt', { mode: 'date' })
 		.defaultNow()
 		.$onUpdate(() => new Date())
@@ -561,3 +564,28 @@ export type WaitlistEntry = typeof waitlist.$inferSelect;
 export type UnmatchedPhrase = typeof unmatchedPhrases.$inferSelect;
 export type TaskCompletion = typeof taskCompletions.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+
+/**
+ * Web Push (VAPID) subscriptions — no Firebase. One row per
+ * browser/device; endpoint is unique per subscription.
+ */
+export const pushSubscriptions = pgTable(
+	'pushSubscriptions',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		userId: text('userId')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		endpoint: text('endpoint').notNull(),
+		p256dh: text('p256dh').notNull(),
+		auth: text('auth').notNull(),
+		createdAt: timestamp('createdAt', { withTimezone: true, mode: 'string' }).defaultNow().notNull()
+	},
+	(table) => ({
+		endpointIdx: uniqueIndex('push_subscriptions_endpoint_idx').on(table.endpoint)
+	})
+);
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;

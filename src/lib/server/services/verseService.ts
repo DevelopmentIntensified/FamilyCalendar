@@ -3,9 +3,100 @@ import { DateTime } from 'luxon';
 export interface DailyVerse {
 	reference: string;
 	text: string;
+	attribution: string;
+	translation: string;
+	fallback: boolean;
 }
 
-const DAILY_VERSES: DailyVerse[] = [
+export interface CuratedVerse {
+	reference: string;
+	text: string;
+}
+
+export interface VerseTranslationInfo {
+	id: string;
+	label: string;
+	attribution: string;
+	bundled: boolean;
+}
+
+export const TRANSLATIONS: Record<string, VerseTranslationInfo> = {
+	kjv: {
+		id: 'kjv',
+		label: 'KJV',
+		attribution: 'Public domain. King James Version, 1611.',
+		bundled: true
+	},
+	niv: {
+		id: 'niv',
+		label: 'NIV',
+		attribution:
+			'Holy Bible, New International Version®, NIV® Copyright ©1973, 1978, 1984, 2011 by Biblica, Inc.® Used by permission. All rights reserved worldwide.',
+		bundled: false
+	},
+	nkjv: {
+		id: 'nkjv',
+		label: 'NKJV',
+		attribution:
+			'Scripture taken from the New King James Version®. Copyright © 1982 by Thomas Nelson. Used by permission. All rights reserved.',
+		bundled: false
+	},
+	nasb: {
+		id: 'nasb',
+		label: 'NASB',
+		attribution:
+			'Scripture quotations taken from the New American Standard Bible®, Copyright © 1960, 1970, 1977, 1995, 2020 by The Lockman Foundation. Used by permission. All rights reserved.',
+		bundled: false
+	},
+	esv: {
+		id: 'esv',
+		label: 'ESV',
+		attribution:
+			'The Holy Bible, English Standard Version. ESV® Text Edition: 2016. Copyright © 2001 by Crossway Bibles, a publishing ministry of Good News Publishers.',
+		bundled: false
+	}
+};
+
+const TRANSLATION_IDS = Object.keys(TRANSLATIONS);
+
+// API.BIBLE book ids (OSIS abbreviations) for the books appearing in DAILY_VERSES.
+const BOOK_CODES: Record<string, string> = {
+	John: 'JHN',
+	Psalm: 'PSA',
+	Psalms: 'PSA',
+	Proverbs: 'PRO',
+	Philippians: 'PHP',
+	Isaiah: 'ISA',
+	Jeremiah: 'JER',
+	Matthew: 'MAT',
+	Romans: 'ROM',
+	Joshua: 'JOS',
+	Corinthians: 'CO',
+	Ephesians: 'EPH',
+	Colossians: 'COL',
+	Zephaniah: 'ZEP',
+	Hebrews: 'HEB',
+	Galatians: 'GAL',
+	James: 'JAS',
+	Nahum: 'NAM',
+	Deuteronomy: 'DEU',
+	Lamentations: 'LAM',
+	Mark: 'MRK'
+};
+
+function buildPassageId(reference: string): string | null {
+	const match = reference.match(/^(?:(\d)\s+)?([A-Za-z]+)\s+(\d+):(\d+)(?:-(\d+))?$/);
+	if (!match) return null;
+	const [, chapterNum, bookName, chapter, startVerse, endVerse] = match;
+	const code = BOOK_CODES[bookName];
+	if (!code) return null;
+	const bookId = chapterNum ? `${chapterNum}${code}` : code;
+	const prefix = `${bookId}.${chapter}`;
+	const start = `${prefix}.${startVerse}`;
+	return endVerse && endVerse !== startVerse ? `${start}-${prefix}.${endVerse}` : start;
+}
+
+const DAILY_VERSES: CuratedVerse[] = [
 	{ reference: 'John 3:16', text: 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.' },
 	{ reference: 'Psalm 23:1', text: 'The LORD is my shepherd; I shall not want.' },
 	{ reference: 'Proverbs 3:5-6', text: 'Trust in the LORD with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths.' },
@@ -40,11 +131,84 @@ const DAILY_VERSES: DailyVerse[] = [
 
 export { DAILY_VERSES };
 
-export function getVerseForDate(dateIso: string): DailyVerse {
-	const ordinal = DateTime.fromISO(dateIso).ordinal;
-	return DAILY_VERSES[ordinal % DAILY_VERSES.length];
+const API_BIBLE_BASE = 'https://api.scripture.api.bible/v1/bibles';
+
+// Successful remote fetches only, keyed `${dateIso}:${translation}` (per server instance).
+const verseCache = new Map<string, DailyVerse>();
+
+function fallbackVerse(verse: DailyVerse): DailyVerse {
+	return {
+		reference: verse.reference,
+		text: verse.text,
+		attribution: TRANSLATIONS.kjv.attribution,
+		translation: TRANSLATIONS.kjv.id,
+		fallback: true
+	};
 }
 
-export function getTodayVerse(): DailyVerse {
-	return getVerseForDate(DateTime.now().toISODate()!);
+async function fetchRemoteVerse(dateIso: string, translationId: string): Promise<DailyVerse | null> {
+	const info = TRANSLATIONS[translationId];
+	if (!info || info.bundled) return null;
+
+	const apiKey = process.env.BIBLE_API_KEY;
+	const bibleId = process.env[`BIBLE_ID_${translationId.toUpperCase()}`];
+	if (!apiKey || !bibleId) return null;
+
+	const base = kjvVerseForDate(dateIso);
+	const passageId = buildPassageId(base.reference);
+	if (!passageId) return null;
+
+	try {
+		const response = await fetch(`${API_BIBLE_BASE}/${bibleId}/passages/${passageId}`, {
+			headers: { 'api-key': apiKey, accept: 'application/json' }
+		});
+		if (!response.ok) return null;
+		const payload = (await response.json()) as { data?: { content?: string } };
+		const text = payload.data?.content
+			?.replace(/<[^>]+>/g, '')
+			.replace(/\s+/g, ' ')
+			.trim();
+		if (!text) return null;
+		return {
+			reference: base.reference,
+			text,
+			attribution: info.attribution,
+			translation: translationId,
+			fallback: false
+		};
+	} catch {
+		return null;
+	}
+}
+
+function kjvVerseForDate(dateIso: string): DailyVerse {
+	const ordinal = DateTime.fromISO(dateIso).ordinal;
+	const verse = DAILY_VERSES[ordinal % DAILY_VERSES.length];
+	return {
+		...verse,
+		attribution: TRANSLATIONS.kjv.attribution,
+		translation: TRANSLATIONS.kjv.id,
+		fallback: false
+	};
+}
+
+export async function getVerseForDate(dateIso: string, translation = 'kjv'): Promise<DailyVerse> {
+	if (!TRANSLATION_IDS.includes(translation) || TRANSLATIONS[translation].bundled) {
+		return kjvVerseForDate(dateIso);
+	}
+
+	const cacheKey = `${dateIso}:${translation}`;
+	const cached = verseCache.get(cacheKey);
+	if (cached) return cached;
+
+	const remote = await fetchRemoteVerse(dateIso, translation);
+	if (remote) {
+		verseCache.set(cacheKey, remote);
+		return remote;
+	}
+	return fallbackVerse(kjvVerseForDate(dateIso));
+}
+
+export async function getTodayVerse(translation = 'kjv'): Promise<DailyVerse> {
+	return getVerseForDate(DateTime.now().toISODate()!, translation);
 }
