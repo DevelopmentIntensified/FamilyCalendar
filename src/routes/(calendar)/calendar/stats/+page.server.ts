@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { getTaskStats } from '$lib/server/db/actions/taskStats';
+import { getTaskStats, toIsoTimestamp } from '$lib/server/db/actions/taskStats';
 import { db } from '$lib/server/db';
 import { taskCompletions } from '$lib/server/db/schema';
 import { desc, eq } from 'drizzle-orm';
@@ -21,7 +21,9 @@ export const load: PageServerLoad = async (event) => {
 			.limit(365)
 	]);
 	const streak = computeWeeklyStreak(
-		completionRows.map((r) => r.completedAt),
+		// pg returns timestamptz with a space separator; the streak math
+		// parses ISO. Normalize (and drop unparseable rows).
+		completionRows.map((r) => toIsoTimestamp(r.completedAt)).filter(Boolean),
 		DateTime.now().toISO()!
 	);
 	return { stats, streak };
