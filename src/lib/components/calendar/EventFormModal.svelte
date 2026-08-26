@@ -8,6 +8,7 @@
 	import { createEventForm } from './EventFormModel.svelte';
 	import ChecklistSection from './ChecklistSection.svelte';
 	import AttendantPicker from './AttendantPicker.svelte';
+	import { queueMutation } from '$lib/utils/offline';
 
 	export let show = false;
 	export let event: Event | null = null;
@@ -242,7 +243,11 @@
 				}
 			} catch (err) {
 				console.error('Create failed:', err);
-				submitError = 'Network error. Check your connection and try again.';
+				// Network error — queue for retry when back online
+				await queueMutation('/api/events', 'POST', eventData);
+				submitError = '';
+				dispatch('create', { ...eventData, created: null, offline: true });
+				show = false;
 			}
 		}
 

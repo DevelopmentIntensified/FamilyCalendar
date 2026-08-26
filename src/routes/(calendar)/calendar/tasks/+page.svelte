@@ -9,6 +9,7 @@
 	} from '$lib/data/smartEventTemplates';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
+	import { queueMutation } from '$lib/utils/offline';
 
 	export let data: PageData;
 
@@ -303,8 +304,10 @@
 				if (completing && task.recurrenceFrequency) celebrate(id);
 			}
 		} catch {
-			actionError = 'Network problem. Try again.';
-			clearOverride(id);
+			// Network error — queue for retry when back online.
+			// Optimistic UI stays; replayPending() will re-send.
+			await queueMutation(`/api/tasks/${id}`, 'PUT', { toggleComplete: true });
+			actionError = '';
 		} finally {
 			busyId = null;
 		}
