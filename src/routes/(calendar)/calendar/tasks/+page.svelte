@@ -346,6 +346,24 @@
 			busyId = null;
 		}
 	}
+
+	async function clearCompleted() {
+		if (!confirm('Delete all completed tasks? This can\'t be undone.')) return;
+		actionError = '';
+		try {
+			const res = await fetch('/api/tasks/completed', { method: 'DELETE' });
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				actionError = j.error || "That didn't work. Try again.";
+				return;
+			}
+			await invalidateAll();
+		} catch {
+			// Network error — queue for retry when back online
+			await queueMutation('/api/tasks/completed', 'DELETE', null);
+			actionError = '';
+		}
+	}
 </script>
 
 <div class="mx-auto max-w-2xl p-6">
@@ -545,11 +563,18 @@
 
 	<!-- Completed -->
 	{#if completedTasks.length > 0}
-		<h2 class="mb-2 mt-8 text-xs font-semibold uppercase tracking-wide text-slate-400">
-			Completed ({completedTasks.length})
+		<h2 class="mb-2 mt-8 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+			<span>Completed ({completedTasks.length})</span>
 			{#if completedThisWeek > 0}
 				<span class="ml-1 font-normal normal-case text-emerald-600">· {completedThisWeek} this week</span>
 			{/if}
+			<button
+				type="button"
+				class="ml-auto font-medium normal-case text-slate-400 transition-colors hover:text-red-500"
+				onclick={clearCompleted}
+			>
+				Clear completed
+			</button>
 		</h2>
 		<div class="space-y-1.5">
 			{#each completedTasks as task (task.id)}

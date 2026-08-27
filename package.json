@@ -6,6 +6,10 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
+		"build:capacitor": "node scripts/build-capacitor.mjs",
+		"cap:add": "npm run build:capacitor && cap add android",
+		"cap:sync": "npm run build:capacitor && cap sync",
+		"cap:open:android": "cap open android",
 		"db:push": "drizzle-kit push",
 		"db:push:preview": "dotenv -e .env.preview -- drizzle-kit push --strict --force",
 		"db:push:prod": "dotenv -e .env.prod -- drizzle-kit push --strict --force",
