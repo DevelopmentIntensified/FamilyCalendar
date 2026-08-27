@@ -178,6 +178,11 @@ export async function updateRsvp(eventId: string, userId: string, status: 'going
 		.values({ eventId, userId, status })
 		.onConflictDoUpdate({
 			target: [eventAttendance.eventId, eventAttendance.userId],
+			// The arbiter index is PARTIAL (WHERE user_id IS NOT NULL), so the
+			// conflict target must carry that predicate too — otherwise Postgres
+			// fails with "no unique or exclusion constraint matching the
+			// ON CONFLICT specification" on every update (incl. clearing).
+			targetWhere: sql`${eventAttendance.userId} IS NOT NULL`,
 			set: { status }
 		});
 }
