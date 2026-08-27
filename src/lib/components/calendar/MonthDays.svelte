@@ -3,6 +3,7 @@
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
+	import DayEventsModal from './DayEventsModal.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { chipStyle, chipColor, chipTooltip } from '$lib/utils/eventChip';
 	import { toDate } from '$lib/utils/eventTime';
@@ -62,6 +63,23 @@
 
 	function closeModal() {
 		selectedEvent = null;
+	}
+
+	// "+N more" overflow: show a modal listing every event for the day
+	// instead of navigating away. Clicking one opens the EventModal detail.
+	let showOverflow = false;
+	let overflowDate = '';
+	let overflowEvents: Event[] = [];
+
+	function openOverflow(cellDate: DateTime, evts: Event[]) {
+		overflowDate = formatDate(cellDate);
+		overflowEvents = evts;
+		showOverflow = true;
+	}
+
+	function handleOverflowEventClick(evt: Event) {
+		showOverflow = false;
+		handleEventClick(evt);
 	}
 
 	function handleDelete(event: CustomEvent) {
@@ -176,7 +194,10 @@
 				{#if overflow > 0}
 					<button
 						type="button"
-						onclick={() => openDay(cellDate)}
+						onclick={(e) => {
+							e.stopPropagation();
+							openOverflow(cellDate, dayEvents);
+						}}
 						class="inline-flex min-h-[26px] items-center rounded px-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-primary-600 sm:min-h-0"
 					>
 						+{overflow} more
@@ -198,3 +219,12 @@
 		on:delete={handleDelete}
 	/>
 {/if}
+
+<!-- Day overflow modal: all events for a day with more than MAX_CHIPS -->
+<DayEventsModal
+	show={showOverflow}
+	date={overflowDate}
+	events={overflowEvents}
+	{calendars}
+	onEventClick={handleOverflowEventClick}
+/>

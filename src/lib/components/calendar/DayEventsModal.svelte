@@ -7,19 +7,15 @@
 	export let date: string = '';
 	export let events: Event[] = [];
 	export let calendars: { id: string; name: string; color?: string }[] = [];
+	export let onEventClick: (event: Event) => void = () => {};
 
 	function close() {
 		show = false;
 	}
 
 	function handleEventClick(event: Event) {
-		// Dispatch event to parent to open event detail
-		const customEvent = new CustomEvent('eventClick', { detail: event });
-		// Since we can't use createEventDispatcher in this context, we'll use a prop callback
-		if (onEventClick) onEventClick(event);
+		onEventClick(event);
 	}
-
-	export let onEventClick: (event: Event) => void = () => {};
 
 	$: formattedDate = date ? DateTime.fromISO(date).toFormat('EEEE, MMMM d, yyyy') : '';
 
