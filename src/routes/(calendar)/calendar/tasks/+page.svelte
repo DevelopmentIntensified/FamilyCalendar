@@ -23,6 +23,7 @@
 		recurrenceInterval?: number | null;
 		assignedTo?: string | null;
 		assignmentStatus?: string | null;
+		priority?: string | null;
 		assigneeFirstName?: string | null;
 		assigneeLastName?: string | null;
 		userId: string;
@@ -60,6 +61,7 @@
 	let editFreq = '';
 	let editInterval = 1;
 	let editAssignedTo = '';
+	let editPriority = 'normal';
 	let editSaving = false;
 
 	$: data.familyMembers = data.familyMembers ?? [];
@@ -86,6 +88,7 @@
 		editFreq = task.recurrenceFrequency ?? '';
 		editInterval = task.recurrenceInterval ?? 1;
 		editAssignedTo = task.assignedTo ?? '';
+		editPriority = task.priority ?? 'normal';
 	}
 
 	async function respondAssignment(task: TaskItem, accept: boolean) {
@@ -152,6 +155,7 @@
 					recurrenceFrequency: editFreq || null,
 					recurrenceInterval: editFreq ? Math.max(1, Math.floor(editInterval)) : null,
 					assignedTo,
+					priority: editPriority,
 					...(assignmentStatus ? { assignmentStatus } : {})
 				})
 			});
@@ -670,7 +674,7 @@
 					></textarea>
 				</div>
 
-				<div class="grid grid-cols-2 gap-3">
+				<div class="grid grid-cols-3 gap-3">
 					<div>
 						<label for="edit-due" class="mb-1 block text-sm font-medium text-slate-700">Due date</label>
 						<input
@@ -679,6 +683,18 @@
 							bind:value={editDue}
 							class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 						/>
+					</div>
+					<div>
+						<label for="edit-priority" class="mb-1 block text-sm font-medium text-slate-700">Priority</label>
+						<select
+							id="edit-priority"
+							bind:value={editPriority}
+							class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+						>
+							<option value="low">Low</option>
+							<option value="normal">Normal</option>
+							<option value="high">High</option>
+						</select>
 					</div>
 					<div>
 						<label for="edit-freq" class="mb-1 block text-sm font-medium text-slate-700">Repeats</label>

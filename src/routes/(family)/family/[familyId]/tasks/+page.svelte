@@ -27,6 +27,7 @@
 	let newTitle = '';
 	let newDueDate = '';
 	let newAssignedTo = '';
+	let newPriority = 'normal';
 	let adding = false;
 	let busyId: string | null = null;
 
@@ -78,13 +79,15 @@
 					title: newTitle.trim(),
 					dueDate: inputToIso(newDueDate),
 					familyId: data.family.id,
-					assignedTo: newAssignedTo || currentUserId
+					assignedTo: newAssignedTo || currentUserId,
+					priority: newPriority
 				})
 			});
 			if (res.ok) {
 				newTitle = '';
 				newDueDate = '';
 				newAssignedTo = '';
+				newPriority = 'normal';
 				await invalidateAll();
 			}
 		} finally {
@@ -223,6 +226,15 @@
 				{#each members.filter((m) => m.userId !== currentUserId) as m (m.userId)}
 					<option value={m.userId}>{m.firstName} {m.lastName}</option>
 				{/each}
+			</select>
+			<select
+				bind:value={newPriority}
+				aria-label="Priority"
+				class="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700"
+			>
+				<option value="low">Low</option>
+				<option value="normal">Normal</option>
+				<option value="high">High</option>
 			</select>
 			<button
 				type="submit"

@@ -610,10 +610,15 @@ describe('Timezone-aware parsing', () => {
 		expect(auckland! >= ny!).toBe(true);
 	});
 
-	it('resolves "this friday" against the zone-provided today', () => {
-		// Pin: 2026-08-23 (Sunday) late in Auckland -> already Monday Aug 24 there.
+		it('resolves "this friday" against the zone-provided today', () => {
+		// "this <weekday>" = the upcoming weekday strictly after now, in the zone.
+		// (Absolute-date fixtures decay as real time rolls on; assert against the zone clock.)
+		const nyNow = DateTime.now().setZone('America/New_York');
+		let daysUntilFriday = (5 - (nyNow.weekday % 7) + 7) % 7;
+		if (daysUntilFriday === 0) daysUntilFriday = 7; // today is Friday -> next week
+		const expected = nyNow.plus({ days: daysUntilFriday }).toISODate();
 		const nyResult = parseEventInput('meet this friday', 'America/New_York').parsed.date;
-		expect(nyResult).toBe('2026-08-28');
+		expect(nyResult).toBe(expected);
 	});
 
 	it('defaults to server-local when no zone given', () => {

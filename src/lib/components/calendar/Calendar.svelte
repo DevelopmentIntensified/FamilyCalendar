@@ -258,6 +258,17 @@
 				</a>
 
 				<a
+					href="/calendar/dashboard"
+					class="flex h-9 w-10 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
+					aria-label="Day dashboard"
+					title="Day dashboard"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />
+					</svg>
+				</a>
+
+				<a
 					href="/account#calendar"
 					class="flex h-9 w-10 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
 					aria-label="Calendar Settings"

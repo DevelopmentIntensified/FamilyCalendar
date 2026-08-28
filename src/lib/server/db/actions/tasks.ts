@@ -70,6 +70,7 @@ export async function createTask(data: {
 	recurrenceInterval?: number | null;
 	assignedTo?: string | null;
 	assignmentStatus?: string | null;
+	priority?: string | null;
 	userId: string;
 	familyId?: string | null;
 	eventId?: string | null;
@@ -84,6 +85,7 @@ export async function createTask(data: {
 			recurrenceInterval: data.recurrenceInterval ?? null,
 			assignedTo: data.assignedTo ?? null,
 			assignmentStatus: data.assignmentStatus ?? 'none',
+			priority: data.priority ?? 'normal',
 			userId: data.userId,
 			familyId: data.familyId ?? null,
 			eventId: data.eventId ?? null
@@ -111,6 +113,7 @@ export async function getTasksForUser(userId: string, familyId?: string | null) 
 			completionCount: tasks.completionCount,
 			assignedTo: tasks.assignedTo,
 			assignmentStatus: tasks.assignmentStatus,
+			priority: tasks.priority,
 			assigneeFirstName: assignee.firstName,
 			assigneeLastName: assignee.lastName,
 			userId: tasks.userId,
@@ -149,6 +152,7 @@ export async function getTasksForFamily(familyId: string) {
 			completionCount: tasks.completionCount,
 			assignedTo: tasks.assignedTo,
 			assignmentStatus: tasks.assignmentStatus,
+			priority: tasks.priority,
 			assigneeFirstName: assignee.firstName,
 			assigneeLastName: assignee.lastName,
 			userId: tasks.userId,
@@ -181,6 +185,7 @@ export async function updateTask(
 			| 'recurrenceInterval'
 			| 'assignedTo'
 			| 'assignmentStatus'
+			| 'priority'
 		>
 	>
 ) {
@@ -339,7 +344,7 @@ export async function toggleTaskCompleteFamily(
 export async function updateTaskInFamily(
 	id: string,
 	familyId: string,
-	data: Partial<Pick<Task, 'assignmentStatus' | 'assignedTo'>>
+	data: Partial<Pick<Task, 'assignmentStatus' | 'assignedTo' | 'priority'>>
 ) {
 	const patch = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
 	if (Object.keys(patch).length === 0) return undefined;

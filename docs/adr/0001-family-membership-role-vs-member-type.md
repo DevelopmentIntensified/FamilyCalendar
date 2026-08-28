@@ -1,0 +1,7 @@
+# Family membership keeps permission role separate from personal Member Type
+
+Family membership carries two unrelated facts about a person: *permissions* and *who they are*. `familyMembers.role` is a permission ladder — `'creator' | 'admin' | 'member'`, privileged `{ creator: 2, admin: 1, member: 0 }`, validated by an `updateRole` whitelist (family/[familyId]+page.server.ts:43,92). Writing `'parent'`/`'child'` into it would break the privilege math and the whitelist, and would conflate authz with profile.
+
+Decision: add a **separate `familyMembers.memberType` column** (`'parent' | 'child' | 'member'`, default `'member'`) for personal profile when the Day Dashboard needs it (Kids' Schedule, Member Strip — Phase 3 of the Day Dashboard plan). Permission `role` is never used for person-type, and `memberType` is never used for permission.
+
+**Consequences:** the family page (@family/[familyId]) needs a second membership editor for memberType alongside updateRole; Kids' Schedule defines "kid events" as events where a `memberType='child'` member is an attendee (`eventAttendance`); invite/join stays untouched. Rejected alternative: overloading `role` (breaks authz) and attendance-only inference (no stable profile). See CONTEXT.md — Family Member / Member Type.

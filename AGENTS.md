@@ -19,6 +19,12 @@
 - Always run `npm run build` before pushing — never push a broken build.
 - Always push to the `test` branch (`git push origin test`), unless the user explicitly says otherwise.
 
+## NLP changes (natural-language parsing)
+
+- Any change to natural-language parsing (`naturalLanguageService.ts`, quick-add/date parsing, new keywords like task priority) MUST be test-driven (`tdd` skill) with a table-driven suite covering as many distinct phrasings, colloquial variants, and word orders as possible.
+- Keep the existing parser coverage green — `src/lib/server/services/naturalLanguageService.test.ts` currently carries ~94 phrase tests; treat it as the floor, not the ceiling. New input surface (e.g. priority keywords) gets its own exhaustive phrase table.
+- Exercise the full pipeline where a seam exists (phrase → parsed intent → server action), not just the regex/parser unit.
+
 ## Testing on test.familyplanz.com
 
 - The `test` branch auto-deploys to https://test.familyplanz.com. After pushing, wait ~1 minute for the deploy before testing.

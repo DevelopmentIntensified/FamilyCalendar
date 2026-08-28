@@ -418,6 +418,9 @@ export const tasks = pgTable('tasks', {	id: text('id')
 	completionCount: integer('completion_count').default(0).notNull(),
 	assignedTo: text('assigned_to').references(() => users.id, { onDelete: 'set null' }),
 	assignmentStatus: text('assignment_status').default('none'),
+	// Task Priority (low | normal | high) — drives the Top-3 Priorities
+	// dashboard card. Kept as plain text, consistent with recurrence/status.
+	priority: text('priority').notNull().default('normal'),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),

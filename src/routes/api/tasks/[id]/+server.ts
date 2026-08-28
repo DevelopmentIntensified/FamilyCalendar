@@ -8,6 +8,7 @@ import {
 	deleteTask,
 	TASK_FREQUENCIES
 } from '$lib/server/db/actions/tasks';
+import { TASK_PRIORITIES } from '$lib/server/db/actions/dashboard';
 import { db } from '$lib/server/db';
 import { tasks, users, familyMembers } from '$lib/server/db/schema';
 import { createNotification } from '$lib/server/db/actions/notifications';
@@ -73,6 +74,13 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 					? body.recurrenceFrequency
 					: undefined;
 
+			const priority =
+				body.priority === undefined
+					? undefined
+					: TASK_PRIORITIES.includes(body.priority)
+						? body.priority
+						: 'normal';
+
 			// Assignment transitions. Only the assignee may accept; declining
 			// releases the task back to the pool.
 			let assignmentPatch: { assignedTo?: string | null; assignmentStatus?: string | null } = {};
@@ -94,6 +102,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				title: typeof body.title === 'string' && body.title.trim() ? body.title.trim() : undefined,
 				notes: body.notes === undefined ? undefined : body.notes,
 				dueDate: body.dueDate === undefined ? undefined : body.dueDate || null,
+				priority,
 				recurrenceFrequency: frequency,
 				recurrenceInterval:
 					frequency === null ? null : frequency ? Math.max(1, Math.floor(body.recurrenceInterval ?? 1)) : undefined,
