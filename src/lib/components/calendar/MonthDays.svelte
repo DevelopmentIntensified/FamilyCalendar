@@ -125,6 +125,16 @@
 							<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
 						</svg>
 					</button>
+					<a
+						href="/calendar/dashboard?date={cellDate.toISODate()}"
+						class="pointer-events-auto -m-1 flex h-5 w-5 items-center justify-center rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 sm:m-0 sm:p-0 {selectionMode ? 'hidden' : ''}"
+						aria-label="Day dashboard for {date}"
+						title="Day dashboard"
+					>
+						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />
+						</svg>
+					</a>
 				{/if}
 				{#if isTodayDate}
 					<span class="pr-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-500">today</span>

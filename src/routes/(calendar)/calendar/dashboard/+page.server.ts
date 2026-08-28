@@ -16,6 +16,7 @@ import { expandEventsForUser, parseEvents } from '$lib/server/services/eventDisp
 import { getTodayVerse } from '$lib/server/services/verseService';
 import { computeWeeklyStreak } from '$lib/server/services/streakService';
 import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
+import { DateTime } from 'luxon';
 
 type RosterMember = {
 	userId: string;
@@ -32,9 +33,17 @@ export const load: PageServerLoad = async (event) => {
 	const userId = event.locals.user.id;
 	const zone = await getUserZone(userId);
 	const now = zonedNow(zone);
-	const todayStart = now.startOf('day');
-	const todayEnd = now.endOf('day');
-	const todayStartIso = todayStart.toISO()!;
+	// The dashboard can be opened for any day via ?date=YYYY-MM-DD (interpreted
+	// in the user's zone); absent or invalid, it shows today.
+	let dayStart = now.startOf('day');
+	const dateParam = event.url.searchParams.get('date');
+	if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+		const parsed = DateTime.fromISO(dateParam, { zone });
+		if (parsed.isValid) dayStart = parsed.startOf('day');
+	}
+	const dayEnd = dayStart.endOf('day');
+	const dayStartIso = dayStart.toISO()!;
+	const isToday = dayStart.hasSame(now, 'day');
 
 	const userSettings = await getUserSettings(userId);
 	const familyId = await getUserFamilyId(userId);
@@ -83,7 +92,7 @@ export const load: PageServerLoad = async (event) => {
 		}))
 	].filter((e) => {
 		const d = e.date instanceof Date ? e.date : new Date(e.date);
-		return d >= todayStart.toJSDate() && d < todayEnd.toJSDate();
+		return d >= dayStart.toJSDate() && d < dayEnd.toJSDate();
 	});
 
 	// Family roster + per-member status for the Member Strip, plus the
@@ -128,9 +137,9 @@ export const load: PageServerLoad = async (event) => {
 		});
 	}
 
-	// Top-3 ranking: mine-first → priority → overdue → due-today → next.
-	// Enrich with assignee names for the card (rankTop3 returns bare rows).
-	const top3 = rankTop3(userTasks as RankableTask[], userId, { todayStartIso }).map((t) => {
+	// Top-3 ranking: mine-first → priority → overdue → due-today → next,
+	// bucketed relative to the viewed day (rankTop3 returns bare rows).
+	const top3 = rankTop3(userTasks as RankableTask[], userId, { todayStartIso: dayStartIso }).map((t) => {
 		const src = userTasks.find((u) => u.id === t.id);
 		return {
 			...t,
@@ -139,12 +148,12 @@ export const load: PageServerLoad = async (event) => {
 		};
 	});
 
-	// Today at a Glance progress: open (due today or overdue) vs done today.
-	const doneToday = userTasks.filter(
-		(t) => t.completedAt && new Date(t.completedAt) >= todayStart.toJSDate() && new Date(t.completedAt) < todayEnd.toJSDate()
+	// Day-at-a-glance progress: done within the viewed day, open by end of it.
+	const doneForDay = userTasks.filter(
+		(t) => t.completedAt && new Date(t.completedAt) >= dayStart.toJSDate() && new Date(t.completedAt) < dayEnd.toJSDate()
 	).length;
-	const openToday = userTasks.filter(
-		(t) => !t.completedAt && t.dueDate && new Date(t.dueDate) < todayEnd.toJSDate()
+	const openForDay = userTasks.filter(
+		(t) => !t.completedAt && t.dueDate && new Date(t.dueDate) < dayEnd.toJSDate()
 	).length;
 
 	const completionRows = await db
@@ -163,7 +172,8 @@ export const load: PageServerLoad = async (event) => {
 
 	return {
 		zone,
-		todayISO: todayStartIso,
+		dayISO: dayStartIso,
+		isToday,
 		meId: userId,
 		userSettings,
 		familyId,
@@ -173,7 +183,7 @@ export const load: PageServerLoad = async (event) => {
 		memberStatus,
 		dayEvents,
 		top3,
-		glance: { doneToday, openToday, weekStreak: streak.current },
+		glance: { doneToday: doneForDay, openToday: openForDay, weekStreak: streak.current },
 		dailyVerse
 	};
 };

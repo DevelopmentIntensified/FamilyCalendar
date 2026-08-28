@@ -5,16 +5,55 @@
 
 	export let data: PageData;
 
-	$: dateLabel = DateTime.fromISO(data.todayISO).setZone(data.zone).toFormat('cccc, LLLL d');
+	$: dayDt = DateTime.fromISO(data.dayISO).setZone(data.zone).startOf('day');
+	$: dateLabel = dayDt.toFormat('cccc, LLLL d');
+	$: prevDayHref = '/calendar/dashboard?date=' + dayDt.minus({ days: 1 }).toISODate();
+	$: nextDayHref = '/calendar/dashboard?date=' + dayDt.plus({ days: 1 }).toISODate();
 </script>
 
 <svelte:head>
-	<title>Day Dashboard - Family Planz</title>
+	<title>Day Dashboard - {dateLabel} - Family Planz</title>
 </svelte:head>
 
 <div class="mx-auto w-full px-2 py-4 sm:px-4 lg:px-8">
-	<header class="mb-4 flex items-center justify-between gap-3">
-		<h1 class="text-xl font-bold text-slate-900">Day Dashboard</h1>
+	<header class="mb-4 flex flex-wrap items-center justify-between gap-3">
+		<div>
+			<h1 class="text-xl font-bold text-slate-900">Day Dashboard</h1>
+			<p class="text-sm text-slate-500">
+				{dateLabel}{data.isToday ? ' · today' : ''}
+			</p>
+		</div>
+		<nav class="flex items-center gap-1.5" aria-label="Day navigation">
+			<a
+				href={prevDayHref}
+				class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+				aria-label="Previous day"
+				title="Previous day"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+				</svg>
+			</a>
+			<a
+				href="/calendar/dashboard"
+				class="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 {data.isToday
+					? 'pointer-events-none opacity-50'
+					: ''}"
+				aria-label="Go to today"
+			>
+				Today
+			</a>
+			<a
+				href={nextDayHref}
+				class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+				aria-label="Next day"
+				title="Next day"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+				</svg>
+			</a>
+		</nav>
 		<a
 			href="/calendar"
 			class="rounded-lg border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
@@ -25,6 +64,7 @@
 
 	<DayDashboard
 		{dateLabel}
+		isToday={data.isToday}
 		meId={data.meId}
 		familyId={data.familyId}
 		dailyVerse={data.dailyVerse}

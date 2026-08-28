@@ -10,6 +10,7 @@
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { queueMutation } from '$lib/utils/offline';
+	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
 
 	export let data: PageData;
 
@@ -189,33 +190,6 @@
 		(t) => t.completedAt && Date.now() - new Date(t.completedAt).getTime() < 7 * 24 * 60 * 60 * 1000
 	).length;
 
-	const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-
-	/**
-	 * Quick-add markup: 'buy milk tomorrow', 'clean gutters saturday'.
-	 * Extracts a due date so capture stays one-field fast.
-	 */
-	function parseQuickAdd(raw: string): { title: string; dueDate: string | null } {
-		const match = raw.match(/\b(today|tomorrow|sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)\b/i);
-		if (!match) return { title: raw.trim(), dueDate: newDueDate || null };
-
-		const token = match[1].toLowerCase();
-	 const target = new Date();
-		target.setHours(23, 59, 0, 0);
-
-		if (token === 'tomorrow') {
-			target.setDate(target.getDate() + 1);
-		} else if (token !== 'today') {
-			const full = WEEKDAYS.findIndex((d) => d.startsWith(token.slice(0, 3)));
-			if (full === -1) return { title: raw.trim(), dueDate: newDueDate || null };
-			let delta = (full - target.getDay() + 7) % 7;
-			if (delta === 0) delta = 7; // "friday" on a friday means next friday
-			target.setDate(target.getDate() + delta);
-		}
-
-		const title = raw.replace(match[0], '').replace(/\s{2,}/g, ' ').trim() || raw.trim();
-		return { title, dueDate: target.toISOString() };
-	}
 
 	function formatDue(due: string | null): string {
 		if (!due) return '';
@@ -234,11 +208,15 @@
 		adding = true;
 		actionError = '';
 		try {
-			const parsed = parseQuickAdd(newTitle);
+			const parsed = parseTaskQuickAdd(newTitle);
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title: parsed.title, dueDate: parsed.dueDate })
+				body: JSON.stringify({
+					title: parsed.title,
+					dueDate: parsed.dueDate ?? (newDueDate || null),
+					priority: parsed.priority
+				})
 			});
 			if (res.ok) {
 				newTitle = '';

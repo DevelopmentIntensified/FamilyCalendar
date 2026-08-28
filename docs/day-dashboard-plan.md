@@ -38,7 +38,7 @@ Target user: a **father-facing** persona ("dad opens the app, skim, act, close")
 ## 2. Modules (canonical names in bold)
 
 ### 2.1 Today at a Glance
-Hero strip: today's date, a compact day-timeline of timed events (DayView lane-layout concept), all-day events, and a progress line — today's completion count vs open, plus the weekly streak from `taskCompletions`. Data: events, dueTasks, streak. No schema change. Not shown for _other_ days until `?date=` exists (then it's "that day at a glance").
+Hero strip: today's date, a compact day-timeline of timed events (DayView lane-layout concept), all-day events, and a progress line — today's completion count vs open, plus the weekly streak from `taskCompletions`. Data: events, dueTasks, streak. No schema change. With `?date=` (Phase 2) it renders *any* viewed day as "that day at a glance" — the card title becomes "Day at a Glance" for non-today days, and the done/open progress is computed for the viewed day.
 
 ### 2.2 Top-3 Priorities
 The three family Tasks that most need handling today: **my Tasks lead**, then Task Priority → overdue → due-today → next-due (decision 1). High-priority Tasks without a due date rank in. Row has check-off + assignee name + inline priority stepper.
@@ -87,8 +87,8 @@ Follow the existing `(calendar)` route pattern: `+page.server.ts` load → page 
 
 ### 4.1 Route & nav
 - `src/routes/(calendar)/calendar/dashboard/+page.server.ts` + `+page.svelte`; same auth guard as calendar +page.server.ts:22-25.
-- Nav: **toolbar actions cluster** in Calendar.svelte (Import · Print · Settings, Calendar.svelte:237-271) gains a Dashboard icon-link (decision 4).
-- Phase 2+: accept `?date=YYYY-MM-DD` (today when absent); month-view day taps expose "open day dashboard" (decision 5).
+- Nav: **toolbar actions cluster** in Calendar.svelte (Import · Print · Settings, Calendar.svelte:237-271) gains a Dashboard icon-link (decision 4) — done.
+- Phase 2: accept `?date=YYYY-MM-DD` (today when absent; user-zone day boundary); month-view day-cell header gains an "open day dashboard" link alongside the "+" add button, and the dashboard header has prev/today/next day nav — done.
 
 ### 4.2 Reuse (no new plumbing)
 - **Verse**: `DailyVerseCard` (props reference/text/attribution) + `getTodayVerse(userSettings.verseTranslation)`; gate `showDailyVerse` — pattern copied from calendar +page.server.ts:127-128 and Calendar.svelte:279-287.
@@ -143,10 +143,10 @@ Each phase: **build → test → push `test`** (auto-deploys to https://test.fam
 - `rankTop3` pure selector + tests.
 
 ### Phase 2 — Per-day + config (code only)
-- `?date=` param + "open day dashboard" from month-view day taps.
-- Dashboard Module config: family-level master switches (admin, family page) + per-user hide overrides (`/account`; pattern: Daily verse block, account +page.svelte:290-322).
-- Optional opt-in landing via `userSettings.defaultView: 'dashboard'` (decision 4 extension).
-- NLP priority keywords in quick-add ("…high priority") — `naturalLanguageService` (existing seam). **TDD with a broad phrase table** (see AGENTS.md "NLP changes"): cover as many distinct phrasings/variants/word-orders as possible; keep the ~94-test parser suite green.
+- ✅ `?date=` param + "open day dashboard" from month-view day taps (day-cell header link + prev/today/next nav on the dashboard).
+- ⏳ Dashboard Module config: family-level master switches (admin, family page) + per-user hide overrides (`/account`; pattern: Daily verse block, account +page.svelte:290-322).
+- ⏳ Optional opt-in landing via `userSettings.defaultView: 'dashboard'` (decision 4 extension).
+- ✅ NLP priority keywords in quick-add ("…high priority") — extracted to `src/lib/utils/taskQuickAdd.ts` (`parseTaskQuickAdd`), consumed by the tasks-page quick-add (posts `priority` through `/api/tasks`; server clamps via `TASK_PRIORITIES`). **TDD phrase table** in `taskQuickAdd.test.ts` (26 cases incl. word-order/case/colon/hyphen variants + combined date+priority). AGENTS.md NLP rule holds (existing `naturalLanguageService` suite untouched).
 
 ### Phase 3 — Kids + meals (two migrations)
 - `familyMembers.memberType` (`'parent'|'child'|'member'`, default `'member'`); set in family page; **Kids' Schedule** card (child-attended events).

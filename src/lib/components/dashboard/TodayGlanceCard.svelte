@@ -13,6 +13,7 @@
 	export let openToday: number;
 	export let doneToday: number;
 	export let weekStreak: number;
+	export let isToday: boolean = true;
 
 	$: allDayEvents = events.filter((e) => e.allDay);
 	$: timedEvents = events
@@ -30,7 +31,7 @@
 
 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
 	<div class="mb-3 flex items-baseline justify-between gap-2">
-		<h2 class="text-sm font-semibold text-slate-900">Today at a Glance</h2>
+		<h2 class="text-sm font-semibold text-slate-900">{isToday ? 'Today at a Glance' : 'Day at a Glance'}</h2>
 		<p class="text-xs text-slate-400">{dateLabel}</p>
 	</div>
 
@@ -71,7 +72,7 @@
 		</div>
 	{:else}
 		<p class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400">
-			No events scheduled today
+			{isToday ? 'No events scheduled today' : 'No events scheduled on this day'}
 		</p>
 	{/if}
 
@@ -91,7 +92,7 @@
 					</div>
 					<span class="text-xs text-slate-500">{doneToday} done · {openToday} open</span>
 				{:else}
-					<span class="text-xs text-slate-400">No tasks due today — clear day ✨</span>
+					<span class="text-xs text-slate-400">{isToday ? 'No tasks due today — clear day ✨' : 'No tasks due this day'}</span>
 				{/if}
 			</div>
 			{#if weekStreak > 0}

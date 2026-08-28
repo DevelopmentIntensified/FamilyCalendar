@@ -6,6 +6,7 @@
 	import MemberStrip from './MemberStrip.svelte';
 
 	export let dateLabel: string;
+	export let isToday: boolean = true;
 	export let meId: string;
 	export let familyId: string | null;
 	export let dailyVerse: { reference: string; text: string; attribution?: string } | null;
@@ -62,6 +63,7 @@
 	<div class="grid gap-4 lg:grid-cols-2">
 		<TodayGlanceCard
 			{dateLabel}
+			{isToday}
 			events={dayEvents}
 			openToday={glance.openToday}
 			doneToday={glance.doneToday}
