@@ -123,12 +123,16 @@ export async function getTasksForUser(userId: string, familyId?: string | null) 
 		.from(tasks)
 		.leftJoin(events, eq(tasks.eventId, events.id))
 		.leftJoin(assignee, eq(tasks.assignedTo, assignee.id))
-		.where(or(...conditions))
+		.where(and(or(...conditions), isNull(tasks.archivedAt)))
 		.orderBy(desc(tasks.createdAt));
 }
 
 export async function getTasksForEvent(eventId: string) {
-	return await db.select().from(tasks).where(eq(tasks.eventId, eventId)).orderBy(tasks.createdAt);
+	return await db
+		.select()
+		.from(tasks)
+		.where(and(eq(tasks.eventId, eventId), isNull(tasks.archivedAt)))
+		.orderBy(tasks.createdAt);
 }
 
 /** Every task in a family, with assignee and creator attribution. */
@@ -159,7 +163,7 @@ export async function getTasksForFamily(familyId: string) {
 		.leftJoin(events, eq(tasks.eventId, events.id))
 		.leftJoin(assignee, eq(tasks.assignedTo, assignee.id))
 		.leftJoin(creator, eq(tasks.userId, creator.id))
-		.where(eq(tasks.familyId, familyId))
+		.where(and(eq(tasks.familyId, familyId), isNull(tasks.archivedAt)))
 		.orderBy(desc(tasks.createdAt));
 }
 
@@ -285,7 +289,32 @@ export async function toggleTaskComplete(
 }
 
 export async function deleteTask(id: string, userId: string) {
-	await db.delete(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+	const [task] = await db
+		.select({ completedAt: tasks.completedAt })
+		.from(tasks)
+		.where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+	if (!task) return;
+
+	// Completed tasks back the stats/streak history, so removing one archives
+	// it instead of deleting. Open tasks have no stats attached — hard delete.
+	if (task.completedAt) {
+		await db
+			.update(tasks)
+			.set({ archivedAt: new Date().toISOString() })
+			.where(eq(tasks.id, id));
+	} else {
+		await db.delete(tasks).where(eq(tasks.id, id));
+	}
+}
+
+/** Archive completed tasks instead of deleting them: the rows power the stats
+ *  page (completedOnce, recentlyCompleted) and the weekly streak via
+ *  `taskCompletions` history, so a "clear completed" must not erase stats. */
+export async function deleteCompletedTasks(userId: string) {
+	await db
+		.update(tasks)
+		.set({ archivedAt: new Date().toISOString() })
+		.where(and(eq(tasks.userId, userId), isNotNull(tasks.completedAt), isNull(tasks.archivedAt)));
 }
 
 /** Family members may toggle any task inside their family. */
@@ -322,10 +351,6 @@ export async function updateTaskInFamily(
 	return updated;
 }
 
-export async function deleteCompletedTasks(userId: string) {
-	await db.delete(tasks).where(and(eq(tasks.userId, userId), isNotNull(tasks.completedAt)));
-}
-
 /**
  * Overdue Recurring Tasks stick to today: their due date follows the
  * current date until dismissed. Piggybacked on task/calendar loads.
@@ -340,6 +365,7 @@ export async function syncRecurringCursors(userId: string, familyId?: string | n
 		eq(tasks.userId, userId),
 		isNotNull(tasks.recurrenceFrequency),
 		isNull(tasks.completedAt),
+		isNull(tasks.archivedAt),
 		isNotNull(tasks.dueDate)
 	];
 	if (familyId) conditions.push(eq(tasks.familyId, familyId));

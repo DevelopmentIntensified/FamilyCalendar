@@ -5,6 +5,7 @@
 	import ListView from './ListView.svelte';
 	import WeekView from './WeekView.svelte';
 	import DayView from './DayView.svelte';
+	import DailyVerseCard from './DailyVerseCard.svelte';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: any[] = [];
@@ -24,6 +25,11 @@
 	export let selectedIds: string[] = [];
 	export let onToggleSelectionMode: (on: boolean) => void = () => {};
 	export let onToggleSelect: (event: any) => void = () => {};
+	export let dailyVerse: {
+		reference: string;
+		text: string;
+		attribution?: string;
+	} | null = null;
 
 	let view: 'month' | 'week' | 'list' | 'day' = (() => {
 		const map: Record<string, 'month' | 'week' | 'list' | 'day'> = {
@@ -270,6 +276,15 @@
 		ontouchstart={handleTouchStart}
 		ontouchend={handleTouchEnd}
 	>
+		{#if dailyVerse}
+			<div class="mb-3">
+				<DailyVerseCard
+					reference={dailyVerse.reference}
+					text={dailyVerse.text}
+					attribution={dailyVerse.attribution}
+				/>
+			</div>
+		{/if}
 		<button
 			onclick={goPrevious}
 			aria-label="Previous period"

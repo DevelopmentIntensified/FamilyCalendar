@@ -12,8 +12,8 @@ beforeEach(() => {
 });
 
 describe('TRANSLATIONS', () => {
-	it('exposes exactly the two supported translations', () => {
-		expect(Object.keys(TRANSLATIONS).sort()).toEqual(['esv', 'kjv']);
+	it('exposes exactly one supported translation (ESV)', () => {
+		expect(Object.keys(TRANSLATIONS).sort()).toEqual(['esv']);
 	});
 
 	it('every entry has the required shape and non-empty strings', () => {
@@ -28,14 +28,13 @@ describe('TRANSLATIONS', () => {
 		}
 	});
 
-	it('marks only KJV as bundled (ESV text is fetched, not bundled)', () => {
-		expect(TRANSLATIONS.kjv.bundled).toBe(true);
-		expect(TRANSLATIONS.kjv.attribution).toBe('Public domain. King James Version, 1611.');
+	it('marks ESV as remote-only (fetched, never bundled)', () => {
 		expect(TRANSLATIONS.esv.bundled).toBe(false);
+		expect(Object.values(TRANSLATIONS).every((t) => !t.bundled)).toBe(true);
 	});
 });
 
-describe('getVerseForDate (KJV)', () => {
+describe('getVerseForDate (bundled)', () => {
 	it('returns a valid shape for every curated verse', () => {
 		expect(DAILY_VERSES.length).toBe(30);
 		for (const verse of DAILY_VERSES) {
@@ -76,31 +75,31 @@ describe('getVerseForDate (KJV)', () => {
 		}
 	});
 
-	it('returns bundled KJV text with public-domain attribution and no fallback flag', async () => {
-		const verse = await getVerseForDate('2026-08-24', 'kjv');
+	it('returns bundled public-domain text with no fallback flag for unknown translations', async () => {
+		const verse = await getVerseForDate('2026-08-24', 'not-a-real-translation');
 		const curated = DAILY_VERSES.find((v) => v.reference === verse.reference)!;
 		expect(verse.text).toBe(curated.text);
-		expect(verse.translation).toBe('kjv');
-		expect(verse.attribution).toBe(TRANSLATIONS.kjv.attribution);
+		expect(verse.translation).toBe('esv');
+		expect(verse.attribution).toBe('Public domain.');
 		expect(verse.fallback).toBe(false);
 	});
 
-	it('treats unknown translations as KJV', async () => {
+	it('treats unknown translations as bundled ESV-branded text', async () => {
 		const verse = await getVerseForDate('2026-08-24', 'not-a-real-translation');
-		expect(verse.translation).toBe('kjv');
+		expect(verse.translation).toBe('esv');
 		expect(verse.fallback).toBe(false);
 	});
 });
 
 describe('getVerseForDate (ESV)', () => {
-	it('falls back to bundled KJV text when no ESV_API_KEY is configured', async () => {
+	it('falls back to bundled text with public-domain attribution when no ESV_API_KEY is configured', async () => {
 		const verse = await getVerseForDate('2026-08-24', 'esv');
 		expect(verse.text.length).toBeGreaterThan(0);
 		expect(DAILY_VERSES.some((v) => v.text === verse.text)).toBe(true);
 		expect(verse.fallback).toBe(true);
-		expect(verse.translation).toBe('kjv');
+		expect(verse.translation).toBe('esv');
 		// The requested translation's copyright attribution must be suppressed.
-		expect(verse.attribution).toBe(TRANSLATIONS.kjv.attribution);
+		expect(verse.attribution).toBe('Public domain.');
 	});
 
 	it('falls back gracefully when the key is set but the API is unreachable', async () => {
@@ -108,7 +107,7 @@ describe('getVerseForDate (ESV)', () => {
 		process.env.ESV_API_KEY = 'invalid-test-key';
 		const verse = await getVerseForDate('2026-08-24', 'esv');
 		expect(verse.fallback).toBe(true);
-		expect(verse.translation).toBe('kjv');
+		expect(verse.translation).toBe('esv');
 		expect(DAILY_VERSES.some((v) => v.text === verse.text)).toBe(true);
 	});
 });

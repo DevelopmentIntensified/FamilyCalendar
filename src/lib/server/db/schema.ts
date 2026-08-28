@@ -53,9 +53,9 @@ export const userSettings = pgTable('userSettings', {
 	useLocalAI: boolean().default(true),
 	// Daily scripture verse card on the calendar dashboard (off by default).
 	showDailyVerse: boolean('showDailyVerse').default(false),
-	// Which translation the daily verse renders in. NIV/NKJV/NASB/ESV need
-	// an API (BIBLE_API_KEY); KJV is bundled (public domain).
-	verseTranslation: text('verseTranslation').default('kjv'),
+	// Which translation the daily verse renders in. ESV is fetched via the
+	// Crossway API; without a key, bundled public-domain text is served.
+	verseTranslation: text('verseTranslation').default('esv'),
 	updatedAt: timestamp('updatedAt', { mode: 'date' })
 		.defaultNow()
 		.$onUpdate(() => new Date())
@@ -409,6 +409,9 @@ export const tasks = pgTable('tasks', {	id: text('id')
 	notes: text('notes'),
 	dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
 	completedAt: timestamp('completed_at', { withTimezone: true, mode: 'string' }),
+	// Filled when a completed task is cleared/removed. The row survives so
+	// task stats and completion history (streaks) aren't wiped by clearing.
+	archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
 	recurrenceFrequency: text('recurrence_frequency'),
 	recurrenceInterval: integer('recurrence_interval'),
 	// Times a Recurring Task occurrence has been checked off.

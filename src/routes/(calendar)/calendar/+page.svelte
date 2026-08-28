@@ -7,7 +7,6 @@
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
 	import EventFormModal from '$lib/components/calendar/EventFormModal.svelte';
 	import EmptyState from '$lib/components/calendar/EmptyState.svelte';
-	import DailyVerseCard from '$lib/components/calendar/DailyVerseCard.svelte';
 	import calendarNoteDate from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg';
 	import { parseEvents } from '$lib/utils/eventDisplay';
 	import { invalidateAll, goto } from '$app/navigation';
@@ -388,16 +387,6 @@
 </script>
 
 <div class="pb-24">
-	{#if data.dailyVerse}
-		<div class="mx-auto mb-4 max-w-xl px-4 pt-4">
-			<DailyVerseCard
-				reference={data.dailyVerse.reference}
-				text={data.dailyVerse.text}
-				attribution={data.dailyVerse.attribution}
-				translation={data.dailyVerse.translation}
-			/>
-		</div>
-	{/if}
 	{#if showFirstRunCard}
 		<div class="relative mx-auto mb-4 max-w-xl px-4 pt-4">
 			<EmptyState
@@ -433,6 +422,7 @@
 		dueTasks={data.dueTasks || []}
 		defaultViewSetting={data.userSettings?.defaultView || 'monthView'}
 		createAt={openCreateAt}
+		dailyVerse={data.dailyVerse}
 		selectionMode={selectionMode}
 		selectedIds={selectedIds}
 		onToggleSelectionMode={setSelectionMode}

@@ -21,12 +21,6 @@ export interface VerseTranslationInfo {
 }
 
 export const TRANSLATIONS: Record<string, VerseTranslationInfo> = {
-	kjv: {
-		id: 'kjv',
-		label: 'KJV',
-		attribution: 'Public domain. King James Version, 1611.',
-		bundled: true
-	},
 	esv: {
 		id: 'esv',
 		label: 'ESV',
@@ -35,8 +29,6 @@ export const TRANSLATIONS: Record<string, VerseTranslationInfo> = {
 		bundled: false
 	}
 };
-
-const TRANSLATION_IDS = Object.keys(TRANSLATIONS);
 
 const DAILY_VERSES: CuratedVerse[] = [
 	{ reference: 'John 3:16', text: 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.' },
@@ -83,8 +75,8 @@ function fallbackVerse(verse: DailyVerse): DailyVerse {
 	return {
 		reference: verse.reference,
 		text: verse.text,
-		attribution: TRANSLATIONS.kjv.attribution,
-		translation: TRANSLATIONS.kjv.id,
+		attribution: 'Public domain.',
+		translation: TRANSLATIONS.esv.id,
 		fallback: true
 	};
 }
@@ -126,27 +118,29 @@ async function fetchRemoteVerse(dateIso: string, translationId: string): Promise
 	const info = TRANSLATIONS[translationId];
 	if (!info || info.bundled) return null;
 
-	const base = kjvVerseForDate(dateIso);
+	const base = bundledVerseForDate(dateIso);
 
 	// Only ESV has a remote source; anything else non-bundled falls back.
 	if (translationId !== TRANSLATIONS.esv.id) return null;
 	return await fetchEsvVerse(base);
 }
 
-function kjvVerseForDate(dateIso: string): DailyVerse {
+function bundledVerseForDate(dateIso: string): DailyVerse {
 	const ordinal = DateTime.fromISO(dateIso).ordinal;
 	const verse = DAILY_VERSES[ordinal % DAILY_VERSES.length];
 	return {
 		...verse,
-		attribution: TRANSLATIONS.kjv.attribution,
-		translation: TRANSLATIONS.kjv.id,
+		attribution: 'Public domain.',
+		translation: TRANSLATIONS.esv.id,
 		fallback: false
 	};
 }
 
-export async function getVerseForDate(dateIso: string, translation = 'kjv'): Promise<DailyVerse> {
-	if (!TRANSLATION_IDS.includes(translation) || TRANSLATIONS[translation].bundled) {
-		return kjvVerseForDate(dateIso);
+export async function getVerseForDate(dateIso: string, translation = 'esv'): Promise<DailyVerse> {
+	// ESV is the only supported translation; anything else (or nothing else
+	// to fall back on) resolves to the bundled public-domain verse.
+	if (translation !== TRANSLATIONS.esv.id) {
+		return bundledVerseForDate(dateIso);
 	}
 
 	const cacheKey = `${dateIso}:${translation}`;
@@ -158,9 +152,9 @@ export async function getVerseForDate(dateIso: string, translation = 'kjv'): Pro
 		verseCache.set(cacheKey, remote);
 		return remote;
 	}
-	return fallbackVerse(kjvVerseForDate(dateIso));
+	return fallbackVerse(bundledVerseForDate(dateIso));
 }
 
-export async function getTodayVerse(translation = 'kjv'): Promise<DailyVerse> {
+export async function getTodayVerse(translation = 'esv'): Promise<DailyVerse> {
 	return getVerseForDate(DateTime.now().toISODate()!, translation);
 }

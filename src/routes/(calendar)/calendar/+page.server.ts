@@ -124,7 +124,7 @@ export const load: PageServerLoad = async (event) => {
 			recurrenceInterval: t.recurrenceInterval
 		}));
 
-	const verseTranslation = userSettings?.verseTranslation ?? 'kjv';
+	const verseTranslation = userSettings?.verseTranslation ?? 'esv';
 	const dailyVerse = userSettings?.showDailyVerse ? await getTodayVerse(verseTranslation) : null;
 
 	return {

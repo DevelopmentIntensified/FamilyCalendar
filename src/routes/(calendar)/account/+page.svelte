@@ -41,10 +41,24 @@
 		{ value: 'listView', label: 'List View' }
 	];
 
-	let selectedTranslation: string = data.userSettings.verseTranslation ?? 'kjv';
+	// Legacy rows may store 'kjv' (removed translation) — coerce to the only
+	// remaining option so the select never renders blank.
+	$: selectedTranslation = data.verseTranslations?.some(
+		(t) => t.id === data.userSettings?.verseTranslation
+	)
+		? (data.userSettings.verseTranslation as string)
+		: 'esv';
 	$: selectedAttribution = data.verseTranslations?.find(
 		(t) => t.id === selectedTranslation
 	)?.attribution;
+
+	// `selected=` isn't reactive once an <option> mounts, so drive each select
+	// through bind:value backed by a derived local — saved settings then show
+	// up immediately after the post-submit data reload.
+	$: weekStart = data.userSettings?.weekStart ?? 'sunday';
+	$: timeZone = data.userSettings?.timeZone ?? 'UTC';
+	$: defaultView = data.userSettings?.defaultView ?? 'dayView';
+	$: defaultCalendarId = data.userSettings?.defaultCalendarId ?? '';
 </script>
 
 <svelte:head>
@@ -176,36 +190,36 @@
 								<div class="grid gap-4 sm:grid-cols-2">
 									<div class="space-y-2">
 										<label for="weekStart" class="block text-sm font-medium text-slate-700">Week Starts On</label>
-										<select id="weekStart" name="weekStart" class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
-											<option value="sunday" selected={data.userSettings.weekStart === 'sunday'}>Sunday</option>
-											<option value="monday" selected={data.userSettings.weekStart === 'monday'}>Monday</option>
+										<select id="weekStart" name="weekStart" bind:value={weekStart} class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
+											<option value="sunday">Sunday</option>
+											<option value="monday">Monday</option>
 										</select>
 									</div>
 
 									<div class="space-y-2">
 										<label for="timeZone" class="block text-sm font-medium text-slate-700">Time Zone</label>
-										<select id="timeZone" name="timeZone" class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
+										<select id="timeZone" name="timeZone" bind:value={timeZone} class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
 											{#each timeZones as tz}
-												<option value={tz.value} selected={data.userSettings.timeZone === tz.value}>{tz.label}</option>
+												<option value={tz.value}>{tz.label}</option>
 											{/each}
 										</select>
 									</div>
 
 									<div class="space-y-2">
 										<label for="defaultView" class="block text-sm font-medium text-slate-700">Default View</label>
-										<select id="defaultView" name="defaultView" class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
+										<select id="defaultView" name="defaultView" bind:value={defaultView} class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
 											{#each viewOptions as view}
-												<option value={view.value} selected={data.userSettings.defaultView === view.value}>{view.label}</option>
+												<option value={view.value}>{view.label}</option>
 											{/each}
 										</select>
 									</div>
 
 									<div class="space-y-2">
 										<label for="defaultCalendarId" class="block text-sm font-medium text-slate-700">Default Calendar</label>
-										<select id="defaultCalendarId" name="defaultCalendarId" class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
+										<select id="defaultCalendarId" name="defaultCalendarId" bind:value={defaultCalendarId} class="w-full rounded-lg border border-slate-300 px-4 py-2.5">
 											<option value="">None (use first available)</option>
 											{#each data.calendars || [] as cal}
-												<option value={cal.id} selected={data.userSettings.defaultCalendarId === cal.id}>{cal.name}</option>
+												<option value={cal.id}>{cal.name}</option>
 											{/each}
 										</select>
 									</div>

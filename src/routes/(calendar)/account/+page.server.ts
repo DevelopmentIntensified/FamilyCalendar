@@ -61,7 +61,7 @@ export const load: PageServerLoad = async (event) => {
 			defaultView: 'dayView',
 			defaultCalendarId: null,
 			syncEventsToFamilyCalendar: false,
-			verseTranslation: 'kjv'
+			verseTranslation: 'esv'
 		},
 		adConsent: adConsentRow ?? {
 			showAdsAsEvents: true,
@@ -92,7 +92,7 @@ export const actions: Actions = {
 		const showDailyVerse = formData.get('showDailyVerse') === 'true';
 		const rawTranslation = (formData.get('verseTranslation') as string) || '';
 		const verseTranslation =
-			rawTranslation in TRANSLATIONS ? rawTranslation : 'kjv';
+			rawTranslation in TRANSLATIONS ? rawTranslation : 'esv';
 
 		try {
 			const existingSettings = await getUserSettings(userId);
