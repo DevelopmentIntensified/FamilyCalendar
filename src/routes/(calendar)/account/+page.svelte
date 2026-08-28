@@ -134,7 +134,9 @@
 									profileLoading = true;
 									return async ({ update }) => {
 										profileLoading = false;
-										await update();
+										// reset: false — form.reset() would snap inputs back to
+										// their default markup values before the reload re-paints.
+										await update({ reset: false });
 									};
 								}}
 								class="space-y-4"
@@ -182,7 +184,9 @@
 									calendarLoading = true;
 									return async ({ update }) => {
 										calendarLoading = false;
-										await update();
+										// reset: false — a form.reset() here would flash every
+										// field back to defaults before the reload re-paints them.
+										await update({ reset: false });
 									};
 								}}
 								class="space-y-4"
@@ -349,7 +353,7 @@
 									emailLoading = true;
 									return async ({ update }) => {
 										emailLoading = false;
-										await update();
+										await update({ reset: false });
 									};
 								}}
 								class="space-y-4"

@@ -22,8 +22,6 @@
 ## Testing on test.familyplanz.com
 
 - The `test` branch auto-deploys to https://test.familyplanz.com. After pushing, wait ~1 minute for the deploy before testing.
-- Use the playwright-cli skill to drive the live site and verify changes in a real browser (open, snapshot, click/fill, console, network).
-- playwright-cli can also test locally: run the dev server (`npm run dev`) or a preview of the production build, then point playwright-cli at http://localhost:PORT. Useful when the live deploy is stale/unreachable or for reproducing server-side errors with real stack traces.
 - Vercel MCP tools are available (Code Mode): check deploy status (`list_deployments`, `get_deployment`), fetch deployment URLs, and bypass deployment protection (`get_access_to_vercel_url`). Use them when the live site is unreachable or to confirm which commit is deployed.
 
 ## Svelte MCP server
