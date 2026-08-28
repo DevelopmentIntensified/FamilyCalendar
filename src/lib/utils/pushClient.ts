@@ -5,6 +5,22 @@ export interface PushSubscribeResult {
 	reason?: string;
 }
 
+/** User-facing copy for a failed enable attempt. */
+export function pushFailureText(reason?: string): string {
+	switch (reason) {
+		case 'unsupported':
+			return "This browser doesn't support push notifications.";
+		case 'no-server-key':
+			return "Push isn't configured on the server.";
+		case 'permission-denied':
+			return 'Notifications were blocked in browser settings.';
+		case 'server-rejected':
+			return 'The server rejected the subscription.';
+		default:
+			return "Couldn't enable notifications.";
+	}
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
 	const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
 	const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -53,19 +69,34 @@ export async function getServerPublicKey(): Promise<string | null> {
 export async function subscribeToPush(): Promise<PushSubscribeResult> {
 	if (!(await isPushSupported())) return { ok: false, reason: 'unsupported' };
 
+	// Ask for permission FIRST, inside the click's transient-activation window.
+	// The browser only shows the prompt while the user gesture is still live:
+	// any real I/O before this (navigator.serviceWorker.ready, the network
+	// fetch for the VAPID key) consumes the activation, so the browser silently
+	// resolves the request as 'denied' — without showing the prompt and without
+	// persisting the denial — which makes every click fail identically ("keeps
+	// getting Couldn't enable notifications").
+	const permission =
+		typeof Notification.requestPermission === 'function'
+			? await Notification.requestPermission()
+			: Notification.permission;
+	if (permission !== 'granted') return { ok: false, reason: 'permission-denied' };
+
 	try {
 		const registration = await navigator.serviceWorker.ready;
 
 		const publicKey = await getServerPublicKey();
 		if (!publicKey) return { ok: false, reason: 'no-server-key' };
 
-		const permission = await Notification.requestPermission();
-		if (permission !== 'granted') return { ok: false, reason: 'permission-denied' };
-
-		const subscription = await registration.pushManager.subscribe({
-			userVisibleOnly: true,
-			applicationServerKey: urlBase64ToUint8Array(publicKey)
-		});
+		// Reuse a live subscription if one is already present — calling
+		// subscribe() over an existing one throws InvalidStateError.
+		let subscription = await registration.pushManager.getSubscription();
+		if (!subscription) {
+			subscription = await registration.pushManager.subscribe({
+				userVisibleOnly: true,
+				applicationServerKey: urlBase64ToUint8Array(publicKey)
+			});
+		}
 
 		const { endpoint, keys } = subscription.toJSON();
 		const res = await fetch('/api/push/subscribe', {

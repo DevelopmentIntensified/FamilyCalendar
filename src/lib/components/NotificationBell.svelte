@@ -7,6 +7,7 @@
 		getPushState,
 		getServerPublicKey,
 		isPushSupported,
+		pushFailureText,
 		subscribeToPush,
 		unsubscribeFromPush,
 		type PushState
@@ -104,10 +105,12 @@
 	let pushServerReady = false;
 	let pushBusy = false;
 	let pushFeedback: '' | 'success' | 'error' = '';
+	let pushFeedbackText = '';
 	let pushFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
 
-	function showPushFeedback(value: '' | 'success' | 'error') {
+	function showPushFeedback(value: '' | 'success' | 'error', text = '') {
 		pushFeedback = value;
+		pushFeedbackText = text;
 		clearTimeout(pushFeedbackTimer);
 		if (value) pushFeedbackTimer = setTimeout(() => (pushFeedback = ''), 3000);
 	}
@@ -118,7 +121,10 @@
 		const result = await subscribeToPush();
 		pushState = await getPushState();
 		pushBusy = false;
-		showPushFeedback(result.ok ? 'success' : 'error');
+		showPushFeedback(
+			result.ok ? 'success' : 'error',
+			result.ok ? 'Push notifications enabled.' : pushFailureText(result.reason)
+		);
 	}
 
 	async function disablePush() {
@@ -220,7 +226,7 @@
 					{#if pushFeedback === 'success'}
 						<p class="px-4 pt-1 pb-1.5 text-xs text-green-600">Push notifications enabled.</p>
 					{:else if pushFeedback === 'error'}
-						<p class="px-4 pt-1 pb-1.5 text-xs text-red-500">Couldn't enable notifications.</p>
+						<p class="px-4 pt-1 pb-1.5 text-xs text-red-500">{pushFeedbackText}</p>
 					{/if}
 				{:else if pushState === 'subscribed'}
 					<div class="flex items-center justify-between px-4 py-2">
