@@ -9,6 +9,8 @@
 	$: dateLabel = dayDt.toFormat('cccc, LLLL d');
 	$: prevDayHref = '/calendar/dashboard?date=' + dayDt.minus({ days: 1 }).toISODate();
 	$: nextDayHref = '/calendar/dashboard?date=' + dayDt.plus({ days: 1 }).toISODate();
+	$: backToCalendarHref =
+		data.userSettings?.defaultView === 'dashboard' ? '/calendar?dashboardView=1' : '/calendar';
 </script>
 
 <svelte:head>
@@ -55,7 +57,7 @@
 			</a>
 		</nav>
 		<a
-			href="/calendar"
+			href={backToCalendarHref}
 			class="rounded-lg border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 		>
 			Back to Calendar
@@ -67,6 +69,7 @@
 		isToday={data.isToday}
 		meId={data.meId}
 		familyId={data.familyId}
+		modules={data.modules}
 		dailyVerse={data.dailyVerse}
 		glance={data.glance}
 		dayEvents={data.dayEvents}

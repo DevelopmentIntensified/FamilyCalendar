@@ -15,6 +15,7 @@ import { TimeSpan } from 'lucia';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
 import { TRANSLATIONS } from '$lib/server/services/verseService';
+import { DASHBOARD_MODULES } from '$lib/dashboardModules';
 
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
@@ -94,6 +95,14 @@ export const actions: Actions = {
 		const verseTranslation =
 			rawTranslation in TRANSLATIONS ? rawTranslation : 'esv';
 
+		// Checkboxes are show-based; absent checkbox = hidden.
+		const shownModules = DASHBOARD_MODULES.filter(
+			(m) => formData.get(`module_${m.id}`) === 'on'
+		).map((m) => m.id);
+		const hiddenDashboardModules = DASHBOARD_MODULES.map((m) => m.id).filter(
+			(id) => !shownModules.includes(id)
+		);
+
 		try {
 			const existingSettings = await getUserSettings(userId);
 
@@ -109,7 +118,8 @@ export const actions: Actions = {
 					syncEventsToFamilyCalendar,
 					autoParseEventDetails,
 					showDailyVerse,
-					verseTranslation
+					verseTranslation,
+					hiddenDashboardModules
 				});
 			} else {
 				await updateUserSettings(userId, {
@@ -121,7 +131,8 @@ export const actions: Actions = {
 					syncEventsToFamilyCalendar,
 					autoParseEventDetails,
 					showDailyVerse,
-					verseTranslation
+					verseTranslation,
+					hiddenDashboardModules
 				});
 			}
 

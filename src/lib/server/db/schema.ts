@@ -8,7 +8,8 @@ import {
 	json,
 	jsonb,
 	serial,
-	uniqueIndex
+	uniqueIndex,
+	unique
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { generateId } from 'lucia';
@@ -56,6 +57,8 @@ export const userSettings = pgTable('userSettings', {
 	// Which translation the daily verse renders in. ESV is fetched via the
 	// Crossway API; without a key, bundled public-domain text is served.
 	verseTranslation: text('verseTranslation').default('esv'),
+	// Dashboard modules this user has hidden on their own dashboard, e.g. ['board'].
+	hiddenDashboardModules: text('hiddenDashboardModules').array(),
 	updatedAt: timestamp('updatedAt', { mode: 'date' })
 		.defaultNow()
 		.$onUpdate(() => new Date())
@@ -282,6 +285,34 @@ export const families = pgTable('families', {
 	color: text('color'),
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
+
+// Family-level master switches for Day Dashboard modules. A row exists only
+// while a module is switched OFF — absence means the default (enabled).
+export const dashboardModuleSwitches = pgTable(
+	'dashboardModuleSwitches',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		familyId: text('familyId')
+			.notNull()
+			.references(() => families.id, { onDelete: 'cascade' }),
+		module: text('module').notNull(),
+		enabled: boolean('enabled').default(true).notNull(),
+		createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+		updatedAt: timestamp('updatedAt', { mode: 'date' })
+			.defaultNow()
+			.$onUpdate(() => new Date())
+			.notNull()
+	},
+	(table) => ({
+		familyModuleUnique: unique('dashboardModuleSwitches_family_module_unique').on(
+			table.familyId,
+			table.module
+		)
+	})
+);
 
 export const calendars = pgTable('calendars', {
 	id: text('id')

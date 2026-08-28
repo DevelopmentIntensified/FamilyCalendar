@@ -4,10 +4,11 @@
 	import type { PageData, ActionData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
+	import { FAMILY_DASHBOARD_MODULES } from '$lib/dashboardModules';
 	import { DateTime } from 'luxon';
 	export let data: PageData;
 	export let form: ActionData;
-	const { family, members, currentUserRole, currentUserId, activity = [] } = data;
+	const { family, members, currentUserRole, currentUserId, activity = [], moduleSwitches = {} } = data;
 
 	function relativeTime(iso: string): string {
 		return DateTime.fromISO(iso).toRelative() ?? '';
@@ -18,6 +19,8 @@
 	let editingRole: string | null = null;
 	let editingName = family?.name || '';
 	let editingColor = family?.color || '#3b82f6';
+
+	const isAdmin = currentUserRole === 'creator' || currentUserRole === 'admin';
 </script>
 
 <svelte:head>
@@ -124,6 +127,39 @@
 							</button>
 						</div>
 					</form>
+
+					{#if isAdmin}
+						<div class="mt-6 border-t border-slate-200 pt-5">
+							<h4 class="text-sm font-semibold text-slate-800">Day Dashboard Modules</h4>
+							<p class="mt-1 text-xs text-slate-500">
+								Family-wide master switches. Switched-off cards are hidden for everyone —
+								individual members can re-enable them from Account settings.
+							</p>
+							<div class="mt-3 grid gap-2 sm:grid-cols-2">
+								{#each FAMILY_DASHBOARD_MODULES as mod (mod.id)}
+									<form
+										method="POST"
+										action="?/toggleDashboardModule"
+										use:enhance
+										class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5"
+									>
+										<span class="text-sm font-medium text-slate-800">{mod.label}</span>
+										<input type="hidden" name="module" value={mod.id} />
+										<button
+											type="submit"
+											name="enabled"
+											value={moduleSwitches[mod.id] ? 'false' : 'true'}
+											class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors {moduleSwitches[mod.id]
+												? 'bg-green-100 text-green-700 hover:bg-green-200'
+												: 'bg-slate-200 text-slate-600 hover:bg-slate-300'}"
+										>
+											{moduleSwitches[mod.id] ? 'On' : 'Off'}
+										</button>
+									</form>
+								{/each}
+							</div>
+						</div>
+					{/if}
 				</div>
 			{/if}
 

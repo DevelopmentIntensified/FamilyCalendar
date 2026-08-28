@@ -9,7 +9,7 @@ Status: **planning — decisions resolved 2026-08-28 via grill-with-docs review 
 1. **Top-3 scope** — family-wide, **mine-first**: rank = my Tasks lead → Task Priority → overdue → due-today → next-due. A **High-priority Task with no due date still ranks in** (priority is the gate, not the date).
 2. **Family Task Board** — all *open* family Tasks (not just today's), grouped by **assignee ?? creator**. Complements the today-focused Top-3. (UI may say "chores"; canonical term Family Task Board.)
 3. **Task Priority column** — `tasks.priority` (`'low'|'normal'|'high'`, default `'normal'`), added in **Phase 1**. Set via: task create/edit form picker **+** inline stepper on dashboard rows; NLP quick-add keywords ("…high priority") are a Phase 2+ extension.
-4. **Placement** — separate route `(calendar)/calendar/dashboard` surfaced from the **calendar toolbar actions cluster** (Import · Print · Settings) (Calendar.svelte:237-271). `userSettings.defaultView` untouched for now.
+4. **Placement** — separate route `(calendar)/calendar/dashboard` surfaced from the **calendar toolbar actions cluster** (Import · Print · Settings) (Calendar.svelte:237-271). `userSettings.defaultView` untouched for now — **a `'dashboard'` opt-in landing was added in Phase 2** (Account → Default View).
 5. **Per-day dashboards** — the route shows *today* in Phase 1; a `?date=YYYY-MM-DD` param lands later, and month-view day taps offer "open day dashboard" alongside the existing drill-down.
 6. **Verse module** — the existing **Daily Verse** (ESV, gate `showDailyVerse`/`verseTranslation`, schema.ts:54-58) rendered on the dashboard via `getTodayVerse` + `DailyVerseCard`; the in-calendar strip stays as-is. Saved-verses **Verse Vault** is a separate, unbuilt future feature (spec'd only).
 7. **Kid identification** — new `familyMembers.memberType` (`'parent'|'child'|'member'`, default `'member'`), **separate from** the permission `role` ladder (`creator|admin|member`, family/[familyId]+page.server.ts:43,92). Kids' Schedule = today's events where a **Child** is an attendee (`eventAttendance`, schema.ts:296). Kids are user accounts (Anonymous or claimed) — invite flow already covers joining.
@@ -144,8 +144,8 @@ Each phase: **build → test → push `test`** (auto-deploys to https://test.fam
 
 ### Phase 2 — Per-day + config (code only)
 - ✅ `?date=` param + "open day dashboard" from month-view day taps (day-cell header link + prev/today/next nav on the dashboard).
-- ⏳ Dashboard Module config: family-level master switches (admin, family page) + per-user hide overrides (`/account`; pattern: Daily verse block, account +page.svelte:290-322).
-- ⏳ Optional opt-in landing via `userSettings.defaultView: 'dashboard'` (decision 4 extension).
+- ✅ Dashboard Module config: **family-level master switches** (admin-only, family page Settings panel; `toggleDashboardModule` action, back-ended by `dashboardModuleSwitches` — a row exists only while switched off) + **per-user hide overrides** (`/account` → Calendar settings "Dashboard modules" block; stored as `userSettings.hiddenDashboardModules text[]`). Effective visibility = `composeModuleVisibility(familySwitches, hidden)` in the dashboard loader; hidden family modules skip their heavy fetches.
+- ✅ Opt-in landing via `userSettings.defaultView: 'dashboard'` — `/calendar` server-redirects to `/calendar/dashboard` unless `?dashboardView=1` (the dashboard's "Back to Calendar" escape). Option surfaced in Account → Default View.
 - ✅ NLP priority keywords in quick-add ("…high priority") — extracted to `src/lib/utils/taskQuickAdd.ts` (`parseTaskQuickAdd`), consumed by the tasks-page quick-add (posts `priority` through `/api/tasks`; server clamps via `TASK_PRIORITIES`). **TDD phrase table** in `taskQuickAdd.test.ts` (26 cases incl. word-order/case/colon/hyphen variants + combined date+priority). AGENTS.md NLP rule holds (existing `naturalLanguageService` suite untouched).
 
 ### Phase 3 — Kids + meals (two migrations)

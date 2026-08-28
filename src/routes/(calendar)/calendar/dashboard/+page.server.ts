@@ -11,6 +11,10 @@ import {
 	syncRecurringCursors
 } from '$lib/server/db/actions/tasks';
 import { rankTop3, type RankableTask } from '$lib/server/db/actions/dashboard';
+import {
+	getFamilyModuleSwitches,
+	composeModuleVisibility
+} from '$lib/server/db/actions/dashboardModules';
 import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
 import { expandEventsForUser, parseEvents } from '$lib/server/services/eventDisplayService';
 import { getTodayVerse } from '$lib/server/services/verseService';
@@ -48,13 +52,20 @@ export const load: PageServerLoad = async (event) => {
 	const userSettings = await getUserSettings(userId);
 	const familyId = await getUserFamilyId(userId);
 
+	// Effective per-module visibility: family master switch AND this user's
+	// own hidden list. Family-heavy fetches below are skipped when no family
+	// module is visible, so hidden-low-priority families don't pay for them.
+	const familySwitches = familyId ? await getFamilyModuleSwitches(familyId) : {};
+	const modules = composeModuleVisibility(familySwitches, userSettings?.hiddenDashboardModules ?? []);
+	const familyModulesVisible = modules.board || modules.memberStrip;
+
 	// Overdue Recurring Tasks stick to today first (cursor v3), so "today"
 	// surfaces the same pinned occurrences the calendar would.
 	await syncRecurringCursors(userId, familyId, zone);
 
 	const [userTasks, familyTasks] = await Promise.all([
 		getTasksForUser(userId, familyId),
-		familyId ? getTasksForFamily(familyId) : Promise.resolve([])
+		familyId && familyModulesVisible ? getTasksForFamily(familyId) : Promise.resolve([])
 	]);
 
 	// Events for the day, from the personal + (optional) family calendar.
@@ -105,7 +116,7 @@ export const load: PageServerLoad = async (event) => {
 		openTasksToday: number;
 		attendingToday: boolean;
 	}[] = [];
-	if (familyId) {
+	if (familyId && familyModulesVisible) {
 		familyMembers = await getFamilyRoster(familyId);
 		const familyEventIds = dayEvents.filter((e) => e.source === 'family').map((e) => e.id);
 		const attendanceRows = familyEventIds.length
@@ -177,6 +188,7 @@ export const load: PageServerLoad = async (event) => {
 		meId: userId,
 		userSettings,
 		familyId,
+		modules,
 		userTasks,
 		familyTasks,
 		familyMembers,

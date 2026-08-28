@@ -1,4 +1,8 @@
 import { getUserFamilies, getFamilyRoster, removeFamilyMember, updateFamilies } from '$lib/server/db/actions/families';
+import {
+	getFamilyModuleSwitches,
+	setFamilyModuleSwitch
+} from '$lib/server/db/actions/dashboardModules';
 import { getRecentFamilyActivity } from '$lib/server/db/actions/familyActivity';
 import { db } from '$lib/server/db';
 import { families, familyMembers } from '$lib/server/db/schema';
@@ -32,8 +36,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 		const members = await getFamilyRoster(params.familyId);
 		const activity = await getRecentFamilyActivity(params.familyId);
+		const moduleSwitches = await getFamilyModuleSwitches(params.familyId);
 
-		return { family, members, currentUserRole: currentMember.role || 'member', currentUserId: locals.user.id, activity };
+		return { family, members, currentUserRole: currentMember.role || 'member', currentUserId: locals.user.id, activity, moduleSwitches };
 	} catch (error) {
 		console.error('[load] Error:', error);
 		return { family: null, members: [], currentUserRole: null };
@@ -130,5 +135,24 @@ export const actions: Actions = {
 			await updateFamilies(params.familyId, updateData);
 		}
 		return { success: true };
+	},
+	toggleDashboardModule: async ({ request, params, locals }) => {
+		const formData = await request.formData();
+		const module = formData.get('module') as string;
+		const enabled = formData.get('enabled') === 'true';
+
+		const roleCheck = await requireMinRole(params.familyId, locals.user.id, 'admin');
+		if (roleCheck) return roleCheck;
+
+		if (!module) {
+			return fail(400, { error: 'Module is required' });
+		}
+
+		try {
+			await setFamilyModuleSwitch(params.familyId, module, enabled);
+			return { success: true };
+		} catch (error) {
+			return fail(400, { error: (error as Error).message });
+		}
 	}
 };

@@ -36,6 +36,14 @@ export const load: PageServerLoad = async (event) => {
 	}
 
 	let userSettings = await getUserSettings(userId);
+
+	// Opt-in landing: with Default View set to "Dashboard", /calendar sends the
+	// user to the Day Dashboard. ?dashboardView=1 is the escape hatch the
+	// dashboard's "Back to Calendar" link uses to show the calendar itself.
+	if (userSettings?.defaultView === 'dashboard' && !event.url.searchParams.has('dashboardView')) {
+		return redirect(302, '/calendar/dashboard');
+	}
+
 	let userCalendar = await db
 		.select()
 		.from(calendars)

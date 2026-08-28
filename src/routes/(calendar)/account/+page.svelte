@@ -4,6 +4,7 @@
 	import type { ActionData, PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import PlanTypeSelector from '$lib/components/PlanTypeSelector.svelte';
+	import { DASHBOARD_MODULES } from '$lib/dashboardModules';
 
 	export let data: PageData;
 	export let form: ActionData;
@@ -38,7 +39,8 @@
 		{ value: 'dayView', label: 'Day View' },
 		{ value: 'weekView', label: 'Week View' },
 		{ value: 'monthView', label: 'Month View' },
-		{ value: 'listView', label: 'List View' }
+		{ value: 'listView', label: 'List View' },
+		{ value: 'dashboard', label: 'Dashboard (Day Dashboard)' }
 	];
 
 	// Legacy rows may store 'kjv' (removed translation) — coerce to the only
@@ -59,6 +61,10 @@
 	$: timeZone = data.userSettings?.timeZone ?? 'UTC';
 	$: defaultView = data.userSettings?.defaultView ?? 'dayView';
 	$: defaultCalendarId = data.userSettings?.defaultCalendarId ?? '';
+
+	// Module visibility toggles: checked = show on dashboard. The server
+	// action stores the inverse (hidden list) in userSettings.hiddenDashboardModules.
+	$: hiddenDashboardModules = data.userSettings?.hiddenDashboardModules ?? [];
 </script>
 
 <svelte:head>
@@ -319,6 +325,27 @@
 										</select>
 										<p class="text-xs text-slate-400">{selectedAttribution}</p>
 									</div>
+								</div>
+
+								<!-- Dashboard modules (per-user visibility) -->
+								<div class="mt-6 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+									<h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Dashboard modules</h3>
+									<p class="mb-1 text-xs text-slate-500">
+										Choose which cards appear on your Day Dashboard. Family admins can also
+										switch family cards off for everyone from the family page.
+									</p>
+									{#each DASHBOARD_MODULES as mod (mod.id)}
+										<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
+											<span class="block text-sm font-medium text-slate-800">{mod.label}</span>
+											<input
+												type="checkbox"
+												name="module_{mod.id}"
+												value="on"
+												class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300"
+												checked={!hiddenDashboardModules.includes(mod.id)}
+											/>
+										</label>
+									{/each}
 								</div>
 
 								<button

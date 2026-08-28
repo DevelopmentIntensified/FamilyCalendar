@@ -53,31 +53,44 @@
 		creatorFirstName?: string | null;
 	}[];
 	export let familyMembers: { userId: string; firstName: string; lastName: string }[];
+	// Per-module visibility (family master switch AND per-user hides). Absent
+	// keys default to visible so the component stays safe when not supplied.
+	export let modules: Record<string, boolean> = {};
+
+	const visible = (id: string) => modules[id] ?? true;
 </script>
 
 <div class="mx-auto w-full max-w-5xl space-y-4">
-	{#if dailyVerse}
+	{#if dailyVerse && visible('verse')}
 		<DailyVerseCard reference={dailyVerse.reference} text={dailyVerse.text} attribution={dailyVerse.attribution} />
 	{/if}
 
-	<div class="grid gap-4 lg:grid-cols-2">
-		<TodayGlanceCard
-			{dateLabel}
-			{isToday}
-			events={dayEvents}
-			openToday={glance.openToday}
-			doneToday={glance.doneToday}
-			weekStreak={glance.weekStreak}
-		/>
-		<TopPrioritiesCard tasks={top3} meId={meId} />
-	</div>
+	{#if visible('glance') || visible('top3')}
+		<div class="grid gap-4 lg:grid-cols-2">
+			{#if visible('glance')}
+				<TodayGlanceCard
+					{dateLabel}
+					{isToday}
+					events={dayEvents}
+					openToday={glance.openToday}
+					doneToday={glance.doneToday}
+					weekStreak={glance.weekStreak}
+				/>
+			{/if}
+			{#if visible('top3')}
+				<TopPrioritiesCard tasks={top3} meId={meId} />
+			{/if}
+		</div>
+	{/if}
 
-	<div class="grid gap-4 lg:grid-cols-2">
-		{#if familyId}
-			<MemberStrip members={memberStatus} />
-		{/if}
-		{#if familyId}
-			<FamilyTaskBoardCard tasks={familyTasks} members={familyMembers} meId={meId} />
-		{/if}
-	</div>
+	{#if familyId && (visible('memberStrip') || visible('board'))}
+		<div class="grid gap-4 lg:grid-cols-2">
+			{#if familyId && visible('memberStrip')}
+				<MemberStrip members={memberStatus} />
+			{/if}
+			{#if familyId && visible('board')}
+				<FamilyTaskBoardCard tasks={familyTasks} members={familyMembers} meId={meId} />
+			{/if}
+		</div>
+	{/if}
 </div>
