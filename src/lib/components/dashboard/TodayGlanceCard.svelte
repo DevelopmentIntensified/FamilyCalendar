@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { rsvpVisual } from '$lib/utils/eventChip';
+	import type { RSVPStatus } from '$lib/types';
 	export let dateLabel: string;
 	export let events: {
 		id: string;
@@ -9,6 +11,7 @@
 		color: string;
 		source: 'own' | 'family';
 		location: string | null;
+		rsvpStatus?: RSVPStatus;
 	}[];
 	export let openToday: number;
 	export let doneToday: number;
@@ -38,9 +41,13 @@
 	{#if allDayEvents.length > 0}
 		<div class="mb-3 space-y-1.5">
 			{#each allDayEvents as e (e.id)}
-				<div class="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-1.5">
+				{@const rv = rsvpVisual(e.rsvpStatus)}
+				<div class="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-1.5 {rv?.containerClass ?? ''}">
 					<span class="h-2 w-2 shrink-0 rounded-full" style:background={e.color}></span>
 					<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{e.title}</span>
+					{#if rv}
+						<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}">{rv.icon} {rv.label}</span>
+					{/if}
 					<span class="shrink-0 text-[11px] font-medium text-slate-400">All day</span>
 				</div>
 			{/each}
@@ -50,7 +57,8 @@
 	{#if timedEvents.length > 0}
 		<div class="space-y-1.5">
 			{#each timedEvents as e (e.id)}
-				<div class="flex items-center gap-3 rounded-lg px-1 py-1.5">
+				{@const rv = rsvpVisual(e.rsvpStatus)}
+				<div class="flex items-center gap-3 rounded-lg px-1 py-1.5 {rv?.containerClass ?? ''}">
 					<div class="w-14 shrink-0 text-right">
 						<span class="text-xs font-semibold tabular-nums text-slate-700">{timeLabel(e.start)}</span>
 						{#if e.end}
@@ -59,6 +67,9 @@
 					</div>
 					<span class="h-2 w-2 shrink-0 rounded-full" style:background={e.color}></span>
 					<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{e.title}</span>
+					{#if rv}
+						<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}">{rv.icon} {rv.label}</span>
+					{/if}
 					{#if e.location}
 						<span class="hidden shrink-0 truncate text-xs text-slate-400 sm:block">📍 {e.location}</span>
 					{/if}

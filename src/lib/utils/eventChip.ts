@@ -33,3 +33,50 @@ export function chipTooltip(
 	const name = calendarNameFor(event, calendars);
 	return name ? `${event.title} · ${name}` : event.title;
 }
+
+export type RsvpVisual = {
+	status: Exclude<Event['rsvpStatus'], undefined>;
+	label: string;
+	icon: string;
+	/** Extra classes for the chip/card/row container (ring for going/maybe,
+	 *  dimming for declined). Ring uses box-shadow so it composes with the
+	 *  existing bg-white / inline border-left freely. */
+	containerClass: string;
+	/** Compact colored pill for the icon / short label. */
+	badgeClass: string;
+};
+
+/**
+ * Visual treatment reflecting the current user's RSVP on an event.
+ * Returns null when there's nothing to show (undecided / no status).
+ */
+export function rsvpVisual(status?: Event['rsvpStatus']): RsvpVisual | null {
+	switch (status) {
+		case 'going':
+			return {
+				status,
+				label: 'Going',
+				icon: '✓',
+				containerClass: 'ring-1 ring-inset ring-emerald-400/60',
+				badgeClass: 'bg-emerald-100 text-emerald-700'
+			};
+		case 'maybe':
+			return {
+				status,
+				label: 'Maybe',
+				icon: '?',
+				containerClass: 'ring-1 ring-inset ring-amber-400/60',
+				badgeClass: 'bg-amber-100 text-amber-700'
+			};
+		case 'declined':
+			return {
+				status,
+				label: "Can't go",
+				icon: '✕',
+				containerClass: 'opacity-60 saturate-50',
+				badgeClass: 'bg-slate-200 text-slate-500'
+			};
+		default:
+			return null;
+	}
+}

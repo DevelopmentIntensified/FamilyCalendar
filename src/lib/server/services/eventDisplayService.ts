@@ -1,6 +1,7 @@
 import type { CalendarEvent } from '$lib/server/db/schema';
-import { getExceptionsByEventIds } from '$lib/server/db/actions/events';
+import { getExceptionsByEventIds, getUserRsvpStatuses } from '$lib/server/db/actions/events';
 import { expandRecurrence } from './recurrenceService';
+import type { RSVPStatus } from '$lib/types';
 
 export { parseEvents } from '$lib/utils/eventDisplay';
 
@@ -77,4 +78,23 @@ export async function expandEventsForUser(eventsData: CalendarEvent[]): Promise<
 		}
 	}
 	return result;
+}
+
+/**
+ * Attaches the current user's RSVP status to each displayable occurrence.
+ * Attendance is stored per master event, so every occurrence sharing a
+ * masterId carries the same status.
+ */
+export async function attachRsvpStatus<T extends { masterId: string }>(
+	userId: string,
+	list: T[]
+): Promise<Array<T & { rsvpStatus?: RSVPStatus }>> {
+	const rows = await getUserRsvpStatuses(
+		userId,
+		[...new Set(list.map((e) => e.masterId))]
+	);
+	const statusById = new Map(
+		rows.map((r) => [r.eventId, r.status as RSVPStatus])
+	);
+	return list.map((e) => ({ ...e, rsvpStatus: statusById.get(e.masterId) }));
 }

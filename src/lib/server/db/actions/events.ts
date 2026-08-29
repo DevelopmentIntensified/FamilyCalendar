@@ -187,6 +187,15 @@ export async function updateRsvp(eventId: string, userId: string, status: 'going
 		});
 }
 
+/** The current user's RSVP status per master event id (empty when none). */
+export async function getUserRsvpStatuses(userId: string, eventIds: string[]) {
+	if (eventIds.length === 0) return [];
+	return await db
+		.select({ eventId: eventAttendance.eventId, status: eventAttendance.status })
+		.from(eventAttendance)
+		.where(and(inArray(eventAttendance.eventId, eventIds), eq(eventAttendance.userId, userId)));
+}
+
 export async function getEventRsvpStatus(eventId: string) {
 	return await db
 		.select()

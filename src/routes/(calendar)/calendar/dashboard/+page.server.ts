@@ -16,7 +16,7 @@ import {
 	composeModuleVisibility
 } from '$lib/server/db/actions/dashboardModules';
 import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
-import { expandEventsForUser, parseEvents } from '$lib/server/services/eventDisplayService';
+import { expandEventsForUser, parseEvents, attachRsvpStatus } from '$lib/server/services/eventDisplayService';
 import { getTodayVerse } from '$lib/server/services/verseService';
 import { computeWeeklyStreak } from '$lib/server/services/streakService';
 import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
@@ -89,14 +89,21 @@ export const load: PageServerLoad = async (event) => {
 		parseEvents(await expandEventsForUser(familyEventsData), zone)
 	]);
 
+	// Current user's RSVP per event, so the glance card can tint going /
+	// maybe events and dim ones the user can't attend.
+	const [userWithRsvp, familyWithRsvp] = await Promise.all([
+		attachRsvpStatus(userId, parsedUser),
+		attachRsvpStatus(userId, parsedFamily)
+	]);
+
 	const userSettingsColor = userSettings?.color || '#fa8072';
 	const dayEvents = [
-		...parsedUser.map((e) => ({
+		...userWithRsvp.map((e) => ({
 			...e,
 			color: userSettingsColor,
 			source: 'own' as const
 		})),
-		...parsedFamily.map((e) => ({
+		...familyWithRsvp.map((e) => ({
 			...e,
 			color: '#e0ffff',
 			source: 'family' as const

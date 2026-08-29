@@ -4,7 +4,7 @@
 	import type { Writable } from 'svelte/store';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
-	import { chipTooltip } from '$lib/utils/eventChip';
+	import { chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import { invalidateAll } from '$app/navigation';
 
@@ -139,12 +139,16 @@
 			{@const dayTasks = getTasksForDay(wd)}
 			<div class="flex-1 min-h-[40px] border-r border-slate-100 last:border-r-0 p-0.5 space-y-0.5">
 				{#each allDayEvents as event}
+					{@const rv = rsvpVisual(event.rsvpStatus)}
 					<button
 						type="button"
 						onclick={() => handleEventClick(event)}
-						class="rounded px-1 py-0.5 text-xs font-medium truncate hover:opacity-90 transition-opacity cursor-pointer w-full text-left bg-white"
+						class="rounded px-1 py-0.5 text-xs font-medium truncate hover:opacity-90 transition-opacity cursor-pointer w-full text-left bg-white {rv?.containerClass ?? ''}"
 						style="border-left: 3px solid {event.color || '#94a3b8'}"
 					>
+						{#if rv}
+							<span class="mr-0.5 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}">{rv.icon}</span>
+						{/if}
 						{event.title}
 					</button>
 				{/each}
@@ -187,14 +191,20 @@
 					{@const dayEvents = getEventsForDay(wd).filter(e => !e.allDay)}
 					<div class="relative pointer-events-auto transition-colors hover:bg-slate-50/60">
 						{#each dayEvents as event}
+							{@const rv = rsvpVisual(event.rsvpStatus)}
 							<button
 								type="button"
 								onclick={() => handleEventClick(event)}
 								title={chipTooltip(event, calendarIds)}
-								class="absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer text-left overflow-hidden bg-white"
+								class="absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer text-left overflow-hidden bg-white {rv?.containerClass ?? ''}"
 								style="top: {getEventTop(event)}%; height: {getEventHeight(event)}%; border-left: 3px solid {event.color || '#94a3b8'}; min-height: 18px;"
 							>
-								<span class="block truncate">{event.title}</span>
+								<span class="block truncate">
+									{#if rv}
+										<span class="mr-0.5 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}">{rv.icon}</span>
+									{/if}
+									{event.title}
+								</span>
 								<span class="block text-[10px] opacity-75 truncate">
 									{formatEventTime(event.start)}{#if event.end} - {formatEventTime(event.end)}{/if}
 								</span>

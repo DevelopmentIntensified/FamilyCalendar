@@ -13,7 +13,7 @@ import { eq, and, isNull } from 'drizzle-orm';
 import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
-import { parseEvents, expandEventsForUser } from '$lib/server/services/eventDisplayService';
+import { expandEventsForUser, parseEvents, attachRsvpStatus } from '$lib/server/services/eventDisplayService';
 import { getTasksForUser, syncRecurringCursors } from '$lib/server/db/actions/tasks';
 import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
 import { getTodayVerse } from '$lib/server/services/verseService';
@@ -132,12 +132,23 @@ export const load: PageServerLoad = async (event) => {
 			recurrenceInterval: t.recurrenceInterval
 		}));
 
+	const [parsedUserEvents, parsedFamilyEvents] = await Promise.all([
+		parseEvents(await expandEventsForUser(userEvents)),
+		parseEvents(await expandEventsForUser(familyEventsData))
+	]);
+	// Current user's RSVP per event (keyed on masterId) so views can tint
+	// going / maybe events and dim ones you can't attend.
+	const [userEventsFinal, familyEventsFinal] = await Promise.all([
+		attachRsvpStatus(userId, parsedUserEvents),
+		attachRsvpStatus(userId, parsedFamilyEvents)
+	]);
+
 	const verseTranslation = userSettings?.verseTranslation ?? 'esv';
 	const dailyVerse = userSettings?.showDailyVerse ? await getTodayVerse(verseTranslation) : null;
 
 	return {
-		userEvents: parseEvents(await expandEventsForUser(userEvents)).map(e => ({ ...e, color: userCalendarColor })),
-		familyEvents: parseEvents(await expandEventsForUser(familyEventsData)).map(e => ({ ...e, color: familyCalendarColor })),
+		userEvents: userEventsFinal.map((e) => ({ ...e, color: userCalendarColor })),
+		familyEvents: familyEventsFinal.map((e) => ({ ...e, color: familyCalendarColor })),
 		adEvents: parseEvents(adEventsData).map(e => ({ ...e, color: '#f59e0b' })),
 		dueTasks,
 		userSettings,

@@ -5,7 +5,7 @@
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
 	import { formatEventTime } from '$lib/utils/eventTime';
-	import { chipColor } from '$lib/utils/eventChip';
+	import { chipColor, rsvpVisual } from '$lib/utils/eventChip';
 	import { invalidateAll } from '$app/navigation';
 	import todoList from '$lib/assets/svgs/todo-list-svgrepo-com.svg';
 
@@ -116,18 +116,22 @@
 			</h3>
 			<div class="space-y-2">
 				{#each dayEvents as event}
+					{@const rv = rsvpVisual(event.rsvpStatus)}
 					<button
 						type="button"
 						onclick={() => handleEventClick(event)}
 						class="w-full text-left"
 					>
-						<div class="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-slate-300 hover:shadow-md">
+						<div class="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-slate-300 hover:shadow-md {rv?.containerClass ?? ''}">
 							<!-- Color indicator -->
 							<div class="shrink-0 h-12 w-1 rounded-full" style="background-color: {chipColor(event)}"></div>
 							
 							<div class="flex-1 min-w-0">
 								<div class="flex items-center gap-2">
 									<h4 class="truncate font-medium text-slate-900 group-hover:text-primary-600">{event.title}</h4>
+									{#if rv}
+										<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}">{rv.icon} {rv.label}</span>
+									{/if}
 									{#if event.isAd}
 										<span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Ad</span>
 									{/if}

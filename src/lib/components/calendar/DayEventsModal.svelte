@@ -2,6 +2,7 @@
 	import type { Event } from '$lib/types';
 	import { DateTime } from 'luxon';
 	import { formatEventTime } from '$lib/utils/eventTime';
+	import { rsvpVisual } from '$lib/utils/eventChip';
 
 	export let show = false;
 	export let date: string = '';
@@ -49,15 +50,21 @@
 			<!-- Events List -->
 			<div class="divide-y divide-slate-100">
 				{#each events as event (event.id)}
+				{@const rv = rsvpVisual(event.rsvpStatus)}
 					<button
 						type="button"
-						class="w-full text-left px-6 py-4 hover:bg-slate-50 transition-colors"
+						class="w-full text-left px-6 py-4 hover:bg-slate-50 transition-colors {rv?.containerClass ?? ''}"
 						onclick={() => handleEventClick(event)}
 					>
 						<div class="flex items-start gap-3">
 							<div class="h-3 w-3 mt-1 rounded-full shrink-0" style="background-color: {event.color || '#94a3b8'}"></div>
 							<div class="flex-1 min-w-0">
+								<div class="flex items-center gap-2">
 								<h3 class="font-semibold text-slate-900 truncate">{event.title}</h3>
+								{#if rv}
+									<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}">{rv.icon} {rv.label}</span>
+								{/if}
+							</div>
 								<div class="flex flex-wrap items-center gap-2 mt-1 text-sm text-slate-600">
 									{#if event.allDay}
 										<span>All day</span>

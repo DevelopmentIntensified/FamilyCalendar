@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { RSVPStatus } from '$lib/types';
 	import DailyVerseCard from '$lib/components/calendar/DailyVerseCard.svelte';
 	import TodayGlanceCard from './TodayGlanceCard.svelte';
 	import TopPrioritiesCard from './TopPrioritiesCard.svelte';
@@ -20,6 +21,7 @@
 		color: string;
 		source: 'own' | 'family';
 		location: string | null;
+		rsvpStatus?: RSVPStatus;
 	}[];
 	export let top3: {
 		id: string;

@@ -5,7 +5,7 @@
 	import EventModal from './EventModal.svelte';
 	import DayEventsModal from './DayEventsModal.svelte';
 	import { invalidateAll } from '$app/navigation';
-	import { chipStyle, chipColor, chipTooltip } from '$lib/utils/eventChip';
+	import { chipStyle, chipColor, chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { toDate } from '$lib/utils/eventTime';
 
 	export let currentDate: DateTime;
@@ -143,6 +143,7 @@
 		</div>
 		<div class="relative z-10 mt-0.5 space-y-[3px] px-0.5 pb-0.5">
 			{#each dayEvents.slice(0, MAX_CHIPS) as event}
+				{@const rv = rsvpVisual(event.rsvpStatus)}
 				<button
 					type="button"
 					onclick={() => (selectionMode ? onToggleSelect(event) : handleEventClick(event))}
@@ -150,7 +151,7 @@
 					title={selectionMode ? (isSelected(event) ? 'Deselect' : 'Select') : chipTooltip(event, calendars)}
 					class="flex min-h-[26px] w-full items-center gap-1 overflow-hidden rounded-md px-1 py-[3px] text-left text-[11px] font-medium leading-tight transition-colors sm:min-h-0 {isAdEvent(event)
 						? 'border border-amber-300 bg-amber-100'
-						: 'bg-white hover:brightness-95'} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400' : ''}"
+						: 'bg-white hover:brightness-95'} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400' : ''} {rv?.containerClass ?? ''}"
 					style={chipStyle(event)}
 				>
 					{#if selectionMode}
@@ -166,6 +167,9 @@
 								</svg>
 							{/if}
 						</span>
+					{/if}
+					{#if rv && !selectionMode}
+						<span class="shrink-0 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}">{rv.icon}</span>
 					{/if}
 					{#if !event.allDay && !isAdEvent(event)}
 						<span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background-color: {chipColor(event)}"></span>

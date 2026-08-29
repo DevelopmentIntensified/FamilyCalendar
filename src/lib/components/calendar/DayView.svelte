@@ -7,6 +7,7 @@
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import EventModal from './EventModal.svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { rsvpVisual } from '$lib/utils/eventChip';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[] = [];
@@ -130,13 +131,19 @@
 			<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">All day</h3>
 			<div class="space-y-1.5">
 				{#each allDayEvents as event}
+					{@const rv = rsvpVisual(event.rsvpStatus)}
 					<button
 						type="button"
 						onclick={() => handleEventClick(event)}
-						class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 hover:opacity-90"
+						class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 hover:opacity-90 {rv?.containerClass ?? ''}"
 						style="border-left: 3px solid {event.color || '#94a3b8'}"
 					>
-						{event.title}
+						<span class="flex items-center gap-1.5">
+							{#if rv}
+								<span class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none {rv.badgeClass}">{rv.icon} {rv.label}</span>
+							{/if}
+							<span class="truncate">{event.title}</span>
+						</span>
 					</button>
 				{/each}
 			</div>
@@ -200,10 +207,11 @@
 
 				{#each laidOut as slot (slot.event.id)}
 					{@const widthPct = (1 / slot.lanes) * 100}
+					{@const rv = rsvpVisual(slot.event.rsvpStatus)}
 					<button
 						type="button"
 						onclick={() => handleEventClick(slot.event)}
-						class="absolute z-10 overflow-hidden rounded-md border border-slate-200 bg-white px-1.5 py-1 text-left shadow-sm transition-colors hover:brightness-95"
+						class="absolute z-10 overflow-hidden rounded-md border border-slate-200 bg-white px-1.5 py-1 text-left shadow-sm transition-colors hover:brightness-95 {rv?.containerClass ?? ''}"
 						style="
 							top: {slot.topPct}%;
 							height: {Math.max(slot.heightPct, (26 / GRID_HEIGHT) * 100)}%;
@@ -213,7 +221,12 @@
 						"
 						title="{formatEventTime(slot.event.start)} {slot.event.title}"
 					>
-						<span class="block truncate text-[11px] font-semibold leading-tight text-slate-800">{slot.event.title}</span>
+						<span class="block truncate text-[11px] font-semibold leading-tight text-slate-800">
+							{#if rv}
+								<span class="mr-0.5 rounded px-1 text-[9px] font-bold leading-3 {rv.badgeClass}">{rv.icon}</span>
+							{/if}
+							{slot.event.title}
+						</span>
 						{#if slot.heightPct >= 4}
 							<span class="block truncate text-[10px] leading-tight text-slate-400">{formatEventTime(slot.event.start)}</span>
 						{/if}
