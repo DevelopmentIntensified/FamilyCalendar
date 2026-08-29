@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { subscriptions, subscriptionTypes, familyMembers, aiUsageTracking } from '$lib/server/db/schema';
-import { eq, and, sql, isNotNull, isNull } from 'drizzle-orm';
+import { eq, and, sql, isNotNull, isNull, desc } from 'drizzle-orm';
 
 export type SubscriptionTier = typeof subscriptionTypes.$inferSelect;
 
@@ -57,6 +57,52 @@ export async function getUserSubscription(
 		.limit(1);
 
 	return tier ?? null;
+}
+
+export interface SubscriptionStatus {
+	tier: SubscriptionTier | null;
+	subscription: {
+		id: string;
+		startDate: Date;
+		endDate: Date;
+		createdAt: Date;
+	} | null;
+}
+
+export async function getSubscriptionStatus(
+	userId: string
+): Promise<SubscriptionStatus> {
+	const tier = await getUserSubscription(userId);
+
+	if (!tier) {
+		return { tier: null, subscription: null };
+	}
+
+	const [sub] = await db
+		.select({
+			id: subscriptions.id,
+			startDate: subscriptions.startDate,
+			endDate: subscriptions.endDate,
+			createdAt: subscriptions.createdAt
+		})
+		.from(subscriptions)
+		.where(
+			and(
+				eq(subscriptions.userId, userId),
+				isNotNull(subscriptions.subscriptionTypeId),
+				or(
+					sql`${subscriptions.endDate} > NOW()`,
+					isNull(subscriptions.endDate)
+				)
+			)
+		)
+		.orderBy(desc(subscriptions.createdAt))
+		.limit(1);
+
+	return {
+		tier,
+		subscription: sub ?? null
+	};
 }
 
 export async function getUserSubscriptionLimits(

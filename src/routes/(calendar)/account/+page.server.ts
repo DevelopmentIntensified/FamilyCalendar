@@ -5,6 +5,13 @@ import { db } from '$lib/server/db';
 import { sessions, calendars, families, userAdConsent } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
+import {
+	getSubscriptionStatus,
+	getUserSubscriptionLimits,
+	getAiUsageThisMonth,
+	getDefaultLimits
+} from '$lib/server/services/subscriptionService';
+import { getPlanPricing } from '$lib/server/services/checkoutService';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { sendEmail } from '$lib/utils/sendEmail';
@@ -46,6 +53,29 @@ export const load: PageServerLoad = async (event) => {
 		.from(userAdConsent)
 		.where(eq(userAdConsent.userId, userId));
 
+	// Subscription data is display-only for settings — never let a failure here
+	// break the rest of the settings page, so degrade to a "no subscription" state.
+	let subscription: Awaited<ReturnType<typeof getSubscriptionStatus>> = {
+		tier: null,
+		subscription: null
+	};
+	let planLimits: Awaited<ReturnType<typeof getUserSubscriptionLimits>> =
+		getDefaultLimits();
+	let aiUsage: Awaited<ReturnType<typeof getAiUsageThisMonth>> = {
+		used: 0,
+		limit: planLimits.aiEventCreationsPerMonth,
+		remaining: planLimits.aiEventCreationsPerMonth
+	};
+	try {
+		[subscription, planLimits, aiUsage] = await Promise.all([
+			getSubscriptionStatus(userId),
+			getUserSubscriptionLimits(userId),
+			getAiUsageThisMonth(userId)
+		]);
+	} catch (error) {
+		console.error('Failed to load subscription data:', error);
+	}
+
 	return {
 		user: {
 			id: user!.id,
@@ -74,7 +104,11 @@ export const load: PageServerLoad = async (event) => {
 			id,
 			label,
 			attribution
-		}))
+		})),
+		subscription,
+		planLimits,
+		aiUsage,
+		planPricing: getPlanPricing('monthly')
 	};
 };
 
