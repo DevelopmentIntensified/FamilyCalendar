@@ -24,6 +24,8 @@ export interface FormEventData {
 	calendarId: string;
 	allDay: boolean;
 	attendants: string[];
+	/** Structured invites: { value, isUser, inviteType } per selected attendee. */
+	attendees?: { value: string; isUser: boolean; inviteType: 'required' | 'optional' }[];
 	recurrenceFrequency: string | null;
 	recurrenceInterval: number | null;
 }
@@ -54,6 +56,8 @@ interface InitialEvent {
 	end?: string | Date | null;
 	allDay: boolean;
 	attendants?: string[];
+	/** Structured invites on edit (value + member flag + required/optional). */
+	attendees?: { value: string; isUser: boolean; inviteType?: string }[];
 	recurrenceFrequency?: string | null;
 	recurrenceInterval?: number | null;
 	masterId?: string;
@@ -82,6 +86,7 @@ export function createEventForm(config: EventFormConfig) {
 	let description = $state('');
 	let selectedCalendarId = $state('');
 	let attendants = $state<string[]>([]);
+	let inviteTypes = $state<Record<string, 'required' | 'optional'>>({});
 	let recurrenceFrequency = $state<string | null>(null);
 	let recurrenceInterval = $state(1);
 	let recentAttendants = $state<string[]>(loadRecentAttendants());
@@ -127,6 +132,14 @@ export function createEventForm(config: EventFormConfig) {
 		if (initialEvent.attendants && Array.isArray(initialEvent.attendants)) {
 			attendants = [...initialEvent.attendants];
 		}
+		if (initialEvent.attendees && Array.isArray(initialEvent.attendees)) {
+			attendants = initialEvent.attendees.map((a) => a.value);
+			const types: Record<string, 'required' | 'optional'> = {};
+			for (const a of initialEvent.attendees) {
+				if (a.isUser) types[a.value] = a.inviteType === 'required' ? 'required' : 'optional';
+			}
+			inviteTypes = types;
+		}
 		recurrenceFrequency = initialEvent.recurrenceFrequency || null;
 		recurrenceInterval = initialEvent.recurrenceInterval ?? 1;
 	}
@@ -160,6 +173,7 @@ export function createEventForm(config: EventFormConfig) {
 		}
 		if (lastNlpValues.attendants && !userTouchedFields.attendants && arraysEqual(attendants, lastNlpValues.attendants as string[])) {
 			attendants = [];
+			inviteTypes = {};
 			nlpDetectedFields.attendants = false;
 		}
 		lastNlpValues = {};
@@ -231,6 +245,8 @@ export function createEventForm(config: EventFormConfig) {
 		get attendants() { return attendants; },
 		set attendants(v: string[]) { attendants = v; },
 
+		get inviteTypes() { return inviteTypes; },
+
 		get recurrenceFrequency() { return recurrenceFrequency; },
 		set recurrenceFrequency(v: string | null) { recurrenceFrequency = v; },
 
@@ -271,10 +287,39 @@ export function createEventForm(config: EventFormConfig) {
 		toggleAttendant(value: string) {
 			if (attendants.includes(value)) {
 				attendants = attendants.filter(a => a !== value);
+				const next = { ...inviteTypes };
+				delete next[value];
+				inviteTypes = next;
 			} else {
 				attendants = [...attendants, value];
+				if (familyMemberIds.has(value)) {
+					inviteTypes = { ...inviteTypes, [value]: 'optional' };
+				}
 			}
 			this.markTouched('attendants');
+		},
+
+		setInviteType(value: string, type: 'required' | 'optional') {
+			if (!attendants.includes(value)) return;
+			inviteTypes = { ...inviteTypes, [value]: type };
+			this.markTouched('attendants');
+		},
+
+		/** Seed attendants + invite types from an event's attendance rows
+		 * (used when the edit form opens and invite data isn't yet known). */
+		prefillInvites(rows: Array<{ userId?: string | null; name?: string | null; inviteType?: string | null }>) {
+			if (!Array.isArray(rows)) return;
+			const values = rows
+				.map((r) => r.userId || r.name)
+				.filter((v): v is string => !!v)
+				.filter((v, i, arr) => arr.indexOf(v) === i);
+			const types: Record<string, 'required' | 'optional'> = {};
+			for (const r of rows) {
+				if (r.userId) types[r.userId] = r.inviteType === 'required' ? 'required' : 'optional';
+			}
+			attendants = values;
+			inviteTypes = types;
+			userTouchedFields.attendants = true;
 		},
 
 		applyNlpResult(parsed: NlpFormInput) {
@@ -353,6 +398,11 @@ export function createEventForm(config: EventFormConfig) {
 			calendarId: selectedCalendarId,
 			allDay,
 			attendants: [...attendants],
+			attendees: attendants.map((value) => ({
+				value,
+				isUser: familyMemberIds.has(value),
+				inviteType: inviteTypes[value] ?? 'optional'
+			})),
 			recurrenceFrequency,
 			recurrenceInterval: recurrenceFrequency ? recurrenceInterval : null
 		};
@@ -373,6 +423,7 @@ export function createEventForm(config: EventFormConfig) {
 			location = '';
 			description = '';
 			attendants = [];
+			inviteTypes = {};
 			allDay = false;
 			multiDay = false;
 			recurrenceFrequency = null;

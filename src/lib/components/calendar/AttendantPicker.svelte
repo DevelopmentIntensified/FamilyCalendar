@@ -10,6 +10,11 @@
 	export let selected: string[] = [];
 	export let familyMembers: { userId: string; firstName?: string; lastName?: string; email: string }[] = [];
 	export let recent: string[] = [];
+	/** Selected member → 'required' | 'optional' (guests have no key). */
+	export let selections: Record<string, 'required' | 'optional'> = {};
+	export let onChangeInviteType:
+		| ((value: string, type: 'required' | 'optional') => void)
+		| null = null;
 
 	const dispatch = createEventDispatcher<{ toggle: string }>();
 
@@ -74,6 +79,22 @@
 						{initials}
 					</span>
 					<span class="text-slate-700">{displayName}</span>
+					{#if member && onChangeInviteType}
+						<button
+							type="button"
+							on:click={() =>
+								onChangeInviteType(
+									att,
+									selections[att] === 'required' ? 'optional' : 'required'
+								)}
+							class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors {selections[att] === 'required'
+								? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+								: 'bg-slate-100 text-slate-500 hover:bg-amber-100 hover:text-amber-700'}"
+							title="Required invitees are expected to attend. Click to toggle."
+						>
+							{selections[att] === 'required' ? '★ Required' : 'Optional'}
+						</button>
+					{/if}
 					<button type="button" on:click={() => pick(att)} class="text-slate-400 hover:text-slate-600" aria-label="Remove {att}">
 						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />

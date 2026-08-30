@@ -6,6 +6,7 @@ import { calendars, events } from '$lib/server/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
+import { resolveEventInvites } from '$lib/server/utils/eventInvites';
 
 const VALID_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
 
@@ -25,7 +26,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const userId = locals.user.id;
 	const body = await request.json();
 
-	const attendantNames: string[] = Array.isArray(body.attendants) ? body.attendants : [];
+	// Structured `attendees` (members + guests with inviteType) are preferred;
+	// legacy `attendants: string[]` (guest names) still work.
+	const invites = await resolveEventInvites(
+		userId,
+		Array.isArray(body.attendees) ? body.attendees : body.attendants
+	);
 
 	let calendarId = body.calendarId;
 	if (!calendarId) {
@@ -59,7 +65,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	};
 
 	try {
-		const created = await createEvent(eventData, userId, attendantNames);
+		const created = await createEvent(eventData, userId, invites);
 
 		// syncEventsToFamilyCalendar: mirror personal-calendar creations
 		// onto the family calendar so everyone sees them.
@@ -78,7 +84,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 						await createEvent(
 							{ ...eventData, calendarId: familyCal.id },
 							userId,
-							attendantNames
+							invites
 						);
 					}
 				}

@@ -1,5 +1,5 @@
 <script lang="ts" context="module">
-	import type { RSVPStatus } from '$lib/types';
+	import type { RSVPStatus, EventAttendanceSummary } from '$lib/types';
 
 	export type GlanceEvent = {
 		id: string;
@@ -15,11 +15,13 @@
 		color: string;
 		source: 'own' | 'family';
 		rsvpStatus?: RSVPStatus;
+		attendance?: EventAttendanceSummary;
 	};
 </script>
 
 <script lang="ts">
 	import { rsvpVisual } from '$lib/utils/eventChip';
+	import AttendanceBadge from '../calendar/AttendanceBadge.svelte';
 
 	export let dateLabel: string;
 	export let events: GlanceEvent[];
@@ -62,6 +64,9 @@
 					{#if rv}
 						<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}">{rv.icon} {rv.label}</span>
 					{/if}
+					{#if e.attendance && e.attendance.invited > 1}
+						<AttendanceBadge attendance={e.attendance} variant="row" />
+					{/if}
 					<span class="shrink-0 text-[11px] font-medium text-slate-400">All day</span>
 				</button>
 			{/each}
@@ -87,6 +92,9 @@
 					<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{e.title}</span>
 					{#if rv}
 						<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}">{rv.icon} {rv.label}</span>
+					{/if}
+					{#if e.attendance && e.attendance.invited > 1}
+						<AttendanceBadge attendance={e.attendance} variant="row" />
 					{/if}
 					{#if e.location}
 						<span class="hidden shrink-0 truncate text-xs text-slate-400 sm:block">📍 {e.location}</span>

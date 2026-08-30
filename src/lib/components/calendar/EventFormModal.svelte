@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import { getContactColor } from '$lib/utils/contactColors';
@@ -14,7 +14,14 @@
 	export let event: Event | null = null;
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let familyMembers: { userId: string; firstName?: string; lastName?: string; email: string }[] = [];
-	export let rsvpData: { userId: string; status: string; firstName?: string; lastName?: string }[] = [];
+	export let rsvpData: {
+		userId: string | null;
+		status: string;
+		firstName?: string | null;
+		lastName?: string | null;
+		name?: string | null;
+		inviteType?: string | null;
+	}[] = [];
 	export let userSettings: {
 		defaultCalendarId?: string | null;
 		autoParseEventDetails?: boolean | null;
@@ -60,6 +67,35 @@
 			masterId: event.masterId,
 			occurrenceDate: event.occurrenceDate
 		} : undefined
+	});
+
+	// Pre-populate the attendee chips + required/optional roles when the form
+	// opens for editing: reuse rsvpData when the page already loaded it, else
+	// fetch the attendance once. The edit modal mounts fresh per event, so
+	// onMount is safe (legacy component — no runes).
+	onMount(() => {
+		const id = form.eventId;
+		if (!form.isEditMode || !id) return;
+		if (rsvpData && rsvpData.length > 0) {
+			form.prefillInvites(
+				rsvpData as {
+					userId: string | null;
+					name?: string | null;
+					inviteType?: string | null;
+				}[]
+			);
+			return;
+		}
+		let cancelled = false;
+		fetch(`/api/events/${id}/rsvp`)
+			.then((r) => (r.ok ? r.json() : []))
+			.then((rows) => {
+				if (!cancelled && Array.isArray(rows)) form.prefillInvites(rows);
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	let editScope: 'this' | 'all' = 'this';
@@ -617,6 +653,8 @@
 								selected={form.attendants}
 								familyMembers={familyMembers}
 								recent={form.recentAttendants}
+								selections={form.inviteTypes}
+								onChangeInviteType={(value, type) => form.setInviteType(value, type)}
 								on:toggle={(e) => form.toggleAttendant(e.detail)}
 							/>
 						</div>

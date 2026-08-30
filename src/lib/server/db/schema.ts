@@ -332,7 +332,11 @@ export const eventAttendance = pgTable('eventAttendance', {
 	userId: text('user_id')
 		.references(() => users.id, { onDelete: 'cascade' }),
 	name: text('name'), // For non-user attendees
-	status: text('status').default('undecided')
+	status: text('status').default('undecided'),
+	// Family invitations distinguish members who are expected to attend
+	// (required) from those who may choose (optional). Guests are always
+	// optional. Uninvited members have no row at all.
+	inviteType: text('invite_type').default('optional')
 }, (table) => ({
 	// Unique constraint for user attendees
 	userUnique: uniqueIndex('event_attendance_user_unique')

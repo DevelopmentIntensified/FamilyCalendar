@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { eventExceptions } from '$lib/server/db/schema';
 import { updateEventById, deleteEventById, getEvent, upsertException } from '$lib/server/db/actions/events';
+import { resolveEventInvites } from '$lib/server/utils/eventInvites';
 import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
 import { toDateTime } from '$lib/server/utils/eventTimes';
 import { eq } from 'drizzle-orm';
@@ -30,7 +31,11 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 
 	const userId = locals.user.id;
 	const body = await request.json();
-	const attendantNames: string[] = Array.isArray(body.attendants) ? body.attendants : [];
+	// Only touch invitations when the caller actually sent attendee data.
+	const hasInvites = Array.isArray(body.attendees) || Array.isArray(body.attendants);
+	const invites = hasInvites
+		? await resolveEventInvites(userId, Array.isArray(body.attendees) ? body.attendees : body.attendants)
+		: undefined;
 
 	try {
 		const [existing, accessibleCalIds] = await Promise.all([
@@ -81,7 +86,7 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 			calendarId
 		};
 
-		const updated = await updateEventById(params.id, eventData, userId, attendantNames);
+		const updated = await updateEventById(params.id, eventData, userId, invites);
 		if (!updated) {
 			return json({ error: 'Event not found' }, { status: 404 });
 		}

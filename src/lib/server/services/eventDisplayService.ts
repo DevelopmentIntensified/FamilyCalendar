@@ -1,7 +1,7 @@
 import type { CalendarEvent } from '$lib/server/db/schema';
-import { getExceptionsByEventIds, getUserRsvpStatuses } from '$lib/server/db/actions/events';
+import { getExceptionsByEventIds, getUserRsvpStatuses, getEventAttendanceSummaries } from '$lib/server/db/actions/events';
 import { expandRecurrence } from './recurrenceService';
-import type { RSVPStatus } from '$lib/types';
+import type { RSVPStatus, EventAttendanceSummary } from '$lib/types';
 
 export { parseEvents } from '$lib/utils/eventDisplay';
 
@@ -97,4 +97,23 @@ export async function attachRsvpStatus<T extends { masterId: string }>(
 		rows.map((r) => [r.eventId, r.status as RSVPStatus])
 	);
 	return list.map((e) => ({ ...e, rsvpStatus: statusById.get(e.masterId) }));
+}
+
+/**
+ * Attaches a compact "who's going" summary (per master event) to each
+ * displayable occurrence, so calendar chips and dashboard rows can show
+ * family attendance at a glance. Attendance is stored per master, so all
+ * occurrences of a series share the same summary.
+ */
+export async function attachAttendanceSummaries<
+	T extends { masterId: string }
+>(list: T[]): Promise<Array<T & { attendance?: EventAttendanceSummary }>> {
+	if (list.length === 0) return [...list];
+	const masterIds = [...new Set(list.map((e) => e.masterId))];
+	const summaries = await getEventAttendanceSummaries(masterIds);
+	const summaryById = (eventId: string) => {
+		const s = summaries.get(eventId);
+		return s && s.invited > 0 ? s : undefined;
+	};
+	return list.map((e) => ({ ...e, attendance: summaryById(e.masterId) }));
 }

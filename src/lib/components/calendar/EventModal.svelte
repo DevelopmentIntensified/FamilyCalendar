@@ -9,7 +9,13 @@
 
 	export let event: Event;
 	export let show = false;
-	export let attendees: { userId: string; status: string; firstName?: string; lastName?: string }[] = [];
+	export let attendees: {
+		userId: string | null;
+		status: string;
+		firstName?: string | null;
+		lastName?: string | null;
+		inviteType?: string | null;
+	}[] = [];
 	export let nonUserAttendants: string[] = [];
 	export let currentUserRsvpStatus: string = 'undecided';
 	export let calendars: { id: string; name: string; color?: string }[] = [];
@@ -49,6 +55,8 @@
 	$: goingList = attendees.filter(a => a.status === 'going');
 	$: maybeList = attendees.filter(a => a.status === 'maybe');
 	$: notGoingList = attendees.filter(a => a.status === 'declined' || a.status === 'not_going');
+	// Invited members who haven't answered yet (incl. required invitations).
+	$: undecidedList = attendees.filter(a => a.status === 'undecided');
 
 	// Get calendar name from prop or event
 	$: calendarName = event.calendar?.name ||
@@ -406,6 +414,9 @@
 												{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
 											</div>
 											<span class="text-xs text-green-700">{rsvp.firstName || rsvp.userId}</span>
+											{#if rsvp.inviteType === 'required'}
+												<span class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800">Req</span>
+											{/if}
 										</div>
 									{/each}
 								</div>
@@ -426,6 +437,9 @@
 												{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
 											</div>
 											<span class="text-xs text-yellow-700">{rsvp.firstName || rsvp.userId}</span>
+											{#if rsvp.inviteType === 'required'}
+												<span class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800">Req</span>
+											{/if}
 										</div>
 									{/each}
 								</div>
@@ -446,6 +460,35 @@
 												{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
 											</div>
 											<span class="text-xs text-red-700">{rsvp.firstName || rsvp.userId}</span>
+											{#if rsvp.inviteType === 'required'}
+												<span class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800">Req</span>
+											{/if}
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						<!-- Awaiting response (invited, hasn't answered) -->
+						{#if undecidedList.length > 0}
+							<div class="mb-3">
+								<div class="mb-1.5 flex items-center gap-2">
+									<div class="h-2 w-2 rounded-full bg-slate-400"></div>
+									<span class="text-xs font-medium text-slate-600">Awaiting response ({undecidedList.length})</span>
+								</div>
+								<div class="flex flex-wrap gap-1.5">
+									{#each undecidedList as rsvp}
+										{@const isRequired = rsvp.inviteType === 'required'}
+										<div class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 {isRequired ? 'bg-amber-50 ring-1 ring-inset ring-amber-300' : 'bg-slate-100'}">
+											<div class="flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium {isRequired ? 'bg-amber-200 text-amber-800' : 'bg-slate-200 text-slate-700'}">
+												{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
+											</div>
+											<span class="text-xs {isRequired ? 'text-amber-800' : 'text-slate-700'}">
+												{rsvp.firstName || rsvp.userId}
+												{#if isRequired}
+													<span class="ml-1 rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800">Required</span>
+												{/if}
+											</span>
 										</div>
 									{/each}
 								</div>

@@ -13,7 +13,12 @@ import { eq, and, isNull } from 'drizzle-orm';
 import { createUserCalendar } from '$lib/server/db/actions/calendar';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
-import { expandEventsForUser, parseEvents, attachRsvpStatus } from '$lib/server/services/eventDisplayService';
+import {
+	expandEventsForUser,
+	parseEvents,
+	attachRsvpStatus,
+	attachAttendanceSummaries
+} from '$lib/server/services/eventDisplayService';
 import { getTasksForUser, syncRecurringCursors } from '$lib/server/db/actions/tasks';
 import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
 import { getTodayVerse } from '$lib/server/services/verseService';
@@ -142,13 +147,18 @@ export const load: PageServerLoad = async (event) => {
 		attachRsvpStatus(userId, parsedUserEvents),
 		attachRsvpStatus(userId, parsedFamilyEvents)
 	]);
+	// Compact per-family-event "who's going" summary for chip indicators.
+	const [userEventsWithAttendance, familyEventsWithAttendance] = await Promise.all([
+		attachAttendanceSummaries(userEventsFinal),
+		attachAttendanceSummaries(familyEventsFinal)
+	]);
 
 	const verseTranslation = userSettings?.verseTranslation ?? 'esv';
 	const dailyVerse = userSettings?.showDailyVerse ? await getTodayVerse(verseTranslation) : null;
 
 	return {
-		userEvents: userEventsFinal.map((e) => ({ ...e, color: userCalendarColor })),
-		familyEvents: familyEventsFinal.map((e) => ({ ...e, color: familyCalendarColor })),
+		userEvents: userEventsWithAttendance.map((e) => ({ ...e, color: userCalendarColor })),
+		familyEvents: familyEventsWithAttendance.map((e) => ({ ...e, color: familyCalendarColor })),
 		adEvents: parseEvents(adEventsData).map(e => ({ ...e, color: '#f59e0b' })),
 		dueTasks,
 		userSettings,

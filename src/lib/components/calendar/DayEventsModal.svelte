@@ -3,6 +3,7 @@
 	import { DateTime } from 'luxon';
 	import { formatEventTime } from '$lib/utils/eventTime';
 	import { rsvpVisual } from '$lib/utils/eventChip';
+import AttendanceBadge from './AttendanceBadge.svelte';
 
 	export let show = false;
 	export let date: string = '';
@@ -63,6 +64,9 @@
 								<h3 class="font-semibold text-slate-900 truncate">{event.title}</h3>
 								{#if rv}
 									<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}">{rv.icon} {rv.label}</span>
+								{/if}
+								{#if event.attendance && event.attendance.invited > 1}
+									<AttendanceBadge attendance={event.attendance} />
 								{/if}
 							</div>
 								<div class="flex flex-wrap items-center gap-2 mt-1 text-sm text-slate-600">

@@ -4,6 +4,7 @@
 	import type { Writable } from 'svelte/store';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
+import AttendanceBadge from './AttendanceBadge.svelte';
 	import { chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import { invalidateAll } from '$app/navigation';
@@ -159,13 +160,16 @@
 					<button
 						type="button"
 						onclick={() => handleEventClick(event)}
-						class="rounded px-1 py-0.5 text-xs font-medium truncate hover:opacity-90 transition-opacity cursor-pointer w-full text-left bg-white {rv?.containerClass ?? ''}"
+						class="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-xs font-medium transition-opacity hover:opacity-90 cursor-pointer bg-white {rv?.containerClass ?? ''}"
 						style="border-left: 3px solid {event.color || '#94a3b8'}"
 					>
 						{#if rv}
-							<span class="mr-0.5 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}">{rv.icon}</span>
+							<span class="mr-0.5 shrink-0 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}">{rv.icon}</span>
 						{/if}
-						{event.title}
+						<span class="truncate">{event.title}</span>
+						{#if event.attendance && event.attendance.invited > 1}
+							<AttendanceBadge attendance={event.attendance} />
+						{/if}
 					</button>
 				{/each}
 				{#each dayTasks as task (task.id)}

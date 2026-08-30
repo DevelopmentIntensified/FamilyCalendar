@@ -5,6 +5,7 @@
 	import EventModal from './EventModal.svelte';
 	import DayEventsModal from './DayEventsModal.svelte';
 	import { invalidateAll } from '$app/navigation';
+import AttendanceBadge from './AttendanceBadge.svelte';
 	import { chipStyle, chipColor, chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { toDate } from '$lib/utils/eventTime';
 
@@ -196,6 +197,9 @@
 						</svg>
 					{/if}
 					<span class="truncate">{event.title}</span>
+					{#if event.attendance && event.attendance.invited > 1}
+						<AttendanceBadge attendance={event.attendance} />
+					{/if}
 				</button>
 			{/each}
 

@@ -1,5 +1,6 @@
 import { db } from '$lib/server/db';
 import { eventAttendance, eventExceptions, events, users, type CalendarEvent } from '$lib/server/db/schema';
+import type { EventAttendanceSummary } from '$lib/types';
 import { eq, and, sql, inArray, or } from 'drizzle-orm';
 import { getAccessibleCalendarIds, eventAccessFilter } from '$lib/server/utils/calendarScope';
 import { toDateTime } from '$lib/server/utils/eventTimes';
@@ -83,6 +84,7 @@ export async function getEventAttendance(id: string) {
 			userId: eventAttendance.userId,
 			name: eventAttendance.name,
 			status: eventAttendance.status,
+			inviteType: eventAttendance.inviteType,
 			firstName: users.firstName,
 			lastName: users.lastName
 		})
@@ -101,44 +103,161 @@ export async function addEventAttendants(eventId: string, names: string[]) {
 	await db.insert(eventAttendance).values(insertData);
 }
 
-export async function syncEventAttendants(eventId: string, names: string[]) {
-	// Delete existing non-user attendants
-	await db.delete(eventAttendance)
-		.where(and(eq(eventAttendance.eventId, eventId), sql`${eventAttendance.name} IS NOT NULL`));
-	// Re-insert provided names
-	if (names.length > 0) {
-		await addEventAttendants(eventId, names);
+/** A member or guest invitation. Members set `userId`; guests set `name`. */
+export type EventInvite = {
+	userId?: string | null;
+	name?: string | null;
+	inviteType: 'required' | 'optional';
+};
+
+/** Normalize a mix of legacy string names and structured invites. */
+export function normalizeInvites(raw: unknown): EventInvite[] {
+	if (!Array.isArray(raw)) return [];
+	const out: EventInvite[] = [];
+	for (const entry of raw) {
+		if (typeof entry === 'string') {
+			const name = entry.trim();
+			if (name) out.push({ name, inviteType: 'optional' });
+		} else if (entry && typeof entry === 'object') {
+			const i = entry as Partial<EventInvite>;
+			if (i.userId) out.push({ userId: i.userId, inviteType: i.inviteType === 'required' ? 'required' : 'optional' });
+			else if (i.name && typeof i.name === 'string' && i.name.trim())
+				out.push({ name: i.name.trim(), inviteType: 'optional' });
+		}
 	}
+	return out;
 }
 
-export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>, ownerId: string, attendantNames?: string[]) {
+/**
+ * Full re-sync of an event's invitations.
+ *
+ * - Member rows (userId set): upserted with the given inviteType, preserving
+ *   any RSVP response. Members no longer invited who haven't responded are
+ *   dropped; members who already responded keep their row (as optional).
+ * - Guest rows (name set): all replaced by the provided names.
+ *
+ * The creator's own "going" row (status ≠ undecided) is never deleted.
+ */
+export async function replaceEventInvites(eventId: string, raw: unknown) {
+	const invites = normalizeInvites(raw);
+	await db.transaction(async (tx) => {
+		const existing = await tx
+			.select({ id: eventAttendance.id, userId: eventAttendance.userId, name: eventAttendance.name, status: eventAttendance.status, inviteType: eventAttendance.inviteType })
+			.from(eventAttendance)
+			.where(eq(eventAttendance.eventId, eventId));
+
+		const confirmedType = (t?: string | null): 'required' | 'optional' =>
+			t === 'required' ? 'required' : 'optional';
+
+		// --- Members ---
+		const userRows = existing.filter((r) => r.userId);
+		const byUser = new Map(userRows.map((r) => [r.userId, r]));
+		const requested = new Set<string>();
+		for (const inv of invites) {
+			if (!inv.userId) continue;
+			if (requested.has(inv.userId)) continue;
+			requested.add(inv.userId);
+			const type = confirmedType(inv.inviteType);
+			const row = byUser.get(inv.userId);
+			if (row) {
+				if (row.inviteType !== type) {
+					await tx.update(eventAttendance).set({ inviteType: type }).where(eq(eventAttendance.id, row.id));
+				}
+			} else {
+				await tx
+					.insert(eventAttendance)
+					.values({ eventId, userId: inv.userId, status: 'undecided', inviteType: type });
+			}
+		}
+		for (const row of userRows) {
+			if (row.userId && !requested.has(row.userId)) {
+				if (row.status === 'undecided') {
+					await tx.delete(eventAttendance).where(eq(eventAttendance.id, row.id));
+				} else if (row.inviteType === 'required') {
+					await tx.update(eventAttendance).set({ inviteType: 'optional' }).where(eq(eventAttendance.id, row.id));
+				}
+			}
+		}
+
+		// --- Guests ---
+		await tx
+			.delete(eventAttendance)
+			.where(and(eq(eventAttendance.eventId, eventId), sql`${eventAttendance.name} IS NOT NULL`));
+		const guests = invites
+			.filter((i) => i.name && typeof i.name === 'string' && i.name.trim())
+			.map((i) => ({ eventId, name: (i.name as string).trim(), status: 'undecided' as const, inviteType: 'optional' as const }));
+		if (guests.length > 0) await tx.insert(eventAttendance).values(guests);
+	});
+}
+
+export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>, ownerId: string, invites?: EventInvite[] | unknown) {
 	const [createdEvent] = await db.insert(events).values(data).returning();
 	// Auto-RSVP creator as "going"
 	if (createdEvent && ownerId) {
 		await db.insert(eventAttendance).values({
 			eventId: createdEvent.id,
 			userId: ownerId,
-			status: 'going'
+			status: 'going',
+			inviteType: 'optional'
 		});
 	}
-	// Save non-user attendants
-	if (createdEvent && attendantNames && attendantNames.length > 0) {
-		await addEventAttendants(createdEvent.id, attendantNames);
+	// Save invitations (members + guests)
+	if (createdEvent && invites !== undefined) {
+		await replaceEventInvites(createdEvent.id, invites);
 	}
 	return createdEvent;
 }
 
-export async function updateEventById(id: string, data: Partial<Omit<CalendarEvent, 'id'>>, userId: string, attendantNames?: string[]) {
+export async function updateEventById(id: string, data: Partial<Omit<CalendarEvent, 'id'>>, userId: string, invites?: unknown) {
 	const accessibleCalIds = await getAccessibleCalendarIds(userId);
 	const [updatedEvent] = await db
 		.update(events)
 		.set(data)
 		.where(and(eq(events.id, id), eventAccessFilter(userId, accessibleCalIds)))
 		.returning();
-	if (updatedEvent && attendantNames !== undefined) {
-		await syncEventAttendants(id, attendantNames);
+	if (updatedEvent && invites !== undefined) {
+		await replaceEventInvites(id, invites);
 	}
 	return updatedEvent;
+}
+
+/**
+ * Compact per-master "who's going" summary for a set of event (master) ids.
+ * Counts only member rows (userId set) — guests never appear.
+ * Keyed by eventId.
+ */
+export async function getEventAttendanceSummaries(eventIds: string[]) {
+	if (eventIds.length === 0) return new Map<string, EventAttendanceSummary>();
+	const rows = await db
+		.select({
+			eventId: eventAttendance.eventId,
+			userId: eventAttendance.userId,
+			status: eventAttendance.status,
+			inviteType: eventAttendance.inviteType,
+			firstName: users.firstName
+		})
+		.from(eventAttendance)
+		.leftJoin(users, eq(eventAttendance.userId, users.id))
+		.where(and(inArray(eventAttendance.eventId, eventIds), sql`${eventAttendance.userId} IS NOT NULL`));
+
+	const map = new Map<string, EventAttendanceSummary>();
+	for (const r of rows) {
+		let s = map.get(r.eventId);
+		if (!s) {
+			s = { going: 0, invited: 0, required: 0, requiredPending: 0, goingNames: [] };
+			map.set(r.eventId, s);
+		}
+		s.invited += 1;
+		if (r.inviteType === 'required') {
+			s.required += 1;
+			if (r.status !== 'going') s.requiredPending += 1;
+		}
+		if (r.status === 'going') {
+			s.going += 1;
+			if (r.firstName) s.goingNames.push(r.firstName);
+		}
+	}
+	return map;
 }
 
 export async function deleteEvent(id: string) {

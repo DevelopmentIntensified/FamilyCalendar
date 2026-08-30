@@ -4,6 +4,7 @@
 	import { formatDate } from '$lib/utils/dateUtils';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
+import AttendanceBadge from './AttendanceBadge.svelte';
 	import { formatEventTime } from '$lib/utils/eventTime';
 	import { chipColor, rsvpVisual } from '$lib/utils/eventChip';
 	import { invalidateAll } from '$app/navigation';
@@ -147,6 +148,9 @@
 									<h4 class="truncate font-medium text-slate-900 group-hover:text-primary-600">{event.title}</h4>
 									{#if rv}
 										<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}">{rv.icon} {rv.label}</span>
+									{/if}
+									{#if event.attendance && event.attendance.invited > 1}
+										<AttendanceBadge attendance={event.attendance} />
 									{/if}
 									{#if event.isAd}
 										<span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Ad</span>

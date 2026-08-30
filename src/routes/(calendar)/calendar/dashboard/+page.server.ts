@@ -16,7 +16,7 @@ import {
 	composeModuleVisibility
 } from '$lib/server/db/actions/dashboardModules';
 import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
-import { expandEventsForUser, parseEvents, attachRsvpStatus } from '$lib/server/services/eventDisplayService';
+import { expandEventsForUser, parseEvents, attachRsvpStatus, attachAttendanceSummaries } from '$lib/server/services/eventDisplayService';
 import { getTodayVerse } from '$lib/server/services/verseService';
 import { computeWeeklyStreak } from '$lib/server/services/streakService';
 import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
@@ -97,7 +97,7 @@ export const load: PageServerLoad = async (event) => {
 	]);
 
 	const userSettingsColor = userSettings?.color || '#fa8072';
-	const dayEvents = [
+	const dayEventsRaw = [
 		...userWithRsvp.map((e) => ({
 			...e,
 			color: userSettingsColor,
@@ -112,6 +112,12 @@ export const load: PageServerLoad = async (event) => {
 		const d = e.date instanceof Date ? e.date : new Date(e.date);
 		return d >= dayStart.toJSDate() && d < dayEnd.toJSDate();
 	});
+
+	// Compact "who's going" summary per event so glance rows and the member
+	// strip can show family attendance.
+	const dayEvents = await attachAttendanceSummaries(
+		dayEventsRaw.map((e) => ({ ...e, masterId: e.masterId ?? e.id }))
+	);
 
 	// Family roster + per-member status for the Member Strip, plus the
 	// attendance join for the "in an event today" dot.

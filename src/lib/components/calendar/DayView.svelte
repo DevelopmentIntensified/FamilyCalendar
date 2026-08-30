@@ -6,6 +6,7 @@
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import EventModal from './EventModal.svelte';
+import AttendanceBadge from './AttendanceBadge.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { rsvpVisual } from '$lib/utils/eventChip';
 
@@ -159,6 +160,9 @@
 								<span class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none {rv.badgeClass}">{rv.icon} {rv.label}</span>
 							{/if}
 							<span class="truncate">{event.title}</span>
+							{#if event.attendance && event.attendance.invited > 1}
+								<AttendanceBadge attendance={event.attendance} />
+							{/if}
 						</span>
 					</button>
 				{/each}
@@ -239,11 +243,14 @@
 						"
 						title="{formatEventTime(slot.event.start)} {slot.event.title}"
 					>
-						<span class="block truncate text-[11px] font-semibold leading-tight text-slate-800">
+						<span class="flex items-center gap-1 truncate text-[11px] font-semibold leading-tight text-slate-800">
 							{#if rv}
-								<span class="mr-0.5 rounded px-1 text-[9px] font-bold leading-3 {rv.badgeClass}">{rv.icon}</span>
+								<span class="mr-0.5 shrink-0 rounded px-1 text-[9px] font-bold leading-3 {rv.badgeClass}">{rv.icon}</span>
 							{/if}
-							{slot.event.title}
+							<span class="truncate">{slot.event.title}</span>
+							{#if slot.event.attendance && slot.event.attendance.invited > 1}
+								<AttendanceBadge attendance={slot.event.attendance} />
+							{/if}
 						</span>
 						{#if slot.heightPct >= 4}
 							<span class="block truncate text-[10px] leading-tight text-slate-400">{formatEventTime(slot.event.start)}</span>
