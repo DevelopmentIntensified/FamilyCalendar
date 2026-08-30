@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTaskQuickAdd } from './taskQuickAdd';
+import { findTaskAssignee, parseTaskQuickAdd, type TaskQuickAddMember } from './taskQuickAdd';
 
 /**
  * Quick-add NLP — phrase table per AGENTS.md. Aggressively low on tolerance:
@@ -143,5 +143,154 @@ describe('parseTaskQuickAdd — date + priority combined', () => {
 		expect(r.title).toBe('call dentist on');
 		expect(r.priority).toBe('high');
 		expectDue(r, 3); // Fri → Mon
+	});
+});
+
+describe('findTaskAssignee — roster-scoped assignee matching', () => {
+	const ROSTER: TaskQuickAddMember[] = [
+		{ userId: 'u-sam', firstName: 'Sam', lastName: 'Rivera' },
+		{ userId: 'u-mom', firstName: 'Mom', lastName: '' },
+		{ userId: 'u-dad', firstName: 'Dad', lastName: 'Chen' }
+	];
+
+	it('returns null for an empty roster', () => {
+		expect(findTaskAssignee('buy milk @sam', [])).toBeNull();
+	});
+
+	it('matches an @handle at the start', () => {
+		expect(findTaskAssignee('@sam buy milk', ROSTER)?.userId).toBe('u-sam');
+	});
+
+	it('matches "@first last" as a whole phrase', () => {
+		expect(findTaskAssignee('@sam rivera clean gutters', ROSTER)?.userId).toBe('u-sam');
+	});
+
+	it('prefers "First Last" over the bare first name at the same spot', () => {
+		const m = findTaskAssignee('assign to Sam Rivera clean gutters', ROSTER);
+		expect(m?.userId).toBe('u-sam');
+		expect(m!.length).toBe('assign to Sam Rivera'.length);
+	});
+
+	it('matches "for" + name, mid-title', () => {
+		expect(findTaskAssignee('water plants for dad', ROSTER)?.userId).toBe('u-dad');
+	});
+
+	it('matches bare "assign" + name', () => {
+		expect(findTaskAssignee('assign dad laundry', ROSTER)?.userId).toBe('u-dad');
+	});
+
+	it('matches bare "task" + name', () => {
+		expect(findTaskAssignee('task mom fold towels', ROSTER)?.userId).toBe('u-mom');
+	});
+
+	it('does not match a shorter name glued inside a longer word', () => {
+		expect(findTaskAssignee('assign to Sammy take notes', ROSTER)).toBeNull();
+		expect(findTaskAssignee('call @samitis', ROSTER)).toBeNull();
+	});
+
+	it('is case-insensitive', () => {
+		expect(findTaskAssignee('FOR DAD pay bills', ROSTER)?.userId).toBe('u-dad');
+		expect(findTaskAssignee('water plants for DAD', ROSTER)?.userId).toBe('u-dad');
+	});
+
+	it('returns null when the name is not on the roster', () => {
+		expect(findTaskAssignee('buy milk for grandma', ROSTER)).toBeNull();
+	});
+
+	it('ignores bare "for"/"to" before non-member words', () => {
+		expect(findTaskAssignee('buy gift for the party', ROSTER)).toBeNull();
+		expect(findTaskAssignee('send to the printer', ROSTER)).toBeNull();
+	});
+
+	it('returns the earliest match when several phrases appear', () => {
+		expect(findTaskAssignee('buy milk @mom and water plants for dad', ROSTER)?.userId).toBe('u-mom');
+	});
+});
+
+describe('parseTaskQuickAdd — assignee phrases (new surface)', () => {
+	const ROSTER: TaskQuickAddMember[] = [
+		{ userId: 'u-sam', firstName: 'Sam', lastName: 'Rivera' },
+		{ userId: 'u-mom', firstName: 'Mom', lastName: '' },
+		{ userId: 'u-dad', firstName: 'Dad', lastName: 'Chen' }
+	];
+
+	it('strips the phrase and returns the id', () => {
+		const r = parseTaskQuickAdd('buy milk @sam', { now: NOW, members: ROSTER });
+		expect(r.title).toBe('buy milk');
+		expect(r.assignedTo).toBe('u-sam');
+	});
+
+	it('@ handle at the start', () => {
+		const r = parseTaskQuickAdd('@mom water plants', { now: NOW, members: ROSTER });
+		expect(r.title).toBe('water plants');
+		expect(r.assignedTo).toBe('u-mom');
+	});
+
+	it('"assign to" + full name', () => {
+		const r = parseTaskQuickAdd('assign to Sam Rivera clean gutters', { now: NOW, members: ROSTER });
+		expect(r.title).toBe('clean gutters');
+		expect(r.assignedTo).toBe('u-sam');
+	});
+
+	it('"for Dad" mid-title', () => {
+		const r = parseTaskQuickAdd('water plants for dad', { now: NOW, members: ROSTER });
+		expect(r.title).toBe('water plants');
+		expect(r.assignedTo).toBe('u-dad');
+	});
+
+	it('bare "assign"/"task" triggers', () => {
+		expect(parseTaskQuickAdd('assign dad laundry', { now: NOW, members: ROSTER }).assignedTo).toBe('u-dad');
+		expect(
+			parseTaskQuickAdd('task mom fold towels', { now: NOW, members: ROSTER }).assignedTo
+		).toBe('u-mom');
+	});
+
+	it('priority + assignee + date all combine, each stripped once', () => {
+		const r = parseTaskQuickAdd('high priority buy milk for dad tomorrow', {
+			now: NOW,
+			members: ROSTER
+		});
+		expect(r.title).toBe('buy milk');
+		expect(r.priority).toBe('high');
+		expect(r.assignedTo).toBe('u-dad');
+		expectDue(r, 1);
+	});
+
+	it('assignee before the date keyword', () => {
+		const r = parseTaskQuickAdd('for dad buy milk monday', { now: NOW, members: ROSTER });
+		expect(r.title).toBe('buy milk');
+		expect(r.assignedTo).toBe('u-dad');
+		expectDue(r, 3); // Fri → Mon
+	});
+
+	it('assignee after the date keyword', () => {
+		const r = parseTaskQuickAdd('call vet tomorrow for mom', { now: NOW, members: ROSTER });
+		expect(r.title).toBe('call vet');
+		expect(r.assignedTo).toBe('u-mom');
+		expectDue(r, 1);
+	});
+
+	it('no members option ⇒ nothing is stripped, assignedTo null', () => {
+		const r = parseTaskQuickAdd('buy milk for dad', { now: NOW });
+		expect(r.title).toBe('buy milk for dad');
+		expect(r.assignedTo).toBeNull();
+	});
+
+	it('name not on roster ⇒ title untouched, assignedTo null', () => {
+		const r = parseTaskQuickAdd('buy milk for grandma', { now: NOW, members: ROSTER });
+		expect(r.title).toBe('buy milk for grandma');
+		expect(r.assignedTo).toBeNull();
+	});
+
+	it('whole-word boundary keeps "Sammy" out of "Sam"', () => {
+		const r = parseTaskQuickAdd('assign to Sammy take notes', { now: NOW, members: ROSTER });
+		expect(r.title).toBe('assign to Sammy take notes');
+		expect(r.assignedTo).toBeNull();
+	});
+
+	it('case-insensitive matches', () => {
+		const r = parseTaskQuickAdd('FOR DAD pay bills', { now: NOW, members: ROSTER });
+		expect(r.title).toBe('pay bills');
+		expect(r.assignedTo).toBe('u-dad');
 	});
 });

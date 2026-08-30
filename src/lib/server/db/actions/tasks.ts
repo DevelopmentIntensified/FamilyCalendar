@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { tasks, events, users, taskCompletions, type Task } from '$lib/server/db/schema';
+import { tasks, events, users, familyMembers, taskCompletions, type Task } from '$lib/server/db/schema';
 import { and, eq, or, desc, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { DateTime } from 'luxon';
@@ -338,6 +338,48 @@ export async function toggleTaskCompleteFamily(
 		return advanceRecurringTask(task, zone);
 	}
 	return toggleCompletion(task);
+}
+
+/**
+ * Skip the current occurrence of a Recurring Task: roll the cursor forward
+ * without marking it complete. The creator, the assignee, or any member of
+ * the task's family (family tasks only) may advance. Returns the moved task
+ * row, or null when the task is missing / non-recurring / not theirs.
+ */
+export async function advanceTaskToNext(
+	taskId: string,
+	userId: string,
+	zone?: string
+): Promise<Task | null> {
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+	if (!task || !task.recurrenceFrequency) return null;
+
+	const owned = task.userId === userId;
+	const assigned = task.assignedTo === userId;
+	if (!owned && !assigned) {
+		// Family tasks: membership grants skip rights. If the task is
+		// private (no family), an unrelated caller gets nowhere.
+		if (!task.familyId) return null;
+		const [member] = await db
+			.select({ familyId: familyMembers.familyId })
+			.from(familyMembers)
+			.where(and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, task.familyId)));
+		if (!member) return null;
+	}
+
+	const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
+	const dueDate = advanceCursor(
+		task.dueDate,
+		task.recurrenceFrequency,
+		task.recurrenceInterval ?? 1,
+		nowIso
+	);
+	const [updated] = await db
+		.update(tasks)
+		.set({ dueDate, completedAt: null })
+		.where(eq(tasks.id, taskId))
+		.returning();
+	return updated ?? null;
 }
 
 /** Family-scoped assignment responses (accept/decline/release). */

@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
+	import { parseTaskQuickAdd, TASK_QUICK_ADD_PRIORITY_RE } from '$lib/utils/taskQuickAdd';
 
 	export let data: PageData;
 
@@ -16,6 +17,7 @@
 		recurrenceInterval?: number | null;
 		assignedTo?: string | null;
 		assignmentStatus?: string | null;
+		priority?: string | null;
 		assigneeFirstName?: string | null;
 		assigneeLastName?: string | null;
 		creatorFirstName?: string | null;
@@ -39,6 +41,11 @@
 		weekly: 'week',
 		monthly: 'month',
 		yearly: 'year'
+	};
+	const PRIORITY_DOT: Record<string, string> = {
+		high: 'bg-red-500',
+		normal: 'bg-slate-300',
+		low: 'bg-sky-500'
 	};
 
 	function memberName(userId: string | null | undefined): string {
@@ -72,15 +79,19 @@
 		if (!newTitle.trim() || adding) return;
 		adding = true;
 		try {
+			// Quick-add: typed dates/priorities/assignees ("saturday",
+			// "high priority", "for Dad") win over the explicit pickers;
+			// a bare title keeps whatever the pickers say.
+			const parsed = parseTaskQuickAdd(newTitle, { members });
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					title: newTitle.trim(),
-					dueDate: inputToIso(newDueDate),
+					title: parsed.title,
+					dueDate: parsed.dueDate ?? inputToIso(newDueDate),
 					familyId: data.family.id,
-					assignedTo: newAssignedTo || currentUserId,
-					priority: newPriority
+					assignedTo: parsed.assignedTo ?? (newAssignedTo || currentUserId),
+					priority: TASK_QUICK_ADD_PRIORITY_RE.test(newTitle) ? parsed.priority : newPriority
 				})
 			});
 			if (res.ok) {
@@ -110,6 +121,21 @@
 				body: JSON.stringify({ toggleComplete: true })
 			});
 			await invalidateAll();
+		} finally {
+			busyId = null;
+		}
+	}
+
+	async function advanceTask(id: string) {
+		if (busyId) return;
+		busyId = id;
+		try {
+			const res = await fetch(`/api/tasks/${id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ advanceToNext: true })
+			});
+			if (res.ok) await invalidateAll();
 		} finally {
 			busyId = null;
 		}
@@ -245,8 +271,9 @@
 			</button>
 		</div>
 		<p class="mt-2 text-xs text-slate-400">
-			Tasks you create are assigned to you unless you pick someone else — they'll confirm before
-			it's theirs.
+			Try "clean gutters saturday", "high priority pay rent for Dad" — dates, priority and
+			assignees can be typed right in the title. Otherwise tasks go to you (or whoever you pick)
+			and wait for their confirmation.
 		</p>
 	</form>
 
@@ -368,7 +395,24 @@
 								{formatDue(task.dueDate)}
 							</span>
 						{/if}
+						{#if task.priority && task.priority !== 'normal'}
+							<span class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}" title="Priority: {task.priority}"></span>
+						{/if}
 						{#if task.userId === currentUserId}
+							{#if task.recurrenceFrequency && !task.completedAt}
+								<button
+									type="button"
+									onclick={() => advanceTask(task.id)}
+									disabled={busyId === task.id}
+									class="shrink-0 rounded-full p-1.5 text-slate-300 opacity-0 transition-all hover:bg-purple-100 hover:text-purple-500 group-hover:opacity-100"
+									title="Skip this occurrence (rolls to next)"
+									aria-label="Skip to next occurrence"
+								>
+									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+									</svg>
+								</button>
+							{/if}
 							<button
 								type="button"
 								onclick={() => deleteTask(task.id)}
@@ -420,7 +464,24 @@
 								{formatDue(task.dueDate)}
 							</span>
 						{/if}
+						{#if task.priority && task.priority !== 'normal'}
+							<span class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}" title="Priority: {task.priority}"></span>
+						{/if}
 						{#if task.userId === currentUserId}
+							{#if task.recurrenceFrequency && !task.completedAt}
+								<button
+									type="button"
+									onclick={() => advanceTask(task.id)}
+									disabled={busyId === task.id}
+									class="shrink-0 rounded-full p-1.5 text-slate-300 opacity-0 transition-all hover:bg-purple-100 hover:text-purple-500 group-hover:opacity-100"
+									title="Skip this occurrence (rolls to next)"
+									aria-label="Skip to next occurrence"
+								>
+									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+									</svg>
+								</button>
+							{/if}
 							<button
 								type="button"
 								onclick={() => deleteTask(task.id)}

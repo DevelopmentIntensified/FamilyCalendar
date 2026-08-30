@@ -59,6 +59,21 @@
 		}
 	}
 
+	async function advance(task: FamilyTask) {
+		if (busyId) return;
+		busyId = task.id;
+		try {
+			const res = await fetch(`/api/tasks/${task.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ advanceToNext: true })
+			});
+			if (res.ok) await invalidateAll();
+		} finally {
+			busyId = null;
+		}
+	}
+
 	async function respond(task: FamilyTask, accept: boolean) {
 		if (busyId) return;
 		busyId = task.id;
@@ -176,6 +191,20 @@
 				{/if}
 
 				{#if task.userId === data.userId}
+					{#if task.recurrenceFrequency && !task.completedAt}
+						<button
+							type="button"
+							onclick={() => advance(task)}
+							disabled={busyId === task.id}
+							class="shrink-0 rounded-full p-1.5 text-slate-300 opacity-0 transition-all hover:bg-purple-100 hover:text-purple-500 group-hover:opacity-100"
+							title="Skip this occurrence (rolls to next)"
+							aria-label="Skip to next occurrence"
+						>
+							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+							</svg>
+						</button>
+					{/if}
 					<button
 						type="button"
 						onclick={() => remove(task)}

@@ -184,6 +184,16 @@
 		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === true
 	);
 
+	const PRIORITY_ORDER: Record<string, number> = { high: 0, normal: 1, low: 2 };
+	$: sortedOpenTasks = [...openTasks].sort(
+		(a, b) => (PRIORITY_ORDER[a.priority ?? 'normal'] ?? 1) - (PRIORITY_ORDER[b.priority ?? 'normal'] ?? 1)
+	);
+	const PRIORITY_DOT: Record<string, string> = {
+		high: 'bg-red-500',
+		normal: 'bg-slate-300',
+		low: 'bg-sky-500'
+	};
+
 	// Baseline framing (time-tracker research): show completions vs recent
 	// activity, not streaks or leaderboards.
 	$: completedThisWeek = completedTasks.filter(
@@ -208,14 +218,15 @@
 		adding = true;
 		actionError = '';
 		try {
-			const parsed = parseTaskQuickAdd(newTitle);
+			const parsed = parseTaskQuickAdd(newTitle, { members: familyRoster });
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					title: parsed.title,
 					dueDate: parsed.dueDate ?? (newDueDate || null),
-					priority: parsed.priority
+					priority: parsed.priority,
+					assignedTo: parsed.assignedTo
 				})
 			});
 			if (res.ok) {
@@ -290,6 +301,29 @@
 			// Optimistic UI stays; replayPending() will re-send.
 			await queueMutation(`/api/tasks/${id}`, 'PUT', { toggleComplete: true });
 			actionError = '';
+		} finally {
+			busyId = null;
+		}
+	}
+
+	async function advanceTask(id: string) {
+		if (busyId) return;
+		busyId = id;
+		actionError = '';
+		try {
+			const res = await fetch(`/api/tasks/${id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ advanceToNext: true })
+			});
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				actionError = j.error || "That didn't work. Try again.";
+			} else {
+				await invalidateAll();
+			}
+		} catch {
+			actionError = 'Network problem. Try again.';
 		} finally {
 			busyId = null;
 		}
@@ -443,8 +477,13 @@
 	{/if}
 
 	<!-- Open tasks -->
+	{#if openTasks.length > 0}
+		<h2 class="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+			<span>Open ({openTasks.length})</span>
+		</h2>
+	{/if}
 	<div class="space-y-1.5">
-		{#each openTasks as task (task.id)}
+		{#each sortedOpenTasks as task (task.id)}
 			<div
 				class="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 {celebratingId === task.id ? 'celebrate' : ''}"
 			>
@@ -489,6 +528,9 @@
 						{formatDue(task.dueDate)}
 					</span>
 				{/if}
+				{#if task.priority && task.priority !== 'normal'}
+					<span class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}" title="Priority: {task.priority}"></span>
+				{/if}
 				{#if task.assignedTo && task.assignmentStatus !== 'none' && !(task.assignedTo === task.userId && task.assignmentStatus === 'accepted')}
 					{@const mine = task.assignedTo === data.user?.id}
 					{@const pending = task.assignmentStatus === 'pending'}
@@ -527,6 +569,20 @@
 							{/if}
 						</span>
 					{/if}
+				{/if}
+				{#if task.recurrenceFrequency && !task.completedAt}
+					<button
+						type="button"
+						onclick={() => advanceTask(task.id)}
+						disabled={busyId === task.id}
+						class="shrink-0 rounded-full p-1.5 text-slate-300 opacity-0 transition-all hover:bg-purple-100 hover:text-purple-500 group-hover:opacity-100"
+						title="Skip this occurrence (rolls to next)"
+						aria-label="Skip to next occurrence"
+					>
+						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+						</svg>
+					</button>
 				{/if}
 				<button
 					type="button"

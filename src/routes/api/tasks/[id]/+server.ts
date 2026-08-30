@@ -4,6 +4,7 @@ import {
 	updateTask,
 	toggleTaskComplete,
 	toggleTaskCompleteFamily,
+	advanceTaskToNext,
 	updateTaskInFamily,
 	deleteTask,
 	TASK_FREQUENCIES
@@ -52,7 +53,11 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				.where(eq(users.id, user.id))
 				.then(([row]) => row?.firstName || 'Someone'));
 		let updated;
-		if (body.toggleComplete) {
+		if (body.advanceToNext) {
+			// Skip the current occurrence of a Recurring Task: roll the
+			// cursor forward without checking it off.
+			updated = await advanceTaskToNext(taskId, user.id, zone);
+		} else if (body.toggleComplete) {
 			updated = await toggleTaskComplete(taskId, user.id, zone);
 			if (!updated) {
 				const familyId = await familyMembership(taskId, user.id);

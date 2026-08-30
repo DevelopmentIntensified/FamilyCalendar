@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { avatarColor } from '$lib/utils/avatarColor';
+	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
 
 	export let tasks: {
 		id: string;
@@ -17,8 +18,36 @@
 	}[];
 	export let members: { userId: string; firstName: string; lastName: string }[];
 	export let meId: string;
+	/** Family that created tasks post to when added from the board. */
+	export let familyId: string;
 
+	let quickTitle = '';
 	let busy: string | null = null;
+
+	async function addQuickTask() {
+		if (!quickTitle.trim() || busy) return;
+		busy = 'new';
+		try {
+			const parsed = parseTaskQuickAdd(quickTitle, { members });
+			const res = await fetch('/api/tasks', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					title: parsed.title,
+					dueDate: parsed.dueDate,
+					familyId,
+					assignedTo: parsed.assignedTo ?? meId,
+					priority: parsed.priority
+				})
+			});
+			if (res.ok) {
+				quickTitle = '';
+				await invalidateAll();
+			}
+		} finally {
+			busy = null;
+		}
+	}
 
 	function memberName(userId: string | null): string {
 		if (!userId) return 'Unassigned';
@@ -85,6 +114,28 @@
 
 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
 	<h2 class="mb-3 text-sm font-semibold text-slate-900">Family Task Board</h2>
+
+	<form
+		onsubmit={(e) => {
+			e.preventDefault();
+			addQuickTask();
+		}}
+		class="mb-3 flex gap-2"
+	>
+		<input
+			type="text"
+			bind:value={quickTitle}
+			placeholder="Add a family task… try &quot;saturday for Dad&quot;"
+			class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+		/>
+		<button
+			type="submit"
+			disabled={!quickTitle.trim() || busy === 'new'}
+			class="shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+		>
+			Add
+		</button>
+	</form>
 
 	{#if groups.length === 0}
 		<p class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400">
