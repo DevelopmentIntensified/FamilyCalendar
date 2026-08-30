@@ -208,9 +208,13 @@ export async function updateTask(
 /**
  * Completing a Recurring Task rolls the cursor onto the next
  * scheduled occurrence instead of closing it out.
+ *
+ * Called only for OPEN recurring tasks (completedAt is null — the cursor
+ * row is never "completed"); the dueDate-guarded update doubles as
+ * double-click protection.
  */
 async function advanceRecurringTask(task: Task, zone?: string): Promise<Task | undefined> {
-	if (!task.completedAt || !task.recurrenceFrequency) return undefined;
+	if (!task.recurrenceFrequency) return undefined;
 	const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
 	const next = advanceCursor(
 		task.dueDate,
