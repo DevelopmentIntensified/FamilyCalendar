@@ -1,10 +1,12 @@
 <script lang="ts">
-	import type { RSVPStatus } from '$lib/types';
+	import { invalidateAll } from '$app/navigation';
+	import type { Event } from '$lib/types';
 	import DailyVerseCard from '$lib/components/calendar/DailyVerseCard.svelte';
-	import TodayGlanceCard from './TodayGlanceCard.svelte';
+	import TodayGlanceCard, { type GlanceEvent } from './TodayGlanceCard.svelte';
 	import TopPrioritiesCard from './TopPrioritiesCard.svelte';
 	import FamilyTaskBoardCard from './FamilyTaskBoardCard.svelte';
 	import MemberStrip from './MemberStrip.svelte';
+	import EventModal from '$lib/components/calendar/EventModal.svelte';
 
 	export let dateLabel: string;
 	export let isToday: boolean = true;
@@ -12,17 +14,7 @@
 	export let familyId: string | null;
 	export let dailyVerse: { reference: string; text: string; attribution?: string } | null;
 	export let glance: { doneToday: number; openToday: number; weekStreak: number };
-	export let dayEvents: {
-		id: string;
-		title: string;
-		start: Date | string;
-		end: Date | string | null;
-		allDay: boolean;
-		color: string;
-		source: 'own' | 'family';
-		location: string | null;
-		rsvpStatus?: RSVPStatus;
-	}[];
+	export let dayEvents: GlanceEvent[];
 	export let top3: {
 		id: string;
 		title: string;
@@ -60,6 +52,14 @@
 	export let modules: Record<string, boolean> = {};
 
 	const visible = (id: string) => modules[id] ?? true;
+
+	let selectedEvent: Event | null = null;
+
+	function openEvent(e: GlanceEvent) {
+		// Dashboard rows carry the full DisplayEvent shape (the prop type is a
+		// deliberate subset), so widening to `Event` for the detail modal is safe.
+		selectedEvent = e as unknown as Event;
+	}
 </script>
 
 <div class="mx-auto w-full max-w-5xl space-y-4">
@@ -77,6 +77,7 @@
 					openToday={glance.openToday}
 					doneToday={glance.doneToday}
 					weekStreak={glance.weekStreak}
+					onEventClick={openEvent}
 				/>
 			{/if}
 			{#if visible('top3')}
@@ -91,8 +92,18 @@
 				<MemberStrip members={memberStatus} />
 			{/if}
 			{#if familyId && visible('board')}
-				<FamilyTaskBoardCard tasks={familyTasks} members={familyMembers} meId={meId} />
+				<FamilyTaskBoardCard tasks={familyTasks} members={familyMembers} meId={meId} familyId={familyId} />
 			{/if}
 		</div>
 	{/if}
 </div>
+
+{#if selectedEvent}
+	<EventModal
+		event={selectedEvent}
+		show={true}
+		calendars={[]}
+		on:close={() => (selectedEvent = null)}
+		on:update={() => invalidateAll()}
+	/>
+{/if}
