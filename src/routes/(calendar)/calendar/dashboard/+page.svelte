@@ -28,7 +28,7 @@
 		<nav class="flex items-center gap-1.5" aria-label="Day navigation">
 			<a
 				href={prevDayHref}
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+				class="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
 				aria-label="Previous day"
 				title="Previous day"
 			>
@@ -38,7 +38,7 @@
 			</a>
 			<a
 				href="/calendar/dashboard"
-				class="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 {data.isToday
+				class="h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 {data.isToday
 					? 'pointer-events-none opacity-50'
 					: ''}"
 				aria-label="Go to today"
@@ -47,7 +47,7 @@
 			</a>
 			<a
 				href={nextDayHref}
-				class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+				class="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
 				aria-label="Next day"
 				title="Next day"
 			>
@@ -58,7 +58,7 @@
 		</nav>
 		<a
 			href={backToCalendarHref}
-			class="rounded-lg border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+			class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 		>
 			Back to Calendar
 		</a>

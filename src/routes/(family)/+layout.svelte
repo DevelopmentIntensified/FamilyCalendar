@@ -5,6 +5,7 @@
 	import type { LayoutData } from './$types';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import OfflineBanner from '$lib/components/OfflineBanner.svelte';
+	import BottomNav from '$lib/components/BottomNav.svelte';
 	import { initOfflineSync } from '$lib/utils/offline';
 
 	export let data: LayoutData;
@@ -19,8 +20,9 @@
 	<Navbar isLoggedIn={true} user={data.user} />
 	<OfflineBanner />
 	{#key pathname}
-		<main class="pt-16 flex-grow" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
+		<main class="pt-16 flex-grow pb-28 md:pb-8" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
 			<slot />
 		</main>
 	{/key}
+	<BottomNav />
 </div>

@@ -4,6 +4,7 @@
 	import '../../../app.css';
 	import type { LayoutData } from './$types';
 	import Navbar from '$lib/components/Navbar.svelte';
+	import BottomNav from '$lib/components/BottomNav.svelte';
 
 	export let data: LayoutData;
 	$: pathname = data.pathname;
@@ -80,11 +81,12 @@
 		</div>
 	{/if}
 	{#key pathname}
-		<main class="pt-16 flex-grow pb-24 {showTopNotice ? 'mt-10' : ''} print:!pt-0 print:!pb-0 print:!mt-0 print:min-h-0" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
+		<main class="pt-16 flex-grow pb-28 md:pb-24 {showTopNotice ? 'mt-10' : ''} print:!pt-0 print:!pb-0 print:!mt-0 print:min-h-0" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
 			<slot />
 		</main>
 	{/key}
-	<footer class="fixed bottom-0 left-0 z-30 w-full border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-500 print:hidden">
+	<BottomNav />
+	<footer class="fixed bottom-0 left-0 z-30 hidden w-full border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-500 md:block print:hidden">
 		<div class="flex items-center justify-center gap-4">
 			<span>&copy; {new Date().getFullYear()} FamilyPlanz</span>
 			<span class="text-slate-300">|</span>

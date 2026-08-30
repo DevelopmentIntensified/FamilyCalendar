@@ -58,7 +58,7 @@
 				<button
 					type="button"
 					onclick={() => onEventClick(e)}
-					class="flex w-full items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-1.5 text-left transition-colors hover:border-slate-200 hover:bg-slate-100 {rv?.containerClass ?? ''}">
+					class="flex w-full items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 text-left transition-colors hover:border-slate-200 hover:bg-slate-100 {rv?.containerClass ?? ''}">
 					<span class="h-2 w-2 shrink-0 rounded-full" style:background={e.color}></span>
 					<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{e.title}</span>
 					{#if rv}
@@ -80,7 +80,7 @@
 				<button
 					type="button"
 					onclick={() => onEventClick(e)}
-					class="flex w-full items-center gap-3 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-slate-50 {rv?.containerClass ?? ''}"
+					class="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-50 {rv?.containerClass ?? ''}"
 				>
 					<div class="w-14 shrink-0 text-right">
 						<span class="text-xs font-semibold tabular-nums text-slate-700">{timeLabel(e.start)}</span>

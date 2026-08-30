@@ -132,13 +132,13 @@
 			<div class="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
 				<button
 					onclick={goToday}
-					class="px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 active:bg-slate-200"
+					class="px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 active:bg-slate-200"
 				>
 					Today
 				</button>
 				<button
 					onclick={goPrevious}
-					class="flex h-9 w-10 items-center justify-center text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 active:bg-slate-200"
+					class="flex h-10 w-11 items-center justify-center text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 active:bg-slate-200"
 					aria-label="Previous"
 				>
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -147,7 +147,7 @@
 				</button>
 				<button
 					onclick={goNext}
-					class="flex h-9 w-10 items-center justify-center text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 active:bg-slate-200"
+					class="flex h-10 w-11 items-center justify-center text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 active:bg-slate-200"
 					aria-label="Next"
 				>
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -169,7 +169,7 @@
 						<div class="mb-4 flex items-center justify-between">
 				<button
 					onclick={() => handleYearSelect(currentYear - 1)}
-					class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+					class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
 					aria-label="Previous year"
 				>
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -179,7 +179,7 @@
 							<span class="font-semibold text-slate-900">{currentYear}</span>
 				<button
 					onclick={() => handleYearSelect(currentYear + 1)}
-					class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+					class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
 					aria-label="Next year"
 				>
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -209,7 +209,7 @@
 				{#each views as v}
 					<button
 						onclick={() => changeView(v.id)}
-						class="flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all active:scale-[0.97] {view === v.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}"
+						class="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all active:scale-[0.97] {view === v.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}"
 					>
 						<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
 							<path d={v.icon} />
@@ -224,7 +224,7 @@
 				onclick={() => onToggleSelectionMode(!selectionMode)}
 				aria-pressed={selectionMode}
 				title="Select events to edit in bulk"
-				class="flex h-9 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-all active:scale-[0.97] {selectionMode
+				class="flex h-10 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-all active:scale-[0.97] {selectionMode
 					? 'border-primary-300 bg-primary-50 text-primary-700'
 					: 'border-slate-200 bg-white text-slate-400 hover:text-slate-800'}"
 			>
@@ -238,7 +238,7 @@
 			<div class="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white divide-x divide-slate-200 shadow-sm">
 				<a
 					href="/calendar/import"
-					class="flex h-9 w-10 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
+					class="flex h-10 w-11 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
 					aria-label="Import events from a file"
 					title="Import from Google / Apple / Outlook (.ics)"
 				>
@@ -248,7 +248,7 @@
 				</a>
 				<a
 					href="/calendar/print"
-					class="flex h-9 w-10 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
+					class="flex h-10 w-11 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
 					aria-label="Print month for the fridge"
 					title="Print for the fridge"
 				>
@@ -259,7 +259,7 @@
 
 				<a
 					href="/calendar/dashboard"
-					class="flex h-9 w-10 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
+					class="flex h-10 w-11 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
 					aria-label="Day dashboard"
 					title="Day dashboard"
 				>
@@ -270,7 +270,7 @@
 
 				<a
 					href="/account#calendar"
-					class="flex h-9 w-10 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
+					class="flex h-10 w-11 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
 					aria-label="Calendar Settings"
 					title="Calendar settings"
 				>

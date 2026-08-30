@@ -126,12 +126,12 @@
 			type="text"
 			bind:value={quickTitle}
 			placeholder="Add a family task… try &quot;saturday for Dad&quot;"
-			class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+			class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 		/>
 		<button
 			type="submit"
 			disabled={!quickTitle.trim() || busy === 'new'}
-			class="shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+			class="shrink-0 rounded-lg bg-primary-600 px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
 		>
 			Add
 		</button>
@@ -160,15 +160,15 @@
 					</h3>
 					<div class="space-y-1.5">
 						{#each group.tasks as task (task.id)}
-							<div class="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2">
+							<div class="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5">
 								<button
 									type="button"
 									onclick={() => toggleTask(task.id)}
 									disabled={busy === task.id}
-									class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors enabled:hover:border-primary-500 disabled:opacity-40"
+									class="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors enabled:hover:border-primary-500 disabled:opacity-40"
 									title="Mark done"
 									aria-label="Mark done: {task.title}"
-								></button>
+								><span class="absolute -inset-2" aria-hidden="true"></span></button>
 								<span
 									class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority] ?? 'bg-slate-300'}"
 									title="{task.priority} priority"
