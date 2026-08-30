@@ -30,6 +30,22 @@
 	const today = DateTime.now();
 	const hours = Array.from({ length: 24 }, (_, i) => i);
 
+	let busyTaskId: string | null = null;
+	async function toggleWeekTask(task: { id: string }) {
+		if (busyTaskId) return;
+		busyTaskId = task.id;
+		try {
+			await fetch(`/api/tasks/${task.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ toggleComplete: true })
+			});
+			await invalidateAll();
+		} finally {
+			busyTaskId = null;
+		}
+	}
+
 	let dayOffset = 0;
 	$: {
 		if (preferedFirstDayOfWeek === 'monday') {
@@ -153,15 +169,16 @@
 					</button>
 				{/each}
 				{#each dayTasks as task (task.id)}
-					<span
-						class="flex w-full items-center gap-1 rounded border border-dashed border-slate-400 bg-slate-50 px-1 py-0.5 text-xs font-medium text-slate-600"
-						title="Task due this day"
+					<button
+						type="button"
+						onclick={() => toggleWeekTask(task)}
+						disabled={busyTaskId === task.id}
+						title="Click to mark task complete"
+						class="flex w-full items-center gap-1 rounded border border-dashed border-slate-400 bg-slate-50 px-1 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-500 hover:bg-slate-100 disabled:opacity-60"
 					>
-						<svg class="h-3 w-3 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-						</svg>
+						<span class="h-3 w-3 shrink-0 rounded-full border-2 border-slate-300"></span>
 						<span class="truncate">{task.title}</span>
-					</span>
+					</button>
 				{/each}
 			</div>
 		{/each}

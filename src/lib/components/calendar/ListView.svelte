@@ -23,6 +23,22 @@
 
 	const FREQ_NOUN: Record<string, string> = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' };
 
+	let busyTaskId: string | null = null;
+	async function toggleListTask(task: { id: string }) {
+		if (busyTaskId) return;
+		busyTaskId = task.id;
+		try {
+			await fetch(`/api/tasks/${task.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ toggleComplete: true })
+			});
+			await invalidateAll();
+		} finally {
+			busyTaskId = null;
+		}
+	}
+
 	function toDateMs(d: unknown): number {
 		if (d instanceof Date) return d.getTime();
 		return DateTime.fromISO(String(d ?? '')).toMillis();
@@ -181,24 +197,25 @@
 				{/each}
 
 				{#each dayTasks as task (task.id)}
-					<div class="flex items-center gap-4 rounded-xl border border-dashed border-slate-400 bg-slate-50 p-4">
-						<div class="flex h-12 w-1 shrink-0 items-center justify-center rounded-full">
-							<svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-							</svg>
-						</div>
-						<div class="min-w-0 flex-1">
-							<h4 class="truncate font-medium text-slate-700">{task.title}</h4>
-							<div class="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-slate-500">
+					<button
+						type="button"
+						onclick={() => toggleListTask(task)}
+						disabled={busyTaskId === task.id}
+						class="flex w-full items-center gap-4 rounded-xl border border-dashed border-slate-400 bg-slate-50 p-4 text-left transition-colors hover:border-slate-500 hover:bg-slate-100 disabled:opacity-60"
+					>
+						<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300"></span>
+						<span class="flex min-w-0 flex-1 flex-col gap-1">
+							<span class="block truncate font-medium text-slate-700">{task.title}</span>
+							<span class="flex flex-wrap items-center gap-x-3 text-sm text-slate-500">
 								<span class="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">Task</span>
 								{#if task.recurrenceFrequency}
 									<span class="text-purple-500">
 										🔁 {task.recurrenceInterval && task.recurrenceInterval > 1 ? `every ${task.recurrenceInterval} ${FREQ_NOUN[task.recurrenceFrequency]}s` : `every ${FREQ_NOUN[task.recurrenceFrequency]}`}
 									</span>
 								{/if}
-							</div>
-						</div>
-					</div>
+							</span>
+						</span>
+					</button>
 				{/each}
 			</div>
 		</div>

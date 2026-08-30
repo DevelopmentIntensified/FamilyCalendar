@@ -30,6 +30,22 @@
 	const MAX_CHIPS = 3;
 	const MAX_TASK_CHIPS = 2;
 
+	let busyTaskId: string | null = null;
+	async function toggleMonthTask(task: { id: string }) {
+		if (busyTaskId) return;
+		busyTaskId = task.id;
+		try {
+			await fetch(`/api/tasks/${task.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ toggleComplete: true })
+			});
+			await invalidateAll();
+		} finally {
+			busyTaskId = null;
+		}
+	}
+
 	function isSelected(event: Event): boolean {
 		return selectedIds.includes(event.id);
 	}
@@ -185,22 +201,23 @@
 
 			{#each dayTasks.slice(0, MAX_TASK_CHIPS) as task (task.id)}
 				{@const overdue = toDate(task.dueDate).getTime() < today.toMillis()}
-				<span
-					class="flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 {overdue
+				<button
+					type="button"
+					onclick={(ev) => { ev.stopPropagation(); toggleMonthTask(task); }}
+					disabled={busyTaskId === task.id}
+					class="flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-60 {overdue
 						? 'border-red-400 text-red-600'
 						: 'border-slate-400'}"
-					title="Task due: {task.title}"
+					title="Click to mark task complete"
 				>
-					<svg class="h-3 w-3 shrink-0 {overdue ? 'text-red-400' : 'text-slate-400'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-					</svg>
+					<span class="h-3 w-3 shrink-0 rounded-full border-2 {overdue ? 'border-red-400' : 'border-slate-300'}"></span>
 					<span class="truncate">{task.title}</span>
 					{#if task.recurrenceFrequency}
 						<svg class="ml-auto h-3 w-3 shrink-0 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-label="Recurring">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 9a8 8 0 01-14 3" />
 						</svg>
 					{/if}
-				</span>
+				</button>
 			{/each}
 
 			{#if dayEvents.length + dayTasks.length > MAX_CHIPS + Math.min(dayTasks.length, MAX_TASK_CHIPS) || dayEvents.length > MAX_CHIPS || dayTasks.length > MAX_TASK_CHIPS}
