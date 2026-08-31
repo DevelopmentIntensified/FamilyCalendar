@@ -66,12 +66,14 @@
 		if (busy) return;
 		busy = taskId;
 		try {
-			await fetch(`/api/tasks/${taskId}`, {
+			const res = await fetch(`/api/tasks/${taskId}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ toggleComplete: true })
 			});
-			await invalidateAll();
+			if (res.ok) {
+				await invalidateAll();
+			}
 		} finally {
 			busy = null;
 		}

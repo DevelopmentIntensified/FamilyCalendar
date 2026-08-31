@@ -95,6 +95,9 @@ export const load: PageServerLoad = async (event) => {
 		familyId && familyModulesVisible ? getTasksForFamily(familyId) : Promise.resolve([])
 	]);
 
+	// The board shows only open tasks; completed ones vanish after toggle.
+	const openFamilyTasks = familyTasks.filter((t) => !t.completedAt);
+
 	// Events for the day, from the personal + (optional) family calendar.
 	const [userCal] = await db
 		.select()
@@ -290,7 +293,7 @@ export const load: PageServerLoad = async (event) => {
 		familyId,
 		modules,
 		userTasks,
-		familyTasks,
+		familyTasks: openFamilyTasks,
 		familyMembers,
 		memberStatus,
 		dayEvents,
