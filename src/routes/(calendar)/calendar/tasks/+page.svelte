@@ -487,13 +487,13 @@
 	<div class="space-y-1.5">
 		{#each sortedOpenTasks as task (task.id)}
 			<div
-				class="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 {celebratingId === task.id ? 'celebrate' : ''}"
+				class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 active:bg-slate-100 {celebratingId === task.id ? 'celebrate' : ''}"
 			>
 				<button
 					type="button"
 					onclick={() => toggleTask(task.id)}
 					disabled={busyId === task.id}
-					class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors hover:border-primary-500"
+					class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors hover:border-primary-500 active:border-primary-500"
 					aria-label="Complete task"
 				>
 					<span class="absolute -inset-2" aria-hidden="true"></span>
@@ -544,7 +544,7 @@
 								type="button"
 								onclick={() => respondAssignment(task, true)}
 								disabled={busyId === task.id}
-								class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200"
+								class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200 active:bg-emerald-200"
 								title="Accept"
 							>
 								✓ Accept
@@ -553,7 +553,7 @@
 								type="button"
 								onclick={() => respondAssignment(task, false)}
 								disabled={busyId === task.id}
-								class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 hover:bg-red-200"
+								class="rounded-full bg-red-100 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-200 active:bg-red-200"
 								title="Decline"
 							>
 								✕
@@ -579,7 +579,7 @@
 						type="button"
 						onclick={() => advanceTask(task.id)}
 						disabled={busyId === task.id}
-						class="shrink-0 rounded-full p-1.5 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-purple-100 hover:text-purple-500 pointer-fine:group-hover:opacity-100"
+						class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-purple-100 hover:text-purple-500 active:bg-purple-100 pointer-fine:group-hover:opacity-100"
 						title="Skip this occurrence (rolls to next)"
 						aria-label="Skip to next occurrence"
 					>
@@ -592,7 +592,7 @@
 					type="button"
 					onclick={() => deleteTask(task.id)}
 					disabled={busyId === task.id}
-					class="shrink-0 rounded-full p-1.5 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 pointer-fine:group-hover:opacity-100"
+					class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50 pointer-fine:group-hover:opacity-100"
 					aria-label="Delete task"
 				>
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -620,14 +620,15 @@
 		</h2>
 		<div class="space-y-1.5">
 			{#each completedTasks as task (task.id)}
-				<div class="group flex items-center gap-3 rounded-xl bg-slate-50 p-3 {celebratingId === task.id ? 'celebrate' : ''}">
+				<div class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-slate-50 p-3 active:bg-slate-100 {celebratingId === task.id ? 'celebrate' : ''}">
 					<button
 						type="button"
 						onclick={() => toggleTask(task.id)}
 						disabled={busyId === task.id}
-						class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white"
+						class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white active:bg-primary-600"
 						aria-label="Mark incomplete"
 					>
+						<span class="absolute -inset-2" aria-hidden="true"></span>
 						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 						</svg>
@@ -640,7 +641,7 @@
 						type="button"
 						onclick={() => deleteTask(task.id)}
 						disabled={busyId === task.id}
-						class="shrink-0 rounded-full p-1.5 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 pointer-fine:group-hover:opacity-100"
+						class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50 pointer-fine:group-hover:opacity-100"
 						aria-label="Delete task"
 					>
 						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
