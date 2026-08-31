@@ -45,7 +45,15 @@ export const load: PageServerLoad = async (event) => {
 	// Opt-in landing: with Default View set to "Dashboard", /calendar sends the
 	// user to the Day Dashboard. ?dashboardView=1 is the escape hatch the
 	// dashboard's "Back to Calendar" link uses to show the calendar itself.
-	if (userSettings?.defaultView === 'dashboard' && !event.url.searchParams.has('dashboardView')) {
+	// Deep-link params (?view=, ?date=) also bypass the redirect so users can
+	// link directly to month/week/day views.
+	const hasViewParams =
+		event.url.searchParams.has('view') || event.url.searchParams.has('date');
+	if (
+		userSettings?.defaultView === 'dashboard' &&
+		!event.url.searchParams.has('dashboardView') &&
+		!hasViewParams
+	) {
 		return redirect(302, '/calendar/dashboard');
 	}
 
