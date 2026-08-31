@@ -18,7 +18,18 @@
 
 	{#if form?.success}
 		<div class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-			Check <strong>{form.email}</strong> for a link to save your calendar. It expires in 15 minutes.
+			{#if form.alreadyRegistered}
+				<p class="font-semibold">This email already has a Family Planz account.</p>
+				<p class="mt-1">
+					Check <strong>{form.email}</strong> for a link. Clicking it will merge the calendar
+					you've added on this device into that existing account.
+				</p>
+			{:else}
+				<p>
+					Check <strong>{form.email}</strong> for a link to save your calendar. It expires
+					in 15 minutes.
+				</p>
+			{/if}
 		</div>
 	{:else}
 		{#if form?.error}
@@ -60,6 +71,18 @@
 				{loading ? 'Sending...' : 'Email me a save link'}
 			</button>
 		</form>
+
+		{#if !form?.success}
+			<div class="mt-6 border-t border-slate-100 pt-5 text-center">
+				<p class="mb-2 text-sm text-slate-500">Already have an account with this email?</p>
+				<a
+					href="/login?merge=1"
+					class="block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
+				>
+					Log in with my password &amp; merge my calendar
+				</a>
+			</div>
+		{/if}
 	{/if}
 
 	<a href="/calendar" class="mt-6 block text-center text-sm text-slate-500 hover:text-slate-700">

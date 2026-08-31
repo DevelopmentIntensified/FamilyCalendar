@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { issueClaimToken } from '$lib/server/services/claimService';
+import { getUserByEmail } from '$lib/server/db/actions/users';
 import { sendEmail } from '$lib/utils/sendEmail';
 import { getUrl } from '$lib/utils/getUrl';
 
@@ -32,18 +33,29 @@ export const actions: Actions = {
 		const token = await issueClaimToken(locals.user.id, email);
 
 		const verifyUrl = `${getUrl()}/claim/verify/${token}`;
+		// Tailor the email: an already-registered address means clicking the link
+		// will merge this device's calendar into that existing account.
+		const existingUser = await getUserByEmail(email);
+		const alreadyRegistered = !!existingUser;
+
+		const html = alreadyRegistered
+			? `<p>This email already has a Family Planz account. Clicking the link below will bring the calendar you've added on this device into that existing account, so you can keep using it from anywhere.</p><p><a href="${verifyUrl}">Merge my calendar into my account</a></p><p>If you didn't expect this, you can safely ignore this email. The link expires in 15 minutes.</p>`
+			: `<p>Click the link below to add this email to your Family Planz account and sync your calendar across devices:</p><p><a href="${verifyUrl}">Save my calendar</a></p><p>This link expires in 15 minutes.</p>`;
+
 		try {
 			await sendEmail({
 				to: email,
 				from: 'onboarding@resend.dev',
-				subject: 'Save your Family Planz calendar',
-				html: `<p>Click the link below to add this email to your Family Planz account and sync your calendar across devices:</p><p><a href="${verifyUrl}">Save my calendar</a></p><p>This link expires in 15 minutes.</p>`
+				subject: alreadyRegistered
+					? 'Merge your calendar into your Family Planz account'
+					: 'Save your Family Planz calendar',
+				html
 			});
 		} catch (e) {
 			console.error('Failed to send claim email:', e);
 			return fail(500, { error: 'Failed to send email. Please try again.' });
 		}
 
-		return { success: true, email };
+		return { success: true, email, alreadyRegistered };
 	}
 };

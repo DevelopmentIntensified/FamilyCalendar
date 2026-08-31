@@ -115,7 +115,10 @@
 			<div class="mb-8 text-center">
 				<h1 class="text-3xl font-bold text-slate-900">Welcome Back</h1>
 				<p class="mt-2 text-slate-600">
-					{#if data.isLoggedIn}
+					{#if data.mergeMode}
+						Log in with the account tied to this email, and we'll merge the calendar
+						you've added on this device into it.
+					{:else if data.isLoggedIn}
 						You are already logged in
 					{:else}
 						Don't have an account? <a href="/signup" class="text-primary-600 hover:text-primary-700">Sign up</a>
@@ -124,7 +127,7 @@
 				</p>
 			</div>
 
-			{#if data.isLoggedIn}
+			{#if data.isLoggedIn && !data.mergeMode}
 				<div class="text-center">
 					<a href="/calendar" class="text-primary-600 hover:text-primary-500">Go to Calendar</a>
 				</div>
@@ -247,7 +250,7 @@
 					{/if}
 				{/if}
 
-				{#if !data.isLoggedIn}
+				{#if !data.isLoggedIn && !data.mergeMode}
 					<div class="mt-6 border-t border-slate-100 pt-5 text-center">
 						<a
 							href="/calendar"
