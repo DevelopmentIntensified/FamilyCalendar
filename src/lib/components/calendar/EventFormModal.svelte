@@ -32,6 +32,12 @@
 
 	const dispatch = createEventDispatcher();
 
+	// Mobile bottom-sheet swipe state (mirrors EventModal).
+	let dragging = false;
+	let dragStartY = 0;
+	let dragOffset = 0;
+	let dragTransition = false;
+
 	let nlInput = '';
 	let showMore = false;
 	// Set when the user clicks "Show Less": suppresses the auto-reveal of
@@ -190,7 +196,31 @@
 		show = false;
 		submitError = '';
 		showDeleteConfirm = false;
+		dragOffset = 0;
+		dragTransition = false;
 		dispatch('close');
+	}
+
+	function onDragStart(e: TouchEvent) {
+		if (e.touches.length !== 1) return;
+		dragStartY = e.touches[0].clientY;
+		dragOffset = 0;
+		dragTransition = false;
+		dragging = true;
+	}
+
+	function onDragMove(e: TouchEvent) {
+		if (!dragging) return;
+		dragOffset = Math.max(0, e.touches[0].clientY - dragStartY);
+	}
+
+	function onDragEnd() {
+		if (!dragging) return;
+		dragging = false;
+		dragTransition = true;
+		const shouldClose = dragOffset > 100;
+		dragOffset = 0;
+		if (shouldClose) close();
 	}
 
 	async function submitTask() {
@@ -344,12 +374,13 @@
 
 {#if show}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+		class="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
 		on:click={close}
 		role="presentation"
 	>
 		<div
-			class="w-full max-w-lg transform rounded-xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto modal-scroll"
+			class="flex max-h-[92dvh] w-full max-w-lg transform flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
+			style="transform: translateY({dragOffset}px); transition: transform {dragTransition ? '150ms ease-out' : '0ms'}; touch-action: pan-y;"
 			on:click|stopPropagation
 			on:keydown|stopPropagation
 			role="dialog"
@@ -357,7 +388,18 @@
 			aria-labelledby="modal-title"
 			use:trapFocusAction
 		>
-			<div class="sticky top-0 z-10 bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4">
+			<!-- Grab handle (mobile): bottom-sheet affordance + swipe-down-to-close zone -->
+			<div
+				class="flex shrink-0 touch-none cursor-grab justify-center pb-1 pt-2 active:cursor-grabbing sm:hidden"
+				data-drag-handle
+				on:touchstart={onDragStart}
+				on:touchmove={onDragMove}
+				on:touchend={onDragEnd}
+				aria-hidden="true"
+			>
+				<span class="h-1.5 w-10 rounded-full bg-slate-200"></span>
+			</div>
+			<div class="sticky top-0 z-10 shrink-0 bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4">
 				<div class="flex items-center justify-between">
 					<div>
 						<h2 id="modal-title" class="text-lg font-semibold text-white">
@@ -382,7 +424,7 @@
 				</div>
 			</div>
 
-			<form on:submit={handleSubmit}>
+			<form id="event-form" on:submit={handleSubmit} class="min-h-0 flex-1 overflow-y-auto overscroll-contain modal-scroll">
 				<div class="p-5 space-y-3">
 					{#if !form.isEditMode}
 						<div class="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1" role="tablist" aria-label="What are you adding?">
@@ -848,16 +890,23 @@
 				</div>
 			{/if}
 
-			<div class="flex items-center justify-end gap-2 border-t border-slate-100 p-5">
-					{#if form.isEditMode}
-						<button type="button" on:click={handleDelete} class="mr-auto rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">Delete</button>
-					{/if}
+			</form>
+
+			<!-- Sticky action bar (outside the scroll region; stays visible with keyboard open) -->
+			<div
+				class="flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 px-5 py-3"
+				style="padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem)"
+			>
+				{#if form.isEditMode}
+					<button type="button" on:click={handleDelete} class="mr-auto rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">Delete</button>
+				{/if}
 				<button type="button" on:click={close} class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Cancel</button>
 				{#if !form.isEditMode && entryType === 'event'}
 					<button type="button" on:click={clearAll} class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Clear</button>
 				{/if}
 				<button
 					type="submit"
+					form="event-form"
 					class="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					disabled={(entryType === 'task' ? !taskTitle.trim() : !form.title || !form.date || form.endBeforeStart) || submitting}
 				>
@@ -870,8 +919,7 @@
 						{form.isEditMode ? 'Update' : entryType === 'task' ? 'Add Task' : 'Create'}
 					{/if}
 				</button>
-				</div>
-			</form>
+			</div>
 		</div>
 	</div>
 {/if}

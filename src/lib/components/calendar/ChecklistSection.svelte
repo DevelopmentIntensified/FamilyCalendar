@@ -107,7 +107,7 @@
 		{#if !showChecklistInput}
 			<button
 				type="button"
-				class="rounded px-1.5 py-0.5 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
+				class="rounded px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
 				on:click={() => (showChecklistInput = true)}
 			>
 				+ Add task
@@ -122,7 +122,7 @@
 				<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{title}</span>
 				<button
 					type="button"
-					class="shrink-0 rounded p-0.5 text-slate-300 hover:text-red-500"
+					class="shrink-0 rounded p-1.5 text-slate-300 hover:text-red-500"
 					aria-label="Remove task"
 					on:click={() => removePending(i)}
 				>
@@ -138,11 +138,12 @@
 					type="button"
 					disabled={checklistBusy}
 					on:click={() => toggleItem(task)}
-					class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border {task.completedAt
+					class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border {task.completedAt
 						? 'border-primary-500 bg-primary-500 text-white'
 						: 'border-slate-300 hover:border-primary-400'}"
 					aria-label={task.completedAt ? 'Mark incomplete' : 'Complete'}
 				>
+					<span class="absolute -inset-2" aria-hidden="true"></span>
 					{#if task.completedAt}
 						<svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -156,7 +157,7 @@
 					type="button"
 					disabled={checklistBusy}
 					on:click={() => deleteItem(task.id)}
-					class="shrink-0 rounded p-0.5 text-slate-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all hover:text-red-500"
+					class="shrink-0 rounded p-1.5 text-slate-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all hover:text-red-500"
 					aria-label="Remove task"
 				>
 					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

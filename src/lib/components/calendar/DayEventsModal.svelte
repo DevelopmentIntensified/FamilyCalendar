@@ -29,10 +29,10 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 </script>
 
 {#if show}
-	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+	<div class="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden sm:items-center sm:p-4">
 		<button class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick={close}></button>
 		
-		<div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+		<div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
 			<!-- Header -->
 			<div class="flex items-center justify-between border-b border-slate-100 p-6">
 				<h2 class="text-xl font-bold text-slate-900">{formattedDate}</h2>

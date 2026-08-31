@@ -333,7 +333,7 @@
 			on:delete={(e) => performDelete(e.detail?.scope)}
 		/>
 	{:else}
-		<div class="fixed inset-0 z-50 flex items-end justify-center overflow-hidden sm:items-center sm:p-4">
+		<div class="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden sm:items-center sm:p-4">
 			<div
 				class="absolute inset-0 bg-black/40 backdrop-blur-sm"
 				onclick={close}
@@ -635,7 +635,7 @@
 								{#if !showTaskInput}
 									<button
 										type="button"
-										class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
+										class="rounded-lg px-3 py-2 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
 										onclick={() => (showTaskInput = true)}
 									>
 										+ Add task

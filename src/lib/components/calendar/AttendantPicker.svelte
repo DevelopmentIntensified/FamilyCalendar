@@ -95,7 +95,7 @@
 							{selections[att] === 'required' ? '★ Required' : 'Optional'}
 						</button>
 					{/if}
-					<button type="button" on:click={() => pick(att)} class="text-slate-400 hover:text-slate-600" aria-label="Remove {att}">
+					<button type="button" on:click={() => pick(att)} class="-m-1.5 rounded-full p-1.5 text-slate-400 hover:text-slate-600" aria-label="Remove {att}">
 						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 						</svg>

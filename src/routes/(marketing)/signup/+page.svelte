@@ -198,7 +198,7 @@
 										id="firstName"
 										type="text"
 										bind:value={firstName}
-										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 										required
 									/>
 								</div>
@@ -208,7 +208,7 @@
 										id="lastName"
 										type="text"
 										bind:value={lastName}
-										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 										required
 									/>
 								</div>
@@ -220,7 +220,7 @@
 									id="email"
 									type="email"
 									bind:value={email}
-									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 									required
 								/>
 							</div>
@@ -231,7 +231,7 @@
 									id="password"
 									type="password"
 									bind:value={password}
-									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 									required
 									minlength="8"
 								/>
@@ -244,7 +244,7 @@
 									id="confirmPassword"
 									type="password"
 									bind:value={confirmPassword}
-									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 									required
 								/>
 							</div>
@@ -266,7 +266,7 @@
 										id="firstNameML"
 										type="text"
 										bind:value={firstName}
-										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 										required
 									/>
 								</div>
@@ -276,7 +276,7 @@
 										id="lastNameML"
 										type="text"
 										bind:value={lastName}
-										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 										required
 									/>
 								</div>
@@ -288,7 +288,7 @@
 									id="emailML"
 									type="email"
 									bind:value={email}
-									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 									required
 								/>
 							</div>
