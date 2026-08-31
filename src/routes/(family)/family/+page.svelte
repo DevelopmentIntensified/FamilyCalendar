@@ -5,7 +5,7 @@
 	let families = data.families;
 </script>
 
-<div class="min-h-screen bg-slate-50 px-4 py-8 pt-20">
+<div class="min-h-screen bg-slate-50 px-4 py-8">
 	<div class="mx-auto max-w-4xl">
 		<Breadcrumbs crumbs={[
 			{ label: 'Calendar', href: '/calendar' },

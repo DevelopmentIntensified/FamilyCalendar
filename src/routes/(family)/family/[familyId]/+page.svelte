@@ -27,7 +27,7 @@
 	<title>{family?.name || 'Family'} - Family Planz</title>
 </svelte:head>
 
-<div class="min-h-screen bg-slate-50 px-4 py-8 pt-20">
+<div class="min-h-screen bg-slate-50 px-4 py-8">
 	<div class="mx-auto max-w-4xl">
 		<Breadcrumbs
 			crumbs={[
@@ -180,9 +180,9 @@
 					<ul class="space-y-3">
 						{#each members as member}
 							<li
-								class="flex items-center justify-between rounded-lg border border-slate-200 p-4 transition-colors hover:bg-slate-50"
+								class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-4 transition-colors hover:bg-slate-50"
 							>
-								<div class="flex items-center gap-3">
+								<div class="flex min-w-0 flex-1 items-center gap-3">
 									<div
 										class="flex h-10 w-10 items-center justify-center rounded-full font-semibold {avatarColor(
 											member.userId
@@ -190,12 +190,12 @@
 									>
 										{member.firstName?.[0] || member.email?.[0] || '?'}
 									</div>
-									<div>
-										<p class="font-medium text-slate-900">{([member.firstName, member.lastName].filter(Boolean).join(' ') || member.email || 'Family member')}</p>
-										<p class="text-sm text-slate-500">{member.email}</p>
+									<div class="min-w-0">
+										<p class="truncate font-medium text-slate-900">{([member.firstName, member.lastName].filter(Boolean).join(' ') || member.email || 'Family member')}</p>
+										<p class="truncate text-sm text-slate-500">{member.email}</p>
 									</div>
 								</div>
-								<div class="flex items-center gap-2">
+								<div class="flex flex-wrap items-center gap-2">
 									{#if isAdmin}
 										<form
 											method="POST"
@@ -334,7 +334,7 @@
 							<li
 								class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3 transition-colors hover:bg-slate-50"
 							>
-								<span class="text-sm text-slate-700">
+								<span class="min-w-0 flex-1 truncate text-sm text-slate-700">
 									{item.kind === 'completed' ? '✅' : '📋'}
 									{item.actorName}
 									{item.kind === 'completed' ? 'completed' : 'assigned'}

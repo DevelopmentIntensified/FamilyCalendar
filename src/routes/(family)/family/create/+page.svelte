@@ -36,7 +36,7 @@
 	<title>Create Family - Family Planz</title>
 </svelte:head>
 
-<div class="min-h-screen bg-slate-50 px-4 py-8 pt-20">
+<div class="min-h-screen bg-slate-50 px-4 py-8">
 	<div class="mx-auto max-w-lg">
 		<Breadcrumbs crumbs={[
 			{ label: 'Calendar', href: '/calendar' },
@@ -107,7 +107,7 @@
 							<button
 								type="button"
 								onclick={() => selectedColor = color.value}
-								class="group relative h-10 w-10 rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+								class="group relative h-11 w-11 rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
 								style="background-color: {color.value}"
 								title={color.name}
 							>
