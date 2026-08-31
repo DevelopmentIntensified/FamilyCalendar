@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 	import { DateTime } from 'luxon';
 	import type { PageData } from './$types';
@@ -10,7 +10,7 @@
 	import calendarNoteDate from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg';
 	import { parseEvents } from '$lib/utils/eventDisplay';
 	import { invalidateAll, goto } from '$app/navigation';
-	import { browser } from '$app/environment';
+	
 	import { page } from '$app/stores';
 
 	export let data: PageData;
@@ -232,53 +232,8 @@
 	// First-run card: shown only when there is truly nothing on the calendar.
 	let dismissedFirstRun = false;
 
-	// Text-selection quick create: watch document selections, offer a pill when a
-	// usable phrase (>= 3 chars) is selected outside any editable field.
-	let selectionText = '';
-
-	function isInsideEditable(node: Node | null): boolean {
-		const el = node
-			? node.nodeType === Node.TEXT_NODE
-				? node.parentElement
-				: (node as HTMLElement)
-			: null;
-		if (!el) return true;
-		return el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
-	}
-
-	function handleSelectionChange() {
-		const sel = document.getSelection();
-		const text = (sel?.toString() ?? '').trim();
-		const active = document.activeElement as HTMLElement | null;
-		const activeEditable =
-			!!active &&
-			(active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
-		selectionText =
-			text.length >= 3 &&
-			!activeEditable &&
-			sel !== null &&
-			sel.rangeCount > 0 &&
-			!isInsideEditable(sel.anchorNode) &&
-			!showModal &&
-			!showEditModal
-				? text
-				: '';
-	}
-
-	function createFromSelection() {
-		const sel = document.getSelection();
-		const text = selectionText || (sel?.toString().trim() ?? '');
-		sel?.removeAllRanges();
-		createInitialDate = undefined;
-		createInitialTitle = text.length >= 3 ? text : undefined;
-		selectionText = '';
-		showModal = true;
-	}
-
 	onMount(() => {
 		dismissedFirstRun = localStorage.getItem('familyplanz:firstRunDismissed') === 'true';
-
-		document.addEventListener('selectionchange', handleSelectionChange);
 
 		// Deep link: /calendar?quickadd=<title> opens the create modal prefilled.
 		const quickAddTitle = $page.url.searchParams.get('quickadd');
@@ -287,11 +242,6 @@
 			showModal = true;
 			goto('/calendar', { replaceState: true });
 		}
-	});
-
-	onDestroy(() => {
-		// onDestroy runs during SSR too — document only exists in the browser.
-		if (browser) document.removeEventListener('selectionchange', handleSelectionChange);
 	});
 
 	function dismissFirstRun() {
@@ -465,17 +415,6 @@
 		<svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
 		</svg>
-	</button>
-{/if}
-
-{#if selectionText && !showModal && !showEditModal}
-	<!-- Text-selection quick create pill -->
-	<button
-		type="button"
-		onclick={createFromSelection}
-		class="fixed bottom-6 left-1/2 z-30 max-w-[90vw] -translate-x-1/2 truncate rounded-full bg-slate-900/90 px-4 py-2.5 text-sm font-medium text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-slate-900"
-	>
-		Create event from selection
 	</button>
 {/if}
 
