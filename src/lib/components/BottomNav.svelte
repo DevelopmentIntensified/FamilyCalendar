@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
+
+	export let isLoggedIn = false;
 
 	const items = [
 		{
@@ -18,11 +21,54 @@
 			icon: '<circle cx="12" cy="12" r="9" /><path d="M9 12l2 2 4-4" />'
 		},
 		{
+			href: '/calendar/notifications',
+			label: 'Alerts',
+			icon: '<path d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />'
+		},
+		{
 			href: '/family',
 			label: 'Family',
 			icon: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />'
 		}
 	] as const;
+
+	// Unread count for the Alerts tab. Fetched from /api/notifications only
+	// when the user is logged in, so guests never trigger a 401 loop.
+	let unreadCount = 0;
+
+	async function refreshBadge() {
+		if (!isLoggedIn) {
+			unreadCount = 0;
+			return;
+		}
+		try {
+			const res = await fetch('/api/notifications');
+			if (!res.ok) {
+				unreadCount = 0;
+				return;
+			}
+			const data = await res.json();
+			unreadCount = typeof data.unreadCount === 'number' ? data.unreadCount : 0;
+		} catch {
+			// nav stays silent on transient failures
+			unreadCount = 0;
+		}
+	}
+
+	function onVisibilityChanged() {
+		if (document.visibilityState === 'visible') refreshBadge();
+	}
+
+	onMount(() => {
+		// Re-fetch on mount and on every route change so the badge stays in
+		// sync after the user marks notifications read and navigates away.
+		const unsubscribePage = page.subscribe(() => refreshBadge());
+		document.addEventListener('visibilitychange', onVisibilityChanged);
+		return () => {
+			unsubscribePage();
+			document.removeEventListener('visibilitychange', onVisibilityChanged);
+		};
+	});
 
 	// Longest prefix wins so /calendar/dashboard highlights Dashboard, not Calendar.
 	$: path = $page.url.pathname;
@@ -31,22 +77,28 @@
 		if (matched.length === 0) return null;
 		return matched.reduce((a, b) => (b.href.length > a.href.length ? b : a));
 	})();
+
+	// If auth flips off while the nav stays mounted, drop the badge.
+	$: if (!isLoggedIn) unreadCount = 0;
 </script>
 
 <nav
 	class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-sm md:hidden print:hidden"
 	aria-label="Primary navigation"
 >
-	<div class="grid grid-cols-4" style="padding-bottom: env(safe-area-inset-bottom)">
+	<div class="grid grid-cols-5" style="padding-bottom: env(safe-area-inset-bottom)">
 		{#each items as item (item.href)}
 			{@const on = active?.href === item.href}
 			<a
 				href={item.href}
 				aria-current={on ? 'page' : undefined}
+				aria-label={item.href === '/calendar/notifications' && unreadCount > 0
+					? `Alerts (${unreadCount} unread)`
+					: undefined}
 				class="flex min-w-0 flex-col items-center justify-center gap-0.5 py-2"
 			>
 				<span
-					class="flex h-7 min-w-14 items-center justify-center rounded-full transition-colors {on
+					class="relative flex h-7 min-w-14 items-center justify-center rounded-full transition-colors {on
 						? 'bg-primary-50 text-primary-600'
 						: 'text-slate-400'}"
 				>
@@ -54,6 +106,13 @@
 						<!-- svelte-ignore a11y-invalid-attribute -->
 						{@html item.icon}
 					</svg>
+					{#if item.href === '/calendar/notifications' && unreadCount > 0}
+						<span
+							class="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary-600 px-1 text-[10px] font-semibold leading-none text-white"
+						>
+							{unreadCount > 99 ? '99+' : unreadCount}
+						</span>
+					{/if}
 				</span>
 				<span class="text-[11px] font-medium leading-none {on ? 'text-primary-600' : 'text-slate-500'}">
 					{item.label}

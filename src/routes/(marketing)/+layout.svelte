@@ -11,7 +11,7 @@
 <div class="flex min-h-screen flex-col">
 	<Navbar isLoggedIn={data.isLoggedIn} />
 	{#key pathname}
-		<main class="pt-16 flex-grow" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
+		<main class="pt-[calc(4rem+env(safe-area-inset-top))] flex-grow" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
 			<slot />
 		</main>
 	{/key}

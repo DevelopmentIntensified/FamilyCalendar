@@ -16,6 +16,25 @@
 	export let data: PageData;
 
 	const currentDate = writable(DateTime.now());
+
+	// Deep-link seeding: /calendar?date=YYYY-MM-DD&view=day opens the requested
+	// day. Read once at init; $page.url works in the browser for the SSR'd page.
+	// Only override the store when the date param is present and valid.
+	const VALID_VIEW_PARAMS = new Set(['month', 'week', 'day', 'list']);
+	let urlSeedHandled = false;
+	$: if (!urlSeedHandled && $page.url.searchParams.has('date')) {
+		const dateParam = $page.url.searchParams.get('date');
+		const parsed = dateParam ? DateTime.fromISO(dateParam) : null;
+		if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && parsed && parsed.isValid) {
+			currentDate.set(parsed.startOf('day'));
+		}
+		urlSeedHandled = true;
+	}
+	$: initialViewParam = (() => {
+		const v = $page.url.searchParams.get('view');
+		return v && VALID_VIEW_PARAMS.has(v) ? v : undefined;
+	})();
+
 	let showModal = false;
 	let showEditModal = false;
 	let selectedEvent: Event | null = null;
@@ -421,6 +440,7 @@
 		calendarIds={data.calendarIds || []}
 		dueTasks={data.dueTasks || []}
 		defaultViewSetting={data.userSettings?.defaultView || 'monthView'}
+		initialView={initialViewParam}
 		createAt={openCreateAt}
 		dailyVerse={data.dailyVerse}
 		selectionMode={selectionMode}

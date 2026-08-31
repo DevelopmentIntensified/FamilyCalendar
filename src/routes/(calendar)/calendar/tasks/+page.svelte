@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
+	import MentionInput from '$lib/components/MentionInput.svelte';
 	import {
 		CATEGORY_META,
 		SMART_EVENT_TEMPLATES,
@@ -393,12 +394,13 @@
 		}}
 		class="mb-6 flex flex-col gap-2 sm:flex-row"
 	>
-		<input
-			type="text"
-			bind:value={newTitle}
-			placeholder="Add a task..."
-			class="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-		/>
+		<div class="flex-1">
+			<MentionInput
+				bind:value={newTitle}
+				members={familyRoster}
+				placeholder="Add a task..."
+			/>
+		</div>
 		<input
 			type="date"
 			bind:value={newDueDate}
@@ -491,9 +493,11 @@
 					type="button"
 					onclick={() => toggleTask(task.id)}
 					disabled={busyId === task.id}
-					class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors hover:border-primary-500"
+					class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors hover:border-primary-500"
 					aria-label="Complete task"
-				></button>
+				>
+					<span class="absolute -inset-2" aria-hidden="true"></span>
+				</button>
 							<div class="min-w-0 flex-1">
 								<button
 									type="button"
@@ -575,7 +579,7 @@
 						type="button"
 						onclick={() => advanceTask(task.id)}
 						disabled={busyId === task.id}
-						class="shrink-0 rounded-full p-1.5 text-slate-300 opacity-0 transition-all hover:bg-purple-100 hover:text-purple-500 group-hover:opacity-100"
+						class="shrink-0 rounded-full p-1.5 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-purple-100 hover:text-purple-500 pointer-fine:group-hover:opacity-100"
 						title="Skip this occurrence (rolls to next)"
 						aria-label="Skip to next occurrence"
 					>
@@ -588,7 +592,7 @@
 					type="button"
 					onclick={() => deleteTask(task.id)}
 					disabled={busyId === task.id}
-					class="shrink-0 rounded-full p-1.5 text-slate-300 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+					class="shrink-0 rounded-full p-1.5 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 pointer-fine:group-hover:opacity-100"
 					aria-label="Delete task"
 				>
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -636,7 +640,7 @@
 						type="button"
 						onclick={() => deleteTask(task.id)}
 						disabled={busyId === task.id}
-						class="shrink-0 rounded-full p-1.5 text-slate-300 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+						class="shrink-0 rounded-full p-1.5 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 pointer-fine:group-hover:opacity-100"
 						aria-label="Delete task"
 					>
 						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

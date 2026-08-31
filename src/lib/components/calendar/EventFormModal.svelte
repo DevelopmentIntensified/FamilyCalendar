@@ -34,6 +34,10 @@
 
 	let nlInput = '';
 	let showMore = false;
+	// Set when the user clicks "Show Less": suppresses the auto-reveal of
+	// parser-detected fields until a fresh parse re-detects them (or the user
+	// clicks "Show More" again).
+	let nlpCollapsed = false;
 	let parsing = false;
 	let reportingPhrase = false;
 	let phraseReported = false;
@@ -145,6 +149,8 @@
 				if (result.parsed) {
 					form.applyNlpResult(result.parsed);
 					phraseReportable = true;
+					// A fresh parse re-reveals previously collapsed detected fields.
+					nlpCollapsed = false;
 				}
 			}
 		} catch (error) {
@@ -314,6 +320,7 @@
 	function clearAll() {
 		form.reset();
 		nlInput = '';
+		nlpCollapsed = false;
 	}
 </script>
 
@@ -477,7 +484,7 @@
 					{#if !form.isEditMode && !showMore}
 						<button
 							type="button"
-							on:click={() => showMore = true}
+							on:click={() => { showMore = true; nlpCollapsed = false; }}
 							class="flex w-full items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
 						>
 							Show More
@@ -487,7 +494,7 @@
 						</button>
 					{/if}
 
-					{#if form.isEditMode || showMore || form.isDetected('date') || form.isDetected('startTime') || form.isDetected('location') || form.isDetected('attendants')}
+					{#if form.isEditMode || showMore || (!nlpCollapsed && (form.isDetected('date') || form.isDetected('startTime') || form.isDetected('location') || form.isDetected('attendants')))}
 						{#if showMore || form.isEditMode}
 							<div class="flex items-center gap-3">
 								<button
@@ -643,7 +650,7 @@
 							<LocationSearch bind:value={form.location} />
 						</div>
 
-						{#if form.isEditMode || showMore || form.isDetected('attendants')}
+						{#if form.isEditMode || showMore || (!nlpCollapsed && form.isDetected('attendants'))}
 						<div>
 							<div class="mb-1 text-sm font-medium text-slate-700">
 								Attendees
@@ -738,7 +745,7 @@
 					<div class="px-5 pb-3">
 						<button
 							type="button"
-							on:click={() => showMore = false}
+							on:click={() => { showMore = false; nlpCollapsed = true; }}
 							class="flex w-full items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
 						>
 							Show Less

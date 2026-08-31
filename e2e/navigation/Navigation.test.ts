@@ -69,7 +69,7 @@ test.describe('Profile Dropdown', () => {
 		const dropdownTrigger = page.locator('[data-testid="profile-dropdown-container"] button');
 		await expect(dropdownTrigger).toBeVisible();
 		await dropdownTrigger.click();
-		await expect(page.locator('text=Account Settings')).toBeVisible();
+		await expect(page.locator('a[href="/account"]')).toBeVisible();
 		await expect(page.locator('text=Family Management')).toBeVisible();
 		await expect(page.locator('text=Logout')).toBeVisible();
 	});
@@ -112,7 +112,7 @@ test.describe('Profile Dropdown', () => {
 
 		const dropdownTrigger = page.locator('[data-testid="profile-dropdown-container"] button');
 		await dropdownTrigger.click();
-		await page.click('a:has-text("Account Settings")');
+		await page.click('a[href="/account"]');
 		await expect(page).toHaveURL(/account/);
 		await expect(page.locator('h1')).toContainText(/Account/i);
 	});

@@ -62,7 +62,7 @@
 
 <svelte:window on:click={handleOutsideClick} on:keydown={(e) => e.key === 'Escape' && closeProfileDropdown()} />
 
-<nav class="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm print:hidden">
+<nav class="fixed top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm print:hidden" style="padding-top: env(safe-area-inset-top)">
 	<div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 		<div class="flex items-center gap-2">
 			<a href="/" class="flex items-center gap-2">

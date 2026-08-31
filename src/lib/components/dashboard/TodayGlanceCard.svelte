@@ -26,9 +26,6 @@
 	export let dateLabel: string;
 	export let events: GlanceEvent[];
 	export let onEventClick: (event: GlanceEvent) => void = () => {};
-	export let openToday: number;
-	export let doneToday: number;
-	export let weekStreak: number;
 	export let isToday: boolean = true;
 
 	$: allDayEvents = events.filter((e) => e.allDay);
@@ -41,10 +38,7 @@
 		if (isNaN(d.getTime())) return '';
 		return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 	}
-
-	$: progress = openToday + doneToday > 0 ? doneToday / (doneToday + openToday) : 1;
 </script>
-
 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
 	<div class="mb-3 flex items-baseline justify-between gap-2">
 		<h2 class="text-sm font-semibold text-slate-900">{isToday ? 'Today at a Glance' : 'Day at a Glance'}</h2>
@@ -116,30 +110,4 @@
 	{#if allDayEvents.length === 0 && timedEvents.length === 0}
 		<div class="mb-3"></div>
 	{/if}
-
-	<div class="mt-4 border-t border-slate-100 pt-3">
-		<div class="flex items-center justify-between gap-3">
-			<div class="flex items-center gap-2">
-				{#if doneToday > 0 || openToday > 0}
-					<div class="h-2 w-28 overflow-hidden rounded-full bg-slate-100">
-						<div
-							class="h-full rounded-full bg-primary-500 transition-all"
-							style:width="{progress * 100}%"
-						></div>
-					</div>
-					<span class="text-xs text-slate-500">{doneToday} done · {openToday} open</span>
-				{:else}
-					<span class="text-xs text-slate-400">{isToday ? 'No tasks due today — clear day ✨' : 'No tasks due this day'}</span>
-				{/if}
-			</div>
-			{#if weekStreak > 0}
-				<span
-					class="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
-					title="Weekly completion streak"
-				>
-					🔥 {weekStreak} week{weekStreak === 1 ? '' : 's'}
-				</span>
-			{/if}
-		</div>
-	</div>
 </div>

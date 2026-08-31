@@ -4,7 +4,9 @@
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
 	import DayEventsModal from './DayEventsModal.svelte';
+	import DayActionSheet from './DayActionSheet.svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { onMount } from 'svelte';
 import AttendanceBadge from './AttendanceBadge.svelte';
 	import { chipStyle, chipColor, chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { toDate } from '$lib/utils/eventTime';
@@ -103,6 +105,40 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		// EventModal performs the API call; refresh server data here.
 		invalidateAll().then(closeModal);
 	}
+
+	// Mobile day-action sheet: on small screens a day tap opens a bottom sheet
+	// (Add event / Open Day Dashboard / View events) instead of the tiny header
+	// buttons. Desktop keeps the existing tap-to-open-day behavior.
+	let sheetOpen = false;
+	let sheetDate: DateTime | null = null;
+	let sheetEvents: Event[] = [];
+
+	let smallScreen = false;
+	onMount(() => {
+		const mq = window.matchMedia('(max-width: 639px)');
+		const apply = () => (smallScreen = mq.matches);
+		apply();
+		if (mq.addEventListener) {
+			mq.addEventListener('change', apply);
+			return () => mq.removeEventListener('change', apply);
+		}
+		mq.addListener(apply);
+		return () => mq.removeListener(apply);
+	});
+
+	function handleCellTap(cellDate: DateTime, evts: Event[]) {
+		if (smallScreen) {
+			sheetDate = cellDate;
+			sheetEvents = evts;
+			sheetOpen = true;
+		} else {
+			openDay(cellDate);
+		}
+	}
+
+	function onSheetViewEvents() {
+		if (sheetDate) openOverflow(sheetDate, sheetEvents);
+	}
 </script>
 
 {#each days as day}
@@ -113,7 +149,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	{@const isTodayDate = date === formatDate(today)}
 	{@const isOtherMonth = nextMonth || lastMonth}
 	<div
-		class="group relative min-h-[72px] min-w-0 rounded-lg border p-0.5 transition-colors {isTodayDate
+		class="group relative min-h-[72px] min-w-0 overflow-hidden rounded-lg border p-0.5 transition-colors {isTodayDate
 			? 'border-primary-300 bg-primary-50/40 ring-1 ring-inset ring-primary-200'
 			: isOtherMonth
 				? 'border-slate-100 bg-slate-50/50'
@@ -123,7 +159,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 			type="button"
 			class="absolute inset-0 z-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
 			aria-label="Open {date}"
-			onclick={() => openDay(cellDate)}
+			onclick={() => handleCellTap(cellDate, dayEvents)}
 		></button>
 		<div class="pointer-events-none relative z-10 flex items-center justify-between pl-1.5 pt-0.5 pr-1">
 			<span class="flex h-5 w-5 items-center justify-center text-xs font-semibold {isTodayDate ? 'rounded-full bg-primary-600 text-white' : isOtherMonth ? 'text-slate-400' : 'text-slate-600'}">
@@ -131,6 +167,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 			</span>
 			<div class="flex items-center gap-0.5">
 				{#if !isOtherMonth}
+					<div class="hidden items-center gap-0.5 sm:flex">
 					<button
 						type="button"
 						class="pointer-events-auto -m-1 flex h-5 w-5 items-center justify-center rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 sm:m-0 sm:p-0"
@@ -152,14 +189,15 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 							<path stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />
 						</svg>
 					</a>
+					</div>
 				{/if}
 				{#if isTodayDate}
-					<span class="pr-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-500">today</span>
+					<span class="pr-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-500 whitespace-nowrap">today</span>
 				{/if}
 			</div>
 		</div>
 		<div class="relative z-10 mt-0.5 space-y-[3px] px-0.5 pb-0.5">
-			{#each dayEvents.slice(0, MAX_CHIPS) as event}
+			{#each dayEvents.slice(0, MAX_CHIPS) as event (event.id)}
 				{@const rv = rsvpVisual(event.rsvpStatus)}
 				<button
 					type="button"
@@ -209,11 +247,12 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 					type="button"
 					onclick={(ev) => { ev.stopPropagation(); toggleMonthTask(task); }}
 					disabled={busyTaskId === task.id}
-					class="flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-60 {overdue
+					class="relative flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-60 {overdue
 						? 'border-red-400 text-red-600'
 						: 'border-slate-400'}"
 					title="Click to mark task complete"
 				>
+					<span class="absolute -inset-2" aria-hidden="true"></span>
 					<span class="h-3 w-3 shrink-0 rounded-full border-2 {overdue ? 'border-red-400' : 'border-slate-300'}"></span>
 					<span class="truncate">{task.title}</span>
 					{#if task.recurrenceFrequency}
@@ -263,3 +302,13 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	{calendars}
 	onEventClick={handleOverflowEventClick}
 />
+
+<!-- Mobile day-action sheet -->
+{#if sheetDate}
+	<DayActionSheet
+		date={sheetDate}
+		open={sheetOpen}
+		onAdd={createAt}
+		onViewEvents={onSheetViewEvents}
+	/>
+{/if}

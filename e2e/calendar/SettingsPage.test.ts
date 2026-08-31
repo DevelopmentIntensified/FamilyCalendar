@@ -47,60 +47,79 @@ test.afterEach(async () => {
 	}
 });
 
-test.describe('Settings Page - Ad Consent', () => {
+test.describe('Settings Page - Profile', () => {
 	test.beforeEach(async ({ page }) => {
 		await loginWithSession(page, testEmail);
-		await page.goto('/calendar/settings');
+		await page.goto('/account');
+		await page.waitForLoadState('networkidle');
 	});
 
-	test('displays ad preferences section', async ({ page }) => {
-		await expect(page.locator('h2:has-text("Ad Preferences")')).toBeVisible();
+	test('displays profile section with name fields', async ({ page }) => {
+		await expect(page.locator('h1:has-text("Account Settings")')).toBeVisible();
+		await expect(page.getByLabel('First Name')).toBeVisible();
+		await expect(page.getByLabel('Last Name')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Update Profile' })).toBeVisible();
 	});
 
-	test('shows ads as events toggle', async ({ page }) => {
-		const toggle = page.locator('input[name="showAdsAsEvents"]');
-		await expect(toggle).toBeVisible();
-	});
-
-	test('shows ad markers toggle', async ({ page }) => {
-		const toggle = page.locator('input[name="showAdMarkers"]');
-		await expect(toggle).toBeVisible();
-	});
-
-	test('shows personalized ads toggle', async ({ page }) => {
-		const toggle = page.locator('input[name="personalizedAds"]');
-		await expect(toggle).toBeVisible();
-	});
-
-	test.describe('privacy information', () => {
-		test('has privacy policy link', async ({ page }) => {
-			await expect(page.locator('a[href="/privacy"]').first()).toBeVisible();
-		});
+	test('profile fields prefilled with user info', async ({ page }) => {
+		await expect(page.getByLabel('First Name')).toHaveValue('test');
+		await expect(page.getByLabel('Last Name')).toHaveValue('settings');
 	});
 });
 
-test.describe('Settings Page - Upgrade Prompts', () => {
+test.describe('Settings Page - Calendar Settings', () => {
 	test.beforeEach(async ({ page }) => {
 		await loginWithSession(page, testEmail);
-		await page.goto('/calendar/settings');
+		await page.goto('/account');
+		await page.waitForLoadState('networkidle');
+		await page.locator('a[href="#calendar"]').click();
+		await expect(page.getByRole('heading', { name: 'Calendar Settings' })).toBeVisible();
 	});
 
-	test('displays family master section', async ({ page }) => {
-		await expect(page.locator('h2:has-text("Family Master")')).toBeVisible();
+	test('displays calendar settings section', async ({ page }) => {
+		await expect(page.getByLabel('Week Starts On')).toBeVisible();
+		await expect(page.getByLabel('Time Zone')).toBeVisible();
+		await expect(page.getByLabel('Default View')).toBeVisible();
+		await expect(page.getByLabel('Default Calendar')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Save Calendar Settings' })).toBeVisible();
 	});
 
-	test('has upgrade button linking to pricing', async ({ page }) => {
-		const upgradeButton = page.locator('a[href="/pricing"]').first();
-		await expect(upgradeButton).toBeVisible();
+	test('shows smart event creation toggle', async ({ page }) => {
+		await expect(page.locator('input[name="autoParseEventDetails"]')).toBeVisible();
 	});
 
-	test('has annual plan option', async ({ page }) => {
-		const annualButton = page.locator('a[href="/pricing?plan=annual"]');
-		await expect(annualButton).toBeVisible();
+	test('shows daily verse and translation settings', async ({ page }) => {
+		await expect(page.locator('input[name="showDailyVerse"]')).toBeVisible();
+		await expect(page.getByLabel('Translation')).toBeVisible();
 	});
 
-	test('has lifetime plan option', async ({ page }) => {
-		const lifetimeButton = page.locator('a[href="/pricing?plan=lifetime"]');
-		await expect(lifetimeButton).toBeVisible();
+	test('shows dashboard module toggles', async ({ page }) => {
+		await expect(page.locator('text=Dashboard modules')).toBeVisible();
+		await expect(page.locator('input[name="module_verse"]')).toBeVisible();
+		await expect(page.locator('input[name="module_glance"]')).toBeVisible();
+	});
+});
+
+test.describe('Settings Page - Subscription', () => {
+	test.beforeEach(async ({ page }) => {
+		await loginWithSession(page, testEmail);
+		await page.goto('/account');
+		await page.waitForLoadState('networkidle');
+		await page.locator('a[href="#subscription"]').click();
+		await expect(page.locator('#subscription')).toBeVisible();
+	});
+
+	test('shows current plan', async ({ page }) => {
+		await expect(page.locator('text=Current Plan')).toBeVisible();
+		await expect(page.locator('text=You\'re on the Free plan.')).toBeVisible();
+	});
+
+	test('shows family master upgrade section with pricing link', async ({ page }) => {
+		await expect(page.locator('text=Family Master')).toBeVisible();
+		await expect(page.locator('a[href="/pricing"]')).toBeVisible();
+	});
+
+	test('has join waitlist link', async ({ page }) => {
+		await expect(page.locator('a[href="/checkout?plan=monthly"]')).toBeVisible();
 	});
 });

@@ -30,6 +30,10 @@
 - The `test` branch auto-deploys to https://test.familyplanz.com. After pushing, wait ~1 minute for the deploy before testing.
 - Vercel MCP tools are available (Code Mode): check deploy status (`list_deployments`, `get_deployment`), fetch deployment URLs, and bypass deployment protection (`get_access_to_vercel_url`). Use them when the live site is unreachable or to confirm which commit is deployed.
 
+## Tooling (2026-08-30)
+
+- **Playwright: use Playwright directly** (`npx playwright test`, or `npm test` / the repo's `e2e` script). Do **NOT** use the `playwright-cli` CLI/skill anymore — it is deprecated for this project. (The `.claude/skills/playwright-cli` folder is dead weight; ignore it.)
+
 ## Svelte MCP server
 
 You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:

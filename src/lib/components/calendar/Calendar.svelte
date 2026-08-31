@@ -13,6 +13,7 @@
 	export let preferedFirstDayOfWeek: string = 'sunday';
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let defaultViewSetting: string = 'monthView';
+	export let initialView: string | undefined = undefined;
 	export let dueTasks: {
 		id: string;
 		title: string;
@@ -38,6 +39,9 @@
 			listView: 'list',
 			dayView: 'day'
 		};
+		if (initialView === 'month' || initialView === 'week' || initialView === 'day' || initialView === 'list') {
+			return initialView;
+		}
 		return map[defaultViewSetting] ?? 'month';
 	})();
 	let previousView: 'month' | 'week' | 'list' = 'month';
@@ -126,7 +130,7 @@
 
 <div class="mb-2 bg-white pt-4">
 	<!-- Modern Header -->
-	<div class="mb-6 flex flex-col items-center gap-3 px-4 sm:flex-row sm:justify-between sm:gap-4">
+	<div class="mb-6 flex flex-col items-center gap-3 px-4 sm:flex-row sm:flex-wrap sm:justify-between sm:gap-x-4 sm:gap-y-2">
 		<div class="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
 			<!-- Nav cluster: Today / prev / next as one joined control -->
 			<div class="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -203,9 +207,9 @@
 		</div>
 
 		<!-- Right cluster: views + actions, one cohesive control row -->
-		<div class="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
+		<div class="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:flex-wrap sm:justify-end">
 			<!-- View Toggle -->
-			<div class="flex items-center gap-1 rounded-xl bg-slate-100 p-1 shadow-sm">
+			<div class="flex min-w-0 items-center gap-1 rounded-xl bg-slate-100 p-1 shadow-sm">
 				{#each views as v}
 					<button
 						onclick={() => changeView(v.id)}
@@ -235,7 +239,7 @@
 			</button>
 
 			<!-- Actions: import · print · settings -->
-			<div class="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white divide-x divide-slate-200 shadow-sm">
+			<div class="flex min-w-0 max-w-full items-center overflow-x-auto overflow-y-hidden rounded-xl border border-slate-200 bg-white divide-x divide-slate-200 shadow-sm">
 				<a
 					href="/calendar/import"
 					class="flex h-10 w-11 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
@@ -258,7 +262,7 @@
 				</a>
 
 				<a
-					href="/calendar/dashboard"
+					href="/calendar/dashboard?date={$currentDate.toISODate()}"
 					class="flex h-10 w-11 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
 					aria-label="Day dashboard"
 					title="Day dashboard"

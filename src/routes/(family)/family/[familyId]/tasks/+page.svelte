@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import MentionInput from '$lib/components/MentionInput.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { parseTaskQuickAdd, TASK_QUICK_ADD_PRIORITY_RE } from '$lib/utils/taskQuickAdd';
 
@@ -231,12 +232,13 @@
 		class="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
 	>
 		<div class="flex flex-col gap-2 sm:flex-row">
-			<input
-				type="text"
-				bind:value={newTitle}
-				placeholder="Add a family task..."
-				class="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-			/>
+			<div class="flex-1">
+				<MentionInput
+					bind:value={newTitle}
+					{members}
+					placeholder="Add a family task..."
+				/>
+			</div>
 			<input
 				type="date"
 				bind:value={newDueDate}

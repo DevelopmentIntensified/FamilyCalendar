@@ -148,14 +148,24 @@ export async function getUserFamilyId(userId: string): Promise<string | null> {
 /** Full roster of a family with user info. Canonical shape. */
 export async function getFamilyRoster(
 	familyId: string
-): Promise<{ userId: string; firstName: string; lastName: string; email: string | null; role: string | null }[]> {
+): Promise<
+	{
+		userId: string;
+		firstName: string;
+		lastName: string;
+		email: string | null;
+		role: string | null;
+		memberType: string | null;
+	}[]
+> {
 	return await db
 		.select({
 			userId: familyMembers.userId,
 			firstName: users.firstName,
 			lastName: users.lastName,
 			email: users.email,
-			role: familyMembers.role
+			role: familyMembers.role,
+			memberType: familyMembers.memberType
 		})
 		.from(familyMembers)
 		.innerJoin(users, eq(familyMembers.userId, users.id))

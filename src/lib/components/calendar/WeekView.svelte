@@ -7,6 +7,7 @@
 import AttendanceBadge from './AttendanceBadge.svelte';
 	import { chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
+	import { layoutTimed } from '$lib/utils/dayViewLayout';
 	import { invalidateAll } from '$app/navigation';
 
 	export let currentDate: Writable<DateTime>;
@@ -121,9 +122,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 </script>
 
 <div class="overflow-x-auto">
-	<!-- Mobile keeps a 700px scroll floor; desktop flexes to the container
-		so no side scrolling is ever needed. -->
-	<div class="min-w-[700px] md:min-w-0">
+	<!-- Phones (<640px) keep a 700px scroll floor; tablets (>=640px) flex to
+		the container so no side scrolling is needed. -->
+	<div class="min-w-[700px] sm:min-w-0">
 	<!-- Week Header -->
 	<div class="grid grid-cols-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
 		<div class="w-14 shrink-0 border-r border-slate-200"></div>
@@ -178,8 +179,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 						onclick={() => toggleWeekTask(task)}
 						disabled={busyTaskId === task.id}
 						title="Click to mark task complete"
-						class="flex w-full items-center gap-1 rounded border border-dashed border-slate-400 bg-slate-50 px-1 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-500 hover:bg-slate-100 disabled:opacity-60"
+						class="relative flex w-full items-center gap-1 rounded border border-dashed border-slate-400 bg-slate-50 px-1 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-500 hover:bg-slate-100 disabled:opacity-60"
 					>
+						<span class="absolute -inset-2" aria-hidden="true"></span>
 						<span class="h-3 w-3 shrink-0 rounded-full border-2 border-slate-300"></span>
 						<span class="truncate">{task.title}</span>
 					</button>
@@ -210,24 +212,28 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 				<div class="w-14 shrink-0"></div>
 				{#each weekDays as wd}
 					{@const dayEvents = getEventsForDay(wd).filter(e => !e.allDay)}
+					{@const laidOut = layoutTimed(
+						[...dayEvents].sort((a, b) => toDate(a.start).getTime() - toDate(b.start).getTime())
+					)}
 					<div class="relative pointer-events-auto transition-colors hover:bg-slate-50/60">
-						{#each dayEvents as event}
-							{@const rv = rsvpVisual(event.rsvpStatus)}
+						{#each laidOut as slot (slot.event.id)}
+							{@const widthPct = (1 / slot.lanes) * 100}
+							{@const rv = rsvpVisual(slot.event.rsvpStatus)}
 							<button
 								type="button"
-								onclick={() => handleEventClick(event)}
-								title={chipTooltip(event, calendarIds)}
-								class="absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer text-left overflow-hidden bg-white {rv?.containerClass ?? ''}"
-								style="top: {getEventTop(event)}%; height: {getEventHeight(event)}%; border-left: 3px solid {event.color || '#94a3b8'}; min-height: 18px;"
+								onclick={() => handleEventClick(slot.event)}
+								title={chipTooltip(slot.event, calendarIds)}
+								class="absolute rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer text-left overflow-hidden bg-white {rv?.containerClass ?? ''}"
+								style="top: {getEventTop(slot.event)}%; height: {getEventHeight(slot.event)}%; left: calc({slot.lane * widthPct}% + 2px); width: calc({widthPct}% - 4px); border-left: 3px solid {slot.event.color || '#94a3b8'}; min-height: 18px;"
 							>
 								<span class="block truncate">
 									{#if rv}
 										<span class="mr-0.5 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}">{rv.icon}</span>
 									{/if}
-									{event.title}
+									{slot.event.title}
 								</span>
 								<span class="block text-[10px] opacity-75 truncate">
-									{formatEventTime(event.start)}{#if event.end} - {formatEventTime(event.end)}{/if}
+									{formatEventTime(slot.event.start)}{#if slot.event.end} - {formatEventTime(slot.event.end)}{/if}
 								</span>
 							</button>
 						{/each}

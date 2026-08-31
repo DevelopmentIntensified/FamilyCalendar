@@ -1,10 +1,18 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
-import { calendars, events, taskCompletions, eventAttendance, type CalendarEvent } from '$lib/server/db/schema';
+import {
+	calendars,
+	events,
+	taskCompletions,
+	eventAttendance,
+	type CalendarEvent,
+	type Meal
+} from '$lib/server/db/schema';
 import { and, desc, eq, inArray, isNotNull, isNull, ne } from 'drizzle-orm';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
+import { getMealsByDate } from '$lib/server/db/actions/meals';
 import {
 	getTasksForUser,
 	getTasksForFamily,
@@ -28,7 +36,25 @@ type RosterMember = {
 	lastName: string;
 	email: string | null;
 	role: string | null;
+	memberType: string | null;
 };
+
+/** One row for the Kids' Schedule card: a day event with child attendees. */
+type KidsScheduleEvent = {
+	id: string;
+	title: string;
+	start: string;
+	end: string | null;
+	allDay: boolean;
+	location: string | null;
+	kids: string[];
+};
+
+/** Coerce a parsed-event time (string | Date | null) to an ISO string. */
+function toIsoString(v: unknown): string | null {
+	if (v instanceof Date) return v.toISOString();
+	return v ? String(v) : null;
+}
 
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
@@ -57,7 +83,8 @@ export const load: PageServerLoad = async (event) => {
 	// module is visible, so hidden-low-priority families don't pay for them.
 	const familySwitches = familyId ? await getFamilyModuleSwitches(familyId) : {};
 	const modules = composeModuleVisibility(familySwitches, userSettings?.hiddenDashboardModules ?? []);
-	const familyModulesVisible = modules.board || modules.memberStrip;
+	const familyModulesVisible =
+		modules.board || modules.memberStrip || modules.kids || modules.meals;
 
 	// Overdue Recurring Tasks stick to today first (cursor v3), so "today"
 	// surfaces the same pinned occurrences the calendar would.
@@ -120,7 +147,9 @@ export const load: PageServerLoad = async (event) => {
 	);
 
 	// Family roster + per-member status for the Member Strip, plus the
-	// attendance join for the "in an event today" dot.
+	// attendance join for the "in an event today" dot. Attendance rows are
+	// keyed by the master event id, so the join uses masterId (occurrences
+	// of a series share the master's attendance).
 	let familyMembers: RosterMember[] = [];
 	let memberStatus: {
 		userId: string;
@@ -129,9 +158,15 @@ export const load: PageServerLoad = async (event) => {
 		openTasksToday: number;
 		attendingToday: boolean;
 	}[] = [];
+	// Kids' Schedule: the viewed day's family events with a Child attendee
+	// (memberType='child', RSVP not declined) — decision 7.
+	let kidsSchedule: KidsScheduleEvent[] = [];
 	if (familyId && familyModulesVisible) {
 		familyMembers = await getFamilyRoster(familyId);
-		const familyEventIds = dayEvents.filter((e) => e.source === 'family').map((e) => e.id);
+		const childMembers = familyMembers.filter((m) => m.memberType === 'child');
+		const familyEventIds = dayEvents
+			.filter((e) => e.source === 'family')
+			.map((e) => e.masterId ?? e.id);
 		const attendanceRows = familyEventIds.length
 			? await db
 					.select({ userId: eventAttendance.userId })
@@ -159,6 +194,57 @@ export const load: PageServerLoad = async (event) => {
 				attendingToday: attending.has(m.userId)
 			};
 		});
+
+		if (modules.kids && childMembers.length > 0) {
+			const childIds = new Set(childMembers.map((m) => m.userId));
+			const childNameByUserId = new Map(
+				childMembers.map((m) => [m.userId, m.firstName.trim() || m.userId])
+			);
+			const kidsAttendance = familyEventIds.length
+				? await db
+						.select({
+							eventId: eventAttendance.eventId,
+							userId: eventAttendance.userId
+						})
+						.from(eventAttendance)
+						.where(
+							and(
+								inArray(eventAttendance.eventId, familyEventIds),
+								inArray(eventAttendance.userId, [...childIds]),
+								ne(eventAttendance.status, 'declined')
+							)
+						)
+				: [];
+			const kidsByEvent = new Map<string, string[]>();
+			for (const row of kidsAttendance) {
+				if (!row.userId || !childIds.has(row.userId)) continue;
+				const list = kidsByEvent.get(row.eventId) ?? [];
+				// Dedupe by userId so two children sharing a first name don't collapse.
+				if (!list.includes(row.userId)) list.push(row.userId);
+				kidsByEvent.set(row.eventId, list);
+			}
+			kidsSchedule = dayEvents
+				.filter((e) => e.source === 'family' && kidsByEvent.has(e.masterId ?? e.id))
+				.map((e) => ({
+					id: e.id,
+					title: e.title,
+					start: toIsoString(e.start) ?? '',
+					end: toIsoString(e.end),
+					allDay: e.allDay,
+					location: e.location ?? null,
+					kids: (kidsByEvent.get(e.masterId ?? e.id) ?? []).map(
+						(userId) => childNameByUserId.get(userId) ?? userId
+					)
+				}));
+		}
+	}
+
+	// Meals for the viewed day, keyed by the day's 'YYYY-MM-DD' label in the
+	// viewer's zone (decision 12). Family module — hidden without a family.
+	const dateKey = dayStart.toFormat('yyyy-MM-dd');
+	let meals: Meal[] = [];
+	if (familyId && modules.meals) {
+		meals = await getMealsByDate(familyId, dateKey);
 	}
 
 	// Top-3 ranking: mine-first → priority → overdue → due-today → next,
@@ -197,6 +283,7 @@ export const load: PageServerLoad = async (event) => {
 	return {
 		zone,
 		dayISO: dayStartIso,
+		dateKey,
 		isToday,
 		meId: userId,
 		userSettings,
@@ -209,6 +296,8 @@ export const load: PageServerLoad = async (event) => {
 		dayEvents,
 		top3,
 		glance: { doneToday: doneForDay, openToday: openForDay, weekStreak: streak.current },
-		dailyVerse
+		dailyVerse,
+		kidsSchedule,
+		meals
 	};
 };

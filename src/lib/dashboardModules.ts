@@ -9,7 +9,9 @@ export const DASHBOARD_MODULES = [
 	{ id: 'glance', label: 'Day at a Glance', scope: 'personal' },
 	{ id: 'top3', label: 'Top 3 Priorities', scope: 'personal' },
 	{ id: 'board', label: 'Family Task Board', scope: 'family' },
-	{ id: 'memberStrip', label: 'Family Member Strip', scope: 'family' }
+	{ id: 'memberStrip', label: 'Family Member Strip', scope: 'family' },
+	{ id: 'kids', label: "Kids' Schedule", scope: 'family' },
+	{ id: 'meals', label: 'Meals', scope: 'family' }
 ] as const;
 
 export type DashboardModuleId = (typeof DASHBOARD_MODULES)[number]['id'];

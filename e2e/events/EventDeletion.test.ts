@@ -5,7 +5,6 @@ import { createCode, deleteCodesByEmail } from '../../src/lib/server/db/actions/
 import { db } from '../../src/lib/server/db';
 import { calendars, users, events } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { EventPage } from '../pageObjects/event';
 import { createNewUser } from '../../src/lib/server/utils/createNewUser';
 import { createEvent } from '../../src/lib/server/db/actions/events';
 import { getUserCalendar } from '../../src/lib/server/db/actions/calendar';
@@ -27,7 +26,7 @@ test.beforeEach(async () => {
 		await deleteUser(existingUser[0].id);
 		await deleteCodesByEmail(email);
 	}
-	let user = await createNewUser(firstName, lastName, email);
+	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
 	const uniqueCode = Math.random().toString(36).substring(2, 10);
 	await createCode({
@@ -40,10 +39,17 @@ test.beforeEach(async () => {
 	});
 
 	const userCalendar = await getUserCalendar(uid);
+	// A +2h/+3h offset run late at night spills into tomorrow, so the event
+	// vanishes from the calendar's "today" view (fresh users default to day
+	// view) and the test flakes after ~21:00. Clamp the base to noon so the
+	// event always lands on today, mirroring EventCreation's local-date input.
 	const now = new Date();
+	if (now.getHours() + 3 > 23) {
+		now.setHours(12, 0, 0, 0);
+	}
 	now.setHours(now.getHours() + 2);
-	const end = new Date();
-	end.setHours(end.getHours() + 3);
+	const end = new Date(now);
+	end.setHours(end.getHours() + 1);
 
 	const created = await createEvent({
 		title: 'Event To Delete',
@@ -69,8 +75,6 @@ test.afterEach(async () => {
 });
 
 test('Event Deletion', async ({ page }) => {
-	const eventPage = new EventPage(page);
-
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(email);
 		await page.context().addCookies([{
@@ -84,22 +88,32 @@ test('Event Deletion', async ({ page }) => {
 		}]);
 	});
 
-	await test.step('Navigate to event page', async () => {
+	await test.step('Open the event detail modal from the calendar', async () => {
+		// The ?edit=<eventId> deep link 500s, so use the real user flow:
+		// navigate to the calendar and click the event chip on the day grid.
 		await page.goto('/calendar');
-		await page.click(`a[href="/calendar/event/${eventId}"]`);
 		await page.waitForLoadState('networkidle');
+		await page.getByRole('button', { name: 'Event To Delete' }).first().click();
+		await expect(page.getByRole('button', { name: 'Delete event' })).toBeVisible();
 	});
 
 	await test.step('Click delete button', async () => {
-		await eventPage.deleteButton.click();
+		await page.getByRole('button', { name: 'Delete event' }).click();
+		await expect(page.locator('text=Delete this event?')).toBeVisible();
 	});
 
 	await test.step('Confirm deletion', async () => {
-		await eventPage.confirmDeleteButton.click();
-		await page.waitForURL('/calendar', { timeout: 15000 });
+		await page.locator('div.border-red-200 button:has-text("Delete")').click();
+		// The modal closes once the delete API call succeeds and data refreshes.
+		await expect(page.getByRole('button', { name: 'Delete event' })).not.toBeVisible();
 	});
 
 	await test.step('Verify event no longer appears', async () => {
-		await expect(page.getByText('Event To Delete')).not.toBeVisible();
+		await expect(page.getByRole('button', { name: /Event To Delete/ })).not.toBeVisible();
+	});
+
+	await test.step('Verify event deleted from the database', async () => {
+		const userEvents = await db.select().from(events).where(eq(events.ownerId, uid));
+		expect(userEvents.some((e) => e.id === eventId)).toBe(false);
 	});
 });

@@ -118,14 +118,16 @@ export const load: PageServerLoad = async (event) => {
 	const showAds = hasAdConsent && (userSettings?.showAdsAsEvents ?? false);
 	let adEventsData: CalendarEvent[] = [];
 
+	const userZone = await getUserZone(userId);
+
 	if (showAds) {
-		const now = zonedNow(await getUserZone(userId));
+		const now = zonedNow(userZone);
 		adEventsData = await getAdEventsForUser(userId, now.month, now.year);
 	}
 
 	// Open tasks with due dates render as distinct chips on month-view days.
 	// Overdue Recurring Tasks first stick to today (cursor v3).
-	await syncRecurringCursors(userId, familyId, await getUserZone(userId));
+	await syncRecurringCursors(userId, familyId, userZone);
 	const allTasks = await getTasksForUser(userId, familyId);
 	const dueTasks = allTasks
 		.filter((t) => t.dueDate && !t.completedAt)

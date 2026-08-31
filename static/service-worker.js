@@ -122,7 +122,10 @@ self.addEventListener('notificationclick', (event) => {
 				includeUncontrolled: true
 			});
 			const client = clientList[0];
-			if (client && 'focus' in client) {
+			if (client) {
+				if ('navigate' in client) {
+					await client.navigate(link);
+				}
 				await client.focus();
 			} else {
 				await self.clients.openWindow(link);

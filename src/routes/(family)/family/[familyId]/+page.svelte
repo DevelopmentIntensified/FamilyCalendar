@@ -75,6 +75,7 @@
 			{#if showSettings}
 				<div class="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-5">
 					<h3 class="mb-4 text-lg font-semibold text-slate-900">Family Settings</h3>
+					{#if isAdmin}
 					<form
 						method="POST"
 						action="?/updateFamily"
@@ -127,6 +128,7 @@
 							</button>
 						</div>
 					</form>
+					{/if}
 
 					{#if isAdmin}
 						<div class="mt-6 border-t border-slate-200 pt-5">
@@ -189,11 +191,37 @@
 										{member.firstName?.[0] || member.email?.[0] || '?'}
 									</div>
 									<div>
-										<p class="font-medium text-slate-900">{member.firstName} {member.lastName}</p>
+										<p class="font-medium text-slate-900">{([member.firstName, member.lastName].filter(Boolean).join(' ') || member.email || 'Family member')}</p>
 										<p class="text-sm text-slate-500">{member.email}</p>
 									</div>
 								</div>
 								<div class="flex items-center gap-2">
+									{#if isAdmin}
+										<form
+											method="POST"
+											action="?/setMemberType"
+											use:enhance={() => {
+												return async ({ result, update }) => {
+													await update();
+													await invalidateAll();
+												};
+											}}
+											title="Member type (profile label — parent, child, or member)"
+										>
+											<input type="hidden" name="userId" value={member.userId} />
+											<select
+												name="memberType"
+												value={member.memberType ?? 'member'}
+												on:change={(e) => e.currentTarget.form?.requestSubmit()}
+												aria-label="Member type for {member.firstName}"
+												class="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-600"
+											>
+												<option value="parent">Parent</option>
+												<option value="child">Child</option>
+												<option value="member">Member</option>
+											</select>
+										</form>
+									{/if}
 									{#if editingRole === member.userId}
 										<form
 											method="POST"

@@ -38,7 +38,7 @@
 			</a>
 			<a
 				href="/calendar/dashboard"
-				class="h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 {data.isToday
+				class="flex h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 {data.isToday
 					? 'pointer-events-none opacity-50'
 					: ''}"
 				aria-label="Go to today"
@@ -56,6 +56,13 @@
 				</svg>
 			</a>
 		</nav>
+		<a
+			href={`/calendar?date=${dayDt.toISODate()}&view=day`}
+			class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+			aria-label="Open day view for {dateLabel}"
+		>
+			Open Day View
+		</a>
 		<a
 			href={backToCalendarHref}
 			class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
@@ -77,5 +84,8 @@
 		memberStatus={data.memberStatus}
 		familyTasks={data.familyTasks}
 		familyMembers={data.familyMembers}
+		kidsSchedule={data.kidsSchedule}
+		meals={data.meals}
+		dateKey={data.dateKey}
 	/>
 </div>

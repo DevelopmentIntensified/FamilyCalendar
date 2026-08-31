@@ -66,7 +66,8 @@ async function loginAndNavigateToAccount(page: import('@playwright/test').Page) 
 	await page.waitForURL('/calendar', { timeout: 20000 });
 	await page.waitForLoadState('networkidle');
 
-	await page.getByRole('link', { name: 'Account', exact: true }).click();
+	await page.locator('[data-testid="profile-dropdown-container"] button').click();
+	await page.locator('a[href="/account"]').click();
 	await page.waitForURL('/account', { timeout: 20000 });
 	await page.waitForLoadState('networkidle');
 }

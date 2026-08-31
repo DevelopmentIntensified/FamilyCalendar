@@ -138,4 +138,12 @@
 			{/each}
 		</ol>
 	{/if}
+	<div class="mt-3 text-right">
+		<a
+			href="/calendar/tasks"
+			class="text-xs font-semibold text-primary-600 hover:text-primary-700 hover:underline"
+		>
+			View all tasks →
+		</a>
+	</div>
 </div>

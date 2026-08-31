@@ -4,15 +4,21 @@ import { isDashboardModule } from '$lib/dashboardModules';
 
 describe('isDashboardModule', () => {
 	it('accepts every canonical module id', () => {
-		expect(isDashboardModule('verse')).toBe(true);
-		expect(isDashboardModule('glance')).toBe(true);
-		expect(isDashboardModule('top3')).toBe(true);
-		expect(isDashboardModule('board')).toBe(true);
-		expect(isDashboardModule('memberStrip')).toBe(true);
+		for (const id of [
+			'verse',
+			'glance',
+			'top3',
+			'board',
+			'memberStrip',
+			'kids',
+			'meals'
+		]) {
+			expect(isDashboardModule(id)).toBe(true);
+		}
 	});
 
 	it('rejects unknown ids', () => {
-		expect(isDashboardModule('kids')).toBe(false);
+		expect(isDashboardModule('widget')).toBe(false);
 		expect(isDashboardModule('')).toBe(false);
 		expect(isDashboardModule('BOARD')).toBe(false);
 	});
@@ -21,7 +27,9 @@ describe('isDashboardModule', () => {
 describe('composeModuleVisibility', () => {
 	const allOn: Record<string, boolean> = {
 		board: true,
-		memberStrip: true
+		memberStrip: true,
+		kids: true,
+		meals: true
 	};
 
 	it('defaults everything to visible', () => {
@@ -31,7 +39,9 @@ describe('composeModuleVisibility', () => {
 			glance: true,
 			top3: true,
 			board: true,
-			memberStrip: true
+			memberStrip: true,
+			kids: true,
+			meals: true
 		});
 	});
 
@@ -39,6 +49,13 @@ describe('composeModuleVisibility', () => {
 		const v = composeModuleVisibility({ board: false }, []);
 		expect(v.board).toBe(false);
 		expect(v.memberStrip).toBe(true);
+	});
+
+	it('kids and meals respect their family master switch', () => {
+		const v = composeModuleVisibility({ kids: false, meals: false }, []);
+		expect(v.kids).toBe(false);
+		expect(v.meals).toBe(false);
+		expect(v.board).toBe(true);
 	});
 
 	it('personal modules ignore family switches entirely', () => {
@@ -65,13 +82,15 @@ describe('composeModuleVisibility', () => {
 	});
 
 	it('ignores unknown entries in the hidden list', () => {
-		const v = composeModuleVisibility({}, ['kids', 'nope']);
+		const v = composeModuleVisibility({}, ['widget', 'nope']);
 		expect(v).toEqual({
 			verse: true,
 			glance: true,
 			top3: true,
 			board: true,
-			memberStrip: true
+			memberStrip: true,
+			kids: true,
+			meals: true
 		});
 	});
 });

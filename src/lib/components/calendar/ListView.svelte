@@ -205,8 +205,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 						type="button"
 						onclick={() => toggleListTask(task)}
 						disabled={busyTaskId === task.id}
-						class="flex w-full items-center gap-4 rounded-xl border border-dashed border-slate-400 bg-slate-50 p-4 text-left transition-colors hover:border-slate-500 hover:bg-slate-100 disabled:opacity-60"
+						class="relative flex w-full items-center gap-4 rounded-xl border border-dashed border-slate-400 bg-slate-50 p-4 text-left transition-colors hover:border-slate-500 hover:bg-slate-100 disabled:opacity-60"
 					>
+						<span class="absolute -inset-2" aria-hidden="true"></span>
 						<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300"></span>
 						<span class="flex min-w-0 flex-1 flex-col gap-1">
 							<span class="block truncate font-medium text-slate-700">{task.title}</span>

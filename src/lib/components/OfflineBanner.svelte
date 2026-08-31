@@ -45,7 +45,7 @@
 
 {#if !online || pendingCount > 0 || syncedCount !== null}
 	<div
-		class="fixed inset-x-0 top-16 z-40 border-b border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900"
+		class="w-full border-b border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900"
 		role="status"
 	>
 		<p>

@@ -11,7 +11,8 @@
 </script>
 
 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-	<h2 class="mb-3 text-sm font-semibold text-slate-900">Today in the Family</h2>
+	<h2 class="text-sm font-semibold text-slate-900">Today in the Family</h2>
+	<p class="mb-3 text-xs text-slate-400">Open tasks &amp; events by member</p>
 	<div class="flex flex-wrap gap-2">
 		{#each members as m (m.userId)}
 			<div
@@ -39,8 +40,17 @@
 						? 'bg-primary-100 text-primary-700'
 						: 'bg-slate-100 text-slate-400'}"
 				>
-					{m.openTasksToday}
+					{m.openTasksToday} open
 				</span>
+				{#if m.attendingToday}
+					<span
+						class="flex items-center gap-1 rounded-full bg-primary-50 px-1.5 py-0.5 text-[11px] font-semibold text-primary-700"
+						title="Has an event today"
+					>
+						<span class="h-1.5 w-1.5 rounded-full bg-primary-500"></span>
+						event
+					</span>
+				{/if}
 			</div>
 		{/each}
 	</div>

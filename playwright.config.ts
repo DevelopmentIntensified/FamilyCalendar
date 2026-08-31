@@ -50,7 +50,13 @@ export default defineConfig({
 	projects: [
 		{
 			name: 'chromium',
-			use: { ...devices['Desktop Chrome'] }
+			use: { ...devices['Desktop Chrome'] },
+			testIgnore: '**/mobile/*'
+		},
+		{
+			name: 'mobile-chromium',
+			use: { ...devices['Pixel 7'] },
+			testMatch: '**/mobile/MobileSmoke.test.ts'
 		}
 	]
 });

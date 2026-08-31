@@ -6,6 +6,8 @@
 	import TopPrioritiesCard from './TopPrioritiesCard.svelte';
 	import FamilyTaskBoardCard from './FamilyTaskBoardCard.svelte';
 	import MemberStrip from './MemberStrip.svelte';
+	import KidsScheduleCard from './KidsScheduleCard.svelte';
+	import MealsCard from './MealsCard.svelte';
 	import EventModal from '$lib/components/calendar/EventModal.svelte';
 
 	export let dateLabel: string;
@@ -47,6 +49,18 @@
 		creatorFirstName?: string | null;
 	}[];
 	export let familyMembers: { userId: string; firstName: string; lastName: string }[];
+	export let kidsSchedule: {
+		id: string;
+		title: string;
+		start: string;
+		end: string | null;
+		allDay: boolean;
+		location: string | null;
+		kids: string[];
+	}[];
+	export let meals: { id: string; kind: string; label: string }[];
+	/** Viewed day as 'YYYY-MM-DD' (user zone) — meals quick-add posts this. */
+	export let dateKey: string;
 	// Per-module visibility (family master switch AND per-user hides). Absent
 	// keys default to visible so the component stays safe when not supplied.
 	export let modules: Record<string, boolean> = {};
@@ -74,9 +88,6 @@
 					{dateLabel}
 					{isToday}
 					events={dayEvents}
-					openToday={glance.openToday}
-					doneToday={glance.doneToday}
-					weekStreak={glance.weekStreak}
 					onEventClick={openEvent}
 				/>
 			{/if}
@@ -92,7 +103,26 @@
 				<MemberStrip members={memberStatus} />
 			{/if}
 			{#if familyId && visible('board')}
-				<FamilyTaskBoardCard tasks={familyTasks} members={familyMembers} meId={meId} familyId={familyId} />
+				<FamilyTaskBoardCard
+					tasks={familyTasks}
+					members={familyMembers}
+					meId={meId}
+					familyId={familyId}
+					doneToday={glance.doneToday}
+					openToday={glance.openToday}
+					weekStreak={glance.weekStreak}
+				/>
+			{/if}
+		</div>
+	{/if}
+
+	{#if familyId && (visible('kids') || visible('meals'))}
+		<div class="grid gap-4 lg:grid-cols-2">
+			{#if familyId && visible('kids')}
+				<KidsScheduleCard events={kidsSchedule} />
+			{/if}
+			{#if familyId && visible('meals')}
+				<MealsCard {meals} {dateKey} />
 			{/if}
 		</div>
 	{/if}

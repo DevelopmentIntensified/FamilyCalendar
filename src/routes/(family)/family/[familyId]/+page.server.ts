@@ -119,6 +119,35 @@ export const actions: Actions = {
 			.where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)));
 		return { success: true };
 	},
+	// Member Type is a profile label ('parent'|'child'|'member'), not a
+	// permission — and this action is admin-only (decision 7). Unlike role,
+	// members cannot change their own label either.
+	setMemberType: async ({ request, params, locals }) => {
+		const formData = await request.formData();
+		const userId = formData.get('userId') as string;
+		const memberType = formData.get('memberType') as string;
+		const familyId = params.familyId;
+
+		if (!userId || !memberType) {
+			return fail(400, { error: 'User ID and member type are required' });
+		}
+
+		if (!['parent', 'child', 'member'].includes(memberType)) {
+			return fail(400, { error: 'Member type must be parent, child, or member' });
+		}
+
+		const roleCheck = await requireMinRole(familyId, locals.user.id, 'admin');
+		if (roleCheck) return roleCheck;
+
+		const target = await getMemberRole(familyId, userId);
+		if (!target) return fail(400, { error: 'Member not found' });
+
+		await db
+			.update(familyMembers)
+			.set({ memberType })
+			.where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)));
+		return { success: true };
+	},
 	updateFamily: async ({ request, params, locals }) => {
 		const formData = await request.formData();
 		const name = formData.get('name') as string;

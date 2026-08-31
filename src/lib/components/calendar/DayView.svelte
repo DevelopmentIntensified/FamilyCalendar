@@ -180,8 +180,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 						onclick={() => toggleDayTask(task)}
 						disabled={busyTaskId === task.id}
 						title="Click to mark task complete"
-						class="flex w-full items-center gap-2 rounded border border-dashed border-slate-400 bg-white px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:border-slate-500 hover:bg-slate-50 disabled:opacity-60"
+						class="relative flex w-full items-center gap-2 rounded border border-dashed border-slate-400 bg-white px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:border-slate-500 hover:bg-slate-50 disabled:opacity-60"
 					>
+						<span class="absolute -inset-2" aria-hidden="true"></span>
 						<span class="h-4 w-4 shrink-0 rounded-full border-2 border-slate-300 transition-colors group-hover:border-slate-500"></span>
 						<span class="truncate">{task.title}</span>
 						{#if task.recurrenceFrequency}

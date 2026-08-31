@@ -121,6 +121,7 @@
 		const result = await subscribeToPush();
 		pushState = await getPushState();
 		pushBusy = false;
+		if (!result.ok) console.error('[push] enable failed:', result.reason);
 		showPushFeedback(
 			result.ok ? 'success' : 'error',
 			result.ok ? 'Push notifications enabled.' : pushFailureText(result.reason)

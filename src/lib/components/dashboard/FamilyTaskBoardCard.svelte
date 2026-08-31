@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import MentionInput from '$lib/components/MentionInput.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
 
@@ -20,6 +21,9 @@
 	export let meId: string;
 	/** Family that created tasks post to when added from the board. */
 	export let familyId: string;
+	export let doneToday: number = 0;
+	export let openToday: number = 0;
+	export let weekStreak: number = 0;
 
 	let quickTitle = '';
 	let busy: string | null = null;
@@ -115,6 +119,20 @@
 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
 	<h2 class="mb-3 text-sm font-semibold text-slate-900">Family Task Board</h2>
 
+	<div class="mb-3 flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+		<span class="text-xs text-slate-500">
+			{doneToday} done today · {openToday} open · {weekStreak > 0
+				? `${weekStreak}-week streak`
+				: 'no streak yet'}
+		</span>
+		<a
+			href="/calendar/tasks"
+			class="shrink-0 text-xs font-semibold text-primary-600 hover:text-primary-700 hover:underline"
+		>
+			View all tasks
+		</a>
+	</div>
+
 	<form
 		onsubmit={(e) => {
 			e.preventDefault();
@@ -122,12 +140,13 @@
 		}}
 		class="mb-3 flex gap-2"
 	>
-		<input
-			type="text"
-			bind:value={quickTitle}
-			placeholder="Add a family task… try &quot;saturday for Dad&quot;"
-			class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-		/>
+		<div class="min-w-0 flex-1">
+			<MentionInput
+				bind:value={quickTitle}
+				{members}
+				placeholder="Add a family task… try &quot;saturday for Dad&quot;"
+			/>
+		</div>
 		<button
 			type="submit"
 			disabled={!quickTitle.trim() || busy === 'new'}

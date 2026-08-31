@@ -219,12 +219,17 @@ export const familyMembers = pgTable(
 		familyId: text('family_id')
 			.notNull()
 			.references(() => families.id, { onDelete: 'cascade' }),
-		role: text('role').default('member')
+		role: text('role').default('member'),
+		// Personal profile label ('parent'|'child'|'member') — NOT a
+		// permission. Powers the Kids' Schedule dashboard module (decision 7).
+		memberType: text('memberType').default('member')
 	},
 	(userFamily) => ({
 		compoundKey: primaryKey({ columns: [userFamily.userId, userFamily.familyId] })
 	})
 );
+
+export type FamilyMember = typeof familyMembers.$inferSelect;
 
 export const familyInviteCodes = pgTable('familyInviteCodes', {
 	code: text('code').notNull().primaryKey(),
@@ -312,6 +317,29 @@ export const dashboardModuleSwitches = pgTable(
 			table.module
 		)
 	})
+);
+
+export const meals = pgTable(
+	'meals',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		familyId: text('familyId')
+			.notNull()
+			.references(() => families.id, { onDelete: 'cascade' }),
+		// 'YYYY-MM-DD' — interpreted in the viewer's zone, matching the
+		// dashboard's day boundary (decision 12).
+		date: text('date').notNull(),
+		// 'breakfast' | 'lunch' | 'dinner' | 'snack'
+		kind: text('kind').notNull(),
+		label: text('label').notNull(),
+		createdBy: text('createdBy').references(() => users.id, { onDelete: 'cascade' }),
+		createdAt: timestamp('createdAt', { withTimezone: true, mode: 'string' })
+			.defaultNow()
+			.notNull()
+	}
 );
 
 export const calendars = pgTable('calendars', {
@@ -605,6 +633,7 @@ export type WaitlistEntry = typeof waitlist.$inferSelect;
 export type UnmatchedPhrase = typeof unmatchedPhrases.$inferSelect;
 export type TaskCompletion = typeof taskCompletions.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+export type Meal = typeof meals.$inferSelect;
 
 /**
  * Web Push (VAPID) subscriptions — no Firebase. One row per
