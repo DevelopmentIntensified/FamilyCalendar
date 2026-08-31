@@ -16,17 +16,6 @@
 		and is deleted after 90 days of inactivity.
 	</p>
 
-	{#if data.conflict}
-		<div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-			<p class="font-semibold">This email already has an account.</p>
-			<p class="mt-1">
-				For safety we never merge automatically.
-				<a href="/login" class="font-medium underline">Log in with {data.email}</a>
-				first — afterwards you can bring your guest calendar over from the account page.
-			</p>
-		</div>
-	{/if}
-
 	{#if form?.success}
 		<div class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
 			Check <strong>{form.email}</strong> for a link to save your calendar. It expires in 15 minutes.

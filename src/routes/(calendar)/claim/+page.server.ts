@@ -1,6 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { getUserByEmail } from '$lib/server/db/actions/users';
 import { issueClaimToken } from '$lib/server/services/claimService';
 import { sendEmail } from '$lib/utils/sendEmail';
 import { getUrl } from '$lib/utils/getUrl';
@@ -13,10 +12,7 @@ export const load: PageServerLoad = async (event) => {
 	if (event.locals.user.email) {
 		return redirect(302, '/calendar');
 	}
-	return {
-		conflict: event.url.searchParams.get('conflict') === '1',
-		email: event.url.searchParams.get('email') || ''
-	};
+	return {};
 };
 
 export const actions: Actions = {
@@ -30,12 +26,9 @@ export const actions: Actions = {
 			return fail(400, { error: 'Please enter a valid email address' });
 		}
 
-		const existingUser = await getUserByEmail(email);
-		if (existingUser) {
-			// Claim Conflict: route through login-then-merge, never silent merge.
-			throw redirect(302, `/claim?conflict=1&email=${encodeURIComponent(email)}`);
-		}
-
+		// Note: we intentionally do NOT block on an already-registered email here.
+		// Ownership is proven by the verification link click; the verify endpoint
+		// then auto-merges the guest's data into that existing account.
 		const token = await issueClaimToken(locals.user.id, email);
 
 		const verifyUrl = `${getUrl()}/claim/verify/${token}`;
