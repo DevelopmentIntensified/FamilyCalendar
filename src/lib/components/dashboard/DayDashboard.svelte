@@ -82,7 +82,7 @@
 	{/if}
 
 	{#if visible('glance') || visible('top3')}
-		<div class="grid gap-4 lg:grid-cols-2">
+		<div class="grid gap-4 md:grid-cols-2">
 			{#if visible('glance')}
 				<TodayGlanceCard
 					{dateLabel}
@@ -98,7 +98,7 @@
 	{/if}
 
 	{#if familyId && (visible('memberStrip') || visible('board'))}
-		<div class="grid gap-4 lg:grid-cols-2">
+		<div class="grid gap-4 md:grid-cols-2">
 			{#if familyId && visible('memberStrip')}
 				<MemberStrip members={memberStatus} />
 			{/if}
@@ -117,7 +117,7 @@
 	{/if}
 
 	{#if familyId && (visible('kids') || visible('meals'))}
-		<div class="grid gap-4 lg:grid-cols-2">
+		<div class="grid gap-4 md:grid-cols-2">
 			{#if familyId && visible('kids')}
 				<KidsScheduleCard events={kidsSchedule} />
 			{/if}

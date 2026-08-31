@@ -164,7 +164,7 @@
 		<div
 			id={listboxId}
 			role="listbox"
-			class="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+			class="absolute left-0 right-0 top-full z-10 mt-1 max-h-[min(16rem,60vh)] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
 		>
 			{#each suggestions as member, i (member.userId)}
 				<button

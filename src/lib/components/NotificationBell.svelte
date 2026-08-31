@@ -173,7 +173,7 @@
 	{#if open}
 		<div
 			transition:slide={{ duration: 150 }}
-			class="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
+			class="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
 		>
 			<p class="border-b border-slate-100 px-4 pb-2 text-sm font-semibold text-slate-900">
 				Notifications

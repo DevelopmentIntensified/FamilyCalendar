@@ -80,10 +80,44 @@
 
 	// If auth flips off while the nav stays mounted, drop the badge.
 	$: if (!isLoggedIn) unreadCount = 0;
+
+	// Hide the fixed nav while the on-screen keyboard is open. We only toggle a
+	// class (never unmount) so a11y/tests still see the nav; pointer events and
+	// paint are suppressed while hidden. Falls back to always visible when
+	// visualViewport isn't available.
+	let keyboardOpen = false;
+	const KEYBOARD_THRESHOLD = 150;
+
+	function syncKeyboard() {
+		const vv = window.visualViewport;
+		if (!vv || typeof vv.height !== 'number' || !window.innerHeight) {
+			keyboardOpen = false;
+			return;
+		}
+		keyboardOpen = window.innerHeight - vv.height > KEYBOARD_THRESHOLD;
+	}
+
+	function onResize() {
+		syncKeyboard();
+	}
+
+	onMount(() => {
+		syncKeyboard();
+		window.visualViewport?.addEventListener('resize', onResize);
+		window.visualViewport?.addEventListener('scroll', onResize);
+		window.addEventListener('resize', onResize);
+		return () => {
+			window.visualViewport?.removeEventListener('resize', onResize);
+			window.visualViewport?.removeEventListener('scroll', onResize);
+			window.removeEventListener('resize', onResize);
+		};
+	});
 </script>
 
 <nav
-	class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-sm md:hidden print:hidden"
+	class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-sm md:hidden print:hidden {keyboardOpen
+		? 'opacity-0 pointer-events-none transition-opacity'
+		: 'transition-opacity'}"
 	aria-label="Primary navigation"
 >
 	<div class="grid grid-cols-5" style="padding-bottom: env(safe-area-inset-bottom)">

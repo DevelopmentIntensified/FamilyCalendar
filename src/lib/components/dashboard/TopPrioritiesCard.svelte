@@ -95,7 +95,7 @@
 	{:else}
 		<ol class="space-y-2">
 			{#each tasks as task, i (task.id)}
-				<li class="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-3">
+				<li class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-3">
 					<span class="w-4 shrink-0 select-none text-center text-xs font-bold text-slate-300">
 						{i + 1}
 					</span>
@@ -120,7 +120,7 @@
 							{dueLabel(task.dueDate)}
 						</span>
 					{/if}
-					<div class="flex shrink-0 items-center gap-0.5" title="Priority">
+					<div class="hidden shrink-0 items-center gap-0.5 sm:flex" title="Priority">
 						{#each PRIORITY_ORDER as p (p)}
 							<button
 								type="button"

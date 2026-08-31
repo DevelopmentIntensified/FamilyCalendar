@@ -58,14 +58,14 @@
 		</nav>
 		<a
 			href={`/calendar?date=${dayDt.toISODate()}&view=day`}
-			class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+			class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 			aria-label="Open day view for {dateLabel}"
 		>
 			Open Day View
 		</a>
 		<a
 			href={backToCalendarHref}
-			class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+			class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 		>
 			Back to Calendar
 		</a>
