@@ -128,7 +128,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		<button
 			type="button"
 			onclick={() => dispatch('back')}
-			class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+			class="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
 			aria-label="Back"
 		>
 			<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

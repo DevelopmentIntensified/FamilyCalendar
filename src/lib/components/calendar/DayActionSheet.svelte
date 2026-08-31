@@ -5,6 +5,7 @@
 	export let open = false;
 	export let onAdd: (date: DateTime) => void = () => {};
 	export let onViewEvents: () => void = () => {};
+	export let onOpenDay: () => void = () => {};
 
 	// Mobile bottom-sheet swipe-dismiss, mirroring EventModal's sheet.
 	let dragging = false;
@@ -48,6 +49,11 @@
 	function viewEvents() {
 		close();
 		onViewEvents();
+	}
+
+	function openDay() {
+		close();
+		onOpenDay();
 	}
 </script>
 
@@ -133,6 +139,19 @@
 						</svg>
 					</span>
 					View this day's events
+				</button>
+
+				<button
+					type="button"
+					onclick={openDay}
+					class="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+				>
+					<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+						</svg>
+					</span>
+					Open Day View
 				</button>
 			</div>
 		</div>

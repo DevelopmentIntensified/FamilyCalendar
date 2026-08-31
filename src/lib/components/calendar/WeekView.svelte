@@ -132,7 +132,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 			<div class="flex-1 border-r border-slate-100 last:border-r-0">
 				<button
 					type="button"
-					class="w-full py-2 text-center hover:bg-slate-100 transition-colors"
+					class="w-full py-2 text-center hover:bg-slate-100 active:bg-slate-200 transition-colors"
 					onclick={() => openDay(wd)}
 					aria-label="Open {wd.toFormat('EEEE, MMMM d')}"
 				>
@@ -161,7 +161,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 					<button
 						type="button"
 						onclick={() => handleEventClick(event)}
-						class="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-xs font-medium transition-opacity hover:opacity-90 cursor-pointer bg-white {rv?.containerClass ?? ''}"
+						class="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-xs font-medium transition-opacity hover:opacity-90 active:opacity-70 cursor-pointer bg-white {rv?.containerClass ?? ''}"
 						style="border-left: 3px solid {event.color || '#94a3b8'}"
 					>
 						{#if rv}
@@ -179,7 +179,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 						onclick={() => toggleWeekTask(task)}
 						disabled={busyTaskId === task.id}
 						title="Click to mark task complete"
-						class="relative flex w-full items-center gap-1 rounded border border-dashed border-slate-400 bg-slate-50 px-1 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-500 hover:bg-slate-100 disabled:opacity-60"
+						class="relative flex w-full items-center gap-1 rounded border border-dashed border-slate-400 bg-slate-50 px-1 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-500 hover:bg-slate-100 active:bg-slate-200 disabled:opacity-60"
 					>
 						<span class="absolute -inset-2" aria-hidden="true"></span>
 						<span class="h-3 w-3 shrink-0 rounded-full border-2 border-slate-300"></span>
@@ -215,7 +215,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 					{@const laidOut = layoutTimed(
 						[...dayEvents].sort((a, b) => toDate(a.start).getTime() - toDate(b.start).getTime())
 					)}
-					<div class="relative pointer-events-auto transition-colors hover:bg-slate-50/60">
+					<div class="relative pointer-events-auto transition-colors hover:bg-slate-50/60 active:bg-slate-100/60">
 						{#each laidOut as slot (slot.event.id)}
 							{@const widthPct = (1 / slot.lanes) * 100}
 							{@const rv = rsvpVisual(slot.event.rsvpStatus)}
@@ -223,8 +223,8 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 								type="button"
 								onclick={() => handleEventClick(slot.event)}
 								title={chipTooltip(slot.event, calendarIds)}
-								class="absolute rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 transition-opacity cursor-pointer text-left overflow-hidden bg-white {rv?.containerClass ?? ''}"
-								style="top: {getEventTop(slot.event)}%; height: {getEventHeight(slot.event)}%; left: calc({slot.lane * widthPct}% + 2px); width: calc({widthPct}% - 4px); border-left: 3px solid {slot.event.color || '#94a3b8'}; min-height: 18px;"
+								class="absolute rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 active:opacity-70 transition-opacity cursor-pointer text-left overflow-hidden bg-white {rv?.containerClass ?? ''}"
+								style="top: {getEventTop(slot.event)}%; height: {getEventHeight(slot.event)}%; left: calc({slot.lane * widthPct}% + 2px); width: calc({widthPct}% - 4px); border-left: 3px solid {slot.event.color || '#94a3b8'}; min-height: 26px;"
 							>
 								<span class="block truncate">
 									{#if rv}

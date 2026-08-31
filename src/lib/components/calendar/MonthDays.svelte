@@ -192,7 +192,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 					</div>
 				{/if}
 				{#if isTodayDate}
-					<span class="pr-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-500 whitespace-nowrap">today</span>
+					<span class="hidden pr-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-500 whitespace-nowrap sm:inline">today</span>
 				{/if}
 			</div>
 		</div>
@@ -206,7 +206,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 					title={selectionMode ? (isSelected(event) ? 'Deselect' : 'Select') : chipTooltip(event, calendars)}
 					class="flex min-h-[26px] w-full items-center gap-1 overflow-hidden rounded-md px-1 py-[3px] text-left text-[11px] font-medium leading-tight transition-colors sm:min-h-0 {isAdEvent(event)
 						? 'border border-amber-300 bg-amber-100'
-						: 'bg-white hover:brightness-95'} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400' : ''} {rv?.containerClass ?? ''}"
+						: 'bg-white hover:brightness-95 active:brightness-90'} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400' : ''} {rv?.containerClass ?? ''}"
 					style={chipStyle(event)}
 				>
 					{#if selectionMode}
@@ -247,7 +247,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 					type="button"
 					onclick={(ev) => { ev.stopPropagation(); toggleMonthTask(task); }}
 					disabled={busyTaskId === task.id}
-					class="relative flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-60 {overdue
+					class="relative flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 active:bg-slate-200 disabled:opacity-60 {overdue
 						? 'border-red-400 text-red-600'
 						: 'border-slate-400'}"
 					title="Click to mark task complete"
@@ -310,5 +310,6 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		open={sheetOpen}
 		onAdd={createAt}
 		onViewEvents={onSheetViewEvents}
+		onOpenDay={() => openDay(sheetDate)}
 	/>
 {/if}

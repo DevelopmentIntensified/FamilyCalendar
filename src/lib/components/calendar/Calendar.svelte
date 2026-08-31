@@ -303,7 +303,7 @@
 		<button
 			onclick={goPrevious}
 			aria-label="Previous period"
-			class="absolute -left-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md opacity-0 transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
+			class="absolute -left-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md opacity-0 transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 sm:flex"
 		>
 			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
@@ -312,7 +312,7 @@
 		<button
 			onclick={goNext}
 			aria-label="Next period"
-			class="absolute -right-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md opacity-0 transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
+			class="absolute -right-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md opacity-0 transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 sm:flex"
 		>
 			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
