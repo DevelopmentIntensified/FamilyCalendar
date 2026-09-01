@@ -9,7 +9,8 @@ import {
 	jsonb,
 	serial,
 	uniqueIndex,
-	unique
+	unique,
+	index
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { generateId } from 'lucia';
@@ -27,7 +28,9 @@ export const users = pgTable('users', {
 	picture: text('picture'),
 	roles: json('roles').default([]).$type<string[]>().notNull(),
 	createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
-	lastActiveAt: timestamp('lastActiveAt', { mode: 'date', withTimezone: true }).defaultNow().notNull(),
+	lastActiveAt: timestamp('lastActiveAt', { mode: 'date', withTimezone: true })
+		.defaultNow()
+		.notNull(),
 	updatedAt: timestamp('updatedAt', { mode: 'date' })
 		.defaultNow()
 		.$onUpdate(() => new Date())
@@ -319,28 +322,23 @@ export const dashboardModuleSwitches = pgTable(
 	})
 );
 
-export const meals = pgTable(
-	'meals',
-	{
-		id: text('id')
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => generateId(15)),
-		familyId: text('familyId')
-			.notNull()
-			.references(() => families.id, { onDelete: 'cascade' }),
-		// 'YYYY-MM-DD' — interpreted in the viewer's zone, matching the
-		// dashboard's day boundary (decision 12).
-		date: text('date').notNull(),
-		// 'breakfast' | 'lunch' | 'dinner' | 'snack'
-		kind: text('kind').notNull(),
-		label: text('label').notNull(),
-		createdBy: text('createdBy').references(() => users.id, { onDelete: 'cascade' }),
-		createdAt: timestamp('createdAt', { withTimezone: true, mode: 'string' })
-			.defaultNow()
-			.notNull()
-	}
-);
+export const meals = pgTable('meals', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	familyId: text('familyId')
+		.notNull()
+		.references(() => families.id, { onDelete: 'cascade' }),
+	// 'YYYY-MM-DD' — interpreted in the viewer's zone, matching the
+	// dashboard's day boundary (decision 12).
+	date: text('date').notNull(),
+	// 'breakfast' | 'lunch' | 'dinner' | 'snack'
+	kind: text('kind').notNull(),
+	label: text('label').notNull(),
+	createdBy: text('createdBy').references(() => users.id, { onDelete: 'cascade' }),
+	createdAt: timestamp('createdAt', { withTimezone: true, mode: 'string' }).defaultNow().notNull()
+});
 
 export const calendars = pgTable('calendars', {
 	id: text('id')
@@ -352,45 +350,55 @@ export const calendars = pgTable('calendars', {
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
-export const eventAttendance = pgTable('eventAttendance', {
-	id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()).default(sql`gen_random_uuid()::text`),
-	eventId: text('event_id')
-		.notNull()
-		.references(() => events.id, { onDelete: 'cascade' }),
-	userId: text('user_id')
-		.references(() => users.id, { onDelete: 'cascade' }),
-	name: text('name'), // For non-user attendees
-	status: text('status').default('undecided'),
-	// Family invitations distinguish members who are expected to attend
-	// (required) from those who may choose (optional). Guests are always
-	// optional. Uninvited members have no row at all.
-	inviteType: text('invite_type').default('optional')
-}, (table) => ({
-	// Unique constraint for user attendees
-	userUnique: uniqueIndex('event_attendance_user_unique')
-		.on(table.eventId, table.userId)
-		.where(sql`user_id IS NOT NULL`),
-	// Unique constraint for named attendees
-	nameUnique: uniqueIndex('event_attendance_name_unique')
-		.on(table.eventId, table.name)
-		.where(sql`name IS NOT NULL`)
-}));
+export const eventAttendance = pgTable(
+	'eventAttendance',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID())
+			.default(sql`gen_random_uuid()::text`),
+		eventId: text('event_id')
+			.notNull()
+			.references(() => events.id, { onDelete: 'cascade' }),
+		userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+		name: text('name'), // For non-user attendees
+		status: text('status').default('undecided'),
+		// Family invitations distinguish members who are expected to attend
+		// (required) from those who may choose (optional). Guests are always
+		// optional. Uninvited members have no row at all.
+		inviteType: text('invite_type').default('optional')
+	},
+	(table) => ({
+		// Unique constraint for user attendees
+		userUnique: uniqueIndex('event_attendance_user_unique')
+			.on(table.eventId, table.userId)
+			.where(sql`user_id IS NOT NULL`),
+		// Unique constraint for named attendees
+		nameUnique: uniqueIndex('event_attendance_name_unique')
+			.on(table.eventId, table.name)
+			.where(sql`name IS NOT NULL`)
+	})
+);
 
-export const aiUsageTracking = pgTable('aiUsageTracking', {
-	userId: text('userId')
-		.notNull()
-		.references(() => users.id, { onDelete: 'cascade' }),
-	month: integer('month').notNull(),
-	year: integer('year').notNull(),
-	aiEventCreationsUsed: integer('aiEventCreationsUsed').default(0).notNull(),
-	createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
-	updatedAt: timestamp('updatedAt', { mode: 'date' })
-		.defaultNow()
-		.$onUpdate(() => new Date())
-		.notNull()
-}, (table) => ({
-	compoundKey: primaryKey({ columns: [table.userId, table.month, table.year] })
-}));
+export const aiUsageTracking = pgTable(
+	'aiUsageTracking',
+	{
+		userId: text('userId')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		month: integer('month').notNull(),
+		year: integer('year').notNull(),
+		aiEventCreationsUsed: integer('aiEventCreationsUsed').default(0).notNull(),
+		createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+		updatedAt: timestamp('updatedAt', { mode: 'date' })
+			.defaultNow()
+			.$onUpdate(() => new Date())
+			.notNull()
+	},
+	(table) => ({
+		compoundKey: primaryKey({ columns: [table.userId, table.month, table.year] })
+	})
+);
 
 export const events = pgTable('events', {
 	id: text('id')
@@ -464,7 +472,8 @@ export const claimTokens = pgTable('claim_tokens', {
 
 export type ClaimToken = typeof claimTokens.$inferSelect;
 
-export const tasks = pgTable('tasks', {	id: text('id')
+export const tasks = pgTable('tasks', {
+	id: text('id')
 		.notNull()
 		.primaryKey()
 		.$defaultFn(() => generateId(15)),
@@ -641,6 +650,35 @@ export const unmatchedPhrases = pgTable(
 		)
 	})
 );
+
+export const bugReports = pgTable(
+	'bugReports',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		// Reporter (nullable if anonymous/guest). FK to users for correlation.
+		userId: text('userId').references(() => users.id, { onDelete: 'set null' }),
+		// Broad area the bug is about (calendar | tasks | account | payments | other)
+		area: text('area').notNull(),
+		description: text('description').notNull(),
+		// Page URL the user was on when they reported, best-effort.
+		url: text('url'),
+		status: text('status').default('open').notNull(),
+		resolvedAt: timestamp('resolvedAt', { mode: 'date' }),
+		createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+		updatedAt: timestamp('updatedAt', { mode: 'date' })
+			.defaultNow()
+			.$onUpdate(() => new Date())
+			.notNull()
+	},
+	(table) => ({
+		statusCreatedIdx: index('bug_reports_status_created_idx').on(table.status, table.createdAt)
+	})
+);
+
+export type BugReport = typeof bugReports.$inferSelect;
 
 export type Family = typeof families.$inferSelect;
 export type FamilyInviteCode = typeof familyInviteCodes.$inferSelect;
