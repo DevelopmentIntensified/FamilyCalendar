@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import MentionInput from '$lib/components/MentionInput.svelte';
+	import TaskQuickAddPreview from '$lib/components/TaskQuickAddPreview.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { parseTaskQuickAdd, TASK_QUICK_ADD_PRIORITY_RE } from '$lib/utils/taskQuickAdd';
+	import { sortByCompletedDesc, sortTasks, type TaskSortKey } from '$lib/utils/taskSort';
 	import { showRecurringCompleteFeedback, showRecurringSkipFeedback } from '$lib/client/taskFeedback';
 
 	export let data: PageData;
@@ -27,6 +30,7 @@
 		userId: string;
 		eventId: string | null;
 		eventTitle?: string | null;
+		createdAt?: string | Date | number | null;
 		tags?: string[];
 	};
 
@@ -37,9 +41,22 @@
 	let adding = false;
 	let busyId: string | null = null;
 	let tagFilter = '';
+	let searchQuery = '';
+	let sortBy: TaskSortKey = 'due';
 
 	$: members = data.members ?? [];
 	$: currentUserId = data.currentUserId;
+
+	onMount(() => {
+		const v = localStorage.getItem('familyplanz:tasksSortBy');
+		if (v === 'due' || v === 'priority' || v === 'created' || v === 'title') sortBy = v;
+		const tf = localStorage.getItem('familyplanz:tagFilter');
+		if (tf !== null) tagFilter = tf;
+	});
+	$: if (typeof localStorage !== 'undefined') {
+		localStorage.setItem('familyplanz:tasksSortBy', sortBy);
+		localStorage.setItem('familyplanz:tagFilter', tagFilter);
+	}
 
 	const FREQ_NOUN: Record<string, string> = {
 		daily: 'day',
@@ -68,8 +85,23 @@
 		if (!due) return '';
 		const dt = new Date(due);
 		if (isNaN(dt.getTime())) return '';
-		return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+		// Long (multi-year) recurring tasks need the year; same-year dates stay short.
+		const opts: Intl.DateTimeFormatOptions =
+			dt.getFullYear() !== new Date().getFullYear()
+				? { month: 'short', day: 'numeric', year: 'numeric' }
+				: { month: 'short', day: 'numeric' };
+		return dt.toLocaleDateString(undefined, opts);
 	}
+
+	/** End-of-today ISO slot — used when a recurrence is typed with no due date. */
+	function endOfDayIso(): string {
+		const d = new Date();
+		d.setHours(23, 59, 0, 0);
+		return d.toISOString();
+	}
+
+	/** Live parse of the title being typed, so chips preview what gets captured. */
+	$: quick = newTitle.trim() ? parseTaskQuickAdd(newTitle, { members }) : null;
 
 	function isOverdue(task: TaskItem): boolean {
 		if (!task.dueDate || task.completedAt) return false;
@@ -95,16 +127,21 @@
 			// "high priority", "for Dad") win over the explicit pickers;
 			// a bare title keeps whatever the pickers say.
 			const parsed = parseTaskQuickAdd(newTitle, { members });
+			// A cadence ("every 2 weeks") with no picked date still needs a cursor.
+			const due =
+				parsed.dueDate ?? inputToIso(newDueDate) ?? (parsed.recurrenceFrequency ? endOfDayIso() : null);
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					title: parsed.title,
-					dueDate: parsed.dueDate ?? inputToIso(newDueDate),
+					dueDate: due,
 					familyId: data.family.id,
 					assignedTo: parsed.assignedTo ?? (newAssignedTo || currentUserId),
 					priority: TASK_QUICK_ADD_PRIORITY_RE.test(newTitle) ? parsed.priority : newPriority,
-					tags: parsed.tags
+					tags: parsed.tags,
+					recurrenceFrequency: parsed.recurrenceFrequency,
+					recurrenceInterval: parsed.recurrenceInterval
 				})
 			});
 			if (res.ok) {
@@ -195,18 +232,41 @@
 			: `every ${noun}`;
 	}
 
-	$: openTasks = (data.tasks as TaskItem[]).filter((t) => !t.completedAt && matchesTagFilter(t));
-	$: completedTasks = (data.tasks as TaskItem[]).filter((t) => t.completedAt && matchesTagFilter(t));
+	function matchesSearch(t: TaskItem): boolean {
+		const q = searchQuery.trim().toLowerCase();
+		if (!q) return true;
+		if (t.title.toLowerCase().includes(q)) return true;
+		if ((t.notes ?? '').toLowerCase().includes(q)) return true;
+		if ((t.tags ?? []).some((g) => g.toLowerCase().includes(q))) return true;
+		if (t.assigneeFirstName || t.assigneeLastName) {
+			if (`${t.assigneeFirstName} ${t.assigneeLastName}`.toLowerCase().includes(q)) return true;
+		}
+		if (t.assignedTo && memberName(t.assignedTo).toLowerCase().includes(q)) return true;
+		return false;
+	}
 
-	// Group open tasks by assignee so everyone sees who's on the hook.
+	$: openTasks = (data.tasks as TaskItem[]).filter(
+		(t) => !t.completedAt && matchesTagFilter(t) && matchesSearch(t)
+	);
+	$: completedTasks = (data.tasks as TaskItem[]).filter(
+		(t) => t.completedAt && matchesTagFilter(t) && matchesSearch(t)
+	);
+	$: sortedOpenTasks = [...openTasks].sort((a, b) => sortTasks(a, b, sortBy));
+	$: sortedCompletedTasks = [...completedTasks].sort(sortByCompletedDesc);
+	$: queryActive = searchQuery.trim().length > 0;
+	$: filterActive = tagFilter.trim().length > 0 || queryActive;
+
+	// Group sorted open tasks by assignee so everyone sees who's on the hook.
 	// Legacy unassigned rows fall into their own bucket.
 	$: groupedIds = new Set(byAssignee.flatMap((g) => g.tasks.map((t) => t.id)));
-	$: unassignedTasks = openTasks.filter((t) => !groupedIds.has(t.id));
+	$: unassignedTasks = sortedOpenTasks.filter((t) => !groupedIds.has(t.id));
 
 	$: byAssignee = members
 		.map((m) => ({
 			member: m,
-			tasks: openTasks.filter((t) => t.assignedTo === m.userId && t.assignmentStatus !== 'declined')
+			tasks: sortedOpenTasks.filter(
+				(t) => t.assignedTo === m.userId && t.assignmentStatus !== 'declined'
+			)
 		}))
 		.filter((g) => g.tasks.length > 0)
 		.sort((a, b) =>
@@ -258,12 +318,13 @@
 					{members}
 					placeholder="Add a family task..."
 				/>
+				<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
 			</div>
 			<input
 				type="date"
 				bind:value={newDueDate}
 				aria-label="Due date"
-				class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-600"
+				class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-600 sm:w-[10.5rem]"
 			/>
 			<select
 				bind:value={newAssignedTo}
@@ -293,14 +354,59 @@
 			</button>
 		</div>
 		<p class="mt-2 text-xs text-slate-400">
-			Try "clean gutters saturday", "high priority pay rent for Dad" — dates, priority and
-			assignees can be typed right in the title. Otherwise tasks go to you (or whoever you pick)
-			and wait for their confirmation.
+			Try "clean gutters saturday", "high priority pay rent for Dad", "every 2 weeks" —
+			dates, priority, repeats and assignees can be typed right in the title. Otherwise
+			tasks go to you (or whoever you pick) and wait for their confirmation.
 		</p>
 	</form>
 
-	<!-- Tag filter -->
-	<div class="mb-4">
+	<!-- Search + sort + tag filter -->
+	<div class="mb-4 space-y-2">
+		<div class="flex flex-col gap-2 sm:flex-row">
+			<div class="relative flex-1">
+				<input
+					type="text"
+					bind:value={searchQuery}
+					placeholder="Search tasks…"
+					aria-label="Search tasks"
+					class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none"
+				/>
+				<svg
+					class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
+				</svg>
+				{#if searchQuery.trim()}
+					<button
+						type="button"
+						onclick={() => (searchQuery = '')}
+						aria-label="Clear search"
+						class="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+					>
+						<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				{/if}
+			</div>
+			<label class="flex items-center gap-2 text-sm text-slate-500">
+				<span class="shrink-0">Sort</span>
+				<select
+					bind:value={sortBy}
+					aria-label="Sort tasks"
+					class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+				>
+					<option value="due">Due date</option>
+					<option value="priority">Priority</option>
+					<option value="created">Created</option>
+					<option value="title">Title A–Z</option>
+				</select>
+			</label>
+		</div>
 		<div class="relative">
 			<svg
 				class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -331,18 +437,22 @@
 				</button>
 			{/if}
 		</div>
-		{#if tagFilter.trim()}
-			<p class="mt-1.5 text-xs text-sky-600">
-				Filtering by <span class="font-medium">#{tagFilter.trim().toLowerCase()}</span>
+		{#if filterActive}
+			<p class="text-xs text-sky-600">
+				{#if tagFilter.trim()}
+					Filtering by <span class="font-medium">#{tagFilter.trim().toLowerCase()}</span>
+					{#if queryActive}·{/if}
+				{/if}
+				{#if queryActive}Searching “{searchQuery.trim()}”{/if}
 			</p>
 		{/if}
 	</div>
 
 	{#if openTasks.length === 0 && completedTasks.length === 0}
-		{#if tagFilter.trim()}
+		{#if filterActive}
 			<div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
-				<p class="text-sm font-medium text-slate-500">No tasks match #<span class="font-semibold">{tagFilter.trim().toLowerCase()}</span></p>
-				<p class="text-sm text-slate-400">Clear the filter to see all tasks</p>
+				<p class="text-sm font-medium text-slate-500">No tasks match your search or filters</p>
+				<p class="text-sm text-slate-400">Clear the search and filter to see all tasks</p>
 			</div>
 		{:else}
 			<div class="rounded-xl border border-dashed border-slate-200 py-16 text-center">
@@ -608,7 +718,7 @@
 			Completed ({completedTasks.length})
 		</h2>
 		<div class="space-y-1.5">
-			{#each completedTasks as task (task.id)}
+			{#each sortedCompletedTasks as task (task.id)}
 				<div class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-slate-50 p-3 active:bg-slate-100">
 					<button
 						type="button"

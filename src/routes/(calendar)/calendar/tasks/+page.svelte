@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import MentionInput from '$lib/components/MentionInput.svelte';
+	import TaskQuickAddPreview from '$lib/components/TaskQuickAddPreview.svelte';
 	import {
 		CATEGORY_META,
 		SMART_EVENT_TEMPLATES,
@@ -12,6 +14,7 @@
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { queueMutation } from '$lib/utils/offline';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
+	import { sortByCompletedDesc, sortTasks, type TaskSortKey } from '$lib/utils/taskSort';
 	import { showRecurringCompleteFeedback, showRecurringSkipFeedback } from '$lib/client/taskFeedback';
 
 	export let data: PageData;
@@ -34,6 +37,7 @@
 		eventId: string | null;
 		eventTitle?: string | null;
 		eventStart?: string | Date | null;
+		createdAt?: string | Date | number | null;
 		tags?: string[];
 	};
 
@@ -44,6 +48,8 @@
 	let busyTemplateId: string | null = null;
 	let actionError = '';
 	let tagFilter = '';
+	let searchQuery = '';
+	let sortBy: TaskSortKey = 'due';
 
 	// Edit dialog
 	const FREQ_OPTIONS = [
@@ -84,6 +90,18 @@
 		if (m) return `${m.firstName} ${m.lastName}`.trim();
 		if (userId === data.user?.id) return 'You';
 		return userId.slice(0, 8);
+	}
+
+	// Remember sort + tag-filter choices across visits (client-only).
+	onMount(() => {
+		const v = localStorage.getItem('familyplanz:tasksSortBy');
+		if (v === 'due' || v === 'priority' || v === 'created' || v === 'title') sortBy = v;
+		const tf = localStorage.getItem('familyplanz:tagFilter');
+		if (tf !== null) tagFilter = tf;
+	});
+	$: if (typeof localStorage !== 'undefined') {
+		localStorage.setItem('familyplanz:tasksSortBy', sortBy);
+		localStorage.setItem('familyplanz:tagFilter', tagFilter);
 	}
 
 	function openEdit(task: TaskItem) {
@@ -208,19 +226,34 @@
 		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === true
 	);
 
-	const PRIORITY_ORDER: Record<string, number> = { high: 0, normal: 1, low: 2 };
-	$: sortedOpenTasks = [...openTasks].sort(
-		(a, b) => (PRIORITY_ORDER[a.priority ?? 'normal'] ?? 1) - (PRIORITY_ORDER[b.priority ?? 'normal'] ?? 1)
-	);
+	$: sortedOpenTasks = [...openTasks].sort((a, b) => sortTasks(a, b, sortBy));
+	$: sortedCompletedTasks = [...completedTasks].sort(sortByCompletedDesc);
+	$: queryActive = searchQuery.trim().length > 0;
+
+	function matchesSearch(t: TaskItem): boolean {
+		const q = searchQuery.trim().toLowerCase();
+		if (!q) return true;
+		if (t.title.toLowerCase().includes(q)) return true;
+		if ((t.notes ?? '').toLowerCase().includes(q)) return true;
+		if ((t.tags ?? []).some((g) => g.toLowerCase().includes(q))) return true;
+		if (t.assigneeFirstName || t.assigneeLastName) {
+			if (`${t.assigneeFirstName} ${t.assigneeLastName}`.toLowerCase().includes(q)) return true;
+		}
+		if (t.assignedTo && memberName(t.assignedTo).toLowerCase().includes(q)) return true;
+		return false;
+	}
 
 	function matchesTagFilter(tags: string[] | undefined): boolean {
 		const q = tagFilter.trim().toLowerCase();
 		if (!q) return true;
 		return (tags ?? []).some((t) => t.toLowerCase().startsWith(q));
 	}
-	$: filteredOpenTasks = sortedOpenTasks.filter((t) => matchesTagFilter(t.tags));
-	$: filteredCompletedTasks = completedTasks.filter((t) => matchesTagFilter(t.tags));
+	$: filteredOpenTasks = sortedOpenTasks.filter((t) => matchesTagFilter(t.tags) && matchesSearch(t));
+	$: filteredCompletedTasks = sortedCompletedTasks.filter(
+		(t) => matchesTagFilter(t.tags) && matchesSearch(t)
+	);
 	$: tagFilterActive = tagFilter.trim().length > 0;
+	$: filterActive = tagFilterActive || queryActive;
 	const PRIORITY_DOT: Record<string, string> = {
 		high: 'bg-red-500',
 		normal: 'bg-slate-300',
@@ -238,8 +271,23 @@
 		if (!due) return '';
 		const dt = new Date(due);
 		if (isNaN(dt.getTime())) return '';
-		return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+		// Long (multi-year) recurring tasks need the year; same-year dates stay short.
+		const opts: Intl.DateTimeFormatOptions =
+			dt.getFullYear() !== new Date().getFullYear()
+				? { month: 'short', day: 'numeric', year: 'numeric' }
+				: { month: 'short', day: 'numeric' };
+		return dt.toLocaleDateString(undefined, opts);
 	}
+
+	/** End-of-today ISO slot — used when a recurrence is typed with no due date. */
+	function endOfDayIso(): string {
+		const d = new Date();
+		d.setHours(23, 59, 0, 0);
+		return d.toISOString();
+	}
+
+	/** Live parse of the title being typed, so chips preview what gets captured. */
+	$: quick = newTitle.trim() ? parseTaskQuickAdd(newTitle, { members: familyRoster }) : null;
 
 	function isOverdue(task: TaskItem): boolean {
 		if (!task.dueDate || task.completedAt) return false;
@@ -252,15 +300,19 @@
 		actionError = '';
 		try {
 			const parsed = parseTaskQuickAdd(newTitle, { members: familyRoster });
+			// A cadence ("every 2 weeks") with no picked date still needs a cursor.
+			const due = parsed.dueDate ?? (newDueDate || null) ?? (parsed.recurrenceFrequency ? endOfDayIso() : null);
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					title: parsed.title,
-					dueDate: parsed.dueDate ?? (newDueDate || null),
+					dueDate: due,
 					priority: parsed.priority,
 					assignedTo: parsed.assignedTo,
-					tags: parsed.tags
+					tags: parsed.tags,
+					recurrenceFrequency: parsed.recurrenceFrequency,
+					recurrenceInterval: parsed.recurrenceInterval
 				})
 			});
 			if (res.ok) {
@@ -440,13 +492,14 @@
 				members={familyRoster}
 				placeholder="Add a task... e.g. #groceries"
 			/>
-			<p class="mt-1 text-xs text-slate-400">Tip: type <span class="font-mono text-slate-500">#tag</span> to tag the task (e.g. <span class="font-mono text-slate-500">#groceries</span>).</p>
+			<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
+			<p class="mt-1 text-xs text-slate-400">Tip: type <span class="font-mono text-slate-500">"every 2 weeks"</span> for a repeat, or <span class="font-mono text-slate-500">#tag</span> to tag (e.g. <span class="font-mono text-slate-500">#groceries</span>).</p>
 		</div>
 		<input
 			type="date"
 			bind:value={newDueDate}
 			aria-label="Due date"
-			class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-600"
+			class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-600 sm:w-[10.5rem]"
 		/>
 		<button
 			type="submit"
@@ -508,35 +561,83 @@
 			</button>
 		</div>
 	{/if}
-	<!-- Tag filter -->
-	<div class="relative mb-4">
-		<input
-			type="text"
-			bind:value={tagFilter}
-			placeholder="Filter by tag…"
-			aria-label="Filter tasks by tag"
-			class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-		/>
-		<svg class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-			<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
-		</svg>
-		{#if tagFilter}
-			<button
-				type="button"
-				onclick={() => (tagFilter = '')}
-				class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-				aria-label="Clear tag filter"
-				title="Clear filter"
-			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+	<!-- Search + sort + tag filter -->
+	<div class="mb-4 space-y-2">
+		<div class="flex flex-col gap-2 sm:flex-row">
+			<div class="relative flex-1">
+				<input
+					type="text"
+					bind:value={searchQuery}
+					placeholder="Search tasks…"
+					aria-label="Search tasks"
+					class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+				/>
+				<svg class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
 				</svg>
-			</button>
-		{/if}
+				{#if searchQuery}
+					<button
+						type="button"
+						onclick={() => (searchQuery = '')}
+						class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+						aria-label="Clear search"
+						title="Clear search"
+					>
+						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				{/if}
+			</div>
+			<label class="flex items-center gap-2 text-sm text-slate-500">
+				<span class="shrink-0">Sort</span>
+				<select
+					bind:value={sortBy}
+					aria-label="Sort tasks"
+					class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+				>
+					<option value="due">Due date</option>
+					<option value="priority">Priority</option>
+					<option value="created">Created</option>
+					<option value="title">Title A–Z</option>
+				</select>
+			</label>
+		</div>
+		<div class="relative">
+			<input
+				type="text"
+				bind:value={tagFilter}
+				placeholder="Filter by tag…"
+				aria-label="Filter tasks by tag"
+				class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+			/>
+			<svg class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+			</svg>
+			{#if tagFilter}
+				<button
+					type="button"
+					onclick={() => (tagFilter = '')}
+					class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+					aria-label="Clear tag filter"
+					title="Clear filter"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			{/if}
+		</div>
 	</div>
-	{#if tagFilterActive}
-		<p class="mb-3 flex items-center gap-1 text-xs font-medium text-sky-600">
-			Filtering by <span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">#{tagFilter.trim().toLowerCase()}</span>
+	{#if filterActive}
+		<p class="mb-3 text-xs font-medium text-sky-600">
+			{#if tagFilterActive}
+				Filtering by <span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">#{tagFilter.trim().toLowerCase()}</span>
+				{#if queryActive}· {/if}
+			{/if}
+			{#if queryActive}
+				Searching “{searchQuery.trim()}”
+			{/if}
 		</p>
 	{/if}
 
@@ -545,8 +646,8 @@
 			<svg class="mb-4 h-14 w-14 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
 			</svg>
-			<p class="text-lg font-medium text-slate-700">{tagFilterActive ? 'No matching tasks' : 'No tasks yet'}</p>
-			<p class="text-sm text-slate-500">{tagFilterActive ? 'Try a different tag or clear the filter' : 'Add your first task above'}</p>
+			<p class="text-lg font-medium text-slate-700">{filterActive ? 'No matching tasks' : 'No tasks yet'}</p>
+			<p class="text-sm text-slate-500">{filterActive ? 'Try a different search or clear the filters' : 'Add your first task above'}</p>
 		</div>
 	{/if}
 

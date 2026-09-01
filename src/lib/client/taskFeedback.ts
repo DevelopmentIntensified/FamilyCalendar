@@ -13,12 +13,16 @@ function freqNoun(freq: string | null | undefined): string {
 	return FREQ_NOUN[freq] ?? freq;
 }
 
-/** Short date label for "Next:". "Sat, Sep 5" style. */
+/** Short date label for "Next:". "Sat, Sep 5" style; year added when not the current year. */
 function shortDate(due: string | Date | null | undefined): string {
 	if (!due) return '';
 	const d = due instanceof Date ? due : new Date(due);
 	if (isNaN(d.getTime())) return '';
-	return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+	const opts: Intl.DateTimeFormatOptions =
+		d.getFullYear() !== new Date().getFullYear()
+			? { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }
+			: { weekday: 'short', month: 'short', day: 'numeric' };
+	return d.toLocaleDateString(undefined, opts);
 }
 
 /**

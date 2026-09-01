@@ -33,6 +33,25 @@ function expectDue(result: { dueDate: string | null }, daysFromNow: number) {
 	expect(due.getMinutes()).toBe(59);
 }
 
+/** Assert a due lands on the same LOCAL calendar day as `date` (still end-of-day). */
+function expectDueOn(result: { dueDate: string | null }, date: Date) {
+	expect(result.dueDate).not.toBeNull();
+	const due = new Date(result.dueDate!);
+	expect(startOfLocalDay(due)).toEqual(startOfLocalDay(new Date(date)));
+	expect(due.getHours()).toBe(23);
+	expect(due.getMinutes()).toBe(59);
+}
+
+/** Assert a parsed cadence (frequency + interval) came out of the title. */
+function expectRecurring(
+	result: { recurrenceFrequency: string | null; recurrenceInterval: number | null },
+	frequency: string,
+	interval: number
+) {
+	expect(result.recurrenceFrequency).toBe(frequency);
+	expect(result.recurrenceInterval).toBe(interval);
+}
+
 describe('parseTaskQuickAdd — due-date phrases (regression, inherited behavior)', () => {
 	it('tomorrow', () => {
 		const r = parseTaskQuickAdd('buy milk tomorrow', { now: NOW });
@@ -334,5 +353,175 @@ describe('parseTaskQuickAdd — #tag parsing (new surface)', () => {
 		const r = parseTaskQuickAdd('#plan', { now: NOW });
 		expect(r.title).toBe('#plan');
 		expect(r.tags).toEqual(['plan']);
+	});
+});
+
+describe('parseTaskQuickAdd — recurrence cadence (new surface)', () => {
+	it.each([
+		// phrase, frequency, interval, cleaned title
+		['buy milk every day', 'daily', 1, 'buy milk'],
+		['buy milk daily', 'daily', 1, 'buy milk'],
+		['feed cat every 2 days', 'daily', 2, 'feed cat'],
+		['gym every other day', 'daily', 2, 'gym'],
+		['laundry weekly', 'weekly', 1, 'laundry'],
+		['clean gutters every week', 'weekly', 1, 'clean gutters'],
+		['take out trash every other week', 'weekly', 2, 'take out trash'],
+		['pay rent every 2 weeks', 'weekly', 2, 'pay rent'],
+		['file taxes monthly', 'monthly', 1, 'file taxes'],
+		['water plants every month', 'monthly', 1, 'water plants'],
+		['deep clean every other month', 'monthly', 2, 'deep clean'],
+		['service car every 3 months', 'monthly', 3, 'service car'],
+		['renew passport every year', 'yearly', 1, 'renew passport'],
+		['test smoke alarms annually', 'yearly', 1, 'test smoke alarms']
+	] as const)('"%s" → %s (interval %i), title "%s"', (phrase, frequency, interval, title) => {
+		const r = parseTaskQuickAdd(phrase, { now: NOW });
+		expect(r.title).toBe(title);
+		expectRecurring(r, frequency, interval);
+		expect(r.dueDate).toBeNull();
+	});
+
+	it("'every friday' implies the next Friday as the due date", () => {
+		const r = parseTaskQuickAdd('take out trash every friday', { now: NOW });
+		expect(r.title).toBe('take out trash');
+		expectRecurring(r, 'weekly', 1);
+		expectDue(r, 7); // Fri today → next Friday
+	});
+
+	it("'every saturday' picks the upcoming Saturday", () => {
+		const r = parseTaskQuickAdd('mow lawn every saturday', { now: NOW });
+		expect(r.title).toBe('mow lawn');
+		expectRecurring(r, 'weekly', 1);
+		expectDue(r, 1); // Fri → Sat
+	});
+
+	it("'every other saturday' is bi-weekly with a due date", () => {
+		const r = parseTaskQuickAdd('every other saturday deep clean', { now: NOW });
+		expect(r.title).toBe('deep clean');
+		expectRecurring(r, 'weekly', 2);
+		expectDue(r, 1);
+	});
+
+	it('cadence can sit mid-title and still strip cleanly', () => {
+		const r = parseTaskQuickAdd('buy milk every 2 weeks', { now: NOW });
+		expect(r.title).toBe('buy milk');
+		expectRecurring(r, 'weekly', 2);
+	});
+
+	it('no cadence keyword ⇒ null frequency/interval and title untouched', () => {
+		const r = parseTaskQuickAdd('buy milk tomorrow', { now: NOW });
+		expect(r.recurrenceFrequency).toBeNull();
+		expect(r.recurrenceInterval).toBeNull();
+		expect(r.title).toBe('buy milk');
+	});
+
+	it('cadence combines with priority, tag and date', () => {
+		const r = parseTaskQuickAdd('high priority buy milk #groceries every 2 weeks tomorrow', {
+			now: NOW
+		});
+		expect(r.title).toBe('buy milk');
+		expect(r.priority).toBe('high');
+		expect(r.tags).toEqual(['groceries']);
+		expectRecurring(r, 'weekly', 2);
+		expectDue(r, 1);
+	});
+});
+
+describe('parseTaskQuickAdd — richer date phrases (new surface)', () => {
+	it("'next monday' keeps the whole phrase off the title", () => {
+		const r = parseTaskQuickAdd('call vet next monday', { now: NOW });
+		expect(r.title).toBe('call vet');
+		expectDue(r, 3); // Fri → Mon
+	});
+
+	it("'next friday' on a Friday rolls to next week", () => {
+		const r = parseTaskQuickAdd('book flight next friday', { now: NOW });
+		expect(r.title).toBe('book flight');
+		expectDue(r, 7);
+	});
+
+	it("'in 3 days'", () => {
+		const r = parseTaskQuickAdd('renew gym in 3 days', { now: NOW });
+		expect(r.title).toBe('renew gym');
+		expectDue(r, 3);
+	});
+
+	it("'in 2 weeks'", () => {
+		const r = parseTaskQuickAdd('pay invoice in 2 weeks', { now: NOW });
+		expect(r.title).toBe('pay invoice');
+		expectDue(r, 14);
+	});
+
+	it("'in a week' counts as 7 days", () => {
+		const r = parseTaskQuickAdd('send reminder in a week', { now: NOW });
+		expect(r.title).toBe('send reminder');
+		expectDue(r, 7);
+	});
+
+	it("'next week' is 7 days out", () => {
+		const r = parseTaskQuickAdd('clean gutters next week', { now: NOW });
+		expect(r.title).toBe('clean gutters');
+		expectDue(r, 7);
+	});
+
+	it("'next month' lands on the same day-of-month", () => {
+		const r = parseTaskQuickAdd('water plants next month', { now: NOW });
+		expect(r.title).toBe('water plants');
+		expectDueOn(r, new Date(2026, 8, 28)); // Sep 28
+	});
+
+	it("'next year'", () => {
+		const r = parseTaskQuickAdd('renew passport next year', { now: NOW });
+		expect(r.title).toBe('renew passport');
+		expectDueOn(r, new Date(2027, 7, 28)); // Aug 28 2027
+	});
+
+	it('month+day later this year stays in the current year', () => {
+		const r = parseTaskQuickAdd('wrap gifts december 25', { now: NOW });
+		expect(r.title).toBe('wrap gifts');
+		expectDueOn(r, new Date(2026, 11, 25));
+	});
+
+	it('month+day already passed bumps to next year', () => {
+		const r = parseTaskQuickAdd('buy gift jan 5', { now: NOW });
+		expect(r.title).toBe('buy gift');
+		expectDueOn(r, new Date(2027, 0, 5));
+	});
+
+	it('explicit year is authoritative even when in the past', () => {
+		const r = parseTaskQuickAdd('clean gutters january 5, 2025', { now: NOW });
+		expect(r.title).toBe('clean gutters');
+		expectDueOn(r, new Date(2025, 0, 5));
+	});
+
+	it('ordinal day forms work', () => {
+		const r = parseTaskQuickAdd('plan party february 14th 2027', { now: NOW });
+		expect(r.title).toBe('plan party');
+		expectDueOn(r, new Date(2027, 1, 14));
+	});
+
+	it("plain 'once a month' stays a literal title (cadence needs every/monthly)", () => {
+		const r = parseTaskQuickAdd('water plants once a month', { now: NOW });
+		expect(r.title).toBe('water plants once a month');
+		expect(r.dueDate).toBeNull();
+		expect(r.recurrenceFrequency).toBeNull();
+	});
+
+	it("plain 'a week' without 'in' is not a date", () => {
+		const r = parseTaskQuickAdd('plan a week long trip', { now: NOW });
+		expect(r.title).toBe('plan a week long trip');
+		expect(r.dueDate).toBeNull();
+	});
+
+	it('richer dates combine with priority, assignee and tags', () => {
+		const ROSTER: TaskQuickAddMember[] = [{ userId: 'u-mom', firstName: 'Mom', lastName: '' }];
+		const r = parseTaskQuickAdd('high priority buy milk for mom #family in 3 days', {
+			now: NOW,
+			members: ROSTER
+		});
+		expect(r.title).toBe('buy milk');
+		expect(r.priority).toBe('high');
+		expect(r.assignedTo).toBe('u-mom');
+		expect(r.tags).toEqual(['family']);
+		expectDue(r, 3);
 	});
 });
