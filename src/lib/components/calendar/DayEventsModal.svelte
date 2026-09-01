@@ -19,7 +19,18 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		onEventClick(event);
 	}
 
-	$: formattedDate = date ? DateTime.fromISO(date).toFormat('EEEE, MMMM d, yyyy') : '';
+	// MonthDays feeds `dateUtils.formatDate()` output ("MM-dd-yyyy"), which
+	// `fromISO` rejects as invalid; accept that format and ISO as a fallback.
+	$: dateTime = parseModalDate(date);
+	$: formattedDate = dateTime?.isValid ? dateTime.toFormat('EEEE, MMMM d, yyyy') : '';
+
+	function parseModalDate(value: string): DateTime | null {
+		if (!value) return null;
+		const iso = DateTime.fromISO(value);
+		if (iso.isValid) return iso;
+		const mmdd = DateTime.fromFormat(value, 'MM-dd-yyyy');
+		return mmdd.isValid ? mmdd : null;
+	}
 
 	function getCalendarName(calendarId: string | null): string {
 		if (!calendarId) return '';

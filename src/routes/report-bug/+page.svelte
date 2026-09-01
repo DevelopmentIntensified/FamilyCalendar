@@ -14,8 +14,9 @@
 		other: 'Something else'
 	};
 
-	let submitted = false;
-	if (form?.ok) submitted = true;
+	// `form` is null on first paint, then refreshed by `use:enhance` after
+	// submit, so `submitted` must be reactive to flip the success view.
+	$: submitted = form?.ok === true;
 
 	// `form` is a union across action branches; only failure branches carry the
 	// echoed inputs, so guard before reading them.
