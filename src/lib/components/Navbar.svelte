@@ -95,6 +95,7 @@
 			{#each navItems as item}
 				<a
 					href={item.href}
+					data-sveltekit-preload-data="hover"
 					class="text-sm font-medium transition-colors
 						{isActive(item.href) ? 'text-primary-600' : 'text-slate-600 hover:text-slate-900'}"
 				>
@@ -256,6 +257,7 @@
 				{#each navItems as item}
 					<a
 						href={item.href}
+						data-sveltekit-preload-data="hover"
 						on:click={closeMenu}
 						class="block rounded-lg px-3 py-2.5 text-base font-medium transition-colors
 							{isActive(item.href) ? 'bg-primary-100 text-primary-700' : 'text-slate-600 hover:bg-slate-100'}"

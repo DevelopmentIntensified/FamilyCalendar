@@ -6,6 +6,7 @@
 	export let onAdd: (date: DateTime) => void = () => {};
 	export let onViewEvents: () => void = () => {};
 	export let onOpenDay: () => void = () => {};
+	export let onClose: () => void = () => {};
 
 	// Mobile bottom-sheet swipe-dismiss, mirroring EventModal's sheet.
 	let dragging = false;
@@ -17,6 +18,7 @@
 		open = false;
 		dragOffset = 0;
 		dragTransition = false;
+		onClose();
 	}
 
 	function onDragStart(e: TouchEvent) {

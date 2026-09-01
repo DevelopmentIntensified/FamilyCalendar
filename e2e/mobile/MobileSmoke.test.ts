@@ -26,7 +26,7 @@ test('mobile smoke: bottom nav, alerts, and task quick-add', async ({ page, test
 		await page.goto('/calendar/tasks');
 		await page.waitForLoadState('networkidle');
 
-		const quickAdd = page.locator('input[placeholder="Add a task..."]');
+		const quickAdd = page.locator('input[placeholder="Add a task... e.g. #groceries"]');
 		await expect(quickAdd).toBeVisible();
 		await quickAdd.fill('Buy groceries');
 		await quickAdd.press('Enter');

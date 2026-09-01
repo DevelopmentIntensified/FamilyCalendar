@@ -90,7 +90,7 @@
 		</div>
 	{/if}
 	{#key pathname}
-		<main class="pt-[calc(4rem+env(safe-area-inset-top))] flex-grow pb-28 md:pb-24 {showTopNotice ? 'mt-10' : ''} print:!pt-0 print:!pb-0 print:!mt-0 print:min-h-0" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
+		<main class="pt-[calc(4rem+env(safe-area-inset-top))] flex-grow pb-28 md:pb-24 {showTopNotice ? 'mt-10' : ''} print:!pt-0 print:!pb-0 print:!mt-0 print:min-h-0" in:fade={{ duration: 100 }} out:fade={{ duration: 50 }}>
 			<slot />
 		</main>
 	{/key}

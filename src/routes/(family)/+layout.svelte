@@ -21,7 +21,7 @@
 	<Navbar isLoggedIn={true} user={data.user} />
 	<OfflineBanner />
 	{#key pathname}
-		<main class="pt-[calc(4rem+env(safe-area-inset-top))] flex-grow pb-28 md:pb-8" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
+		<main class="pt-[calc(4rem+env(safe-area-inset-top))] flex-grow pb-28 md:pb-8" in:fade={{ duration: 100 }} out:fade={{ duration: 50 }}>
 			<slot />
 		</main>
 	{/key}

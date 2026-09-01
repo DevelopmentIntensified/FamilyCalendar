@@ -56,7 +56,7 @@ export default defineConfig({
 		{
 			name: 'mobile-chromium',
 			use: { ...devices['Pixel 7'] },
-			testMatch: '**/mobile/MobileSmoke.test.ts'
+			testMatch: '**/mobile/*.test.ts'
 		}
 	]
 });

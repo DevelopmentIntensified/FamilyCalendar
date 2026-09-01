@@ -99,7 +99,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 
 	let smallScreen = false;
 	onMount(() => {
-		const mq = window.matchMedia('(max-width: 639px)');
+		// Aligned with BottomNav (md:hidden ⇒ shows below 768px) so landscape
+		// phones/small tablets get the day action sheet instead of day-view nav.
+		const mq = window.matchMedia('(max-width: 767px)');
 		const apply = () => (smallScreen = mq.matches);
 		apply();
 		if (mq.addEventListener) {
@@ -180,7 +182,12 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 				{/if}
 			</div>
 		</div>
-		<div class="relative z-10 mt-0.5 space-y-[3px] px-0.5 pb-0.5">
+		<div
+			class="relative z-10 mt-0.5 space-y-[3px] px-0.5 pb-0.5 {smallScreen && !selectionMode
+				? 'pointer-events-none'
+				: ''}"
+			inert={smallScreen && !selectionMode ? true : undefined}
+		>
 			{#each dayEvents.slice(0, MAX_CHIPS) as event (event.id)}
 				{@const rv = rsvpVisual(event.rsvpStatus)}
 				<button
@@ -294,6 +301,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		onAdd={createAt}
 		onViewEvents={onSheetViewEvents}
 		onOpenDay={() => openDay(sheetDate)}
+		onClose={() => (sheetOpen = false)}
 	/>
 {/if}
 

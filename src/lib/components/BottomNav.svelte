@@ -125,6 +125,7 @@
 			{@const on = active?.href === item.href}
 			<a
 				href={item.href}
+				data-sveltekit-preload-data="hover"
 				aria-current={on ? 'page' : undefined}
 				aria-label={item.href === '/calendar/notifications' && unreadCount > 0
 					? `Alerts (${unreadCount} unread)`
