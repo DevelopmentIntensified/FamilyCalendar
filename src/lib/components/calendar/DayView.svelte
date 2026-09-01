@@ -6,7 +6,7 @@
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import EventModal from './EventModal.svelte';
-import AttendanceBadge from './AttendanceBadge.svelte';
+	import AttendanceBadge from './AttendanceBadge.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { rsvpVisual } from '$lib/utils/eventChip';
 	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
@@ -38,7 +38,12 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	$: dayTasks = dueTasks.filter(
 		(t) => t.dueDate && formatDate(toDate(t.dueDate)) === formatDate(selectedDate)
 	);
-	const FREQ_NOUN: Record<string, string> = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' };
+	const FREQ_NOUN: Record<string, string> = {
+		daily: 'day',
+		weekly: 'week',
+		monthly: 'month',
+		yearly: 'year'
+	};
 
 	let selectedTask: CalendarTask | null = null;
 	function openTask(task: CalendarTask) {
@@ -87,7 +92,10 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	onMount(() => {
 		if (!gridBody) return;
 		const targetHour = isToday ? Math.max(0, new Date().getHours() - 1) : 7;
-		gridBody.scrollTop = targetHour * PX_PER_HOUR;
+		// The day view scrolls as one unit with the page (no inner scroll area).
+		// Bring the target hour's row into view via the window.
+		const top = gridBody.getBoundingClientRect().top + window.scrollY + targetHour * PX_PER_HOUR;
+		window.scrollTo({ top: Math.max(0, top - 72), behavior: 'auto' });
 	});
 
 	let selectedEvent: Event | null = null;
@@ -106,13 +114,13 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	}
 </script>
 
-<div>
+<div class="min-w-0 overflow-x-hidden">
 	<!-- Day Header -->
 	<div class="mb-4 flex items-center gap-3 border-b border-slate-200 pb-3">
 		<button
 			type="button"
 			onclick={() => dispatch('back')}
-			class="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+			class="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50"
 			aria-label="Back"
 		>
 			<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -122,7 +130,10 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		<h2 class="text-xl font-semibold text-slate-900 sm:text-2xl">
 			{selectedDate.toFormat('EEEE, MMMM d')}
 			{#if formatDate(selectedDate) === formatDate(today)}
-				<span class="ml-2 rounded-full bg-primary-100 px-2 py-0.5 align-middle text-xs font-medium text-primary-700">Today</span>
+				<span
+					class="ml-2 rounded-full bg-primary-100 px-2 py-0.5 align-middle text-xs font-medium text-primary-700"
+					>Today</span
+				>
 			{/if}
 		</h2>
 	</div>
@@ -136,12 +147,16 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 					<button
 						type="button"
 						onclick={() => handleEventClick(event)}
-						class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 hover:opacity-90 {rv?.containerClass ?? ''}"
+						class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 hover:opacity-90 {rv?.containerClass ??
+							''}"
 						style="border-left: 3px solid {event.color || '#94a3b8'}"
 					>
 						<span class="flex items-center gap-1.5">
 							{#if rv}
-								<span class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none {rv.badgeClass}">{rv.icon} {rv.label}</span>
+								<span
+									class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none {rv.badgeClass}"
+									>{rv.icon} {rv.label}</span
+								>
 							{/if}
 							<span class="truncate">{event.title}</span>
 							{#if event.attendance && event.attendance.invited > 1}
@@ -166,11 +181,17 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 						class="relative flex w-full items-center gap-2 rounded border border-dashed border-slate-400 bg-white px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:border-slate-500 hover:bg-slate-50"
 					>
 						<span class="absolute -inset-2" aria-hidden="true"></span>
-						<span class="h-4 w-4 shrink-0 rounded-full border-2 border-slate-300 transition-colors group-hover:border-slate-500"></span>
+						<span
+							class="h-4 w-4 shrink-0 rounded-full border-2 border-slate-300 transition-colors group-hover:border-slate-500"
+						></span>
 						<span class="truncate">{task.title}</span>
 						{#if task.recurrenceFrequency}
-							<span class="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wide text-purple-500">
-								🔁 {task.recurrenceInterval && task.recurrenceInterval > 1 ? `${task.recurrenceInterval}× ` : ''}{FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}
+							<span
+								class="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wide text-purple-500"
+							>
+								🔁 {task.recurrenceInterval && task.recurrenceInterval > 1
+									? `${task.recurrenceInterval}× `
+									: ''}{FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}
 							</span>
 						{/if}
 					</button>
@@ -181,31 +202,61 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 
 	{#if dayEvents.length === 0 && dayTasks.length === 0}
 		<div class="flex flex-col items-center justify-center py-16 text-center">
-			<svg class="mb-4 h-14 w-14 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+			<svg
+				class="mb-4 h-14 w-14 text-slate-300"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="1.5"
+					d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+				/>
 			</svg>
-			<p class="max-w-xs text-lg font-medium text-slate-700">Nothing scheduled. A free day is a gift — or add something fun.</p>
+			<p class="max-w-xs text-lg font-medium text-slate-700">
+				Nothing scheduled. A free day is a gift — or add something fun.
+			</p>
 		</div>
 	{:else if dayEvents.length > 0}
-		<!-- Hour grid -->
-		<div class="flex max-h-[65vh] overflow-y-auto rounded-xl border border-slate-200" bind:this={gridBody}>
+		<!-- Hour grid (renders full height inline; the page is the one scroller) -->
+		<div
+			class="flex w-full min-w-0 overflow-x-hidden rounded-xl border border-slate-200"
+			bind:this={gridBody}
+		>
 			<!-- Gutter -->
 			<div class="w-14 shrink-0 select-none sm:w-16" aria-hidden="true">
 				{#each Array(24) as _, h}
-					<div class="pr-2 text-right text-[10px] font-medium text-slate-400" style="height: {PX_PER_HOUR}px">
-						<span class="-translate-y-1.5 inline-block">{String(h).padStart(2, '0')}</span>
+					<div
+						class="pr-2 text-right text-[10px] font-medium text-slate-400"
+						style="height: {PX_PER_HOUR}px"
+					>
+						<span class="inline-block -translate-y-1.5">{String(h).padStart(2, '0')}</span>
 					</div>
 				{/each}
 			</div>
 
 			<!-- Grid body -->
-			<div class="relative flex-1 border-l border-slate-200" style="height: {GRID_HEIGHT}px">
+			<div
+				class="relative min-w-0 flex-1 border-l border-slate-200"
+				style="height: {GRID_HEIGHT}px"
+			>
 				{#each Array(24) as _, h}
-					<div class="absolute inset-x-0 border-t border-slate-100 {h % 6 === 0 ? 'border-slate-200' : ''}" style="top: {h * PX_PER_HOUR}px"></div>
+					<div
+						class="absolute inset-x-0 border-t border-slate-100 {h % 6 === 0
+							? 'border-slate-200'
+							: ''}"
+						style="top: {h * PX_PER_HOUR}px"
+					></div>
 				{/each}
 
 				{#if isToday}
-					<div class="pointer-events-none absolute inset-x-0 z-20 flex items-center" style="top: {nowPct}%" aria-hidden="true">
+					<div
+						class="pointer-events-none absolute inset-x-0 z-20 flex items-center"
+						style="top: {nowPct}%"
+						aria-hidden="true"
+					>
 						<span class="-ml-1 h-2 w-2 rounded-full bg-red-500"></span>
 						<span class="h-px flex-1 bg-red-400"></span>
 					</div>
@@ -217,7 +268,8 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 					<button
 						type="button"
 						onclick={() => handleEventClick(slot.event)}
-						class="absolute z-10 overflow-hidden rounded-md border border-slate-200 bg-white px-1.5 py-1 text-left shadow-sm transition-colors hover:brightness-95 {rv?.containerClass ?? ''}"
+						class="absolute z-10 overflow-hidden rounded-md border border-slate-200 bg-white px-1.5 py-1 text-left shadow-sm transition-colors hover:brightness-95 {rv?.containerClass ??
+							''}"
 						style="
 							top: {slot.topPct}%;
 							height: {Math.max(slot.heightPct, (26 / GRID_HEIGHT) * 100)}%;
@@ -227,9 +279,14 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 						"
 						title="{formatEventTime(slot.event.start)} {slot.event.title}"
 					>
-						<span class="flex items-center gap-1 truncate text-[11px] font-semibold leading-tight text-slate-800">
+						<span
+							class="flex items-center gap-1 truncate text-[11px] font-semibold leading-tight text-slate-800"
+						>
 							{#if rv}
-								<span class="mr-0.5 shrink-0 rounded px-1 text-[9px] font-bold leading-3 {rv.badgeClass}">{rv.icon}</span>
+								<span
+									class="mr-0.5 shrink-0 rounded px-1 text-[9px] font-bold leading-3 {rv.badgeClass}"
+									>{rv.icon}</span
+								>
 							{/if}
 							<span class="truncate">{slot.event.title}</span>
 							{#if slot.event.attendance && slot.event.attendance.invited > 1}
@@ -237,10 +294,14 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 							{/if}
 						</span>
 						{#if slot.heightPct >= 4}
-							<span class="block truncate text-[10px] leading-tight text-slate-400">{formatEventTime(slot.event.start)}</span>
+							<span class="block truncate text-[10px] leading-tight text-slate-400"
+								>{formatEventTime(slot.event.start)}</span
+							>
 						{/if}
 						{#if slot.heightPct >= 6 && slot.event.location}
-							<span class="block truncate text-[10px] leading-tight text-slate-400">{slot.event.location}</span>
+							<span class="block truncate text-[10px] leading-tight text-slate-400"
+								>{slot.event.location}</span
+							>
 						{/if}
 					</button>
 				{/each}
