@@ -27,6 +27,11 @@
 		"db:start": "docker compose up",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
+		"deploy:test": "node scripts/deploy.mjs test",
+		"deploy:prod": "node scripts/deploy.mjs prod",
+		"ci:secrets": "node scripts/pull-ci-secrets.mjs",
+		"ci:secrets:preview": "node scripts/pull-ci-secrets.mjs preview",
+		"ci:secrets:prod": "node scripts/pull-ci-secrets.mjs prod",
 		"test-ct": "playwright test -c playwright-ct.config.ts"
 	},
 	"devDependencies": {

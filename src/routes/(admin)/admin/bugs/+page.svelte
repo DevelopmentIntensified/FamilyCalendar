@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
 	import type { BugReportWithReporter } from '$lib/server/db/actions/bugReports';
+	import { formatBugReportsExport, downloadAsTxt, reporterName } from '$lib/admin/export';
 
 	export let data: PageData;
 
@@ -14,9 +15,16 @@
 		other: 'Other'
 	};
 
-	function reporterName(r: BugReportWithReporter): string {
-		if (!r.reporterFirstName && !r.reporterLastName) return 'Anonymous / deleted';
-		return `${r.reporterFirstName ?? ''} ${r.reporterLastName ?? ''}`.trim();
+	let exportOpen = false;
+	$: exportText = formatBugReportsExport(data.open, data.resolved);
+
+	async function copyExport() {
+		try {
+			await navigator.clipboard.writeText(exportText);
+		} catch {
+			const ta = document.querySelector<HTMLTextAreaElement>('#bug-export-text');
+			ta?.select();
+		}
 	}
 
 	function timeLabel(d: Date): string {
@@ -43,6 +51,47 @@
 				Unmatched Phrases
 			</a>
 		</div>
+
+		<div class="mb-6 flex items-center justify-between">
+			<button
+				type="button"
+				on:click={() => (exportOpen = !exportOpen)}
+				class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+			>
+				{exportOpen ? 'Hide export' : 'Export for agent'}
+			</button>
+			{#if exportOpen}
+				<div class="flex gap-2">
+					<button
+						type="button"
+						on:click={copyExport}
+						class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+					>
+						Copy
+					</button>
+					<button
+						type="button"
+						on:click={() =>
+							downloadAsTxt(`bug-reports-${new Date().toISOString().slice(0, 10)}.txt`, exportText)}
+						class="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
+					>
+						Download .txt
+					</button>
+				</div>
+			{/if}
+		</div>
+
+		{#if exportOpen}
+			<div class="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+				<textarea
+					id="bug-export-text"
+					readonly
+					rows="16"
+					class="w-full resize-y bg-slate-50 p-4 font-mono text-xs text-slate-700 focus:outline-none"
+					>{exportText}</textarea
+				>
+			</div>
+		{/if}
 
 		{#if data.open.length === 0}
 			<p

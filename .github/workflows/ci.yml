@@ -1,0 +1,80 @@
+name: CI
+
+# Quality gate for the Git-integrated Vercel deploys.
+#
+#   - push to `test`  -> static gate only (check + unit + build). NO e2e: the
+#                        test branch is iterated on frequently, and we don't
+#                        want a slow e2e run gate-keeping test deploys.
+#   - push to `main`  -> static gate + e2e. E2E runs ONLY against the PREVIEW
+#                        database (staging) — never against prod, to avoid
+#                        mutating production data.
+#   - pull request    -> static gate + e2e against preview.
+#
+# Secrets come from Vercel via scripts/pull-ci-secrets.mjs (namespaced
+# CI_PREVIEW_* / CI_PROD_*). e2e consumes CI_PREVIEW_* only; CI_PROD_* is
+# stored but intentionally never handed to the e2e job.
+on:
+  push:
+    branches: [test, main]
+  pull_request:
+
+jobs:
+  quality-gate:
+    name: check + lint + unit tests + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check (svelte-check)
+        run: npm run check
+
+      - name: Lint / format
+        run: npm run lint
+
+      - name: Unit tests (vitest)
+        run: npm run test:unit -- --run
+
+      - name: Build
+        run: npm run build
+
+  # Runs on PRs and pushes to main — NEVER on push to `test`, and always
+  # against the preview (staging) database so real prod data is never touched.
+  e2e:
+    name: e2e (preview DB)
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    timeout-minutes: 30
+    needs: quality-gate
+    env:
+      DATABASE_URL: ${{ secrets.CI_PREVIEW_DATABASE_URL }}
+      DATABASE_URL_UNPOOLED: ${{ secrets.CI_PREVIEW_DATABASE_URL_UNPOOLED }}
+      RESEND_API_KEY: ${{ secrets.CI_PREVIEW_RESEND_API_KEY }}
+      NOREPLYEMAIL: ${{ secrets.CI_PREVIEW_NOREPLYEMAIL }}
+      EMAILSECRET: ${{ secrets.CI_PREVIEW_EMAILSECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run e2e
+        run: npx playwright test

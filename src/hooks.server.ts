@@ -2,6 +2,13 @@ import { lucia, setSessionCookie } from '$lib/server/auth';
 import { redirect, type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { createAnonymousUser, touchLastActiveAt } from '$lib/server/db/actions/users';
+import { runMigrations } from '$lib/server/db/migrations/runner';
+
+// Apply pending SQL migrations once per cold start, in the background, on
+// whichever environment this code deploys (test or prod). Idempotent + locked.
+if (!process.env.DATABASE_DISABLE_MIGRATIONS) {
+	void runMigrations();
+}
 
 const adminProtectedRoutes = ['admin'];
 const protectedRoutes = ['calendar', 'account', 'claim', ...adminProtectedRoutes];

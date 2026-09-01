@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
 	import type { UnmatchedPhrase } from '$lib/server/db/schema';
+	import { formatUnmatchedPhrasesExport, downloadAsTxt } from '$lib/admin/export';
 
 	export let data: PageData;
 
@@ -9,6 +10,19 @@
 		event_parse: 'Event parse',
 		bulk_edit: 'Bulk edit'
 	};
+
+	let exportOpen = false;
+	$: exportText = formatUnmatchedPhrasesExport(data.phrases, data.resolved);
+
+	async function copyExport() {
+		try {
+			await navigator.clipboard.writeText(exportText);
+		} catch {
+			// Fallback: select the textarea so the user can copy manually.
+			const ta = document.querySelector<HTMLTextAreaElement>('#phrase-export-text');
+			ta?.select();
+		}
+	}
 
 	function groupBySource(phrases: UnmatchedPhrase[]) {
 		const groups = new Map<string, UnmatchedPhrase[]>();
@@ -27,6 +41,50 @@
 		<p class="mb-6 text-sm text-slate-500">
 			Instructions the NLP/regex parsers could not handle. Add patterns for the frequent ones.
 		</p>
+
+		<div class="mb-6 flex items-center justify-between">
+			<button
+				type="button"
+				on:click={() => (exportOpen = !exportOpen)}
+				class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+			>
+				{exportOpen ? 'Hide export' : 'Export for agent'}
+			</button>
+			{#if exportOpen}
+				<div class="flex gap-2">
+					<button
+						type="button"
+						on:click={copyExport}
+						class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+					>
+						Copy
+					</button>
+					<button
+						type="button"
+						on:click={() =>
+							downloadAsTxt(
+								`unmatched-phrases-${new Date().toISOString().slice(0, 10)}.txt`,
+								exportText
+							)}
+						class="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
+					>
+						Download .txt
+					</button>
+				</div>
+			{/if}
+		</div>
+
+		{#if exportOpen}
+			<div class="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+				<textarea
+					id="phrase-export-text"
+					readonly
+					rows="16"
+					class="w-full resize-y bg-slate-50 p-4 font-mono text-xs text-slate-700 focus:outline-none"
+					>{exportText}</textarea
+				>
+			</div>
+		{/if}
 
 		{#each groupBySource(data.phrases) as [source, phrases]}
 			<section class="mb-8">
@@ -49,18 +107,15 @@
 								<tr class="border-t border-slate-100">
 									<td class="px-4 py-2 font-mono text-slate-800">{phrase.phrase}</td>
 									<td class="px-4 py-2">
-										<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium">{phrase.count}</span>
+										<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium"
+											>{phrase.count}</span
+										>
 									</td>
 									<td class="px-4 py-2 text-slate-500">
 										{new Date(phrase.createdAt).toLocaleDateString()}
 									</td>
 									<td class="px-4 py-2 text-right">
-										<form
-											method="POST"
-											action="?/resolve"
-											use:enhance
-											class="inline"
-										>
+										<form method="POST" action="?/resolve" use:enhance class="inline">
 											<input type="hidden" name="id" value={phrase.id} />
 											<button
 												type="submit"

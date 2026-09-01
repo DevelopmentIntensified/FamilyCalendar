@@ -7,6 +7,12 @@ declare global {
 			session: import('$lib/server/auth').SessionValidationResult['session'];
 		}
 	}
+
+	// Allow `import x from './file.sql?raw'` in the bundled migration scripts.
+	module '*.sql?raw' {
+		const content: string;
+		export default content;
+	}
 }
 
 export {};
