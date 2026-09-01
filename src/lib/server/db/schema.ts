@@ -495,6 +495,24 @@ export const tasks = pgTable('tasks', {	id: text('id')
 export type Task = typeof tasks.$inferSelect;
 
 /**
+ * Task tags — many-to-many-ish join keyed by task + lowercase tag name.
+ * Kept as plain text (matching priority/recurrence), deduped on write.
+ * Circle back: a task's tags render as chips and drive tag search/filter.
+ */
+export const taskTags = pgTable(
+	'taskTags',
+	{
+		taskId: text('taskId')
+			.notNull()
+			.references(() => tasks.id, { onDelete: 'cascade' }),
+		name: text('name').notNull()
+	},
+	(taskTag) => ({
+		compoundKey: primaryKey({ columns: [taskTag.taskId, taskTag.name] })
+	})
+);
+
+/**
  * One row per Recurring Task check-off (and per one-off completion).
  * Powers streaks and completion history — tasks.completionCount alone
  * can't answer "when".

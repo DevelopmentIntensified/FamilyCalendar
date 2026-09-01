@@ -10,6 +10,7 @@
 import AttendanceBadge from './AttendanceBadge.svelte';
 	import { chipStyle, chipColor, chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { toDate } from '$lib/utils/eventTime';
+	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
 
 	export let currentDate: DateTime;
 	export let events: Event[];
@@ -18,13 +19,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	export let lastMonth = false;
 	export let calendars: { id: string; name: string; color?: string }[] = [];
 	export let openDay: (date: DateTime) => void = () => {};
-	export let dueTasks: {
-		id: string;
-		title: string;
-		dueDate: Date | string;
-		recurrenceFrequency?: string | null;
-		recurrenceInterval?: number | null;
-	}[] = [];
+	export let dueTasks: CalendarTask[] = [];
 	export let createAt: (date: DateTime) => void = () => {};
 	export let selectionMode: boolean = false;
 	export let selectedIds: string[] = [];
@@ -33,20 +28,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	const MAX_CHIPS = 3;
 	const MAX_TASK_CHIPS = 2;
 
-	let busyTaskId: string | null = null;
-	async function toggleMonthTask(task: { id: string }) {
-		if (busyTaskId) return;
-		busyTaskId = task.id;
-		try {
-			await fetch(`/api/tasks/${task.id}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ toggleComplete: true })
-			});
-			await invalidateAll();
-		} finally {
-			busyTaskId = null;
-		}
+	let selectedTask: CalendarTask | null = null;
+	function openTask(task: CalendarTask) {
+		selectedTask = task;
 	}
 
 	function isSelected(event: Event): boolean {
@@ -245,12 +229,11 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 				{@const overdue = toDate(task.dueDate).getTime() < today.toMillis()}
 				<button
 					type="button"
-					onclick={(ev) => { ev.stopPropagation(); toggleMonthTask(task); }}
-					disabled={busyTaskId === task.id}
-					class="relative flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 active:bg-slate-200 disabled:opacity-60 {overdue
+					onclick={(ev) => { ev.stopPropagation(); openTask(task); }}
+					class="relative flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 active:bg-slate-200 {overdue
 						? 'border-red-400 text-red-600'
 						: 'border-slate-400'}"
-					title="Click to mark task complete"
+					title="View task details"
 				>
 					<span class="absolute -inset-2" aria-hidden="true"></span>
 					<span class="h-3 w-3 shrink-0 rounded-full border-2 {overdue ? 'border-red-400' : 'border-slate-300'}"></span>
@@ -312,4 +295,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		onViewEvents={onSheetViewEvents}
 		onOpenDay={() => openDay(sheetDate)}
 	/>
+{/if}
+
+<!-- Task detail popup -->
+{#if selectedTask}
+	<TaskDetailModal task={selectedTask} onClose={() => (selectedTask = null)} />
 {/if}

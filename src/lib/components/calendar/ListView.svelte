@@ -9,35 +9,19 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	import { chipColor, rsvpVisual } from '$lib/utils/eventChip';
 	import { invalidateAll } from '$app/navigation';
 	import todoList from '$lib/assets/svgs/todo-list-svgrepo-com.svg';
+	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[];
 	export let removeEvent: (id: string) => void;
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
-	export let dueTasks: {
-		id: string;
-		title: string;
-		dueDate: Date | string;
-		recurrenceFrequency?: string | null;
-		recurrenceInterval?: number | null;
-	}[] = [];
+	export let dueTasks: CalendarTask[] = [];
 
 	const FREQ_NOUN: Record<string, string> = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' };
 
-	let busyTaskId: string | null = null;
-	async function toggleListTask(task: { id: string }) {
-		if (busyTaskId) return;
-		busyTaskId = task.id;
-		try {
-			await fetch(`/api/tasks/${task.id}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ toggleComplete: true })
-			});
-			await invalidateAll();
-		} finally {
-			busyTaskId = null;
-		}
+	let selectedTask: CalendarTask | null = null;
+	function openTask(task: CalendarTask) {
+		selectedTask = task;
 	}
 
 	function toDateMs(d: unknown): number {
@@ -203,9 +187,8 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 				{#each dayTasks as task (task.id)}
 					<button
 						type="button"
-						onclick={() => toggleListTask(task)}
-						disabled={busyTaskId === task.id}
-						class="relative flex w-full items-center gap-4 rounded-xl border border-dashed border-slate-400 bg-slate-50 p-4 text-left transition-colors hover:border-slate-500 hover:bg-slate-100 disabled:opacity-60"
+						onclick={() => openTask(task)}
+						class="relative flex w-full items-center gap-4 rounded-xl border border-dashed border-slate-400 bg-slate-50 p-4 text-left transition-colors hover:border-slate-500 hover:bg-slate-100"
 					>
 						<span class="absolute -inset-2" aria-hidden="true"></span>
 						<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300"></span>
@@ -235,4 +218,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		on:close={closeModal}
 		on:delete={handleDelete}
 	/>
+{/if}
+
+<!-- Task detail popup -->
+{#if selectedTask}
+	<TaskDetailModal task={selectedTask} onClose={() => (selectedTask = null)} />
 {/if}

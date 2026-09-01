@@ -4,6 +4,7 @@ import {
 	createTask,
 	getTasksForUser,
 	getTasksForEvent,
+	normalizeTags,
 	TASK_FREQUENCIES
 } from '$lib/server/db/actions/tasks';
 import { TASK_PRIORITIES } from '$lib/server/db/actions/dashboard';
@@ -89,6 +90,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			assignedTo,
 			assignmentStatus,
 			priority,
+			tags: normalizeTags(body.tags),
 			eventId: body.eventId || null,
 			familyId,
 			userId: auth.user.id

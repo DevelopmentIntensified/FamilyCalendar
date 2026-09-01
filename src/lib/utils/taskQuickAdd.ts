@@ -40,6 +40,8 @@ export interface TaskQuickAddResult {
 	priority: TaskPriority;
 	/** Matched roster member's userId, or null when no assignee phrase found. */
 	assignedTo: string | null;
+	/** `#tag` tokens found in the input (lowercased, deduped). */
+	tags: string[];
 }
 
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -49,6 +51,22 @@ export const TASK_QUICK_ADD_DATE_RE =
 
 export const TASK_QUICK_ADD_PRIORITY_RE =
 	/\b(high\s*-?\s*priority|low\s*-?\s*priority|priority\s*[:=]?\s*(high|low)|not\s+urgent|urgent|asap)\b/i;
+
+/** A `#tag` token: `#` followed by word chars and hyphens (e.g. `#groceries`). */
+export const TASK_QUICK_ADD_TAG_RE = /#[\p{L}\p{N}_-]+/gu;
+
+/** Lowercase, strip the leading `#`, dedupe, and sort raw `#tag` matches. */
+export function normalizeQuickAddTags(matches: string[]): string[] {
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const m of matches) {
+		const name = m.replace(/^#/, '').toLowerCase().trim();
+		if (!name || seen.has(name)) continue;
+		seen.add(name);
+		out.push(name);
+	}
+	return out.sort();
+}
 
 /** Strip a matched keyword/phrase out of the original string at its position. */
 function stripMatch(input: string, match: RegExpMatchArray): string {
@@ -174,8 +192,13 @@ export function parseTaskQuickAdd(raw: string, opts: TaskQuickAddOptions = {}): 
 		}
 	}
 
+	// 4. `#tag` tokens, stripped from the title and collected (lowercased).
+	const tags = normalizeQuickAddTags(title.match(TASK_QUICK_ADD_TAG_RE) ?? []);
+	// The regex is global, so this removes every `#tag` occurrence.
+	title = title.replace(TASK_QUICK_ADD_TAG_RE, '');
+
 	title = title.replace(/^[\s:,\-–—;]+/, '').replace(/\s{2,}/g, ' ').trim();
 	if (!title) title = raw.trim();
 
-	return { title, dueDate, priority, assignedTo };
+	return { title, dueDate, priority, assignedTo, tags };
 }

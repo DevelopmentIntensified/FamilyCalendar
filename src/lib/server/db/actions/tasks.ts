@@ -1,6 +1,14 @@
 import { db } from '$lib/server/db';
-import { tasks, events, users, familyMembers, taskCompletions, type Task } from '$lib/server/db/schema';
-import { and, eq, or, desc, isNotNull, isNull, sql } from 'drizzle-orm';
+import {
+	tasks,
+	events,
+	users,
+	familyMembers,
+	taskCompletions,
+	taskTags,
+	type Task
+} from '$lib/server/db/schema';
+import { and, eq, inArray, or, desc, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { DateTime } from 'luxon';
 import { zonedNow } from '$lib/server/utils/userTimezone';
@@ -62,6 +70,41 @@ export function needsOverduePin(dueIso: string | null, nowIso: string): boolean 
 	return due < todayStart;
 }
 
+/** A task plus its tag names (normalized, sorted). */
+export type TaskWithTags = Task & { tags: string[] };
+
+/** Normalize raw tag input: lowercase, trim, drop empties, dedupe, sort. */
+export function normalizeTags(raw: unknown): string[] {
+	if (!Array.isArray(raw)) return [];
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const t of raw) {
+		if (typeof t !== 'string') continue;
+		const name = t.trim().toLowerCase();
+		if (!name || seen.has(name)) continue;
+		seen.add(name);
+		out.push(name);
+	}
+	return out.sort();
+}
+
+/** Fan `tags` out onto a list of task rows by id (id stays a string in both). */
+async function attachTags(rows: { id: string }[]): Promise<Map<string, string[]>> {
+	const map = new Map<string, string[]>();
+	if (rows.length === 0) return map;
+	const ids = rows.map((r) => r.id);
+	if (ids.length === 0) return map;
+	const tagRows = await db.select().from(taskTags).where(inArray(taskTags.taskId, ids));
+	for (const tr of tagRows) {
+		const key = String(tr.taskId);
+		const list = map.get(key) ?? [];
+		list.push(tr.name);
+		map.set(key, list);
+	}
+	for (const list of map.values()) list.sort();
+	return map;
+}
+
 export async function createTask(data: {
 	title: string;
 	notes?: string | null;
@@ -71,37 +114,45 @@ export async function createTask(data: {
 	assignedTo?: string | null;
 	assignmentStatus?: string | null;
 	priority?: string | null;
+	tags?: string[] | null;
 	userId: string;
 	familyId?: string | null;
 	eventId?: string | null;
-}): Promise<Task> {
-	const [created] = await db
-		.insert(tasks)
-		.values({
-			title: data.title,
-			notes: data.notes ?? null,
-			dueDate: data.dueDate ?? null,
-			recurrenceFrequency: data.recurrenceFrequency ?? null,
-			recurrenceInterval: data.recurrenceInterval ?? null,
-			assignedTo: data.assignedTo ?? null,
-			assignmentStatus: data.assignmentStatus ?? 'none',
-			priority: data.priority ?? 'normal',
-			userId: data.userId,
-			familyId: data.familyId ?? null,
-			eventId: data.eventId ?? null
-		})
-		.returning();
-	return created;
+}): Promise<TaskWithTags> {
+	const tags = normalizeTags(data.tags);
+	const created = await db.transaction(async (tx) => {
+		const [row] = await tx
+			.insert(tasks)
+			.values({
+				title: data.title,
+				notes: data.notes ?? null,
+				dueDate: data.dueDate ?? null,
+				recurrenceFrequency: data.recurrenceFrequency ?? null,
+				recurrenceInterval: data.recurrenceInterval ?? null,
+				assignedTo: data.assignedTo ?? null,
+				assignmentStatus: data.assignmentStatus ?? 'none',
+				priority: data.priority ?? 'normal',
+				userId: data.userId,
+				familyId: data.familyId ?? null,
+				eventId: data.eventId ?? null
+			})
+			.returning();
+		if (tags.length > 0) {
+			await tx.insert(taskTags).values(tags.map((name) => ({ taskId: row.id, name })));
+		}
+		return row;
+	});
+	return { ...created, tags };
 }
 
 /** Personal tasks + family tasks + tasks attached to the given events,
  *  with the parent event's title/start so lists can attribute them. */
-export async function getTasksForUser(userId: string, familyId?: string | null) {
+export async function getTasksForUser(userId: string, familyId?: string | null): Promise<TaskWithTags[]> {
 	const conditions = [eq(tasks.userId, userId)];
 	if (familyId) {
 		conditions.push(eq(tasks.familyId, familyId));
 	}
-	return await db
+	const rows = await db
 		.select({
 			id: tasks.id,
 			title: tasks.title,
@@ -128,6 +179,8 @@ export async function getTasksForUser(userId: string, familyId?: string | null) 
 		.leftJoin(assignee, eq(tasks.assignedTo, assignee.id))
 		.where(and(or(...conditions), isNull(tasks.archivedAt)))
 		.orderBy(desc(tasks.createdAt));
+	const tagMap = await attachTags(rows);
+	return rows.map((r) => ({ ...r, tags: tagMap.get(r.id) ?? [] }));
 }
 
 export async function getTasksForEvent(eventId: string) {
@@ -139,8 +192,8 @@ export async function getTasksForEvent(eventId: string) {
 }
 
 /** Every task in a family, with assignee and creator attribution. */
-export async function getTasksForFamily(familyId: string) {
-	return await db
+export async function getTasksForFamily(familyId: string): Promise<TaskWithTags[]> {
+	const rows = await db
 		.select({
 			id: tasks.id,
 			title: tasks.title,
@@ -169,6 +222,8 @@ export async function getTasksForFamily(familyId: string) {
 		.leftJoin(creator, eq(tasks.userId, creator.id))
 		.where(and(eq(tasks.familyId, familyId), isNull(tasks.archivedAt)))
 		.orderBy(desc(tasks.createdAt));
+	const tagMap = await attachTags(rows);
+	return rows.map((r) => ({ ...r, tags: tagMap.get(r.id) ?? [] }));
 }
 
 export async function updateTask(
@@ -187,22 +242,45 @@ export async function updateTask(
 			| 'assignmentStatus'
 			| 'priority'
 		>
-	>
-) {
-	const patch = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
-	if (Object.keys(patch).length === 0) {
+	> & { tags?: string[] | null }
+): Promise<TaskWithTags | undefined> {
+	const hasTags = data.tags !== undefined;
+	const patch = Object.fromEntries(
+		Object.entries(data).filter(([k, v]) => k !== 'tags' && v !== undefined)
+	);
+	if (Object.keys(patch).length === 0 && !hasTags) {
 		const [existing] = await db
 			.select()
 			.from(tasks)
 			.where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
 		return existing;
 	}
-	const [updated] = await db
-		.update(tasks)
-		.set(patch)
-		.where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-		.returning();
-	return updated;
+	return db.transaction(async (tx) => {
+		let row: Task | undefined;
+		if (Object.keys(patch).length > 0) {
+			const [updated] = await tx
+				.update(tasks)
+				.set(patch)
+				.where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
+				.returning();
+			row = updated;
+		} else {
+			const [existing] = await tx
+				.select()
+				.from(tasks)
+				.where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+			row = existing;
+		}
+		if (!row) return undefined;
+		const tags = normalizeTags(hasTags ? data.tags : (await attachTags([row])).get(row.id) ?? []);
+		if (hasTags) {
+			await tx.delete(taskTags).where(eq(taskTags.taskId, row.id));
+			if (tags.length > 0) {
+				await tx.insert(taskTags).values(tags.map((name) => ({ taskId: row.id, name })));
+			}
+		}
+		return { ...row, tags };
+	});
 }
 
 /**
@@ -386,20 +464,43 @@ export async function advanceTaskToNext(
 	return updated ?? null;
 }
 
-/** Family-scoped assignment responses (accept/decline/release). */
+/** Family-scoped assignment responses (accept/decline/release) and tags. */
 export async function updateTaskInFamily(
 	id: string,
 	familyId: string,
-	data: Partial<Pick<Task, 'assignmentStatus' | 'assignedTo' | 'priority'>>
-) {
-	const patch = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
-	if (Object.keys(patch).length === 0) return undefined;
-	const [updated] = await db
-		.update(tasks)
-		.set(patch)
-		.where(and(eq(tasks.id, id), eq(tasks.familyId, familyId)))
-		.returning();
-	return updated;
+	data: Partial<Pick<Task, 'assignmentStatus' | 'assignedTo' | 'priority'>> & { tags?: string[] | null }
+): Promise<TaskWithTags | undefined> {
+	const hasTags = data.tags !== undefined;
+	const patch = Object.fromEntries(
+		Object.entries(data).filter(([k, v]) => k !== 'tags' && v !== undefined)
+	);
+	if (Object.keys(patch).length === 0 && !hasTags) return undefined;
+	return db.transaction(async (tx) => {
+		let row: Task | undefined;
+		if (Object.keys(patch).length > 0) {
+			const [updated] = await tx
+				.update(tasks)
+				.set(patch)
+				.where(and(eq(tasks.id, id), eq(tasks.familyId, familyId)))
+				.returning();
+			row = updated;
+		} else {
+			const [existing] = await tx
+				.select()
+				.from(tasks)
+				.where(and(eq(tasks.id, id), eq(tasks.familyId, familyId)));
+			row = existing;
+		}
+		if (!row) return undefined;
+		const tags = normalizeTags(hasTags ? data.tags : (await attachTags([row])).get(row.id) ?? []);
+		if (hasTags) {
+			await tx.delete(taskTags).where(eq(taskTags.taskId, row.id));
+			if (tags.length > 0) {
+				await tx.insert(taskTags).values(tags.map((name) => ({ taskId: row.id, name })));
+			}
+		}
+		return { ...row, tags };
+	});
 }
 
 /**

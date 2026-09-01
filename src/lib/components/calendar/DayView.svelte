@@ -9,17 +9,12 @@
 import AttendanceBadge from './AttendanceBadge.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { rsvpVisual } from '$lib/utils/eventChip';
+	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[] = [];
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
-	export let dueTasks: {
-		id: string;
-		title: string;
-		dueDate: Date | string;
-		recurrenceFrequency?: string | null;
-		recurrenceInterval?: number | null;
-	}[] = [];
+	export let dueTasks: CalendarTask[] = [];
 
 	const dispatch = createEventDispatcher<{ back: void }>();
 
@@ -45,20 +40,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	);
 	const FREQ_NOUN: Record<string, string> = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' };
 
-	let busyTaskId: string | null = null;
-	async function toggleDayTask(task: { id: string }) {
-		if (busyTaskId) return;
-		busyTaskId = task.id;
-		try {
-			await fetch(`/api/tasks/${task.id}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ toggleComplete: true })
-			});
-			await invalidateAll();
-		} finally {
-			busyTaskId = null;
-		}
+	let selectedTask: CalendarTask | null = null;
+	function openTask(task: CalendarTask) {
+		selectedTask = task;
 	}
 
 	interface LaidOutEvent {
@@ -177,10 +161,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 				{#each dayTasks as task (task.id)}
 					<button
 						type="button"
-						onclick={() => toggleDayTask(task)}
-						disabled={busyTaskId === task.id}
-						title="Click to mark task complete"
-						class="relative flex w-full items-center gap-2 rounded border border-dashed border-slate-400 bg-white px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:border-slate-500 hover:bg-slate-50 disabled:opacity-60"
+						onclick={() => openTask(task)}
+						title="View task details"
+						class="relative flex w-full items-center gap-2 rounded border border-dashed border-slate-400 bg-white px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:border-slate-500 hover:bg-slate-50"
 					>
 						<span class="absolute -inset-2" aria-hidden="true"></span>
 						<span class="h-4 w-4 shrink-0 rounded-full border-2 border-slate-300 transition-colors group-hover:border-slate-500"></span>
@@ -276,4 +259,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		on:update={() => invalidateAll()}
 		on:delete={handleDelete}
 	/>
+{/if}
+
+<!-- Task detail popup -->
+{#if selectedTask}
+	<TaskDetailModal task={selectedTask} onClose={() => (selectedTask = null)} />
 {/if}

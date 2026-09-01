@@ -25,6 +25,7 @@
 		userId: string;
 		eventId: string | null;
 		eventTitle?: string | null;
+		tags?: string[];
 	};
 
 	let newTitle = '';
@@ -33,6 +34,7 @@
 	let newPriority = 'normal';
 	let adding = false;
 	let busyId: string | null = null;
+	let tagFilter = '';
 
 	$: members = data.members ?? [];
 	$: currentUserId = data.currentUserId;
@@ -76,6 +78,13 @@
 		return task.userId === currentUserId || task.assignedTo === currentUserId;
 	}
 
+	/** True when the task has a tag whose name starts with the active filter (case-insensitive). */
+	function matchesTagFilter(task: TaskItem): boolean {
+		const q = tagFilter.trim().toLowerCase();
+		if (!q) return true;
+		return (task.tags ?? []).some((tag) => tag.toLowerCase().startsWith(q));
+	}
+
 	async function addTask() {
 		if (!newTitle.trim() || adding) return;
 		adding = true;
@@ -92,7 +101,8 @@
 					dueDate: parsed.dueDate ?? inputToIso(newDueDate),
 					familyId: data.family.id,
 					assignedTo: parsed.assignedTo ?? (newAssignedTo || currentUserId),
-					priority: TASK_QUICK_ADD_PRIORITY_RE.test(newTitle) ? parsed.priority : newPriority
+					priority: TASK_QUICK_ADD_PRIORITY_RE.test(newTitle) ? parsed.priority : newPriority,
+					tags: parsed.tags
 				})
 			});
 			if (res.ok) {
@@ -175,8 +185,8 @@
 			: `every ${noun}`;
 	}
 
-	$: openTasks = (data.tasks as TaskItem[]).filter((t) => !t.completedAt);
-	$: completedTasks = (data.tasks as TaskItem[]).filter((t) => t.completedAt);
+	$: openTasks = (data.tasks as TaskItem[]).filter((t) => !t.completedAt && matchesTagFilter(t));
+	$: completedTasks = (data.tasks as TaskItem[]).filter((t) => t.completedAt && matchesTagFilter(t));
 
 	// Group open tasks by assignee so everyone sees who's on the hook.
 	// Legacy unassigned rows fall into their own bucket.
@@ -279,24 +289,70 @@
 		</p>
 	</form>
 
-	{#if openTasks.length === 0 && completedTasks.length === 0}
-		<div class="rounded-xl border border-dashed border-slate-200 py-16 text-center">
+	<!-- Tag filter -->
+	<div class="mb-4">
+		<div class="relative">
 			<svg
-				class="mx-auto mb-4 h-14 w-14 text-slate-300"
+				class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
+				stroke-width="2"
 			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="1.5"
-					d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-				/>
+				<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
 			</svg>
-			<p class="text-lg font-medium text-slate-700">No family tasks yet</p>
-			<p class="text-sm text-slate-500">Add the first one above</p>
+			<input
+				type="text"
+				bind:value={tagFilter}
+				placeholder="Filter by #tag..."
+				aria-label="Filter tasks by tag"
+				class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none"
+			/>
+			{#if tagFilter.trim()}
+				<button
+					type="button"
+					onclick={() => (tagFilter = '')}
+					aria-label="Clear tag filter"
+					class="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+				>
+					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			{/if}
 		</div>
+		{#if tagFilter.trim()}
+			<p class="mt-1.5 text-xs text-sky-600">
+				Filtering by <span class="font-medium">#{tagFilter.trim().toLowerCase()}</span>
+			</p>
+		{/if}
+	</div>
+
+	{#if openTasks.length === 0 && completedTasks.length === 0}
+		{#if tagFilter.trim()}
+			<div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
+				<p class="text-sm font-medium text-slate-500">No tasks match #<span class="font-semibold">{tagFilter.trim().toLowerCase()}</span></p>
+				<p class="text-sm text-slate-400">Clear the filter to see all tasks</p>
+			</div>
+		{:else}
+			<div class="rounded-xl border border-dashed border-slate-200 py-16 text-center">
+				<svg
+					class="mx-auto mb-4 h-14 w-14 text-slate-300"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="1.5"
+						d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+					/>
+				</svg>
+				<p class="text-lg font-medium text-slate-700">No family tasks yet</p>
+				<p class="text-sm text-slate-500">Add the first one above</p>
+			</div>
+		{/if}
 	{:else if openTasks.length === 0}
 		<div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
 			<p class="text-sm font-medium text-emerald-600">All caught up 🎉</p>
@@ -360,6 +416,15 @@
 								<p class="truncate text-xs font-medium text-primary-500">{task.eventTitle}</p>
 							{:else if task.notes}
 								<p class="truncate text-xs text-slate-500">{task.notes}</p>
+							{/if}
+							{#if task.tags?.length}
+								<div class="mt-1 flex flex-wrap items-center gap-1">
+									{#each task.tags as tag (tag)}
+										<span
+											class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+										>#{tag}</span>
+									{/each}
+								</div>
 							{/if}
 						</div>
 						{#if task.assignedTo && task.assignmentStatus === 'pending' && task.assignedTo === currentUserId}
@@ -460,7 +525,18 @@
 						>
 							<span class="absolute -inset-2" aria-hidden="true"></span>
 						</button>
-						<p class="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">{task.title}</p>
+						<div class="min-w-0 flex-1">
+							<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+							{#if task.tags?.length}
+								<div class="mt-1 flex flex-wrap items-center gap-1">
+									{#each task.tags as tag (tag)}
+										<span
+											class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+										>#{tag}</span>
+									{/each}
+								</div>
+							{/if}
+						</div>
 						{#if task.dueDate}
 							<span
 								class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task)
@@ -537,9 +613,20 @@
 							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 						</svg>
 					</button>
-					<p class="min-w-0 flex-1 truncate text-sm text-slate-400 line-through">
-						{task.title}
-					</p>
+					<div class="min-w-0 flex-1">
+						<p class="truncate text-sm text-slate-400 line-through">
+							{task.title}
+						</p>
+						{#if task.tags?.length}
+							<div class="mt-1 flex flex-wrap items-center gap-1">
+								{#each task.tags as tag (tag)}
+									<span
+										class="rounded-full bg-sky-100/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-600"
+									>#{tag}</span>
+								{/each}
+							</div>
+						{/if}
+					</div>
 					<span class="shrink-0 text-xs text-slate-400">{firstName(task.assignedTo)}</span>
 					{#if task.userId === currentUserId}
 						<button

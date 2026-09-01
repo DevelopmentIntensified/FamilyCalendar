@@ -294,3 +294,45 @@ describe('parseTaskQuickAdd — assignee phrases (new surface)', () => {
 		expect(r.assignedTo).toBe('u-dad');
 	});
 });
+
+describe('parseTaskQuickAdd — #tag parsing (new surface)', () => {
+	const cases: { phrase: string; expectTitle: string; expectTags: string[] }[] = [
+		// single tag in the middle
+		{ phrase: 'buy milk #groceries', expectTitle: 'buy milk', expectTags: ['groceries'] },
+		// tag at the start
+		{ phrase: '#home clean gutters', expectTitle: 'clean gutters', expectTags: ['home'] },
+		// multiple tags, any position
+		{ phrase: 'call mom #phone #family today', expectTitle: 'call mom', expectTags: ['family', 'phone'] },
+		// tag glued without space
+		{ phrase: 'file taxes#finance', expectTitle: 'file taxes', expectTags: ['finance'] },
+		// hyphenated / underscored tags
+		{ phrase: 'deploy build #v2_release #ci-cd', expectTitle: 'deploy build', expectTags: ['ci-cd', 'v2_release'] },
+		// case-insensitive, deduped, sorted
+		{ phrase: '#Groceries buy milk #GROCERIES', expectTitle: 'buy milk', expectTags: ['groceries'] }
+	];
+
+	it.each(cases)('$phrase → "$expectTitle" tags=$expectTags', ({ phrase, expectTitle, expectTags }) => {
+		const r = parseTaskQuickAdd(phrase, { now: NOW });
+		expect(r.title).toBe(expectTitle);
+		expect(r.tags).toEqual(expectTags);
+	});
+
+	it('no tags ⇒ empty array', () => {
+		const r = parseTaskQuickAdd('buy milk tomorrow', { now: NOW });
+		expect(r.tags).toEqual([]);
+	});
+
+	it('tags combine with priority, date and assignee', () => {
+		const r = parseTaskQuickAdd('high priority buy milk #groceries tomorrow', { now: NOW });
+		expect(r.title).toBe('buy milk');
+		expect(r.priority).toBe('high');
+		expect(r.tags).toEqual(['groceries']);
+		expectDue(r, 1);
+	});
+
+	it('a lone tag becomes the title and the tag', () => {
+		const r = parseTaskQuickAdd('#plan', { now: NOW });
+		expect(r.title).toBe('#plan');
+		expect(r.tags).toEqual(['plan']);
+	});
+});

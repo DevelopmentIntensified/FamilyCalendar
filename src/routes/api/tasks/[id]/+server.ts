@@ -7,6 +7,7 @@ import {
 	advanceTaskToNext,
 	updateTaskInFamily,
 	deleteTask,
+	normalizeTags,
 	TASK_FREQUENCIES
 } from '$lib/server/db/actions/tasks';
 import { TASK_PRIORITIES } from '$lib/server/db/actions/dashboard';
@@ -115,13 +116,18 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 					typeof body.completedAt === 'string' && !isNaN(Date.parse(body.completedAt))
 						? body.completedAt
 						: undefined,
-				...assignmentPatch
+				...assignmentPatch,
+				tags: body.tags === undefined ? undefined : normalizeTags(body.tags)
 			});
 
-			// Non-owner family members: assignment responses only.
-			if (!updated && Object.keys(assignmentPatch).length > 0) {
+			// Non-owner family members: assignment responses and tags only.
+			if (!updated && (Object.keys(assignmentPatch).length > 0 || body.tags !== undefined)) {
 				const familyId = await familyMembership(taskId, user.id);
-				if (familyId) updated = await updateTaskInFamily(taskId, familyId, assignmentPatch);
+				if (familyId)
+					updated = await updateTaskInFamily(taskId, familyId, {
+						...assignmentPatch,
+						tags: body.tags === undefined ? undefined : normalizeTags(body.tags)
+					});
 			}
 
 			const accepted = assignmentPatch.assignmentStatus === 'accepted';

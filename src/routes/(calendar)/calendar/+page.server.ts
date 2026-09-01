@@ -144,7 +144,15 @@ export const load: PageServerLoad = async (event) => {
 			title: t.title,
 			dueDate: new Date(t.dueDate as unknown as string),
 			recurrenceFrequency: t.recurrenceFrequency,
-			recurrenceInterval: t.recurrenceInterval
+			recurrenceInterval: t.recurrenceInterval,
+			// Richer fields for the task detail popup (calendar views).
+			priority: t.priority,
+			notes: t.notes,
+			tags: t.tags,
+			assignedTo: t.assignedTo,
+			assigneeFirstName: (t as { assigneeFirstName?: string | null }).assigneeFirstName ?? null,
+			assigneeLastName: (t as { assigneeLastName?: string | null }).assigneeLastName ?? null,
+			eventTitle: (t as { eventTitle?: string | null }).eventTitle ?? null
 		}));
 
 	const [parsedUserEvents, parsedFamilyEvents] = await Promise.all([

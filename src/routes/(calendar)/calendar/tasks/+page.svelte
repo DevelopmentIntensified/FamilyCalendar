@@ -32,6 +32,7 @@
 		eventId: string | null;
 		eventTitle?: string | null;
 		eventStart?: string | Date | null;
+		tags?: string[];
 	};
 
 	let newTitle = '';
@@ -40,6 +41,7 @@
 	let busyId: string | null = null;
 	let busyTemplateId: string | null = null;
 	let actionError = '';
+	let tagFilter = '';
 
 	// Edit dialog
 	const FREQ_OPTIONS = [
@@ -59,6 +61,7 @@
 	let editing: TaskItem | null = null;
 	let editTitle = '';
 	let editNotes = '';
+	let editTags = '';
 	let editDue = '';
 	let editFreq = '';
 	let editInterval = 1;
@@ -86,6 +89,7 @@
 		editing = task;
 		editTitle = task.title;
 		editNotes = task.notes ?? '';
+		editTags = (task.tags ?? []).join(', ');
 		editDue = toInputDate(task.dueDate);
 		editFreq = task.recurrenceFrequency ?? '';
 		editInterval = task.recurrenceInterval ?? 1;
@@ -158,6 +162,7 @@
 					recurrenceInterval: editFreq ? Math.max(1, Math.floor(editInterval)) : null,
 					assignedTo,
 					priority: editPriority,
+					tags: parseEditTags(editTags),
 					...(assignmentStatus ? { assignmentStatus } : {})
 				})
 			});
@@ -178,6 +183,22 @@
 	// Optimistic toggle overrides applied on top of server data until the
 	// request resolves; referenced inline so $: picks up reassignment.
 	let completedOverride: Record<string, boolean> = {};
+
+	// Parse the comma-separated tags input from the edit dialog into a
+	// normalized list: trimmed, lowercased, deduped, empties dropped.
+	function parseEditTags(raw: string): string[] {
+		const seen = new Set<string>();
+		const out: string[] = [];
+		for (const part of raw.split(',')) {
+			const tag = part.trim().toLowerCase().replace(/^#/, '');
+			if (tag && !seen.has(tag)) {
+				seen.add(tag);
+				out.push(tag);
+			}
+		}
+		return out;
+	}
+
 	$: openTasks = (data.tasks as TaskItem[]).filter(
 		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === false
 	);
@@ -189,6 +210,15 @@
 	$: sortedOpenTasks = [...openTasks].sort(
 		(a, b) => (PRIORITY_ORDER[a.priority ?? 'normal'] ?? 1) - (PRIORITY_ORDER[b.priority ?? 'normal'] ?? 1)
 	);
+
+	function matchesTagFilter(tags: string[] | undefined): boolean {
+		const q = tagFilter.trim().toLowerCase();
+		if (!q) return true;
+		return (tags ?? []).some((t) => t.toLowerCase().startsWith(q));
+	}
+	$: filteredOpenTasks = sortedOpenTasks.filter((t) => matchesTagFilter(t.tags));
+	$: filteredCompletedTasks = completedTasks.filter((t) => matchesTagFilter(t.tags));
+	$: tagFilterActive = tagFilter.trim().length > 0;
 	const PRIORITY_DOT: Record<string, string> = {
 		high: 'bg-red-500',
 		normal: 'bg-slate-300',
@@ -227,7 +257,8 @@
 					title: parsed.title,
 					dueDate: parsed.dueDate ?? (newDueDate || null),
 					priority: parsed.priority,
-					assignedTo: parsed.assignedTo
+					assignedTo: parsed.assignedTo,
+					tags: parsed.tags
 				})
 			});
 			if (res.ok) {
@@ -398,8 +429,9 @@
 			<MentionInput
 				bind:value={newTitle}
 				members={familyRoster}
-				placeholder="Add a task..."
+				placeholder="Add a task... e.g. #groceries"
 			/>
+			<p class="mt-1 text-xs text-slate-400">Tip: type <span class="font-mono text-slate-500">#tag</span> to tag the task (e.g. <span class="font-mono text-slate-500">#groceries</span>).</p>
 		</div>
 		<input
 			type="date"
@@ -467,25 +499,56 @@
 			</button>
 		</div>
 	{/if}
+	<!-- Tag filter -->
+	<div class="relative mb-4">
+		<input
+			type="text"
+			bind:value={tagFilter}
+			placeholder="Filter by tag…"
+			aria-label="Filter tasks by tag"
+			class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+		/>
+		<svg class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+			<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+		</svg>
+		{#if tagFilter}
+			<button
+				type="button"
+				onclick={() => (tagFilter = '')}
+				class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+				aria-label="Clear tag filter"
+				title="Clear filter"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+				</svg>
+			</button>
+		{/if}
+	</div>
+	{#if tagFilterActive}
+		<p class="mb-3 flex items-center gap-1 text-xs font-medium text-sky-600">
+			Filtering by <span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">#{tagFilter.trim().toLowerCase()}</span>
+		</p>
+	{/if}
 
-	{#if openTasks.length === 0 && completedTasks.length === 0}
+	{#if filteredOpenTasks.length === 0 && filteredCompletedTasks.length === 0}
 		<div class="flex flex-col items-center justify-center py-16 text-center">
 			<svg class="mb-4 h-14 w-14 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
 			</svg>
-			<p class="text-lg font-medium text-slate-700">No tasks yet</p>
-			<p class="text-sm text-slate-500">Add your first task above</p>
+			<p class="text-lg font-medium text-slate-700">{tagFilterActive ? 'No matching tasks' : 'No tasks yet'}</p>
+			<p class="text-sm text-slate-500">{tagFilterActive ? 'Try a different tag or clear the filter' : 'Add your first task above'}</p>
 		</div>
 	{/if}
 
 	<!-- Open tasks -->
-	{#if openTasks.length > 0}
+	{#if filteredOpenTasks.length > 0}
 		<h2 class="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-			<span>Open ({openTasks.length})</span>
+			<span>Open ({filteredOpenTasks.length})</span>
 		</h2>
 	{/if}
 	<div class="space-y-1.5">
-		{#each sortedOpenTasks as task (task.id)}
+		{#each filteredOpenTasks as task (task.id)}
 			<div
 				class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 active:bg-slate-100 {celebratingId === task.id ? 'celebrate' : ''}"
 			>
@@ -525,6 +588,13 @@
 									</p>
 								{:else if task.notes}
 									<p class="truncate text-xs text-slate-500">{task.notes}</p>
+								{/if}
+								{#if (task.tags ?? []).length > 0}
+									<div class="mt-1 flex flex-wrap gap-1">
+										{#each task.tags ?? [] as tag}
+											<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">#{tag}</span>
+										{/each}
+									</div>
 								{/if}
 							</div>
 				{#if task.dueDate}
@@ -604,9 +674,9 @@
 	</div>
 
 	<!-- Completed -->
-	{#if completedTasks.length > 0}
+	{#if filteredCompletedTasks.length > 0}
 		<h2 class="mb-2 mt-8 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-			<span>Completed ({completedTasks.length})</span>
+			<span>Completed ({filteredCompletedTasks.length})</span>
 			{#if completedThisWeek > 0}
 				<span class="ml-1 font-normal normal-case text-emerald-600">· {completedThisWeek} this week</span>
 			{/if}
@@ -619,7 +689,7 @@
 			</button>
 		</h2>
 		<div class="space-y-1.5">
-			{#each completedTasks as task (task.id)}
+			{#each filteredCompletedTasks as task (task.id)}
 				<div class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-slate-50 p-3 active:bg-slate-100 {celebratingId === task.id ? 'celebrate' : ''}">
 					<button
 						type="button"
@@ -637,6 +707,13 @@
 										{task.title}
 										{#if task.eventTitle}<span class="ml-1 text-xs font-normal text-slate-400 no-underline">({task.eventTitle})</span>{/if}
 									</p>
+								{#if (task.tags ?? []).length > 0}
+									<div class="flex flex-wrap gap-1">
+										{#each task.tags ?? [] as tag}
+											<span class="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">#{tag}</span>
+										{/each}
+									</div>
+								{/if}
 					<button
 						type="button"
 						onclick={() => deleteTask(task.id)}
@@ -711,6 +788,18 @@
 						rows="2"
 						class="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 					></textarea>
+				</div>
+
+				<div>
+					<label for="edit-tags" class="mb-1 block text-sm font-medium text-slate-700">Tags</label>
+					<input
+						id="edit-tags"
+						type="text"
+						bind:value={editTags}
+						placeholder="e.g. groceries, home (comma separated)"
+						class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+					/>
+					<p class="mt-1 text-xs text-slate-400">Separate tags with commas.</p>
 				</div>
 
 				<div class="grid grid-cols-3 gap-3">
