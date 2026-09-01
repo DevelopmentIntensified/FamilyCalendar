@@ -63,7 +63,7 @@
 
 	function initial(userId: string): string {
 		const name = memberName(userId);
-		return name === 'You' ? 'Y' : name[0]?.toUpperCase() ?? '?';
+		return name === 'You' ? 'Y' : (name[0]?.toUpperCase() ?? '?');
 	}
 
 	function ownerId(t: (typeof tasks)[number]): string {
@@ -73,7 +73,9 @@
 	function dueLabel(due: string | null): string {
 		if (!due) return '';
 		const d = new Date(due);
-		return isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+		return isNaN(d.getTime())
+			? ''
+			: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 	}
 
 	function dueTone(due: string | null): string {
@@ -118,10 +120,12 @@
 	}
 </script>
 
-<div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-	<h2 class="mb-3 text-sm font-semibold text-slate-900">Family Task Board</h2>
+<div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+	<h2 class="mb-2.5 text-sm font-semibold text-slate-900 sm:mb-3">Family Task Board</h2>
 
-	<div class="mb-3 flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+	<div
+		class="mb-2.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-100 pb-2.5 sm:mb-3 sm:pb-3"
+	>
 		<span class="text-xs text-slate-500">
 			{doneToday} done today · {openToday} open · {weekStreak > 0
 				? `${weekStreak}-week streak`
@@ -140,7 +144,7 @@
 			e.preventDefault();
 			addQuickTask();
 		}}
-		class="mb-3 flex gap-2"
+		class="mb-3 flex flex-col gap-2 sm:flex-row sm:gap-2"
 	>
 		<div class="min-w-0 flex-1">
 			<MentionInput
@@ -152,22 +156,24 @@
 		<button
 			type="submit"
 			disabled={!quickTitle.trim() || busy === 'new'}
-			class="shrink-0 rounded-lg bg-primary-600 px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+			class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50 sm:px-3.5 sm:py-2.5"
 		>
 			Add
 		</button>
 	</form>
 
 	{#if groups.length === 0}
-		<p class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400">
+		<p
+			class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400"
+		>
 			No open family tasks
 		</p>
 	{:else}
-		<div class="space-y-3">
+		<div class="space-y-2.5">
 			{#each groups as group (group.userId)}
 				<section>
 					<h3
-						class="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+						class="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400"
 					>
 						<span
 							class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold {avatarColor(
@@ -181,7 +187,9 @@
 					</h3>
 					<div class="space-y-1.5">
 						{#each group.tasks as task (task.id)}
-							<div class="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5">
+							<div
+								class="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/50 px-2.5 py-2 sm:gap-3 sm:rounded-xl sm:px-3 sm:py-2.5"
+							>
 								<button
 									type="button"
 									onclick={() => toggleTask(task.id)}
@@ -189,9 +197,11 @@
 									class="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors enabled:hover:border-primary-500 disabled:opacity-40"
 									title="Mark done"
 									aria-label="Mark done: {task.title}"
-								><span class="absolute -inset-2" aria-hidden="true"></span></button>
+									><span class="absolute -inset-2" aria-hidden="true"></span></button
+								>
 								<span
-									class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority] ?? 'bg-slate-300'}"
+									class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority] ??
+										'bg-slate-300'}"
 									title="{task.priority} priority"
 								></span>
 								<p class="min-w-0 flex-1 truncate text-sm text-slate-800">{task.title}</p>
