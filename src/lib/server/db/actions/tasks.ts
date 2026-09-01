@@ -8,7 +8,7 @@ import {
 	taskTags,
 	type Task
 } from '$lib/server/db/schema';
-import { and, eq, inArray, or, desc, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, or, desc, gt, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { DateTime } from 'luxon';
 import { zonedNow } from '$lib/server/utils/userTimezone';
@@ -462,6 +462,57 @@ export async function advanceTaskToNext(
 		.where(eq(tasks.id, taskId))
 		.returning();
 	return updated ?? null;
+}
+
+/**
+ * Reverse a Recurring Task check-off: restore the previous due date,
+ * decrement the completion tally, and remove the matching history row so
+ * streaks/stats don't count an undone completion.
+ *
+ * A double-tap on Undo must not keep rolling the cursor backward or empty
+ * the tally — the `completionCount > 0` guard makes a second call a no-op.
+ */
+export async function undoRecurringCompletion(
+	taskId: string,
+	userId: string,
+	previousDueDate: string | null
+): Promise<Task | null> {
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+	if (!task || !task.recurrenceFrequency) return null;
+
+	const owned = task.userId === userId;
+	const assigned = task.assignedTo === userId;
+	if (!owned && !assigned) {
+		if (!task.familyId) return null;
+		const [member] = await db
+			.select({ familyId: familyMembers.familyId })
+			.from(familyMembers)
+			.where(and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, task.familyId)));
+		if (!member) return null;
+	}
+
+	const [updated] = await db
+		.update(tasks)
+		.set({
+			dueDate: previousDueDate,
+			completionCount: sql`greatest(0, ${tasks.completionCount} - 1)::int`
+		})
+		.where(and(eq(tasks.id, taskId), gt(tasks.completionCount, 0)))
+		.returning();
+	if (!updated) return null;
+
+	// Remove the most recent completion history row so streaks/stats don't
+	// count an undone completion.
+	const [latest] = await db
+		.select({ id: taskCompletions.id })
+		.from(taskCompletions)
+		.where(eq(taskCompletions.taskId, taskId))
+		.orderBy(desc(taskCompletions.completedAt))
+		.limit(1);
+	if (latest) {
+		await db.delete(taskCompletions).where(eq(taskCompletions.id, latest.id));
+	}
+	return updated;
 }
 
 /** Family-scoped assignment responses (accept/decline/release) and tags. */

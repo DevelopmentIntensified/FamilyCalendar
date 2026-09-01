@@ -7,6 +7,7 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import OfflineBanner from '$lib/components/OfflineBanner.svelte';
 	import BottomNav from '$lib/components/BottomNav.svelte';
+	import Toaster from '$lib/components/Toaster.svelte';
 	import { initOfflineSync } from '$lib/utils/offline';
 
 	export let data: LayoutData;
@@ -94,6 +95,7 @@
 		</main>
 	{/key}
 	<BottomNav isLoggedIn={true} />
+	<Toaster />
 	<footer class="fixed bottom-0 left-0 z-30 hidden w-full border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-500 md:block print:hidden">
 		<div class="flex items-center justify-center gap-4">
 			<span>&copy; {new Date().getFullYear()} FamilyPlanz</span>

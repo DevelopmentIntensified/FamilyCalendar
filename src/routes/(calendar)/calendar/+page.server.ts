@@ -145,6 +145,7 @@ export const load: PageServerLoad = async (event) => {
 			dueDate: new Date(t.dueDate as unknown as string),
 			recurrenceFrequency: t.recurrenceFrequency,
 			recurrenceInterval: t.recurrenceInterval,
+			completionCount: t.completionCount,
 			// Richer fields for the task detail popup (calendar views).
 			priority: t.priority,
 			notes: t.notes,

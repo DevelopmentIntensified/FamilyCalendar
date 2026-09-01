@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
+	import { showRecurringCompleteFeedback, showRecurringSkipFeedback } from '$lib/client/taskFeedback';
 
 	export let data: PageData;
 
@@ -12,6 +13,7 @@
 		completedAt: string | null;
 		recurrenceFrequency?: string | null;
 		recurrenceInterval?: number | null;
+		completionCount?: number | null;
 		assignedTo?: string | null;
 		assignmentStatus?: string | null;
 		assigneeFirstName?: string | null;
@@ -55,14 +57,19 @@
 
 	async function toggle(task: FamilyTask) {
 		if (busyId) return;
+		const previousDueDate = task.dueDate;
 		busyId = task.id;
 		try {
-			await fetch(`/api/tasks/${task.id}`, {
+			const res = await fetch(`/api/tasks/${task.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ toggleComplete: true })
 			});
-			await invalidateAll();
+			if (res.ok) {
+				const j = await res.json().catch(() => ({}));
+				await invalidateAll();
+				showRecurringCompleteFeedback(j.task, previousDueDate);
+			}
 		} finally {
 			busyId = null;
 		}
@@ -77,7 +84,11 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ advanceToNext: true })
 			});
-			if (res.ok) await invalidateAll();
+			if (res.ok) {
+				const j = await res.json().catch(() => ({}));
+				await invalidateAll();
+				showRecurringSkipFeedback(j.task);
+			}
 		} finally {
 			busyId = null;
 		}
@@ -207,6 +218,11 @@
 						{/if}
 						{#if task.recurrenceFrequency}
 							<span class="text-purple-500">🔁 recurring</span>
+							{#if task.completionCount}
+								<span class="inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600">
+									🔥 {task.completionCount}×
+								</span>
+							{/if}
 						{/if}
 						<span>by {nameOf(task.creatorFirstName, null, 'family')}</span>
 					</div>

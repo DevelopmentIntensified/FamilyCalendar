@@ -3,6 +3,7 @@
 	import MentionInput from '$lib/components/MentionInput.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
+	import { showRecurringCompleteFeedback } from '$lib/client/taskFeedback';
 
 	export let tasks: {
 		id: string;
@@ -16,6 +17,8 @@
 		assigneeFirstName?: string | null;
 		assigneeLastName?: string | null;
 		creatorFirstName?: string | null;
+		recurrenceFrequency?: string | null;
+		recurrenceInterval?: number | null;
 	}[];
 	export let members: { userId: string; firstName: string; lastName: string }[];
 	export let meId: string;
@@ -102,17 +105,19 @@
 			return a.name.localeCompare(b.name);
 		});
 
-	async function toggleTask(taskId: string) {
+	async function toggleTask(task: (typeof tasks)[number]) {
 		if (busy) return;
-		busy = taskId;
+		busy = task.id;
 		try {
-			const res = await fetch(`/api/tasks/${taskId}`, {
+			const res = await fetch(`/api/tasks/${task.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ toggleComplete: true })
 			});
 			if (res.ok) {
+				const j = await res.json().catch(() => ({}));
 				await invalidateAll();
+				showRecurringCompleteFeedback(j.task, task.dueDate);
 			}
 		} finally {
 			busy = null;
@@ -192,7 +197,7 @@
 							>
 								<button
 									type="button"
-									onclick={() => toggleTask(task.id)}
+									onclick={() => toggleTask(task)}
 									disabled={busy === task.id}
 									class="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors enabled:hover:border-primary-500 disabled:opacity-40"
 									title="Mark done"

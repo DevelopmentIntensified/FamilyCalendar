@@ -5,6 +5,7 @@ import {
 	toggleTaskComplete,
 	toggleTaskCompleteFamily,
 	advanceTaskToNext,
+	undoRecurringCompletion,
 	updateTaskInFamily,
 	deleteTask,
 	normalizeTags,
@@ -54,7 +55,16 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				.where(eq(users.id, user.id))
 				.then(([row]) => row?.firstName || 'Someone'));
 		let updated;
-		if (body.advanceToNext) {
+		if (body.undoComplete) {
+			// Reverse a Recurring Task check-off. previousDueDate is captured
+			// on the client before the completing PUT.
+			updated = await undoRecurringCompletion(
+				taskId,
+				user.id,
+				typeof body.previousDueDate === 'string' ? body.previousDueDate : null
+			);
+			if (!updated) return json({ error: 'Nothing to undo' }, { status: 404 });
+		} else if (body.advanceToNext) {
 			// Skip the current occurrence of a Recurring Task: roll the
 			// cursor forward without checking it off.
 			updated = await advanceTaskToNext(taskId, user.id, zone);

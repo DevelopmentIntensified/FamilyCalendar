@@ -5,6 +5,7 @@
 	import MentionInput from '$lib/components/MentionInput.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { parseTaskQuickAdd, TASK_QUICK_ADD_PRIORITY_RE } from '$lib/utils/taskQuickAdd';
+	import { showRecurringCompleteFeedback, showRecurringSkipFeedback } from '$lib/client/taskFeedback';
 
 	export let data: PageData;
 
@@ -16,6 +17,7 @@
 		completedAt: string | null;
 		recurrenceFrequency?: string | null;
 		recurrenceInterval?: number | null;
+		completionCount?: number | null;
 		assignedTo?: string | null;
 		assignmentStatus?: string | null;
 		priority?: string | null;
@@ -123,15 +125,19 @@
 		return new Date(y, m - 1, d, 23, 59, 0, 0).toISOString();
 	}
 
-	async function toggleTask(id: string) {
-		busyId = id;
+	async function toggleTask(task: TaskItem) {
+		busyId = task.id;
 		try {
-			await fetch(`/api/tasks/${id}`, {
+			const res = await fetch(`/api/tasks/${task.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ toggleComplete: true })
 			});
-			await invalidateAll();
+			if (res.ok) {
+				const j = await res.json().catch(() => ({}));
+				await invalidateAll();
+				showRecurringCompleteFeedback(j.task, task.dueDate);
+			}
 		} finally {
 			busyId = null;
 		}
@@ -146,7 +152,11 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ advanceToNext: true })
 			});
-			if (res.ok) await invalidateAll();
+			if (res.ok) {
+				const j = await res.json().catch(() => ({}));
+				await invalidateAll();
+				showRecurringSkipFeedback(j.task);
+			}
 		} finally {
 			busyId = null;
 		}
@@ -383,7 +393,7 @@
 					>
 						<button
 							type="button"
-							onclick={() => canComplete(task) && toggleTask(task.id)}
+							onclick={() => canComplete(task) && toggleTask(task)}
 							disabled={busyId === task.id || !canComplete(task)}
 							title={canComplete(task)
 								? 'Complete task'
@@ -411,6 +421,11 @@
 										/>
 									</svg>
 									{recurrenceNote(task)}
+									{#if task.completionCount}
+										<span class="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600">
+											🔥 {task.completionCount}×
+										</span>
+									{/if}
 								</p>
 							{:else if task.eventTitle}
 								<p class="truncate text-xs font-medium text-primary-500">{task.eventTitle}</p>
@@ -518,7 +533,7 @@
 					>
 						<button
 							type="button"
-							onclick={() => canComplete(task) && toggleTask(task.id)}
+							onclick={() => canComplete(task) && toggleTask(task)}
 							disabled={busyId === task.id || !canComplete(task)}
 							class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors enabled:hover:border-primary-500 active:border-primary-500 disabled:cursor-not-allowed disabled:opacity-40"
 							aria-label="Complete task"
@@ -597,7 +612,7 @@
 				<div class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-slate-50 p-3 active:bg-slate-100">
 					<button
 						type="button"
-						onclick={() => canComplete(task) && toggleTask(task.id)}
+						onclick={() => canComplete(task) && toggleTask(task)}
 						disabled={busyId === task.id || !canComplete(task)}
 						class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white active:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
 						aria-label="Mark incomplete"

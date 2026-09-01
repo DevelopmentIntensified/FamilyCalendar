@@ -12,6 +12,7 @@
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { queueMutation } from '$lib/utils/offline';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
+	import { showRecurringCompleteFeedback, showRecurringSkipFeedback } from '$lib/client/taskFeedback';
 
 	export let data: PageData;
 
@@ -23,6 +24,7 @@
 		completedAt: string | null;
 		recurrenceFrequency?: string | null;
 		recurrenceInterval?: number | null;
+		completionCount?: number | null;
 		assignedTo?: string | null;
 		assignmentStatus?: string | null;
 		priority?: string | null;
@@ -310,6 +312,7 @@
 		const task = (data.tasks as TaskItem[]).find((t) => t.id === id);
 		if (!task || busyId) return;
 		const completing = !(task.id in completedOverride ? completedOverride[task.id] : !!task.completedAt);
+		const previousDueDate = task.dueDate;
 		busyId = id;
 		actionError = '';
 		completedOverride = { ...completedOverride, [id]: completing };
@@ -324,9 +327,13 @@
 				actionError = j.error || "That didn't work. Try again.";
 				clearOverride(id);
 			} else {
+				const j = await res.json().catch(() => ({}));
 				await invalidateAll();
 				clearOverride(id);
-				if (completing && task.recurrenceFrequency) celebrate(id);
+				if (completing && task.recurrenceFrequency) {
+					celebrate(id);
+					showRecurringCompleteFeedback(j.task, previousDueDate);
+				}
 			}
 		} catch {
 			// Network error — queue for retry when back online.
@@ -352,7 +359,9 @@
 				const j = await res.json().catch(() => ({}));
 				actionError = j.error || "That didn't work. Try again.";
 			} else {
+				const j = await res.json().catch(() => ({}));
 				await invalidateAll();
+				showRecurringSkipFeedback(j.task);
 			}
 		} catch {
 			actionError = 'Network problem. Try again.';
@@ -578,6 +587,11 @@
 										{task.recurrenceInterval && task.recurrenceInterval > 1
 											? `every ${task.recurrenceInterval} ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}s`
 											: `every ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}`}
+										{#if task.completionCount}
+											<span class="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600">
+												🔥 {task.completionCount}×
+											</span>
+										{/if}
 									</p>
 								{:else if task.eventTitle}
 									<p class="mt-0.5 flex items-center gap-1 truncate text-xs font-medium text-primary-500">

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
+	import { showRecurringCompleteFeedback, showRecurringSkipFeedback } from '$lib/client/taskFeedback';
 
 	/** The task shape the calendar views pass through for the detail popup. */
 	export interface CalendarTask {
@@ -10,6 +11,7 @@
 		completedAt?: string | null;
 		recurrenceFrequency?: string | null;
 		recurrenceInterval?: number | null;
+		completionCount?: number | null;
 		priority?: string | null;
 		notes?: string | null;
 		tags?: string[];
@@ -61,6 +63,7 @@
 
 	async function toggleComplete() {
 		if (busy) return;
+		const previousDueDate = task.dueDate ?? null;
 		busy = true;
 		actionError = '';
 		try {
@@ -74,7 +77,9 @@
 				actionError = j.error || "That didn't work. Try again.";
 				return;
 			}
+			const j = await res.json().catch(() => ({}));
 			await invalidateAll();
+			showRecurringCompleteFeedback(j.task, previousDueDate);
 			onClose();
 		} catch {
 			actionError = 'Network problem. Try again.';
@@ -98,7 +103,9 @@
 				actionError = j.error || "That didn't work. Try again.";
 				return;
 			}
+			const j = await res.json().catch(() => ({}));
 			await invalidateAll();
+			showRecurringSkipFeedback(j.task);
 			onClose();
 		} catch {
 			actionError = 'Network problem. Try again.';
@@ -200,7 +207,17 @@
 				{#if task.recurrenceFrequency}
 					<div class="flex items-center justify-between gap-3">
 						<dt class="text-slate-500">Repeats</dt>
-						<dd class="font-medium text-purple-600">🔁 {freqLabel()}</dd>
+						<dd class="flex items-center gap-2">
+							<span class="font-medium text-purple-600">🔁 {freqLabel()}</span>
+							{#if task.completionCount}
+								<span
+									class="inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-600"
+									title="Completed occurrences so far"
+								>
+									🔥 Done {task.completionCount}× so far
+								</span>
+							{/if}
+						</dd>
 					</div>
 				{/if}
 				{#if task.assignedTo}
