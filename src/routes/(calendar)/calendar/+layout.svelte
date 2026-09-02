@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { page } from '$app/stores';
+	import { invalidateAll } from '$app/navigation';
 	import '../../../app.css';
 	import type { LayoutData } from './$types';
 	import Navbar from '$lib/components/Navbar.svelte';
@@ -14,6 +15,17 @@
 	$: pathname = data.pathname;
 
 	onMount(() => {
+		// Auto-detect client timezone if user still has the 'UTC' default.
+		if (data.userSettings?.timeZone === 'UTC') {
+			const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+			if (clientTz && clientTz !== 'UTC') {
+				fetch('/calendar/setUserDefaultTimeZone', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ timeZone: clientTz })
+				}).then(() => invalidateAll());
+			}
+		}
 		return initOfflineSync();
 	});
 
