@@ -267,7 +267,11 @@
 		if (form.isEditMode && form.eventId) {
 			try {
 				const isOccurrence = form.isRecurringOccurrence;
-				const targetId = isOccurrence ? form.masterId : form.eventId;
+				// The event object handed to the edit modal is an expanded
+				// occurrence carrying a composite VIRTUAL id (`{masterId}~{iso}`),
+				// even for non-recurring events. The server only knows the real
+				// master id, so always target form.masterId when it exists.
+				const targetId = form.masterId || form.eventId;
 				const payload = isOccurrence
 					? { ...eventData, scope: editScope, occurrenceDate: form.occurrenceDate }
 					: eventData;
