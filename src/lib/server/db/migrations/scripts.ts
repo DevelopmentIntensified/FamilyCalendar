@@ -17,6 +17,7 @@ import m006 from '../../../../../sql/migrations/006_anonymous_accounts.sql?raw';
 import m007 from '../../../../../sql/migrations/007_create_tasks.sql?raw';
 import m008 from '../../../../../sql/migrations/008_add_task_tags.sql?raw';
 import m009 from '../../../../../sql/migrations/009_create_bug_reports.sql?raw';
+import m010 from '../../../../../sql/migrations/010_add_matched_phrase_and_cascades.sql?raw';
 
 export type BundledMigration = { name: string; sql: string };
 
@@ -29,7 +30,8 @@ const MIGRATIONS: BundledMigration[] = [
 	{ name: '006_anonymous_accounts.sql', sql: m006 },
 	{ name: '007_create_tasks.sql', sql: m007 },
 	{ name: '008_add_task_tags.sql', sql: m008 },
-	{ name: '009_create_bug_reports.sql', sql: m009 }
+	{ name: '009_create_bug_reports.sql', sql: m009 },
+	{ name: '010_add_matched_phrase_and_cascades.sql', sql: m010 }
 ];
 
 /** Sorted ascending by numeric prefix. */
