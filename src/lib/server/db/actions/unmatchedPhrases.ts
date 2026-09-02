@@ -16,14 +16,17 @@ export function normalizePhrase(phrase: string): string {
  */
 export async function reportUnmatchedPhrase(
 	source: UnmatchedSource,
-	phrase: string
+	phrase: string,
+	matched?: Record<string, unknown> | null
 ): Promise<void> {
 	const normalized = normalizePhrase(phrase);
 	if (!normalized) return;
 	try {
+		const values: Record<string, unknown> = { source, phrase: normalized, sample: normalized };
+		if (matched) values.matched = JSON.stringify(matched);
 		await db
 			.insert(unmatchedPhrases)
-			.values({ source, phrase: normalized, sample: normalized })
+			.values(values)
 			.onConflictDoUpdate({
 				target: [unmatchedPhrases.source, unmatchedPhrases.phrase],
 				set: { count: sql`${unmatchedPhrases.count} + 1` }

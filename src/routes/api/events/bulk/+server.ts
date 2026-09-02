@@ -7,7 +7,6 @@ import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { updateEventById, deleteEventInScope } from '$lib/server/db/actions/events';
 import { planBulkEdits, parseBulkPlan } from '$lib/server/services/bulkAiService';
 import { applyBulkPlan } from '$lib/server/services/bulkApplyService';
-import { reportUnmatchedPhrase } from '$lib/server/db/actions/unmatchedPhrases';
 import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
 import { toDateTime } from '$lib/server/utils/eventTimes';
 import { resolveMasterId } from '$lib/server/utils/eventIds';
@@ -179,7 +178,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 				rawOps = planBulkEdits(instruction, summaries, now.toISODate()!, calRefs);
 				if (rawOps.length === 0) {
-					await reportUnmatchedPhrase('bulk_edit', instruction);
 					return json(
 						{ error: 'Could not match that instruction. Try naming a date or the events.' },
 						{ status: 422 }

@@ -238,11 +238,11 @@ export const familyInviteCodes = pgTable('familyInviteCodes', {
 	code: text('code').notNull().primaryKey(),
 	familyId: text('familyId')
 		.notNull()
-		.references(() => families.id),
+		.references(() => families.id, { onDelete: 'cascade' }),
 	expiresAt: timestamp('expiresAt', { withTimezone: true, mode: 'date' }).notNull(),
 	maxUses: integer('maxUses').default(1),
 	useCount: integer('useCount').default(0),
-	createdBy: text('createdBy').references(() => users.id)
+	createdBy: text('createdBy').references(() => users.id, { onDelete: 'cascade' })
 });
 
 export const familyGroups = pgTable(
@@ -635,6 +635,8 @@ export const unmatchedPhrases = pgTable(
 		// Normalized for dedup (lowercased, whitespace collapsed, trimmed)
 		phrase: text('phrase').notNull(),
 		sample: text('sample').notNull(),
+		// JSON string of what the parser matched (title, date, startTime, etc.)
+		matched: text('matched'),
 		count: integer('count').default(1).notNull(),
 		resolved: boolean('resolved').default(false).notNull(),
 		createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),

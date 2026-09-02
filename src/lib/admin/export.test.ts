@@ -3,6 +3,7 @@ import {
 	formatUnmatchedPhrasesExport,
 	formatBugReportsExport,
 	reporterName,
+	matchedSummary,
 	BUG_AREA_LABEL
 } from './export';
 
@@ -31,6 +32,7 @@ describe('formatUnmatchedPhrasesExport', () => {
 		phrase: 'gro\xc2\xa0cery run',
 		count: 1,
 		sample: 'gro\xc2\xa0cery run',
+		matched: null,
 		resolved: false,
 		createdAt: new Date('2026-08-20T10:00:00Z'),
 		updatedAt: new Date('2026-08-20T10:00:00Z'),
@@ -61,6 +63,39 @@ describe('formatUnmatchedPhrasesExport', () => {
 		const text = formatUnmatchedPhrasesExport([], [phrase({ phrase: 'sunday brunch', count: 2 })]);
 		expect(text).toContain('## Resolved');
 		expect(text).toContain('"sunday brunch" — 2x');
+	});
+
+	it('includes matched fields when present', () => {
+		const text = formatUnmatchedPhrasesExport(
+			[
+				phrase({
+					phrase: 'Lunch Friday at noon with John',
+					matched: JSON.stringify({ title: 'Lunch', date: '2026-09-04', startTime: '12:00' })
+				})
+			],
+			[]
+		);
+		expect(text).toContain('"Lunch Friday at noon with John" — 1x');
+		expect(text).toContain('matched: {"title":"Lunch","date":"2026-09-04","startTime":"12:00"}');
+	});
+});
+
+describe('matchedSummary', () => {
+	it('returns null for missing or invalid JSON', () => {
+		expect(matchedSummary(null)).toBeNull();
+		expect(matchedSummary('not json')).toBeNull();
+	});
+
+	it('drops empty/blank fields and keeps populated ones', () => {
+		const summary = matchedSummary(
+			JSON.stringify({ title: 'Lunch', date: '', startTime: '12:00', allDay: false, tags: [] })
+		);
+		expect(summary).toEqual({ title: 'Lunch', startTime: '12:00' });
+	});
+
+	it('stringifies nested object values', () => {
+		const summary = matchedSummary(JSON.stringify({ title: 'Lunch', guests: [{ name: 'John' }] }));
+		expect(summary).toEqual({ title: 'Lunch', guests: '[{"name":"John"}]' });
 	});
 });
 

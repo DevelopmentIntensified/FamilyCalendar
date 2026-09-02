@@ -29,6 +29,7 @@
 	} | null = null;
 	export let initialDate: string | undefined = undefined;
 	export let initialTitle: string | undefined = undefined;
+	export let createCount = 0;
 
 	const dispatch = createEventDispatcher();
 
@@ -48,6 +49,7 @@
 	let reportingPhrase = false;
 	let phraseReported = false;
 	let phraseReportable = false;
+	let lastParseResult: Record<string, unknown> | null = null;
 	let parseTimeout: ReturnType<typeof setTimeout>;
 	let submitting = false;
 	let submitError = '';
@@ -154,6 +156,7 @@
 				const result = await response.json();
 				if (result.parsed) {
 					form.applyNlpResult(result.parsed);
+					lastParseResult = result.parsed;
 					phraseReportable = true;
 					// A fresh parse re-reveals previously collapsed detected fields.
 					nlpCollapsed = false;
@@ -173,7 +176,7 @@
 			const res = await fetch('/api/report-phrase', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ phrase: nlInput.trim(), source: 'event_parse' })
+				body: JSON.stringify({ phrase: nlInput.trim(), source: 'event_parse', matched: lastParseResult })
 			});
 			if (res.ok) phraseReported = true;
 		} catch {
@@ -351,6 +354,22 @@
 		form.reset();
 		nlInput = '';
 		nlpCollapsed = false;
+	}
+
+	// After a successful create, reset the form so the user can type another.
+	// The parent bumps `createCount` instead of closing the modal. Wait a beat
+	// for the server response / DB write to fully settle before clearing.
+	let prevCreateCount = 0;
+	$: if (createCount !== prevCreateCount) {
+		prevCreateCount = createCount;
+		setTimeout(() => {
+			clearAll();
+			phraseReportable = false;
+			phraseReported = false;
+			lastParseResult = null;
+			entryType = 'event';
+			taskTitle = '';
+		}, 250);
 	}
 </script>
 

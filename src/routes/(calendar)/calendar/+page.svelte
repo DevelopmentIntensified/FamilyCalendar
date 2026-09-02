@@ -41,6 +41,7 @@
 	let selectedEventRsvp: any[] = [];
 	let createInitialDate: string | undefined = undefined;
 	let createInitialTitle: string | undefined = undefined;
+	let createCount = 0;
 
 	// Bulk edit (selection mode)
 	let selectionMode = false;
@@ -289,7 +290,10 @@
 	} finally {
 		localExtras = [];
 	}
-	close();
+	// Reset the form for another creation instead of closing the modal.
+	createInitialDate = undefined;
+	createInitialTitle = undefined;
+	createCount++;
 	}
 
 	async function handleEventUpdate(event: CustomEvent) {
@@ -598,6 +602,7 @@
 		userSettings={data.userSettings}
 		initialDate={createInitialDate}
 		initialTitle={createInitialTitle}
+		{createCount}
 		on:close={close}
 		on:create={handleEventCreated}
 		on:createTask={handleTaskCreated}

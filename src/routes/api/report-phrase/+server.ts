@@ -17,11 +17,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json().catch(() => ({} as Record<string, unknown>));
 	const phrase = typeof body.phrase === 'string' ? body.phrase.trim() : '';
 	const source = body.source as UnmatchedSource;
+	const matched = body.matched ?? null;
 
 	if (!phrase || phrase.length > 280 || !SOURCES.includes(source)) {
 		return json({ error: 'phrase (string) and source (event_parse | bulk_edit) are required' }, { status: 400 });
 	}
 
-	await reportUnmatchedPhrase(source, phrase);
+	await reportUnmatchedPhrase(source, phrase, matched);
 	return json({ success: true });
 };

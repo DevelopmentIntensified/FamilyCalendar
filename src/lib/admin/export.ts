@@ -51,6 +51,26 @@ function groupBy<K, T>(rows: T[], key: (row: T) => string): [string, T[]][] {
 	return [...map.entries()];
 }
 
+/**
+ * Reduce the stored `matched` JSON string to a small map of non-empty scalar
+ * fields, for compact display / export (a single sample per phrase).
+ */
+export function matchedSummary(matched: string | null): Record<string, unknown> | null {
+	if (!matched) return null;
+	try {
+		const parsed = JSON.parse(matched) as Record<string, unknown>;
+		const fields: Record<string, unknown> = {};
+		for (const [k, v] of Object.entries(parsed)) {
+			if (v === null || v === undefined || v === '' || v === false) continue;
+			if (Array.isArray(v) && v.length === 0) continue;
+			fields[k] = typeof v === 'object' ? JSON.stringify(v) : v;
+		}
+		return Object.keys(fields).length ? fields : null;
+	} catch {
+		return null;
+	}
+}
+
 export function reporterName(
 	r: Pick<BugReportWithReporter, 'reporterFirstName' | 'reporterLastName'>
 ): string {
@@ -81,7 +101,9 @@ export function formatUnmatchedPhrasesExport(
 	for (const [source, phrases] of groupBy(open, (p) => p.source)) {
 		lines.push(`## ${UNMATCHED_SOURCE_LABEL[source] ?? source} (${phrases.length})`);
 		for (const p of phrases) {
-			lines.push(`- "${p.phrase}" — ${p.count}x, first seen ${isoDate(p.createdAt)}`);
+			const matched = matchedSummary(p.matched);
+			const matchedText = matched ? ` matched: ${JSON.stringify(matched)}` : '';
+			lines.push(`- "${p.phrase}" — ${p.count}x, first seen ${isoDate(p.createdAt)}${matchedText}`);
 		}
 		lines.push('');
 	}

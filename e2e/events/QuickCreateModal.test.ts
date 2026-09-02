@@ -123,9 +123,10 @@ test('Quick Create Modal - NL Input Parsing', async ({ page }) => {
 		}
 	});
 
-	await test.step('Submit form and verify redirect', async () => {
+	await test.step('Submit form and verify form resets', async () => {
 		await page.click('button[type="submit"]:has-text("Create")');
-		await page.waitForURL('/calendar', { timeout: 10000 });
+		// The form resets for another creation — NL input clears.
+		await expect(page.locator('input[placeholder*="Lunch Friday at noon"]')).toHaveValue('', { timeout: 10000 });
 	});
 });
 
@@ -174,8 +175,8 @@ test('Quick Create Modal - Description Contains Raw Input', async ({ page }) => 
 
 	await test.step('Submit form', async () => {
 		await page.click('button[type="submit"]:has-text("Create")');
-		// Wait for the modal to close — confirms the create request completed.
-		await expect(page.getByText('New Event')).not.toBeVisible({ timeout: 10000 });
+		// The form resets for another creation — NL input clears.
+		await expect(page.locator('input[placeholder*="Lunch Friday at noon"]')).toHaveValue('', { timeout: 10000 });
 	});
 
 	await test.step('Verify event was created (check description in DB)', async () => {
@@ -230,6 +231,7 @@ test('Quick Create Modal - Required Fields Validation', async ({ page }) => {
 	await test.step('Fill required fields and submit should succeed', async () => {
 		const submitButton = page.locator('button[type="submit"]:has-text("Create")');
 		await submitButton.click();
-		await expect(page.getByText('New Event')).not.toBeVisible({ timeout: 10000 });
+		// The form resets for another creation — title input clears.
+		await expect(page.locator('#event-title')).toHaveValue('', { timeout: 10000 });
 	});
 });

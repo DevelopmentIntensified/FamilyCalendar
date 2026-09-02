@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
 	import type { UnmatchedPhrase } from '$lib/server/db/schema';
-	import { formatUnmatchedPhrasesExport, downloadAsTxt } from '$lib/admin/export';
+	import { formatUnmatchedPhrasesExport, downloadAsTxt, matchedSummary } from '$lib/admin/export';
 
 	export let data: PageData;
 
@@ -97,6 +97,7 @@
 						<thead class="bg-slate-50 text-xs uppercase text-slate-500">
 							<tr>
 								<th class="px-4 py-2">Phrase</th>
+								<th class="px-4 py-2">Matched</th>
 								<th class="px-4 py-2">Count</th>
 								<th class="px-4 py-2">First seen</th>
 								<th class="px-4 py-2"></th>
@@ -106,6 +107,19 @@
 							{#each phrases as phrase (phrase.id)}
 								<tr class="border-t border-slate-100">
 									<td class="px-4 py-2 font-mono text-slate-800">{phrase.phrase}</td>
+									<td class="px-4 py-2 align-top">
+										{#each [matchedSummary(phrase.matched)] as summary}
+											{#if summary}
+												<div class="font-mono text-xs leading-relaxed text-slate-500">
+													{#each Object.entries(summary) as [k, v]}
+														<div><span class="text-slate-400">{k}:</span> {String(v)}</div>
+													{/each}
+												</div>
+											{:else}
+												<span class="text-slate-300">—</span>
+											{/if}
+										{/each}
+									</td>
 									<td class="px-4 py-2">
 										<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium"
 											>{phrase.count}</span
@@ -127,7 +141,7 @@
 									</td>
 								</tr>
 							{:else}
-								<tr><td colspan="4" class="px-4 py-4 text-center text-slate-400">None</td></tr>
+								<tr><td colspan="5" class="px-4 py-4 text-center text-slate-400">None</td></tr>
 							{/each}
 						</tbody>
 					</table>

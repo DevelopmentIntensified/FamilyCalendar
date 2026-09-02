@@ -82,10 +82,12 @@ test('Event Creation', async ({ page }) => {
 	});
 
 	await test.step('Submit form', async () => {
+		// Wait for the create request to complete, then confirm the form resets.
+		const createResp = page.waitForResponse((r) => r.url().includes('/api/events') && r.request().method() === 'POST');
 		await page.click('button[type="submit"]:has-text("Create")');
-		// The modal closes once the server action completes — this is the real
-		// signal that creation finished (we never navigate away from /calendar).
-		await expect(page.getByText('New Event')).not.toBeVisible({ timeout: 15000 });
+		await createResp;
+		// The form resets for another creation — NL input clears.
+		await expect(page.locator('input[placeholder*="Lunch Friday at noon"]')).toHaveValue('', { timeout: 15000 });
 	});
 
 	await test.step('Verify event was created in the database', async () => {

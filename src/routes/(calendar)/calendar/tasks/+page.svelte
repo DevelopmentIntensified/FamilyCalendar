@@ -475,7 +475,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-2xl p-6">
+<div class="mx-auto max-w-2xl p-4 sm:p-6">
 	<h1 class="mb-6 text-2xl font-bold text-slate-900">Tasks</h1>
 
 	<!-- Add task -->
@@ -579,7 +579,7 @@
 					<button
 						type="button"
 						onclick={() => (searchQuery = '')}
-						class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+						class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
 						aria-label="Clear search"
 						title="Clear search"
 					>
@@ -589,12 +589,12 @@
 					</button>
 				{/if}
 			</div>
-			<label class="flex items-center gap-2 text-sm text-slate-500">
+			<label class="flex w-full items-center gap-2 text-sm text-slate-500 sm:w-auto">
 				<span class="shrink-0">Sort</span>
 				<select
 					bind:value={sortBy}
 					aria-label="Sort tasks"
-					class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+					class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 sm:w-auto"
 				>
 					<option value="due">Due date</option>
 					<option value="priority">Priority</option>
@@ -618,7 +618,7 @@
 				<button
 					type="button"
 					onclick={() => (tagFilter = '')}
-					class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+					class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
 					aria-label="Clear tag filter"
 					title="Clear filter"
 				>
