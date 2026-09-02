@@ -42,6 +42,11 @@
 		if (initialView === 'month' || initialView === 'week' || initialView === 'day' || initialView === 'list') {
 			return initialView;
 		}
+		// Restore last-used view from localStorage.
+		try {
+			const saved = localStorage.getItem('familyplanz:lastView') as 'month' | 'week' | 'list' | 'day' | null;
+			if (saved && map[`${saved}View`]) return saved;
+		} catch { /* SSR / private browsing */ }
 		return map[defaultViewSetting] ?? 'month';
 	})();
 	let previousView: 'month' | 'week' | 'list' = 'month';
@@ -79,16 +84,19 @@
 
 	function changeView(newView: typeof view) {
 		view = newView;
+		try { localStorage.setItem('familyplanz:lastView', newView); } catch {}
 	}
 
 	function openDay(date: DateTime) {
 		if (view !== 'day') previousView = view as 'month' | 'week' | 'list';
 		currentDate.set(date);
 		view = 'day';
+		try { localStorage.setItem('familyplanz:lastView', 'day'); } catch {}
 	}
 
 	function backFromDay() {
 		view = previousView;
+		try { localStorage.setItem('familyplanz:lastView', previousView); } catch {}
 	}
 
 	function handleMonthSelect(month: number) {

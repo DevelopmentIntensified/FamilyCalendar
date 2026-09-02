@@ -208,12 +208,12 @@ export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>
 	return createdEvent;
 }
 
-export async function updateEventById(id: string, data: Partial<Omit<CalendarEvent, 'id'>>, userId: string, invites?: unknown) {
-	const accessibleCalIds = await getAccessibleCalendarIds(userId);
+export async function updateEventById(id: string, data: Partial<Omit<CalendarEvent, 'id'>>, userId: string, invites?: unknown, accessibleCalIds?: string[]) {
+	const calIds = accessibleCalIds ?? await getAccessibleCalendarIds(userId);
 	const [updatedEvent] = await db
 		.update(events)
 		.set(data)
-		.where(and(eq(events.id, id), eventAccessFilter(userId, accessibleCalIds)))
+		.where(and(eq(events.id, id), eventAccessFilter(userId, calIds)))
 		.returning();
 	if (updatedEvent && invites !== undefined) {
 		await replaceEventInvites(id, invites);

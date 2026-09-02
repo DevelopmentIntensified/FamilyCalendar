@@ -86,7 +86,7 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 			calendarId
 		};
 
-		const updated = await updateEventById(params.id, eventData, userId, invites);
+		const updated = await updateEventById(params.id, eventData, userId, invites, accessibleCalIds);
 		if (!updated) {
 			return json({ error: 'Event not found' }, { status: 404 });
 		}

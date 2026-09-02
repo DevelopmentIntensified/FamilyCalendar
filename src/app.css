@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent any horizontal overflow on mobile (viewport-fit=cover, WeekView min-width, etc.) */
+html,
+body {
+	overflow-x: hidden;
+}
+
 /* ---- Feel layer: motion respect, cleaner taps, branded selection ---- */
 
 @media (prefers-reduced-motion: reduce) {

@@ -27,6 +27,7 @@
 	let showEditForm = false;
 	let duplicating = false;
 	let showDeleteConfirm = false;
+	let showDuplicateConfirm = false;
 	let actionError = '';
 
 	// Mobile bottom-sheet swipe state.
@@ -87,6 +88,7 @@
 		show = false;
 		showEditForm = false;
 		showDeleteConfirm = false;
+		showDuplicateConfirm = false;
 		actionError = '';
 		dragOffset = 0;
 		dragTransition = false;
@@ -118,6 +120,11 @@
 	function beginDelete() {
 		actionError = '';
 		showDeleteConfirm = true;
+	}
+
+	function beginDuplicate() {
+		actionError = '';
+		showDuplicateConfirm = true;
 	}
 
 	async function performDelete(scope?: 'this' | 'all') {
@@ -761,6 +768,32 @@
 						</div>
 					{/if}
 
+					<!-- Duplicate confirmation -->
+					{#if showDuplicateConfirm}
+						<div class="border-t border-slate-100 px-4 py-4 sm:px-6">
+							<div class="rounded-xl border border-primary-200 bg-primary-50 p-4">
+								<p class="text-sm font-medium text-primary-700">Duplicate this event?</p>
+								<p class="mt-1 text-xs text-primary-600">A copy titled "{event.title} (copy)" will be created.</p>
+								<div class="mt-3 flex flex-wrap items-center gap-2">
+									<button
+										type="button"
+										onclick={() => { showDuplicateConfirm = false; duplicateEvent(); }}
+										class="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
+									>
+										{duplicating ? 'Copying...' : 'Duplicate'}
+									</button>
+									<button
+										type="button"
+										onclick={() => (showDuplicateConfirm = false)}
+										class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+									>
+										Cancel
+									</button>
+								</div>
+							</div>
+						</div>
+					{/if}
+
 					{#if actionError}
 						<div class="px-4 pb-3 sm:px-6">
 							<p role="alert" class="text-sm text-red-600">{actionError}</p>
@@ -786,7 +819,7 @@
 					</button>
 					<button
 						type="button"
-						onclick={() => duplicateEvent()}
+						onclick={beginDuplicate}
 						disabled={duplicating}
 						class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 sm:w-auto sm:gap-1.5 sm:px-4 sm:text-sm sm:font-medium"
 						aria-label="Duplicate event"
@@ -799,12 +832,13 @@
 					<button
 						type="button"
 						onclick={handleEdit}
-						class="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-4 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+						class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white transition-colors hover:bg-primary-700 sm:w-auto sm:flex-1 sm:gap-1.5 sm:px-4 sm:text-sm sm:font-medium"
+						aria-label="Edit event"
 					>
-						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
 						</svg>
-						Edit Event
+						<span class="hidden sm:inline">Edit Event</span>
 					</button>
 				</div>
 			</div>
