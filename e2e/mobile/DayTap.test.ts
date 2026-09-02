@@ -43,9 +43,9 @@ test('mobile day tap: anywhere in a day cell (incl. event chips) opens the day a
 
 	const todayLabel = `Open ${pad(start.getMonth() + 1)}-${pad(start.getDate())}-${start.getFullYear()}`;
 	const dayCell = page.getByRole('button', { name: todayLabel });
+	const chip = dayCell.locator('..').locator('button', { hasText: 'Mobile Menu Event' }).first();
 
 	await test.step('Tapping directly on an event chip opens the day action menu (not the event detail)', async () => {
-		const chip = dayCell.locator('..').locator('button', { hasText: 'Mobile Menu Event' }).first();
 		const chipBox = await chip.boundingBox();
 		if (!chipBox) throw new Error('chip not visible');
 		await page.mouse.click(chipBox.x + chipBox.width / 2, chipBox.y + chipBox.height / 2);
@@ -57,6 +57,27 @@ test('mobile day tap: anywhere in a day cell (incl. event chips) opens the day a
 		await expect(sheet.getByText("View this day's events")).toBeVisible();
 		await expect(sheet.getByText('Open Day View')).toBeVisible();
 	});
+
+	await test.step('Day action sheet lists events above the action buttons', async () => {
+		const sheet = page.getByRole('dialog', { name: 'Day actions' });
+		await expect(sheet.getByText('Mobile Menu Event')).toBeVisible();
+
+		// Tapping the event in the sheet opens the event detail modal.
+		await sheet.getByText('Mobile Menu Event').click();
+		await expect(sheet).toBeHidden();
+		// EventModal renders the title in an h2.
+		await expect(page.locator('h2', { hasText: 'Mobile Menu Event' })).toBeVisible();
+
+		// Close event detail to continue with the rest of the test.
+		await page.getByRole('button', { name: 'Close' }).click();
+		await expect(page.locator('h2', { hasText: 'Mobile Menu Event' })).toBeHidden();
+	});
+
+	// Re-open the sheet for the next test step.
+	const chipBox = await chip.boundingBox();
+	if (!chipBox) throw new Error('chip not visible');
+	await page.mouse.click(chipBox.x + chipBox.width / 2, chipBox.y + chipBox.height / 2);
+	await expect(page.getByRole('dialog', { name: 'Day actions' })).toBeVisible();
 
 	const expectedDate = start.toLocaleDateString('en-US', {
 		weekday: 'long',

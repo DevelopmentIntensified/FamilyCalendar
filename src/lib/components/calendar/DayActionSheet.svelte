@@ -1,12 +1,17 @@
 <script lang="ts">
 	import { DateTime } from 'luxon';
+	import type { Event } from '$lib/types';
+	import { formatEventTime } from '$lib/utils/eventTime';
+	import { rsvpVisual } from '$lib/utils/eventChip';
 
 	export let date: DateTime;
 	export let open = false;
+	export let events: Event[] = [];
 	export let onAdd: (date: DateTime) => void = () => {};
 	export let onViewEvents: () => void = () => {};
 	export let onOpenDay: () => void = () => {};
 	export let onClose: () => void = () => {};
+	export let onEventClick: (event: Event) => void = () => {};
 
 	// Mobile bottom-sheet swipe-dismiss, mirroring EventModal's sheet.
 	let dragging = false;
@@ -102,6 +107,42 @@
 					</svg>
 				</button>
 			</div>
+
+			<!-- Events list -->
+			{#if events.length > 0}
+				<div class="max-h-[30dvh] shrink-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 border-b border-slate-100">
+					{#each events as event (event.id)}
+						{@const rv = rsvpVisual(event.rsvpStatus)}
+						<button
+							type="button"
+							onclick={() => { close(); onEventClick(event); }}
+							class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 active:bg-slate-100 sm:px-6"
+						>
+							<span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background-color: {event.color || '#94a3b8'}"></span>
+							<div class="min-w-0 flex-1">
+								<div class="flex items-center gap-2">
+									<span class="truncate text-sm font-medium text-slate-800">{event.title}</span>
+									{#if rv}
+										<span class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold {rv.badgeClass}">{rv.icon} {rv.label}</span>
+									{/if}
+								</div>
+								{#if !event.allDay}
+									{@const st = event.startTime || (event.start ? formatEventTime(event.start) : '')}
+									{@const et = event.endTime || (event.end ? formatEventTime(event.end) : '')}
+									{#if st}
+										<span class="text-xs text-slate-500">{st}{#if et} – {et}{/if}</span>
+									{/if}
+								{:else}
+									<span class="text-xs text-slate-500">All day</span>
+								{/if}
+							</div>
+							<svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+							</svg>
+						</button>
+					{/each}
+				</div>
+			{/if}
 
 			<!-- Actions -->
 			<div class="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-4 sm:p-6">

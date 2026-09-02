@@ -298,10 +298,12 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	<DayActionSheet
 		date={sheetDate}
 		open={sheetOpen}
+		events={sheetEvents}
 		onAdd={createAt}
 		onViewEvents={onSheetViewEvents}
 		onOpenDay={() => openDay(sheetDate)}
 		onClose={() => (sheetOpen = false)}
+		onEventClick={handleEventClick}
 	/>
 {/if}
 
