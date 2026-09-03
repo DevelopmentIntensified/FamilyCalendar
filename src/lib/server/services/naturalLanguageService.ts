@@ -670,19 +670,29 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// Conjunction-joined pairs ("Monday and Tuesday") name both days even
 	// without a trigger word. Commas count too ("Mon, Wed").
 	const conjunction = distinctDays.length >= 2 && /\band\b|,|&/.test(dateInput);
-	if (
-		distinctDays.length >= 1 &&
-		(!result.recurring || result.recurring === 'weekly') &&
-		(listTrigger || anyPluralDay || conjunction)
-	) {
-		// Note: a lone dateless weekday ("lunch Monday", no trigger) fails
-		// the condition and stays a single event (dated by the fallback).
-		result.recurring = 'weekly';
-		result.recurringByDay = orderWeekdays(distinctDays);
-		recurrencePhrases.push(...dayRaws);
-		confidence += 0.2;
-		if (!result.date) {
-			result.date = nearestWeekday(distinctDays, zone).toFormat('yyyy-MM-dd');
+	if (distinctDays.length >= 1 && (!result.recurring || result.recurring === 'weekly')) {
+		if (listTrigger || anyPluralDay) {
+			// Note: a lone dateless weekday ("lunch Monday", no trigger) fails
+			// the condition and stays a single event (dated by the fallback).
+			result.recurring = 'weekly';
+			result.recurringByDay = orderWeekdays(distinctDays);
+			recurrencePhrases.push(...dayRaws);
+			confidence += 0.2;
+			if (!result.date) {
+				result.date = nearestWeekday(distinctDays, zone).toFormat('yyyy-MM-dd');
+			}
+		} else if (conjunction && !result.dates) {
+			// Bare pairs name concrete dates — weeklies need to be asked
+			// for ("every", plural). One upcoming date per listed day.
+			const dates = distinctDays
+				.map((d) => nearestWeekday([d], zone).toFormat('yyyy-MM-dd'))
+				.sort();
+			result.dates = dates;
+			recurrencePhrases.push(...dayRaws);
+			confidence += 0.2;
+			if (!result.date) {
+				result.date = dates[0];
+			}
 		}
 	}
 

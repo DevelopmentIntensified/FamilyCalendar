@@ -1076,9 +1076,10 @@ describe('Typo-tolerant weekdays ("thrusday")', () => {
 		});
 	}
 
-	it('reads a typo pair into the series days ("tuesday and thrusday")', () => {
+	it('reads a typo pair into concrete dates ("tuesday and thrusday")', () => {
 		const result = parseEventInput('running on tuesday and thrusday at 7pm');
-		expect(result.parsed.recurringByDay).toEqual(['TU', 'TH']);
+		expect(result.parsed.recurring).toBeUndefined();
+		expect(result.parsed.dates!.map((d) => DateTime.fromISO(d).weekday).sort()).toEqual([2, 4]);
 	});
 
 	it('does not invent weekdays from short words ("we sat by the sun")', () => {
@@ -1088,11 +1089,12 @@ describe('Typo-tolerant weekdays ("thrusday")', () => {
 });
 
 describe('Reported phrase "running on tuesday and thrusday at 7 pm for fun"', () => {
-	it('parses one Tu+Th series with the shared time', () => {
+	it('parses two concrete dates with the shared time (no repeat spoken)', () => {
 		const result = parseEventInput('running on tuesday and thrusday at 7 pm for fun');
-		expect(result.parsed.recurring).toBe('weekly');
-		expect(result.parsed.recurringByDay).toEqual(['TU', 'TH']);
-		expect(DateTime.fromISO(result.parsed.date!).weekday).toBe(2);
+		expect(result.parsed.recurring).toBeUndefined();
+		expect(result.parsed.dates).toHaveLength(2);
+		expect(DateTime.fromISO(result.parsed.dates![0]).weekday).toBe(2);
+		expect(DateTime.fromISO(result.parsed.dates![1]).weekday).toBe(4);
 		expect(result.parsed.startTime).toBe('19:00');
 	});
 
@@ -1106,16 +1108,25 @@ describe('Reported phrase "running on tuesday and thrusday at 7 pm for fun"', ()
 	});
 });
 
-describe('Day-coordinated pairs stay one series', () => {
-	it('keeps "yoga every Monday and Wednesday" as a single series', () => {
+describe('Day-coordinated pairs without repeat words', () => {
+	it('keeps "yoga every Monday and Wednesday" as a weekly series', () => {
 		const results = parseEventList('yoga every Monday and Wednesday at 6pm');
 		expect(results).toHaveLength(1);
+		expect(results[0].parsed.recurring).toBe('weekly');
 		expect(results[0].parsed.recurringByDay).toEqual(['MO', 'WE']);
 	});
 
-	it('reads "meeting Monday and Tuesday" as both days', () => {
+	it('reads bare "meeting Monday and Tuesday" as two dates, no repeat', () => {
 		const result = parseEventInput('meeting Monday and Tuesday');
-		expect(result.parsed.recurring).toBe('weekly');
-		expect(result.parsed.recurringByDay).toEqual(['MO', 'TU']);
+		expect(result.parsed.recurring).toBeUndefined();
+		expect(result.parsed.dates).toHaveLength(2);
+		expect(result.parsed.dates!.map((d) => DateTime.fromISO(d).weekday).sort()).toEqual([1, 2]);
+	});
+
+	it('reads bare "gym Mon, Wed, Fri" as three dates, no repeat', () => {
+		const result = parseEventInput('gym Mon, Wed, Fri');
+		expect(result.parsed.recurring).toBeUndefined();
+		expect(result.parsed.dates).toHaveLength(3);
+		expect(result.parsed.dates!.map((d) => DateTime.fromISO(d).weekday).sort()).toEqual([1, 3, 5]);
 	});
 });
