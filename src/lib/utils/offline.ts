@@ -10,6 +10,37 @@ export interface MutationRecord {
 	createdAt: number;
 }
 
+/**
+ * Explicit replay/conflict policy for the offline mutation queue.
+ * Kept as pure, node-safe helpers so the rules are pinned by tests
+ * independently of IndexedDB/fetch.
+ */
+export type ReplayDisposition = 'applied' | 'discarded' | 'retry';
+
+/** Oldest-first replay order (queue insertion order via auto-increment id). */
+export function sortReplayQueue(records: MutationRecord[]): MutationRecord[] {
+	return [...records].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+}
+
+/**
+ * Conflict semantics for one replayed mutation:
+ * - 2xx `applied`: server accepted it.
+ * - 4xx `discarded`: server rejected it permanently; dropping avoids
+ *   retrying something that will never succeed (e.g. 404/409/422).
+ * - anything else (3xx/5xx) `retry`: keep the record for a later attempt.
+ * Network throws are handled by the caller as `retry` (failed + kept).
+ */
+export function getReplayDisposition(status: number): ReplayDisposition {
+	if (status >= 200 && status < 300) return 'applied';
+	if (status >= 400 && status < 500) return 'discarded';
+	return 'retry';
+}
+
+/** True when the record must be removed after replay (2xx or 4xx). */
+export function shouldDropAfterReplay(status: number): boolean {
+	return getReplayDisposition(status) !== 'retry';
+}
+
 function hasIndexedDb(): boolean {
 	return typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined';
 }
@@ -90,9 +121,7 @@ async function deleteMutation(id: number | undefined): Promise<void> {
 export async function replayPending(): Promise<{ applied: number; failed: number }> {
 	if (!hasIndexedDb()) return { applied: 0, failed: 0 };
 
-	const records = (await getAllMutations()).sort(
-		(a, b) => (a.id ?? 0) - (b.id ?? 0)
-	);
+	const records = sortReplayQueue(await getAllMutations());
 
 	let applied = 0;
 	let failed = 0;
@@ -106,9 +135,10 @@ export async function replayPending(): Promise<{ applied: number; failed: number
 				body: hasBody ? JSON.stringify(record.body) : undefined
 			});
 
-			if ((response.status >= 200 && response.status < 300) || (response.status >= 400 && response.status < 500)) {
+			const disposition = getReplayDisposition(response.status);
+			if (shouldDropAfterReplay(response.status)) {
 				await deleteMutation(record.id);
-				if (response.ok) {
+				if (disposition === 'applied') {
 					applied++;
 				} else {
 					failed++;
