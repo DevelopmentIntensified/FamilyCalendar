@@ -826,9 +826,10 @@ describe('Multi-day weekly ("every Mon, Wed, Fri")', () => {
 		expect(result.parsed.recurringByDay).toBeUndefined();
 	});
 
-	it('leaves single or dateless weekday pairs alone ("lunch Monday", "meeting Monday and Tuesday")', () => {
-		expect(parseEventInput('lunch Monday').parsed.recurringByDay).toBeUndefined();
-		expect(parseEventInput('meeting Monday and Tuesday').parsed.recurringByDay).toBeUndefined();
+	it('leaves lone weekdays alone ("lunch Monday" stays a single event)', () => {
+		const result = parseEventInput('lunch Monday');
+		expect(result.parsed.recurringByDay).toBeUndefined();
+		expect(result.parsed.recurring).toBeUndefined();
 	});
 
 	it('does not mistake the until-weekday for a series day ("yoga every Monday until Friday")', () => {
@@ -1055,5 +1056,66 @@ describe('Multi-event segmentation ("dinner Friday and movie Saturday")', () => 
 
 	it('does not split single events ("standup daily at 9am")', () => {
 		expect(parseEventList('standup daily at 9am')).toHaveLength(1);
+	});
+});
+
+
+describe('Typo-tolerant weekdays ("thrusday")', () => {
+	const singles: Array<[string, number]> = [
+		['yoga wensday at 6pm', 3],
+		['dentist tuseday morning', 2],
+		['party saterday night', 6],
+		['call mom sundey afternoon', 7],
+		['gym mondya at 5pm', 1],
+		['lunch fridya with jay', 5]
+	];
+	for (const [input, weekday] of singles) {
+		it(`dates "${input}" on weekday ${weekday}`, () => {
+			const result = parseEventInput(input);
+			expect(DateTime.fromISO(result.parsed.date!).weekday).toBe(weekday);
+		});
+	}
+
+	it('reads a typo pair into the series days ("tuesday and thrusday")', () => {
+		const result = parseEventInput('running on tuesday and thrusday at 7pm');
+		expect(result.parsed.recurringByDay).toEqual(['TU', 'TH']);
+	});
+
+	it('does not invent weekdays from short words ("we sat by the sun")', () => {
+		const result = parseEventInput('we sat by the sun saturday');
+		expect(result.parsed.recurringByDay ?? []).not.toContain('MO');
+	});
+});
+
+describe('Reported phrase "running on tuesday and thrusday at 7 pm for fun"', () => {
+	it('parses one Tu+Th series with the shared time', () => {
+		const result = parseEventInput('running on tuesday and thrusday at 7 pm for fun');
+		expect(result.parsed.recurring).toBe('weekly');
+		expect(result.parsed.recurringByDay).toEqual(['TU', 'TH']);
+		expect(DateTime.fromISO(result.parsed.date!).weekday).toBe(2);
+		expect(result.parsed.startTime).toBe('19:00');
+	});
+
+	it('titles it without schedule fragments', () => {
+		const result = parseEventInput('running on tuesday and thrusday at 7 pm for fun');
+		expect(result.parsed.title).toBe('running fun');
+	});
+
+	it('does not split the series into two events', () => {
+		expect(parseEventList('running on tuesday and thrusday at 7 pm for fun')).toHaveLength(1);
+	});
+});
+
+describe('Day-coordinated pairs stay one series', () => {
+	it('keeps "yoga every Monday and Wednesday" as a single series', () => {
+		const results = parseEventList('yoga every Monday and Wednesday at 6pm');
+		expect(results).toHaveLength(1);
+		expect(results[0].parsed.recurringByDay).toEqual(['MO', 'WE']);
+	});
+
+	it('reads "meeting Monday and Tuesday" as both days', () => {
+		const result = parseEventInput('meeting Monday and Tuesday');
+		expect(result.parsed.recurring).toBe('weekly');
+		expect(result.parsed.recurringByDay).toEqual(['MO', 'TU']);
 	});
 });

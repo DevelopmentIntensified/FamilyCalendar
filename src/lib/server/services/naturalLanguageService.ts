@@ -109,6 +109,76 @@ function normalizeDayToken(t: string): string | null {
 
 const WEEK_ORDER = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 
+const FULL_WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+/** Tiny edit distance for typo-tolerant weekday matching (7 words — trivial). */
+function editDistance(a: string, b: string): number {
+	const dp: number[] = Array.from({ length: b.length + 1 }, (_, i) => i);
+	for (let i = 1; i <= a.length; i++) {
+		let prev = dp[0];
+		dp[0] = i;
+		for (let j = 1; j <= b.length; j++) {
+			const next = dp[j];
+			dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+			prev = next;
+		}
+	}
+	return dp[b.length];
+}
+
+/** Map a stray word to a weekday code within typo range. Exact names win
+ * immediately (so "monday" never fuzzy-matches "sunday", 2 edits away);
+ * otherwise the budget scales with length (≤1 below 7 chars, ≤2 above).
+ * Short tokens and month names never qualify. */
+function fuzzyDayToken(word: string): string | null {
+	const s = word.toLowerCase();
+	if (s.length < 4) return null;
+	if (MONTH_MAP[s] !== undefined) return null;
+	const exact = FULL_WEEKDAYS.indexOf(s);
+	if (exact >= 0) return normalizeDayToken(FULL_WEEKDAYS[exact]);
+	// Adjacent transpositions ("mondya", "fridya") are single human typos.
+	for (let i = 0; i + 1 < s.length; i++) {
+		const swapped = s.slice(0, i) + s[i + 1] + s[i] + s.slice(i + 2);
+		const hit = FULL_WEEKDAYS.indexOf(swapped);
+		if (hit >= 0) return normalizeDayToken(FULL_WEEKDAYS[hit]);
+	}
+	const budget = s.length < 7 ? 1 : 2;
+	for (const name of FULL_WEEKDAYS) {
+		if (editDistance(s, name) <= budget) return normalizeDayToken(name);
+	}
+	return null;
+}
+
+export interface DayToken {
+	raw: string;
+	code: string;
+	index: number;
+}
+
+/** Single weekday-token pass: exact abbreviations first, then a typo scan
+ * when fewer than 2 distinct days matched. Exported for unit tests. */
+export function extractDayTokens(text: string): DayToken[] {
+	const out: DayToken[] = [];
+	const seen = new Set<string>();
+	const exact = text.matchAll(/\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nes|nesday)?|thu(?:r?s?(?:day)?)?|fri(?:day)?|sat(?:ur|urday)?|sun(?:day)?)s?\b/gi);
+	for (const m of exact) {
+		const code = normalizeDayToken(m[1]);
+		if (!code) continue;
+		out.push({ raw: m[0], code, index: m.index ?? 0 });
+		seen.add(code);
+	}
+	if (seen.size < 2) {
+		for (const m of text.matchAll(/\b([a-z]{4,})\b/gi)) {
+			const code = fuzzyDayToken(m[1]);
+			if (code && !seen.has(code)) {
+				out.push({ raw: m[0], code, index: m.index ?? 0 });
+				seen.add(code);
+			}
+		}
+	}
+	return out.sort((a, b) => a.index - b.index);
+}
+
 /** Monday-first ordering for by-day lists. */
 function orderWeekdays(days: string[]): string[] {
 	return [...days].sort((a, b) => WEEK_ORDER.indexOf(a) - WEEK_ORDER.indexOf(b));
@@ -150,39 +220,62 @@ function resolveUntilDate(m: RegExpMatchArray, now: DateTime, zone?: string): st
 
 /** Title stop-words: schedule connectors left after span stripping.
  * Dropped only at the edges or next to punctuation — never mid-title. */
-const TITLE_STOP = new Set(['on', 'from', 'at', 'to', 'and', 'or', '&', 'am', 'pm']);
+const TITLE_STOP = new Set(['on', 'from', 'for', 'at', 'to', 'and', 'or', '&', 'am', 'pm']);
 
 /** Cosmetic digit-times the parser consumed ("5:30", "9am", "a5pm"). */
 const TITLE_TIME_RES = [/\b\d{1,2}:\d{2}\s*(?:am|pm)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(?:am|pm)?/gi, /\b\d{1,2}:\d{2}\b/g, /\ba\s*\d{1,2}(?::?\d{2})?\s*(?:am|pm)\b/gi, /\b\d{1,2}\s*(?:am|pm)\b/gi];
 
-/** Strip consumed schedule spans plus cosmetic digit-times. */
+/** Strip consumed schedule spans plus cosmetic digit-times. Spans become
+ * DOUBLE spaces so the cleanup below can tell connector words left behind
+ * by stripping ("on", "and") from real title words. */
 function stripTitleSpans(title: string, phrases: string[]): string {
 	let text = title;
 	for (const phrase of phrases) {
 		const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		text = text.replace(new RegExp(escaped, 'i'), ' ');
+		text = text.replace(new RegExp(escaped, 'i'), '  ');
 	}
-	for (const re of TITLE_TIME_RES) text = text.replace(re, ' ');
+	for (const re of TITLE_TIME_RES) text = text.replace(re, '  ');
 	return text;
 }
 
 /**
- * Drop leftover connectors ("launch on , from" -> "launch"). Runs until
- * stable (max 3 passes) so drops that create new edges settle.
+ * Drop leftover connectors ("running on   and   at   for fun" -> "running
+ * fun"). Double spaces mark where spans were removed: a STOP word beside a
+ * gap (or edge/punctuation) goes; mid-title connectors between real words
+ * ("fish and chips") stay. Runs until stable (max 3 passes).
  */
 function cleanTitleText(title: string): string {
 	let text = title;
 	for (let pass = 0; pass < 3; pass++) {
-		const collapsed = text.replace(/\s{2,}/g, ' ').replace(/\s+([,;:!?])/g, '$1').trimStart();
-		const tokens = collapsed.split(' ').filter((t) => t.length > 0);
+		const tokens = text.split(' ');
+		const nonEmpty = tokens.filter((t) => t.length > 0);
+		const first = nonEmpty[0];
+		const last = nonEmpty[nonEmpty.length - 1];
 		const kept = tokens.filter((t, i) => {
+			if (t === '') return false;
 			const core = t.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '').toLowerCase();
 			if (core === '') return false;
 			if (!TITLE_STOP.has(core)) return true;
 			const prev = tokens[i - 1] ?? '';
 			const next = tokens[i + 1] ?? '';
 			const isPunct = (s: string) => s.length > 0 && /^[^a-z0-9]+$/i.test(s);
-			return !(i === 0 || i === tokens.length - 1 || t !== core || isPunct(prev) || isPunct(next));
+			if (t === first || t === last || t !== core || prev === '' || next === '' || isPunct(prev) || isPunct(next)) {
+				return false;
+			}
+			// STOP runs: consecutive STOPs on the squeezed (non-empty)
+			// sequence go together ("running on and for fun" loses
+			// on/and/for; "fish and chips" keeps its lone and).
+			const sqIdx: number[] = [];
+			tokens.forEach((x, j) => {
+				if (x !== '') sqIdx.push(j);
+			});
+			const pos = sqIdx.indexOf(i);
+			const sqStop = (p: number) => {
+				if (p < 0 || p >= sqIdx.length) return false;
+				const tok = tokens[sqIdx[p]];
+				return TITLE_STOP.has(tok.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '').toLowerCase());
+			};
+			return !(sqStop(pos - 1) || sqStop(pos + 1));
 		});
 		const next = kept.join(' ').trimStart();
 		if (next === text) return next;
@@ -468,13 +561,22 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	for (const e of explicitDates) stripSpans.push(e.span);
 
 	// Bare-weekday fallback ("dinner friday"): no date matched anywhere, so
-	// the first named weekday is the event day (next occurrence).
+	// the first named weekday is the event day (next occurrence). Exact
+	// names first; typo forms ("wensday") resolve fuzzily with lower weight.
 	if (!result.date) {
 		const bareDay = dateInput.match(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
 		if (bareDay) {
 			result.date = getNextDayOfWeek(bareDay[1], zone).toFormat('yyyy-MM-dd');
 			confidence += 0.2;
 			stripSpans.push(bareDay[0]);
+		} else {
+			const fuzzy = extractDayTokens(dateInput);
+			if (fuzzy.length > 0) {
+				const name = FULL_WEEKDAYS[(WEEK_ORDER.indexOf(fuzzy[0].code) + 1) % 7];
+				result.date = getNextDayOfWeek(name, zone).toFormat('yyyy-MM-dd');
+				confidence += 0.15;
+				stripSpans.push(fuzzy[0].raw);
+			}
 		}
 	}
 
@@ -558,23 +660,23 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// Weekday recurrence, single pass: "every Monday", "on wednesdays",
-	// "every Mon, Wed, Fri". One token scan over dateInput (until-span
-	// blanked, so "every Monday until Friday" never reads Friday as a day)
-	// feeds every rule below — no second scan elsewhere.
-	const DAY_TOKEN = 'mon(?:day)?|tue(?:s|sday)?|wed(?:nes|nesday)?|thu(?:r?s?(?:day)?)?|fri(?:day)?|sat(?:ur|urday)?|sun(?:day)?';
-	const dayRaws = dateInput.match(new RegExp(`\\b(${DAY_TOKEN})s?\\b`, 'gi')) ?? [];
-	const distinctDays = [...new Set(dayRaws.map(normalizeDayToken))].filter(
-		(d): d is string => !!d
-	);
+	// "every Mon, Wed, Fri", "tuesday and thrusday" (typo-tolerant). One
+	// token scan over dateInput (until-span blanked) feeds every rule below.
+	const dayTokens = extractDayTokens(dateInput);
+	const dayRaws = dayTokens.map((t) => t.raw);
+	const distinctDays = [...new Set(dayTokens.map((t) => t.code))];
 	const anyPluralDay = dayRaws.some((t) => t.toLowerCase().endsWith('s'));
 	const listTrigger = /\b(every|weekly|each)\b/i.test(dateInput);
+	// Conjunction-joined pairs ("Monday and Tuesday") name both days even
+	// without a trigger word. Commas count too ("Mon, Wed").
+	const conjunction = distinctDays.length >= 2 && /\band\b|,|&/.test(dateInput);
 	if (
 		distinctDays.length >= 1 &&
 		(!result.recurring || result.recurring === 'weekly') &&
-		(listTrigger || anyPluralDay)
+		(listTrigger || anyPluralDay || conjunction)
 	) {
-		// Note: two dateless singular weekdays ("meeting Monday and Tuesday",
-		// no trigger word) fail the outer condition and stay a single event.
+		// Note: a lone dateless weekday ("lunch Monday", no trigger) fails
+		// the condition and stays a single event (dated by the fallback).
 		result.recurring = 'weekly';
 		result.recurringByDay = orderWeekdays(distinctDays);
 		recurrencePhrases.push(...dayRaws);
@@ -1229,10 +1331,18 @@ export function parseEventList(input: string, zone?: string): ParseResult[] {
 	return parsed;
 }
 
-/** Split on "and" between two signal-bearing halves, else no split. */
+/** Split on "and" between two signal-bearing halves, else no split.
+ * A day-coordinated pair ("on Tuesday and Thursday") is one series, not
+ * two events — veto the split when two day tokens are joined by bare
+ * "and"/"&". Commas don't veto ("Friday, movie Saturday" still splits). */
 function splitOnAnd(input: string): string[] {
 	const parts = input.split(/\band\b/i);
 	if (parts.length < 2) return [input];
+	const tokens = extractDayTokens(input);
+	for (let i = 0; i + 1 < tokens.length; i++) {
+		const between = input.slice(tokens[i].index + tokens[i].raw.length, tokens[i + 1].index);
+		if (/^\s*(and|&)\s*$/i.test(between)) return [input];
+	}
 	// Only split when every part carries its own signal.
 	if (!parts.every((p) => SEGMENT_SIGNAL.test(p))) return [input];
 	return parts.map((p) => p.trim()).filter((p) => p.length > 0);
