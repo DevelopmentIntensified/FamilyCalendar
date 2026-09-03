@@ -6,6 +6,7 @@ import { updateEventById, deleteEventById, getEvent, upsertException } from '$li
 import { resolveEventInvites } from '$lib/server/utils/eventInvites';
 import { getAccessibleCalendarIds, canTouchEvent } from '$lib/server/db/actions/calendarScope';
 import { resolveOccurrenceId, normalizeOccurrenceIso } from '$lib/server/utils/eventIds';
+import { normalizeEventRecurrence } from '$lib/server/services/eventRecurrence';
 import { eq } from 'drizzle-orm';
 
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
@@ -79,7 +80,8 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 			description: body.description || null,
 			location: body.location || null,
 			allDay: body.allDay || false,
-			calendarId
+			calendarId,
+			...normalizeEventRecurrence(body)
 		};
 
 		const updated = await updateEventById(id, eventData, userId, invites, accessibleCalIds);
