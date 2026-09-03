@@ -301,6 +301,29 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		expect(body.matched.results).toHaveLength(2);
 		expect(body.matched.results[1]).toMatchObject({ title: 'Movie' });
 	});
+
+	it('should reflect quick-add reminder minutes in the reminder picker', async () => {
+		vi.mocked(fetch).mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					parsed: { title: 'Dentist', date: '2026-09-07', reminderMinutes: 30 },
+					confidence: 0.85
+				})
+		} as Response);
+
+		render(EventFormModal, {
+			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
+		});
+
+		const nlInput = screen.getAllByPlaceholderText(/lunch friday/i)[0];
+		await fireEvent.input(nlInput, { target: { value: 'dentist tomorrow remind me 30 min before' } });
+		await vi.advanceTimersByTimeAsync(350);
+
+		await fireEvent.click(screen.getByRole('button', { name: /show more/i }));
+		const select = screen.getByLabelText(/reminder/i) as HTMLSelectElement;
+		expect(select.value).toBe('30');
+	});
 });
 
 describe('EventFormModal - Date & Time Layout', () => {

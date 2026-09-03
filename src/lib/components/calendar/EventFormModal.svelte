@@ -80,6 +80,7 @@
 			allDay: event.allDay || false,
 			recurrenceFrequency: event.recurrenceFrequency,
 			recurrenceInterval: event.recurrenceInterval,
+			reminderMinutes: (event as { reminderMinutes?: number | null }).reminderMinutes ?? null,
 			masterId: event.masterId,
 			occurrenceDate: event.occurrenceDate
 		} : undefined
@@ -783,6 +784,27 @@
 											: { daily: 'days', weekly: 'weeks', monthly: 'months', yearly: 'years' }[form.recurrenceFrequency]}
 									</span>
 								{/if}
+							</div>
+
+							<!-- Reminder picker -->
+							<div class="flex items-center gap-2">
+								<select
+									bind:value={form.reminderSelectValue}
+									class="rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+									aria-label="Reminder"
+								>
+									<option value="">No reminder</option>
+									<option value="15">15 min before</option>
+									<option value="30">30 min before</option>
+									<option value="60">1 hour before</option>
+									<option value="120">2 hours before</option>
+									<option value="1440">1 day before</option>
+									{#if form.reminderMinutes != null && ![15, 30, 60, 120, 1440].includes(form.reminderMinutes)}
+										<option value={form.reminderSelectValue}>
+											{form.reminderMinutes} min before (from Quick Add)
+										</option>
+									{/if}
+								</select>
 							</div>
 
 							{#if form.isRecurringOccurrence}

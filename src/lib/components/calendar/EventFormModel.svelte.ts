@@ -67,6 +67,7 @@ interface InitialEvent {
 	recurrenceByDay?: string[] | null;
 	recurrenceCount?: number | null;
 	recurrenceUntil?: string | null;
+	reminderMinutes?: number | null;
 	masterId?: string;
 	occurrenceDate?: string;
 }
@@ -178,6 +179,10 @@ export function createEventForm(config: EventFormConfig) {
 		recurrenceByDay = initialEvent.recurrenceByDay ?? null;
 		recurrenceCount = initialEvent.recurrenceCount ?? null;
 		recurrenceUntil = initialEvent.recurrenceUntil ?? null;
+		reminderMinutes =
+			typeof initialEvent.reminderMinutes === 'number' && initialEvent.reminderMinutes > 0
+				? Math.floor(initialEvent.reminderMinutes)
+				: null;
 	}
 
 	function clearUntouchedNlpFields() {
@@ -288,6 +293,25 @@ export function createEventForm(config: EventFormConfig) {
 
 		get recurrenceInterval() { return recurrenceInterval; },
 		set recurrenceInterval(v: number) { recurrenceInterval = Math.max(1, Math.floor(v) || 1); },
+
+		get recurrenceByDay() { return recurrenceByDay; },
+		get recurrenceCount() { return recurrenceCount; },
+		get recurrenceUntil() { return recurrenceUntil; },
+
+		get reminderMinutes() { return reminderMinutes; },
+		set reminderMinutes(v: number | null) {
+			reminderMinutes = typeof v === 'number' && v > 0 ? Math.floor(v) : null;
+			this.markTouched('reminderMinutes');
+		},
+
+		get reminderSelectValue() {
+			return reminderMinutes == null ? '' : String(reminderMinutes);
+		},
+		set reminderSelectValue(v: string) {
+			const n = v === '' ? NaN : parseInt(v);
+			reminderMinutes = Number.isFinite(n) && (n as number) > 0 ? Math.floor(n as number) : null;
+			this.markTouched('reminderMinutes');
+		},
 
 		get isRecurringOccurrence() {
 			return !!(config.initialEvent?.recurrenceFrequency && config.initialEvent?.occurrenceDate);

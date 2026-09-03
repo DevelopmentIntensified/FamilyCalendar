@@ -128,4 +128,35 @@ describe('EventFormModel - NLP recurrence', () => {
 		expect(data!.recurrenceCount).toBeNull();
 		expect(data!.recurrenceUntil).toBeNull();
 	});
+
+	it('prefills reminder minutes from the edited event and round-trips them', () => {
+		const form = createEventForm({
+			calendars: [{ id: 'cal1', name: 'My Calendar' }],
+			familyMembers: [],
+			defaultCalendarId: 'cal1',
+			initialEvent: {
+				id: 'evt1',
+				title: 'Dentist',
+				description: '',
+				location: '',
+				calendarId: 'cal1',
+				start: '2026-09-07T15:00:00Z',
+				end: '2026-09-07T16:00:00Z',
+				allDay: false,
+				reminderMinutes: 30
+			}
+		});
+		expect(form.reminderMinutes).toBe(30);
+		expect(form.toEventData()!.reminderMinutes).toBe(30);
+		form.reminderMinutes = null;
+		expect(form.toEventData()!.reminderMinutes).toBeNull();
+	});
+
+	it('takes reminder minutes from quick-add', () => {
+		const form = setup();
+		form.title = 'Dentist';
+		form.date = '2026-09-07';
+		form.applyNlpResult({ reminderMinutes: 60 });
+		expect(form.toEventData()!.reminderMinutes).toBe(60);
+	});
 });
