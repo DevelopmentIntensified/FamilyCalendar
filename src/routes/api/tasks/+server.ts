@@ -4,13 +4,14 @@ import {
 	createTask,
 	getTasksForUser,
 	getTasksForEvent,
+	isFamilyMember,
 	normalizeTags,
 	TASK_FREQUENCIES
 } from '$lib/server/db/actions/tasks';
 import { TASK_PRIORITIES } from '$lib/server/db/actions/dashboard';
 import { db } from '$lib/server/db';
-import { events, familyMembers } from '$lib/server/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { events } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { requireUserJson } from '$lib/server/utils/requireUser';
@@ -56,13 +57,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		if (body.familyId === undefined) {
 			familyId = await getUserFamilyId(auth.user.id);
 		} else if (body.familyId !== null) {
-			const [member] = await db
-				.select()
-				.from(familyMembers)
-				.where(
-					and(eq(familyMembers.userId, auth.user.id), eq(familyMembers.familyId, body.familyId))
-				);
-			if (!member) {
+			if (!(await isFamilyMember(auth.user.id, body.familyId))) {
 				return json({ error: 'Not a member of this family' }, { status: 403 });
 			}
 			familyId = body.familyId;

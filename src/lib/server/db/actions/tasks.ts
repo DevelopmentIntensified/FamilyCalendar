@@ -324,6 +324,19 @@ async function advanceRecurringTask(task: Task, zone?: string): Promise<Task | u
 }
 
 /**
+ * Single family-membership seam: existence of a familyMembers row grants
+ * family-scoped rights. `role` is permission-only per ADR-0001 and is never
+ * consulted here; `memberType` is profile-only and likewise ignored.
+ */
+export async function isFamilyMember(userId: string, familyId: string): Promise<boolean> {
+	const [member] = await db
+		.select({ familyId: familyMembers.familyId })
+		.from(familyMembers)
+		.where(and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, familyId)));
+	return Boolean(member);
+}
+
+/**
  * Permission predicate for mutating a task: the owner, the assignee, or any
  * member of the task's family may mutate it. Family membership is the only
  * DB-backed leg, so the lookup runs only when the cheaper owned/assigned
@@ -336,11 +349,7 @@ export async function canMutateTask(task: Task, userId: string): Promise<boolean
 	// Family tasks: membership grants rights. A private task (no family)
 	// leaves an unrelated caller with no access.
 	if (!task.familyId) return false;
-	const [member] = await db
-		.select({ familyId: familyMembers.familyId })
-		.from(familyMembers)
-		.where(and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, task.familyId)));
-	return Boolean(member);
+	return isFamilyMember(userId, task.familyId);
 }
 
 /**
@@ -392,12 +401,10 @@ export async function toggleTaskComplete(
 	userId: string,
 	zone?: string
 ): Promise<Task | undefined> {
-	// The assignee can check off their own task; the creator always can.
-	const [task] = await db
-		.select()
-		.from(tasks)
-		.where(and(eq(tasks.id, id), or(eq(tasks.userId, userId), eq(tasks.assignedTo, userId))));
+	// The owner, the assignee, or any member of the task's family may toggle.
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
 	if (!task) return undefined;
+	if (!(await canMutateTask(task, userId))) return undefined;
 
 	return applyToggle(task, zone);
 }
@@ -435,6 +442,7 @@ export async function deleteCompletedTasks(userId: string) {
 export async function toggleTaskCompleteFamily(
 	id: string,
 	familyId: string,
+	userId: string,
 	zone?: string
 ): Promise<Task | undefined> {
 	const [task] = await db
@@ -442,6 +450,7 @@ export async function toggleTaskCompleteFamily(
 		.from(tasks)
 		.where(and(eq(tasks.id, id), eq(tasks.familyId, familyId)));
 	if (!task) return undefined;
+	if (!(await canMutateTask(task, userId))) return undefined;
 
 	return applyToggle(task, zone);
 }

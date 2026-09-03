@@ -1,22 +1,20 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { getTasksForFamily, syncRecurringCursors } from '$lib/server/db/actions/tasks';
+import {
+	getTasksForFamily,
+	isFamilyMember,
+	syncRecurringCursors
+} from '$lib/server/db/actions/tasks';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 import { db } from '$lib/server/db';
-import { families, familyMembers } from '$lib/server/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { families } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 import { getFamilyRoster } from '$lib/server/db/actions/families';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	const [member] = await db
-		.select({ role: familyMembers.role })
-		.from(familyMembers)
-		.where(
-			and(eq(familyMembers.familyId, params.familyId), eq(familyMembers.userId, locals.user.id))
-		)
-		.limit(1);
-
-	if (!member) {
+	// Viewing the family task list requires membership (existence only;
+	// `role` stays permission-only per ADR-0001).
+	if (!(await isFamilyMember(locals.user.id, params.familyId))) {
 		return redirect(302, '/family');
 	}
 

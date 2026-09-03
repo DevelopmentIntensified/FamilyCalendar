@@ -3,34 +3,20 @@ import type { RequestHandler } from './$types';
 import {
 	updateTask,
 	toggleTaskComplete,
-	toggleTaskCompleteFamily,
 	advanceTaskToNext,
 	undoRecurringCompletion,
 	updateTaskInFamily,
 	deleteTask,
+	canMutateTask,
 	normalizeTags,
 	TASK_FREQUENCIES
 } from '$lib/server/db/actions/tasks';
 import { TASK_PRIORITIES } from '$lib/server/db/actions/dashboard';
 import { db } from '$lib/server/db';
-import { tasks, users, familyMembers } from '$lib/server/db/schema';
+import { tasks, users } from '$lib/server/db/schema';
 import { createNotification } from '$lib/server/db/actions/notifications';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getUserZone } from '$lib/server/utils/userTimezone';
-
-/** Family membership grants toggle rights on family tasks. */
-async function familyMembership(taskId: string, userId: string): Promise<string | null> {
-	const [task] = await db
-		.select({ familyId: tasks.familyId })
-		.from(tasks)
-		.where(eq(tasks.id, taskId));
-	if (!task?.familyId) return null;
-	const [member] = await db
-		.select({ familyId: familyMembers.familyId })
-		.from(familyMembers)
-		.where(and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, task.familyId)));
-	return member ? task.familyId : null;
-}
 
 export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	if (!locals.user) {
@@ -69,11 +55,8 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 			// cursor forward without checking it off.
 			updated = await advanceTaskToNext(taskId, user.id, zone);
 		} else if (body.toggleComplete) {
+			// Owner, assignee, or any family member may toggle (one seam).
 			updated = await toggleTaskComplete(taskId, user.id, zone);
-			if (!updated) {
-				const familyId = await familyMembership(taskId, user.id);
-				if (familyId) updated = await toggleTaskCompleteFamily(taskId, familyId, zone);
-			}
 			if (updated && updated.userId !== user.id) {
 				const actorName = await getActorName();
 				await createNotification({
@@ -131,10 +114,12 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 			});
 
 			// Non-owner family members: assignment responses and tags only.
+			// Field scope stays narrow (owner-only above); the permission leg
+			// goes through the one task-mutation seam.
 			if (!updated && (Object.keys(assignmentPatch).length > 0 || body.tags !== undefined)) {
-				const familyId = await familyMembership(taskId, user.id);
-				if (familyId)
-					updated = await updateTaskInFamily(taskId, familyId, {
+				const [existing] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+				if (existing?.familyId && (await canMutateTask(existing, user.id)))
+					updated = await updateTaskInFamily(taskId, existing.familyId, {
 						...assignmentPatch,
 						tags: body.tags === undefined ? undefined : normalizeTags(body.tags)
 					});
