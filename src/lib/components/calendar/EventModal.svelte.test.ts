@@ -199,3 +199,33 @@ describe('EventModal - reminder display', () => {
 		expect(screen.queryByText(/reminder:/i)).not.toBeInTheDocument();
 	});
 });
+
+describe('EventModal - confirm popovers', () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({ ok: true, json: async () => ({ attendance: [], userRsvpStatus: 'undecided' }) }))
+		);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('pops the delete confirmation above the action bar, outside the scroll body', async () => {
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete event' }));
+		const prompt = screen.getByText('Delete this event?');
+		expect(prompt).toBeInTheDocument();
+		expect(prompt.closest('.overflow-y-auto')).toBeNull();
+	});
+
+	it('pops the duplicate confirmation above the action bar, outside the scroll body', async () => {
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Duplicate event' }));
+		const prompt = screen.getByText('Duplicate this event?');
+		expect(prompt).toBeInTheDocument();
+		expect(prompt.closest('.overflow-y-auto')).toBeNull();
+	});
+});

@@ -755,10 +755,22 @@
 						</div>
 					{/if}
 
+					{#if actionError}
+						<div class="px-4 pb-3 sm:px-6">
+							<p role="alert" class="text-sm text-red-600">{actionError}</p>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Sticky action bar (confirmations pop over it, below) -->
+				<div
+					class="relative flex shrink-0 items-center gap-2 border-t border-slate-100 px-2.5 py-2 sm:px-6 sm:py-3.5"
+					style="padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem)"
+				>
 					<!-- Delete confirmation -->
 					{#if showDeleteConfirm}
-						<div class="border-t border-slate-100 px-4 py-4 sm:px-6">
-							<div class="rounded-xl border border-red-200 bg-red-50 p-4">
+						<div class="absolute inset-x-3 bottom-full z-10 mb-2 sm:inset-x-6">
+							<div class="rounded-xl border border-red-200 bg-red-50 p-4 shadow-xl">
 								<p class="text-sm font-medium text-red-700">Delete this event?</p>
 								{#if eventTasks.length > 0}
 									<p class="mt-1 text-xs text-red-600">⚠️ {eventTasks.length} attached task(s) will also be deleted.</p>
@@ -802,8 +814,8 @@
 
 					<!-- Duplicate confirmation -->
 					{#if showDuplicateConfirm}
-						<div class="border-t border-slate-100 px-4 py-4 sm:px-6">
-							<div class="rounded-xl border border-primary-200 bg-primary-50 p-4">
+						<div class="absolute inset-x-3 bottom-full z-10 mb-2 sm:inset-x-6">
+							<div class="rounded-xl border border-primary-200 bg-primary-50 p-4 shadow-xl">
 								<p class="text-sm font-medium text-primary-700">Duplicate this event?</p>
 								<p class="mt-1 text-xs text-primary-600">A copy titled "{event.title} (copy)" will be created.</p>
 								<div class="mt-3 flex flex-wrap items-center gap-2">
@@ -825,19 +837,6 @@
 							</div>
 						</div>
 					{/if}
-
-					{#if actionError}
-						<div class="px-4 pb-3 sm:px-6">
-							<p role="alert" class="text-sm text-red-600">{actionError}</p>
-						</div>
-					{/if}
-				</div>
-
-				<!-- Sticky action bar -->
-				<div
-					class="flex shrink-0 items-center gap-2 border-t border-slate-100 px-2.5 py-2 sm:px-6 sm:py-3.5"
-					style="padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem)"
-				>
 					<button
 						type="button"
 						onclick={beginDelete}
