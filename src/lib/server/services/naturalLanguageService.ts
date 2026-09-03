@@ -1204,10 +1204,36 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	return { parsed: result, confidence: Math.min(confidence, 1) };
 }
 
+/** A segment carries its own when/where when it names a date, time, or
+ * recurrence — both sides need one or "fish and chips Friday" would split. */
+const SEGMENT_SIGNAL =
+	/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday|tomorrow|today|yesterday|weekend|daily|weekly|monthly|yearly|every|january|february|march|april|may|june|july|august|september|october|november|december|\d)\b/i;
+
+/** Minimum confidence for a segment to count as its own event. */
+const MIN_SEGMENT_CONFIDENCE = 0.3;
+
 /**
- * Multi-event seam (item 5). Today: single-result passthrough so every
- * consumer can switch to the list shape before segmentation lands.
+ * Multi-event segmentation (item 5). Splits on semicolons/newlines and on
+ * "and" only when both sides carry date/time signals, parses each segment
+ * independently, and falls back to a single result when fewer than two
+ * segments clear the confidence gate — never degrading the common case.
  */
 export function parseEventList(input: string, zone?: string): ParseResult[] {
-	return [parseEventInput(input, zone)];
+	const hardSplit = input.split(/[;\n]+/).map((s) => s.trim()).filter((s) => s.length > 0);
+	const candidates = hardSplit.length > 1 ? hardSplit : splitOnAnd(input);
+	if (candidates.length < 2) return [parseEventInput(input, zone)];
+	const parsed = candidates.map((c) => parseEventInput(c, zone));
+	if (parsed.filter((p) => p.confidence >= MIN_SEGMENT_CONFIDENCE).length < 2) {
+		return [parseEventInput(input, zone)];
+	}
+	return parsed;
+}
+
+/** Split on "and" between two signal-bearing halves, else no split. */
+function splitOnAnd(input: string): string[] {
+	const parts = input.split(/\band\b/i);
+	if (parts.length < 2) return [input];
+	// Only split when every part carries its own signal.
+	if (!parts.every((p) => SEGMENT_SIGNAL.test(p))) return [input];
+	return parts.map((p) => p.trim()).filter((p) => p.length > 0);
 }

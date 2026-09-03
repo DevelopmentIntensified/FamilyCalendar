@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DateTime } from 'luxon';
-import { parseEventInput, type ParseResult } from './naturalLanguageService';
+import { parseEventInput, parseEventList, type ParseResult } from './naturalLanguageService';
 
 describe('NLP Event Parser', () => {
 	describe('Date Patterns', () => {
@@ -1022,5 +1022,38 @@ describe('Clean titles', () => {
 	it('falls back to the raw text when stripping leaves nothing ("sept 23")', () => {
 		const title = parseEventInput('sept 23').parsed.title ?? '';
 		expect(title.length).toBeGreaterThan(0);
+	});
+});
+
+
+describe('Multi-event segmentation ("dinner Friday and movie Saturday")', () => {
+	it('splits "dinner Friday and movie Saturday" into two dated events', () => {
+		const results = parseEventList('dinner Friday and movie Saturday');
+		expect(results).toHaveLength(2);
+		expect(DateTime.fromISO(results[0].parsed.date!).weekday).toBe(5);
+		expect(DateTime.fromISO(results[1].parsed.date!).weekday).toBe(6);
+		expect(results[0].parsed.title).toBe('dinner');
+		expect(results[1].parsed.title).toBe('movie');
+	});
+
+	it('splits semicolon lists into three events', () => {
+		const results = parseEventList('yoga Monday; dentist Tuesday; call mom Wednesday');
+		expect(results).toHaveLength(3);
+		expect(results.map((r) => DateTime.fromISO(r.parsed.date!).weekday)).toEqual([1, 2, 3]);
+	});
+
+	it('keeps per-segment attendants ("invite mom and ... invite dad")', () => {
+		const results = parseEventList('lunch Friday invite mom and dinner Saturday invite dad');
+		expect(results).toHaveLength(2);
+		expect(results[0].parsed.attendants ?? []).toContain('mom');
+		expect(results[1].parsed.attendants ?? []).toContain('dad');
+	});
+
+	it('does not split without date signals on both sides ("fish and chips Friday")', () => {
+		expect(parseEventList('fish and chips Friday')).toHaveLength(1);
+	});
+
+	it('does not split single events ("standup daily at 9am")', () => {
+		expect(parseEventList('standup daily at 9am')).toHaveLength(1);
 	});
 });
