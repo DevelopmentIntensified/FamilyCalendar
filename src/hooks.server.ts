@@ -3,6 +3,8 @@ import { redirect, type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { createAnonymousUser, touchLastActiveAt } from '$lib/server/db/actions/users';
 import { runMigrations } from '$lib/server/db/migrations/runner';
+import { createBugReport } from '$lib/server/db/actions/bugReports';
+import { buildAutoBugReport, shouldFileAutoReport } from '$lib/server/services/autoBugReport';
 
 // Apply pending SQL migrations once per cold start, in the background, on
 // whichever environment this code deploys (test or prod). Idempotent + locked.
@@ -131,7 +133,29 @@ export const handle = sequence(securityHeaders, apiOriginCheck, sessionHandle);
 
 // Expected 404s (bot probes like /xmlrpc.php, mistyped URLs) shouldn't
 // spam the logs with stack traces — the styled error page still renders.
-export const handleError = ({ status, error }: { status?: number; error: unknown }) => {
+export const handleError = async ({
+	status,
+	error,
+	event
+}: {
+	status?: number;
+	error: unknown;
+	event?: { url?: URL; locals?: { user?: { id?: string } | null } };
+}) => {
 	if (status === 404) return;
 	console.error(error);
+	// Truly-unexpected failures auto-file a bug report so a 500 never
+	// vanishes silently. Filing never throws (and is throttled per failure),
+	// so it can't break the error response itself.
+	try {
+		const message = error instanceof Error ? error.message : String(error);
+		const path = event?.url?.pathname ?? '';
+		const userId = event?.locals?.user?.id ?? null;
+		const report = buildAutoBugReport({ status: status ?? 500, message, path, userId });
+		if (report && shouldFileAutoReport(`${report.area}:${path}:${message.slice(0, 120)}`)) {
+			await createBugReport(report);
+		}
+	} catch {
+		// Auto-filing is best-effort by design.
+	}
 };
