@@ -8,7 +8,7 @@ import {
 	normalizeTags,
 	TASK_FREQUENCIES
 } from '$lib/server/db/actions/tasks';
-import { TASK_PRIORITIES } from '$lib/server/db/actions/dashboard';
+import { normalizeTaskPriority } from '$lib/server/db/actions/taskPriority';
 import { db } from '$lib/server/db';
 import { events } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -67,7 +67,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			? body.recurrenceFrequency
 			: null;
 
-		const priority = TASK_PRIORITIES.includes(body.priority) ? body.priority : 'normal';
+		const priority = normalizeTaskPriority(body.priority);
 
 		// Assignment: a Task defaults to its creator unless another
 		// person is specified. Self-assign is instant-accept; assigning

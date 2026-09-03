@@ -11,7 +11,7 @@ import {
 	normalizeTags,
 	TASK_FREQUENCIES
 } from '$lib/server/db/actions/tasks';
-import { TASK_PRIORITIES } from '$lib/server/db/actions/dashboard';
+import { normalizeTaskPriority } from '$lib/server/db/actions/taskPriority';
 import { db } from '$lib/server/db';
 import { tasks, users } from '$lib/server/db/schema';
 import { createNotification } from '$lib/server/db/actions/notifications';
@@ -74,11 +74,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 					: undefined;
 
 			const priority =
-				body.priority === undefined
-					? undefined
-					: TASK_PRIORITIES.includes(body.priority)
-						? body.priority
-						: 'normal';
+				body.priority === undefined ? undefined : normalizeTaskPriority(body.priority);
 
 			// Assignment transitions. Only the assignee may accept; declining
 			// releases the task back to the pool.

@@ -15,10 +15,20 @@ import {
 	type CalendarEvent
 } from '$lib/server/db/schema';
 import { and, desc, eq, inArray, isNotNull, isNull, ne } from 'drizzle-orm';
+import {
+	PRIORITY_WEIGHT,
+	type TaskPriority
+} from '$lib/server/db/actions/taskPriority';
 
-export type TaskPriority = 'low' | 'normal' | 'high';
-export const TASK_PRIORITIES = ['low', 'normal', 'high'] as const;
-export const PRIORITY_WEIGHT: Record<TaskPriority, number> = { high: 0, normal: 1, low: 2 };
+/** Re-exported for pre-existing importers (task writers, sort utils). */
+export {
+	TASK_PRIORITIES,
+	DEFAULT_TASK_PRIORITY,
+	PRIORITY_WEIGHT,
+	isTaskPriority,
+	normalizeTaskPriority,
+	type TaskPriority
+} from '$lib/server/db/actions/taskPriority';
 
 /** A structural subset of a Task row — anything with these fields ranks. */
 export interface RankableTask {
