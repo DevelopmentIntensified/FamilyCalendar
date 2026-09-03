@@ -40,41 +40,35 @@ describe('formatUnmatchedPhrasesExport', () => {
 	});
 
 	it('includes headers and counts', () => {
-		const text = formatUnmatchedPhrasesExport([phrase({ count: 5 })], []);
+		const text = formatUnmatchedPhrasesExport([phrase({ count: 5 })]);
 		expect(text).toContain('UNMATCHED PHRASES EXPORT');
 		expect(text).toContain('Open: 1 unique (5 occurrences)');
-		expect(text).toContain('Resolved: 0');
+		expect(text).not.toContain('Resolved');
 	});
 
 	it('groups by source with a frequency tag per phrase', () => {
-		const text = formatUnmatchedPhrasesExport(
-			[
-				phrase({ source: 'event_parse', phrase: 'piano after school', count: 3 }),
-				phrase({ id: 'p2', source: 'bulk_edit', phrase: 'every tuesday', count: 1 })
-			],
-			[]
-		);
+		const text = formatUnmatchedPhrasesExport([
+			phrase({ source: 'event_parse', phrase: 'piano after school', count: 3 }),
+			phrase({ id: 'p2', source: 'bulk_edit', phrase: 'every tuesday', count: 1 })
+		]);
 		expect(text).toContain('## Event parse (1)');
 		expect(text).toContain('## Bulk edit (1)');
 		expect(text).toContain('"piano after school" — 3x');
 	});
 
-	it('lists resolved separately', () => {
-		const text = formatUnmatchedPhrasesExport([], [phrase({ phrase: 'sunday brunch', count: 2 })]);
-		expect(text).toContain('## Resolved');
+	it('omits resolved phrases entirely', () => {
+		const text = formatUnmatchedPhrasesExport([phrase({ phrase: 'sunday brunch', count: 2 })]);
+		expect(text).not.toContain('## Resolved');
 		expect(text).toContain('"sunday brunch" — 2x');
 	});
 
 	it('includes matched fields when present', () => {
-		const text = formatUnmatchedPhrasesExport(
-			[
-				phrase({
-					phrase: 'Lunch Friday at noon with John',
-					matched: JSON.stringify({ title: 'Lunch', date: '2026-09-04', startTime: '12:00' })
-				})
-			],
-			[]
-		);
+		const text = formatUnmatchedPhrasesExport([
+			phrase({
+				phrase: 'Lunch Friday at noon with John',
+				matched: JSON.stringify({ title: 'Lunch', date: '2026-09-04', startTime: '12:00' })
+			})
+		]);
 		expect(text).toContain('"Lunch Friday at noon with John" — 1x');
 		expect(text).toContain('matched: {"title":"Lunch","date":"2026-09-04","startTime":"12:00"}');
 	});
@@ -116,24 +110,22 @@ describe('formatBugReportsExport', () => {
 	});
 
 	it('includes headers and counts', () => {
-		const text = formatBugReportsExport([report()], []);
+		const text = formatBugReportsExport([report()]);
 		expect(text).toContain('BUG REPORTS EXPORT');
 		expect(text).toContain('Open: 1');
-		expect(text).toContain('Resolved: 0');
+		expect(text).not.toContain('Resolved');
 	});
 
-	it('renders area label, reporter, page and collapsed description', () => {
-		const text = formatBugReportsExport([report()], []);
+	it('renders area label, page and collapsed description — never reporter names', () => {
+		const text = formatBugReportsExport([report()]);
 		expect(text).toContain(`[${BUG_AREA_LABEL.calendar}] Event disappeared when I saved.`);
-		expect(text).toContain('by Jane Doe');
 		expect(text).toContain('page: /calendar');
+		expect(text).not.toContain('Jane Doe');
+		expect(text).not.toContain('by ');
 	});
 
-	it('lists resolved reports under a Resolved heading', () => {
-		const text = formatBugReportsExport(
-			[],
-			[report({ status: 'resolved', resolvedAt: new Date() })]
-		);
-		expect(text).toContain('## Resolved');
+	it('omits resolved reports entirely', () => {
+		const text = formatBugReportsExport([report()]);
+		expect(text).not.toContain('## Resolved');
 	});
 });

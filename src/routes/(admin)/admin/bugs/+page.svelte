@@ -16,7 +16,7 @@
 		other: 'Other'
 	};
 
-	let exportText = formatBugReportsExport(data.open, data.resolved);
+	let exportText = formatBugReportsExport(data.open);
 
 	function timeLabel(d: Date): string {
 		return new Date(d).toLocaleString(undefined, {

@@ -14,10 +14,18 @@
 - **Control mode** (user driving, answering questions): when the answer isn't in the docs or code, use the `grill-with-docs` skill to ask — never guess.
 - **Hands-off mode** (user AFK or says "grind"/"continue"): make assumptions based on CONTEXT.md, docs/, and past answers; list all assumptions at the end for confirmation.
 
+## Code correctness
+
+- Syntax first, logic second: every edit must parse. Balance all brackets/parens/braces/quotes before moving on — never stack another edit on top of an unverified one.
+- After each edit, re-read the touched region (or run the fastest check covering it, e.g. the targeted vitest file) immediately. A run-blocking syntax error must never reach the user, the test suite, or a push.
+- Bugs that surface should be logical mistakes caught by tests (red-green), not typos, unbalanced delimiters, missing imports, or wrong tool parameters. Slow down on edit boundaries: `oldString` must match exactly, `newString` must be complete.
+- One region per edit call; keep replacements small enough to eyeball in full.
+
 ## Git workflow
 
 - Always run `npm run build` before pushing — never push a broken build.
 - Always push to the `test` branch (`git push origin test`), unless the user explicitly says otherwise.
+- Push as you complete: commit and push each finished slice immediately, don't batch.
 
 ## NLP changes (natural-language parsing)
 

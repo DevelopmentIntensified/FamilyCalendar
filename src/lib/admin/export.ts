@@ -81,11 +81,9 @@ export function reporterName(
 /**
  * Build a plain-text register of unmatched phrases, grouped by source, ordered
  * by frequency. Intended to be pasted into an agent so it can add parser rules.
+ * Open items only — resolved ones stay in the admin UI, not the export.
  */
-export function formatUnmatchedPhrasesExport(
-	open: UnmatchedPhrase[],
-	resolved: UnmatchedPhrase[]
-): string {
+export function formatUnmatchedPhrasesExport(open: UnmatchedPhrase[]): string {
 	const lines: string[] = [];
 	lines.push('UNMATCHED PHRASES EXPORT');
 	lines.push(`Generated: ${humanDate(new Date())}`);
@@ -94,7 +92,6 @@ export function formatUnmatchedPhrasesExport(
 
 	const total = open.reduce((n, p) => n + p.count, 0);
 	lines.push(`Open: ${open.length} unique (${total} occurrences)`);
-	lines.push(`Resolved: ${resolved.length}`);
 	lines.push('='.repeat(60));
 	lines.push('');
 
@@ -108,40 +105,25 @@ export function formatUnmatchedPhrasesExport(
 		lines.push('');
 	}
 
-	if (resolved.length > 0) {
-		lines.push('## Resolved');
-		for (const p of resolved) {
-			lines.push(`- "${p.phrase}" — ${p.count}x (${UNMATCHED_SOURCE_LABEL[p.source] ?? p.source})`);
-		}
-	}
-
 	return lines.join('\n');
 }
 
 /**
- * Build a plain-text register of bug reports (open then resolved), meant to be
- * handed to an agent for triage / issue filing.
+ * Build a plain-text register of open bug reports, meant to be handed to an
+ * agent for triage / issue filing. Open items only, no reporter names.
  */
-export function formatBugReportsExport(
-	open: BugReportWithReporter[],
-	resolved: BugReportWithReporter[]
-): string {
+export function formatBugReportsExport(open: BugReportWithReporter[]): string {
 	const lines: string[] = [];
 	lines.push('BUG REPORTS EXPORT');
 	lines.push(`Generated: ${humanDate(new Date())}`);
 	lines.push('User-submitted bug reports, newest first.');
 	lines.push('');
 	lines.push(`Open: ${open.length}`);
-	lines.push(`Resolved: ${resolved.length}`);
 	lines.push('='.repeat(60));
 	lines.push('');
 
 	const render = (r: BugReportWithReporter) => {
-		const meta = [
-			`by ${reporterName(r)}`,
-			r.url ? `page: ${r.url}` : 'page: n/a',
-			humanDate(r.createdAt)
-		];
+		const meta = [r.url ? `page: ${r.url}` : 'page: n/a', humanDate(r.createdAt)];
 		return (
 			`- [${BUG_AREA_LABEL[r.area] ?? r.area}] ${r.description.replace(/\s*\n+/g, ' ').trim()}` +
 			`  (${meta.join(' · ')})`
@@ -152,11 +134,6 @@ export function formatBugReportsExport(
 		lines.push('## Open');
 		for (const r of open) lines.push(render(r));
 		lines.push('');
-	}
-
-	if (resolved.length > 0) {
-		lines.push('## Resolved');
-		for (const r of resolved) lines.push(render(r));
 	}
 
 	return lines.join('\n');

@@ -12,7 +12,7 @@
 		bulk_edit: 'Bulk edit'
 	};
 
-	let exportText = formatUnmatchedPhrasesExport(data.phrases, data.resolved);
+	let exportText = formatUnmatchedPhrasesExport(data.phrases);
 
 	function groupBySource(phrases: UnmatchedPhrase[]) {
 		const groups = new Map<string, UnmatchedPhrase[]>();
