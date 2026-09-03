@@ -1,7 +1,13 @@
 import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { invalidateAll } from '$app/navigation';
 import type { Event } from '$lib/types';
 import EventModal from './EventModal.svelte';
+
+vi.mock('$app/navigation', () => ({
+	invalidateAll: vi.fn(() => Promise.resolve()),
+	goto: vi.fn()
+}));
 
 const baseEvent: Event = {
 	id: 'evt1',
@@ -134,5 +140,38 @@ describe('EventModal - onClose callback convention', () => {
 		expect(backdrop).not.toBeNull();
 		await fireEvent.click(backdrop!);
 		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('EventModal - RSVP refresh', () => {
+	beforeEach(() => {
+		vi.mocked(invalidateAll).mockClear();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string, init?: RequestInit) => {
+				if (init?.method === 'POST') {
+					return {
+						ok: true,
+						json: async () => ({
+							attendance: [{ userId: 'user1', status: 'going', firstName: 'T', lastName: 'U' }],
+							rsvpStatus: 'going'
+						})
+					};
+				}
+				return { ok: true, json: async () => ({ attendance: [], userRsvpStatus: 'undecided' }) };
+			})
+		);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('refreshes all views after an RSVP change so chips update without reload', async () => {
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		await fireEvent.click(screen.getByRole('button', { name: /Going/ }));
+		expect(await screen.findByRole('button', { name: /Going/ })).toHaveAttribute('aria-pressed', 'true');
+		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
 });

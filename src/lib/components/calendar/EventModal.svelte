@@ -187,6 +187,7 @@
 				nonUserAttendants = data.attendance.filter((a: any) => !a.userId && a.name).map((a: any) => a.name);
 				currentUserRsvpStatus = data.rsvpStatus || next;
 				dispatch('rsvp', { id: serverId, status: next });
+				await invalidateAll();
 			} else {
 				currentUserRsvpStatus = previous;
 			}
