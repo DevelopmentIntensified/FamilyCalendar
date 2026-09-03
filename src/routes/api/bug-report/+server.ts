@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import { createBugReport, BUG_AREAS } from '$lib/server/db/actions/bugReports';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
@@ -38,7 +39,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		url
 	});
 	if (!row) {
-		return json({ error: 'Could not save report. Please try again.' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Could not save report. Please try again.', locals.user?.id ?? null);
 	}
 	return json({ success: true, id: row.id });
 };

@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import { updateRsvp, getEventAttendance, getEventRsvpStatus } from '$lib/server/db/actions/events';
 import { canTouchEvent } from '$lib/server/db/actions/calendarScope';
@@ -27,7 +28,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 		return json({ success: true, rsvpStatus, attendance });
 	} catch (error) {
 		console.error('Failed to update RSVP:', error);
-		return json({ error: 'Failed to update RSVP' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Failed to update RSVP', locals.user?.id ?? null);
 	}
 };
 
@@ -50,6 +51,6 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 		});
 	} catch (error) {
 		console.error('Failed to fetch attendance:', error);
-		return json({ error: 'Failed to fetch attendance' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Failed to fetch attendance', locals.user?.id ?? null);
 	}
 };

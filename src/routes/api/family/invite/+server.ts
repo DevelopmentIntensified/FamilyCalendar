@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import { generateInviteCode, verifyInviteCode, deleteInviteCode } from '$lib/server/db/actions/families';
 import { getUserFamilies } from '$lib/server/db/actions/families';
@@ -33,7 +34,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 	} catch (error) {
 		console.error('Error generating invite code:', error);
-		return json({ error: 'Failed to generate invite code' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Failed to generate invite code', locals.user?.id ?? null);
 	}
 };
 

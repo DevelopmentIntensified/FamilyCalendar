@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import { acceptInvite } from '$lib/server/db/actions/families';
 
@@ -24,6 +25,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ success: true });
 	} catch (error) {
 		console.error('Error accepting invite:', error);
-		return json({ error: 'Failed to accept invite' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Failed to accept invite', locals.user?.id ?? null);
 	}
 };

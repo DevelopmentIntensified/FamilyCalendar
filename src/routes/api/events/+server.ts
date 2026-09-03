@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import { createEvent } from '$lib/server/db/actions/events';
 import { db } from '$lib/server/db';
@@ -29,7 +30,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!calendarId) {
 		const personalCal = await ensurePersonalCalendar(userId);
 		if (!personalCal) {
-			return json({ error: 'Failed to create event' }, { status: 500 });
+			return apiError(new URL(request.url).pathname, 500, 'Failed to create event', locals.user?.id ?? null);
 		}
 		calendarId = personalCal.id;
 	} else {
@@ -84,6 +85,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ success: true, event: created }, { status: 201 });
 	} catch (error) {
 		console.error('Failed to create event:', error);
-		return json({ error: 'Failed to create event' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Failed to create event', locals.user?.id ?? null);
 	}
 };

@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { apiError } from '$lib/server/utils/apiError';
 import type { Actions } from './$types';
 import { sendEmail } from '$lib/utils/sendEmail';
 import { NOREPLYEMAIL } from '$env/static/private';
@@ -52,7 +53,7 @@ export const actions: Actions = {
 		});
 
 		if (!result.success) {
-			return json({ error: 'Failed to send message. Please try again later.' }, { status: 500 });
+			return apiError(new URL(request.url).pathname, 500, 'Failed to send message. Please try again later.');
 		}
 
 		return json({ success: true });

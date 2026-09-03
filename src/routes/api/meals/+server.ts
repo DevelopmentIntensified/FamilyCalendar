@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import { requireUserJson } from '$lib/server/utils/requireUser';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
@@ -24,7 +25,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		return json({ meals });
 	} catch (error) {
 		console.error('Failed to fetch meals:', error);
-		return json({ error: 'Failed to fetch meals' }, { status: 500 });
+		return apiError(url.pathname, 500, 'Failed to fetch meals', locals.user?.id ?? null);
 	}
 };
 
@@ -61,7 +62,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ success: true, meal: created }, { status: 201 });
 	} catch (error) {
 		console.error('Failed to create meal:', error);
-		return json({ error: 'Failed to create meal' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Failed to create meal', locals.user?.id ?? null);
 	}
 };
 
@@ -88,6 +89,6 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 		return json({ success: true });
 	} catch (error) {
 		console.error('Failed to delete meal:', error);
-		return json({ error: 'Failed to delete meal' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Failed to delete meal', locals.user?.id ?? null);
 	}
 };

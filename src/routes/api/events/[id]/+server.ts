@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { eventExceptions } from '$lib/server/db/schema';
@@ -92,7 +93,7 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 		return json({ success: true, event: updated });
 	} catch (error) {
 		console.error('Failed to update event:', error);
-		return json({ error: 'Failed to update event' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Failed to update event', locals.user?.id ?? null);
 	}
 };
 
@@ -152,6 +153,6 @@ export const DELETE: RequestHandler = async ({ request, locals, params }) => {
 		return json({ success: true });
 	} catch (error) {
 		console.error('Failed to delete event:', error);
-		return json({ error: 'Failed to delete event' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Failed to delete event', locals.user?.id ?? null);
 	}
 };

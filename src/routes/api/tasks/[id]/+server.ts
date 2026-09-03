@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import {
 	updateTask,
@@ -142,7 +143,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 		return json({ success: true, task: updated });
 	} catch (error) {
 		console.error('Failed to update task:', error);
-		return json({ error: 'Failed to update task' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Failed to update task', locals.user?.id ?? null);
 	}
 };
 
@@ -161,6 +162,6 @@ export const DELETE: RequestHandler = async ({ locals, url }) => {
 		return json({ success: true });
 	} catch (error) {
 		console.error('Failed to delete task:', error);
-		return json({ error: 'Failed to delete task' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Failed to delete task', locals.user?.id ?? null);
 	}
 };

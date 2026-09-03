@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { calendars, events, families, eventAttendance } from '$lib/server/db/schema';
@@ -192,6 +193,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Unknown op type' }, { status: 400 });
 	} catch (error) {
 		console.error('Bulk edit failed:', error);
-		return json({ error: 'Bulk edit failed' }, { status: 500 });
+		return apiError(new URL(request.url).pathname, 500, 'Bulk edit failed', locals.user?.id ?? null);
 	}
 };
