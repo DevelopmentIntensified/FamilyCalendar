@@ -4,6 +4,7 @@
 	import DailyVerseCard from '$lib/components/calendar/DailyVerseCard.svelte';
 	import TodayGlanceCard, { type GlanceEvent } from './TodayGlanceCard.svelte';
 	import TopPrioritiesCard from './TopPrioritiesCard.svelte';
+	import CompletedTodayCard from './CompletedTodayCard.svelte';
 	import FamilyTaskBoardCard from './FamilyTaskBoardCard.svelte';
 	import MemberStrip from './MemberStrip.svelte';
 	import KidsScheduleCard from './KidsScheduleCard.svelte';
@@ -59,6 +60,10 @@
 		kids: string[];
 	}[];
 	export let meals: { id: string; kind: string; label: string }[];
+	/** Tasks completed within the viewed day (for the Completed Today card). */
+	export let completedToday: { id: string; title: string; completedAt: string | null }[] = [];
+	/** Section labels whose model failed to load — shown as a banner, not a 500. */
+	export let loadWarnings: string[] = [];
 	/** Viewed day as 'YYYY-MM-DD' (user zone) — meals quick-add posts this. */
 	export let dateKey: string;
 	// Per-module visibility (family master switch AND per-user hides). Absent
@@ -77,6 +82,14 @@
 </script>
 
 <div class="mx-auto w-full max-w-5xl space-y-4">
+	{#if loadWarnings.length > 0}
+		<div
+			class="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+			role="alert"
+		>
+			Couldn't load {loadWarnings.join(', ')} just now — everything else is up to date.
+		</div>
+	{/if}
 	{#if dailyVerse && visible('verse')}
 		<DailyVerseCard reference={dailyVerse.reference} text={dailyVerse.text} attribution={dailyVerse.attribution} />
 	{/if}
@@ -91,10 +104,15 @@
 					onEventClick={openEvent}
 				/>
 			{/if}
-			{#if visible('top3')}
-				<TopPrioritiesCard tasks={top3} meId={meId} />
-			{/if}
+			<div class="space-y-4">
+				{#if visible('top3')}
+					<TopPrioritiesCard tasks={top3} meId={meId} />
+				{/if}
+				<CompletedTodayCard tasks={completedToday} {isToday} />
+			</div>
 		</div>
+	{:else}
+		<CompletedTodayCard tasks={completedToday} {isToday} />
 	{/if}
 
 	{#if familyId && (visible('memberStrip') || visible('board'))}

@@ -81,11 +81,13 @@
 		glance={data.glance}
 		dayEvents={data.dayEvents}
 		top3={data.top3}
+		completedToday={data.completedToday ?? []}
 		memberStatus={data.memberStatus}
 		familyTasks={data.familyTasks}
 		familyMembers={data.familyMembers}
 		kidsSchedule={data.kidsSchedule}
 		meals={data.meals}
 		dateKey={data.dateKey}
+		loadWarnings={data.loadWarnings ?? []}
 	/>
 </div>
