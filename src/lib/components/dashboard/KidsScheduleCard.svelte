@@ -10,6 +10,7 @@
 		location: string | null;
 		kids: string[];
 	}[];
+	export let isToday: boolean = true;
 
 	function timeLabel(e: (typeof events)[number]): string {
 		if (e.allDay) return 'All day';
@@ -26,12 +27,12 @@
 	}
 </script>
 
-<div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 	<h2 class="mb-3 text-sm font-semibold text-slate-900">Kids' Schedule</h2>
 
 	{#if events.length === 0}
 		<p class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400">
-			No kids' events today
+			{isToday ? "No kids' events today" : "No kids' events this day"}
 		</p>
 	{:else}
 		<ul class="space-y-1.5">

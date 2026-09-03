@@ -11,8 +11,8 @@
 	}
 </script>
 
-<section class="rounded-2xl bg-white p-4 shadow-sm" aria-label={isToday ? 'Completed today' : 'Completed this day'}>
-	<h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">
+<section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" aria-label={isToday ? 'Completed today' : 'Completed this day'}>
+	<h2 class="text-sm font-semibold text-slate-900">
 		{isToday ? 'Completed today' : 'Completed this day'}
 	</h2>
 	{#if tasks.length === 0}

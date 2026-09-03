@@ -118,7 +118,7 @@
 	{#if familyId && (visible('memberStrip') || visible('board'))}
 		<div class="grid gap-4 md:grid-cols-2">
 			{#if familyId && visible('memberStrip')}
-				<MemberStrip members={memberStatus} />
+				<MemberStrip members={memberStatus} {isToday} />
 			{/if}
 			{#if familyId && visible('board')}
 				<FamilyTaskBoardCard
@@ -126,7 +126,6 @@
 					members={familyMembers}
 					meId={meId}
 					familyId={familyId}
-					doneToday={glance.doneToday}
 					openToday={glance.openToday}
 					weekStreak={glance.weekStreak}
 				/>
@@ -137,7 +136,7 @@
 	{#if familyId && (visible('kids') || visible('meals'))}
 		<div class="grid gap-4 md:grid-cols-2">
 			{#if familyId && visible('kids')}
-				<KidsScheduleCard events={kidsSchedule} />
+				<KidsScheduleCard events={kidsSchedule} {isToday} />
 			{/if}
 			{#if familyId && visible('meals')}
 				<MealsCard {meals} {dateKey} />

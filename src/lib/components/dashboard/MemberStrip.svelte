@@ -8,10 +8,13 @@
 		openTasksToday: number;
 		attendingToday: boolean;
 	}[];
+	export let isToday: boolean = true;
 </script>
 
-<div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-	<h2 class="mb-1 text-sm font-semibold text-slate-900">Today in the Family</h2>
+<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+	<h2 class="mb-1 text-sm font-semibold text-slate-900">
+		{isToday ? 'Today in the Family' : 'Family on this day'}
+	</h2>
 	<p class="mb-2.5 text-xs text-slate-400">Open tasks &amp; events by member</p>
 	<div class="flex flex-wrap gap-1.5">
 		{#each members as m (m.userId)}

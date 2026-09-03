@@ -39,7 +39,7 @@
 		return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 	}
 </script>
-<div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 	<div class="mb-3 flex items-baseline justify-between gap-2">
 		<h2 class="text-sm font-semibold text-slate-900">{isToday ? 'Today at a Glance' : 'Day at a Glance'}</h2>
 		<p class="text-xs text-slate-400">{dateLabel}</p>
@@ -101,13 +101,9 @@
 				</button>
 			{/each}
 		</div>
-	{:else}
+	{:else if allDayEvents.length === 0}
 		<p class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400">
 			{isToday ? 'No events scheduled today' : 'No events scheduled on this day'}
 		</p>
-	{/if}
-
-	{#if allDayEvents.length === 0 && timedEvents.length === 0}
-		<div class="mb-3"></div>
 	{/if}
 </div>

@@ -85,7 +85,7 @@
 	}
 </script>
 
-<div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 	<h2 class="mb-3 flex items-center justify-between text-sm font-semibold text-slate-900">
 		Top-3 Priorities
 		{#if tasks.length === 0}
@@ -125,7 +125,7 @@
 							{dueLabel(task.dueDate)}
 						</span>
 					{/if}
-					<div class="hidden shrink-0 items-center gap-0.5 sm:flex" title="Priority">
+					<div class="flex shrink-0 flex-wrap items-center gap-0.5" title="Priority">
 						{#each PRIORITY_ORDER as p (p)}
 							<button
 								type="button"

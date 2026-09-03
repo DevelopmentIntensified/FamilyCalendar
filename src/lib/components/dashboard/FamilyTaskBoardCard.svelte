@@ -24,7 +24,6 @@
 	export let meId: string;
 	/** Family that created tasks post to when added from the board. */
 	export let familyId: string;
-	export let doneToday: number = 0;
 	export let openToday: number = 0;
 	export let weekStreak: number = 0;
 
@@ -125,16 +124,14 @@
 	}
 </script>
 
-<div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 	<h2 class="mb-2.5 text-sm font-semibold text-slate-900 sm:mb-3">Family Task Board</h2>
 
 	<div
 		class="mb-2.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-100 pb-2.5 sm:mb-3 sm:pb-3"
 	>
 		<span class="text-xs text-slate-500">
-			{doneToday} done today · {openToday} open · {weekStreak > 0
-				? `${weekStreak}-week streak`
-				: 'no streak yet'}
+			{openToday} open · {weekStreak > 0 ? `${weekStreak}-week streak` : 'no streak yet'}
 		</span>
 		<a
 			href="/calendar/tasks"
