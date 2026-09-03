@@ -73,10 +73,12 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	let showOverflow = false;
 	let overflowDate = '';
 	let overflowEvents: Event[] = [];
+	let overflowTasks: CalendarTask[] = [];
 
-	function openOverflow(cellDate: DateTime, evts: Event[]) {
+	function openOverflow(cellDate: DateTime, evts: Event[], tasks: CalendarTask[] = []) {
 		overflowDate = formatDate(cellDate);
 		overflowEvents = evts;
+		overflowTasks = tasks;
 		showOverflow = true;
 	}
 
@@ -96,6 +98,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	let sheetOpen = false;
 	let sheetDate: DateTime | null = null;
 	let sheetEvents: Event[] = [];
+	let sheetTasks: CalendarTask[] = [];
 
 	let smallScreen = false;
 	onMount(() => {
@@ -112,10 +115,11 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		return () => mq.removeListener(apply);
 	});
 
-	function handleCellTap(cellDate: DateTime, evts: Event[]) {
+	function handleCellTap(cellDate: DateTime, evts: Event[], tasks: CalendarTask[] = []) {
 		if (smallScreen) {
 			sheetDate = cellDate;
 			sheetEvents = evts;
+			sheetTasks = tasks;
 			sheetOpen = true;
 		} else {
 			openDay(cellDate);
@@ -123,7 +127,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	}
 
 	function onSheetViewEvents() {
-		if (sheetDate) openOverflow(sheetDate, sheetEvents);
+		if (sheetDate) openOverflow(sheetDate, sheetEvents, sheetTasks);
 	}
 </script>
 
@@ -145,7 +149,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 			type="button"
 			class="absolute inset-0 z-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
 			aria-label="Open {date}"
-			onclick={() => handleCellTap(cellDate, dayEvents)}
+			onclick={() => handleCellTap(cellDate, dayEvents, dayTasks)}
 		></button>
 		<div class="pointer-events-none relative z-10 flex items-center justify-between pl-1.5 pt-0.5 pr-1">
 			<span class="flex h-5 w-5 items-center justify-center text-xs font-semibold {isTodayDate ? 'rounded-full bg-primary-600 text-white' : isOtherMonth ? 'text-slate-400' : 'text-slate-600'}">
@@ -265,7 +269,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 							type="button"
 							onclick={(e) => {
 								e.stopPropagation();
-								openOverflow(cellDate, dayEvents);
+								openOverflow(cellDate, dayEvents, dayTasks);
 							}}
 							class="pointer-events-auto inline-flex min-h-[26px] items-center rounded px-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-primary-600 sm:min-h-0"
 						>
@@ -294,8 +298,10 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	show={showOverflow}
 	date={overflowDate}
 	events={overflowEvents}
+	tasks={overflowTasks}
 	{calendars}
 	onEventClick={handleOverflowEventClick}
+	onTaskClick={(t) => openTask(t)}
 	onClose={() => (showOverflow = false)}
 />
 

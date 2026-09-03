@@ -3,13 +3,16 @@
 	import { DateTime } from 'luxon';
 	import { formatEventTime } from '$lib/utils/eventTime';
 	import { rsvpVisual } from '$lib/utils/eventChip';
+	import type { CalendarTask } from './TaskDetailModal.svelte';
 import AttendanceBadge from './AttendanceBadge.svelte';
 
 	export let show = false;
 	export let date: string = '';
 	export let events: Event[] = [];
+	export let tasks: CalendarTask[] = [];
 	export let calendars: { id: string; name: string; color?: string }[] = [];
 	export let onEventClick: (event: Event) => void = () => {};
+	export let onTaskClick: (task: CalendarTask) => void = () => {};
 	export let onClose: () => void = () => {};
 
 	function close() {
@@ -117,7 +120,28 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 				{/each}
 			</div>
 
-			{#if events.length === 0}
+			{#if tasks.length > 0}
+				<div class="border-t border-slate-100 px-6 pt-3">
+					<h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Tasks</h3>
+				</div>
+				{#each tasks as task (task.id)}
+					<button
+						type="button"
+						class="w-full text-left px-6 py-4 hover:bg-slate-50 transition-colors"
+						onclick={() => onTaskClick(task)}
+					>
+						<div class="flex items-start gap-3">
+							<div class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 {task.completedAt ? 'bg-green-500' : 'bg-amber-400'}"></div>
+							<div class="flex-1 min-w-0">
+								<h3 class="font-semibold truncate {task.completedAt ? 'text-slate-400 line-through' : 'text-slate-900'}">{task.title}</h3>
+								<span class="text-xs {task.completedAt ? 'text-slate-400' : 'text-slate-500'}">{task.completedAt ? 'Completed' : 'Due task — tap for details'}</span>
+							</div>
+						</div>
+					</button>
+				{/each}
+			{/if}
+
+			{#if events.length === 0 && tasks.length === 0}
 				<div class="px-6 py-12 text-center text-slate-500">
 					No events for this day
 				</div>

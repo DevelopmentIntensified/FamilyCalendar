@@ -49,4 +49,35 @@ describe('DayEventsModal', () => {
 		await fireEvent.click(backdrop!);
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
+
+	it('renders day tasks alongside events', () => {
+		render(DayEventsModal, {
+			props: {
+				show: true,
+				date: '01-15-2024',
+				events: [],
+				calendars: [],
+				tasks: [{ id: 't1', title: 'Buy milk' }]
+			}
+		});
+		expect(screen.getByText('Buy milk')).toBeInTheDocument();
+		expect(screen.queryByText('No events for this day')).not.toBeInTheDocument();
+	});
+
+	it('notifies the parent when a task is tapped', async () => {
+		const onTaskClick = vi.fn();
+		render(DayEventsModal, {
+			props: {
+				show: true,
+				date: '01-15-2024',
+				events: [],
+				calendars: [],
+				tasks: [{ id: 't1', title: 'Buy milk' }],
+				onTaskClick
+			}
+		});
+		await fireEvent.click(screen.getByText('Buy milk'));
+		expect(onTaskClick).toHaveBeenCalledTimes(1);
+		expect(onTaskClick).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }));
+	});
 });
