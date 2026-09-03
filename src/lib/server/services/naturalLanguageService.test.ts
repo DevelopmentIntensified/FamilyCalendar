@@ -1130,3 +1130,24 @@ describe('Day-coordinated pairs without repeat words', () => {
 		expect(result.parsed.dates!.map((d) => DateTime.fromISO(d).weekday).sort()).toEqual([1, 3, 5]);
 	});
 });
+
+describe('Comma-separated events ("dinner Friday, movie Saturday")', () => {
+	it('splits comma-joined dated events into two', () => {
+		const results = parseEventList('dinner Friday, movie Saturday');
+		expect(results).toHaveLength(2);
+		expect(DateTime.fromISO(results[0].parsed.date!).weekday).toBe(5);
+		expect(DateTime.fromISO(results[1].parsed.date!).weekday).toBe(6);
+	});
+
+	it('splits "lunch Tuesday, dinner Wednesday"', () => {
+		expect(parseEventList('lunch Tuesday, dinner Wednesday')).toHaveLength(2);
+	});
+
+	it('does not split on year fragments ("Sept 5, 2026 party")', () => {
+		expect(parseEventList('Sept 5, 2026 party')).toHaveLength(1);
+	});
+
+	it('does not split grocery lists ("Buy milk, eggs, and bread Friday")', () => {
+		expect(parseEventList('Buy milk, eggs, and bread Friday')).toHaveLength(1);
+	});
+});

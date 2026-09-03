@@ -1321,6 +1321,14 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 const SEGMENT_SIGNAL =
 	/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday|tomorrow|today|yesterday|weekend|daily|weekly|monthly|yearly|every|january|february|march|april|may|june|july|august|september|october|november|december|\d)\b/i;
 
+/**
+ * Stricter signal for comma splits: bare digits don't count, so year
+ * fragments ("Sept 5, 2026 party") and counts ("Buy milk, eggs") never
+ * split. Weekdays, months, times, and recurrence words do.
+ */
+const COMMA_SIGNAL =
+	/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday|tomorrow|today|yesterday|weekend|daily|weekly|monthly|yearly|every|january|february|march|april|may|june|july|august|september|october|november|december)\b|\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(?:am|pm)\b/i;
+
 /** Minimum confidence for a segment to count as its own event. */
 const MIN_SEGMENT_CONFIDENCE = 0.3;
 
@@ -1332,13 +1340,23 @@ const MIN_SEGMENT_CONFIDENCE = 0.3;
  */
 export function parseEventList(input: string, zone?: string): ParseResult[] {
 	const hardSplit = input.split(/[;\n]+/).map((s) => s.trim()).filter((s) => s.length > 0);
-	const candidates = hardSplit.length > 1 ? hardSplit : splitOnAnd(input);
+	const candidates =
+		hardSplit.length > 1 ? hardSplit : splitOnComma(input).length > 1 ? splitOnComma(input) : splitOnAnd(input);
 	if (candidates.length < 2) return [parseEventInput(input, zone)];
 	const parsed = candidates.map((c) => parseEventInput(c, zone));
 	if (parsed.filter((p) => p.confidence >= MIN_SEGMENT_CONFIDENCE).length < 2) {
 		return [parseEventInput(input, zone)];
 	}
 	return parsed;
+}
+
+/** Split on commas only when every part carries its own signal. */
+function splitOnComma(input: string): string[] {
+	const parts = input.split(',');
+	if (parts.length < 2) return [input];
+	if (!parts.every((p) => COMMA_SIGNAL.test(p))) return [input];
+	const trimmed = parts.map((p) => p.trim()).filter((p) => p.length > 0);
+	return trimmed.length > 1 ? trimmed : [input];
 }
 
 /** Split on "and" between two signal-bearing halves, else no split.
