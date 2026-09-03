@@ -289,8 +289,11 @@
 				location: event.location || null,
 				allDay: !!event.allDay,
 				calendarId: event.calendarId || null,
-				recurrenceFrequency: null,
-				recurrenceInterval: null
+				recurrenceFrequency: event.recurrenceFrequency,
+				recurrenceInterval: event.recurrenceInterval,
+				recurrenceByDay: event.recurrenceByDay,
+				recurrenceCount: event.recurrenceCount,
+				recurrenceUntil: event.recurrenceUntil
 			};
 			const res = await fetch('/api/events', {
 				method: 'POST',

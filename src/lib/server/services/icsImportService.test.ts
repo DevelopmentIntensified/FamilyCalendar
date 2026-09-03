@@ -117,11 +117,24 @@ describe('ICS Import Parser', () => {
 		expect(events[0].recurrenceCount).toBe(16);
 	});
 
-	it('returns null BYDAY/COUNT when the RRULE has none', () => {
+	it('returns null BYDAY/COUNT/UNTIL when the RRULE has none', () => {
 		const ics = ['BEGIN:VEVENT', 'SUMMARY:Chore', 'DTSTART:20260820T150000Z', 'RRULE:FREQ=WEEKLY', 'END:VEVENT'].join('\r\n');
 		const events = parseIcs(ics);
 		expect(events[0].recurrenceByDay).toBeNull();
 		expect(events[0].recurrenceCount).toBeNull();
+		expect(events[0].recurrenceUntil).toBeNull();
+	});
+
+	it('parses RRULE UNTIL (UTC datetime) into recurrenceUntil', () => {
+		const ics = ['BEGIN:VEVENT', 'SUMMARY:Semester end', 'DTSTART:20260824T130000Z', 'RRULE:FREQ=WEEKLY;UNTIL=20261201T000000Z', 'END:VEVENT'].join('\r\n');
+		const events = parseIcs(ics);
+		expect(events[0].recurrenceUntil).toBe('2026-12-01T00:00:00.000Z');
+	});
+
+	it('parses RRULE UNTIL (date-only) into recurrenceUntil', () => {
+		const ics = ['BEGIN:VEVENT', 'SUMMARY:All-day series', 'DTSTART;VALUE=DATE:20260801', 'RRULE:FREQ=DAILY;UNTIL=20260805', 'END:VEVENT'].join('\r\n');
+		const events = parseIcs(ics);
+		expect(events[0].recurrenceUntil).toBe('2026-08-05T00:00:00.000Z');
 	});
 
 	it('skips cancelled events', () => {

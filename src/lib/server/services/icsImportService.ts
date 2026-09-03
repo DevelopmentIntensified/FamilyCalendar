@@ -13,6 +13,7 @@ export interface IcsEventDraft {
 	recurrenceInterval: number | null;
 	recurrenceByDay: string[] | null;
 	recurrenceCount: number | null;
+	recurrenceUntil: string | null;
 }
 
 const MAX_EVENTS = 500;
@@ -99,6 +100,23 @@ function tzidZone(tzid?: string): string {
 	if (!tzid) return 'utc';
 	const key = tzid.replace(/^"|"$/g, '').toUpperCase();
 	return TZID_ZONE[key] ?? 'utc';
+}
+
+/**
+ * Parse an RRULE UNTIL value into a UTC ISO instant, or null if malformed.
+ * Supports both UTC datetime form (YYYYMMDDTHHMMSSZ) and the date-only form
+ * (YYYYMMDD, inclusive of that day) used by all-day rules.
+ */
+function parseRruleUntil(until: string): string | null {
+	const clean = until.replace(/[^0-9TZ]/g, '');
+	if (/^\d{8}$/.test(clean)) {
+		const dt = DateTime.fromFormat(clean, 'yyyyMMdd', { zone: 'utc' });
+		return dt.isValid ? dt.toUTC().toISO() : null;
+	}
+	const m = clean.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?Z?$/);
+	if (!m) return null;
+	const dt = DateTime.utc(+m[1], +m[2], +m[3], +m[4], +m[5], m[6] ? +m[6] : 0);
+	return dt.isValid ? dt.toUTC().toISO() : null;
 }
 
 function parseDurationToMs(dur: string): number | null {
@@ -201,6 +219,7 @@ function buildDraft(props: Record<string, IcsProp[]>): IcsEventDraft | null {
 	let recurrenceInterval: number | null = 1;
 	let recurrenceByDay: string[] | null = null;
 	let recurrenceCount: number | null = null;
+	let recurrenceUntil: string | null = null;
 	const rrule = first('RRULE');
 	if (rrule) {
 		const parts: Record<string, string> = {};
@@ -227,6 +246,14 @@ function buildDraft(props: Record<string, IcsProp[]>): IcsEventDraft | null {
 		// COUNT: total number of occurrences in the series.
 		const count = parseInt(parts['COUNT'] ?? '');
 		if (recurrenceFrequency && !isNaN(count) && count > 0) recurrenceCount = count;
+
+		// UNTIL: last occurrence of the series. Per RFC 5545 it is either a
+		// UTC datetime (YYYYMMDDTHHMMSSZ) or, for date-only rules, a date
+		// (YYYYMMDD) treated as inclusive.
+		const until = parts['UNTIL'];
+		if (recurrenceFrequency && until) {
+			recurrenceUntil = parseRruleUntil(until);
+		}
 	}
 
 	return {
@@ -239,6 +266,7 @@ function buildDraft(props: Record<string, IcsProp[]>): IcsEventDraft | null {
 		recurrenceFrequency,
 		recurrenceInterval,
 		recurrenceByDay,
-		recurrenceCount
+		recurrenceCount,
+		recurrenceUntil
 	};
 }

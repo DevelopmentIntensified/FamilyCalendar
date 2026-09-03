@@ -10,6 +10,7 @@ export interface RecurringEventInput {
 	recurrenceInterval: number | null;
 	recurrenceByDay?: string[] | null;
 	recurrenceCount?: number | null;
+	recurrenceUntil?: string | Date | null;
 }
 
 const MAX_OCCURRENCES = 500;
@@ -94,10 +95,20 @@ export function expandRecurrence(
 	// to the plain frequency stepping below (anchor weekday only), matching
 	// the pre-existing behavior for such imports.
 	if (byDay && (frequency === 'daily' || frequency === 'weekly')) {
-		return expandWeekdaySeries(anchor, frequency, interval, byDay, event.recurrenceCount, windowStart, windowEnd);
+		return expandWeekdaySeries(
+			anchor,
+			frequency,
+			interval,
+			byDay,
+			event.recurrenceCount,
+			recurrenceUntil(event),
+			windowStart,
+			windowEnd
+		);
 	}
 
 	const count = positiveCount(event.recurrenceCount);
+	const until = recurrenceUntil(event);
 
 	const occurrences: Date[] = [];
 	let steps = 0;
@@ -108,6 +119,7 @@ export function expandRecurrence(
 		const jsDate = occ.toJSDate();
 		produced++;
 		if (count !== null && produced > count) break;
+		if (until !== null && jsDate > until) break;
 		if (jsDate >= windowEnd) break;
 		if (jsDate >= windowStart) {
 			occurrences.push(jsDate);
@@ -120,6 +132,13 @@ export function expandRecurrence(
 
 function positiveCount(raw?: number | null): number | null {
 	return raw && raw > 0 ? Math.floor(raw) : null;
+}
+
+/** The series cutoff instant (RRULE UNTIL), or null when unbounded. */
+function recurrenceUntil(event: RecurringEventInput): Date | null {
+	if (!event.recurrenceUntil) return null;
+	const dt = parseTimestamp(event.recurrenceUntil);
+	return dt.isValid ? dt.toJSDate() : null;
 }
 
 /**
@@ -135,6 +154,7 @@ function expandWeekdaySeries(
 	interval: number,
 	byDay: Set<string>,
 	count: number | null,
+	until: Date | null,
 	windowStart: Date,
 	windowEnd: Date
 ): Date[] {
@@ -158,6 +178,7 @@ function expandWeekdaySeries(
 			produced++;
 			if (count !== null && produced > count) break;
 			const jsDate = cur.toJSDate();
+			if (until !== null && jsDate > until) break;
 			if (jsDate >= windowStart && jsDate < windowEnd) occurrences.push(jsDate);
 		}
 

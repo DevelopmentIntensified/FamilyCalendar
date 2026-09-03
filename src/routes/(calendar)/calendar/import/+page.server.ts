@@ -100,7 +100,8 @@ export const actions: Actions = {
 					recurrenceFrequency: draft.recurrenceFrequency,
 					recurrenceInterval: draft.recurrenceInterval,
 					recurrenceByDay: draft.recurrenceByDay,
-					recurrenceCount: draft.recurrenceCount
+					recurrenceCount: draft.recurrenceCount,
+					recurrenceUntil: draft.recurrenceUntil
 				}, userId);
 				imported++;
 			} catch (e) {

@@ -425,6 +425,10 @@ export const events = pgTable('events', {
 	recurrenceInterval: integer('recurrence_interval'),
 	recurrenceByDay: text('recurrence_by_day').array(),
 	recurrenceCount: integer('recurrence_count'),
+	recurrenceUntil: timestamp('recurrence_until', {
+		withTimezone: true,
+		mode: 'string'
+	}),
 	created_at: timestamp('created_at').defaultNow().notNull()
 });
 

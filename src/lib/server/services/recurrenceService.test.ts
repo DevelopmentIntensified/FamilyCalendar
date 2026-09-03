@@ -232,4 +232,37 @@ describe('expandRecurrence', () => {
 			'2026-08-17'
 		]);
 	});
+
+	it('stops weekly expansion at recurrenceUntil', () => {
+		const event: RecurringEventInput = {
+			id: 'e1',
+			start: '2026-08-10T18:00:00Z', // Monday
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			recurrenceUntil: '2026-08-20T00:00:00.000Z'
+		};
+		const result = expandRecurrence(event, d('2026-08-01T00:00:00Z'), d('2026-09-15T00:00:00Z'));
+		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+			'2026-08-10',
+			'2026-08-17'
+		]);
+	});
+
+	it('honors recurrenceUntil for BYDAY weekly series', () => {
+		const event: RecurringEventInput = {
+			id: 'e1',
+			start: '2026-08-25T10:00:00Z', // Tuesday
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			recurrenceByDay: ['TU', 'TH'],
+			recurrenceUntil: '2026-09-05T00:00:00.000Z'
+		};
+		const result = expandRecurrence(event, d('2026-08-25T00:00:00Z'), d('2026-09-30T00:00:00Z'));
+		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+			'2026-08-25', // Tue
+			'2026-08-27', // Thu
+			'2026-09-01', // Tue
+			'2026-09-03' // Thu — next Tue (9/8) is after UNTIL
+		]);
+	});
 });

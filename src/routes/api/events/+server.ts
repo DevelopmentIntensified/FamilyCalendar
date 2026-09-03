@@ -10,12 +10,38 @@ import { resolveEventInvites } from '$lib/server/utils/eventInvites';
 
 const VALID_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
 
-function normalizeRecurrence(body: { recurrenceFrequency?: string | null; recurrenceInterval?: number | null }) {
+function normalizeRecurrence(body: {
+	recurrenceFrequency?: string | null;
+	recurrenceInterval?: number | null;
+	recurrenceByDay?: string[] | null;
+	recurrenceCount?: number | null;
+	recurrenceUntil?: string | null;
+}) {
 	const frequency = VALID_FREQUENCIES.includes(body.recurrenceFrequency || '')
 		? body.recurrenceFrequency ?? null
 		: null;
 	const interval = frequency ? Math.max(1, Math.floor(body.recurrenceInterval ?? 1)) : null;
-	return { recurrenceFrequency: frequency, recurrenceInterval: interval };
+	// Only keep BYDAY/COUNT/UNTIL when a recurring frequency is present; they
+	// are meaningless on a one-off event. Sanitize BYDAY to plain weekday codes.
+	const VALID_BYDAY = new Set(['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']);
+	const byDay = frequency
+		? (Array.isArray(body.recurrenceByDay)
+				? body.recurrenceByDay.filter((d) => typeof d === 'string' && VALID_BYDAY.has(d.toUpperCase()))
+				: null) || null
+		: null;
+	const count = frequency && typeof body.recurrenceCount === 'number' && body.recurrenceCount > 0
+		? Math.floor(body.recurrenceCount)
+		: null;
+	const until = frequency && typeof body.recurrenceUntil === 'string' && body.recurrenceUntil
+		? body.recurrenceUntil
+		: null;
+	return {
+		recurrenceFrequency: frequency,
+		recurrenceInterval: interval,
+		recurrenceByDay: byDay?.length ? byDay : null,
+		recurrenceCount: count,
+		recurrenceUntil: until
+	};
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
