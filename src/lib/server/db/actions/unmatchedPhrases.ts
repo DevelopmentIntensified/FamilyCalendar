@@ -10,6 +10,33 @@ export function normalizePhrase(phrase: string): string {
 }
 
 /**
+ * Pure shape for the report upsert, unit-tested without a DB. Repeats
+ * refresh the match sample so admins always see the latest parse — the
+ * count bump alone would leave the first (possibly stale) sample forever.
+ */
+export function buildUnmatchedReport(
+	source: UnmatchedSource,
+	phrase: string,
+	matched?: Record<string, unknown> | null
+): {
+	normalized: string;
+	values: Record<string, unknown>;
+	conflictSet: Record<string, unknown>;
+} | null {
+	const normalized = normalizePhrase(phrase);
+	if (!normalized) return null;
+	const values: Record<string, unknown> = { source, phrase: normalized, sample: normalized };
+	if (matched) values.matched = JSON.stringify(matched);
+	const conflictSet: Record<string, unknown> = {
+		count: sql`${unmatchedPhrases.count} + 1`,
+		sample: normalized,
+		updatedAt: new Date()
+	};
+	if (matched) conflictSet.matched = JSON.stringify(matched);
+	return { normalized, values, conflictSet };
+}
+
+/**
  * Record a phrase the parsers could not handle. Upserts on (source, phrase)
  * and bumps the count so admins see frequency. Never throws — reporting
  * must not break the user's request.
@@ -19,17 +46,15 @@ export async function reportUnmatchedPhrase(
 	phrase: string,
 	matched?: Record<string, unknown> | null
 ): Promise<void> {
-	const normalized = normalizePhrase(phrase);
-	if (!normalized) return;
+	const built = buildUnmatchedReport(source, phrase, matched);
+	if (!built) return;
 	try {
-		const values: Record<string, unknown> = { source, phrase: normalized, sample: normalized };
-		if (matched) values.matched = JSON.stringify(matched);
 		await db
 			.insert(unmatchedPhrases)
-			.values(values)
+			.values(built.values)
 			.onConflictDoUpdate({
 				target: [unmatchedPhrases.source, unmatchedPhrases.phrase],
-				set: { count: sql`${unmatchedPhrases.count} + 1` }
+				set: built.conflictSet
 			});
 	} catch (error) {
 		console.error('Failed to record unmatched phrase:', error);

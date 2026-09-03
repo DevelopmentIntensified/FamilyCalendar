@@ -215,11 +215,17 @@
 	async function reportPhrase() {
 		if (reportingPhrase || !nlInput.trim()) return;
 		reportingPhrase = true;
+		// Multi-event parses report every result, not just the first —
+		// admins see the matches for all objects.
+		const matched =
+			multiResults && multiResults.length > 1
+				? { results: multiResults.map((r) => r.parsed) }
+				: lastParseResult;
 		try {
 			const res = await fetch('/api/report-phrase', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ phrase: nlInput.trim(), source: 'event_parse', matched: lastParseResult })
+				body: JSON.stringify({ phrase: nlInput.trim(), source: 'event_parse', matched })
 			});
 			if (res.ok) phraseReported = true;
 		} catch {

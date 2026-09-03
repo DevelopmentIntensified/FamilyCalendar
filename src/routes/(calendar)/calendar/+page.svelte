@@ -59,14 +59,18 @@
 	let reportingPhrase = false;
 	let phraseReported = false;
 
-	async function reportPhrase(phrase: string, source: 'bulk_edit' | 'event_parse') {
+	async function reportPhrase(
+		phrase: string,
+		source: 'bulk_edit' | 'event_parse',
+		matched?: Record<string, unknown>
+	) {
 		if (reportingPhrase) return;
 		reportingPhrase = true;
 		try {
 			const res = await fetch('/api/report-phrase', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ phrase, source })
+				body: JSON.stringify({ phrase, source, matched: matched ?? null })
 			});
 			if (res.ok) phraseReported = true;
 		} catch {
@@ -639,7 +643,12 @@
 					{:else}
 						<button
 							type="button"
-							onclick={() => reportPhrase(bulkInstruction.trim(), 'bulk_edit')}
+							onclick={() =>
+								reportPhrase(bulkInstruction.trim(), 'bulk_edit', {
+									instruction: bulkInstruction.trim(),
+									eventCount: selectedIds.length,
+									plannedOps: smartPlan?.ops ?? []
+								})}
 							disabled={reportingPhrase}
 							class="text-xs text-slate-400 underline hover:text-slate-600 disabled:opacity-50"
 						>

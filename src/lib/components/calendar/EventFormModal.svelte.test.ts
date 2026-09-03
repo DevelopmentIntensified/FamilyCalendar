@@ -265,6 +265,42 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		const posts = vi.mocked(fetch).mock.calls.filter(([u]) => String(u) === '/api/events');
 		expect(posts).toHaveLength(2);
 	});
+
+	it('should report every parsed result, not just the first', async () => {
+		vi.mocked(fetch).mockImplementation(async (url: any, init?: any) => {
+			if (String(url).includes('/api/parse-event')) {
+				return {
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							results: [
+								{ parsed: { title: 'Dinner', date: '2026-09-04' }, confidence: 0.8 },
+								{ parsed: { title: 'Movie', date: '2026-09-05' }, confidence: 0.8 }
+							],
+							method: 'regex-list'
+						})
+				};
+			}
+			return { ok: true, json: () => Promise.resolve({}) };
+		}) as any;
+
+		render(EventFormModal, {
+			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
+		});
+
+		const nlInput = screen.getAllByPlaceholderText(/lunch friday/i)[0];
+		await fireEvent.input(nlInput, { target: { value: 'dinner Friday and movie Saturday' } });
+		await vi.advanceTimersByTimeAsync(350);
+
+		await fireEvent.click(screen.getByRole('button', { name: /parsed wrong/i }));
+		await vi.advanceTimersByTimeAsync(50);
+
+		const reports = vi.mocked(fetch).mock.calls.filter(([u]) => String(u) === '/api/report-phrase');
+		expect(reports).toHaveLength(1);
+		const body = JSON.parse(String((reports[0][1] as any)?.body ?? '{}'));
+		expect(body.matched.results).toHaveLength(2);
+		expect(body.matched.results[1]).toMatchObject({ title: 'Movie' });
+	});
 });
 
 describe('EventFormModal - Date & Time Layout', () => {
