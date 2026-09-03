@@ -148,6 +148,49 @@ function resolveUntilDate(m: RegExpMatchArray, now: DateTime, zone?: string): st
 	return dt?.isValid ? dt.toFormat('yyyy-MM-dd') : null;
 }
 
+/** Title stop-words: schedule connectors left after span stripping.
+ * Dropped only at the edges or next to punctuation — never mid-title. */
+const TITLE_STOP = new Set(['on', 'from', 'at', 'to', 'and', 'or', '&', 'am', 'pm']);
+
+/** Cosmetic digit-times the parser consumed ("5:30", "9am", "a5pm"). */
+const TITLE_TIME_RES = [/\b\d{1,2}:\d{2}\s*(?:am|pm)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(?:am|pm)?/gi, /\b\d{1,2}:\d{2}\b/g, /\ba\s*\d{1,2}(?::?\d{2})?\s*(?:am|pm)\b/gi, /\b\d{1,2}\s*(?:am|pm)\b/gi];
+
+/** Strip consumed schedule spans plus cosmetic digit-times. */
+function stripTitleSpans(title: string, phrases: string[]): string {
+	let text = title;
+	for (const phrase of phrases) {
+		const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		text = text.replace(new RegExp(escaped, 'i'), ' ');
+	}
+	for (const re of TITLE_TIME_RES) text = text.replace(re, ' ');
+	return text;
+}
+
+/**
+ * Drop leftover connectors ("launch on , from" -> "launch"). Runs until
+ * stable (max 3 passes) so drops that create new edges settle.
+ */
+function cleanTitleText(title: string): string {
+	let text = title;
+	for (let pass = 0; pass < 3; pass++) {
+		const collapsed = text.replace(/\s{2,}/g, ' ').replace(/\s+([,;:!?])/g, '$1').trimStart();
+		const tokens = collapsed.split(' ').filter((t) => t.length > 0);
+		const kept = tokens.filter((t, i) => {
+			const core = t.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '').toLowerCase();
+			if (core === '') return false;
+			if (!TITLE_STOP.has(core)) return true;
+			const prev = tokens[i - 1] ?? '';
+			const next = tokens[i + 1] ?? '';
+			const isPunct = (s: string) => s.length > 0 && /^[^a-z0-9]+$/i.test(s);
+			return !(i === 0 || i === tokens.length - 1 || t !== core || isPunct(prev) || isPunct(next));
+		});
+		const next = kept.join(' ').trimStart();
+		if (next === text) return next;
+		text = next;
+	}
+	return text;
+}
+
 export function parseEventInput(input: string, zone?: string): ParseResult {
 	const result: Partial<ParsedEvent> = { allDay: false };
 	let confidence = 0;
@@ -171,12 +214,18 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	);
 	const dateInput = untilMatch ? input.replace(untilMatch[0], ' ') : input;
 
+	// Exact schedule spans consumed by the parser (explicit dates, relative
+	// days, reminders, calendar targets). The title step strips these so the
+	// title = unmatched text + attendants.
+	const stripSpans: string[] = [];
+
 	// ===== DATE PATTERNS =====
 	
 	// "this Friday", "this Saturday"
 	const thisDayMatch = dateInput.match(/\bthis\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
 	if (thisDayMatch) {
 		result.date = getNextDayOfWeek(thisDayMatch[1], zone).toFormat('yyyy-MM-dd');
+		stripSpans.push(thisDayMatch[0]);
 		confidence += 0.25;
 	}
 
@@ -184,6 +233,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	const nextDayMatch = dateInput.match(/\bnext\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
 	if (nextDayMatch && !result.date) {
 		result.date = getNextDayOfWeek(nextDayMatch[1], zone).plus({ weeks: 1 }).toFormat('yyyy-MM-dd');
+		stripSpans.push(nextDayMatch[0]);
 		confidence += 0.25;
 	}
 
@@ -191,6 +241,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	const tomorrowMatch = dateInput.match(/\btomorrow\b/i);
 	if (tomorrowMatch && !result.date) {
 		result.date = now.plus({ days: 1 }).toFormat('yyyy-MM-dd');
+		stripSpans.push(tomorrowMatch[0]);
 		confidence += 0.2;
 	}
 
@@ -198,6 +249,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	const relativeMatch = dateInput.match(/\bin\s+(a|\d+)\s+(day|week|month)s?\b/i);
 	if (relativeMatch && !result.date) {
 		const n = relativeMatch[1].toLowerCase() === 'a' ? 1 : parseInt(relativeMatch[1]);
+		stripSpans.push(relativeMatch[0]);
 		result.date = now.plus({ [`${relativeMatch[2].toLowerCase()}s`]: n } as any).toFormat('yyyy-MM-dd');
 		confidence += 0.25;
 	}
@@ -207,6 +259,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (weekendMatch && !result.date) {
 		let daysUntilSat = (6 - (now.weekday % 7) + 7) % 7;
 		if (daysUntilSat === 0) daysUntilSat = 7;
+		stripSpans.push(weekendMatch[0]);
 		result.date = now.plus({ days: daysUntilSat }).toFormat('yyyy-MM-dd');
 		confidence += 0.2;
 	}
@@ -216,6 +269,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (nextMonthMatch && !result.date) {
 		const month = MONTH_MAP[nextMonthMatch[1].toLowerCase()];
 		result.date = DateTime.fromObject({ year: now.year + 1, month, day: 1 }).toFormat('yyyy-MM-dd');
+		stripSpans.push(nextMonthMatch[0]);
 		confidence += 0.2;
 	}
 
@@ -223,6 +277,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	const returnDayMatch = dateInput.match(/returning\s+(?:by\s+)?(?:this\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)(?:\s+(morning|afternoon|evening|noon))?/i);
 	if (returnDayMatch && !result.date) {
 		result.date = getNextDayOfWeek(returnDayMatch[1], zone).toFormat('yyyy-MM-dd');
+		stripSpans.push(returnDayMatch[0]);
 		if (returnDayMatch[2]) {
 			const timeMap: Record<string, string> = { morning: '09:00', afternoon: '14:00', evening: '18:00', noon: '12:00' };
 			result.endTime = timeMap[returnDayMatch[2].toLowerCase()] || '18:00';
@@ -235,14 +290,8 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (monthDayMatch && !result.date) {
 		const month = MONTH_MAP[monthDayMatch[1].toLowerCase()];
 		const day = parseInt(monthDayMatch[2]);
-		let year: number;
-		if (monthDayMatch[3]) {
-			year = parseInt(monthDayMatch[3]);
-		} else {
-			year = now.year;
-			if (DateTime.fromObject({ year, month, day }) < now && month <= now.month) year += 1;
-		}
-		result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+		const target = withRolloverYear(month, day, monthDayMatch[3] ? parseInt(monthDayMatch[3]) : null, now);
+		result.date = target.toFormat('yyyy-MM-dd');
 		confidence += 0.3;
 	}
 
@@ -252,14 +301,8 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		const day = parseInt(dayFirstMatch[1]);
 		const month = MONTH_MAP[dayFirstMatch[2].toLowerCase()];
 		if (day >= 1 && day <= 31) {
-			let year: number;
-			if (dayFirstMatch[3]) {
-				year = parseInt(dayFirstMatch[3]);
-			} else {
-				year = now.year;
-				if (DateTime.fromObject({ year, month, day }) < now && month <= now.month) year += 1;
-			}
-			result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+			const target = withRolloverYear(month, day, dayFirstMatch[3] ? parseInt(dayFirstMatch[3]) : null, now);
+			result.date = target.toFormat('yyyy-MM-dd');
 			confidence += 0.3;
 		}
 	}
@@ -341,6 +384,98 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		if (target < now) year = now.year + 1;
 		result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
 		confidence += 0.3;
+	}
+
+	// Explicit-date sweep (multi-date + title spans): every calendar date
+	// named in the input, not just the first. result.date keeps
+	// first-match-wins from the chain above; dates[] covers "sept 23 & 30".
+	const explicitDates: Array<{ index: number; date: string; span: string }> = [];
+	const pushExplicit = (index: number | undefined, date: string, span: string) => {
+		if (index === undefined || !date) return;
+		if (!explicitDates.some((e) => e.date === date)) explicitDates.push({ index, date, span });
+	};
+	let sweep: RegExpExecArray | null;
+	const monthDaySweep = new RegExp(`\\b(${MONTH_ALT})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?\\b`, 'gi');
+	while ((sweep = monthDaySweep.exec(dateInput)) !== null) {
+		const month = MONTH_MAP[sweep[1].toLowerCase()];
+		if (month) {
+			const dt = withRolloverYear(month, parseInt(sweep[2]), sweep[3] ? parseInt(sweep[3]) : null, now);
+			if (dt.isValid) pushExplicit(sweep.index, dt.toFormat('yyyy-MM-dd'), sweep[0]);
+		}
+	}
+	const dayFirstSweep = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})\\.?(?:,?\\s*(20\\d{2}))?\\b`, 'gi');
+	while ((sweep = dayFirstSweep.exec(dateInput)) !== null) {
+		const day = parseInt(sweep[1]);
+		const month = MONTH_MAP[sweep[2].toLowerCase()];
+		if (month && day >= 1 && day <= 31) {
+			const dt = withRolloverYear(month, day, sweep[3] ? parseInt(sweep[3]) : null, now);
+			if (dt.isValid) pushExplicit(sweep.index, dt.toFormat('yyyy-MM-dd'), sweep[0]);
+		}
+	}
+	const isoSweep = /\b(20\d{2})-(\d{2})-(\d{2})\b/g;
+	while ((sweep = isoSweep.exec(dateInput)) !== null) {
+		const dt = DateTime.fromObject({ year: +sweep[1], month: +sweep[2], day: +sweep[3] });
+		if (dt.isValid) pushExplicit(sweep.index, dt.toFormat('yyyy-MM-dd'), sweep[0]);
+	}
+	const numericSweep = /\b(\d{1,2})\/(\d{1,2})\b/g;
+	while ((sweep = numericSweep.exec(dateInput)) !== null) {
+		const month = parseInt(sweep[1]);
+		const day = parseInt(sweep[2]);
+		let year = now.year;
+		if (DateTime.fromObject({ year, month, day }) < now) year = now.year + 1;
+		const dt = DateTime.fromObject({ year, month, day });
+		if (dt.isValid) pushExplicit(sweep.index, dt.toFormat('yyyy-MM-dd'), sweep[0]);
+	}
+	const ordinalSweep = /\b(\d{1,2})(?:st|nd|rd|th)\s+of\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b/gi;
+	while ((sweep = ordinalSweep.exec(dateInput)) !== null) {
+		const month = MONTH_MAP[sweep[2].toLowerCase()];
+		const day = parseInt(sweep[1]);
+		if (month && day >= 1 && day <= 31) {
+			const dt = withRolloverYear(month, day, null, now);
+			if (dt.isValid) pushExplicit(sweep.index, dt.toFormat('yyyy-MM-dd'), sweep[0]);
+		}
+	}
+	const ordinalDaySweep = /\b(first|second|third|fourth|fifth|last)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\s+of\s+(the\s+month|january|february|march|april|may|june|july|august|september|october|november|december)\b/gi;
+	while ((sweep = ordinalDaySweep.exec(dateInput)) !== null) {
+		const which = sweep[1].toLowerCase() as 'first' | 'second' | 'third' | 'fourth' | 'fifth' | 'last';
+		const jsDay = DAY_MAP[sweep[2].toLowerCase()];
+		const luxonDay = jsDay === 0 ? 7 : jsDay;
+		const monthToken = sweep[3].toLowerCase();
+		const month = monthToken === 'the month' ? now.month : MONTH_MAP[monthToken];
+		let target = ordinalWeekdayOfMonth(now.year, month, luxonDay, which);
+		if (target && target < now.startOf('day')) {
+			target = monthToken === 'the month'
+				? ordinalWeekdayOfMonth(now.plus({ months: 1 }).year, now.plus({ months: 1 }).month, luxonDay, which)
+				: ordinalWeekdayOfMonth(now.year + 1, month, luxonDay, which);
+		}
+		if (target) pushExplicit(sweep.index, target.toFormat('yyyy-MM-dd'), sweep[0]);
+	}
+	// Continuations ("& 30", ", 12", "and 19") borrow month/year from the
+	// nearest preceding explicit date.
+	const contSweep = /(?:&|,|\band\b)\s*(\d{1,2})(?:st|nd|rd|th)?\b/gi;
+	while ((sweep = contSweep.exec(dateInput)) !== null) {
+		const day = parseInt(sweep[1]);
+		const prior = explicitDates.filter((e) => e.index < sweep!.index).pop();
+		if (!prior) continue;
+		const base = DateTime.fromISO(prior.date);
+		const dt = DateTime.fromObject({ year: base.year, month: base.month, day });
+		if (dt.isValid) pushExplicit(sweep.index, dt.toFormat('yyyy-MM-dd'), sweep[0]);
+	}
+	explicitDates.sort((a, b) => a.index - b.index);
+	if (explicitDates.length >= 2) {
+		result.dates = explicitDates.map((e) => e.date);
+	}
+	for (const e of explicitDates) stripSpans.push(e.span);
+
+	// Bare-weekday fallback ("dinner friday"): no date matched anywhere, so
+	// the first named weekday is the event day (next occurrence).
+	if (!result.date) {
+		const bareDay = dateInput.match(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
+		if (bareDay) {
+			result.date = getNextDayOfWeek(bareDay[1], zone).toFormat('yyyy-MM-dd');
+			confidence += 0.2;
+			stripSpans.push(bareDay[0]);
+		}
 	}
 
 	// ===== TIME PATTERNS =====
@@ -505,6 +640,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		const unit = reminderMatch[2].toLowerCase();
 		result.reminderMinutes = n * (unit.startsWith('min') ? 1 : unit.startsWith('hour') ? 60 : 1440);
 		confidence += 0.15;
+		stripSpans.push(reminderMatch[0]);
 	}
 
 	// "starting at 6 PM", "at 8 AM", "beginning at 9 AM", "7:15A"
@@ -903,6 +1039,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (calendarMatch) {
 		result.calendarName = `${calendarMatch[1].trim()} calendar`;
 		confidence += 0.15;
+		stripSpans.push(calendarMatch[0]);
 	}
 
 	// ===== ATTENDANT PATTERNS =====
@@ -1008,6 +1145,24 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (title.length > 3 && !title.match(/^[\s,]*$/)) {
 		result.title = title;
 		confidence += 0.2;
+	}
+
+	// Title refinement: title = unmatched text + attendants. Compare on the
+	// 50-char window itself: spans stripped beyond it must not reformat the
+	// pinned first-50 title (existing tests pin trailing-space behavior).
+	{
+		const window = result.title ?? '';
+		const strippedWindow = stripTitleSpans(window, [...recurrencePhrases, ...stripSpans]);
+		if (strippedWindow !== window && window) {
+			const cleaned = cleanTitleText(strippedWindow);
+			const final = cleaned.replace(/[.,;:!?]+$/, '');
+			if (final.length > 3 && !/^[\s,]*$/.test(final)) {
+				result.title = final;
+			} else {
+				const fallback = input.substring(0, 50).replace(/[.,;:!?]+$/, '');
+				if (fallback.length > 0) result.title = fallback;
+			}
+		}
 	}
 
 	// ===== LOCATION FROM @ SYMBOL =====
