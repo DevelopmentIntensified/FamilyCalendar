@@ -242,7 +242,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		event={selectedEvent}
 		show={true}
 		calendars={calendarIds}
-		on:close={closeModal}
+		onClose={closeModal}
 		on:update={() => invalidateAll()}
 		on:delete={handleDelete}
 	/>

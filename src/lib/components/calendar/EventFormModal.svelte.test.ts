@@ -534,3 +534,36 @@ describe('EventFormModal - Calendar Selector', () => {
 		});
 	});
 });
+
+describe('EventFormModal - onClose callback convention', () => {
+	beforeEach(() => {
+		vi.stubGlobal('fetch', vi.fn());
+		vi.stubGlobal('localStorage', createMockLocalStorage());
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('notifies the parent via onClose on X so selection state can clear', async () => {
+		const onClose = vi.fn();
+		render(EventFormModal, {
+			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }], onClose }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Close modal' }));
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it('notifies the parent via onClose on backdrop click too', async () => {
+		const onClose = vi.fn();
+		const { container } = render(EventFormModal, {
+			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }], onClose }
+		});
+		// Backdrop is the fixed inset layer behind the panel.
+		const backdrop = container.querySelector('.fixed.inset-0');
+		expect(backdrop).not.toBeNull();
+		await fireEvent.click(backdrop!);
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+});

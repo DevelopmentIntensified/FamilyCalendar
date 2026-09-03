@@ -9,6 +9,7 @@
 
 	export let event: Event;
 	export let show = false;
+	export let onClose: () => void = () => {};
 	export let attendees: {
 		userId: string | null;
 		status: string;
@@ -93,6 +94,7 @@
 		dragOffset = 0;
 		dragTransition = false;
 		dispatch('close');
+		onClose();
 	}
 
 	function onDragStart(e: TouchEvent) {
@@ -140,7 +142,7 @@
 			const response = await fetch(url, options);
 			if (response.ok) {
 				dispatch('delete', { id: event.masterId || event.id });
-				show = false;
+				close();
 			} else {
 				const j = await response.json().catch(() => ({}));
 				actionError = j.error || 'Something went wrong. Try again.';
@@ -338,7 +340,7 @@
 			calendarIds={calendars}
 			{userSettings}
 			{familyMembers}
-			on:close={handleFormClose}
+			onClose={handleFormClose}
 			on:update={handleUpdate}
 			on:delete={(e) => performDelete(e.detail?.scope)}
 		/>

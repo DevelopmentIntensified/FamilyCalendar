@@ -215,7 +215,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	<EventModal
 		event={selectedEvent}
 		show={true}
-		on:close={closeModal}
+		onClose={closeModal}
 		on:delete={handleDelete}
 	/>
 {/if}

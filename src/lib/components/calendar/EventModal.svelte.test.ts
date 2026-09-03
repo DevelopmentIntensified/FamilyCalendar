@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/svelte';
+import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Event } from '$lib/types';
 import EventModal from './EventModal.svelte';
@@ -102,5 +102,37 @@ describe('EventModal - display details', () => {
 
 		expect(screen.getByText(/Maybe.*1/)).toBeInTheDocument();
 		expect(screen.getByText(/Charlie/)).toBeInTheDocument();
+	});
+});
+
+describe('EventModal - onClose callback convention', () => {
+	beforeEach(() => {
+		vi.stubGlobal('fetch', vi.fn());
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('notifies the parent via onClose on X so selection state can clear', async () => {
+		const onClose = vi.fn();
+		render(EventModal, {
+			props: { show: true, event: baseEvent, onClose }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it('notifies the parent via onClose on backdrop click too', async () => {
+		const onClose = vi.fn();
+		const { container } = render(EventModal, {
+			props: { show: true, event: baseEvent, onClose }
+		});
+		// Backdrop is the absolute inset layer behind the panel.
+		const backdrop = container.querySelector('.fixed .absolute.inset-0');
+		expect(backdrop).not.toBeNull();
+		await fireEvent.click(backdrop!);
+		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 });

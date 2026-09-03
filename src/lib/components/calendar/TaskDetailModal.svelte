@@ -34,6 +34,10 @@
 	let busy = false;
 	let actionError = '';
 
+	function close() {
+		onClose();
+	}
+
 	function formatDue(due: Date | string | null | undefined): string {
 		if (!due) return '';
 		const d = due instanceof Date ? due : new Date(due);
@@ -137,10 +141,12 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
+<svelte:window on:keydown={(e) => e.key === 'Escape' && close()} />
+
 <div
 	class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-	onclick={onClose}
-	onkeydown={(e) => e.key === 'Escape' && onClose()}
+	onclick={close}
+	onkeydown={(e) => e.key === 'Escape' && close()}
 	role="presentation"
 >
 	<div
@@ -156,7 +162,7 @@
 			<h2 class="text-base font-semibold text-slate-900">Task Details</h2>
 			<button
 				type="button"
-				onclick={onClose}
+				onclick={close}
 				class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
 				aria-label="Close"
 			>

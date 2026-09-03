@@ -11,6 +11,7 @@
 	import { queueMutation } from '$lib/utils/offline';
 
 	export let show = false;
+	export let onClose: () => void = () => {};
 	export let event: Event | null = null;
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let familyMembers: { userId: string; firstName?: string; lastName?: string; email: string }[] = [];
@@ -202,6 +203,7 @@
 		dragOffset = 0;
 		dragTransition = false;
 		dispatch('close');
+		onClose();
 	}
 
 	function onDragStart(e: TouchEvent) {
@@ -326,7 +328,7 @@
 				await queueMutation('/api/events', 'POST', eventData);
 				submitError = '';
 				dispatch('create', { ...eventData, created: null, offline: true });
-				show = false;
+				close();
 			}
 		}
 

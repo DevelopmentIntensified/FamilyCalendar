@@ -603,7 +603,7 @@
 		initialDate={createInitialDate}
 		initialTitle={createInitialTitle}
 		{createCount}
-		on:close={close}
+		onClose={close}
 		on:create={handleEventCreated}
 		on:createTask={handleTaskCreated}
 	/>
@@ -618,7 +618,7 @@
 		familyMembers={data.familyMembers || []}
 		rsvpData={selectedEventRsvp}
 		userSettings={data.userSettings}
-		on:close={close}
+		onClose={close}
 		on:update={handleEventUpdate}
 		on:delete={handleEventDelete}
 	/>
