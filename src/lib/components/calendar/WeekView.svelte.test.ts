@@ -80,6 +80,21 @@ describe('WeekView - slot create and drag move', () => {
 		expect(props.onToggleSelect).toHaveBeenCalledWith(evt);
 	});
 
+	it('does not start create on empty-grid taps while in selection mode', async () => {
+		const props = setup({ selectionMode: true });
+		const cols = screen.getAllByTestId('week-day-column');
+		await fireEvent.click(cols[0], { clientY: 125 });
+		expect(props.createAt).not.toHaveBeenCalled();
+	});
+
+	it('marks selected chips with a ring and checkbox in selection mode', async () => {
+		setup({ events: [evt], selectionMode: true, selectedIds: ['e1'] });
+		const chip = screen.getByText('Standup').closest('button');
+		expect(chip).not.toBeNull();
+		expect(chip).toHaveClass('ring-2');
+		expect(chip!.querySelector('svg')).not.toBeNull();
+	});
+
 	it('moves a dropped event with a PUT preserving duration', async () => {
 		setup({ events: [evt] });
 		const cols = screen.getAllByTestId('week-day-column');

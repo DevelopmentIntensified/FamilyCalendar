@@ -69,6 +69,21 @@ describe('DayView - slot create and drag move', () => {
 		expect(props.onToggleSelectionMode).toHaveBeenCalledWith(false);
 	});
 
+	it('does not start create on empty-grid taps while in selection mode', async () => {
+		const props = setup({ events: [evt], selectionMode: true });
+		const grid = screen.getByTestId('day-grid');
+		await fireEvent.click(grid, { clientY: 300 });
+		expect(props.createAt).not.toHaveBeenCalled();
+	});
+
+	it('marks selected chips with a ring and checkbox in selection mode', async () => {
+		setup({ events: [evt], selectionMode: true, selectedIds: ['e1'] });
+		const chip = screen.getByText('Standup').closest('button');
+		expect(chip).not.toBeNull();
+		expect(chip).toHaveClass('ring-2');
+		expect(chip!.querySelector('svg')).not.toBeNull();
+	});
+
 	it('moves a dropped event with a PUT preserving duration', async () => {
 		setup({ events: [evt] });
 		const grid = screen.getByTestId('day-grid');

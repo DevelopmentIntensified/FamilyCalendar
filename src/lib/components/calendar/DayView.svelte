@@ -187,6 +187,8 @@
 	}
 
 	function handleGridClick(e: MouseEvent) {
+		// Selection mode owns all taps; empty-grid taps must not open create.
+		if (selectionMode) return;
 		// Chip taps open the event; empty-grid taps start a new one.
 		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
 		const grid = e.currentTarget as HTMLElement | null;
@@ -241,11 +243,27 @@
 						type="button"
 						onclick={() => handleEventClick(event)}
 						aria-pressed={selectionMode ? isSelected(event) : undefined}
-						class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 hover:opacity-90 {rv?.containerClass ??
-							''} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400' : ''}"
+						class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 hover:opacity-90 transition-all active:scale-[0.99] {rv?.containerClass ??
+							''} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400 bg-primary-50/70' : ''}"
 						style="border-left: 3px solid {event.color || '#94a3b8'}"
 					>
 						<span class="flex items-center gap-1.5">
+							{#if selectionMode}
+								<span
+									class="flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all {isSelected(event) ? 'border-primary-600 bg-primary-600 text-white' : 'border-slate-300 bg-white'}"
+									aria-hidden="true"
+								>
+									<svg
+										class="h-2.5 w-2.5 transition-transform {isSelected(event) ? 'scale-100' : 'scale-0'}"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="4"
+									>
+										<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+									</svg>
+								</span>
+							{/if}
 							{#if rv}
 								<span
 									class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none {rv.badgeClass}"
@@ -372,8 +390,8 @@
 						draggable={!selectionMode}
 						ondragstart={(e) => handleDragStart(e, slot.event)}
 						aria-pressed={selectionMode ? isSelected(slot.event) : undefined}
-						class="absolute z-10 overflow-hidden rounded-md border border-slate-200 bg-white px-1.5 py-1 text-left shadow-sm transition-colors hover:brightness-95 {rv?.containerClass ??
-							''} {selectionMode && isSelected(slot.event) ? 'ring-2 ring-primary-400' : ''}"
+						class="absolute z-10 overflow-hidden rounded-md border border-slate-200 bg-white px-1.5 py-1 text-left shadow-sm transition-all hover:brightness-95 {rv?.containerClass ??
+							''} {selectionMode ? 'active:scale-[0.98]' : ''} {selectionMode && isSelected(slot.event) ? 'ring-2 ring-primary-400 bg-primary-50/70' : ''}"
 						style="
 							top: {slot.topPct}%;
 							height: {Math.max(slot.heightPct, (26 / GRID_HEIGHT) * 100)}%;
@@ -386,6 +404,22 @@
 						<span
 							class="flex items-center gap-1 truncate text-[11px] font-semibold leading-tight text-slate-800"
 						>
+							{#if selectionMode}
+								<span
+									class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-all {isSelected(slot.event) ? 'border-primary-600 bg-primary-600 text-white' : 'border-slate-300 bg-white'}"
+									aria-hidden="true"
+								>
+									<svg
+										class="h-2.5 w-2.5 transition-transform {isSelected(slot.event) ? 'scale-100' : 'scale-0'}"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="4"
+									>
+										<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+									</svg>
+								</span>
+							{/if}
 							{#if rv}
 								<span
 									class="mr-0.5 shrink-0 rounded px-1 text-[9px] font-bold leading-3 {rv.badgeClass}"

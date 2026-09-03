@@ -180,6 +180,8 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	}
 
 	function handleColumnClick(e: MouseEvent, day: DateTime) {
+		// Selection mode owns all taps; empty-grid taps must not open create.
+		if (selectionMode) return;
 		// Chip taps open the event; empty-grid taps start a new one.
 		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
 		const grid = e.currentTarget as HTMLElement | null;
@@ -241,7 +243,24 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 						type="button"
 						onclick={() => handleEventClick(event)}
 						aria-pressed={selectionMode ? isSelected(event) : undefined}
-						class="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-xs font-medium transition-opacity hover:opacity-90 active:opacity-70 cursor-pointer bg-white {rv?.containerClass ?? ''} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400' : ''}"
+						class="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-xs font-medium transition-all hover:opacity-90 active:opacity-70 active:scale-[0.99] cursor-pointer bg-white {rv?.containerClass ?? ''} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400 bg-primary-50/70' : ''}"
+					>
+						{#if selectionMode}
+							<span
+								class="flex h-3 w-3 shrink-0 items-center justify-center rounded-sm border transition-all {isSelected(event) ? 'border-primary-600 bg-primary-600 text-white' : 'border-slate-400 bg-white'}"
+								aria-hidden="true"
+							>
+								<svg
+									class="h-2 w-2 transition-transform {isSelected(event) ? 'scale-100' : 'scale-0'}"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="4"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+								</svg>
+							</span>
+						{/if}
 						style="border-left: 3px solid {event.color || '#94a3b8'}"
 					>
 						{#if rv}
@@ -314,10 +333,26 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 								ondragstart={(e) => handleDragStart(e, slot.event)}
 								aria-pressed={selectionMode ? isSelected(slot.event) : undefined}
 								title={selectionMode ? undefined : chipTooltip(slot.event, calendarIds)}
-								class="absolute rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 active:opacity-70 transition-opacity cursor-pointer text-left overflow-hidden bg-white {rv?.containerClass ?? ''} {selectionMode && isSelected(slot.event) ? 'ring-2 ring-primary-400' : ''}"
+								class="absolute rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 active:opacity-70 transition-all cursor-pointer text-left overflow-hidden bg-white {rv?.containerClass ?? ''} {selectionMode ? 'active:scale-[0.98]' : ''} {selectionMode && isSelected(slot.event) ? 'ring-2 ring-primary-400 bg-primary-50/70' : ''}"
 								style="top: {getEventTop(slot.event)}%; height: {getEventHeight(slot.event)}%; left: calc({slot.lane * widthPct}% + 2px); width: calc({widthPct}% - 4px); border-left: 3px solid {slot.event.color || '#94a3b8'}; min-height: 26px;"
 							>
 								<span class="block truncate">
+									{#if selectionMode}
+										<span
+											class="mr-1 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-all {isSelected(slot.event) ? 'border-primary-600 bg-primary-600 text-white' : 'border-slate-300 bg-white'}"
+											aria-hidden="true"
+										>
+											<svg
+												class="h-2.5 w-2.5 transition-transform {isSelected(slot.event) ? 'scale-100' : 'scale-0'}"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+												stroke-width="4"
+											>
+												<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+											</svg>
+										</span>
+									{/if}
 									{#if rv}
 										<span class="mr-0.5 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}">{rv.icon}</span>
 									{/if}
