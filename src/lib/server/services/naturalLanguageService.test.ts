@@ -878,3 +878,97 @@ describe('Ordinal weekday ("first Friday of October")', () => {
 		expect(result.parsed.date).toBe(DateTime.now().toISODate());
 	});
 });
+
+describe('Reminders ("remind me 30 min before")', () => {
+	const cases: Array<[string, number]> = [
+		['dentist tomorrow at 3pm remind me 30 min before', 30],
+		['call mom Friday remind me 1 hour before', 60],
+		['flight Monday at 6am remind me 1 day before', 1440],
+		['party Saturday remind me 2 days before', 2880],
+		['standup daily remind me 15 minutes before', 15],
+		['lunch Friday reminder 2 hours before', 120]
+	];
+	for (const [input, minutes] of cases) {
+		it(`parses "${input}" as ${minutes} minutes`, () => {
+			expect(parseEventInput(input).parsed.reminderMinutes).toBe(minutes);
+		});
+	}
+
+	it('ignores "remember" without a reminder shape ("remember the milk tomorrow")', () => {
+		expect(parseEventInput('remember the milk tomorrow').parsed.reminderMinutes).toBeUndefined();
+	});
+});
+
+describe('Calendar targeting ("on the family calendar")', () => {
+	const cases: Array<[string, string]> = [
+		['dinner Friday on the family calendar', 'family calendar'],
+		['sync Monday to my work calendar', 'work calendar'],
+		['lunch Tuesday on personal calendar', 'personal calendar']
+	];
+	for (const [input, name] of cases) {
+		it(`parses "${input}" as calendar "${name}"`, () => {
+			expect(parseEventInput(input).parsed.calendarName).toBe(name);
+		});
+	}
+
+	it('ignores bare "calendar" without a target ("calendar meeting Friday")', () => {
+		expect(parseEventInput('calendar meeting Friday').parsed.calendarName).toBeUndefined();
+	});
+});
+
+describe('Invite verbs ("invite mom")', () => {
+	const cases: Array<[string, string[]]> = [
+		['lunch Friday invite mom', ['mom']],
+		['dinner Saturday invite jay and mo', ['jay', 'mo']],
+		['party Sunday invite the team', ['the team']]
+	];
+	for (const [input, names] of cases) {
+		it(`parses "${input}" as inviting ${names.join(' + ')}`, () => {
+			const result = parseEventInput(input);
+			for (const n of names) expect(result.parsed.attendants ?? []).toContain(n);
+		});
+}
+});
+
+
+describe('Parser performance', () => {
+	const CORPUS = [
+		'meeting this Friday',
+		'party on July 12th',
+		'launch on wednesdays, sept 23 & 30 from 5:30-6:30pm',
+		'a5pm disc golf at independence park. with jay and the league',
+		'yoga every Tuesday for 6 weeks',
+		'standup daily for 10 days',
+		'yoga every Monday until Dec 15',
+		'standup every Mon, Wed, Fri at 9am',
+		'trash weekdays at 7am',
+		'party first Friday of October',
+		'deadline last Friday of the month',
+		'dentist tomorrow at 3pm remind me 30 min before',
+		'dinner Friday on the family calendar',
+		'lunch Friday invite mom',
+		'soccer practice every Tuesday at 4pm',
+		'Clients & Friends Appreciation Night 6:00PM - 8:00PM',
+		'rent due monthly on the 15th',
+		'payday every other week for 3 months',
+		'flight Monday at 6am remind me 1 day before',
+		'lunch'
+	];
+
+	it('parses an everyday corpus instantly (mean < 5ms, 200 parses < 1500ms)', () => {
+		const t0 = performance.now();
+		for (let r = 0; r < 10; r++) for (const input of CORPUS) parseEventInput(input);
+		const total = performance.now() - t0;
+		const mean = total / (CORPUS.length * 10);
+		console.log(`NLP bench: ${total.toFixed(1)}ms total, ${mean.toFixed(3)}ms mean`);
+		expect(mean).toBeLessThan(5);
+		expect(total).toBeLessThan(1500);
+	});
+});
+
+describe('Location priority', () => {
+	it('keeps an explicit "location:" over NLP place guesses', () => {
+		const result = parseEventInput('team meeting Friday location: HQ');
+		expect(result.parsed.location).toBe('HQ');
+	});
+});

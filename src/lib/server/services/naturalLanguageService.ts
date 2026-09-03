@@ -96,13 +96,14 @@ function withRolloverYear(month: number, day: number, explicitYear: number | nul
 
 /** Weekday abbreviation/full name → RRULE code. Null when unrecognized. */
 function normalizeDayToken(t: string): string | null {
-	if (/^mon/.test(t)) return 'MO';
-	if (/^tue/.test(t)) return 'TU';
-	if (/^wed/.test(t)) return 'WE';
-	if (/^thu/.test(t)) return 'TH';
-	if (/^fri/.test(t)) return 'FR';
-	if (/^sat/.test(t)) return 'SA';
-	if (/^sun/.test(t)) return 'SU';
+	const s = t.toLowerCase();
+	if (/^mon/.test(s)) return 'MO';
+	if (/^tue/.test(s)) return 'TU';
+	if (/^wed/.test(s)) return 'WE';
+	if (/^thu/.test(s)) return 'TH';
+	if (/^fri/.test(s)) return 'FR';
+	if (/^sat/.test(s)) return 'SA';
+	if (/^sun/.test(s)) return 'SU';
 	return null;
 }
 
@@ -151,7 +152,11 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	const result: Partial<ParsedEvent> = { allDay: false };
 	let confidence = 0;
 	const now = zone ? DateTime.now().setZone(zone) : DateTime.now();
-	const doc = nlp(input);
+	// Compromise is the heaviest dependency here — never build the doc
+	// eagerly. Cheap regex matchers run first; NLP object access goes through
+	// getDoc() so parses that resolve without it pay nothing for it.
+	let doc: ReturnType<typeof nlp> | null = null;
+	const getDoc = () => (doc ??= nlp(input));
 	const lower = input.toLowerCase();
 
 	// Early "until <date>" capture (recurrence end): the until-date ends the
@@ -417,15 +422,30 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		}
 	}
 
-	// Plural weekday ("on wednesdays", "tuesdays") — weekly, anchored on the
-	// next matching weekday when no explicit date was parsed above.
-	const pluralDayMatch = input.match(/\b(?:on\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)s\b/i);
-	if (pluralDayMatch && !result.recurring) {
+	// Weekday recurrence, single pass: "every Monday", "on wednesdays",
+	// "every Mon, Wed, Fri". One token scan over dateInput (until-span
+	// blanked, so "every Monday until Friday" never reads Friday as a day)
+	// feeds every rule below — no second scan elsewhere.
+	const DAY_TOKEN = 'mon(?:day)?|tue(?:s|sday)?|wed(?:nes|nesday)?|thu(?:r?s?(?:day)?)?|fri(?:day)?|sat(?:ur|urday)?|sun(?:day)?';
+	const dayRaws = dateInput.match(new RegExp(`\\b(${DAY_TOKEN})s?\\b`, 'gi')) ?? [];
+	const distinctDays = [...new Set(dayRaws.map(normalizeDayToken))].filter(
+		(d): d is string => !!d
+	);
+	const anyPluralDay = dayRaws.some((t) => t.toLowerCase().endsWith('s'));
+	const listTrigger = /\b(every|weekly|each)\b/i.test(dateInput);
+	if (
+		distinctDays.length >= 1 &&
+		(!result.recurring || result.recurring === 'weekly') &&
+		(listTrigger || anyPluralDay)
+	) {
+		// Note: two dateless singular weekdays ("meeting Monday and Tuesday",
+		// no trigger word) fail the outer condition and stay a single event.
 		result.recurring = 'weekly';
-		recurrencePhrases.push(pluralDayMatch[0]);
+		result.recurringByDay = orderWeekdays(distinctDays);
+		recurrencePhrases.push(...dayRaws);
 		confidence += 0.2;
 		if (!result.date) {
-			result.date = getNextDayOfWeek(pluralDayMatch[1], zone).toFormat('yyyy-MM-dd');
+			result.date = nearestWeekday(distinctDays, zone).toFormat('yyyy-MM-dd');
 		}
 	}
 
@@ -451,27 +471,8 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		}
 	}
 
-	// Multi-day weekly: "every Mon, Wed, Fri", "weekly on Mon & Wed",
-	// "weekdays", "weekends", "twice a week". Scans dateInput (until-span
-	// blanked) so "every Monday until Friday" never reads Friday as a day.
-	const DAY_TOKEN = 'mon(?:day)?|tue(?:s|sday)?|wed(?:nes|nesday)?|thu(?:r?s?(?:day)?)?|fri(?:day)?|sat(?:ur|urday)?|sun(?:day)?';
-	const dayTokens = (dateInput.match(new RegExp(`\\b(${DAY_TOKEN})s?\\b`, 'gi')) ?? []).map((t) =>
-		t.toLowerCase().replace(/s$/, '')
-	);
-	const distinctDays = [...new Set(dayTokens.map(normalizeDayToken))].filter(
-		(d): d is string => !!d
-	);
-	const listTrigger = /\b(every|weekly|each)\b/i.test(dateInput);
-	if (distinctDays.length >= 2 && listTrigger && (!result.recurring || result.recurring === 'weekly')) {
-		result.recurring = 'weekly';
-		result.recurringByDay = orderWeekdays(distinctDays);
-		recurrencePhrases.push(distinctDays.join(' '));
-		confidence += 0.2;
-		if (!result.date) {
-			result.date = nearestWeekday(distinctDays, zone).toFormat('yyyy-MM-dd');
-		}
-	}
-
+	// "weekdays" / "weekends" / "twice a week" — the unified block above
+	// already handled explicit day names; these shorthands remain here.
 	if (!result.recurring) {
 		if (/\bweekdays\b/i.test(input)) {
 			result.recurring = 'weekly';
@@ -495,6 +496,15 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			recurrencePhrases.push('twice a week');
 			confidence += 0.2;
 		}
+	}
+
+	// Reminders: "remind me 30 min before", "reminder 2 hours before".
+	const reminderMatch = input.match(/(?:remind\s+me|reminder)\s+(\d+)\s+(min(?:ute)?s?|hours?|days?)\s+before\b/i);
+	if (reminderMatch) {
+		const n = parseInt(reminderMatch[1]);
+		const unit = reminderMatch[2].toLowerCase();
+		result.reminderMinutes = n * (unit.startsWith('min') ? 1 : unit.startsWith('hour') ? 60 : 1440);
+		confidence += 0.15;
 	}
 
 	// "starting at 6 PM", "at 8 AM", "beginning at 9 AM", "7:15A"
@@ -821,11 +831,14 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		confidence += 0.15;
 	}
 
-	// Try compromise places
-	const places = doc.places().out('array');
-	if (places.length > 0) {
-		result.location = places[0];
-		confidence += 0.15;
+	// Compromise places, lazily and only as a fallback: explicit locations
+	// ("location: X", "at X") already won above and must not be overwritten.
+	if (!result.location) {
+		const places = getDoc().places().out('array');
+		if (places.length > 0) {
+			result.location = places[0];
+			confidence += 0.15;
+		}
 	}
 
 	// "at the X" - capture multi-word locations like "neighborhood clubhouse", "yoga studio"
@@ -884,31 +897,43 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		result.location = result.location.replace(/[.,;:!?]+$/, '');
 	}
 
+	// Calendar targeting: "on the family calendar", "to my work calendar".
+	// Stores the raw name; the caller matches it against the user's calendars.
+	const calendarMatch = input.match(/\b(?:on|to)\s+(?:the\s+|my\s+)?([A-Za-z][A-Za-z ]*?)\s+calendar\b/i);
+	if (calendarMatch) {
+		result.calendarName = `${calendarMatch[1].trim()} calendar`;
+		confidence += 0.15;
+	}
+
 	// ===== ATTENDANT PATTERNS =====
-
-	// Remove already-detected location from text so compromise doesn't treat it as a person
-	let attendantText = input;
-	if (result.location) {
-		attendantText = input.replace(new RegExp(result.location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '');
-	}
-	const attendantDoc = nlp(attendantText);
-
-	// Try compromise people (on text with location removed)
-	const people = attendantDoc.people().out('array');
-	if (people.length > 0) {
-		// Filter out short tokens (<=2 chars) which are likely locations/abbreviations, not people
-		const filteredPeople = people.filter((p: string) => p.length > 2);
-		if (filteredPeople.length > 0) {
-			result.attendants = filteredPeople;
-			confidence += 0.15;
-		}
-	}
+	// Cheap matchers first; compromise people() runs last and only when
+	// nothing matched, so most parses never pay for a second NLP doc.
 
 	// "with X"
 	const withMatch = input.match(/with\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g);
 	if (withMatch && (!result.attendants || result.attendants.length === 0)) {
 		result.attendants = withMatch.map(m => m.replace(/^with\s+/i, '').trim());
 		confidence += 0.15;
+	}
+
+	// "invite X" / "invite Jay and Mo" — explicit beats guessed.
+	const inviteMatch = input.match(/\binvite\s+([^,.]+)/i);
+	if (inviteMatch) {
+		const raw = inviteMatch[1]
+			.replace(/\s+(?:on|at|for|from|to|until|remind|reminder)\b.*$/i, '')
+			.trim();
+		const names = raw
+			.split(/\s+and\s+|,/i)
+			.map((n) => n.trim())
+			.filter((n) => n.length > 0);
+		if (names.length > 0) {
+			const merged = [...(result.attendants ?? [])];
+			for (const n of names) {
+				if (!merged.some((m) => m.toLowerCase() === n.toLowerCase())) merged.push(n);
+			}
+			result.attendants = merged;
+			confidence += 0.15;
+		}
 	}
 
 	// Speaker patterns: "Alex and I", "My sister and I", "The team and I"
@@ -946,6 +971,24 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			result.attendants = [match[1].trim()];
 			confidence += 0.1;
 			break;
+		}
+	}
+
+	// Compromise people() last, only when nothing matched — and on text with
+	// the detected location removed so places aren't read as people.
+	if (!result.attendants || result.attendants.length === 0) {
+		let attendantText = input;
+		if (result.location) {
+			attendantText = input.replace(new RegExp(result.location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '');
+		}
+		const people = nlp(attendantText).people().out('array');
+		if (people.length > 0) {
+			// Filter out short tokens (<=2 chars) which are likely locations/abbreviations, not people
+			const filteredPeople = people.filter((p: string) => p.length > 2);
+			if (filteredPeople.length > 0) {
+				result.attendants = filteredPeople;
+				confidence += 0.15;
+			}
 		}
 	}
 
