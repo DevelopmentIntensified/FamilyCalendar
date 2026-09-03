@@ -190,6 +190,46 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 
 		expect(screen.queryByText('Family Calendar')).not.toBeInTheDocument();
 	});
+
+	it('should POST once per parsed date and show the multi-date hint', async () => {
+		vi.mocked(fetch).mockImplementation(async (url: any) => {
+			if (String(url).includes('/api/parse-event')) {
+				return {
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							parsed: {
+								title: 'Launch',
+								date: '2026-09-23',
+								dates: ['2026-09-23', '2026-09-30']
+							},
+							confidence: 0.9
+						})
+				};
+			}
+			return { ok: true, json: () => Promise.resolve({ event: { id: 'e1' } }) };
+		}) as any;
+
+		render(EventFormModal, {
+			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
+		});
+
+		const nlInput = screen.getAllByPlaceholderText(/lunch friday/i)[0];
+		await fireEvent.input(nlInput, { target: { value: 'launch sept 23 & 30' } });
+		await vi.advanceTimersByTimeAsync(350);
+
+		expect(screen.getByText(/creates 2 events/i)).toBeInTheDocument();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+		await vi.advanceTimersByTimeAsync(50);
+
+		const posts = vi
+			.mocked(fetch)
+			.mock.calls.filter(([u]) => String(u) === '/api/events');
+		expect(posts).toHaveLength(2);
+		const secondBody = JSON.parse(String(posts[1][1]?.body ?? posts[1][1]));
+		expect(secondBody.start).toContain('2026-09-30');
+	});
 });
 
 describe('EventFormModal - Date & Time Layout', () => {

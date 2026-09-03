@@ -343,6 +343,40 @@
 						pendingTaskTitles = [];
 					}
 					dispatch('create', { ...eventData, created: json.event ?? null });
+					// Multi-date quick-add ("sept 23 & 30"): one event per
+					// date. Offsets apply from the parsed base date so a
+					// user-edited form date shifts the whole set together.
+					const extraDates =
+						lastParseResult?.dates?.length > 1 && lastParseResult.dates[0]
+							? lastParseResult.dates.slice(1)
+							: [];
+					if (extraDates.length > 0 && lastParseResult.dates[0] && eventData.start) {
+						const baseDay = DateTime.fromISO(lastParseResult.dates[0]).startOf('day');
+						const shiftIso = (iso: string, offset: number) =>
+							DateTime.fromISO(iso).plus({ days: offset }).toISO();
+						for (const d of extraDates) {
+							const offset = Math.round(
+								DateTime.fromISO(d).startOf('day').diff(baseDay, 'days').days
+							);
+							const shifted = {
+								...eventData,
+								start: shiftIso(eventData.start, offset) ?? eventData.start,
+								end: eventData.end ? (shiftIso(eventData.end, offset) ?? eventData.end) : eventData.end
+							};
+							try {
+								const extra = await (
+									await fetch('/api/events', {
+										method: 'POST',
+										headers: { 'Content-Type': 'application/json' },
+										body: JSON.stringify(shifted)
+									})
+								).json();
+								dispatch('create', { ...shifted, created: extra.event ?? null });
+							} catch (e) {
+								console.error('Create failed:', e);
+							}
+						}
+					}
 				} else {
 					const j = await res.json().catch(() => ({}));
 					submitError = j.error || 'Something went wrong. Try again.';
@@ -527,6 +561,11 @@
 									Clear
 								</button>
 							</div>
+							{#if lastParseResult?.dates?.length > 1}
+								<div class="mt-1 text-right text-xs font-medium text-primary-600">
+									Creates {lastParseResult.dates.length} events — one per date
+								</div>
+							{/if}
 							{#if phraseReportable && nlInput.trim()}
 								<div class="mt-1 text-right">
 									{#if phraseReported}
