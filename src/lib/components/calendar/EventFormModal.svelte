@@ -31,6 +31,7 @@
 	export let initialDate: string | undefined = undefined;
 	export let initialTitle: string | undefined = undefined;
 	export let initialQuickAdd: string | undefined = undefined;
+	export let initialTime: string | undefined = undefined;
 	export let createCount = 0;
 
 	const dispatch = createEventDispatcher();
@@ -123,6 +124,18 @@
 		initialTitleApplied = true;
 	}
 	$: if (!show) initialTitleApplied = false;
+
+	// Seed the start time from a picked time slot once per open (create mode
+	// only), mirroring initialTitle. A picked slot is timed, never all-day.
+	let initialTimeApplied = false;
+	$: if (show && !form.isEditMode && initialTime && !initialTimeApplied) {
+		if (!form.startTime) {
+			form.startTime = initialTime;
+			form.allDay = false;
+		}
+		initialTimeApplied = true;
+	}
+	$: if (!show) initialTimeApplied = false;
 
 	// Seed the Quick Add (NLP) field from extracted text once per open (create
 	// mode only), so date/time/location get auto-parsed on the selected text.

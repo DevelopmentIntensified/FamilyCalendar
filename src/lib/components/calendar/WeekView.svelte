@@ -8,6 +8,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	import { chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import { layoutTimed } from '$lib/utils/dayViewLayout';
+	import { buildMovePayload, yToMinutes } from '$lib/utils/eventMove';
 	import { invalidateAll } from '$app/navigation';
 	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
 
@@ -18,6 +19,19 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let openDay: (date: DateTime) => void = () => {};
 	export let dueTasks: CalendarTask[] = [];
+	export let createAt: (date: DateTime) => void = () => {};
+	export let selectionMode: boolean = false;
+	export let selectedIds: string[] = [];
+	export let onToggleSelectionMode: (on: boolean) => void = () => {};
+	export let onToggleSelect: (event: Event) => void = () => {};
+
+	const PX_PER_HOUR = 60;
+
+	const isSelected = (event: Event) => selectedIds.includes(event.id);
+	let moveError = '';
+	// Drag source id kept in component state: dataTransfer is unreliable
+	// across browsers (and jsdom), so internal moves don't depend on it.
+	let draggingId: string | null = null;
 
 	function getTasksForDay(day: DateTime) {
 		const dateStr = formatDate(day);
@@ -92,7 +106,88 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	let selectedEvent: Event | null = null;
 
 	function handleEventClick(event: Event) {
+		if (selectionMode) {
+			onToggleSelect(event);
+			return;
+		}
 		selectedEvent = event;
+	}
+
+	function handleDragStart(e: DragEvent, event: Event) {
+		// Selection mode owns taps; dragging asks to leave it first.
+		if (selectionMode) {
+			e.preventDefault();
+			if (typeof confirm === 'function' && confirm('Exit selection mode to move this event?')) {
+				onToggleSelectionMode(false);
+			}
+			return;
+		}
+		moveError = '';
+		draggingId = event.id;
+		try {
+			e.dataTransfer?.setData('application/json', JSON.stringify({ id: event.id }));
+			e.dataTransfer?.setData('text/plain', event.id);
+			if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+		} catch {
+			// Drag payloads unsupported — the drop handler uses draggingId.
+		}
+	}
+
+	async function moveEvent(event: Event, day: DateTime, minutes: number) {
+		if (!event.start) return;
+		moveError = '';
+		const payload = buildMovePayload(event, { day, minutes });
+		const targetId = (event as Event & { masterId?: string }).masterId || event.id;
+		try {
+			const res = await fetch(`/api/events/${targetId}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				moveError = j.error || 'Could not move the event. Try again.';
+				return;
+			}
+			await invalidateAll();
+		} catch {
+			moveError = 'Could not move the event. Try again.';
+		}
+	}
+
+	function handleColumnDrop(e: DragEvent, day: DateTime) {
+		e.preventDefault();
+		const raw =
+			e.dataTransfer?.getData('application/json') || e.dataTransfer?.getData('text/plain');
+		let id: string | null = draggingId;
+		if (!id && raw) {
+			try {
+				const parsed = JSON.parse(raw);
+				id = typeof parsed === 'string' ? parsed : (parsed.id ?? null);
+			} catch {
+				id = raw;
+			}
+		}
+		draggingId = null;
+		if (!id) return;
+		const target = events.find((ev) => ev.id === id);
+		if (!target) return;
+		const grid = e.currentTarget as HTMLElement | null;
+		const top = grid?.getBoundingClientRect()?.top ?? 0;
+		const minutes = yToMinutes(e.clientY, top, PX_PER_HOUR);
+		if (!Number.isFinite(minutes)) return;
+		moveEvent(target, day, minutes);
+	}
+
+	function handleColumnClick(e: MouseEvent, day: DateTime) {
+		// Chip taps open the event; empty-grid taps start a new one.
+		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
+		const grid = e.currentTarget as HTMLElement | null;
+		const top = grid?.getBoundingClientRect()?.top ?? 0;
+		const minutes = yToMinutes(e.clientY, top, PX_PER_HOUR);
+		if (!Number.isFinite(minutes)) return;
+		moveError = '';
+		createAt(day.startOf('day').plus({ minutes }));
 	}
 
 	function closeModal() {
@@ -145,7 +240,8 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 					<button
 						type="button"
 						onclick={() => handleEventClick(event)}
-						class="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-xs font-medium transition-opacity hover:opacity-90 active:opacity-70 cursor-pointer bg-white {rv?.containerClass ?? ''}"
+						aria-pressed={selectionMode ? isSelected(event) : undefined}
+						class="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-xs font-medium transition-opacity hover:opacity-90 active:opacity-70 cursor-pointer bg-white {rv?.containerClass ?? ''} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400' : ''}"
 						style="border-left: 3px solid {event.color || '#94a3b8'}"
 					>
 						{#if rv}
@@ -174,6 +270,9 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	</div>
 
 	<!-- Week Body - Scrollable -->
+	{#if moveError}
+		<p role="alert" class="px-2 py-1 text-xs font-medium text-red-600">{moveError}</p>
+	{/if}
 	<div class="max-h-[60vh] overflow-y-auto">
 		<div class="relative" style="height: calc(24 * 60px);">
 			<!-- Hour background grid -->
@@ -198,15 +297,24 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 					{@const laidOut = layoutTimed(
 						[...dayEvents].sort((a, b) => toDate(a.start).getTime() - toDate(b.start).getTime())
 					)}
-					<div class="relative pointer-events-auto transition-colors hover:bg-slate-50/60 active:bg-slate-100/60">
+					<div
+						class="relative pointer-events-auto transition-colors hover:bg-slate-50/60 active:bg-slate-100/60"
+						data-testid="week-day-column"
+						ondragover={(e) => e.preventDefault()}
+						ondrop={(e) => handleColumnDrop(e, wd)}
+						onclick={(e) => handleColumnClick(e, wd)}
+					>
 						{#each laidOut as slot (slot.event.id)}
 							{@const widthPct = (1 / slot.lanes) * 100}
 							{@const rv = rsvpVisual(slot.event.rsvpStatus)}
 							<button
 								type="button"
 								onclick={() => handleEventClick(slot.event)}
-								title={chipTooltip(slot.event, calendarIds)}
-								class="absolute rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 active:opacity-70 transition-opacity cursor-pointer text-left overflow-hidden bg-white {rv?.containerClass ?? ''}"
+								draggable={!selectionMode}
+								ondragstart={(e) => handleDragStart(e, slot.event)}
+								aria-pressed={selectionMode ? isSelected(slot.event) : undefined}
+								title={selectionMode ? undefined : chipTooltip(slot.event, calendarIds)}
+								class="absolute rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 active:opacity-70 transition-opacity cursor-pointer text-left overflow-hidden bg-white {rv?.containerClass ?? ''} {selectionMode && isSelected(slot.event) ? 'ring-2 ring-primary-400' : ''}"
 								style="top: {getEventTop(slot.event)}%; height: {getEventHeight(slot.event)}%; left: calc({slot.lane * widthPct}% + 2px); width: calc({widthPct}% - 4px); border-left: 3px solid {slot.event.color || '#94a3b8'}; min-height: 26px;"
 							>
 								<span class="block truncate">

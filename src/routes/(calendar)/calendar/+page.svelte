@@ -42,6 +42,7 @@
 	let createInitialDate: string | undefined = undefined;
 	let createInitialTitle: string | undefined = undefined;
 	let createInitialQuickAdd: string | undefined = undefined;
+	let createInitialTime: string | undefined = undefined;
 	let createCount = 0;
 
 	// "Create event from selection": a floating bar appears when the user
@@ -295,11 +296,15 @@
 		createInitialDate = undefined;
 		createInitialTitle = undefined;
 		createInitialQuickAdd = undefined;
+		createInitialTime = undefined;
 	}
 
 	function openCreateAt(date: DateTime) {
 		currentDate.set(date);
 		createInitialDate = date.toISODate() ?? undefined;
+		// Timed slots pre-fill the form's start time; midnight (month cells,
+		// all-day picks) leaves it blank for the user to choose.
+		createInitialTime = date.hour === 0 && date.minute === 0 ? undefined : date.toFormat('HH:mm');
 		showModal = true;
 	}
 
@@ -669,6 +674,7 @@
 		initialDate={createInitialDate}
 		initialTitle={createInitialTitle}
 		initialQuickAdd={createInitialQuickAdd}
+		initialTime={createInitialTime}
 		{createCount}
 		onClose={close}
 		on:create={handleEventCreated}

@@ -329,9 +329,9 @@
 	{#if view === 'month'}
 		<MonthView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} {dueTasks} {createAt} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
 	{:else if view === 'week'}
-		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} {dueTasks} />
+		<WeekView {currentDate} {events} {removeEvent} {preferedFirstDayOfWeek} {calendarIds} {openDay} {dueTasks} {createAt} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelectionMode={onToggleSelectionMode} onToggleSelect={onToggleSelect} />
 	{:else if view === 'day'}
-		<DayView {currentDate} {events} {calendarIds} {dueTasks} on:back={backFromDay} />
+		<DayView {currentDate} {events} {calendarIds} {dueTasks} {createAt} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelectionMode={onToggleSelectionMode} onToggleSelect={onToggleSelect} on:back={backFromDay} />
 	{:else if view === 'list'}
 		<ListView {currentDate} {events} {removeEvent} {calendarIds} {dueTasks} />
 	{/if}

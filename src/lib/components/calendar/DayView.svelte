@@ -9,12 +9,24 @@
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { rsvpVisual } from '$lib/utils/eventChip';
+	import { buildMovePayload, yToMinutes } from '$lib/utils/eventMove';
 	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[] = [];
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let dueTasks: CalendarTask[] = [];
+	export let createAt: (date: DateTime) => void = () => {};
+	export let selectionMode: boolean = false;
+	export let selectedIds: string[] = [];
+	export let onToggleSelectionMode: (on: boolean) => void = () => {};
+	export let onToggleSelect: (event: Event) => void = () => {};
+
+	const isSelected = (event: Event) => selectedIds.includes(event.id);
+	let moveError = '';
+	// Drag source id kept in component state: dataTransfer is unreliable
+	// across browsers (and jsdom), so internal moves don't depend on it.
+	let draggingId: string | null = null;
 
 	const dispatch = createEventDispatcher<{ back: void }>();
 
@@ -101,7 +113,88 @@
 	let selectedEvent: Event | null = null;
 
 	function handleEventClick(event: Event) {
+		if (selectionMode) {
+			onToggleSelect(event);
+			return;
+		}
 		selectedEvent = event;
+	}
+
+	function handleDragStart(e: DragEvent, event: Event) {
+		// Selection mode owns taps; dragging asks to leave it first.
+		if (selectionMode) {
+			e.preventDefault();
+			if (typeof confirm === 'function' && confirm('Exit selection mode to move this event?')) {
+				onToggleSelectionMode(false);
+			}
+			return;
+		}
+		moveError = '';
+		draggingId = event.id;
+		try {
+			e.dataTransfer?.setData('application/json', JSON.stringify({ id: event.id }));
+			e.dataTransfer?.setData('text/plain', event.id);
+			if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+		} catch {
+			// Drag payloads unsupported — the drop handler uses draggingId.
+		}
+	}
+
+	async function moveEvent(event: Event, day: DateTime, minutes: number) {
+		if (!event.start) return;
+		moveError = '';
+		const payload = buildMovePayload(event, { day, minutes });
+		const targetId = (event as Event & { masterId?: string }).masterId || event.id;
+		try {
+			const res = await fetch(`/api/events/${targetId}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				moveError = j.error || 'Could not move the event. Try again.';
+				return;
+			}
+			await invalidateAll();
+		} catch {
+			moveError = 'Could not move the event. Try again.';
+		}
+	}
+
+	function handleGridDrop(e: DragEvent) {
+		e.preventDefault();
+		const raw =
+			e.dataTransfer?.getData('application/json') || e.dataTransfer?.getData('text/plain');
+		let id: string | null = draggingId;
+		if (!id && raw) {
+			try {
+				const parsed = JSON.parse(raw);
+				id = typeof parsed === 'string' ? parsed : (parsed.id ?? null);
+			} catch {
+				id = raw;
+			}
+		}
+		draggingId = null;
+		if (!id) return;
+		const target = events.find((ev) => ev.id === id);
+		if (!target) return;
+		const grid = e.currentTarget as HTMLElement | null;
+		const top = grid?.getBoundingClientRect()?.top ?? 0;
+		const minutes = yToMinutes(e.clientY, top, PX_PER_HOUR);
+		if (!Number.isFinite(minutes)) return;
+		moveEvent(target, selectedDate, minutes);
+	}
+
+	function handleGridClick(e: MouseEvent) {
+		// Chip taps open the event; empty-grid taps start a new one.
+		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
+		const grid = e.currentTarget as HTMLElement | null;
+		const top = grid?.getBoundingClientRect()?.top ?? 0;
+		const minutes = yToMinutes(e.clientY, top, PX_PER_HOUR);
+		if (!Number.isFinite(minutes)) return;
+		moveError = '';
+		createAt(selectedDate.startOf('day').plus({ minutes }));
 	}
 
 	function closeModal() {
@@ -147,8 +240,9 @@
 					<button
 						type="button"
 						onclick={() => handleEventClick(event)}
+						aria-pressed={selectionMode ? isSelected(event) : undefined}
 						class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 hover:opacity-90 {rv?.containerClass ??
-							''}"
+							''} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400' : ''}"
 						style="border-left: 3px solid {event.color || '#94a3b8'}"
 					>
 						<span class="flex items-center gap-1.5">
@@ -220,6 +314,9 @@
 			</p>
 		</div>
 	{:else if dayEvents.length > 0}
+		{#if moveError}
+			<p role="alert" class="mb-2 text-xs font-medium text-red-600">{moveError}</p>
+		{/if}
 		<!-- Hour grid (renders full height inline; the page is the one scroller) -->
 		<div
 			class="flex w-full min-w-0 overflow-x-hidden rounded-xl border border-slate-200"
@@ -241,6 +338,10 @@
 			<div
 				class="relative min-w-0 flex-1 border-l border-slate-200"
 				style="height: {GRID_HEIGHT}px"
+				data-testid="day-grid"
+				ondragover={(e) => e.preventDefault()}
+				ondrop={handleGridDrop}
+				onclick={handleGridClick}
 			>
 				{#each Array(24) as _, h}
 					<div
@@ -268,8 +369,11 @@
 					<button
 						type="button"
 						onclick={() => handleEventClick(slot.event)}
+						draggable={!selectionMode}
+						ondragstart={(e) => handleDragStart(e, slot.event)}
+						aria-pressed={selectionMode ? isSelected(slot.event) : undefined}
 						class="absolute z-10 overflow-hidden rounded-md border border-slate-200 bg-white px-1.5 py-1 text-left shadow-sm transition-colors hover:brightness-95 {rv?.containerClass ??
-							''}"
+							''} {selectionMode && isSelected(slot.event) ? 'ring-2 ring-primary-400' : ''}"
 						style="
 							top: {slot.topPct}%;
 							height: {Math.max(slot.heightPct, (26 / GRID_HEIGHT) * 100)}%;
