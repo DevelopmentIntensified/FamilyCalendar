@@ -52,6 +52,7 @@
 	let phraseReported = false;
 	let phraseReportable = false;
 	let lastParseResult: Record<string, unknown> | null = null;
+	let multiResults: Array<{ parsed: Record<string, unknown>; confidence: number }> | null = null;
 	let parseTimeout: ReturnType<typeof setTimeout>;
 	let submitting = false;
 	let submitError = '';
@@ -168,14 +169,17 @@
 
 			if (response.ok) {
 				const result = await response.json();
-				if (result.parsed) {
-					form.applyNlpResult(result.parsed);
-					lastParseResult = result.parsed;
+				const first =
+					result.results?.length > 1 ? result.results[0].parsed : result.parsed;
+				if (first) {
+					multiResults = result.results?.length > 1 ? result.results : null;
+					form.applyNlpResult(first);
+					lastParseResult = first;
 					phraseReportable = true;
 					// "on the family calendar" preselects the matching calendar.
 					// Never blocks creation: unmatched names keep the default.
-					if (result.parsed.calendarName && calendarIds.length > 0) {
-						const want = result.parsed.calendarName.toLowerCase();
+					if (first.calendarName && calendarIds.length > 0) {
+						const want = String(first.calendarName).toLowerCase();
 						const match =
 							calendarIds.find((c) => c.name.toLowerCase() === want) ??
 							calendarIds.find(
@@ -271,6 +275,43 @@
 			}
 		} catch (err) {
 			console.error('Create task failed:', err);
+		} finally {
+			submitting = false;
+		}
+	}
+
+	// Multi-event quick-add: one payload per parsed segment, each built on
+	// a throwaway form so the visible form state is never polluted.
+	async function createAllEvents() {
+		if (!multiResults || multiResults.length < 2 || submitting) return;
+		submitError = '';
+		submitting = true;
+		try {
+			for (const r of multiResults) {
+				const tmp = createEventForm({
+					calendars: calendarIds,
+					familyMembers,
+					defaultCalendarId: form.selectedCalendarId
+				});
+				tmp.applyNlpResult(r.parsed as any);
+				const payload = tmp.submitPreparation();
+				if (!payload) continue;
+				const res = await fetch('/api/events', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(payload)
+				});
+				if (!res.ok) {
+					const j = await res.json().catch(() => ({}));
+					throw new Error(j.error || 'Something went wrong. Try again.');
+				}
+				const json = await res.json();
+				dispatch('create', { ...payload, created: json.event ?? null });
+			}
+			close();
+		} catch (err) {
+			console.error('Create failed:', err);
+			submitError = err instanceof Error ? err.message : 'Something went wrong. Try again.';
 		} finally {
 			submitting = false;
 		}
@@ -419,6 +460,7 @@
 		form.reset();
 		nlInput = '';
 		nlpCollapsed = false;
+		multiResults = null;
 	}
 
 	// After a successful create, reset the form so the user can type another.
@@ -432,6 +474,7 @@
 			phraseReportable = false;
 			phraseReported = false;
 			lastParseResult = null;
+			multiResults = null;
 			entryType = 'event';
 			taskTitle = '';
 		}, 250);
@@ -564,6 +607,39 @@
 							{#if lastParseResult?.dates?.length > 1}
 								<div class="mt-1 text-right text-xs font-medium text-primary-600">
 									Creates {lastParseResult.dates.length} events — one per date
+								</div>
+							{/if}
+							{#if multiResults && multiResults.length > 1}
+								<div class="mt-2 rounded-lg border border-primary-200 bg-primary-50 p-3">
+									<div class="mb-1 text-xs font-semibold text-primary-700">
+										{multiResults.length} events detected
+									</div>
+									<ul class="mb-2 space-y-0.5">
+										{#each multiResults as r}
+											<li class="text-xs text-slate-600">
+												{String(r.parsed.title || 'Untitled')} — {String(r.parsed.date || '')}{r.parsed.startTime
+													? ` at ${r.parsed.startTime}`
+													: ''}
+											</li>
+										{/each}
+									</ul>
+									<div class="flex gap-2">
+										<button
+											type="button"
+											on:click={createAllEvents}
+											disabled={submitting}
+											class="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 transition-colors"
+										>
+											Create {multiResults.length} events
+										</button>
+										<button
+											type="button"
+											on:click={() => (multiResults = null)}
+											class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+										>
+											Just the first
+										</button>
+									</div>
 								</div>
 							{/if}
 							{#if phraseReportable && nlInput.trim()}

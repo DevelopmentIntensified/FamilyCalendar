@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { parseEventInput, type ParsedEvent } from '$lib/server/services/naturalLanguageService';
+import { parseEventInput, parseEventList, type ParsedEvent } from '$lib/server/services/naturalLanguageService';
 import { chatJson, llmConfigured } from '$lib/server/services/llm';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
@@ -35,6 +35,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	try {
 		let result: ParseOutcome = { parsed: null, confidence: 0, method: 'none' };
+
+		// 0. Multi-event shortcut: "dinner Friday and movie Saturday" parses
+		// locally per segment — no extra LLM calls, instant.
+		const list = parseEventList(input, zone);
+		if (list.length > 1) {
+			return json({ results: list, method: 'regex-list' });
+		}
 
 		// 1. Cloud AI - default
 		if (useCloud && cloudAllowed && llmConfigured()) {

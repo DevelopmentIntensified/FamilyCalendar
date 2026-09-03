@@ -230,6 +230,41 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		const secondBody = JSON.parse(String(posts[1][1]?.body ?? posts[1][1]));
 		expect(secondBody.start).toContain('2026-09-30');
 	});
+
+	it('should create all events from a multi-event parse', async () => {
+		vi.mocked(fetch).mockImplementation(async (url: any) => {
+			if (String(url).includes('/api/parse-event')) {
+				return {
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							results: [
+								{ parsed: { title: 'Dinner', date: '2026-09-04' }, confidence: 0.8 },
+								{ parsed: { title: 'Movie', date: '2026-09-05' }, confidence: 0.8 }
+							],
+							method: 'regex-list'
+						})
+				};
+			}
+			return { ok: true, json: () => Promise.resolve({ event: { id: 'e1' } }) };
+		}) as any;
+
+		render(EventFormModal, {
+			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
+		});
+
+		const nlInput = screen.getAllByPlaceholderText(/lunch friday/i)[0];
+		await fireEvent.input(nlInput, { target: { value: 'dinner Friday and movie Saturday' } });
+		await vi.advanceTimersByTimeAsync(350);
+
+		expect(screen.getByText(/2 events detected/i)).toBeInTheDocument();
+
+		await fireEvent.click(screen.getByRole('button', { name: /create 2 events/i }));
+		await vi.advanceTimersByTimeAsync(50);
+
+		const posts = vi.mocked(fetch).mock.calls.filter(([u]) => String(u) === '/api/events');
+		expect(posts).toHaveLength(2);
+	});
 });
 
 describe('EventFormModal - Date & Time Layout', () => {
