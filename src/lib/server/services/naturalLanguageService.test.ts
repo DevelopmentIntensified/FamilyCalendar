@@ -744,3 +744,137 @@ describe('Glued article times ("a5pm")', () => {
 		expect(result.parsed.date).toBeDefined();
 	});
 });
+
+describe('Recurrence end (count)', () => {
+	const cases: Array<[string, string, number]> = [
+		['yoga every Tuesday for 6 weeks', 'weekly', 6],
+		['standup daily for 10 days', 'daily', 10],
+		['payday every other week for 3 months', 'biweekly', 3],
+		['medication every 3 days 5 times', 'every_3_days', 5],
+		['book club monthly 4 times', 'monthly', 4],
+		['rent due monthly for 12 months', 'monthly', 12],
+		['soccer weekly for 8 sessions', 'weekly', 8]
+	];
+	for (const [input, recurring, count] of cases) {
+		it(`parses "${input}" as ${recurring} × ${count}`, () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.recurring).toBe(recurring);
+			expect(result.parsed.recurringCount).toBe(count);
+		});
+	}
+
+	it('ignores counts without a recurrence ("party in 2 weeks", "buy milk 2 times")', () => {
+		expect(parseEventInput('party in 2 weeks').parsed.recurringCount).toBeUndefined();
+		expect(parseEventInput('buy milk 2 times').parsed.recurringCount).toBeUndefined();
+	});
+});
+
+describe('Recurrence end (until)', () => {
+	it('parses "yoga every Monday until Dec 15" without stealing the date', () => {
+		const result = parseEventInput('yoga every Monday until Dec 15');
+		expect(result.parsed.recurring).toBe('weekly');
+		expect(result.parsed.recurringUntil).toContain('12-15');
+		// The until-date is the end of the series, not the event date.
+		expect(result.parsed.date).not.toBe(result.parsed.recurringUntil);
+	});
+
+	const cases: Array<[string, string]> = [
+		['soccer practice weekly until sept 30', '09-30'],
+		['standup daily until 2026-10-01', '10-01'],
+		['choir every Thursday until December 20, 2026', '12-20']
+	];
+	for (const [input, fragment] of cases) {
+		it(`parses "${input}" with until ${fragment}`, () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.recurring).toBeDefined();
+			expect(result.parsed.recurringUntil).toContain(fragment);
+			expect(result.parsed.date).not.toBe(result.parsed.recurringUntil);
+		});
+	}
+
+	it('ignores until without a recurrence ("submit report until Friday")', () => {
+		expect(parseEventInput('submit report until Friday').parsed.recurringUntil).toBeUndefined();
+	});
+});
+
+describe('Multi-day weekly ("every Mon, Wed, Fri")', () => {
+	const cases: Array<[string, string[]]> = [
+		['standup every Mon, Wed, Fri at 9am', ['MO', 'WE', 'FR']],
+		['gym every Monday, Wednesday and Friday', ['MO', 'WE', 'FR']],
+		['team sync weekly on Mon & Wed', ['MO', 'WE']],
+		['class every tue and thur at 6pm', ['TU', 'TH']],
+		['trash weekdays at 7am', ['MO', 'TU', 'WE', 'TH', 'FR']],
+		['party weekends', ['SA', 'SU']]
+	];
+	for (const [input, byDay] of cases) {
+		it(`parses "${input}" as weekly on ${byDay.join('/')}`, () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.recurring).toBe('weekly');
+			expect(result.parsed.recurringByDay).toEqual(byDay);
+		});
+	}
+
+	it('anchors the date on the nearest listed weekday', () => {
+		const result = parseEventInput('gym every Mon, Wed, Fri');
+		const weekday = DateTime.fromISO(result.parsed.date!).weekday; // 1=Mon..7=Sun
+		expect([1, 3, 5]).toContain(weekday);
+	});
+
+	it('treats "twice a week" as weekly without inventing days', () => {
+		const result = parseEventInput('meet twice a week');
+		expect(result.parsed.recurring).toBe('weekly');
+		expect(result.parsed.recurringByDay).toBeUndefined();
+	});
+
+	it('leaves single or dateless weekday pairs alone ("lunch Monday", "meeting Monday and Tuesday")', () => {
+		expect(parseEventInput('lunch Monday').parsed.recurringByDay).toBeUndefined();
+		expect(parseEventInput('meeting Monday and Tuesday').parsed.recurringByDay).toBeUndefined();
+	});
+
+	it('does not mistake the until-weekday for a series day ("yoga every Monday until Friday")', () => {
+		const result = parseEventInput('yoga every Monday until Friday');
+		expect(result.parsed.recurring).toBe('weekly');
+		expect(result.parsed.recurringByDay ?? ['MO']).toEqual(['MO']);
+	});
+});
+
+describe('Ordinal weekday ("first Friday of October")', () => {
+	it('parses "party first Friday of October" as an October Friday in the future', () => {
+		const result = parseEventInput('party first Friday of October');
+		const dt = DateTime.fromISO(result.parsed.date!);
+		expect(dt.month).toBe(10);
+		expect(dt.weekday).toBe(5);
+		expect(dt >= DateTime.now().startOf('day')).toBe(true);
+	});
+
+	it('parses "meeting third Thursday of November"', () => {
+		const result = parseEventInput('meeting third Thursday of November');
+		const dt = DateTime.fromISO(result.parsed.date!);
+		expect(dt.month).toBe(11);
+		expect(dt.weekday).toBe(4);
+		// Must actually be the 3rd Thursday, not just any Thursday.
+		expect(Math.ceil(dt.day / 7)).toBe(3);
+	});
+
+	it('parses "deadline last Friday of the month" as a late-month Friday', () => {
+		const result = parseEventInput('deadline last Friday of the month');
+		const dt = DateTime.fromISO(result.parsed.date!);
+		expect(dt.weekday).toBe(5);
+		expect(dt.day).toBeGreaterThan(21);
+		// Truly the last such Friday: +7 days lands next month.
+		expect(dt.plus({ days: 7 }).month).not.toBe(dt.month);
+	});
+
+	it('parses "rent due second Monday of September"', () => {
+		const result = parseEventInput('rent due second Monday of September');
+		const dt = DateTime.fromISO(result.parsed.date!);
+		expect(dt.month).toBe(9);
+		expect(dt.weekday).toBe(1);
+		expect(Math.ceil(dt.day / 7)).toBe(2);
+	});
+
+	it('ignores ordinals without "of" ("first meeting Monday")', () => {
+		const result = parseEventInput('first meeting Monday');
+		expect(result.parsed.date).toBe(DateTime.now().toISODate());
+	});
+});

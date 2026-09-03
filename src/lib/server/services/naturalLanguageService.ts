@@ -19,6 +19,18 @@ export interface ParsedEvent {
 	recurring?: string;
 	attendants?: string[];
 	duration?: string;
+	/** Explicit date lists: "sept 23 & 30" → dates for N concrete events. date = dates[0]. */
+	dates?: string[];
+	/** Weekly day codes (MO..SU) mirroring events.recurrence_by_day. */
+	recurringByDay?: string[];
+	/** "for 6 weeks" / "10 times" — mirrors events.recurrence_count. */
+	recurringCount?: number;
+	/** "until Dec 15" — mirrors events.recurrence_until. */
+	recurringUntil?: string;
+	/** "on the family calendar" — matched against the user's calendars at creation. */
+	calendarName?: string;
+	/** "remind me 30 min before" — minutes before start. */
+	reminderMinutes?: number;
 }
 
 export interface ParseResult {
@@ -51,6 +63,90 @@ function getNextDayOfWeek(day: string, zone?: string): DateTime {
 	return now.plus({ days: daysUntil });
 }
 
+/** nth (or last) weekday of a month → DateTime, or null when it can't exist
+ * (e.g. a fifth Monday in a 4-Monday month). luxonWeekday: 1=Mon..7=Sun. */
+function ordinalWeekdayOfMonth(
+	year: number,
+	month: number,
+	luxonWeekday: number,
+	which: 'first' | 'second' | 'third' | 'fourth' | 'fifth' | 'last'
+): DateTime | null {
+	if (which === 'last') {
+		let dt = DateTime.fromObject({ year, month, day: 1 }).endOf('month');
+		while (dt.weekday !== luxonWeekday) dt = dt.minus({ days: 1 });
+		return dt;
+	}
+	const n = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5 }[which];
+	let dt = DateTime.fromObject({ year, month, day: 1 });
+	while (dt.weekday !== luxonWeekday) dt = dt.plus({ days: 1 });
+	dt = dt.plus({ weeks: n - 1 });
+	return dt.month === month ? dt : null;
+}
+
+/** Rollover rule shared with month-day parsing: explicit year wins,
+ * otherwise this year, rolling to next year when the date sits in the past
+ * within a current-or-earlier month. */
+function withRolloverYear(month: number, day: number, explicitYear: number | null, now: DateTime): DateTime {
+	let year = explicitYear ?? now.year;
+	if (!explicitYear && DateTime.fromObject({ year, month, day }) < now && month <= now.month) {
+		year += 1;
+	}
+	return DateTime.fromObject({ year, month, day });
+}
+
+/** Weekday abbreviation/full name → RRULE code. Null when unrecognized. */
+function normalizeDayToken(t: string): string | null {
+	if (/^mon/.test(t)) return 'MO';
+	if (/^tue/.test(t)) return 'TU';
+	if (/^wed/.test(t)) return 'WE';
+	if (/^thu/.test(t)) return 'TH';
+	if (/^fri/.test(t)) return 'FR';
+	if (/^sat/.test(t)) return 'SA';
+	if (/^sun/.test(t)) return 'SU';
+	return null;
+}
+
+const WEEK_ORDER = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+
+/** Monday-first ordering for by-day lists. */
+function orderWeekdays(days: string[]): string[] {
+	return [...days].sort((a, b) => WEEK_ORDER.indexOf(a) - WEEK_ORDER.indexOf(b));
+}
+
+/** Nearest strictly-future date falling on one of the given day codes. */
+function nearestWeekday(days: string[], zone?: string): DateTime {
+	const now = zone ? DateTime.now().setZone(zone) : DateTime.now();
+	const current = now.weekday; // 1=Mon..7=Sun
+	let best = 7;
+	for (const d of days) {
+		const target = WEEK_ORDER.indexOf(d) + 1;
+		let delta = target - current;
+		if (delta <= 0) delta += 7;
+		if (delta < best) best = delta;
+	}
+	return now.plus({ days: best });
+}
+
+/** Resolve the early-captured "until <date>" match to YYYY-MM-DD. */
+function resolveUntilDate(m: RegExpMatchArray, now: DateTime, zone?: string): string | null {	let dt: DateTime | null = null;
+	if (m[1]) {
+		dt = DateTime.fromObject({ year: +m[1], month: +m[2], day: +m[3] });
+	} else if (m[4]) {
+		const month = MONTH_MAP[m[4].toLowerCase()];
+		if (month) dt = withRolloverYear(month, parseInt(m[5]), m[6] ? parseInt(m[6]) : null, now);
+	} else if (m[7]) {
+		const month = MONTH_MAP[m[8].toLowerCase()];
+		const day = parseInt(m[7]);
+		if (month && day >= 1 && day <= 31) {
+			dt = withRolloverYear(month, day, m[9] ? parseInt(m[9]) : null, now);
+		}
+	} else if (m[11]) {
+		dt = getNextDayOfWeek(m[11], zone);
+		if (m[10]?.toLowerCase() === 'next') dt = dt.plus({ weeks: 1 });
+	}
+	return dt?.isValid ? dt.toFormat('yyyy-MM-dd') : null;
+}
+
 export function parseEventInput(input: string, zone?: string): ParseResult {
 	const result: Partial<ParsedEvent> = { allDay: false };
 	let confidence = 0;
@@ -58,31 +154,43 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	const doc = nlp(input);
 	const lower = input.toLowerCase();
 
+	// Early "until <date>" capture (recurrence end): the until-date ends the
+	// series, so blank it from date parsing — otherwise month-day rules steal
+	// it as the event date ("every Monday until Dec 15" → Dec 15). Resolved
+	// into recurringUntil after the recurrence block below.
+	const untilMatch = input.match(
+		new RegExp(
+			`\\buntil\\s+(?:(20\\d{2})-(\\d{2})-(\\d{2})|(${MONTH_ALT})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?|(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})\\.?(?:,?\\s*(20\\d{2}))?|(?:(this|next)\\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday))\\b`,
+			'i'
+		)
+	);
+	const dateInput = untilMatch ? input.replace(untilMatch[0], ' ') : input;
+
 	// ===== DATE PATTERNS =====
 	
 	// "this Friday", "this Saturday"
-	const thisDayMatch = input.match(/\bthis\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
+	const thisDayMatch = dateInput.match(/\bthis\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
 	if (thisDayMatch) {
 		result.date = getNextDayOfWeek(thisDayMatch[1], zone).toFormat('yyyy-MM-dd');
 		confidence += 0.25;
 	}
 
 	// "next Wednesday", "next Tuesday"
-	const nextDayMatch = input.match(/\bnext\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
+	const nextDayMatch = dateInput.match(/\bnext\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
 	if (nextDayMatch && !result.date) {
 		result.date = getNextDayOfWeek(nextDayMatch[1], zone).plus({ weeks: 1 }).toFormat('yyyy-MM-dd');
 		confidence += 0.25;
 	}
 
 	// "tomorrow"
-	const tomorrowMatch = input.match(/\btomorrow\b/i);
+	const tomorrowMatch = dateInput.match(/\btomorrow\b/i);
 	if (tomorrowMatch && !result.date) {
 		result.date = now.plus({ days: 1 }).toFormat('yyyy-MM-dd');
 		confidence += 0.2;
 	}
 
 	// "in 3 days", "in 2 weeks", "in a month"
-	const relativeMatch = input.match(/\bin\s+(a|\d+)\s+(day|week|month)s?\b/i);
+	const relativeMatch = dateInput.match(/\bin\s+(a|\d+)\s+(day|week|month)s?\b/i);
 	if (relativeMatch && !result.date) {
 		const n = relativeMatch[1].toLowerCase() === 'a' ? 1 : parseInt(relativeMatch[1]);
 		result.date = now.plus({ [`${relativeMatch[2].toLowerCase()}s`]: n } as any).toFormat('yyyy-MM-dd');
@@ -90,7 +198,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// "this weekend", "weekend" -> the upcoming Saturday
-	const weekendMatch = input.match(/\b(?:this\s+|next\s+)?weekend\b/i);
+	const weekendMatch = dateInput.match(/\b(?:this\s+|next\s+)?weekend\b/i);
 	if (weekendMatch && !result.date) {
 		let daysUntilSat = (6 - (now.weekday % 7) + 7) % 7;
 		if (daysUntilSat === 0) daysUntilSat = 7;
@@ -99,7 +207,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// "next <month>" - "next May", "next September" — always next year
-	const nextMonthMatch = input.match(new RegExp(`\\bnext\\s+(${MONTH_ALT})\\b`, 'i'));
+	const nextMonthMatch = dateInput.match(new RegExp(`\\bnext\\s+(${MONTH_ALT})\\b`, 'i'));
 	if (nextMonthMatch && !result.date) {
 		const month = MONTH_MAP[nextMonthMatch[1].toLowerCase()];
 		result.date = DateTime.fromObject({ year: now.year + 1, month, day: 1 }).toFormat('yyyy-MM-dd');
@@ -107,7 +215,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// "returning this Sunday", "returning by Saturday"
-	const returnDayMatch = input.match(/returning\s+(?:by\s+)?(?:this\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)(?:\s+(morning|afternoon|evening|noon))?/i);
+	const returnDayMatch = dateInput.match(/returning\s+(?:by\s+)?(?:this\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)(?:\s+(morning|afternoon|evening|noon))?/i);
 	if (returnDayMatch && !result.date) {
 		result.date = getNextDayOfWeek(returnDayMatch[1], zone).toFormat('yyyy-MM-dd');
 		if (returnDayMatch[2]) {
@@ -118,7 +226,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// Month and day: "July 12th", "Aug 30", "Sept 5", "Dec 25, 2026"
-	const monthDayMatch = input.match(new RegExp(`\\b(${MONTH_ALT})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?\\b`, 'i'));
+	const monthDayMatch = dateInput.match(new RegExp(`\\b(${MONTH_ALT})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?\\b`, 'i'));
 	if (monthDayMatch && !result.date) {
 		const month = MONTH_MAP[monthDayMatch[1].toLowerCase()];
 		const day = parseInt(monthDayMatch[2]);
@@ -134,7 +242,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// Day-first with optional year: "21 Mar 2027", "12 August"
-	const dayFirstMatch = input.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})\\.?(?:,?\\s*(20\\d{2}))?\\b`, 'i'));
+	const dayFirstMatch = dateInput.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})\\.?(?:,?\\s*(20\\d{2}))?\\b`, 'i'));
 	if (dayFirstMatch && !result.date) {
 		const day = parseInt(dayFirstMatch[1]);
 		const month = MONTH_MAP[dayFirstMatch[2].toLowerCase()];
@@ -152,14 +260,14 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// ISO date: "2026-08-30"
-	const isoDateMatch = input.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+	const isoDateMatch = dateInput.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
 	if (isoDateMatch && !result.date) {
 		result.date = `${isoDateMatch[1]}-${isoDateMatch[2]}-${isoDateMatch[3]}`;
 		confidence += 0.35;
 	}
 
 	// Ordinal-first: "3rd of May", "third of June", "twenty-first of December"
-	const ordinalFirstMatch = input.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)\\s+of\\s+(january|february|march|april|may|june|july|august|september|october|november|december)\\b`, 'i'));
+	const ordinalFirstMatch = dateInput.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)\\s+of\\s+(january|february|march|april|may|june|july|august|september|october|november|december)\\b`, 'i'));
 	if (ordinalFirstMatch && !result.date) {
 		const month = MONTH_MAP[ordinalFirstMatch[2].toLowerCase()];
 		const day = parseInt(ordinalFirstMatch[1]);
@@ -173,7 +281,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// Ordinal word-first: "third of May", "twenty-first of December"
-	const ordinalWordMatch = input.match(new RegExp(`\\b(${ORDINAL_WORDS_PATTERN})\\s+of\\s+(january|february|march|april|may|june|july|august|september|october|november|december)\\b`, 'i'));
+	const ordinalWordMatch = dateInput.match(new RegExp(`\\b(${ORDINAL_WORDS_PATTERN})\\s+of\\s+(january|february|march|april|may|june|july|august|september|october|november|december)\\b`, 'i'));
 	if (ordinalWordMatch && !result.date) {
 		const month = MONTH_MAP[ordinalWordMatch[2].toLowerCase()];
 		const rawWord = ordinalWordMatch[1].toLowerCase();
@@ -188,8 +296,38 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		}
 	}
 
+	// Ordinal weekday: "first Friday of October", "last Friday of the month".
+	const ordinalDayMatch = dateInput.match(
+		/\b(first|second|third|fourth|fifth|last)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\s+of\s+(the\s+month|january|february|march|april|may|june|july|august|september|october|november|december)\b/i
+	);
+	if (ordinalDayMatch && !result.date) {
+		const which = ordinalDayMatch[1].toLowerCase() as
+			| 'first' | 'second' | 'third' | 'fourth' | 'fifth' | 'last';
+		const jsDay = DAY_MAP[ordinalDayMatch[2].toLowerCase()];
+		const luxonDay = jsDay === 0 ? 7 : jsDay;
+		const monthToken = ordinalDayMatch[3].toLowerCase();
+		let month = monthToken === 'the month' ? now.month : MONTH_MAP[monthToken];
+		let year = now.year;
+		let target = ordinalWeekdayOfMonth(year, month, luxonDay, which);
+	 const todayStart = now.startOf('day');
+		if (target && target < todayStart) {
+			if (monthToken === 'the month') {
+				const next = now.plus({ months: 1 });
+				month = next.month;
+				year = next.year;
+			} else {
+				year += 1;
+			}
+			target = ordinalWeekdayOfMonth(year, month, luxonDay, which);
+		}
+		if (target) {
+			result.date = target.toFormat('yyyy-MM-dd');
+			confidence += 0.3;
+		}
+	}
+
 	// Numeric date: "05/03", "12/25" (MM/DD format)
-	const numericDateMatch = input.match(/\b(\d{1,2})\/(\d{1,2})\b/);
+	const numericDateMatch = dateInput.match(/\b(\d{1,2})\/(\d{1,2})\b/);
 	if (numericDateMatch && !result.date) {
 		const month = parseInt(numericDateMatch[1]);
 		const day = parseInt(numericDateMatch[2]);
@@ -288,6 +426,74 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		confidence += 0.2;
 		if (!result.date) {
 			result.date = getNextDayOfWeek(pluralDayMatch[1], zone).toFormat('yyyy-MM-dd');
+		}
+	}
+
+	// Recurrence end: "for 6 weeks", "for 3 months", "5 times", "8 sessions".
+	// Count is meaningless without a frequency, so a bare "buy milk 2 times"
+	// or "party in 2 weeks" never sets it.
+	const countMatch = input.match(/\bfor\s+(\d+)\s+(days?|weeks?|months?|years?|times?|occurrences?|sessions?)\b/i)
+		?? input.match(/\b(\d+)\s+times?\b/i);
+	if (countMatch && result.recurring) {
+		result.recurringCount = Math.max(1, Math.floor(parseInt(countMatch[1])));
+		recurrencePhrases.push(countMatch[0]);
+		confidence += 0.15;
+	}
+
+	// Recurrence end: "until Dec 15" (captured early so date parsing can't
+	// steal it). Also meaningless without a frequency.
+	if (untilMatch && result.recurring) {
+		const untilDate = resolveUntilDate(untilMatch, now, zone);
+		if (untilDate) {
+			result.recurringUntil = untilDate;
+			recurrencePhrases.push(untilMatch[0]);
+			confidence += 0.15;
+		}
+	}
+
+	// Multi-day weekly: "every Mon, Wed, Fri", "weekly on Mon & Wed",
+	// "weekdays", "weekends", "twice a week". Scans dateInput (until-span
+	// blanked) so "every Monday until Friday" never reads Friday as a day.
+	const DAY_TOKEN = 'mon(?:day)?|tue(?:s|sday)?|wed(?:nes|nesday)?|thu(?:r?s?(?:day)?)?|fri(?:day)?|sat(?:ur|urday)?|sun(?:day)?';
+	const dayTokens = (dateInput.match(new RegExp(`\\b(${DAY_TOKEN})s?\\b`, 'gi')) ?? []).map((t) =>
+		t.toLowerCase().replace(/s$/, '')
+	);
+	const distinctDays = [...new Set(dayTokens.map(normalizeDayToken))].filter(
+		(d): d is string => !!d
+	);
+	const listTrigger = /\b(every|weekly|each)\b/i.test(dateInput);
+	if (distinctDays.length >= 2 && listTrigger && (!result.recurring || result.recurring === 'weekly')) {
+		result.recurring = 'weekly';
+		result.recurringByDay = orderWeekdays(distinctDays);
+		recurrencePhrases.push(distinctDays.join(' '));
+		confidence += 0.2;
+		if (!result.date) {
+			result.date = nearestWeekday(distinctDays, zone).toFormat('yyyy-MM-dd');
+		}
+	}
+
+	if (!result.recurring) {
+		if (/\bweekdays\b/i.test(input)) {
+			result.recurring = 'weekly';
+			result.recurringByDay = ['MO', 'TU', 'WE', 'TH', 'FR'];
+			recurrencePhrases.push('weekdays');
+			confidence += 0.2;
+			if (!result.date) {
+				result.date = nearestWeekday(result.recurringByDay, zone).toFormat('yyyy-MM-dd');
+			}
+		} else if (/\bweekends\b/i.test(input)) {
+			result.recurring = 'weekly';
+			result.recurringByDay = ['SA', 'SU'];
+			recurrencePhrases.push('weekends');
+			confidence += 0.2;
+			if (!result.date) {
+				result.date = nearestWeekday(result.recurringByDay, zone).toFormat('yyyy-MM-dd');
+			}
+		} else if (/\btwice\s+a\s+week\b/i.test(input)) {
+			// Weekly, but the days are unknowable — never invent them.
+			result.recurring = 'weekly';
+			recurrencePhrases.push('twice a week');
+			confidence += 0.2;
 		}
 	}
 
@@ -798,4 +1004,12 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	return { parsed: result, confidence: Math.min(confidence, 1) };
+}
+
+/**
+ * Multi-event seam (item 5). Today: single-result passthrough so every
+ * consumer can switch to the list shape before segmentation lands.
+ */
+export function parseEventList(input: string, zone?: string): ParseResult[] {
+	return [parseEventInput(input, zone)];
 }
