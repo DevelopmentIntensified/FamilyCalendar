@@ -48,6 +48,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		description: body.description || null,
 		location: body.location || null,
 		allDay: body.allDay || false,
+		reminderMinutes: body.reminderMinutes ?? null,
 		...normalizeEventRecurrence(body)
 	};
 

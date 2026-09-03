@@ -429,6 +429,7 @@ export const events = pgTable('events', {
 		withTimezone: true,
 		mode: 'string'
 	}),
+	reminderMinutes: integer('reminder_minutes'),
 	created_at: timestamp('created_at').defaultNow().notNull()
 });
 

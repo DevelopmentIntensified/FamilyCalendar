@@ -175,3 +175,27 @@ describe('EventModal - RSVP refresh', () => {
 		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe('EventModal - reminder display', () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({ ok: true, json: async () => ({ attendance: [], userRsvpStatus: 'undecided' }) }))
+		);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('shows a human reminder label when the event has one', () => {
+		render(EventModal, { props: { show: true, event: { ...baseEvent, reminderMinutes: 60 } } });
+		expect(screen.getByText('Reminder: 1 hour before')).toBeInTheDocument();
+	});
+
+	it('hides the reminder row when the event has none', () => {
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		expect(screen.queryByText(/reminder:/i)).not.toBeInTheDocument();
+	});
+});

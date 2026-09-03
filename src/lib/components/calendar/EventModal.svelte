@@ -40,6 +40,20 @@
 	// Occurrences share the series master's API identity.
 	$: serverId = event.masterId || event.id;
 
+	function reminderLabel(minutes: number | null | undefined): string | null {
+		if (minutes == null || minutes <= 0) return null;
+		if (minutes % 1440 === 0) {
+			const d = minutes / 1440;
+			return d === 1 ? '1 day before' : `${d} days before`;
+		}
+		if (minutes % 60 === 0) {
+			const h = minutes / 60;
+			return h === 1 ? '1 hour before' : `${h} hours before`;
+		}
+		return minutes === 1 ? '1 minute before' : `${minutes} minutes before`;
+	}
+	$: reminderText = reminderLabel(event.reminderMinutes);
+
 	onMount(async () => {
 		if (!show || !event?.id) return;
 		loadEventTasks();
@@ -447,6 +461,18 @@
 									</svg>
 								</div>
 								<span class="text-sm break-words">{event.location}</span>
+							</div>
+						{/if}
+
+						<!-- Reminder -->
+						{#if reminderText}
+							<div class="flex items-start gap-3 text-slate-700">
+								<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 shrink-0">
+									<svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.375-1.375A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+									</svg>
+								</div>
+								<span class="text-sm break-words">Reminder: {reminderText}</span>
 							</div>
 						{/if}
 

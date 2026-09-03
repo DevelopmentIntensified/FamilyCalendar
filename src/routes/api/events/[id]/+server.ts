@@ -81,6 +81,7 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 			location: body.location || null,
 			allDay: body.allDay || false,
 			calendarId,
+			reminderMinutes: body.reminderMinutes ?? null,
 			...normalizeEventRecurrence(body)
 		};
 
