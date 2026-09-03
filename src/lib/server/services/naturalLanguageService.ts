@@ -203,8 +203,10 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// ===== TIME PATTERNS =====
 	let foundTime = false;
 
-	// "6:00PM - 8:00PM" (time range with hyphen) — must check BEFORE standalone time
-	const hyphenRangeMatch = input.match(/(\d{1,2}):(\d{2})\s*(am?|pm?)\s*[-–—]\s*(\d{1,2}):(\d{2})\s*(am?|pm?)/i);
+	// "6:00PM - 8:00PM" (time range with hyphen) — must check BEFORE standalone time.
+	// A missing start meridiem inherits the end one ("5:30-6:30pm" is evening),
+	// mirroring the from/to and between rules below.
+	const hyphenRangeMatch = input.match(/(\d{1,2}):(\d{2})\s*(am?|pm?)?\s*[-–—]\s*(\d{1,2}):(\d{2})\s*(am?|pm?)/i);
 	if (hyphenRangeMatch) {
 		let startHour = parseInt(hyphenRangeMatch[1]);
 		let startMin = parseInt(hyphenRangeMatch[2]);
@@ -212,8 +214,9 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		let endMin = parseInt(hyphenRangeMatch[5]);
 		const startPeriod = hyphenRangeMatch[3]?.toLowerCase();
 		const endPeriod = hyphenRangeMatch[6]?.toLowerCase();
-		if (startPeriod === 'pm' && startHour < 12) startHour += 12;
-		if (startPeriod === 'am' && startHour === 12) startHour = 0;
+		const effectiveStart = startPeriod || endPeriod;
+		if (effectiveStart === 'pm' && startHour < 12) startHour += 12;
+		if (effectiveStart === 'am' && startHour === 12) startHour = 0;
 		if (endPeriod === 'pm' && endHour < 12) endHour += 12;
 		if (endPeriod === 'am' && endHour === 12) endHour = 0;
 		result.startTime = normalizeTime(startHour, startMin);
@@ -273,6 +276,18 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			recurrencePhrases.push(m[0]);
 			confidence += 0.2;
 			break;
+		}
+	}
+
+	// Plural weekday ("on wednesdays", "tuesdays") — weekly, anchored on the
+	// next matching weekday when no explicit date was parsed above.
+	const pluralDayMatch = input.match(/\b(?:on\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)s\b/i);
+	if (pluralDayMatch && !result.recurring) {
+		result.recurring = 'weekly';
+		recurrencePhrases.push(pluralDayMatch[0]);
+		confidence += 0.2;
+		if (!result.date) {
+			result.date = getNextDayOfWeek(pluralDayMatch[1], zone).toFormat('yyyy-MM-dd');
 		}
 	}
 
@@ -388,6 +403,20 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		const minute = arriveMatch[2] ? parseInt(arriveMatch[2]) : 0;
 		const period = arriveMatch[3]?.toLowerCase();
 		if (period === 'pm' && hour < 12) hour += 12;
+		result.startTime = normalizeTime(hour, minute);
+		foundTime = true;
+		confidence += 0.2;
+	}
+
+	// Glued/spelled article times: "a5pm", "a830am", "a 9pm" (typo for "at").
+	// The meridiem is mandatory so "a 5 minute break" and "a 5k run" never match.
+	const articleTimeMatch = input.match(/\ba\s*(\d{1,2})(?::?(\d{2}))?\s*(am|pm)\b/i);
+	if (articleTimeMatch && !foundTime) {
+		let hour = parseInt(articleTimeMatch[1]);
+		const minute = articleTimeMatch[2] ? parseInt(articleTimeMatch[2]) : 0;
+		const period = articleTimeMatch[3].toLowerCase();
+		if (period === 'pm' && hour < 12) hour += 12;
+		if (period === 'am' && hour === 12) hour = 0;
 		result.startTime = normalizeTime(hour, minute);
 		foundTime = true;
 		confidence += 0.2;

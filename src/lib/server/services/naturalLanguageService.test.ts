@@ -652,3 +652,95 @@ describe('Weekday parsing respects zone', () => {
 		expect(result.parsed.date).toBe(now.plus({ days: daysUntilSaturday }).toISODate());
 	});
 });
+
+describe('Plural weekday recurrence ("on wednesdays")', () => {
+	const cases: Array<[string, number]> = [
+		['launch on wednesdays', 3],
+		['yoga on tuesdays at 6pm', 2],
+		['team sync on mondays', 1],
+		['fridays demo at noon', 5],
+		['SATURDAYS cleanup', 6],
+		['meet on sundays', 0],
+		['dinner on thursdays', 4]
+	];
+	for (const [input, weekday] of cases) {
+		it(`parses "${input}" as weekly on the next matching weekday`, () => {
+			const now = DateTime.now();
+			const daysUntil = (weekday - (now.weekday % 7) + 7) % 7 || 7;
+			const result = parseEventInput(input);
+			expect(result.parsed.recurring).toBe('weekly');
+			expect(result.parsed.date).toBe(now.plus({ days: daysUntil }).toISODate());
+		});
+	}
+
+	it('lets an explicit date win over the plural weekday', () => {
+		const result = parseEventInput('party on saturdays sept 12');
+		expect(result.parsed.recurring).toBe('weekly');
+		expect(result.parsed.date).toContain('09-12');
+	});
+
+	it('strips the plural weekday from the title', () => {
+		const result = parseEventInput('launch on wednesdays at 5pm');
+		expect(result.parsed.title?.toLowerCase()).not.toContain('wednesdays');
+	});
+
+	it('parses the reported "launch on wednesdays, sept 23 & 30 from 5:30-6:30pm"', () => {
+		const result = parseEventInput('launch on wednesdays, sept 23 & 30 from 5:30-6:30pm');
+		expect(result.parsed.recurring).toBe('weekly');
+		expect(result.parsed.date).toContain('09-23');
+		expect(result.parsed.startTime).toBe('17:30');
+		expect(result.parsed.endTime).toBe('18:30');
+	});
+});
+
+describe('Hyphen range meridiem propagation ("5:30-6:30pm")', () => {
+	const cases: Array<[string, string, string]> = [
+		['meeting 5:30-6:30pm', '17:30', '18:30'],
+		['call 9:00-10:00am', '09:00', '10:00'],
+		['lunch 12:00-1:00pm', '12:00', '13:00'],
+		['standup 8:15-8:30am', '08:15', '08:30'],
+		['event 6:00PM - 8:00PM', '18:00', '20:00'],
+		['event 7:30 AM - 9:00 PM', '07:30', '21:00']
+	];
+	for (const [input, start, end] of cases) {
+		it(`parses "${input}" as ${start}–${end}`, () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.startTime).toBe(start);
+			expect(result.parsed.endTime).toBe(end);
+		});
+	}
+});
+
+describe('Glued article times ("a5pm")', () => {
+	const cases: Array<[string, string]> = [
+		['a5pm disc golf', '17:00'],
+		['a830am standup', '08:30'],
+		['dinner a 9pm', '21:00'],
+		['lunch a 12pm', '12:00'],
+		['a6am run', '06:00'],
+		['movie a 11pm', '23:00']
+	];
+	for (const [input, start] of cases) {
+		it(`parses "${input}" as starting ${start}`, () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.startTime).toBe(start);
+		});
+	}
+
+	it('ignores article-number without a meridiem ("a 5 minute break")', () => {
+		const result = parseEventInput('take a 5 minute break saturday');
+		expect(result.parsed.startTime).toBeUndefined();
+	});
+
+	it('ignores article-number distance ("a 5k run saturday")', () => {
+		const result = parseEventInput('join us for a 5k run saturday');
+		expect(result.parsed.startTime).toBeUndefined();
+	});
+
+	it('parses the reported "a5pm disc golf at independence park…"', () => {
+		const result = parseEventInput('a5pm disc golf at independence park. with jay and the league');
+		expect(result.parsed.startTime).toBe('17:00');
+		expect(result.parsed.location).toBe('independence park');
+		expect(result.parsed.date).toBeDefined();
+	});
+});

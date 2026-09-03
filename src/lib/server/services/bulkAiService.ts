@@ -37,8 +37,11 @@ export interface BulkPlanOp {
 /**
  * Resolve a date expression against `today`. Returns YYYY-MM-DD or null.
  * Patterns are ordered most-explicit first; first match wins.
+ * `skipBareDay`: a bare "the 26th" is weak evidence — when the instruction
+ * carries a delete verb ("delete the 3rd item" = the 3rd selected event,
+ * not the 3rd of the month), skip it so the delete wins.
  */
-export function resolveBulkDate(lower: string, today: DateTime): string | null {
+export function resolveBulkDate(lower: string, today: DateTime, skipBareDay = false): string | null {
 	// ISO date: "2026-08-28"
 	const iso = lower.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
 	if (iso) {
@@ -82,6 +85,24 @@ export function resolveBulkDate(lower: string, today: DateTime): string | null {
 			dt = DateTime.fromObject({ year, month, day });
 		}
 		if (day >= 1 && day <= 31 && dt.isValid) return dt.toISODate()!;
+	}
+
+	// Bare day-of-month: "the 26th", "move to 26th", "on the 3rd".
+	// Nearest future date: this month when the day hasn't passed, else next.
+	// Runs after month-day rules so "aug 28th" keeps its month. Skipped for
+	// delete-word instructions (see skipBareDay).
+	const bareDay =
+		!skipBareDay && lower.match(/(?:\bthe\s+(\d{1,2})(?:st|nd|rd|th)?|\b(\d{1,2})(?:st|nd|rd|th))\b/);
+	if (bareDay) {
+		const day = +(bareDay[1] ?? bareDay[2]);
+		if (day >= 1 && day <= 31) {
+			let dt = DateTime.fromObject({ year: today.year, month: today.month, day });
+			if (!dt.isValid || dt < today.startOf('day')) {
+				const next = today.plus({ months: 1 });
+				dt = DateTime.fromObject({ year: next.year, month: next.month, day });
+			}
+			if (dt.isValid) return dt.toISODate()!;
+		}
 	}
 
 	// "yesterday" / "tomorrow" / "today" — past moves are allowed but the
@@ -203,7 +224,7 @@ export function planBulkEdits(
 	);
 	const deleteWord = /\b(deletes?|removes?|cancel|trash|scrap)\b/.test(titleStripped);
 
-	const date = resolveBulkDate(lower, todayDt);
+	const date = resolveBulkDate(lower, todayDt, deleteWord);
 	const time = resolveBulkTime(lower);
 	const calendarId = resolveBulkCalendar(lower, calendars);
 

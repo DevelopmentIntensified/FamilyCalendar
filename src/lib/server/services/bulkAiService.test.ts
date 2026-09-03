@@ -275,3 +275,61 @@ describe('past-date expressions', () => {
 		expect(resolveBulkDate('move to jan 5, 2028', SUN)).toBe('2028-01-05');
 	});
 });
+
+describe('bare day-of-month ("move to the 26th")', () => {
+	const SEP3 = DateTime.fromISO('2026-09-03T12:00:00');
+	const cases: Array<[string, string]> = [
+		['move to the 26th', '2026-09-26'],
+		['move to 26th', '2026-09-26'],
+		['move these to the 26th', '2026-09-26'],
+		['on the 15th', '2026-09-15'],
+		['the 1st', '2026-10-01'],
+		['move to the 2nd', '2026-10-02'],
+		['move to the 3rd', '2026-09-03'],
+		['move to the 21st', '2026-09-21'],
+		['move to the 22nd', '2026-09-22'],
+		['move to the 23rd', '2026-09-23'],
+		['move to the 31st', '2026-10-31'],
+		['move to the 26', '2026-09-26']
+	];
+	for (const [input, expected] of cases) {
+		it(`parses "${input}" from Sep 3 as ${expected}`, () => {
+			expect(resolveBulkDate(input, SEP3)).toBe(expected);
+		});
+	}
+
+	it('stays in-month from Aug 23 and rolls month-end forward', () => {
+		const aug23 = DateTime.fromISO('2026-08-23T12:00:00');
+		expect(resolveBulkDate('move to the 26th', aug23)).toBe('2026-08-26');
+		expect(resolveBulkDate('move to the 31st', aug23)).toBe('2026-08-31');
+	});
+
+	it('rolls to next month when the day already passed', () => {
+		const aug31 = DateTime.fromISO('2026-08-31T12:00:00');
+		expect(resolveBulkDate('move to the 30th', aug31)).toBe('2026-09-30');
+		const sep30 = DateTime.fromISO('2026-09-30T12:00:00');
+		expect(resolveBulkDate('move to the 31st', sep30)).toBe('2026-10-31');
+	});
+
+	it('skips invalid days into the next month (Feb 30th -> Mar 30th)', () => {
+		const feb10 = DateTime.fromISO('2026-02-10T12:00:00');
+		expect(resolveBulkDate('move to the 30th', feb10)).toBe('2026-03-30');
+	});
+
+	it('does not steal counts or times ("move 2 events to friday", "move to 3pm")', () => {
+		expect(resolveBulkDate('move 2 events to friday', SEP3)).toBe('2026-09-04');
+		expect(resolveBulkDate('move to 3pm', SEP3)).toBeNull();
+	});
+
+	it('lets a delete verb overrule a bare day ("delete the 3rd item" kills, not moves)', () => {
+		const ops = planBulkEdits('delete the 3rd one', EVENTS, TODAY);
+		expect(ops).toHaveLength(3);
+		expect(ops[0]).toEqual({ id: 'evt-1', delete: true });
+	});
+
+	it('plans the reported "move to the 26th" end to end', () => {
+		const ops = planBulkEdits('move to the 26th', EVENTS, TODAY);
+		expect(ops).toHaveLength(3);
+		expect(ops[0]).toEqual({ id: 'evt-1', date: '2026-08-26' });
+	});
+});
