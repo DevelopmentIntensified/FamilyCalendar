@@ -87,8 +87,9 @@
 			<li><strong class="text-slate-800">Outlook:</strong> File → Save Calendar → choose iCalendar format.</li>
 		</ul>
 		<p class="mt-3 text-xs text-slate-400">
-			Recurring rules import as daily / weekly / monthly / yearly repeats. Exotic rules
-			(specific weekdays, count limits) come across as their first occurrence only.
+			Recurring rules import as daily / weekly / monthly / yearly repeats, including
+			specific weekdays (e.g. Mon/Wed/Fri) and occurrence-count limits. Exotic rules
+			(monthly BYDAY, timezone definitions outside common US zones) are simplified.
 		</p>
 	</div>
 </div>

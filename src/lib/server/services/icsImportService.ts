@@ -11,6 +11,8 @@ export interface IcsEventDraft {
 	description: string | null;
 	recurrenceFrequency: IcsFrequency | null;
 	recurrenceInterval: number | null;
+	recurrenceByDay: string[] | null;
+	recurrenceCount: number | null;
 }
 
 const MAX_EVENTS = 500;
@@ -50,8 +52,9 @@ function parseProp(line: string): IcsProp | null {
 }
 
 /** ICS date/datetime -> ISO. Date-only => UTC midnight + allDay.
- *  TZID/floating times are treated as wall-clock UTC (documented limitation
- *  until a tz database is wired in). */
+ *  TZID names are mapped (Outlook pseudo-names -> IANA zone) and the instant
+ *  is converted to UTC. Floating times (no TZID) are treated as wall-clock
+ *  UTC. */
 function parseIcsDateTime(prop: IcsProp): { iso: string; allDay: boolean } | null {
 	const v = prop.value.replace(/[^0-9TZ]/g, '');
 	const isDateOnly = prop.params['VALUE'] === 'DATE' || /^\d{8}$/.test(v);
@@ -61,8 +64,41 @@ function parseIcsDateTime(prop: IcsProp): { iso: string; allDay: boolean } | nul
 	}
 	const m = v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?/);
 	if (!m) return null;
-	const dt = DateTime.utc(+m[1], +m[2], +m[3], +m[4], +m[5], m[6] ? +m[6] : 0);
-	return dt.isValid ? { iso: dt.toISO()!, allDay: false } : null;
+	const dt = DateTime.fromObject(
+		{
+			year: +m[1],
+			month: +m[2],
+			day: +m[3],
+			hour: +m[4],
+			minute: +m[5],
+			second: m[6] ? +m[6] : 0
+		},
+		{ zone: tzidZone(prop.params['TZID']) }
+	);
+	return dt.isValid ? { iso: dt.toUTC().toISO()!, allDay: false } : null;
+}
+
+/**
+ * Map a TZID to a real IANA zone. Outlook exports pseudo-names like
+ * "Eastern Standard Time" (which actually alternates EDT in summer); map
+ * them to their canonical IANA equivalents. Unknown/absent names fall back
+ * to UTC (floating time), preserving prior behavior.
+ */
+const TZID_ZONE: Record<string, string> = {
+	'EASTERN STANDARD TIME': 'America/New_York',
+	'CENTRAL STANDARD TIME': 'America/Chicago',
+	'MOUNTAIN STANDARD TIME': 'America/Denver',
+	'PACIFIC STANDARD TIME': 'America/Los_Angeles',
+	'AMERICA/NEW_YORK': 'America/New_York',
+	'AMERICA/CHICAGO': 'America/Chicago',
+	'AMERICA/DENVER': 'America/Denver',
+	'AMERICA/LOS_ANGELES': 'America/Los_Angeles'
+};
+
+function tzidZone(tzid?: string): string {
+	if (!tzid) return 'utc';
+	const key = tzid.replace(/^"|"$/g, '').toUpperCase();
+	return TZID_ZONE[key] ?? 'utc';
 }
 
 function parseDurationToMs(dur: string): number | null {
@@ -87,6 +123,8 @@ const FREQ_MAP: Record<string, IcsFrequency> = {
 	MONTHLY: 'monthly',
 	YEARLY: 'yearly'
 };
+
+const WEEKDAYS = new Set(['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']);
 
 function unescapeText(v: string): string {
 	return v
@@ -161,6 +199,8 @@ function buildDraft(props: Record<string, IcsProp[]>): IcsEventDraft | null {
 
 	let recurrenceFrequency: IcsFrequency | null = null;
 	let recurrenceInterval: number | null = 1;
+	let recurrenceByDay: string[] | null = null;
+	let recurrenceCount: number | null = null;
 	const rrule = first('RRULE');
 	if (rrule) {
 		const parts: Record<string, string> = {};
@@ -171,6 +211,22 @@ function buildDraft(props: Record<string, IcsProp[]>): IcsEventDraft | null {
 		recurrenceFrequency = FREQ_MAP[parts['FREQ']] ?? null;
 		const interval = parseInt(parts['INTERVAL'] ?? '1');
 		recurrenceInterval = recurrenceFrequency ? Math.max(1, isNaN(interval) ? 1 : interval) : null;
+
+		// BYDAY: weekday letters (Outlook uses plain MO,WE,FR). Strip any
+		// ordinal prefix (e.g. 2TU) so the set only holds plain weekday codes;
+		// if anything isn't a plain weekday, bail to null to avoid mis-filtering.
+		const rawDays = parts['BYDAY'];
+		if (rawDays && recurrenceFrequency) {
+			const days = rawDays
+				.split(',')
+				.map((d) => d.replace(/^[+-]?\d+/, ''))
+				.filter((d) => WEEKDAYS.has(d));
+			if (days.length > 0 && days.join(',') === rawDays) recurrenceByDay = days;
+		}
+
+		// COUNT: total number of occurrences in the series.
+		const count = parseInt(parts['COUNT'] ?? '');
+		if (recurrenceFrequency && !isNaN(count) && count > 0) recurrenceCount = count;
 	}
 
 	return {
@@ -181,6 +237,8 @@ function buildDraft(props: Record<string, IcsProp[]>): IcsEventDraft | null {
 		location: first('LOCATION')?.value ? unescapeText(first('LOCATION')!.value.trim()) || null : null,
 		description: first('DESCRIPTION')?.value ? unescapeText(first('DESCRIPTION')!.value.trim()) || null : null,
 		recurrenceFrequency,
-		recurrenceInterval
+		recurrenceInterval,
+		recurrenceByDay,
+		recurrenceCount
 	};
 }

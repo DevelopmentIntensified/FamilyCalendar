@@ -98,7 +98,9 @@ export const actions: Actions = {
 					location: draft.location,
 					allDay: draft.allDay,
 					recurrenceFrequency: draft.recurrenceFrequency,
-					recurrenceInterval: draft.recurrenceInterval
+					recurrenceInterval: draft.recurrenceInterval,
+					recurrenceByDay: draft.recurrenceByDay,
+					recurrenceCount: draft.recurrenceCount
 				}, userId);
 				imported++;
 			} catch (e) {

@@ -423,6 +423,8 @@ export const events = pgTable('events', {
 	allDay: boolean('all_day').default(false).notNull(),
 	recurrenceFrequency: text('recurrence_frequency'),
 	recurrenceInterval: integer('recurrence_interval'),
+	recurrenceByDay: text('recurrence_by_day').array(),
+	recurrenceCount: integer('recurrence_count'),
 	created_at: timestamp('created_at').defaultNow().notNull()
 });
 

@@ -8,9 +8,20 @@ export interface RecurringEventInput {
 	end?: string | Date | null;
 	recurrenceFrequency: string | null;
 	recurrenceInterval: number | null;
+	recurrenceByDay?: string[] | null;
+	recurrenceCount?: number | null;
 }
 
 const MAX_OCCURRENCES = 500;
+
+const WEEKDAY_LETTERS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+
+/** Normalize BYDAY to a set of plain weekday letters (MO..SU). */
+function normalizeByDay(raw?: string[] | null): Set<string> | null {
+	if (!raw || raw.length === 0) return null;
+	const days = raw.filter((d) => typeof d === 'string' && WEEKDAY_LETTERS.includes(d.toUpperCase()));
+	return days.length > 0 ? new Set(days.map((d) => d.toUpperCase())) : null;
+}
 
 /**
  * Drizzle's timestamptz columns are declared mode:'string', but the
@@ -77,19 +88,81 @@ export function expandRecurrence(
 	}
 
 	const interval = Math.max(1, event.recurrenceInterval ?? 1);
+	const byDay = normalizeByDay(event.recurrenceByDay);
+	// JIT-check: only accept the well-formed "weekday phase" times, which come
+	// from RRULE BYDAY. Monthly/yearly BYDAY is not supported; those fall back
+	// to the plain frequency stepping below (anchor weekday only), matching
+	// the pre-existing behavior for such imports.
+	if (byDay && (frequency === 'daily' || frequency === 'weekly')) {
+		return expandWeekdaySeries(anchor, frequency, interval, byDay, event.recurrenceCount, windowStart, windowEnd);
+	}
+
+	const count = positiveCount(event.recurrenceCount);
 
 	const occurrences: Date[] = [];
 	let steps = 0;
-
-	while (occurrences.length < MAX_OCCURRENCES) {
+	let produced = 0;
+	while (produced < MAX_OCCURRENCES) {
 		const occ = generateOccurrence(anchor, frequency, steps * interval);
 		if (!occ.isValid) break;
 		const jsDate = occ.toJSDate();
+		produced++;
+		if (count !== null && produced > count) break;
 		if (jsDate >= windowEnd) break;
 		if (jsDate >= windowStart) {
 			occurrences.push(jsDate);
 		}
 		steps++;
+	}
+
+	return occurrences;
+}
+
+function positiveCount(raw?: number | null): number | null {
+	return raw && raw > 0 ? Math.floor(raw) : null;
+}
+
+/**
+ * Expand a recurring series that repeats on specific weekdays (RRULE BYDAY).
+ * Iterates day-by-day from the anchor so that daily/weekly BYDAY rules land
+ * on every listed weekday, respecting the interval phase for weekly rules.
+ * `recurrenceCount` (total occurrences across the series) is honored even
+ * when the window starts after the series has begun.
+ */
+function expandWeekdaySeries(
+	anchor: DateTime,
+	frequency: RecurrenceFrequency,
+	interval: number,
+	byDay: Set<string>,
+	count: number | null,
+	windowStart: Date,
+	windowEnd: Date
+): Date[] {
+	const occurrences: Date[] = [];
+	let produced = 0;
+	let cur = anchor;
+	const windowEndMs = windowEnd.getTime();
+
+	while (produced < MAX_OCCURRENCES) {
+		const weekday = WEEKDAY_LETTERS[cur.weekday - 1];
+		let passes = false;
+		if (frequency === 'daily') {
+			passes = byDay.has(weekday);
+		} else {
+			// weekly: must be a listed weekday AND in phase with the interval.
+			const weeksFromAnchor = cur.startOf('week').diff(anchor.startOf('week'), 'weeks').weeks;
+			passes = byDay.has(weekday) && weeksFromAnchor % interval === 0;
+		}
+
+		if (passes) {
+			produced++;
+			if (count !== null && produced > count) break;
+			const jsDate = cur.toJSDate();
+			if (jsDate >= windowStart && jsDate < windowEnd) occurrences.push(jsDate);
+		}
+
+		cur = cur.plus({ days: 1 });
+		if (cur.toMillis() >= windowEndMs) break;
 	}
 
 	return occurrences;

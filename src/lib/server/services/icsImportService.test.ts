@@ -52,8 +52,24 @@ describe('ICS Import Parser', () => {
 		expect(events[0].endIso).toBe('2026-07-11T23:59:59.999Z');
 	});
 
-	it('treats TZID/floating times as wall-clock UTC (documented limitation)', () => {
+	it('converts TZID times from the IANA zone to UTC', () => {
 		const ics = ['BEGIN:VEVENT', 'SUMMARY:Dinner', 'DTSTART;TZID=America/New_York:20260801T180000', 'DTEND;TZID=America/New_York:20260801T200000', 'END:VEVENT'].join('\r\n');
+		const events = parseIcs(ics);
+		// August is EDT (UTC-4), so 18:00 local = 22:00 UTC.
+		expect(events[0].startIso).toBe('2026-08-01T22:00:00.000Z');
+		expect(events[0].endIso).toBe('2026-08-02T00:00:00.000Z');
+	});
+
+	it('maps Outlook-style pseudo-TZIDs (quoted) to a real IANA zone', () => {
+		const ics = ['BEGIN:VEVENT', 'SUMMARY:Class', 'DTSTART;TZID="Eastern Standard Time":20260910T150000', 'DTEND;TZID="Eastern Standard Time":20260910T170000', 'END:VEVENT'].join('\r\n');
+		const events = parseIcs(ics);
+		// September is EDT (UTC-4), despite the "Standard" name.
+		expect(events[0].startIso).toBe('2026-09-10T19:00:00.000Z');
+		expect(events[0].endIso).toBe('2026-09-10T21:00:00.000Z');
+	});
+
+	it('still treats floating (no TZID) times as wall-clock UTC', () => {
+		const ics = ['BEGIN:VEVENT', 'SUMMARY:Floating', 'DTSTART:20260801T180000', 'DTEND:20260801T200000', 'END:VEVENT'].join('\r\n');
 		const events = parseIcs(ics);
 		expect(events[0].startIso).toBe('2026-08-01T18:00:00.000Z');
 		expect(events[0].endIso).toBe('2026-08-01T20:00:00.000Z');
@@ -86,6 +102,26 @@ describe('ICS Import Parser', () => {
 			expect(events[0].recurrenceFrequency, rrule).toBe(freq);
 			expect(events[0].recurrenceInterval, rrule).toBe(interval);
 		}
+	});
+
+	it('parses RRULE BYDAY into a lowercase weekday set', () => {
+		const ics = ['BEGIN:VEVENT', 'SUMMARY:ENGR 110', 'DTSTART:20260824T130500Z', 'RRULE:FREQ=WEEKLY;COUNT=76;BYDAY=MO,WE,FR', 'END:VEVENT'].join('\r\n');
+		const events = parseIcs(ics);
+		expect(events[0].recurrenceFrequency).toBe('weekly');
+		expect(events[0].recurrenceByDay).toEqual(['MO', 'WE', 'FR']);
+	});
+
+	it('parses RRULE COUNT into recurrenceCount', () => {
+		const ics = ['BEGIN:VEVENT', 'SUMMARY:CHEM lab', 'DTSTART:20260825T101500Z', 'RRULE:FREQ=WEEKLY;COUNT=16;BYDAY=TU', 'END:VEVENT'].join('\r\n');
+		const events = parseIcs(ics);
+		expect(events[0].recurrenceCount).toBe(16);
+	});
+
+	it('returns null BYDAY/COUNT when the RRULE has none', () => {
+		const ics = ['BEGIN:VEVENT', 'SUMMARY:Chore', 'DTSTART:20260820T150000Z', 'RRULE:FREQ=WEEKLY', 'END:VEVENT'].join('\r\n');
+		const events = parseIcs(ics);
+		expect(events[0].recurrenceByDay).toBeNull();
+		expect(events[0].recurrenceCount).toBeNull();
 	});
 
 	it('skips cancelled events', () => {
