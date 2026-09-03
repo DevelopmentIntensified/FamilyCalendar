@@ -252,23 +252,28 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 					{/if}
 				</button>
 			{/each}
+		</div>
 
 			{#if dayEvents.length + dayTasks.length > MAX_CHIPS + Math.min(dayTasks.length, MAX_TASK_CHIPS) || dayEvents.length > MAX_CHIPS || dayTasks.length > MAX_TASK_CHIPS}
 				{@const overflow = dayEvents.length - Math.min(dayEvents.length, MAX_CHIPS) + dayTasks.length - Math.min(dayTasks.length, MAX_TASK_CHIPS)}
 				{#if overflow > 0}
-					<button
-						type="button"
-						onclick={(e) => {
-							e.stopPropagation();
-							openOverflow(cellDate, dayEvents);
-						}}
-						class="inline-flex min-h-[26px] items-center rounded px-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-primary-600 sm:min-h-0"
-					>
-						+{overflow} more
-					</button>
+					<!-- Kept OUTSIDE the chips container above: on small screens that
+					container is pointer-events-none + inert (so taps fall through to
+					the cell action sheet), which would make this button untappable. -->
+					<div class="relative z-10 px-0.5 pb-0.5">
+						<button
+							type="button"
+							onclick={(e) => {
+								e.stopPropagation();
+								openOverflow(cellDate, dayEvents);
+							}}
+							class="pointer-events-auto inline-flex min-h-[26px] items-center rounded px-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-primary-600 sm:min-h-0"
+						>
+							+{overflow} more
+						</button>
+					</div>
 				{/if}
 			{/if}
-		</div>
 	</div>
 {/each}
 
@@ -291,6 +296,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	events={overflowEvents}
 	{calendars}
 	onEventClick={handleOverflowEventClick}
+	onClose={() => (showOverflow = false)}
 />
 
 <!-- Mobile day-action sheet -->

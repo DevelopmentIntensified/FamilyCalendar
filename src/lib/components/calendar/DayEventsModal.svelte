@@ -10,9 +10,11 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	export let events: Event[] = [];
 	export let calendars: { id: string; name: string; color?: string }[] = [];
 	export let onEventClick: (event: Event) => void = () => {};
+	export let onClose: () => void = () => {};
 
 	function close() {
 		show = false;
+		onClose();
 	}
 
 	function handleEventClick(event: Event) {
