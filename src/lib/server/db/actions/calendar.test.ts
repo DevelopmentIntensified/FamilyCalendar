@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const state = vi.hoisted(() => ({
 	dbQueue: [] as unknown[][],
 	dbInsertReturn: null as unknown[] | null,
+	dbInsertValues: null as unknown,
 	txQueue: [] as unknown[][],
 	txInsertReturn: null as unknown[] | null
 }));
@@ -23,9 +24,12 @@ vi.mock('$lib/server/db', () => ({
 			})
 		}),
 		insert: () => ({
-			values: () => ({
-				returning: () => Promise.resolve(state.dbInsertReturn ?? [])
-			})
+			values: (v: unknown) => {
+				state.dbInsertValues = v;
+				return {
+					returning: () => Promise.resolve(state.dbInsertReturn ?? [])
+				};
+			}
 		})
 	}
 }));
@@ -51,6 +55,7 @@ import { ensurePersonalCalendar } from './calendar';
 beforeEach(() => {
 	state.dbQueue = [];
 	state.dbInsertReturn = null;
+	state.dbInsertValues = null;
 	state.txQueue = [];
 	state.txInsertReturn = null;
 });
@@ -74,6 +79,15 @@ describe('ensurePersonalCalendar', () => {
 		const cal = await ensurePersonalCalendar('user-1');
 
 		expect(cal).toEqual({ id: 'cal-2', ownerId: 'user-1', familyId: null });
+	});
+
+	it('creates with the ownerId and no familyId when absent', async () => {
+		state.dbQueue.push([]); // no existing row
+		state.dbInsertReturn = [{ id: 'cal-4', ownerId: 'user-9', familyId: null }];
+
+		await ensurePersonalCalendar('user-9');
+
+		expect(state.dbInsertValues).toEqual({ ownerId: 'user-9' });
 	});
 
 	it('uses the provided transaction client when given tx', async () => {

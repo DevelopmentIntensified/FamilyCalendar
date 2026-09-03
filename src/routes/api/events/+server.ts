@@ -3,7 +3,8 @@ import type { RequestHandler } from './$types';
 import { createEvent } from '$lib/server/db/actions/events';
 import { db } from '$lib/server/db';
 import { calendars, events } from '$lib/server/db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { resolveEventInvites } from '$lib/server/utils/eventInvites';
@@ -26,16 +27,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	let calendarId = body.calendarId;
 	if (!calendarId) {
-		let userCalendar = await db
-			.select()
-			.from(calendars)
-			.where(and(eq(calendars.ownerId, userId), isNull(calendars.familyId)));
-		if (userCalendar.length === 0) {
-			const [newCal] = await db.insert(calendars).values({ ownerId: userId }).returning();
-			calendarId = newCal.id;
-		} else {
-			calendarId = userCalendar[0].id;
+		const personalCal = await ensurePersonalCalendar(userId);
+		if (!personalCal) {
+			return json({ error: 'Failed to create event' }, { status: 500 });
 		}
+		calendarId = personalCal.id;
 	} else {
 		const accessibleCalIds = await getAccessibleCalendarIds(userId);
 		if (!accessibleCalIds.includes(calendarId)) {

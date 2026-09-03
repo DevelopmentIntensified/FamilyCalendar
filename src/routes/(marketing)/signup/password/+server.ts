@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getUserByEmail, createUser, getUser } from '$lib/server/db/actions/users';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
-import { createUserCalendar } from '$lib/server/db/actions/calendar';
+import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { hashPassword } from '$lib/server/utils/password';
 import { lucia, setSessionCookie } from '$lib/server/auth';
 
@@ -38,7 +38,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			roles: []
 		});
 
-		await createUserCalendar(user.id);
+		await ensurePersonalCalendar(user.id);
 
 		const session = await lucia.createSession(user.id, {});
 		setSessionCookie(cookies, lucia.createSessionCookie(session.id));

@@ -6,7 +6,7 @@ import { calendars, events, families } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
-import { createUserCalendar } from '$lib/server/db/actions/calendar';
+import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { parseEvents, expandEventsForUser } from '$lib/server/services/eventDisplayService';
 
 const MONTH_NAMES = [
@@ -30,11 +30,8 @@ export const load: PageServerLoad = async (event) => {
 	const weekStart = userSettings?.weekStart === 'monday' ? 'monday' : 'sunday';
 	const personalColor = userSettings?.color || '#fa8072';
 
-	let userCalendar = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
-	if (userCalendar.length === 0) {
-		await createUserCalendar(userId);
-		userCalendar = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
-	}
+	const personalCal = await ensurePersonalCalendar(userId);
+	const userCalendar = personalCal ? [personalCal] : [];
 
 	let familyColor = '#e0ffff';
 	let familyName: string | null = null;
