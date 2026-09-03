@@ -2,7 +2,8 @@
 	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
 	import type { BugReportWithReporter } from '$lib/server/db/actions/bugReports';
-	import { formatBugReportsExport, downloadAsTxt, reporterName } from '$lib/admin/export';
+	import { formatBugReportsExport, reporterName } from '$lib/admin/export';
+	import AdminExport from '$lib/admin/AdminExport.svelte';
 
 	export let data: PageData;
 
@@ -15,17 +16,7 @@
 		other: 'Other'
 	};
 
-	let exportOpen = false;
-	$: exportText = formatBugReportsExport(data.open, data.resolved);
-
-	async function copyExport() {
-		try {
-			await navigator.clipboard.writeText(exportText);
-		} catch {
-			const ta = document.querySelector<HTMLTextAreaElement>('#bug-export-text');
-			ta?.select();
-		}
-	}
+	let exportText = formatBugReportsExport(data.open, data.resolved);
 
 	function timeLabel(d: Date): string {
 		return new Date(d).toLocaleString(undefined, {
@@ -39,59 +30,14 @@
 
 <div class="min-h-screen bg-slate-50 px-4 py-8">
 	<div class="mx-auto max-w-4xl">
-		<div class="mb-6 flex items-center justify-between">
+		<div class="mb-6">
 			<div>
 				<h1 class="mb-2 text-2xl font-bold text-slate-900">Bug Reports</h1>
 				<p class="text-sm text-slate-500">User-submitted bug reports, newest first.</p>
 			</div>
-			<a
-				href="/admin/nlp"
-				class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-			>
-				Unmatched Phrases
-			</a>
 		</div>
 
-		<div class="mb-6 flex items-center justify-between">
-			<button
-				type="button"
-				on:click={() => (exportOpen = !exportOpen)}
-				class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-			>
-				{exportOpen ? 'Hide export' : 'Export for agent'}
-			</button>
-			{#if exportOpen}
-				<div class="flex gap-2">
-					<button
-						type="button"
-						on:click={copyExport}
-						class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-					>
-						Copy
-					</button>
-					<button
-						type="button"
-						on:click={() =>
-							downloadAsTxt(`bug-reports-${new Date().toISOString().slice(0, 10)}.txt`, exportText)}
-						class="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
-					>
-						Download .txt
-					</button>
-				</div>
-			{/if}
-		</div>
-
-		{#if exportOpen}
-			<div class="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-				<textarea
-					id="bug-export-text"
-					readonly
-					rows="16"
-					class="w-full resize-y bg-slate-50 p-4 font-mono text-xs text-slate-700 focus:outline-none"
-					>{exportText}</textarea
-				>
-			</div>
-		{/if}
+		<AdminExport {exportText} fileBase="bug-reports" textareaId="bug-export-text" />
 
 		{#if data.open.length === 0}
 			<p

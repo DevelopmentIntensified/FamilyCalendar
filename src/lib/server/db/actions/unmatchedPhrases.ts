@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { unmatchedPhrases, type UnmatchedPhrase } from '$lib/server/db/schema';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 
 export type UnmatchedSource = 'event_parse' | 'bulk_edit';
 
@@ -51,4 +51,13 @@ export async function resolveUnmatchedPhrase(id: string) {
 		.where(and(eq(unmatchedPhrases.id, id)))
 		.returning();
 	return updated;
+}
+
+/** Open-phrase count for the admin nav badge. */
+export async function countOpenUnmatchedPhrases(): Promise<number> {
+	const [row] = await db
+		.select({ n: count() })
+		.from(unmatchedPhrases)
+		.where(eq(unmatchedPhrases.resolved, false));
+	return row?.n ?? 0;
 }

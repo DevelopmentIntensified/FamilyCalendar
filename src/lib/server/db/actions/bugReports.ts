@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { bugReports, users, type BugReport } from '$lib/server/db/schema';
-import { and, desc, eq, isNull, isNotNull } from 'drizzle-orm';
+import { and, count, desc, eq, isNull, isNotNull } from 'drizzle-orm';
 
 /** Bug report areas offered in the submission form. */
 export const BUG_AREAS = [
@@ -83,4 +83,13 @@ export async function resolveBugReport(id: string): Promise<BugReport | undefine
 		.where(and(eq(bugReports.id, id)))
 		.returning();
 	return updated;
+}
+
+/** Open-report count for the admin nav badge (open = never resolved). */
+export async function countOpenBugReports(): Promise<number> {
+	const [row] = await db
+		.select({ n: count() })
+		.from(bugReports)
+		.where(isNull(bugReports.resolvedAt));
+	return row?.n ?? 0;
 }

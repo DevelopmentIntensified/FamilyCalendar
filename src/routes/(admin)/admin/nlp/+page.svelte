@@ -2,7 +2,8 @@
 	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
 	import type { UnmatchedPhrase } from '$lib/server/db/schema';
-	import { formatUnmatchedPhrasesExport, downloadAsTxt, matchedSummary } from '$lib/admin/export';
+	import { formatUnmatchedPhrasesExport, matchedSummary } from '$lib/admin/export';
+	import AdminExport from '$lib/admin/AdminExport.svelte';
 
 	export let data: PageData;
 
@@ -11,18 +12,7 @@
 		bulk_edit: 'Bulk edit'
 	};
 
-	let exportOpen = false;
-	$: exportText = formatUnmatchedPhrasesExport(data.phrases, data.resolved);
-
-	async function copyExport() {
-		try {
-			await navigator.clipboard.writeText(exportText);
-		} catch {
-			// Fallback: select the textarea so the user can copy manually.
-			const ta = document.querySelector<HTMLTextAreaElement>('#phrase-export-text');
-			ta?.select();
-		}
-	}
+	let exportText = formatUnmatchedPhrasesExport(data.phrases, data.resolved);
 
 	function groupBySource(phrases: UnmatchedPhrase[]) {
 		const groups = new Map<string, UnmatchedPhrase[]>();
@@ -42,49 +32,7 @@
 			Instructions the NLP/regex parsers could not handle. Add patterns for the frequent ones.
 		</p>
 
-		<div class="mb-6 flex items-center justify-between">
-			<button
-				type="button"
-				on:click={() => (exportOpen = !exportOpen)}
-				class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-			>
-				{exportOpen ? 'Hide export' : 'Export for agent'}
-			</button>
-			{#if exportOpen}
-				<div class="flex gap-2">
-					<button
-						type="button"
-						on:click={copyExport}
-						class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-					>
-						Copy
-					</button>
-					<button
-						type="button"
-						on:click={() =>
-							downloadAsTxt(
-								`unmatched-phrases-${new Date().toISOString().slice(0, 10)}.txt`,
-								exportText
-							)}
-						class="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
-					>
-						Download .txt
-					</button>
-				</div>
-			{/if}
-		</div>
-
-		{#if exportOpen}
-			<div class="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-				<textarea
-					id="phrase-export-text"
-					readonly
-					rows="16"
-					class="w-full resize-y bg-slate-50 p-4 font-mono text-xs text-slate-700 focus:outline-none"
-					>{exportText}</textarea
-				>
-			</div>
-		{/if}
+		<AdminExport {exportText} fileBase="unmatched-phrases" textareaId="phrase-export-text" />
 
 		{#each groupBySource(data.phrases) as [source, phrases]}
 			<section class="mb-8">
