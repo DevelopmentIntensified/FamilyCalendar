@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { writable } from 'svelte/store';
 	import { DateTime } from 'luxon';
 	import type { PageData } from './$types';
@@ -41,7 +41,14 @@
 	let selectedEventRsvp: any[] = [];
 	let createInitialDate: string | undefined = undefined;
 	let createInitialTitle: string | undefined = undefined;
+	let createInitialQuickAdd: string | undefined = undefined;
 	let createCount = 0;
+
+	// "Create event from selection": a floating bar appears when the user
+	// selects text on the page, letting them parse it into a new event via the
+	// Quick Add (NLP) pipeline (mirrors the native/extension selection idea).
+	let sliceText = '';
+	let sliceVisible = false;
 
 	// Bulk edit (selection mode)
 	let selectionMode = false;
@@ -243,6 +250,30 @@
 			showModal = true;
 			goto('/calendar', { replaceState: true });
 		}
+
+		// "Create event from selection": watch for text selection anywhere on the
+		// page and surface a floating bar offering to turn it into an event.
+		const updateSlice = () => {
+			const sel = window.getSelection();
+			const text = sel?.toString().trim() || '';
+			if (!text || sel?.isCollapsed) {
+				sliceVisible = false;
+				sliceText = '';
+				return;
+			}
+			// Don't hijack selections happening inside the modal's own inputs.
+			if (showModal) return;
+			sliceText = text;
+			sliceVisible = true;
+		};
+		document.addEventListener('selectionchange', updateSlice);
+		window.addEventListener('mouseup', updateSlice);
+		window.addEventListener('keyup', updateSlice);
+		onDestroy(() => {
+			document.removeEventListener('selectionchange', updateSlice);
+			window.removeEventListener('mouseup', updateSlice);
+			window.removeEventListener('keyup', updateSlice);
+		});
 	});
 
 	function dismissFirstRun() {
@@ -263,12 +294,28 @@
 		selectedEventRsvp = [];
 		createInitialDate = undefined;
 		createInitialTitle = undefined;
+		createInitialQuickAdd = undefined;
 	}
 
 	function openCreateAt(date: DateTime) {
 		currentDate.set(date);
 		createInitialDate = date.toISODate() ?? undefined;
 		showModal = true;
+	}
+
+	// Open the create modal pre-parsed with the currently selected text.
+	function createEventFromSelection() {
+		const text = sliceText.trim();
+		if (!text) return;
+		createInitialTitle = undefined; // let the NLP Quick Add field drive parsing
+		createInitialQuickAdd = text;
+		createInitialDate = undefined;
+		showModal = true;
+		sliceText = '';
+		sliceVisible = false;
+		// Clear the OS/highlight selection so it doesn't linger behind the modal.
+		const sel = window.getSelection();
+		if (sel) sel.removeAllRanges();
 	}
 
 	async function handleTaskCreated() {
@@ -600,6 +647,18 @@
 	</div>
 {/if}
 
+{#if sliceVisible && !showModal && !showEditModal && !selectionMode}
+	<!-- Create event from selection -->
+	<button
+		type="button"
+		onclick={createEventFromSelection}
+		class="fixed bottom-6 left-1/2 z-30 max-w-[90vw] -translate-x-1/2 truncate rounded-full bg-slate-900/90 px-4 py-2.5 text-sm font-medium text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-slate-900"
+		aria-label="Create event from selection"
+	>
+		Create event from selection
+	</button>
+{/if}
+
 <!-- Create Event Modal -->
 {#if showModal}
 	<EventFormModal
@@ -609,6 +668,7 @@
 		userSettings={data.userSettings}
 		initialDate={createInitialDate}
 		initialTitle={createInitialTitle}
+		initialQuickAdd={createInitialQuickAdd}
 		{createCount}
 		onClose={close}
 		on:create={handleEventCreated}

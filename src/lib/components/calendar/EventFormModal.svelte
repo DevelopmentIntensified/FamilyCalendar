@@ -30,6 +30,7 @@
 	} | null = null;
 	export let initialDate: string | undefined = undefined;
 	export let initialTitle: string | undefined = undefined;
+	export let initialQuickAdd: string | undefined = undefined;
 	export let createCount = 0;
 
 	const dispatch = createEventDispatcher();
@@ -121,6 +122,18 @@
 		initialTitleApplied = true;
 	}
 	$: if (!show) initialTitleApplied = false;
+
+	// Seed the Quick Add (NLP) field from extracted text once per open (create
+	// mode only), so date/time/location get auto-parsed on the selected text.
+	let initialQuickAddApplied = false;
+	$: if (show && !form.isEditMode && initialQuickAdd && !initialQuickAddApplied) {
+		if (!nlInput) {
+			nlInput = initialQuickAdd;
+			onNlInputChange();
+		}
+		initialQuickAddApplied = true;
+	}
+	$: if (!show) initialQuickAddApplied = false;
 
 	// Pending checklist titles queued during create; flushed after POST /api/events.
 	let pendingTaskTitles: string[] = [];
