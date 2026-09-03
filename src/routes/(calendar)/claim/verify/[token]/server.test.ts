@@ -1,18 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('$lib/server/services/claimService', () => ({
-	peekClaimToken: vi.fn(),
-	consumeClaimToken: vi.fn()
-}));
-
-vi.mock('$lib/server/db/actions/users', () => ({
-	claimEmailForUser: vi.fn(),
-	getUserByEmail: vi.fn()
-}));
-
-vi.mock('$lib/server/db/actions/userSettings', () => ({
-	getUserSettings: vi.fn(),
-	createUserSettings: vi.fn()
+	verifyClaimToken: vi.fn()
 }));
 
 vi.mock('$lib/server/auth', () => ({
@@ -23,18 +12,22 @@ vi.mock('$lib/server/auth', () => ({
 	setSessionCookie: vi.fn()
 }));
 
-vi.mock('$lib/server/services/guestMergeService', () => ({
-	mergeGuestIntoUser: vi.fn()
-}));
-
 import { GET } from './+server';
+import { verifyClaimToken } from '$lib/server/services/claimService';
+import { lucia, setSessionCookie } from '$lib/server/auth';
 
-function mockEvent(userId: string) {
+function mockEvent(userId: string | null) {
 	return {
-		locals: { user: { id: userId } },
+		locals: { user: userId ? { id: userId } : null },
 		params: { token: 'tok-1' },
 		cookies: { set: vi.fn() }
-	} as any;
+	} as never;
+}
+
+function redirectOf(promise: unknown): Promise<{ status: number; location: string }> {
+	return Promise.resolve(promise).catch(
+		(e: unknown) => e as { status: number; location: string }
+	) as Promise<{ status: number; location: string }>;
 }
 
 beforeEach(() => {
@@ -42,51 +35,48 @@ beforeEach(() => {
 });
 
 describe('GET /claim/verify/[token]', () => {
-	it('auto-merges the guest into an already-registered account and signs in as it', async () => {
-		const { peekClaimToken, consumeClaimToken } = await import('$lib/server/services/claimService');
-		const { getUserByEmail, claimEmailForUser } = await import('$lib/server/db/actions/users');
-		const { mergeGuestIntoUser } = await import('$lib/server/services/guestMergeService');
-		const { lucia, setSessionCookie } = await import('$lib/server/auth');
+	it('redirects to login when unauthenticated', async () => {
+		const redirect = await redirectOf(GET(mockEvent(null)));
 
-		vi.mocked(peekClaimToken).mockResolvedValue({ userId: 'guest-1', email: 'taken@example.com' } as any);
-		vi.mocked(consumeClaimToken).mockResolvedValue(true);
-		vi.mocked(getUserByEmail).mockResolvedValue({ id: 'existing-9' } as any);
-		vi.mocked(mergeGuestIntoUser).mockResolvedValue({ events: 3, tasks: 2 } as any);
-		vi.mocked(lucia.createSession).mockResolvedValue({ id: 'session-9' } as any);
-		vi.mocked(lucia.createSessionCookie).mockReturnValue({ value: 'auth_session=s9; Path=/' } as any);
+		expect(redirect.status).toBe(302);
+		expect(redirect.location).toBe('/login');
+		expect(verifyClaimToken).not.toHaveBeenCalled();
+	});
+
+	it('signs in as the merged account on Claim Conflict and redirects to the calendar', async () => {
+		vi.mocked(verifyClaimToken).mockResolvedValue({ outcome: 'merged', targetUserId: 'existing-9' });
+		vi.mocked(lucia.createSession).mockResolvedValue({ id: 'session-9' } as never);
+		vi.mocked(lucia.createSessionCookie).mockReturnValue({ value: 'auth_session=s9; Path=/' } as never);
 
 		const event = mockEvent('guest-1');
-		const redirect = (await GET(event).catch((e) => e));
+		const redirect = await redirectOf(GET(event));
 
-		// Ownership proven → guest data merged into the existing account.
-		expect(mergeGuestIntoUser).toHaveBeenCalledWith('guest-1', 'existing-9');
-		// Not claimed for the guest itself.
-		expect(claimEmailForUser).not.toHaveBeenCalled();
-		// Signed into the existing account.
+		expect(verifyClaimToken).toHaveBeenCalledWith('tok-1', 'guest-1');
+		// Signed into the existing account the guest merged into.
 		expect(lucia.createSession).toHaveBeenCalledWith('existing-9', {});
 		expect(setSessionCookie).toHaveBeenCalled();
-		// Redirects to the calendar with success flag.
 		expect(redirect.status).toBe(302);
 		expect(redirect.location).toContain('/calendar');
 	});
 
-	it('still claims the email for the guest when it is not already registered', async () => {
-		const { peekClaimToken, consumeClaimToken } = await import('$lib/server/services/claimService');
-		const { getUserByEmail, claimEmailForUser } = await import('$lib/server/db/actions/users');
-		const { mergeGuestIntoUser } = await import('$lib/server/services/guestMergeService');
-		const { getUserSettings, createUserSettings } = await import('$lib/server/db/actions/userSettings');
+	it('redirects to the calendar without re-signing when the email is claimed', async () => {
+		vi.mocked(verifyClaimToken).mockResolvedValue({ outcome: 'claimed', userId: 'guest-1' });
 
-		vi.mocked(peekClaimToken).mockResolvedValue({ userId: 'guest-1', email: 'new@example.com' } as any);
-		vi.mocked(consumeClaimToken).mockResolvedValue(true);
-		vi.mocked(getUserByEmail).mockResolvedValue(undefined as any);
-		vi.mocked(getUserSettings).mockResolvedValue(undefined as any);
+		const redirect = await redirectOf(GET(mockEvent('guest-1')));
 
-		const redirect = await GET(mockEvent('guest-1')).catch((e) => e);
-
-		expect(mergeGuestIntoUser).not.toHaveBeenCalled();
-		expect(claimEmailForUser).toHaveBeenCalledWith('guest-1', 'new@example.com');
-		expect(createUserSettings).toHaveBeenCalled();
+		expect(verifyClaimToken).toHaveBeenCalledWith('tok-1', 'guest-1');
+		expect(lucia.createSession).not.toHaveBeenCalled();
 		expect(redirect.status).toBe(302);
 		expect(redirect.location).toContain('/calendar');
+	});
+
+	it('redirects back to claim with an error when the token is invalid', async () => {
+		vi.mocked(verifyClaimToken).mockResolvedValue({ outcome: 'invalid' });
+
+		const redirect = await redirectOf(GET(mockEvent('guest-1')));
+
+		expect(lucia.createSession).not.toHaveBeenCalled();
+		expect(redirect.status).toBe(302);
+		expect(redirect.location).toContain('/claim?error=invalid');
 	});
 });
