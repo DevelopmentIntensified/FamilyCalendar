@@ -2,7 +2,7 @@ import { db } from '$lib/server/db';
 import { eventAttendance, eventExceptions, events, users, type CalendarEvent } from '$lib/server/db/schema';
 import type { EventAttendanceSummary } from '$lib/types';
 import { eq, and, sql, inArray, or } from 'drizzle-orm';
-import { getAccessibleCalendarIds, eventAccessFilter } from '$lib/server/utils/calendarScope';
+import { getAccessibleCalendarIds, eventAccessFilter } from '$lib/server/db/actions/calendarScope';
 import { toDateTime } from '$lib/server/utils/eventTimes';
 
 export async function getEvent(id: string) {

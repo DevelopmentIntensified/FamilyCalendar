@@ -6,7 +6,7 @@ import type { Actions } from './$types';
 import { deleteEvent, getEventAttendance } from '$lib/server/db/actions/events';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
-import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
+import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 
 export const load: PageServerLoad = async (e) => {
 	if (!e.locals.user) {

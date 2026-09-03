@@ -11,7 +11,7 @@ import { TASK_PRIORITIES } from '$lib/server/db/actions/dashboard';
 import { db } from '$lib/server/db';
 import { events, familyMembers } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
+import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { requireUserJson } from '$lib/server/utils/requireUser';
 

@@ -1,6 +1,7 @@
 import type { CalendarEvent } from '$lib/server/db/schema';
 import { getExceptionsByEventIds, getUserRsvpStatuses, getEventAttendanceSummaries } from '$lib/server/db/actions/events';
 import { expandRecurrence } from './recurrenceService';
+import { buildOccurrenceId, normalizeOccurrenceIso } from '$lib/server/utils/eventIds';
 import type { RSVPStatus, EventAttendanceSummary } from '$lib/types';
 
 export { parseEvents } from '$lib/utils/eventDisplay';
@@ -32,7 +33,13 @@ export async function expandEventsForUser(eventsData: CalendarEvent[]): Promise<
 	const exceptions = await getExceptionsByEventIds(eventsData.map((e) => e.id));
 
 	const exceptionByKey = new Map(
-		exceptions.map((x) => [`${x.eventId}~${new Date(x.originalDate).toISOString()}`, x])
+		exceptions.map((x) => [
+			buildOccurrenceId(
+				x.eventId,
+				normalizeOccurrenceIso(x.originalDate) ?? new Date(x.originalDate).toISOString()
+			),
+			x
+		])
 	);
 
 	const now = Date.now();
@@ -48,7 +55,7 @@ export async function expandEventsForUser(eventsData: CalendarEvent[]): Promise<
 
 		for (const occ of occurrences) {
 			const occIso = occ.toISOString();
-			const exception = exceptionByKey.get(`${e.id}~${occIso}`);
+			const exception = exceptionByKey.get(buildOccurrenceId(e.id, occIso));
 			if (exception?.isCancelled) continue;
 
 			// Start/end overrides shift the occurrence itself; without an
@@ -65,7 +72,7 @@ export async function expandEventsForUser(eventsData: CalendarEvent[]): Promise<
 						: null;
 			result.push({
 				...e,
-				id: `${e.id}~${occIso}`,
+				id: buildOccurrenceId(e.id, occIso),
 				masterId: e.id,
 				occurrenceDate: occIso,
 				start: effectiveStart.toISOString(),

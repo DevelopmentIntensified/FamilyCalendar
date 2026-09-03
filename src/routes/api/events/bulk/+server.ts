@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { calendars, events, families, eventAttendance } from '$lib/server/db/schema';
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
+import { getAccessibleCalendarIds, eventAccessFilter } from '$lib/server/db/actions/calendarScope';
 import { updateEventById, deleteEventInScope } from '$lib/server/db/actions/events';
 import { planBulkEdits, parseBulkPlan } from '$lib/server/services/bulkAiService';
 import { applyBulkPlan } from '$lib/server/services/bulkApplyService';
@@ -41,26 +42,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	// Editable = events the caller owns OR events on a calendar they can
 	// see (personal or their family's) — mirrors the calendar read scope.
-	const memberFamilyId = await getUserFamilyId(userId);
-	const calWhere = memberFamilyId
-		? or(eq(calendars.ownerId, userId), eq(calendars.familyId, memberFamilyId))
-		: eq(calendars.ownerId, userId);
-	const accessibleCalIds = (
-		await db.select({ id: calendars.id }).from(calendars).where(calWhere)
-	).map((c) => c.id);
+	const accessibleCalIds = await getAccessibleCalendarIds(userId);
 
 	const editableRows = await db
 		.select({ id: events.id })
 		.from(events)
-		.where(
-			and(
-				inArray(events.id, masterIds),
-				or(
-					eq(events.ownerId, userId),
-					accessibleCalIds.length > 0 ? inArray(events.calendarId, accessibleCalIds) : sql`false`
-				)
-			)
-		);
+		.where(and(inArray(events.id, masterIds), eventAccessFilter(userId, accessibleCalIds)));
 	const ownedIds = editableRows.map((r) => r.id);
 
 	if (ownedIds.length === 0) {
@@ -162,6 +149,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					};
 				});
 
+				const memberFamilyId = await getUserFamilyId(userId);
+				const calWhere = memberFamilyId
+					? or(eq(calendars.ownerId, userId), eq(calendars.familyId, memberFamilyId))
+					: eq(calendars.ownerId, userId);
 				const calRows = await db
 					.select({
 						id: calendars.id,

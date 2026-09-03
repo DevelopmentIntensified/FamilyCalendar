@@ -1,14 +1,9 @@
 import { db } from '$lib/server/db';
-import {
-	calendars,
-	events,
-	sessions,
-	tasks,
-	users
-} from '$lib/server/db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
+import { events, sessions, tasks, users } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 import type { Cookies } from '@sveltejs/kit';
 import { lucia } from '$lib/server/auth';
+import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 
 export const GUEST_MERGE_COOKIE = 'guest_merge';
 
@@ -61,20 +56,9 @@ export async function mergeGuestIntoUser(guestId: string, targetUserId: string):
 	if (!guest || guestId === targetUserId) return null;
 
 	return db.transaction(async (tx) => {
-		// Target personal calendar (family calendars excluded), re-checked inside
-		// the transaction so concurrent merges can't double-create it.
-		let [personalCal] = await tx
-			.select()
-			.from(calendars)
-			.where(and(eq(calendars.ownerId, targetUserId), isNull(calendars.familyId)));
-		if (!personalCal) {
-			await tx.insert(calendars).values({ ownerId: targetUserId });
-			const [created] = await tx
-				.select()
-				.from(calendars)
-				.where(and(eq(calendars.ownerId, targetUserId), isNull(calendars.familyId)));
-			personalCal = created;
-		}
+		// Target personal calendar (family calendars excluded), re-checked
+		// inside this transaction so concurrent merges can't double-create it.
+		const personalCal = await ensurePersonalCalendar(targetUserId, tx);
 		if (!personalCal) return null;
 
 		const movedEvents = await tx

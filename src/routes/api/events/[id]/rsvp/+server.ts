@@ -1,32 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { updateRsvp, getEventAttendance, getEventRsvpStatus } from '$lib/server/db/actions/events';
-import { db } from '$lib/server/db';
-import { events } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
-
-// Caller may touch an event only if they own it or it lives on a
-// calendar they can see (personal or their family's).
-async function requireEventAccess(userId: string, eventId: string) {
-	const [event] = await db
-		.select({ id: events.id, calendarId: events.calendarId, ownerId: events.ownerId })
-		.from(events)
-		.where(eq(events.id, eventId))
-		.limit(1);
-
-	if (!event) {
-		return { error: json({ error: 'Event not found' }, { status: 404 }) };
-	}
-
-	const calIds = await getAccessibleCalendarIds(userId);
-	const hasCalendarAccess = !!event.calendarId && calIds.includes(event.calendarId);
-	if (event.ownerId !== userId && !hasCalendarAccess) {
-		return { error: json({ error: 'No access to this event' }, { status: 403 }) };
-	}
-
-	return { error: null };
-}
+import { canTouchEvent } from '$lib/server/db/actions/calendarScope';
 
 export const POST: RequestHandler = async ({ request, locals, params }) => {
 	if (!locals.user) {
@@ -34,8 +9,9 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 	}
 
 	const userId = locals.user.id;
-	const gate = await requireEventAccess(userId, params.id);
-	if (gate.error) return gate.error;
+	const access = await canTouchEvent(userId, params.id);
+	if (access === 'not-found') return json({ error: 'Event not found' }, { status: 404 });
+	if (access === 'forbidden') return json({ error: 'No access to this event' }, { status: 403 });
 
 	const body = await request.json();
 	const { status } = body;
@@ -60,8 +36,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const gate = await requireEventAccess(locals.user.id, params.id);
-	if (gate.error) return gate.error;
+	const access = await canTouchEvent(locals.user.id, params.id);
+	if (access === 'not-found') return json({ error: 'Event not found' }, { status: 404 });
+	if (access === 'forbidden') return json({ error: 'No access to this event' }, { status: 403 });
 
 	try {
 		const attendance = await getEventAttendance(params.id);

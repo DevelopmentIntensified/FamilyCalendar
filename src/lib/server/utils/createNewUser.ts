@@ -3,7 +3,7 @@ import { createUser } from '../db/actions/users';
 import { generateId } from 'lucia';
 import { createUserSettings } from '../db/actions/userSettings';
 import { randHex } from '@ngneat/falso';
-import { createCalendar } from '../db/actions/calendar';
+import { ensurePersonalCalendar } from '../db/actions/calendar';
 
 export const createNewUser = async function (firstName: string, lastName: string, email: string) {
 	let user = await createUser({
@@ -29,9 +29,7 @@ export const createNewUser = async function (firstName: string, lastName: string
 		color: randHex()
 	});
 
-	await createCalendar({
-		ownerId: user.id
-	});
+	await ensurePersonalCalendar(user.id);
 
 	return user;
 };

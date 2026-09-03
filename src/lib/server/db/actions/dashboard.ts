@@ -1,7 +1,20 @@
 /**
- * Dashboard selectors — pure functions over task rows (no DB access).
- * Lives apart from the tasks actions so ranking rules are unit-testable.
+ * Dashboard selectors — pure functions over task rows (no DB access) plus the
+ * Day Dashboard's data-retrieval functions (which DO hit the db). The pure
+ * ranking rules live apart from the tasks actions so they are unit-testable;
+ * the db functions are thin, named retrievals so the route composes instead of
+ * embedding raw queries.
  */
+
+import { db } from '$lib/server/db';
+import {
+	calendars,
+	events,
+	eventAttendance,
+	taskCompletions,
+	type CalendarEvent
+} from '$lib/server/db/schema';
+import { and, desc, eq, inArray, isNotNull, isNull, ne } from 'drizzle-orm';
 
 export type TaskPriority = 'low' | 'normal' | 'high';
 export const TASK_PRIORITIES = ['low', 'normal', 'high'] as const;
@@ -64,4 +77,88 @@ export function rankTop3(tasks: RankableTask[], viewerId: string, opts: RankOpts
 	});
 
 	return scored.slice(0, limit).map((s) => s.t);
+}
+
+/**
+ * The viewer's own Personal Calendar plus its events, for the Day Dashboard.
+ * Returns `null` when the user has no personal calendar (then no events).
+ */
+export async function getUserDayCalendar(userId: string): Promise<{
+	calendar: typeof calendars.$inferSelect | null;
+	events: CalendarEvent[];
+}> {
+	const [userCal] = await db
+		.select()
+		.from(calendars)
+		.where(and(eq(calendars.ownerId, userId), isNull(calendars.familyId)));
+	if (!userCal) return { calendar: null, events: [] };
+	const userEvents = await db.select().from(events).where(eq(events.calendarId, userCal.id));
+	return { calendar: userCal, events: userEvents };
+}
+
+/**
+ * Family events for the Day Dashboard — always shown day list, so this is
+ * fetched whenever a family exists regardless of Dashboard Module visibility.
+ */
+export async function getFamilyDayEvents(familyId: string): Promise<CalendarEvent[]> {
+	const [familyCal] = await db.select().from(calendars).where(eq(calendars.familyId, familyId));
+	if (!familyCal) return [];
+	return await db.select().from(events).where(eq(events.calendarId, familyCal.id));
+}
+
+/**
+ * The set of family-member userIds "attending today": attendance rows for the
+ * given family event ids whose user is set and hasn't declined.
+ */
+export async function getFamilyAttendanceForEvents(
+	familyEventIds: string[]
+): Promise<{ userId: string | null }[]> {
+	return await db
+		.select({ userId: eventAttendance.userId })
+		.from(eventAttendance)
+		.where(
+			and(
+				inArray(eventAttendance.eventId, familyEventIds),
+				isNotNull(eventAttendance.userId),
+				ne(eventAttendance.status, 'declined')
+			)
+		);
+}
+
+/**
+ * Kids' Schedule attendance rows: family event attendees who are children
+ * (memberType='child') and haven't declined, keyed by event + user.
+ */
+export async function getKidsScheduleAttendance(
+	familyEventIds: string[],
+	childIds: string[]
+): Promise<{ eventId: string; userId: string | null }[]> {
+	return await db
+		.select({
+			eventId: eventAttendance.eventId,
+			userId: eventAttendance.userId
+		})
+		.from(eventAttendance)
+		.where(
+			and(
+				inArray(eventAttendance.eventId, familyEventIds),
+				inArray(eventAttendance.userId, childIds),
+				ne(eventAttendance.status, 'declined')
+			)
+		);
+}
+
+/**
+ * Completion timestamps for the viewer's streak, most-recent first (capped at
+ * the year the Day Dashboard streak window needs).
+ */
+export async function getCompletionTimestamps(
+	userId: string
+): Promise<{ completedAt: string }[]> {
+	return await db
+		.select({ completedAt: taskCompletions.completedAt })
+		.from(taskCompletions)
+		.where(eq(taskCompletions.userId, userId))
+		.orderBy(desc(taskCompletions.completedAt))
+		.limit(365);
 }

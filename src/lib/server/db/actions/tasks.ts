@@ -324,6 +324,38 @@ async function advanceRecurringTask(task: Task, zone?: string): Promise<Task | u
 }
 
 /**
+ * Permission predicate for mutating a task: the owner, the assignee, or any
+ * member of the task's family may mutate it. Family membership is the only
+ * DB-backed leg, so the lookup runs only when the cheaper owned/assigned
+ * checks fail (mirrors the behaviour of the caller's original inline guard).
+ */
+export async function canMutateTask(task: Task, userId: string): Promise<boolean> {
+	const owned = task.userId === userId;
+	const assigned = task.assignedTo === userId;
+	if (owned || assigned) return true;
+	// Family tasks: membership grants rights. A private task (no family)
+	// leaves an unrelated caller with no access.
+	if (!task.familyId) return false;
+	const [member] = await db
+		.select({ familyId: familyMembers.familyId })
+		.from(familyMembers)
+		.where(and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, task.familyId)));
+	return Boolean(member);
+}
+
+/**
+ * Shared recurring-vs-oneoff toggle decision: completing an OPEN recurring
+ * task rolls the cursor onto the next occurrence instead of closing it out;
+ * everything else is a plain complete/un-complete toggle.
+ */
+export async function applyToggle(task: Task, zone?: string): Promise<Task | undefined> {
+	if (!task.completedAt && task.recurrenceFrequency) {
+		return advanceRecurringTask(task, zone);
+	}
+	return toggleCompletion(task);
+}
+
+/**
  * Double-click protection: only complete when still open, only
  * un-complete when still completed.
  */
@@ -367,12 +399,7 @@ export async function toggleTaskComplete(
 		.where(and(eq(tasks.id, id), or(eq(tasks.userId, userId), eq(tasks.assignedTo, userId))));
 	if (!task) return undefined;
 
-	// Completing a Recurring Task rolls the cursor onto the next
-	// scheduled occurrence instead of closing it out.
-	if (!task.completedAt && task.recurrenceFrequency) {
-		return advanceRecurringTask(task, zone);
-	}
-	return toggleCompletion(task);
+	return applyToggle(task, zone);
 }
 
 export async function deleteTask(id: string, userId: string) {
@@ -416,10 +443,7 @@ export async function toggleTaskCompleteFamily(
 		.where(and(eq(tasks.id, id), eq(tasks.familyId, familyId)));
 	if (!task) return undefined;
 
-	if (!task.completedAt && task.recurrenceFrequency) {
-		return advanceRecurringTask(task, zone);
-	}
-	return toggleCompletion(task);
+	return applyToggle(task, zone);
 }
 
 /**
@@ -436,18 +460,7 @@ export async function advanceTaskToNext(
 	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
 	if (!task || !task.recurrenceFrequency) return null;
 
-	const owned = task.userId === userId;
-	const assigned = task.assignedTo === userId;
-	if (!owned && !assigned) {
-		// Family tasks: membership grants skip rights. If the task is
-		// private (no family), an unrelated caller gets nowhere.
-		if (!task.familyId) return null;
-		const [member] = await db
-			.select({ familyId: familyMembers.familyId })
-			.from(familyMembers)
-			.where(and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, task.familyId)));
-		if (!member) return null;
-	}
+	if (!(await canMutateTask(task, userId))) return null;
 
 	const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
 	const dueDate = advanceCursor(
@@ -480,16 +493,7 @@ export async function undoRecurringCompletion(
 	const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
 	if (!task || !task.recurrenceFrequency) return null;
 
-	const owned = task.userId === userId;
-	const assigned = task.assignedTo === userId;
-	if (!owned && !assigned) {
-		if (!task.familyId) return null;
-		const [member] = await db
-			.select({ familyId: familyMembers.familyId })
-			.from(familyMembers)
-			.where(and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, task.familyId)));
-		if (!member) return null;
-	}
+	if (!(await canMutateTask(task, userId))) return null;
 
 	const [updated] = await db
 		.update(tasks)

@@ -4,25 +4,9 @@ import { db } from '$lib/server/db';
 import { eventExceptions } from '$lib/server/db/schema';
 import { updateEventById, deleteEventById, getEvent, upsertException } from '$lib/server/db/actions/events';
 import { resolveEventInvites } from '$lib/server/utils/eventInvites';
-import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
-import { toDateTime } from '$lib/server/utils/eventTimes';
+import { getAccessibleCalendarIds, canTouchEvent } from '$lib/server/db/actions/calendarScope';
+import { resolveOccurrenceId, normalizeOccurrenceIso } from '$lib/server/utils/eventIds';
 import { eq } from 'drizzle-orm';
-
-interface EventScopeRef {
-	ownerId: string;
-	calendarId: string | null;
-	recurrenceFrequency: string | null;
-}
-
-function isAccessibleEvent(event: EventScopeRef, userId: string, accessibleCalIds: string[]) {
-	return event.ownerId === userId || (!!event.calendarId && accessibleCalIds.includes(event.calendarId));
-}
-
-/** Normalize any timestamp shape into the exact UTC ISO form
- *  expandEventsForUser keys exceptions by (`{eventId}~{occ.toISOString()}`). */
-function normalizeOccurrence(value: unknown): string | null {
-	return toDateTime(value)?.toUTC().toISO() ?? null;
-}
 
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
 	if (!locals.user) {
@@ -35,7 +19,11 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 	// form `${masterId}~${occurrenceISO}` — including for non-recurring events.
 	// The events table only knows the real id, so resolve to the master before
 	// any DB lookup or the row is never found ("Event not found").
-	const id = params.id.split('~')[0];
+	const resolved = resolveOccurrenceId(params.id);
+	if (!resolved) {
+		return json({ error: 'Invalid event id' }, { status: 400 });
+	}
+	const id = resolved.masterId;
 	// Only touch invitations when the caller actually sent attendee data.
 	const hasInvites = Array.isArray(body.attendees) || Array.isArray(body.attendants);
 	const invites = hasInvites
@@ -52,10 +40,13 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 		}
 
 		if (body.scope === 'this' && existing.recurrenceFrequency) {
-			if (!isAccessibleEvent(existing, userId, accessibleCalIds)) {
+			if ((await canTouchEvent(userId, id)) === 'forbidden') {
 				return json({ error: 'Event not accessible' }, { status: 403 });
 			}
-			const originalDate = normalizeOccurrence(body.occurrenceDate);
+			// The occurrence is authoritative from the id the server generated;
+			// body.occurrenceDate is only a compat fallback when the id has no
+			// occurrence part (a bare master id).
+			const originalDate = resolved.occurrenceIso ?? normalizeOccurrenceIso(body.occurrenceDate);
 			if (!originalDate) {
 				return json({ error: 'A valid occurrenceDate is required' }, { status: 400 });
 			}
@@ -111,18 +102,19 @@ export const DELETE: RequestHandler = async ({ request, locals, params }) => {
 	const body = await request.json().catch(() => ({}));
 	const scope = body.scope === 'this' ? 'this' : 'all';
 	// Resolve composite display id (`${masterId}~${iso}`) to the real id.
-	const id = params.id.split('~')[0];
+	const resolved = resolveOccurrenceId(params.id);
+	if (!resolved) {
+		return json({ error: 'Invalid event id' }, { status: 400 });
+	}
+	const id = resolved.masterId;
 
 	try {
 		if (scope === 'this') {
-			const [existing, accessibleCalIds] = await Promise.all([
-				getEvent(id),
-				getAccessibleCalendarIds(userId)
-			]);
+			const existing = await getEvent(id);
 			if (!existing) {
 				return json({ error: 'Event not found' }, { status: 404 });
 			}
-			if (!isAccessibleEvent(existing, userId, accessibleCalIds)) {
+			if ((await canTouchEvent(userId, id)) === 'forbidden') {
 				return json({ error: 'Event not accessible' }, { status: 403 });
 			}
 
@@ -134,7 +126,10 @@ export const DELETE: RequestHandler = async ({ request, locals, params }) => {
 				return json({ success: true });
 			}
 
-			const originalDate = normalizeOccurrence(body.occurrenceDate);
+			// The occurrence is authoritative from the id the server generated;
+			// body.occurrenceDate is only a compat fallback when the id has no
+			// occurrence part (a bare master id).
+			const originalDate = resolved.occurrenceIso ?? normalizeOccurrenceIso(body.occurrenceDate);
 			if (!originalDate) {
 				return json({ error: 'A valid occurrenceDate is required' }, { status: 400 });
 			}

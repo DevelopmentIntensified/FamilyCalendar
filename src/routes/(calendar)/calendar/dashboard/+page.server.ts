@@ -1,15 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { db } from '$lib/server/db';
-import {
-	calendars,
-	events,
-	taskCompletions,
-	eventAttendance,
-	type CalendarEvent,
-	type Meal
-} from '$lib/server/db/schema';
-import { and, desc, eq, inArray, isNotNull, isNull, ne } from 'drizzle-orm';
+import type { CalendarEvent, Meal } from '$lib/server/db/schema';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
 import { getMealsByDate } from '$lib/server/db/actions/meals';
@@ -18,7 +9,15 @@ import {
 	getTasksForFamily,
 	syncRecurringCursors
 } from '$lib/server/db/actions/tasks';
-import { rankTop3, type RankableTask } from '$lib/server/db/actions/dashboard';
+import {
+	rankTop3,
+	getUserDayCalendar,
+	getFamilyDayEvents,
+	getFamilyAttendanceForEvents,
+	getKidsScheduleAttendance,
+	getCompletionTimestamps,
+	type RankableTask
+} from '$lib/server/db/actions/dashboard';
 import {
 	getFamilyModuleSwitches,
 	composeModuleVisibility
@@ -99,19 +98,10 @@ export const load: PageServerLoad = async (event) => {
 	const openFamilyTasks = familyTasks.filter((t) => !t.completedAt);
 
 	// Events for the day, from the personal + (optional) family calendar.
-	const [userCal] = await db
-		.select()
-		.from(calendars)
-		.where(and(eq(calendars.ownerId, userId), isNull(calendars.familyId)));
-	const userEventsData = userCal
-		? await db.select().from(events).where(eq(events.calendarId, userCal.id))
-		: [];
+	const { events: userEventsData } = await getUserDayCalendar(userId);
 	let familyEventsData: CalendarEvent[] = [];
 	if (familyId) {
-		const [familyCal] = await db.select().from(calendars).where(eq(calendars.familyId, familyId));
-		if (familyCal) {
-			familyEventsData = await db.select().from(events).where(eq(events.calendarId, familyCal.id));
-		}
+		familyEventsData = await getFamilyDayEvents(familyId);
 	}
 
 	const [parsedUser, parsedFamily] = await Promise.all([
@@ -171,16 +161,7 @@ export const load: PageServerLoad = async (event) => {
 			.filter((e) => e.source === 'family')
 			.map((e) => e.masterId ?? e.id);
 		const attendanceRows = familyEventIds.length
-			? await db
-					.select({ userId: eventAttendance.userId })
-					.from(eventAttendance)
-					.where(
-						and(
-							inArray(eventAttendance.eventId, familyEventIds),
-							isNotNull(eventAttendance.userId),
-							ne(eventAttendance.status, 'declined')
-						)
-					)
+			? await getFamilyAttendanceForEvents(familyEventIds)
 			: [];
 		const attending = new Set(attendanceRows.map((a) => a.userId!).filter(Boolean));
 		memberStatus = familyMembers.map((m) => {
@@ -204,19 +185,7 @@ export const load: PageServerLoad = async (event) => {
 				childMembers.map((m) => [m.userId, m.firstName.trim() || m.userId])
 			);
 			const kidsAttendance = familyEventIds.length
-				? await db
-						.select({
-							eventId: eventAttendance.eventId,
-							userId: eventAttendance.userId
-						})
-						.from(eventAttendance)
-						.where(
-							and(
-								inArray(eventAttendance.eventId, familyEventIds),
-								inArray(eventAttendance.userId, [...childIds]),
-								ne(eventAttendance.status, 'declined')
-							)
-						)
+				? await getKidsScheduleAttendance(familyEventIds, [...childIds])
 				: [];
 			const kidsByEvent = new Map<string, string[]>();
 			for (const row of kidsAttendance) {
@@ -269,12 +238,7 @@ export const load: PageServerLoad = async (event) => {
 		(t) => !t.completedAt && t.dueDate && new Date(t.dueDate) < dayEnd.toJSDate()
 	).length;
 
-	const completionRows = await db
-		.select({ completedAt: taskCompletions.completedAt })
-		.from(taskCompletions)
-		.where(eq(taskCompletions.userId, userId))
-		.orderBy(desc(taskCompletions.completedAt))
-		.limit(365);
+	const completionRows = await getCompletionTimestamps(userId);
 	const streak = computeWeeklyStreak(
 		completionRows.map((r) => toIsoTimestamp(r.completedAt)).filter(Boolean),
 		now.toISO()!

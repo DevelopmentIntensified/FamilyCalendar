@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { calendars, events, familyMembers } from '$lib/server/db/schema';
-import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { eq, inArray, or, sql } from 'drizzle-orm';
 
 /**
  * Ids of calendars the user can see: their personal calendars plus the
@@ -27,4 +27,28 @@ export function eventAccessFilter(userId: string, accessibleCalIds: string[]) {
 		eq(events.ownerId, userId),
 		accessibleCalIds.length > 0 ? inArray(events.calendarId, accessibleCalIds) : sql`false`
 	);
+}
+
+/**
+ * Whether the user may touch a single Event: they own it OR its Calendar
+ * is in their accessible set (personal + first family). Fetches the event
+ * itself so the caller doesn't duplicate the lookup.
+ *
+ * Returns `'not-found'` when the event doesn't exist and `'forbidden'`
+ * when it exists but the caller may not touch it.
+ */
+export async function canTouchEvent(
+	userId: string,
+	eventId: string
+): Promise<'not-found' | 'forbidden' | 'allowed'> {
+	const [event] = await db
+		.select({ calendarId: events.calendarId, ownerId: events.ownerId })
+		.from(events)
+		.where(eq(events.id, eventId))
+		.limit(1);
+	if (!event) return 'not-found';
+	const accessibleCalIds = await getAccessibleCalendarIds(userId);
+	if (event.ownerId === userId) return 'allowed';
+	if (event.calendarId && accessibleCalIds.includes(event.calendarId)) return 'allowed';
+	return 'forbidden';
 }

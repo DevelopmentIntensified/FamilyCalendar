@@ -4,7 +4,7 @@ import { createEvent } from '$lib/server/db/actions/events';
 import { db } from '$lib/server/db';
 import { calendars, events } from '$lib/server/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
-import { getAccessibleCalendarIds } from '$lib/server/utils/calendarScope';
+import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { resolveEventInvites } from '$lib/server/utils/eventInvites';
 

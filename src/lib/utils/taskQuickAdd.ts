@@ -18,6 +18,14 @@
  */
 import type { TaskPriority } from '$lib/server/db/actions/dashboard';
 import type { TaskFrequency } from '$lib/server/db/actions/tasks';
+import {
+	MONTH_INDEX_0,
+	MONTH_NAME_TOKEN,
+	WEEKDAY_FULL,
+	WEEKDAY_SHORT,
+	WEEKDAY_TOKEN,
+	escapeRegExp
+} from '$lib/utils/dateVocab';
 
 /** A family roster member the quick-add can be pointed at. */
 export interface TaskQuickAddMember {
@@ -59,10 +67,14 @@ export interface TaskQuickAddResult {
 	recurrenceInterval: number | null;
 }
 
-const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+// Full weekday names for weekday arithmetic (Sunday = 0, matching Date.getDay()).
+// Shared vocabulary lives in `dateVocab.ts`; WEEKDAY_FULL is the source of truth.
+const WEEKDAYS = WEEKDAY_FULL;
 
-export const TASK_QUICK_ADD_DATE_RE =
-	/\b(today|tomorrow|sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)\b/i;
+export const TASK_QUICK_ADD_DATE_RE = new RegExp(
+	`\\b(today|tomorrow|${WEEKDAY_FULL.concat(WEEKDAY_SHORT).join('|')})\\b`,
+	'i'
+);
 
 export const TASK_QUICK_ADD_PRIORITY_RE =
 	/\b(high\s*-?\s*priority|low\s*-?\s*priority|priority\s*[:=]?\s*(high|low)|not\s+urgent|urgent|asap)\b/i;
@@ -70,18 +82,12 @@ export const TASK_QUICK_ADD_PRIORITY_RE =
 /** A `#tag` token: `#` followed by word chars and hyphens (e.g. `#groceries`). */
 export const TASK_QUICK_ADD_TAG_RE = /#[\p{L}\p{N}_-]+/gu;
 
-const WEEKDAY_TOKEN =
-	'(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)';
-
 /** "next friday"/"next mon" — matched whole so "next" isn't left orphaned. */
 const TASK_QUICK_ADD_NEXT_WEEKDAY_RE = new RegExp(`\\bnext\\s+(${WEEKDAY_TOKEN})\\b`, 'i');
 
-const MONTH_NAME =
-	'(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)';
-
 /** "jan 5", "february 14th", "dec 25, 2027" — month+day, optional year. */
 const TASK_QUICK_ADD_MONTH_DATE_RE = new RegExp(
-	`\\b${MONTH_NAME}\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(\\d{4}))?\\b`,
+	`\\b${MONTH_NAME_TOKEN}\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(\\d{4}))?\\b`,
 	'i'
 );
 
@@ -102,32 +108,8 @@ const FREQ_FROM_UNIT: Record<RecurrenceUnit, TaskFrequency> = {
 	year: 'yearly'
 };
 
-const MONTH_INDEX: Record<string, number> = {
-	jan: 0,
-	january: 0,
-	feb: 1,
-	february: 1,
-	mar: 2,
-	march: 2,
-	apr: 3,
-	april: 3,
-	may: 4,
-	jun: 5,
-	june: 5,
-	jul: 6,
-	july: 6,
-	aug: 7,
-	august: 7,
-	sep: 8,
-	sept: 8,
-	september: 8,
-	oct: 9,
-	october: 9,
-	nov: 10,
-	november: 10,
-	dec: 11,
-	december: 11
-};
+/** 0-based month name/abbreviation → index (shared vocabulary). */
+const MONTH_INDEX = MONTH_INDEX_0;
 
 /** Lowercase, strip the leading `#`, dedupe, and sort raw `#tag` matches. */
 export function normalizeQuickAddTags(matches: string[]): string[] {
@@ -165,10 +147,6 @@ export interface TaskAssigneeMatch {
  * must precede `assign` so the longer phrase wins at the same spot.
  */
 const ASSIGNEE_TRIGGERS = ['@', 'assign to', 'assign', 'task', 'for', 'to'] as const;
-
-function escapeRegExp(s: string): string {
-	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 function assigneePhraseRe(trigger: string, name: string): RegExp {
 	const esc = escapeRegExp(name);

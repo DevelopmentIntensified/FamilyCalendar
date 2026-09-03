@@ -9,8 +9,8 @@ import {
 	families,
 	type CalendarEvent
 } from '$lib/server/db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
-import { createUserCalendar } from '$lib/server/db/actions/calendar';
+import { eq } from 'drizzle-orm';
+import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
 import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
 import {
@@ -57,25 +57,14 @@ export const load: PageServerLoad = async (event) => {
 		return redirect(302, '/calendar/dashboard');
 	}
 
-	let userCalendar = await db
-		.select()
-		.from(calendars)
-		.where(and(eq(calendars.ownerId, userId), isNull(calendars.familyId)));
-
-	if (userCalendar.length === 0) {
-		await createUserCalendar(userId);
-		userCalendar = await db
-			.select()
-			.from(calendars)
-			.where(and(eq(calendars.ownerId, userId), isNull(calendars.familyId)));
-	}
+	const userCalendar = await ensurePersonalCalendar(userId);
 
 	let userEvents: CalendarEvent[] = [];
-	if (userCalendar.length > 0) {
+	if (userCalendar) {
 		userEvents = await db
 			.select()
 			.from(events)
-			.where(eq(events.calendarId, userCalendar[0].id))
+			.where(eq(events.calendarId, userCalendar.id))
 			.orderBy(events.start);
 	}
 
@@ -88,8 +77,8 @@ export const load: PageServerLoad = async (event) => {
 	const userCalendarColor = userSettings?.color || '#fa8072';
 	let calendarIds: { id: string; name: string; color: string }[] = [];
 	
-	if (userCalendar.length > 0) {
-		calendarIds.push({ id: userCalendar[0].id, name: 'Personal Calendar', color: userCalendarColor });
+	if (userCalendar) {
+		calendarIds.push({ id: userCalendar.id, name: 'Personal Calendar', color: userCalendarColor });
 	}
 	
 	try {
