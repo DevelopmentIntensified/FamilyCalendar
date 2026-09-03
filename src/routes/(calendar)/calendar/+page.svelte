@@ -360,6 +360,13 @@
 </script>
 
 <div class="pb-24">
+	{#if (data.loadWarnings ?? []).length > 0}
+		<div class="mx-auto max-w-xl px-4 pt-4" role="alert">
+			<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+				Couldn't load {(data.loadWarnings ?? []).join(', ')} just now — everything else is up to date.
+			</div>
+		</div>
+	{/if}
 	{#if showFirstRunCard}
 		<div class="relative mx-auto mb-4 max-w-xl px-4 pt-4">
 			<EmptyState
