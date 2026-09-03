@@ -28,6 +28,10 @@ export interface FormEventData {
 	attendees?: { value: string; isUser: boolean; inviteType: 'required' | 'optional' }[];
 	recurrenceFrequency: string | null;
 	recurrenceInterval: number | null;
+	recurrenceByDay?: string[] | null;
+	recurrenceCount?: number | null;
+	recurrenceUntil?: string | null;
+	reminderMinutes?: number | null;
 }
 
 function loadRecentAttendants(): string[] {
@@ -60,6 +64,9 @@ interface InitialEvent {
 	attendees?: { value: string; isUser: boolean; inviteType?: string }[];
 	recurrenceFrequency?: string | null;
 	recurrenceInterval?: number | null;
+	recurrenceByDay?: string[] | null;
+	recurrenceCount?: number | null;
+	recurrenceUntil?: string | null;
 	masterId?: string;
 	occurrenceDate?: string;
 }
@@ -70,6 +77,28 @@ interface EventFormConfig {
 	defaultCalendarId?: string | null;
 	initialEvent?: InitialEvent;
 	initialDate?: string;
+}
+
+/** Map parser recurrence tokens to form frequency + interval. */
+function mapRecurringToFrequency(recurring: string): { frequency: string; interval: number } | null {
+	if (recurring === 'biweekly') return { frequency: 'weekly', interval: 2 };
+	const every = recurring.match(/^every_(\d+)_(days?|weeks?|months?|years?)$/);
+	if (every) {
+		const n = Math.max(1, parseInt(every[1]));
+		const unit = every[2].toLowerCase();
+		const frequency = unit.startsWith('day')
+			? 'daily'
+			: unit.startsWith('week')
+				? 'weekly'
+				: unit.startsWith('month')
+					? 'monthly'
+					: 'yearly';
+		return { frequency, interval: n };
+	}
+	if (['daily', 'weekly', 'monthly', 'yearly'].includes(recurring)) {
+		return { frequency: recurring, interval: 1 };
+	}
+	return null;
 }
 
 export function createEventForm(config: EventFormConfig) {
@@ -89,6 +118,10 @@ export function createEventForm(config: EventFormConfig) {
 	let inviteTypes = $state<Record<string, 'required' | 'optional'>>({});
 	let recurrenceFrequency = $state<string | null>(null);
 	let recurrenceInterval = $state(1);
+	let recurrenceByDay = $state<string[] | null>(null);
+	let recurrenceCount = $state<number | null>(null);
+	let recurrenceUntil = $state<string | null>(null);
+	let reminderMinutes = $state<number | null>(null);
 	let recentAttendants = $state<string[]>(loadRecentAttendants());
 
 	let userTouchedFields = $state<Record<string, boolean>>({});
@@ -142,6 +175,9 @@ export function createEventForm(config: EventFormConfig) {
 		}
 		recurrenceFrequency = initialEvent.recurrenceFrequency || null;
 		recurrenceInterval = initialEvent.recurrenceInterval ?? 1;
+		recurrenceByDay = initialEvent.recurrenceByDay ?? null;
+		recurrenceCount = initialEvent.recurrenceCount ?? null;
+		recurrenceUntil = initialEvent.recurrenceUntil ?? null;
 	}
 
 	function clearUntouchedNlpFields() {
@@ -367,6 +403,27 @@ export function createEventForm(config: EventFormConfig) {
 				allDay = parsed.allDay;
 				lastNlpValues.allDay = parsed.allDay;
 			}
+			if (parsed.recurring && recurrenceFrequency == null) {
+				const mapped = mapRecurringToFrequency(parsed.recurring);
+				if (mapped) {
+					recurrenceFrequency = mapped.frequency;
+					recurrenceInterval = mapped.interval;
+					nlpDetectedFields.recurrence = true;
+					lastNlpValues.recurrence = parsed.recurring;
+					if (Array.isArray(parsed.recurringByDay) && parsed.recurringByDay.length > 0) {
+						recurrenceByDay = [...parsed.recurringByDay];
+					}
+					if (typeof parsed.recurringCount === 'number') {
+						recurrenceCount = Math.max(1, Math.floor(parsed.recurringCount));
+					}
+					if (parsed.recurringUntil) {
+						recurrenceUntil = parsed.recurringUntil;
+					}
+				}
+			}
+			if (typeof parsed.reminderMinutes === 'number' && reminderMinutes == null) {
+				reminderMinutes = parsed.reminderMinutes;
+			}
 		},
 
 		toEventData(): FormEventData | null {
@@ -404,7 +461,11 @@ export function createEventForm(config: EventFormConfig) {
 				inviteType: inviteTypes[value] ?? 'optional'
 			})),
 			recurrenceFrequency,
-			recurrenceInterval: recurrenceFrequency ? recurrenceInterval : null
+			recurrenceInterval: recurrenceFrequency ? recurrenceInterval : null,
+			recurrenceByDay: recurrenceFrequency ? recurrenceByDay : null,
+			recurrenceCount: recurrenceFrequency ? recurrenceCount : null,
+			recurrenceUntil: recurrenceFrequency ? recurrenceUntil : null,
+			reminderMinutes
 		};
 		},
 
@@ -428,6 +489,10 @@ export function createEventForm(config: EventFormConfig) {
 			multiDay = false;
 			recurrenceFrequency = null;
 			recurrenceInterval = 1;
+			recurrenceByDay = null;
+			recurrenceCount = null;
+			recurrenceUntil = null;
+			reminderMinutes = null;
 			userTouchedFields = {};
 			nlpDetectedFields = {};
 			lastNlpValues = {};

@@ -60,3 +60,72 @@ describe('EventFormModel - toEventData', () => {
 		expect(data!.location).toBe('Office');
 	});
 });
+
+describe('EventFormModel - NLP recurrence', () => {
+	const setup = () =>
+		createEventForm({
+			calendars: [{ id: 'cal1', name: 'My Calendar' }],
+			familyMembers: [],
+			defaultCalendarId: 'cal1',
+			initialEvent: undefined
+		});
+
+	it('maps weekly + by-day + count into the payload', () => {
+		const form = setup();
+		form.title = 'Yoga';
+		form.date = '2026-09-07';
+		form.applyNlpResult({ recurring: 'weekly', recurringByDay: ['MO', 'WE'], recurringCount: 6 });
+		const data = form.toEventData();
+		expect(data!.recurrenceFrequency).toBe('weekly');
+		expect(data!.recurrenceInterval).toBe(1);
+		expect(data!.recurrenceByDay).toEqual(['MO', 'WE']);
+		expect(data!.recurrenceCount).toBe(6);
+	});
+
+	it('maps until dates into the payload', () => {
+		const form = setup();
+		form.title = 'Yoga';
+		form.date = '2026-09-07';
+		form.applyNlpResult({ recurring: 'weekly', recurringUntil: '2026-12-15' });
+		expect(form.toEventData()!.recurrenceUntil).toBe('2026-12-15');
+	});
+
+	it('maps every_3_days to daily x3 and biweekly to weekly x2', () => {
+		const a = setup();
+		a.title = 'Meds';
+		a.date = '2026-09-07';
+		a.applyNlpResult({ recurring: 'every_3_days' });
+		expect(a.toEventData()!.recurrenceFrequency).toBe('daily');
+		expect(a.toEventData()!.recurrenceInterval).toBe(3);
+
+		const b = setup();
+		b.title = 'Payday';
+		b.date = '2026-09-07';
+		b.applyNlpResult({ recurring: 'biweekly' });
+		expect(b.toEventData()!.recurrenceFrequency).toBe('weekly');
+		expect(b.toEventData()!.recurrenceInterval).toBe(2);
+	});
+
+	it('leaves a user-set frequency alone', () => {
+		const form = setup();
+		form.title = 'Yoga';
+		form.date = '2026-09-07';
+		form.recurrenceFrequency = 'monthly';
+		form.applyNlpResult({ recurring: 'weekly', recurringCount: 6 });
+		const data = form.toEventData();
+		expect(data!.recurrenceFrequency).toBe('monthly');
+		expect(data!.recurrenceCount).toBeNull();
+	});
+
+	it('omits recurrence fields for one-off events', () => {
+		const form = setup();
+		form.title = 'Dinner';
+		form.date = '2026-09-07';
+		form.applyNlpResult({ title: 'Dinner' });
+		const data = form.toEventData();
+		expect(data!.recurrenceFrequency).toBeNull();
+		expect(data!.recurrenceByDay).toBeNull();
+		expect(data!.recurrenceCount).toBeNull();
+		expect(data!.recurrenceUntil).toBeNull();
+	});
+});

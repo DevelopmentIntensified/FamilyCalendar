@@ -136,6 +136,60 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		expect(startTimeInput).toBeInTheDocument();
 		expect(endTimeInput).toBeInTheDocument();
 	});
+
+	it('should preselect the calendar named by quick-add ("on the family calendar")', async () => {
+		vi.mocked(fetch).mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					parsed: { title: 'Dinner', date: '2026-09-04', calendarName: 'family calendar' },
+					confidence: 0.85
+				})
+		} as Response);
+
+		render(EventFormModal, {
+			props: {
+				show: true,
+				calendarIds: [
+					{ id: 'work', name: 'Work Calendar' },
+					{ id: 'fam', name: 'Family Calendar' }
+				]
+			}
+		});
+
+		const nlInput = screen.getAllByPlaceholderText(/lunch friday/i)[0];
+		await fireEvent.input(nlInput, { target: { value: 'Dinner Friday on the family calendar' } });
+		await vi.advanceTimersByTimeAsync(350);
+
+		expect(screen.getAllByText('Family Calendar').length).toBeGreaterThan(0);
+	});
+
+	it('should keep the default calendar when quick-add names no match', async () => {
+		vi.mocked(fetch).mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					parsed: { title: 'Dinner', date: '2026-09-04', calendarName: 'sports calendar' },
+					confidence: 0.85
+				})
+		} as Response);
+
+		render(EventFormModal, {
+			props: {
+				show: true,
+				calendarIds: [
+					{ id: 'work', name: 'Work Calendar' },
+					{ id: 'fam', name: 'Family Calendar' }
+				]
+			}
+		});
+
+		const nlInput = screen.getAllByPlaceholderText(/lunch friday/i)[0];
+		await fireEvent.input(nlInput, { target: { value: 'Dinner Friday on the sports calendar' } });
+		await vi.advanceTimersByTimeAsync(350);
+
+		expect(screen.queryByText('Family Calendar')).not.toBeInTheDocument();
+	});
 });
 
 describe('EventFormModal - Date & Time Layout', () => {

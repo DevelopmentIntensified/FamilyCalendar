@@ -172,6 +172,18 @@
 					form.applyNlpResult(result.parsed);
 					lastParseResult = result.parsed;
 					phraseReportable = true;
+					// "on the family calendar" preselects the matching calendar.
+					// Never blocks creation: unmatched names keep the default.
+					if (result.parsed.calendarName && calendarIds.length > 0) {
+						const want = result.parsed.calendarName.toLowerCase();
+						const match =
+							calendarIds.find((c) => c.name.toLowerCase() === want) ??
+							calendarIds.find(
+								(c) =>
+									c.name.toLowerCase().includes(want) || want.includes(c.name.toLowerCase())
+							);
+						if (match) form.selectedCalendarId = match.id;
+					}
 					// A fresh parse re-reveals previously collapsed detected fields.
 					nlpCollapsed = false;
 				}
