@@ -21,7 +21,7 @@
 		recurrenceFrequency?: string | null;
 		recurrenceInterval?: number | null;
 	}[] = [];
-	export let createAt: (date: DateTime) => void = () => {};
+	export let createAt: (date: DateTime, end?: DateTime) => void = () => {};
 	export let selectionMode: boolean = false;
 	export let selectedIds: string[] = [];
 	export let onToggleSelectionMode: (on: boolean) => void = () => {};

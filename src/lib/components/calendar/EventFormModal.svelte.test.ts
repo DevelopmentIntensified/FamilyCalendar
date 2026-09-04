@@ -324,6 +324,22 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		const select = screen.getByLabelText(/reminder/i) as HTMLSelectElement;
 		expect(select.value).toBe('30');
 	});
+
+	it('should seed start and end times from a picked range', async () => {
+		render(EventFormModal, {
+			props: {
+				show: true,
+				calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
+				initialDate: '2026-09-08',
+				initialTime: '14:00',
+				initialEndTime: '15:30'
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /show more/i }));
+		expect((document.getElementById('start-time') as HTMLInputElement).value).toBe('14:00');
+		expect((document.getElementById('end-time') as HTMLInputElement).value).toBe('15:30');
+	});
 });
 
 describe('EventFormModal - Date & Time Layout', () => {

@@ -36,6 +36,29 @@ export function yToMinutes(clientY: number, gridTop: number, pxPerHour: number):
 	return snapMinutes(((clientY - gridTop) / pxPerHour) * 60);
 }
 
+/**
+ * Normalize a drag anchor + current pointer into an ordered [start, end]
+ * minute pair. Degenerate drags become a 30-minute block.
+ */
+export function normalizeRange(anchorMinutes: number, currentMinutes: number): [number, number] {
+	const start = snapMinutes(Math.min(anchorMinutes, currentMinutes));
+	let end = snapMinutes(Math.max(anchorMinutes, currentMinutes));
+	if (end - start < MOVE_SNAP_MINUTES) end = Math.min(24 * 60, start + 30);
+	return [start, end];
+}
+
+/** "2:00 PM – 3:30 PM" label for a minute range. */
+export function formatRangeLabel(startMinutes: number, endMinutes: number): string {
+	const fmt = (m: number) => {
+		const h24 = Math.floor(m / 60) % 24;
+		const mm = m % 60;
+		const suffix = h24 < 12 ? 'AM' : 'PM';
+		const h = h24 % 12 === 0 ? 12 : h24 % 12;
+		return `${h}:${String(mm).padStart(2, '0')} ${suffix}`;
+	};
+	return `${fmt(startMinutes)} – ${fmt(endMinutes)}`;
+}
+
 /** Event duration in minutes; 60 when missing, invalid, or non-positive. */
 export function eventDurationMinutes(start: string, end?: string | null): number {
 	const s = DateTime.fromISO(start);

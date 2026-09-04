@@ -32,6 +32,7 @@
 	export let initialTitle: string | undefined = undefined;
 	export let initialQuickAdd: string | undefined = undefined;
 	export let initialTime: string | undefined = undefined;
+	export let initialEndTime: string | undefined = undefined;
 	export let createCount = 0;
 
 	const dispatch = createEventDispatcher();
@@ -137,6 +138,14 @@
 		initialTimeApplied = true;
 	}
 	$: if (!show) initialTimeApplied = false;
+
+	// Seed the end time from a picked range once per open (create mode only).
+	let initialEndTimeApplied = false;
+	$: if (show && !form.isEditMode && initialEndTime && !initialEndTimeApplied) {
+		if (!form.endTime) form.endTime = initialEndTime;
+		initialEndTimeApplied = true;
+	}
+	$: if (!show) initialEndTimeApplied = false;
 
 	// Seed the Quick Add (NLP) field from extracted text once per open (create
 	// mode only), so date/time/location get auto-parsed on the selected text.

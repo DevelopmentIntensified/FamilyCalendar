@@ -4,6 +4,8 @@ import {
 	snapMinutes,
 	minutesToDayTime,
 	yToMinutes,
+	normalizeRange,
+	formatRangeLabel,
 	eventDurationMinutes,
 	buildMovePayload
 } from './eventMove';
@@ -41,6 +43,36 @@ describe('minutesToDayTime / yToMinutes', () => {
 	it('maps pointer Y on the 56px day grid', () => {
 		expect(yToMinutes(56, 0, 56)).toBe(60);
 	});
+});
+
+describe('normalizeRange', () => {
+	it('orders anchor and current regardless of drag direction', () => {
+		expect(normalizeRange(240, 120)).toEqual([120, 240]);
+		expect(normalizeRange(120, 240)).toEqual([120, 240]);
+	});
+
+	it('snaps both ends to the grid', () => {
+		expect(normalizeRange(122, 248)).toEqual([120, 255]);
+	});
+
+	it('expands degenerate drags to 30 minutes', () => {
+		expect(normalizeRange(120, 120)).toEqual([120, 150]);
+		expect(normalizeRange(120, 125)).toEqual([120, 150]);
+	});
+});
+
+describe('formatRangeLabel', () => {
+	const cases: Array<[number, number, string]> = [
+		[120, 240, '2:00 AM – 4:00 AM'],
+		[840, 930, '2:00 PM – 3:30 PM'],
+		[720, 780, '12:00 PM – 1:00 PM'],
+		[0, 60, '12:00 AM – 1:00 AM']
+	];
+	for (const [start, end, expected] of cases) {
+		it(`labels ${start}–${end} as "${expected}"`, () => {
+			expect(formatRangeLabel(start, end)).toBe(expected);
+		});
+	}
 });
 
 describe('eventDurationMinutes', () => {

@@ -8,7 +8,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	import { chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import { layoutTimed } from '$lib/utils/dayViewLayout';
-	import { buildMovePayload, yToMinutes } from '$lib/utils/eventMove';
+	import { buildMovePayload, yToMinutes, normalizeRange, formatRangeLabel } from '$lib/utils/eventMove';
 	import { invalidateAll } from '$app/navigation';
 	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
 
@@ -182,6 +182,11 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	function handleColumnClick(e: MouseEvent, day: DateTime) {
 		// Selection mode owns all taps; empty-grid taps must not open create.
 		if (selectionMode) return;
+		// A drag/long-press that just finalized must not fall through to create.
+		if (suppressClick) {
+			suppressClick = false;
+			return;
+		}
 		// Chip taps open the event; empty-grid taps start a new one.
 		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
 		const grid = e.currentTarget as HTMLElement | null;
@@ -190,6 +195,142 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 		if (!Number.isFinite(minutes)) return;
 		moveError = '';
 		createAt(day.startOf('day').plus({ minutes }));
+	}
+
+	// ---- Time-range select (drag on desktop, long-press on touch) ----
+	interface SelectingState {
+		day: DateTime;
+		anchorMin: number;
+		curMin: number;
+	}
+	interface RangeSel {
+		day: DateTime;
+		startMin: number;
+		endMin: number;
+	}
+	let selecting: SelectingState | null = null;
+	let rangeSel: RangeSel | null = null;
+	let suppressClick = false;
+	let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+	let longPressStartY = 0;
+	const LONG_PRESS_MS = 450;
+
+	function minutesFromMouse(e: MouseEvent, grid: HTMLElement | null): number {
+		const top = grid?.getBoundingClientRect()?.top ?? 0;
+		return yToMinutes(e.clientY, top, PX_PER_HOUR);
+	}
+
+	function handleRangeMouseDown(e: MouseEvent, day: DateTime) {
+		if (selectionMode || e.button !== 0) return;
+		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
+		const grid = e.currentTarget as HTMLElement | null;
+		const minutes = minutesFromMouse(e, grid);
+		if (!Number.isFinite(minutes)) return;
+		rangeSel = null;
+		selecting = { day, anchorMin: minutes, curMin: minutes };
+	}
+
+	function handleRangeMouseMove(e: MouseEvent) {
+		if (!selecting) return;
+		const grid = e.currentTarget as HTMLElement | null;
+		const minutes = minutesFromMouse(e, grid);
+		if (!Number.isFinite(minutes)) return;
+		selecting = { ...selecting, curMin: minutes };
+		if (Math.abs(selecting.curMin - selecting.anchorMin) * (PX_PER_HOUR / 60) > 6) {
+			suppressClick = true;
+		}
+	}
+
+	function finalizeSelecting() {
+		if (!selecting) return;
+		const [startMin, endMin] = normalizeRange(selecting.anchorMin, selecting.curMin);
+		rangeSel = { day: selecting.day, startMin, endMin };
+		selecting = null;
+	}
+
+	function handleRangeMouseUp() {
+		if (!selecting) return;
+		// Plain taps (no real movement) fall through to single-time create.
+		if (suppressClick) {
+			finalizeSelecting();
+		} else {
+			selecting = null;
+		}
+	}
+
+	function handleRangeTouchStart(e: TouchEvent, day: DateTime, grid: HTMLElement | null) {
+		if (selectionMode) return;
+		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
+		const touch = e.touches[0];
+		if (!touch) return;
+		const top = grid?.getBoundingClientRect()?.top ?? 0;
+		longPressStartY = touch.clientY;
+		const anchorMin = yToMinutes(touch.clientY, top, PX_PER_HOUR);
+		if (longPressTimer) clearTimeout(longPressTimer);
+		longPressTimer = setTimeout(() => {
+			// Long-press selects a default one-hour block; the popover
+			// steppers refine it (no gesture fighting with scroll).
+			if (!Number.isFinite(anchorMin)) return;
+			suppressClick = true;
+			rangeSel = null;
+			selecting = { day, anchorMin, curMin: Math.min(24 * 60, anchorMin + 60) };
+			finalizeSelecting();
+		}, LONG_PRESS_MS);
+	}
+
+	function handleRangeTouchMove(e: TouchEvent) {
+		const touch = e.touches[0];
+		if (!touch || !longPressTimer) return;
+		// Finger moved before the long-press fired: it's a scroll, not a select.
+		if (Math.abs(touch.clientY - longPressStartY) > 10) {
+			clearTimeout(longPressTimer);
+			longPressTimer = null;
+		}
+	}
+
+	function handleRangeTouchEnd() {
+		if (longPressTimer) {
+			clearTimeout(longPressTimer);
+			longPressTimer = null;
+		}
+	}
+
+	// Touch listeners go through an action (direct addEventListener):
+	// Svelte's delegated touch handlers are unreliable across browsers.
+	function rangeTouch(node: HTMLElement, day: DateTime) {
+		let currentDay = day;
+		const onStart = (e: Event) => handleRangeTouchStart(e as TouchEvent, currentDay, node);
+		const onMove = (e: Event) => handleRangeTouchMove(e as TouchEvent);
+		const onEnd = () => handleRangeTouchEnd();
+		node.addEventListener('touchstart', onStart);
+		node.addEventListener('touchmove', onMove);
+		node.addEventListener('touchend', onEnd);
+		return {
+			update(newDay: DateTime) {
+				currentDay = newDay;
+			},
+			destroy() {
+				node.removeEventListener('touchstart', onStart);
+				node.removeEventListener('touchmove', onMove);
+				node.removeEventListener('touchend', onEnd);
+			}
+		};
+	}
+
+	function stepRangeEnd(delta: number) {
+		if (!rangeSel) return;
+		rangeSel = {
+			...rangeSel,
+			endMin: Math.min(24 * 60, Math.max(rangeSel.startMin + 15, rangeSel.endMin + delta))
+		};
+	}
+
+	function createRange() {
+		if (!rangeSel) return;
+		const start = rangeSel.day.startOf('day').plus({ minutes: rangeSel.startMin });
+		const end = rangeSel.day.startOf('day').plus({ minutes: rangeSel.endMin });
+		rangeSel = null;
+		createAt(start, end);
 	}
 
 	function closeModal() {
@@ -202,7 +343,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	}
 </script>
 
-<div class="overflow-x-auto">
+<div class="overflow-x-auto" onmouseup={handleRangeMouseUp}>
 	<!-- Phones (<640px) keep a 700px scroll floor; tablets (>=640px) flex to
 		the container so no side scrolling is needed. -->
 	<div class="min-w-[700px] sm:min-w-0">
@@ -322,7 +463,66 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 						ondragover={(e) => e.preventDefault()}
 						ondrop={(e) => handleColumnDrop(e, wd)}
 						onclick={(e) => handleColumnClick(e, wd)}
+						onmousedown={(e) => handleRangeMouseDown(e, wd)}
+						onmousemove={handleRangeMouseMove}
+						onmouseup={handleRangeMouseUp}
+						use:rangeTouch={wd}
 					>
+						{#if selecting && selecting.day.hasSame(wd, 'day')}
+							{@const [selStart, selEnd] = normalizeRange(selecting.anchorMin, selecting.curMin)}
+							<div
+								class="pointer-events-none absolute inset-x-1 z-20 rounded bg-primary-200/50"
+								style="top: {(selStart / 1440) * 100}%; height: {((selEnd - selStart) / 1440) * 100}%;"
+							></div>
+						{/if}
+						{#if rangeSel && rangeSel.day.hasSame(wd, 'day')}
+							<div
+								class="pointer-events-none absolute inset-x-1 z-20 rounded bg-primary-200/60"
+								style="top: {(rangeSel.startMin / 1440) * 100}%; height: {((rangeSel.endMin - rangeSel.startMin) / 1440) * 100}%;"
+							></div>
+							<div
+								class="absolute inset-x-1 z-30 rounded-xl border border-primary-200 bg-white p-2 shadow-xl"
+								style="top: {(rangeSel.endMin / 1440) * 100}%;"
+							>
+								<div class="text-[11px] font-semibold text-slate-800">
+									{formatRangeLabel(rangeSel.startMin, rangeSel.endMin)}
+								</div>
+								<div class="mt-1 flex items-center gap-1">
+									<button
+										type="button"
+										onclick={() => stepRangeEnd(-15)}
+										aria-label="Shorten by 15 minutes"
+										class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition-all"
+									>
+										−15
+									</button>
+									<button
+										type="button"
+										onclick={() => stepRangeEnd(15)}
+										aria-label="Extend by 15 minutes"
+										class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition-all"
+									>
+										+15
+									</button>
+									<button
+										type="button"
+										onclick={createRange}
+										aria-label="Create event for selected time"
+										class="rounded-md bg-primary-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-primary-700 active:scale-95 transition-all"
+									>
+										Create
+									</button>
+									<button
+										type="button"
+										onclick={() => (rangeSel = null)}
+										aria-label="Dismiss time selection"
+										class="rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:text-slate-600"
+									>
+										✕
+									</button>
+								</div>
+							</div>
+						{/if}
 						{#each laidOut as slot (slot.event.id)}
 							{@const widthPct = (1 / slot.lanes) * 100}
 							{@const rv = rsvpVisual(slot.event.rsvpStatus)}
