@@ -689,6 +689,7 @@
 		initialQuickAdd={createInitialQuickAdd}
 		initialTime={createInitialTime}
 		initialEndTime={createInitialEndTime}
+		defaultCalendarId={(data.calendarIds || [])[0]?.id ?? null}
 		{createCount}
 		onClose={close}
 		on:create={handleEventCreated}

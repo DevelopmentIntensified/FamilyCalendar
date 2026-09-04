@@ -336,9 +336,67 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: /show more/i }));
 		expect((document.getElementById('start-time') as HTMLInputElement).value).toBe('14:00');
 		expect((document.getElementById('end-time') as HTMLInputElement).value).toBe('15:30');
+	});
+
+	it('should show date and time fields immediately for a picked range', async () => {
+		render(EventFormModal, {
+			props: {
+				show: true,
+				calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
+				initialDate: '2026-09-08',
+				initialTime: '14:00',
+				initialEndTime: '15:30'
+			}
+		});
+
+		expect(document.getElementById('start-time')).toBeInTheDocument();
+		expect(document.getElementById('end-time')).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /show more/i })).not.toBeInTheDocument();
+	});
+
+	it('should not let quick-add times clobber a picked range', async () => {
+		vi.mocked(fetch).mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					parsed: { title: 'Dentist', date: '2026-09-09', startTime: '18:00' },
+					confidence: 0.85
+				})
+		} as Response);
+
+		render(EventFormModal, {
+			props: {
+				show: true,
+				calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
+				initialDate: '2026-09-08',
+				initialTime: '14:00',
+				initialEndTime: '15:30'
+			}
+		});
+
+		const nlInput = screen.getAllByPlaceholderText(/lunch friday/i)[0];
+		await fireEvent.input(nlInput, { target: { value: 'dentist at 6pm' } });
+		await vi.advanceTimersByTimeAsync(350);
+
+		expect((document.getElementById('start-time') as HTMLInputElement).value).toBe('14:00');
+	});
+
+	it('should default creation to the personal calendar', async () => {
+		render(EventFormModal, {
+			props: {
+				show: true,
+				calendarIds: [
+					{ id: 'pers', name: 'Personal Calendar' },
+					{ id: 'fam', name: 'Family Calendar' }
+				],
+				defaultCalendarId: 'pers',
+				initialDate: '2026-09-08'
+			}
+		});
+
+		expect(screen.getByText('Personal Calendar')).toBeInTheDocument();
 	});
 });
 

@@ -159,4 +159,26 @@ describe('EventFormModel - NLP recurrence', () => {
 		form.applyNlpResult({ reminderMinutes: 60 });
 		expect(form.toEventData()!.reminderMinutes).toBe(60);
 	});
+
+	it('treats title+date with no time as an all-day event', () => {
+		const form = setup();
+		form.title = 'Dentist';
+		form.date = '2026-09-07';
+		const data = form.toEventData();
+		expect(data!.allDay).toBe(true);
+		expect(data!.start).toContain('2026-09-07T00:00');
+		expect(data!.end).toBeNull();
+	});
+
+	it('keeps timed events timed when a start time is set', () => {
+		const form = setup();
+		form.title = 'Dentist';
+		form.date = '2026-09-07';
+		form.startTime = '15:00';
+		form.endTime = '16:00';
+		const data = form.toEventData();
+		expect(data!.allDay).toBe(false);
+		expect(data!.start).toContain('2026-09-07T15:00');
+		expect(data!.end).toContain('2026-09-07T16:00');
+	});
 });

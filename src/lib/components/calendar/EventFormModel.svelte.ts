@@ -453,19 +453,22 @@ export function createEventForm(config: EventFormConfig) {
 		toEventData(): FormEventData | null {
 			if (!title || !date) return null;
 
-			const startTimestamp = toTimestamp(date, startTime, allDay) || '';
+			// Title + date alone is a complete event: with no start time it
+			// saves all-day rather than demanding times.
+			const effectiveAllDay = allDay || !startTime;
+			const startTimestamp = toTimestamp(date, effectiveAllDay ? '' : startTime, effectiveAllDay) || '';
 			let endTimestamp: string | null = null;
 
 			if (multiDay && endDate) {
-				endTimestamp = toTimestamp(endDate, endTime, allDay);
-				if (!endTimestamp && endTime && !allDay) {
+				endTimestamp = toTimestamp(endDate, endTime, effectiveAllDay);
+				if (!endTimestamp && endTime && !effectiveAllDay) {
 					endTimestamp = DateTime.fromFormat(`${endDate} ${endTime}`, 'yyyy-MM-dd HH:mm').toISO();
 				} else if (!endTimestamp) {
 					endTimestamp = DateTime.fromFormat(endDate, 'yyyy-MM-dd').endOf('day').toISO();
 				}
-			} else if (endTime && !allDay) {
+			} else if (endTime && !effectiveAllDay) {
 				endTimestamp = DateTime.fromFormat(`${date} ${endTime}`, 'yyyy-MM-dd HH:mm').toISO();
-			} else if (!multiDay && !endTime) {
+			} else if (!multiDay && !endTime && !effectiveAllDay) {
 				const startDt = DateTime.fromFormat(`${date} ${startTime || '09:00'}`, 'yyyy-MM-dd HH:mm');
 				endTimestamp = startDt.plus({ hours: 1 }).toISO();
 			}
@@ -477,7 +480,7 @@ export function createEventForm(config: EventFormConfig) {
 			location,
 			description,
 			calendarId: selectedCalendarId,
-			allDay,
+			allDay: effectiveAllDay,
 			attendants: [...attendants],
 			attendees: attendants.map((value) => ({
 				value,

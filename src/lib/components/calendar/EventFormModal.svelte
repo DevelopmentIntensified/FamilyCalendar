@@ -33,6 +33,8 @@
 	export let initialQuickAdd: string | undefined = undefined;
 	export let initialTime: string | undefined = undefined;
 	export let initialEndTime: string | undefined = undefined;
+	// Explicit create-mode default; falls back to the saved setting.
+	export let defaultCalendarId: string | null = null;
 	export let createCount = 0;
 
 	const dispatch = createEventDispatcher();
@@ -44,8 +46,7 @@
 	let dragTransition = false;
 
 	let nlInput = '';
-	let showMore = false;
-	// Set when the user clicks "Show Less": suppresses the auto-reveal of
+	let showMore = !!(initialDate || initialTime || initialEndTime);	// Set when the user clicks "Show Less": suppresses the auto-reveal of
 	// parser-detected fields until a fresh parse re-detects them (or the user
 	// clicks "Show More" again).
 	let nlpCollapsed = false;
@@ -68,7 +69,7 @@
 	$: form = createEventForm({
 		calendars: calendarIds,
 		familyMembers,
-		defaultCalendarId: userSettings?.defaultCalendarId,
+		defaultCalendarId: defaultCalendarId ?? userSettings?.defaultCalendarId,
 		initialDate,
 		initialEvent: event ? {
 			id: event.id,
@@ -129,11 +130,13 @@
 
 	// Seed the start time from a picked time slot once per open (create mode
 	// only), mirroring initialTitle. A picked slot is timed, never all-day.
+	// Marked touched so Quick Add never clobbers a picked range's times.
 	let initialTimeApplied = false;
 	$: if (show && !form.isEditMode && initialTime && !initialTimeApplied) {
 		if (!form.startTime) {
 			form.startTime = initialTime;
 			form.allDay = false;
+			form.markTouched('startTime');
 		}
 		initialTimeApplied = true;
 	}
@@ -142,7 +145,10 @@
 	// Seed the end time from a picked range once per open (create mode only).
 	let initialEndTimeApplied = false;
 	$: if (show && !form.isEditMode && initialEndTime && !initialEndTimeApplied) {
-		if (!form.endTime) form.endTime = initialEndTime;
+		if (!form.endTime) {
+			form.endTime = initialEndTime;
+			form.markTouched('endTime');
+		}
 		initialEndTimeApplied = true;
 	}
 	$: if (!show) initialEndTimeApplied = false;
