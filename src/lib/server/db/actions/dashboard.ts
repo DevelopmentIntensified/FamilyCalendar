@@ -12,13 +12,15 @@ import {
 	events,
 	eventAttendance,
 	taskCompletions,
+	tasks,
 	type CalendarEvent
 } from '$lib/server/db/schema';
-import { and, desc, eq, inArray, isNotNull, isNull, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, ne } from 'drizzle-orm';
 import {
 	PRIORITY_WEIGHT,
 	type TaskPriority
 } from '$lib/server/db/actions/taskPriority';
+import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
 
 /** Re-exported for pre-existing importers (task writers, sort utils). */
 export {
@@ -171,4 +173,67 @@ export async function getCompletionTimestamps(
 		.where(eq(taskCompletions.userId, userId))
 		.orderBy(desc(taskCompletions.completedAt))
 		.limit(365);
+}
+
+/** One row on the "Completed today" card. */
+export interface DayCompletion {
+	id: string;
+	title: string;
+	completedAt: string | null;
+}
+
+type RecurringDayCompletionRow = {
+	id: string;
+	title: string;
+	completedAt: string;
+};
+
+/**
+ * Recurring-task check-offs for the viewer within a day window, newest first.
+ * A recurring check-off rolls the cursor forward and never sets the row's
+ * `completedAt`, so the tasks-table filter can't see it — the append-only
+ * `taskCompletions` history can. One entry per check-off (each one is a win).
+ */
+export async function getRecurringDayCompletions(
+	userId: string,
+	dayStart: Date,
+	dayEnd: Date
+): Promise<RecurringDayCompletionRow[]> {
+	// String-mode timestamptz column: postgres.js serializes bound values as
+	// strings and rejects Date instances, so bind ISO strings.
+	const startIso = dayStart.toISOString();
+	const endIso = dayEnd.toISOString();
+	const rows = await db
+		.select({
+			id: taskCompletions.id,
+			title: tasks.title,
+			completedAt: taskCompletions.completedAt
+		})
+		.from(taskCompletions)
+		.innerJoin(tasks, eq(taskCompletions.taskId, tasks.id))
+		.where(
+			and(
+				eq(taskCompletions.userId, userId),
+				isNotNull(tasks.recurrenceFrequency),
+				gte(taskCompletions.completedAt, startIso),
+				lt(taskCompletions.completedAt, endIso)
+			)
+		)
+		.orderBy(desc(taskCompletions.completedAt));
+	return rows.map((r) => ({ id: r.id, title: r.title, completedAt: toIsoTimestamp(r.completedAt) }));
+}
+
+/**
+ * Combine the day's completed rows — one-off tasks that are currently
+ * completed plus recurring check-offs from history — newest first.
+ */
+export function mergeDayCompletions(
+	oneOff: DayCompletion[],
+	recurring: DayCompletion[]
+): DayCompletion[] {
+	return [...oneOff, ...recurring].sort((a, b) => {
+		const ta = a.completedAt ? Date.parse(a.completedAt) : 0;
+		const tb = b.completedAt ? Date.parse(b.completedAt) : 0;
+		return tb - ta;
+	});
 }

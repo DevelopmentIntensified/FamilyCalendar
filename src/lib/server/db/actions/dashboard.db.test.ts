@@ -19,17 +19,27 @@ const state = vi.hoisted(() => ({
 vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
-			from: () => ({
-				where: () => {
-					const rows = state.selectQueue.shift() ?? [];
-					return {
-						// .where() alone (thenable) — getUserDayCalendar/family/attendance/kids
-						then: (resolve: (v: unknown) => unknown) => resolve(rows),
-						// .where().orderBy().limit() — getCompletionTimestamps
-						orderBy: () => ({ limit: () => Promise.resolve(rows) })
-					};
-				}
-			})
+			from: () => {
+				const query = {
+					// `.where()` — thenable, and chained by `.orderBy()` (with or
+					// without `.limit()`): getCompletionTimestamps uses
+					// orderBy+limit, getRecurringDayCompletions uses orderBy.
+					where: () => {
+						const rows = state.selectQueue.shift() ?? [];
+						return {
+							then: (resolve: (v: unknown) => unknown) => resolve(rows),
+							orderBy: () => ({
+								limit: () => Promise.resolve(rows),
+								then: (resolve: (v: unknown) => unknown) => resolve(rows)
+							})
+						};
+					}
+				};
+				return {
+					where: query.where,
+					innerJoin: () => query
+				};
+			}
 		})
 	}
 }));
@@ -39,7 +49,9 @@ import {
 	getFamilyDayEvents,
 	getFamilyAttendanceForEvents,
 	getKidsScheduleAttendance,
-	getCompletionTimestamps
+	getCompletionTimestamps,
+	getRecurringDayCompletions,
+	mergeDayCompletions
 } from './dashboard';
 
 beforeEach(() => {
@@ -138,5 +150,62 @@ describe('getCompletionTimestamps', () => {
 	it('returns empty when the user has no completions', async () => {
 		state.selectQueue = [[]];
 		expect(await getCompletionTimestamps('u1')).toEqual([]);
+	});
+});
+
+describe('getRecurringDayCompletions', () => {
+	it('returns recurring check-offs within the day window, newest first', async () => {
+		const rows = [
+			{ id: 'c2', title: 'Water plants', completedAt: '2026-09-04 09:00:00+00' },
+			{ id: 'c1', title: 'Take out trash', completedAt: '2026-09-04 07:30:00+00' }
+		];
+		state.selectQueue = [rows];
+
+		const dayStart = new Date('2026-09-04T00:00:00.000Z');
+		const dayEnd = new Date('2026-09-05T00:00:00.000Z');
+		const result = await getRecurringDayCompletions('u1', dayStart, dayEnd);
+
+		expect(result).toEqual([
+			{ id: 'c2', title: 'Water plants', completedAt: '2026-09-04T09:00:00.000Z' },
+			{ id: 'c1', title: 'Take out trash', completedAt: '2026-09-04T07:30:00.000Z' }
+		]);
+		expect(state.selectQueue).toEqual([]);
+	});
+
+	it('returns empty when no recurring check-offs landed that day', async () => {
+		state.selectQueue = [[]];
+		const dayStart = new Date('2026-09-04T00:00:00.000Z');
+		const dayEnd = new Date('2026-09-05T00:00:00.000Z');
+		expect(await getRecurringDayCompletions('u1', dayStart, dayEnd)).toEqual([]);
+		expect(state.selectQueue).toEqual([]);
+	});
+});
+
+describe('mergeDayCompletions', () => {
+	it('combines one-off and recurring completions, newest first', () => {
+		const oneOff = [
+			{ id: 't1', title: 'Sweep floor', completedAt: '2026-09-04T08:00:00.000Z' }
+		];
+		const recurring = [
+			{ id: 'c2', title: 'Water plants', completedAt: '2026-09-04T09:00:00.000Z' },
+			{ id: 'c1', title: 'Take out trash', completedAt: '2026-09-04T07:30:00.000Z' }
+		];
+
+		expect(mergeDayCompletions(oneOff, recurring)).toEqual([
+			recurring[0],
+			oneOff[0],
+			recurring[1]
+		]);
+	});
+
+	it('keeps null completedAt entries last', () => {
+		expect(
+			mergeDayCompletions([{ id: 't1', title: 'No time', completedAt: null }], [
+				{ id: 'c1', title: 'Done', completedAt: '2026-09-04T09:00:00.000Z' }
+			])
+		).toEqual([
+			{ id: 'c1', title: 'Done', completedAt: '2026-09-04T09:00:00.000Z' },
+			{ id: 't1', title: 'No time', completedAt: null }
+		]);
 	});
 });

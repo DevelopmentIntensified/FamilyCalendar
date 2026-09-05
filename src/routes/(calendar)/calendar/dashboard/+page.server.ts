@@ -16,6 +16,8 @@ import {
 	getFamilyAttendanceForEvents,
 	getKidsScheduleAttendance,
 	getCompletionTimestamps,
+	getRecurringDayCompletions,
+	mergeDayCompletions,
 	type RankableTask
 } from '$lib/server/db/actions/dashboard';
 import {
@@ -276,7 +278,13 @@ export const load: PageServerLoad = async (event) => {
 	// Day-at-a-glance progress: done within the viewed day, open by end of it.
 	const dayStartJs = dayStart.toJSDate();
 	const dayEndJs = dayEnd.toJSDate();
-	const completedToday = userTasks
+	// Recurring check-offs never set the task row's completedAt (the cursor
+	// rolls forward), so they're recovered from the completion-history table.
+	const recurringWinsG = await guard('task-wins', [], () =>
+		getRecurringDayCompletions(userId, dayStartJs, dayEndJs)
+	);
+	warn(recurringWinsG.error);
+	const oneOffCompleted = userTasks
 		.filter(
 			(t) =>
 				t.completedAt && new Date(t.completedAt) >= dayStartJs && new Date(t.completedAt) < dayEndJs
@@ -286,6 +294,7 @@ export const load: PageServerLoad = async (event) => {
 			title: t.title,
 			completedAt: t.completedAt ? new Date(t.completedAt).toISOString() : null
 		}));
+	const completedToday = mergeDayCompletions(oneOffCompleted, recurringWinsG.data);
 	const doneForDay = completedToday.length;
 	const openForDay = userTasks.filter(
 		(t) => !t.completedAt && t.dueDate && new Date(t.dueDate) < dayEndJs
