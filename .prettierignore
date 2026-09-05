@@ -2,3 +2,5 @@
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+# Vendored oxlint plugin (copied from install-anti-slop skill)
+tools/oxlint/anti-slop/
