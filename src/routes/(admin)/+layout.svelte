@@ -4,8 +4,18 @@
 	export let data: { openBugs?: number; openPhrases?: number };
 
 	$: tabs = [
-		{ href: '/admin/bugs', label: 'Bug Reports', count: data.openBugs ?? 0, badge: 'bg-red-100 text-red-700' },
-		{ href: '/admin/nlp', label: 'Unmatched Phrases', count: data.openPhrases ?? 0, badge: 'bg-slate-200 text-slate-600' }
+		{
+			href: '/admin/bugs',
+			label: 'Bug Reports',
+			count: data.openBugs ?? 0,
+			badge: 'bg-red-100 text-red-700'
+		},
+		{
+			href: '/admin/nlp',
+			label: 'Unmatched Phrases',
+			count: data.openPhrases ?? 0,
+			badge: 'bg-slate-200 text-slate-600'
+		}
 	];
 
 	$: path = $page.url.pathname;
@@ -22,12 +32,18 @@
 					<a
 						href={tab.href}
 						aria-current={path === tab.href || path.startsWith(tab.href + '/') ? 'page' : undefined}
-						class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {path === tab.href || path.startsWith(tab.href + '/')
+						class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {path ===
+							tab.href || path.startsWith(tab.href + '/')
 							? 'bg-slate-900 text-white'
 							: 'text-slate-600 hover:bg-slate-100'}"
 					>
 						{tab.label}
-						<span class="rounded-full px-1.5 py-0.5 text-[11px] font-bold {path === tab.href || path.startsWith(tab.href + '/') ? 'bg-white/20 text-white' : tab.badge}">
+						<span
+							class="rounded-full px-1.5 py-0.5 text-[11px] font-bold {path === tab.href ||
+							path.startsWith(tab.href + '/')
+								? 'bg-white/20 text-white'
+								: tab.badge}"
+						>
 							{tab.count}
 						</span>
 					</a>

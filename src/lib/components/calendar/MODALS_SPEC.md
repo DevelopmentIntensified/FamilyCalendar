@@ -5,6 +5,7 @@
 **Purpose**: Fast event creation with NLP parsing, expand/collapse, multi-day support
 
 **Behavior**:
+
 - Opens via floating "+" button
 - **Collapsed initially**: Shows only **Quick Add (NLP)**, **Title**, and **Description** fields
 - **Quick Add visibility**: The Quick Add (NLP) input is **always visible at the top** in create mode unless the user has disabled AI features in settings (`autoParseEventDetails`, `useCloudAI`, `useLocalAI`). If all AI-related settings are off, Quick Add is hidden entirely.
@@ -24,6 +25,7 @@
 - Submit dispatches `create`/`update` event, modal closes
 
 When creating event:
+
 - **Quick Add** (NL input) - always visible at the top (unless AI features are disabled in user settings)
 - **Title** - visible by default (required)
 - **Description** - visible by default
@@ -31,15 +33,17 @@ When creating event:
 - **Show More/Less** button: Initially positioned below Description in create mode. When "Show More" is toggled, it moves to the **end of the modal** (above action buttons) and changes to "Show Less". When clicked to collapse, it returns to its original position below Description.
 
 When editing event:
+
 - All fields visible (Title, Description, Date, Time, All-Day, Multi-Day, Location, Attendants, Calendar, RSVP Status)
 - Show More button is NOT shown - all fields expanded by default
 - Quick Add input is hidden in edit mode (or optionally visible for appending notes)
 
 **Fields**:
+
 - **Quick Add** (NL input) - always visible at top in create mode unless AI features are disabled in user settings (`autoParseEventDetails`, `useCloudAI`, `useLocalAI`). Triggers parsing on input, Clear button positioned to the right
-- **Title** *required* - always visible
+- **Title** _required_ - always visible
 - **Description** - always visible in both create and edit mode
-- **Date** *required* (date picker, applies to start date) - hidden by default in create mode (inside Show More section)
+- **Date** _required_ (date picker, applies to start date) - hidden by default in create mode (inside Show More section)
 - **Start Time** (time picker, hidden when all-day is checked)
 - **End Time** (time picker, optional, hidden when all-day is checked)
 - **All-day** (toggle switch) → hides start/end time inputs when checked
@@ -62,6 +66,7 @@ When editing event:
 - **Calendar selector** (only if 2+ calendars) - hidden by default (inside Show More). Full-width dropdown with contact-style cards (colored initials + checkmark). No search. Default pre-selected from user settings (`defaultCalendarId`).
 
 **Layout (Create Mode)**:
+
 ```
 ┌─────────────────────────────────┐
 │ Quick Add (NL Input)            │  ← always visible (unless AI disabled)
@@ -97,6 +102,7 @@ When editing event:
 ```
 
 **Layout (Edit Mode)**:
+
 ```
 ┌─────────────────────────────────┐
 │ Title                           │
@@ -135,6 +141,7 @@ When editing event:
 **Purpose**: Modify or delete existing events with all fields editable + RSVP management
 
 **Behavior**:
+
 - Opens when clicking an event in Month/Week/List view
 - **Always expanded** (editing existing event)
 - **All fields pre-populated** from existing event data
@@ -150,9 +157,10 @@ When editing event:
 - "Update Event" button dispatches update
 
 **Fields** (all editable, pre-filled):
+
 - **Title**
 - **Description**
--- all below fields are hidden by default in create mode, but visible by default in edit mode unless show more is clicked --
+  -- all below fields are hidden by default in create mode, but visible by default in edit mode unless show more is clicked --
 - **Date** (date picker, applies to start date and end date if not multi-day)
 - **Start Time** (time picker, optional if all-day, hidden when all-day is checked)
 - **End Time** (time picker, optional, hidden when all-day is checked)
@@ -180,6 +188,7 @@ When editing event:
 **Purpose**: Quick view of event details with RSVP management (no edit)
 
 **Behavior**:
+
 - Opens when clicking event in calendar views (alternative to Edit)
 - **Read-only display** of all event info
 - **RSVP section** shows:
@@ -190,6 +199,7 @@ When editing event:
 - "Delete" button → confirmation dialog → dispatches delete
 
 **Display Sections**:
+
 - Title (large)
 - Date & Time
 - Location
@@ -206,15 +216,15 @@ When editing event:
 
 ## Key Schema Mappings
 
-| UI Field | Database Field | Type |
-|----------|----------------|------|
-| Date + Start Time | `start` | timestamp with timezone |
-| End Date + End Time | `end` | timestamp with timezone (optional) |
-| Title | `title` | text (required) |
-| Location | `location` | text (optional) |
-| Description | `description` | text (optional) |
-| Attendants | NLP-parsed names | stored in description or separate table |
-| RSVP Status | `event_attendees` table | requires checking schema |
+| UI Field            | Database Field          | Type                                    |
+| ------------------- | ----------------------- | --------------------------------------- |
+| Date + Start Time   | `start`                 | timestamp with timezone                 |
+| End Date + End Time | `end`                   | timestamp with timezone (optional)      |
+| Title               | `title`                 | text (required)                         |
+| Location            | `location`              | text (optional)                         |
+| Description         | `description`           | text (optional)                         |
+| Attendants          | NLP-parsed names        | stored in description or separate table |
+| RSVP Status         | `event_attendees` table | requires checking schema                |
 
 ---
 

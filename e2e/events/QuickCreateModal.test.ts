@@ -25,7 +25,8 @@ test.beforeEach(async () => {
 		await deleteCodesByEmail(email);
 	}
 	// Create fresh user with unique email to avoid duplicate key errors
-	email = 'quickcreate' + Date.now() + Math.random().toString(36).substring(2, 6) + '@familyplanz.com';
+	email =
+		'quickcreate' + Date.now() + Math.random().toString(36).substring(2, 6) + '@familyplanz.com';
 	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
 	const uniqueCode = Math.random().toString(36).substring(2, 10);
@@ -53,15 +54,17 @@ test.afterEach(async () => {
 test('Quick Create Modal - Open and Close', async ({ page }) => {
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(email);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 	});
 
 	await test.step('Navigate to calendar', async () => {
@@ -83,15 +86,17 @@ test('Quick Create Modal - Open and Close', async ({ page }) => {
 test('Quick Create Modal - NL Input Parsing', async ({ page }) => {
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(email);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 	});
 
 	await test.step('Navigate to calendar and open modal', async () => {
@@ -102,7 +107,10 @@ test('Quick Create Modal - NL Input Parsing', async ({ page }) => {
 	});
 
 	await test.step('Enter NL input', async () => {
-		await page.fill('input[placeholder*="Lunch Friday at noon"]', 'Lunch Friday at noon with John in Conference A');
+		await page.fill(
+			'input[placeholder*="Lunch Friday at noon"]',
+			'Lunch Friday at noon with John in Conference A'
+		);
 		// Wait for parsing
 		await page.waitForTimeout(3000);
 	});
@@ -126,22 +134,26 @@ test('Quick Create Modal - NL Input Parsing', async ({ page }) => {
 	await test.step('Submit form and verify form resets', async () => {
 		await page.click('button[type="submit"]:has-text("Create")');
 		// The form resets for another creation — NL input clears.
-		await expect(page.locator('input[placeholder*="Lunch Friday at noon"]')).toHaveValue('', { timeout: 10000 });
+		await expect(page.locator('input[placeholder*="Lunch Friday at noon"]')).toHaveValue('', {
+			timeout: 10000
+		});
 	});
 });
 
 test('Quick Create Modal - Description Contains Raw Input', async ({ page }) => {
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(email);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 	});
 
 	await test.step('Navigate to calendar and open modal', async () => {
@@ -152,7 +164,10 @@ test('Quick Create Modal - Description Contains Raw Input', async ({ page }) => 
 	});
 
 	await test.step('Enter NL input and manually set title/date if needed', async () => {
-		await page.fill('input[placeholder*="Lunch Friday at noon"]', 'Dinner tomorrow at 7 PM at my apartment');
+		await page.fill(
+			'input[placeholder*="Lunch Friday at noon"]',
+			'Dinner tomorrow at 7 PM at my apartment'
+		);
 		// Wait for parsing
 		await page.waitForTimeout(3000);
 
@@ -176,7 +191,9 @@ test('Quick Create Modal - Description Contains Raw Input', async ({ page }) => 
 	await test.step('Submit form', async () => {
 		await page.click('button[type="submit"]:has-text("Create")');
 		// The form resets for another creation — NL input clears.
-		await expect(page.locator('input[placeholder*="Lunch Friday at noon"]')).toHaveValue('', { timeout: 10000 });
+		await expect(page.locator('input[placeholder*="Lunch Friday at noon"]')).toHaveValue('', {
+			timeout: 10000
+		});
 	});
 
 	await test.step('Verify event was created (check description in DB)', async () => {
@@ -191,15 +208,17 @@ test('Quick Create Modal - Description Contains Raw Input', async ({ page }) => 
 test('Quick Create Modal - Required Fields Validation', async ({ page }) => {
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(email);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 	});
 
 	await test.step('Navigate to calendar and open modal', async () => {

@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { deleteAccount, getAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUserByEmail, getUser } from '../../src/lib/server/db/actions/users';
-import { createCode, deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
+import {
+	createCode,
+	deleteCodesByEmail,
+	getCodesByEmail
+} from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import { users } from '../../src/lib/server/db/schema';
 import { SignUpPage } from '../pageObjects/signup';
@@ -22,7 +26,7 @@ test('Email Sign Up With Code', async ({ page }) => {
 	const uniqueEmail = `delivered+signupcode${Date.now()}@resend.dev`;
 	const firstName = 'test';
 	const lastName = 'signupcode';
-	
+
 	await test.step('Navigate to the page', async () => {
 		await page.goto('/signup');
 	});
@@ -59,10 +63,10 @@ test('Email Sign Up With Code', async ({ page }) => {
 	await test.step('Get user from DB', async () => {
 		const userRecord = await db.select().from(users).where(eq(users.email, uniqueEmail));
 		expect(userRecord[0]).toBeDefined();
-		testUser = { 
-			email: uniqueEmail, 
-			firstName, 
-			lastName, 
+		testUser = {
+			email: uniqueEmail,
+			firstName,
+			lastName,
 			uid: userRecord[0].id
 		};
 	});
@@ -71,7 +75,7 @@ test('Email Sign Up With Code', async ({ page }) => {
 		const account = await getAccount(uniqueEmail);
 		expect(account).not.toBeNull();
 		expect(account.provider).toBe('email');
-		
+
 		const user = await getUser(account.userId);
 		expect(user.firstName).toBe(firstName);
 		expect(user.lastName).toBe(lastName);

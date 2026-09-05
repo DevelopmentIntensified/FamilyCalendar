@@ -21,7 +21,9 @@
 						{data.openBugs ?? 0} open
 					</span>
 				</div>
-				<p class="mt-1 text-sm text-slate-500">User-submitted reports, newest first. Resolve what's fixed.</p>
+				<p class="mt-1 text-sm text-slate-500">
+					User-submitted reports, newest first. Resolve what's fixed.
+				</p>
 			</a>
 			<a
 				href="/admin/nlp"
@@ -33,7 +35,9 @@
 						{data.openPhrases ?? 0} open
 					</span>
 				</div>
-				<p class="mt-1 text-sm text-slate-500">Instructions the parsers couldn't handle. Add patterns for frequent ones.</p>
+				<p class="mt-1 text-sm text-slate-500">
+					Instructions the parsers couldn't handle. Add patterns for frequent ones.
+				</p>
 			</a>
 		</div>
 	</div>

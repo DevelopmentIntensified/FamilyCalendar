@@ -50,7 +50,9 @@ vi.mock('oslo/jwt', () => ({
 import { GET } from './+server';
 
 function mockEvent(token: string | null) {
-	const url = token ? `http://test.com/login/email/callback?token=${token}` : 'http://test.com/login/email/callback';
+	const url = token
+		? `http://test.com/login/email/callback?token=${token}`
+		: 'http://test.com/login/email/callback';
 	return {
 		url: new URL(url),
 		locals: { user: null }
@@ -74,7 +76,9 @@ describe('GET /login/email/callback', () => {
 		vi.mocked(getAccount).mockResolvedValue(undefined as any);
 		vi.mocked(getUserByEmail).mockResolvedValue({ id: 'user-pw', email: 'pw@user.com' } as any);
 		vi.mocked(lucia.createSession).mockResolvedValue({ id: 'session-pw' } as any);
-		vi.mocked(lucia.createSessionCookie).mockReturnValue({ serialize: () => 'auth_session=pw123; Path=/' } as any);
+		vi.mocked(lucia.createSessionCookie).mockReturnValue({
+			serialize: () => 'auth_session=pw123; Path=/'
+		} as any);
 
 		const response = await GET(mockEvent('valid.jwt.token'));
 

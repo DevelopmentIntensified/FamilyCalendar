@@ -5,7 +5,7 @@
 3. Free retention: should 1 month be fully visible in UI/search with older events hidden by default?
 4. Archived data: should 3 months archived be retrievable (upgrade/special request) or always stored but not surfaced?
 5. Archived exposure: how should admins assist users needing access to archived data (support tools, exports)?
-6. Attachments quota: is 10 MB per user, per family, or per account? how tracked? 
+6. Attachments quota: is 10 MB per user, per family, or per account? how tracked?
 7. Storage backend: continue using VerceI Blob, or allow alternate (S3) with migrations?
 8. Downgrades: what happens to data if downgrading to Free (attachments, retention, family limits)?
 9. Migration path: one-time migration vs staged rollout to Family Master for existing users?
@@ -47,4 +47,5 @@
 45. Success criteria: concrete, testable acceptance criteria per phase (quota enforcement, discounts, ads, waitlist)?
 
 Notes
+
 - Answers to these questions will drive Phase 0 artifacts. Please answer in the Questions doc, and I will update the Planning doc accordingly.

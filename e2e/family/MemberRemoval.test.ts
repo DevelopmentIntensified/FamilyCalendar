@@ -17,16 +17,20 @@ let familyId = '';
 test.beforeEach(async () => {
 	await cleanupOwner();
 	await cleanupMember();
-	
-	const ownerUser = await import('$lib/server/utils/createNewUser').then(m => m.createNewUser('Test', 'Owner', ownerEmail));
+
+	const ownerUser = await import('$lib/server/utils/createNewUser').then((m) =>
+		m.createNewUser('Test', 'Owner', ownerEmail)
+	);
 	ownerId = ownerUser.id;
-	
-	const memberUser = await import('$lib/server/utils/createNewUser').then(m => m.createNewUser('Test', 'Member', memberEmail));
+
+	const memberUser = await import('$lib/server/utils/createNewUser').then((m) =>
+		m.createNewUser('Test', 'Member', memberEmail)
+	);
 	memberId = memberUser.id;
-	
+
 	const family = await createFamily({ name: 'Test Family', color: '#3b82f6' });
 	familyId = family.id;
-	
+
 	await db.insert(familyMembers).values([
 		{ userId: ownerId, familyId, role: 'admin' },
 		{ userId: memberId, familyId, role: 'member' }
@@ -66,15 +70,17 @@ async function cleanupMember() {
 test('Family member removal via UI', async ({ page }) => {
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(ownerEmail);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 	});
 
 	await test.step('Navigate to family page', async () => {
@@ -99,7 +105,10 @@ test('Family member removal via UI', async ({ page }) => {
 	});
 
 	await test.step('Verify member removed from DB', async () => {
-		const remaining = await db.select().from(familyMembers).where(eq(familyMembers.userId, memberId));
+		const remaining = await db
+			.select()
+			.from(familyMembers)
+			.where(eq(familyMembers.userId, memberId));
 		expect(remaining.length).toBe(0);
 	});
 });
@@ -107,15 +116,17 @@ test('Family member removal via UI', async ({ page }) => {
 test('Family member removal via direct DB action', async ({ page }) => {
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(ownerEmail);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 	});
 
 	await test.step('Verify member exists before removal', async () => {

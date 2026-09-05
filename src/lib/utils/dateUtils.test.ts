@@ -191,13 +191,19 @@ describe('parseDateTimeInZone', () => {
 
 describe('formatDateTimeInZone', () => {
 	it('formats datetime with timezone offset', () => {
-		const dt = DateTime.fromObject({ year: 2024, month: 6, day: 15, hour: 10 }, { zone: 'America/New_York' });
+		const dt = DateTime.fromObject(
+			{ year: 2024, month: 6, day: 15, hour: 10 },
+			{ zone: 'America/New_York' }
+		);
 		const result = formatDateTimeInZone(dt, 'America/New_York');
 		expect(result).toContain('2024-06-15');
 	});
 
 	it('preserves timezone in ISO string', () => {
-		const dt = DateTime.fromObject({ year: 2024, month: 1, day: 15, hour: 10 }, { zone: 'America/Los_Angeles' });
+		const dt = DateTime.fromObject(
+			{ year: 2024, month: 1, day: 15, hour: 10 },
+			{ zone: 'America/Los_Angeles' }
+		);
 		const result = formatDateTimeInZone(dt, 'America/Los_Angeles');
 		expect(result).toContain('-08:00');
 	});

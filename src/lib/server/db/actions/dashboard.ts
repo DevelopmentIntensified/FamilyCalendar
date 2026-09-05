@@ -16,10 +16,7 @@ import {
 	type CalendarEvent
 } from '$lib/server/db/schema';
 import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, ne } from 'drizzle-orm';
-import {
-	PRIORITY_WEIGHT,
-	type TaskPriority
-} from '$lib/server/db/actions/taskPriority';
+import { PRIORITY_WEIGHT, type TaskPriority } from '$lib/server/db/actions/taskPriority';
 import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
 
 /** Re-exported for pre-existing importers (task writers, sort utils). */
@@ -59,7 +56,11 @@ export interface RankOpts {
  * by them); then priority high → normal → low; then urgency bucket
  * overdue → due-today → next-due → no-due; then earliest due date; then title.
  */
-export function rankTop3(tasks: RankableTask[], viewerId: string, opts: RankOpts = {}): RankableTask[] {
+export function rankTop3(
+	tasks: RankableTask[],
+	viewerId: string,
+	opts: RankOpts = {}
+): RankableTask[] {
 	const { limit = 3 } = opts;
 	const todayStart = Date.parse(opts.todayStartIso ?? new Date().toISOString());
 	const tomorrow = todayStart + 86_400_000;
@@ -70,9 +71,12 @@ export function rankTop3(tasks: RankableTask[], viewerId: string, opts: RankOpts
 		const priority = PRIORITY_WEIGHT[t.priority as TaskPriority] ?? PRIORITY_WEIGHT.normal;
 		const due = t.dueDate ? Date.parse(t.dueDate) : null;
 		let bucket: number;
-		if (due == null) bucket = 3; // no due
-		else if (due < todayStart) bucket = 0; // overdue
-		else if (due < tomorrow) bucket = 1; // due today
+		if (due == null)
+			bucket = 3; // no due
+		else if (due < todayStart)
+			bucket = 0; // overdue
+		else if (due < tomorrow)
+			bucket = 1; // due today
 		else bucket = 2; // next
 		const mine = t.userId === viewerId || t.assignedTo === viewerId;
 		return { t, priority, due, bucket, mine };
@@ -164,9 +168,7 @@ export async function getKidsScheduleAttendance(
  * Completion timestamps for the viewer's streak, most-recent first (capped at
  * the year the Day Dashboard streak window needs).
  */
-export async function getCompletionTimestamps(
-	userId: string
-): Promise<{ completedAt: string }[]> {
+export async function getCompletionTimestamps(userId: string): Promise<{ completedAt: string }[]> {
 	return await db
 		.select({ completedAt: taskCompletions.completedAt })
 		.from(taskCompletions)
@@ -220,7 +222,11 @@ export async function getRecurringDayCompletions(
 			)
 		)
 		.orderBy(desc(taskCompletions.completedAt));
-	return rows.map((r) => ({ id: r.id, title: r.title, completedAt: toIsoTimestamp(r.completedAt) }));
+	return rows.map((r) => ({
+		id: r.id,
+		title: r.title,
+		completedAt: toIsoTimestamp(r.completedAt)
+	}));
 }
 
 /**

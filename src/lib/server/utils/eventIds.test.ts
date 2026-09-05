@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { buildOccurrenceId, resolveMasterId, resolveOccurrenceId, normalizeOccurrenceIso } from './eventIds';
+import {
+	buildOccurrenceId,
+	resolveMasterId,
+	resolveOccurrenceId,
+	normalizeOccurrenceIso
+} from './eventIds';
 import { expandRecurrence } from '$lib/server/services/recurrenceService';
 
 describe('buildOccurrenceId', () => {
@@ -60,7 +65,10 @@ describe('resolveOccurrenceId', () => {
 
 	it('normalizes an offset occurrence into UTC ISO, matching construction format', () => {
 		const resolved = resolveOccurrenceId('Kx7Pq2Zr9VmT1Lw~2026-08-22T05:00:00.000+02:00');
-		expect(resolved).toEqual({ masterId: 'Kx7Pq2Zr9VmT1Lw', occurrenceIso: '2026-08-22T03:00:00.000Z' });
+		expect(resolved).toEqual({
+			masterId: 'Kx7Pq2Zr9VmT1Lw',
+			occurrenceIso: '2026-08-22T03:00:00.000Z'
+		});
 	});
 
 	it('returns null for malformed ids', () => {
@@ -100,7 +108,9 @@ describe('normalizeOccurrenceIso', () => {
 	});
 
 	it('renders an offset timestamp in UTC ISO form', () => {
-		expect(normalizeOccurrenceIso('2026-08-22T05:00:00.000+02:00')).toBe('2026-08-22T03:00:00.000Z');
+		expect(normalizeOccurrenceIso('2026-08-22T05:00:00.000+02:00')).toBe(
+			'2026-08-22T03:00:00.000Z'
+		);
 	});
 
 	it('returns null for unparseable input', () => {

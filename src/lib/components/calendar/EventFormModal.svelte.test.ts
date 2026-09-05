@@ -23,10 +23,11 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	it('should show date field inline when NLP detects it, without clicking Show More', async () => {
 		vi.mocked(fetch).mockResolvedValue({
 			ok: true,
-			json: () => Promise.resolve({
-				parsed: { title: 'Team Meeting', date: '2026-05-05', startTime: '14:00' },
-				confidence: 0.85
-			})
+			json: () =>
+				Promise.resolve({
+					parsed: { title: 'Team Meeting', date: '2026-05-05', startTime: '14:00' },
+					confidence: 0.85
+				})
 		} as Response);
 
 		render(EventFormModal, {
@@ -43,10 +44,11 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	it('should debounce NLP parse at 300ms', async () => {
 		vi.mocked(fetch).mockResolvedValue({
 			ok: true,
-			json: () => Promise.resolve({
-				parsed: { title: 'Meeting', date: '2026-05-05' },
-				confidence: 0.85
-			})
+			json: () =>
+				Promise.resolve({
+					parsed: { title: 'Meeting', date: '2026-05-05' },
+					confidence: 0.85
+				})
 		} as Response);
 
 		render(EventFormModal, {
@@ -68,10 +70,11 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	it('should show green checkmark on detected field labels', async () => {
 		vi.mocked(fetch).mockResolvedValue({
 			ok: true,
-			json: () => Promise.resolve({
-				parsed: { title: 'Lunch', date: '2026-05-05', startTime: '12:00' },
-				confidence: 0.85
-			})
+			json: () =>
+				Promise.resolve({
+					parsed: { title: 'Lunch', date: '2026-05-05', startTime: '12:00' },
+					confidence: 0.85
+				})
 		} as Response);
 
 		render(EventFormModal, {
@@ -91,11 +94,21 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		vi.mocked(fetch)
 			.mockResolvedValueOnce({
 				ok: true,
-				json: () => Promise.resolve({ parsed: { title: 'Meeting', date: '2026-05-05', location: 'Office', startTime: '10:00' }, confidence: 0.85 })
+				json: () =>
+					Promise.resolve({
+						parsed: {
+							title: 'Meeting',
+							date: '2026-05-05',
+							location: 'Office',
+							startTime: '10:00'
+						},
+						confidence: 0.85
+					})
 			} as Response)
 			.mockResolvedValueOnce({
 				ok: true,
-				json: () => Promise.resolve({ parsed: { title: 'Dinner', date: '2026-05-06' }, confidence: 0.85 })
+				json: () =>
+					Promise.resolve({ parsed: { title: 'Dinner', date: '2026-05-06' }, confidence: 0.85 })
 			} as Response);
 
 		render(EventFormModal, {
@@ -117,10 +130,11 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	it('should show start and end time inputs when NLP detects times', async () => {
 		vi.mocked(fetch).mockResolvedValue({
 			ok: true,
-			json: () => Promise.resolve({
-				parsed: { title: 'Workshop', date: '2026-05-05', startTime: '09:00', endTime: '17:00' },
-				confidence: 0.85
-			})
+			json: () =>
+				Promise.resolve({
+					parsed: { title: 'Workshop', date: '2026-05-05', startTime: '09:00', endTime: '17:00' },
+					confidence: 0.85
+				})
 		} as Response);
 
 		render(EventFormModal, {
@@ -223,9 +237,7 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 		await vi.advanceTimersByTimeAsync(50);
 
-		const posts = vi
-			.mocked(fetch)
-			.mock.calls.filter(([u]) => String(u) === '/api/events');
+		const posts = vi.mocked(fetch).mock.calls.filter(([u]) => String(u) === '/api/events');
 		expect(posts).toHaveLength(2);
 		const secondBody = JSON.parse(String(posts[1][1]?.body ?? posts[1][1]));
 		expect(secondBody.start).toContain('2026-09-30');
@@ -317,7 +329,9 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		});
 
 		const nlInput = screen.getAllByPlaceholderText(/lunch friday/i)[0];
-		await fireEvent.input(nlInput, { target: { value: 'dentist tomorrow remind me 30 min before' } });
+		await fireEvent.input(nlInput, {
+			target: { value: 'dentist tomorrow remind me 30 min before' }
+		});
 		await vi.advanceTimersByTimeAsync(350);
 
 		await fireEvent.click(screen.getByRole('button', { name: /show more/i }));
@@ -732,10 +746,13 @@ describe('EventFormModal - Calendar Selector', () => {
 
 	it('should show calendar selector when user has 2+ calendars after Show More', async () => {
 		render(EventFormModal, {
-			props: { show: true, calendarIds: [
-				{ id: 'cal1', name: 'Personal' },
-				{ id: 'cal2', name: 'Family' }
-			]}
+			props: {
+				show: true,
+				calendarIds: [
+					{ id: 'cal1', name: 'Personal' },
+					{ id: 'cal2', name: 'Family' }
+				]
+			}
 		});
 
 		const showMoreBtn = screen.getByRole('button', { name: /show more/i });
@@ -760,10 +777,14 @@ describe('EventFormModal - Calendar Selector', () => {
 		} as any;
 
 		render(EventFormModal, {
-			props: { show: true, event: mockEvent, calendarIds: [
-				{ id: 'cal1', name: 'Personal' },
-				{ id: 'cal2', name: 'Family' }
-			]}
+			props: {
+				show: true,
+				event: mockEvent,
+				calendarIds: [
+					{ id: 'cal1', name: 'Personal' },
+					{ id: 'cal2', name: 'Family' }
+				]
+			}
 		});
 
 		const calendarLabel = screen.getByText('Calendar');
@@ -774,10 +795,13 @@ describe('EventFormModal - Calendar Selector', () => {
 
 	it('should allow selecting a different calendar', async () => {
 		render(EventFormModal, {
-			props: { show: true, calendarIds: [
-				{ id: 'cal1', name: 'Personal' },
-				{ id: 'cal2', name: 'Family' }
-			]}
+			props: {
+				show: true,
+				calendarIds: [
+					{ id: 'cal1', name: 'Personal' },
+					{ id: 'cal2', name: 'Family' }
+				]
+			}
 		});
 
 		const showMoreBtn = screen.getByRole('button', { name: /show more/i });

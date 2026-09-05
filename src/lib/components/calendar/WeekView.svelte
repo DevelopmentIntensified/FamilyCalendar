@@ -4,11 +4,16 @@
 	import type { Writable } from 'svelte/store';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
-import AttendanceBadge from './AttendanceBadge.svelte';
+	import AttendanceBadge from './AttendanceBadge.svelte';
 	import { chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import { layoutTimed } from '$lib/utils/dayViewLayout';
-	import { buildMovePayload, yToMinutes, normalizeRange, formatRangeLabel } from '$lib/utils/eventMove';
+	import {
+		buildMovePayload,
+		yToMinutes,
+		normalizeRange,
+		formatRangeLabel
+	} from '$lib/utils/eventMove';
 	import { invalidateAll } from '$app/navigation';
 	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
 
@@ -57,7 +62,6 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	$: startOfWeek = current.startOf('week').plus({ day: dayOffset });
 	$: weekDays = Array.from({ length: 7 }, (_, i) => startOfWeek.plus({ day: i }));
 
-
 	function getEventTop(event: Event): number {
 		if (!event.start) return 0;
 		const d = toDate(event.start);
@@ -79,7 +83,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 
 	function getEventsForDay(day: DateTime): Event[] {
 		const dateStr = formatDate(day);
-		return events.filter(e => {
+		return events.filter((e) => {
 			if (!e.date) return false;
 			const eventDate = e.date instanceof Date ? formatDate(e.date) : formatDate(e.date);
 			return eventDate === dateStr;
@@ -347,235 +351,287 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 	<!-- Phones (<640px) keep a 700px scroll floor; tablets (>=640px) flex to
 		the container so no side scrolling is needed. -->
 	<div class="min-w-[700px] sm:min-w-0">
-	<!-- Week Header -->
-	<div class="grid grid-cols-8 border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
-		<div class="w-14 shrink-0 border-r border-slate-200"></div>
-		{#each weekDays as wd}
-			<div class="flex-1 border-r border-slate-100 last:border-r-0">
-				<button
-					type="button"
-					class="w-full py-2 text-center hover:bg-slate-100 active:bg-slate-200 transition-colors"
-					onclick={() => openDay(wd)}
-					aria-label="Open {wd.toFormat('EEEE, MMMM d')}"
-				>
-					<div class="text-xs font-medium uppercase text-slate-500 {isToday(wd) ? 'text-primary-600' : ''}">
-						{wd.toFormat('EEE')}
-					</div>
-					<div class="text-lg font-semibold {isToday(wd) ? 'text-primary-600' : 'text-slate-900'}">
-						{wd.day}
-					</div>
-				</button>
-			</div>
-		{/each}
-	</div>
-
-	<!-- All-Day Events Row -->
-	<div class="grid grid-cols-8 border-b border-slate-200 bg-slate-50/50">
-		<div class="w-14 shrink-0 border-r border-slate-200 py-1 px-1 text-xs text-slate-500 flex items-center justify-end pr-2">
-			All day
+		<!-- Week Header -->
+		<div class="sticky top-0 z-10 grid grid-cols-8 border-b border-slate-200 bg-slate-50">
+			<div class="w-14 shrink-0 border-r border-slate-200"></div>
+			{#each weekDays as wd}
+				<div class="flex-1 border-r border-slate-100 last:border-r-0">
+					<button
+						type="button"
+						class="w-full py-2 text-center transition-colors hover:bg-slate-100 active:bg-slate-200"
+						onclick={() => openDay(wd)}
+						aria-label="Open {wd.toFormat('EEEE, MMMM d')}"
+					>
+						<div
+							class="text-xs font-medium uppercase text-slate-500 {isToday(wd)
+								? 'text-primary-600'
+								: ''}"
+						>
+							{wd.toFormat('EEE')}
+						</div>
+						<div
+							class="text-lg font-semibold {isToday(wd) ? 'text-primary-600' : 'text-slate-900'}"
+						>
+							{wd.day}
+						</div>
+					</button>
+				</div>
+			{/each}
 		</div>
-		{#each weekDays as wd}
-			{@const allDayEvents = getEventsForDay(wd).filter(e => e.allDay)}
-			{@const dayTasks = getTasksForDay(wd)}
-			<div class="flex-1 min-h-[40px] border-r border-slate-100 last:border-r-0 p-0.5 space-y-0.5">
-				{#each allDayEvents as event}
-					{@const rv = rsvpVisual(event.rsvpStatus)}
-					<button
-						type="button"
-						onclick={() => handleEventClick(event)}
-						aria-pressed={selectionMode ? isSelected(event) : undefined}
-						class="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-xs font-medium transition-all hover:opacity-90 active:opacity-70 active:scale-[0.99] cursor-pointer bg-white {rv?.containerClass ?? ''} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400 bg-primary-50/70' : ''}"
-					>
-						{#if selectionMode}
-							<span
-								class="flex h-3 w-3 shrink-0 items-center justify-center rounded-sm border transition-all {isSelected(event) ? 'border-primary-600 bg-primary-600 text-white' : 'border-slate-400 bg-white'}"
-								aria-hidden="true"
-							>
-								<svg
-									class="h-2 w-2 transition-transform {isSelected(event) ? 'scale-100' : 'scale-0'}"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="4"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-								</svg>
-							</span>
-						{/if}
-						style="border-left: 3px solid {event.color || '#94a3b8'}"
-					>
-						{#if rv}
-							<span class="mr-0.5 shrink-0 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}">{rv.icon}</span>
-						{/if}
-						<span class="truncate">{event.title}</span>
-						{#if event.attendance && event.attendance.invited > 1}
-							<AttendanceBadge attendance={event.attendance} />
-						{/if}
-					</button>
-				{/each}
-				{#each dayTasks as task (task.id)}
-					<button
-						type="button"
-						onclick={() => openTask(task)}
-						title="View task details"
-						class="relative flex w-full items-center gap-1 rounded border border-dashed border-slate-400 bg-slate-50 px-1 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-500 hover:bg-slate-100 active:bg-slate-200"
-					>
-						<span class="absolute -inset-2" aria-hidden="true"></span>
-						<span class="h-3 w-3 shrink-0 rounded-full border-2 border-slate-300"></span>
-						<span class="truncate">{task.title}</span>
-					</button>
-				{/each}
-			</div>
-		{/each}
-	</div>
 
-	<!-- Week Body - Scrollable -->
-	{#if moveError}
-		<p role="alert" class="px-2 py-1 text-xs font-medium text-red-600">{moveError}</p>
-	{/if}
-	<div class="max-h-[60vh] overflow-y-auto">
-		<div class="relative" style="height: calc(24 * 60px);">
-			<!-- Hour background grid -->
-			{#each hours as hour}
-				<div class="grid grid-cols-8 border-b border-slate-100 {isCurrentHour(hour, $currentDate) ? 'bg-primary-50/30' : ''}" style="height: 60px;">
-					<div class="w-14 shrink-0 border-r border-slate-200 py-3 text-right pr-2">
-						<span class="text-xs font-medium text-slate-500">
-							{hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
-						</span>
-					</div>
-					{#each weekDays as wd}
-						<div class="flex-1 border-r border-slate-100 last:border-r-0"></div>
+		<!-- All-Day Events Row -->
+		<div class="grid grid-cols-8 border-b border-slate-200 bg-slate-50/50">
+			<div
+				class="flex w-14 shrink-0 items-center justify-end border-r border-slate-200 px-1 py-1 pr-2 text-xs text-slate-500"
+			>
+				All day
+			</div>
+			{#each weekDays as wd}
+				{@const allDayEvents = getEventsForDay(wd).filter((e) => e.allDay)}
+				{@const dayTasks = getTasksForDay(wd)}
+				<div
+					class="min-h-[40px] flex-1 space-y-0.5 border-r border-slate-100 p-0.5 last:border-r-0"
+				>
+					{#each allDayEvents as event}
+						{@const rv = rsvpVisual(event.rsvpStatus)}
+						<button
+							type="button"
+							onclick={() => handleEventClick(event)}
+							aria-pressed={selectionMode ? isSelected(event) : undefined}
+							class="flex w-full cursor-pointer items-center gap-1 truncate rounded bg-white px-1 py-0.5 text-left text-xs font-medium transition-all hover:opacity-90 active:scale-[0.99] active:opacity-70 {rv?.containerClass ??
+								''} {selectionMode && isSelected(event)
+								? 'bg-primary-50/70 ring-2 ring-primary-400'
+								: ''}"
+						>
+							{#if selectionMode}
+								<span
+									class="flex h-3 w-3 shrink-0 items-center justify-center rounded-sm border transition-all {isSelected(
+										event
+									)
+										? 'border-primary-600 bg-primary-600 text-white'
+										: 'border-slate-400 bg-white'}"
+									aria-hidden="true"
+								>
+									<svg
+										class="h-2 w-2 transition-transform {isSelected(event)
+											? 'scale-100'
+											: 'scale-0'}"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="4"
+									>
+										<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+									</svg>
+								</span>
+							{/if}
+							style="border-left: 3px solid {event.color || '#94a3b8'}" >
+							{#if rv}
+								<span class="mr-0.5 shrink-0 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}"
+									>{rv.icon}</span
+								>
+							{/if}
+							<span class="truncate">{event.title}</span>
+							{#if event.attendance && event.attendance.invited > 1}
+								<AttendanceBadge attendance={event.attendance} />
+							{/if}
+						</button>
+					{/each}
+					{#each dayTasks as task (task.id)}
+						<button
+							type="button"
+							onclick={() => openTask(task)}
+							title="View task details"
+							class="relative flex w-full items-center gap-1 rounded border border-dashed border-slate-400 bg-slate-50 px-1 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-500 hover:bg-slate-100 active:bg-slate-200"
+						>
+							<span class="absolute -inset-2" aria-hidden="true"></span>
+							<span class="h-3 w-3 shrink-0 rounded-full border-2 border-slate-300"></span>
+							<span class="truncate">{task.title}</span>
+						</button>
 					{/each}
 				</div>
 			{/each}
+		</div>
 
-			<!-- Event overlay -->
-			<div class="absolute inset-0 grid grid-cols-8 pointer-events-none">
-				<div class="w-14 shrink-0"></div>
-				{#each weekDays as wd}
-					{@const dayEvents = getEventsForDay(wd).filter(e => !e.allDay)}
-					{@const laidOut = layoutTimed(
-						[...dayEvents].sort((a, b) => toDate(a.start).getTime() - toDate(b.start).getTime())
-					)}
+		<!-- Week Body - Scrollable -->
+		{#if moveError}
+			<p role="alert" class="px-2 py-1 text-xs font-medium text-red-600">{moveError}</p>
+		{/if}
+		<div class="max-h-[60vh] overflow-y-auto">
+			<div class="relative" style="height: calc(24 * 60px);">
+				<!-- Hour background grid -->
+				{#each hours as hour}
 					<div
-						class="relative pointer-events-auto transition-colors hover:bg-slate-50/60 active:bg-slate-100/60"
-						data-testid="week-day-column"
-						ondragover={(e) => e.preventDefault()}
-						ondrop={(e) => handleColumnDrop(e, wd)}
-						onclick={(e) => handleColumnClick(e, wd)}
-						onmousedown={(e) => handleRangeMouseDown(e, wd)}
-						onmousemove={handleRangeMouseMove}
-						onmouseup={handleRangeMouseUp}
-						use:rangeTouch={wd}
+						class="grid grid-cols-8 border-b border-slate-100 {isCurrentHour(hour, $currentDate)
+							? 'bg-primary-50/30'
+							: ''}"
+						style="height: 60px;"
 					>
-						{#if selecting && selecting.day.hasSame(wd, 'day')}
-							{@const [selStart, selEnd] = normalizeRange(selecting.anchorMin, selecting.curMin)}
-							<div
-								class="pointer-events-none absolute inset-x-1 z-20 rounded bg-primary-200/50"
-								style="top: {(selStart / 1440) * 100}%; height: {((selEnd - selStart) / 1440) * 100}%;"
-							></div>
-						{/if}
-						{#if rangeSel && rangeSel.day.hasSame(wd, 'day')}
-							<div
-								class="pointer-events-none absolute inset-x-1 z-20 rounded bg-primary-200/60"
-								style="top: {(rangeSel.startMin / 1440) * 100}%; height: {((rangeSel.endMin - rangeSel.startMin) / 1440) * 100}%;"
-							></div>
-							<div
-								class="absolute inset-x-1 z-30 rounded-xl border border-primary-200 bg-white p-2 shadow-xl"
-								style="top: {(rangeSel.endMin / 1440) * 100}%;"
-							>
-								<div class="text-[11px] font-semibold text-slate-800">
-									{formatRangeLabel(rangeSel.startMin, rangeSel.endMin)}
-								</div>
-								<div class="mt-1 flex items-center gap-1">
-									<button
-										type="button"
-										onclick={() => stepRangeEnd(-15)}
-										aria-label="Shorten by 15 minutes"
-										class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition-all"
-									>
-										−15
-									</button>
-									<button
-										type="button"
-										onclick={() => stepRangeEnd(15)}
-										aria-label="Extend by 15 minutes"
-										class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition-all"
-									>
-										+15
-									</button>
-									<button
-										type="button"
-										onclick={createRange}
-										aria-label="Create event for selected time"
-										class="rounded-md bg-primary-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-primary-700 active:scale-95 transition-all"
-									>
-										Create
-									</button>
-									<button
-										type="button"
-										onclick={() => (rangeSel = null)}
-										aria-label="Dismiss time selection"
-										class="rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:text-slate-600"
-									>
-										✕
-									</button>
-								</div>
-							</div>
-						{/if}
-						{#each laidOut as slot (slot.event.id)}
-							{@const widthPct = (1 / slot.lanes) * 100}
-							{@const rv = rsvpVisual(slot.event.rsvpStatus)}
-							<button
-								type="button"
-								onclick={() => handleEventClick(slot.event)}
-								draggable={!selectionMode}
-								ondragstart={(e) => handleDragStart(e, slot.event)}
-								aria-pressed={selectionMode ? isSelected(slot.event) : undefined}
-								title={selectionMode ? undefined : chipTooltip(slot.event, calendarIds)}
-								class="absolute rounded px-1 py-0.5 text-xs sm:text-sm font-medium truncate hover:opacity-90 active:opacity-70 transition-all cursor-pointer text-left overflow-hidden bg-white {rv?.containerClass ?? ''} {selectionMode ? 'active:scale-[0.98]' : ''} {selectionMode && isSelected(slot.event) ? 'ring-2 ring-primary-400 bg-primary-50/70' : ''}"
-								style="top: {getEventTop(slot.event)}%; height: {getEventHeight(slot.event)}%; left: calc({slot.lane * widthPct}% + 2px); width: calc({widthPct}% - 4px); border-left: 3px solid {slot.event.color || '#94a3b8'}; min-height: 26px;"
-							>
-								<span class="block truncate">
-									{#if selectionMode}
-										<span
-											class="mr-1 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-all {isSelected(slot.event) ? 'border-primary-600 bg-primary-600 text-white' : 'border-slate-300 bg-white'}"
-											aria-hidden="true"
-										>
-											<svg
-												class="h-2.5 w-2.5 transition-transform {isSelected(slot.event) ? 'scale-100' : 'scale-0'}"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-												stroke-width="4"
-											>
-												<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-											</svg>
-										</span>
-									{/if}
-									{#if rv}
-										<span class="mr-0.5 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}">{rv.icon}</span>
-									{/if}
-									{slot.event.title}
-								</span>
-								<span class="block text-[10px] opacity-75 truncate">
-									{formatEventTime(slot.event.start)}{#if slot.event.end} - {formatEventTime(slot.event.end)}{/if}
-								</span>
-							</button>
+						<div class="w-14 shrink-0 border-r border-slate-200 py-3 pr-2 text-right">
+							<span class="text-xs font-medium text-slate-500">
+								{hour === 0
+									? '12 AM'
+									: hour < 12
+										? `${hour} AM`
+										: hour === 12
+											? '12 PM'
+											: `${hour - 12} PM`}
+							</span>
+						</div>
+						{#each weekDays as wd}
+							<div class="flex-1 border-r border-slate-100 last:border-r-0"></div>
 						{/each}
 					</div>
 				{/each}
-			</div>
 
-			{#if totalWeekItems === 0}
-				<div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-					<p class="rounded-xl bg-white/60 px-6 py-4 text-sm text-slate-400 backdrop-blur-sm">
-						Nothing this week — a blank week is full of options.
-					</p>
+				<!-- Event overlay -->
+				<div class="pointer-events-none absolute inset-0 grid grid-cols-8">
+					<div class="w-14 shrink-0"></div>
+					{#each weekDays as wd}
+						{@const dayEvents = getEventsForDay(wd).filter((e) => !e.allDay)}
+						{@const laidOut = layoutTimed(
+							[...dayEvents].sort((a, b) => toDate(a.start).getTime() - toDate(b.start).getTime())
+						)}
+						<div
+							class="pointer-events-auto relative transition-colors hover:bg-slate-50/60 active:bg-slate-100/60"
+							data-testid="week-day-column"
+							ondragover={(e) => e.preventDefault()}
+							ondrop={(e) => handleColumnDrop(e, wd)}
+							onclick={(e) => handleColumnClick(e, wd)}
+							onmousedown={(e) => handleRangeMouseDown(e, wd)}
+							onmousemove={handleRangeMouseMove}
+							onmouseup={handleRangeMouseUp}
+							use:rangeTouch={wd}
+						>
+							{#if selecting && selecting.day.hasSame(wd, 'day')}
+								{@const [selStart, selEnd] = normalizeRange(selecting.anchorMin, selecting.curMin)}
+								<div
+									class="pointer-events-none absolute inset-x-1 z-20 rounded bg-primary-200/50"
+									style="top: {(selStart / 1440) * 100}%; height: {((selEnd - selStart) / 1440) *
+										100}%;"
+								></div>
+							{/if}
+							{#if rangeSel && rangeSel.day.hasSame(wd, 'day')}
+								<div
+									class="pointer-events-none absolute inset-x-1 z-20 rounded bg-primary-200/60"
+									style="top: {(rangeSel.startMin / 1440) * 100}%; height: {((rangeSel.endMin -
+										rangeSel.startMin) /
+										1440) *
+										100}%;"
+								></div>
+								<div
+									class="absolute inset-x-1 z-30 rounded-xl border border-primary-200 bg-white p-2 shadow-xl"
+									style="top: {(rangeSel.endMin / 1440) * 100}%;"
+								>
+									<div class="text-[11px] font-semibold text-slate-800">
+										{formatRangeLabel(rangeSel.startMin, rangeSel.endMin)}
+									</div>
+									<div class="mt-1 flex items-center gap-1">
+										<button
+											type="button"
+											onclick={() => stepRangeEnd(-15)}
+											aria-label="Shorten by 15 minutes"
+											class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
+										>
+											−15
+										</button>
+										<button
+											type="button"
+											onclick={() => stepRangeEnd(15)}
+											aria-label="Extend by 15 minutes"
+											class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
+										>
+											+15
+										</button>
+										<button
+											type="button"
+											onclick={createRange}
+											aria-label="Create event for selected time"
+											class="rounded-md bg-primary-600 px-2 py-1 text-[11px] font-medium text-white transition-all hover:bg-primary-700 active:scale-95"
+										>
+											Create
+										</button>
+										<button
+											type="button"
+											onclick={() => (rangeSel = null)}
+											aria-label="Dismiss time selection"
+											class="rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:text-slate-600"
+										>
+											✕
+										</button>
+									</div>
+								</div>
+							{/if}
+							{#each laidOut as slot (slot.event.id)}
+								{@const widthPct = (1 / slot.lanes) * 100}
+								{@const rv = rsvpVisual(slot.event.rsvpStatus)}
+								<button
+									type="button"
+									onclick={() => handleEventClick(slot.event)}
+									draggable={!selectionMode}
+									ondragstart={(e) => handleDragStart(e, slot.event)}
+									aria-pressed={selectionMode ? isSelected(slot.event) : undefined}
+									title={selectionMode ? undefined : chipTooltip(slot.event, calendarIds)}
+									class="absolute cursor-pointer overflow-hidden truncate rounded bg-white px-1 py-0.5 text-left text-xs font-medium transition-all hover:opacity-90 active:opacity-70 sm:text-sm {rv?.containerClass ??
+										''} {selectionMode ? 'active:scale-[0.98]' : ''} {selectionMode &&
+									isSelected(slot.event)
+										? 'bg-primary-50/70 ring-2 ring-primary-400'
+										: ''}"
+									style="top: {getEventTop(slot.event)}%; height: {getEventHeight(
+										slot.event
+									)}%; left: calc({slot.lane *
+										widthPct}% + 2px); width: calc({widthPct}% - 4px); border-left: 3px solid {slot
+										.event.color || '#94a3b8'}; min-height: 26px;"
+								>
+									<span class="block truncate">
+										{#if selectionMode}
+											<span
+												class="mr-1 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-all {isSelected(
+													slot.event
+												)
+													? 'border-primary-600 bg-primary-600 text-white'
+													: 'border-slate-300 bg-white'}"
+												aria-hidden="true"
+											>
+												<svg
+													class="h-2.5 w-2.5 transition-transform {isSelected(slot.event)
+														? 'scale-100'
+														: 'scale-0'}"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+													stroke-width="4"
+												>
+													<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+												</svg>
+											</span>
+										{/if}
+										{#if rv}
+											<span class="mr-0.5 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}"
+												>{rv.icon}</span
+											>
+										{/if}
+										{slot.event.title}
+									</span>
+									<span class="block truncate text-[10px] opacity-75">
+										{formatEventTime(slot.event.start)}{#if slot.event.end}
+											- {formatEventTime(slot.event.end)}{/if}
+									</span>
+								</button>
+							{/each}
+						</div>
+					{/each}
 				</div>
-			{/if}
+
+				{#if totalWeekItems === 0}
+					<div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+						<p class="rounded-xl bg-white/60 px-6 py-4 text-sm text-slate-400 backdrop-blur-sm">
+							Nothing this week — a blank week is full of options.
+						</p>
+					</div>
+				{/if}
+			</div>
 		</div>
-	</div>
 	</div>
 </div>
 

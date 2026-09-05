@@ -1,5 +1,10 @@
 import { db } from '$lib/server/db';
-import { subscriptions, subscriptionTypes, familyMembers, aiUsageTracking } from '$lib/server/db/schema';
+import {
+	subscriptions,
+	subscriptionTypes,
+	familyMembers,
+	aiUsageTracking
+} from '$lib/server/db/schema';
 import { eq, and, sql, isNotNull, isNull, desc } from 'drizzle-orm';
 
 export type SubscriptionTier = typeof subscriptionTypes.$inferSelect;
@@ -22,9 +27,7 @@ export interface SubscriptionCheckResult {
 	reason?: string;
 }
 
-export async function getUserSubscription(
-	userId: string
-): Promise<SubscriptionTier | null> {
+export async function getUserSubscription(userId: string): Promise<SubscriptionTier | null> {
 	const userSubscription = await db
 		.select()
 		.from(subscriptions)
@@ -32,10 +35,7 @@ export async function getUserSubscription(
 			and(
 				eq(subscriptions.userId, userId),
 				isNotNull(subscriptions.subscriptionTypeId),
-				or(
-					sql`${subscriptions.endDate} > NOW()`,
-					isNull(subscriptions.endDate)
-				)
+				or(sql`${subscriptions.endDate} > NOW()`, isNull(subscriptions.endDate))
 			)
 		)
 		.limit(1);
@@ -69,9 +69,7 @@ export interface SubscriptionStatus {
 	} | null;
 }
 
-export async function getSubscriptionStatus(
-	userId: string
-): Promise<SubscriptionStatus> {
+export async function getSubscriptionStatus(userId: string): Promise<SubscriptionStatus> {
 	const tier = await getUserSubscription(userId);
 
 	if (!tier) {
@@ -90,10 +88,7 @@ export async function getSubscriptionStatus(
 			and(
 				eq(subscriptions.userId, userId),
 				isNotNull(subscriptions.subscriptionTypeId),
-				or(
-					sql`${subscriptions.endDate} > NOW()`,
-					isNull(subscriptions.endDate)
-				)
+				or(sql`${subscriptions.endDate} > NOW()`, isNull(subscriptions.endDate))
 			)
 		)
 		.orderBy(desc(subscriptions.createdAt))
@@ -105,9 +100,7 @@ export async function getSubscriptionStatus(
 	};
 }
 
-export async function getUserSubscriptionLimits(
-	userId: string
-): Promise<SubscriptionLimits> {
+export async function getUserSubscriptionLimits(userId: string): Promise<SubscriptionLimits> {
 	const tier = await getUserSubscription(userId);
 
 	if (!tier) {
@@ -139,7 +132,9 @@ export async function getUserSubscriptionLimits(
 	};
 }
 
-export async function canAddFamilyMember(userId: string): Promise<{ allowed: boolean; reason?: string }> {
+export async function canAddFamilyMember(
+	userId: string
+): Promise<{ allowed: boolean; reason?: string }> {
 	const limits = await getUserSubscriptionLimits(userId);
 
 	const currentFamilyMembers = await db
@@ -160,7 +155,9 @@ export async function canAddFamilyMember(userId: string): Promise<{ allowed: boo
 	return { allowed: true };
 }
 
-export async function canCreateFamily(userId: string): Promise<{ allowed: boolean; limit?: number; reason?: string }> {
+export async function canCreateFamily(
+	userId: string
+): Promise<{ allowed: boolean; limit?: number; reason?: string }> {
 	const limits = await getUserSubscriptionLimits(userId);
 
 	const userFamilies = await db
@@ -170,7 +167,7 @@ export async function canCreateFamily(userId: string): Promise<{ allowed: boolea
 		.limit(100);
 
 	const userFamiliesArray = Array.isArray(userFamilies) ? userFamilies : [];
-	const uniqueFamilyIds = new Set(userFamiliesArray.map(f => f.familyId));
+	const uniqueFamilyIds = new Set(userFamiliesArray.map((f) => f.familyId));
 	const familyCount = uniqueFamilyIds.size;
 	const availableSlots = limits.familyLimit - familyCount;
 
@@ -203,7 +200,9 @@ export async function canViewArchivedEvent(
 	return { allowed: true };
 }
 
-export async function canViewArchive(userId: string): Promise<{ allowed: boolean; reason?: string }> {
+export async function canViewArchive(
+	userId: string
+): Promise<{ allowed: boolean; reason?: string }> {
 	const limits = await getUserSubscriptionLimits(userId);
 
 	// Archive access is a plan capability: tiers without archive storage set
@@ -233,7 +232,7 @@ export async function canUploadAttachment(
 }
 
 function or(...conditions: ReturnType<typeof sql>[]) {
-	return sql`(${conditions.map((c, i) => i === 0 ? c : sql` OR ${c}`).join('')})`;
+	return sql`(${conditions.map((c, i) => (i === 0 ? c : sql` OR ${c}`)).join('')})`;
 }
 
 export async function checkSubscriptionAction(
@@ -253,7 +252,8 @@ export async function checkSubscriptionAction(
 			return {
 				canAddFamily: familyCheck.allowed,
 				canViewArchive: (await canViewArchive(userId)).allowed,
-				canUploadAttachment: (await canUploadAttachment(userId, params?.fileSizeBytes ?? 0)).allowed,
+				canUploadAttachment: (await canUploadAttachment(userId, params?.fileSizeBytes ?? 0))
+					.allowed,
 				currentFamilyCount: membersResult.length,
 				reason: familyCheck.reason
 			};
@@ -264,7 +264,8 @@ export async function checkSubscriptionAction(
 			return {
 				canAddFamily: (await canAddFamilyMember(userId)).allowed,
 				canViewArchive: archiveCheck.allowed,
-				canUploadAttachment: (await canUploadAttachment(userId, params?.fileSizeBytes ?? 0)).allowed,
+				canUploadAttachment: (await canUploadAttachment(userId, params?.fileSizeBytes ?? 0))
+					.allowed,
 				reason: archiveCheck.reason
 			};
 		}
@@ -306,7 +307,9 @@ export async function getAllSubscriptionTiers(): Promise<SubscriptionTier[]> {
 	return await db.select().from(subscriptionTypes).where(eq(subscriptionTypes.enabled, true));
 }
 
-export async function getAiUsageThisMonth(userId: string): Promise<{ used: number; limit: number; remaining: number }> {
+export async function getAiUsageThisMonth(
+	userId: string
+): Promise<{ used: number; limit: number; remaining: number }> {
 	const now = new Date();
 	const month = now.getMonth() + 1;
 	const year = now.getFullYear();
@@ -334,7 +337,9 @@ export async function getAiUsageThisMonth(userId: string): Promise<{ used: numbe
 	};
 }
 
-export async function canUseAiFeature(userId: string): Promise<{ allowed: boolean; reason?: string; remaining?: number }> {
+export async function canUseAiFeature(
+	userId: string
+): Promise<{ allowed: boolean; reason?: string; remaining?: number }> {
 	const usage = await getAiUsageThisMonth(userId);
 
 	if (usage.remaining <= 0) {
@@ -348,7 +353,9 @@ export async function canUseAiFeature(userId: string): Promise<{ allowed: boolea
 	return { allowed: true, remaining: usage.remaining };
 }
 
-export async function recordAiUsage(userId: string): Promise<{ success: boolean; remaining: number }> {
+export async function recordAiUsage(
+	userId: string
+): Promise<{ success: boolean; remaining: number }> {
 	const now = new Date();
 	const month = now.getMonth() + 1;
 	const year = now.getFullYear();
@@ -393,7 +400,9 @@ export async function recordAiUsage(userId: string): Promise<{ success: boolean;
 	return { success: true, remaining: usage.remaining };
 }
 
-export async function canExportImport(userId: string): Promise<{ allowed: boolean; reason?: string }> {
+export async function canExportImport(
+	userId: string
+): Promise<{ allowed: boolean; reason?: string }> {
 	const limits = await getUserSubscriptionLimits(userId);
 
 	if (!limits.exportImportEnabled) {

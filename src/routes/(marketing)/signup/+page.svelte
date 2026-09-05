@@ -121,7 +121,10 @@
 					{#if data.isLoggedIn}
 						You are already logged in
 					{:else}
-						Already have an account? <a href="/login" class="text-primary-600 hover:text-primary-500">Sign in</a>
+						Already have an account? <a
+							href="/login"
+							class="text-primary-600 hover:text-primary-500">Sign in</a
+						>
 					{/if}
 				</p>
 			</div>
@@ -144,7 +147,7 @@
 						<p class="mb-6 text-slate-600">
 							We've sent a verification code to <strong>{email}</strong>
 						</p>
-						
+
 						<form on:submit|preventDefault={handleCodeVerification} class="space-y-4">
 							<input
 								type="text"
@@ -173,7 +176,8 @@
 					<div class="mb-4 flex rounded-lg bg-slate-100 p-1">
 						<button
 							on:click={() => (mode = 'password')}
-							class="flex-1 rounded-md py-2 px-4 text-sm font-medium transition-colors {mode === 'password'
+							class="flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors {mode ===
+							'password'
 								? 'bg-white text-slate-900 shadow'
 								: 'text-slate-600 hover:text-slate-900'}"
 						>
@@ -181,7 +185,8 @@
 						</button>
 						<button
 							on:click={() => (mode = 'magic-link')}
-							class="flex-1 rounded-md py-2 px-4 text-sm font-medium transition-colors {mode === 'magic-link'
+							class="flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors {mode ===
+							'magic-link'
 								? 'bg-white text-slate-900 shadow'
 								: 'text-slate-600 hover:text-slate-900'}"
 						>
@@ -193,7 +198,9 @@
 						<form on:submit|preventDefault={handlePasswordSignup} class="space-y-4">
 							<div class="grid grid-cols-2 gap-4">
 								<div>
-									<label for="firstName" class="block text-sm font-medium text-slate-700">First Name</label>
+									<label for="firstName" class="block text-sm font-medium text-slate-700"
+										>First Name</label
+									>
 									<input
 										id="firstName"
 										type="text"
@@ -203,7 +210,9 @@
 									/>
 								</div>
 								<div>
-									<label for="lastName" class="block text-sm font-medium text-slate-700">Last Name</label>
+									<label for="lastName" class="block text-sm font-medium text-slate-700"
+										>Last Name</label
+									>
 									<input
 										id="lastName"
 										type="text"
@@ -226,7 +235,9 @@
 							</div>
 
 							<div>
-								<label for="password" class="block text-sm font-medium text-slate-700">Password</label>
+								<label for="password" class="block text-sm font-medium text-slate-700"
+									>Password</label
+								>
 								<input
 									id="password"
 									type="password"
@@ -239,7 +250,9 @@
 							</div>
 
 							<div>
-								<label for="confirmPassword" class="block text-sm font-medium text-slate-700">Confirm Password</label>
+								<label for="confirmPassword" class="block text-sm font-medium text-slate-700"
+									>Confirm Password</label
+								>
 								<input
 									id="confirmPassword"
 									type="password"
@@ -261,7 +274,9 @@
 						<form on:submit|preventDefault={handleMagicLinkSignup} class="space-y-4">
 							<div class="grid grid-cols-2 gap-4">
 								<div>
-									<label for="firstNameML" class="block text-sm font-medium text-slate-700">First Name</label>
+									<label for="firstNameML" class="block text-sm font-medium text-slate-700"
+										>First Name</label
+									>
 									<input
 										id="firstNameML"
 										type="text"
@@ -271,7 +286,9 @@
 									/>
 								</div>
 								<div>
-									<label for="lastNameML" class="block text-sm font-medium text-slate-700">Last Name</label>
+									<label for="lastNameML" class="block text-sm font-medium text-slate-700"
+										>Last Name</label
+									>
 									<input
 										id="lastNameML"
 										type="text"

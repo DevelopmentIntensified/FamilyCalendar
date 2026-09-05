@@ -41,7 +41,11 @@ export interface BulkPlanOp {
  * carries a delete verb ("delete the 3rd item" = the 3rd selected event,
  * not the 3rd of the month), skip it so the delete wins.
  */
-export function resolveBulkDate(lower: string, today: DateTime, skipBareDay = false): string | null {
+export function resolveBulkDate(
+	lower: string,
+	today: DateTime,
+	skipBareDay = false
+): string | null {
 	// ISO date: "2026-08-28"
 	const iso = lower.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
 	if (iso) {
@@ -60,7 +64,9 @@ export function resolveBulkDate(lower: string, today: DateTime, skipBareDay = fa
 	// Month-day: "aug 28", "august 28th", "sept 5, 2026".
 	// Without an explicit year, stay in the current year; roll to next
 	// year only when the date sits more than 3 months in the past.
-	const monthDay = lower.match(new RegExp(`\\b(${MONTH_ALT})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?\\b`));
+	const monthDay = lower.match(
+		new RegExp(`\\b(${MONTH_ALT})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?\\b`)
+	);
 	if (monthDay) {
 		const month = MONTH_MAP[monthDay[1]];
 		const day = +monthDay[2];
@@ -74,7 +80,11 @@ export function resolveBulkDate(lower: string, today: DateTime, skipBareDay = fa
 	}
 
 	// Day-month: "28 aug", "21st of september" (same year rule as above)
-	const dayMonth = lower.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_ALT})\\.?(?:,?\\s*(20\\d{2}))?\\b`));
+	const dayMonth = lower.match(
+		new RegExp(
+			`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_ALT})\\.?(?:,?\\s*(20\\d{2}))?\\b`
+		)
+	);
 	if (dayMonth) {
 		const day = +dayMonth[1];
 		const month = MONTH_MAP[dayMonth[2]];
@@ -92,7 +102,8 @@ export function resolveBulkDate(lower: string, today: DateTime, skipBareDay = fa
 	// Runs after month-day rules so "aug 28th" keeps its month. Skipped for
 	// delete-word instructions (see skipBareDay).
 	const bareDay =
-		!skipBareDay && lower.match(/(?:\bthe\s+(\d{1,2})(?:st|nd|rd|th)?|\b(\d{1,2})(?:st|nd|rd|th))\b/);
+		!skipBareDay &&
+		lower.match(/(?:\bthe\s+(\d{1,2})(?:st|nd|rd|th)?|\b(\d{1,2})(?:st|nd|rd|th))\b/);
 	if (bareDay) {
 		const day = +(bareDay[1] ?? bareDay[2]);
 		if (day >= 1 && day <= 31) {
@@ -172,10 +183,7 @@ export function resolveBulkTime(lower: string): string | null {
 }
 
 /** Find a calendar referenced by name ("to family", "personal calendar"). */
-export function resolveBulkCalendar(
-	lower: string,
-	calendars: BulkCalendarRef[]
-): string | null {
+export function resolveBulkCalendar(lower: string, calendars: BulkCalendarRef[]): string | null {
 	for (const cal of calendars) {
 		const name = cal.name.toLowerCase().trim();
 		// Word-boundary match so "test" doesn't hit "latest"; skip very short
@@ -184,7 +192,10 @@ export function resolveBulkCalendar(
 	}
 	// Try name without the "calendar" suffix: "to family" matches "Family Calendar"
 	for (const cal of calendars) {
-		const stem = cal.name.toLowerCase().replace(/\bcalendar(s)?\b/g, '').trim();
+		const stem = cal.name
+			.toLowerCase()
+			.replace(/\bcalendar(s)?\b/g, '')
+			.trim();
 		if (stem.length >= 3 && new RegExp(`\\b${escapeRegExp(stem)}\\b`).test(lower)) {
 			return cal.id;
 		}
@@ -265,7 +276,8 @@ export function parseBulkPlan(content: string, allowedIds: string[]): BulkPlanOp
 		const seen = new Set<string>();
 		const ops: BulkPlanOp[] = [];
 		for (const op of rawOps) {
-			if (!op || typeof op.id !== 'string' || !allowedIds.includes(op.id) || seen.has(op.id)) continue;
+			if (!op || typeof op.id !== 'string' || !allowedIds.includes(op.id) || seen.has(op.id))
+				continue;
 
 			if (op.delete === true) {
 				ops.push({ id: op.id, delete: true });
@@ -282,7 +294,8 @@ export function parseBulkPlan(content: string, allowedIds: string[]): BulkPlanOp
 			if (typeof op.endTime === 'string' && isValidTime(op.endTime)) {
 				clean.endTime = op.endTime.padStart(5, '0');
 			}
-			if (typeof op.location === 'string' && op.location.trim()) clean.location = op.location.trim();
+			if (typeof op.location === 'string' && op.location.trim())
+				clean.location = op.location.trim();
 			if (typeof op.allDay === 'boolean') clean.allDay = op.allDay;
 			if (typeof op.calendarId === 'string' && isValidId(op.calendarId)) {
 				clean.calendarId = op.calendarId;
@@ -324,5 +337,8 @@ export async function planBulkEditsWithAI(
 		`Today is ${today}.\nInstruction: ${instruction}\nEvents: ${JSON.stringify(events)}\nCalendars: ${JSON.stringify(calendars)}`
 	);
 	if (!json) return [];
-	return parseBulkPlan(JSON.stringify(json), events.map((e) => e.id));
+	return parseBulkPlan(
+		JSON.stringify(json),
+		events.map((e) => e.id)
+	);
 }

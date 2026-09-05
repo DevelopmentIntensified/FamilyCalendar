@@ -54,8 +54,14 @@ function dispatchTouchEnd(el: Element) {
 
 describe('DayView - slot create and drag move', () => {
 	beforeEach(() => {
-		vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({}) })));
-		vi.stubGlobal('confirm', vi.fn(() => true));
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+		);
+		vi.stubGlobal(
+			'confirm',
+			vi.fn(() => true)
+		);
 		vi.mocked(invalidateAll).mockClear();
 	});
 
@@ -131,7 +137,10 @@ describe('DayView - slot create and drag move', () => {
 		setup({ events: [evt] });
 		const grid = screen.getByTestId('day-grid');
 		await fireEvent.dragStart(screen.getByText('Standup'));
-		await fireEvent(grid, new MouseEvent('drop', { bubbles: true, cancelable: true, clientY: 112 }));
+		await fireEvent(
+			grid,
+			new MouseEvent('drop', { bubbles: true, cancelable: true, clientY: 112 })
+		);
 		expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
 		const [url, init] = vi.mocked(fetch).mock.calls[0] as any[];
 		expect(url).toBe('/api/events/e1');

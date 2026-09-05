@@ -60,18 +60,24 @@ export { expect } from '@playwright/test';
 
 export async function loginWithSession(page: Page, email: string) {
 	const cookie = await getSessionCookie(email);
-	await page.context().addCookies([{
-		name: cookie.name,
-		value: cookie.value,
-		domain: 'localhost',
-		path: '/',
-		httpOnly: cookie.attributes.httpOnly,
-		secure: cookie.attributes.secure,
-		sameSite: 'Lax'
-	}]);
+	await page.context().addCookies([
+		{
+			name: cookie.name,
+			value: cookie.value,
+			domain: 'localhost',
+			path: '/',
+			httpOnly: cookie.attributes.httpOnly,
+			secure: cookie.attributes.secure,
+			sameSite: 'Lax'
+		}
+	]);
 }
 
-export async function createVerificationCode(email: string, firstName: string, lastName: string): Promise<string> {
+export async function createVerificationCode(
+	email: string,
+	firstName: string,
+	lastName: string
+): Promise<string> {
 	const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
 	await createCode({
 		code: uniqueCode,
@@ -88,10 +94,7 @@ export async function getSessionCookie(email: string) {
 	const user = await db.select().from(users).where(eq(users.email, email));
 	if (!user[0]) throw new Error('User not found');
 
-	const userSessions = await db
-		.select()
-		.from(sessions)
-		.where(eq(sessions.userId, user[0].id));
+	const userSessions = await db.select().from(sessions).where(eq(sessions.userId, user[0].id));
 
 	if (userSessions.length === 0) {
 		const session = await lucia.createSession(user[0].id, {});

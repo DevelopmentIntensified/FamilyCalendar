@@ -3,7 +3,14 @@ import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser } from '../../src/lib/server/db/actions/users';
 import { createCode, deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
-import { calendars, users, events, families, familyMembers, tasks } from '../../src/lib/server/db/schema';
+import {
+	calendars,
+	users,
+	events,
+	families,
+	familyMembers,
+	tasks
+} from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { createNewUser } from '../../src/lib/server/utils/createNewUser';
 import { getSessionCookie } from '../testUtils';
@@ -37,9 +44,14 @@ test.beforeAll(async () => {
 	});
 
 	// Seed a family + membership so the list/roster/tasks render populated.
-	const [fam] = await db.insert(families).values({ name: 'The Petkes', color: '#22C55E' }).returning();
+	const [fam] = await db
+		.insert(families)
+		.values({ name: 'The Petkes', color: '#22C55E' })
+		.returning();
 	famId = fam.id;
-	await db.insert(familyMembers).values({ userId: uid, familyId: fam.id, role: 'owner', memberType: 'parent' });
+	await db
+		.insert(familyMembers)
+		.values({ userId: uid, familyId: fam.id, role: 'owner', memberType: 'parent' });
 	await db.insert(tasks).values({
 		title: 'Take out the recycling',
 		userId: uid,
@@ -77,7 +89,8 @@ async function overflowReport(page: any) {
 				bad.push({
 					tag: el.tagName.toLowerCase(),
 					cls: ((el as HTMLElement).className || '').toString().slice(0, 90),
-					title: (el as HTMLElement).title || (el as HTMLElement).textContent?.trim().slice(0, 40) || '',
+					title:
+						(el as HTMLElement).title || (el as HTMLElement).textContent?.trim().slice(0, 40) || '',
 					right: Math.round(r.right * 10) / 10
 				});
 			}
@@ -121,19 +134,25 @@ test('family pages have no horizontal overflow on mobile widths', async ({ page 
 		await page.locator('a:has-text("View Details")').first().click();
 		await page.waitForLoadState('networkidle');
 		const rep = await overflowReport(page);
-		expect(rep.scrollW, `family dashboard @ ${width}px scrollWidth`).toBeLessThanOrEqual(rep.vw + 1);
+		expect(rep.scrollW, `family dashboard @ ${width}px scrollWidth`).toBeLessThanOrEqual(
+			rep.vw + 1
+		);
 		expect(rep.bad, `family dashboard @ ${width}px overflowing elements`).toEqual([]);
 
 		await page.goto(`/family/${famId}/tasks`);
 		await page.waitForLoadState('networkidle');
 		const repTasks = await overflowReport(page);
-		expect(repTasks.scrollW, `family tasks @ ${width}px scrollWidth`).toBeLessThanOrEqual(repTasks.vw + 1);
+		expect(repTasks.scrollW, `family tasks @ ${width}px scrollWidth`).toBeLessThanOrEqual(
+			repTasks.vw + 1
+		);
 		expect(repTasks.bad, `family tasks @ ${width}px overflowing elements`).toEqual([]);
 
 		await page.goto(`/family/${famId}/members/add`);
 		await page.waitForLoadState('networkidle');
 		const repAdd = await overflowReport(page);
-		expect(repAdd.scrollW, `members/add @ ${width}px scrollWidth`).toBeLessThanOrEqual(repAdd.vw + 1);
+		expect(repAdd.scrollW, `members/add @ ${width}px scrollWidth`).toBeLessThanOrEqual(
+			repAdd.vw + 1
+		);
 		expect(repAdd.bad, `members/add @ ${width}px overflowing elements`).toEqual([]);
 	}
 

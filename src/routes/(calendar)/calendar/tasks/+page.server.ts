@@ -19,14 +19,23 @@ export const load: PageServerLoad = async (event) => {
 
 	const tasksG = await guard('tasks', [], async () => {
 		// Overdue Recurring Tasks stick to today until done (cursor v3).
-		await syncRecurringCursors(event.locals.user!.id, familyId, await getUserZone(event.locals.user!.id));
+		await syncRecurringCursors(
+			event.locals.user!.id,
+			familyId,
+			await getUserZone(event.locals.user!.id)
+		);
 		return await getTasksForUser(event.locals.user!.id, familyId);
 	});
 	if (tasksG.error) loadWarnings.push(tasksG.error);
 	const userTasks = tasksG.data;
 
 	// Family roster for the assignee picker.
-	let familyMembersList: { userId: string; firstName: string; lastName: string; email: string | null }[] = [];
+	let familyMembersList: {
+		userId: string;
+		firstName: string;
+		lastName: string;
+		email: string | null;
+	}[] = [];
 	if (familyId) {
 		const rosterG = await guard('family', [], () => getFamilyRoster(familyId));
 		if (rosterG.error) loadWarnings.push(rosterG.error);

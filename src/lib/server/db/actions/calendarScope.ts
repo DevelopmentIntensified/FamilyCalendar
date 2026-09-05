@@ -8,10 +8,7 @@ import { eq, inArray, or, sql } from 'drizzle-orm';
  * scope — every event-level authorization check should use this.
  */
 export async function getAccessibleCalendarIds(userId: string): Promise<string[]> {
-	const [member] = await db
-		.select()
-		.from(familyMembers)
-		.where(eq(familyMembers.userId, userId));
+	const [member] = await db.select().from(familyMembers).where(eq(familyMembers.userId, userId));
 	const where = member?.familyId
 		? or(eq(calendars.ownerId, userId), eq(calendars.familyId, member.familyId))
 		: eq(calendars.ownerId, userId);

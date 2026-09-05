@@ -1,7 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
-import { generateInviteCode, verifyInviteCode, deleteInviteCode } from '$lib/server/db/actions/families';
+import {
+	generateInviteCode,
+	verifyInviteCode,
+	deleteInviteCode
+} from '$lib/server/db/actions/families';
 import { getUserFamilies } from '$lib/server/db/actions/families';
 import { db } from '$lib/server/db';
 import { familyMembers, familyInviteCodes } from '$lib/server/db/schema';
@@ -17,7 +21,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const userFamilies = await getUserFamilies(locals.user.id);
 	if (!userFamilies || userFamilies.families?.id !== familyId) {
-		return json({ error: 'You do not have permission to invite members to this family' }, { status: 403 });
+		return json(
+			{ error: 'You do not have permission to invite members to this family' },
+			{ status: 403 }
+		);
 	}
 
 	try {
@@ -34,7 +41,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 	} catch (error) {
 		console.error('Error generating invite code:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to generate invite code', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to generate invite code',
+			locals.user?.id ?? null
+		);
 	}
 };
 
@@ -57,10 +69,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			.select()
 			.from(familyMembers)
 			.where(
-				and(
-					eq(familyMembers.userId, locals.user.id),
-					eq(familyMembers.familyId, result.family.id)
-				)
+				and(eq(familyMembers.userId, locals.user.id), eq(familyMembers.familyId, result.family.id))
 			);
 		isAlreadyMember = !!member;
 	}
@@ -86,7 +95,10 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Invite code is required' }, { status: 400 });
 	}
 
-	const [invite] = await db.select().from(familyInviteCodes).where(eq(familyInviteCodes.code, code));
+	const [invite] = await db
+		.select()
+		.from(familyInviteCodes)
+		.where(eq(familyInviteCodes.code, code));
 	if (!invite) {
 		return json({ error: 'Invite code not found' }, { status: 404 });
 	}

@@ -93,8 +93,7 @@ export function buildMovePayload(event: MoveEvent, target: MoveTarget): MovePayl
 		return {
 			...base,
 			scope: 'this',
-			occurrenceDate:
-				event.occurrenceDate ?? DateTime.fromISO(event.start).toISODate() ?? null,
+			occurrenceDate: event.occurrenceDate ?? DateTime.fromISO(event.start).toISODate() ?? null,
 			title: event.title,
 			description: event.description ?? null,
 			location: event.location ?? null,

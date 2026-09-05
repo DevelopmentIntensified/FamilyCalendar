@@ -11,10 +11,7 @@
 
 <div class="min-h-screen bg-slate-50 px-4 py-8 pt-20">
 	<div class="mx-auto max-w-4xl">
-		<Breadcrumbs crumbs={[
-			{ label: 'Calendar', href: '/calendar' },
-			{ label: 'Archive' }
-		]} />
+		<Breadcrumbs crumbs={[{ label: 'Calendar', href: '/calendar' }, { label: 'Archive' }]} />
 
 		<div class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 			<div class="mb-6">
@@ -25,7 +22,7 @@
 			</div>
 
 			{#if !data.archiveAllowed}
-				<div class="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-4">
+				<div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
 					<p class="text-sm text-amber-800">
 						{data.reason || 'Archive view not available on your plan.'}
 					</p>

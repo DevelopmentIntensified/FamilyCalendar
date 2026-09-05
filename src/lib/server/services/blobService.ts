@@ -16,9 +16,7 @@ export interface BlobAsset {
 	uploadedAt: Date;
 }
 
-export async function uploadAdAsset(
-	file: UploadBlobOptions
-): Promise<BlobAsset> {
+export async function uploadAdAsset(file: UploadBlobOptions): Promise<BlobAsset> {
 	const path = `${BUCKET_PREFIX}/${file.filename}`;
 
 	const blob = await put(path, file.content, {
@@ -54,9 +52,7 @@ export async function deleteBlobAsset(url: string): Promise<void> {
 }
 
 export async function listBlobAssets(prefix?: string): Promise<BlobAsset[]> {
-	const searchPrefix = prefix
-		? `${BUCKET_PREFIX}/${prefix}`
-		: BUCKET_PREFIX;
+	const searchPrefix = prefix ? `${BUCKET_PREFIX}/${prefix}` : BUCKET_PREFIX;
 
 	const result = await list({
 		prefix: searchPrefix

@@ -13,7 +13,7 @@ export const load: PageServerLoad = async (e) => {
 		return redirect(302, '/login');
 	}
 	const userSettings = await getUserSettings(e.locals.user.id);
-	
+
 	const eventData = await db
 		.select({
 			event: events,

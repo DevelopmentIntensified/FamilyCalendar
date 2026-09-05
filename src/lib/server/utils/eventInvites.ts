@@ -30,7 +30,11 @@ export async function resolveEventInvites(userId: string, raw: unknown): Promise
 			continue;
 		}
 		if (!entry || typeof entry !== 'object') continue;
-		const { value, isUser, inviteType } = entry as { value?: unknown; isUser?: unknown; inviteType?: unknown };
+		const { value, isUser, inviteType } = entry as {
+			value?: unknown;
+			isUser?: unknown;
+			inviteType?: unknown;
+		};
 		if (typeof value !== 'string' || !value.trim()) continue;
 		const v = value.trim();
 		const type = inviteType === 'required' ? 'required' : 'optional';

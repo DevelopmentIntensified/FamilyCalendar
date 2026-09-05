@@ -75,7 +75,9 @@ export const actions: Actions = {
 			.select({ title: events.title, start: events.start })
 			.from(events)
 			.where(eq(events.calendarId, calendarId));
-		const existingKeys = new Set(existingRows.map((r) => `${r.title.toLowerCase()}|${new Date(r.start).toISOString()}`));
+		const existingKeys = new Set(
+			existingRows.map((r) => `${r.title.toLowerCase()}|${new Date(r.start).toISOString()}`)
+		);
 
 		const seenInFile = new Set<string>();
 		let imported = 0;
@@ -88,21 +90,24 @@ export const actions: Actions = {
 			}
 			seenInFile.add(key);
 			try {
-				await createEvent({
-					calendarId,
-					ownerId: userId,
-					title: draft.title,
-					start: draft.startIso,
-					end: draft.endIso,
-					description: draft.description,
-					location: draft.location,
-					allDay: draft.allDay,
-					recurrenceFrequency: draft.recurrenceFrequency,
-					recurrenceInterval: draft.recurrenceInterval,
-					recurrenceByDay: draft.recurrenceByDay,
-					recurrenceCount: draft.recurrenceCount,
-					recurrenceUntil: draft.recurrenceUntil
-				}, userId);
+				await createEvent(
+					{
+						calendarId,
+						ownerId: userId,
+						title: draft.title,
+						start: draft.startIso,
+						end: draft.endIso,
+						description: draft.description,
+						location: draft.location,
+						allDay: draft.allDay,
+						recurrenceFrequency: draft.recurrenceFrequency,
+						recurrenceInterval: draft.recurrenceInterval,
+						recurrenceByDay: draft.recurrenceByDay,
+						recurrenceCount: draft.recurrenceCount,
+						recurrenceUntil: draft.recurrenceUntil
+					},
+					userId
+				);
 				imported++;
 			} catch (e) {
 				console.error('Failed to import event:', e);

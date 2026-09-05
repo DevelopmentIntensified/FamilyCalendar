@@ -1,14 +1,19 @@
 import type { PageServerLoad } from './$types';
-import { getUserEligibleDiscounts, getBasePrice, getPlanPricing, type PlanType } from '$lib/server/services/checkoutService';
+import {
+	getUserEligibleDiscounts,
+	getBasePrice,
+	getPlanPricing,
+	type PlanType
+} from '$lib/server/services/checkoutService';
 import { trackPricingView } from '$lib/server/services/analyticsService';
 
 export const load: PageServerLoad = async (event) => {
 	const user = event.locals.user;
-	
+
 	if (user) {
 		trackPricingView(user.id, 'view');
 	}
-	
+
 	let userDiscounts: {
 		eligible: boolean;
 		discountType: string;
@@ -19,7 +24,7 @@ export const load: PageServerLoad = async (event) => {
 
 	if (user) {
 		userDiscounts = await getUserEligibleDiscounts(user.id);
-		showDiscountedPrices = userDiscounts.some(d => d.eligible);
+		showDiscountedPrices = userDiscounts.some((d) => d.eligible);
 	}
 
 	const plans: {
@@ -55,7 +60,7 @@ export const load: PageServerLoad = async (event) => {
 
 	if (user && showDiscountedPrices) {
 		for (const plan of plans) {
-			const pricing = await import('$lib/server/services/checkoutService').then(m =>
+			const pricing = await import('$lib/server/services/checkoutService').then((m) =>
 				m.calculateCheckoutPrice(user.id, plan.type)
 			);
 			plan.displayPrice = pricing.finalPrice;

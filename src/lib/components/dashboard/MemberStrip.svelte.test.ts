@@ -7,7 +7,9 @@ afterEach(() => {
 });
 
 describe('MemberStrip day-aware heading', () => {
-	const members = [{ userId: 'u1', firstName: 'Ada', lastName: 'A', openTasksToday: 1, attendingToday: false }];
+	const members = [
+		{ userId: 'u1', firstName: 'Ada', lastName: 'A', openTasksToday: 1, attendingToday: false }
+	];
 
 	it('says "Today in the Family" for today', () => {
 		render(MemberStrip, { props: { members, isToday: true } });

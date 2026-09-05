@@ -4,15 +4,7 @@ import { isDashboardModule } from '$lib/dashboardModules';
 
 describe('isDashboardModule', () => {
 	it('accepts every canonical module id', () => {
-		for (const id of [
-			'verse',
-			'glance',
-			'top3',
-			'board',
-			'memberStrip',
-			'kids',
-			'meals'
-		]) {
+		for (const id of ['verse', 'glance', 'top3', 'board', 'memberStrip', 'kids', 'meals']) {
 			expect(isDashboardModule(id)).toBe(true);
 		}
 	});

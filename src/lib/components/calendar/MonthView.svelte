@@ -51,11 +51,46 @@
 
 <div class="grid min-w-0 grid-cols-7 overflow-hidden sm:gap-2">
 	{#each daysOfWeek as day}
-		<div class="min-w-0 p-2 text-center text-xs font-semibold text-slate-500 sm:p-3 sm:text-sm uppercase tracking-wide">
+		<div
+			class="min-w-0 p-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 sm:p-3 sm:text-sm"
+		>
 			{day}
 		</div>
 	{/each}
-	<MonthDays days={lastMonthDays} currentDate={$currentDate} {events} lastMonth={true} calendars={calendarIds} {openDay} {createAt} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
-	<MonthDays {days} currentDate={$currentDate} {events} calendars={calendarIds} {openDay} {dueTasks} {createAt} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
-	<MonthDays days={nextMonthDays} currentDate={$currentDate} {events} nextMonth={true} calendars={calendarIds} {openDay} {createAt} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelect={onToggleSelect} />
+	<MonthDays
+		days={lastMonthDays}
+		currentDate={$currentDate}
+		{events}
+		lastMonth={true}
+		calendars={calendarIds}
+		{openDay}
+		{createAt}
+		{selectionMode}
+		{selectedIds}
+		{onToggleSelect}
+	/>
+	<MonthDays
+		{days}
+		currentDate={$currentDate}
+		{events}
+		calendars={calendarIds}
+		{openDay}
+		{dueTasks}
+		{createAt}
+		{selectionMode}
+		{selectedIds}
+		{onToggleSelect}
+	/>
+	<MonthDays
+		days={nextMonthDays}
+		currentDate={$currentDate}
+		{events}
+		nextMonth={true}
+		calendars={calendarIds}
+		{openDay}
+		{createAt}
+		{selectionMode}
+		{selectedIds}
+		{onToggleSelect}
+	/>
 </div>

@@ -20,7 +20,10 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 
 	const userFamilies = await getUserFamilies(locals.user.id);
 	if (!userFamilies || userFamilies.families?.id !== familyId) {
-		return json({ error: 'You do not have permission to add members to this family' }, { status: 403 });
+		return json(
+			{ error: 'You do not have permission to add members to this family' },
+			{ status: 403 }
+		);
 	}
 
 	const [existingUser] = await db.select().from(users).where(eq(users.id, userId));

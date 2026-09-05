@@ -1,7 +1,11 @@
 import { db } from '$lib/server/db';
 import { discounts, userDiscounts, subscriptions } from '$lib/server/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
-import { calculateFamilyMemberDiscount, calculateLifetimeDiscount, type DiscountResult } from './discountService';
+import {
+	calculateFamilyMemberDiscount,
+	calculateLifetimeDiscount,
+	type DiscountResult
+} from './discountService';
 
 export interface CheckoutDiscountResult {
 	originalPrice: number;
@@ -39,7 +43,8 @@ export async function calculateCheckoutPrice(
 		calculateLifetimeDiscount(userId)
 	]);
 
-	const familyEligible = familyDiscount.eligible && (planType === 'annual' || planType === 'lifetime');
+	const familyEligible =
+		familyDiscount.eligible && (planType === 'annual' || planType === 'lifetime');
 	const lifetimeEligible = lifetimeDiscount.eligible && planType === 'lifetime';
 
 	if (familyEligible && familyDiscount.discountPercentage > 0) {
@@ -91,11 +96,11 @@ async function getDiscountByType(discountType: string) {
 		.limit(10);
 
 	if (discountType === 'family_size') {
-		return discountList.find(d => d.appliesToAnnual === true || d.appliesToLifetime === true);
+		return discountList.find((d) => d.appliesToAnnual === true || d.appliesToLifetime === true);
 	}
 
 	if (discountType === 'lifetime') {
-		return discountList.find(d => d.appliesToLifetime === true);
+		return discountList.find((d) => d.appliesToLifetime === true);
 	}
 
 	return discountList[0] ?? null;
@@ -110,12 +115,7 @@ export async function applyDiscountToSubscription(
 		const [existing] = await db
 			.select()
 			.from(userDiscounts)
-			.where(
-				and(
-					eq(userDiscounts.userId, userId),
-					eq(userDiscounts.discountId, discountId)
-				)
-			)
+			.where(and(eq(userDiscounts.userId, userId), eq(userDiscounts.discountId, discountId)))
 			.limit(1);
 
 		if (!existing) {
@@ -135,12 +135,14 @@ export async function applyDiscountToSubscription(
 		.where(eq(subscriptions.id, subscriptionId));
 }
 
-export async function getUserEligibleDiscounts(userId: string): Promise<{
-	eligible: boolean;
-	discountType: string;
-	percentage: number;
-	description: string;
-}[]> {
+export async function getUserEligibleDiscounts(userId: string): Promise<
+	{
+		eligible: boolean;
+		discountType: string;
+		percentage: number;
+		description: string;
+	}[]
+> {
 	const eligibleDiscounts: {
 		eligible: boolean;
 		discountType: string;

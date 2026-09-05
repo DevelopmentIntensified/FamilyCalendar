@@ -21,13 +21,15 @@ test.beforeEach(async () => {
 		await deleteCodesByEmail(ownerEmail);
 		await deleteUser(existing[0].id);
 	}
-	
-	const ownerUser = await import('$lib/server/utils/createNewUser').then(m => m.createNewUser('Test', 'Owner', ownerEmail));
+
+	const ownerUser = await import('$lib/server/utils/createNewUser').then((m) =>
+		m.createNewUser('Test', 'Owner', ownerEmail)
+	);
 	ownerId = ownerUser.id;
-	
+
 	const family = await createFamily({ name: 'Test Family', color: '#3b82f6' });
 	familyId = family.id;
-	
+
 	await db.insert(familyMembers).values({ userId: ownerId, familyId, role: 'admin' });
 });
 
@@ -46,15 +48,17 @@ test.afterEach(async () => {
 test('Family settings - rename family', async ({ page }) => {
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(ownerEmail);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 	});
 
 	await test.step('Navigate to family page', async () => {
@@ -86,15 +90,17 @@ test('Family settings - rename family', async ({ page }) => {
 test('Family settings - change color', async ({ page }) => {
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(ownerEmail);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 	});
 
 	await test.step('Navigate to family page', async () => {

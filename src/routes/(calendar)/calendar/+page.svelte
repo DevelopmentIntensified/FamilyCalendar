@@ -10,7 +10,7 @@
 	import calendarNoteDate from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg';
 	import { parseEvents } from '$lib/utils/eventDisplay';
 	import { invalidateAll, goto } from '$app/navigation';
-	
+
 	import { page } from '$app/stores';
 
 	export let data: PageData;
@@ -108,7 +108,11 @@
 
 	async function runBulk(op: Record<string, unknown>) {
 		if (selectedIds.length === 0 || bulkBusy) return;
-		if (op.type === 'delete' && !confirm(`Delete ${selectedIds.length} event(s)? Attached checklists go too.`)) return;
+		if (
+			op.type === 'delete' &&
+			!confirm(`Delete ${selectedIds.length} event(s)? Attached checklists go too.`)
+		)
+			return;
 		bulkBusy = true;
 		bulkError = '';
 		phraseReported = false;
@@ -166,9 +170,7 @@
 	}
 
 	function planMovesToPast(): boolean {
-		return !!smartPlan?.ops.some(
-			(op) => typeof op.date === 'string' && isPastDate(op.date)
-		);
+		return !!smartPlan?.ops.some((op) => typeof op.date === 'string' && isPastDate(op.date));
 	}
 
 	async function runSmart() {
@@ -179,7 +181,11 @@
 			const pastCount = smartPlan.ops.filter(
 				(op) => typeof op.date === 'string' && isPastDate(op.date)
 			).length;
-			if (!confirm(`${pastCount} change${pastCount === 1 ? '' : 's'} move${pastCount === 1 ? 's' : ''} events to past dates. Apply anyway?`)) {
+			if (
+				!confirm(
+					`${pastCount} change${pastCount === 1 ? '' : 's'} move${pastCount === 1 ? 's' : ''} events to past dates. Apply anyway?`
+				)
+			) {
 				return;
 			}
 		}
@@ -291,7 +297,8 @@
 		}
 	}
 
-	$: showFirstRunCard = !dismissedFirstRun && allEvents.length === 0 && (data.dueTasks || []).length === 0;
+	$: showFirstRunCard =
+		!dismissedFirstRun && allEvents.length === 0 && (data.dueTasks || []).length === 0;
 
 	function close() {
 		showModal = false;
@@ -311,8 +318,7 @@
 		// Timed slots pre-fill the form's start time; midnight (month cells,
 		// all-day picks) leaves it blank for the user to choose.
 		createInitialTime = date.hour === 0 && date.minute === 0 ? undefined : date.toFormat('HH:mm');
-		createInitialEndTime =
-			end && end.isValid && end > date ? end.toFormat('HH:mm') : undefined;
+		createInitialEndTime = end && end.isValid && end > date ? end.toFormat('HH:mm') : undefined;
 		showModal = true;
 	}
 
@@ -345,15 +351,15 @@
 				: data.userCalendarColor;
 			localExtras = [...localExtras, ...toDisplayEvent({ ...created, color })];
 		}
-	try {
-		await invalidateAll();
-	} finally {
-		localExtras = [];
-	}
-	// Reset the form for another creation instead of closing the modal.
-	createInitialDate = undefined;
-	createInitialTitle = undefined;
-	createCount++;
+		try {
+			await invalidateAll();
+		} finally {
+			localExtras = [];
+		}
+		// Reset the form for another creation instead of closing the modal.
+		createInitialDate = undefined;
+		createInitialTitle = undefined;
+		createCount++;
 	}
 
 	async function handleEventUpdate(event: CustomEvent) {
@@ -448,7 +454,12 @@
 				class="absolute right-6 top-6 flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-white hover:text-slate-600"
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M6 18L18 6M6 6l12 12"
+					/>
 				</svg>
 			</button>
 		</div>
@@ -464,11 +475,13 @@
 		initialView={initialViewParam}
 		createAt={openCreateAt}
 		dailyVerse={data.dailyVerse}
-		selectionMode={selectionMode}
-		selectedIds={selectedIds}
+		{selectionMode}
+		{selectedIds}
 		onToggleSelectionMode={setSelectionMode}
 		onToggleSelect={(e: any) => {
-			selectedIds = selectedIds.includes(e.id) ? selectedIds.filter((x) => x !== e.id) : [...selectedIds, e.id];
+			selectedIds = selectedIds.includes(e.id)
+				? selectedIds.filter((x) => x !== e.id)
+				: [...selectedIds, e.id];
 		}}
 		on:eventClick={handleEventClick}
 	/>
@@ -479,8 +492,11 @@
 {#if !selectionMode}
 	<!-- Floating Quick Add Button -->
 	<button
-		onclick={() => { createInitialDate = undefined; showModal = true; }}
-		class="fixed bottom-24 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-primary-600 shadow-xl shadow-primary-400/50 hover:bg-primary-700 hover:scale-105 active:scale-95 transition-all"
+		onclick={() => {
+			createInitialDate = undefined;
+			showModal = true;
+		}}
+		class="fixed bottom-24 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-primary-600 shadow-xl shadow-primary-400/50 transition-all hover:scale-105 hover:bg-primary-700 active:scale-95"
 		aria-label="Quick Add Event"
 	>
 		<svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -535,7 +551,8 @@
 						aria-label="Set location"
 						class="w-28 rounded-lg border border-slate-300 px-2 py-2 text-xs disabled:opacity-50 sm:py-1.5"
 						disabled={bulkBusy || selectedIds.length === 0}
-						onkeydown={(e) => e.key === 'Enter' && runBulk({ type: 'location', location: bulkLocation })}
+						onkeydown={(e) =>
+							e.key === 'Enter' && runBulk({ type: 'location', location: bulkLocation })}
 					/>
 					<button
 						type="button"
@@ -555,11 +572,19 @@
 						aria-label="Add attendant"
 						class="w-28 rounded-lg border border-slate-300 px-2 py-2 text-xs disabled:opacity-50 sm:py-1.5"
 						disabled={bulkBusy || selectedIds.length === 0}
-						onkeydown={(e) => e.key === 'Enter' && runBulk({ type: 'attendants', add: [bulkAttendants] })}
+						onkeydown={(e) =>
+							e.key === 'Enter' && runBulk({ type: 'attendants', add: [bulkAttendants] })}
 					/>
 					<button
 						type="button"
-						onclick={() => runBulk({ type: 'attendants', add: bulkAttendants.split(',').map((s) => s.trim()).filter(Boolean) })}
+						onclick={() =>
+							runBulk({
+								type: 'attendants',
+								add: bulkAttendants
+									.split(',')
+									.map((s) => s.trim())
+									.filter(Boolean)
+							})}
 						disabled={bulkBusy || selectedIds.length === 0 || !bulkAttendants.trim()}
 						class="rounded-lg border border-slate-300 px-2 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:py-1.5"
 					>
@@ -593,7 +618,7 @@
 						<input
 							type="text"
 							bind:value={bulkInstruction}
-							placeholder='e.g. "move all to next friday"'
+							placeholder="e.g. "move all to next friday""
 							aria-label="Smart instruction"
 							class="w-44 rounded-lg border border-purple-200 bg-purple-50/40 px-2 py-2 text-xs placeholder:text-purple-300 disabled:opacity-50 sm:py-1.5"
 							disabled={bulkBusy || selectedIds.length === 0}

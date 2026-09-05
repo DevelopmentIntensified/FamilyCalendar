@@ -1,6 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { parseEventInput, parseEventList, type ParsedEvent } from '$lib/server/services/naturalLanguageService';
+import {
+	parseEventInput,
+	parseEventList,
+	type ParsedEvent
+} from '$lib/server/services/naturalLanguageService';
 import { chatJson, llmConfigured } from '$lib/server/services/llm';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';

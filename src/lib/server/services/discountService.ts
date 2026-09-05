@@ -78,9 +78,7 @@ export async function calculateLifetimeDiscount(
 	return { eligible: false, discountPercentage: 0 };
 }
 
-export async function calculateDiscounts(
-	userId: string
-): Promise<DiscountResult> {
+export async function calculateDiscounts(userId: string): Promise<DiscountResult> {
 	const breakdown: DiscountBreakdown[] = [];
 	let totalDiscount = 0;
 	let eligibleForAnnual = false;

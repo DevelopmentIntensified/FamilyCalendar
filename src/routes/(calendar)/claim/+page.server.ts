@@ -22,7 +22,7 @@ export const actions: Actions = {
 		if (locals.user.email) return fail(400, { error: 'Account already has an email' });
 
 		const formData = await request.formData();
-		const email = (formData.get('email') as string || '').trim().toLowerCase();
+		const email = ((formData.get('email') as string) || '').trim().toLowerCase();
 		if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
 			return fail(400, { error: 'Please enter a valid email address' });
 		}

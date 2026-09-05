@@ -10,8 +10,18 @@ import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { parseEvents, expandEventsForUser } from '$lib/server/services/eventDisplayService';
 
 const MONTH_NAMES = [
-	'January', 'February', 'March', 'April', 'May', 'June',
-	'July', 'August', 'September', 'October', 'November', 'December'
+	'January',
+	'February',
+	'March',
+	'April',
+	'May',
+	'June',
+	'July',
+	'August',
+	'September',
+	'October',
+	'November',
+	'December'
 ];
 
 export const load: PageServerLoad = async (event) => {
@@ -25,7 +35,10 @@ export const load: PageServerLoad = async (event) => {
 	// so an evening visit would highlight tomorrow.
 	const now = DateTime.now().setZone(userSettings?.timeZone || 'utc');
 	const year = parseInt(event.url.searchParams.get('year') || '') || now.year;
-	const month = Math.min(12, Math.max(1, parseInt(event.url.searchParams.get('month') || '') || now.month));
+	const month = Math.min(
+		12,
+		Math.max(1, parseInt(event.url.searchParams.get('month') || '') || now.month)
+	);
 
 	const weekStart = userSettings?.weekStart === 'monday' ? 'monday' : 'sunday';
 	const personalColor = userSettings?.color || '#fa8072';
@@ -43,7 +56,11 @@ export const load: PageServerLoad = async (event) => {
 	}
 
 	const rawEvents = userCalendar.length
-		? await db.select().from(events).where(eq(events.calendarId, userCalendar[0].id)).orderBy(events.start)
+		? await db
+				.select()
+				.from(events)
+				.where(eq(events.calendarId, userCalendar[0].id))
+				.orderBy(events.start)
 		: [];
 
 	// Family events appear on the fridge too.
@@ -67,7 +84,10 @@ export const load: PageServerLoad = async (event) => {
 			...e,
 			color: colorByCalId.get(String(e.calendarId)) || personalColor
 		})),
-		...parseEvents(await expandEventsForUser(familyRawEvents)).map((e) => ({ ...e, color: familyColor }))
+		...parseEvents(await expandEventsForUser(familyRawEvents)).map((e) => ({
+			...e,
+			color: familyColor
+		}))
 	];
 
 	// Build the 6x7 grid for the requested month.
@@ -79,7 +99,13 @@ export const load: PageServerLoad = async (event) => {
 	const totalCells = Math.ceil((leading + daysInMonth) / 7) * 7;
 
 	type CellItem = { title: string; color: string; allDay: boolean };
-	const grid: { day: number; iso: string; inMonth: boolean; isToday: boolean; items: CellItem[] }[] = [];
+	const grid: {
+		day: number;
+		iso: string;
+		inMonth: boolean;
+		isToday: boolean;
+		items: CellItem[];
+	}[] = [];
 
 	const todayIso = now.toISODate() ?? '';
 

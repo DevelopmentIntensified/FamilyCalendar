@@ -29,7 +29,7 @@ export async function getKPIMetrics(): Promise<KPIStats> {
 				isNotNull(subscriptions.subscriptionTypeId)
 			)
 		);
-	
+
 	return {
 		totalUsers: Number(totalUsers?.count || 0),
 		activeSubscriptions: Number(activeSubs?.count || 0),

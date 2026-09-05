@@ -11,7 +11,11 @@ import { verifyClaimToken, type ClaimVerifyDeps } from './claimService';
 function makeDeps(overrides: Partial<ClaimVerifyDeps> = {}): ClaimVerifyDeps & {
 	calls: { merged: unknown[]; claimed: unknown[]; settingsCreated: unknown[] };
 } {
-	const calls = { merged: [] as unknown[], claimed: [] as unknown[], settingsCreated: [] as unknown[] };
+	const calls = {
+		merged: [] as unknown[],
+		claimed: [] as unknown[],
+		settingsCreated: [] as unknown[]
+	};
 	return {
 		peekClaimToken: vi.fn(async () => ({ userId: 'guest-1', email: 'guest@example.com' })),
 		consumeClaimToken: vi.fn(async () => true),
@@ -47,7 +51,9 @@ describe('verifyClaimToken', () => {
 	});
 
 	it('returns invalid without burning the token when owned by a different user', async () => {
-		const deps = makeDeps({ peekClaimToken: async () => ({ userId: 'other-guest', email: 'guest@example.com' }) });
+		const deps = makeDeps({
+			peekClaimToken: async () => ({ userId: 'other-guest', email: 'guest@example.com' })
+		});
 
 		const result = await verifyClaimToken('token', 'guest-1', deps);
 
@@ -73,9 +79,7 @@ describe('verifyClaimToken', () => {
 		expect(result).toEqual({ outcome: 'claimed', userId: 'guest-1' });
 		expect(deps.calls.claimed).toEqual([['guest-1', 'guest@example.com']]);
 		expect(deps.mergeGuestIntoUser).not.toHaveBeenCalled();
-		expect(deps.calls.settingsCreated).toEqual([
-			[{ userId: 'guest-1', timeZone: 'UTC' }]
-		]);
+		expect(deps.calls.settingsCreated).toEqual([[{ userId: 'guest-1', timeZone: 'UTC' }]]);
 	});
 
 	it('skips the settings backfill when settings already exist', async () => {

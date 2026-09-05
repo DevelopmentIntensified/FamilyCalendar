@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
-	import { showRecurringCompleteFeedback, showRecurringSkipFeedback } from '$lib/client/taskFeedback';
+	import {
+		showRecurringCompleteFeedback,
+		showRecurringSkipFeedback
+	} from '$lib/client/taskFeedback';
 
 	/** The task shape the calendar views pass through for the detail popup. */
 	export interface CalendarTask {
@@ -183,7 +186,9 @@
 			{#if task.tags && task.tags.length > 0}
 				<div class="flex flex-wrap gap-1.5">
 					{#each task.tags as tag (tag)}
-						<span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">#{tag}</span>
+						<span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700"
+							>#{tag}</span
+						>
 					{/each}
 				</div>
 			{/if}
@@ -205,7 +210,10 @@
 				{#if task.priority}
 					<div class="flex items-center justify-between gap-3">
 						<dt class="text-slate-500">Priority</dt>
-						<dd class="rounded-full px-2 py-0.5 font-medium {PRIORITY_META[task.priority]?.cls ?? PRIORITY_META.normal.cls}">
+						<dd
+							class="rounded-full px-2 py-0.5 font-medium {PRIORITY_META[task.priority]?.cls ??
+								PRIORITY_META.normal.cls}"
+						>
 							{PRIORITY_META[task.priority]?.label ?? 'Normal'}
 						</dd>
 					</div>

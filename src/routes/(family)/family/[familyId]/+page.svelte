@@ -8,7 +8,14 @@
 	import { DateTime } from 'luxon';
 	export let data: PageData;
 	export let form: ActionData;
-	const { family, members, currentUserRole, currentUserId, activity = [], moduleSwitches = {} } = data;
+	const {
+		family,
+		members,
+		currentUserRole,
+		currentUserId,
+		activity = [],
+		moduleSwitches = {}
+	} = data;
 
 	function relativeTime(iso: string): string {
 		return DateTime.fromISO(iso).toRelative() ?? '';
@@ -76,66 +83,66 @@
 				<div class="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-5">
 					<h3 class="mb-4 text-lg font-semibold text-slate-900">Family Settings</h3>
 					{#if isAdmin}
-					<form
-						method="POST"
-						action="?/updateFamily"
-						use:enhance={() => {
-							return async ({ result, update }) => {
-								await update();
-								showSettings = false;
-							};
-						}}
-					>
-						<div class="mb-4 grid gap-4 sm:grid-cols-2">
-							<div>
-								<label for="name" class="mb-2 block text-sm font-medium text-slate-700"
-									>Family Name</label
-								>
-								<input
-									type="text"
-									id="name"
-									name="name"
-									bind:value={editingName}
-									class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-								/>
+						<form
+							method="POST"
+							action="?/updateFamily"
+							use:enhance={() => {
+								return async ({ result, update }) => {
+									await update();
+									showSettings = false;
+								};
+							}}
+						>
+							<div class="mb-4 grid gap-4 sm:grid-cols-2">
+								<div>
+									<label for="name" class="mb-2 block text-sm font-medium text-slate-700"
+										>Family Name</label
+									>
+									<input
+										type="text"
+										id="name"
+										name="name"
+										bind:value={editingName}
+										class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+									/>
+								</div>
+								<div>
+									<label for="color" class="mb-2 block text-sm font-medium text-slate-700"
+										>Color</label
+									>
+									<input
+										type="color"
+										id="color"
+										name="color"
+										bind:value={editingColor}
+										class="h-12 w-full rounded-lg border border-slate-300"
+									/>
+								</div>
 							</div>
-							<div>
-								<label for="color" class="mb-2 block text-sm font-medium text-slate-700"
-									>Color</label
+							<div class="flex gap-2">
+								<button
+									type="submit"
+									class="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
 								>
-								<input
-									type="color"
-									id="color"
-									name="color"
-									bind:value={editingColor}
-									class="h-12 w-full rounded-lg border border-slate-300"
-								/>
+									Save Changes
+								</button>
+								<button
+									type="button"
+									on:click={() => (showSettings = false)}
+									class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+								>
+									Cancel
+								</button>
 							</div>
-						</div>
-						<div class="flex gap-2">
-							<button
-								type="submit"
-								class="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
-							>
-								Save Changes
-							</button>
-							<button
-								type="button"
-								on:click={() => (showSettings = false)}
-								class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-							>
-								Cancel
-							</button>
-						</div>
-					</form>
+						</form>
 					{/if}
 
 					{#if isAdmin}
 						<div class="mt-6 border-t border-slate-200 pt-5">
 							<h4 class="text-sm font-semibold text-slate-800">Day Dashboard Modules</h4>
 							<p class="mt-1 text-xs text-slate-500">
-								Family-wide master switches. Switched-off cards are hidden for everyone —
-								individual members can re-enable them from Account settings.
+								Family-wide master switches. Switched-off cards are hidden for everyone — individual
+								members can re-enable them from Account settings.
 							</p>
 							<div class="mt-3 grid gap-2 sm:grid-cols-2">
 								{#each FAMILY_DASHBOARD_MODULES as mod (mod.id)}
@@ -151,7 +158,9 @@
 											type="submit"
 											name="enabled"
 											value={moduleSwitches[mod.id] ? 'false' : 'true'}
-											class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors {moduleSwitches[mod.id]
+											class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors {moduleSwitches[
+												mod.id
+											]
 												? 'bg-green-100 text-green-700 hover:bg-green-200'
 												: 'bg-slate-200 text-slate-600 hover:bg-slate-300'}"
 										>
@@ -191,7 +200,11 @@
 										{member.firstName?.[0] || member.email?.[0] || '?'}
 									</div>
 									<div class="min-w-0">
-										<p class="truncate font-medium text-slate-900">{([member.firstName, member.lastName].filter(Boolean).join(' ') || member.email || 'Family member')}</p>
+										<p class="truncate font-medium text-slate-900">
+											{[member.firstName, member.lastName].filter(Boolean).join(' ') ||
+												member.email ||
+												'Family member'}
+										</p>
 										<p class="truncate text-sm text-slate-500">{member.email}</p>
 									</div>
 								</div>

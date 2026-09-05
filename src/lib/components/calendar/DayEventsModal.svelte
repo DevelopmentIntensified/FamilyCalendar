@@ -4,7 +4,7 @@
 	import { formatEventTime } from '$lib/utils/eventTime';
 	import { rsvpVisual } from '$lib/utils/eventChip';
 	import type { CalendarTask } from './TaskDetailModal.svelte';
-import AttendanceBadge from './AttendanceBadge.svelte';
+	import AttendanceBadge from './AttendanceBadge.svelte';
 
 	export let show = false;
 	export let date: string = '';
@@ -39,27 +39,35 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 
 	function getCalendarName(calendarId: string | null): string {
 		if (!calendarId) return '';
-		return calendars.find(c => c.id === calendarId)?.name || '';
+		return calendars.find((c) => c.id === calendarId)?.name || '';
 	}
-
 </script>
 
 {#if show}
-	<div class="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden sm:items-center sm:p-4">
+	<div
+		class="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden sm:items-center sm:p-4"
+	>
 		<button class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick={close}></button>
-		
-		<div class="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
+
+		<div
+			class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
+		>
 			<!-- Header -->
 			<div class="flex items-center justify-between border-b border-slate-100 p-6">
 				<h2 class="text-xl font-bold text-slate-900">{formattedDate}</h2>
 				<button
 					type="button"
 					onclick={close}
-					class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+					class="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
 					aria-label="Close"
 				>
 					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
 					</svg>
 				</button>
 			</div>
@@ -67,49 +75,72 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 			<!-- Events List -->
 			<div class="divide-y divide-slate-100">
 				{#each events as event (event.id)}
-				{@const rv = rsvpVisual(event.rsvpStatus)}
+					{@const rv = rsvpVisual(event.rsvpStatus)}
 					<button
 						type="button"
-						class="w-full text-left px-6 py-4 hover:bg-slate-50 transition-colors {rv?.containerClass ?? ''}"
+						class="w-full px-6 py-4 text-left transition-colors hover:bg-slate-50 {rv?.containerClass ??
+							''}"
 						onclick={() => handleEventClick(event)}
 					>
 						<div class="flex items-start gap-3">
-							<div class="h-3 w-3 mt-1 rounded-full shrink-0" style="background-color: {event.color || '#94a3b8'}"></div>
-							<div class="flex-1 min-w-0">
+							<div
+								class="mt-1 h-3 w-3 shrink-0 rounded-full"
+								style="background-color: {event.color || '#94a3b8'}"
+							></div>
+							<div class="min-w-0 flex-1">
 								<div class="flex items-center gap-2">
-								<h3 class="font-semibold text-slate-900 truncate">{event.title}</h3>
-								{#if rv}
-									<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}">{rv.icon} {rv.label}</span>
-								{/if}
-								{#if event.attendance && event.attendance.invited > 1}
-									<AttendanceBadge attendance={event.attendance} />
-								{/if}
-							</div>
-								<div class="flex flex-wrap items-center gap-2 mt-1 text-sm text-slate-600">
+									<h3 class="truncate font-semibold text-slate-900">{event.title}</h3>
+									{#if rv}
+										<span
+											class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}"
+											>{rv.icon} {rv.label}</span
+										>
+									{/if}
+									{#if event.attendance && event.attendance.invited > 1}
+										<AttendanceBadge attendance={event.attendance} />
+									{/if}
+								</div>
+								<div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-600">
 									{#if event.allDay}
 										<span>All day</span>
 									{:else if event.startTime}
-										<span>{event.startTime}{#if event.endTime} - {event.endTime}{/if}</span>
+										<span
+											>{event.startTime}{#if event.endTime}
+												- {event.endTime}{/if}</span
+										>
 									{:else if event.start}
 										{@const st = formatEventTime(event.start)}
 										{@const et = event.end ? formatEventTime(event.end) : undefined}
-										<span>{st}{#if et} - {et}{/if}</span>
+										<span
+											>{st}{#if et}
+												- {et}{/if}</span
+										>
 									{/if}
 									{#if event.location}
 										<span class="truncate">· {event.location}</span>
 									{/if}
 								</div>
 								{#if event.calendar}
-									<div class="flex items-center gap-1 mt-1 text-xs text-slate-500">
+									<div class="mt-1 flex items-center gap-1 text-xs text-slate-500">
 										<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"
+											/>
 										</svg>
 										{event.calendar.name}
 									</div>
 								{:else if getCalendarName(event.calendarId)}
-									<div class="flex items-center gap-1 mt-1 text-xs text-slate-500">
+									<div class="mt-1 flex items-center gap-1 text-xs text-slate-500">
 										<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"
+											/>
 										</svg>
 										{getCalendarName(event.calendarId)}
 									</div>
@@ -127,14 +158,26 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 				{#each tasks as task (task.id)}
 					<button
 						type="button"
-						class="w-full text-left px-6 py-4 hover:bg-slate-50 transition-colors"
+						class="w-full px-6 py-4 text-left transition-colors hover:bg-slate-50"
 						onclick={() => onTaskClick(task)}
 					>
 						<div class="flex items-start gap-3">
-							<div class="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 {task.completedAt ? 'bg-green-500' : 'bg-amber-400'}"></div>
-							<div class="flex-1 min-w-0">
-								<h3 class="font-semibold truncate {task.completedAt ? 'text-slate-400 line-through' : 'text-slate-900'}">{task.title}</h3>
-								<span class="text-xs {task.completedAt ? 'text-slate-400' : 'text-slate-500'}">{task.completedAt ? 'Completed' : 'Due task — tap for details'}</span>
+							<div
+								class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full {task.completedAt
+									? 'bg-green-500'
+									: 'bg-amber-400'}"
+							></div>
+							<div class="min-w-0 flex-1">
+								<h3
+									class="truncate font-semibold {task.completedAt
+										? 'text-slate-400 line-through'
+										: 'text-slate-900'}"
+								>
+									{task.title}
+								</h3>
+								<span class="text-xs {task.completedAt ? 'text-slate-400' : 'text-slate-500'}"
+									>{task.completedAt ? 'Completed' : 'Due task — tap for details'}</span
+								>
 							</div>
 						</div>
 					</button>
@@ -142,9 +185,7 @@ import AttendanceBadge from './AttendanceBadge.svelte';
 			{/if}
 
 			{#if events.length === 0 && tasks.length === 0}
-				<div class="px-6 py-12 text-center text-slate-500">
-					No events for this day
-				</div>
+				<div class="px-6 py-12 text-center text-slate-500">No events for this day</div>
 			{/if}
 		</div>
 	</div>

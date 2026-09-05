@@ -18,7 +18,9 @@ test('mobile smoke: bottom nav, alerts, and task quick-add', async ({ page, test
 	});
 
 	await test.step('Alerts tab navigates to notifications', async () => {
-		await page.locator('nav[aria-label="Primary navigation"] a[href="/calendar/notifications"]').click();
+		await page
+			.locator('nav[aria-label="Primary navigation"] a[href="/calendar/notifications"]')
+			.click();
 		await expect(page).toHaveURL(/\/calendar\/notifications/);
 	});
 

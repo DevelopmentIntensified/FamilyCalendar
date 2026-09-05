@@ -15,9 +15,9 @@
 		<div class="mb-8 rounded-2xl bg-white p-8 shadow-sm">
 			<h2 class="mb-4 text-2xl font-bold text-slate-900">What we store</h2>
 			<p class="text-slate-600">
-				Family Planz stores only what is needed to run your calendar: your account information
-				(name and email address), the calendars, events, and tasks you create, and attendance
-				responses for shared events. We don't collect anything beyond that.
+				Family Planz stores only what is needed to run your calendar: your account information (name
+				and email address), the calendars, events, and tasks you create, and attendance responses
+				for shared events. We don't collect anything beyond that.
 			</p>
 		</div>
 
@@ -30,7 +30,7 @@
 			</p>
 		</div>
 
-		<div class="grid gap-8 mb-16 md:grid-cols-2">
+		<div class="mb-16 grid gap-8 md:grid-cols-2">
 			<div class="rounded-2xl bg-white p-8 shadow-sm">
 				<h2 class="mb-4 text-2xl font-bold text-slate-900">Data deletion</h2>
 				<p class="text-slate-600">

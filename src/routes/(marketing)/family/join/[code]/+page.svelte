@@ -55,9 +55,7 @@
 			</div>
 
 			<h1 class="mb-2 text-center text-2xl font-bold">Join {data.family.name}</h1>
-			<p class="mb-6 text-center text-gray-600">
-				You've been invited to join this family calendar
-			</p>
+			<p class="mb-6 text-center text-gray-600">You've been invited to join this family calendar</p>
 
 			{#if error}
 				<div class="mb-4 rounded bg-red-50 p-3 text-center text-red-600">

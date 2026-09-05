@@ -21,9 +21,7 @@ export const PRIORITY_WEIGHT: Record<TaskPriority, number> = { high: 0, normal: 
 
 /** Type guard for raw input (e.g. request bodies). */
 export function isTaskPriority(value: unknown): value is TaskPriority {
-	return (
-		typeof value === 'string' && (TASK_PRIORITIES as readonly string[]).includes(value)
-	);
+	return typeof value === 'string' && (TASK_PRIORITIES as readonly string[]).includes(value);
 }
 
 /** Valid priority as-is, otherwise the default. Never throws. */

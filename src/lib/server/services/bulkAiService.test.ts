@@ -85,9 +85,19 @@ describe('parseBulkPlan', () => {
 
 const TODAY = '2026-08-23'; // a Sunday
 const EVENTS: BulkEventSummary[] = [
-	{ id: 'evt-1', title: 'Running at 5pm with george', start: '2026-08-21T17:00:00.000-04:00', location: null },
+	{
+		id: 'evt-1',
+		title: 'Running at 5pm with george',
+		start: '2026-08-21T17:00:00.000-04:00',
+		location: null
+	},
 	{ id: 'evt-2', title: 'Soccer practice', start: '2026-08-25T16:00:00.000-04:00', location: null },
-	{ id: 'evt-3', title: 'Back to School Hike', start: '2026-08-29T09:00:00.000-04:00', location: null }
+	{
+		id: 'evt-3',
+		title: 'Back to School Hike',
+		start: '2026-08-29T09:00:00.000-04:00',
+		location: null
+	}
 ];
 const CALS = [
 	{ id: 'cal-fam-12345', name: 'Family Calendar' },
@@ -149,7 +159,12 @@ describe('planBulkEdits (local parser)', () => {
 
 	it('does not delete when an event title contains a delete verb', () => {
 		const trash: BulkEventSummary[] = [
-			{ id: 'evt-trash', title: 'Trash pickup reminder', start: '2026-08-26T08:00:00.000-04:00', location: null }
+			{
+				id: 'evt-trash',
+				title: 'Trash pickup reminder',
+				start: '2026-08-26T08:00:00.000-04:00',
+				location: null
+			}
 		];
 		const ops = planBulkEdits('move Trash pickup reminder to friday', trash, TODAY);
 		expect(ops).toEqual([{ id: 'evt-trash', date: '2026-08-28' }]);

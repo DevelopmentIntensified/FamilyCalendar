@@ -6,7 +6,11 @@
 
 export type Guarded<T> = { data: T; error: string | null };
 
-export async function guard<T>(label: string, fallback: T, fn: () => Promise<T>): Promise<Guarded<T>> {
+export async function guard<T>(
+	label: string,
+	fallback: T,
+	fn: () => Promise<T>
+): Promise<Guarded<T>> {
 	try {
 		return { data: await fn(), error: null };
 	} catch (error) {

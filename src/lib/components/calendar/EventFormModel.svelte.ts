@@ -44,10 +44,12 @@ function loadRecentAttendants(): string[] {
 }
 
 function saveRecentAttendantsToStorage(recent: string[], familyMemberIds: Set<string>) {
-	const toSave = recent.filter(r => !familyMemberIds.has(r));
+	const toSave = recent.filter((r) => !familyMemberIds.has(r));
 	try {
 		localStorage.setItem('recent_attendants', JSON.stringify(toSave));
-	} catch { /* ignore */ }
+	} catch {
+		/* ignore */
+	}
 }
 
 interface InitialEvent {
@@ -81,7 +83,9 @@ interface EventFormConfig {
 }
 
 /** Map parser recurrence tokens to form frequency + interval. */
-function mapRecurringToFrequency(recurring: string): { frequency: string; interval: number } | null {
+function mapRecurringToFrequency(
+	recurring: string
+): { frequency: string; interval: number } | null {
 	if (recurring === 'biweekly') return { frequency: 'weekly', interval: 2 };
 	const every = recurring.match(/^every_(\d+)_(days?|weeks?|months?|years?)$/);
 	if (every) {
@@ -103,7 +107,7 @@ function mapRecurringToFrequency(recurring: string): { frequency: string; interv
 }
 
 export function createEventForm(config: EventFormConfig) {
-	const familyMemberIds = new Set(config.familyMembers.map(m => m.userId));
+	const familyMemberIds = new Set(config.familyMembers.map((m) => m.userId));
 
 	let title = $state('');
 	let date = $state('');
@@ -133,7 +137,7 @@ export function createEventForm(config: EventFormConfig) {
 		const { initialEvent, calendars, defaultCalendarId } = config;
 		if (initialEvent) {
 			selectedCalendarId = initialEvent.calendarId || (calendars.length > 0 ? calendars[0].id : '');
-		} else if (defaultCalendarId && calendars.some(c => c.id === defaultCalendarId)) {
+		} else if (defaultCalendarId && calendars.some((c) => c.id === defaultCalendarId)) {
 			selectedCalendarId = defaultCalendarId;
 		} else if (calendars.length > 0) {
 			selectedCalendarId = calendars[0].id;
@@ -150,13 +154,19 @@ export function createEventForm(config: EventFormConfig) {
 		initializeCalendar();
 
 		if (initialEvent.start) {
-			const dt = initialEvent.start instanceof Date ? DateTime.fromJSDate(initialEvent.start) : DateTime.fromISO(initialEvent.start);
+			const dt =
+				initialEvent.start instanceof Date
+					? DateTime.fromJSDate(initialEvent.start)
+					: DateTime.fromISO(initialEvent.start);
 			date = dt.toFormat('yyyy-MM-dd');
 			startTime = dt.toFormat('HH:mm');
 			allDay = initialEvent.allDay || false;
 		}
 		if (initialEvent.end) {
-			const endDt = initialEvent.end instanceof Date ? DateTime.fromJSDate(initialEvent.end) : DateTime.fromISO(initialEvent.end);
+			const endDt =
+				initialEvent.end instanceof Date
+					? DateTime.fromJSDate(initialEvent.end)
+					: DateTime.fromISO(initialEvent.end);
 			endTime = endDt.toFormat('HH:mm');
 			if (endDt.toFormat('yyyy-MM-dd') !== date) {
 				multiDay = true;
@@ -194,7 +204,11 @@ export function createEventForm(config: EventFormConfig) {
 			date = '';
 			nlpDetectedFields.date = false;
 		}
-		if (lastNlpValues.startTime && !userTouchedFields.startTime && startTime === lastNlpValues.startTime) {
+		if (
+			lastNlpValues.startTime &&
+			!userTouchedFields.startTime &&
+			startTime === lastNlpValues.startTime
+		) {
 			startTime = '';
 			allDay = true;
 			nlpDetectedFields.startTime = false;
@@ -208,11 +222,19 @@ export function createEventForm(config: EventFormConfig) {
 			multiDay = false;
 			nlpDetectedFields.endDate = false;
 		}
-		if (lastNlpValues.location && !userTouchedFields.location && location === lastNlpValues.location) {
+		if (
+			lastNlpValues.location &&
+			!userTouchedFields.location &&
+			location === lastNlpValues.location
+		) {
 			location = '';
 			nlpDetectedFields.location = false;
 		}
-		if (lastNlpValues.attendants && !userTouchedFields.attendants && arraysEqual(attendants, lastNlpValues.attendants as string[])) {
+		if (
+			lastNlpValues.attendants &&
+			!userTouchedFields.attendants &&
+			arraysEqual(attendants, lastNlpValues.attendants as string[])
+		) {
 			attendants = [];
 			inviteTypes = {};
 			nlpDetectedFields.attendants = false;
@@ -226,9 +248,11 @@ export function createEventForm(config: EventFormConfig) {
 	}
 
 	function saveRecentAttendants() {
-		const nonUserAtts = attendants.filter(a => !a.includes('@') && a.length < 50 && !familyMemberIds.has(a));
+		const nonUserAtts = attendants.filter(
+			(a) => !a.includes('@') && a.length < 50 && !familyMemberIds.has(a)
+		);
 		const existing = new Set(recentAttendants);
-		const toAdd = nonUserAtts.filter(a => !existing.has(a));
+		const toAdd = nonUserAtts.filter((a) => !existing.has(a));
 		if (toAdd.length > 0) {
 			recentAttendants = [...recentAttendants, ...toAdd].slice(-20);
 			saveRecentAttendantsToStorage(recentAttendants, familyMemberIds);
@@ -253,52 +277,114 @@ export function createEventForm(config: EventFormConfig) {
 	}
 
 	return {
-		get title() { return title; },
-		set title(v: string) { title = v; },
+		get title() {
+			return title;
+		},
+		set title(v: string) {
+			title = v;
+		},
 
-		get date() { return date; },
-		set date(v: string) { date = v; },
+		get date() {
+			return date;
+		},
+		set date(v: string) {
+			date = v;
+		},
 
-		get startTime() { return startTime; },
-		set startTime(v: string) { startTime = v; },
+		get startTime() {
+			return startTime;
+		},
+		set startTime(v: string) {
+			startTime = v;
+		},
 
-		get endTime() { return endTime; },
-		set endTime(v: string) { endTime = v; },
+		get endTime() {
+			return endTime;
+		},
+		set endTime(v: string) {
+			endTime = v;
+		},
 
-		get endDate() { return endDate; },
-		set endDate(v: string) { endDate = v; },
+		get endDate() {
+			return endDate;
+		},
+		set endDate(v: string) {
+			endDate = v;
+		},
 
-		get allDay() { return allDay; },
-		set allDay(v: boolean) { allDay = v; },
+		get allDay() {
+			return allDay;
+		},
+		set allDay(v: boolean) {
+			allDay = v;
+		},
 
-		get multiDay() { return multiDay; },
-		set multiDay(v: boolean) { multiDay = v; },
+		get multiDay() {
+			return multiDay;
+		},
+		set multiDay(v: boolean) {
+			multiDay = v;
+		},
 
-		get location() { return location; },
-		set location(v: string) { location = v; },
+		get location() {
+			return location;
+		},
+		set location(v: string) {
+			location = v;
+		},
 
-		get description() { return description; },
-		set description(v: string) { description = v; },
+		get description() {
+			return description;
+		},
+		set description(v: string) {
+			description = v;
+		},
 
-		get selectedCalendarId() { return selectedCalendarId; },
-		set selectedCalendarId(v: string) { selectedCalendarId = v; },
+		get selectedCalendarId() {
+			return selectedCalendarId;
+		},
+		set selectedCalendarId(v: string) {
+			selectedCalendarId = v;
+		},
 
-		get attendants() { return attendants; },
-		set attendants(v: string[]) { attendants = v; },
+		get attendants() {
+			return attendants;
+		},
+		set attendants(v: string[]) {
+			attendants = v;
+		},
 
-		get inviteTypes() { return inviteTypes; },
+		get inviteTypes() {
+			return inviteTypes;
+		},
 
-		get recurrenceFrequency() { return recurrenceFrequency; },
-		set recurrenceFrequency(v: string | null) { recurrenceFrequency = v; },
+		get recurrenceFrequency() {
+			return recurrenceFrequency;
+		},
+		set recurrenceFrequency(v: string | null) {
+			recurrenceFrequency = v;
+		},
 
-		get recurrenceInterval() { return recurrenceInterval; },
-		set recurrenceInterval(v: number) { recurrenceInterval = Math.max(1, Math.floor(v) || 1); },
+		get recurrenceInterval() {
+			return recurrenceInterval;
+		},
+		set recurrenceInterval(v: number) {
+			recurrenceInterval = Math.max(1, Math.floor(v) || 1);
+		},
 
-		get recurrenceByDay() { return recurrenceByDay; },
-		get recurrenceCount() { return recurrenceCount; },
-		get recurrenceUntil() { return recurrenceUntil; },
+		get recurrenceByDay() {
+			return recurrenceByDay;
+		},
+		get recurrenceCount() {
+			return recurrenceCount;
+		},
+		get recurrenceUntil() {
+			return recurrenceUntil;
+		},
 
-		get reminderMinutes() { return reminderMinutes; },
+		get reminderMinutes() {
+			return reminderMinutes;
+		},
 		set reminderMinutes(v: number | null) {
 			reminderMinutes = typeof v === 'number' && v > 0 ? Math.floor(v) : null;
 			this.markTouched('reminderMinutes');
@@ -317,7 +403,9 @@ export function createEventForm(config: EventFormConfig) {
 			return !!(config.initialEvent?.recurrenceFrequency && config.initialEvent?.occurrenceDate);
 		},
 
-		get occurrenceDate() { return config.initialEvent?.occurrenceDate || null; },
+		get occurrenceDate() {
+			return config.initialEvent?.occurrenceDate || null;
+		},
 
 		get endBeforeStart() {
 			if (allDay || !date || !endTime) return false;
@@ -328,13 +416,21 @@ export function createEventForm(config: EventFormConfig) {
 			return endDt.valueOf() < startDt.valueOf();
 		},
 
-		get masterId() { return config.initialEvent?.masterId || config.initialEvent?.id || null; },
+		get masterId() {
+			return config.initialEvent?.masterId || config.initialEvent?.id || null;
+		},
 
-		get recentAttendants() { return recentAttendants; },
+		get recentAttendants() {
+			return recentAttendants;
+		},
 
-		get isEditMode() { return !!config.initialEvent; },
+		get isEditMode() {
+			return !!config.initialEvent;
+		},
 
-		get eventId() { return config.initialEvent?.id || null; },
+		get eventId() {
+			return config.initialEvent?.id || null;
+		},
 
 		markTouched(field: string) {
 			userTouchedFields[field] = true;
@@ -346,7 +442,7 @@ export function createEventForm(config: EventFormConfig) {
 
 		toggleAttendant(value: string) {
 			if (attendants.includes(value)) {
-				attendants = attendants.filter(a => a !== value);
+				attendants = attendants.filter((a) => a !== value);
 				const next = { ...inviteTypes };
 				delete next[value];
 				inviteTypes = next;
@@ -367,7 +463,9 @@ export function createEventForm(config: EventFormConfig) {
 
 		/** Seed attendants + invite types from an event's attendance rows
 		 * (used when the edit form opens and invite data isn't yet known). */
-		prefillInvites(rows: Array<{ userId?: string | null; name?: string | null; inviteType?: string | null }>) {
+		prefillInvites(
+			rows: Array<{ userId?: string | null; name?: string | null; inviteType?: string | null }>
+		) {
 			if (!Array.isArray(rows)) return;
 			const values = rows
 				.map((r) => r.userId || r.name)
@@ -456,7 +554,8 @@ export function createEventForm(config: EventFormConfig) {
 			// Title + date alone is a complete event: with no start time it
 			// saves all-day rather than demanding times.
 			const effectiveAllDay = allDay || !startTime;
-			const startTimestamp = toTimestamp(date, effectiveAllDay ? '' : startTime, effectiveAllDay) || '';
+			const startTimestamp =
+				toTimestamp(date, effectiveAllDay ? '' : startTime, effectiveAllDay) || '';
 			let endTimestamp: string | null = null;
 
 			if (multiDay && endDate) {
@@ -473,27 +572,27 @@ export function createEventForm(config: EventFormConfig) {
 				endTimestamp = startDt.plus({ hours: 1 }).toISO();
 			}
 
-		return {
-			title,
-			start: startTimestamp,
-			end: endTimestamp,
-			location,
-			description,
-			calendarId: selectedCalendarId,
-			allDay: effectiveAllDay,
-			attendants: [...attendants],
-			attendees: attendants.map((value) => ({
-				value,
-				isUser: familyMemberIds.has(value),
-				inviteType: inviteTypes[value] ?? 'optional'
-			})),
-			recurrenceFrequency,
-			recurrenceInterval: recurrenceFrequency ? recurrenceInterval : null,
-			recurrenceByDay: recurrenceFrequency ? recurrenceByDay : null,
-			recurrenceCount: recurrenceFrequency ? recurrenceCount : null,
-			recurrenceUntil: recurrenceFrequency ? recurrenceUntil : null,
-			reminderMinutes
-		};
+			return {
+				title,
+				start: startTimestamp,
+				end: endTimestamp,
+				location,
+				description,
+				calendarId: selectedCalendarId,
+				allDay: effectiveAllDay,
+				attendants: [...attendants],
+				attendees: attendants.map((value) => ({
+					value,
+					isUser: familyMemberIds.has(value),
+					inviteType: inviteTypes[value] ?? 'optional'
+				})),
+				recurrenceFrequency,
+				recurrenceInterval: recurrenceFrequency ? recurrenceInterval : null,
+				recurrenceByDay: recurrenceFrequency ? recurrenceByDay : null,
+				recurrenceCount: recurrenceFrequency ? recurrenceCount : null,
+				recurrenceUntil: recurrenceFrequency ? recurrenceUntil : null,
+				reminderMinutes
+			};
 		},
 
 		submitPreparation(): FormEventData | null {

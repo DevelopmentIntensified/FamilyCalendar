@@ -39,7 +39,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		url
 	});
 	if (!row) {
-		return apiError(new URL(request.url).pathname, 500, 'Could not save report. Please try again.', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Could not save report. Please try again.',
+			locals.user?.id ?? null
+		);
 	}
 	return json({ success: true, id: row.id });
 };

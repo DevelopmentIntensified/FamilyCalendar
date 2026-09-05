@@ -4,12 +4,7 @@ import { eq, and, sql, gte, lt, asc } from 'drizzle-orm';
 import { generateId } from 'lucia';
 import { DateTime } from 'luxon';
 import { getUserZone } from '$lib/server/utils/userTimezone';
-import {
-	uploadAdAsset,
-	getBlobUrl,
-	deleteAdAssetByFilename,
-	listBlobAssets
-} from './blobService';
+import { uploadAdAsset, getBlobUrl, deleteAdAssetByFilename, listBlobAssets } from './blobService';
 
 export interface AdEventData {
 	eventId: string;
@@ -67,10 +62,7 @@ const AD_TEMPLATES = [
 ];
 
 export async function checkUserAdConsent(userId: string): Promise<boolean> {
-	const [consent] = await db
-		.select()
-		.from(userAdConsent)
-		.where(eq(userAdConsent.userId, userId));
+	const [consent] = await db.select().from(userAdConsent).where(eq(userAdConsent.userId, userId));
 
 	if (!consent) {
 		return false;
@@ -80,10 +72,7 @@ export async function checkUserAdConsent(userId: string): Promise<boolean> {
 }
 
 export async function setUserAdConsent(userId: string, enabled: boolean): Promise<void> {
-	const existing = await db
-		.select()
-		.from(userAdConsent)
-		.where(eq(userAdConsent.userId, userId));
+	const existing = await db.select().from(userAdConsent).where(eq(userAdConsent.userId, userId));
 
 	if (existing.length > 0) {
 		return;
@@ -95,10 +84,7 @@ export async function setUserAdConsent(userId: string, enabled: boolean): Promis
 }
 
 export async function getAdConsentStatus(userId: string): Promise<{ userId: string } | null> {
-	const [consent] = await db
-		.select()
-		.from(userAdConsent)
-		.where(eq(userAdConsent.userId, userId));
+	const [consent] = await db.select().from(userAdConsent).where(eq(userAdConsent.userId, userId));
 
 	return consent ?? null;
 }

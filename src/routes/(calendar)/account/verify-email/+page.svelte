@@ -20,7 +20,9 @@
 	{#if form?.success}
 		<div class="rounded-md bg-green-100 p-4 text-green-800">
 			<p class="font-semibold">{form.message}</p>
-			<p class="mt-2 text-sm">Your email has been updated. You can now return to your account page.</p>
+			<p class="mt-2 text-sm">
+				Your email has been updated. You can now return to your account page.
+			</p>
 			<a href="/account" class="mt-4 inline-block text-green-700 underline">Go to Account</a>
 		</div>
 	{:else if form && !form.success}
@@ -33,13 +35,17 @@
 		{#if token}
 			<div class="rounded-lg bg-blue-50 p-4 text-blue-800">
 				<p class="mb-4">Click the button below to verify your email change.</p>
-				<form method="POST" action="?/verify" use:enhance={() => {
-					loading = true;
-					return async ({ update }) => {
-						loading = false;
-						await update();
-					};
-				}}>
+				<form
+					method="POST"
+					action="?/verify"
+					use:enhance={() => {
+						loading = true;
+						return async ({ update }) => {
+							loading = false;
+							await update();
+						};
+					}}
+				>
 					<input type="hidden" name="token" value={token} />
 					<button
 						type="submit"
@@ -51,13 +57,18 @@
 				</form>
 			</div>
 		{:else}
-			<form method="POST" action="?/verify" use:enhance={() => {
-				loading = true;
-				return async ({ update }) => {
-					loading = false;
-					await update();
-				};
-			}} class="space-y-4">
+			<form
+				method="POST"
+				action="?/verify"
+				use:enhance={() => {
+					loading = true;
+					return async ({ update }) => {
+						loading = false;
+						await update();
+					};
+				}}
+				class="space-y-4"
+			>
 				<div class="space-y-2">
 					<label for="code" class="block font-medium">Verification Code</label>
 					<input

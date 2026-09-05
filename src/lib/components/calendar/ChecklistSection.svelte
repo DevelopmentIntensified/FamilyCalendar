@@ -102,7 +102,8 @@
 <div class="border-t border-slate-100 px-5 py-3">
 	<div class="mb-1 flex items-center justify-between">
 		<h4 class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-			Checklist{#if eventTasks.length > 0} · {eventTasks.filter((t) => t.completedAt).length}/{eventTasks.length}{/if}
+			Checklist{#if eventTasks.length > 0}
+				· {eventTasks.filter((t) => t.completedAt).length}/{eventTasks.length}{/if}
 		</h4>
 		{#if !showChecklistInput}
 			<button
@@ -127,7 +128,12 @@
 					on:click={() => removePending(i)}
 				>
 					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
 					</svg>
 				</button>
 			</li>
@@ -145,23 +151,38 @@
 				>
 					<span class="absolute -inset-2" aria-hidden="true"></span>
 					{#if task.completedAt}
-						<svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+						<svg
+							class="h-2.5 w-2.5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="3"
+						>
 							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 						</svg>
 					{/if}
 				</button>
-				<span class="min-w-0 flex-1 truncate text-sm {task.completedAt ? 'text-slate-400 line-through' : 'text-slate-700'}">
+				<span
+					class="min-w-0 flex-1 truncate text-sm {task.completedAt
+						? 'text-slate-400 line-through'
+						: 'text-slate-700'}"
+				>
 					{task.title}
 				</span>
 				<button
 					type="button"
 					disabled={checklistBusy}
 					on:click={() => deleteItem(task.id)}
-					class="shrink-0 rounded p-1.5 text-slate-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all hover:text-red-500"
+					class="shrink-0 rounded p-1.5 text-slate-300 opacity-100 transition-all hover:text-red-500 focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
 					aria-label="Remove task"
 				>
 					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
 					</svg>
 				</button>
 			</li>

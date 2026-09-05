@@ -40,7 +40,9 @@
 ## Mini-PRDs
 
 ### A — Smart nudges (effort M)
+
 Nudge engine attached to Events (RSVPs) and Tasks (completions): optional deadline; nudge before and once after — only to members who haven't acted, capped per person per day. Parent gets a targeted "nudge again" button replacing verbal nagging. Needs a scheduled job (shared infra with Inactivity Window cleanup) + a `reminders` table.
 
 ### B — Weekly family digest (effort S–M)
+
 Auto-generated weekly email per family: next week at a glance, who hasn't RSVP'd, completions vs recent average (baseline framing), unassigned/upcoming recurring events needing attention. Configurable day/time; deep links per actionable item. Pure read-side aggregation + templated email + cron trigger. Highest insight-per-effort found.

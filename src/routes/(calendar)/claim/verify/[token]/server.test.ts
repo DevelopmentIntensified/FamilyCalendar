@@ -44,9 +44,14 @@ describe('GET /claim/verify/[token]', () => {
 	});
 
 	it('signs in as the merged account on Claim Conflict and redirects to the calendar', async () => {
-		vi.mocked(verifyClaimToken).mockResolvedValue({ outcome: 'merged', targetUserId: 'existing-9' });
+		vi.mocked(verifyClaimToken).mockResolvedValue({
+			outcome: 'merged',
+			targetUserId: 'existing-9'
+		});
 		vi.mocked(lucia.createSession).mockResolvedValue({ id: 'session-9' } as never);
-		vi.mocked(lucia.createSessionCookie).mockReturnValue({ value: 'auth_session=s9; Path=/' } as never);
+		vi.mocked(lucia.createSessionCookie).mockReturnValue({
+			value: 'auth_session=s9; Path=/'
+		} as never);
 
 		const event = mockEvent('guest-1');
 		const redirect = await redirectOf(GET(event));

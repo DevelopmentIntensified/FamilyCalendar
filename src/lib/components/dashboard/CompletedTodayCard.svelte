@@ -11,13 +11,18 @@
 	}
 </script>
 
-<section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" aria-label={isToday ? 'Completed today' : 'Completed this day'}>
+<section
+	class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+	aria-label={isToday ? 'Completed today' : 'Completed this day'}
+>
 	<h2 class="text-sm font-semibold text-slate-900">
 		{isToday ? 'Completed today' : 'Completed this day'}
 	</h2>
 	{#if tasks.length === 0}
 		<p class="mt-2 text-sm text-slate-500">
-			{isToday ? 'Nothing checked off yet — your wins will land here.' : 'Nothing was completed this day.'}
+			{isToday
+				? 'Nothing checked off yet — your wins will land here.'
+				: 'Nothing was completed this day.'}
 		</p>
 	{:else}
 		<p class="mt-1 text-2xl font-bold text-emerald-600">
@@ -31,7 +36,13 @@
 						class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
 						aria-hidden="true"
 					>
-						<svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4">
+						<svg
+							class="h-2.5 w-2.5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="4"
+						>
 							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 						</svg>
 					</span>

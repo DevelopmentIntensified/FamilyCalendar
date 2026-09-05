@@ -11,12 +11,18 @@
 <div class="flex min-h-screen flex-col">
 	<Navbar isLoggedIn={data.isLoggedIn} />
 	{#key pathname}
-		<main class="pt-[calc(4rem+env(safe-area-inset-top))] flex-grow" in:fade={{ duration: 300, delay: 200 }} out:fade={{ duration: 100 }}>
+		<main
+			class="flex-grow pt-[calc(4rem+env(safe-area-inset-top))]"
+			in:fade={{ duration: 300, delay: 200 }}
+			out:fade={{ duration: 100 }}
+		>
 			<slot />
 		</main>
 	{/key}
 </div>
 
 <footer class="border-t border-slate-200 bg-white py-6 text-center">
-	<p class="text-sm text-slate-500">&copy; {new Date().getFullYear()} FamilyPlanz. All rights reserved.</p>
+	<p class="text-sm text-slate-500">
+		&copy; {new Date().getFullYear()} FamilyPlanz. All rights reserved.
+	</p>
 </footer>

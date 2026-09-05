@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
-import { deleteCodesByEmail, getCodesByEmail, createCode } from '../../src/lib/server/db/actions/codes';
+import {
+	deleteCodesByEmail,
+	getCodesByEmail,
+	createCode
+} from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import { calendars, users, sessions, userSettings, events } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -79,8 +83,12 @@ test('View profile info', async ({ page }) => {
 	});
 
 	await test.step('Verify profile info is displayed', async () => {
-		await expect(page.getByRole('textbox', { name: 'First Name' })).toHaveValue(firstName, { timeout: 10000 });
-		await expect(page.getByRole('textbox', { name: 'Last Name' })).toHaveValue(lastName, { timeout: 10000 });
+		await expect(page.getByRole('textbox', { name: 'First Name' })).toHaveValue(firstName, {
+			timeout: 10000
+		});
+		await expect(page.getByRole('textbox', { name: 'Last Name' })).toHaveValue(lastName, {
+			timeout: 10000
+		});
 	});
 
 	await test.step('Verify email in email section', async () => {

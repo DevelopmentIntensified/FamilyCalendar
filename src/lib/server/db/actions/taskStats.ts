@@ -42,7 +42,10 @@ export async function getTaskStats(userId: string): Promise<TaskStats> {
 
 	// Who has assigned THIS user the most tasks.
 	const assignerRows = await db
-		.select({ name: sql<string>`${creator.firstName} || ' ' || ${creator.lastName}`, total: count() })
+		.select({
+			name: sql<string>`${creator.firstName} || ' ' || ${creator.lastName}`,
+			total: count()
+		})
 		.from(tasks)
 		.innerJoin(creator, eq(tasks.userId, creator.id))
 		.where(and(eq(tasks.assignedTo, userId), ne(tasks.userId, userId)))
@@ -52,7 +55,10 @@ export async function getTaskStats(userId: string): Promise<TaskStats> {
 
 	// Who this user assigns the most tasks TO.
 	const assigneeRows = await db
-		.select({ name: sql<string>`${assignee.firstName} || ' ' || ${assignee.lastName}`, total: count() })
+		.select({
+			name: sql<string>`${assignee.firstName} || ' ' || ${assignee.lastName}`,
+			total: count()
+		})
 		.from(tasks)
 		.innerJoin(assignee, eq(tasks.assignedTo, assignee.id))
 		.where(and(eq(tasks.userId, userId), ne(tasks.assignedTo, userId)))

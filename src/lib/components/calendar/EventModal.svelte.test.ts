@@ -98,9 +98,7 @@ describe('EventModal - display details', () => {
 	});
 
 	it('should show maybe attendees when passed', () => {
-		const attendees = [
-			{ userId: 'u1', status: 'maybe', firstName: 'Charlie', lastName: 'Brown' }
-		];
+		const attendees = [{ userId: 'u1', status: 'maybe', firstName: 'Charlie', lastName: 'Brown' }];
 
 		render(EventModal, {
 			props: { show: true, event: baseEvent, attendees }
@@ -171,7 +169,10 @@ describe('EventModal - RSVP refresh', () => {
 	it('refreshes all views after an RSVP change so chips update without reload', async () => {
 		render(EventModal, { props: { show: true, event: baseEvent } });
 		await fireEvent.click(screen.getByRole('button', { name: /Going/ }));
-		expect(await screen.findByRole('button', { name: /Going/ })).toHaveAttribute('aria-pressed', 'true');
+		expect(await screen.findByRole('button', { name: /Going/ })).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
 		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
 });
@@ -180,7 +181,10 @@ describe('EventModal - reminder display', () => {
 	beforeEach(() => {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(async () => ({ ok: true, json: async () => ({ attendance: [], userRsvpStatus: 'undecided' }) }))
+			vi.fn(async () => ({
+				ok: true,
+				json: async () => ({ attendance: [], userRsvpStatus: 'undecided' })
+			}))
 		);
 	});
 
@@ -204,7 +208,10 @@ describe('EventModal - confirm popovers', () => {
 	beforeEach(() => {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(async () => ({ ok: true, json: async () => ({ attendance: [], userRsvpStatus: 'undecided' }) }))
+			vi.fn(async () => ({
+				ok: true,
+				json: async () => ({ attendance: [], userRsvpStatus: 'undecided' })
+			}))
 		);
 	});
 

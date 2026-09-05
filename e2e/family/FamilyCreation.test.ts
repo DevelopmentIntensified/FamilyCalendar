@@ -2,7 +2,19 @@ import { test, expect } from '@playwright/test';
 import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
 import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
-import { calendars, users, sessions, userSettings, events, families, familyMembers, accounts, userGroups, subscriptions, codes } from '../../src/lib/server/db/schema';
+import {
+	calendars,
+	users,
+	sessions,
+	userSettings,
+	events,
+	families,
+	familyMembers,
+	accounts,
+	userGroups,
+	subscriptions,
+	codes
+} from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { createNewUser } from '../../src/lib/server/utils/createNewUser';
 import { lucia } from '$lib/server/auth';
@@ -17,15 +29,17 @@ let uid = '';
 async function loginWithSession(page: any, userId: string) {
 	const session = await lucia.createSession(userId, {});
 	const cookie = lucia.createSessionCookie(session.id);
-	await page.context().addCookies([{
-		name: cookie.name,
-		value: cookie.value,
-		domain: 'localhost',
-		path: '/',
-		httpOnly: cookie.attributes.httpOnly,
-		secure: cookie.attributes.secure,
-		sameSite: 'Lax'
-	}]);
+	await page.context().addCookies([
+		{
+			name: cookie.name,
+			value: cookie.value,
+			domain: 'localhost',
+			path: '/',
+			httpOnly: cookie.attributes.httpOnly,
+			secure: cookie.attributes.secure,
+			sameSite: 'Lax'
+		}
+	]);
 }
 
 test.beforeEach(async () => {

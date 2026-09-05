@@ -113,7 +113,11 @@ describe('applyToggle', () => {
 	});
 
 	it('toggles (completes) a NON-recurring open task instead of advancing', async () => {
-		const task = makeTask({ completedAt: null, recurrenceFrequency: null, recurrenceInterval: null });
+		const task = makeTask({
+			completedAt: null,
+			recurrenceFrequency: null,
+			recurrenceInterval: null
+		});
 		state.updateResult = { ...task, completedAt: '2026-08-29T10:00:00.000Z' };
 
 		await applyToggle(task);

@@ -1,4 +1,9 @@
-import { getUserFamilies, getFamilyRoster, removeFamilyMember, updateFamilies } from '$lib/server/db/actions/families';
+import {
+	getUserFamilies,
+	getFamilyRoster,
+	removeFamilyMember,
+	updateFamilies
+} from '$lib/server/db/actions/families';
 import {
 	getFamilyModuleSwitches,
 	setFamilyModuleSwitch
@@ -24,10 +29,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			return { family: null, members: [], currentUserRole: null };
 		}
 
-		const familyResult = await db
-			.select()
-			.from(families)
-			.where(eq(families.id, params.familyId));
+		const familyResult = await db.select().from(families).where(eq(families.id, params.familyId));
 		const family = familyResult[0] || null;
 
 		if (!family) {
@@ -38,7 +40,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		const activity = await getRecentFamilyActivity(params.familyId);
 		const moduleSwitches = await getFamilyModuleSwitches(params.familyId);
 
-		return { family, members, currentUserRole: currentMember.role || 'member', currentUserId: locals.user.id, activity, moduleSwitches };
+		return {
+			family,
+			members,
+			currentUserRole: currentMember.role || 'member',
+			currentUserId: locals.user.id,
+			activity,
+			moduleSwitches
+		};
 	} catch (error) {
 		console.error('[load] Error:', error);
 		return { family: null, members: [], currentUserRole: null };
@@ -68,7 +77,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const userId = formData.get('userId') as string;
 		const familyId = params.familyId;
-		
+
 		if (!userId) {
 			return fail(400, { error: 'User ID is required' });
 		}
@@ -80,7 +89,7 @@ export const actions: Actions = {
 
 		const roleCheck = await requireMinRole(familyId, locals.user.id, 'admin');
 		if (roleCheck) return roleCheck;
-		
+
 		await removeFamilyMember(familyId, userId);
 		return { success: true };
 	},
@@ -108,7 +117,8 @@ export const actions: Actions = {
 		if (!targetRole) return fail(400, { error: 'Member not found' });
 
 		if (role === 'creator') {
-			if (currentUserRole !== 'creator') return fail(403, { error: 'Only the creator can promote to creator' });
+			if (currentUserRole !== 'creator')
+				return fail(403, { error: 'Only the creator can promote to creator' });
 		} else {
 			if (currentUserRole === 'member') return fail(403, { error: 'You do not have permission' });
 		}
@@ -152,14 +162,14 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const name = formData.get('name') as string;
 		const color = formData.get('color') as string;
-		
+
 		const roleCheck = await requireMinRole(params.familyId, locals.user.id, 'admin');
 		if (roleCheck) return roleCheck;
 
 		const updateData: { name?: string; color?: string } = {};
 		if (name) updateData.name = name;
 		if (color) updateData.color = color;
-		
+
 		if (Object.keys(updateData).length > 0) {
 			await updateFamilies(params.familyId, updateData);
 		}

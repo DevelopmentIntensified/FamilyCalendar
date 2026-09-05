@@ -45,7 +45,7 @@
 
 {#if !online || pendingCount > 0 || syncedCount !== null}
 	<div
-		class="fixed top-[calc(4rem+env(safe-area-inset-top))] left-0 right-0 z-30 border-b border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900"
+		class="fixed left-0 right-0 top-[calc(4rem+env(safe-area-inset-top))] z-30 border-b border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900"
 		role="status"
 	>
 		<p>
@@ -60,7 +60,8 @@
 			</p>
 		{:else if syncedCount !== null}
 			<p class="mt-1 font-medium">
-				Synced {syncedCount} {syncedCount === 1 ? 'change' : 'changes'}.
+				Synced {syncedCount}
+				{syncedCount === 1 ? 'change' : 'changes'}.
 			</p>
 		{/if}
 	</div>

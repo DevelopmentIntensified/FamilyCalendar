@@ -32,7 +32,7 @@ export function trapFocus(container: HTMLElement): () => void {
 	}
 
 	const initialTarget =
-		container.getAttribute('tabindex') === '-1' ? container : getFocusables()[0] ?? null;
+		container.getAttribute('tabindex') === '-1' ? container : (getFocusables()[0] ?? null);
 	initialTarget?.focus();
 
 	container.addEventListener('keydown', handleKeydown);

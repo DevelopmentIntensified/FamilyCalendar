@@ -30,7 +30,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!calendarId) {
 		const personalCal = await ensurePersonalCalendar(userId);
 		if (!personalCal) {
-			return apiError(new URL(request.url).pathname, 500, 'Failed to create event', locals.user?.id ?? null);
+			return apiError(
+				new URL(request.url).pathname,
+				500,
+				'Failed to create event',
+				locals.user?.id ?? null
+			);
 		}
 		calendarId = personalCal.id;
 	} else {
@@ -70,11 +75,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 						.where(eq(calendars.familyId, memberFamilyId));
 					const familyCal = familyCals[0];
 					if (familyCal && familyCal.id !== calendarId) {
-						await createEvent(
-							{ ...eventData, calendarId: familyCal.id },
-							userId,
-							invites
-						);
+						await createEvent({ ...eventData, calendarId: familyCal.id }, userId, invites);
 					}
 				}
 			}
@@ -85,6 +86,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ success: true, event: created }, { status: 201 });
 	} catch (error) {
 		console.error('Failed to create event:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to create event', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to create event',
+			locals.user?.id ?? null
+		);
 	}
 };

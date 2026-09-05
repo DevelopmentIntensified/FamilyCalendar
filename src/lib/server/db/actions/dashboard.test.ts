@@ -62,7 +62,12 @@ describe('rankTop3', () => {
 
 	it('ranks a high-priority task with no due date above low-priority due-today work', () => {
 		const highNoDue = task({ id: 'gate', title: 'Fix squeaky gate', priority: 'high' });
-		const lowToday = task({ id: 'recycle', title: 'Take out recycling', priority: 'low', dueDate: '2026-08-19T20:00:00.000Z' });
+		const lowToday = task({
+			id: 'recycle',
+			title: 'Take out recycling',
+			priority: 'low',
+			dueDate: '2026-08-19T20:00:00.000Z'
+		});
 		const out = rankTop3([lowToday, highNoDue], ME, { todayStartIso: TODAY });
 		expect(out[0].id).toBe('gate');
 	});
@@ -75,8 +80,18 @@ describe('rankTop3', () => {
 	});
 
 	it('never surfaces completed or archived tasks', () => {
-		const done = task({ id: 'done', priority: 'high', dueDate: '2026-08-18T00:00:00.000Z', completedAt: '2026-08-18T10:00:00.000Z' });
-		const archived = task({ id: 'arch', priority: 'high', dueDate: '2026-08-18T00:00:00.000Z', archivedAt: '2026-08-18T10:00:00.000Z' });
+		const done = task({
+			id: 'done',
+			priority: 'high',
+			dueDate: '2026-08-18T00:00:00.000Z',
+			completedAt: '2026-08-18T10:00:00.000Z'
+		});
+		const archived = task({
+			id: 'arch',
+			priority: 'high',
+			dueDate: '2026-08-18T00:00:00.000Z',
+			archivedAt: '2026-08-18T10:00:00.000Z'
+		});
 		const fresh = task({ id: 'fresh', priority: 'high', dueDate: '2026-08-18T00:00:00.000Z' });
 		const out = rankTop3([done, archived, fresh], ME, { todayStartIso: TODAY });
 		expect(out.map((t) => t.id)).toEqual(['fresh']);
@@ -84,7 +99,12 @@ describe('rankTop3', () => {
 
 	it('caps the result at three', () => {
 		const many = Array.from({ length: 6 }, (_, i) =>
-			task({ id: `t${i}`, priority: 'high', dueDate: '2026-08-18T00:00:00.000Z', title: `Task ${i}` })
+			task({
+				id: `t${i}`,
+				priority: 'high',
+				dueDate: '2026-08-18T00:00:00.000Z',
+				title: `Task ${i}`
+			})
 		);
 		expect(rankTop3(many, ME, { todayStartIso: TODAY })).toHaveLength(3);
 	});

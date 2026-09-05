@@ -73,15 +73,17 @@ test.skip('Event Editing', async ({ page }) => {
 
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(email);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 	});
 
 	await test.step('Navigate to event detail', async () => {
@@ -102,12 +104,16 @@ test.skip('Event Editing', async ({ page }) => {
 	await test.step('Submit form', async () => {
 		await page.getByRole('button', { name: 'Save Changes' }).click();
 		await page.waitForLoadState('networkidle');
-		
-		const errorMessage = await page.locator('.text-red-500, [class*="text-red"]').first().textContent().catch(() => '');
+
+		const errorMessage = await page
+			.locator('.text-red-500, [class*="text-red"]')
+			.first()
+			.textContent()
+			.catch(() => '');
 		if (errorMessage) {
 			throw new Error('Form submission failed: ' + errorMessage);
 		}
-		
+
 		await page.waitForURL('/calendar', { timeout: 15000 });
 	});
 

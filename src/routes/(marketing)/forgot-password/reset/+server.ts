@@ -25,7 +25,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		try {
 			await validateJWT('HS256', secret, token);
 		} catch {
-			return json({ error: 'Invalid or expired reset token. Please request a new one.' }, { status: 400 });
+			return json(
+				{ error: 'Invalid or expired reset token. Please request a new one.' },
+				{ status: 400 }
+			);
 		}
 
 		const parsed = parseJWT(token);

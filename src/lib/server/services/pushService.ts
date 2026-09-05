@@ -31,7 +31,10 @@ function isVapidConfigured(): boolean {
 	return Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 }
 
-export async function saveSubscription(userId: string, subscription: PushSubscriptionInput): Promise<void> {
+export async function saveSubscription(
+	userId: string,
+	subscription: PushSubscriptionInput
+): Promise<void> {
 	await db
 		.insert(pushSubscriptions)
 		.values({
@@ -90,7 +93,12 @@ export async function sendPushToUser(
 					if (statusCode === 404 || statusCode === 410) {
 						await db
 							.delete(pushSubscriptions)
-							.where(and(eq(pushSubscriptions.endpoint, sub.endpoint), eq(pushSubscriptions.userId, userId)));
+							.where(
+								and(
+									eq(pushSubscriptions.endpoint, sub.endpoint),
+									eq(pushSubscriptions.userId, userId)
+								)
+							);
 					} else {
 						console.error('Failed to send push notification:', error);
 					}

@@ -53,7 +53,10 @@ export const actions: Actions = {
 				const payload = parsedToken.payload as EmailChangePayload;
 				pendingEmail = payload.pendingEmail;
 
-				await db.update(users).set({ email: pendingEmail, emailVerified: true }).where(eq(users.id, userId));
+				await db
+					.update(users)
+					.set({ email: pendingEmail, emailVerified: true })
+					.where(eq(users.id, userId));
 
 				return { success: true, message: 'Email verified successfully!' };
 			} else if (code) {
@@ -75,7 +78,10 @@ export const actions: Actions = {
 					return fail(400, { success: false, message: 'No pending email found' });
 				}
 
-				await db.update(users).set({ email: pendingEmail, emailVerified: true }).where(eq(users.id, userId));
+				await db
+					.update(users)
+					.set({ email: pendingEmail, emailVerified: true })
+					.where(eq(users.id, userId));
 				await deleteCode(code);
 
 				return { success: true, message: 'Email verified successfully!' };

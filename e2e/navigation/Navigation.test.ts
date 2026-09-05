@@ -53,15 +53,17 @@ test.describe('Profile Dropdown', () => {
 
 	test('Profile dropdown opens on click', async ({ page }) => {
 		const cookie = await getSessionCookie(testEmail);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 
 		await page.goto('/calendar');
 		await page.waitForLoadState('networkidle');
@@ -76,15 +78,17 @@ test.describe('Profile Dropdown', () => {
 
 	test('Profile dropdown shows user info', async ({ page }) => {
 		const cookie = await getSessionCookie(testEmail);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 
 		await page.goto('/calendar');
 		await page.waitForLoadState('networkidle');
@@ -97,15 +101,17 @@ test.describe('Profile Dropdown', () => {
 
 	test('Account Settings link navigates correctly', async ({ page }) => {
 		const cookie = await getSessionCookie(testEmail);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 
 		await page.goto('/calendar');
 		await page.waitForLoadState('networkidle');
@@ -119,15 +125,17 @@ test.describe('Profile Dropdown', () => {
 
 	test('Family Management link navigates correctly', async ({ page }) => {
 		const cookie = await getSessionCookie(testEmail);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 
 		await page.goto('/calendar');
 		await page.waitForLoadState('networkidle');
@@ -140,15 +148,17 @@ test.describe('Profile Dropdown', () => {
 
 	test('Logout button is accessible and functional', async ({ page }) => {
 		const cookie = await getSessionCookie(testEmail);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 
 		await page.goto('/calendar');
 		await page.waitForLoadState('networkidle');
@@ -201,7 +211,7 @@ test.describe('Navigation', () => {
 	test.skip('Mobile menu toggles correctly', async ({ page }) => {
 		await page.setViewportSize({ width: 375, height: 667 });
 		await page.goto('/');
-		
+
 		await page.waitForTimeout(500);
 		const mobileMenuButton = page.locator('nav button.md\\:hidden').first();
 		await expect(mobileMenuButton).toBeVisible({ timeout: 5000 });
@@ -212,7 +222,7 @@ test.describe('Navigation', () => {
 
 	test('Navbar shows correct links when logged out', async ({ page }) => {
 		await page.goto('/');
-		
+
 		await expect(page.locator('nav').getByText('Sign In')).toBeVisible();
 		await expect(page.locator('nav').getByText('Get Started')).toBeVisible();
 		await expect(page.locator('nav').getByText('About')).toBeVisible();

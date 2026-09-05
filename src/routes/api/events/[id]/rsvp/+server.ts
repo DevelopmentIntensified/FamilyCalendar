@@ -28,7 +28,12 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 		return json({ success: true, rsvpStatus, attendance });
 	} catch (error) {
 		console.error('Failed to update RSVP:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to update RSVP', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to update RSVP',
+			locals.user?.id ?? null
+		);
 	}
 };
 
@@ -43,14 +48,19 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
 	try {
 		const attendance = await getEventAttendance(params.id);
-		const userRsvp = attendance.find(a => a.userId === locals.user.id);
+		const userRsvp = attendance.find((a) => a.userId === locals.user.id);
 		return json({
 			attendance,
 			userRsvpStatus: userRsvp?.status || 'undecided',
-			nonUserAttendants: attendance.filter(a => !a.userId && a.name).map(a => a.name)
+			nonUserAttendants: attendance.filter((a) => !a.userId && a.name).map((a) => a.name)
 		});
 	} catch (error) {
 		console.error('Failed to fetch attendance:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to fetch attendance', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to fetch attendance',
+			locals.user?.id ?? null
+		);
 	}
 };

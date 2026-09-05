@@ -82,7 +82,9 @@ beforeEach(() => {
 describe('undoRecurringCompletion', () => {
 	it('returns null when the task is missing or not the caller’s', async () => {
 		state.queue = [[]];
-		expect(await undoRecurringCompletion('missing', 'user-a', '2026-08-28T23:59:00.000Z')).toBeNull();
+		expect(
+			await undoRecurringCompletion('missing', 'user-a', '2026-08-28T23:59:00.000Z')
+		).toBeNull();
 		expect(state.updatePatch).toBeNull();
 	});
 

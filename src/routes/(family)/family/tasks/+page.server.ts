@@ -22,7 +22,11 @@ export const load: PageServerLoad = async (event) => {
 	// Overdue Recurring Tasks stick to today until done (cursor v3).
 	const { syncRecurringCursors } = await import('$lib/server/db/actions/tasks');
 	const { getUserZone } = await import('$lib/server/utils/userTimezone');
-	await syncRecurringCursors(event.locals.user.id, member.familyId, await getUserZone(event.locals.user.id));
+	await syncRecurringCursors(
+		event.locals.user.id,
+		member.familyId,
+		await getUserZone(event.locals.user.id)
+	);
 
 	const tasks = await getTasksForFamily(member.familyId);
 

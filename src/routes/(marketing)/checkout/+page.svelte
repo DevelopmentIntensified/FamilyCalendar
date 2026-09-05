@@ -10,7 +10,7 @@
 <div class="min-h-screen bg-slate-50 pt-20">
 	<div class="mx-auto max-w-7xl px-6 py-12">
 		<div class="mb-8">
-			<a href="/pricing" class="text-amber-600 hover:text-amber-700 font-medium">
+			<a href="/pricing" class="font-medium text-amber-600 hover:text-amber-700">
 				&larr; Back to Pricing
 			</a>
 		</div>
@@ -19,12 +19,14 @@
 			<h1 class="mb-8 text-3xl font-bold text-slate-900">Complete Your Purchase</h1>
 
 			{#if !data.isLoggedIn}
-				<div class="rounded-lg bg-amber-50 p-6 border border-amber-200">
-					<p class="text-amber-800">Please <a href="/login" class="underline font-semibold">sign in</a> to complete your purchase.</p>
+				<div class="rounded-lg border border-amber-200 bg-amber-50 p-6">
+					<p class="text-amber-800">
+						Please <a href="/login" class="font-semibold underline">sign in</a> to complete your purchase.
+					</p>
 				</div>
 			{:else}
-				<div class="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-					<div class="mb-6 pb-6 border-b border-slate-200">
+				<div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+					<div class="mb-6 border-b border-slate-200 pb-6">
 						<h2 class="text-xl font-semibold text-slate-900">Selected Plan</h2>
 						<div class="mt-4 flex items-center justify-between">
 							<div>
@@ -55,11 +57,11 @@
 					</div>
 
 					{#if data.checkoutResult?.appliedDiscounts && data.checkoutResult.appliedDiscounts.length > 0}
-						<div class="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
-							<h3 class="font-semibold text-green-800 mb-2">Applied Discounts</h3>
+						<div class="mb-6 rounded-lg border border-green-200 bg-green-50 p-4">
+							<h3 class="mb-2 font-semibold text-green-800">Applied Discounts</h3>
 							<ul class="space-y-1">
 								{#each data.checkoutResult.appliedDiscounts as discount}
-									<li class="text-green-700 text-sm">
+									<li class="text-sm text-green-700">
 										{discount.name}: {discount.percentage}% off (${discount.amount.toFixed(2)})
 									</li>
 								{/each}
@@ -71,11 +73,11 @@
 					{/if}
 
 					{#if data.userDiscounts && data.userDiscounts.length > 0}
-						<div class="mb-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
-							<h3 class="font-semibold text-amber-800 mb-2">Your Eligible Discounts</h3>
+						<div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+							<h3 class="mb-2 font-semibold text-amber-800">Your Eligible Discounts</h3>
 							<ul class="space-y-1">
 								{#each data.userDiscounts as discount}
-									<li class="text-amber-700 text-sm">
+									<li class="text-sm text-amber-700">
 										{discount.description}: {discount.percentage}% off
 									</li>
 								{/each}
@@ -86,10 +88,10 @@
 					<form method="POST" action="?/purchase">
 						<input type="hidden" name="planType" value={data.selectedPlan?.type ?? 'monthly'} />
 						<input type="hidden" name="finalPrice" value={data.checkoutResult?.finalPrice ?? 0} />
-						
+
 						<button
 							type="submit"
-							class="w-full rounded-full bg-amber-500 px-6 py-4 text-center font-semibold text-white shadow-lg shadow-amber-500/30 transition-all hover:bg-amber-600 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+							class="w-full rounded-full bg-amber-500 px-6 py-4 text-center font-semibold text-white shadow-lg shadow-amber-500/30 transition-all hover:bg-amber-600 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
 							disabled
 						>
 							Coming Soon
@@ -100,8 +102,8 @@
 					</form>
 				</div>
 
-				<div class="mt-6 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-					<h3 class="font-semibold text-slate-900 mb-4">Price Breakdown</h3>
+				<div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+					<h3 class="mb-4 font-semibold text-slate-900">Price Breakdown</h3>
 					<div class="space-y-2 text-sm">
 						<div class="flex justify-between">
 							<span class="text-slate-600">Base Price</span>
@@ -113,7 +115,7 @@
 								<span>-${data.checkoutResult.discountAmount.toFixed(2)}</span>
 							</div>
 						{/if}
-						<div class="flex justify-between pt-2 border-t border-slate-200 font-semibold">
+						<div class="flex justify-between border-t border-slate-200 pt-2 font-semibold">
 							<span class="text-slate-900">Total</span>
 							<span class="text-slate-900">${data.checkoutResult?.finalPrice ?? 0}</span>
 						</div>

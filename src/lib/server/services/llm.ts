@@ -28,7 +28,10 @@ export async function chatJson(system: string, user: string): Promise<Record<str
 			})
 		});
 		if (!res.ok) {
-			const text = await res.text().then(t => t.slice(0, 200)).catch(() => '');
+			const text = await res
+				.text()
+				.then((t) => t.slice(0, 200))
+				.catch(() => '');
 			console.error('[llm] request failed:', res.status, text);
 			return null;
 		}

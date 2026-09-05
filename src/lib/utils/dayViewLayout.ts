@@ -28,9 +28,7 @@ export const DEFAULT_DURATION_MIN = 60;
  * them. Mirrors the calendar DayView's long-standing behavior, extracted so
  * the dashboard's compact day timeline shares one source of truth.
  */
-export function layoutTimed<T extends TimelineEventInput>(
-	list: T[]
-): LaidOutEvent<T>[] {
+export function layoutTimed<T extends TimelineEventInput>(list: T[]): LaidOutEvent<T>[] {
 	const laneEnds: number[] = [];
 	const out: Omit<LaidOutEvent<T>, 'lanes'>[] = [];
 	for (const event of list) {
@@ -48,8 +46,7 @@ export function layoutTimed<T extends TimelineEventInput>(
 			event,
 			lane,
 			topPct: (startMin / MINUTES_PER_DAY) * 100,
-			heightPct:
-				(Math.min(endMin - startMin, MINUTES_PER_DAY - startMin) / MINUTES_PER_DAY) * 100
+			heightPct: (Math.min(endMin - startMin, MINUTES_PER_DAY - startMin) / MINUTES_PER_DAY) * 100
 		});
 	}
 	const lanes = Math.max(laneEnds.length, 1);

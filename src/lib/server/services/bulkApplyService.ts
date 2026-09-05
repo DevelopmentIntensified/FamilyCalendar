@@ -12,8 +12,7 @@ export async function applySmartOp(
 	const ev = await getEvent(op.id);
 	if (!ev) return false;
 
-	const calendarId =
-		op.calendarId && allowedCalIds?.has(op.calendarId) ? op.calendarId : undefined;
+	const calendarId = op.calendarId && allowedCalIds?.has(op.calendarId) ? op.calendarId : undefined;
 
 	if (
 		calendarId &&
@@ -36,14 +35,16 @@ export async function applySmartOp(
 	const date = op.date ?? startDt.toISODate()!;
 	const allDay = typeof op.allDay === 'boolean' ? op.allDay : ev.allDay;
 
-	let startTime: string | null = allDay ? '00:00' : op.startTime ?? startDt.toFormat('HH:mm');
+	let startTime: string | null = allDay ? '00:00' : (op.startTime ?? startDt.toFormat('HH:mm'));
 	const endDt = toDateTime(ev.end)?.setZone(zone ?? 'system');
 	let endTime: string | null = allDay
 		? '23:59'
-		: op.endTime ?? (endDt && endDt.toISODate() === date ? endDt.toFormat('HH:mm') : null);
+		: (op.endTime ?? (endDt && endDt.toISODate() === date ? endDt.toFormat('HH:mm') : null));
 
 	if (startTime && !endTime) {
-		endTime = DateTime.fromFormat(startTime, 'HH:mm', { zone }).plus({ hours: 1 }).toFormat('HH:mm');
+		endTime = DateTime.fromFormat(startTime, 'HH:mm', { zone })
+			.plus({ hours: 1 })
+			.toFormat('HH:mm');
 	}
 
 	const start = DateTime.fromFormat(`${date} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone }).toISO();

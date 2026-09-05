@@ -3,7 +3,13 @@ import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import { requireUserJson } from '$lib/server/utils/requireUser';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
-import { getMealsByDate, addMeal, deleteMeal, isMealKind, isMealDate } from '$lib/server/db/actions/meals';
+import {
+	getMealsByDate,
+	addMeal,
+	deleteMeal,
+	isMealKind,
+	isMealDate
+} from '$lib/server/db/actions/meals';
 
 // Family-scoped: the caller must belong to a family, and all reads/writes
 // resolve familyId from their membership (never from the request body).
@@ -62,7 +68,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ success: true, meal: created }, { status: 201 });
 	} catch (error) {
 		console.error('Failed to create meal:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to create meal', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to create meal',
+			locals.user?.id ?? null
+		);
 	}
 };
 
@@ -89,6 +100,11 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 		return json({ success: true });
 	} catch (error) {
 		console.error('Failed to delete meal:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to delete meal', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to delete meal',
+			locals.user?.id ?? null
+		);
 	}
 };

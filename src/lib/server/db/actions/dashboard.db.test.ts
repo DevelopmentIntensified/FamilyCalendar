@@ -138,7 +138,10 @@ describe('getKidsScheduleAttendance', () => {
 
 describe('getCompletionTimestamps', () => {
 	it('returns completion timestamps newest-first from the orderBy/limit chain', async () => {
-		const rows = [{ completedAt: '2026-09-01T00:00:00.000Z' }, { completedAt: '2026-08-01T00:00:00.000Z' }];
+		const rows = [
+			{ completedAt: '2026-09-01T00:00:00.000Z' },
+			{ completedAt: '2026-08-01T00:00:00.000Z' }
+		];
 		state.selectQueue = [rows];
 
 		const result = await getCompletionTimestamps('u1');
@@ -183,26 +186,21 @@ describe('getRecurringDayCompletions', () => {
 
 describe('mergeDayCompletions', () => {
 	it('combines one-off and recurring completions, newest first', () => {
-		const oneOff = [
-			{ id: 't1', title: 'Sweep floor', completedAt: '2026-09-04T08:00:00.000Z' }
-		];
+		const oneOff = [{ id: 't1', title: 'Sweep floor', completedAt: '2026-09-04T08:00:00.000Z' }];
 		const recurring = [
 			{ id: 'c2', title: 'Water plants', completedAt: '2026-09-04T09:00:00.000Z' },
 			{ id: 'c1', title: 'Take out trash', completedAt: '2026-09-04T07:30:00.000Z' }
 		];
 
-		expect(mergeDayCompletions(oneOff, recurring)).toEqual([
-			recurring[0],
-			oneOff[0],
-			recurring[1]
-		]);
+		expect(mergeDayCompletions(oneOff, recurring)).toEqual([recurring[0], oneOff[0], recurring[1]]);
 	});
 
 	it('keeps null completedAt entries last', () => {
 		expect(
-			mergeDayCompletions([{ id: 't1', title: 'No time', completedAt: null }], [
-				{ id: 'c1', title: 'Done', completedAt: '2026-09-04T09:00:00.000Z' }
-			])
+			mergeDayCompletions(
+				[{ id: 't1', title: 'No time', completedAt: null }],
+				[{ id: 'c1', title: 'Done', completedAt: '2026-09-04T09:00:00.000Z' }]
+			)
 		).toEqual([
 			{ id: 'c1', title: 'Done', completedAt: '2026-09-04T09:00:00.000Z' },
 			{ id: 't1', title: 'No time', completedAt: null }

@@ -32,7 +32,8 @@ function areaForPath(path: string): BugArea {
 	if (path.includes('/dashboard')) return 'dashboard';
 	if (path.includes('/calendar') || path.startsWith('/api/events')) return 'calendar';
 	if (path.includes('/tasks') || path.startsWith('/api/tasks')) return 'tasks';
-	if (path.includes('/account') || path.includes('/claim') || path.includes('/login')) return 'account';
+	if (path.includes('/account') || path.includes('/claim') || path.includes('/login'))
+		return 'account';
 	return 'other';
 }
 

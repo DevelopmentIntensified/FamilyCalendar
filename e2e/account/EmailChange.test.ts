@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
-import { createCode, deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
+import {
+	createCode,
+	deleteCodesByEmail,
+	getCodesByEmail
+} from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import { calendars, users, sessions, userSettings, events } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -20,15 +24,17 @@ async function loginWithSession(page: any, userEmail: string) {
 	if (!user[0]) throw new Error('User not found');
 	const session = await lucia.createSession(user[0].id, {});
 	const cookie = lucia.createSessionCookie(session.id);
-	await page.context().addCookies([{
-		name: cookie.name,
-		value: cookie.value,
-		domain: 'localhost',
-		path: '/',
-		httpOnly: cookie.attributes.httpOnly,
-		secure: cookie.attributes.secure,
-		sameSite: 'Lax'
-	}]);
+	await page.context().addCookies([
+		{
+			name: cookie.name,
+			value: cookie.value,
+			domain: 'localhost',
+			path: '/',
+			httpOnly: cookie.attributes.httpOnly,
+			secure: cookie.attributes.secure,
+			sameSite: 'Lax'
+		}
+	]);
 }
 
 test.beforeEach(async () => {
@@ -70,7 +76,7 @@ test('Email change triggers verification email', async ({ page }) => {
 	});
 
 	await test.step('Click on Email section in sidebar', async () => {
-		await page.evaluate(() => window.location.hash = '#email');
+		await page.evaluate(() => (window.location.hash = '#email'));
 		await page.waitForTimeout(1000);
 	});
 
@@ -89,7 +95,9 @@ test('Email change triggers verification email', async ({ page }) => {
 
 	await test.step('Verify verification code was created in DB', async () => {
 		const codes = await getCodesByEmail(email);
-		const emailChangeCode = codes.find(c => c.type === 'email_change' && c.pendingEmail === newEmail);
+		const emailChangeCode = codes.find(
+			(c) => c.type === 'email_change' && c.pendingEmail === newEmail
+		);
 		expect(emailChangeCode).toBeDefined();
 		expect(emailChangeCode?.code).toHaveLength(8);
 	});
@@ -112,7 +120,7 @@ test('Verification link updates email', async ({ page }) => {
 	});
 
 	await test.step('Click on Email section and change email', async () => {
-		await page.evaluate(() => window.location.hash = '#email');
+		await page.evaluate(() => (window.location.hash = '#email'));
 		await page.waitForTimeout(1000);
 
 		await expect(page.locator('input#email')).toBeVisible({ timeout: 10000 });
@@ -129,7 +137,9 @@ test('Verification link updates email', async ({ page }) => {
 
 	await test.step('Get verification code from DB', async () => {
 		const codes = await getCodesByEmail(email);
-		const emailChangeCode = codes.find(c => c.type === 'email_change' && c.pendingEmail === newEmail);
+		const emailChangeCode = codes.find(
+			(c) => c.type === 'email_change' && c.pendingEmail === newEmail
+		);
 		expect(emailChangeCode).toBeDefined();
 
 		await test.step('Navigate to verify-email page with code', async () => {
@@ -141,7 +151,7 @@ test('Verification link updates email', async ({ page }) => {
 			const verifyButton = page.getByRole('button', { name: 'Verify' });
 			await verifyButton.click();
 			await page.waitForTimeout(2000);
-			
+
 			const successMessage = page.locator('.bg-green-100');
 			await expect(successMessage).toContainText('Email verified successfully');
 		});

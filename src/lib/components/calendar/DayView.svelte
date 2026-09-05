@@ -9,7 +9,12 @@
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { rsvpVisual } from '$lib/utils/eventChip';
-	import { buildMovePayload, yToMinutes, normalizeRange, formatRangeLabel } from '$lib/utils/eventMove';
+	import {
+		buildMovePayload,
+		yToMinutes,
+		normalizeRange,
+		formatRangeLabel
+	} from '$lib/utils/eventMove';
 	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
 
 	export let currentDate: Writable<DateTime>;
@@ -384,18 +389,26 @@
 						type="button"
 						onclick={() => handleEventClick(event)}
 						aria-pressed={selectionMode ? isSelected(event) : undefined}
-						class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 hover:opacity-90 transition-all active:scale-[0.99] {rv?.containerClass ??
-							''} {selectionMode && isSelected(event) ? 'ring-2 ring-primary-400 bg-primary-50/70' : ''}"
+						class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 transition-all hover:opacity-90 active:scale-[0.99] {rv?.containerClass ??
+							''} {selectionMode && isSelected(event)
+							? 'bg-primary-50/70 ring-2 ring-primary-400'
+							: ''}"
 						style="border-left: 3px solid {event.color || '#94a3b8'}"
 					>
 						<span class="flex items-center gap-1.5">
 							{#if selectionMode}
 								<span
-									class="flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all {isSelected(event) ? 'border-primary-600 bg-primary-600 text-white' : 'border-slate-300 bg-white'}"
+									class="flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all {isSelected(
+										event
+									)
+										? 'border-primary-600 bg-primary-600 text-white'
+										: 'border-slate-300 bg-white'}"
 									aria-hidden="true"
 								>
 									<svg
-										class="h-2.5 w-2.5 transition-transform {isSelected(event) ? 'scale-100' : 'scale-0'}"
+										class="h-2.5 w-2.5 transition-transform {isSelected(event)
+											? 'scale-100'
+											: 'scale-0'}"
 										fill="none"
 										viewBox="0 0 24 24"
 										stroke="currentColor"
@@ -516,7 +529,10 @@
 				{#if rangeSel}
 					<div
 						class="pointer-events-none absolute inset-x-1 z-20 rounded bg-primary-200/60"
-						style="top: {(rangeSel.startMin / 1440) * 100}%; height: {((rangeSel.endMin - rangeSel.startMin) / 1440) * 100}%;"
+						style="top: {(rangeSel.startMin / 1440) * 100}%; height: {((rangeSel.endMin -
+							rangeSel.startMin) /
+							1440) *
+							100}%;"
 					></div>
 					<div
 						class="absolute inset-x-1 z-30 rounded-xl border border-primary-200 bg-white p-2 shadow-xl"
@@ -530,7 +546,7 @@
 								type="button"
 								onclick={() => stepRangeEnd(-15)}
 								aria-label="Shorten by 15 minutes"
-								class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition-all"
+								class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
 							>
 								−15
 							</button>
@@ -538,7 +554,7 @@
 								type="button"
 								onclick={() => stepRangeEnd(15)}
 								aria-label="Extend by 15 minutes"
-								class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition-all"
+								class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
 							>
 								+15
 							</button>
@@ -546,7 +562,7 @@
 								type="button"
 								onclick={createRange}
 								aria-label="Create event for selected time"
-								class="rounded-md bg-primary-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-primary-700 active:scale-95 transition-all"
+								class="rounded-md bg-primary-600 px-2 py-1 text-[11px] font-medium text-white transition-all hover:bg-primary-700 active:scale-95"
 							>
 								Create
 							</button>
@@ -591,7 +607,10 @@
 						ondragstart={(e) => handleDragStart(e, slot.event)}
 						aria-pressed={selectionMode ? isSelected(slot.event) : undefined}
 						class="absolute z-10 overflow-hidden rounded-md border border-slate-200 bg-white px-1.5 py-1 text-left shadow-sm transition-all hover:brightness-95 {rv?.containerClass ??
-							''} {selectionMode ? 'active:scale-[0.98]' : ''} {selectionMode && isSelected(slot.event) ? 'ring-2 ring-primary-400 bg-primary-50/70' : ''}"
+							''} {selectionMode ? 'active:scale-[0.98]' : ''} {selectionMode &&
+						isSelected(slot.event)
+							? 'bg-primary-50/70 ring-2 ring-primary-400'
+							: ''}"
 						style="
 							top: {slot.topPct}%;
 							height: {Math.max(slot.heightPct, (26 / GRID_HEIGHT) * 100)}%;
@@ -606,11 +625,17 @@
 						>
 							{#if selectionMode}
 								<span
-									class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-all {isSelected(slot.event) ? 'border-primary-600 bg-primary-600 text-white' : 'border-slate-300 bg-white'}"
+									class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-all {isSelected(
+										slot.event
+									)
+										? 'border-primary-600 bg-primary-600 text-white'
+										: 'border-slate-300 bg-white'}"
 									aria-hidden="true"
 								>
 									<svg
-										class="h-2.5 w-2.5 transition-transform {isSelected(slot.event) ? 'scale-100' : 'scale-0'}"
+										class="h-2.5 w-2.5 transition-transform {isSelected(slot.event)
+											? 'scale-100'
+											: 'scale-0'}"
 										fill="none"
 										viewBox="0 0 24 24"
 										stroke="currentColor"

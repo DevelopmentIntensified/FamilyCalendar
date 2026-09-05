@@ -94,6 +94,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ success: true, task: created }, { status: 201 });
 	} catch (error) {
 		console.error('Failed to create task:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to create task', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to create task',
+			locals.user?.id ?? null
+		);
 	}
 };

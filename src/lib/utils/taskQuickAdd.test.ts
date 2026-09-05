@@ -222,7 +222,9 @@ describe('findTaskAssignee — roster-scoped assignee matching', () => {
 	});
 
 	it('returns the earliest match when several phrases appear', () => {
-		expect(findTaskAssignee('buy milk @mom and water plants for dad', ROSTER)?.userId).toBe('u-mom');
+		expect(findTaskAssignee('buy milk @mom and water plants for dad', ROSTER)?.userId).toBe(
+			'u-mom'
+		);
 	});
 });
 
@@ -246,7 +248,10 @@ describe('parseTaskQuickAdd — assignee phrases (new surface)', () => {
 	});
 
 	it('"assign to" + full name', () => {
-		const r = parseTaskQuickAdd('assign to Sam Rivera clean gutters', { now: NOW, members: ROSTER });
+		const r = parseTaskQuickAdd('assign to Sam Rivera clean gutters', {
+			now: NOW,
+			members: ROSTER
+		});
 		expect(r.title).toBe('clean gutters');
 		expect(r.assignedTo).toBe('u-sam');
 	});
@@ -258,7 +263,9 @@ describe('parseTaskQuickAdd — assignee phrases (new surface)', () => {
 	});
 
 	it('bare "assign"/"task" triggers', () => {
-		expect(parseTaskQuickAdd('assign dad laundry', { now: NOW, members: ROSTER }).assignedTo).toBe('u-dad');
+		expect(parseTaskQuickAdd('assign dad laundry', { now: NOW, members: ROSTER }).assignedTo).toBe(
+			'u-dad'
+		);
 		expect(
 			parseTaskQuickAdd('task mom fold towels', { now: NOW, members: ROSTER }).assignedTo
 		).toBe('u-mom');
@@ -321,20 +328,31 @@ describe('parseTaskQuickAdd — #tag parsing (new surface)', () => {
 		// tag at the start
 		{ phrase: '#home clean gutters', expectTitle: 'clean gutters', expectTags: ['home'] },
 		// multiple tags, any position
-		{ phrase: 'call mom #phone #family today', expectTitle: 'call mom', expectTags: ['family', 'phone'] },
+		{
+			phrase: 'call mom #phone #family today',
+			expectTitle: 'call mom',
+			expectTags: ['family', 'phone']
+		},
 		// tag glued without space
 		{ phrase: 'file taxes#finance', expectTitle: 'file taxes', expectTags: ['finance'] },
 		// hyphenated / underscored tags
-		{ phrase: 'deploy build #v2_release #ci-cd', expectTitle: 'deploy build', expectTags: ['ci-cd', 'v2_release'] },
+		{
+			phrase: 'deploy build #v2_release #ci-cd',
+			expectTitle: 'deploy build',
+			expectTags: ['ci-cd', 'v2_release']
+		},
 		// case-insensitive, deduped, sorted
 		{ phrase: '#Groceries buy milk #GROCERIES', expectTitle: 'buy milk', expectTags: ['groceries'] }
 	];
 
-	it.each(cases)('$phrase → "$expectTitle" tags=$expectTags', ({ phrase, expectTitle, expectTags }) => {
-		const r = parseTaskQuickAdd(phrase, { now: NOW });
-		expect(r.title).toBe(expectTitle);
-		expect(r.tags).toEqual(expectTags);
-	});
+	it.each(cases)(
+		'$phrase → "$expectTitle" tags=$expectTags',
+		({ phrase, expectTitle, expectTags }) => {
+			const r = parseTaskQuickAdd(phrase, { now: NOW });
+			expect(r.title).toBe(expectTitle);
+			expect(r.tags).toEqual(expectTags);
+		}
+	);
 
 	it('no tags ⇒ empty array', () => {
 		const r = parseTaskQuickAdd('buy milk tomorrow', { now: NOW });

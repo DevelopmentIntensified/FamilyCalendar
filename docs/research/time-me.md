@@ -28,7 +28,9 @@ Note: the literal domain `time.me` is a domain-registrar promo page, not a produ
 ## Mini-PRDs
 
 ### A — Family availability traffic lights (effort M)
+
 Each member gets a simple rhythm profile (asleep ~22:00–07:00, school/work, free). Week view renders optional per-day/per-hour colored bands per person; event composer shows live traffic-light row for invitees so conflicts surface before RSVP chaos. Holidays render whole days red.
 
 ### B — Shareable URL views (effort S)
+
 Serialize UI state (`?view=week&who=emma&from=2026-08-24`) into the URL; "Copy link to this view" gives stateless persistence — bookmark it, text it to your partner, pin it. Zero server storage, works pre/post Claiming, doubles as organic sharing and a natural Claiming moment.

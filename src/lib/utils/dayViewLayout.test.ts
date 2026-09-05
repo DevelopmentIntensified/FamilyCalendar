@@ -23,7 +23,7 @@ describe('layoutTimed', () => {
 		const [slot] = layoutTimed([at(9)]);
 		expect(slot.lane).toBe(0);
 		expect(slot.lanes).toBe(1);
-		expect(slot.topPct).toBeCloseTo((9 * 60 / 1440) * 100, 5);
+		expect(slot.topPct).toBeCloseTo(((9 * 60) / 1440) * 100, 5);
 		expect(slot.heightPct).toBeCloseTo((60 / 1440) * 100, 5);
 		expect(DEFAULT_DURATION_MIN).toBe(60);
 	});

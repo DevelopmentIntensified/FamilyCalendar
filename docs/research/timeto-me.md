@@ -9,7 +9,7 @@ Source: https://github.com/Medvedev91/timeto.me — Kotlin Multiplatform persona
 - Checklists with nested items and `reset_day` auto-uncheck at day boundary (morning/evening routines).
 - Tasks + folders, repeating tasks, calendar events + event templates, notes, shortcuts, pomodoro, history screen with edit, Summary/Chart stats, Zen Mode.
 - Data model: `Repeating` = `type_id` + `value` string + `last_day` cursor. Four period types: EVERY_N_DAYS("n"), DAYS_OF_WEEK("0,3,6"), DAYS_OF_MONTH("1,15", 0=last day), DAYS_OF_YEAR("1.19,4.15"). Nullable daytime, `is_important`, `in_calendar` flags.
-- **Materialization over virtual expansion**: on app start a transactional sync inserts *real* Task rows for any due date ≤ today and bumps the cursor. Future occurrences computed on demand for calendar display.
+- **Materialization over virtual expansion**: on app start a transactional sync inserts _real_ Task rows for any due date ≤ today and bumps the cursor. Future occurrences computed on demand for calendar display.
 - Occurrence→rule linkage via inline text markers (`#r{ruleId}_{day}_{time}`); single parser handles quick-add + storage + rendering.
 - Seeded demo data on first launch (11 days of realistic history).
 
@@ -33,7 +33,9 @@ Source: https://github.com/Medvedev91/timeto.me — Kotlin Multiplatform persona
 ## Mini-PRDs
 
 ### A — Cursor-based materialization for recurring Tasks (effort M)
+
 Virtual expansion is fine for display-only Events, but completions need stable occurrence identity. Give each recurring Task a period + `last_materialized_on` cursor; a sync pass on app open (piggybacking the weekly cleanup job) inserts concrete Task rows ≤ today in one transaction. Keep virtual expansion for display-only Events.
 
 ### B — Single-field quick-add with inline markup (effort S for 3 tokens)
+
 One text input parsing tokens while typing with live preview chips: `@mom @leo` assignee, `!!` important, `30m` duration. Store raw text plus extracted fields — never re-parse on read. Ship 3–5 tokens max.

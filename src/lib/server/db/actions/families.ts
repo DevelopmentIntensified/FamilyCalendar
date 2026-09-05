@@ -25,17 +25,14 @@ export async function getFamily(id: string) {
 }
 
 export async function getUserFamilies(userId: string) {
-	const [member] = await db
-		.select()
-		.from(familyMembers)
-		.where(eq(familyMembers.userId, userId));
-	
+	const [member] = await db.select().from(familyMembers).where(eq(familyMembers.userId, userId));
+
 	if (!member) return null;
-	
+
 	const family = member.familyId
 		? (await db.select().from(families).where(eq(families.id, member.familyId)))[0]
 		: null;
-	
+
 	return { families: family, familyMembers: member };
 }
 
@@ -84,23 +81,24 @@ export async function generateInviteCode(
 	return inviteCode;
 }
 
-export async function verifyInviteCode(code: string): Promise<{ family: Family; inviteCode: FamilyInviteCode } | null> {
+export async function verifyInviteCode(
+	code: string
+): Promise<{ family: Family; inviteCode: FamilyInviteCode } | null> {
 	const [inviteCode] = await db
 		.select()
 		.from(familyInviteCodes)
-		.where(
-			and(
-				eq(familyInviteCodes.code, code),
-				gt(familyInviteCodes.expiresAt, new Date())
-			)
-		);
+		.where(and(eq(familyInviteCodes.code, code), gt(familyInviteCodes.expiresAt, new Date())));
 
 	if (!inviteCode) return null;
 
 	const [family] = await db.select().from(families).where(eq(families.id, inviteCode.familyId));
 	if (!family) return null;
 
-	if (inviteCode.maxUses !== null && inviteCode.useCount !== null && inviteCode.useCount >= inviteCode.maxUses) {
+	if (
+		inviteCode.maxUses !== null &&
+		inviteCode.useCount !== null &&
+		inviteCode.useCount >= inviteCode.maxUses
+	) {
 		return null;
 	}
 
@@ -115,10 +113,7 @@ export async function acceptInvite(userId: string, code: string): Promise<boolea
 		.select()
 		.from(familyMembers)
 		.where(
-			and(
-				eq(familyMembers.userId, userId),
-				eq(familyMembers.familyId, verification.family.id)
-			)
+			and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, verification.family.id))
 		);
 
 	if (existing) return false;
@@ -130,7 +125,7 @@ export async function acceptInvite(userId: string, code: string): Promise<boolea
 
 	await db
 		.update(familyInviteCodes)
-	.set({ useCount: (verification.inviteCode.useCount ?? 0) + 1 })
+		.set({ useCount: (verification.inviteCode.useCount ?? 0) + 1 })
 		.where(eq(familyInviteCodes.code, code));
 
 	return true;
@@ -146,9 +141,7 @@ export async function getUserFamilyId(userId: string): Promise<string | null> {
 }
 
 /** Full roster of a family with user info. Canonical shape. */
-export async function getFamilyRoster(
-	familyId: string
-): Promise<
+export async function getFamilyRoster(familyId: string): Promise<
 	{
 		userId: string;
 		firstName: string;
@@ -173,14 +166,13 @@ export async function getFamilyRoster(
 }
 
 export async function getFamilyInviteCodes(familyId: string) {
-	return await db
-		.select()
-		.from(familyInviteCodes)
-		.where(eq(familyInviteCodes.familyId, familyId));
+	return await db.select().from(familyInviteCodes).where(eq(familyInviteCodes.familyId, familyId));
 }
 
 export async function removeFamilyMember(familyId: string, userId: string) {
-	await db.execute(sql`DELETE FROM "familyMembers" WHERE "family_id" = ${familyId} AND "user_id" = ${userId}`);
+	await db.execute(
+		sql`DELETE FROM "familyMembers" WHERE "family_id" = ${familyId} AND "user_id" = ${userId}`
+	);
 }
 
 export async function deleteInviteCode(code: string) {
@@ -195,7 +187,7 @@ export async function searchUsers(query: string, familyId: string) {
 		.from(familyMembers)
 		.where(eq(familyMembers.familyId, familyId));
 
-	const excludeUserIds = existingMembers.map(m => m.userId);
+	const excludeUserIds = existingMembers.map((m) => m.userId);
 
 	if (excludeUserIds.length === 0) {
 		return await db
@@ -220,7 +212,9 @@ export async function searchUsers(query: string, familyId: string) {
 			.limit(10);
 	}
 
-	const placeholders = excludeUserIds.map(() => sql`id != ${excludeUserIds[excludeUserIds.indexOf(excludeUserIds[0])]}`);
+	const placeholders = excludeUserIds.map(
+		() => sql`id != ${excludeUserIds[excludeUserIds.indexOf(excludeUserIds[0])]}`
+	);
 
 	return await db
 		.select({
@@ -233,7 +227,10 @@ export async function searchUsers(query: string, familyId: string) {
 		.where(
 			and(
 				eq(users.emailVerified, true),
-				sql`${users.id} NOT IN (${sql.join(excludeUserIds.map(id => sql`${id}`), sql`, `)})`,
+				sql`${users.id} NOT IN (${sql.join(
+					excludeUserIds.map((id) => sql`${id}`),
+					sql`, `
+				)})`,
 				or(
 					ilike(users.email, lowerQuery),
 					ilike(users.firstName, lowerQuery),

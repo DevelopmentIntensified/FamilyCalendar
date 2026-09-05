@@ -7,7 +7,9 @@ import {
 	mergeGuestIntoUser
 } from '$lib/server/services/guestMergeService';
 
-async function readStash(cookieStore: { get: (n: string) => string | undefined }): Promise<string | null> {
+async function readStash(cookieStore: {
+	get: (n: string) => string | undefined;
+}): Promise<string | null> {
 	const guestId = cookieStore.get(GUEST_MERGE_COOKIE);
 	if (!guestId) return null;
 	return (await isClaimableGuest(guestId)) ? guestId : null;

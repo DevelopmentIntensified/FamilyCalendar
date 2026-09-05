@@ -26,7 +26,12 @@ import {
 } from '$lib/server/db/actions/dashboardModules';
 import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
 import { guard } from '$lib/server/utils/guard';
-import { expandEventsForUser, parseEvents, attachRsvpStatus, attachAttendanceSummaries } from '$lib/server/services/eventDisplayService';
+import {
+	expandEventsForUser,
+	parseEvents,
+	attachRsvpStatus,
+	attachAttendanceSummaries
+} from '$lib/server/services/eventDisplayService';
 import { getTodayVerse } from '$lib/server/services/verseService';
 import { computeWeeklyStreak } from '$lib/server/services/streakService';
 import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
@@ -102,7 +107,10 @@ export const load: PageServerLoad = async (event) => {
 	);
 	warn(switchesG.error);
 	const familySwitches = switchesG.data;
-	const modules = composeModuleVisibility(familySwitches, userSettings?.hiddenDashboardModules ?? []);
+	const modules = composeModuleVisibility(
+		familySwitches,
+		userSettings?.hiddenDashboardModules ?? []
+	);
 	const familyModulesVisible =
 		modules.board || modules.memberStrip || modules.kids || modules.meals;
 
@@ -266,14 +274,16 @@ export const load: PageServerLoad = async (event) => {
 
 	// Top-3 ranking: mine-first → priority → overdue → due-today → next,
 	// bucketed relative to the viewed day (rankTop3 returns bare rows).
-	const top3 = rankTop3(userTasks as RankableTask[], userId, { todayStartIso: dayStartIso }).map((t) => {
-		const src = userTasks.find((u) => u.id === t.id);
-		return {
-			...t,
-			assigneeFirstName: src?.assigneeFirstName,
-			assigneeLastName: src?.assigneeLastName
-		};
-	});
+	const top3 = rankTop3(userTasks as RankableTask[], userId, { todayStartIso: dayStartIso }).map(
+		(t) => {
+			const src = userTasks.find((u) => u.id === t.id);
+			return {
+				...t,
+				assigneeFirstName: src?.assigneeFirstName,
+				assigneeLastName: src?.assigneeLastName
+			};
+		}
+	);
 
 	// Day-at-a-glance progress: done within the viewed day, open by end of it.
 	const dayStartJs = dayStart.toJSDate();

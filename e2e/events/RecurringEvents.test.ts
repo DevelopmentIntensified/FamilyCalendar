@@ -113,10 +113,7 @@ test('Weekly repeating events expand and duplicates keep repeating', async ({ pa
 		})
 		.toBeGreaterThan(1);
 
-	const copyRows = await db
-		.select()
-		.from(events)
-		.where(eq(events.ownerId, uid));
+	const copyRows = await db.select().from(events).where(eq(events.ownerId, uid));
 	expect(copyRows).toHaveLength(2);
 	expect(copyRows[1].recurrenceFrequency).toBe('weekly');
 });

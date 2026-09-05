@@ -6,7 +6,7 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userFamilies = await getUserFamilies(locals.user.id);
-	
+
 	if (!userFamilies?.families) {
 		return { invitations: [] };
 	}
@@ -18,8 +18,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.from(familyInviteCodes)
 		.where(eq(familyInviteCodes.familyId, familyId));
 
-	return { 
+	return {
 		invitations: invites,
 		family: userFamilies.families
 	};
-}
+};

@@ -17,9 +17,7 @@ export const DASHBOARD_MODULES = [
 export type DashboardModuleId = (typeof DASHBOARD_MODULES)[number]['id'];
 
 /** Modules that family admins can master-switch. */
-export const FAMILY_DASHBOARD_MODULES = DASHBOARD_MODULES.filter(
-	(m) => m.scope === 'family'
-);
+export const FAMILY_DASHBOARD_MODULES = DASHBOARD_MODULES.filter((m) => m.scope === 'family');
 
 export function isDashboardModule(id: string): id is DashboardModuleId {
 	return DASHBOARD_MODULES.some((m) => m.id === id);

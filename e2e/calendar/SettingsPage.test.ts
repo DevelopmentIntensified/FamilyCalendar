@@ -15,15 +15,17 @@ async function loginWithSession(page: any, userEmail: string) {
 	if (!user[0]) throw new Error('User not found');
 	const session = await lucia.createSession(user[0].id, {});
 	const cookie = lucia.createSessionCookie(session.id);
-	await page.context().addCookies([{
-		name: cookie.name,
-		value: cookie.value,
-		domain: 'localhost',
-		path: '/',
-		httpOnly: cookie.attributes.httpOnly,
-		secure: cookie.attributes.secure,
-		sameSite: 'Lax'
-	}]);
+	await page.context().addCookies([
+		{
+			name: cookie.name,
+			value: cookie.value,
+			domain: 'localhost',
+			path: '/',
+			httpOnly: cookie.attributes.httpOnly,
+			secure: cookie.attributes.secure,
+			sameSite: 'Lax'
+		}
+	]);
 }
 
 test.beforeEach(async () => {
@@ -111,7 +113,7 @@ test.describe('Settings Page - Subscription', () => {
 
 	test('shows current plan', async ({ page }) => {
 		await expect(page.locator('text=Current Plan')).toBeVisible();
-		await expect(page.locator('text=You\'re on the Free plan.')).toBeVisible();
+		await expect(page.locator("text=You're on the Free plan.")).toBeVisible();
 	});
 
 	test('shows family master upgrade section with pricing link', async ({ page }) => {

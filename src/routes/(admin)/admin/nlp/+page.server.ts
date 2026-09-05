@@ -1,6 +1,9 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { getUnmatchedPhrases, resolveUnmatchedPhrase } from '$lib/server/db/actions/unmatchedPhrases';
+import {
+	getUnmatchedPhrases,
+	resolveUnmatchedPhrase
+} from '$lib/server/db/actions/unmatchedPhrases';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user?.roles?.includes('admin')) throw redirect(302, '/login');

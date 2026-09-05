@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { deleteAccount, getAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUserByEmail, getUser } from '../../src/lib/server/db/actions/users';
-import { createCode, deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
+import {
+	createCode,
+	deleteCodesByEmail,
+	getCodesByEmail
+} from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import { calendars, users } from '../../src/lib/server/db/schema';
 import { SignUpPage } from '../pageObjects/signup';
@@ -23,7 +27,7 @@ test.afterEach(async () => {
 
 test('Email Sign Up With Link', async ({ page }) => {
 	const signUpPage = new SignUpPage(page);
-	
+
 	await test.step('Navigate to the page', async () => {
 		await page.goto('/signup');
 	});
@@ -61,7 +65,7 @@ test('Email Sign Up With Link', async ({ page }) => {
 		const account = await getAccount(email);
 		expect(account).not.toBeNull();
 		expect(account.provider).toBe('email');
-		
+
 		const user = await getUser(account.userId);
 		expect(user.firstName).toBe(firstName);
 		expect(user.lastName).toBe(lastName);

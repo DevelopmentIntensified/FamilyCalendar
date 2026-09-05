@@ -1,6 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { reportUnmatchedPhrase, type UnmatchedSource } from '$lib/server/db/actions/unmatchedPhrases';
+import {
+	reportUnmatchedPhrase,
+	type UnmatchedSource
+} from '$lib/server/db/actions/unmatchedPhrases';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
 const SOURCES: UnmatchedSource[] = ['event_parse', 'bulk_edit'];
@@ -14,13 +17,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Too many reports. Try again shortly.' }, { status: 429 });
 	}
 
-	const body = await request.json().catch(() => ({} as Record<string, unknown>));
+	const body = await request.json().catch(() => ({}) as Record<string, unknown>);
 	const phrase = typeof body.phrase === 'string' ? body.phrase.trim() : '';
 	const source = body.source as UnmatchedSource;
 	const matched = body.matched ?? null;
 
 	if (!phrase || phrase.length > 280 || !SOURCES.includes(source)) {
-		return json({ error: 'phrase (string) and source (event_parse | bulk_edit) are required' }, { status: 400 });
+		return json(
+			{ error: 'phrase (string) and source (event_parse | bulk_edit) are required' },
+			{ status: 400 }
+		);
 	}
 
 	await reportUnmatchedPhrase(source, phrase, matched);

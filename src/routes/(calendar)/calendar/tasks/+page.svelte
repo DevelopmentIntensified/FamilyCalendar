@@ -15,7 +15,10 @@
 	import { queueMutation } from '$lib/utils/offline';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
 	import { sortByCompletedDesc, sortTasks, type TaskSortKey } from '$lib/utils/taskSort';
-	import { showRecurringCompleteFeedback, showRecurringSkipFeedback } from '$lib/client/taskFeedback';
+	import {
+		showRecurringCompleteFeedback,
+		showRecurringSkipFeedback
+	} from '$lib/client/taskFeedback';
 
 	export let data: PageData;
 
@@ -151,7 +154,9 @@
 	function toInputDate(iso: string | null): string {
 		if (!iso) return '';
 		const d = new Date(iso);
-		return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+		return isNaN(d.getTime())
+			? ''
+			: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 	}
 
 	function inputToIso(value: string): string | null {
@@ -169,7 +174,11 @@
 			let assignedTo: string | null = editAssignedTo || null;
 			let assignmentStatus: string | null = null;
 			if (assignedTo !== prevAssignee) {
-				assignmentStatus = assignedTo ? (assignedTo === data.user?.id ? 'accepted' : 'pending') : null;
+				assignmentStatus = assignedTo
+					? assignedTo === data.user?.id
+						? 'accepted'
+						: 'pending'
+					: null;
 			}
 			const res = await fetch(`/api/tasks/${editing.id}`, {
 				method: 'PUT',
@@ -248,7 +257,9 @@
 		if (!q) return true;
 		return (tags ?? []).some((t) => t.toLowerCase().startsWith(q));
 	}
-	$: filteredOpenTasks = sortedOpenTasks.filter((t) => matchesTagFilter(t.tags) && matchesSearch(t));
+	$: filteredOpenTasks = sortedOpenTasks.filter(
+		(t) => matchesTagFilter(t.tags) && matchesSearch(t)
+	);
 	$: filteredCompletedTasks = sortedCompletedTasks.filter(
 		(t) => matchesTagFilter(t.tags) && matchesSearch(t)
 	);
@@ -265,7 +276,6 @@
 	$: completedThisWeek = completedTasks.filter(
 		(t) => t.completedAt && Date.now() - new Date(t.completedAt).getTime() < 7 * 24 * 60 * 60 * 1000
 	).length;
-
 
 	function formatDue(due: string | null): string {
 		if (!due) return '';
@@ -301,7 +311,10 @@
 		try {
 			const parsed = parseTaskQuickAdd(newTitle, { members: familyRoster });
 			// A cadence ("every 2 weeks") with no picked date still needs a cursor.
-			const due = parsed.dueDate ?? (newDueDate || null) ?? (parsed.recurrenceFrequency ? endOfDayIso() : null);
+			const due =
+				parsed.dueDate ??
+				(newDueDate || null) ??
+				(parsed.recurrenceFrequency ? endOfDayIso() : null);
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -334,8 +347,12 @@
 	// generated phrase for templates without one.
 	function cadenceNote(t: SmartEventTemplate): string {
 		if (t.description) return t.description;
-		const unit = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' }[t.recurrenceFrequency];
-		const units = { daily: 'days', weekly: 'weeks', monthly: 'months', yearly: 'years' }[t.recurrenceFrequency];
+		const unit = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' }[
+			t.recurrenceFrequency
+		];
+		const units = { daily: 'days', weekly: 'weeks', monthly: 'months', yearly: 'years' }[
+			t.recurrenceFrequency
+		];
 		return t.recurrenceInterval > 1 ? `Every ${t.recurrenceInterval} ${units}` : `Every ${unit}`;
 	}
 
@@ -363,7 +380,9 @@
 	async function toggleTask(id: string) {
 		const task = (data.tasks as TaskItem[]).find((t) => t.id === id);
 		if (!task || busyId) return;
-		const completing = !(task.id in completedOverride ? completedOverride[task.id] : !!task.completedAt);
+		const completing = !(task.id in completedOverride
+			? completedOverride[task.id]
+			: !!task.completedAt);
 		const previousDueDate = task.dueDate;
 		busyId = id;
 		actionError = '';
@@ -457,7 +476,7 @@
 	}
 
 	async function clearCompleted() {
-		if (!confirm('Delete all completed tasks? This can\'t be undone.')) return;
+		if (!confirm("Delete all completed tasks? This can't be undone.")) return;
 		actionError = '';
 		try {
 			const res = await fetch('/api/tasks/completed', { method: 'DELETE' });
@@ -502,7 +521,11 @@
 				placeholder="Add a task... e.g. #groceries"
 			/>
 			<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
-			<p class="mt-1 text-xs text-slate-400">Tip: type <span class="font-mono text-slate-500">"every 2 weeks"</span> for a repeat, or <span class="font-mono text-slate-500">#tag</span> to tag (e.g. <span class="font-mono text-slate-500">#groceries</span>).</p>
+			<p class="mt-1 text-xs text-slate-400">
+				Tip: type <span class="font-mono text-slate-500">"every 2 weeks"</span> for a repeat, or
+				<span class="font-mono text-slate-500">#tag</span>
+				to tag (e.g. <span class="font-mono text-slate-500">#groceries</span>).
+			</p>
 		</div>
 		<input
 			type="date"
@@ -521,17 +544,29 @@
 
 	<!-- Smart task templates -->
 	<details class="group mb-6">
-		<summary class="flex w-fit cursor-pointer select-none items-center gap-1 rounded-full px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
+		<summary
+			class="flex w-fit cursor-pointer select-none items-center gap-1 rounded-full px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+		>
 			<span>✨ Smart tasks</span>
-			<svg class="h-3 w-3 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+			<svg
+				class="h-3 w-3 transition-transform group-open:rotate-180"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+				stroke-width="2"
+			>
 				<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
 			</svg>
 		</summary>
 		<div class="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
 			{#each Object.keys(CATEGORY_META) as cat}
-				{@const templates = SMART_EVENT_TEMPLATES.filter((t) => t.category === (cat as SmartEventCategory))}
+				{@const templates = SMART_EVENT_TEMPLATES.filter(
+					(t) => t.category === (cat as SmartEventCategory)
+				)}
 				<details class="mb-1 last:mb-0" open={Object.keys(CATEGORY_META).indexOf(cat) === 0}>
-					<summary class="cursor-pointer select-none rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 hover:bg-white">
+					<summary
+						class="cursor-pointer select-none rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 hover:bg-white"
+					>
 						{CATEGORY_META[cat as SmartEventCategory].icon}
 						{CATEGORY_META[cat as SmartEventCategory].label}
 						<span class="ml-1 text-xs font-normal text-slate-400">({templates.length})</span>
@@ -543,7 +578,9 @@
 								onclick={() => addSmartTask(template)}
 								disabled={busyTemplateId === template.id}
 								title={cadenceNote(template)}
-								class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 disabled:opacity-50 {CATEGORY_META[template.category].color}"
+								class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 disabled:opacity-50 {CATEGORY_META[
+									template.category
+								].color}"
 							>
 								{template.name}
 							</button>
@@ -581,8 +618,18 @@
 					aria-label="Search tasks"
 					class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 				/>
-				<svg class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+				<svg
+					class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
+					/>
 				</svg>
 				{#if searchQuery}
 					<button
@@ -592,7 +639,13 @@
 						aria-label="Clear search"
 						title="Clear search"
 					>
-						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<svg
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
 							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 						</svg>
 					</button>
@@ -620,8 +673,18 @@
 				aria-label="Filter tasks by tag"
 				class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 			/>
-			<svg class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+			<svg
+				class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
+				/>
 			</svg>
 			{#if tagFilter}
 				<button
@@ -631,7 +694,13 @@
 					aria-label="Clear tag filter"
 					title="Clear filter"
 				>
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<svg
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
 						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 					</svg>
 				</button>
@@ -641,8 +710,12 @@
 	{#if filterActive}
 		<p class="mb-3 text-xs font-medium text-sky-600">
 			{#if tagFilterActive}
-				Filtering by <span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">#{tagFilter.trim().toLowerCase()}</span>
-				{#if queryActive}· {/if}
+				Filtering by <span
+					class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+					>#{tagFilter.trim().toLowerCase()}</span
+				>
+				{#if queryActive}·
+				{/if}
 			{/if}
 			{#if queryActive}
 				Searching “{searchQuery.trim()}”
@@ -652,24 +725,43 @@
 
 	{#if filteredOpenTasks.length === 0 && filteredCompletedTasks.length === 0}
 		<div class="flex flex-col items-center justify-center py-16 text-center">
-			<svg class="mb-4 h-14 w-14 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+			<svg
+				class="mb-4 h-14 w-14 text-slate-300"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="1.5"
+					d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+				/>
 			</svg>
-			<p class="text-lg font-medium text-slate-700">{filterActive ? 'No matching tasks' : 'No tasks yet'}</p>
-			<p class="text-sm text-slate-500">{filterActive ? 'Try a different search or clear the filters' : 'Add your first task above'}</p>
+			<p class="text-lg font-medium text-slate-700">
+				{filterActive ? 'No matching tasks' : 'No tasks yet'}
+			</p>
+			<p class="text-sm text-slate-500">
+				{filterActive ? 'Try a different search or clear the filters' : 'Add your first task above'}
+			</p>
 		</div>
 	{/if}
 
 	<!-- Open tasks -->
 	{#if filteredOpenTasks.length > 0}
-		<h2 class="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+		<h2
+			class="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
+		>
 			<span>Open ({filteredOpenTasks.length})</span>
 		</h2>
 	{/if}
 	<div class="space-y-1.5">
 		{#each filteredOpenTasks as task (task.id)}
 			<div
-				class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 active:bg-slate-100 {celebratingId === task.id ? 'celebrate' : ''}"
+				class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 active:bg-slate-100 {celebratingId ===
+				task.id
+					? 'celebrate'
+					: ''}"
 			>
 				<button
 					type="button"
@@ -680,54 +772,81 @@
 				>
 					<span class="absolute -inset-2" aria-hidden="true"></span>
 				</button>
-							<div class="min-w-0 flex-1">
-								<button
-									type="button"
-									onclick={() => openEdit(task)}
-									class="block w-full truncate text-left text-sm font-medium text-slate-900 hover:text-primary-600"
-									title="Edit task"
+				<div class="min-w-0 flex-1">
+					<button
+						type="button"
+						onclick={() => openEdit(task)}
+						class="block w-full truncate text-left text-sm font-medium text-slate-900 hover:text-primary-600"
+						title="Edit task"
+					>
+						{task.title}
+					</button>
+					{#if task.recurrenceFrequency}
+						<p class="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-purple-500">
+							<svg
+								class="h-3 w-3 shrink-0"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 9a8 8 0 01-14 3"
+								/>
+							</svg>
+							{task.recurrenceInterval && task.recurrenceInterval > 1
+								? `every ${task.recurrenceInterval} ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}s`
+								: `every ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}`}
+							{#if task.completionCount}
+								<span
+									class="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600"
 								>
-									{task.title}
-								</button>
-								{#if task.recurrenceFrequency}
-									<p class="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-purple-500">
-										<svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-											<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 9a8 8 0 01-14 3" />
-										</svg>
-										{task.recurrenceInterval && task.recurrenceInterval > 1
-											? `every ${task.recurrenceInterval} ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}s`
-											: `every ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}`}
-										{#if task.completionCount}
-											<span class="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600">
-												🔥 {task.completionCount}×
-											</span>
-										{/if}
-									</p>
-								{:else if task.eventTitle}
-									<p class="mt-0.5 flex items-center gap-1 truncate text-xs font-medium text-primary-500">
-										<svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-										</svg>
-										{task.eventTitle}
-									</p>
-								{:else if task.notes}
-									<p class="truncate text-xs text-slate-500">{task.notes}</p>
-								{/if}
-								{#if (task.tags ?? []).length > 0}
-									<div class="mt-1 flex flex-wrap gap-1">
-										{#each task.tags ?? [] as tag}
-											<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">#{tag}</span>
-										{/each}
-									</div>
-								{/if}
-							</div>
+									🔥 {task.completionCount}×
+								</span>
+							{/if}
+						</p>
+					{:else if task.eventTitle}
+						<p class="mt-0.5 flex items-center gap-1 truncate text-xs font-medium text-primary-500">
+							<svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+								/>
+							</svg>
+							{task.eventTitle}
+						</p>
+					{:else if task.notes}
+						<p class="truncate text-xs text-slate-500">{task.notes}</p>
+					{/if}
+					{#if (task.tags ?? []).length > 0}
+						<div class="mt-1 flex flex-wrap gap-1">
+							{#each task.tags ?? [] as tag}
+								<span
+									class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+									>#{tag}</span
+								>
+							{/each}
+						</div>
+					{/if}
+				</div>
 				{#if task.dueDate}
-					<span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task) ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}">
+					<span
+						class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task)
+							? 'bg-red-100 text-red-700'
+							: 'bg-slate-100 text-slate-600'}"
+					>
 						{formatDue(task.dueDate)}
 					</span>
 				{/if}
 				{#if task.priority && task.priority !== 'normal'}
-					<span class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}" title="Priority: {task.priority}"></span>
+					<span
+						class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}"
+						title="Priority: {task.priority}"
+					></span>
 				{/if}
 				{#if task.assignedTo && task.assignmentStatus !== 'none' && !(task.assignedTo === task.userId && task.assignmentStatus === 'accepted')}
 					{@const mine = task.assignedTo === data.user?.id}
@@ -758,12 +877,23 @@
 							class="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-0.5 pr-2 text-xs font-medium text-slate-600"
 							title="Assigned to {memberName(task.assignedTo)}"
 						>
-							<span class="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold {avatarColor(task.assignedTo)}">
-								{(task.assigneeFirstName?.[0] ?? memberName(task.assignedTo)[0] ?? '?').toUpperCase()}
+							<span
+								class="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold {avatarColor(
+									task.assignedTo
+								)}"
+							>
+								{(
+									task.assigneeFirstName?.[0] ??
+									memberName(task.assignedTo)[0] ??
+									'?'
+								).toUpperCase()}
 							</span>
 							{memberName(task.assignedTo).split(' ')[0]}
 							{#if task.assignmentStatus === 'pending'}
-								<span class="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700">pending</span>
+								<span
+									class="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700"
+									>pending</span
+								>
 							{/if}
 						</span>
 					{/if}
@@ -773,11 +903,17 @@
 						type="button"
 						onclick={() => advanceTask(task.id)}
 						disabled={busyId === task.id}
-						class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-purple-100 hover:text-purple-500 active:bg-purple-100 pointer-fine:group-hover:opacity-100"
+						class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500 active:bg-purple-100"
 						title="Skip this occurrence (rolls to next)"
 						aria-label="Skip to next occurrence"
 					>
-						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<svg
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
 							<path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
 						</svg>
 					</button>
@@ -786,11 +922,16 @@
 					type="button"
 					onclick={() => deleteTask(task.id)}
 					disabled={busyId === task.id}
-					class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50 pointer-fine:group-hover:opacity-100"
+					class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
 					aria-label="Delete task"
 				>
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+						/>
 					</svg>
 				</button>
 			</div>
@@ -799,10 +940,14 @@
 
 	<!-- Completed -->
 	{#if filteredCompletedTasks.length > 0}
-		<h2 class="mb-2 mt-8 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+		<h2
+			class="mb-2 mt-8 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
+		>
 			<span>Completed ({filteredCompletedTasks.length})</span>
 			{#if completedThisWeek > 0}
-				<span class="ml-1 font-normal normal-case text-emerald-600">· {completedThisWeek} this week</span>
+				<span class="ml-1 font-normal normal-case text-emerald-600"
+					>· {completedThisWeek} this week</span
+				>
 			{/if}
 			<button
 				type="button"
@@ -814,7 +959,12 @@
 		</h2>
 		<div class="space-y-1.5">
 			{#each filteredCompletedTasks as task (task.id)}
-				<div class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-slate-50 p-3 active:bg-slate-100 {celebratingId === task.id ? 'celebrate' : ''}">
+				<div
+					class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-slate-50 p-3 active:bg-slate-100 {celebratingId ===
+					task.id
+						? 'celebrate'
+						: ''}"
+				>
 					<button
 						type="button"
 						onclick={() => toggleTask(task.id)}
@@ -823,30 +973,46 @@
 						aria-label="Mark incomplete"
 					>
 						<span class="absolute -inset-2" aria-hidden="true"></span>
-						<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+						<svg
+							class="h-3 w-3"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="3"
+						>
 							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 						</svg>
 					</button>
-								<p class="min-w-0 flex-1 truncate text-sm text-slate-400 line-through">
-										{task.title}
-										{#if task.eventTitle}<span class="ml-1 text-xs font-normal text-slate-400 no-underline">({task.eventTitle})</span>{/if}
-									</p>
-								{#if (task.tags ?? []).length > 0}
-									<div class="flex flex-wrap gap-1">
-										{#each task.tags ?? [] as tag}
-											<span class="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">#{tag}</span>
-										{/each}
-									</div>
-								{/if}
+					<p class="min-w-0 flex-1 truncate text-sm text-slate-400 line-through">
+						{task.title}
+						{#if task.eventTitle}<span class="ml-1 text-xs font-normal text-slate-400 no-underline"
+								>({task.eventTitle})</span
+							>{/if}
+					</p>
+					{#if (task.tags ?? []).length > 0}
+						<div class="flex flex-wrap gap-1">
+							{#each task.tags ?? [] as tag}
+								<span
+									class="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
+									>#{tag}</span
+								>
+							{/each}
+						</div>
+					{/if}
 					<button
 						type="button"
 						onclick={() => deleteTask(task.id)}
 						disabled={busyId === task.id}
-						class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50 pointer-fine:group-hover:opacity-100"
+						class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
 						aria-label="Delete task"
 					>
 						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+							/>
 						</svg>
 					</button>
 				</div>
@@ -880,7 +1046,13 @@
 					class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
 					aria-label="Close"
 				>
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<svg
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
 						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 					</svg>
 				</button>
@@ -894,7 +1066,9 @@
 				}}
 			>
 				<div>
-					<label for="edit-title" class="mb-1 block text-sm font-medium text-slate-700">Title *</label>
+					<label for="edit-title" class="mb-1 block text-sm font-medium text-slate-700"
+						>Title *</label
+					>
 					<input
 						id="edit-title"
 						type="text"
@@ -905,7 +1079,8 @@
 				</div>
 
 				<div>
-					<label for="edit-notes" class="mb-1 block text-sm font-medium text-slate-700">Notes</label>
+					<label for="edit-notes" class="mb-1 block text-sm font-medium text-slate-700">Notes</label
+					>
 					<textarea
 						id="edit-notes"
 						bind:value={editNotes}
@@ -928,7 +1103,9 @@
 
 				<div class="grid grid-cols-3 gap-3">
 					<div>
-						<label for="edit-due" class="mb-1 block text-sm font-medium text-slate-700">Due date</label>
+						<label for="edit-due" class="mb-1 block text-sm font-medium text-slate-700"
+							>Due date</label
+						>
 						<input
 							id="edit-due"
 							type="date"
@@ -937,7 +1114,9 @@
 						/>
 					</div>
 					<div>
-						<label for="edit-priority" class="mb-1 block text-sm font-medium text-slate-700">Priority</label>
+						<label for="edit-priority" class="mb-1 block text-sm font-medium text-slate-700"
+							>Priority</label
+						>
 						<select
 							id="edit-priority"
 							bind:value={editPriority}
@@ -949,7 +1128,9 @@
 						</select>
 					</div>
 					<div>
-						<label for="edit-freq" class="mb-1 block text-sm font-medium text-slate-700">Repeats</label>
+						<label for="edit-freq" class="mb-1 block text-sm font-medium text-slate-700"
+							>Repeats</label
+						>
 						<select
 							id="edit-freq"
 							bind:value={editFreq}
@@ -973,13 +1154,17 @@
 							aria-label="Repeat interval"
 							class="w-16 rounded-lg border border-purple-200 px-2 py-1 text-sm focus:border-purple-400 focus:outline-none"
 						/>
-						<span class="text-sm text-purple-800">{FREQ_NOUN[editFreq]}{editInterval > 1 ? 's' : ''}</span>
+						<span class="text-sm text-purple-800"
+							>{FREQ_NOUN[editFreq]}{editInterval > 1 ? 's' : ''}</span
+						>
 					</div>
 				{/if}
 
 				{#if familyRoster.length > 0}
 					<div>
-						<label for="edit-assignee" class="mb-1 block text-sm font-medium text-slate-700">Assign to</label>
+						<label for="edit-assignee" class="mb-1 block text-sm font-medium text-slate-700"
+							>Assign to</label
+						>
 						<select
 							id="edit-assignee"
 							bind:value={editAssignedTo}
@@ -992,13 +1177,17 @@
 							{/each}
 						</select>
 						{#if editAssignedTo && editAssignedTo !== data.user?.id}
-							<p class="mt-1 text-xs text-slate-400">They'll see it as pending until they accept.</p>
+							<p class="mt-1 text-xs text-slate-400">
+								They'll see it as pending until they accept.
+							</p>
 						{/if}
 					</div>
 				{/if}
 
 				{#if editFreq}
-					<p class="text-xs text-slate-400">Completing it rolls the due date forward automatically.</p>
+					<p class="text-xs text-slate-400">
+						Completing it rolls the due date forward automatically.
+					</p>
 				{/if}
 
 				<div class="flex justify-end gap-2 pt-1">

@@ -91,22 +91,21 @@
 		</div>
 	{/if}
 	{#if dailyVerse && visible('verse')}
-		<DailyVerseCard reference={dailyVerse.reference} text={dailyVerse.text} attribution={dailyVerse.attribution} />
+		<DailyVerseCard
+			reference={dailyVerse.reference}
+			text={dailyVerse.text}
+			attribution={dailyVerse.attribution}
+		/>
 	{/if}
 
 	{#if visible('glance') || visible('top3')}
 		<div class="grid gap-4 md:grid-cols-2">
 			{#if visible('glance')}
-				<TodayGlanceCard
-					{dateLabel}
-					{isToday}
-					events={dayEvents}
-					onEventClick={openEvent}
-				/>
+				<TodayGlanceCard {dateLabel} {isToday} events={dayEvents} onEventClick={openEvent} />
 			{/if}
 			<div class="space-y-4">
 				{#if visible('top3')}
-					<TopPrioritiesCard tasks={top3} meId={meId} />
+					<TopPrioritiesCard tasks={top3} {meId} />
 				{/if}
 				<CompletedTodayCard tasks={completedToday} {isToday} />
 			</div>
@@ -124,8 +123,8 @@
 				<FamilyTaskBoardCard
 					tasks={familyTasks}
 					members={familyMembers}
-					meId={meId}
-					familyId={familyId}
+					{meId}
+					{familyId}
 					openToday={glance.openToday}
 					weekStreak={glance.weekStreak}
 				/>

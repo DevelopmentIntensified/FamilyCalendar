@@ -43,7 +43,8 @@
 	$: justMerged = Number.isFinite(mergedCount) && mergedCount >= 0 && !isAnonymous;
 	let claimedDismissed = false;
 	let mergedDismissed = false;
-	$: showTopNotice = isAnonymous || (justClaimed && !claimedDismissed) || (justMerged && !mergedDismissed);
+	$: showTopNotice =
+		isAnonymous || (justClaimed && !claimedDismissed) || (justMerged && !mergedDismissed);
 </script>
 
 <div class="flex min-h-screen flex-col">
@@ -51,7 +52,7 @@
 	<OfflineBanner />
 	{#if justClaimed && !claimedDismissed}
 		<div
-			class="fixed top-[calc(4rem+env(safe-area-inset-top))] left-0 z-40 flex w-full items-center justify-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800 print:hidden"
+			class="fixed left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 flex w-full items-center justify-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800 print:hidden"
 			role="status"
 			transition:fade={{ duration: 150 }}
 		>
@@ -67,12 +68,14 @@
 		</div>
 	{:else if justMerged && !mergedDismissed}
 		<div
-			class="fixed top-[calc(4rem+env(safe-area-inset-top))] left-0 z-40 flex w-full items-center justify-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800 print:hidden"
+			class="fixed left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 flex w-full items-center justify-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800 print:hidden"
 			role="status"
 			transition:fade={{ duration: 150 }}
 		>
 			<span>
-				✅ Brought over {mergedCount} event{mergedCount === 1 ? '' : 's'}{mergedTasks > 0 ? ` and ${mergedTasks} task${mergedTasks === 1 ? '' : 's'}` : ''} from your guest calendar.
+				✅ Brought over {mergedCount} event{mergedCount === 1 ? '' : 's'}{mergedTasks > 0
+					? ` and ${mergedTasks} task${mergedTasks === 1 ? '' : 's'}`
+					: ''} from your guest calendar.
 			</span>
 			<button
 				type="button"
@@ -85,9 +88,9 @@
 		</div>
 	{:else if isAnonymous}
 		<div
-			class="fixed top-[calc(4rem+env(safe-area-inset-top))] left-0 z-40 w-full px-4 py-2.5 text-center text-sm print:hidden {urgent
-				? 'bg-red-50 text-red-800 border-b border-red-200'
-				: 'bg-amber-50 text-amber-800 border-b border-amber-200'}"
+			class="fixed left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 w-full px-4 py-2.5 text-center text-sm print:hidden {urgent
+				? 'border-b border-red-200 bg-red-50 text-red-800'
+				: 'border-b border-amber-200 bg-amber-50 text-amber-800'}"
 			role="status"
 		>
 			{#if urgent}
@@ -102,13 +105,21 @@
 		</div>
 	{/if}
 	{#key pathname}
-		<main class="pt-[calc(4rem+env(safe-area-inset-top))] flex-grow pb-28 md:pb-24 {showTopNotice ? 'mt-10' : ''} print:!pt-0 print:!pb-0 print:!mt-0 print:min-h-0" in:fade={{ duration: 100 }} out:fade={{ duration: 50 }}>
+		<main
+			class="flex-grow pb-28 pt-[calc(4rem+env(safe-area-inset-top))] md:pb-24 {showTopNotice
+				? 'mt-10'
+				: ''} print:!mt-0 print:min-h-0 print:!pb-0 print:!pt-0"
+			in:fade={{ duration: 100 }}
+			out:fade={{ duration: 50 }}
+		>
 			<slot />
 		</main>
 	{/key}
 	<BottomNav isLoggedIn={true} />
 	<Toaster />
-	<footer class="fixed bottom-0 left-0 z-30 hidden w-full border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-500 md:block print:hidden">
+	<footer
+		class="fixed bottom-0 left-0 z-30 hidden w-full border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-500 md:block print:hidden"
+	>
 		<div class="flex items-center justify-center gap-4">
 			<span>&copy; {new Date().getFullYear()} FamilyPlanz</span>
 			<span class="text-slate-300">|</span>

@@ -88,7 +88,9 @@
 			{:else if token}
 				<form on:submit|preventDefault={handleSubmit} class="space-y-5">
 					<div>
-						<label for="password" class="block text-sm font-medium text-slate-700">New Password</label>
+						<label for="password" class="block text-sm font-medium text-slate-700"
+							>New Password</label
+						>
 						<input
 							id="password"
 							type="password"
@@ -99,7 +101,9 @@
 					</div>
 
 					<div>
-						<label for="confirm" class="block text-sm font-medium text-slate-700">Confirm Password</label>
+						<label for="confirm" class="block text-sm font-medium text-slate-700"
+							>Confirm Password</label
+						>
 						<input
 							id="confirm"
 							type="password"

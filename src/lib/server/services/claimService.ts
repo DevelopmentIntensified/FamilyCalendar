@@ -52,10 +52,7 @@ export async function deleteExpiredClaimTokens() {
 }
 
 import { claimEmailForUser, getUserByEmail } from '$lib/server/db/actions/users';
-import {
-	getUserSettings,
-	createUserSettings
-} from '$lib/server/db/actions/userSettings';
+import { getUserSettings, createUserSettings } from '$lib/server/db/actions/userSettings';
 import { mergeGuestIntoUser } from '$lib/server/services/guestMergeService';
 
 export async function findActiveTokenForUser(userId: string, email: string) {

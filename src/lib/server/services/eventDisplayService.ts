@@ -1,5 +1,9 @@
 import type { CalendarEvent } from '$lib/server/db/schema';
-import { getExceptionsByEventIds, getUserRsvpStatuses, getEventAttendanceSummaries } from '$lib/server/db/actions/events';
+import {
+	getExceptionsByEventIds,
+	getUserRsvpStatuses,
+	getEventAttendanceSummaries
+} from '$lib/server/db/actions/events';
 import { expandRecurrence } from './recurrenceService';
 import { buildOccurrenceId, normalizeOccurrenceIso } from '$lib/server/utils/eventIds';
 import type { RSVPStatus, EventAttendanceSummary } from '$lib/types';
@@ -62,8 +66,7 @@ export async function expandEventsForUser(eventsData: CalendarEvent[]): Promise<
 			// override, start stays on the recurrence slot and end derives
 			// from master duration. Composite id/occurrenceDate keep keying
 			// off the original recurrence slot.
-			const effectiveStart =
-				exception?.start != null ? new Date(exception.start) : occ;
+			const effectiveStart = exception?.start != null ? new Date(exception.start) : occ;
 			const effectiveEnd =
 				exception?.end != null
 					? new Date(exception.end)
@@ -96,13 +99,8 @@ export async function attachRsvpStatus<T extends { masterId: string }>(
 	userId: string,
 	list: T[]
 ): Promise<Array<T & { rsvpStatus?: RSVPStatus }>> {
-	const rows = await getUserRsvpStatuses(
-		userId,
-		[...new Set(list.map((e) => e.masterId))]
-	);
-	const statusById = new Map(
-		rows.map((r) => [r.eventId, r.status as RSVPStatus])
-	);
+	const rows = await getUserRsvpStatuses(userId, [...new Set(list.map((e) => e.masterId))]);
+	const statusById = new Map(rows.map((r) => [r.eventId, r.status as RSVPStatus]));
 	return list.map((e) => ({ ...e, rsvpStatus: statusById.get(e.masterId) }));
 }
 
@@ -112,9 +110,9 @@ export async function attachRsvpStatus<T extends { masterId: string }>(
  * family attendance at a glance. Attendance is stored per master, so all
  * occurrences of a series share the same summary.
  */
-export async function attachAttendanceSummaries<
-	T extends { masterId: string }
->(list: T[]): Promise<Array<T & { attendance?: EventAttendanceSummary }>> {
+export async function attachAttendanceSummaries<T extends { masterId: string }>(
+	list: T[]
+): Promise<Array<T & { attendance?: EventAttendanceSummary }>> {
 	if (list.length === 0) return [...list];
 	const masterIds = [...new Set(list.map((e) => e.masterId))];
 	const summaries = await getEventAttendanceSummaries(masterIds);

@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser } from '../../src/lib/server/db/actions/users';
-import { deleteCodesByEmail, getCodesByEmail, createCode } from '../../src/lib/server/db/actions/codes';
+import {
+	deleteCodesByEmail,
+	getCodesByEmail,
+	createCode
+} from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import { calendars, users, sessions, userSettings, events } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -44,7 +48,7 @@ test.afterEach(async () => {
 
 test('Email Login With Code', async ({ page }) => {
 	const loginPage = new LoginPage(page);
-	
+
 	await test.step('Navigate to the page', async () => {
 		await loginPage.goto();
 	});

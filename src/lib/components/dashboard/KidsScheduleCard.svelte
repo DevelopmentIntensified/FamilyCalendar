@@ -31,7 +31,9 @@
 	<h2 class="mb-3 text-sm font-semibold text-slate-900">Kids' Schedule</h2>
 
 	{#if events.length === 0}
-		<p class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400">
+		<p
+			class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400"
+		>
 			{isToday ? "No kids' events today" : "No kids' events this day"}
 		</p>
 	{:else}
@@ -51,7 +53,9 @@
 					{/if}
 					<div class="mt-1.5 flex flex-wrap gap-1">
 						{#each event.kids as kid (kid)}
-							<span class="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700">
+							<span
+								class="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700"
+							>
 								{kid}
 							</span>
 						{/each}

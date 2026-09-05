@@ -20,7 +20,9 @@ const WEEKDAY_LETTERS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 /** Normalize BYDAY to a set of plain weekday letters (MO..SU). */
 function normalizeByDay(raw?: string[] | null): Set<string> | null {
 	if (!raw || raw.length === 0) return null;
-	const days = raw.filter((d) => typeof d === 'string' && WEEKDAY_LETTERS.includes(d.toUpperCase()));
+	const days = raw.filter(
+		(d) => typeof d === 'string' && WEEKDAY_LETTERS.includes(d.toUpperCase())
+	);
 	return days.length > 0 ? new Set(days.map((d) => d.toUpperCase())) : null;
 }
 
@@ -31,7 +33,9 @@ function normalizeByDay(raw?: string[] | null): Set<string> | null {
  */
 function parseTimestamp(v: unknown): DateTime {
 	if (v instanceof Date) return DateTime.fromJSDate(v, { zone: 'utc' });
-	const s = String(v ?? '').trim().replace(' ', 'T');
+	const s = String(v ?? '')
+		.trim()
+		.replace(' ', 'T');
 	return DateTime.fromISO(s, { zone: 'utc' });
 }
 

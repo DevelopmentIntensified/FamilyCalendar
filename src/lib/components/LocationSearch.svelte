@@ -29,7 +29,7 @@
 
 	function saveLocation(location: string) {
 		if (!location.trim()) return;
-		recentLocations = [location, ...recentLocations.filter(l => l !== location)].slice(0, 5);
+		recentLocations = [location, ...recentLocations.filter((l) => l !== location)].slice(0, 5);
 		if (typeof localStorage !== 'undefined') {
 			localStorage.setItem('recentLocations', JSON.stringify(recentLocations));
 		}
@@ -40,7 +40,7 @@
 			suggestions = [];
 			return;
 		}
-		
+
 		// Use custom search function if provided
 		if (searchFunction) {
 			try {
@@ -57,22 +57,22 @@
 			}
 			return;
 		}
-		
+
 		// Cancel previous request
 		if (abortController) {
 			abortController.abort();
 		}
 		abortController = new AbortController();
-		
+
 		loading = true;
 		try {
-			const url = searchEndpoint 
+			const url = searchEndpoint
 				? `${searchEndpoint}${encodeURIComponent(searchQuery)}`
 				: `/api/location-search?q=${encodeURIComponent(searchQuery)}`;
-			
+
 			const res = await fetch(url, { signal: abortController.signal });
 			const data = await res.json();
-			
+
 			if (searchEndpoint) {
 				suggestions = data.slice(0, 5);
 			} else {
@@ -80,7 +80,7 @@
 				suggestions = results.map((r) => r.label).slice(0, 5);
 			}
 			activeIndex = -1;
-			
+
 			if (suggestions.length > 0) {
 				showDropdown = true;
 			} else {
@@ -160,8 +160,8 @@
 </script>
 
 <div class="relative">
-	<input 
-		type="text" 
+	<input
+		type="text"
 		bind:value
 		oninput={handleInput}
 		onfocus={handleFocus}
@@ -174,16 +174,20 @@
 		aria-controls={listboxId}
 		autocomplete="off"
 	/>
-	
+
 	{#if showDropdown && (suggestions.length > 0 || recentLocations.length > 0)}
-		<div id={listboxId} role="listbox" class="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-64 overflow-y-auto">
+		<div
+			id={listboxId}
+			role="listbox"
+			class="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+		>
 			{#if suggestions.length > 0}
 				<div class="p-1">
 					<div class="px-3 py-1 text-xs font-medium text-slate-500">
 						{loading ? 'Searching...' : 'Address Suggestions'}
 					</div>
 					{#each suggestions as suggestion, i}
-						<button 
+						<button
 							type="button"
 							role="option"
 							aria-selected={i === activeIndex}
@@ -191,11 +195,29 @@
 								e.preventDefault();
 								selectLocation(suggestion);
 							}}
-							class="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 {i === activeIndex ? 'bg-slate-50' : ''}"
+							class="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 {i ===
+							activeIndex
+								? 'bg-slate-50'
+								: ''}"
 						>
-							<svg class="h-4 w-4 mt-0.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+							<svg
+								class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+								/>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+								/>
 							</svg>
 							<span class="line-clamp-2">{suggestion}</span>
 						</button>
@@ -206,7 +228,7 @@
 				<div class="border-t border-slate-100 p-1">
 					<div class="px-3 py-1 text-xs font-medium text-slate-500">Recent</div>
 					{#each recentLocations as recent}
-						<button 
+						<button
 							type="button"
 							role="option"
 							aria-selected="false"
@@ -216,8 +238,18 @@
 							}}
 							class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
 						>
-							<svg class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+							<svg
+								class="h-4 w-4 shrink-0 text-slate-400"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
 							</svg>
 							<span class="truncate">{recent}</span>
 						</button>

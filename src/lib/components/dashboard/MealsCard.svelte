@@ -72,7 +72,7 @@
 		<input
 			type="text"
 			bind:value={labelInput}
-			placeholder={placeholder}
+			{placeholder}
 			class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 		/>
 		<select
@@ -94,7 +94,9 @@
 	</form>
 
 	{#if byKind.length === 0}
-		<p class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400">
+		<p
+			class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400"
+		>
 			No meals for this day
 		</p>
 	{:else}
@@ -114,7 +116,7 @@
 									type="button"
 									onclick={() => removeMeal(meal.id)}
 									disabled={busy === meal.id}
-									class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 pointer-fine:group-hover:opacity-100 disabled:opacity-40"
+									class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
 									aria-label="Remove {meal.label}"
 									title="Remove"
 								>

@@ -116,7 +116,7 @@
 
 <nav
 	class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-sm md:hidden print:hidden {keyboardOpen
-		? 'opacity-0 pointer-events-none transition-opacity'
+		? 'pointer-events-none opacity-0 transition-opacity'
 		: 'transition-opacity'}"
 	aria-label="Primary navigation"
 >
@@ -137,19 +137,30 @@
 						? 'bg-primary-50 text-primary-600'
 						: 'text-slate-400'}"
 				>
-					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<svg
+						class="h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
 						<!-- svelte-ignore a11y-invalid-attribute -->
 						{@html item.icon}
 					</svg>
 					{#if item.href === '/calendar/notifications' && unreadCount > 0}
 						<span
-							class="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary-600 px-1 text-[10px] font-semibold leading-none text-white"
+							class="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary-600 px-1 text-[10px] font-semibold leading-none text-white"
 						>
 							{unreadCount > 99 ? '99+' : unreadCount}
 						</span>
 					{/if}
 				</span>
-				<span class="text-[11px] font-medium leading-none {on ? 'text-primary-600' : 'text-slate-500'}">
+				<span
+					class="text-[11px] font-medium leading-none {on ? 'text-primary-600' : 'text-slate-500'}"
+				>
 					{item.label}
 				</span>
 			</a>

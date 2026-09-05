@@ -24,7 +24,7 @@ describe('expandRecurrence', () => {
 			recurrenceInterval: 1
 		};
 		const result = expandRecurrence(event, d('2026-08-10T00:00:00Z'), d('2026-08-14T00:00:00Z'));
-		expect(result.map(r => r.getUTCDate())).toEqual([10, 11, 12, 13]);
+		expect(result.map((r) => r.getUTCDate())).toEqual([10, 11, 12, 13]);
 	});
 
 	it('expands weekly events every N weeks', () => {
@@ -35,7 +35,7 @@ describe('expandRecurrence', () => {
 			recurrenceInterval: 2
 		};
 		const result = expandRecurrence(event, d('2026-08-01T00:00:00Z'), d('2026-09-15T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual([
 			'2026-08-03',
 			'2026-08-17',
 			'2026-08-31',
@@ -51,7 +51,7 @@ describe('expandRecurrence', () => {
 			recurrenceInterval: 1
 		};
 		const result = expandRecurrence(event, d('2026-01-01T00:00:00Z'), d('2026-05-01T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual([
 			'2026-01-31',
 			'2026-02-28',
 			'2026-03-31',
@@ -67,7 +67,7 @@ describe('expandRecurrence', () => {
 			recurrenceInterval: 1
 		};
 		const result = expandRecurrence(event, d('2024-01-01T00:00:00Z'), d('2027-06-01T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual([
 			'2024-02-29',
 			'2025-03-01', // clamped from Feb 29
 			'2026-03-01',
@@ -94,7 +94,7 @@ describe('expandRecurrence', () => {
 			recurrenceInterval: 1
 		};
 		const result = expandRecurrence(event, d('2026-08-01T00:00:00Z'), d('2026-08-20T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual([
 			'2026-08-05',
 			'2026-08-12',
 			'2026-08-19'
@@ -131,7 +131,7 @@ describe('expandRecurrence', () => {
 			recurrenceInterval: 1
 		};
 		const result = expandRecurrence(event, d('2026-08-01T00:00:00Z'), d('2026-08-25T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual([
 			'2026-08-10',
 			'2026-08-17',
 			'2026-08-24'
@@ -147,7 +147,7 @@ describe('expandRecurrence', () => {
 			recurrenceByDay: ['MO', 'WE', 'FR']
 		};
 		const result = expandRecurrence(event, d('2026-08-24T00:00:00Z'), d('2026-09-01T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual([
 			'2026-08-24', // Mon
 			'2026-08-26', // Wed
 			'2026-08-28', // Fri
@@ -164,7 +164,7 @@ describe('expandRecurrence', () => {
 			recurrenceByDay: ['TU', 'TH']
 		};
 		const result = expandRecurrence(event, d('2026-08-25T00:00:00Z'), d('2026-09-30T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual([
 			'2026-08-25', // Tue, week 0
 			'2026-08-27', // Thu, week 0
 			'2026-09-08', // Tue, week 2
@@ -184,7 +184,7 @@ describe('expandRecurrence', () => {
 			recurrenceCount: 3
 		};
 		const result = expandRecurrence(event, d('2026-08-25T00:00:00Z'), d('2026-10-01T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual([
 			'2026-08-25',
 			'2026-09-01',
 			'2026-09-08'
@@ -215,7 +215,7 @@ describe('expandRecurrence', () => {
 			recurrenceCount: 3 // three Tuesdays: 8/25, 9/1, 9/8
 		};
 		const result = expandRecurrence(event, d('2026-09-08T00:00:00Z'), d('2026-10-01T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual(['2026-09-08']);
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual(['2026-09-08']);
 	});
 
 	it('applies recurrenceCount to non-BYDAY weekly events', () => {
@@ -227,10 +227,7 @@ describe('expandRecurrence', () => {
 			recurrenceCount: 2
 		};
 		const result = expandRecurrence(event, d('2026-08-01T00:00:00Z'), d('2026-09-15T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
-			'2026-08-10',
-			'2026-08-17'
-		]);
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual(['2026-08-10', '2026-08-17']);
 	});
 
 	it('stops weekly expansion at recurrenceUntil', () => {
@@ -242,10 +239,7 @@ describe('expandRecurrence', () => {
 			recurrenceUntil: '2026-08-20T00:00:00.000Z'
 		};
 		const result = expandRecurrence(event, d('2026-08-01T00:00:00Z'), d('2026-09-15T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
-			'2026-08-10',
-			'2026-08-17'
-		]);
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual(['2026-08-10', '2026-08-17']);
 	});
 
 	it('honors recurrenceUntil for BYDAY weekly series', () => {
@@ -258,7 +252,7 @@ describe('expandRecurrence', () => {
 			recurrenceUntil: '2026-09-05T00:00:00.000Z'
 		};
 		const result = expandRecurrence(event, d('2026-08-25T00:00:00Z'), d('2026-09-30T00:00:00Z'));
-		expect(result.map(r => r.toISOString().slice(0, 10))).toEqual([
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual([
 			'2026-08-25', // Tue
 			'2026-08-27', // Thu
 			'2026-09-01', // Tue

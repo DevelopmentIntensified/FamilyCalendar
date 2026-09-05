@@ -20,18 +20,22 @@
 			<div class="mb-10 text-center">
 				<h1 class="mb-4 text-4xl font-bold text-slate-900">Contact Us</h1>
 				<p class="text-lg text-slate-600">
-					Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+					Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as
+					possible.
 				</p>
 			</div>
 
 			{#if submitted}
-				<div
-					transition:fade
-					class="rounded-xl border border-green-200 bg-green-50 p-8 text-center"
-				>
+				<div transition:fade class="rounded-xl border border-green-200 bg-green-50 p-8 text-center">
 					<div class="mb-4 flex justify-center">
 						<div class="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-							<svg class="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<svg
+								class="h-8 w-8 text-green-600"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
 								<path d="M5 13l4 4L19 7" />
 							</svg>
 						</div>
@@ -39,17 +43,22 @@
 					<h2 class="mb-2 text-2xl font-bold text-green-800">Message Sent!</h2>
 					<p class="text-green-700">Thank you for reaching out. We'll get back to you soon.</p>
 					<button
-						on:click={() => { submitted = false; name = ''; email = ''; message = ''; }}
-						class="mt-6 text-primary-600 hover:text-primary-700 font-medium"
+						on:click={() => {
+							submitted = false;
+							name = '';
+							email = '';
+							message = '';
+						}}
+						class="mt-6 font-medium text-primary-600 hover:text-primary-700"
 					>
 						Send another message
 					</button>
 				</div>
 			{:else}
 				<div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-				<form
-					method="POST"
-					use:enhance={() => {
+					<form
+						method="POST"
+						use:enhance={() => {
 							isSubmitting = true;
 							return async ({ result, update }) => {
 								isSubmitting = false;
@@ -73,7 +82,14 @@
 						<!-- Honeypot field for spam protection -->
 						<div class="hidden" aria-hidden="true">
 							<label for="website">Website</label>
-							<input type="text" name="website" id="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
+							<input
+								type="text"
+								name="website"
+								id="website"
+								tabindex="-1"
+								autocomplete="off"
+								aria-hidden="true"
+							/>
 						</div>
 
 						<div>
@@ -103,7 +119,9 @@
 						</div>
 
 						<div>
-							<label for="message" class="mb-2 block text-sm font-medium text-slate-700">Message</label>
+							<label for="message" class="mb-2 block text-sm font-medium text-slate-700"
+								>Message</label
+							>
 							<textarea
 								id="message"
 								name="message"
@@ -123,8 +141,19 @@
 							{#if isSubmitting}
 								<span class="flex items-center justify-center gap-2">
 									<svg class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+										<circle
+											class="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											stroke-width="4"
+										></circle>
+										<path
+											class="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+										></path>
 									</svg>
 									Sending...
 								</span>
@@ -137,18 +166,38 @@
 
 				<div class="mt-10 grid gap-6 md:grid-cols-3">
 					<div class="text-center">
-						<div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100">
-							<svg class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-								<path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+						<div
+							class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100"
+						>
+							<svg
+								class="h-6 w-6 text-primary-600"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path
+									d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+								/>
 							</svg>
 						</div>
 						<h3 class="font-semibold text-slate-900">Email</h3>
 						<p class="text-sm text-slate-600">hello@familyplanz.com</p>
 					</div>
 					<div class="text-center">
-						<div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100">
-							<svg class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-								<path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+						<div
+							class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100"
+						>
+							<svg
+								class="h-6 w-6 text-primary-600"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path
+									d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+								/>
 								<path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
 							</svg>
 						</div>
@@ -156,8 +205,16 @@
 						<p class="text-sm text-slate-600">United States</p>
 					</div>
 					<div class="text-center">
-						<div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100">
-							<svg class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<div
+							class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100"
+						>
+							<svg
+								class="h-6 w-6 text-primary-600"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
 								<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
 						</div>

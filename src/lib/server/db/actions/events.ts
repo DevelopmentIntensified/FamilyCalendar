@@ -1,5 +1,11 @@
 import { db } from '$lib/server/db';
-import { eventAttendance, eventExceptions, events, users, type CalendarEvent } from '$lib/server/db/schema';
+import {
+	eventAttendance,
+	eventExceptions,
+	events,
+	users,
+	type CalendarEvent
+} from '$lib/server/db/schema';
 import type { EventAttendanceSummary } from '$lib/types';
 import { eq, and, sql, inArray, or } from 'drizzle-orm';
 import { getAccessibleCalendarIds, eventAccessFilter } from '$lib/server/db/actions/calendarScope';
@@ -22,7 +28,9 @@ export async function findException(eventId: string, originalDateIso: string) {
 	const [exception] = await db
 		.select()
 		.from(eventExceptions)
-		.where(and(eq(eventExceptions.eventId, eventId), eq(eventExceptions.originalDate, originalDate)));
+		.where(
+			and(eq(eventExceptions.eventId, eventId), eq(eventExceptions.originalDate, originalDate))
+		);
 	return exception;
 }
 
@@ -95,7 +103,7 @@ export async function getEventAttendance(id: string) {
 
 export async function addEventAttendants(eventId: string, names: string[]) {
 	if (names.length === 0) return;
-	const insertData = names.map(name => ({
+	const insertData = names.map((name) => ({
 		eventId,
 		name,
 		status: 'undecided' as const
@@ -120,7 +128,11 @@ export function normalizeInvites(raw: unknown): EventInvite[] {
 			if (name) out.push({ name, inviteType: 'optional' });
 		} else if (entry && typeof entry === 'object') {
 			const i = entry as Partial<EventInvite>;
-			if (i.userId) out.push({ userId: i.userId, inviteType: i.inviteType === 'required' ? 'required' : 'optional' });
+			if (i.userId)
+				out.push({
+					userId: i.userId,
+					inviteType: i.inviteType === 'required' ? 'required' : 'optional'
+				});
 			else if (i.name && typeof i.name === 'string' && i.name.trim())
 				out.push({ name: i.name.trim(), inviteType: 'optional' });
 		}
@@ -142,7 +154,13 @@ export async function replaceEventInvites(eventId: string, raw: unknown) {
 	const invites = normalizeInvites(raw);
 	await db.transaction(async (tx) => {
 		const existing = await tx
-			.select({ id: eventAttendance.id, userId: eventAttendance.userId, name: eventAttendance.name, status: eventAttendance.status, inviteType: eventAttendance.inviteType })
+			.select({
+				id: eventAttendance.id,
+				userId: eventAttendance.userId,
+				name: eventAttendance.name,
+				status: eventAttendance.status,
+				inviteType: eventAttendance.inviteType
+			})
 			.from(eventAttendance)
 			.where(eq(eventAttendance.eventId, eventId));
 
@@ -161,7 +179,10 @@ export async function replaceEventInvites(eventId: string, raw: unknown) {
 			const row = byUser.get(inv.userId);
 			if (row) {
 				if (row.inviteType !== type) {
-					await tx.update(eventAttendance).set({ inviteType: type }).where(eq(eventAttendance.id, row.id));
+					await tx
+						.update(eventAttendance)
+						.set({ inviteType: type })
+						.where(eq(eventAttendance.id, row.id));
 				}
 			} else {
 				await tx
@@ -174,7 +195,10 @@ export async function replaceEventInvites(eventId: string, raw: unknown) {
 				if (row.status === 'undecided') {
 					await tx.delete(eventAttendance).where(eq(eventAttendance.id, row.id));
 				} else if (row.inviteType === 'required') {
-					await tx.update(eventAttendance).set({ inviteType: 'optional' }).where(eq(eventAttendance.id, row.id));
+					await tx
+						.update(eventAttendance)
+						.set({ inviteType: 'optional' })
+						.where(eq(eventAttendance.id, row.id));
 				}
 			}
 		}
@@ -185,12 +209,21 @@ export async function replaceEventInvites(eventId: string, raw: unknown) {
 			.where(and(eq(eventAttendance.eventId, eventId), sql`${eventAttendance.name} IS NOT NULL`));
 		const guests = invites
 			.filter((i) => i.name && typeof i.name === 'string' && i.name.trim())
-			.map((i) => ({ eventId, name: (i.name as string).trim(), status: 'undecided' as const, inviteType: 'optional' as const }));
+			.map((i) => ({
+				eventId,
+				name: (i.name as string).trim(),
+				status: 'undecided' as const,
+				inviteType: 'optional' as const
+			}));
 		if (guests.length > 0) await tx.insert(eventAttendance).values(guests);
 	});
 }
 
-export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>, ownerId: string, invites?: EventInvite[] | unknown) {
+export async function createEvent(
+	data: Omit<CalendarEvent, 'id' | 'created_at'>,
+	ownerId: string,
+	invites?: EventInvite[] | unknown
+) {
 	const [createdEvent] = await db.insert(events).values(data).returning();
 	// Auto-RSVP creator as "going"
 	if (createdEvent && ownerId) {
@@ -208,8 +241,14 @@ export async function createEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>
 	return createdEvent;
 }
 
-export async function updateEventById(id: string, data: Partial<Omit<CalendarEvent, 'id'>>, userId: string, invites?: unknown, accessibleCalIds?: string[]) {
-	const calIds = accessibleCalIds ?? await getAccessibleCalendarIds(userId);
+export async function updateEventById(
+	id: string,
+	data: Partial<Omit<CalendarEvent, 'id'>>,
+	userId: string,
+	invites?: unknown,
+	accessibleCalIds?: string[]
+) {
+	const calIds = accessibleCalIds ?? (await getAccessibleCalendarIds(userId));
 	const [updatedEvent] = await db
 		.update(events)
 		.set(data)
@@ -238,7 +277,9 @@ export async function getEventAttendanceSummaries(eventIds: string[]) {
 		})
 		.from(eventAttendance)
 		.leftJoin(users, eq(eventAttendance.userId, users.id))
-		.where(and(inArray(eventAttendance.eventId, eventIds), sql`${eventAttendance.userId} IS NOT NULL`));
+		.where(
+			and(inArray(eventAttendance.eventId, eventIds), sql`${eventAttendance.userId} IS NOT NULL`)
+		);
 
 	const map = new Map<string, EventAttendanceSummary>();
 	for (const r of rows) {
@@ -288,7 +329,11 @@ export async function deleteEventInScope(id: string, userId: string, calendarIds
 		);
 }
 
-export async function updateRsvp(eventId: string, userId: string, status: 'going' | 'maybe' | 'declined' | 'undecided') {
+export async function updateRsvp(
+	eventId: string,
+	userId: string,
+	status: 'going' | 'maybe' | 'declined' | 'undecided'
+) {
 	// Atomic upsert against the partial unique index
 	// event_attendance_user_unique (userId is non-null, so the insert
 	// satisfies its WHERE user_id IS NOT NULL predicate).
@@ -316,8 +361,5 @@ export async function getUserRsvpStatuses(userId: string, eventIds: string[]) {
 }
 
 export async function getEventRsvpStatus(eventId: string) {
-	return await db
-		.select()
-		.from(eventAttendance)
-		.where(eq(eventAttendance.eventId, eventId));
+	return await db.select().from(eventAttendance).where(eq(eventAttendance.eventId, eventId));
 }

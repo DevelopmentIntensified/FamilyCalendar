@@ -116,12 +116,14 @@
 				<h1 class="text-3xl font-bold text-slate-900">Welcome Back</h1>
 				<p class="mt-2 text-slate-600">
 					{#if data.mergeMode}
-						Log in with the account tied to this email, and we'll merge the calendar
-						you've added on this device into it.
+						Log in with the account tied to this email, and we'll merge the calendar you've added on
+						this device into it.
 					{:else if data.isLoggedIn}
 						You are already logged in
 					{:else}
-						Don't have an account? <a href="/signup" class="text-primary-600 hover:text-primary-700">Sign up</a>
+						Don't have an account? <a href="/signup" class="text-primary-600 hover:text-primary-700"
+							>Sign up</a
+						>
 						or just start using it right away.
 					{/if}
 				</p>
@@ -145,7 +147,7 @@
 						<p class="mb-6 text-slate-600">
 							We've sent a login code to <strong>{email}</strong>
 						</p>
-						
+
 						<form on:submit|preventDefault={handleCodeVerification} class="space-y-4">
 							<input
 								type="text"
@@ -174,7 +176,8 @@
 					<div class="mb-6 flex rounded-xl bg-slate-100 p-1">
 						<button
 							on:click={() => (mode = 'password')}
-							class="flex-1 rounded-lg py-2.5 px-4 text-sm font-medium transition-all {mode === 'password'
+							class="flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all {mode ===
+							'password'
 								? 'bg-white text-slate-900 shadow-sm'
 								: 'text-slate-500 hover:text-slate-700'}"
 						>
@@ -182,7 +185,8 @@
 						</button>
 						<button
 							on:click={() => (mode = 'magic-link')}
-							class="flex-1 rounded-lg py-2.5 px-4 text-sm font-medium transition-all {mode === 'magic-link'
+							class="flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all {mode ===
+							'magic-link'
 								? 'bg-white text-slate-900 shadow-sm'
 								: 'text-slate-500 hover:text-slate-700'}"
 						>
@@ -204,7 +208,9 @@
 							</div>
 
 							<div>
-								<label for="password" class="block text-sm font-medium text-slate-700">Password</label>
+								<label for="password" class="block text-sm font-medium text-slate-700"
+									>Password</label
+								>
 								<input
 									id="password"
 									type="password"
@@ -213,7 +219,9 @@
 									required
 								/>
 								<div class="mt-1 text-right">
-									<a href="/forgot-password" class="text-sm text-primary-600 hover:text-primary-700">Forgot your password?</a>
+									<a href="/forgot-password" class="text-sm text-primary-600 hover:text-primary-700"
+										>Forgot your password?</a
+									>
 								</div>
 							</div>
 
@@ -247,22 +255,22 @@
 							</button>
 						</form>
 					{/if}
-					{/if}
 				{/if}
+			{/if}
 
-				{#if !data.isLoggedIn && !data.mergeMode}
-					<div class="mt-6 border-t border-slate-100 pt-5 text-center">
-						<a
-							href="/calendar"
-							class="block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
-						>
-							Start planning — no account needed
-						</a>
-						<p class="mt-2 text-xs text-slate-400">
-							Creates a private calendar on this device. Add an email later to sync.
-						</p>
-					</div>
-				{/if}
-			</div>
+			{#if !data.isLoggedIn && !data.mergeMode}
+				<div class="mt-6 border-t border-slate-100 pt-5 text-center">
+					<a
+						href="/calendar"
+						class="block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
+					>
+						Start planning — no account needed
+					</a>
+					<p class="mt-2 text-xs text-slate-400">
+						Creates a private calendar on this device. Add an email later to sync.
+					</p>
+				</div>
+			{/if}
 		</div>
+	</div>
 </div>

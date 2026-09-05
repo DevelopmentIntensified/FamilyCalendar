@@ -147,7 +147,10 @@ export async function createTask(data: {
 
 /** Personal tasks + family tasks + tasks attached to the given events,
  *  with the parent event's title/start so lists can attribute them. */
-export async function getTasksForUser(userId: string, familyId?: string | null): Promise<TaskWithTags[]> {
+export async function getTasksForUser(
+	userId: string,
+	familyId?: string | null
+): Promise<TaskWithTags[]> {
 	const conditions = [eq(tasks.userId, userId)];
 	if (familyId) {
 		conditions.push(eq(tasks.familyId, familyId));
@@ -272,7 +275,7 @@ export async function updateTask(
 			row = existing;
 		}
 		if (!row) return undefined;
-		const tags = normalizeTags(hasTags ? data.tags : (await attachTags([row])).get(row.id) ?? []);
+		const tags = normalizeTags(hasTags ? data.tags : ((await attachTags([row])).get(row.id) ?? []));
 		if (hasTags) {
 			await tx.delete(taskTags).where(eq(taskTags.taskId, row.id));
 			if (tags.length > 0) {
@@ -419,10 +422,7 @@ export async function deleteTask(id: string, userId: string) {
 	// Completed tasks back the stats/streak history, so removing one archives
 	// it instead of deleting. Open tasks have no stats attached — hard delete.
 	if (task.completedAt) {
-		await db
-			.update(tasks)
-			.set({ archivedAt: new Date().toISOString() })
-			.where(eq(tasks.id, id));
+		await db.update(tasks).set({ archivedAt: new Date().toISOString() }).where(eq(tasks.id, id));
 	} else {
 		await db.delete(tasks).where(eq(tasks.id, id));
 	}
@@ -532,7 +532,9 @@ export async function undoRecurringCompletion(
 export async function updateTaskInFamily(
 	id: string,
 	familyId: string,
-	data: Partial<Pick<Task, 'assignmentStatus' | 'assignedTo' | 'priority'>> & { tags?: string[] | null }
+	data: Partial<Pick<Task, 'assignmentStatus' | 'assignedTo' | 'priority'>> & {
+		tags?: string[] | null;
+	}
 ): Promise<TaskWithTags | undefined> {
 	const hasTags = data.tags !== undefined;
 	const patch = Object.fromEntries(
@@ -556,7 +558,7 @@ export async function updateTaskInFamily(
 			row = existing;
 		}
 		if (!row) return undefined;
-		const tags = normalizeTags(hasTags ? data.tags : (await attachTags([row])).get(row.id) ?? []);
+		const tags = normalizeTags(hasTags ? data.tags : ((await attachTags([row])).get(row.id) ?? []));
 		if (hasTags) {
 			await tx.delete(taskTags).where(eq(taskTags.taskId, row.id));
 			if (tags.length > 0) {
@@ -571,7 +573,11 @@ export async function updateTaskInFamily(
  * Overdue Recurring Tasks stick to today: their due date follows the
  * current date until dismissed. Piggybacked on task/calendar loads.
  */
-export async function syncRecurringCursors(userId: string, familyId?: string | null, zone?: string) {
+export async function syncRecurringCursors(
+	userId: string,
+	familyId?: string | null,
+	zone?: string
+) {
 	const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
 	const todayEnd = DateTime.fromISO(nowIso)
 		.set({ hour: 23, minute: 59, second: 0, millisecond: 0 })

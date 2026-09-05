@@ -36,7 +36,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'ids and op are required' }, { status: 400 });
 	}
 
-	const masterIds = [...new Set(items.map((i) => resolveMasterId(i?.id ?? '')).filter((id): id is string => !!id))];
+	const masterIds = [
+		...new Set(items.map((i) => resolveMasterId(i?.id ?? '')).filter((id): id is string => !!id))
+	];
 	if (masterIds.length === 0) {
 		return json({ error: 'No valid event ids' }, { status: 400 });
 	}
@@ -65,7 +67,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		if (op.type === 'calendar') {
 			if (!op.calendarId) return json({ error: 'calendarId required' }, { status: 400 });
-			if (!accessibleCalIds.includes(op.calendarId)) return json({ error: 'Calendar not accessible' }, { status: 403 });
+			if (!accessibleCalIds.includes(op.calendarId))
+				return json({ error: 'Calendar not accessible' }, { status: 403 });
 			for (const id of ownedIds) {
 				await updateEventById(id, { calendarId: op.calendarId }, userId);
 			}
@@ -81,7 +84,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		if (op.type === 'attendants') {
-			const add = Array.isArray(op.add) ? op.add.map((n: unknown) => String(n).trim()).filter(Boolean) : [];
+			const add = Array.isArray(op.add)
+				? op.add.map((n: unknown) => String(n).trim()).filter(Boolean)
+				: [];
 			if (add.length === 0) return json({ error: 'add names required' }, { status: 400 });
 
 			let applied = 0;
@@ -105,9 +110,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					// Inline syncEventAttendants so the delete + insert share tx.
 					await tx
 						.delete(eventAttendance)
-						.where(
-							and(eq(eventAttendance.eventId, id), sql`${eventAttendance.name} IS NOT NULL`)
-						);
+						.where(and(eq(eventAttendance.eventId, id), sql`${eventAttendance.name} IS NOT NULL`));
 					if (merged.length > 0) {
 						await tx.insert(eventAttendance).values(
 							merged.map((name) => ({
@@ -137,7 +140,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				rawOps = body.plan;
 			} else {
 				const rows = await db
-					.select({ id: events.id, title: events.title, start: events.start, location: events.location })
+					.select({
+						id: events.id,
+						title: events.title,
+						start: events.start,
+						location: events.location
+					})
 					.from(events)
 					.where(inArray(events.id, ownedIds));
 				const summaries = rows.map((r) => {
@@ -193,6 +201,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Unknown op type' }, { status: 400 });
 	} catch (error) {
 		console.error('Bulk edit failed:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Bulk edit failed', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Bulk edit failed',
+			locals.user?.id ?? null
+		);
 	}
 };

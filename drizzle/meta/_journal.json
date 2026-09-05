@@ -1,76 +1,76 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1775932065765,
-      "tag": "0000_numerous_northstar",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1776092659743,
-      "tag": "0001_careless_wind_dancer",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1776093997255,
-      "tag": "0002_worried_jack_murdock",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1776098098207,
-      "tag": "0003_loud_thunderbolts",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1777647473903,
-      "tag": "0004_dusty_hammerhead",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1777647538157,
-      "tag": "0005_spicy_giant_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1777903714202,
-      "tag": "0006_slim_shocker",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1788061999713,
-      "tag": "0007_simple_speed_demon",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1788122349933,
-      "tag": "0008_useful_swordsman",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1788359955864,
-      "tag": "0009_quick_iceman",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1775932065765,
+			"tag": "0000_numerous_northstar",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1776092659743,
+			"tag": "0001_careless_wind_dancer",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1776093997255,
+			"tag": "0002_worried_jack_murdock",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1776098098207,
+			"tag": "0003_loud_thunderbolts",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1777647473903,
+			"tag": "0004_dusty_hammerhead",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1777647538157,
+			"tag": "0005_spicy_giant_man",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1777903714202,
+			"tag": "0006_slim_shocker",
+			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1788061999713,
+			"tag": "0007_simple_speed_demon",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1788122349933,
+			"tag": "0008_useful_swordsman",
+			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1788359955864,
+			"tag": "0009_quick_iceman",
+			"breakpoints": true
+		}
+	]
 }

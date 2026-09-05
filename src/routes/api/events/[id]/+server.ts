@@ -3,7 +3,12 @@ import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { eventExceptions } from '$lib/server/db/schema';
-import { updateEventById, deleteEventById, getEvent, upsertException } from '$lib/server/db/actions/events';
+import {
+	updateEventById,
+	deleteEventById,
+	getEvent,
+	upsertException
+} from '$lib/server/db/actions/events';
 import { resolveEventInvites } from '$lib/server/utils/eventInvites';
 import { getAccessibleCalendarIds, canTouchEvent } from '$lib/server/db/actions/calendarScope';
 import { resolveOccurrenceId, normalizeOccurrenceIso } from '$lib/server/utils/eventIds';
@@ -29,7 +34,10 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 	// Only touch invitations when the caller actually sent attendee data.
 	const hasInvites = Array.isArray(body.attendees) || Array.isArray(body.attendants);
 	const invites = hasInvites
-		? await resolveEventInvites(userId, Array.isArray(body.attendees) ? body.attendees : body.attendants)
+		? await resolveEventInvites(
+				userId,
+				Array.isArray(body.attendees) ? body.attendees : body.attendants
+			)
 		: undefined;
 
 	try {
@@ -93,7 +101,12 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 		return json({ success: true, event: updated });
 	} catch (error) {
 		console.error('Failed to update event:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to update event', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to update event',
+			locals.user?.id ?? null
+		);
 	}
 };
 
@@ -153,6 +166,11 @@ export const DELETE: RequestHandler = async ({ request, locals, params }) => {
 		return json({ success: true });
 	} catch (error) {
 		console.error('Failed to delete event:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to delete event', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to delete event',
+			locals.user?.id ?? null
+		);
 	}
 };

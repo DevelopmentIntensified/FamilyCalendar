@@ -2,7 +2,20 @@ import { test, expect } from '@playwright/test';
 import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
 import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
-import { calendars, users, sessions, userSettings, events, accounts, families, familyMembers, groups, userGroups, subscriptions, codes } from '../../src/lib/server/db/schema';
+import {
+	calendars,
+	users,
+	sessions,
+	userSettings,
+	events,
+	accounts,
+	families,
+	familyMembers,
+	groups,
+	userGroups,
+	subscriptions,
+	codes
+} from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { createNewUser } from '../../src/lib/server/utils/createNewUser';
 import { lucia } from '$lib/server/auth';
@@ -18,15 +31,17 @@ async function loginWithSession(page: any, email: string) {
 	if (!user[0]) throw new Error('User not found');
 	const session = await lucia.createSession(user[0].id, {});
 	const cookie = lucia.createSessionCookie(session.id);
-	await page.context().addCookies([{
-		name: cookie.name,
-		value: cookie.value,
-		domain: 'localhost',
-		path: '/',
-		httpOnly: cookie.attributes.httpOnly,
-		secure: cookie.attributes.secure,
-		sameSite: 'Lax'
-	}]);
+	await page.context().addCookies([
+		{
+			name: cookie.name,
+			value: cookie.value,
+			domain: 'localhost',
+			path: '/',
+			httpOnly: cookie.attributes.httpOnly,
+			secure: cookie.attributes.secure,
+			sameSite: 'Lax'
+		}
+	]);
 }
 
 test.beforeEach(async () => {
@@ -78,7 +93,7 @@ test('Account deletion removes user and all related data', async ({ page }) => {
 	});
 
 	await test.step('Click delete account button', async () => {
-		await page.evaluate(() => window.location.hash = '#danger');
+		await page.evaluate(() => (window.location.hash = '#danger'));
 		await page.waitForTimeout(500);
 		const deleteButton = page.getByRole('button', { name: 'Delete Account' });
 		await expect(deleteButton).toBeVisible({ timeout: 10000 });
@@ -109,7 +124,10 @@ test('Account deletion removes user and all related data', async ({ page }) => {
 		const relatedAccounts = await db.select().from(accounts).where(eq(accounts.userId, uid));
 		expect(relatedAccounts).toHaveLength(0);
 
-		const relatedUserSettings = await db.select().from(userSettings).where(eq(userSettings.userId, uid));
+		const relatedUserSettings = await db
+			.select()
+			.from(userSettings)
+			.where(eq(userSettings.userId, uid));
 		expect(relatedUserSettings).toHaveLength(0);
 
 		const relatedCalendars = await db.select().from(calendars).where(eq(calendars.ownerId, uid));
@@ -131,7 +149,7 @@ test('Account deletion redirects to home page', async ({ page }) => {
 		await page.waitForLoadState('networkidle');
 		await page.waitForTimeout(1000);
 
-		await page.evaluate(() => window.location.hash = '#danger');
+		await page.evaluate(() => (window.location.hash = '#danger'));
 		await page.waitForTimeout(500);
 
 		const deleteButton = page.getByRole('button', { name: 'Delete Account' });

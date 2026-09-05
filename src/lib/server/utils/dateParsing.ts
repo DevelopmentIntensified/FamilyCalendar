@@ -17,8 +17,13 @@ export const MONTH_MAP: Record<string, number> = MONTH_INDEX_1;
 // Longest-first so "september" wins over "sept" (same table everywhere).
 // Full weekday names only — no short forms (DAY_ALT predates them).
 export const DAY_MAP: Record<string, number> = {
-	sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
-	thursday: 4, friday: 5, saturday: 6
+	sunday: 0,
+	monday: 1,
+	tuesday: 2,
+	wednesday: 3,
+	thursday: 4,
+	friday: 5,
+	saturday: 6
 };
 
 export const DAY_ALT = _DAY_ALT;

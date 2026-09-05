@@ -27,12 +27,13 @@ function stubBaseGlobals(permission = 'granted') {
 }
 
 /** Stub navigator.serviceWorker returning a registration with the given pushManager behavior. */
-function makeRegistration(
-	{ subscription = null, subscribeImpl }: {
-		subscription?: typeof dummySubscription | null;
-		subscribeImpl?: ReturnType<typeof vi.fn>;
-	} = {}
-) {
+function makeRegistration({
+	subscription = null,
+	subscribeImpl
+}: {
+	subscription?: typeof dummySubscription | null;
+	subscribeImpl?: ReturnType<typeof vi.fn>;
+} = {}) {
 	const pushManager = {
 		getSubscription: vi.fn().mockResolvedValue(subscription),
 		subscribe: subscribeImpl ?? vi.fn().mockResolvedValue(dummySubscription)
@@ -52,16 +53,15 @@ function stubFetch({
 	const subscribeFn = subscribeThrows
 		? vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
 		: vi.fn().mockResolvedValue(new Response(null, { status: subscribeStatus }));
-	return vi
-		.stubGlobal(
-			'fetch',
-			vi
-				.fn()
-				.mockResolvedValueOnce(
-					new Response(JSON.stringify({ publicKey: 'dGVzdA==' }), { status: 200 })
-				)
-				.mockImplementationOnce(() => subscribeFn())
-		);
+	return vi.stubGlobal(
+		'fetch',
+		vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response(JSON.stringify({ publicKey: 'dGVzdA==' }), { status: 200 })
+			)
+			.mockImplementationOnce(() => subscribeFn())
+	);
 }
 
 describe('pushFailureText', () => {

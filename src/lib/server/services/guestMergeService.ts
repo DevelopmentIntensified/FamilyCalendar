@@ -41,7 +41,10 @@ export async function getAnonymousUser(userId: string) {
 
 /** How much data the guest would bring along. */
 export async function getGuestDataCounts(guestId: string) {
-	const eventRows = await db.select({ id: events.id }).from(events).where(eq(events.ownerId, guestId));
+	const eventRows = await db
+		.select({ id: events.id })
+		.from(events)
+		.where(eq(events.ownerId, guestId));
 	const taskRows = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.userId, guestId));
 	return { events: eventRows.length, tasks: taskRows.length };
 }
@@ -51,7 +54,10 @@ export async function getGuestDataCounts(guestId: string) {
  * guest. Events land on the target's personal calendar (created if absent);
  * checklist links survive because event ids are preserved.
  */
-export async function mergeGuestIntoUser(guestId: string, targetUserId: string): Promise<{ events: number; tasks: number } | null> {
+export async function mergeGuestIntoUser(
+	guestId: string,
+	targetUserId: string
+): Promise<{ events: number; tasks: number } | null> {
 	const guest = await getAnonymousUser(guestId);
 	if (!guest || guestId === targetUserId) return null;
 

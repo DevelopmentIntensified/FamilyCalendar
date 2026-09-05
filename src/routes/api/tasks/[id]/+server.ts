@@ -85,8 +85,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 			} else if (typeof body.assignedTo === 'string' && body.assignedTo) {
 				assignmentPatch = {
 					assignedTo: body.assignedTo,
-					assignmentStatus:
-						body.assignedTo === locals.user.id ? 'accepted' : 'pending'
+					assignmentStatus: body.assignedTo === locals.user.id ? 'accepted' : 'pending'
 				};
 			} else if (body.assignmentStatus === 'accepted') {
 				assignmentPatch = { assignmentStatus: 'accepted' };
@@ -101,7 +100,11 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				priority,
 				recurrenceFrequency: frequency,
 				recurrenceInterval:
-					frequency === null ? null : frequency ? Math.max(1, Math.floor(body.recurrenceInterval ?? 1)) : undefined,
+					frequency === null
+						? null
+						: frequency
+							? Math.max(1, Math.floor(body.recurrenceInterval ?? 1))
+							: undefined,
 				completedAt:
 					typeof body.completedAt === 'string' && !isNaN(Date.parse(body.completedAt))
 						? body.completedAt
@@ -143,7 +146,12 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 		return json({ success: true, task: updated });
 	} catch (error) {
 		console.error('Failed to update task:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to update task', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to update task',
+			locals.user?.id ?? null
+		);
 	}
 };
 
@@ -162,6 +170,11 @@ export const DELETE: RequestHandler = async ({ locals, url }) => {
 		return json({ success: true });
 	} catch (error) {
 		console.error('Failed to delete task:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to delete task', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to delete task',
+			locals.user?.id ?? null
+		);
 	}
 };

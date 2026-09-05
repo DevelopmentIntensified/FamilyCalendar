@@ -50,15 +50,17 @@ test.afterEach(async () => {
 test('Event Creation', async ({ page }) => {
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(email);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 	});
 
 	await test.step('Navigate to calendar and open the Quick Add modal', async () => {
@@ -83,11 +85,15 @@ test('Event Creation', async ({ page }) => {
 
 	await test.step('Submit form', async () => {
 		// Wait for the create request to complete, then confirm the form resets.
-		const createResp = page.waitForResponse((r) => r.url().includes('/api/events') && r.request().method() === 'POST');
+		const createResp = page.waitForResponse(
+			(r) => r.url().includes('/api/events') && r.request().method() === 'POST'
+		);
 		await page.click('button[type="submit"]:has-text("Create")');
 		await createResp;
 		// The form resets for another creation — NL input clears.
-		await expect(page.locator('input[placeholder*="Lunch Friday at noon"]')).toHaveValue('', { timeout: 15000 });
+		await expect(page.locator('input[placeholder*="Lunch Friday at noon"]')).toHaveValue('', {
+			timeout: 15000
+		});
 	});
 
 	await test.step('Verify event was created in the database', async () => {

@@ -45,16 +45,28 @@ test.describe('Event calendar change on update', () => {
 	const createdIds: string[] = [];
 
 	test.afterEach(async () => {
-		for (const id of createdIds) await db.delete(events).where(eq(events.id, id)).catch(() => {});
+		for (const id of createdIds)
+			await db
+				.delete(events)
+				.where(eq(events.id, id))
+				.catch(() => {});
 		if (familyId) {
-			await db.delete(familyMembers).where(eq(familyMembers.familyId, familyId)).catch(() => {});
-			await db.delete(families).where(eq(families.id, familyId)).catch(() => {});
+			await db
+				.delete(familyMembers)
+				.where(eq(familyMembers.familyId, familyId))
+				.catch(() => {});
+			await db
+				.delete(families)
+				.where(eq(families.id, familyId))
+				.catch(() => {});
 		}
 		if (userA) await teardownTestUser(userA);
 		if (userB) await teardownTestUser(userB);
 	});
 
-	test('non-recurring event changed to family calendar via composite virtual id succeeds', async ({ request }) => {
+	test('non-recurring event changed to family calendar via composite virtual id succeeds', async ({
+		request
+	}) => {
 		userA = await makeUser('one');
 		const personal = await makeCalendar(userA.uid);
 		familyId = uniqueId('fam');
@@ -71,7 +83,10 @@ test.describe('Event calendar change on update', () => {
 
 		// Client previously sent the composite display id `${id}~${iso}`.
 		const r = await put(request, `/api/events/${ev.id}~${iso}`, userA.email, {
-			title: 'OneOff', start: iso, end: null, calendarId: family
+			title: 'OneOff',
+			start: iso,
+			end: null,
+			calendarId: family
 		});
 		expect(r.status).toBe(200);
 		expect(r.json.error).toBeUndefined();
@@ -89,12 +104,21 @@ test.describe('Event calendar change on update', () => {
 		const now = new Date();
 		const [ev] = await db
 			.insert(events)
-			.values({ title: 'E', start: now.toISOString(), end: null, calendarId: personal, ownerId: userA.uid })
+			.values({
+				title: 'E',
+				start: now.toISOString(),
+				end: null,
+				calendarId: personal,
+				ownerId: userA.uid
+			})
 			.returning();
 		createdIds.push(ev.id);
 
 		const r = await put(request, `/api/events/${ev.id}`, userA.email, {
-			title: 'E', start: now.toISOString(), end: null, calendarId: family
+			title: 'E',
+			start: now.toISOString(),
+			end: null,
+			calendarId: family
 		});
 		expect(r.status).toBe(200);
 		expect((await getEvent(ev.id))?.calendarId).toBe(family);
@@ -112,12 +136,19 @@ test.describe('Event calendar change on update', () => {
 
 		const now = new Date();
 		const created = await createEvent({
-			title: 'FamEv', start: now.toISOString(), end: null, calendarId: family, ownerId: userB.uid
+			title: 'FamEv',
+			start: now.toISOString(),
+			end: null,
+			calendarId: family,
+			ownerId: userB.uid
 		});
 		createdIds.push(created.id);
 
 		const r = await put(request, `/api/events/${created.id}`, userB.email, {
-			title: 'FamEv', start: now.toISOString(), end: null, calendarId: bPersonal
+			title: 'FamEv',
+			start: now.toISOString(),
+			end: null,
+			calendarId: bPersonal
 		});
 		expect(r.status).toBe(200);
 		expect((await getEvent(created.id))?.calendarId).toBe(bPersonal);

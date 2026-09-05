@@ -12,12 +12,14 @@ All e2e tests now pass without requiring actual email delivery to real inboxes. 
 - `e2e/login/EmailLoginWithLink.test.ts`
 
 These use Resend test addresses:
+
 - `delivered+logincode1@resend.dev`
 - `delivered+loginlink1@resend.dev`
 
 ### Tests That Bypass Email (DB-only)
 
 All other tests verify functionality by creating verification codes directly in the database:
+
 - `e2e/events/EventCreation.test.ts`
 - `e2e/events/EventDeletion.test.ts`
 - `e2e/events/EventEditing.test.ts` (skipped)

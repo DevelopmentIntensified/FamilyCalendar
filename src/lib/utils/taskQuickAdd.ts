@@ -271,7 +271,10 @@ interface RecurrenceResult {
  */
 const RECURRENCE_STEPS: {
 	re: RegExp;
-	resolve: (m: RegExpMatchArray, now: Date) => Pick<RecurrenceResult, 'frequency' | 'interval' | 'due'>;
+	resolve: (
+		m: RegExpMatchArray,
+		now: Date
+	) => Pick<RecurrenceResult, 'frequency' | 'interval' | 'due'>;
 }[] = [
 	{
 		re: /\bevery other\s+(day|week|month|year)\b/i,
@@ -434,7 +437,10 @@ export function parseTaskQuickAdd(raw: string, opts: TaskQuickAddOptions = {}): 
 	// The regex is global, so this removes every `#tag` occurrence.
 	title = title.replace(TASK_QUICK_ADD_TAG_RE, '');
 
-	title = title.replace(/^[\s:,\-–—;]+/, '').replace(/\s{2,}/g, ' ').trim();
+	title = title
+		.replace(/^[\s:,\-–—;]+/, '')
+		.replace(/\s{2,}/g, ' ')
+		.trim();
 	if (!title) title = raw.trim();
 
 	return { title, dueDate, priority, assignedTo, tags, recurrenceFrequency, recurrenceInterval };

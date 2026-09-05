@@ -30,7 +30,12 @@ function renderJanuaryWithFourEvents() {
 	return render(MonthDays, {
 		props: {
 			currentDate: DateTime.local(2024, 1, 1),
-			events: [makeEvent('e1', 'Alpha'), makeEvent('e2', 'Beta'), makeEvent('e3', 'Gamma'), makeEvent('e4', 'Delta')],
+			events: [
+				makeEvent('e1', 'Alpha'),
+				makeEvent('e2', 'Beta'),
+				makeEvent('e3', 'Gamma'),
+				makeEvent('e4', 'Delta')
+			],
 			days: [15],
 			calendars: []
 		}
@@ -42,7 +47,9 @@ describe('MonthDays overflow ("+N more")', () => {
 		renderJanuaryWithFourEvents();
 
 		await fireEvent.click(screen.getByRole('button', { name: '+1 more' }));
-		expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent('Monday, January 15, 2024');
+		expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(
+			'Monday, January 15, 2024'
+		);
 
 		// Close via the modal X, then open again — the modal must come back
 		// (regression: internal close desynced parent state so it never reopened).
@@ -50,6 +57,8 @@ describe('MonthDays overflow ("+N more")', () => {
 		await waitFor(() => expect(screen.queryByRole('heading', { level: 2 })).toBeNull());
 
 		await fireEvent.click(screen.getByRole('button', { name: '+1 more' }));
-		expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent('Monday, January 15, 2024');
+		expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(
+			'Monday, January 15, 2024'
+		);
 	});
 });

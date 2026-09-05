@@ -77,7 +77,9 @@
 			</p>
 		</div>
 	{:else}
-		<ul class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+		<ul
+			class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+		>
 			{#each notifications as notification (notification.id)}
 				{@const unread = !notification.readAt}
 				<li>
@@ -101,7 +103,8 @@
 							</span>
 						</span>
 						{#if unread}
-							<span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary-600" aria-hidden="true"></span>
+							<span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary-600" aria-hidden="true"
+							></span>
 						{/if}
 					</button>
 				</li>

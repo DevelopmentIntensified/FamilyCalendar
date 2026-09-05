@@ -10,9 +10,7 @@ import {
 /** Current family master switches for the family-scoped modules.
  * Missing row → enabled (the default); rows only exist while switched off.
  */
-export async function getFamilyModuleSwitches(
-	familyId: string
-): Promise<Record<string, boolean>> {
+export async function getFamilyModuleSwitches(familyId: string): Promise<Record<string, boolean>> {
 	const rows = await db
 		.select({
 			module: dashboardModuleSwitches.module,
@@ -46,11 +44,7 @@ export function composeModuleVisibility(
 /** Toggle a family master switch. `enabled: false` writes a row; re-enabling
  * removes the row back to the default-on state.
  */
-export async function setFamilyModuleSwitch(
-	familyId: string,
-	module: string,
-	enabled: boolean
-) {
+export async function setFamilyModuleSwitch(familyId: string, module: string, enabled: boolean) {
 	const found = DASHBOARD_MODULES.find((m) => m.id === module);
 	if (!found) throw new Error(`Unknown dashboard module: ${module}`);
 	if (found.scope !== 'family') {

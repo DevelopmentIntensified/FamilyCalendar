@@ -8,7 +8,10 @@
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { parseTaskQuickAdd, TASK_QUICK_ADD_PRIORITY_RE } from '$lib/utils/taskQuickAdd';
 	import { sortByCompletedDesc, sortTasks, type TaskSortKey } from '$lib/utils/taskSort';
-	import { showRecurringCompleteFeedback, showRecurringSkipFeedback } from '$lib/client/taskFeedback';
+	import {
+		showRecurringCompleteFeedback,
+		showRecurringSkipFeedback
+	} from '$lib/client/taskFeedback';
 
 	export let data: PageData;
 
@@ -129,7 +132,9 @@
 			const parsed = parseTaskQuickAdd(newTitle, { members });
 			// A cadence ("every 2 weeks") with no picked date still needs a cursor.
 			const due =
-				parsed.dueDate ?? inputToIso(newDueDate) ?? (parsed.recurrenceFrequency ? endOfDayIso() : null);
+				parsed.dueDate ??
+				inputToIso(newDueDate) ??
+				(parsed.recurrenceFrequency ? endOfDayIso() : null);
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -313,11 +318,7 @@
 	>
 		<div class="flex flex-col gap-2 sm:flex-row">
 			<div class="flex-1">
-				<MentionInput
-					bind:value={newTitle}
-					{members}
-					placeholder="Add a family task..."
-				/>
+				<MentionInput bind:value={newTitle} {members} placeholder="Add a family task..." />
 				<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
 			</div>
 			<input
@@ -354,9 +355,9 @@
 			</button>
 		</div>
 		<p class="mt-2 text-xs text-slate-400">
-			Try "clean gutters saturday", "high priority pay rent for Dad", "every 2 weeks" —
-			dates, priority, repeats and assignees can be typed right in the title. Otherwise
-			tasks go to you (or whoever you pick) and wait for their confirmation.
+			Try "clean gutters saturday", "high priority pay rent for Dad", "every 2 weeks" — dates,
+			priority, repeats and assignees can be typed right in the title. Otherwise tasks go to you (or
+			whoever you pick) and wait for their confirmation.
 		</p>
 	</form>
 
@@ -378,7 +379,11 @@
 					stroke="currentColor"
 					stroke-width="2"
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+					/>
 				</svg>
 				{#if searchQuery.trim()}
 					<button
@@ -387,7 +392,13 @@
 						aria-label="Clear search"
 						class="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 					>
-						<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<svg
+							class="h-3.5 w-3.5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
 							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 						</svg>
 					</button>
@@ -415,7 +426,11 @@
 				stroke="currentColor"
 				stroke-width="2"
 			>
-				<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+				/>
 			</svg>
 			<input
 				type="text"
@@ -431,7 +446,13 @@
 					aria-label="Clear tag filter"
 					class="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 				>
-					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<svg
+						class="h-3.5 w-3.5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
 						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 					</svg>
 				</button>
@@ -508,7 +529,7 @@
 							title={canComplete(task)
 								? 'Complete task'
 								: `Only ${firstName(task.assignedTo)} or the creator can complete this`}
-							class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors enabled:hover:border-primary-500 active:border-primary-500 disabled:cursor-not-allowed disabled:opacity-40"
+							class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors active:border-primary-500 enabled:hover:border-primary-500 disabled:cursor-not-allowed disabled:opacity-40"
 							aria-label="Complete task"
 						>
 							<span class="absolute -inset-2" aria-hidden="true"></span>
@@ -532,7 +553,9 @@
 									</svg>
 									{recurrenceNote(task)}
 									{#if task.completionCount}
-										<span class="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600">
+										<span
+											class="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600"
+										>
 											🔥 {task.completionCount}×
 										</span>
 									{/if}
@@ -547,7 +570,8 @@
 									{#each task.tags as tag (tag)}
 										<span
 											class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
-										>#{tag}</span>
+											>#{tag}</span
+										>
 									{/each}
 								</div>
 							{/if}
@@ -590,7 +614,10 @@
 							</span>
 						{/if}
 						{#if task.priority && task.priority !== 'normal'}
-							<span class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}" title="Priority: {task.priority}"></span>
+							<span
+								class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}"
+								title="Priority: {task.priority}"
+							></span>
 						{/if}
 						{#if task.userId === currentUserId}
 							{#if task.recurrenceFrequency && !task.completedAt}
@@ -598,12 +625,22 @@
 									type="button"
 									onclick={() => advanceTask(task.id)}
 									disabled={busyId === task.id}
-									class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-purple-100 hover:text-purple-500 pointer-fine:group-hover:opacity-100"
+									class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500"
 									title="Skip this occurrence (rolls to next)"
 									aria-label="Skip to next occurrence"
 								>
-									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+									<svg
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M13 5l7 7-7 7M5 5l7 7-7 7"
+										/>
 									</svg>
 								</button>
 							{/if}
@@ -611,7 +648,7 @@
 								type="button"
 								onclick={() => deleteTask(task.id)}
 								disabled={busyId === task.id}
-								class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 pointer-fine:group-hover:opacity-100"
+								class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500"
 								aria-label="Delete task"
 							>
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -645,7 +682,7 @@
 							type="button"
 							onclick={() => canComplete(task) && toggleTask(task)}
 							disabled={busyId === task.id || !canComplete(task)}
-							class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors enabled:hover:border-primary-500 active:border-primary-500 disabled:cursor-not-allowed disabled:opacity-40"
+							class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors active:border-primary-500 enabled:hover:border-primary-500 disabled:cursor-not-allowed disabled:opacity-40"
 							aria-label="Complete task"
 						>
 							<span class="absolute -inset-2" aria-hidden="true"></span>
@@ -657,7 +694,8 @@
 									{#each task.tags as tag (tag)}
 										<span
 											class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
-										>#{tag}</span>
+											>#{tag}</span
+										>
 									{/each}
 								</div>
 							{/if}
@@ -672,7 +710,10 @@
 							</span>
 						{/if}
 						{#if task.priority && task.priority !== 'normal'}
-							<span class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}" title="Priority: {task.priority}"></span>
+							<span
+								class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}"
+								title="Priority: {task.priority}"
+							></span>
 						{/if}
 						{#if task.userId === currentUserId}
 							{#if task.recurrenceFrequency && !task.completedAt}
@@ -680,12 +721,22 @@
 									type="button"
 									onclick={() => advanceTask(task.id)}
 									disabled={busyId === task.id}
-									class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-purple-100 hover:text-purple-500 pointer-fine:group-hover:opacity-100"
+									class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500"
 									title="Skip this occurrence (rolls to next)"
 									aria-label="Skip to next occurrence"
 								>
-									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+									<svg
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M13 5l7 7-7 7M5 5l7 7-7 7"
+										/>
 									</svg>
 								</button>
 							{/if}
@@ -693,7 +744,7 @@
 								type="button"
 								onclick={() => deleteTask(task.id)}
 								disabled={busyId === task.id}
-								class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 pointer-fine:group-hover:opacity-100"
+								class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500"
 								aria-label="Delete task"
 							>
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -719,7 +770,9 @@
 		</h2>
 		<div class="space-y-1.5">
 			{#each sortedCompletedTasks as task (task.id)}
-				<div class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-slate-50 p-3 active:bg-slate-100">
+				<div
+					class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-slate-50 p-3 active:bg-slate-100"
+				>
 					<button
 						type="button"
 						onclick={() => canComplete(task) && toggleTask(task)}
@@ -747,7 +800,8 @@
 								{#each task.tags as tag (tag)}
 									<span
 										class="rounded-full bg-sky-100/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-600"
-									>#{tag}</span>
+										>#{tag}</span
+									>
 								{/each}
 							</div>
 						{/if}
@@ -758,7 +812,7 @@
 							type="button"
 							onclick={() => deleteTask(task.id)}
 							disabled={busyId === task.id}
-							class="relative shrink-0 rounded-full p-2 text-slate-300 pointer-fine:opacity-0 transition-all hover:bg-red-50 hover:text-red-500 pointer-fine:group-hover:opacity-100"
+							class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500"
 							aria-label="Delete task"
 						>
 							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -33,7 +33,7 @@ export const load: PageServerLoad = async (event) => {
 	const userSettings = await getUserSettings(userId);
 
 	const userCals = await db.select().from(calendars).where(eq(calendars.ownerId, userId));
-	const calendarList: { id: string; name: string; color?: string }[] = userCals.map(c => ({
+	const calendarList: { id: string; name: string; color?: string }[] = userCals.map((c) => ({
 		id: c.id,
 		name: 'Personal Calendar',
 		color: userSettings?.color || undefined
@@ -41,7 +41,10 @@ export const load: PageServerLoad = async (event) => {
 
 	const memberFamilyId = await getUserFamilyId(userId);
 	if (memberFamilyId) {
-		const familyCals = await db.select().from(calendars).where(eq(calendars.familyId, memberFamilyId));
+		const familyCals = await db
+			.select()
+			.from(calendars)
+			.where(eq(calendars.familyId, memberFamilyId));
 		const [family] = await db.select().from(families).where(eq(families.id, memberFamilyId));
 		for (const fc of familyCals) {
 			calendarList.push({ id: fc.id, name: family?.name || 'Family Calendar' });
@@ -59,8 +62,7 @@ export const load: PageServerLoad = async (event) => {
 		tier: null,
 		subscription: null
 	};
-	let planLimits: Awaited<ReturnType<typeof getUserSubscriptionLimits>> =
-		getDefaultLimits();
+	let planLimits: Awaited<ReturnType<typeof getUserSubscriptionLimits>> = getDefaultLimits();
 	let aiUsage: Awaited<ReturnType<typeof getAiUsageThisMonth>> = {
 		used: 0,
 		limit: planLimits.aiEventCreationsPerMonth,
@@ -126,8 +128,7 @@ export const actions: Actions = {
 		const autoParseEventDetails = formData.get('autoParseEventDetails') === 'true';
 		const showDailyVerse = formData.get('showDailyVerse') === 'true';
 		const rawTranslation = (formData.get('verseTranslation') as string) || '';
-		const verseTranslation =
-			rawTranslation in TRANSLATIONS ? rawTranslation : 'esv';
+		const verseTranslation = rawTranslation in TRANSLATIONS ? rawTranslation : 'esv';
 
 		// Checkboxes are show-based; absent checkbox = hidden.
 		const shownModules = DASHBOARD_MODULES.filter(
@@ -216,7 +217,8 @@ export const actions: Actions = {
 		if (!currentUser.email) {
 			return fail(400, {
 				success: false,
-				message: "You're using a guest calendar — add your first email from the Save-your-calendar banner instead.",
+				message:
+					"You're using a guest calendar — add your first email from the Save-your-calendar banner instead.",
 				guestNeedsClaim: true
 			});
 		}
@@ -228,7 +230,10 @@ export const actions: Actions = {
 		}
 
 		if (email === currentUser?.email) {
-			return fail(400, { success: false, message: 'New email must be different from current email' });
+			return fail(400, {
+				success: false,
+				message: 'New email must be different from current email'
+			});
 		}
 
 		try {
@@ -286,10 +291,7 @@ export const actions: Actions = {
 		const currentSessionId = locals.session?.id;
 
 		try {
-			const allSessions = await db
-				.select()
-				.from(sessions)
-				.where(eq(sessions.userId, userId));
+			const allSessions = await db.select().from(sessions).where(eq(sessions.userId, userId));
 
 			for (const session of allSessions) {
 				if (session.id !== currentSessionId) {
@@ -315,9 +317,9 @@ export const actions: Actions = {
 		}
 
 		await lucia.invalidateSession(locals.session!.id);
-		
+
 		await db.delete(sessions).where(eq(sessions.userId, userId));
-		
+
 		const { deleteUser } = await import('$lib/server/db/actions/users');
 		await deleteUser(userId);
 

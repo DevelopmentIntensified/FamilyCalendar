@@ -21,7 +21,12 @@
 	export let currentUserRsvpStatus: string = 'undecided';
 	export let calendars: { id: string; name: string; color?: string }[] = [];
 	export let userSettings: { defaultCalendarId?: string | null } | null = null;
-	export let familyMembers: { userId: string; firstName: string; lastName: string; email: string }[] = [];
+	export let familyMembers: {
+		userId: string;
+		firstName: string;
+		lastName: string;
+		email: string;
+	}[] = [];
 
 	const dispatch = createEventDispatcher();
 
@@ -63,7 +68,9 @@
 				const data = await res.json();
 				if (data.attendance) {
 					attendees = data.attendance.filter((a: any) => a.userId);
-					nonUserAttendants = data.attendance.filter((a: any) => !a.userId && a.name).map((a: any) => a.name);
+					nonUserAttendants = data.attendance
+						.filter((a: any) => !a.userId && a.name)
+						.map((a: any) => a.name);
 				}
 				if (data.userRsvpStatus) {
 					currentUserRsvpStatus = data.userRsvpStatus;
@@ -74,15 +81,16 @@
 		}
 	});
 
-	$: goingList = attendees.filter(a => a.status === 'going');
-	$: maybeList = attendees.filter(a => a.status === 'maybe');
-	$: notGoingList = attendees.filter(a => a.status === 'declined' || a.status === 'not_going');
+	$: goingList = attendees.filter((a) => a.status === 'going');
+	$: maybeList = attendees.filter((a) => a.status === 'maybe');
+	$: notGoingList = attendees.filter((a) => a.status === 'declined' || a.status === 'not_going');
 	// Invited members who haven't answered yet (incl. required invitations).
-	$: undecidedList = attendees.filter(a => a.status === 'undecided');
+	$: undecidedList = attendees.filter((a) => a.status === 'undecided');
 
 	// Get calendar name from prop or event
-	$: calendarName = event.calendar?.name ||
-		(calendars.find(c => c.id === event.calendarId)?.name) ||
+	$: calendarName =
+		event.calendar?.name ||
+		calendars.find((c) => c.id === event.calendarId)?.name ||
 		(event.calendarId ? 'Calendar' : '');
 
 	// Extract start/end times from ISO strings if not available as separate fields
@@ -198,7 +206,9 @@
 			if (response.ok) {
 				const data = await response.json();
 				attendees = data.attendance.filter((a: any) => a.userId);
-				nonUserAttendants = data.attendance.filter((a: any) => !a.userId && a.name).map((a: any) => a.name);
+				nonUserAttendants = data.attendance
+					.filter((a: any) => !a.userId && a.name)
+					.map((a: any) => a.name);
 				currentUserRsvpStatus = data.rsvpStatus || next;
 				dispatch('rsvp', { id: serverId, status: next });
 				await invalidateAll();
@@ -273,7 +283,7 @@
 			});
 			if (res.ok) {
 				const json = await res.json();
-				eventTasks = eventTasks.map(t => (t.id === task.id ? json.task : t));
+				eventTasks = eventTasks.map((t) => (t.id === task.id ? json.task : t));
 			}
 		} finally {
 			taskBusy = false;
@@ -286,7 +296,7 @@
 		try {
 			const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
 			if (res.ok) {
-				eventTasks = eventTasks.filter(t => t.id !== taskId);
+				eventTasks = eventTasks.filter((t) => t.id !== taskId);
 			}
 		} finally {
 			taskBusy = false;
@@ -351,7 +361,7 @@
 	{#if showEditForm}
 		<EventFormModal
 			show={true}
-			event={event}
+			{event}
 			calendarIds={calendars}
 			{userSettings}
 			{familyMembers}
@@ -360,7 +370,9 @@
 			on:delete={(e) => performDelete(e.detail?.scope)}
 		/>
 	{:else}
-		<div class="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden sm:items-center sm:p-4">
+		<div
+			class="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden sm:items-center sm:p-4"
+		>
 			<div
 				class="absolute inset-0 bg-black/40 backdrop-blur-sm"
 				onclick={close}
@@ -369,14 +381,16 @@
 
 			<div
 				class="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl"
-				style="transform: translateY({dragOffset}px); transition: transform {dragTransition ? '150ms ease-out' : '0ms'}; touch-action: pan-y;"
+				style="transform: translateY({dragOffset}px); transition: transform {dragTransition
+					? '150ms ease-out'
+					: '0ms'}; touch-action: pan-y;"
 				role="dialog"
 				aria-modal="true"
 				use:trapFocusAction
 			>
 				<!-- Grab handle (mobile): bottom-sheet affordance + swipe-down-to-close zone -->
 				<div
-					class="flex shrink-0 touch-none cursor-grab justify-center pb-1 pt-2 active:cursor-grabbing sm:hidden"
+					class="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2 active:cursor-grabbing sm:hidden"
 					data-drag-handle
 					ontouchstart={onDragStart}
 					ontouchmove={onDragMove}
@@ -387,25 +401,47 @@
 				</div>
 
 				<!-- Header -->
-				<div class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
-					<div class="flex items-center gap-3 min-w-0 flex-1">
-						<div class="h-3 w-3 rounded-full shrink-0" style="background-color: {event.color || '#94a3b8'}"></div>
+				<div
+					class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4"
+				>
+					<div class="flex min-w-0 flex-1 items-center gap-3">
+						<div
+							class="h-3 w-3 shrink-0 rounded-full"
+							style="background-color: {event.color || '#94a3b8'}"
+						></div>
 						<div class="min-w-0">
-							<h2 class="truncate text-lg font-bold text-slate-900 sm:text-xl" title={event.title}>{event.title}</h2>
+							<h2 class="truncate text-lg font-bold text-slate-900 sm:text-xl" title={event.title}>
+								{event.title}
+							</h2>
 							{#if event.recurrenceFrequency}
-								{@const unit = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' }[event.recurrenceFrequency] || ''}
+								{@const unit =
+									{ daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' }[
+										event.recurrenceFrequency
+									] || ''}
 								<p class="text-xs font-medium text-purple-600">
 									🔁 Repeats
 									{(event.recurrenceInterval ?? 1) > 1
 										? `every ${event.recurrenceInterval} ${unit}s`
-										: unit ? `${unit}ly` : ''}
+										: unit
+											? `${unit}ly`
+											: ''}
 								</p>
 							{/if}
 						</div>
 					</div>
-					<button type="button" onclick={close} class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600" aria-label="Close">
+					<button
+						type="button"
+						onclick={close}
+						class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+						aria-label="Close"
+					>
 						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
 						</svg>
 					</button>
 				</div>
@@ -416,17 +452,35 @@
 					<div class="space-y-4 p-4 sm:p-6">
 						<!-- Date & Time -->
 						{#if eventDate}
-							{@const parsedDate = eventDate instanceof Date ? DateTime.fromJSDate(eventDate) : DateTime.fromISO(String(eventDate))}
+							{@const parsedDate =
+								eventDate instanceof Date
+									? DateTime.fromJSDate(eventDate)
+									: DateTime.fromISO(String(eventDate))}
 							<div class="flex items-start gap-3 text-slate-700">
-								<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 shrink-0">
-									<svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+								<div
+									class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100"
+								>
+									<svg
+										class="h-4 w-4 text-slate-500"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+										/>
 									</svg>
 								</div>
 								<div class="min-w-0 flex-1">
 									<div class="font-medium">{parsedDate.toFormat('EEEE, MMMM d, yyyy')}</div>
 									{#if event.allDay}
-										<span class="inline-block mt-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">All day</span>
+										<span
+											class="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+											>All day</span
+										>
 									{:else if startTime}
 										<div class="mt-1 text-sm text-slate-600">
 											{formatTime(startTime)}
@@ -442,9 +496,21 @@
 						<!-- Calendar -->
 						{#if calendarName}
 							<div class="flex items-center gap-3 text-slate-700">
-								<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 shrink-0">
-									<svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
+								<div
+									class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100"
+								>
+									<svg
+										class="h-4 w-4 text-slate-500"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"
+										/>
 									</svg>
 								</div>
 								<span class="text-sm font-medium text-slate-600">{calendarName}</span>
@@ -454,32 +520,61 @@
 						<!-- Location -->
 						{#if event.location}
 							<div class="flex items-start gap-3 text-slate-700">
-								<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 shrink-0">
-									<svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+								<div
+									class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100"
+								>
+									<svg
+										class="h-4 w-4 text-slate-500"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+										/>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+										/>
 									</svg>
 								</div>
-								<span class="text-sm break-words">{event.location}</span>
+								<span class="break-words text-sm">{event.location}</span>
 							</div>
 						{/if}
 
 						<!-- Reminder -->
 						{#if reminderText}
 							<div class="flex items-start gap-3 text-slate-700">
-								<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 shrink-0">
-									<svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.375-1.375A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+								<div
+									class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100"
+								>
+									<svg
+										class="h-4 w-4 text-slate-500"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 17h5l-1.375-1.375A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+										/>
 									</svg>
 								</div>
-								<span class="text-sm break-words">Reminder: {reminderText}</span>
+								<span class="break-words text-sm">Reminder: {reminderText}</span>
 							</div>
 						{/if}
 
 						<!-- Description -->
 						{#if event.description}
 							<div class="rounded-xl bg-slate-50 p-4">
-								<p class="text-sm text-slate-600 whitespace-pre-wrap">{event.description}</p>
+								<p class="whitespace-pre-wrap text-sm text-slate-600">{event.description}</p>
 							</div>
 						{/if}
 					</div>
@@ -504,36 +599,54 @@
 									onclick={() => handleRsvp(option.status)}
 									disabled={rsvpPending}
 									aria-pressed={active}
-									class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-3 text-sm font-medium transition-all disabled:opacity-60 {
-										option.status === 'going'
+									class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-3 text-sm font-medium transition-all disabled:opacity-60 {option.status ===
+									'going'
+										? active
+											? 'bg-green-600 text-white shadow-md shadow-green-600/30'
+											: 'text-green-700 hover:bg-green-100/70'
+										: option.status === 'maybe'
 											? active
-												? 'bg-green-600 text-white shadow-md shadow-green-600/30'
-												: 'text-green-700 hover:bg-green-100/70'
-											: option.status === 'maybe'
-												? active
-													? 'bg-yellow-500 text-white shadow-md shadow-yellow-500/30'
-													: 'text-yellow-700 hover:bg-yellow-100/70'
-												: active
-													? 'bg-red-600 text-white shadow-md shadow-red-600/30'
-													: 'text-red-700 hover:bg-red-100/70'
-									}"
+												? 'bg-yellow-500 text-white shadow-md shadow-yellow-500/30'
+												: 'text-yellow-700 hover:bg-yellow-100/70'
+											: active
+												? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+												: 'text-red-700 hover:bg-red-100/70'}"
 								>
 									{#if option.status === 'going'}
 										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M5 13l4 4L19 7"
+											/>
 										</svg>
 									{:else if option.status === 'maybe'}
 										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+											/>
 										</svg>
 									{:else}
 										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M6 18L18 6M6 6l12 12"
+											/>
 										</svg>
 									{/if}
 									{option.label}
 									{#if rsvpCounts[option.status] > 0}
-										<span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {active ? 'bg-white/25' : 'bg-slate-200 text-slate-600'}">
+										<span
+											class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {active
+												? 'bg-white/25'
+												: 'bg-slate-200 text-slate-600'}"
+										>
 											{rsvpCounts[option.status]}
 										</span>
 									{/if}
@@ -552,17 +665,26 @@
 								<div class="mb-3">
 									<div class="mb-1.5 flex items-center gap-2">
 										<div class="h-2 w-2 rounded-full bg-green-500"></div>
-										<span class="text-xs font-medium text-green-700">Going ({goingList.length})</span>
+										<span class="text-xs font-medium text-green-700"
+											>Going ({goingList.length})</span
+										>
 									</div>
 									<div class="flex flex-wrap gap-1.5">
 										{#each goingList as rsvp}
-											<div class="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1">
-												<div class="flex h-5 w-5 items-center justify-center rounded-full bg-green-200 text-xs font-medium text-green-800">
+											<div
+												class="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1"
+											>
+												<div
+													class="flex h-5 w-5 items-center justify-center rounded-full bg-green-200 text-xs font-medium text-green-800"
+												>
 													{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
 												</div>
 												<span class="text-xs text-green-700">{rsvp.firstName || rsvp.userId}</span>
 												{#if rsvp.inviteType === 'required'}
-													<span class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800">Req</span>
+													<span
+														class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800"
+														>Req</span
+													>
 												{/if}
 											</div>
 										{/each}
@@ -575,17 +697,26 @@
 								<div class="mb-3">
 									<div class="mb-1.5 flex items-center gap-2">
 										<div class="h-2 w-2 rounded-full bg-yellow-500"></div>
-										<span class="text-xs font-medium text-yellow-700">Maybe ({maybeList.length})</span>
+										<span class="text-xs font-medium text-yellow-700"
+											>Maybe ({maybeList.length})</span
+										>
 									</div>
 									<div class="flex flex-wrap gap-1.5">
 										{#each maybeList as rsvp}
-											<div class="inline-flex items-center gap-1.5 rounded-full bg-yellow-50 px-2.5 py-1">
-												<div class="flex h-5 w-5 items-center justify-center rounded-full bg-yellow-200 text-xs font-medium text-yellow-800">
+											<div
+												class="inline-flex items-center gap-1.5 rounded-full bg-yellow-50 px-2.5 py-1"
+											>
+												<div
+													class="flex h-5 w-5 items-center justify-center rounded-full bg-yellow-200 text-xs font-medium text-yellow-800"
+												>
 													{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
 												</div>
 												<span class="text-xs text-yellow-700">{rsvp.firstName || rsvp.userId}</span>
 												{#if rsvp.inviteType === 'required'}
-													<span class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800">Req</span>
+													<span
+														class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800"
+														>Req</span
+													>
 												{/if}
 											</div>
 										{/each}
@@ -598,17 +729,26 @@
 								<div class="mb-3">
 									<div class="mb-1.5 flex items-center gap-2">
 										<div class="h-2 w-2 rounded-full bg-red-500"></div>
-										<span class="text-xs font-medium text-red-700">Not Going ({notGoingList.length})</span>
+										<span class="text-xs font-medium text-red-700"
+											>Not Going ({notGoingList.length})</span
+										>
 									</div>
 									<div class="flex flex-wrap gap-1.5">
 										{#each notGoingList as rsvp}
-											<div class="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1">
-												<div class="flex h-5 w-5 items-center justify-center rounded-full bg-red-200 text-xs font-medium text-red-800">
+											<div
+												class="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1"
+											>
+												<div
+													class="flex h-5 w-5 items-center justify-center rounded-full bg-red-200 text-xs font-medium text-red-800"
+												>
 													{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
 												</div>
 												<span class="text-xs text-red-700">{rsvp.firstName || rsvp.userId}</span>
 												{#if rsvp.inviteType === 'required'}
-													<span class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800">Req</span>
+													<span
+														class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800"
+														>Req</span
+													>
 												{/if}
 											</div>
 										{/each}
@@ -621,19 +761,32 @@
 								<div class="mb-3">
 									<div class="mb-1.5 flex items-center gap-2">
 										<div class="h-2 w-2 rounded-full bg-slate-400"></div>
-										<span class="text-xs font-medium text-slate-600">Awaiting response ({undecidedList.length})</span>
+										<span class="text-xs font-medium text-slate-600"
+											>Awaiting response ({undecidedList.length})</span
+										>
 									</div>
 									<div class="flex flex-wrap gap-1.5">
 										{#each undecidedList as rsvp}
 											{@const isRequired = rsvp.inviteType === 'required'}
-											<div class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 {isRequired ? 'bg-amber-50 ring-1 ring-inset ring-amber-300' : 'bg-slate-100'}">
-												<div class="flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium {isRequired ? 'bg-amber-200 text-amber-800' : 'bg-slate-200 text-slate-700'}">
+											<div
+												class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 {isRequired
+													? 'bg-amber-50 ring-1 ring-inset ring-amber-300'
+													: 'bg-slate-100'}"
+											>
+												<div
+													class="flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium {isRequired
+														? 'bg-amber-200 text-amber-800'
+														: 'bg-slate-200 text-slate-700'}"
+												>
 													{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
 												</div>
 												<span class="text-xs {isRequired ? 'text-amber-800' : 'text-slate-700'}">
 													{rsvp.firstName || rsvp.userId}
 													{#if isRequired}
-														<span class="ml-1 rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800">Required</span>
+														<span
+															class="ml-1 rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800"
+															>Required</span
+														>
 													{/if}
 												</span>
 											</div>
@@ -647,13 +800,27 @@
 								<div>
 									<div class="mb-1.5 flex items-center gap-2">
 										<div class="h-2 w-2 rounded-full bg-slate-400"></div>
-										<span class="text-xs font-medium text-slate-600">Guests ({nonUserAttendants.length})</span>
+										<span class="text-xs font-medium text-slate-600"
+											>Guests ({nonUserAttendants.length})</span
+										>
 									</div>
 									<div class="flex flex-wrap gap-1.5">
 										{#each nonUserAttendants as att}
-											<span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
-												<svg class="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+											<span
+												class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
+											>
+												<svg
+													class="h-3 w-3 text-slate-400"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+													/>
 												</svg>
 												{att}
 											</span>
@@ -669,7 +836,8 @@
 						<div class="border-t border-slate-100 px-4 py-3 sm:px-6">
 							<div class="mb-1 flex items-center justify-between">
 								<h4 class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-									Checklist{#if eventTasks.length > 0} · {eventTasks.filter(t => t.completedAt).length}/{eventTasks.length}{/if}
+									Checklist{#if eventTasks.length > 0}
+										· {eventTasks.filter((t) => t.completedAt).length}/{eventTasks.length}{/if}
 								</h4>
 								{#if !showTaskInput}
 									<button
@@ -696,12 +864,22 @@
 										>
 											<span class="absolute -inset-2" aria-hidden="true"></span>
 											{#if task.completedAt}
-												<svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+												<svg
+													class="h-2.5 w-2.5"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+													stroke-width="3"
+												>
 													<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 												</svg>
 											{/if}
 										</button>
-										<span class="min-w-0 flex-1 truncate text-sm {task.completedAt ? 'text-slate-400 line-through' : 'text-slate-700'}">
+										<span
+											class="min-w-0 flex-1 truncate text-sm {task.completedAt
+												? 'text-slate-400 line-through'
+												: 'text-slate-700'}"
+										>
 											{task.title}
 										</span>
 										<button
@@ -712,7 +890,12 @@
 											aria-label="Remove task"
 										>
 											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M6 18L18 6M6 6l12 12"
+												/>
 											</svg>
 										</button>
 									</li>
@@ -773,21 +956,23 @@
 							<div class="rounded-xl border border-red-200 bg-red-50 p-4 shadow-xl">
 								<p class="text-sm font-medium text-red-700">Delete this event?</p>
 								{#if eventTasks.length > 0}
-									<p class="mt-1 text-xs text-red-600">⚠️ {eventTasks.length} attached task(s) will also be deleted.</p>
+									<p class="mt-1 text-xs text-red-600">
+										⚠️ {eventTasks.length} attached task(s) will also be deleted.
+									</p>
 								{/if}
 								<div class="mt-3 flex flex-wrap items-center gap-2">
 									{#if event.recurrenceFrequency}
 										<button
 											type="button"
 											onclick={() => performDelete('this')}
-											class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+											class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
 										>
 											This occurrence
 										</button>
 										<button
 											type="button"
 											onclick={() => performDelete('all')}
-											class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+											class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
 										>
 											Whole series
 										</button>
@@ -795,7 +980,7 @@
 										<button
 											type="button"
 											onclick={() => performDelete()}
-											class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+											class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
 										>
 											Delete
 										</button>
@@ -803,7 +988,7 @@
 									<button
 										type="button"
 										onclick={() => (showDeleteConfirm = false)}
-										class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+										class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 									>
 										Cancel
 									</button>
@@ -817,19 +1002,24 @@
 						<div class="absolute inset-x-3 bottom-full z-10 mb-2 sm:inset-x-6">
 							<div class="rounded-xl border border-primary-200 bg-primary-50 p-4 shadow-xl">
 								<p class="text-sm font-medium text-primary-700">Duplicate this event?</p>
-								<p class="mt-1 text-xs text-primary-600">A copy titled "{event.title} (copy)" will be created.</p>
+								<p class="mt-1 text-xs text-primary-600">
+									A copy titled "{event.title} (copy)" will be created.
+								</p>
 								<div class="mt-3 flex flex-wrap items-center gap-2">
 									<button
 										type="button"
-										onclick={() => { showDuplicateConfirm = false; duplicateEvent(); }}
-										class="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
+										onclick={() => {
+											showDuplicateConfirm = false;
+											duplicateEvent();
+										}}
+										class="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700"
 									>
 										{duplicating ? 'Copying...' : 'Duplicate'}
 									</button>
 									<button
 										type="button"
 										onclick={() => (showDuplicateConfirm = false)}
-										class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+										class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 									>
 										Cancel
 									</button>
@@ -844,7 +1034,12 @@
 						aria-label="Delete event"
 					>
 						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+							/>
 						</svg>
 						<span class="hidden sm:inline">Delete</span>
 					</button>
@@ -856,7 +1051,12 @@
 						aria-label="Duplicate event"
 					>
 						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+							/>
 						</svg>
 						<span class="hidden sm:inline">{duplicating ? 'Copying...' : 'Duplicate'}</span>
 					</button>
@@ -867,7 +1067,12 @@
 						aria-label="Edit event"
 					>
 						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+							/>
 						</svg>
 						<span class="hidden sm:inline">Edit Event</span>
 					</button>

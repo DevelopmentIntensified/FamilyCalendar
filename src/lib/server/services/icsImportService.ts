@@ -130,8 +130,7 @@ function parseDurationToMs(dur: string): number | null {
 	const minutes = g(5);
 	const seconds = g(6);
 	return (
-		sign *
-		((weeks * 7 * 24 + days * 24) * 3600000 + (hours * 3600 + minutes * 60 + seconds) * 1000)
+		sign * ((weeks * 7 * 24 + days * 24) * 3600000 + (hours * 3600 + minutes * 60 + seconds) * 1000)
 	);
 }
 
@@ -145,11 +144,7 @@ const FREQ_MAP: Record<string, IcsFrequency> = {
 const WEEKDAYS = new Set(['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']);
 
 function unescapeText(v: string): string {
-	return v
-		.replace(/\\n/gi, '\n')
-		.replace(/\\,/g, ',')
-		.replace(/\\;/g, ';')
-		.replace(/\\\\/g, '\\');
+	return v.replace(/\\n/gi, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
 }
 
 export function parseIcs(raw: string): IcsEventDraft[] {
@@ -261,8 +256,12 @@ function buildDraft(props: Record<string, IcsProp[]>): IcsEventDraft | null {
 		startIso: startParsed.iso,
 		endIso,
 		allDay: startParsed.allDay,
-		location: first('LOCATION')?.value ? unescapeText(first('LOCATION')!.value.trim()) || null : null,
-		description: first('DESCRIPTION')?.value ? unescapeText(first('DESCRIPTION')!.value.trim()) || null : null,
+		location: first('LOCATION')?.value
+			? unescapeText(first('LOCATION')!.value.trim()) || null
+			: null,
+		description: first('DESCRIPTION')?.value
+			? unescapeText(first('DESCRIPTION')!.value.trim()) || null
+			: null,
 		recurrenceFrequency,
 		recurrenceInterval,
 		recurrenceByDay,

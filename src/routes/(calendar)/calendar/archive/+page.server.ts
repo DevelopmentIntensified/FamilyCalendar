@@ -4,7 +4,10 @@ import { db } from '$lib/server/db';
 import { events, calendars } from '$lib/server/db/schema';
 import { eq, and, gte, lte, isNull } from 'drizzle-orm';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
-import { canViewArchive, getUserSubscriptionLimits } from '$lib/server/services/subscriptionService';
+import {
+	canViewArchive,
+	getUserSubscriptionLimits
+} from '$lib/server/services/subscriptionService';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) {
@@ -32,18 +35,19 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.from(calendars)
 		.where(and(eq(calendars.ownerId, userId), isNull(calendars.familyId)));
 
-	const userCalendarEvents = userCalendar.length > 0
-		? await db
-			.select()
-			.from(events)
-			.where(
-				and(
-					eq(events.calendarId, userCalendar[0].id),
-					lte(events.start, cutoffDate.toISOString())
-				)
-			)
-			.orderBy(events.start)
-		: [];
+	const userCalendarEvents =
+		userCalendar.length > 0
+			? await db
+					.select()
+					.from(events)
+					.where(
+						and(
+							eq(events.calendarId, userCalendar[0].id),
+							lte(events.start, cutoffDate.toISOString())
+						)
+					)
+					.orderBy(events.start)
+			: [];
 
 	const memberFamilyId = await getUserFamilyId(userId);
 
@@ -68,7 +72,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}
 	}
 
-	const allEvents = [...userCalendarEvents, ...familyCalendarEvents].map(e => ({
+	const allEvents = [...userCalendarEvents, ...familyCalendarEvents].map((e) => ({
 		...e,
 		start: new Date(e.start as unknown as string),
 		end: new Date(e.end as unknown as string)

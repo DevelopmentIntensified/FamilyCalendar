@@ -1,11 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DateTime } from 'luxon';
-import {
-	getVerseForDate,
-	getTodayVerse,
-	DAILY_VERSES,
-	TRANSLATIONS
-} from './verseService';
+import { getVerseForDate, getTodayVerse, DAILY_VERSES, TRANSLATIONS } from './verseService';
 
 beforeEach(() => {
 	delete process.env.ESV_API_KEY;

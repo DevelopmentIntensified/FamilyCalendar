@@ -215,7 +215,7 @@ describe('NLP Event Parser', () => {
 
 		it('parses hiking trip', () => {
 			const result = parseEventInput(
-				"We are doing a team building hiking trip early tomorrow morning, leaving at 6 AM and returning by 2 PM from the Blue Ridge Trailhead."
+				'We are doing a team building hiking trip early tomorrow morning, leaving at 6 AM and returning by 2 PM from the Blue Ridge Trailhead.'
 			);
 			expect(result.parsed.startTime).toBe('06:00');
 			expect(result.parsed.endTime).toBe('14:00'); // returning by 2 PM
@@ -226,7 +226,7 @@ describe('NLP Event Parser', () => {
 
 		it('parses birthday dinner', () => {
 			const result = parseEventInput(
-				"I plan to organize a surprise birthday dinner for Sarah, kicking off at 6 PM on Saturday at The Olive Garden and wrapping up around 9 PM."
+				'I plan to organize a surprise birthday dinner for Sarah, kicking off at 6 PM on Saturday at The Olive Garden and wrapping up around 9 PM.'
 			);
 			expect(result.parsed.startTime).toBe('18:00');
 			expect(result.parsed.endTime).toBe('21:00');
@@ -251,7 +251,7 @@ describe('NLP Event Parser', () => {
 
 		it('parses workshop', () => {
 			const result = parseEventInput(
-				"We are hosting a workshop on financial literacy, scheduled from 10 AM to 1 PM next Wednesday at the Community Center."
+				'We are hosting a workshop on financial literacy, scheduled from 10 AM to 1 PM next Wednesday at the Community Center.'
 			);
 			expect(result.parsed.startTime).toBe('10:00');
 			expect(result.parsed.endTime).toBe('13:00');
@@ -264,7 +264,7 @@ describe('NLP Event Parser', () => {
 
 		it('parses potluck', () => {
 			const result = parseEventInput(
-				"We are cooking a community potluck dinner this Sunday, starting at 5 PM and continuing until 9 PM at the neighborhood clubhouse."
+				'We are cooking a community potluck dinner this Sunday, starting at 5 PM and continuing until 9 PM at the neighborhood clubhouse.'
 			);
 			expect(result.parsed.startTime).toBe('17:00');
 			expect(result.parsed.endTime).toBe('21:00');
@@ -276,7 +276,7 @@ describe('NLP Event Parser', () => {
 
 		it('calculates endTime from startTime + duration', () => {
 			const result = parseEventInput(
-				"flash mob starting at noon and lasting for about 15 minutes."
+				'flash mob starting at noon and lasting for about 15 minutes.'
 			);
 			expect(result.parsed.startTime).toBe('12:00');
 			expect(result.parsed.endTime).toBe('12:15'); // noon + 15 min
@@ -336,7 +336,7 @@ describe('NLP Event Parser', () => {
 
 		it('parses beach day with sunset', () => {
 			const result = parseEventInput(
-				"Us three friends are hitting the beach this Saturday, arriving at 10 AM and staying until sunset."
+				'Us three friends are hitting the beach this Saturday, arriving at 10 AM and staying until sunset.'
 			);
 			expect(result.parsed.startTime).toBe('10:00');
 			expect(result.parsed.endTime).toBe('20:00');
@@ -347,7 +347,7 @@ describe('NLP Event Parser', () => {
 
 		it('parses game night late', () => {
 			const result = parseEventInput(
-				"You and I and the rest of the group are hosting a game night this Friday, starting at 7 PM and running late into the evening."
+				'You and I and the rest of the group are hosting a game night this Friday, starting at 7 PM and running late into the evening.'
 			);
 			expect(result.parsed.startTime).toBe('19:00');
 			expect(result.parsed.endTime).toBe('23:00');
@@ -448,7 +448,9 @@ describe('NLP Event Parser', () => {
 		});
 
 		it('handles @ symbol for location (title truncation)', () => {
-			const result = parseEventInput('Clients & Friends Appreciation Night @ Mr. Goodies Thursday, April 30, 2026 6:00PM - 8:00PM');
+			const result = parseEventInput(
+				'Clients & Friends Appreciation Night @ Mr. Goodies Thursday, April 30, 2026 6:00PM - 8:00PM'
+			);
 			// Title is first 50 chars: "Clients & Friends Appreciation Night @ Mr. Goodies"
 			expect(result.parsed.title).toBe('Clients & Friends Appreciation Night @ Mr. Goodies');
 			expect(result.parsed.location).toBe('Mr. Goodies');
@@ -478,7 +480,7 @@ describe('NLP Event Parser', () => {
 
 		it('parses "this weekend" as the upcoming Saturday', () => {
 			const result = parseEventInput('camping this weekend');
-			const daysUntilSat = (6 - DateTime.now().weekday % 7 + 7) % 7 || 7;
+			const daysUntilSat = (6 - (DateTime.now().weekday % 7) + 7) % 7 || 7;
 			const expected = DateTime.now().plus({ days: daysUntilSat }).toFormat('MM-dd');
 			expect(result.parsed.date).toContain(expected);
 		});
@@ -610,7 +612,7 @@ describe('Timezone-aware parsing', () => {
 		expect(auckland! >= ny!).toBe(true);
 	});
 
-		it('resolves "this friday" against the zone-provided today', () => {
+	it('resolves "this friday" against the zone-provided today', () => {
 		// "this <weekday>" = the upcoming weekday strictly after now, in the zone.
 		// (Absolute-date fixtures decay as real time rolls on; assert against the zone clock.)
 		const nyNow = DateTime.now().setZone('America/New_York');
@@ -935,9 +937,8 @@ describe('Invite verbs ("invite mom")', () => {
 			const result = parseEventInput(input);
 			for (const n of names) expect(result.parsed.attendants ?? []).toContain(n);
 		});
-}
+	}
 });
-
 
 describe('Parser performance', () => {
 	const CORPUS = [
@@ -982,7 +983,6 @@ describe('Location priority', () => {
 	});
 });
 
-
 describe('Multiple explicit dates ("sept 23 & 30")', () => {
 	it('parses "launch on wednesdays, sept 23 & 30 from 5:30-6:30pm" as two dates', () => {
 		const result = parseEventInput('launch on wednesdays, sept 23 & 30 from 5:30-6:30pm');
@@ -1026,7 +1026,6 @@ describe('Clean titles', () => {
 	});
 });
 
-
 describe('Multi-event segmentation ("dinner Friday and movie Saturday")', () => {
 	it('splits "dinner Friday and movie Saturday" into two dated events', () => {
 		const results = parseEventList('dinner Friday and movie Saturday');
@@ -1058,7 +1057,6 @@ describe('Multi-event segmentation ("dinner Friday and movie Saturday")', () => 
 		expect(parseEventList('standup daily at 9am')).toHaveLength(1);
 	});
 });
-
 
 describe('Typo-tolerant weekdays ("thrusday")', () => {
 	const singles: Array<[string, number]> = [

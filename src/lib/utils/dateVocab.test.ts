@@ -1,9 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import {
-	MONTH_FULL, MONTH_ABBREV_INDEX, MONTH_FULL_INDEX,
-	MONTH_INDEX_0, MONTH_INDEX_1, MONTH_ALT, MONTH_NAME_TOKEN,
-	WEEKDAY_FULL, WEEKDAY_SHORT, DAY_ALT, WEEKDAY_TOKEN,
-	RECURRENCE_UNITS, escapeRegExp
+	MONTH_FULL,
+	MONTH_ABBREV_INDEX,
+	MONTH_FULL_INDEX,
+	MONTH_INDEX_0,
+	MONTH_INDEX_1,
+	MONTH_ALT,
+	MONTH_NAME_TOKEN,
+	WEEKDAY_FULL,
+	WEEKDAY_SHORT,
+	DAY_ALT,
+	WEEKDAY_TOKEN,
+	RECURRENCE_UNITS,
+	escapeRegExp
 } from './dateVocab';
 
 // ---------------------------------------------------------------------------
@@ -19,9 +28,18 @@ describe('dateVocab — month names', () => {
 
 	it('MONTH_FULL_INDEX maps every full name to its 0-based index', () => {
 		const cases: [string, number][] = [
-			['january', 0], ['february', 1], ['march', 2], ['april', 3],
-			['may', 4], ['june', 5], ['july', 6], ['august', 7],
-			['september', 8], ['october', 9], ['november', 10], ['december', 11]
+			['january', 0],
+			['february', 1],
+			['march', 2],
+			['april', 3],
+			['may', 4],
+			['june', 5],
+			['july', 6],
+			['august', 7],
+			['september', 8],
+			['october', 9],
+			['november', 10],
+			['december', 11]
 		];
 		for (const [name, idx] of cases) {
 			expect(MONTH_FULL_INDEX[name]).toBe(idx);
@@ -30,9 +48,19 @@ describe('dateVocab — month names', () => {
 
 	it('MONTH_ABBREV_INDEX maps all abbreviations to 0-based index', () => {
 		const cases: [string, number][] = [
-			['jan', 0], ['feb', 1], ['mar', 2], ['apr', 3],
-			['may', 4], ['jun', 5], ['jul', 6], ['aug', 7],
-			['sep', 8], ['sept', 8], ['oct', 9], ['nov', 10], ['dec', 11]
+			['jan', 0],
+			['feb', 1],
+			['mar', 2],
+			['apr', 3],
+			['may', 4],
+			['jun', 5],
+			['jul', 6],
+			['aug', 7],
+			['sep', 8],
+			['sept', 8],
+			['oct', 9],
+			['nov', 10],
+			['dec', 11]
 		];
 		for (const [abbr, idx] of cases) {
 			expect(MONTH_ABBREV_INDEX[abbr]).toBe(idx);
@@ -88,10 +116,30 @@ describe('dateVocab — month names', () => {
 	it('MONTH_NAME_TOKEN captures group works for all month tokens', () => {
 		const re = new RegExp(`\\b${MONTH_NAME_TOKEN}\\b`, 'i');
 		const tokens = [
-			'jan', 'january', 'feb', 'february', 'mar', 'march',
-			'apr', 'april', 'may', 'jun', 'june', 'jul', 'july',
-			'aug', 'august', 'sep', 'sept', 'september',
-			'oct', 'october', 'nov', 'november', 'dec', 'december'
+			'jan',
+			'january',
+			'feb',
+			'february',
+			'mar',
+			'march',
+			'apr',
+			'april',
+			'may',
+			'jun',
+			'june',
+			'jul',
+			'july',
+			'aug',
+			'august',
+			'sep',
+			'sept',
+			'september',
+			'oct',
+			'october',
+			'nov',
+			'november',
+			'dec',
+			'december'
 		];
 		for (const t of tokens) {
 			const m = re.exec(t);
@@ -191,7 +239,7 @@ describe('dateVocab — escapeRegExp', () => {
 		['(a)', '\\(a\\)'],
 		['[a]', '\\[a\\]'],
 		['a|b', 'a\\|b'],
-		['a\\b', 'a\\\\b'],
+		['a\\b', 'a\\\\b']
 	];
 
 	it.each(cases)('escapeRegExp("%s") → "%s"', (input, expected) => {

@@ -1,6 +1,10 @@
 import type { PageServerLoad, Actions } from './$types';
 import { redirect } from '@sveltejs/kit';
-import { calculateCheckoutPrice, getUserEligibleDiscounts, type PlanType } from '$lib/server/services/checkoutService';
+import {
+	calculateCheckoutPrice,
+	getUserEligibleDiscounts,
+	type PlanType
+} from '$lib/server/services/checkoutService';
 import { getUserSubscription } from '$lib/server/services/subscriptionService';
 
 export const load: PageServerLoad = async (event) => {
@@ -12,9 +16,10 @@ export const load: PageServerLoad = async (event) => {
 
 	const url = event.url;
 	const planTypeParam = url.searchParams.get('plan') as PlanType | null;
-	const planType: PlanType = planTypeParam === 'annual' || planTypeParam === 'lifetime' || planTypeParam === 'monthly'
-		? planTypeParam
-		: 'monthly';
+	const planType: PlanType =
+		planTypeParam === 'annual' || planTypeParam === 'lifetime' || planTypeParam === 'monthly'
+			? planTypeParam
+			: 'monthly';
 
 	const existingSubscription = await getUserSubscription(user.id);
 	const isAlreadySubscribed = !!existingSubscription;

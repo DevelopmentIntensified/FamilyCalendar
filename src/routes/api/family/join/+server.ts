@@ -25,6 +25,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ success: true });
 	} catch (error) {
 		console.error('Error accepting invite:', error);
-		return apiError(new URL(request.url).pathname, 500, 'Failed to accept invite', locals.user?.id ?? null);
+		return apiError(
+			new URL(request.url).pathname,
+			500,
+			'Failed to accept invite',
+			locals.user?.id ?? null
+		);
 	}
 };

@@ -103,8 +103,7 @@ function stubFetchWithStatuses(statuses: number[] | ((url: string) => number)) {
 	const calls: { url: string; init: RequestInit }[] = [];
 	const fn = vi.fn(async (url: string, init: RequestInit) => {
 		calls.push({ url, init });
-		const status =
-			typeof statuses === 'function' ? statuses(url) : (statuses.shift() ?? 200);
+		const status = typeof statuses === 'function' ? statuses(url) : (statuses.shift() ?? 200);
 		return new Response(null, { status });
 	});
 	vi.stubGlobal('fetch', fn);
@@ -263,10 +262,7 @@ describe('replay conflict semantics: 4xx-drop vs 5xx-retry', () => {
 	it('network errors keep the record for a later attempt', async () => {
 		installFakeIndexedDb();
 		await queueMutation('/api/tasks/1', 'PUT', { x: 1 });
-		vi.stubGlobal(
-			'fetch',
-			vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch'))
-		);
+		vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch')));
 
 		await expect(replayPending()).resolves.toEqual({ applied: 0, failed: 1 });
 		await expect(getPendingCount()).resolves.toBe(1);

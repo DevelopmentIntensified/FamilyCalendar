@@ -33,9 +33,16 @@ describe('POST /forgot-password', () => {
 		const { sendEmail } = await import('$lib/utils/sendEmail');
 		const { createJWT } = await import('oslo/jwt');
 
-		vi.mocked(getUserByEmail).mockResolvedValue({ id: 'user-1', email: 'existing@user.com' } as any);
+		vi.mocked(getUserByEmail).mockResolvedValue({
+			id: 'user-1',
+			email: 'existing@user.com'
+		} as any);
 		vi.mocked(createJWT).mockResolvedValue('mock.jwt.token');
-		vi.mocked(sendEmail).mockResolvedValue({ success: true, error: undefined, data: { id: 'email-1' } });
+		vi.mocked(sendEmail).mockResolvedValue({
+			success: true,
+			error: undefined,
+			data: { id: 'email-1' }
+		});
 
 		const response = await POST({
 			request: { json: () => Promise.resolve({ email: 'existing@user.com' }) }
@@ -46,7 +53,10 @@ describe('POST /forgot-password', () => {
 		expect(response.status).toBe(200);
 		expect(body.success).toBe(true);
 		expect(sendEmail).toHaveBeenCalledWith(
-			expect.objectContaining({ to: 'existing@user.com', subject: expect.stringContaining('Reset') })
+			expect.objectContaining({
+				to: 'existing@user.com',
+				subject: expect.stringContaining('Reset')
+			})
 		);
 	});
 

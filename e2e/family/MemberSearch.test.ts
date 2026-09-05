@@ -16,8 +16,14 @@ let searchUserId = '';
 let familyId = '';
 
 test.beforeEach(async () => {
-	await db.delete(sessions).where(eq(sessions.userId, ownerId)).catch(() => {});
-	await db.delete(sessions).where(eq(sessions.userId, searchUserId)).catch(() => {});
+	await db
+		.delete(sessions)
+		.where(eq(sessions.userId, ownerId))
+		.catch(() => {});
+	await db
+		.delete(sessions)
+		.where(eq(sessions.userId, searchUserId))
+		.catch(() => {});
 
 	const existingOwner = await db.select().from(users).where(eq(users.email, ownerEmail));
 	if (existingOwner[0]) {
@@ -38,10 +44,14 @@ test.beforeEach(async () => {
 		await deleteUser(existingSearch[0].id);
 	}
 
-	const owner = await import('$lib/server/utils/createNewUser').then(m => m.createNewUser('Test', 'Owner', ownerEmail));
+	const owner = await import('$lib/server/utils/createNewUser').then((m) =>
+		m.createNewUser('Test', 'Owner', ownerEmail)
+	);
 	ownerId = owner.id;
 
-	const searchUser = await import('$lib/server/utils/createNewUser').then(m => m.createNewUser('Search', 'User', searchUserEmail));
+	const searchUser = await import('$lib/server/utils/createNewUser').then((m) =>
+		m.createNewUser('Search', 'User', searchUserEmail)
+	);
 	searchUserId = searchUser.id;
 
 	const family = await createFamily({ name: 'Test Family', color: '#3b82f6' });
@@ -76,15 +86,17 @@ test.afterEach(async () => {
 test('Member search and selection', async ({ page }) => {
 	await test.step('Setup session', async () => {
 		const cookie = await getSessionCookie(ownerEmail);
-		await page.context().addCookies([{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}]);
+		await page.context().addCookies([
+			{
+				name: cookie.name,
+				value: cookie.value,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: cookie.attributes.httpOnly,
+				secure: cookie.attributes.secure,
+				sameSite: 'Lax'
+			}
+		]);
 	});
 
 	await test.step('Navigate to add member page', async () => {
@@ -98,7 +110,9 @@ test('Member search and selection', async ({ page }) => {
 	});
 
 	await test.step('Verify search results appear', async () => {
-		await expect(page.locator(`ul >> text=${searchUserEmail}`).first()).toBeVisible({ timeout: 10000 });
+		await expect(page.locator(`ul >> text=${searchUserEmail}`).first()).toBeVisible({
+			timeout: 10000
+		});
 	});
 
 	await test.step('Select user', async () => {
@@ -121,7 +135,10 @@ test('Member search and selection', async ({ page }) => {
 	});
 
 	await test.step('Verify user added', async () => {
-		const member = await db.select().from(familyMembers).where(eq(familyMembers.userId, searchUserId));
+		const member = await db
+			.select()
+			.from(familyMembers)
+			.where(eq(familyMembers.userId, searchUserId));
 		expect(member.length).toBe(1);
 	});
 });

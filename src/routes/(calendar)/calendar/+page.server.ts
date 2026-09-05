@@ -3,12 +3,7 @@ import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import {
-	calendars,
-	events,
-	families,
-	type CalendarEvent
-} from '$lib/server/db/schema';
+import { calendars, events, families, type CalendarEvent } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
@@ -61,8 +56,7 @@ export const load: PageServerLoad = async (event) => {
 	// dashboard's "Back to Calendar" link uses to show the calendar itself.
 	// Deep-link params (?view=, ?date=) also bypass the redirect so users can
 	// link directly to month/week/day views.
-	const hasViewParams =
-		event.url.searchParams.has('view') || event.url.searchParams.has('date');
+	const hasViewParams = event.url.searchParams.has('view') || event.url.searchParams.has('date');
 	if (
 		userSettings?.defaultView === 'dashboard' &&
 		!event.url.searchParams.has('dashboardView') &&
@@ -221,7 +215,7 @@ export const load: PageServerLoad = async (event) => {
 	return {
 		userEvents: eventsG.data.user.map((e) => ({ ...e, color: userCalendarColor })),
 		familyEvents: eventsG.data.family.map((e) => ({ ...e, color: familyCalendarColor })),
-		adEvents: parseEvents(adEventsData).map(e => ({ ...e, color: '#f59e0b' })),
+		adEvents: parseEvents(adEventsData).map((e) => ({ ...e, color: '#f59e0b' })),
 		dueTasks,
 		userSettings,
 		userCalendarColor,

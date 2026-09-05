@@ -67,7 +67,9 @@
 <svelte:window on:keydown={(e) => open && e.key === 'Escape' && close()} />
 
 {#if open}
-	<div class="fixed inset-0 z-50 flex items-end justify-center overflow-hidden sm:items-center sm:p-4">
+	<div
+		class="fixed inset-0 z-50 flex items-end justify-center overflow-hidden sm:items-center sm:p-4"
+	>
 		<div
 			class="absolute inset-0 bg-black/40 backdrop-blur-sm"
 			onclick={close}
@@ -76,14 +78,16 @@
 
 		<div
 			class="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl"
-			style="transform: translateY({dragOffset}px); transition: transform {dragTransition ? '150ms ease-out' : '0ms'}; touch-action: pan-y;"
+			style="transform: translateY({dragOffset}px); transition: transform {dragTransition
+				? '150ms ease-out'
+				: '0ms'}; touch-action: pan-y;"
 			role="dialog"
 			aria-modal="true"
 			aria-label="Day actions"
 		>
 			<!-- Grab handle (mobile): bottom-sheet affordance + swipe-down-to-close zone -->
 			<div
-				class="flex shrink-0 touch-none cursor-grab justify-center pb-1 pt-2 active:cursor-grabbing sm:hidden"
+				class="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2 active:cursor-grabbing sm:hidden"
 				data-drag-handle
 				ontouchstart={onDragStart}
 				ontouchmove={onDragMove}
@@ -94,7 +98,9 @@
 			</div>
 
 			<!-- Header -->
-			<div class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-6">
+			<div
+				class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-6"
+			>
 				<h2 class="text-lg font-bold text-slate-900 sm:text-xl">{date.toFormat('EEEE, MMMM d')}</h2>
 				<button
 					type="button"
@@ -103,40 +109,65 @@
 					aria-label="Close"
 				>
 					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
 					</svg>
 				</button>
 			</div>
 
 			<!-- Events list -->
 			{#if events.length > 0}
-				<div class="max-h-[30dvh] shrink-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 border-b border-slate-100">
+				<div
+					class="max-h-[30dvh] shrink-0 divide-y divide-slate-100 overflow-y-auto overscroll-contain border-b border-slate-100"
+				>
 					{#each events as event (event.id)}
 						{@const rv = rsvpVisual(event.rsvpStatus)}
 						<button
 							type="button"
-							onclick={() => { close(); onEventClick(event); }}
+							onclick={() => {
+								close();
+								onEventClick(event);
+							}}
 							class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 active:bg-slate-100 sm:px-6"
 						>
-							<span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background-color: {event.color || '#94a3b8'}"></span>
+							<span
+								class="h-2.5 w-2.5 shrink-0 rounded-full"
+								style="background-color: {event.color || '#94a3b8'}"
+							></span>
 							<div class="min-w-0 flex-1">
 								<div class="flex items-center gap-2">
 									<span class="truncate text-sm font-medium text-slate-800">{event.title}</span>
 									{#if rv}
-										<span class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold {rv.badgeClass}">{rv.icon} {rv.label}</span>
+										<span
+											class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold {rv.badgeClass}"
+											>{rv.icon} {rv.label}</span
+										>
 									{/if}
 								</div>
 								{#if !event.allDay}
 									{@const st = event.startTime || (event.start ? formatEventTime(event.start) : '')}
 									{@const et = event.endTime || (event.end ? formatEventTime(event.end) : '')}
 									{#if st}
-										<span class="text-xs text-slate-500">{st}{#if et} – {et}{/if}</span>
+										<span class="text-xs text-slate-500"
+											>{st}{#if et}
+												– {et}{/if}</span
+										>
 									{/if}
 								{:else}
 									<span class="text-xs text-slate-500">All day</span>
 								{/if}
 							</div>
-							<svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<svg
+								class="h-4 w-4 shrink-0 text-slate-300"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
 								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
 							</svg>
 						</button>
@@ -151,8 +182,16 @@
 					onclick={add}
 					class="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 				>
-					<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700">
-						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<span
+						class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700"
+					>
+						<svg
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
 							<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
 						</svg>
 					</span>
@@ -163,9 +202,21 @@
 					href="/calendar/dashboard?date={date.toISODate()}"
 					class="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 				>
-					<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />
+					<span
+						class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600"
+					>
+						<svg
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="1.5"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"
+							/>
 						</svg>
 					</span>
 					Open Day Dashboard
@@ -176,9 +227,21 @@
 					onclick={viewEvents}
 					class="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 				>
-					<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+					<span
+						class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600"
+					>
+						<svg
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="1.5"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+							/>
 						</svg>
 					</span>
 					View this day's events
@@ -189,9 +252,21 @@
 					onclick={openDay}
 					class="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 				>
-					<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+					<span
+						class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600"
+					>
+						<svg
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="1.5"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+							/>
 						</svg>
 					</span>
 					Open Day View

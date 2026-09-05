@@ -163,7 +163,7 @@
 		</svg>
 		{#if unreadCount > 0}
 			<span
-				class="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white"
+				class="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white"
 			>
 				{unreadCount > 99 ? '99+' : unreadCount}
 			</span>
@@ -194,59 +194,65 @@
 							>
 								<span class="text-base leading-5">{typeIcons[notification.type] ?? '🔔'}</span>
 								<span class="min-w-0 flex-1">
-									<span class="block truncate text-sm {notification.readAt ? 'text-slate-600' : 'font-bold text-slate-900'}">
+									<span
+										class="block truncate text-sm {notification.readAt
+											? 'text-slate-600'
+											: 'font-bold text-slate-900'}"
+									>
 										{notification.message}
 									</span>
-									<span class="block text-xs text-slate-400">{relativeTime(notification.createdAt)}</span>
+									<span class="block text-xs text-slate-400"
+										>{relativeTime(notification.createdAt)}</span
+									>
 								</span>
 							</button>
 						</li>
 					{/each}
 				</ul>
 			{/if}
-		{#if unreadCount > 0}
-			<div class="border-t border-slate-100 mt-2 pt-2">
-				<button
-					on:click={markAllRead}
-					class="w-full px-4 py-2 text-left text-sm font-medium text-primary-600 hover:bg-primary-50"
-				>
-					Mark all read
-				</button>
-			</div>
-		{/if}
-		{#if pushState && (pushState === 'denied' || (pushState !== 'unsupported' && pushServerReady))}
-			<div class="border-t border-slate-100 mt-2 pt-2 text-sm">
-				{#if pushState === 'unsubscribed'}
+			{#if unreadCount > 0}
+				<div class="mt-2 border-t border-slate-100 pt-2">
 					<button
-						on:click={enablePush}
-						disabled={pushBusy}
-						class="w-full px-4 py-2 text-left text-sm font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50"
+						on:click={markAllRead}
+						class="w-full px-4 py-2 text-left text-sm font-medium text-primary-600 hover:bg-primary-50"
 					>
-						{pushBusy ? 'Enabling…' : 'Enable push notifications'}
+						Mark all read
 					</button>
-					{#if pushFeedback === 'success'}
-						<p class="px-4 pt-1 pb-1.5 text-xs text-green-600">Push notifications enabled.</p>
-					{:else if pushFeedback === 'error'}
-						<p class="px-4 pt-1 pb-1.5 text-xs text-red-500">{pushFeedbackText}</p>
-					{/if}
-				{:else if pushState === 'subscribed'}
-					<div class="flex items-center justify-between px-4 py-2">
-						<span class="text-slate-500">
-							<span class="text-green-600" aria-hidden="true">✓</span> Push notifications on
-						</span>
+				</div>
+			{/if}
+			{#if pushState && (pushState === 'denied' || (pushState !== 'unsupported' && pushServerReady))}
+				<div class="mt-2 border-t border-slate-100 pt-2 text-sm">
+					{#if pushState === 'unsubscribed'}
 						<button
-							on:click={disablePush}
+							on:click={enablePush}
 							disabled={pushBusy}
-							class="text-xs text-slate-400 hover:text-slate-600 disabled:opacity-50"
+							class="w-full px-4 py-2 text-left text-sm font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50"
 						>
-							Turn off
+							{pushBusy ? 'Enabling…' : 'Enable push notifications'}
 						</button>
-					</div>
-				{:else if pushState === 'denied'}
-					<p class="px-4 py-2 text-slate-400">Notifications blocked in browser settings.</p>
-				{/if}
-			</div>
-		{/if}
+						{#if pushFeedback === 'success'}
+							<p class="px-4 pb-1.5 pt-1 text-xs text-green-600">Push notifications enabled.</p>
+						{:else if pushFeedback === 'error'}
+							<p class="px-4 pb-1.5 pt-1 text-xs text-red-500">{pushFeedbackText}</p>
+						{/if}
+					{:else if pushState === 'subscribed'}
+						<div class="flex items-center justify-between px-4 py-2">
+							<span class="text-slate-500">
+								<span class="text-green-600" aria-hidden="true">✓</span> Push notifications on
+							</span>
+							<button
+								on:click={disablePush}
+								disabled={pushBusy}
+								class="text-xs text-slate-400 hover:text-slate-600 disabled:opacity-50"
+							>
+								Turn off
+							</button>
+						</div>
+					{:else if pushState === 'denied'}
+						<p class="px-4 py-2 text-slate-400">Notifications blocked in browser settings.</p>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>

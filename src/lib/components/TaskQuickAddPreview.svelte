@@ -9,7 +9,11 @@
 	};
 
 	/** Live-parsed quick-add result for the title being typed (null when empty). */
-	let { parsed, memberName, formatDue }: {
+	let {
+		parsed,
+		memberName,
+		formatDue
+	}: {
 		parsed: TaskQuickAddResult | null;
 		/** Resolve a roster userId to a display name ("Sam Rivera"). */
 		memberName: (userId: string) => string;
@@ -43,7 +47,9 @@
 		{/if}
 		{#if parsed.priority !== 'normal'}
 			<span
-				class="rounded-full px-2 py-0.5 {parsed.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-sky-100 text-sky-700'}"
+				class="rounded-full px-2 py-0.5 {parsed.priority === 'high'
+					? 'bg-red-100 text-red-700'
+					: 'bg-sky-100 text-sky-700'}"
 			>
 				{parsed.priority === 'high' ? 'high priority' : 'low priority'}
 			</span>

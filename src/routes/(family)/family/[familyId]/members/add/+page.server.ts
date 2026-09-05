@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 
 export const load: PageServerLoad = async (event) => {
 	const familyId = event.params.familyId;
-	
+
 	let familyName = 'Family';
 	try {
 		const family = await db.select().from(families).where(eq(families.id, familyId)).limit(1);

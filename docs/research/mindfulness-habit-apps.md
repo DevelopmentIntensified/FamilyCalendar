@@ -40,9 +40,11 @@
 ## Mini-PRDs
 
 ### A — Schedule-aware forgiving streaks (effort M)
+
 Per-person streak anchored to assigned occurrences of Recurring Events. Only scheduled days count; tiered daily credit (any occurrence = Core keeps streak, all = Gold bonus); Streak Freeze starts at 2, earned per 7/30-day milestone, consumed before a break; soft break copy preserving best streak. Converts the recurring-events + stats layer into a retention engine.
 
 ### B — Cooperative family weekly meter + nudges (effort M–L)
+
 One shared weekly progress bar filled by any member's completions and RSVPs; threshold celebrations optionally tied to a custom family reward ("pizza night"). Pre-framed friendly nudges, rate-limited, positive-only templates — no leaderboards. Cooperative-by-default is the mechanic single-player competitors structurally can't copy.
 
 **Cross-cutting rule from research:** every app that sustained engagement paired a loss-aversion mechanic with a relief valve (freeze, recovery, tiered credit, opt-out). Ship streaks and their relief valves in the same release, never streaks alone.

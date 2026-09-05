@@ -94,13 +94,17 @@
 	</h2>
 
 	{#if tasks.length === 0}
-		<p class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400">
+		<p
+			class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400"
+		>
 			Nothing on the plate right now
 		</p>
 	{:else}
 		<ol class="space-y-2">
 			{#each tasks as task, i (task.id)}
-				<li class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-3">
+				<li
+					class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-3"
+				>
 					<span class="w-4 shrink-0 select-none text-center text-xs font-bold text-slate-300">
 						{i + 1}
 					</span>
@@ -111,7 +115,8 @@
 						class="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors enabled:hover:border-primary-500 disabled:opacity-40"
 						title="Mark done"
 						aria-label="Mark done: {task.title}"
-					><span class="absolute -inset-2" aria-hidden="true"></span></button>
+						><span class="absolute -inset-2" aria-hidden="true"></span></button
+					>
 					<div class="min-w-0 flex-1">
 						<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
 						<p class="text-[11px] text-slate-400">{memberName(task)}</p>
@@ -131,7 +136,8 @@
 								type="button"
 								onclick={() => setPriority(task.id, p)}
 								disabled={busy === task.id || task.priority === p}
-								class="rounded-md px-2 py-1 text-[11px] font-semibold transition-colors {task.priority === p
+								class="rounded-md px-2 py-1 text-[11px] font-semibold transition-colors {task.priority ===
+								p
 									? priorityTone(p)
 									: 'text-slate-300 hover:bg-slate-100 hover:text-slate-500'}"
 								aria-label="Set priority {PRIORITY_LABEL[p]}"

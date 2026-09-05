@@ -5,7 +5,11 @@ import { eq } from 'drizzle-orm';
 import { createNewUser } from '../../src/lib/server/utils/createNewUser';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
-import { createCode, deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
+import {
+	createCode,
+	deleteCodesByEmail,
+	getCodesByEmail
+} from '../../src/lib/server/db/actions/codes';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { lucia } from '$lib/server/auth';
 
@@ -20,15 +24,17 @@ async function loginWithSession(page: any, userEmail: string) {
 	if (!user[0]) throw new Error('User not found');
 	const session = await lucia.createSession(user[0].id, {});
 	const cookie = lucia.createSessionCookie(session.id);
-	await page.context().addCookies([{
-		name: cookie.name,
-		value: cookie.value,
-		domain: 'localhost',
-		path: '/',
-		httpOnly: cookie.attributes.httpOnly,
-		secure: cookie.attributes.secure,
-		sameSite: 'Lax'
-	}]);
+	await page.context().addCookies([
+		{
+			name: cookie.name,
+			value: cookie.value,
+			domain: 'localhost',
+			path: '/',
+			httpOnly: cookie.attributes.httpOnly,
+			secure: cookie.attributes.secure,
+			sameSite: 'Lax'
+		}
+	]);
 }
 
 test.beforeEach(async () => {

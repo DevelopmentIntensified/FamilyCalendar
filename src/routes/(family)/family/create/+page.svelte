@@ -38,23 +38,27 @@
 
 <div class="min-h-screen bg-slate-50 px-4 py-8">
 	<div class="mx-auto max-w-lg">
-		<Breadcrumbs crumbs={[
-			{ label: 'Calendar', href: '/calendar' },
-			{ label: 'Family', href: '/family' },
-			{ label: 'Create' }
-		]} />
+		<Breadcrumbs
+			crumbs={[
+				{ label: 'Calendar', href: '/calendar' },
+				{ label: 'Family', href: '/family' },
+				{ label: 'Create' }
+			]}
+		/>
 
 		<div class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 			<div class="mb-6">
 				<h1 class="text-2xl font-bold text-slate-900">Create a Family</h1>
-				<p class="mt-1 text-sm text-slate-500">Start a new family group to share calendars and events</p>
+				<p class="mt-1 text-sm text-slate-500">
+					Start a new family group to share calendars and events
+				</p>
 			</div>
 
 			{#if limitReached}
-				<div class="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-4">
+				<div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
 					<p class="text-sm text-amber-800">
-						You've reached your family limit ({data.familyLimit || 1} family).
-						Upgrade to Family Master to create unlimited families.
+						You've reached your family limit ({data.familyLimit || 1} family). Upgrade to Family Master
+						to create unlimited families.
 					</p>
 					<a
 						href="/pricing"
@@ -86,15 +90,15 @@
 			>
 				<div class="space-y-2">
 					<label for="name" class="block text-sm font-medium text-slate-700">Family Name</label>
-				<input
-					type="text"
-					id="name"
-					name="name"
-					value={form?.name || ''}
-					placeholder="The Smiths"
-					maxlength="50"
-					class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-				/>
+					<input
+						type="text"
+						id="name"
+						name="name"
+						value={form?.name || ''}
+						placeholder="The Smiths"
+						maxlength="50"
+						class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+					/>
 					<p class="text-xs text-slate-500">Choose a name for your family (max 50 characters)</p>
 				</div>
 
@@ -106,14 +110,24 @@
 						{#each colors as color}
 							<button
 								type="button"
-								onclick={() => selectedColor = color.value}
+								onclick={() => (selectedColor = color.value)}
 								class="group relative h-11 w-11 rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
 								style="background-color: {color.value}"
 								title={color.name}
 							>
 								{#if selectedColor === color.value}
-									<svg class="absolute inset-0 m-auto h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+									<svg
+										class="absolute inset-0 m-auto h-5 w-5 text-white"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="3"
+											d="M5 13l4 4L19 7"
+										/>
 									</svg>
 								{/if}
 							</button>
@@ -123,10 +137,7 @@
 					<input type="hidden" name="color" value={selectedColor} />
 
 					<div class="mt-3 flex items-center gap-3">
-						<div
-							class="h-10 w-10 rounded-full"
-							style="background-color: {selectedColor}"
-						></div>
+						<div class="h-10 w-10 rounded-full" style="background-color: {selectedColor}"></div>
 						<span class="text-sm text-slate-600">Selected color</span>
 					</div>
 				</div>

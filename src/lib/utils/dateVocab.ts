@@ -14,14 +14,35 @@
 
 /** Full month names, 0-indexed (January = 0). */
 export const MONTH_FULL: readonly string[] = [
-	'january', 'february', 'march', 'april', 'may', 'june',
-	'july', 'august', 'september', 'october', 'november', 'december'
+	'january',
+	'february',
+	'march',
+	'april',
+	'may',
+	'june',
+	'july',
+	'august',
+	'september',
+	'october',
+	'november',
+	'december'
 ];
 
 /** Month abbreviation → 0-based index. */
 export const MONTH_ABBREV_INDEX: Record<string, number> = {
-	jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-	jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11
+	jan: 0,
+	feb: 1,
+	mar: 2,
+	apr: 3,
+	may: 4,
+	jun: 5,
+	jul: 6,
+	aug: 7,
+	sep: 8,
+	sept: 8,
+	oct: 9,
+	nov: 10,
+	dec: 11
 };
 
 /** Month full name → 0-based index. */
@@ -60,12 +81,27 @@ export const MONTH_NAME_TOKEN =
 
 /** Full weekday names, Sunday = 0 (matches JS Date.getDay()). */
 export const WEEKDAY_FULL: readonly string[] = [
-	'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
+	'sunday',
+	'monday',
+	'tuesday',
+	'wednesday',
+	'thursday',
+	'friday',
+	'saturday'
 ];
 
 /** Short weekday tokens (used by taskQuickAdd for bare-weekday matching). */
 export const WEEKDAY_SHORT: readonly string[] = [
-	'sun', 'mon', 'tue', 'tues', 'wed', 'thu', 'thur', 'thurs', 'fri', 'sat'
+	'sun',
+	'mon',
+	'tue',
+	'tues',
+	'wed',
+	'thu',
+	'thur',
+	'thurs',
+	'fri',
+	'sat'
 ];
 
 /** Regex-safe alternation of full weekday names (dateParsing DAY_ALT). */

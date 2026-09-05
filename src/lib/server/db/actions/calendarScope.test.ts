@@ -114,11 +114,7 @@ describe('canTouchEvent', () => {
 
 	it('allows the owner regardless of calendar membership', async () => {
 		// select #1 = event (owned), #2 = familyMembers (no family), #3 = calendars
-		state.queue = [
-			[{ ownerId: 'user-1', calendarId: 'c-personal' }],
-			[],
-			[{ id: 'c-other' }]
-		];
+		state.queue = [[{ ownerId: 'user-1', calendarId: 'c-personal' }], [], [{ id: 'c-other' }]];
 		expect(await canTouchEvent('user-1', 'event-1')).toBe('allowed');
 	});
 
@@ -136,11 +132,7 @@ describe('canTouchEvent', () => {
 	it('forbids access when the event is neither owned nor on an accessible calendar', async () => {
 		// select #1 = event (someone else's, on an inaccessible cal), #2 = familyMembers,
 		// #3 = calendars (only the user's own)
-		state.queue = [
-			[{ ownerId: 'user-2', calendarId: 'c-other' }],
-			[],
-			[{ id: 'c-personal' }]
-		];
+		state.queue = [[{ ownerId: 'user-2', calendarId: 'c-other' }], [], [{ id: 'c-personal' }]];
 		expect(await canTouchEvent('user-1', 'event-1')).toBe('forbidden');
 	});
 

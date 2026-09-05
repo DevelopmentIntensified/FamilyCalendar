@@ -16,7 +16,7 @@ function escapeHtml(value: string): string {
 export const actions: Actions = {
 	default: async ({ request }) => {
 		const formData = await request.formData();
-		
+
 		const website = formData.get('website') as string;
 		if (website) {
 			return json({ error: 'Invalid submission' }, { status: 400 });
@@ -53,7 +53,11 @@ export const actions: Actions = {
 		});
 
 		if (!result.success) {
-			return apiError(new URL(request.url).pathname, 500, 'Failed to send message. Please try again later.');
+			return apiError(
+				new URL(request.url).pathname,
+				500,
+				'Failed to send message. Please try again later.'
+			);
 		}
 
 		return json({ success: true });

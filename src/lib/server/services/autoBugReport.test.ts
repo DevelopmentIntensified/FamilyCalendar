@@ -1,9 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { buildAutoBugReport, shouldFileAutoReport, __resetAutoReportThrottle } from './autoBugReport';
+import {
+	buildAutoBugReport,
+	shouldFileAutoReport,
+	__resetAutoReportThrottle
+} from './autoBugReport';
 
 describe('buildAutoBugReport', () => {
 	it('returns null for 404s', () => {
-		expect(buildAutoBugReport({ status: 404, message: 'Not found', path: '/nope', userId: 'u1' })).toBeNull();
+		expect(
+			buildAutoBugReport({ status: 404, message: 'Not found', path: '/nope', userId: 'u1' })
+		).toBeNull();
 	});
 
 	it('maps dashboard paths to the dashboard area', () => {
@@ -31,11 +37,18 @@ describe('buildAutoBugReport', () => {
 	});
 
 	it('returns null for empty messages', () => {
-		expect(buildAutoBugReport({ status: 500, message: '  ', path: '/calendar', userId: null })).toBeNull();
+		expect(
+			buildAutoBugReport({ status: 500, message: '  ', path: '/calendar', userId: null })
+		).toBeNull();
 	});
 
 	it('truncates long messages with a clear prefix', () => {
-		const report = buildAutoBugReport({ status: 500, message: 'x'.repeat(6000), path: '/', userId: null });
+		const report = buildAutoBugReport({
+			status: 500,
+			message: 'x'.repeat(6000),
+			path: '/',
+			userId: null
+		});
 		expect(report!.description.startsWith('[auto-filed 500]')).toBe(true);
 		expect(report!.description.length).toBeLessThanOrEqual(5000);
 	});

@@ -61,6 +61,7 @@ Fix all e2e tests in the Family Calendar app to pass without requiring actual em
 Resend test addresses format: `delivered+label@resend.dev`
 
 Tests that verify actual email sending work:
+
 - `e2e/login/EmailLoginWithCode.test.ts` - uses `delivered+logincode1@resend.dev`
 - `e2e/login/EmailLoginWithLink.test.ts` - uses `delivered+loginlink1@resend.dev`
 

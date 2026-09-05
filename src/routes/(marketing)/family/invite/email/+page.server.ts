@@ -27,7 +27,12 @@ export const load: PageServerLoad = async ({ url }) => {
 		throw redirect(302, '/login?error=invalid_token');
 	}
 
-	const payload = parsed.payload as { email: string; firstName: string; lastName: string; familyId: string };
+	const payload = parsed.payload as {
+		email: string;
+		firstName: string;
+		lastName: string;
+		familyId: string;
+	};
 	if (!payload.email || !payload.firstName || !payload.lastName || !payload.familyId) {
 		throw redirect(302, '/login?error=invalid_token');
 	}
@@ -46,12 +51,21 @@ async function validateToken(token: string) {
 	await validateJWT('HS256', secret, token);
 	const parsed = parseJWT(token);
 	if (!parsed?.payload) throw new Error('Invalid token');
-	const payload = parsed.payload as { email: string; firstName: string; lastName: string; familyId: string };
-	if (!payload.email || !payload.firstName || !payload.lastName || !payload.familyId) throw new Error('Invalid token');
+	const payload = parsed.payload as {
+		email: string;
+		firstName: string;
+		lastName: string;
+		familyId: string;
+	};
+	if (!payload.email || !payload.firstName || !payload.lastName || !payload.familyId)
+		throw new Error('Invalid token');
 	return payload;
 }
 
-async function setSessionCookie(event: { cookies: import('@sveltejs/kit').Cookies }, userId: string) {
+async function setSessionCookie(
+	event: { cookies: import('@sveltejs/kit').Cookies },
+	userId: string
+) {
 	const session = await lucia.createSession(userId, {});
 	const sessionCookie = lucia.createSessionCookie(session.id);
 	event.cookies.set(sessionCookie.name, sessionCookie.value, {
@@ -62,7 +76,11 @@ async function setSessionCookie(event: { cookies: import('@sveltejs/kit').Cookie
 	});
 }
 
-async function createAccountAndJoin(event: import('./$types').RequestEvent, payload: { email: string; firstName: string; lastName: string; familyId: string }, passwordHash?: string) {
+async function createAccountAndJoin(
+	event: import('./$types').RequestEvent,
+	payload: { email: string; firstName: string; lastName: string; familyId: string },
+	passwordHash?: string
+) {
 	const { email, firstName, lastName, familyId } = payload;
 	const existingAccount = await getAccount(email);
 	if (existingAccount) {

@@ -12,9 +12,16 @@
 <div class="flex min-h-screen items-center justify-center bg-slate-50 px-4">
 	<div class="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
 		<div class="mb-6 text-center">
-			<div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-100">
+			<div
+				class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-100"
+			>
 				<svg class="h-8 w-8 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+					/>
 				</svg>
 			</div>
 			<h1 class="mb-2 text-2xl font-bold text-slate-900">Create Your Password</h1>
@@ -55,7 +62,9 @@
 			</div>
 
 			<div>
-				<label for="passwordConfirm" class="mb-2 block text-sm font-medium text-slate-700">Confirm Password</label>
+				<label for="passwordConfirm" class="mb-2 block text-sm font-medium text-slate-700"
+					>Confirm Password</label
+				>
 				<input
 					type="password"
 					id="passwordConfirm"

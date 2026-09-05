@@ -52,7 +52,9 @@ export function normalizeEventRecurrence(input: EventRecurrenceInput): EventRecu
 		recurrenceByDay: sanitizeRecurrenceByDay(input.recurrenceByDay),
 		recurrenceCount: sanitizeRecurrenceCount(input.recurrenceCount),
 		recurrenceUntil:
-			typeof input.recurrenceUntil === 'string' && input.recurrenceUntil ? input.recurrenceUntil : null
+			typeof input.recurrenceUntil === 'string' && input.recurrenceUntil
+				? input.recurrenceUntil
+				: null
 	};
 }
 

@@ -12,28 +12,29 @@ independent and can be done (and committed) separately.
 
 ## 1. Event access scope — one deep "can this user touch this Event" seam
 
-**Friction (confirmed):** the authz rule *"a user may read/write an Event if they own it
-or its Calendar is in their accessible set"* is implemented in 4 places:
+**Friction (confirmed):** the authz rule _"a user may read/write an Event if they own it
+or its Calendar is in their accessible set"_ is implemented in 4 places:
 
-| Location | Mechanism | Notes |
-|---|---|---|
-| `src/lib/server/utils/calendarScope.ts:10` `getAccessibleCalendarIds` | SQL query | doc-comment says "canonical" |
-| `src/lib/server/utils/calendarScope.ts:25` `eventAccessFilter` | SQL WHERE fragment | used by `updateEventById:216` |
-| `src/routes/api/events/[id]/+server.ts:17` `isAccessibleEvent` | in-memory predicate | private, own cal lookup |
-| `src/routes/api/events/[id]/rsvp/+server.ts:11` `requireEventAccess` | DB lookup + predicate | private, re-fetches event |
-| `src/routes/api/events/bulk/+server.ts:44-50,52-63` | **inline copy** of both | worst drifter |
+| Location                                                              | Mechanism               | Notes                         |
+| --------------------------------------------------------------------- | ----------------------- | ----------------------------- |
+| `src/lib/server/utils/calendarScope.ts:10` `getAccessibleCalendarIds` | SQL query               | doc-comment says "canonical"  |
+| `src/lib/server/utils/calendarScope.ts:25` `eventAccessFilter`        | SQL WHERE fragment      | used by `updateEventById:216` |
+| `src/routes/api/events/[id]/+server.ts:17` `isAccessibleEvent`        | in-memory predicate     | private, own cal lookup       |
+| `src/routes/api/events/[id]/rsvp/+server.ts:11` `requireEventAccess`  | DB lookup + predicate   | private, re-fetches event     |
+| `src/routes/api/events/bulk/+server.ts:44-50,52-63`                   | **inline copy** of both | worst drifter                 |
 
 `bulk/+server.ts` copies `getAccessibleCalendarIds` and `eventAccessFilter` verbatim
 instead of importing them. No test file for `calendarScope.ts`.
 
 **Resolved design (fork B+C):**
+
 - Add a self-fetching `canTouchEvent(userId, eventId)` that all **single-event** routes
   call (replaces `isAccessibleEvent` + `requireEventAccess` and their duplicated lookups).
 - Keep `getAccessibleCalendarIds` + `eventAccessFilter` for the batch/bulk path.
 - **Move** the module from `src/lib/server/utils/calendarScope.ts` to
   `src/lib/server/db/actions/calendarScope.ts` (it hits `db` directly — the `utils/`
   home was a naming inconsistency). Update all ~7 importers.
-- Keep the invariant *"accessible calendar = personal + first family"* as-is (out of
+- Keep the invariant _"accessible calendar = personal + first family"_ as-is (out of
   scope to revisit multi-family membership).
 - Add unit tests (the DB seam is mockable with an in-memory Calendar set).
 
@@ -44,20 +45,21 @@ instead of importing them. No test file for `calendarScope.ts`.
 **Friction (confirmed):** the composite **Occurrence** id `${masterId}~${occurrenceISO}`
 is built in one layer and parsed in others without a single owner:
 
-| Direction | Location | Form |
-|---|---|---|
-| Construct (display) | `eventDisplayService.ts:68` | `${e.id}~${occ.toISOString()}` |
-| Exception key build | `eventDisplayService.ts:35` | `${x.eventId}~${new Date(x.originalDate).toISOString()}` |
-| Exception key lookup | `eventDisplayService.ts:51` | `${e.id}~${occIso}` |
-| Parse (validated) | `eventIds.ts:6` `resolveMasterId` | split + regex — **only used by bulk** |
-| Parse (raw) | `[id]/+server.ts:38,114` | `params.id.split('~')[0]` — PUT + DELETE, unvalidated |
-| "this" originalDate | `[id]/+server.ts:137` `normalizeOccurrence` | `toDateTime(...).toUTC().toISO()` — 3rd ISO rendering |
+| Direction            | Location                                    | Form                                                     |
+| -------------------- | ------------------------------------------- | -------------------------------------------------------- |
+| Construct (display)  | `eventDisplayService.ts:68`                 | `${e.id}~${occ.toISOString()}`                           |
+| Exception key build  | `eventDisplayService.ts:35`                 | `${x.eventId}~${new Date(x.originalDate).toISOString()}` |
+| Exception key lookup | `eventDisplayService.ts:51`                 | `${e.id}~${occIso}`                                      |
+| Parse (validated)    | `eventIds.ts:6` `resolveMasterId`           | split + regex — **only used by bulk**                    |
+| Parse (raw)          | `[id]/+server.ts:38,114`                    | `params.id.split('~')[0]` — PUT + DELETE, unvalidated    |
+| "this" originalDate  | `[id]/+server.ts:137` `normalizeOccurrence` | `toDateTime(...).toUTC().toISO()` — 3rd ISO rendering    |
 
 The non-recurring 404 bug earlier this session lived exactly here (client id the raw
 split didn't reconcile). Exception-key ISO renderings are independent and must agree or
 Override matching silently breaks.
 
 **Resolved design (fork A+B+round-trip):**
+
 - Deepen `src/lib/server/utils/eventIds.ts` into a two-way module:
   `buildOccurrenceId(masterId, occIso)` and `resolveOccurrenceId(id)` →
   `{ masterId, occurrenceIso? }`, plus a single shared ISO-normalization helper.
@@ -78,12 +80,12 @@ Override matching silently breaks.
 **Friction (confirmed):** "ensure the user's **Personal Calendar** (own, no family)
 exists" is hand-rolled with slightly different shapes:
 
-| Location | Shape |
-|---|---|
-| `createNewUser.ts:32` | uses generic `createCalendar({ ownerId })` |
-| `guestMergeService.ts:66-77` | inline select + `tx.insert` + re-select (excludes family cals, in tx) |
-| `calendar/+page.server.ts:60-71` | inline select + `createUserCalendar` + re-select |
-| (`families.ts:44-46`) | creates a **FAMILY** calendar — **different concept, out of scope** |
+| Location                         | Shape                                                                 |
+| -------------------------------- | --------------------------------------------------------------------- |
+| `createNewUser.ts:32`            | uses generic `createCalendar({ ownerId })`                            |
+| `guestMergeService.ts:66-77`     | inline select + `tx.insert` + re-select (excludes family cals, in tx) |
+| `calendar/+page.server.ts:60-71` | inline select + `createUserCalendar` + re-select                      |
+| (`families.ts:44-46`)            | creates a **FAMILY** calendar — **different concept, out of scope**   |
 
 `createUserCalendar` (`calendar.ts:33`) exists but is a bare insert — it can't express
 "ensure exists", so create-if-absent callers re-roll the pattern.
@@ -105,12 +107,13 @@ takes optional context params). Route `createNewUser`, `guestMergeService`, and
 - Two simpler SQL-only variants in `toggleTaskComplete:364-367` (creator/assignee) and
   `toggleTaskCompleteFamily:413-416` (family).
 - Recurring-vs-oneoff toggle branch (`!completedAt && recurrenceFrequency → advance,
-  else toggle`) duplicated in `toggleTaskComplete:372-375` and
+else toggle`) duplicated in `toggleTaskComplete:372-375` and
   `toggleTaskCompleteFamily:419-422`.
 - `advanceRecurringTask` (advance-on-complete) vs `advanceTaskToNext` (skip) are
   semantically different — **do not** merge those.
 
 **Resolved design (fork "unify rule, keep 2 entry points"):**
+
 - Extract ONE predicate `canMutateTask(task, userId)` (owned OR assigned OR member of
   task's family; family-membership is the only DB-backed leg) used by
   `advanceTaskToNext`, `undoRecurringCompletion`, AND both toggles.
@@ -132,6 +135,7 @@ The exploration flagged `setFamilyModuleSwitch` as a "dead export" — **verifie
 it is called by `family/[familyId]/+page.server.ts:181`. Do not remove it.
 
 **Resolved design:**
+
 - Refactor `load` into a thin composition; extract inline raw `db` blocks into named
   data-retrieval functions in `src/lib/server/db/actions/dashboard.ts` (unit-testable
   like the existing pure `rankTop3`):
@@ -162,6 +166,7 @@ vs Luxon zoned `DateTime`) and output shapes (`TaskFrequency + interval` vs loos
 string like `'every_2_weeks'`) — those are **not** shareable.
 
 **Resolved design (fork "shared client-safe vocab only"):**
+
 - Create a client-safe shared module `src/lib/utils/dateVocab.ts` with: month names,
   weekday names (incl. short forms), recurrence unit words, and `escapeRegExp`.
 - Both `taskQuickAdd.ts` and `naturalLanguageService.ts` (via `dateParsing.ts`
