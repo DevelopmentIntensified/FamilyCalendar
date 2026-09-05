@@ -93,7 +93,7 @@ test('Create family with name only', async ({ page }) => {
 
 	await page.waitForURL(/\/family\/[a-z0-9]+/, { timeout: 10000 });
 	await page.waitForSelector(`text=${familyName}`, { timeout: 10000 });
-	await expect(page.locator('h1')).toContainText(familyName);
+	await expect(page.getByRole('heading', { name: familyName })).toBeVisible();
 });
 
 test('Create family with custom color', async ({ page }) => {
@@ -106,7 +106,7 @@ test('Create family with custom color', async ({ page }) => {
 
 	await page.waitForURL(/\/family\/[a-z0-9]+/, { timeout: 10000 });
 	await page.waitForSelector(`text=${familyName}`, { timeout: 10000 });
-	await expect(page.locator('h1')).toContainText(familyName);
+	await expect(page.getByRole('heading', { name: familyName })).toBeVisible();
 
 	const familyId = page.url().split('/family/')[1];
 	const family = await db.select().from(families).where(eq(families.id, familyId));
