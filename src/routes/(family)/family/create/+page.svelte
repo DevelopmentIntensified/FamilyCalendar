@@ -102,7 +102,7 @@
 					<label class="block text-sm font-medium text-slate-700">Family Color</label>
 					<p class="text-xs text-slate-500">Pick a color to identify your family</p>
 
-					<div class="grid grid-cols-6 gap-2">
+					<div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
 						{#each colors as color}
 							<button
 								type="button"

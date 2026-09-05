@@ -3,7 +3,7 @@
 </script>
 
 <nav class="mb-4 text-sm">
-	<ol class="flex items-center space-x-2 text-slate-500">
+	<ol class="flex flex-wrap items-center space-x-2 text-slate-500">
 		{#each crumbs as crumb, i}
 			<li class="flex items-center">
 				{#if i > 0}
