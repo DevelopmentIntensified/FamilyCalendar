@@ -60,8 +60,11 @@ export async function saveSubscription(
 		});
 }
 
-export async function removeSubscription(endpoint: string): Promise<void> {
-	await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+/** Deletes only the caller's subscription row for the given endpoint. */
+export async function removeSubscription(userId: string, endpoint: string): Promise<void> {
+	await db
+		.delete(pushSubscriptions)
+		.where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.endpoint, endpoint)));
 }
 
 export async function sendPushToUser(

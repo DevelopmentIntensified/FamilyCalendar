@@ -16,7 +16,36 @@ export type emailTokenPayloadType = {
 	lastName: string;
 };
 
-export const POST = async (event: RequestEvent) => {
+/**
+ * Collaborators POST needs, injectable so tests can pass fakes through a real
+ * seam instead of mocking modules. Defaults wire the production services.
+ */
+export type SignupEmailDeps = {
+	getAccount: typeof getAccount;
+	getUserByEmail: typeof getUserByEmail;
+	sendEmail: typeof sendEmail;
+	createCode: typeof createCode;
+	createJwt: typeof createJWT;
+	baseSiteUrl: string;
+	fromEmail: string;
+	jwtSecret: Uint8Array;
+};
+
+const defaultDeps: SignupEmailDeps = {
+	getAccount,
+	getUserByEmail,
+	sendEmail,
+	createCode,
+	createJwt: createJWT,
+	baseSiteUrl: getUrl(),
+	fromEmail: NOREPLYEMAIL,
+	jwtSecret: new TextEncoder().encode(EMAILSECRET)
+};
+
+export const POST = async (
+	event: RequestEvent,
+	deps: SignupEmailDeps = defaultDeps
+): Promise<Response> => {
 	const data = await event.request.json();
 	const { email, firstName, lastName } = data;
 
@@ -43,70 +72,70 @@ export const POST = async (event: RequestEvent) => {
 		);
 	}
 
-	const account = await getAccount(email);
-	const existingUser = await getUserByEmail(email);
+	const account = await deps.getAccount(email);
+	const existingUser = await deps.getUserByEmail(email);
 
 	if (account || existingUser) {
-		return new Response(JSON.stringify({ success: false, error: 'Email already registered' }), {
-			status: 400
-		});
-	} else {
-		const random: RandomReader = {
-			read(bytes) {
-				crypto.getRandomValues(bytes);
-			}
-		};
-		const nums = '0123456789';
+		// Same success shape as the happy path — never reveal that the email is
+		// already registered. No code is created or sent on this branch.
+		return new Response(JSON.stringify({ success: true }), { status: 200 });
+	}
 
-		const secret = new TextEncoder().encode(EMAILSECRET);
-		const code = generateRandomString(random, nums, 8);
+	const random: RandomReader = {
+		read(bytes) {
+			crypto.getRandomValues(bytes);
+		}
+	};
+	const nums = '0123456789';
 
-		const token = await createJWT(
-			'HS256',
-			secret,
-			{
-				email,
-				firstName,
-				lastName,
-				code
+	const secret = deps.jwtSecret;
+	const code = generateRandomString(random, nums, 8);
+
+	const token = await deps.createJwt(
+		'HS256',
+		secret,
+		{
+			email,
+			firstName,
+			lastName,
+			code
+		},
+		{
+			headers: {
+				alg: 'HS256',
+				typ: 'JWT'
 			},
-			{
-				headers: {
-					alg: 'HS256',
-					typ: 'JWT'
-				},
-				expiresIn: new TimeSpan(15, 'm')
-			}
-		);
+			expiresIn: new TimeSpan(15, 'm')
+		}
+	);
 
-		const signInUrl = new URL(getUrl());
-		signInUrl.pathname = '/signup/email/callback';
-		signInUrl.searchParams.set('token', token);
+	const signInUrl = new URL(deps.baseSiteUrl);
+	signInUrl.pathname = '/signup/email/callback';
+	signInUrl.searchParams.set('token', token);
 
-		const { success, data } = await sendEmail({
-			to: email,
-			from: NOREPLYEMAIL,
-			subject: 'Family Planz Email Confirmation for ' + email,
-			html: `<h1>Here is the code to use for logging in: ${code}</h1>
+	const { success, data: emailData } = await deps.sendEmail({
+		to: email,
+		from: deps.fromEmail,
+		subject: 'Family Planz Email Confirmation for ' + email,
+		html: `<h1>Here is the code to use for logging in: ${code}</h1>
 			or if you would rather, here is a link for loggin in: <a href="${signInUrl.toString()}"> link </a>
 `
+	});
+
+	if (success) {
+		await deps.createCode({
+			code,
+			expiresAt: new Date(Date.now() + 60 * 1000 * 15),
+			email,
+			firstName,
+			lastName,
+			emailId: emailData?.id || null
 		});
 
-		if (success) {
-			await createCode({
-				code,
-				expiresAt: new Date(Date.now() + 60 * 1000 * 15),
-				email,
-				firstName,
-				lastName,
-				emailId: data?.id || null
-			});
-
-			return new Response(JSON.stringify({ success: true }), { status: 200 });
-		}
-		return new Response(
-			JSON.stringify({ success: false, error: 'There was an error. Please try again.' }),
-			{ status: 500 }
-		);
+		return new Response(JSON.stringify({ success: true }), { status: 200 });
 	}
+	return new Response(
+		JSON.stringify({ success: false, error: 'There was an error. Please try again.' }),
+		{ status: 500 }
+	);
 };

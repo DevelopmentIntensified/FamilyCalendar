@@ -1,9 +1,20 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import type { RequestEvent } from './$types';
 import { parseEventInput, parseEventList } from '$lib/server/services/naturalLanguageService';
 import { chatJson, llmConfigured } from '$lib/server/services/llm';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
+
+/**
+ * Collaborators POST needs, injectable so tests can pass fakes through a real
+ * seam instead of mocking modules. Defaults wire the production services.
+ */
+export type ParseEventDeps = {
+	chatJson: typeof chatJson;
+	llmConfigured: typeof llmConfigured;
+};
+
+const defaultDeps: ParseEventDeps = { chatJson, llmConfigured };
 
 const PARSE_SYSTEM_PROMPT = `Parse this calendar event. Return JSON with: title, date (YYYY-MM-DD), startTime (HH:MM), endTime (HH:MM), location, description, allDay (boolean), attendants (array of names).
 
@@ -24,7 +35,11 @@ function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && value.trim().length > 0;
 }
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST = async (
+	event: RequestEvent,
+	deps: ParseEventDeps = defaultDeps
+): Promise<Response> => {
+	const { request, locals } = event;
 	const { input, useCloud = true } = await request.json();
 
 	if (!isNonEmptyString(input)) {
@@ -34,9 +49,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// Relative dates ("tomorrow", "next friday") resolve in the user's zone.
 	const zone = locals.user ? await getUserZone(locals.user.id) : undefined;
 
-	// Paid-LLM abuse guard: when over limit, skip cloud AI but still serve the
-	// local regex fallback below instead of hard-failing.
-	const cloudAllowed = rateLimit(clientKey(request, 'parse-event'), 20, 5 * 60 * 1000);
+	// Paid-LLM abuse guard: anonymous callers NEVER reach the paid API — only
+	// the local regex fallback below, regardless of rate-limit headroom (the
+	// in-memory limit resets on deploy, so it is not a real ceiling). The
+	// cloud path stays available to logged-in users.
+	const cloudAllowed =
+		Boolean(locals.user) && rateLimit(clientKey(request, 'parse-event'), 20, 5 * 60 * 1000);
 
 	try {
 		let result: ParseOutcome = { parsed: null, confidence: 0, method: 'none' };
@@ -49,8 +67,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		// 1. Cloud AI - default
-		if (useCloud && cloudAllowed && llmConfigured()) {
-			const parsed = await chatJson(
+		if (useCloud && cloudAllowed && deps.llmConfigured()) {
+			const parsed = await deps.chatJson(
 				PARSE_SYSTEM_PROMPT,
 				zone ? `${input}\n(The user's timezone is ${zone}.)` : input
 			);
