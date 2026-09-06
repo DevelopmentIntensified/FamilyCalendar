@@ -15,15 +15,78 @@ type Row = Record<string, string | number | boolean | null | Date>;
 
 interface StubState {
 	selectQueue: Row[][];
+	/** First argument of each select's where() call, in call order. */
+	capturedWhere: unknown[];
 }
 
 const state = vi.hoisted(
 	(): StubState => ({
 		// Each entry is the rows a `.where()` (or `.orderBy().limit()`) resolves to,
 		// in call order.
-		selectQueue: []
+		selectQueue: [],
+		capturedWhere: []
 	})
 );
+
+/** A drizzle SQL internal: string leaf, chunk array, or wrapper object. */
+interface SqlChunk {
+	queryChunks?: SqlFragment;
+	name?: SqlFragment;
+	value?: SqlFragment;
+}
+
+type SqlFragment = string | undefined | readonly SqlFragment[] | SqlChunk;
+
+/** True when the fragment is a plain string (leaf marker or bound value). */
+function isStringFragment(v: SqlFragment): v is string {
+	return typeof v === 'string';
+}
+
+/** True when the fragment is a drizzle SQL condition object we can walk. */
+function isWalkableCondition(v: unknown): v is SqlChunk {
+	return typeof v === 'object' && v !== null;
+}
+
+/** True when the fragment is a drizzle SQL/chunk object (non-string, non-array). */
+function isSqlChunk(v: SqlFragment): v is SqlChunk {
+	return !isStringFragment(v) && !Array.isArray(v) && typeof v === 'object' && v !== null;
+}
+
+/**
+ * Flatten a drizzle SQL condition into string markers: quoted column names
+ * (chunk `name`) and bound parameter values (chunk `value`). Walks only
+ * `queryChunks` arrays to avoid circular column references.
+ */
+function collectMarkers(fragment: SqlFragment, acc: string[] = []): string[] {
+	if (isStringFragment(fragment)) {
+		acc.push(fragment);
+		return acc;
+	}
+	if (Array.isArray(fragment)) {
+		for (const chunk of fragment) collectMarkers(chunk, acc);
+		return acc;
+	}
+	if (!isSqlChunk(fragment)) return acc;
+	if (isStringFragment(fragment.name)) acc.push(fragment.name);
+	// StringChunk wraps its text in a one-element array; Param carries a string.
+	if (isStringFragment(fragment.value)) acc.push(fragment.value);
+	if (Array.isArray(fragment.value)) {
+		for (const part of fragment.value) {
+			if (isStringFragment(part)) acc.push(part);
+		}
+	}
+	if (Array.isArray(fragment.queryChunks)) collectMarkers(fragment.queryChunks, acc);
+	return acc;
+}
+
+/** Markers of the most recently captured where condition. */
+function lastWhereMarkers(): string[] {
+	const condition = state.capturedWhere[state.capturedWhere.length - 1];
+	if (!isWalkableCondition(condition)) {
+		throw new Error('expected a captured where condition');
+	}
+	return collectMarkers(condition);
+}
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
@@ -33,7 +96,8 @@ vi.mock('$lib/server/db', () => ({
 				const query = {
 					// Promise + chained orderBy (with/without limit): getCompletionTimestamps
 					// uses orderBy+limit, getRecurringDayCompletions uses orderBy.
-					where: () => {
+					where: (...args: unknown[]) => {
+						state.capturedWhere.push(args[0]);
 						const rows = state.selectQueue.shift() ?? [];
 						return Object.assign(Promise.resolve(rows), {
 							orderBy: () =>
@@ -64,6 +128,7 @@ import {
 
 beforeEach(() => {
 	state.selectQueue = [];
+	state.capturedWhere = [];
 });
 
 describe('getUserDayCalendar', () => {
@@ -162,6 +227,18 @@ describe('getCompletionTimestamps', () => {
 		state.selectQueue = [[]];
 		expect(await getCompletionTimestamps('u1')).toEqual([]);
 	});
+
+	it('attributes completions to the actor leg with a legacy userId fallback', async () => {
+		// Rows written since the actorId column carry the ACTING user; older
+		// rows only have the owner in userId. Both legs must be queried.
+		state.selectQueue = [[]];
+		await getCompletionTimestamps('u1');
+
+		const markers = lastWhereMarkers();
+		expect(markers).toContain('actorId');
+		expect(markers).toContain('userId');
+		expect(markers).toContain('u1');
+	});
 });
 
 describe('getRecurringDayCompletions', () => {
@@ -189,6 +266,18 @@ describe('getRecurringDayCompletions', () => {
 		const dayEnd = new Date('2026-09-05T00:00:00.000Z');
 		expect(await getRecurringDayCompletions('u1', dayStart, dayEnd)).toEqual([]);
 		expect(state.selectQueue).toEqual([]);
+	});
+
+	it('attributes recurring check-offs to the actor leg with a legacy userId fallback', async () => {
+		state.selectQueue = [[]];
+		const dayStart = new Date('2026-09-04T00:00:00.000Z');
+		const dayEnd = new Date('2026-09-05T00:00:00.000Z');
+		await getRecurringDayCompletions('u1', dayStart, dayEnd);
+
+		const markers = lastWhereMarkers();
+		expect(markers).toContain('actorId');
+		expect(markers).toContain('userId');
+		expect(markers).toContain('u1');
 	});
 });
 

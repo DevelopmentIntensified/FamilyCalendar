@@ -171,6 +171,28 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 					link: '/calendar/tasks'
 				});
 			}
+
+			// Owner-initiated reassignment fan-out: the NEW assignee gets a
+			// pending notification. (Owner self-assign is 'accepted' and never
+			// notifies; only the owner path can reassign, so `updated` landing
+			// with the patch's assignee proves the reassignment happened.)
+			const pendingAssignee =
+				updated &&
+				assignmentPatch.assignmentStatus === 'pending' &&
+				assignmentPatch.assignedTo &&
+				updated.assignedTo === assignmentPatch.assignedTo
+					? assignmentPatch.assignedTo
+					: null;
+			if (updated && pendingAssignee && pendingAssignee !== user.id) {
+				const actorName = await getActorName();
+				await createNotification({
+					userId: pendingAssignee,
+					type: 'assignment_pending',
+					actorName,
+					message: `${actorName} assigned you '${updated.title}'`,
+					link: '/calendar/tasks'
+				});
+			}
 		}
 		if (!updated) {
 			return json({ error: 'Task not found' }, { status: 404 });

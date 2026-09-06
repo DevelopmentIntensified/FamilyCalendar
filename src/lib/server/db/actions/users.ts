@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { users, subscriptions, type User } from '$lib/server/db/schema';
+import { users, subscriptions, tasks, type User } from '$lib/server/db/schema';
 import { createUserSettings } from '$lib/server/db/actions/userSettings';
 import { eq, and, lt, sql } from 'drizzle-orm';
 
@@ -55,6 +55,10 @@ export async function deleteUser(id: string) {
 	// the subscription rows must go first or Postgres rejects the delete —
 	// account deletion would 500 after the session was already invalidated.
 	await db.transaction(async (tx) => {
+		// The tasks.assignedTo FK set-nulls during the users delete below;
+		// the assignment status must be cleared in the SAME transaction or
+		// the un-assigned task keeps a ghost 'pending'/'accepted' status.
+		await tx.update(tasks).set({ assignmentStatus: 'none' }).where(eq(tasks.assignedTo, id));
 		await tx.delete(subscriptions).where(eq(subscriptions.userId, id));
 		await tx.delete(users).where(eq(users.id, id));
 	});

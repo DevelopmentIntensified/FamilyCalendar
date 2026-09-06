@@ -15,7 +15,7 @@ import {
 	tasks,
 	type CalendarEvent
 } from '$lib/server/db/schema';
-import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, ne, or } from 'drizzle-orm';
 import { PRIORITY_WEIGHT, isTaskPriority } from '$lib/server/db/actions/taskPriority';
 import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
 
@@ -167,6 +167,18 @@ export async function getKidsScheduleAttendance(
 }
 
 /**
+ * Attribution predicate for completion history: rows written since the
+ * actorId column carry the ACTING user; legacy rows only have the task
+ * owner in userId. Either leg attributes a completion to the viewer.
+ */
+function attributedToViewer(userId: string) {
+	return or(
+		and(isNotNull(taskCompletions.actorId), eq(taskCompletions.actorId, userId)),
+		and(isNull(taskCompletions.actorId), eq(taskCompletions.userId, userId))
+	);
+}
+
+/**
  * Completion timestamps for the viewer's streak, most-recent first (capped at
  * the year the Day Dashboard streak window needs).
  */
@@ -174,7 +186,7 @@ export async function getCompletionTimestamps(userId: string): Promise<{ complet
 	return await db
 		.select({ completedAt: taskCompletions.completedAt })
 		.from(taskCompletions)
-		.where(eq(taskCompletions.userId, userId))
+		.where(attributedToViewer(userId))
 		.orderBy(desc(taskCompletions.completedAt))
 		.limit(365);
 }
@@ -217,7 +229,7 @@ export async function getRecurringDayCompletions(
 		.innerJoin(tasks, eq(taskCompletions.taskId, tasks.id))
 		.where(
 			and(
-				eq(taskCompletions.userId, userId),
+				attributedToViewer(userId),
 				isNotNull(tasks.recurrenceFrequency),
 				gte(taskCompletions.completedAt, startIso),
 				lt(taskCompletions.completedAt, endIso)

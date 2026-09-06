@@ -5,7 +5,7 @@ import {
 	familyMembers,
 	aiUsageTracking
 } from '$lib/server/db/schema';
-import { count, eq, and, sql, isNotNull, isNull, desc } from 'drizzle-orm';
+import { count, eq, and, or, sql, isNotNull, isNull, desc } from 'drizzle-orm';
 
 export type SubscriptionTier = typeof subscriptionTypes.$inferSelect;
 
@@ -28,8 +28,15 @@ export interface SubscriptionCheckResult {
 	reason?: string;
 }
 
-export async function getUserSubscription(userId: string): Promise<SubscriptionTier | null> {
-	const userSubscription = await db
+/**
+ * The user's active subscription ROW: linked to a tier and not expired,
+ * newest first. Single seam for reading a subscription row so override
+ * reads can't come from an expired or stale row.
+ */
+async function getActiveSubscriptionRow(
+	userId: string
+): Promise<typeof subscriptions.$inferSelect | null> {
+	const [sub] = await db
 		.select()
 		.from(subscriptions)
 		.where(
@@ -39,25 +46,25 @@ export async function getUserSubscription(userId: string): Promise<SubscriptionT
 				or(sql`${subscriptions.endDate} > NOW()`, isNull(subscriptions.endDate))
 			)
 		)
+		.orderBy(desc(subscriptions.createdAt))
 		.limit(1);
+	return sub ?? null;
+}
 
-	if (userSubscription.length === 0) {
-		return null;
-	}
-
-	const [sub] = userSubscription;
-
-	if (!sub.subscriptionTypeId) {
-		return null;
-	}
-
+async function getTierForSubscription(sub: typeof subscriptions.$inferSelect) {
+	if (!sub.subscriptionTypeId) return null;
 	const [tier] = await db
 		.select()
 		.from(subscriptionTypes)
 		.where(eq(subscriptionTypes.id, sub.subscriptionTypeId))
 		.limit(1);
-
 	return tier ?? null;
+}
+
+export async function getUserSubscription(userId: string): Promise<SubscriptionTier | null> {
+	const sub = await getActiveSubscriptionRow(userId);
+	if (!sub) return null;
+	return await getTierForSubscription(sub);
 }
 
 export interface SubscriptionStatus {
@@ -71,40 +78,32 @@ export interface SubscriptionStatus {
 }
 
 export async function getSubscriptionStatus(userId: string): Promise<SubscriptionStatus> {
-	const tier = await getUserSubscription(userId);
+	const sub = await getActiveSubscriptionRow(userId);
 
-	if (!tier) {
+	if (!sub) {
 		return { tier: null, subscription: null };
 	}
 
-	const [sub] = await db
-		.select({
-			id: subscriptions.id,
-			startDate: subscriptions.startDate,
-			endDate: subscriptions.endDate,
-			createdAt: subscriptions.createdAt
-		})
-		.from(subscriptions)
-		.where(
-			and(
-				eq(subscriptions.userId, userId),
-				isNotNull(subscriptions.subscriptionTypeId),
-				or(sql`${subscriptions.endDate} > NOW()`, isNull(subscriptions.endDate))
-			)
-		)
-		.orderBy(desc(subscriptions.createdAt))
-		.limit(1);
+	const tier = await getTierForSubscription(sub);
 
 	return {
 		tier,
-		subscription: sub ?? null
+		subscription: {
+			id: sub.id,
+			startDate: sub.startDate,
+			endDate: sub.endDate,
+			createdAt: sub.createdAt
+		}
 	};
 }
 
 export async function getUserSubscriptionLimits(userId: string): Promise<SubscriptionLimits> {
-	const tier = await getUserSubscription(userId);
+	// Same active-sub filter (tiered, not expired) + newest-first ordering as
+	// getUserSubscription: an override must come from the CURRENT subscription
+	// row, never an expired or arbitrary one.
+	const sub = await getActiveSubscriptionRow(userId);
 
-	if (!tier) {
+	if (!sub) {
 		return {
 			familyLimit: 1,
 			memberLimit: 6,
@@ -116,20 +115,17 @@ export async function getUserSubscriptionLimits(userId: string): Promise<Subscri
 		};
 	}
 
-	const userSubscription = await db
-		.select()
-		.from(subscriptions)
-		.where(eq(subscriptions.userId, userId))
-		.limit(1);
-
-	const [sub] = userSubscription;
+	const tier = await getTierForSubscription(sub);
+	if (!tier) {
+		return getDefaultLimits();
+	}
 
 	return {
-		familyLimit: sub?.familyLimitOverride ?? tier.familyLimit,
-		memberLimit: sub?.memberLimitOverride ?? tier.memberLimit,
-		retentionViewDays: sub?.retentionViewDaysOverride ?? tier.retentionViewDays,
-		archivedRetentionDays: sub?.archivedRetentionDaysOverride ?? tier.archivedRetentionDays,
-		attachmentLimitBytes: sub?.attachmentLimitBytesOverride ?? tier.attachmentLimitBytes,
+		familyLimit: sub.familyLimitOverride ?? tier.familyLimit,
+		memberLimit: sub.memberLimitOverride ?? tier.memberLimit,
+		retentionViewDays: sub.retentionViewDaysOverride ?? tier.retentionViewDays,
+		archivedRetentionDays: sub.archivedRetentionDaysOverride ?? tier.archivedRetentionDays,
+		attachmentLimitBytes: sub.attachmentLimitBytesOverride ?? tier.attachmentLimitBytes,
 		aiEventCreationsPerMonth: tier.aiEventCreationsPerMonth,
 		exportImportEnabled: tier.exportImportEnabled
 	};
@@ -255,10 +251,6 @@ export async function canUploadAttachment(
 	}
 
 	return { allowed: true, limitBytes: limits.attachmentLimitBytes };
-}
-
-function or(...conditions: ReturnType<typeof sql>[]) {
-	return sql`(${conditions.map((c, i) => (i === 0 ? c : sql` OR ${c}`)).join('')})`;
 }
 
 export async function checkSubscriptionAction(

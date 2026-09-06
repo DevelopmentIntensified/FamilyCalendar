@@ -14,12 +14,21 @@ interface StubState {
 	queue: Row[][];
 	/** First argument of each select's where() call, in call order. */
 	capturedWhere: unknown[];
+	/** Patch of the tx update issued by removeFamilyMember. */
+	updatePatch: Row | null;
+	/** Where condition of the tx update. */
+	updateWhere: unknown;
+	/** Raw SQL handed to tx.execute (the roster delete). */
+	executeSql: unknown;
 }
 
 const state = vi.hoisted(
 	(): StubState => ({
 		queue: [],
-		capturedWhere: []
+		capturedWhere: [],
+		updatePatch: null,
+		updateWhere: null,
+		executeSql: null
 	})
 );
 
@@ -33,6 +42,7 @@ vi.mock('$lib/server/db', () => ({
 					const rows = state.queue.shift() ?? [];
 					// Promise + chained limit so await and .limit() both resolve to rows.
 					return Object.assign(Promise.resolve(rows), {
+						orderBy: () => ({ limit: () => Promise.resolve(rows) }),
 						limit: () => Promise.resolve(rows)
 					});
 				},
@@ -49,11 +59,32 @@ vi.mock('$lib/server/db', () => ({
 			set: () => ({
 				where: () => Promise.resolve()
 			})
-		})
+		}),
+		// removeFamilyMember runs its writes through a transaction client.
+		transaction: async (run: (tx: FamilyRemovalTx) => Promise<void>) => {
+			const tx: FamilyRemovalTx = {
+				update: () => ({
+					set: (patch: Row) => {
+						state.updatePatch = patch;
+						return {
+							where: (...args: unknown[]) => {
+								state.updateWhere = args[0];
+								return Promise.resolve();
+							}
+						};
+					}
+				}),
+				execute: (query: SqlChunk) => {
+					state.executeSql = query;
+					return Promise.resolve();
+				}
+			};
+			return await run(tx);
+		}
 	}
 }));
 
-import { searchUsers, acceptInvite } from './families';
+import { searchUsers, acceptInvite, removeFamilyMember } from './families';
 import { clampCount } from '$lib/server/utils/clampCount';
 
 /** A drizzle SQL internal: string leaf, chunk array, or wrapper object. */
@@ -64,6 +95,14 @@ interface SqlChunk {
 }
 
 type SqlFragment = string | undefined | readonly SqlFragment[] | SqlChunk;
+
+/** The slice of the drizzle transaction client removeFamilyMember uses. */
+interface FamilyRemovalTx {
+	update(): {
+		set(patch: Row): { where(...args: unknown[]): Promise<void> };
+	};
+	execute(query: SqlChunk): Promise<void>;
+}
 
 /** True when the value is a drizzle SQL condition object we can walk. */
 function isWalkableCondition(v: unknown): v is SqlChunk {
@@ -96,7 +135,13 @@ function collectMarkers(fragment: SqlFragment, acc: string[] = []): string[] {
 	}
 	if (!isSqlChunk(fragment)) return acc;
 	if (isStringFragment(fragment.name)) acc.push(fragment.name);
+	// StringChunk wraps its text in a one-element array; Param carries a string.
 	if (isStringFragment(fragment.value)) acc.push(fragment.value);
+	if (Array.isArray(fragment.value)) {
+		for (const part of fragment.value) {
+			if (isStringFragment(part)) acc.push(part);
+		}
+	}
 	if (Array.isArray(fragment.queryChunks)) collectMarkers(fragment.queryChunks, acc);
 	return acc;
 }
@@ -205,6 +250,37 @@ describe('acceptInvite', () => {
 		const result = await acceptInvite('joiner-1', 'code-dead');
 		expect(result.accepted).toBe(false);
 		expect(result.reason).toBeUndefined();
+	});
+});
+
+describe('removeFamilyMember', () => {
+	beforeEach(() => {
+		state.queue = [];
+		state.capturedWhere = [];
+		state.updatePatch = null;
+		state.updateWhere = null;
+		state.executeSql = null;
+	});
+
+	it("un-assigns the removed member's family tasks and drops the roster row in one transaction", async () => {
+		await removeFamilyMember('fam-1', 'member-7');
+
+		// Task un-assignment first: the `assignedTo` leg of canMutateTask
+		// must not keep granting the removed member write access.
+		expect(state.updatePatch).toEqual({ assignedTo: null, assignmentStatus: 'none' });
+		// SAFETY: the stub only stores the drizzle where-condition it was handed.
+		const updateMarkers = collectMarkers(state.updateWhere as SqlChunk);
+		expect(updateMarkers).toContain('family_id');
+		expect(updateMarkers).toContain('fam-1');
+		expect(updateMarkers).toContain('assigned_to');
+		expect(updateMarkers).toContain('member-7');
+
+		// The roster delete still runs (raw SQL, scoped to the member).
+		// SAFETY: the stub only stores the raw sql`` template it was handed.
+		const deleteMarkers = collectMarkers(state.executeSql as SqlChunk);
+		expect(deleteMarkers.join(' ')).toContain('familyMembers');
+		expect(deleteMarkers).toContain('fam-1');
+		expect(deleteMarkers).toContain('member-7');
 	});
 });
 

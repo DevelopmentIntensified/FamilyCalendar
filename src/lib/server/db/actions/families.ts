@@ -4,6 +4,7 @@ import {
 	families,
 	familyMembers,
 	familyInviteCodes,
+	tasks,
 	users,
 	type Family,
 	type FamilyInviteCode
@@ -190,10 +191,23 @@ export async function getFamilyInviteCodes(familyId: string) {
 	return await db.select().from(familyInviteCodes).where(eq(familyInviteCodes.familyId, familyId));
 }
 
+/**
+ * Remove a member from a family. One transaction: dropping the roster row
+ * also un-assigns that member's family tasks (assignedTo → null, pending
+ * status → 'none'). The `assignedTo` leg of canMutateTask would otherwise
+ * keep granting the removed member write access — the FK only set-nulls on
+ * user DELETE, not on family removal.
+ */
 export async function removeFamilyMember(familyId: string, userId: string) {
-	await db.execute(
-		sql`DELETE FROM "familyMembers" WHERE "family_id" = ${familyId} AND "user_id" = ${userId}`
-	);
+	await db.transaction(async (tx) => {
+		await tx
+			.update(tasks)
+			.set({ assignedTo: null, assignmentStatus: 'none' })
+			.where(and(eq(tasks.familyId, familyId), eq(tasks.assignedTo, userId)));
+		await tx.execute(
+			sql`DELETE FROM "familyMembers" WHERE "family_id" = ${familyId} AND "user_id" = ${userId}`
+		);
+	});
 }
 
 export async function deleteInviteCode(code: string) {

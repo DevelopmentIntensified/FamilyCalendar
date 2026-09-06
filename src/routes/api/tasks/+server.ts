@@ -12,8 +12,9 @@ import {
 } from '$lib/server/db/actions/tasks';
 import { normalizeTaskPriority } from '$lib/server/db/actions/taskPriority';
 import { db } from '$lib/server/db';
-import { events } from '$lib/server/db/schema';
+import { events, users } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { createNotification } from '$lib/server/db/actions/notifications';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { requireUserJson } from '$lib/server/utils/requireUser';
@@ -101,6 +102,26 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			familyId,
 			userId: auth.user.id
 		});
+
+		// Assignment fan-out: tell the assignee there's a pending task.
+		// createNotification swallows its own failures, so a notification
+		// problem can never fail the task create.
+		if (created.assignmentStatus === 'pending' && created.assignedTo) {
+			const [creator] = await db
+				.select({ firstName: users.firstName })
+				.from(users)
+				.where(eq(users.id, auth.user.id))
+				.limit(1);
+			const actorName = creator?.firstName || 'Someone';
+			await createNotification({
+				userId: created.assignedTo,
+				type: 'assignment_pending',
+				actorName,
+				message: `${actorName} assigned you '${created.title}'`,
+				link: '/calendar/tasks'
+			});
+		}
+
 		return json({ success: true, task: created }, { status: 201 });
 	} catch (error) {
 		console.error('Failed to create task:', error);

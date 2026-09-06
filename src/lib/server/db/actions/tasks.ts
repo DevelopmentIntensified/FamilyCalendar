@@ -314,7 +314,11 @@ export async function updateTask(
  * row is never "completed"); the dueDate-guarded update doubles as
  * double-click protection.
  */
-async function advanceRecurringTask(task: Task, zone?: string): Promise<Task | undefined> {
+async function advanceRecurringTask(
+	task: Task,
+	zone?: string,
+	actorId?: string
+): Promise<Task | undefined> {
 	if (!task.recurrenceFrequency) return undefined;
 	const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
 	const next = advanceCursor(
@@ -334,10 +338,13 @@ async function advanceRecurringTask(task: Task, zone?: string): Promise<Task | u
 		.returning();
 	if (advanced) {
 		// History row for the check-off; only written when the guarded
-		// update actually matched (double-clicks insert nothing).
+		// update actually matched (double-clicks insert nothing). The
+		// ACTING user is recorded so wins/streaks attribute to whoever
+		// checked it off, not the task owner.
 		await db.insert(taskCompletions).values({
 			taskId: advanced.id,
 			userId: advanced.userId,
+			actorId: actorId ?? null,
 			familyId: advanced.familyId ?? null
 		});
 		return advanced;
@@ -431,18 +438,22 @@ export async function isValidAssignee(
  * task rolls the cursor onto the next occurrence instead of closing it out;
  * everything else is a plain complete/un-complete toggle.
  */
-export async function applyToggle(task: Task, zone?: string): Promise<Task | undefined> {
+export async function applyToggle(
+	task: Task,
+	zone?: string,
+	actorId?: string
+): Promise<Task | undefined> {
 	if (!task.completedAt && task.recurrenceFrequency) {
-		return advanceRecurringTask(task, zone);
+		return advanceRecurringTask(task, zone, actorId);
 	}
-	return toggleCompletion(task);
+	return toggleCompletion(task, actorId);
 }
 
 /**
  * Double-click protection: only complete when still open, only
  * un-complete when still completed.
  */
-async function toggleCompletion(task: Task): Promise<Task> {
+async function toggleCompletion(task: Task, actorId?: string): Promise<Task> {
 	const id = task.id;
 	const completing = !task.completedAt;
 	const guard = [eq(tasks.id, id)];
@@ -461,6 +472,7 @@ async function toggleCompletion(task: Task): Promise<Task> {
 			await db.insert(taskCompletions).values({
 				taskId: updated.id,
 				userId: updated.userId,
+				actorId: actorId ?? null,
 				familyId: updated.familyId ?? null
 			});
 		}
@@ -480,7 +492,8 @@ export async function toggleTaskComplete(
 	if (!task) return undefined;
 	if (!(await canMutateTask(task, userId))) return undefined;
 
-	return applyToggle(task, zone);
+	// userId is the authenticated caller — recorded as the completion actor.
+	return applyToggle(task, zone, userId);
 }
 
 export async function deleteTask(id: string, userId: string) {
@@ -523,7 +536,8 @@ export async function toggleTaskCompleteFamily(
 	if (!task) return undefined;
 	if (!(await canMutateTask(task, userId))) return undefined;
 
-	return applyToggle(task, zone);
+	// userId is the authenticated caller — recorded as the completion actor.
+	return applyToggle(task, zone, userId);
 }
 
 /**
@@ -558,12 +572,44 @@ export async function advanceTaskToNext(
 }
 
 /**
+ * Server-side previous-cursor derivation for an undo, following the
+ * cursor v3 semantics documented at the top of this file: the check-off
+ * anchored at the completion day and advanced by the smallest multiple
+ * of the interval that landed strictly past the previous due date.
+ * Rewind the current cursor interval-by-interval and keep the first
+ * candidate whose re-advance reproduces the current due date. Falls
+ * back to a plain one-interval rewind when nothing matches (e.g. a
+ * hand-edited due date).
+ */
+function derivePreviousCursor(
+	dueIso: string,
+	frequency: string,
+	interval: number | null,
+	completedAtIso: string | null
+): string | null {
+	const due = toDateTime(dueIso);
+	if (!due) return null;
+	const dueIsoNormalized = due.toISO()!;
+	const step = Math.max(1, Math.floor(interval ?? 1) || 1);
+	const anchor = completedAtIso ?? new Date().toISOString();
+	for (let k = 1; k <= 366; k += 1) {
+		const candidate = plusInterval(due, frequency, -step * k).toISO()!;
+		const reAdvanced = toDateTime(advanceCursor(candidate, frequency, step, anchor));
+		if (reAdvanced?.toISO() === dueIsoNormalized) return candidate;
+	}
+	return plusInterval(due, frequency, -step).toISO()!;
+}
+
+/**
  * Reverse a Recurring Task check-off: restore the previous due date,
  * decrement the completion tally, and remove the matching history row so
  * streaks/stats don't count an undone completion.
  *
- * A double-tap on Undo must not keep rolling the cursor backward or empty
- * the tally — the `completionCount > 0` guard makes a second call a no-op.
+ * The client's `previousDueDate` is only a hint: it is accepted when it is
+ * a valid cursor strictly before the current due date, otherwise the
+ * previous cursor is derived server-side. The task update and the history
+ * delete run in ONE transaction, and the `completionCount > 0` guard makes
+ * a double-tap on Undo a no-op.
  */
 export async function undoRecurringCompletion(
 	taskId: string,
@@ -575,28 +621,48 @@ export async function undoRecurringCompletion(
 
 	if (!(await canMutateTask(task, userId))) return null;
 
-	const [updated] = await db
-		.update(tasks)
-		.set({
-			dueDate: previousDueDate,
-			completionCount: sql`greatest(0, ${tasks.completionCount} - 1)::int`
-		})
-		.where(and(eq(tasks.id, taskId), gt(tasks.completionCount, 0)))
-		.returning();
-	if (!updated) return null;
+	return db.transaction(async (tx) => {
+		// The latest completion row is the server-side evidence of the
+		// check-off being undone; its completedAt anchors the cursor rewind.
+		const [latest] = await tx
+			.select({ id: taskCompletions.id, completedAt: taskCompletions.completedAt })
+			.from(taskCompletions)
+			.where(eq(taskCompletions.taskId, taskId))
+			.orderBy(desc(taskCompletions.completedAt))
+			.limit(1);
 
-	// Remove the most recent completion history row so streaks/stats don't
-	// count an undone completion.
-	const [latest] = await db
-		.select({ id: taskCompletions.id })
-		.from(taskCompletions)
-		.where(eq(taskCompletions.taskId, taskId))
-		.orderBy(desc(taskCompletions.completedAt))
-		.limit(1);
-	if (latest) {
-		await db.delete(taskCompletions).where(eq(taskCompletions.id, latest.id));
-	}
-	return updated;
+		const clientPrevious = toDateTime(previousDueDate);
+		const currentDue = toDateTime(task.dueDate);
+		// Only trust a client cursor that is strictly before the current due
+		// date — anything else (stale, future, garbage) is replaced by the
+		// server-derived previous cursor.
+		const previous =
+			clientPrevious && currentDue && clientPrevious < currentDue
+				? clientPrevious.toISO()!
+				: derivePreviousCursor(
+						task.dueDate ?? '',
+						task.recurrenceFrequency!,
+						task.recurrenceInterval,
+						latest?.completedAt ?? null
+					);
+
+		const [updated] = await tx
+			.update(tasks)
+			.set({
+				dueDate: previous,
+				completionCount: sql`greatest(0, ${tasks.completionCount} - 1)::int`
+			})
+			.where(and(eq(tasks.id, taskId), gt(tasks.completionCount, 0)))
+			.returning();
+		if (!updated) return null;
+
+		// Remove the most recent completion history row so streaks/stats don't
+		// count an undone completion.
+		if (latest) {
+			await tx.delete(taskCompletions).where(eq(taskCompletions.id, latest.id));
+		}
+		return updated;
+	});
 }
 
 /** Family-scoped assignment responses (accept/decline/release) and tags. */
@@ -643,6 +709,12 @@ export async function updateTaskInFamily(
 /**
  * Overdue Recurring Tasks stick to today: their due date follows the
  * current date until dismissed. Piggybacked on task/calendar loads.
+ *
+ * Scope: the caller's OWN tasks plus — when a family is known — every task
+ * in that family. (The old `userId AND familyId` conjunction made the
+ * family leg unreachable, so other members' family-task cursors never
+ * pinned; an OR over the same family scope fixes that while staying
+ * scoped to the caller's family.)
  */
 export async function syncRecurringCursors(
 	userId: string,
@@ -654,20 +726,21 @@ export async function syncRecurringCursors(
 		.set({ hour: 23, minute: 59, second: 0, millisecond: 0 })
 		.toISO()!;
 
-	const conditions = [
-		eq(tasks.userId, userId),
+	const base = [
 		isNotNull(tasks.recurrenceFrequency),
 		isNull(tasks.completedAt),
 		isNull(tasks.archivedAt),
 		isNotNull(tasks.dueDate)
 	];
-	if (familyId) conditions.push(eq(tasks.familyId, familyId));
+	const scope = familyId
+		? or(eq(tasks.userId, userId), eq(tasks.familyId, familyId))
+		: eq(tasks.userId, userId);
 
 	const stale = (
 		await db
 			.select({ id: tasks.id, dueDate: tasks.dueDate })
 			.from(tasks)
-			.where(and(...conditions))
+			.where(and(...base, scope))
 	).filter((t) => needsOverduePin(t.dueDate, nowIso));
 
 	for (const row of stale) {

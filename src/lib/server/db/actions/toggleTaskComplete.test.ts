@@ -52,7 +52,7 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-import { toggleTaskComplete, advanceCursor } from './tasks';
+import { toggleTaskComplete, toggleTaskCompleteFamily, advanceCursor } from './tasks';
 
 const nowIso = () => new Date().toISOString();
 
@@ -126,7 +126,24 @@ describe('toggleTaskComplete', () => {
 		expect(result!.dueDate).toBe(expectedDue);
 		expect(state.updatePatch!.dueDate).toBe(expectedDue);
 		expect(state.updatePatch).toHaveProperty('completionCount');
-		expect(state.insertValues).toEqual({ taskId: 't1', userId: 'user-a', familyId: null });
+		expect(state.insertValues).toEqual({
+			taskId: 't1',
+			userId: 'user-a',
+			actorId: 'user-a',
+			familyId: null
+		});
+	});
+
+	it('records the ACTING user on the completion row, not the task owner', async () => {
+		// The assignee checks off the owner's recurring task: userId stays the
+		// owner (legacy attribution leg), actorId is the caller.
+		const task = makeTask({ userId: 'owner-1', assignedTo: 'user-b' });
+		state.queue = [[task]];
+		state.updateResult = { ...task, dueDate: '2026-08-29T00:00:00.000Z', completionCount: 1 };
+
+		await toggleTaskComplete('t1', 'user-b');
+
+		expect(state.insertValues).toMatchObject({ userId: 'owner-1', actorId: 'user-b' });
 	});
 
 	it('checking a non-recurring open task sets completedAt and records history', async () => {
@@ -138,7 +155,11 @@ describe('toggleTaskComplete', () => {
 
 		expect(result).toBeDefined();
 		expect(state.updatePatch!.completedAt).toEqual(expect.any(String));
-		expect(state.insertValues).toMatchObject({ taskId: 't1', userId: 'user-a' });
+		expect(state.insertValues).toMatchObject({
+			taskId: 't1',
+			userId: 'user-a',
+			actorId: 'user-a'
+		});
 	});
 
 	it('un-checking a completed task clears completedAt without new history', async () => {
@@ -154,5 +175,25 @@ describe('toggleTaskComplete', () => {
 
 		expect(state.updatePatch).toEqual({ completedAt: null });
 		expect(state.insertValues).toBeNull();
+	});
+});
+
+describe('toggleTaskCompleteFamily', () => {
+	it('records the acting family member as the completion actor', async () => {
+		// select #1 = the family task, #2 = the caller's familyMembers row
+		// (family-membership leg of canMutateTask).
+		const task = makeTask({ userId: 'owner-1', familyId: 'fam-1' });
+		state.queue = [[task], [{ familyId: 'fam-1' }]];
+		state.updateResult = { ...task, completedAt: nowIso() };
+
+		const result = await toggleTaskCompleteFamily('t1', 'fam-1', 'member-1');
+
+		expect(result).toBeDefined();
+		expect(state.insertValues).toMatchObject({
+			taskId: 't1',
+			userId: 'owner-1',
+			actorId: 'member-1',
+			familyId: 'fam-1'
+		});
 	});
 });

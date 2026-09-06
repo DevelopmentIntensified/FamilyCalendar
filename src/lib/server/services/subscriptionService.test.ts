@@ -6,23 +6,88 @@ type Row = Record<string, string | number | boolean | null | Date>;
 interface StubState {
 	/** Rows returned by successive `select().from().where()` calls. */
 	queue: Row[][];
+	/** First argument of each select's where() call, in call order. */
+	capturedWhere: unknown[];
 }
 
 const state = vi.hoisted(
 	(): StubState => ({
-		queue: []
+		queue: [],
+		capturedWhere: []
 	})
 );
+
+/** A drizzle SQL internal: string leaf, chunk array, or wrapper object. */
+interface SqlChunk {
+	queryChunks?: SqlFragment;
+	name?: SqlFragment;
+	value?: SqlFragment;
+}
+
+type SqlFragment = string | undefined | readonly SqlFragment[] | SqlChunk;
+
+/** True when the fragment is a plain string (leaf marker or bound value). */
+function isStringFragment(v: SqlFragment): v is string {
+	return typeof v === 'string';
+}
+
+/** True when the fragment is a drizzle SQL condition object we can walk. */
+function isWalkableCondition(v: unknown): v is SqlChunk {
+	return typeof v === 'object' && v !== null;
+}
+
+/** True when the fragment is a drizzle SQL/chunk object (non-string, non-array). */
+function isSqlChunk(v: SqlFragment): v is SqlChunk {
+	return !isStringFragment(v) && !Array.isArray(v) && typeof v === 'object' && v !== null;
+}
+
+/**
+ * Flatten a drizzle SQL condition into string markers: quoted column names
+ * (chunk `name`) and bound parameter values (chunk `value`). Walks only
+ * `queryChunks` arrays to avoid circular column references.
+ */
+function collectMarkers(fragment: SqlFragment, acc: string[] = []): string[] {
+	if (isStringFragment(fragment)) {
+		acc.push(fragment);
+		return acc;
+	}
+	if (Array.isArray(fragment)) {
+		for (const chunk of fragment) collectMarkers(chunk, acc);
+		return acc;
+	}
+	if (!isSqlChunk(fragment)) return acc;
+	if (isStringFragment(fragment.name)) acc.push(fragment.name);
+	// StringChunk wraps its text in a one-element array; Param carries a string.
+	if (isStringFragment(fragment.value)) acc.push(fragment.value);
+	if (Array.isArray(fragment.value)) {
+		for (const part of fragment.value) {
+			if (isStringFragment(part)) acc.push(part);
+		}
+	}
+	if (Array.isArray(fragment.queryChunks)) collectMarkers(fragment.queryChunks, acc);
+	return acc;
+}
+
+/** Markers of the most recently captured where condition. */
+function lastWhereMarkers(): string[] {
+	const condition = state.capturedWhere[state.capturedWhere.length - 1];
+	if (!isWalkableCondition(condition)) {
+		throw new Error('expected a captured where condition');
+	}
+	return collectMarkers(condition);
+}
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
 			from: () => ({
-				where: () => {
+				where: (...args: unknown[]) => {
+					state.capturedWhere.push(args[0]);
 					const rows = state.queue.shift() ?? [];
 					// Promise + chained limit so await and .limit() both resolve to rows.
 					return Object.assign(Promise.resolve(rows), {
+						orderBy: () => ({ limit: () => Promise.resolve(rows) }),
 						limit: () => Promise.resolve(rows)
 					});
 				},
@@ -38,12 +103,14 @@ import {
 	canUploadAttachment,
 	getDefaultLimits,
 	canCreateFamily,
-	canViewArchivedEvent
+	canViewArchivedEvent,
+	getUserSubscriptionLimits
 } from '$lib/server/services/subscriptionService';
 
 describe('subscriptionService', () => {
 	beforeEach(() => {
 		state.queue = [];
+		state.capturedWhere = [];
 	});
 
 	describe('canCreateFamily', () => {
@@ -172,6 +239,58 @@ describe('subscriptionService', () => {
 			const fileSizeBytes = 15 * 1024 * 1024;
 			const result = await canUploadAttachment('user-1', fileSizeBytes);
 			expect(result.reason).toContain('10MB');
+		});
+	});
+
+	describe('getUserSubscriptionLimits', () => {
+		it('returns the defaults when no active subscription row exists', async () => {
+			// select #1 = active subscription row (none)
+			state.queue = [[]];
+			const limits = await getUserSubscriptionLimits('user-1');
+			expect(limits).toEqual(getDefaultLimits());
+		});
+
+		it('merges overrides from the CURRENT subscription row and tier', async () => {
+			// select #1 = active subscription row, #2 = its tier
+			state.queue = [
+				[
+					{
+						subscriptionTypeId: 'tier-1',
+						familyLimitOverride: null,
+						memberLimitOverride: 12,
+						retentionViewDaysOverride: null,
+						archivedRetentionDaysOverride: null,
+						attachmentLimitBytesOverride: null
+					}
+				],
+				[
+					{
+						familyLimit: 1,
+						memberLimit: 6,
+						retentionViewDays: 30,
+						archivedRetentionDays: 90,
+						attachmentLimitBytes: 10485760,
+						aiEventCreationsPerMonth: 10,
+						exportImportEnabled: true
+					}
+				]
+			];
+			const limits = await getUserSubscriptionLimits('user-1');
+			expect(limits.memberLimit).toBe(12);
+			expect(limits.familyLimit).toBe(1);
+			expect(limits.retentionViewDays).toBe(30);
+		});
+
+		it('only reads overrides through the active-sub filter (tiered, not expired)', async () => {
+			// Regression: the override read used a bare userId filter with no
+			// expiry check and no orderBy — an expired or random row's override
+			// could leak into the user's limits.
+			state.queue = [[]];
+			await getUserSubscriptionLimits('user-1');
+
+			const markers = lastWhereMarkers();
+			expect(markers).toContain('subscriptionTypeId');
+			expect(markers).toContain('endDate');
 		});
 	});
 
