@@ -6,6 +6,7 @@ import {
 	getTasksForUser,
 	getTasksForEvent,
 	isFamilyMember,
+	isValidAssignee,
 	normalizeTags,
 	TASK_FREQUENCIES
 } from '$lib/server/db/actions/tasks';
@@ -77,7 +78,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		// Assignment: a Task defaults to its creator unless another
 		// person is specified. Self-assign is instant-accept; assigning
 		// someone else starts a pending request they accept or decline.
+		// The target must be reachable — the creator themself or a member
+		// of the target family — or the task strands as a pending row its
+		// assignee can never see.
 		const assignedTo = isNonEmptyString(body.assignedTo) ? body.assignedTo : auth.user.id;
+		if (!(await isValidAssignee(auth.user.id, familyId, assignedTo))) {
+			return json({ error: 'Assignee is not a member of this family' }, { status: 400 });
+		}
 		const assignmentStatus = assignedTo === auth.user.id ? 'accepted' : 'pending';
 
 		const created = await createTask({

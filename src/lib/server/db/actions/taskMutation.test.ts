@@ -48,7 +48,7 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-import { canMutateTask, applyToggle } from './tasks';
+import { canMutateTask, applyToggle, nonOwnerAssignmentPatch, isValidAssignee } from './tasks';
 
 /** Base row for a daily recurring Task under test. */
 type TaskRow = {
@@ -169,5 +169,64 @@ describe('applyToggle', () => {
 		await applyToggle(task);
 
 		expect(state.updatePatch).toEqual({ completedAt: null });
+	});
+});
+
+describe('nonOwnerAssignmentPatch', () => {
+	// Family task owned by user-a, currently assigned (pending) to user-b.
+	const task = makeTask({ userId: 'user-a', assignedTo: 'user-b', familyId: 'fam-1' });
+
+	it('lets the current assignee accept (assignmentStatus only)', () => {
+		expect(nonOwnerAssignmentPatch(task, 'user-b', { assignmentStatus: 'accepted' })).toEqual({
+			assignmentStatus: 'accepted'
+		});
+	});
+
+	it('lets the current assignee decline (release back to the pool)', () => {
+		expect(
+			nonOwnerAssignmentPatch(task, 'user-b', { assignedTo: null, assignmentStatus: 'none' })
+		).toEqual({ assignedTo: null, assignmentStatus: 'none' });
+	});
+
+	it('gates a family member declining someone else’s assignment', () => {
+		expect(nonOwnerAssignmentPatch(task, 'user-c', { assignmentStatus: 'accepted' })).toBeNull();
+		expect(
+			nonOwnerAssignmentPatch(task, 'user-c', { assignedTo: null, assignmentStatus: 'none' })
+		).toBeNull();
+	});
+
+	it('gates reassignment by the assignee (reassign is owner-only)', () => {
+		expect(
+			nonOwnerAssignmentPatch(task, 'user-b', {
+				assignedTo: 'user-c',
+				assignmentStatus: 'pending'
+			})
+		).toBeNull();
+	});
+
+	it('passes an empty patch through untouched (tags-only edits are not assignment)', () => {
+		expect(nonOwnerAssignmentPatch(task, 'user-c', {})).toEqual({});
+	});
+});
+
+describe('isValidAssignee', () => {
+	it('allows self-assignment without a DB lookup', async () => {
+		expect(await isValidAssignee('user-a', 'fam-1', 'user-a')).toBe(true);
+		expect(state.queue).toEqual([]);
+	});
+
+	it('rejects another user on a personal task (no family to belong to)', async () => {
+		expect(await isValidAssignee('user-a', null, 'user-b')).toBe(false);
+		expect(state.queue).toEqual([]);
+	});
+
+	it('allows an existing member of the target family', async () => {
+		state.queue = [[{ familyId: 'fam-1' }]];
+		expect(await isValidAssignee('user-a', 'fam-1', 'user-b')).toBe(true);
+	});
+
+	it('rejects an unknown id / member of another family', async () => {
+		state.queue = [[]];
+		expect(await isValidAssignee('user-a', 'fam-1', 'user-b')).toBe(false);
 	});
 });

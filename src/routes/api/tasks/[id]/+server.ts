@@ -10,7 +10,10 @@ import {
 	deleteTask,
 	canMutateTask,
 	normalizeTags,
-	TASK_FREQUENCIES
+	nonOwnerAssignmentPatch,
+	isValidAssignee,
+	TASK_FREQUENCIES,
+	type AssignmentPatch
 } from '$lib/server/db/actions/tasks';
 import { normalizeTaskPriority } from '$lib/server/db/actions/taskPriority';
 import { db } from '$lib/server/db';
@@ -28,12 +31,6 @@ function isString(v: unknown): v is string {
 function isNonEmptyString(v: unknown): v is string {
 	return typeof v === 'string' && v.length > 0;
 }
-
-/** Assignment-only patch for task reassignment responses. */
-type AssignmentPatch = {
-	assignedTo?: string | null;
-	assignmentStatus?: string | null;
-};
 
 export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	if (!locals.user) {
@@ -99,6 +96,18 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 			if (body.assignedTo === null) {
 				assignmentPatch = { assignedTo: null, assignmentStatus: 'none' };
 			} else if (isNonEmptyString(body.assignedTo)) {
+				// An assignee must be reachable — the creator themself or a
+				// member of the task's family — or the task strands as a
+				// pending row the assignee can never see.
+				if (body.assignedTo !== user.id) {
+					const [target] = await db
+						.select({ familyId: tasks.familyId })
+						.from(tasks)
+						.where(eq(tasks.id, taskId));
+					if (target && !(await isValidAssignee(user.id, target.familyId, body.assignedTo))) {
+						return json({ error: 'Assignee is not a member of this family' }, { status: 400 });
+					}
+				}
 				assignmentPatch = {
 					assignedTo: body.assignedTo,
 					assignmentStatus: body.assignedTo === locals.user.id ? 'accepted' : 'pending'
@@ -131,14 +140,21 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 
 			// Non-owner family members: assignment responses and tags only.
 			// Field scope stays narrow (owner-only above); the permission leg
-			// goes through the one task-mutation seam.
+			// goes through the one task-mutation seam. Assignment authority is
+			// narrowed further: only the CURRENT assignee may accept or decline
+			// their own assignment — reassignment and clearing stay owner-only.
 			if (!updated && (Object.keys(assignmentPatch).length > 0 || body.tags !== undefined)) {
 				const [existing] = await db.select().from(tasks).where(eq(tasks.id, taskId));
-				if (existing?.familyId && (await canMutateTask(existing, user.id)))
+				if (existing?.familyId && (await canMutateTask(existing, user.id))) {
+					const scoped = nonOwnerAssignmentPatch(existing, user.id, assignmentPatch);
+					if (!scoped) {
+						return json({ error: 'You can only respond to your own assignments' }, { status: 403 });
+					}
 					updated = await updateTaskInFamily(taskId, existing.familyId, {
-						...assignmentPatch,
+						...scoped,
 						tags: body.tags === undefined ? undefined : normalizeTags(body.tags)
 					});
+				}
 			}
 
 			const accepted = assignmentPatch.assignmentStatus === 'accepted';

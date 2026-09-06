@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { users, type User } from '$lib/server/db/schema';
+import { users, subscriptions, type User } from '$lib/server/db/schema';
 import { createUserSettings } from '$lib/server/db/actions/userSettings';
 import { eq, and, lt, sql } from 'drizzle-orm';
 
@@ -51,7 +51,13 @@ export async function updateUser(id: string, data: Partial<Omit<User, 'id'>>) {
 }
 
 export async function deleteUser(id: string) {
-	await db.delete(users).where(eq(users.id, id));
+	// activeSubscriptions.userId is the only user FK without a cascade, so
+	// the subscription rows must go first or Postgres rejects the delete —
+	// account deletion would 500 after the session was already invalidated.
+	await db.transaction(async (tx) => {
+		await tx.delete(subscriptions).where(eq(subscriptions.userId, id));
+		await tx.delete(users).where(eq(users.id, id));
+	});
 }
 
 export async function deleteUserByEmail(email: string) {

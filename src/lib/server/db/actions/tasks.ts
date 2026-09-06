@@ -375,6 +375,57 @@ export async function canMutateTask(task: Task, userId: string): Promise<boolean
 	return isFamilyMember(userId, task.familyId);
 }
 
+/** Assignment-only patch for task reassignment responses. */
+export type AssignmentPatch = {
+	assignedTo?: string | null;
+	assignmentStatus?: string | null;
+};
+
+/**
+ * Assignment authority for a caller who does NOT own the task: the
+ * current assignee may accept, or decline (release back to the pool),
+ * their own assignment. Everything else assignment-shaped — reassign,
+ * re-target, clear someone else's assignment — stays owner-only and
+ * comes back as null (the caller turns that into a 403). An empty
+ * patch (tags-only edit) passes through untouched.
+ */
+export function nonOwnerAssignmentPatch(
+	task: Pick<Task, 'assignedTo'>,
+	callerId: string,
+	patch: AssignmentPatch
+): AssignmentPatch | null {
+	if (Object.keys(patch).length === 0) return {};
+	if (task.assignedTo !== callerId) return null;
+	if (patch.assignedTo === undefined && patch.assignmentStatus === 'accepted') {
+		return { assignmentStatus: 'accepted' };
+	}
+	if (patch.assignedTo === null && patch.assignmentStatus === 'none') {
+		return { assignedTo: null, assignmentStatus: 'none' };
+	}
+	return null;
+}
+
+/**
+ * Assignment target check: a task may be assigned to the creator
+ * themself, or to an existing member of the target family. Anything
+ * else would strand the task as a pending row its assignee can never
+ * see. Self-assignment needs no lookup; otherwise the familyMembers
+ * row is the single membership seam.
+ */
+export async function isValidAssignee(
+	callerId: string,
+	familyId: string | null,
+	assignedTo: string
+): Promise<boolean> {
+	if (assignedTo === callerId) return true;
+	if (!familyId) return false;
+	const [member] = await db
+		.select({ familyId: familyMembers.familyId })
+		.from(familyMembers)
+		.where(and(eq(familyMembers.userId, assignedTo), eq(familyMembers.familyId, familyId)));
+	return Boolean(member);
+}
+
 /**
  * Shared recurring-vs-oneoff toggle decision: completing an OPEN recurring
  * task rolls the cursor onto the next occurrence instead of closing it out;
