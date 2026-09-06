@@ -21,7 +21,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #010 Bill receipts (blocked by #004 — startable)
 - #011 Bill quick-add NLP (blocked by #004 — startable)
 - #012 Bills MED/LOW follow-ups
-- #013 Tasks/family MED/LOW
+- #013 Tasks/family MED/LOW (8 of 10 audit items fixed 2026-09-06: assignment
+  notifications, remove-member un-assign, undo cursor hardening, completion
+  actor attribution (sql/006), sync family scope, sub-override filter,
+  bell polling, deleteUser status reset; bulk-events item deferred to events
+  lane)
 - #014 Events/calendar MED/LOW
 - #015 App UX MED/LOW
 - #016 Security LOWs (deferred)

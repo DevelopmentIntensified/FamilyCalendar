@@ -1,6 +1,6 @@
 # 016 — Audit findings: security LOWs (deferred)
 
-Status: open
+Status: in-progress
 
 ## Done
 

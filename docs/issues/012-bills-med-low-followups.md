@@ -1,6 +1,6 @@
 # 012 — Audit findings: bills MED/LOW follow-ups
 
-Status: open
+Status: in-progress
 
 ## Needs doing
 

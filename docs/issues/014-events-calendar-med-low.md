@@ -1,6 +1,6 @@
 # 014 — Audit findings: events/calendar MED/LOW
 
-Status: open
+Status: in-progress
 
 ## Needs doing
 

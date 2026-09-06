@@ -1,6 +1,6 @@
 # 015 — Audit findings: app-wide UX MED/LOW
 
-Status: open
+Status: in-progress
 
 ## Needs doing
 
