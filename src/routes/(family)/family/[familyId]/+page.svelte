@@ -258,375 +258,212 @@
 				</div>
 			</section>
 
-			<!-- Members card -->
-			<section
-				class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-2"
-				aria-labelledby="members-heading"
-			>
-				<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-					<h2 id="members-heading" class="text-lg font-semibold text-slate-900">Members</h2>
-					<div class="flex items-center gap-2">
-						<a
-							href="/family/{family?.id}/tasks"
-							class="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50"
-						>
-							Family Tasks
-						</a>
-						{#if isAdmin}
+			<!-- Left column: members + activity (activity relates to member actions) -->
+			<div class="flex min-w-0 flex-col gap-4 {isAdmin ? 'sm:col-span-2' : 'sm:col-span-3'}">
+				<!-- Members card -->
+				<section
+					class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+					aria-labelledby="members-heading"
+				>
+					<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+						<h2 id="members-heading" class="text-lg font-semibold text-slate-900">Members</h2>
+						<div class="flex items-center gap-2">
 							<a
-								href="/family/{family?.id}/members/add"
-								class="inline-flex min-h-11 items-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+								href="/family/{family?.id}/tasks"
+								class="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50"
 							>
-								Add member
+								Family Tasks
 							</a>
-						{/if}
+							{#if isAdmin}
+								<a
+									href="/family/{family?.id}/members/add"
+									class="inline-flex min-h-11 items-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+								>
+									Add member
+								</a>
+							{/if}
+						</div>
 					</div>
-				</div>
 
-				{#if members.length > 0}
-					<ul class="space-y-2">
-						{#each members as member (member.userId)}
-							<li
-								class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 transition-colors hover:bg-slate-100"
-							>
-								<div class="flex min-w-0 flex-1 items-center gap-2.5">
-									<div
-										class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold {avatarColor(
-											member.userId
-										)}"
-										aria-hidden="true"
-									>
-										{member.firstName?.[0] || member.email?.[0] || '?'}
-									</div>
-									<div class="min-w-0">
-										<p class="truncate text-sm font-medium text-slate-900">
-											{memberDisplayName(member)}
-										</p>
-										<p class="truncate text-xs text-slate-500">{member.email}</p>
-									</div>
-								</div>
-
-								<div class="flex flex-wrap items-center gap-1.5">
-									{#if !isAdmin}
-										<span
-											class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600"
-											title="Member type (profile label — parent, child, or member)"
+					{#if members.length > 0}
+						<ul class="space-y-2">
+							{#each members as member (member.userId)}
+								<li
+									class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 transition-colors hover:bg-slate-100"
+								>
+									<div class="flex min-w-0 flex-1 items-center gap-2.5">
+										<div
+											class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold {avatarColor(
+												member.userId
+											)}"
+											aria-hidden="true"
 										>
-											{member.memberType || 'member'}
-										</span>
-									{/if}
+											{member.firstName?.[0] || member.email?.[0] || '?'}
+										</div>
+										<div class="min-w-0">
+											<p class="truncate text-sm font-medium text-slate-900">
+												{memberDisplayName(member)}
+											</p>
+											<p class="truncate text-xs text-slate-500">{member.email}</p>
+										</div>
+									</div>
 
-									{#if editingRole === member.userId}
-										<!-- Desktop inline role editor -->
-										<form
-											method="POST"
-											action="?/updateRole"
-											use:enhance={() => roleSubmit(member)}
-											class="hidden items-center gap-1.5 sm:flex"
-										>
-											<input type="hidden" name="userId" value={member.userId} />
-											<select
-												name="role"
-												value={member.role || 'member'}
-												disabled={roleBusy === member.userId}
-												aria-label="Role for {member.firstName}"
-												class="h-11 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-700 disabled:opacity-50"
+									<div class="flex flex-wrap items-center gap-1.5">
+										{#if !isAdmin}
+											<span
+												class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600"
+												title="Member type (profile label — parent, child, or member)"
 											>
-												<option value="member">member</option>
-												<option value="admin">admin</option>
-												{#if currentUserRole === 'creator'}
-													<option value="creator">creator</option>
-												{/if}
-											</select>
-											<button
-												type="submit"
-												disabled={roleBusy === member.userId}
-												class="h-11 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-											>
-												{roleBusy === member.userId ? 'Saving…' : 'Save'}
-											</button>
-											<button
-												type="button"
-												on:click={() => (editingRole = null)}
-												class="h-11 rounded-lg bg-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300"
-											>
-												Cancel
-											</button>
-										</form>
-										<span class={rolePillClass(member.role || 'member') + ' sm:hidden'}>
-											{member.role || 'member'}
-										</span>
-									{:else}
-										<span class={rolePillClass(member.role || 'member')}>
-											{member.role || 'member'}
-										</span>
-									{/if}
+												{member.memberType || 'member'}
+											</span>
+										{/if}
 
-									<!-- Desktop actions (sm+) -->
-									<div class="hidden items-center gap-1.5 sm:flex">
-										{#if isAdmin}
+										{#if editingRole === member.userId}
+											<!-- Desktop inline role editor -->
 											<form
 												method="POST"
-												action="?/setMemberType"
-												use:enhance={memberTypeSubmit}
-												title="Member type (profile label — parent, child, or member)"
+												action="?/updateRole"
+												use:enhance={() => roleSubmit(member)}
+												class="hidden items-center gap-1.5 sm:flex"
 											>
 												<input type="hidden" name="userId" value={member.userId} />
 												<select
-													name="memberType"
-													value={member.memberType ?? 'member'}
-													disabled={memberTypeBusy === member.userId}
-													on:change={(e) => startMemberTypeChange(e, member)}
-													aria-label="Member type for {member.firstName}{memberTypeBusy ===
-													member.userId
-														? ' — saving…'
-														: ''}"
-													class="h-11 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-600 disabled:opacity-50"
+													name="role"
+													value={member.role || 'member'}
+													disabled={roleBusy === member.userId}
+													aria-label="Role for {member.firstName}"
+													class="h-11 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-700 disabled:opacity-50"
 												>
-													<option value="parent">Parent</option>
-													<option value="child">Child</option>
-													<option value="member">Member</option>
+													<option value="member">member</option>
+													<option value="admin">admin</option>
+													{#if currentUserRole === 'creator'}
+														<option value="creator">creator</option>
+													{/if}
 												</select>
-											</form>
-										{/if}
-										{#if canEditRole(member) && editingRole !== member.userId}
-											<button
-												type="button"
-												on:click={() => (editingRole = member.userId)}
-												class="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
-											>
-												Edit
-											</button>
-										{/if}
-										{#if showRemoveConfirm === member.userId}
-											<div class="flex items-center gap-1.5">
-												<span class="text-sm text-red-600">Remove?</span>
-												<form
-													method="POST"
-													action="?/removeMember"
-													use:enhance={() => removeSubmit(member)}
+												<button
+													type="submit"
+													disabled={roleBusy === member.userId}
+													class="h-11 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
 												>
-													<input type="hidden" name="userId" value={member.userId} />
-													<button
-														type="submit"
-														disabled={removeBusy === member.userId}
-														class="h-11 rounded-lg bg-red-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-													>
-														{removeBusy === member.userId ? 'Removing…' : 'Yes'}
-													</button>
-												</form>
+													{roleBusy === member.userId ? 'Saving…' : 'Save'}
+												</button>
 												<button
 													type="button"
-													on:click={() => (showRemoveConfirm = null)}
+													on:click={() => (editingRole = null)}
 													class="h-11 rounded-lg bg-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300"
 												>
-													No
+													Cancel
 												</button>
-											</div>
-										{:else if canRemove(member)}
+											</form>
+											<span class={rolePillClass(member.role || 'member') + ' sm:hidden'}>
+												{member.role || 'member'}
+											</span>
+										{:else}
+											<span class={rolePillClass(member.role || 'member')}>
+												{member.role || 'member'}
+											</span>
+										{/if}
+
+										<!-- Desktop actions (sm+) -->
+										<div class="hidden items-center gap-1.5 sm:flex">
+											{#if isAdmin}
+												<form
+													method="POST"
+													action="?/setMemberType"
+													use:enhance={memberTypeSubmit}
+													title="Member type (profile label — parent, child, or member)"
+												>
+													<input type="hidden" name="userId" value={member.userId} />
+													<select
+														name="memberType"
+														value={member.memberType ?? 'member'}
+														disabled={memberTypeBusy === member.userId}
+														on:change={(e) => startMemberTypeChange(e, member)}
+														aria-label="Member type for {member.firstName}{memberTypeBusy ===
+														member.userId
+															? ' — saving…'
+															: ''}"
+														class="h-11 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-600 disabled:opacity-50"
+													>
+														<option value="parent">Parent</option>
+														<option value="child">Child</option>
+														<option value="member">Member</option>
+													</select>
+												</form>
+											{/if}
+											{#if canEditRole(member) && editingRole !== member.userId}
+												<button
+													type="button"
+													on:click={() => (editingRole = member.userId)}
+													class="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+												>
+													Edit
+												</button>
+											{/if}
+											{#if showRemoveConfirm === member.userId}
+												<div class="flex items-center gap-1.5">
+													<span class="text-sm text-red-600">Remove?</span>
+													<form
+														method="POST"
+														action="?/removeMember"
+														use:enhance={() => removeSubmit(member)}
+													>
+														<input type="hidden" name="userId" value={member.userId} />
+														<button
+															type="submit"
+															disabled={removeBusy === member.userId}
+															class="h-11 rounded-lg bg-red-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+														>
+															{removeBusy === member.userId ? 'Removing…' : 'Yes'}
+														</button>
+													</form>
+													<button
+														type="button"
+														on:click={() => (showRemoveConfirm = null)}
+														class="h-11 rounded-lg bg-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300"
+													>
+														No
+													</button>
+												</div>
+											{:else if canRemove(member)}
+												<button
+													type="button"
+													on:click={() => (showRemoveConfirm = member.userId)}
+													class="h-11 rounded-lg border border-red-300 bg-white px-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+												>
+													Remove
+												</button>
+											{/if}
+										</div>
+
+										<!-- Mobile kebab (<sm) -->
+										{#if isAdmin || canEditRole(member) || canRemove(member)}
 											<button
 												type="button"
-												on:click={() => (showRemoveConfirm = member.userId)}
-												class="h-11 rounded-lg border border-red-300 bg-white px-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+												on:click={() => {
+													showRemoveConfirm = null;
+													sheetMember = member;
+												}}
+												aria-label="Actions for {memberDisplayName(member)}"
+												class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-200 sm:hidden"
 											>
-												Remove
+												<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+													<path
+														d="M6 10.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm6 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm6 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"
+													/>
+												</svg>
 											</button>
 										{/if}
 									</div>
-
-									<!-- Mobile kebab (<sm) -->
-									{#if isAdmin || canEditRole(member) || canRemove(member)}
-										<button
-											type="button"
-											on:click={() => {
-												showRemoveConfirm = null;
-												sheetMember = member;
-											}}
-											aria-label="Actions for {memberDisplayName(member)}"
-											class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-200 sm:hidden"
-										>
-											<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-												<path
-													d="M6 10.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm6 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm6 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"
-												/>
-											</svg>
-										</button>
-									{/if}
-								</div>
-							</li>
-						{/each}
-					</ul>
-				{:else}
-					<div class="py-8 text-center">
-						<p class="text-slate-500">No members found.</p>
-					</div>
-				{/if}
-			</section>
-
-			<!-- Right column: settings, invitations, activity -->
-			<div class="flex min-w-0 flex-col gap-4 sm:col-start-3 sm:row-start-1">
-				<!-- Settings card (always visible; admin content) -->
-				{#if isAdmin}
-					<section
-						id="family-settings"
-						class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-						aria-labelledby="settings-heading"
-					>
-						<h2 id="settings-heading" class="mb-3 text-lg font-semibold text-slate-900">
-							Family Settings
-						</h2>
-						<form method="POST" action="?/updateFamily" use:enhance={saveFamilySubmit}>
-							<div class="grid gap-3">
-								<div>
-									<label for="name" class="mb-1 block text-sm font-medium text-slate-700"
-										>Family Name</label
-									>
-									<input
-										type="text"
-										id="name"
-										name="name"
-										bind:value={editingName}
-										class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-									/>
-								</div>
-								<div>
-									<label for="color" class="mb-1 block text-sm font-medium text-slate-700"
-										>Color</label
-									>
-									<input
-										type="color"
-										id="color"
-										name="color"
-										bind:value={editingColor}
-										class="h-11 w-full rounded-lg border border-slate-300"
-									/>
-								</div>
-							</div>
-							<button
-								type="submit"
-								disabled={savingFamily}
-								class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-							>
-								{savingFamily ? 'Saving…' : 'Save Changes'}
-							</button>
-						</form>
-
-						<div class="mt-5 border-t border-slate-200 pt-4">
-							<h3 class="text-sm font-semibold text-slate-800">Day Dashboard Modules</h3>
-							<p class="mt-1 text-xs text-slate-500">
-								Family-wide master switches. Switched-off cards are hidden for everyone — individual
-								members can re-enable them from Account settings.
-							</p>
-							<div class="mt-3 grid gap-2">
-								{#each FAMILY_DASHBOARD_MODULES as mod (mod.id)}
-									<form
-										method="POST"
-										action="?/toggleDashboardModule"
-										use:enhance
-										class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5"
-									>
-										<span class="text-sm font-medium text-slate-800">{mod.label}</span>
-										<input type="hidden" name="module" value={mod.id} />
-										<button
-											type="submit"
-											name="enabled"
-											value={moduleSwitches[mod.id] ? 'false' : 'true'}
-											class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors {moduleSwitches[
-												mod.id
-											]
-												? 'bg-green-100 text-green-700 hover:bg-green-200'
-												: 'bg-slate-200 text-slate-600 hover:bg-slate-300'}"
-										>
-											{moduleSwitches[mod.id] ? 'On' : 'Off'}
-										</button>
-									</form>
-								{/each}
-							</div>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<div class="py-8 text-center">
+							<p class="text-slate-500">No members found.</p>
 						</div>
-					</section>
-				{/if}
-
-				<!-- Invitations card -->
-				{#if isAdmin}
-					<section
-						class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-						aria-labelledby="invitations-heading"
-					>
-						<h2 id="invitations-heading" class="mb-3 text-lg font-semibold text-slate-900">
-							Invitations
-						</h2>
-						<div class="space-y-1.5">
-							<a
-								href="/family/{family?.id}/invitations"
-								class="flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-							>
-								<svg
-									class="h-5 w-5 shrink-0 text-slate-400"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									aria-hidden="true"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-									/>
-								</svg>
-								<span class="flex-1">Manage invitations</span>
-								<svg
-									class="h-4 w-4 shrink-0 text-slate-300"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									aria-hidden="true"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M9 5l7 7-7 7"
-									/>
-								</svg>
-							</a>
-							<a
-								href="/family/{family?.id}/members/add"
-								class="flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-							>
-								<svg
-									class="h-5 w-5 shrink-0 text-slate-400"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									aria-hidden="true"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<span class="flex-1">Add member</span>
-								<svg
-									class="h-4 w-4 shrink-0 text-slate-300"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									aria-hidden="true"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M9 5l7 7-7 7"
-									/>
-								</svg>
-							</a>
-						</div>
-					</section>
-				{/if}
+					{/if}
+				</section>
 
 				<!-- Activity card -->
 				<section
@@ -663,6 +500,174 @@
 					{/if}
 				</section>
 			</div>
+
+			{#if isAdmin}
+				<!-- Right column: settings, invitations -->
+				<div class="flex min-w-0 flex-col gap-4">
+					<!-- Settings card (always visible; admin content) -->
+					{#if isAdmin}
+						<section
+							id="family-settings"
+							class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+							aria-labelledby="settings-heading"
+						>
+							<h2 id="settings-heading" class="mb-3 text-lg font-semibold text-slate-900">
+								Family Settings
+							</h2>
+							<form method="POST" action="?/updateFamily" use:enhance={saveFamilySubmit}>
+								<div class="grid gap-3">
+									<div>
+										<label for="name" class="mb-1 block text-sm font-medium text-slate-700"
+											>Family Name</label
+										>
+										<input
+											type="text"
+											id="name"
+											name="name"
+											bind:value={editingName}
+											class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+										/>
+									</div>
+									<div>
+										<label for="color" class="mb-1 block text-sm font-medium text-slate-700"
+											>Color</label
+										>
+										<input
+											type="color"
+											id="color"
+											name="color"
+											bind:value={editingColor}
+											class="h-11 w-full rounded-lg border border-slate-300"
+										/>
+									</div>
+								</div>
+								<button
+									type="submit"
+									disabled={savingFamily}
+									class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+								>
+									{savingFamily ? 'Saving…' : 'Save Changes'}
+								</button>
+							</form>
+
+							<div class="mt-5 border-t border-slate-200 pt-4">
+								<h3 class="text-sm font-semibold text-slate-800">Day Dashboard Modules</h3>
+								<p class="mt-1 text-xs text-slate-500">
+									Family-wide master switches. Switched-off cards are hidden for everyone —
+									individual members can re-enable them from Account settings.
+								</p>
+								<div class="mt-3 grid gap-2">
+									{#each FAMILY_DASHBOARD_MODULES as mod (mod.id)}
+										<form
+											method="POST"
+											action="?/toggleDashboardModule"
+											use:enhance
+											class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5"
+										>
+											<span class="text-sm font-medium text-slate-800">{mod.label}</span>
+											<input type="hidden" name="module" value={mod.id} />
+											<button
+												type="submit"
+												name="enabled"
+												value={moduleSwitches[mod.id] ? 'false' : 'true'}
+												class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors {moduleSwitches[
+													mod.id
+												]
+													? 'bg-green-100 text-green-700 hover:bg-green-200'
+													: 'bg-slate-200 text-slate-600 hover:bg-slate-300'}"
+											>
+												{moduleSwitches[mod.id] ? 'On' : 'Off'}
+											</button>
+										</form>
+									{/each}
+								</div>
+							</div>
+						</section>
+					{/if}
+
+					<!-- Invitations card -->
+					{#if isAdmin}
+						<section
+							class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+							aria-labelledby="invitations-heading"
+						>
+							<h2 id="invitations-heading" class="mb-3 text-lg font-semibold text-slate-900">
+								Invitations
+							</h2>
+							<div class="space-y-1.5">
+								<a
+									href="/family/{family?.id}/invitations"
+									class="flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+								>
+									<svg
+										class="h-5 w-5 shrink-0 text-slate-400"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										aria-hidden="true"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+										/>
+									</svg>
+									<span class="flex-1">Manage invitations</span>
+									<svg
+										class="h-4 w-4 shrink-0 text-slate-300"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										aria-hidden="true"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M9 5l7 7-7 7"
+										/>
+									</svg>
+								</a>
+								<a
+									href="/family/{family?.id}/members/add"
+									class="flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+								>
+									<svg
+										class="h-5 w-5 shrink-0 text-slate-400"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										aria-hidden="true"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+									<span class="flex-1">Add member</span>
+									<svg
+										class="h-4 w-4 shrink-0 text-slate-300"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										aria-hidden="true"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M9 5l7 7-7 7"
+										/>
+									</svg>
+								</a>
+							</div>
+						</section>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>

@@ -136,7 +136,8 @@ test('family pages have no horizontal overflow on mobile widths', async ({ page 
 		// Family dashboard (seeded family) + its task board + member add page.
 		await page.goto('/family');
 		await page.waitForLoadState('networkidle');
-		await page.locator('a:has-text("View Details")').first().click();
+		// SAFETY: hub family rows are whole-row links with an "Open" affordance.
+		await page.locator('a[href^="/family/"]:has-text("Open")').first().click();
 		await page.waitForLoadState('networkidle');
 		const rep = await overflowReport(page);
 		expect(rep.scrollW, `family dashboard @ ${width}px scrollWidth`).toBeLessThanOrEqual(
