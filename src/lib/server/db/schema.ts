@@ -142,6 +142,7 @@ export const subscriptions = pgTable('activeSubscriptions', {
 	}),
 	endDate: timestamp('endDate', { mode: 'date' }).notNull(),
 	familyLimitOverride: integer('familyLimitOverride'),
+	memberLimitOverride: integer('memberLimitOverride'),
 	retentionViewDaysOverride: integer('retentionViewDaysOverride'),
 	archivedRetentionDaysOverride: integer('archivedRetentionDaysOverride'),
 	attachmentLimitBytesOverride: integer('attachmentLimitBytesOverride')
@@ -164,6 +165,8 @@ export const subscriptionTypes = pgTable('subscriptionTypes', {
 	durationMonths: integer('durationMonths').notNull(),
 	enabled: boolean('enabled').default(true).notNull(),
 	familyLimit: integer('familyLimit').default(1).notNull(),
+	/** Max members allowed IN one family (the creator's tier decides). */
+	memberLimit: integer('memberLimit').default(6).notNull(),
 	retentionViewDays: integer('retentionViewDays').default(30).notNull(),
 	archivedRetentionDays: integer('archivedRetentionDays').default(90).notNull(),
 	attachmentLimitBytes: integer('attachmentLimitBytes').default(10485760).notNull(),

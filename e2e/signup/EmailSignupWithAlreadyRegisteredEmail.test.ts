@@ -40,9 +40,13 @@ test('Email Sign Up With Already Registered Email', async ({ page }) => {
 		await signUpPage.sendLinkButton.click();
 	});
 
-	await test.step('Expect error message about email already exists', async () => {
+	await test.step('Registered email is masked: same success UI as new email', async () => {
+		// Enumeration fix: the API returns the identical happy-path response for
+		// registered emails — no code is created, but the UI cannot tell.
 		await page.waitForTimeout(2000);
+		const successMessage = page.getByText(/verification code/i);
+		await expect(successMessage).toBeVisible({ timeout: 5000 });
 		const errorMessage = page.getByText(/already registered|already exists|already in use/i);
-		await expect(errorMessage).toBeVisible({ timeout: 5000 });
+		await expect(errorMessage).toHaveCount(0);
 	});
 });

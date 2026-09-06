@@ -176,7 +176,7 @@ describe('acceptInvite', () => {
 			[{ code: 'code-1', familyId: 'fam-1', maxUses: 1, useCount: 0 }],
 			[{ id: 'fam-1' }],
 			[],
-			[{ memberCount: 2 }],
+			[{ memberCount: 6 }],
 			[{ userId: 'creator-1' }],
 			[]
 		];

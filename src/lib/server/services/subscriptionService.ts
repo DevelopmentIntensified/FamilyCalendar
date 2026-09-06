@@ -11,6 +11,7 @@ export type SubscriptionTier = typeof subscriptionTypes.$inferSelect;
 
 export interface SubscriptionLimits {
 	familyLimit: number;
+	memberLimit: number;
 	retentionViewDays: number;
 	archivedRetentionDays: number;
 	attachmentLimitBytes: number;
@@ -106,6 +107,7 @@ export async function getUserSubscriptionLimits(userId: string): Promise<Subscri
 	if (!tier) {
 		return {
 			familyLimit: 1,
+			memberLimit: 6,
 			retentionViewDays: 30,
 			archivedRetentionDays: 90,
 			attachmentLimitBytes: 10485760,
@@ -124,6 +126,7 @@ export async function getUserSubscriptionLimits(userId: string): Promise<Subscri
 
 	return {
 		familyLimit: sub?.familyLimitOverride ?? tier.familyLimit,
+		memberLimit: sub?.memberLimitOverride ?? tier.memberLimit,
 		retentionViewDays: sub?.retentionViewDaysOverride ?? tier.retentionViewDays,
 		archivedRetentionDays: sub?.archivedRetentionDaysOverride ?? tier.archivedRetentionDays,
 		attachmentLimitBytes: sub?.attachmentLimitBytesOverride ?? tier.attachmentLimitBytes,
@@ -133,7 +136,7 @@ export async function getUserSubscriptionLimits(userId: string): Promise<Subscri
 }
 
 /**
- * Member limit of a family: the creator's subscription familyLimit (with any
+ * Member limit of a family: the creator's subscription memberLimit (with any
  * override), falling back to the default tier limit when no creator row exists.
  */
 async function getFamilySizeLimit(familyId: string): Promise<number> {
@@ -143,10 +146,10 @@ async function getFamilySizeLimit(familyId: string): Promise<number> {
 		.where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.role, 'creator')))
 		.limit(1);
 
-	if (!creator) return getDefaultLimits().familyLimit;
+	if (!creator) return getDefaultLimits().memberLimit;
 
 	const limits = await getUserSubscriptionLimits(creator.userId);
-	return limits.familyLimit;
+	return limits.memberLimit;
 }
 
 /**
@@ -319,6 +322,7 @@ export async function checkSubscriptionAction(
 export function getDefaultLimits(): SubscriptionLimits {
 	return {
 		familyLimit: 1,
+		memberLimit: 6,
 		retentionViewDays: 30,
 		archivedRetentionDays: 90,
 		attachmentLimitBytes: 10485760,

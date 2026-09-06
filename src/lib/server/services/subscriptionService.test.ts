@@ -127,19 +127,19 @@ describe('subscriptionService', () => {
 		}
 
 		it('resolves the limit from the family creator subscription', async () => {
-			// select #1 = member count, #2 = creator lookup, #3 = subscriptions (none → free tier limit 1)
-			state.queue = [[{ memberCount: 1 }], [{ userId: 'creator-1' }], []];
+			// select #1 = member count, #2 = creator lookup, #3 = subscriptions (none → default memberLimit 6)
+			state.queue = [[{ memberCount: 6 }], [{ userId: 'creator-1' }], []];
 			const result = await canAddFamilyMember('fam-1');
 			expect(result.allowed).toBe(false);
-			expect(result.limit).toBe(1);
+			expect(result.limit).toBe(6);
 		});
 
-		it('uses the default limit when the family has no creator row', async () => {
+		it('uses the default member limit when the family has no creator row', async () => {
 			// select #1 = member count, #2 = creator lookup (none → default limit)
 			state.queue = [[{ memberCount: 0 }], []];
 			const result = await canAddFamilyMember('fam-1');
 			expect(result.allowed).toBe(true);
-			expect(result.limit).toBe(1);
+			expect(result.limit).toBe(6);
 		});
 	});
 
