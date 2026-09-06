@@ -12,6 +12,7 @@ import {
 	index
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { generateId } from 'lucia';
 
 export const users = pgTable('users', {
@@ -402,38 +403,51 @@ export const aiUsageTracking = pgTable(
 	})
 );
 
-export const events = pgTable('events', {
-	id: text('id')
-		.notNull()
-		.primaryKey()
-		.$defaultFn(() => generateId(15)),
-	calendarId: text('calendar_id').references(() => calendars.id, { onDelete: 'cascade' }),
-	ownerId: text('owner_id')
-		.notNull()
-		.references(() => users.id, { onDelete: 'cascade' }),
-	title: text('title').notNull(),
-	start: timestamp('start', {
-		withTimezone: true,
-		mode: 'string'
-	}).notNull(),
-	end: timestamp('end', {
-		withTimezone: true,
-		mode: 'string'
-	}),
-	description: text('description'),
-	location: text('location'),
-	allDay: boolean('all_day').default(false).notNull(),
-	recurrenceFrequency: text('recurrence_frequency'),
-	recurrenceInterval: integer('recurrence_interval'),
-	recurrenceByDay: text('recurrence_by_day').array(),
-	recurrenceCount: integer('recurrence_count'),
-	recurrenceUntil: timestamp('recurrence_until', {
-		withTimezone: true,
-		mode: 'string'
-	}),
-	reminderMinutes: integer('reminder_minutes'),
-	created_at: timestamp('created_at').defaultNow().notNull()
-});
+export const events = pgTable(
+	'events',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		calendarId: text('calendar_id').references(() => calendars.id, { onDelete: 'cascade' }),
+		ownerId: text('owner_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		title: text('title').notNull(),
+		start: timestamp('start', {
+			withTimezone: true,
+			mode: 'string'
+		}).notNull(),
+		end: timestamp('end', {
+			withTimezone: true,
+			mode: 'string'
+		}),
+		description: text('description'),
+		location: text('location'),
+		allDay: boolean('all_day').default(false).notNull(),
+		recurrenceFrequency: text('recurrence_frequency'),
+		recurrenceInterval: integer('recurrence_interval'),
+		recurrenceByDay: text('recurrence_by_day').array(),
+		recurrenceCount: integer('recurrence_count'),
+		recurrenceUntil: timestamp('recurrence_until', {
+			withTimezone: true,
+			mode: 'string'
+		}),
+		reminderMinutes: integer('reminder_minutes'),
+		// Family-mirror origin: set on the syncEventsToFamilyCalendar copy so the
+		// master row can be found and propagated/deleted (issue 014). Nullable,
+		// no default: inserts that omit it store NULL (masters + legacy rows).
+		// Type-level optionality for writers comes from the CalendarEvent alias.
+		mirrorOf: text('mirror_of').references((): AnyPgColumn => events.id, {
+			onDelete: 'cascade'
+		}),
+		created_at: timestamp('created_at').defaultNow().notNull()
+	},
+	(table) => ({
+		mirrorOfIdx: index('events_mirror_of_idx').on(table.mirrorOf)
+	})
+);
 
 export const eventExceptions = pgTable('event_exceptions', {
 	id: text('id')
@@ -576,10 +590,14 @@ export const taskCompletions = pgTable('taskCompletions', {
 	taskId: text('taskId')
 		.notNull()
 		.references(() => tasks.id, { onDelete: 'cascade' }),
-	// Who checked it off (creator or assignee).
+	// Who the completion is attributed to by default (the task owner for
+	// legacy rows; see actorId below).
 	userId: text('userId')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
+	// The ACTING user who checked the task off (nullable — additive in #013;
+	// legacy rows have no actor and fall back to userId attribution).
+	actorId: text('actorId').references(() => users.id, { onDelete: 'set null' }),
 	familyId: text('familyId').references(() => families.id, { onDelete: 'cascade' }),
 	completedAt: timestamp('completedAt', { withTimezone: true, mode: 'string' })
 		.defaultNow()
@@ -598,7 +616,7 @@ export const notifications = pgTable('notifications', {
 	userId: text('userId')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
-	type: text('type').notNull(), // 'assignment_accepted' | 'assignment_declined' | 'task_completed'
+	type: text('type').notNull(), // 'assignment_pending' | 'assignment_accepted' | 'assignment_declined' | 'task_completed'
 	actorName: text('actorName').notNull(),
 	message: text('message').notNull(),
 	link: text('link'),
@@ -608,7 +626,13 @@ export const notifications = pgTable('notifications', {
 
 export type Session = typeof sessions.$inferSelect;
 export type Code = typeof codes.$inferSelect;
-export type CalendarEvent = typeof events.$inferSelect;
+// mirrorOf stays OPTIONAL at the type level: it is written only by the
+// family-mirror path (issue 014), and a required field here would force
+// every CalendarEvent/Event literal (dozens of test fixtures, the ICS
+// importer, ad-event projection) to spell out `mirrorOf: null`.
+export type CalendarEvent = Omit<typeof events.$inferSelect, 'mirrorOf'> & {
+	mirrorOf?: string | null;
+};
 export type Calendar = typeof calendars.$inferSelect;
 
 export type User = typeof users.$inferSelect;

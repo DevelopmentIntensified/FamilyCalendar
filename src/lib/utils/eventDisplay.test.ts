@@ -62,4 +62,40 @@ describe('parseEvents', () => {
 		expect(result[1].date.toISOString()).toBe('2026-03-08T05:00:00.000Z'); // Mar 8 midnight EST
 		expect(result[2].date.toISOString()).toBe('2026-03-09T04:00:00.000Z'); // Mar 9 midnight EDT
 	});
+
+	it('splits in the VIEWER zone: a Sep 5–6 event for a UTC+12 user is exactly 2 days', () => {
+		// NZST is UTC+12 in September. Sep 5 08:00Z → Sep 6 10:00Z is
+		// Sep 5 20:00 → Sep 6 22:00 Auckland — the viewer's Sep 5–6, exactly
+		// two day entries anchored on their local dates.
+		const events = [
+			{
+				id: 6,
+				title: 'Weekend',
+				start: '2026-09-05T08:00:00Z',
+				end: '2026-09-06T10:00:00Z'
+			}
+		];
+		const inAuckland = parseEvents(events, 'Pacific/Auckland');
+		expect(inAuckland).toHaveLength(2);
+		expect(inAuckland[0].date.toISOString()).toBe('2026-09-05T08:00:00.000Z'); // Sep 5 local
+		expect(inAuckland[1].date.toISOString()).toBe('2026-09-06T08:00:00.000Z'); // Sep 6 local
+	});
+
+	it('collapses on LOCAL day: no phantom trailing day for UTC+ viewers', () => {
+		// Sep 5 12:00Z → Sep 6 00:30Z is Sep 6 00:00 → 12:30 NZST — ONE local
+		// day. Splitting in server UTC spans two UTC days and emits a second
+		// entry that the UTC+12 viewer buckets on a phantom Sep 7.
+		const events = [
+			{
+				id: 7,
+				title: 'Lunch',
+				start: '2026-09-05T12:00:00Z',
+				end: '2026-09-06T00:30:00Z'
+			}
+		];
+		expect(parseEvents(events, 'UTC')).toHaveLength(2); // server zone: phantom day
+		const inAuckland = parseEvents(events, 'Pacific/Auckland');
+		expect(inAuckland).toHaveLength(1);
+		expect(inAuckland[0].date.toISOString()).toBe('2026-09-05T12:00:00.000Z'); // Sep 6 local
+	});
 });

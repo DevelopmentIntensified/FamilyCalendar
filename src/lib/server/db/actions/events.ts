@@ -11,7 +11,20 @@ import { eq, and, sql, inArray, or } from 'drizzle-orm';
 import { getAccessibleCalendarIds, eventAccessFilter } from '$lib/server/db/actions/calendarScope';
 import { toDateTime } from '$lib/server/utils/eventTimes';
 
-export async function getEvent(id: string) {
+/**
+ * Minimal query surface shared by `db` and transaction clients (precedent:
+ * calendar.ts's CalendarClient). Lets callers thread an open transaction
+ * through create/replace-invites so an event + its attendance rows commit
+ * atomically.
+ */
+type EventClient = {
+	select: typeof db.select;
+	insert: typeof db.insert;
+	update: typeof db.update;
+	delete: typeof db.delete;
+};
+
+export async function getEvent(id: string): Promise<CalendarEvent | undefined> {
 	const [event] = await db.select().from(events).where(eq(events.id, id));
 	return event;
 }
@@ -160,9 +173,9 @@ export function normalizeInvites(raw: unknown): EventInvite[] {
  *
  * The creator's own "going" row (status ≠ undecided) is never deleted.
  */
-export async function replaceEventInvites(eventId: string, raw: unknown[]) {
+export async function replaceEventInvites(eventId: string, raw: unknown[], client?: EventClient) {
 	const invites = normalizeInvites(raw);
-	await db.transaction(async (tx) => {
+	const run = async (tx: EventClient) => {
 		const existing = await tx
 			.select({
 				id: eventAttendance.id,
@@ -230,29 +243,42 @@ export async function replaceEventInvites(eventId: string, raw: unknown[]) {
 				: []
 		);
 		if (guests.length > 0) await tx.insert(eventAttendance).values(guests);
-	});
+	};
+	return client ? run(client) : db.transaction(run);
 }
 
 export async function createEvent(
 	data: Omit<CalendarEvent, 'id' | 'created_at'>,
 	ownerId: string,
-	invites?: unknown[]
+	invites?: unknown[],
+	client?: EventClient
 ) {
-	const [createdEvent] = await db.insert(events).values(data).returning();
-	// Auto-RSVP creator as "going"
-	if (createdEvent && ownerId) {
-		await db.insert(eventAttendance).values({
-			eventId: createdEvent.id,
-			userId: ownerId,
-			status: 'going',
-			inviteType: 'optional'
-		});
-	}
-	// Save invitations (members + guests)
-	if (createdEvent && invites !== undefined) {
-		await replaceEventInvites(createdEvent.id, invites);
-	}
-	return createdEvent;
+	// Event row + creator RSVP + invites land in ONE transaction (or on the
+	// caller's transaction) — a failed invite write no longer leaves a
+	// half-written event behind.
+	const run = async (tx: EventClient) => {
+		// SAFETY: CalendarEvent keeps mirrorOf optional for writers; the column
+		// is nullable with no default, so an omitted mirrorOf stores NULL.
+		const [createdEvent] = await tx
+			.insert(events)
+			.values(data as typeof events.$inferInsert)
+			.returning();
+		// Auto-RSVP creator as "going"
+		if (createdEvent && ownerId) {
+			await tx.insert(eventAttendance).values({
+				eventId: createdEvent.id,
+				userId: ownerId,
+				status: 'going',
+				inviteType: 'optional'
+			});
+		}
+		// Save invitations (members + guests)
+		if (createdEvent && invites !== undefined) {
+			await replaceEventInvites(createdEvent.id, invites, tx);
+		}
+		return createdEvent;
+	};
+	return client ? run(client) : db.transaction(run);
 }
 
 export async function updateEventById(
@@ -261,7 +287,7 @@ export async function updateEventById(
 	userId: string,
 	invites?: unknown[],
 	accessibleCalIds?: string[]
-) {
+): Promise<CalendarEvent | undefined> {
 	const calIds = accessibleCalIds ?? (await getAccessibleCalendarIds(userId));
 	const updatedEvent = await db.transaction(async (tx) => {
 		const [existing] = await tx
@@ -289,12 +315,46 @@ export async function updateEventById(
 				}
 			}
 		}
+		if (updated) {
+			// Invites join the SAME transaction — previously they ran after it
+			// and a failure left the edit committed without its attendees.
+			if (invites !== undefined) {
+				await replaceEventInvites(id, invites, tx);
+			}
+			await syncFamilyMirror(tx, id, data);
+		}
 		return updated;
 	});
-	if (updatedEvent && invites !== undefined) {
-		await replaceEventInvites(id, invites);
-	}
 	return updatedEvent;
+}
+
+/**
+ * Propagate a master edit to its family-calendar mirror row(s)
+ * (`mirrorOf = masterId`, created by syncEventsToFamilyCalendar).
+ * Scope-minimal: whole-series and non-recurring field edits propagate;
+ * single-occurrence Exception Overrides (the upsertException path) do NOT —
+ * known limitation, see docs/issues/014. calendarId is deliberately
+ * excluded: the mirror stays on the family calendar.
+ */
+async function syncFamilyMirror(
+	tx: EventClient,
+	masterId: string,
+	data: Partial<Omit<CalendarEvent, 'id'>>
+) {
+	const patch: Partial<CalendarEvent> = {};
+	if (data.title !== undefined) patch.title = data.title;
+	if (data.start !== undefined) patch.start = data.start;
+	if (data.end !== undefined) patch.end = data.end;
+	if (data.allDay !== undefined) patch.allDay = data.allDay;
+	if (data.location !== undefined) patch.location = data.location;
+	if (data.description !== undefined) patch.description = data.description;
+	if (data.recurrenceFrequency !== undefined) patch.recurrenceFrequency = data.recurrenceFrequency;
+	if (data.recurrenceInterval !== undefined) patch.recurrenceInterval = data.recurrenceInterval;
+	if (data.recurrenceByDay !== undefined) patch.recurrenceByDay = data.recurrenceByDay;
+	if (data.recurrenceCount !== undefined) patch.recurrenceCount = data.recurrenceCount;
+	if (data.recurrenceUntil !== undefined) patch.recurrenceUntil = data.recurrenceUntil;
+	if (Object.keys(patch).length === 0) return;
+	await tx.update(events).set(patch).where(eq(events.mirrorOf, masterId));
 }
 
 /**
@@ -368,22 +428,31 @@ export function shiftException(
 }
 
 /** Delete an event the user owns OR one living on an accessible calendar
- *  (personal or family) — mirrors the calendar's read scope. Returns the
- *  number of rows actually deleted. */
+ *  (personal or family) — mirrors the calendar's read scope. Any family-
+ *  mirror copies (mirrorOf = id) go with the master in the SAME transaction
+ *  so no ghost copy survives. Returns the number of rows actually deleted. */
 export async function deleteEventInScope(id: string, userId: string, calendarIds: string[]) {
-	const removed = await db
-		.delete(events)
-		.where(
-			and(
-				eq(events.id, id),
-				or(
-					eq(events.ownerId, userId),
-					calendarIds.length > 0 ? inArray(events.calendarId, calendarIds) : sql`false`
+	return await db.transaction(async (tx) => {
+		const removed = await tx
+			.delete(events)
+			.where(
+				and(
+					eq(events.id, id),
+					or(
+						eq(events.ownerId, userId),
+						calendarIds.length > 0 ? inArray(events.calendarId, calendarIds) : sql`false`
+					)
 				)
 			)
-		)
-		.returning({ id: events.id });
-	return removed.length;
+			.returning({ id: events.id });
+		if (removed.length > 0) {
+			// Belt-and-braces: the mirrorOf FK also cascades this at the DB
+			// level; the explicit delete keeps the behavior visible and covered
+			// by the scripted tests.
+			await tx.delete(events).where(eq(events.mirrorOf, id));
+		}
+		return removed.length;
+	});
 }
 
 export async function updateRsvp(

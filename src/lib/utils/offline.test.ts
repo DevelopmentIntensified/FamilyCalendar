@@ -179,6 +179,13 @@ describe('replay policy helpers (pure, node-safe)', () => {
 			expect(getReplayDisposition(s)).toBe('retry');
 	});
 
+	it('getReplayDisposition treats 401/403 as retry (auth failure, not permanent)', () => {
+		// Dropping queued creates on 401/403 was permanent data loss: the
+		// mutation is still valid, the session just needs re-auth.
+		expect(getReplayDisposition(401)).toBe('retry');
+		expect(getReplayDisposition(403)).toBe('retry');
+	});
+
 	it('shouldDropAfterReplay is true for 2xx/4xx and false for retryable statuses', () => {
 		expect(shouldDropAfterReplay(200)).toBe(true);
 		expect(shouldDropAfterReplay(204)).toBe(true);
@@ -188,6 +195,11 @@ describe('replay policy helpers (pure, node-safe)', () => {
 		expect(shouldDropAfterReplay(500)).toBe(false);
 		expect(shouldDropAfterReplay(503)).toBe(false);
 		expect(shouldDropAfterReplay(302)).toBe(false);
+	});
+
+	it('shouldDropAfterReplay keeps 401/403 queued for a later attempt', () => {
+		expect(shouldDropAfterReplay(401)).toBe(false);
+		expect(shouldDropAfterReplay(403)).toBe(false);
 	});
 });
 
@@ -311,6 +323,29 @@ describe('replay conflict semantics: 4xx-drop vs 5xx-retry', () => {
 
 		await expect(replayPending()).resolves.toEqual({ applied: 1, failed: 2 });
 		// Only the 5xx record survives.
+		await expect(getPendingCount()).resolves.toBe(1);
+	});
+
+	it('401 keeps a queued create for a later attempt (re-auth, then replay)', async () => {
+		installFakeIndexedDb();
+		await queueMutation('/api/events', 'POST', { title: 'Party' });
+		stubFetchWithStatuses([401]);
+
+		await expect(replayPending()).resolves.toEqual({ applied: 0, failed: 1 });
+		await expect(getPendingCount()).resolves.toBe(1);
+
+		// After re-auth the same record applies.
+		stubFetchWithStatuses([200]);
+		await expect(replayPending()).resolves.toEqual({ applied: 1, failed: 0 });
+		await expect(getPendingCount()).resolves.toBe(0);
+	});
+
+	it('403 keeps the record queued like 401', async () => {
+		installFakeIndexedDb();
+		await queueMutation('/api/events', 'POST', { title: 'Party' });
+		stubFetchWithStatuses([403]);
+
+		await expect(replayPending()).resolves.toEqual({ applied: 0, failed: 1 });
 		await expect(getPendingCount()).resolves.toBe(1);
 	});
 });

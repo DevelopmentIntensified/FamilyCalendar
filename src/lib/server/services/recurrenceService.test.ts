@@ -365,3 +365,59 @@ describe('MAX_OCCURRENCES counts only in-window occurrences (old series keep exp
 		expect(result).toHaveLength(0);
 	});
 });
+
+describe('date-only recurrenceUntil is an INCLUSIVE end-of-day cutoff', () => {
+	// NLP quick-add ("every monday until Sep 7") stores `yyyy-MM-dd`. A
+	// midnight-UTC cutoff silently dropped the until day's own occurrence.
+	const cases: {
+		name: string;
+		event: RecurringEventInput;
+		window: [Date, Date];
+		expected: string[];
+	}[] = [
+		{
+			name: 'BYDAY weekly: "every monday until 2026-09-07" keeps the Sep 7 evening occurrence',
+			event: {
+				id: 'e1',
+				start: '2026-08-31T18:00:00Z', // Monday, 6 PM UTC
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceByDay: ['MO'],
+				recurrenceUntil: '2026-09-07'
+			},
+			window: [d('2026-09-01T00:00:00Z'), d('2026-10-01T00:00:00Z')],
+			expected: ['2026-09-07']
+		},
+		{
+			name: 'plain frequency loop: daily until 2026-09-05 keeps all five days',
+			event: {
+				id: 'e2',
+				start: '2026-09-01T18:00:00Z',
+				recurrenceFrequency: 'daily',
+				recurrenceInterval: 1,
+				recurrenceUntil: '2026-09-05'
+			},
+			window: [d('2026-09-01T00:00:00Z'), d('2026-09-10T00:00:00Z')],
+			expected: ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']
+		},
+		{
+			name: 'full-timestamp until keeps its exact-instant cutoff (unchanged semantics)',
+			event: {
+				id: 'e3',
+				start: '2026-09-01T18:00:00Z',
+				recurrenceFrequency: 'daily',
+				recurrenceInterval: 1,
+				recurrenceUntil: '2026-09-05T00:00:00.000Z'
+			},
+			window: [d('2026-09-01T00:00:00Z'), d('2026-09-10T00:00:00Z')],
+			expected: ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04']
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const result = expandRecurrence(c.event, c.window[0], c.window[1]);
+			expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual(c.expected);
+		});
+	}
+});

@@ -27,16 +27,20 @@ export function sortReplayQueue(records: MutationRecord[]): MutationRecord[] {
  * - 2xx `applied`: server accepted it.
  * - 4xx `discarded`: server rejected it permanently; dropping avoids
  *   retrying something that will never succeed (e.g. 404/409/422).
+ * - 401/403 `retry`: AUTH failures, not rejections — the queued create is
+ *   still valid and must survive until re-auth (next session) succeeds.
+ *   Dropping them was permanent data loss for offline-created events.
  * - anything else (3xx/5xx) `retry`: keep the record for a later attempt.
  * Network throws are handled by the caller as `retry` (failed + kept).
  */
 export function getReplayDisposition(status: number): ReplayDisposition {
 	if (status >= 200 && status < 300) return 'applied';
+	if (status === 401 || status === 403) return 'retry';
 	if (status >= 400 && status < 500) return 'discarded';
 	return 'retry';
 }
 
-/** True when the record must be removed after replay (2xx or 4xx). */
+/** True when the record must be removed after replay (2xx, or non-auth 4xx). */
 export function shouldDropAfterReplay(status: number): boolean {
 	return getReplayDisposition(status) !== 'retry';
 }
@@ -119,8 +123,9 @@ async function deleteMutation(id: number | undefined): Promise<void> {
 
 /**
  * Replays queued mutations oldest-first.
- * 2xx or 4xx responses remove the record (4xx will never succeed on retry).
- * Network errors and other statuses keep the record for a later attempt.
+ * 2xx or non-auth-4xx responses remove the record (those never succeed on
+ * retry). 401/403 and network errors / other statuses keep the record for a
+ * later attempt (re-auth happens next session).
  */
 export async function replayPending(): Promise<{ applied: number; failed: number }> {
 	if (!hasIndexedDb()) return { applied: 0, failed: 0 };

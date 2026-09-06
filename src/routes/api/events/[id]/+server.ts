@@ -7,7 +7,8 @@ import {
 	updateEventById,
 	deleteEventInScope,
 	getEvent,
-	upsertException
+	upsertException,
+	replaceEventInvites
 } from '$lib/server/db/actions/events';
 import { resolveEventInvites } from '$lib/server/utils/eventInvites';
 import { getAccessibleCalendarIds, canTouchEvent } from '$lib/server/db/actions/calendarScope';
@@ -71,7 +72,17 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 				end: body.end,
 				allDay: body.allDay
 			});
-			return json({ success: true });
+			// Attendee edits can't be expressed per-occurrence, but silently
+			// dropping them lost data. replaceEventInvites is master-id safe —
+			// it writes plain eventAttendance rows for the id it is given — so
+			// apply them to the MASTER series and say so in the response.
+			if (hasInvites) {
+				await replaceEventInvites(id, invites ?? []);
+			}
+			return json({
+				success: true,
+				note: 'Attendee changes apply to the whole series.'
+			});
 		}
 
 		let calendarId = existing.calendarId;

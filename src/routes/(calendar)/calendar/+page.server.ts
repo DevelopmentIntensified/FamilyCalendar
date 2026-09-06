@@ -31,7 +31,8 @@ function toCalendarEvent(ad: AdDisplayEvent): CalendarEvent {
 		recurrenceByDay: null,
 		recurrenceCount: null,
 		recurrenceUntil: null,
-		reminderMinutes: null
+		reminderMinutes: null,
+		mirrorOf: null
 	};
 }
 
@@ -208,8 +209,8 @@ export const load: PageServerLoad = async (event) => {
 
 	const eventsG = await guard('events', { user: [], family: [] }, async () => {
 		const [parsedUserEvents, parsedFamilyEvents] = await Promise.all([
-			parseEvents(await expandEventsForUser(userEvents)),
-			parseEvents(await expandEventsForUser(familyEventsData))
+			parseEvents(await expandEventsForUser(userEvents), userZone),
+			parseEvents(await expandEventsForUser(familyEventsData), userZone)
 		]);
 		// Current user's RSVP per event (keyed on masterId) so views can tint
 		// going / maybe events and dim ones you can't attend.
@@ -236,7 +237,7 @@ export const load: PageServerLoad = async (event) => {
 	return {
 		userEvents: eventsG.data.user.map((e) => ({ ...e, color: userCalendarColor })),
 		familyEvents: eventsG.data.family.map((e) => ({ ...e, color: familyCalendarColor })),
-		adEvents: parseEvents(adEventsData).map((e) => ({ ...e, color: '#f59e0b' })),
+		adEvents: parseEvents(adEventsData, userZone).map((e) => ({ ...e, color: '#f59e0b' })),
 		dueTasks,
 		userSettings,
 		userCalendarColor,

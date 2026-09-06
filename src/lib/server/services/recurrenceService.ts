@@ -153,6 +153,19 @@ function positiveCount(raw?: number | null): number | null {
 /** The series cutoff instant (RRULE UNTIL), or null when unbounded. */
 function recurrenceUntil(event: RecurringEventInput): Date | null {
 	if (!event.recurrenceUntil) return null;
+	// NLP quick-add ("every monday until Sep 7") stores a DATE-ONLY string.
+	// The until day is INCLUSIVE: expand to end-of-day UTC so that day's own
+	// occurrence survives (an 18:00 start beat a 00:00 cutoff and vanished).
+	// Full-timestamp UNTILs (ICS import, API) keep their exact instant.
+	let dateOnly: string | null = null;
+	if (!(event.recurrenceUntil instanceof Date)) {
+		const s = event.recurrenceUntil.trim();
+		if (/^\d{4}-\d{2}-\d{2}$/.test(s)) dateOnly = s;
+	}
+	if (dateOnly) {
+		const dt = DateTime.fromISO(dateOnly, { zone: 'utc' }).endOf('day');
+		return dt.isValid ? dt.toJSDate() : null;
+	}
 	const dt = parseTimestamp(event.recurrenceUntil);
 	return dt.isValid ? dt.toJSDate() : null;
 }

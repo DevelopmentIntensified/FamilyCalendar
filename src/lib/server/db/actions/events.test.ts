@@ -2,14 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
 	events,
 	eventExceptions,
+	eventAttendance,
 	type CalendarEvent,
 	type EventException
 } from '$lib/server/db/schema';
 
 /**
  * Scripted drizzle stub for the events actions (same pattern as
- * calendarScope.test.ts / dashboard.db.test.ts): each select/update/delete
- * result is queued in call order and captured calls are asserted.
+ * calendarScope.test.ts / dashboard.db.test.ts): each select/update/insert/
+ * delete result is queued in call order and captured calls are asserted.
  * calendarScope is mocked so no family/calendar rows are needed.
  */
 
@@ -19,24 +20,48 @@ interface CapturedUpdate {
 	set: Record<string, string | number | boolean | null | Date | string[]>;
 }
 
+/** A captured insert: which table, which values. */
+interface CapturedInsert {
+	table: typeof events | typeof eventAttendance;
+	// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- scripted capture bag; values shape differs per table (row vs attendance).
+	values: Record<string, unknown>;
+}
+
+type DeletedTable = typeof events | typeof eventExceptions | typeof eventAttendance;
+
 interface StubState {
-	// Rows returned by tx.select().from().where(), in call order:
-	// [0] the master row matched by the access filter, [1] its exceptions.
-	txSelectQueue: (CalendarEvent | EventException)[][];
+	// Rows returned by tx.select().from().where(), in call order.
+	txSelectQueue: unknown[][];
 	// Rows returned by tx.update(...).set().where().returning(), in order.
 	txUpdateReturning: CalendarEvent[][];
-	// Captured tx.update calls: which table and which values were set.
+	// Rows returned by tx.insert(...).values().returning(), in order.
+	txInsertReturning: CalendarEvent[][];
+	// Captured tx.update calls.
 	txUpdates: CapturedUpdate[];
-	// Rows returned by db.delete(...).where().returning().
+	// Captured tx.insert calls.
+	txInserts: CapturedInsert[];
+	// Tables passed to tx.delete(), in call order.
+	txDeletes: DeletedTable[];
+	// Rows returned by delete(...).where().returning(), in call order.
 	deleteReturning: { id: string }[][];
+	// True once db.transaction() was entered (transactionality assertions).
+	transactionOpened: boolean;
 }
 
 interface TxStub {
-	select(): { from(): { where(): Promise<(CalendarEvent | EventException)[]> } };
+	select(): { from(): { where(): Promise<unknown[]> } };
 	update(table: typeof events | typeof eventExceptions): {
 		set(set: CapturedUpdate['set']): {
 			where(): Promise<CalendarEvent[]> & { returning(): Promise<CalendarEvent[]> };
 		};
+	};
+	insert(table: typeof events | typeof eventAttendance): {
+		values(values: CapturedInsert['values']): Promise<unknown> & {
+			returning(): Promise<CalendarEvent[]>;
+		};
+	};
+	delete(table: DeletedTable): Promise<void> & {
+		where(): { returning(): Promise<{ id: string }[]> } & Promise<unknown>;
 	};
 }
 
@@ -49,8 +74,12 @@ const test = vi.hoisted((): ScriptedDb => {
 	const state: StubState = {
 		txSelectQueue: [],
 		txUpdateReturning: [],
+		txInsertReturning: [],
 		txUpdates: [],
-		deleteReturning: []
+		txInserts: [],
+		txDeletes: [],
+		deleteReturning: [],
+		transactionOpened: false
 	};
 	const txStub: TxStub = {
 		select: () => ({
@@ -68,7 +97,26 @@ const test = vi.hoisted((): ScriptedDb => {
 					});
 				}
 			})
-		})
+		}),
+		insert: (table) => ({
+			values: (values) => {
+				state.txInserts.push({ table, values });
+				const rows = table === events ? (state.txInsertReturning.shift() ?? []) : [];
+				return Object.assign(Promise.resolve(rows), {
+					returning: async () => rows
+				});
+			}
+		}),
+		delete: (table) => {
+			state.txDeletes.push(table);
+			const rows = state.deleteReturning.shift() ?? [];
+			return Object.assign(Promise.resolve(), {
+				where: () =>
+					Object.assign(Promise.resolve(rows), {
+						returning: async () => rows
+					})
+			});
+		}
 	};
 	return { state, txStub };
 });
@@ -79,12 +127,10 @@ const txStub = test.txStub;
 // oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
 	db: {
-		transaction: async (fn: (tx: TxStub) => Promise<CalendarEvent | undefined>) => fn(txStub),
-		delete: (_table: typeof events | typeof eventExceptions) => ({
-			where: () => ({
-				returning: async () => state.deleteReturning.shift() ?? []
-			})
-		})
+		transaction: async (fn: (tx: TxStub) => Promise<CalendarEvent | undefined | number>) => {
+			state.transactionOpened = true;
+			return fn(txStub);
+		}
 	}
 }));
 
@@ -94,13 +140,17 @@ vi.mock('$lib/server/db/actions/calendarScope', () => ({
 	eventAccessFilter: () => ({})
 }));
 
-import { deleteEventInScope, updateEventById, shiftException } from './events';
+import { deleteEventInScope, updateEventById, createEvent, shiftException } from './events';
 
 beforeEach(() => {
 	state.txSelectQueue = [];
 	state.txUpdateReturning = [];
+	state.txInsertReturning = [];
 	state.txUpdates = [];
+	state.txInserts = [];
+	state.txDeletes = [];
 	state.deleteReturning = [];
+	state.transactionOpened = false;
 });
 
 function eventRow(over: Partial<CalendarEvent> = {}): CalendarEvent {
@@ -120,6 +170,7 @@ function eventRow(over: Partial<CalendarEvent> = {}): CalendarEvent {
 		recurrenceCount: null,
 		recurrenceUntil: null,
 		reminderMinutes: null,
+		mirrorOf: null,
 		created_at: new Date('2026-08-01T00:00:00Z'),
 		...over
 	};
@@ -151,6 +202,21 @@ describe('deleteEventInScope', () => {
 	it('returns 0 when nothing matched the scope', async () => {
 		state.deleteReturning = [[]];
 		await expect(deleteEventInScope('e1', 'u1', ['cal-fam'])).resolves.toBe(0);
+	});
+
+	it('removes the family-mirror rows in the same transaction as the master', async () => {
+		state.deleteReturning = [[{ id: 'e1' }]];
+		await deleteEventInScope('e1', 'u1', ['cal-fam']);
+
+		expect(state.transactionOpened).toBe(true);
+		expect(state.txDeletes).toEqual([events, events]); // master, then mirrors
+	});
+
+	it('does not issue a mirror delete when nothing matched', async () => {
+		state.deleteReturning = [[]];
+		await deleteEventInScope('e1', 'u1', ['cal-fam']);
+
+		expect(state.txDeletes).toEqual([events]);
 	});
 });
 
@@ -204,9 +270,10 @@ describe('updateEventById', () => {
 		);
 
 		expect(result).toEqual(updated);
-		expect(state.txUpdates).toHaveLength(3);
+		// master update + 2 exception shifts + mirror propagation
+		expect(state.txUpdates).toHaveLength(4);
 
-		const [masterUpdate, ex1, ex2] = state.txUpdates;
+		const [masterUpdate, ex1, ex2, mirrorUpdate] = state.txUpdates;
 		expect(masterUpdate.table).toBe(events);
 		expect(masterUpdate.set.start).toBe('2026-08-08T10:00:00.000Z');
 		expect(ex1.table).toBe(eventExceptions);
@@ -220,6 +287,29 @@ describe('updateEventById', () => {
 			start: null,
 			end: null
 		});
+		expect(mirrorUpdate.table).toBe(events);
+		expect(mirrorUpdate.set).toEqual({ start: '2026-08-08T10:00:00.000Z' });
+	});
+
+	it('propagates master field edits to the mirror row', async () => {
+		state.txSelectQueue = [[eventRow()]];
+		state.txUpdateReturning = [[eventRow({ title: 'X', location: 'Hall' })]];
+
+		await updateEventById('e1', { title: 'X', location: 'Hall' }, 'u1', undefined, ['cal-fam']);
+
+		const mirrorUpdate = state.txUpdates.at(-1);
+		expect(mirrorUpdate?.table).toBe(events);
+		expect(mirrorUpdate?.set).toEqual({ title: 'X', location: 'Hall' });
+	});
+
+	it('does not mirror calendar-only moves (mirror keeps its own calendar)', async () => {
+		state.txSelectQueue = [[eventRow()]];
+		state.txUpdateReturning = [[eventRow({ calendarId: 'cal-other' })]];
+
+		await updateEventById('e1', { calendarId: 'cal-other' }, 'u1', undefined, ['cal-fam']);
+
+		expect(state.txUpdates).toHaveLength(1);
+		expect(state.txUpdates[0].set).toEqual({ calendarId: 'cal-other' });
 	});
 
 	it('does not touch exceptions when the start is unchanged', async () => {
@@ -228,8 +318,8 @@ describe('updateEventById', () => {
 
 		await updateEventById('e1', { title: 'X' }, 'u1', undefined, ['cal-fam']);
 
-		expect(state.txUpdates).toHaveLength(1);
-		expect(state.txUpdates[0].table).toBe(events);
+		const exceptionUpdates = state.txUpdates.filter((u) => u.table === eventExceptions);
+		expect(exceptionUpdates).toHaveLength(0);
 	});
 
 	it('does not touch exceptions for a non-recurring event', async () => {
@@ -240,7 +330,23 @@ describe('updateEventById', () => {
 			'cal-fam'
 		]);
 
-		expect(state.txUpdates).toHaveLength(1);
+		const exceptionUpdates = state.txUpdates.filter((u) => u.table === eventExceptions);
+		expect(exceptionUpdates).toHaveLength(0);
+	});
+
+	it('applies invites inside the same transaction', async () => {
+		state.txSelectQueue = [[eventRow()], [[]]]; // existing row, then attendance
+		state.txUpdateReturning = [[eventRow({ title: 'X' })]];
+
+		await updateEventById('e1', { title: 'X' }, 'u1', [{ name: 'Bob' }], ['cal-fam']);
+
+		expect(state.transactionOpened).toBe(true);
+		const guestInsert = state.txInserts.find(
+			(i) => i.table === eventAttendance && JSON.stringify(i.values).includes('Bob')
+		);
+		expect(guestInsert?.values).toEqual([
+			{ eventId: 'e1', name: 'Bob', status: 'undecided', inviteType: 'optional' }
+		]);
 	});
 
 	it('returns nothing when the access filter matches no row', async () => {
@@ -248,5 +354,58 @@ describe('updateEventById', () => {
 		await expect(
 			updateEventById('e1', { title: 'X' }, 'u1', undefined, ['cal-fam'])
 		).resolves.toBeUndefined();
+	});
+});
+
+describe('createEvent', () => {
+	it('inserts event + creator RSVP + invites in ONE transaction', async () => {
+		const created = eventRow();
+		state.txInsertReturning = [[created]];
+		state.txSelectQueue = [[]]; // replaceEventInvites: no existing attendance
+
+		const data = eventRow();
+		const { id: _id, created_at: _created_at, ...insertData } = data;
+
+		const result = await createEvent(insertData, 'owner-1', [{ name: 'Bob' }]);
+
+		expect(result).toEqual(created);
+		expect(state.transactionOpened).toBe(true);
+
+		expect(state.txInserts.map((i) => i.table)).toEqual([events, eventAttendance, eventAttendance]);
+		expect(state.txInserts[0].values).toMatchObject({ title: 'T', calendarId: 'cal-fam' });
+		expect(state.txInserts[1].values).toMatchObject({
+			eventId: 'e1',
+			userId: 'owner-1',
+			status: 'going'
+		});
+		expect(state.txInserts[2].values).toEqual([
+			{ eventId: 'e1', name: 'Bob', status: 'undecided', inviteType: 'optional' }
+		]);
+	});
+
+	it('skips the creator RSVP when ownerId is empty and still returns the event', async () => {
+		const created = eventRow({ id: 'e2' });
+		state.txInsertReturning = [[created]];
+
+		const insertData: Omit<CalendarEvent, 'id' | 'created_at'> = {
+			calendarId: 'cal-fam',
+			ownerId: 'owner',
+			title: 'T',
+			start: '2026-08-01T10:00:00.000Z',
+			end: null,
+			description: null,
+			location: null,
+			allDay: false,
+			recurrenceFrequency: null,
+			recurrenceInterval: null,
+			recurrenceByDay: null,
+			recurrenceCount: null,
+			recurrenceUntil: null,
+			reminderMinutes: null
+		};
+
+		await expect(createEvent(insertData, '', undefined)).resolves.toEqual(created);
+
+		expect(state.txInserts.map((i) => i.table)).toEqual([events]);
 	});
 });
