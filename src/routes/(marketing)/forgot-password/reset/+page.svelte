@@ -94,6 +94,7 @@
 						<input
 							id="password"
 							type="password"
+							autocomplete="new-password"
 							bind:value={password}
 							class="mt-1.5 block w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 							required
@@ -107,6 +108,7 @@
 						<input
 							id="confirm"
 							type="password"
+							autocomplete="new-password"
 							bind:value={confirmPassword}
 							class="mt-1.5 block w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 							required

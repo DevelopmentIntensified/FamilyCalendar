@@ -14,6 +14,8 @@
 	let waiting = false;
 	let emailSent = false;
 	let code = '';
+	let resent = false;
+	let resentTimer: ReturnType<typeof setTimeout> | undefined;
 
 	async function handlePasswordSignup() {
 		waiting = true;
@@ -43,8 +45,7 @@
 			if (json.error) {
 				error = json.error;
 			} else {
-				await goto('/calendar');
-				location.reload();
+				await goto('/calendar', { invalidateAll: true });
 			}
 		} catch {
 			error = 'Failed to create account';
@@ -90,8 +91,7 @@
 			});
 
 			if (res.ok) {
-				await goto('/calendar');
-				location.reload();
+				await goto('/calendar', { invalidateAll: true });
 			} else {
 				const json = await res.json();
 				error = json.error || 'Invalid code';
@@ -104,7 +104,30 @@
 	}
 
 	async function resendCode() {
-		await handleMagicLinkSignup();
+		waiting = true;
+		error = '';
+
+		try {
+			const res = await fetch('/signup/email', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ email, firstName, lastName })
+			});
+
+			const json = await res.json();
+
+			if (json.error) {
+				error = json.error;
+			} else {
+				resent = true;
+				clearTimeout(resentTimer);
+				resentTimer = setTimeout(() => (resent = false), 3000);
+			}
+		} catch {
+			error = 'Failed to send verification email';
+		}
+
+		waiting = false;
 	}
 </script>
 
@@ -153,6 +176,8 @@
 								type="text"
 								bind:value={code}
 								placeholder="Enter verification code"
+								autocomplete="one-time-code"
+								inputmode="numeric"
 								class="w-full rounded-lg border border-slate-300 px-4 py-3 text-center text-lg tracking-widest text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 								required
 							/>
@@ -169,7 +194,7 @@
 							on:click={resendCode}
 							class="mt-4 text-sm text-slate-600 hover:text-primary-600"
 						>
-							Didn't receive the code? Resend
+							{resent ? 'Sent again ✓' : "Didn't receive the code? Resend"}
 						</button>
 					</div>
 				{:else}
@@ -204,6 +229,7 @@
 									<input
 										id="firstName"
 										type="text"
+										autocomplete="given-name"
 										bind:value={firstName}
 										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 										required
@@ -216,6 +242,7 @@
 									<input
 										id="lastName"
 										type="text"
+										autocomplete="family-name"
 										bind:value={lastName}
 										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 										required
@@ -228,6 +255,7 @@
 								<input
 									id="email"
 									type="email"
+									autocomplete="email"
 									bind:value={email}
 									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 									required
@@ -241,6 +269,7 @@
 								<input
 									id="password"
 									type="password"
+									autocomplete="new-password"
 									bind:value={password}
 									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 									required
@@ -256,6 +285,7 @@
 								<input
 									id="confirmPassword"
 									type="password"
+									autocomplete="new-password"
 									bind:value={confirmPassword}
 									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 									required
@@ -280,6 +310,7 @@
 									<input
 										id="firstNameML"
 										type="text"
+										autocomplete="given-name"
 										bind:value={firstName}
 										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 										required
@@ -292,6 +323,7 @@
 									<input
 										id="lastNameML"
 										type="text"
+										autocomplete="family-name"
 										bind:value={lastName}
 										class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 										required
@@ -304,6 +336,7 @@
 								<input
 									id="emailML"
 									type="email"
+									autocomplete="email"
 									bind:value={email}
 									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-3 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 									required

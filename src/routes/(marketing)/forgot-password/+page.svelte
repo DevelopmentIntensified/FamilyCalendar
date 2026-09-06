@@ -66,6 +66,7 @@
 						<input
 							id="email"
 							type="email"
+							autocomplete="email"
 							bind:value={email}
 							class="mt-1.5 block w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 							required

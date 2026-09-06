@@ -15,7 +15,12 @@
 
 	interface Notification {
 		id: string;
-		type: 'assignment_accepted' | 'assignment_declined' | 'task_completed' | 'added_to_family';
+		type:
+			| 'assignment_pending'
+			| 'assignment_accepted'
+			| 'assignment_declined'
+			| 'task_completed'
+			| 'added_to_family';
 		actorName: string;
 		message: string;
 		link?: string | null;
@@ -25,10 +30,12 @@
 
 	let open = false;
 	let loading = false;
+	let loadError = false;
 	let unreadCount = 0;
 	let notifications: Notification[] = [];
 
 	const typeIcons: Record<Notification['type'], string> = {
+		assignment_pending: '📨',
 		assignment_accepted: '👍',
 		assignment_declined: '👋',
 		task_completed: '✅',
@@ -52,12 +59,18 @@
 
 	async function fetchList() {
 		loading = true;
+		loadError = false;
 		try {
 			const res = await fetch('/api/notifications');
-			if (!res.ok) return;
+			if (!res.ok) {
+				loadError = true;
+				return;
+			}
 			const data = await res.json();
 			notifications = data.notifications ?? [];
 			unreadCount = data.unreadCount ?? 0;
+		} catch {
+			loadError = true;
 		} finally {
 			loading = false;
 		}
@@ -137,12 +150,23 @@
 		pushBusy = false;
 	}
 
-	onMount(async () => {
+	onMount(() => {
+		// Unread count refresh: poll every 60s while mounted so the badge
+		// stays live in-session (opening the dropdown does a full refresh).
+		// Reuses the single /api/notifications GET — no dedicated count
+		// endpoint exists yet.
 		fetchSummary();
-		if (!(await isPushSupported())) return;
-		const [state, publicKey] = await Promise.all([getPushState(), getServerPublicKey()]);
-		pushState = state;
-		pushServerReady = publicKey !== null;
+		const poll = setInterval(() => void fetchSummary(), 60_000);
+		return () => clearInterval(poll);
+	});
+
+	onMount(() => {
+		void (async () => {
+			if (!(await isPushSupported())) return;
+			const [state, publicKey] = await Promise.all([getPushState(), getServerPublicKey()]);
+			pushState = state;
+			pushServerReady = publicKey !== null;
+		})();
 	});
 </script>
 
@@ -151,7 +175,7 @@
 <div class="relative" data-testid="notification-bell-container">
 	<button
 		on:click={toggle}
-		class="relative rounded-full p-2 text-slate-600 hover:bg-slate-100"
+		class="relative flex h-11 w-11 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100"
 		aria-expanded={open}
 		aria-haspopup="true"
 		aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
@@ -182,6 +206,16 @@
 			</p>
 			{#if loading}
 				<p class="px-4 py-4 text-sm text-slate-500">Loading…</p>
+			{:else if loadError}
+				<div class="flex items-center justify-between gap-2 px-4 py-3 text-sm">
+					<span class="text-slate-500">Couldn't load —</span>
+					<button
+						on:click={fetchList}
+						class="text-sm font-medium text-primary-600 hover:text-primary-700"
+					>
+						Retry
+					</button>
+				</div>
 			{:else if notifications.length === 0}
 				<p class="px-4 py-4 text-sm text-slate-500">No notifications yet.</p>
 			{:else}

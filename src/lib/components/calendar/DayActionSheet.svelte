@@ -3,6 +3,7 @@
 	import type { Event } from '$lib/types';
 	import { formatEventTime } from '$lib/utils/eventTime';
 	import { rsvpVisual } from '$lib/utils/eventChip';
+	import { trapFocusAction } from '$lib/utils/focusTrap';
 
 	export let date: DateTime;
 	export let open = false;
@@ -77,6 +78,7 @@
 		></div>
 
 		<div
+			use:trapFocusAction
 			class="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl"
 			style="transform: translateY({dragOffset}px); transition: transform {dragTransition
 				? '150ms ease-out'

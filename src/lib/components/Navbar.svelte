@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { slide } from 'svelte/transition';
 	import NotificationBell from '$lib/components/NotificationBell.svelte';
+	import { trapFocusAction } from '$lib/utils/focusTrap';
 
 	export let isLoggedIn = false;
 	export let user: {
@@ -132,6 +133,7 @@
 					</button>
 					{#if profileDropdownOpen}
 						<div
+							use:trapFocusAction
 							transition:slide={{ duration: 150 }}
 							class="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
 						>
@@ -223,7 +225,7 @@
 
 		<button
 			on:click={toggleMenu}
-			class="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden"
+			class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 md:hidden"
 		>
 			<span class="sr-only">Open menu</span>
 			{#if isOpen}

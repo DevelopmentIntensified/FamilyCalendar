@@ -5,6 +5,7 @@
 	import { rsvpVisual } from '$lib/utils/eventChip';
 	import type { CalendarTask } from './TaskDetailModal.svelte';
 	import AttendanceBadge from './AttendanceBadge.svelte';
+	import { trapFocusAction } from '$lib/utils/focusTrap';
 
 	export let show = false;
 	export let date: string = '';
@@ -43,6 +44,8 @@
 	}
 </script>
 
+<svelte:window on:keydown={(e) => show && e.key === 'Escape' && close()} />
+
 {#if show}
 	<div
 		class="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden sm:items-center sm:p-4"
@@ -54,6 +57,10 @@
 		></button>
 
 		<div
+			use:trapFocusAction
+			role="dialog"
+			aria-modal="true"
+			aria-label={formattedDate || 'Day events'}
 			class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
 		>
 			<!-- Header -->
