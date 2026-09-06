@@ -2,7 +2,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { familyMembers } from '$lib/server/db/schema';
-import { getUserFamilies } from '$lib/server/db/actions/families';
+import { getUserFamilies, getFamilyMemberRole } from '$lib/server/db/actions/families';
+import { canAddFamilyMember } from '$lib/server/services/subscriptionService';
 import { emailExists } from '$lib/server/db/actions/users';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 import { eq, and } from 'drizzle-orm';
@@ -34,6 +35,19 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 			{ error: 'You do not have permission to add members to this family' },
 			{ status: 403 }
 		);
+	}
+
+	// Creating child accounts adds real members — creator/admin only, matching
+	// direct add and the invite flows.
+	const role = await getFamilyMemberRole(locals.user.id, familyId);
+	if (role !== 'creator' && role !== 'admin') {
+		return json({ error: 'Only the family creator or an admin can add members' }, { status: 403 });
+	}
+
+	// Family-size limit: the creator's tier decides how many members fit.
+	const limit = await canAddFamilyMember(familyId);
+	if (!limit.allowed) {
+		return json({ error: limit.reason ?? 'Family is full' }, { status: 403 });
 	}
 
 	const body = await request.json().catch(() => ({}));
