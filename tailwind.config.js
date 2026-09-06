@@ -1,6 +1,8 @@
+import tailwindExtendedShadows from 'tailwind-extended-shadows';
+
 export default {
 	content: ['./src/**/*.{html,js,svelte,ts}'],
-	plugins: [require('tailwind-extended-shadows')],
+	plugins: [tailwindExtendedShadows],
 
 	theme: {
 		extend: {

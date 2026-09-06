@@ -100,7 +100,9 @@ self.addEventListener('push', (event) => {
 	let payload = {};
 	try {
 		payload = event.data ? event.data.json() : {};
-	} catch {}
+	} catch {
+		// Malformed push payloads fall back to the default notification body.
+	}
 	const title = payload.title || 'FamilyPlanz';
 	event.waitUntil(
 		self.registration.showNotification(title, {
