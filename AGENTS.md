@@ -83,3 +83,7 @@ After completing the code, ask the user if they want a playground link. Only cal
 ## Domain
 
 See CONTEXT.md for the canonical domain language (Anonymous Account, Claiming, Recurring Task cursor semantics, etc.).
+
+## Content (user directive)
+
+- Never use LGBT/trans emoji (rainbow flag, trans symbol, couple-pair 👫👬👭, or any same-sex / gender-neutral family combinations). Family imagery = man + woman + children only; approved forms: 👪 and 👨‍👩‍👧‍👦. Applies to UI copy, notifications, empty states, and docs.
