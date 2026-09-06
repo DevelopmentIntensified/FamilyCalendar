@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { invalidateAll } from '$app/navigation';
 import type { Event } from '$lib/types';
@@ -239,5 +239,63 @@ describe('EventModal - confirm popovers', () => {
 		const prompt = screen.getByText('Duplicate this event?');
 		expect(prompt).toBeInTheDocument();
 		expect(prompt.closest('.overflow-y-auto')).toBeNull();
+	});
+});
+
+describe('EventModal - duplicate payload', () => {
+	const dupEvent: Event = {
+		...baseEvent,
+		recurrenceFrequency: 'weekly',
+		recurrenceInterval: 1,
+		recurrenceByDay: ['MO', 'WE'],
+		recurrenceCount: 5,
+		recurrenceUntil: '2026-12-31T00:00:00.000Z',
+		reminderMinutes: 60
+	};
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('sends reminderMinutes + attendee rows in the duplicate POST', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string, init?: RequestInit) => {
+				if (init?.method === 'POST') {
+					return { ok: true, json: async () => ({ event: { id: 'copy1' } }) };
+				}
+				return {
+					ok: true,
+					json: async () => ({
+						attendance: [
+							{ userId: 'u1', status: 'going', firstName: 'Alice', inviteType: 'required' },
+							{ userId: null, name: 'Grandma Rose', status: 'undecided', inviteType: 'optional' }
+						],
+						userRsvpStatus: 'going'
+					})
+				};
+			})
+		);
+
+		render(EventModal, { props: { show: true, event: dupEvent } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Duplicate event' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Duplicate$/ }));
+		await waitFor(() => {
+			const post = vi
+				.mocked(fetch)
+				.mock.calls.find(([u, init]) => String(u) === '/api/events' && init?.method === 'POST');
+			expect(post).toBeDefined();
+		});
+		const post = vi
+			.mocked(fetch)
+			.mock.calls.find(([u, init]) => String(u) === '/api/events' && init?.method === 'POST');
+		const body = JSON.parse(String(post?.[1]?.body));
+		expect(body.reminderMinutes).toBe(60);
+		expect(body.recurrenceByDay).toEqual(['MO', 'WE']);
+		expect(body.attendees).toEqual([
+			{ value: 'u1', isUser: true, inviteType: 'required' },
+			{ value: 'Grandma Rose', isUser: false, inviteType: 'optional' }
+		]);
 	});
 });

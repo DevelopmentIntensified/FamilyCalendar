@@ -452,8 +452,10 @@
 			const res = await fetch(`/api/events/${serverId}/rsvp`);
 			if (res.ok) {
 				const rsvp = await res.json();
-				// Ignore a stale response if the selection changed while fetching.
-				if (selectedEvent?.id === eventId) selectedEventRsvp = rsvp;
+				// The route returns { attendance, userRsvpStatus, nonUserAttendants };
+				// the form needs the attendance ROW ARRAY to prefill invites —
+				// passing the whole object made every edit save wipe them.
+				if (selectedEvent?.id === eventId) selectedEventRsvp = rsvp.attendance ?? [];
 			}
 		} catch (e) {
 			console.error('Failed to fetch RSVP data:', e);

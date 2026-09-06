@@ -89,6 +89,9 @@
 					allDay: event.allDay || false,
 					recurrenceFrequency: event.recurrenceFrequency,
 					recurrenceInterval: event.recurrenceInterval,
+					recurrenceByDay: event.recurrenceByDay ?? null,
+					recurrenceCount: event.recurrenceCount ?? null,
+					recurrenceUntil: event.recurrenceUntil ?? null,
 					reminderMinutes: event.reminderMinutes ?? null,
 					masterId: event.masterId,
 					occurrenceDate: event.occurrenceDate
@@ -103,16 +106,22 @@
 	onMount(() => {
 		const id = form.eventId;
 		if (!form.isEditMode || !id) return;
-		if (!form.isEditMode || !id) return;
 		if (rsvpData && rsvpData.length > 0) {
 			form.prefillInvites(rsvpData);
 			return;
 		}
+		// Occurrence display ids are composite (`master~iso`); the RSVP route
+		// only knows the real master id, so resolve it the way the PUT does.
+		const target = form.masterId || id;
 		let cancelled = false;
-		fetch(`/api/events/${id}/rsvp`)
-			.then((r) => (r.ok ? r.json() : []))
-			.then((rows) => {
-				if (!cancelled && Array.isArray(rows)) form.prefillInvites(rows);
+		fetch(`/api/events/${target}/rsvp`)
+			.then((r) => (r.ok ? r.json() : null))
+			.then((body) => {
+				if (cancelled || !body) return;
+				const rows = Array.isArray(body) ? body : body.attendance;
+				// Never prefill from an empty/failed response: an empty list would
+				// be re-sent as "no invites" and wipe the real ones.
+				if (Array.isArray(rows) && rows.length > 0) form.prefillInvites(rows);
 			})
 			.catch(() => {});
 		return () => {

@@ -61,6 +61,85 @@ describe('EventFormModel - toEventData', () => {
 	});
 });
 
+describe('EventFormModel - invite prefill round-trip', () => {
+	const editConfig = {
+		calendars: [{ id: 'cal1', name: 'My Calendar' }],
+		familyMembers: [{ userId: 'u1', firstName: 'Alice', email: 'alice@example.com' }],
+		defaultCalendarId: 'cal1'
+	};
+
+	const editEvent = {
+		id: 'mstr1',
+		title: 'Yoga',
+		description: '',
+		location: '',
+		calendarId: 'cal1',
+		start: '2026-07-17T10:00:00Z',
+		allDay: false
+	};
+
+	const rsvpRows = [
+		{ userId: 'u1', status: 'going', firstName: 'Alice', inviteType: 'required' },
+		{ userId: null, name: 'Grandma Rose', status: 'undecided', inviteType: 'optional' }
+	];
+
+	it('round-trips prefilled invites into structured attendees', () => {
+		const form = createEventForm({ ...editConfig, initialEvent: editEvent });
+		form.prefillInvites(rsvpRows);
+
+		const data = form.toEventData();
+		expect(data!.attendees).toEqual([
+			{ value: 'u1', isUser: true, inviteType: 'required' },
+			{ value: 'Grandma Rose', isUser: false, inviteType: 'optional' }
+		]);
+		expect(data!.attendants).toEqual(['u1', 'Grandma Rose']);
+	});
+
+	it('omits attendee fields in edit mode when invites never loaded (no silent wipe)', () => {
+		const form = createEventForm({ ...editConfig, initialEvent: editEvent });
+		const data = form.toEventData();
+		expect(data!.attendees).toBeUndefined();
+		expect(data!.attendants).toBeUndefined();
+	});
+
+	it('sends an explicit empty attendee list once invites loaded (user cleared all)', () => {
+		const form = createEventForm({ ...editConfig, initialEvent: editEvent });
+		form.prefillInvites(rsvpRows);
+		form.toggleAttendant('u1');
+		form.toggleAttendant('Grandma Rose');
+		const data = form.toEventData();
+		expect(data!.attendees).toEqual([]);
+	});
+});
+
+describe('EventFormModel - recurrence passthrough on edit', () => {
+	it('populates byDay/count/until from initialEvent and round-trips them', () => {
+		const form = createEventForm({
+			calendars: [{ id: 'cal1', name: 'My Calendar' }],
+			familyMembers: [],
+			defaultCalendarId: 'cal1',
+			initialEvent: {
+				id: 'mstr1',
+				title: 'Yoga',
+				description: '',
+				location: '',
+				calendarId: 'cal1',
+				start: '2026-07-17T10:00:00Z',
+				allDay: false,
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceByDay: ['MO', 'WE'],
+				recurrenceCount: 5,
+				recurrenceUntil: '2026-12-31T00:00:00.000Z'
+			}
+		});
+		const data = form.toEventData();
+		expect(data!.recurrenceByDay).toEqual(['MO', 'WE']);
+		expect(data!.recurrenceCount).toBe(5);
+		expect(data!.recurrenceUntil).toBe('2026-12-31T00:00:00.000Z');
+	});
+});
+
 describe('EventFormModel - NLP recurrence', () => {
 	const setup = () =>
 		createEventForm({

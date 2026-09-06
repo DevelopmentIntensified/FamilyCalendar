@@ -876,3 +876,189 @@ describe('EventFormModal - onClose callback convention', () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe('EventFormModal - edit save preserves series + invites', () => {
+	const rsvpRows = [
+		{ userId: 'u1', status: 'going', firstName: 'Alice', inviteType: 'required' },
+		{ userId: null, name: 'Grandma Rose', status: 'undecided', inviteType: 'optional' }
+	];
+
+	const editEvent = {
+		id: 'mstr1',
+		masterId: 'mstr1',
+		ownerId: 'u1',
+		calendarId: 'cal1',
+		title: 'Yoga',
+		start: '2026-07-17T10:00:00Z',
+		end: '2026-07-17T11:00:00Z',
+		description: '',
+		location: '',
+		allDay: false,
+		recurrenceFrequency: 'weekly',
+		recurrenceInterval: 1,
+		recurrenceByDay: ['MO', 'WE'],
+		recurrenceCount: 5,
+		recurrenceUntil: '2026-12-31T00:00:00.000Z',
+		reminderMinutes: 30,
+		created_at: new Date('2026-06-01T00:00:00Z')
+	};
+
+	const familyMembers = [
+		{ userId: 'u1', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com' }
+	];
+
+	beforeEach(() => {
+		vi.stubGlobal('fetch', vi.fn());
+		vi.stubGlobal('localStorage', createMockLocalStorage());
+	});
+
+	/** RSVP attendance rows as served by /api/events/[id]/rsvp. */
+	type RsvpRow = {
+		userId: string | null;
+		status: string;
+		firstName?: string;
+		name?: string;
+		inviteType?: string;
+	};
+
+	/** Stubs every fetch the modal makes; null rsvpRows → the rsvp GET 404s. */
+	const stubApi = (rsvpRows: RsvpRow[] | null) => {
+		// SAFETY: the stub satisfies only the ok/json surface the component reads;
+		// the Response cast is centralized here instead of every call site.
+		vi.mocked(fetch).mockImplementation(((url: string, init?: RequestInit) => {
+			const u = String(url);
+			if (init?.method === 'PUT') {
+				return Promise.resolve(fetchStub({ success: true }));
+			}
+			if (u.includes('/rsvp')) {
+				return Promise.resolve(
+					rsvpRows === null
+						? { ok: false, json: () => Promise.resolve({}) }
+						: fetchStub({ attendance: rsvpRows, userRsvpStatus: 'going' })
+				);
+			}
+			if (u.includes('/api/tasks')) return Promise.resolve(fetchStub({ tasks: [] }));
+			return Promise.resolve(fetchStub({}));
+		}) as typeof fetch);
+	};
+
+	const putCall = () => vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PUT');
+
+	const putBody = () => {
+		const call = putCall();
+		if (!call) throw new Error('No PUT call');
+		return JSON.parse(String(call[1]?.body));
+	};
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('sends recurrenceByDay/Count/Until in the edit PUT payload', async () => {
+		stubApi([]);
+		render(EventFormModal, {
+			props: { show: true, event: editEvent, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+		await waitFor(() => expect(putCall()).toBeDefined());
+
+		const body = putBody();
+		expect(body.recurrenceFrequency).toBe('weekly');
+		expect(body.recurrenceByDay).toEqual(['MO', 'WE']);
+		expect(body.recurrenceCount).toBe(5);
+		expect(body.recurrenceUntil).toBe('2026-12-31T00:00:00.000Z');
+	});
+
+	it('prefills invites from rsvpData and re-sends them untouched on save', async () => {
+		stubApi([]);
+		render(EventFormModal, {
+			props: {
+				show: true,
+				event: editEvent,
+				calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
+				familyMembers,
+				rsvpData: rsvpRows
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+		await waitFor(() => expect(putCall()).toBeDefined());
+
+		expect(putBody().attendees).toEqual([
+			{ value: 'u1', isUser: true, inviteType: 'required' },
+			{ value: 'Grandma Rose', isUser: false, inviteType: 'optional' }
+		]);
+	});
+
+	it('keeps existing rows and adds a new guest on save', async () => {
+		stubApi([]);
+		render(EventFormModal, {
+			props: {
+				show: true,
+				event: editEvent,
+				calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
+				familyMembers,
+				rsvpData: rsvpRows
+			}
+		});
+
+		const searchInput = screen.getByPlaceholderText(/Search family/i);
+		await fireEvent.focus(searchInput);
+		await fireEvent.input(searchInput, { target: { value: 'Cousin Itt' } });
+		await fireEvent.click(screen.getByText(/Add "Cousin Itt"/i));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+		await waitFor(() => expect(putCall()).toBeDefined());
+
+		expect(putBody().attendees).toEqual([
+			{ value: 'u1', isUser: true, inviteType: 'required' },
+			{ value: 'Grandma Rose', isUser: false, inviteType: 'optional' },
+			{ value: 'Cousin Itt', isUser: false, inviteType: 'optional' }
+		]);
+	});
+
+	it('fetches invites via the master id when rsvpData is absent', async () => {
+		stubApi(rsvpRows);
+		render(EventFormModal, {
+			props: {
+				show: true,
+				event: editEvent,
+				calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
+				familyMembers
+			}
+		});
+		// Wait for the fallback fetch's prefill before saving.
+		await screen.findByText('Grandma Rose');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+		await waitFor(() => expect(putCall()).toBeDefined());
+
+		const rsvpGet = vi.mocked(fetch).mock.calls.find(([u]) => String(u).includes('/rsvp'));
+		expect(String(rsvpGet?.[0])).toBe('/api/events/mstr1/rsvp');
+		expect(putBody().attendees).toEqual([
+			{ value: 'u1', isUser: true, inviteType: 'required' },
+			{ value: 'Grandma Rose', isUser: false, inviteType: 'optional' }
+		]);
+	});
+
+	it('does not send an empty attendee list when the rsvp fetch fails', async () => {
+		stubApi(null);
+		render(EventFormModal, {
+			props: {
+				show: true,
+				event: editEvent,
+				calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
+				familyMembers
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+		await waitFor(() => expect(putCall()).toBeDefined());
+
+		const body = putBody();
+		expect(body.attendees).toBeUndefined();
+		expect(body.attendants).toBeUndefined();
+	});
+});

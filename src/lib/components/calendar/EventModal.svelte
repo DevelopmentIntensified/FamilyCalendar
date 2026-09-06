@@ -344,6 +344,26 @@
 		actionError = '';
 		duplicating = true;
 		try {
+			// Copy the loaded invitation rows too: members with their required/
+			// optional type, guests by name (server always stores guests optional).
+			const attendeePayload = [
+				...attendees.flatMap((a) =>
+					a.userId
+						? [
+								{
+									value: a.userId,
+									isUser: true,
+									inviteType: a.inviteType === 'required' ? 'required' : 'optional'
+								}
+							]
+						: []
+				),
+				...nonUserAttendants.map((name) => ({
+					value: name,
+					isUser: false,
+					inviteType: 'optional'
+				}))
+			];
 			const payload = {
 				title: `${event.title} (copy)`,
 				start: toIsoString(event.start),
@@ -356,7 +376,9 @@
 				recurrenceInterval: event.recurrenceInterval,
 				recurrenceByDay: event.recurrenceByDay,
 				recurrenceCount: event.recurrenceCount,
-				recurrenceUntil: event.recurrenceUntil
+				recurrenceUntil: event.recurrenceUntil,
+				reminderMinutes: event.reminderMinutes ?? null,
+				attendees: attendeePayload
 			};
 			const res = await fetch('/api/events', {
 				method: 'POST',

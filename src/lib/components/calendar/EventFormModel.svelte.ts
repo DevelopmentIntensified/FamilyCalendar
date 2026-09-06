@@ -22,7 +22,8 @@ export interface FormEventData {
 	description: string;
 	calendarId: string;
 	allDay: boolean;
-	attendants: string[];
+	/** Omitted in edit mode when invites never loaded (see invitesLoaded). */
+	attendants?: string[];
 	/** Structured invites: { value, isUser, inviteType } per selected attendee. */
 	attendees?: { value: string; isUser: boolean; inviteType: 'required' | 'optional' }[];
 	recurrenceFrequency: string | null;
@@ -127,6 +128,10 @@ export function createEventForm(config: EventFormConfig) {
 	let recurrenceUntil = $state<string | null>(null);
 	let reminderMinutes = $state<number | null>(null);
 	let recentAttendants = $state<string[]>(loadRecentAttendants());
+	/** True once invite rows were loaded (prop or fetch). Until then an edit
+	 * save must NOT send an (empty) attendee list — the server treats any
+	 * attendee array as "replace all invites", which would wipe them. */
+	let invitesLoaded = false;
 
 	let userTouchedFields = $state<Record<string, boolean>>({});
 	let nlpDetectedFields = $state<Record<string, boolean>>({});
@@ -477,6 +482,7 @@ export function createEventForm(config: EventFormConfig) {
 			rows: Array<{ userId?: string | null; name?: string | null; inviteType?: string | null }>
 		) {
 			if (!Array.isArray(rows)) return;
+			invitesLoaded = true;
 			const values = rows
 				.map((r) => r.userId || r.name)
 				.filter((v): v is string => !!v)
@@ -582,7 +588,11 @@ export function createEventForm(config: EventFormConfig) {
 				endTimestamp = startDt.plus({ hours: 1 }).toISO();
 			}
 
-			return {
+			// Replace-all invite semantics: only send attendee data once invites
+			// actually loaded (prop prefill or the rsvp fetch). In edit mode with
+			// nothing loaded, sending `attendees: []` would wipe every invite.
+			const includeAttends = attendants.length > 0 || invitesLoaded || !config.initialEvent;
+			const data: FormEventData = {
 				title,
 				start: startTimestamp,
 				end: endTimestamp,
@@ -590,12 +600,6 @@ export function createEventForm(config: EventFormConfig) {
 				description,
 				calendarId: selectedCalendarId,
 				allDay: effectiveAllDay,
-				attendants: [...attendants],
-				attendees: attendants.map((value) => ({
-					value,
-					isUser: familyMemberIds.has(value),
-					inviteType: inviteTypes[value] ?? 'optional'
-				})),
 				recurrenceFrequency,
 				recurrenceInterval: recurrenceFrequency ? recurrenceInterval : null,
 				recurrenceByDay: recurrenceFrequency ? recurrenceByDay : null,
@@ -603,6 +607,15 @@ export function createEventForm(config: EventFormConfig) {
 				recurrenceUntil: recurrenceFrequency ? recurrenceUntil : null,
 				reminderMinutes
 			};
+			if (includeAttends) {
+				data.attendants = [...attendants];
+				data.attendees = attendants.map((value) => ({
+					value,
+					isUser: familyMemberIds.has(value),
+					inviteType: inviteTypes[value] ?? 'optional'
+				}));
+			}
+			return data;
 		},
 
 		submitPreparation(): FormEventData | null {
