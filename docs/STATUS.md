@@ -9,12 +9,16 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
-- #003 Bill Tracking PRD (parent; slices #004–#011 carry the work)
-- #004 Bill CRUD (no blockers — start here)
-- #005 Bill calendar overlay (blocked by #004)
-- #006 Recurring bills (blocked by #004)
+- #003 Bill Tracking PRD (parent; slices #005–#011 pending)
+- #005 Bill calendar overlay (blocked by #004 — #004 done, so startable)
+- #006 Recurring bills (blocked by #004 — startable)
 - #007 Paid cursor (blocked by #006)
 - #008 Monthly Burn card (blocked by #006)
 - #009 Due-soon reminders (blocked by #006)
-- #010 Bill receipts (blocked by #004)
-- #011 Bill quick-add NLP (blocked by #004)
+- #010 Bill receipts (blocked by #004 — startable)
+- #011 Bill quick-add NLP (blocked by #004 — startable)
+- #012 Bills MED/LOW follow-ups
+- #013 Tasks/family MED/LOW
+- #014 Events/calendar MED/LOW
+- #015 App UX MED/LOW
+- #016 Security LOWs (deferred)
