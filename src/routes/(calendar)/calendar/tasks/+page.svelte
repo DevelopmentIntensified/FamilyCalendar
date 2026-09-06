@@ -606,708 +606,463 @@
 	}
 </script>
 
-<div class="mx-auto max-w-2xl p-4 sm:p-6">
-	<h1 class="mb-6 text-2xl font-bold text-slate-900">Tasks</h1>
-
-	{#if (data.loadWarnings ?? []).length > 0}
-		<div
-			class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
-			role="alert"
+<div class="min-h-screen bg-slate-50">
+	<div class="mx-auto max-w-4xl px-3 py-4 pb-20 sm:px-4">
+		<!-- Header card (family-hub hero pattern) -->
+		<section
+			class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+			aria-labelledby="tasks-heading"
 		>
-			Couldn't load {(data.loadWarnings ?? []).join(', ')} just now — everything else is up to date.
-		</div>
-	{/if}
-
-	<!-- Add task -->
-	<form
-		onsubmit={(e) => {
-			e.preventDefault();
-			addTask();
-		}}
-		class="mb-6 flex flex-col gap-2 sm:flex-row"
-	>
-		<div class="min-w-0 flex-1">
-			<div class="flex items-start gap-1">
-				<div class="min-w-0 flex-1">
-					<MentionInput
-						bind:value={newTitle}
-						members={familyRoster}
-						placeholder="Add a task... e.g. #groceries"
-					/>
-					<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
-				</div>
-				<TaskQuickAddHelp />
-			</div>
-			{#if quick?.unknownMember}
-				<p class="mt-1 text-xs font-medium text-red-600" role="alert">
-					Unknown member {quick.unknownMember} — check the spelling or pick someone from your family.
+			<div class="min-w-0">
+				<h1 id="tasks-heading" class="text-xl font-bold text-slate-900">Tasks</h1>
+				<p class="mt-0.5 text-xs text-slate-400">
+					{openTasks.length}
+					{openTasks.length === 1 ? 'task' : 'tasks'} open · {completedTasks.length} completed
 				</p>
-			{/if}
-			<p class="mt-1 text-xs text-slate-400">
-				Tip: type <span class="font-mono text-slate-500">"every 2 weeks"</span> for a repeat, or
-				<span class="font-mono text-slate-500">#tag</span>
-				to tag (e.g. <span class="font-mono text-slate-500">#groceries</span>).
-			</p>
-		</div>
-		<div class="flex gap-2">
-			<select
-				bind:value={newVisibility}
-				aria-label="Who can see this task"
-				class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-primary-500 focus:outline-none sm:w-auto"
-			>
-				<option value="public">🌐 Public</option>
-				<option value="private">🔒 Private</option>
-			</select>
-			<input
-				type="date"
-				bind:value={newDueDate}
-				aria-label="Due date"
-				class="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-600 sm:w-[10.5rem]"
-			/>
-			<button
-				type="submit"
-				disabled={adding || !newTitle.trim()}
-				class="shrink-0 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-			>
-				Add
-			</button>
-		</div>
-	</form>
-
-	<!-- Smart task templates -->
-	<details class="group mb-6">
-		<summary
-			class="flex w-fit cursor-pointer select-none items-center gap-1 rounded-full px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-		>
-			<span>✨ Smart tasks</span>
-			<svg
-				class="h-3 w-3 transition-transform group-open:rotate-180"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-			</svg>
-		</summary>
-		<div class="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-			{#each Object.keys(CATEGORY_META) as cat (cat)}
-				{@const templates = SMART_EVENT_TEMPLATES.filter(
-					(t) => t.category === (cat as SmartEventCategory)
-				)}
-				<details class="mb-1 last:mb-0" open={Object.keys(CATEGORY_META).indexOf(cat) === 0}>
-					<summary
-						class="cursor-pointer select-none rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 hover:bg-white"
-					>
-						{CATEGORY_META[cat as SmartEventCategory].icon}
-						{CATEGORY_META[cat as SmartEventCategory].label}
-						<span class="ml-1 text-xs font-normal text-slate-400">({templates.length})</span>
-					</summary>
-					<div class="mt-1 flex flex-wrap gap-1.5 pl-2">
-						{#each templates as template (template.id)}
-							<button
-								type="button"
-								onclick={() => addSmartTask(template)}
-								disabled={busyTemplateId === template.id}
-								title={cadenceNote(template)}
-								class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 disabled:opacity-50 {CATEGORY_META[
-									template.category
-								].color}"
-							>
-								{template.name}
-							</button>
-						{/each}
-					</div>
-				</details>
-			{/each}
-		</div>
-	</details>
-
-	{#if actionError}
-		<div
-			role="alert"
-			class="mb-4 flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600"
-		>
-			<span>{actionError}</span>
-			<button
-				type="button"
-				onclick={() => (actionError = '')}
-				class="shrink-0 rounded-full p-0.5 text-red-400 transition-colors hover:bg-red-100 hover:text-red-600"
-				aria-label="Dismiss error"
-			>
-				✕
-			</button>
-		</div>
-	{/if}
-	<!-- Filter chips (issue 019): single-select pills over the ONE main list -->
-	<div class="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter tasks by scope">
-		{#each CHIPS as c (c.value)}
-			<button
-				type="button"
-				onclick={() => (chip = c.value)}
-				aria-pressed={chip === c.value}
-				class="min-h-[44px] rounded-full border px-3.5 text-sm font-medium transition-colors {chip ===
-				c.value
-					? 'border-slate-900 bg-slate-900 text-white'
-					: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
-			>
-				{c.label}
-			</button>
-		{/each}
-	</div>
-	<!-- Search + sort + tag filter -->
-	<div class="mb-4 space-y-2">
-		<div class="flex flex-col gap-2 sm:flex-row">
-			<div class="relative flex-1">
-				<input
-					type="text"
-					bind:value={searchQuery}
-					placeholder="Search tasks…"
-					aria-label="Search tasks"
-					class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-				/>
-				<svg
-					class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
-					/>
-				</svg>
-				{#if searchQuery}
-					<button
-						type="button"
-						onclick={() => (searchQuery = '')}
-						class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-						aria-label="Clear search"
-						title="Clear search"
-					>
-						<svg
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					</button>
-				{/if}
 			</div>
-			<label class="flex w-full items-center gap-2 text-sm text-slate-500 sm:w-auto">
-				<span class="shrink-0">Sort</span>
-				<select
-					bind:value={sortBy}
-					aria-label="Sort tasks"
-					class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 sm:w-auto"
-				>
-					<option value="due">Due date</option>
-					<option value="priority">Priority</option>
-					<option value="created">Created</option>
-					<option value="title">Title A–Z</option>
-				</select>
-			</label>
-		</div>
-		<div class="relative">
-			<input
-				type="text"
-				bind:value={tagFilter}
-				placeholder="Filter by tag…"
-				aria-label="Filter tasks by tag"
-				class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-			/>
-			<svg
-				class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
+		</section>
+
+		{#if (data.loadWarnings ?? []).length > 0}
+			<div
+				class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+				role="alert"
 			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
-				/>
-			</svg>
-			{#if tagFilter}
-				<button
-					type="button"
-					onclick={() => (tagFilter = '')}
-					class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-					aria-label="Clear tag filter"
-					title="Clear filter"
+				Couldn't load {(data.loadWarnings ?? []).join(', ')} just now — everything else is up to date.
+			</div>
+		{/if}
+
+		<!-- Add task card -->
+		<section
+			class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+			aria-labelledby="add-task-heading"
+		>
+			<h2 id="add-task-heading" class="text-sm font-semibold text-slate-900">Add a task</h2>
+			<p class="mt-0.5 text-xs text-slate-400">
+				Type naturally — dates, repeats, @assignee and #tags just work
+			</p>
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+					addTask();
+				}}
+				class="mt-3 flex flex-col gap-2 sm:flex-row"
+			>
+				<div class="min-w-0 flex-1">
+					<div class="flex items-start gap-1">
+						<div class="min-w-0 flex-1">
+							<MentionInput
+								bind:value={newTitle}
+								members={familyRoster}
+								placeholder="Add a task... e.g. #groceries"
+							/>
+							<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
+						</div>
+						<TaskQuickAddHelp />
+					</div>
+					{#if quick?.unknownMember}
+						<p class="mt-1 text-xs font-medium text-red-600" role="alert">
+							Unknown member {quick.unknownMember} — check the spelling or pick someone from your family.
+						</p>
+					{/if}
+					<p class="mt-1 text-xs text-slate-400">
+						Tip: type <span class="font-mono text-slate-500">"every 2 weeks"</span> for a repeat, or
+						<span class="font-mono text-slate-500">#tag</span>
+						to tag (e.g. <span class="font-mono text-slate-500">#groceries</span>).
+					</p>
+				</div>
+				<div class="flex flex-col gap-2 sm:flex-row">
+					<select
+						bind:value={newVisibility}
+						aria-label="Who can see this task"
+						class="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-primary-500 focus:outline-none sm:w-auto"
+					>
+						<option value="public">🌐 Public</option>
+						<option value="private">🔒 Private</option>
+					</select>
+					<input
+						type="date"
+						bind:value={newDueDate}
+						aria-label="Due date"
+						class="min-h-[44px] w-full min-w-0 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-600 sm:w-[10.5rem]"
+					/>
+					<button
+						type="submit"
+						disabled={adding || !newTitle.trim()}
+						class="min-h-[44px] shrink-0 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+					>
+						Add
+					</button>
+				</div>
+			</form>
+
+			<!-- Smart task templates -->
+			<details class="group mt-3">
+				<summary
+					class="flex w-fit cursor-pointer select-none items-center gap-1 rounded-full px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
 				>
+					<span>✨ Smart tasks</span>
 					<svg
-						class="h-4 w-4"
+						class="h-3 w-3 transition-transform group-open:rotate-180"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
 						stroke-width="2"
 					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+						<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
 					</svg>
-				</button>
-			{/if}
-		</div>
-	</div>
-	{#if filterActive || chipActive}
-		<p class="mb-3 text-xs font-medium text-sky-600">
-			{#if chipActive}
-				Showing
-				<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
-					{chip === 'family' ? 'family tasks assigned to you' : `${chip} tasks`}
-				</span>
-				{#if tagFilterActive || queryActive}·{/if}
-			{/if}
-			{#if tagFilterActive}
-				Filtering by <span
-					class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
-					>#{tagFilter.trim().toLowerCase()}</span
-				>
-				{#if queryActive}·
-				{/if}
-			{/if}
-			{#if queryActive}
-				Searching “{searchQuery.trim()}”
-			{/if}
-		</p>
-	{/if}
+				</summary>
+				<div class="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+					{#each Object.keys(CATEGORY_META) as cat (cat)}
+						{@const templates = SMART_EVENT_TEMPLATES.filter(
+							(t) => t.category === (cat as SmartEventCategory)
+						)}
+						<details class="mb-1 last:mb-0" open={Object.keys(CATEGORY_META).indexOf(cat) === 0}>
+							<summary
+								class="cursor-pointer select-none rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 hover:bg-white"
+							>
+								{CATEGORY_META[cat as SmartEventCategory].icon}
+								{CATEGORY_META[cat as SmartEventCategory].label}
+								<span class="ml-1 text-xs font-normal text-slate-400">({templates.length})</span>
+							</summary>
+							<div class="mt-1 flex flex-wrap gap-1.5 pl-2">
+								{#each templates as template (template.id)}
+									<button
+										type="button"
+										onclick={() => addSmartTask(template)}
+										disabled={busyTemplateId === template.id}
+										title={cadenceNote(template)}
+										class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 disabled:opacity-50 {CATEGORY_META[
+											template.category
+										].color}"
+									>
+										{template.name}
+									</button>
+								{/each}
+							</div>
+						</details>
+					{/each}
+				</div>
+			</details>
+		</section>
 
-	{#if filteredOpenTasks.length === 0 && filteredCompletedTasks.length === 0}
-		<div class="flex flex-col items-center justify-center py-16 text-center">
-			<svg
-				class="mb-4 h-14 w-14 text-slate-300"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="1.5"
-					d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-				/>
-			</svg>
-			<p class="text-lg font-medium text-slate-700">
-				{filterActive || chipActive ? 'No matching tasks' : CHIP_EMPTY[chip].title}
-			</p>
-			<p class="text-sm text-slate-500">
-				{filterActive || chipActive
-					? 'Try another chip, or clear the search and filters'
-					: CHIP_EMPTY[chip].hint}
-			</p>
-		</div>
-	{/if}
-
-	<!-- Open tasks -->
-	{#if filteredOpenTasks.length > 0}
-		<h2
-			class="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
-		>
-			<span>Open ({filteredOpenTasks.length})</span>
-		</h2>
-	{/if}
-	<div class="space-y-1.5">
-		{#each filteredOpenTasks as task (task.id)}
+		{#if actionError}
 			<div
-				class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 active:bg-slate-100 {celebratingId ===
-				task.id
-					? 'celebrate'
-					: ''}"
+				role="alert"
+				class="mb-4 mt-4 flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600"
 			>
+				<span>{actionError}</span>
 				<button
 					type="button"
-					onclick={() => toggleTask(task.id)}
-					disabled={busyId === task.id}
-					class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors hover:border-primary-500 active:border-primary-500"
-					aria-label="Complete task"
+					onclick={() => (actionError = '')}
+					class="shrink-0 rounded-full p-0.5 text-red-400 transition-colors hover:bg-red-100 hover:text-red-600"
+					aria-label="Dismiss error"
 				>
-					<span class="absolute -inset-2" aria-hidden="true"></span>
+					✕
 				</button>
-				<div class="min-w-0 flex-1">
+			</div>
+		{/if}
+		<!-- Main list card: toolbar (chips + search) + rows -->
+		<section
+			class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+			aria-labelledby="tasks-list-heading"
+		>
+			<h2 id="tasks-list-heading" class="text-sm font-semibold text-slate-900">Your tasks</h2>
+			<p class="mt-0.5 text-xs text-slate-400">Filter, search, and sort your list</p>
+
+			<!-- Filter chips (issue 019): single-select pills over the ONE main list -->
+			<div class="mb-3 mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter tasks by scope">
+				{#each CHIPS as c (c.value)}
 					<button
 						type="button"
-						onclick={() => openEdit(task)}
-						class="block w-full truncate text-left text-sm font-medium text-slate-900 hover:text-primary-600"
-						title="Edit task"
+						onclick={() => (chip = c.value)}
+						aria-pressed={chip === c.value}
+						class="min-h-[44px] rounded-full border px-3.5 text-sm font-medium transition-colors {chip ===
+						c.value
+							? 'border-slate-900 bg-slate-900 text-white'
+							: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
 					>
-						{task.title}
+						{c.label}
 					</button>
-					{#if task.recurrenceFrequency}
-						<p class="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-purple-500">
-							<svg
-								class="h-3 w-3 shrink-0"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 9a8 8 0 01-14 3"
-								/>
-							</svg>
-							{task.recurrenceInterval && task.recurrenceInterval > 1
-								? `every ${task.recurrenceInterval} ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}s`
-								: `every ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}`}
-							{#if task.completionCount}
-								<span
-									class="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600"
-								>
-									🔥 {task.completionCount}×
-								</span>
-							{/if}
-						</p>
-					{:else if task.eventTitle}
-						<p class="mt-0.5 flex items-center gap-1 truncate text-xs font-medium text-primary-500">
-							<svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-								/>
-							</svg>
-							{task.eventTitle}
-						</p>
-					{:else if task.notes}
-						<p class="truncate text-xs text-slate-500">{task.notes}</p>
-					{/if}
-					{#if task.familyId}
-						<span
-							class="mr-1 mt-1 inline-flex items-center rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700"
-							title="Family task"
-						>
-							Family
-						</span>
-					{/if}
-					{#if (task.tags ?? []).length > 0}
-						<div class="mt-1 flex flex-wrap gap-1">
-							{#each task.tags ?? [] as tag (tag)}
-								<span
-									class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
-									>#{tag}</span
-								>
-							{/each}
-						</div>
-					{/if}
-				</div>
-				{#if task.dueDate}
-					<span
-						class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task)
-							? 'bg-red-100 text-red-700'
-							: 'bg-slate-100 text-slate-600'}"
-					>
-						{formatDue(task.dueDate)}
-					</span>
-				{/if}
-				{#if task.priority && task.priority !== 'normal'}
-					<span
-						class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}"
-						title="Priority: {task.priority}"
-					></span>
-				{/if}
-				{#if task.assignedTo && task.assignmentStatus !== 'none' && !(task.assignedTo === task.userId && task.assignmentStatus === 'accepted')}
-					{@const mine = task.assignedTo === data.user?.id}
-					{@const pending = task.assignmentStatus === 'pending'}
-					{#if mine && pending}
-						<span class="flex shrink-0 items-center gap-1">
-							<button
-								type="button"
-								onclick={() => respondAssignment(task, true)}
-								disabled={busyId === task.id}
-								class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200 active:bg-emerald-200"
-								title="Accept"
-							>
-								✓ Accept
-							</button>
-							<button
-								type="button"
-								onclick={() => respondAssignment(task, false)}
-								disabled={busyId === task.id}
-								class="rounded-full bg-red-100 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-200 active:bg-red-200"
-								title="Decline"
-							>
-								✕
-							</button>
-						</span>
-					{:else}
-						<span
-							class="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-0.5 pr-2 text-xs font-medium text-slate-600"
-							title="Assigned to {memberName(task.assignedTo)}"
-						>
-							<span
-								class="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold {avatarColor(
-									task.assignedTo
-								)}"
-							>
-								{(
-									task.assigneeFirstName?.[0] ??
-									memberName(task.assignedTo)[0] ??
-									'?'
-								).toUpperCase()}
-							</span>
-							{memberName(task.assignedTo).split(' ')[0]}
-							{#if task.assignmentStatus === 'pending'}
-								<span
-									class="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700"
-									>pending</span
-								>
-							{/if}
-						</span>
-					{/if}
-				{/if}
-				{#if task.recurrenceFrequency && !task.completedAt}
-					<button
-						type="button"
-						onclick={() => advanceTask(task.id)}
-						disabled={busyId === task.id}
-						class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500 active:bg-purple-100"
-						title="Skip this occurrence (rolls to next)"
-						aria-label="Skip to next occurrence"
-					>
+				{/each}
+			</div>
+			<!-- Search + sort + tag filter -->
+			<div class="mb-4 space-y-2">
+				<div class="flex flex-col gap-2 sm:flex-row">
+					<div class="relative flex-1">
+						<input
+							type="text"
+							bind:value={searchQuery}
+							placeholder="Search tasks…"
+							aria-label="Search tasks"
+							class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+						/>
 						<svg
-							class="h-4 w-4"
+							class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
 							stroke-width="2"
 						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-						</svg>
-					</button>
-				{/if}
-				{#if confirmDeleteId === task.id}
-					<div class="flex shrink-0 items-center gap-1.5">
-						<span class="text-xs font-medium text-red-600">Delete?</span>
-						<button
-							type="button"
-							onclick={() => deleteTask(task.id)}
-							disabled={busyId === task.id}
-							class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-						>
-							{busyId === task.id ? 'Deleting…' : 'Yes'}
-						</button>
-						<button
-							type="button"
-							onclick={() => (confirmDeleteId = null)}
-							disabled={busyId === task.id}
-							class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
-						>
-							No
-						</button>
-					</div>
-				{:else}
-					<button
-						type="button"
-						onclick={() => (confirmDeleteId = task.id)}
-						disabled={busyId === task.id}
-						class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
-						aria-label="Delete task"
-					>
-						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
-								stroke-width="2"
-								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+								d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
 							/>
 						</svg>
-					</button>
-				{/if}
-			</div>
-		{/each}
-	</div>
-
-	<!-- Completed -->
-	{#if filteredCompletedTasks.length > 0}
-		<h2
-			class="mb-2 mt-8 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
-		>
-			<span>Completed ({filteredCompletedTasks.length})</span>
-			{#if completedThisWeek > 0}
-				<span class="ml-1 font-normal normal-case text-emerald-600"
-					>· {completedThisWeek} this week</span
-				>
-			{/if}
-			{#if confirmClear}
-				<span class="ml-auto flex items-center gap-1.5 font-normal normal-case">
-					<span class="text-xs font-medium text-red-600">Delete all completed?</span>
-					<button
-						type="button"
-						onclick={clearCompleted}
-						disabled={clearBusy}
-						class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-					>
-						{clearBusy ? 'Deleting…' : 'Yes, delete'}
-					</button>
-					<button
-						type="button"
-						onclick={() => (confirmClear = false)}
-						disabled={clearBusy}
-						class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
-					>
-						No
-					</button>
-				</span>
-			{:else}
-				<button
-					type="button"
-					class="ml-auto font-medium normal-case text-slate-400 transition-colors hover:text-red-500"
-					onclick={() => (confirmClear = true)}
-				>
-					Clear completed
-				</button>
-			{/if}
-		</h2>
-		<div class="space-y-1.5">
-			{#each filteredCompletedTasks as task (task.id)}
-				<div
-					class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-slate-50 p-3 active:bg-slate-100 {celebratingId ===
-					task.id
-						? 'celebrate'
-						: ''}"
-				>
-					<button
-						type="button"
-						onclick={() => toggleTask(task.id)}
-						disabled={busyId === task.id}
-						class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white active:bg-primary-600"
-						aria-label="Mark incomplete"
-					>
-						<span class="absolute -inset-2" aria-hidden="true"></span>
-						<svg
-							class="h-3 w-3"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="3"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-						</svg>
-					</button>
-					<p class="min-w-0 flex-1 truncate text-sm text-slate-400 line-through">
-						{task.title}
-						{#if task.eventTitle}<span class="ml-1 text-xs font-normal text-slate-400 no-underline"
-								>({task.eventTitle})</span
-							>{/if}
-					</p>
-					{#if (task.tags ?? []).length > 0}
-						<div class="flex flex-wrap gap-1">
-							{#each task.tags ?? [] as tag (tag)}
-								<span
-									class="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
-									>#{tag}</span
+						{#if searchQuery}
+							<button
+								type="button"
+								onclick={() => (searchQuery = '')}
+								class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+								aria-label="Clear search"
+								title="Clear search"
+							>
+								<svg
+									class="h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2"
 								>
-							{/each}
-						</div>
-					{/if}
-					{#if confirmDeleteId === task.id}
-						<div class="flex shrink-0 items-center gap-1.5">
-							<span class="text-xs font-medium text-red-600">Delete?</span>
-							<button
-								type="button"
-								onclick={() => deleteTask(task.id)}
-								disabled={busyId === task.id}
-								class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-							>
-								{busyId === task.id ? 'Deleting…' : 'Yes'}
+									<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+								</svg>
 							</button>
-							<button
-								type="button"
-								onclick={() => (confirmDeleteId = null)}
-								disabled={busyId === task.id}
-								class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
-							>
-								No
-							</button>
-						</div>
-					{:else}
+						{/if}
+					</div>
+					<label class="flex w-full items-center gap-2 text-sm text-slate-500 sm:w-auto">
+						<span class="shrink-0">Sort</span>
+						<select
+							bind:value={sortBy}
+							aria-label="Sort tasks"
+							class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 sm:w-auto"
+						>
+							<option value="due">Due date</option>
+							<option value="priority">Priority</option>
+							<option value="created">Created</option>
+							<option value="title">Title A–Z</option>
+						</select>
+					</label>
+				</div>
+				<div class="relative">
+					<input
+						type="text"
+						bind:value={tagFilter}
+						placeholder="Filter by tag…"
+						aria-label="Filter tasks by tag"
+						class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+					/>
+					<svg
+						class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
+						/>
+					</svg>
+					{#if tagFilter}
 						<button
 							type="button"
-							onclick={() => (confirmDeleteId = task.id)}
-							disabled={busyId === task.id}
-							class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
-							aria-label="Delete task"
+							onclick={() => (tagFilter = '')}
+							class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+							aria-label="Clear tag filter"
+							title="Clear filter"
 						>
-							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-								/>
+							<svg
+								class="h-4 w-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 							</svg>
 						</button>
 					{/if}
 				</div>
-			{/each}
-		</div>
-	{/if}
-	<!-- Assignments (issue 019): To accept / Requested, separate card -->
-	{#if (data.pendingAssignments ?? []).length > 0 || (data.requestedByMe ?? []).length > 0}
-		<section class="mt-8 rounded-xl border border-slate-200 bg-white p-4">
-			<h2 class="mb-3 text-sm font-semibold text-slate-900">Assignments</h2>
-			<div class="mb-3 flex gap-1.5" role="tablist" aria-label="Assignment lists">
-				<button
-					type="button"
-					role="tab"
-					aria-selected={assignTab === 'accept'}
-					onclick={() => (assignTab = 'accept')}
-					class="min-h-[44px] flex-1 rounded-full border px-3.5 text-sm font-medium transition-colors {assignTab ===
-					'accept'
-						? 'border-slate-900 bg-slate-900 text-white'
-						: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
-				>
-					To accept ({(data.pendingAssignments ?? []).length})
-				</button>
-				<button
-					type="button"
-					role="tab"
-					aria-selected={assignTab === 'requested'}
-					onclick={() => (assignTab = 'requested')}
-					class="min-h-[44px] flex-1 rounded-full border px-3.5 text-sm font-medium transition-colors {assignTab ===
-					'requested'
-						? 'border-slate-900 bg-slate-900 text-white'
-						: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
-				>
-					Requested ({(data.requestedByMe ?? []).length})
-				</button>
 			</div>
+			{#if filterActive || chipActive}
+				<p class="mb-3 text-xs font-medium text-sky-600">
+					{#if chipActive}
+						Showing
+						<span
+							class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+						>
+							{chip === 'family' ? 'family tasks assigned to you' : `${chip} tasks`}
+						</span>
+						{#if tagFilterActive || queryActive}·{/if}
+					{/if}
+					{#if tagFilterActive}
+						Filtering by <span
+							class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+							>#{tagFilter.trim().toLowerCase()}</span
+						>
+						{#if queryActive}·
+						{/if}
+					{/if}
+					{#if queryActive}
+						Searching “{searchQuery.trim()}”
+					{/if}
+				</p>
+			{/if}
 
-			{#if assignTab === 'accept'}
-				{#if (data.pendingAssignments ?? []).length === 0}
-					<p class="py-6 text-center text-sm text-slate-500">
-						Nothing waiting for you — you're all caught up.
+			{#if filteredOpenTasks.length === 0 && filteredCompletedTasks.length === 0}
+				<div class="flex flex-col items-center justify-center py-16 text-center">
+					<svg
+						class="mb-4 h-14 w-14 text-slate-300"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="1.5"
+							d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+						/>
+					</svg>
+					<p class="text-lg font-medium text-slate-700">
+						{filterActive || chipActive ? 'No matching tasks' : CHIP_EMPTY[chip].title}
 					</p>
-				{:else}
-					<div class="space-y-1.5">
-						{#each data.pendingAssignments ?? [] as task (task.id)}
-							<div
-								class="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3"
+					<p class="text-sm text-slate-500">
+						{filterActive || chipActive
+							? 'Try another chip, or clear the search and filters'
+							: CHIP_EMPTY[chip].hint}
+					</p>
+				</div>
+			{/if}
+
+			<!-- Open tasks -->
+			{#if filteredOpenTasks.length > 0}
+				<h2
+					class="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
+				>
+					<span>Open ({filteredOpenTasks.length})</span>
+				</h2>
+			{/if}
+			<div class="space-y-1.5">
+				{#each filteredOpenTasks as task (task.id)}
+					<div
+						class="group flex min-w-0 flex-wrap items-center gap-2.5 overflow-hidden rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 transition-colors hover:bg-slate-100 {celebratingId ===
+						task.id
+							? 'celebrate'
+							: ''}"
+					>
+						<button
+							type="button"
+							onclick={() => toggleTask(task.id)}
+							disabled={busyId === task.id}
+							class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors hover:border-primary-500 active:border-primary-500"
+							aria-label="Complete task"
+						>
+							<span class="absolute -inset-2" aria-hidden="true"></span>
+						</button>
+						<div class="min-w-0 flex-1">
+							<button
+								type="button"
+								onclick={() => openEdit(task)}
+								class="block w-full truncate text-left text-sm font-medium text-slate-900 hover:text-primary-600"
+								title="Edit task"
 							>
-								<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
-									<p class="mt-0.5 text-xs text-slate-500">
-										From
-										{task.creatorFirstName ?? 'someone'}
-										{#if task.dueDate}· due {formatDue(task.dueDate)}{/if}
-										{#if task.familyId}· <span class="font-medium text-indigo-600">Family</span
-											>{/if}
-									</p>
+								{task.title}
+							</button>
+							{#if task.recurrenceFrequency}
+								<p class="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-purple-500">
+									<svg
+										class="h-3 w-3 shrink-0"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 9a8 8 0 01-14 3"
+										/>
+									</svg>
+									{task.recurrenceInterval && task.recurrenceInterval > 1
+										? `every ${task.recurrenceInterval} ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}s`
+										: `every ${FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}`}
+									{#if task.completionCount}
+										<span
+											class="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600"
+										>
+											🔥 {task.completionCount}×
+										</span>
+									{/if}
+								</p>
+							{:else if task.eventTitle}
+								<p
+									class="mt-0.5 flex items-center gap-1 truncate text-xs font-medium text-primary-500"
+								>
+									<svg
+										class="h-3 w-3 shrink-0"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+										/>
+									</svg>
+									{task.eventTitle}
+								</p>
+							{:else if task.notes}
+								<p class="truncate text-xs text-slate-500">{task.notes}</p>
+							{/if}
+							{#if task.familyId}
+								<span
+									class="mr-1 mt-1 inline-flex items-center rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700"
+									title="Family task"
+								>
+									Family
+								</span>
+							{/if}
+							{#if (task.tags ?? []).length > 0}
+								<div class="mt-1 flex flex-wrap gap-1">
+									{#each task.tags ?? [] as tag (tag)}
+										<span
+											class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+											>#{tag}</span
+										>
+									{/each}
 								</div>
-								<span class="flex shrink-0 items-center gap-1.5">
+							{/if}
+						</div>
+						{#if task.dueDate}
+							<span
+								class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task)
+									? 'bg-red-100 text-red-700'
+									: 'bg-slate-100 text-slate-600'}"
+							>
+								{formatDue(task.dueDate)}
+							</span>
+						{/if}
+						{#if task.priority && task.priority !== 'normal'}
+							<span
+								class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}"
+								title="Priority: {task.priority}"
+							></span>
+						{/if}
+						{#if task.assignedTo && task.assignmentStatus !== 'none' && !(task.assignedTo === task.userId && task.assignmentStatus === 'accepted')}
+							{@const mine = task.assignedTo === data.user?.id}
+							{@const pending = task.assignmentStatus === 'pending'}
+							{#if mine && pending}
+								<span class="flex shrink-0 items-center gap-1">
 									<button
 										type="button"
 										onclick={() => respondAssignment(task, true)}
 										disabled={busyId === task.id}
-										class="min-h-[44px] rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+										class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200 active:bg-emerald-200"
+										title="Accept"
 									>
 										✓ Accept
 									</button>
@@ -1315,53 +1070,347 @@
 										type="button"
 										onclick={() => respondAssignment(task, false)}
 										disabled={busyId === task.id}
-										class="min-h-[44px] rounded-full bg-red-100 px-4 py-2 text-xs font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50"
+										class="rounded-full bg-red-100 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-200 active:bg-red-200"
+										title="Decline"
 									>
-										✕ Decline
+										✕
 									</button>
 								</span>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			{:else if (data.requestedByMe ?? []).length === 0}
-				<p class="py-6 text-center text-sm text-slate-500">
-					You haven't assigned anything out. Assign a task from the list above to see its status
-					here.
-				</p>
-			{:else}
-				<div class="space-y-1.5">
-					{#each data.requestedByMe ?? [] as task (task.id)}
-						<div
-							class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"
-						>
-							<div class="min-w-0 flex-1">
-								<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
-								<p class="mt-0.5 text-xs text-slate-500">
-									To {task.assignedTo ? memberName(task.assignedTo) : 'someone'}
-									{#if task.familyId}· <span class="font-medium text-indigo-600">Family</span>{/if}
-								</p>
-							</div>
-							<span
-								class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold {task.assignmentStatus ===
-								'accepted'
-									? 'bg-emerald-100 text-emerald-700'
-									: task.assignmentStatus === 'declined'
-										? 'bg-slate-100 text-slate-500'
-										: 'bg-amber-100 text-amber-700'}"
+							{:else}
+								<span
+									class="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-0.5 pr-2 text-xs font-medium text-slate-600"
+									title="Assigned to {memberName(task.assignedTo)}"
+								>
+									<span
+										class="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold {avatarColor(
+											task.assignedTo
+										)}"
+									>
+										{(
+											task.assigneeFirstName?.[0] ??
+											memberName(task.assignedTo)[0] ??
+											'?'
+										).toUpperCase()}
+									</span>
+									{memberName(task.assignedTo).split(' ')[0]}
+									{#if task.assignmentStatus === 'pending'}
+										<span
+											class="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700"
+											>pending</span
+										>
+									{/if}
+								</span>
+							{/if}
+						{/if}
+						{#if task.recurrenceFrequency && !task.completedAt}
+							<button
+								type="button"
+								onclick={() => advanceTask(task.id)}
+								disabled={busyId === task.id}
+								class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500 active:bg-purple-100"
+								title="Skip this occurrence (rolls to next)"
+								aria-label="Skip to next occurrence"
 							>
-								{task.assignmentStatus === 'accepted'
-									? 'Accepted'
-									: task.assignmentStatus === 'declined'
-										? 'Declined'
-										: 'Pending'}
-							</span>
+								<svg
+									class="h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M13 5l7 7-7 7M5 5l7 7-7 7"
+									/>
+								</svg>
+							</button>
+						{/if}
+						{#if confirmDeleteId === task.id}
+							<div class="flex shrink-0 items-center gap-1.5">
+								<span class="text-xs font-medium text-red-600">Delete?</span>
+								<button
+									type="button"
+									onclick={() => deleteTask(task.id)}
+									disabled={busyId === task.id}
+									class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+								>
+									{busyId === task.id ? 'Deleting…' : 'Yes'}
+								</button>
+								<button
+									type="button"
+									onclick={() => (confirmDeleteId = null)}
+									disabled={busyId === task.id}
+									class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+								>
+									No
+								</button>
+							</div>
+						{:else}
+							<button
+								type="button"
+								onclick={() => (confirmDeleteId = task.id)}
+								disabled={busyId === task.id}
+								class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
+								aria-label="Delete task"
+							>
+								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+									/>
+								</svg>
+							</button>
+						{/if}
+					</div>
+				{/each}
+			</div>
+
+			<!-- Completed -->
+			{#if filteredCompletedTasks.length > 0}
+				<h2
+					class="mb-2 mt-8 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
+				>
+					<span>Completed ({filteredCompletedTasks.length})</span>
+					{#if completedThisWeek > 0}
+						<span class="ml-1 font-normal normal-case text-emerald-600"
+							>· {completedThisWeek} this week</span
+						>
+					{/if}
+					{#if confirmClear}
+						<span class="ml-auto flex items-center gap-1.5 font-normal normal-case">
+							<span class="text-xs font-medium text-red-600">Delete all completed?</span>
+							<button
+								type="button"
+								onclick={clearCompleted}
+								disabled={clearBusy}
+								class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+							>
+								{clearBusy ? 'Deleting…' : 'Yes, delete'}
+							</button>
+							<button
+								type="button"
+								onclick={() => (confirmClear = false)}
+								disabled={clearBusy}
+								class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+							>
+								No
+							</button>
+						</span>
+					{:else}
+						<button
+							type="button"
+							class="ml-auto font-medium normal-case text-slate-400 transition-colors hover:text-red-500"
+							onclick={() => (confirmClear = true)}
+						>
+							Clear completed
+						</button>
+					{/if}
+				</h2>
+				<div class="space-y-1.5">
+					{#each filteredCompletedTasks as task (task.id)}
+						<div
+							class="group flex min-w-0 flex-wrap items-center gap-2.5 overflow-hidden rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 transition-colors hover:bg-slate-100 {celebratingId ===
+							task.id
+								? 'celebrate'
+								: ''}"
+						>
+							<button
+								type="button"
+								onclick={() => toggleTask(task.id)}
+								disabled={busyId === task.id}
+								class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white active:bg-primary-600"
+								aria-label="Mark incomplete"
+							>
+								<span class="absolute -inset-2" aria-hidden="true"></span>
+								<svg
+									class="h-3 w-3"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="3"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+								</svg>
+							</button>
+							<p class="min-w-0 flex-1 truncate text-sm text-slate-400 line-through">
+								{task.title}
+								{#if task.eventTitle}<span
+										class="ml-1 text-xs font-normal text-slate-400 no-underline"
+										>({task.eventTitle})</span
+									>{/if}
+							</p>
+							{#if (task.tags ?? []).length > 0}
+								<div class="flex flex-wrap gap-1">
+									{#each task.tags ?? [] as tag (tag)}
+										<span
+											class="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
+											>#{tag}</span
+										>
+									{/each}
+								</div>
+							{/if}
+							{#if confirmDeleteId === task.id}
+								<div class="flex shrink-0 items-center gap-1.5">
+									<span class="text-xs font-medium text-red-600">Delete?</span>
+									<button
+										type="button"
+										onclick={() => deleteTask(task.id)}
+										disabled={busyId === task.id}
+										class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+									>
+										{busyId === task.id ? 'Deleting…' : 'Yes'}
+									</button>
+									<button
+										type="button"
+										onclick={() => (confirmDeleteId = null)}
+										disabled={busyId === task.id}
+										class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+									>
+										No
+									</button>
+								</div>
+							{:else}
+								<button
+									type="button"
+									onclick={() => (confirmDeleteId = task.id)}
+									disabled={busyId === task.id}
+									class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
+									aria-label="Delete task"
+								>
+									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+										/>
+									</svg>
+								</button>
+							{/if}
 						</div>
 					{/each}
 				</div>
 			{/if}
 		</section>
-	{/if}
+
+		<!-- Assignments (issue 019): To accept / Requested, separate card -->
+		{#if (data.pendingAssignments ?? []).length > 0 || (data.requestedByMe ?? []).length > 0}
+			<section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+				<h2 class="text-sm font-semibold text-slate-900">Assignments</h2>
+				<p class="mt-0.5 text-xs text-slate-400">Tasks you've been sent, and ones you sent out</p>
+				<div class="mb-3 mt-3 flex gap-1.5" role="tablist" aria-label="Assignment lists">
+					<button
+						type="button"
+						role="tab"
+						aria-selected={assignTab === 'accept'}
+						onclick={() => (assignTab = 'accept')}
+						class="min-h-[44px] flex-1 rounded-full border px-3.5 text-sm font-medium transition-colors {assignTab ===
+						'accept'
+							? 'border-slate-900 bg-slate-900 text-white'
+							: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
+					>
+						To accept ({(data.pendingAssignments ?? []).length})
+					</button>
+					<button
+						type="button"
+						role="tab"
+						aria-selected={assignTab === 'requested'}
+						onclick={() => (assignTab = 'requested')}
+						class="min-h-[44px] flex-1 rounded-full border px-3.5 text-sm font-medium transition-colors {assignTab ===
+						'requested'
+							? 'border-slate-900 bg-slate-900 text-white'
+							: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
+					>
+						Requested ({(data.requestedByMe ?? []).length})
+					</button>
+				</div>
+
+				{#if assignTab === 'accept'}
+					{#if (data.pendingAssignments ?? []).length === 0}
+						<p class="py-6 text-center text-sm text-slate-500">
+							Nothing waiting for you — you're all caught up.
+						</p>
+					{:else}
+						<div class="space-y-1.5">
+							{#each data.pendingAssignments ?? [] as task (task.id)}
+								<div
+									class="flex min-w-0 flex-wrap items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50/80 px-2.5 py-2"
+								>
+									<div class="min-w-0 flex-1">
+										<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+										<p class="mt-0.5 text-xs text-slate-500">
+											From
+											{task.creatorFirstName ?? 'someone'}
+											{#if task.dueDate}· due {formatDue(task.dueDate)}{/if}
+											{#if task.familyId}· <span class="font-medium text-indigo-600">Family</span
+												>{/if}
+										</p>
+									</div>
+									<span class="flex shrink-0 items-center gap-1.5">
+										<button
+											type="button"
+											onclick={() => respondAssignment(task, true)}
+											disabled={busyId === task.id}
+											class="min-h-[44px] rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+										>
+											✓ Accept
+										</button>
+										<button
+											type="button"
+											onclick={() => respondAssignment(task, false)}
+											disabled={busyId === task.id}
+											class="min-h-[44px] rounded-full bg-red-100 px-4 py-2 text-xs font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50"
+										>
+											✕ Decline
+										</button>
+									</span>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				{:else if (data.requestedByMe ?? []).length === 0}
+					<p class="py-6 text-center text-sm text-slate-500">
+						You haven't assigned anything out. Assign a task from the list above to see its status
+						here.
+					</p>
+				{:else}
+					<div class="space-y-1.5">
+						{#each data.requestedByMe ?? [] as task (task.id)}
+							<div
+								class="flex min-w-0 flex-wrap items-center gap-2.5 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 transition-colors hover:bg-slate-100"
+							>
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+									<p class="mt-0.5 text-xs text-slate-500">
+										To {task.assignedTo ? memberName(task.assignedTo) : 'someone'}
+										{#if task.familyId}· <span class="font-medium text-indigo-600">Family</span
+											>{/if}
+									</p>
+								</div>
+								<span
+									class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold {task.assignmentStatus ===
+									'accepted'
+										? 'bg-emerald-100 text-emerald-700'
+										: task.assignmentStatus === 'declined'
+											? 'bg-slate-100 text-slate-500'
+											: 'bg-amber-100 text-amber-700'}"
+								>
+									{task.assignmentStatus === 'accepted'
+										? 'Accepted'
+										: task.assignmentStatus === 'declined'
+											? 'Declined'
+											: 'Pending'}
+								</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</section>
+		{/if}
+	</div>
 </div>
 
 <!-- Edit task dialog -->
