@@ -13,6 +13,7 @@
 		[key: string]: string;
 	}
 	const typeIcons: TypeIcons = {
+		assignment_pending: '📨',
 		assignment_accepted: '👍',
 		assignment_declined: '👋',
 		task_completed: '✅'

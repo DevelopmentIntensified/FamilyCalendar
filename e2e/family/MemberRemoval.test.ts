@@ -89,7 +89,7 @@ test('Family member removal via UI', async ({ page }) => {
 	});
 
 	await test.step('Wait for page to load', async () => {
-		await page.waitForSelector('h2:has-text("Family Members")', { timeout: 10000 });
+		await page.waitForSelector('h2:has-text("Members")', { timeout: 10000 });
 	});
 
 	await test.step('Click remove button', async () => {
@@ -146,7 +146,7 @@ test('Family member removal via direct DB action', async ({ page }) => {
 	await test.step('Navigate to family page to verify UI updated', async () => {
 		await page.goto('/family/' + familyId);
 		await page.waitForLoadState('networkidle');
-		await page.waitForSelector('h2:has-text("Family Members")', { timeout: 10000 });
+		await page.waitForSelector('h2:has-text("Members")', { timeout: 10000 });
 		const memberCount = await page.locator('text=Test Member').count();
 		expect(memberCount).toBe(0);
 	});

@@ -66,11 +66,7 @@ test('Family settings - rename family', async ({ page }) => {
 		await page.waitForLoadState('networkidle');
 	});
 
-	await test.step('Open settings', async () => {
-		await page.click('button:has-text("Settings")');
-	});
-
-	await test.step('Check settings form visible', async () => {
+	await test.step('Settings form visible by default', async () => {
 		await page.waitForSelector('input[name="name"]');
 		await page.waitForSelector('input[name="color"]');
 	});
@@ -108,11 +104,7 @@ test('Family settings - change color', async ({ page }) => {
 		await page.waitForLoadState('networkidle');
 	});
 
-	await test.step('Open settings', async () => {
-		await page.click('button:has-text("Settings")');
-	});
-
-	await test.step('Check settings form visible', async () => {
+	await test.step('Settings form visible by default', async () => {
 		await page.waitForSelector('input[name="name"]');
 		await page.waitForSelector('input[name="color"]');
 	});
