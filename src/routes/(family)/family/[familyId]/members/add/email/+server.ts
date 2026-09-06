@@ -7,6 +7,11 @@ import { TimeSpan } from 'lucia';
 import { db } from '$lib/server/db';
 import { familyMembers } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
+import { getFamilyMemberRole } from '$lib/server/db/actions/families';
+
+// Sending email invites mints a join token for the family — an admin-level
+// action, mirroring the direct-add gate in members/add/direct.
+const INVITE_SENDER_ROLES = new Set(['creator', 'admin']);
 
 export type emailTokenPayloadType = {
 	email: string;
@@ -33,6 +38,14 @@ export const POST = async (event: RequestEvent) => {
 
 	if (!member) {
 		return json({ error: 'Not a member of this family' }, { status: 403 });
+	}
+
+	const callerRole = await getFamilyMemberRole(event.locals.user.id, event.params.familyId!);
+	if (!callerRole || !INVITE_SENDER_ROLES.has(callerRole)) {
+		return json(
+			{ error: 'Only the family creator or an admin can send invitations' },
+			{ status: 403 }
+		);
 	}
 
 	const rData = await event.request.json();

@@ -8,8 +8,9 @@ import type { EventInvite } from '$lib/server/db/actions/events';
  *   - "Jane"            → guest (name) invite, always optional
  *   - { value, isUser } → if `isUser` and the value is this user or a family
  *     member, a member invite (userId). `inviteType` may be 'required'.
- * Unrecognized/unauthorized user ids are skipped (never stored as members);
- * member values are returned with their requested inviteType.
+ * Unrecognized user ids are skipped entirely (never stored as members and
+ * never degraded to guest names — a raw id must not render as an attendee
+ * name); member values are returned with their requested inviteType.
  */
 /** An attendee entry object from the request payload; fields unvalidated. */
 interface AttendeeEntry {
@@ -59,9 +60,11 @@ export async function resolveEventInvites(userId: string, raw: unknown): Promise
 		const v = value.trim();
 		const type = inviteType === 'required' ? 'required' : 'optional';
 		if (isUser === true) {
+			// Only the caller themself or a roster member becomes a member
+			// invite; an unrecognized id is dropped, NOT kept as a guest name
+			// (a raw id string would render as an attendee name).
 			const isKnown = v === userId || (knownUserIds !== null && knownUserIds.has(v));
 			if (isKnown) out.push({ userId: v, inviteType: type });
-			else out.push({ name: v, inviteType: 'optional' });
 		} else {
 			out.push({ name: v, inviteType: 'optional' });
 		}

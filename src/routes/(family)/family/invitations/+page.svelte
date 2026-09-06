@@ -4,11 +4,30 @@
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 
 	export let data: PageData;
-	let { invitations, family } = data;
+	let { invitations, family, canManageInvites } = data;
 
 	let creating = false;
 	let revoking = '';
 	let error = '';
+	let copiedCode = '';
+	let copyFailedCode = '';
+	let copyTimer: ReturnType<typeof setTimeout> | undefined;
+
+	async function copyInvite(code: string, url: string) {
+		try {
+			await navigator.clipboard.writeText(url);
+			copyFailedCode = '';
+			copiedCode = code;
+		} catch {
+			copiedCode = '';
+			copyFailedCode = code;
+		}
+		clearTimeout(copyTimer);
+		copyTimer = setTimeout(() => {
+			copiedCode = '';
+			copyFailedCode = '';
+		}, 2000);
+	}
 
 	const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -89,7 +108,11 @@
 				<div class="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-600">{error}</div>
 			{/if}
 
-			{#if invitations.length > 0}
+			{#if !canManageInvites}
+				<div class="py-12 text-center">
+					<p class="text-slate-500">Only the family creator or an admin can manage invitations.</p>
+				</div>
+			{:else if invitations.length > 0}
 				<div class="space-y-4">
 					{#each invitations as invite}
 						{@const isExpired = new Date(invite.expiresAt) < new Date()}
@@ -123,20 +146,25 @@
 												class="min-w-0 flex-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600"
 											/>
 											<button
-												on:click={() => navigator.clipboard.writeText(inviteUrl)}
+												on:click={() => copyInvite(invite.code, inviteUrl)}
 												class="rounded bg-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-300"
 											>
-												Copy
+												{copiedCode === invite.code ? 'Copied ✓' : 'Copy'}
 											</button>
 										</div>
+										{#if copyFailedCode === invite.code}
+											<p class="mt-2 text-xs text-red-600">
+												Copy failed — select the link above and copy it manually: {inviteUrl}
+											</p>
+										{/if}
 									{/if}
 								</div>
 								<div class="flex items-center gap-2">
 									<button
-										on:click={() => navigator.clipboard.writeText(inviteUrl)}
+										on:click={() => copyInvite(invite.code, inviteUrl)}
 										class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
 									>
-										Copy Invite Link
+										{copiedCode === invite.code ? 'Copied ✓' : 'Copy Invite Link'}
 									</button>
 									<button
 										on:click={() => revokeInvitation(invite.code)}
@@ -172,37 +200,39 @@
 				</div>
 			{/if}
 
-			<div class="mt-6 flex flex-wrap gap-3 border-t border-slate-200 pt-6">
-				<button
-					on:click={createInvitation}
-					disabled={creating}
-					class="inline-flex items-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-				>
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 4v16m8-8H4"
-						/>
-					</svg>
-					{creating ? 'Creating...' : 'Create New Invitation'}
-				</button>
-				<a
-					href="/family/{family?.id}/members/add"
-					class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-				>
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-						/>
-					</svg>
-					Add Member
-				</a>
-			</div>
+			{#if canManageInvites}
+				<div class="mt-6 flex flex-wrap gap-3 border-t border-slate-200 pt-6">
+					<button
+						on:click={createInvitation}
+						disabled={creating}
+						class="inline-flex items-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+					>
+						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 4v16m8-8H4"
+							/>
+						</svg>
+						{creating ? 'Creating...' : 'Create New Invitation'}
+					</button>
+					<a
+						href="/family/{family?.id}/members/add"
+						class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+					>
+						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+							/>
+						</svg>
+						Add Member
+					</a>
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>

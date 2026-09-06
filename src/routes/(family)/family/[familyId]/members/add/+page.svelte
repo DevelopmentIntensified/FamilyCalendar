@@ -22,6 +22,9 @@
 	let creatingChild = false;
 	let inviteLink = '';
 	let generatingLink = false;
+	let copiedLink = false;
+	let copyFailed = false;
+	let copyTimer: ReturnType<typeof setTimeout> | undefined;
 	let searchedFor = '';
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	let searchRequestId = 0;
@@ -143,8 +146,16 @@
 	};
 
 	const copyLink = async () => {
-		if (inviteLink) {
+		if (!inviteLink) return;
+		try {
 			await navigator.clipboard.writeText(inviteLink);
+			copyFailed = false;
+			copiedLink = true;
+			clearTimeout(copyTimer);
+			copyTimer = setTimeout(() => (copiedLink = false), 2000);
+		} catch {
+			copiedLink = false;
+			copyFailed = true;
 		}
 	};
 
@@ -230,14 +241,17 @@
 					>
 						Search Users
 					</button>
-					<button
-						on:click={() => (mode = 'invite')}
-						class="flex-1 rounded-md py-2.5 text-sm font-medium transition-colors {mode === 'invite'
-							? 'bg-white text-slate-900 shadow-sm'
-							: 'text-slate-600 hover:text-slate-900'}"
-					>
-						Invite by Email
-					</button>
+					{#if data.canInviteByEmail}
+						<button
+							on:click={() => (mode = 'invite')}
+							class="flex-1 rounded-md py-2.5 text-sm font-medium transition-colors {mode ===
+							'invite'
+								? 'bg-white text-slate-900 shadow-sm'
+								: 'text-slate-600 hover:text-slate-900'}"
+						>
+							Invite by Email
+						</button>
+					{/if}
 					<button
 						on:click={() => (mode = 'child')}
 						class="flex-1 rounded-md py-2.5 text-sm font-medium transition-colors {mode === 'child'
@@ -329,7 +343,7 @@
 							</div>
 						{/if}
 					{/if}
-				{:else if mode === 'invite'}
+				{:else if mode === 'invite' && data.canInviteByEmail}
 					<form on:submit|preventDefault={sendInvite} class="space-y-4">
 						<div>
 							<label for="firstName" class="mb-2 block text-sm font-medium text-slate-700"
@@ -400,9 +414,14 @@
 									on:click={copyLink}
 									class="rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700"
 								>
-									Copy
+									{copiedLink ? 'Copied ✓' : 'Copy'}
 								</button>
 							</div>
+							{#if copyFailed}
+								<p class="mt-2 text-xs text-red-600">
+									Copy failed — select the link above and copy it manually: {inviteLink}
+								</p>
+							{/if}
 							<p class="mt-2 text-xs text-primary-600">Expires in 24 hours</p>
 						</div>
 					{/if}

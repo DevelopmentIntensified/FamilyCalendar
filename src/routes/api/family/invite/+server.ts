@@ -4,13 +4,18 @@ import type { RequestHandler } from './$types';
 import {
 	generateInviteCode,
 	verifyInviteCode,
-	deleteInviteCode
+	deleteInviteCode,
+	getFamilyMemberRole
 } from '$lib/server/db/actions/families';
 import { getUserFamilies } from '$lib/server/db/actions/families';
 import { db } from '$lib/server/db';
 import { familyMembers, familyInviteCodes } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { clampCount } from '$lib/server/utils/clampCount';
+
+// Minting or revoking invite codes is an admin-level action — mirrors the
+// direct-add gate in members/add/direct.
+const INVITE_MANAGER_ROLES = new Set(['creator', 'admin']);
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
@@ -24,6 +29,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!userFamilies || userFamilies.families?.id !== familyId) {
 		return json(
 			{ error: 'You do not have permission to invite members to this family' },
+			{ status: 403 }
+		);
+	}
+
+	const callerRole = await getFamilyMemberRole(locals.user.id, familyId);
+	if (!callerRole || !INVITE_MANAGER_ROLES.has(callerRole)) {
+		return json(
+			{ error: 'Only the family creator or an admin can create invitations' },
 			{ status: 403 }
 		);
 	}
@@ -107,6 +120,14 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 	const userFamilies = await getUserFamilies(locals.user.id);
 	if (!userFamilies || userFamilies.families?.id !== invite.familyId) {
 		return json({ error: 'You do not have permission to revoke this invitation' }, { status: 403 });
+	}
+
+	const callerRole = await getFamilyMemberRole(locals.user.id, invite.familyId);
+	if (!callerRole || !INVITE_MANAGER_ROLES.has(callerRole)) {
+		return json(
+			{ error: 'Only the family creator or an admin can revoke invitations' },
+			{ status: 403 }
+		);
 	}
 
 	await deleteInviteCode(code);
