@@ -15,6 +15,8 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   notify, events until off-by-one + mirror propagation + tx + offline retry
 - #017 Family manage page C1 card-stack redesign (commit 409580d)
 - #018 Family hub card redesign + detail grid rebalance (commit 5f8be5c)
+- #019 Task scoping public/private/family — visibility column + section
+  queries (a4cb9be), chips/tabs/NLP UI (ebd8b45)
 
 ## Open
 

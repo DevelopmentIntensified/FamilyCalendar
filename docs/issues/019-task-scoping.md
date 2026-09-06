@@ -1,6 +1,6 @@
 # 019 — Task scoping: public / private / family
 
-Status: in-progress
+Status: done
 
 ## Decisions (user-approved)
 
@@ -43,13 +43,31 @@ Status: in-progress
 2. UI: chips + search, assignments tabs, family page tabs, picker,
    NLP + help component.
 
-## Needs doing
-
-- Slice 1 dispatched (server lane).
-- Slice 2 after slice 1 lands.
-- `sql/008` to Neon after slice 1 (user runs; ALTER idempotent, UPDATE
-  one-shot).
-
 ## Done
 
-- (nothing yet)
+- Slice 1 (commit a4cb9be): `tasks.visibility` + `sql/008-task-visibility.sql`
+  (applied to both local DBs), section queries (getMyTasks /
+  getPendingAssignments / getRequestedByMe / getPublicTasksForFamily /
+  getFamilyTasksAssignedTo), canMutateTask personal rules (owner + live
+  assignee only; public read-only for members), canChangeVisibility
+  owner-only, API visibility validation (400/404/403), visibility in all
+  task JSON. Suite 1139 green.
+- Slice 2 (commit ebd8b45): tasks page filter chips (All/Public/Private/
+  Family) + search, tabbed Assignments card (To accept inline
+  Accept/Decline; Requested badges), owner-only visibility picker in
+  create/edit, per-chip empty states; family tasks pages got
+  Family/Public tabs (public rows creator-labeled, read-only); NLP
+  quick-add `#public`/`#private`/`@family`/`@name` (23-case table, 117
+  file tests; unknown member never silently dropped) + reusable
+  TaskQuickAddHelp "?" panel; explicit `familyId: null` on personal
+  creates (POST default would silently family-scope).
+- Gates: unit 1162/81 files, e2e mobile/family/events green, check/
+  oxlint/prettier 0, build pass, autofixer clean on edited components.
+
+## Notes / follow-ups
+
+- `sql/008` on Neon: run ONCE (ALTER idempotent; UPDATE is one-shot).
+- Legacy `tasks` load field on calendar/tasks now unused — drop when
+  convenient.
+- Assigner is always owner in this schema (no ownership transfer on
+  accept) — spec collapsed "assigner" to owner accordingly.
