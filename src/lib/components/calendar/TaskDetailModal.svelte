@@ -1,11 +1,4 @@
-<script lang="ts">
-	import { invalidateAll } from '$app/navigation';
-	import { trapFocusAction } from '$lib/utils/focusTrap';
-	import {
-		showRecurringCompleteFeedback,
-		showRecurringSkipFeedback
-	} from '$lib/client/taskFeedback';
-
+<script module lang="ts">
 	/** The task shape the calendar views pass through for the detail popup. */
 	export interface CalendarTask {
 		id: string;
@@ -23,6 +16,15 @@
 		assigneeLastName?: string | null;
 		eventTitle?: string | null;
 	}
+</script>
+
+<script lang="ts">
+	import { invalidateAll } from '$app/navigation';
+	import { trapFocusAction } from '$lib/utils/focusTrap';
+	import {
+		showRecurringCompleteFeedback,
+		showRecurringSkipFeedback
+	} from '$lib/client/taskFeedback';
 
 	export let task: CalendarTask;
 	export let onClose: () => void = () => {};

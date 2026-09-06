@@ -618,7 +618,7 @@
 						<input
 							type="text"
 							bind:value={bulkInstruction}
-							placeholder="e.g. "move all to next friday""
+							placeholder="e.g. 'move all to next friday'"
 							aria-label="Smart instruction"
 							class="w-44 rounded-lg border border-purple-200 bg-purple-50/40 px-2 py-2 text-xs placeholder:text-purple-300 disabled:opacity-50 sm:py-1.5"
 							disabled={bulkBusy || selectedIds.length === 0}

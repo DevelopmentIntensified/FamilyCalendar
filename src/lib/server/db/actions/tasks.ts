@@ -70,8 +70,19 @@ export function needsOverduePin(dueIso: string | null, nowIso: string): boolean 
 	return due < todayStart;
 }
 
-/** A task plus its tag names (normalized, sorted). */
-export type TaskWithTags = Task & { tags: string[] };
+/**
+ * A task plus its tag names (normalized, sorted).
+ * List queries (getTasksForUser/getTasksForFamily) also attach join
+ * attribution, so consumers of those rows may read the optional fields.
+ */
+export type TaskWithTags = Task & {
+	tags: string[];
+	assigneeFirstName?: string | null;
+	assigneeLastName?: string | null;
+	creatorFirstName?: string | null;
+	eventTitle?: string | null;
+	eventStart?: string | null;
+};
 
 /** Normalize raw tag input: lowercase, trim, drop empties, dedupe, sort. */
 export function normalizeTags(raw: unknown): string[] {
@@ -162,6 +173,7 @@ export async function getTasksForUser(
 			notes: tasks.notes,
 			dueDate: tasks.dueDate,
 			completedAt: tasks.completedAt,
+			archivedAt: tasks.archivedAt,
 			recurrenceFrequency: tasks.recurrenceFrequency,
 			recurrenceInterval: tasks.recurrenceInterval,
 			completionCount: tasks.completionCount,
@@ -203,6 +215,7 @@ export async function getTasksForFamily(familyId: string): Promise<TaskWithTags[
 			notes: tasks.notes,
 			dueDate: tasks.dueDate,
 			completedAt: tasks.completedAt,
+			archivedAt: tasks.archivedAt,
 			recurrenceFrequency: tasks.recurrenceFrequency,
 			recurrenceInterval: tasks.recurrenceInterval,
 			completionCount: tasks.completionCount,
@@ -256,7 +269,8 @@ export async function updateTask(
 			.select()
 			.from(tasks)
 			.where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
-		return existing;
+		if (!existing) return undefined;
+		return { ...existing, tags: (await attachTags([existing])).get(existing.id) ?? [] };
 	}
 	return db.transaction(async (tx) => {
 		let row: Task | undefined;
