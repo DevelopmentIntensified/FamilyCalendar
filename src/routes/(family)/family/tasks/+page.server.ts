@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { getTasksForFamily } from '$lib/server/db/actions/tasks';
+import { getPublicTasksForFamily, getTasksForFamily } from '$lib/server/db/actions/tasks';
 import { db } from '$lib/server/db';
 import { familyMembers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -28,10 +28,14 @@ export const load: PageServerLoad = async (event) => {
 		await getUserZone(event.locals.user.id)
 	);
 
-	const tasks = await getTasksForFamily(member.familyId);
+	const [tasks, publicTasks] = await Promise.all([
+		getTasksForFamily(member.familyId),
+		getPublicTasksForFamily(member.familyId)
+	]);
 
 	return {
 		tasks,
+		publicTasks,
 		familyId: member.familyId,
 		userId: event.locals.user.id
 	};

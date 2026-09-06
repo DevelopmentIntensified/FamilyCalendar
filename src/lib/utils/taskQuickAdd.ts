@@ -65,6 +65,22 @@ export interface TaskQuickAddResult {
 	 * Null only when recurrenceFrequency is null.
 	 */
 	recurrenceInterval: number | null;
+	/**
+	 * Task scoping (issue 019): `#public`/`#private` tags set this; new
+	 * tasks default to 'public', so the bare result is always valid.
+	 */
+	visibility: 'public' | 'private';
+	/** True when an explicit #public/#private tag was present in the input. */
+	visibilityExplicit: boolean;
+	/** True when an `@family` marker was present — the task belongs to the family. */
+	familyTask: boolean;
+	/**
+	 * An `@name` handle that did NOT uniquely match a roster member
+	 * ("@zoe" unknown, or ambiguous between two members). Rendered with
+	 * its `@` so the UI can show an inline error instead of silently
+	 * dropping the assignment. Null when every handle resolved.
+	 */
+	unknownMember: string | null;
 }
 
 // Full weekday names for weekday arithmetic (Sunday = 0, matching Date.getDay()).
@@ -81,6 +97,16 @@ export const TASK_QUICK_ADD_PRIORITY_RE =
 
 /** A `#tag` token: `#` followed by word chars and hyphens (e.g. `#groceries`). */
 export const TASK_QUICK_ADD_TAG_RE = /#[\p{L}\p{N}_-]+/gu;
+
+/**
+ * Task scoping (issue 019): `#public` / `#private` set the visibility.
+ * `\b` keeps longer tags like `#privates` out of the match, so they stay
+ * ordinary content tags.
+ */
+export const TASK_QUICK_ADD_VISIBILITY_TAG_RE = /#(public|private)\b/gi;
+
+/** An `@handle` token: `@` followed by word chars (e.g. `@maya`, `@family`). */
+export const TASK_QUICK_ADD_AT_TOKEN_RE = /@([\p{L}\p{N}_-]+)/gu;
 
 /** "next friday"/"next mon" — matched whole so "next" isn't left orphaned. */
 const TASK_QUICK_ADD_NEXT_WEEKDAY_RE = new RegExp(`\\bnext\\s+(${WEEKDAY_TOKEN})\\b`, 'i');
@@ -398,6 +424,60 @@ function resolveDateStep(title: string, now: Date): DateResolution {
 	return { due: null, match: null };
 }
 
+// ---------------------------------------------------------------------------
+// Task scoping: @family / @name handles (issue 019)
+// ---------------------------------------------------------------------------
+
+/** A resolved `@handle`: whose task it becomes, and how much text it ate. */
+interface AtHandleMatch {
+	userId: string;
+	/** Consumed text length, from the `@` through the end of the name. */
+	length: number;
+}
+
+/**
+ * Roster match for an `@handle` at `match.index` in `title`. A bare token
+ * ("@maya") matches a unique first/last name; when that is ambiguous, a
+ * full-name extension ("@sam rivera" between two Sams) disambiguates.
+ * Anything else — unknown name, or more than one member matching — is
+ * null so the caller can surface "unknown member @x" instead of guessing.
+ */
+function matchAtHandle(
+	title: string,
+	match: RegExpExecArray,
+	members: TaskQuickAddMember[]
+): AtHandleMatch | null {
+	const handle = match[1].toLowerCase();
+	// Longest full-name extension first: it is strictly more specific
+	// than the bare token, so it wins whenever it matches at all.
+	const fulls: AtHandleMatch[] = [];
+	for (const m of members) {
+		if (!m.firstName || !m.lastName) continue;
+		const re = new RegExp(
+			`^@\\s*${escapeRegExp(`${m.firstName} ${m.lastName}`)}(?=$|\\s|[^\\w])`,
+			'i'
+		);
+		const fm = re.exec(title.slice(match.index));
+		if (fm) fulls.push({ userId: m.userId, length: fm[0].length });
+	}
+	if (fulls.length > 0) return fulls.length === 1 ? fulls[0] : null;
+	const plains = members.filter(
+		(m) =>
+			m.firstName.toLowerCase() === handle ||
+			(m.lastName ? m.lastName.toLowerCase() === handle : false)
+	);
+	return plains.length === 1 ? { userId: plains[0].userId, length: match[0].length } : null;
+}
+
+/** Strip every `[at, at+len)` cut from the string, right-to-left. */
+function stripCuts(input: string, cuts: { at: number; len: number }[]): string {
+	let out = input;
+	for (let i = cuts.length - 1; i >= 0; i -= 1) {
+		out = out.slice(0, cuts[i].at) + out.slice(cuts[i].at + cuts[i].len);
+	}
+	return out;
+}
+
 export function parseTaskQuickAdd(raw: string, opts: TaskQuickAddOptions = {}): TaskQuickAddResult {
 	const now = opts.now ?? new Date();
 	let title = raw.trim();
@@ -432,10 +512,59 @@ export function parseTaskQuickAdd(raw: string, opts: TaskQuickAddOptions = {}): 
 		dueDate = recurrence.due.toISOString();
 	}
 
+	// 3.5 Task scoping (issue 019): `#public`/`#private` tags set the
+	// visibility and `@family`/`@name` handles set the target — each is
+	// stripped from the title. Runs BEFORE the generic assignee pass so a
+	// resolved `@handle` wins over later "for Dad" phrasing.
+	let visibility: 'public' | 'private' = 'public';
+	let visibilityExplicit = false;
+	let familyTask = false;
+	let unknownMember: string | null = null;
+	let sawAtToken = false;
+
+	const visibilityMatches = [...title.matchAll(TASK_QUICK_ADD_VISIBILITY_TAG_RE)];
+	if (visibilityMatches.length > 0) {
+		visibilityExplicit = true;
+		// SAFETY: TASK_QUICK_ADD_VISIBILITY_TAG_RE only captures public|private.
+		visibility = visibilityMatches[visibilityMatches.length - 1][1].toLowerCase() as
+			| 'public'
+			| 'private';
+		title = stripCuts(
+			title,
+			visibilityMatches.map((vm) => ({ at: vm.index!, len: vm[0].length }))
+		);
+	}
+
 	// 4. Assignee phrase, removed from the title only when a real roster
-	// member matches (deterministic order: priority → cadence → date → assignee).
+	// member matches (deterministic order: priority → cadence → date →
+	// scoping → assignee).
 	let assignedTo: string | null = null;
 	if (opts.members && opts.members.length > 0) {
+		const ats = [...title.matchAll(TASK_QUICK_ADD_AT_TOKEN_RE)];
+		sawAtToken = ats.length > 0;
+		const cuts: { at: number; len: number }[] = [];
+		for (const am of ats) {
+			const token = am[1];
+			if (token.toLowerCase() === 'family') {
+				familyTask = true;
+				cuts.push({ at: am.index!, len: am[0].length });
+				continue;
+			}
+			const hit = matchAtHandle(title, am, opts.members);
+			if (hit) {
+				assignedTo = hit.userId;
+				cuts.push({ at: am.index!, len: hit.length });
+			} else {
+				// Unknown or ambiguous member: never silently dropped — the
+				// UI surfaces this as an inline error instead.
+				unknownMember = `@${token}`;
+				cuts.push({ at: am.index!, len: am[0].length });
+			}
+		}
+		title = stripCuts(title, cuts);
+	}
+
+	if (!sawAtToken && opts.members && opts.members.length > 0) {
 		const match = findTaskAssignee(title, opts.members);
 		if (match) {
 			assignedTo = match.userId;
@@ -454,5 +583,17 @@ export function parseTaskQuickAdd(raw: string, opts: TaskQuickAddOptions = {}): 
 		.trim();
 	if (!title) title = raw.trim();
 
-	return { title, dueDate, priority, assignedTo, tags, recurrenceFrequency, recurrenceInterval };
+	return {
+		title,
+		dueDate,
+		priority,
+		assignedTo,
+		tags,
+		recurrenceFrequency,
+		recurrenceInterval,
+		visibility,
+		visibilityExplicit,
+		familyTask,
+		unknownMember
+	};
 }

@@ -444,6 +444,241 @@ describe('parseTaskQuickAdd — recurrence cadence (new surface)', () => {
 	});
 });
 
+/**
+ * Issue 019 scoping surface: #public/#private visibility tags, @family
+ * family-task marker and @name assignment — all combinable in any order.
+ * Rosters: SCOPING_ROSTER for the happy paths, AMBIG_ROSTER (two Sams)
+ * for the ambiguous-match case.
+ */
+describe('parseTaskQuickAdd — scoping: #public/#private, @family, @name (issue 019)', () => {
+	const SCOPING_ROSTER: TaskQuickAddMember[] = [
+		{ userId: 'u-maya', firstName: 'Maya', lastName: 'Lopez' },
+		{ userId: 'u-leo', firstName: 'Leo', lastName: '' },
+		{ userId: 'u-samr', firstName: 'Sam', lastName: 'Rivera' }
+	];
+	const AMBIG_ROSTER: TaskQuickAddMember[] = [
+		{ userId: 'u-sam1', firstName: 'Sam', lastName: 'One' },
+		{ userId: 'u-sam2', firstName: 'Sam', lastName: 'Two' }
+	];
+
+	it.each([
+		{
+			phrase: '@family #private clean the garage',
+			expectTitle: 'clean the garage',
+			expectVisibility: 'private',
+			expectExplicit: true,
+			expectFamily: true,
+			expectAssignedTo: null,
+			expectUnknown: null
+		},
+		{
+			phrase: 'clean the garage @family #private',
+			expectTitle: 'clean the garage',
+			expectVisibility: 'private',
+			expectExplicit: true,
+			expectFamily: true,
+			expectAssignedTo: null,
+			expectUnknown: null
+		},
+		{
+			phrase: '#private clean the garage @family',
+			expectTitle: 'clean the garage',
+			expectVisibility: 'private',
+			expectExplicit: true,
+			expectFamily: true,
+			expectAssignedTo: null,
+			expectUnknown: null
+		},
+		{
+			phrase: '@maya buy milk #private',
+			expectTitle: 'buy milk',
+			expectVisibility: 'private',
+			expectExplicit: true,
+			expectFamily: false,
+			expectAssignedTo: 'u-maya',
+			expectUnknown: null
+		},
+		{
+			phrase: 'buy milk',
+			expectTitle: 'buy milk',
+			expectVisibility: 'public',
+			expectExplicit: false,
+			expectFamily: false,
+			expectAssignedTo: null,
+			expectUnknown: null
+		},
+		{
+			phrase: '#public buy milk',
+			expectTitle: 'buy milk',
+			expectVisibility: 'public',
+			expectExplicit: true,
+			expectFamily: false,
+			expectAssignedTo: null,
+			expectUnknown: null
+		},
+		{
+			phrase: 'clean the #private garage',
+			expectTitle: 'clean the garage',
+			expectVisibility: 'private',
+			expectExplicit: true,
+			expectFamily: false,
+			expectAssignedTo: null,
+			expectUnknown: null
+		},
+		{
+			phrase: '#PRIVATE buy milk',
+			expectTitle: 'buy milk',
+			expectVisibility: 'private',
+			expectExplicit: true,
+			expectFamily: false,
+			expectAssignedTo: null,
+			expectUnknown: null
+		},
+		{
+			phrase: 'clean gutters #public #private',
+			expectTitle: 'clean gutters',
+			expectVisibility: 'private',
+			expectExplicit: true,
+			expectFamily: false,
+			expectAssignedTo: null,
+			expectUnknown: null
+		},
+		{
+			phrase: 'buy milk #private #groceries',
+			expectTitle: 'buy milk',
+			expectVisibility: 'private',
+			expectExplicit: true,
+			expectFamily: false,
+			expectAssignedTo: null,
+			expectUnknown: null
+		},
+		{
+			phrase: '@zoe buy milk',
+			expectTitle: 'buy milk',
+			expectVisibility: 'public',
+			expectExplicit: false,
+			expectFamily: false,
+			expectAssignedTo: null,
+			expectUnknown: '@zoe'
+		},
+		{
+			phrase: '@MAYA buy milk',
+			expectTitle: 'buy milk',
+			expectVisibility: 'public',
+			expectExplicit: false,
+			expectFamily: false,
+			expectAssignedTo: 'u-maya',
+			expectUnknown: null
+		},
+		{
+			phrase: '@sam rivera clean gutters',
+			expectTitle: 'clean gutters',
+			expectVisibility: 'public',
+			expectExplicit: false,
+			expectFamily: false,
+			expectAssignedTo: 'u-samr',
+			expectUnknown: null
+		},
+		{
+			phrase: '@family #private @maya clean the garage',
+			expectTitle: 'clean the garage',
+			expectVisibility: 'private',
+			expectExplicit: true,
+			expectFamily: true,
+			expectAssignedTo: 'u-maya',
+			expectUnknown: null
+		}
+	])(
+		'$phrase → "$expectTitle" vis=$expectVisibility family=$expectFamily',
+		({
+			phrase,
+			expectTitle,
+			expectVisibility,
+			expectExplicit,
+			expectFamily,
+			expectAssignedTo,
+			expectUnknown
+		}) => {
+			const r = parseTaskQuickAdd(phrase, { now: NOW, members: SCOPING_ROSTER });
+			expect(r.title).toBe(expectTitle);
+			expect(r.visibility).toBe(expectVisibility);
+			expect(r.visibilityExplicit).toBe(expectExplicit);
+			expect(r.familyTask).toBe(expectFamily);
+			expect(r.assignedTo).toBe(expectAssignedTo);
+			expect(r.unknownMember).toBe(expectUnknown);
+		}
+	);
+
+	it('visibility tags never leak into the tags list', () => {
+		const r = parseTaskQuickAdd('#private buy milk #groceries', { now: NOW });
+		expect(r.tags).toEqual(['groceries']);
+	});
+
+	it('a scoping tag combines with date + priority', () => {
+		const r = parseTaskQuickAdd('high priority @maya #private buy milk tomorrow', {
+			now: NOW,
+			members: SCOPING_ROSTER
+		});
+		expect(r.title).toBe('buy milk');
+		expect(r.priority).toBe('high');
+		expect(r.visibility).toBe('private');
+		expect(r.assignedTo).toBe('u-maya');
+		expectDue(r, 1);
+	});
+
+	it('@family + @name + #private all strip from the title in any order', () => {
+		const r = parseTaskQuickAdd('#private clean the garage @maya @family', {
+			now: NOW,
+			members: SCOPING_ROSTER
+		});
+		expect(r.title).toBe('clean the garage');
+		expect(r.visibility).toBe('private');
+		expect(r.familyTask).toBe(true);
+		expect(r.assignedTo).toBe('u-maya');
+	});
+
+	it('an ambiguous @handle between two members surfaces unknown, never guesses', () => {
+		const r = parseTaskQuickAdd('@sam buy milk', { now: NOW, members: AMBIG_ROSTER });
+		expect(r.title).toBe('buy milk');
+		expect(r.assignedTo).toBeNull();
+		expect(r.unknownMember).toBe('@sam');
+	});
+
+	it('a full-name @handle disambiguates two members sharing a first name', () => {
+		const r = parseTaskQuickAdd('@sam one buy milk', { now: NOW, members: AMBIG_ROSTER });
+		expect(r.title).toBe('buy milk');
+		expect(r.assignedTo).toBe('u-sam1');
+		expect(r.unknownMember).toBeNull();
+	});
+
+	it('an unknown @handle with no roster stays literal text (nothing to check against)', () => {
+		const r = parseTaskQuickAdd('buy milk @zoe', { now: NOW });
+		expect(r.title).toBe('buy milk @zoe');
+		expect(r.unknownMember).toBeNull();
+		expect(r.assignedTo).toBeNull();
+	});
+
+	it('the bare word "family" without @ is not a family marker', () => {
+		const r = parseTaskQuickAdd('family movie night', { now: NOW });
+		expect(r.title).toBe('family movie night');
+		expect(r.familyTask).toBe(false);
+	});
+
+	it('legacy #tag behavior stays: a lone #plan is a tag, not scoping', () => {
+		const r = parseTaskQuickAdd('#plan', { now: NOW });
+		expect(r.tags).toEqual(['plan']);
+		expect(r.visibility).toBe('public');
+		expect(r.visibilityExplicit).toBe(false);
+	});
+
+	it('#private does not swallow longer tags like #privates', () => {
+		const r = parseTaskQuickAdd('buy milk #privates', { now: NOW });
+		expect(r.visibility).toBe('public');
+		expect(r.visibilityExplicit).toBe(false);
+		expect(r.tags).toEqual(['privates']);
+	});
+});
+
 describe('parseTaskQuickAdd — richer date phrases (new surface)', () => {
 	it("'next monday' keeps the whole phrase off the title", () => {
 		const r = parseTaskQuickAdd('call vet next monday', { now: NOW });

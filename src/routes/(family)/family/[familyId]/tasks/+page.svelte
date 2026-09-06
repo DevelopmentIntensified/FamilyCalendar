@@ -46,7 +46,10 @@
 	let tagFilter = '';
 	let searchQuery = '';
 	let sortBy: TaskSortKey = 'due';
+	/** Issue 019: Family tasks vs the family's Public tasks tab. */
+	let tab: 'family' | 'public' = 'family';
 
+	$: publicTasks = data.publicTasks ?? [];
 	$: members = data.members ?? [];
 	$: currentUserId = data.currentUserId;
 
@@ -316,70 +319,146 @@
 		</a>
 	</div>
 
-	<!-- Add family task -->
-	<form
-		onsubmit={(e) => {
-			e.preventDefault();
-			addTask();
-		}}
-		class="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-	>
-		<div class="flex flex-col gap-2 sm:flex-row">
-			<div class="flex-1">
-				<MentionInput bind:value={newTitle} {members} placeholder="Add a family task..." />
-				<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
-			</div>
-			<input
-				type="date"
-				bind:value={newDueDate}
-				aria-label="Due date"
-				class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-600 sm:w-[10.5rem]"
-			/>
-			<select
-				bind:value={newAssignedTo}
-				aria-label="Assign to"
-				class="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700"
-			>
-				<option value="">Me</option>
-				{#each members.filter((m) => m.userId !== currentUserId) as m (m.userId)}
-					<option value={m.userId}>{m.firstName} {m.lastName}</option>
-				{/each}
-			</select>
-			<select
-				bind:value={newPriority}
-				aria-label="Priority"
-				class="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700"
-			>
-				<option value="low">Low</option>
-				<option value="normal">Normal</option>
-				<option value="high">High</option>
-			</select>
-			<button
-				type="submit"
-				disabled={adding || !newTitle.trim()}
-				class="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-			>
-				Add
-			</button>
-		</div>
-		<p class="mt-2 text-xs text-slate-400">
-			Try "clean gutters saturday", "high priority pay rent for Dad", "every 2 weeks" — dates,
-			priority, repeats and assignees can be typed right in the title. Otherwise tasks go to you (or
-			whoever you pick) and wait for their confirmation.
-		</p>
-	</form>
+	<!-- Issue 019: Family tasks / Public tasks tabs -->
+	<div class="mb-6 flex gap-1.5" role="tablist" aria-label="Task lists">
+		<button
+			type="button"
+			role="tab"
+			aria-selected={tab === 'family'}
+			onclick={() => (tab = 'family')}
+			class="min-h-[44px] flex-1 rounded-full border px-3.5 text-sm font-medium transition-colors sm:flex-none sm:px-5 {tab ===
+			'family'
+				? 'border-slate-900 bg-slate-900 text-white'
+				: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
+		>
+			Family tasks
+		</button>
+		<button
+			type="button"
+			role="tab"
+			aria-selected={tab === 'public'}
+			onclick={() => (tab = 'public')}
+			class="min-h-[44px] flex-1 rounded-full border px-3.5 text-sm font-medium transition-colors sm:flex-none sm:px-5 {tab ===
+			'public'
+				? 'border-slate-900 bg-slate-900 text-white'
+				: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
+		>
+			Public tasks ({publicTasks.length})
+		</button>
+	</div>
 
-	<!-- Search + sort + tag filter -->
-	<div class="mb-4 space-y-2">
-		<div class="flex flex-col gap-2 sm:flex-row">
-			<div class="relative flex-1">
+	{#if tab === 'family'}
+		<!-- Add family task -->
+		<form
+			onsubmit={(e) => {
+				e.preventDefault();
+				addTask();
+			}}
+			class="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+		>
+			<div class="flex flex-col gap-2 sm:flex-row">
+				<div class="flex-1">
+					<MentionInput bind:value={newTitle} {members} placeholder="Add a family task..." />
+					<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
+				</div>
 				<input
-					type="text"
-					bind:value={searchQuery}
-					placeholder="Search tasks…"
-					aria-label="Search tasks"
-					class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none"
+					type="date"
+					bind:value={newDueDate}
+					aria-label="Due date"
+					class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-600 sm:w-[10.5rem]"
 				/>
+				<select
+					bind:value={newAssignedTo}
+					aria-label="Assign to"
+					class="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700"
+				>
+					<option value="">Me</option>
+					{#each members.filter((m) => m.userId !== currentUserId) as m (m.userId)}
+						<option value={m.userId}>{m.firstName} {m.lastName}</option>
+					{/each}
+				</select>
+				<select
+					bind:value={newPriority}
+					aria-label="Priority"
+					class="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700"
+				>
+					<option value="low">Low</option>
+					<option value="normal">Normal</option>
+					<option value="high">High</option>
+				</select>
+				<button
+					type="submit"
+					disabled={adding || !newTitle.trim()}
+					class="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+				>
+					Add
+				</button>
+			</div>
+			<p class="mt-2 text-xs text-slate-400">
+				Try "clean gutters saturday", "high priority pay rent for Dad", "every 2 weeks" — dates,
+				priority, repeats and assignees can be typed right in the title. Otherwise tasks go to you
+				(or whoever you pick) and wait for their confirmation.
+			</p>
+		</form>
+
+		<!-- Search + sort + tag filter -->
+		<div class="mb-4 space-y-2">
+			<div class="flex flex-col gap-2 sm:flex-row">
+				<div class="relative flex-1">
+					<input
+						type="text"
+						bind:value={searchQuery}
+						placeholder="Search tasks…"
+						aria-label="Search tasks"
+						class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none"
+					/>
+					<svg
+						class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+						/>
+					</svg>
+					{#if searchQuery.trim()}
+						<button
+							type="button"
+							onclick={() => (searchQuery = '')}
+							aria-label="Clear search"
+							class="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+						>
+							<svg
+								class="h-3.5 w-3.5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						</button>
+					{/if}
+				</div>
+				<label class="flex items-center gap-2 text-sm text-slate-500">
+					<span class="shrink-0">Sort</span>
+					<select
+						bind:value={sortBy}
+						aria-label="Sort tasks"
+						class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+					>
+						<option value="due">Due date</option>
+						<option value="priority">Priority</option>
+						<option value="created">Created</option>
+						<option value="title">Title A–Z</option>
+					</select>
+				</label>
+			</div>
+			<div class="relative">
 				<svg
 					class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
 					fill="none"
@@ -393,11 +472,18 @@
 						d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
 					/>
 				</svg>
-				{#if searchQuery.trim()}
+				<input
+					type="text"
+					bind:value={tagFilter}
+					placeholder="Filter by #tag..."
+					aria-label="Filter tasks by tag"
+					class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none"
+				/>
+				{#if tagFilter.trim()}
 					<button
 						type="button"
-						onclick={() => (searchQuery = '')}
-						aria-label="Clear search"
+						onclick={() => (tagFilter = '')}
+						aria-label="Clear tag filter"
 						class="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 					>
 						<svg
@@ -412,429 +498,420 @@
 					</button>
 				{/if}
 			</div>
-			<label class="flex items-center gap-2 text-sm text-slate-500">
-				<span class="shrink-0">Sort</span>
-				<select
-					bind:value={sortBy}
-					aria-label="Sort tasks"
-					class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-				>
-					<option value="due">Due date</option>
-					<option value="priority">Priority</option>
-					<option value="created">Created</option>
-					<option value="title">Title A–Z</option>
-				</select>
-			</label>
+			{#if filterActive}
+				<p class="text-xs text-sky-600">
+					{#if tagFilter.trim()}
+						Filtering by <span class="font-medium">#{tagFilter.trim().toLowerCase()}</span>
+						{#if queryActive}·{/if}
+					{/if}
+					{#if queryActive}Searching “{searchQuery.trim()}”{/if}
+				</p>
+			{/if}
 		</div>
-		<div class="relative">
-			<svg
-				class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
-				/>
-			</svg>
-			<input
-				type="text"
-				bind:value={tagFilter}
-				placeholder="Filter by #tag..."
-				aria-label="Filter tasks by tag"
-				class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none"
-			/>
-			{#if tagFilter.trim()}
-				<button
-					type="button"
-					onclick={() => (tagFilter = '')}
-					aria-label="Clear tag filter"
-					class="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-				>
+
+		{#if openTasks.length === 0 && completedTasks.length === 0}
+			{#if filterActive}
+				<div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
+					<p class="text-sm font-medium text-slate-500">No tasks match your search or filters</p>
+					<p class="text-sm text-slate-400">Clear the search and filter to see all tasks</p>
+				</div>
+			{:else}
+				<div class="rounded-xl border border-dashed border-slate-200 py-16 text-center">
 					<svg
-						class="h-3.5 w-3.5"
+						class="mx-auto mb-4 h-14 w-14 text-slate-300"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
-						stroke-width="2"
 					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="1.5"
+							d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+						/>
 					</svg>
-				</button>
+					<p class="text-lg font-medium text-slate-700">No family tasks yet</p>
+					<p class="text-sm text-slate-500">Add the first one above</p>
+				</div>
 			{/if}
-		</div>
-		{#if filterActive}
-			<p class="text-xs text-sky-600">
-				{#if tagFilter.trim()}
-					Filtering by <span class="font-medium">#{tagFilter.trim().toLowerCase()}</span>
-					{#if queryActive}·{/if}
-				{/if}
-				{#if queryActive}Searching “{searchQuery.trim()}”{/if}
-			</p>
-		{/if}
-	</div>
-
-	{#if openTasks.length === 0 && completedTasks.length === 0}
-		{#if filterActive}
+		{:else if openTasks.length === 0}
 			<div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
-				<p class="text-sm font-medium text-slate-500">No tasks match your search or filters</p>
-				<p class="text-sm text-slate-400">Clear the search and filter to see all tasks</p>
-			</div>
-		{:else}
-			<div class="rounded-xl border border-dashed border-slate-200 py-16 text-center">
-				<svg
-					class="mx-auto mb-4 h-14 w-14 text-slate-300"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="1.5"
-						d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-					/>
-				</svg>
-				<p class="text-lg font-medium text-slate-700">No family tasks yet</p>
-				<p class="text-sm text-slate-500">Add the first one above</p>
+				<p class="text-sm font-medium text-emerald-600">All caught up 🎉</p>
+				<p class="text-sm text-slate-500">Nothing open right now</p>
 			</div>
 		{/if}
-	{:else if openTasks.length === 0}
-		<div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
-			<p class="text-sm font-medium text-emerald-600">All caught up 🎉</p>
-			<p class="text-sm text-slate-500">Nothing open right now</p>
-		</div>
-	{/if}
 
-	<!-- Open tasks grouped by assignee -->
-	{#each byAssignee as group (group.member.userId)}
-		<section class="mb-6">
-			<h2
-				class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
-			>
-				<span
-					class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold {avatarColor(
-						group.member.userId
-					)}"
+		<!-- Open tasks grouped by assignee -->
+		{#each byAssignee as group (group.member.userId)}
+			<section class="mb-6">
+				<h2
+					class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
 				>
-					{group.member.firstName?.[0]?.toUpperCase() ?? '?'}
-				</span>
-				{memberName(group.member.userId)}
-				<span class="font-normal normal-case text-slate-300">· {group.tasks.length}</span>
-			</h2>
-			<div class="space-y-1.5">
-				{#each group.tasks as task (task.id)}
-					<div
-						class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 active:bg-slate-100"
+					<span
+						class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold {avatarColor(
+							group.member.userId
+						)}"
 					>
-						<button
-							type="button"
-							onclick={() => canComplete(task) && toggleTask(task)}
-							disabled={busyId === task.id || !canComplete(task)}
-							title={canComplete(task)
-								? 'Complete task'
-								: `Only ${firstName(task.assignedTo)} or the creator can complete this`}
-							class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors active:border-primary-500 enabled:hover:border-primary-500 disabled:cursor-not-allowed disabled:opacity-40"
-							aria-label="Complete task"
+						{group.member.firstName?.[0]?.toUpperCase() ?? '?'}
+					</span>
+					{memberName(group.member.userId)}
+					<span class="font-normal normal-case text-slate-300">· {group.tasks.length}</span>
+				</h2>
+				<div class="space-y-1.5">
+					{#each group.tasks as task (task.id)}
+						<div
+							class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 active:bg-slate-100"
 						>
-							<span class="absolute -inset-2" aria-hidden="true"></span>
-						</button>
-						<div class="min-w-0 flex-1">
-							<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
-							{#if task.recurrenceFrequency}
-								<p class="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-purple-500">
-									<svg
-										class="h-3 w-3 shrink-0"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 9a8 8 0 01-14 3"
-										/>
-									</svg>
-									{recurrenceNote(task)}
-									{#if task.completionCount}
-										<span
-											class="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600"
-										>
-											🔥 {task.completionCount}×
-										</span>
-									{/if}
-								</p>
-							{:else if task.eventTitle}
-								<p class="truncate text-xs font-medium text-primary-500">{task.eventTitle}</p>
-							{:else if task.notes}
-								<p class="truncate text-xs text-slate-500">{task.notes}</p>
-							{/if}
-							{#if task.tags?.length}
-								<div class="mt-1 flex flex-wrap items-center gap-1">
-									{#each task.tags as tag (tag)}
-										<span
-											class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
-											>#{tag}</span
-										>
-									{/each}
-								</div>
-							{/if}
-						</div>
-						{#if task.assignedTo && task.assignmentStatus === 'pending' && task.assignedTo === currentUserId}
-							<span class="flex shrink-0 items-center gap-1">
-								<button
-									type="button"
-									onclick={() => respondAssignment(task, true)}
-									disabled={busyId === task.id}
-									class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200 active:bg-emerald-200"
-									title="Accept"
-								>
-									✓ Accept
-								</button>
-								<button
-									type="button"
-									onclick={() => respondAssignment(task, false)}
-									disabled={busyId === task.id}
-									class="rounded-full bg-red-100 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-200 active:bg-red-200"
-									title="Decline"
-								>
-									✕
-								</button>
-							</span>
-						{:else if task.assignedTo && task.assignmentStatus === 'pending'}
-							<span
-								class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
-							>
-								waiting for {firstName(task.assignedTo)}
-							</span>
-						{/if}
-						{#if task.dueDate}
-							<span
-								class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task)
-									? 'bg-red-100 text-red-700'
-									: 'bg-slate-100 text-slate-600'}"
-							>
-								{formatDue(task.dueDate)}
-							</span>
-						{/if}
-						{#if task.priority && task.priority !== 'normal'}
-							<span
-								class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}"
-								title="Priority: {task.priority}"
-							></span>
-						{/if}
-						{#if task.userId === currentUserId}
-							{#if task.recurrenceFrequency && !task.completedAt}
-								<button
-									type="button"
-									onclick={() => advanceTask(task.id)}
-									disabled={busyId === task.id}
-									class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500"
-									title="Skip this occurrence (rolls to next)"
-									aria-label="Skip to next occurrence"
-								>
-									<svg
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M13 5l7 7-7 7M5 5l7 7-7 7"
-										/>
-									</svg>
-								</button>
-							{/if}
 							<button
 								type="button"
-								onclick={() => deleteTask(task.id)}
-								disabled={busyId === task.id}
-								class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500"
-								aria-label="Delete task"
+								onclick={() => canComplete(task) && toggleTask(task)}
+								disabled={busyId === task.id || !canComplete(task)}
+								title={canComplete(task)
+									? 'Complete task'
+									: `Only ${firstName(task.assignedTo)} or the creator can complete this`}
+								class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors active:border-primary-500 enabled:hover:border-primary-500 disabled:cursor-not-allowed disabled:opacity-40"
+								aria-label="Complete task"
 							>
-								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-									/>
-								</svg>
+								<span class="absolute -inset-2" aria-hidden="true"></span>
 							</button>
-						{/if}
-					</div>
-				{/each}
-			</div>
-		</section>
-	{/each}
-
-	{#if unassignedTasks.length > 0}
-		<section class="mb-6">
-			<h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-				Unassigned
-				<span class="font-normal normal-case text-slate-300">· {unassignedTasks.length}</span>
-			</h2>
-			<div class="space-y-1.5">
-				{#each unassignedTasks as task (task.id)}
-					<div
-						class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 active:bg-slate-100"
-					>
-						<button
-							type="button"
-							onclick={() => canComplete(task) && toggleTask(task)}
-							disabled={busyId === task.id || !canComplete(task)}
-							class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors active:border-primary-500 enabled:hover:border-primary-500 disabled:cursor-not-allowed disabled:opacity-40"
-							aria-label="Complete task"
-						>
-							<span class="absolute -inset-2" aria-hidden="true"></span>
-						</button>
-						<div class="min-w-0 flex-1">
-							<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
-							{#if task.tags?.length}
-								<div class="mt-1 flex flex-wrap items-center gap-1">
-									{#each task.tags as tag (tag)}
-										<span
-											class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
-											>#{tag}</span
+							<div class="min-w-0 flex-1">
+								<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+								{#if task.recurrenceFrequency}
+									<p class="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-purple-500">
+										<svg
+											class="h-3 w-3 shrink-0"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+											stroke-width="2"
 										>
-									{/each}
-								</div>
-							{/if}
-						</div>
-						{#if task.dueDate}
-							<span
-								class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task)
-									? 'bg-red-100 text-red-700'
-									: 'bg-slate-100 text-slate-600'}"
-							>
-								{formatDue(task.dueDate)}
-							</span>
-						{/if}
-						{#if task.priority && task.priority !== 'normal'}
-							<span
-								class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}"
-								title="Priority: {task.priority}"
-							></span>
-						{/if}
-						{#if task.userId === currentUserId}
-							{#if task.recurrenceFrequency && !task.completedAt}
-								<button
-									type="button"
-									onclick={() => advanceTask(task.id)}
-									disabled={busyId === task.id}
-									class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500"
-									title="Skip this occurrence (rolls to next)"
-									aria-label="Skip to next occurrence"
-								>
-									<svg
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M13 5l7 7-7 7M5 5l7 7-7 7"
-										/>
-									</svg>
-								</button>
-							{/if}
-							<button
-								type="button"
-								onclick={() => deleteTask(task.id)}
-								disabled={busyId === task.id}
-								class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500"
-								aria-label="Delete task"
-							>
-								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-									/>
-								</svg>
-							</button>
-						{/if}
-					</div>
-				{/each}
-			</div>
-		</section>
-	{/if}
-
-	<!-- Completed -->
-	{#if completedTasks.length > 0}
-		<h2 class="mb-2 mt-8 text-xs font-semibold uppercase tracking-wide text-slate-400">
-			Completed ({completedTasks.length})
-		</h2>
-		<div class="space-y-1.5">
-			{#each sortedCompletedTasks as task (task.id)}
-				<div
-					class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-slate-50 p-3 active:bg-slate-100"
-				>
-					<button
-						type="button"
-						onclick={() => canComplete(task) && toggleTask(task)}
-						disabled={busyId === task.id || !canComplete(task)}
-						class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white active:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
-						aria-label="Mark incomplete"
-					>
-						<span class="absolute -inset-2" aria-hidden="true"></span>
-						<svg
-							class="h-3 w-3"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="3"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-						</svg>
-					</button>
-					<div class="min-w-0 flex-1">
-						<p class="truncate text-sm text-slate-400 line-through">
-							{task.title}
-						</p>
-						{#if task.tags?.length}
-							<div class="mt-1 flex flex-wrap items-center gap-1">
-								{#each task.tags as tag (tag)}
-									<span
-										class="rounded-full bg-sky-100/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-600"
-										>#{tag}</span
-									>
-								{/each}
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 9a8 8 0 01-14 3"
+											/>
+										</svg>
+										{recurrenceNote(task)}
+										{#if task.completionCount}
+											<span
+												class="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600"
+											>
+												🔥 {task.completionCount}×
+											</span>
+										{/if}
+									</p>
+								{:else if task.eventTitle}
+									<p class="truncate text-xs font-medium text-primary-500">{task.eventTitle}</p>
+								{:else if task.notes}
+									<p class="truncate text-xs text-slate-500">{task.notes}</p>
+								{/if}
+								{#if task.tags?.length}
+									<div class="mt-1 flex flex-wrap items-center gap-1">
+										{#each task.tags as tag (tag)}
+											<span
+												class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+												>#{tag}</span
+											>
+										{/each}
+									</div>
+								{/if}
 							</div>
-						{/if}
-					</div>
-					<span class="shrink-0 text-xs text-slate-400">{firstName(task.assignedTo)}</span>
-					{#if task.userId === currentUserId}
+							{#if task.assignedTo && task.assignmentStatus === 'pending' && task.assignedTo === currentUserId}
+								<span class="flex shrink-0 items-center gap-1">
+									<button
+										type="button"
+										onclick={() => respondAssignment(task, true)}
+										disabled={busyId === task.id}
+										class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-200 active:bg-emerald-200"
+										title="Accept"
+									>
+										✓ Accept
+									</button>
+									<button
+										type="button"
+										onclick={() => respondAssignment(task, false)}
+										disabled={busyId === task.id}
+										class="rounded-full bg-red-100 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-200 active:bg-red-200"
+										title="Decline"
+									>
+										✕
+									</button>
+								</span>
+							{:else if task.assignedTo && task.assignmentStatus === 'pending'}
+								<span
+									class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
+								>
+									waiting for {firstName(task.assignedTo)}
+								</span>
+							{/if}
+							{#if task.dueDate}
+								<span
+									class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task)
+										? 'bg-red-100 text-red-700'
+										: 'bg-slate-100 text-slate-600'}"
+								>
+									{formatDue(task.dueDate)}
+								</span>
+							{/if}
+							{#if task.priority && task.priority !== 'normal'}
+								<span
+									class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}"
+									title="Priority: {task.priority}"
+								></span>
+							{/if}
+							{#if task.userId === currentUserId}
+								{#if task.recurrenceFrequency && !task.completedAt}
+									<button
+										type="button"
+										onclick={() => advanceTask(task.id)}
+										disabled={busyId === task.id}
+										class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500"
+										title="Skip this occurrence (rolls to next)"
+										aria-label="Skip to next occurrence"
+									>
+										<svg
+											class="h-4 w-4"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M13 5l7 7-7 7M5 5l7 7-7 7"
+											/>
+										</svg>
+									</button>
+								{/if}
+								<button
+									type="button"
+									onclick={() => deleteTask(task.id)}
+									disabled={busyId === task.id}
+									class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500"
+									aria-label="Delete task"
+								>
+									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+										/>
+									</svg>
+								</button>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</section>
+		{/each}
+
+		{#if unassignedTasks.length > 0}
+			<section class="mb-6">
+				<h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+					Unassigned
+					<span class="font-normal normal-case text-slate-300">· {unassignedTasks.length}</span>
+				</h2>
+				<div class="space-y-1.5">
+					{#each unassignedTasks as task (task.id)}
+						<div
+							class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 transition-all hover:border-slate-300 active:bg-slate-100"
+						>
+							<button
+								type="button"
+								onclick={() => canComplete(task) && toggleTask(task)}
+								disabled={busyId === task.id || !canComplete(task)}
+								class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors active:border-primary-500 enabled:hover:border-primary-500 disabled:cursor-not-allowed disabled:opacity-40"
+								aria-label="Complete task"
+							>
+								<span class="absolute -inset-2" aria-hidden="true"></span>
+							</button>
+							<div class="min-w-0 flex-1">
+								<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+								{#if task.tags?.length}
+									<div class="mt-1 flex flex-wrap items-center gap-1">
+										{#each task.tags as tag (tag)}
+											<span
+												class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+												>#{tag}</span
+											>
+										{/each}
+									</div>
+								{/if}
+							</div>
+							{#if task.dueDate}
+								<span
+									class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task)
+										? 'bg-red-100 text-red-700'
+										: 'bg-slate-100 text-slate-600'}"
+								>
+									{formatDue(task.dueDate)}
+								</span>
+							{/if}
+							{#if task.priority && task.priority !== 'normal'}
+								<span
+									class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}"
+									title="Priority: {task.priority}"
+								></span>
+							{/if}
+							{#if task.userId === currentUserId}
+								{#if task.recurrenceFrequency && !task.completedAt}
+									<button
+										type="button"
+										onclick={() => advanceTask(task.id)}
+										disabled={busyId === task.id}
+										class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500"
+										title="Skip this occurrence (rolls to next)"
+										aria-label="Skip to next occurrence"
+									>
+										<svg
+											class="h-4 w-4"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M13 5l7 7-7 7M5 5l7 7-7 7"
+											/>
+										</svg>
+									</button>
+								{/if}
+								<button
+									type="button"
+									onclick={() => deleteTask(task.id)}
+									disabled={busyId === task.id}
+									class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500"
+									aria-label="Delete task"
+								>
+									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+										/>
+									</svg>
+								</button>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</section>
+		{/if}
+
+		<!-- Completed -->
+		{#if completedTasks.length > 0}
+			<h2 class="mb-2 mt-8 text-xs font-semibold uppercase tracking-wide text-slate-400">
+				Completed ({completedTasks.length})
+			</h2>
+			<div class="space-y-1.5">
+				{#each sortedCompletedTasks as task (task.id)}
+					<div
+						class="group flex flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-slate-50 p-3 active:bg-slate-100"
+					>
 						<button
 							type="button"
-							onclick={() => deleteTask(task.id)}
-							disabled={busyId === task.id}
-							class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500"
-							aria-label="Delete task"
+							onclick={() => canComplete(task) && toggleTask(task)}
+							disabled={busyId === task.id || !canComplete(task)}
+							class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white active:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
+							aria-label="Mark incomplete"
 						>
-							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-								/>
+							<span class="absolute -inset-2" aria-hidden="true"></span>
+							<svg
+								class="h-3 w-3"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="3"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 							</svg>
 						</button>
-					{/if}
-				</div>
-			{/each}
-		</div>
+						<div class="min-w-0 flex-1">
+							<p class="truncate text-sm text-slate-400 line-through">
+								{task.title}
+							</p>
+							{#if task.tags?.length}
+								<div class="mt-1 flex flex-wrap items-center gap-1">
+									{#each task.tags as tag (tag)}
+										<span
+											class="rounded-full bg-sky-100/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-600"
+											>#{tag}</span
+										>
+									{/each}
+								</div>
+							{/if}
+						</div>
+						<span class="shrink-0 text-xs text-slate-400">{firstName(task.assignedTo)}</span>
+						{#if task.userId === currentUserId}
+							<button
+								type="button"
+								onclick={() => deleteTask(task.id)}
+								disabled={busyId === task.id}
+								class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500"
+								aria-label="Delete task"
+							>
+								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+									/>
+								</svg>
+							</button>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
+	{:else}
+		<!-- Public tasks tab (issue 019): members' public personal tasks, read-only -->
+		{#if publicTasks.length === 0}
+			<div class="rounded-xl border border-dashed border-slate-200 py-16 text-center">
+				<p class="text-lg font-medium text-slate-700">No public tasks yet</p>
+				<p class="text-sm text-slate-500">Tasks your family marks public (🌐) show up here.</p>
+			</div>
+		{:else}
+			<div class="space-y-1.5">
+				{#each publicTasks as task (task.id)}
+					<div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+						<div class="min-w-0 flex-1">
+							<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+							<div
+								class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500"
+							>
+								{#if task.dueDate}
+									<span class={isOverdue(task) ? 'font-semibold text-red-600' : ''}
+										>{formatDue(task.dueDate)}</span
+									>
+								{/if}
+								<span>by {task.creatorFirstName ?? 'a family member'}</span>
+							</div>
+							{#if task.tags?.length}
+								<div class="mt-1 flex flex-wrap items-center gap-1">
+									{#each task.tags as tag (tag)}
+										<span
+											class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+											>#{tag}</span
+										>
+									{/each}
+								</div>
+							{/if}
+						</div>
+						<span
+							class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500"
+							title="Public task — read-only for other members"
+						>
+							🌐 Public
+						</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 </div>

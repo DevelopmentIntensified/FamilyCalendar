@@ -4,6 +4,7 @@
 	import type { PageData } from './$types';
 	import MentionInput from '$lib/components/MentionInput.svelte';
 	import TaskQuickAddPreview from '$lib/components/TaskQuickAddPreview.svelte';
+	import TaskQuickAddHelp from '$lib/components/TaskQuickAddHelp.svelte';
 	import {
 		CATEGORY_META,
 		SMART_EVENT_TEMPLATES,
@@ -35,8 +36,13 @@
 		assignedTo?: string | null;
 		assignmentStatus?: string | null;
 		priority?: string | null;
+		/** Task scoping (issue 019): family tasks carry their family's id. */
+		familyId?: string | null;
+		/** 'public' | 'private' — who can see the task. */
+		visibility?: string | null;
 		assigneeFirstName?: string | null;
 		assigneeLastName?: string | null;
+		creatorFirstName?: string | null;
 		userId: string;
 		eventId: string | null;
 		eventTitle?: string | null;
@@ -44,6 +50,34 @@
 		createdAt?: string | Date | number | null;
 		tags?: string[];
 	};
+
+	/** Main-list filter chips (issue 019). 'family' = family tasks assigned to me. */
+	type TaskChip = 'all' | 'public' | 'private' | 'family';
+	const CHIPS: { value: TaskChip; label: string }[] = [
+		{ value: 'all', label: 'All' },
+		{ value: 'public', label: 'Public' },
+		{ value: 'private', label: 'Private' },
+		{ value: 'family', label: 'Family' }
+	];
+	/** Per-chip helper copy for the empty state. */
+	const CHIP_EMPTY: Record<TaskChip, { title: string; hint: string }> = {
+		all: { title: 'No tasks yet', hint: 'Add your first task above' },
+		public: {
+			title: 'No public tasks',
+			hint: 'Public tasks also show on your family’s Public tasks tab'
+		},
+		private: {
+			title: 'No private tasks',
+			hint: 'Only you (and anyone you assign) can see private tasks'
+		},
+		family: {
+			title: 'No family tasks assigned to you',
+			hint: 'New assignments appear in “To accept” below'
+		}
+	};
+
+	/** Assignments section tabs (issue 019). */
+	type AssignTab = 'accept' | 'requested';
 
 	/** TaskId -> optimistic completion state while a toggle is in flight. */
 	interface CompletedOverrides {
@@ -63,6 +97,12 @@
 	let tagFilter = '';
 	let searchQuery = '';
 	let sortBy: TaskSortKey = 'due';
+	/** Active main-list chip (issue 019). */
+	let chip: TaskChip = 'all';
+	/** Active Assignments tab. */
+	let assignTab: AssignTab = 'accept';
+	/** Visibility picker for the create form (a #public/#private tag in the title wins). */
+	let newVisibility: 'public' | 'private' = 'public';
 
 	// Edit dialog
 	const FREQ_OPTIONS = [
@@ -92,6 +132,8 @@
 	let editInterval = 1;
 	let editAssignedTo = '';
 	let editPriority = 'normal';
+	/** Visibility editable in the dialog by the owner only (issue 019). */
+	let editVisibility: 'public' | 'private' = 'public';
 	let editSaving = false;
 
 	$: data.familyMembers = data.familyMembers ?? [];
@@ -127,6 +169,7 @@
 		editInterval = task.recurrenceInterval ?? 1;
 		editAssignedTo = task.assignedTo ?? '';
 		editPriority = task.priority ?? 'normal';
+		editVisibility = task.visibility === 'private' ? 'private' : 'public';
 	}
 
 	async function respondAssignment(task: TaskItem, accept: boolean) {
@@ -197,7 +240,11 @@
 				recurrenceInterval: editFreq ? Math.max(1, Math.floor(editInterval)) : null,
 				assignedTo,
 				priority: editPriority,
-				tags: parseEditTags(editTags)
+				tags: parseEditTags(editTags),
+				// Visibility is owner-only (issue 019): the server 403s anyone
+				// else, so a non-owner assignee never sends the field (undefined
+				// keys are dropped by JSON.stringify).
+				visibility: editing.userId === data.user?.id ? editVisibility : undefined
 			};
 			const res = await fetch(`/api/tasks/${editing.id}`, {
 				method: 'PUT',
@@ -239,16 +286,27 @@
 		return out;
 	}
 
-	$: openTasks = data.tasks.filter(
+	// Main list source (issue 019): MY tasks — personal rows plus accepted
+	// assignments, wherever they live. Pending assignments surface in the
+	// "To accept" tab instead.
+	$: allTasks = data.myTasks ?? data.tasks ?? [];
+	$: openTasks = allTasks.filter(
 		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === false
 	);
-	$: completedTasks = data.tasks.filter(
+	$: completedTasks = allTasks.filter(
 		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === true
 	);
 
 	$: sortedOpenTasks = [...openTasks].sort((a, b) => sortTasks(a, b, sortBy));
 	$: sortedCompletedTasks = [...completedTasks].sort(sortByCompletedDesc);
 	$: queryActive = searchQuery.trim().length > 0;
+
+	/** Chip predicate: family tasks partition off first, then visibility. */
+	function matchesChip(t: TaskItem): boolean {
+		if (chip === 'all') return true;
+		if (chip === 'family') return !!t.familyId;
+		return !t.familyId && (t.visibility ?? 'public') === chip;
+	}
 
 	function matchesSearch(t: TaskItem): boolean {
 		const q = searchQuery.trim().toLowerCase();
@@ -268,14 +326,17 @@
 		if (!q) return true;
 		return (tags ?? []).some((t) => t.toLowerCase().startsWith(q));
 	}
-	$: filteredOpenTasks = sortedOpenTasks.filter(
+	$: chipFilteredOpenTasks = sortedOpenTasks.filter(matchesChip);
+	$: chipFilteredCompletedTasks = sortedCompletedTasks.filter(matchesChip);
+	$: filteredOpenTasks = chipFilteredOpenTasks.filter(
 		(t) => matchesTagFilter(t.tags) && matchesSearch(t)
 	);
-	$: filteredCompletedTasks = sortedCompletedTasks.filter(
+	$: filteredCompletedTasks = chipFilteredCompletedTasks.filter(
 		(t) => matchesTagFilter(t.tags) && matchesSearch(t)
 	);
 	$: tagFilterActive = tagFilter.trim().length > 0;
 	$: filterActive = tagFilterActive || queryActive;
+	$: chipActive = chip !== 'all';
 	/** Task priority -> dot color class. */
 	interface PriorityDots {
 		[key: string]: string;
@@ -325,6 +386,16 @@
 		actionError = '';
 		try {
 			const parsed = parseTaskQuickAdd(newTitle, { members: familyRoster });
+			// Unknown/ambiguous @member: never silently dropped — block the
+			// create and keep the input so the user can fix the name.
+			if (parsed.unknownMember) {
+				actionError = `Unknown member ${parsed.unknownMember} — check the spelling or pick someone from your family.`;
+				return;
+			}
+			if (parsed.familyTask && !data.familyId) {
+				actionError = "@family needs a family — you're not in one yet.";
+				return;
+			}
 			// A cadence ("every 2 weeks") with no picked date still needs a cursor.
 			const due =
 				parsed.dueDate ??
@@ -338,6 +409,11 @@
 					dueDate: due,
 					priority: parsed.priority,
 					assignedTo: parsed.assignedTo,
+					// An explicit #public/#private tag in the title wins over the picker.
+					visibility: parsed.visibilityExplicit ? parsed.visibility : newVisibility,
+					// POST defaults an absent familyId to the user's family, so a
+					// personal task must send null explicitly (issue 019).
+					familyId: parsed.familyTask ? data.familyId : null,
 					tags: parsed.tags,
 					recurrenceFrequency: parsed.recurrenceFrequency,
 					recurrenceInterval: parsed.recurrenceInterval
@@ -405,7 +481,7 @@
 	}
 
 	async function toggleTask(id: string) {
-		const task = data.tasks.find((t) => t.id === id);
+		const task = allTasks.find((t) => t.id === id);
 		if (!task || busyId) return;
 		const completing = !(task.id in completedOverride
 			? completedOverride[task.id]
@@ -550,32 +626,52 @@
 		}}
 		class="mb-6 flex flex-col gap-2 sm:flex-row"
 	>
-		<div class="flex-1">
-			<MentionInput
-				bind:value={newTitle}
-				members={familyRoster}
-				placeholder="Add a task... e.g. #groceries"
-			/>
-			<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
+		<div class="min-w-0 flex-1">
+			<div class="flex items-start gap-1">
+				<div class="min-w-0 flex-1">
+					<MentionInput
+						bind:value={newTitle}
+						members={familyRoster}
+						placeholder="Add a task... e.g. #groceries"
+					/>
+					<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
+				</div>
+				<TaskQuickAddHelp />
+			</div>
+			{#if quick?.unknownMember}
+				<p class="mt-1 text-xs font-medium text-red-600" role="alert">
+					Unknown member {quick.unknownMember} — check the spelling or pick someone from your family.
+				</p>
+			{/if}
 			<p class="mt-1 text-xs text-slate-400">
 				Tip: type <span class="font-mono text-slate-500">"every 2 weeks"</span> for a repeat, or
 				<span class="font-mono text-slate-500">#tag</span>
 				to tag (e.g. <span class="font-mono text-slate-500">#groceries</span>).
 			</p>
 		</div>
-		<input
-			type="date"
-			bind:value={newDueDate}
-			aria-label="Due date"
-			class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-600 sm:w-[10.5rem]"
-		/>
-		<button
-			type="submit"
-			disabled={adding || !newTitle.trim()}
-			class="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-		>
-			Add
-		</button>
+		<div class="flex gap-2">
+			<select
+				bind:value={newVisibility}
+				aria-label="Who can see this task"
+				class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-primary-500 focus:outline-none sm:w-auto"
+			>
+				<option value="public">🌐 Public</option>
+				<option value="private">🔒 Private</option>
+			</select>
+			<input
+				type="date"
+				bind:value={newDueDate}
+				aria-label="Due date"
+				class="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-600 sm:w-[10.5rem]"
+			/>
+			<button
+				type="submit"
+				disabled={adding || !newTitle.trim()}
+				class="shrink-0 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+			>
+				Add
+			</button>
+		</div>
 	</form>
 
 	<!-- Smart task templates -->
@@ -595,7 +691,7 @@
 			</svg>
 		</summary>
 		<div class="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-			{#each Object.keys(CATEGORY_META) as cat}
+			{#each Object.keys(CATEGORY_META) as cat (cat)}
 				{@const templates = SMART_EVENT_TEMPLATES.filter(
 					(t) => t.category === (cat as SmartEventCategory)
 				)}
@@ -643,6 +739,22 @@
 			</button>
 		</div>
 	{/if}
+	<!-- Filter chips (issue 019): single-select pills over the ONE main list -->
+	<div class="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter tasks by scope">
+		{#each CHIPS as c (c.value)}
+			<button
+				type="button"
+				onclick={() => (chip = c.value)}
+				aria-pressed={chip === c.value}
+				class="min-h-[44px] rounded-full border px-3.5 text-sm font-medium transition-colors {chip ===
+				c.value
+					? 'border-slate-900 bg-slate-900 text-white'
+					: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
+			>
+				{c.label}
+			</button>
+		{/each}
+	</div>
 	<!-- Search + sort + tag filter -->
 	<div class="mb-4 space-y-2">
 		<div class="flex flex-col gap-2 sm:flex-row">
@@ -743,8 +855,15 @@
 			{/if}
 		</div>
 	</div>
-	{#if filterActive}
+	{#if filterActive || chipActive}
 		<p class="mb-3 text-xs font-medium text-sky-600">
+			{#if chipActive}
+				Showing
+				<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
+					{chip === 'family' ? 'family tasks assigned to you' : `${chip} tasks`}
+				</span>
+				{#if tagFilterActive || queryActive}·{/if}
+			{/if}
 			{#if tagFilterActive}
 				Filtering by <span
 					class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
@@ -775,10 +894,12 @@
 				/>
 			</svg>
 			<p class="text-lg font-medium text-slate-700">
-				{filterActive ? 'No matching tasks' : 'No tasks yet'}
+				{filterActive || chipActive ? 'No matching tasks' : CHIP_EMPTY[chip].title}
 			</p>
 			<p class="text-sm text-slate-500">
-				{filterActive ? 'Try a different search or clear the filters' : 'Add your first task above'}
+				{filterActive || chipActive
+					? 'Try another chip, or clear the search and filters'
+					: CHIP_EMPTY[chip].hint}
 			</p>
 		</div>
 	{/if}
@@ -858,9 +979,17 @@
 					{:else if task.notes}
 						<p class="truncate text-xs text-slate-500">{task.notes}</p>
 					{/if}
+					{#if task.familyId}
+						<span
+							class="mr-1 mt-1 inline-flex items-center rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700"
+							title="Family task"
+						>
+							Family
+						</span>
+					{/if}
 					{#if (task.tags ?? []).length > 0}
 						<div class="mt-1 flex flex-wrap gap-1">
-							{#each task.tags ?? [] as tag}
+							{#each task.tags ?? [] as tag (tag)}
 								<span
 									class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
 									>#{tag}</span
@@ -1071,7 +1200,7 @@
 					</p>
 					{#if (task.tags ?? []).length > 0}
 						<div class="flex flex-wrap gap-1">
-							{#each task.tags ?? [] as tag}
+							{#each task.tags ?? [] as tag (tag)}
 								<span
 									class="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
 									>#{tag}</span
@@ -1121,6 +1250,118 @@
 			{/each}
 		</div>
 	{/if}
+	<!-- Assignments (issue 019): To accept / Requested, separate card -->
+	{#if (data.pendingAssignments ?? []).length > 0 || (data.requestedByMe ?? []).length > 0}
+		<section class="mt-8 rounded-xl border border-slate-200 bg-white p-4">
+			<h2 class="mb-3 text-sm font-semibold text-slate-900">Assignments</h2>
+			<div class="mb-3 flex gap-1.5" role="tablist" aria-label="Assignment lists">
+				<button
+					type="button"
+					role="tab"
+					aria-selected={assignTab === 'accept'}
+					onclick={() => (assignTab = 'accept')}
+					class="min-h-[44px] flex-1 rounded-full border px-3.5 text-sm font-medium transition-colors {assignTab ===
+					'accept'
+						? 'border-slate-900 bg-slate-900 text-white'
+						: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
+				>
+					To accept ({(data.pendingAssignments ?? []).length})
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={assignTab === 'requested'}
+					onclick={() => (assignTab = 'requested')}
+					class="min-h-[44px] flex-1 rounded-full border px-3.5 text-sm font-medium transition-colors {assignTab ===
+					'requested'
+						? 'border-slate-900 bg-slate-900 text-white'
+						: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
+				>
+					Requested ({(data.requestedByMe ?? []).length})
+				</button>
+			</div>
+
+			{#if assignTab === 'accept'}
+				{#if (data.pendingAssignments ?? []).length === 0}
+					<p class="py-6 text-center text-sm text-slate-500">
+						Nothing waiting for you — you're all caught up.
+					</p>
+				{:else}
+					<div class="space-y-1.5">
+						{#each data.pendingAssignments ?? [] as task (task.id)}
+							<div
+								class="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3"
+							>
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+									<p class="mt-0.5 text-xs text-slate-500">
+										From
+										{task.creatorFirstName ?? 'someone'}
+										{#if task.dueDate}· due {formatDue(task.dueDate)}{/if}
+										{#if task.familyId}· <span class="font-medium text-indigo-600">Family</span
+											>{/if}
+									</p>
+								</div>
+								<span class="flex shrink-0 items-center gap-1.5">
+									<button
+										type="button"
+										onclick={() => respondAssignment(task, true)}
+										disabled={busyId === task.id}
+										class="min-h-[44px] rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+									>
+										✓ Accept
+									</button>
+									<button
+										type="button"
+										onclick={() => respondAssignment(task, false)}
+										disabled={busyId === task.id}
+										class="min-h-[44px] rounded-full bg-red-100 px-4 py-2 text-xs font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50"
+									>
+										✕ Decline
+									</button>
+								</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			{:else if (data.requestedByMe ?? []).length === 0}
+				<p class="py-6 text-center text-sm text-slate-500">
+					You haven't assigned anything out. Assign a task from the list above to see its status
+					here.
+				</p>
+			{:else}
+				<div class="space-y-1.5">
+					{#each data.requestedByMe ?? [] as task (task.id)}
+						<div
+							class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"
+						>
+							<div class="min-w-0 flex-1">
+								<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+								<p class="mt-0.5 text-xs text-slate-500">
+									To {task.assignedTo ? memberName(task.assignedTo) : 'someone'}
+									{#if task.familyId}· <span class="font-medium text-indigo-600">Family</span>{/if}
+								</p>
+							</div>
+							<span
+								class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold {task.assignmentStatus ===
+								'accepted'
+									? 'bg-emerald-100 text-emerald-700'
+									: task.assignmentStatus === 'declined'
+										? 'bg-slate-100 text-slate-500'
+										: 'bg-amber-100 text-amber-700'}"
+							>
+								{task.assignmentStatus === 'accepted'
+									? 'Accepted'
+									: task.assignmentStatus === 'declined'
+										? 'Declined'
+										: 'Pending'}
+							</span>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</section>
+	{/if}
 </div>
 
 <!-- Edit task dialog -->
@@ -1134,6 +1375,7 @@
 		<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 		<div
 			class="w-full max-w-md rounded-xl bg-white shadow-2xl"
+			tabindex="-1"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
 			role="dialog"
@@ -1260,6 +1502,22 @@
 						<span class="text-sm text-purple-800"
 							>{FREQ_NOUN[editFreq]}{editInterval > 1 ? 's' : ''}</span
 						>
+					</div>
+				{/if}
+
+				{#if editing.userId === data.user?.id}
+					<div>
+						<label for="edit-visibility" class="mb-1 block text-sm font-medium text-slate-700"
+							>Who can see this</label
+						>
+						<select
+							id="edit-visibility"
+							bind:value={editVisibility}
+							class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+						>
+							<option value="public">🌐 Public — family can see it (read-only)</option>
+							<option value="private">🔒 Private — only you and the assignee</option>
+						</select>
 					</div>
 				{/if}
 

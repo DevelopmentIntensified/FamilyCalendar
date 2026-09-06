@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import {
+	getPublicTasksForFamily,
 	getTasksForFamily,
 	isFamilyMember,
 	syncRecurringCursors
@@ -26,14 +27,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// Overdue Recurring Tasks stick to today until done (cursor v3).
 	await syncRecurringCursors(locals.user.id, params.familyId, await getUserZone(locals.user.id));
 
-	const [familyTasks, roster] = await Promise.all([
+	const [familyTasks, publicTasks, roster] = await Promise.all([
 		getTasksForFamily(params.familyId),
+		getPublicTasksForFamily(params.familyId),
 		getFamilyRoster(params.familyId)
 	]);
 
 	return {
 		family,
 		tasks: familyTasks,
+		publicTasks,
 		members: roster.map(({ userId, firstName, lastName, email }) => ({
 			userId,
 			firstName,

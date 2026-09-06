@@ -28,7 +28,10 @@
 				parsed.priority !== 'normal' ||
 				!!parsed.assignedTo ||
 				parsed.tags.length > 0 ||
-				!!parsed.recurrenceFrequency)
+				!!parsed.recurrenceFrequency ||
+				parsed.visibilityExplicit ||
+				parsed.familyTask ||
+				!!parsed.unknownMember)
 	);
 
 	function cadenceLabel(r: TaskQuickAddResult): string {
@@ -58,6 +61,21 @@
 		{#if parsed.assignedTo}
 			<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
 				@ {memberName(parsed.assignedTo)}
+			</span>
+		{/if}
+		{#if parsed.unknownMember}
+			<span class="rounded-full bg-red-100 px-2 py-0.5 text-red-700" title="Unknown member">
+				Unknown member {parsed.unknownMember}
+			</span>
+		{/if}
+		{#if parsed.familyTask}
+			<span class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-700" title="Family task">
+				👪 Family task
+			</span>
+		{/if}
+		{#if parsed.visibilityExplicit}
+			<span class="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600" title="Visibility">
+				{parsed.visibility === 'private' ? '🔒 Private' : '🌐 Public'}
 			</span>
 		{/if}
 		{#each parsed.tags as tag (tag)}
