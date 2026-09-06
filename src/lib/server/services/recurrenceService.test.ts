@@ -109,7 +109,9 @@ describe('expandRecurrence', () => {
 			recurrenceInterval: 1
 		};
 		const result = expandRecurrence(event, d('2020-01-01T00:00:00Z'), d('2030-01-01T00:00:00Z'));
-		expect(result.length).toBeLessThanOrEqual(500);
+		expect(result).toHaveLength(500);
+		expect(result[0].toISOString()).toBe('2020-01-01T18:00:00.000Z');
+		expect(result[499].toISOString()).toBe('2021-05-14T18:00:00.000Z');
 	});
 
 	it('accepts Date instances (drizzle/postgres.js runtime shape)', () => {
@@ -258,5 +260,108 @@ describe('expandRecurrence', () => {
 			'2026-09-01', // Tue
 			'2026-09-03' // Thu — next Tue (9/8) is after UNTIL
 		]);
+	});
+});
+
+describe('MAX_OCCURRENCES counts only in-window occurrences (old series keep expanding)', () => {
+	const windowStart = d('2026-08-01T00:00:00Z');
+	const windowEnd = d('2026-09-01T00:00:00Z');
+
+	const table: {
+		name: string;
+		event: RecurringEventInput;
+		expectedDates: string[];
+	}[] = [
+		{
+			// ~590 daily occurrences pass before the window opens; the old cap
+			// burned out on those and the series silently stopped expanding.
+			name: 'daily series started 600 days before the window',
+			event: {
+				id: 'e1',
+				start: '2024-12-19T18:00:00Z',
+				recurrenceFrequency: 'daily',
+				recurrenceInterval: 1
+			},
+			expectedDates: Array.from(
+				{ length: 31 },
+				(_, i) => `2026-08-${String(i + 1).padStart(2, '0')}`
+			)
+		},
+		{
+			name: 'plain weekly series started 600 days before the window',
+			event: {
+				id: 'e1',
+				start: '2024-12-19T18:00:00Z', // Thursday
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1
+			},
+			expectedDates: ['2026-08-06', '2026-08-13', '2026-08-20', '2026-08-27']
+		},
+		{
+			name: 'Mon–Fri BYDAY series started ~2 years before the window',
+			event: {
+				id: 'e1',
+				start: '2024-12-19T18:00:00Z', // Thursday
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceByDay: ['MO', 'TU', 'WE', 'TH', 'FR']
+			},
+			expectedDates: [
+				'2026-08-03',
+				'2026-08-04',
+				'2026-08-05',
+				'2026-08-06',
+				'2026-08-07',
+				'2026-08-10',
+				'2026-08-11',
+				'2026-08-12',
+				'2026-08-13',
+				'2026-08-14',
+				'2026-08-17',
+				'2026-08-18',
+				'2026-08-19',
+				'2026-08-20',
+				'2026-08-21',
+				'2026-08-24',
+				'2026-08-25',
+				'2026-08-26',
+				'2026-08-27',
+				'2026-08-28',
+				'2026-08-31'
+			]
+		}
+	];
+
+	for (const { name, event, expectedDates } of table) {
+		it(name, () => {
+			const result = expandRecurrence(event, windowStart, windowEnd);
+			expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual(expectedDates);
+		});
+	}
+
+	it('COUNT stays series-total: 610 daily occurrences with 590 pre-window leave 20 in-window', () => {
+		const event: RecurringEventInput = {
+			id: 'e1',
+			start: '2024-12-19T18:00:00Z',
+			recurrenceFrequency: 'daily',
+			recurrenceInterval: 1,
+			recurrenceCount: 610
+		};
+		const result = expandRecurrence(event, windowStart, windowEnd);
+		expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual(
+			Array.from({ length: 20 }, (_, i) => `2026-08-${String(i + 1).padStart(2, '0')}`)
+		);
+	});
+
+	it('COUNT stays series-total: a fully pre-window COUNT series yields nothing', () => {
+		const event: RecurringEventInput = {
+			id: 'e1',
+			start: '2024-12-19T18:00:00Z',
+			recurrenceFrequency: 'daily',
+			recurrenceInterval: 1,
+			recurrenceCount: 590 // exactly the occurrences before 2026-08-01
+		};
+		const result = expandRecurrence(event, windowStart, windowEnd);
+		expect(result).toHaveLength(0);
 	});
 });

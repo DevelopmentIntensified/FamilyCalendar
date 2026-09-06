@@ -5,7 +5,7 @@ import { db } from '$lib/server/db';
 import { eventExceptions } from '$lib/server/db/schema';
 import {
 	updateEventById,
-	deleteEventById,
+	deleteEventInScope,
 	getEvent,
 	upsertException
 } from '$lib/server/db/actions/events';
@@ -126,6 +126,8 @@ export const DELETE: RequestHandler = async ({ request, locals, params }) => {
 	const id = resolved.masterId;
 
 	try {
+		const accessibleCalIds = await getAccessibleCalendarIds(userId);
+
 		if (scope === 'this') {
 			const existing = await getEvent(id);
 			if (!existing) {
@@ -136,7 +138,7 @@ export const DELETE: RequestHandler = async ({ request, locals, params }) => {
 			}
 
 			if (!existing.recurrenceFrequency) {
-				const deletedCount = await deleteEventById(id, userId);
+				const deletedCount = await deleteEventInScope(id, userId, accessibleCalIds);
 				if (deletedCount === 0) {
 					return json({ error: 'Event not found' }, { status: 404 });
 				}
@@ -158,7 +160,7 @@ export const DELETE: RequestHandler = async ({ request, locals, params }) => {
 			return json({ success: true });
 		}
 
-		const deletedCount = await deleteEventById(id, userId);
+		const deletedCount = await deleteEventInScope(id, userId, accessibleCalIds);
 		if (deletedCount === 0) {
 			return json({ error: 'Event not found' }, { status: 404 });
 		}

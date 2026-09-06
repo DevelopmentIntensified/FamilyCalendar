@@ -263,11 +263,34 @@ export async function updateEventById(
 	accessibleCalIds?: string[]
 ) {
 	const calIds = accessibleCalIds ?? (await getAccessibleCalendarIds(userId));
-	const [updatedEvent] = await db
-		.update(events)
-		.set(data)
-		.where(and(eq(events.id, id), eventAccessFilter(userId, calIds)))
-		.returning();
+	const updatedEvent = await db.transaction(async (tx) => {
+		const [existing] = await tx
+			.select()
+			.from(events)
+			.where(and(eq(events.id, id), eventAccessFilter(userId, calIds)));
+		if (!existing) return undefined;
+		const [updated] = await tx.update(events).set(data).where(eq(events.id, id)).returning();
+		// A whole-series move re-anchors every occurrence slot. Exception
+		// Overrides are keyed to the ORIGINAL recurrence slot (originalDate),
+		// so shift them — and their start/end overrides — by the same delta,
+		// or cancelled/edited occurrences resurrect at the wrong slot.
+		if (data.start !== undefined && existing.recurrenceFrequency) {
+			const deltaMs = new Date(data.start).getTime() - new Date(existing.start).getTime();
+			if (deltaMs !== 0) {
+				const exceptions = await tx
+					.select()
+					.from(eventExceptions)
+					.where(eq(eventExceptions.eventId, id));
+				for (const ex of exceptions) {
+					await tx
+						.update(eventExceptions)
+						.set(shiftException(ex, deltaMs))
+						.where(eq(eventExceptions.id, ex.id));
+				}
+			}
+		}
+		return updated;
+	});
 	if (updatedEvent && invites !== undefined) {
 		await replaceEventInvites(id, invites);
 	}
@@ -319,18 +342,36 @@ export async function deleteEvent(id: string) {
 	await db.delete(events).where(eq(events.id, id));
 }
 
-export async function deleteEventById(id: string, userId: string) {
-	const removed = await db
-		.delete(events)
-		.where(and(eq(events.id, id), eq(events.ownerId, userId)))
-		.returning({ id: events.id });
-	return removed.length;
+/** The shifted slot key and start/end overrides of one exception. */
+export interface ShiftedExceptionSlots {
+	originalDate: string;
+	start: string | null;
+	end: string | null;
+}
+
+function shiftBy(deltaMs: number, v: string): string;
+function shiftBy(deltaMs: number, v: string | null): string | null;
+function shiftBy(deltaMs: number, v: string | null): string | null {
+	return v == null ? null : new Date(new Date(v).getTime() + deltaMs).toISOString();
+}
+
+/** Shift one Exception Override's slot key + start/end by the master shift. */
+export function shiftException(
+	exception: { originalDate: string; start: string | null; end: string | null },
+	deltaMs: number
+): ShiftedExceptionSlots {
+	return {
+		originalDate: shiftBy(deltaMs, exception.originalDate),
+		start: shiftBy(deltaMs, exception.start),
+		end: shiftBy(deltaMs, exception.end)
+	};
 }
 
 /** Delete an event the user owns OR one living on an accessible calendar
- *  (personal or family) — mirrors the calendar's read scope. */
+ *  (personal or family) — mirrors the calendar's read scope. Returns the
+ *  number of rows actually deleted. */
 export async function deleteEventInScope(id: string, userId: string, calendarIds: string[]) {
-	await db
+	const removed = await db
 		.delete(events)
 		.where(
 			and(
@@ -340,7 +381,9 @@ export async function deleteEventInScope(id: string, userId: string, calendarIds
 					calendarIds.length > 0 ? inArray(events.calendarId, calendarIds) : sql`false`
 				)
 			)
-		);
+		)
+		.returning({ id: events.id });
+	return removed.length;
 }
 
 export async function updateRsvp(

@@ -122,17 +122,23 @@ export function expandRecurrence(
 
 	const occurrences: Date[] = [];
 	let steps = 0;
-	let produced = 0;
-	while (produced < MAX_OCCURRENCES) {
+	// `total` counts every occurrence from the series start (COUNT semantics);
+	// `emitted` counts only in-window ones and is what MAX_OCCURRENCES caps.
+	// Capping `total` instead made series older than ~500 steps silently stop
+	// expanding before they ever reached the window.
+	let total = 0;
+	let emitted = 0;
+	while (emitted < MAX_OCCURRENCES) {
 		const occ = generateOccurrence(anchor, frequency, steps * interval);
 		if (!occ.isValid) break;
 		const jsDate = occ.toJSDate();
-		produced++;
-		if (count !== null && produced > count) break;
+		total++;
+		if (count !== null && total > count) break;
 		if (until !== null && jsDate > until) break;
 		if (jsDate >= windowEnd) break;
 		if (jsDate >= windowStart) {
 			occurrences.push(jsDate);
+			emitted++;
 		}
 		steps++;
 	}
@@ -169,11 +175,14 @@ function expandWeekdaySeries(
 	windowEnd: Date
 ): Date[] {
 	const occurrences: Date[] = [];
-	let produced = 0;
+	// Same split as the plain loop: COUNT consumes from the series start,
+	// MAX_OCCURRENCES caps only in-window occurrences.
+	let total = 0;
+	let emitted = 0;
 	let cur = anchor;
 	const windowEndMs = windowEnd.getTime();
 
-	while (produced < MAX_OCCURRENCES) {
+	while (emitted < MAX_OCCURRENCES) {
 		const weekday = WEEKDAY_LETTERS[cur.weekday - 1];
 		let passes = false;
 		if (frequency === 'daily') {
@@ -185,11 +194,14 @@ function expandWeekdaySeries(
 		}
 
 		if (passes) {
-			produced++;
-			if (count !== null && produced > count) break;
+			total++;
+			if (count !== null && total > count) break;
 			const jsDate = cur.toJSDate();
 			if (until !== null && jsDate > until) break;
-			if (jsDate >= windowStart && jsDate < windowEnd) occurrences.push(jsDate);
+			if (jsDate >= windowStart && jsDate < windowEnd) {
+				occurrences.push(jsDate);
+				emitted++;
+			}
 		}
 
 		cur = cur.plus({ days: 1 });
