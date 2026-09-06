@@ -140,6 +140,18 @@ export async function getUserFamilyId(userId: string): Promise<string | null> {
 	return member?.familyId ?? null;
 }
 
+/** The user's role in a family, or null when not a member. */
+export async function getFamilyMemberRole(
+	userId: string,
+	familyId: string
+): Promise<string | null> {
+	const [member] = await db
+		.select({ role: familyMembers.role })
+		.from(familyMembers)
+		.where(and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, familyId)));
+	return member?.role ?? null;
+}
+
 /** Full roster of a family with user info. Canonical shape. */
 export async function getFamilyRoster(familyId: string): Promise<
 	{

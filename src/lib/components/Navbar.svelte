@@ -40,6 +40,7 @@
 	const loggedInNavItems = [
 		{ href: '/calendar', label: 'Calendar' },
 		{ href: '/calendar/tasks', label: 'Tasks' },
+		{ href: '/calendar/bills', label: 'Bills' },
 		{ href: '/family', label: 'Family' }
 	];
 

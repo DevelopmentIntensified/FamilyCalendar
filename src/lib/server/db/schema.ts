@@ -510,6 +510,39 @@ export const tasks = pgTable('tasks', {
 export type Task = typeof tasks.$inferSelect;
 
 /**
+ * Bill — a dated amount owed, family-visible. Amounts are integer cents
+ * (never float). Paid status per period; recurrence arrives in #006.
+ */
+export const BILL_CATEGORIES = [
+	'housing',
+	'utilities',
+	'subscriptions',
+	'insurance',
+	'other'
+] as const;
+
+export type BillCategory = (typeof BILL_CATEGORIES)[number];
+
+export const bills = pgTable('bills', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	title: text('title').notNull(),
+	amountCents: integer('amount_cents').notNull(),
+	dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
+	category: text('category').notNull().default('other'),
+	paidAt: timestamp('paid_at', { withTimezone: true, mode: 'string' }),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	familyId: text('family_id').references(() => families.id, { onDelete: 'cascade' }),
+	createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export type Bill = typeof bills.$inferSelect;
+
+/**
  * Task tags — many-to-many-ish join keyed by task + lowercase tag name.
  * Kept as plain text (matching priority/recurrence), deduped on write.
  * Circle back: a task's tags render as chips and drive tag search/filter.
