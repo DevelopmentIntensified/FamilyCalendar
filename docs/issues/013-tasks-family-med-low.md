@@ -6,7 +6,7 @@ Status: open
 
 - Assigning a task never notifies the assignee (notifications fire only for
   accepted/declined to the owner) — add assignment_pending fan-out on create
-  + reassign.
+  - reassign.
 - Removed family member keeps write access via the `assignedTo` leg of
   `canMutateTask` — null out `assignedTo` (+ reset pending status) for the
   family's tasks on removal.

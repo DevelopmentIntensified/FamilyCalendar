@@ -6,6 +6,9 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 - #001 Local Postgres via Docker (compose, npm scripts, local env wiring)
 - #004 Bill CRUD (bills table, role-gated API, minimal list UI, e2e green)
+- HIGH audit fixes (2026-09-06, commits 2f2637b..fa4ef7f): bills authz/validation,
+  family PII + roles + member limit, tasks assignment gate + deleteUser FK,
+  events recurrence cap + delete scope + edit data-loss, signup masking
 
 ## Open
 
