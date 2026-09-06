@@ -7,6 +7,11 @@ interface SendWaitlistConfirmationParams {
 	name: string;
 }
 
+/** True when the mail provider returned a human-readable error string. */
+function isProviderErrorString(error: unknown): error is string {
+	return typeof error === 'string';
+}
+
 export async function sendWaitlistConfirmation({
 	email,
 	name
@@ -22,7 +27,7 @@ export async function sendWaitlistConfirmation({
 		});
 
 		if (!success) {
-			const errorMessage = typeof error === 'string' ? error : 'Failed to send email';
+			const errorMessage = isProviderErrorString(error) ? error : 'Failed to send email';
 			console.error('Failed to send waitlist confirmation email:', errorMessage);
 			return { success: false, error: errorMessage };
 		}

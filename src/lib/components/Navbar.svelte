@@ -23,8 +23,9 @@
 	}
 
 	function handleOutsideClick(e: MouseEvent) {
-		const target = e.target as HTMLElement | null;
-		if (!target?.closest?.('[data-testid="profile-dropdown-container"]')) {
+		// Non-Element event targets (e.g. document) count as outside clicks.
+		const target = e.target instanceof Element ? e.target : null;
+		if (!target?.closest('[data-testid="profile-dropdown-container"]')) {
 			closeProfileDropdown();
 		}
 	}

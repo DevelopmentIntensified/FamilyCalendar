@@ -45,10 +45,8 @@
 		return (task.tags ?? []).some((tag) => tag.toLowerCase().startsWith(q));
 	}
 
-	$: openTasks = (data.tasks as FamilyTask[]).filter((t) => !t.completedAt && matchesTagFilter(t));
-	$: completedTasks = (data.tasks as FamilyTask[]).filter(
-		(t) => t.completedAt && matchesTagFilter(t)
-	);
+	$: openTasks = data.tasks.filter((t) => !t.completedAt && matchesTagFilter(t));
+	$: completedTasks = data.tasks.filter((t) => t.completedAt && matchesTagFilter(t));
 	$: pendingForMe = openTasks.filter(
 		(t) => t.assignedTo === data.userId && t.assignmentStatus === 'pending'
 	);

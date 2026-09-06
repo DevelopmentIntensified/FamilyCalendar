@@ -7,7 +7,24 @@ export function llmConfigured(): boolean {
 	return !!process.env.CEREBRAS_API_KEY;
 }
 
-export async function chatJson(system: string, user: string): Promise<Record<string, any> | null> {
+/** Any value JSON.parse can produce — callers must validate before trusting. */
+export type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue };
+
+/** True when the completion payload carries string message content. */
+function isStringContent(content: unknown): content is string {
+	return typeof content === 'string';
+}
+
+export async function chatJson(
+	system: string,
+	user: string
+): Promise<Record<string, JsonValue> | null> {
 	const apiKey = process.env.CEREBRAS_API_KEY;
 	if (!apiKey) return null;
 
@@ -38,7 +55,7 @@ export async function chatJson(system: string, user: string): Promise<Record<str
 
 		const data = await res.json();
 		const content = data.choices?.[0]?.message?.content;
-		if (typeof content !== 'string') return null;
+		if (!isStringContent(content)) return null;
 		return JSON.parse(content);
 	} catch {
 		return null;

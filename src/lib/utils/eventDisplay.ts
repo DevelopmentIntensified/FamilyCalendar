@@ -2,7 +2,13 @@ import { DateTime } from 'luxon';
 
 export type ParsedDay<T> = T & { start: Date; end: Date | null; date: Date };
 
-export function deriveEventProps<T extends Record<string, any>>(
+/** Minimal row shape parseEvents/deriveEventProps need: start/end as Date or ISO string. */
+type EventLike = {
+	start: Date | string | number;
+	end?: Date | string | number | null;
+};
+
+export function deriveEventProps<T extends EventLike>(
 	e: T,
 	date: Date,
 	end: Date | null
@@ -19,10 +25,7 @@ export function deriveEventProps<T extends Record<string, any>>(
  * Splits events that span multiple days into one entry per day, each
  * carrying its own `date`. Single-day events pass through untouched.
  */
-export function parseEvents<T extends Record<string, any>>(
-	eventsData: T[],
-	zone?: string
-): ParsedDay<T>[] {
+export function parseEvents<T extends EventLike>(eventsData: T[], zone?: string): ParsedDay<T>[] {
 	return eventsData.flatMap((e): ParsedDay<T>[] => {
 		const startDate = new Date(e.start);
 		const endDate = e.end ? new Date(e.end) : null;

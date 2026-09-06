@@ -8,23 +8,37 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * The default `db` module is scripted through `state.db*`; a caller-passed
  * transaction client is scripted through `state.tx*`.
  */
-const state = vi.hoisted(() => ({
-	dbQueue: [] as unknown[][],
-	dbInsertReturn: null as unknown[] | null,
-	dbInsertValues: null as unknown,
-	txQueue: [] as unknown[][],
-	txInsertReturn: null as unknown[] | null
-}));
+/** A stubbed DB row: plain JSON-ish values only. */
+type Row = Record<string, string | number | boolean | null | Date>;
 
+interface StubState {
+	dbQueue: Row[][];
+	dbInsertReturn: Row[] | null;
+	dbInsertValues: Row | null;
+	txQueue: Row[][];
+	txInsertReturn: Row[] | null;
+}
+
+const state = vi.hoisted(
+	(): StubState => ({
+		dbQueue: [],
+		dbInsertReturn: null,
+		dbInsertValues: null,
+		txQueue: [],
+		txInsertReturn: null
+	})
+);
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
 			from: () => ({
-				where: () => Promise.resolve((state.dbQueue.shift() ?? []) as unknown[])
+				where: () => Promise.resolve(state.dbQueue.shift() ?? [])
 			})
 		}),
 		insert: () => ({
-			values: (v: unknown) => {
+			values: (v: Row) => {
 				state.dbInsertValues = v;
 				return {
 					returning: () => Promise.resolve(state.dbInsertReturn ?? [])
@@ -39,7 +53,7 @@ function makeTx() {
 	return {
 		select: () => ({
 			from: () => ({
-				where: () => Promise.resolve((state.txQueue.shift() ?? []) as unknown[])
+				where: () => Promise.resolve(state.txQueue.shift() ?? [])
 			})
 		}),
 		insert: () => ({
@@ -95,6 +109,7 @@ describe('ensurePersonalCalendar', () => {
 		state.txQueue.push([]); // no existing row on the tx
 		state.txInsertReturn = [{ id: 'cal-3', ownerId: 'user-1', familyId: null }];
 
+		// SAFETY: the scripted makeTx() stub structurally matches the drizzle transaction client ensurePersonalCalendar calls; `never` bypasses only the nominal type.
 		const cal = await ensurePersonalCalendar('user-1', tx as never);
 
 		expect(cal).toEqual({ id: 'cal-3', ownerId: 'user-1', familyId: null });

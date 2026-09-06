@@ -73,6 +73,7 @@ export function normalizeEventRecurrence(input: EventRecurrenceInput): EventRecu
  * prefixes (e.g. 2TU -> TU) so the ICS importer can delegate here.
  * Returns null when nothing valid remains.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- exported boundary parser: unknown input IS its contract; routes feed it raw request-body fields.
 export function sanitizeRecurrenceByDay(raw: unknown): string[] | null {
 	if (!Array.isArray(raw)) return null;
 	const days = raw
@@ -83,6 +84,7 @@ export function sanitizeRecurrenceByDay(raw: unknown): string[] | null {
 }
 
 /** Positive integer counts only; anything else is unbounded (null). */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- exported boundary parser: unknown input IS its contract; routes feed it raw request-body fields.
 export function sanitizeRecurrenceCount(raw: unknown): number | null {
 	return isCountNumber(raw) && raw > 0 ? Math.floor(raw) : null;
 }

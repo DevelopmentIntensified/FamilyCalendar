@@ -29,12 +29,22 @@
 	export let task: CalendarTask;
 	export let onClose: () => void = () => {};
 
-	const FREQ_NOUN: Record<string, string> = {
+	type DetailFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+	const FREQ_NOUN: Record<DetailFrequency, string> = {
 		daily: 'day',
 		weekly: 'week',
 		monthly: 'month',
 		yearly: 'year'
 	};
+
+	function freqNoun(frequency: string): string {
+		return frequency === 'daily' ||
+			frequency === 'weekly' ||
+			frequency === 'monthly' ||
+			frequency === 'yearly'
+			? FREQ_NOUN[frequency]
+			: frequency;
+	}
 
 	let busy = false;
 	let actionError = '';
@@ -58,17 +68,24 @@
 
 	function freqLabel(): string {
 		if (!task.recurrenceFrequency) return '';
-		const noun = FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency;
+		const noun = freqNoun(task.recurrenceFrequency);
 		return task.recurrenceInterval && task.recurrenceInterval > 1
 			? `every ${task.recurrenceInterval} ${noun}s`
 			: `every ${noun}`;
 	}
 
-	const PRIORITY_META: Record<string, { label: string; cls: string }> = {
+	type DetailPriority = 'high' | 'normal' | 'low';
+	const PRIORITY_META: Record<DetailPriority, { label: string; cls: string }> = {
 		high: { label: 'High', cls: 'bg-red-100 text-red-700' },
 		normal: { label: 'Normal', cls: 'bg-slate-100 text-slate-600' },
 		low: { label: 'Low', cls: 'bg-sky-100 text-sky-700' }
 	};
+
+	function priorityMeta(priority: string) {
+		return priority === 'high' || priority === 'normal' || priority === 'low'
+			? PRIORITY_META[priority]
+			: undefined;
+	}
 
 	async function toggleComplete() {
 		if (busy) return;
@@ -145,7 +162,6 @@
 	}
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <svelte:window on:keydown={(e) => e.key === 'Escape' && close()} />
 
 <div
@@ -154,6 +170,7 @@
 	onkeydown={(e) => e.key === 'Escape' && close()}
 	role="presentation"
 >
+	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 	<div
 		class="w-full max-w-md rounded-xl bg-white shadow-2xl"
 		onclick={(e) => e.stopPropagation()}
@@ -213,10 +230,10 @@
 					<div class="flex items-center justify-between gap-3">
 						<dt class="text-slate-500">Priority</dt>
 						<dd
-							class="rounded-full px-2 py-0.5 font-medium {PRIORITY_META[task.priority]?.cls ??
+							class="rounded-full px-2 py-0.5 font-medium {priorityMeta(task.priority)?.cls ??
 								PRIORITY_META.normal.cls}"
 						>
-							{PRIORITY_META[task.priority]?.label ?? 'Normal'}
+							{priorityMeta(task.priority)?.label ?? 'Normal'}
 						</dd>
 					</div>
 				{/if}

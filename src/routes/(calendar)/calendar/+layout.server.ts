@@ -6,7 +6,7 @@ export const load: LayoutServerLoad = async (event) => {
 	if (!event.locals.user) {
 		return redirect(302, '/login');
 	}
-	let userSettings = await getUserSettings(event.locals.user.id);
+	const userSettings = await getUserSettings(event.locals.user.id);
 	return {
 		pathname: event.url.pathname,
 		isLoggedIn: true,

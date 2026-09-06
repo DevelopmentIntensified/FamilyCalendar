@@ -16,13 +16,18 @@ export const load: PageServerLoad = async (event) => {
 	return {};
 };
 
+function isString(value: FormDataEntryValue | null): value is string {
+	return typeof value === 'string';
+}
+
 export const actions: Actions = {
 	request: async ({ request, locals }) => {
 		if (!locals.user) return fail(401, { error: 'Not signed in' });
 		if (locals.user.email) return fail(400, { error: 'Account already has an email' });
 
 		const formData = await request.formData();
-		const email = ((formData.get('email') as string) || '').trim().toLowerCase();
+		const rawEmail = formData.get('email');
+		const email = (isString(rawEmail) ? rawEmail : '').trim().toLowerCase();
 		if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
 			return fail(400, { error: 'Please enter a valid email address' });
 		}

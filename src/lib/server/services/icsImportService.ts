@@ -85,21 +85,21 @@ function parseIcsDateTime(prop: IcsProp): { iso: string; allDay: boolean } | nul
  * them to their canonical IANA equivalents. Unknown/absent names fall back
  * to UTC (floating time), preserving prior behavior.
  */
-const TZID_ZONE: Record<string, string> = {
-	'EASTERN STANDARD TIME': 'America/New_York',
-	'CENTRAL STANDARD TIME': 'America/Chicago',
-	'MOUNTAIN STANDARD TIME': 'America/Denver',
-	'PACIFIC STANDARD TIME': 'America/Los_Angeles',
-	'AMERICA/NEW_YORK': 'America/New_York',
-	'AMERICA/CHICAGO': 'America/Chicago',
-	'AMERICA/DENVER': 'America/Denver',
-	'AMERICA/LOS_ANGELES': 'America/Los_Angeles'
-};
+const TZID_ZONE: ReadonlyMap<string, string> = new Map([
+	['EASTERN STANDARD TIME', 'America/New_York'],
+	['CENTRAL STANDARD TIME', 'America/Chicago'],
+	['MOUNTAIN STANDARD TIME', 'America/Denver'],
+	['PACIFIC STANDARD TIME', 'America/Los_Angeles'],
+	['AMERICA/NEW_YORK', 'America/New_York'],
+	['AMERICA/CHICAGO', 'America/Chicago'],
+	['AMERICA/DENVER', 'America/Denver'],
+	['AMERICA/LOS_ANGELES', 'America/Los_Angeles']
+]);
 
 function tzidZone(tzid?: string): string {
 	if (!tzid) return 'utc';
 	const key = tzid.replace(/^"|"$/g, '').toUpperCase();
-	return TZID_ZONE[key] ?? 'utc';
+	return TZID_ZONE.get(key) ?? 'utc';
 }
 
 /**
@@ -134,12 +134,18 @@ function parseDurationToMs(dur: string): number | null {
 	);
 }
 
-const FREQ_MAP: Record<string, IcsFrequency> = {
+const FREQ_MAP = {
 	DAILY: 'daily',
 	WEEKLY: 'weekly',
 	MONTHLY: 'monthly',
 	YEARLY: 'yearly'
-};
+} satisfies Record<string, IcsFrequency>;
+
+/** IcsFrequency for a raw RRULE FREQ value, or null when unknown. */
+function icsFrequency(raw: string): IcsFrequency | null {
+	// SAFETY: the `in` check pins raw to FREQ_MAP's keys before indexing.
+	return raw in FREQ_MAP ? FREQ_MAP[raw as keyof typeof FREQ_MAP] : null;
+}
 
 const WEEKDAYS = new Set(['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']);
 
@@ -222,7 +228,7 @@ function buildDraft(props: Record<string, IcsProp[]>): IcsEventDraft | null {
 			const eq = piece.indexOf('=');
 			if (eq > -1) parts[piece.slice(0, eq).toUpperCase()] = piece.slice(eq + 1).toUpperCase();
 		}
-		recurrenceFrequency = FREQ_MAP[parts['FREQ']] ?? null;
+		recurrenceFrequency = icsFrequency(parts['FREQ']);
 		const interval = parseInt(parts['INTERVAL'] ?? '1');
 		recurrenceInterval = recurrenceFrequency ? Math.max(1, isNaN(interval) ? 1 : interval) : null;
 

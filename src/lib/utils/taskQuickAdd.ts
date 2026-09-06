@@ -265,6 +265,12 @@ interface RecurrenceResult {
 	remaining: string;
 }
 
+function unitFrequency(unit: string): TaskFrequency {
+	// SAFETY: callers pass tokens captured by the RECURRENCE_STEPS regexes,
+	// which only match day|week|month|year — always a valid RecurrenceUnit key.
+	return FREQ_FROM_UNIT[unit as RecurrenceUnit];
+}
+
 /**
  * Longest phrases first so compound forms ("every other week", "every 3 days")
  * win over the bare words they contain ("week", "day").
@@ -279,7 +285,7 @@ const RECURRENCE_STEPS: {
 	{
 		re: /\bevery other\s+(day|week|month|year)\b/i,
 		resolve: (m) => ({
-			frequency: FREQ_FROM_UNIT[m[1].toLowerCase() as RecurrenceUnit],
+			frequency: unitFrequency(m[1].toLowerCase()),
 			interval: 2,
 			due: null
 		})
@@ -291,7 +297,7 @@ const RECURRENCE_STEPS: {
 	{
 		re: /\bevery\s+(\d+)\s+(day|week|month|year)s?\b/i,
 		resolve: (m) => ({
-			frequency: FREQ_FROM_UNIT[m[2].toLowerCase() as RecurrenceUnit],
+			frequency: unitFrequency(m[2].toLowerCase()),
 			interval: Math.max(1, parseInt(m[1], 10)),
 			due: null
 		})
@@ -299,7 +305,7 @@ const RECURRENCE_STEPS: {
 	{
 		re: /\bevery\s+(day|week|month|year)\b/i,
 		resolve: (m) => ({
-			frequency: FREQ_FROM_UNIT[m[1].toLowerCase() as RecurrenceUnit],
+			frequency: unitFrequency(m[1].toLowerCase()),
 			interval: 1,
 			due: null
 		})
@@ -363,11 +369,16 @@ function resolveDateStep(title: string, now: Date): DateResolution {
 		if (rel[2]) {
 			const amount = rel[1];
 			const n = amount === 'a' || amount === 'an' ? 1 : parseInt(amount, 10);
+			// SAFETY: TASK_QUICK_ADD_RELATIVE_RE only captures
+			// (days?|weeks?|months?|years?), so stripping the plural `s` yields
+			// exactly a RecurrenceUnit word.
 			const unit = rel[2].replace(/s$/, '') as RecurrenceUnit;
 			return { due: shiftDate(endOfDayNow(now), n, unit), match: rel };
 		}
 		const nextUnit = rel[3]?.toLowerCase();
 		if (nextUnit) {
+			// SAFETY: the `next` branch of TASK_QUICK_ADD_RELATIVE_RE only
+			// captures week|month|year, so nextUnit is always a RecurrenceUnit.
 			return { due: shiftDate(endOfDayNow(now), 1, nextUnit as RecurrenceUnit), match: rel };
 		}
 	}

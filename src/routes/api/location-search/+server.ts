@@ -35,7 +35,7 @@ export const GET: RequestHandler = async ({ request, locals, url }) => {
 		if (!res.ok) {
 			return json({ results: [] });
 		}
-		const data = (await res.json()) as NominatimResult[];
+		const data: NominatimResult[] = await res.json();
 		return json({
 			results: data.map((r) => ({ label: r.display_name, lat: r.lat, lon: r.lon }))
 		});

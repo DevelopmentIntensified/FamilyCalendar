@@ -17,7 +17,7 @@ describe('isDashboardModule', () => {
 });
 
 describe('composeModuleVisibility', () => {
-	const allOn: Record<string, boolean> = {
+	const allOn = {
 		board: true,
 		memberStrip: true,
 		kids: true,

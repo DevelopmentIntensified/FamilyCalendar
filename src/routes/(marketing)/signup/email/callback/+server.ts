@@ -3,14 +3,24 @@ import type { RequestHandler } from './$types';
 import { getUrl } from '$lib/utils/getUrl';
 import { EMAILSECRET } from '$env/static/private';
 import type { emailTokenPayloadType } from '../+server';
-import { generateId } from 'lucia';
 import { lucia } from '$lib/server/auth';
 import { accounts } from '$lib/server/db/schema';
 import { db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
-import { createUser } from '$lib/server/db/actions/users';
-import { createAccount } from '$lib/server/db/actions/accounts';
 import { createNewUser } from '$lib/server/utils/createNewUser';
+
+function isEmailTokenPayload(value: unknown): value is emailTokenPayloadType {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'email' in value &&
+		typeof value.email === 'string' &&
+		'firstName' in value &&
+		typeof value.firstName === 'string' &&
+		'lastName' in value &&
+		typeof value.lastName === 'string'
+	);
+}
 
 export const GET: RequestHandler = async function (event) {
 	// Remember any anonymous session so its data can be merged after auth.
@@ -20,12 +30,12 @@ export const GET: RequestHandler = async function (event) {
 	const requestUrl = new URL(event.url);
 	const siteUrl = getUrl();
 	const redirectUrl = new URL(siteUrl + '/signup');
-	const token = requestUrl.searchParams.get('token') as string;
+	const token = requestUrl.searchParams.get('token');
 	const secret = new TextEncoder().encode(EMAILSECRET);
 
 	redirectUrl.searchParams.set('error', 'The token provided was not valid, please try again.');
 
-	if (!requestUrl.searchParams.has('token')) {
+	if (token === null) {
 		return new Response(null, {
 			status: 302,
 			headers: {
@@ -36,7 +46,7 @@ export const GET: RequestHandler = async function (event) {
 
 	try {
 		await validateJWT('HS256', secret, token);
-	} catch (error) {
+	} catch {
 		return new Response(null, {
 			status: 302,
 			headers: {
@@ -54,9 +64,9 @@ export const GET: RequestHandler = async function (event) {
 			}
 		});
 	}
-	const payload: emailTokenPayloadType = parcedToken?.payload as emailTokenPayloadType;
+	const payload: unknown = parcedToken.payload;
 
-	if (!payload) {
+	if (!isEmailTokenPayload(payload)) {
 		return new Response(null, {
 			status: 302,
 			headers: {
@@ -94,17 +104,17 @@ export const GET: RequestHandler = async function (event) {
 		const session = await lucia.createSession(user.id, {});
 		const sessionCookie = lucia.createSessionCookie(session.id);
 
-		let headers = new Headers();
+		const headers = new Headers();
 		headers.append('Set-Cookie', sessionCookie.serialize());
 		headers.append('Location', siteUrl + '/calendar/');
 
-		let result = new Response(null, {
+		const result = new Response(null, {
 			status: 302,
 			headers
 		});
 
 		return result;
-	} catch (error) {
+	} catch {
 		return new Response(null, {
 			status: 302,
 			headers: {

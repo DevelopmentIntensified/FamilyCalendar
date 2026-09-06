@@ -3,7 +3,6 @@
 		getDaysInMonth,
 		getFirstDayOfMonth,
 		getFirstDayOfNextMonth,
-		formatDate,
 		getDaysInLastMonth
 	} from '$lib/utils/dateUtils';
 	import type { Event } from '$lib/types';
@@ -13,7 +12,6 @@
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[];
-	export let removeEvent: (id: string) => void;
 	export let preferedFirstDayOfWeek: string = 'Monday';
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let openDay: (date: DateTime) => void = () => {};
@@ -22,8 +20,6 @@
 	export let selectionMode: boolean = false;
 	export let selectedIds: string[] = [];
 	export let onToggleSelect: (event: Event) => void = () => {};
-
-	const today = DateTime.now();
 
 	//$: basically just makes the code revaluate each time the values change
 	let daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

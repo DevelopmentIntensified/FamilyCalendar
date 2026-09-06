@@ -118,23 +118,33 @@ export type EventInvite = {
 	inviteType: 'required' | 'optional';
 };
 
+/** True when the raw invite entry is a legacy guest-name string. */
+function isInviteName(entry: unknown): entry is string {
+	return typeof entry === 'string';
+}
+
+/** True when the raw invite entry is a structured invite object. */
+function isInviteObject(entry: unknown): entry is Partial<EventInvite> {
+	return typeof entry === 'object' && entry !== null;
+}
+
 /** Normalize a mix of legacy string names and structured invites. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- exported boundary parser: unknown input IS its contract; routes feed it raw request-body fields.
 export function normalizeInvites(raw: unknown): EventInvite[] {
 	if (!Array.isArray(raw)) return [];
 	const out: EventInvite[] = [];
 	for (const entry of raw) {
-		if (typeof entry === 'string') {
+		if (isInviteName(entry)) {
 			const name = entry.trim();
 			if (name) out.push({ name, inviteType: 'optional' });
-		} else if (entry && typeof entry === 'object') {
-			const i = entry as Partial<EventInvite>;
-			if (i.userId)
+		} else if (entry && isInviteObject(entry)) {
+			if (entry.userId)
 				out.push({
-					userId: i.userId,
-					inviteType: i.inviteType === 'required' ? 'required' : 'optional'
+					userId: entry.userId,
+					inviteType: entry.inviteType === 'required' ? 'required' : 'optional'
 				});
-			else if (i.name && typeof i.name === 'string' && i.name.trim())
-				out.push({ name: i.name.trim(), inviteType: 'optional' });
+			else if (entry.name && isInviteName(entry.name) && entry.name.trim())
+				out.push({ name: entry.name.trim(), inviteType: 'optional' });
 		}
 	}
 	return out;
@@ -150,7 +160,7 @@ export function normalizeInvites(raw: unknown): EventInvite[] {
  *
  * The creator's own "going" row (status ≠ undecided) is never deleted.
  */
-export async function replaceEventInvites(eventId: string, raw: unknown) {
+export async function replaceEventInvites(eventId: string, raw: unknown[]) {
 	const invites = normalizeInvites(raw);
 	await db.transaction(async (tx) => {
 		const existing = await tx
@@ -207,14 +217,18 @@ export async function replaceEventInvites(eventId: string, raw: unknown) {
 		await tx
 			.delete(eventAttendance)
 			.where(and(eq(eventAttendance.eventId, eventId), sql`${eventAttendance.name} IS NOT NULL`));
-		const guests = invites
-			.filter((i) => i.name && typeof i.name === 'string' && i.name.trim())
-			.map((i) => ({
-				eventId,
-				name: (i.name as string).trim(),
-				status: 'undecided' as const,
-				inviteType: 'optional' as const
-			}));
+		const guests = invites.flatMap((i) =>
+			isInviteName(i.name) && i.name.trim()
+				? [
+						{
+							eventId,
+							name: i.name.trim(),
+							status: 'undecided' as const,
+							inviteType: 'optional' as const
+						}
+					]
+				: []
+		);
 		if (guests.length > 0) await tx.insert(eventAttendance).values(guests);
 	});
 }
@@ -222,7 +236,7 @@ export async function replaceEventInvites(eventId: string, raw: unknown) {
 export async function createEvent(
 	data: Omit<CalendarEvent, 'id' | 'created_at'>,
 	ownerId: string,
-	invites?: EventInvite[] | unknown
+	invites?: unknown[]
 ) {
 	const [createdEvent] = await db.insert(events).values(data).returning();
 	// Auto-RSVP creator as "going"
@@ -245,7 +259,7 @@ export async function updateEventById(
 	id: string,
 	data: Partial<Omit<CalendarEvent, 'id'>>,
 	userId: string,
-	invites?: unknown,
+	invites?: unknown[],
 	accessibleCalIds?: string[]
 ) {
 	const calIds = accessibleCalIds ?? (await getAccessibleCalendarIds(userId));

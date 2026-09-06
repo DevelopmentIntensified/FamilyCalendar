@@ -41,8 +41,12 @@
 		return 'bg-slate-100 text-slate-600';
 	}
 
-	const PRIORITY_LABEL: Record<string, string> = { low: 'Low', normal: 'Normal', high: 'High' };
-	const PRIORITY_ORDER = ['low', 'normal', 'high'];
+	const PRIORITY_LABEL: Record<'low' | 'normal' | 'high', string> = {
+		low: 'Low',
+		normal: 'Normal',
+		high: 'High'
+	};
+	const PRIORITY_ORDER = ['low', 'normal', 'high'] as const;
 
 	function priorityTone(p: string): string {
 		if (p === 'high') return 'bg-rose-100 text-rose-700';

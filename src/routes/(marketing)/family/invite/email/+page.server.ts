@@ -9,6 +9,38 @@ import { getAccount } from '$lib/server/db/actions/accounts';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 import { lucia } from '$lib/server/auth';
 import { hashPassword } from '$lib/server/utils/password';
+
+type InvitePayload = {
+	email: string;
+	firstName: string;
+	lastName: string;
+	familyId: string;
+};
+
+function isInvitePayload(value: unknown): value is InvitePayload {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'email' in value &&
+		typeof value.email === 'string' &&
+		'firstName' in value &&
+		typeof value.firstName === 'string' &&
+		'lastName' in value &&
+		typeof value.lastName === 'string' &&
+		'familyId' in value &&
+		typeof value.familyId === 'string'
+	);
+}
+
+function isString(value: FormDataEntryValue | null): value is string {
+	return typeof value === 'string';
+}
+
+function formString(formData: FormData, key: string): string {
+	const value = formData.get(key);
+	return isString(value) ? value : '';
+}
+
 export const load: PageServerLoad = async ({ url }) => {
 	const token = url.searchParams.get('token');
 	if (!token) {
@@ -27,12 +59,10 @@ export const load: PageServerLoad = async ({ url }) => {
 		throw redirect(302, '/login?error=invalid_token');
 	}
 
-	const payload = parsed.payload as {
-		email: string;
-		firstName: string;
-		lastName: string;
-		familyId: string;
-	};
+	const payload: unknown = parsed.payload;
+	if (!isInvitePayload(payload)) {
+		throw redirect(302, '/login?error=invalid_token');
+	}
 	if (!payload.email || !payload.firstName || !payload.lastName || !payload.familyId) {
 		throw redirect(302, '/login?error=invalid_token');
 	}
@@ -51,12 +81,8 @@ async function validateToken(token: string) {
 	await validateJWT('HS256', secret, token);
 	const parsed = parseJWT(token);
 	if (!parsed?.payload) throw new Error('Invalid token');
-	const payload = parsed.payload as {
-		email: string;
-		firstName: string;
-		lastName: string;
-		familyId: string;
-	};
+	const payload: unknown = parsed.payload;
+	if (!isInvitePayload(payload)) throw new Error('Invalid token');
 	if (!payload.email || !payload.firstName || !payload.lastName || !payload.familyId)
 		throw new Error('Invalid token');
 	return payload;
@@ -109,8 +135,8 @@ async function createAccountAndJoin(
 export const actions: Actions = {
 	default: async (event) => {
 		const formData = await event.request.formData();
-		const action = formData.get('_action') as string;
-		const token = formData.get('token') as string;
+		const action = formString(formData, '_action');
+		const token = formString(formData, 'token');
 
 		if (!token) {
 			return fail(400, { error: 'Missing token' });
@@ -126,8 +152,8 @@ export const actions: Actions = {
 			return await createAccountAndJoin(event, payload);
 		}
 
-		const password = formData.get('password') as string;
-		const passwordConfirm = formData.get('passwordConfirm') as string;
+		const password = formString(formData, 'password');
+		const passwordConfirm = formString(formData, 'passwordConfirm');
 
 		if (!password || password.length < 6) {
 			return fail(400, { error: 'Password must be at least 6 characters' });

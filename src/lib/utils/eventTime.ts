@@ -1,11 +1,16 @@
 import { DateTime } from 'luxon';
 
+import { isDateString } from './typeGuards';
+
 /**
- * Normalizes any runtime shape a timestamp arrives in — Date instances,
- * ISO strings, or pg's space-separated form — into a real Date.
+ * Normalizes the runtime shapes a timestamp arrives in — Date instances,
+ * ISO strings, or pg's space-separated form — into a real Date. Callers
+ * guard against null/undefined before calling.
  */
-export function toDate(v: unknown): Date {
-	return v instanceof Date ? v : new Date(v as string);
+export function toDate(v: Date | string | null | undefined): Date {
+	if (v instanceof Date) return v;
+	if (isDateString(v)) return new Date(v);
+	return new Date(NaN);
 }
 
 /** Null-safe, validity-checked time formatting ("h:mm a"). Empty string when unknown. */

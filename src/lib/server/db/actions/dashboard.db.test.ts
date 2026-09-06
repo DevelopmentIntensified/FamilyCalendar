@@ -10,29 +10,37 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * place of inline raw `db` calls; tests pin the query shape so the extracted
  * functions stay exactly equivalent to the queries they replaced.
  */
-const state = vi.hoisted(() => ({
-	// Each entry is the rows a `.where()` (or `.orderBy().limit()`) resolves to,
-	// in call order.
-	selectQueue: [] as unknown[][]
-}));
+/** A stubbed DB row: plain JSON-ish values only. */
+type Row = Record<string, string | number | boolean | null | Date>;
 
+interface StubState {
+	selectQueue: Row[][];
+}
+
+const state = vi.hoisted(
+	(): StubState => ({
+		// Each entry is the rows a `.where()` (or `.orderBy().limit()`) resolves to,
+		// in call order.
+		selectQueue: []
+	})
+);
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
 			from: () => {
 				const query = {
-					// `.where()` — thenable, and chained by `.orderBy()` (with or
-					// without `.limit()`): getCompletionTimestamps uses
-					// orderBy+limit, getRecurringDayCompletions uses orderBy.
+					// Promise + chained orderBy (with/without limit): getCompletionTimestamps
+					// uses orderBy+limit, getRecurringDayCompletions uses orderBy.
 					where: () => {
 						const rows = state.selectQueue.shift() ?? [];
-						return {
-							then: (resolve: (v: unknown) => unknown) => resolve(rows),
-							orderBy: () => ({
-								limit: () => Promise.resolve(rows),
-								then: (resolve: (v: unknown) => unknown) => resolve(rows)
-							})
-						};
+						return Object.assign(Promise.resolve(rows), {
+							orderBy: () =>
+								Object.assign(Promise.resolve(rows), {
+									limit: () => Promise.resolve(rows)
+								})
+						});
 					}
 				};
 				return {

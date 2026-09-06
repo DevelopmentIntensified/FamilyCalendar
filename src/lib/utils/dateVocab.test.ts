@@ -47,7 +47,7 @@ describe('dateVocab — month names', () => {
 	});
 
 	it('MONTH_ABBREV_INDEX maps all abbreviations to 0-based index', () => {
-		const cases: [string, number][] = [
+		const cases = [
 			['jan', 0],
 			['feb', 1],
 			['mar', 2],
@@ -61,7 +61,7 @@ describe('dateVocab — month names', () => {
 			['oct', 9],
 			['nov', 10],
 			['dec', 11]
-		];
+		] as const;
 		for (const [abbr, idx] of cases) {
 			expect(MONTH_ABBREV_INDEX[abbr]).toBe(idx);
 		}

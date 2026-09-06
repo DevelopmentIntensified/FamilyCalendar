@@ -5,6 +5,7 @@ const mockFrom = vi.fn();
 const mockWhere = vi.fn();
 const mockLimit = vi.fn();
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- scripts the drizzle query-builder to pin query shapes; a real-Postgres harness is tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => {
@@ -35,12 +36,6 @@ vi.mock('$lib/server/db', () => ({
 			};
 		}
 	}
-}));
-
-vi.mock('$lib/server/db/schema', () => ({
-	subscriptions: {},
-	subscriptionTypes: {},
-	familyMembers: {}
 }));
 
 import {

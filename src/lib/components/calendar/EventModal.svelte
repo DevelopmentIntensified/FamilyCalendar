@@ -30,6 +30,27 @@
 
 	const dispatch = createEventDispatcher();
 
+	/** Shape returned by GET/POST /api/events/[id]/rsvp. */
+	type RsvpApiResponse = {
+		attendance?: {
+			userId: string | null;
+			status: string;
+			firstName?: string | null;
+			lastName?: string | null;
+			name?: string | null;
+			inviteType?: string | null;
+		}[];
+		userRsvpStatus?: string;
+		rsvpStatus?: string;
+	};
+
+	/** Checklist task rows served by /api/tasks. */
+	type ChecklistTask = {
+		id: string;
+		title: string;
+		completedAt: Date | string | null;
+	};
+
 	let showEditForm = false;
 	let duplicating = false;
 	let showDeleteConfirm = false;
@@ -65,12 +86,12 @@
 		try {
 			const res = await fetch(`/api/events/${serverId}/rsvp`);
 			if (res.ok) {
-				const data = await res.json();
+				const data: RsvpApiResponse = await res.json();
 				if (data.attendance) {
-					attendees = data.attendance.filter((a: any) => a.userId);
+					attendees = data.attendance.filter((a) => a.userId);
 					nonUserAttendants = data.attendance
-						.filter((a: any) => !a.userId && a.name)
-						.map((a: any) => a.name);
+						.filter((a) => !a.userId && a.name)
+						.map((a) => a.name ?? '');
 				}
 				if (data.userRsvpStatus) {
 					currentUserRsvpStatus = data.userRsvpStatus;
@@ -100,7 +121,7 @@
 		return dt.isValid ? dt.toFormat('HH:mm') : undefined;
 	}
 
-	function toIsoString(v: unknown): string {
+	function toIsoString(v: Date | string): string {
 		return toDate(v).toISOString();
 	}
 	$: startTime = event.startTime || tryFormat(event.start);
@@ -153,7 +174,9 @@
 
 	async function performDelete(scope?: 'this' | 'all') {
 		const url = `/api/events/${event.masterId || event.id}`;
-		const options: RequestInit = { method: 'DELETE' };
+		const options: RequestInit = {
+			method: 'DELETE'
+		};
 
 		if (scope !== undefined && event.occurrenceDate) {
 			options.headers = { 'Content-Type': 'application/json' };
@@ -204,11 +227,13 @@
 				body: JSON.stringify({ status: next })
 			});
 			if (response.ok) {
-				const data = await response.json();
-				attendees = data.attendance.filter((a: any) => a.userId);
-				nonUserAttendants = data.attendance
-					.filter((a: any) => !a.userId && a.name)
-					.map((a: any) => a.name);
+				const data: RsvpApiResponse = await response.json();
+				if (data.attendance) {
+					attendees = data.attendance.filter((a) => a.userId);
+					nonUserAttendants = data.attendance
+						.filter((a) => !a.userId && a.name)
+						.map((a) => a.name ?? '');
+				}
 				currentUserRsvpStatus = data.rsvpStatus || next;
 				dispatch('rsvp', { id: serverId, status: next });
 				await invalidateAll();
@@ -227,15 +252,15 @@
 		{ status: 'going', label: 'Going' },
 		{ status: 'maybe', label: 'Maybe' },
 		{ status: 'declined', label: "Can't go" }
-	];
+	] as const;
 	$: rsvpCounts = {
 		going: goingList.length,
 		maybe: maybeList.length,
 		declined: notGoingList.length
-	} as Record<string, number>;
+	};
 
 	// Event checklist — hidden until it has content.
-	let eventTasks: any[] = [];
+	let eventTasks: ChecklistTask[] = [];
 	let showTaskInput = false;
 	let newTaskTitle = '';
 	let taskBusy = false;
@@ -245,7 +270,8 @@
 		try {
 			const res = await fetch(`/api/tasks?eventId=${serverId}`);
 			if (res.ok) {
-				eventTasks = (await res.json()).tasks ?? [];
+				const body: { tasks?: ChecklistTask[] } = await res.json();
+				eventTasks = body.tasks ?? [];
 			}
 		} catch (e) {
 			console.error('Failed to load event tasks:', e);
@@ -263,8 +289,8 @@
 				body: JSON.stringify({ title, eventId: serverId })
 			});
 			if (res.ok) {
-				const json = await res.json();
-				eventTasks = [...eventTasks, json.task];
+				const body: { task?: ChecklistTask } = await res.json();
+				if (body.task) eventTasks = [...eventTasks, body.task];
 				newTaskTitle = '';
 			}
 		} finally {
@@ -272,7 +298,7 @@
 		}
 	}
 
-	async function toggleEventTask(task: any) {
+	async function toggleEventTask(task: ChecklistTask) {
 		if (taskBusy) return;
 		taskBusy = true;
 		try {
@@ -282,8 +308,8 @@
 				body: JSON.stringify({ toggleComplete: true })
 			});
 			if (res.ok) {
-				const json = await res.json();
-				eventTasks = eventTasks.map((t) => (t.id === task.id ? json.task : t));
+				const body: { task?: ChecklistTask } = await res.json();
+				eventTasks = eventTasks.map((t) => (t.id === task.id ? (body.task ?? t) : t));
 			}
 		} finally {
 			taskBusy = false;

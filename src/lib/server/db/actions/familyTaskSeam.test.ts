@@ -7,22 +7,35 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * toggleTaskComplete.test.ts: the drizzle query-builder is scripted so the
  * permission decision logic runs without a live database.
  */
-const state = vi.hoisted(() => ({
-	queue: [] as unknown[][],
-	updatePatch: null as Record<string, unknown> | null,
-	updateResult: null as Record<string, unknown> | null,
-	insertValues: null as unknown
-}));
+/** A stubbed DB row / patch: plain JSON-ish values only. */
+type Row = Record<string, string | number | boolean | null | Date>;
 
+interface StubState {
+	queue: Row[][];
+	updatePatch: Row | null;
+	updateResult: Row | null;
+	insertValues: Row | null;
+}
+
+const state = vi.hoisted(
+	(): StubState => ({
+		queue: [],
+		updatePatch: null,
+		updateResult: null,
+		insertValues: null
+	})
+);
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
 			from: () => ({
-				where: () => Promise.resolve((state.queue.shift() ?? []) as unknown[])
+				where: () => Promise.resolve(state.queue.shift() ?? [])
 			})
 		}),
 		update: () => ({
-			set: (patch: Record<string, unknown>) => {
+			set: (patch: Row) => {
 				state.updatePatch = patch;
 				return {
 					where: () => ({
@@ -32,7 +45,7 @@ vi.mock('$lib/server/db', () => ({
 			}
 		}),
 		insert: () => ({
-			values: (values: unknown) => {
+			values: (values: Row) => {
 				state.insertValues = values;
 				return Promise.resolve();
 			}
@@ -42,7 +55,27 @@ vi.mock('$lib/server/db', () => ({
 
 import { toggleTaskComplete, toggleTaskCompleteFamily, isFamilyMember } from './tasks';
 
-function makeFamilyTask(overrides: Record<string, unknown> = {}) {
+/** Base row for a one-off family Task under test. */
+type TaskRow = {
+	id: string;
+	title: string;
+	notes: string | null;
+	dueDate: string | null;
+	completedAt: string | null;
+	archivedAt: string | null;
+	recurrenceFrequency: string | null;
+	recurrenceInterval: number | null;
+	completionCount: number;
+	assignedTo: string | null;
+	assignmentStatus: string;
+	priority: string;
+	userId: string;
+	familyId: string | null;
+	eventId: string | null;
+	createdAt: Date;
+};
+
+function makeFamilyTask(overrides: Partial<TaskRow> = {}): TaskRow {
 	return {
 		id: 't1',
 		title: 'Water the plants',

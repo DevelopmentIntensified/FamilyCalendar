@@ -71,6 +71,9 @@ async function withStore<T>(
 		let result: T | undefined;
 		tx.oncomplete = () => {
 			db.close();
+			// SAFETY: oncomplete only fires after every request's onsuccess has
+			// assigned `request.result` (a T) to `result`; the write paths store
+			// nothing, so an undefined `result` here is the by-design void case.
 			resolve(result as T);
 		};
 		tx.onerror = () => {

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { TaskQuickAddResult } from '$lib/utils/taskQuickAdd';
+	import type { TaskFrequency } from '$lib/server/db/actions/tasks';
 
-	const FREQ_NOUN: Record<string, string> = {
+	const FREQ_NOUN: Record<TaskFrequency, string> = {
 		daily: 'day',
 		weekly: 'week',
 		monthly: 'month',

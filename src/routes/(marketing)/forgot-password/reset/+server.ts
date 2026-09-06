@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import type { RequestEvent } from './$types';
 import { getUserByEmail, updateUser } from '$lib/server/db/actions/users';
 import { getCode, createCode } from '$lib/server/db/actions/codes';
 import { hashPassword } from '$lib/server/utils/password';
@@ -8,9 +8,61 @@ import { EMAILSECRET } from '$env/static/private';
 import { parseJWT, validateJWT } from 'oslo/jwt';
 import { createHash } from 'node:crypto';
 
-export const POST: RequestHandler = async ({ request }) => {
+/**
+ * Collaborators POST needs, injectable so tests can pass fakes through a real
+ * seam instead of mocking modules. Defaults wire the production services.
+ */
+export type ResetPasswordDeps = {
+	getUserByEmail: typeof getUserByEmail;
+	updateUser: typeof updateUser;
+	getCode: typeof getCode;
+	createCode: typeof createCode;
+	hashPassword: typeof hashPassword;
+	invalidateUserSessions: typeof lucia.invalidateUserSessions;
+	jwtSecret: Uint8Array;
+	verifyJwt: typeof validateJWT;
+	parseJwt: typeof parseJWT;
+};
+
+function isResetPayload(value: unknown): value is { email: string; exp?: number } {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'email' in value &&
+		typeof value.email === 'string'
+	);
+}
+
+const defaultDeps: ResetPasswordDeps = {
+	getUserByEmail,
+	updateUser,
+	getCode,
+	createCode,
+	hashPassword,
+	invalidateUserSessions: (userId: string) => lucia.invalidateUserSessions(userId),
+	jwtSecret: new TextEncoder().encode(EMAILSECRET),
+	verifyJwt: validateJWT,
+	parseJwt: parseJWT
+};
+
+export const POST = async (
+	event: RequestEvent,
+	deps: ResetPasswordDeps = defaultDeps
+): Promise<Response> => {
+	const {
+		getUserByEmail: lookupUser,
+		updateUser,
+		getCode,
+		createCode,
+		hashPassword,
+		invalidateUserSessions,
+		jwtSecret,
+		verifyJwt,
+		parseJwt
+	} = deps;
+
 	try {
-		const { token, password } = await request.json();
+		const { token, password } = await event.request.json();
 
 		if (!token || !password) {
 			return json({ error: 'Token and password are required' }, { status: 400 });
@@ -20,10 +72,8 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ error: 'Password must be at least 8 characters' }, { status: 400 });
 		}
 
-		const secret = new TextEncoder().encode(EMAILSECRET);
-
 		try {
-			await validateJWT('HS256', secret, token);
+			await verifyJwt('HS256', jwtSecret, token);
 		} catch {
 			return json(
 				{ error: 'Invalid or expired reset token. Please request a new one.' },
@@ -31,13 +81,13 @@ export const POST: RequestHandler = async ({ request }) => {
 			);
 		}
 
-		const parsed = parseJWT(token);
+		const parsed = parseJwt(token);
 		if (!parsed) {
 			return json({ error: 'Invalid reset token' }, { status: 400 });
 		}
 
-		const payload = parsed.payload as { email: string; exp?: number };
-		if (!payload?.email) {
+		const payload: unknown = parsed.payload;
+		if (!isResetPayload(payload)) {
 			return json({ error: 'Invalid reset token' }, { status: 400 });
 		}
 
@@ -52,7 +102,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			);
 		}
 
-		const user = await getUserByEmail(payload.email);
+		const user = await lookupUser(payload.email);
 		if (!user) {
 			return json({ error: 'Account not found' }, { status: 400 });
 		}
@@ -69,7 +119,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		// A password reset means existing credentials were compromised;
 		// kill every live session so a hijacker cannot keep access.
-		await lucia.invalidateUserSessions(user.id);
+		await invalidateUserSessions(user.id);
 
 		return json({ success: true });
 	} catch (error) {

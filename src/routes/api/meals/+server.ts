@@ -35,6 +35,10 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	}
 };
 
+function isString(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const auth = requireUserJson(locals);
 	if (auth.response) return auth.response;
@@ -49,9 +53,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Invalid JSON body' }, { status: 400 });
 	}
 
-	const date = typeof body.date === 'string' ? body.date : '';
-	const kind = typeof body.kind === 'string' ? body.kind : '';
-	const label = typeof body.label === 'string' ? body.label : '';
+	const date = isString(body.date) ? body.date : '';
+	const kind = isString(body.kind) ? body.kind : '';
+	const label = isString(body.label) ? body.label : '';
 
 	if (!isMealDate(date)) {
 		return json({ error: 'date is required as YYYY-MM-DD' }, { status: 400 });
@@ -91,7 +95,7 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Invalid JSON body' }, { status: 400 });
 	}
 
-	const id = typeof body.id === 'string' && body.id ? body.id : '';
+	const id = isString(body.id) && body.id ? body.id : '';
 	if (!id) return json({ error: 'id is required' }, { status: 400 });
 
 	try {

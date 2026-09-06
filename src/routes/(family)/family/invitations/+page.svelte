@@ -27,7 +27,7 @@
 			} else {
 				await invalidateAll();
 			}
-		} catch (e) {
+		} catch {
 			error = 'Failed to create invitation';
 		}
 		creating = false;
@@ -48,7 +48,7 @@
 			} else {
 				await invalidateAll();
 			}
-		} catch (e) {
+		} catch {
 			error = 'Failed to revoke invitation';
 		}
 		revoking = '';

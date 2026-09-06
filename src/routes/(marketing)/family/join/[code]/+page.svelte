@@ -29,7 +29,7 @@
 					goto('/family');
 				}, 1500);
 			}
-		} catch (e) {
+		} catch {
 			error = 'Failed to join family';
 		} finally {
 			joining = false;

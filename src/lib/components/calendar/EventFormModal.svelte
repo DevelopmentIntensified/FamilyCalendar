@@ -340,7 +340,7 @@
 					familyMembers,
 					defaultCalendarId: form.selectedCalendarId
 				});
-				tmp.applyNlpResult(r.parsed as any);
+				tmp.applyNlpResult(r.parsed);
 				const payload = tmp.submitPreparation();
 				if (!payload) continue;
 				const res = await fetch('/api/events', {
@@ -537,6 +537,7 @@
 		on:click={close}
 		role="presentation"
 	>
+		<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 		<div
 			class="flex max-h-[92dvh] w-full max-w-lg transform flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
 			style="transform: translateY({dragOffset}px); transition: transform {dragTransition

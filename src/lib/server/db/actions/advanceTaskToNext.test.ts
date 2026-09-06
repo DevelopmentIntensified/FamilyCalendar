@@ -6,21 +6,33 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * permissions, cursor advance) is verified without a live database.
  * Each `select...where` call shifts the next batch out of `queue`.
  */
-const state = vi.hoisted(() => ({
-	queue: [] as unknown[][],
-	updatePatch: null as Record<string, unknown> | null,
-	updateResult: null as Record<string, unknown> | null
-}));
+/** A stubbed DB row / patch: plain JSON-ish values only. */
+type Row = Record<string, string | number | boolean | null | Date>;
 
+interface StubState {
+	queue: Row[][];
+	updatePatch: Row | null;
+	updateResult: Row | null;
+}
+
+const state = vi.hoisted(
+	(): StubState => ({
+		queue: [],
+		updatePatch: null,
+		updateResult: null
+	})
+);
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
 			from: () => ({
-				where: () => Promise.resolve((state.queue.shift() ?? []) as unknown[])
+				where: () => Promise.resolve(state.queue.shift() ?? [])
 			})
 		}),
 		update: () => ({
-			set: (patch: Record<string, unknown>) => {
+			set: (patch: Row) => {
 				state.updatePatch = patch;
 				return {
 					where: () => ({
@@ -36,7 +48,27 @@ import { advanceTaskToNext, advanceCursor } from './tasks';
 
 const nowIso = () => new Date().toISOString();
 
-function recurringTask(overrides: Record<string, unknown> = {}) {
+/** Base row for a weekly recurring Task under test. */
+type TaskRow = {
+	id: string;
+	title: string;
+	notes: string | null;
+	dueDate: string | null;
+	completedAt: string | null;
+	archivedAt: string | null;
+	recurrenceFrequency: string | null;
+	recurrenceInterval: number | null;
+	completionCount: number;
+	assignedTo: string | null;
+	assignmentStatus: string;
+	priority: string;
+	userId: string;
+	familyId: string | null;
+	eventId: string | null;
+	createdAt: Date;
+};
+
+function recurringTask(overrides: Partial<TaskRow> = {}): TaskRow {
 	return {
 		id: 't1',
 		title: 'Take out trash',
@@ -80,7 +112,7 @@ describe('advanceTaskToNext', () => {
 	it('creator advances their own recurring task and clears completedAt when set', async () => {
 		const task = recurringTask();
 		state.queue = [[task]];
-		const expectedDue = advanceCursor(task.dueDate as string, 'weekly', 1, nowIso());
+		const expectedDue = advanceCursor(task.dueDate, 'weekly', 1, nowIso());
 		state.updateResult = { ...task, dueDate: expectedDue, completedAt: null };
 
 		const result = await advanceTaskToNext('t1', 'user-a');
@@ -93,7 +125,7 @@ describe('advanceTaskToNext', () => {
 	it('the assignee (not the creator) may also advance', async () => {
 		const task = recurringTask({ userId: 'user-b' });
 		state.queue = [[task]];
-		const expectedDue = advanceCursor(task.dueDate as string, 'weekly', 1, nowIso());
+		const expectedDue = advanceCursor(task.dueDate, 'weekly', 1, nowIso());
 		state.updateResult = { ...task, dueDate: expectedDue, completedAt: null };
 
 		const result = await advanceTaskToNext('t1', 'user-a');
@@ -104,7 +136,7 @@ describe('advanceTaskToNext', () => {
 		const task = recurringTask({ userId: 'user-b', assignedTo: 'user-b', familyId: 'fam-1' });
 		// select #1 = the task, select #2 = family-membership row
 		state.queue = [[task], [{ familyId: 'fam-1' }]];
-		const expectedDue = advanceCursor(task.dueDate as string, 'weekly', 1, nowIso());
+		const expectedDue = advanceCursor(task.dueDate, 'weekly', 1, nowIso());
 		state.updateResult = { ...task, dueDate: expectedDue, completedAt: null };
 
 		const result = await advanceTaskToNext('t1', 'user-a');

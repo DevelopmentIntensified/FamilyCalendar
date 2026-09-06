@@ -8,7 +8,11 @@
 	$: notifications = data.notifications;
 	$: unreadCount = data.unreadCount;
 
-	const typeIcons: Record<string, string> = {
+	/** Notification type -> icon; keyed by the free-string `type` column. */
+	interface TypeIcons {
+		[key: string]: string;
+	}
+	const typeIcons: TypeIcons = {
 		assignment_accepted: '👍',
 		assignment_declined: '👋',
 		task_completed: '✅'

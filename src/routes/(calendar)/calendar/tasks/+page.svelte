@@ -44,6 +44,11 @@
 		tags?: string[];
 	};
 
+	/** TaskId -> optimistic completion state while a toggle is in flight. */
+	interface CompletedOverrides {
+		[taskId: string]: boolean;
+	}
+
 	let newTitle = '';
 	let newDueDate = '';
 	let adding = false;
@@ -62,7 +67,11 @@
 		{ value: 'monthly', label: 'Monthly' },
 		{ value: 'yearly', label: 'Yearly' }
 	];
-	const FREQ_NOUN: Record<string, string> = {
+	/** Recurrence frequency -> singular noun for "every N <noun>s". */
+	interface FreqNouns {
+		[key: string]: string;
+	}
+	const FREQ_NOUN: FreqNouns = {
 		daily: 'day',
 		weekly: 'week',
 		monthly: 'month',
@@ -81,12 +90,7 @@
 	let editSaving = false;
 
 	$: data.familyMembers = data.familyMembers ?? [];
-	$: familyRoster = (data.familyMembers || []) as {
-		userId: string;
-		firstName: string;
-		lastName: string;
-		email: string;
-	}[];
+	$: familyRoster = data.familyMembers ?? [];
 
 	function memberName(userId: string): string {
 		const m = familyRoster.find((f) => f.userId === userId);
@@ -180,20 +184,22 @@
 						: 'pending'
 					: null;
 			}
+			const editPayload = {
+				title: editTitle.trim(),
+				notes: editNotes.trim() || null,
+				dueDate: inputToIso(editDue),
+				recurrenceFrequency: editFreq || null,
+				recurrenceInterval: editFreq ? Math.max(1, Math.floor(editInterval)) : null,
+				assignedTo,
+				priority: editPriority,
+				tags: parseEditTags(editTags)
+			};
 			const res = await fetch(`/api/tasks/${editing.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					title: editTitle.trim(),
-					notes: editNotes.trim() || null,
-					dueDate: inputToIso(editDue),
-					recurrenceFrequency: editFreq || null,
-					recurrenceInterval: editFreq ? Math.max(1, Math.floor(editInterval)) : null,
-					assignedTo,
-					priority: editPriority,
-					tags: parseEditTags(editTags),
-					...(assignmentStatus ? { assignmentStatus } : {})
-				})
+				body: JSON.stringify(
+					assignmentStatus === null ? editPayload : { ...editPayload, assignmentStatus }
+				)
 			});
 			if (res.ok) {
 				closeEdit();
@@ -211,7 +217,7 @@
 
 	// Optimistic toggle overrides applied on top of server data until the
 	// request resolves; referenced inline so $: picks up reassignment.
-	let completedOverride: Record<string, boolean> = {};
+	let completedOverride: CompletedOverrides = {};
 
 	// Parse the comma-separated tags input from the edit dialog into a
 	// normalized list: trimmed, lowercased, deduped, empties dropped.
@@ -228,10 +234,10 @@
 		return out;
 	}
 
-	$: openTasks = (data.tasks as TaskItem[]).filter(
+	$: openTasks = data.tasks.filter(
 		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === false
 	);
-	$: completedTasks = (data.tasks as TaskItem[]).filter(
+	$: completedTasks = data.tasks.filter(
 		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === true
 	);
 
@@ -265,7 +271,11 @@
 	);
 	$: tagFilterActive = tagFilter.trim().length > 0;
 	$: filterActive = tagFilterActive || queryActive;
-	const PRIORITY_DOT: Record<string, string> = {
+	/** Task priority -> dot color class. */
+	interface PriorityDots {
+		[key: string]: string;
+	}
+	const PRIORITY_DOT: PriorityDots = {
 		high: 'bg-red-500',
 		normal: 'bg-slate-300',
 		low: 'bg-sky-500'
@@ -378,7 +388,7 @@
 	}
 
 	async function toggleTask(id: string) {
-		const task = (data.tasks as TaskItem[]).find((t) => t.id === id);
+		const task = data.tasks.find((t) => t.id === id);
 		if (!task || busyId) return;
 		const completing = !(task.id in completedOverride
 			? completedOverride[task.id]
@@ -445,7 +455,8 @@
 	let celebrateTimer: ReturnType<typeof setTimeout> | undefined;
 
 	function clearOverride(id: string) {
-		const { [id]: _dropped, ...rest } = completedOverride;
+		const rest = { ...completedOverride };
+		delete rest[id];
 		completedOverride = rest;
 	}
 
@@ -1029,6 +1040,7 @@
 		onkeydown={(e) => e.key === 'Escape' && closeEdit()}
 		role="presentation"
 	>
+		<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 		<div
 			class="w-full max-w-md rounded-xl bg-white shadow-2xl"
 			onclick={(e) => e.stopPropagation()}

@@ -4,6 +4,7 @@ import ReportBugPage from './+page.svelte';
 import type { ActionData } from './$types';
 import type { BugArea } from '$lib/server/db/actions/bugReports';
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- SvelteKit $app/forms is framework-injected; no DI seam exists.
 vi.mock('$app/forms', () => ({
 	enhance: vi.fn(() => vi.fn())
 }));

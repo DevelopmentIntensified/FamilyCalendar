@@ -4,6 +4,7 @@ import { invalidateAll } from '$app/navigation';
 import type { Event } from '$lib/types';
 import EventModal from './EventModal.svelte';
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- DI seam impossible: `$app/navigation` is a SvelteKit virtual module imported inside EventModal; there is no injectable surface short of changing the component's public API.
 vi.mock('$app/navigation', () => ({
 	invalidateAll: vi.fn(() => Promise.resolve()),
 	goto: vi.fn()
@@ -11,18 +12,22 @@ vi.mock('$app/navigation', () => ({
 
 const baseEvent: Event = {
 	id: 'evt1',
+	calendarId: 'cal1',
+	ownerId: 'user1',
 	title: 'Test Event',
 	start: '2026-07-17T10:00:00Z',
 	end: '2026-07-17T11:00:00Z',
-	allDay: false,
-	location: 'Conference Room A',
 	description: 'Team standup meeting',
-	calendarId: 'cal1',
-	ownerId: 'user1',
-	created_at: new Date('2026-07-01T00:00:00Z'),
+	location: 'Conference Room A',
+	allDay: false,
 	recurrenceFrequency: null,
-	recurrenceInterval: null
-} as unknown as Event;
+	recurrenceInterval: null,
+	recurrenceByDay: null,
+	recurrenceCount: null,
+	recurrenceUntil: null,
+	reminderMinutes: null,
+	created_at: new Date('2026-07-01T00:00:00Z')
+};
 
 describe('EventModal - display details', () => {
 	beforeEach(() => {

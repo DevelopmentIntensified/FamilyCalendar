@@ -6,7 +6,6 @@
 
 	let loading = false;
 	let submitted = form?.success === true || false;
-	let formEmail = form?.email ?? '';
 </script>
 
 <svelte:head>

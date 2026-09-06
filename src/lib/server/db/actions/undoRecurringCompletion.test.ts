@@ -6,30 +6,43 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * matching taskCompletions history row (so streaks/stats don't count an
  * undone completion). Rules mirror toggleTaskComplete's eligibility.
  */
-const state = vi.hoisted(() => ({
-	queue: [] as unknown[][],
-	updatePatch: null as Record<string, unknown> | null,
-	updateResult: null as Record<string, unknown> | null,
-	deleteWhere: null as unknown,
-	deleteResult: {} as { rowCount: number }
-}));
+/** A stubbed DB row / patch: plain JSON-ish values only. */
+type Row = Record<string, string | number | boolean | null | Date>;
 
+interface StubState {
+	queue: Row[][];
+	updatePatch: Row | null;
+	updateResult: Row | null;
+	deleteWhere: boolean | null;
+	deleteResult: { rowCount: number };
+}
+
+const state = vi.hoisted(
+	(): StubState => ({
+		queue: [],
+		updatePatch: null,
+		updateResult: null,
+		deleteWhere: null,
+		deleteResult: { rowCount: 1 }
+	})
+);
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
 			from: () => ({
 				where: () => {
 					const rows = state.queue.shift() ?? [];
-					return {
-						// thenable so existing `await select...where` resolves to rows
-						then: (resolve: (v: unknown) => unknown) => resolve(rows),
+					// Promise + chained orderBy so await and .orderBy().limit() both resolve.
+					return Object.assign(Promise.resolve(rows), {
 						orderBy: () => ({ limit: () => Promise.resolve(rows) })
-					};
+					});
 				}
 			})
 		}),
 		update: () => ({
-			set: (patch: Record<string, unknown>) => {
+			set: (patch: Row) => {
 				state.updatePatch = patch;
 				return {
 					where: () => ({
@@ -49,7 +62,27 @@ vi.mock('$lib/server/db', () => ({
 
 import { undoRecurringCompletion } from './tasks';
 
-function recurringTask(overrides: Record<string, unknown> = {}) {
+/** Base row for a daily recurring Task under test. */
+type TaskRow = {
+	id: string;
+	title: string;
+	notes: string | null;
+	dueDate: string | null;
+	completedAt: string | null;
+	archivedAt: string | null;
+	recurrenceFrequency: string | null;
+	recurrenceInterval: number | null;
+	completionCount: number;
+	assignedTo: string | null;
+	assignmentStatus: string;
+	priority: string;
+	userId: string;
+	familyId: string | null;
+	eventId: string | null;
+	createdAt: Date;
+};
+
+function recurringTask(overrides: Partial<TaskRow> = {}): TaskRow {
 	return {
 		id: 't1',
 		title: 'Water the plants',

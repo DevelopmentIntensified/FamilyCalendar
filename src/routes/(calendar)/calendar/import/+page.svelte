@@ -8,6 +8,8 @@
 	let fileName = '';
 
 	function onFileChange(e: Event) {
+		// SAFETY: this handler is only bound to the .ics file <input>,
+		// so currentTarget is always that input element when it fires.
 		const input = e.currentTarget as HTMLInputElement;
 		fileName = input.files?.[0]?.name ?? '';
 	}

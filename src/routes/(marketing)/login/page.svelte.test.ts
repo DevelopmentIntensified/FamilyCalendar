@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/svelte';
 import LoginPage from './+page.svelte';
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- SvelteKit $app/navigation is framework-injected; no DI seam exists.
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
 }));
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- SvelteKit $app/stores is framework-injected; no DI seam exists.
 vi.mock('$app/stores', () => ({
 	page: { subscribe: vi.fn() }
 }));

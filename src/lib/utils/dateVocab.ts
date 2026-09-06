@@ -29,7 +29,7 @@ export const MONTH_FULL: readonly string[] = [
 ];
 
 /** Month abbreviation → 0-based index. */
-export const MONTH_ABBREV_INDEX: Record<string, number> = {
+export const MONTH_ABBREV_INDEX = {
 	jan: 0,
 	feb: 1,
 	mar: 2,
@@ -43,7 +43,7 @@ export const MONTH_ABBREV_INDEX: Record<string, number> = {
 	oct: 9,
 	nov: 10,
 	dec: 11
-};
+} satisfies Record<string, number>;
 
 /** Month full name → 0-based index. */
 export const MONTH_FULL_INDEX: Record<string, number> = {};
@@ -52,7 +52,13 @@ for (let i = 0; i < 12; i++) {
 }
 
 /** All month tokens → 0-based index (full + abbreviations). */
-export const MONTH_INDEX_0: Record<string, number> = { ...MONTH_FULL_INDEX, ...MONTH_ABBREV_INDEX };
+// SAFETY: both sources are string-keyed month-token → number-index maps, so
+// the merge is still a Record<string, number> (TS object spread drops the
+// source index signature).
+export const MONTH_INDEX_0 = Object.assign({}, MONTH_FULL_INDEX, MONTH_ABBREV_INDEX) as Record<
+	string,
+	number
+>;
 
 /** All month tokens → 1-based index (for Luxon / dateParsing). */
 export const MONTH_INDEX_1: Record<string, number> = {};

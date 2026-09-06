@@ -2,11 +2,26 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
 	reportUnmatchedPhrase,
+	type MatchedPayload,
 	type UnmatchedSource
 } from '$lib/server/db/actions/unmatchedPhrases';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
-const SOURCES: UnmatchedSource[] = ['event_parse', 'bulk_edit'];
+function isPhraseReport(value: unknown): value is {
+	phrase: unknown;
+	source: unknown;
+	matched: unknown;
+} {
+	return typeof value === 'object' && value !== null;
+}
+
+function isString(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
+function isUnmatchedSource(value: unknown): value is UnmatchedSource {
+	return value === 'event_parse' || value === 'bulk_edit';
+}
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
@@ -17,12 +32,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Too many reports. Try again shortly.' }, { status: 429 });
 	}
 
-	const body = await request.json().catch(() => ({}) as Record<string, unknown>);
-	const phrase = typeof body.phrase === 'string' ? body.phrase.trim() : '';
-	const source = body.source as UnmatchedSource;
-	const matched = body.matched ?? null;
+	const body: unknown = await request.json().catch(() => null);
+	if (!isPhraseReport(body)) {
+		return json(
+			{ error: 'phrase (string) and source (event_parse | bulk_edit) are required' },
+			{ status: 400 }
+		);
+	}
+	const phrase = isString(body.phrase) ? body.phrase.trim() : '';
+	const source = isUnmatchedSource(body.source) ? body.source : null;
+	// SAFETY: MatchedPayload is a recursive JSON shape; the client posts JSON
+	// and this endpoint forwards it verbatim to the report action.
+	const matched = (body.matched ?? null) as MatchedPayload | null;
 
-	if (!phrase || phrase.length > 280 || !SOURCES.includes(source)) {
+	if (!phrase || phrase.length > 280 || source === null) {
 		return json(
 			{ error: 'phrase (string) and source (event_parse | bulk_edit) are required' },
 			{ status: 400 }

@@ -1,12 +1,45 @@
-import type { RequestHandler } from './$types';
-import { getUrl } from '$lib/utils/getUrl';
+import type { RequestEvent } from './$types';
 import { lucia } from '$lib/server/auth';
 import { deleteCode, deleteDeadCodes, getCode } from '$lib/server/db/actions/codes';
 import { getAccount } from '$lib/server/db/actions/accounts';
 import { getUserByEmail } from '$lib/server/db/actions/users';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
-export const POST: RequestHandler = async function (event) {
+/**
+ * Collaborators POST needs, injectable so tests can pass fakes through a real
+ * seam instead of mocking modules. Defaults wire the production services.
+ */
+export type LoginCodeDeps = {
+	getCode: typeof getCode;
+	deleteCode: typeof deleteCode;
+	deleteDeadCodes: typeof deleteDeadCodes;
+	getAccount: typeof getAccount;
+	getUserByEmail: typeof getUserByEmail;
+	lucia: Pick<typeof lucia, 'createSession' | 'createSessionCookie' | 'invalidateSession'>;
+};
+
+const defaultDeps: LoginCodeDeps = {
+	getCode,
+	deleteCode,
+	deleteDeadCodes,
+	getAccount,
+	getUserByEmail,
+	lucia
+};
+
+export const POST = async function (
+	event: RequestEvent,
+	deps: LoginCodeDeps = defaultDeps
+): Promise<Response> {
+	const {
+		getCode: lookupCode,
+		deleteCode: removeCode,
+		deleteDeadCodes,
+		getAccount: lookupAccount,
+		getUserByEmail: lookupUser,
+		lucia: session
+	} = deps;
+
 	if (!rateLimit(clientKey(event.request, 'verify-login-code'), 10, 15 * 60 * 1000)) {
 		return new Response(
 			JSON.stringify({ success: false, error: 'Too many attempts. Try again shortly.' }),
@@ -22,7 +55,7 @@ export const POST: RequestHandler = async function (event) {
 
 	await deleteDeadCodes();
 
-	const codeToCheck = await getCode(code);
+	const codeToCheck = await lookupCode(code);
 	if (!codeToCheck) {
 		return new Response(
 			JSON.stringify({ success: false, error: 'Unexpected error, please try again' }),
@@ -39,45 +72,45 @@ export const POST: RequestHandler = async function (event) {
 			);
 		}
 
-		let userAccount = await getAccount(email);
+		let userAccount: { userId: string } | null = await lookupAccount(email);
 		if (!userAccount) {
-			const user = await getUserByEmail(email);
+			const user = await lookupUser(email);
 			if (!user) {
 				return new Response(JSON.stringify({ success: false, error: 'No Account found' }), {
 					status: 500
 				});
 			}
-			userAccount = { userId: user.id } as any;
+			userAccount = { userId: user.id };
 		}
 
 		const oldSessionId = event.locals?.session?.id;
 		const oldUser = event.locals?.user;
 
-		const session = await lucia.createSession(userAccount.userId, {});
-		const sessionCookie = lucia.createSessionCookie(session.id);
+		const sessionRecord = await session.createSession(userAccount.userId, {});
+		const sessionCookie = session.createSessionCookie(sessionRecord.id);
 
 		if (
 			oldSessionId &&
 			oldUser &&
 			!oldUser.email &&
 			oldUser.id !== userAccount.userId &&
-			oldSessionId !== session.id
+			oldSessionId !== sessionRecord.id
 		) {
-			await lucia.invalidateSession(oldSessionId).catch(() => {});
+			await session.invalidateSession(oldSessionId).catch(() => {});
 		}
 
-		let headers = new Headers();
+		const headers = new Headers();
 		headers.append('Set-Cookie', sessionCookie.serialize());
 
-		let result = new Response(null, {
+		const result = new Response(null, {
 			status: 200,
 			headers
 		});
 
-		await deleteCode(code);
+		await removeCode(code);
 
 		return result;
-	} catch (error) {
+	} catch {
 		return new Response(
 			JSON.stringify({ success: false, error: 'Unexpected error, please try again' }),
 			{ status: 500 }

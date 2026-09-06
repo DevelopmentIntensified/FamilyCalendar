@@ -8,28 +8,34 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  */
 import { verifyClaimToken, type ClaimVerifyDeps } from './claimService';
 
-function makeDeps(overrides: Partial<ClaimVerifyDeps> = {}): ClaimVerifyDeps & {
-	calls: { merged: unknown[]; claimed: unknown[]; settingsCreated: unknown[] };
-} {
-	const calls = {
-		merged: [] as unknown[],
-		claimed: [] as unknown[],
-		settingsCreated: [] as unknown[]
+interface CallsLog {
+	merged: Array<[string, string]>;
+	claimed: Array<[string, string]>;
+	settingsCreated: Array<[{ userId: string; timeZone: string }]>;
+}
+
+function makeDeps(overrides: Partial<ClaimVerifyDeps> = {}): ClaimVerifyDeps & { calls: CallsLog } {
+	const calls: CallsLog = {
+		merged: [],
+		claimed: [],
+		settingsCreated: []
 	};
 	return {
 		peekClaimToken: vi.fn(async () => ({ userId: 'guest-1', email: 'guest@example.com' })),
 		consumeClaimToken: vi.fn(async () => true),
 		getUserByEmail: vi.fn(async () => undefined),
-		mergeGuestIntoUser: vi.fn(async (...args: unknown[]) => {
-			calls.merged.push(args);
+		mergeGuestIntoUser: vi.fn(async (guestId: string, targetUserId: string) => {
+			calls.merged.push([guestId, targetUserId]);
 			return { events: 1, tasks: 0 };
 		}),
-		claimEmailForUser: vi.fn(async (...args: unknown[]) => {
-			calls.claimed.push(args);
+		claimEmailForUser: vi.fn(async (userId: string, email: string) => {
+			calls.claimed.push([userId, email]);
+			return { id: userId };
 		}),
 		getUserSettings: vi.fn(async () => ({ userId: 'guest-1' })),
-		createUserSettings: vi.fn(async (...args: unknown[]) => {
-			calls.settingsCreated.push(args);
+		createUserSettings: vi.fn(async (data: { userId: string; timeZone: string }) => {
+			calls.settingsCreated.push([data]);
+			return { userId: data.userId };
 		}),
 		...overrides,
 		calls

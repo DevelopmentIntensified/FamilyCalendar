@@ -14,12 +14,12 @@ describe('TRANSLATIONS', () => {
 	it('every entry has the required shape and non-empty strings', () => {
 		for (const info of Object.values(TRANSLATIONS)) {
 			expect(Object.keys(info).sort()).toEqual(['attribution', 'bundled', 'id', 'label']);
-			expect(typeof info.id).toBe('string');
-			expect(typeof info.label).toBe('string');
+			expect(info.id).toEqual(expect.any(String));
+			expect(info.label).toEqual(expect.any(String));
 			expect(info.label.length).toBeGreaterThan(0);
-			expect(typeof info.attribution).toBe('string');
+			expect(info.attribution).toEqual(expect.any(String));
 			expect(info.attribution.length).toBeGreaterThan(0);
-			expect(typeof info.bundled).toBe('boolean');
+			expect(info.bundled).toEqual(expect.any(Boolean));
 		}
 	});
 
@@ -33,8 +33,8 @@ describe('getVerseForDate (bundled)', () => {
 	it('returns a valid shape for every curated verse', () => {
 		expect(DAILY_VERSES.length).toBe(30);
 		for (const verse of DAILY_VERSES) {
-			expect(typeof verse.reference).toBe('string');
-			expect(typeof verse.text).toBe('string');
+			expect(verse.reference).toEqual(expect.any(String));
+			expect(verse.text).toEqual(expect.any(String));
 			expect(verse.reference.length).toBeGreaterThan(0);
 			expect(verse.text.length).toBeGreaterThan(0);
 			expect(verse.text).toMatch(/^[A-Z]/);
@@ -110,8 +110,8 @@ describe('getVerseForDate (ESV)', () => {
 describe('getTodayVerse', () => {
 	it("returns today's verse with a valid shape", async () => {
 		const verse = await getTodayVerse();
-		expect(typeof verse.reference).toBe('string');
-		expect(typeof verse.text).toBe('string');
+		expect(verse.reference).toEqual(expect.any(String));
+		expect(verse.text).toEqual(expect.any(String));
 		expect(verse).toEqual(await getVerseForDate(DateTime.now().toISODate()!));
 	});
 

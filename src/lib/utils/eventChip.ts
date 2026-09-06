@@ -6,7 +6,7 @@ export function chipColor(event: Pick<Event, 'color' | 'isAd'>): string {
 
 /** Inline style giving an event chip its calendar-colored identity. */
 export function chipStyle(event: Pick<Event, 'color' | 'allDay' | 'isAd'>): string {
-	if ((event as { isAd?: boolean }).isAd) return '';
+	if (event.isAd) return '';
 	const color = chipColor(event);
 	// All-day events read as solid blocks; timed ones stay light.
 	return event.allDay

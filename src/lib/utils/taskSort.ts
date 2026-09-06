@@ -13,7 +13,16 @@ export interface SortableTask {
 	priority?: string | null;
 }
 
-const PRIORITY_ORDER: Record<string, number> = { high: 0, normal: 1, low: 2 };
+const PRIORITY_ORDER: Record<'high' | 'normal' | 'low', number> = { high: 0, normal: 1, low: 2 };
+
+function isRankPriority(priority: string): priority is 'high' | 'normal' | 'low' {
+	return priority === 'high' || priority === 'normal' || priority === 'low';
+}
+
+/** Rank of a raw priority string; anything unrecognised sorts as normal (1). */
+function priorityRank(priority: string): number {
+	return isRankPriority(priority) ? PRIORITY_ORDER[priority] : 1;
+}
 
 function time(value: string | Date | number | null | undefined): number {
 	if (!value) return 0;
@@ -30,8 +39,8 @@ function time(value: string | Date | number | null | undefined): number {
  */
 export function sortTasks(a: SortableTask, b: SortableTask, key: TaskSortKey): number {
 	if (key === 'priority') {
-		const pa = PRIORITY_ORDER[a.priority ?? 'normal'] ?? 1;
-		const pb = PRIORITY_ORDER[b.priority ?? 'normal'] ?? 1;
+		const pa = priorityRank(a.priority ?? 'normal');
+		const pb = priorityRank(b.priority ?? 'normal');
 		return pa - pb;
 	}
 	if (key === 'title') {

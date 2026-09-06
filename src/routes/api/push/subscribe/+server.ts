@@ -3,21 +3,25 @@ import type { RequestHandler } from './$types';
 import { saveSubscription } from '$lib/server/services/pushService';
 import { requireUserJson } from '$lib/server/utils/requireUser';
 
-function isValidSubscription(body: unknown): body is {
+function isValidSubscription(value: unknown): value is {
 	endpoint: string;
 	keys: { p256dh: string; auth: string };
 } {
-	if (!body || typeof body !== 'object') return false;
-	const b = body as Record<string, unknown>;
-	const keys = b.keys as Record<string, unknown> | undefined;
 	return (
-		typeof b.endpoint === 'string' &&
-		b.endpoint.length > 0 &&
-		!!keys &&
-		typeof keys.p256dh === 'string' &&
-		keys.p256dh.length > 0 &&
-		typeof keys.auth === 'string' &&
-		keys.auth.length > 0
+		typeof value === 'object' &&
+		value !== null &&
+		'endpoint' in value &&
+		typeof value.endpoint === 'string' &&
+		value.endpoint.length > 0 &&
+		'keys' in value &&
+		typeof value.keys === 'object' &&
+		value.keys !== null &&
+		'p256dh' in value.keys &&
+		typeof value.keys.p256dh === 'string' &&
+		value.keys.p256dh.length > 0 &&
+		'auth' in value.keys &&
+		typeof value.keys.auth === 'string' &&
+		value.keys.auth.length > 0
 	);
 }
 

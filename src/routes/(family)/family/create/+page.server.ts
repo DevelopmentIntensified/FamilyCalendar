@@ -19,25 +19,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 };
 
-const FAMILY_COLORS = [
-	{ name: 'Red', value: '#EF4444' },
-	{ name: 'Orange', value: '#F97316' },
-	{ name: 'Amber', value: '#F59E0B' },
-	{ name: 'Yellow', value: '#EAB308' },
-	{ name: 'Lime', value: '#84CC16' },
-	{ name: 'Green', value: '#22C55E' },
-	{ name: 'Emerald', value: '#10B981' },
-	{ name: 'Teal', value: '#14B8A6' },
-	{ name: 'Cyan', value: '#06B6D4' },
-	{ name: 'Sky', value: '#0EA5E9' },
-	{ name: 'Blue', value: '#3B82F6' },
-	{ name: 'Indigo', value: '#6366F1' },
-	{ name: 'Violet', value: '#8B5CF6' },
-	{ name: 'Purple', value: '#A855F7' },
-	{ name: 'Fuchsia', value: '#D946EF' },
-	{ name: 'Pink', value: '#EC4899' },
-	{ name: 'Rose', value: '#F43F5E' }
-];
+function isString(value: FormDataEntryValue | null): value is string {
+	return typeof value === 'string';
+}
+
+function formString(formData: FormData, key: string): string {
+	const value = formData.get(key);
+	return isString(value) ? value : '';
+}
 
 export const actions: Actions = {
 	default: async ({ request, locals }) => {
@@ -54,8 +43,8 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const name = formData.get('name') as string;
-		const color = formData.get('color') as string;
+		const name = formString(formData, 'name');
+		const color = formString(formData, 'color');
 
 		if (!name || name.trim().length === 0) {
 			return fail(400, { error: 'Family name is required', name, color });

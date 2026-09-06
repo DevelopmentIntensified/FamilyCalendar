@@ -359,8 +359,6 @@ export async function recordAiUsage(
 	const now = new Date();
 	const month = now.getMonth() + 1;
 	const year = now.getFullYear();
-	const limits = await getUserSubscriptionLimits(userId);
-
 	const [existing] = await db
 		.select()
 		.from(aiUsageTracking)

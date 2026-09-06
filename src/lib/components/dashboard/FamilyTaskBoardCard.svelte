@@ -86,11 +86,18 @@
 		return 'bg-slate-100 text-slate-600';
 	}
 
-	const PRIORITY_DOT: Record<string, string> = {
+	type BoardPriority = 'high' | 'normal' | 'low';
+	const PRIORITY_DOT: Record<BoardPriority, string> = {
 		high: 'bg-rose-500',
 		normal: 'bg-sky-400',
 		low: 'bg-slate-300'
 	};
+
+	function priorityDot(priority: string): string {
+		return priority === 'high' || priority === 'normal' || priority === 'low'
+			? PRIORITY_DOT[priority]
+			: '';
+	}
 
 	$: groups = [...new Set(tasks.map(ownerId))]
 		.map((uid) => ({
@@ -202,7 +209,7 @@
 									><span class="absolute -inset-2" aria-hidden="true"></span></button
 								>
 								<span
-									class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority] ??
+									class="h-2 w-2 shrink-0 rounded-full {priorityDot(task.priority) ||
 										'bg-slate-300'}"
 									title="{task.priority} priority"
 								></span>

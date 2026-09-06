@@ -5,8 +5,9 @@
 	/** The viewed day as 'YYYY-MM-DD' (user zone) — what quick-add posts. */
 	export let dateKey: string;
 
-	const KIND_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
-	const KIND_LABELS: Record<string, string> = {
+	type MealKind = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+	const KIND_ORDER: readonly MealKind[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+	const KIND_LABELS: Record<MealKind, string> = {
 		breakfast: 'Breakfast',
 		lunch: 'Lunch',
 		dinner: 'Dinner',
@@ -14,7 +15,7 @@
 	};
 
 	let labelInput = '';
-	let kindInput = 'dinner';
+	let kindInput: MealKind = 'dinner';
 	let busy: string | null = null;
 
 	$: placeholder = `What's for ${KIND_LABELS[kindInput]?.toLowerCase() ?? 'dinner'}?`;

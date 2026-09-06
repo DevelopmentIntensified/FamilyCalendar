@@ -87,7 +87,7 @@
 							method="POST"
 							action="?/updateFamily"
 							use:enhance={() => {
-								return async ({ result, update }) => {
+								return async ({ update }) => {
 									await update();
 									showSettings = false;
 								};
@@ -214,7 +214,7 @@
 											method="POST"
 											action="?/setMemberType"
 											use:enhance={() => {
-												return async ({ result, update }) => {
+												return async ({ update }) => {
 													await update();
 													await invalidateAll();
 												};
@@ -240,7 +240,7 @@
 											method="POST"
 											action="?/updateRole"
 											use:enhance={() => {
-												return async ({ result, update }) => {
+												return async ({ update }) => {
 													await update();
 													await invalidateAll();
 													editingRole = null;
@@ -298,7 +298,7 @@
 												method="POST"
 												action="?/removeMember"
 												use:enhance={() => {
-													return async ({ result, update }) => {
+													return async ({ update }) => {
 														await update();
 														await invalidateAll();
 														showRemoveConfirm = null;

@@ -16,7 +16,7 @@ import {
 	type CalendarEvent
 } from '$lib/server/db/schema';
 import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, ne } from 'drizzle-orm';
-import { PRIORITY_WEIGHT, type TaskPriority } from '$lib/server/db/actions/taskPriority';
+import { PRIORITY_WEIGHT, isTaskPriority } from '$lib/server/db/actions/taskPriority';
 import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
 
 /** Re-exported for pre-existing importers (task writers, sort utils). */
@@ -68,7 +68,9 @@ export function rankTop3(
 	const eligible = tasks.filter((t) => !t.completedAt && !t.archivedAt);
 
 	const scored = eligible.map((t) => {
-		const priority = PRIORITY_WEIGHT[t.priority as TaskPriority] ?? PRIORITY_WEIGHT.normal;
+		const priority = isTaskPriority(t.priority)
+			? PRIORITY_WEIGHT[t.priority]
+			: PRIORITY_WEIGHT.normal;
 		const due = t.dueDate ? Date.parse(t.dueDate) : null;
 		let bucket: number;
 		if (due == null)

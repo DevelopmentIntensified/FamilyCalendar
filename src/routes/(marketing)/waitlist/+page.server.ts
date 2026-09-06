@@ -5,12 +5,21 @@ import { waitlist } from '$lib/server/db/schema';
 import { generateId } from 'lucia';
 import { sendWaitlistConfirmation } from '$lib/server/services/emailService';
 
+function isString(value: FormDataEntryValue | null): value is string {
+	return typeof value === 'string';
+}
+
+function formString(formData: FormData, key: string): string | null {
+	const value = formData.get(key);
+	return isString(value) ? value : null;
+}
+
 export const actions: Actions = {
 	join: async ({ request }) => {
 		const formData = await request.formData();
 
-		const email = (formData.get('email') as string | null)?.trim();
-		const name = (formData.get('name') as string | null)?.trim();
+		const email = formString(formData, 'email')?.trim();
+		const name = formString(formData, 'name')?.trim();
 
 		if (!email) {
 			return fail(400, { error: 'Email is required', email: '', name: name ?? '' });

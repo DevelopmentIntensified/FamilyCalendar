@@ -1,6 +1,5 @@
 import { db } from '$lib/server/db';
 import { subscriptionTypes, discounts, adEvents, users } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
 
 async function seed() {
 	console.log('Seeding subscription types...');

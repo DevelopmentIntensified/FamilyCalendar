@@ -14,7 +14,7 @@ const MASTER_ID_RE = /^[A-Za-z0-9_-]{5,64}$/;
  * construction must never drift from this single rendering, or override
  * matching silently breaks.
  */
-export function normalizeOccurrenceIso(value: unknown): string | null {
+export function normalizeOccurrenceIso(value: string | Date | null | undefined): string | null {
 	return toDateTime(value)?.toUTC().toISO() ?? null;
 }
 
@@ -31,7 +31,7 @@ export function buildOccurrenceId(masterId: string, occurrenceIso: string): stri
  * Returns the bare master id from a possibly-composite id, or null when
  * the master part is not a valid event id.
  */
-export function resolveMasterId(rawId: unknown): string | null {
+export function resolveMasterId(rawId: string | null | undefined): string | null {
 	const master = String(rawId ?? '')
 		.split('~')[0]
 		.trim();
@@ -50,7 +50,7 @@ export interface ResolvedOccurrenceId {
  * the master id is malformed or the occurrence part is not a parseable ISO
  * timestamp. A non-recurring id (no `~`) resolves with no occurrence.
  */
-export function resolveOccurrenceId(rawId: unknown): ResolvedOccurrenceId | null {
+export function resolveOccurrenceId(rawId: string | null | undefined): ResolvedOccurrenceId | null {
 	const str = String(rawId ?? '').trim();
 	const sep = str.indexOf('~');
 	if (sep === -1) {

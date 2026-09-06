@@ -24,7 +24,6 @@ describe('guard', () => {
 		const err = vi.spyOn(console, 'error').mockImplementation(() => {});
 		try {
 			const result = await guard('verse', null, async () => {
-				// eslint-disable-next-line @typescript-eslint/only-throw-error
 				throw 'string failure';
 			});
 			expect(result).toEqual({ data: null, error: 'verse' });

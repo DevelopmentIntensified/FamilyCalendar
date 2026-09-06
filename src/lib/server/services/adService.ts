@@ -71,7 +71,7 @@ export async function checkUserAdConsent(userId: string): Promise<boolean> {
 	return true;
 }
 
-export async function setUserAdConsent(userId: string, enabled: boolean): Promise<void> {
+export async function setUserAdConsent(userId: string, _enabled: boolean): Promise<void> {
 	const existing = await db.select().from(userAdConsent).where(eq(userAdConsent.userId, userId));
 
 	if (existing.length > 0) {

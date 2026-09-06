@@ -3,7 +3,6 @@
 	import { page } from '$app/stores';
 	import type { ActionData, PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
-	import PlanTypeSelector from '$lib/components/PlanTypeSelector.svelte';
 	import { DASHBOARD_MODULES } from '$lib/dashboardModules';
 
 	export let data: PageData;
@@ -55,9 +54,15 @@
 		}
 	];
 
-	const timeZones = (
-		typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : ['UTC']
-	)
+	// SAFETY: Intl.supportedValuesOf is a newer API — probing for it and
+	// falling back to UTC keeps older browsers working.
+	function hasSupportedValuesOf(
+		value: typeof Intl
+	): value is typeof Intl & { supportedValuesOf: (key: 'timeZone') => string[] } {
+		return typeof value.supportedValuesOf === 'function';
+	}
+
+	const timeZones = (hasSupportedValuesOf(Intl) ? Intl.supportedValuesOf('timeZone') : ['UTC'])
 		.map((v) => ({ value: v, label: v.replace(/_/g, ' ') }))
 		.sort((a, b) => a.label.localeCompare(b.label));
 
@@ -74,7 +79,7 @@
 	$: selectedTranslation = data.verseTranslations?.some(
 		(t) => t.id === data.userSettings?.verseTranslation
 	)
-		? (data.userSettings.verseTranslation as string)
+		? data.userSettings.verseTranslation
 		: 'esv';
 	$: selectedAttribution = data.verseTranslations?.find(
 		(t) => t.id === selectedTranslation

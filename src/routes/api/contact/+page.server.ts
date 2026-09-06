@@ -13,18 +13,27 @@ function escapeHtml(value: string): string {
 		.replaceAll("'", '&#39;');
 }
 
+function isString(value: FormDataEntryValue | null): value is string {
+	return typeof value === 'string';
+}
+
+function formString(formData: FormData, key: string): string {
+	const value = formData.get(key);
+	return isString(value) ? value : '';
+}
+
 export const actions: Actions = {
 	default: async ({ request }) => {
 		const formData = await request.formData();
 
-		const website = formData.get('website') as string;
+		const website = formString(formData, 'website');
 		if (website) {
 			return json({ error: 'Invalid submission' }, { status: 400 });
 		}
 
-		const name = formData.get('name') as string;
-		const email = formData.get('email') as string;
-		const message = formData.get('message') as string;
+		const name = formString(formData, 'name');
+		const email = formString(formData, 'email');
+		const message = formString(formData, 'message');
 
 		if (!name || !email || !message) {
 			return json({ error: 'All fields are required' }, { status: 400 });

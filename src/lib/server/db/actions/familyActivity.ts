@@ -19,7 +19,7 @@ function fullName(first: string | null, last: string | null): string {
 }
 
 function toIso(value: string | Date): string {
-	return typeof value === 'string' ? value : value.toISOString();
+	return value instanceof Date ? value.toISOString() : value;
 }
 
 export async function getRecentFamilyActivity(
@@ -72,6 +72,7 @@ export async function getRecentFamilyActivity(
 			actorName:
 				fullName(r.assigneeFirst, r.assigneeLast) || fullName(r.creatorFirst, r.creatorLast),
 			targetName: null,
+			// SAFETY: the query filters isNotNull(tasks.completedAt), so the column is non-null here.
 			at: toIso(r.completedAt as string)
 		})),
 		...assignedRows.map((r) => ({

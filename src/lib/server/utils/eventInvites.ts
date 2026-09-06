@@ -11,8 +11,30 @@ import type { EventInvite } from '$lib/server/db/actions/events';
  * Unrecognized/unauthorized user ids are skipped (never stored as members);
  * member values are returned with their requested inviteType.
  */
-export async function resolveEventInvites(userId: string, raw: unknown): Promise<EventInvite[]> {
-	if (!Array.isArray(raw) || raw.length === 0) return [];
+/** An attendee entry object from the request payload; fields unvalidated. */
+interface AttendeeEntry {
+	value?: unknown;
+	isUser?: unknown;
+	inviteType?: unknown;
+}
+
+/** True when the attendee entry is a plain guest-name string. */
+function isNameEntry(entry: unknown): entry is string {
+	return typeof entry === 'string';
+}
+
+/** True when the attendee entry is an object ({ value, isUser, inviteType }). */
+function isObjectEntry(entry: unknown): entry is AttendeeEntry {
+	return typeof entry === 'object' && entry !== null;
+}
+
+/** True for a usable attendee value: a non-blank string. */
+function isAttendeeValue(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
+export async function resolveEventInvites(userId: string, raw: unknown[]): Promise<EventInvite[]> {
+	if (raw.length === 0) return [];
 
 	const familyId = await getUserFamilyId(userId);
 	let knownUserIds: Set<string> | null = null;
@@ -23,19 +45,15 @@ export async function resolveEventInvites(userId: string, raw: unknown): Promise
 
 	const out: EventInvite[] = [];
 	for (const entry of raw) {
-		if (typeof entry === 'string') {
+		if (isNameEntry(entry)) {
 			const name = entry.trim();
 			if (!name) continue;
 			out.push({ name, inviteType: 'optional' });
 			continue;
 		}
-		if (!entry || typeof entry !== 'object') continue;
-		const { value, isUser, inviteType } = entry as {
-			value?: unknown;
-			isUser?: unknown;
-			inviteType?: unknown;
-		};
-		if (typeof value !== 'string' || !value.trim()) continue;
+		if (!entry || !isObjectEntry(entry)) continue;
+		const { value, isUser, inviteType } = entry;
+		if (!isAttendeeValue(value) || !value.trim()) continue;
 		const v = value.trim();
 		const type = inviteType === 'required' ? 'required' : 'optional';
 		if (isUser === true) {

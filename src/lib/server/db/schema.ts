@@ -7,7 +7,6 @@ import {
 	integer,
 	json,
 	jsonb,
-	serial,
 	uniqueIndex,
 	unique,
 	index

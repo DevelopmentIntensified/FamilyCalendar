@@ -47,7 +47,8 @@
 	<div
 		class="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden sm:items-center sm:p-4"
 	>
-		<button class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick={close}></button>
+		<button class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick={close} aria-label="Close"
+		></button>
 
 		<div
 			class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"

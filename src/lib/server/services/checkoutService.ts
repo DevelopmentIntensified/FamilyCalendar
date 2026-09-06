@@ -1,11 +1,7 @@
 import { db } from '$lib/server/db';
 import { discounts, userDiscounts, subscriptions } from '$lib/server/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
-import {
-	calculateFamilyMemberDiscount,
-	calculateLifetimeDiscount,
-	type DiscountResult
-} from './discountService';
+import { eq, and } from 'drizzle-orm';
+import { calculateFamilyMemberDiscount, calculateLifetimeDiscount } from './discountService';
 
 export interface CheckoutDiscountResult {
 	originalPrice: number;
@@ -180,12 +176,14 @@ export function getBasePrice(planType: PlanType): number {
 	return BASE_PRICES[planType];
 }
 
-export function getPlanPricing(planType: PlanType): {
+export interface PlanPricing {
 	monthly: number;
 	annual: number;
 	lifetime: number;
 	monthlyEquivalent: number;
-} {
+}
+
+export function getPlanPricing(_planType: PlanType): PlanPricing {
 	const monthlyPrice = BASE_PRICES.monthly;
 	const annualPrice = BASE_PRICES.annual;
 	const lifetimePrice = BASE_PRICES.lifetime;

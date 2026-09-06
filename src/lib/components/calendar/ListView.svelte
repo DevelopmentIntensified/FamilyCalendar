@@ -13,7 +13,6 @@
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[];
-	export let removeEvent: (id: string) => void;
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let dueTasks: CalendarTask[] = [];
 
@@ -107,7 +106,7 @@
 		selectedEvent = null;
 	}
 
-	function handleDelete(event: CustomEvent) {
+	function handleDelete() {
 		// EventModal performs the API call; refresh server data here.
 		invalidateAll().then(closeModal);
 	}

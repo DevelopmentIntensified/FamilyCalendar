@@ -22,8 +22,15 @@ function flush(): Promise<void> {
 
 function titleProbe(container: HTMLElement): HTMLElement {
 	const probe = container.querySelector('.title-probe');
-	if (!probe) throw new Error('missing title probe');
-	return probe as HTMLElement;
+	if (!(probe instanceof HTMLElement)) throw new Error('missing title probe');
+	return probe;
+}
+
+/** The component renders exactly one native `<input>`; missing it is a harness bug. */
+function inputElement(container: HTMLElement): HTMLInputElement {
+	const input = container.querySelector('input');
+	if (!(input instanceof HTMLInputElement)) throw new Error('missing input element');
+	return input;
 }
 
 describe('MentionInput', () => {
@@ -38,12 +45,12 @@ describe('MentionInput', () => {
 				id: 'quick-add'
 			}
 		});
-		const input = container.querySelector('input');
+		const input = inputElement(container);
 		expect(input).not.toBeNull();
 		expect(input).toHaveProperty('placeholder', 'Add a task…');
 		expect(input).toHaveAttribute('aria-label', 'Quick add');
 		expect(input).toHaveAttribute('id', 'quick-add');
-		expect((input as HTMLInputElement).classList.contains('harness-input')).toBe(true);
+		expect(input.classList.contains('harness-input')).toBe(true);
 		// The look-and-feel class goes on the input, not the wrapper.
 		const wrapper = container.firstElementChild;
 		expect(wrapper?.classList.contains('harness-input')).toBe(false);
@@ -51,7 +58,7 @@ describe('MentionInput', () => {
 
 	it('never shows suggestions when there is no roster', () => {
 		const { container } = render(MentionInput, { props: { value: '@', members: [] } });
-		const input = container.querySelector('input') as HTMLInputElement;
+		const input = inputElement(container);
 		fireEvent.focus(input);
 		fireEvent.input(input, { target: { value: '@sa' } });
 		expect(container.querySelector('[role="listbox"]')).toBeNull();
@@ -61,7 +68,7 @@ describe('MentionInput', () => {
 		const { container } = render(MentionInput, {
 			props: { value: 'buy @sa', members: MEMBERS }
 		});
-		const input = container.querySelector('input') as HTMLInputElement;
+		const input = inputElement(container);
 		fireEvent.focus(input);
 		await flush();
 		expect(container.querySelector('[role="listbox"]')).not.toBeNull();
@@ -76,22 +83,22 @@ describe('MentionInput', () => {
 
 	it('lets the wrapper bind the value and maintains it across programmatic resets', async () => {
 		const { container } = render(MentionInputHarness, { props: { members: MEMBERS } });
-		const input = container.querySelector('input') as HTMLInputElement;
+		const input = inputElement(container);
 		fireEvent.input(input, { target: { value: 'buy @sa' } });
 		await flush();
-		expect((input as HTMLInputElement).value).toBe('buy @sa');
+		expect(input.value).toBe('buy @sa');
 		expect(titleProbe(container).textContent).toBe('buy @sa');
 	});
 
 	it('inserts the highlighted member (ArrowDown + Enter) and flows the built value back to the bound variable', async () => {
 		const { container } = render(MentionInputHarness, { props: { members: MEMBERS } });
-		const input = container.querySelector('input') as HTMLInputElement;
+		const input = inputElement(container);
 		fireEvent.input(input, { target: { value: 'buy @sa' } });
 		await flush();
 		fireEvent.keyDown(input, { key: 'ArrowDown' });
 		fireEvent.keyDown(input, { key: 'Enter' });
 		await flush();
-		expect((input as HTMLInputElement).value).toBe('buy @Sam Rivera ');
+		expect(input.value).toBe('buy @Sam Rivera ');
 		expect(titleProbe(container).textContent).toBe('buy @Sam Rivera ');
 		// Dropdown closed after insertion.
 		expect(container.querySelector('[role="listbox"]')).toBeNull();
@@ -101,51 +108,52 @@ describe('MentionInput', () => {
 		const { container } = render(MentionInput, {
 			props: { value: '@sa buy milk', members: MEMBERS }
 		});
-		const input = container.querySelector('input') as HTMLInputElement;
+		const input = inputElement(container);
 		fireEvent.focus(input);
 		await flush();
 		fireEvent.keyDown(input, { key: 'Enter' });
 		await flush();
-		expect((input as HTMLInputElement).value).toBe('@Sam Rivera buy milk');
+		expect(input.value).toBe('@Sam Rivera buy milk');
 	});
 
 	it('prefers full "First Last" when the fragment equals a single member, and inserts first-name-only for members without a last name', async () => {
 		const { container } = render(MentionInput, { props: { value: 'call @mom', members: MEMBERS } });
-		const input = container.querySelector('input') as HTMLInputElement;
+		const input = inputElement(container);
 		fireEvent.focus(input);
 		await flush();
 		fireEvent.keyDown(input, { key: 'Enter' });
 		await flush();
-		expect((input as HTMLInputElement).value).toBe('call @Mom ');
+		expect(input.value).toBe('call @Mom ');
 	});
 
 	it('closes on tab without submitting the surrounding form by default', async () => {
 		const { container } = render(MentionInput, { props: { value: 'buy @da', members: MEMBERS } });
-		const input = container.querySelector('input') as HTMLInputElement;
+		const input = inputElement(container);
 		fireEvent.focus(input);
 		await flush();
 		expect(container.querySelector('[role="listbox"]')).not.toBeNull();
 		fireEvent.keyDown(input, { key: 'Tab' });
 		await flush();
-		expect((input as HTMLInputElement).value).toBe('buy @Dad Chen ');
+		expect(input.value).toBe('buy @Dad Chen ');
 		expect(container.querySelector('[role="listbox"]')).toBeNull();
 	});
 
 	it('clicking an option inserts it without leaving the input', async () => {
 		const { container } = render(MentionInput, { props: { value: 'buy @da', members: MEMBERS } });
-		const input = container.querySelector('input') as HTMLInputElement;
+		const input = inputElement(container);
 		fireEvent.focus(input);
 		await flush();
-		const option = container.querySelector('[role="option"]') as HTMLButtonElement;
+		const option = container.querySelector('[role="option"]');
+		if (!option) throw new Error('missing option');
 		fireEvent.mouseDown(option);
 		fireEvent.click(option);
 		await flush();
-		expect((input as HTMLInputElement).value).toBe('buy @Dad Chen ');
+		expect(input.value).toBe('buy @Dad Chen ');
 	});
 
 	it('Escape closes the dropdown and keeps it closed for the same fragment until the next keystroke', async () => {
 		const { container } = render(MentionInput, { props: { value: 'buy @da', members: MEMBERS } });
-		const input = container.querySelector('input') as HTMLInputElement;
+		const input = inputElement(container);
 		fireEvent.focus(input);
 		await flush();
 		expect(container.querySelector('[role="listbox"]')).not.toBeNull();

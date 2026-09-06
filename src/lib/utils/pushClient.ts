@@ -29,6 +29,8 @@ export function pushFailureText(reason?: string): string {
 	}
 }
 
+import { isNonEmptyString } from './typeGuards';
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
 	const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
 	const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -67,7 +69,7 @@ export async function getServerPublicKey(): Promise<string | null> {
 			return null;
 		}
 		const data = await res.json();
-		if (typeof data.publicKey === 'string' && data.publicKey.length > 0) {
+		if (isNonEmptyString(data.publicKey)) {
 			return data.publicKey;
 		}
 		console.warn('[push] public-key endpoint returned no publicKey');
@@ -97,10 +99,16 @@ export async function subscribeToPush(): Promise<PushSubscribeResult> {
 	// persisting the denial — which makes every click fail identically ("keeps
 	// getting Couldn't enable notifications").
 	const NotificationAPI = window.Notification;
-	const permission =
-		typeof NotificationAPI.requestPermission === 'function'
-			? await NotificationAPI.requestPermission()
-			: NotificationAPI.permission;
+	// Old browsers shipped `requestPermission` as a callback-only API or not at
+	// all; only await the promise-returning form when it is callable.
+	function canRequestPermission(
+		api: typeof Notification
+	): api is typeof Notification & { requestPermission: () => Promise<NotificationPermission> } {
+		return typeof api.requestPermission === 'function';
+	}
+	const permission = canRequestPermission(NotificationAPI)
+		? await NotificationAPI.requestPermission()
+		: NotificationAPI.permission;
 	if (permission !== 'granted') {
 		console.warn(`[push] permission not granted: ${permission}`);
 		return { ok: false, reason: 'permission-denied' };

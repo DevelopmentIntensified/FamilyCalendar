@@ -72,12 +72,20 @@ export type ClaimVerifyOutcome =
 /** Collaborators of the claiming flow, injectable for tests. */
 export interface ClaimVerifyDeps {
 	peekClaimToken: (token: string) => Promise<{ userId: string; email: string } | null | undefined>;
-	consumeClaimToken: (token: string) => Promise<unknown>;
+	consumeClaimToken: (
+		token: string
+	) => Promise<boolean | { userId: string; email: string } | null | undefined>;
 	getUserByEmail: (email: string) => Promise<{ id: string } | null | undefined>;
-	mergeGuestIntoUser: (guestId: string, targetUserId: string) => Promise<unknown>;
-	claimEmailForUser: (userId: string, email: string) => Promise<unknown>;
-	getUserSettings: (userId: string) => Promise<unknown>;
-	createUserSettings: (data: { userId: string; timeZone: string }) => Promise<unknown>;
+	mergeGuestIntoUser: (
+		guestId: string,
+		targetUserId: string
+	) => Promise<{ events: number; tasks: number } | null | undefined>;
+	claimEmailForUser: (userId: string, email: string) => Promise<{ id: string } | null | undefined>;
+	getUserSettings: (userId: string) => Promise<{ userId: string } | null | undefined>;
+	createUserSettings: (data: {
+		userId: string;
+		timeZone: string;
+	}) => Promise<{ userId: string } | null | undefined>;
 }
 
 const defaultDeps: ClaimVerifyDeps = {

@@ -114,20 +114,29 @@ export const load: PageServerLoad = async (event) => {
 	};
 };
 
+function isString(value: FormDataEntryValue | null): value is string {
+	return typeof value === 'string';
+}
+
+function formString(formData: FormData, key: string): string {
+	const value = formData.get(key);
+	return isString(value) ? value : '';
+}
+
 export const actions: Actions = {
 	saveCalendarSettings: async ({ request, locals }) => {
 		const userId = locals.user.id;
 		const formData = await request.formData();
 
-		const weekStart = formData.get('weekStart') as string;
-		const timeZone = formData.get('timeZone') as string;
-		const color = formData.get('color') as string;
-		const defaultView = formData.get('defaultView') as string;
-		const defaultCalendarId = (formData.get('defaultCalendarId') as string) || null;
+		const weekStart = formString(formData, 'weekStart');
+		const timeZone = formString(formData, 'timeZone');
+		const color = formString(formData, 'color');
+		const defaultView = formString(formData, 'defaultView');
+		const defaultCalendarId = formString(formData, 'defaultCalendarId') || null;
 		const syncEventsToFamilyCalendar = formData.get('syncEventsToFamilyCalendar') === 'on';
 		const autoParseEventDetails = formData.get('autoParseEventDetails') === 'true';
 		const showDailyVerse = formData.get('showDailyVerse') === 'true';
-		const rawTranslation = (formData.get('verseTranslation') as string) || '';
+		const rawTranslation = formString(formData, 'verseTranslation');
 		const verseTranslation = rawTranslation in TRANSLATIONS ? rawTranslation : 'esv';
 
 		// Checkboxes are show-based; absent checkbox = hidden.
@@ -187,8 +196,8 @@ export const actions: Actions = {
 		const userId = locals.user.id;
 		const formData = await request.formData();
 
-		const firstName = formData.get('firstName') as string;
-		const lastName = formData.get('lastName') as string;
+		const firstName = formString(formData, 'firstName');
+		const lastName = formString(formData, 'lastName');
 
 		if (!firstName || !lastName) {
 			return fail(400, { success: false, message: 'First name and last name are required' });
@@ -223,7 +232,7 @@ export const actions: Actions = {
 			});
 		}
 
-		const email = formData.get('email') as string;
+		const email = formString(formData, 'email');
 
 		if (!email || !email.includes('@')) {
 			return fail(400, { success: false, message: 'Valid email is required' });
@@ -286,7 +295,7 @@ export const actions: Actions = {
 		}
 	},
 
-	logoutAllDevices: async ({ locals, cookies }) => {
+	logoutAllDevices: async ({ locals }) => {
 		const userId = locals.user.id;
 		const currentSessionId = locals.session?.id;
 
@@ -310,7 +319,7 @@ export const actions: Actions = {
 		const userId = locals.user.id;
 		const formData = await request.formData();
 
-		const confirmation = formData.get('confirmation') as string;
+		const confirmation = formString(formData, 'confirmation');
 
 		if (confirmation !== userId) {
 			return fail(400, { success: false, message: 'Confirmation does not match' });

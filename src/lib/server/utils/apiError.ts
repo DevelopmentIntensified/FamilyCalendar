@@ -1,6 +1,12 @@
 import { json } from '@sveltejs/kit';
 import { buildAutoBugReport, shouldFileAutoReport } from '$lib/server/services/autoBugReport';
-import { createBugReport } from '$lib/server/db/actions/bugReports';
+import { createBugReport, type NewBugReport } from '$lib/server/db/actions/bugReports';
+
+/**
+ * Dependency seam for the auto-filer: production files via `createBugReport`;
+ * tests inject a spy so no DB write ever happens off a mocked module.
+ */
+export type AutoReportFiler = (report: NewBugReport) => Promise<BugReport | null>;
 
 /**
  * JSON error response that also auto-files a bug report for server faults.
@@ -14,13 +20,14 @@ export function apiError(
 	path: string,
 	status: number,
 	message: string,
-	userId: string | null = null
+	userId: string | null = null,
+	fileReport: AutoReportFiler = createBugReport
 ) {
 	if (status >= 500) {
 		try {
 			const report = buildAutoBugReport({ status, message, path, userId });
 			if (report && shouldFileAutoReport(`${report.area}:${path}:${message.slice(0, 120)}`)) {
-				void createBugReport(report).catch(() => {});
+				void fileReport(report).catch(() => {});
 			}
 		} catch {
 			// Auto-filing is best-effort by design.

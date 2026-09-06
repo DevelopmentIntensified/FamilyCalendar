@@ -22,7 +22,7 @@
 			} else {
 				sent = true;
 			}
-		} catch (e) {
+		} catch {
 			error = 'Failed to send reset email';
 		}
 

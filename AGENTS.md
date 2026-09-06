@@ -6,8 +6,8 @@
 - Batch independent work into parallel subagent calls.
 - Subagents doing implementation work should follow the `tdd` skill (red-green-refactor; tests first where a seam exists).
 - Research subagents should move fast: breadth-first, skim, report file:line evidence — don't over-verify.
-- Default to caveman style (terse, no filler) in replies; drop it when the user asks for an explanation.
-- Give the user SQL to run manually for schema changes when asked; don't rely only on `drizzle-kit push`.
+- Caveman mode default: terse, no filler, always. Full sentences only when explaining on request.
+- Give the user SQL to run manually for schema changes when asked; record alongside (`sql/` + notes in the issue); don't rely only on `drizzle-kit push`.
 
 ## Answering unknowns
 
@@ -27,6 +27,15 @@
 - Always push to the `test` branch (`git push origin test`), unless the user explicitly says otherwise.
 - Push as you complete: commit and push each finished slice immediately, don't batch.
 
+## Issue tracking (docs/issues, repo root)
+
+- Local markdown issues, no hosted tracker. Location: `docs/issues/`.
+- Naming: `NNN-short-slug.md`, sequential. Check highest existing number first.
+- Format: `# NNN — Title`, `Status: open|in-progress|done`, `## Done`, `## Needs doing`.
+- Workflow: starting work → `Status: in-progress`, specifics under `Needs doing`; finished → move to `Done`, flip `done`, verify `npm run build`.
+- Rollup: `docs/STATUS.md` mirrors tracker — update Done/Open lists on flip.
+- One issue per unrelated work; new numbered file, never batch.
+
 ## NLP changes (natural-language parsing)
 
 - Any change to natural-language parsing (`naturalLanguageService.ts`, quick-add/date parsing, new keywords like task priority) MUST be test-driven (`tdd` skill) with a table-driven suite covering as many distinct phrasings, colloquial variants, and word orders as possible.
@@ -37,6 +46,11 @@
 
 - The `test` branch auto-deploys to https://test.familyplanz.com. After pushing, wait ~1 minute for the deploy before testing.
 - Vercel MCP tools are available (Code Mode): check deploy status (`list_deployments`, `get_deployment`), fetch deployment URLs, and bypass deployment protection (`get_access_to_vercel_url`). Use them when the live site is unreachable or to confirm which commit is deployed.
+
+## UI feedback
+
+- Every interaction acks <100ms (optimistic update or pending state); confirm via toast/inline status naming what happened + next; never bare `alert()` or silent reload.
+- New client mutations use shared Toast + optimistic pattern; loading = skeletons, not blank cards.
 
 ## Tooling (2026-08-30)
 

@@ -6,7 +6,7 @@ import { randHex } from '@ngneat/falso';
 import { ensurePersonalCalendar } from '../db/actions/calendar';
 
 export const createNewUser = async function (firstName: string, lastName: string, email: string) {
-	let user = await createUser({
+	const user = await createUser({
 		id: generateId(15),
 		firstName,
 		lastName,

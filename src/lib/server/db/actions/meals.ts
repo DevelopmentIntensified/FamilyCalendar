@@ -6,7 +6,7 @@ export const MEAL_KINDS = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 export type MealKind = (typeof MEAL_KINDS)[number];
 
 export function isMealKind(value: string): value is MealKind {
-	return (MEAL_KINDS as readonly string[]).includes(value);
+	return MEAL_KINDS.some((kind) => kind === value);
 }
 
 const MEAL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

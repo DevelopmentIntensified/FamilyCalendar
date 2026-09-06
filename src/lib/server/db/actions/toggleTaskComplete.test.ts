@@ -6,22 +6,35 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * advanceTaskToNext.test.ts) so cursor advance / completion toggle /
  * history recording are verified without a live database.
  */
-const state = vi.hoisted(() => ({
-	queue: [] as unknown[][],
-	updatePatch: null as Record<string, unknown> | null,
-	updateResult: null as Record<string, unknown> | null,
-	insertValues: null as unknown
-}));
+/** A stubbed DB row / patch: plain JSON-ish values only. */
+type Row = Record<string, string | number | boolean | null | Date>;
 
+interface StubState {
+	queue: Row[][];
+	updatePatch: Row | null;
+	updateResult: Row | null;
+	insertValues: Row | null;
+}
+
+const state = vi.hoisted(
+	(): StubState => ({
+		queue: [],
+		updatePatch: null,
+		updateResult: null,
+		insertValues: null
+	})
+);
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
 			from: () => ({
-				where: () => Promise.resolve((state.queue.shift() ?? []) as unknown[])
+				where: () => Promise.resolve(state.queue.shift() ?? [])
 			})
 		}),
 		update: () => ({
-			set: (patch: Record<string, unknown>) => {
+			set: (patch: Row) => {
 				state.updatePatch = patch;
 				return {
 					where: () => ({
@@ -31,7 +44,7 @@ vi.mock('$lib/server/db', () => ({
 			}
 		}),
 		insert: () => ({
-			values: (values: unknown) => {
+			values: (values: Row) => {
 				state.insertValues = values;
 				return Promise.resolve();
 			}
@@ -43,7 +56,27 @@ import { toggleTaskComplete, advanceCursor } from './tasks';
 
 const nowIso = () => new Date().toISOString();
 
-function makeTask(overrides: Record<string, unknown> = {}) {
+/** Base row for a daily recurring Task under test. */
+type TaskRow = {
+	id: string;
+	title: string;
+	notes: string | null;
+	dueDate: string | null;
+	completedAt: string | null;
+	archivedAt: string | null;
+	recurrenceFrequency: string | null;
+	recurrenceInterval: number | null;
+	completionCount: number;
+	assignedTo: string | null;
+	assignmentStatus: string;
+	priority: string;
+	userId: string;
+	familyId: string | null;
+	eventId: string | null;
+	createdAt: Date;
+};
+
+function makeTask(overrides: Partial<TaskRow> = {}): TaskRow {
 	return {
 		id: 't1',
 		title: 'Water the plants',
@@ -84,7 +117,7 @@ describe('toggleTaskComplete', () => {
 		// "Task not found" for every recurring check-off.
 		const task = makeTask();
 		state.queue = [[task]];
-		const expectedDue = advanceCursor(task.dueDate as string, 'daily', 1, nowIso());
+		const expectedDue = advanceCursor(task.dueDate, 'daily', 1, nowIso());
 		state.updateResult = { ...task, dueDate: expectedDue, completionCount: 1 };
 
 		const result = await toggleTaskComplete('t1', 'user-a');
@@ -104,7 +137,7 @@ describe('toggleTaskComplete', () => {
 		const result = await toggleTaskComplete('t1', 'user-a');
 
 		expect(result).toBeDefined();
-		expect(typeof state.updatePatch!.completedAt).toBe('string');
+		expect(state.updatePatch!.completedAt).toEqual(expect.any(String));
 		expect(state.insertValues).toMatchObject({ taskId: 't1', userId: 'user-a' });
 	});
 

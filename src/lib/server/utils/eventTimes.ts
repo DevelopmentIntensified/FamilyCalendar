@@ -6,7 +6,12 @@ import { DateTime } from 'luxon';
  * space-separated form. Normalize every shape into a valid DateTime,
  * or null when nothing sensible is there.
  */
-export function toDateTime(v: unknown): DateTime | null {
+/**
+ * Normalizes every timestamp shape postgres.js can hand back for a
+ * `timestamptz mode:'string'` column (Date at runtime, raw string, empty)
+ * into a valid DateTime, or null when nothing sensible is there.
+ */
+export function toDateTime(v: string | Date | null | undefined): DateTime | null {
 	if (v instanceof Date) return DateTime.fromJSDate(v);
 	if (v === null || v === undefined || v === '') return null;
 	const dt = DateTime.fromISO(String(v).trim().replace(' ', 'T'));

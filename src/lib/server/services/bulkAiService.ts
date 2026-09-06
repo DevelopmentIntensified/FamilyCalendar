@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import {
 	applyPeriod,
 	DAY_ALT,
-	DAY_MAP,
+	dayNumber,
 	escapeRegExp,
 	MONTH_ALT,
 	MONTH_MAP,
@@ -147,7 +147,7 @@ export function resolveBulkDate(
 	// read "last friday" as a forward "friday".
 	const lastDayMatch = lower.match(new RegExp(`\\blast\\s+(${DAY_ALT})\\b`));
 	if (lastDayMatch) {
-		const target = DAY_MAP[lastDayMatch[1]];
+		const target = dayNumber(lastDayMatch[1]) ?? 0;
 		const current = today.weekday % 7;
 		let daysSince = (current - target + 7) % 7;
 		if (daysSince === 0) daysSince = 7;
@@ -157,7 +157,7 @@ export function resolveBulkDate(
 	// Weekday, optionally "next/this/on <day>": upcoming occurrence (1-7 days out)
 	const dayMatch = lower.match(new RegExp(`\\b(?:next|this|on)?\\s*(${DAY_ALT})\\b`));
 	if (dayMatch) {
-		const target = DAY_MAP[dayMatch[1]];
+		const target = dayNumber(dayMatch[1]) ?? 0;
 		const current = today.weekday % 7;
 		let daysUntil = target - current;
 		if (daysUntil <= 0) daysUntil += 7;
@@ -248,7 +248,7 @@ export function planBulkEdits(
 	const affected = targets.length > 0 ? targets : events;
 
 	return affected.map((e) => {
-		if (isDelete) return { id: e.id, delete: true } as BulkPlanOp;
+		if (isDelete) return { id: e.id, delete: true };
 		const op: BulkPlanOp = { id: e.id };
 		if (date) op.date = date;
 		if (time) {
@@ -269,6 +269,15 @@ function isValidId(v: string): boolean {
 	return /^[A-Za-z0-9_-]{5,64}$/.test(v);
 }
 
+/** Type guards over untrusted AI/JSON payloads (JSON.parse returns `any`). */
+function isString(v: unknown): v is string {
+	return typeof v === 'string';
+}
+
+function isBoolean(v: unknown): v is boolean {
+	return typeof v === 'boolean';
+}
+
 export function parseBulkPlan(content: string, allowedIds: string[]): BulkPlanOp[] {
 	try {
 		const json = JSON.parse(content);
@@ -276,8 +285,7 @@ export function parseBulkPlan(content: string, allowedIds: string[]): BulkPlanOp
 		const seen = new Set<string>();
 		const ops: BulkPlanOp[] = [];
 		for (const op of rawOps) {
-			if (!op || typeof op.id !== 'string' || !allowedIds.includes(op.id) || seen.has(op.id))
-				continue;
+			if (!op || !isString(op.id) || !allowedIds.includes(op.id) || seen.has(op.id)) continue;
 
 			if (op.delete === true) {
 				ops.push({ id: op.id, delete: true });
@@ -286,18 +294,17 @@ export function parseBulkPlan(content: string, allowedIds: string[]): BulkPlanOp
 			}
 
 			const clean: BulkPlanOp = { id: op.id };
-			if (typeof op.title === 'string' && op.title.trim()) clean.title = op.title.trim();
-			if (typeof op.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(op.date)) clean.date = op.date;
-			if (typeof op.startTime === 'string' && isValidTime(op.startTime)) {
+			if (isString(op.title) && op.title.trim()) clean.title = op.title.trim();
+			if (isString(op.date) && /^\d{4}-\d{2}-\d{2}$/.test(op.date)) clean.date = op.date;
+			if (isString(op.startTime) && isValidTime(op.startTime)) {
 				clean.startTime = op.startTime.padStart(5, '0');
 			}
-			if (typeof op.endTime === 'string' && isValidTime(op.endTime)) {
+			if (isString(op.endTime) && isValidTime(op.endTime)) {
 				clean.endTime = op.endTime.padStart(5, '0');
 			}
-			if (typeof op.location === 'string' && op.location.trim())
-				clean.location = op.location.trim();
-			if (typeof op.allDay === 'boolean') clean.allDay = op.allDay;
-			if (typeof op.calendarId === 'string' && isValidId(op.calendarId)) {
+			if (isString(op.location) && op.location.trim()) clean.location = op.location.trim();
+			if (isBoolean(op.allDay)) clean.allDay = op.allDay;
+			if (isString(op.calendarId) && isValidId(op.calendarId)) {
 				clean.calendarId = op.calendarId;
 			}
 			if (Object.keys(clean).length > 1) {

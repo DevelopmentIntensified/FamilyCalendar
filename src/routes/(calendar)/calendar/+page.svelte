@@ -15,6 +15,55 @@
 
 	export let data: PageData;
 
+	// Shape of one planned change returned by /api/events/bulk smart dry-run
+	// (mirrors the server's BulkPlanOp; duplicated here to keep server code
+	// out of the client bundle).
+	type PlanOp = {
+		id: string;
+		title?: string;
+		date?: string;
+		startTime?: string;
+		endTime?: string;
+		location?: string;
+		allDay?: boolean;
+		calendarId?: string;
+		delete?: boolean;
+	};
+
+	// Bulk op payload — mirrors the server's BulkOp union for /api/events/bulk.
+	type BulkOp =
+		| { type: 'delete' }
+		| { type: 'calendar'; calendarId: string }
+		| { type: 'location'; location: string }
+		| { type: 'attendants'; add: string[] }
+		| { type: 'smart'; instruction: string };
+
+	// Context attached when a misparsed phrase is reported for tuning.
+	type PhraseMatchContext = {
+		instruction: string;
+		eventCount: number;
+		plannedOps: PlanOp[];
+	};
+
+	function isBoolean(value: unknown): value is boolean {
+		return typeof value === 'boolean';
+	}
+
+	function isString(value: unknown): value is string {
+		return typeof value === 'string';
+	}
+
+	// Attendee rows served by /api/events/[id]/rsvp (same shape EventFormModal
+	// expects for its rsvpData prop).
+	type RsvpAttendee = {
+		userId: string | null;
+		status: string;
+		firstName?: string | null;
+		lastName?: string | null;
+		name?: string | null;
+		inviteType?: string | null;
+	};
+
 	const currentDate = writable(DateTime.now());
 
 	// Deep-link seeding: /calendar?date=YYYY-MM-DD&view=day opens the requested
@@ -38,7 +87,7 @@
 	let showModal = false;
 	let showEditModal = false;
 	let selectedEvent: Event | null = null;
-	let selectedEventRsvp: any[] = [];
+	let selectedEventRsvp: RsvpAttendee[] = [];
 	let createInitialDate: string | undefined = undefined;
 	let createInitialTitle: string | undefined = undefined;
 	let createInitialQuickAdd: string | undefined = undefined;
@@ -63,7 +112,7 @@
 	async function reportPhrase(
 		phrase: string,
 		source: 'bulk_edit' | 'event_parse',
-		matched?: Record<string, unknown>
+		matched?: PhraseMatchContext
 	) {
 		if (reportingPhrase) return;
 		reportingPhrase = true;
@@ -100,13 +149,15 @@
 	}
 
 	function applyBulkCalendar(e: globalThis.Event) {
+		// SAFETY: this handler is only bound to the bulk-calendar <select>,
+		// so currentTarget is always that element when it fires.
 		const select = e.currentTarget as HTMLSelectElement;
 		const calendarId = select.value;
 		select.value = '';
 		if (calendarId) runBulk({ type: 'calendar', calendarId });
 	}
 
-	async function runBulk(op: Record<string, unknown>) {
+	async function runBulk(op: BulkOp) {
 		if (selectedIds.length === 0 || bulkBusy) return;
 		if (
 			op.type === 'delete' &&
@@ -141,11 +192,12 @@
 
 	// Smart mode, phase 1: dry-run returns a plan; phase 2 echoes it for execution.
 	// ops = raw plan sent back verbatim on apply; items = display labels.
-	let smartPlan: { ops: Record<string, unknown>[]; items: { id: string; label: string }[] } | null =
-		null;
+	let smartPlan: { ops: PlanOp[]; items: { id: string; label: string }[] } | null = null;
 
-	function describePlanOp(po: any): string {
-		const ev: any = allEvents.find((e: any) => (e.masterId || e.id) === po.id || e.id === po.id);
+	function describePlanOp(po: PlanOp): string {
+		const ev = allEvents.find(
+			(e) => (('masterId' in e && e.masterId) || e.id) === po.id || e.id === po.id
+		);
 		const name = ev?.title || po.title || 'Event';
 		if (po.delete) return `Delete "${name}"`;
 		const parts: string[] = [];
@@ -157,9 +209,9 @@
 		if (po.startTime) parts.push(`start ${po.startTime}`);
 		if (po.endTime) parts.push(`end ${po.endTime}`);
 		if (po.location) parts.push(`at ${po.location}`);
-		if (typeof po.allDay === 'boolean') parts.push(po.allDay ? 'all day' : 'timed');
+		if (isBoolean(po.allDay)) parts.push(po.allDay ? 'all day' : 'timed');
 		if (po.calendarId) {
-			const cal = (data.calendarIds || []).find((c: any) => c.id === po.calendarId);
+			const cal = (data.calendarIds || []).find((c) => c.id === po.calendarId);
 			if (cal) parts.push(`→ ${cal.name}`);
 		}
 		return parts.length ? `${name}: ${parts.join(', ')}` : name;
@@ -170,7 +222,7 @@
 	}
 
 	function planMovesToPast(): boolean {
-		return !!smartPlan?.ops.some((op) => typeof op.date === 'string' && isPastDate(op.date));
+		return !!smartPlan?.ops.some((op) => isString(op.date) && isPastDate(op.date));
 	}
 
 	async function runSmart() {
@@ -179,7 +231,7 @@
 		// Moving events into the past is allowed, but confirm first.
 		if (smartPlan && planMovesToPast()) {
 			const pastCount = smartPlan.ops.filter(
-				(op) => typeof op.date === 'string' && isPastDate(op.date)
+				(op) => isString(op.date) && isPastDate(op.date)
 			).length;
 			if (
 				!confirm(
@@ -216,7 +268,7 @@
 				bulkInstruction = '';
 				await invalidateAll();
 			} else {
-				const plan: any[] = j.plan ?? [];
+				const plan: PlanOp[] = j.plan ?? [];
 				if (plan.length === 0) {
 					bulkError = 'Could not match that instruction. Try naming a date or the events.';
 					return;
@@ -236,9 +288,9 @@
 	// Optimistically shown events between creation and the next load refresh.
 	let localExtras: Event[] = [];
 
-	function toDisplayEvent(row: any): Event[] {
+	function toDisplayEvent(row: Event): Event[] {
 		// Same multi-day split as the server pipeline (shared parseEvents).
-		return parseEvents([row]) as Event[];
+		return parseEvents([row]);
 	}
 
 	// Combine all events
@@ -345,7 +397,7 @@
 	async function handleEventCreated(event: CustomEvent) {
 		const created = event.detail?.created;
 		if (created) {
-			const familyCalIds = new Set((data.calendarIds || []).slice(1).map((c: any) => c.id));
+			const familyCalIds = new Set((data.calendarIds || []).slice(1).map((c) => c.id));
 			const color = familyCalIds.has(created.calendarId)
 				? data.familyCalendarColor
 				: data.userCalendarColor;
@@ -362,7 +414,7 @@
 		createCount++;
 	}
 
-	async function handleEventUpdate(event: CustomEvent) {
+	async function handleEventUpdate() {
 		await invalidateAll();
 		close();
 	}
@@ -420,7 +472,7 @@
 			const target = allEvents.find(
 				(e) => e.id === editId || ('masterId' in e && e.masterId === editId)
 			);
-			if (target) openEditModal(target as Event);
+			if (target) openEditModal(target);
 		}
 	}
 </script>
@@ -478,7 +530,7 @@
 		{selectionMode}
 		{selectedIds}
 		onToggleSelectionMode={setSelectionMode}
-		onToggleSelect={(e: any) => {
+		onToggleSelect={(e) => {
 			selectedIds = selectedIds.includes(e.id)
 				? selectedIds.filter((x) => x !== e.id)
 				: [...selectedIds, e.id];

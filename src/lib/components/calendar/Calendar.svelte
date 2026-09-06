@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { writable, type Writable, get } from 'svelte/store';
+	import { type Writable, get } from 'svelte/store';
 	import { DateTime, Info } from 'luxon';
+	import type { Event } from '$lib/types';
 	import MonthView from './MonthView.svelte';
 	import ListView from './ListView.svelte';
 	import WeekView from './WeekView.svelte';
@@ -8,7 +9,7 @@
 	import DailyVerseCard from './DailyVerseCard.svelte';
 
 	export let currentDate: Writable<DateTime>;
-	export let events: any[] = [];
+	export let events: Event[] = [];
 	export let removeEvent: (id: string) => void = () => {};
 	export let preferedFirstDayOfWeek: string = 'sunday';
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
@@ -25,20 +26,30 @@
 	export let selectionMode: boolean = false;
 	export let selectedIds: string[] = [];
 	export let onToggleSelectionMode: (on: boolean) => void = () => {};
-	export let onToggleSelect: (event: any) => void = () => {};
+	export let onToggleSelect: (event: Event) => void = () => {};
 	export let dailyVerse: {
 		reference: string;
 		text: string;
 		attribution?: string;
 	} | null = null;
 
-	let view: 'month' | 'week' | 'list' | 'day' = (() => {
-		const map: Record<string, 'month' | 'week' | 'list' | 'day'> = {
-			monthView: 'month',
-			weekView: 'week',
-			listView: 'list',
-			dayView: 'day'
-		};
+	type View = 'month' | 'week' | 'list' | 'day';
+
+	/** Settings keys look like `monthView`; unknown keys fall through. */
+	function viewFromSettingKey(key: string): View | undefined {
+		if (key === 'monthView') return 'month';
+		if (key === 'weekView') return 'week';
+		if (key === 'listView') return 'list';
+		if (key === 'dayView') return 'day';
+		return undefined;
+	}
+
+	/** View names ('month' | 'week' | ...) as stored in localStorage. */
+	function viewFromName(name: string): View | undefined {
+		return viewFromSettingKey(`${name}View`);
+	}
+
+	let view: View = (() => {
 		if (
 			initialView === 'month' ||
 			initialView === 'week' ||
@@ -49,17 +60,13 @@
 		}
 		// Restore last-used view from localStorage.
 		try {
-			const saved = localStorage.getItem('familyplanz:lastView') as
-				| 'month'
-				| 'week'
-				| 'list'
-				| 'day'
-				| null;
-			if (saved && map[`${saved}View`]) return saved;
+			const saved = localStorage.getItem('familyplanz:lastView');
+			const restored = saved === null ? undefined : viewFromName(saved);
+			if (restored) return restored;
 		} catch {
 			/* SSR / private browsing */
 		}
-		return map[defaultViewSetting] ?? 'month';
+		return viewFromSettingKey(defaultViewSetting) ?? 'month';
 	})();
 	let previousView: 'month' | 'week' | 'list' = 'month';
 	let showMiniPicker = false;
@@ -106,23 +113,29 @@
 		view = newView;
 		try {
 			localStorage.setItem('familyplanz:lastView', newView);
-		} catch {}
+		} catch {
+			/* localStorage unavailable (private mode) — view still switches */
+		}
 	}
 
 	function openDay(date: DateTime) {
-		if (view !== 'day') previousView = view as 'month' | 'week' | 'list';
+		if (view !== 'day') previousView = view;
 		currentDate.set(date);
 		view = 'day';
 		try {
 			localStorage.setItem('familyplanz:lastView', 'day');
-		} catch {}
+		} catch {
+			/* localStorage unavailable (private mode) — day view still opens */
+		}
 	}
 
 	function backFromDay() {
 		view = previousView;
 		try {
 			localStorage.setItem('familyplanz:lastView', previousView);
-		} catch {}
+		} catch {
+			/* localStorage unavailable (private mode) — fallback view still applies */
+		}
 	}
 
 	function handleMonthSelect(month: number) {
@@ -437,7 +450,6 @@
 			<MonthView
 				{currentDate}
 				{events}
-				{removeEvent}
 				{preferedFirstDayOfWeek}
 				{calendarIds}
 				{openDay}
@@ -476,7 +488,7 @@
 				on:back={backFromDay}
 			/>
 		{:else if view === 'list'}
-			<ListView {currentDate} {events} {removeEvent} {calendarIds} {dueTasks} />
+			<ListView {currentDate} {events} {calendarIds} {dueTasks} />
 		{/if}
 	</div>
 </div>

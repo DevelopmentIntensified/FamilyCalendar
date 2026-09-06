@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { discounts, userDiscounts, familyMembers } from '$lib/server/db/schema';
-import { eq, sql, and, or } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 
 export interface DiscountBreakdown {
 	discountType: string;

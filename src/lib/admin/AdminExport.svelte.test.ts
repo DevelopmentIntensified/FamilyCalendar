@@ -14,7 +14,7 @@ describe('AdminExport', () => {
 		expect(screen.queryByRole('textbox')).toBeNull();
 		await fireEvent.click(screen.getByRole('button', { name: 'Export for agent' }));
 		const box = await screen.findByRole('textbox');
-		expect((box as HTMLTextAreaElement).value).toBe('bug one\nbug two');
+		expect(box).toHaveValue('bug one\nbug two');
 		expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Download .txt' })).toBeInTheDocument();
 	});

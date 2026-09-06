@@ -27,7 +27,7 @@ export type NewBugReport = {
  * swallowed.
  */
 export async function createBugReport(input: NewBugReport): Promise<BugReport | null> {
-	const area = (BUG_AREAS as readonly string[]).includes(input.area) ? input.area : 'other';
+	const area = BUG_AREAS.some((candidate) => candidate === input.area) ? input.area : 'other';
 	const description = input.description.trim().slice(0, 5000);
 	if (!description) return null;
 	try {

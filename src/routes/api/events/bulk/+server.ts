@@ -23,6 +23,12 @@ type BulkOp =
 	| { type: 'attendants'; add: string[] }
 	| { type: 'smart'; instruction: string };
 
+function isBulkOp(value: unknown): value is BulkOp {
+	return (
+		typeof value === 'object' && value !== null && 'type' in value && typeof value.type === 'string'
+	);
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const auth = requireUserJson(locals);
 	if (auth.response) return auth.response;
@@ -30,9 +36,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const body = await request.json();
 	const items: BulkItem[] = Array.isArray(body.ids) ? body.ids : [];
-	const op = body.op as BulkOp | undefined;
+	const op: unknown = body.op;
 
-	if (items.length === 0 || !op || typeof op.type !== 'string') {
+	if (items.length === 0 || !isBulkOp(op)) {
 		return json({ error: 'ids and op are required' }, { status: 400 });
 	}
 
@@ -84,9 +90,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		if (op.type === 'attendants') {
-			const add = Array.isArray(op.add)
-				? op.add.map((n: unknown) => String(n).trim()).filter(Boolean)
-				: [];
+			const add = Array.isArray(op.add) ? op.add.map((n) => String(n).trim()).filter(Boolean) : [];
 			if (add.length === 0) return json({ error: 'add names required' }, { status: 400 });
 
 			let applied = 0;

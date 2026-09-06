@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DateTime } from 'luxon';
-import { parseEventInput, parseEventList, type ParseResult } from './naturalLanguageService';
+import { parseEventInput, parseEventList } from './naturalLanguageService';
 
 describe('NLP Event Parser', () => {
 	describe('Date Patterns', () => {

@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { codes, type Code } from '$lib/server/db/schema';
+import { codes } from '$lib/server/db/schema';
 import { desc, eq, lt } from 'drizzle-orm';
 
 export async function getCodes() {

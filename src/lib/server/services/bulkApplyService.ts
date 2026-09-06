@@ -21,7 +21,7 @@ export async function applySmartOp(
 		!op.startTime &&
 		!op.endTime &&
 		!op.location &&
-		typeof op.allDay !== 'boolean'
+		op.allDay === undefined
 	) {
 		const moved = await updateEventById(op.id, { calendarId }, userId);
 		return !!moved;
@@ -33,9 +33,9 @@ export async function applySmartOp(
 	// The plan's date is a user-zone calendar date; interpret it in the
 	// same zone so the stored instant lands on the user's intended day.
 	const date = op.date ?? startDt.toISODate()!;
-	const allDay = typeof op.allDay === 'boolean' ? op.allDay : ev.allDay;
+	const allDay = op.allDay ?? ev.allDay;
 
-	let startTime: string | null = allDay ? '00:00' : (op.startTime ?? startDt.toFormat('HH:mm'));
+	const startTime: string | null = allDay ? '00:00' : (op.startTime ?? startDt.toFormat('HH:mm'));
 	const endDt = toDateTime(ev.end)?.setZone(zone ?? 'system');
 	let endTime: string | null = allDay
 		? '23:59'

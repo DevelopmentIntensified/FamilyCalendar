@@ -2,11 +2,13 @@ import { describe, it, expect } from 'vitest';
 import {
 	normalizeEventRecurrence,
 	sanitizeRecurrenceByDay,
-	sanitizeRecurrenceCount
+	sanitizeRecurrenceCount,
+	type EventRecurrenceInput,
+	type EventRecurrenceWrite
 } from './eventRecurrence';
 
 describe('normalizeEventRecurrence', () => {
-	const cases: Array<[string, Record<string, unknown>, Record<string, unknown>]> = [
+	const cases: Array<[string, Partial<EventRecurrenceInput>, EventRecurrenceWrite]> = [
 		[
 			'weekly with interval passes through',
 			{ recurrenceFrequency: 'weekly', recurrenceInterval: 2 },

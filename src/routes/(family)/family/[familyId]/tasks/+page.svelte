@@ -61,13 +61,21 @@
 		localStorage.setItem('familyplanz:tagFilter', tagFilter);
 	}
 
-	const FREQ_NOUN: Record<string, string> = {
+	/** Recurrence frequency -> singular noun for "every N <noun>s". */
+	interface FreqNouns {
+		[key: string]: string;
+	}
+	const FREQ_NOUN: FreqNouns = {
 		daily: 'day',
 		weekly: 'week',
 		monthly: 'month',
 		yearly: 'year'
 	};
-	const PRIORITY_DOT: Record<string, string> = {
+	/** Task priority -> dot color class. */
+	interface PriorityDots {
+		[key: string]: string;
+	}
+	const PRIORITY_DOT: PriorityDots = {
 		high: 'bg-red-500',
 		normal: 'bg-slate-300',
 		low: 'bg-sky-500'
@@ -250,10 +258,10 @@
 		return false;
 	}
 
-	$: openTasks = (data.tasks as TaskItem[]).filter(
+	$: openTasks = data.tasks.filter(
 		(t) => !t.completedAt && matchesTagFilter(t) && matchesSearch(t)
 	);
-	$: completedTasks = (data.tasks as TaskItem[]).filter(
+	$: completedTasks = data.tasks.filter(
 		(t) => t.completedAt && matchesTagFilter(t) && matchesSearch(t)
 	);
 	$: sortedOpenTasks = [...openTasks].sort((a, b) => sortTasks(a, b, sortBy));

@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import nlp from 'compromise';
 import {
 	applyPeriod,
-	DAY_MAP,
+	dayNumber,
 	MONTH_ALT,
 	MONTH_MAP,
 	normalizeTime
@@ -38,7 +38,7 @@ export interface ParseResult {
 	confidence: number;
 }
 
-const ORDINAL_WORD_MAP: Record<string, number> = {
+const ORDINAL_WORD_MAP = {
 	first: 1,
 	second: 2,
 	third: 3,
@@ -87,7 +87,7 @@ const ORDINAL_WORDS_PATTERN =
 	'(?:twenty-(?:first|second|third|fifth|sixth|seventh|eighth|ninth)|thirty-first|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twentyfourth|twentyfifth|twentysixth|twentyseventh|twentyeighth|twentyninth|thirtieth|thirtyfirst)';
 
 function parseDayOfWeek(day: string): number | null {
-	return DAY_MAP[day.toLowerCase()] ?? null;
+	return dayNumber(day.toLowerCase()) ?? null;
 }
 
 function getNextDayOfWeek(day: string, zone?: string): DateTime {
@@ -139,15 +139,45 @@ function withRolloverYear(
 /** Weekday abbreviation/full name → RRULE code. Null when unrecognized. */
 function normalizeDayToken(t: string): string | null {
 	const s = t.toLowerCase();
-	if (/^mon/.test(s)) return 'MO';
-	if (/^tue/.test(s)) return 'TU';
-	if (/^wed/.test(s)) return 'WE';
-	if (/^thu/.test(s)) return 'TH';
-	if (/^fri/.test(s)) return 'FR';
-	if (/^sat/.test(s)) return 'SA';
-	if (/^sun/.test(s)) return 'SU';
+	if (s.startsWith('mon')) return 'MO';
+	if (s.startsWith('tue')) return 'TU';
+	if (s.startsWith('wed')) return 'WE';
+	if (s.startsWith('thu')) return 'TH';
+	if (s.startsWith('fri')) return 'FR';
+	if (s.startsWith('sat')) return 'SA';
+	if (s.startsWith('sun')) return 'SU';
 	return null;
 }
+
+/** String-keyed lookup for literal-key maps (keeps exact key types). */
+function lookup<K extends string, V>(map: Record<K, V>, key: string): V | undefined {
+	// SAFETY: the `in` check pins key to the map's own keys before indexing.
+	return key in map ? map[key as K] : undefined;
+}
+
+/** Part-of-day word → HH:mm anchor for "returning Sunday morning" phrasings. */
+const DAYPART_TIMES = {
+	morning: '09:00',
+	afternoon: '14:00',
+	evening: '18:00',
+	noon: '12:00'
+};
+
+/** Special time-of-day word → HH:mm. */
+const SPECIAL_TIMES = {
+	noon: '12:00',
+	midnight: '00:00',
+	dusk: '20:00',
+	dawn: '06:00'
+};
+
+/** Time-of-day phrase → HH:mm ("early morning", "afternoon", …). */
+const TOD_TIMES = {
+	'early morning': '06:00',
+	morning: '09:00',
+	afternoon: '14:00',
+	evening: '18:00'
+};
 
 const WEEK_ORDER = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 
@@ -413,9 +443,14 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (relativeMatch && !result.date) {
 		const n = relativeMatch[1].toLowerCase() === 'a' ? 1 : parseInt(relativeMatch[1]);
 		stripSpans.push(relativeMatch[0]);
-		result.date = now
-			.plus({ [`${relativeMatch[2].toLowerCase()}s`]: n } as any)
-			.toFormat('yyyy-MM-dd');
+		const unit = relativeMatch[2].toLowerCase();
+		result.date = (
+			unit === 'week'
+				? now.plus({ weeks: n })
+				: unit === 'month'
+					? now.plus({ months: n })
+					: now.plus({ days: n })
+		).toFormat('yyyy-MM-dd');
 		confidence += 0.25;
 	}
 
@@ -446,13 +481,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		result.date = getNextDayOfWeek(returnDayMatch[1], zone).toFormat('yyyy-MM-dd');
 		stripSpans.push(returnDayMatch[0]);
 		if (returnDayMatch[2]) {
-			const timeMap: Record<string, string> = {
-				morning: '09:00',
-				afternoon: '14:00',
-				evening: '18:00',
-				noon: '12:00'
-			};
-			result.endTime = timeMap[returnDayMatch[2].toLowerCase()] || '18:00';
+			result.endTime = lookup(DAYPART_TIMES, returnDayMatch[2].toLowerCase()) ?? '18:00';
 		}
 		confidence += 0.2;
 	}
@@ -530,7 +559,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		const month = MONTH_MAP[ordinalWordMatch[2].toLowerCase()];
 		const rawWord = ordinalWordMatch[1].toLowerCase();
 		const normalized = rawWord.replace(/\s+/g, ' ').trim();
-		const day = ORDINAL_WORD_MAP[normalized];
+		const day = lookup(ORDINAL_WORD_MAP, normalized);
 		if (day) {
 			let year = now.year;
 			const target = DateTime.fromObject({ year, month, day });
@@ -545,6 +574,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		/\b(first|second|third|fourth|fifth|last)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\s+of\s+(the\s+month|january|february|march|april|may|june|july|august|september|october|november|december)\b/i
 	);
 	if (ordinalDayMatch && !result.date) {
+		// SAFETY: the regex above whitelists exactly these ordinal words.
 		const which = ordinalDayMatch[1].toLowerCase() as
 			| 'first'
 			| 'second'
@@ -552,7 +582,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			| 'fourth'
 			| 'fifth'
 			| 'last';
-		const jsDay = DAY_MAP[ordinalDayMatch[2].toLowerCase()];
+		const jsDay = dayNumber(ordinalDayMatch[2].toLowerCase()) ?? 0;
 		const luxonDay = jsDay === 0 ? 7 : jsDay;
 		const monthToken = ordinalDayMatch[3].toLowerCase();
 		let month = monthToken === 'the month' ? now.month : MONTH_MAP[monthToken];
@@ -651,6 +681,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	const ordinalDaySweep =
 		/\b(first|second|third|fourth|fifth|last)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\s+of\s+(the\s+month|january|february|march|april|may|june|july|august|september|october|november|december)\b/gi;
 	while ((sweep = ordinalDaySweep.exec(dateInput)) !== null) {
+		// SAFETY: the sweep regex above whitelists exactly these ordinal words.
 		const which = sweep[1].toLowerCase() as
 			| 'first'
 			| 'second'
@@ -658,7 +689,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			| 'fourth'
 			| 'fifth'
 			| 'last';
-		const jsDay = DAY_MAP[sweep[2].toLowerCase()];
+		const jsDay = dayNumber(sweep[2].toLowerCase()) ?? 0;
 		const luxonDay = jsDay === 0 ? 7 : jsDay;
 		const monthToken = sweep[3].toLowerCase();
 		const month = monthToken === 'the month' ? now.month : MONTH_MAP[monthToken];
@@ -726,9 +757,9 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	);
 	if (hyphenRangeMatch) {
 		let startHour = parseInt(hyphenRangeMatch[1]);
-		let startMin = parseInt(hyphenRangeMatch[2]);
+		const startMin = parseInt(hyphenRangeMatch[2]);
 		let endHour = parseInt(hyphenRangeMatch[4]);
-		let endMin = parseInt(hyphenRangeMatch[5]);
+		const endMin = parseInt(hyphenRangeMatch[5]);
 		const startPeriod = hyphenRangeMatch[3]?.toLowerCase();
 		const endPeriod = hyphenRangeMatch[6]?.toLowerCase();
 		const effectiveStart = startPeriod || endPeriod;
@@ -790,7 +821,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// ===== RECURRENCE =====
 	// Compound phrases must come before bare words so we capture the full
 	// expression ("every other week", not just "week"-less fragments).
-	const recurrencePatterns: [RegExp, string | ((m: RegExpMatchArray) => string)][] = [
+	const recurrencePatterns: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
 		[/\bmonthly\s+on\s+the\s+\d{1,2}(?:st|nd|rd|th)?\b/i, () => 'monthly'],
 		[
 			/\bweekly\s+on\s+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)s?\b/i,
@@ -811,7 +842,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	for (const [pattern, value] of recurrencePatterns) {
 		const m = input.match(pattern);
 		if (m) {
-			result.recurring = typeof value === 'function' ? value(m) : value;
+			result.recurring = value(m);
 			recurrencePhrases.push(m[0]);
 			confidence += 0.2;
 			break;
@@ -952,19 +983,13 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// Special times: "at noon", "at midnight", "at dusk", "at dawn"
 	const specialTimeMatch = input.match(/\bat\s+(noon|midnight|dusk|dawn)\b/i);
 	if (specialTimeMatch && !foundTime) {
-		const timeMap: Record<string, string> = {
-			noon: '12:00',
-			midnight: '00:00',
-			dusk: '20:00',
-			dawn: '06:00'
-		};
-		result.startTime = timeMap[specialTimeMatch[1].toLowerCase()];
+		result.startTime = lookup(SPECIAL_TIMES, specialTimeMatch[1].toLowerCase());
 		foundTime = true;
 		confidence += 0.2;
 	}
 
 	// Colloquial fractions: "half past seven pm", "quarter to nine am", "quarter past two pm"
-	const WORD_HOUR: Record<string, number> = {
+	const WORD_HOUR = {
 		one: 1,
 		two: 2,
 		three: 3,
@@ -987,7 +1012,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (colloquialMatch && !foundTime) {
 		const kind = colloquialMatch[1].toLowerCase().replace(/\s+/g, ' ');
 		const rawHour = colloquialMatch[2].toLowerCase();
-		let hour = /^\d+$/.test(rawHour) ? parseInt(rawHour) : WORD_HOUR[rawHour];
+		const hour = /^\d+$/.test(rawHour) ? parseInt(rawHour) : (lookup(WORD_HOUR, rawHour) ?? 0);
 		const period = colloquialMatch[3]?.toLowerCase();
 		if (kind === 'half past') {
 			result.startTime = normalizeTime(applyPeriod(hour, period), 30);
@@ -1017,13 +1042,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// Time of day: "early morning", "morning", "afternoon", "evening"
 	const timeOfDayMatch = input.match(/\b(early\s+morning|morning|afternoon|evening)\b/i);
 	if (timeOfDayMatch && !foundTime) {
-		const todMap: Record<string, string> = {
-			'early morning': '06:00',
-			morning: '09:00',
-			afternoon: '14:00',
-			evening: '18:00'
-		};
-		result.startTime = todMap[timeOfDayMatch[1].toLowerCase()];
+		result.startTime = lookup(TOD_TIMES, timeOfDayMatch[1].toLowerCase());
 		foundTime = true;
 		confidence += 0.15;
 	}
@@ -1088,9 +1107,9 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	);
 	if (fromToMatch && !foundTime) {
 		let startHour = parseInt(fromToMatch[1]);
-		let startMin = fromToMatch[2] ? parseInt(fromToMatch[2]) : 0;
+		const startMin = fromToMatch[2] ? parseInt(fromToMatch[2]) : 0;
 		let endHour = parseInt(fromToMatch[4]);
-		let endMin = fromToMatch[5] ? parseInt(fromToMatch[5]) : 0;
+		const endMin = fromToMatch[5] ? parseInt(fromToMatch[5]) : 0;
 		const startPeriod = fromToMatch[3]?.toLowerCase();
 		const endPeriod = fromToMatch[6]?.toLowerCase();
 		if (startPeriod === 'pm' && startHour < 12) startHour += 12;
@@ -1407,8 +1426,8 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 
 	// Speaker patterns: "Alex and I", "My sister and I", "The team and I"
 	const speakerPatterns = [
-		/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+and\s+I\s+(?:are|will|would|having|hosting|throwing|planning|organizing|going|traveling|performing|reviewing|putting|launching)\b[^\.]*/i,
-		/(You\s+and\s+I\s+(?:and\s+the\s+rest\s+of\s+)?[^\.]+)/i,
+		/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+and\s+I\s+(?:are|will|would|having|hosting|throwing|planning|organizing|going|traveling|performing|reviewing|putting|launching)\b[^.]*/i,
+		/(You\s+and\s+I\s+(?:and\s+the\s+rest\s+of\s+)?[^.]+)/i,
 		/(Us\s+(?:three\s+)?[a-z]+(?:\s+[A-Z][a-z]+)?(?:\s+and\s+the\s+[a-z]+)?\s+(?:are|will|going|having|hosting|putting))/i,
 		/(Our\s+[a-z]+(?:\s+[a-z]+)*\s+and\s+I\s+(?:are|will|having|hosting|throwing|planning|organizing|going|traveling|performing|reviewing))/i,
 		/(The\s+[a-z]+(?:\s+[a-z]+)*\s+and\s+I\s+(?:are|will|having|hosting|throwing|planning|organizing|going|traveling|reviewing|clean|having))/i,
@@ -1436,7 +1455,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 
 	// Groups: "including X", "the whole department"
 	const groupPatterns = [
-		/(?:including|expecting|investors?|about\s+\d+\s+(?:people|attendees?|volunteers?|members?|parents?|chaperones?)|the\s+whole\s+[a-z]+)\s+([^,\.]+)/gi
+		/(?:including|expecting|investors?|about\s+\d+\s+(?:people|attendees?|volunteers?|members?|parents?|chaperones?)|the\s+whole\s+[a-z]+)\s+([^,.]+)/gi
 	];
 
 	for (const pattern of groupPatterns) {

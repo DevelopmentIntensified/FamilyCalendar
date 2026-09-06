@@ -6,6 +6,29 @@ export type UnmatchedSource = 'event_parse' | 'bulk_edit';
 
 type UnmatchedPhraseInsert = typeof unmatchedPhrases.$inferInsert;
 
+/** Arbitrary JSON payload (client-supplied parse sample) stored as text. */
+export type MatchedPayload =
+	| string
+	| number
+	| boolean
+	| null
+	| MatchedPayload[]
+	| { [key: string]: MatchedPayload };
+
+/** `onConflictDoUpdate` set for a repeated unmatched-phrase report. */
+export interface UnmatchedConflictSet {
+	count: SQL;
+	sample: string;
+	updatedAt: Date;
+	matched?: string;
+}
+
+export interface UnmatchedReport {
+	normalized: string;
+	values: UnmatchedPhraseInsert;
+	conflictSet: UnmatchedConflictSet;
+}
+
 /** Normalize a phrase for dedup: lowercase, collapse whitespace, trim. */
 export function normalizePhrase(phrase: string): string {
 	return phrase.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 280);
@@ -19,17 +42,13 @@ export function normalizePhrase(phrase: string): string {
 export function buildUnmatchedReport(
 	source: UnmatchedSource,
 	phrase: string,
-	matched?: Record<string, unknown> | null
-): {
-	normalized: string;
-	values: UnmatchedPhraseInsert;
-	conflictSet: { count: SQL; sample: string; updatedAt: Date; matched?: string };
-} | null {
+	matched?: MatchedPayload | null
+): UnmatchedReport | null {
 	const normalized = normalizePhrase(phrase);
 	if (!normalized) return null;
 	const values: UnmatchedPhraseInsert = { source, phrase: normalized, sample: normalized };
 	if (matched) values.matched = JSON.stringify(matched);
-	const conflictSet: { count: SQL; sample: string; updatedAt: Date; matched?: string } = {
+	const conflictSet: UnmatchedConflictSet = {
 		count: sql`${unmatchedPhrases.count} + 1`,
 		sample: normalized,
 		updatedAt: new Date()
@@ -46,7 +65,7 @@ export function buildUnmatchedReport(
 export async function reportUnmatchedPhrase(
 	source: UnmatchedSource,
 	phrase: string,
-	matched?: Record<string, unknown> | null
+	matched?: MatchedPayload | null
 ): Promise<void> {
 	const built = buildUnmatchedReport(source, phrase, matched);
 	if (!built) return;

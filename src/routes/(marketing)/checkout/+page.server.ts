@@ -7,6 +7,10 @@ import {
 } from '$lib/server/services/checkoutService';
 import { getUserSubscription } from '$lib/server/services/subscriptionService';
 
+function isPlanType(value: unknown): value is PlanType {
+	return value === 'annual' || value === 'lifetime' || value === 'monthly';
+}
+
 export const load: PageServerLoad = async (event) => {
 	const user = event.locals.user;
 
@@ -15,7 +19,7 @@ export const load: PageServerLoad = async (event) => {
 	}
 
 	const url = event.url;
-	const planTypeParam = url.searchParams.get('plan') as PlanType | null;
+	const planTypeParam = url.searchParams.get('plan');
 	const planType: PlanType =
 		planTypeParam === 'annual' || planTypeParam === 'lifetime' || planTypeParam === 'monthly'
 			? planTypeParam
@@ -54,7 +58,8 @@ export const actions: Actions = {
 		}
 
 		const formData = await event.request.formData();
-		const planType = formData.get('planType') as PlanType;
+		const planTypeParam: unknown = formData.get('planType');
+		const planType = isPlanType(planTypeParam) ? planTypeParam : null;
 		const finalPrice = Number(formData.get('finalPrice') ?? 0);
 
 		if (!planType || !finalPrice) {

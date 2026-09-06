@@ -1,22 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { GET, type ClaimVerifyDeps } from './+server';
 
-vi.mock('$lib/server/services/claimService', () => ({
-	verifyClaimToken: vi.fn()
-}));
+const verifyClaimToken = vi.fn<ClaimVerifyDeps['verifyClaimToken']>();
+const lucia = {
+	createSession: vi.fn(),
+	createSessionCookie: vi.fn()
+};
+const setSessionCookie = vi.fn<ClaimVerifyDeps['setSessionCookie']>();
 
-vi.mock('$lib/server/auth', () => ({
-	lucia: {
-		createSession: vi.fn(),
-		createSessionCookie: vi.fn()
-	},
-	setSessionCookie: vi.fn()
-}));
-
-import { GET } from './+server';
-import { verifyClaimToken } from '$lib/server/services/claimService';
-import { lucia, setSessionCookie } from '$lib/server/auth';
+const deps: ClaimVerifyDeps = {
+	verifyClaimToken,
+	lucia,
+	setSessionCookie
+};
 
 function mockEvent(userId: string | null) {
+	// SAFETY: test double — GET only reads locals.user, params.token, cookies.set.
 	return {
 		locals: { user: userId ? { id: userId } : null },
 		params: { token: 'tok-1' },
@@ -24,10 +23,12 @@ function mockEvent(userId: string | null) {
 	} as never;
 }
 
-function redirectOf(promise: unknown): Promise<{ status: number; location: string }> {
-	return Promise.resolve(promise).catch(
-		(e: unknown) => e as { status: number; location: string }
-	) as Promise<{ status: number; location: string }>;
+type RedirectLike = { status: number; location: string };
+
+function redirectOf(result: Promise<Response>): Promise<RedirectLike> {
+	// SAFETY: SvelteKit's redirect() throws a Redirect object carrying exactly
+	// status and location; handlers throw rather than return, so tests recover it.
+	return Promise.resolve(result).catch((e) => e as RedirectLike) as Promise<RedirectLike>;
 }
 
 beforeEach(() => {
@@ -36,7 +37,7 @@ beforeEach(() => {
 
 describe('GET /claim/verify/[token]', () => {
 	it('redirects to login when unauthenticated', async () => {
-		const redirect = await redirectOf(GET(mockEvent(null)));
+		const redirect = await redirectOf(GET(mockEvent(null), deps));
 
 		expect(redirect.status).toBe(302);
 		expect(redirect.location).toBe('/login');
@@ -44,17 +45,15 @@ describe('GET /claim/verify/[token]', () => {
 	});
 
 	it('signs in as the merged account on Claim Conflict and redirects to the calendar', async () => {
-		vi.mocked(verifyClaimToken).mockResolvedValue({
+		verifyClaimToken.mockResolvedValue({
 			outcome: 'merged',
 			targetUserId: 'existing-9'
 		});
-		vi.mocked(lucia.createSession).mockResolvedValue({ id: 'session-9' } as never);
-		vi.mocked(lucia.createSessionCookie).mockReturnValue({
-			value: 'auth_session=s9; Path=/'
-		} as never);
+		lucia.createSession.mockResolvedValue({ id: 'session-9' });
+		lucia.createSessionCookie.mockReturnValue({ value: 'auth_session=s9; Path=/' });
 
 		const event = mockEvent('guest-1');
-		const redirect = await redirectOf(GET(event));
+		const redirect = await redirectOf(GET(event, deps));
 
 		expect(verifyClaimToken).toHaveBeenCalledWith('tok-1', 'guest-1');
 		// Signed into the existing account the guest merged into.
@@ -65,9 +64,9 @@ describe('GET /claim/verify/[token]', () => {
 	});
 
 	it('redirects to the calendar without re-signing when the email is claimed', async () => {
-		vi.mocked(verifyClaimToken).mockResolvedValue({ outcome: 'claimed', userId: 'guest-1' });
+		verifyClaimToken.mockResolvedValue({ outcome: 'claimed', userId: 'guest-1' });
 
-		const redirect = await redirectOf(GET(mockEvent('guest-1')));
+		const redirect = await redirectOf(GET(mockEvent('guest-1'), deps));
 
 		expect(verifyClaimToken).toHaveBeenCalledWith('tok-1', 'guest-1');
 		expect(lucia.createSession).not.toHaveBeenCalled();
@@ -76,9 +75,9 @@ describe('GET /claim/verify/[token]', () => {
 	});
 
 	it('redirects back to claim with an error when the token is invalid', async () => {
-		vi.mocked(verifyClaimToken).mockResolvedValue({ outcome: 'invalid' });
+		verifyClaimToken.mockResolvedValue({ outcome: 'invalid' });
 
-		const redirect = await redirectOf(GET(mockEvent('guest-1')));
+		const redirect = await redirectOf(GET(mockEvent('guest-1'), deps));
 
 		expect(lucia.createSession).not.toHaveBeenCalled();
 		expect(redirect.status).toBe(302);

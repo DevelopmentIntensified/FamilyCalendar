@@ -20,12 +20,20 @@ export const GET: RequestHandler = async ({ locals }) => {
 	return json({ notifications, unreadCount });
 };
 
+function isNotificationBody(value: unknown): value is { all?: unknown; id?: unknown } {
+	return typeof value === 'object' && value !== null;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === 'string' && value.length > 0;
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const auth = requireUserJson(locals);
 	if (auth.response) return auth.response;
 
-	const body = await request.json().catch(() => null);
-	if (!body || typeof body !== 'object') {
+	const body: unknown = await request.json().catch(() => null);
+	if (!isNotificationBody(body)) {
 		return json({ error: 'Invalid request body' }, { status: 400 });
 	}
 
@@ -34,7 +42,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ success: true });
 	}
 
-	if (typeof body.id !== 'string' || !body.id) {
+	if (!isNonEmptyString(body.id)) {
 		return json({ error: 'Notification id is required' }, { status: 400 });
 	}
 

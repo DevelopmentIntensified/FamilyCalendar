@@ -6,7 +6,11 @@
 
 	export let data: PageData;
 
-	const areaLabel: Record<string, string> = {
+	/** Bug area -> display label; keyed by the free-string `area` column. */
+	interface AreaLabels {
+		[key: string]: string;
+	}
+	const areaLabel: AreaLabels = {
 		calendar: 'Calendar',
 		tasks: 'Tasks',
 		account: 'Account',
@@ -14,7 +18,6 @@
 		dashboard: 'Dashboard',
 		other: 'Other'
 	};
-
 	let exportText = formatBugReportsExport(data.open);
 
 	function timeLabel(d: Date): string {

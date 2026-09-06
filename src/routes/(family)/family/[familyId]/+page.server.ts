@@ -1,5 +1,4 @@
 import {
-	getUserFamilies,
 	getFamilyRoster,
 	removeFamilyMember,
 	updateFamilies
@@ -65,9 +64,31 @@ async function getMemberRole(familyId: string, userId: string) {
 	return member?.role || null;
 }
 
+function isString(value: FormDataEntryValue | null): value is string {
+	return typeof value === 'string';
+}
+
+function formString(formData: FormData, key: string): string {
+	const value = formData.get(key);
+	return isString(value) ? value : '';
+}
+
+function roleRank(role: string): number {
+	switch (role) {
+		case 'creator':
+			return 2;
+		case 'admin':
+			return 1;
+		case 'member':
+			return 0;
+		default:
+			return -1;
+	}
+}
+
 async function requireMinRole(familyId: string, userId: string, minRole: 'creator' | 'admin') {
 	const role = await getMemberRole(familyId, userId);
-	if (!role || PRIVILEGE[role as keyof typeof PRIVILEGE] < PRIVILEGE[minRole]) {
+	if (!role || roleRank(role) < PRIVILEGE[minRole]) {
 		return fail(403, { error: 'You do not have permission to perform this action' });
 	}
 }
@@ -75,7 +96,7 @@ async function requireMinRole(familyId: string, userId: string, minRole: 'creato
 export const actions: Actions = {
 	removeMember: async ({ request, params, locals }) => {
 		const formData = await request.formData();
-		const userId = formData.get('userId') as string;
+		const userId = formString(formData, 'userId');
 		const familyId = params.familyId;
 
 		if (!userId) {
@@ -95,8 +116,8 @@ export const actions: Actions = {
 	},
 	updateRole: async ({ request, params, locals }) => {
 		const formData = await request.formData();
-		const userId = formData.get('userId') as string;
-		const role = formData.get('role') as string;
+		const userId = formString(formData, 'userId');
+		const role = formString(formData, 'role');
 		const familyId = params.familyId;
 
 		if (!userId || !role) {
@@ -134,8 +155,8 @@ export const actions: Actions = {
 	// members cannot change their own label either.
 	setMemberType: async ({ request, params, locals }) => {
 		const formData = await request.formData();
-		const userId = formData.get('userId') as string;
-		const memberType = formData.get('memberType') as string;
+		const userId = formString(formData, 'userId');
+		const memberType = formString(formData, 'memberType');
 		const familyId = params.familyId;
 
 		if (!userId || !memberType) {
@@ -160,24 +181,22 @@ export const actions: Actions = {
 	},
 	updateFamily: async ({ request, params, locals }) => {
 		const formData = await request.formData();
-		const name = formData.get('name') as string;
-		const color = formData.get('color') as string;
+		const name = formString(formData, 'name');
+		const color = formString(formData, 'color');
 
 		const roleCheck = await requireMinRole(params.familyId, locals.user.id, 'admin');
 		if (roleCheck) return roleCheck;
 
-		const updateData: { name?: string; color?: string } = {};
-		if (name) updateData.name = name;
-		if (color) updateData.color = color;
+		const updateData = name && color ? { name, color } : name ? { name } : color ? { color } : null;
 
-		if (Object.keys(updateData).length > 0) {
+		if (updateData) {
 			await updateFamilies(params.familyId, updateData);
 		}
 		return { success: true };
 	},
 	toggleDashboardModule: async ({ request, params, locals }) => {
 		const formData = await request.formData();
-		const module = formData.get('module') as string;
+		const module = formString(formData, 'module');
 		const enabled = formData.get('enabled') === 'true';
 
 		const roleCheck = await requireMinRole(params.familyId, locals.user.id, 'admin');
@@ -191,7 +210,9 @@ export const actions: Actions = {
 			await setFamilyModuleSwitch(params.familyId, module, enabled);
 			return { success: true };
 		} catch (error) {
-			return fail(400, { error: (error as Error).message });
+			return fail(400, {
+				error: error instanceof Error ? error.message : 'Failed to update module'
+			});
 		}
 	}
 };

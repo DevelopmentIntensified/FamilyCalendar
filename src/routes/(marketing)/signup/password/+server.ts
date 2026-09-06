@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getUserByEmail, createUser, getUser } from '$lib/server/db/actions/users';
-import { getUserSettings } from '$lib/server/db/actions/userSettings';
+import { getUserByEmail, createUser } from '$lib/server/db/actions/users';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { hashPassword } from '$lib/server/utils/password';
 import { lucia, setSessionCookie } from '$lib/server/auth';

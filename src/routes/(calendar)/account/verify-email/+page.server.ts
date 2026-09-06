@@ -3,7 +3,6 @@ import type { PageServerLoad, Actions } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { EMAILSECRET } from '$env/static/private';
 import { getCode, deleteCode } from '$lib/server/db/actions/codes';
-import { getUser, updateUser } from '$lib/server/db/actions/users';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
@@ -21,11 +20,29 @@ export const load: PageServerLoad = async (event) => {
 	return {};
 };
 
+function isEmailChangePayload(value: unknown): value is EmailChangePayload {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'pendingEmail' in value &&
+		typeof value.pendingEmail === 'string'
+	);
+}
+
+function isString(value: FormDataEntryValue | null): value is string {
+	return typeof value === 'string';
+}
+
+function formString(formData: FormData, key: string): string {
+	const value = formData.get(key);
+	return isString(value) ? value : '';
+}
+
 export const actions: Actions = {
 	verify: async ({ request, locals }) => {
 		const formData = await request.formData();
-		const token = formData.get('token') as string;
-		const code = formData.get('code') as string;
+		const token = formString(formData, 'token');
+		const code = formString(formData, 'code');
 
 		if (!token && !code) {
 			return fail(400, { success: false, message: 'Verification code is required' });
@@ -33,7 +50,6 @@ export const actions: Actions = {
 
 		const secret = new TextEncoder().encode(EMAILSECRET);
 		const userId = locals.user.id;
-		const currentUser = await getUser(userId);
 
 		try {
 			let pendingEmail: string | null;
@@ -50,7 +66,10 @@ export const actions: Actions = {
 					return fail(400, { success: false, message: 'Invalid token' });
 				}
 
-				const payload = parsedToken.payload as EmailChangePayload;
+				const payload: unknown = parsedToken.payload;
+				if (!isEmailChangePayload(payload)) {
+					return fail(400, { success: false, message: 'Invalid token' });
+				}
 				pendingEmail = payload.pendingEmail;
 
 				await db

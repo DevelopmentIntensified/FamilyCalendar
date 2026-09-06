@@ -21,7 +21,7 @@ export const POST = async (event: RequestEvent) => {
 	const { email, firstName, lastName } = data;
 
 	const emailRegex =
-		/^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+		/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
 	if (!emailRegex.test(email)) {
 		return new Response(JSON.stringify({ success: false, error: 'Invalid email' }), {
@@ -83,7 +83,7 @@ export const POST = async (event: RequestEvent) => {
 		signInUrl.pathname = '/signup/email/callback';
 		signInUrl.searchParams.set('token', token);
 
-		const { success, error, data } = await sendEmail({
+		const { success, data } = await sendEmail({
 			to: email,
 			from: NOREPLYEMAIL,
 			subject: 'Family Planz Email Confirmation for ' + email,

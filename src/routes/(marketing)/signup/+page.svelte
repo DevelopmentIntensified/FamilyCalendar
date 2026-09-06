@@ -46,7 +46,7 @@
 				await goto('/calendar');
 				location.reload();
 			}
-		} catch (e) {
+		} catch {
 			error = 'Failed to create account';
 		}
 
@@ -71,7 +71,7 @@
 			} else {
 				emailSent = true;
 			}
-		} catch (e) {
+		} catch {
 			error = 'Failed to send verification email';
 		}
 
@@ -96,7 +96,7 @@
 				const json = await res.json();
 				error = json.error || 'Invalid code';
 			}
-		} catch (e) {
+		} catch {
 			error = 'Verification failed';
 		}
 

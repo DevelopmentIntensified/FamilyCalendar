@@ -75,8 +75,11 @@
 	let selectedEvent: Event | null = null;
 
 	function openEvent(e: GlanceEvent) {
-		// Dashboard rows carry the full DisplayEvent shape (the prop type is a
-		// deliberate subset), so widening to `Event` for the detail modal is safe.
+		// SAFETY: glance rows are projected from full Event records (the
+		// GlanceEvent prop type is a deliberate subset of `Event`), so the
+		// runtime shape is a valid Event for the detail modal. The chained cast
+		// only bridges the subset prop type, never untrusted input.
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- GlanceEvent and Event are mutually non-assignable (required string fields vs optional), so a single assertion cannot typecheck; the invariant is guaranteed by the projection above.
 		selectedEvent = e as unknown as Event;
 	}
 </script>

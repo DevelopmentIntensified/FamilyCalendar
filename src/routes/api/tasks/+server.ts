@@ -17,6 +17,10 @@ import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { requireUserJson } from '$lib/server/utils/requireUser';
 
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === 'string' && value.trim().length > 0;
+}
+
 export const GET: RequestHandler = async ({ locals, url }) => {
 	const auth = requireUserJson(locals);
 	if (auth.response) return auth.response;
@@ -49,7 +53,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (auth.response) return auth.response;
 
 	const body = await request.json();
-	if (!body.title || typeof body.title !== 'string' || !body.title.trim()) {
+	if (!isNonEmptyString(body.title)) {
 		return json({ error: 'Title is required' }, { status: 400 });
 	}
 
@@ -73,8 +77,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		// Assignment: a Task defaults to its creator unless another
 		// person is specified. Self-assign is instant-accept; assigning
 		// someone else starts a pending request they accept or decline.
-		const assignedTo =
-			typeof body.assignedTo === 'string' && body.assignedTo ? body.assignedTo : auth.user.id;
+		const assignedTo = isNonEmptyString(body.assignedTo) ? body.assignedTo : auth.user.id;
 		const assignmentStatus = assignedTo === auth.user.id ? 'accepted' : 'pending';
 
 		const created = await createTask({

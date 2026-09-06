@@ -53,11 +53,6 @@
 		return event.isAd === true;
 	}
 
-	function calendarLabel(event: Event): string {
-		if (calendars.length < 2) return '';
-		return calendars.find((c) => c.id === event.calendarId)?.name || '';
-	}
-
 	let selectedEvent: Event | null = null;
 
 	function handleEventClick(event: Event) {
@@ -87,7 +82,7 @@
 		handleEventClick(evt);
 	}
 
-	function handleDelete(event: CustomEvent) {
+	function handleDelete() {
 		// EventModal performs the API call; refresh server data here.
 		invalidateAll().then(closeModal);
 	}

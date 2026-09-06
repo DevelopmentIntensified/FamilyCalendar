@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { subscriptions, userSettings } from '$lib/server/db/schema';
-import { eq, and, gte, asc, sql, or, isNull, isNotNull } from 'drizzle-orm';
+import { and, sql, or, isNull, isNotNull } from 'drizzle-orm';
 
 export interface KPIStats {
 	totalUsers: number;

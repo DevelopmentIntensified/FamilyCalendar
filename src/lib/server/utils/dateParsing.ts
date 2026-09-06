@@ -16,7 +16,7 @@ export const MONTH_MAP: Record<string, number> = MONTH_INDEX_1;
 
 // Longest-first so "september" wins over "sept" (same table everywhere).
 // Full weekday names only — no short forms (DAY_ALT predates them).
-export const DAY_MAP: Record<string, number> = {
+export const DAY_MAP = {
 	sunday: 0,
 	monday: 1,
 	tuesday: 2,
@@ -24,7 +24,13 @@ export const DAY_MAP: Record<string, number> = {
 	thursday: 4,
 	friday: 5,
 	saturday: 6
-};
+} satisfies Record<string, number>;
+
+/** JS weekday number for a (lowercased) day name, or undefined when unknown. */
+export function dayNumber(name: string): number | undefined {
+	// SAFETY: the `in` check pins name to DAY_MAP's keys before indexing.
+	return name in DAY_MAP ? DAY_MAP[name as keyof typeof DAY_MAP] : undefined;
+}
 
 export const DAY_ALT = _DAY_ALT;
 

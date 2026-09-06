@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { getUrl } from '$lib/utils/getUrl';
 import { lucia } from '$lib/server/auth';
-import { accounts, users } from '$lib/server/db/schema';
+import { accounts } from '$lib/server/db/schema';
 import { db } from '$lib/server/db/';
 import { eq } from 'drizzle-orm';
 import { deleteCode, deleteDeadCodes, getCode } from '$lib/server/db/actions/codes';
@@ -61,10 +61,10 @@ export const POST: RequestHandler = async function (event) {
 		const session = await lucia.createSession(user.id, {});
 		const sessionCookie = lucia.createSessionCookie(session.id);
 
-		let headers = new Headers();
+		const headers = new Headers();
 		headers.append('Set-Cookie', sessionCookie.serialize());
 
-		let result = new Response(null, {
+		const result = new Response(null, {
 			status: 200,
 			headers
 		});
@@ -72,7 +72,7 @@ export const POST: RequestHandler = async function (event) {
 		await deleteCode(code);
 
 		return result;
-	} catch (error) {
+	} catch {
 		return new Response(
 			JSON.stringify({ success: false, error: 'Unexpected error, please try again' }),
 			{ status: 500 }

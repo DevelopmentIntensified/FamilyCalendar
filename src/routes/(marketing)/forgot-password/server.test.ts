@@ -1,27 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { POST, type ForgotPasswordDeps } from './+server';
 
-vi.mock('$lib/server/db/actions/users', () => ({
-	getUserByEmail: vi.fn()
-}));
+// Untyped vi.fn()s: fakes flow into the typed deps seam, so the SUT stays
+// type-checked while mocks accept any resolved value without casts.
+const getUserByEmail = vi.fn();
+const sendEmail = vi.fn();
+const createJwt = vi.fn();
 
-vi.mock('$lib/utils/sendEmail', () => ({
-	sendEmail: vi.fn()
-}));
+const deps: ForgotPasswordDeps = {
+	getUserByEmail,
+	sendEmail,
+	createJwt,
+	baseSiteUrl: 'http://test.com',
+	fromEmail: 'noreply@test.com',
+	jwtSecret: new TextEncoder().encode('test-secret-1234567890')
+};
 
-vi.mock('$env/static/private', () => ({
-	NOREPLYEMAIL: 'noreply@test.com',
-	EMAILSECRET: 'test-secret-1234567890'
-}));
-
-vi.mock('$lib/utils/getUrl', () => ({
-	getUrl: vi.fn(() => 'http://test.com')
-}));
-
-vi.mock('oslo/jwt', () => ({
-	createJWT: vi.fn()
-}));
-
-import { POST } from './+server';
+// SAFETY: test double — POST only reads request.json() for the email field.
+function mockEvent(body: { email?: string }) {
+	return (
+		// SAFETY: test double — POST only reads request.json() for the email field.
+		{
+			request: { json: () => Promise.resolve(body) }
+		} as never
+	);
+}
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -29,24 +32,18 @@ beforeEach(() => {
 
 describe('POST /forgot-password', () => {
 	it('sends reset email for existing user', async () => {
-		const { getUserByEmail } = await import('$lib/server/db/actions/users');
-		const { sendEmail } = await import('$lib/utils/sendEmail');
-		const { createJWT } = await import('oslo/jwt');
-
-		vi.mocked(getUserByEmail).mockResolvedValue({
+		getUserByEmail.mockResolvedValue({
 			id: 'user-1',
 			email: 'existing@user.com'
-		} as any);
-		vi.mocked(createJWT).mockResolvedValue('mock.jwt.token');
-		vi.mocked(sendEmail).mockResolvedValue({
+		});
+		createJwt.mockResolvedValue('mock.jwt.token');
+		sendEmail.mockResolvedValue({
 			success: true,
 			error: undefined,
 			data: { id: 'email-1' }
 		});
 
-		const response = await POST({
-			request: { json: () => Promise.resolve({ email: 'existing@user.com' }) }
-		} as any);
+		const response = await POST(mockEvent({ email: 'existing@user.com' }), deps);
 
 		const body = await response.json();
 
@@ -61,13 +58,9 @@ describe('POST /forgot-password', () => {
 	});
 
 	it('returns generic success for unknown email (no info leak)', async () => {
-		const { getUserByEmail } = await import('$lib/server/db/actions/users');
+		getUserByEmail.mockResolvedValue(undefined);
 
-		vi.mocked(getUserByEmail).mockResolvedValue(undefined as any);
-
-		const response = await POST({
-			request: { json: () => Promise.resolve({ email: 'unknown@user.com' }) }
-		} as any);
+		const response = await POST(mockEvent({ email: 'unknown@user.com' }), deps);
 
 		const body = await response.json();
 
@@ -76,9 +69,7 @@ describe('POST /forgot-password', () => {
 	});
 
 	it('returns 400 for missing email', async () => {
-		const response = await POST({
-			request: { json: () => Promise.resolve({}) }
-		} as any);
+		const response = await POST(mockEvent({}), deps);
 
 		const body = await response.json();
 

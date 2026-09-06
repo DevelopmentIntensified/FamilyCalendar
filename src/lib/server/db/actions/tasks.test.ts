@@ -66,7 +66,7 @@ describe('advanceCursor (Recurring Task cursor v3)', () => {
 		const dueStr = iso('2026-08-21T23:59:00Z');
 		const asString = advanceCursor(dueStr, 'weekly', 1, NOW);
 		// Driver can hand back Date objects despite mode:'string'.
-		const asDate = advanceCursor(new Date(dueStr) as any, 'weekly', 1, NOW);
+		const asDate = advanceCursor(new Date(dueStr), 'weekly', 1, NOW);
 		expect(asDate).toBe(asString);
 	});
 

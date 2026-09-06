@@ -103,7 +103,7 @@
 				</div>
 
 				<div class="space-y-3">
-					<label class="block text-sm font-medium text-slate-700">Family Color</label>
+					<label for="color" class="block text-sm font-medium text-slate-700">Family Color</label>
 					<p class="text-xs text-slate-500">Pick a color to identify your family</p>
 
 					<div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -134,7 +134,7 @@
 						{/each}
 					</div>
 
-					<input type="hidden" name="color" value={selectedColor} />
+					<input type="hidden" id="color" name="color" value={selectedColor} />
 
 					<div class="mt-3 flex items-center gap-3">
 						<div class="h-10 w-10 rounded-full" style="background-color: {selectedColor}"></div>

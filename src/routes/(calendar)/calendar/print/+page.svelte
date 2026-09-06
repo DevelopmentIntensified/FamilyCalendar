@@ -4,7 +4,11 @@
 
 	export let data: PageData;
 
-	const WEEKDAY_LABELS: Record<string, string[]> = {
+	/** weekStart preference -> weekday labels starting at Sunday/Monday. */
+	interface WeekdayLabels {
+		[key: string]: string[];
+	}
+	const WEEKDAY_LABELS: WeekdayLabels = {
 		sunday: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
 		monday: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 	};

@@ -40,7 +40,8 @@ export const actions: Actions = {
 		const file = formData.get('file');
 		const calendarId = formData.get('calendarId');
 
-		if (!isNonEmptyString(calendarId)) return fail(400, { error: 'Choose a calendar to import into.' });
+		if (!isNonEmptyString(calendarId))
+			return fail(400, { error: 'Choose a calendar to import into.' });
 		if (!(file instanceof File) || file.size === 0) {
 			return fail(400, { error: 'Choose an .ics file to import.' });
 		}

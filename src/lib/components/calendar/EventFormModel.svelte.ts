@@ -1,5 +1,4 @@
 import { DateTime } from 'luxon';
-import type { RSVPStatus } from '$lib/types';
 import type { ParsedEvent as ParsedEventNlp } from '$lib/server/services/naturalLanguageService';
 
 export type NlpFormInput = Partial<ParsedEventNlp> & { endDate?: string };
@@ -131,7 +130,7 @@ export function createEventForm(config: EventFormConfig) {
 
 	let userTouchedFields = $state<Record<string, boolean>>({});
 	let nlpDetectedFields = $state<Record<string, boolean>>({});
-	let lastNlpValues = $state<Record<string, any>>({});
+	let lastNlpValues = $state<Record<string, unknown>>({});
 
 	function initializeCalendar() {
 		const { initialEvent, calendars, defaultCalendarId } = config;

@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { events, calendars } from '$lib/server/db/schema';
-import { eq, and, gte, lte, isNull } from 'drizzle-orm';
+import { eq, and, lte, isNull } from 'drizzle-orm';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import {
 	canViewArchive,
@@ -74,8 +74,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const allEvents = [...userCalendarEvents, ...familyCalendarEvents].map((e) => ({
 		...e,
-		start: new Date(e.start as unknown as string),
-		end: new Date(e.end as unknown as string)
+		start: new Date(e.start),
+		end: e.end === null ? new Date(0) : new Date(e.end)
 	}));
 
 	return {

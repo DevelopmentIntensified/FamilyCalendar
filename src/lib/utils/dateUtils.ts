@@ -1,5 +1,7 @@
 import { DateTime } from 'luxon';
 
+import { isDateString } from './typeGuards';
+
 export const getDaysInMonth = (year: number, month: number): number => {
 	return DateTime.fromObject({ year, month }).daysInMonth ?? 30;
 };
@@ -33,7 +35,7 @@ export const getDaysInLastMonth = (year: number, month: number) => {
 };
 
 export const formatDate = (date: DateTime | string | Date) => {
-	if (typeof date === 'string') {
+	if (isDateString(date)) {
 		return DateTime.fromISO(date).toFormat('MM-dd-yyyy');
 	}
 	if (date instanceof Date) {

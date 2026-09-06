@@ -20,7 +20,7 @@ export interface VerseTranslationInfo {
 	bundled: boolean;
 }
 
-export const TRANSLATIONS: Record<string, VerseTranslationInfo> = {
+export const TRANSLATIONS = {
 	esv: {
 		id: 'esv',
 		label: 'ESV',
@@ -28,7 +28,15 @@ export const TRANSLATIONS: Record<string, VerseTranslationInfo> = {
 			'The Holy Bible, English Standard Version. ESV® Text Edition: 2016. Copyright © 2001 by Crossway Bibles, a publishing ministry of Good News Publishers.',
 		bundled: false
 	}
-};
+} satisfies Record<string, VerseTranslationInfo>;
+
+export type TranslationId = keyof typeof TRANSLATIONS;
+
+/** Lookup by untrusted id (query param); undefined for unknown translations. */
+export function getTranslation(id: string): VerseTranslationInfo | undefined {
+	// SAFETY: the `in` check pins id to the TRANSLATIONS key union before indexing.
+	return id in TRANSLATIONS ? TRANSLATIONS[id as TranslationId] : undefined;
+}
 
 const DAILY_VERSES: CuratedVerse[] = [
 	{
@@ -186,7 +194,7 @@ async function fetchEsvVerse(base: DailyVerse): Promise<DailyVerse | null> {
 			signal: AbortSignal.timeout(10_000)
 		});
 		if (!response.ok) return null;
-		const payload = (await response.json()) as { passages?: string[] };
+		const payload: { passages?: string[] } = await response.json();
 		const text = payload.passages?.[0]?.replace(/\s+/g, ' ').trim();
 		if (!text) return null;
 		return {
@@ -205,7 +213,7 @@ async function fetchRemoteVerse(
 	dateIso: string,
 	translationId: string
 ): Promise<DailyVerse | null> {
-	const info = TRANSLATIONS[translationId];
+	const info = getTranslation(translationId);
 	if (!info || info.bundled) return null;
 
 	const base = bundledVerseForDate(dateIso);

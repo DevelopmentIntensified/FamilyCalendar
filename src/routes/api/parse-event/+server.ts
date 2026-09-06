@@ -1,10 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import {
-	parseEventInput,
-	parseEventList,
-	type ParsedEvent
-} from '$lib/server/services/naturalLanguageService';
+import { parseEventInput, parseEventList } from '$lib/server/services/naturalLanguageService';
 import { chatJson, llmConfigured } from '$lib/server/services/llm';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
@@ -17,16 +13,21 @@ IMPORTANT RULES:
 - If a word could be either a location or a person, prefer location.
 - Short uppercase tokens (like "LU", "NYC", "USA", "HR", "IT") are locations, not people.`;
 
+/** Outcome of one parse attempt: parsed fields, confidence, and which path produced it. */
 type ParseOutcome = {
-	parsed: Partial<ParsedEvent> | Record<string, any> | null;
+	parsed: Awaited<ReturnType<typeof chatJson>>;
 	confidence: number;
 	method: string;
 };
 
-export const POST: RequestHandler = async ({ request, locals }) => {
-	const { input, useCloud = true, useLocal = true } = await request.json();
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === 'string' && value.trim().length > 0;
+}
 
-	if (!input || typeof input !== 'string') {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const { input, useCloud = true } = await request.json();
+
+	if (!isNonEmptyString(input)) {
 		return json({ error: 'Input required' }, { status: 400 });
 	}
 

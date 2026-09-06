@@ -1,62 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { GET, type EmailCallbackDeps } from './+server';
 
-vi.mock('$lib/server/db/actions/accounts', () => ({
-	getAccount: vi.fn()
-}));
+// Untyped vi.fn()s: fakes flow into the typed deps seam, so the SUT stays
+// type-checked while mocks accept any resolved value without casts.
+const getAccount = vi.fn();
+const getUserByEmail = vi.fn();
+const deleteCodesByEmail = vi.fn();
+const lucia = {
+	createSession: vi.fn(),
+	createSessionCookie: vi.fn(),
+	invalidateSession: vi.fn()
+};
+const updateLastLogin = vi.fn();
+const verifyJwt = vi.fn();
+const parseJwt = vi.fn();
 
-vi.mock('$lib/server/db/actions/users', () => ({
-	getUserByEmail: vi.fn()
-}));
-
-vi.mock('$lib/server/db/actions/codes', () => ({
-	deleteCodesByEmail: vi.fn()
-}));
-
-vi.mock('$lib/server/auth', () => ({
-	lucia: {
-		createSession: vi.fn(),
-		createSessionCookie: vi.fn()
-	}
-}));
-
-vi.mock('$lib/utils/getUrl', () => ({
-	getUrl: vi.fn(() => 'http://test.com')
-}));
-
-vi.mock('$lib/server/db', () => ({
-	db: {
-		update: vi.fn(() => ({
-			set: vi.fn(() => ({
-				where: vi.fn(() => Promise.resolve())
-			}))
-		}))
-	}
-}));
-
-vi.mock('$lib/server/db/schema', () => ({
-	users: {},
-	accounts: {}
-}));
-
-vi.mock('$env/static/private', () => ({
-	EMAILSECRET: 'test-secret-1234567890'
-}));
-
-vi.mock('oslo/jwt', () => ({
-	validateJWT: vi.fn(),
-	parseJWT: vi.fn()
-}));
-
-import { GET } from './+server';
+const deps: EmailCallbackDeps = {
+	getAccount,
+	getUserByEmail,
+	deleteCodesByEmail,
+	lucia,
+	updateLastLogin,
+	baseSiteUrl: 'http://test.com',
+	jwtSecret: new TextEncoder().encode('test-secret-1234567890'),
+	verifyJwt,
+	parseJwt
+};
 
 function mockEvent(token: string | null) {
 	const url = token
 		? `http://test.com/login/email/callback?token=${token}`
 		: 'http://test.com/login/email/callback';
-	return {
-		url: new URL(url),
-		locals: { user: null }
-	} as any;
+	return (
+		// SAFETY: test double — GET only reads event.url and locals.user/session.
+		{
+			url: new URL(url),
+			locals: { user: null }
+		} as never
+	);
 }
 
 beforeEach(() => {
@@ -65,22 +46,14 @@ beforeEach(() => {
 
 describe('GET /login/email/callback', () => {
 	it('redirects password user to /calendar with session cookie', async () => {
-		const { validateJWT, parseJWT } = await import('oslo/jwt');
-		const { getAccount } = await import('$lib/server/db/actions/accounts');
-		const { getUserByEmail } = await import('$lib/server/db/actions/users');
-		const { deleteCodesByEmail } = await import('$lib/server/db/actions/codes');
-		const { lucia } = await import('$lib/server/auth');
-
-		vi.mocked(validateJWT).mockResolvedValue(undefined as any);
-		vi.mocked(parseJWT).mockReturnValue({ payload: { email: 'pw@user.com' } } as any);
-		vi.mocked(getAccount).mockResolvedValue(undefined as any);
-		vi.mocked(getUserByEmail).mockResolvedValue({ id: 'user-pw', email: 'pw@user.com' } as any);
-		vi.mocked(lucia.createSession).mockResolvedValue({ id: 'session-pw' } as any);
-		vi.mocked(lucia.createSessionCookie).mockReturnValue({
+		parseJwt.mockReturnValue({ payload: { email: 'pw@user.com' } });
+		getUserByEmail.mockResolvedValue({ id: 'user-pw', email: 'pw@user.com' });
+		lucia.createSession.mockResolvedValue({ id: 'session-pw' });
+		lucia.createSessionCookie.mockReturnValue({
 			serialize: () => 'auth_session=pw123; Path=/'
-		} as any);
+		});
 
-		const response = await GET(mockEvent('valid.jwt.token'));
+		const response = await GET(mockEvent('valid.jwt.token'), deps);
 
 		expect(response.status).toBe(302);
 		const location = response.headers.get('Location');
@@ -90,10 +63,9 @@ describe('GET /login/email/callback', () => {
 	});
 
 	it('redirects to /login?error for invalid token', async () => {
-		const { validateJWT } = await import('oslo/jwt');
-		vi.mocked(validateJWT).mockRejectedValue(new Error('invalid token'));
+		verifyJwt.mockRejectedValue(new Error('invalid token'));
 
-		const response = await GET(mockEvent('invalid-token'));
+		const response = await GET(mockEvent('invalid-token'), deps);
 
 		expect(response.status).toBe(302);
 		const location = response.headers.get('Location');
@@ -102,7 +74,7 @@ describe('GET /login/email/callback', () => {
 	});
 
 	it('redirects to /login?error when no token provided', async () => {
-		const response = await GET(mockEvent(null));
+		const response = await GET(mockEvent(null), deps);
 
 		expect(response.status).toBe(302);
 		const location = response.headers.get('Location');

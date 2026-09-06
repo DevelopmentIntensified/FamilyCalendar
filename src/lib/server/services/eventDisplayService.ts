@@ -100,6 +100,7 @@ export async function attachRsvpStatus<T extends { masterId: string }>(
 	list: T[]
 ): Promise<Array<T & { rsvpStatus?: RSVPStatus }>> {
 	const rows = await getUserRsvpStatuses(userId, [...new Set(list.map((e) => e.masterId))]);
+	// SAFETY: rsvp.status is a DB enum constrained to the RSVPStatus vocabulary.
 	const statusById = new Map(rows.map((r) => [r.eventId, r.status as RSVPStatus]));
 	return list.map((e) => ({ ...e, rsvpStatus: statusById.get(e.masterId) }));
 }

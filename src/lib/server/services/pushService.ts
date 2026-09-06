@@ -16,7 +16,14 @@ interface WebPushModule {
 // Static import (not createRequire): Vercel's file tracer can't see dynamic
 // requires, so the lambda shipped without web-push and every route importing
 // pushService 500'd on module load.
-const webpush = webpushModule as unknown as WebPushModule;
+const webpushUnknown: unknown = webpushModule;
+// SAFETY: web-push's declared sendNotification contract differs from the shape we rely on; this pins the subset pushService actually calls.
+const webpush = webpushUnknown as WebPushModule;
+
+/** True when a web-push error object carries an HTTP status code. */
+function hasStatusCode(error: unknown): error is { statusCode?: number } {
+	return typeof error === 'object' && error !== null && 'statusCode' in error;
+}
 
 export function getVapidPublicKey(): string | null {
 	return process.env.VAPID_PUBLIC_KEY ?? null;
@@ -89,7 +96,7 @@ export async function sendPushToUser(
 						}
 					);
 				} catch (error) {
-					const statusCode = (error as { statusCode?: number }).statusCode;
+					const statusCode = hasStatusCode(error) ? error.statusCode : undefined;
 					if (statusCode === 404 || statusCode === 410) {
 						await db
 							.delete(pushSubscriptions)

@@ -68,8 +68,9 @@
 	}
 
 	function closeDropdown(e: MouseEvent) {
-		const target = e.target as HTMLElement | null;
-		if (!target?.closest?.('[data-testid="notification-bell-container"]')) {
+		// Non-Element event targets (e.g. document) count as outside clicks.
+		const target = e.target instanceof Element ? e.target : null;
+		if (!target?.closest('[data-testid="notification-bell-container"]')) {
 			open = false;
 		}
 	}

@@ -8,6 +8,10 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 
+function isString(value: FormDataEntryValue | null): value is string {
+	return typeof value === 'string';
+}
+
 export const load: PageServerLoad = async (e) => {
 	if (!e.locals.user) {
 		return redirect(302, '/login');
@@ -58,7 +62,8 @@ export const load: PageServerLoad = async (e) => {
 export const actions: Actions = {
 	deleteEvent: async ({ request, locals }) => {
 		const formData = await request.formData();
-		const eventId = formData.get('eventId') as string;
+		const rawEventId = formData.get('eventId');
+		const eventId = isString(rawEventId) ? rawEventId : '';
 
 		if (!eventId) {
 			return fail(400, { message: 'Event ID is required' });

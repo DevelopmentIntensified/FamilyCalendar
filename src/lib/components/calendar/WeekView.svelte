@@ -516,7 +516,7 @@
 						{@const laidOut = layoutTimed(
 							[...dayEvents].sort((a, b) => toDate(a.start).getTime() - toDate(b.start).getTime())
 						)}
-						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<!-- svelte-ignore a11y-click-events-have-key-events -->
 						<div
 							class="pointer-events-auto relative transition-colors hover:bg-slate-50/60 active:bg-slate-100/60"
 							data-testid="week-day-column"

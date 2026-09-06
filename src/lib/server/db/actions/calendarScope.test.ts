@@ -8,24 +8,30 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * other action tests; eventAccessFilter is a pure SQL fragment and is
  * verified directly.
  */
-const state = vi.hoisted(() => ({
-	queue: [] as unknown[][]
-}));
+/** A stubbed DB row: plain JSON-ish values only. */
+type Row = Record<string, string | number | boolean | null | Date>;
 
+interface StubState {
+	queue: Row[][];
+}
+
+const state = vi.hoisted(
+	(): StubState => ({
+		queue: []
+	})
+);
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
 	db: {
 		select: () => ({
 			from: () => ({
 				where: () => {
 					const rows = state.queue.shift() ?? [];
-					return {
-						// thenable so `await select...where` resolves to rows
-						then: (resolve: (v: unknown) => unknown) => {
-							resolve(rows);
-						},
-						// chain for `select(...).from(...).where(...).limit(1)`
+					// Promise + chained limit so await and .limit() both resolve to rows.
+					return Object.assign(Promise.resolve(rows), {
 						limit: () => Promise.resolve(rows)
-					};
+					});
 				}
 			})
 		})
@@ -38,6 +44,24 @@ beforeEach(() => {
 	state.queue = [];
 });
 
+/** A drizzle SQL internal: string leaf, chunk array, or wrapper object. */
+interface SqlChunk {
+	queryChunks?: SqlFragment;
+	name?: string;
+}
+
+type SqlFragment = string | undefined | readonly SqlFragment[] | SqlChunk;
+
+/** True when the fragment is a plain string (leaf marker). */
+function isStringFragment(v: SqlFragment): v is string {
+	return typeof v === 'string';
+}
+
+/** True when the fragment is a drizzle SQL/chunk object (non-string, non-array). */
+function isSqlChunk(v: SqlFragment): v is SqlChunk {
+	return typeof v === 'object' && v !== null;
+}
+
 /**
  * Flatten a drizzle-orm 0.38 SQL fragment into stable markers we can assert
  * on: the quoted column names it references (e.g. "owner_id"). `getSQL()`
@@ -46,28 +70,28 @@ beforeEach(() => {
  * stringifying. We deliberately never recurse into `getSQL()` of children —
  * only through `queryChunks` — to avoid circular column references.
  */
-function flattenSql(fragment: unknown, acc: string[] = []): string[] {
-	if (typeof fragment === 'string') {
+function flattenSql(fragment: SqlFragment, acc: string[] = []): string[] {
+	if (isStringFragment(fragment)) {
 		return acc;
 	}
 	if (Array.isArray(fragment)) {
 		for (const c of fragment) flattenSql(c, acc);
 		return acc;
 	}
-	const f = fragment as Record<string, unknown> | null | undefined;
-	if (!f || typeof f !== 'object') return acc;
-	if (Array.isArray(f.queryChunks)) {
-		flattenSql(f.queryChunks, acc);
+	if (!isSqlChunk(fragment)) return acc;
+	if (Array.isArray(fragment.queryChunks)) {
+		flattenSql(fragment.queryChunks, acc);
 	}
 	// drizzle column wrapper: { name, table } — capture the SQL column name.
-	if (typeof f.name === 'string') acc.push(f.name);
+	if (isStringFragment(fragment.name)) acc.push(fragment.name);
 	return acc;
 }
 
 function eventAccessMarkers(calIds: string[]): string[] {
 	const fragment = eventAccessFilter('user-1', calIds);
 	if (!fragment) throw new Error('eventAccessFilter must return a filter fragment');
-	return flattenSql(fragment.getSQL());
+	// SAFETY: getSQL() returns drizzle's SQL wrapper, which structurally carries the queryChunks/name shape SqlChunk walks.
+	return flattenSql(fragment.getSQL() as SqlChunk);
 }
 
 describe('eventAccessFilter (pure SQL fragment)', () => {

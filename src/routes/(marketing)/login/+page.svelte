@@ -43,7 +43,7 @@
 				await goto('/calendar');
 				location.reload();
 			}
-		} catch (e) {
+		} catch {
 			error = 'Failed to login';
 		}
 
@@ -68,7 +68,7 @@
 			} else {
 				emailSent = true;
 			}
-		} catch (e) {
+		} catch {
 			error = 'Failed to send login link';
 		}
 
@@ -93,7 +93,7 @@
 				const json = await res.json();
 				error = json.error || 'Invalid code';
 			}
-		} catch (e) {
+		} catch {
 			error = 'Verification failed';
 		}
 

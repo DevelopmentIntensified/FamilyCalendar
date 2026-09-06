@@ -540,7 +540,7 @@
 			</div>
 
 			<!-- Grid body -->
-			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
 			<div
 				class="relative min-w-0 flex-1 border-l border-slate-200"
 				style="height: {GRID_HEIGHT}px"

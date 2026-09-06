@@ -3,7 +3,7 @@ import { apiError } from '$lib/server/utils/apiError';
 import type { RequestHandler } from './$types';
 import { createEvent } from '$lib/server/db/actions/events';
 import { db } from '$lib/server/db';
-import { calendars, events } from '$lib/server/db/schema';
+import { calendars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';

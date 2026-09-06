@@ -212,10 +212,6 @@ export async function searchUsers(query: string, familyId: string) {
 			.limit(10);
 	}
 
-	const placeholders = excludeUserIds.map(
-		() => sql`id != ${excludeUserIds[excludeUserIds.indexOf(excludeUserIds[0])]}`
-	);
-
 	return await db
 		.select({
 			id: users.id,

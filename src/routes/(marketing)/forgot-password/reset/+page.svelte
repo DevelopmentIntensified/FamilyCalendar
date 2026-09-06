@@ -54,7 +54,7 @@
 				success = true;
 				setTimeout(() => goto('/login'), 3000);
 			}
-		} catch (e) {
+		} catch {
 			error = 'Failed to reset password';
 		}
 

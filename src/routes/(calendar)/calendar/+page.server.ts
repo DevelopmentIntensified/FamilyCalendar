@@ -7,7 +7,11 @@ import { calendars, events, families, type CalendarEvent } from '$lib/server/db/
 import { eq } from 'drizzle-orm';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
-import { getAdEventsForUser, checkUserAdConsent, type AdDisplayEvent } from '$lib/server/services/adService';
+import {
+	getAdEventsForUser,
+	checkUserAdConsent,
+	type AdDisplayEvent
+} from '$lib/server/services/adService';
 import {
 	expandEventsForUser,
 	parseEvents,
@@ -117,7 +121,10 @@ export const load: PageServerLoad = async (event) => {
 
 				let evts: CalendarEvent[] = [];
 				const ids = [...calendarIds];
-				const familyCals = await db.select().from(calendars).where(eq(calendars.familyId, familyId));
+				const familyCals = await db
+					.select()
+					.from(calendars)
+					.where(eq(calendars.familyId, familyId));
 				if (familyCals.length > 0) {
 					evts = await db
 						.select()

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
+	import { untrack } from 'svelte';
 	import { DateTime } from 'luxon';
 	import type { PageData, ActionData } from './$types';
 
@@ -16,7 +17,8 @@
 	const isFamilyEvent = $derived(data.isFamilyEvent);
 
 	let showDeleteConfirm = $state(false);
-	let rsvpStatus = $state(userAttendance);
+	// Read the initial RSVP once; afterwards this is optimistic local state.
+	let rsvpStatus = $state(untrack(() => userAttendance));
 	let rsvpPending = $state(false);
 
 	async function setRsvp(status: string) {
@@ -44,10 +46,9 @@
 	}
 
 	const counts = $derived<Record<string, number>>({
-		going: attendees.filter((a: any) => a.status === 'going').length,
-		maybe: attendees.filter((a: any) => a.status === 'maybe').length,
-		declined: attendees.filter((a: any) => a.status === 'declined' || a.status === 'not_going')
-			.length
+		going: attendees.filter((a) => a.status === 'going').length,
+		maybe: attendees.filter((a) => a.status === 'maybe').length,
+		declined: attendees.filter((a) => a.status === 'declined' || a.status === 'not_going').length
 	});
 	const RSVP_OPTIONS = [
 		{ status: 'going', label: 'Going' },
@@ -55,19 +56,13 @@
 		{ status: 'declined', label: "Can't go" }
 	];
 
-	function displayName(a: any): string {
+	function displayName(a: (typeof attendees)[number]): string {
 		const name = [a.firstName, a.lastName].filter(Boolean).join(' ').trim();
 		return name || a.name || a.userId || 'Guest';
 	}
 
 	function goBack() {
 		goto('/calendar');
-	}
-
-	function handleRsvp(response: any) {
-		if (response?.result?.status) {
-			rsvpStatus = response.result.status;
-		}
 	}
 </script>
 

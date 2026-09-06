@@ -41,7 +41,7 @@ function plusInterval(dt: DateTime, frequency: string, step: number): DateTime {
 }
 
 export function advanceCursor(
-	dueIso: string | null,
+	dueIso: string | Date | null,
 	frequency: string,
 	interval: number,
 	nowIso: string
@@ -84,13 +84,19 @@ export type TaskWithTags = Task & {
 	eventStart?: string | null;
 };
 
+/** True for usable tag name strings. */
+function isTagName(t: unknown): t is string {
+	return typeof t === 'string';
+}
+
 /** Normalize raw tag input: lowercase, trim, drop empties, dedupe, sort. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- exported boundary parser: unknown input IS its contract; routes feed it raw request-body fields.
 export function normalizeTags(raw: unknown): string[] {
 	if (!Array.isArray(raw)) return [];
 	const seen = new Set<string>();
 	const out: string[] = [];
 	for (const t of raw) {
-		if (typeof t !== 'string') continue;
+		if (!isTagName(t)) continue;
 		const name = t.trim().toLowerCase();
 		if (!name || seen.has(name)) continue;
 		seen.add(name);
