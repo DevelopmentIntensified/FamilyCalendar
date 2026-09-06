@@ -18,6 +18,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
+- #019 Task scoping public/private/family (in-progress: slice 1 server lane)
 - #003 Bill Tracking PRD (parent; slices #005–#011 pending)
 - #005 Bill calendar overlay (blocked by #004 — #004 done, so startable)
 - #006 Recurring bills (blocked by #004 — startable)
