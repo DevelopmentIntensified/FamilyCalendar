@@ -23,7 +23,7 @@
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let dueTasks: CalendarTask[] = [];
 	export let createAt: (start: DateTime, end?: DateTime) => void = () => {};
-	export let refreshAll: () => Promise<unknown> = invalidateAll;
+	export let refreshAll: () => Promise<void> = invalidateAll;
 	export let selectionMode: boolean = false;
 	export let selectedIds: string[] = [];
 	export let onToggleSelectionMode: (on: boolean) => void = () => {};

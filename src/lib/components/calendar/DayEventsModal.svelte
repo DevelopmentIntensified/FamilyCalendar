@@ -47,7 +47,10 @@
 	<div
 		class="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden sm:items-center sm:p-4"
 	>
-		<button class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick={close} aria-label="Close"
+		<button
+			class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+			onclick={close}
+			aria-label="Close day events overlay"
 		></button>
 
 		<div

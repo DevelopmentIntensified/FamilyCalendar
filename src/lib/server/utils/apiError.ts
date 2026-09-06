@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { buildAutoBugReport, shouldFileAutoReport } from '$lib/server/services/autoBugReport';
 import { createBugReport, type NewBugReport } from '$lib/server/db/actions/bugReports';
+import type { BugReport } from '$lib/server/db/schema';
 
 /**
  * Dependency seam for the auto-filer: production files via `createBugReport`;

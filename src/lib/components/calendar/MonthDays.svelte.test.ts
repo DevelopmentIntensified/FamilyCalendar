@@ -21,9 +21,13 @@ function makeEvent(id: string, title: string): Event {
 		allDay: false,
 		recurrenceFrequency: null,
 		recurrenceInterval: null,
+		recurrenceByDay: null,
+		recurrenceCount: null,
+		recurrenceUntil: null,
+		reminderMinutes: null,
 		created_at: new Date(),
 		date: new Date(2024, 0, 15)
-	} as unknown as Event;
+	};
 }
 
 function renderJanuaryWithFourEvents() {

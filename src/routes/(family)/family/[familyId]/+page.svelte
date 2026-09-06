@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import type { PageData, ActionData } from './$types';
+	import type { PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { FAMILY_DASHBOARD_MODULES } from '$lib/dashboardModules';
 	import { DateTime } from 'luxon';
 	export let data: PageData;
-	export let form: ActionData;
 	const {
 		family,
 		members,

@@ -26,7 +26,8 @@ export type EventAttendanceSummary = {
 export type Event = CalendarEvent & {
 	isAd?: boolean;
 	color?: string;
-	date?: Date;
+	/** Display date — Date from server objects, ISO string from serialized rows. */
+	date?: Date | string;
 	startTime?: string;
 	endTime?: string;
 	rsvpStatus?: RSVPStatus;

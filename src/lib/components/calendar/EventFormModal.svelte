@@ -89,7 +89,7 @@
 					allDay: event.allDay || false,
 					recurrenceFrequency: event.recurrenceFrequency,
 					recurrenceInterval: event.recurrenceInterval,
-					reminderMinutes: (event as { reminderMinutes?: number | null }).reminderMinutes ?? null,
+					reminderMinutes: event.reminderMinutes ?? null,
 					masterId: event.masterId,
 					occurrenceDate: event.occurrenceDate
 				}
@@ -103,14 +103,9 @@
 	onMount(() => {
 		const id = form.eventId;
 		if (!form.isEditMode || !id) return;
+		if (!form.isEditMode || !id) return;
 		if (rsvpData && rsvpData.length > 0) {
-			form.prefillInvites(
-				rsvpData as {
-					userId: string | null;
-					name?: string | null;
-					inviteType?: string | null;
-				}[]
-			);
+			form.prefillInvites(rsvpData);
 			return;
 		}
 		let cancelled = false;

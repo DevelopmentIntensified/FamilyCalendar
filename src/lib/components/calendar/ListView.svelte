@@ -16,19 +16,25 @@
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let dueTasks: CalendarTask[] = [];
 
-	const FREQ_NOUN: Record<string, string> = {
-		daily: 'day',
-		weekly: 'week',
-		monthly: 'month',
-		yearly: 'year'
-	};
+	/** Singular recurrence noun per frequency; unknown values fall back to the raw code. */
+	const FREQ_NOUN = new Map(
+		Object.entries({
+			daily: 'day',
+			weekly: 'week',
+			monthly: 'month',
+			yearly: 'year'
+		})
+	);
+	function freqNoun(freq: string): string {
+		return FREQ_NOUN.get(freq) ?? freq;
+	}
 
 	let selectedTask: CalendarTask | null = null;
 	function openTask(task: CalendarTask) {
 		selectedTask = task;
 	}
 
-	function toDateMs(d: unknown): number {
+	function toDateMs(d: Date | string | null | undefined): number {
 		if (d instanceof Date) return d.getTime();
 		return DateTime.fromISO(String(d ?? '')).toMillis();
 	}
@@ -70,6 +76,7 @@
 		return dt.toISODate() ?? '';
 	}
 
+	// SAFETY: reduce seed is empty; keys are inserted before any read.
 	$: groupedEvents = filteredEvents.reduce(
 		(acc, event) => {
 			if (!event.date) return acc;
@@ -78,9 +85,11 @@
 			acc[dateKey].push(event);
 			return acc;
 		},
+		// SAFETY: seed object is empty; keys are inserted before any read.
 		{} as Record<string, Event[]>
 	);
 
+	// SAFETY: reduce seed is empty; keys are inserted before any read.
 	$: groupedTasks = monthTasks.reduce(
 		(acc, task) => {
 			if (!task.dueDate) return acc;
@@ -89,6 +98,7 @@
 			acc[dateKey].push(task);
 			return acc;
 		},
+		// SAFETY: seed object is empty; keys are inserted before any read.
 		{} as Record<string, typeof monthTasks>
 	);
 
@@ -276,8 +286,8 @@
 								{#if task.recurrenceFrequency}
 									<span class="text-purple-500">
 										🔁 {task.recurrenceInterval && task.recurrenceInterval > 1
-											? `every ${task.recurrenceInterval} ${FREQ_NOUN[task.recurrenceFrequency]}s`
-											: `every ${FREQ_NOUN[task.recurrenceFrequency]}`}
+											? `every ${task.recurrenceInterval} ${freqNoun(task.recurrenceFrequency)}s`
+											: `every ${freqNoun(task.recurrenceFrequency)}`}
 									</span>
 								{/if}
 							</span>

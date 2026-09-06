@@ -172,15 +172,25 @@
 		showDuplicateConfirm = true;
 	}
 
+	/** Fetch init for the delete call - only what this component needs. */
+	interface DeleteRequestInit {
+		method: 'DELETE';
+		headers?: Record<string, string>;
+		body?: string;
+	}
+
 	async function performDelete(scope?: 'this' | 'all') {
 		const url = `/api/events/${event.masterId || event.id}`;
-		const options: RequestInit = {
+		let options: DeleteRequestInit = {
 			method: 'DELETE'
 		};
 
 		if (scope !== undefined && event.occurrenceDate) {
-			options.headers = { 'Content-Type': 'application/json' };
-			options.body = JSON.stringify({ scope, occurrenceDate: event.occurrenceDate });
+			options = {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ scope, occurrenceDate: event.occurrenceDate })
+			};
 		}
 
 		try {

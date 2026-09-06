@@ -1,10 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
-import {
-	deleteCodesByEmail,
-	getCodesByEmail
-} from '../../src/lib/server/db/actions/codes';
+import { deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import { calendars, users, sessions, userSettings, events } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';

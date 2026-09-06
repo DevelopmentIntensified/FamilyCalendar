@@ -8,14 +8,30 @@ const createMockLocalStorage = () => ({
 });
 
 /** Shape the component actually reads from `fetch` responses. */
-type StubResponse = {
+type StubResponse<T = void> = {
 	ok: true;
-	json: () => Promise<unknown>;
+	json: () => Promise<T>;
 };
 
-// SAFETY: test fetch stubs implement the ok/json surface components read, not the full Response API.
-function fetchStub(payload: unknown): StubResponse {
+function fetchStub<T>(payload: T): StubResponse<T> {
 	return { ok: true, json: () => Promise.resolve(payload) };
+}
+
+function stubFetchResponse<T>(payload: T): Response {
+	// SAFETY: the stub satisfies only the ok/json surface the component reads;
+	// the Response cast is centralized here instead of every call site.
+	return fetchStub(payload) as Response;
+}
+
+/** Narrows a DOM lookup to the expected element class or fails the test. */
+function asElementType<T extends HTMLElement>(el: Element, ctor: new () => T): T {
+	if (el instanceof ctor) return el;
+	throw new Error(`Expected ${ctor.name}, got ${el.constructor.name}`);
+}
+
+/** True when a fetch init body is a string payload. */
+function isStringBody(v: unknown): v is string {
+	return typeof v === 'string';
 }
 
 describe('EventFormModal - NLP Field Detection & Visibility', () => {
@@ -32,14 +48,12 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	});
 
 	it('should show date field inline when NLP detects it, without clicking Show More', async () => {
-		vi.mocked(fetch).mockResolvedValue({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					parsed: { title: 'Team Meeting', date: '2026-05-05', startTime: '14:00' },
-					confidence: 0.85
-				})
-		} as Response);
+		vi.mocked(fetch).mockResolvedValue(
+			stubFetchResponse({
+				parsed: { title: 'Team Meeting', date: '2026-05-05', startTime: '14:00' },
+				confidence: 0.85
+			})
+		);
 
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
@@ -53,14 +67,12 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	});
 
 	it('should debounce NLP parse at 300ms', async () => {
-		vi.mocked(fetch).mockResolvedValue({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					parsed: { title: 'Meeting', date: '2026-05-05' },
-					confidence: 0.85
-				})
-		} as Response);
+		vi.mocked(fetch).mockResolvedValue(
+			stubFetchResponse({
+				parsed: { title: 'Meeting', date: '2026-05-05' },
+				confidence: 0.85
+			})
+		);
 
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
@@ -79,14 +91,12 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	});
 
 	it('should show green checkmark on detected field labels', async () => {
-		vi.mocked(fetch).mockResolvedValue({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					parsed: { title: 'Lunch', date: '2026-05-05', startTime: '12:00' },
-					confidence: 0.85
-				})
-		} as Response);
+		vi.mocked(fetch).mockResolvedValue(
+			stubFetchResponse({
+				parsed: { title: 'Lunch', date: '2026-05-05', startTime: '12:00' },
+				confidence: 0.85
+			})
+		);
 
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
@@ -103,24 +113,23 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 
 	it('should hide NLP-detected fields when Quick Add changes, unless user-touched', async () => {
 		vi.mocked(fetch)
-			.mockResolvedValueOnce({
-				ok: true,
-				json: () =>
-					Promise.resolve({
-						parsed: {
-							title: 'Meeting',
-							date: '2026-05-05',
-							location: 'Office',
-							startTime: '10:00'
-						},
-						confidence: 0.85
-					})
-			} as Response)
-			.mockResolvedValueOnce({
-				ok: true,
-				json: () =>
-					Promise.resolve({ parsed: { title: 'Dinner', date: '2026-05-06' }, confidence: 0.85 })
-			} as Response);
+			.mockResolvedValueOnce(
+				stubFetchResponse({
+					parsed: {
+						title: 'Meeting',
+						date: '2026-05-05',
+						location: 'Office',
+						startTime: '10:00'
+					},
+					confidence: 0.85
+				})
+			)
+			.mockResolvedValueOnce(
+				stubFetchResponse({
+					parsed: { title: 'Dinner', date: '2026-05-06' },
+					confidence: 0.85
+				})
+			);
 
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
@@ -139,14 +148,12 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	});
 
 	it('should show start and end time inputs when NLP detects times', async () => {
-		vi.mocked(fetch).mockResolvedValue({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					parsed: { title: 'Workshop', date: '2026-05-05', startTime: '09:00', endTime: '17:00' },
-					confidence: 0.85
-				})
-		} as Response);
+		vi.mocked(fetch).mockResolvedValue(
+			stubFetchResponse({
+				parsed: { title: 'Workshop', date: '2026-05-05', startTime: '09:00', endTime: '17:00' },
+				confidence: 0.85
+			})
+		);
 
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
@@ -156,21 +163,25 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		await fireEvent.input(nlInput, { target: { value: 'Workshop from 9am to 5pm Tuesday' } });
 		await vi.advanceTimersByTimeAsync(350);
 
-		const startTimeInput = document.getElementById('start-time') as HTMLInputElement;
-		const endTimeInput = document.getElementById('end-time') as HTMLInputElement;
+		const startTimeInput = asElementType(
+			document.getElementById('start-time') ?? document.body,
+			HTMLInputElement
+		);
+		const endTimeInput = asElementType(
+			document.getElementById('end-time') ?? document.body,
+			HTMLInputElement
+		);
 		expect(startTimeInput).toBeInTheDocument();
 		expect(endTimeInput).toBeInTheDocument();
 	});
 
 	it('should preselect the calendar named by quick-add ("on the family calendar")', async () => {
-		vi.mocked(fetch).mockResolvedValue({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					parsed: { title: 'Dinner', date: '2026-09-04', calendarName: 'family calendar' },
-					confidence: 0.85
-				})
-		} as Response);
+		vi.mocked(fetch).mockResolvedValue(
+			stubFetchResponse({
+				parsed: { title: 'Dinner', date: '2026-09-04', calendarName: 'family calendar' },
+				confidence: 0.85
+			})
+		);
 
 		render(EventFormModal, {
 			props: {
@@ -190,14 +201,12 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	});
 
 	it('should keep the default calendar when quick-add names no match', async () => {
-		vi.mocked(fetch).mockResolvedValue({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					parsed: { title: 'Dinner', date: '2026-09-04', calendarName: 'sports calendar' },
-					confidence: 0.85
-				})
-		} as Response);
+		vi.mocked(fetch).mockResolvedValue(
+			stubFetchResponse({
+				parsed: { title: 'Dinner', date: '2026-09-04', calendarName: 'sports calendar' },
+				confidence: 0.85
+			})
+		);
 
 		render(EventFormModal, {
 			props: {
@@ -312,20 +321,19 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		const reports = vi.mocked(fetch).mock.calls.filter(([u]) => String(u) === '/api/report-phrase');
 		expect(reports).toHaveLength(1);
 		const rawBody = reports[0]?.[1]?.body;
-		const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '{}');
+		// The report call always sends a JSON string body; anything else is a bug.
+		const body = JSON.parse(isStringBody(rawBody) ? rawBody : '{}');
 		expect(body.matched.results).toHaveLength(2);
 		expect(body.matched.results[1]).toMatchObject({ title: 'Movie' });
 	});
 
 	it('should reflect quick-add reminder minutes in the reminder picker', async () => {
-		vi.mocked(fetch).mockResolvedValue({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					parsed: { title: 'Dentist', date: '2026-09-07', reminderMinutes: 30 },
-					confidence: 0.85
-				})
-		} as Response);
+		vi.mocked(fetch).mockResolvedValue(
+			stubFetchResponse({
+				parsed: { title: 'Dentist', date: '2026-09-07', reminderMinutes: 30 },
+				confidence: 0.85
+			})
+		);
 
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
@@ -338,7 +346,7 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		await vi.advanceTimersByTimeAsync(350);
 
 		await fireEvent.click(screen.getByRole('button', { name: /show more/i }));
-		const select = screen.getByLabelText(/reminder/i) as HTMLSelectElement;
+		const select = asElementType(screen.getByLabelText(/reminder/i), HTMLSelectElement);
 		expect(select.value).toBe('30');
 	});
 
@@ -353,8 +361,12 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 			}
 		});
 
-		expect((document.getElementById('start-time') as HTMLInputElement).value).toBe('14:00');
-		expect((document.getElementById('end-time') as HTMLInputElement).value).toBe('15:30');
+		expect(
+			asElementType(document.getElementById('start-time') ?? document.body, HTMLInputElement).value
+		).toBe('14:00');
+		expect(
+			asElementType(document.getElementById('end-time') ?? document.body, HTMLInputElement).value
+		).toBe('15:30');
 	});
 
 	it('should show date and time fields immediately for a picked range', async () => {
@@ -374,14 +386,12 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	});
 
 	it('should not let quick-add times clobber a picked range', async () => {
-		vi.mocked(fetch).mockResolvedValue({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					parsed: { title: 'Dentist', date: '2026-09-09', startTime: '18:00' },
-					confidence: 0.85
-				})
-		} as Response);
+		vi.mocked(fetch).mockResolvedValue(
+			stubFetchResponse({
+				parsed: { title: 'Dentist', date: '2026-09-09', startTime: '18:00' },
+				confidence: 0.85
+			})
+		);
 
 		render(EventFormModal, {
 			props: {
@@ -397,7 +407,9 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		await fireEvent.input(nlInput, { target: { value: 'dentist at 6pm' } });
 		await vi.advanceTimersByTimeAsync(350);
 
-		expect((document.getElementById('start-time') as HTMLInputElement).value).toBe('14:00');
+		expect(
+			asElementType(document.getElementById('start-time') ?? document.body, HTMLInputElement).value
+		).toBe('14:00');
 	});
 
 	it('should default creation to the personal calendar', async () => {
@@ -505,7 +517,7 @@ describe('EventFormModal - Description Field', () => {
 		});
 
 		expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
-		const descEl = screen.getByLabelText(/description/i) as HTMLTextAreaElement;
+		const descEl = asElementType(screen.getByLabelText(/description/i), HTMLTextAreaElement);
 		expect(descEl.tagName).toBe('TEXTAREA');
 	});
 
@@ -514,7 +526,7 @@ describe('EventFormModal - Description Field', () => {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
 		});
 
-		const descEl = screen.getByLabelText(/description/i) as HTMLTextAreaElement;
+		const descEl = asElementType(screen.getByLabelText(/description/i), HTMLTextAreaElement);
 		await fireEvent.input(descEl, { target: { value: 'Test description' } });
 		expect(descEl.value).toBe('Test description');
 	});
@@ -770,14 +782,22 @@ describe('EventFormModal - Calendar Selector', () => {
 	it('should show calendar selector by default in edit mode', async () => {
 		const mockEvent = {
 			id: 'evt1',
+			ownerId: 'u1',
+			calendarId: 'cal2',
 			title: 'Meeting',
 			start: '2024-05-03T10:00:00Z',
 			end: '2024-05-03T11:00:00Z',
-			allDay: false,
-			calendarId: 'cal2',
 			description: '',
-			location: ''
-		} as any;
+			location: '',
+			allDay: false,
+			created_at: new Date('2024-05-01T00:00:00Z'),
+			recurrenceFrequency: null,
+			recurrenceInterval: null,
+			recurrenceByDay: null,
+			recurrenceCount: null,
+			recurrenceUntil: null,
+			reminderMinutes: null
+		};
 
 		render(EventFormModal, {
 			props: {

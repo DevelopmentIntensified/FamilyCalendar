@@ -3,9 +3,9 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { DateTime } from 'luxon';
-	import type { PageData, ActionData } from './$types';
+	import type { PageData } from './$types';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { data }: { data: PageData } = $props();
 
 	const event = $derived(data.event);
 	const calendar = $derived(data.calendar);

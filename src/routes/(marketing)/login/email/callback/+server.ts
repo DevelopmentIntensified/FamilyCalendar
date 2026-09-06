@@ -47,7 +47,7 @@ const defaultDeps: EmailCallbackDeps = {
 	baseSiteUrl: getUrl(),
 	jwtSecret: new TextEncoder().encode(EMAILSECRET),
 	verifyJwt: validateJWT,
-	parseJwt
+	parseJwt: parseJWT
 };
 
 export const GET = async function (

@@ -93,6 +93,7 @@ async function withStore<T>(
 	});
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary: persists opaque request payloads to IndexedDB for offline replay; a concrete type would fake precision.
 export async function queueMutation(url: string, method: string, body: unknown): Promise<void> {
 	if (!hasIndexedDb()) return;
 	await withStore<void>('readwrite', (store) => {

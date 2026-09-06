@@ -55,9 +55,7 @@ function stubFetch({
 		: vi.fn().mockResolvedValue(new Response(null, { status: subscribeStatus }));
 	const fetchMock = vi
 		.fn()
-		.mockResolvedValueOnce(
-			new Response(JSON.stringify({ publicKey: 'dGVzdA==' }), { status: 200 })
-		)
+		.mockResolvedValueOnce(new Response(JSON.stringify({ publicKey: 'dGVzdA==' }), { status: 200 }))
 		.mockImplementationOnce(() => subscribeFn());
 	vi.stubGlobal('fetch', fetchMock);
 	return fetchMock;

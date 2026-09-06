@@ -3,8 +3,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { writable } from 'svelte/store';
 import { DateTime } from 'luxon';
 import { invalidateAll } from '$app/navigation';
+import { stubFetchResponse, dispatchTouchEvent, isStringBody } from '$lib/utils/testDom';
+import type { Event } from '$lib/types';
 import WeekView from './WeekView.svelte';
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- SvelteKit injects $app/navigation virtually; no DI seam exists.
 vi.mock('$app/navigation', () => ({
 	invalidateAll: vi.fn(() => Promise.resolve()),
 	goto: vi.fn()
@@ -12,30 +15,58 @@ vi.mock('$app/navigation', () => ({
 
 const MONDAY = DateTime.fromISO('2026-09-07T12:00:00');
 
+// SAFETY: fixture covers the Event fields WeekView renders; optional calendar
+// metadata defaults are irrelevant to these tests.
 const evt = {
 	id: 'e1',
+	ownerId: 'u1',
+	calendarId: 'cal1',
 	title: 'Standup',
 	date: '2026-09-08',
 	start: '2026-09-08T10:00:00',
 	end: '2026-09-08T11:00:00',
+	description: null,
+	location: null,
 	allDay: false,
-	calendarId: 'cal1'
-} as any;
+	recurrenceFrequency: null,
+	recurrenceInterval: null,
+	recurrenceByDay: null,
+	recurrenceCount: null,
+	recurrenceUntil: null,
+	reminderMinutes: null,
+	created_at: new Date('2026-01-01T00:00:00Z')
+} as Event;
 
-function setup(over: Record<string, any> = {}) {
+type CreateAtMock = ReturnType<typeof vi.fn<(start: DateTime, end?: DateTime) => void>>;
+
+type SetupOverrides = {
+	events?: Event[];
+	dueTasks?: never[];
+	selectionMode?: boolean;
+	selectedIds?: string[];
+	createAt?: CreateAtMock;
+	removeEvent?: (id: string) => void;
+	openDay?: (date: DateTime) => void;
+	onToggleSelectionMode?: (on: boolean) => void;
+	onToggleSelect?: (event: Event) => void;
+};
+
+function setup(over: SetupOverrides = {}) {
+	// SAFETY: literal supplies every prop WeekView requires; missing optional
+	// calendar metadata is irrelevant to these tests.
 	const props = {
 		currentDate: writable(MONDAY),
-		events: [],
-		removeEvent: vi.fn(),
+		events: [] as Event[],
+		removeEvent: vi.fn<(id: string) => void>(),
 		preferedFirstDayOfWeek: 'sunday',
 		calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
-		openDay: vi.fn(),
+		openDay: vi.fn<(date: DateTime) => void>(),
 		dueTasks: [],
-		createAt: vi.fn(),
+		createAt: vi.fn<(start: DateTime, end?: DateTime) => void>(),
 		selectionMode: false,
-		selectedIds: [],
-		onToggleSelectionMode: vi.fn(),
-		onToggleSelect: vi.fn(),
+		selectedIds: [] as string[],
+		onToggleSelectionMode: vi.fn<(on: boolean) => void>(),
+		onToggleSelect: vi.fn<(event: Event) => void>(),
 		...over
 	};
 	render(WeekView, { props });
@@ -44,22 +75,20 @@ function setup(over: Record<string, any> = {}) {
 
 // jsdom has no Touch constructor: dispatch plain events carrying touches.
 function dispatchTouchStart(el: Element, clientY: number) {
-	const ev = new Event('touchstart', { bubbles: true, cancelable: true }) as any;
-	ev.touches = [{ identifier: 1, target: el, clientX: 0, clientY }];
-	el.dispatchEvent(ev);
+	dispatchTouchEvent(el, 'touchstart', [{ identifier: 1, target: el, clientX: 0, clientY }]);
 }
 
 function dispatchTouchEnd(el: Element) {
-	const ev = new Event('touchend', { bubbles: true, cancelable: true }) as any;
-	ev.touches = [];
-	el.dispatchEvent(ev);
+	dispatchTouchEvent(el, 'touchend', []);
 }
 
 describe('WeekView - slot create and drag move', () => {
 	beforeEach(() => {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+			vi.fn<(input: string, init?: RequestInit) => Promise<Response>>(async () =>
+				stubFetchResponse({})
+			)
 		);
 		vi.stubGlobal(
 			'confirm',
@@ -79,7 +108,7 @@ describe('WeekView - slot create and drag move', () => {
 		// 60px/hour grid at top 0: clientY 125 -> 125min -> snaps to 120 (02:00).
 		await fireEvent.click(cols[0], { clientY: 125 });
 		expect(props.createAt).toHaveBeenCalledTimes(1);
-		const at = props.createAt.mock.calls[0][0] as DateTime;
+		const at = props.createAt.mock.calls[0]?.[0] ?? DateTime.fromISO('1970-01-01T00:00:00');
 		expect(at.hour).toBe(2);
 		expect(at.minute).toBe(0);
 	});
@@ -124,7 +153,8 @@ describe('WeekView - slot create and drag move', () => {
 		expect(screen.getByText('2:00 AM – 4:00 AM')).toBeInTheDocument();
 		await fireEvent.click(screen.getByRole('button', { name: 'Create event for selected time' }));
 		expect(props.createAt).toHaveBeenCalledTimes(1);
-		const [start, end] = props.createAt.mock.calls[0] as DateTime[];
+		const call = props.createAt.mock.calls[0] ?? [];
+		const [start = DateTime.fromISO('1970-01-01T00:00:00'), end = start] = call;
 		expect(start.hour).toBe(2);
 		expect(end.hour).toBe(4);
 	});
@@ -138,7 +168,8 @@ describe('WeekView - slot create and drag move', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Extend by 15 minutes' }));
 		expect(screen.getByText('2:00 AM – 4:15 AM')).toBeInTheDocument();
 		await fireEvent.click(screen.getByRole('button', { name: 'Create event for selected time' }));
-		const [, end] = props.createAt.mock.calls[0] as DateTime[];
+		const call = props.createAt.mock.calls[0] ?? [];
+		const end = call[1] ?? call[0] ?? DateTime.fromISO('1970-01-01T00:00:00');
 		expect(end.hour).toBe(4);
 		expect(end.minute).toBe(15);
 	});
@@ -170,10 +201,16 @@ describe('WeekView - slot create and drag move', () => {
 			new MouseEvent('drop', { bubbles: true, cancelable: true, clientY: 120 })
 		);
 		expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
-		const [url, init] = vi.mocked(fetch).mock.calls[0] as any[];
-		expect(url).toBe('/api/events/e1');
-		expect(init.method).toBe('PUT');
-		const body = JSON.parse(init.body);
+		const call = vi.mocked(fetch).mock.calls[0];
+		expect(call?.[0]).toBe('/api/events/e1');
+		const init = call?.[1];
+		const method = init?.method;
+		const rawBody = init?.body;
+		if (method !== 'PUT' || !isStringBody(rawBody)) {
+			throw new Error('expected PUT request with a string body');
+		}
+		expect(method).toBe('PUT');
+		const body = JSON.parse(rawBody);
 		expect(body.start).toContain('2026-09-07T02:00');
 		expect(body.end).toContain('2026-09-07T03:00');
 		expect(invalidateAll).toHaveBeenCalledTimes(1);

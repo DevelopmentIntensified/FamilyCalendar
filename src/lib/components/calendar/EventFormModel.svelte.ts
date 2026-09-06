@@ -130,7 +130,18 @@ export function createEventForm(config: EventFormConfig) {
 
 	let userTouchedFields = $state<Record<string, boolean>>({});
 	let nlpDetectedFields = $state<Record<string, boolean>>({});
-	let lastNlpValues = $state<Record<string, unknown>>({});
+	/** Last NLP parse snapshot per field, used to detect user edits over detected values. */
+	let lastNlpValues = $state<{
+		title?: string;
+		date?: string;
+		startTime?: string;
+		endTime?: string;
+		endDate?: string;
+		location?: string;
+		attendants?: string[];
+		allDay?: boolean;
+		recurrence?: string;
+	}>({});
 
 	function initializeCalendar() {
 		const { initialEvent, calendars, defaultCalendarId } = config;
@@ -189,7 +200,7 @@ export function createEventForm(config: EventFormConfig) {
 		recurrenceCount = initialEvent.recurrenceCount ?? null;
 		recurrenceUntil = initialEvent.recurrenceUntil ?? null;
 		reminderMinutes =
-			typeof initialEvent.reminderMinutes === 'number' && initialEvent.reminderMinutes > 0
+			initialEvent.reminderMinutes != null && initialEvent.reminderMinutes > 0
 				? Math.floor(initialEvent.reminderMinutes)
 				: null;
 	}
@@ -232,7 +243,7 @@ export function createEventForm(config: EventFormConfig) {
 		if (
 			lastNlpValues.attendants &&
 			!userTouchedFields.attendants &&
-			arraysEqual(attendants, lastNlpValues.attendants as string[])
+			arraysEqual(attendants, lastNlpValues.attendants)
 		) {
 			attendants = [];
 			inviteTypes = {};
@@ -385,7 +396,7 @@ export function createEventForm(config: EventFormConfig) {
 			return reminderMinutes;
 		},
 		set reminderMinutes(v: number | null) {
-			reminderMinutes = typeof v === 'number' && v > 0 ? Math.floor(v) : null;
+			reminderMinutes = v !== null && v > 0 ? Math.floor(v) : null;
 			this.markTouched('reminderMinutes');
 		},
 
@@ -393,8 +404,8 @@ export function createEventForm(config: EventFormConfig) {
 			return reminderMinutes == null ? '' : String(reminderMinutes);
 		},
 		set reminderSelectValue(v: string) {
-			const n = v === '' ? NaN : parseInt(v);
-			reminderMinutes = Number.isFinite(n) && (n as number) > 0 ? Math.floor(n as number) : null;
+			const n = v === '' ? null : parseInt(v);
+			reminderMinutes = n !== null && n > 0 ? Math.floor(n) : null;
 			this.markTouched('reminderMinutes');
 		},
 
@@ -534,7 +545,7 @@ export function createEventForm(config: EventFormConfig) {
 					if (Array.isArray(parsed.recurringByDay) && parsed.recurringByDay.length > 0) {
 						recurrenceByDay = [...parsed.recurringByDay];
 					}
-					if (typeof parsed.recurringCount === 'number') {
+					if (parsed.recurringCount != null) {
 						recurrenceCount = Math.max(1, Math.floor(parsed.recurringCount));
 					}
 					if (parsed.recurringUntil) {
@@ -542,7 +553,7 @@ export function createEventForm(config: EventFormConfig) {
 					}
 				}
 			}
-			if (typeof parsed.reminderMinutes === 'number' && reminderMinutes == null) {
+			if (parsed.reminderMinutes != null && reminderMinutes == null) {
 				reminderMinutes = parsed.reminderMinutes;
 			}
 		},
