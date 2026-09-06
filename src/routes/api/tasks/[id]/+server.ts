@@ -13,6 +13,7 @@ import {
 	nonOwnerAssignmentPatch,
 	isValidAssignee,
 	TASK_FREQUENCIES,
+	TASK_VISIBILITIES,
 	type AssignmentPatch
 } from '$lib/server/db/actions/tasks';
 import { normalizeTaskPriority } from '$lib/server/db/actions/taskPriority';
@@ -87,6 +88,24 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 					? body.recurrenceFrequency
 					: undefined;
 
+			// Task scoping (issue 019): a visibility patch is owner-only and
+			// enum-validated. Checked BEFORE any mutation so a non-owner's
+			// request can neither change visibility nor ride along with it.
+			let visibility: string | undefined;
+			if (body.visibility !== undefined) {
+				if (!TASK_VISIBILITIES.includes(body.visibility)) {
+					return json({ error: 'Invalid visibility' }, { status: 400 });
+				}
+				const [existing] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+				if (!existing) {
+					return json({ error: 'Task not found' }, { status: 404 });
+				}
+				if (existing.userId !== user.id) {
+					return json({ error: 'Only the task owner can change visibility' }, { status: 403 });
+				}
+				visibility = body.visibility;
+			}
+
 			const priority =
 				body.priority === undefined ? undefined : normalizeTaskPriority(body.priority);
 
@@ -123,6 +142,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				notes: body.notes === undefined ? undefined : body.notes,
 				dueDate: body.dueDate === undefined ? undefined : body.dueDate || null,
 				priority,
+				visibility,
 				recurrenceFrequency: frequency,
 				recurrenceInterval:
 					frequency === null

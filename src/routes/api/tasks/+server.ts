@@ -8,7 +8,8 @@ import {
 	isFamilyMember,
 	isValidAssignee,
 	normalizeTags,
-	TASK_FREQUENCIES
+	TASK_FREQUENCIES,
+	TASK_VISIBILITIES
 } from '$lib/server/db/actions/tasks';
 import { normalizeTaskPriority } from '$lib/server/db/actions/taskPriority';
 import { db } from '$lib/server/db';
@@ -76,6 +77,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		const priority = normalizeTaskPriority(body.priority);
 
+		// Task scoping (issue 019): visibility is 'public' by default; an
+		// explicit value must be one of the supported ones or the request
+		// is rejected rather than silently re-scoped.
+		let visibility = 'public';
+		if (body.visibility !== undefined) {
+			if (!TASK_VISIBILITIES.includes(body.visibility)) {
+				return json({ error: 'Invalid visibility' }, { status: 400 });
+			}
+			visibility = body.visibility;
+		}
+
 		// Assignment: a Task defaults to its creator unless another
 		// person is specified. Self-assign is instant-accept; assigning
 		// someone else starts a pending request they accept or decline.
@@ -97,6 +109,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			assignedTo,
 			assignmentStatus,
 			priority,
+			visibility,
 			tags: normalizeTags(body.tags),
 			eventId: body.eventId || null,
 			familyId,

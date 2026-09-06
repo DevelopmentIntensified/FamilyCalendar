@@ -516,6 +516,11 @@ export const tasks = pgTable('tasks', {
 	// Task Priority (low | normal | high) — drives the Top-3 Priorities
 	// dashboard card. Kept as plain text, consistent with recurrence/status.
 	priority: text('priority').notNull().default('normal'),
+	// Task scoping (issue 019): 'public' | 'private'. Plain text, consistent
+	// with priority/assignmentStatus. Public personal tasks are family-readable
+	// (read-only); private ones only reach owner + assignee via the section
+	// queries. Default 'public' for new rows.
+	visibility: text('visibility').notNull().default('public'),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
@@ -525,6 +530,15 @@ export const tasks = pgTable('tasks', {
 });
 
 export type Task = typeof tasks.$inferSelect;
+
+/**
+ * Task scoping (issue 019) — visibility of a personal task to the rest of
+ * the owner's family. 'public' = family-readable (read-only), 'private' =
+ * owner + assignee only. Plain-text enum, same style as BILL_CATEGORIES.
+ */
+export const TASK_VISIBILITIES = ['public', 'private'] as const;
+
+export type TaskVisibility = (typeof TASK_VISIBILITIES)[number];
 
 /**
  * Bill — a dated amount owed, family-visible. Amounts are integer cents

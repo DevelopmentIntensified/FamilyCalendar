@@ -104,3 +104,30 @@ describe('POST /api/tasks — assignment target validation', () => {
 		expect(mockedCreateTask).not.toHaveBeenCalled();
 	});
 });
+
+describe('POST /api/tasks — visibility (issue 019)', () => {
+	it('defaults new tasks to public visibility', async () => {
+		const res = await POST(event('user-1', { title: 'Dishes' }));
+
+		expect(res.status).toBe(201);
+		expect(mockedCreateTask).toHaveBeenCalledWith(
+			expect.objectContaining({ visibility: 'public' })
+		);
+	});
+
+	it('passes an explicit private visibility through', async () => {
+		const res = await POST(event('user-1', { title: 'Dishes', visibility: 'private' }));
+
+		expect(res.status).toBe(201);
+		expect(mockedCreateTask).toHaveBeenCalledWith(
+			expect.objectContaining({ visibility: 'private' })
+		);
+	});
+
+	it('400s on an unsupported visibility value', async () => {
+		const res = await POST(event('user-1', { title: 'Dishes', visibility: 'secret' }));
+
+		expect(res.status).toBe(400);
+		expect(mockedCreateTask).not.toHaveBeenCalled();
+	});
+});

@@ -64,6 +64,7 @@ type TaskRow = {
 	assignedTo: string | null;
 	assignmentStatus: string;
 	priority: string;
+	visibility: string;
 	userId: string;
 	familyId: string | null;
 	eventId: string | null;
@@ -84,6 +85,7 @@ function makeTask(overrides: Partial<TaskRow> = {}): TaskRow {
 		assignedTo: null,
 		assignmentStatus: 'none',
 		priority: 'normal',
+		visibility: 'public',
 		userId: 'user-a',
 		familyId: null,
 		eventId: null,
@@ -106,10 +108,17 @@ describe('canMutateTask', () => {
 		expect(state.queue).toEqual([]);
 	});
 
-	it('allows the assignee without a DB lookup', async () => {
-		const task = makeTask({ userId: 'user-b', assignedTo: 'user-a' });
+	it('allows the assignee with a live (accepted) assignment without a DB lookup', async () => {
+		// Issue 019: only a pending/accepted assignment grants write; a
+		// stale assignedTo (e.g. declined leftovers) no longer does.
+		const task = makeTask({ userId: 'user-b', assignedTo: 'user-a', assignmentStatus: 'accepted' });
 		expect(await canMutateTask(task, 'user-a')).toBe(true);
 		expect(state.queue).toEqual([]);
+	});
+
+	it('denies an assignee whose assignment is no longer live (status none)', async () => {
+		const task = makeTask({ userId: 'user-b', assignedTo: 'user-a', assignmentStatus: 'none' });
+		expect(await canMutateTask(task, 'user-a')).toBe(false);
 	});
 
 	it('allows any family member to mutate a family task (DB-backed leg)', async () => {

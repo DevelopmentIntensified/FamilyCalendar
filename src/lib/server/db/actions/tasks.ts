@@ -6,8 +6,14 @@ import {
 	familyMembers,
 	taskCompletions,
 	taskTags,
-	type Task
+	TASK_VISIBILITIES,
+	type Task,
+	type TaskVisibility
 } from '$lib/server/db/schema';
+
+// Re-exported so the API routes import the visibility enum from this
+// actions module (the seam they already mock) instead of schema directly.
+export { TASK_VISIBILITIES };
 import { and, eq, inArray, or, desc, gt, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { DateTime } from 'luxon';
@@ -19,6 +25,21 @@ const creator = alias(users, 'creator');
 
 export const TASK_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'] as const;
 export type TaskFrequency = (typeof TASK_FREQUENCIES)[number];
+
+/** True when the value is one of the supported visibility values. */
+export function isTaskVisibility(value: unknown): value is TaskVisibility {
+	return typeof value === 'string' && TASK_VISIBILITIES.some((v) => v === value);
+}
+
+/**
+ * Task scoping (issue 019): accept only the supported visibility values;
+ * anything else (bad input, legacy null) falls back to 'public', matching
+ * the column default and the normalizeTaskPriority pattern.
+ */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- exported boundary parser: unknown input IS its contract; routes feed it raw request-body fields.
+export function normalizeTaskVisibility(value: unknown): TaskVisibility {
+	return isTaskVisibility(value) ? value : 'public';
+}
 
 /**
  * Recurring Task cursor v3. Exactly one live occurrence exists at a
@@ -131,6 +152,7 @@ export async function createTask(data: {
 	assignedTo?: string | null;
 	assignmentStatus?: string | null;
 	priority?: string | null;
+	visibility?: string | null;
 	tags?: string[] | null;
 	userId: string;
 	familyId?: string | null;
@@ -149,6 +171,7 @@ export async function createTask(data: {
 				assignedTo: data.assignedTo ?? null,
 				assignmentStatus: data.assignmentStatus ?? 'none',
 				priority: data.priority ?? 'normal',
+				visibility: normalizeTaskVisibility(data.visibility),
 				userId: data.userId,
 				familyId: data.familyId ?? null,
 				eventId: data.eventId ?? null
@@ -186,6 +209,7 @@ export async function getTasksForUser(
 			assignedTo: tasks.assignedTo,
 			assignmentStatus: tasks.assignmentStatus,
 			priority: tasks.priority,
+			visibility: tasks.visibility,
 			assigneeFirstName: assignee.firstName,
 			assigneeLastName: assignee.lastName,
 			userId: tasks.userId,
@@ -228,6 +252,7 @@ export async function getTasksForFamily(familyId: string): Promise<TaskWithTags[
 			assignedTo: tasks.assignedTo,
 			assignmentStatus: tasks.assignmentStatus,
 			priority: tasks.priority,
+			visibility: tasks.visibility,
 			assigneeFirstName: assignee.firstName,
 			assigneeLastName: assignee.lastName,
 			userId: tasks.userId,
@@ -248,6 +273,140 @@ export async function getTasksForFamily(familyId: string): Promise<TaskWithTags[
 	return rows.map((r) => ({ ...r, tags: tagMap.get(r.id) ?? [] }));
 }
 
+const sectionSelect = {
+	id: tasks.id,
+	title: tasks.title,
+	notes: tasks.notes,
+	dueDate: tasks.dueDate,
+	completedAt: tasks.completedAt,
+	archivedAt: tasks.archivedAt,
+	recurrenceFrequency: tasks.recurrenceFrequency,
+	recurrenceInterval: tasks.recurrenceInterval,
+	completionCount: tasks.completionCount,
+	assignedTo: tasks.assignedTo,
+	assignmentStatus: tasks.assignmentStatus,
+	priority: tasks.priority,
+	visibility: tasks.visibility,
+	assigneeFirstName: assignee.firstName,
+	assigneeLastName: assignee.lastName,
+	userId: tasks.userId,
+	familyId: tasks.familyId,
+	eventId: tasks.eventId,
+	createdAt: tasks.createdAt,
+	eventTitle: events.title,
+	eventStart: events.start,
+	creatorFirstName: creator.firstName
+} as const;
+
+/**
+ * Shared FROM/JOIN shape for the task-scoping section queries (issue 019):
+ * parent-event attribution plus assignee + creator names, tags attached
+ * afterwards via attachTags like every other list query.
+ */
+function sectionQuery() {
+	return db
+		.select(sectionSelect)
+		.from(tasks)
+		.leftJoin(events, eq(tasks.eventId, events.id))
+		.leftJoin(assignee, eq(tasks.assignedTo, assignee.id))
+		.leftJoin(creator, eq(tasks.userId, creator.id));
+}
+
+async function withTags<T extends { id: string }>(rows: T[]): Promise<(T & { tags: string[] })[]> {
+	const tagMap = await attachTags(rows);
+	return rows.map((r) => ({ ...r, tags: tagMap.get(r.id) ?? [] }));
+}
+
+/**
+ * MY TASKS list (issue 019): my personal tasks (familyId null, any
+ * visibility) PLUS tasks assigned to me with an ACCEPTED status — an
+ * accepted assignment becomes mine, wherever it lives. Pending rows stay
+ * in getPendingAssignments; visibility is never a leak here because every
+ * row is either owned by me or actively assigned to me.
+ */
+export async function getMyTasks(userId: string): Promise<TaskWithTags[]> {
+	const rows = await sectionQuery()
+		.where(
+			and(
+				or(
+					and(isNull(tasks.familyId), eq(tasks.userId, userId)),
+					and(eq(tasks.assignedTo, userId), eq(tasks.assignmentStatus, 'accepted'))
+				),
+				isNull(tasks.archivedAt)
+			)
+		)
+		.orderBy(desc(tasks.createdAt));
+	return withTags(rows);
+}
+
+/**
+ * ASSIGNMENTS "To accept" tab (issue 019): rows assigned to me that are
+ * still pending — family or personal, any visibility (I was asked).
+ */
+export async function getPendingAssignments(userId: string): Promise<TaskWithTags[]> {
+	const rows = await sectionQuery()
+		.where(
+			and(
+				eq(tasks.assignedTo, userId),
+				eq(tasks.assignmentStatus, 'pending'),
+				isNull(tasks.archivedAt)
+			)
+		)
+		.orderBy(desc(tasks.createdAt));
+	return withTags(rows);
+}
+
+/**
+ * ASSIGNMENTS "Requested" tab (issue 019): tasks I assigned OUT — my rows
+ * with an assignee, in any status (the UI badges Pending/Accepted/Declined).
+ */
+export async function getRequestedByMe(userId: string): Promise<TaskWithTags[]> {
+	const rows = await sectionQuery()
+		.where(and(eq(tasks.userId, userId), isNotNull(tasks.assignedTo), isNull(tasks.archivedAt)))
+		.orderBy(desc(tasks.createdAt));
+	return withTags(rows);
+}
+
+/**
+ * FAMILY PAGE "Public tasks" tab (issue 019): personal tasks (familyId
+ * null) marked public by a CURRENT member of the family. Private rows and
+ * creators since removed are filtered out at the SQL level — visibility
+ * filtering lives in the query, never in the caller.
+ */
+export async function getPublicTasksForFamily(familyId: string): Promise<TaskWithTags[]> {
+	const rows = await db
+		.select(sectionSelect)
+		.from(tasks)
+		.innerJoin(
+			familyMembers,
+			and(eq(familyMembers.userId, tasks.userId), eq(familyMembers.familyId, familyId))
+		)
+		.leftJoin(events, eq(tasks.eventId, events.id))
+		.leftJoin(assignee, eq(tasks.assignedTo, assignee.id))
+		.leftJoin(creator, eq(tasks.userId, creator.id))
+		.where(and(isNull(tasks.familyId), eq(tasks.visibility, 'public'), isNull(tasks.archivedAt)))
+		.orderBy(desc(tasks.createdAt));
+	return withTags(rows);
+}
+
+/**
+ * FAMILY tasks on a PERSONAL list (issue 019): the family tasks assigned
+ * to me in the given family, filterable by the caller. Pending rows also
+ * surface here unfiltered — the UI slices 2 decide the split with the
+ * "To accept" tab.
+ */
+export async function getFamilyTasksAssignedTo(
+	userId: string,
+	familyId: string
+): Promise<TaskWithTags[]> {
+	const rows = await sectionQuery()
+		.where(
+			and(eq(tasks.familyId, familyId), eq(tasks.assignedTo, userId), isNull(tasks.archivedAt))
+		)
+		.orderBy(desc(tasks.createdAt));
+	return withTags(rows);
+}
+
 export async function updateTask(
 	id: string,
 	userId: string,
@@ -263,6 +422,7 @@ export async function updateTask(
 			| 'assignedTo'
 			| 'assignmentStatus'
 			| 'priority'
+			| 'visibility'
 		>
 	> & { tags?: string[] | null }
 ): Promise<TaskWithTags | undefined> {
@@ -367,19 +527,37 @@ export async function isFamilyMember(userId: string, familyId: string): Promise<
 }
 
 /**
- * Permission predicate for mutating a task: the owner, the assignee, or any
- * member of the task's family may mutate it. Family membership is the only
- * DB-backed leg, so the lookup runs only when the cheaper owned/assigned
- * checks fail (mirrors the behaviour of the caller's original inline guard).
+ * Permission predicate for mutating a task (issue 019 rules):
+ *
+ * - Personal task (familyId null): the owner, or the CURRENT assignee
+ *   while their assignment is pending/accepted. Nobody else — not even a
+ *   family member on a PUBLIC personal task; public is read-only
+ *   visibility, not write access. Visibility is filtered in the queries,
+ *   so no non-owner/private leak can reach here either.
+ * - Family task: unchanged — the owner, the assignee, or any member of
+ *   the task's family. Family membership is the only DB-backed leg, so
+ *   the lookup runs only when the cheaper owned/assigned checks fail.
  */
 export async function canMutateTask(task: Task, userId: string): Promise<boolean> {
 	const owned = task.userId === userId;
+	if (owned) return true;
+	if (!task.familyId) {
+		// Personal task: only a live (pending/accepted) assignment grants
+		// write; a stale assignedTo (declined leftovers) grants nothing.
+		const status = task.assignmentStatus ?? '';
+		return task.assignedTo === userId && (status === 'pending' || status === 'accepted');
+	}
 	const assigned = task.assignedTo === userId;
-	if (owned || assigned) return true;
-	// Family tasks: membership grants rights. A private task (no family)
-	// leaves an unrelated caller with no access.
-	if (!task.familyId) return false;
+	if (assigned) return true;
 	return isFamilyMember(userId, task.familyId);
+}
+
+/**
+ * Visibility toggle authority (issue 019): the owner only. Assignees and
+ * family members may use a public task but never change who can see it.
+ */
+export function canChangeVisibility(task: Pick<Task, 'userId'>, userId: string): boolean {
+	return task.userId === userId;
 }
 
 /** Assignment-only patch for task reassignment responses. */

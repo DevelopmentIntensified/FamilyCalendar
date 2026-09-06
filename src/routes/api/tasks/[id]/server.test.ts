@@ -184,3 +184,37 @@ describe('PUT /api/tasks/[id] — assignment authorization', () => {
 		expect(mockedUpdateTask).not.toHaveBeenCalled();
 	});
 });
+
+describe('PUT /api/tasks/[id] — visibility patch (issue 019)', () => {
+	it('lets the owner change visibility', async () => {
+		state.queue.push([taskRow()]); // owner pre-check loads the task
+		// SAFETY: stub return satisfies the seam spy's nominal TaskWithTags parameter in tests.
+		mockedUpdateTask.mockResolvedValue(taskRow({ userId: 'user-owner' }) as never);
+
+		const res = await PUT(event('user-owner', { visibility: 'private' }));
+
+		expect(res.status).toBe(200);
+		expect(mockedUpdateTask).toHaveBeenCalledWith(
+			't1',
+			'user-owner',
+			expect.objectContaining({ visibility: 'private' })
+		);
+	});
+
+	it('403s a non-owner (assignee) trying to change visibility', async () => {
+		state.queue.push([taskRow()]); // owner pre-check loads the task
+
+		const res = await PUT(event('user-assignee', { visibility: 'private' }));
+
+		expect(res.status).toBe(403);
+		expect(mockedUpdateTask).not.toHaveBeenCalled();
+	});
+
+	it('400s on an unsupported visibility value', async () => {
+		const res = await PUT(event('user-owner', { visibility: 'secret' }));
+
+		expect(res.status).toBe(400);
+		expect(mockedUpdateTask).not.toHaveBeenCalled();
+		expect(state.queue).toEqual([]);
+	});
+});

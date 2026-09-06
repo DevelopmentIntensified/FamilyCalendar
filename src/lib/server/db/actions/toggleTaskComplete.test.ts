@@ -136,8 +136,13 @@ describe('toggleTaskComplete', () => {
 
 	it('records the ACTING user on the completion row, not the task owner', async () => {
 		// The assignee checks off the owner's recurring task: userId stays the
-		// owner (legacy attribution leg), actorId is the caller.
-		const task = makeTask({ userId: 'owner-1', assignedTo: 'user-b' });
+		// owner (legacy attribution leg), actorId is the caller. The
+		// assignment is live (accepted) per the issue 019 mutate rules.
+		const task = makeTask({
+			userId: 'owner-1',
+			assignedTo: 'user-b',
+			assignmentStatus: 'accepted'
+		});
 		state.queue = [[task]];
 		state.updateResult = { ...task, dueDate: '2026-08-29T00:00:00.000Z', completionCount: 1 };
 
