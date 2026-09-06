@@ -5,7 +5,7 @@ import {
 	familyMembers,
 	aiUsageTracking
 } from '$lib/server/db/schema';
-import { eq, and, sql, isNotNull, isNull, desc } from 'drizzle-orm';
+import { count, eq, and, sql, isNotNull, isNull, desc } from 'drizzle-orm';
 
 export type SubscriptionTier = typeof subscriptionTypes.$inferSelect;
 
@@ -132,27 +132,50 @@ export async function getUserSubscriptionLimits(userId: string): Promise<Subscri
 	};
 }
 
-export async function canAddFamilyMember(
-	userId: string
-): Promise<{ allowed: boolean; reason?: string }> {
-	const limits = await getUserSubscriptionLimits(userId);
-
-	const currentFamilyMembers = await db
-		.select()
+/**
+ * Member limit of a family: the creator's subscription familyLimit (with any
+ * override), falling back to the default tier limit when no creator row exists.
+ */
+async function getFamilySizeLimit(familyId: string): Promise<number> {
+	const [creator] = await db
+		.select({ userId: familyMembers.userId })
 		.from(familyMembers)
-		.where(eq(familyMembers.userId, userId));
+		.where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.role, 'creator')))
+		.limit(1);
 
-	const familyCount = currentFamilyMembers.length;
-	const availableSlots = limits.familyLimit - familyCount;
+	if (!creator) return getDefaultLimits().familyLimit;
 
-	if (availableSlots <= 0) {
+	const limits = await getUserSubscriptionLimits(creator.userId);
+	return limits.familyLimit;
+}
+
+/**
+ * Whether a member can be added to a specific family: counts the members
+ * currently IN the family (not the user's own memberships) against the
+ * family creator's subscription limit.
+ */
+export async function canAddFamilyMember(
+	familyId: string,
+	options?: { limit?: number }
+): Promise<{ allowed: boolean; limit: number; currentCount: number; reason?: string }> {
+	const [countRow] = await db
+		.select({ memberCount: count() })
+		.from(familyMembers)
+		.where(eq(familyMembers.familyId, familyId));
+
+	const currentCount = countRow?.memberCount ?? 0;
+	const limit = options?.limit ?? (await getFamilySizeLimit(familyId));
+
+	if (currentCount >= limit) {
 		return {
 			allowed: false,
-			reason: `Family limit reached (${limits.familyLimit} members). Upgrade to add more.`
+			limit,
+			currentCount,
+			reason: `Family is full (${limit} member limit). Upgrade to add more members.`
 		};
 	}
 
-	return { allowed: true };
+	return { allowed: true, limit, currentCount };
 }
 
 export async function canCreateFamily(
@@ -237,13 +260,14 @@ function or(...conditions: ReturnType<typeof sql>[]) {
 
 export async function checkSubscriptionAction(
 	action: 'addFamily' | 'viewArchive' | 'uploadAttachment',
-	params?: { userId?: string; fileSizeBytes?: number }
+	params?: { userId?: string; fileSizeBytes?: number; familyId?: string }
 ): Promise<SubscriptionCheckResult> {
 	const userId = params?.userId ?? '';
+	const familyId = params?.familyId ?? '';
 
 	switch (action) {
 		case 'addFamily': {
-			const familyCheck = await canAddFamilyMember(userId);
+			const familyCheck = await canAddFamilyMember(familyId);
 			const membersResult = await db
 				.select()
 				.from(familyMembers)
@@ -262,7 +286,7 @@ export async function checkSubscriptionAction(
 		case 'viewArchive': {
 			const archiveCheck = await canViewArchive(userId);
 			return {
-				canAddFamily: (await canAddFamilyMember(userId)).allowed,
+				canAddFamily: (await canAddFamilyMember(familyId)).allowed,
 				canViewArchive: archiveCheck.allowed,
 				canUploadAttachment: (await canUploadAttachment(userId, params?.fileSizeBytes ?? 0))
 					.allowed,
@@ -274,7 +298,7 @@ export async function checkSubscriptionAction(
 			const fileSize = params?.fileSizeBytes ?? 0;
 			const uploadCheck = await canUploadAttachment(userId, fileSize);
 			return {
-				canAddFamily: (await canAddFamilyMember(userId)).allowed,
+				canAddFamily: (await canAddFamilyMember(familyId)).allowed,
 				canViewArchive: (await canViewArchive(userId)).allowed,
 				canUploadAttachment: uploadCheck.allowed,
 				attachmentSize: fileSize,

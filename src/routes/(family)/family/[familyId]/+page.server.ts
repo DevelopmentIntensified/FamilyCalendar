@@ -137,6 +137,12 @@ export const actions: Actions = {
 		const targetRole = await getMemberRole(familyId, userId);
 		if (!targetRole) return fail(400, { error: 'Member not found' });
 
+		// Mirrors removeMember: the creator's role is untouchable — only the
+		// creator themself could change it, and self-changes are already blocked.
+		if (targetRole === 'creator') {
+			return fail(403, { error: "Cannot change the family creator's role" });
+		}
+
 		if (role === 'creator') {
 			if (currentUserRole !== 'creator')
 				return fail(403, { error: 'Only the creator can promote to creator' });

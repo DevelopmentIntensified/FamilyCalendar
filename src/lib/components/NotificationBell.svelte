@@ -15,7 +15,7 @@
 
 	interface Notification {
 		id: string;
-		type: 'assignment_accepted' | 'assignment_declined' | 'task_completed';
+		type: 'assignment_accepted' | 'assignment_declined' | 'task_completed' | 'added_to_family';
 		actorName: string;
 		message: string;
 		link?: string | null;
@@ -31,7 +31,8 @@
 	const typeIcons: Record<Notification['type'], string> = {
 		assignment_accepted: '👍',
 		assignment_declined: '👋',
-		task_completed: '✅'
+		task_completed: '✅',
+		added_to_family: '🏠'
 	};
 
 	function relativeTime(iso: string): string {

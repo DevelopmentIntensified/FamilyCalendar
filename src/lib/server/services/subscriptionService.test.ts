@@ -1,40 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mockSelect = vi.fn();
-const mockFrom = vi.fn();
-const mockWhere = vi.fn();
-const mockLimit = vi.fn();
+/** A stubbed DB row: plain JSON-ish values only. */
+type Row = Record<string, string | number | boolean | null | Date>;
 
-// oxlint-disable-next-line anti-slop/no-module-mocking -- scripts the drizzle query-builder to pin query shapes; a real-Postgres harness is tracked in docs/issues/002.
+interface StubState {
+	/** Rows returned by successive `select().from().where()` calls. */
+	queue: Row[][];
+}
+
+const state = vi.hoisted(
+	(): StubState => ({
+		queue: []
+	})
+);
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
 	db: {
-		select: () => {
-			mockSelect();
-			return {
-				from: () => {
-					mockFrom();
-					return {
-						where: () => {
-							mockWhere();
-							return {
-								limit: (...args: unknown[]) => {
-									mockLimit(...args);
-									return Promise.resolve([]);
-								}
-							};
-						},
-						limit: (...args: unknown[]) => {
-							mockLimit(...args);
-							return Promise.resolve([]);
-						}
-					};
+		select: () => ({
+			from: () => ({
+				where: () => {
+					const rows = state.queue.shift() ?? [];
+					// Promise + chained limit so await and .limit() both resolve to rows.
+					return Object.assign(Promise.resolve(rows), {
+						limit: () => Promise.resolve(rows)
+					});
 				},
-				limit: (...args: unknown[]) => {
-					mockLimit(...args);
-					return Promise.resolve([]);
-				}
-			};
-		}
+				limit: () => Promise.resolve(state.queue.shift() ?? [])
+			})
+		})
 	}
 }));
 
@@ -49,7 +43,7 @@ import {
 
 describe('subscriptionService', () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		state.queue = [];
 	});
 
 	describe('canCreateFamily', () => {
@@ -93,21 +87,59 @@ describe('subscriptionService', () => {
 	});
 
 	describe('canAddFamilyMember', () => {
-		it('allows adding family member when under family limit', async () => {
-			const result = await canAddFamilyMember('user-1');
-			expect(result.allowed).toBe(true);
-		});
+		/** Boundary table for the family-size check against an explicit limit. */
+		interface BoundaryCase {
+			name: string;
+			memberCount: number;
+			limit: number;
+			allowed: boolean;
+		}
 
-		it('denies adding family member when at family limit', async () => {
-			const result = await canAddFamilyMember('user-1');
-			expect(result.allowed).toBe(true);
-		});
-
-		it('returns upgrade message when denied', async () => {
-			const result = await canAddFamilyMember('user-1');
-			if (!result.allowed) {
-				expect(result.reason).toContain('Upgrade');
+		const boundaryCases: BoundaryCase[] = [
+			{ name: 'under limit allows add', memberCount: 4, limit: 5, allowed: true },
+			{ name: 'at limit refuses add', memberCount: 5, limit: 5, allowed: false },
+			{ name: 'over limit refuses add', memberCount: 7, limit: 5, allowed: false },
+			{
+				name: 'empty family under free-tier limit allows add',
+				memberCount: 0,
+				limit: 1,
+				allowed: true
+			},
+			{
+				name: 'single member at free-tier limit refuses add',
+				memberCount: 1,
+				limit: 1,
+				allowed: false
 			}
+		];
+
+		for (const boundaryCase of boundaryCases) {
+			it(boundaryCase.name, async () => {
+				// select #1 = member count for the family
+				state.queue = [[{ memberCount: boundaryCase.memberCount }]];
+				const result = await canAddFamilyMember('fam-1', { limit: boundaryCase.limit });
+				expect(result.allowed).toBe(boundaryCase.allowed);
+				expect(result.currentCount).toBe(boundaryCase.memberCount);
+				if (!boundaryCase.allowed) {
+					expect(result.reason).toContain('full');
+				}
+			});
+		}
+
+		it('resolves the limit from the family creator subscription', async () => {
+			// select #1 = member count, #2 = creator lookup, #3 = subscriptions (none → free tier limit 1)
+			state.queue = [[{ memberCount: 1 }], [{ userId: 'creator-1' }], []];
+			const result = await canAddFamilyMember('fam-1');
+			expect(result.allowed).toBe(false);
+			expect(result.limit).toBe(1);
+		});
+
+		it('uses the default limit when the family has no creator row', async () => {
+			// select #1 = member count, #2 = creator lookup (none → default limit)
+			state.queue = [[{ memberCount: 0 }], []];
+			const result = await canAddFamilyMember('fam-1');
+			expect(result.allowed).toBe(true);
+			expect(result.limit).toBe(1);
 		});
 	});
 

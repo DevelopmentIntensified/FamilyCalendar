@@ -80,7 +80,7 @@ export const POST = async (event: RequestEvent) => {
 	const { success } = await sendEmail({
 		to: email,
 		from: NOREPLYEMAIL,
-		subject: 'You have been invited to join a family by ' + user.FirstName + ' ' + user.LastName,
+		subject: 'You have been invited to join a family by ' + user.firstName + ' ' + user.lastName,
 		html: `
 			Here is a link for joining: <a href="${signInUrl.toString()}"> link </a>
 It will Expire in 24hrs.

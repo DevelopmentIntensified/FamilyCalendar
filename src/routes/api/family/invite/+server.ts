@@ -10,6 +10,7 @@ import { getUserFamilies } from '$lib/server/db/actions/families';
 import { db } from '$lib/server/db';
 import { familyMembers, familyInviteCodes } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { clampCount } from '$lib/server/utils/clampCount';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
@@ -29,8 +30,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	try {
 		const inviteCode = await generateInviteCode(familyId, {
-			expiresInDays: expiresInDays ?? 7,
-			maxUses: maxUses ?? 10,
+			expiresInDays: clampCount(expiresInDays, 1, 30, 7),
+			maxUses: clampCount(maxUses, 1, 50, 10),
 			createdBy: locals.user.id
 		});
 

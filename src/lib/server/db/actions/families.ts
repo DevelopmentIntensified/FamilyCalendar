@@ -8,8 +8,9 @@ import {
 	type Family,
 	type FamilyInviteCode
 } from '$lib/server/db/schema';
-import { count, eq, and, gt, ilike, or, sql } from 'drizzle-orm';
+import { count, eq, and, gt, ilike, notInArray, or, sql } from 'drizzle-orm';
 import { generateId } from 'lucia';
+import { canAddFamilyMember } from '$lib/server/services/subscriptionService';
 
 export async function getFamiliesCount() {
 	return await db.select({ count: count() }).from(families);
@@ -105,9 +106,12 @@ export async function verifyInviteCode(
 	return { family, inviteCode };
 }
 
-export async function acceptInvite(userId: string, code: string): Promise<boolean> {
+export async function acceptInvite(
+	userId: string,
+	code: string
+): Promise<{ accepted: boolean; reason?: 'family-full' }> {
 	const verification = await verifyInviteCode(code);
-	if (!verification) return false;
+	if (!verification) return { accepted: false };
 
 	const [existing] = await db
 		.select()
@@ -116,7 +120,12 @@ export async function acceptInvite(userId: string, code: string): Promise<boolea
 			and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, verification.family.id))
 		);
 
-	if (existing) return false;
+	if (existing) return { accepted: false };
+
+	// Enforce the subscription member limit on the join path too — an invite
+	// code must not become a way to bypass the family-size cap.
+	const limitCheck = await canAddFamilyMember(verification.family.id);
+	if (!limitCheck.allowed) return { accepted: false, reason: 'family-full' };
 
 	await db.insert(familyMembers).values({
 		userId,
@@ -128,7 +137,7 @@ export async function acceptInvite(userId: string, code: string): Promise<boolea
 		.set({ useCount: (verification.inviteCode.useCount ?? 0) + 1 })
 		.where(eq(familyInviteCodes.code, code));
 
-	return true;
+	return { accepted: true };
 }
 
 /** The user's family id, or null. Single-membership assumption. */
@@ -191,8 +200,19 @@ export async function deleteInviteCode(code: string) {
 	await db.delete(familyInviteCodes).where(eq(familyInviteCodes.code, code));
 }
 
+/** Escape ILIKE wildcards so a search term only matches itself. */
+function escapeIlike(value: string): string {
+	return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+/**
+ * Exact-match directory lookup for invites: an exact case-insensitive email,
+ * or an exact first+last name pair. Deliberately NOT a substring scan — a
+ * wildcard search would let any family member enumerate every verified user
+ * one letter at a time.
+ */
 export async function searchUsers(query: string, familyId: string) {
-	const lowerQuery = `%${query.toLowerCase()}%`;
+	const exact = escapeIlike(query.trim());
 
 	const existingMembers = await db
 		.select({ userId: familyMembers.userId })
@@ -200,29 +220,6 @@ export async function searchUsers(query: string, familyId: string) {
 		.where(eq(familyMembers.familyId, familyId));
 
 	const excludeUserIds = existingMembers.map((m) => m.userId);
-
-	if (excludeUserIds.length === 0) {
-		return await db
-			.select({
-				id: users.id,
-				firstName: users.firstName,
-				lastName: users.lastName,
-				email: users.email
-			})
-			.from(users)
-			.where(
-				and(
-					eq(users.emailVerified, true),
-					or(
-						ilike(users.email, lowerQuery),
-						ilike(users.firstName, lowerQuery),
-						ilike(users.lastName, lowerQuery),
-						sql`${users.firstName} || ' ' || ${users.lastName} ILIKE ${lowerQuery}`
-					)
-				)
-			)
-			.limit(10);
-	}
 
 	return await db
 		.select({
@@ -235,15 +232,10 @@ export async function searchUsers(query: string, familyId: string) {
 		.where(
 			and(
 				eq(users.emailVerified, true),
-				sql`${users.id} NOT IN (${sql.join(
-					excludeUserIds.map((id) => sql`${id}`),
-					sql`, `
-				)})`,
+				excludeUserIds.length > 0 ? notInArray(users.id, excludeUserIds) : undefined,
 				or(
-					ilike(users.email, lowerQuery),
-					ilike(users.firstName, lowerQuery),
-					ilike(users.lastName, lowerQuery),
-					sql`${users.firstName} || ' ' || ${users.lastName} ILIKE ${lowerQuery}`
+					ilike(users.email, exact),
+					and(ilike(users.firstName, exact), ilike(users.lastName, exact))
 				)
 			)
 		)

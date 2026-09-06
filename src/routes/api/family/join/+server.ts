@@ -16,9 +16,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	try {
-		const success = await acceptInvite(locals.user.id, code);
+		const result = await acceptInvite(locals.user.id, code);
 
-		if (!success) {
+		if (!result.accepted) {
+			if (result.reason === 'family-full') {
+				return json(
+					{
+						error: 'This family is full. The subscription member limit does not allow more members.'
+					},
+					{ status: 403 }
+				);
+			}
 			return json({ error: 'Invalid, expired, or already used invite code' }, { status: 400 });
 		}
 
