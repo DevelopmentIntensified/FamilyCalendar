@@ -83,6 +83,7 @@ test('Bills CRUD: create via API, list in UI, delete', async ({ page }) => {
 	await expect(page.getByText('$120.00')).toBeVisible();
 
 	await page.getByRole('button', { name: 'Delete bill Electric' }).click();
+	await page.getByRole('button', { name: 'Confirm delete Electric' }).click();
 	await expect(page.getByText('$120.00')).toHaveCount(0);
 	await expect(page.getByText('No bills yet')).toBeVisible();
 

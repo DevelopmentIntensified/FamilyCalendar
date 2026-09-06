@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, or } from 'drizzle-orm';
+import { and, asc, eq, isNull, or, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { bills, BILL_CATEGORIES, type Bill, type BillCategory } from '$lib/server/db/schema';
 
@@ -98,7 +98,13 @@ export async function getBill(id: string): Promise<Bill | undefined> {
 export async function getBillsForUser(userId: string, familyId: string | null): Promise<Bill[]> {
 	const personal = and(isNull(bills.familyId), eq(bills.userId, userId));
 	const conditions = familyId ? or(eq(bills.familyId, familyId), personal) : personal;
-	return db.select().from(bills).where(conditions).orderBy(asc(bills.dueDate));
+	// Postgres ASC defaults to NULLS FIRST; undated bills belong last, with
+	// title as a stable tiebreaker for same-day due dates.
+	return db
+		.select()
+		.from(bills)
+		.where(conditions)
+		.orderBy(sql`${bills.dueDate} asc nulls last`, asc(bills.title));
 }
 
 /**

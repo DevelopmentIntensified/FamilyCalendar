@@ -23,8 +23,9 @@ export const load: PageServerLoad = async (event) => {
 	);
 	if (roleG.error) loadWarnings.push(roleG.error);
 	// No family yet: personal bills, editable. In a family: creator/admin
-	// write, members read.
-	const canEdit = roleG.data === null || roleG.data === 'creator' || roleG.data === 'admin';
+	// write; members — and any case where the role is unknown (failed fetch,
+	// non-member) — read. The server's canMutateBill stays the real gate.
+	const canEdit = familyId ? roleG.data === 'creator' || roleG.data === 'admin' : true;
 
 	return {
 		bills: billsG.data,

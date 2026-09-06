@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { SQL } from 'drizzle-orm';
 
 /**
  * Bills action tests. The drizzle query-builder is scripted (same pattern as
@@ -10,6 +11,7 @@ type Row = Record<string, string | number | boolean | null | Date>;
 
 interface StubState {
 	selectQueue: Row[][];
+	orderByArgs: SQL[];
 	insertValues: Row | null;
 	insertReturn: Row[];
 	updateValues: Row | null;
@@ -20,6 +22,7 @@ interface StubState {
 const state = vi.hoisted(
 	(): StubState => ({
 		selectQueue: [],
+		orderByArgs: [],
 		insertValues: null,
 		insertReturn: [],
 		updateValues: null,
@@ -34,7 +37,10 @@ vi.mock('$lib/server/db', () => ({
 		select: () => ({
 			from: () => ({
 				where: () => ({
-					orderBy: () => Promise.resolve(state.selectQueue.shift() ?? []),
+					orderBy: (...args: SQL[]) => {
+						state.orderByArgs = args;
+						return Promise.resolve(state.selectQueue.shift() ?? []);
+					},
 					limit: () => Promise.resolve(state.selectQueue.shift() ?? [])
 				})
 			})
@@ -77,6 +83,14 @@ import {
 	type DueDateParse
 } from './bills';
 import type { Bill } from '$lib/server/db/schema';
+import { PgDialect } from 'drizzle-orm/pg-core';
+
+const dialect = new PgDialect();
+
+/** Renders a captured drizzle orderBy argument to SQL text for assertions. */
+function renderedSql(fragment: SQL): string {
+	return dialect.sqlToQuery(fragment).sql;
+}
 
 function bill(over: Partial<Bill> = {}): Bill {
 	return {
@@ -95,6 +109,7 @@ function bill(over: Partial<Bill> = {}): Bill {
 
 beforeEach(() => {
 	state.selectQueue = [];
+	state.orderByArgs = [];
 	state.insertValues = null;
 	state.insertReturn = [];
 	state.updateValues = null;
@@ -197,6 +212,16 @@ describe('getBillsForUser', () => {
 		const rows = await getBillsForUser('u1', 'f1');
 
 		expect(rows).toHaveLength(2);
+	});
+
+	it('orders soonest-due first, undated last, then by title', async () => {
+		state.selectQueue.push([]);
+
+		await getBillsForUser('u1', null);
+
+		expect(state.orderByArgs).toHaveLength(2);
+		expect(renderedSql(state.orderByArgs[0])).toContain('"bills"."due_date" asc nulls last');
+		expect(renderedSql(state.orderByArgs[1])).toContain('"bills"."title" asc');
 	});
 });
 
