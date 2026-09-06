@@ -33,7 +33,9 @@ function isAttendeeValue(value: unknown): value is string {
 	return typeof value === 'string';
 }
 
-export async function resolveEventInvites(userId: string, raw: unknown[]): Promise<EventInvite[]> {
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- boundary parser: request attendee payloads arrive unvalidated; non-arrays mean "no invites".
+export async function resolveEventInvites(userId: string, raw: unknown): Promise<EventInvite[]> {
+	if (!Array.isArray(raw)) return [];
 	if (raw.length === 0) return [];
 
 	const familyId = await getUserFamilyId(userId);

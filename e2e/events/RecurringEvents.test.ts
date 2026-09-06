@@ -99,10 +99,13 @@ test('Weekly repeating events expand and duplicates keep repeating', async ({ pa
 	// Duplicate the first occurrence; the copy must repeat too.
 	await page.locator('button[title="Standup Weekly"]').first().click();
 	await page.getByRole('button', { name: 'Duplicate event' }).click();
-	await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
-	await page.waitForResponse(
-		(r) => r.url().includes('/api/events') && r.request().method() === 'POST'
-	);
+	// waitForResponse must arm BEFORE the click: local responses win the race.
+	await Promise.all([
+		page.waitForResponse(
+			(r) => r.url().includes('/api/events') && r.request().method() === 'POST'
+		),
+		page.getByRole('button', { name: 'Duplicate', exact: true }).click()
+	]);
 
 	// The copy must repeat too. Wait for the revalidated data to land
 	// (invalidateAll refetch can outlive 'networkidle').

@@ -69,7 +69,7 @@ test('mobile day tap: anywhere in a day cell (incl. event chips) opens the day a
 		await expect(page.locator('h2', { hasText: 'Mobile Menu Event' })).toBeVisible();
 
 		// Close event detail to continue with the rest of the test.
-		await page.getByRole('button', { name: 'Close' }).click();
+		await page.getByRole('button', { name: 'Close', exact: true }).click();
 		await expect(page.locator('h2', { hasText: 'Mobile Menu Event' })).toBeHidden();
 	});
 
@@ -99,7 +99,7 @@ test('mobile day tap: anywhere in a day cell (incl. event chips) opens the day a
 	});
 
 	await test.step('Tapping a bare day cell (no events) also opens the menu', async () => {
-		await page.getByRole('button', { name: 'Close' }).click();
+		await page.getByRole('button', { name: 'Close', exact: true }).click();
 		await expect(page.getByRole('heading', { name: expectedDate })).toBeHidden();
 
 		const nextDay = new Date(start);
