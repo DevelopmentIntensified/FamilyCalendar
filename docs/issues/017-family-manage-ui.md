@@ -1,17 +1,17 @@
 # 017 — Family manage page UI redesign
 
-Status: in-progress
-
-## Needs doing
-
-- C1 "Card Stack" redesign approved (dashboard card vocabulary):
-  hero card + Members card (kebab → bottom sheet on mobile) + Invitations
-  card + always-visible Settings card + Activity card; delete
-  `showSettings` toggle; ≥44px targets; 320px-safe; BottomNav clearance.
-- Blocked until the #015 mutation-feedback lane lands (same file); then
-  implement as separate commits: hero+members first, settings, then
-  invitations/activity.
+Status: done
 
 ## Done
 
-- Design picked (3 concepts generated, C1 chosen).
+- C1 "Card Stack" shipped: hero card (color avatar, role pill, add-member,
+  admin gear scroll), Members card (role pills, desktop inline
+  edit/remove, mobile kebab → focus-trapped bottom sheet), Invitations
+  card (fixed broken href), always-visible admin-gated Settings card
+  (`showSettings` state deleted), Activity card; 2-col desktop grid.
+- 320px overflow root-caused (truncate min-width inflation) → `min-w-0`
+  on grid/flex items; verified 0 overflow at 320/375.
+- All gating/toast/pending/inline-confirm work preserved; 9 new component
+  tests + 2 e2e selector updates (settings toggle removed, header renamed).
+- Gates: unit 1119 ✅, e2e 91 ✅, check/eslint/oxlint/prettier 0, build ✔,
+  live on test.familyplanz.com.

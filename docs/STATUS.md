@@ -9,6 +9,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - HIGH audit fixes (2026-09-06, commits 2f2637b..fa4ef7f): bills authz/validation,
   family PII + roles + member limit, tasks assignment gate + deleteUser FK,
   events recurrence cap + delete scope + edit data-loss, signup masking
+- MED/LOW audit lanes (commits 4652475..db40c05): toasts/inline confirms app-wide,
+  auth autocomplete + no-reload nav, modal a11y, invites creator/admin-gated,
+  bills paid/overdue UI, tasks actor attribution + undo hardening + assignee
+  notify, events until off-by-one + mirror propagation + tx + offline retry
+- #017 Family manage page C1 card-stack redesign (commit 409580d)
 
 ## Open
 
