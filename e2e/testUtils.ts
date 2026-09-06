@@ -47,6 +47,7 @@ export async function teardownTestUser(testUser: TestUser) {
 
 export const test = base.extend<{ testUser: TestUser }>({
 	testUser: [
+		// eslint-disable-next-line no-empty-pattern -- Playwright requires the fixtures object-destructuring pattern even when no fixture is needed.
 		async ({}, use) => {
 			const testUser = await setupTestUser();
 			await use(testUser);

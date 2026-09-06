@@ -101,9 +101,7 @@ test('Weekly repeating events expand and duplicates keep repeating', async ({ pa
 	await page.getByRole('button', { name: 'Duplicate event' }).click();
 	// waitForResponse must arm BEFORE the click: local responses win the race.
 	await Promise.all([
-		page.waitForResponse(
-			(r) => r.url().includes('/api/events') && r.request().method() === 'POST'
-		),
+		page.waitForResponse((r) => r.url().includes('/api/events') && r.request().method() === 'POST'),
 		page.getByRole('button', { name: 'Duplicate', exact: true }).click()
 	]);
 
