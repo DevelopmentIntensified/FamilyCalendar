@@ -17,6 +17,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #018 Family hub card redesign + detail grid rebalance (commit 5f8be5c)
 - #019 Task scoping public/private/family — visibility column + section
   queries (a4cb9be), chips/tabs/NLP UI (ebd8b45)
+- #020 Tasks page card-vocabulary restyle (commit 8d822d7)
 
 ## Open
 
