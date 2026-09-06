@@ -27,7 +27,7 @@ test.beforeEach(async () => {
 		await deleteUser(existingUser[0].id);
 		await deleteCodesByEmail(email);
 	}
-	let user = await createNewUser(firstName, lastName, email);
+	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
 	const uniqueCode = Math.random().toString(36).substring(2, 10);
 	await createCode({

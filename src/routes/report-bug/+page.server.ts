@@ -2,6 +2,11 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { createBugReport, BUG_AREAS, type BugArea } from '$lib/server/db/actions/bugReports';
 
+/** True for submitted areas that name a real bug category. */
+function isBugArea(v: string): v is BugArea {
+	return BUG_AREAS.some((area) => area === v);
+}
+
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) throw redirect(302, '/login');
 	return { areas: [...BUG_AREAS] };
@@ -9,14 +14,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 export const actions: Actions = {
 	submit: async ({ locals, request, url }) => {
-		if (!locals.user) return fail(401, { error: 'Please log in to report a bug.' });
+		if (!locals.user)
+			return fail(401, { error: 'Please log in to report a bug.', area: '', description: '' });
 
 		const form = await request.formData();
 		const area = String(form.get('area') ?? '');
 		const description = String(form.get('description') ?? '').trim();
 		const referer = request.headers.get('referer') ?? '';
 
-		if (!(BUG_AREAS as readonly string[]).includes(area)) {
+		if (!isBugArea(area)) {
 			return fail(400, { error: 'Please choose a category.', area, description });
 		}
 		if (!description) {
@@ -32,7 +38,7 @@ export const actions: Actions = {
 
 		const row = await createBugReport({
 			userId: locals.user.id,
-			area: area as BugArea,
+			area,
 			description,
 			url: referer || url.pathname
 		});

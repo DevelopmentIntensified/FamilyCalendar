@@ -1,11 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { deleteAccount, getAccount } from '../../src/lib/server/db/actions/accounts';
-import { deleteUserByEmail, getUser } from '../../src/lib/server/db/actions/users';
-import {
-	createCode,
-	deleteCodesByEmail,
-	getCodesByEmail
-} from '../../src/lib/server/db/actions/codes';
+import { getAccount } from '../../src/lib/server/db/actions/accounts';
+import { getUser } from '../../src/lib/server/db/actions/users';
+import { createCode, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import { users } from '../../src/lib/server/db/schema';
 import { SignUpPage } from '../pageObjects/signup';

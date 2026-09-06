@@ -4,6 +4,15 @@
 
 	export let isLoggedIn = false;
 
+	/**
+	 * Test seam: override the current route path instead of reading $page.
+	 * When set, the component skips the $app/stores subscription (which only
+	 * exists inside a running SvelteKit app) and fetches the badge once.
+	 */
+	export let currentPath: string | undefined = undefined;
+
+	let path = currentPath ?? '/';
+
 	const items = [
 		{
 			href: '/calendar',
@@ -36,6 +45,14 @@
 	// when the user is logged in, so guests never trigger a 401 loop.
 	let unreadCount = 0;
 
+	function isNumber(v: unknown): v is number {
+		return typeof v === 'number';
+	}
+
+	function isUnreadPayload(v: unknown): v is { unreadCount: unknown } {
+		return typeof v === 'object' && v !== null && 'unreadCount' in v;
+	}
+
 	async function refreshBadge() {
 		if (!isLoggedIn) {
 			unreadCount = 0;
@@ -47,8 +64,8 @@
 				unreadCount = 0;
 				return;
 			}
-			const data = await res.json();
-			unreadCount = typeof data.unreadCount === 'number' ? data.unreadCount : 0;
+			const data: unknown = await res.json();
+			unreadCount = isUnreadPayload(data) && isNumber(data.unreadCount) ? data.unreadCount : 0;
 		} catch {
 			// nav stays silent on transient failures
 			unreadCount = 0;
@@ -62,7 +79,17 @@
 	onMount(() => {
 		// Re-fetch on mount and on every route change so the badge stays in
 		// sync after the user marks notifications read and navigates away.
-		const unsubscribePage = page.subscribe(() => refreshBadge());
+		let unsubscribePage: () => void;
+		if (currentPath === undefined) {
+			unsubscribePage = page.subscribe((p) => {
+				path = p.url.pathname;
+				refreshBadge();
+			});
+		} else {
+			path = currentPath;
+			refreshBadge();
+			unsubscribePage = () => {};
+		}
 		document.addEventListener('visibilitychange', onVisibilityChanged);
 		return () => {
 			unsubscribePage();
@@ -71,7 +98,6 @@
 	});
 
 	// Longest prefix wins so /calendar/dashboard highlights Dashboard, not Calendar.
-	$: path = $page.url.pathname;
 	$: active = (() => {
 		const matched = items.filter((i) => path === i.href || path.startsWith(i.href + '/'));
 		if (matched.length === 0) return null;
@@ -90,7 +116,7 @@
 
 	function syncKeyboard() {
 		const vv = window.visualViewport;
-		if (!vv || typeof vv.height !== 'number' || !window.innerHeight) {
+		if (!vv || !window.innerHeight) {
 			keyboardOpen = false;
 			return;
 		}
@@ -147,7 +173,7 @@
 						stroke-linejoin="round"
 						aria-hidden="true"
 					>
-						<!-- svelte-ignore a11y-invalid-attribute -->
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -- icons are static in-file literals, never user input -->
 						{@html item.icon}
 					</svg>
 					{#if item.href === '/calendar/notifications' && unreadCount > 0}

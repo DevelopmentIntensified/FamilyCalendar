@@ -117,13 +117,13 @@ test('Quick Create Modal - NL Input Parsing', async ({ page }) => {
 
 	await test.step('Manually fill required fields if not auto-filled', async () => {
 		const titleInput = page.locator('#event-title');
-		let titleValue = await titleInput.inputValue();
+		const titleValue = await titleInput.inputValue();
 		if (!titleValue) {
 			await titleInput.fill('Lunch');
 		}
 
 		const dateInput = page.locator('#event-date');
-		let dateValue = await dateInput.inputValue();
+		const dateValue = await dateInput.inputValue();
 		if (!dateValue) {
 			const tomorrow = new Date();
 			tomorrow.setDate(tomorrow.getDate() + 1);

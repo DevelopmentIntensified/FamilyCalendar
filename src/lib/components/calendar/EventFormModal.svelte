@@ -6,6 +6,7 @@
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import LocationSearch from '$lib/components/LocationSearch.svelte';
 	import { createEventForm } from './EventFormModel.svelte';
+	import type { NlpFormInput } from './EventFormModel.svelte';
 	import ChecklistSection from './ChecklistSection.svelte';
 	import AttendantPicker from './AttendantPicker.svelte';
 	import { queueMutation } from '$lib/utils/offline';
@@ -59,8 +60,8 @@
 	let reportingPhrase = false;
 	let phraseReported = false;
 	let phraseReportable = false;
-	let lastParseResult: Record<string, unknown> | null = null;
-	let multiResults: Array<{ parsed: Record<string, unknown>; confidence: number }> | null = null;
+	let lastParseResult: NlpFormInput | null = null;
+	let multiResults: Array<{ parsed: NlpFormInput; confidence: number }> | null = null;
 	let parseTimeout: ReturnType<typeof setTimeout>;
 	let submitting = false;
 	let submitError = '';
@@ -433,12 +434,11 @@
 					// Multi-date quick-add ("sept 23 & 30"): one event per
 					// date. Offsets apply from the parsed base date so a
 					// user-edited form date shifts the whole set together.
+					const parsedDates = lastParseResult?.dates;
 					const extraDates =
-						lastParseResult?.dates?.length > 1 && lastParseResult.dates[0]
-							? lastParseResult.dates.slice(1)
-							: [];
-					if (extraDates.length > 0 && lastParseResult.dates[0] && eventData.start) {
-						const baseDay = DateTime.fromISO(lastParseResult.dates[0]).startOf('day');
+						parsedDates && parsedDates.length > 1 && parsedDates[0] ? parsedDates.slice(1) : [];
+					if (extraDates.length > 0 && parsedDates?.[0] && eventData.start) {
+						const baseDay = DateTime.fromISO(parsedDates[0]).startOf('day');
 						const shiftIso = (iso: string, offset: number) =>
 							DateTime.fromISO(iso).plus({ days: offset }).toISO();
 						for (const d of extraDates) {
@@ -664,7 +664,7 @@
 										Clear
 									</button>
 								</div>
-								{#if lastParseResult?.dates?.length > 1}
+								{#if lastParseResult?.dates && lastParseResult.dates.length > 1}
 									<div class="mt-1 text-right text-xs font-medium text-primary-600">
 										Creates {lastParseResult.dates.length} events — one per date
 									</div>

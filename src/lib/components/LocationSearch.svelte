@@ -86,8 +86,8 @@
 			} else {
 				showDropdown = false;
 			}
-		} catch (e: any) {
-			if (e.name !== 'AbortError') {
+		} catch (e) {
+			if (!(e instanceof Error) || e.name !== 'AbortError') {
 				suggestions = [];
 			}
 		} finally {

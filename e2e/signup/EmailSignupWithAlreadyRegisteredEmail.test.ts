@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { createAccount, deleteAccount, getAccount } from '../../src/lib/server/db/actions/accounts';
-import { deleteUserByEmail, getUser } from '../../src/lib/server/db/actions/users';
+import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
+import { deleteUserByEmail } from '../../src/lib/server/db/actions/users';
 import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import { createNewUser } from '../../src/lib/server/utils/createNewUser';
@@ -12,11 +12,8 @@ const firstName = 'test';
 const lastName = 'alreadyregistered';
 const email = 'delivered+alreadyregistered' + Date.now() + '@resend.dev';
 
-let uid = '';
-
 test.beforeEach(async () => {
-	const user = await createNewUser(firstName, lastName, email);
-	uid = user.id;
+	await createNewUser(firstName, lastName, email);
 });
 
 test.afterEach(async () => {

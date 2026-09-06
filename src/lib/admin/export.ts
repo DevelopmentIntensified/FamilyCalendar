@@ -7,8 +7,11 @@
  */
 import type { UnmatchedPhrase } from '$lib/server/db/schema';
 import type { BugReportWithReporter } from '$lib/server/db/actions/bugReports';
+import type { UnmatchedSource } from '$lib/server/db/actions/unmatchedPhrases';
 
-export const BUG_AREA_LABEL: Record<string, string> = {
+export type BugArea = 'calendar' | 'tasks' | 'account' | 'payments' | 'dashboard' | 'other';
+
+export const BUG_AREA_LABEL: Record<BugArea, string> = {
 	calendar: 'Calendar',
 	tasks: 'Tasks',
 	account: 'Account',
@@ -17,10 +20,25 @@ export const BUG_AREA_LABEL: Record<string, string> = {
 	other: 'Other'
 };
 
-export const UNMATCHED_SOURCE_LABEL: Record<string, string> = {
+export const UNMATCHED_SOURCE_LABEL: Record<UnmatchedSource, string> = {
 	event_parse: 'Event parse',
 	bulk_edit: 'Bulk edit'
 };
+
+function isBugArea(area: string): area is BugArea {
+	return (
+		area === 'calendar' ||
+		area === 'tasks' ||
+		area === 'account' ||
+		area === 'payments' ||
+		area === 'dashboard' ||
+		area === 'other'
+	);
+}
+
+function isUnmatchedSource(source: string): source is UnmatchedSource {
+	return source === 'event_parse' || source === 'bulk_edit';
+}
 
 function isoDate(d: Date): string {
 	const date = d instanceof Date && !Number.isNaN(d.getTime()) ? d : new Date(d);
@@ -40,7 +58,7 @@ function humanDate(d: Date): string {
 }
 
 /** Group a list of rows by a string key, preserving first-seen order. */
-function groupBy<K, T>(rows: T[], key: (row: T) => string): [string, T[]][] {
+function groupBy<T>(rows: T[], key: (row: T) => string): [string, T[]][] {
 	const map = new Map<string, T[]>();
 	for (const row of rows) {
 		const k = key(row);
@@ -52,23 +70,55 @@ function groupBy<K, T>(rows: T[], key: (row: T) => string): [string, T[]][] {
 }
 
 /**
+ * JSON value shapes the stored `matched` sample can hold.
+ */
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+/** Scalar JSON field kept in the matched-sample summary. */
+type JsonScalar = string | number | boolean;
+
+function isJsonObject(v: unknown): v is Record<string, JsonValue> {
+	return typeof v === 'object' && v !== null;
+}
+
+function isStringValue(v: JsonValue): v is string {
+	return typeof v === 'string';
+}
+
+function isNumberValue(v: JsonValue): v is number {
+	return typeof v === 'number';
+}
+
+function isJsonScalar(v: JsonValue): v is JsonScalar {
+	return isStringValue(v) || isNumberValue(v) || v === true || v === false;
+}
+
+/**
  * Reduce the stored `matched` JSON string to a small map of non-empty scalar
  * fields, for compact display / export (a single sample per phrase).
  */
-export function matchedSummary(matched: string | null): Record<string, unknown> | null {
+export function matchedSummary(matched: string | null): Record<string, JsonScalar> | null {
 	if (!matched) return null;
+	let parsed: unknown;
 	try {
-		const parsed = JSON.parse(matched) as Record<string, unknown>;
-		const fields: Record<string, unknown> = {};
-		for (const [k, v] of Object.entries(parsed)) {
-			if (v === null || v === undefined || v === '' || v === false) continue;
-			if (Array.isArray(v) && v.length === 0) continue;
-			fields[k] = typeof v === 'object' ? JSON.stringify(v) : v;
-		}
-		return Object.keys(fields).length ? fields : null;
+		parsed = JSON.parse(matched);
 	} catch {
 		return null;
 	}
+	if (!isJsonObject(parsed)) return null;
+	const fields: Record<string, JsonScalar> = {};
+	for (const [k, v] of Object.entries(parsed)) {
+		if (v === null || v === '' || v === false) continue;
+		if (Array.isArray(v)) {
+			if (v.length === 0) continue;
+			fields[k] = JSON.stringify(v);
+		} else if (isJsonScalar(v)) {
+			fields[k] = v;
+		} else {
+			fields[k] = JSON.stringify(v);
+		}
+	}
+	return Object.keys(fields).length ? fields : null;
 }
 
 export function reporterName(
@@ -96,7 +146,9 @@ export function formatUnmatchedPhrasesExport(open: UnmatchedPhrase[]): string {
 	lines.push('');
 
 	for (const [source, phrases] of groupBy(open, (p) => p.source)) {
-		lines.push(`## ${UNMATCHED_SOURCE_LABEL[source] ?? source} (${phrases.length})`);
+		lines.push(
+			`## ${isUnmatchedSource(source) ? UNMATCHED_SOURCE_LABEL[source] : source} (${phrases.length})`
+		);
 		for (const p of phrases) {
 			const matched = matchedSummary(p.matched);
 			const matchedText = matched ? ` matched: ${JSON.stringify(matched)}` : '';
@@ -125,7 +177,7 @@ export function formatBugReportsExport(open: BugReportWithReporter[]): string {
 	const render = (r: BugReportWithReporter) => {
 		const meta = [r.url ? `page: ${r.url}` : 'page: n/a', humanDate(r.createdAt)];
 		return (
-			`- [${BUG_AREA_LABEL[r.area] ?? r.area}] ${r.description.replace(/\s*\n+/g, ' ').trim()}` +
+			`- [${isBugArea(r.area) ? BUG_AREA_LABEL[r.area] : r.area}] ${r.description.replace(/\s*\n+/g, ' ').trim()}` +
 			`  (${meta.join(' · ')})`
 		);
 	};

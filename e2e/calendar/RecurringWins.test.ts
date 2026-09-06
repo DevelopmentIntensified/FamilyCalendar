@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser } from '../../src/lib/server/db/actions/users';
 import { createCode, deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
@@ -49,7 +49,7 @@ test.afterEach(async () => {
 	}
 });
 
-async function login(page: any) {
+async function login(page: Page) {
 	const cookie = await getSessionCookie(email);
 	await page.context().addCookies([
 		{
@@ -80,6 +80,7 @@ test('Recurring task completions count towards today`s wins', async ({ page }) =
 		}
 	});
 	expect(createResp.ok()).toBe(true);
+	// SAFETY: the /api/tasks POST contract returns { task: { id } }; shape asserted right after ok() check.
 	const { task } = (await createResp.json()) as { task: { id: string } };
 
 	// Check it off: the cursor rolls forward, completedAt stays null.

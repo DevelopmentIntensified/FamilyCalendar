@@ -17,11 +17,15 @@ const MAX_OCCURRENCES = 500;
 
 const WEEKDAY_LETTERS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 
+function isRecurrenceFrequency(v: string | null): v is RecurrenceFrequency {
+	return v === 'daily' || v === 'weekly' || v === 'monthly' || v === 'yearly';
+}
+
 /** Normalize BYDAY to a set of plain weekday letters (MO..SU). */
 function normalizeByDay(raw?: string[] | null): Set<string> | null {
 	if (!raw || raw.length === 0) return null;
 	const days = raw.filter(
-		(d) => typeof d === 'string' && WEEKDAY_LETTERS.includes(d.toUpperCase())
+		(d): d is string => typeof d === 'string' && WEEKDAY_LETTERS.includes(d.toUpperCase())
 	);
 	return days.length > 0 ? new Set(days.map((d) => d.toUpperCase())) : null;
 }
@@ -31,7 +35,7 @@ function normalizeByDay(raw?: string[] | null): Set<string> | null {
  * postgres.js driver hands back Date objects at runtime, and raw pg
  * strings use the space-separated form. Normalize all three shapes.
  */
-function parseTimestamp(v: unknown): DateTime {
+function parseTimestamp(v: string | Date | null | undefined): DateTime {
 	if (v instanceof Date) return DateTime.fromJSDate(v, { zone: 'utc' });
 	const s = String(v ?? '')
 		.trim()
@@ -86,7 +90,9 @@ export function expandRecurrence(
 	const anchor = parseTimestamp(event.start);
 	if (!anchor.isValid) return [];
 
-	const frequency = event.recurrenceFrequency as RecurrenceFrequency | null;
+	const frequency = isRecurrenceFrequency(event.recurrenceFrequency)
+		? event.recurrenceFrequency
+		: null;
 	if (!frequency) {
 		const s = anchor.toJSDate();
 		return s >= windowStart && s < windowEnd ? [s] : [];
@@ -104,7 +110,7 @@ export function expandRecurrence(
 			frequency,
 			interval,
 			byDay,
-			event.recurrenceCount,
+			event.recurrenceCount ?? null,
 			recurrenceUntil(event),
 			windowStart,
 			windowEnd

@@ -7,10 +7,15 @@
 
 	export let data: PageData;
 
-	const sourceLabel: Record<string, string> = {
+	const sourceLabel = {
 		event_parse: 'Event parse',
 		bulk_edit: 'Bulk edit'
 	};
+
+	/** True for phrase sources with a display label. */
+	function isLabeledSource(v: string): v is keyof typeof sourceLabel {
+		return v === 'event_parse' || v === 'bulk_edit';
+	}
 
 	let exportText = formatUnmatchedPhrasesExport(data.phrases);
 
@@ -37,7 +42,7 @@
 		{#each groupBySource(data.phrases) as [source, phrases]}
 			<section class="mb-8">
 				<h2 class="mb-3 text-lg font-semibold text-slate-700">
-					{sourceLabel[source] ?? source}
+					{isLabeledSource(source) ? sourceLabel[source] : source}
 					<span class="ml-1 text-sm font-normal text-slate-400">({phrases.length})</span>
 				</h2>
 				<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

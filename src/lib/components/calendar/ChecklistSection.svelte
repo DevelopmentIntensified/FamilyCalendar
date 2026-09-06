@@ -10,7 +10,13 @@
 	// Two-way: lets the parent warn before deleting an event with tasks.
 	export let attachedCount = 0;
 
-	let eventTasks: any[] = [];
+	interface EventChecklistTask {
+		id: string;
+		title: string;
+		completedAt: string | null;
+	}
+
+	let eventTasks: EventChecklistTask[] = [];
 	let showChecklistInput = false;
 	let checklistTitle = '';
 	let checklistBusy = false;
@@ -67,7 +73,7 @@
 		pendingTitles = pendingTitles.filter((_, i) => i !== index);
 	}
 
-	async function toggleItem(task: any) {
+	async function toggleItem(task: EventChecklistTask) {
 		if (checklistBusy) return;
 		checklistBusy = true;
 		try {

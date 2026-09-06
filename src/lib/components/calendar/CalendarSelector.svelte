@@ -1,11 +1,7 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
-
 	export let calendarIds: { id: string; name: string; color?: string; type?: string }[] = [];
 	export let value: string = '';
 	let showDropdown = false;
-
-	const dispatch = createEventDispatcher();
 
 	$: selected = calendarIds.find((c) => c.id === value);
 

@@ -7,6 +7,17 @@ const createMockLocalStorage = () => ({
 	setItem: vi.fn()
 });
 
+/** Shape the component actually reads from `fetch` responses. */
+type StubResponse = {
+	ok: true;
+	json: () => Promise<unknown>;
+};
+
+// SAFETY: test fetch stubs implement the ok/json surface components read, not the full Response API.
+function fetchStub(payload: unknown): StubResponse {
+	return { ok: true, json: () => Promise.resolve(payload) };
+}
+
 describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -206,12 +217,11 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	});
 
 	it('should POST once per parsed date and show the multi-date hint', async () => {
-		vi.mocked(fetch).mockImplementation(async (url: any) => {
-			if (String(url).includes('/api/parse-event')) {
-				return {
-					ok: true,
-					json: () =>
-						Promise.resolve({
+		// SAFETY: the stub's declared shape (url) does not cover fetch's full signature, which this test never uses.
+		vi.mocked(fetch).mockImplementation(((url: string) =>
+			Promise.resolve(
+				String(url).includes('/api/parse-event')
+					? fetchStub({
 							parsed: {
 								title: 'Launch',
 								date: '2026-09-23',
@@ -219,10 +229,8 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 							},
 							confidence: 0.9
 						})
-				};
-			}
-			return { ok: true, json: () => Promise.resolve({ event: { id: 'e1' } }) };
-		}) as any;
+					: fetchStub({ event: { id: 'e1' } })
+			)) as typeof fetch);
 
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
@@ -244,22 +252,19 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	});
 
 	it('should create all events from a multi-event parse', async () => {
-		vi.mocked(fetch).mockImplementation(async (url: any) => {
-			if (String(url).includes('/api/parse-event')) {
-				return {
-					ok: true,
-					json: () =>
-						Promise.resolve({
+		// SAFETY: the stub's declared shape (url) does not cover fetch's full signature, which this test never uses.
+		vi.mocked(fetch).mockImplementation(((url: string) =>
+			Promise.resolve(
+				String(url).includes('/api/parse-event')
+					? fetchStub({
 							results: [
 								{ parsed: { title: 'Dinner', date: '2026-09-04' }, confidence: 0.8 },
 								{ parsed: { title: 'Movie', date: '2026-09-05' }, confidence: 0.8 }
 							],
 							method: 'regex-list'
 						})
-				};
-			}
-			return { ok: true, json: () => Promise.resolve({ event: { id: 'e1' } }) };
-		}) as any;
+					: fetchStub({ event: { id: 'e1' } })
+			)) as typeof fetch);
 
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
@@ -279,22 +284,19 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 	});
 
 	it('should report every parsed result, not just the first', async () => {
-		vi.mocked(fetch).mockImplementation(async (url: any, init?: any) => {
-			if (String(url).includes('/api/parse-event')) {
-				return {
-					ok: true,
-					json: () =>
-						Promise.resolve({
+		// SAFETY: the stub's declared shape (url) does not cover fetch's full signature, which this test never uses.
+		vi.mocked(fetch).mockImplementation(((url: string) =>
+			Promise.resolve(
+				String(url).includes('/api/parse-event')
+					? fetchStub({
 							results: [
 								{ parsed: { title: 'Dinner', date: '2026-09-04' }, confidence: 0.8 },
 								{ parsed: { title: 'Movie', date: '2026-09-05' }, confidence: 0.8 }
 							],
 							method: 'regex-list'
 						})
-				};
-			}
-			return { ok: true, json: () => Promise.resolve({}) };
-		}) as any;
+					: fetchStub({})
+			)) as typeof fetch);
 
 		render(EventFormModal, {
 			props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
@@ -309,7 +311,8 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 
 		const reports = vi.mocked(fetch).mock.calls.filter(([u]) => String(u) === '/api/report-phrase');
 		expect(reports).toHaveLength(1);
-		const body = JSON.parse(String((reports[0][1] as any)?.body ?? '{}'));
+		const rawBody = reports[0]?.[1]?.body;
+		const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '{}');
 		expect(body.matched.results).toHaveLength(2);
 		expect(body.matched.results[1]).toMatchObject({ title: 'Movie' });
 	});

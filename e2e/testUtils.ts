@@ -47,7 +47,7 @@ export async function teardownTestUser(testUser: TestUser) {
 
 export const test = base.extend<{ testUser: TestUser }>({
 	testUser: [
-		async ({}, use) => {
+		async (_fixtures, use) => {
 			const testUser = await setupTestUser();
 			await use(testUser);
 			await teardownTestUser(testUser);

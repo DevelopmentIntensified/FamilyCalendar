@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { CalendarEvent, Meal } from '$lib/server/db/schema';
+import type { CalendarEvent, Meal, UserSettings } from '$lib/server/db/schema';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
 import { getMealsByDate } from '$lib/server/db/actions/meals';
@@ -57,8 +57,11 @@ type KidsScheduleEvent = {
 	kids: string[];
 };
 
+/** A parsed-event time: ISO string, Date instance, or missing. */
+type ParsedEventTime = string | Date | null | undefined;
+
 /** Coerce a parsed-event time (string | Date | null) to an ISO string. */
-function toIsoString(v: unknown): string | null {
+function toIsoString(v: ParsedEventTime): string | null {
 	if (v instanceof Date) return v.toISOString();
 	return v ? String(v) : null;
 }
@@ -91,8 +94,12 @@ export const load: PageServerLoad = async (event) => {
 	const dayStartIso = dayStart.toISO()!;
 	const isToday = dayStart.hasSame(now, 'day');
 
-	const settingsG = await guard('settings', { userSettings: null, familyId: null }, async () => ({
-		userSettings: await getUserSettings(userId),
+	const settingsG = await guard<{
+		userSettings: UserSettings | null;
+		familyId: string | null;
+	}>('settings', { userSettings: null, familyId: null }, async () => ({
+		// getUserSettings is typed non-null but resolves undefined when the row is missing.
+		userSettings: (await getUserSettings(userId)) ?? null,
 		familyId: await getUserFamilyId(userId)
 	}));
 	warn(settingsG.error);
@@ -274,6 +281,7 @@ export const load: PageServerLoad = async (event) => {
 
 	// Top-3 ranking: mine-first → priority → overdue → due-today → next,
 	// bucketed relative to the viewed day (rankTop3 returns bare rows).
+	// SAFETY: userTasks rows are TaskWithTags, which carries every RankableTask field.
 	const top3 = rankTop3(userTasks as RankableTask[], userId, { todayStartIso: dayStartIso }).map(
 		(t) => {
 			const src = userTasks.find((u) => u.id === t.id);

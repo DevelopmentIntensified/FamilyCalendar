@@ -1,16 +1,22 @@
 import { invalidateAll } from '$app/navigation';
 import { pushToast } from './toasts';
 
-const FREQ_NOUN: Record<string, string> = {
+export type RecurrenceFrequencyNoun = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+const FREQ_NOUN: Record<RecurrenceFrequencyNoun, string> = {
 	daily: 'day',
 	weekly: 'week',
 	monthly: 'month',
 	yearly: 'year'
 };
 
+function isRecurrenceFrequencyNoun(freq: string): freq is RecurrenceFrequencyNoun {
+	return freq === 'daily' || freq === 'weekly' || freq === 'monthly' || freq === 'yearly';
+}
+
 function freqNoun(freq: string | null | undefined): string {
 	if (!freq) return 'occurrence';
-	return FREQ_NOUN[freq] ?? freq;
+	return isRecurrenceFrequencyNoun(freq) ? FREQ_NOUN[freq] : freq;
 }
 
 /** Short date label for "Next:". "Sat, Sep 5" style; year added when not the current year. */
@@ -25,6 +31,12 @@ function shortDate(due: string | Date | null | undefined): string {
 	return d.toLocaleDateString(undefined, opts);
 }
 
+/** Minimal task row shape needed for recurring-complete/skip feedback toasts. */
+export interface RecurringTaskFeedbackRow {
+	id: string;
+	recurrenceFrequency?: string | null;
+	dueDate?: string | Date | null;
+}
 /**
  * A1 + C1 + D2: after a recurring task is checked off (the cursor advanced
  * to the next occurrence), show a toast that says it counted toward the
@@ -34,7 +46,7 @@ function shortDate(due: string | Date | null | undefined): string {
  * success path with the updated task row.
  */
 export function showRecurringCompleteFeedback(
-	updated: any,
+	updated: RecurringTaskFeedbackRow,
 	previousDueDate: string | Date | null
 ): void {
 	if (updated?.recurrenceFrequency) {
@@ -49,7 +61,7 @@ export function showRecurringCompleteFeedback(
 }
 
 /** C1: skipping an occurrence is explicitly framed as NOT counting. */
-export function showRecurringSkipFeedback(updated: any): void {
+export function showRecurringSkipFeedback(updated: RecurringTaskFeedbackRow): void {
 	if (updated?.recurrenceFrequency) {
 		const next = shortDate(updated.dueDate);
 		pushToast({

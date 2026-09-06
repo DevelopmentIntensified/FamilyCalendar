@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
-	import type { BugReportWithReporter } from '$lib/server/db/actions/bugReports';
 	import { formatBugReportsExport, reporterName } from '$lib/admin/export';
 	import AdminExport from '$lib/admin/AdminExport.svelte';
 

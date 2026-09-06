@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { db } from '../../src/lib/server/db';
 import { sessions, users } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -10,7 +10,7 @@ import { lucia } from '$lib/server/auth';
 
 const testEmail = `delivered+settings${Date.now()}@resend.dev`;
 
-async function loginWithSession(page: any, userEmail: string) {
+async function loginWithSession(page: Page, userEmail: string) {
 	const user = await db.select().from(users).where(eq(users.email, userEmail));
 	if (!user[0]) throw new Error('User not found');
 	const session = await lucia.createSession(user[0].id, {});

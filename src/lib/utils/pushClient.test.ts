@@ -53,15 +53,14 @@ function stubFetch({
 	const subscribeFn = subscribeThrows
 		? vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
 		: vi.fn().mockResolvedValue(new Response(null, { status: subscribeStatus }));
-	return vi.stubGlobal(
-		'fetch',
-		vi
-			.fn()
-			.mockResolvedValueOnce(
-				new Response(JSON.stringify({ publicKey: 'dGVzdA==' }), { status: 200 })
-			)
-			.mockImplementationOnce(() => subscribeFn())
-	);
+	const fetchMock = vi
+		.fn()
+		.mockResolvedValueOnce(
+			new Response(JSON.stringify({ publicKey: 'dGVzdA==' }), { status: 200 })
+		)
+		.mockImplementationOnce(() => subscribeFn());
+	vi.stubGlobal('fetch', fetchMock);
+	return fetchMock;
 }
 
 describe('pushFailureText', () => {
@@ -105,12 +104,10 @@ describe('subscribeToPush branching', () => {
 	it('reuses an existing subscription instead of calling subscribe(), then posts it', async () => {
 		stubBaseGlobals();
 		const reg = makeRegistration({ subscription: { ...dummySubscription } });
-		stubFetch();
+		const fetchMock = stubFetch();
 		const result = await subscribeToPush();
 		expect(reg.pushManager.subscribe).not.toHaveBeenCalled();
-		const subscribeCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(
-			(c) => c[0] === '/api/push/subscribe'
-		);
+		const subscribeCall = fetchMock.mock.calls.find((c) => c[0] === '/api/push/subscribe');
 		expect(subscribeCall).toBeTruthy();
 		expect(subscribeCall?.[1].method).toBe('POST');
 		expect(result).toEqual({ ok: true });

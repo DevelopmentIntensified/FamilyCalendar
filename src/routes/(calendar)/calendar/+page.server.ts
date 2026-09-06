@@ -7,7 +7,7 @@ import { calendars, events, families, type CalendarEvent } from '$lib/server/db/
 import { eq } from 'drizzle-orm';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
-import { getAdEventsForUser, checkUserAdConsent } from '$lib/server/services/adService';
+import { getAdEventsForUser, checkUserAdConsent, type AdDisplayEvent } from '$lib/server/services/adService';
 import {
 	expandEventsForUser,
 	parseEvents,
@@ -20,11 +20,22 @@ import { getTodayVerse } from '$lib/server/services/verseService';
 import { GUEST_MERGE_COOKIE } from '$lib/server/services/guestMergeService';
 import { guard } from '$lib/server/utils/guard';
 
+/** Project an ad display event onto the stored event row shape (stored-only fields are null). */
+function toCalendarEvent(ad: AdDisplayEvent): CalendarEvent {
+	return {
+		...ad,
+		recurrenceByDay: null,
+		recurrenceCount: null,
+		recurrenceUntil: null,
+		reminderMinutes: null
+	};
+}
+
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
 		return redirect(302, '/login');
 	}
-	let userId = event.locals.user.id;
+	const userId = event.locals.user.id;
 	// Section loads are guarded: a failing model degrades to its fallback and
 	// records a warning instead of 500ing the whole page.
 	const loadWarnings: string[] = [];
@@ -49,7 +60,7 @@ export const load: PageServerLoad = async (event) => {
 
 	const settingsG = await guard('settings', null, () => getUserSettings(userId));
 	warn(settingsG.error);
-	let userSettings = settingsG.data;
+	const userSettings = settingsG.data;
 
 	// Opt-in landing: with Default View set to "Dashboard", /calendar sends the
 	// user to the Day Dashboard. ?dashboardView=1 is the escape hatch the
@@ -79,7 +90,7 @@ export const load: PageServerLoad = async (event) => {
 	});
 	warn(personalG.error);
 	const userCalendar = personalG.data.userCalendar;
-	let userEvents: CalendarEvent[] = personalG.data.userEvents;
+	const userEvents: CalendarEvent[] = personalG.data.userEvents;
 
 	const familyIdG = await guard('family', null, () => getUserFamilyId(userId));
 	warn(familyIdG.error);
@@ -96,7 +107,7 @@ export const load: PageServerLoad = async (event) => {
 		calendarIds.push({ id: userCalendar.id, name: 'Personal Calendar', color: userCalendarColor });
 	}
 
-	if (familyId && typeof familyId === 'string') {
+	if (familyId) {
 		const familyG = await guard(
 			'family',
 			{ familyEventsData, familyCalendarColor, familyMembersList, calendarIds },
@@ -106,7 +117,7 @@ export const load: PageServerLoad = async (event) => {
 
 				let evts: CalendarEvent[] = [];
 				const ids = [...calendarIds];
-				let familyCals = await db.select().from(calendars).where(eq(calendars.familyId, familyId));
+				const familyCals = await db.select().from(calendars).where(eq(calendars.familyId, familyId));
 				if (familyCals.length > 0) {
 					evts = await db
 						.select()
@@ -150,37 +161,40 @@ export const load: PageServerLoad = async (event) => {
 		let adEventsData: CalendarEvent[] = [];
 		if (show) {
 			const now = zonedNow(userZone);
-			adEventsData = await getAdEventsForUser(userId, now.month, now.year);
+			adEventsData = (await getAdEventsForUser(userId, now.month, now.year)).map(toCalendarEvent);
 		}
 		return { hasAdConsent, adEventsData };
 	});
 	warn(adsG.error);
 	const showAds = adsG.data.hasAdConsent && (userSettings?.showAdsAsEvents ?? false);
-	let adEventsData: CalendarEvent[] = adsG.data.adEventsData;
+	const adEventsData: CalendarEvent[] = adsG.data.adEventsData;
 
 	// Open tasks with due dates render as distinct chips on month-view days.
 	// Overdue Recurring Tasks first stick to today (cursor v3).
 	const tasksG = await guard('tasks', [], async () => {
 		await syncRecurringCursors(userId, familyId, userZone);
 		const allTasks = await getTasksForUser(userId, familyId);
-		return allTasks
-			.filter((t) => t.dueDate && !t.completedAt)
-			.map((t) => ({
-				id: t.id,
-				title: t.title,
-				dueDate: new Date(t.dueDate as unknown as string),
-				recurrenceFrequency: t.recurrenceFrequency,
-				recurrenceInterval: t.recurrenceInterval,
-				completionCount: t.completionCount,
-				// Richer fields for the task detail popup (calendar views).
-				priority: t.priority,
-				notes: t.notes,
-				tags: t.tags,
-				assignedTo: t.assignedTo,
-				assigneeFirstName: (t as { assigneeFirstName?: string | null }).assigneeFirstName ?? null,
-				assigneeLastName: (t as { assigneeLastName?: string | null }).assigneeLastName ?? null,
-				eventTitle: (t as { eventTitle?: string | null }).eventTitle ?? null
-			}));
+		return allTasks.flatMap((t) => {
+			if (!t.dueDate || t.completedAt) return [];
+			return [
+				{
+					id: t.id,
+					title: t.title,
+					dueDate: new Date(t.dueDate),
+					recurrenceFrequency: t.recurrenceFrequency,
+					recurrenceInterval: t.recurrenceInterval,
+					completionCount: t.completionCount,
+					// Richer fields for the task detail popup (calendar views).
+					priority: t.priority,
+					notes: t.notes,
+					tags: t.tags,
+					assignedTo: t.assignedTo,
+					assigneeFirstName: t.assigneeFirstName ?? null,
+					assigneeLastName: t.assigneeLastName ?? null,
+					eventTitle: t.eventTitle ?? null
+				}
+			];
+		});
 	});
 	warn(tasksG.error);
 	const dueTasks = tasksG.data;

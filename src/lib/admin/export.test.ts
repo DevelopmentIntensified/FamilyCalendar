@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import type { UnmatchedPhrase } from '$lib/server/db/schema';
+import type { BugReportWithReporter } from '$lib/server/db/actions/bugReports';
 import {
 	formatUnmatchedPhrasesExport,
 	formatBugReportsExport,
@@ -24,9 +26,7 @@ describe('reporterName', () => {
 });
 
 describe('formatUnmatchedPhrasesExport', () => {
-	const phrase = (
-		over: Partial<{ id: string; source: string; phrase: string; count: number }> = {}
-	) => ({
+	const phrase = (over: Partial<UnmatchedPhrase> = {}) => ({
 		id: 'p1',
 		source: 'event_parse',
 		phrase: 'gro\xc2\xa0cery run',
@@ -94,7 +94,7 @@ describe('matchedSummary', () => {
 });
 
 describe('formatBugReportsExport', () => {
-	const report = (over: Partial<Record<string, unknown>> = {}) => ({
+	const report = (over: Partial<BugReportWithReporter> = {}) => ({
 		id: 'b1',
 		userId: 'u1',
 		area: 'calendar',

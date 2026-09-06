@@ -37,7 +37,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 	}
 };
 
-export const GET: RequestHandler = async ({ locals, params }) => {
+export const GET: RequestHandler = async ({ request, locals, params }) => {
 	if (!locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}

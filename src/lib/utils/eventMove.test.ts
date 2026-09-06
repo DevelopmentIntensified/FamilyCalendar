@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DateTime } from 'luxon';
+import type { Event } from '$lib/types';
 import {
 	snapMinutes,
 	minutesToDayTime,
@@ -89,14 +90,28 @@ describe('eventDurationMinutes', () => {
 });
 
 describe('buildMovePayload', () => {
-	const oneOff = {
+	/** Same property contract as buildMovePayload's MoveEvent input. */
+	type MoveEventInput = Pick<
+		Event,
+		| 'id'
+		| 'start'
+		| 'end'
+		| 'title'
+		| 'description'
+		| 'location'
+		| 'masterId'
+		| 'recurrenceFrequency'
+		| 'occurrenceDate'
+	>;
+	const oneOff: MoveEventInput = {
 		id: 'e1',
 		title: 'Lunch',
 		start: '2026-09-07T12:00:00',
 		end: '2026-09-07T13:00:00',
 		description: null,
-		location: null
-	} as any;
+		location: null,
+		recurrenceFrequency: null
+	};
 
 	it('moves one-offs preserving duration', () => {
 		const payload = buildMovePayload(oneOff, { day: DAY, minutes: 600 });
@@ -115,7 +130,7 @@ describe('buildMovePayload', () => {
 
 	it('moves recurring events as scope:this with occurrence fallback', () => {
 		const payload = buildMovePayload(
-			{ ...oneOff, recurrenceFrequency: 'weekly', masterId: 'm1', occurrenceDate: null },
+			{ ...oneOff, recurrenceFrequency: 'weekly', masterId: 'm1', occurrenceDate: undefined },
 			{ day: DAY, minutes: 600 }
 		);
 		expect(payload.scope).toBe('this');

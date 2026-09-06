@@ -65,7 +65,9 @@ function flattenSql(fragment: unknown, acc: string[] = []): string[] {
 }
 
 function eventAccessMarkers(calIds: string[]): string[] {
-	return flattenSql(eventAccessFilter('user-1', calIds).getSQL());
+	const fragment = eventAccessFilter('user-1', calIds);
+	if (!fragment) throw new Error('eventAccessFilter must return a filter fragment');
+	return flattenSql(fragment.getSQL());
 }
 
 describe('eventAccessFilter (pure SQL fragment)', () => {
@@ -87,7 +89,9 @@ describe('eventAccessFilter (pure SQL fragment)', () => {
 		const markers = eventAccessMarkers([]);
 		// the owner clause stays present; the fragment remains compilable
 		expect(markers).toContain('owner_id');
-		expect(eventAccessFilter('user-1', []).getSQL()).toBeTruthy();
+		const fragment = eventAccessFilter('user-1', []);
+		if (!fragment) throw new Error('eventAccessFilter must return a filter fragment');
+		expect(fragment.getSQL()).toBeTruthy();
 	});
 });
 

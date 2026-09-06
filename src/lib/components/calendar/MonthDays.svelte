@@ -391,7 +391,7 @@
 		events={sheetEvents}
 		onAdd={createAt}
 		onViewEvents={onSheetViewEvents}
-		onOpenDay={() => openDay(sheetDate)}
+		onOpenDay={() => sheetDate && openDay(sheetDate)}
 		onClose={() => (sheetOpen = false)}
 		onEventClick={handleEventClick}
 	/>

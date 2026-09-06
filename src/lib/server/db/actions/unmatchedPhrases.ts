@@ -1,8 +1,10 @@
 import { db } from '$lib/server/db';
 import { unmatchedPhrases, type UnmatchedPhrase } from '$lib/server/db/schema';
-import { and, count, desc, eq, sql } from 'drizzle-orm';
+import { and, count, desc, eq, sql, type SQL } from 'drizzle-orm';
 
 export type UnmatchedSource = 'event_parse' | 'bulk_edit';
+
+type UnmatchedPhraseInsert = typeof unmatchedPhrases.$inferInsert;
 
 /** Normalize a phrase for dedup: lowercase, collapse whitespace, trim. */
 export function normalizePhrase(phrase: string): string {
@@ -20,14 +22,14 @@ export function buildUnmatchedReport(
 	matched?: Record<string, unknown> | null
 ): {
 	normalized: string;
-	values: Record<string, unknown>;
-	conflictSet: Record<string, unknown>;
+	values: UnmatchedPhraseInsert;
+	conflictSet: { count: SQL; sample: string; updatedAt: Date; matched?: string };
 } | null {
 	const normalized = normalizePhrase(phrase);
 	if (!normalized) return null;
-	const values: Record<string, unknown> = { source, phrase: normalized, sample: normalized };
+	const values: UnmatchedPhraseInsert = { source, phrase: normalized, sample: normalized };
 	if (matched) values.matched = JSON.stringify(matched);
-	const conflictSet: Record<string, unknown> = {
+	const conflictSet: { count: SQL; sample: string; updatedAt: Date; matched?: string } = {
 		count: sql`${unmatchedPhrases.count} + 1`,
 		sample: normalized,
 		updatedAt: new Date()

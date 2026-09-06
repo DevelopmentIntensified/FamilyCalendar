@@ -19,6 +19,22 @@ import { createNotification } from '$lib/server/db/actions/notifications';
 import { eq } from 'drizzle-orm';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 
+/** True for strings (decoded request fields that must be text). */
+function isString(v: unknown): v is string {
+	return typeof v === 'string';
+}
+
+/** True for non-empty strings (decoded request fields that must carry a value). */
+function isNonEmptyString(v: unknown): v is string {
+	return typeof v === 'string' && v.length > 0;
+}
+
+/** Assignment-only patch for task reassignment responses. */
+type AssignmentPatch = {
+	assignedTo?: string | null;
+	assignmentStatus?: string | null;
+};
+
 export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	if (!locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
@@ -48,7 +64,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 			updated = await undoRecurringCompletion(
 				taskId,
 				user.id,
-				typeof body.previousDueDate === 'string' ? body.previousDueDate : null
+				isString(body.previousDueDate) ? body.previousDueDate : null
 			);
 			if (!updated) return json({ error: 'Nothing to undo' }, { status: 404 });
 		} else if (body.advanceToNext) {
@@ -79,10 +95,10 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 
 			// Assignment transitions. Only the assignee may accept; declining
 			// releases the task back to the pool.
-			let assignmentPatch: { assignedTo?: string | null; assignmentStatus?: string | null } = {};
+			let assignmentPatch: AssignmentPatch = {};
 			if (body.assignedTo === null) {
 				assignmentPatch = { assignedTo: null, assignmentStatus: 'none' };
-			} else if (typeof body.assignedTo === 'string' && body.assignedTo) {
+			} else if (isNonEmptyString(body.assignedTo)) {
 				assignmentPatch = {
 					assignedTo: body.assignedTo,
 					assignmentStatus: body.assignedTo === locals.user.id ? 'accepted' : 'pending'
@@ -94,7 +110,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 			}
 
 			updated = await updateTask(taskId, user.id, {
-				title: typeof body.title === 'string' && body.title.trim() ? body.title.trim() : undefined,
+				title: isNonEmptyString(body.title) && body.title.trim() ? body.title.trim() : undefined,
 				notes: body.notes === undefined ? undefined : body.notes,
 				dueDate: body.dueDate === undefined ? undefined : body.dueDate || null,
 				priority,
@@ -106,7 +122,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 							? Math.max(1, Math.floor(body.recurrenceInterval ?? 1))
 							: undefined,
 				completedAt:
-					typeof body.completedAt === 'string' && !isNaN(Date.parse(body.completedAt))
+					isString(body.completedAt) && !isNaN(Date.parse(body.completedAt))
 						? body.completedAt
 						: undefined,
 				...assignmentPatch,
@@ -155,7 +171,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ locals, url }) => {
+export const DELETE: RequestHandler = async ({ request, locals, url }) => {
 	if (!locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}

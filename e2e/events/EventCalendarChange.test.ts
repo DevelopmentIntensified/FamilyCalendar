@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 import { db } from '../../src/lib/server/db';
 import { calendars, events, familyMembers, families } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { setupTestUser, teardownTestUser, getSessionCookie } from '../testUtils';
+import { setupTestUser, teardownTestUser, getSessionCookie, type TestUser } from '../testUtils';
 import { createEvent, getEvent } from '../../src/lib/server/db/actions/events';
 
 /**
@@ -30,7 +30,12 @@ test.describe('Event calendar change on update', () => {
 		return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 	}
 
-	async function put(request: any, url: string, email: string, data: any) {
+	async function put(
+		request: APIRequestContext,
+		url: string,
+		email: string,
+		data: Record<string, string | null>
+	) {
 		const cookie = await getSessionCookie(email);
 		const res = await request.put(url, {
 			headers: { 'Content-Type': 'application/json', Cookie: `${cookie.name}=${cookie.value}` },
@@ -39,8 +44,8 @@ test.describe('Event calendar change on update', () => {
 		return { status: res.status(), json: await res.json().catch(() => ({})) };
 	}
 
-	let userA: any;
-	let userB: any;
+	let userA: TestUser | undefined;
+	let userB: TestUser | undefined;
 	let familyId = '';
 	const createdIds: string[] = [];
 

@@ -26,6 +26,11 @@ export const load: PageServerLoad = async (event) => {
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
+/** True for non-empty strings (form fields that must carry a value). */
+function isNonEmptyString(v: unknown): v is string {
+	return typeof v === 'string' && v.length > 0;
+}
+
 export const actions: Actions = {
 	default: async ({ request, locals }) => {
 		if (!locals.user) return fail(401, { error: 'Not signed in' });
@@ -33,9 +38,9 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		const file = formData.get('file');
-		const calendarId = formData.get('calendarId') as string;
+		const calendarId = formData.get('calendarId');
 
-		if (!calendarId) return fail(400, { error: 'Choose a calendar to import into.' });
+		if (!isNonEmptyString(calendarId)) return fail(400, { error: 'Choose a calendar to import into.' });
 		if (!(file instanceof File) || file.size === 0) {
 			return fail(400, { error: 'Choose an .ics file to import.' });
 		}
@@ -104,7 +109,8 @@ export const actions: Actions = {
 						recurrenceInterval: draft.recurrenceInterval,
 						recurrenceByDay: draft.recurrenceByDay,
 						recurrenceCount: draft.recurrenceCount,
-						recurrenceUntil: draft.recurrenceUntil
+						recurrenceUntil: draft.recurrenceUntil,
+						reminderMinutes: null
 					},
 					userId
 				);

@@ -1,15 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { db } from '../../src/lib/server/db';
 import { sessions, users, calendars, userSettings } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { createNewUser } from '../../src/lib/server/utils/createNewUser';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
-import {
-	createCode,
-	deleteCodesByEmail,
-	getCodesByEmail
-} from '../../src/lib/server/db/actions/codes';
+import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { lucia } from '$lib/server/auth';
 
@@ -19,7 +15,7 @@ const email = `delivered+accountsettings${Date.now()}@resend.dev`;
 
 let uid = '';
 
-async function loginWithSession(page: any, userEmail: string) {
+async function loginWithSession(page: Page, userEmail: string) {
 	const user = await db.select().from(users).where(eq(users.email, userEmail));
 	if (!user[0]) throw new Error('User not found');
 	const session = await lucia.createSession(user[0].id, {});
@@ -47,7 +43,7 @@ test.beforeEach(async () => {
 		await deleteUser(existingUser[0].id);
 		await deleteCodesByEmail(email);
 	}
-	let user = await createNewUser(firstName, lastName, email);
+	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
 });
 
@@ -96,7 +92,7 @@ test('View account settings page', async ({ page }) => {
 	});
 });
 
-test('Logout from all devices removes other sessions', async ({ page, context }) => {
+test('Logout from all devices removes other sessions', async ({ page }) => {
 	await test.step('Login with session', async () => {
 		await loginWithSession(page, email);
 	});

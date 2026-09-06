@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser } from '../../src/lib/server/db/actions/users';
 import { createCode, deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
@@ -47,7 +47,7 @@ test.afterEach(async () => {
 	}
 });
 
-async function login(page: any) {
+async function login(page: Page) {
 	const cookie = await getSessionCookie(email);
 	await page.context().addCookies([
 		{

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/svelte';
 import ReportBugPage from './+page.svelte';
+import type { ActionData } from './$types';
+import type { BugArea } from '$lib/server/db/actions/bugReports';
 
 vi.mock('$app/forms', () => ({
 	enhance: vi.fn(() => vi.fn())
@@ -11,11 +13,11 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-const areas = ['calendar', 'tasks', 'account', 'dashboard', 'other'];
+const areas: BugArea[] = ['calendar', 'tasks', 'account', 'dashboard', 'other'];
 
-function renderForm(form: unknown) {
+function renderForm(form: ActionData | undefined) {
 	return render(ReportBugPage, {
-		props: { data: { areas }, form: form as never }
+		props: { data: { areas }, form: form ?? null }
 	});
 }
 

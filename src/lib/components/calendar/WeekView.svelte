@@ -15,7 +15,8 @@
 		formatRangeLabel
 	} from '$lib/utils/eventMove';
 	import { invalidateAll } from '$app/navigation';
-	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
+	import TaskDetailModal from './TaskDetailModal.svelte';
+	import type { CalendarTask } from './TaskDetailModal.svelte';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[];
@@ -24,11 +25,14 @@
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let openDay: (date: DateTime) => void = () => {};
 	export let dueTasks: CalendarTask[] = [];
-	export let createAt: (date: DateTime) => void = () => {};
+	export let createAt: (start: DateTime, end?: DateTime) => void = () => {};
+	export let refreshAll: () => Promise<unknown> = invalidateAll;
 	export let selectionMode: boolean = false;
 	export let selectedIds: string[] = [];
 	export let onToggleSelectionMode: (on: boolean) => void = () => {};
 	export let onToggleSelect: (event: Event) => void = () => {};
+	// Legacy prop: parents still pass removeEvent; EventModal owns deletion now.
+	void removeEvent;
 
 	const PX_PER_HOUR = 60;
 
@@ -37,6 +41,18 @@
 	// Drag source id kept in component state: dataTransfer is unreliable
 	// across browsers (and jsdom), so internal moves don't depend on it.
 	let draggingId: string | null = null;
+
+	function isConfirmHandler(value: unknown): value is (message?: string) => boolean {
+		return typeof value === 'function';
+	}
+
+	function isStringValue(value: unknown): value is string {
+		return typeof value === 'string';
+	}
+
+	function isDropPayload(value: unknown): value is { id?: string | null } {
+		return typeof value === 'object' && value !== null && 'id' in value;
+	}
 
 	function getTasksForDay(day: DateTime) {
 		const dateStr = formatDate(day);
@@ -121,7 +137,7 @@
 		// Selection mode owns taps; dragging asks to leave it first.
 		if (selectionMode) {
 			e.preventDefault();
-			if (typeof confirm === 'function' && confirm('Exit selection mode to move this event?')) {
+			if (isConfirmHandler(confirm) && confirm('Exit selection mode to move this event?')) {
 				onToggleSelectionMode(false);
 			}
 			return;
@@ -141,7 +157,7 @@
 		if (!event.start) return;
 		moveError = '';
 		const payload = buildMovePayload(event, { day, minutes });
-		const targetId = (event as Event & { masterId?: string }).masterId || event.id;
+		const targetId = event.masterId || event.id;
 		try {
 			const res = await fetch(`/api/events/${targetId}`, {
 				method: 'PUT',
@@ -153,7 +169,7 @@
 				moveError = j.error || 'Could not move the event. Try again.';
 				return;
 			}
-			await invalidateAll();
+			await refreshAll();
 		} catch {
 			moveError = 'Could not move the event. Try again.';
 		}
@@ -166,8 +182,8 @@
 		let id: string | null = draggingId;
 		if (!id && raw) {
 			try {
-				const parsed = JSON.parse(raw);
-				id = typeof parsed === 'string' ? parsed : (parsed.id ?? null);
+				const parsed: unknown = JSON.parse(raw);
+				id = isStringValue(parsed) ? parsed : isDropPayload(parsed) ? (parsed.id ?? null) : null;
 			} catch {
 				id = raw;
 			}
@@ -176,6 +192,7 @@
 		if (!id) return;
 		const target = events.find((ev) => ev.id === id);
 		if (!target) return;
+		// SAFETY: drop handler is bound to the week-day column element
 		const grid = e.currentTarget as HTMLElement | null;
 		const top = grid?.getBoundingClientRect()?.top ?? 0;
 		const minutes = yToMinutes(e.clientY, top, PX_PER_HOUR);
@@ -192,7 +209,9 @@
 			return;
 		}
 		// Chip taps open the event; empty-grid taps start a new one.
+		// SAFETY: column clicks originate from elements inside the week-day column
 		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
+		// SAFETY: click handler is bound to the week-day column element
 		const grid = e.currentTarget as HTMLElement | null;
 		const top = grid?.getBoundingClientRect()?.top ?? 0;
 		const minutes = yToMinutes(e.clientY, top, PX_PER_HOUR);
@@ -226,7 +245,9 @@
 
 	function handleRangeMouseDown(e: MouseEvent, day: DateTime) {
 		if (selectionMode || e.button !== 0) return;
+		// SAFETY: column mousedowns originate from elements inside the week-day column
 		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
+		// SAFETY: mousedown handler is bound to the week-day column element
 		const grid = e.currentTarget as HTMLElement | null;
 		const minutes = minutesFromMouse(e, grid);
 		if (!Number.isFinite(minutes)) return;
@@ -236,6 +257,7 @@
 
 	function handleRangeMouseMove(e: MouseEvent) {
 		if (!selecting) return;
+		// SAFETY: mousemove handler is bound to the week-day column element
 		const grid = e.currentTarget as HTMLElement | null;
 		const minutes = minutesFromMouse(e, grid);
 		if (!Number.isFinite(minutes)) return;
@@ -264,6 +286,7 @@
 
 	function handleRangeTouchStart(e: TouchEvent, day: DateTime, grid: HTMLElement | null) {
 		if (selectionMode) return;
+		// SAFETY: touch handler is bound to the week-day column element
 		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
 		const touch = e.touches[0];
 		if (!touch) return;
@@ -303,8 +326,8 @@
 	// Svelte's delegated touch handlers are unreliable across browsers.
 	function rangeTouch(node: HTMLElement, day: DateTime) {
 		let currentDay = day;
-		const onStart = (e: Event) => handleRangeTouchStart(e as TouchEvent, currentDay, node);
-		const onMove = (e: Event) => handleRangeTouchMove(e as TouchEvent);
+		const onStart = (e: TouchEvent) => handleRangeTouchStart(e, currentDay, node);
+		const onMove = (e: TouchEvent) => handleRangeTouchMove(e);
 		const onEnd = () => handleRangeTouchEnd();
 		node.addEventListener('touchstart', onStart);
 		node.addEventListener('touchmove', onMove);
@@ -341,12 +364,13 @@
 		selectedEvent = null;
 	}
 
-	function handleDelete(event: CustomEvent) {
+	function handleDelete() {
 		// EventModal performs the API call; refresh server data here.
-		invalidateAll().then(closeModal);
+		refreshAll().then(closeModal);
 	}
 </script>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="overflow-x-auto" onmouseup={handleRangeMouseUp}>
 	<!-- Phones (<640px) keep a 700px scroll floor; tablets (>=640px) flex to
 		the container so no side scrolling is needed. -->
@@ -478,7 +502,7 @@
 											: `${hour - 12} PM`}
 							</span>
 						</div>
-						{#each weekDays as wd}
+						{#each weekDays as wd (wd.toMillis())}
 							<div class="flex-1 border-r border-slate-100 last:border-r-0"></div>
 						{/each}
 					</div>
@@ -492,6 +516,7 @@
 						{@const laidOut = layoutTimed(
 							[...dayEvents].sort((a, b) => toDate(a.start).getTime() - toDate(b.start).getTime())
 						)}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 						<div
 							class="pointer-events-auto relative transition-colors hover:bg-slate-50/60 active:bg-slate-100/60"
 							data-testid="week-day-column"
@@ -642,7 +667,7 @@
 		show={true}
 		calendars={calendarIds}
 		onClose={closeModal}
-		on:update={() => invalidateAll()}
+		on:update={() => refreshAll()}
 		on:delete={handleDelete}
 	/>
 {/if}

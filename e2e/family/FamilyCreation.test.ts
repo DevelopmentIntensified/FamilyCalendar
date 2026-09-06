@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test';
-import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
+import { test, expect, type Page } from '@playwright/test';
 import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import {
@@ -26,7 +25,7 @@ const familyName = 'The Smiths';
 
 let uid = '';
 
-async function loginWithSession(page: any, userId: string) {
+async function loginWithSession(page: Page, userId: string) {
 	const session = await lucia.createSession(userId, {});
 	const cookie = lucia.createSessionCookie(session.id);
 	await page.context().addCookies([

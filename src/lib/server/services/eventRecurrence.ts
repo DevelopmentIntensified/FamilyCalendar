@@ -29,14 +29,27 @@ const VALID_FREQUENCIES: EventRecurrenceFrequency[] = ['daily', 'weekly', 'month
 
 const VALID_BYDAY = new Set(['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']);
 
+function isEventRecurrenceFrequency(v: string): v is EventRecurrenceFrequency {
+	// SAFETY: VALID_FREQUENCIES holds exactly the four literals; viewing it as
+	// strings makes the membership test exact with no precision lost.
+	return (VALID_FREQUENCIES as readonly string[]).includes(v);
+}
+
+function isNonEmptyString(v: unknown): v is string {
+	return typeof v === 'string' && v.length > 0;
+}
+
+function isCountNumber(v: unknown): v is number {
+	return typeof v === 'number';
+}
+
 /**
  * Normalize a full recurrence write. An absent/unknown frequency clears every
  * field — byDay/count/until are meaningless on a one-off Event.
  */
 export function normalizeEventRecurrence(input: EventRecurrenceInput): EventRecurrenceWrite {
-	const frequency = VALID_FREQUENCIES.includes((input.recurrenceFrequency ?? '') as string)
-		? (input.recurrenceFrequency as EventRecurrenceFrequency)
-		: null;
+	const rawFrequency = input.recurrenceFrequency ?? '';
+	const frequency = isEventRecurrenceFrequency(rawFrequency) ? rawFrequency : null;
 	if (!frequency) {
 		return {
 			recurrenceFrequency: null,
@@ -48,13 +61,10 @@ export function normalizeEventRecurrence(input: EventRecurrenceInput): EventRecu
 	}
 	return {
 		recurrenceFrequency: frequency,
-		recurrenceInterval: Math.max(1, Math.floor((input.recurrenceInterval as number) ?? 1)),
+		recurrenceInterval: Math.max(1, Math.floor(input.recurrenceInterval ?? 1)),
 		recurrenceByDay: sanitizeRecurrenceByDay(input.recurrenceByDay),
 		recurrenceCount: sanitizeRecurrenceCount(input.recurrenceCount),
-		recurrenceUntil:
-			typeof input.recurrenceUntil === 'string' && input.recurrenceUntil
-				? input.recurrenceUntil
-				: null
+		recurrenceUntil: isNonEmptyString(input.recurrenceUntil) ? input.recurrenceUntil : null
 	};
 }
 
@@ -74,5 +84,5 @@ export function sanitizeRecurrenceByDay(raw: unknown): string[] | null {
 
 /** Positive integer counts only; anything else is unbounded (null). */
 export function sanitizeRecurrenceCount(raw: unknown): number | null {
-	return typeof raw === 'number' && raw > 0 ? Math.floor(raw) : null;
+	return isCountNumber(raw) && raw > 0 ? Math.floor(raw) : null;
 }

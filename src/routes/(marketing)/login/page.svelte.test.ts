@@ -22,12 +22,14 @@ describe('/login page URL error display', () => {
 	it('shows error message from ?error= query parameter', async () => {
 		const mockPageUrl = new URL('http://test.com/login?error=Token+expired');
 		const mockPageStore = await import('$app/stores');
-		vi.mocked(mockPageStore.page).subscribe = vi.fn((cb: any) => {
+		vi.mocked(mockPageStore.page).subscribe = vi.fn((cb: (value: { url: URL }) => void) => {
 			cb({ url: mockPageUrl });
 			return () => {};
 		});
 
-		render(LoginPage, { props: { data: { isLoggedIn: false, user: null, pathname: '/login' } } });
+		render(LoginPage, {
+			props: { data: { isLoggedIn: false, user: null, pathname: '/login', mergeMode: false } }
+		});
 
 		expect(screen.getByText('Token expired')).toBeInTheDocument();
 	});
@@ -35,12 +37,14 @@ describe('/login page URL error display', () => {
 	it('does not show error when no ?error= parameter', async () => {
 		const mockPageUrl = new URL('http://test.com/login');
 		const mockPageStore = await import('$app/stores');
-		vi.mocked(mockPageStore.page).subscribe = vi.fn((cb: any) => {
+		vi.mocked(mockPageStore.page).subscribe = vi.fn((cb: (value: { url: URL }) => void) => {
 			cb({ url: mockPageUrl });
 			return () => {};
 		});
 
-		render(LoginPage, { props: { data: { isLoggedIn: false, user: null, pathname: '/login' } } });
+		render(LoginPage, {
+			props: { data: { isLoggedIn: false, user: null, pathname: '/login', mergeMode: false } }
+		});
 
 		expect(screen.queryByText(/Token expired|Invalid|Error/)).not.toBeInTheDocument();
 	});

@@ -5,7 +5,12 @@
 	export let data: PageData;
 	export let form: ActionData;
 
-	const areaLabels: Record<string, string> = {
+	/** True for string values (echoed action inputs that must be text). */
+	function isString(v: unknown): v is string {
+		return typeof v === 'string';
+	}
+
+	const areaLabels = {
 		calendar: 'Calendar / events',
 		tasks: 'Tasks',
 		account: 'Account / settings',
@@ -20,9 +25,9 @@
 
 	// `form` is a union across action branches; only failure branches carry the
 	// echoed inputs, so guard before reading them.
-	$: echoedArea = form && 'area' in form && typeof form.area === 'string' ? form.area : 'calendar';
+	$: echoedArea = form && 'area' in form && isString(form.area) ? form.area : 'calendar';
 	$: echoedDescription =
-		form && 'description' in form && typeof form.description === 'string' ? form.description : '';
+		form && 'description' in form && isString(form.description) ? form.description : '';
 </script>
 
 <svelte:head>

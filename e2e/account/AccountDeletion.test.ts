@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
+import { test, expect, type Page } from '@playwright/test';
+import { getUser } from '../../src/lib/server/db/actions/users';
 import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
 import {
@@ -9,9 +9,7 @@ import {
 	userSettings,
 	events,
 	accounts,
-	families,
 	familyMembers,
-	groups,
 	userGroups,
 	subscriptions,
 	codes
@@ -26,7 +24,7 @@ const email = `delivered+delete${Date.now()}@resend.dev`;
 
 let uid = '';
 
-async function loginWithSession(page: any, email: string) {
+async function loginWithSession(page: Page, email: string) {
 	const user = await db.select().from(users).where(eq(users.email, email));
 	if (!user[0]) throw new Error('User not found');
 	const session = await lucia.createSession(user[0].id, {});

@@ -9,7 +9,6 @@ import { deleteCodesByEmail } from '$lib/server/db/actions/codes';
 import { lucia } from '$lib/server/auth';
 
 const testEmail = 'delivered+navtest' + Date.now() + '@resend.dev';
-let testUserId = '';
 
 async function getSessionCookie(email: string) {
 	const user = await db.select().from(users).where(eq(users.email, email));
@@ -34,8 +33,7 @@ test.describe('Profile Dropdown', () => {
 			await deleteAccount(testEmail);
 			await deleteUser(existing[0].id);
 		}
-		const user = await createNewUser('Nav', 'Test', testEmail);
-		testUserId = user.id;
+		await createNewUser('Nav', 'Test', testEmail);
 	});
 
 	test.afterAll(async () => {

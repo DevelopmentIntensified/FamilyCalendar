@@ -24,63 +24,97 @@ interface FakeRow extends MutationRecord {
 	id: number;
 }
 
+/** Minimal IDBRequest surface offline.ts touches (result + success callback). */
+interface FakeIdbRequest {
+	result?: number | FakeRow[] | FakeIdb | undefined;
+	onsuccess?: () => void;
+}
+
+/** Minimal IDB surface offline.ts touches. */
+interface FakeIdb {
+	close: () => void;
+	objectStoreNames: { contains: (name: string) => boolean };
+	transaction: () => FakeIdbTransaction;
+}
+
+/** Minimal IDBTransaction surface offline.ts touches. */
+interface FakeIdbTransaction {
+	oncomplete?: () => void;
+	objectStore: () => FakeIdbStore;
+}
+
+/** Minimal IDBObjectStore surface offline.ts touches. */
+interface FakeIdbStore {
+	add: (rec: Omit<FakeRow, 'id'>) => FakeIdbRequest;
+	count: () => FakeIdbRequest;
+	getAll: () => FakeIdbRequest;
+	delete: (id: number) => FakeIdbRequest;
+}
+
+function isStatusFn(
+	statuses: number[] | ((url: string) => number)
+): statuses is (url: string) => number {
+	return typeof statuses === 'function';
+}
+
 function installFakeIndexedDb(seed: FakeRow[] = []) {
 	const rows: FakeRow[] = seed.map((r) => ({ ...r }));
 	let nextId = rows.reduce((m, r) => Math.max(m, r.id), 0) + 1;
 
+	function complete(request: FakeIdbRequest, tx: FakeIdbTransaction): void {
+		request.onsuccess?.();
+		tx.oncomplete?.();
+	}
+
 	const fakeIndexedDB = {
 		open: () => {
-			const req: Record<string, unknown> = {};
+			const req: FakeIdbRequest = {};
 			queueMicrotask(() => {
-				const db = {
+				const db: FakeIdb = {
 					close: () => {},
 					objectStoreNames: { contains: () => true },
 					transaction: () => {
-						const tx: Record<string, unknown> = {};
-						const store = {
+						const store: FakeIdbStore = {
 							add: (rec: Omit<FakeRow, 'id'>) => {
+								// SAFETY: spreading the id-less record plus a fresh numeric id rebuilds the exact FakeRow shape.
 								const row = { ...rec, id: nextId++ } as FakeRow;
 								rows.push(row);
-								const r: Record<string, unknown> = { result: row.id };
+								const r: FakeIdbRequest = { result: row.id };
 								queueMicrotask(() => {
-									(r.onsuccess as (() => void) | undefined)?.();
-									(tx.oncomplete as (() => void) | undefined)?.();
+									complete(r, tx);
 								});
 								return r;
 							},
 							count: () => {
-								const r: Record<string, unknown> = { result: rows.length };
+								const r: FakeIdbRequest = { result: rows.length };
 								queueMicrotask(() => {
-									(r.onsuccess as (() => void) | undefined)?.();
-									(tx.oncomplete as (() => void) | undefined)?.();
+									complete(r, tx);
 								});
 								return r;
 							},
 							getAll: () => {
-								const r: Record<string, unknown> = { result: [...rows] };
+								const r: FakeIdbRequest = { result: [...rows] };
 								queueMicrotask(() => {
-									(r.onsuccess as (() => void) | undefined)?.();
-									(tx.oncomplete as (() => void) | undefined)?.();
+									complete(r, tx);
 								});
 								return r;
 							},
 							delete: (id: number) => {
 								const idx = rows.findIndex((x) => x.id === id);
 								if (idx >= 0) rows.splice(idx, 1);
-								const r: Record<string, unknown> = { result: undefined };
+								const r: FakeIdbRequest = {};
 								queueMicrotask(() => {
-									(r.onsuccess as (() => void) | undefined)?.();
-									(tx.oncomplete as (() => void) | undefined)?.();
+									complete(r, tx);
 								});
 								return r;
 							}
 						};
-						(tx as Record<string, unknown>).objectStore = () => store;
+						const tx: FakeIdbTransaction = { objectStore: () => store };
 						return tx;
 					}
 				};
 				req.result = db;
-				(req.onsuccess as (() => void) | undefined)?.();
+				req.onsuccess?.();
 			});
 			return req;
 		}
@@ -103,7 +137,7 @@ function stubFetchWithStatuses(statuses: number[] | ((url: string) => number)) {
 	const calls: { url: string; init: RequestInit }[] = [];
 	const fn = vi.fn(async (url: string, init: RequestInit) => {
 		calls.push({ url, init });
-		const status = typeof statuses === 'function' ? statuses(url) : (statuses.shift() ?? 200);
+		const status = isStatusFn(statuses) ? statuses(url) : (statuses.shift() ?? 200);
 		return new Response(null, { status });
 	});
 	vi.stubGlobal('fetch', fn);

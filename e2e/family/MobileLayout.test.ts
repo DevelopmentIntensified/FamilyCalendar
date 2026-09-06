@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser } from '../../src/lib/server/db/actions/users';
 import { createCode, deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
@@ -79,17 +79,22 @@ test.afterAll(async () => {
 });
 
 /** Elements sticking past the right viewport edge (empty = no overflow). */
-async function overflowReport(page: any) {
+async function overflowReport(page: Page) {
+	// SAFETY: in-page DOM elements are always Element; HTMLElement cast is checked by getBoundingClientRect usage below.
 	return page.evaluate(() => {
 		const vw = window.innerWidth;
 		const bad: { tag: string; cls: string; title: string; right: number }[] = [];
 		for (const el of Array.from(document.querySelectorAll('body *'))) {
+			// SAFETY: querySelectorAll('body *') only yields Elements, which always expose getBoundingClientRect.
 			const r = (el as HTMLElement).getBoundingClientRect();
 			if (r.right > vw + 0.5) {
 				bad.push({
 					tag: el.tagName.toLowerCase(),
+					// SAFETY: className on an Element is string | SVGAnimatedString; String() normalizes before slice.
 					cls: ((el as HTMLElement).className || '').toString().slice(0, 90),
+					// SAFETY: title/textContent fall back to '' so the report field is always a string.
 					title:
+						// SAFETY: same Element as above; title and textContent are string-ish or nullish, coerced with || ''.
 						(el as HTMLElement).title || (el as HTMLElement).textContent?.trim().slice(0, 40) || '',
 					right: Math.round(r.right * 10) / 10
 				});

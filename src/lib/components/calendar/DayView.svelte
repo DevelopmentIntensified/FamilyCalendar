@@ -15,13 +15,15 @@
 		normalizeRange,
 		formatRangeLabel
 	} from '$lib/utils/eventMove';
-	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
+	import TaskDetailModal from './TaskDetailModal.svelte';
+	import type { CalendarTask } from './TaskDetailModal.svelte';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[] = [];
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let dueTasks: CalendarTask[] = [];
-	export let createAt: (date: DateTime) => void = () => {};
+	export let createAt: (start: DateTime, end?: DateTime) => void = () => {};
+	export let refreshAll: () => Promise<unknown> = invalidateAll;
 	export let selectionMode: boolean = false;
 	export let selectedIds: string[] = [];
 	export let onToggleSelectionMode: (on: boolean) => void = () => {};
@@ -55,12 +57,35 @@
 	$: dayTasks = dueTasks.filter(
 		(t) => t.dueDate && formatDate(toDate(t.dueDate)) === formatDate(selectedDate)
 	);
-	const FREQ_NOUN: Record<string, string> = {
+	const FREQ_NOUN = {
 		daily: 'day',
 		weekly: 'week',
 		monthly: 'month',
 		yearly: 'year'
-	};
+	} satisfies Record<string, string>;
+
+	function freqNoun(frequency: string | null | undefined): string | undefined {
+		if (
+			frequency === 'daily' ||
+			frequency === 'weekly' ||
+			frequency === 'monthly' ||
+			frequency === 'yearly'
+		)
+			return FREQ_NOUN[frequency];
+		return undefined;
+	}
+
+	function isConfirmHandler(value: unknown): value is (message?: string) => boolean {
+		return typeof value === 'function';
+	}
+
+	function isStringValue(value: unknown): value is string {
+		return typeof value === 'string';
+	}
+
+	function isDropPayload(value: unknown): value is { id?: string | null } {
+		return typeof value === 'object' && value !== null && 'id' in value;
+	}
 
 	let selectedTask: CalendarTask | null = null;
 	function openTask(task: CalendarTask) {
@@ -129,7 +154,7 @@
 		// Selection mode owns taps; dragging asks to leave it first.
 		if (selectionMode) {
 			e.preventDefault();
-			if (typeof confirm === 'function' && confirm('Exit selection mode to move this event?')) {
+			if (isConfirmHandler(confirm) && confirm('Exit selection mode to move this event?')) {
 				onToggleSelectionMode(false);
 			}
 			return;
@@ -149,7 +174,7 @@
 		if (!event.start) return;
 		moveError = '';
 		const payload = buildMovePayload(event, { day, minutes });
-		const targetId = (event as Event & { masterId?: string }).masterId || event.id;
+		const targetId = event.masterId || event.id;
 		try {
 			const res = await fetch(`/api/events/${targetId}`, {
 				method: 'PUT',
@@ -161,7 +186,7 @@
 				moveError = j.error || 'Could not move the event. Try again.';
 				return;
 			}
-			await invalidateAll();
+			await refreshAll();
 		} catch {
 			moveError = 'Could not move the event. Try again.';
 		}
@@ -174,8 +199,8 @@
 		let id: string | null = draggingId;
 		if (!id && raw) {
 			try {
-				const parsed = JSON.parse(raw);
-				id = typeof parsed === 'string' ? parsed : (parsed.id ?? null);
+				const parsed: unknown = JSON.parse(raw);
+				id = isStringValue(parsed) ? parsed : isDropPayload(parsed) ? (parsed.id ?? null) : null;
 			} catch {
 				id = raw;
 			}
@@ -184,6 +209,7 @@
 		if (!id) return;
 		const target = events.find((ev) => ev.id === id);
 		if (!target) return;
+		// SAFETY: drop handler is bound to the day-grid element
 		const grid = e.currentTarget as HTMLElement | null;
 		const top = grid?.getBoundingClientRect()?.top ?? 0;
 		const minutes = yToMinutes(e.clientY, top, PX_PER_HOUR);
@@ -200,7 +226,9 @@
 			return;
 		}
 		// Chip taps open the event; empty-grid taps start a new one.
+		// SAFETY: grid clicks originate from elements inside the day-grid
 		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
+		// SAFETY: click handler is bound to the day-grid element
 		const grid = e.currentTarget as HTMLElement | null;
 		const top = grid?.getBoundingClientRect()?.top ?? 0;
 		const minutes = yToMinutes(e.clientY, top, PX_PER_HOUR);
@@ -232,7 +260,9 @@
 
 	function handleRangeMouseDown(e: MouseEvent) {
 		if (selectionMode || e.button !== 0) return;
+		// SAFETY: grid mousedowns originate from elements inside the day-grid
 		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
+		// SAFETY: mousedown handler is bound to the day-grid element
 		const grid = e.currentTarget as HTMLElement | null;
 		const minutes = minutesFromMouse(e, grid);
 		if (!Number.isFinite(minutes)) return;
@@ -242,6 +272,7 @@
 
 	function handleRangeMouseMove(e: MouseEvent) {
 		if (!selecting) return;
+		// SAFETY: mousemove handler is bound to the day-grid element
 		const grid = e.currentTarget as HTMLElement | null;
 		const minutes = minutesFromMouse(e, grid);
 		if (!Number.isFinite(minutes)) return;
@@ -270,6 +301,7 @@
 
 	function handleRangeTouchStart(e: TouchEvent, day: DateTime, grid: HTMLElement | null) {
 		if (selectionMode) return;
+		// SAFETY: touch handler is bound to the day-grid element
 		if ((e.target as HTMLElement | null)?.closest?.('button')) return;
 		const touch = e.touches[0];
 		if (!touch) return;
@@ -309,10 +341,10 @@
 	// Svelte's delegated touch handlers are unreliable across browsers.
 	function rangeTouch(node: HTMLElement, day: DateTime) {
 		let currentDay = day;
-		const onStart = (e: Event) => {
-			handleRangeTouchStart(e as TouchEvent, currentDay, node);
+		const onStart = (e: TouchEvent) => {
+			handleRangeTouchStart(e, currentDay, node);
 		};
-		const onMove = (e: Event) => handleRangeTouchMove(e as TouchEvent);
+		const onMove = (e: TouchEvent) => handleRangeTouchMove(e);
 		const onEnd = () => handleRangeTouchEnd();
 		node.addEventListener('touchstart', onStart);
 		node.addEventListener('touchmove', onMove);
@@ -349,12 +381,13 @@
 		selectedEvent = null;
 	}
 
-	function handleDelete(event: CustomEvent) {
+	function handleDelete() {
 		// EventModal performs the API call; refresh server data here.
-		invalidateAll().then(closeModal);
+		refreshAll().then(closeModal);
 	}
 </script>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="min-w-0 overflow-x-hidden" onmouseup={handleRangeMouseUp}>
 	<!-- Day Header -->
 	<div class="mb-4 flex items-center gap-3 border-b border-slate-200 pb-3">
@@ -457,7 +490,7 @@
 							>
 								🔁 {task.recurrenceInterval && task.recurrenceInterval > 1
 									? `${task.recurrenceInterval}× `
-									: ''}{FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}
+									: ''}{freqNoun(task.recurrenceFrequency) ?? task.recurrenceFrequency}
 							</span>
 						{/if}
 					</button>
@@ -496,7 +529,7 @@
 		>
 			<!-- Gutter -->
 			<div class="w-14 shrink-0 select-none sm:w-16" aria-hidden="true">
-				{#each Array(24) as _, h}
+				{#each Array.from({ length: 24 }, (_, i) => i) as h}
 					<div
 						class="pr-2 text-right text-[10px] font-medium text-slate-400"
 						style="height: {PX_PER_HOUR}px"
@@ -507,6 +540,7 @@
 			</div>
 
 			<!-- Grid body -->
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 			<div
 				class="relative min-w-0 flex-1 border-l border-slate-200"
 				style="height: {GRID_HEIGHT}px"
@@ -577,7 +611,7 @@
 						</div>
 					</div>
 				{/if}
-				{#each Array(24) as _, h}
+				{#each Array.from({ length: 24 }, (_, i) => i) as h}
 					<div
 						class="absolute inset-x-0 border-t border-slate-100 {h % 6 === 0
 							? 'border-slate-200'
@@ -680,7 +714,7 @@
 		show={true}
 		calendars={calendarIds}
 		onClose={closeModal}
-		on:update={() => invalidateAll()}
+		on:update={() => refreshAll()}
 		on:delete={handleDelete}
 	/>
 {/if}
