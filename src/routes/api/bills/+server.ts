@@ -6,6 +6,7 @@ import {
 	getBillsForUser,
 	normalizeAmountCents,
 	normalizeBillCategory,
+	parseDueDate,
 	type CreateBillInput
 } from '$lib/server/db/actions/bills';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
@@ -53,11 +54,19 @@ export const POST = async (event: RequestEvent, deps: BillsDeps = defaultDeps) =
 	}
 
 	try {
+		let dueDate: string | null = null;
+		if (body.dueDate !== undefined) {
+			const parsed = parseDueDate(body.dueDate);
+			if (parsed.status === 'invalid') {
+				return json({ error: 'Due date must be a valid date' }, { status: 400 });
+			}
+			dueDate = parsed.value;
+		}
 		const familyId = await deps.getUserFamilyId(auth.user.id);
 		const input: CreateBillInput = {
 			title: body.title.trim(),
 			amountCents,
-			dueDate: isNonEmptyString(body.dueDate) ? body.dueDate : null,
+			dueDate,
 			category: normalizeBillCategory(body.category),
 			userId: auth.user.id,
 			familyId

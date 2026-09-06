@@ -28,7 +28,7 @@ function deps(over: Partial<BillIdDeps> = {}): BillIdDeps {
 	};
 }
 
-function event(userId: string | null, body?: Record<string, string | number | boolean>) {
+function event(userId: string | null, body?: Record<string, string | number | boolean | null>) {
 	// SAFETY: test double — handlers only read locals.user, params.id, and request.json().
 	return {
 		locals: { user: userId ? { id: userId } : null },
@@ -66,12 +66,61 @@ describe('PUT /api/bills/[id]', () => {
 				updateBill: async () => null
 			})
 		);
-		expect(res.status).toBe(403);
+		expect(res.status).toBe(404);
+		expect(await res.json()).toEqual({ error: 'Bill not found' });
 	});
 
 	it('400s on a bad amount', async () => {
 		const res = await PUT(event('u1', { amount: 'lots' }), deps());
 		expect(res.status).toBe(400);
+	});
+
+	it('ignores familyId in the patch', async () => {
+		const updateBill = vi.fn(
+			async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) =>
+				bill({ title: 'New' })
+		);
+		const res = await PUT(event('u1', { title: 'New', familyId: 'f2' }), deps({ updateBill }));
+
+		expect(res.status).toBe(200);
+		expect(updateBill).toHaveBeenCalledWith('bill-1', 'u1', 'admin', { title: 'New' });
+	});
+
+	it('returns the current bill on an empty patch without calling updateBill', async () => {
+		const updateBill = vi.fn(async () => bill());
+		const res = await PUT(event('u1', {}), deps({ updateBill }));
+
+		expect(res.status).toBe(200);
+		expect(updateBill).not.toHaveBeenCalled();
+		expect(await res.json()).toMatchObject({ success: true, bill: { id: 'bill-1' } });
+	});
+
+	it.each<[string, string | number]>([
+		['garbage', 'not-a-date'],
+		['wrong type', 123]
+	])('400s on %s dueDate', async (_label, raw) => {
+		const res = await PUT(event('u1', { dueDate: raw }), deps());
+		expect(res.status).toBe(400);
+	});
+
+	it('anchors date-only dueDate to UTC midnight', async () => {
+		const updateBill = vi.fn(
+			async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) => bill()
+		);
+		const res = await PUT(event('u1', { dueDate: '2026-09-15' }), deps({ updateBill }));
+
+		expect(res.status).toBe(200);
+		expect(updateBill.mock.calls[0][3]).toEqual({ dueDate: '2026-09-15T00:00:00.000Z' });
+	});
+
+	it('clears dueDate on explicit null', async () => {
+		const updateBill = vi.fn(
+			async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) => bill()
+		);
+		const res = await PUT(event('u1', { dueDate: null }), deps({ updateBill }));
+
+		expect(res.status).toBe(200);
+		expect(updateBill.mock.calls[0][3]).toEqual({ dueDate: null });
 	});
 });
 
@@ -95,6 +144,7 @@ describe('DELETE /api/bills/[id]', () => {
 				deleteBill: async () => false
 			})
 		);
-		expect(res.status).toBe(403);
+		expect(res.status).toBe(404);
+		expect(await res.json()).toEqual({ error: 'Bill not found' });
 	});
 });

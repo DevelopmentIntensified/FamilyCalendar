@@ -8,6 +8,7 @@ import {
 	canMutateBill,
 	normalizeAmountCents,
 	normalizeBillCategory,
+	parseDueDate,
 	type BillPatch
 } from '$lib/server/db/actions/bills';
 import { getFamilyMemberRole } from '$lib/server/db/actions/families';
@@ -46,7 +47,8 @@ async function authorize(
 	if (!bill) return json({ error: 'Bill not found' }, { status: 404 });
 	const role = await deps.getFamilyMemberRole(userId, bill.familyId ?? '');
 	if (!canMutateBill(bill, userId, role)) {
-		return json({ error: 'No permission to change this bill' }, { status: 403 });
+		// Same body as not-found: don't confirm bill existence to non-members.
+		return json({ error: 'Bill not found' }, { status: 404 });
 	}
 	return { bill, role };
 }
@@ -73,12 +75,20 @@ export const PUT = async (event: RequestEvent, deps: BillIdDeps = defaultDeps) =
 		}
 		patch.amountCents = amountCents;
 	}
-	if (body.dueDate !== undefined)
-		patch.dueDate = isNonEmptyString(body.dueDate) ? body.dueDate : null;
+	if (body.dueDate !== undefined) {
+		const parsed = parseDueDate(body.dueDate);
+		if (parsed.status === 'invalid') {
+			return json({ error: 'Due date must be a valid date' }, { status: 400 });
+		}
+		patch.dueDate = parsed.value;
+	}
 	if (body.category !== undefined) patch.category = normalizeBillCategory(body.category);
 	if (body.paid !== undefined) patch.paidAt = body.paid ? new Date().toISOString() : null;
-	if (body.familyId !== undefined)
-		patch.familyId = isNonEmptyString(body.familyId) ? body.familyId : null;
+
+	if (Object.keys(patch).length === 0) {
+		// Empty patch: drizzle's set({}) throws, and there is nothing to write.
+		return json({ success: true, bill: allowed.bill });
+	}
 
 	try {
 		const updated = await deps.updateBill(event.params.id, auth.user.id, allowed.role, patch);

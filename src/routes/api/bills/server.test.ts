@@ -27,7 +27,7 @@ function deps(over: Partial<BillsDeps> = {}): BillsDeps {
 	};
 }
 
-function event(userId: string | null, body?: Record<string, string | number>) {
+function event(userId: string | null, body?: Record<string, string | number | null>) {
 	// SAFETY: test double — handlers only read locals.user, url, and request.json().
 	return {
 		locals: { user: userId ? { id: userId } : null },
@@ -76,10 +76,32 @@ describe('POST /api/bills', () => {
 		expect(createBill.mock.calls[0][0]).toMatchObject({
 			title: 'Electric',
 			amountCents: 12000,
+			dueDate: '2026-09-15T00:00:00.000Z',
 			category: 'utilities',
 			userId: 'u1',
 			familyId: 'f1'
 		});
+	});
+
+	it('400s on a garbage dueDate', async () => {
+		const res = await POST(event('u1', { title: 'x', amount: 1, dueDate: 'whenever' }), deps());
+		expect(res.status).toBe(400);
+	});
+
+	it('400s on a wrong-typed dueDate', async () => {
+		const res = await POST(event('u1', { title: 'x', amount: 1, dueDate: 123 }), deps());
+		expect(res.status).toBe(400);
+	});
+
+	it('clears dueDate on explicit null', async () => {
+		const createBill = vi.fn(async (input: CreateBillInput) => bill({ ...input, id: 'b9' }));
+		const res = await POST(
+			event('u1', { title: 'x', amount: 1, dueDate: null }),
+			deps({ createBill })
+		);
+
+		expect(res.status).toBe(201);
+		expect(createBill.mock.calls[0][0]).toMatchObject({ dueDate: null });
 	});
 
 	it('400s on missing title', async () => {

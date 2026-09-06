@@ -30,9 +30,46 @@ function isAmountString(raw: unknown): raw is string {
  */
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- exported boundary parser: unknown input IS its contract; routes feed it raw request-body fields.
 export function normalizeAmountCents(raw: unknown): number | null {
+	// SAFETY: numeric-string boundary parser; Number() on a validated
+	// non-blank string is the intended coercion, no precision lost.
 	const n = isAmountNumber(raw) ? raw : isAmountString(raw) ? Number(raw) : Number.NaN;
 	if (!Number.isFinite(n) || n < 0) return null;
-	return Math.round(n * 100);
+	const cents = Math.round(n * 100);
+	// Postgres int4 ceiling: reject before the DB turns overflow into a 500.
+	if (!Number.isSafeInteger(cents) || cents > 2147483647) return null;
+	return cents;
+}
+
+/** True when the string is a date the runtime can parse to a real instant. */
+function isValidDateString(raw: string): boolean {
+	const parsed = Date.parse(raw);
+	if (Number.isNaN(parsed)) return false;
+	// Round-trip: the normalized ISO form must parse back to the same instant.
+	return Date.parse(new Date(parsed).toISOString()) === parsed;
+}
+
+/** True for a date-only string (yyyy-MM-dd). */
+function isDateOnlyString(raw: string): boolean {
+	return /^\d{4}-\d{2}-\d{2}$/.test(raw);
+}
+
+/** Result of parsing a dueDate request field: anchored value, cleared, or invalid. */
+export type DueDateParse = { status: 'ok'; value: string | null } | { status: 'invalid' };
+
+/**
+ * Parses a dueDate request field. Null/blank clears the field; a valid date
+ * string is kept (date-only form anchored to explicit UTC midnight so the
+ * timestamptz cast is timezone-independent); anything else is invalid.
+ */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- exported boundary parser: unknown input IS its contract; routes feed it raw request-body fields.
+export function parseDueDate(raw: unknown): DueDateParse {
+	if (raw === null) return { status: 'ok', value: null };
+	// oxlint-disable-next-line anti-slop/no-runtime-typeof -- boundary parser: request JSON arrives untyped; rejecting non-strings here IS the contract.
+	if (typeof raw !== 'string') return { status: 'invalid' };
+	if (raw.trim() === '') return { status: 'ok', value: null };
+	if (!isValidDateString(raw)) return { status: 'invalid' };
+	const value = isDateOnlyString(raw) ? `${raw}T00:00:00.000Z` : raw;
+	return { status: 'ok', value };
 }
 
 export interface CreateBillInput {
@@ -74,7 +111,7 @@ export function canMutateBill(bill: Bill, userId: string, role: string | null): 
 }
 
 export type BillPatch = Partial<
-	Pick<Bill, 'title' | 'amountCents' | 'dueDate' | 'category' | 'paidAt' | 'familyId'>
+	Pick<Bill, 'title' | 'amountCents' | 'dueDate' | 'category' | 'paidAt'>
 >;
 
 export async function updateBill(

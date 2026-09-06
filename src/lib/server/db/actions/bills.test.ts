@@ -72,7 +72,9 @@ import {
 	deleteBill,
 	canMutateBill,
 	normalizeBillCategory,
-	normalizeAmountCents
+	normalizeAmountCents,
+	parseDueDate,
+	type DueDateParse
 } from './bills';
 import type { Bill } from '$lib/server/db/schema';
 
@@ -134,11 +136,37 @@ describe('normalizeAmountCents', () => {
 		['', null],
 		[null, null],
 		[undefined, null],
-		[Number.NaN, null]
+		[Number.NaN, null],
+		[1e308, null],
+		['1e308', null],
+		['1e10', null],
+		[Number.MAX_SAFE_INTEGER, null],
+		[21474836.47, 2147483647],
+		[21474836.48, null]
 	];
 	for (const [raw, expected] of cases) {
 		it(`maps ${JSON.stringify(raw)} to ${expected}`, () => {
 			expect(normalizeAmountCents(raw)).toBe(expected);
+		});
+	}
+});
+
+describe('parseDueDate', () => {
+	const cases: [unknown, DueDateParse][] = [
+		[null, { status: 'ok', value: null }],
+		['', { status: 'ok', value: null }],
+		['   ', { status: 'ok', value: null }],
+		['2026-09-15', { status: 'ok', value: '2026-09-15T00:00:00.000Z' }],
+		['2026-09-15T10:30:00Z', { status: 'ok', value: '2026-09-15T10:30:00Z' }],
+		['March 5, 2026', { status: 'ok', value: 'March 5, 2026' }],
+		['not-a-date', { status: 'invalid' }],
+		['2026-13-45', { status: 'invalid' }],
+		[123, { status: 'invalid' }],
+		[undefined, { status: 'invalid' }]
+	];
+	for (const [raw, expected] of cases) {
+		it(`maps ${JSON.stringify(raw)} to ${JSON.stringify(expected)}`, () => {
+			expect(parseDueDate(raw)).toEqual(expected);
 		});
 	}
 });
