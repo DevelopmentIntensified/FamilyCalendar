@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { pushToast } from '$lib/client/toasts';
 
 	export let meals: { id: string; kind: string; label: string }[];
 	/** The viewed day as 'YYYY-MM-DD' (user zone) — what quick-add posts. */
@@ -29,16 +30,24 @@
 	async function addMeal() {
 		if (!labelInput.trim() || busy) return;
 		busy = 'new';
+		const label = labelInput.trim();
+		const kind = kindInput;
 		try {
 			const res = await fetch('/api/meals', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ date: dateKey, kind: kindInput, label: labelInput })
+				body: JSON.stringify({ date: dateKey, kind, label })
 			});
 			if (res.ok) {
 				labelInput = '';
+				pushToast({ message: `${label} added to ${KIND_LABELS[kind]}.` });
 				await invalidateAll();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || `Couldn't add ${label} — try again.` });
 			}
+		} catch {
+			pushToast({ message: `Couldn't add ${label} — check your connection.` });
 		} finally {
 			busy = null;
 		}
@@ -46,14 +55,23 @@
 
 	async function removeMeal(id: string) {
 		if (busy) return;
+		const meal = meals.find((m) => m.id === id);
 		busy = id;
 		try {
-			await fetch('/api/meals', {
+			const res = await fetch('/api/meals', {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
 			});
-			await invalidateAll();
+			if (res.ok) {
+				pushToast({ message: `${meal?.label ?? 'Meal'} removed.` });
+				await invalidateAll();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || "Couldn't remove that meal — try again." });
+			}
+		} catch {
+			pushToast({ message: "Couldn't remove that meal — check your connection." });
 		} finally {
 			busy = null;
 		}
@@ -74,6 +92,7 @@
 			type="text"
 			bind:value={labelInput}
 			{placeholder}
+			aria-label="Meal name"
 			class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 		/>
 		<select

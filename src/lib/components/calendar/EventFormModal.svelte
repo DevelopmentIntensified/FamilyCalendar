@@ -57,6 +57,8 @@
 	// clicks "Show More" again).
 	let nlpCollapsed = false;
 	let parsing = false;
+	/** Subtle inline note when the quick-add parser call itself fails (not a parse miss). */
+	let parseError = false;
 	let reportingPhrase = false;
 	let phraseReported = false;
 	let phraseReportable = false;
@@ -203,6 +205,7 @@
 		if (!nlInput.trim()) return;
 
 		parsing = true;
+		parseError = false;
 		phraseReported = false;
 		try {
 			const response = await fetch('/api/parse-event', {
@@ -236,9 +239,12 @@
 					// A fresh parse re-reveals previously collapsed detected fields.
 					nlpCollapsed = false;
 				}
+			} else {
+				parseError = true;
 			}
 		} catch (error) {
 			console.error('Parse error:', error);
+			parseError = true;
 		} finally {
 			parsing = false;
 		}
@@ -268,6 +274,7 @@
 	}
 
 	function onNlInputChange() {
+		parseError = false;
 		if (!form.isDetected('description')) {
 			form.description = nlInput;
 		}
@@ -512,6 +519,7 @@
 		form.reset();
 		nlInput = '';
 		nlpCollapsed = false;
+		parseError = false;
 		multiResults = null;
 	}
 
@@ -673,6 +681,11 @@
 									<div class="mt-1 text-right text-xs font-medium text-primary-600">
 										Creates {lastParseResult.dates.length} events — one per date
 									</div>
+								{/if}
+								{#if parseError}
+									<p class="mt-1 text-xs text-amber-600" role="status">
+										Couldn't check that with the parser just now — fill the fields below manually.
+									</p>
 								{/if}
 								{#if multiResults && multiResults.length > 1}
 									<div class="mt-2 rounded-lg border border-primary-200 bg-primary-50 p-3">

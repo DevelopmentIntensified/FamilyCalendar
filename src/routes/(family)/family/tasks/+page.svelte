@@ -5,6 +5,7 @@
 		showRecurringCompleteFeedback,
 		showRecurringSkipFeedback
 	} from '$lib/client/taskFeedback';
+	import { pushToast } from '$lib/client/toasts';
 
 	export let data: PageData;
 
@@ -28,6 +29,8 @@
 
 	let busyId: string | null = null;
 	let tagFilter = '';
+	/** Inline delete confirmation (matches the family-member remove pattern). */
+	let confirmDeleteId: string | null = null;
 
 	function nameOf(
 		first: string | null | undefined,
@@ -78,7 +81,12 @@
 				const j = await res.json().catch(() => ({}));
 				await invalidateAll();
 				showRecurringCompleteFeedback(j.task, previousDueDate);
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || `Couldn't update "${task.title}" — try again.` });
 			}
+		} catch {
+			pushToast({ message: 'Network problem — try again.' });
 		} finally {
 			busyId = null;
 		}
@@ -97,7 +105,12 @@
 				const j = await res.json().catch(() => ({}));
 				await invalidateAll();
 				showRecurringSkipFeedback(j.task);
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || `Couldn't skip "${task.title}" — try again.` });
 			}
+		} catch {
+			pushToast({ message: 'Network problem — try again.' });
 		} finally {
 			busyId = null;
 		}
@@ -107,12 +120,24 @@
 		if (busyId) return;
 		busyId = task.id;
 		try {
-			await fetch(`/api/tasks/${task.id}`, {
+			const res = await fetch(`/api/tasks/${task.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ assignmentStatus: accept ? 'accepted' : 'declined' })
 			});
-			await invalidateAll();
+			if (res.ok) {
+				pushToast({
+					message: accept
+						? `Accepted "${task.title}" — it's on your list.`
+						: `Declined "${task.title}".`
+				});
+				await invalidateAll();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || "Couldn't save your response — try again." });
+			}
+		} catch {
+			pushToast({ message: "Couldn't save your response — check your connection." });
 		} finally {
 			busyId = null;
 		}
@@ -120,13 +145,21 @@
 
 	async function remove(task: FamilyTask) {
 		if (busyId || task.userId !== data.userId) return;
-		if (!confirm(`Delete "${task.title}"?`)) return;
 		busyId = task.id;
 		try {
-			await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' });
-			await invalidateAll();
+			const res = await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' });
+			if (res.ok) {
+				pushToast({ message: `Deleted "${task.title}".` });
+				await invalidateAll();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || `Couldn't delete "${task.title}" — try again.` });
+			}
+		} catch {
+			pushToast({ message: `Couldn't delete "${task.title}" — check your connection.` });
 		} finally {
 			busyId = null;
+			confirmDeleteId = null;
 		}
 	}
 </script>
@@ -335,22 +368,44 @@
 							</svg>
 						</button>
 					{/if}
-					<button
-						type="button"
-						onclick={() => remove(task)}
-						disabled={busyId === task.id}
-						class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500"
-						aria-label="Delete task"
-					>
-						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-							/>
-						</svg>
-					</button>
+					{#if confirmDeleteId === task.id}
+						<div class="flex shrink-0 items-center gap-1.5">
+							<span class="text-xs font-medium text-red-600">Delete "{task.title}"?</span>
+							<button
+								type="button"
+								onclick={() => remove(task)}
+								disabled={busyId === task.id}
+								class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+							>
+								{busyId === task.id ? 'Deleting…' : 'Yes'}
+							</button>
+							<button
+								type="button"
+								onclick={() => (confirmDeleteId = null)}
+								disabled={busyId === task.id}
+								class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+							>
+								No
+							</button>
+						</div>
+					{:else}
+						<button
+							type="button"
+							onclick={() => (confirmDeleteId = task.id)}
+							disabled={busyId === task.id}
+							class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500"
+							aria-label="Delete task"
+						>
+							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+								/>
+							</svg>
+						</button>
+					{/if}
 				{/if}
 			</div>
 		{/each}

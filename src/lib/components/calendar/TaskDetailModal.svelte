@@ -48,8 +48,11 @@
 
 	let busy = false;
 	let actionError = '';
+	/** Inline delete confirmation — matches the family-member remove pattern. */
+	let showDeleteConfirm = false;
 
 	function close() {
+		showDeleteConfirm = false;
 		onClose();
 	}
 
@@ -142,7 +145,6 @@
 
 	async function remove() {
 		if (busy) return;
-		if (!confirm('Delete this task?')) return;
 		busy = true;
 		actionError = '';
 		try {
@@ -194,7 +196,7 @@
 			</button>
 		</div>
 
-		<div class="space-y-4 p-5">
+		<div class="max-h-[80dvh] space-y-4 overflow-y-auto p-5">
 			<div>
 				<h3 class="text-lg font-semibold text-slate-900">{task.title}</h3>
 				{#if task.eventTitle}
@@ -288,14 +290,36 @@
 						Skip occurrence
 					</button>
 				{/if}
-				<button
-					type="button"
-					onclick={remove}
-					disabled={busy}
-					class="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-				>
-					Delete
-				</button>
+				{#if showDeleteConfirm}
+					<div class="flex items-center gap-2">
+						<span class="text-sm text-red-600">Delete this task?</span>
+						<button
+							type="button"
+							onclick={remove}
+							disabled={busy}
+							class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+						>
+							{busy ? 'Deleting…' : 'Yes, delete'}
+						</button>
+						<button
+							type="button"
+							onclick={() => (showDeleteConfirm = false)}
+							disabled={busy}
+							class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+						>
+							Cancel
+						</button>
+					</div>
+				{:else}
+					<button
+						type="button"
+						onclick={() => (showDeleteConfirm = true)}
+						disabled={busy}
+						class="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+					>
+						Delete
+					</button>
+				{/if}
 				<button
 					type="button"
 					onclick={toggleComplete}

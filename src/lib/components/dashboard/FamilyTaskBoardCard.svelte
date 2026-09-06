@@ -4,6 +4,7 @@
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
 	import { showRecurringCompleteFeedback } from '$lib/client/taskFeedback';
+	import { pushToast } from '$lib/client/toasts';
 
 	export let tasks: {
 		id: string;
@@ -33,6 +34,7 @@
 	async function addQuickTask() {
 		if (!quickTitle.trim() || busy) return;
 		busy = 'new';
+		const title = quickTitle.trim();
 		try {
 			const parsed = parseTaskQuickAdd(quickTitle, { members });
 			const res = await fetch('/api/tasks', {
@@ -48,8 +50,14 @@
 			});
 			if (res.ok) {
 				quickTitle = '';
+				pushToast({ message: `Added "${parsed.title}" to the family board.` });
 				await invalidateAll();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || `Couldn't add "${title}" — try again.` });
 			}
+		} catch {
+			pushToast({ message: `Couldn't add "${title}" — check your connection.` });
 		} finally {
 			busy = null;
 		}
@@ -122,9 +130,15 @@
 			});
 			if (res.ok) {
 				const j = await res.json().catch(() => ({}));
+				pushToast({ message: `"${task.title}" marked done.` });
 				await invalidateAll();
 				showRecurringCompleteFeedback(j.task, task.dueDate);
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || `Couldn't update "${task.title}" — try again.` });
 			}
+		} catch {
+			pushToast({ message: `Couldn't update "${task.title}" — check your connection.` });
 		} finally {
 			busy = null;
 		}

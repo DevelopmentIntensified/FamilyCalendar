@@ -10,6 +10,7 @@
 	import calendarNoteDate from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg';
 	import { parseEvents } from '$lib/utils/eventDisplay';
 	import { invalidateAll, goto } from '$app/navigation';
+	import { pushToast } from '$lib/client/toasts';
 
 	import { page } from '$app/stores';
 
@@ -106,6 +107,10 @@
 	let selectedIds: string[] = [];
 	let bulkBusy = false;
 	let bulkError = '';
+	/** Inline delete confirmation for the bulk bar (no window.confirm). */
+	let bulkConfirmDelete = false;
+	/** Inline "this plan moves events into the past" warning state. */
+	let pastWarning = false;
 	let reportingPhrase = false;
 	let phraseReported = false;
 
@@ -138,6 +143,8 @@
 		selectionMode = on;
 		selectedIds = [];
 		bulkError = '';
+		bulkConfirmDelete = false;
+		pastWarning = false;
 		phraseReported = false;
 		smartPlan = null;
 	}
@@ -159,13 +166,9 @@
 
 	async function runBulk(op: BulkOp) {
 		if (selectedIds.length === 0 || bulkBusy) return;
-		if (
-			op.type === 'delete' &&
-			!confirm(`Delete ${selectedIds.length} event(s)? Attached checklists go too.`)
-		)
-			return;
 		bulkBusy = true;
 		bulkError = '';
+		bulkConfirmDelete = false;
 		phraseReported = false;
 		try {
 			const res = await fetch('/api/events/bulk', {
@@ -174,6 +177,23 @@
 				body: JSON.stringify({ ids: selectedIds.map((id) => ({ id })), op })
 			});
 			if (res.ok) {
+				const count = selectedIds.length;
+				if (op.type === 'delete') {
+					pushToast({ message: `Deleted ${count} event${count === 1 ? '' : 's'}.` });
+				} else if (op.type === 'calendar') {
+					const cal = (data.calendarIds || []).find((c) => c.id === op.calendarId);
+					pushToast({
+						message: `Moved ${count} event${count === 1 ? '' : 's'}${cal ? ` to ${cal.name}` : ''}.`
+					});
+				} else if (op.type === 'location') {
+					pushToast({
+						message: `Location updated on ${count} event${count === 1 ? '' : 's'}.`
+					});
+				} else if (op.type === 'attendants') {
+					pushToast({
+						message: `Attendant added to ${count} event${count === 1 ? '' : 's'}.`
+					});
+				}
 				selectedIds = [];
 				bulkLocation = '';
 				bulkAttendants = '';
@@ -225,22 +245,15 @@
 		return !!smartPlan?.ops.some((op) => isString(op.date) && isPastDate(op.date));
 	}
 
-	async function runSmart() {
+	async function runSmart(force = false) {
 		const instruction = bulkInstruction.trim();
 		if (!instruction || !selectedIds.length || bulkBusy) return;
-		// Moving events into the past is allowed, but confirm first.
-		if (smartPlan && planMovesToPast()) {
-			const pastCount = smartPlan.ops.filter(
-				(op) => isString(op.date) && isPastDate(op.date)
-			).length;
-			if (
-				!confirm(
-					`${pastCount} change${pastCount === 1 ? '' : 's'} move${pastCount === 1 ? 's' : ''} events to past dates. Apply anyway?`
-				)
-			) {
-				return;
-			}
+		// Moving events into the past is allowed, but confirm inline first.
+		if (!force && smartPlan && planMovesToPast()) {
+			pastWarning = true;
+			return;
 		}
+		pastWarning = false;
 		bulkBusy = true;
 		bulkError = '';
 		phraseReported = false;
@@ -263,6 +276,10 @@
 			}
 			if (smartPlan) {
 				// Phase 2 applied server-side.
+				const appliedCount = smartPlan.items.length;
+				pushToast({
+					message: `Applied ${appliedCount} change${appliedCount === 1 ? '' : 's'} to your events.`
+				});
 				smartPlan = null;
 				selectedIds = [];
 				bulkInstruction = '';
@@ -428,12 +445,18 @@
 				body: JSON.stringify(scope && occurrenceDate ? { scope, occurrenceDate } : {})
 			});
 			if (res.ok) {
+				pushToast({ message: 'Event deleted.' });
 				await invalidateAll();
+				close();
+			} else {
+				// Keep the modal open so the user can retry or cancel.
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || "Couldn't delete the event — try again." });
 			}
 		} catch (e) {
 			console.error('Failed to delete event:', e);
+			pushToast({ message: "Couldn't delete the event — check your connection and try again." });
 		}
-		close();
 	}
 
 	// Handle event click from calendar views
@@ -441,30 +464,18 @@
 		await openEditModal(event.detail);
 	}
 
-	async function openEditModal(target: Event) {
+	function openEditModal(target: Event) {
 		selectedEvent = target;
 		if (!selectedEvent) return;
-		// Occurrences share the series master's API identity.
-		const serverId = selectedEvent.masterId || selectedEvent.id;
-		const eventId = selectedEvent.id;
-		// Fetch RSVP data for this event
-		try {
-			const res = await fetch(`/api/events/${serverId}/rsvp`);
-			if (res.ok) {
-				const rsvp = await res.json();
-				// The route returns { attendance, userRsvpStatus, nonUserAttendants };
-				// the form needs the attendance ROW ARRAY to prefill invites —
-				// passing the whole object made every edit save wipe them.
-				if (selectedEvent?.id === eventId) selectedEventRsvp = rsvp.attendance ?? [];
-			}
-		} catch (e) {
-			console.error('Failed to fetch RSVP data:', e);
-		}
+		// Open immediately — EventFormModal fetches RSVP/invite data itself
+		// when the page doesn't hand it over (see its onMount fallback).
+		selectedEventRsvp = [];
 		showEditModal = true;
 	}
 
 	// Deep link: /calendar?edit=<eventId> opens the edit modal once data is loaded.
 	let autoOpenedEditId: string | null = null;
+	let editLinkNotFound = false;
 
 	$: if (allEvents.length > 0 && $page.url.searchParams.has('edit')) {
 		const editId = $page.url.searchParams.get('edit');
@@ -475,6 +486,7 @@
 				(e) => e.id === editId || ('masterId' in e && e.masterId === editId)
 			);
 			if (target) openEditModal(target);
+			else editLinkNotFound = true;
 		}
 	}
 </script>
@@ -484,6 +496,13 @@
 		<div class="mx-auto max-w-xl px-4 pt-4" role="alert">
 			<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
 				Couldn't load {(data.loadWarnings ?? []).join(', ')} just now — everything else is up to date.
+			</div>
+		</div>
+	{/if}
+	{#if editLinkNotFound}
+		<div class="mx-auto max-w-xl px-4 pt-4" role="alert">
+			<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+				Event not found — it may have been deleted, or you don't have access to it.
 			</div>
 		</div>
 	{/if}
@@ -566,6 +585,33 @@
 		role="toolbar"
 		aria-label="Bulk edit selected events"
 	>
+		{#if bulkConfirmDelete}
+			<div class="mb-2 rounded-lg border border-red-200 bg-red-50 p-2.5">
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="text-xs font-medium text-red-700">
+						Delete {selectedIds.length} event{selectedIds.length === 1 ? '' : 's'}? Attached
+						checklists go too.
+					</span>
+					<button
+						type="button"
+						onclick={() => runBulk({ type: 'delete' })}
+						disabled={bulkBusy}
+						class="rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+					>
+						{bulkBusy ? 'Deleting…' : 'Yes, delete'}
+					</button>
+					<button
+						type="button"
+						onclick={() => (bulkConfirmDelete = false)}
+						disabled={bulkBusy}
+						class="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+					>
+						Cancel
+					</button>
+				</div>
+			</div>
+		{/if}
+
 		{#if smartPlan}
 			<div class="mb-2 rounded-lg border border-purple-200 bg-purple-50/70 p-2.5">
 				<p class="mb-1 text-[10px] font-bold uppercase tracking-wide text-purple-700">
@@ -576,6 +622,29 @@
 						<li class="truncate">• {p.label}</li>
 					{/each}
 				</ul>
+				{#if pastWarning}
+					<div class="mt-2 flex flex-wrap items-center gap-2 border-t border-purple-200 pt-2">
+						<span class="text-xs font-medium text-red-700">
+							Some of these changes move events to past dates.
+						</span>
+						<button
+							type="button"
+							onclick={() => runSmart(true)}
+							disabled={bulkBusy}
+							class="rounded-lg bg-purple-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
+						>
+							Apply anyway
+						</button>
+						<button
+							type="button"
+							onclick={() => (pastWarning = false)}
+							disabled={bulkBusy}
+							class="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+						>
+							Go back
+						</button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -659,7 +728,7 @@
 					</button>
 					<button
 						type="button"
-						onclick={runSmart}
+						onclick={() => runSmart()}
 						disabled={bulkBusy}
 						class="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50 sm:py-1.5"
 					>
@@ -680,7 +749,7 @@
 						/>
 						<button
 							type="button"
-							onclick={runSmart}
+							onclick={() => runSmart()}
 							disabled={bulkBusy || selectedIds.length === 0 || !bulkInstruction.trim()}
 							title="Rename, reschedule, relocate, move calendars or delete — previewed before anything applies"
 							class="rounded-lg bg-purple-600 px-2.5 py-2 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50 sm:py-1.5"
@@ -691,7 +760,7 @@
 
 					<button
 						type="button"
-						onclick={() => runBulk({ type: 'delete' })}
+						onclick={() => (bulkConfirmDelete = true)}
 						disabled={bulkBusy || selectedIds.length === 0}
 						class="rounded-lg border border-red-200 px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 sm:py-1.5"
 					>

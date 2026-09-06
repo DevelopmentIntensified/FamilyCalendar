@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { FAMILY_DASHBOARD_MODULES } from '$lib/dashboardModules';
+	import { pushToast } from '$lib/client/toasts';
 	import { DateTime } from 'luxon';
 	export let data: PageData;
+	export let form: ActionData;
 	const {
 		family,
 		members,
@@ -25,8 +27,23 @@
 	let editingRole: string | null = null;
 	let editingName = family?.name || '';
 	let editingColor = family?.color || '#3b82f6';
+	let savingFamily = false;
+	/** userId of the member whose member-type select is submitting. */
+	let memberTypeBusy: string | null = null;
+	/** userId of the member whose role form is submitting. */
+	let roleBusy: string | null = null;
+	/** userId of the member whose remove form is submitting. */
+	let removeBusy: string | null = null;
 
 	const isAdmin = currentUserRole === 'creator' || currentUserRole === 'admin';
+
+	function toastResult(result: { type: string }, okMessage: string, failMessage: string) {
+		if (result.type === 'success') {
+			pushToast({ message: okMessage });
+		} else if (result.type === 'failure') {
+			pushToast({ message: failMessage });
+		}
+	}
 </script>
 
 <svelte:head>
@@ -78,6 +95,15 @@
 				</div>
 			</div>
 
+			{#if form?.error}
+				<div
+					role="alert"
+					class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600"
+				>
+					{form.error}
+				</div>
+			{/if}
+
 			{#if showSettings}
 				<div class="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-5">
 					<h3 class="mb-4 text-lg font-semibold text-slate-900">Family Settings</h3>
@@ -86,9 +112,16 @@
 							method="POST"
 							action="?/updateFamily"
 							use:enhance={() => {
-								return async ({ update }) => {
+								savingFamily = true;
+								return async ({ result, update }) => {
+									savingFamily = false;
+									toastResult(
+										result,
+										'Family settings saved.',
+										"Couldn't save family settings — try again."
+									);
+									if (result.type === 'success') showSettings = false;
 									await update();
-									showSettings = false;
 								};
 							}}
 						>
@@ -121,9 +154,10 @@
 							<div class="flex gap-2">
 								<button
 									type="submit"
-									class="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+									disabled={savingFamily}
+									class="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
 								>
-									Save Changes
+									{savingFamily ? 'Saving…' : 'Save Changes'}
 								</button>
 								<button
 									type="button"
@@ -176,12 +210,14 @@
 			<div class="mb-6 border-t border-slate-200 pt-6">
 				<div class="mb-4 flex items-center justify-between">
 					<h2 class="text-lg font-semibold text-slate-900">Family Members</h2>
-					<a
-						href="/family/{family?.id}/members/add"
-						class="rounded-full bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
-					>
-						Add Member
-					</a>
+					{#if isAdmin}
+						<a
+							href="/family/{family?.id}/members/add"
+							class="rounded-full bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+						>
+							Add Member
+						</a>
+					{/if}
 				</div>
 
 				{#if members.length > 0}
@@ -213,9 +249,15 @@
 											method="POST"
 											action="?/setMemberType"
 											use:enhance={() => {
-												return async ({ update }) => {
+												return async ({ result, update }) => {
+													toastResult(
+														result,
+														'Member type updated.',
+														"Couldn't update member type — try again."
+													);
 													await update();
 													await invalidateAll();
+													memberTypeBusy = null;
 												};
 											}}
 											title="Member type (profile label — parent, child, or member)"
@@ -224,9 +266,16 @@
 											<select
 												name="memberType"
 												value={member.memberType ?? 'member'}
-												on:change={(e) => e.currentTarget.form?.requestSubmit()}
-												aria-label="Member type for {member.firstName}"
-												class="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-600"
+												disabled={memberTypeBusy === member.userId}
+												on:change={(e) => {
+													memberTypeBusy = member.userId;
+													e.currentTarget.form?.requestSubmit();
+												}}
+												aria-label="Member type for {member.firstName}{memberTypeBusy ===
+												member.userId
+													? ' — saving…'
+													: ''}"
+												class="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-600 disabled:opacity-50"
 											>
 												<option value="parent">Parent</option>
 												<option value="child">Child</option>
@@ -239,10 +288,13 @@
 											method="POST"
 											action="?/updateRole"
 											use:enhance={() => {
-												return async ({ update }) => {
+												roleBusy = member.userId;
+												return async ({ result, update }) => {
+													toastResult(result, 'Role updated.', "Couldn't update role — try again.");
 													await update();
 													await invalidateAll();
 													editingRole = null;
+													roleBusy = null;
 												};
 											}}
 										>
@@ -260,9 +312,11 @@
 											</select>
 											<button
 												type="submit"
-												class="ml-1 rounded bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700"
-												>Save</button
+												disabled={roleBusy === member.userId}
+												class="ml-1 rounded bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
 											>
+												{roleBusy === member.userId ? 'Saving…' : 'Save'}
+											</button>
 											<button
 												type="button"
 												on:click={() => (editingRole = null)}
@@ -297,19 +351,27 @@
 												method="POST"
 												action="?/removeMember"
 												use:enhance={() => {
-													return async ({ update }) => {
+													removeBusy = member.userId;
+													return async ({ result, update }) => {
+														toastResult(
+															result,
+															'Member removed from the family.',
+															"Couldn't remove member — try again."
+														);
 														await update();
 														await invalidateAll();
 														showRemoveConfirm = null;
+														removeBusy = null;
 													};
 												}}
 											>
 												<input type="hidden" name="userId" value={member.userId} />
 												<button
 													type="submit"
-													class="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700"
+													disabled={removeBusy === member.userId}
+													class="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
 												>
-													Yes
+													{removeBusy === member.userId ? 'Removing…' : 'Yes'}
 												</button>
 											</form>
 											<button
@@ -366,20 +428,22 @@
 			</div>
 
 			<div class="flex flex-wrap gap-3 border-t border-slate-200 pt-6">
-				<a
-					href="/family/invitations"
-					class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-				>
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-						/>
-					</svg>
-					Manage Invitations
-				</a>
+				{#if isAdmin}
+					<a
+						href="/family/invitations"
+						class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+					>
+						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+							/>
+						</svg>
+						Manage Invitations
+					</a>
+				{/if}
 				<a
 					href="/calendar"
 					class="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-primary-600"

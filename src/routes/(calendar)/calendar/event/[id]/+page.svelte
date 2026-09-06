@@ -3,9 +3,9 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { DateTime } from 'luxon';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const event = $derived(data.event);
 	const calendar = $derived(data.calendar);
@@ -17,6 +17,7 @@
 	const isFamilyEvent = $derived(data.isFamilyEvent);
 
 	let showDeleteConfirm = $state(false);
+	let deleting = $state(false);
 	// Read the initial RSVP once; afterwards this is optimistic local state.
 	let rsvpStatus = $state(untrack(() => userAttendance));
 	let rsvpPending = $state(false);
@@ -81,6 +82,15 @@
 			>
 			Back to Calendar
 		</button>
+
+		{#if form?.message}
+			<div
+				role="alert"
+				class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600"
+			>
+				{form.message}
+			</div>
+		{/if}
 
 		<div class="overflow-hidden rounded-lg bg-white shadow-xl">
 			<div class="bg-primary-600 px-4 py-6 sm:px-6">
@@ -327,7 +337,9 @@
 								action="?/deleteEvent"
 								method="POST"
 								use:enhance={() => {
+									deleting = true;
 									return async ({ update }) => {
+										deleting = false;
 										await update();
 									};
 								}}
@@ -336,9 +348,10 @@
 								<input type="text" value={event.id} class="hidden" name="eventId" />
 								<button
 									type="submit"
-									class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+									disabled={deleting}
+									class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
 								>
-									Confirm Delete
+									{deleting ? 'Deleting…' : 'Confirm Delete'}
 								</button>
 							</form>
 							<button

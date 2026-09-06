@@ -19,6 +19,7 @@
 		showRecurringCompleteFeedback,
 		showRecurringSkipFeedback
 	} from '$lib/client/taskFeedback';
+	import { pushToast } from '$lib/client/toasts';
 
 	export let data: PageData;
 
@@ -55,6 +56,10 @@
 	let busyId: string | null = null;
 	let busyTemplateId: string | null = null;
 	let actionError = '';
+	/** Inline delete confirmation — matches the family-member remove pattern. */
+	let confirmDeleteId: string | null = null;
+	let confirmClear = false;
+	let clearBusy = false;
 	let tagFilter = '';
 	let searchQuery = '';
 	let sortBy: TaskSortKey = 'due';
@@ -381,7 +386,19 @@
 					recurrenceInterval: t.recurrenceInterval
 				})
 			});
-			if (res.ok) await invalidateAll();
+			if (res.ok) {
+				pushToast({
+					message: `Added "${t.name}"${cadenceNote(t) ? ` — ${cadenceNote(t).toLowerCase()}` : ''}.`
+				});
+				await invalidateAll();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({
+					message: j.error || `Couldn't add "${t.name}" — try again.`
+				});
+			}
+		} catch {
+			pushToast({ message: `Couldn't add "${t.name}" — check your connection.` });
 		} finally {
 			busyTemplateId = null;
 		}
@@ -468,7 +485,7 @@
 	}
 
 	async function deleteTask(id: string) {
-		if (!confirm('Delete this task?')) return;
+		if (busyId) return;
 		busyId = id;
 		actionError = '';
 		try {
@@ -477,17 +494,20 @@
 				const j = await res.json().catch(() => ({}));
 				actionError = j.error || "That didn't work. Try again.";
 			} else {
+				pushToast({ message: 'Task deleted.' });
 				await invalidateAll();
 			}
 		} catch {
 			actionError = 'Network problem. Try again.';
 		} finally {
 			busyId = null;
+			confirmDeleteId = null;
 		}
 	}
 
 	async function clearCompleted() {
-		if (!confirm("Delete all completed tasks? This can't be undone.")) return;
+		if (clearBusy) return;
+		clearBusy = true;
 		actionError = '';
 		try {
 			const res = await fetch('/api/tasks/completed', { method: 'DELETE' });
@@ -496,11 +516,16 @@
 				actionError = j.error || "That didn't work. Try again.";
 				return;
 			}
+			pushToast({ message: 'Completed tasks cleared.' });
+			confirmClear = false;
 			await invalidateAll();
 		} catch {
 			// Network error — queue for retry when back online
 			await queueMutation('/api/tasks/completed', 'DELETE', null);
 			actionError = '';
+			confirmClear = false;
+		} finally {
+			clearBusy = false;
 		}
 	}
 </script>
@@ -929,22 +954,44 @@
 						</svg>
 					</button>
 				{/if}
-				<button
-					type="button"
-					onclick={() => deleteTask(task.id)}
-					disabled={busyId === task.id}
-					class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
-					aria-label="Delete task"
-				>
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-						/>
-					</svg>
-				</button>
+				{#if confirmDeleteId === task.id}
+					<div class="flex shrink-0 items-center gap-1.5">
+						<span class="text-xs font-medium text-red-600">Delete?</span>
+						<button
+							type="button"
+							onclick={() => deleteTask(task.id)}
+							disabled={busyId === task.id}
+							class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+						>
+							{busyId === task.id ? 'Deleting…' : 'Yes'}
+						</button>
+						<button
+							type="button"
+							onclick={() => (confirmDeleteId = null)}
+							disabled={busyId === task.id}
+							class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+						>
+							No
+						</button>
+					</div>
+				{:else}
+					<button
+						type="button"
+						onclick={() => (confirmDeleteId = task.id)}
+						disabled={busyId === task.id}
+						class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
+						aria-label="Delete task"
+					>
+						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+							/>
+						</svg>
+					</button>
+				{/if}
 			</div>
 		{/each}
 	</div>
@@ -960,13 +1007,35 @@
 					>· {completedThisWeek} this week</span
 				>
 			{/if}
-			<button
-				type="button"
-				class="ml-auto font-medium normal-case text-slate-400 transition-colors hover:text-red-500"
-				onclick={clearCompleted}
-			>
-				Clear completed
-			</button>
+			{#if confirmClear}
+				<span class="ml-auto flex items-center gap-1.5 font-normal normal-case">
+					<span class="text-xs font-medium text-red-600">Delete all completed?</span>
+					<button
+						type="button"
+						onclick={clearCompleted}
+						disabled={clearBusy}
+						class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+					>
+						{clearBusy ? 'Deleting…' : 'Yes, delete'}
+					</button>
+					<button
+						type="button"
+						onclick={() => (confirmClear = false)}
+						disabled={clearBusy}
+						class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+					>
+						No
+					</button>
+				</span>
+			{:else}
+				<button
+					type="button"
+					class="ml-auto font-medium normal-case text-slate-400 transition-colors hover:text-red-500"
+					onclick={() => (confirmClear = true)}
+				>
+					Clear completed
+				</button>
+			{/if}
 		</h2>
 		<div class="space-y-1.5">
 			{#each filteredCompletedTasks as task (task.id)}
@@ -1010,22 +1079,44 @@
 							{/each}
 						</div>
 					{/if}
-					<button
-						type="button"
-						onclick={() => deleteTask(task.id)}
-						disabled={busyId === task.id}
-						class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
-						aria-label="Delete task"
-					>
-						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-							/>
-						</svg>
-					</button>
+					{#if confirmDeleteId === task.id}
+						<div class="flex shrink-0 items-center gap-1.5">
+							<span class="text-xs font-medium text-red-600">Delete?</span>
+							<button
+								type="button"
+								onclick={() => deleteTask(task.id)}
+								disabled={busyId === task.id}
+								class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+							>
+								{busyId === task.id ? 'Deleting…' : 'Yes'}
+							</button>
+							<button
+								type="button"
+								onclick={() => (confirmDeleteId = null)}
+								disabled={busyId === task.id}
+								class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+							>
+								No
+							</button>
+						</div>
+					{:else}
+						<button
+							type="button"
+							onclick={() => (confirmDeleteId = task.id)}
+							disabled={busyId === task.id}
+							class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
+							aria-label="Delete task"
+						>
+							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+								/>
+							</svg>
+						</button>
+					{/if}
 				</div>
 			{/each}
 		</div>

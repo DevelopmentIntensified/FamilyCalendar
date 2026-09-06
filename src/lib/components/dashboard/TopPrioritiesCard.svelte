@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { showRecurringCompleteFeedback } from '$lib/client/taskFeedback';
+	import { pushToast } from '$lib/client/toasts';
 
 	export let tasks: {
 		id: string;
@@ -58,12 +59,28 @@
 		if (busy) return;
 		busy = taskId;
 		try {
-			await fetch(`/api/tasks/${taskId}`, {
+			const res = await fetch(`/api/tasks/${taskId}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ priority })
 			});
-			await invalidateAll();
+			if (res.ok) {
+				const label =
+					priority === 'high'
+						? 'High'
+						: priority === 'low'
+							? 'Low'
+							: priority === 'normal'
+								? 'Normal'
+								: priority;
+				pushToast({ message: `Priority set to ${label}.` });
+				await invalidateAll();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || "Couldn't set priority — try again." });
+			}
+		} catch {
+			pushToast({ message: "Couldn't set priority — check your connection." });
 		} finally {
 			busy = null;
 		}
@@ -80,9 +97,15 @@
 			});
 			if (res.ok) {
 				const j = await res.json().catch(() => ({}));
+				pushToast({ message: `"${task.title}" marked done.` });
 				await invalidateAll();
 				showRecurringCompleteFeedback(j.task, task.dueDate);
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || `Couldn't update "${task.title}" — try again.` });
 			}
+		} catch {
+			pushToast({ message: `Couldn't update "${task.title}" — check your connection.` });
 		} finally {
 			busy = null;
 		}
@@ -140,7 +163,7 @@
 								type="button"
 								onclick={() => setPriority(task.id, p)}
 								disabled={busy === task.id || task.priority === p}
-								class="rounded-md px-2 py-1 text-[11px] font-semibold transition-colors {task.priority ===
+								class="relative rounded-md px-2 py-1 text-[11px] font-semibold transition-colors after:absolute after:-inset-1.5 after:content-[''] {task.priority ===
 								p
 									? priorityTone(p)
 									: 'text-slate-300 hover:bg-slate-100 hover:text-slate-500'}"
