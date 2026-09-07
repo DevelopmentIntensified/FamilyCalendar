@@ -1,26 +1,18 @@
 # 027 — PWA share target → smart event create
 
-Status: open
+Status: done
 
-## Needs doing
+## Done
 
-- Sharing into the installed PWA (mobile OS share sheet) should land on
-  the calendar with the smart event create already open and prefilled.
-- Implement: `share_target` in the PWA manifest (GET action
-  `/calendar?share=1`, params title/text/url — GET avoids service-worker
-  POST handling); calendar +page.svelte reads the searchParams on mount,
-  opens the create modal, puts the SHARED TEXT INTO THE INPUT itself
-  (user-visible, editable — not a hidden prefill), then the normal
-  smart-add parse runs on it (title + URL merged; parser handles the
-  rest).
-- Shared URL should not get chopped by the parser (ties into #025 URL
-  fidelity).
-- Web-research facts for implementer: on ANDROID the `url` param is
-  always empty — shared URLs arrive embedded in `text` (sometimes
-  `title`); parser must extract the URL from the text blob itself.
-  GET target, params title/text/url; ~2000-byte GET cap (fine). PWA
-  must be installed (Chrome/Edge/Samsung Android 76+); iOS/Firefox:
-  no share-target receiving at all — degrade to normal paste flow.
-  Gmail's built-in "Add to calendar" chip cannot be redirected (no API);
-  Messenger and all apps go through the system share sheet.
-- Dispatch after #022 lands (both touch EventFormModal).
+- Manifest `share_target` repointed to `/calendar` (GET, title/text/url);
+  legacy `/share-target` route kept as fallback for already-installed
+  PWAs (delete later once install base refreshes).
+- Calendar page consumes share params: text (URL deduped into it per
+  Android quirk) seeds the NLP input, parse runs immediately, banner
+  ack ("Shared text loaded — review and add"), params scrubbed via
+  replaceState; pre-existing `?quickadd=` deep link routed through the
+  same path; create-modal seed-reset bug fixed en route.
+- 8 new tests (`shareTarget.test.ts`); Messenger-style sample parses
+  clean (URL whole in description, time extracted) via #025 fidelity.
+- Gates: full suite 1267, e2e mobile+events green, check/oxlint/prettier
+  0, build ✔ (commit e01bc32).
