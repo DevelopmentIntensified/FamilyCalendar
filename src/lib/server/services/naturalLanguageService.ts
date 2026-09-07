@@ -182,6 +182,14 @@ const TOD_TIMES = {
 
 const WEEK_ORDER = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 
+/** Recurrence unit word → event-parser recurrence value. */
+const UNIT_RECURRENCE = {
+	day: 'daily',
+	week: 'weekly',
+	month: 'monthly',
+	year: 'yearly'
+} as const;
+
 const FULL_WEEKDAYS = [
 	'sunday',
 	'monday',
@@ -306,6 +314,10 @@ function resolveUntilDate(m: RegExpMatchArray, now: DateTime, zone?: string): st
  * Dropped only at the edges or next to punctuation — never mid-title. */
 const TITLE_STOP = new Set(['on', 'from', 'for', 'at', 'to', 'and', 'or', '&', 'am', 'pm']);
 
+/** Fan-out ceiling for a date chain ("sept 1 and 2 and 3 …"): one event per
+ * date, never a combinatorial blast. */
+const MAX_SPAN_DATES = 5;
+
 /** Cosmetic digit-times the parser consumed ("5:30", "9am", "a5pm"). */
 const TITLE_TIME_RES = [
 	/\b\d{1,2}:\d{2}\s*(?:am|pm)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(?:am|pm)?/gi,
@@ -396,7 +408,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// the description), removed from every downstream text scan, and can
 	// never be cut in half by the 50-char title window.
 	const urls = (input.match(/https?:\/\/\S+/gi) ?? []).map((u) => u.replace(/[.,;:!?)\]]+$/, ''));
-	const nonUrlText = urls.length > 0 ? input.replace(/https?:\/\/\S+/gi, ' ') : input;
+	let nonUrlText = urls.length > 0 ? input.replace(/https?:\/\/\S+/gi, ' ') : input;
 
 	// Early "until <date>" capture (recurrence end): the until-date ends the
 	// series, so blank it from date parsing — otherwise month-day rules steal
@@ -414,6 +426,12 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// days, reminders, calendar targets). The title step strips these so the
 	// title = unmatched text + attendants.
 	const stripSpans: string[] = [];
+
+	// Consumed location spans — stripped from the title like schedule, but
+	// NOT treated as schedule when deciding whether a "with"-list is
+	// title-terminal ("…with nathaniel and jamal at the office" keeps its
+	// pinned mid-title list; "…with james and joseph repeat every week" doesn't).
+	const titleOnlySpans: string[] = [];
 
 	// ===== DATE PATTERNS =====
 
@@ -435,6 +453,14 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		result.date = getNextDayOfWeek(nextDayMatch[1], zone).plus({ weeks: 1 }).toFormat('yyyy-MM-dd');
 		stripSpans.push(nextDayMatch[0]);
 		confidence += 0.25;
+	}
+
+	// "today"
+	const todayMatch = dateInput.match(/\btoday\b/i);
+	if (todayMatch && !result.date) {
+		result.date = now.toFormat('yyyy-MM-dd');
+		stripSpans.push(todayMatch[0]);
+		confidence += 0.2;
 	}
 
 	// "tomorrow"
@@ -536,12 +562,10 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		confidence += 0.35;
 	}
 
-	// Ordinal-first: "3rd of May", "third of June", "twenty-first of December"
+	// Ordinal-first: "3rd of May", "third of June", "twenty-first of December",
+	// "5th of oct" — MONTH_ALT covers full names + abbreviations.
 	const ordinalFirstMatch = dateInput.match(
-		new RegExp(
-			`\\b(\\d{1,2})(?:st|nd|rd|th)\\s+of\\s+(january|february|march|april|may|june|july|august|september|october|november|december)\\b`,
-			'i'
-		)
+		new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)\\s+of\\s+(${MONTH_ALT})\\b`, 'i')
 	);
 	if (ordinalFirstMatch && !result.date) {
 		const month = MONTH_MAP[ordinalFirstMatch[2].toLowerCase()];
@@ -557,10 +581,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 
 	// Ordinal word-first: "third of May", "twenty-first of December"
 	const ordinalWordMatch = dateInput.match(
-		new RegExp(
-			`\\b(${ORDINAL_WORDS_PATTERN})\\s+of\\s+(january|february|march|april|may|june|july|august|september|october|november|december)\\b`,
-			'i'
-		)
+		new RegExp(`\\b(${ORDINAL_WORDS_PATTERN})\\s+of\\s+(${MONTH_ALT})\\b`, 'i')
 	);
 	if (ordinalWordMatch && !result.date) {
 		const month = MONTH_MAP[ordinalWordMatch[2].toLowerCase()];
@@ -676,7 +697,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		if (dt.isValid) pushExplicit(sweep.index, dt.toFormat('yyyy-MM-dd'), sweep[0]);
 	}
 	const ordinalSweep =
-		/\b(\d{1,2})(?:st|nd|rd|th)\s+of\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b/gi;
+		/\b(\d{1,2})(?:st|nd|rd|th)\s+of\s+(january|february|march|april|may|june|july|august|september|october|november|december|sept|jan|feb|mar|apr|aug|sep|oct|nov|dec)\b/gi;
 	while ((sweep = ordinalSweep.exec(dateInput)) !== null) {
 		const month = MONTH_MAP[sweep[2].toLowerCase()];
 		const day = parseInt(sweep[1]);
@@ -727,10 +748,64 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		if (dt.isValid) pushExplicit(sweep.index, dt.toFormat('yyyy-MM-dd'), sweep[0]);
 	}
 	explicitDates.sort((a, b) => a.index - b.index);
-	if (explicitDates.length >= 2) {
-		result.dates = explicitDates.map((e) => e.date);
+	// Relative-day atoms ("today", "tomorrow", "yesterday") join the sweep so
+	// "today and tomorrow" chains expand like "sept 23 & 30" (issue 030).
+	const relDates: Array<{ index: number; date: string; span: string }> = [];
+	const relSweep = /\b(today|tomorrow|yesterday)\b/gi;
+	while ((sweep = relSweep.exec(dateInput)) !== null) {
+		const word = sweep[1].toLowerCase();
+		const dt =
+			word === 'today' ? now : word === 'tomorrow' ? now.plus({ days: 1 }) : now.minus({ days: 1 });
+		relDates.push({ index: sweep.index, date: dt.toFormat('yyyy-MM-dd'), span: sweep[0] });
 	}
-	for (const e of explicitDates) stripSpans.push(e.span);
+	// Chain atoms absorb a bridging "the " ("today and the 5th of oct") so the
+	// article strips away with the date span. Shifting the index back is safe:
+	// a separator (≥2 chars) always sits between chain atoms.
+	for (const atom of [...explicitDates, ...relDates]) {
+		const pre = dateInput.slice(Math.max(0, atom.index - 4), atom.index);
+		const the = /(?:^|\s)(the\s+)$/i.exec(pre);
+		if (the) {
+			atom.index -= the[1].length;
+			atom.span = the[1] + atom.span;
+		}
+	}
+	// A chain is a maximal run of date atoms joined only by list separators
+	// (and/,/& — optionally bridging "the"). Every chain of 2+ dates becomes
+	// one event per date sharing the parsed time/venue, capped at
+	// MAX_SPAN_DATES to keep the fan-out sane.
+	const chainAtoms = [...explicitDates, ...relDates].sort((a, b) => a.index - b.index);
+	const CHAIN_GAP = /^\s*(?:(?:,|&|\band\b)\s*(?:the\s+)?)*(?:\s*(?:,|&)\s*)?$/i;
+	type ChainAtom = { index: number; date: string; span: string };
+	const chains: ChainAtom[][] = [];
+	let run: ChainAtom[] = [];
+	const flushChain = () => {
+		if (run.length >= 2) chains.push(run);
+		run = [];
+	};
+	for (const atom of chainAtoms) {
+		if (run.length === 0) {
+			run = [atom];
+			continue;
+		}
+		const prev = run[run.length - 1];
+		const gap = dateInput.slice(prev.index + prev.span.length, atom.index);
+		if (CHAIN_GAP.test(gap)) {
+			run.push(atom);
+		} else {
+			flushChain();
+			run = [atom];
+		}
+	}
+	flushChain();
+	for (const atom of chainAtoms) stripSpans.push(atom.span);
+	if (chains.length > 0) {
+		const best = chains.reduce((a, b) => (b.length > a.length ? b : a));
+		const dates = [...new Set(best.map((e) => e.date))].slice(0, MAX_SPAN_DATES);
+		if (dates.length >= 2) {
+			result.dates = dates;
+			result.date = dates[0];
+		}
+	}
 
 	// Bare-weekday fallback ("dinner friday"): no date matched anywhere, so
 	// the first named weekday is the event day (next occurrence). Exact
@@ -841,6 +916,20 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			(m) => `every_${m[1]}_${m[2].toLowerCase()}`
 		],
 		[/\bevery\s+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i, () => 'weekly'],
+		// "repeat every week", "repeats weekly" — trailing cues are recurrence,
+		// never title text (issue 030). Full span captured so "repeat" leaves.
+		[
+			/\brepeats?\s+every\s+(day|week|month|year)\b/i,
+			(m) => lookup(UNIT_RECURRENCE, m[1].toLowerCase()) ?? 'weekly'
+		],
+		[
+			/\brepeats?\s+(daily|weekly|monthly|yearly|annually)\b/i,
+			(m) => (m[1].toLowerCase() === 'annually' ? 'yearly' : m[1].toLowerCase())
+		],
+		[
+			/\bevery\s+(day|week|month|year)s?\b/i,
+			(m) => lookup(UNIT_RECURRENCE, m[1].toLowerCase()) ?? 'weekly'
+		],
 		[/\b(?:daily|every day)\b/i, () => 'daily'],
 		[/\bweekly\b/i, () => 'weekly'],
 		[/\bmonthly\b/i, () => 'monthly'],
@@ -962,13 +1051,27 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		/(?:start(?:ing)?\s+at|at|beginning\s+at)\s+(\d{1,2})(?::(\d{2}))?(?!\d)\s*(am?|pm?|AM?|PM?)?/i
 	);
 
-	// Standalone time: "9:00 AM", "7:15P", "3:30 PM" (may appear after date)
+	// Standalone time: "9:00 AM", "7:15P", "3:30 PM" (may appear after date).
+	// Bare meridiem form without colon or "at" ("mon and tue 6am") follows.
 	if (!startTimeMatch && !foundTime) {
 		const standaloneTimeMatch = input.match(/\b(\d{1,2}):(\d{2})\s*(am?|pm?|AM?|PM?)\b/i);
-		if (standaloneTimeMatch) {
-			let hour = parseInt(standaloneTimeMatch[1]);
-			const minute = parseInt(standaloneTimeMatch[2]);
-			const period = standaloneTimeMatch[3]?.toLowerCase();
+		// Bare meridiem time without colon or "at" ("mon and tue 6am").
+		const bareMeridiemMatch = standaloneTimeMatch
+			? null
+			: input.match(/(?<![\d:])(\d{1,2})\s*(am|pm)\b/i);
+		const timeMatch: RegExpMatchArray | null = standaloneTimeMatch ?? bareMeridiemMatch;
+		const isColonTime = standaloneTimeMatch !== null;
+		if (timeMatch) {
+			let hour = parseInt(timeMatch[1]);
+			let minute = 0;
+			let period: string | undefined;
+			if (isColonTime && standaloneTimeMatch) {
+				minute = parseInt(standaloneTimeMatch[2]);
+				period = standaloneTimeMatch[3]?.toLowerCase();
+			} else if (bareMeridiemMatch) {
+				// SAFETY: bareMeridiemMatch has exactly the two groups (hour, am|pm).
+				period = bareMeridiemMatch[2].toLowerCase();
+			}
 			if (period === 'pm' && hour < 12) hour += 12;
 			if (period === 'am' && hour === 12) hour = 0;
 			result.startTime = normalizeTime(hour, minute);
@@ -1278,6 +1381,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		if (ampm === 'am' && hour === 12) hour = 0;
 		result.endTime = normalizeTime(hour, minute);
 		confidence += 0.2;
+		stripSpans.push(tillMatch[0]);
 	}
 
 	// "returning by 2 PM", "back by 6 PM" → end time
@@ -1310,6 +1414,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (locKeywordMatch && !result.location) {
 		result.location = locKeywordMatch[1].trim();
 		confidence += 0.2;
+		titleOnlySpans.push(locKeywordMatch[0]);
 	}
 
 	// "at X" where X is a short uppercase token (e.g. "at LU", "at HR")
@@ -1317,6 +1422,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (atShortLocMatch && !result.location) {
 		result.location = atShortLocMatch[1];
 		confidence += 0.15;
+		titleOnlySpans.push(atShortLocMatch[0]);
 	}
 
 	// Street address: "442 cherry hill dr., rustburg, va 24588" — the whole
@@ -1341,6 +1447,8 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		if (places.length > 0) {
 			result.location = places[0];
 			confidence += 0.15;
+			// The place name is consumed metadata — keep it out of the title.
+			titleOnlySpans.push(places[0]);
 		}
 	}
 
@@ -1352,6 +1460,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		loc = loc.replace(/\s+(?:and|but|with|for|to|by|because|since)\s+.*$/, '');
 		result.location = loc;
 		confidence += 0.15;
+		titleOnlySpans.push(atLocMatch[0]);
 	}
 
 	// "in the X" - capture locations like "downtown square"
@@ -1359,6 +1468,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (inLocMatch && !result.location) {
 		result.location = inLocMatch[1];
 		confidence += 0.15;
+		titleOnlySpans.push(inLocMatch[0]);
 	}
 
 	// "at home"
@@ -1366,6 +1476,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (atHomeMatch && !result.location) {
 		result.location = 'Home';
 		confidence += 0.1;
+		titleOnlySpans.push(atHomeMatch[0]);
 	}
 
 	// "at my apartment on 42 Maple Drive" or "at my apartment"
@@ -1382,6 +1493,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 				: 'Home';
 		}
 		confidence += 0.1;
+		titleOnlySpans.push(myPlaceMatch[0]);
 	}
 
 	// Address: "at 450 Main Street" or standalone address
@@ -1390,6 +1502,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (addressMatch && !result.location) {
 		result.location = addressMatch[1].trim();
 		confidence += 0.15;
+		titleOnlySpans.push(addressMatch[0]);
 	}
 
 	// "at X studio", "at X center", "at X park" - general location patterns
@@ -1399,6 +1512,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (generalLocMatch && !result.location) {
 		result.location = generalLocMatch[1].trim();
 		confidence += 0.15;
+		titleOnlySpans.push(generalLocMatch[0]);
 	}
 
 	// Strip trailing punctuation from location
@@ -1445,6 +1559,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	const withMatch = nonUrlText.matchAll(
 		/\bwith\s+([A-Za-z][A-Za-z'’-]*(?:(?:\s+and\s+|\s*&\s*|\s*,\s*)[A-Za-z][A-Za-z'’-]*)*)/gi
 	);
+	let withSpan: { text: string; end: number } | null = null;
 	for (const m of withMatch) {
 		const items = m[1]
 			.split(/\s*(?:,|\band\b|&)\s*/i)
@@ -1468,7 +1583,24 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 				}
 			}
 		}
+		withSpan = { text: m[0], end: (m.index ?? 0) + m[0].length };
 		break;
+	}
+
+	// A "with"-list that runs to the end of the title (everything after it is
+	// schedule — recurrence cues, dates, times) is attendance, not the event
+	// name: blank it from the remaining text so the title never carries it.
+	// Mid-title lists keep their pin ("…with nathan") — only terminal lists go.
+	if (withSpan) {
+		let tail = nonUrlText.slice(withSpan.end);
+		for (const phrase of [...recurrencePhrases, ...stripSpans]) {
+			const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			tail = tail.replace(new RegExp(escaped, 'i'), ' ');
+		}
+		if (/^[\s.,;:!-]*$/.test(tail)) {
+			const escapedSpan = withSpan.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			nonUrlText = nonUrlText.replace(new RegExp(escapedSpan, 'i'), '  ');
+		}
 	}
 
 	// "invite X" / "invite Jay and Mo" — explicit beats guessed.
@@ -1590,9 +1722,21 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// pinned first-50 title (existing tests pin trailing-space behavior).
 	{
 		const window = result.title ?? '';
-		const strippedWindow = stripTitleSpans(window, [...recurrencePhrases, ...stripSpans]);
-		if (strippedWindow !== window && window) {
-			const cleaned = cleanTitleText(strippedWindow);
+		const strippedWindow = stripTitleSpans(window, [
+			...recurrencePhrases,
+			...stripSpans,
+			...titleOnlySpans
+		]);
+		const cleaned = cleanTitleText(strippedWindow);
+		// Clean when spans were stripped here, or when the window opens with a
+		// connector the pre-window strip stranded ("friday and saturday dinner"
+		// → "and dinner"). Windows that merely END in a stop word ("…for ")
+		// are pinned cuts — never touched.
+		if (
+			(strippedWindow !== window ||
+				/^[^a-z0-9]*\b(on|from|for|at|to|and|or|&|am|pm)\b/i.test(window)) &&
+			window
+		) {
 			const final = cleaned.replace(/[.,;:!?]+$/, '');
 			if (final.length > 3 && !/^[\s,]*$/.test(final)) {
 				result.title = final;
@@ -1663,6 +1807,67 @@ const COMMA_SIGNAL =
 /** Minimum confidence for a segment to count as its own event. */
 const MIN_SEGMENT_CONFIDENCE = 0.3;
 
+/** Attendee-list spans ("with james and joseph"): an "and"/comma inside one
+ * never splits events — the list belongs to a single event (issue 030). */
+const WITH_LIST_PATTERN =
+	"\\bwith\\s+[A-Za-z][A-Za-z'’-]*(?:(?:\\s+and\\s+|\\s*&\\s*|\\s*,\\s*)[A-Za-z][A-Za-z'’-]*)*";
+
+function withListSpans(text: string): Array<[number, number]> {
+	const spans: Array<[number, number]> = [];
+	for (const m of text.matchAll(new RegExp(WITH_LIST_PATTERN, 'gi'))) {
+		const start = m.index ?? 0;
+		spans.push([start, start + m[0].length]);
+	}
+	return spans;
+}
+
+/** Date-atom edge tests for chain vetoes: a separator with a date atom hard
+ * against it on BOTH sides joins a date list ("today and tomorrow", "sept 23
+ * and 30", "friday and the 5th") — one multi-date parse, not two events.
+ * Bare trailing digits count only on the right edge (day continuations). */
+const WEEKDAY_ATOM =
+	'\\b(?:sun(?:day)?|mon(?:day)?|tue(?:s|sday)?|wed(?:nes|nesday)?|thu(?:r?s?(?:day)?)?|fri(?:day)?|sat(?:ur|urday)?)\\b';
+const REL_ATOM = '\\b(?:today|tomorrow|yesterday)\\b';
+const DATE_END_RE = new RegExp(
+	`(?:${REL_ATOM}|${WEEKDAY_ATOM}|\\b(?:${MONTH_ALT})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:${MONTH_ALT})|\\b\\d{1,2}(?:st|nd|rd|th)\\s+of\\s+(?:${MONTH_ALT})|\\b20\\d{2}-\\d{2}-\\d{2})\\s*$`,
+	'i'
+);
+const DATE_START_RE = new RegExp(
+	`^\\s*(?:the\\s+)?(?:${REL_ATOM}|${WEEKDAY_ATOM}|\\b(?:${MONTH_ALT})\\.?\\s+\\d{1,2}|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:${MONTH_ALT})|\\b\\d{1,2}(?:st|nd|rd|th)\\s+of\\s+(?:${MONTH_ALT})|\\b\\d{1,2}\\b(?!\\s*:)|\\b20\\d{2}-\\d{2}-\\d{2})`,
+	'i'
+);
+
+/** Split positions that survive the vetoes (chain joins, attendee lists). */
+function survivingCuts(
+	input: string,
+	seps: RegExpMatchArray[],
+	sepLen: (m: RegExpMatchArray) => number
+): number[] {
+	const spans = withListSpans(input);
+	const cuts: number[] = [];
+	for (const m of seps) {
+		const i = m.index ?? 0;
+		const left = input.slice(0, i);
+		const right = input.slice(i + sepLen(m));
+		const chainJoin = DATE_END_RE.test(left) && DATE_START_RE.test(right);
+		const inWithList = spans.some(([s, e]) => i >= s && i < e);
+		if (!chainJoin && !inWithList) cuts.push(i);
+	}
+	return cuts;
+}
+
+/** Split input at the given separator positions (absolute indices). */
+function splitAt(input: string, cuts: number[], cutLen: number): string[] {
+	const parts: string[] = [];
+	let prev = 0;
+	for (const c of cuts) {
+		parts.push(input.slice(prev, c));
+		prev = c + cutLen;
+	}
+	parts.push(input.slice(prev));
+	return parts.map((p) => p.trim()).filter((p) => p.length > 0);
+}
+
 /**
  * Multi-event segmentation (item 5). Splits on semicolons/newlines and on
  * "and" only when both sides carry date/time signals, parses each segment
@@ -1688,30 +1893,37 @@ export function parseEventList(input: string, zone?: string): ParseResult[] {
 	return parsed;
 }
 
-/** Split on commas only when every part carries its own signal. */
+/** Split on commas only when every part carries its own signal. Chain joins
+ * ("today, tomorrow") and attendee lists ("with mary, sue") never split. */
 function splitOnComma(input: string): string[] {
-	const parts = input.split(',');
+	const commas = [...input.matchAll(/,/g)];
+	if (commas.length === 0) return [input];
+	const cuts = survivingCuts(input, commas, () => 1);
+	if (cuts.length === 0) return [input];
+	const parts = splitAt(input, cuts, 1);
 	if (parts.length < 2) return [input];
 	if (!parts.every((p) => COMMA_SIGNAL.test(p))) return [input];
-	const trimmed = parts.map((p) => p.trim()).filter((p) => p.length > 0);
-	return trimmed.length > 1 ? trimmed : [input];
+	return parts;
 }
 
 /** Split on "and" between two signal-bearing halves, else no split.
- * A day-coordinated pair ("on Tuesday and Thursday") is one series, not
- * two events — veto the split when two day tokens are joined by bare
- * "and"/"&". Commas don't veto ("Friday, movie Saturday" still splits). */
+ * Vetoes (per "and"): day-coordinated pairs ("on Tuesday and Thursday" —
+ * one series, typos included), date-chain joins ("today and tomorrow" —
+ * one multi-date parse), and attendee lists ("with james and joseph").
+ * Commas don't veto ("Friday, movie Saturday" still splits). */
 function splitOnAnd(input: string): string[] {
-	const parts = input.split(/\band\b/i);
-	if (parts.length < 2) return [input];
+	const ands = [...input.matchAll(/\band\b/gi)];
+	if (ands.length === 0) return [input];
 	const tokens = extractDayTokens(input);
 	for (let i = 0; i + 1 < tokens.length; i++) {
 		const between = input.slice(tokens[i].index + tokens[i].raw.length, tokens[i + 1].index);
 		if (/^\s*(and|&)\s*$/i.test(between)) return [input];
 	}
-	// Only split when every part carries its own signal.
+	const cuts = survivingCuts(input, ands, () => 3);
+	if (cuts.length === 0) return [input];
+	const parts = splitAt(input, cuts, 3);
 	if (!parts.every((p) => SEGMENT_SIGNAL.test(p))) return [input];
-	return parts.map((p) => p.trim()).filter((p) => p.length > 0);
+	return parts;
 }
 
 // ===== Bill quick-add NLP (issue 011) =====

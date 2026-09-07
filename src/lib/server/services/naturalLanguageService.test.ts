@@ -1150,6 +1150,128 @@ describe('Comma-separated events ("dinner Friday, movie Saturday")', () => {
 	});
 });
 
+// ===== Issue 030 — multi-day spans, attendee lists, trailing recurrence =====
+
+describe('Multi-day span lists (issue 030)', () => {
+	const today = DateTime.now().toFormat('yyyy-MM-dd');
+	const tomorrow = DateTime.now().plus({ days: 1 }).toFormat('yyyy-MM-dd');
+
+	it('parses "running today and tomorrow at 5pm" as two dated events', () => {
+		const result = parseEventInput('running today and tomorrow at 5pm');
+		expect(result.parsed.dates).toEqual([today, tomorrow]);
+		expect(result.parsed.date).toBe(today);
+		expect(result.parsed.startTime).toBe('17:00');
+		expect(result.parsed.title).toBe('running');
+	});
+
+	it('keeps the span phrase a single multi-date parse (no bogus split)', () => {
+		const results = parseEventList('running today and tomorrow at 5pm');
+		expect(results).toHaveLength(1);
+		expect(results[0].parsed.dates).toEqual([today, tomorrow]);
+	});
+
+	it('parses "running today and the 5th of oct at 5pm" as today + Oct 5', () => {
+		const result = parseEventInput('running today and the 5th of oct at 5pm');
+		expect(result.parsed.dates).toEqual([today, '2026-10-05']);
+		expect(result.parsed.startTime).toBe('17:00');
+		expect(result.parsed.title).toBe('running');
+	});
+
+	it('expands weekday pairs with a shared time ("friday and saturday dinner")', () => {
+		const result = parseEventInput('friday and saturday dinner');
+		expect(result.parsed.dates).toHaveLength(2);
+		expect(DateTime.fromISO(result.parsed.dates![0]).weekday).toBe(5);
+		expect(DateTime.fromISO(result.parsed.dates![1]).weekday).toBe(6);
+		expect(result.parsed.startTime).toBeUndefined();
+		expect(result.parsed.title).toBe('dinner');
+	});
+
+	it('reads bare abbreviations with a shared time ("mon and tue 6am")', () => {
+		const result = parseEventInput('mon and tue 6am');
+		expect(result.parsed.dates!.map((d) => DateTime.fromISO(d).weekday).sort()).toEqual([1, 2]);
+		expect(result.parsed.startTime).toBe('06:00');
+	});
+
+	it('caps span expansion at five dates', () => {
+		const result = parseEventInput('party sept 1 and 2 and 3 and 4 and 5 and 6');
+		expect(result.parsed.dates).toHaveLength(5);
+	});
+
+	it('parses a lone "today" as a plain date, no dates list', () => {
+		const result = parseEventInput('dentist today at 3pm');
+		expect(result.parsed.date).toBe(today);
+		expect(result.parsed.dates).toBeUndefined();
+		expect(result.parsed.startTime).toBe('15:00');
+	});
+});
+
+describe('And-lists are attendees, never event splitters (issue 030)', () => {
+	const EVIDENCE =
+		'running on friday at peaksview park at 5pm till 6pm with james and joseph repeat every week';
+
+	it('keeps the exported phrase ONE event', () => {
+		expect(parseEventList(EVIDENCE)).toHaveLength(1);
+	});
+
+	it('attaches both attendees to the single event', () => {
+		const result = parseEventInput(EVIDENCE);
+		expect(result.parsed.attendants).toHaveLength(2);
+		expect(result.parsed.attendants ?? []).toEqual(expect.arrayContaining(['james', 'joseph']));
+		expect(DateTime.fromISO(result.parsed.date!).weekday).toBe(5);
+		expect(result.parsed.startTime).toBe('17:00');
+		expect(result.parsed.endTime).toBe('18:00');
+		expect(result.parsed.location).toBe('peaksview park');
+		expect(result.parsed.recurring).toBe('weekly');
+		expect(result.parsed.title).toBe('running');
+	});
+
+	const variants: Array<[string, string[]]> = [
+		['dinner with sarah and mike friday', ['sarah', 'mike']],
+		['gym with mary, sue on friday', ['mary', 'sue']],
+		['cookout with sarah and mike and jamal saturday', ['sarah', 'mike', 'jamal']]
+	];
+	for (const [input, names] of variants) {
+		it(`keeps "${input}" one event with ${names.join(' + ')}`, () => {
+			const results = parseEventList(input);
+			expect(results).toHaveLength(1);
+			const attendants = results[0].parsed.attendants ?? [];
+			for (const n of names) expect(attendants, input).toContain(n);
+		});
+	}
+
+	it('still splits when each side names its own event', () => {
+		const results = parseEventList('dinner with sarah friday and movie with mike saturday');
+		expect(results).toHaveLength(2);
+		expect(results[0].parsed.attendants ?? []).toContain('sarah');
+		expect(results[1].parsed.attendants ?? []).toContain('mike');
+	});
+});
+
+describe('Trailing recurrence cues (issue 030)', () => {
+	const cases: Array<[string, string]> = [
+		['book club repeat every week at 6pm', 'weekly'],
+		['book club every week at 6pm', 'weekly'],
+		['standup repeats weekly at 9am', 'weekly'],
+		['billing review repeats every month at 9am', 'monthly'],
+		['cleanup repeats every day at 7am', 'daily']
+	];
+	for (const [input, recurring] of cases) {
+		it(`parses "${input}" as ${recurring} and strips it from the title`, () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.recurring).toBe(recurring);
+			expect(result.parsed.title, input).not.toMatch(/repeat|every week|weekly|monthly|daily/i);
+		});
+	}
+
+	it('lands the cue on the primary event with byDay from the named day', () => {
+		const result = parseEventInput('running on friday at 5pm repeat every week');
+		expect(result.parsed.recurring).toBe('weekly');
+		expect(result.parsed.recurringByDay).toEqual(['FR']);
+		expect(result.parsed.startTime).toBe('17:00');
+		expect(result.parsed.title).toBe('running');
+	});
+});
+
 // ===== Issue 025 — URL fidelity =====
 
 const EVIDENCE_URL = 'https://app.operadds.com//u/rc/ne9qzml';
