@@ -430,43 +430,52 @@ function resolveDateStep(title: string, now: Date): DateResolution {
 
 /** A resolved `@handle`: whose task it becomes, and how much text it ate. */
 interface AtHandleMatch {
-	userId: string;
+	/**
+	 * Matched member's userId, or null when the longest match is ambiguous
+	 * between members (caller surfaces unknownMember instead of assigning).
+	 */
+	userId: string | null;
 	/** Consumed text length, from the `@` through the end of the name. */
 	length: number;
 }
 
 /**
- * Roster match for an `@handle` at `match.index` in `title`. A bare token
- * ("@maya") matches a unique first/last name; when that is ambiguous, a
- * full-name extension ("@sam rivera" between two Sams) disambiguates.
- * Anything else — unknown name, or more than one member matching — is
- * null so the caller can surface "unknown member @x" instead of guessing.
+ * Roster match for an `@handle` at `match.index` in `title` (issue 024).
+ * Each member contributes candidate names — firstName alone (which may be
+ * MULTI-WORD, e.g. "Mary Ann"), lastName alone, and "First Last" — and a
+ * candidate may consume as many following words as it needs. The greedy
+ * longest match wins; if two DIFFERENT members tie at that longest length
+ * the result is ambiguous (`userId: null`) so the caller surfaces
+ * "unknown member" instead of guessing. No candidate matches (unknown
+ * name) → null too.
  */
 function matchAtHandle(
 	title: string,
 	match: RegExpExecArray,
 	members: TaskQuickAddMember[]
 ): AtHandleMatch | null {
-	const handle = match[1].toLowerCase();
-	// Longest full-name extension first: it is strictly more specific
-	// than the bare token, so it wins whenever it matches at all.
-	const fulls: AtHandleMatch[] = [];
+	const rest = title.slice(match.index);
+	const hits: (AtHandleMatch & { userId: string | null })[] = [];
 	for (const m of members) {
-		if (!m.firstName || !m.lastName) continue;
-		const re = new RegExp(
-			`^@\\s*${escapeRegExp(`${m.firstName} ${m.lastName}`)}(?=$|\\s|[^\\w])`,
-			'i'
+		const candidates = new Set(
+			[`${m.firstName} ${m.lastName}`.trim(), m.firstName, m.lastName]
+				.filter((v) => v.length > 0)
+				.map((v) => v.toLowerCase())
 		);
-		const fm = re.exec(title.slice(match.index));
-		if (fm) fulls.push({ userId: m.userId, length: fm[0].length });
+		for (const candidate of candidates) {
+			const re = new RegExp(`^@\\s*${escapeRegExp(candidate)}(?=$|\\s|[^\\w])`, 'i');
+			const cm = re.exec(rest);
+			if (cm) hits.push({ userId: m.userId, length: cm[0].length });
+		}
 	}
-	if (fulls.length > 0) return fulls.length === 1 ? fulls[0] : null;
-	const plains = members.filter(
-		(m) =>
-			m.firstName.toLowerCase() === handle ||
-			(m.lastName ? m.lastName.toLowerCase() === handle : false)
-	);
-	return plains.length === 1 ? { userId: plains[0].userId, length: match[0].length } : null;
+	if (hits.length === 0) return null;
+	const longest = Math.max(...hits.map((h) => h.length));
+	const winners = new Set(hits.filter((h) => h.length === longest).map((h) => h.userId));
+	return winners.size === 1
+		? { userId: [...winners][0], length: longest }
+		: // Ambiguous: still report how much text the tie consumed so the
+			// caller cuts all of it (no stray middle name left in the title).
+			{ userId: null, length: longest };
 }
 
 /** Strip every `[at, at+len)` cut from the string, right-to-left. */
@@ -551,14 +560,17 @@ export function parseTaskQuickAdd(raw: string, opts: TaskQuickAddOptions = {}): 
 				continue;
 			}
 			const hit = matchAtHandle(title, am, opts.members);
-			if (hit) {
+			if (hit?.userId) {
 				assignedTo = hit.userId;
 				cuts.push({ at: am.index!, len: hit.length });
 			} else {
 				// Unknown or ambiguous member: never silently dropped — the
-				// UI surfaces this as an inline error instead.
+				// UI surfaces this as an inline error instead. Cut what the
+				// failed lookup consumed (the candidate length when a name
+				// partially matched, else just the token) so no stray name
+				// fragment is left in the title.
 				unknownMember = `@${token}`;
-				cuts.push({ at: am.index!, len: am[0].length });
+				cuts.push({ at: am.index!, len: hit?.length ?? am[0].length });
 			}
 		}
 		title = stripCuts(title, cuts);

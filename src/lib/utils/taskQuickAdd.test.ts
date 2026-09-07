@@ -679,6 +679,194 @@ describe('parseTaskQuickAdd — scoping: #public/#private, @family, @name (issue
 	});
 });
 
+/**
+ * Issue 024: `@` handles must match each member's candidate names —
+ * firstName alone (including MULTI-WORD first names like "Mary Ann"),
+ * lastName alone, or "First Last" — consuming as many following words
+ * as the candidate needs. Greedy longest match wins; exact ties across
+ * DIFFERENT members are ambiguous (unknownMember, never a guess).
+ */
+describe('parseTaskQuickAdd — @handle multi-word names (issue 024)', () => {
+	const MIXED_ROSTER: TaskQuickAddMember[] = [
+		{ userId: 'u-maryann', firstName: 'Mary Ann', lastName: 'Smith' },
+		{ userId: 'u-mary', firstName: 'Mary', lastName: 'Jones' },
+		{ userId: 'u-aunty', firstName: 'Auntie May', lastName: '' },
+		{ userId: 'u-leo', firstName: 'Leo', lastName: '' },
+		{ userId: 'u-samr', firstName: 'Sam', lastName: 'Rivera' }
+	];
+	// Two members whose firstName is the same multi-word "Mary Ann".
+	const TIE_ROSTER: TaskQuickAddMember[] = [
+		{ userId: 'u-maw', firstName: 'Mary Ann', lastName: 'Wu' },
+		{ userId: 'u-mas', firstName: 'Mary Ann', lastName: 'Smith' }
+	];
+
+	const cases: {
+		phrase: string;
+		roster: TaskQuickAddMember[];
+		expectTitle: string;
+		expectAssignedTo: string | null;
+		expectUnknown: string | null;
+		expectFamily?: boolean;
+	}[] = [
+		// Two-word first name, first word only of the handle
+		{
+			phrase: '@mary ann buy milk',
+			roster: MIXED_ROSTER,
+			expectTitle: 'buy milk',
+			expectAssignedTo: 'u-maryann',
+			expectUnknown: null
+		},
+		// Two-word first name mid-title: the cut covers BOTH consumed words
+		{
+			phrase: 'Buy @Mary Ann cookies',
+			roster: MIXED_ROSTER,
+			expectTitle: 'Buy cookies',
+			expectAssignedTo: 'u-maryann',
+			expectUnknown: null
+		},
+		// Multi-word first + last name all together
+		{
+			phrase: '@mary ann smith call vet',
+			roster: MIXED_ROSTER,
+			expectTitle: 'call vet',
+			expectAssignedTo: 'u-maryann',
+			expectUnknown: null
+		},
+		// Multi-word firstName, NO lastName — matched by the full token
+		{
+			phrase: '@auntie may water plants',
+			roster: MIXED_ROSTER,
+			expectTitle: 'water plants',
+			expectAssignedTo: 'u-aunty',
+			expectUnknown: null
+		},
+		// Greedy: "Mary Ann" beats the shorter "Mary" of another member
+		{
+			phrase: '@mary ann wash car',
+			roster: MIXED_ROSTER,
+			expectTitle: 'wash car',
+			expectAssignedTo: 'u-maryann',
+			expectUnknown: null
+		},
+		// "First Last" still wins over the other member's bare first name
+		{
+			phrase: '@mary jones pay bills',
+			roster: MIXED_ROSTER,
+			expectTitle: 'pay bills',
+			expectAssignedTo: 'u-mary',
+			expectUnknown: null
+		},
+		// lastName alone still matches
+		{
+			phrase: '@jones pay bills',
+			roster: MIXED_ROSTER,
+			expectTitle: 'pay bills',
+			expectAssignedTo: 'u-mary',
+			expectUnknown: null
+		},
+		// Single-word member with no lastName (regression)
+		{
+			phrase: '@leo take out trash',
+			roster: MIXED_ROSTER,
+			expectTitle: 'take out trash',
+			expectAssignedTo: 'u-leo',
+			expectUnknown: null
+		},
+		// Full-name disambiguation (regression)
+		{
+			phrase: '@sam rivera clean gutters',
+			roster: MIXED_ROSTER,
+			expectTitle: 'clean gutters',
+			expectAssignedTo: 'u-samr',
+			expectUnknown: null
+		},
+		// Handle at the very end of the input
+		{
+			phrase: 'buy milk @Mary Ann',
+			roster: MIXED_ROSTER,
+			expectTitle: 'buy milk',
+			expectAssignedTo: 'u-maryann',
+			expectUnknown: null
+		},
+		// First word of a multi-word firstName alone matches nobody → unknown
+		{
+			phrase: '@mary cookies',
+			roster: TIE_ROSTER,
+			expectTitle: 'cookies',
+			expectAssignedTo: null,
+			expectUnknown: '@mary'
+		},
+		// Same multi-word firstName on two members → ambiguous tie
+		{
+			phrase: '@mary ann buy milk',
+			roster: TIE_ROSTER,
+			expectTitle: 'buy milk',
+			expectAssignedTo: null,
+			expectUnknown: '@mary'
+		},
+		// Full name disambiguates the multi-word tie (member 1)
+		{
+			phrase: '@mary ann wu buy milk',
+			roster: TIE_ROSTER,
+			expectTitle: 'buy milk',
+			expectAssignedTo: 'u-maw',
+			expectUnknown: null
+		},
+		// Full name disambiguates the multi-word tie (member 2)
+		{
+			phrase: '@mary ann smith walk dog',
+			roster: TIE_ROSTER,
+			expectTitle: 'walk dog',
+			expectAssignedTo: 'u-mas',
+			expectUnknown: null
+		},
+		// Unknown name still surfaces (regression)
+		{
+			phrase: '@zoe buy milk',
+			roster: MIXED_ROSTER,
+			expectTitle: 'buy milk',
+			expectAssignedTo: null,
+			expectUnknown: '@zoe'
+		},
+		// @family special token unchanged
+		{
+			phrase: '@family clean the garage',
+			roster: MIXED_ROSTER,
+			expectTitle: 'clean the garage',
+			expectAssignedTo: null,
+			expectUnknown: null,
+			expectFamily: true
+		},
+		// Multiple @handles in one input: both consumed
+		{
+			phrase: '@leo feed cat @mary ann',
+			roster: MIXED_ROSTER,
+			expectTitle: 'feed cat',
+			expectAssignedTo: 'u-maryann',
+			expectUnknown: null
+		},
+		// Multiple @handles: one unknown + one multi-word match
+		{
+			phrase: '@zoe buy milk @mary ann wash car',
+			roster: MIXED_ROSTER,
+			expectTitle: 'buy milk wash car',
+			expectAssignedTo: 'u-maryann',
+			expectUnknown: '@zoe'
+		}
+	];
+
+	it.each(cases)(
+		'$phrase → "$expectTitle" assigned=$expectAssignedTo unknown=$expectUnknown',
+		({ phrase, roster, expectTitle, expectAssignedTo, expectUnknown, expectFamily }) => {
+			const r = parseTaskQuickAdd(phrase, { now: NOW, members: roster });
+			expect(r.title).toBe(expectTitle);
+			expect(r.assignedTo).toBe(expectAssignedTo);
+			expect(r.unknownMember).toBe(expectUnknown);
+			expect(r.familyTask).toBe(expectFamily ?? false);
+		}
+	);
+});
+
 describe('parseTaskQuickAdd — richer date phrases (new surface)', () => {
 	it("'next monday' keeps the whole phrase off the title", () => {
 		const r = parseTaskQuickAdd('call vet next monday', { now: NOW });
