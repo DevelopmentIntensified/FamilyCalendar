@@ -4,6 +4,7 @@
 	import { untrack } from 'svelte';
 	import { DateTime } from 'luxon';
 	import type { ActionData, PageData } from './$types';
+	import { buildGoogleCalendarUrl } from '$lib/utils/ics';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -15,6 +16,31 @@
 		data.userSettings?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone
 	);
 	const isFamilyEvent = $derived(data.isFamilyEvent);
+
+	// Add-to-calendar targets (issue 028): server-built .ics download plus a
+	// client-built Google render link from the loaded event.
+	const icsUrl = $derived(`/api/events/${encodeURIComponent(event.id)}/ics`);
+	const googleCalendarUrl = $derived(
+		buildGoogleCalendarUrl({
+			id: event.id,
+			title: event.title,
+			start: event.start,
+			end: event.end,
+			allDay: !!event.allDay,
+			description: event.description,
+			location: event.location,
+			recurrence: event.recurrenceFrequency
+				? {
+						recurrenceFrequency: event.recurrenceFrequency,
+						recurrenceInterval: event.recurrenceInterval ?? null,
+						recurrenceByDay: event.recurrenceByDay ?? null,
+						recurrenceCount: event.recurrenceCount ?? null,
+						recurrenceUntil: event.recurrenceUntil ?? null
+					}
+				: null,
+			timeZone
+		})
+	);
 
 	let showDeleteConfirm = $state(false);
 	let deleting = $state(false);
@@ -291,6 +317,45 @@
 
 				<!-- Action Buttons -->
 				<div class="flex flex-wrap gap-3 border-t pt-6">
+					<a
+						href={googleCalendarUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="flex min-h-11 items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-2 h-4 w-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+							<line x1="16" y1="2" x2="16" y2="6"></line>
+							<line x1="8" y1="2" x2="8" y2="6"></line>
+							<line x1="3" y1="10" x2="21" y2="10"></line>
+						</svg>
+						Add to Google
+					</a>
+					<a
+						href={icsUrl}
+						download
+						class="flex min-h-11 items-center rounded-md border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-2 h-4 w-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+						</svg>
+						Add to .ics
+					</a>
+
 					<a
 						href="/calendar?edit={event.id}"
 						class="flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
