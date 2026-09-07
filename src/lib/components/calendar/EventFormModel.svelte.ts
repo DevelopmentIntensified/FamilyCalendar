@@ -151,7 +151,14 @@ export function createEventForm(config: EventFormConfig) {
 	function initializeCalendar() {
 		const { initialEvent, calendars, defaultCalendarId } = config;
 		if (initialEvent) {
-			selectedCalendarId = initialEvent.calendarId || (calendars.length > 0 ? calendars[0].id : '');
+			// Keep the event's calendar only if it's still visible to the user;
+			// a stale/hidden calendar falls back to the first visible one.
+			selectedCalendarId =
+				initialEvent.calendarId && calendars.some((c) => c.id === initialEvent.calendarId)
+					? initialEvent.calendarId
+					: calendars.length > 0
+						? calendars[0].id
+						: '';
 		} else if (defaultCalendarId && calendars.some((c) => c.id === defaultCalendarId)) {
 			selectedCalendarId = defaultCalendarId;
 		} else if (calendars.length > 0) {

@@ -261,3 +261,82 @@ describe('EventFormModel - NLP recurrence', () => {
 		expect(data!.end).toContain('2026-09-07T16:00');
 	});
 });
+
+describe('EventFormModel - default calendar selection chain', () => {
+	const twoCalendars = [
+		{ id: 'personal', name: 'Personal Calendar' },
+		{ id: 'family', name: 'Family Calendar' }
+	];
+
+	it('new event uses userSettings.defaultCalendarId when set', () => {
+		const form = createEventForm({
+			calendars: twoCalendars,
+			familyMembers: [],
+			defaultCalendarId: 'family'
+		});
+		expect(form.selectedCalendarId).toBe('family');
+	});
+
+	it('new event falls back to calendars[0] when default is not in the list', () => {
+		const form = createEventForm({
+			calendars: twoCalendars,
+			familyMembers: [],
+			defaultCalendarId: 'deleted-calendar'
+		});
+		expect(form.selectedCalendarId).toBe('personal');
+	});
+
+	it('new event falls back to calendars[0] when default is unset', () => {
+		const form = createEventForm({
+			calendars: twoCalendars,
+			familyMembers: [],
+			defaultCalendarId: null
+		});
+		expect(form.selectedCalendarId).toBe('personal');
+	});
+
+	it('new event with no calendars yields empty selection', () => {
+		const form = createEventForm({
+			calendars: [],
+			familyMembers: [],
+			defaultCalendarId: 'family'
+		});
+		expect(form.selectedCalendarId).toBe('');
+	});
+
+	it('edit mode keeps the event calendar even when a default is set', () => {
+		const form = createEventForm({
+			calendars: twoCalendars,
+			familyMembers: [],
+			defaultCalendarId: 'personal',
+			initialEvent: {
+				id: 'evt1',
+				title: 'Existing',
+				description: '',
+				location: '',
+				calendarId: 'family',
+				start: '2026-09-07T10:00:00Z',
+				allDay: false
+			}
+		});
+		expect(form.selectedCalendarId).toBe('family');
+	});
+
+	it('edit mode falls back to calendars[0] when event calendar is missing', () => {
+		const form = createEventForm({
+			calendars: twoCalendars,
+			familyMembers: [],
+			defaultCalendarId: 'personal',
+			initialEvent: {
+				id: 'evt1',
+				title: 'Existing',
+				description: '',
+				location: '',
+				calendarId: 'gone',
+				start: '2026-09-07T10:00:00Z',
+				allDay: false
+			}
+		});
+		expect(form.selectedCalendarId).toBe('personal');
+	});
+});
