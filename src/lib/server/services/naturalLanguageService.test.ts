@@ -1149,3 +1149,140 @@ describe('Comma-separated events ("dinner Friday, movie Saturday")', () => {
 		expect(parseEventList('Buy milk, eggs, and bread Friday')).toHaveLength(1);
 	});
 });
+
+// ===== Issue 025 — URL fidelity =====
+
+const EVIDENCE_URL = 'https://app.operadds.com//u/rc/ne9qzml';
+const EVIDENCE1 = `eugenia, confirm your appointment ${EVIDENCE_URL} on wed, sep 09, 2026, 08:00 am at garland g. gentry, dds, p.c.. stop=endtexts`;
+
+describe('URL fidelity (issue 025)', () => {
+	const cases: Array<[string, string, string[]]> = [
+		// Exact exported phrase.
+		[EVIDENCE1, EVIDENCE_URL, ['eugenia, confirm your appointment']],
+		// URL at start.
+		[`${EVIDENCE_URL} dentist appointment monday`, EVIDENCE_URL, ['dentist appointment']],
+		// URL at end, trailing punctuation after the URL.
+		['confirm appointment friday https://x.co/a1b2.', 'https://x.co/a1b2', ['confirm appointment']],
+		// Short URL.
+		['sync at noon https://x.co/a', 'https://x.co/a', ['sync']],
+		// Long URL mid-title (straddles the 50-char cut).
+		[
+			'plan the trip https://very-long-link.example.com/a/b/c/d/e/f/g/h with the team',
+			'https://very-long-link.example.com/a/b/c/d/e/f/g/h',
+			['plan the trip']
+		]
+	];
+	for (const [input, url, titleParts] of cases) {
+		it(`keeps ${url} whole for "${input.slice(0, 40)}…"`, () => {
+			const result = parseEventInput(input);
+			const title = result.parsed.title ?? '';
+			// The title never carries any URL fragment (whole or truncated).
+			expect(title).not.toMatch(/https?:\/\/\S/);
+			for (const part of titleParts) expect(title).toContain(part);
+			// The whole link is preserved in the description.
+			expect(result.parsed.description).toContain(url);
+			// URL tokens never become people or places.
+			const peopleish = [...(result.parsed.attendants ?? []), result.parsed.location ?? ''].join(
+				' '
+			);
+			expect(peopleish).not.toMatch(/https?:\/\/|operadds|example\.com|x\.co/);
+		});
+	}
+
+	it('parses the exported eugenia phrase without a stray second date', () => {
+		const result = parseEventInput(EVIDENCE1);
+		expect(result.parsed.date).toBe('2026-09-09');
+		expect(result.parsed.dates ?? [result.parsed.date]).toEqual(['2026-09-09']);
+		expect(result.parsed.startTime).toBe('08:00');
+	});
+});
+
+// ===== Issue 025 — sentence fidelity =====
+
+const EVIDENCE2 =
+	'construction crew goes to the range with nathan and matt and kelvin. at 442 cherry hill dr., rustburg, va 24588. add a task to bring drinks for 8';
+
+describe('Sentence fidelity (issue 025)', () => {
+	it('parses the exported crew phrase: whole-word title, all attendants, full address', () => {
+		const result = parseEventInput(EVIDENCE2);
+		// Title never ends mid-word ("with Nathan an" was the old cut).
+		expect(result.parsed.title).toBe('construction crew goes to the range with nathan');
+		expect(result.parsed.attendants ?? []).toEqual(['nathan', 'matt', 'kelvin']);
+		expect(result.parsed.location).toBe('442 cherry hill dr., rustburg, va 24588');
+	});
+
+	it('captures every and-joined attendant in explicit lists', () => {
+		const cases: Array<[string, string[]]> = [
+			['dinner with sarah and mike and jamal friday', ['sarah', 'mike', 'jamal']],
+			['dinner with Sarah and Mike', ['Sarah', 'Mike']],
+			['lunch with mary, sue and bea saturday', ['mary', 'sue', 'bea']]
+		];
+		for (const [input, names] of cases) {
+			const attendants = parseEventInput(input).parsed.attendants ?? [];
+			expect(attendants, input).toEqual(expect.arrayContaining(names));
+		}
+	});
+
+	it('does not read non-name lists as attendants', () => {
+		const cases: Array<[string, string[]]> = [
+			['game night with jay and the league', ['the league', 'league']],
+			['potluck with pizza and drinks', ['pizza', 'drinks']]
+		];
+		for (const [input, banned] of cases) {
+			const attendants = (parseEventInput(input).parsed.attendants ?? []).join(' ').toLowerCase();
+			for (const b of banned) expect(attendants, input).not.toContain(b);
+		}
+	});
+
+	it('captures the full street address as location', () => {
+		const cases: Array<[string, string]> = [
+			['meeting at 742 evergreen terrace', '742 evergreen terrace'],
+			['meeting at 12 oak st, springfield, il 62704', '12 oak st, springfield, il 62704'],
+			['game at 442 cherry hill dr.', '442 cherry hill dr'],
+			['cookout at 305 maple ave saturday', '305 maple ave']
+		];
+		for (const [input, loc] of cases) {
+			expect(parseEventInput(input).parsed.location, input).toBe(loc);
+		}
+	});
+
+	it('never ends the title mid-word at the 50-char cut', () => {
+		const cases: Array<[string, string]> = [
+			[EVIDENCE2, 'construction crew goes to the range with nathan'],
+			[
+				'marketing sync with nathaniel and jennifer and jamal at the office',
+				'marketing sync with nathaniel and jennifer'
+			]
+		];
+		for (const [input, title] of cases) {
+			expect(parseEventInput(input).parsed.title, input).toBe(title);
+		}
+	});
+});
+
+// ===== Issue 025 — bare "family calendar" routing =====
+
+describe('Calendar routing — bare family/personal calendar (issue 025)', () => {
+	const cases: Array<[string, string, string]> = [
+		['stalkers campout family calendar', 'family calendar', 'stalkers campout'],
+		['family calendar stalkers campout', 'family calendar', 'stalkers campout'],
+		['grocery run personal calendar', 'personal calendar', 'grocery run'],
+		['stalkers campout on my family calendar', 'family calendar', 'stalkers campout'],
+		['stalkers campout to the family calendar', 'family calendar', 'stalkers campout']
+	];
+	for (const [input, name, title] of cases) {
+		it(`routes "${input}" to the ${name}`, () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.calendarName).toBe(name);
+			expect(result.parsed.title).toBe(title);
+		});
+	}
+
+	it('still ignores bare "calendar" without a target ("calendar meeting Friday")', () => {
+		expect(parseEventInput('calendar meeting Friday').parsed.calendarName).toBeUndefined();
+	});
+
+	it('does not route "family reunion saturday" (no calendar phrase)', () => {
+		expect(parseEventInput('family reunion saturday').parsed.calendarName).toBeUndefined();
+	});
+});

@@ -388,8 +388,14 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// eagerly. Cheap regex matchers run first; NLP object access goes through
 	// getDoc() so parses that resolve without it pay nothing for it.
 	let doc: ReturnType<typeof nlp> | null = null;
-	const getDoc = () => (doc ??= nlp(input));
+	const getDoc = () => (doc ??= nlp(nonUrlText));
 	const lower = input.toLowerCase();
+
+	// URLs are metadata, not title words: they are captured whole (kept in
+	// the description), removed from every downstream text scan, and can
+	// never be cut in half by the 50-char title window.
+	const urls = (input.match(/https?:\/\/\S+/gi) ?? []).map((u) => u.replace(/[.,;:!?)\]]+$/, ''));
+	const nonUrlText = urls.length > 0 ? input.replace(/https?:\/\/\S+/gi, ' ') : input;
 
 	// Early "until <date>" capture (recurrence end): the until-date ends the
 	// series, so blank it from date parsing — otherwise month-day rules steal
@@ -401,7 +407,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			'i'
 		)
 	);
-	const dateInput = untilMatch ? input.replace(untilMatch[0], ' ') : input;
+	const dateInput = untilMatch ? nonUrlText.replace(untilMatch[0], ' ') : nonUrlText;
 
 	// Exact schedule spans consumed by the parser (explicit dates, relative
 	// days, reminders, calendar targets). The title step strips these so the
@@ -708,8 +714,9 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		if (target) pushExplicit(sweep.index, target.toFormat('yyyy-MM-dd'), sweep[0]);
 	}
 	// Continuations ("& 30", ", 12", "and 19") borrow month/year from the
-	// nearest preceding explicit date.
-	const contSweep = /(?:&|,|\band\b)\s*(\d{1,2})(?:st|nd|rd|th)?\b/gi;
+	// nearest preceding explicit date. A following colon marks a time
+	// ("sept 9, 08:00 am") — never a day continuation.
+	const contSweep = /(?:&|,|\band\b)\s*(\d{1,2})(?:st|nd|rd|th)?\b(?!\s*:)/gi;
 	while ((sweep = contSweep.exec(dateInput)) !== null) {
 		const day = parseInt(sweep[1]);
 		const prior = explicitDates.filter((e) => e.index < sweep!.index).pop();
@@ -1026,8 +1033,9 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		confidence += 0.25;
 	}
 
-	// Military / compact 24h: "1830" (not years like 2026)
-	const militaryMatch = input.match(/(?<![\d:])(\d{2})(\d{2})(?!\d)/);
+	// Military / compact 24h: "1830" (not years like 2026). Runs on URL-free
+	// text so digit runs inside links never read as times.
+	const militaryMatch = nonUrlText.match(/(?<![\d:])(\d{2})(\d{2})(?!\d)/);
 	if (militaryMatch && !foundTime) {
 		const whole = militaryMatch[0];
 		const hh = parseInt(militaryMatch[1]);
@@ -1288,7 +1296,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// ===== LOCATION PATTERNS =====
 
 	// "Location: X" or "location: X" - explicit location keyword (highest priority)
-	const explicitLocMatch = input.match(
+	const explicitLocMatch = nonUrlText.match(
 		/\blocation\s*:\s*(.+?)(?:\n|$|type:|date:|time:|description:)/i
 	);
 	if (explicitLocMatch) {
@@ -1297,17 +1305,32 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// "location at X" or "location is X"
-	const locKeywordMatch = input.match(/\blocation\s+(?:at|is|in)\s+([A-Za-z][a-z0-9 ]*)/i);
+	const locKeywordMatch = nonUrlText.match(/\blocation\s+(?:at|is|in)\s+([A-Za-z][a-z0-9 ]*)/i);
 	if (locKeywordMatch && !result.location) {
 		result.location = locKeywordMatch[1].trim();
 		confidence += 0.2;
 	}
 
 	// "at X" where X is a short uppercase token (e.g. "at LU", "at HR")
-	const atShortLocMatch = input.match(/\bat\s+([A-Z]{1,4})\b/);
+	const atShortLocMatch = nonUrlText.match(/\bat\s+([A-Z]{1,4})\b/);
 	if (atShortLocMatch && !result.location) {
 		result.location = atShortLocMatch[1];
 		confidence += 0.15;
+	}
+
+	// Street address: "442 cherry hill dr., rustburg, va 24588" — the whole
+	// thing, not a compromise-places fragment. The street type must end at a
+	// word boundary (so "st" never matches inside "studio"), the bridge to
+	// it stays short and never carries a meridiem (so "7 PM and running
+	// until midnight at my apartment on 42 Maple Drive" captures only "42
+	// Maple Drive"), and times/counts never match.
+	const streetAddressMatch = nonUrlText.match(
+		/\b(\d{1,6}\s+(?:(?!am\b|pm\b)[A-Za-z0-9.'#-]+\s+){0,4}?(?:street|st|drive|dr|avenue|ave|road|rd|lane|ln|court|ct|boulevard|blvd|way|circle|cir|place|pl|terrace|trail|parkway|highway|hwy)\b\.?(?:\s*,\s*[A-Za-z][A-Za-z .'-]*,\s*[A-Za-z]{2}\s+\d{5}(?:-\d{4})?)?)/i
+	);
+	if (streetAddressMatch && !result.location) {
+		result.location = streetAddressMatch[1].trim();
+		confidence += 0.2;
+		stripSpans.push(streetAddressMatch[1]);
 	}
 
 	// Compromise places, lazily and only as a fallback: explicit locations
@@ -1321,7 +1344,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// "at the X" - capture multi-word locations like "neighborhood clubhouse", "yoga studio"
-	const atLocMatch = input.match(/at\s+the\s+([A-Za-z][a-z]+(?:\s+[A-Za-z][a-z]+)*)/);
+	const atLocMatch = nonUrlText.match(/at\s+the\s+([A-Za-z][a-z]+(?:\s+[A-Za-z][a-z]+)*)/);
 	if (atLocMatch && !result.location) {
 		let loc = atLocMatch[1];
 		// Stop at conjunctions/prepositions
@@ -1331,21 +1354,21 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// "in the X" - capture locations like "downtown square"
-	const inLocMatch = input.match(/in\s+the\s+([a-z]+(?:\s+[a-z]+)*)/i);
+	const inLocMatch = nonUrlText.match(/in\s+the\s+([a-z]+(?:\s+[a-z]+)*)/i);
 	if (inLocMatch && !result.location) {
 		result.location = inLocMatch[1];
 		confidence += 0.15;
 	}
 
 	// "at home"
-	const atHomeMatch = input.match(/\bat\s+home\b/i);
+	const atHomeMatch = nonUrlText.match(/\bat\s+home\b/i);
 	if (atHomeMatch && !result.location) {
 		result.location = 'Home';
 		confidence += 0.1;
 	}
 
 	// "at my apartment on 42 Maple Drive" or "at my apartment"
-	const myPlaceMatch = input.match(
+	const myPlaceMatch = nonUrlText.match(
 		/at\s+(?:my|our)\s+([a-z]+)(?:\s+on\s+(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*))?/i
 	);
 	if (myPlaceMatch && !result.location) {
@@ -1362,14 +1385,14 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 
 	// Address: "at 450 Main Street" or standalone address
 	// Match address pattern: number + street name, possibly after "on"
-	const addressMatch = input.match(/\bon\s+(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
+	const addressMatch = nonUrlText.match(/\bon\s+(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
 	if (addressMatch && !result.location) {
 		result.location = addressMatch[1].trim();
 		confidence += 0.15;
 	}
 
 	// "at X studio", "at X center", "at X park" - general location patterns
-	const generalLocMatch = input.match(
+	const generalLocMatch = nonUrlText.match(
 		/at\s+(?:the\s+)?([A-Za-z][a-z]+(?:\s+[A-Za-z][a-z]+)*\s+(?:studio|center|park|garden|square|clubhouse|trailhead))/i
 	);
 	if (generalLocMatch && !result.location) {
@@ -1384,7 +1407,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 
 	// Calendar targeting: "on the family calendar", "to my work calendar".
 	// Stores the raw name; the caller matches it against the user's calendars.
-	const calendarMatch = input.match(
+	const calendarMatch = nonUrlText.match(
 		/\b(?:on|to)\s+(?:the\s+|my\s+)?([A-Za-z][A-Za-z ]*?)\s+calendar\b/i
 	);
 	if (calendarMatch) {
@@ -1393,19 +1416,62 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		stripSpans.push(calendarMatch[0]);
 	}
 
+	// Bare routing: "stalkers campout family calendar" / "family calendar
+	// stalkers campout" — the household defaults ("family", "personal") are
+	// safe to route without an on/to preposition; arbitrary calendar names
+	// still need "on"/"to" to avoid over-capture ("budget calendar review").
+	const bareCalendarMatch =
+		!result.calendarName && nonUrlText.match(/\b(family|personal)\s+calendar\s*[.!]?\s*$/i);
+	const leadingCalendarMatch =
+		!result.calendarName && nonUrlText.match(/^(?:the\s+|my\s+)?(family|personal)\s+calendar\b/i);
+	const bareMatch = bareCalendarMatch ?? leadingCalendarMatch;
+	if (bareMatch) {
+		// SAFETY: the alternation above whitelists family|personal only.
+		result.calendarName = `${bareMatch[1]} calendar`;
+		confidence += 0.15;
+		stripSpans.push(bareMatch[0]);
+	}
+
 	// ===== ATTENDANT PATTERNS =====
 	// Cheap matchers first; compromise people() runs last and only when
 	// nothing matched, so most parses never pay for a second NLP doc.
 
-	// "with X"
-	const withMatch = input.match(/with\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g);
-	if (withMatch && (!result.attendants || result.attendants.length === 0)) {
-		result.attendants = withMatch.map((m) => m.replace(/^with\s+/i, '').trim());
-		confidence += 0.15;
+	// "with X", "with X and Y and Z" — explicit lists are the trustworthy
+	// source. Continuations only extend on and/&/comma so prepositions end
+	// the list ("with John at the park" captures John, not "at the park").
+	// Lowercase names validate against compromise's person lexicon (one hit
+	// admits the list) so "with pizza and drinks" never reads as people.
+	const withMatch = nonUrlText.matchAll(
+		/\bwith\s+([A-Za-z][A-Za-z'’-]*(?:(?:\s+and\s+|\s*&\s*|\s*,\s*)[A-Za-z][A-Za-z'’-]*)*)/gi
+	);
+	for (const m of withMatch) {
+		const items = m[1]
+			.split(/\s*(?:,|\band\b|&)\s*/i)
+			.map((n) => n.trim())
+			.filter((n) => n.length > 0)
+			// Articles lead common-noun groups ("with jay and the league").
+			.filter((n) => !/^(?:the|a|an)\b/i.test(n))
+			.filter((n) => n.split(/\s+/).length <= 2);
+		if (items.length === 0) continue;
+		const lowerItems = items.filter((n) => /^[a-z]/.test(n));
+		if (lowerItems.length > 0 && !lowerItems.some((n) => nlp(n).people().out('array').length > 0)) {
+			continue;
+		}
+		if (!result.attendants || result.attendants.length === 0) {
+			result.attendants = items;
+			confidence += 0.15;
+		} else {
+			for (const n of items) {
+				if (!result.attendants.some((a) => a.toLowerCase() === n.toLowerCase())) {
+					result.attendants.push(n);
+				}
+			}
+		}
+		break;
 	}
 
 	// "invite X" / "invite Jay and Mo" — explicit beats guessed.
-	const inviteMatch = input.match(/\binvite\s+([^,.]+)/i);
+	const inviteMatch = nonUrlText.match(/\binvite\s+([^,.]+)/i);
 	if (inviteMatch) {
 		const raw = inviteMatch[1]
 			.replace(/\s+(?:on|at|for|from|to|until|remind|reminder)\b.*$/i, '')
@@ -1436,7 +1502,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 
 	if (!result.attendants || result.attendants.length === 0) {
 		for (const pattern of speakerPatterns) {
-			const match = input.match(pattern);
+			const match = nonUrlText.match(pattern);
 			if (match && match[1] && match[1].length > 3 && match[1].length < 80) {
 				const peoplePart = match[1]
 					.replace(
@@ -1459,7 +1525,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	];
 
 	for (const pattern of groupPatterns) {
-		const match = input.match(pattern);
+		const match = nonUrlText.match(pattern);
 		if (match && match[1] && match[1].length > 2 && match[1].length < 60) {
 			result.attendants = [match[1].trim()];
 			confidence += 0.1;
@@ -1468,9 +1534,10 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// Compromise people() last, only when nothing matched — and on text with
-	// the detected location removed so places aren't read as people.
+	// the detected location and any URLs removed so links/places aren't read
+	// as people.
 	if (!result.attendants || result.attendants.length === 0) {
-		let attendantText = input;
+		let attendantText = nonUrlText;
 		if (result.location) {
 			attendantText = input.replace(
 				new RegExp(result.location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
@@ -1489,8 +1556,10 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// ===== TITLE =====
-	// Always take first 50 chars of input as title (simplified)
-	let titleSource = input;
+	// Always take first 50 chars of input as title (simplified). URLs were
+	// already removed from titleSource so links ride whole in the
+	// description and can never be cut in half here.
+	let titleSource = nonUrlText;
 	// Recurrence phrases describe the schedule, not the event name.
 	for (const phrase of recurrencePhrases) {
 		const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1498,6 +1567,15 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 	titleSource = titleSource.replace(/\s{2,}/g, ' ').trimStart();
 	let title = titleSource.substring(0, 50);
+	// Never end the title mid-word: when the 50-char cut lands inside a
+	// word ("with nathan an"), snap back to the last space.
+	if (titleSource.length > 50 && /\S/.test(titleSource[50] ?? '') && !/\s$/.test(title)) {
+		const cut = title.lastIndexOf(' ');
+		if (cut > 3) title = title.slice(0, cut);
+	}
+	// A connector left dangling by the snap ("…jennifer and") goes too — but
+	// only when nothing follows it, so the pinned "dinner for " cut survives.
+	title = title.replace(/\s+(?:and|or|on|at|to|for|from|&|am|pm)$/i, '');
 	// Remove trailing punctuation (but preserve spaces to match first 50 chars behavior)
 	title = title.replace(/[.,;:!?]+$/, '');
 
@@ -1518,16 +1596,17 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			if (final.length > 3 && !/^[\s,]*$/.test(final)) {
 				result.title = final;
 			} else {
-				const fallback = input.substring(0, 50).replace(/[.,;:!?]+$/, '');
+				const fallback = nonUrlText.substring(0, 50).replace(/[.,;:!?]+$/, '');
 				if (fallback.length > 0) result.title = fallback;
 			}
 		}
 	}
 
 	// ===== LOCATION FROM @ SYMBOL =====
-	// Handle "Event Title @ Location" pattern
-	if (input.includes('@')) {
-		const afterAt = input.substring(input.indexOf('@') + 1).trim();
+	// Handle "Event Title @ Location" pattern (URL-free text: an @ inside a
+	// link is not a location separator)
+	if (nonUrlText.includes('@')) {
+		const afterAt = nonUrlText.substring(nonUrlText.indexOf('@') + 1).trim();
 
 		if (afterAt.length > 0 && !result.location) {
 			// Stop at date patterns, time patterns, "View & RSVP", etc.
@@ -1550,6 +1629,11 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// ===== DEFAULTS =====
+	// Links live whole in the description; the title never carries one.
+	if (urls.length > 0 && !result.description) {
+		result.description = urls.join(' ');
+	}
+
 	if (!result.date) {
 		result.date = now.toFormat('yyyy-MM-dd');
 	}
