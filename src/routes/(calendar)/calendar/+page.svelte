@@ -9,6 +9,7 @@
 	import EmptyState from '$lib/components/calendar/EmptyState.svelte';
 	import calendarNoteDate from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg';
 	import { parseEvents } from '$lib/utils/eventDisplay';
+	import { buildSharedTargetText } from '$lib/utils/shareTarget';
 	import { invalidateAll, goto } from '$app/navigation';
 	import { pushToast } from '$lib/client/toasts';
 
@@ -95,6 +96,10 @@
 	let createInitialTime: string | undefined = undefined;
 	let createInitialEndTime: string | undefined = undefined;
 	let createCount = 0;
+
+	// Inline ack for a consumed PWA share (issue 027): a subtle note above the
+	// create modal naming what happened; cleared on close/submit.
+	let shareNote = '';
 
 	// "Create event from selection": a floating bar appears when the user
 	// selects text on the page, letting them parse it into a new event via the
@@ -324,11 +329,26 @@
 	onMount(() => {
 		dismissedFirstRun = localStorage.getItem('familyplanz:firstRunDismissed') === 'true';
 
-		// Deep link: /calendar?quickadd=<title> opens the create modal prefilled.
+		// Deep link: /calendar?quickadd=<text> opens the create modal prefilled.
+		// PWA share target: the manifest share_target GET action lands here with
+		// title/text/url params. The shared text goes into the Quick Add (NLP)
+		// input itself — user-visible and editable — then the normal smart-add
+		// parse runs on it. (On Android the url param is empty; URLs arrive
+		// embedded in the text blob — buildSharedTargetText handles both.)
 		const quickAddTitle = $page.url.searchParams.get('quickadd');
-		if (quickAddTitle && quickAddTitle.trim()) {
-			createInitialTitle = quickAddTitle;
+		const sharedText =
+			buildSharedTargetText(
+				$page.url.searchParams.get('title') ?? '',
+				$page.url.searchParams.get('text') ?? '',
+				$page.url.searchParams.get('url') ?? ''
+			) || (quickAddTitle ?? '').trim();
+		if (sharedText) {
+			// Let the NLP Quick Add field drive parsing instead of the title field.
+			createInitialTitle = undefined;
+			createInitialQuickAdd = sharedText;
 			showModal = true;
+			shareNote = 'Shared text loaded — review and add.';
+			// Clean the params so a refresh doesn't re-trigger the share flow.
 			goto('/calendar', { replaceState: true });
 		}
 
@@ -379,6 +399,7 @@
 		createInitialQuickAdd = undefined;
 		createInitialTime = undefined;
 		createInitialEndTime = undefined;
+		shareNote = '';
 	}
 
 	function openCreateAt(date: DateTime, end?: DateTime) {
@@ -428,7 +449,9 @@
 		// Reset the form for another creation instead of closing the modal.
 		createInitialDate = undefined;
 		createInitialTitle = undefined;
+		createInitialQuickAdd = undefined;
 		createCount++;
+		shareNote = '';
 	}
 
 	async function handleEventUpdate() {
@@ -561,6 +584,16 @@
 </div>
 
 <svelte:window on:keydown={handleEscape} />
+
+{#if shareNote}
+	<!-- Share-consumed ack: subtle inline note above the create modal (issue 027). -->
+	<div
+		class="fixed left-1/2 top-3 z-[70] w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 rounded-lg border border-primary-200 bg-white/95 px-3 py-2 text-center text-sm text-slate-700 shadow-lg"
+		role="status"
+	>
+		{shareNote}
+	</div>
+{/if}
 
 {#if !selectionMode}
 	<!-- Floating Quick Add Button -->

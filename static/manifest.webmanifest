@@ -28,7 +28,7 @@
 		}
 	],
 	"share_target": {
-		"action": "/share-target",
+		"action": "/calendar",
 		"method": "GET",
 		"params": {
 			"title": "title",
