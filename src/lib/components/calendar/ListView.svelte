@@ -5,6 +5,7 @@
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
 	import AttendanceBadge from './AttendanceBadge.svelte';
+	import CreatorBadge from './CreatorBadge.svelte';
 	import { formatEventTime } from '$lib/utils/eventTime';
 	import { chipColor, rsvpVisual } from '$lib/utils/eventChip';
 	import { invalidateAll } from '$app/navigation';
@@ -175,6 +176,9 @@
 											class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}"
 											>{rv.icon} {rv.label}</span
 										>
+									{/if}
+									{#if event.creatorName}
+										<CreatorBadge name={event.creatorName} variant="row" />
 									{/if}
 									{#if event.attendance && event.attendance.invited > 1}
 										<AttendanceBadge attendance={event.attendance} />

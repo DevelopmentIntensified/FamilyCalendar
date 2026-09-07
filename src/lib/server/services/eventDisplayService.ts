@@ -2,7 +2,8 @@ import type { CalendarEvent } from '$lib/server/db/schema';
 import {
 	getExceptionsByEventIds,
 	getUserRsvpStatuses,
-	getEventAttendanceSummaries
+	getEventAttendanceSummaries,
+	getCreatorFirstNames
 } from '$lib/server/db/actions/events';
 import { expandRecurrence } from './recurrenceService';
 import { buildOccurrenceId, normalizeOccurrenceIso } from '$lib/server/utils/eventIds';
@@ -122,4 +123,17 @@ export async function attachAttendanceSummaries<T extends { masterId: string }>(
 		return s && s.invited > 0 ? s : undefined;
 	};
 	return list.map((e) => ({ ...e, attendance: summaryById(e.masterId) }));
+}
+
+/**
+ * Attaches the creator's first name to each displayable occurrence (keyed on
+ * the master's ownerId) so family-event chips and modals can show who created
+ * the event. One users lookup for the whole set — no N+1.
+ */
+export async function attachCreatorNames<T extends { ownerId: string }>(
+	list: T[]
+): Promise<Array<T & { creatorName?: string }>> {
+	if (list.length === 0) return [...list];
+	const names = await getCreatorFirstNames([...new Set(list.map((e) => e.ownerId))]);
+	return list.map((e) => ({ ...e, creatorName: names.get(e.ownerId) }));
 }

@@ -16,7 +16,8 @@ import {
 	expandEventsForUser,
 	parseEvents,
 	attachRsvpStatus,
-	attachAttendanceSummaries
+	attachAttendanceSummaries,
+	attachCreatorNames
 } from '$lib/server/services/eventDisplayService';
 import { getTasksForUser, syncRecurringCursors } from '$lib/server/db/actions/tasks';
 import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
@@ -219,9 +220,11 @@ export const load: PageServerLoad = async (event) => {
 			attachRsvpStatus(userId, parsedFamilyEvents)
 		]);
 		// Compact per-family-event "who's going" summary for chip indicators.
+		// Creator first name attaches to FAMILY events only — personal events
+		// show no creator chip.
 		const [userEventsWithAttendance, familyEventsWithAttendance] = await Promise.all([
 			attachAttendanceSummaries(userEventsFinal),
-			attachAttendanceSummaries(familyEventsFinal)
+			attachCreatorNames(await attachAttendanceSummaries(familyEventsFinal))
 		]);
 		return { user: userEventsWithAttendance, family: familyEventsWithAttendance };
 	});

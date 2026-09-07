@@ -7,6 +7,7 @@
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import EventModal from './EventModal.svelte';
 	import AttendanceBadge from './AttendanceBadge.svelte';
+	import CreatorBadge from './CreatorBadge.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { rsvpVisual } from '$lib/utils/eventChip';
 	import {
@@ -458,6 +459,9 @@
 								>
 							{/if}
 							<span class="truncate">{event.title}</span>
+							{#if event.creatorName}
+								<CreatorBadge name={event.creatorName} />
+							{/if}
 							{#if event.attendance && event.attendance.invited > 1}
 								<AttendanceBadge attendance={event.attendance} />
 							{/if}
@@ -692,7 +696,8 @@
 						</span>
 						{#if slot.heightPct >= 4}
 							<span class="block truncate text-[10px] leading-tight text-slate-400"
-								>{formatEventTime(slot.event.start)}</span
+								>{formatEventTime(slot.event.start)}{#if slot.event.creatorName}
+									· by {slot.event.creatorName}{/if}</span
 							>
 						{/if}
 						{#if slot.heightPct >= 6 && slot.event.location}

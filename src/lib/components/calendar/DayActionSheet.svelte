@@ -2,6 +2,8 @@
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import { formatEventTime } from '$lib/utils/eventTime';
+	import AttendanceBadge from './AttendanceBadge.svelte';
+	import CreatorBadge from './CreatorBadge.svelte';
 	import { rsvpVisual } from '$lib/utils/eventChip';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 
@@ -149,6 +151,12 @@
 											>{rv.icon} {rv.label}</span
 										>
 									{/if}
+									{#if event.creatorName}
+										<CreatorBadge name={event.creatorName} />
+									{/if}
+									{#if event.attendance && event.attendance.invited > 1}
+										<AttendanceBadge attendance={event.attendance} variant="row" />
+									{/if}
 								</div>
 								{#if !event.allDay}
 									{@const st = event.startTime || (event.start ? formatEventTime(event.start) : '')}
@@ -158,6 +166,9 @@
 											>{st}{#if et}
 												– {et}{/if}</span
 										>
+										{#if event.creatorName}
+											<span class="text-xs text-slate-500"> · by {event.creatorName}</span>
+										{/if}
 									{/if}
 								{:else}
 									<span class="text-xs text-slate-500">All day</span>

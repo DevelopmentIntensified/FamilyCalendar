@@ -24,6 +24,9 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #024 @-handle multi-word names (commit 89e48b4)
 - #025 NLP parse-misses: URL fidelity, word-snap titles, street
   addresses, bare calendar routing (commit d37dab8)
+- #026 Creator/RSVP indications: creatorName on family events (single users
+  lookup, no N+1), "by <First>" chips in month/week/day/list/day-modal/action-sheet,
+  "Created by" row in EventModal (uncommitted; print + dashboard deferred)
 
 ## Open
 

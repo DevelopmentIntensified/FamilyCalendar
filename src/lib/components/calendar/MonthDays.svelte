@@ -8,6 +8,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import AttendanceBadge from './AttendanceBadge.svelte';
+	import CreatorBadge from './CreatorBadge.svelte';
 	import { chipStyle, chipColor, chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { toDate } from '$lib/utils/eventTime';
 	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
@@ -281,6 +282,9 @@
 						</svg>
 					{/if}
 					<span class="truncate">{event.title}</span>
+					{#if event.creatorName}
+						<CreatorBadge name={event.creatorName} />
+					{/if}
 					{#if event.attendance && event.attendance.invited > 1}
 						<AttendanceBadge attendance={event.attendance} />
 					{/if}

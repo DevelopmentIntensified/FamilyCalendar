@@ -4,6 +4,7 @@
 	import { formatEventTime } from '$lib/utils/eventTime';
 	import { rsvpVisual } from '$lib/utils/eventChip';
 	import type { CalendarTask } from './TaskDetailModal.svelte';
+	import CreatorBadge from './CreatorBadge.svelte';
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 
@@ -106,6 +107,9 @@
 											class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}"
 											>{rv.icon} {rv.label}</span
 										>
+									{/if}
+									{#if event.creatorName}
+										<CreatorBadge name={event.creatorName} />
 									{/if}
 									{#if event.attendance && event.attendance.invited > 1}
 										<AttendanceBadge attendance={event.attendance} />

@@ -34,6 +34,8 @@ export type Event = CalendarEvent & {
 	isFamilyEvent?: boolean;
 	attendants?: string[];
 	attendance?: EventAttendanceSummary;
+	/** Creator's first name — attached server-side to FAMILY events only. */
+	creatorName?: string;
 	recurrenceFrequency?: string | null;
 	recurrenceInterval?: number | null;
 	masterId?: string;

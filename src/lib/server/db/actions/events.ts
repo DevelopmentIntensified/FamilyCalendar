@@ -402,6 +402,20 @@ export async function deleteEvent(id: string) {
 	await db.delete(events).where(eq(events.id, id));
 }
 
+/**
+ * First names for a set of event ownerIds, keyed by user id — ONE query for
+ * the whole set (no N+1). Owners without a users row (deleted cascade edge)
+ * have no entry.
+ */
+export async function getCreatorFirstNames(ownerIds: string[]) {
+	if (ownerIds.length === 0) return new Map<string, string>();
+	const rows = await db
+		.select({ id: users.id, firstName: users.firstName })
+		.from(users)
+		.where(inArray(users.id, ownerIds));
+	return new Map(rows.map((r) => [r.id, r.firstName]));
+}
+
 /** The shifted slot key and start/end overrides of one exception. */
 export interface ShiftedExceptionSlots {
 	originalDate: string;
