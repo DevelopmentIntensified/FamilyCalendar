@@ -45,8 +45,38 @@ Parent: #010 receipts (builds on its scan seam).
   normalization (case/punctuation), and a 1000-row perf smoke test
   (seed 1000 tags, assert query count + latency budget in the test).
 
+- USER ADDITIONS (2026-09-07, grilling session):
+  - Manual (non-scanned) bills get editable Line Items too — otherwise
+    Spend Detail skews toward whatever was scanned.
+  - **Tax and Fees are their own categories** (vocabulary: housing,
+    utilities, subscriptions, insurance, tax, fees, other). Receipt
+    tax/fee lines are labeled as such; the reconcile hint suggests
+    adding a Tax line when items ≠ total. Bill category stays
+    merchant-derived; Line Item Labels drive Spend Detail.
+  - CODE-ONLY RECEIPTS (user, 2026-09-07): some receipts print only
+    item codes. Decision rule: 12/13-digit numeric with valid GTIN
+    check-digit → public lookup (Open Food Facts / upc.dev free tiers)
+    for name+category; otherwise treat as STORE SKU → Tag Table learns
+    (merchant, sku) → name + category from user labeling (user rows
+    first, global rows fill in fast — stable codes shared by all
+    shoppers of a store). Unlabeled code-only items render as
+    "Item <sku> · $x.xx" with a name-it-once prompt; naming trains the
+    table. Same indexed lookups — no perf change.
+  - Spend Detail surface (Q4): (a) NOW — "Spend by category" card on
+    the Bills page (month/range filter, category bars, tap → filtered
+    bills); (b) follow-up — Day Dashboard module ("Spending", module
+    enable/hide rules); (c) NOW TOO (user: "a, b and c") — dedicated
+    Reports page split to #032 (trends, per-category drill-down).
+- Vocabulary growth: closed vocabulary, DEV-CURATED — categories get
+  added by devs based on popularity; users never create their own.
+  Prediction chain: user history → global majority for that item →
+  keyword heuristics → other.
+- Retraining: any label edit/save upserts the Tag Table (user + global
+  rows), not just first-time labels.
+
 ## Needs doing
 
-- Queued behind: receipts lane (#010) → privacy fixes (#029 HIGHs) →
-  OCR fallback chain → this (#031) → #006 recurring bills. Same files
-  as receipts (bills page, scan seam) — strictly sequential.
+- Queued behind: strip-storage + privacy slice (#029 H3/M1/M2 + remove
+  image storage) → OCR fallback chain → this (#031) → #006 recurring
+  bills. Same files as receipts (bills page, scan seam) — strictly
+  sequential. Receipts scan seam landed (commit 73761c0).

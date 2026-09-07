@@ -102,8 +102,24 @@ _Avoid_: family role, parent/kid role
 ### Bills & Receipts
 
 **Bill**:
-A tracked expense with title, amount as integer cents, optional due date, and a category from the closed vocabulary (housing, utilities, subscriptions, insurance, other). Quick-add phrases parse into a prefilled form the user confirms — a parse is a hint, never a commit.
+A tracked expense with title, amount as integer cents, optional due date, and a category derived from **where it was from** (the merchant, via the Tag Table) — user-editable. Quick-add phrases parse into a prefilled form the user confirms — a parse is a hint, never a commit. Bills created manually (not from a receipt) carry editable Line Items too.
 _Avoid_: invoice
+
+**Category**:
+The closed expense vocabulary: housing, utilities, subscriptions, insurance, **tax**, **fees**, other. Tax and fees are their own categories — a receipt's tax/fee lines are labeled as such, never absorbed into the merchant's category.
+_Avoid_: bucket, group
+
+**Line Item**:
+One parsed (or manually entered) receipt row on a Bill — label, price cents, and its own category **Label**. Line-item Labels are the ground truth for category-level spend detail; items without an explicit Label count under the Bill's category.
+_Avoid_: item photo
+
+**Spend Detail**:
+Category-level view of where money goes, computed from Line Item Labels when a Bill has them, and from the Bill's category when it doesn't.
+_Avoid_: breakdown, analytics
+
+**Tag Table**:
+The learning store with three mappings: merchant → category (sets Bill categories), item → category (suggests Line Item Labels), and (merchant, store-SKU) → item name + category for code-only receipts — store SKUs are merchant-internal and stable, so users label them once and everyone benefits. Per-user rows take precedence over global rows; confirmed labels train both. Codes that pass GTIN validation go to public lookup APIs instead.
+_Avoid_: learning model
 
 **Receipt**:
 A photo of a bill, PROCESSED AND DELETED: parsed on-device into text and numbers, never uploaded or stored. Only the parsed fields and Line Items persist.
@@ -112,14 +128,6 @@ _Avoid_: receipt image upload
 **OCR Chain**:
 The ordered scan-engine fallback: Chrome Prompt API (on-device) → native bridge (ML Kit/iOS Vision, future app) → tesseract.js → opt-in Azure Document Intelligence (cloud, per-scan consent, only when server-configured).
 _Avoid_: OCR ladder
-
-**Line Item**:
-One parsed receipt row saved as text (label, price cents, category) on a Bill; the image itself is discarded.
-_Avoid_: item photo
-
-**Tag Table**:
-The learning store mapping merchant/item keys to categories: per-user rows (a user's own corrections, highest precedence) and global rows (aggregated across users). Confirmed labels train it; scans read it.
-_Avoid_: learning model
 
 ## Relationships
 
