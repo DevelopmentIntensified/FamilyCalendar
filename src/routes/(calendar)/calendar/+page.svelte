@@ -831,6 +831,7 @@
 		show={true}
 		calendarIds={data.calendarIds || []}
 		familyMembers={data.familyMembers || []}
+		familyId={data.familyId ?? null}
 		userSettings={data.userSettings}
 		initialDate={createInitialDate}
 		initialTitle={createInitialTitle}

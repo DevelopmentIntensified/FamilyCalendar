@@ -15,6 +15,9 @@
 		assigneeFirstName?: string | null;
 		assigneeLastName?: string | null;
 		eventTitle?: string | null;
+		// Issue 021 parity: scoping fields ride along in the task JSON.
+		familyId?: string | null;
+		visibility?: 'public' | 'private';
 	}
 </script>
 
@@ -204,15 +207,30 @@
 				{/if}
 			</div>
 
-			{#if task.tags && task.tags.length > 0}
-				<div class="flex flex-wrap gap-1.5">
-					{#each task.tags as tag (tag)}
-						<span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700"
-							>#{tag}</span
-						>
-					{/each}
-				</div>
-			{/if}
+			<div class="flex flex-wrap gap-1.5">
+				{#if task.familyId}
+					<span
+						class="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700"
+						title="Family task"
+					>
+						Family
+					</span>
+				{:else}
+					<span
+						class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500"
+						title={task.visibility === 'private'
+							? 'Private — only you and the assignee'
+							: 'Public — family can see it (read-only)'}
+					>
+						{task.visibility === 'private' ? '🔒 Private' : '🌐 Public'}
+					</span>
+				{/if}
+				{#each task.tags ?? [] as tag (tag)}
+					<span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700"
+						>#{tag}</span
+					>
+				{/each}
+			</div>
 
 			<dl class="space-y-2.5 text-sm">
 				{#if task.dueDate}

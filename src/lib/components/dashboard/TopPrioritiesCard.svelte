@@ -15,6 +15,9 @@
 		assigneeLastName?: string | null;
 		recurrenceFrequency?: string | null;
 		recurrenceInterval?: number | null;
+		// Issue 021 parity: scoping fields ride along in the task JSON.
+		familyId?: string | null;
+		visibility?: 'public' | 'private';
 	}[];
 	export let meId: string;
 
@@ -24,6 +27,12 @@
 		if (t.assignedTo === meId) return 'You';
 		const name = `${t.assigneeFirstName ?? ''} ${t.assigneeLastName ?? ''}`.trim();
 		return name || 'Unassigned';
+	}
+
+	/** Assignee display name for the "→ Name" badge, or '' when absent. */
+	function assigneeBadge(t: (typeof tasks)[number]): string {
+		if (!t.assignedTo || t.assignedTo === meId) return '';
+		return `${t.assigneeFirstName ?? ''} ${t.assigneeLastName ?? ''}`.trim();
 	}
 
 	function dueLabel(due: string | null): string | null {
@@ -146,7 +155,35 @@
 					>
 					<div class="min-w-0 flex-1">
 						<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
-						<p class="text-[11px] text-slate-400">{memberName(task)}</p>
+						{#if assigneeBadge(task)}
+							<span
+								class="mt-0.5 inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+								title="Assigned to {assigneeBadge(task)}"
+							>
+								→ {assigneeBadge(task)}
+							</span>
+						{:else}
+							<p class="text-[11px] text-slate-400">{memberName(task)}</p>
+						{/if}
+						<div class="mt-0.5 flex flex-wrap items-center gap-1">
+							{#if task.familyId}
+								<span
+									class="inline-flex items-center rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700"
+									title="Family task"
+								>
+									Family
+								</span>
+							{:else}
+								<span
+									class="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
+									title={task.visibility === 'private'
+										? 'Private — only you and the assignee'
+										: 'Public — family can see it (read-only)'}
+								>
+									{task.visibility === 'private' ? '🔒 Private' : '🌐 Public'}
+								</span>
+							{/if}
+						</div>
 					</div>
 					{#if task.dueDate}
 						<span

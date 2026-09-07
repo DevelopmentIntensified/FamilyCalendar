@@ -5,6 +5,8 @@
 	import { getContactColor } from '$lib/utils/contactColors';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import LocationSearch from '$lib/components/LocationSearch.svelte';
+	import TaskQuickAddHelp from '$lib/components/TaskQuickAddHelp.svelte';
+	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
 	import { createEventForm } from './EventFormModel.svelte';
 	import type { NlpFormInput } from './EventFormModel.svelte';
 	import ChecklistSection from './ChecklistSection.svelte';
@@ -34,6 +36,9 @@
 		autoParseEventDetails?: boolean | null;
 		useCloudAI?: boolean | null;
 	} | null = null;
+	// Task mode (issue 021): the viewer's family id, so @family can scope a
+	// task to the family (null when the user isn't in one).
+	export let familyId: string | null = null;
 	export let initialDate: string | undefined = undefined;
 	export let initialTitle: string | undefined = undefined;
 	export let initialQuickAdd: string | undefined = undefined;
@@ -71,6 +76,16 @@
 	let entryType: 'event' | 'task' = 'event';
 	let taskTitle = '';
 	let taskDueDate = initialDate || DateTime.now().toISODate() || '';
+	// Task mode scoping (issue 021): explicit picker + parser override.
+	let taskVisibility: 'public' | 'private' = 'public';
+	let taskError = '';
+
+	/** Family roster the task quick-add can assign to (names required). */
+	$: taskRoster = familyMembers.flatMap((m) =>
+		m.userId && m.firstName && m.lastName
+			? [{ userId: m.userId, firstName: m.firstName, lastName: m.lastName }]
+			: []
+	);
 
 	let form: ReturnType<typeof createEventForm>;
 
@@ -318,21 +333,55 @@
 	async function submitTask() {
 		const title = taskTitle.trim();
 		if (!title || submitting) return;
+		// Same parser the tasks page uses: strip/apply #public/#private,
+		// @family, @name, plus dates/priority/recurrence (issue 021 parity).
+		const parsed = parseTaskQuickAdd(title, { members: taskRoster });
+		// Unknown/ambiguous @member: never silently dropped — block the
+		// create and keep the input so the user can fix the name.
+		if (parsed.unknownMember) {
+			taskError = `Unknown member ${parsed.unknownMember} — check the spelling or pick someone from your family.`;
+			return;
+		}
+		if (parsed.familyTask && !familyId) {
+			taskError = "@family needs a family — you're not in one yet.";
+			return;
+		}
+		taskError = '';
 		submitting = true;
 		try {
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title, dueDate: taskDueDate || null })
+				body: JSON.stringify({
+					title: parsed.title,
+					// A parser date phrase wins over the picker; either may be empty.
+					dueDate: parsed.dueDate ?? (taskDueDate || null),
+					priority: parsed.priority,
+					assignedTo: parsed.assignedTo,
+					// An explicit #public/#private tag in the title wins over the picker.
+					visibility: parsed.visibilityExplicit ? parsed.visibility : taskVisibility,
+					// POST defaults an absent familyId to the user's family, so a
+					// personal task must send null explicitly (issue 019).
+					familyId: parsed.familyTask ? familyId : null,
+					tags: parsed.tags,
+					recurrenceFrequency: parsed.recurrenceFrequency,
+					recurrenceInterval: parsed.recurrenceInterval
+				})
 			});
 			if (res.ok) {
 				const json = await res.json();
 				dispatch('createTask', json.task);
 				taskTitle = '';
+				taskVisibility = 'public';
+				taskError = '';
 				taskDueDate = initialDate || DateTime.now().toISODate() || '';
+			} else {
+				const j = await res.json().catch(() => ({}));
+				taskError = j.error || "That didn't work. Try again.";
 			}
 		} catch (err) {
 			console.error('Create task failed:', err);
+			taskError = "That didn't work. Try again.";
 		} finally {
 			submitting = false;
 		}
@@ -537,6 +586,8 @@
 			multiResults = null;
 			entryType = 'event';
 			taskTitle = '';
+			taskVisibility = 'public';
+			taskError = '';
 		}, 250);
 	}
 </script>
@@ -1104,17 +1155,41 @@
 						{/if}
 					{:else}
 						<div>
-							<label for="task-title" class="mb-1 block text-sm font-medium text-slate-700"
-								>Task Title *</label
-							>
+							<div class="mb-1 flex items-center justify-between gap-2">
+								<label for="task-title" class="block text-sm font-medium text-slate-700"
+									>Task Title *</label
+								>
+								<TaskQuickAddHelp />
+							</div>
 							<input
 								id="task-title"
 								type="text"
 								bind:value={taskTitle}
-								placeholder="e.g., Pay water bill"
+								placeholder="e.g., Pay water bill — or try &quot;#private tomorrow @family&quot;"
 								required
 								class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 							/>
+							{#if taskError}
+								<p class="mt-1 text-xs text-red-600" role="alert">{taskError}</p>
+							{/if}
+						</div>
+
+						<div>
+							<label for="task-visibility" class="mb-1 block text-sm font-medium text-slate-700"
+								>Visibility</label
+							>
+							<select
+								id="task-visibility"
+								bind:value={taskVisibility}
+								class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+							>
+								<option value="public">🌐 Public — family can see it (read-only)</option>
+								<option value="private">🔒 Private — only you and the assignee</option>
+							</select>
+							<p class="mt-1 text-xs text-slate-400">
+								A <span class="font-mono">#public</span>/<span class="font-mono">#private</span>
+								tag in the title wins over this.
+							</p>
 						</div>
 
 						<div>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import MentionInput from '$lib/components/MentionInput.svelte';
+	import TaskQuickAddHelp from '$lib/components/TaskQuickAddHelp.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
 	import { showRecurringCompleteFeedback } from '$lib/client/taskFeedback';
@@ -29,14 +30,22 @@
 	export let weekStreak: number = 0;
 
 	let quickTitle = '';
+	let quickError = '';
 	let busy: string | null = null;
 
 	async function addQuickTask() {
 		if (!quickTitle.trim() || busy) return;
 		busy = 'new';
 		const title = quickTitle.trim();
+		quickError = '';
 		try {
 			const parsed = parseTaskQuickAdd(quickTitle, { members });
+			// Unknown/ambiguous @member: never silently dropped — block the
+			// create and keep the input so the user can fix the name.
+			if (parsed.unknownMember) {
+				quickError = `Unknown member ${parsed.unknownMember} — check the spelling or pick someone from your family.`;
+				return;
+			}
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -45,7 +54,10 @@
 					dueDate: parsed.dueDate,
 					familyId,
 					assignedTo: parsed.assignedTo ?? meId,
-					priority: parsed.priority
+					priority: parsed.priority,
+					tags: parsed.tags,
+					recurrenceFrequency: parsed.recurrenceFrequency,
+					recurrenceInterval: parsed.recurrenceInterval
 				})
 			});
 			if (res.ok) {
@@ -169,20 +181,26 @@
 		}}
 		class="mb-3 flex flex-col gap-2 sm:flex-row sm:gap-2"
 	>
-		<div class="min-w-0 flex-1">
-			<MentionInput
-				bind:value={quickTitle}
-				{members}
-				placeholder="Add a family task… try &quot;saturday for Dad&quot;"
-			/>
+		<div class="flex min-w-0 flex-wrap items-center gap-2">
+			<div class="min-w-0 flex-1">
+				<MentionInput
+					bind:value={quickTitle}
+					{members}
+					placeholder="Add a family task… try &quot;saturday for Dad&quot;"
+				/>
+			</div>
+			<TaskQuickAddHelp />
+			<button
+				type="submit"
+				disabled={!quickTitle.trim() || busy === 'new'}
+				class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50 sm:px-3.5 sm:py-2.5"
+			>
+				Add
+			</button>
 		</div>
-		<button
-			type="submit"
-			disabled={!quickTitle.trim() || busy === 'new'}
-			class="shrink-0 rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50 sm:px-3.5 sm:py-2.5"
-		>
-			Add
-		</button>
+		{#if quickError}
+			<p class="text-xs text-red-600" role="alert">{quickError}</p>
+		{/if}
 	</form>
 
 	{#if groups.length === 0}

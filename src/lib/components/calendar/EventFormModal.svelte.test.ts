@@ -1062,3 +1062,141 @@ describe('EventFormModal - edit save preserves series + invites', () => {
 		expect(body.attendants).toBeUndefined();
 	});
 });
+
+describe('EventFormModal - task-mode scoping (issue 021)', () => {
+	const roster = [
+		{ userId: 'u_mom', firstName: 'Maya', lastName: 'Lopez', email: 'maya@example.com' },
+		{ userId: 'u_dad', firstName: 'Dad', lastName: 'Smith', email: 'dad@example.com' }
+	];
+
+	beforeEach(() => {
+		vi.stubGlobal('fetch', vi.fn());
+		vi.stubGlobal('localStorage', createMockLocalStorage());
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	async function openTaskMode(familyId: string | null = 'fam1') {
+		render(EventFormModal, {
+			props: {
+				show: true,
+				calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
+				familyMembers: roster,
+				familyId
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Task' }));
+	}
+
+	async function typeTaskTitle(value: string) {
+		await fireEvent.input(screen.getByPlaceholderText(/pay water bill/i), {
+			target: { value }
+		});
+	}
+
+	const taskPosts = () =>
+		vi
+			.mocked(fetch)
+			.mock.calls.filter(([u, init]) => String(u) === '/api/tasks' && init?.method === 'POST');
+
+	const taskBody = () => {
+		const posts = taskPosts();
+		if (posts.length !== 1) throw new Error(`Expected 1 task POST, got ${posts.length}`);
+		const raw = posts[0][1]?.body;
+		return JSON.parse(isStringBody(raw) ? raw : '{}');
+	};
+
+	it.each([
+		['wash the car', 'public'],
+		['#private pay water bill', 'private'],
+		['#public walk the dog', 'public']
+	])(
+		'parses "%s" into visibility %s with an explicit personal scope',
+		async (title, visibility) => {
+			vi.mocked(fetch).mockResolvedValue(stubFetchResponse({ task: { id: 't1' } }));
+			await openTaskMode();
+			await typeTaskTitle(title);
+			await fireEvent.click(screen.getByRole('button', { name: 'Add Task' }));
+			await waitFor(() => expect(taskPosts()).toHaveLength(1));
+
+			const body = taskBody();
+			expect(body.visibility).toBe(visibility);
+			// Personal task MUST send familyId: null — the POST default family-scopes.
+			expect(body.familyId).toBeNull();
+		}
+	);
+
+	it('sends a private picker choice when the title has no tag', async () => {
+		vi.mocked(fetch).mockResolvedValue(stubFetchResponse({ task: { id: 't1' } }));
+		await openTaskMode();
+		await fireEvent.change(screen.getByLabelText(/visibility/i), { target: { value: 'private' } });
+		await typeTaskTitle('wash the car');
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Task' }));
+		await waitFor(() => expect(taskPosts()).toHaveLength(1));
+
+		expect(taskBody().visibility).toBe('private');
+	});
+
+	it('an explicit #public tag wins over a private picker choice', async () => {
+		vi.mocked(fetch).mockResolvedValue(stubFetchResponse({ task: { id: 't1' } }));
+		await openTaskMode();
+		await fireEvent.change(screen.getByLabelText(/visibility/i), { target: { value: 'private' } });
+		await typeTaskTitle('#public wash the car');
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Task' }));
+		await waitFor(() => expect(taskPosts()).toHaveLength(1));
+
+		expect(taskBody().visibility).toBe('public');
+	});
+
+	it('@family scopes the task to the family', async () => {
+		vi.mocked(fetch).mockResolvedValue(stubFetchResponse({ task: { id: 't1' } }));
+		await openTaskMode();
+		await typeTaskTitle('@family tidy the garage');
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Task' }));
+		await waitFor(() => expect(taskPosts()).toHaveLength(1));
+
+		const body = taskBody();
+		expect(body.familyId).toBe('fam1');
+		expect(body.title).toBe('tidy the garage');
+	});
+
+	it('@family without a family is blocked with an inline error', async () => {
+		await openTaskMode(null);
+		await typeTaskTitle('@family tidy the garage');
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Task' }));
+
+		expect(taskPosts()).toHaveLength(0);
+		expect(await screen.findByText(/needs a family/i)).toBeInTheDocument();
+	});
+
+	it('@name assigns to the matching roster member', async () => {
+		vi.mocked(fetch).mockResolvedValue(stubFetchResponse({ task: { id: 't1' } }));
+		await openTaskMode();
+		await typeTaskTitle('@maya buy milk');
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Task' }));
+		await waitFor(() => expect(taskPosts()).toHaveLength(1));
+
+		const body = taskBody();
+		expect(body.assignedTo).toBe('u_mom');
+		expect(body.familyId).toBeNull();
+		expect(body.title).toBe('buy milk');
+	});
+
+	it('an unknown @member is blocked with an inline error, never silent', async () => {
+		await openTaskMode();
+		await typeTaskTitle('@zorro buy milk');
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Task' }));
+
+		expect(taskPosts()).toHaveLength(0);
+		expect(await screen.findByText(/unknown member/i)).toBeInTheDocument();
+	});
+
+	it('shows the quick-add help panel next to the task title', async () => {
+		await openTaskMode();
+		await fireEvent.click(screen.getByRole('button', { name: 'Quick-add shortcuts help' }));
+		expect(screen.getByText(/type these right in the title/i)).toBeInTheDocument();
+	});
+});

@@ -244,6 +244,7 @@ export const load: PageServerLoad = async (event) => {
 		familyCalendarColor,
 		showAds,
 		familyMembers: familyMembersList,
+		familyId,
 		calendarIds,
 		dailyVerse,
 		loadWarnings
