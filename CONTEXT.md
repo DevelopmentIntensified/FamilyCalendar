@@ -40,8 +40,24 @@ _Avoid_: edit exception, split
 ### Work Items
 
 **Task**:
-A completable item, optionally due on a date, belonging to a person or family. Defaults to its creator unless explicitly assigned to a person; assigning someone else starts pending until they accept. Carries completion history and stats (future).
+A completable item, optionally due on a date, with a **Task Visibility** — private, public, or family. Belongs to a person; assigning starts a pending handoff (Requested / To Accept queues); decline returns it to the assigner. Carries completion history.
 _Avoid_: todo, chore, checklist item
+
+**Task Visibility**:
+The three-level scope of a Task — `'private' | 'public' | 'family'`. New tasks default public; changing visibility is owner-only. Public tasks are read-only for other family members.
+_Avoid_: sharing level, scope flag
+
+**Private Task**: A Task visible only to its owner, plus assignee and assigner while assigned.
+_Avoid_: hidden task
+
+**Public Task**: A personal Task shared with the family: owner's list plus the family page's Public tab; other members read-only.
+_Avoid_: shared task
+
+**Family Task**: A family-scoped Task; appears on an individual's list only when assigned to them, keeping its Family label/filter.
+_Avoid_: household task
+
+**Requested / To Accept**: The two assignment queues: Requested = tasks the viewer assigned out (Pending/Accepted/Declined); To Accept = tasks assigned to the viewer awaiting response. Accept moves it into the assignee's list; decline returns it to the assigner.
+_Avoid_: outgoing/incoming assignments
 
 **Recurring Task**:
 A Task with a schedule (frequency + interval). Exactly one live occurrence exists at a time — the cursor. Completing snaps the next one to today + n×interval, where n is the smallest multiple landing strictly past the current due date (early checks advance from today; a due date already one interval out pushes the next check two intervals out). Each completion increments the task's completion count. One row per task — no occurrence expansion.
@@ -83,6 +99,28 @@ _Avoid_: household user
 The personal-profile label on a Family Member — `'parent' | 'child' | 'member'`, default `'member'`. Not a permission. Powers the Kids' Schedule (today's events with a child attendee) and personalization.
 _Avoid_: family role, parent/kid role
 
+### Bills & Receipts
+
+**Bill**:
+A tracked expense with title, amount as integer cents, optional due date, and a category from the closed vocabulary (housing, utilities, subscriptions, insurance, other). Quick-add phrases parse into a prefilled form the user confirms — a parse is a hint, never a commit.
+_Avoid_: invoice
+
+**Receipt**:
+A photo of a bill, PROCESSED AND DELETED: parsed on-device into text and numbers, never uploaded or stored. Only the parsed fields and Line Items persist.
+_Avoid_: receipt image upload
+
+**OCR Chain**:
+The ordered scan-engine fallback: Chrome Prompt API (on-device) → native bridge (ML Kit/iOS Vision, future app) → tesseract.js → opt-in Azure Document Intelligence (cloud, per-scan consent, only when server-configured).
+_Avoid_: OCR ladder
+
+**Line Item**:
+One parsed receipt row saved as text (label, price cents, category) on a Bill; the image itself is discarded.
+_Avoid_: item photo
+
+**Tag Table**:
+The learning store mapping merchant/item keys to categories: per-user rows (a user's own corrections, highest precedence) and global rows (aggregated across users). Confirmed labels train it; scans read it.
+_Avoid_: learning model
+
 ## Relationships
 
 - An **Anonymous Account** becomes a permanent account through **Claiming**
@@ -91,6 +129,9 @@ _Avoid_: family role, parent/kid role
 - Anonymous users are warned their data cannot sync without **Claiming**
 - An **Event** can have **Tasks** attached to it
 - A **Task** carries its own completion history and stats (future)
+- A **Task** has exactly one **Task Visibility**; **Family Tasks** surface on an individual's list only when assigned to them
+- A **Bill** optionally carries **Line Items**, each with its own category **Label**; confirmed labels train the **Tag Table** (user rows override global rows)
+- A **Receipt** produces **Line Items** and is then discarded — no image bytes persist anywhere
 - A **Family Member** carries a **Member Type** (personal profile) separate from their membership **role** (permission)
 
 ## Example dialogue
