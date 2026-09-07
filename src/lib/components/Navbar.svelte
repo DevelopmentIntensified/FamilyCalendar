@@ -23,6 +23,12 @@
 		profileDropdownOpen = false;
 	}
 
+	/** Privacy audit #029 M2: tell the service worker to drop all cached
+	 * authed data on logout. Fire-and-forget; the form POST proceeds. */
+	function purgeSwDataCache() {
+		navigator.serviceWorker?.controller?.postMessage({ type: 'purge-data-cache' });
+	}
+
 	function handleOutsideClick(e: MouseEvent) {
 		// Non-Element event targets (e.g. document) count as outside clicks.
 		const target = e.target instanceof Element ? e.target : null;
@@ -198,7 +204,7 @@
 								Report a Bug
 							</a>
 							<div class="mt-2 border-t border-slate-100 pt-2">
-								<form action="/api/logout" method="POST">
+								<form action="/api/logout" method="POST" on:submit={purgeSwDataCache}>
 									<button
 										type="submit"
 										class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
@@ -313,7 +319,7 @@
 				{/if}
 				<div class="mt-4 flex flex-col gap-2 border-t border-slate-200 pt-3">
 					{#if isLoggedIn}
-						<form action="/api/logout" method="POST" class="block">
+						<form action="/api/logout" method="POST" class="block" on:submit={purgeSwDataCache}>
 							<button
 								type="submit"
 								class="w-full rounded-lg bg-primary-600 px-3 py-2.5 text-center text-base font-medium text-white"

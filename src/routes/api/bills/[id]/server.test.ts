@@ -1,21 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { PUT, DELETE, type BillIdDeps } from './+server';
 import type { BillPatch } from '$lib/server/db/actions/bills';
-import type { Attachment, Bill } from '$lib/server/db/schema';
-
-function attachment(over: Partial<Attachment> = {}): Attachment {
-	return {
-		id: 'att-1',
-		ownerUserId: 'u1',
-		familyId: 'f1',
-		url: 'https://blob.example/family-master/receipts/a.jpg',
-		filename: 'family-master/receipts/a.jpg',
-		mimeType: 'image/jpeg',
-		sizeBytes: 1000,
-		createdAt: new Date('2026-09-01T00:00:00Z'),
-		...over
-	};
-}
+import type { Bill } from '$lib/server/db/schema';
 
 function bill(over: Partial<Bill> = {}): Bill {
 	return {
@@ -27,7 +13,6 @@ function bill(over: Partial<Bill> = {}): Bill {
 		paidAt: null,
 		userId: 'u1',
 		familyId: 'f1',
-		attachmentId: null,
 		createdAt: new Date('2026-09-01T00:00:00Z'),
 		...over
 	};
@@ -39,7 +24,6 @@ function deps(over: Partial<BillIdDeps> = {}): BillIdDeps {
 		getFamilyMemberRole: async () => 'admin',
 		updateBill: async () => bill({ title: 'New' }),
 		deleteBill: async () => true,
-		getAttachment: async () => attachment(),
 		...over
 	};
 }
@@ -140,44 +124,16 @@ describe('PUT /api/bills/[id]', () => {
 	});
 });
 
-describe('PUT /api/bills/[id] attachmentId (issue 010)', () => {
-	it('attaches a linkable receipt', async () => {
+describe('PUT /api/bills/[id] attachmentId (storage stripped, issue 010)', () => {
+	it('ignores attachmentId entirely — receipts are never stored', async () => {
 		const updateBill = vi.fn(
 			async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) => bill()
 		);
-		const res = await PUT(
-			event('u1', { attachmentId: 'att-1' }),
-			deps({ updateBill, getAttachment: async () => attachment() })
-		);
+		const res = await PUT(event('u1', { attachmentId: 'att-1' }), deps({ updateBill }));
 
 		expect(res.status).toBe(200);
-		expect(updateBill.mock.calls[0][3]).toEqual({ attachmentId: 'att-1' });
-	});
-
-	it('detaches on explicit null', async () => {
-		const updateBill = vi.fn(
-			async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) => bill()
-		);
-		const res = await PUT(event('u1', { attachmentId: null }), deps({ updateBill }));
-
-		expect(res.status).toBe(200);
-		expect(updateBill.mock.calls[0][3]).toEqual({ attachmentId: null });
-	});
-
-	it('400s when attachmentId is not a string or null', async () => {
-		const res = await PUT(event('u1', { attachmentId: 42 }), deps());
-		expect(res.status).toBe(400);
-	});
-
-	it('403s when the receipt belongs to another user and family', async () => {
-		const res = await PUT(
-			event('u1', { attachmentId: 'att-9' }),
-			deps({
-				getAttachment: async () =>
-					attachment({ id: 'att-9', ownerUserId: 'u-other', familyId: 'f-other' })
-			})
-		);
-		expect(res.status).toBe(403);
+		expect(updateBill).not.toHaveBeenCalled();
+		expect(await res.json()).toMatchObject({ success: true });
 	});
 });
 

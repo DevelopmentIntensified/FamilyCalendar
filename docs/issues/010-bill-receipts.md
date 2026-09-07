@@ -11,6 +11,31 @@ All storage-side work from the in-flight lane (attachments table,
 /api/receipts upload, blob prefix, bills.attachmentId) will be removed
 by the follow-up slice; the scan seam stays.
 
+## Done (storage strip + scan-seam survival, 2026-09-07)
+
+- Schema: `attachments` table + `bills.attachmentId` removed; type
+  `Attachment` gone. `sql/010-drop-receipt-storage.sql` (idempotent)
+  applied to both Docker DBs (`familycalendar`, `familycalendar_test`);
+  `sql/009-attachments.sql` kept as a deprecation note (history).
+- Deleted: `src/routes/api/receipts/**`, `attachments.ts` + test,
+  `resolveAttachment.ts`, blobService receipt methods (ads API untouched).
+- API: bills GET/POST/PUT restored to clean shapes — no attachmentId,
+  no `receiptsByBillId`; tests pin that a client-sent attachmentId is
+  ignored and GET returns bills only.
+- Bills page: attach/thumbnail/detail-image UI removed; expandable detail
+  row kept with a "scanned on-device and discarded" note; scan → prefill →
+  confirm survives; image is discarded after prefill (process-and-delete);
+  toast + inline-confirm delete kept. `stripExif` removed (it only fed the
+  upload path; nothing persists, so EXIF concern is moot).
+- Test pinning process-and-delete: scan prefill test asserts NO fetch call
+  (no upload, no create) happens from a scan.
+- Quick-add NLP wired (issue 011): title field debounces POST
+  /api/parse-bill (300ms) → prefills title/amount/dueDate/category;
+  recurring/frequency/interval parked client-side, never sent to create.
+- Gates: 1473 unit tests green (≈1513 minus removed storage tests),
+  playwright bills+mobile 4 passed, oxlint 0, svelte-check 0, build ✅.
+- #029 privacy wins: H1/H2/M6 eliminated by design (nothing stored).
+
 ## Surviving design
 
 - Local OCR chain (browser-side): Chrome Prompt API → native bridge
@@ -34,9 +59,9 @@ by the follow-up slice; the scan seam stays.
 
 ## Acceptance criteria
 
-- [ ] Scan (OCR chain) → prefilled form → user confirms → bill +
-      line-item TEXT saved; image discarded.
-- [ ] No image bytes persisted anywhere (no blob, no DB).
+- [x] Scan (OCR chain) → prefilled form → user confirms → bill + text
+      saved; image discarded. (Line-item TEXT lands with #031.)
+- [x] No image bytes persisted anywhere (no blob, no DB).
 - [ ] Fast and stays fast at 1000 labels (#031).
 - [ ] Loading states: skeletons, never blank cards.
 

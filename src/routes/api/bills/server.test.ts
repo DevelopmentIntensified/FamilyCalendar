@@ -1,21 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { GET, POST, type BillsDeps } from './+server';
 import type { CreateBillInput } from '$lib/server/db/actions/bills';
-import type { Attachment, Bill } from '$lib/server/db/schema';
-
-function attachment(over: Partial<Attachment> = {}): Attachment {
-	return {
-		id: 'att-1',
-		ownerUserId: 'u1',
-		familyId: 'f1',
-		url: 'https://blob.example/family-master/receipts/a.jpg',
-		filename: 'family-master/receipts/a.jpg',
-		mimeType: 'image/jpeg',
-		sizeBytes: 1000,
-		createdAt: new Date('2026-09-01T00:00:00Z'),
-		...over
-	};
-}
+import type { Bill } from '$lib/server/db/schema';
 
 function bill(over: Partial<Bill> = {}): Bill {
 	return {
@@ -27,7 +13,6 @@ function bill(over: Partial<Bill> = {}): Bill {
 		paidAt: null,
 		userId: 'u1',
 		familyId: 'f1',
-		attachmentId: null,
 		createdAt: new Date('2026-09-01T00:00:00Z'),
 		...over
 	};
@@ -38,8 +23,6 @@ function deps(over: Partial<BillsDeps> = {}): BillsDeps {
 		getUserFamilyId: async () => 'f1',
 		getBillsForUser: async () => [bill()],
 		createBill: async (input) => bill({ ...input, id: 'bill-9' }),
-		getAttachment: async () => attachment(),
-		getAttachmentsByIds: async () => [],
 		...over
 	};
 }
@@ -79,23 +62,11 @@ describe('GET /api/bills', () => {
 		expect(await res.json()).toMatchObject({ bills: [{ id: 'bill-1' }] });
 	});
 
-	it('returns a receiptsByBillId map for bills with attachments', async () => {
-		const res = await GET(
-			event('u1'),
-			deps({
-				getBillsForUser: async () => [bill({ attachmentId: 'att-1' })],
-				getAttachmentsByIds: async () => [attachment()]
-			})
-		);
+	it('returns bills only — no receiptsByBillId (receipts are never stored, issue 010)', async () => {
+		const res = await GET(event('u1'), deps());
 		const body = await res.json();
-		expect(body.receiptsByBillId).toEqual({
-			'bill-1': {
-				id: 'att-1',
-				url: attachment().url,
-				filename: attachment().filename,
-				mimeType: 'image/jpeg'
-			}
-		});
+		expect(body.receiptsByBillId).toBeUndefined();
+		expect(body.bills[0].attachmentId).toBeUndefined();
 	});
 });
 
@@ -117,6 +88,17 @@ describe('POST /api/bills', () => {
 			userId: 'u1',
 			familyId: 'f1'
 		});
+	});
+
+	it('ignores a client-sent attachmentId — receipts are never stored (issue 010)', async () => {
+		const createBill = vi.fn(async (input: CreateBillInput) => bill({ ...input, id: 'b9' }));
+		const res = await POST(
+			event('u1', { title: 'Electric', amount: 100, attachmentId: 'att-1' }),
+			deps({ createBill })
+		);
+
+		expect(res.status).toBe(201);
+		expect(createBill.mock.calls[0][0]).not.toHaveProperty('attachmentId');
 	});
 
 	it('400s on a garbage dueDate', async () => {
@@ -153,42 +135,5 @@ describe('POST /api/bills', () => {
 	it('401s without a user', async () => {
 		const res = await POST(event(null, { title: 'x', amount: 1 }), deps());
 		expect(res.status).toBe(401);
-	});
-});
-
-describe('POST /api/bills with attachmentId (issue 010)', () => {
-	it('links an owned receipt and passes attachmentId through', async () => {
-		const createBill = vi.fn(async (input: CreateBillInput) => bill({ ...input, id: 'b9' }));
-		const res = await POST(
-			event('u1', { title: 'Electric', amount: 100, attachmentId: 'att-1' }),
-			deps({ createBill, getAttachment: async () => attachment({ id: 'att-1' }) })
-		);
-
-		expect(res.status).toBe(201);
-		expect(createBill.mock.calls[0][0]).toMatchObject({ attachmentId: 'att-1' });
-	});
-
-	it('400s when attachmentId is not a string', async () => {
-		const res = await POST(event('u1', { title: 'x', amount: 1, attachmentId: 42 }), deps());
-		expect(res.status).toBe(400);
-	});
-
-	it('403s when the receipt belongs to someone else', async () => {
-		const res = await POST(
-			event('u1', { title: 'x', amount: 1, attachmentId: 'att-9' }),
-			deps({
-				getAttachment: async () =>
-					attachment({ id: 'att-9', ownerUserId: 'u-other', familyId: null })
-			})
-		);
-		expect(res.status).toBe(403);
-	});
-
-	it('403s when the receipt does not exist', async () => {
-		const res = await POST(
-			event('u1', { title: 'x', amount: 1, attachmentId: 'nope' }),
-			deps({ getAttachment: async () => undefined })
-		);
-		expect(res.status).toBe(403);
 	});
 });

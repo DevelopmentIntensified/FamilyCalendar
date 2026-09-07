@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import BillsPage from './+page.svelte';
 import { invalidateAll } from '$app/navigation';
-import type { ReceiptRef } from '$lib/server/db/actions/attachments';
 import type { Bill } from '$lib/server/db/schema';
+import type { ParsedBill } from '$lib/server/services/naturalLanguageService';
 import type { PageData } from './$types';
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- SvelteKit $app/navigation is framework-injected; no DI seam exists.
@@ -23,7 +24,6 @@ function billFixture(over: Partial<Bill> = {}): Bill {
 		paidAt: null,
 		userId: 'u1',
 		familyId: null,
-		attachmentId: null,
 		createdAt: new Date('2026-09-01T00:00:00Z'),
 		...over
 	};
@@ -35,28 +35,33 @@ interface BillsPageData {
 	canEdit: boolean;
 	familyId: string | null;
 	loadWarnings: string[];
-	receiptsByBillId: Record<string, ReceiptRef>;
 }
 
 /** Page data fixture matching +page.server.ts's load return shape. */
-function pageData(
-	bills: Bill[],
-	canEdit = true,
-	loadWarnings: string[] = [],
-	receiptsByBillId: Record<string, ReceiptRef> = {}
-): PageData {
-	const data: BillsPageData = { bills, canEdit, familyId: null, loadWarnings, receiptsByBillId };
+function pageData(bills: Bill[], canEdit = true, loadWarnings: string[] = []): PageData {
+	const data: BillsPageData = { bills, canEdit, familyId: null, loadWarnings };
 	// SAFETY: the fixture supplies exactly what the bills page reads; the
 	// layout-level fields on PageData (user, userSettings, …) are out of scope.
 	return data as PageData;
 }
 
+/** JSON the page's endpoints return in these tests (parse-bill or bills). */
+interface EndpointPayload {
+	parsed?: ParsedBill;
+	method?: string;
+	success?: boolean;
+	bill?: Bill;
+}
+
+/** A Response for the authed JSON endpoints the page calls. */
+function okJson(body: EndpointPayload, status = 200): Response {
+	return new Response(JSON.stringify(body), { status });
+}
+
 beforeEach(() => {
 	vi.stubGlobal(
 		'fetch',
-		vi.fn(() =>
-			Promise.resolve(new Response(JSON.stringify({ success: true, bill: billFixture() })))
-		)
+		vi.fn(() => Promise.resolve(okJson({ success: true, bill: billFixture() })))
 	);
 });
 
@@ -64,6 +69,7 @@ afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
+	vi.useRealTimers();
 });
 
 describe('bills page rows', () => {
@@ -175,134 +181,150 @@ describe('delete flow', () => {
 	});
 });
 
-function receiptRef(over: Partial<ReceiptRef> = {}): ReceiptRef {
-	return {
-		id: 'att-1',
-		url: 'https://blob.example/family-master/receipts/a.jpg',
-		filename: 'family-master/receipts/a.jpg',
-		mimeType: 'image/jpeg',
-		...over
-	};
-}
-
-describe('receipt detail area (issue 010)', () => {
-	it('is hidden until the row is expanded', () => {
-		render(BillsPage, {
-			props: {
-				data: pageData([billFixture({ attachmentId: 'att-1' })], true, [], {
-					'bill-1': receiptRef()
-				})
-			}
-		});
-
-		expect(screen.queryByRole('img', { name: 'Receipt for Electric' })).not.toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Show details for Electric' })).toBeInTheDocument();
-	});
-
-	it('shows the thumbnail and full-size view after expanding', async () => {
-		render(BillsPage, {
-			props: {
-				data: pageData([billFixture({ attachmentId: 'att-1' })], true, [], {
-					'bill-1': receiptRef()
-				})
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
-
-		expect(screen.getByRole('img', { name: 'Receipt for Electric' })).toHaveAttribute(
-			'src',
-			receiptRef().url
-		);
-
-		await fireEvent.click(
-			screen.getByRole('button', { name: 'View receipt full size for Electric' })
-		);
-
-		const modal = screen.getByRole('dialog', { name: 'Receipt full size' });
-		expect(modal).toBeInTheDocument();
-		expect(modal.querySelector('img')).toHaveAttribute('src', receiptRef().url);
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-		expect(screen.queryByRole('dialog', { name: 'Receipt full size' })).not.toBeInTheDocument();
-	});
-
-	it('offers attach, not remove, when the bill has no receipt', async () => {
+describe('bill detail row (storage-free, issue 010)', () => {
+	it('expands to the storage-free note with no images and no attach affordance', async () => {
 		render(BillsPage, { props: { data: pageData([billFixture()]) } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
 
-		expect(screen.getByRole('button', { name: 'Attach receipt photo' })).toBeInTheDocument();
-		expect(
-			screen.queryByRole('button', { name: 'Remove receipt from Electric' })
-		).not.toBeInTheDocument();
-	});
-
-	it('removes the receipt through an inline confirm (DELETE /api/receipts/[id])', async () => {
-		render(BillsPage, {
-			props: {
-				data: pageData([billFixture({ attachmentId: 'att-1' })], true, [], {
-					'bill-1': receiptRef()
-				})
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Remove receipt from Electric' }));
-		expect(vi.mocked(fetch)).not.toHaveBeenCalled();
-
-		await fireEvent.click(
-			screen.getByRole('button', { name: 'Confirm remove receipt from Electric' })
-		);
-
-		expect(vi.mocked(fetch)).toHaveBeenCalledWith(
-			'/api/receipts/att-1',
-			expect.objectContaining({ method: 'DELETE' })
-		);
-	});
-
-	it('shows a skeleton while the receipt action is in flight', async () => {
-		render(BillsPage, { props: { data: pageData([billFixture()]) } });
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
-
-		// In-flight state only appears once a receipt action starts; before that
-		// the attach affordance is present and no skeleton is shown.
-		expect(screen.queryByText('Working on receipt…')).not.toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Attach receipt photo' })).toBeInTheDocument();
-	});
-
-	it('hides attach/remove for read-only viewers (view-only receipt)', async () => {
-		render(BillsPage, {
-			props: {
-				data: pageData([billFixture({ attachmentId: 'att-1' })], false, [], {
-					'bill-1': receiptRef()
-				})
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
-
-		expect(screen.getByRole('img', { name: 'Receipt for Electric' })).toBeInTheDocument();
+		expect(screen.queryByRole('img', { name: /receipt/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Attach receipt photo' })).not.toBeInTheDocument();
-		expect(
-			screen.queryByRole('button', { name: 'Remove receipt from Electric' })
-		).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /Remove receipt/ })).not.toBeInTheDocument();
+		expect(screen.getByText(/scanned on your device and discarded/i)).toBeInTheDocument();
 	});
 
-	it('has no detail toggle for a read-only viewer without a receipt', () => {
-		render(BillsPage, { props: { data: pageData([billFixture()], false) } });
+	it('collapses again on a second toggle', async () => {
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
 
-		expect(screen.queryByRole('button', { name: /Show details for/ })).not.toBeInTheDocument();
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Hide details for Electric' }));
+
+		expect(screen.queryByText(/scanned on your device and discarded/i)).not.toBeInTheDocument();
 	});
 });
 
-describe('receipt scan prefill (issue 010)', () => {
+describe('receipt scan prefill (issue 010, process-and-delete)', () => {
+	it('prefills the form from a scan and persists NOTHING — no upload, no create', async () => {
+		// oxlint-disable-next-line anti-slop/no-module-mocking -- client OCR engine has no DI seam; the mock stands in for the browser engine chain.
+		vi.mock('$lib/client/receiptOcr', () => ({
+			// SAFETY: module mock — the page's only import from this module.
+			scanReceiptImage: vi.fn(async () => ({ ok: true, text: 'CITY POWER TOTAL $120.00' }))
+		}));
+		// oxlint-disable-next-line anti-slop/no-module-mocking -- pure extraction seam, see above.
+		vi.mock('$lib/utils/receiptScan', () => ({
+			// SAFETY: module mock — pure extraction, exercised elsewhere.
+			scanReceipt: vi.fn(() => ({
+				merchant: 'City Power',
+				totalCents: 12000,
+				dateIso: '2026-09-15',
+				category: 'utilities'
+			}))
+		}));
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+
+		const input = screen.getByLabelText('Pick a receipt photo to scan');
+		Object.defineProperty(input, 'files', {
+			value: [new File(['x'], 'receipt.jpg', { type: 'image/jpeg' })],
+			configurable: true
+		});
+		await fireEvent.change(input);
+
+		expect(await screen.findByDisplayValue('City Power')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('120.00')).toBeInTheDocument();
+		expect(screen.getByText('Category suggested — confirm')).toBeInTheDocument();
+		// The image is discarded after prefilling: no upload call, no create.
+		expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+	});
+
 	it('shows the scan affordance and progress placeholder semantics', () => {
 		render(BillsPage, { props: { data: pageData([billFixture()]) } });
 
 		expect(screen.getByRole('button', { name: 'Scan receipt' })).toBeInTheDocument();
 		expect(screen.queryByText('Reading receipt…')).not.toBeInTheDocument();
+	});
+});
+
+describe('quick-add NLP prefill (issue 011)', () => {
+	function parseFetchMock(parsed: ParsedBill) {
+		return vi.fn((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+			void init;
+			const url = String(input);
+			if (url.includes('/api/parse-bill')) {
+				return Promise.resolve(okJson({ parsed, method: 'regex' }));
+			}
+			return Promise.resolve(okJson({ success: true, bill: billFixture() }, 201));
+		});
+	}
+
+	it('debounces the title field into a parse-bill call and prefills the form', async () => {
+		vi.useFakeTimers();
+		vi.stubGlobal(
+			'fetch',
+			parseFetchMock({
+				title: 'Electric bill',
+				amount: 120,
+				amountCents: 12000,
+				dueDate: '2026-09-11',
+				recurring: 'weekly',
+				frequency: 'weekly',
+				interval: 1,
+				category: 'utilities',
+				confidence: 0.9
+			})
+		);
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+
+		await fireEvent.input(screen.getByLabelText('Bill title'), {
+			target: { value: 'electric 120 due friday' }
+		});
+		await vi.advanceTimersByTimeAsync(300);
+		await tick();
+
+		expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+			'/api/parse-bill',
+			expect.objectContaining({ method: 'POST' })
+		);
+		expect(screen.getByDisplayValue('Electric bill')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('120.00')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('2026-09-11')).toBeInTheDocument();
+		expect(screen.getByText('Category suggested — confirm')).toBeInTheDocument();
+	});
+
+	it('sends only the clean create shape — parked recurrence never reaches createBill', async () => {
+		vi.useFakeTimers();
+		const fetchMock = parseFetchMock({
+			title: 'Rent',
+			amount: 1500,
+			amountCents: 150000,
+			dueDate: '2026-10-01',
+			recurring: 'monthly',
+			frequency: 'monthly',
+			interval: 1,
+			category: 'housing',
+			confidence: 0.9
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+
+		await fireEvent.input(screen.getByLabelText('Bill title'), {
+			target: { value: 'rent 1500 monthly on the 1st' }
+		});
+		await vi.advanceTimersByTimeAsync(300);
+		await tick();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add bill' }));
+
+		const createCall = fetchMock.mock.calls.find(([url]) => String(url) === '/api/bills');
+		expect(createCall).toBeTruthy();
+		const body = JSON.parse(String(createCall?.[1]?.body));
+		expect(body).toEqual({
+			title: 'Rent',
+			amount: '1500.00',
+			dueDate: '2026-10-01',
+			category: 'housing'
+		});
+		expect(body).not.toHaveProperty('recurring');
+		expect(body).not.toHaveProperty('frequency');
+		expect(body).not.toHaveProperty('interval');
 	});
 });
 

@@ -67,7 +67,9 @@ Status: in-progress
 
 **MED**
 - M1 privacy policy names no processors (Cerebras, Resend, Vercel,
-  Neon, Nominatim, ESV).
+  Neon, Nominatim, ESV). NOTE (2026-09-07): Resend Inbound will also
+  RECEIVE + RETAIN user-forwarded receipt emails (#033) — the privacy
+  policy must disclose both sending AND receiving storage by Resend.
 - M2 service worker caches authed /api/events + /api/tasks GETs,
   never cleared on logout → cache purge on logout + age cap.
 - M3 location-search strings → Nominatim with static UA; disclose,
@@ -91,15 +93,38 @@ no analytics scripts, per-object receipt authz on the DELETE endpoint.
 lane runs immediately after the receipts lane lands, before it ships.
 Then H3/M1/M2 (privacy-fix slice), then the OCR fallback chain.
 
+## Done (privacy-fix slice, 2026-09-07)
+
+- **H3**: `planBulkEditsWithAI` now honors the cloud-AI opt-out — returns
+  `[]` with NO LLM call when `useCloudAI` or `autoParseEventDetails` is
+  off (`BulkAiSettings` param; mirrors parse-event). Data minimisation:
+  only events NAMED in the instruction ship their title/location to
+  Cerebras; untargeted events go as id + start. 5 new table tests on the
+  `./llm` mock seam. Note: the function currently has no production
+  caller (the bulk route runs the local planner only) — the gate is armed
+  for when the AI path is wired.
+- **M1**: privacy policy processor table added (Cerebras — verbatim
+  quick-add text, opt-out via cloud-AI setting; Resend — name/email for
+  magic links + resets; Vercel — hosting/logs/ad images, receipts never
+  stored; Neon — app data; Nominatim — location search strings; Crossway
+  ESV — verse text, no user data) + on-device receipt processing note.
+- **M2**: logout purges the SW DATA cache three ways — SW intercepts
+  POST /api/logout (works even for the plain HTML form), Navbar logout
+  forms postMessage `purge-data-cache`, and a `message` handler deletes
+  the cache. Data cache entries now carry a 1-day age cap
+  (`x-cached-at`, stale entries dropped, legacy unstamped entries purge
+  on first offline hit). No SW test seam exists — verified by code
+  reasoning + e2e bills/mobile passing with the new fetch handler live.
+
 ## Needs doing
 
 - **CHANGE (2026-09-07)**: user decreed NO receipt image storage —
-  process-and-delete. H1/H2/M6 below are ELIMINATED BY DESIGN once the
-  follow-up slice strips the storage side (attachments table,
-  /api/receipts, blob prefix, bills.attachmentId — built by the
-  in-flight receipts lane against the old spec, removed before ship).
+  process-and-delete. H1/H2/M6 below are ELIMINATED BY DESIGN: the strip
+  slice removed the storage side (attachments table, /api/receipts, blob
+  prefix, bills.attachmentId — sql/010 applied to both DBs).
   What remains of this audit for receipts: nothing image-related; text
   parse data (bill title/merchant) is ordinary app data.
 - H3 (bulk-AI ignores useCloudAI), M1 (privacy policy processors),
-  M2 (SW logout purge), M3–M5, LOWs: still open.
+  M2 (SW logout purge): DONE 2026-09-07 (see Done above).
+- M3–M5, LOWs: still open.
 - EXIF stripping: MOOT (no image persisted anywhere).

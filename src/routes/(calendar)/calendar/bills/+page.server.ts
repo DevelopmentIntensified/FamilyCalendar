@@ -1,13 +1,8 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getBillsForUser } from '$lib/server/db/actions/bills';
-import { buildReceiptsByBillId, getAttachmentsByIds } from '$lib/server/db/actions/attachments';
 import { getFamilyMemberRole, getUserFamilyId } from '$lib/server/db/actions/families';
 import { guard } from '$lib/server/utils/guard';
-import type { ReceiptsByBillId } from '$lib/server/db/actions/attachments';
-
-/** Guard fallback so the load return type stays ReceiptsByBillId. */
-const EMPTY_RECEIPTS: ReceiptsByBillId = {};
 
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
@@ -23,13 +18,6 @@ export const load: PageServerLoad = async (event) => {
 	const billsG = await guard('bills', [], () => getBillsForUser(userId, familyId));
 	if (billsG.error) loadWarnings.push(billsG.error);
 
-	const receiptsG = await guard('receipts', EMPTY_RECEIPTS, () =>
-		getAttachmentsByIds(
-			billsG.data.map((bill) => bill.attachmentId).filter((id): id is string => id !== null)
-		).then((attachments) => buildReceiptsByBillId(billsG.data, attachments))
-	);
-	if (receiptsG.error) loadWarnings.push(receiptsG.error);
-
 	const roleG = await guard('role', null, () =>
 		familyId ? getFamilyMemberRole(userId, familyId) : Promise.resolve(null)
 	);
@@ -41,7 +29,6 @@ export const load: PageServerLoad = async (event) => {
 
 	return {
 		bills: billsG.data,
-		receiptsByBillId: receiptsG.data,
 		familyId: familyId ?? null,
 		canEdit,
 		loadWarnings

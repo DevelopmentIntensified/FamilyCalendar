@@ -4,7 +4,7 @@
  * OCR bridge (ML Kit / iOS Vision via window.FamilyPlanz.ocr — stub until
  * a native app exists), (3) tesseract.js WASM worker (lazy bootstrap).
  * Extraction itself is pure (receiptScan.ts, unit-tested); this module only
- * moves bytes off the main thread and strips EXIF at capture.
+ * moves bytes off the main thread. Images never leave the device.
  */
 
 export interface ScanOutcome {
@@ -177,30 +177,4 @@ export function scanReceiptImage(
 	onProgress: (progress: number) => void = () => {}
 ): Promise<ScanOutcome> {
 	return scanWithEngines(engines(), file, onProgress);
-}
-
-/**
- * Re-encodes the image through a canvas, dropping all metadata (EXIF/GPS,
- * privacy audit #029). Falls back to the original file when re-encoding is
- * unsupported (e.g. HEIC without decoder support).
- */
-export async function stripExif(file: File): Promise<File> {
-	try {
-		const bitmap = await createImageBitmap(file);
-		const canvas = document.createElement('canvas');
-		canvas.width = bitmap.width;
-		canvas.height = bitmap.height;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return file;
-		ctx.drawImage(bitmap, 0, 0);
-		const blob = await new Promise<Blob | null>((resolve) =>
-			canvas.toBlob(resolve, 'image/jpeg', 0.92)
-		);
-		bitmap.close();
-		if (!blob) return file;
-		const name = file.name.replace(/\.[^.]+$/, '') + '.jpg';
-		return new File([blob], name, { type: 'image/jpeg' });
-	} catch {
-		return file;
-	}
 }

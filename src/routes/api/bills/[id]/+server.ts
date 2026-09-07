@@ -11,10 +11,8 @@ import {
 	parseDueDate,
 	type BillPatch
 } from '$lib/server/db/actions/bills';
-import { getAttachment } from '$lib/server/db/actions/attachments';
 import { getFamilyMemberRole } from '$lib/server/db/actions/families';
 import { requireUserJson } from '$lib/server/utils/requireUser';
-import { resolveAttachmentId } from '$lib/server/utils/resolveAttachment';
 
 /**
  * Collaborators the bill endpoints need, injectable so tests pass fakes
@@ -25,15 +23,13 @@ export type BillIdDeps = {
 	getFamilyMemberRole: typeof getFamilyMemberRole;
 	updateBill: typeof updateBill;
 	deleteBill: typeof deleteBill;
-	getAttachment: typeof getAttachment;
 };
 
 const defaultDeps: BillIdDeps = {
 	getBill,
 	getFamilyMemberRole,
 	updateBill,
-	deleteBill,
-	getAttachment
+	deleteBill
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -88,17 +84,6 @@ export const PUT = async (event: RequestEvent, deps: BillIdDeps = defaultDeps) =
 	}
 	if (body.category !== undefined) patch.category = normalizeBillCategory(body.category);
 	if (body.paid !== undefined) patch.paidAt = body.paid ? new Date().toISOString() : null;
-	if (body.attachmentId !== undefined) {
-		const resolved = await resolveAttachmentId(
-			body.attachmentId,
-			auth.user.id,
-			allowed.bill.familyId,
-			deps.getAttachment
-		);
-		if ('error' in resolved) return resolved.error;
-		// undefined body key means "leave alone"; explicit null detaches.
-		patch.attachmentId = body.attachmentId === null ? null : resolved.id;
-	}
 
 	if (Object.keys(patch).length === 0) {
 		// Empty patch: drizzle's set({}) throws, and there is nothing to write.

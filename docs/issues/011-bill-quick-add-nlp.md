@@ -25,8 +25,8 @@ Parent: #003 Bill Tracking PRD (story 12).
 
 ## Needs doing
 
-- Bills-page wiring (prefill from parsed intent) — rolled into the
-  receipts/privacy-fix slice that owns the bills page; commit edd5195
-  carries the parser + route. Limitations: single-currency ($ only),
-  no by-day lists (bills anchor on dueDate), no fuzzy weekday
-  correction, deterministic-only (no LLM path).
+- DONE (2026-09-07, storage-strip slice): bills-page wiring landed —
+  title field debounces POST /api/parse-bill (300ms) and prefills
+  title/amount/dueDate/category as a hint; the user confirms with
+  "Add bill". recurring/frequency/interval stay client-side until #006
+  and are never sent to createBill (pinned by test).

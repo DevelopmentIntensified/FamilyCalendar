@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
-	import type { ReceiptRef } from '$lib/server/db/actions/attachments';
 	import { pushToast } from '$lib/client/toasts';
-	import { scanReceiptImage, stripExif } from '$lib/client/receiptOcr';
+	import { scanReceiptImage } from '$lib/client/receiptOcr';
 	import { scanReceipt } from '$lib/utils/receiptScan';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 
@@ -22,30 +21,22 @@
 	let actionError = $state('');
 	let confirmDeleteId: string | null = $state(null);
 
-	// Receipt state (issue 010).
+	// Scan state (issue 010). Process-and-delete: the picked image never
+	// leaves the device and is discarded once the fields are prefilled —
+	// nothing is uploaded or stored.
 	let expandedId: string | null = $state(null);
-	let viewReceiptUrl: string | null = $state(null);
-	let confirmRemoveReceiptId: string | null = $state(null);
-	let attachBusyId: string | null = $state(null);
-	/** Bill whose "Attach receipt" picked the shared file input; null = new-bill scan. */
-	let receiptTargetId: string | null = $state(null);
 	let scanFileInput: HTMLInputElement | null = $state(null);
-	let attachFileInput: HTMLInputElement | null = $state(null);
-	/** Receipt uploaded for the new-bill form, attached when the bill is created. */
-	let pendingReceipt: ReceiptRef | null = $state(null);
 	let scanBusy = $state(false);
 	let scanProgress = $state(0);
 	let scanNotice = $state('');
-	/** True while the category select still shows the OCR suggestion. */
+	/** True while the category select still shows a scan/NLP suggestion. */
 	let categorySuggested = $state(false);
 
-	function receiptFor(bill: BillRow): ReceiptRef | null {
-		return data.receiptsByBillId[bill.id] ?? null;
-	}
+	// Quick-add NLP state (issue 011): debounced parse → prefill hints.
+	let parseTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function toggleExpanded(bill: BillRow) {
 		expandedId = expandedId === bill.id ? null : bill.id;
-		confirmRemoveReceiptId = null;
 	}
 
 	/** Dollars string from OCR cents, empty when unextracted. */
@@ -53,25 +44,9 @@
 		return cents === null ? '' : (cents / 100).toFixed(2);
 	}
 
-	/** Uploads the picked image as a receipt attachment; null on failure.
-	 * The image is canvas re-encoded first so EXIF/GPS never leaves the
-	 * device (privacy audit #029). */
-	async function uploadReceipt(file: File): Promise<ReceiptRef | null> {
-		const cleaned = await stripExif(file);
-		const body = new FormData();
-		body.append('file', cleaned);
-		const res = await fetch('/api/receipts', { method: 'POST', body });
-		if (!res.ok) {
-			const json = await res.json().catch(() => ({}));
-			throw new Error(json.error || 'Could not upload the receipt.');
-		}
-		const json = await res.json();
-		return json.attachment ?? null;
-	}
-
 	/**
-	 * Scan → prefill the new-bill form → attach the photo as a pending
-	 * receipt. Garbled/failed OCR keeps the photo and asks for manual fields.
+	 * Scan → prefill the new-bill form → discard the image. Garbled/failed
+	 * OCR keeps nothing and asks for manual fields.
 	 */
 	async function scanAndPrefill(file: File) {
 		scanBusy = true;
@@ -92,12 +67,11 @@
 				newCategory = result.category;
 				categorySuggested = true;
 			}
-			pendingReceipt = (await uploadReceipt(file)) ?? null;
 			pushToast({
 				message:
 					outcome.ok && result.merchant
 						? 'Receipt scanned — review the details below.'
-						: 'Receipt attached — review the details below.'
+						: 'Scanned the photo, but read nothing usable — fill the fields manually.'
 			});
 		} catch (error) {
 			actionError = error instanceof Error ? error.message : 'Could not scan the receipt.';
@@ -113,61 +87,6 @@
 		const file = input.files?.[0];
 		input.value = '';
 		if (file) scanAndPrefill(file);
-	}
-
-	/** Attaches the picked image to an existing bill (upload then PATCH-like PUT). */
-	async function attachToBill(billId: string, file: File) {
-		attachBusyId = billId;
-		actionError = '';
-		try {
-			const attachment = await uploadReceipt(file);
-			if (!attachment) throw new Error('Could not attach the receipt.');
-			const res = await fetch(`/api/bills/${billId}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ attachmentId: attachment.id })
-			});
-			if (!res.ok) {
-				const json = await res.json().catch(() => ({}));
-				throw new Error(json.error || 'Could not attach the receipt.');
-			}
-			pushToast({ message: 'Receipt attached.' });
-			await invalidateAll();
-		} catch (error) {
-			actionError = error instanceof Error ? error.message : 'Could not attach the receipt.';
-		} finally {
-			attachBusyId = null;
-		}
-	}
-
-	function onAttachPicked(event: Event) {
-		// SAFETY: the only onchange target is the hidden attach file input.
-		const input = event.target as HTMLInputElement;
-		const file = input.files?.[0];
-		input.value = '';
-		if (file && receiptTargetId) attachToBill(receiptTargetId, file);
-		receiptTargetId = null;
-	}
-
-	async function removeReceipt(bill: BillRow) {
-		const receipt = receiptFor(bill);
-		if (!receipt) return;
-		attachBusyId = bill.id;
-		actionError = '';
-		try {
-			const res = await fetch(`/api/receipts/${receipt.id}`, { method: 'DELETE' });
-			if (!res.ok) {
-				const json = await res.json().catch(() => ({}));
-				throw new Error(json.error || 'Could not remove the receipt.');
-			}
-			pushToast({ message: 'Receipt removed.' });
-			confirmRemoveReceiptId = null;
-			await invalidateAll();
-		} catch (error) {
-			actionError = error instanceof Error ? error.message : 'Could not remove the receipt.';
-		} finally {
-			attachBusyId = null;
-		}
 	}
 
 	/** BillId -> optimistic paid state while a toggle is in flight. */
@@ -207,22 +126,61 @@
 		return category.charAt(0).toUpperCase() + category.slice(1);
 	}
 
+	/**
+	 * Quick-add NLP (issue 011): debounced local parse of the title field
+	 * prefills the form as a hint — the user still confirms with "Add bill".
+	 * Parsed recurrence (recurring/frequency/interval) is parked client-side
+	 * until #006; it is never sent to the create endpoint.
+	 */
+	async function parseQuickAdd(input: string) {
+		try {
+			const res = await fetch('/api/parse-bill', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ input })
+			});
+			if (!res.ok) return;
+			const json = await res.json();
+			const parsed = json.parsed;
+			if (!parsed) return;
+			if (parsed.title) newTitle = parsed.title;
+			const amount = dollarsFromCents(parsed.amountCents ?? null);
+			if (amount) newAmount = amount;
+			if (parsed.dueDate) newDueDate = parsed.dueDate;
+			if (parsed.category && parsed.category !== 'other') {
+				newCategory = parsed.category;
+				categorySuggested = true;
+			}
+			// Parked until #006: parsed.recurring / parsed.frequency / parsed.interval
+		} catch {
+			// Prefill is best-effort; a failed parse leaves the fields alone.
+		}
+	}
+
+	function onTitleInput() {
+		if (parseTimer) clearTimeout(parseTimer);
+		if (!newTitle.trim() || adding || scanBusy) return;
+		const input = newTitle.trim();
+		parseTimer = setTimeout(() => parseQuickAdd(input), 300);
+	}
+
 	async function addBill() {
 		if (!newTitle.trim() || !newAmount.trim() || adding) return;
 		adding = true;
 		actionError = '';
+		if (parseTimer) {
+			clearTimeout(parseTimer);
+			parseTimer = null;
+		}
 		try {
 			const res = await fetch('/api/bills', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				// undefined attachmentId is dropped by JSON.stringify — same as
-				// "not provided" server-side.
 				body: JSON.stringify({
 					title: newTitle.trim(),
 					amount: newAmount.trim(),
 					dueDate: newDueDate || null,
-					category: newCategory,
-					attachmentId: pendingReceipt?.id
+					category: newCategory
 				})
 			});
 			if (!res.ok) {
@@ -233,7 +191,6 @@
 			newAmount = '';
 			newDueDate = '';
 			newCategory = 'other';
-			pendingReceipt = null;
 			scanNotice = '';
 			categorySuggested = false;
 			pushToast({ message: 'Bill added.' });
@@ -300,8 +257,6 @@
 	<title>Bills — Family Planz</title>
 </svelte:head>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && (viewReceiptUrl = null)} />
-
 <div class="mx-auto max-w-2xl px-4 py-6">
 	<Breadcrumbs crumbs={[{ label: 'Calendar', href: '/calendar' }, { label: 'Bills' }]} />
 	<h1 class="mt-2 text-2xl font-bold text-slate-900">Bills</h1>
@@ -328,8 +283,9 @@
 					<span class="sr-only">Bill title</span>
 					<input
 						class="w-full rounded border border-slate-300 px-3 py-2"
-						placeholder="Bill title (e.g. Electric)"
+						placeholder="e.g. Electric $120 due friday"
 						bind:value={newTitle}
+						oninput={onTitleInput}
 						disabled={adding}
 					/>
 				</label>
@@ -395,11 +351,8 @@
 				</button>
 				{#if categorySuggested}
 					<span class="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700">
-						Category from receipt — confirm
+						Category suggested — confirm
 					</span>
-				{/if}
-				{#if pendingReceipt}
-					<span class="text-xs text-slate-500"> Receipt photo attached to this new bill. </span>
 				{/if}
 			</div>
 			{#if scanBusy}
@@ -485,9 +438,6 @@
 										{dueLabel(bill.dueDate)}
 									</span>
 								{/if}
-								{#if receiptFor(bill)}
-									<span class="text-[11px] font-medium text-sky-700">Receipt</span>
-								{/if}
 							</div>
 						</div>
 						<p class="shrink-0 font-mono font-semibold text-slate-900">
@@ -538,147 +488,41 @@
 								</button>
 							{/if}
 						{/if}
-						{#if data.canEdit || receiptFor(bill)}
-							<button
-								type="button"
-								onclick={() => toggleExpanded(bill)}
-								aria-expanded={expandedId === bill.id}
-								aria-label="{expandedId === bill.id
-									? 'Hide details'
-									: 'Show details'} for {bill.title}"
-								class="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+						<button
+							type="button"
+							onclick={() => toggleExpanded(bill)}
+							aria-expanded={expandedId === bill.id}
+							aria-label="{expandedId === bill.id
+								? 'Hide details'
+								: 'Show details'} for {bill.title}"
+							class="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+						>
+							<svg
+								class="h-5 w-5 transition-transform {expandedId === bill.id ? 'rotate-180' : ''}"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								aria-hidden="true"
 							>
-								<svg
-									class="h-5 w-5 transition-transform {expandedId === bill.id ? 'rotate-180' : ''}"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									aria-hidden="true"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 9l-7 7-7-7"
-									/>
-								</svg>
-							</button>
-						{/if}
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M19 9l-7 7-7-7"
+								/>
+							</svg>
+						</button>
 					</div>
 					{#if expandedId === bill.id}
 						<div class="border-t border-slate-100 p-3">
-							{#if attachBusyId === bill.id && !receiptFor(bill)}
-								<div class="flex items-center gap-3" role="status" aria-live="polite">
-									<div class="h-20 w-16 animate-pulse rounded bg-slate-100"></div>
-									<span class="text-sm text-slate-500">Working on receipt…</span>
-								</div>
-							{:else if data.receiptsByBillId[bill.id]}
-								{@const receipt = data.receiptsByBillId[bill.id]}
-								<div class="flex flex-wrap items-start gap-3">
-									<button
-										type="button"
-										class="shrink-0 rounded border border-slate-200 p-1 transition-colors hover:border-slate-400"
-										onclick={() => (viewReceiptUrl = receipt.url)}
-										aria-label="View receipt full size for {bill.title}"
-									>
-										<img
-											src={receipt.url}
-											alt="Receipt for {bill.title}"
-											class="h-20 w-16 rounded object-cover"
-											loading="lazy"
-										/>
-									</button>
-									<div class="flex min-w-0 flex-col items-start gap-2">
-										<button
-											type="button"
-											class="min-h-[44px] rounded px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50"
-											onclick={() => (viewReceiptUrl = receipt.url)}
-										>
-											View full size
-										</button>
-										{#if data.canEdit}
-											{#if confirmRemoveReceiptId === bill.id}
-												<div class="flex gap-2">
-													<button
-														type="button"
-														class="min-h-[44px] rounded px-3 py-2 text-sm text-slate-500 hover:bg-slate-100"
-														onclick={() => (confirmRemoveReceiptId = null)}
-														aria-label="Cancel remove receipt"
-													>
-														Cancel
-													</button>
-													<button
-														type="button"
-														class="min-h-[44px] rounded bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
-														onclick={() => removeReceipt(bill)}
-														aria-label="Confirm remove receipt from {bill.title}"
-													>
-														{attachBusyId === bill.id ? 'Removing…' : 'Confirm remove'}
-													</button>
-												</div>
-											{:else}
-												<button
-													type="button"
-													class="min-h-[44px] rounded px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-													disabled={attachBusyId !== null}
-													onclick={() => (confirmRemoveReceiptId = bill.id)}
-													aria-label="Remove receipt from {bill.title}"
-												>
-													Remove receipt
-												</button>
-											{/if}
-										{/if}
-									</div>
-								</div>
-							{:else if data.canEdit}
-								<div class="flex flex-col gap-2">
-									<input
-										type="file"
-										accept="image/*"
-										capture="environment"
-										class="sr-only"
-										aria-label="Pick a receipt photo to attach"
-										bind:this={attachFileInput}
-										onchange={onAttachPicked}
-									/>
-									<button
-										type="button"
-										class="flex min-h-[44px] items-center justify-center rounded border border-dashed border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
-										onclick={() => {
-											receiptTargetId = bill.id;
-											attachFileInput?.click();
-										}}
-									>
-										Attach receipt photo
-									</button>
-								</div>
-							{:else}
-								<p class="text-sm text-slate-500">No receipt attached.</p>
-							{/if}
+							<p class="text-sm text-slate-500">
+								No receipt photos are kept — receipts are scanned on your device and discarded after
+								prefilling.
+							</p>
 						</div>
 					{/if}
 				</li>
 			{/each}
 		</ul>
-	{/if}
-
-	{#if viewReceiptUrl}
-		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-			<div
-				class="flex max-h-full max-w-full flex-col items-center gap-2"
-				role="dialog"
-				aria-modal="true"
-				aria-label="Receipt full size"
-			>
-				<img src={viewReceiptUrl} alt="Receipt full size" class="max-h-[80vh] rounded bg-white" />
-				<button
-					type="button"
-					class="min-h-[44px] rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-800"
-					onclick={() => (viewReceiptUrl = null)}
-				>
-					Close
-				</button>
-			</div>
-		</div>
 	{/if}
 </div>

@@ -333,15 +333,32 @@ RULES:
 - Never invent ids outside the provided lists.
 - Return {"ops":[]} when nothing applies.`;
 
+/** Cloud-AI opt-out settings, resolved from the user's settings row. */
+export interface BulkAiSettings {
+	useCloudAI?: boolean;
+	autoParseEventDetails?: boolean;
+}
+
 export async function planBulkEditsWithAI(
 	instruction: string,
 	events: BulkEventSummary[],
 	today: string,
-	calendars: BulkCalendarRef[] = []
+	calendars: BulkCalendarRef[] = [],
+	settings: BulkAiSettings = {}
 ): Promise<BulkPlanOp[]> {
+	// Issue 029 H3: the cloud-AI opt-out is absolute — no Cerebras call when
+	// the user disabled cloud AI or auto-parse (mirrors parse-event).
+	if (settings.useCloudAI === false || settings.autoParseEventDetails === false) return [];
+
+	// Data minimisation: only events NAMED in the instruction carry their
+	// title (and location) to the LLM; everything else ships as id + start so
+	// the model can emit ops but learns nothing about untargeted events.
+	const targets = new Set(selectTargets(instruction.toLowerCase(), events).map((e) => e.id));
+	const payload = events.map((e) => (targets.has(e.id) ? e : { id: e.id, start: e.start }));
+
 	const json = await chatJson(
 		BULK_SYSTEM_PROMPT,
-		`Today is ${today}.\nInstruction: ${instruction}\nEvents: ${JSON.stringify(events)}\nCalendars: ${JSON.stringify(calendars)}`
+		`Today is ${today}.\nInstruction: ${instruction}\nEvents: ${JSON.stringify(payload)}\nCalendars: ${JSON.stringify(calendars)}`
 	);
 	if (!json) return [];
 	return parseBulkPlan(

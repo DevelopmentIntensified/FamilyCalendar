@@ -1,7 +1,6 @@
 import { put, del, list } from '@vercel/blob';
 
 const BUCKET_PREFIX = 'family-master/ads';
-const RECEIPT_PREFIX = 'family-master/receipts';
 
 export interface UploadBlobOptions {
 	filename: string;
@@ -71,26 +70,4 @@ export async function listBlobAssets(prefix?: string): Promise<BlobAsset[]> {
 export async function deleteAdAssetByFilename(filename: string): Promise<void> {
 	const url = await getBlobUrl(filename);
 	await deleteBlobAsset(url);
-}
-
-export interface StoredBlob {
-	url: string;
-	pathname: string;
-}
-
-/**
- * Stores a bill-receipt image under family-master/receipts. Returns the
- * public blob URL (receipts are as public as ad assets; noted in issue 010).
- */
-export async function uploadReceiptAsset(file: UploadBlobOptions): Promise<StoredBlob> {
-	const blob = await put(`${RECEIPT_PREFIX}/${file.filename}`, file.content, {
-		contentType: file.contentType ?? 'image/jpeg',
-		access: 'public'
-	});
-	return { url: blob.url, pathname: blob.pathname };
-}
-
-/** Deletes a stored receipt by its full blob URL. */
-export async function deleteReceiptAsset(url: string): Promise<void> {
-	await del(url);
 }

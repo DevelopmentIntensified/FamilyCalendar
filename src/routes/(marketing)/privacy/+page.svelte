@@ -30,6 +30,67 @@
 			</p>
 		</div>
 
+		<div class="mb-8 rounded-2xl bg-white p-8 shadow-sm">
+			<h2 class="mb-4 text-2xl font-bold text-slate-900">Services we use</h2>
+			<p class="mb-4 text-slate-600">
+				Some everyday features rely on trusted services. Each one only sees the minimum it needs,
+				and none of them use your data for advertising or training.
+			</p>
+			<div class="overflow-x-auto">
+				<table class="w-full text-left text-sm text-slate-600">
+					<thead class="text-xs font-semibold uppercase text-slate-500">
+						<tr>
+							<th class="py-2 pr-4">Service</th>
+							<th class="py-2 pr-4">What it sees</th>
+							<th class="py-2">Why</th>
+						</tr>
+					</thead>
+					<tbody class="align-top">
+						<tr class="border-t border-slate-100">
+							<td class="py-3 pr-4 font-medium text-slate-800">Cerebras</td>
+							<td class="py-3 pr-4">The exact text you type into quick-add</td>
+							<td class="py-3">
+								Parsing your words into events. You can turn this off with the cloud-AI setting on
+								the account page.
+							</td>
+						</tr>
+						<tr class="border-t border-slate-100">
+							<td class="py-3 pr-4 font-medium text-slate-800">Resend</td>
+							<td class="py-3 pr-4">Your name and email address</td>
+							<td class="py-3">Sending sign-in links and password resets.</td>
+						</tr>
+						<tr class="border-t border-slate-100">
+							<td class="py-3 pr-4 font-medium text-slate-800">Vercel</td>
+							<td class="py-3 pr-4">Hosting, technical logs, and ad images you upload</td>
+							<td class="py-3">
+								Running the site. Receipt photos are never uploaded — we never store them.
+							</td>
+						</tr>
+						<tr class="border-t border-slate-100">
+							<td class="py-3 pr-4 font-medium text-slate-800">Neon</td>
+							<td class="py-3 pr-4">Your app data</td>
+							<td class="py-3">The database that stores your calendars and bills.</td>
+						</tr>
+						<tr class="border-t border-slate-100">
+							<td class="py-3 pr-4 font-medium text-slate-800">OpenStreetMap Nominatim</td>
+							<td class="py-3 pr-4">Location search strings</td>
+							<td class="py-3">Turning a place name into a map location.</td>
+						</tr>
+						<tr class="border-t border-slate-100">
+							<td class="py-3 pr-4 font-medium text-slate-800">Crossway (ESV Bible)</td>
+							<td class="py-3 pr-4">Nothing about you</td>
+							<td class="py-3">Fetching public Bible verse text for the verse feature.</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<p class="mt-4 text-sm text-slate-500">
+				Receipt scanning runs entirely on your device: the photo is read on your phone or computer,
+				the details are dropped into the form, and the image is discarded. It is never uploaded or
+				stored.
+			</p>
+		</div>
+
 		<div class="mb-16 grid gap-8 md:grid-cols-2">
 			<div class="rounded-2xl bg-white p-8 shadow-sm">
 				<h2 class="mb-4 text-2xl font-bold text-slate-900">Data deletion</h2>

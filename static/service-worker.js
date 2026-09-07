@@ -1,6 +1,9 @@
 const CACHE_NAME = 'familyplanz-v1';
 const DATA_CACHE_NAME = 'familyplanz-data-v1';
 const DATA_CACHE_LIMIT = 60;
+/** Age cap for cached data (privacy audit #029 M2): 1 day. */
+const DATA_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const CACHED_AT_HEADER = 'x-cached-at';
 const OFFLINE_URL = '/offline.html';
 const IMMUTABLE_PREFIX = '/_app/immutable/';
 const API_DATA_PREFIXES = ['/api/events', '/api/tasks'];
@@ -45,11 +48,65 @@ async function trimDataCache() {
 	}
 }
 
+/** Stamps a cache entry with its write time so stale entries can age out. */
+function stampWithCachedAt(response) {
+	const headers = new Headers(response.headers);
+	headers.set(CACHED_AT_HEADER, String(Date.now()));
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers
+	});
+}
+
+/** True when an entry is missing its stamp or older than the 1-day cap. */
+async function isStale(cache, request) {
+	const cached = await cache.match(request);
+	if (!cached) return true;
+	const cachedAt = Number(cached.headers.get(CACHED_AT_HEADER));
+	// No stamp = written before the cap existed: purge it.
+	return !Number.isFinite(cachedAt) || Date.now() - cachedAt > DATA_CACHE_MAX_AGE_MS;
+}
+
+/** Logs out everywhere the SW can see: drop all cached authed data. */
+function purgeDataCache() {
+	return caches.delete(DATA_CACHE_NAME);
+}
+
+self.addEventListener('message', (event) => {
+	if (event.data && event.data.type === 'purge-data-cache') {
+		event.waitUntil(purgeDataCache());
+	}
+});
+
 self.addEventListener('fetch', (event) => {
 	const { request } = event;
+	const url = new URL(request.url);
+
+	// Logout (even the plain HTML form POST) clears the data cache so the
+	// next user on this device never sees the previous one's events/tasks.
+	if (
+		request.method === 'POST' &&
+		url.origin === self.location.origin &&
+		url.pathname === '/api/logout'
+	) {
+		event.respondWith(
+			(async () => {
+				try {
+					const response = await fetch(request);
+					event.waitUntil(purgeDataCache());
+					return response;
+				} catch (err) {
+					event.waitUntil(purgeDataCache());
+					throw err;
+				}
+			})()
+		);
+		return;
+	}
+
 	if (request.method !== 'GET') return;
 
-	const url = new URL(request.url);
 	if (url.origin !== self.location.origin) return;
 
 	if (isDataUrl(url)) {
@@ -59,12 +116,18 @@ self.addEventListener('fetch', (event) => {
 					const response = await fetch(request);
 					if (response.ok) {
 						const dataCache = await caches.open(DATA_CACHE_NAME);
-						await dataCache.put(request, response.clone());
+						await dataCache.put(request, stampWithCachedAt(response.clone()));
 						event.waitUntil(trimDataCache());
 					}
 					return response;
 				} catch (err) {
-					const cached = await caches.match(request, { cacheName: DATA_CACHE_NAME });
+					const dataCache = await caches.open(DATA_CACHE_NAME);
+					// 1-day cap: stale cached data is dropped, not served.
+					if (await isStale(dataCache, request)) {
+						await dataCache.delete(request);
+						throw err;
+					}
+					const cached = await dataCache.match(request);
 					if (cached) return cached;
 					throw err;
 				}

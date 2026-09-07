@@ -1,12 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DateTime } from 'luxon';
+import { chatJson } from './llm';
 import {
 	parseBulkPlan,
 	planBulkEdits,
+	planBulkEditsWithAI,
 	resolveBulkDate,
 	resolveBulkTime,
 	type BulkEventSummary
 } from './bulkAiService';
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the LLM adapter has no DI seam; the module mock IS the test seam (mirrors parse-event).
+vi.mock('./llm', () => ({ chatJson: vi.fn() }));
+
+/** The module-mocked chatJson, with vi's mock methods restored. */
+const chatJsonMock = vi.mocked(chatJson);
 
 const IDS = ['evt-1', 'evt-2', 'evt-3'];
 
@@ -346,5 +354,49 @@ describe('bare day-of-month ("move to the 26th")', () => {
 		const ops = planBulkEdits('move to the 26th', EVENTS, TODAY);
 		expect(ops).toHaveLength(3);
 		expect(ops[0]).toEqual({ id: 'evt-1', date: '2026-08-26' });
+	});
+});
+
+describe('planBulkEditsWithAI (cloud opt-out + data minimisation, issue 029 H3)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		chatJsonMock.mockResolvedValue({ ops: [{ id: 'evt-2', date: '2026-08-28' }] });
+	});
+
+	it('returns [] without any LLM call when useCloudAI is off', async () => {
+		const ops = await planBulkEditsWithAI('move soccer practice to friday', EVENTS, TODAY, CALS, {
+			useCloudAI: false
+		});
+		expect(ops).toEqual([]);
+		expect(chatJsonMock).not.toHaveBeenCalled();
+	});
+
+	it('returns [] without any LLM call when autoParseEventDetails is off', async () => {
+		const ops = await planBulkEditsWithAI('move soccer practice to friday', EVENTS, TODAY, CALS, {
+			autoParseEventDetails: false
+		});
+		expect(ops).toEqual([]);
+		expect(chatJsonMock).not.toHaveBeenCalled();
+	});
+
+	it('calls the LLM and parses its ops when both cloud settings are on', async () => {
+		const ops = await planBulkEditsWithAI('move soccer practice to friday', EVENTS, TODAY, CALS);
+		expect(chatJsonMock).toHaveBeenCalledTimes(1);
+		expect(ops).toEqual([{ id: 'evt-2', date: '2026-08-28' }]);
+	});
+
+	it("never ships untargeted events' titles to the LLM (ids + start only)", async () => {
+		await planBulkEditsWithAI('move soccer practice to friday', EVENTS, TODAY, CALS);
+
+		const prompt = String(chatJsonMock.mock.calls[0][1]);
+		expect(prompt).toContain('Soccer practice'); // named in the instruction
+		expect(prompt).not.toContain('Running at 5pm with george');
+		expect(prompt).not.toContain('Back to School Hike');
+	});
+
+	it('still returns [] on a null LLM answer', async () => {
+		chatJsonMock.mockResolvedValue(null);
+		const ops = await planBulkEditsWithAI('make it purple', EVENTS, TODAY, CALS);
+		expect(ops).toEqual([]);
 	});
 });

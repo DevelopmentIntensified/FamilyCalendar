@@ -91,7 +91,9 @@ test('Bills CRUD: create via API, list in UI, delete', async ({ page }) => {
 	expect(after).toHaveLength(0);
 });
 
-test('Bills receipt detail: expand shows the attach affordance (issue 010)', async ({ page }) => {
+test('Bills detail row: expand works with no receipt storage (issue 010 strip)', async ({
+	page
+}) => {
 	await login(page);
 
 	const createResp = await page.request.post('/api/bills', {
@@ -103,13 +105,15 @@ test('Bills receipt detail: expand shows the attach affordance (issue 010)', asy
 	await page.waitForLoadState('networkidle');
 	await expect(page.getByText('Water')).toBeVisible();
 
-	// Detail area is collapsed until the row is expanded.
+	// Storage-free: no attach/remove affordances, no receipt images anywhere.
 	await expect(page.getByRole('button', { name: 'Attach receipt photo' })).toHaveCount(0);
 	await page.getByRole('button', { name: 'Show details for Water' }).click();
-	await expect(page.getByRole('button', { name: 'Attach receipt photo' })).toBeVisible();
-	// Mobile-camera affordance lives on the hidden inputs (form scan + attach).
-	await expect(page.locator('input[accept="image/*"][capture="environment"]')).toHaveCount(2);
+	await expect(page.getByRole('img', { name: /receipt/i })).toHaveCount(0);
+	await expect(page.getByText(/scanned on your device and discarded/i)).toBeVisible();
+	// The scan flow survives: one mobile-camera input on the create form.
+	await expect(page.locator('input[accept="image/*"][capture="environment"]')).toHaveCount(1);
 
+	await page.getByRole('button', { name: 'Hide details for Water' }).click();
 	await page.getByRole('button', { name: 'Delete bill Water' }).click();
 	await page.getByRole('button', { name: 'Confirm delete Water' }).click();
 });
