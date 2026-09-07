@@ -2,8 +2,12 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import { pushToast } from '$lib/client/toasts';
-	import { scanReceiptImage } from '$lib/client/receiptOcr';
-	import { scanReceipt } from '$lib/utils/receiptScan';
+	import {
+		cloudScanReceipt,
+		scanReceiptWithFallback,
+		type ScanFlowResult
+	} from '$lib/client/receiptOcr';
+	import type { BillCategory } from '$lib/utils/receiptScan';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -31,6 +35,10 @@
 	let scanNotice = $state('');
 	/** True while the category select still shows a scan/NLP suggestion. */
 	let categorySuggested = $state(false);
+	/** Opt-in cloud step (issue 010): prompt + pending image (held in memory only). */
+	let cloudPrompt = $state(false);
+	let cloudBusy = $state(false);
+	let pendingScanFile: File | null = null;
 
 	// Quick-add NLP state (issue 011): debounced parse → prefill hints.
 	let parseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -44,9 +52,27 @@
 		return cents === null ? '' : (cents / 100).toFixed(2);
 	}
 
+	/** Common prefill for local and cloud scans; user still confirms with Add bill. */
+	function prefillFromScan(scan: {
+		merchant: string | null;
+		totalCents: number | null;
+		dateIso: string | null;
+		category: BillCategory;
+	}) {
+		if (scan.merchant) newTitle = scan.merchant;
+		const amount = dollarsFromCents(scan.totalCents);
+		if (amount) newAmount = amount;
+		if (scan.dateIso) newDueDate = scan.dateIso;
+		if (scan.category !== 'other' || scan.merchant) {
+			newCategory = scan.category;
+			categorySuggested = true;
+		}
+	}
+
 	/**
 	 * Scan → prefill the new-bill form → discard the image. Garbled/failed
-	 * OCR keeps nothing and asks for manual fields.
+	 * OCR keeps nothing: with cloud available the page ASKS before sending
+	 * anything (never auto-send); otherwise it asks for manual fields.
 	 */
 	async function scanAndPrefill(file: File) {
 		scanBusy = true;
@@ -54,31 +80,71 @@
 		scanNotice = '';
 		categorySuggested = false;
 		try {
-			const outcome = await scanReceiptImage(file, (p) => (scanProgress = p));
-			const result = scanReceipt(outcome.text);
-			if (!outcome.ok || (!result.merchant && result.totalCents === null && !result.dateIso)) {
-				scanNotice = "Couldn't read the receipt clearly — fill the fields manually.";
-			}
-			if (result.merchant) newTitle = result.merchant;
-			const amount = dollarsFromCents(result.totalCents);
-			if (amount) newAmount = amount;
-			if (result.dateIso) newDueDate = result.dateIso;
-			if (result.category !== 'other' || result.merchant) {
-				newCategory = result.category;
-				categorySuggested = true;
-			}
-			pushToast({
-				message:
-					outcome.ok && result.merchant
-						? 'Receipt scanned — review the details below.'
-						: 'Scanned the photo, but read nothing usable — fill the fields manually.'
+			const flow = await scanReceiptWithFallback(file, {
+				allowCloud: false,
+				onProgress: (p) => (scanProgress = p)
 			});
+			applyScanFlow(file, flow);
 		} catch (error) {
 			actionError = error instanceof Error ? error.message : 'Could not scan the receipt.';
 		} finally {
 			scanBusy = false;
 			scanProgress = 0;
 		}
+	}
+
+	function applyScanFlow(file: File, flow: ScanFlowResult) {
+		if (flow.quality === 'ok') {
+			prefillFromScan({
+				merchant: flow.local.merchant,
+				totalCents: flow.local.totalCents,
+				dateIso: flow.local.dateIso,
+				category: flow.local.category
+			});
+			pushToast({ message: 'Receipt scanned — review the details below.' });
+			return;
+		}
+		if (data.cloudScanAvailable) {
+			// Poor local read + cloud capability: opt-in prompt, image still on device.
+			pendingScanFile = file;
+			cloudPrompt = true;
+			return;
+		}
+		scanNotice = "Couldn't read the receipt clearly — fill the fields manually.";
+		pushToast({
+			message: 'Scanned the photo, but read nothing usable — fill the fields manually.'
+		});
+	}
+
+	/** Cloud opt-in accepted: EXIF-stripped upload → Azure → same prefill. */
+	async function acceptCloudScan() {
+		if (!pendingScanFile || cloudBusy) return;
+		cloudBusy = true;
+		actionError = '';
+		try {
+			const scan = await cloudScanReceipt(pendingScanFile);
+			prefillFromScan({
+				merchant: scan.merchant,
+				totalCents: scan.totalCents,
+				dateIso: scan.date,
+				category: scan.category
+			});
+			scanNotice = '';
+			pushToast({ message: 'Cloud scan complete — review the details below.' });
+		} catch (error) {
+			scanNotice = error instanceof Error ? error.message : 'Cloud scan failed. Try again.';
+		} finally {
+			cloudBusy = false;
+			cloudPrompt = false;
+			pendingScanFile = null; // image discarded — never kept
+		}
+	}
+
+	/** Cloud opt-in declined: drop the pending image, fall back to manual fields. */
+	function declineCloudScan() {
+		cloudPrompt = false;
+		pendingScanFile = null;
+		scanNotice = "Couldn't read the receipt clearly — fill the fields manually.";
 	}
 
 	function onScanPicked(event: Event) {
@@ -366,8 +432,45 @@
 					</div>
 				</div>
 			{/if}
+			{#if cloudBusy}
+				<div class="flex flex-col gap-1" role="status" aria-live="polite">
+					<span class="text-sm text-slate-600">Scanning with cloud…</span>
+					<div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+						<div class="h-full w-1/3 rounded-full bg-sky-500 motion-safe:animate-pulse"></div>
+					</div>
+				</div>
+			{/if}
 			{#if scanNotice}
 				<p class="text-sm text-amber-700" role="status">{scanNotice}</p>
+			{/if}
+			{#if cloudPrompt}
+				<div
+					class="flex flex-col gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3"
+					role="status"
+				>
+					<p class="text-sm text-slate-700">
+						Try cloud scan? Your receipt photo is sent to Azure's receipt service (deleted there
+						within 24h, never stored by us).
+					</p>
+					<div class="flex flex-col gap-2 sm:flex-row">
+						<button
+							type="button"
+							class="min-h-[44px] rounded bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
+							disabled={cloudBusy}
+							onclick={acceptCloudScan}
+						>
+							Scan with cloud
+						</button>
+						<button
+							type="button"
+							class="min-h-[44px] rounded border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+							disabled={cloudBusy}
+							onclick={declineCloudScan}
+						>
+							No thanks
+						</button>
+					</div>
+				</div>
 			{/if}
 		</form>
 	{/if}

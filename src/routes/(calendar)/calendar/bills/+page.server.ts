@@ -27,10 +27,17 @@ export const load: PageServerLoad = async (event) => {
 	// non-member) — read. The server's canMutateBill stays the real gate.
 	const canEdit = familyId ? roleG.data === 'creator' || roleG.data === 'admin' : true;
 
+	// Cloud scan capability (issue 010): env PRESENCE only — no key or
+	// endpoint values ever reach the client.
+	const cloudScanAvailable = Boolean(
+		process.env.AZURE_DOC_INTELLIGENCE_KEY && process.env.AZURE_DOC_INTELLIGENCE_ENDPOINT
+	);
+
 	return {
 		bills: billsG.data,
 		familyId: familyId ?? null,
 		canEdit,
+		cloudScanAvailable,
 		loadWarnings
 	};
 };

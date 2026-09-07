@@ -39,7 +39,8 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #007 Paid cursor (blocked by #006)
 - #008 Monthly Burn card (blocked by #006)
 - #009 Due-soon reminders (blocked by #006)
-- #010 Bill receipts (blocked by #004 — startable)
+- #010 Bill receipts (in progress: OCR chain + process-and-delete landed;
+  opt-in Azure cloud step landed — scan chain complete)
 - #011 Bill quick-add NLP (blocked by #004 — startable)
 - #012 Bills MED/LOW follow-ups
 - #013 Tasks/family MED/LOW (8 of 10 audit items fixed 2026-09-06: assignment

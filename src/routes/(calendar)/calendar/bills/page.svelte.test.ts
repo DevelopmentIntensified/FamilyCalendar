@@ -13,6 +13,22 @@ vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn() }));
 // oxlint-disable-next-line anti-slop/no-module-mocking -- toast store is global side-effect state; spying keeps assertions local.
 vi.mock('$lib/client/toasts', () => ({ pushToast: vi.fn() }));
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- client OCR chain has no DI seam in component tests; mocks stand in for the browser engines.
+vi.mock('$lib/client/receiptOcr', () => ({
+	// SAFETY: module mock — the page's imports from this module.
+	scanReceiptWithFallback: vi.fn(async () => ({
+		quality: 'ok' as const,
+		text: 'CITY POWER\nTOTAL $120.00',
+		local: {
+			merchant: 'City Power',
+			totalCents: 12000,
+			dateIso: '2026-09-15',
+			category: 'utilities'
+		}
+	})),
+	cloudScanReceipt: vi.fn()
+}));
+
 /** A Bill fixture; fields the page doesn't read keep schema-shaped defaults. */
 function billFixture(over: Partial<Bill> = {}): Bill {
 	return {
@@ -35,11 +51,23 @@ interface BillsPageData {
 	canEdit: boolean;
 	familyId: string | null;
 	loadWarnings: string[];
+	cloudScanAvailable: boolean;
 }
 
 /** Page data fixture matching +page.server.ts's load return shape. */
-function pageData(bills: Bill[], canEdit = true, loadWarnings: string[] = []): PageData {
-	const data: BillsPageData = { bills, canEdit, familyId: null, loadWarnings };
+function pageData(
+	bills: Bill[],
+	canEdit = true,
+	loadWarnings: string[] = [],
+	cloudScanAvailable = false
+): PageData {
+	const data: BillsPageData = {
+		bills,
+		canEdit,
+		familyId: null,
+		loadWarnings,
+		cloudScanAvailable
+	};
 	// SAFETY: the fixture supplies exactly what the bills page reads; the
 	// layout-level fields on PageData (user, userSettings, …) are out of scope.
 	return data as PageData;
@@ -205,21 +233,6 @@ describe('bill detail row (storage-free, issue 010)', () => {
 
 describe('receipt scan prefill (issue 010, process-and-delete)', () => {
 	it('prefills the form from a scan and persists NOTHING — no upload, no create', async () => {
-		// oxlint-disable-next-line anti-slop/no-module-mocking -- client OCR engine has no DI seam; the mock stands in for the browser engine chain.
-		vi.mock('$lib/client/receiptOcr', () => ({
-			// SAFETY: module mock — the page's only import from this module.
-			scanReceiptImage: vi.fn(async () => ({ ok: true, text: 'CITY POWER TOTAL $120.00' }))
-		}));
-		// oxlint-disable-next-line anti-slop/no-module-mocking -- pure extraction seam, see above.
-		vi.mock('$lib/utils/receiptScan', () => ({
-			// SAFETY: module mock — pure extraction, exercised elsewhere.
-			scanReceipt: vi.fn(() => ({
-				merchant: 'City Power',
-				totalCents: 12000,
-				dateIso: '2026-09-15',
-				category: 'utilities'
-			}))
-		}));
 		render(BillsPage, { props: { data: pageData([billFixture()]) } });
 
 		const input = screen.getByLabelText('Pick a receipt photo to scan');
@@ -241,6 +254,106 @@ describe('receipt scan prefill (issue 010, process-and-delete)', () => {
 
 		expect(screen.getByRole('button', { name: 'Scan receipt' })).toBeInTheDocument();
 		expect(screen.queryByText('Reading receipt…')).not.toBeInTheDocument();
+	});
+});
+
+describe('cloud scan opt-in (issue 010, never auto-send)', () => {
+	const poorFlow = {
+		quality: 'poor' as const,
+		text: '',
+		local: { merchant: null, totalCents: null, dateIso: null, category: 'other' as const }
+	};
+
+	function pickReceipt() {
+		const input = screen.getByLabelText('Pick a receipt photo to scan');
+		Object.defineProperty(input, 'files', {
+			value: [new File(['x'], 'receipt.jpg', { type: 'image/jpeg' })],
+			configurable: true
+		});
+		return fireEvent.change(input);
+	}
+
+	it('poor scan + cloud available → asks first, sends NOTHING until accepted', async () => {
+		vi.mocked(await import('$lib/client/receiptOcr')).scanReceiptWithFallback.mockResolvedValue(
+			poorFlow
+		);
+		render(BillsPage, { props: { data: pageData([billFixture()], true, [], true) } });
+		await pickReceipt();
+
+		expect(
+			await screen.findByText(/Try cloud scan\? Your receipt photo is sent to Azure/)
+		).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Scan with cloud' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'No thanks' })).toBeInTheDocument();
+		// Opt-in is real: no network call before the user accepts.
+		expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+	});
+
+	it('accepting runs the cloud scan, prefills the same form, sends nothing else', async () => {
+		const ocr = await import('$lib/client/receiptOcr');
+		vi.mocked(ocr.scanReceiptWithFallback).mockResolvedValue(poorFlow);
+		vi.mocked(ocr.cloudScanReceipt).mockResolvedValue({
+			merchant: 'City Power & Light',
+			totalCents: 12050,
+			date: '2026-09-05',
+			lineItems: [{ label: 'Electric usage', priceCents: 9850 }],
+			category: 'utilities'
+		});
+		render(BillsPage, { props: { data: pageData([billFixture()], true, [], true) } });
+		await pickReceipt();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Scan with cloud' }));
+
+		expect(ocr.cloudScanReceipt).toHaveBeenCalledExactlyOnceWith(expect.any(File));
+		expect(await screen.findByDisplayValue('City Power & Light')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('120.50')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('2026-09-05')).toBeInTheDocument();
+		// The prompt resolves away; no create, no other endpoint touched.
+		expect(screen.queryByRole('button', { name: 'Scan with cloud' })).not.toBeInTheDocument();
+		expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+	});
+
+	it('declining keeps the image on-device and falls back to manual fields', async () => {
+		vi.mocked(await import('$lib/client/receiptOcr')).scanReceiptWithFallback.mockResolvedValue(
+			poorFlow
+		);
+		render(BillsPage, { props: { data: pageData([billFixture()], true, [], true) } });
+		await pickReceipt();
+		await fireEvent.click(await screen.findByRole('button', { name: 'No thanks' }));
+
+		expect(
+			screen.getByText("Couldn't read the receipt clearly — fill the fields manually.")
+		).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Scan with cloud' })).not.toBeInTheDocument();
+		expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+	});
+
+	it('poor scan without cloud capability shows the manual-fill notice directly', async () => {
+		vi.mocked(await import('$lib/client/receiptOcr')).scanReceiptWithFallback.mockResolvedValue(
+			poorFlow
+		);
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+		await pickReceipt();
+
+		expect(
+			await screen.findByText("Couldn't read the receipt clearly — fill the fields manually.")
+		).toBeInTheDocument();
+		expect(screen.queryByText(/Try cloud scan\?/)).not.toBeInTheDocument();
+		expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+	});
+
+	it('surfaces the cloud error as a plain inline message', async () => {
+		vi.mocked(await import('$lib/client/receiptOcr')).scanReceiptWithFallback.mockResolvedValue(
+			poorFlow
+		);
+		vi.mocked(await import('$lib/client/receiptOcr')).cloudScanReceipt.mockRejectedValue(
+			new Error('Cloud scan failed (Azure returned 503).')
+		);
+		render(BillsPage, { props: { data: pageData([billFixture()], true, [], true) } });
+		await pickReceipt();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Scan with cloud' }));
+
+		expect(await screen.findByText('Cloud scan failed (Azure returned 503).')).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Scan with cloud' })).not.toBeInTheDocument();
 	});
 });
 

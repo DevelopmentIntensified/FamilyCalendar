@@ -6,7 +6,7 @@
  * CLIENT-SAFE: mirrors schema's BILL_CATEGORIES as a local union (importing
  * $lib/server/db/schema into client code is forbidden); keep in sync.
  */
-type BillCategory = 'housing' | 'utilities' | 'subscriptions' | 'insurance' | 'other';
+export type BillCategory = 'housing' | 'utilities' | 'subscriptions' | 'insurance' | 'other';
 
 /** A currency amount like $12.34, 1,450.00, 8.27 (no bare integers). */
 const MONEY_RE = /(?:\$|USD\s*)?(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+\.\d{2})(?!\d)/g;
@@ -163,6 +163,19 @@ export interface ReceiptScanResult {
 	category: BillCategory;
 }
 
+/**
+ * The opt-in cloud scan (Azure, issue 010) normalized to the SAME shape as
+ * the local scan (`date` mirrors `dateIso`; line items are text-only — the
+ * image itself is deleted by Azure within 24h, #029).
+ */
+export interface CloudReceiptScan {
+	merchant: string | null;
+	totalCents: number | null;
+	date: string | null;
+	lineItems: Array<{ label: string; priceCents: number }> | null;
+	category: BillCategory;
+}
+
 /** Aggregates all extractors over one receipt's OCR text. */
 export function scanReceipt(text: string): ReceiptScanResult {
 	return {
@@ -171,4 +184,12 @@ export function scanReceipt(text: string): ReceiptScanResult {
 		dateIso: extractDateIso(text),
 		category: suggestCategory(text)
 	};
+}
+
+/**
+ * Poor-extraction gate for the cloud fallback: nothing usable came out
+ * when the text is empty, or neither a merchant nor a total was found.
+ */
+export function isPoorExtraction(text: string, result: ReceiptScanResult): boolean {
+	return text.trim() === '' || (!result.merchant && result.totalCents === null);
 }
