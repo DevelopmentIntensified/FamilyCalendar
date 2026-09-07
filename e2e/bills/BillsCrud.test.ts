@@ -90,3 +90,26 @@ test('Bills CRUD: create via API, list in UI, delete', async ({ page }) => {
 	const after = await db.select().from(bills).where(eq(bills.userId, uid));
 	expect(after).toHaveLength(0);
 });
+
+test('Bills receipt detail: expand shows the attach affordance (issue 010)', async ({ page }) => {
+	await login(page);
+
+	const createResp = await page.request.post('/api/bills', {
+		data: { title: 'Water', amount: 40, dueDate: '2026-09-20', category: 'utilities' }
+	});
+	expect(createResp.ok()).toBe(true);
+
+	await page.goto('/calendar/bills');
+	await page.waitForLoadState('networkidle');
+	await expect(page.getByText('Water')).toBeVisible();
+
+	// Detail area is collapsed until the row is expanded.
+	await expect(page.getByRole('button', { name: 'Attach receipt photo' })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Show details for Water' }).click();
+	await expect(page.getByRole('button', { name: 'Attach receipt photo' })).toBeVisible();
+	// Mobile-camera affordance lives on the hidden inputs (form scan + attach).
+	await expect(page.locator('input[accept="image/*"][capture="environment"]')).toHaveCount(2);
+
+	await page.getByRole('button', { name: 'Delete bill Water' }).click();
+	await page.getByRole('button', { name: 'Confirm delete Water' }).click();
+});

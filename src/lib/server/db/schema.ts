@@ -568,10 +568,37 @@ export const bills = pgTable('bills', {
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
 	familyId: text('family_id').references(() => families.id, { onDelete: 'cascade' }),
+	/** Optional receipt photo (see attachments + issue 010). */
+	attachmentId: text('attachment_id').references(() => attachments.id, {
+		onDelete: 'set null'
+	}),
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
 export type Bill = typeof bills.$inferSelect;
+
+/**
+ * Attachment - an uploaded file (currently bill receipt photos) stored in
+ * Vercel Blob under family-master/receipts. Bills reference one optionally;
+ * deleting the attachment nulls the bill reference (set null).
+ */
+export const attachments = pgTable('attachments', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	ownerUserId: text('owner_user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	familyId: text('family_id').references(() => families.id, { onDelete: 'cascade' }),
+	url: text('url').notNull(),
+	filename: text('filename').notNull(),
+	mimeType: text('mime_type').notNull(),
+	sizeBytes: integer('size_bytes').notNull(),
+	createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export type Attachment = typeof attachments.$inferSelect;
 
 /**
  * Task tags — many-to-many-ish join keyed by task + lowercase tag name.

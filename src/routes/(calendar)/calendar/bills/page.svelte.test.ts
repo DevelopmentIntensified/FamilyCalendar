@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import BillsPage from './+page.svelte';
 import { invalidateAll } from '$app/navigation';
+import type { ReceiptRef } from '$lib/server/db/actions/attachments';
 import type { Bill } from '$lib/server/db/schema';
 import type { PageData } from './$types';
 
@@ -22,6 +23,7 @@ function billFixture(over: Partial<Bill> = {}): Bill {
 		paidAt: null,
 		userId: 'u1',
 		familyId: null,
+		attachmentId: null,
 		createdAt: new Date('2026-09-01T00:00:00Z'),
 		...over
 	};
@@ -33,11 +35,17 @@ interface BillsPageData {
 	canEdit: boolean;
 	familyId: string | null;
 	loadWarnings: string[];
+	receiptsByBillId: Record<string, ReceiptRef>;
 }
 
 /** Page data fixture matching +page.server.ts's load return shape. */
-function pageData(bills: Bill[], canEdit = true, loadWarnings: string[] = []): PageData {
-	const data: BillsPageData = { bills, canEdit, familyId: null, loadWarnings };
+function pageData(
+	bills: Bill[],
+	canEdit = true,
+	loadWarnings: string[] = [],
+	receiptsByBillId: Record<string, ReceiptRef> = {}
+): PageData {
+	const data: BillsPageData = { bills, canEdit, familyId: null, loadWarnings, receiptsByBillId };
 	// SAFETY: the fixture supplies exactly what the bills page reads; the
 	// layout-level fields on PageData (user, userSettings, …) are out of scope.
 	return data as PageData;
@@ -164,6 +172,137 @@ describe('delete flow', () => {
 			screen.queryByRole('button', { name: 'Confirm delete Electric' })
 		).not.toBeInTheDocument();
 		expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+	});
+});
+
+function receiptRef(over: Partial<ReceiptRef> = {}): ReceiptRef {
+	return {
+		id: 'att-1',
+		url: 'https://blob.example/family-master/receipts/a.jpg',
+		filename: 'family-master/receipts/a.jpg',
+		mimeType: 'image/jpeg',
+		...over
+	};
+}
+
+describe('receipt detail area (issue 010)', () => {
+	it('is hidden until the row is expanded', () => {
+		render(BillsPage, {
+			props: {
+				data: pageData([billFixture({ attachmentId: 'att-1' })], true, [], {
+					'bill-1': receiptRef()
+				})
+			}
+		});
+
+		expect(screen.queryByRole('img', { name: 'Receipt for Electric' })).not.toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Show details for Electric' })).toBeInTheDocument();
+	});
+
+	it('shows the thumbnail and full-size view after expanding', async () => {
+		render(BillsPage, {
+			props: {
+				data: pageData([billFixture({ attachmentId: 'att-1' })], true, [], {
+					'bill-1': receiptRef()
+				})
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
+
+		expect(screen.getByRole('img', { name: 'Receipt for Electric' })).toHaveAttribute(
+			'src',
+			receiptRef().url
+		);
+
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'View receipt full size for Electric' })
+		);
+
+		const modal = screen.getByRole('dialog', { name: 'Receipt full size' });
+		expect(modal).toBeInTheDocument();
+		expect(modal.querySelector('img')).toHaveAttribute('src', receiptRef().url);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+		expect(screen.queryByRole('dialog', { name: 'Receipt full size' })).not.toBeInTheDocument();
+	});
+
+	it('offers attach, not remove, when the bill has no receipt', async () => {
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
+
+		expect(screen.getByRole('button', { name: 'Attach receipt photo' })).toBeInTheDocument();
+		expect(
+			screen.queryByRole('button', { name: 'Remove receipt from Electric' })
+		).not.toBeInTheDocument();
+	});
+
+	it('removes the receipt through an inline confirm (DELETE /api/receipts/[id])', async () => {
+		render(BillsPage, {
+			props: {
+				data: pageData([billFixture({ attachmentId: 'att-1' })], true, [], {
+					'bill-1': receiptRef()
+				})
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove receipt from Electric' }));
+		expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'Confirm remove receipt from Electric' })
+		);
+
+		expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+			'/api/receipts/att-1',
+			expect.objectContaining({ method: 'DELETE' })
+		);
+	});
+
+	it('shows a skeleton while the receipt action is in flight', async () => {
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
+
+		// In-flight state only appears once a receipt action starts; before that
+		// the attach affordance is present and no skeleton is shown.
+		expect(screen.queryByText('Working on receipt…')).not.toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Attach receipt photo' })).toBeInTheDocument();
+	});
+
+	it('hides attach/remove for read-only viewers (view-only receipt)', async () => {
+		render(BillsPage, {
+			props: {
+				data: pageData([billFixture({ attachmentId: 'att-1' })], false, [], {
+					'bill-1': receiptRef()
+				})
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
+
+		expect(screen.getByRole('img', { name: 'Receipt for Electric' })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Attach receipt photo' })).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole('button', { name: 'Remove receipt from Electric' })
+		).not.toBeInTheDocument();
+	});
+
+	it('has no detail toggle for a read-only viewer without a receipt', () => {
+		render(BillsPage, { props: { data: pageData([billFixture()], false) } });
+
+		expect(screen.queryByRole('button', { name: /Show details for/ })).not.toBeInTheDocument();
+	});
+});
+
+describe('receipt scan prefill (issue 010)', () => {
+	it('shows the scan affordance and progress placeholder semantics', () => {
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+
+		expect(screen.getByRole('button', { name: 'Scan receipt' })).toBeInTheDocument();
+		expect(screen.queryByText('Reading receipt…')).not.toBeInTheDocument();
 	});
 });
 

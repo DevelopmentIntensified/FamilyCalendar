@@ -40,4 +40,17 @@ by the follow-up slice; the scan seam stays.
 - [ ] Fast and stays fast at 1000 labels (#031).
 - [ ] Loading states: skeletons, never blank cards.
 
+## Lane status (subagent, 2026-09-07)
+
+The in-flight lane completed the original brief (red→green): attachments
+table + bills.attachmentId (`sql/009-attachments.sql`, applied to both
+Docker DBs), receipts endpoints + bill attach/detach, expandable bill
+detail UI, and the surviving scan seam — `receiptScan.ts` (50 table-driven
+heuristic tests) + `receiptOcr.ts` engine chain (Prompt API probe → native
+bridge stub → tesseract.js worker, 5 chain tests) with OCR→prefill flow.
+All gates green at handoff: 1513 unit tests, oxlint 0/0, svelte-check 0/0,
+build ✅, e2e bills+mobile 4 passed. Per the DECISION CHANGE above, the
+storage-side slice (schema/endpoints/bill-detail attach UI) is flagged for
+removal by the follow-up slice; the scan seam + prefill flow stays.
+
 Blocked by: #004 (done).

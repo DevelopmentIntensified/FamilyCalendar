@@ -9,8 +9,11 @@ import {
 	parseDueDate,
 	type CreateBillInput
 } from '$lib/server/db/actions/bills';
+import { getAttachment } from '$lib/server/db/actions/attachments';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { requireUserJson } from '$lib/server/utils/requireUser';
+import { resolveAttachmentId } from '$lib/server/utils/resolveAttachment';
+import { buildReceiptsByBillId, getAttachmentsByIds } from '$lib/server/db/actions/attachments';
 
 /**
  * Collaborators the bills endpoints need, injectable so tests pass fakes
@@ -20,12 +23,16 @@ export type BillsDeps = {
 	getUserFamilyId: typeof getUserFamilyId;
 	getBillsForUser: typeof getBillsForUser;
 	createBill: typeof createBill;
+	getAttachment: typeof getAttachment;
+	getAttachmentsByIds: typeof getAttachmentsByIds;
 };
 
 const defaultDeps: BillsDeps = {
 	getUserFamilyId,
 	getBillsForUser,
-	createBill
+	createBill,
+	getAttachment,
+	getAttachmentsByIds
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -37,7 +44,11 @@ export const GET = async (event: RequestEvent, deps: BillsDeps = defaultDeps) =>
 	if (auth.response) return auth.response;
 
 	const familyId = await deps.getUserFamilyId(auth.user.id);
-	return json({ bills: await deps.getBillsForUser(auth.user.id, familyId) });
+	const bills = await deps.getBillsForUser(auth.user.id, familyId);
+	const attachments = await deps.getAttachmentsByIds(
+		bills.map((bill) => bill.attachmentId).filter((id): id is string => id !== null)
+	);
+	return json({ bills, receiptsByBillId: buildReceiptsByBillId(bills, attachments) });
 };
 
 export const POST = async (event: RequestEvent, deps: BillsDeps = defaultDeps) => {
@@ -63,13 +74,21 @@ export const POST = async (event: RequestEvent, deps: BillsDeps = defaultDeps) =
 			dueDate = parsed.value;
 		}
 		const familyId = await deps.getUserFamilyId(auth.user.id);
+		const resolved = await resolveAttachmentId(
+			body.attachmentId,
+			auth.user.id,
+			familyId,
+			deps.getAttachment
+		);
+		if ('error' in resolved) return resolved.error;
 		const input: CreateBillInput = {
 			title: body.title.trim(),
 			amountCents,
 			dueDate,
 			category: normalizeBillCategory(body.category),
 			userId: auth.user.id,
-			familyId
+			familyId,
+			attachmentId: resolved.id
 		};
 		const created = await deps.createBill(input);
 		return json({ success: true, bill: created }, { status: 201 });

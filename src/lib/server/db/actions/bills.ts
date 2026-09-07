@@ -79,6 +79,8 @@ export interface CreateBillInput {
 	category: BillCategory;
 	userId: string;
 	familyId: string | null;
+	/** Optional receipt attachment id (validated at the route, issue 010). */
+	attachmentId?: string | null;
 }
 
 export async function createBill(input: CreateBillInput): Promise<Bill> {
@@ -117,7 +119,7 @@ export function canMutateBill(bill: Bill, userId: string, role: string | null): 
 }
 
 export type BillPatch = Partial<
-	Pick<Bill, 'title' | 'amountCents' | 'dueDate' | 'category' | 'paidAt'>
+	Pick<Bill, 'title' | 'amountCents' | 'dueDate' | 'category' | 'paidAt' | 'attachmentId'>
 >;
 
 export async function updateBill(

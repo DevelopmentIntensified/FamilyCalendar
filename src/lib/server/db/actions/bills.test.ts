@@ -102,6 +102,7 @@ function bill(over: Partial<Bill> = {}): Bill {
 		paidAt: null,
 		userId: 'u1',
 		familyId: 'f1',
+		attachmentId: null,
 		createdAt: new Date('2026-09-01T00:00:00Z'),
 		...over
 	};
@@ -267,6 +268,31 @@ describe('updateBill', () => {
 		state.selectQueue.push([]);
 
 		expect(await updateBill('nope', 'u1', 'admin', { title: 'x' })).toBeNull();
+	});
+});
+
+describe('bill attachment linkage (issue 010)', () => {
+	it('createBill stores attachmentId when given', async () => {
+		state.insertReturn = [bill()];
+		await createBill({
+			title: 'Electric',
+			amountCents: 12000,
+			dueDate: null,
+			category: 'utilities',
+			userId: 'u1',
+			familyId: 'f1',
+			attachmentId: 'att-1'
+		});
+		expect(state.insertValues).toMatchObject({ attachmentId: 'att-1' });
+	});
+
+	it('updateBill writes attachmentId: null to detach', async () => {
+		state.selectQueue.push([bill()]);
+		state.updateReturn = [bill({ attachmentId: null })];
+
+		await updateBill('bill-1', 'u1', 'admin', { attachmentId: null });
+
+		expect(state.updateValues).toMatchObject({ attachmentId: null });
 	});
 });
 
