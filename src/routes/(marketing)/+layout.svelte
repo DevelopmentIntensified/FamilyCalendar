@@ -22,6 +22,13 @@
 </div>
 
 <footer class="border-t border-slate-200 bg-white py-6 text-center">
+	<p class="mb-2 flex flex-wrap items-center justify-center gap-x-1 text-sm text-slate-500">
+		<a href="/changelog" class="rounded px-3 py-2.5 transition-colors hover:text-slate-700"
+			>Changelog</a
+		>
+		<a href="/roadmap" class="rounded px-3 py-2.5 transition-colors hover:text-slate-700">Roadmap</a
+		>
+	</p>
 	<p class="text-sm text-slate-500">
 		&copy; {new Date().getFullYear()} FamilyPlanz. All rights reserved.
 	</p>
