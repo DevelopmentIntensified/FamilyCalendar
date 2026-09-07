@@ -18,6 +18,12 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #019 Task scoping public/private/family — visibility column + section
   queries (a4cb9be), chips/tabs/NLP UI (ebd8b45)
 - #020 Tasks page card-vocabulary restyle (commit 8d822d7)
+- #021 Task settings parity: dashboard + calendar surfaces (commit 8557796)
+- #022 Default calendar not respected — caller passed calendars[0] as
+  defaultCalendarId, overriding user setting (calendar/+page.svelte:841)
+- #024 @-handle multi-word names (commit 89e48b4)
+- #025 NLP parse-misses: URL fidelity, word-snap titles, street
+  addresses, bare calendar routing (commit d37dab8)
 
 ## Open
 
