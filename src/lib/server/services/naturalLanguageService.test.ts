@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DateTime } from 'luxon';
-import { parseEventInput, parseEventList } from './naturalLanguageService';
+import { parseBillQuickAdd, parseEventInput, parseEventList } from './naturalLanguageService';
 
 describe('NLP Event Parser', () => {
 	describe('Date Patterns', () => {
@@ -1284,5 +1284,314 @@ describe('Calendar routing — bare family/personal calendar (issue 025)', () =>
 
 	it('does not route "family reunion saturday" (no calendar phrase)', () => {
 		expect(parseEventInput('family reunion saturday').parsed.calendarName).toBeUndefined();
+	});
+});
+
+// ===== Issue 011 - bill quick-add NLP =====
+
+const DOW_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+/** Next strictly-future occurrence of a weekday (today does not count). */
+function nextDow(dayName: string): string {
+	const now = DateTime.now();
+	const current = now.weekday % 7; // luxon 7=Sun → 0
+	let delta = DOW_NAMES.indexOf(dayName) - current;
+	if (delta <= 0) delta += 7;
+	return now.plus({ days: delta }).toFormat('yyyy-MM-dd');
+}
+
+/** Day-of-month with monthly rollover when it already passed. */
+function monthDay(d: number): string {
+	const now = DateTime.now();
+	let t = now.set({ day: Math.min(d, now.daysInMonth ?? 28) });
+	if (t < now.startOf('day')) t = t.plus({ months: 1 });
+	return t.toFormat('yyyy-MM-dd');
+}
+
+describe('Bill quick-add NLP — amounts (parseBillQuickAdd)', () => {
+	const cases: Array<[string, number]> = [
+		['electric bill $85 due friday', 8500],
+		['rent $1,200 due on the 1st', 120000],
+		['netflix 15.99 monthly', 1599],
+		['water bill $43.20 due in 2 weeks', 4320],
+		['internet 60/month starting next month', 6000],
+		['car insurance $210 every 6 months', 21000],
+		['electricity 85 dollars monthly', 8500],
+		['gym $45 a month', 4500],
+		['daycare $700 per week', 70000],
+		['streaming $9 per month', 900],
+		['hoa dues 250 quarterly', 25000],
+		['trash $18.5 monthly', 1850],
+		['music $9.99/mo', 999],
+		['storage unit 120', 12000],
+		['hoa 250 per quarter', 25000],
+		['water $43.20 due on the 20th', 4320]
+	];
+	for (const [input, cents] of cases) {
+		it(`parses ${cents} cents from "${input}"`, () => {
+			expect(parseBillQuickAdd(input).amountCents, input).toBe(cents);
+		});
+	}
+
+	it('returns null cents when no amount appears', () => {
+		expect(parseBillQuickAdd('call about the water bill').amountCents).toBeNull();
+	});
+});
+
+describe('Bill quick-add NLP — due dates (parseBillQuickAdd)', () => {
+	it('parses "due friday" as the next friday', () => {
+		expect(parseBillQuickAdd('electric bill $85 due friday').dueDate).toBe(nextDow('friday'));
+	});
+	it('parses "due on friday"', () => {
+		expect(parseBillQuickAdd('water due on friday').dueDate).toBe(nextDow('friday'));
+	});
+	it('parses "due by friday"', () => {
+		expect(parseBillQuickAdd('power bill due by fri').dueDate).toBe(nextDow('friday'));
+	});
+	it('parses "due next friday" as a week further out', () => {
+		expect(parseBillQuickAdd('trash due next friday').dueDate).toBe(nextDow('friday'));
+	});
+	it('parses bare "on friday" ("pickup on friday")', () => {
+		expect(parseBillQuickAdd('trash pickup $32 on wednesday').dueDate).toBe(nextDow('wednesday'));
+	});
+	it('parses "due on the 1st" with monthly rollover', () => {
+		expect(parseBillQuickAdd('rent $1200 due on the 1st').dueDate).toBe(monthDay(1));
+	});
+	it('parses "due the 15th" without a preposition', () => {
+		expect(parseBillQuickAdd('city water $31.40 due the 20th').dueDate).toBe(monthDay(20));
+	});
+	it('parses "due in 2 weeks"', () => {
+		const expected = DateTime.now().plus({ weeks: 2 }).toFormat('yyyy-MM-dd');
+		expect(parseBillQuickAdd('water bill $43.20 due in 2 weeks').dueDate).toBe(expected);
+	});
+	it('parses "due in a month"', () => {
+		const expected = DateTime.now().plus({ months: 1 }).toFormat('yyyy-MM-dd');
+		expect(parseBillQuickAdd('hoa $40 due in a month').dueDate).toBe(expected);
+	});
+	it('parses "due tomorrow"', () => {
+		const expected = DateTime.now().plus({ days: 1 }).toFormat('yyyy-MM-dd');
+		expect(parseBillQuickAdd('gas bill $30 due tomorrow').dueDate).toBe(expected);
+	});
+	it('parses month-day dues ("december 15") with rollover year', () => {
+		const got = parseBillQuickAdd('netflix $16 december 15').dueDate;
+		expect(got ?? 'missing', got ?? '').toMatch(/^(2026|2027)-12-15$/);
+	});
+	it('parses month-day with explicit year ("august 1 2027")', () => {
+		expect(parseBillQuickAdd('mortgage $1400 august 1 2027').dueDate).toBe('2027-08-01');
+	});
+	it('parses day-first dues ("15 january")', () => {
+		const got = parseBillQuickAdd('insurance premium $120 15 january').dueDate;
+		expect(got ?? 'missing', got ?? '').toMatch(/^(2027|2028)-01-15$/);
+	});
+	it('parses numeric dues ("due 12/25") with rollover', () => {
+		const got = parseBillQuickAdd('car insurance $210 due 12/25').dueDate;
+		expect(got ?? 'missing', got ?? '').toMatch(/^(2026|2027)-12-25$/);
+	});
+	it('parses "starting next month" as the first of next month', () => {
+		const expected = DateTime.now().plus({ months: 1 }).set({ day: 1 }).toFormat('yyyy-MM-dd');
+		expect(parseBillQuickAdd('internet 60/month starting next month').dueDate).toBe(expected);
+	});
+	it('parses "starting friday" as the next friday', () => {
+		expect(parseBillQuickAdd('daycare $700 starting friday').dueDate).toBe(nextDow('friday'));
+	});
+	it('parses "starting in 3 days"', () => {
+		const expected = DateTime.now().plus({ days: 3 }).toFormat('yyyy-MM-dd');
+		expect(parseBillQuickAdd('storage $80 starting in 3 days').dueDate).toBe(expected);
+	});
+	it('leaves dueDate null without a due phrase', () => {
+		expect(parseBillQuickAdd('netflix 15.99 monthly').dueDate).toBeNull();
+	});
+	it('resolves "due tomorrow" in the caller zone, not the server zone', () => {
+		// 2026-08-24T00:30Z is still Aug 23 in New York but Aug 24 in Auckland.
+		const utc = parseBillQuickAdd('gas $30 due tomorrow', 'UTC').dueDate;
+		const auckland = parseBillQuickAdd('gas $30 due tomorrow', 'Pacific/Auckland').dueDate;
+		const ny = parseBillQuickAdd('gas $30 due tomorrow', 'America/New_York').dueDate;
+		expect(utc).toBeDefined();
+		expect(auckland! >= ny!).toBe(true);
+	});
+});
+
+describe('Bill quick-add NLP — recurrence (parseBillQuickAdd)', () => {
+	const cases: Array<[string, string, string | null, number | null]> = [
+		// input, recurring value, frequency, interval
+		['rent 1200 on the 1st every month', 'monthly', 'monthly', 1],
+		['netflix 15.99 monthly', 'monthly', 'monthly', 1],
+		['netflix 15.99 every month', 'monthly', 'monthly', 1],
+		['gym $45 a month', 'monthly', 'monthly', 1],
+		['music $9.99/mo', 'monthly', 'monthly', 1],
+		['streaming $9 per month', 'monthly', 'monthly', 1],
+		['car insurance $210 every 6 months', 'every_6_months', 'monthly', 6],
+		['water $30 every 2 weeks', 'every_2_weeks', 'weekly', 2],
+		['dog walker $40 every other week', 'biweekly', 'weekly', 2],
+		['daily parking $12', 'daily', 'daily', 1],
+		['laundry $5 every day', 'daily', 'daily', 1],
+		['daycare $700 weekly', 'weekly', 'weekly', 1],
+		['daycare $700 per week', 'weekly', 'weekly', 1],
+		['cleaning $80 every friday', 'weekly', 'weekly', 1],
+		['hoa dues 250 quarterly', 'every_3_months', 'monthly', 3],
+		['hoa 250 per quarter', 'every_3_months', 'monthly', 3],
+		['insurance premium $120 twice a year', 'every_6_months', 'monthly', 6],
+		['domains $15 annually', 'yearly', 'yearly', 1],
+		['storage $300 per year', 'yearly', 'yearly', 1],
+		['meds $20 every 3 days', 'every_3_days', 'daily', 3]
+	];
+	for (const [input, recurring, frequency, interval] of cases) {
+		it(`recurs "${recurring}" for "${input}"`, () => {
+			const parsed = parseBillQuickAdd(input);
+			expect(parsed.recurring, input).toBe(recurring);
+			expect(parsed.frequency, input).toBe(frequency);
+			expect(parsed.interval, input).toBe(interval);
+		});
+	}
+
+	it('leaves frequency/interval null for one-off bills', () => {
+		const parsed = parseBillQuickAdd('plumber visit $150 due friday');
+		expect(parsed.recurring).toBeUndefined();
+		expect(parsed.frequency).toBeNull();
+		expect(parsed.interval).toBeNull();
+	});
+
+	it('monthly on the Nth sets both recurrence and the Nth due date', () => {
+		const parsed = parseBillQuickAdd('rent $1200 monthly on the 1st');
+		expect(parsed.recurring).toBe('monthly');
+		expect(parsed.dueDate).toBe(monthDay(1));
+	});
+});
+
+describe('Bill quick-add NLP — categories (parseBillQuickAdd)', () => {
+	const cases: Array<[string, string]> = [
+		['electric bill $85 due friday', 'utilities'],
+		['electricity $90 monthly', 'utilities'],
+		['power $70 due friday', 'utilities'],
+		['water bill $43.20', 'utilities'],
+		['gas $30 due tomorrow', 'utilities'],
+		['internet 60/month', 'utilities'],
+		['wifi $50 monthly', 'utilities'],
+		['trash $18 monthly', 'utilities'],
+		['garbage $22 monthly', 'utilities'],
+		['cable $60 monthly', 'utilities'],
+		['phone bill $45 monthly', 'utilities'],
+		['sewer $25 quarterly', 'utilities'],
+		['netflix 15.99 monthly', 'subscriptions'],
+		['spotify $11 monthly', 'subscriptions'],
+		['hulu $12 monthly', 'subscriptions'],
+		['disney plus $10 monthly', 'subscriptions'],
+		['youtube premium $14 monthly', 'subscriptions'],
+		['hbo max $16 monthly', 'subscriptions'],
+		['icloud storage $3 monthly', 'subscriptions'],
+		['subscription renewal $9 monthly', 'subscriptions'],
+		['rent $1200 due on the 1st', 'housing'],
+		['mortgage $1400 monthly', 'housing'],
+		['hoa dues 250', 'housing'],
+		['landlord payment $900 monthly', 'housing'],
+		['car insurance $210', 'insurance'],
+		['health insurance $300 monthly', 'insurance'],
+		['geico $95 monthly', 'insurance'],
+		['progressive $88 monthly', 'insurance'],
+		['pet food $45', 'other'],
+		['vet visit $60', 'other'],
+		['#utilities trash 30 quarterly', 'utilities'],
+		['#housing cottage dues 120 monthly', 'housing'],
+		['#other gym 30 monthly', 'other']
+	];
+	for (const [input, category] of cases) {
+		it(`categorizes "${input}" as ${category}`, () => {
+			expect(parseBillQuickAdd(input).category, input).toBe(category);
+		});
+	}
+
+	it('explicit #tag wins over merchant keywords', () => {
+		expect(parseBillQuickAdd('internet 60/month #housing').category).toBe('housing');
+	});
+
+	it('unknown #tag falls back to keyword mapping', () => {
+		expect(parseBillQuickAdd('electric bill $85 #pets').category).toBe('utilities');
+	});
+
+	it('unknown #tag with unknown merchant lands in other', () => {
+		expect(parseBillQuickAdd('vet bill $60 #pets').category).toBe('other');
+	});
+});
+
+describe('Bill quick-add NLP — titles (parseBillQuickAdd)', () => {
+	const cases: Array<[string, string | null]> = [
+		['electric bill $85 due friday', 'electric bill'],
+		['rent $1200 due on the 1st', 'rent'],
+		['water bill $43.20 due in 2 weeks', 'water bill'],
+		['car insurance $210 every 6 months', 'car insurance'],
+		['netflix 15.99 monthly', 'netflix'],
+		['internet 60/month starting next month', 'internet'],
+		['#utilities trash 30 quarterly', 'trash'],
+		['gym $45 a month', 'gym'],
+		['city water $31.40 due the 20th', 'city water'],
+		['storage unit 120', 'storage unit'],
+		['due friday electric bill $85', 'electric bill'],
+		['pay $50 to the plumber friday', 'pay to the plumber']
+	];
+	for (const [input, title] of cases) {
+		it(`titles "${input}" → "${title}"`, () => {
+			expect(parseBillQuickAdd(input).title, input).toBe(title);
+		});
+	}
+
+	it('returns null title when only schedule tokens remain', () => {
+		expect(parseBillQuickAdd('$85 due friday').title).toBeNull();
+	});
+});
+
+describe('Bill quick-add NLP — word-order & combo (parseBillQuickAdd)', () => {
+	it('full parse of the flagship phrase', () => {
+		const parsed = parseBillQuickAdd('electric bill $85 due friday');
+		expect(parsed.title).toBe('electric bill');
+		expect(parsed.amountCents).toBe(8500);
+		expect(parsed.amount).toBe(85);
+		expect(parsed.dueDate).toBe(nextDow('friday'));
+		expect(parsed.category).toBe('utilities');
+		expect(parsed.frequency).toBeNull();
+	});
+
+	it('recurring bill with tag, quarter cadence and bare amount', () => {
+		const parsed = parseBillQuickAdd('#utilities trash 30 quarterly');
+		expect(parsed.title).toBe('trash');
+		expect(parsed.amountCents).toBe(3000);
+		expect(parsed.recurring).toBe('every_3_months');
+		expect(parsed.category).toBe('utilities');
+	});
+
+	it('one-off bill with no due date', () => {
+		const parsed = parseBillQuickAdd('pet food $45');
+		expect(parsed.title).toBe('pet food');
+		expect(parsed.amountCents).toBe(4500);
+		expect(parsed.dueDate).toBeNull();
+		expect(parsed.category).toBe('other');
+	});
+});
+
+describe('Bill quick-add NLP — robustness (parseBillQuickAdd)', () => {
+	it('treats a non-bill phrase as amountless, uncategorized, confident-less', () => {
+		const parsed = parseBillQuickAdd('hello world');
+		expect(parsed.amountCents).toBeNull();
+		expect(parsed.amount).toBeNull();
+		expect(parsed.category).toBe('other');
+		expect(parsed.dueDate).toBeNull();
+		expect(parsed.title).toBe('hello world');
+	});
+
+	it('empty input yields nulls', () => {
+		const parsed = parseBillQuickAdd('');
+		expect(parsed.amountCents).toBeNull();
+		expect(parsed.title).toBeNull();
+		expect(parsed.dueDate).toBeNull();
+	});
+
+	it('does not read a year as an amount', () => {
+		const parsed = parseBillQuickAdd('lease renewal 2027 notice');
+		expect(parsed.amountCents).toBeNull();
+	});
+
+	it('confidence stays within [0,1]', () => {
+		const parsed = parseBillQuickAdd('electric bill $85 due friday monthly #utilities');
+		expect(parsed.confidence).toBeGreaterThan(0.5);
+		expect(parsed.confidence).toBeLessThanOrEqual(1);
 	});
 });

@@ -7,6 +7,7 @@ import {
 	MONTH_MAP,
 	normalizeTime
 } from '$lib/server/utils/dateParsing';
+import { BILL_CATEGORIES, type BillCategory } from '$lib/server/db/schema';
 
 export interface ParsedEvent {
 	title: string;
@@ -1711,4 +1712,395 @@ function splitOnAnd(input: string): string[] {
 	// Only split when every part carries its own signal.
 	if (!parts.every((p) => SEGMENT_SIGNAL.test(p))) return [input];
 	return parts.map((p) => p.trim()).filter((p) => p.length > 0);
+}
+
+// ===== Bill quick-add NLP (issue 011) =====
+
+export type BillRecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+/** Parsed quick-add bill phrase: everything the bills page needs in one pass. */
+export interface ParsedBill {
+	/** Unmatched remainder; null when only schedule tokens remain. */
+	title: string | null;
+	/** Dollar amount as written (85, 15.99). */
+	amount: number | null;
+	/** Integer cents (8500, 1599) — null when no amount phrase was found. */
+	amountCents: number | null;
+	/** Resolved due date YYYY-MM-DD in the caller zone; null without a due cue. */
+	dueDate: string | null;
+	/** Event-parser recurrence value: daily|weekly|biweekly|monthly|yearly|every_N_unit. */
+	recurring?: string;
+	/** Structured schedule for the bills recurrence columns (#006). */
+	frequency: BillRecurrenceFrequency | null;
+	interval: number | null;
+	/** Closed-vocabulary category hint (#tag wins, then merchant keywords). */
+	category: BillCategory;
+	confidence: number;
+}
+
+/** Closed-vocabulary set for the #tag check. */
+const BILL_CATEGORY_SET: ReadonlySet<string> = new Set(BILL_CATEGORIES);
+
+/** Merchant word → category, scanned in order (first hit wins). */
+const BILL_CATEGORY_KEYWORDS: Array<[RegExp, BillCategory]> = [
+	[/\b(?:insurance|geico|progressive|allstate|state\s+farm|liberty\s+mutual)\b/i, 'insurance'],
+	[/\b(?:rent|rental|rentals|mortgage|hoa|housing|landlord|lease)\b/i, 'housing'],
+	[
+		/\b(?:electric|electricity|power|water|sewer|sewage|gas|internet|wifi|broadband|trash|garbage|recycling|cable|utility|utilities|phone|mobile|heating|propane|oil)\b/i,
+		'utilities'
+	],
+	[
+		/\b(?:netflix|spotify|hulu|disney|youtube|hbo|max|prime|icloud|dropbox|adobe|audible|sirius|crunchyroll|subscription|apple)\b/i,
+		'subscriptions'
+	]
+];
+
+/** Day-token alternation (abbreviations included) for due-cue matching. */
+const BILL_DAY_ALT =
+	'sun(?:day)?|mon(?:day)?|tue(?:s|sday)?|wed(?:nes|nesday)?|thu(?:r?s?(?:day)?)?|fri(?:day)?|sat(?:ur|urday)?';
+
+/** Next strictly-future date on one of the weekday codes, optionally a
+ * further whole week out ("next friday"). */
+function nextWeekdayFrom(now: DateTime, codes: string[], extraWeeks = 0): string {
+	const current = now.weekday; // 1=Mon..7=Sun
+	let best = 8;
+	for (const d of codes) {
+		const target = WEEK_ORDER.indexOf(d) + 1;
+		let delta = target - current;
+		if (delta <= 0) delta += 7;
+		best = Math.min(best, delta);
+	}
+	return now.plus({ days: best + extraWeeks * 7 }).toFormat('yyyy-MM-dd');
+}
+
+/** Day-of-month with monthly rollover when it already passed; clamped to
+ * short months ("the 31st" in April lands on the 30th). */
+function nextMonthDayFrom(now: DateTime, day: number): string {
+	const clamp = (base: DateTime) => base.set({ day: Math.min(day, base.daysInMonth ?? 28) });
+	let target = clamp(now);
+	if (target < now.startOf('day')) target = clamp(now.plus({ months: 1 }));
+	return target.toFormat('yyyy-MM-dd');
+}
+
+/** Relative cue unit → ISO date N units from now. */
+function relativeFrom(now: DateTime, n: number, unit: string): string {
+	const count = n === 0 ? 1 : n;
+	const singular = unit.replace(/s$/, '');
+	const dt =
+		singular === 'week'
+			? now.plus({ weeks: count })
+			: singular === 'month'
+				? now.plus({ months: count })
+				: now.plus({ days: count });
+	return dt.toFormat('yyyy-MM-dd');
+}
+
+interface BillDueStep {
+	re: RegExp;
+	resolve: (m: RegExpMatchArray, now: DateTime) => string | null;
+}
+
+/** Due-date cues, priority order. Cues (due/by/starting/starts) gate the
+ * weak forms so titles keep their words; month-day needs no cue (a month
+ * name next to a number is a strong date signal). */
+const BILL_DUE_STEPS: BillDueStep[] = [
+	{
+		re: new RegExp(
+			`\\b(?:due|by|starting|starts|on)\\s+(?:on\\s+|by\\s+)?(this\\s+|next\\s+)?(${BILL_DAY_ALT})\\b`,
+			'i'
+		),
+		resolve: (m, now) => {
+			const code = normalizeDayToken(m[2]);
+			if (!code) return null;
+			return nextWeekdayFrom(now, [code], m[1]?.toLowerCase() === 'next' ? 1 : 0);
+		}
+	},
+	{
+		re: /\b(?:due|starting|starts)\s+(tomorrow|today)\b/i,
+		resolve: (m, now) =>
+			now.plus({ days: m[1].toLowerCase() === 'tomorrow' ? 1 : 0 }).toFormat('yyyy-MM-dd')
+	},
+	{
+		re: /\b(?:due|starting|starts)\s+(?:in\s+)?(a|\d+)\s+(days?|weeks?|months?)\b/i,
+		resolve: (m, now) =>
+			relativeFrom(now, m[1].toLowerCase() === 'a' ? 1 : parseInt(m[1]), m[2].toLowerCase())
+	},
+	{
+		re: /\b(?:due\s+)?(?:on\s+|by\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i,
+		resolve: (m, now) => {
+			const day = parseInt(m[1]);
+			return day >= 1 && day <= 31 ? nextMonthDayFrom(now, day) : null;
+		}
+	},
+	{
+		re: new RegExp(
+			`\\b(${MONTH_ALT})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?\\b`,
+			'i'
+		),
+		resolve: (m, now) => {
+			const month = MONTH_MAP[m[1].toLowerCase()];
+			if (!month) return null;
+			return withRolloverYear(month, parseInt(m[2]), m[3] ? parseInt(m[3]) : null, now).toFormat(
+				'yyyy-MM-dd'
+			);
+		}
+	},
+	{
+		re: new RegExp(
+			`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})\\.?(?:,?\\s*(20\\d{2}))?\\b`,
+			'i'
+		),
+		resolve: (m, now) => {
+			const month = MONTH_MAP[m[2].toLowerCase()];
+			const day = parseInt(m[1]);
+			if (!month || day < 1 || day > 31) return null;
+			return withRolloverYear(month, day, m[3] ? parseInt(m[3]) : null, now).toFormat('yyyy-MM-dd');
+		}
+	},
+	{
+		re: /\b(?:due|starting|starts)\s+(\d{1,2})\/(\d{1,2})\b/,
+		resolve: (m, now) => {
+			const month = parseInt(m[1]);
+			const day = parseInt(m[2]);
+			if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+			return withRolloverYear(month, day, null, now).toFormat('yyyy-MM-dd');
+		}
+	},
+	{
+		re: /\b(?:due|starting|starts)\s+next\s+(week|month)\b/i,
+		resolve: (m, now) =>
+			m[1].toLowerCase() === 'month'
+				? now.plus({ months: 1 }).set({ day: 1 }).toFormat('yyyy-MM-dd')
+				: now.plus({ weeks: 1 }).toFormat('yyyy-MM-dd')
+	}
+];
+
+interface BillRecurrenceStep {
+	re: RegExp;
+	value: (m: RegExpMatchArray) => string;
+}
+
+/** Recurrence cues, mapped into the SAME value vocabulary the event parser
+ * emits ("monthly", "biweekly", "every_6_months") so #006 can store
+ * frequency + interval without a second grammar. */
+const BILL_RECURRENCE_STEPS: BillRecurrenceStep[] = [
+	{
+		re: /\bevery\s+other\s+(day|week|month)\b/i,
+		value: (m) => (m[1].toLowerCase() === 'week' ? 'biweekly' : `every_2_${m[1].toLowerCase()}`)
+	},
+	{
+		re: /\bevery\s+(\d+)\s+(days?|weeks?|months?|years?)\b/i,
+		value: (m) => `every_${m[1]}_${m[2].toLowerCase()}`
+	},
+	{
+		re: /\b(?:quarterly|every\s+quarter|per\s+quarter|\/\s*quarter)\b/i,
+		value: () => 'every_3_months'
+	},
+	{
+		re: /\b(?:biannually|semi-?annually|twice\s+a\s+year)\b/i,
+		value: () => 'every_6_months'
+	},
+	{
+		re: new RegExp(`\\bevery\\s+(${BILL_DAY_ALT})\\b`, 'i'),
+		value: () => 'weekly'
+	},
+	{ re: /\bevery\s+months?\b/i, value: () => 'monthly' },
+	{ re: /\b(?:daily|every\s+day)\b/i, value: () => 'daily' },
+	{ re: /\bweekly\b/i, value: () => 'weekly' },
+	{ re: /\bmonthly\b/i, value: () => 'monthly' },
+	{ re: /\b(?:yearly|annually)\b/i, value: () => 'yearly' },
+	{ re: /\b(?:\/\s*|per\s+|a\s+|each\s+)(?:months?|mos?)\b/i, value: () => 'monthly' },
+	{ re: /\b(?:\/\s*|per\s+|a\s+|each\s+)(?:weeks?|wks?)\b/i, value: () => 'weekly' },
+	{ re: /\b(?:\/\s*|per\s+|a\s+|each\s+)(?:years?|yrs?)\b/i, value: () => 'yearly' }
+];
+
+/** Structured schedule derived from a recurrence value (bills #006). */
+interface BillSchedule {
+	frequency: BillRecurrenceFrequency | null;
+	interval: number | null;
+}
+
+/** Schedule pairs for the plain value words (interval 2 = every other). */
+const BASE_SCHEDULES = {
+	daily: ['daily', 1],
+	weekly: ['weekly', 1],
+	biweekly: ['weekly', 2],
+	monthly: ['monthly', 1],
+	yearly: ['yearly', 1]
+} as const;
+
+/** Event-parser recurrence value → DB frequency + interval (bills #006). */
+function recurrenceToSchedule(recurring: string | undefined): BillSchedule {
+	if (!recurring) return { frequency: null, interval: null };
+	const intervalMatch = recurring.match(/^every_(\d+)_(days?|weeks?|months?|years?)$/);
+	if (intervalMatch) {
+		const unit = intervalMatch[2].replace(/s$/, '');
+		// SAFETY: the regex above whitelists exactly these four unit words.
+		const freq = { day: 'daily', week: 'weekly', month: 'monthly', year: 'yearly' }[
+			unit as 'day' | 'week' | 'month' | 'year'
+		] as BillRecurrenceFrequency;
+		return { frequency: freq, interval: Math.max(1, parseInt(intervalMatch[1])) };
+	}
+	const base = lookup(BASE_SCHEDULES, recurring);
+	if (!base) return { frequency: null, interval: null };
+	return { frequency: base[0], interval: base[1] };
+}
+
+/** "1,234.56" → integer cents, guarded to the Postgres int4 ceiling. */
+function dollarsToCents(raw: string): number | null {
+	const dollars = Number.parseFloat(raw.replace(/,/g, ''));
+	if (!Number.isFinite(dollars) || dollars < 0) return null;
+	const cents = Math.round(dollars * 100);
+	if (!Number.isSafeInteger(cents) || cents > 2147483647) return null;
+	return cents;
+}
+
+/** Dollar-amount forms, priority order: $-prefixed (commas optional),
+ * worded currency ("85 dollars"), then a bare leftover number. */
+const BILL_AMOUNT_STEPS: RegExp[] = [
+	/\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/,
+	/\b(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\s*(?:dollars?|usd|bucks)\b/i,
+	/\b(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\b(?!\s*(?:st|nd|rd|th|:|am|pm))/i
+];
+
+/** Edge-only title stop words: schedule connectors and weekday names left
+ * behind by span stripping. Mid-title words are never touched. */
+const BILL_TITLE_STOP = new Set([
+	'due',
+	'on',
+	'by',
+	'the',
+	'in',
+	'at',
+	'for',
+	'of',
+	'a',
+	'an',
+	'per',
+	'and',
+	'or',
+	'to',
+	'from',
+	'every',
+	'starting',
+	'starts',
+	'with',
+	...FULL_WEEKDAYS
+]);
+
+/**
+ * Parses a quick-add bill phrase ("electric bill $85 due friday") into a
+ * bill intent. Sequential stripping, event-parser style: due cues first,
+ * then recurrence, then the amount, so weak forms (bare numbers) can never
+ * eat a date or schedule span. Category: #tag wins, then merchant keywords.
+ * Amounts leave as integer cents — the boundary the DB stores (never float).
+ */
+export function parseBillQuickAdd(input: string, zone?: string): ParsedBill {
+	const now = zone ? DateTime.now().setZone(zone) : DateTime.now();
+	let text = input;
+	let confidence = 0;
+
+	// Category: explicit #tag wins; merchant keywords scan the ORIGINAL
+	// input so earlier strips can't hide the merchant word.
+	let category: BillCategory | null = null;
+	const tagMatch = text.match(/#([A-Za-z][\w-]*)/);
+	if (tagMatch) {
+		const tag = tagMatch[1].toLowerCase();
+		if (BILL_CATEGORY_SET.has(tag)) {
+			// SAFETY: the Set.has check above pinned tag to a BILL_CATEGORIES
+			// literal, which is exactly the closed BillCategory vocabulary.
+			category = tag as BillCategory;
+		}
+		text = text.replace(tagMatch[0], ' ');
+	}
+	if (!category) {
+		for (const [re, cat] of BILL_CATEGORY_KEYWORDS) {
+			if (re.test(input)) {
+				category = cat;
+				break;
+			}
+		}
+	}
+	if (category) confidence += 0.1;
+
+	// Due date: first resolving cue wins; its span is stripped from the text.
+	let dueDate: string | null = null;
+	for (const step of BILL_DUE_STEPS) {
+		const m = text.match(step.re);
+		if (!m) continue;
+		const resolved = step.resolve(m, now);
+		if (resolved) {
+			dueDate = resolved;
+			text = text.replace(m[0], ' ');
+			confidence += 0.25;
+			break;
+		}
+	}
+
+	// Recurrence: same value vocabulary as the event parser. "every <day>"
+	// also anchors the due date on the next occurrence.
+	let recurring: string | undefined;
+	for (const step of BILL_RECURRENCE_STEPS) {
+		const m = text.match(step.re);
+		if (!m) continue;
+		recurring = step.value(m);
+		text = text.replace(m[0], ' ');
+		confidence += 0.2;
+		if (!dueDate && step.re.source.includes('every')) {
+			const dayMatch = m[0].match(new RegExp(`(${BILL_DAY_ALT})`, 'i'));
+			const code = dayMatch ? normalizeDayToken(dayMatch[1]) : null;
+			if (code) dueDate = nextWeekdayFrom(now, [code]);
+		}
+		break;
+	}
+
+	// Amount: $-prefixed, then worded currency, then a bare leftover number.
+	// The bare form skips 4-digit years so "lease renewal 2027" stays
+	// amountless. Cents are derived from the matched span — never float math
+	// on a rounded dollar value.
+	let amountRaw: string | null = null;
+	for (let i = 0; i < BILL_AMOUNT_STEPS.length; i++) {
+		const m = text.match(BILL_AMOUNT_STEPS[i]);
+		if (!m) continue;
+		if (i === BILL_AMOUNT_STEPS.length - 1 && /^(19|20)\d{2}$/.test(m[1])) break;
+		amountRaw = m[1];
+		text = text.replace(m[0], ' ');
+		break;
+	}
+	const amountCents = amountRaw === null ? null : dollarsToCents(amountRaw);
+	const amount = amountCents === null ? null : amountCents / 100;
+	if (amountCents !== null) confidence += 0.4;
+	if (dueDate) confidence += 0.25;
+
+	const { frequency, interval } = recurrenceToSchedule(recurring);
+
+	// Title: whatever schedule/amount/tag stripping left behind, edge stop
+	// words trimmed.
+	const tokens = text.split(/\s+/).filter(Boolean);
+	while (
+		tokens.length > 0 &&
+		BILL_TITLE_STOP.has(tokens[0].toLowerCase().replace(/[^a-z]/gi, ''))
+	) {
+		tokens.shift();
+	}
+	while (
+		tokens.length > 0 &&
+		BILL_TITLE_STOP.has(tokens[tokens.length - 1].toLowerCase().replace(/[^a-z]/gi, ''))
+	) {
+		tokens.pop();
+	}
+	const title = tokens.join(' ').replace(/[.,;:!?]+$/, '') || null;
+	if (title) confidence += 0.1;
+
+	return {
+		title,
+		amount,
+		amountCents,
+		dueDate,
+		recurring,
+		frequency,
+		interval,
+		category: category ?? 'other',
+		confidence: Math.min(confidence, 1)
+	};
 }
