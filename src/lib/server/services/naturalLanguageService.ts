@@ -2167,39 +2167,6 @@ const BILL_AMOUNT_STEPS: RegExp[] = [
 	/\b(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\b(?!\s*(?:(?:st|nd|rd|th|am|pm)\b|:))/i
 ];
 
-/** Edge-only title stop words: schedule connectors and weekday names left
- * behind by span stripping. Mid-title words are never touched. */
-const BILL_TITLE_STOP = new Set([
-	'due',
-	'on',
-	'by',
-	'the',
-	'in',
-	'at',
-	'for',
-	'of',
-	'a',
-	'an',
-	'per',
-	'and',
-	'or',
-	'to',
-	'from',
-	'every',
-	'starting',
-	'starts',
-	'with',
-	// Purchase fillers (#035): "walmart receipt 120" titles Walmart, but
-	// "electric bill" keeps its bill — bill stays OUT of this set.
-	'receipt',
-	'receipts',
-	'order',
-	'orders',
-	'invoice',
-	'invoices',
-	...FULL_WEEKDAYS
-]);
-
 /**
  * Known store names → canonical title casing (#035). Keys are matched
  * against the lowercased, whitespace-collapsed title; values are the
@@ -2217,28 +2184,14 @@ const BILL_MERCHANTS: ReadonlyMap<string, string> = new Map([
 	['amazon', 'Amazon']
 ]);
 
-/** Purchase fillers dropped only when a known merchant is present
- * ("walmart bill 120" → Walmart); "electric bill" has no merchant and
- * keeps its bill. */
-const BILL_MERCHANT_FILLER = new Set([
-	'bill',
-	'bills',
-	'receipt',
-	'receipts',
-	'order',
-	'orders',
-	'invoice',
-	'invoices'
-]);
-
 /**
- * Canonicalizes a known merchant inside a parsed bill title (#035). An
- * exact title match returns the canonical name ("walmart receipt 120" →
- * Walmart after filler stripping); a title with extra words keeps them
- * with the merchant part canonicalized ("home depot paint" →
- * "Home Depot paint"). When a merchant is present, purchase fillers drop
- * anywhere ("walmart bill" → Walmart). Unknown merchants pass through
- * untouched.
+ * Canonicalizes a known merchant inside a parsed bill title (#035).
+ * Titles preserve user words: only amount/date/recurrence/tag spans are
+ * consumed, so fillers stay ("walmart receipt 120" → "Walmart receipt").
+ * An exact title match returns the canonical name; a title with extra
+ * words keeps them with the merchant part canonicalized in place
+ * ("home depot paint" → "Home Depot paint"). Unknown merchants pass
+ * through untouched.
  */
 function canonicalMerchantTitle(title: string | null): string | null {
 	if (!title) return title;
@@ -2246,23 +2199,16 @@ function canonicalMerchantTitle(title: string | null): string | null {
 	const exact = BILL_MERCHANTS.get(collapsed.toLowerCase());
 	if (exact) return exact;
 	let out = collapsed;
-	let found = false;
 	for (const [key, canonical] of [...BILL_MERCHANTS.entries()].sort(
 		(a, b) => b[0].length - a[0].length
 	)) {
 		const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 		const re = new RegExp(`\\b${escaped}\\b`, 'i');
 		if (re.test(out)) {
-			found = true;
 			out = out.replace(re, canonical);
 		}
 	}
-	if (!found) return out;
-	const core = (t: string) => t.toLowerCase().replace(/[^a-z]/gi, '');
-	const tokens = out.split(' ').filter((t) => !BILL_MERCHANT_FILLER.has(core(t)));
-	while (tokens.length > 0 && BILL_TITLE_STOP.has(core(tokens[0]))) tokens.shift();
-	while (tokens.length > 0 && BILL_TITLE_STOP.has(core(tokens[tokens.length - 1]))) tokens.pop();
-	return tokens.join(' ') || out;
+	return out;
 }
 
 /**
@@ -2346,22 +2292,17 @@ export function parseBillQuickAdd(input: string, zone?: string): ParsedBill {
 
 	const { frequency, interval } = recurrenceToSchedule(recurring);
 
-	// Title: whatever schedule/amount/tag stripping left behind, edge stop
-	// words trimmed.
-	const tokens = text.split(/\s+/).filter(Boolean);
-	while (
-		tokens.length > 0 &&
-		BILL_TITLE_STOP.has(tokens[0].toLowerCase().replace(/[^a-z]/gi, ''))
-	) {
-		tokens.shift();
-	}
-	while (
-		tokens.length > 0 &&
-		BILL_TITLE_STOP.has(tokens[tokens.length - 1].toLowerCase().replace(/[^a-z]/gi, ''))
-	) {
-		tokens.pop();
-	}
-	const title = canonicalMerchantTitle(tokens.join(' ').replace(/[.,;:!?]+$/, '') || null);
+	// Title: input minus ONLY consumed structural spans (#tag match,
+	// due-date span, recurrence span, amount span) → collapse whitespace →
+	// trim trailing punctuation → merchant in-place canonical substitution.
+	// No stop-word trimming, no filler dropping — user words are preserved.
+	const title = canonicalMerchantTitle(
+		text
+			.split(/\s+/)
+			.filter(Boolean)
+			.join(' ')
+			.replace(/[.,;:!?]+$/, '') || null
+	);
 	if (title) confidence += 0.1;
 
 	return {

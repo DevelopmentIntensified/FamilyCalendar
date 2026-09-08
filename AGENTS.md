@@ -80,6 +80,21 @@ You MUST use this tool whenever writing Svelte code before sending it to the use
 Generates a Svelte Playground link with the provided code.
 After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
 
+## Guiding verses (why we build this way)
+
+- Psalm 127:1 — Except the LORD build the house, they labour in vain. Build for Him first.
+- Proverbs 16:3 — Commit thy works unto the LORD, and thy thoughts shall be established. Plan, then commit.
+- Proverbs 15:22 — Without counsel purposes are disappointed: but in the multitude of counsellors they are established. Grill, TDD, review.
+- Proverbs 21:5 — The thoughts of the diligent tend only to plenteousness. Small slices, pushed green.
+- Proverbs 16:9 — A man's heart deviseth his way: but the LORD directeth his steps. Hold plans loosely.
+- Proverbs 24:3-4 — Through wisdom is an house builded; and by understanding it is established. Architecture matters.
+- Proverbs 22:6 — Train up a child in the way he should go. Families first in every UX call.
+- Ecclesiastes 3:1 — To every thing there is a season, and a time to every purpose. Calendar is stewardship of time.
+- Ecclesiastes 4:9-10 — Two are better than one... if they fall, the one will lift up his fellow. Family Task Board energy.
+- Psalm 90:12 — Teach us to number our days, that we may apply our hearts unto wisdom. Day Dashboard in one line.
+- Psalm 127:3 — Lo, children are an heritage of the LORD. Kids' Schedule is ministry, not a feature.
+- Psalm 118:24 — This is the day which the LORD hath made; we will rejoice and be glad in it. Ship today something worth rejoicing in.
+
 ## Domain
 
 See CONTEXT.md for the canonical domain language (Anonymous Account, Claiming, Recurring Task cursor semantics, etc.).

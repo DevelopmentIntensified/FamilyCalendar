@@ -1657,7 +1657,7 @@ describe('Bill quick-add NLP — titles (parseBillQuickAdd)', () => {
 		['city water $31.40 due the 20th', 'city water'],
 		['storage unit 120', 'storage unit'],
 		['due friday electric bill $85', 'electric bill'],
-		['pay $50 to the plumber friday', 'pay to the plumber']
+		['pay $50 to the plumber friday', 'pay to the plumber friday']
 	];
 	for (const [input, title] of cases) {
 		it(`titles "${input}" → "${title}"`, () => {
@@ -1707,36 +1707,36 @@ describe('Bill quick-add NLP — merchant titles (#035)', () => {
 		['45 home depot', 'Home Depot', 4500],
 		['HOMe DEPOT 45', 'Home Depot', 4500],
 		['homedepot 45', 'Home Depot', 4500],
-		['home depot receipt 45', 'Home Depot', 4500],
-		['home depot bill 45', 'Home Depot', 4500],
-		['home depot order 45', 'Home Depot', 4500],
-		['home depot invoice 45', 'Home Depot', 4500],
-		['45 home depot receipt', 'Home Depot', 4500],
+		['home depot receipt 45', 'Home Depot receipt', 4500],
+		['home depot bill 45', 'Home Depot bill', 4500],
+		['home depot order 45', 'Home Depot order', 4500],
+		['home depot invoice 45', 'Home Depot invoice', 4500],
+		['45 home depot receipt', 'Home Depot receipt', 4500],
 		['lowes 45', "Lowe's", 4500],
 		['$45 lowes', "Lowe's", 4500],
 		["lowe's 45", "Lowe's", 4500],
 		["$45 lowe's", "Lowe's", 4500],
-		['lowes receipt 45', "Lowe's", 4500],
-		['lowes bill 45', "Lowe's", 4500],
-		['lowes order 45', "Lowe's", 4500],
-		['lowes invoice 45', "Lowe's", 4500],
+		['lowes receipt 45', "Lowe's receipt", 4500],
+		['lowes bill 45', "Lowe's bill", 4500],
+		['lowes order 45', "Lowe's order", 4500],
+		['lowes invoice 45', "Lowe's invoice", 4500],
 		['walmart 120', 'Walmart', 12000],
 		['$120 walmart', 'Walmart', 12000],
-		['120 walmart receipt', 'Walmart', 12000],
-		['walmart receipt 120', 'Walmart', 12000],
-		['walmart bill 120', 'Walmart', 12000],
-		['walmart order 120', 'Walmart', 12000],
-		['walmart invoice 120', 'Walmart', 12000],
-		['receipt 120 walmart', 'Walmart', 12000],
+		['120 walmart receipt', 'Walmart receipt', 12000],
+		['walmart receipt 120', 'Walmart receipt', 12000],
+		['walmart bill 120', 'Walmart bill', 12000],
+		['walmart order 120', 'Walmart order', 12000],
+		['walmart invoice 120', 'Walmart invoice', 12000],
+		['receipt 120 walmart', 'receipt Walmart', 12000],
 		['WALMART 120', 'Walmart', 12000],
 		['amazon 35.99', 'Amazon', 3599],
-		['amazon order 35.99', 'Amazon', 3599],
+		['amazon order 35.99', 'Amazon order', 3599],
 		['$35.99 amazon', 'Amazon', 3599],
-		['35.99 amazon order', 'Amazon', 3599],
-		['amazon receipt 35.99', 'Amazon', 3599],
-		['amazon bill 35.99', 'Amazon', 3599],
-		['amazon invoice 35.99', 'Amazon', 3599],
-		['order from amazon 35.99', 'Amazon', 3599],
+		['35.99 amazon order', 'Amazon order', 3599],
+		['amazon receipt 35.99', 'Amazon receipt', 3599],
+		['amazon bill 35.99', 'Amazon bill', 3599],
+		['amazon invoice 35.99', 'Amazon invoice', 3599],
+		['order from amazon 35.99', 'order from Amazon', 3599],
 		['home depot paint 45', 'Home Depot paint', 4500],
 		['walmart grocery 120', 'Walmart grocery', 12000],
 		// generic fallback: unknown merchants keep their words as written
@@ -1780,6 +1780,27 @@ describe('Bill quick-add NLP — merchant titles (#035)', () => {
 		expect(parsed.title).toBe("Lowe's");
 		expect(parsed.amountCents).toBe(4500);
 		expect(parsed.dueDate).toBe(nextDow('friday'));
+	});
+
+	it.each([
+		['walmart receipt 120', 'Walmart receipt'],
+		['walmart bill 120', 'Walmart bill'],
+		['walmart invoice 120', 'Walmart invoice'],
+		['home depot receipt 45', 'Home Depot receipt'],
+		['home depot bill 45', 'Home Depot bill'],
+		['lowes bill 45', "Lowe's bill"],
+		['amazon order 35.99', 'Amazon order'],
+		['amazon receipt 35.99', 'Amazon receipt'],
+		['order from amazon 35.99', 'order from Amazon'],
+		['order paint from home depot 45', 'order paint from Home Depot'],
+		['home depot paint 45', 'Home Depot paint'],
+		['electric bill $85 due friday', 'electric bill'],
+		['saturday home depot 45', 'saturday Home Depot'],
+		['the home depot 45', 'the Home Depot'],
+		['from home depot 45', 'from Home Depot'],
+		['receipt 120 walmart', 'receipt Walmart']
+	])('preserves user words: "%s" → "%s"', (input, title) => {
+		expect(parseBillQuickAdd(input).title, input).toBe(title);
 	});
 });
 describe('Bill quick-add NLP — robustness (parseBillQuickAdd)', () => {

@@ -31,7 +31,7 @@ describe('TRANSLATIONS', () => {
 
 describe('getVerseForDate (bundled)', () => {
 	it('returns a valid shape for every curated verse', () => {
-		expect(DAILY_VERSES.length).toBe(30);
+		expect(DAILY_VERSES.length).toBe(40);
 		for (const verse of DAILY_VERSES) {
 			expect(verse.reference).toEqual(expect.any(String));
 			expect(verse.text).toEqual(expect.any(String));
@@ -55,7 +55,7 @@ describe('getVerseForDate (bundled)', () => {
 	it('indexes by day-of-year modulo the verse count', async () => {
 		// Jan 1 is ordinal 1 -> index 1 -> Psalm 23:1.
 		expect((await getVerseForDate('2026-01-01')).reference).toBe('Psalm 23:1');
-		// Dec 31 2026 is ordinal 365 -> 365 % 30 = 5 -> Jeremiah 29:11.
+		// Dec 31 2026 is ordinal 365 -> 365 % 40 = 5 -> Jeremiah 29:11.
 		expect((await getVerseForDate('2026-12-31')).reference).toBe('Jeremiah 29:11');
 	});
 

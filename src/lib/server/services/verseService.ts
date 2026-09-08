@@ -155,6 +155,40 @@ const DAILY_VERSES: CuratedVerse[] = [
 	{
 		reference: 'Mark 11:24',
 		text: 'Therefore I say unto you, What things soever ye desire, when ye pray, believe that ye receive them, and ye shall have them.'
+	},
+	{ reference: 'Psalm 127:1', text: 'Except the LORD build the house, they labour in vain that build it.' },
+	{
+		reference: 'Psalm 127:3',
+		text: 'Lo, children are an heritage of the LORD: and the fruit of the womb is his reward.'
+	},
+	{ reference: 'Psalm 90:12', text: 'So teach us to number our days, that we may apply our hearts unto wisdom.' },
+	{
+		reference: 'Proverbs 15:22',
+		text: 'Without counsel purposes are disappointed: but in the multitude of counsellors they are established.'
+	},
+	{
+		reference: 'Proverbs 16:9',
+		text: "A man's heart deviseth his way: but the LORD directeth his steps."
+	},
+	{
+		reference: 'Proverbs 21:5',
+		text: 'The thoughts of the diligent tend only to plenteousness; but of every one that is hasty only to want.'
+	},
+	{
+		reference: 'Proverbs 22:6',
+		text: 'Train up a child in the way he should go: and when he is old, he will not depart from it.'
+	},
+	{
+		reference: 'Proverbs 24:3-4',
+		text: 'Through wisdom is an house builded; and by understanding it is established: And by knowledge shall the chambers be filled with all precious and pleasant riches.'
+	},
+	{
+		reference: 'Ecclesiastes 3:1',
+		text: 'To every thing there is a season, and a time to every purpose under the heaven.'
+	},
+	{
+		reference: 'Ecclesiastes 4:9-10',
+		text: 'Two are better than one; because they have a good reward for their labour. For if they fall, the one will lift up his fellow.'
 	}
 ];
 

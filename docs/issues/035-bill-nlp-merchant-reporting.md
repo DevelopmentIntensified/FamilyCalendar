@@ -22,3 +22,16 @@ Status: done
 ## Needs doing
 
 - (none)
+
+## Contract note (2026-09-08)
+
+- Bill titles preserve user words: title = input minus ONLY consumed
+  structural spans (#tag match, due-date span, recurrence span, amount
+  span) → collapse whitespace → trim trailing punctuation → merchant
+  in-place canonical substitution. No stop-word trimming, no filler
+  dropping. E.g. "walmart receipt 120" → "Walmart receipt",
+  "order paint from home depot 45" → "order paint from Home Depot",
+  "saturday home depot 45" → "saturday Home Depot" (bare weekday is not
+  a due span without a cue word). 16-phrase preservation table in
+  naturalLanguageService.test.ts; BILL_TITLE_STOP /
+  BILL_MERCHANT_FILLER deleted.
