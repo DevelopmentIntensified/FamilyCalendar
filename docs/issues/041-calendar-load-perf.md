@@ -27,6 +27,12 @@ Status: in-progress
   scaffolding, −91 lines); `getVerseForDate` resolves from `DAILY_VERSES`.
   13 tests updated/green. No local TTFB delta (no-key path was already
   fast) — kills the 10s-timeout worst case on cold starts with a key.
+- Streaming: tasks + events pipelines return unresolved from the load as
+  ONE `calendarData` promise (per-section fallbacks + warnings preserved);
+  shell paints first, grid fills in. Page wraps grid in `{#await}`
+  (month-grid skeleton pending, retry card on catch) with a stash-once
+  cache feeding existing `allEvents`/first-run/?edit reactives.
+  TTFB (shell) ~1.2s → ~0.8s (−35%), full body ~1.1s, 147KB.
 
 ## Needs doing
 

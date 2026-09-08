@@ -208,57 +208,72 @@ export const load: PageServerLoad = async (event) => {
 	const showAds = adsG.data.hasAdConsent && (userSettings?.showAdsAsEvents ?? false);
 	const adEventsData: CalendarEvent[] = adsG.data.adEventsData;
 
-	// Open tasks with due dates render as distinct chips on month-view days.
-	// Overdue Recurring Tasks first stick to today (cursor v3).
-	const tasksG = await guard('tasks', [], async () => {
-		await syncRecurringCursors(userId, familyId, userZone);
-		const allTasks = await getTasksForUser(userId, familyId);
-		return allTasks.flatMap((t) => {
-			if (!t.dueDate || t.completedAt) return [];
-			return [
-				{
-					id: t.id,
-					title: t.title,
-					dueDate: new Date(t.dueDate),
-					recurrenceFrequency: t.recurrenceFrequency,
-					recurrenceInterval: t.recurrenceInterval,
-					completionCount: t.completionCount,
-					// Richer fields for the task detail popup (calendar views).
-					priority: t.priority,
-					notes: t.notes,
-					tags: t.tags,
-					assignedTo: t.assignedTo,
-					assigneeFirstName: t.assigneeFirstName ?? null,
-					assigneeLastName: t.assigneeLastName ?? null,
-					eventTitle: t.eventTitle ?? null
-				}
-			];
-		});
-	});
-	warn(tasksG.error);
-	const dueTasks = tasksG.data;
+	// Streamed below the shell (#041): tasks + events resolve after first
+	// paint instead of blocking the whole response. Each leg degrades to
+	// its fallback independently (same contract as the old guard()s).
+	const taskPipeline = (async () => {
+		try {
+			await syncRecurringCursors(userId, familyId, userZone);
+			const allTasks = await getTasksForUser(userId, familyId);
+			const tasks = allTasks.flatMap((t) => {
+				if (!t.dueDate || t.completedAt) return [];
+				return [
+					{
+						id: t.id,
+						title: t.title,
+						dueDate: new Date(t.dueDate),
+						recurrenceFrequency: t.recurrenceFrequency,
+						recurrenceInterval: t.recurrenceInterval,
+						completionCount: t.completionCount,
+						// Richer fields for the task detail popup (calendar views).
+						priority: t.priority,
+						notes: t.notes,
+						tags: t.tags,
+						assignedTo: t.assignedTo,
+						assigneeFirstName: t.assigneeFirstName ?? null,
+						assigneeLastName: t.assigneeLastName ?? null,
+						eventTitle: t.eventTitle ?? null
+					}
+				];
+			});
+			// SAFETY: null must widen to the string|null union shared with the catch branch.
+			return { tasks, warning: null as string | null };
+		} catch {
+			// SAFETY: literal must widen to the string|null union shared with the ok branch.
+			return { tasks: [], warning: 'tasks' as string | null };
+		}
+	})();
 
-	const eventsG = await guard('events', { user: [], family: [] }, async () => {
-		const [parsedUserEvents, parsedFamilyEvents] = await Promise.all([
-			parseEvents(await expandEventsForUser(userEvents, gridWindow), userZone),
-			parseEvents(await expandEventsForUser(familyEventsData, gridWindow), userZone)
-		]);
-		// Current user's RSVP per event (keyed on masterId) so views can tint
-		// going / maybe events and dim ones you can't attend.
-		const [userEventsFinal, familyEventsFinal] = await Promise.all([
-			attachRsvpStatus(userId, parsedUserEvents),
-			attachRsvpStatus(userId, parsedFamilyEvents)
-		]);
-		// Compact per-family-event "who's going" summary for chip indicators.
-		// Creator first name attaches to FAMILY events only — personal events
-		// show no creator chip.
-		const [userEventsWithAttendance, familyEventsWithAttendance] = await Promise.all([
-			attachAttendanceSummaries(userEventsFinal),
-			attachCreatorNames(await attachAttendanceSummaries(familyEventsFinal))
-		]);
-		return { user: userEventsWithAttendance, family: familyEventsWithAttendance };
-	});
-	warn(eventsG.error);
+	const eventPipeline = (async () => {
+		try {
+			const [parsedUserEvents, parsedFamilyEvents] = await Promise.all([
+				parseEvents(await expandEventsForUser(userEvents, gridWindow), userZone),
+				parseEvents(await expandEventsForUser(familyEventsData, gridWindow), userZone)
+			]);
+			// Current user's RSVP per event (keyed on masterId) so views can tint
+			// going / maybe events and dim ones you can't attend.
+			const [userEventsFinal, familyEventsFinal] = await Promise.all([
+				attachRsvpStatus(userId, parsedUserEvents),
+				attachRsvpStatus(userId, parsedFamilyEvents)
+			]);
+			// Compact per-family-event "who's going" summary for chip indicators.
+			// Creator first name attaches to FAMILY events only — personal events
+			// show no creator chip.
+			const [userEventsWithAttendance, familyEventsWithAttendance] = await Promise.all([
+				attachAttendanceSummaries(userEventsFinal),
+				attachCreatorNames(await attachAttendanceSummaries(familyEventsFinal))
+			]);
+			// SAFETY: null must widen to the string|null union shared with the catch branch.
+			return {
+				user: userEventsWithAttendance,
+				family: familyEventsWithAttendance,
+				warning: null as string | null
+			};
+		} catch {
+			// SAFETY: literal must widen to the string|null union shared with the ok branch.
+			return { user: [], family: [], warning: 'events' as string | null };
+		}
+	})();
 
 	const verseTranslation = userSettings?.verseTranslation ?? 'esv';
 	const verseG = await guard('verse', null, async () =>
@@ -267,11 +282,21 @@ export const load: PageServerLoad = async (event) => {
 	warn(verseG.error);
 	const dailyVerse = verseG.data;
 
+	// One streamed promise: shell (calendars, roster, settings) paints
+	// first; grid + chips fill in when the pipelines resolve.
+	const calendarData = (async () => {
+		const [ev, td] = await Promise.all([eventPipeline, taskPipeline]);
+		return {
+			user: ev.user.map((e) => ({ ...e, color: userCalendarColor })),
+			family: ev.family.map((e) => ({ ...e, color: familyCalendarColor })),
+			dueTasks: td.tasks,
+			warnings: [ev.warning, td.warning].filter((w): w is string => w !== null)
+		};
+	})();
+
 	return {
-		userEvents: eventsG.data.user.map((e) => ({ ...e, color: userCalendarColor })),
-		familyEvents: eventsG.data.family.map((e) => ({ ...e, color: familyCalendarColor })),
+		calendarData,
 		adEvents: parseEvents(adEventsData, userZone).map((e) => ({ ...e, color: '#f59e0b' })),
-		dueTasks,
 		userSettings,
 		userCalendarColor,
 		familyCalendarColor,

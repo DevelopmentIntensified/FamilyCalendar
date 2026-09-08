@@ -315,10 +315,19 @@
 		return parseEvents([row]);
 	}
 
+	// Streamed payload cache (#041): set once when calendarData resolves.
+	// Outer reactives (allEvents, first-run, ?edit link) run off the cache
+	// so they keep working before/after the stream lands.
+	let streamedCal: Awaited<PageData['calendarData']> | null = null;
+	function stashCalendarData(cd: NonNullable<typeof streamedCal>): string {
+		if (!streamedCal) streamedCal = cd;
+		return '';
+	}
+
 	// Combine all events
 	$: allEvents = [
-		...(data.userEvents || []),
-		...(data.familyEvents || []),
+		...(streamedCal?.user ?? []),
+		...(streamedCal?.family ?? []),
 		...(data.adEvents || []),
 		...localExtras
 	];
@@ -387,7 +396,10 @@
 	}
 
 	$: showFirstRunCard =
-		!dismissedFirstRun && allEvents.length === 0 && (data.dueTasks || []).length === 0;
+		!dismissedFirstRun &&
+		streamedCal !== null &&
+		allEvents.length === 0 &&
+		(streamedCal.dueTasks || []).length === 0;
 
 	function close() {
 		showModal = false;
@@ -515,72 +527,98 @@
 </script>
 
 <div class="pb-24">
-	{#if (data.loadWarnings ?? []).length > 0}
-		<div class="mx-auto max-w-xl px-4 pt-4" role="alert">
-			<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-				Couldn't load {(data.loadWarnings ?? []).join(', ')} just now — everything else is up to date.
+	{#await data.calendarData}
+		<div class="mx-auto max-w-3xl px-4 pt-4" aria-hidden="true">
+			<div class="mb-3 h-10 animate-pulse rounded-xl bg-slate-100"></div>
+			<div class="grid grid-cols-7 gap-1.5">
+				{#each Array(35) as _, i (i)}
+					<div class="h-16 animate-pulse rounded-lg bg-slate-100 md:h-24"></div>
+				{/each}
 			</div>
 		</div>
-	{/if}
-	{#if editLinkNotFound}
-		<div class="mx-auto max-w-xl px-4 pt-4" role="alert">
-			<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-				Event not found — it may have been deleted, or you don't have access to it.
-			</div>
-		</div>
-	{/if}
-	{#if showFirstRunCard}
-		<div class="relative mx-auto mb-4 max-w-xl px-4 pt-4">
-			<EmptyState
-				illustration={calendarNoteDate}
-				title="Blank calendar!"
-				hint="Add your first thing — or start from ✨ Smart tasks."
-			>
-				<a
-					href="/calendar/tasks"
-					class="mt-4 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
+	{:then cd}
+		{@const _stash = stashCalendarData(cd)}
+		{@const calWarnings = [...(data.loadWarnings ?? []), ...cd.warnings]}
+		{#if calWarnings.length > 0}
+			<div class="mx-auto max-w-xl px-4 pt-4" role="alert">
+				<div
+					class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
 				>
-					Browse ✨ Smart tasks
-				</a>
-			</EmptyState>
-			<button
-				type="button"
-				onclick={dismissFirstRun}
-				aria-label="Dismiss"
-				class="absolute right-6 top-6 flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-white hover:text-slate-600"
-			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M6 18L18 6M6 6l12 12"
-					/>
-				</svg>
-			</button>
+					Couldn't load {calWarnings.join(', ')} just now — everything else is up to date.
+				</div>
+			</div>
+		{/if}
+		{#if editLinkNotFound}
+			<div class="mx-auto max-w-xl px-4 pt-4" role="alert">
+				<div
+					class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+				>
+					Event not found — it may have been deleted, or you don't have access to it.
+				</div>
+			</div>
+		{/if}
+		{#if showFirstRunCard}
+			<div class="relative mx-auto mb-4 max-w-xl px-4 pt-4">
+				<EmptyState
+					illustration={calendarNoteDate}
+					title="Blank calendar!"
+					hint="Add your first thing — or start from ✨ Smart tasks."
+				>
+					<a
+						href="/calendar/tasks"
+						class="mt-4 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
+					>
+						Browse ✨ Smart tasks
+					</a>
+				</EmptyState>
+				<button
+					type="button"
+					onclick={dismissFirstRun}
+					aria-label="Dismiss"
+					class="absolute right-6 top-6 flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-white hover:text-slate-600"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
+					</svg>
+				</button>
+			</div>
+		{/if}
+		<Calendar
+			{currentDate}
+			events={[...cd.user, ...cd.family, ...(data.adEvents || []), ...localExtras]}
+			removeEvent={() => {}}
+			preferedFirstDayOfWeek={data.userSettings?.weekStart || data.user?.firstDayOfWeek || 'sunday'}
+			calendarIds={data.calendarIds || []}
+			dueTasks={cd.dueTasks || []}
+			defaultViewSetting={data.userSettings?.defaultView || 'monthView'}
+			initialView={initialViewParam}
+			createAt={openCreateAt}
+			dailyVerse={data.dailyVerse}
+			{selectionMode}
+			{selectedIds}
+			onToggleSelectionMode={setSelectionMode}
+			onToggleSelect={(e) => {
+				selectedIds = selectedIds.includes(e.id)
+					? selectedIds.filter((x) => x !== e.id)
+					: [...selectedIds, e.id];
+			}}
+			on:eventClick={handleEventClick}
+		/>
+	{:catch}
+		<div class="mx-auto max-w-xl px-4 pt-4" role="alert">
+			<div class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+				Couldn't load your events.
+				<button type="button" onclick={() => invalidateAll()} class="font-semibold underline">
+					Retry
+				</button>
+			</div>
 		</div>
-	{/if}
-	<Calendar
-		{currentDate}
-		events={allEvents}
-		removeEvent={() => {}}
-		preferedFirstDayOfWeek={data.userSettings?.weekStart || data.user?.firstDayOfWeek || 'sunday'}
-		calendarIds={data.calendarIds || []}
-		dueTasks={data.dueTasks || []}
-		defaultViewSetting={data.userSettings?.defaultView || 'monthView'}
-		initialView={initialViewParam}
-		createAt={openCreateAt}
-		dailyVerse={data.dailyVerse}
-		{selectionMode}
-		{selectedIds}
-		onToggleSelectionMode={setSelectionMode}
-		onToggleSelect={(e) => {
-			selectedIds = selectedIds.includes(e.id)
-				? selectedIds.filter((x) => x !== e.id)
-				: [...selectedIds, e.id];
-		}}
-		on:eventClick={handleEventClick}
-	/>
+	{/await}
 </div>
 
 <svelte:window on:keydown={handleEscape} />
