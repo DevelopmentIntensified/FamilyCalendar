@@ -1,29 +1,34 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import AuthCard from '$lib/components/auth/AuthCard.svelte';
+	import AuthInput from '$lib/components/auth/AuthInput.svelte';
+	import ModeToggle from '$lib/components/auth/ModeToggle.svelte';
 
-	export let data: PageData;
+	let { data }: { data: PageData } = $props();
 
-	let mode: 'password' | 'magic-link' = 'password';
-	let email = '';
-	let password = '';
-	let error = '';
-	let waiting = false;
-	let emailSent = false;
-	let code = '';
-	let resent = false;
+	let mode: 'password' | 'magic-link' = $state('password');
+	let email = $state('');
+	let password = $state('');
+	let error = $state('');
+	let waiting = $state(false);
+	let emailSent = $state(false);
+	let code = $state('');
+	let resent = $state(false);
 	let resentTimer: ReturnType<typeof setTimeout> | undefined;
 
 	onMount(() => {
-		const urlError = $page.url.searchParams.get('error');
+		const urlError = page.url.searchParams.get('error');
 		if (urlError) {
 			error = urlError;
-			const url = new URL($page.url);
+			const url = new URL(page.url);
 			url.searchParams.delete('error');
 			goto(url.pathname + url.search, { replaceState: true });
 		}
+
+		return () => clearTimeout(resentTimer);
 	});
 
 	async function handlePasswordLogin() {
@@ -126,179 +131,254 @@
 
 		waiting = false;
 	}
+
+	const submitClasses =
+		'flex min-h-[48px] w-full items-center justify-center rounded-full bg-primary-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500';
 </script>
 
 <svelte:head>
 	<title>Family Planz: Login</title>
 </svelte:head>
 
-<div class="min-h-screen bg-slate-50">
-	<div class="flex flex-col items-center px-4 pt-16">
-		<div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-			<div class="mb-8 text-center">
-				<h1 class="text-3xl font-bold text-slate-900">Welcome Back</h1>
-				<p class="mt-2 text-slate-600">
-					{#if data.mergeMode}
-						Log in with the account tied to this email, and we'll merge the calendar you've added on
-						this device into it.
-					{:else if data.isLoggedIn}
-						You are already logged in
-					{:else}
-						Don't have an account? <a href="/signup" class="text-primary-600 hover:text-primary-700"
-							>Sign up</a
-						>
-						or just start using it right away.
-					{/if}
+<div class="flex min-h-screen flex-col items-center bg-slate-50 px-4 pb-16 pt-10 sm:pt-16">
+	<a
+		href="/"
+		aria-label="Family Planz home"
+		class="mb-8 flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+	>
+		<svg
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			class="h-5 w-5 text-primary-600"
+			aria-hidden="true"
+		>
+			<path d="M8 2v4" /><path d="M16 2v4" /><rect width="18" height="18" x="3" y="4" rx="2" /><path
+				d="M3 10h18"
+			/>
+		</svg>
+		<span class="text-lg font-bold tracking-tight text-slate-800">Family Planz</span>
+	</a>
+
+	<AuthCard>
+		<header class="mb-8 text-center">
+			<h1 class="text-3xl font-bold tracking-tight text-slate-900">Welcome Back</h1>
+			{#if data.isLoggedIn && !data.mergeMode}
+				<p class="mt-2 text-sm text-pretty text-slate-600">You are already logged in.</p>
+			{:else if !data.mergeMode}
+				<p class="mt-2 text-sm text-pretty text-slate-600">
+					Don't have an account?
+					<a
+						href="/signup"
+						class="rounded font-medium text-primary-600 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+						>Sign up</a
+					>
+					or just start using it right away.
+				</p>
+			{/if}
+		</header>
+
+		{#if data.mergeMode}
+			<div class="mb-6 flex items-start gap-3 rounded-xl bg-[#BEDAE3]/40 p-4">
+				<svg
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="h-5 w-5 shrink-0 text-slate-700"
+					aria-hidden="true"
+				>
+					<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path
+						d="M22 21v-2a4 4 0 0 0-3-3.87"
+					/><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+				</svg>
+				<p class="text-sm leading-relaxed text-slate-700">
+					Log in with the account tied to this email, and we'll merge the calendar you've added on
+					this device into it.
 				</p>
 			</div>
+		{/if}
 
-			{#if data.isLoggedIn && !data.mergeMode}
-				<div class="text-center">
-					<a href="/calendar" class="text-primary-600 hover:text-primary-500">Go to Calendar</a>
-				</div>
-			{:else}
-				{#if error}
-					<div class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
-						{error}
-					</div>
-				{/if}
-
-				{#if emailSent}
-					<div class="text-center">
-						<div class="mb-4 text-6xl">📧</div>
-						<h2 class="mb-2 text-xl font-semibold text-slate-900">Check Your Email</h2>
-						<p class="mb-6 text-slate-600">
-							We've sent a login code to <strong>{email}</strong>
-						</p>
-
-						<form on:submit|preventDefault={handleCodeVerification} class="space-y-4">
-							<input
-								type="text"
-								bind:value={code}
-								placeholder="Enter login code"
-								autocomplete="one-time-code"
-								inputmode="numeric"
-								class="w-full rounded-lg border border-slate-300 px-4 py-3 text-center text-lg tracking-widest text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-								required
-							/>
-							<button
-								type="submit"
-								disabled={waiting}
-								class="w-full rounded-full bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:bg-slate-400"
-							>
-								{waiting ? 'Logging in...' : 'Login'}
-							</button>
-						</form>
-
-						<button
-							on:click={resendCode}
-							class="mt-4 text-sm text-slate-600 hover:text-primary-600"
-						>
-							{resent ? 'Sent again ✓' : "Didn't receive the code? Resend"}
-						</button>
-					</div>
-				{:else}
-					<div class="mb-6 flex rounded-xl bg-slate-100 p-1">
-						<button
-							on:click={() => (mode = 'password')}
-							class="flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all {mode ===
-							'password'
-								? 'bg-white text-slate-900 shadow-sm'
-								: 'text-slate-500 hover:text-slate-700'}"
-						>
-							Password
-						</button>
-						<button
-							on:click={() => (mode = 'magic-link')}
-							class="flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all {mode ===
-							'magic-link'
-								? 'bg-white text-slate-900 shadow-sm'
-								: 'text-slate-500 hover:text-slate-700'}"
-						>
-							Email Link
-						</button>
-					</div>
-
-					{#if mode === 'password'}
-						<form on:submit|preventDefault={handlePasswordLogin} class="space-y-5">
-							<div>
-								<label for="email" class="block text-sm font-medium text-slate-700">Email</label>
-								<input
-									id="email"
-									type="email"
-									autocomplete="email"
-									bind:value={email}
-									class="mt-1.5 block w-full rounded-lg border border-slate-300 px-4 py-3 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-									required
-								/>
-							</div>
-
-							<div>
-								<label for="password" class="block text-sm font-medium text-slate-700"
-									>Password</label
-								>
-								<input
-									id="password"
-									type="password"
-									autocomplete="current-password"
-									bind:value={password}
-									class="mt-1.5 block w-full rounded-lg border border-slate-300 px-4 py-3 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-									required
-								/>
-								<div class="mt-1 text-right">
-									<a href="/forgot-password" class="text-sm text-primary-600 hover:text-primary-700"
-										>Forgot your password?</a
-									>
-								</div>
-							</div>
-
-							<button
-								type="submit"
-								disabled={waiting}
-								class="w-full rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700 disabled:bg-slate-300"
-							>
-								{waiting ? 'Logging in...' : 'Login'}
-							</button>
-						</form>
-					{:else}
-						<form on:submit|preventDefault={handleMagicLinkLogin} class="space-y-4">
-							<div>
-								<label for="emailML" class="block text-sm font-medium text-slate-700">Email</label>
-								<input
-									id="emailML"
-									type="email"
-									autocomplete="email"
-									bind:value={email}
-									class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-									required
-								/>
-							</div>
-
-							<button
-								type="submit"
-								disabled={waiting}
-								class="w-full rounded-full bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:bg-slate-400"
-							>
-								{waiting ? 'Sending...' : 'Send Login Link'}
-							</button>
-						</form>
-					{/if}
-				{/if}
-			{/if}
-
-			{#if !data.isLoggedIn && !data.mergeMode}
-				<div class="mt-6 border-t border-slate-100 pt-5 text-center">
-					<a
-						href="/calendar"
-						class="block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
+		{#if data.isLoggedIn && !data.mergeMode}
+			<a href="/calendar" class={submitClasses}>Go to Calendar</a>
+		{:else}
+			{#if error}
+				<div
+					role="alert"
+					class="mb-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+				>
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="mt-0.5 h-4 w-4 shrink-0"
+						aria-hidden="true"
 					>
-						Start planning — no account needed
-					</a>
-					<p class="mt-2 text-xs text-slate-400">
-						Creates a private calendar on this device. Add an email later to sync.
-					</p>
+						<circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line
+							x1="12"
+							x2="12.01"
+							y1="16"
+							y2="16"
+						/>
+					</svg>
+					<span>{error}</span>
 				</div>
 			{/if}
-		</div>
-	</div>
+
+			{#if emailSent}
+				<section class="text-center">
+					<div
+						class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#BEDAE3]/50"
+					>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="h-7 w-7 text-slate-700"
+							aria-hidden="true"
+						>
+							<rect width="20" height="16" x="2" y="4" rx="2" /><path
+								d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"
+							/>
+						</svg>
+					</div>
+					<h2 class="mb-2 text-xl font-semibold text-slate-900">Check Your Email</h2>
+					<p class="mb-6 text-sm text-slate-600">
+						We've sent a login code to
+						<strong class="font-semibold text-slate-900">{email}</strong>
+					</p>
+
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							handleCodeVerification();
+						}}
+						class="space-y-4"
+					>
+						<AuthInput
+							id="code"
+							label="Login code"
+							placeholder="Enter login code"
+							autocomplete="one-time-code"
+							inputmode="numeric"
+							center
+							bind:value={code}
+							required
+						/>
+						<button type="submit" disabled={waiting} aria-busy={waiting} class={submitClasses}>
+							{waiting ? 'Logging in...' : 'Login'}
+						</button>
+					</form>
+
+					<div class="mt-4 flex items-center justify-center gap-2">
+						<button
+							type="button"
+							onclick={resendCode}
+							class="min-h-[44px] rounded px-1 text-sm text-slate-600 transition-colors hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+						>
+							Didn't receive the code? Resend
+						</button>
+						{#if resent}
+							<span
+								class="rounded-full bg-[#C4E9DA]/60 px-2.5 py-1 text-xs font-medium text-slate-800"
+								>Sent again ✓</span
+							>
+						{/if}
+					</div>
+				</section>
+			{:else}
+				<ModeToggle
+					bind:value={mode}
+					options={[
+						{ value: 'password', label: 'Password' },
+						{ value: 'magic-link', label: 'Email Link' }
+					]}
+				/>
+
+				{#if mode === 'password'}
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							handlePasswordLogin();
+						}}
+						class="space-y-5"
+					>
+						<AuthInput
+							id="email"
+							type="email"
+							autocomplete="email"
+							label="Email"
+							bind:value={email}
+							required
+						/>
+						<AuthInput
+							id="password"
+							type="password"
+							autocomplete="current-password"
+							label="Password"
+							bind:value={password}
+							required
+						>
+							{#snippet labelRight()}
+								<a
+									href="/forgot-password"
+									class="rounded text-xs font-medium text-primary-600 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+								>
+									Forgot your password?
+								</a>
+							{/snippet}
+						</AuthInput>
+						<button type="submit" disabled={waiting} aria-busy={waiting} class={submitClasses}>
+							{waiting ? 'Logging in...' : 'Login'}
+						</button>
+					</form>
+				{:else}
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							handleMagicLinkLogin();
+						}}
+						class="space-y-4"
+					>
+						<AuthInput
+							id="emailML"
+							type="email"
+							autocomplete="email"
+							label="Email"
+							bind:value={email}
+							required
+						/>
+						<button type="submit" disabled={waiting} aria-busy={waiting} class={submitClasses}>
+							{waiting ? 'Sending...' : 'Send Login Link'}
+						</button>
+					</form>
+				{/if}
+			{/if}
+		{/if}
+
+		{#if !data.isLoggedIn && !data.mergeMode}
+			<div class="mt-6 border-t border-slate-100 pt-5">
+				<a
+					href="/calendar"
+					class="flex min-h-[48px] w-full items-center justify-center rounded-full border border-slate-300 px-4 py-3 text-center text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+				>
+					Start planning — no account needed
+				</a>
+				<p class="mt-2 text-center text-xs text-slate-400">
+					Creates a private calendar on this device. Add an email later to sync.
+				</p>
+			</div>
+		{/if}
+	</AuthCard>
 </div>

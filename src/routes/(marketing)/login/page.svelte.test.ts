@@ -7,13 +7,18 @@ vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
 }));
 
-// oxlint-disable-next-line anti-slop/no-module-mocking -- SvelteKit $app/stores is framework-injected; no DI seam exists.
-vi.mock('$app/stores', () => ({
-	page: { subscribe: vi.fn() }
+const mockPageState = vi.hoisted(() => ({
+	url: new URL('http://test.com/login')
+}));
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- SvelteKit $app/state is framework-injected; no DI seam exists.
+vi.mock('$app/state', () => ({
+	page: mockPageState
 }));
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	mockPageState.url = new URL('http://test.com/login');
 });
 
 afterEach(() => {
@@ -22,12 +27,7 @@ afterEach(() => {
 
 describe('/login page URL error display', () => {
 	it('shows error message from ?error= query parameter', async () => {
-		const mockPageUrl = new URL('http://test.com/login?error=Token+expired');
-		const mockPageStore = await import('$app/stores');
-		vi.mocked(mockPageStore.page).subscribe = vi.fn((cb: (value: { url: URL }) => void) => {
-			cb({ url: mockPageUrl });
-			return () => {};
-		});
+		mockPageState.url = new URL('http://test.com/login?error=Token+expired');
 
 		render(LoginPage, {
 			props: { data: { isLoggedIn: false, user: null, pathname: '/login', mergeMode: false } }
@@ -37,13 +37,6 @@ describe('/login page URL error display', () => {
 	});
 
 	it('does not show error when no ?error= parameter', async () => {
-		const mockPageUrl = new URL('http://test.com/login');
-		const mockPageStore = await import('$app/stores');
-		vi.mocked(mockPageStore.page).subscribe = vi.fn((cb: (value: { url: URL }) => void) => {
-			cb({ url: mockPageUrl });
-			return () => {};
-		});
-
 		render(LoginPage, {
 			props: { data: { isLoggedIn: false, user: null, pathname: '/login', mergeMode: false } }
 		});

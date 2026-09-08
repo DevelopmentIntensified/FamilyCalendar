@@ -15,7 +15,6 @@
 
 	type BillRow = PageData['bills'][number];
 	type ItemRow = NonNullable<ReturnType<PageData['itemsByBill']['get']>>[number];
-	type TagRow = PageData['tagSuggestions']['user'][number];
 
 	const CATEGORIES = ['housing', 'utilities', 'subscriptions', 'insurance', 'tax', 'fees', 'other'];
 
@@ -117,8 +116,6 @@
 	let draftItems: DraftItem[] = $state([]);
 	let itemsSaving = $state(false);
 	let itemsError = $state('');
-	/** Most recent label keystroke — feeds the shared <datalist>. */
-	let labelQuery = $state('');
 	let datalistOptions = $state<string[]>([]);
 
 	/**
@@ -193,7 +190,6 @@
 	const suggestionPool = $derived([...data.tagSuggestions.user, ...data.tagSuggestions.global]);
 
 	function refreshDatalist(query: string) {
-		labelQuery = query;
 		const q = query.trim().toLowerCase();
 		const seen = new Set<string>();
 		datalistOptions = [];

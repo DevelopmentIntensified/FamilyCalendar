@@ -1091,8 +1091,9 @@ describe('Reported phrase "running on tuesday and thrusday at 7 pm for fun"', ()
 		const result = parseEventInput('running on tuesday and thrusday at 7 pm for fun');
 		expect(result.parsed.recurring).toBeUndefined();
 		expect(result.parsed.dates).toHaveLength(2);
-		expect(DateTime.fromISO(result.parsed.dates![0]).weekday).toBe(2);
-		expect(DateTime.fromISO(result.parsed.dates![1]).weekday).toBe(4);
+		expect(
+			result.parsed.dates!.map((d) => DateTime.fromISO(d).weekday).sort()
+		).toEqual([2, 4]);
 		expect(result.parsed.startTime).toBe('19:00');
 	});
 

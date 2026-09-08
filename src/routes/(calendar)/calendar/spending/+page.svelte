@@ -5,7 +5,6 @@
 
 	let { data }: { data: PageData } = $props();
 
-	type BillRow = PageData['bills'][number];
 	type Bucket = PageData['buckets'][number];
 	type Slice = PageData['rangeSpend'][number];
 

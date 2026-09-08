@@ -123,7 +123,7 @@ export function normalizeLlmReceipt(json: JsonValue | null): ReceiptTextDraft | 
 	const merchant = cleanMerchant(json.merchant);
 	const date = cleanDate(json.date);
 
-	let items: ParsedReceiptItem[] = [];
+	const items: ParsedReceiptItem[] = [];
 	if (Array.isArray(json.lineItems)) {
 		for (const entry of json.lineItems) {
 			if (items.length >= MAX_ITEMS) break;
