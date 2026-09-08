@@ -449,7 +449,9 @@ export const events = pgTable(
 		created_at: timestamp('created_at').defaultNow().notNull()
 	},
 	(table) => ({
-		mirrorOfIdx: index('events_mirror_of_idx').on(table.mirrorOf)
+		mirrorOfIdx: index('events_mirror_of_idx').on(table.mirrorOf),
+		calendarIdIdx: index('events_calendar_id_idx').on(table.calendarId),
+		calendarIdStartIdx: index('events_calendar_id_start_idx').on(table.calendarId, table.start)
 	})
 );
 

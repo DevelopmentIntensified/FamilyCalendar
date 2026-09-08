@@ -13,3 +13,12 @@ Status: in-progress
 - Index `events.calendar_id` (only `mirrorOf` is indexed; every load
   filters per calendar) — `sql/` migration + user SQL.
 - Dynamic-import non-default views + EventFormModal (smaller route chunk).
+
+## Done
+
+- `sql/014-events-calendar-index.sql` (+ schema parity):
+  `events_calendar_id_idx`, `events_calendar_id_start_idx`.
+  **NEON PENDING — run manually.** Local A/B (42-row table, ANALYZE'd):
+  no measurable delta either way (Neon ±300ms variance dominates) —
+  kept for production-scale tables where unindexed per-calendar filters
+  seq-scan everything.
