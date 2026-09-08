@@ -20,6 +20,9 @@ Status: in-progress
   load. HTML 465KB → 158KB (−66%), TTFB ~1.35s → ~1.15s warmed.
   Caught live: drizzle timestamptz mode:'string' rejects Date params —
   window carries ISO strings for queries. 4 window tests green.
+- #4 batched cursor sync: 1 SELECT + N sequential UPDATEs → 1 SELECT +
+  1 UPDATE (`inArray`). Mock-contract tests unchanged, 4 green. A/B with
+  5 stale tasks (Neon): OLD 1.8–3.2s vs NEW ~1.2s warmed.
 
 ## Needs doing
 

@@ -913,14 +913,17 @@ export async function syncRecurringCursors(
 		? or(eq(tasks.userId, userId), eq(tasks.familyId, familyId))
 		: eq(tasks.userId, userId);
 
-	const stale = (
+	// One SELECT + one batched UPDATE (#041) — ids are scope-filtered here,
+	// so the update needs only the id list. Previously N sequential UPDATEs.
+	const staleIds = (
 		await db
 			.select({ id: tasks.id, dueDate: tasks.dueDate })
 			.from(tasks)
 			.where(and(...base, scope))
-	).filter((t) => needsOverduePin(t.dueDate, nowIso));
+	)
+		.filter((t) => needsOverduePin(t.dueDate, nowIso))
+		.map((t) => t.id);
 
-	for (const row of stale) {
-		await db.update(tasks).set({ dueDate: todayEnd }).where(eq(tasks.id, row.id));
-	}
+	if (staleIds.length === 0) return;
+	await db.update(tasks).set({ dueDate: todayEnd }).where(inArray(tasks.id, staleIds));
 }
