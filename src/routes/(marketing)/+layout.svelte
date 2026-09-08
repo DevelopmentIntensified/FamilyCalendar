@@ -6,20 +6,15 @@
 	import '../../app.css';
 
 	export let data: LayoutData;
-	$: pathname = data.pathname;
 </script>
 
 <div class="flex min-h-screen flex-col">
 	<Navbar isLoggedIn={data.isLoggedIn} />
-	{#key pathname}
-		<main
-			class="flex-grow pt-[calc(4rem+env(safe-area-inset-top))]"
-			in:fade={{ duration: 300, delay: 200 }}
-			out:fade={{ duration: 100 }}
-		>
+	<main class="flex-grow pt-[calc(4rem+env(safe-area-inset-top))]">
+		<div in:fade|local={{ duration: 150 }}>
 			<slot />
-		</main>
-	{/key}
+		</div>
+	</main>
 </div>
 
 <footer class="border-t border-slate-200 bg-white py-6 text-center">

@@ -86,6 +86,12 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   bare-amount `am`-lookahead fix (`35.99 amazon` → 3599), `spendByMerchant`
   export (normalized grouping, manual-only, limit 8), spending page Top
   merchants section (top-8 table + merchant drill-down reusing the bill row)
+- #038 Page-switch lag (2026-09-08): removed `{#key pathname}` + fade
+  out/intro gating from all 4 group layouts (bills, calendar, family,
+  marketing); `in:fade|local` first-mount only (100ms app, 150ms
+  marketing, delay dropped); dead `pathname` reactivity removed.
+  Build green. Server-waterfall + page-split follow-ups filed as
+  Needs doing in the issue.
 - #036 Bills parked as own sub-app section (2026-09-08): `/calendar/bills`
   → `/bills`, `/calendar/spending` → `/spending` under new `(bills)` route
   group (own layout + auth guard, back-to-Calendar link); 301 stubs at old

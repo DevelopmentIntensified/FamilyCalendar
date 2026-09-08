@@ -12,7 +12,6 @@
 	import { initOfflineSync } from '$lib/utils/offline';
 
 	export let data: LayoutData;
-	$: pathname = data.pathname;
 
 	onMount(() => {
 		// Auto-detect client timezone if user still has the 'UTC' default.
@@ -113,17 +112,15 @@
 			</div>
 		{/if}
 	</div>
-	{#key pathname}
-		<main
-			class="flex-grow pb-28 pt-[calc(4rem+env(safe-area-inset-top))] md:pb-24 {bannerCount > 0
-				? 'mt-10'
-				: ''} print:!mt-0 print:min-h-0 print:!pb-0 print:!pt-0"
-			in:fade={{ duration: 100 }}
-			out:fade={{ duration: 50 }}
-		>
+	<main
+		class="flex-grow pb-28 pt-[calc(4rem+env(safe-area-inset-top))] md:pb-24 {bannerCount > 0
+			? 'mt-10'
+			: ''} print:!mt-0 print:min-h-0 print:!pb-0 print:!pt-0"
+	>
+		<div in:fade|local={{ duration: 100 }}>
 			<slot />
-		</main>
-	{/key}
+		</div>
+	</main>
 	<BottomNav isLoggedIn={true} />
 	<Toaster />
 	<footer

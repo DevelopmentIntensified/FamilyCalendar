@@ -10,7 +10,6 @@
 	import { initOfflineSync } from '$lib/utils/offline';
 
 	export let data: LayoutData;
-	$: pathname = data.pathname;
 
 	onMount(() => {
 		return initOfflineSync();
@@ -20,15 +19,11 @@
 <div class="flex min-h-screen flex-col">
 	<Navbar isLoggedIn={true} user={data.user} />
 	<OfflineBanner />
-	{#key pathname}
-		<main
-			class="flex-grow pb-28 pt-[calc(4rem+env(safe-area-inset-top))] md:pb-8"
-			in:fade={{ duration: 100 }}
-			out:fade={{ duration: 50 }}
-		>
+	<main class="flex-grow pb-28 pt-[calc(4rem+env(safe-area-inset-top))] md:pb-8">
+		<div in:fade|local={{ duration: 100 }}>
 			<slot />
-		</main>
-	{/key}
+		</div>
+	</main>
 	<BottomNav isLoggedIn={true} />
 	<Toaster />
 </div>
