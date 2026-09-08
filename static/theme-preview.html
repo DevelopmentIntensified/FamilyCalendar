@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FamilyPlanz — pastel theme preview</title>
+<style>
+  :root {
+    --sky: #bedae3;
+    --sky-deep: #8fb9c7;
+    --sky-ink: #1d4a57;
+    --peach: #fed5cf;
+    --peach-deep: #f0a9a0;
+    --peach-ink: #7c2f28;
+    --mint: #c6ebd2;
+    --mint-deep: #8fd0a6;
+    --mint-ink: #1e5c38;
+    --paper: #fbf7f2;
+    --ink: #24313a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-rounded, system-ui, sans-serif; background: var(--paper); color: var(--ink); }
+  .nav { background: var(--sky); padding: 14px 20px; display: flex; gap: 18px; align-items: center; }
+  .nav b { color: var(--sky-ink); font-size: 18px; }
+  .nav a { color: var(--sky-ink); text-decoration: none; font-weight: 600; padding: 6px 12px; border-radius: 999px; }
+  .nav a.active { background: #ffffffaa; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 20px 16px 90px; }
+  .card { background: #fff; border-radius: 18px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 10px #1d4a5714; border-top: 6px solid var(--sky); }
+  .card.peach { border-top-color: var(--peach); }
+  .card.mint { border-top-color: var(--mint); }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px dashed #e5ddd3; }
+  .row:last-child { border-bottom: 0; }
+  .dot { width: 12px; height: 12px; border-radius: 999px; flex: none; }
+  .chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+  .due-today { background: var(--peach); color: var(--peach-ink); }
+  .done-chip { background: var(--mint); color: var(--mint-ink); }
+  .info-chip { background: var(--sky); color: var(--sky-ink); }
+  .cta { display: block; width: 100%; border: 0; border-radius: 999px; padding: 14px; font-size: 16px; font-weight: 800; background: var(--peach); color: var(--peach-ink); margin: 6px 0 14px; }
+  .cta:active { background: var(--peach-deep); }
+  .ghost { background: var(--sky); color: var(--sky-ink); }
+  .toast { background: var(--mint); color: var(--mint-ink); border-radius: 14px; padding: 12px 16px; font-weight: 700; margin-bottom: 14px; }
+  .streak { background: var(--sky); color: var(--sky-ink); border-radius: 14px; padding: 12px 16px; font-weight: 700; margin-bottom: 14px; }
+  .bottom { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 3px solid var(--sky); display: flex; padding: 10px; }
+  .bottom span { flex: 1; text-align: center; font-size: 12px; font-weight: 700; color: var(--sky-ink); padding: 8px; border-radius: 12px; }
+  .bottom span.active { background: var(--sky); }
+  h2 { font-size: 15px; margin: 0 0 6px; color: var(--sky-ink); }
+  .swatches { display: flex; gap: 10px; margin-bottom: 16px; }
+  .swatches div { flex: 1; border-radius: 12px; padding: 12px 6px; text-align: center; font-size: 12px; font-weight: 800; }
+</style>
+</head>
+<body>
+  <div class="nav"><b>👪 FamilyPlanz</b><a class="active" href="#">Calendar</a><a href="#">Tasks</a><a href="#">Family</a></div>
+  <div class="wrap">
+    <div class="swatches">
+      <div style="background:#bedae3;color:#1d4a57">SKY<br>#BEDAE3</div>
+      <div style="background:#fed5cf;color:#7c2f28">PEACH<br>#FED5CF</div>
+      <div style="background:#c6ebd2;color:#1e5c38">MINT<br>#C6EBD2</div>
+    </div>
+    <div class="toast">✅ "Buy milk" done — nice win.</div>
+    <div class="streak">🔥 6-day streak — one will lift up his fellow.</div>
+    <div class="card">
+      <h2>Today</h2>
+      <div class="row"><span class="dot" style="background:#f0a9a0"></span> Call dentist <span class="chip due-today">today</span></div>
+      <div class="row"><span class="dot" style="background:#8fb9c7"></span> Buy milk <span class="chip done-chip">done</span></div>
+      <div class="row"><span class="dot" style="background:#c6ebd2"></span> Water plants <span class="chip info-chip">Fri</span></div>
+    </div>
+    <div class="card peach"><h2>Family board</h2><div class="row">👨‍👩‍👧‍👦 Clean garage — Dad</div></div>
+    <div class="card mint"><h2>All caught up 🎉</h2><div class="row">Nothing open — enjoy the calm 👪</div></div>
+    <button class="cta">+ Add task</button>
+    <button class="cta ghost">Open day view</button>
+  </div>
+  <div class="bottom"><span class="active">Calendar</span><span>Tasks</span><span>Family</span></div>
+</body>
+</html>
