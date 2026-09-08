@@ -43,35 +43,70 @@ function parseTimestamp(v: string | Date | null | undefined): DateTime {
 	return DateTime.fromISO(s, { zone: 'utc' });
 }
 
+/**
+ * The ONE shared frequency+interval stepping mechanism. Pure: advances
+ * `dt` by `interval × n` steps of `frequency` in UTC.
+ *
+ * End-of-month semantics (matches generateOccurrence):
+ * - daily/weekly: plain luxon plus (no edge behavior).
+ * - monthly/yearly: clamped into the short month — Jan-31 +1mo → Feb-28
+ *   (Feb-29 in a leap year), Feb-29 +1y → Feb-28 in a non-leap year.
+ *
+ * COMPOUNDING CAVEAT (cursor-based consumers, e.g. tasks/bills adapters):
+ * a clamped step re-anchors on the clamped date — monthly from a clamped
+ * Feb-28 lands Mar-28, not Mar-31, so "the 31st" drifts permanently.
+ * Fixing that requires storing the original series anchor next to the
+ * cursor (see docs/issues #032/#007 adjacent notes) — out of scope here;
+ * generateOccurrence avoids it by always stepping from the original start.
+ *
+ * Throws on a frequency outside the closed set — callers validate at the
+ * boundary, so a throw here is a programming error, not user input.
+ */
+export function scheduleStep(
+	dt: DateTime,
+	frequency: RecurrenceFrequency,
+	interval: number,
+	n = 1
+): DateTime {
+	if (
+		frequency !== 'daily' &&
+		frequency !== 'weekly' &&
+		frequency !== 'monthly' &&
+		frequency !== 'yearly'
+	) {
+		throw new Error(`Unknown recurrence frequency: ${String(frequency)}`);
+	}
+	const step = interval * n;
+	switch (frequency) {
+		case 'daily':
+			return dt.plus({ days: step });
+		case 'weekly':
+			return dt.plus({ weeks: step });
+		case 'monthly': {
+			const totalMonths = dt.year * 12 + (dt.month - 1) + step;
+			const year = Math.floor(totalMonths / 12);
+			const month = (totalMonths % 12) + 1;
+			const daysInMonth = DateTime.utc(year, month, 1).daysInMonth ?? 28;
+			return dt.set({ year, month, day: Math.min(dt.day, daysInMonth) });
+		}
+		case 'yearly':
+			// Luxon clamps an out-of-range day backward (Feb 29 -> Feb 28).
+			return dt.set({ year: dt.year + step });
+	}
+}
+
 function generateOccurrence(
 	anchor: DateTime,
 	frequency: RecurrenceFrequency,
 	steps: number
 ): DateTime {
-	switch (frequency) {
-		case 'daily':
-			return anchor.plus({ days: steps });
-		case 'weekly':
-			return anchor.plus({ weeks: steps });
-		case 'monthly': {
-			const totalMonths = anchor.year * 12 + (anchor.month - 1) + steps;
-			const year = Math.floor(totalMonths / 12);
-			const month = (totalMonths % 12) + 1;
-			const daysInMonth = DateTime.utc(year, month, 1).daysInMonth ?? 28;
-			return anchor.set({
-				year,
-				month,
-				day: Math.min(anchor.day, daysInMonth)
-			});
-		}
-		case 'yearly': {
-			const candidate = anchor.set({ year: anchor.year + steps });
-			if (candidate.day >= anchor.day) return candidate;
-			// Luxon clamped backward (e.g. Feb 29 -> Feb 28 in a non-leap
-			// year); roll forward to the first of the next month instead.
-			return candidate.plus({ months: 1 }).set({ day: 1 });
-		}
+	const next = scheduleStep(anchor, frequency, steps);
+	if (frequency === 'yearly' && next.day < anchor.day) {
+		// Luxon clamped backward (e.g. Feb 29 -> Feb 28 in a non-leap
+		// year); roll forward to the first of the next month instead.
+		return next.plus({ months: 1 }).set({ day: 1 });
 	}
+	return next;
 }
 
 /**

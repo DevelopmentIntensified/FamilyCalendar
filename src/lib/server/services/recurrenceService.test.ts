@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { expandRecurrence, type RecurringEventInput } from './recurrenceService';
+import { DateTime } from 'luxon';
+import {
+	expandRecurrence,
+	scheduleStep,
+	type RecurrenceFrequency,
+	type RecurringEventInput
+} from './recurrenceService';
 
 const d = (iso: string) => new Date(iso);
 
@@ -420,4 +426,91 @@ describe('date-only recurrenceUntil is an INCLUSIVE end-of-day cutoff', () => {
 			expect(result.map((r) => r.toISOString().slice(0, 10))).toEqual(c.expected);
 		});
 	}
+});
+
+/**
+ * scheduleStep — the ONE shared frequency+interval stepping mechanism.
+ * Edge table pins end-of-month semantics: monthly clamps into the short
+ * month (Jan-31 family), yearly clamps Feb-29 to Feb-28 in non-leap years.
+ * COMPOUNDING CAVEAT (cursor consumers): a clamped step re-anchors on the
+ * clamped date — monthly from Feb-28 lands Mar-28, not Mar-31. Fixing that
+ * requires storing the original anchor (see #032/#007 notes).
+ */
+describe('scheduleStep (shared frequency+interval stepping)', () => {
+	const dt = (iso: string) => DateTime.fromISO(iso, { zone: 'utc' });
+	const cases: [string, string, RecurrenceFrequency, number, number, string][] = [
+		// label, from, frequency, interval, n, expected date
+		['daily is a plain day step', '2026-01-31T12:00:00Z', 'daily', 1, 1, '2026-02-01'],
+		['weekly is a plain week step', '2026-01-31T12:00:00Z', 'weekly', 1, 1, '2026-02-07'],
+		[
+			'monthly Jan-31 clamps to Feb-28 in a non-leap year',
+			'2026-01-31T12:00:00Z',
+			'monthly',
+			1,
+			1,
+			'2026-02-28'
+		],
+		[
+			'monthly Jan-31 lands on Feb-29 in a leap year',
+			'2024-01-31T12:00:00Z',
+			'monthly',
+			1,
+			1,
+			'2024-02-29'
+		],
+		['monthly Jan-30 clamps to Feb-28', '2026-01-30T12:00:00Z', 'monthly', 1, 1, '2026-02-28'],
+		[
+			'monthly every_3_months from Jan-31 lands Apr-30',
+			'2026-01-31T12:00:00Z',
+			'monthly',
+			3,
+			1,
+			'2026-04-30'
+		],
+		[
+			'monthly interval=1 n=3 equals interval=3 n=1',
+			'2026-01-31T12:00:00Z',
+			'monthly',
+			1,
+			3,
+			'2026-04-30'
+		],
+		[
+			'yearly Feb-29 clamps to Feb-28 in a non-leap year',
+			'2024-02-29T12:00:00Z',
+			'yearly',
+			1,
+			1,
+			'2025-02-28'
+		],
+		[
+			'yearly Feb-29 keeps Feb-29 in the next leap year',
+			'2024-02-29T12:00:00Z',
+			'yearly',
+			4,
+			1,
+			'2028-02-29'
+		],
+		[
+			'monthly from a clamped Feb-28 re-anchors on the 28th (documented compounding caveat)',
+			'2026-02-28T12:00:00Z',
+			'monthly',
+			1,
+			1,
+			'2026-03-28'
+		]
+	];
+	for (const [name, from, frequency, interval, n, expected] of cases) {
+		it(name, () => {
+			expect(scheduleStep(dt(from), frequency, interval, n).toISODate()).toBe(expected);
+		});
+	}
+
+	it('throws on a frequency outside the closed set', () => {
+		// SAFETY: the cast bypasses the type-level closed set on purpose —
+		// this test pins the runtime validation for untyped callers.
+		expect(() =>
+			scheduleStep(dt('2026-01-31T12:00:00Z'), 'hourly' as RecurrenceFrequency, 1)
+		).toThrow();
+	});
 });

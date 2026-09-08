@@ -10,6 +10,7 @@ import {
 import { isBillCategory } from '$lib/data/categories';
 import { DateTime } from 'luxon';
 import { toDateTime } from '$lib/server/utils/eventTimes';
+import { scheduleStep } from '$lib/server/services/recurrenceService';
 
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- exported boundary parser: unknown input IS its contract; routes feed it raw request-body fields.
 export function normalizeBillCategory(raw: unknown): BillCategory {
@@ -131,17 +132,13 @@ export function parseRecurrence(raw: unknown): RecurrenceParse {
 	return { status: 'ok', value: { frequency: entry.frequency, interval: entry.interval } };
 }
 
+/**
+ * Bill cursor stepping delegates to the shared scheduleStep (single
+ * mechanism for frequency+interval math; see recurrenceService). The
+ * POLICY stays here: the bill cursor anchors on the stored dueDate.
+ */
 function plusBillInterval(dt: DateTime, frequency: BillFrequency, step: number): DateTime {
-	switch (frequency) {
-		case 'weekly':
-			return dt.plus({ weeks: step });
-		case 'monthly':
-			return dt.plus({ months: step });
-		case 'yearly':
-			return dt.plus({ years: step });
-		default:
-			return dt.plus({ days: step });
-	}
+	return scheduleStep(dt, frequency, step, 1);
 }
 
 /**

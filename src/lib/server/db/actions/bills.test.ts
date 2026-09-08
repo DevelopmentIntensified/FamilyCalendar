@@ -521,6 +521,72 @@ describe('computeNextBillDue (bills cursor: due + n*interval, strictly after tod
 	}
 });
 
+/**
+ * End-of-month edge table (shared scheduleStep stepping). The bill cursor
+ * anchors on the stored dueDate — these pin what a Jan-31 / Feb-29 due
+ * produces. COMPOUNDING CAVEAT: after a clamped step the cursor re-anchors
+ * on the clamped date (a "31st" bill drifts to the 28th permanently);
+ * fixing that requires storing the original anchor (#032/#007 adjacent).
+ */
+describe('computeNextBillDue end-of-month stepping (Jan-31 family)', () => {
+	const cases: [string, string, string, BillFrequency, number, string][] = [
+		// label, paidAt, old dueDate, frequency, interval, expected next due
+		[
+			'monthly due Jan-31 lands Feb-28 in a non-leap year',
+			'2026-02-05T14:30:00.000Z',
+			'2026-01-31T00:00:00.000Z',
+			'monthly',
+			1,
+			'2026-02-28T00:00:00.000Z'
+		],
+		[
+			'monthly due Jan-31 lands Feb-29 in a leap year',
+			'2024-02-05T14:30:00.000Z',
+			'2024-01-31T00:00:00.000Z',
+			'monthly',
+			1,
+			'2024-02-29T00:00:00.000Z'
+		],
+		[
+			'monthly due Jan-30 lands Feb-28',
+			'2026-02-05T14:30:00.000Z',
+			'2026-01-30T00:00:00.000Z',
+			'monthly',
+			1,
+			'2026-02-28T00:00:00.000Z'
+		],
+		[
+			'monthly every_3_months due Jan-31 lands Apr-30',
+			'2026-02-05T14:30:00.000Z',
+			'2026-01-31T00:00:00.000Z',
+			'monthly',
+			3,
+			'2026-04-30T00:00:00.000Z'
+		],
+		[
+			'yearly due Feb-29 lands Feb-28 in the next non-leap year',
+			'2024-03-05T14:30:00.000Z',
+			'2024-02-29T00:00:00.000Z',
+			'yearly',
+			1,
+			'2025-02-28T00:00:00.000Z'
+		],
+		[
+			'yearly due Feb-29 lands Feb-29 in the next leap year',
+			'2024-03-05T14:30:00.000Z',
+			'2024-02-29T00:00:00.000Z',
+			'yearly',
+			4,
+			'2028-02-29T00:00:00.000Z'
+		]
+	];
+	for (const [label, paidAt, due, frequency, interval, expected] of cases) {
+		it(label, () => {
+			expect(computeNextBillDue(due, frequency, interval, paidAt)).toBe(expected);
+		});
+	}
+});
+
 describe('parseRecurrence (#006)', () => {
 	const okCases: [unknown, { frequency: string; interval: number } | null][] = [
 		[null, null],

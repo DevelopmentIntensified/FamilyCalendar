@@ -12,7 +12,8 @@ import {
 	getTasksForUser,
 	getTasksForFamily,
 	canMutateTask,
-	canChangeVisibility
+	canChangeVisibility,
+	type TaskFrequency
 } from './tasks';
 
 /**
@@ -195,6 +196,73 @@ describe('advanceCursor (Recurring Task cursor v3)', () => {
 	it('exposes the supported frequency set', () => {
 		expect(TASK_FREQUENCIES).toEqual(['daily', 'weekly', 'monthly', 'yearly']);
 	});
+});
+
+/**
+ * End-of-month edge table (shared scheduleStep stepping). The task cursor
+ * anchors on today (the completion day) — these pin what a Jan-31 / Feb-29
+ * completion day produces. COMPOUNDING CAVEAT: the next completion re-anchors
+ * on the clamped date (Feb-28 completion lands Mar-28); fixing that requires
+ * storing the original anchor (#032/#007 adjacent).
+ */
+describe('advanceCursor end-of-month stepping (Jan-31 family)', () => {
+	const cases: [string, string, string, TaskFrequency, number, string][] = [
+		// label, completion "now", old due, frequency, interval, expected date
+		[
+			'monthly completed Jan-31 lands Feb-28 in a non-leap year',
+			'2026-01-31T12:00:00Z',
+			'2026-01-15T12:00:00Z',
+			'monthly',
+			1,
+			'2026-02-28'
+		],
+		[
+			'monthly completed Jan-31 lands Feb-29 in a leap year',
+			'2024-01-31T12:00:00Z',
+			'2024-01-15T12:00:00Z',
+			'monthly',
+			1,
+			'2024-02-29'
+		],
+		[
+			'monthly completed Jan-30 lands Feb-28',
+			'2026-01-30T12:00:00Z',
+			'2026-01-15T12:00:00Z',
+			'monthly',
+			1,
+			'2026-02-28'
+		],
+		[
+			'monthly every_3_months completed Jan-31 lands Apr-30',
+			'2026-01-31T12:00:00Z',
+			'2026-01-15T12:00:00Z',
+			'monthly',
+			3,
+			'2026-04-30'
+		],
+		[
+			'yearly completed Feb-29 lands Feb-28 in the next non-leap year',
+			'2024-02-29T12:00:00Z',
+			'2024-02-28T12:00:00Z',
+			'yearly',
+			1,
+			'2025-02-28'
+		],
+		[
+			'yearly completed Feb-29 lands Feb-29 in the next leap year',
+			'2024-02-29T12:00:00Z',
+			'2024-02-28T12:00:00Z',
+			'yearly',
+			4,
+			'2028-02-29'
+		]
+	];
+	for (const [label, now, due, frequency, interval, expected] of cases) {
+		it(label, () => {
+			const next = DateTime.fromISO(advanceCursor(iso(due), frequency, interval, iso(now)));
+			expect(next.toISODate()).toBe(expected);
+		});
+	}
 });
 
 describe('needsOverduePin (sticky overdue)', () => {

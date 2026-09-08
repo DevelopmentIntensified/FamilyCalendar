@@ -19,6 +19,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { DateTime } from 'luxon';
 import { zonedNow } from '$lib/server/utils/userTimezone';
 import { toDateTime } from '$lib/server/utils/eventTimes';
+import { scheduleStep, type RecurrenceFrequency } from '$lib/server/services/recurrenceService';
 
 const assignee = alias(users, 'assignee');
 const creator = alias(users, 'creator');
@@ -48,17 +49,15 @@ export function normalizeTaskVisibility(value: unknown): TaskVisibility {
  * date (early checks advance; if the due date already sits one
  * interval out, the next check takes two intervals, and so on).
  */
+/**
+ * Task cursor stepping delegates to the shared scheduleStep (single
+ * mechanism for frequency+interval math; see recurrenceService). The
+ * POLICY stays here: the task cursor anchors on today (completion day).
+ */
 function plusInterval(dt: DateTime, frequency: string, step: number): DateTime {
-	switch (frequency) {
-		case 'weekly':
-			return dt.plus({ weeks: step });
-		case 'monthly':
-			return dt.plus({ months: step });
-		case 'yearly':
-			return dt.plus({ years: step });
-		default:
-			return dt.plus({ days: step });
-	}
+	// SAFETY: frequency is written only through TASK_FREQUENCIES-validated
+	// boundaries; scheduleStep re-checks the closed set and throws otherwise.
+	return scheduleStep(dt, frequency as RecurrenceFrequency, step, 1);
 }
 
 export function advanceCursor(

@@ -65,6 +65,16 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   `src/lib/data/categories.test.ts`); one shared `isBillCategory`
   (was 3 copies)
 
+- Arch audit #5 single recurrence stepping (2026-09-08): `scheduleStep`
+  exported from recurrenceService — the ONE frequency+interval stepping
+  mechanism (month-end clamp table: Jan-31→Feb-28/29, Feb-29 yearly→
+  Feb-28); generateOccurrence delegates (outputs unchanged, its tests the
+  fence); tasks `plusInterval` + bills `plusBillInterval` delegate to it —
+  cursor POLICIES (task anchors today, bill anchors stored due) stay put.
+  Compounding caveat documented: clamped cursor re-anchors on the clamped
+  date ("the 31st" drifts); fixing needs a stored original anchor column
+  (#032/#007 adjacent).
+
 ## Open
 
 - #003 Bill Tracking PRD (parent; slices #005–#011 pending)
