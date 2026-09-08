@@ -29,12 +29,46 @@ export interface DisplayEvent extends CalendarEvent {
 
 const oneDayMs = 24 * 60 * 60 * 1000;
 
+export interface ExpansionWindow {
+	start: Date;
+	end: Date;
+	/** ISO strings for drizzle timestamptz comparisons (mode:'string' rejects Dates). */
+	startIso: string;
+	endIso: string;
+}
+
+const legacyWindow = (): ExpansionWindow => {
+	const now = Date.now();
+	const start = new Date(now - 2 * 365 * oneDayMs);
+	const end = new Date(now + 2 * 365 * oneDayMs);
+	return { start, end, startIso: start.toISOString(), endIso: end.toISOString() };
+};
+
+/**
+ * Visible-month window for the calendar grid (#041): the month containing
+ * `dateIso` (or today) plus a full week of padding each side, so adjacent-
+ * month cells render under either Sunday- or Monday-first week starts.
+ * ~44 days instead of the legacy ±2 years.
+ */
+export function monthGridWindow(dateIso?: string | null): ExpansionWindow {
+	const m = dateIso && /^\d{4}-\d{2}-\d{2}$/.test(dateIso) ? new Date(dateIso) : new Date();
+	const base = isNaN(m.getTime()) ? new Date() : m;
+	const first = new Date(base.getFullYear(), base.getMonth(), 1);
+	const last = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999);
+	const start = new Date(first.getTime() - 7 * oneDayMs);
+	const end = new Date(last.getTime() + 7 * oneDayMs);
+	return { start, end, startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
 /**
  * Expands recurring event masters into virtual occurrences with composite
  * ids (`{masterId}~{occurrenceISO}`), then applies Exception Overrides:
  * cancelled occurrences are dropped, edited ones are merged in place.
  */
-export async function expandEventsForUser(eventsData: CalendarEvent[]): Promise<DisplayEvent[]> {
+export async function expandEventsForUser(
+	eventsData: CalendarEvent[],
+	window: ExpansionWindow = legacyWindow()
+): Promise<DisplayEvent[]> {
 	const exceptions = await getExceptionsByEventIds(eventsData.map((e) => e.id));
 
 	const exceptionByKey = new Map(
@@ -47,9 +81,8 @@ export async function expandEventsForUser(eventsData: CalendarEvent[]): Promise<
 		])
 	);
 
-	const now = Date.now();
-	const windowStart = new Date(now - 2 * 365 * oneDayMs);
-	const windowEnd = new Date(now + 2 * 365 * oneDayMs);
+	const windowStart = window.start;
+	const windowEnd = window.end;
 
 	const result: DisplayEvent[] = [];
 	for (const e of eventsData) {

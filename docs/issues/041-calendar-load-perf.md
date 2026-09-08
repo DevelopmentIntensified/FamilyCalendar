@@ -10,6 +10,16 @@ Status: in-progress
   `zoneFromSettings()` pure helper (own vitest suite) — 2 SELECTs saved
   per load. TTFB ~0.95s → ~0.81s median, size unchanged. Bigger win
   expected on Neon (per-roundtrip latency).
+- With-data baseline (Neon, daily+weekly recurring + 40 one-offs):
+  TTFB ~1.35s, HTML 465306B. (Dev server reads dotenv `.env` → Neon,
+  NOT `.env.local`; local seeds were wiped from scope — Neon verified
+  clean of junk.)
+- #3 month window: `monthGridWindow(?date=)` + `ExpansionWindow` param
+  on `expandEventsForUser` (legacy ±2y default keeps dashboard/print
+  unchanged); one-off SELECTs scoped by overlap, recurring masters still
+  load. HTML 465KB → 158KB (−66%), TTFB ~1.35s → ~1.15s warmed.
+  Caught live: drizzle timestamptz mode:'string' rejects Date params —
+  window carries ISO strings for queries. 4 window tests green.
 
 ## Needs doing
 

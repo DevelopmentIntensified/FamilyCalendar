@@ -3,7 +3,7 @@ import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { calendars, events, families, type CalendarEvent } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, lte, or, gte } from 'drizzle-orm';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
 import {
@@ -13,6 +13,7 @@ import {
 } from '$lib/server/services/adService';
 import {
 	expandEventsForUser,
+	monthGridWindow,
 	parseEvents,
 	attachRsvpStatus,
 	attachAttendanceSummaries,
@@ -41,6 +42,9 @@ export const load: PageServerLoad = async (event) => {
 		return redirect(302, '/login');
 	}
 	const userId = event.locals.user.id;
+	// Visible-month window (#041): expansion + one-off SELECTs cover the
+	// month grid (?date= or today) instead of ±2 years.
+	const gridWindow = monthGridWindow(event.url.searchParams.get('date'));
 	// Section loads are guarded: a failing model degrades to its fallback and
 	// records a warning instead of 500ing the whole page.
 	const loadWarnings: string[] = [];
@@ -88,7 +92,21 @@ export const load: PageServerLoad = async (event) => {
 			userEvents = await db
 				.select()
 				.from(events)
-				.where(eq(events.calendarId, userCalendar.id))
+				.where(
+					and(
+						eq(events.calendarId, userCalendar.id),
+						or(
+							isNotNull(events.recurrenceFrequency),
+							and(
+								lte(events.start, gridWindow.endIso),
+								or(
+									gte(events.end, gridWindow.startIso),
+									and(isNull(events.end), gte(events.start, gridWindow.startIso))
+								)
+							)
+						)
+					)
+				)
 				.orderBy(events.start);
 		}
 		return { userCalendar, userEvents };
@@ -130,7 +148,21 @@ export const load: PageServerLoad = async (event) => {
 					evts = await db
 						.select()
 						.from(events)
-						.where(eq(events.calendarId, familyCals[0].id))
+						.where(
+							and(
+								eq(events.calendarId, familyCals[0].id),
+								or(
+									isNotNull(events.recurrenceFrequency),
+									and(
+										lte(events.start, gridWindow.endIso),
+										or(
+											gte(events.end, gridWindow.startIso),
+											and(isNull(events.end), gte(events.start, gridWindow.startIso))
+										)
+									)
+								)
+							)
+						)
 						.orderBy(events.start);
 					ids.push({ id: familyCals[0].id, name: family?.name || 'Family Calendar', color });
 				}
@@ -208,8 +240,8 @@ export const load: PageServerLoad = async (event) => {
 
 	const eventsG = await guard('events', { user: [], family: [] }, async () => {
 		const [parsedUserEvents, parsedFamilyEvents] = await Promise.all([
-			parseEvents(await expandEventsForUser(userEvents), userZone),
-			parseEvents(await expandEventsForUser(familyEventsData), userZone)
+			parseEvents(await expandEventsForUser(userEvents, gridWindow), userZone),
+			parseEvents(await expandEventsForUser(familyEventsData, gridWindow), userZone)
 		]);
 		// Current user's RSVP per event (keyed on masterId) so views can tint
 		// going / maybe events and dim ones you can't attend.
