@@ -1,5 +1,4 @@
 // Intl.DateTimeFormat().resolvedOptions().timeZone
-import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
@@ -20,7 +19,7 @@ import {
 	attachCreatorNames
 } from '$lib/server/services/eventDisplayService';
 import { getTasksForUser, syncRecurringCursors } from '$lib/server/db/actions/tasks';
-import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
+import { zoneFromSettings, zonedNow } from '$lib/server/utils/userTimezone';
 import { getTodayVerse } from '$lib/server/services/verseService';
 import { GUEST_MERGE_COOKIE } from '$lib/server/services/guestMergeService';
 import { guard } from '$lib/server/utils/guard';
@@ -64,9 +63,9 @@ export const load: PageServerLoad = async (event) => {
 		event.cookies.delete(GUEST_MERGE_COOKIE, { path: '/' });
 	}
 
-	const settingsG = await guard('settings', null, () => getUserSettings(userId));
-	warn(settingsG.error);
-	const userSettings = settingsG.data;
+	// Settings already loaded by the group layout — reuse via parent() instead
+	// of a second SELECT on every page load (#041).
+	const userSettings = (await event.parent()).userSettings;
 
 	// Opt-in landing: with Default View set to "Dashboard", /calendar sends the
 	// user to the Day Dashboard. ?dashboardView=1 is the escape hatch the
@@ -160,9 +159,8 @@ export const load: PageServerLoad = async (event) => {
 		calendarIds = familyG.data.calendarIds;
 	}
 
-	const zoneG = await guard('settings', 'UTC', () => getUserZone(userId));
-	warn(zoneG.error);
-	const userZone = zoneG.data;
+	// Zone derives from the layout's settings row — no third SELECT (#041).
+	const userZone = zoneFromSettings(userSettings) ?? 'UTC';
 
 	const adsG = await guard('ads', { hasAdConsent: false, adEventsData: [] }, async () => {
 		const hasAdConsent = await checkUserAdConsent(userId);
