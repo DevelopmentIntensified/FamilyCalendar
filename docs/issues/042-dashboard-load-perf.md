@@ -15,6 +15,10 @@ Method: docs/page-perf-playbook.md.
   ~10 sequential stages. Prime suspects: triple settings/family/zone
   (layout has all three now), day-filter-after-±2y-expand, unbounded
   getCompletionTimestamps.
+- Slice 1 dedupe: settings/familyId/roster/zone via `parent()` (−4
+  SELECTs: settings, familyId, roster, zone-settings). TTFB flat
+  (~1.4s, familyless anon — noise); family users save the roster join
+  per load/nav.
 
 ## Needs doing
 

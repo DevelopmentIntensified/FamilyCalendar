@@ -1,8 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { CalendarEvent, UserSettings } from '$lib/server/db/schema';
-import { getUserSettings } from '$lib/server/db/actions/userSettings';
-import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
+import type { CalendarEvent } from '$lib/server/db/schema';
 import {
 	getTasksForUser,
 	getTasksForFamily,
@@ -23,7 +21,7 @@ import {
 	getFamilyModuleSwitches,
 	composeModuleVisibility
 } from '$lib/server/db/actions/dashboardModules';
-import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
+import { zoneFromSettings, zonedNow } from '$lib/server/utils/userTimezone';
 import { guard } from '$lib/server/utils/guard';
 import {
 	expandEventsForUser,
@@ -77,9 +75,11 @@ export const load: PageServerLoad = async (event) => {
 		if (label) loadWarnings.push(label);
 	};
 
-	const zoneG = await guard('settings', 'UTC', () => getUserZone(userId));
-	warn(zoneG.error);
-	const zone = zoneG.data;
+	// Settings + family scope come from the group layout (#042) — no refetch.
+	const parentData = await event.parent();
+	const userSettings = parentData.userSettings;
+	const familyId = parentData.familyId;
+	const zone = zoneFromSettings(userSettings) ?? 'UTC';
 	const now = zonedNow(zone);
 	// The dashboard can be opened for any day via ?date=YYYY-MM-DD (interpreted
 	// in the user's zone); absent or invalid, it shows today.
@@ -92,18 +92,6 @@ export const load: PageServerLoad = async (event) => {
 	const dayEnd = dayStart.endOf('day');
 	const dayStartIso = dayStart.toISO()!;
 	const isToday = dayStart.hasSame(now, 'day');
-
-	const settingsG = await guard<{
-		userSettings: UserSettings | null;
-		familyId: string | null;
-	}>('settings', { userSettings: null, familyId: null }, async () => ({
-		// getUserSettings is typed non-null but resolves undefined when the row is missing.
-		userSettings: (await getUserSettings(userId)) ?? null,
-		familyId: await getUserFamilyId(userId)
-	}));
-	warn(settingsG.error);
-	const userSettings = settingsG.data.userSettings;
-	const familyId = settingsG.data.familyId;
 
 	// Effective per-module visibility: family master switch AND this user's
 	// own hidden list. Family-heavy fetches below are skipped when no family
@@ -203,7 +191,7 @@ export const load: PageServerLoad = async (event) => {
 			'family',
 			{ familyMembers, memberStatus, kidsSchedule },
 			async () => {
-				const roster = await getFamilyRoster(familyId);
+				const roster = parentData.familyMembers ?? [];
 				const childMembers = roster.filter((m) => m.memberType === 'child');
 				const familyEventIds = dayEvents
 					.filter((e) => e.source === 'family')
