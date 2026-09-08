@@ -14,8 +14,22 @@
 	export let data: LayoutData;
 
 	onMount(() => {
-		// Auto-detect client timezone if user still has the 'UTC' default.
-		if (data.userSettings?.timeZone === 'UTC') {
+		// Auto-detect client timezone if user still has the 'UTC' default —
+		// at most ONCE per user per browser (#041). Previously every mount
+		// with UTC settings fired POST + invalidateAll (a full second load).
+		const tzKey = `familyplanz:tzProbed:${data.user?.id ?? 'anon'}`;
+		let tzProbed = false;
+		try {
+			tzProbed = localStorage.getItem(tzKey) !== null;
+		} catch {
+			/* storage unavailable — fall through and probe */
+		}
+		if (!tzProbed && data.userSettings?.timeZone === 'UTC') {
+			try {
+				localStorage.setItem(tzKey, '1');
+			} catch {
+				/* best-effort flag; a retry next mount is harmless */
+			}
 			const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 			if (clientTz && clientTz !== 'UTC') {
 				fetch('/calendar/setUserDefaultTimeZone', {

@@ -53,6 +53,10 @@ Status: in-progress
   behavior (picker close-on-month kept, year stays open). Browser-verified:
   toolbar, day/month(35 cells)/week/list views, stream resolve, zero
   page errors. 10 suites / 130 tests green.
+- #9 tz gate: probe POST fires at most once per user per browser
+  (`familyplanz:tzProbed:<userId>`); UTC-stuck sessions no longer re-POST
+  every mount. Playwright A/B (POST blocked): 2 probes → 1 across two
+  visits.
 
 ## Needs doing
 
