@@ -22,6 +22,27 @@ export function deriveEventProps<T extends EventLike>(
 }
 
 /**
+ * Buckets items by a caller-supplied date key in ONE pass (#041).
+ * Replaces per-day-cell `.filter()` scans (O(cells × items)) with a single
+ * build + O(1) lookups. Nullish keys are skipped, matching the old
+ * filter semantics (`event.date && ...`).
+ */
+export function groupByDateKey<T>(
+	items: T[],
+	keyOf: (item: T) => string | null | undefined
+): Map<string, T[]> {
+	const buckets = new Map<string, T[]>();
+	for (const item of items) {
+		const key = keyOf(item);
+		if (key == null) continue;
+		const bucket = buckets.get(key);
+		if (bucket) bucket.push(item);
+		else buckets.set(key, [item]);
+	}
+	return buckets;
+}
+
+/**
  * Splits events that span multiple days into one entry per day, each
  * carrying its own `date`. Single-day events pass through untouched.
  */

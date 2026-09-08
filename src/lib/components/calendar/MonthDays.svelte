@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { formatDate } from '$lib/utils/dateUtils';
+	import { groupByDateKey } from '$lib/utils/eventDisplay';
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
@@ -49,6 +50,11 @@
 	}
 
 	const today = DateTime.now();
+
+	// One-pass buckets (#041): 42 cells share two maps instead of each cell
+	// scanning the full occurrence arrays on every reactive pass.
+	$: eventsByDate = groupByDateKey(events, (event) => event.date && formatDate(event.date));
+	$: tasksByDate = groupByDateKey(dueTasks, (t) => t.dueDate && formatDate(toDate(t.dueDate)));
 
 	function isAdEvent(event: Event): boolean {
 		return event.isAd === true;
@@ -130,8 +136,8 @@
 {#each days as day}
 	{@const cellDate = currentDate.set({ day })}
 	{@const date = formatDate(cellDate)}
-	{@const dayEvents = events.filter((event) => event.date && formatDate(event.date) === date)}
-	{@const dayTasks = dueTasks.filter((t) => t.dueDate && formatDate(toDate(t.dueDate)) === date)}
+	{@const dayEvents = eventsByDate.get(date) ?? []}
+	{@const dayTasks = tasksByDate.get(date) ?? []}
 	{@const isTodayDate = date === formatDate(today)}
 	{@const isOtherMonth = nextMonth || lastMonth}
 	<div

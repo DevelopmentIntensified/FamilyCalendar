@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseEvents } from './eventDisplay';
+import { groupByDateKey, parseEvents } from './eventDisplay';
 
 describe('parseEvents', () => {
 	it('passes single-day events through untouched', () => {
@@ -97,5 +97,29 @@ describe('parseEvents', () => {
 		const inAuckland = parseEvents(events, 'Pacific/Auckland');
 		expect(inAuckland).toHaveLength(1);
 		expect(inAuckland[0].date.toISOString()).toBe('2026-09-05T12:00:00.000Z'); // Sep 6 local
+	});
+});
+
+describe('groupByDateKey', () => {
+	it('buckets items by key in one pass, preserving order', () => {
+		const items = [
+			{ id: 'a', d: 'x' },
+			{ id: 'b', d: 'y' },
+			{ id: 'c', d: 'x' }
+		];
+		const grouped = groupByDateKey(items, (i) => i.d);
+		expect(grouped.get('x')?.map((i) => i.id)).toEqual(['a', 'c']);
+		expect(grouped.get('y')?.map((i) => i.id)).toEqual(['b']);
+		expect(grouped.get('zzz')).toBeUndefined();
+	});
+
+	it('skips nullish keys (matches the old per-cell filter semantics)', () => {
+		const items: { id: string; d?: string | null }[] = [{ id: 'a', d: null }, { id: 'b' }];
+		const grouped = groupByDateKey(items, (i) => i.d ?? undefined);
+		expect(grouped.size).toBe(0);
+	});
+
+	it('returns an empty map for an empty list', () => {
+		expect(groupByDateKey([], () => 'x').size).toBe(0);
 	});
 });

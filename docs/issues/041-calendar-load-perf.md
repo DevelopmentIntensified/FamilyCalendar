@@ -41,6 +41,11 @@ Status: in-progress
   Page-only `__data` A/B (familyless anon): 0.78s vs 0.77s — noise;
   family users save the roster join per nav. Query math per in-group
   nav: tasks −3, calendar −2 roundtrips.
+- #7 MonthDays grouping: `groupByDateKey()` (own tests) replaces 42×
+  full-array `.filter()` + luxon `formatDate` per cell with two shared
+  maps. Micro-bench (1500 occurrences): 416ms → 14ms per render (30×),
+  previously re-run on EVERY reactive pass. All 8 calendar suites (122
+  tests) green.
 
 ## Needs doing
 
