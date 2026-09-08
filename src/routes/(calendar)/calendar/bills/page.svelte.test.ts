@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import BillsPage from './+page.svelte';
 import { invalidateAll } from '$app/navigation';
+import { pushToast } from '$lib/client/toasts';
 import type { Bill, ReceiptItem } from '$lib/server/db/schema';
 import type { ParsedBill } from '$lib/server/services/naturalLanguageService';
 import type { PageData } from './$types';
+import type { PdfImportResult } from '$lib/client/receiptPdf';
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- SvelteKit $app/navigation is framework-injected; no DI seam exists.
 vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn() }));
@@ -29,6 +31,13 @@ vi.mock('$lib/client/receiptOcr', () => ({
 	cloudScanReceipt: vi.fn()
 }));
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- pdf.js/OCR chain has no DI seam in component tests; the mock stands in for the browser-only loader.
+vi.mock('$lib/client/receiptPdf', () => ({
+	// SAFETY: module mock — the page's imports from this module.
+	importReceiptPdf: vi.fn(),
+	PDF_IMPORT_PAGE_CAP: 5
+}));
+
 /** A Bill fixture; fields the page doesn't read keep schema-shaped defaults. */
 function billFixture(over: Partial<Bill> = {}): Bill {
 	return {
@@ -38,6 +47,8 @@ function billFixture(over: Partial<Bill> = {}): Bill {
 		dueDate: null,
 		category: 'utilities',
 		paidAt: null,
+		frequency: null,
+		interval: null,
 		source: 'manual',
 		userId: 'u1',
 		familyId: null,
@@ -406,6 +417,119 @@ describe('cloud scan opt-in (issue 010, never auto-send)', () => {
 	});
 });
 
+describe('PDF import with auto-OCR fallback (issue 033)', () => {
+	function okResult(over: Partial<PdfImportResult> = {}) {
+		return {
+			status: 'ok' as const,
+			text: 'CITY POWER\nTOTAL 120.00',
+			ocrUsed: false,
+			pagesProcessed: 1,
+			pagesTotal: 1,
+			pagesSkipped: false,
+			...over
+		};
+	}
+
+	const draft = {
+		merchant: 'City Power',
+		date: '2026-09-05',
+		// SAFETY: fixture mirrors /api/parse-receipt-text's validated draft
+		// shape; the assertion just pins the item element type for the mock.
+		// oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- fixture typing, justified above.
+		items: [] as Array<{ label: string; priceCents: number; category: string | null }>,
+		totalCents: 12000,
+		source: 'llm' as const
+	};
+
+	function parseDraftFetch() {
+		return vi.fn((input: RequestInfo | URL): Promise<Response> => {
+			if (String(input).includes('/api/parse-receipt-text')) {
+				return Promise.resolve(okJson({ draft }));
+			}
+			return Promise.resolve(okJson({ success: true, bill: billFixture() }));
+		});
+	}
+
+	async function pickPdf() {
+		const input = screen.getByLabelText('Pick a receipt PDF to import');
+		Object.defineProperty(input, 'files', {
+			value: [new File([new Uint8Array([1])], 'receipt.pdf', { type: 'application/pdf' })],
+			configurable: true
+		});
+		await fireEvent.change(input);
+	}
+
+	it('image-only PDF auto-OCRs: parse call made, form prefilled, NO dead-end scan message', async () => {
+		const { importReceiptPdf } = await import('$lib/client/receiptPdf');
+		vi.mocked(importReceiptPdf).mockImplementation(async (_file, _deps, onNote) => {
+			onNote?.('No text found — reading with OCR…');
+			return okResult({ text: 'CITY POWER\nTOTAL 120.00', ocrUsed: true });
+		});
+		vi.stubGlobal('fetch', parseDraftFetch());
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+		await pickPdf();
+
+		expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+			'/api/parse-receipt-text',
+			expect.objectContaining({ method: 'POST' })
+		);
+		expect(await screen.findByDisplayValue('City Power')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('120.00')).toBeInTheDocument();
+		// The v1 dead end is gone: no "use Scan receipt instead" for PDFs.
+		expect(screen.queryByText(/looks like a scan/)).not.toBeInTheDocument();
+	});
+
+	it('auto-OCR that reads nothing shows the OCR-specific message, not a generic one', async () => {
+		const { importReceiptPdf } = await import('$lib/client/receiptPdf');
+		vi.mocked(importReceiptPdf).mockResolvedValue(
+			okResult({ status: 'unreadable', text: '', ocrUsed: true })
+		);
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+		await pickPdf();
+
+		expect(
+			await screen.findByText(
+				"OCR couldn't read this clearly — try a clearer scan or fill the fields manually."
+			)
+		).toBeInTheDocument();
+		expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+	});
+
+	it('password-protected PDFs get the specific unlock instruction', async () => {
+		const { importReceiptPdf } = await import('$lib/client/receiptPdf');
+		vi.mocked(importReceiptPdf).mockResolvedValue(okResult({ status: 'password', text: '' }));
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+		await pickPdf();
+
+		expect(await screen.findByText(/password-protected/)).toBeInTheDocument();
+		expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+	});
+
+	it('unopenable PDFs say the file may be corrupt instead of a generic failure', async () => {
+		const { importReceiptPdf } = await import('$lib/client/receiptPdf');
+		vi.mocked(importReceiptPdf).mockResolvedValue(okResult({ status: 'open-failed', text: '' }));
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+		await pickPdf();
+
+		expect(
+			await screen.findByText("Couldn't open the PDF (it may be corrupt or password-protected).")
+		).toBeInTheDocument();
+	});
+
+	it('a truncated large PDF still parses and tells the user about the cap', async () => {
+		const { importReceiptPdf, PDF_IMPORT_PAGE_CAP } = await import('$lib/client/receiptPdf');
+		vi.mocked(importReceiptPdf).mockResolvedValue(
+			okResult({ pagesProcessed: PDF_IMPORT_PAGE_CAP, pagesTotal: 12, pagesSkipped: true })
+		);
+		vi.stubGlobal('fetch', parseDraftFetch());
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+		await pickPdf();
+
+		expect(await screen.findByDisplayValue('City Power')).toBeInTheDocument();
+		expect(await screen.findByText(/Only the first 5 of 12 pages were read\./)).toBeInTheDocument();
+	});
+});
+
 describe('quick-add NLP prefill (issue 011)', () => {
 	function parseFetchMock(parsed: ParsedBill) {
 		return vi.fn((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -452,7 +576,7 @@ describe('quick-add NLP prefill (issue 011)', () => {
 		expect(screen.getByText('Category suggested — confirm')).toBeInTheDocument();
 	});
 
-	it('sends only the clean create shape — parked recurrence never reaches createBill', async () => {
+	it('sends the parsed recurrence to the create endpoint and surfaces the chip (#006)', async () => {
 		vi.useFakeTimers();
 		const fetchMock = parseFetchMock({
 			title: 'Rent',
@@ -473,6 +597,10 @@ describe('quick-add NLP prefill (issue 011)', () => {
 		});
 		await vi.advanceTimersByTimeAsync(300);
 		await tick();
+
+		// The parked recurrence (#011) now prefills an editable schedule chip.
+		expect(screen.getByText('Repeats monthly')).toBeInTheDocument();
+
 		await fireEvent.click(screen.getByRole('button', { name: 'Add bill' }));
 
 		const createCall = fetchMock.mock.calls.find(([url]) => String(url) === '/api/bills');
@@ -482,11 +610,102 @@ describe('quick-add NLP prefill (issue 011)', () => {
 			title: 'Rent',
 			amount: '1500.00',
 			dueDate: '2026-10-01',
-			category: 'housing'
+			category: 'housing',
+			recurring: { frequency: 'monthly', interval: 1 }
 		});
-		expect(body).not.toHaveProperty('recurring');
-		expect(body).not.toHaveProperty('frequency');
-		expect(body).not.toHaveProperty('interval');
+	});
+
+	it('sends a one-off (recurring null) when the parse carries no schedule', async () => {
+		vi.useFakeTimers();
+		const fetchMock = parseFetchMock({
+			title: 'Electric bill',
+			amount: 120,
+			amountCents: 12000,
+			dueDate: '2026-09-11',
+			frequency: null,
+			interval: null,
+			category: 'utilities',
+			confidence: 0.9
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		render(BillsPage, { props: { data: pageData([billFixture()]) } });
+
+		await fireEvent.input(screen.getByLabelText('Bill title'), {
+			target: { value: 'electric 120 due friday' }
+		});
+		await vi.advanceTimersByTimeAsync(300);
+		await tick();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add bill' }));
+
+		const createCall = fetchMock.mock.calls.find(([url]) => String(url) === '/api/bills');
+		const body = JSON.parse(String(createCall?.[1]?.body));
+		expect(body.recurring).toBeNull();
+	});
+});
+
+describe('recurring bills (#006)', () => {
+	it('marks a recurring bill row with the ⟳ badge and detail line', async () => {
+		render(BillsPage, {
+			props: {
+				data: pageData([
+					billFixture({
+						title: 'Rent',
+						frequency: 'monthly',
+						interval: 1,
+						dueDate: '2026-10-01T00:00:00.000Z'
+					})
+				])
+			}
+		});
+
+		expect(screen.getByText('⟳')).toBeInTheDocument();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Rent' }));
+
+		expect(screen.getByText(/Repeats every month — next due/i)).toBeInTheDocument();
+	});
+
+	it('says "Repeats every 2 weeks" for a biweekly schedule', async () => {
+		render(BillsPage, {
+			props: {
+				data: pageData([billFixture({ title: 'Dog walker', frequency: 'weekly', interval: 2 })])
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Dog walker' }));
+
+		expect(screen.getByText(/Repeats every 2 weeks/i)).toBeInTheDocument();
+	});
+
+	it('mark-paid on a recurring bill toasts the advanced next-due date', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() =>
+				Promise.resolve(
+					okJson({
+						success: true,
+						bill: billFixture({
+							frequency: 'monthly',
+							interval: 1,
+							dueDate: '2026-10-15T00:00:00.000Z'
+						})
+					})
+				)
+			)
+		);
+		render(BillsPage, {
+			props: {
+				data: pageData([billFixture({ frequency: 'monthly', interval: 1 })])
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Mark paid Electric' }));
+
+		await waitFor(() => {
+			expect(pushToast).toHaveBeenCalledWith(
+				expect.objectContaining({ message: expect.stringMatching(/next due/) })
+			);
+		});
 	});
 });
 

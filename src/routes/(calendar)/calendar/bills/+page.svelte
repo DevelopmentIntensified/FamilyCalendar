@@ -7,7 +7,7 @@
 		scanReceiptWithFallback,
 		type ScanFlowResult
 	} from '$lib/client/receiptOcr';
-	import { extractPdfTextFromPdf } from '$lib/client/receiptPdf';
+	import { importReceiptPdf, PDF_IMPORT_PAGE_CAP } from '$lib/client/receiptPdf';
 	import type { BillCategory } from '$lib/utils/receiptScan';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 
@@ -18,6 +18,51 @@
 	type TagRow = PageData['tagSuggestions']['user'][number];
 
 	const CATEGORIES = ['housing', 'utilities', 'subscriptions', 'insurance', 'tax', 'fees', 'other'];
+
+	/** Closed recurrence vocabulary (#006) — the create-form select options. */
+	const FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'] as const;
+	type Frequency = (typeof FREQUENCIES)[number];
+
+	const FREQ_ADVERB: Record<Frequency, string> = {
+		daily: 'daily',
+		weekly: 'weekly',
+		monthly: 'monthly',
+		yearly: 'yearly'
+	};
+
+	/** Singular unit noun per stored frequency. */
+	function freqUnit(frequency: string): string {
+		return frequency === 'daily'
+			? 'day'
+			: frequency === 'weekly'
+				? 'week'
+				: frequency === 'monthly'
+					? 'month'
+					: 'year';
+	}
+
+	/** 'monthly' | 'every 2 weeks' — the chip label wording (#006). */
+	function recurrenceChip(frequency: string, interval: number | null): string {
+		const step = interval ?? 1;
+		// SAFETY: frequency comes from the closed-vocabulary select or the
+		// stored bill column; the ?? fallback absorbs anything unknown.
+		// oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- cast justified above.
+		if (step === 1) return FREQ_ADVERB[frequency as Frequency] ?? frequency;
+		return `every ${step} ${freqUnit(frequency)}s`;
+	}
+
+	/** 'every month' | 'every 2 weeks' — the detail-line wording (#006). */
+	function recurrencePhrase(frequency: string, interval: number | null): string {
+		const step = interval ?? 1;
+		if (step === 1) return `every ${freqUnit(frequency)}`;
+		return `every ${step} ${freqUnit(frequency)}s`;
+	}
+
+	/** A create-form schedule draft: null = one-off. */
+	interface RecurrenceDraft {
+		frequency: Frequency;
+		interval: number;
+	}
 
 	/** One editable line-item row (price held as a dollars string). */
 	interface DraftItem {
@@ -53,6 +98,10 @@
 	let newAmount = $state('');
 	let newDueDate = $state('');
 	let newCategory = $state('other');
+	// Recurring schedule draft (#006): null = one-off. NLP prefill sets it
+	// and flags it as a suggestion the user can edit or clear.
+	let newRecurring: RecurrenceDraft | null = $state(null);
+	let recurringSuggested = $state(false);
 	let adding = $state(false);
 	let busyId: string | null = $state(null);
 	let actionError = $state('');
@@ -349,7 +398,7 @@
 	}
 
 	/** Fills the create form from a server-extracted draft. */
-	function applyDraft(draft: ImportedDraft) {
+	function applyDraft(draft: ImportedDraft, sourceNote = 'Read from pasted text', tail = '') {
 		if (draft.merchant) newTitle = draft.merchant;
 		const amount = dollarsFromCents(draft.totalCents);
 		if (amount) newAmount = amount;
@@ -361,11 +410,14 @@
 			name: null
 		}));
 		newItemsOpen = draft.items.length > 0;
-		importNote = `Read from pasted text (${draft.source === 'llm' ? 'AI' : 'offline'}) — review and fix anything wrong.`;
+		importNote = `${sourceNote} (${draft.source === 'llm' ? 'AI' : 'offline'}) — review and fix anything wrong.${tail ? ` ${tail}` : ''}`;
 		pushToast({ message: 'Receipt imported — review the details below.' });
 	}
 
-	async function importReceiptText(text: string) {
+	async function importReceiptText(
+		text: string,
+		options: { nothingFound?: string; sourceNote?: string; tail?: string } = {}
+	) {
 		importBusy = true;
 		importNote = '';
 		try {
@@ -377,11 +429,13 @@
 			const body = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(body.error || 'Could not read the receipt text.');
 			if (!body.draft)
-				throw new Error('Nothing usable in that receipt — fill the fields manually.');
+				throw new Error(
+					options.nothingFound ?? 'Nothing usable in that receipt — fill the fields manually.'
+				);
 			// SAFETY: the route's draft contract is validated server-side before
 			// returning; the assertion restores that shape for the local helper.
 			// oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- response-shape cast, justified above.
-			applyDraft(body.draft as ImportedDraft);
+			applyDraft(body.draft as ImportedDraft, options.sourceNote, options.tail);
 		} catch (error) {
 			importNote = error instanceof Error ? error.message : 'Could not read the receipt text.';
 		} finally {
@@ -399,7 +453,12 @@
 		importNote = '';
 	}
 
-	/** PDF path: extract the text layer in-browser, then the same pipeline. */
+	/**
+	 * PDF path (issue 033 v2): importReceiptPdf extracts the text layer and
+	 * auto-OCRs image-only/mixed pages on-device; every failure resolves
+	 * with a reason-specific status (never a dead end), then the same
+	 * parse pipeline as pasted text runs.
+	 */
 	async function onImportPdfPicked(event: Event) {
 		// SAFETY: the only onchange target is the hidden PDF file input.
 		const input = event.target as HTMLInputElement;
@@ -413,14 +472,39 @@
 		importBusy = true;
 		importNote = '';
 		try {
-			const text = await extractPdfTextFromPdf(file);
-			if (!text.trim()) {
-				importNote = 'This PDF looks like a scan — use Scan receipt instead.';
-				return;
+			const outcome = await importReceiptPdf(file, {}, (note) => {
+				importNote = note;
+			});
+			switch (outcome.status) {
+				case 'password':
+					importNote =
+						'This PDF is password-protected — remove the password and try again, or use Scan receipt instead.';
+					return;
+				case 'open-failed':
+					importNote = "Couldn't open the PDF (it may be corrupt or password-protected).";
+					return;
+				case 'worker-failed':
+					importNote =
+						"The PDF reader couldn't load — check your connection and try again, or paste the receipt text.";
+					return;
+				case 'unreadable':
+					importNote =
+						"OCR couldn't read this clearly — try a clearer scan or fill the fields manually.";
+					return;
 			}
-			await importReceiptText(text);
-		} catch {
-			importNote = 'Could not read that PDF — paste the text instead.';
+			const tail = outcome.pagesSkipped
+				? `Only the first ${PDF_IMPORT_PAGE_CAP} of ${outcome.pagesTotal} pages were read.`
+				: '';
+			await importReceiptText(outcome.text, {
+				nothingFound: 'PDF text read, but nothing bill-like was found — fill the fields manually.',
+				sourceNote: 'Read from the PDF',
+				tail
+			});
+		} catch (error) {
+			importNote =
+				error instanceof Error
+					? error.message
+					: 'Could not read that PDF — paste the text instead.';
 		} finally {
 			importBusy = false;
 		}
@@ -529,8 +613,8 @@
 	/**
 	 * Quick-add NLP (issue 011): debounced local parse of the title field
 	 * prefills the form as a hint — the user still confirms with "Add bill".
-	 * Parsed recurrence (recurring/frequency/interval) is parked client-side
-	 * until #006; it is never sent to the create endpoint.
+	 * Parsed recurrence (#006) prefills the editable schedule chip and rides
+	 * along to the create endpoint as `recurring`.
 	 */
 	async function parseQuickAdd(input: string) {
 		try {
@@ -551,10 +635,21 @@
 				newCategory = parsed.category;
 				categorySuggested = true;
 			}
-			// Parked until #006: parsed.recurring / parsed.frequency / parsed.interval
+			// Recurrence (#006): the parked parsed.recurring/frequency/interval
+			// from #011 now prefills the editable schedule chip.
+			if (parsed.frequency && parsed.interval) {
+				newRecurring = { frequency: parsed.frequency, interval: parsed.interval };
+				recurringSuggested = true;
+			}
 		} catch {
 			// Prefill is best-effort; a failed parse leaves the fields alone.
 		}
+	}
+
+	/** Toggle the schedule editor on the create form (#006). */
+	function toggleRecurring() {
+		newRecurring = newRecurring ? null : { frequency: 'monthly', interval: 1 };
+		recurringSuggested = false;
 	}
 
 	function onTitleInput() {
@@ -580,7 +675,10 @@
 				title: newTitle.trim(),
 				amount: newAmount.trim(),
 				dueDate: newDueDate || null,
-				category: newCategory
+				category: newCategory,
+				recurring: newRecurring
+					? { frequency: newRecurring.frequency, interval: newRecurring.interval }
+					: null
 			};
 			const payload =
 				items.length > 0
@@ -607,6 +705,8 @@
 			newAmount = '';
 			newDueDate = '';
 			newCategory = 'other';
+			newRecurring = null;
+			recurringSuggested = false;
 			newItems = [];
 			newItemsOpen = false;
 			scanNotice = '';
@@ -636,8 +736,19 @@
 				const body = await res.json().catch(() => ({}));
 				throw new Error(body.error || 'Could not update the bill.');
 			}
+			// Recurring bill (#006): the PAID event advanced the cursor — name
+			// the new due date so the roll is visible. One-off toasts unchanged.
+			// SAFETY: the endpoint returns { bill } with the Bill shape; only
+			// frequency/dueDate are read for the recurring toast.
+			// oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- response-shape cast, justified above.
+			const body = (await res.json().catch(() => ({}))) as { bill?: BillRow };
+			const nextDue = paid && body.bill?.frequency ? (body.bill.dueDate ?? null) : null;
 			pushToast({
-				message: paid ? `Marked “${bill.title}” as paid.` : `Marked “${bill.title}” as unpaid.`
+				message: paid
+					? nextDue
+						? `Marked “${bill.title}” as paid — next due ${dueLabel(nextDue)}.`
+						: `Marked “${bill.title}” as paid.`
+					: `Marked “${bill.title}” as unpaid.`
 			});
 			await invalidateAll();
 			clearPaidOverride(bill.id);
@@ -765,6 +876,47 @@
 				>
 					Line items {newItemsOpen ? '▴' : '▾'}
 				</button>
+				<button
+					type="button"
+					class="min-h-[44px] rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 {newRecurring
+						? 'border-sky-300 bg-sky-50 text-sky-700'
+						: ''}"
+					aria-pressed={newRecurring !== null}
+					disabled={adding}
+					onclick={toggleRecurring}
+				>
+					⟳ Repeats
+				</button>
+				{#if newRecurring}
+					<span class="flex items-center gap-1 text-sm text-slate-600">
+						<select
+							class="rounded border border-slate-300 px-2 py-1.5 text-sm"
+							aria-label="Repeats frequency"
+							bind:value={newRecurring.frequency}
+							disabled={adding}
+						>
+							{#each FREQUENCIES as frequency (frequency)}
+								<option value={frequency}>{recurrenceChip(frequency, 1)}</option>
+							{/each}
+						</select>
+						<span>every</span>
+						<input
+							type="number"
+							min="1"
+							max="365"
+							class="w-16 rounded border border-slate-300 px-2 py-1.5 text-sm"
+							aria-label="Repeats every N"
+							bind:value={newRecurring.interval}
+							disabled={adding}
+						/>
+						<span>{freqUnit(newRecurring.frequency)}{newRecurring.interval > 1 ? 's' : ''}</span>
+					</span>
+					{#if recurringSuggested}
+						<span class="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+							Repeats {recurrenceChip(newRecurring.frequency, newRecurring.interval)}
+						</span>
+					{/if}
+				{/if}
 				<input
 					type="file"
 					accept="image/*"
@@ -1138,6 +1290,12 @@
 										>From email</span
 									>
 								{/if}
+								{#if bill.frequency}
+									<span
+										class="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700"
+										title="Recurring bill">⟳</span
+									>
+								{/if}
 								{#if isPaid(bill)}
 									<span
 										class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
@@ -1305,6 +1463,11 @@
 						{/snippet}
 
 						<div class="border-t border-slate-100 p-3">
+							{#if bill.frequency}
+								<p class="text-sm text-slate-600">
+									{`Repeats ${recurrencePhrase(bill.frequency, bill.interval)} — next due ${dueLabel(bill.dueDate)}`}
+								</p>
+							{/if}
 							<p class="text-sm text-slate-500">
 								No receipt photos are kept — receipts are scanned on your device and discarded after
 								prefilling.

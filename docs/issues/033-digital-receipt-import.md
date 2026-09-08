@@ -60,6 +60,17 @@ lineItems[{label, priceCents}], tax?, fees?}` → prefilled bill +
     to the Scan flow. Server PDF text (email attachments) via
     `pdfjs-dist/legacy` in `src/lib/server/services/pdfText.ts`; bytes
     never persisted.
+  - v2 HARDENING (2026-09-07): `importReceiptPdf` replaces the scan
+    dead end. Text layer first; pages with <20 chars of text render to
+    canvas (pdf.js render, 2x scale) → existing on-device OCR chain
+    (`receiptOcr.ts`, process-and-delete) → concatenated with text
+    pages in order → same parse pipeline. Mixed PDFs: only scan pages
+    get OCR'd. Failures classified: `password` (PasswordException →
+    remove password or Scan receipt), `open-failed` (corrupt),
+    `worker-failed` (CDN blocked), `unreadable` (OCR read nothing).
+    Page cap 5 (`PDF_IMPORT_PAGE_CAP`) — large PDFs are truncated with
+    an inline note, never rejected. Canvas/page cleanup on every path
+    (`doc.destroy()` in finally, `page.cleanup()` after render).
   - Email: `POST /api/email-ingest` (svix signature verification,
     manual HMAC — `src/lib/server/utils/svixVerify.ts`), token match on
     `receipts.<token>@<RECEIPT_INGEST_DOMAIN>` → user via
@@ -78,3 +89,16 @@ lineItems[{label, priceCents}], tax?, fees?}` → prefilled bill +
   timeout test and `e2e/events/NlpTimeParsing.test.ts` fail under full-
   suite load / on clean HEAD too.
 - Queued: before #006 (user priority call at dispatch).
+- Limitations (v2):
+  - PDFs >5 pages: only the first 5 are read (inline note says so) —
+    receipts longer than 5 pages are rare; raising the cap costs
+    render memory on phones.
+  - OCR quality depends on scan sharpness — unreadable scans get a
+    specific "couldn't read" message, not a silent failure.
+  - Password-protected PDFs are detected, not opened — removing the
+    password client-side is out of scope.
+  - The pdf.js CDN worker means first-use PDF import needs network;
+    blocked CDN → explicit "reader couldn't load" message (no crash).
+  - OCR'd PDF text and photo-scan text both go to the same
+    /api/parse-receipt-text endpoint; per-page OCR of huge mixed
+    documents is sequential (one tesseract worker, by design).
