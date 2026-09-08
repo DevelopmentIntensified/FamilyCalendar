@@ -8,6 +8,8 @@ import {
 	type BillCategory,
 	type ReceiptItem
 } from '$lib/server/db/schema';
+import { DateTime } from 'luxon';
+import { toDateTime } from '$lib/server/utils/eventTimes';
 
 /** Closed bill-category vocabulary; unknown values fall back to 'other'. */
 function isBillCategory(value: unknown): value is BillCategory {
@@ -79,6 +81,134 @@ export function parseDueDate(raw: unknown): DueDateParse {
 	return { status: 'ok', value };
 }
 
+/* ── Recurring bills (#006) ────────────────────────────────────────────
+ * One row per bill; dueDate doubles as the cursor. Mark-paid advances the
+ * cursor (see advanceBillCursor); unmark-paid does NOT rewind it. Both
+ * frequency and interval null = one-off; both set = recurring.
+ */
+
+/** Base stored vocabulary. The parser's biweekly / every_N_unit values
+ * arrive already mapped (naturalLanguageService.recurrenceToSchedule),
+ * so the API never sees them raw. */
+export const BILL_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'] as const;
+export type BillFrequency = (typeof BILL_FREQUENCIES)[number];
+
+function isBillFrequency(value: unknown): value is BillFrequency {
+	// SAFETY: BILL_FREQUENCIES holds exactly the frequency literals; viewing
+	// it as strings makes the membership test exact with no precision lost.
+	return typeof value === 'string' && (BILL_FREQUENCIES as readonly string[]).includes(value);
+}
+
+/** A validated recurring write shape. */
+export interface BillRecurrence {
+	frequency: BillFrequency;
+	interval: number;
+}
+
+/** Result of parsing a `recurring` request field: value, cleared, or invalid. */
+export type RecurrenceParse =
+	| { status: 'ok'; value: BillRecurrence | null }
+	| { status: 'invalid' };
+
+/**
+ * Parses the `recurring` request field. Null clears (one-off); a valid
+ * object is { frequency in the closed vocabulary, integer interval 1..365 };
+ * anything else is invalid. Absent fields inside the object are invalid —
+ * the write must carry both halves of the schedule or neither.
+ */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- exported boundary parser: unknown input IS its contract; routes feed it raw request-body fields.
+export function parseRecurrence(raw: unknown): RecurrenceParse {
+	if (raw === null) return { status: 'ok', value: null };
+	// oxlint-disable-next-line anti-slop/no-runtime-typeof -- boundary parser: request JSON arrives untyped; rejecting non-objects here IS the contract.
+	if (typeof raw !== 'object' || Array.isArray(raw)) return { status: 'invalid' };
+	// SAFETY: typeof check above established the object shape; the record view
+	// is only read field-by-field through the validators below.
+	// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type,anti-slop/require-safety-comment-for-type-assertion -- request-body entries arrive as unkeyed JSON objects; every field is validated before use.
+	const entry = raw as Record<string, unknown>;
+	if (!isBillFrequency(entry.frequency)) return { status: 'invalid' };
+	if (
+		// oxlint-disable-next-line anti-slop/no-runtime-typeof -- boundary parser: interval arrives as arbitrary JSON; the numeric check IS the contract.
+		typeof entry.interval !== 'number' ||
+		!Number.isInteger(entry.interval) ||
+		entry.interval < 1 ||
+		entry.interval > 365
+	) {
+		return { status: 'invalid' };
+	}
+	return { status: 'ok', value: { frequency: entry.frequency, interval: entry.interval } };
+}
+
+function plusBillInterval(dt: DateTime, frequency: BillFrequency, step: number): DateTime {
+	switch (frequency) {
+		case 'weekly':
+			return dt.plus({ weeks: step });
+		case 'monthly':
+			return dt.plus({ months: step });
+		case 'yearly':
+			return dt.plus({ years: step });
+		default:
+			return dt.plus({ days: step });
+	}
+}
+
+/**
+ * Bills cursor advance (#006). Differs from the task cursor (tasks.ts
+ * advanceCursor anchors on today): a bill's next due anchors on its OLD
+ * dueDate — due + n×interval, where n is the smallest multiple landing
+ * strictly after today (the UTC day of the paidAt instant; dueDate rows are
+ * anchored to UTC midnight by parseDueDate, so day math stays in UTC).
+ * Paying early keeps the anchored cadence; paying late skips missed
+ * periods. A bill with no dueDate yet anchors its first occurrence one
+ * interval out from today.
+ */
+export function computeNextBillDue(
+	dueIso: string | Date | null,
+	frequency: BillFrequency,
+	interval: number,
+	paidAtIso: string | Date
+): string {
+	const step = Math.max(1, Math.floor(interval) || 1);
+	const paid = toDateTime(paidAtIso) ?? DateTime.fromISO(String(paidAtIso), { zone: 'utc' });
+	const today = paid.toUTC().startOf('day');
+	const due = dueIso !== null ? toDateTime(dueIso) : null;
+	if (!due) return plusBillInterval(today, frequency, step).toISO()!;
+	const anchor = due.toUTC().startOf('day');
+	let n = 1;
+	let next = plusBillInterval(anchor, frequency, step);
+	while (next <= today && n < 1000) {
+		n += 1;
+		next = plusBillInterval(anchor, frequency, step * n);
+	}
+	return next.toISO()!;
+}
+
+/**
+ * PAID event on a recurring bill: roll the dueDate cursor forward from the
+ * OLD dueDate and nothing else (paidAt is written by the caller's patch).
+ * One-off bills and unknown ids return null — the caller keeps them as-is.
+ * Asymmetry (documented, #006): unmark-paid does NOT rewind the cursor.
+ */
+export async function advanceBillCursor(billId: string, paidAt: string): Promise<Bill | null> {
+	const bill = await getBill(billId);
+	if (!bill || !bill.frequency) return null;
+	// SAFETY: frequency is a text column widened to string on read, but it is
+	// written only through parseRecurrence — the assertion restores the
+	// write-side vocabulary type.
+	// oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- DB widening cast, justified above.
+	const nextDue = computeNextBillDue(
+		bill.dueDate,
+		bill.frequency as BillFrequency,
+		bill.interval ?? 1,
+		paidAt
+	);
+	const [row] = await db
+		.update(bills)
+		.set({ dueDate: nextDue })
+		.where(eq(bills.id, billId))
+		.returning();
+	return row ?? null;
+}
+
 /**
  * Bill provenance + draft marker (#033): 'manual' = user-created;
  * 'email' = an unconfirmed ingest draft (never counted as spent, never
@@ -95,6 +225,9 @@ export interface CreateBillInput {
 	userId: string;
 	familyId: string | null;
 	source?: BillSource;
+	/** Recurring schedule (#006): both null/absent = one-off. */
+	frequency?: BillFrequency | null;
+	interval?: number | null;
 }
 
 export async function createBill(input: CreateBillInput): Promise<Bill> {
@@ -133,7 +266,17 @@ export function canMutateBill(bill: Bill, userId: string, role: string | null): 
 }
 
 export type BillPatch = Partial<
-	Pick<Bill, 'title' | 'amountCents' | 'dueDate' | 'category' | 'paidAt' | 'source'>
+	Pick<
+		Bill,
+		| 'title'
+		| 'amountCents'
+		| 'dueDate'
+		| 'category'
+		| 'paidAt'
+		| 'source'
+		| 'frequency'
+		| 'interval'
+	>
 >;
 
 export async function updateBill(

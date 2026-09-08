@@ -8,8 +8,10 @@ import {
 	normalizeBillCategory,
 	normalizeBillItems,
 	parseDueDate,
+	parseRecurrence,
 	setBillItems,
 	type BillItemInput,
+	type BillFrequency,
 	type CreateBillInput
 } from '$lib/server/db/actions/bills';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
@@ -121,6 +123,21 @@ export const POST = async (event: RequestEvent, deps: BillsDeps = defaultDeps) =
 			}
 			dueDate = parsed.value;
 		}
+		// Recurring schedule (#006): validated before anything is written;
+		// null/absent = one-off.
+		let frequency: BillFrequency | null = null;
+		let interval: number | null = null;
+		if (body.recurring !== undefined) {
+			const parsed = parseRecurrence(body.recurring);
+			if (parsed.status === 'invalid') {
+				return json(
+					{ error: 'Recurring needs a frequency (daily/weekly/monthly/yearly) and interval 1–365' },
+					{ status: 400 }
+				);
+			}
+			frequency = parsed.value?.frequency ?? null;
+			interval = parsed.value?.interval ?? null;
+		}
 		const familyId = await deps.getUserFamilyId(auth.user.id);
 		const input: CreateBillInput = {
 			title: body.title.trim(),
@@ -128,7 +145,9 @@ export const POST = async (event: RequestEvent, deps: BillsDeps = defaultDeps) =
 			dueDate,
 			category: normalizeBillCategory(body.category),
 			userId: auth.user.id,
-			familyId
+			familyId,
+			frequency,
+			interval
 		};
 		const created = await deps.createBill(input);
 		if (items) {

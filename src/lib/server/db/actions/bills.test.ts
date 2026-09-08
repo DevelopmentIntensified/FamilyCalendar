@@ -108,8 +108,12 @@ import {
 	normalizeAmountCents,
 	normalizeBillItems,
 	parseDueDate,
+	parseRecurrence,
+	computeNextBillDue,
+	advanceBillCursor,
 	setBillItems,
 	getItemsForBills,
+	type BillFrequency,
 	type DueDateParse
 } from './bills';
 import type { Bill } from '$lib/server/db/schema';
@@ -131,6 +135,8 @@ function bill(over: Partial<Bill> = {}): Bill {
 		dueDate: '2026-09-15T00:00:00.000Z',
 		category: 'utilities',
 		paidAt: null,
+		frequency: null,
+		interval: null,
 		source: 'manual',
 		userId: 'u1',
 		familyId: 'f1',
@@ -434,5 +440,182 @@ describe('getItemsForBills (#031)', () => {
 
 		expect(got.size).toBe(0);
 		expect(state.selectQueue).toEqual([]);
+	});
+});
+
+/* ── Recurring bills (#006) ─────────────────────────────────────────── */
+
+describe('computeNextBillDue (bills cursor: due + n*interval, strictly after today)', () => {
+	const paid = '2026-09-07T14:30:00.000Z';
+	const cases: [string, string | null, BillFrequency, number, string][] = [
+		// label, old dueDate, frequency, interval, expected next due
+		[
+			'monthly paid late within the period keeps the anchored cadence',
+			'2026-09-01T00:00:00.000Z',
+			'monthly',
+			1,
+			'2026-10-01T00:00:00.000Z'
+		],
+		[
+			'paying a month late skips the missed period',
+			'2026-08-01T00:00:00.000Z',
+			'monthly',
+			1,
+			'2026-10-01T00:00:00.000Z'
+		],
+		[
+			'early pay advances from the due date, not from today',
+			'2026-10-01T00:00:00.000Z',
+			'monthly',
+			1,
+			'2026-11-01T00:00:00.000Z'
+		],
+		[
+			'paying on the due date moves exactly one interval',
+			'2026-09-07T00:00:00.000Z',
+			'monthly',
+			1,
+			'2026-10-07T00:00:00.000Z'
+		],
+		[
+			'weekly lands on the next anchored weekday',
+			'2026-09-01T00:00:00.000Z',
+			'weekly',
+			1,
+			'2026-09-08T00:00:00.000Z'
+		],
+		[
+			'biweekly (weekly x2) anchors on the stored due date',
+			'2026-09-15T00:00:00.000Z',
+			'weekly',
+			2,
+			'2026-09-29T00:00:00.000Z'
+		],
+		[
+			'every_3_months (monthly x3) skips past today',
+			'2026-06-01T00:00:00.000Z',
+			'monthly',
+			3,
+			'2026-12-01T00:00:00.000Z'
+		],
+		[
+			'yearly rolls to the next anniversary',
+			'2026-01-15T00:00:00.000Z',
+			'yearly',
+			1,
+			'2027-01-15T00:00:00.000Z'
+		],
+		['daily steps one day', '2026-09-07T00:00:00.000Z', 'daily', 1, '2026-09-08T00:00:00.000Z'],
+		[
+			'null cursor anchors the first occurrence one interval out',
+			null,
+			'monthly',
+			1,
+			'2026-10-07T00:00:00.000Z'
+		]
+	];
+	for (const [label, due, frequency, interval, expected] of cases) {
+		it(label, () => {
+			expect(computeNextBillDue(due, frequency, interval, paid)).toBe(expected);
+		});
+	}
+});
+
+describe('parseRecurrence (#006)', () => {
+	const okCases: [unknown, { frequency: string; interval: number } | null][] = [
+		[null, null],
+		[
+			{ frequency: 'monthly', interval: 1 },
+			{ frequency: 'monthly', interval: 1 }
+		],
+		[
+			{ frequency: 'weekly', interval: 2 },
+			{ frequency: 'weekly', interval: 2 }
+		],
+		[
+			{ frequency: 'daily', interval: 3 },
+			{ frequency: 'daily', interval: 3 }
+		],
+		[
+			{ frequency: 'yearly', interval: 1 },
+			{ frequency: 'yearly', interval: 1 }
+		],
+		[
+			{ frequency: 'monthly', interval: 365 },
+			{ frequency: 'monthly', interval: 365 }
+		]
+	];
+	for (const [raw, expected] of okCases) {
+		it(`accepts ${JSON.stringify(raw)}`, () => {
+			expect(parseRecurrence(raw)).toEqual({ status: 'ok', value: expected });
+		});
+	}
+
+	const badCases: [string, unknown][] = [
+		['unknown frequency', { frequency: 'fortnightly', interval: 1 }],
+		['parser token not in the stored vocabulary', { frequency: 'biweekly', interval: 1 }],
+		['zero interval', { frequency: 'monthly', interval: 0 }],
+		['negative interval', { frequency: 'monthly', interval: -1 }],
+		['interval over 365', { frequency: 'monthly', interval: 366 }],
+		['non-integer interval', { frequency: 'monthly', interval: 1.5 }],
+		['missing interval', { frequency: 'monthly' }],
+		['missing frequency', { interval: 1 }],
+		['non-object raw', 'monthly'],
+		['array raw', ['monthly', 1]]
+	];
+	for (const [label, raw] of badCases) {
+		it(`rejects ${label}`, () => {
+			expect(parseRecurrence(raw)).toEqual({ status: 'invalid' });
+		});
+	}
+});
+
+describe('advanceBillCursor (#006)', () => {
+	it('advances a recurring bill from its OLD dueDate and returns the row', async () => {
+		state.selectQueue.push([
+			bill({ frequency: 'monthly', interval: 1, dueDate: '2026-08-01T00:00:00.000Z' })
+		]);
+		state.updateReturn = [
+			bill({ frequency: 'monthly', interval: 1, dueDate: '2026-10-01T00:00:00.000Z' })
+		];
+
+		const advanced = await advanceBillCursor('bill-1', '2026-09-07T14:30:00.000Z');
+
+		expect(state.updateValues).toEqual({ dueDate: '2026-10-01T00:00:00.000Z' });
+		expect(advanced?.dueDate).toBe('2026-10-01T00:00:00.000Z');
+	});
+
+	it('leaves one-off bills (no frequency) untouched', async () => {
+		state.selectQueue.push([bill()]);
+
+		const advanced = await advanceBillCursor('bill-1', '2026-09-07T14:30:00.000Z');
+
+		expect(advanced).toBeNull();
+		expect(state.updateValues).toBeNull();
+	});
+
+	it('returns null for a missing bill', async () => {
+		state.selectQueue.push([]);
+
+		expect(await advanceBillCursor('nope', '2026-09-07T14:30:00.000Z')).toBeNull();
+	});
+});
+
+describe('createBill recurrence passthrough (#006)', () => {
+	it('stores frequency and interval on the new row', async () => {
+		state.insertReturn = [bill({ frequency: 'monthly', interval: 1 })];
+
+		await createBill({
+			title: 'Rent',
+			amountCents: 150000,
+			dueDate: '2026-10-01T00:00:00.000Z',
+			category: 'housing',
+			userId: 'u1',
+			familyId: null,
+			frequency: 'monthly',
+			interval: 1
+		});
+
+		expect(state.insertValues).toMatchObject({ frequency: 'monthly', interval: 1 });
 	});
 });

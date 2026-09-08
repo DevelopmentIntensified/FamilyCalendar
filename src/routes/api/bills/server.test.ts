@@ -15,6 +15,8 @@ function bill(over: Partial<Bill> = {}): Bill {
 		dueDate: '2026-09-15T00:00:00.000Z',
 		category: 'utilities',
 		paidAt: null,
+		frequency: null,
+		interval: null,
 		source: 'manual',
 		userId: 'u1',
 		familyId: 'f1',
@@ -250,5 +252,57 @@ describe('POST /api/bills line items (#031)', () => {
 
 		expect(res.status).toBe(201);
 		expect(trainTagTable).toHaveBeenCalledOnce();
+	});
+});
+
+describe('POST /api/bills recurrence (#006)', () => {
+	it('stores a valid recurring schedule on the new bill', async () => {
+		const createBill = vi.fn(async (input: CreateBillInput) => bill({ ...input, id: 'b9' }));
+		const res = await POST(
+			event('u1', {
+				title: 'Rent',
+				amount: 1500,
+				recurring: { frequency: 'monthly', interval: 1 }
+			}),
+			deps({ createBill })
+		);
+
+		expect(res.status).toBe(201);
+		expect(createBill.mock.calls[0][0]).toMatchObject({ frequency: 'monthly', interval: 1 });
+	});
+
+	it.each<[string, unknown]>([
+		['unknown frequency', { frequency: 'fortnightly', interval: 1 }],
+		['parser token frequency', { frequency: 'biweekly', interval: 1 }],
+		['zero interval', { frequency: 'monthly', interval: 0 }],
+		['interval over 365', { frequency: 'monthly', interval: 366 }],
+		['non-integer interval', { frequency: 'monthly', interval: 1.5 }],
+		['missing interval', { frequency: 'monthly' }],
+		['non-object recurring', 'monthly']
+	])('400s on %s', async (_label, recurring) => {
+		const createBill = vi.fn(async (input: CreateBillInput) => bill({ ...input, id: 'b9' }));
+		const res = await POST(event('u1', { title: 'x', amount: 1, recurring }), deps({ createBill }));
+
+		expect(res.status).toBe(400);
+		expect(createBill).not.toHaveBeenCalled();
+	});
+
+	it('stores a one-off when recurring is null', async () => {
+		const createBill = vi.fn(async (input: CreateBillInput) => bill({ ...input, id: 'b9' }));
+		const res = await POST(
+			event('u1', { title: 'x', amount: 1, recurring: null }),
+			deps({ createBill })
+		);
+
+		expect(res.status).toBe(201);
+		expect(createBill.mock.calls[0][0]).toMatchObject({ frequency: null, interval: null });
+	});
+
+	it('stores a one-off when recurring is absent', async () => {
+		const createBill = vi.fn(async (input: CreateBillInput) => bill({ ...input, id: 'b9' }));
+		const res = await POST(event('u1', { title: 'x', amount: 1 }), deps({ createBill }));
+
+		expect(res.status).toBe(201);
+		expect(createBill.mock.calls[0][0]).toMatchObject({ frequency: null, interval: null });
 	});
 });

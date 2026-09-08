@@ -118,3 +118,45 @@ test('Bills detail row: expand works with no receipt storage (issue 010 strip)',
 	await page.getByRole('button', { name: 'Delete bill Water' }).click();
 	await page.getByRole('button', { name: 'Confirm delete Water' }).click();
 });
+
+// Mirrors the RecurringEvents regression spec: schedule persists, the row
+// carries the ⟳ badge, and mark-paid advances the dueDate cursor (#006).
+test('Recurring bill: create, badge, mark-paid advances due date (issue 006)', async ({ page }) => {
+	await login(page);
+
+	// Due on the 1st of the current month → the cursor advance lands on the
+	// 1st of the next month (smallest due + n×interval strictly after today).
+	const now = new Date();
+	const due = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+	const expected = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+	const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+	const createResp = await page.request.post('/api/bills', {
+		data: {
+			title: 'Rent',
+			amount: 1500,
+			dueDate: iso(due),
+			category: 'housing',
+			recurring: { frequency: 'monthly', interval: 1 }
+		}
+	});
+	expect(createResp.ok()).toBe(true);
+
+	const rows = await db.select().from(bills).where(eq(bills.userId, uid));
+	expect(rows[0].frequency).toBe('monthly');
+	expect(rows[0].interval).toBe(1);
+	expect(rows[0].dueDate?.slice(0, 10)).toBe(iso(due));
+
+	await page.goto('/calendar/bills');
+	await page.waitForLoadState('networkidle');
+	await expect(page.getByText('Rent')).toBeVisible();
+	await expect(page.getByTitle('Recurring bill')).toBeVisible();
+
+	// Mark-paid: cursor advances, toast names the next due.
+	await page.getByRole('button', { name: 'Mark paid Rent' }).click();
+	await expect(page.getByText(/next due/i)).toBeVisible();
+
+	const paid = await db.select().from(bills).where(eq(bills.userId, uid));
+	expect(paid[0].dueDate?.slice(0, 10)).toBe(iso(expected));
+	expect(paid[0].paidAt).not.toBeNull();
+});

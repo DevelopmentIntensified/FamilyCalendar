@@ -10,6 +10,8 @@ import {
 	normalizeBillCategory,
 	normalizeBillItems,
 	parseDueDate,
+	parseRecurrence,
+	advanceBillCursor,
 	setBillItems,
 	getItemsForBills,
 	type BillItemInput,
@@ -32,6 +34,7 @@ export type BillIdDeps = {
 	setBillItems: typeof setBillItems;
 	getItemsForBills: typeof getItemsForBills;
 	trainTagTable: typeof trainTagTable;
+	advanceBillCursor: typeof advanceBillCursor;
 };
 
 const defaultDeps: BillIdDeps = {
@@ -41,7 +44,8 @@ const defaultDeps: BillIdDeps = {
 	deleteBill,
 	setBillItems,
 	getItemsForBills,
-	trainTagTable
+	trainTagTable,
+	advanceBillCursor
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -145,6 +149,19 @@ export const PUT = async (event: RequestEvent, deps: BillIdDeps = defaultDeps) =
 	}
 	if (body.category !== undefined) patch.category = normalizeBillCategory(body.category);
 	if (body.paid !== undefined) patch.paidAt = body.paid ? new Date().toISOString() : null;
+	// Recurring schedule (#006): validated before anything is written;
+	// null clears both fields (back to one-off). Absent = untouched.
+	if (body.recurring !== undefined) {
+		const parsed = parseRecurrence(body.recurring);
+		if (parsed.status === 'invalid') {
+			return json(
+				{ error: 'Recurring needs a frequency (daily/weekly/monthly/yearly) and interval 1–365' },
+				{ status: 400 }
+			);
+		}
+		patch.frequency = parsed.value?.frequency ?? null;
+		patch.interval = parsed.value?.interval ?? null;
+	}
 
 	// Draft confirmation (#033): an email-ingest draft (source !== 'manual')
 	// becomes a real bill when the user confirms it — flipping the source
@@ -167,7 +184,14 @@ export const PUT = async (event: RequestEvent, deps: BillIdDeps = defaultDeps) =
 			Object.keys(patch).length > 0
 				? await deps.updateBill(event.params.id, auth.user.id, allowed.role, patch)
 				: null;
-		const bill = updated ?? allowed.bill;
+		let bill = updated ?? allowed.bill;
+		// PAID on a recurring bill (#006): roll the dueDate cursor forward
+		// from the OLD dueDate. Unmark-paid does NOT rewind the cursor
+		// (documented asymmetry); one-off bills are untouched.
+		const paidAtIso = patch.paidAt ?? null;
+		if (body.paid === true && allowed.bill.frequency && updated && paidAtIso) {
+			bill = (await deps.advanceBillCursor(event.params.id, paidAtIso)) ?? bill;
+		}
 		// Training gate (#033): train ONLY when the bill is (now) manual —
 		// an unconfirmed email draft never trains, even when items are saved.
 		const trains = (bill.source ?? 'manual') === 'manual';
@@ -200,7 +224,7 @@ export const PUT = async (event: RequestEvent, deps: BillIdDeps = defaultDeps) =
 			);
 		}
 		if (!updated) return json({ error: 'Bill not found' }, { status: 404 });
-		return json({ success: true, bill: updated });
+		return json({ success: true, bill });
 	} catch (error) {
 		console.error('Failed to update bill:', error);
 		return apiError(event.request.url, 500, 'Failed to update bill', auth.user.id);

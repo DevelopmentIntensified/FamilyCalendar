@@ -61,7 +61,10 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 - #003 Bill Tracking PRD (parent; slices #005–#011 pending)
 - #005 Bill calendar overlay (blocked by #004 — #004 done, so startable)
-- #006 Recurring bills (blocked by #004 — startable)
+- #006 Recurring bills (2026-09-08): frequency + interval on bills,
+  `sql/013-recurring-bills.sql` (**LOCAL ONLY — NEON PENDING**), dueDate cursor
+  advanced by mark-paid (strictly-after-today, anchored on old due), unmark no
+  rewind, API `recurring` shape + 400s, bills-page ⟳ chip/pill/toast, e2e flow
 - #007 Paid cursor (blocked by #006)
 - #008 Monthly Burn card (blocked by #006)
 - #009 Due-soon reminders (blocked by #006)

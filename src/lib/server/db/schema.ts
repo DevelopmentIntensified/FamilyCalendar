@@ -572,6 +572,13 @@ export const bills = pgTable('bills', {
 	dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
 	category: text('category').notNull().default('other'),
 	paidAt: timestamp('paid_at', { withTimezone: true, mode: 'string' }),
+	// Recurring bill schedule (#006): both null = one-off; set = recurring.
+	// dueDate doubles as the cursor — mark-paid advances it (see
+	// advanceBillCursor in actions/bills.ts). Base frequency vocabulary:
+	// the parser's biweekly/every_N_unit values arrive already mapped to
+	// frequency + interval.
+	frequency: text('frequency'),
+	interval: integer('interval'),
 	// Provenance + draft marker (#033): 'manual' = user-created; 'email' =
 	// an unconfirmed ingest draft (never counted as spent, never trains
 	// the Tag Table until confirmed — confirming flips it to 'manual').

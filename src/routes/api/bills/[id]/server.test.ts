@@ -15,6 +15,8 @@ function bill(over: Partial<Bill> = {}): Bill {
 		dueDate: '2026-09-15T00:00:00.000Z',
 		category: 'utilities',
 		paidAt: null,
+		frequency: null,
+		interval: null,
 		source: 'manual',
 		userId: 'u1',
 		familyId: 'f1',
@@ -32,6 +34,7 @@ function deps(over: Partial<BillIdDeps> = {}): BillIdDeps {
 		setBillItems: async () => [],
 		getItemsForBills: async () => new Map(),
 		trainTagTable: async () => {},
+		advanceBillCursor: async () => null,
 		...over
 	};
 }
@@ -143,6 +146,82 @@ describe('PUT /api/bills/[id] attachmentId (storage stripped, issue 010)', () =>
 		expect(res.status).toBe(200);
 		expect(updateBill).not.toHaveBeenCalled();
 		expect(await res.json()).toMatchObject({ success: true });
+	});
+});
+
+describe('PUT /api/bills/[id] recurrence (#006)', () => {
+	const updateBill = vi.fn(
+		async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) =>
+			bill({ frequency: 'monthly', interval: 1 })
+	);
+
+	it('applies a valid recurring schedule to the patch', async () => {
+		const res = await PUT(
+			event('u1', { recurring: { frequency: 'weekly', interval: 2 } }),
+			deps({ updateBill })
+		);
+
+		expect(res.status).toBe(200);
+		expect(updateBill.mock.calls[0][3]).toEqual({ frequency: 'weekly', interval: 2 });
+	});
+
+	it('clears the schedule on recurring null (back to one-off)', async () => {
+		const localUpdate = vi.fn(
+			async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) =>
+				bill({ frequency: null, interval: null })
+		);
+		const res = await PUT(event('u1', { recurring: null }), deps({ updateBill: localUpdate }));
+
+		expect(res.status).toBe(200);
+		expect(localUpdate.mock.calls[0][3]).toEqual({ frequency: null, interval: null });
+	});
+
+	it.each<[string, unknown]>([
+		['unknown frequency', { frequency: 'fortnightly', interval: 1 }],
+		['zero interval', { frequency: 'monthly', interval: 0 }],
+		['interval over 365', { frequency: 'monthly', interval: 366 }],
+		['missing interval', { frequency: 'monthly' }],
+		['non-object recurring', 'monthly']
+	])('400s on %s without writing', async (_label, recurring) => {
+		const localUpdate = vi.fn(
+			async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) => bill()
+		);
+		const res = await PUT(event('u1', { recurring }), deps({ updateBill: localUpdate }));
+
+		expect(res.status).toBe(400);
+		expect(localUpdate).not.toHaveBeenCalled();
+	});
+
+	it('mark-paid on a recurring bill advances the cursor and returns the moved bill', async () => {
+		const advancedBill = bill({
+			frequency: 'monthly',
+			interval: 1,
+			dueDate: '2026-10-01T00:00:00.000Z'
+		});
+		const advanceBillCursor = vi.fn(async (_id: string, _paidAt: string) => advancedBill);
+		const getBill = async () => bill({ frequency: 'monthly', interval: 1 });
+		const res = await PUT(event('u1', { paid: true }), deps({ advanceBillCursor, getBill }));
+
+		expect(res.status).toBe(200);
+		expect(advanceBillCursor).toHaveBeenCalledOnce();
+		const body = await res.json();
+		expect(body.bill.dueDate).toBe('2026-10-01T00:00:00.000Z');
+	});
+
+	it('unmark-paid does NOT rewind the cursor (documented asymmetry)', async () => {
+		const advanceBillCursor = vi.fn(async (_id: string, _paidAt: string) => null);
+		const res = await PUT(event('u1', { paid: false }), deps({ advanceBillCursor }));
+
+		expect(res.status).toBe(200);
+		expect(advanceBillCursor).not.toHaveBeenCalled();
+	});
+
+	it('mark-paid on a one-off bill does not advance anything', async () => {
+		const advanceBillCursor = vi.fn(async (_id: string, _paidAt: string) => null);
+		const res = await PUT(event('u1', { paid: true }), deps({ advanceBillCursor }));
+
+		expect(res.status).toBe(200);
+		expect(advanceBillCursor).not.toHaveBeenCalled();
 	});
 });
 
