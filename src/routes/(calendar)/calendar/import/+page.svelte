@@ -6,12 +6,23 @@
 	export let form: ActionData;
 
 	let fileName = '';
+	let fileInput: HTMLInputElement | undefined;
+	/** Hides the success block so another file can be imported. */
+	let dismissed = false;
+	/** True while the import POST is in flight (blocks double-submit). */
+	let pending = false;
 
 	function onFileChange(e: Event) {
 		// SAFETY: this handler is only bound to the .ics file <input>,
 		// so currentTarget is always that input element when it fires.
 		const input = e.currentTarget as HTMLInputElement;
 		fileName = input.files?.[0]?.name ?? '';
+	}
+
+	function importAnother() {
+		dismissed = true;
+		fileName = '';
+		if (fileInput) fileInput.value = '';
 	}
 </script>
 
@@ -32,7 +43,7 @@
 		<strong>.ics</strong> files.
 	</p>
 
-	{#if form?.success}
+	{#if form?.success && !dismissed}
 		<div class="mb-6 rounded-xl border border-green-200 bg-green-50 p-5">
 			<p class="text-lg font-semibold text-green-800">
 				🎉 Imported {form.imported} event{form.imported === 1 ? '' : 's'}
@@ -45,12 +56,21 @@
 					No duplicates found.
 				{/if}
 			</p>
-			<a
-				href="/calendar"
-				class="mt-3 inline-block rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-			>
-				View your calendar
-			</a>
+			<div class="mt-3 flex flex-wrap gap-2">
+				<a
+					href="/calendar"
+					class="inline-block rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+				>
+					View your calendar
+				</a>
+				<button
+					type="button"
+					onclick={importAnother}
+					class="inline-block rounded-lg border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
+				>
+					Import another file
+				</button>
+			</div>
 		</div>
 	{:else}
 		{#if form?.error}
@@ -59,7 +79,19 @@
 			</div>
 		{/if}
 
-		<form method="POST" enctype="multipart/form-data" use:enhance class="space-y-5">
+		<form
+			method="POST"
+			enctype="multipart/form-data"
+			use:enhance={() => {
+				pending = true;
+				dismissed = false;
+				return async ({ update }) => {
+					pending = false;
+					await update();
+				};
+			}}
+			class="space-y-5"
+		>
 			<div>
 				<label for="calendarId" class="mb-1 block text-sm font-medium text-slate-700"
 					>Import into</label
@@ -99,16 +131,17 @@
 					accept=".ics,text/calendar"
 					class="sr-only"
 					required
+					bind:this={fileInput}
 					onchange={onFileChange}
 				/>
 			</label>
 
 			<button
 				type="submit"
-				disabled={!fileName}
+				disabled={!fileName || pending}
 				class="w-full rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
 			>
-				Import events
+				{pending ? 'Importing…' : 'Import events'}
 			</button>
 		</form>
 	{/if}

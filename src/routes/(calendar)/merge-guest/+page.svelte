@@ -4,7 +4,12 @@
 
 	export let data: PageData;
 
-	let busy = false;
+	let busyMerge = false;
+	let busySkip = false;
+	/** Two-tap inline confirm for the destructive "start fresh" path. */
+	let confirmSkip = false;
+
+	$: totalItems = data.guestEvents + data.guestTasks;
 </script>
 
 <div class="flex min-h-[70vh] items-center justify-center px-4">
@@ -31,12 +36,20 @@
 
 		<h1 class="text-2xl font-bold text-slate-900">Welcome back, {data.accountFirstName}</h1>
 		<p class="mt-2 text-slate-600">
-			You created
-			<strong>{data.guestEvents} event{data.guestEvents === 1 ? '' : 's'}</strong>
-			{#if data.guestTasks > 0}
+			{#if data.guestEvents > 0 && data.guestTasks > 0}
+				You created
+				<strong>{data.guestEvents} event{data.guestEvents === 1 ? '' : 's'}</strong>
 				and <strong>{data.guestTasks} task{data.guestTasks === 1 ? '' : 's'}</strong>
+				as a guest. Bring them into this account?
+			{:else if data.guestEvents > 0}
+				You created
+				<strong>{data.guestEvents} event{data.guestEvents === 1 ? '' : 's'}</strong>
+				as a guest. Bring {data.guestEvents === 1 ? 'it' : 'them'} into this account?
+			{:else}
+				You created
+				<strong>{data.guestTasks} task{data.guestTasks === 1 ? '' : 's'}</strong>
+				as a guest. Bring {data.guestTasks === 1 ? 'it' : 'them'} into this account?
 			{/if}
-			as a guest. Bring them into this account?
 		</p>
 
 		<ul class="mx-auto mt-5 max-w-xs space-y-1.5 text-left">
@@ -83,33 +96,63 @@
 				method="POST"
 				action="?/merge"
 				use:enhance={() => {
-					busy = true;
+					busyMerge = true;
+					return async ({ update }) => {
+						await update();
+						busyMerge = false;
+						busySkip = false;
+					};
 				}}
 			>
 				<button
 					type="submit"
-					disabled={busy}
+					disabled={busyMerge || busySkip}
 					class="w-full rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
 				>
-					{busy
-						? 'Bringing them over...'
-						: `Bring my ${data.guestEvents + data.guestTasks} items over`}
+					{busyMerge ? 'Bringing them over...' : `Bring my ${totalItems} items over`}
 				</button>
 			</form>
 			<form
 				method="POST"
 				action="?/skip"
 				use:enhance={() => {
-					busy = true;
+					busySkip = true;
+					return async ({ update }) => {
+						await update();
+						busyMerge = false;
+						busySkip = false;
+					};
 				}}
 			>
-				<button
-					type="submit"
-					disabled={busy}
-					class="text-sm font-medium text-slate-400 hover:text-slate-600"
-				>
-					Start fresh without them
-				</button>
+				{#if confirmSkip}
+					<div class="flex items-center justify-center gap-1.5">
+						<span class="text-xs font-medium text-red-600">Leave them behind?</span>
+						<button
+							type="submit"
+							disabled={busyMerge || busySkip}
+							class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+						>
+							{busySkip ? 'Starting fresh…' : 'Yes'}
+						</button>
+						<button
+							type="button"
+							onclick={() => (confirmSkip = false)}
+							disabled={busyMerge || busySkip}
+							class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+						>
+							No
+						</button>
+					</div>
+				{:else}
+					<button
+						type="button"
+						onclick={() => (confirmSkip = true)}
+						disabled={busyMerge || busySkip}
+						class="text-sm font-medium text-slate-400 hover:text-slate-600"
+					>
+						Start fresh without them
+					</button>
+				{/if}
 			</form>
 		</div>
 	</div>

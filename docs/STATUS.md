@@ -115,6 +115,33 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   <Toaster/> mounted in (marketing) layout. Deferred (out of scope):
   `(calendar)/calendar/+layout.svelte` "guest calendar" banner → Anonymous
   Account/claim vocabulary.
+- Calendar dead-ends + failure-feedback polish (2026-09-08, UNCOMMITTED):
+  Day empty-state "Add event" (createAt); import "Import another file"
+  reset + pending "Importing…" guard; checklist inline errors both
+  surfaces (title kept for retry); new `endDateBeforeStart` model guard
+  (End Date ≥ Start Date message + Create title/disabled reason, 4 TDD
+  tests); print "Jump to now" link + fridge "9a Dentist" times; merge
+  zero-count headline guard + skip two-tap confirm + split busy flags;
+  notifications `added_to_family` 👪 icon + copy widened only to
+  server-emitted types (no event-reply types exist — "reply to events"
+  deliberately NOT added); Day/Week drag confirm() → inline banner
+  (tests updated). Gates: EventFormModel 26 + Day/Week 43 green, full
+  vitest 2080/2081 (only known azure timeout flake), e2e/calendar 10
+  green, oxlint 0 on touched, check 0, build green. Note: touched
+  DayView/WeekView .test.ts (outside lane's file list — required, they
+  asserted the old confirm()).
+- Charm polish batch (celebrations + copy voice, 2026-09-08, UNCOMMITTED):
+  all-clear `All caught up 🎉 / Nothing open right now` block on personal
+  tasks (open=0 + completed>0, filter-gated) + family/tasks (tag-gated),
+  copied from family/[familyId]/tasks; empty voice (Top-3 all-clear, board
+  calm 👪, kids free-afternoon, bell home-front) + deep-link CTAs (glance
+  → /calendar?view=day, priorities/board → /calendar/tasks, kids →
+  /family); toast voice quoted titles (tasks delete `Deleted "X"`, clear
+  `… — fresh start`, Top-3 `Priority for "X" set to Y`); board streak-zero
+  `Start a streak — check off today's tasks 🔥`; dashboard verse warning
+  label → "today's verse" (exact-sentence banner needs a DayDashboard
+  template touch — out of lane scope); calendar first-run hint points at
+  ✨ Smart tasks. Tests: +7 across 5 card/bell suites (TDD red→green).
 
 ## Open
 

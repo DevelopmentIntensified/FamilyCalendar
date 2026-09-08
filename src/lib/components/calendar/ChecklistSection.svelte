@@ -20,6 +20,7 @@
 	let showChecklistInput = false;
 	let checklistTitle = '';
 	let checklistBusy = false;
+	let checklistError = '';
 	let tasksLoadedFor: string | null = null;
 
 	$: attachedCount = eventTasks.length;
@@ -53,6 +54,7 @@
 
 	async function createRow(title: string) {
 		checklistBusy = true;
+		checklistError = '';
 		try {
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
@@ -63,7 +65,12 @@
 				const json = await res.json();
 				eventTasks = [...eventTasks, json.task];
 				checklistTitle = '';
+			} else {
+				const j = await res.json().catch(() => ({}));
+				checklistError = j.error || "Couldn't add that task. Try again.";
 			}
+		} catch {
+			checklistError = "Couldn't add that task. Check your connection and try again.";
 		} finally {
 			checklistBusy = false;
 		}
@@ -218,10 +225,14 @@
 				on:click={() => {
 					showChecklistInput = false;
 					checklistTitle = '';
+					checklistError = '';
 				}}
 			>
 				Done
 			</button>
 		</div>
+		{#if checklistError}
+			<p role="alert" class="mt-1 text-xs text-red-600">{checklistError}</p>
+		{/if}
 	{/if}
 </div>

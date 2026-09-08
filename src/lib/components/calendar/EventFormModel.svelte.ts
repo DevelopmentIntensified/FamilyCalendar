@@ -438,6 +438,12 @@ export function createEventForm(config: EventFormConfig) {
 			return endDt.valueOf() < startDt.valueOf();
 		},
 
+		/** Pure date comparison: End Date must be >= Start Date, times aside. */
+		get endDateBeforeStart() {
+			if (!multiDay || !date || !endDate) return false;
+			return endDate < date;
+		},
+
 		get masterId() {
 			return config.initialEvent?.masterId || config.initialEvent?.id || null;
 		},
@@ -626,7 +632,7 @@ export function createEventForm(config: EventFormConfig) {
 		},
 
 		submitPreparation(): FormEventData | null {
-			if (this.endBeforeStart) return null;
+			if (this.endBeforeStart || this.endDateBeforeStart) return null;
 			saveRecentAttendants();
 			return this.toEventData();
 		},

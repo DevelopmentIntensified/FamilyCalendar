@@ -300,6 +300,7 @@
 	let showTaskInput = false;
 	let newTaskTitle = '';
 	let taskBusy = false;
+	let taskError = '';
 
 	async function loadEventTasks() {
 		if (event.isAd || !event?.id) return;
@@ -318,6 +319,7 @@
 		const title = newTaskTitle.trim();
 		if (!title || taskBusy) return;
 		taskBusy = true;
+		taskError = '';
 		try {
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
@@ -328,7 +330,12 @@
 				const body: { task?: ChecklistTask } = await res.json();
 				if (body.task) eventTasks = [...eventTasks, body.task];
 				newTaskTitle = '';
+			} else {
+				const j = await res.json().catch(() => ({}));
+				taskError = j.error || "Couldn't add that task. Try again.";
 			}
+		} catch {
+			taskError = "Couldn't add that task. Check your connection and try again.";
 		} finally {
 			taskBusy = false;
 		}
@@ -1086,11 +1093,15 @@
 										onclick={() => {
 											showTaskInput = false;
 											newTaskTitle = '';
+											taskError = '';
 										}}
 									>
 										Done
 									</button>
 								</form>
+								{#if taskError}
+									<p role="alert" class="mt-1 text-xs text-red-600">{taskError}</p>
+								{/if}
 							{/if}
 						</div>
 					{/if}

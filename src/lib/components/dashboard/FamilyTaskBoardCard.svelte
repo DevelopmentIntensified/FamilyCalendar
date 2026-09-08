@@ -153,7 +153,9 @@
 		class="mb-2.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-100 pb-2.5 sm:mb-3 sm:pb-3"
 	>
 		<span class="text-xs text-slate-500">
-			{openToday} open · {weekStreak > 0 ? `${weekStreak}-week streak` : 'no streak yet'}
+			{openToday} open · {weekStreak > 0
+				? `${weekStreak}-week streak`
+				: "Start a streak — check off today's tasks 🔥"}
 		</span>
 		<a
 			href="/calendar/tasks"
@@ -193,11 +195,17 @@
 	</form>
 
 	{#if groups.length === 0}
-		<p
+		<div
 			class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400"
 		>
-			No open family tasks
-		</p>
+			<p>No open family tasks — enjoy the calm 👪.</p>
+			<a
+				href="/calendar/tasks"
+				class="mt-1 inline-block text-xs font-semibold text-primary-600 hover:text-primary-700 hover:underline"
+			>
+				View all tasks →
+			</a>
+		</div>
 	{:else}
 		<div class="space-y-2.5">
 			{#each groups as group (group.userId)}

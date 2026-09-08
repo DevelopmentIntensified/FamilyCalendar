@@ -48,7 +48,13 @@
 				})}</a
 			>
 			{#if !data.isCurrentMonth}
-				<span class="text-sm font-medium text-primary-600">Jump to now ↓</span>
+				{@const now = new Date()}
+				<a
+					href="?year={now.getFullYear()}&month={now.getMonth() + 1}"
+					class="rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-100"
+				>
+					Jump to now ↓
+				</a>
 			{/if}
 			<a
 				href="?year={data.next.year}&month={data.next.month}"
@@ -119,7 +125,10 @@
 								></span>
 								<span
 									class="line-clamp-2 text-[10px] font-semibold text-slate-800 print:text-[11px]"
-									style="-webkit-print-color-adjust: exact;">{item.title}</span
+									style="-webkit-print-color-adjust: exact;"
+									>{#if !item.allDay && item.time}<span class="font-normal text-slate-500"
+											>{item.time}
+										</span>{/if}{item.title}</span
 								>
 							</li>
 						{/each}

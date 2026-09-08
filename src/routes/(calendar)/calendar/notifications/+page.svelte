@@ -16,7 +16,8 @@
 		assignment_pending: '📨',
 		assignment_accepted: '👍',
 		assignment_declined: '👋',
-		task_completed: '✅'
+		task_completed: '✅',
+		added_to_family: '👪'
 	};
 
 	function relativeTime(iso: string): string {
@@ -78,7 +79,8 @@
 			<p class="text-3xl" aria-hidden="true">🔔</p>
 			<p class="mt-3 text-sm font-semibold text-slate-700">No notifications yet</p>
 			<p class="mt-1 text-sm text-slate-400">
-				When family members accept, decline, or complete your tasks, you'll see it here.
+				When family members assign you tasks, accept, decline, or complete them — or add you to
+				their family — you'll see it here.
 			</p>
 		</div>
 	{:else}

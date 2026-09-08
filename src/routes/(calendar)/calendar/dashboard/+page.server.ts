@@ -316,7 +316,11 @@ export const load: PageServerLoad = async (event) => {
 	const verseG = await guard('verse', null, async () =>
 		userSettings?.showDailyVerse ? await getTodayVerse(verseTranslation) : null
 	);
-	warn(verseG.error);
+	// Verse gets its own friendly label: the banner template reads
+	// "Couldn't load {labels} just now — …", so the bare 'verse' label
+	// would render as "Couldn't load verse". (A full-sentence warning
+	// would need a DayDashboard banner touch — out of scope for this lane.)
+	if (verseG.error) loadWarnings.push("today's verse");
 	const dailyVerse = verseG.data;
 
 	return {

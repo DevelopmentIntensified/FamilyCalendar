@@ -34,4 +34,20 @@ describe('TodayGlanceCard all-day-only days', () => {
 		expect(screen.getByText('Holiday')).toBeInTheDocument();
 		expect(screen.queryByText(/No events scheduled/)).toBeNull();
 	});
+
+	it('links the empty state to the day view', () => {
+		render(TodayGlanceCard, {
+			props: {
+				dateLabel: 'Thursday, September 3',
+				isToday: true,
+				onEventClick: () => {},
+				events: []
+			}
+		});
+		expect(screen.getByText('No events scheduled today')).toBeInTheDocument();
+		expect(screen.getByRole('link', { name: /open day view/i })).toHaveAttribute(
+			'href',
+			'/calendar?view=day'
+		);
+	});
 });

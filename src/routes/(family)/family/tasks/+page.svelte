@@ -287,6 +287,13 @@
 			{/if}
 		{/if}
 
+		{#if openTasks.length === 0 && completedTasks.length > 0 && !tagFilter.trim()}
+			<div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
+				<p class="text-sm font-medium text-emerald-600">All caught up 🎉</p>
+				<p class="text-sm text-slate-500">Nothing open right now</p>
+			</div>
+		{/if}
+
 		<div class="space-y-1.5">
 			{#each openTasks as task (task.id)}
 				<div

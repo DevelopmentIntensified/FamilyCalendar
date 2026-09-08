@@ -98,7 +98,16 @@ export const load: PageServerLoad = async (event) => {
 	const leading = firstWeekday;
 	const totalCells = Math.ceil((leading + daysInMonth) / 7) * 7;
 
-	type CellItem = { title: string; color: string; allDay: boolean };
+	type CellItem = { title: string; color: string; allDay: boolean; time: string | null };
+
+	/** Short fridge-sheet start time: 9a, 2p, 2:30p. American, no padding. */
+	function shortTime(d: Date): string {
+		const h24 = d.getHours();
+		const suffix = h24 < 12 ? 'a' : 'p';
+		const h = h24 % 12 === 0 ? 12 : h24 % 12;
+		const m = d.getMinutes();
+		return m === 0 ? `${h}${suffix}` : `${h}:${String(m).padStart(2, '0')}${suffix}`;
+	}
 	const grid: {
 		day: number;
 		iso: string;
@@ -120,11 +129,17 @@ export const load: PageServerLoad = async (event) => {
 				if (!e.date || !(e.date instanceof Date)) return false;
 				return e.date.toDateString() === cellDate.toDateString();
 			})
-			.map((e) => ({
-				title: String(e.title),
-				color: String(e.color || personalColor),
-				allDay: !!e.allDay
-			}));
+			.map((e) => {
+				const allDay = !!e.allDay;
+				const rawStart: unknown = e.start;
+				const start = rawStart instanceof Date ? rawStart : new Date(String(rawStart));
+				return {
+					title: String(e.title),
+					color: String(e.color || personalColor),
+					allDay,
+					time: allDay || Number.isNaN(start.getTime()) ? null : shortTime(start)
+				};
+			});
 
 		grid.push({ day: cellDate.getDate(), iso, inMonth, isToday: iso === todayIso, items });
 	}

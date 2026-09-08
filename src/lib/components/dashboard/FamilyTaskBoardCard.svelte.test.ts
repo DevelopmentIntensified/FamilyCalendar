@@ -118,4 +118,19 @@ describe('FamilyTaskBoardCard - quick-add scoping (issue 021)', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Quick-add shortcuts help' }));
 		expect(screen.getByText(/type these right in the title/i)).toBeInTheDocument();
 	});
+
+	it('names the calm empty state with a tasks deep link', async () => {
+		await renderBoard();
+		expect(screen.getByText('No open family tasks — enjoy the calm 👪.')).toBeInTheDocument();
+		// Header link + the empty-state CTA both point at the task list.
+		const links = screen.getAllByRole('link', { name: /view all tasks/i });
+		expect(links).toHaveLength(2);
+		for (const a of links) expect(a).toHaveAttribute('href', '/calendar/tasks');
+	});
+
+	it('invites starting a streak when there is none', async () => {
+		await renderBoard();
+		expect(screen.getByText(/Start a streak — check off today's tasks 🔥/)).toBeInTheDocument();
+		expect(screen.queryByText(/no streak yet/i)).not.toBeInTheDocument();
+	});
 });

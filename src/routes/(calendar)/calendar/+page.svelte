@@ -534,7 +534,7 @@
 			<EmptyState
 				illustration={calendarNoteDate}
 				title="Blank calendar!"
-				hint="Add your first thing — or import a year of home upkeep in two taps."
+				hint="Add your first thing — or start from ✨ Smart tasks."
 			>
 				<a
 					href="/calendar/tasks"

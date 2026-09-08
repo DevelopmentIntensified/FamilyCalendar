@@ -32,6 +32,8 @@
 
 	const isSelected = (event: Event) => selectedIds.includes(event.id);
 	let moveError = '';
+	/** Inline ask to leave selection mode before a drag-move (no confirm()). */
+	let confirmExitSelection = false;
 	// Drag source id kept in component state: dataTransfer is unreliable
 	// across browsers (and jsdom), so internal moves don't depend on it.
 	let draggingId: string | null = null;
@@ -74,10 +76,6 @@
 		)
 			return FREQ_NOUN[frequency];
 		return undefined;
-	}
-
-	function isConfirmHandler(value: unknown): value is (message?: string) => boolean {
-		return typeof value === 'function';
 	}
 
 	function isStringValue(value: unknown): value is string {
@@ -155,9 +153,7 @@
 		// Selection mode owns taps; dragging asks to leave it first.
 		if (selectionMode) {
 			e.preventDefault();
-			if (isConfirmHandler(confirm) && confirm('Exit selection mode to move this event?')) {
-				onToggleSelectionMode(false);
-			}
+			confirmExitSelection = true;
 			return;
 		}
 		moveError = '';
@@ -521,6 +517,13 @@
 			<p class="max-w-xs text-lg font-medium text-slate-700">
 				Nothing scheduled. A free day is a gift — or add something fun.
 			</p>
+			<button
+				type="button"
+				onclick={() => createAt(selectedDate)}
+				class="mt-4 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+			>
+				Add event
+			</button>
 		</div>
 	{:else if dayEvents.length > 0}
 		{#if moveError}
@@ -711,6 +714,37 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Inline exit-selection ask (replaces window.confirm on drag) -->
+{#if confirmExitSelection}
+	<div
+		class="fixed bottom-14 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-3xl -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
+		role="alertdialog"
+		aria-label="Exit selection mode"
+	>
+		<div class="flex flex-wrap items-center gap-2">
+			<span class="text-xs font-medium text-slate-700">Exit selection mode to move this event?</span
+			>
+			<button
+				type="button"
+				onclick={() => {
+					confirmExitSelection = false;
+					onToggleSelectionMode(false);
+				}}
+				class="rounded-lg bg-primary-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary-700"
+			>
+				Exit selection
+			</button>
+			<button
+				type="button"
+				onclick={() => (confirmExitSelection = false)}
+				class="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+			>
+				Stay
+			</button>
+		</div>
+	</div>
+{/if}
 
 <!-- Event Detail Modal -->
 {#if selectedEvent}

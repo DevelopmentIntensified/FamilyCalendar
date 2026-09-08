@@ -111,8 +111,17 @@ describe('DayView - slot create and drag move', () => {
 	it('asks to leave selection mode when a drag starts there', async () => {
 		const props = setup({ events: [evt], selectionMode: true });
 		await fireEvent.dragStart(screen.getByText('Standup'));
-		expect(vi.mocked(confirm)).toHaveBeenCalledTimes(1);
+		// No native confirm: an inline banner asks instead.
+		expect(vi.mocked(confirm)).not.toHaveBeenCalled();
+		await screen.findByRole('alertdialog', { name: 'Exit selection mode' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Exit selection' }));
 		expect(props.onToggleSelectionMode).toHaveBeenCalledWith(false);
+	});
+
+	it('offers an Add event button on an empty day', async () => {
+		const props = setup({ events: [] });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add event' }));
+		expect(props.createAt).toHaveBeenCalledTimes(1);
 	});
 
 	it('does not start create on empty-grid taps while in selection mode', async () => {

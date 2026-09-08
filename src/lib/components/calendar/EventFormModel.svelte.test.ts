@@ -61,6 +61,54 @@ describe('EventFormModel - toEventData', () => {
 	});
 });
 
+describe('EventFormModel - endDateBeforeStart', () => {
+	function makeForm() {
+		return createEventForm({
+			calendars: [{ id: 'cal1', name: 'My Calendar' }],
+			familyMembers: [],
+			defaultCalendarId: 'cal1',
+			initialEvent: undefined
+		});
+	}
+
+	it('is true when the end date is before the start date', () => {
+		const form = makeForm();
+		form.date = '2026-07-17';
+		form.multiDay = true;
+		form.endDate = '2026-07-16';
+		expect(form.endDateBeforeStart).toBe(true);
+	});
+
+	it('is false when the end date equals or follows the start date', () => {
+		const form = makeForm();
+		form.date = '2026-07-17';
+		form.multiDay = true;
+		form.endDate = '2026-07-17';
+		expect(form.endDateBeforeStart).toBe(false);
+		form.endDate = '2026-07-18';
+		expect(form.endDateBeforeStart).toBe(false);
+	});
+
+	it('is false when multi-day is off or the end date is empty', () => {
+		const form = makeForm();
+		form.date = '2026-07-17';
+		form.endDate = '2026-07-16';
+		expect(form.endDateBeforeStart).toBe(false);
+		form.multiDay = true;
+		form.endDate = '';
+		expect(form.endDateBeforeStart).toBe(false);
+	});
+
+	it('blocks submitPreparation on a backwards end date even with no times', () => {
+		const form = makeForm();
+		form.title = 'Backwards';
+		form.date = '2026-07-17';
+		form.multiDay = true;
+		form.endDate = '2026-07-16';
+		expect(form.submitPreparation()).toBeNull();
+	});
+});
+
 describe('EventFormModel - invite prefill round-trip', () => {
 	const editConfig = {
 		calendars: [{ id: 'cal1', name: 'My Calendar' }],

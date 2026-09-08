@@ -217,7 +217,9 @@
 					</button>
 				</div>
 			{:else if notifications.length === 0}
-				<p class="px-4 py-4 text-sm text-slate-500">No notifications yet.</p>
+				<p class="px-4 py-4 text-sm text-slate-500">
+					No notifications yet — all quiet on the home front.
+				</p>
 			{:else}
 				<ul class="max-h-80 overflow-y-auto">
 					{#each notifications as notification (notification.id)}

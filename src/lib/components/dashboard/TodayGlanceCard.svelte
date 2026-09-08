@@ -120,10 +120,16 @@
 			{/each}
 		</div>
 	{:else if allDayEvents.length === 0}
-		<p
+		<div
 			class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400"
 		>
-			{isToday ? 'No events scheduled today' : 'No events scheduled on this day'}
-		</p>
+			<p>{isToday ? 'No events scheduled today' : 'No events scheduled on this day'}</p>
+			<a
+				href="/calendar?view=day"
+				class="mt-1 inline-block text-xs font-semibold text-primary-600 hover:text-primary-700 hover:underline"
+			>
+				Open day view →
+			</a>
+		</div>
 	{/if}
 </div>

@@ -45,11 +45,11 @@
 
 	/** Due/priority tones live in the shared priorityTone module. */
 
-	async function setPriority(taskId: string, priority: string) {
+	async function setPriority(task: (typeof tasks)[number], priority: string) {
 		if (busy) return;
-		busy = taskId;
+		busy = task.id;
 		try {
-			const res = await fetch(`/api/tasks/${taskId}`, {
+			const res = await fetch(`/api/tasks/${task.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ priority })
@@ -63,7 +63,7 @@
 							: priority === 'normal'
 								? 'Normal'
 								: priority;
-				pushToast({ message: `Priority set to ${label}.` });
+				pushToast({ message: `Priority for "${task.title}" set to ${label}.` });
 				await invalidateAll();
 			} else {
 				const j = await res.json().catch(() => ({}));
@@ -116,11 +116,17 @@
 	</h2>
 
 	{#if tasks.length === 0}
-		<p
+		<div
 			class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400"
 		>
-			Nothing on the plate right now
-		</p>
+			<p>All clear — nothing needs you right now.</p>
+			<a
+				href="/calendar/tasks"
+				class="mt-1 inline-block text-xs font-semibold text-primary-600 hover:text-primary-700 hover:underline"
+			>
+				View all tasks →
+			</a>
+		</div>
 	{:else}
 		<ol class="space-y-2">
 			{#each tasks as task, i (task.id)}
@@ -184,7 +190,7 @@
 						{#each PRIORITY_ORDER as p (p)}
 							<button
 								type="button"
-								onclick={() => setPriority(task.id, p)}
+								onclick={() => setPriority(task, p)}
 								disabled={busy === task.id || task.priority === p}
 								class="rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors {task.priority ===
 								p

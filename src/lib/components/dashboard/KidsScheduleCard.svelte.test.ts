@@ -9,9 +9,14 @@ afterEach(() => {
 describe('KidsScheduleCard day-aware empty state', () => {
 	it('labels today vs other days', () => {
 		const { unmount } = render(KidsScheduleCard, { props: { events: [], isToday: true } });
-		expect(screen.getByText("No kids' events today")).toBeInTheDocument();
+		expect(screen.getByText("No kids' events today — free afternoon!")).toBeInTheDocument();
 		unmount();
 		render(KidsScheduleCard, { props: { events: [], isToday: false } });
 		expect(screen.getByText("No kids' events this day")).toBeInTheDocument();
+	});
+
+	it('links the empty state to the family page', () => {
+		render(KidsScheduleCard, { props: { events: [], isToday: true } });
+		expect(screen.getByRole('link', { name: /view family/i })).toHaveAttribute('href', '/family');
 	});
 });

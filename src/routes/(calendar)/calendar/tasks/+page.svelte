@@ -569,7 +569,8 @@
 				const j = await res.json().catch(() => ({}));
 				actionError = j.error || "That didn't work. Try again.";
 			} else {
-				pushToast({ message: 'Task deleted.' });
+				const gone = allTasks.find((t) => t.id === id);
+				pushToast({ message: `Deleted "${gone?.title ?? 'Task'}".` });
 				await invalidateAll();
 			}
 		} catch {
@@ -591,7 +592,7 @@
 				actionError = j.error || "That didn't work. Try again.";
 				return;
 			}
-			pushToast({ message: 'Completed tasks cleared.' });
+			pushToast({ message: 'Completed tasks cleared — fresh start.' });
 			confirmClear = false;
 			await invalidateAll();
 		} catch {
@@ -1161,6 +1162,13 @@
 					</div>
 				{/each}
 			</div>
+
+			{#if openTasks.length === 0 && completedTasks.length > 0 && !filterActive && !chipActive}
+				<div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
+					<p class="text-sm font-medium text-emerald-600">All caught up 🎉</p>
+					<p class="text-sm text-slate-500">Nothing open right now</p>
+				</div>
+			{/if}
 
 			<!-- Completed -->
 			{#if filteredCompletedTasks.length > 0}
