@@ -93,113 +93,119 @@ export const load: PageServerLoad = async (event) => {
 		return redirect(302, '/calendar/dashboard');
 	}
 
-	const personalG = await guard('calendar', { userCalendar: null, userEvents: [] }, async () => {
-		const userCalendar = await ensurePersonalCalendar(userId);
-		let userEvents: CalendarEvent[] = [];
-		if (userCalendar) {
-			userEvents = await db
-				.select()
-				.from(events)
-				.where(
-					and(
-						eq(events.calendarId, userCalendar.id),
-						or(
-							isNotNull(events.recurrenceFrequency),
-							and(
-								lte(events.start, gridWindow.endIso),
-								or(
-									gte(events.end, gridWindow.startIso),
-									and(isNull(events.end), gte(events.start, gridWindow.startIso))
-								)
-							)
-						)
-					)
-				)
-				.orderBy(events.start);
-		}
-		return { userCalendar, userEvents };
-	});
-	warn(personalG.error);
-	const userCalendar = personalG.data.userCalendar;
-	const userEvents: CalendarEvent[] = personalG.data.userEvents;
-
-	let familyEventsData: CalendarEvent[] = [];
-	let familyCalendarColor = '#e0ffff';
-
+	// Wave 1 (#041): personal calendar, family scope, ads, verse are
+	// independent (settings/familyId/zone already in hand) — one wave.
 	const userCalendarColor = userSettings?.color || '#fa8072';
-	let calendarIds: { id: string; name: string; color: string }[] = [];
-
-	if (userCalendar) {
-		calendarIds.push({ id: userCalendar.id, name: 'Personal Calendar', color: userCalendarColor });
-	}
-
-	if (familyId) {
-		const familyG = await guard(
-			'family',
-			{ familyEventsData, familyCalendarColor, calendarIds },
-			async () => {
-				const [family] = await db.select().from(families).where(eq(families.id, familyId));
-				const color = family?.color || '#e0ffff';
-
-				let evts: CalendarEvent[] = [];
-				const ids = [...calendarIds];
-				const familyCals = await db
+	// Zone derives from the layout's settings row — no third SELECT (#041).
+	const userZone = zoneFromSettings(userSettings) ?? 'UTC';
+	const verseTranslation = userSettings?.verseTranslation ?? 'esv';
+	const [personalG, familyG, adsG, verseG] = await Promise.all([
+		guard('calendar', { userCalendar: null, userEvents: [] }, async () => {
+			const userCalendar = await ensurePersonalCalendar(userId);
+			let userEvents: CalendarEvent[] = [];
+			if (userCalendar) {
+				userEvents = await db
 					.select()
-					.from(calendars)
-					.where(eq(calendars.familyId, familyId));
-				if (familyCals.length > 0) {
-					evts = await db
-						.select()
-						.from(events)
-						.where(
-							and(
-								eq(events.calendarId, familyCals[0].id),
-								or(
-									isNotNull(events.recurrenceFrequency),
-									and(
-										lte(events.start, gridWindow.endIso),
-										or(
-											gte(events.end, gridWindow.startIso),
-											and(isNull(events.end), gte(events.start, gridWindow.startIso))
-										)
+					.from(events)
+					.where(
+						and(
+							eq(events.calendarId, userCalendar.id),
+							or(
+								isNotNull(events.recurrenceFrequency),
+								and(
+									lte(events.start, gridWindow.endIso),
+									or(
+										gte(events.end, gridWindow.startIso),
+										and(isNull(events.end), gte(events.start, gridWindow.startIso))
 									)
 								)
 							)
 						)
-						.orderBy(events.start);
-					ids.push({ id: familyCals[0].id, name: family?.name || 'Family Calendar', color });
-				}
-
-				// Roster comes from the group layout (#041) — mapped once at the top.
-				return {
-					familyEventsData: evts,
-					familyCalendarColor: color,
-					calendarIds: ids
-				};
+					)
+					.orderBy(events.start);
 			}
-		);
-		warn(familyG.error);
-		familyEventsData = familyG.data.familyEventsData;
-		familyCalendarColor = familyG.data.familyCalendarColor;
-		calendarIds = familyG.data.calendarIds;
-	}
+			return { userCalendar, userEvents };
+		}),
+		guard(
+			'family',
+			{ familyEventsData: [], familyCalendarColor: '#e0ffff', calendarIds: [] },
+			async () => {
+				if (!familyId) {
+					return { familyEventsData: [], familyCalendarColor: '#e0ffff', calendarIds: [] };
+				}
+				{
+					const [family] = await db.select().from(families).where(eq(families.id, familyId));
+					const color = family?.color || '#e0ffff';
 
-	// Zone derives from the layout's settings row — no third SELECT (#041).
-	const userZone = zoneFromSettings(userSettings) ?? 'UTC';
+					let evts: CalendarEvent[] = [];
+					const ids: { id: string; name: string; color: string }[] = [];
+					const familyCals = await db
+						.select()
+						.from(calendars)
+						.where(eq(calendars.familyId, familyId));
+					if (familyCals.length > 0) {
+						evts = await db
+							.select()
+							.from(events)
+							.where(
+								and(
+									eq(events.calendarId, familyCals[0].id),
+									or(
+										isNotNull(events.recurrenceFrequency),
+										and(
+											lte(events.start, gridWindow.endIso),
+											or(
+												gte(events.end, gridWindow.startIso),
+												and(isNull(events.end), gte(events.start, gridWindow.startIso))
+											)
+										)
+									)
+								)
+							)
+							.orderBy(events.start);
+						ids.push({ id: familyCals[0].id, name: family?.name || 'Family Calendar', color });
+					}
 
-	const adsG = await guard('ads', { hasAdConsent: false, adEventsData: [] }, async () => {
-		const hasAdConsent = await checkUserAdConsent(userId);
-		const show = hasAdConsent && (userSettings?.showAdsAsEvents ?? false);
-		let adEventsData: CalendarEvent[] = [];
-		if (show) {
-			const now = zonedNow(userZone);
-			adEventsData = (await getAdEventsForUser(userId, now.month, now.year)).map(toCalendarEvent);
-		}
-		return { hasAdConsent, adEventsData };
-	});
+					// Roster comes from the group layout (#041) — mapped once at the top.
+					return {
+						familyEventsData: evts,
+						familyCalendarColor: color,
+						calendarIds: ids
+					};
+				}
+			}
+		),
+		guard('ads', { hasAdConsent: false, adEventsData: [] }, async () => {
+			const hasAdConsent = await checkUserAdConsent(userId);
+			const show = hasAdConsent && (userSettings?.showAdsAsEvents ?? false);
+			let adEventsData: CalendarEvent[] = [];
+			if (show) {
+				const now = zonedNow(userZone);
+				adEventsData = (await getAdEventsForUser(userId, now.month, now.year)).map(toCalendarEvent);
+			}
+			return { hasAdConsent, adEventsData };
+		}),
+		guard('verse', null, async () =>
+			userSettings?.showDailyVerse ? await getTodayVerse(verseTranslation) : null
+		)
+	]);
+	warn(personalG.error);
+	warn(familyG.error);
 	warn(adsG.error);
+	warn(verseG.error);
+	const userCalendar = personalG.data.userCalendar;
+	const userEvents: CalendarEvent[] = personalG.data.userEvents;
+	const familyEventsData: CalendarEvent[] = familyG.data.familyEventsData;
+	const familyCalendarColor: string = familyG.data.familyCalendarColor;
+	const calendarIds: { id: string; name: string; color: string }[] = [
+		...(userCalendar
+			? [{ id: userCalendar.id, name: 'Personal Calendar', color: userCalendarColor }]
+			: []),
+		...familyG.data.calendarIds
+	];
 	const showAds = adsG.data.hasAdConsent && (userSettings?.showAdsAsEvents ?? false);
 	const adEventsData: CalendarEvent[] = adsG.data.adEventsData;
+	const dailyVerse = verseG.data;
 
 	// Streamed below the shell (#041): tasks + events resolve after first
 	// paint instead of blocking the whole response. Each leg degrades to
@@ -267,13 +273,6 @@ export const load: PageServerLoad = async (event) => {
 			return { user: [], family: [], warning: 'events' as string | null };
 		}
 	})();
-
-	const verseTranslation = userSettings?.verseTranslation ?? 'esv';
-	const verseG = await guard('verse', null, async () =>
-		userSettings?.showDailyVerse ? await getTodayVerse(verseTranslation) : null
-	);
-	warn(verseG.error);
-	const dailyVerse = verseG.data;
 
 	// One streamed promise: shell (calendars, roster, settings) paints
 	// first; grid + chips fill in when the pipelines resolve.
