@@ -1,6 +1,6 @@
-# 036 — Bills parked as own sub-app section
+# 036 — Bills parked as own sub-app section (PAUSED — do not triage)
 
-Status: done
+Status: done (parked; PAUSED — do not check this area for issues until the user unpauses it)
 
 ## Done
 
