@@ -25,7 +25,7 @@ export const roadmap: RoadmapSection[] = [
 			{
 				title: 'Bill tracking',
 				description:
-					'Add, edit, and mark bills paid, with overdue badges and a clear list your whole family can see.'
+					'Add, edit, and mark bills paid, with overdue badges and a clear list your whole family can see — maturing as its own Bills section with spending reports.'
 			},
 			{
 				title: 'Receipt scanning',

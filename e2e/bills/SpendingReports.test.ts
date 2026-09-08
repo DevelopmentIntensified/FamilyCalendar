@@ -72,11 +72,11 @@ test('Spending reports smoke: bills link, page renders, drill-down', async ({ pa
 	}
 
 	// The bills page header links to Spending.
-	await page.goto('/calendar/bills');
+	await page.goto('/bills');
 	await expect(page.getByRole('link', { name: 'Spending' })).toBeVisible();
 
 	// Reports page renders with the seeded months as columns.
-	await page.goto('/calendar/spending');
+	await page.goto('/spending');
 	await expect(page.getByRole('heading', { name: 'Spending' })).toBeVisible();
 	await expect(page.getByText('Monthly trend by category')).toBeVisible();
 	await expect(page.getByText('Where it went')).toBeVisible();
@@ -92,6 +92,6 @@ test('Spending reports smoke: bills link, page renders, drill-down', async ({ pa
 	await expect(page.getByLabel('Category bills').getByText('Rent')).toBeVisible();
 
 	// Range navigation works.
-	await page.goto('/calendar/spending?range=all');
+	await page.goto('/spending?range=all');
 	await expect(page.getByText('Monthly trend by category')).toBeVisible();
 });

@@ -80,7 +80,7 @@
 				if (from) params.set('from', from);
 				if (to) params.set('to', to);
 			}
-			await goto(`/calendar/spending?${params.toString()}`);
+			await goto(`/spending?${params.toString()}`);
 		} finally {
 			loading = false;
 		}

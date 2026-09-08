@@ -1,0 +1,19 @@
+// +layout.server.ts
+import { getUserSettings } from '$lib/server/db/actions/userSettings';
+import { redirect } from '@sveltejs/kit';
+import type { LayoutServerLoad } from './$types';
+
+// SAME auth guard as the calendar group layout — bills is parked as its
+// own section but stays behind login.
+export const load: LayoutServerLoad = async (event) => {
+	if (!event.locals.user) {
+		return redirect(302, '/login');
+	}
+	const userSettings = await getUserSettings(event.locals.user.id);
+	return {
+		pathname: event.url.pathname,
+		isLoggedIn: true,
+		user: event.locals.user,
+		userSettings
+	};
+};

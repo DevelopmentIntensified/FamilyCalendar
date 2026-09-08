@@ -66,7 +66,7 @@ async function login(page: Page) {
 test('PDF import: image-only receipt auto-routes through OCR, no dead end', async ({ page }) => {
 	test.setTimeout(120_000);
 	await login(page);
-	await page.goto('/calendar/bills');
+	await page.goto('/bills');
 
 	const pdfInput = page.getByLabel('Pick a receipt PDF to import');
 	await pdfInput.setInputFiles('e2e/test-data/testrecipt.pdf');

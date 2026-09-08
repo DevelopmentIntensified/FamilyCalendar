@@ -86,6 +86,10 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   bare-amount `am`-lookahead fix (`35.99 amazon` → 3599), `spendByMerchant`
   export (normalized grouping, manual-only, limit 8), spending page Top
   merchants section (top-8 table + merchant drill-down reusing the bill row)
+- #036 Bills parked as own sub-app section (2026-09-08): `/calendar/bills`
+  → `/bills`, `/calendar/spending` → `/spending` under new `(bills)` route
+  group (own layout + auth guard, back-to-Calendar link); 301 stubs at old
+  URLs; Bills entry stripped from main nav; APIs/services/schema untouched
 
 ## Open
 

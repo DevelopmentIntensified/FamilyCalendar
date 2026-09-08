@@ -77,7 +77,7 @@ test('Bills CRUD: create via API, list in UI, delete', async ({ page }) => {
 	expect(rows[0].amountCents).toBe(12000);
 	expect(rows[0].category).toBe('utilities');
 
-	await page.goto('/calendar/bills');
+	await page.goto('/bills');
 	await page.waitForLoadState('networkidle');
 	await expect(page.getByText('Electric')).toBeVisible();
 	// exact: the Spend-by-category card can show the same amount as a bar.
@@ -102,7 +102,7 @@ test('Bills detail row: expand works with no receipt storage (issue 010 strip)',
 	});
 	expect(createResp.ok()).toBe(true);
 
-	await page.goto('/calendar/bills');
+	await page.goto('/bills');
 	await page.waitForLoadState('networkidle');
 	await expect(page.getByText('Water')).toBeVisible();
 
@@ -147,7 +147,7 @@ test('Recurring bill: create, badge, mark-paid advances due date (issue 006)', a
 	expect(rows[0].interval).toBe(1);
 	expect(rows[0].dueDate?.slice(0, 10)).toBe(iso(due));
 
-	await page.goto('/calendar/bills');
+	await page.goto('/bills');
 	await page.waitForLoadState('networkidle');
 	await expect(page.getByText('Rent')).toBeVisible();
 	await expect(page.getByTitle('Recurring bill')).toBeVisible();

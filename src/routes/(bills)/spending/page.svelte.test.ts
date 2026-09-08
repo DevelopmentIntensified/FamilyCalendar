@@ -153,7 +153,7 @@ describe('Spending page (#032)', () => {
 		fireEvent.change(select);
 
 		await vi.waitFor(() => {
-			expect(goto).toHaveBeenCalledWith('/calendar/spending?range=this-year');
+			expect(goto).toHaveBeenCalledWith('/spending?range=this-year');
 		});
 	});
 
@@ -171,7 +171,7 @@ describe('Spending page (#032)', () => {
 		fireEvent.input(from);
 
 		await vi.waitFor(() => {
-			expect(goto).toHaveBeenCalledWith('/calendar/spending?range=custom&from=2026-01-01');
+			expect(goto).toHaveBeenCalledWith('/spending?range=custom&from=2026-01-01');
 		});
 	});
 

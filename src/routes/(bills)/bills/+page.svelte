@@ -232,7 +232,7 @@
 
 	async function onMonthChange() {
 		selectedCategory = null;
-		await goto(`/calendar/bills?month=${encodeURIComponent(spendMonth)}`);
+		await goto(`/bills?month=${encodeURIComponent(spendMonth)}`);
 	}
 
 	const visibleBills = $derived.by(() => {
@@ -786,7 +786,7 @@
 	<Breadcrumbs crumbs={[{ label: 'Calendar', href: '/calendar' }, { label: 'Bills' }]} />
 	<h1 class="mt-2 flex items-center justify-between gap-2 text-2xl font-bold text-slate-900">
 		Bills <a
-			href="/calendar/spending"
+			href="/spending"
 			class="min-h-[44px] rounded px-1 py-2 text-base font-semibold text-sky-700 hover:underline"
 			>Spending</a
 		>
