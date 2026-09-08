@@ -677,7 +677,13 @@
 
 <div class="mx-auto max-w-2xl px-4 py-6">
 	<Breadcrumbs crumbs={[{ label: 'Calendar', href: '/calendar' }, { label: 'Bills' }]} />
-	<h1 class="mt-2 text-2xl font-bold text-slate-900">Bills</h1>
+	<h1 class="mt-2 flex items-center justify-between gap-2 text-2xl font-bold text-slate-900">
+		Bills <a
+			href="/calendar/spending"
+			class="min-h-[44px] rounded px-1 py-2 text-base font-semibold text-sky-700 hover:underline"
+			>Spending</a
+		>
+	</h1>
 
 	{#if data.loadWarnings.length > 0}
 		<div

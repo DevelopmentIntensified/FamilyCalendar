@@ -30,6 +30,13 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #026 Creator/RSVP indications: creatorName on family events (single users
   lookup, no N+1), "by <First>" chips in month/week/day/list/day-modal/action-sheet,
   "Created by" row in EventModal (uncommitted; print + dashboard deferred)
+- #032 Spending reports page /calendar/spending (2026-09-07): presets +
+  custom from/to range, monthly trend table (categories × months, share
+  shading), per-category bars + drill-down, Undated row under All time,
+  Top line items card, empty state + skeletons, bills-page "Spending"
+  link; spendDetail extended (presetMonthRange, monthKeysBetween,
+  billsInMonthRange, spendByMonth, topItems) — 2 queries/load, fold in
+  memory
 - #031 Receipt line items + labels + Tag Table + Spend Detail (2026-09-07):
   receiptItems + itemTags tables (sql/011 — NEON PENDING), tax/fees
   categories everywhere, 2-query prediction chain user → global majority,
