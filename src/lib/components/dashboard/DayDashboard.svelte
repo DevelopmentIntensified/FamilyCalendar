@@ -8,7 +8,6 @@
 	import FamilyTaskBoardCard from './FamilyTaskBoardCard.svelte';
 	import MemberStrip from './MemberStrip.svelte';
 	import KidsScheduleCard from './KidsScheduleCard.svelte';
-	import MealsCard from './MealsCard.svelte';
 	import EventModal from '$lib/components/calendar/EventModal.svelte';
 
 	export let dateLabel: string;
@@ -59,13 +58,10 @@
 		location: string | null;
 		kids: string[];
 	}[];
-	export let meals: { id: string; kind: string; label: string }[];
 	/** Tasks completed within the viewed day (for the Completed Today card). */
 	export let completedToday: { id: string; title: string; completedAt: string | null }[] = [];
 	/** Section labels whose model failed to load — shown as a banner, not a 500. */
 	export let loadWarnings: string[] = [];
-	/** Viewed day as 'YYYY-MM-DD' (user zone) — meals quick-add posts this. */
-	export let dateKey: string;
 	// Per-module visibility (family master switch AND per-user hides). Absent
 	// keys default to visible so the component stays safe when not supplied.
 	export let modules: Record<string, boolean> = {};
@@ -135,14 +131,9 @@
 		</div>
 	{/if}
 
-	{#if familyId && (visible('kids') || visible('meals'))}
+	{#if familyId && visible('kids')}
 		<div class="grid gap-4 md:grid-cols-2">
-			{#if familyId && visible('kids')}
-				<KidsScheduleCard events={kidsSchedule} {isToday} />
-			{/if}
-			{#if familyId && visible('meals')}
-				<MealsCard {meals} {dateKey} />
-			{/if}
+			<KidsScheduleCard events={kidsSchedule} {isToday} />
 		</div>
 	{/if}
 </div>

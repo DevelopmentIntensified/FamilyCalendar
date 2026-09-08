@@ -86,8 +86,6 @@
 		familyTasks={data.familyTasks}
 		familyMembers={data.familyMembers}
 		kidsSchedule={data.kidsSchedule}
-		meals={data.meals}
-		dateKey={data.dateKey}
 		loadWarnings={data.loadWarnings ?? []}
 	/>
 </div>

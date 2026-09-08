@@ -97,6 +97,10 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   `/spending` sub-app must NOT be triaged or checked for issues until the
   user unpauses it. Open bills items below (#003/#005/#007–#010, word-
   preservation correction) are frozen, not actionable.
+- Meals area PAUSED (2026-09-08, user directive — same treatment as bills):
+  `MealsCard` unmounted from the dashboard, server no longer loads meals;
+  component + `/api/meals` + actions + tables parked in place (#037). Do
+  NOT triage meals until unpaused.
 - #003 Bill Tracking PRD (parent; slices #005–#011 pending)
 - #005 Bill calendar overlay (blocked by #004 — #004 done, so startable)
 - #006 Recurring bills (2026-09-08): frequency + interval on bills,

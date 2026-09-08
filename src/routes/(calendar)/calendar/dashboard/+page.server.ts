@@ -1,9 +1,8 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { CalendarEvent, Meal, UserSettings } from '$lib/server/db/schema';
+import type { CalendarEvent, UserSettings } from '$lib/server/db/schema';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
-import { getMealsByDate } from '$lib/server/db/actions/meals';
 import {
 	getTasksForUser,
 	getTasksForFamily,
@@ -118,8 +117,7 @@ export const load: PageServerLoad = async (event) => {
 		familySwitches,
 		userSettings?.hiddenDashboardModules ?? []
 	);
-	const familyModulesVisible =
-		modules.board || modules.memberStrip || modules.kids || modules.meals;
+	const familyModulesVisible = modules.board || modules.memberStrip || modules.kids;
 
 	// Overdue Recurring Tasks stick to today first (cursor v3), so "today"
 	// surfaces the same pinned occurrences the calendar would.
@@ -138,8 +136,8 @@ export const load: PageServerLoad = async (event) => {
 	const openFamilyTasks = familyTasks.filter((t) => !t.completedAt);
 
 	// Events for the day, from the personal + (optional) family calendar.
-	// One guarded pipeline so an expansion/RSVP failure still leaves tasks,
-	// meals, and the verse on screen.
+	// One guarded pipeline so an expansion/RSVP failure still leaves tasks
+	// and the verse on screen.
 	const eventsG = await guard('events', [], async () => {
 		const { events: userEventsData } = await getUserDayCalendar(userId);
 		let familyEventsData: CalendarEvent[] = [];
@@ -269,16 +267,6 @@ export const load: PageServerLoad = async (event) => {
 		kidsSchedule = familyG.data.kidsSchedule;
 	}
 
-	// Meals for the viewed day, keyed by the day's 'YYYY-MM-DD' label in the
-	// viewer's zone (decision 12). Family module — hidden without a family.
-	const dateKey = dayStart.toFormat('yyyy-MM-dd');
-	let meals: Meal[] = [];
-	if (familyId && modules.meals) {
-		const mealsG = await guard('meals', [], () => getMealsByDate(familyId, dateKey));
-		warn(mealsG.error);
-		meals = mealsG.data;
-	}
-
 	// Top-3 ranking: mine-first → priority → overdue → due-today → next,
 	// bucketed relative to the viewed day (rankTop3 returns bare rows).
 	// SAFETY: userTasks rows are TaskWithTags, which carries every RankableTask field.
@@ -334,7 +322,6 @@ export const load: PageServerLoad = async (event) => {
 	return {
 		zone,
 		dayISO: dayStartIso,
-		dateKey,
 		isToday,
 		meId: userId,
 		userSettings,
@@ -350,7 +337,6 @@ export const load: PageServerLoad = async (event) => {
 		completedToday,
 		dailyVerse,
 		kidsSchedule,
-		meals,
 		loadWarnings
 	};
 };
