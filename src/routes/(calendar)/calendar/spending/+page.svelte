@@ -23,6 +23,7 @@
 	let customTo = $state('');
 	let loading = $state(false);
 	let expandedCategory: string | null = $state(null);
+	let expandedMerchant: string | null = $state(null);
 	let topSort: 'cents' | 'count' = $state('cents');
 
 	$effect(() => {
@@ -71,6 +72,7 @@
 		if (loading) return;
 		loading = true;
 		expandedCategory = null;
+		expandedMerchant = null;
 		try {
 			const params = new URLSearchParams();
 			params.set('range', next);
@@ -138,6 +140,41 @@
 		[...data.topItems].sort((a, b) =>
 			topSort === 'cents' ? b.cents - a.cents : b.count - a.count || b.cents - a.cents
 		)
+	);
+
+	// Top merchants (#035): bills grouped by normalized merchant title
+	// (lowercased/trimmed — the spendByMerchant contract), folded here from
+	// the load's in-range bills so no extra query is needed. Rows expand
+	// into their bills reusing the drill-down bill row below.
+	const merchants = $derived.by(() => {
+		const groups = new Map<string, { merchant: string; cents: number; billIds: string[] }>();
+		for (const bill of data.bills) {
+			const key = bill.title.toLowerCase().trim().replace(/\s+/g, ' ');
+			if (!key) continue;
+			const group = groups.get(key);
+			if (group) {
+				group.cents += bill.amountCents;
+				group.billIds.push(bill.id);
+			} else {
+				groups.set(key, {
+					merchant: bill.title.trim(),
+					cents: bill.amountCents,
+					billIds: [bill.id]
+				});
+			}
+		}
+		return [...groups.values()].sort((a, b) => b.cents - a.cents).slice(0, 8);
+	});
+
+	const merchantBills = $derived.by(() => {
+		if (!expandedMerchant) return [];
+		const group = merchants.find((m) => m.merchant === expandedMerchant);
+		if (!group) return [];
+		return data.bills.filter((bill) => group.billIds.includes(bill.id));
+	});
+
+	const merchantTotal = $derived(
+		expandedMerchant ? (merchants.find((m) => m.merchant === expandedMerchant)?.cents ?? 0) : 0
 	);
 </script>
 
@@ -419,6 +456,47 @@
 			</section>
 		{/if}
 
+		<!-- Top merchants -->
+		{#if merchants.length > 0}
+			<section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+				{@render cardHeader('Top merchants')}
+				{#if loading}
+					<div class="mt-3 flex flex-col gap-2">{@render skeletonRows(3)}</div>
+				{:else}
+					<ul class="mt-2 flex flex-col divide-y divide-slate-100">
+						{#each merchants as group (group.merchant)}
+							<li>
+								<button
+									type="button"
+									class="min-h-[44px] w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-100 {expandedMerchant ===
+									group.merchant
+										? 'bg-slate-100'
+										: ''}"
+									aria-pressed={expandedMerchant === group.merchant}
+									onclick={() =>
+										(expandedMerchant =
+											expandedMerchant === group.merchant ? null : group.merchant)}
+								>
+									<div class="flex items-baseline justify-between gap-2 text-sm">
+										<span class="min-w-0 flex-1 truncate font-medium text-slate-700">
+											{group.merchant}
+										</span>
+										<span class="shrink-0 font-mono text-slate-900">
+											${dollars(group.cents)}
+											<span class="text-xs font-normal text-slate-500">
+												{group.billIds.length}
+												{group.billIds.length === 1 ? 'bill' : 'bills'}
+											</span>
+										</span>
+									</div>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+		{/if}
+
 		<!-- Drill-down -->
 		{#if expandedCategory}
 			<section
@@ -439,6 +517,40 @@
 				</div>
 				<ul class="mt-2 flex flex-col divide-y divide-slate-100">
 					{#each drillBills as bill (bill.id)}
+						<li class="flex items-center justify-between gap-2 py-2 text-sm">
+							<span class="min-w-0 flex-1 truncate font-medium text-slate-900">{bill.title}</span>
+							<span class="shrink-0 text-xs text-slate-500">{dueLabel(bill.dueDate)}</span>
+							<span class="shrink-0 font-mono font-semibold text-slate-900">
+								${dollars(bill.amountCents)}
+							</span>
+						</li>
+					{:else}
+						<li class="py-2 text-sm text-slate-500">No bills in this view.</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
+
+		<!-- Merchant drill-down -->
+		{#if expandedMerchant}
+			<section
+				class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+				aria-label="Merchant bills"
+			>
+				<div class="flex items-center justify-between gap-2">
+					<h2 class="text-sm font-semibold text-slate-700">
+						{expandedMerchant} — ${dollars(merchantTotal)}
+					</h2>
+					<button
+						type="button"
+						class="min-h-[44px] rounded px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-50"
+						onclick={() => (expandedMerchant = null)}
+					>
+						Close
+					</button>
+				</div>
+				<ul class="mt-2 flex flex-col divide-y divide-slate-100">
+					{#each merchantBills as bill (bill.id)}
 						<li class="flex items-center justify-between gap-2 py-2 text-sm">
 							<span class="min-w-0 flex-1 truncate font-medium text-slate-900">{bill.title}</span>
 							<span class="shrink-0 text-xs text-slate-500">{dueLabel(bill.dueDate)}</span>

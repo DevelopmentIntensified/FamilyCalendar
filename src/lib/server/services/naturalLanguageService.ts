@@ -2164,7 +2164,7 @@ function dollarsToCents(raw: string): number | null {
 const BILL_AMOUNT_STEPS: RegExp[] = [
 	/\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/,
 	/\b(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\s*(?:dollars?|usd|bucks)\b/i,
-	/\b(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\b(?!\s*(?:st|nd|rd|th|:|am|pm))/i
+	/\b(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\b(?!\s*(?:(?:st|nd|rd|th|am|pm)\b|:))/i
 ];
 
 /** Edge-only title stop words: schedule connectors and weekday names left
@@ -2189,8 +2189,81 @@ const BILL_TITLE_STOP = new Set([
 	'starting',
 	'starts',
 	'with',
+	// Purchase fillers (#035): "walmart receipt 120" titles Walmart, but
+	// "electric bill" keeps its bill — bill stays OUT of this set.
+	'receipt',
+	'receipts',
+	'order',
+	'orders',
+	'invoice',
+	'invoices',
 	...FULL_WEEKDAYS
 ]);
+
+/**
+ * Known store names → canonical title casing (#035). Keys are matched
+ * against the lowercased, whitespace-collapsed title; values are the
+ * display titles ("home depot 45" → Home Depot, "$45 lowes" → Lowe's).
+ * Unknown merchants keep their words as written (generic fallback).
+ */
+const BILL_MERCHANTS: ReadonlyMap<string, string> = new Map([
+	['home depot', 'Home Depot'],
+	['homedepot', 'Home Depot'],
+	['home-depot', 'Home Depot'],
+	["lowe's", "Lowe's"],
+	['lowes', "Lowe's"],
+	['walmart', 'Walmart'],
+	['wal-mart', 'Walmart'],
+	['amazon', 'Amazon']
+]);
+
+/** Purchase fillers dropped only when a known merchant is present
+ * ("walmart bill 120" → Walmart); "electric bill" has no merchant and
+ * keeps its bill. */
+const BILL_MERCHANT_FILLER = new Set([
+	'bill',
+	'bills',
+	'receipt',
+	'receipts',
+	'order',
+	'orders',
+	'invoice',
+	'invoices'
+]);
+
+/**
+ * Canonicalizes a known merchant inside a parsed bill title (#035). An
+ * exact title match returns the canonical name ("walmart receipt 120" →
+ * Walmart after filler stripping); a title with extra words keeps them
+ * with the merchant part canonicalized ("home depot paint" →
+ * "Home Depot paint"). When a merchant is present, purchase fillers drop
+ * anywhere ("walmart bill" → Walmart). Unknown merchants pass through
+ * untouched.
+ */
+function canonicalMerchantTitle(title: string | null): string | null {
+	if (!title) return title;
+	const collapsed = title.trim().replace(/\s+/g, ' ');
+	const exact = BILL_MERCHANTS.get(collapsed.toLowerCase());
+	if (exact) return exact;
+	let out = collapsed;
+	let found = false;
+	for (const [key, canonical] of [...BILL_MERCHANTS.entries()].sort(
+		(a, b) => b[0].length - a[0].length
+	)) {
+		const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const re = new RegExp(`\\b${escaped}\\b`, 'i');
+		if (re.test(out)) {
+			found = true;
+			out = out.replace(re, canonical);
+		}
+	}
+	if (!found) return out;
+	const core = (t: string) => t.toLowerCase().replace(/[^a-z]/gi, '');
+	const tokens = out.split(' ').filter((t) => !BILL_MERCHANT_FILLER.has(core(t)));
+	while (tokens.length > 0 && BILL_TITLE_STOP.has(core(tokens[0]))) tokens.shift();
+	while (tokens.length > 0 && BILL_TITLE_STOP.has(core(tokens[tokens.length - 1]))) tokens.pop();
+	return tokens.join(' ') || out;
+}
 
 /**
  * Parses a quick-add bill phrase ("electric bill $85 due friday") into a
@@ -2288,7 +2361,7 @@ export function parseBillQuickAdd(input: string, zone?: string): ParsedBill {
 	) {
 		tokens.pop();
 	}
-	const title = tokens.join(' ').replace(/[.,;:!?]+$/, '') || null;
+	const title = canonicalMerchantTitle(tokens.join(' ').replace(/[.,;:!?]+$/, '') || null);
 	if (title) confidence += 0.1;
 
 	return {

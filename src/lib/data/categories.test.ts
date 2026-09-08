@@ -178,3 +178,34 @@ describe('categoryForKeyword (word-boundary matcher, union of both old tables)',
 		expect(categoryForKeyword('GEICO')).toBe('insurance');
 	});
 });
+
+describe('categoryForKeyword (#034 big-box merchants)', () => {
+	// HD/Lowe's are housing keywords (Tag Table learns the item specifics).
+	const housing: Array<[string, BillCategory | null]> = [
+		['home depot #1234 receipt', 'housing'],
+		['THE HOME DEPOT', 'housing'],
+		["lowe's home improvement", 'housing'],
+		['LOWES STORE #456', 'housing'],
+		['lowes', 'housing']
+	];
+	for (const [text, expected] of housing) {
+		it(`"${text}" → ${expected ?? 'null'}`, () => {
+			expect(categoryForKeyword(text)).toBe(expected);
+		});
+	}
+
+	// General merchandise stays `other`: Walmart/Amazon carry NO keywords,
+	// so the matcher returns null and callers fall back to 'other' — the
+	// Tag Table learns the specifics per item instead.
+	const general: Array<[string, BillCategory | null]> = [
+		['walmart supercenter #1234', null],
+		['WALMART receipt', null],
+		['amazon.com order details', null],
+		['AMAZON Grand Total $53.99', null]
+	];
+	for (const [text, expected] of general) {
+		it(`"${text}" → ${expected ?? 'null'} (fallback other)`, () => {
+			expect(categoryForKeyword(text)).toBe(expected);
+		});
+	}
+});

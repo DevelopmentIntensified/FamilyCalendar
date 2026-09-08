@@ -8,6 +8,7 @@ import {
 	monthKeysBetween,
 	billsInMonthRange,
 	spendByMonth,
+	spendByMerchant,
 	topItems
 } from './spendDetail';
 
@@ -310,6 +311,84 @@ describe('spendByMonth (#032)', () => {
 	it('excludes undated bills from every bucket', () => {
 		const got = spendByMonth([bill({ id: 'b-u', dueDate: null })], new Map(), ['2026-09']);
 		expect(got).toEqual([{ month: '2026-09', spend: [] }]);
+	});
+});
+
+describe('spendByMerchant (#035)', () => {
+	it('groups same-merchant bills across casings, summing totals + counts', () => {
+		const got = spendByMerchant([
+			bill({ id: 'b1', title: 'Walmart', amountCents: 12000 }),
+			bill({ id: 'b2', title: 'walmart', amountCents: 8000 }),
+			bill({ id: 'b3', title: 'Home Depot', amountCents: 4500 })
+		]);
+
+		expect(got).toEqual([
+			{ merchant: 'Walmart', cents: 20000, count: 2, billIds: ['b1', 'b2'] },
+			{ merchant: 'Home Depot', cents: 4500, count: 1, billIds: ['b3'] }
+		]);
+	});
+
+	const normCases: Array<[string, string, string]> = [
+		['trims surrounding whitespace', 'Walmart', '  Walmart  '],
+		['lowercases', 'Walmart', 'WALMART'],
+		['collapses inner runs', 'Home Depot', 'home   depot'],
+		['trims tabs', 'Amazon', '\tAmazon\n']
+	];
+	for (const [name, display, variant] of normCases) {
+		it(`normalizes: ${name}`, () => {
+			const got = spendByMerchant([
+				bill({ id: 'b1', title: display, amountCents: 100 }),
+				bill({ id: 'b2', title: variant, amountCents: 200 })
+			]);
+			expect(got).toEqual([{ merchant: display, cents: 300, count: 2, billIds: ['b1', 'b2'] }]);
+		});
+	}
+
+	it('only counts the given (in-range) bills', () => {
+		const inRange = bill({ id: 'b-in', title: 'Walmart', amountCents: 12000 });
+		const outOfRange = bill({ id: 'b-out', title: 'Walmart', amountCents: 99999 });
+		const got = spendByMerchant([inRange]);
+		expect(got).toEqual([{ merchant: 'Walmart', cents: 12000, count: 1, billIds: ['b-in'] }]);
+		expect(got[0].billIds).not.toContain(outOfRange.id);
+	});
+
+	it('excludes unconfirmed drafts (source !== manual)', () => {
+		const got = spendByMerchant([
+			bill({ id: 'b1', title: 'Walmart', amountCents: 12000 }),
+			bill({ id: 'd1', title: 'Walmart', amountCents: 99999, source: 'email' })
+		]);
+		expect(got).toEqual([{ merchant: 'Walmart', cents: 12000, count: 1, billIds: ['b1'] }]);
+	});
+
+	it('treats a missing source as manual', () => {
+		const legacy = bill({ id: 'b1', title: 'Walmart', amountCents: 5000 });
+		// SAFETY: legacy rows predate the source column; the page coalesces
+		// null/undefined to manual the same way.
+		(legacy as { source: string | null }).source = null;
+		expect(spendByMerchant([legacy])).toEqual([
+			{ merchant: 'Walmart', cents: 5000, count: 1, billIds: ['b1'] }
+		]);
+	});
+
+	it('skips bills with a blank title', () => {
+		expect(
+			spendByMerchant([
+				bill({ id: 'b1', title: '   ', amountCents: 5000 }),
+				bill({ id: 'b2', title: 'Walmart', amountCents: 100 })
+			])
+		).toEqual([{ merchant: 'Walmart', cents: 100, count: 1, billIds: ['b2'] }]);
+	});
+
+	it('sorts by total cents descending and respects the limit', () => {
+		const bills = ['a', 'b', 'c', 'd', 'e'].map((title, i) =>
+			bill({ id: `b-${title}`, title, amountCents: 500 - i * 100 })
+		);
+		expect(spendByMerchant(bills).map((m) => m.merchant)).toEqual(['a', 'b', 'c', 'd', 'e']);
+		expect(spendByMerchant(bills, 3).map((m) => m.merchant)).toEqual(['a', 'b', 'c']);
+	});
+
+	it('returns empty for no bills', () => {
+		expect(spendByMerchant([])).toEqual([]);
 	});
 });
 

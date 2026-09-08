@@ -57,6 +57,12 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   drafts never count as spend), privacy page inbound-email row, SQL
   `sql/012-receipt-import.sql` — **NEON PENDING**
 
+- #034 Big-box receipt import (2026-09-08): `merchantProfiles.ts`
+  (`detectMerchant` + per-merchant extractors for Home Depot, Lowe's,
+  Walmart, Amazon) wired merchant-first into `extractReceiptRegex`
+  (generic path unchanged); HD/Lowe's → housing, Walmart/Amazon → other
+  (Tag Table learns specifics); 28 merchant tests + 9 category pins
+
 - Arch audit #4 category de-dup (2026-09-08): closed vocabulary + shared
   keyword table in client-safe `src/lib/data/categories.ts` (schema
   re-exports); LIVE BUG fixed — Azure scans categorized 'tax'/'fees'
@@ -74,6 +80,12 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   Compounding caveat documented: clamped cursor re-anchors on the clamped
   date ("the 31st" drifts); fixing needs a stored original anchor column
   (#032/#007 adjacent).
+- #035 Bill smart-parser NLP + merchant reporting (2026-09-08): merchant
+  titles in parseBillQuickAdd (big-box four canonicalized, purchase
+  fillers stripped, generic fallback untouched; 46-phrase table),
+  bare-amount `am`-lookahead fix (`35.99 amazon` → 3599), `spendByMerchant`
+  export (normalized grouping, manual-only, limit 8), spending page Top
+  merchants section (top-8 table + merchant drill-down reusing the bill row)
 
 ## Open
 

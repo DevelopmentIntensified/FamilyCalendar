@@ -238,3 +238,44 @@ export function topItems(
 	}
 	return [...groups.values()].sort((a, b) => b.cents - a.cents).slice(0, limit);
 }
+
+// ── Merchant reporting (#035) ─────────────────────────────────────
+
+/** One merchant's spend: display title, total cents, bill count + ids. */
+export interface MerchantSlice {
+	merchant: string;
+	cents: number;
+	count: number;
+	billIds: string[];
+}
+
+/**
+ * Groups bills by normalized merchant (title lowercased/trimmed, inner
+ * whitespace collapsed); the first-seen casing wins as the display title.
+ * Unconfirmed drafts (source !== 'manual', same coalescing as the spending
+ * page load) and blank titles never count as spend. Sorted by total cents
+ * descending, capped at `limit`. Operates on the caller's (in-range) bills
+ * — same shape as topItems.
+ */
+export function spendByMerchant(bills: Bill[], limit = 8): MerchantSlice[] {
+	const groups = new Map<string, MerchantSlice>();
+	for (const bill of bills) {
+		if ((bill.source ?? 'manual') !== 'manual') continue;
+		const key = bill.title.toLowerCase().trim().replace(/\s+/g, ' ');
+		if (!key) continue;
+		const group = groups.get(key);
+		if (group) {
+			group.cents += bill.amountCents;
+			group.count += 1;
+			group.billIds.push(bill.id);
+		} else {
+			groups.set(key, {
+				merchant: bill.title.trim(),
+				cents: bill.amountCents,
+				count: 1,
+				billIds: [bill.id]
+			});
+		}
+	}
+	return [...groups.values()].sort((a, b) => b.cents - a.cents).slice(0, limit);
+}

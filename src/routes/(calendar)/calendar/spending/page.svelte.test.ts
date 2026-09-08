@@ -127,7 +127,9 @@ describe('Spending page (#032)', () => {
 		await vi.waitFor(() => {
 			expect(screen.getByText('Utilities — $130.00')).toBeTruthy();
 		});
-		expect(screen.getByText('Electric')).toBeTruthy();
+		// NOTE (#035): 'Electric' now also renders as a Top merchants row,
+		// so the drill-down bill asserts on any match.
+		expect(screen.getAllByText('Electric').length).toBeGreaterThan(0);
 
 		fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 		await tick();
@@ -211,6 +213,46 @@ describe('Spending page (#032)', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Most often' }));
 		await vi.waitFor(() => {
 			expect(items().indexOf('Milk')).toBeLessThan(items().indexOf('Rent share'));
+		});
+	});
+
+	describe('merchant breakdown (#035)', () => {
+		function merchantBills(): Bill[] {
+			return [
+				billFixture({ id: 'm1', title: 'Walmart', amountCents: 12000 }),
+				billFixture({ id: 'm2', title: 'walmart', amountCents: 8000 }),
+				billFixture({ id: 'm3', title: 'Home Depot', amountCents: 4500 })
+			];
+		}
+
+		it('groups bills by merchant with totals and counts', () => {
+			render(SpendingPage, { props: { data: pageData({ bills: merchantBills() }) } });
+
+			expect(screen.getByText('Top merchants')).toBeTruthy();
+			expect(screen.getByText('$200.00')).toBeTruthy();
+			expect(screen.getByText('2 bills')).toBeTruthy();
+			expect(screen.getByText('Home Depot')).toBeTruthy();
+		});
+
+		it('expands a merchant into its bills on tap and closes again', async () => {
+			render(SpendingPage, { props: { data: pageData({ bills: merchantBills() }) } });
+
+			fireEvent.click(screen.getByRole('button', { name: /Walmart/ }));
+			await vi.waitFor(() => {
+				expect(screen.getByText('Walmart — $200.00')).toBeTruthy();
+			});
+
+			fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+			await tick();
+			expect(screen.queryByText('Walmart — $200.00')).toBeNull();
+		});
+
+		it('hides the merchant section when there are no bills in range', () => {
+			render(SpendingPage, {
+				props: { data: pageData({ bills: [], buckets: [], rangeSpend: [], totalBills: 2 }) }
+			});
+
+			expect(screen.queryByText('Top merchants')).toBeNull();
 		});
 	});
 });

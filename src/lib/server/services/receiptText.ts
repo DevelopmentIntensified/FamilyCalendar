@@ -12,6 +12,7 @@
 import type { BillCategory } from '$lib/server/db/schema';
 import { isBillCategory } from '$lib/data/categories';
 import { extractDateIso, extractMerchant, extractTotalCents } from '$lib/utils/receiptScan';
+import { detectMerchant, extractMerchantDraft, type MerchantId } from './merchantProfiles';
 import type { JsonValue } from './llm';
 
 /** Maximum line items any extraction path may produce (bills cap = 50). */
@@ -211,12 +212,41 @@ function cleanItemLabel(desc: string): string | null {
 }
 
 /**
- * Deterministic extraction over pasted receipt/invoice text: merchant is
- * the top non-noise line, line items are `description … price` rows (tax
- * and fee rows labeled as such), the total is the last total-line amount
- * (else the sum of items), and the date via the receiptScan parsers.
+ * Converts a #034 merchant draft into the standard regex-draft shape:
+ * merchandise rows inherit the bill's category (null), the house tax total
+ * surfaces as its own 'tax' line item (#031: never absorbed into the
+ * merchant's category), and the total is the house total line else the sum
+ * of parsed items.
+ */
+function merchantDraftToRegexDraft(merchant: MerchantId, text: string): ReceiptTextDraft {
+	const draft = extractMerchantDraft(text, merchant);
+	const items: ParsedReceiptItem[] = draft.items.map((item) => ({
+		label: item.label,
+		priceCents: item.priceCents,
+		category: null,
+		name: null
+	}));
+	if (draft.taxCents !== null && draft.taxCents > 0 && items.length < MAX_ITEMS) {
+		items.push({ label: 'Sales tax', priceCents: draft.taxCents, category: 'tax', name: null });
+	}
+	const totalCents =
+		draft.totalCents ??
+		(items.length > 0 ? items.reduce((sum, item) => sum + item.priceCents, 0) : null);
+	return { merchant: draft.merchant, date: draft.dateIso, items, totalCents, source: 'regex' };
+}
+
+/**
+ * Deterministic extraction over pasted receipt/invoice text: a recognized
+ * big-box layout (#034) goes through its merchant extractor first; anything
+ * else takes the generic `description … price` row path below (unchanged).
+ * Merchant is the top non-noise line, line items are `description … price`
+ * rows (tax and fee rows labeled as such), the total is the last total-line
+ * amount (else the sum of items), and the date via the receiptScan parsers.
  */
 export function extractReceiptRegex(text: string): ReceiptTextDraft {
+	const merchantId = detectMerchant(text);
+	if (merchantId) return merchantDraftToRegexDraft(merchantId, text);
+
 	const lines = text
 		.split('\n')
 		.map((line) => line.trim())

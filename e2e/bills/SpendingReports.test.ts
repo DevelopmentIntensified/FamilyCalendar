@@ -80,12 +80,16 @@ test('Spending reports smoke: bills link, page renders, drill-down', async ({ pa
 	await expect(page.getByRole('heading', { name: 'Spending' })).toBeVisible();
 	await expect(page.getByText('Monthly trend by category')).toBeVisible();
 	await expect(page.getByText('Where it went')).toBeVisible();
-	await expect(page.getByText('$900.00')).toBeVisible();
-	await expect(page.getByText('$120.00')).toBeVisible();
+	// NOTE (#035): category totals now also appear as Top merchants rows,
+	// so amount assertions take the first match.
+	await expect(page.getByText('$900.00').first()).toBeVisible();
+	await expect(page.getByText('$120.00').first()).toBeVisible();
+	await expect(page.getByText('Top merchants')).toBeVisible();
 
-	// Category drill-down shows the seeded bill.
+	// Category drill-down shows the seeded bill (scoped: 'Rent' is also a
+	// Top merchants row).
 	await page.getByRole('button', { name: /Housing/ }).click();
-	await expect(page.getByText('Rent')).toBeVisible();
+	await expect(page.getByLabel('Category bills').getByText('Rent')).toBeVisible();
 
 	// Range navigation works.
 	await page.goto('/calendar/spending?range=all');

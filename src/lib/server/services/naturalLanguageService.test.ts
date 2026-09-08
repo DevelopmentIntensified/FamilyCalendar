@@ -1091,9 +1091,7 @@ describe('Reported phrase "running on tuesday and thrusday at 7 pm for fun"', ()
 		const result = parseEventInput('running on tuesday and thrusday at 7 pm for fun');
 		expect(result.parsed.recurring).toBeUndefined();
 		expect(result.parsed.dates).toHaveLength(2);
-		expect(
-			result.parsed.dates!.map((d) => DateTime.fromISO(d).weekday).sort()
-		).toEqual([2, 4]);
+		expect(result.parsed.dates!.map((d) => DateTime.fromISO(d).weekday).sort()).toEqual([2, 4]);
 		expect(result.parsed.startTime).toBe('19:00');
 	});
 
@@ -1700,6 +1698,90 @@ describe('Bill quick-add NLP — word-order & combo (parseBillQuickAdd)', () => 
 	});
 });
 
+describe('Bill quick-add NLP — merchant titles (#035)', () => {
+	const cases: Array<[string, string, number]> = [
+		// input, canonical merchant title, amount cents
+		['home depot 45', 'Home Depot', 4500],
+		['home depot $45', 'Home Depot', 4500],
+		['$45 home depot', 'Home Depot', 4500],
+		['45 home depot', 'Home Depot', 4500],
+		['HOMe DEPOT 45', 'Home Depot', 4500],
+		['homedepot 45', 'Home Depot', 4500],
+		['home depot receipt 45', 'Home Depot', 4500],
+		['home depot bill 45', 'Home Depot', 4500],
+		['home depot order 45', 'Home Depot', 4500],
+		['home depot invoice 45', 'Home Depot', 4500],
+		['45 home depot receipt', 'Home Depot', 4500],
+		['lowes 45', "Lowe's", 4500],
+		['$45 lowes', "Lowe's", 4500],
+		["lowe's 45", "Lowe's", 4500],
+		["$45 lowe's", "Lowe's", 4500],
+		['lowes receipt 45', "Lowe's", 4500],
+		['lowes bill 45', "Lowe's", 4500],
+		['lowes order 45', "Lowe's", 4500],
+		['lowes invoice 45', "Lowe's", 4500],
+		['walmart 120', 'Walmart', 12000],
+		['$120 walmart', 'Walmart', 12000],
+		['120 walmart receipt', 'Walmart', 12000],
+		['walmart receipt 120', 'Walmart', 12000],
+		['walmart bill 120', 'Walmart', 12000],
+		['walmart order 120', 'Walmart', 12000],
+		['walmart invoice 120', 'Walmart', 12000],
+		['receipt 120 walmart', 'Walmart', 12000],
+		['WALMART 120', 'Walmart', 12000],
+		['amazon 35.99', 'Amazon', 3599],
+		['amazon order 35.99', 'Amazon', 3599],
+		['$35.99 amazon', 'Amazon', 3599],
+		['35.99 amazon order', 'Amazon', 3599],
+		['amazon receipt 35.99', 'Amazon', 3599],
+		['amazon bill 35.99', 'Amazon', 3599],
+		['amazon invoice 35.99', 'Amazon', 3599],
+		['order from amazon 35.99', 'Amazon', 3599],
+		['home depot paint 45', 'Home Depot paint', 4500],
+		['walmart grocery 120', 'Walmart grocery', 12000],
+		// generic fallback: unknown merchants keep their words as written
+		['electric bill 80', 'electric bill', 8000],
+		['costco 85', 'costco', 8500],
+		['target run 60', 'target run', 6000],
+		['Electric Bill 80', 'Electric Bill', 8000]
+	];
+	for (const [input, title, cents] of cases) {
+		it(`merchants "${input}" → "${title}" + ${cents}c`, () => {
+			const parsed = parseBillQuickAdd(input);
+			expect(parsed.title, input).toBe(title);
+			expect(parsed.amountCents, input).toBe(cents);
+		});
+	}
+
+	it('combines a merchant title with a due date ("home depot 45 due friday")', () => {
+		const parsed = parseBillQuickAdd('home depot 45 due friday');
+		expect(parsed.title).toBe('Home Depot');
+		expect(parsed.amountCents).toBe(4500);
+		expect(parsed.dueDate).toBe(nextDow('friday'));
+	});
+
+	it('combines a merchant title with recurrence ("walmart 120 monthly")', () => {
+		const parsed = parseBillQuickAdd('walmart 120 monthly');
+		expect(parsed.title).toBe('Walmart');
+		expect(parsed.amountCents).toBe(12000);
+		expect(parsed.recurring).toBe('monthly');
+	});
+
+	it('combines a merchant title with due + recurrence ("amazon 35.99 due tomorrow monthly")', () => {
+		const parsed = parseBillQuickAdd('amazon 35.99 due tomorrow monthly');
+		expect(parsed.title).toBe('Amazon');
+		expect(parsed.amountCents).toBe(3599);
+		expect(parsed.recurring).toBe('monthly');
+		expect(parsed.dueDate).toBe(DateTime.now().plus({ days: 1 }).toFormat('yyyy-MM-dd'));
+	});
+
+	it('combines amount-first merchant with a due date ("$45 lowes due friday")', () => {
+		const parsed = parseBillQuickAdd('$45 lowes due friday');
+		expect(parsed.title).toBe("Lowe's");
+		expect(parsed.amountCents).toBe(4500);
+		expect(parsed.dueDate).toBe(nextDow('friday'));
+	});
+});
 describe('Bill quick-add NLP — robustness (parseBillQuickAdd)', () => {
 	it('treats a non-bill phrase as amountless, uncategorized, confident-less', () => {
 		const parsed = parseBillQuickAdd('hello world');
