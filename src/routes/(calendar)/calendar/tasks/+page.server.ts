@@ -9,8 +9,7 @@ import {
 	getTasksForUser,
 	syncRecurringCursors
 } from '$lib/server/db/actions/tasks';
-import { getUserZone } from '$lib/server/utils/userTimezone';
-import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
+import { zoneFromSettings } from '$lib/server/utils/userTimezone';
 import { guard } from '$lib/server/utils/guard';
 
 export const load: PageServerLoad = async (event) => {
@@ -21,17 +20,14 @@ export const load: PageServerLoad = async (event) => {
 	// instead of 500ing the whole page.
 	const loadWarnings: string[] = [];
 
-	const familyG = await guard('family', null, () => getUserFamilyId(event.locals.user!.id));
-	if (familyG.error) loadWarnings.push(familyG.error);
-	const familyId = familyG.data;
+	// Family scope + zone come from the group layout (#041) — no refetch.
+	const parentData = await event.parent();
+	const familyId = parentData.familyId;
+	const userZone = zoneFromSettings(parentData.userSettings) ?? 'UTC';
 
 	const tasksG = await guard('tasks', [], async () => {
 		// Overdue Recurring Tasks stick to today until done (cursor v3).
-		await syncRecurringCursors(
-			event.locals.user!.id,
-			familyId,
-			await getUserZone(event.locals.user!.id)
-		);
+		await syncRecurringCursors(event.locals.user!.id, familyId, userZone);
 		return await getTasksForUser(event.locals.user!.id, familyId);
 	});
 	if (tasksG.error) loadWarnings.push(tasksG.error);
@@ -60,23 +56,10 @@ export const load: PageServerLoad = async (event) => {
 	);
 	if (publicG.error) loadWarnings.push(publicG.error);
 
-	// Family roster for the assignee picker.
-	let familyMembersList: {
-		userId: string;
-		firstName: string;
-		lastName: string;
-		email: string | null;
-	}[] = [];
-	if (familyId) {
-		const rosterG = await guard('family', [], () => getFamilyRoster(familyId));
-		if (rosterG.error) loadWarnings.push(rosterG.error);
-		familyMembersList = rosterG.data.map(({ userId, firstName, lastName, email }) => ({
-			userId,
-			firstName,
-			lastName,
-			email
-		}));
-	}
+	// Family roster for the assignee picker — from the group layout (#041).
+	const familyMembersList = (parentData.familyMembers ?? []).map(
+		({ userId, firstName, lastName, email }) => ({ userId, firstName, lastName, email })
+	);
 
 	return {
 		// Legacy full-list field (personal + family rows) — kept until every

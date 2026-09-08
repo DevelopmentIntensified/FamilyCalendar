@@ -5,7 +5,6 @@ import { db } from '$lib/server/db';
 import { calendars, events, families, type CalendarEvent } from '$lib/server/db/schema';
 import { and, eq, isNotNull, isNull, lte, or, gte } from 'drizzle-orm';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
-import { getFamilyRoster, getUserFamilyId } from '$lib/server/db/actions/families';
 import {
 	getAdEventsForUser,
 	checkUserAdConsent,
@@ -69,7 +68,16 @@ export const load: PageServerLoad = async (event) => {
 
 	// Settings already loaded by the group layout — reuse via parent() instead
 	// of a second SELECT on every page load (#041).
-	const userSettings = (await event.parent()).userSettings;
+	const parentData = await event.parent();
+	const userSettings = parentData.userSettings;
+	// Family scope comes from the group layout (#041) — no refetch.
+	const familyId = parentData.familyId;
+	const familyMembersList = (parentData.familyMembers ?? []).map((m) => ({
+		id: m.userId,
+		name: m.firstName,
+		email: m.email ?? '',
+		userId: m.userId
+	}));
 
 	// Opt-in landing: with Default View set to "Dashboard", /calendar sends the
 	// user to the Day Dashboard. ?dashboardView=1 is the escape hatch the
@@ -115,14 +123,9 @@ export const load: PageServerLoad = async (event) => {
 	const userCalendar = personalG.data.userCalendar;
 	const userEvents: CalendarEvent[] = personalG.data.userEvents;
 
-	const familyIdG = await guard('family', null, () => getUserFamilyId(userId));
-	warn(familyIdG.error);
-	const familyId = familyIdG.data;
-
 	let familyEventsData: CalendarEvent[] = [];
 	let familyCalendarColor = '#e0ffff';
 
-	let familyMembersList: { id: string; name: string; email: string; userId: string }[] = [];
 	const userCalendarColor = userSettings?.color || '#fa8072';
 	let calendarIds: { id: string; name: string; color: string }[] = [];
 
@@ -133,7 +136,7 @@ export const load: PageServerLoad = async (event) => {
 	if (familyId) {
 		const familyG = await guard(
 			'family',
-			{ familyEventsData, familyCalendarColor, familyMembersList, calendarIds },
+			{ familyEventsData, familyCalendarColor, calendarIds },
 			async () => {
 				const [family] = await db.select().from(families).where(eq(families.id, familyId));
 				const color = family?.color || '#e0ffff';
@@ -167,19 +170,10 @@ export const load: PageServerLoad = async (event) => {
 					ids.push({ id: familyCals[0].id, name: family?.name || 'Family Calendar', color });
 				}
 
-				const members = await getFamilyRoster(familyId);
-
-				// Anonymous members have no email yet — render as blank.
-				const memberList = members.map((m) => ({
-					id: m.userId,
-					name: m.firstName,
-					email: m.email ?? '',
-					userId: m.userId
-				}));
+				// Roster comes from the group layout (#041) — mapped once at the top.
 				return {
 					familyEventsData: evts,
 					familyCalendarColor: color,
-					familyMembersList: memberList,
 					calendarIds: ids
 				};
 			}
@@ -187,7 +181,6 @@ export const load: PageServerLoad = async (event) => {
 		warn(familyG.error);
 		familyEventsData = familyG.data.familyEventsData;
 		familyCalendarColor = familyG.data.familyCalendarColor;
-		familyMembersList = familyG.data.familyMembersList;
 		calendarIds = familyG.data.calendarIds;
 	}
 

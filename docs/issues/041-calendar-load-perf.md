@@ -33,6 +33,14 @@ Status: in-progress
   (month-grid skeleton pending, retry card on catch) with a stash-once
   cache feeding existing `allEvents`/first-run/?edit reactives.
   TTFB (shell) ~1.2s → ~0.8s (−35%), full body ~1.1s, 147KB.
+- #6 shared loads → layout: `familyId` + `familyMembers` load once in
+  `(calendar)/calendar/+layout.server.ts` (degrades null/[]); calendar +
+  tasks pages consume via `parent()` (tasks also drops its settings
+  SELECT via `zoneFromSettings`). Full-load TTFB flat (moved, not
+  removed — expected); in-group navs skip layout re-fetch entirely.
+  Page-only `__data` A/B (familyless anon): 0.78s vs 0.77s — noise;
+  family users save the roster join per nav. Query math per in-group
+  nav: tasks −3, calendar −2 roundtrips.
 
 ## Needs doing
 
