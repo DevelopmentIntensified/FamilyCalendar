@@ -18,7 +18,7 @@ import {
 } from '$lib/server/db/actions/bills';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { findUserIdByIngestToken, isValidIngestToken } from '$lib/server/db/actions/receiptIngest';
-import { BILL_CATEGORIES } from '$lib/server/db/schema';
+import { isBillCategory } from '$lib/data/categories';
 
 /**
  * Resend Inbound webhook (issue 033): `email.received` events carrying the
@@ -128,10 +128,6 @@ function stripHtml(html: string): string {
 		.replace(/&amp;/g, '&')
 		.replace(/\s+/g, ' ')
 		.trim();
-}
-
-function isBillCategory(value: unknown): boolean {
-	return typeof value === 'string' && (BILL_CATEGORIES as readonly string[]).includes(value);
 }
 
 /** Draft items from a normalized extraction (validated, ≤50, capped). */

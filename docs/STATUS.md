@@ -57,6 +57,14 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   drafts never count as spend), privacy page inbound-email row, SQL
   `sql/012-receipt-import.sql` — **NEON PENDING**
 
+- Arch audit #4 category de-dup (2026-09-08): closed vocabulary + shared
+  keyword table in client-safe `src/lib/data/categories.ts` (schema
+  re-exports); LIVE BUG fixed — Azure scans categorized 'tax'/'fees'
+  downgraded to 'other' (receiptOcr's stale CLOUD_CATEGORIES copy);
+  receiptScan + NLP keyword tables unioned (81 words, drift-guarded by
+  `src/lib/data/categories.test.ts`); one shared `isBillCategory`
+  (was 3 copies)
+
 ## Open
 
 - #003 Bill Tracking PRD (parent; slices #005–#011 pending)

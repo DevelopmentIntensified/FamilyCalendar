@@ -9,7 +9,8 @@
  * the Tag Table lookups.
  */
 /* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-runtime-typeof, anti-slop/no-unsafe-dictionary-type, anti-slop/require-safety-comment-for-type-assertion -- the whole module is a boundary parser over untyped LLM JSON and pasted text; every field is validated, bounded, or dropped before use, so unknown IS the contract. */
-import { BILL_CATEGORIES, type BillCategory } from '$lib/server/db/schema';
+import type { BillCategory } from '$lib/server/db/schema';
+import { isBillCategory } from '$lib/data/categories';
 import { extractDateIso, extractMerchant, extractTotalCents } from '$lib/utils/receiptScan';
 import type { JsonValue } from './llm';
 
@@ -56,9 +57,7 @@ IMPORTANT RULES:
 - Never invent data. Use null for anything not present.`;
 
 /** True when the value is exactly one of the closed BILL_CATEGORIES. */
-function isBillCategory(value: unknown): value is BillCategory {
-	return typeof value === 'string' && (BILL_CATEGORIES as readonly string[]).includes(value);
-}
+// (shared guard from $lib/data/categories — arch audit #4)
 
 /** LLM category → closed vocabulary; unknown/absent → null (inherit). */
 function mapCategory(raw: unknown): BillCategory | null {

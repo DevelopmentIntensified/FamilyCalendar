@@ -3,20 +3,13 @@ import { db } from '$lib/server/db';
 import {
 	bills,
 	receiptItems,
-	BILL_CATEGORIES,
 	type Bill,
 	type BillCategory,
 	type ReceiptItem
 } from '$lib/server/db/schema';
+import { isBillCategory } from '$lib/data/categories';
 import { DateTime } from 'luxon';
 import { toDateTime } from '$lib/server/utils/eventTimes';
-
-/** Closed bill-category vocabulary; unknown values fall back to 'other'. */
-function isBillCategory(value: unknown): value is BillCategory {
-	// SAFETY: BILL_CATEGORIES holds exactly the category literals; viewing it
-	// as strings makes the membership test exact with no precision lost.
-	return typeof value === 'string' && (BILL_CATEGORIES as readonly string[]).includes(value);
-}
 
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- exported boundary parser: unknown input IS its contract; routes feed it raw request-body fields.
 export function normalizeBillCategory(raw: unknown): BillCategory {

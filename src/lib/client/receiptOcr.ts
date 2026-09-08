@@ -9,10 +9,10 @@
  * #029).
  */
 
+import { isBillCategory } from '$lib/data/categories';
 import {
 	isPoorExtraction,
 	scanReceipt,
-	type BillCategory,
 	type CloudReceiptScan,
 	type ReceiptScanResult
 } from '$lib/utils/receiptScan';
@@ -284,14 +284,6 @@ interface RawCloudScan {
 	category?: string;
 }
 
-const CLOUD_CATEGORIES: ReadonlyArray<BillCategory> = [
-	'housing',
-	'utilities',
-	'subscriptions',
-	'insurance',
-	'other'
-];
-
 /** Type guards: typeof narrowing is allowed only in predicate position. */
 function isText(value: unknown): value is string {
 	return typeof value === 'string';
@@ -309,7 +301,10 @@ function normalizeCloudScan(scan: RawCloudScan): CloudReceiptScan {
 				)
 				.map((item) => ({ label: item.label, priceCents: item.priceCents }))
 		: null;
-	const category = CLOUD_CATEGORIES.find((value) => value === scan.category);
+	// Shared vocabulary guard (arch audit #4): the old local CLOUD_CATEGORIES
+	// copy was missing 'tax'/'fees', so Azure scans with those categories
+	// silently downgraded to 'other'.
+	const category = isBillCategory(scan.category) ? scan.category : 'other';
 	return {
 		merchant: isText(scan.merchant) ? scan.merchant : null,
 		totalCents: isFiniteNumber(scan.totalCents) ? scan.totalCents : null,

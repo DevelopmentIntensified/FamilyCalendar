@@ -547,20 +547,12 @@ export type TaskVisibility = (typeof TASK_VISIBILITIES)[number];
 /**
  * Bill — a dated amount owed, family-visible. Amounts are integer cents
  * (never float). Paid status per period; recurrence arrives in #006.
+ *
+ * BILL_CATEGORIES/BillCategory live in `$lib/data/categories` (arch audit
+ * #4) so client modules can share the vocabulary without importing this
+ * server-only schema — schema re-exports them as the single source.
  */
-export const BILL_CATEGORIES = [
-	'housing',
-	'utilities',
-	'subscriptions',
-	'insurance',
-	// Tax and fees are their own categories (#031): a receipt's tax/fee
-	// lines are labeled as such, never absorbed into the merchant's category.
-	'tax',
-	'fees',
-	'other'
-] as const;
-
-export type BillCategory = (typeof BILL_CATEGORIES)[number];
+export { BILL_CATEGORIES, type BillCategory } from '$lib/data/categories';
 
 export const bills = pgTable('bills', {
 	id: text('id')

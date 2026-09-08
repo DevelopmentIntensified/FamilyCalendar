@@ -3,17 +3,13 @@
  * PURE and take already-recognized OCR text — tesseract.js lives in the
  * worker and only feeds text in, so tests run without any OCR dependency.
  *
- * CLIENT-SAFE: mirrors schema's BILL_CATEGORIES as a local union (importing
- * $lib/server/db/schema into client code is forbidden); keep in sync.
+ * CLIENT-SAFE: BillCategory and the merchant keyword table live in
+ * `$lib/data/categories` (arch audit #4) — this module re-exports the
+ * type for its existing importers.
  */
-export type BillCategory =
-	| 'housing'
-	| 'utilities'
-	| 'subscriptions'
-	| 'insurance'
-	| 'tax'
-	| 'fees'
-	| 'other';
+export type { BillCategory } from '$lib/data/categories';
+
+import { categoryForKeyword, type BillCategory } from '$lib/data/categories';
 
 /** A currency amount like $12.34, 1,450.00, 8.27 (no bare integers). */
 const MONEY_RE = /(?:\$|USD\s*)?(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+\.\d{2})(?!\d)/g;
@@ -27,27 +23,6 @@ const NOT_A_TOTAL_RE = /(subtotal|change|tender|previous|gift card|tip)/i;
 
 /** Total-family keywords; 'due' catches AMOUNT DUE / TOTAL DUE. */
 const TOTAL_RE = /(total|amount|balance|due)/i;
-
-/** Merchant→category keyword table (word-boundary matched, lowercase).
- * Tax/fees sit FIRST (#031): explicit tax/fee words must win over merchant
- * words so receipt tax/fee lines are labeled as such, never absorbed. */
-const CATEGORY_KEYWORDS: ReadonlyArray<[BillCategory, RegExp]> = [
-	['tax', /\b(tax|taxes|sales tax|vat|gst)\b/],
-	['fees', /\b(fees?|surcharge)\b/],
-	[
-		'utilities',
-		/\b(electric|power|water|sewage|sewer|utility|utilities|internet|cable|wifi|comcast|xfinity|spectrum|verizon|at&t|gas service|gas co\b|duke energy|national grid|pg&e)\b/
-	],
-	[
-		'subscriptions',
-		/\b(netflix|spotify|hulu|hbo|max|disney|youtube|icloud|adobe|microsoft|google one|dropbox|membership|subscription)\b/
-	],
-	['insurance', /\b(insurance|geico|allstate|state farm|progressive|usaa|premium)\b/],
-	[
-		'housing',
-		/\b(rent|landlord|property management|mortgage|home depot|lowe's|lowes|hardware|plumbing|leasing)\b/
-	]
-];
 
 function lines(text: string): string[] {
 	return text
@@ -160,16 +135,14 @@ export function extractDateIso(text: string): string | null {
 
 /** Merchant keyword → BILL_CATEGORIES; 'other' fallback. */
 export function suggestCategory(text: string): BillCategory {
-	const lower = text.toLowerCase();
-	for (const [category, keywords] of CATEGORY_KEYWORDS) {
-		// Tax/fees are LINE-ITEM categories (#031): they label short labels
-		// like "Sales tax" or "Delivery fee". Whole-receipt scans are
-		// merchant-derived — every receipt prints a TAX summary line, so
-		// applying them there would absorb every grocery bill into 'tax'.
-		if ((category === 'tax' || category === 'fees') && text.includes('\n')) continue;
-		if (keywords.test(lower)) return category;
-	}
-	return 'other';
+	// Tax/fees are LINE-ITEM categories (#031): they label short labels
+	// like "Sales tax" or "Delivery fee". Whole-receipt scans are
+	// merchant-derived — every receipt prints a TAX summary line, so
+	// applying them there would absorb every grocery bill into 'tax'.
+	const exclude = text.includes('\n') ? (['tax', 'fees'] as const) : undefined;
+	// SAFETY: categoryForKeyword only returns vocabulary literals or null;
+	// the fallback pins the 'other' member of the same closed vocabulary.
+	return categoryForKeyword(text, exclude) ?? 'other';
 }
 
 export interface ReceiptScanResult {

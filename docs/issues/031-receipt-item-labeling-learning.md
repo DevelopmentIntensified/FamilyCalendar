@@ -121,6 +121,20 @@ Parent: #010 receipts (builds on its scan seam).
   title (normalized), merchant category = bill category, per-item
   label-derived keys, learned SKU `name` passthrough. Items-only PUT skips
   the empty-patch bill update (drizzle set({}) throws).
+- **Arch audit #4 category de-dup + cloud-scan bug fix (2026-09-08)**:
+  `BILL_CATEGORIES`/`BillCategory` + the shared keyword table now live in
+  client-safe `src/lib/data/categories.ts` (schema re-exports; no client
+  imports of server schema). LIVE BUG fixed: client `receiptOcr.ts` carried
+  a hand-copied `CLOUD_CATEGORIES` missing 'tax'/'fees' — Azure scans with
+  those categories silently downgraded to 'other'; the drift-guard test
+  (`src/lib/data/categories.test.ts`) now pins the cloud-normalization
+  path to the full vocabulary. The two diverging keyword tables
+  (receiptScan vs NLP) unioned into `CATEGORY_KEYWORDS` (81 words, 6
+  ordered entries) + `categoryForKeyword` matcher; shared `isBillCategory`
+  replaces the three copies (actions/bills.ts, receiptText.ts,
+  email-ingest). Deliberate specificity call: bare 'oil' is NOT a keyword
+  (SHELL OIL FUEL is a gas station, not a utility) — only "heating oil"
+  matches.
 - **Keyword tables**: `receiptScan.ts` category table + client `BillCategory`
   union gained tax/fees (tax, taxes, sales tax, vat, gst; fee(s), surcharge)
   — applied ONLY to single-line inputs (item labels / merchant names);

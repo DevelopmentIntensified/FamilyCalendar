@@ -8,6 +8,7 @@ import {
 	normalizeTime
 } from '$lib/server/utils/dateParsing';
 import { BILL_CATEGORIES, type BillCategory } from '$lib/server/db/schema';
+import { categoryForKeyword } from '$lib/data/categories';
 
 export interface ParsedEvent {
 	title: string;
@@ -1953,23 +1954,10 @@ export interface ParsedBill {
 /** Closed-vocabulary set for the #tag check. */
 const BILL_CATEGORY_SET: ReadonlySet<string> = new Set(BILL_CATEGORIES);
 
-/** Merchant word → category, scanned in order (first hit wins). Tax/fees
- * sit first (#031): an explicit tax/fee word is its own category, never
- * absorbed into the merchant's. */
-const BILL_CATEGORY_KEYWORDS: Array<[RegExp, BillCategory]> = [
-	[/\b(?:tax|taxes|sales\s+tax|vat|gst)\b/i, 'tax'],
-	[/\b(?:fees?|surcharge)\b/i, 'fees'],
-	[/\b(?:insurance|geico|progressive|allstate|state\s+farm|liberty\s+mutual)\b/i, 'insurance'],
-	[/\b(?:rent|rental|rentals|mortgage|hoa|housing|landlord|lease)\b/i, 'housing'],
-	[
-		/\b(?:electric|electricity|power|water|sewer|sewage|gas|internet|wifi|broadband|trash|garbage|recycling|cable|utility|utilities|phone|mobile|heating|propane|oil)\b/i,
-		'utilities'
-	],
-	[
-		/\b(?:netflix|spotify|hulu|disney|youtube|hbo|max|prime|icloud|dropbox|adobe|audible|sirius|crunchyroll|subscription|apple)\b/i,
-		'subscriptions'
-	]
-];
+/** Merchant word → category matcher: the SHARED table in
+ * `$lib/data/categories` (arch audit #4 — was a diverging local copy).
+ * Tax/fees sit first (#031): an explicit tax/fee word is its own category,
+ * never absorbed into the merchant's. */
 
 /** Day-token alternation (abbreviations included) for due-cue matching. */
 const BILL_DAY_ALT =
@@ -2230,12 +2218,7 @@ export function parseBillQuickAdd(input: string, zone?: string): ParsedBill {
 		text = text.replace(tagMatch[0], ' ');
 	}
 	if (!category) {
-		for (const [re, cat] of BILL_CATEGORY_KEYWORDS) {
-			if (re.test(input)) {
-				category = cat;
-				break;
-			}
-		}
+		category = categoryForKeyword(input);
 	}
 	if (category) confidence += 0.1;
 
