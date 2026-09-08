@@ -226,5 +226,29 @@ CREATE INDEX IF NOT EXISTS "item_tags_key_idx" ON "itemTags" ("key");
 - Email import (#033) calls `predictCategory`/`trainTagTable` at scan time
   — the seam is built and contract-tested, not wired.
 - Paid-state is not part of Spend Detail yet (spend = amounts owed in
-  range, regardless of paidAt) — revisit with #006/#032 if the user wants
+  range, regardless of paidAt) - revisit with #006/#032 if the user wants
   paid-only views.
+
+### Architecture: deep `applyBillSave` module (candidate #1, 2026-09-08)
+
+The "save a Bill" 6-step choreography (validate → create/patch → items
+replace-all → Tag Table training gate → draft confirm → paid cursor
+advance) was hand-coded in both write routes with verbatim-duplicated
+helpers. Extracted into one deep module, `src/lib/server/services/billSave.ts`:
+
+- `applyBillSave(deps, caller: {userId}, input: {billId: string | null, body: unknown})`
+  → `{ bill, items, itemsSum, unlabeled, events: {advancedTo, trained} }`.
+- Owns: body validation (reuses actions/bills boundary parsers — thrown
+  as `BillSaveValidationError` before anything persists), create-or-update
+  semantics, items replace-all, reconcile summary, the training gate
+  (`source !== 'manual'` → never train; confirm flips draft → manual then
+  trains; 'other' trains), and the paid cursor advance (unmark/one-off
+  no-op). Authorization lives here too (`BillSaveNotFoundError`, same
+  body as not-found so existence is never confirmed to non-members).
+- `BillSaveDeps` = 9 repo-level collaborators, one seam shared by POST,
+  PUT (and GET/DELETE via `& {getBillsForUser}` / `& {deleteBill}`).
+- Routes shrank to auth + JSON mapping: POST 166→52 LOC, PUT route file
+  249→81 LOC; response shapes unchanged (e2e + page tests pin them).
+- Gate matrix pinned table-driven in `billSave.test.ts` (26 tests);
+  route tests slimmed to auth/limits/JSON-mapping (81 total across the
+  3 files, all green).

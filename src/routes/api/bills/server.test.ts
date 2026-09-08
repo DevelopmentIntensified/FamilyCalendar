@@ -3,10 +3,11 @@ import { GET, POST, type BillsDeps } from './+server';
 import type { CreateBillInput } from '$lib/server/db/actions/bills';
 import type { Bill } from '$lib/server/db/schema';
 
-/** Real dep signatures, referenced type-only via dynamic import (no import). */
-type TrainFn = (typeof import('$lib/server/services/tagTable'))['trainTagTable'];
-type SetItemsFn = (typeof import('$lib/server/db/actions/bills'))['setBillItems'];
-
+/**
+ * The save choreography (validation, items replace-all, training gate,
+ * cursor advance) is pinned by src/lib/server/services/billSave.test.ts —
+ * these route tests stay at the HTTP seam: auth, limits, JSON mapping.
+ */
 function bill(over: Partial<Bill> = {}): Bill {
 	return {
 		id: 'bill-1',
@@ -29,14 +30,19 @@ function deps(over: Partial<BillsDeps> = {}): BillsDeps {
 	return {
 		getUserFamilyId: async () => 'f1',
 		getBillsForUser: async () => [bill()],
+		getBill: async () => bill(),
+		getFamilyMemberRole: async () => 'admin',
 		createBill: async (input) => bill({ ...input, id: 'bill-9' }),
+		updateBill: async () => bill({ title: 'New' }),
 		setBillItems: async () => [],
+		getItemsForBills: async () => new Map(),
 		trainTagTable: async () => {},
+		advanceBillCursor: async () => null,
 		...over
 	};
 }
 
-// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- request-body capture bag; the route's own parsers validate every field under test.
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- request-body capture bag; the module's parsers validate every field under test.
 function event(userId: string | null, body?: Record<string, unknown>) {
 	// SAFETY: test double — handlers only read locals.user, url, and request.json().
 	return {
@@ -149,60 +155,26 @@ describe('POST /api/bills', () => {
 });
 
 describe('POST /api/bills line items (#031)', () => {
-	it('creates the bill, stores items, trains the Tag Table, returns reconcile fields', async () => {
-		// SAFETY: typed fakes — the real signatures pin the call shapes the
-		// route must honor, so no cast chains are needed on mock.calls.
-		const setBillItems = vi.fn<SetItemsFn>(async (_id, items) =>
-			items.map((it, i) => ({
-				id: `ri-${i}`,
-				billId: _id,
-				label: it.label,
-				priceCents: it.priceCents,
-				category: it.category,
-				name: it.name,
-				position: i,
-				createdAt: new Date('2026-09-01T00:00:00Z')
-			}))
-		);
-		const trainTagTable = vi.fn<TrainFn>(async () => {});
+	it('maps the reconcile fields into the 201 JSON', async () => {
+		const setBillItems = vi.fn(async () => []);
 		const res = await POST(
 			event('u1', {
 				title: 'Kroger',
 				amount: 25.5,
-				category: 'other',
 				items: [
 					{ label: 'Whole Milk', priceCents: 349 },
-					{ label: 'Sales tax', priceCents: 96, category: 'tax' },
-					{ label: '4011', priceCents: 100, category: 'utilities', name: 'Banana' }
+					{ label: 'Sales tax', priceCents: 96, category: 'tax' }
 				]
 			}),
-			deps({
-				createBill: async (input) => bill({ ...input, id: 'b9' }),
-				setBillItems,
-				trainTagTable
-			})
+			deps({ setBillItems })
 		);
 
 		expect(res.status).toBe(201);
 		const body = await res.json();
-		// Soft reconcile: sum + unlabeled count, never a block.
-		expect(body.itemsSum).toBe(545);
+		expect(body.success).toBe(true);
+		expect(body.itemsSum).toBe(445);
 		expect(body.unlabeled).toBe(1);
-		expect(body.items).toHaveLength(3);
-		// Replace-all persistence against the created bill.
-		expect(setBillItems.mock.calls[0][0]).toBe('b9');
-		expect(setBillItems.mock.calls[0][1]).toHaveLength(3);
-		// Training: merchant = bill title, item keys label-derived, SKU name kept.
-		expect(trainTagTable).toHaveBeenCalledOnce();
-		const [userId, merchantKey, merchantCategory, entries] = trainTagTable.mock.calls[0];
-		expect(userId).toBe('u1');
-		expect(merchantKey).toBe('Kroger');
-		expect(merchantCategory).toBe('other');
-		expect(entries).toEqual([
-			{ key: 'Whole Milk', category: 'other', name: null },
-			{ key: 'Sales tax', category: 'tax', name: null },
-			{ key: '4011', category: 'utilities', name: 'Banana' }
-		]);
+		expect(body.items).toEqual([]);
 	});
 
 	it('validates items before creating the bill', async () => {
@@ -225,33 +197,16 @@ describe('POST /api/bills line items (#031)', () => {
 		expect(createBill).not.toHaveBeenCalled();
 	});
 
-	it('creates without items and does not train', async () => {
-		const trainTagTable = vi.fn<TrainFn>(async () => {});
+	it('omits the item fields from the JSON when items are absent', async () => {
 		const res = await POST(
 			event('u1', { title: 'Electric', amount: 120, category: 'utilities' }),
-			deps({ trainTagTable })
+			deps()
 		);
 
 		expect(res.status).toBe(201);
 		const body = await res.json();
 		expect(body.items).toBeUndefined();
 		expect(body.itemsSum).toBeUndefined();
-		expect(trainTagTable).not.toHaveBeenCalled();
-	});
-
-	it('still trains when every item is labeled "other"', async () => {
-		const trainTagTable = vi.fn<TrainFn>(async () => {});
-		const res = await POST(
-			event('u1', {
-				title: 'Corner Shop',
-				amount: 10,
-				items: [{ label: 'Mystery Gadget', priceCents: 1000, category: 'other' }]
-			}),
-			deps({ trainTagTable })
-		);
-
-		expect(res.status).toBe(201);
-		expect(trainTagTable).toHaveBeenCalledOnce();
 	});
 });
 

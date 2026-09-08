@@ -3,10 +3,12 @@ import { PUT, DELETE, type BillIdDeps } from './+server';
 import type { BillPatch } from '$lib/server/db/actions/bills';
 import type { Bill } from '$lib/server/db/schema';
 
-/** Real dep signatures, referenced type-only via dynamic import (no import). */
-type TrainFn = (typeof import('$lib/server/services/tagTable'))['trainTagTable'];
-type SetItemsFn = (typeof import('$lib/server/db/actions/bills'))['setBillItems'];
-
+/**
+ * The save choreography (validation, patch, items replace-all, training
+ * gate, cursor advance, draft confirmation) is pinned by
+ * src/lib/server/services/billSave.test.ts — these route tests stay at
+ * the HTTP seam: auth, limits, JSON mapping.
+ */
 function bill(over: Partial<Bill> = {}): Bill {
 	return {
 		id: 'bill-1',
@@ -27,8 +29,10 @@ function bill(over: Partial<Bill> = {}): Bill {
 
 function deps(over: Partial<BillIdDeps> = {}): BillIdDeps {
 	return {
+		getUserFamilyId: async () => 'f1',
 		getBill: async () => bill(),
 		getFamilyMemberRole: async () => 'admin',
+		createBill: async (input) => bill({ ...input, id: 'bill-9' }),
 		updateBill: async () => bill({ title: 'New' }),
 		deleteBill: async () => true,
 		setBillItems: async () => [],
@@ -39,7 +43,7 @@ function deps(over: Partial<BillIdDeps> = {}): BillIdDeps {
 	};
 }
 
-// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- request-body capture bag; the route's own parsers validate every field under test.
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- request-body capture bag; the module's parsers validate every field under test.
 function event(userId: string | null, body?: Record<string, unknown>) {
 	// SAFETY: test double — handlers only read locals.user, params.id, and request.json().
 	return {
@@ -62,6 +66,11 @@ describe('PUT /api/bills/[id]', () => {
 
 		expect(res.status).toBe(200);
 		expect(updateBill).toHaveBeenCalledWith('bill-1', 'u1', 'admin', { title: 'New' });
+	});
+
+	it('401s without a user', async () => {
+		const res = await PUT(event(null, { title: 'New' }), deps());
+		expect(res.status).toBe(401);
 	});
 
 	it('404s on a missing bill', async () => {
@@ -150,12 +159,11 @@ describe('PUT /api/bills/[id] attachmentId (storage stripped, issue 010)', () =>
 });
 
 describe('PUT /api/bills/[id] recurrence (#006)', () => {
-	const updateBill = vi.fn(
-		async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) =>
-			bill({ frequency: 'monthly', interval: 1 })
-	);
-
 	it('applies a valid recurring schedule to the patch', async () => {
+		const updateBill = vi.fn(
+			async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) =>
+				bill({ frequency: 'monthly', interval: 1 })
+		);
 		const res = await PUT(
 			event('u1', { recurring: { frequency: 'weekly', interval: 2 } }),
 			deps({ updateBill })
@@ -192,56 +200,31 @@ describe('PUT /api/bills/[id] recurrence (#006)', () => {
 		expect(localUpdate).not.toHaveBeenCalled();
 	});
 
-	it('mark-paid on a recurring bill advances the cursor and returns the moved bill', async () => {
+	it('returns the moved bill in the JSON when mark-paid advances the cursor', async () => {
 		const advancedBill = bill({
 			frequency: 'monthly',
 			interval: 1,
 			dueDate: '2026-10-01T00:00:00.000Z'
 		});
-		const advanceBillCursor = vi.fn(async (_id: string, _paidAt: string) => advancedBill);
-		const getBill = async () => bill({ frequency: 'monthly', interval: 1 });
-		const res = await PUT(event('u1', { paid: true }), deps({ advanceBillCursor, getBill }));
+		const res = await PUT(
+			event('u1', { paid: true }),
+			deps({
+				getBill: async () => bill({ frequency: 'monthly', interval: 1 }),
+				updateBill: async () =>
+					bill({ frequency: 'monthly', interval: 1, paidAt: new Date().toISOString() }),
+				advanceBillCursor: async () => advancedBill
+			})
+		);
 
 		expect(res.status).toBe(200);
-		expect(advanceBillCursor).toHaveBeenCalledOnce();
 		const body = await res.json();
 		expect(body.bill.dueDate).toBe('2026-10-01T00:00:00.000Z');
-	});
-
-	it('unmark-paid does NOT rewind the cursor (documented asymmetry)', async () => {
-		const advanceBillCursor = vi.fn(async (_id: string, _paidAt: string) => null);
-		const res = await PUT(event('u1', { paid: false }), deps({ advanceBillCursor }));
-
-		expect(res.status).toBe(200);
-		expect(advanceBillCursor).not.toHaveBeenCalled();
-	});
-
-	it('mark-paid on a one-off bill does not advance anything', async () => {
-		const advanceBillCursor = vi.fn(async (_id: string, _paidAt: string) => null);
-		const res = await PUT(event('u1', { paid: true }), deps({ advanceBillCursor }));
-
-		expect(res.status).toBe(200);
-		expect(advanceBillCursor).not.toHaveBeenCalled();
 	});
 });
 
 describe('PUT /api/bills/[id] line items (#031)', () => {
-	it('replaces items, trains the Tag Table, returns reconcile fields', async () => {
-		// SAFETY: typed fakes — the real signatures pin the call shapes the
-		// route must honor, so no cast chains are needed on mock.calls.
-		const setBillItems = vi.fn<SetItemsFn>(async (_id, items) =>
-			items.map((it, i) => ({
-				id: `ri-${i}`,
-				billId: _id,
-				label: it.label,
-				priceCents: it.priceCents,
-				category: it.category,
-				name: it.name,
-				position: i,
-				createdAt: new Date('2026-09-01T00:00:00Z')
-			}))
-		);
-		const trainTagTable = vi.fn<TrainFn>(async () => {});
+	it('maps the reconcile fields into the 200 JSON', async () => {
+		const setBillItems = vi.fn(async () => []);
 		const res = await PUT(
 			event('u1', {
 				items: [
@@ -249,51 +232,30 @@ describe('PUT /api/bills/[id] line items (#031)', () => {
 					{ label: 'Sales tax', priceCents: 96, category: 'tax' }
 				]
 			}),
-			deps({ setBillItems, trainTagTable })
+			deps({ setBillItems })
 		);
 
 		expect(res.status).toBe(200);
 		const body = await res.json();
 		expect(body.itemsSum).toBe(445);
 		expect(body.unlabeled).toBe(1);
-		expect(body.items).toHaveLength(2);
-		// Replace-all against the existing bill.
-		expect(setBillItems.mock.calls[0][0]).toBe('bill-1');
-		expect(setBillItems.mock.calls[0][1]).toHaveLength(2);
-		// Items-only save: no field patch → updateBill not called.
-		expect(trainTagTable).toHaveBeenCalledOnce();
-		const [userId, merchantKey, merchantCategory, entries] = trainTagTable.mock.calls[0];
-		expect(userId).toBe('u1');
-		expect(merchantKey).toBe('Electric');
-		expect(merchantCategory).toBe('utilities');
-		expect(entries).toEqual([
-			{ key: 'Whole Milk', category: 'utilities', name: null },
-			{ key: 'Sales tax', category: 'tax', name: null }
-		]);
+		expect(body.items).toEqual([]);
 	});
 
-	it('trains with the UPDATED title and category in the same request', async () => {
-		const trainTagTable = vi.fn<TrainFn>(async () => {});
+	it('items-only save skips the field patch', async () => {
+		const updateBill = vi.fn(async () => bill());
 		const res = await PUT(
-			event('u1', {
-				title: 'Kroger',
-				category: 'other',
-				items: [{ label: 'Milk', priceCents: 349 }]
-			}),
-			deps({ trainTagTable, updateBill: async () => bill({ title: 'Kroger', category: 'other' }) })
+			event('u1', { items: [{ label: 'x', priceCents: 1 }] }),
+			deps({ updateBill })
 		);
 
 		expect(res.status).toBe(200);
-		const [, merchantKey, merchantCategory] = trainTagTable.mock.calls[0];
-		expect(merchantKey).toBe('Kroger');
-		expect(merchantCategory).toBe('other');
+		expect(updateBill).not.toHaveBeenCalled();
 	});
 
 	it('400s on invalid items without updating anything', async () => {
-		const updateBill = vi.fn(
-			async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) => bill()
-		);
-		const setBillItems = vi.fn<SetItemsFn>(async () => []);
+		const updateBill = vi.fn(async () => bill());
+		const setBillItems = vi.fn(async () => []);
 		const res = await PUT(
 			event('u1', { items: [{ label: 'x', priceCents: -5 }] }),
 			deps({ updateBill, setBillItems })
@@ -305,106 +267,40 @@ describe('PUT /api/bills/[id] line items (#031)', () => {
 	});
 
 	it('leaves stored items untouched when items is absent', async () => {
-		const setBillItems = vi.fn<SetItemsFn>(async () => []);
-		const trainTagTable = vi.fn<TrainFn>(async () => {});
-		const res = await PUT(event('u1', { paid: true }), deps({ setBillItems, trainTagTable }));
+		const setBillItems = vi.fn(async () => []);
+		const res = await PUT(event('u1', { paid: true }), deps({ setBillItems }));
 
 		expect(res.status).toBe(200);
 		expect(setBillItems).not.toHaveBeenCalled();
-		expect(trainTagTable).not.toHaveBeenCalled();
 	});
 });
 
 describe('PUT /api/bills/[id] draft confirmation (#033)', () => {
-	const receiptItems = [
-		{
-			id: 'ri-1',
-			billId: 'bill-1',
-			label: 'WHOLE MILK',
-			priceCents: 349,
-			category: null,
-			position: 0,
-			createdAt: new Date('2026-09-01T00:00:00Z')
-		}
-	];
+	it('confirmDraft on a manual bill is a no-op 200', async () => {
+		const updateBill = vi.fn(async () => bill());
+		const res = await PUT(event('u1', { confirmDraft: true }), deps({ updateBill }));
 
-	function draftDeps(over: Partial<BillIdDeps> = {}): BillIdDeps {
-		// SAFETY: the spread base already carries every BillIdDeps member; the
-		// cast only widens the override bag to the same shape.
-		// oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- test-double cast, justified above.
-		return deps({
-			getBill: async () => bill({ source: 'email', category: 'other', title: 'KROGER #4412' }),
-			getItemsForBills: vi.fn(async () => new Map([['bill-1', receiptItems]])),
-			...over
-		} as Partial<BillIdDeps>);
-	}
+		expect(res.status).toBe(200);
+		expect(updateBill).not.toHaveBeenCalled();
+		expect(await res.json()).toMatchObject({ success: true, bill: { id: 'bill-1' } });
+	});
 
-	it('confirmDraft flips an email draft to manual and trains from stored items', async () => {
+	it('confirming an email draft returns the confirmed bill', async () => {
 		const updateBill = vi.fn(
 			async (_id: string, _userId: string, _role: string | null, patch: BillPatch) =>
 				bill({ source: patch.source ?? 'email', category: 'other', title: 'KROGER #4412' })
 		);
-		const trainTagTable = vi.fn<TrainFn>(async () => {});
 		const res = await PUT(
 			event('u1', { confirmDraft: true }),
-			draftDeps({ updateBill, trainTagTable })
+			deps({
+				getBill: async () => bill({ source: 'email', category: 'other', title: 'KROGER #4412' }),
+				updateBill
+			})
 		);
 
 		expect(res.status).toBe(200);
 		expect(updateBill).toHaveBeenCalledWith('bill-1', 'u1', 'admin', { source: 'manual' });
-		expect(trainTagTable).toHaveBeenCalledOnce();
-		const [userId, merchantKey, merchantCategory, entries] = trainTagTable.mock.calls[0];
-		expect(userId).toBe('u1');
-		expect(merchantKey).toBe('KROGER #4412');
-		expect(merchantCategory).toBe('other');
-		expect(entries).toEqual([{ key: 'WHOLE MILK', category: 'other', name: null }]);
-	});
-
-	it('confirming alongside an items save trains with the NEW items', async () => {
-		const updateBill = vi.fn(
-			async (_id: string, _userId: string, _role: string | null, patch: BillPatch) =>
-				bill({ source: patch.source ?? 'email', category: 'other' })
-		);
-		const setBillItems = vi.fn<SetItemsFn>(async () => []);
-		const trainTagTable = vi.fn<TrainFn>(async () => {});
-		const res = await PUT(
-			event('u1', { confirmDraft: true, items: [{ label: 'Bagel', priceCents: 300 }] }),
-			draftDeps({ updateBill, setBillItems, trainTagTable })
-		);
-
-		expect(res.status).toBe(200);
-		expect(trainTagTable.mock.calls[0][3]).toEqual([
-			{ key: 'Bagel', category: 'other', name: null }
-		]);
-	});
-
-	it('editing items on an UNCONFIRMED draft never trains', async () => {
-		const setBillItems = vi.fn<SetItemsFn>(async () => []);
-		const trainTagTable = vi.fn<TrainFn>(async () => {});
-		const res = await PUT(
-			event('u1', { items: [{ label: 'Bagel', priceCents: 300 }] }),
-			draftDeps({ setBillItems, trainTagTable })
-		);
-
-		expect(res.status).toBe(200);
-		expect(setBillItems).toHaveBeenCalledOnce();
-		expect(trainTagTable).not.toHaveBeenCalled();
-	});
-
-	it('confirmDraft on a manual bill is a no-op patch', async () => {
-		const updateBill = vi.fn(
-			async (_id: string, _userId: string, _role: string | null, patch: BillPatch) =>
-				bill({ source: patch.source ?? 'manual' })
-		);
-		const trainTagTable = vi.fn<TrainFn>(async () => {});
-		const res = await PUT(
-			event('u1', { confirmDraft: true }),
-			deps({ updateBill, trainTagTable, getItemsForBills: async () => new Map() })
-		);
-
-		expect(res.status).toBe(200);
-		expect(updateBill).not.toHaveBeenCalled();
-		expect(trainTagTable).not.toHaveBeenCalled();
+		expect(await res.json()).toMatchObject({ success: true, bill: { source: 'manual' } });
 	});
 });
 
