@@ -1,6 +1,6 @@
 # 031 — Receipt item labeling + learning tag system
 
-Status: open
+Status: done
 
 Parent: #010 receipts (builds on its scan seam).
 
@@ -76,7 +76,141 @@ Parent: #010 receipts (builds on its scan seam).
 
 ## Needs doing
 
-- Queued behind: strip-storage + privacy slice (#029 H3/M1/M2 + remove
+- ~~Queued behind: strip-storage + privacy slice (#029 H3/M1/M2 + remove
   image storage) → OCR fallback chain → this (#031) → #006 recurring
   bills. Same files as receipts (bills page, scan seam) — strictly
-  sequential. Receipts scan seam landed (commit 73761c0).
+  sequential. Receipts scan seam landed (commit 73761c0).~~
+
+## Done
+
+- **Schema** (`src/lib/server/db/schema.ts`, `sql/011-receipt-items-tags.sql`
+  — applied to both local Docker DBs `familycalendar` + `familycalendar_test`;
+  **NEON PENDING — see SQL block below**):
+  - `BILL_CATEGORIES` extended with `'tax'`, `'fees'` (closed, dev-curated).
+  - `receiptItems`: id, billId FK cascade, label, priceCents, category
+    (nullable — null = inherits bill category), position, createdAt; index
+    on billId.
+  - `itemTags`: id, userId (nullable — null = GLOBAL), `key` (normalized:
+    lowercase, trimmed, punctuation-collapsed, ≤120 chars), category, name
+    (learned SKU display name), weight, updatedAt. One row per
+    (scope, key, category); unique partial indexes
+    `item_tags_user_key_category_unique` (userId,key,category) WHERE
+    user_id IS NOT NULL and `item_tags_global_key_category_unique`
+    (key,category) WHERE user_id IS NULL; plus `item_tags_key_idx` (key).
+- **Tag Table service** (`src/lib/server/services/tagTable.ts`, 36 tests,
+  red→green table-driven): `normalizeTagKey`, `isBareCodeLabel` (3–24
+  digits), `deriveItemKey(merchant, label)` (bare codes become the
+  merchant-scoped `(merchant sku)` key, space-joined so it is
+  normalizeTagKey-stable), `predictCategory({merchant, itemKeys}, userId)`
+  (EXACTLY 2 indexed batched queries: user rows via inArray, global rows via
+  inArray; precedence user row → global majority (max weight) → null),
+  `trainTagTable(userId, merchantKey, merchantCategory, entries)` (single
+  transaction; user rows + global rows; weight+1 upsert, name fills in but
+  never blanks; dedupes repeated keys per batch keeping the last category;
+  'other' still trains), `topTags(userId, limit=50)` (user + global top-N
+  for the preloaded datalist). Perf test: 1000 seeded rows, 100 keys,
+  asserts exactly 2 queries + <50ms.
+- **Bills API** (`src/routes/api/bills{,/[id]}/+server.ts`, 35 tests):
+  create/update accept `items: [{label, priceCents, category?, name?}]`
+  (labels/names ≤100 chars, integer cents ≥0, category in vocab or null,
+  max 50) — validated BEFORE any write; replace-all semantics per update
+  (`setBillItems` — one tx: delete old + insert positioned). Absent `items`
+  leaves stored items untouched. Responses with items carry `items` +
+  `itemsSum` + `unlabeled` (soft reconcile, never blocking). Every
+  create/update WITH items retrains the Tag Table: merchant key = bill
+  title (normalized), merchant category = bill category, per-item
+  label-derived keys, learned SKU `name` passthrough. Items-only PUT skips
+  the empty-patch bill update (drizzle set({}) throws).
+- **Keyword tables**: `receiptScan.ts` category table + client `BillCategory`
+  union gained tax/fees (tax, taxes, sales tax, vat, gst; fee(s), surcharge)
+  — applied ONLY to single-line inputs (item labels / merchant names);
+  multiline whole-receipt scans stay merchant-derived (every receipt prints
+  a TAX summary line). `azureReceiptService` now derives the bill category
+  from the merchant alone (was merchant + item labels — line-item labels
+  must never absorb the bill's category). `naturalLanguageService`
+  BILL_CATEGORY_KEYWORDS gained tax/fees rows (first, so explicit tax/fee
+  words win); 10 new table cases.
+- **Bills page** (runes, `+page.svelte`, 32 client tests, autofixer clean):
+  - Line Items editor in the expanded detail (all bills, manual too):
+    label (datalist suggestions) + price + category select ("Inherit" +
+    vocabulary), remove, add (≤50), Save → PUT replace-all → invalidateAll.
+  - Create form gains an optional Line Items section, collapsed by default;
+    sent only when it has usable rows.
+  - Code-only items: bare 3–24-digit labels render "Item <code> · $x.xx"
+    with a name-it-once prompt; the learned `name` rides the save payload
+    and trains the (merchant, sku) key. Stored drafts are pre-filled with
+    the learned name from the preloaded Tag Table rows.
+  - Suggestion badges: "your history" (user row) / "common" (global row).
+  - Suggestions: preloaded user+global top-50 at load (`topTags`), filtered
+    client-side to ≤10 into one native `<datalist>` — no per-keystroke
+    server calls; 1000-row sets never render as DOM nodes.
+  - Reconcile hint: when |bill total − items sum| > 1¢ → amber
+    "Items sum to $X of $Y — add a tax/fees line?" with one-tap
+    "Add 'Sales tax' <remainder>" (category tax).
+  - Spend Detail card (surface a): month select (distinct dueDate months +
+    All time; `?month=` drives the server aggregation; default current UTC
+    month), category bars (amount + share), tap toggles a filtered bill
+    list ("Show all" clears).
+- **Spend aggregation** (`src/lib/server/services/spendDetail.ts`, 10
+  tests, pure): `billsInMonth` (UTC dueDate month filter; undated
+  excluded), `spendByCategory(bills, itemsByBillId)` — bills WITH items
+  contribute each item's price under its Label category (null inherits the
+  bill's), bills WITHOUT items contribute the full amount under the bill's
+  category; slices sorted by cents desc with contributing billIds. One
+  bills query + one items query per load, aggregation in memory.
+- Gates: vitest 1612 server+client tests green (full run), playwright
+  e2e/bills + e2e/mobile green, oxlint 0/0, prettier clean, `npm run check`
+  0 errors, `npm run build` passes, svelte-autofixer clean on `+page.svelte`
+  except two documented deviations:
+  - "goto() without resolve()" — `$app/paths#resolve` needs kit ≥2.26; the
+    repo pins kit 2.17.2. Dependency upgrade intentionally out of scope.
+  - spendMonth `$state` + `$effect` sync — writable `$derived` binding is
+    rejected by this svelte-check/svelte (5.20.1) pair ("Cannot bind to
+    derived state"); the effect keeps the select synced with `?month=`
+    navigations.
+  - (`bind:this` on the scan input and a per-derivation `new Set` in
+    spendMonths are pre-existing/cosmetic suggestions.)
+
+**Neon SQL to apply (production-bound — sql/011-receipt-items-tags.sql):**
+
+```sql
+CREATE TABLE IF NOT EXISTS "receiptItems" (
+	"id" text PRIMARY KEY NOT NULL,
+	"billId" text NOT NULL REFERENCES "bills"("id") ON DELETE cascade,
+	"label" text NOT NULL,
+	"price_cents" integer NOT NULL,
+	-- NULL = inherits the parent bill's category.
+	"category" text,
+	"position" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "receipt_items_bill_idx" ON "receiptItems" ("billId");
+
+CREATE TABLE IF NOT EXISTS "itemTags" (
+	"id" text PRIMARY KEY NOT NULL,
+	-- NULL = GLOBAL row (learned across all users).
+	"userId" text REFERENCES "users"("id") ON DELETE cascade,
+	"key" text NOT NULL,
+	"category" text NOT NULL,
+	-- Learned display name for code-only (store-SKU) items.
+	"name" text,
+	"weight" integer DEFAULT 0 NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "item_tags_user_key_category_unique"
+	ON "itemTags" ("userId", "key", "category") WHERE "userId" IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "item_tags_global_key_category_unique"
+	ON "itemTags" ("key", "category") WHERE "userId" IS NULL;
+CREATE INDEX IF NOT EXISTS "item_tags_key_idx" ON "itemTags" ("key");
+```
+
+### Deferred
+
+- (a) Day Dashboard "Spending" module → follow-up; (c) Reports page → #032.
+- Public GTIN lookup (Open Food Facts / upc.dev) for valid check-digit
+  codes → #033's scan lane; this slice covers the store-SKU seam only.
+- Email import (#033) calls `predictCategory`/`trainTagTable` at scan time
+  — the seam is built and contract-tested, not wired.
+- Paid-state is not part of Spend Detail yet (spend = amounts owed in
+  range, regardless of paidAt) — revisit with #006/#032 if the user wants
+  paid-only views.

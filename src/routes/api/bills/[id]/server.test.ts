@@ -3,6 +3,10 @@ import { PUT, DELETE, type BillIdDeps } from './+server';
 import type { BillPatch } from '$lib/server/db/actions/bills';
 import type { Bill } from '$lib/server/db/schema';
 
+/** Real dep signatures, referenced type-only via dynamic import (no import). */
+type TrainFn = (typeof import('$lib/server/services/tagTable'))['trainTagTable'];
+type SetItemsFn = (typeof import('$lib/server/db/actions/bills'))['setBillItems'];
+
 function bill(over: Partial<Bill> = {}): Bill {
 	return {
 		id: 'bill-1',
@@ -24,11 +28,14 @@ function deps(over: Partial<BillIdDeps> = {}): BillIdDeps {
 		getFamilyMemberRole: async () => 'admin',
 		updateBill: async () => bill({ title: 'New' }),
 		deleteBill: async () => true,
+		setBillItems: async () => [],
+		trainTagTable: async () => {},
 		...over
 	};
 }
 
-function event(userId: string | null, body?: Record<string, string | number | boolean | null>) {
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- request-body capture bag; the route's own parsers validate every field under test.
+function event(userId: string | null, body?: Record<string, unknown>) {
 	// SAFETY: test double — handlers only read locals.user, params.id, and request.json().
 	return {
 		locals: { user: userId ? { id: userId } : null },
@@ -134,6 +141,96 @@ describe('PUT /api/bills/[id] attachmentId (storage stripped, issue 010)', () =>
 		expect(res.status).toBe(200);
 		expect(updateBill).not.toHaveBeenCalled();
 		expect(await res.json()).toMatchObject({ success: true });
+	});
+});
+
+describe('PUT /api/bills/[id] line items (#031)', () => {
+	it('replaces items, trains the Tag Table, returns reconcile fields', async () => {
+		// SAFETY: typed fakes — the real signatures pin the call shapes the
+		// route must honor, so no cast chains are needed on mock.calls.
+		const setBillItems = vi.fn<SetItemsFn>(async (_id, items) =>
+			items.map((it, i) => ({
+				id: `ri-${i}`,
+				billId: _id,
+				label: it.label,
+				priceCents: it.priceCents,
+				category: it.category,
+				name: it.name,
+				position: i,
+				createdAt: new Date('2026-09-01T00:00:00Z')
+			}))
+		);
+		const trainTagTable = vi.fn<TrainFn>(async () => {});
+		const res = await PUT(
+			event('u1', {
+				items: [
+					{ label: 'Whole Milk', priceCents: 349 },
+					{ label: 'Sales tax', priceCents: 96, category: 'tax' }
+				]
+			}),
+			deps({ setBillItems, trainTagTable })
+		);
+
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.itemsSum).toBe(445);
+		expect(body.unlabeled).toBe(1);
+		expect(body.items).toHaveLength(2);
+		// Replace-all against the existing bill.
+		expect(setBillItems.mock.calls[0][0]).toBe('bill-1');
+		expect(setBillItems.mock.calls[0][1]).toHaveLength(2);
+		// Items-only save: no field patch → updateBill not called.
+		expect(trainTagTable).toHaveBeenCalledOnce();
+		const [userId, merchantKey, merchantCategory, entries] = trainTagTable.mock.calls[0];
+		expect(userId).toBe('u1');
+		expect(merchantKey).toBe('Electric');
+		expect(merchantCategory).toBe('utilities');
+		expect(entries).toEqual([
+			{ key: 'Whole Milk', category: 'utilities', name: null },
+			{ key: 'Sales tax', category: 'tax', name: null }
+		]);
+	});
+
+	it('trains with the UPDATED title and category in the same request', async () => {
+		const trainTagTable = vi.fn<TrainFn>(async () => {});
+		const res = await PUT(
+			event('u1', {
+				title: 'Kroger',
+				category: 'other',
+				items: [{ label: 'Milk', priceCents: 349 }]
+			}),
+			deps({ trainTagTable, updateBill: async () => bill({ title: 'Kroger', category: 'other' }) })
+		);
+
+		expect(res.status).toBe(200);
+		const [, merchantKey, merchantCategory] = trainTagTable.mock.calls[0];
+		expect(merchantKey).toBe('Kroger');
+		expect(merchantCategory).toBe('other');
+	});
+
+	it('400s on invalid items without updating anything', async () => {
+		const updateBill = vi.fn(
+			async (_id: string, _userId: string, _role: string | null, _patch: BillPatch) => bill()
+		);
+		const setBillItems = vi.fn<SetItemsFn>(async () => []);
+		const res = await PUT(
+			event('u1', { items: [{ label: 'x', priceCents: -5 }] }),
+			deps({ updateBill, setBillItems })
+		);
+
+		expect(res.status).toBe(400);
+		expect(updateBill).not.toHaveBeenCalled();
+		expect(setBillItems).not.toHaveBeenCalled();
+	});
+
+	it('leaves stored items untouched when items is absent', async () => {
+		const setBillItems = vi.fn<SetItemsFn>(async () => []);
+		const trainTagTable = vi.fn<TrainFn>(async () => {});
+		const res = await PUT(event('u1', { paid: true }), deps({ setBillItems, trainTagTable }));
+
+		expect(res.status).toBe(200);
+		expect(setBillItems).not.toHaveBeenCalled();
+		expect(trainTagTable).not.toHaveBeenCalled();
 	});
 });
 

@@ -8,11 +8,16 @@ import {
 	canMutateBill,
 	normalizeAmountCents,
 	normalizeBillCategory,
+	normalizeBillItems,
 	parseDueDate,
+	setBillItems,
+	type BillItemInput,
 	type BillPatch
 } from '$lib/server/db/actions/bills';
 import { getFamilyMemberRole } from '$lib/server/db/actions/families';
 import { requireUserJson } from '$lib/server/utils/requireUser';
+import { trainTagTable } from '$lib/server/services/tagTable';
+import type { Bill, BillCategory } from '$lib/server/db/schema';
 
 /**
  * Collaborators the bill endpoints need, injectable so tests pass fakes
@@ -23,13 +28,17 @@ export type BillIdDeps = {
 	getFamilyMemberRole: typeof getFamilyMemberRole;
 	updateBill: typeof updateBill;
 	deleteBill: typeof deleteBill;
+	setBillItems: typeof setBillItems;
+	trainTagTable: typeof trainTagTable;
 };
 
 const defaultDeps: BillIdDeps = {
 	getBill,
 	getFamilyMemberRole,
 	updateBill,
-	deleteBill
+	deleteBill,
+	setBillItems,
+	trainTagTable
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -53,6 +62,47 @@ async function authorize(
 	return { bill, role };
 }
 
+/**
+ * Learning loop (#031): every save with line items upserts the Tag Table —
+ * the merchant key (bill-title derived) + each item's label-derived key.
+ * 'other' still trains; it builds popularity data for dev curation.
+ */
+async function trainFromItems(
+	train: typeof trainTagTable,
+	userId: string,
+	bill: Bill,
+	items: BillItemInput[]
+): Promise<void> {
+	// SAFETY: bills.category is a BILL_CATEGORIES literal (validated by
+	// normalizeBillCategory at write); the DB text column widens it to
+	// string on read, so the assertion only restores the write-side type.
+	const category = bill.category as BillCategory;
+	await train(
+		userId,
+		bill.title,
+		category,
+		items.map((item) => ({
+			key: item.label,
+			category: item.category ?? category,
+			name: item.name
+		}))
+	);
+}
+
+/** Soft reconcile summary: items sum + how many items inherit the bill category. */
+interface ReconcileSummary {
+	itemsSum: number;
+	unlabeled: number;
+}
+
+/** Soft reconcile summary: items sum + how many items inherit the bill category. */
+function reconcileSummary(items: BillItemInput[]): ReconcileSummary {
+	return {
+		itemsSum: items.reduce((sum, item) => sum + item.priceCents, 0),
+		unlabeled: items.filter((item) => item.category === null).length
+	};
+}
+
 export const PUT = async (event: RequestEvent, deps: BillIdDeps = defaultDeps) => {
 	const auth = requireUserJson(event.locals);
 	if (auth.response) return auth.response;
@@ -62,6 +112,14 @@ export const PUT = async (event: RequestEvent, deps: BillIdDeps = defaultDeps) =
 
 	const body = await event.request.json();
 	const patch: BillPatch = {};
+	// Line items (#031): validated BEFORE anything is written; replace-all
+	// semantics. Absent `items` leaves the stored list untouched.
+	let items: BillItemInput[] | null = null;
+	if (body.items !== undefined) {
+		const parsed = normalizeBillItems(body.items);
+		if ('error' in parsed) return json({ error: parsed.error }, { status: 400 });
+		items = parsed.items;
+	}
 	if (body.title !== undefined) {
 		if (!isNonEmptyString(body.title)) {
 			return json({ error: 'Title must not be empty' }, { status: 400 });
@@ -85,13 +143,27 @@ export const PUT = async (event: RequestEvent, deps: BillIdDeps = defaultDeps) =
 	if (body.category !== undefined) patch.category = normalizeBillCategory(body.category);
 	if (body.paid !== undefined) patch.paidAt = body.paid ? new Date().toISOString() : null;
 
-	if (Object.keys(patch).length === 0) {
-		// Empty patch: drizzle's set({}) throws, and there is nothing to write.
+	if (Object.keys(patch).length === 0 && items === null) {
+		// Empty patch and no items: drizzle's set({}) throws, and there is
+		// nothing to write.
 		return json({ success: true, bill: allowed.bill });
 	}
 
 	try {
-		const updated = await deps.updateBill(event.params.id, auth.user.id, allowed.role, patch);
+		// An items-only save has an empty field patch — skip the bill update
+		// (drizzle's set({}) throws) and work from the existing bill.
+		const updated =
+			Object.keys(patch).length > 0
+				? await deps.updateBill(event.params.id, auth.user.id, allowed.role, patch)
+				: null;
+		const bill = updated ?? allowed.bill;
+		if (items) {
+			// Replace-all + training against the bill's CURRENT title/category
+			// (the same request may have changed them).
+			const stored = await deps.setBillItems(bill.id, items);
+			await trainFromItems(deps.trainTagTable, auth.user.id, bill, items);
+			return json({ success: true, bill, items: stored, ...reconcileSummary(items) });
+		}
 		if (!updated) return json({ error: 'Bill not found' }, { status: 404 });
 		return json({ success: true, bill: updated });
 	} catch (error) {

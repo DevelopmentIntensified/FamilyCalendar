@@ -115,7 +115,10 @@ function normalizeDocument(fields: Record<string, AzureField>): AzureReceiptScan
 	const totalCents = fieldToCents(fields.Total);
 	const date = fieldToDate(fields.TransactionDate);
 	const lineItems = normalizeItems(fields.Items);
-	const categoryInput = [merchant, ...(lineItems ?? []).map((item) => item.label)].join(' ');
+	// Bill category is MERCHANT-derived (#031): line-item labels (a "grid
+	// fee", a "sales tax" line) must never absorb the bill's category —
+	// they get their own Line Item Labels instead.
+	const categoryInput = merchant ?? '';
 	return {
 		merchant,
 		merchantConfidence: fieldConfidence(fields.MerchantName),

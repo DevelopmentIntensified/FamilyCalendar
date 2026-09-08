@@ -6,6 +6,7 @@ import type { SQL } from 'drizzle-orm';
  * calendar.test.ts); permission predicates are pure and need no stub.
  * Justified mock: see docs/issues/002.
  */
+
 /** A stubbed DB row: plain JSON-ish values only. */
 type Row = Record<string, string | number | boolean | null | Date>;
 
@@ -17,6 +18,11 @@ interface StubState {
 	updateValues: Row | null;
 	updateReturn: Row[];
 	deleteReturn: Row[];
+	// tx (transaction) captures for setBillItems.
+	transactionOpened: boolean;
+	txDeleted: unknown[];
+	txInsertValues: Row[] | null;
+	txInsertReturn: Row[];
 }
 
 const state = vi.hoisted(
@@ -27,7 +33,11 @@ const state = vi.hoisted(
 		insertReturn: [],
 		updateValues: null,
 		updateReturn: [],
-		deleteReturn: []
+		deleteReturn: [],
+		transactionOpened: false,
+		txDeleted: [],
+		txInsertValues: null,
+		txInsertReturn: []
 	})
 );
 
@@ -67,7 +77,24 @@ vi.mock('$lib/server/db', () => ({
 			where: () => ({
 				returning: () => Promise.resolve(state.deleteReturn)
 			})
-		})
+		}),
+		// oxlint-disable-next-line anti-slop/no-unknown-parameters,anti-slop/no-unknown-returns -- scripted drizzle stub: tx is the drizzle transaction client stand-in, never parsed as domain data.
+		transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
+			state.transactionOpened = true;
+			return fn({
+				// oxlint-disable-next-line anti-slop/no-unknown-parameters -- scripted drizzle stub: the table token is captured verbatim for assertions.
+				delete: (table: unknown) => {
+					state.txDeleted.push(table);
+					return { where: () => Promise.resolve() };
+				},
+				insert: () => ({
+					values: (v: Row[]) => {
+						state.txInsertValues = v;
+						return { returning: () => Promise.resolve(state.txInsertReturn) };
+					}
+				})
+			});
+		}
 	}
 }));
 
@@ -79,10 +106,14 @@ import {
 	canMutateBill,
 	normalizeBillCategory,
 	normalizeAmountCents,
+	normalizeBillItems,
 	parseDueDate,
+	setBillItems,
+	getItemsForBills,
 	type DueDateParse
 } from './bills';
 import type { Bill } from '$lib/server/db/schema';
+import { BILL_CATEGORIES } from '$lib/server/db/schema';
 import { PgDialect } from 'drizzle-orm/pg-core';
 
 const dialect = new PgDialect();
@@ -115,6 +146,10 @@ beforeEach(() => {
 	state.updateValues = null;
 	state.updateReturn = [];
 	state.deleteReturn = [];
+	state.transactionOpened = false;
+	state.txDeleted = [];
+	state.txInsertValues = null;
+	state.txInsertReturn = [];
 });
 
 describe('normalizeBillCategory', () => {
@@ -283,5 +318,120 @@ describe('deleteBill', () => {
 
 		expect(await deleteBill('bill-1', 'u1', 'member')).toBe(false);
 		expect(state.deleteReturn).toEqual([]);
+	});
+});
+
+describe('normalizeBillItems (#031)', () => {
+	it('accepts a valid item', () => {
+		expect(
+			normalizeBillItems([{ label: ' Whole Milk ', priceCents: 349, category: 'tax', name: 'x' }])
+		).toEqual({
+			items: [{ label: 'Whole Milk', priceCents: 349, category: 'tax', name: 'x' }]
+		});
+	});
+
+	it('defaults category and name to null (inherit the bill category)', () => {
+		expect(normalizeBillItems([{ label: 'Milk', priceCents: 349 }])).toEqual({
+			items: [{ label: 'Milk', priceCents: 349, category: null, name: null }]
+		});
+	});
+
+	it('accepts explicit null category (inherits) and int-string cents', () => {
+		expect(normalizeBillItems([{ label: 'Milk', priceCents: '349', category: null }])).toEqual({
+			items: [{ label: 'Milk', priceCents: 349, category: null, name: null }]
+		});
+	});
+
+	it('accepts every vocabulary category and rejects unknown ones', () => {
+		const good = BILL_CATEGORIES.map((category) => ({
+			label: 'x',
+			priceCents: 1,
+			category
+		}));
+		expect(normalizeBillItems(good)).not.toHaveProperty('error');
+		expect(normalizeBillItems([{ label: 'x', priceCents: 1, category: 'pets' }])).toEqual({
+			error: 'Line item category must be one of the bill categories'
+		});
+	});
+
+	const invalid: [string, unknown][] = [
+		['non-array items', { label: 'x' }],
+		['non-object item', ['x']],
+		['missing label', [{ priceCents: 100 }]],
+		['blank label', [{ label: '   ', priceCents: 100 }]],
+		['non-string label', [{ label: 42, priceCents: 100 }]],
+		['101-char label', [{ label: 'a'.repeat(101), priceCents: 100 }]],
+		['missing price', [{ label: 'x' }]],
+		['negative price', [{ label: 'x', priceCents: -1 }]],
+		['fractional cents', [{ label: 'x', priceCents: 12.5 }]],
+		['non-numeric price', [{ label: 'x', priceCents: 'lots' }]],
+		['overflow price', [{ label: 'x', priceCents: 2147483648 }]],
+		['non-string name', [{ label: 'x', priceCents: 1, name: 7 }]],
+		['101-char name', [{ label: 'x', priceCents: 1, name: 'n'.repeat(101) }]],
+		['51 items', Array.from({ length: 51 }, (_, i) => ({ label: `i${i}`, priceCents: 1 }))]
+	];
+	for (const [name, raw] of invalid) {
+		it(`rejects ${name}`, () => {
+			// Every invalid shape must land on the error branch with a message.
+			expect(normalizeBillItems(raw)).toEqual({ error: expect.any(String) });
+		});
+	}
+
+	it('accepts exactly 50 items', () => {
+		const raw = Array.from({ length: 50 }, (_, i) => ({ label: `i${i}`, priceCents: 1 }));
+		expect(normalizeBillItems(raw)).not.toHaveProperty('error');
+	});
+});
+
+describe('setBillItems (#031 replace-all)', () => {
+	it('opens one transaction, deletes old rows, inserts positioned new rows', async () => {
+		state.txInsertReturn = [
+			{ id: 'ri-1', billId: 'bill-1', label: 'Milk', priceCents: 349, category: null, position: 0 }
+		];
+
+		const rows = await setBillItems('bill-1', [
+			{ label: 'Milk', priceCents: 349, category: null, name: null },
+			{ label: 'Eggs', priceCents: 250, category: 'tax', name: null }
+		]);
+
+		expect(state.transactionOpened).toBe(true);
+		expect(state.txDeleted).toHaveLength(1);
+		expect(state.txInsertValues).toEqual([
+			{ billId: 'bill-1', label: 'Milk', priceCents: 349, category: null, position: 0 },
+			{ billId: 'bill-1', label: 'Eggs', priceCents: 250, category: 'tax', position: 1 }
+		]);
+		expect(rows).toHaveLength(1);
+	});
+
+	it('replaces with an empty list (clears all items)', async () => {
+		const rows = await setBillItems('bill-1', []);
+
+		expect(state.transactionOpened).toBe(true);
+		expect(state.txDeleted).toHaveLength(1);
+		expect(state.txInsertValues).toBeNull();
+		expect(rows).toEqual([]);
+	});
+});
+
+describe('getItemsForBills (#031)', () => {
+	it('groups items by bill and orders the query by position', async () => {
+		state.selectQueue.push([
+			{ id: 'ri-1', billId: 'b2', label: 'A', priceCents: 1, category: null, position: 0 },
+			{ id: 'ri-2', billId: 'b2', label: 'B', priceCents: 2, category: null, position: 1 },
+			{ id: 'ri-3', billId: 'b1', label: 'C', priceCents: 3, category: null, position: 0 }
+		]);
+
+		const got = await getItemsForBills(['b1', 'b2']);
+
+		expect([...got.keys()].sort()).toEqual(['b1', 'b2']);
+		expect(got.get('b2')?.map((row) => row.label)).toEqual(['A', 'B']);
+		expect(renderedSql(state.orderByArgs[0])).toContain('"receiptItems"."position" asc');
+	});
+
+	it('returns an empty map without issuing a query for no bills', async () => {
+		const got = await getItemsForBills([]);
+
+		expect(got.size).toBe(0);
+		expect(state.selectQueue).toEqual([]);
 	});
 });

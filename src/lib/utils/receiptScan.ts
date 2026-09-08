@@ -6,7 +6,14 @@
  * CLIENT-SAFE: mirrors schema's BILL_CATEGORIES as a local union (importing
  * $lib/server/db/schema into client code is forbidden); keep in sync.
  */
-export type BillCategory = 'housing' | 'utilities' | 'subscriptions' | 'insurance' | 'other';
+export type BillCategory =
+	| 'housing'
+	| 'utilities'
+	| 'subscriptions'
+	| 'insurance'
+	| 'tax'
+	| 'fees'
+	| 'other';
 
 /** A currency amount like $12.34, 1,450.00, 8.27 (no bare integers). */
 const MONEY_RE = /(?:\$|USD\s*)?(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+\.\d{2})(?!\d)/g;
@@ -21,8 +28,12 @@ const NOT_A_TOTAL_RE = /(subtotal|change|tender|previous|gift card|tip)/i;
 /** Total-family keywords; 'due' catches AMOUNT DUE / TOTAL DUE. */
 const TOTAL_RE = /(total|amount|balance|due)/i;
 
-/** Merchant→category keyword table (word-boundary matched, lowercase). */
+/** Merchant→category keyword table (word-boundary matched, lowercase).
+ * Tax/fees sit FIRST (#031): explicit tax/fee words must win over merchant
+ * words so receipt tax/fee lines are labeled as such, never absorbed. */
 const CATEGORY_KEYWORDS: ReadonlyArray<[BillCategory, RegExp]> = [
+	['tax', /\b(tax|taxes|sales tax|vat|gst)\b/],
+	['fees', /\b(fees?|surcharge)\b/],
 	[
 		'utilities',
 		/\b(electric|power|water|sewage|sewer|utility|utilities|internet|cable|wifi|comcast|xfinity|spectrum|verizon|at&t|gas service|gas co\b|duke energy|national grid|pg&e)\b/
@@ -151,6 +162,11 @@ export function extractDateIso(text: string): string | null {
 export function suggestCategory(text: string): BillCategory {
 	const lower = text.toLowerCase();
 	for (const [category, keywords] of CATEGORY_KEYWORDS) {
+		// Tax/fees are LINE-ITEM categories (#031): they label short labels
+		// like "Sales tax" or "Delivery fee". Whole-receipt scans are
+		// merchant-derived — every receipt prints a TAX summary line, so
+		// applying them there would absorb every grocery bill into 'tax'.
+		if ((category === 'tax' || category === 'fees') && text.includes('\n')) continue;
 		if (keywords.test(lower)) return category;
 	}
 	return 'other';

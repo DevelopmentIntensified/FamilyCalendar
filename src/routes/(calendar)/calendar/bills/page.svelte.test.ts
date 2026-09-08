@@ -3,7 +3,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import BillsPage from './+page.svelte';
 import { invalidateAll } from '$app/navigation';
-import type { Bill } from '$lib/server/db/schema';
+import type { Bill, ReceiptItem } from '$lib/server/db/schema';
 import type { ParsedBill } from '$lib/server/services/naturalLanguageService';
 import type { PageData } from './$types';
 
@@ -52,6 +52,36 @@ interface BillsPageData {
 	familyId: string | null;
 	loadWarnings: string[];
 	cloudScanAvailable: boolean;
+	itemsByBill: Map<string, ReceiptItem[]>;
+	spend: Array<{ category: string; cents: number; billIds: string[] }>;
+	spendMonth: string;
+	tagSuggestions: { user: TagRow[]; global: TagRow[] };
+}
+
+/** A Tag Table row as the page's datalist + badges read it. */
+interface TagRow {
+	key: string;
+	category: string;
+	name: string | null;
+	weight: number;
+}
+
+function tagRow(over: Partial<TagRow> = {}): TagRow {
+	return { key: 'whole milk', category: 'utilities', name: null, weight: 1, ...over };
+}
+
+/** A ReceiptItem fixture for the line-items editor. */
+function itemFixture(billId: string, over: Partial<ReceiptItem> = {}): ReceiptItem {
+	return {
+		id: 'ri-1',
+		billId,
+		label: 'Whole Milk',
+		priceCents: 349,
+		category: null,
+		position: 0,
+		createdAt: new Date('2026-09-01T00:00:00Z'),
+		...over
+	};
 }
 
 /** Page data fixture matching +page.server.ts's load return shape. */
@@ -59,14 +89,20 @@ function pageData(
 	bills: Bill[],
 	canEdit = true,
 	loadWarnings: string[] = [],
-	cloudScanAvailable = false
+	cloudScanAvailable = false,
+	over: Partial<BillsPageData> = {}
 ): PageData {
 	const data: BillsPageData = {
 		bills,
 		canEdit,
 		familyId: null,
 		loadWarnings,
-		cloudScanAvailable
+		cloudScanAvailable,
+		itemsByBill: new Map(),
+		spend: [],
+		spendMonth: '2026-09',
+		tagSuggestions: { user: [], global: [] },
+		...over
 	};
 	// SAFETY: the fixture supplies exactly what the bills page reads; the
 	// layout-level fields on PageData (user, userSettings, …) are out of scope.
@@ -468,5 +504,214 @@ describe('error and empty states', () => {
 		render(BillsPage, { props: { data: pageData([]) } });
 
 		expect(screen.getByText('No bills yet')).toBeInTheDocument();
+	});
+});
+
+describe('spend detail card (#031)', () => {
+	const spend = [
+		{ category: 'utilities', cents: 12000, billIds: ['a'] },
+		{ category: 'tax', cents: 96, billIds: ['a'] },
+		{ category: 'housing', cents: 5000, billIds: ['b'] }
+	];
+
+	function spendData() {
+		return pageData(
+			[
+				billFixture({ id: 'a', title: 'Electric', category: 'utilities' }),
+				billFixture({ id: 'b', title: 'Rent', category: 'housing', amountCents: 5000 })
+			],
+			true,
+			[],
+			false,
+			{ spend }
+		);
+	}
+
+	it('renders one bar per category with amount and share', () => {
+		render(BillsPage, { props: { data: spendData() } });
+
+		expect(screen.getByLabelText('Spend by category')).toBeInTheDocument();
+		// Amounts render in the bars: utilities 120.00, housing 50.00.
+		expect(screen.getAllByText('$120.00').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('$50.00').length).toBeGreaterThan(0);
+	});
+
+	it('taps a bar to filter the bill list to that category, again to clear', async () => {
+		render(BillsPage, { props: { data: spendData() } });
+
+		await fireEvent.click(screen.getByRole('button', { name: /Housing/ }));
+
+		expect(screen.getByText('Rent')).toBeInTheDocument();
+		expect(screen.queryByText('Electric')).not.toBeInTheDocument();
+		expect(screen.getByText('Showing Housing bills.')).toBeInTheDocument();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+		expect(screen.getByText('Electric')).toBeInTheDocument();
+		expect(screen.getByText('Rent')).toBeInTheDocument();
+	});
+});
+
+describe('line items editor (#031)', () => {
+	function expandElectric(items: ReceiptItem[] = [], over: Partial<Bill> = {}) {
+		const b = billFixture({ id: 'bill-1', title: 'Electric', ...over });
+		render(BillsPage, {
+			props: {
+				data: pageData([b], true, [], false, { itemsByBill: new Map([['bill-1', items]]) })
+			}
+		});
+		return fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
+	}
+
+	it('expands to the stored line items', async () => {
+		await expandElectric([
+			itemFixture('bill-1'),
+			itemFixture('bill-1', { id: 'ri-2', label: 'Eggs', priceCents: 250, position: 1 })
+		]);
+
+		expect(screen.getByDisplayValue('Whole Milk')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('3.49')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('Eggs')).toBeInTheDocument();
+	});
+
+	it('adds a row and PUTs the replace-all item list on save', async () => {
+		await expandElectric([itemFixture('bill-1')]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
+		await fireEvent.input(screen.getByLabelText('Line item label 2'), {
+			target: { value: 'Sales tax' }
+		});
+		await fireEvent.input(screen.getByLabelText('Line item price 2'), {
+			target: { value: '0.96' }
+		});
+		await fireEvent.change(screen.getByLabelText('Line item category 2'), {
+			target: { value: 'tax' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save line items' }));
+
+		const fetchMock = vi.mocked(fetch);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/bills/bill-1',
+			expect.objectContaining({ method: 'PUT' })
+		);
+		const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+		expect(body.items).toEqual([
+			{ label: 'Whole Milk', priceCents: 349, category: null, name: null },
+			{ label: 'Sales tax', priceCents: 96, category: 'tax', name: null }
+		]);
+	});
+
+	it('shows the reconcile hint with a one-tap tax add when items < total', async () => {
+		await expandElectric([itemFixture('bill-1')], { amountCents: 1200 });
+
+		expect(
+			screen.getByText(/Items sum to \$3\.49 of \$12\.00 — add a tax\/fees line\?/)
+		).toBeInTheDocument();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add “Sales tax” $8.51' }));
+
+		expect(screen.getByDisplayValue('Sales tax')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('8.51')).toBeInTheDocument();
+	});
+
+	it('keeps quiet when the items sum matches the total within a cent', async () => {
+		await expandElectric([itemFixture('bill-1', { priceCents: 12000 })], { amountCents: 12000 });
+
+		expect(screen.queryByText(/add a tax\/fees line\?/)).not.toBeInTheDocument();
+	});
+
+	it('renders a bare-code item with a name-it-once prompt', async () => {
+		await expandElectric([itemFixture('bill-1', { label: '4011', priceCents: 349 })]);
+
+		expect(screen.getByText(/Item 4011 · \$3\.49/)).toBeInTheDocument();
+		expect(screen.getByLabelText('Name for item 4011')).toBeInTheDocument();
+	});
+
+	it('sends the learned SKU name with the save (trains the tag table)', async () => {
+		await expandElectric([itemFixture('bill-1', { label: '4011', priceCents: 349 })]);
+
+		await fireEvent.input(screen.getByLabelText('Name for item 4011'), {
+			target: { value: 'Banana' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save line items' }));
+
+		const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body));
+		expect(body.items).toEqual([
+			{ label: '4011', priceCents: 349, category: null, name: 'Banana' }
+		]);
+	});
+
+	it('couples label suggestions to a preloaded datalist capped at 10', async () => {
+		const user = Array.from({ length: 30 }, (_, i) => tagRow({ key: `item ${i}` }));
+		const global = Array.from({ length: 30 }, (_, i) => tagRow({ key: `item g${i}` }));
+		render(BillsPage, {
+			props: {
+				data: pageData([billFixture()], true, [], false, {
+					tagSuggestions: { user, global }
+				})
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
+		await fireEvent.input(screen.getByLabelText('Line item label 1'), {
+			target: { value: 'item' }
+		});
+
+		const options = document.querySelectorAll('#tag-suggestions option');
+		expect(options.length).toBe(10);
+	});
+
+	it('badges a label from the user history vs the global table', async () => {
+		render(BillsPage, {
+			props: {
+				data: pageData([billFixture()], true, [], false, {
+					itemsByBill: new Map([
+						[
+							'bill-1',
+							[
+								itemFixture('bill-1', { label: 'Whole Milk' }),
+								itemFixture('bill-1', { id: 'ri-2', label: 'Delivery fee', position: 1 })
+							]
+						]
+					]),
+					tagSuggestions: {
+						user: [tagRow({ key: 'whole milk' })],
+						global: [tagRow({ key: 'delivery fee' })]
+					}
+				})
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for Electric' }));
+
+		expect(screen.getByText('your history')).toBeInTheDocument();
+		expect(screen.getByText('common')).toBeInTheDocument();
+	});
+});
+
+describe('create-form line items (#031, collapsed by default)', () => {
+	it('hides the items section until expanded, then sends items with the create', async () => {
+		render(BillsPage, { props: { data: pageData([]) } });
+
+		expect(screen.queryByLabelText(/Line item label/)).not.toBeInTheDocument();
+		await fireEvent.click(screen.getByRole('button', { name: /Line items/ }));
+		expect(screen.getByRole('button', { name: 'Add item' })).toBeInTheDocument();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
+		await fireEvent.input(screen.getByLabelText('Bill title'), { target: { value: 'Kroger' } });
+		await fireEvent.input(screen.getByLabelText('Amount in dollars'), {
+			target: { value: '25.50' }
+		});
+		await fireEvent.input(screen.getByLabelText('Line item label 1'), {
+			target: { value: 'Milk' }
+		});
+		await fireEvent.input(screen.getByLabelText('Line item price 1'), {
+			target: { value: '3.49' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Add bill' }));
+
+		const body = JSON.parse(
+			String(vi.mocked(fetch).mock.calls.find(([url]) => String(url) === '/api/bills')?.[1]?.body)
+		);
+		expect(body.items).toEqual([{ label: 'Milk', priceCents: 349, category: null, name: null }]);
 	});
 });

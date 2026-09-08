@@ -30,6 +30,14 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #026 Creator/RSVP indications: creatorName on family events (single users
   lookup, no N+1), "by <First>" chips in month/week/day/list/day-modal/action-sheet,
   "Created by" row in EventModal (uncommitted; print + dashboard deferred)
+- #031 Receipt line items + labels + Tag Table + Spend Detail (2026-09-07):
+  receiptItems + itemTags tables (sql/011 — NEON PENDING), tax/fees
+  categories everywhere, 2-query prediction chain user → global majority,
+  retraining on every save, bills API items (validated, replace-all, soft
+  reconcile itemsSum/unlabeled), bills page Line Items editor (manual +
+  scanned), code-only SKU name-it-once, ≤10 datalist suggestions, amber
+  tax reconcile hint, Spend-by-category card (month filter + bars +
+  tap-to-filter)
 
 ## Open
 
@@ -43,6 +51,8 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   opt-in Azure cloud step landed — scan chain complete)
 - #011 Bill quick-add NLP (blocked by #004 — startable)
 - #012 Bills MED/LOW follow-ups
+- #032 Spending reports page
+- #033 Digital receipt import (seam: tagTable predict/train landed in #031)
 - #013 Tasks/family MED/LOW (8 of 10 audit items fixed 2026-09-06: assignment
   notifications, remove-member un-assign, undo cursor hardening, completion
   actor attribution (sql/006), sync family scope, sub-override filter,

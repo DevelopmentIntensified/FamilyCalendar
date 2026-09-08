@@ -1953,8 +1953,12 @@ export interface ParsedBill {
 /** Closed-vocabulary set for the #tag check. */
 const BILL_CATEGORY_SET: ReadonlySet<string> = new Set(BILL_CATEGORIES);
 
-/** Merchant word → category, scanned in order (first hit wins). */
+/** Merchant word → category, scanned in order (first hit wins). Tax/fees
+ * sit first (#031): an explicit tax/fee word is its own category, never
+ * absorbed into the merchant's. */
 const BILL_CATEGORY_KEYWORDS: Array<[RegExp, BillCategory]> = [
+	[/\b(?:tax|taxes|sales\s+tax|vat|gst)\b/i, 'tax'],
+	[/\b(?:fees?|surcharge)\b/i, 'fees'],
 	[/\b(?:insurance|geico|progressive|allstate|state\s+farm|liberty\s+mutual)\b/i, 'insurance'],
 	[/\b(?:rent|rental|rentals|mortgage|hoa|housing|landlord|lease)\b/i, 'housing'],
 	[

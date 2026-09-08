@@ -6,11 +6,16 @@ import {
 	getBillsForUser,
 	normalizeAmountCents,
 	normalizeBillCategory,
+	normalizeBillItems,
 	parseDueDate,
+	setBillItems,
+	type BillItemInput,
 	type CreateBillInput
 } from '$lib/server/db/actions/bills';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { requireUserJson } from '$lib/server/utils/requireUser';
+import { trainTagTable } from '$lib/server/services/tagTable';
+import type { Bill, BillCategory } from '$lib/server/db/schema';
 
 /**
  * Collaborators the bills endpoints need, injectable so tests pass fakes
@@ -20,16 +25,61 @@ export type BillsDeps = {
 	getUserFamilyId: typeof getUserFamilyId;
 	getBillsForUser: typeof getBillsForUser;
 	createBill: typeof createBill;
+	setBillItems: typeof setBillItems;
+	trainTagTable: typeof trainTagTable;
 };
 
 const defaultDeps: BillsDeps = {
 	getUserFamilyId,
 	getBillsForUser,
-	createBill
+	createBill,
+	setBillItems,
+	trainTagTable
 };
 
 function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && value.trim().length > 0;
+}
+
+/**
+ * Learning loop (#031): every save with line items upserts the Tag Table —
+ * the merchant key (bill-title derived) + each item's label-derived key.
+ * 'other' still trains; it builds popularity data for dev curation.
+ */
+async function trainFromItems(
+	train: typeof trainTagTable,
+	userId: string,
+	bill: Bill,
+	items: BillItemInput[]
+): Promise<void> {
+	// SAFETY: bills.category is a BILL_CATEGORIES literal (validated by
+	// normalizeBillCategory at write); the DB text column widens it to
+	// string on read, so the assertion only restores the write-side type.
+	const category = bill.category as BillCategory;
+	await train(
+		userId,
+		bill.title,
+		category,
+		items.map((item) => ({
+			key: item.label,
+			category: item.category ?? category,
+			name: item.name
+		}))
+	);
+}
+
+/** Soft reconcile summary: items sum + how many items inherit the bill category. */
+interface ReconcileSummary {
+	itemsSum: number;
+	unlabeled: number;
+}
+
+/** Soft reconcile summary: items sum + how many items inherit the bill category. */
+function reconcileSummary(items: BillItemInput[]): ReconcileSummary {
+	return {
+		itemsSum: items.reduce((sum, item) => sum + item.priceCents, 0),
+		unlabeled: items.filter((item) => item.category === null).length
+	};
 }
 
 export const GET = async (event: RequestEvent, deps: BillsDeps = defaultDeps) => {
@@ -53,6 +103,14 @@ export const POST = async (event: RequestEvent, deps: BillsDeps = defaultDeps) =
 	if (amountCents === null) {
 		return json({ error: 'Amount must be a non-negative number' }, { status: 400 });
 	}
+	// Line items (#031) are validated BEFORE anything is written — the bill
+	// total stays authoritative, items are replace-all annotations.
+	let items: BillItemInput[] | null = null;
+	if (body.items !== undefined) {
+		const parsed = normalizeBillItems(body.items);
+		if ('error' in parsed) return json({ error: parsed.error }, { status: 400 });
+		items = parsed.items;
+	}
 
 	try {
 		let dueDate: string | null = null;
@@ -73,6 +131,14 @@ export const POST = async (event: RequestEvent, deps: BillsDeps = defaultDeps) =
 			familyId
 		};
 		const created = await deps.createBill(input);
+		if (items) {
+			const stored = await deps.setBillItems(created.id, items);
+			await trainFromItems(deps.trainTagTable, auth.user.id, created, items);
+			return json(
+				{ success: true, bill: created, items: stored, ...reconcileSummary(items) },
+				{ status: 201 }
+			);
+		}
 		return json({ success: true, bill: created }, { status: 201 });
 	} catch (error) {
 		console.error('Failed to create bill:', error);

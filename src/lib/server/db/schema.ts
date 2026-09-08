@@ -549,6 +549,10 @@ export const BILL_CATEGORIES = [
 	'utilities',
 	'subscriptions',
 	'insurance',
+	// Tax and fees are their own categories (#031): a receipt's tax/fee
+	// lines are labeled as such, never absorbed into the merchant's category.
+	'tax',
+	'fees',
 	'other'
 ] as const;
 
@@ -572,6 +576,80 @@ export const bills = pgTable('bills', {
 });
 
 export type Bill = typeof bills.$inferSelect;
+
+/**
+ * Line Item (issue 031) — one parsed (or manually entered) receipt row on a
+ * Bill: label, price cents, and its own category Label. A null category
+ * inherits the Bill's category; Line-item Labels are the ground truth for
+ * Spend Detail. Bill total stays authoritative — items are annotations.
+ */
+export const receiptItems = pgTable(
+	'receiptItems',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		billId: text('billId')
+			.notNull()
+			.references(() => bills.id, { onDelete: 'cascade' }),
+		label: text('label').notNull(),
+		priceCents: integer('price_cents').notNull(),
+		// Nullable: null = inherits the parent bill's category.
+		category: text('category'),
+		position: integer('position').default(0).notNull(),
+		createdAt: timestamp('created_at').defaultNow().notNull()
+	},
+	(table) => ({
+		billIdx: index('receipt_items_bill_idx').on(table.billId)
+	})
+);
+
+export type ReceiptItem = typeof receiptItems.$inferSelect;
+
+/**
+ * Tag Table (issue 031) — the learning store mapping merchant/item keys to
+ * categories. One row per (scope, key, category) with a weight; prediction
+ * is the highest-weight row, user rows (userId set) override global rows
+ * (userId null). `name` holds the learned item name for store-SKU keys.
+ */
+export const itemTags = pgTable(
+	'itemTags',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		// Null = GLOBAL row (learned across all users); set = per-user row.
+		userId: text('userId').references(() => users.id, { onDelete: 'cascade' }),
+		// Normalized (lowercase, trimmed, punctuation-collapsed) merchant,
+		// item-label, or (merchant|sku) key.
+		key: text('key').notNull(),
+		category: text('category').notNull(),
+		// Learned display name for code-only (store-SKU) items; null otherwise.
+		name: text('name'),
+		weight: integer('weight').default(0).notNull(),
+		updatedAt: timestamp('updated_at')
+			.defaultNow()
+			.$onUpdate(() => new Date())
+			.notNull()
+	},
+	(table) => ({
+		// Unique per scope+key+category so weight upserts are single-statement.
+		// userId is NULL on global rows and Postgres unique treats NULLs as
+		// distinct, so the global scope gets its own partial unique index.
+		userKeyCategoryUnique: uniqueIndex('item_tags_user_key_category_unique')
+			.on(table.userId, table.key, table.category)
+			.where(sql`user_id IS NOT NULL`),
+		globalKeyCategoryUnique: uniqueIndex('item_tags_global_key_category_unique')
+			.on(table.key, table.category)
+			.where(sql`user_id IS NULL`),
+		// Indexed batch lookup for predictions (O(log n) at any scale).
+		keyIdx: index('item_tags_key_idx').on(table.key)
+	})
+);
+
+export type ItemTag = typeof itemTags.$inferSelect;
 
 /**
  * Task tags — many-to-many-ish join keyed by task + lowercase tag name.

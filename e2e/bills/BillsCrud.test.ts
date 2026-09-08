@@ -80,7 +80,8 @@ test('Bills CRUD: create via API, list in UI, delete', async ({ page }) => {
 	await page.goto('/calendar/bills');
 	await page.waitForLoadState('networkidle');
 	await expect(page.getByText('Electric')).toBeVisible();
-	await expect(page.getByText('$120.00')).toBeVisible();
+	// exact: the Spend-by-category card can show the same amount as a bar.
+	await expect(page.getByText('$120.00', { exact: true })).toBeVisible();
 
 	await page.getByRole('button', { name: 'Delete bill Electric' }).click();
 	await page.getByRole('button', { name: 'Confirm delete Electric' }).click();
