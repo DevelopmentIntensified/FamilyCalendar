@@ -46,6 +46,13 @@ Status: in-progress
   maps. Micro-bench (1500 occurrences): 416ms → 14ms per render (30×),
   previously re-run on EVERY reactive pass. All 8 calendar suites (122
   tests) green.
+- #8 componentize Calendar: `Calendar.svelte` 511 → 234 lines.
+  Extracted `CalendarToolbar.svelte` (header/nav/picker/toggle/actions,
+  owns mini-picker state + outside-click/Escape; 4 render tests) and
+  pure `calendarView.ts` (view resolution order; 4 tests). Same markup +
+  behavior (picker close-on-month kept, year stays open). Browser-verified:
+  toolbar, day/month(35 cells)/week/list views, stream resolve, zero
+  page errors. 10 suites / 130 tests green.
 
 ## Needs doing
 
