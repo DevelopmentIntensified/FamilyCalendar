@@ -63,6 +63,10 @@ _Avoid_: outgoing/incoming assignments
 A Task with a schedule (frequency + interval). Exactly one live occurrence exists at a time — the cursor. Completing snaps the next one to today + n×interval, where n is the smallest multiple landing strictly past the current due date (early checks advance from today; a due date already one interval out pushes the next check two intervals out). Each completion increments the task's completion count. One row per task — no occurrence expansion.
 _Avoid_: repeating task, series, materialized backlog
 
+**Recurring Bill**:
+A Bill with a schedule (frequency + interval); its dueDate doubles as the cursor. Marking paid advances the cursor: next due = old due + n×interval, where n is the smallest multiple landing strictly after today — anchored on the stored due date, not on today (the difference from the Task cursor: an early pay keeps the anchored cadence instead of re-anchoring to today). Paying late skips missed periods. Unmark-paid never rewinds the cursor. Both fields null = one-off. One row per bill — spend reports and lists read the cursor due, so a recurring bill appears once per period, never as materialized occurrences.
+_Avoid_: repeating bill, materialized bill backlog
+
 **Task Priority**:
 A user-set importance label on a Task — `'low' | 'normal' | 'high'`, default `'normal'`. The viewer's own tasks lead any ranking reading it (mine-first), then priority, then overdue, then due.
 _Avoid_: urgent flag, importance star

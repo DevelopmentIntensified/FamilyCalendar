@@ -20,6 +20,8 @@ function bill(over: Partial<Bill> = {}): Bill {
 		dueDate: null,
 		category: 'other',
 		paidAt: null,
+		frequency: null,
+		interval: null,
 		source: 'manual',
 		userId: 'u1',
 		familyId: null,

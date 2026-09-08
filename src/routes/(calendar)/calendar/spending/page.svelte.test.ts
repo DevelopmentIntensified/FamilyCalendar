@@ -17,6 +17,8 @@ function billFixture(over: Partial<Bill> = {}): Bill {
 		dueDate: null,
 		category: 'utilities',
 		paidAt: null,
+		frequency: null,
+		interval: null,
 		source: 'manual',
 		userId: 'u1',
 		familyId: null,
