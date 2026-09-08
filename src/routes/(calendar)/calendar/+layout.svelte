@@ -45,68 +45,77 @@
 	let mergedDismissed = false;
 	$: showTopNotice =
 		isAnonymous || (justClaimed && !claimedDismissed) || (justMerged && !mergedDismissed);
+	// Offline banner visibility is owned by OfflineBanner (bind:visible below).
+	let offlineVisible = false;
+	$: bannerCount = (offlineVisible ? 1 : 0) + (showTopNotice ? 1 : 0);
 </script>
 
 <div class="flex min-h-screen flex-col">
 	<Navbar isLoggedIn={true} user={data.user} />
-	<OfflineBanner />
-	{#if justClaimed && !claimedDismissed}
-		<div
-			class="fixed left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 flex w-full items-center justify-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800 print:hidden"
-			role="status"
-			transition:fade={{ duration: 150 }}
-		>
-			<span>✅ Email added — your calendar now syncs across devices.</span>
-			<button
-				type="button"
-				class="rounded-full p-1 font-semibold hover:bg-green-100"
-				aria-label="Dismiss"
-				onclick={() => (claimedDismissed = true)}
+	<!-- Single fixed banner stack: offline + guest/claim notices share one
+	offset so they can never overlap. -->
+	<div
+		class="fixed left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 flex w-full flex-col print:hidden"
+	>
+		<OfflineBanner stacked={true} bind:visible={offlineVisible} />
+		{#if justClaimed && !claimedDismissed}
+			<div
+				class="flex w-full items-center justify-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800"
+				role="status"
+				transition:fade={{ duration: 150 }}
 			>
-				✕
-			</button>
-		</div>
-	{:else if justMerged && !mergedDismissed}
-		<div
-			class="fixed left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 flex w-full items-center justify-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800 print:hidden"
-			role="status"
-			transition:fade={{ duration: 150 }}
-		>
-			<span>
-				✅ Brought over {mergedCount} event{mergedCount === 1 ? '' : 's'}{mergedTasks > 0
-					? ` and ${mergedTasks} task${mergedTasks === 1 ? '' : 's'}`
-					: ''} from your guest calendar.
-			</span>
-			<button
-				type="button"
-				class="rounded-full p-1 font-semibold hover:bg-green-100"
-				aria-label="Dismiss"
-				onclick={() => (mergedDismissed = true)}
+				<span>✅ Email added — your calendar now syncs across devices.</span>
+				<button
+					type="button"
+					class="rounded-full p-1 font-semibold hover:bg-green-100"
+					aria-label="Dismiss"
+					onclick={() => (claimedDismissed = true)}
+				>
+					✕
+				</button>
+			</div>
+		{:else if justMerged && !mergedDismissed}
+			<div
+				class="flex w-full items-center justify-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800"
+				role="status"
+				transition:fade={{ duration: 150 }}
 			>
-				✕
-			</button>
-		</div>
-	{:else if isAnonymous}
-		<div
-			class="fixed left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 w-full px-4 py-2.5 text-center text-sm print:hidden {urgent
-				? 'border-b border-red-200 bg-red-50 text-red-800'
-				: 'border-b border-amber-200 bg-amber-50 text-amber-800'}"
-			role="status"
-		>
-			{#if urgent}
-				⚠️ Guest calendar — inactive accounts are deleted after 90 days.
-				<strong>{daysRemaining} day{daysRemaining === 1 ? '' : 's'} left.</strong>
-				<a href="/claim" class="font-semibold underline">Save your data with an email</a>
-			{:else}
-				You're using a guest calendar — your events can't sync to other devices.
-				<a href="/claim" class="font-semibold underline">Add an email to save them</a>
-				<span class="text-amber-600">(deleted after 90 days of inactivity)</span>
-			{/if}
-		</div>
-	{/if}
+				<span>
+					✅ Brought over {mergedCount} event{mergedCount === 1 ? '' : 's'}{mergedTasks > 0
+						? ` and ${mergedTasks} task${mergedTasks === 1 ? '' : 's'}`
+						: ''} from your guest calendar.
+				</span>
+				<button
+					type="button"
+					class="rounded-full p-1 font-semibold hover:bg-green-100"
+					aria-label="Dismiss"
+					onclick={() => (mergedDismissed = true)}
+				>
+					✕
+				</button>
+			</div>
+		{:else if isAnonymous}
+			<div
+				class="w-full px-4 py-2.5 text-center text-sm {urgent
+					? 'border-b border-red-200 bg-red-50 text-red-800'
+					: 'border-b border-amber-200 bg-amber-50 text-amber-800'}"
+				role="status"
+			>
+				{#if urgent}
+					⚠️ Guest calendar — inactive accounts are deleted after 90 days.
+					<strong>{daysRemaining} day{daysRemaining === 1 ? '' : 's'} left.</strong>
+					<a href="/claim" class="font-semibold underline">Save your data with an email</a>
+				{:else}
+					You're using a guest calendar — your events can't sync to other devices.
+					<a href="/claim" class="font-semibold underline">Add an email to save them</a>
+					<span class="text-amber-600">(deleted after 90 days of inactivity)</span>
+				{/if}
+			</div>
+		{/if}
+	</div>
 	{#key pathname}
 		<main
-			class="flex-grow pb-28 pt-[calc(4rem+env(safe-area-inset-top))] md:pb-24 {showTopNotice
+			class="flex-grow pb-28 pt-[calc(4rem+env(safe-area-inset-top))] md:pb-24 {bannerCount > 0
 				? 'mt-10'
 				: ''} print:!mt-0 print:min-h-0 print:!pb-0 print:!pt-0"
 			in:fade={{ duration: 100 }}

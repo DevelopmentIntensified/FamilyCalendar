@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { showRecurringCompleteFeedback } from '$lib/client/taskFeedback';
 	import { pushToast } from '$lib/client/toasts';
+	import { dueTone, PRIORITY_LABEL, PRIORITY_ORDER, priorityTone } from '$lib/utils/priorityTone';
 
 	export let tasks: {
 		id: string;
@@ -42,27 +43,7 @@
 		return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 	}
 
-	function dueTone(due: string | null): string {
-		if (!due) return '';
-		const endOfToday = new Date();
-		endOfToday.setHours(23, 59, 59, 999);
-		if (new Date(due).getTime() < new Date().setHours(0, 0, 0, 0)) return 'bg-red-100 text-red-700';
-		if (new Date(due).getTime() <= endOfToday.getTime()) return 'bg-amber-100 text-amber-700';
-		return 'bg-slate-100 text-slate-600';
-	}
-
-	const PRIORITY_LABEL: Record<'low' | 'normal' | 'high', string> = {
-		low: 'Low',
-		normal: 'Normal',
-		high: 'High'
-	};
-	const PRIORITY_ORDER = ['low', 'normal', 'high'] as const;
-
-	function priorityTone(p: string): string {
-		if (p === 'high') return 'bg-rose-100 text-rose-700';
-		if (p === 'low') return 'bg-slate-200 text-slate-600';
-		return 'bg-sky-100 text-sky-700';
-	}
+	/** Due/priority tones live in the shared priorityTone module. */
 
 	async function setPriority(taskId: string, priority: string) {
 		if (busy) return;
@@ -106,9 +87,14 @@
 			});
 			if (res.ok) {
 				const j = await res.json().catch(() => ({}));
-				pushToast({ message: `"${task.title}" marked done.` });
-				await invalidateAll();
-				showRecurringCompleteFeedback(j.task, task.dueDate);
+				if (task.recurrenceFrequency) {
+					// Recurring path gets ONLY the streak+Undo toast — no generic toast.
+					await invalidateAll();
+					showRecurringCompleteFeedback(j.task, task.dueDate);
+				} else {
+					pushToast({ message: `"${task.title}" marked done.` });
+					await invalidateAll();
+				}
 			} else {
 				const j = await res.json().catch(() => ({}));
 				pushToast({ message: j.error || `Couldn't update "${task.title}" — try again.` });
@@ -200,7 +186,7 @@
 								type="button"
 								onclick={() => setPriority(task.id, p)}
 								disabled={busy === task.id || task.priority === p}
-								class="relative rounded-md px-2 py-1 text-[11px] font-semibold transition-colors after:absolute after:-inset-1.5 after:content-[''] {task.priority ===
+								class="rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors {task.priority ===
 								p
 									? priorityTone(p)
 									: 'text-slate-300 hover:bg-slate-100 hover:text-slate-500'}"

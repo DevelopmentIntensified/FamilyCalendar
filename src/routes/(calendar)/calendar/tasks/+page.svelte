@@ -15,6 +15,7 @@
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { queueMutation } from '$lib/utils/offline';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
+	import { dueTone, priorityDot, priorityLabel } from '$lib/utils/priorityTone';
 	import { sortByCompletedDesc, sortTasks, type TaskSortKey } from '$lib/utils/taskSort';
 	import {
 		showRecurringCompleteFeedback,
@@ -186,6 +187,11 @@
 				const j = await res.json().catch(() => ({}));
 				actionError = j.error || "That didn't work. Try again.";
 			} else {
+				pushToast({
+					message: accept
+						? `Accepted "${task.title}" — it's on your list.`
+						: `Declined "${task.title}" — sent back to the requester.`
+				});
 				await invalidateAll();
 			}
 		} catch {
@@ -337,15 +343,7 @@
 	$: tagFilterActive = tagFilter.trim().length > 0;
 	$: filterActive = tagFilterActive || queryActive;
 	$: chipActive = chip !== 'all';
-	/** Task priority -> dot color class. */
-	interface PriorityDots {
-		[key: string]: string;
-	}
-	const PRIORITY_DOT: PriorityDots = {
-		high: 'bg-red-500',
-		normal: 'bg-slate-300',
-		low: 'bg-sky-500'
-	};
+	/** Priority dot/label classes live in the shared priorityTone module. */
 
 	// Baseline framing (time-tracker research): show completions vs recent
 	// activity, not streaks or leaderboards.
@@ -375,10 +373,7 @@
 	/** Live parse of the title being typed, so chips preview what gets captured. */
 	$: quick = newTitle.trim() ? parseTaskQuickAdd(newTitle, { members: familyRoster }) : null;
 
-	function isOverdue(task: TaskItem): boolean {
-		if (!task.dueDate || task.completedAt) return false;
-		return new Date(task.dueDate).getTime() < Date.now();
-	}
+	/** Live parse of the title being typed, so chips preview what gets captured. */
 
 	async function addTask() {
 		if (!newTitle.trim()) return;
@@ -420,6 +415,7 @@
 				})
 			});
 			if (res.ok) {
+				pushToast({ message: `Added "${parsed.title}".` });
 				newTitle = '';
 				newDueDate = '';
 				await invalidateAll();
@@ -507,6 +503,9 @@
 				if (completing && task.recurrenceFrequency) {
 					celebrate(id);
 					showRecurringCompleteFeedback(j.task, previousDueDate);
+				} else if (completing) {
+					celebrate(id);
+					pushToast({ message: `"${task.title}" marked done.` });
 				}
 			}
 		} catch {
@@ -653,7 +652,7 @@
 							<MentionInput
 								bind:value={newTitle}
 								members={familyRoster}
-								placeholder="Add a task... e.g. #groceries"
+								placeholder="Add a task... e.g. Buy milk tomorrow @maya"
 							/>
 							<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
 						</div>
@@ -844,26 +843,18 @@
 					</label>
 				</div>
 				<div class="relative">
+					<span
+						class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400"
+						aria-hidden="true">#</span
+					>
 					<input
 						type="text"
 						bind:value={tagFilter}
-						placeholder="Filter by tag…"
+						placeholder="Filter by #tag…"
 						aria-label="Filter tasks by tag"
+						title="Prefix match: typing “gro” matches #groceries"
 						class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 					/>
-					<svg
-						class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
-						/>
-					</svg>
 					{#if tagFilter}
 						<button
 							type="button"
@@ -1039,18 +1030,21 @@
 						</div>
 						{#if task.dueDate}
 							<span
-								class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {isOverdue(task)
-									? 'bg-red-100 text-red-700'
-									: 'bg-slate-100 text-slate-600'}"
+								class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {dueTone(
+									task.dueDate
+								)}"
 							>
 								{formatDue(task.dueDate)}
 							</span>
 						{/if}
 						{#if task.priority && task.priority !== 'normal'}
-							<span
-								class="h-2 w-2 shrink-0 rounded-full {PRIORITY_DOT[task.priority]}"
-								title="Priority: {task.priority}"
-							></span>
+							<span class="flex shrink-0 items-center gap-1" title="Priority: {task.priority}">
+								<span class="h-2 w-2 rounded-full {priorityDot(task.priority)}" aria-hidden="true"
+								></span>
+								<span class="text-[11px] font-medium text-slate-500"
+									>{priorityLabel(task.priority)}</span
+								>
+							</span>
 						{/if}
 						{#if task.assignedTo && task.assignmentStatus !== 'none' && !(task.assignedTo === task.userId && task.assignmentStatus === 'accepted')}
 							{@const mine = task.assignedTo === data.user?.id}
@@ -1107,7 +1101,7 @@
 								type="button"
 								onclick={() => advanceTask(task.id)}
 								disabled={busyId === task.id}
-								class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500 active:bg-purple-100"
+								class="pointer-fine:opacity-40 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500 focus-visible:opacity-100 active:bg-purple-100"
 								title="Skip this occurrence (rolls to next)"
 								aria-label="Skip to next occurrence"
 							>
@@ -1151,7 +1145,7 @@
 								type="button"
 								onclick={() => (confirmDeleteId = task.id)}
 								disabled={busyId === task.id}
-								class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
+								class="pointer-fine:opacity-40 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 focus-visible:opacity-100 active:bg-red-50"
 								aria-label="Delete task"
 							>
 								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1242,6 +1236,22 @@
 										>({task.eventTitle})</span
 									>{/if}
 							</p>
+							{#if task.dueDate}
+								<span
+									class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-400"
+								>
+									{formatDue(task.dueDate)}
+								</span>
+							{/if}
+							{#if task.recurrenceFrequency}
+								<span
+									class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-400"
+									title="Repeats every {FREQ_NOUN[task.recurrenceFrequency] ??
+										task.recurrenceFrequency}"
+								>
+									every {FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency}
+								</span>
+							{/if}
 							{#if (task.tags ?? []).length > 0}
 								<div class="flex flex-wrap gap-1">
 									{#each task.tags ?? [] as tag (tag)}
@@ -1277,7 +1287,7 @@
 									type="button"
 									onclick={() => (confirmDeleteId = task.id)}
 									disabled={busyId === task.id}
-									class="pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 active:bg-red-50"
+									class="pointer-fine:opacity-40 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 focus-visible:opacity-100 active:bg-red-50"
 									aria-label="Delete task"
 								>
 									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1495,7 +1505,7 @@
 					<p class="mt-1 text-xs text-slate-400">Separate tags with commas.</p>
 				</div>
 
-				<div class="grid grid-cols-3 gap-3">
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
 					<div>
 						<label for="edit-due" class="mb-1 block text-sm font-medium text-slate-700"
 							>Due date</label

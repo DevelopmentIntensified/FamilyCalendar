@@ -305,7 +305,13 @@
 
 <!-- Event Detail Modal -->
 {#if selectedEvent}
-	<EventModal event={selectedEvent} show={true} onClose={closeModal} on:delete={handleDelete} />
+	<EventModal
+		event={selectedEvent}
+		show={true}
+		calendars={calendarIds}
+		onClose={closeModal}
+		on:delete={handleDelete}
+	/>
 {/if}
 
 <!-- Task detail popup -->

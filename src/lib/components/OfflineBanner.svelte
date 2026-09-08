@@ -6,6 +6,11 @@
 	let pendingCount = 0;
 	let syncedCount: number | null = null;
 
+	/** Render without fixed positioning for embedding in a parent banner stack. */
+	export let stacked = false;
+	/** Bound by stack owners to size main-content compensation. */
+	export let visible = false;
+
 	let syncTimer: ReturnType<typeof setTimeout>;
 	let refreshTimer: ReturnType<typeof setTimeout>;
 
@@ -32,6 +37,8 @@
 		}
 	});
 
+	$: visible = !online || pendingCount > 0 || syncedCount !== null;
+
 	onMount(() => {
 		updatePendingCount();
 	});
@@ -43,9 +50,11 @@
 	});
 </script>
 
-{#if !online || pendingCount > 0 || syncedCount !== null}
+{#if visible}
 	<div
-		class="fixed left-0 right-0 top-[calc(4rem+env(safe-area-inset-top))] z-30 border-b border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900"
+		class="{stacked
+			? ''
+			: 'fixed left-0 right-0 top-[calc(4rem+env(safe-area-inset-top))] z-30 '}border-b border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900"
 		role="status"
 	>
 		<p>

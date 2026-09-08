@@ -31,7 +31,10 @@
 		</div>
 	{:else}
 		{#if form?.error}
-			<div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+			<div
+				role="alert"
+				class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+			>
 				{form.error}
 			</div>
 		{/if}
@@ -54,17 +57,18 @@
 					type="email"
 					id="email"
 					name="email"
+					autocomplete="email"
 					bind:value={email}
 					required
 					placeholder="you@example.com"
-					class="w-full rounded-lg border border-slate-300 px-4 py-2.5"
+					class="block w-full rounded-[10px] border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 placeholder-slate-400 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 				/>
 			</div>
 
 			<button
 				type="submit"
 				disabled={loading}
-				class="w-full rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+				class="w-full rounded-full bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
 			>
 				{loading ? 'Sending...' : 'Email me a save link'}
 			</button>

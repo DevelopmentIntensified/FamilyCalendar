@@ -46,6 +46,7 @@
 
 	const loggedInNavItems = [
 		{ href: '/calendar', label: 'Calendar' },
+		{ href: '/calendar/dashboard', label: 'Dashboard' },
 		{ href: '/calendar/tasks', label: 'Tasks' },
 		{ href: '/family', label: 'Family' }
 	];
@@ -232,7 +233,7 @@
 			on:click={toggleMenu}
 			class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 md:hidden"
 		>
-			<span class="sr-only">Open menu</span>
+			<span class="sr-only">{isOpen ? 'Close menu' : 'Open menu'}</span>
 			{#if isOpen}
 				<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path

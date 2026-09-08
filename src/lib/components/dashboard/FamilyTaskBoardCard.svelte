@@ -4,6 +4,7 @@
 	import TaskQuickAddHelp from '$lib/components/TaskQuickAddHelp.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
+	import { dueTone, priorityDot } from '$lib/utils/priorityTone';
 	import { showRecurringCompleteFeedback } from '$lib/client/taskFeedback';
 	import { pushToast } from '$lib/client/toasts';
 
@@ -100,24 +101,7 @@
 			: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 	}
 
-	function dueTone(due: string | null): string {
-		if (!due) return '';
-		if (new Date(due).getTime() < new Date().setHours(0, 0, 0, 0)) return 'bg-red-100 text-red-700';
-		return 'bg-slate-100 text-slate-600';
-	}
-
-	type BoardPriority = 'high' | 'normal' | 'low';
-	const PRIORITY_DOT: Record<BoardPriority, string> = {
-		high: 'bg-rose-500',
-		normal: 'bg-sky-400',
-		low: 'bg-slate-300'
-	};
-
-	function priorityDot(priority: string): string {
-		return priority === 'high' || priority === 'normal' || priority === 'low'
-			? PRIORITY_DOT[priority]
-			: '';
-	}
+	/** Due/priority tones live in the shared priorityTone module. */
 
 	$: groups = [...new Set(tasks.map(ownerId))]
 		.map((uid) => ({
@@ -142,9 +126,14 @@
 			});
 			if (res.ok) {
 				const j = await res.json().catch(() => ({}));
-				pushToast({ message: `"${task.title}" marked done.` });
-				await invalidateAll();
-				showRecurringCompleteFeedback(j.task, task.dueDate);
+				if (task.recurrenceFrequency) {
+					// Recurring path gets ONLY the streak+Undo toast — no generic toast.
+					await invalidateAll();
+					showRecurringCompleteFeedback(j.task, task.dueDate);
+				} else {
+					pushToast({ message: `"${task.title}" marked done.` });
+					await invalidateAll();
+				}
 			} else {
 				const j = await res.json().catch(() => ({}));
 				pushToast({ message: j.error || `Couldn't update "${task.title}" — try again.` });

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
+	import Toaster from '$lib/components/Toaster.svelte';
 	import { fade } from 'svelte/transition';
 	import type { LayoutData } from './$types';
 	import '../../app.css';
@@ -33,3 +34,5 @@
 		&copy; {new Date().getFullYear()} FamilyPlanz. All rights reserved.
 	</p>
 </footer>
+
+<Toaster />

@@ -156,7 +156,7 @@
 				aria-label={item.href === '/calendar/notifications' && unreadCount > 0
 					? `Alerts (${unreadCount} unread)`
 					: undefined}
-				class="flex min-w-0 flex-col items-center justify-center gap-0.5 py-2"
+				class="flex min-h-[52px] min-w-0 flex-col items-center justify-center gap-0.5 py-2.5"
 			>
 				<span
 					class="relative flex h-7 min-w-14 items-center justify-center rounded-full transition-colors {on

@@ -208,7 +208,7 @@
 				<p class="px-4 py-4 text-sm text-slate-500">Loading…</p>
 			{:else if loadError}
 				<div class="flex items-center justify-between gap-2 px-4 py-3 text-sm">
-					<span class="text-slate-500">Couldn't load —</span>
+					<span class="text-slate-500">Couldn't load notifications.</span>
 					<button
 						on:click={fetchList}
 						class="text-sm font-medium text-primary-600 hover:text-primary-700"

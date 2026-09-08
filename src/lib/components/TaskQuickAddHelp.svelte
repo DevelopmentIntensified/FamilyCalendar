@@ -42,7 +42,7 @@
 			</ul>
 			<p class="mt-2 border-t border-slate-100 pt-2 text-slate-500">
 				Example:
-				<span class="font-mono text-[11px] text-slate-700">@family #private clean the garage</span>
+				<span class="font-mono text-[11px] text-slate-700">@family clean the garage</span>
 			</p>
 			<button
 				type="button"

@@ -71,6 +71,18 @@
 	let previousView: 'month' | 'week' | 'list' = 'month';
 	let showMiniPicker = false;
 
+	function closeMiniPicker() {
+		showMiniPicker = false;
+	}
+
+	function handlePickerOutsideClick(e: MouseEvent) {
+		// Non-Element event targets (e.g. document) count as outside clicks.
+		const target = e.target instanceof Element ? e.target : null;
+		if (showMiniPicker && !target?.closest('[data-testid="mini-picker-container"]')) {
+			closeMiniPicker();
+		}
+	}
+
 	const views = [
 		{
 			id: 'month',
@@ -175,6 +187,11 @@
 	$: months = Info.months('long');
 </script>
 
+<svelte:window
+	on:click={handlePickerOutsideClick}
+	on:keydown={(e) => showMiniPicker && e.key === 'Escape' && closeMiniPicker()}
+/>
+
 <div class="mb-2 bg-white pt-4">
 	<!-- Modern Header -->
 	<div
@@ -224,7 +241,7 @@
 			</div>
 
 			<!-- Mini Month Picker -->
-			<div class="relative">
+			<div class="relative" data-testid="mini-picker-container">
 				<button
 					onclick={() => (showMiniPicker = !showMiniPicker)}
 					class="text-lg font-bold tracking-tight text-slate-900 transition-colors hover:text-primary-600 sm:text-2xl"

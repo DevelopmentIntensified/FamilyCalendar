@@ -4,7 +4,16 @@ import { isDashboardModule } from '$lib/dashboardModules';
 
 describe('isDashboardModule', () => {
 	it('accepts every canonical module id', () => {
-		for (const id of ['verse', 'glance', 'top3', 'board', 'memberStrip', 'kids', 'meals']) {
+		for (const id of [
+			'verse',
+			'glance',
+			'top3',
+			'completed',
+			'board',
+			'memberStrip',
+			'kids',
+			'meals'
+		]) {
 			expect(isDashboardModule(id)).toBe(true);
 		}
 	});
@@ -30,6 +39,7 @@ describe('composeModuleVisibility', () => {
 			verse: true,
 			glance: true,
 			top3: true,
+			completed: true,
 			board: true,
 			memberStrip: true,
 			kids: true,
@@ -79,10 +89,16 @@ describe('composeModuleVisibility', () => {
 			verse: true,
 			glance: true,
 			top3: true,
+			completed: true,
 			board: true,
 			memberStrip: true,
 			kids: true,
 			meals: true
 		});
+	});
+
+	it('completed is personal: family switch ignored, user hide honored', () => {
+		expect(composeModuleVisibility({ completed: false }, []).completed).toBe(true);
+		expect(composeModuleVisibility({}, ['completed']).completed).toBe(false);
 	});
 });

@@ -167,16 +167,16 @@
 		<header class="mb-8 text-center">
 			<h1 class="text-3xl font-bold tracking-tight text-slate-900">Welcome Back</h1>
 			{#if data.isLoggedIn && !data.mergeMode}
-				<p class="mt-2 text-sm text-pretty text-slate-600">You are already logged in.</p>
+				<p class="mt-2 text-pretty text-sm text-slate-600">You are already logged in.</p>
 			{:else if !data.mergeMode}
-				<p class="mt-2 text-sm text-pretty text-slate-600">
+				<p class="mt-2 text-pretty text-sm text-slate-600">
 					Don't have an account?
 					<a
 						href="/signup"
 						class="rounded font-medium text-primary-600 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
 						>Sign up</a
 					>
-					or just start using it right away.
+					or start planning with no account needed.
 				</p>
 			{/if}
 		</header>

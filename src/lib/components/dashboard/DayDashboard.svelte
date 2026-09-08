@@ -106,10 +106,12 @@
 				{#if visible('top3')}
 					<TopPrioritiesCard tasks={top3} {meId} />
 				{/if}
-				<CompletedTodayCard tasks={completedToday} {isToday} />
+				{#if visible('completed')}
+					<CompletedTodayCard tasks={completedToday} {isToday} />
+				{/if}
 			</div>
 		</div>
-	{:else}
+	{:else if visible('completed')}
 		<CompletedTodayCard tasks={completedToday} {isToday} />
 	{/if}
 
@@ -132,9 +134,7 @@
 	{/if}
 
 	{#if familyId && visible('kids')}
-		<div class="grid gap-4 md:grid-cols-2">
-			<KidsScheduleCard events={kidsSchedule} {isToday} />
-		</div>
+		<KidsScheduleCard events={kidsSchedule} {isToday} />
 	{/if}
 </div>
 

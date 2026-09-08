@@ -91,8 +91,39 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   group (own layout + auth guard, back-to-Calendar link); 301 stubs at old
   URLs; Bills entry stripped from main nav; APIs/services/schema untouched
 
+- Shell polish batch (2026-09-08, uncommitted): Dashboard in desktop
+  logged-in nav (longest-prefix active covers /calendar/dashboard);
+  calendar banner stack (offline + guest/claim share one fixed flex-col,
+  `mt-10` compensation keyed on banner count via OfflineBanner
+  `bind:visible`); `completed` Day Dashboard module (personal scope,
+  CompletedTodayCard gated, solo kids card full-width); ListView
+  EventModal gets `calendars`; mini month picker closes on
+  outside-click/Escape; bell copy "Couldn't load notifications.",
+  hamburger sr-only toggles; BottomNav `py-2.5` + `min-h-[52px]`,
+  priority segmented buttons `px-2.5 py-1.5` without the
+  `after:-inset-1.5` expander. Gates: full vitest 110 files/2070 tests
+  green, e2e/navigation + e2e/mobile green, oxlint 0, svelte-check 0,
+  build green. Skipped: bell-dropdown deep link to
+  /calendar/notifications (NotificationBell was copy-only scope);
+  ListView `familyMembers` prop (needs Calendar←page plumbing beyond
+  allowed touches; EventModal defaults it to []).
+- Auth consistency polish (2026-09-08, UNCOMMITTED): signup ported to
+  shared AuthCard/AuthInput/ModeToggle + runes (role=group/aria-pressed/
+  role=alert, SVG mail icon); skip-account copy canonical ("Start
+  planning — no account needed") on login+signup, login fragment fixed;
+  claim email input autocomplete + auth classes/rounded-full button;
+  <Toaster/> mounted in (marketing) layout. Deferred (out of scope):
+  `(calendar)/calendar/+layout.svelte` "guest calendar" banner → Anonymous
+  Account/claim vocabulary.
+
 ## Open
 
+- Tasks surfaces polish batch (UNCOMMITTED 2026-09-08): toasts on add/
+  one-off complete/accept-decline, recurring single-toast on board + Top-3,
+  shared `priorityTone.ts` (dot/label/due tones) across tasks page + board +
+  Top-3, tag `#` glyph + placeholder, 320px dialog grid, help/placeholder
+  wording, muted due/recurrence on completed rows, focus-visible + opacity-40
+  hover actions.
 - Bills area PAUSED (2026-09-08, user directive): the parked `/bills` +
   `/spending` sub-app must NOT be triaged or checked for issues until the
   user unpauses it. Open bills items below (#003/#005/#007–#010, word-
