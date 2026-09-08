@@ -1,6 +1,6 @@
 # 041 — Calendar page load perf (server + client findings)
 
-Status: in-progress
+Status: done
 
 ## Done
 

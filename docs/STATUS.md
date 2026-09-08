@@ -88,6 +88,14 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   merchants section (top-8 table + merchant drill-down reusing the bill row)
 - #039 Slim pages (in progress): TaskRow + TaskCompletedRow extracted
   from calendar/tasks (1659 → 1368 lines, 10 colocated tests green).
+- #041 Calendar load perf (2026-09-08, DONE): TTFB ~1.35s → shell ~0.8s
+  (−40%), HTML 465KB → 147KB (−68%). #1 parallel-chain explained
+  (deferred); #2 settings-via-parent; #3 month-window expansion;
+  #4 batched cursor sync (A/B 1.8–3.2s → 1.2s w/ stale tasks);
+  #5 verse local-only (−91 lines); streaming shell-first + skeleton;
+  #6 family scope in layout; #7 MonthDays grouping bench 416→14ms;
+  #8 Calendar 511→234 (Toolbar + view util, browser-verified);
+  #9 tz probe once per user/browser. Playbook: docs/page-perf-playbook.md.
 - #038 Page-switch lag (2026-09-08): removed `{#key pathname}` + fade
   out/intro gating from all 4 group layouts (bills, calendar, family,
   marketing); `in:fade|local` first-mount only (100ms app, 150ms
