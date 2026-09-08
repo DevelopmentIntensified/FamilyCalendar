@@ -24,19 +24,12 @@ export const TRANSLATIONS = {
 	esv: {
 		id: 'esv',
 		label: 'ESV',
-		attribution:
-			'The Holy Bible, English Standard Version. ESV® Text Edition: 2016. Copyright © 2001 by Crossway Bibles, a publishing ministry of Good News Publishers.',
-		bundled: false
+		attribution: 'Public domain.',
+		bundled: true
 	}
 } satisfies Record<string, VerseTranslationInfo>;
 
 export type TranslationId = keyof typeof TRANSLATIONS;
-
-/** Lookup by untrusted id (query param); undefined for unknown translations. */
-export function getTranslation(id: string): VerseTranslationInfo | undefined {
-	// SAFETY: the `in` check pins id to the TRANSLATIONS key union before indexing.
-	return id in TRANSLATIONS ? TRANSLATIONS[id as TranslationId] : undefined;
-}
 
 const DAILY_VERSES: CuratedVerse[] = [
 	{
@@ -156,12 +149,18 @@ const DAILY_VERSES: CuratedVerse[] = [
 		reference: 'Mark 11:24',
 		text: 'Therefore I say unto you, What things soever ye desire, when ye pray, believe that ye receive them, and ye shall have them.'
 	},
-	{ reference: 'Psalm 127:1', text: 'Except the LORD build the house, they labour in vain that build it.' },
+	{
+		reference: 'Psalm 127:1',
+		text: 'Except the LORD build the house, they labour in vain that build it.'
+	},
 	{
 		reference: 'Psalm 127:3',
 		text: 'Lo, children are an heritage of the LORD: and the fruit of the womb is his reward.'
 	},
-	{ reference: 'Psalm 90:12', text: 'So teach us to number our days, that we may apply our hearts unto wisdom.' },
+	{
+		reference: 'Psalm 90:12',
+		text: 'So teach us to number our days, that we may apply our hearts unto wisdom.'
+	},
 	{
 		reference: 'Proverbs 15:22',
 		text: 'Without counsel purposes are disappointed: but in the multitude of counsellors they are established.'
@@ -194,69 +193,6 @@ const DAILY_VERSES: CuratedVerse[] = [
 
 export { DAILY_VERSES };
 
-// Crossway's official ESV API — free key at https://api.esv.org (5k verses/day).
-const ESV_API_BASE = 'https://api.esv.org/v3/passage/text';
-
-// Successful remote fetches only, keyed `${dateIso}:${translation}` (per server instance).
-const verseCache = new Map<string, DailyVerse>();
-
-function fallbackVerse(verse: DailyVerse): DailyVerse {
-	return {
-		reference: verse.reference,
-		text: verse.text,
-		attribution: 'Public domain.',
-		translation: TRANSLATIONS.esv.id,
-		fallback: true
-	};
-}
-
-async function fetchEsvVerse(base: DailyVerse): Promise<DailyVerse | null> {
-	const apiKey = process.env.ESV_API_KEY;
-	if (!apiKey) return null;
-
-	try {
-		const url = new URL(ESV_API_BASE);
-		url.searchParams.set('q', base.reference);
-		url.searchParams.set('include-passage-references', 'false');
-		url.searchParams.set('include-verse-numbers', 'false');
-		url.searchParams.set('include-first-verse-numbers', 'false');
-		url.searchParams.set('include-footnotes', 'false');
-		url.searchParams.set('include-headings', 'false');
-
-		const response = await fetch(url, {
-			headers: { Authorization: `Token ${apiKey}`, accept: 'application/json' },
-			signal: AbortSignal.timeout(10_000)
-		});
-		if (!response.ok) return null;
-		const payload: { passages?: string[] } = await response.json();
-		const text = payload.passages?.[0]?.replace(/\s+/g, ' ').trim();
-		if (!text) return null;
-		return {
-			reference: base.reference,
-			text,
-			attribution: TRANSLATIONS.esv.attribution,
-			translation: TRANSLATIONS.esv.id,
-			fallback: false
-		};
-	} catch {
-		return null;
-	}
-}
-
-async function fetchRemoteVerse(
-	dateIso: string,
-	translationId: string
-): Promise<DailyVerse | null> {
-	const info = getTranslation(translationId);
-	if (!info || info.bundled) return null;
-
-	const base = bundledVerseForDate(dateIso);
-
-	// Only ESV has a remote source; anything else non-bundled falls back.
-	if (translationId !== TRANSLATIONS.esv.id) return null;
-	return await fetchEsvVerse(base);
-}
-
 function bundledVerseForDate(dateIso: string): DailyVerse {
 	const ordinal = DateTime.fromISO(dateIso).ordinal;
 	const verse = DAILY_VERSES[ordinal % DAILY_VERSES.length];
@@ -268,23 +204,10 @@ function bundledVerseForDate(dateIso: string): DailyVerse {
 	};
 }
 
-export async function getVerseForDate(dateIso: string, translation = 'esv'): Promise<DailyVerse> {
-	// ESV is the only supported translation; anything else (or nothing else
-	// to fall back on) resolves to the bundled public-domain verse.
-	if (translation !== TRANSLATIONS.esv.id) {
-		return bundledVerseForDate(dateIso);
-	}
-
-	const cacheKey = `${dateIso}:${translation}`;
-	const cached = verseCache.get(cacheKey);
-	if (cached) return cached;
-
-	const remote = await fetchRemoteVerse(dateIso, translation);
-	if (remote) {
-		verseCache.set(cacheKey, remote);
-		return remote;
-	}
-	return fallbackVerse(bundledVerseForDate(dateIso));
+export async function getVerseForDate(dateIso: string, _translation = 'esv'): Promise<DailyVerse> {
+	// Local list only (#041): no remote fetch, never blocks page loads.
+	// The translation param is kept for API stability (account settings).
+	return bundledVerseForDate(dateIso);
 }
 
 export async function getTodayVerse(translation = 'esv'): Promise<DailyVerse> {

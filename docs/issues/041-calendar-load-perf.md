@@ -23,6 +23,10 @@ Status: in-progress
 - #4 batched cursor sync: 1 SELECT + N sequential UPDATEs → 1 SELECT +
   1 UPDATE (`inArray`). Mock-contract tests unchanged, 4 green. A/B with
   5 stale tasks (Neon): OLD 1.8–3.2s vs NEW ~1.2s warmed.
+- #5 verse local-only: deleted ESV remote fetch (API + cache + fallback
+  scaffolding, −91 lines); `getVerseForDate` resolves from `DAILY_VERSES`.
+  13 tests updated/green. No local TTFB delta (no-key path was already
+  fast) — kills the 10s-timeout worst case on cold starts with a key.
 
 ## Needs doing
 

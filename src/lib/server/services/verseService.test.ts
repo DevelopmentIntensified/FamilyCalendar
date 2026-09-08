@@ -1,10 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { DateTime } from 'luxon';
 import { getVerseForDate, getTodayVerse, DAILY_VERSES, TRANSLATIONS } from './verseService';
-
-beforeEach(() => {
-	delete process.env.ESV_API_KEY;
-});
 
 describe('TRANSLATIONS', () => {
 	it('exposes exactly one supported translation (ESV)', () => {
@@ -23,9 +19,9 @@ describe('TRANSLATIONS', () => {
 		}
 	});
 
-	it('marks ESV as remote-only (fetched, never bundled)', () => {
-		expect(TRANSLATIONS.esv.bundled).toBe(false);
-		expect(Object.values(TRANSLATIONS).every((t) => !t.bundled)).toBe(true);
+	it('marks ESV as bundled (local list only, no remote fetch)', () => {
+		expect(TRANSLATIONS.esv.bundled).toBe(true);
+		expect(Object.values(TRANSLATIONS).every((t) => t.bundled)).toBe(true);
 	});
 });
 
@@ -87,23 +83,13 @@ describe('getVerseForDate (bundled)', () => {
 });
 
 describe('getVerseForDate (ESV)', () => {
-	it('falls back to bundled text with public-domain attribution when no ESV_API_KEY is configured', async () => {
+	it('resolves from the bundled list with no fallback flag and no network', async () => {
 		const verse = await getVerseForDate('2026-08-24', 'esv');
 		expect(verse.text.length).toBeGreaterThan(0);
 		expect(DAILY_VERSES.some((v) => v.text === verse.text)).toBe(true);
-		expect(verse.fallback).toBe(true);
+		expect(verse.fallback).toBe(false);
 		expect(verse.translation).toBe('esv');
-		// The requested translation's copyright attribution must be suppressed.
 		expect(verse.attribution).toBe('Public domain.');
-	});
-
-	it('falls back gracefully when the key is set but the API is unreachable', async () => {
-		// Pointless key: fetch fails or 401s -> fallback path, never throws.
-		process.env.ESV_API_KEY = 'invalid-test-key';
-		const verse = await getVerseForDate('2026-08-24', 'esv');
-		expect(verse.fallback).toBe(true);
-		expect(verse.translation).toBe('esv');
-		expect(DAILY_VERSES.some((v) => v.text === verse.text)).toBe(true);
 	});
 });
 
@@ -118,6 +104,6 @@ describe('getTodayVerse', () => {
 	it('passes the translation through', async () => {
 		const today = DateTime.now().toISODate()!;
 		expect(await getTodayVerse('esv')).toEqual(await getVerseForDate(today, 'esv'));
-		expect((await getTodayVerse('esv')).fallback).toBe(true);
+		expect((await getTodayVerse('esv')).fallback).toBe(false);
 	});
 });
