@@ -39,6 +39,17 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   tax reconcile hint, Spend-by-category card (month filter + bars +
   tap-to-filter)
 
+- #033 Digital receipt import (2026-09-07): paste-text + PDF + email
+  ingest — `POST /api/parse-receipt-text` (Cerebras prompt with regex
+  fallback, useCloudAI honored, 20KB cap), pdfjs-dist 5.4.149 in-browser
+  text extraction (CDN worker; scans routed to OCR flow), `POST
+/api/email-ingest` (svix-verified Resend webhook → draft bill from
+  body text or PDF attachment), per-user `receipts.<token>@` ingest
+  address on the bills page (copy/regenerate), draft lifecycle (From
+  email badge, Confirm flips source → 'manual' + trains Tag Table,
+  drafts never count as spend), privacy page inbound-email row, SQL
+  `sql/012-receipt-import.sql` — **NEON PENDING**
+
 ## Open
 
 - #003 Bill Tracking PRD (parent; slices #005–#011 pending)
@@ -52,7 +63,6 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #011 Bill quick-add NLP (blocked by #004 — startable)
 - #012 Bills MED/LOW follow-ups
 - #032 Spending reports page
-- #033 Digital receipt import (seam: tagTable predict/train landed in #031)
 - #013 Tasks/family MED/LOW (8 of 10 audit items fixed 2026-09-06: assignment
   notifications, remove-member un-assign, undo cursor hardening, completion
   actor attribution (sql/006), sync family scope, sub-override filter,

@@ -37,7 +37,11 @@ export const users = pgTable('users', {
 		.notNull(),
 	phonenumber: text('phonenumber'),
 	phonenumberVerified: boolean('phonenumberVerified'),
-	lastLogin: timestamp('lastLogin', { mode: 'date' }).defaultNow().notNull()
+	lastLogin: timestamp('lastLogin', { mode: 'date' }).defaultNow().notNull(),
+	// Receipt email ingest (#033): random token local-part of the user's
+	// personal receipts.<token>@<RECEIPT_INGEST_DOMAIN> address. Null =
+	// feature unused; unique when set.
+	receiptIngestToken: text('receiptIngestToken')
 });
 
 export const userSettings = pgTable('userSettings', {
@@ -568,6 +572,10 @@ export const bills = pgTable('bills', {
 	dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
 	category: text('category').notNull().default('other'),
 	paidAt: timestamp('paid_at', { withTimezone: true, mode: 'string' }),
+	// Provenance + draft marker (#033): 'manual' = user-created; 'email' =
+	// an unconfirmed ingest draft (never counted as spent, never trains
+	// the Tag Table until confirmed — confirming flips it to 'manual').
+	source: text('source').notNull().default('manual'),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),

@@ -1,6 +1,6 @@
 # 033 — Digital receipt import (paste / PDF / email)
 
-Status: open
+Status: done
 
 Parent: #010/#031 receipts pipeline (reuses the scan→prefill→confirm flow;
 no OCR involved — digital receipts are already text).
@@ -11,7 +11,7 @@ no OCR involved — digital receipts are already text).
   create form → server extraction via the existing Cerebras text LLM
   (chatJson — text-only, already wired, honors the `useCloudAI`
   opt-out per H3 fix) → structured `{merchant, total, date,
-  lineItems[{label, priceCents}], tax?, fees?}` → prefilled bill +
+lineItems[{label, priceCents}], tax?, fees?}` → prefilled bill +
   editable Line Items (#031) → user confirms. Deterministic fallback if
   LLM unavailable/unconfigured: regex heuristics (reuse receiptScan
   total/date/merchant logic on text).
@@ -49,7 +49,32 @@ no OCR involved — digital receipts are already text).
 
 ## Needs doing
 
-- Queued: after #031 (Line Items must exist to land imported items)
-  → before/after #032, before #006 (user priority call at dispatch).
-- RESOLVED: email-forwarding auto-import IS in v1 (Resend Inbound —
-  see above).
+- DONE (2026-09-07). Shipped:
+  - Paste text: `POST /api/parse-receipt-text` (auth, 20KB cap, rate
+    limit) → Cerebras `chatJson` with `RECEIPT_EXTRACTION_PROMPT`
+    (honors `useCloudAI` opt-out; LLM failure → deterministic regex
+    fallback). Extraction lives in
+    `src/lib/server/services/receiptText.ts` (pure, both producers).
+  - PDF: `src/lib/client/receiptPdf.ts` — pdfjs-dist 5.4.149 (pinned,
+    lazy dynamic import, CDN worker), pages joined; empty text → routed
+    to the Scan flow. Server PDF text (email attachments) via
+    `pdfjs-dist/legacy` in `src/lib/server/services/pdfText.ts`; bytes
+    never persisted.
+  - Email: `POST /api/email-ingest` (svix signature verification,
+    manual HMAC — `src/lib/server/utils/svixVerify.ts`), token match on
+    `receipts.<token>@<RECEIPT_INGEST_DOMAIN>` → user via
+    `users.receiptIngestToken`; creates a DRAFT bill (`bills.source`
+    'email', paidAt null — excluded from Spend Detail, no Tag Table
+    training). `POST /api/receipt-ingest-address` GET/POST for the
+    address (hidden when env unset; regenerate supported). Bills page
+    shows the address (copy/regenerate) and drafts get a "From email"
+    badge + Confirm button (confirm flips source to 'manual' AND trains
+    the Tag Table).
+  - SQL: `sql/012-receipt-import.sql` (bills.source + users.receiptIngestToken;
+    applied to both local DBs; Neon block inside).
+  - Privacy page: inbound receipt email row (Resend retains received
+    mail; we never store the email/PDF).
+- Known pre-existing flakes (unrelated): `azureReceiptService.test.ts`
+  timeout test and `e2e/events/NlpTimeParsing.test.ts` fail under full-
+  suite load / on clean HEAD too.
+- Queued: before #006 (user priority call at dispatch).

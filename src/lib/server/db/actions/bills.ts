@@ -79,6 +79,14 @@ export function parseDueDate(raw: unknown): DueDateParse {
 	return { status: 'ok', value };
 }
 
+/**
+ * Bill provenance + draft marker (#033): 'manual' = user-created;
+ * 'email' = an unconfirmed ingest draft (never counted as spent, never
+ * trains the Tag Table until confirmed — confirming flips it to
+ * 'manual'). 'paste'/'scan' are reserved for provenance.
+ */
+export type BillSource = 'manual' | 'email' | 'scan' | 'paste';
+
 export interface CreateBillInput {
 	title: string;
 	amountCents: number;
@@ -86,6 +94,7 @@ export interface CreateBillInput {
 	category: BillCategory;
 	userId: string;
 	familyId: string | null;
+	source?: BillSource;
 }
 
 export async function createBill(input: CreateBillInput): Promise<Bill> {
@@ -124,7 +133,7 @@ export function canMutateBill(bill: Bill, userId: string, role: string | null): 
 }
 
 export type BillPatch = Partial<
-	Pick<Bill, 'title' | 'amountCents' | 'dueDate' | 'category' | 'paidAt'>
+	Pick<Bill, 'title' | 'amountCents' | 'dueDate' | 'category' | 'paidAt' | 'source'>
 >;
 
 export async function updateBill(

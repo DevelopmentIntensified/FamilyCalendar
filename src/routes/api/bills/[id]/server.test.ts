@@ -15,6 +15,7 @@ function bill(over: Partial<Bill> = {}): Bill {
 		dueDate: '2026-09-15T00:00:00.000Z',
 		category: 'utilities',
 		paidAt: null,
+		source: 'manual',
 		userId: 'u1',
 		familyId: 'f1',
 		createdAt: new Date('2026-09-01T00:00:00Z'),
@@ -29,6 +30,7 @@ function deps(over: Partial<BillIdDeps> = {}): BillIdDeps {
 		updateBill: async () => bill({ title: 'New' }),
 		deleteBill: async () => true,
 		setBillItems: async () => [],
+		getItemsForBills: async () => new Map(),
 		trainTagTable: async () => {},
 		...over
 	};
@@ -230,6 +232,99 @@ describe('PUT /api/bills/[id] line items (#031)', () => {
 
 		expect(res.status).toBe(200);
 		expect(setBillItems).not.toHaveBeenCalled();
+		expect(trainTagTable).not.toHaveBeenCalled();
+	});
+});
+
+describe('PUT /api/bills/[id] draft confirmation (#033)', () => {
+	const receiptItems = [
+		{
+			id: 'ri-1',
+			billId: 'bill-1',
+			label: 'WHOLE MILK',
+			priceCents: 349,
+			category: null,
+			position: 0,
+			createdAt: new Date('2026-09-01T00:00:00Z')
+		}
+	];
+
+	function draftDeps(over: Partial<BillIdDeps> = {}): BillIdDeps {
+		// SAFETY: the spread base already carries every BillIdDeps member; the
+		// cast only widens the override bag to the same shape.
+		// oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- test-double cast, justified above.
+		return deps({
+			getBill: async () => bill({ source: 'email', category: 'other', title: 'KROGER #4412' }),
+			getItemsForBills: vi.fn(async () => new Map([['bill-1', receiptItems]])),
+			...over
+		} as Partial<BillIdDeps>);
+	}
+
+	it('confirmDraft flips an email draft to manual and trains from stored items', async () => {
+		const updateBill = vi.fn(
+			async (_id: string, _userId: string, _role: string | null, patch: BillPatch) =>
+				bill({ source: patch.source ?? 'email', category: 'other', title: 'KROGER #4412' })
+		);
+		const trainTagTable = vi.fn<TrainFn>(async () => {});
+		const res = await PUT(
+			event('u1', { confirmDraft: true }),
+			draftDeps({ updateBill, trainTagTable })
+		);
+
+		expect(res.status).toBe(200);
+		expect(updateBill).toHaveBeenCalledWith('bill-1', 'u1', 'admin', { source: 'manual' });
+		expect(trainTagTable).toHaveBeenCalledOnce();
+		const [userId, merchantKey, merchantCategory, entries] = trainTagTable.mock.calls[0];
+		expect(userId).toBe('u1');
+		expect(merchantKey).toBe('KROGER #4412');
+		expect(merchantCategory).toBe('other');
+		expect(entries).toEqual([{ key: 'WHOLE MILK', category: 'other', name: null }]);
+	});
+
+	it('confirming alongside an items save trains with the NEW items', async () => {
+		const updateBill = vi.fn(
+			async (_id: string, _userId: string, _role: string | null, patch: BillPatch) =>
+				bill({ source: patch.source ?? 'email', category: 'other' })
+		);
+		const setBillItems = vi.fn<SetItemsFn>(async () => []);
+		const trainTagTable = vi.fn<TrainFn>(async () => {});
+		const res = await PUT(
+			event('u1', { confirmDraft: true, items: [{ label: 'Bagel', priceCents: 300 }] }),
+			draftDeps({ updateBill, setBillItems, trainTagTable })
+		);
+
+		expect(res.status).toBe(200);
+		expect(trainTagTable.mock.calls[0][3]).toEqual([
+			{ key: 'Bagel', category: 'other', name: null }
+		]);
+	});
+
+	it('editing items on an UNCONFIRMED draft never trains', async () => {
+		const setBillItems = vi.fn<SetItemsFn>(async () => []);
+		const trainTagTable = vi.fn<TrainFn>(async () => {});
+		const res = await PUT(
+			event('u1', { items: [{ label: 'Bagel', priceCents: 300 }] }),
+			draftDeps({ setBillItems, trainTagTable })
+		);
+
+		expect(res.status).toBe(200);
+		expect(setBillItems).toHaveBeenCalledOnce();
+		expect(trainTagTable).not.toHaveBeenCalled();
+	});
+
+	it('confirmDraft on a manual bill is a no-op patch', async () => {
+		const updateBill = vi.fn(
+			async (_id: string, _userId: string, _role: string | null, patch: BillPatch) =>
+				bill({ source: patch.source ?? 'manual' })
+		);
+		const trainTagTable = vi.fn<TrainFn>(async () => {});
+		const res = await PUT(
+			event('u1', { confirmDraft: true }),
+			deps({ updateBill, trainTagTable, getItemsForBills: async () => new Map() })
+		);
+
+		expect(res.status).toBe(200);
+		expect(updateBill).not.toHaveBeenCalled();
 		expect(trainTagTable).not.toHaveBeenCalled();
 	});
 });

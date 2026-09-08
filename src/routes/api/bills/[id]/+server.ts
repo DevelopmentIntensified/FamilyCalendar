@@ -11,6 +11,7 @@ import {
 	normalizeBillItems,
 	parseDueDate,
 	setBillItems,
+	getItemsForBills,
 	type BillItemInput,
 	type BillPatch
 } from '$lib/server/db/actions/bills';
@@ -29,6 +30,7 @@ export type BillIdDeps = {
 	updateBill: typeof updateBill;
 	deleteBill: typeof deleteBill;
 	setBillItems: typeof setBillItems;
+	getItemsForBills: typeof getItemsForBills;
 	trainTagTable: typeof trainTagTable;
 };
 
@@ -38,6 +40,7 @@ const defaultDeps: BillIdDeps = {
 	updateBill,
 	deleteBill,
 	setBillItems,
+	getItemsForBills,
 	trainTagTable
 };
 
@@ -143,6 +146,14 @@ export const PUT = async (event: RequestEvent, deps: BillIdDeps = defaultDeps) =
 	if (body.category !== undefined) patch.category = normalizeBillCategory(body.category);
 	if (body.paid !== undefined) patch.paidAt = body.paid ? new Date().toISOString() : null;
 
+	// Draft confirmation (#033): an email-ingest draft (source !== 'manual')
+	// becomes a real bill when the user confirms it — flipping the source
+	// back to 'manual' is what enables Tag Table training below. A manual
+	// bill's confirmDraft is a no-op.
+	const wasDraft = (allowed.bill.source ?? 'manual') !== 'manual';
+	const confirming = body.confirmDraft === true && wasDraft;
+	if (confirming) patch.source = 'manual';
+
 	if (Object.keys(patch).length === 0 && items === null) {
 		// Empty patch and no items: drizzle's set({}) throws, and there is
 		// nothing to write.
@@ -157,12 +168,36 @@ export const PUT = async (event: RequestEvent, deps: BillIdDeps = defaultDeps) =
 				? await deps.updateBill(event.params.id, auth.user.id, allowed.role, patch)
 				: null;
 		const bill = updated ?? allowed.bill;
+		// Training gate (#033): train ONLY when the bill is (now) manual —
+		// an unconfirmed email draft never trains, even when items are saved.
+		const trains = (bill.source ?? 'manual') === 'manual';
 		if (items) {
 			// Replace-all + training against the bill's CURRENT title/category
 			// (the same request may have changed them).
 			const stored = await deps.setBillItems(bill.id, items);
-			await trainFromItems(deps.trainTagTable, auth.user.id, bill, items);
+			if (trains) await trainFromItems(deps.trainTagTable, auth.user.id, bill, items);
 			return json({ success: true, bill, items: stored, ...reconcileSummary(items) });
+		}
+		if (confirming) {
+			// Confirm-only confirm: train from the draft's stored items.
+			const stored = (await deps.getItemsForBills([bill.id])).get(bill.id) ?? [];
+			await trainFromItems(
+				deps.trainTagTable,
+				auth.user.id,
+				bill,
+				stored.map((item) => ({
+					label: item.label,
+					priceCents: item.priceCents,
+					// SAFETY: receiptItems.category is a BILL_CATEGORIES literal
+					// written only via normalizeBillItems; the text column widens
+					// it back to string on read — this restores the write type.
+					// oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- DB widening cast, justified above.
+					category: (item.category as BillCategory | null) ?? null,
+					// Stored items carry no learned SKU name (name lives in the
+					// BillItemInput for the save request, not the receiptItems row).
+					name: null
+				}))
+			);
 		}
 		if (!updated) return json({ error: 'Bill not found' }, { status: 404 });
 		return json({ success: true, bill: updated });

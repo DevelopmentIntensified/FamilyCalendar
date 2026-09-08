@@ -11,6 +11,7 @@ function bill(over: Partial<Bill> = {}): Bill {
 		dueDate: null,
 		category: 'other',
 		paidAt: null,
+		source: 'manual',
 		userId: 'u1',
 		familyId: null,
 		createdAt: new Date('2026-09-01T00:00:00Z'),

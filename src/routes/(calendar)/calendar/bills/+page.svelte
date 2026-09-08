@@ -7,6 +7,7 @@
 		scanReceiptWithFallback,
 		type ScanFlowResult
 	} from '$lib/client/receiptOcr';
+	import { extractPdfTextFromPdf } from '$lib/client/receiptPdf';
 	import type { BillCategory } from '$lib/utils/receiptScan';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 
@@ -329,6 +330,165 @@
 		if (file) scanAndPrefill(file);
 	}
 
+	// ── Digital receipt import (#033): paste text / PDF ──────────────────
+	// The server extracts a draft; everything lands in the form as a HINT —
+	// the user still confirms with "Add bill". A parse is never a commit.
+	let pasteOpen = $state(false);
+	let pasteText = $state('');
+	let importBusy = $state(false);
+	let importNote = $state('');
+	let pdfFileInput: HTMLInputElement | null = $state(null);
+
+	/** Shape of POST /api/parse-receipt-text's draft response. */
+	interface ImportedDraft {
+		merchant: string | null;
+		date: string | null;
+		items: Array<{ label: string; priceCents: number; category: string | null }>;
+		totalCents: number | null;
+		source: 'llm' | 'regex';
+	}
+
+	/** Fills the create form from a server-extracted draft. */
+	function applyDraft(draft: ImportedDraft) {
+		if (draft.merchant) newTitle = draft.merchant;
+		const amount = dollarsFromCents(draft.totalCents);
+		if (amount) newAmount = amount;
+		if (draft.date) newDueDate = draft.date;
+		newItems = draft.items.map((item) => ({
+			label: item.label,
+			price: dollarsFromCents(item.priceCents),
+			category: CATEGORIES.includes(item.category ?? '') ? item.category : null,
+			name: null
+		}));
+		newItemsOpen = draft.items.length > 0;
+		importNote = `Read from pasted text (${draft.source === 'llm' ? 'AI' : 'offline'}) — review and fix anything wrong.`;
+		pushToast({ message: 'Receipt imported — review the details below.' });
+	}
+
+	async function importReceiptText(text: string) {
+		importBusy = true;
+		importNote = '';
+		try {
+			const res = await fetch('/api/parse-receipt-text', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ text })
+			});
+			const body = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(body.error || 'Could not read the receipt text.');
+			if (!body.draft)
+				throw new Error('Nothing usable in that receipt — fill the fields manually.');
+			// SAFETY: the route's draft contract is validated server-side before
+			// returning; the assertion restores that shape for the local helper.
+			// oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- response-shape cast, justified above.
+			applyDraft(body.draft as ImportedDraft);
+		} catch (error) {
+			importNote = error instanceof Error ? error.message : 'Could not read the receipt text.';
+		} finally {
+			importBusy = false;
+		}
+	}
+
+	function importPastedText() {
+		if (importBusy || !pasteText.trim()) return;
+		importReceiptText(pasteText);
+	}
+
+	function togglePaste() {
+		pasteOpen = !pasteOpen;
+		importNote = '';
+	}
+
+	/** PDF path: extract the text layer in-browser, then the same pipeline. */
+	async function onImportPdfPicked(event: Event) {
+		// SAFETY: the only onchange target is the hidden PDF file input.
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file) return;
+		if (!file.name.toLowerCase().endsWith('.pdf')) {
+			importNote = 'Pick a PDF file, or use Scan receipt for photos.';
+			return;
+		}
+		importBusy = true;
+		importNote = '';
+		try {
+			const text = await extractPdfTextFromPdf(file);
+			if (!text.trim()) {
+				importNote = 'This PDF looks like a scan — use Scan receipt instead.';
+				return;
+			}
+			await importReceiptText(text);
+		} catch {
+			importNote = 'Could not read that PDF — paste the text instead.';
+		} finally {
+			importBusy = false;
+		}
+	}
+
+	// ── Email ingest address (#033) ──────────────────────────────────────
+	// Local override after a regenerate; the load's value is the default.
+	let ingestOverride = $state<string | null>(null);
+	const ingestAddress = $derived(ingestOverride ?? data.ingestAddress);
+	let ingestBusy = $state(false);
+
+	async function copyIngestAddress() {
+		if (!ingestAddress) return;
+		try {
+			await navigator.clipboard.writeText(ingestAddress);
+			pushToast({ message: 'Ingest address copied.' });
+		} catch {
+			importNote = 'Could not copy — select the address manually.';
+		}
+	}
+
+	async function regenerateIngestAddress() {
+		if (ingestBusy) return;
+		ingestBusy = true;
+		try {
+			const res = await fetch('/api/receipt-ingest-address', { method: 'POST' });
+			const body = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(body.error || 'Could not regenerate the address.');
+			// SAFETY: the route returns { address } (string when configured);
+			// the guard above rules out the error body.
+			// oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- response-shape cast, justified above.
+			ingestOverride = body.address as string;
+			pushToast({ message: 'New ingest address ready — the old one stopped working.' });
+		} catch (error) {
+			actionError = error instanceof Error ? error.message : 'Could not regenerate the address.';
+		} finally {
+			ingestBusy = false;
+		}
+	}
+
+	/** An unconfirmed email-ingest draft: review before it counts. */
+	function isDraftBill(bill: BillRow): boolean {
+		return Boolean(bill.source && bill.source !== 'manual');
+	}
+
+	async function confirmDraftBill(bill: BillRow) {
+		if (busyId) return;
+		busyId = bill.id;
+		actionError = '';
+		try {
+			const res = await fetch(`/api/bills/${bill.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ confirmDraft: true })
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.error || 'Could not confirm the bill.');
+			}
+			pushToast({ message: `“${bill.title}” confirmed — it now counts in your spend.` });
+			await invalidateAll();
+		} catch (error) {
+			actionError = error instanceof Error ? error.message : 'Could not confirm the bill.';
+		} finally {
+			busyId = null;
+		}
+	}
+
 	/** BillId -> optimistic paid state while a toggle is in flight. */
 	interface PaidOverrides {
 		[billId: string]: boolean;
@@ -608,6 +768,14 @@
 					bind:this={scanFileInput}
 					onchange={onScanPicked}
 				/>
+				<input
+					type="file"
+					accept="application/pdf,.pdf"
+					class="sr-only"
+					aria-label="Pick a receipt PDF to import"
+					bind:this={pdfFileInput}
+					onchange={onImportPdfPicked}
+				/>
 				<button
 					type="button"
 					class="min-h-[44px] rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
@@ -615,6 +783,23 @@
 					onclick={() => scanFileInput?.click()}
 				>
 					Scan receipt
+				</button>
+				<button
+					type="button"
+					class="min-h-[44px] rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+					aria-expanded={pasteOpen}
+					disabled={scanBusy || adding}
+					onclick={togglePaste}
+				>
+					Paste receipt text
+				</button>
+				<button
+					type="button"
+					class="min-h-[44px] rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+					disabled={importBusy || scanBusy || adding}
+					onclick={() => pdfFileInput?.click()}
+				>
+					Import PDF
 				</button>
 				{#if categorySuggested}
 					<span class="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700">
@@ -693,6 +878,30 @@
 					</div>
 				</div>
 			{/if}
+			{#if pasteOpen}
+				<div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
+					<label class="flex flex-col gap-2">
+						<span class="text-xs text-slate-500">
+							Paste the receipt, invoice, or order-confirmation text. It is parsed into the form as
+							a hint — nothing is saved until you add the bill.
+						</span>
+						<textarea
+							class="min-h-32 w-full rounded border border-slate-300 px-2 py-1.5 font-mono text-sm"
+							placeholder={'KROGER #4412\nWHOLE MILK   3.49\nSALES TAX    0.38\nTOTAL       15.12'}
+							bind:value={pasteText}
+							disabled={importBusy || adding}
+						></textarea>
+					</label>
+					<button
+						type="button"
+						class="mt-2 min-h-[44px] rounded bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+						onclick={importPastedText}
+						disabled={importBusy || adding || !pasteText.trim()}
+					>
+						{importBusy ? 'Reading…' : 'Import text'}
+					</button>
+				</div>
+			{/if}
 			{#if scanBusy}
 				<div class="flex flex-col gap-1" role="status" aria-live="polite">
 					<span class="text-sm text-slate-600">Reading receipt…</span>
@@ -714,6 +923,9 @@
 			{/if}
 			{#if scanNotice}
 				<p class="text-sm text-amber-700" role="status">{scanNotice}</p>
+			{/if}
+			{#if importNote}
+				<p class="text-sm text-amber-700" role="status">{importNote}</p>
 			{/if}
 			{#if cloudPrompt}
 				<div
@@ -745,6 +957,42 @@
 				</div>
 			{/if}
 		</form>
+	{/if}
+
+	{#if data.canEdit && ingestAddress}
+		<section
+			class="mt-4 rounded-lg border border-slate-200 bg-white p-4"
+			aria-label="Receipt email ingest"
+		>
+			<h2 class="text-sm font-semibold text-slate-700">Email receipts to Family Planz</h2>
+			<p class="mt-1 text-xs text-slate-500">
+				Forward any receipt or invoice email to this address — it arrives here as an unconfirmed
+				draft you review before it counts. Only mail sent to it reaches your account.
+			</p>
+			<div class="mt-2 flex flex-wrap items-center gap-2">
+				<code
+					class="min-w-0 flex-1 truncate rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+				>
+					{ingestAddress}
+				</code>
+				<button
+					type="button"
+					class="min-h-[44px] rounded border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+					onclick={copyIngestAddress}
+					disabled={ingestBusy}
+				>
+					Copy
+				</button>
+				<button
+					type="button"
+					class="min-h-[44px] rounded px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+					onclick={regenerateIngestAddress}
+					disabled={ingestBusy}
+				>
+					{ingestBusy ? 'Regenerating…' : 'Regenerate'}
+				</button>
+			</div>
+		</section>
 	{/if}
 
 	{#if actionError}
@@ -878,6 +1126,12 @@
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">
 								<p class="truncate font-semibold text-slate-900">{bill.title}</p>
+								{#if isDraftBill(bill)}
+									<span
+										class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700"
+										>From email</span
+									>
+								{/if}
 								{#if isPaid(bill)}
 									<span
 										class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
@@ -903,19 +1157,31 @@
 							${dollars(bill.amountCents)}
 						</p>
 						{#if data.canEdit}
-							<button
-								type="button"
-								onclick={() => togglePaid(bill)}
-								disabled={busyId !== null}
-								aria-label="{isPaid(bill) ? 'Mark unpaid' : 'Mark paid'} {bill.title}"
-								class="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 {isPaid(
-									bill
-								)
-									? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-									: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'}"
-							>
-								{busyId === bill.id ? 'Saving…' : isPaid(bill) ? 'Mark unpaid' : 'Mark paid'}
-							</button>
+							{#if isDraftBill(bill)}
+								<button
+									type="button"
+									onclick={() => confirmDraftBill(bill)}
+									disabled={busyId !== null}
+									aria-label="Confirm draft bill {bill.title}"
+									class="shrink-0 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-200 disabled:opacity-50"
+								>
+									{busyId === bill.id ? 'Confirming…' : 'Confirm'}
+								</button>
+							{:else}
+								<button
+									type="button"
+									onclick={() => togglePaid(bill)}
+									disabled={busyId !== null}
+									aria-label="{isPaid(bill) ? 'Mark unpaid' : 'Mark paid'} {bill.title}"
+									class="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 {isPaid(
+										bill
+									)
+										? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+										: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'}"
+								>
+									{busyId === bill.id ? 'Saving…' : isPaid(bill) ? 'Mark unpaid' : 'Mark paid'}
+								</button>
+							{/if}
 							{#if confirmDeleteId === bill.id}
 								<button
 									type="button"

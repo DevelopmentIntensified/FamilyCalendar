@@ -5,6 +5,7 @@ import { getFamilyMemberRole, getUserFamilyId } from '$lib/server/db/actions/fam
 import { guard } from '$lib/server/utils/guard';
 import { billsInMonth, currentMonthKey, spendByCategory } from '$lib/server/services/spendDetail';
 import { topTags } from '$lib/server/services/tagTable';
+import { getOrCreateIngestToken, ingestAddress } from '$lib/server/db/actions/receiptIngest';
 import type { ReceiptItem } from '$lib/server/db/schema';
 
 export const load: PageServerLoad = async (event) => {
@@ -39,9 +40,11 @@ export const load: PageServerLoad = async (event) => {
 
 	// Spend Detail (surface a): month/range aggregation. Default = this
 	// month (UTC on the stored dueDate); 'all' skips the month filter.
+	// Unconfirmed email-ingest drafts (#033) never count as spent.
 	const monthParam = event.url.searchParams.get('month');
 	const spendMonth = monthParam === 'all' ? 'all' : (monthParam ?? currentMonthKey());
-	const inRange = spendMonth === 'all' ? bills : billsInMonth(bills, spendMonth);
+	const settled = bills.filter((bill) => (bill.source ?? 'manual') === 'manual');
+	const inRange = spendMonth === 'all' ? settled : billsInMonth(settled, spendMonth);
 	const spend = spendByCategory(inRange, itemsG.data);
 
 	// Preloaded Tag Table suggestions (user top + global top): rendered into
@@ -55,6 +58,14 @@ export const load: PageServerLoad = async (event) => {
 		process.env.AZURE_DOC_INTELLIGENCE_KEY && process.env.AZURE_DOC_INTELLIGENCE_ENDPOINT
 	);
 
+	// Receipt email ingest (#033): the personal ingest address, or null when
+	// RECEIPT_INGEST_DOMAIN is unset (feature off). Token created on first
+	// view; failure is non-fatal (load warning only).
+	const ingestG = await guard('receipt ingest address', null, async () =>
+		ingestAddress(await getOrCreateIngestToken(userId))
+	);
+	if (ingestG.error) loadWarnings.push(ingestG.error);
+
 	return {
 		bills,
 		itemsByBill: itemsG.data,
@@ -64,6 +75,7 @@ export const load: PageServerLoad = async (event) => {
 		familyId: familyId ?? null,
 		canEdit,
 		cloudScanAvailable,
+		ingestAddress: ingestG.data,
 		loadWarnings
 	};
 };

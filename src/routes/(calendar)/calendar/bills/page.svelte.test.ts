@@ -38,6 +38,7 @@ function billFixture(over: Partial<Bill> = {}): Bill {
 		dueDate: null,
 		category: 'utilities',
 		paidAt: null,
+		source: 'manual',
 		userId: 'u1',
 		familyId: null,
 		createdAt: new Date('2026-09-01T00:00:00Z'),
@@ -52,6 +53,7 @@ interface BillsPageData {
 	familyId: string | null;
 	loadWarnings: string[];
 	cloudScanAvailable: boolean;
+	ingestAddress: string | null;
 	itemsByBill: Map<string, ReceiptItem[]>;
 	spend: Array<{ category: string; cents: number; billIds: string[] }>;
 	spendMonth: string;
@@ -98,6 +100,7 @@ function pageData(
 		familyId: null,
 		loadWarnings,
 		cloudScanAvailable,
+		ingestAddress: null,
 		itemsByBill: new Map(),
 		spend: [],
 		spendMonth: '2026-09',
@@ -115,6 +118,16 @@ interface EndpointPayload {
 	method?: string;
 	success?: boolean;
 	bill?: Bill;
+	/** The /api/parse-receipt-text draft (fixture-shaped). */
+	draft?: {
+		merchant: string | null;
+		date: string | null;
+		items: Array<{ label: string; priceCents: number; category: string | null }>;
+		totalCents: number | null;
+		source: 'llm' | 'regex';
+	};
+	/** The /api/receipt-ingest-address response. */
+	address?: string;
 }
 
 /** A Response for the authed JSON endpoints the page calls. */
@@ -713,5 +726,141 @@ describe('create-form line items (#031, collapsed by default)', () => {
 			String(vi.mocked(fetch).mock.calls.find(([url]) => String(url) === '/api/bills')?.[1]?.body)
 		);
 		expect(body.items).toEqual([{ label: 'Milk', priceCents: 349, category: null, name: null }]);
+	});
+});
+
+describe('digital receipt import (#033, paste text)', () => {
+	function receiptFetchMock(draft: NonNullable<EndpointPayload['draft']>) {
+		return vi.fn((input: RequestInfo | URL): Promise<Response> => {
+			const url = String(input);
+			if (url.includes('/api/parse-receipt-text')) {
+				return Promise.resolve(okJson({ draft }));
+			}
+			return Promise.resolve(okJson({ success: true, bill: billFixture() }, 201));
+		});
+	}
+
+	it('imports pasted text into the form as a hint (no create call)', async () => {
+		vi.stubGlobal(
+			'fetch',
+			receiptFetchMock({
+				merchant: 'KROGER #4412',
+				date: '2026-09-06',
+				totalCents: 1512,
+				source: 'llm',
+				items: [
+					{ label: 'WHOLE MILK', priceCents: 349, category: null },
+					{ label: 'SALES TAX', priceCents: 38, category: 'tax' }
+				]
+			})
+		);
+		render(BillsPage, { props: { data: pageData([]) } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Paste receipt text' }));
+		await fireEvent.input(screen.getByLabelText(/Paste the receipt, invoice/), {
+			target: { value: 'KROGER #4412\nWHOLE MILK 3.49\nSALES TAX 0.38\nTOTAL 15.12' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Import text' }));
+
+		expect(await screen.findByDisplayValue('KROGER #4412')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('15.12')).toBeInTheDocument();
+		expect(screen.getByDisplayValue('2026-09-06')).toBeInTheDocument();
+		// Line items section opens, prefilled — the parse is a HINT.
+		expect(screen.getByLabelText('Line item label 1')).toHaveValue('WHOLE MILK');
+		expect(screen.getByLabelText('Line item price 2')).toHaveValue('0.38');
+		expect(
+			screen.getByText('Read from pasted text (AI) — review and fix anything wrong.')
+		).toBeInTheDocument();
+		// Nothing was created: only the parse endpoint was called.
+		expect(vi.mocked(fetch).mock.calls.map(([url]) => String(url))).toEqual([
+			'/api/parse-receipt-text'
+		]);
+	});
+
+	it('falls back to the offline note when the regex source answered', async () => {
+		vi.stubGlobal(
+			'fetch',
+			receiptFetchMock({
+				merchant: 'Corner Cafe',
+				date: null,
+				totalCents: 750,
+				source: 'regex',
+				items: [{ label: 'Coffee', priceCents: 350, category: null }]
+			})
+		);
+		render(BillsPage, { props: { data: pageData([]) } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Paste receipt text' }));
+		await fireEvent.input(screen.getByLabelText(/Paste the receipt, invoice/), {
+			target: { value: 'Corner Cafe\nCoffee $3.50' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Import text' }));
+
+		expect(
+			await screen.findByText('Read from pasted text (offline) — review and fix anything wrong.')
+		).toBeInTheDocument();
+	});
+});
+
+describe('email-ingest address (#033)', () => {
+	it('shows the address with copy and regenerate when configured', async () => {
+		render(BillsPage, {
+			props: { data: pageData([], true, [], false, { ingestAddress: 'receipts.abc@ingest.test' }) }
+		});
+
+		expect(screen.getByLabelText('Receipt email ingest')).toBeInTheDocument();
+		expect(screen.getByText('receipts.abc@ingest.test')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => Promise.resolve(okJson({ address: 'receipts.new@ingest.test' })))
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
+		expect(await screen.findByText('receipts.new@ingest.test')).toBeInTheDocument();
+	});
+
+	it('hides the ingest card when the domain is not configured', () => {
+		render(BillsPage, { props: { data: pageData([]) } });
+
+		expect(screen.queryByLabelText('Receipt email ingest')).not.toBeInTheDocument();
+	});
+});
+
+describe('email draft bills (#033, never auto-confirmed)', () => {
+	it('renders a From email badge and a Confirm button instead of Mark paid', () => {
+		render(BillsPage, {
+			props: {
+				data: pageData([
+					billFixture({ id: 'd1', title: 'Kroger draft', source: 'email' }),
+					billFixture({ id: 'm1', title: 'Electric' })
+				])
+			}
+		});
+
+		expect(screen.getByText('From email')).toBeInTheDocument();
+		expect(
+			screen.getByRole('button', { name: 'Confirm draft bill Kroger draft' })
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole('button', { name: 'Mark paid Kroger draft' })
+		).not.toBeInTheDocument();
+		// Manual bills keep the paid toggle.
+		expect(screen.getByRole('button', { name: 'Mark paid Electric' })).toBeInTheDocument();
+	});
+
+	it('confirming PUTs confirmDraft:true and refreshes', async () => {
+		render(BillsPage, {
+			props: { data: pageData([billFixture({ id: 'd1', title: 'Kroger draft', source: 'email' })]) }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Confirm draft bill Kroger draft' }));
+
+		const fetchMock = vi.mocked(fetch);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/bills/d1',
+			expect.objectContaining({ method: 'PUT' })
+		);
+		expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ confirmDraft: true });
 	});
 });
