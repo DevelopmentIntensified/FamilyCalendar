@@ -1,125 +1,74 @@
-import { parseJWT, validateJWT } from 'oslo/jwt';
-import type { RequestHandler } from './$types';
-import { getUrl } from '$lib/utils/getUrl';
-import { EMAILSECRET } from '$env/static/private';
-import type { emailTokenPayloadType } from '../+server';
-import { lucia } from '$lib/server/auth';
-import { accounts } from '$lib/server/db/schema';
-import { db } from '$lib/server/db';
-import { eq } from 'drizzle-orm';
+import {
+	consumeMagicLink,
+	magicLinkDeps,
+	sessionCookieFor,
+	type MagicLinkDeps
+} from '$lib/server/services/magicLink';
+import type { RequestEvent } from '@sveltejs/kit';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 
-function isEmailTokenPayload(value: unknown): value is emailTokenPayloadType {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		'email' in value &&
-		typeof value.email === 'string' &&
-		'firstName' in value &&
-		typeof value.firstName === 'string' &&
-		'lastName' in value &&
-		typeof value.lastName === 'string'
-	);
-}
+/**
+ * Collaborators GET needs, injectable so tests can pass fakes through a real
+ * seam instead of mocking modules. Defaults wire the production services.
+ * Token verification is single-sourced in the magicLink module (parity with
+ * the login callback).
+ */
+export type SignupEmailCallbackDeps = MagicLinkDeps & {
+	createNewUser: typeof createNewUser;
+};
 
-export const GET: RequestHandler = async function (event) {
+const defaultDeps: SignupEmailCallbackDeps = {
+	...magicLinkDeps,
+	createNewUser
+};
+
+export const GET = async function (
+	event: RequestEvent,
+	deps: SignupEmailCallbackDeps = defaultDeps
+): Promise<Response> {
 	// Remember any anonymous session so its data can be merged after auth.
 	const { stashGuestFromCookies } = await import('$lib/server/services/guestMergeService');
 	await stashGuestFromCookies(event.cookies);
 
-	const requestUrl = new URL(event.url);
-	const siteUrl = getUrl();
-	const redirectUrl = new URL(siteUrl + '/signup');
-	const token = requestUrl.searchParams.get('token');
-	const secret = new TextEncoder().encode(EMAILSECRET);
+	const token = new URL(event.url).searchParams.get('token');
 
+	const redirectUrl = new URL(deps.baseSiteUrl + '/signup');
 	redirectUrl.searchParams.set('error', 'The token provided was not valid, please try again.');
+	const redirect = (location: string) =>
+		new Response(null, { status: 302, headers: { Location: location } });
+	const errorRedirect = () => redirect(redirectUrl.toString());
 
 	if (token === null) {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: redirectUrl.toString()
-			}
-		});
+		return errorRedirect();
 	}
 
-	try {
-		await validateJWT('HS256', secret, token);
-	} catch {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: redirectUrl.toString()
-			}
-		});
-	}
-
-	const parcedToken = parseJWT(token);
-	if (!parcedToken) {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: redirectUrl.toString()
-			}
-		});
-	}
-	const payload: unknown = parcedToken.payload;
-
-	if (!isEmailTokenPayload(payload)) {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: redirectUrl.toString()
-			}
-		});
+	// Single-source token verify: signature/expiry, kind tag and payload shape.
+	const consumed = await consumeMagicLink(deps, token, 'signup');
+	if (!consumed.ok) {
+		return errorRedirect();
 	}
 
 	if (event.locals.user?.email) {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: siteUrl + '/calendar/'
-			}
-		});
+		return redirect(deps.baseSiteUrl + '/calendar/');
 	}
 
 	try {
-		const { firstName, lastName, email } = payload;
-		const userAccount = await db
-			.select()
-			.from(accounts)
-			.where(eq(accounts.providerAccountId, email));
-		if (userAccount.length !== 0) {
-			return new Response(null, {
-				status: 302,
-				headers: {
-					Location: siteUrl + '/calendar/'
-				}
-			});
+		const { firstName, lastName, email } = consumed.payload;
+		const userAccount = await deps.getAccount(email);
+		if (userAccount) {
+			return redirect(deps.baseSiteUrl + '/calendar/');
 		}
 
-		const user = await createNewUser(firstName, lastName, email);
+		const user = await deps.createNewUser(firstName ?? '', lastName ?? '', email);
 
-		const session = await lucia.createSession(user.id, {});
-		const sessionCookie = lucia.createSessionCookie(session.id);
+		const { cookie } = await sessionCookieFor(deps, user.id);
 
 		const headers = new Headers();
-		headers.append('Set-Cookie', sessionCookie.serialize());
-		headers.append('Location', siteUrl + '/calendar/');
+		headers.append('Set-Cookie', cookie.serialize());
+		headers.append('Location', deps.baseSiteUrl + '/calendar/');
 
-		const result = new Response(null, {
-			status: 302,
-			headers
-		});
-
-		return result;
+		return new Response(null, { status: 302, headers });
 	} catch {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: redirectUrl.toString()
-			}
-		});
+		return errorRedirect();
 	}
 };

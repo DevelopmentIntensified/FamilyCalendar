@@ -1,11 +1,14 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestEvent } from './$types';
 import { verifyClaimToken } from '$lib/server/services/claimService';
+import { sessionCookieFor } from '$lib/server/services/magicLink';
 import { lucia, setSessionCookie } from '$lib/server/auth';
 
 /**
  * Collaborators GET needs, injectable so tests can pass fakes through a real
- * seam instead of mocking modules. Defaults wire the production services.
+ * seam instead of mocking modules. Session assembly goes through the magicLink
+ * module (shared with the signup/login callbacks); token verification stays in
+ * claimService.
  */
 export type ClaimVerifyDeps = {
 	verifyClaimToken: typeof verifyClaimToken;
@@ -33,8 +36,8 @@ export const GET = async (event: RequestEvent, deps: ClaimVerifyDeps = defaultDe
 	if (result.outcome === 'merged') {
 		// The guest session was just deleted by the merge — sign the user into
 		// the existing account they merged into.
-		const session = await deps.lucia.createSession(result.targetUserId, {});
-		deps.setSessionCookie(event.cookies, deps.lucia.createSessionCookie(session.id));
+		const { cookie } = await sessionCookieFor(deps, result.targetUserId);
+		deps.setSessionCookie(event.cookies, cookie);
 	}
 
 	throw redirect(302, '/calendar?claimed=1');

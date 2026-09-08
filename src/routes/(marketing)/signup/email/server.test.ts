@@ -4,40 +4,46 @@ import { POST, type SignupEmailDeps } from './+server';
 // Untyped vi.fn()s: fakes flow into the typed deps seam, so the SUT stays
 // type-checked while mocks accept any resolved value without casts.
 const getAccount = vi.fn();
+const getUser = vi.fn();
 const getUserByEmail = vi.fn();
-const sendEmail = vi.fn();
 const createCode = vi.fn();
+const sendEmail = vi.fn();
 const createJwt = vi.fn();
+const verifyJwt = vi.fn();
+const lucia = { createSession: vi.fn(), createSessionCookie: vi.fn() };
+const gate = vi.fn(() => true);
 
 const deps: SignupEmailDeps = {
 	getAccount,
+	getUser,
 	getUserByEmail,
-	sendEmail,
 	createCode,
+	sendEmail,
 	createJwt,
+	verifyJwt,
+	jwtSecret: new TextEncoder().encode('test-secret-1234567890'),
 	baseSiteUrl: 'http://test.com',
 	fromEmail: 'noreply@test.com',
-	jwtSecret: new TextEncoder().encode('test-secret-1234567890')
+	lucia,
+	gate
 };
 
 // SAFETY: test double — POST only reads request.json() and event.request
 // via clientKey (headers are optional-chained there).
-function mockEvent(body: { email: string; firstName: string; lastName: string }) {
-	return (
-		// SAFETY: test double — POST only reads request.json() and event.request
-		// via clientKey (headers are optional-chained there).
-		{
-			request: {
-				json: () => Promise.resolve(body),
-				headers: { get: () => 'test-ip' }
-			}
-		} as never
-	);
+function mockEvent(body: { email: string; firstName?: string; lastName?: string }) {
+	// SAFETY: test double — the handler only reads the fields set below.
+		return {
+		request: {
+			json: () => Promise.resolve(body),
+			headers: { get: () => 'test-ip' }
+		}
+	} as never;
 }
 
 beforeEach(() => {
 	vi.clearAllMocks();
 	getAccount.mockResolvedValue(undefined);
+	getUser.mockResolvedValue(undefined);
 	getUserByEmail.mockResolvedValue(undefined);
 	sendEmail.mockResolvedValue({ success: true, error: undefined, data: { id: 'email-1' } });
 	createJwt.mockResolvedValue('mock.jwt.token');
@@ -117,5 +123,29 @@ describe('POST /signup/email', () => {
 
 		expect(response.status).toBe(400);
 		expect(body.success).toBe(false);
+	});
+
+	it('returns 400 when first or last name are missing', async () => {
+		const response = await POST(mockEvent({ email: 'new@user.com', firstName: 'New' }), deps);
+
+		const body = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(body.success).toBe(false);
+	});
+
+	it('returns 429 when the rate limit trips', async () => {
+		gate.mockReturnValueOnce(false);
+
+		const response = await POST(
+			mockEvent({ email: 'flood@user.com', firstName: 'F', lastName: 'L' }),
+			deps
+		);
+
+		const body = await response.json();
+
+		expect(response.status).toBe(429);
+		expect(body.success).toBe(false);
+		expect(sendEmail).not.toHaveBeenCalled();
 	});
 });

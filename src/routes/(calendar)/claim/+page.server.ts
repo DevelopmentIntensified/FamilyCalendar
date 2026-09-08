@@ -2,7 +2,11 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { issueClaimToken } from '$lib/server/services/claimService';
 import { getUserByEmail } from '$lib/server/db/actions/users';
-import { sendEmail } from '$lib/utils/sendEmail';
+import {
+	sendClaimLinkEmail,
+	magicLinkDeps,
+	type MagicLinkDeps
+} from '$lib/server/services/magicLink';
 import { getUrl } from '$lib/utils/getUrl';
 
 export const load: PageServerLoad = async (event) => {
@@ -20,8 +24,30 @@ function isString(value: FormDataEntryValue | null): value is string {
 	return typeof value === 'string';
 }
 
+/**
+ * Collaborators the request action needs, injectable so tests can pass fakes
+ * through a real seam instead of mocking modules. The email send goes through
+ * the magicLink module so the from-address never drifts again; token storage
+ * stays in claimService.
+ */
+export type ClaimRequestDeps = Pick<MagicLinkDeps, 'sendEmail' | 'fromEmail'> & {
+	issueClaimToken: typeof issueClaimToken;
+	getUserByEmail: typeof getUserByEmail;
+	sendClaimLinkEmail: typeof sendClaimLinkEmail;
+	baseSiteUrl: string;
+};
+
+const defaultDeps: ClaimRequestDeps = {
+	sendEmail: magicLinkDeps.sendEmail,
+	fromEmail: magicLinkDeps.fromEmail,
+	issueClaimToken,
+	getUserByEmail,
+	sendClaimLinkEmail,
+	baseSiteUrl: getUrl()
+};
+
 export const actions: Actions = {
-	request: async ({ request, locals }) => {
+	request: async ({ request, locals }, deps: ClaimRequestDeps = defaultDeps) => {
 		if (!locals.user) return fail(401, { error: 'Not signed in' });
 		if (locals.user.email) return fail(400, { error: 'Account already has an email' });
 
@@ -35,29 +61,17 @@ export const actions: Actions = {
 		// Note: we intentionally do NOT block on an already-registered email here.
 		// Ownership is proven by the verification link click; the verify endpoint
 		// then auto-merges the guest's data into that existing account.
-		const token = await issueClaimToken(locals.user.id, email);
+		const token = await deps.issueClaimToken(locals.user.id, email);
 
-		const verifyUrl = `${getUrl()}/claim/verify/${token}`;
+		const verifyUrl = `${deps.baseSiteUrl}/claim/verify/${token}`;
 		// Tailor the email: an already-registered address means clicking the link
 		// will merge this device's calendar into that existing account.
-		const existingUser = await getUserByEmail(email);
+		const existingUser = await deps.getUserByEmail(email);
 		const alreadyRegistered = !!existingUser;
 
-		const html = alreadyRegistered
-			? `<p>This email already has a Family Planz account. Clicking the link below will bring the calendar you've added on this device into that existing account, so you can keep using it from anywhere.</p><p><a href="${verifyUrl}">Merge my calendar into my account</a></p><p>If you didn't expect this, you can safely ignore this email. The link expires in 15 minutes.</p>`
-			: `<p>Click the link below to add this email to your Family Planz account and sync your calendar across devices:</p><p><a href="${verifyUrl}">Save my calendar</a></p><p>This link expires in 15 minutes.</p>`;
-
-		try {
-			await sendEmail({
-				to: email,
-				from: 'onboarding@resend.dev',
-				subject: alreadyRegistered
-					? 'Merge your calendar into your Family Planz account'
-					: 'Save your Family Planz calendar',
-				html
-			});
-		} catch (e) {
-			console.error('Failed to send claim email:', e);
+		// Canonical from-address (NOREPLYEMAIL) comes from the magicLink module.
+		const sent = await deps.sendClaimLinkEmail(deps, { email, verifyUrl, alreadyRegistered });
+		if (!sent.ok) {
 			return fail(500, { error: 'Failed to send email. Please try again.' });
 		}
 

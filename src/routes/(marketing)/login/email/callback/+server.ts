@@ -1,142 +1,73 @@
-import { parseJWT, validateJWT } from 'oslo/jwt';
-import type { RequestEvent } from './$types';
-import { getUrl } from '$lib/utils/getUrl';
-import { EMAILSECRET } from '$env/static/private';
-import type { EmailTokenPayload } from '../+server';
+import type { RequestEvent } from '@sveltejs/kit';
+import {
+	consumeMagicLink,
+	magicLinkDeps,
+	sessionCookieFor,
+	type MagicLinkDeps
+} from '$lib/server/services/magicLink';
 import { lucia } from '$lib/server/auth';
 import { users } from '$lib/server/db/schema';
 import { db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
-import { getAccount } from '$lib/server/db/actions/accounts';
-import { getUserByEmail } from '$lib/server/db/actions/users';
 import { deleteCodesByEmail } from '$lib/server/db/actions/codes';
 
 /**
  * Collaborators GET needs, injectable so tests can pass fakes through a real
  * seam instead of mocking modules. Defaults wire the production services.
+ * Token verification is single-sourced in the magicLink module.
  */
-export type EmailCallbackDeps = {
-	getAccount: typeof getAccount;
-	getUserByEmail: typeof getUserByEmail;
-	deleteCodesByEmail: typeof deleteCodesByEmail;
+export type EmailCallbackDeps = Omit<MagicLinkDeps, 'lucia'> & {
 	lucia: Pick<typeof lucia, 'createSession' | 'createSessionCookie' | 'invalidateSession'>;
+	deleteCodesByEmail: typeof deleteCodesByEmail;
 	updateLastLogin: (userId: string) => Promise<void> | void;
-	baseSiteUrl: string;
-	jwtSecret: Uint8Array;
-	verifyJwt: typeof validateJWT;
-	parseJwt: typeof parseJWT;
 };
 
-function isEmailTokenPayload(value: unknown): value is EmailTokenPayload {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		'email' in value &&
-		typeof value.email === 'string'
-	);
-}
-
 const defaultDeps: EmailCallbackDeps = {
-	getAccount,
-	getUserByEmail,
-	deleteCodesByEmail,
+	...magicLinkDeps,
 	lucia,
+	deleteCodesByEmail,
 	updateLastLogin: async (userId: string) => {
 		await db.update(users).set({ lastLogin: new Date() }).where(eq(users.id, userId));
-	},
-	baseSiteUrl: getUrl(),
-	jwtSecret: new TextEncoder().encode(EMAILSECRET),
-	verifyJwt: validateJWT,
-	parseJwt: parseJWT
+	}
 };
 
 export const GET = async function (
 	event: RequestEvent,
 	deps: EmailCallbackDeps = defaultDeps
 ): Promise<Response> {
-	const {
-		getAccount: lookupAccount,
-		getUserByEmail: lookupUser,
-		deleteCodesByEmail,
-		lucia: session,
-		updateLastLogin,
-		baseSiteUrl,
-		jwtSecret,
-		verifyJwt,
-		parseJwt
-	} = deps;
-
 	// Remember any anonymous session so its data can be merged after auth.
 	const { stashGuestFromCookies } = await import('$lib/server/services/guestMergeService');
 	await stashGuestFromCookies(event.cookies);
 
-	const requestUrl = new URL(event.url);
-	const redirectUrl = new URL(baseSiteUrl + '/login');
-	const token = requestUrl.searchParams.get('token');
+	const token = new URL(event.url).searchParams.get('token');
 
+	const redirectUrl = new URL(deps.baseSiteUrl + '/login');
 	redirectUrl.searchParams.set('error', 'The token provided was not valid, please try again.');
+	const redirect = (location: string) =>
+		new Response(null, { status: 302, headers: { Location: location } });
+	const errorRedirect = () => redirect(redirectUrl.toString());
 
 	if (token === null) {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: redirectUrl.toString()
-			}
-		});
+		return errorRedirect();
 	}
 
-	try {
-		await verifyJwt('HS256', jwtSecret, token);
-	} catch {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: redirectUrl.toString()
-			}
-		});
-	}
-
-	const parcedToken = parseJwt(token);
-	if (!parcedToken) {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: redirectUrl.toString()
-			}
-		});
-	}
-	const payload: unknown = parcedToken.payload;
-
-	if (!isEmailTokenPayload(payload)) {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: redirectUrl.toString()
-			}
-		});
+	// Single-source token verify: signature/expiry, kind tag and payload shape.
+	const consumed = await consumeMagicLink(deps, token, 'login');
+	if (!consumed.ok) {
+		return errorRedirect();
 	}
 
 	if (event.locals.user) {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: redirectUrl.toString()
-			}
-		});
+		return errorRedirect();
 	}
 
 	try {
-		const { email } = payload;
-		let userAccount: { userId: string } | null = await lookupAccount(email);
+		const { email } = consumed.payload;
+		let userAccount: { userId: string } | null = await deps.getAccount(email);
 		if (!userAccount) {
-			const user = await lookupUser(email);
+			const user = await deps.getUserByEmail(email);
 			if (!user) {
-				return new Response(null, {
-					status: 302,
-					headers: {
-						Location: redirectUrl.toString()
-					}
-				});
+				return errorRedirect();
 			}
 			userAccount = { userId: user.id };
 		}
@@ -145,38 +76,27 @@ export const GET = async function (
 		const oldSessionId = event.locals.session?.id;
 		const oldUser = event.locals.user;
 
-		await updateLastLogin(userId);
-		const sessionRecord = await session.createSession(userId, {});
-		const sessionCookie = session.createSessionCookie(sessionRecord.id);
+		await deps.updateLastLogin(userId);
+		const { sessionId, cookie } = await sessionCookieFor(deps, userId);
 
 		if (
 			oldSessionId &&
 			oldUser &&
 			!oldUser.email &&
 			oldUser.id !== userId &&
-			oldSessionId !== sessionRecord.id
+			oldSessionId !== sessionId
 		) {
-			await session.invalidateSession(oldSessionId).catch(() => {});
+			await deps.lucia.invalidateSession(oldSessionId).catch(() => {});
 		}
 
-		await deleteCodesByEmail(email);
+		await deps.deleteCodesByEmail(email);
 
 		const headers = new Headers();
-		headers.append('Set-Cookie', sessionCookie.serialize());
-		headers.append('Location', baseSiteUrl + '/calendar/');
+		headers.append('Set-Cookie', cookie.serialize());
+		headers.append('Location', deps.baseSiteUrl + '/calendar/');
 
-		const result = new Response(null, {
-			status: 302,
-			headers
-		});
-
-		return result;
+		return new Response(null, { status: 302, headers });
 	} catch {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: redirectUrl.toString()
-			}
-		});
+		return errorRedirect();
 	}
 };
