@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	expandEventsForUser,
-	monthGridWindow
-} from './eventDisplayService';
+import { expandEventsForUser, monthGridWindow } from './eventDisplayService';
 import type { CalendarEvent } from '$lib/server/db/schema';
 
 function master(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
@@ -25,7 +22,7 @@ function master(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
 		mirrorOf: null,
 		created_at: new Date('2026-09-01T00:00:00Z'),
 		...overrides
-	} as CalendarEvent;
+	} satisfies CalendarEvent;
 }
 
 describe('monthGridWindow', () => {
@@ -59,6 +56,17 @@ describe('expandEventsForUser window', () => {
 			expect(t).toBeGreaterThanOrEqual(w.start.getTime());
 			expect(t).toBeLessThanOrEqual(w.end.getTime());
 		}
+	});
+
+	it('bounds a daily series to a single-day window (dashboard day view)', async () => {
+		const day = { start: new Date('2026-09-08T00:00:00Z'), end: new Date('2026-09-08T23:59:59Z') };
+		const out = await expandEventsForUser([master()], {
+			...day,
+			startIso: day.start.toISOString(),
+			endIso: day.end.toISOString()
+		});
+		expect(out).toHaveLength(1);
+		expect(out[0].start).toBe('2026-09-08T09:00:00.000Z');
 	});
 
 	it('keeps the legacy ±2y window when no window is passed', async () => {

@@ -126,6 +126,12 @@ export const load: PageServerLoad = async (event) => {
 	// Events for the day, from the personal + (optional) family calendar.
 	// One guarded pipeline so an expansion/RSVP failure still leaves tasks
 	// and the verse on screen.
+	// Day window (#042): expand only the viewed day (±1d tz pad) instead of
+	// ±2y — the day filter below then keeps ~everything expansion yields.
+	const dayWindow = {
+		start: dayStart.minus({ days: 1 }).toJSDate(),
+		end: dayEnd.plus({ days: 1 }).toJSDate()
+	};
 	const eventsG = await guard('events', [], async () => {
 		const { events: userEventsData } = await getUserDayCalendar(userId);
 		let familyEventsData: CalendarEvent[] = [];
@@ -133,9 +139,14 @@ export const load: PageServerLoad = async (event) => {
 			familyEventsData = await getFamilyDayEvents(familyId);
 		}
 
+		const window = {
+			...dayWindow,
+			startIso: dayWindow.start.toISOString(),
+			endIso: dayWindow.end.toISOString()
+		};
 		const [parsedUser, parsedFamily] = await Promise.all([
-			parseEvents(await expandEventsForUser(userEventsData), zone),
-			parseEvents(await expandEventsForUser(familyEventsData), zone)
+			parseEvents(await expandEventsForUser(userEventsData, window), zone),
+			parseEvents(await expandEventsForUser(familyEventsData, window), zone)
 		]);
 
 		// Current user's RSVP per event, so the glance card can tint going /

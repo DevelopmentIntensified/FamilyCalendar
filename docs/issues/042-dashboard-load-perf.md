@@ -19,6 +19,11 @@ Method: docs/page-perf-playbook.md.
   SELECTs: settings, familyId, roster, zone-settings). TTFB flat
   (~1.4s, familyless anon — noise); family users save the roster join
   per load/nav.
+- Slice 2 day window: dashboard expands the viewed day (±1d pad) not
+  ±2y (+ single-day window test). TTFB ~flat locally (expansion is Node
+  CPU, cheap at bench scale) — kills O(years) scaling per recurring
+  master + per-occurrence downstream. Correctness: today's Bench
+  occurrence renders, warnings clean.
 
 ## Needs doing
 
