@@ -34,15 +34,6 @@ import { computeWeeklyStreak } from '$lib/server/services/streakService';
 import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
 import { DateTime } from 'luxon';
 
-type RosterMember = {
-	userId: string;
-	firstName: string;
-	lastName: string;
-	email: string | null;
-	role: string | null;
-	memberType: string | null;
-};
-
 /** One row for the Kids' Schedule card: a day event with child attendees. */
 type KidsScheduleEvent = {
 	id: string;
@@ -107,21 +98,24 @@ export const load: PageServerLoad = async (event) => {
 	);
 	const familyModulesVisible = modules.board || modules.memberStrip || modules.kids;
 
-	// Overdue Recurring Tasks stick to today first (cursor v3), so "today"
-	// surfaces the same pinned occurrences the calendar would.
-	const tasksG = await guard('tasks', { userTasks: [], familyTasks: [] }, async () => {
-		await syncRecurringCursors(userId, familyId, zone);
-		const [userTasks, familyTasks] = await Promise.all([
-			getTasksForUser(userId, familyId),
-			familyId && familyModulesVisible ? getTasksForFamily(familyId) : Promise.resolve([])
-		]);
-		return { userTasks, familyTasks };
-	});
-	warn(tasksG.error);
-	const { userTasks, familyTasks } = tasksG.data;
-
-	// The board shows only open tasks; completed ones vanish after toggle.
-	const openFamilyTasks = familyTasks.filter((t) => !t.completedAt);
+	// Streamed legs (#042): everything below resolves after first paint.
+	// Each leg degrades to its fallback independently (same contract as the
+	// old guard()s). Overdue Recurring Tasks stick to today first (cursor
+	// v3), so "today" surfaces the same pinned occurrences the calendar would.
+	const taskLeg = (async () => {
+		try {
+			await syncRecurringCursors(userId, familyId, zone);
+			const [userTasks, familyTasks] = await Promise.all([
+				getTasksForUser(userId, familyId),
+				familyId && familyModulesVisible ? getTasksForFamily(familyId) : Promise.resolve([])
+			]);
+			// SAFETY: null must widen to the string|null union shared with the catch branch.
+			return { userTasks, familyTasks, warning: null as string | null };
+		} catch {
+			// SAFETY: literal must widen to the string|null union shared with the ok branch.
+			return { userTasks: [], familyTasks: [], warning: 'tasks' as string | null };
+		}
+	})();
 
 	// Events for the day, from the personal + (optional) family calendar.
 	// One guarded pipeline so an expansion/RSVP failure still leaves tasks
@@ -132,76 +126,73 @@ export const load: PageServerLoad = async (event) => {
 		start: dayStart.minus({ days: 1 }).toJSDate(),
 		end: dayEnd.plus({ days: 1 }).toJSDate()
 	};
-	const eventsG = await guard('events', [], async () => {
-		const { events: userEventsData } = await getUserDayCalendar(userId);
-		let familyEventsData: CalendarEvent[] = [];
-		if (familyId) {
-			familyEventsData = await getFamilyDayEvents(familyId);
+	const eventLeg = (async () => {
+		try {
+			const { events: userEventsData } = await getUserDayCalendar(userId);
+			let familyEventsData: CalendarEvent[] = [];
+			if (familyId) {
+				familyEventsData = await getFamilyDayEvents(familyId);
+			}
+
+			const window = {
+				...dayWindow,
+				startIso: dayWindow.start.toISOString(),
+				endIso: dayWindow.end.toISOString()
+			};
+			const [parsedUser, parsedFamily] = await Promise.all([
+				parseEvents(await expandEventsForUser(userEventsData, window), zone),
+				parseEvents(await expandEventsForUser(familyEventsData, window), zone)
+			]);
+
+			// Current user's RSVP per event, so the glance card can tint going /
+			// maybe events and dim ones the user can't attend.
+			const [userWithRsvp, familyWithRsvp] = await Promise.all([
+				attachRsvpStatus(userId, parsedUser),
+				attachRsvpStatus(userId, parsedFamily)
+			]);
+
+			const userSettingsColor = userSettings?.color || '#fa8072';
+			const dayEventsRaw = [
+				...userWithRsvp.map((e) => ({
+					...e,
+					color: userSettingsColor,
+					source: 'own' as const
+				})),
+				...familyWithRsvp.map((e) => ({
+					...e,
+					color: '#e0ffff',
+					source: 'family' as const
+				}))
+			].filter((e) => {
+				const d = e.date instanceof Date ? e.date : new Date(e.date);
+				return d >= dayStart.toJSDate() && d < dayEnd.toJSDate();
+			});
+
+			// Compact "who's going" summary per event so glance rows and the member
+			// strip can show family attendance.
+			const dayEvents = await attachAttendanceSummaries(
+				dayEventsRaw.map((e) => ({ ...e, masterId: e.masterId ?? e.id }))
+			);
+			// SAFETY: null must widen to the string|null union shared with the catch branch.
+			return { dayEvents, warning: null as string | null };
+		} catch {
+			// SAFETY: literal must widen to the string|null union shared with the ok branch.
+			return { dayEvents: [], warning: 'events' as string | null };
 		}
-
-		const window = {
-			...dayWindow,
-			startIso: dayWindow.start.toISOString(),
-			endIso: dayWindow.end.toISOString()
-		};
-		const [parsedUser, parsedFamily] = await Promise.all([
-			parseEvents(await expandEventsForUser(userEventsData, window), zone),
-			parseEvents(await expandEventsForUser(familyEventsData, window), zone)
-		]);
-
-		// Current user's RSVP per event, so the glance card can tint going /
-		// maybe events and dim ones the user can't attend.
-		const [userWithRsvp, familyWithRsvp] = await Promise.all([
-			attachRsvpStatus(userId, parsedUser),
-			attachRsvpStatus(userId, parsedFamily)
-		]);
-
-		const userSettingsColor = userSettings?.color || '#fa8072';
-		const dayEventsRaw = [
-			...userWithRsvp.map((e) => ({
-				...e,
-				color: userSettingsColor,
-				source: 'own' as const
-			})),
-			...familyWithRsvp.map((e) => ({
-				...e,
-				color: '#e0ffff',
-				source: 'family' as const
-			}))
-		].filter((e) => {
-			const d = e.date instanceof Date ? e.date : new Date(e.date);
-			return d >= dayStart.toJSDate() && d < dayEnd.toJSDate();
-		});
-
-		// Compact "who's going" summary per event so glance rows and the member
-		// strip can show family attendance.
-		return await attachAttendanceSummaries(
-			dayEventsRaw.map((e) => ({ ...e, masterId: e.masterId ?? e.id }))
-		);
-	});
-	warn(eventsG.error);
-	const dayEvents = eventsG.data;
+	})();
 
 	// Family roster + per-member status for the Member Strip, plus the
 	// attendance join for the "in an event today" dot. Attendance rows are
 	// keyed by the master event id, so the join uses masterId (occurrences
 	// of a series share the master's attendance).
-	let familyMembers: RosterMember[] = [];
-	let memberStatus: {
-		userId: string;
-		firstName: string;
-		lastName: string;
-		openTasksToday: number;
-		attendingToday: boolean;
-	}[] = [];
 	// Kids' Schedule: the viewed day's family events with a Child attendee
 	// (memberType='child', RSVP not declined) — decision 7.
-	let kidsSchedule: KidsScheduleEvent[] = [];
-	if (familyId && familyModulesVisible) {
-		const familyG = await guard(
-			'family',
-			{ familyMembers, memberStatus, kidsSchedule },
-			async () => {
+	const familyLeg = async (
+		familyTasks: Awaited<typeof taskLeg>['familyTasks'],
+		dayEvents: Awaited<typeof eventLeg>['dayEvents']
+	) => {
+		try {
+			if (familyId && familyModulesVisible) {
 				const roster = parentData.familyMembers ?? [];
 				const childMembers = roster.filter((m) => m.memberType === 'child');
 				const familyEventIds = dayEvents
@@ -257,59 +248,119 @@ export const load: PageServerLoad = async (event) => {
 							)
 						}));
 				}
-				return { familyMembers: roster, memberStatus: status, kidsSchedule: kids };
+				// SAFETY: null must widen to the string|null union shared with the catch branch.
+				return {
+					familyMembers: roster,
+					memberStatus: status,
+					kidsSchedule: kids,
+					warning: null as string | null
+				};
 			}
-		);
-		warn(familyG.error);
-		familyMembers = familyG.data.familyMembers;
-		memberStatus = familyG.data.memberStatus;
-		kidsSchedule = familyG.data.kidsSchedule;
-	}
-
-	// Top-3 ranking: mine-first → priority → overdue → due-today → next,
-	// bucketed relative to the viewed day (rankTop3 returns bare rows).
-	// SAFETY: userTasks rows are TaskWithTags, which carries every RankableTask field.
-	const top3 = rankTop3(userTasks as RankableTask[], userId, { todayStartIso: dayStartIso }).map(
-		(t) => {
-			const src = userTasks.find((u) => u.id === t.id);
+			// SAFETY: null must widen to the string|null union shared with the catch branch.
 			return {
-				...t,
-				assigneeFirstName: src?.assigneeFirstName,
-				assigneeLastName: src?.assigneeLastName
+				familyMembers: [],
+				memberStatus: [],
+				kidsSchedule: [],
+				warning: null as string | null
+			};
+		} catch {
+			// SAFETY: literal must widen to the string|null union shared with the ok branch.
+			return {
+				familyMembers: [],
+				memberStatus: [],
+				kidsSchedule: [],
+				warning: 'family' as string | null
 			};
 		}
-	);
+	};
 
-	// Day-at-a-glance progress: done within the viewed day, open by end of it.
+	// Day-at-a-glance bounds (shared by the wins + streak legs below).
 	const dayStartJs = dayStart.toJSDate();
 	const dayEndJs = dayEnd.toJSDate();
+
 	// Recurring check-offs never set the task row's completedAt (the cursor
 	// rolls forward), so they're recovered from the completion-history table.
-	const recurringWinsG = await guard('task-wins', [], () =>
-		getRecurringDayCompletions(userId, dayStartJs, dayEndJs)
-	);
-	warn(recurringWinsG.error);
-	const oneOffCompleted = userTasks
-		.filter(
-			(t) =>
-				t.completedAt && new Date(t.completedAt) >= dayStartJs && new Date(t.completedAt) < dayEndJs
-		)
-		.map((t) => ({
-			id: t.id,
-			title: t.title,
-			completedAt: t.completedAt ? new Date(t.completedAt).toISOString() : null
-		}));
-	const completedToday = mergeDayCompletions(oneOffCompleted, recurringWinsG.data);
-	const doneForDay = completedToday.length;
-	const openForDay = userTasks.filter(
-		(t) => !t.completedAt && t.dueDate && new Date(t.dueDate) < dayEndJs
-	).length;
+	const winsLeg = (async () => {
+		try {
+			const rows = await getRecurringDayCompletions(userId, dayStartJs, dayEndJs);
+			// SAFETY: null must widen to the string|null union shared with the catch branch.
+			return { rows, warning: null as string | null };
+		} catch {
+			// SAFETY: literal must widen to the string|null union shared with the ok branch.
+			return { rows: [], warning: 'task-wins' as string | null };
+		}
+	})();
 
-	const completionRows = await getCompletionTimestamps(userId);
-	const streak = computeWeeklyStreak(
-		completionRows.map((r) => toIsoTimestamp(r.completedAt)).filter(Boolean),
-		now.toISO()!
-	);
+	const streakLeg = (async () => {
+		try {
+			const completionRows = await getCompletionTimestamps(userId);
+			const streak = computeWeeklyStreak(
+				completionRows.map((r) => toIsoTimestamp(r.completedAt)).filter(Boolean),
+				now.toISO()!
+			);
+			// SAFETY: null must widen to the string|null union shared with the catch branch.
+			return { streak: streak.current, warning: null as string | null };
+		} catch {
+			// Previously an unguarded 500; now degrades to a zero streak.
+			// SAFETY: literal must widen to the string|null union shared with the ok branch.
+			return { streak: 0, warning: 'streak' as string | null };
+		}
+	})();
+
+	// One streamed promise: header data above paints first; everything
+	// below fills in when the legs resolve.
+	const dashboardData = (async () => {
+		const [t, e, w, s] = await Promise.all([taskLeg, eventLeg, winsLeg, streakLeg]);
+		const { userTasks, familyTasks } = t;
+		const { dayEvents } = e;
+		// The board shows only open tasks; completed ones vanish after toggle.
+		const openFamilyTasks = familyTasks.filter((f) => !f.completedAt);
+		const fam = await familyLeg(familyTasks, dayEvents);
+		// Top-3 ranking: mine-first → priority → overdue → due-today → next,
+		// bucketed relative to the viewed day (rankTop3 returns bare rows).
+		// SAFETY: userTasks rows are TaskWithTags, which carries every RankableTask field.
+		const top3 = rankTop3(userTasks as RankableTask[], userId, { todayStartIso: dayStartIso }).map(
+			(row) => {
+				const src = userTasks.find((u) => u.id === row.id);
+				return {
+					...row,
+					assigneeFirstName: src?.assigneeFirstName,
+					assigneeLastName: src?.assigneeLastName
+				};
+			}
+		);
+		const oneOffCompleted = userTasks
+			.filter(
+				(row) =>
+					row.completedAt &&
+					new Date(row.completedAt) >= dayStartJs &&
+					new Date(row.completedAt) < dayEndJs
+			)
+			.map((row) => ({
+				id: row.id,
+				title: row.title,
+				completedAt: row.completedAt ? new Date(row.completedAt).toISOString() : null
+			}));
+		const completedToday = mergeDayCompletions(oneOffCompleted, w.rows);
+		const doneForDay = completedToday.length;
+		const openForDay = userTasks.filter(
+			(row) => !row.completedAt && row.dueDate && new Date(row.dueDate) < dayEndJs
+		).length;
+		return {
+			userTasks,
+			familyTasks: openFamilyTasks,
+			familyMembers: fam.familyMembers,
+			memberStatus: fam.memberStatus,
+			dayEvents,
+			top3,
+			glance: { doneToday: doneForDay, openToday: openForDay, weekStreak: s.streak },
+			completedToday,
+			kidsSchedule: fam.kidsSchedule,
+			warnings: [t.warning, e.warning, w.warning, s.warning, fam.warning].filter(
+				(x): x is string => x !== null
+			)
+		};
+	})();
 
 	const verseTranslation = userSettings?.verseTranslation ?? 'esv';
 	const verseG = await guard('verse', null, async () =>
@@ -330,16 +381,8 @@ export const load: PageServerLoad = async (event) => {
 		userSettings,
 		familyId,
 		modules,
-		userTasks,
-		familyTasks: openFamilyTasks,
-		familyMembers,
-		memberStatus,
-		dayEvents,
-		top3,
-		glance: { doneToday: doneForDay, openToday: openForDay, weekStreak: streak.current },
-		completedToday,
+		dashboardData,
 		dailyVerse,
-		kidsSchedule,
 		loadWarnings
 	};
 };

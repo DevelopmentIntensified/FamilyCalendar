@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DateTime } from 'luxon';
+	import { invalidateAll } from '$app/navigation';
 	import DayDashboard from '$lib/components/dashboard/DayDashboard.svelte';
 	import type { PageData } from './$types';
 
@@ -71,21 +72,39 @@
 		</a>
 	</header>
 
-	<DayDashboard
-		{dateLabel}
-		isToday={data.isToday}
-		meId={data.meId}
-		familyId={data.familyId}
-		modules={data.modules}
-		dailyVerse={data.dailyVerse}
-		glance={data.glance}
-		dayEvents={data.dayEvents}
-		top3={data.top3}
-		completedToday={data.completedToday ?? []}
-		memberStatus={data.memberStatus}
-		familyTasks={data.familyTasks}
-		familyMembers={data.familyMembers}
-		kidsSchedule={data.kidsSchedule}
-		loadWarnings={data.loadWarnings ?? []}
-	/>
+	{#await data.dashboardData}
+		<div class="grid gap-4 md:grid-cols-2" aria-hidden="true">
+			{#each Array(4) as _, i (i)}
+				<div class="h-44 animate-pulse rounded-2xl bg-slate-100"></div>
+			{/each}
+		</div>
+	{:then dd}
+		<DayDashboard
+			{dateLabel}
+			isToday={data.isToday}
+			meId={data.meId}
+			familyId={data.familyId}
+			modules={data.modules}
+			dailyVerse={data.dailyVerse}
+			glance={dd.glance}
+			dayEvents={dd.dayEvents}
+			top3={dd.top3}
+			completedToday={dd.completedToday ?? []}
+			memberStatus={dd.memberStatus}
+			familyTasks={dd.familyTasks}
+			familyMembers={dd.familyMembers}
+			kidsSchedule={dd.kidsSchedule}
+			loadWarnings={[...(data.loadWarnings ?? []), ...dd.warnings]}
+		/>
+	{:catch}
+		<div
+			class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+			role="alert"
+		>
+			Couldn't load the dashboard.
+			<button type="button" onclick={() => invalidateAll()} class="font-semibold underline">
+				Retry
+			</button>
+		</div>
+	{/await}
 </div>

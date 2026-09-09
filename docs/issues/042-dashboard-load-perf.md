@@ -24,6 +24,12 @@ Method: docs/page-perf-playbook.md.
   CPU, cheap at bench scale) — kills O(years) scaling per recurring
   master + per-occurrence downstream. Correctness: today's Bench
   occurrence renders, warnings clean.
+- Slice 3 streaming: tasks/events/wins/streak legs run post-paint in ONE
+  `dashboardData` promise (per-section fallbacks + warnings in payload;
+  streak 500 → degrades to 0). Page: header immediate, card skeletons
+  pending, retry catch. Shell TTFB ~1.4s → ~0.54s (−60%), full ~0.97s.
+  Browser-verified (header fast, cards resolve, no page errors); 19
+  dashboard action tests + 24 card tests green.
 
 ## Needs doing
 
