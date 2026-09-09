@@ -7,6 +7,11 @@ Status: in-progress
 - Parallel wave 1: personal/family/ads/verse guards → one `Promise.all`
   (deps already in hand via layout parent). Shell TTFB ~0.8s → ~0.64s
   (−20%), full body ~1.1s → ~0.87s. Bench data renders, warnings clean.
+- Instant feel: views STAY static (async chunks would blank-flash on
+  switch — tried, reverted). 1420-line EventFormModal splits to a
+  108KB/31KB-gzip lazy chunk (dynamic `import()`, cached promise),
+  prefetched on FAB hover/focus + browser-idle. Modal open latency
+  100ms, zero page errors (Playwright).
 
 ## Needs doing
 

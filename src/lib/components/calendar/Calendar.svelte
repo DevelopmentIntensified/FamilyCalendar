@@ -152,7 +152,7 @@
 		onMonthSelect={handleMonthSelect}
 		onYearSelect={handleYearSelect}
 		onViewChange={changeView}
-		onToggleSelectionMode={onToggleSelectionMode}
+		{onToggleSelectionMode}
 	/>
 	<div
 		class="group/cal relative mx-auto w-full max-w-screen-2xl px-2 sm:px-4 lg:px-8"

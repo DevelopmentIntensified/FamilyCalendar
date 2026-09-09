@@ -5,7 +5,19 @@
 	import type { PageData } from './$types';
 	import type { Event } from '$lib/types';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
-	import EventFormModal from '$lib/components/calendar/EventFormModal.svelte';
+	// EventFormModal (1420 lines) splits into its own chunk (#043): fetched on
+	// hover/focus of the create button or browser-idle — never on the critical
+	// path — so opening it feels instant. Cached promise: stable identity,
+	// safe to call from markup without refetch loops.
+	let formModalModule: Promise<
+		typeof import('$lib/components/calendar/EventFormModal.svelte')
+	> | null = null;
+	function ensureFormModal() {
+		if (!formModalModule) {
+			formModalModule = import('$lib/components/calendar/EventFormModal.svelte');
+		}
+		return formModalModule;
+	}
 	import EmptyState from '$lib/components/calendar/EmptyState.svelte';
 	import calendarNoteDate from '$lib/assets/svgs/calendar-note-date-svgrepo-com.svg';
 	import { parseEvents } from '$lib/utils/eventDisplay';
@@ -376,6 +388,10 @@
 			sliceText = text;
 			sliceVisible = true;
 		};
+		// Idle-prefetch the form modal chunk so first open feels instant.
+		// Fire-and-forget: it only warms the import cache, no state touched.
+		if ('requestIdleCallback' in window) window.requestIdleCallback(() => ensureFormModal());
+		else setTimeout(() => ensureFormModal(), 2000);
 		document.addEventListener('selectionchange', updateSlice);
 		window.addEventListener('mouseup', updateSlice);
 		window.addEventListener('keyup', updateSlice);
@@ -636,6 +652,8 @@
 {#if !selectionMode}
 	<!-- Floating Quick Add Button -->
 	<button
+		onmouseenter={ensureFormModal}
+		onfocus={ensureFormModal}
 		onclick={() => {
 			createInitialDate = undefined;
 			showModal = true;
@@ -898,36 +916,40 @@
 
 <!-- Create Event Modal -->
 {#if showModal}
-	<EventFormModal
-		show={true}
-		calendarIds={data.calendarIds || []}
-		familyMembers={data.familyMembers || []}
-		familyId={data.familyId ?? null}
-		userSettings={data.userSettings}
-		initialDate={createInitialDate}
-		initialTitle={createInitialTitle}
-		initialQuickAdd={createInitialQuickAdd}
-		initialTime={createInitialTime}
-		initialEndTime={createInitialEndTime}
-		defaultCalendarId={data.userSettings?.defaultCalendarId ?? null}
-		{createCount}
-		onClose={close}
-		on:create={handleEventCreated}
-		on:createTask={handleTaskCreated}
-	/>
+	{#await ensureFormModal() then { default: EventFormModal }}
+		<EventFormModal
+			show={true}
+			calendarIds={data.calendarIds || []}
+			familyMembers={data.familyMembers || []}
+			familyId={data.familyId ?? null}
+			userSettings={data.userSettings}
+			initialDate={createInitialDate}
+			initialTitle={createInitialTitle}
+			initialQuickAdd={createInitialQuickAdd}
+			initialTime={createInitialTime}
+			initialEndTime={createInitialEndTime}
+			defaultCalendarId={data.userSettings?.defaultCalendarId ?? null}
+			{createCount}
+			onClose={close}
+			on:create={handleEventCreated}
+			on:createTask={handleTaskCreated}
+		/>
+	{/await}
 {/if}
 
 <!-- Edit Event Modal -->
 {#if showEditModal && selectedEvent}
-	<EventFormModal
-		show={true}
-		event={selectedEvent}
-		calendarIds={data.calendarIds || []}
-		familyMembers={data.familyMembers || []}
-		rsvpData={selectedEventRsvp}
-		userSettings={data.userSettings}
-		onClose={close}
-		on:update={handleEventUpdate}
-		on:delete={handleEventDelete}
-	/>
+	{#await ensureFormModal() then { default: EventFormModal }}
+		<EventFormModal
+			show={true}
+			event={selectedEvent}
+			calendarIds={data.calendarIds || []}
+			familyMembers={data.familyMembers || []}
+			rsvpData={selectedEventRsvp}
+			userSettings={data.userSettings}
+			onClose={close}
+			on:update={handleEventUpdate}
+			on:delete={handleEventDelete}
+		/>
+	{/await}
 {/if}
