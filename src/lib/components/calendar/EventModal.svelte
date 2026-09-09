@@ -47,6 +47,9 @@
 		rsvpStatus?: string;
 	};
 
+	// Two-way from the shared checklist: warns before deleting an event with tasks.
+	let attachedTaskCount = 0;
+
 	let showEditForm = false;
 	let duplicating = false;
 	let showDeleteConfirm = false;
@@ -903,7 +906,7 @@
 
 					<!-- Event checklist (shared section; hidden until it has content) -->
 					{#if !event.isAd}
-						<ChecklistSection eventId={serverId} />
+						<ChecklistSection eventId={serverId} bind:attachedCount={attachedTaskCount} />
 					{/if}
 
 					{#if actionError}
@@ -923,9 +926,9 @@
 						<div class="absolute inset-x-3 bottom-full z-10 mb-2 sm:inset-x-6">
 							<div class="rounded-xl border border-red-200 bg-red-50 p-4 shadow-xl">
 								<p class="text-sm font-medium text-red-700">Delete this event?</p>
-								{#if eventTasks.length > 0}
+								{#if attachedTaskCount > 0}
 									<p class="mt-1 text-xs text-red-600">
-										⚠️ {eventTasks.length} attached task(s) will also be deleted.
+										⚠️ {attachedTaskCount} attached task(s) will also be deleted.
 									</p>
 								{/if}
 								<div class="mt-3 flex flex-wrap items-center gap-2">
