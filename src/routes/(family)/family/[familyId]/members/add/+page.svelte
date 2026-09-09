@@ -1,190 +1,19 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import MemberSearchTab from '$lib/components/family/MemberSearchTab.svelte';
+	import MemberInviteTab from '$lib/components/family/MemberInviteTab.svelte';
+	import MemberChildTab from '$lib/components/family/MemberChildTab.svelte';
 
 	export let data: PageData;
 
 	let mode: 'search' | 'invite' | 'child' = 'search';
-	let searchQuery = '';
-	let searchResults: { id: string; firstName: string; lastName: string; email: string }[] = [];
-	let selectedUser: { id: string; firstName: string; lastName: string; email: string } | null =
-		null;
-	let inviteEmail = '',
-		inviteFirstName = '',
-		inviteLastName = '';
-	let childFirstName = '',
-		childLastName = '',
-		childEmail = '';
 	let error = '';
 	let success = false;
-	let searching = false;
-	let inviting = false;
-	let creatingChild = false;
-	let inviteLink = '';
-	let generatingLink = false;
-	let copiedLink = false;
-	let copyFailed = false;
-	let copyTimer: ReturnType<typeof setTimeout> | undefined;
-	let searchedFor = '';
-	let searchTimer: ReturnType<typeof setTimeout> | undefined;
-	let searchRequestId = 0;
 
-	const searchUsers = async () => {
-		const requestId = ++searchRequestId;
-		const query = searchQuery;
-		if (query.length < 2) {
-			searchResults = [];
-			searchedFor = '';
-			return;
-		}
-		searching = true;
-		try {
-			const res = await fetch(
-				`/api/family/search?q=${encodeURIComponent(query)}&familyId=${data.familyId}`
-			);
-			const json = await res.json().catch(() => ({}));
-			if (requestId !== searchRequestId) return;
-			if (json.users) {
-				searchResults = json.users;
-				searchedFor = query;
-			}
-		} catch {
-			if (requestId !== searchRequestId) return;
-			error = 'Network problem. Please try again.';
-		} finally {
-			if (requestId === searchRequestId) {
-				searching = false;
-			}
-		}
-	};
-
-	const handleSearchInput = () => {
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(searchUsers, 300);
-	};
-
-	const selectUser = (user: { id: string; firstName: string; lastName: string; email: string }) => {
-		clearTimeout(searchTimer);
-		selectedUser = user;
-		searchQuery = '';
-		searchResults = [];
-		searchedFor = '';
-	};
-
-	const addSelectedUser = async () => {
-		if (!selectedUser) return;
-		inviting = true;
-		try {
-			const res = await fetch('/family/' + data.familyId + '/members/add/direct', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ userId: selectedUser.id })
-			});
-			const json = await res.json().catch(() => ({}));
-			if (json.error) {
-				error = json.error;
-			} else {
-				success = true;
-			}
-		} catch {
-			error = 'Network problem. Please try again.';
-		} finally {
-			inviting = false;
-		}
-	};
-
-	const sendInvite = async () => {
-		inviting = true;
-		try {
-			const res = await fetch('/family/' + data.familyId + '/members/add/email', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email: inviteEmail,
-					firstName: inviteFirstName,
-					lastName: inviteLastName
-				})
-			});
-			const json = await res.json().catch(() => ({}));
-			if (json.error) {
-				error = json.error;
-			} else {
-				success = true;
-			}
-		} catch {
-			error = 'Network problem. Please try again.';
-		} finally {
-			inviting = false;
-		}
-	};
-
-	const generateInviteLink = async () => {
-		generatingLink = true;
-		error = '';
-		inviteLink = '';
-		try {
-			const res = await fetch('/family/' + data.familyId + '/members/add/email/link', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email: inviteEmail,
-					firstName: inviteFirstName,
-					lastName: inviteLastName
-				})
-			});
-			const json = await res.json().catch(() => ({}));
-			if (json.error) {
-				error = json.error;
-			} else if (json.link) {
-				inviteLink = json.link;
-			}
-		} catch {
-			error = 'Network problem. Please try again.';
-		} finally {
-			generatingLink = false;
-		}
-	};
-
-	const copyLink = async () => {
-		if (!inviteLink) return;
-		try {
-			await navigator.clipboard.writeText(inviteLink);
-			copyFailed = false;
-			copiedLink = true;
-			clearTimeout(copyTimer);
-			copyTimer = setTimeout(() => (copiedLink = false), 2000);
-		} catch {
-			copiedLink = false;
-			copyFailed = true;
-		}
-	};
-
-	const createChild = async () => {
-		creatingChild = true;
-		error = '';
-		success = false;
-		try {
-			const res = await fetch('/family/' + data.familyId + '/members/add/child', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					firstName: childFirstName,
-					lastName: childLastName,
-					email: childEmail
-				})
-			});
-			const json = await res.json().catch(() => ({}));
-			if (json.error) {
-				error = json.error;
-			} else {
-				success = true;
-			}
-		} catch {
-			error = 'Network problem. Please try again.';
-		} finally {
-			creatingChild = false;
-		}
-	};
+	const tabCls = (active: boolean) =>
+		'flex-1 rounded-md py-2.5 text-sm font-medium transition-colors ' +
+		(active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900');
 </script>
 
 <svelte:head>
@@ -233,31 +62,15 @@
 				</div>
 
 				<div class="mb-5 flex rounded-lg bg-slate-100 p-1">
-					<button
-						on:click={() => (mode = 'search')}
-						class="flex-1 rounded-md py-2.5 text-sm font-medium transition-colors {mode === 'search'
-							? 'bg-white text-slate-900 shadow-sm'
-							: 'text-slate-600 hover:text-slate-900'}"
-					>
+					<button on:click={() => (mode = 'search')} class={tabCls(mode === 'search')}>
 						Search Users
 					</button>
 					{#if data.canInviteByEmail}
-						<button
-							on:click={() => (mode = 'invite')}
-							class="flex-1 rounded-md py-2.5 text-sm font-medium transition-colors {mode ===
-							'invite'
-								? 'bg-white text-slate-900 shadow-sm'
-								: 'text-slate-600 hover:text-slate-900'}"
-						>
+						<button on:click={() => (mode = 'invite')} class={tabCls(mode === 'invite')}>
 							Invite by Email
 						</button>
 					{/if}
-					<button
-						on:click={() => (mode = 'child')}
-						class="flex-1 rounded-md py-2.5 text-sm font-medium transition-colors {mode === 'child'
-							? 'bg-white text-slate-900 shadow-sm'
-							: 'text-slate-600 hover:text-slate-900'}"
-					>
+					<button on:click={() => (mode = 'child')} class={tabCls(mode === 'child')}>
 						Create Child
 					</button>
 				</div>
@@ -267,214 +80,23 @@
 				{/if}
 
 				{#if mode === 'search'}
-					{#if selectedUser}
-						<div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-							<div class="mb-3 flex items-center justify-between">
-								<div class="flex items-center gap-3">
-									<div
-										class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 font-semibold text-primary-700"
-									>
-										{selectedUser.firstName?.[0] || '?'}
-									</div>
-									<div>
-										<p class="font-medium text-slate-900">
-											{selectedUser.firstName}
-											{selectedUser.lastName}
-										</p>
-										<p class="text-sm text-slate-500">{selectedUser.email}</p>
-									</div>
-								</div>
-								<button
-									on:click={() => (selectedUser = null)}
-									class="text-sm text-slate-500 hover:text-slate-700"
-								>
-									Change
-								</button>
-							</div>
-							<button
-								on:click={addSelectedUser}
-								disabled={inviting}
-								class="w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-							>
-								{inviting ? 'Adding...' : 'Add to Family'}
-							</button>
-						</div>
-					{:else}
-						<div class="mb-4">
-							<label for="search" class="mb-2 block text-sm font-medium text-slate-700"
-								>Search by name or email</label
-							>
-							<input
-								type="text"
-								id="search"
-								placeholder="Type to search..."
-								bind:value={searchQuery}
-								on:input={handleSearchInput}
-								class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-							/>
-						</div>
-
-						{#if searching}
-							<div class="py-4 text-center text-sm text-slate-500">Searching...</div>
-						{:else if searchResults.length > 0}
-							<ul class="max-h-60 overflow-y-auto rounded-lg border border-slate-200">
-								{#each searchResults as user}
-									<li>
-										<button
-											on:click={() => selectUser(user)}
-											class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
-										>
-											<div
-												class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-sm font-medium text-slate-600"
-											>
-												{user.firstName?.[0] || '?'}
-											</div>
-											<div>
-												<p class="font-medium text-slate-900">{user.firstName} {user.lastName}</p>
-												<p class="text-sm text-slate-500">{user.email}</p>
-											</div>
-										</button>
-									</li>
-								{/each}
-							</ul>
-						{:else if searchedFor && searchQuery === searchedFor}
-							<div class="py-4 text-center text-sm text-slate-400">
-								No users found for '{searchedFor}'
-							</div>
-						{/if}
-					{/if}
+					<MemberSearchTab
+						familyId={data.familyId}
+						onSuccess={() => (success = true)}
+						onError={(message) => (error = message)}
+					/>
 				{:else if mode === 'invite' && data.canInviteByEmail}
-					<form on:submit|preventDefault={sendInvite} class="space-y-4">
-						<div>
-							<label for="firstName" class="mb-2 block text-sm font-medium text-slate-700"
-								>First Name</label
-							>
-							<input
-								type="text"
-								id="firstName"
-								bind:value={inviteFirstName}
-								required
-								class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-							/>
-						</div>
-						<div>
-							<label for="lastName" class="mb-2 block text-sm font-medium text-slate-700"
-								>Last Name</label
-							>
-							<input
-								type="text"
-								id="lastName"
-								bind:value={inviteLastName}
-								required
-								class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-							/>
-						</div>
-						<div>
-							<label for="email" class="mb-2 block text-sm font-medium text-slate-700">Email</label>
-							<input
-								type="email"
-								id="email"
-								bind:value={inviteEmail}
-								required
-								class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-							/>
-						</div>
-						<div class="flex gap-3">
-							<button
-								type="submit"
-								disabled={inviting}
-								class="flex-1 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-							>
-								{inviting ? 'Sending Invite...' : 'Send Invite'}
-							</button>
-							<button
-								type="button"
-								on:click={generateInviteLink}
-								disabled={generatingLink || !inviteEmail || !inviteFirstName || !inviteLastName}
-								class="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-							>
-								{generatingLink ? 'Generating...' : 'Get Invite Link'}
-							</button>
-						</div>
-					</form>
-
-					{#if inviteLink}
-						<div class="mt-4 rounded-lg border border-primary-200 bg-primary-50 p-4">
-							<p class="mb-2 text-sm font-medium text-primary-800">
-								Share this link with {inviteFirstName}:
-							</p>
-							<div class="flex gap-2">
-								<input
-									type="text"
-									readonly
-									value={inviteLink}
-									class="flex-1 rounded-lg border border-primary-300 bg-white px-3 py-2 text-xs text-slate-700"
-								/>
-								<button
-									on:click={copyLink}
-									class="rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700"
-								>
-									{copiedLink ? 'Copied ✓' : 'Copy'}
-								</button>
-							</div>
-							{#if copyFailed}
-								<p class="mt-2 text-xs text-red-600">
-									Copy failed — select the link above and copy it manually: {inviteLink}
-								</p>
-							{/if}
-							<p class="mt-2 text-xs text-primary-600">Expires in 24 hours</p>
-						</div>
-					{/if}
+					<MemberInviteTab
+						familyId={data.familyId}
+						onSuccess={() => (success = true)}
+						onError={(message) => (error = message)}
+					/>
 				{:else}
-					<form on:submit|preventDefault={createChild} class="space-y-4">
-						<div>
-							<label for="childFirstName" class="mb-2 block text-sm font-medium text-slate-700"
-								>Child's First Name</label
-							>
-							<input
-								type="text"
-								id="childFirstName"
-								bind:value={childFirstName}
-								required
-								class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-							/>
-						</div>
-						<div>
-							<label for="childLastName" class="mb-2 block text-sm font-medium text-slate-700"
-								>Child's Last Name</label
-							>
-							<input
-								type="text"
-								id="childLastName"
-								bind:value={childLastName}
-								required
-								class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-							/>
-						</div>
-						<div>
-							<label for="childEmail" class="mb-2 block text-sm font-medium text-slate-700"
-								>Email</label
-							>
-							<input
-								type="email"
-								id="childEmail"
-								bind:value={childEmail}
-								required
-								placeholder="email for the child's account"
-								class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-							/>
-							<p class="mt-1 text-xs text-slate-400">
-								Each child needs their own email address for their account.
-							</p>
-						</div>
-						<button
-							type="submit"
-							disabled={creatingChild}
-							class="w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-						>
-							{creatingChild ? 'Creating...' : 'Create Child'}
-						</button>
-					</form>
+					<MemberChildTab
+						familyId={data.familyId}
+						onSuccess={() => (success = true)}
+						onError={(message) => (error = message)}
+					/>
 				{/if}
 
 				<div class="mt-6 border-t border-slate-200 pt-6">

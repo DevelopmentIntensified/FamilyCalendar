@@ -147,6 +147,9 @@ markup + pure logic extract out with colocated tests.
   unknown statuses. 4 EventFormModal NLP failures pre-exist on HEAD.
 - [x] MonthDays 408 → 191: `MonthDayCell` (+ 4 tests) owns the day cell
   (chips, tasks, overflow, selection, add/dashboard affordances).
+- [x] members/add 499 → 121: `MemberSearchTab` (+ 3 tests), `MemberInviteTab`
+  + `MemberChildTab` (+ 3 tests) own their forms + POSTs; page keeps mode
+  tabs + success screen.
 - [ ] DayView/WeekView interaction unification (drag/drop/range/delete
   flows mirror each other) → separate issue: needs behavior-parity
   review before touching (43 existing interaction tests are the fence).
