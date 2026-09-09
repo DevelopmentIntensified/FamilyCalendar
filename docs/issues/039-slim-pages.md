@@ -88,6 +88,10 @@ markup + pure logic extract out with colocated tests.
   location, reminder, description, export links + helpers, + 2 tests).
   Modal content browser-verified (date, calendar, exports render).
   Drive-by: 'dayly' → 'daily' copy fix in the repeats line.
+- [x] EventModal → 517: EventModalBar (delete/duplicate confirms +
+  3 action buttons, + 4 tests; placement tests still green).
+  Bar buttons + delete-confirm-cancel browser-verified (bench data
+  kept).
 - [x] Duplicate kill: `bottomSheetSwipe.ts` (+ 3 tests) unifies the
   byte-identical swipe-to-close in EventModal + EventFormModal
   (immutable transitions keep legacy reactivity). EventModal open +
