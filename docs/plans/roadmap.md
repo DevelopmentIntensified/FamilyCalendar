@@ -1,7 +1,7 @@
 # Family Planz Roadmap
 
-Decisions locked in planning sessions (latest 2026-08-21). Domain language lives in [CONTEXT.md](../CONTEXT.md).
-Superseded planning docs live in [docs/archive/](./archive/).
+Decisions locked in planning sessions (latest 2026-08-21). Domain language lives in [CONTEXT.md](../../CONTEXT.md).
+Superseded planning docs live in [docs/archive/](../archive/).
 
 ## Shipped — full log
 

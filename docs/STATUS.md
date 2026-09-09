@@ -95,7 +95,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   #5 verse local-only (−91 lines); streaming shell-first + skeleton;
   #6 family scope in layout; #7 MonthDays grouping bench 416→14ms;
   #8 Calendar 511→234 (Toolbar + view util, browser-verified);
-  #9 tz probe once per user/browser. Playbook: docs/page-perf-playbook.md.
+  #9 tz probe once per user/browser. Playbook: docs/guides/page-perf-playbook.md.
 - #038 Page-switch lag (2026-09-08): removed `{#key pathname}` + fade
   out/intro gating from all 4 group layouts (bills, calendar, family,
   marketing); `in:fade|local` first-mount only (100ms app, 150ms

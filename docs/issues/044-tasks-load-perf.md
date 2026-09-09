@@ -2,7 +2,7 @@
 
 Status: in-progress
 
-Method: docs/page-perf-playbook.md.
+Method: docs/guides/page-perf-playbook.md.
 
 ## Done
 

@@ -2,11 +2,11 @@
 
 Status: in-progress
 
-Method: docs/page-perf-playbook.md.
+Method: docs/guides/page-perf-playbook.md.
 
 ## Done
 
-- Filed; method: docs/page-perf-playbook.md.
+- Filed; method: docs/guides/page-perf-playbook.md.
 - Baseline (Neon, bench anon, warmed): TTFB ~1.4s median, 124607B.
   Page svelte thin (91 lines, card composition); server 346 lines.
 - Chain: zone → settings+familyId → switches → tasks(+cursor sync) →
