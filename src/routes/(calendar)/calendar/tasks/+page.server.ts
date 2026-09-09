@@ -1,10 +1,8 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import {
-	getFamilyTasksAssignedTo,
 	getMyTasks,
 	getPendingAssignments,
-	getPublicTasksForFamily,
 	getRequestedByMe,
 	getTasksForUser,
 	syncRecurringCursors
@@ -38,7 +36,7 @@ export const load: PageServerLoad = async (event) => {
 		}
 	};
 	const taskLists = (async () => {
-		const [tasks, myTasks, pending, requested, familyAssigned, pub] = await Promise.all([
+		const [tasks, myTasks, pending, requested] = await Promise.all([
 			leg(
 				'tasks',
 				async () => {
@@ -50,14 +48,12 @@ export const load: PageServerLoad = async (event) => {
 			),
 			// Sectioned task lists (issue 019): the main list is MY tasks
 			// (personal + accepted assignments); pending assignments feed the
-			// "To accept" tab, assigned-out rows the "Requested" tab, and family
-			// tasks assigned to me the Family chip.
+			// "To accept" tab, assigned-out rows the "Requested" tab.
+			// (familyAssignedToMe/publicFamilyTasks were dead payload —
+			// fetched but never read. Removed #044.)
 			leg('tasks', () => getMyTasks(uid), []),
 			leg('tasks', () => getPendingAssignments(uid), []),
-			leg('tasks', () => getRequestedByMe(uid), []),
-			leg('tasks', async () => (familyId ? getFamilyTasksAssignedTo(uid, familyId) : []), []),
-			// Public tasks of my family members (family pages' Public tab source).
-			leg('tasks', async () => (familyId ? getPublicTasksForFamily(familyId) : []), [])
+			leg('tasks', () => getRequestedByMe(uid), [])
 		]);
 		return {
 			// Legacy full-list field (personal + family rows) — kept until every
@@ -66,16 +62,9 @@ export const load: PageServerLoad = async (event) => {
 			myTasks: myTasks.value,
 			pendingAssignments: pending.value,
 			requestedByMe: requested.value,
-			familyTasksAssignedToMe: familyAssigned.value,
-			publicFamilyTasks: pub.value,
-			warnings: [
-				tasks.warning,
-				myTasks.warning,
-				pending.warning,
-				requested.warning,
-				familyAssigned.warning,
-				pub.warning
-			].filter((w): w is string => w !== null)
+			warnings: [tasks.warning, myTasks.warning, pending.warning, requested.warning].filter(
+				(w): w is string => w !== null
+			)
 		};
 	})();
 

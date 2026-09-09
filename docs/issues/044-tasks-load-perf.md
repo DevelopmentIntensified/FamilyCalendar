@@ -26,3 +26,5 @@ Method: docs/page-perf-playbook.md.
   pending, retry catch. Shell TTFB ~1.1s → ~0.48s (−55%), full ~0.73s.
   Browser-verified (header/toolbar immediate, empty state resolves,
   no page errors).
+- Dead payload cut: `familyTasksAssignedToMe` + `publicFamilyTasks`
+  legs removed (fetched + serialized, never read) — −2 queries/load.
