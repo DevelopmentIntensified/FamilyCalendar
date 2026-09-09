@@ -161,6 +161,10 @@ markup + pure logic extract out with colocated tests.
   respond-network error copy unified.
 - [x] features 586 → 273: data-driven `FeatureCard`/`MomentCard`/
   `GalleryCard`/`TestimonialCard`/`StrugglePanel` (+ 5 tests) + tables.
+- [x] family/[familyId]/tasks 640 → 292: shared familyTaskActions reuse,
+  `FamilyTaskAddForm` (+ 2 tests), `FamilyTasksList` (+ 2 tests),
+  `FamilyTaskFilterBar` (+ 2 tests), `familyTaskList.ts` model (+ 5 tests:
+  roster/search/filter/group); dead PRIORITY_DOT dropped.
 - [ ] DayView/WeekView interaction unification (drag/drop/range/delete
   flows mirror each other) → separate issue: needs behavior-parity
   review before touching (43 existing interaction tests are the fence).
