@@ -30,6 +30,9 @@ markup + pure logic extract out with colocated tests.
   onError to the page banner). Page 1056 → 822. Caught live: leftover
   `busyTemplateId` ref → ReferenceError on edit open (browser test
   caught it; oxlint doesn't flag cross-scope undef here).
+- [x] calendar/tasks toolbar → TaskToolbar (chips/search/sort/tag via
+  bind:, CHIPS + TaskChip type live with it; + 3 tests). Page 822 →
+  709. Chip-press + search browser-verified.
 - [x] BUGFIX: stash-once caches never updated after invalidateAll
   (mutations invisible) — unconditional assignment on promise-identity
   change, fixed on calendar + tasks pages
