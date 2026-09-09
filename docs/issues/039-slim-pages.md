@@ -42,8 +42,11 @@ markup + pure logic extract out with colocated tests.
   change, fixed on calendar + tasks pages
 - [ ] calendar/tasks add-task card → AddTaskCard
 - [ ] calendar/tasks toolbar (chips/search/sort) → TaskToolbar
-- [ ] family/[familyId]/tasks (917) → reuse TaskRow/AssignmentsCard +
-  extract rest
+- [x] family/[familyId]/tasks → FamilyTaskRow (open/completed/public
+  variants, + 6 tests): grouped/unassigned/completed/public rows
+  unified, permission-gated toggle + direct owner delete preserved.
+  Page 896 → 640. Build green (browser flow needs a family — unit
+  tests + build gate this one).
 - [ ] calendar/+page.svelte (895) → bulk bar, smart-plan panel
 - [ ] account/+page.svelte (816) → section cards
 - [ ] family/[familyId]/+page.svelte (808) → sections
