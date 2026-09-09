@@ -25,6 +25,11 @@ markup + pure logic extract out with colocated tests.
 - [x] calendar/tasks edit dialog → EditTaskDialog (page 1296 → 1056;
   dialog owns draft, page owns open/save; add→edit→save→toggle
   browser-verified)
+- [x] calendar/tasks add card → AddTaskCard incl. smart templates
+  (+ 3 tests; quick-parse + POST + toasts self-contained, errors via
+  onError to the page banner). Page 1056 → 822. Caught live: leftover
+  `busyTemplateId` ref → ReferenceError on edit open (browser test
+  caught it; oxlint doesn't flag cross-scope undef here).
 - [x] BUGFIX: stash-once caches never updated after invalidateAll
   (mutations invisible) — unconditional assignment on promise-identity
   change, fixed on calendar + tasks pages
