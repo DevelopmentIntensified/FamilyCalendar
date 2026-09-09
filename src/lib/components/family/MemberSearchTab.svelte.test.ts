@@ -58,7 +58,7 @@ describe('MemberSearchTab', () => {
 	it('reports a failed add without success', async () => {
 		const onError = vi.fn();
 		const onSuccess = vi.fn();
-		vi.mocked(fetch).mockImplementation(async (url: string) => {
+		vi.mocked(fetch).mockImplementation(async (url) => {
 			if (String(url).startsWith('/api/family/search')) {
 				return {
 					ok: true,

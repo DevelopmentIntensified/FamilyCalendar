@@ -3,7 +3,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { DateTime } from 'luxon';
 import type { Event } from '$lib/types';
 import MonthDayCell from './MonthDayCell.svelte';
-import type { CalendarTask } from './TaskDetailModal.svelte';
 
 const evt = (id: string, title: string): Event => ({
 	id,
@@ -25,7 +24,7 @@ const evt = (id: string, title: string): Event => ({
 	created_at: new Date('2026-09-01T00:00:00Z')
 });
 
-const task = (id: string): CalendarTask => ({
+const task = (id: string) => ({
 	id,
 	title: `Task ${id}`,
 	dueDate: '2026-09-09T10:00:00',
