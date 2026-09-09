@@ -8,6 +8,7 @@
 	import TaskRow from '$lib/components/tasks/TaskRow.svelte';
 	import TaskCompletedRow from '$lib/components/tasks/TaskCompletedRow.svelte';
 	import AssignmentsCard from '$lib/components/tasks/AssignmentsCard.svelte';
+	import EditTaskDialog, { type EditDraft } from '$lib/components/tasks/EditTaskDialog.svelte';
 	import {
 		CATEGORY_META,
 		SMART_EVENT_TEMPLATES,
@@ -103,36 +104,8 @@
 	/** Visibility picker for the create form (a #public/#private tag in the title wins). */
 	let newVisibility: 'public' | 'private' = 'public';
 
-	// Edit dialog
-	const FREQ_OPTIONS = [
-		{ value: '', label: "Doesn't repeat" },
-		{ value: 'daily', label: 'Daily' },
-		{ value: 'weekly', label: 'Weekly' },
-		{ value: 'monthly', label: 'Monthly' },
-		{ value: 'yearly', label: 'Yearly' }
-	];
-	/** Recurrence frequency -> singular noun for "every N <noun>s". */
-	interface FreqNouns {
-		[key: string]: string;
-	}
-	const FREQ_NOUN: FreqNouns = {
-		daily: 'day',
-		weekly: 'week',
-		monthly: 'month',
-		yearly: 'year'
-	};
-
+	// Edit dialog state lives in EditTaskDialog; the page keeps the target + save.
 	let editing: TaskItem | null = null;
-	let editTitle = '';
-	let editNotes = '';
-	let editTags = '';
-	let editDue = '';
-	let editFreq = '';
-	let editInterval = 1;
-	let editAssignedTo = '';
-	let editPriority = 'normal';
-	/** Visibility editable in the dialog by the owner only (issue 019). */
-	let editVisibility: 'public' | 'private' = 'public';
 	let editSaving = false;
 
 	$: data.familyMembers = data.familyMembers ?? [];
@@ -160,15 +133,6 @@
 	function openEdit(task: TaskItem) {
 		if (busyId || busyTemplateId) return;
 		editing = task;
-		editTitle = task.title;
-		editNotes = task.notes ?? '';
-		editTags = (task.tags ?? []).join(', ');
-		editDue = toInputDate(task.dueDate);
-		editFreq = task.recurrenceFrequency ?? '';
-		editInterval = task.recurrenceInterval ?? 1;
-		editAssignedTo = task.assignedTo ?? '';
-		editPriority = task.priority ?? 'normal';
-		editVisibility = task.visibility === 'private' ? 'private' : 'public';
 	}
 
 	async function respondAssignment(task: TaskItem, accept: boolean) {
@@ -203,31 +167,19 @@
 		editing = null;
 	}
 
-	function pad(n: number): string {
-		return String(n).padStart(2, '0');
-	}
-
-	function toInputDate(iso: string | null): string {
-		if (!iso) return '';
-		const d = new Date(iso);
-		return isNaN(d.getTime())
-			? ''
-			: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-	}
-
 	function inputToIso(value: string): string | null {
 		if (!value) return null;
 		const [y, m, d] = value.split('-').map(Number);
 		return new Date(y, m - 1, d, 23, 59, 0, 0).toISOString();
 	}
 
-	async function saveEdit() {
-		if (!editing || !editTitle.trim() || editSaving) return;
+	async function saveEdit(draft: EditDraft) {
+		if (!editing || !draft.title.trim() || editSaving) return;
 		editSaving = true;
 		actionError = '';
 		try {
 			const prevAssignee = editing.assignedTo ?? '';
-			let assignedTo: string | null = editAssignedTo || null;
+			let assignedTo: string | null = draft.assignedTo || null;
 			let assignmentStatus: string | null = null;
 			if (assignedTo !== prevAssignee) {
 				assignmentStatus = assignedTo
@@ -237,18 +189,18 @@
 					: null;
 			}
 			const editPayload = {
-				title: editTitle.trim(),
-				notes: editNotes.trim() || null,
-				dueDate: inputToIso(editDue),
-				recurrenceFrequency: editFreq || null,
-				recurrenceInterval: editFreq ? Math.max(1, Math.floor(editInterval)) : null,
+				title: draft.title.trim(),
+				notes: draft.notes.trim() || null,
+				dueDate: inputToIso(draft.due),
+				recurrenceFrequency: draft.freq || null,
+				recurrenceInterval: draft.freq ? Math.max(1, Math.floor(draft.interval)) : null,
 				assignedTo,
-				priority: editPriority,
-				tags: parseEditTags(editTags),
+				priority: draft.priority,
+				tags: parseEditTags(draft.tags),
 				// Visibility is owner-only (issue 019): the server 403s anyone
 				// else, so a non-owner assignee never sends the field (undefined
 				// keys are dropped by JSON.stringify).
-				visibility: editing.userId === data.user?.id ? editVisibility : undefined
+				visibility: editing.userId === data.user?.id ? draft.visibility : undefined
 			};
 			const res = await fetch(`/api/tasks/${editing.id}`, {
 				method: 'PUT',
@@ -296,8 +248,10 @@
 	// Streamed lists cache (#044): set once when taskLists resolves; the
 	// derived chains (open/completed/filtered) run off the cache.
 	let streamedLists: Awaited<PageData['taskLists']> | null = null;
+	// Runs only when the taskLists promise identity changes (navigation /
+	// invalidation), so unconditional assignment terminates.
 	function stashTaskLists(tl: NonNullable<typeof streamedLists>): string {
-		if (!streamedLists) streamedLists = tl;
+		streamedLists = tl;
 		return '';
 	}
 	$: allTasks = streamedLists?.myTasks ?? streamedLists?.tasks ?? [];
@@ -1059,7 +1013,7 @@
 			<AssignmentsCard
 				pending={streamedLists.pendingAssignments}
 				requested={streamedLists.requestedByMe}
-				busyId={busyId}
+				{busyId}
 				{formatDue}
 				{memberName}
 				onRespond={(task, accept) => respondAssignment(task, accept)}
@@ -1070,210 +1024,16 @@
 
 <!-- Edit task dialog -->
 {#if editing}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-		onclick={closeEdit}
-		onkeydown={(e) => e.key === 'Escape' && closeEdit()}
-		role="presentation"
-	>
-		<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-		<div
-			class="w-full max-w-md rounded-xl bg-white shadow-2xl"
-			tabindex="-1"
-			onclick={(e) => e.stopPropagation()}
-			onkeydown={(e) => e.stopPropagation()}
-			role="dialog"
-			aria-modal="true"
-			aria-label="Edit task"
-			use:trapFocusAction
-		>
-			<div class="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
-				<h2 class="text-base font-semibold text-slate-900">Edit Task</h2>
-				<button
-					type="button"
-					onclick={closeEdit}
-					class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-					aria-label="Close"
-				>
-					<svg
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-					</svg>
-				</button>
-			</div>
-
-			<form
-				class="space-y-3 p-5"
-				onsubmit={(e) => {
-					e.preventDefault();
-					saveEdit();
-				}}
-			>
-				<div>
-					<label for="edit-title" class="mb-1 block text-sm font-medium text-slate-700"
-						>Title *</label
-					>
-					<input
-						id="edit-title"
-						type="text"
-						bind:value={editTitle}
-						required
-						class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-					/>
-				</div>
-
-				<div>
-					<label for="edit-notes" class="mb-1 block text-sm font-medium text-slate-700">Notes</label
-					>
-					<textarea
-						id="edit-notes"
-						bind:value={editNotes}
-						rows="2"
-						class="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-					></textarea>
-				</div>
-
-				<div>
-					<label for="edit-tags" class="mb-1 block text-sm font-medium text-slate-700">Tags</label>
-					<input
-						id="edit-tags"
-						type="text"
-						bind:value={editTags}
-						placeholder="e.g. groceries, home (comma separated)"
-						class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-					/>
-					<p class="mt-1 text-xs text-slate-400">Separate tags with commas.</p>
-				</div>
-
-				<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-					<div>
-						<label for="edit-due" class="mb-1 block text-sm font-medium text-slate-700"
-							>Due date</label
-						>
-						<input
-							id="edit-due"
-							type="date"
-							bind:value={editDue}
-							class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-						/>
-					</div>
-					<div>
-						<label for="edit-priority" class="mb-1 block text-sm font-medium text-slate-700"
-							>Priority</label
-						>
-						<select
-							id="edit-priority"
-							bind:value={editPriority}
-							class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-						>
-							<option value="low">Low</option>
-							<option value="normal">Normal</option>
-							<option value="high">High</option>
-						</select>
-					</div>
-					<div>
-						<label for="edit-freq" class="mb-1 block text-sm font-medium text-slate-700"
-							>Repeats</label
-						>
-						<select
-							id="edit-freq"
-							bind:value={editFreq}
-							class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-						>
-							{#each FREQ_OPTIONS as opt (opt.value)}
-								<option value={opt.value}>{opt.label}</option>
-							{/each}
-						</select>
-					</div>
-				</div>
-
-				{#if editFreq}
-					<div class="flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-2">
-						<span class="text-sm text-purple-800">Every</span>
-						<input
-							type="number"
-							min="1"
-							max="365"
-							bind:value={editInterval}
-							aria-label="Repeat interval"
-							class="w-16 rounded-lg border border-purple-200 px-2 py-1 text-sm focus:border-purple-400 focus:outline-none"
-						/>
-						<span class="text-sm text-purple-800"
-							>{FREQ_NOUN[editFreq]}{editInterval > 1 ? 's' : ''}</span
-						>
-					</div>
-				{/if}
-
-				{#if editing.userId === data.user?.id}
-					<div>
-						<label for="edit-visibility" class="mb-1 block text-sm font-medium text-slate-700"
-							>Who can see this</label
-						>
-						<select
-							id="edit-visibility"
-							bind:value={editVisibility}
-							class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-						>
-							<option value="public">🌐 Public — family can see it (read-only)</option>
-							<option value="private">🔒 Private — only you and the assignee</option>
-						</select>
-					</div>
-				{/if}
-
-				{#if familyRoster.length > 0}
-					<div>
-						<label for="edit-assignee" class="mb-1 block text-sm font-medium text-slate-700"
-							>Assign to</label
-						>
-						<select
-							id="edit-assignee"
-							bind:value={editAssignedTo}
-							class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-						>
-							<option value="">Unassigned</option>
-							<option value={data.user?.id}>Me</option>
-							{#each familyRoster.filter((m) => m.userId !== data.user?.id) as m (m.userId)}
-								<option value={m.userId}>{m.firstName} {m.lastName}</option>
-							{/each}
-						</select>
-						{#if editAssignedTo && editAssignedTo !== data.user?.id}
-							<p class="mt-1 text-xs text-slate-400">
-								They'll see it as pending until they accept.
-							</p>
-						{/if}
-					</div>
-				{/if}
-
-				{#if editFreq}
-					<p class="text-xs text-slate-400">
-						Completing it rolls the due date forward automatically.
-					</p>
-				{/if}
-
-				<div class="flex justify-end gap-2 pt-1">
-					<button
-						type="button"
-						onclick={closeEdit}
-						class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-					>
-						Cancel
-					</button>
-					<button
-						type="submit"
-						disabled={editSaving || !editTitle.trim()}
-						class="rounded-lg bg-primary-600 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-					>
-						{editSaving ? 'Saving…' : 'Save'}
-					</button>
-				</div>
-			</form>
-		</div>
-	</div>
+	{#key editing.id}
+		<EditTaskDialog
+			task={editing}
+			currentUserId={data.user?.id}
+			{familyRoster}
+			saving={editSaving}
+			onSave={(draft) => saveEdit(draft)}
+			onClose={closeEdit}
+		/>
+	{/key}
 {/if}
 
 <style>

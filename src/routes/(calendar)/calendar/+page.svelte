@@ -331,8 +331,10 @@
 	// Outer reactives (allEvents, first-run, ?edit link) run off the cache
 	// so they keep working before/after the stream lands.
 	let streamedCal: Awaited<PageData['calendarData']> | null = null;
+	// Runs only when the calendarData promise identity changes (navigation /
+	// invalidation), so unconditional assignment terminates.
 	function stashCalendarData(cd: NonNullable<typeof streamedCal>): string {
-		if (!streamedCal) streamedCal = cd;
+		streamedCal = cd;
 		return '';
 	}
 

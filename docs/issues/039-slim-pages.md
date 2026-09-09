@@ -17,6 +17,29 @@ Status: in-progress
 
 ## Needs doing
 
-- Extract sub-components from calendar tasks page (biggest non-paused).
-- Extract shared modal sections (EventFormModal/EventModal).
-- Verify: colocated/targeted vitest + build green, push test.
+Rule (user directive): NO file past 300 lines. Page-level handlers stay;
+markup + pure logic extract out with colocated tests.
+
+- [x] calendar/tasks rows → TaskRow + TaskCompletedRow (1659 → 1368)
+- [x] calendar/tasks assignments → AssignmentsCard (→ ~1300)
+- [x] calendar/tasks edit dialog → EditTaskDialog (page 1296 → 1056;
+  dialog owns draft, page owns open/save; add→edit→save→toggle
+  browser-verified)
+- [x] BUGFIX: stash-once caches never updated after invalidateAll
+  (mutations invisible) — unconditional assignment on promise-identity
+  change, fixed on calendar + tasks pages
+- [ ] calendar/tasks add-task card → AddTaskCard
+- [ ] calendar/tasks toolbar (chips/search/sort) → TaskToolbar
+- [ ] family/[familyId]/tasks (917) → reuse TaskRow/AssignmentsCard +
+  extract rest
+- [ ] calendar/+page.svelte (895) → bulk bar, smart-plan panel
+- [ ] account/+page.svelte (816) → section cards
+- [ ] family/[familyId]/+page.svelte (808) → sections
+- [ ] EventFormModal (1420) → field-section components
+- [ ] EventModal (1251) → sections
+- [ ] DayView (764) / WeekView (710) → sub-blocks
+- [ ] MonthDays (402) → cell component
+- [ ] family/tasks (545), marketing/features (586) → split
+- [ ] bills/* EXCLUDED (area PAUSED)
+- Per slice: colocated/targeted vitest + oxlint + prettier + build green,
+  push test immediately.
