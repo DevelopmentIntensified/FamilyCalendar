@@ -48,7 +48,10 @@ markup + pure logic extract out with colocated tests.
   Page 896 → 640. Build green (browser flow needs a family — unit
   tests + build gate this one).
 - [ ] calendar/+page.svelte (895) → bulk bar, smart-plan panel
-- [ ] account/+page.svelte (816) → section cards
+- [x] account/+page.svelte 816 → 522: AccountCalendarSection
+  (settings form + reload-sync $effect pattern, + 2 tests incl.
+  reload-sync). Calendar tab browser-verified. More sections to go
+  (subscription/email/security/danger are small).
 - [ ] family/[familyId]/+page.svelte (808) → sections
 - [x] EventFormModal 1420 → 1303: EventRecurrenceFields (repeat +
   reminder + scope radios, + 2 tests) + EventTitleFields (title +
