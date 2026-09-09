@@ -50,7 +50,11 @@ markup + pure logic extract out with colocated tests.
 - [ ] calendar/+page.svelte (895) → bulk bar, smart-plan panel
 - [ ] account/+page.svelte (816) → section cards
 - [ ] family/[familyId]/+page.svelte (808) → sections
-- [ ] EventFormModal (1420) → field-section components
+- [x] EventFormModal 1420 → 1303: EventRecurrenceFields (repeat +
+  reminder + scope radios, + 2 tests) + EventTitleFields (title +
+  description + Show More, + 3 tests), both bound to the shared form
+  model. More sections to go (quick-add, datetime, attendees, delete
+  flows, action bar).
 - [ ] EventModal (1251) → sections
 - [ ] DayView (764) / WeekView (710) → sub-blocks
 - [ ] MonthDays (402) → cell component
