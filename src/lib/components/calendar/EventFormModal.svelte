@@ -20,6 +20,7 @@
 	import EventActionBar from './EventActionBar.svelte';
 	import EventRsvpList from './EventRsvpList.svelte';
 	import EventTaskFields from './EventTaskFields.svelte';
+	import EventModalShell from './EventModalShell.svelte';
 	import { queueMutation } from '$lib/utils/offline';
 
 	export let show = false;
@@ -566,227 +567,173 @@
 <svelte:window on:keydown={(e) => show && e.key === 'Escape' && close()} />
 
 {#if show}
-	<div
-		class="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
-		on:click={close}
-		role="presentation"
+	<EventModalShell
+		title={form.isEditMode ? 'Edit Event' : entryType === 'task' ? 'Add Task' : 'Create New Event'}
+		subtitle={!form.isEditMode && entryType === 'event'
+			? "Type naturally, we'll fill in the rest"
+			: !form.isEditMode
+				? 'A completable item — no event needed'
+				: null}
+		dragOffset={swipe.dragOffset}
+		dragTransition={swipe.dragTransition}
+		onClose={close}
+		{onDragStart}
+		{onDragMove}
+		{onDragEnd}
 	>
-		<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-		<div
-			class="flex max-h-[92dvh] w-full max-w-lg transform flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
-			style="transform: translateY({swipe.dragOffset}px); transition: transform {swipe.dragTransition
-				? '150ms ease-out'
-				: '0ms'}; touch-action: pan-y;"
-			on:click|stopPropagation
-			on:keydown|stopPropagation
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="modal-title"
-			use:trapFocusAction
+		<form
+			id="event-form"
+			on:submit={handleSubmit}
+			class="modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"
 		>
-			<!-- Grab handle (mobile): bottom-sheet affordance + swipe-down-to-close zone -->
-			<div
-				class="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2 active:cursor-grabbing sm:hidden"
-				data-drag-handle
-				on:touchstart={onDragStart}
-				on:touchmove={onDragMove}
-				on:touchend={onDragEnd}
-				aria-hidden="true"
-			>
-				<span class="h-1.5 w-10 rounded-full bg-slate-200"></span>
-			</div>
-			<div
-				class="sticky top-0 z-10 shrink-0 bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4"
-			>
-				<div class="flex items-center justify-between">
-					<div>
-						<h2 id="modal-title" class="text-lg font-semibold text-white">
-							{form.isEditMode
-								? 'Edit Event'
-								: entryType === 'task'
-									? 'Add Task'
-									: 'Create New Event'}
-						</h2>
-						{#if !form.isEditMode && entryType === 'event'}
-							<p class="mt-0.5 text-xs text-primary-100">Type naturally, we'll fill in the rest</p>
-						{:else if !form.isEditMode && entryType === 'task'}
-							<p class="mt-0.5 text-xs text-primary-100">A completable item — no event needed</p>
-						{/if}
+			<div class="space-y-3 p-5">
+				{#if !form.isEditMode}
+					<div
+						class="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1"
+						role="tablist"
+						aria-label="What are you adding?"
+					>
+						<button
+							type="button"
+							on:click={() => (entryType = 'event')}
+							class="rounded-md px-3 py-1.5 text-sm font-medium transition-all {entryType ===
+							'event'
+								? 'bg-white text-slate-900 shadow-sm'
+								: 'text-slate-500 hover:text-slate-700'}"
+						>
+							Event
+						</button>
+						<button
+							type="button"
+							on:click={() => (entryType = 'task')}
+							class="rounded-md px-3 py-1.5 text-sm font-medium transition-all {entryType === 'task'
+								? 'bg-white text-slate-900 shadow-sm'
+								: 'text-slate-500 hover:text-slate-700'}"
+						>
+							Task
+						</button>
 					</div>
+				{/if}
+
+				{#if entryType === 'event'}
+					{#if !form.isEditMode}
+						<EventQuickAdd
+							bind:nlInput
+							{parsing}
+							{parseError}
+							bind:multiResults
+							{submitting}
+							{lastParseResult}
+							{phraseReportable}
+							{phraseReported}
+							{reportingPhrase}
+							{onNlInputChange}
+							onClear={clearAll}
+							onCreateAll={createAllEvents}
+							onDismissMulti={() => (multiResults = null)}
+							onReportPhrase={reportPhrase}
+						/>
+					{/if}
+
+					<EventTitleFields
+						{form}
+						{showMore}
+						onShowMore={() => {
+							showMore = true;
+							nlpCollapsed = false;
+						}}
+					/>
+
+					{#if form.isEditMode || showMore || (!nlpCollapsed && (form.isDetected('date') || form.isDetected('startTime') || form.isDetected('location') || form.isDetected('attendants')))}
+						{#if showMore || form.isEditMode}
+							<EventDateTimeFields {form} bind:editScope />
+						{/if}
+
+						<EventMetaFields
+							{form}
+							{familyMembers}
+							{calendarIds}
+							{showMore}
+							showAttendees={form.isEditMode ||
+								showMore ||
+								(!nlpCollapsed && form.isDetected('attendants'))}
+						/>
+					{/if}
+				{:else}
+					<EventTaskFields bind:taskTitle bind:taskVisibility bind:taskDueDate {taskError} />
+				{/if}
+			</div>
+
+			{#if !form.isEditMode && showMore && entryType === 'event'}
+				<div class="px-5 pb-3">
 					<button
 						type="button"
-						on:click={close}
-						class="rounded-full p-1.5 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
-						aria-label="Close modal"
+						on:click={() => {
+							showMore = false;
+							nlpCollapsed = true;
+						}}
+						class="flex w-full items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
 					>
+						Show Less
 						<svg
-							class="h-4 w-4"
+							class="h-3.5 w-3.5 rotate-180 transition-transform"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
 							stroke-width="2"
 						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+							<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
 						</svg>
 					</button>
 				</div>
-			</div>
+			{/if}
 
-			<form
-				id="event-form"
-				on:submit={handleSubmit}
-				class="modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"
-			>
-				<div class="space-y-3 p-5">
-					{#if !form.isEditMode}
-						<div
-							class="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1"
-							role="tablist"
-							aria-label="What are you adding?"
-						>
-							<button
-								type="button"
-								on:click={() => (entryType = 'event')}
-								class="rounded-md px-3 py-1.5 text-sm font-medium transition-all {entryType ===
-								'event'
-									? 'bg-white text-slate-900 shadow-sm'
-									: 'text-slate-500 hover:text-slate-700'}"
-							>
-								Event
-							</button>
-							<button
-								type="button"
-								on:click={() => (entryType = 'task')}
-								class="rounded-md px-3 py-1.5 text-sm font-medium transition-all {entryType ===
-								'task'
-									? 'bg-white text-slate-900 shadow-sm'
-									: 'text-slate-500 hover:text-slate-700'}"
-							>
-								Task
-							</button>
-						</div>
-					{/if}
+			{#if form.isEditMode}
+				<EventRsvpList {rsvpData} />
+			{/if}
 
-					{#if entryType === 'event'}
-						{#if !form.isEditMode}
-							<EventQuickAdd
-								bind:nlInput
-								{parsing}
-								{parseError}
-								bind:multiResults
-								{submitting}
-								{lastParseResult}
-								{phraseReportable}
-								{phraseReported}
-								{reportingPhrase}
-								{onNlInputChange}
-								onClear={clearAll}
-								onCreateAll={createAllEvents}
-								onDismissMulti={() => (multiResults = null)}
-								onReportPhrase={reportPhrase}
-							/>
-						{/if}
+			{#if entryType === 'event'}
+				<ChecklistSection
+					eventId={eventIdForTasks}
+					bind:pendingTitles={pendingTaskTitles}
+					bind:attachedCount={attachedTaskCount}
+				/>
+			{/if}
 
-						<EventTitleFields
-							{form}
-							{showMore}
-							onShowMore={() => {
-								showMore = true;
-								nlpCollapsed = false;
-							}}
-						/>
+			{#if showDeleteConfirm}
+				<EventDeleteConfirm
+					isRecurringOccurrence={form.isRecurringOccurrence}
+					{attachedTaskCount}
+					onDeleteOccurrence={deleteThisOccurrence}
+					onDeleteSeries={deleteWholeSeries}
+					onDeleteSingle={deleteSingleEvent}
+					onCancel={() => (showDeleteConfirm = false)}
+				/>
+			{/if}
 
-						{#if form.isEditMode || showMore || (!nlpCollapsed && (form.isDetected('date') || form.isDetected('startTime') || form.isDetected('location') || form.isDetected('attendants')))}
-							{#if showMore || form.isEditMode}
-								<EventDateTimeFields {form} bind:editScope />
-							{/if}
-
-							<EventMetaFields
-								{form}
-								{familyMembers}
-								{calendarIds}
-								{showMore}
-								showAttendees={form.isEditMode ||
-									showMore ||
-									(!nlpCollapsed && form.isDetected('attendants'))}
-							/>
-						{/if}
-					{:else}
-						<EventTaskFields bind:taskTitle bind:taskVisibility bind:taskDueDate {taskError} />
-					{/if}
+			{#if submitError}
+				<div class="px-5 pb-3">
+					<p role="alert" class="text-sm text-red-600">{submitError}</p>
 				</div>
+			{/if}
+		</form>
 
-				{#if !form.isEditMode && showMore && entryType === 'event'}
-					<div class="px-5 pb-3">
-						<button
-							type="button"
-							on:click={() => {
-								showMore = false;
-								nlpCollapsed = true;
-							}}
-							class="flex w-full items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-						>
-							Show Less
-							<svg
-								class="h-3.5 w-3.5 rotate-180 transition-transform"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-							</svg>
-						</button>
-					</div>
-				{/if}
-
-				{#if form.isEditMode}
-					<EventRsvpList {rsvpData} />
-				{/if}
-
-				{#if entryType === 'event'}
-					<ChecklistSection
-						eventId={eventIdForTasks}
-						bind:pendingTitles={pendingTaskTitles}
-						bind:attachedCount={attachedTaskCount}
-					/>
-				{/if}
-
-				{#if showDeleteConfirm}
-					<EventDeleteConfirm
-						isRecurringOccurrence={form.isRecurringOccurrence}
-						{attachedTaskCount}
-						onDeleteOccurrence={deleteThisOccurrence}
-						onDeleteSeries={deleteWholeSeries}
-						onDeleteSingle={deleteSingleEvent}
-						onCancel={() => (showDeleteConfirm = false)}
-					/>
-				{/if}
-
-				{#if submitError}
-					<div class="px-5 pb-3">
-						<p role="alert" class="text-sm text-red-600">{submitError}</p>
-					</div>
-				{/if}
-			</form>
-
-			<!-- Sticky action bar (outside the scroll region; stays visible with keyboard open) -->
-			<EventActionBar
-				isEditMode={form.isEditMode}
-				{entryType}
-				{submitting}
-				canSubmit={entryType === 'task'
-					? !!taskTitle.trim()
-					: !!form.title && !!form.date && !form.endBeforeStart && !form.endDateBeforeStart}
-				submitBlockedReason={form.endBeforeStart || form.endDateBeforeStart
-					? 'End must be after start'
-					: undefined}
-				onDelete={handleDelete}
-				onClose={close}
-				onClear={clearAll}
-			/>
-		</div>
-	</div>
+		<!-- Sticky action bar (outside the scroll region; stays visible with keyboard open) -->
+		<EventActionBar
+			isEditMode={form.isEditMode}
+			{entryType}
+			{submitting}
+			canSubmit={entryType === 'task'
+				? !!taskTitle.trim()
+				: !!form.title && !!form.date && !form.endBeforeStart && !form.endDateBeforeStart}
+			submitBlockedReason={form.endBeforeStart || form.endDateBeforeStart
+				? 'End must be after start'
+				: undefined}
+			onDelete={handleDelete}
+			onClose={close}
+			onClear={clearAll}
+		/>
+	</EventModalShell>
 {/if}
 
 <style>

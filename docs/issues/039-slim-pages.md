@@ -67,6 +67,10 @@ markup + pure logic extract out with colocated tests.
   closes).
 - [x] EventFormModal → 843: EventRsvpList + EventTaskFields (+ 4
   tests). Task-mode form browser-verified.
+- [x] EventFormModal → 753: EventModalShell (overlay + grab handle +
+  gradient header + close, children snippet, + 2 tests). Title/close
+  browser-verified. To go: submit fns (handleSubmit/createAllEvents/
+  parseNlInput/reportPhrase) + task-mode lets.
 - [x] Duplicate kill: `bottomSheetSwipe.ts` (+ 3 tests) unifies the
   byte-identical swipe-to-close in EventModal + EventFormModal
   (immutable transitions keep legacy reactivity). EventModal open +
