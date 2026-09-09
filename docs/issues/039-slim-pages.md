@@ -52,7 +52,11 @@ markup + pure logic extract out with colocated tests.
   (settings form + reload-sync $effect pattern, + 2 tests incl.
   reload-sync). Calendar tab browser-verified. More sections to go
   (subscription/email/security/danger are small).
-- [ ] family/[familyId]/+page.svelte (808) → sections
+- [x] family/[familyId] 808 → 782: `familyDisplay.ts` (+ 4 tests) holds pure
+  canEditRole/canRemove/rolePillClass/memberDisplayName; page keeps thin
+  viewer-bound wrappers. Rescued orphan `familyDisplay.test.ts` (was red —
+  missing module, spec contradicted shipped UI); test aligned to shipped
+  semantics (amber/emerald/blue pills, email → 'Family member' fallback).
 - [x] EventFormModal 1420 → 1303: EventRecurrenceFields (repeat +
   reminder + scope radios, + 2 tests) + EventTitleFields (title +
   description + Show More, + 3 tests), both bound to the shared form

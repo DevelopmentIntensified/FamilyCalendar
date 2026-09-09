@@ -7,6 +7,12 @@
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { FAMILY_DASHBOARD_MODULES } from '$lib/dashboardModules';
 	import { pushToast } from '$lib/client/toasts';
+	import {
+		canEditRole as canEditRoleUtil,
+		canRemove as canRemoveUtil,
+		memberDisplayName,
+		rolePillClass
+	} from '$lib/utils/familyDisplay';
 	import { DateTime } from 'luxon';
 	export let data: PageData;
 	export let form: ActionData;
@@ -49,40 +55,13 @@
 		}
 	}
 
-	// Gate helpers — identical conditions to the pre-redesign inline expressions.
+	// Gate helpers — pure logic lives in $lib/utils/familyDisplay (tested); thin
+	// wrappers bind the page's current viewer.
 	function canEditRole(member: Member): boolean {
-		return (
-			isAdmin &&
-			member.userId !== currentUserId &&
-			(currentUserRole === 'creator' || member.role === 'member')
-		);
+		return canEditRoleUtil(member, currentUserRole, currentUserId);
 	}
 	function canRemove(member: Member): boolean {
-		return (
-			isAdmin &&
-			member.userId !== currentUserId &&
-			member.role !== 'creator' &&
-			(currentUserRole === 'creator' || member.role === 'member')
-		);
-	}
-
-	function rolePillClass(role: string): string {
-		return (
-			'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ' +
-			(role === 'creator'
-				? 'bg-amber-100 text-amber-700'
-				: role === 'admin'
-					? 'bg-emerald-100 text-emerald-700'
-					: 'bg-blue-100 text-blue-700')
-		);
-	}
-
-	function memberDisplayName(member: Member): string {
-		return (
-			[member.firstName, member.lastName].filter(Boolean).join(' ') ||
-			member.email ||
-			'Family member'
-		);
+		return canRemoveUtil(member, currentUserRole, currentUserId);
 	}
 
 	// Shared enhance callbacks — same semantics as the pre-redesign inline handlers.
