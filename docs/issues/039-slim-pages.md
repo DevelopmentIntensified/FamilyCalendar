@@ -150,6 +150,9 @@ markup + pure logic extract out with colocated tests.
 - [x] members/add 499 → 121: `MemberSearchTab` (+ 3 tests), `MemberInviteTab`
   + `MemberChildTab` (+ 3 tests) own their forms + POSTs; page keeps mode
   tabs + success screen.
+- [x] account 522 → 100: `AccountSidebar` + 5 section components
+  (profile/calendar/subscription/email/security/danger); subscription pure
+  helpers in `accountSubscription.ts` (+ 3 tests).
 - [ ] DayView/WeekView interaction unification (drag/drop/range/delete
   flows mirror each other) → separate issue: needs behavior-parity
   review before touching (43 existing interaction tests are the fence).
