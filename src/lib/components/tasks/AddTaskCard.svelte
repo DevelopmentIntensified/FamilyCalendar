@@ -10,6 +10,7 @@
 		type SmartEventTemplate
 	} from '$lib/data/smartEventTemplates';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
+	import { submitTaskQuickAdd } from '$lib/client/taskSubmit';
 	import { pushToast } from '$lib/client/toasts';
 
 	interface Props {
@@ -33,63 +34,25 @@
 		newTitle.trim() ? parseTaskQuickAdd(newTitle, { members: familyRoster }) : null
 	);
 
-	function endOfDayIso(): string {
-		const d = new Date();
-		d.setHours(23, 59, 0, 0);
-		return d.toISOString();
-	}
-
 	async function addTask() {
 		if (!newTitle.trim()) return;
 		adding = true;
 		try {
-			const parsed = parseTaskQuickAdd(newTitle, { members: familyRoster });
-			// Unknown/ambiguous @member: never silently dropped — block the
-			// create and keep the input so the user can fix the name.
-			if (parsed.unknownMember) {
-				onError(
-					`Unknown member ${parsed.unknownMember} — check the spelling or pick someone from your family.`
-				);
-				return;
-			}
-			if (parsed.familyTask && !familyId) {
-				onError("@family needs a family — you're not in one yet.");
-				return;
-			}
-			// A cadence ("every 2 weeks") with no picked date still needs a cursor.
-			const due =
-				parsed.dueDate ??
-				(newDueDate || null) ??
-				(parsed.recurrenceFrequency ? endOfDayIso() : null);
-			const res = await fetch('/api/tasks', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					title: parsed.title,
-					dueDate: due,
-					priority: parsed.priority,
-					assignedTo: parsed.assignedTo,
-					// An explicit #public/#private tag in the title wins over the picker.
-					visibility: parsed.visibilityExplicit ? parsed.visibility : newVisibility,
-					// POST defaults an absent familyId to the user's family, so a
-					// personal task must send null explicitly (issue 019).
-					familyId: parsed.familyTask ? familyId : null,
-					tags: parsed.tags,
-					recurrenceFrequency: parsed.recurrenceFrequency,
-					recurrenceInterval: parsed.recurrenceInterval
-				})
+			const result = await submitTaskQuickAdd({
+				title: newTitle,
+				dueDateFallback: newDueDate || null,
+				visibilityFallback: newVisibility,
+				familyId,
+				members: familyRoster
 			});
-			if (res.ok) {
-				pushToast({ message: `Added "${parsed.title}".` });
-				newTitle = '';
-				newDueDate = '';
-				await invalidateAll();
-			} else {
-				const j = await res.json().catch(() => ({}));
-				onError(j.error || "That didn't work. Try again.");
+			if (!result.ok) {
+				onError(result.error);
+				return;
 			}
-		} catch {
-			onError('Network problem. Try again.');
+			pushToast({ message: `Added "${result.title}".` });
+			newTitle = '';
+			newDueDate = '';
+			await invalidateAll();
 		} finally {
 			adding = false;
 		}

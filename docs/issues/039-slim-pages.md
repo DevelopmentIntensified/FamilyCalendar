@@ -66,8 +66,13 @@ markup + pure logic extract out with colocated tests.
   modal-stays-open is pre-existing rapid-entry behavior, page never
   closes).
 - [x] EventFormModal → 843: EventRsvpList + EventTaskFields (+ 4
-  tests). Task-mode form browser-verified. To go: submit fns
-  (handleSubmit/createAllEvents/delete*) + shell/header.
+  tests). Task-mode form browser-verified.
+- [x] Duplicate kill: `taskSubmit.ts` (+ 5 tests) unifies modal
+  submitTask + AddTaskCard.addTask (same parser/guards/POST).
+  Both callers rewired; modal task-tab submit verified end-to-end
+  (task in DB; dialog-close is pre-existing page behavior). Modal →
+  816. Note: bare modal recurrences now get a today-end cursor like
+  the card (modal previously sent null).
 - [ ] EventModal (1251) → sections
 - [ ] DayView (764) / WeekView (710) → sub-blocks
 - [ ] MonthDays (402) → cell component

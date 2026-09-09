@@ -6,7 +6,7 @@
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import LocationSearch from '$lib/components/LocationSearch.svelte';
 	import TaskQuickAddHelp from '$lib/components/TaskQuickAddHelp.svelte';
-	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
+	import { submitTaskQuickAdd } from '$lib/client/taskSubmit';
 	import { createEventForm } from './EventFormModel.svelte';
 	import type { NlpFormInput } from './EventFormModel.svelte';
 	import ChecklistSection from './ChecklistSection.svelte';
@@ -341,55 +341,28 @@
 	async function submitTask() {
 		const title = taskTitle.trim();
 		if (!title || submitting) return;
-		// Same parser the tasks page uses: strip/apply #public/#private,
-		// @family, @name, plus dates/priority/recurrence (issue 021 parity).
-		const parsed = parseTaskQuickAdd(title, { members: taskRoster });
-		// Unknown/ambiguous @member: never silently dropped — block the
-		// create and keep the input so the user can fix the name.
-		if (parsed.unknownMember) {
-			taskError = `Unknown member ${parsed.unknownMember} — check the spelling or pick someone from your family.`;
-			return;
-		}
-		if (parsed.familyTask && !familyId) {
-			taskError = "@family needs a family — you're not in one yet.";
-			return;
-		}
+		// Shared with the tasks page card (issue 021 parity) — same parser,
+		// guards, and POST shape. Bare recurrences now also get a cursor
+		// here (the modal previously sent null when the picker was clear).
 		taskError = '';
 		submitting = true;
 		try {
-			const res = await fetch('/api/tasks', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					title: parsed.title,
-					// A parser date phrase wins over the picker; either may be empty.
-					dueDate: parsed.dueDate ?? (taskDueDate || null),
-					priority: parsed.priority,
-					assignedTo: parsed.assignedTo,
-					// An explicit #public/#private tag in the title wins over the picker.
-					visibility: parsed.visibilityExplicit ? parsed.visibility : taskVisibility,
-					// POST defaults an absent familyId to the user's family, so a
-					// personal task must send null explicitly (issue 019).
-					familyId: parsed.familyTask ? familyId : null,
-					tags: parsed.tags,
-					recurrenceFrequency: parsed.recurrenceFrequency,
-					recurrenceInterval: parsed.recurrenceInterval
-				})
+			const result = await submitTaskQuickAdd({
+				title,
+				dueDateFallback: taskDueDate || null,
+				visibilityFallback: taskVisibility,
+				familyId,
+				members: taskRoster
 			});
-			if (res.ok) {
-				const json = await res.json();
-				dispatch('createTask', json.task);
-				taskTitle = '';
-				taskVisibility = 'public';
-				taskError = '';
-				taskDueDate = initialDate || DateTime.now().toISODate() || '';
-			} else {
-				const j = await res.json().catch(() => ({}));
-				taskError = j.error || "That didn't work. Try again.";
+			if (!result.ok) {
+				taskError = result.error;
+				return;
 			}
-		} catch (err) {
-			console.error('Create task failed:', err);
-			taskError = "That didn't work. Try again.";
+			dispatch('createTask', result.task);
+			taskTitle = '';
+			taskVisibility = 'public';
+			taskError = '';
+			taskDueDate = initialDate || DateTime.now().toISODate() || '';
 		} finally {
 			submitting = false;
 		}
