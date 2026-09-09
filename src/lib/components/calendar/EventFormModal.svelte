@@ -15,6 +15,7 @@
 	import EventTitleFields from './EventTitleFields.svelte';
 	import EventQuickAdd from './EventQuickAdd.svelte';
 	import EventMetaFields from './EventMetaFields.svelte';
+	import { createSwipeState, startSwipe, moveSwipe, endSwipe } from './bottomSheetSwipe';
 	import EventDeleteConfirm from './EventDeleteConfirm.svelte';
 	import EventActionBar from './EventActionBar.svelte';
 	import EventRsvpList from './EventRsvpList.svelte';
@@ -58,11 +59,8 @@
 
 	const dispatch = createEventDispatcher();
 
-	// Mobile bottom-sheet swipe state (mirrors EventModal).
-	let dragging = false;
-	let dragStartY = 0;
-	let dragOffset = 0;
-	let dragTransition = false;
+	// Mobile bottom-sheet swipe state (shared with EventModal).
+	let swipe = createSwipeState();
 
 	let nlInput = '';
 	let showMore = !!(initialDate || initialTime || initialEndTime); // Set when the user clicks "Show Less": suppresses the auto-reveal of
@@ -310,32 +308,24 @@
 		show = false;
 		submitError = '';
 		showDeleteConfirm = false;
-		dragOffset = 0;
-		dragTransition = false;
+		swipe = createSwipeState();
 		dispatch('close');
 		onClose();
 	}
 
 	function onDragStart(e: TouchEvent) {
 		if (e.touches.length !== 1) return;
-		dragStartY = e.touches[0].clientY;
-		dragOffset = 0;
-		dragTransition = false;
-		dragging = true;
+		swipe = startSwipe(swipe, e.touches[0].clientY);
 	}
 
 	function onDragMove(e: TouchEvent) {
-		if (!dragging) return;
-		dragOffset = Math.max(0, e.touches[0].clientY - dragStartY);
+		swipe = moveSwipe(swipe, e.touches[0].clientY);
 	}
 
 	function onDragEnd() {
-		if (!dragging) return;
-		dragging = false;
-		dragTransition = true;
-		const shouldClose = dragOffset > 100;
-		dragOffset = 0;
-		if (shouldClose) close();
+		const result = endSwipe(swipe);
+		swipe = result.state;
+		if (result.closed) close();
 	}
 
 	async function submitTask() {
@@ -584,7 +574,7 @@
 		<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 		<div
 			class="flex max-h-[92dvh] w-full max-w-lg transform flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
-			style="transform: translateY({dragOffset}px); transition: transform {dragTransition
+			style="transform: translateY({swipe.dragOffset}px); transition: transform {swipe.dragTransition
 				? '150ms ease-out'
 				: '0ms'}; touch-action: pan-y;"
 			on:click|stopPropagation

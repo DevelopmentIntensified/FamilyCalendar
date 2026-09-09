@@ -67,6 +67,10 @@ markup + pure logic extract out with colocated tests.
   closes).
 - [x] EventFormModal → 843: EventRsvpList + EventTaskFields (+ 4
   tests). Task-mode form browser-verified.
+- [x] Duplicate kill: `bottomSheetSwipe.ts` (+ 3 tests) unifies the
+  byte-identical swipe-to-close in EventModal + EventFormModal
+  (immutable transitions keep legacy reactivity). EventModal open +
+  delete flow browser-verified. Modal 843 → 806.
 - [x] Duplicate kill: `taskSubmit.ts` (+ 5 tests) unifies modal
   submitTask + AddTaskCard.addTask (same parser/guards/POST).
   Both callers rewired; modal task-tab submit verified end-to-end

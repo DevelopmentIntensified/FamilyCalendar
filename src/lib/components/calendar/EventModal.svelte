@@ -7,6 +7,7 @@
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { DateTime } from 'luxon';
 	import EventFormModal from './EventFormModal.svelte';
+	import { createSwipeState, startSwipe, moveSwipe, endSwipe } from './bottomSheetSwipe';
 
 	export let event: Event;
 	export let show = false;
@@ -58,11 +59,8 @@
 	let showDuplicateConfirm = false;
 	let actionError = '';
 
-	// Mobile bottom-sheet swipe state.
-	let dragging = false;
-	let dragStartY = 0;
-	let dragOffset = 0;
-	let dragTransition = false;
+	// Mobile bottom-sheet swipe state (shared with EventFormModal).
+	let swipe = createSwipeState();
 
 	// Occurrences share the series master's API identity.
 	$: serverId = event.masterId || event.id;
@@ -160,32 +158,24 @@
 		showDeleteConfirm = false;
 		showDuplicateConfirm = false;
 		actionError = '';
-		dragOffset = 0;
-		dragTransition = false;
+		swipe = createSwipeState();
 		dispatch('close');
 		onClose();
 	}
 
 	function onDragStart(e: TouchEvent) {
 		if (e.touches.length !== 1 || !show || showEditForm) return;
-		dragStartY = e.touches[0].clientY;
-		dragOffset = 0;
-		dragTransition = false;
-		dragging = true;
+		swipe = startSwipe(swipe, e.touches[0].clientY);
 	}
 
 	function onDragMove(e: TouchEvent) {
-		if (!dragging) return;
-		dragOffset = Math.max(0, e.touches[0].clientY - dragStartY);
+		swipe = moveSwipe(swipe, e.touches[0].clientY);
 	}
 
 	function onDragEnd() {
-		if (!dragging) return;
-		dragging = false;
-		dragTransition = true;
-		const shouldClose = dragOffset > 100;
-		dragOffset = 0;
-		if (shouldClose) close();
+		const result = endSwipe(swipe);
+		swipe = result.state;
+		if (result.closed) close();
 	}
 
 	function beginDelete() {
@@ -472,7 +462,7 @@
 
 			<div
 				class="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl"
-				style="transform: translateY({dragOffset}px); transition: transform {dragTransition
+				style="transform: translateY({swipe.dragOffset}px); transition: transform {swipe.dragTransition
 					? '150ms ease-out'
 					: '0ms'}; touch-action: pan-y;"
 				role="dialog"
