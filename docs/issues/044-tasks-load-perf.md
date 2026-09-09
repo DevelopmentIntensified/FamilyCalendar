@@ -28,3 +28,8 @@ Method: docs/page-perf-playbook.md.
   no page errors).
 - Dead payload cut: `familyTasksAssignedToMe` + `publicFamilyTasks`
   legs removed (fetched + serialized, never read) — −2 queries/load.
+- `AssignmentsCard.svelte` (+ 4 tests): accept/requested tabs +
+  accept-decline rows extracted; tab state now self-contained (dead
+  page-level `assignTab` removed). Page 1659 → ~1200 and falling.
+  Caught live: sed range-delete ate a container `</div>` — build caught
+  it; line-range deletes need immediate build verification.
