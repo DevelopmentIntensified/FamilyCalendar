@@ -13,6 +13,8 @@
 	import AttendantPicker from './AttendantPicker.svelte';
 	import EventRecurrenceFields from './EventRecurrenceFields.svelte';
 	import EventTitleFields from './EventTitleFields.svelte';
+	import EventQuickAdd from './EventQuickAdd.svelte';
+	import EventMetaFields from './EventMetaFields.svelte';
 	import { queueMutation } from '$lib/utils/offline';
 
 	export let show = false;
@@ -700,97 +702,22 @@
 
 					{#if entryType === 'event'}
 						{#if !form.isEditMode}
-							<div>
-								<label for="nl-input" class="mb-1 block text-sm font-medium text-slate-700"
-									>Quick Add</label
-								>
-								<div class="mt-1 flex gap-2">
-									<div class="relative flex-1">
-										<input
-											id="nl-input"
-											type="text"
-											bind:value={nlInput}
-											on:input={onNlInputChange}
-											placeholder="Lunch Friday at noon with John"
-											class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm transition-all focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-										/>
-										{#if parsing}
-											<div class="absolute right-3 top-1/2 -translate-y-1/2">
-												<div
-													class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent"
-												></div>
-											</div>
-										{/if}
-									</div>
-									<button
-										type="button"
-										on:click={clearAll}
-										class="rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
-									>
-										Clear
-									</button>
-								</div>
-								{#if lastParseResult?.dates && lastParseResult.dates.length > 1}
-									<div class="mt-1 text-right text-xs font-medium text-primary-600">
-										Creates {lastParseResult.dates.length} events — one per date
-									</div>
-								{/if}
-								{#if parseError}
-									<p class="mt-1 text-xs text-amber-600" role="status">
-										Couldn't check that with the parser just now — fill the fields below manually.
-									</p>
-								{/if}
-								{#if multiResults && multiResults.length > 1}
-									<div class="mt-2 rounded-lg border border-primary-200 bg-primary-50 p-3">
-										<div class="mb-1 text-xs font-semibold text-primary-700">
-											{multiResults.length} events detected
-										</div>
-										<ul class="mb-2 space-y-0.5">
-											{#each multiResults as r}
-												<li class="text-xs text-slate-600">
-													{String(r.parsed.title || 'Untitled')} — {String(r.parsed.date || '')}{r
-														.parsed.startTime
-														? ` at ${r.parsed.startTime}`
-														: ''}
-												</li>
-											{/each}
-										</ul>
-										<div class="flex gap-2">
-											<button
-												type="button"
-												on:click={createAllEvents}
-												disabled={submitting}
-												class="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-primary-700 disabled:opacity-50"
-											>
-												Create {multiResults.length} events
-											</button>
-											<button
-												type="button"
-												on:click={() => (multiResults = null)}
-												class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
-											>
-												Just the first
-											</button>
-										</div>
-									</div>
-								{/if}
-								{#if phraseReportable && nlInput.trim()}
-									<div class="mt-1 text-right">
-										{#if phraseReported}
-											<span class="text-xs text-slate-400">Thanks — we'll teach the parser.</span>
-										{:else}
-											<button
-												type="button"
-												on:click={reportPhrase}
-												disabled={reportingPhrase}
-												class="text-xs text-slate-400 underline hover:text-slate-600 disabled:opacity-50"
-											>
-												{reportingPhrase ? 'Reporting…' : 'Parsed wrong? Report this phrase'}
-											</button>
-										{/if}
-									</div>
-								{/if}
-							</div>
+							<EventQuickAdd
+								bind:nlInput
+								{parsing}
+								{parseError}
+								bind:multiResults
+								{submitting}
+								{lastParseResult}
+								{phraseReportable}
+								{phraseReported}
+								{reportingPhrase}
+								{onNlInputChange}
+								onClear={clearAll}
+								onCreateAll={createAllEvents}
+								onDismissMulti={() => (multiResults = null)}
+								onReportPhrase={reportPhrase}
+							/>
 						{/if}
 
 						<EventTitleFields
@@ -929,115 +856,19 @@
 										{/if}
 									</div>
 								</div>
+
 							{/if}
 
-							<div>
-								<div class="mb-1 text-sm font-medium text-slate-700">
-									Location
-									{#if form.isDetected('location')}<span class="ml-1 text-emerald-600">✓</span>{/if}
-								</div>
-								<LocationSearch bind:value={form.location} />
-							</div>
+							<EventMetaFields
+								{form}
+								{familyMembers}
+								{calendarIds}
+								{showMore}
+								showAttendees={form.isEditMode ||
+									showMore ||
+									(!nlpCollapsed && form.isDetected('attendants'))}
+							/>
 
-							{#if form.isEditMode || showMore || (!nlpCollapsed && form.isDetected('attendants'))}
-								<div>
-									<div class="mb-1 text-sm font-medium text-slate-700">
-										Attendees
-										{#if form.isDetected('attendants')}<span class="ml-1 text-emerald-600">✓</span
-											>{/if}
-									</div>
-									<AttendantPicker
-										selected={form.attendants}
-										{familyMembers}
-										recent={form.recentAttendants}
-										selections={form.inviteTypes}
-										onChangeInviteType={(value, type) => form.setInviteType(value, type)}
-										on:toggle={(e) => form.toggleAttendant(e.detail)}
-									/>
-								</div>
-							{/if}
-
-							{#if (form.isEditMode || showMore) && calendarIds.length > 1}
-								<div class="relative">
-									<div class="mb-1 text-sm font-medium text-slate-700">Calendar</div>
-									<button
-										type="button"
-										on:click={() => (calendarDropdownOpen = !calendarDropdownOpen)}
-										on:blur={() => setTimeout(() => (calendarDropdownOpen = false), 150)}
-										class="flex w-full items-center gap-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm transition-all focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-									>
-										<span
-											class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
-											style="background-color: {calColor.bg}; color: {calColor.text}"
-										>
-											{selectedCal ? selectedCal.name.charAt(0).toUpperCase() : '?'}
-										</span>
-										<span class="flex-1 truncate text-left font-medium text-slate-700"
-											>{selectedCal?.name || 'Select calendar'}</span
-										>
-										<svg
-											class="h-4 w-4 text-slate-400"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-											stroke-width="2"
-										>
-											<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-										</svg>
-									</button>
-
-									{#if calendarDropdownOpen}
-										<div
-											class="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
-										>
-											<div class="p-1">
-												{#each calendarIds as cal}
-													{@const color = cal.color
-														? { bg: cal.color, text: '#ffffff' }
-														: getContactColor(cal.name)}
-													{@const selected = form.selectedCalendarId === cal.id}
-													<button
-														type="button"
-														on:click={() => {
-															form.selectedCalendarId = cal.id;
-															form.markTouched('calendar');
-															calendarDropdownOpen = false;
-														}}
-														class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-slate-50 {selected
-															? 'bg-primary-50'
-															: ''}"
-													>
-														<span
-															class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-															style="background-color: {color.bg}; color: {color.text}"
-														>
-															{cal.name.charAt(0).toUpperCase()}
-														</span>
-														<span class="flex-1 truncate font-medium text-slate-700"
-															>{cal.name}</span
-														>
-														{#if selected}
-															<svg
-																class="h-4 w-4 text-primary-600"
-																fill="none"
-																viewBox="0 0 24 24"
-																stroke="currentColor"
-																stroke-width="3"
-															>
-																<path
-																	stroke-linecap="round"
-																	stroke-linejoin="round"
-																	d="M5 13l4 4L19 7"
-																/>
-															</svg>
-														{/if}
-													</button>
-												{/each}
-											</div>
-										</div>
-									{/if}
-								</div>
-							{/if}
 						{/if}
 					{:else}
 						<div>

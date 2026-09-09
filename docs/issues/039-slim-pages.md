@@ -53,8 +53,12 @@ markup + pure logic extract out with colocated tests.
 - [x] EventFormModal 1420 → 1303: EventRecurrenceFields (repeat +
   reminder + scope radios, + 2 tests) + EventTitleFields (title +
   description + Show More, + 3 tests), both bound to the shared form
-  model. More sections to go (quick-add, datetime, attendees, delete
-  flows, action bar).
+  model.
+- [x] EventFormModal → 1134: EventQuickAdd (NLP input + multi +
+  report, + 4 tests) + EventMetaFields (location + attendees +
+  calendar picker, + 2 tests). Gate placement verified (location in
+  outer auto-reveal gate), NLP auto-reveal browser-verified. To go:
+  datetime fields, task-mode form, checklist, delete flows, action bar.
 - [ ] EventModal (1251) → sections
 - [ ] DayView (764) / WeekView (710) → sub-blocks
 - [ ] MonthDays (402) → cell component
