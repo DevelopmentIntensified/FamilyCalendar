@@ -64,7 +64,10 @@ markup + pure logic extract out with colocated tests.
 - [x] EventFormModal → 941: EventDeleteConfirm + EventActionBar
   (+ 6 tests). Submit verified end-to-end (event created in DB;
   modal-stays-open is pre-existing rapid-entry behavior, page never
-  closes). To go: task-mode form + submit fns.
+  closes).
+- [x] EventFormModal → 843: EventRsvpList + EventTaskFields (+ 4
+  tests). Task-mode form browser-verified. To go: submit fns
+  (handleSubmit/createAllEvents/delete*) + shell/header.
 - [ ] EventModal (1251) → sections
 - [ ] DayView (764) / WeekView (710) → sub-blocks
 - [ ] MonthDays (402) → cell component

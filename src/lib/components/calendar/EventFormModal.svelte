@@ -17,6 +17,8 @@
 	import EventMetaFields from './EventMetaFields.svelte';
 	import EventDeleteConfirm from './EventDeleteConfirm.svelte';
 	import EventActionBar from './EventActionBar.svelte';
+	import EventRsvpList from './EventRsvpList.svelte';
+	import EventTaskFields from './EventTaskFields.svelte';
 	import { queueMutation } from '$lib/utils/offline';
 
 	export let show = false;
@@ -747,58 +749,7 @@
 							/>
 						{/if}
 					{:else}
-						<div>
-							<div class="mb-1 flex items-center justify-between gap-2">
-								<label for="task-title" class="block text-sm font-medium text-slate-700"
-									>Task Title *</label
-								>
-								<TaskQuickAddHelp />
-							</div>
-							<input
-								id="task-title"
-								type="text"
-								bind:value={taskTitle}
-								placeholder="e.g., Pay water bill — or try &quot;#private tomorrow @family&quot;"
-								required
-								class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-							/>
-							{#if taskError}
-								<p class="mt-1 text-xs text-red-600" role="alert">{taskError}</p>
-							{/if}
-						</div>
-
-						<div>
-							<label for="task-visibility" class="mb-1 block text-sm font-medium text-slate-700"
-								>Visibility</label
-							>
-							<select
-								id="task-visibility"
-								bind:value={taskVisibility}
-								class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-							>
-								<option value="public">🌐 Public — family can see it (read-only)</option>
-								<option value="private">🔒 Private — only you and the assignee</option>
-							</select>
-							<p class="mt-1 text-xs text-slate-400">
-								A <span class="font-mono">#public</span>/<span class="font-mono">#private</span>
-								tag in the title wins over this.
-							</p>
-						</div>
-
-						<div>
-							<label for="task-due-date" class="mb-1 block text-sm font-medium text-slate-700"
-								>Due Date</label
-							>
-							<input
-								id="task-due-date"
-								type="date"
-								bind:value={taskDueDate}
-								class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-							/>
-							<p class="mt-1 text-xs text-slate-400">
-								Optional — shows as a dashed chip on its due day.
-							</p>
-						</div>
+						<EventTaskFields bind:taskTitle bind:taskVisibility bind:taskDueDate {taskError} />
 					{/if}
 				</div>
 
@@ -826,57 +777,8 @@
 					</div>
 				{/if}
 
-				{#if form.isEditMode && rsvpData.length > 0}
-					<div class="border-t border-slate-100 p-5">
-						<h3 class="mb-2 text-sm font-semibold text-slate-700">RSVP Status</h3>
-						{#if rsvpData.filter((r) => r.status === 'going').length > 0}
-							<div class="mb-2">
-								<span class="text-xs font-medium text-emerald-700"
-									>Going ({rsvpData.filter((r) => r.status === 'going').length}):</span
-								>
-								<div class="mt-1 flex flex-wrap gap-1">
-									{#each rsvpData.filter((r) => r.status === 'going') as rsvp}
-										<span
-											class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700"
-											>{rsvp.firstName || rsvp.userId}</span
-										>
-									{/each}
-								</div>
-							</div>
-						{/if}
-						{#if rsvpData.filter((r) => r.status === 'maybe').length > 0}
-							<div class="mb-2">
-								<span class="text-xs font-medium text-amber-700"
-									>Maybe ({rsvpData.filter((r) => r.status === 'maybe').length}):</span
-								>
-								<div class="mt-1 flex flex-wrap gap-1">
-									{#each rsvpData.filter((r) => r.status === 'maybe') as rsvp}
-										<span
-											class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700"
-											>{rsvp.firstName || rsvp.userId}</span
-										>
-									{/each}
-								</div>
-							</div>
-						{/if}
-						{#if rsvpData.filter((r) => r.status === 'declined' || r.status === 'not_going').length > 0}
-							<div class="mb-2">
-								<span class="text-xs font-medium text-red-700"
-									>Not Going ({rsvpData.filter(
-										(r) => r.status === 'declined' || r.status === 'not_going'
-									).length}):</span
-								>
-								<div class="mt-1 flex flex-wrap gap-1">
-									{#each rsvpData.filter((r) => r.status === 'declined' || r.status === 'not_going') as rsvp}
-										<span
-											class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700"
-											>{rsvp.firstName || rsvp.userId}</span
-										>
-									{/each}
-								</div>
-							</div>
-						{/if}
-					</div>
+				{#if form.isEditMode}
+					<EventRsvpList {rsvpData} />
 				{/if}
 
 				{#if entryType === 'event'}
