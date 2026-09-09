@@ -91,6 +91,9 @@ markup + pure logic extract out with colocated tests.
 - [x] EventModal → 406: EventRsvpRow (optimistic RSVP + list refresh
   + counts, + 2 tests; invalidate awaited). RSVP row browser-verified.
   All 17 modal tests green.
+- [x] EventModal → 372: `eventDuplicate.ts` (+ 2 tests) holds the copy
+  payload builder (attendees mapping included). Duplicate-payload
+  modal test green.
 - [x] EventModal → 517: EventModalBar (delete/duplicate confirms +
   3 action buttons, + 4 tests; placement tests still green).
   Bar buttons + delete-confirm-cancel browser-verified (bench data

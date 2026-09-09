@@ -11,6 +11,7 @@
 	import EventDetailList from './EventDetailList.svelte';
 	import EventModalBar from './EventModalBar.svelte';
 	import EventRsvpRow from './EventRsvpRow.svelte';
+	import { buildDuplicateEventPayload } from '$lib/utils/eventDuplicate';
 	import { createSwipeState, startSwipe, moveSwipe, endSwipe } from './bottomSheetSwipe';
 
 	export let event: Event;
@@ -192,42 +193,7 @@
 		actionError = '';
 		duplicating = true;
 		try {
-			// Copy the loaded invitation rows too: members with their required/
-			// optional type, guests by name (server always stores guests optional).
-			const attendeePayload = [
-				...attendees.flatMap((a) =>
-					a.userId
-						? [
-								{
-									value: a.userId,
-									isUser: true,
-									inviteType: a.inviteType === 'required' ? 'required' : 'optional'
-								}
-							]
-						: []
-				),
-				...nonUserAttendants.map((name) => ({
-					value: name,
-					isUser: false,
-					inviteType: 'optional'
-				}))
-			];
-			const payload = {
-				title: `${event.title} (copy)`,
-				start: toIsoString(event.start),
-				end: event.end ? toIsoString(event.end) : null,
-				description: event.description || null,
-				location: event.location || null,
-				allDay: !!event.allDay,
-				calendarId: event.calendarId || null,
-				recurrenceFrequency: event.recurrenceFrequency,
-				recurrenceInterval: event.recurrenceInterval,
-				recurrenceByDay: event.recurrenceByDay,
-				recurrenceCount: event.recurrenceCount,
-				recurrenceUntil: event.recurrenceUntil,
-				reminderMinutes: event.reminderMinutes ?? null,
-				attendees: attendeePayload
-			};
+			const payload = buildDuplicateEventPayload(event, attendees, nonUserAttendants);
 			const res = await fetch('/api/events', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
