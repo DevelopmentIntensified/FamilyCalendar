@@ -24,6 +24,9 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
+	import TaskDetailBar from './TaskDetailBar.svelte';
+	import { formatDueLong as formatDue, freqNoun } from '$lib/utils/taskDisplay';
+	import { isOverdue as isDueOverdue, priorityLabel, priorityTone } from '$lib/utils/priorityTone';
 	import {
 		showRecurringCompleteFeedback,
 		showRecurringSkipFeedback
@@ -32,21 +35,9 @@
 	export let task: CalendarTask;
 	export let onClose: () => void = () => {};
 
-	type DetailFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
-	const FREQ_NOUN: Record<DetailFrequency, string> = {
-		daily: 'day',
-		weekly: 'week',
-		monthly: 'month',
-		yearly: 'year'
-	};
-
-	function freqNoun(frequency: string): string {
-		return frequency === 'daily' ||
-			frequency === 'weekly' ||
-			frequency === 'monthly' ||
-			frequency === 'yearly'
-			? FREQ_NOUN[frequency]
-			: frequency;
+	/** Recurrence noun via shared taskDisplay (falls back to raw code). */
+	function freqNounOrRaw(frequency: string): string {
+		return freqNoun(frequency) ?? frequency;
 	}
 
 	let busy = false;
@@ -59,39 +50,26 @@
 		onClose();
 	}
 
-	function formatDue(due: Date | string | null | undefined): string {
-		if (!due) return '';
-		const d = due instanceof Date ? due : new Date(due);
-		if (isNaN(d.getTime())) return '';
-		return d.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
-	}
-
 	function isOverdue(): boolean {
 		if (!task.dueDate || task.completedAt) return false;
-		const d = task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate);
-		return !isNaN(d.getTime()) && d.getTime() < Date.now();
+		const iso = task.dueDate instanceof Date ? task.dueDate.toISOString() : task.dueDate;
+		return isDueOverdue(iso);
 	}
 
 	function freqLabel(): string {
 		if (!task.recurrenceFrequency) return '';
-		const noun = freqNoun(task.recurrenceFrequency);
+		const noun = freqNounOrRaw(task.recurrenceFrequency);
 		return task.recurrenceInterval && task.recurrenceInterval > 1
 			? `every ${task.recurrenceInterval} ${noun}s`
 			: `every ${noun}`;
 	}
 
-	type DetailPriority = 'high' | 'normal' | 'low';
-	const PRIORITY_META: Record<DetailPriority, { label: string; cls: string }> = {
-		high: { label: 'High', cls: 'bg-red-100 text-red-700' },
-		normal: { label: 'Normal', cls: 'bg-slate-100 text-slate-600' },
-		low: { label: 'Low', cls: 'bg-sky-100 text-sky-700' }
-	};
-
+	/** Priority chip via shared palette (low muted per project direction — was sky here). */
 	function priorityMeta(priority: string) {
-		return priority === 'high' || priority === 'normal' || priority === 'low'
-			? PRIORITY_META[priority]
-			: undefined;
+		return { label: priorityLabel(priority), cls: priorityTone(priority) };
 	}
+
+	const NORMAL_TONE = priorityTone('normal');
 
 	async function toggleComplete() {
 		if (busy) return;
@@ -250,10 +228,10 @@
 					<div class="flex items-center justify-between gap-3">
 						<dt class="text-slate-500">Priority</dt>
 						<dd
-							class="rounded-full px-2 py-0.5 font-medium {priorityMeta(task.priority)?.cls ??
-								PRIORITY_META.normal.cls}"
+							class="rounded-full px-2 py-0.5 font-medium {priorityMeta(task.priority).cls ??
+								NORMAL_TONE}"
 						>
-							{priorityMeta(task.priority)?.label ?? 'Normal'}
+							{priorityMeta(task.priority).label ?? 'Normal'}
 						</dd>
 					</div>
 				{/if}
@@ -297,56 +275,16 @@
 				</div>
 			{/if}
 
-			<div class="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
-				{#if task.recurrenceFrequency && !task.completedAt}
-					<button
-						type="button"
-						onclick={advance}
-						disabled={busy}
-						class="rounded-lg border border-purple-200 px-4 py-2 text-sm font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-50"
-					>
-						Skip occurrence
-					</button>
-				{/if}
-				{#if showDeleteConfirm}
-					<div class="flex items-center gap-2">
-						<span class="text-sm text-red-600">Delete this task?</span>
-						<button
-							type="button"
-							onclick={remove}
-							disabled={busy}
-							class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-						>
-							{busy ? 'Deleting…' : 'Yes, delete'}
-						</button>
-						<button
-							type="button"
-							onclick={() => (showDeleteConfirm = false)}
-							disabled={busy}
-							class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-						>
-							Cancel
-						</button>
-					</div>
-				{:else}
-					<button
-						type="button"
-						onclick={() => (showDeleteConfirm = true)}
-						disabled={busy}
-						class="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-					>
-						Delete
-					</button>
-				{/if}
-				<button
-					type="button"
-					onclick={toggleComplete}
-					disabled={busy}
-					class="rounded-lg bg-primary-600 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-				>
-					{busy ? 'Working…' : 'Mark complete'}
-				</button>
-			</div>
+			<TaskDetailBar
+				{busy}
+				{showDeleteConfirm}
+				canSkip={!!task.recurrenceFrequency && !task.completedAt}
+				onAdvance={advance}
+				onRemove={remove}
+				onBeginDelete={() => (showDeleteConfirm = true)}
+				onCancelDelete={() => (showDeleteConfirm = false)}
+				onToggleComplete={toggleComplete}
+			/>
 		</div>
 	</div>
 </div>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDue, freqNoun } from './taskDisplay';
+import { formatDue, formatDueLong, freqNoun } from './taskDisplay';
 
 describe('freqNoun', () => {
 	it('maps frequencies to singular nouns', () => {
@@ -30,5 +30,23 @@ describe('formatDue', () => {
 			})
 		);
 		expect(formatDue('2001-01-05')).toContain('2001');
+	});
+});
+
+describe('formatDueLong', () => {
+	it('returns empty for missing/invalid dates', () => {
+		expect(formatDueLong(null)).toBe('');
+		expect(formatDueLong(undefined)).toBe('');
+		expect(formatDueLong('not-a-date')).toBe('');
+	});
+
+	it('accepts Date objects and ISO strings with long month + year', () => {
+		const long = new Date('2026-09-10T18:00:00').toLocaleDateString(undefined, {
+			month: 'long',
+			day: 'numeric',
+			year: 'numeric'
+		});
+		expect(formatDueLong(new Date('2026-09-10T18:00:00'))).toBe(long);
+		expect(formatDueLong('2026-09-10T18:00:00')).toBe(long);
 	});
 });

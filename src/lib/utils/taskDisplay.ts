@@ -29,3 +29,11 @@ export function formatDue(due: string | null): string {
 			: { month: 'short', day: 'numeric' };
 	return dt.toLocaleDateString(undefined, opts);
 }
+
+/** Long due format for detail surfaces (TaskDetailModal): always month-long + year. */
+export function formatDueLong(due: Date | string | null | undefined): string {
+	if (!due) return '';
+	const dt = due instanceof Date ? due : new Date(due);
+	if (isNaN(dt.getTime())) return '';
+	return dt.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+}

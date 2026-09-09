@@ -129,6 +129,10 @@ markup + pure logic extract out with colocated tests.
 - [x] DayView 764 → 715: dropped local layoutTimed (byte-identical to
   tested dayViewLayout util) + freqNoun (→ shared taskDisplay).
   16 DayView/layout tests green.
+- [x] TaskDetailModal 352 → 294: `formatDueLong` joins shared taskDisplay
+  (+ 2 tests); freq/priority/overdue reuse shared taskDisplay + priorityTone
+  (low chip sky → shared slate-muted); `TaskDetailBar.svelte` (+ 4 tests)
+  owns skip/delete-confirm/complete bar.
 - [ ] DayView/WeekView interaction unification (drag/drop/range/delete
   flows mirror each other) → separate issue: needs behavior-parity
   review before touching (43 existing interaction tests are the fence).
