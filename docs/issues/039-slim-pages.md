@@ -133,6 +133,9 @@ markup + pure logic extract out with colocated tests.
   (+ 2 tests); freq/priority/overdue reuse shared taskDisplay + priorityTone
   (low chip sky → shared slate-muted); `TaskDetailBar.svelte` (+ 4 tests)
   owns skip/delete-confirm/complete bar.
+- [x] Navbar 350 → 178: `navItems.ts` (+ 5 tests) owns item sets +
+  longest-prefix-wins resolveActiveHref; `NavbarProfileMenu` (+ 3 tests)
+  owns desktop dropdown; `NavbarMobileMenu` (+ 3 tests) owns mobile panel.
 - [ ] DayView/WeekView interaction unification (drag/drop/range/delete
   flows mirror each other) → separate issue: needs behavior-parity
   review before touching (43 existing interaction tests are the fence).
