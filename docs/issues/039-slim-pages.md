@@ -61,7 +61,10 @@ markup + pure logic extract out with colocated tests.
 - [x] EventFormModal → ~1010: EventDateTimeFields (day toggles +
   RecurrenceFields + dates + times, + 2 tests; recurrence nests
   inside). Modal open + Show More + all fields browser-verified.
-  To go: task-mode form, delete flows, action bar, submit fns.
+- [x] EventFormModal → 941: EventDeleteConfirm + EventActionBar
+  (+ 6 tests). Submit verified end-to-end (event created in DB;
+  modal-stays-open is pre-existing rapid-entry behavior, page never
+  closes). To go: task-mode form + submit fns.
 - [ ] EventModal (1251) → sections
 - [ ] DayView (764) / WeekView (710) → sub-blocks
 - [ ] MonthDays (402) → cell component

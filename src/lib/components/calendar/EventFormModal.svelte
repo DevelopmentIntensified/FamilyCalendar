@@ -15,6 +15,8 @@
 	import EventTitleFields from './EventTitleFields.svelte';
 	import EventQuickAdd from './EventQuickAdd.svelte';
 	import EventMetaFields from './EventMetaFields.svelte';
+	import EventDeleteConfirm from './EventDeleteConfirm.svelte';
+	import EventActionBar from './EventActionBar.svelte';
 	import { queueMutation } from '$lib/utils/offline';
 
 	export let show = false;
@@ -886,47 +888,14 @@
 				{/if}
 
 				{#if showDeleteConfirm}
-					<div class="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 p-3">
-						<p class="text-sm font-medium text-red-700">Delete this event?</p>
-						{#if attachedTaskCount > 0}
-							<p class="mt-0.5 text-xs text-red-600">
-								⚠️ {attachedTaskCount} attached task(s) will also be deleted.
-							</p>
-						{/if}
-						<div class="mt-2 flex flex-wrap items-center gap-2">
-							{#if form.isRecurringOccurrence}
-								<button
-									type="button"
-									on:click={deleteThisOccurrence}
-									class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
-								>
-									This occurrence
-								</button>
-								<button
-									type="button"
-									on:click={deleteWholeSeries}
-									class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
-								>
-									Whole series
-								</button>
-							{:else}
-								<button
-									type="button"
-									on:click={deleteSingleEvent}
-									class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
-								>
-									Delete
-								</button>
-							{/if}
-							<button
-								type="button"
-								on:click={() => (showDeleteConfirm = false)}
-								class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-							>
-								Cancel
-							</button>
-						</div>
-					</div>
+					<EventDeleteConfirm
+						isRecurringOccurrence={form.isRecurringOccurrence}
+						{attachedTaskCount}
+						onDeleteOccurrence={deleteThisOccurrence}
+						onDeleteSeries={deleteWholeSeries}
+						onDeleteSingle={deleteSingleEvent}
+						onCancel={() => (showDeleteConfirm = false)}
+					/>
 				{/if}
 
 				{#if submitError}
@@ -937,56 +906,20 @@
 			</form>
 
 			<!-- Sticky action bar (outside the scroll region; stays visible with keyboard open) -->
-			<div
-				class="flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 px-5 py-3"
-				style="padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem)"
-			>
-				{#if form.isEditMode}
-					<button
-						type="button"
-						on:click={handleDelete}
-						class="mr-auto rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-						>Delete</button
-					>
-				{/if}
-				<button
-					type="button"
-					on:click={close}
-					class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-					>Cancel</button
-				>
-				{#if !form.isEditMode && entryType === 'event'}
-					<button
-						type="button"
-						on:click={clearAll}
-						class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-						>Clear</button
-					>
-				{/if}
-				<button
-					type="submit"
-					form="event-form"
-					class="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-					title={form.endBeforeStart || form.endDateBeforeStart
-						? 'End must be after start'
-						: undefined}
-					disabled={(entryType === 'task'
-						? !taskTitle.trim()
-						: !form.title || !form.date || form.endBeforeStart || form.endDateBeforeStart) ||
-						submitting}
-				>
-					{#if submitting}
-						<div class="flex items-center gap-2">
-							<div
-								class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
-							></div>
-							{form.isEditMode ? 'Updating...' : entryType === 'task' ? 'Adding...' : 'Creating...'}
-						</div>
-					{:else}
-						{form.isEditMode ? 'Update' : entryType === 'task' ? 'Add Task' : 'Create'}
-					{/if}
-				</button>
-			</div>
+			<EventActionBar
+				isEditMode={form.isEditMode}
+				{entryType}
+				{submitting}
+				canSubmit={entryType === 'task'
+					? !!taskTitle.trim()
+					: !!form.title && !!form.date && !form.endBeforeStart && !form.endDateBeforeStart}
+				submitBlockedReason={form.endBeforeStart || form.endDateBeforeStart
+					? 'End must be after start'
+					: undefined}
+				onDelete={handleDelete}
+				onClose={close}
+				onClear={clearAll}
+			/>
 		</div>
 	</div>
 {/if}
