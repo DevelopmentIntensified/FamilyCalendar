@@ -74,6 +74,9 @@ markup + pure logic extract out with colocated tests.
   → EventFormModel (+ 2 tests, tz-safe assertions). Create smoke
   verified (event in DB). To go: parseNlInput/reportPhrase,
   handleSubmit/createAllEvents orchestration, task-mode lets.
+- [x] Calendar page 919 → 719: `bulkPlan.ts` (describePlanOp +
+  past-checks, + 4 tests) + `BulkEditBar.svelte` (+ 5 tests).
+  Selection-mode bar browser-verified (0 selected shows).
 - [x] Duplicate kill: EventModal checklist → shared ChecklistSection
   (−200 lines: fetch/add/toggle/delete fns + state + markup).
   EventModal 1251 → 1051. Modal open + checklist header browser-
