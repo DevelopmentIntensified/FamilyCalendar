@@ -84,9 +84,11 @@ markup + pure logic extract out with colocated tests.
   "on the X calendar" name match (exact → partial, null keeps default).
   parseNlInput/reportPhrase, handleSubmit/createAllEvents, task submit +
   seeds stay — handlers per rule (4 NLP failures pre-exist on HEAD).
-- [x] Calendar page 919 → 719: `bulkPlan.ts` (describePlanOp +
-  past-checks, + 4 tests) + `BulkEditBar.svelte` (+ 5 tests).
-  Selection-mode bar browser-verified (0 selected shows).
+- [x] Calendar page 919 → 682: `bulkPlan.ts` (describePlanOp +
+  past-checks, + 4 tests) + `BulkEditBar.svelte` (+ 5 tests) own the
+  bulk bar + smart-plan panel; `FirstRunCard.svelte` (+ 2 tests) owns
+  the blank-calendar card; dead isBoolean/isString guards dropped.
+  Rest is handlers + composition (floor per rule).
 - [x] Duplicate kill: EventModal checklist → shared ChecklistSection
   (−200 lines: fetch/add/toggle/delete fns + state + markup).
   EventModal 1251 → 1051. Modal open + checklist header browser-
