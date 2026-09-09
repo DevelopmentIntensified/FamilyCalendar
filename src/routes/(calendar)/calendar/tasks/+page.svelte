@@ -9,6 +9,7 @@
 	import AddTaskCard from '$lib/components/tasks/AddTaskCard.svelte';
 	import EditTaskDialog, { type EditDraft } from '$lib/components/tasks/EditTaskDialog.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
+	import { formatDue } from '$lib/utils/taskDisplay';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { queueMutation } from '$lib/utils/offline';
 	import { dueTone, priorityDot, priorityLabel } from '$lib/utils/priorityTone';
@@ -287,18 +288,6 @@
 	$: completedThisWeek = completedTasks.filter(
 		(t) => t.completedAt && Date.now() - new Date(t.completedAt).getTime() < 7 * 24 * 60 * 60 * 1000
 	).length;
-
-	function formatDue(due: string | null): string {
-		if (!due) return '';
-		const dt = new Date(due);
-		if (isNaN(dt.getTime())) return '';
-		// Long (multi-year) recurring tasks need the year; same-year dates stay short.
-		const opts: Intl.DateTimeFormatOptions =
-			dt.getFullYear() !== new Date().getFullYear()
-				? { month: 'short', day: 'numeric', year: 'numeric' }
-				: { month: 'short', day: 'numeric' };
-		return dt.toLocaleDateString(undefined, opts);
-	}
 
 	async function toggleTask(id: string) {
 		const task = allTasks.find((t) => t.id === id);

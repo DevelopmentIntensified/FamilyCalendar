@@ -33,6 +33,10 @@ markup + pure logic extract out with colocated tests.
 - [x] calendar/tasks toolbar → TaskToolbar (chips/search/sort/tag via
   bind:, CHIPS + TaskChip type live with it; + 3 tests). Page 822 →
   709. Chip-press + search browser-verified.
+- [x] `taskDisplay.ts` (+ 4 tests): single `formatDue` + `freqNoun` for
+  tasks page, TaskRow, TaskCompletedRow, EditTaskDialog, family tasks
+  (was 5 copies). Page → 698. `PRIORITY_DOT` left alone — family
+  palette differs deliberately (sky vs slate low).
 - [x] BUGFIX: stash-once caches never updated after invalidateAll
   (mutations invisible) — unconditional assignment on promise-identity
   change, fixed on calendar + tasks pages

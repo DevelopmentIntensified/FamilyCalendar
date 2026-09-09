@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { formatDue, freqNoun } from '$lib/utils/taskDisplay';
+
 	interface Props {
 		task: {
 			id: string;
@@ -18,35 +20,6 @@
 
 	let { task, busy, confirmDelete, onToggle, onDelete, onAskDelete, onCancelDelete }: Props =
 		$props();
-
-	const FREQ_NOUN = {
-		daily: 'day',
-		weekly: 'week',
-		monthly: 'month',
-		yearly: 'year'
-	} satisfies Record<string, string>;
-
-	function freqNoun(frequency: string | null | undefined): string | undefined {
-		if (
-			frequency === 'daily' ||
-			frequency === 'weekly' ||
-			frequency === 'monthly' ||
-			frequency === 'yearly'
-		)
-			return FREQ_NOUN[frequency];
-		return undefined;
-	}
-
-	function formatDue(due: string | null): string {
-		if (!due) return '';
-		const dt = new Date(due);
-		if (isNaN(dt.getTime())) return '';
-		const opts: Intl.DateTimeFormatOptions =
-			dt.getFullYear() !== new Date().getFullYear()
-				? { month: 'short', day: 'numeric', year: 'numeric' }
-				: { month: 'short', day: 'numeric' };
-		return dt.toLocaleDateString(undefined, opts);
-	}
 </script>
 
 <div
@@ -71,9 +44,7 @@
 			>{/if}
 	</p>
 	{#if task.dueDate}
-		<span
-			class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-400"
-		>
+		<span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-400">
 			{formatDue(task.dueDate)}
 		</span>
 	{/if}
@@ -88,8 +59,7 @@
 	{#if (task.tags ?? []).length > 0}
 		<div class="flex flex-wrap gap-1">
 			{#each task.tags ?? [] as tag (tag)}
-				<span
-					class="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
+				<span class="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
 					>#{tag}</span
 				>
 			{/each}

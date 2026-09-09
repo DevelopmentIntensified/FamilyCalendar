@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { dueTone, priorityDot, priorityLabel } from '$lib/utils/priorityTone';
+	import { formatDue, freqNoun } from '$lib/utils/taskDisplay';
 
 	/** Structural task shape — both task pages pass their local TaskItem. */
 	export interface TaskRowTask {
@@ -56,35 +57,6 @@
 		onAskDelete,
 		onCancelDelete
 	}: Props = $props();
-
-	const FREQ_NOUN = {
-		daily: 'day',
-		weekly: 'week',
-		monthly: 'month',
-		yearly: 'year'
-	} satisfies Record<string, string>;
-
-	function freqNoun(frequency: string | null | undefined): string | undefined {
-		if (
-			frequency === 'daily' ||
-			frequency === 'weekly' ||
-			frequency === 'monthly' ||
-			frequency === 'yearly'
-		)
-			return FREQ_NOUN[frequency];
-		return undefined;
-	}
-
-	function formatDue(due: string | null): string {
-		if (!due) return '';
-		const dt = new Date(due);
-		if (isNaN(dt.getTime())) return '';
-		const opts: Intl.DateTimeFormatOptions =
-			dt.getFullYear() !== new Date().getFullYear()
-				? { month: 'short', day: 'numeric', year: 'numeric' }
-				: { month: 'short', day: 'numeric' };
-		return dt.toLocaleDateString(undefined, opts);
-	}
 
 	let mine = $derived(task.assignedTo === currentUserId);
 	let pending = $derived(task.assignmentStatus === 'pending');
@@ -170,8 +142,7 @@
 		{#if (task.tags ?? []).length > 0}
 			<div class="mt-1 flex flex-wrap gap-1">
 				{#each task.tags ?? [] as tag (tag)}
-					<span
-						class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+					<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
 						>#{tag}</span
 					>
 				{/each}
@@ -225,8 +196,7 @@
 				</span>
 				{assigneeName.split(' ')[0]}
 				{#if task.assignmentStatus === 'pending'}
-					<span
-						class="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700"
+					<span class="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700"
 						>pending</span
 					>
 				{/if}

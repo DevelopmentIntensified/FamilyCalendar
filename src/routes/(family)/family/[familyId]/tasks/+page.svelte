@@ -6,6 +6,7 @@
 	import MentionInput from '$lib/components/MentionInput.svelte';
 	import TaskQuickAddPreview from '$lib/components/TaskQuickAddPreview.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
+	import { formatDue, freqNoun } from '$lib/utils/taskDisplay';
 	import { parseTaskQuickAdd, TASK_QUICK_ADD_PRIORITY_RE } from '$lib/utils/taskQuickAdd';
 	import { sortByCompletedDesc, sortTasks, type TaskSortKey } from '$lib/utils/taskSort';
 	import {
@@ -64,16 +65,6 @@
 		localStorage.setItem('familyplanz:tagFilter', tagFilter);
 	}
 
-	/** Recurrence frequency -> singular noun for "every N <noun>s". */
-	interface FreqNouns {
-		[key: string]: string;
-	}
-	const FREQ_NOUN: FreqNouns = {
-		daily: 'day',
-		weekly: 'week',
-		monthly: 'month',
-		yearly: 'year'
-	};
 	/** Task priority -> dot color class. */
 	interface PriorityDots {
 		[key: string]: string;
@@ -93,18 +84,6 @@
 
 	function firstName(userId: string | null | undefined): string {
 		return memberName(userId).split(' ')[0];
-	}
-
-	function formatDue(due: string | null): string {
-		if (!due) return '';
-		const dt = new Date(due);
-		if (isNaN(dt.getTime())) return '';
-		// Long (multi-year) recurring tasks need the year; same-year dates stay short.
-		const opts: Intl.DateTimeFormatOptions =
-			dt.getFullYear() !== new Date().getFullYear()
-				? { month: 'short', day: 'numeric', year: 'numeric' }
-				: { month: 'short', day: 'numeric' };
-		return dt.toLocaleDateString(undefined, opts);
 	}
 
 	/** End-of-today ISO slot — used when a recurrence is typed with no due date. */
@@ -242,7 +221,7 @@
 
 	function recurrenceNote(task: TaskItem): string {
 		if (!task.recurrenceFrequency) return '';
-		const noun = FREQ_NOUN[task.recurrenceFrequency] ?? task.recurrenceFrequency;
+		const noun = freqNoun(task.recurrenceFrequency) ?? task.recurrenceFrequency;
 		return task.recurrenceInterval && task.recurrenceInterval > 1
 			? `every ${task.recurrenceInterval} ${noun}s`
 			: `every ${noun}`;

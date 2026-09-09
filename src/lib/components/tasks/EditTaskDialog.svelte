@@ -15,6 +15,7 @@
 
 <script lang="ts">
 	import { trapFocusAction } from '$lib/utils/focusTrap';
+	import { freqNoun } from '$lib/utils/taskDisplay';
 
 	interface TaskLike {
 		title: string;
@@ -47,23 +48,6 @@
 		{ value: 'monthly', label: 'Monthly' },
 		{ value: 'yearly', label: 'Yearly' }
 	];
-	const FREQ_NOUN = {
-		daily: 'day',
-		weekly: 'week',
-		monthly: 'month',
-		yearly: 'year'
-	} satisfies Record<string, string>;
-
-	function freqNoun(frequency: string | null | undefined): string | undefined {
-		if (
-			frequency === 'daily' ||
-			frequency === 'weekly' ||
-			frequency === 'monthly' ||
-			frequency === 'yearly'
-		)
-			return FREQ_NOUN[frequency];
-		return undefined;
-	}
 
 	function toInputDate(iso: string | null): string {
 		if (!iso) return '';
