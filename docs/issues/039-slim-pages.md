@@ -159,6 +159,8 @@ markup + pure logic extract out with colocated tests.
   public rows reuse shared `FamilyTaskRow`. Nuances: due uses shared
   short+year format, overdue uses shared start-of-day (was Date.now);
   respond-network error copy unified.
+- [x] features 586 → 273: data-driven `FeatureCard`/`MomentCard`/
+  `GalleryCard`/`TestimonialCard`/`StrugglePanel` (+ 5 tests) + tables.
 - [ ] DayView/WeekView interaction unification (drag/drop/range/delete
   flows mirror each other) → separate issue: needs behavior-parity
   review before touching (43 existing interaction tests are the fence).

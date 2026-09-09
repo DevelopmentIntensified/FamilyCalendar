@@ -1,4 +1,141 @@
 <script lang="ts">
+	import FeatureCard from '$lib/components/marketing/FeatureCard.svelte';
+	import MomentCard from '$lib/components/marketing/MomentCard.svelte';
+	import GalleryCard from '$lib/components/marketing/GalleryCard.svelte';
+	import TestimonialCard from '$lib/components/marketing/TestimonialCard.svelte';
+	import StrugglePanel from '$lib/components/marketing/StrugglePanel.svelte';
+	import type { FeatureIcon } from '$lib/components/marketing/featureIcons';
+
+	const features: { icon: FeatureIcon; title: string; blurb: string }[] = [
+		{
+			icon: 'calendar',
+			title: 'Shared Family Calendar',
+			blurb: 'Everyone\'s events in one place. No more "who\'s picking up the kids?" texts.'
+		},
+		{
+			icon: 'bolt',
+			title: 'Smart Event Import',
+			blurb:
+				'Paste a text from your spouse or email from school. Our smart algorithm creates the event.'
+		},
+		{
+			icon: 'users',
+			title: 'Family Groups & Invites',
+			blurb: 'Invite your spouse, kids, grandparents—anyone who needs to be in the loop.'
+		},
+		{
+			icon: 'printer',
+			title: 'Print for the Fridge',
+			blurb: "Hang the weekly schedule on the fridge so everyone can see what's happening."
+		},
+		{
+			icon: 'phone',
+			title: 'Works Everywhere',
+			blurb: 'Check the calendar from your phone at practice, tablet on couch, or laptop at work.'
+		},
+		{
+			icon: 'clipboard',
+			title: 'RSVP to Events',
+			blurb: "Know who's coming to game night or the school play. Going, maybe, or can't make it."
+		}
+	];
+
+	const moments = [
+		{
+			icon: 'clock' as const,
+			gradient: 'from-[#FED5CF] to-[#F1B598]/50',
+			glow: 'bg-[#F1B598]/30',
+			title: 'Morning routines',
+			blurb:
+				"Who's dropping off who? What time is the dentist? See it all at a glance before the day starts."
+		},
+		{
+			icon: 'smile' as const,
+			gradient: 'from-[#C4E9DA] to-[#BEDAE3]/50',
+			glow: 'bg-[#C4E9DA]/30',
+			title: "Kids' activities",
+			blurb:
+				'Soccer, piano, ballet, scouts—track every activity, every location, every pickup time in one place.'
+		},
+		{
+			icon: 'heart' as const,
+			gradient: 'from-[#D3C7E6] to-[#BEDAE3]/50',
+			glow: 'bg-[#D3C7E6]/30',
+			title: 'Family time',
+			blurb:
+				"Date nights, game nights, grandma's visit—make sure the important moments never get double-booked."
+		}
+	];
+
+	const gallery = [
+		{
+			img: 'https://images.pexels.com/photos/4624879/pexels-photo-4624879.jpeg?auto=compress&cs=tinysrgb&w=600',
+			alt: 'Mother and son sitting together in living room',
+			title: 'Growing families',
+			blurb: 'From two to three to four—your calendar grows with you'
+		},
+		{
+			img: 'https://images.pexels.com/photos/5082644/pexels-photo-5082644.jpeg?auto=compress&cs=tinysrgb&w=600',
+			alt: 'Big family enjoying breakfast together in kitchen',
+			title: 'Busy households',
+			blurb: 'Multiple kids, multiple schedules, one simple calendar'
+		},
+		{
+			img: 'https://images.pexels.com/photos/5637704/pexels-photo-5637704.jpeg?auto=compress&cs=tinysrgb&w=600',
+			alt: 'Happy multigenerational Asian family sitting together on bench',
+			title: 'Extended families',
+			blurb: 'Grandparents, aunts, uncles—invite everyone who cares',
+			wide: true
+		}
+	];
+
+	const struggles = {
+		before: [
+			'"Who\'s picking up the kids?"—texting back and forth',
+			'Double-booked soccer practice and piano lessons',
+			'Grandma shows up on the wrong day for dinner',
+			'Events buried in emails, texts, and sticky notes'
+		],
+		after: [
+			'One shared calendar—everyone sees the same schedule',
+			"Color-coded by family member so you know who's where",
+			'Paste a text or email—our smart algorithm adds it to the calendar instantly',
+			"RSVP to family events so everyone knows who's coming"
+		]
+	};
+
+	const testimonials = [
+		{
+			accent: 'border-[#FED5CF] bg-[#FED5CF]/20',
+			star: 'text-[#F1B598]',
+			avatar: 'from-[#FED5CF] to-[#F1B598]',
+			quote:
+				"We used to have three different calendars between us. Now everything is in one place. My husband and I finally stopped texting 'who's picking up the kids?'",
+			initial: 'S',
+			name: 'Sarah M.',
+			detail: 'Mom of 3 · Austin, TX'
+		},
+		{
+			accent: 'border-[#BEDAE3] bg-[#BEDAE3]/20',
+			star: 'text-[#366d7e]',
+			avatar: 'from-[#BEDAE3] to-[#8fbecb]',
+			quote:
+				"The smart paste feature is a game changer. I just copy the email from my kid's teacher and boom—it's on our family calendar. Even my teenagers use it.",
+			initial: 'M',
+			name: 'Mike T.',
+			detail: 'Dad of 2 · Denver, CO'
+		},
+		{
+			accent: 'border-[#C4E9DA] bg-[#C4E9DA]/20',
+			star: 'text-[#2d5866]',
+			avatar: 'from-[#C4E9DA] to-[#5fa0b1]',
+			quote:
+				"I invited my parents with one code and now they always know when the grandkids have events. No more 'when is the recital again?' phone calls!",
+			initial: 'J',
+			name: 'Jessica L.',
+			detail: 'Mom of 1 · Portland, OR'
+		}
+	];
 </script>
 
 <svelte:head>
@@ -31,138 +168,9 @@
 	<section class="bg-white py-20">
 		<div class="mx-auto max-w-7xl px-6">
 			<div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-				<div
-					class="rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-lg"
-				>
-					<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#FED5CF]">
-						<svg
-							class="h-6 w-6 text-[#c45e38]"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<rect x="3" y="4" width="18" height="18" rx="2" />
-							<line x1="16" y1="2" x2="16" y2="6" />
-							<line x1="8" y1="2" x2="8" y2="6" />
-							<line x1="3" y1="10" x2="21" y2="10" />
-						</svg>
-					</div>
-					<h3 class="mb-2 text-lg font-bold text-slate-900">Shared Family Calendar</h3>
-					<p class="text-slate-600">
-						Everyone's events in one place. No more "who's picking up the kids?" texts.
-					</p>
-				</div>
-
-				<div
-					class="rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-lg"
-				>
-					<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#FED5CF]">
-						<svg
-							class="h-6 w-6 text-[#c45e38]"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path d="M13 10V3L4 14h7v7l9-11h-7z" />
-						</svg>
-					</div>
-					<h3 class="mb-2 text-lg font-bold text-slate-900">Smart Event Import</h3>
-					<p class="text-slate-600">
-						Paste a text from your spouse or email from school. Our smart algorithm creates the
-						event.
-					</p>
-				</div>
-
-				<div
-					class="rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-lg"
-				>
-					<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#BEDAE3]">
-						<svg
-							class="h-6 w-6 text-[#366d7e]"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-							<circle cx="9" cy="7" r="4" />
-							<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-							<path d="M16 3.13a4 4 0 0 1 0 7.75" />
-						</svg>
-					</div>
-					<h3 class="mb-2 text-lg font-bold text-slate-900">Family Groups & Invites</h3>
-					<p class="text-slate-600">
-						Invite your spouse, kids, grandparents—anyone who needs to be in the loop.
-					</p>
-				</div>
-
-				<div
-					class="rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-lg"
-				>
-					<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#C4E9DA]">
-						<svg
-							class="h-6 w-6 text-[#2d5866]"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path
-								d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-							/>
-						</svg>
-					</div>
-					<h3 class="mb-2 text-lg font-bold text-slate-900">Print for the Fridge</h3>
-					<p class="text-slate-600">
-						Hang the weekly schedule on the fridge so everyone can see what's happening.
-					</p>
-				</div>
-
-				<div
-					class="rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-lg"
-				>
-					<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#D3C7E6]">
-						<svg
-							class="h-6 w-6 text-[#6b5b7b]"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path
-								d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
-							/>
-						</svg>
-					</div>
-					<h3 class="mb-2 text-lg font-bold text-slate-900">Works Everywhere</h3>
-					<p class="text-slate-600">
-						Check the calendar from your phone at practice, tablet on couch, or laptop at work.
-					</p>
-				</div>
-
-				<div
-					class="rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-lg"
-				>
-					<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#F1B598]">
-						<svg
-							class="h-6 w-6 text-[#84412e]"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path
-								d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-							/>
-						</svg>
-					</div>
-					<h3 class="mb-2 text-lg font-bold text-slate-900">RSVP to Events</h3>
-					<p class="text-slate-600">
-						Know who's coming to game night or the school play. Going, maybe, or can't make it.
-					</p>
-				</div>
+				{#each features as feature}
+					<FeatureCard {...feature} />
+				{/each}
 			</div>
 		</div>
 	</section>
@@ -180,82 +188,9 @@
 			</div>
 
 			<div class="grid gap-6 md:grid-cols-3">
-				<div
-					class="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#FED5CF] to-[#F1B598]/50 p-8 transition-all hover:shadow-lg"
-				>
-					<div
-						class="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/80 shadow-sm"
-					>
-						<svg
-							class="h-8 w-8 text-[#c45e38]"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="1.5"
-						>
-							<circle cx="12" cy="12" r="10" />
-							<path d="M12 6v6l4 2" />
-						</svg>
-					</div>
-					<h3 class="mb-2 text-xl font-bold text-slate-900">Morning routines</h3>
-					<p class="text-slate-600">
-						Who's dropping off who? What time is the dentist? See it all at a glance before the day
-						starts.
-					</p>
-					<div
-						class="absolute -bottom-4 -right-4 h-24 w-24 rounded-full bg-[#F1B598]/30 blur-xl"
-					></div>
-				</div>
-
-				<div
-					class="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#C4E9DA] to-[#BEDAE3]/50 p-8 transition-all hover:shadow-lg"
-				>
-					<div
-						class="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/80 shadow-sm"
-					>
-						<svg
-							class="h-8 w-8 text-[#366d7e]"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="1.5"
-						>
-							<path
-								d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-					</div>
-					<h3 class="mb-2 text-xl font-bold text-slate-900">Kids' activities</h3>
-					<p class="text-slate-600">
-						Soccer, piano, ballet, scouts—track every activity, every location, every pickup time in
-						one place.
-					</p>
-					<div
-						class="absolute -bottom-4 -right-4 h-24 w-24 rounded-full bg-[#C4E9DA]/30 blur-xl"
-					></div>
-				</div>
-
-				<div
-					class="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#D3C7E6] to-[#BEDAE3]/50 p-8 transition-all hover:shadow-lg"
-				>
-					<div
-						class="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/80 shadow-sm"
-					>
-						<svg class="h-8 w-8 text-[#6b5b7b]" fill="currentColor" viewBox="0 0 24 24">
-							<path
-								d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-							/>
-						</svg>
-					</div>
-					<h3 class="mb-2 text-xl font-bold text-slate-900">Family time</h3>
-					<p class="text-slate-600">
-						Date nights, game nights, grandma's visit—make sure the important moments never get
-						double-booked.
-					</p>
-					<div
-						class="absolute -bottom-4 -right-4 h-24 w-24 rounded-full bg-[#D3C7E6]/30 blur-xl"
-					></div>
-				</div>
+				{#each moments as moment}
+					<MomentCard {...moment} />
+				{/each}
 			</div>
 		</div>
 	</section>
@@ -269,76 +204,8 @@
 			</div>
 
 			<div class="grid gap-8 md:grid-cols-2">
-				<div class="rounded-3xl border border-red-100 bg-red-50 p-8">
-					<div
-						class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100"
-					>
-						<svg
-							class="h-6 w-6 text-red-500"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-						</svg>
-					</div>
-					<h3 class="mb-4 text-xl font-bold text-slate-900">Before Family Planz</h3>
-					<ul class="space-y-3 text-slate-600">
-						<li class="flex items-start gap-3">
-							<span class="mt-0.5 text-red-400">✕</span>
-							<span>"Who's picking up the kids?"—texting back and forth</span>
-						</li>
-						<li class="flex items-start gap-3">
-							<span class="mt-0.5 text-red-400">✕</span>
-							<span>Double-booked soccer practice and piano lessons</span>
-						</li>
-						<li class="flex items-start gap-3">
-							<span class="mt-0.5 text-red-400">✕</span>
-							<span>Grandma shows up on the wrong day for dinner</span>
-						</li>
-						<li class="flex items-start gap-3">
-							<span class="mt-0.5 text-red-400">✕</span>
-							<span>Events buried in emails, texts, and sticky notes</span>
-						</li>
-					</ul>
-				</div>
-				<div class="rounded-3xl border border-green-100 bg-green-50 p-8">
-					<div
-						class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-green-100"
-					>
-						<svg
-							class="h-6 w-6 text-green-500"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-						</svg>
-					</div>
-					<h3 class="mb-4 text-xl font-bold text-slate-900">With Family Planz</h3>
-					<ul class="space-y-3 text-slate-700">
-						<li class="flex items-start gap-3">
-							<span class="mt-0.5 text-green-500">✓</span>
-							<span>One shared calendar—everyone sees the same schedule</span>
-						</li>
-						<li class="flex items-start gap-3">
-							<span class="mt-0.5 text-green-500">✓</span>
-							<span>Color-coded by family member so you know who's where</span>
-						</li>
-						<li class="flex items-start gap-3">
-							<span class="mt-0.5 text-green-500">✓</span>
-							<span
-								>Paste a text or email—our smart algorithm adds it to the calendar instantly</span
-							>
-						</li>
-						<li class="flex items-start gap-3">
-							<span class="mt-0.5 text-green-500">✓</span>
-							<span>RSVP to family events so everyone knows who's coming</span>
-						</li>
-					</ul>
-				</div>
+				<StrugglePanel tone="before" title="Before Family Planz" items={struggles.before} />
+				<StrugglePanel tone="after" title="With Family Planz" items={struggles.after} />
 			</div>
 		</div>
 	</section>
@@ -356,58 +223,9 @@
 			</div>
 
 			<div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-				<div class="group relative overflow-hidden rounded-3xl transition-all hover:shadow-xl">
-					<img
-						src="https://images.pexels.com/photos/4624879/pexels-photo-4624879.jpeg?auto=compress&cs=tinysrgb&w=600"
-						alt="Mother and son sitting together in living room"
-						class="h-64 w-full object-cover transition-transform group-hover:scale-105"
-					/>
-					<div
-						class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"
-					></div>
-					<div class="absolute bottom-0 left-0 right-0 p-6">
-						<h3 class="text-lg font-bold text-white">Growing families</h3>
-						<p class="text-sm text-white/80">
-							From two to three to four—your calendar grows with you
-						</p>
-					</div>
-				</div>
-
-				<div class="group relative overflow-hidden rounded-3xl transition-all hover:shadow-xl">
-					<img
-						src="https://images.pexels.com/photos/5082644/pexels-photo-5082644.jpeg?auto=compress&cs=tinysrgb&w=600"
-						alt="Big family enjoying breakfast together in kitchen"
-						class="h-64 w-full object-cover transition-transform group-hover:scale-105"
-					/>
-					<div
-						class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"
-					></div>
-					<div class="absolute bottom-0 left-0 right-0 p-6">
-						<h3 class="text-lg font-bold text-white">Busy households</h3>
-						<p class="text-sm text-white/80">
-							Multiple kids, multiple schedules, one simple calendar
-						</p>
-					</div>
-				</div>
-
-				<div
-					class="group relative overflow-hidden rounded-3xl transition-all hover:shadow-xl md:col-span-2 lg:col-span-1"
-				>
-					<img
-						src="https://images.pexels.com/photos/5637704/pexels-photo-5637704.jpeg?auto=compress&cs=tinysrgb&w=600"
-						alt="Happy multigenerational Asian family sitting together on bench"
-						class="h-64 w-full object-cover transition-transform group-hover:scale-105"
-					/>
-					<div
-						class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"
-					></div>
-					<div class="absolute bottom-0 left-0 right-0 p-6">
-						<h3 class="text-lg font-bold text-white">Extended families</h3>
-						<p class="text-sm text-white/80">
-							Grandparents, aunts, uncles—invite everyone who cares
-						</p>
-					</div>
-				</div>
+				{#each gallery as card}
+					<GalleryCard {...card} />
+				{/each}
 			</div>
 		</div>
 	</section>
@@ -425,140 +243,9 @@
 			</div>
 
 			<div class="grid gap-8 md:grid-cols-3">
-				<div class="rounded-3xl border border-[#FED5CF] bg-[#FED5CF]/20 p-8">
-					<div class="mb-4 flex items-center gap-1">
-						<svg class="h-5 w-5 text-[#F1B598]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#F1B598]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#F1B598]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#F1B598]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#F1B598]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-					</div>
-					<p class="mb-6 italic text-slate-700">
-						"We used to have three different calendars between us. Now everything is in one place.
-						My husband and I finally stopped texting 'who's picking up the kids?'"
-					</p>
-					<div class="flex items-center gap-3">
-						<div
-							class="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#FED5CF] to-[#F1B598] text-lg font-bold text-white shadow-sm"
-						>
-							S
-						</div>
-						<div>
-							<div class="font-semibold text-slate-900">Sarah M.</div>
-							<div class="text-sm text-slate-500">Mom of 3 · Austin, TX</div>
-						</div>
-					</div>
-				</div>
-
-				<div class="rounded-3xl border border-[#BEDAE3] bg-[#BEDAE3]/20 p-8">
-					<div class="mb-4 flex items-center gap-1">
-						<svg class="h-5 w-5 text-[#366d7e]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#366d7e]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#366d7e]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#366d7e]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#366d7e]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-					</div>
-					<p class="mb-6 italic text-slate-700">
-						"The smart paste feature is a game changer. I just copy the email from my kid's teacher
-						and boom—it's on our family calendar. Even my teenagers use it."
-					</p>
-					<div class="flex items-center gap-3">
-						<div
-							class="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#BEDAE3] to-[#8fbecb] text-lg font-bold text-white shadow-sm"
-						>
-							M
-						</div>
-						<div>
-							<div class="font-semibold text-slate-900">Mike T.</div>
-							<div class="text-sm text-slate-500">Dad of 2 · Denver, CO</div>
-						</div>
-					</div>
-				</div>
-
-				<div class="rounded-3xl border border-[#C4E9DA] bg-[#C4E9DA]/20 p-8">
-					<div class="mb-4 flex items-center gap-1">
-						<svg class="h-5 w-5 text-[#2d5866]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#2d5866]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#2d5866]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#2d5866]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-						<svg class="h-5 w-5 text-[#2d5866]" fill="currentColor" viewBox="0 0 20 20"
-							><path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/></svg
-						>
-					</div>
-					<p class="mb-6 italic text-slate-700">
-						"I invited my parents with one code and now they always know when the grandkids have
-						events. No more 'when is the recital again?' phone calls!"
-					</p>
-					<div class="flex items-center gap-3">
-						<div
-							class="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#C4E9DA] to-[#5fa0b1] text-lg font-bold text-white shadow-sm"
-						>
-							J
-						</div>
-						<div>
-							<div class="font-semibold text-slate-900">Jessica L.</div>
-							<div class="text-sm text-slate-500">Mom of 1 · Portland, OR</div>
-						</div>
-					</div>
-				</div>
+				{#each testimonials as t}
+					<TestimonialCard {...t} />
+				{/each}
 			</div>
 		</div>
 	</section>
