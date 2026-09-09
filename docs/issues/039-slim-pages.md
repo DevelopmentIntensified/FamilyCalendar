@@ -173,9 +173,11 @@ markup + pure logic extract out with colocated tests.
 - [x] calendar/tasks 698 → 644: `taskEditPayload.ts` (+ 5 tests:
   buildEditPayload/parseEditTags/inputToIso), respondAssignment reuses
   shared familyTaskActions.
-- [x] calendar/tasks 644 → 493: `TasksMainList.svelte` (+ 4 tests) owns
+- [x] calendar/tasks 644 → 475: `TasksMainList.svelte` (+ 4 tests) owns
   toolbar + filter notice + empty/skeleton + open/completed rows +
-  all-caught-up + clear-completed confirm; page keeps data/handlers.
+  all-caught-up + clear-completed confirm; `TasksHeader.svelte`
+  (+ 3 tests) owns header card + warnings. Page keeps data/handlers
+  (floor per rule).
 - [ ] DayView/WeekView interaction unification (drag/drop/range/delete
   flows mirror each other) → separate issue: needs behavior-parity
   review before touching (43 existing interaction tests are the fence).
