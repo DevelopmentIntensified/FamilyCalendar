@@ -86,8 +86,16 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   bare-amount `am`-lookahead fix (`35.99 amazon` → 3599), `spendByMerchant`
   export (normalized grouping, manual-only, limit 8), spending page Top
   merchants section (top-8 table + merchant drill-down reusing the bill row)
-- #039 Slim pages (in progress): TaskRow + TaskCompletedRow extracted
-  from calendar/tasks (1659 → 1368 lines, 10 colocated tests green).
+- #039 Slim pages (DONE 2026-09-09): every oversized page/component
+  split per rule (handlers stay, markup + pure logic out, colocated
+  tests) — calendar/tasks 1659 → 475, family/tasks 896 → 256,
+  family/[familyId] 808 → 782, account 816 → 100, EventFormModal
+  1420 → 721, EventModal 1251 → 295, calendar page 919 → 682,
+  members/add 499 → 121, features 586 → 273, plus shared utils
+  (taskDisplay, priorityTone, bulkPlan, taskSubmit, taskEditPayload,
+  familyTaskList, calendarMatch, bottomSheetSwipe, navItems, listGroup).
+  Day/Week views → #046 (parity review before split). Bills EXCLUDED
+  (area PAUSED).
 - #041 Calendar load perf (2026-09-08, DONE): TTFB ~1.35s → shell ~0.8s
   (−40%), HTML 465KB → 147KB (−68%). #1 parallel-chain explained
   (deferred); #2 settings-via-parent; #3 month-window expansion;
@@ -160,6 +168,10 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   ✨ Smart tasks. Tests: +7 across 5 card/bell suites (TDD red→green).
 
 ## Open
+
+- #046 Day/Week unification (filed 2026-09-09, split from #039):
+  parity review → unify drag/drop/range/delete → then sub-block
+  split. Fence: DayView 16 + WeekView 43 interaction tests green.
 
 - Tasks surfaces polish batch (UNCOMMITTED 2026-09-08): toasts on add/
   one-off complete/accept-decline, recurring single-toast on board + Top-3,

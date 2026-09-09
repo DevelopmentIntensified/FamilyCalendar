@@ -1,6 +1,6 @@
 # 039 — Slim down oversized pages/components
 
-Status: in-progress
+Status: done
 
 ## Done
 
@@ -40,8 +40,8 @@ markup + pure logic extract out with colocated tests.
 - [x] BUGFIX: stash-once caches never updated after invalidateAll
   (mutations invisible) — unconditional assignment on promise-identity
   change, fixed on calendar + tasks pages
-- [ ] calendar/tasks add-task card → AddTaskCard
-- [ ] calendar/tasks toolbar (chips/search/sort) → TaskToolbar
+- [x] calendar/tasks add-task card → AddTaskCard (done above — stale dupe)
+- [x] calendar/tasks toolbar (chips/search/sort) → TaskToolbar (done above — stale dupe)
 - [x] family/[familyId]/tasks → FamilyTaskRow (open/completed/public
   variants, + 6 tests): grouped/unassigned/completed/public rows
   unified, permission-gated toggle + direct owner delete preserved.
@@ -178,12 +178,12 @@ markup + pure logic extract out with colocated tests.
   all-caught-up + clear-completed confirm; `TasksHeader.svelte`
   (+ 3 tests) owns header card + warnings. Page keeps data/handlers
   (floor per rule).
-- [ ] DayView/WeekView interaction unification (drag/drop/range/delete
-  flows mirror each other) → separate issue: needs behavior-parity
-  review before touching (43 existing interaction tests are the fence).
-- [ ] WeekView (710) → sub-blocks
-- [ ] MonthDays (402) → cell component
-- [ ] family/tasks (545), marketing/features (586) → split
+- [x] DayView/WeekView → #046 (filed): parity review first, then unify,
+  then split. Splitting now would churn the flows under review and
+  prop-drill ~10 callbacks per block.
+- [x] MonthDays / family/tasks / marketing-features boxes were stale —
+  all extracted earlier in this issue (MonthDayCell, family task set,
+  FeatureCard set).
 - [ ] bills/* EXCLUDED (area PAUSED)
 - Per slice: colocated/targeted vitest + oxlint + prettier + build green,
   push test immediately.
