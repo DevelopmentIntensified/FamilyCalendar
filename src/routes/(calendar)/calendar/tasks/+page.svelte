@@ -297,7 +297,14 @@
 	// Main list source (issue 019): MY tasks — personal rows plus accepted
 	// assignments, wherever they live. Pending assignments surface in the
 	// "To accept" tab instead.
-	$: allTasks = data.myTasks ?? data.tasks ?? [];
+	// Streamed lists cache (#044): set once when taskLists resolves; the
+	// derived chains (open/completed/filtered) run off the cache.
+	let streamedLists: Awaited<PageData['taskLists']> | null = null;
+	function stashTaskLists(tl: NonNullable<typeof streamedLists>): string {
+		if (!streamedLists) streamedLists = tl;
+		return '';
+	}
+	$: allTasks = streamedLists?.myTasks ?? streamedLists?.tasks ?? [];
 	$: openTasks = allTasks.filter(
 		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === false
 	);
@@ -610,28 +617,50 @@
 
 <div class="min-h-screen bg-slate-50">
 	<div class="mx-auto max-w-4xl px-3 py-4 pb-20 sm:px-4">
-		<!-- Header card (family-hub hero pattern) -->
-		<section
-			class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-			aria-labelledby="tasks-heading"
-		>
-			<div class="min-w-0">
-				<h1 id="tasks-heading" class="text-xl font-bold text-slate-900">Tasks</h1>
-				<p class="mt-0.5 text-xs text-slate-400">
-					{openTasks.length}
-					{openTasks.length === 1 ? 'task' : 'tasks'} open · {completedTasks.length} completed
-				</p>
-			</div>
-		</section>
+		{#await data.taskLists}
+			<section
+				class="animate-pulse rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+				aria-hidden="true"
+			>
+				<div class="h-6 w-32 rounded bg-slate-100"></div>
+				<div class="mt-2 h-4 w-48 rounded bg-slate-100"></div>
+			</section>
+		{:then tl}
+			{@const _stash = stashTaskLists(tl)}
+			{@const taskWarnings = [...(data.loadWarnings ?? []), ...tl.warnings]}
+			<!-- Header card (family-hub hero pattern) -->
+			<section
+				class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+				aria-labelledby="tasks-heading"
+			>
+				<div class="min-w-0">
+					<h1 id="tasks-heading" class="text-xl font-bold text-slate-900">Tasks</h1>
+					<p class="mt-0.5 text-xs text-slate-400">
+						{openTasks.length}
+						{openTasks.length === 1 ? 'task' : 'tasks'} open · {completedTasks.length} completed
+					</p>
+				</div>
+			</section>
 
-		{#if (data.loadWarnings ?? []).length > 0}
+			{#if taskWarnings.length > 0}
+				<div
+					class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+					role="alert"
+				>
+					Couldn't load {taskWarnings.join(', ')} just now — everything else is up to date.
+				</div>
+			{/if}
+		{:catch}
 			<div
-				class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+				class="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
 				role="alert"
 			>
-				Couldn't load {(data.loadWarnings ?? []).join(', ')} just now — everything else is up to date.
+				Couldn't load your tasks.
+				<button type="button" onclick={() => invalidateAll()} class="font-semibold underline">
+					Retry
+				</button>
 			</div>
-		{/if}
+		{/await}
 
 		<!-- Add task card -->
 		<section
@@ -904,7 +933,13 @@
 				</p>
 			{/if}
 
-			{#if filteredOpenTasks.length === 0 && filteredCompletedTasks.length === 0}
+			{#if !streamedLists}
+				<div class="space-y-1.5" aria-hidden="true">
+					{#each Array(5) as _, i (i)}
+						<div class="h-14 animate-pulse rounded-lg bg-slate-100"></div>
+					{/each}
+				</div>
+			{:else if filteredOpenTasks.length === 0 && filteredCompletedTasks.length === 0}
 				<div class="flex flex-col items-center justify-center py-16 text-center">
 					<svg
 						class="mb-4 h-14 w-14 text-slate-300"
@@ -1024,7 +1059,7 @@
 		</section>
 
 		<!-- Assignments (issue 019): To accept / Requested, separate card -->
-		{#if (data.pendingAssignments ?? []).length > 0 || (data.requestedByMe ?? []).length > 0}
+		{#if (streamedLists?.pendingAssignments ?? []).length > 0 || (streamedLists?.requestedByMe ?? []).length > 0}
 			<section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 				<h2 class="text-sm font-semibold text-slate-900">Assignments</h2>
 				<p class="mt-0.5 text-xs text-slate-400">Tasks you've been sent, and ones you sent out</p>
@@ -1039,7 +1074,7 @@
 							? 'border-slate-900 bg-slate-900 text-white'
 							: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
 					>
-						To accept ({(data.pendingAssignments ?? []).length})
+						To accept ({(streamedLists?.pendingAssignments ?? []).length})
 					</button>
 					<button
 						type="button"
@@ -1051,18 +1086,18 @@
 							? 'border-slate-900 bg-slate-900 text-white'
 							: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
 					>
-						Requested ({(data.requestedByMe ?? []).length})
+						Requested ({(streamedLists?.requestedByMe ?? []).length})
 					</button>
 				</div>
 
 				{#if assignTab === 'accept'}
-					{#if (data.pendingAssignments ?? []).length === 0}
+					{#if (streamedLists?.pendingAssignments ?? []).length === 0}
 						<p class="py-6 text-center text-sm text-slate-500">
 							Nothing waiting for you — you're all caught up.
 						</p>
 					{:else}
 						<div class="space-y-1.5">
-							{#each data.pendingAssignments ?? [] as task (task.id)}
+							{#each streamedLists?.pendingAssignments ?? [] as task (task.id)}
 								<div
 									class="flex min-w-0 flex-wrap items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50/80 px-2.5 py-2"
 								>
@@ -1098,14 +1133,14 @@
 							{/each}
 						</div>
 					{/if}
-				{:else if (data.requestedByMe ?? []).length === 0}
+				{:else if (streamedLists?.requestedByMe ?? []).length === 0}
 					<p class="py-6 text-center text-sm text-slate-500">
 						You haven't assigned anything out. Assign a task from the list above to see its status
 						here.
 					</p>
 				{:else}
 					<div class="space-y-1.5">
-						{#each data.requestedByMe ?? [] as task (task.id)}
+						{#each streamedLists?.requestedByMe ?? [] as task (task.id)}
 							<div
 								class="flex min-w-0 flex-wrap items-center gap-2.5 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 transition-colors hover:bg-slate-100"
 							>
