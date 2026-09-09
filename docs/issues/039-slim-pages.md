@@ -136,6 +136,8 @@ markup + pure logic extract out with colocated tests.
 - [x] Navbar 350 → 178: `navItems.ts` (+ 5 tests) owns item sets +
   longest-prefix-wins resolveActiveHref; `NavbarProfileMenu` (+ 3 tests)
   owns desktop dropdown; `NavbarMobileMenu` (+ 3 tests) owns mobile panel.
+- [x] Pricing 338 → 126: data-driven `PricingCard` (+ 3 tests, badge/note/
+  accent variants) + tiers/faqs tables.
 - [ ] DayView/WeekView interaction unification (drag/drop/range/delete
   flows mirror each other) → separate issue: needs behavior-parity
   review before touching (43 existing interaction tests are the fence).
