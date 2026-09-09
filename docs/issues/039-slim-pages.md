@@ -153,6 +153,12 @@ markup + pure logic extract out with colocated tests.
 - [x] account 522 → 100: `AccountSidebar` + 5 section components
   (profile/calendar/subscription/email/security/danger); subscription pure
   helpers in `accountSubscription.ts` (+ 3 tests).
+- [x] family/tasks 545 → 256: `familyTaskActions.ts` (+ 7 tests: put/
+  delete/respond, nameOf, tag filter), `FamilyOpenTaskRow` (+ 4 tests),
+  `FamilyCompletedTaskList` (+ 2 tests), `TaskTagFilter` (+ 2 tests),
+  public rows reuse shared `FamilyTaskRow`. Nuances: due uses shared
+  short+year format, overdue uses shared start-of-day (was Date.now);
+  respond-network error copy unified.
 - [ ] DayView/WeekView interaction unification (drag/drop/range/delete
   flows mirror each other) → separate issue: needs behavior-parity
   review before touching (43 existing interaction tests are the fence).
