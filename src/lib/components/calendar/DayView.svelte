@@ -5,6 +5,8 @@
 	import type { Event } from '$lib/types';
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
+	import { freqNoun } from '$lib/utils/taskDisplay';
+	import { layoutTimed, nowPositionPct } from '$lib/utils/dayViewLayout';
 	import EventModal from './EventModal.svelte';
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
@@ -60,24 +62,6 @@
 	$: dayTasks = dueTasks.filter(
 		(t) => t.dueDate && formatDate(toDate(t.dueDate)) === formatDate(selectedDate)
 	);
-	const FREQ_NOUN = {
-		daily: 'day',
-		weekly: 'week',
-		monthly: 'month',
-		yearly: 'year'
-	} satisfies Record<string, string>;
-
-	function freqNoun(frequency: string | null | undefined): string | undefined {
-		if (
-			frequency === 'daily' ||
-			frequency === 'weekly' ||
-			frequency === 'monthly' ||
-			frequency === 'yearly'
-		)
-			return FREQ_NOUN[frequency];
-		return undefined;
-	}
-
 	function isStringValue(value: unknown): value is string {
 		return typeof value === 'string';
 	}
@@ -91,43 +75,10 @@
 		selectedTask = task;
 	}
 
-	interface LaidOutEvent {
-		event: Event;
-		lane: number;
-		lanes: number;
-		topPct: number;
-		heightPct: number;
-	}
-
-	function layoutTimed(list: Event[]): LaidOutEvent[] {
-		const laneEnds: number[] = [];
-		const out: Omit<LaidOutEvent, 'lanes'>[] = [];
-		for (const event of list) {
-			const s = toDate(event.start);
-			const startMin = s.getHours() * 60 + s.getMinutes();
-			let endMin = startMin + 60;
-			if (event.end) {
-				const e2 = toDate(event.end);
-				endMin = Math.max(endMin, e2.getHours() * 60 + e2.getMinutes());
-			}
-			let lane = laneEnds.findIndex((t) => startMin >= t);
-			if (lane === -1) lane = laneEnds.length;
-			laneEnds[lane] = endMin;
-			out.push({
-				event,
-				lane,
-				topPct: (startMin / 1440) * 100,
-				heightPct: (Math.min(endMin - startMin, 1440 - startMin) / 1440) * 100
-			});
-		}
-		const lanes = Math.max(laneEnds.length, 1);
-		return out.map((o) => ({ ...o, lanes }));
-	}
-
 	$: laidOut = layoutTimed(timedEvents);
 
 	$: isToday = formatDate(selectedDate) === formatDate(today);
-	$: nowPct = ((new Date().getHours() * 60 + new Date().getMinutes()) / 1440) * 100;
+	$: nowPct = nowPositionPct();
 
 	let gridBody: HTMLElement | undefined;
 	onMount(() => {

@@ -109,7 +109,13 @@ markup + pure logic extract out with colocated tests.
   816. Note: bare modal recurrences now get a today-end cursor like
   the card (modal previously sent null).
 - [ ] EventModal (1251) → sections
-- [ ] DayView (764) / WeekView (710) → sub-blocks
+- [x] DayView 764 → 715: dropped local layoutTimed (byte-identical to
+  tested dayViewLayout util) + freqNoun (→ shared taskDisplay).
+  16 DayView/layout tests green.
+- [ ] DayView/WeekView interaction unification (drag/drop/range/delete
+  flows mirror each other) → separate issue: needs behavior-parity
+  review before touching (43 existing interaction tests are the fence).
+- [ ] WeekView (710) → sub-blocks
 - [ ] MonthDays (402) → cell component
 - [ ] family/tasks (545), marketing/features (586) → split
 - [ ] bills/* EXCLUDED (area PAUSED)
