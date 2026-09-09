@@ -15,7 +15,7 @@
 	import EventTitleFields from './EventTitleFields.svelte';
 	import EventQuickAdd from './EventQuickAdd.svelte';
 	import EventMetaFields from './EventMetaFields.svelte';
-	import { createSwipeState, startSwipe, moveSwipe, endSwipe } from './bottomSheetSwipe';
+	import { createSwipeState, createSwipeHandlers } from './bottomSheetSwipe';
 	import EventDeleteConfirm from './EventDeleteConfirm.svelte';
 	import EventActionBar from './EventActionBar.svelte';
 	import EventRsvpList from './EventRsvpList.svelte';
@@ -62,6 +62,12 @@
 
 	// Mobile bottom-sheet swipe state (shared with EventModal).
 	let swipe = createSwipeState();
+	const { onDragStart, onDragMove, onDragEnd } = createSwipeHandlers({
+		getState: () => swipe,
+		setState: (s) => (swipe = s),
+		canStart: () => true,
+		onClose: close
+	});
 
 	let nlInput = '';
 	let showMore = !!(initialDate || initialTime || initialEndTime); // Set when the user clicks "Show Less": suppresses the auto-reveal of
@@ -312,21 +318,6 @@
 		swipe = createSwipeState();
 		dispatch('close');
 		onClose();
-	}
-
-	function onDragStart(e: TouchEvent) {
-		if (e.touches.length !== 1) return;
-		swipe = startSwipe(swipe, e.touches[0].clientY);
-	}
-
-	function onDragMove(e: TouchEvent) {
-		swipe = moveSwipe(swipe, e.touches[0].clientY);
-	}
-
-	function onDragEnd() {
-		const result = endSwipe(swipe);
-		swipe = result.state;
-		if (result.closed) close();
 	}
 
 	async function submitTask() {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
+	import BottomSheetHandle from './BottomSheetHandle.svelte';
 
 	interface Props {
 		title: string;
@@ -46,16 +47,7 @@
 		use:trapFocusAction
 	>
 		<!-- Grab handle (mobile): bottom-sheet affordance + swipe-down-to-close zone -->
-		<div
-			class="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2 active:cursor-grabbing sm:hidden"
-			data-drag-handle
-			on:touchstart={onDragStart}
-			on:touchmove={onDragMove}
-			on:touchend={onDragEnd}
-			aria-hidden="true"
-		>
-			<span class="h-1.5 w-10 rounded-full bg-slate-200"></span>
-		</div>
+		<BottomSheetHandle {onDragStart} {onDragMove} {onDragEnd} />
 		<div
 			class="sticky top-0 z-10 shrink-0 bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4"
 		>

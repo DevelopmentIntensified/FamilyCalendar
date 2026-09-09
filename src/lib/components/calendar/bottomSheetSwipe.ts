@@ -40,3 +40,34 @@ export function endSwipe(state: SwipeState): EndSwipeResult {
 		closed
 	};
 }
+
+export interface SwipeHandlers {
+	onDragStart: (e: TouchEvent) => void;
+	onDragMove: (e: TouchEvent) => void;
+	onDragEnd: () => void;
+}
+
+/** Component wiring for the swipe lifecycle (EventModal + EventFormModal ran
+ * near-identical onDrag trios). Single-touch enforced here; the modal adds
+ * its own visibility guards via canStart, read live at event time. */
+export function createSwipeHandlers(opts: {
+	getState: () => SwipeState;
+	setState: (s: SwipeState) => void;
+	canStart: () => boolean;
+	onClose: () => void;
+}): SwipeHandlers {
+	return {
+		onDragStart: (e: TouchEvent) => {
+			if (e.touches.length !== 1 || !opts.canStart()) return;
+			opts.setState(startSwipe(opts.getState(), e.touches[0].clientY));
+		},
+		onDragMove: (e: TouchEvent) => {
+			opts.setState(moveSwipe(opts.getState(), e.touches[0].clientY));
+		},
+		onDragEnd: () => {
+			const result = endSwipe(opts.getState());
+			opts.setState(result.state);
+			if (result.closed) opts.onClose();
+		}
+	};
+}

@@ -10,10 +10,12 @@
 	import EventAttendeeGroups from './EventAttendeeGroups.svelte';
 	import EventDetailList from './EventDetailList.svelte';
 	import EventModalBar from './EventModalBar.svelte';
-	import EventExportMenu from './EventExportMenu.svelte';
+	import EventModalHeader from './EventModalHeader.svelte';
 	import EventRsvpRow from './EventRsvpRow.svelte';
 	import { buildDuplicateEventPayload } from '$lib/utils/eventDuplicate';
-	import { createSwipeState, startSwipe, moveSwipe, endSwipe } from './bottomSheetSwipe';
+	import { fetchAttendance, splitAttendance } from '$lib/utils/attendance';
+	import { createSwipeState, createSwipeHandlers } from './bottomSheetSwipe';
+	import BottomSheetHandle from './BottomSheetHandle.svelte';
 
 	export let event: Event;
 	export let show = false;
@@ -38,20 +40,6 @@
 
 	const dispatch = createEventDispatcher();
 
-	/** Shape returned by GET/POST /api/events/[id]/rsvp. */
-	type RsvpApiResponse = {
-		attendance?: {
-			userId: string | null;
-			status: string;
-			firstName?: string | null;
-			lastName?: string | null;
-			name?: string | null;
-			inviteType?: string | null;
-		}[];
-		userRsvpStatus?: string;
-		rsvpStatus?: string;
-	};
-
 	// Two-way from the shared checklist: warns before deleting an event with tasks.
 	let attachedTaskCount = 0;
 
@@ -63,36 +51,35 @@
 
 	// Mobile bottom-sheet swipe state (shared with EventFormModal).
 	let swipe = createSwipeState();
+	const { onDragStart, onDragMove, onDragEnd } = createSwipeHandlers({
+		getState: () => swipe,
+		setState: (s) => (swipe = s),
+		canStart: () => show && !showEditForm,
+		onClose: close
+	});
 
 	// Occurrences share the series master's API identity.
 	$: serverId = event.masterId || event.id;
 
+	// Set once the viewer RSVPs: a slow initial load resolving afterwards is
+	// stale and must not clobber the fresher optimistic + POST state.
+	let rsvpTouched = false;
+
 	onMount(async () => {
 		if (!show || !event?.id) return;
-		try {
-			const res = await fetch(`/api/events/${serverId}/rsvp`);
-			if (res.ok) {
-				const data: RsvpApiResponse = await res.json();
-				if (data.attendance) {
-					attendees = data.attendance.filter((a) => a.userId);
-					nonUserAttendants = data.attendance
-						.filter((a) => !a.userId && a.name)
-						.map((a) => a.name ?? '');
-				}
-				if (data.userRsvpStatus) {
-					currentUserRsvpStatus = data.userRsvpStatus;
-				}
-			}
-		} catch (e) {
-			console.error('Failed to load attendance:', e);
-		}
+		const loaded = await fetchAttendance(serverId);
+		if (rsvpTouched) return;
+		if (loaded.attendees) attendees = loaded.attendees;
+		if (loaded.nonUserAttendants) nonUserAttendants = loaded.nonUserAttendants;
+		if (loaded.userRsvpStatus) currentUserRsvpStatus = loaded.userRsvpStatus;
 	});
 
-	$: goingList = attendees.filter((a) => a.status === 'going');
-	$: maybeList = attendees.filter((a) => a.status === 'maybe');
-	$: notGoingList = attendees.filter((a) => a.status === 'declined' || a.status === 'not_going');
+	$: attendanceSplit = splitAttendance(attendees);
+	$: goingList = attendanceSplit.going;
+	$: maybeList = attendanceSplit.maybe;
+	$: notGoingList = attendanceSplit.notGoing;
 	// Invited members who haven't answered yet (incl. required invitations).
-	$: undecidedList = attendees.filter((a) => a.status === 'undecided');
+	$: undecidedList = attendanceSplit.undecided;
 
 	// Get calendar name from prop or event
 	$: calendarName =
@@ -113,21 +100,6 @@
 		swipe = createSwipeState();
 		dispatch('close');
 		onClose();
-	}
-
-	function onDragStart(e: TouchEvent) {
-		if (e.touches.length !== 1 || !show || showEditForm) return;
-		swipe = startSwipe(swipe, e.touches[0].clientY);
-	}
-
-	function onDragMove(e: TouchEvent) {
-		swipe = moveSwipe(swipe, e.touches[0].clientY);
-	}
-
-	function onDragEnd() {
-		const result = endSwipe(swipe);
-		swipe = result.state;
-		if (result.closed) close();
 	}
 
 	function beginDelete() {
@@ -250,69 +222,9 @@
 				use:trapFocusAction
 			>
 				<!-- Grab handle (mobile): bottom-sheet affordance + swipe-down-to-close zone -->
-				<div
-					class="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2 active:cursor-grabbing sm:hidden"
-					data-drag-handle
-					ontouchstart={onDragStart}
-					ontouchmove={onDragMove}
-					ontouchend={onDragEnd}
-					aria-hidden="true"
-				>
-					<span class="h-1.5 w-10 rounded-full bg-slate-200"></span>
-				</div>
+				<BottomSheetHandle {onDragStart} {onDragMove} {onDragEnd} />
 
-				<!-- Header -->
-				<div
-					class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4"
-				>
-					<div class="flex min-w-0 flex-1 items-center gap-3">
-						<div
-							class="h-3 w-3 shrink-0 rounded-full"
-							style="background-color: {event.color || '#94a3b8'}"
-						></div>
-						<div class="min-w-0">
-							<h2 class="truncate text-lg font-bold text-slate-900 sm:text-xl" title={event.title}>
-								{event.title}
-							</h2>
-							{#if event.recurrenceFrequency}
-								{@const unit =
-									{ daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' }[
-										event.recurrenceFrequency
-									] || ''}
-								<p class="text-xs font-medium text-purple-600">
-									🔁 Repeats
-									{(event.recurrenceInterval ?? 1) > 1
-										? `every ${event.recurrenceInterval} ${unit}s`
-										: unit === 'day'
-											? 'daily'
-											: unit
-												? `${unit}ly`
-												: ''}
-								</p>
-							{/if}
-						</div>
-					</div>
-					<div class="flex shrink-0 items-center">
-						{#if !event.isAd}
-							<EventExportMenu {event} />
-						{/if}
-						<button
-							type="button"
-							onclick={close}
-							class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-							aria-label="Close"
-						>
-							<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M6 18L18 6M6 6l12 12"
-								/>
-							</svg>
-						</button>
-					</div>
-				</div>
+				<EventModalHeader {event} onClose={close} />
 
 				<!-- Scrollable body -->
 				<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -326,6 +238,7 @@
 						bind:attendees
 						bind:nonUserAttendants
 						onResponded={async (status) => {
+							rsvpTouched = true;
 							dispatch('rsvp', { id: serverId, status });
 							await invalidateAll();
 						}}

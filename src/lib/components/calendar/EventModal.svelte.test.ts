@@ -180,6 +180,45 @@ describe('EventModal - RSVP refresh', () => {
 		);
 		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
+
+	it('ignores a stale initial load that resolves after an RSVP change', async () => {
+		let resolveGet: ((v: unknown) => void) | null = null;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string, init?: RequestInit) => {
+				if (init?.method === 'POST') {
+					return {
+						ok: true,
+						json: async () => ({
+							attendance: [{ userId: 'user1', status: 'going' }],
+							rsvpStatus: 'going'
+						})
+					};
+				}
+				return {
+					ok: true,
+					json: () =>
+						new Promise((resolve) => {
+							resolveGet = resolve as (v: unknown) => void;
+						})
+				};
+			}
+			)
+		);
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		await fireEvent.click(screen.getByRole('button', { name: /Going/ }));
+		expect(await screen.findByRole('button', { name: /Going/ })).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+		// Stale GET finally resolves with the old undecided state.
+		resolveGet!({ attendance: [], userRsvpStatus: 'undecided' });
+		await new Promise((r) => setTimeout(r, 20));
+		expect(screen.getByRole('button', { name: /Going/ })).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	});
 });
 
 describe('EventModal - reminder display', () => {

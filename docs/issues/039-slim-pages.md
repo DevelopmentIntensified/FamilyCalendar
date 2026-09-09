@@ -138,6 +138,13 @@ markup + pure logic extract out with colocated tests.
   owns desktop dropdown; `NavbarMobileMenu` (+ 3 tests) owns mobile panel.
 - [x] Pricing 338 → 126: data-driven `PricingCard` (+ 3 tests, badge/note/
   accent variants) + tiers/faqs tables.
+- [x] EventModal 372 → 295: `EventModalHeader` (+ 3 tests, title +
+  recurrence + export menu + close), `attendance.ts` (+ 4 tests,
+  splitAttendance/fetchAttendance), `BottomSheetHandle` (+ 2 tests, shared
+  with shell), `createSwipeHandlers` (+ 2 client tests, both modals).
+  Drive-by fix: stale initial GET no longer clobbers an optimistic RSVP
+  (rsvpTouched guard + regression test); undecided bucket now also takes
+  unknown statuses. 4 EventFormModal NLP failures pre-exist on HEAD.
 - [ ] DayView/WeekView interaction unification (drag/drop/range/delete
   flows mirror each other) → separate issue: needs behavior-parity
   review before touching (43 existing interaction tests are the fence).
