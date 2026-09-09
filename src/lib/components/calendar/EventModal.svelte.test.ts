@@ -207,6 +207,18 @@ describe('EventModal - reminder display', () => {
 		render(EventModal, { props: { show: true, event: baseEvent } });
 		expect(screen.queryByText(/reminder:/i)).not.toBeInTheDocument();
 	});
+
+	it('shows the export menu in the header for regular events', async () => {
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Export options' }));
+		expect(screen.getByRole('menuitem', { name: 'Add to Google' })).toBeInTheDocument();
+		expect(screen.getByRole('menuitem', { name: 'Add to .ics' })).toBeInTheDocument();
+	});
+
+	it('hides the export menu for ads', () => {
+		render(EventModal, { props: { show: true, event: { ...baseEvent, isAd: true } } });
+		expect(screen.queryByRole('button', { name: 'Export options' })).not.toBeInTheDocument();
+	});
 });
 
 describe('EventModal - confirm popovers', () => {

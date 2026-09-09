@@ -10,6 +10,7 @@
 	import EventAttendeeGroups from './EventAttendeeGroups.svelte';
 	import EventDetailList from './EventDetailList.svelte';
 	import EventModalBar from './EventModalBar.svelte';
+	import EventExportMenu from './EventExportMenu.svelte';
 	import EventRsvpRow from './EventRsvpRow.svelte';
 	import { buildDuplicateEventPayload } from '$lib/utils/eventDuplicate';
 	import { createSwipeState, startSwipe, moveSwipe, endSwipe } from './bottomSheetSwipe';
@@ -291,21 +292,26 @@
 							{/if}
 						</div>
 					</div>
-					<button
-						type="button"
-						onclick={close}
-						class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-						aria-label="Close"
-					>
-						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
-					</button>
+					<div class="flex shrink-0 items-center">
+						{#if !event.isAd}
+							<EventExportMenu {event} />
+						{/if}
+						<button
+							type="button"
+							onclick={close}
+							class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+							aria-label="Close"
+						>
+							<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M6 18L18 6M6 6l12 12"
+								/>
+							</svg>
+						</button>
+					</div>
 				</div>
 
 				<!-- Scrollable body -->

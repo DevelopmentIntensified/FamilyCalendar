@@ -118,7 +118,14 @@ markup + pure logic extract out with colocated tests.
   (task in DB; dialog-close is pre-existing page behavior). Modal →
   816. Note: bare modal recurrences now get a today-end cursor like
   the card (modal previously sent null).
-- [ ] EventModal (1251) → sections
+- [x] ListView 320 → 284: `listGroup.ts` (+ 4 tests) holds toDateMs/dateKeyOf/
+  groupByDateKey; freqNoun reuses shared taskDisplay via freqLabel wrapper.
+- [x] EventDetailList 227 → 166: export URL builders moved to the new header
+  menu (below); body export-button block deleted.
+- [x] EventModal header export menu (user request): `EventExportMenu.svelte`
+  (+ 3 tests) — ⋮ three-dot button top-right beside Close, Google + .ics
+  menuitems, outside-click/Escape close (NotificationBell pattern), hidden
+  for ads. +2 EventModal header tests (menu present / ads hidden).
 - [x] DayView 764 → 715: dropped local layoutTimed (byte-identical to
   tested dayViewLayout util) + freqNoun (→ shared taskDisplay).
   16 DayView/layout tests green.

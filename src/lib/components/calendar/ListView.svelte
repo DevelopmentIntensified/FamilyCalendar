@@ -7,6 +7,8 @@
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
 	import { formatEventTime } from '$lib/utils/eventTime';
+	import { freqNoun } from '$lib/utils/taskDisplay';
+	import { groupByDateKey, toDateMs } from '$lib/utils/listGroup';
 	import { chipColor, rsvpVisual } from '$lib/utils/eventChip';
 	import { invalidateAll } from '$app/navigation';
 	import todoList from '$lib/assets/svgs/todo-list-svgrepo-com.svg';
@@ -17,27 +19,14 @@
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let dueTasks: CalendarTask[] = [];
 
-	/** Singular recurrence noun per frequency; unknown values fall back to the raw code. */
-	const FREQ_NOUN = new Map(
-		Object.entries({
-			daily: 'day',
-			weekly: 'week',
-			monthly: 'month',
-			yearly: 'year'
-		})
-	);
-	function freqNoun(freq: string): string {
-		return FREQ_NOUN.get(freq) ?? freq;
+	/** Recurrence noun via shared taskDisplay (falls back to raw code). */
+	function freqLabel(freq: string): string {
+		return freqNoun(freq) ?? freq;
 	}
 
 	let selectedTask: CalendarTask | null = null;
 	function openTask(task: CalendarTask) {
 		selectedTask = task;
-	}
-
-	function toDateMs(d: Date | string | null | undefined): number {
-		if (d instanceof Date) return d.getTime();
-		return DateTime.fromISO(String(d ?? '')).toMillis();
 	}
 
 	$: year = $currentDate.year;
@@ -72,36 +61,11 @@
 
 	// Group by date (events + tasks share buckets). Keys are ISO dates so
 	// headers can fromISO() them and sorting stays chronological.
-	function dateKeyOf(d: Date | string): string {
-		const dt = d instanceof Date ? DateTime.fromJSDate(d) : DateTime.fromISO(String(d));
-		return dt.toISODate() ?? '';
-	}
+	// SAFETY: groupByDateKey seeds empty; keys inserted before any read.
+	$: groupedEvents = groupByDateKey(filteredEvents, (event) => event.date);
 
-	// SAFETY: reduce seed is empty; keys are inserted before any read.
-	$: groupedEvents = filteredEvents.reduce(
-		(acc, event) => {
-			if (!event.date) return acc;
-			const dateKey = dateKeyOf(event.date);
-			if (!acc[dateKey]) acc[dateKey] = [];
-			acc[dateKey].push(event);
-			return acc;
-		},
-		// SAFETY: seed object is empty; keys are inserted before any read.
-		{} as Record<string, Event[]>
-	);
-
-	// SAFETY: reduce seed is empty; keys are inserted before any read.
-	$: groupedTasks = monthTasks.reduce(
-		(acc, task) => {
-			if (!task.dueDate) return acc;
-			const dateKey = dateKeyOf(task.dueDate);
-			if (!acc[dateKey]) acc[dateKey] = [];
-			acc[dateKey].push(task);
-			return acc;
-		},
-		// SAFETY: seed object is empty; keys are inserted before any read.
-		{} as Record<string, typeof monthTasks>
-	);
+	// SAFETY: groupByDateKey seeds empty; keys inserted before any read.
+	$: groupedTasks = groupByDateKey(monthTasks, (task) => task.dueDate);
 
 	$: allDates = Array.from(
 		new Set([...Object.keys(groupedEvents), ...Object.keys(groupedTasks)])
@@ -290,8 +254,8 @@
 								{#if task.recurrenceFrequency}
 									<span class="text-purple-500">
 										🔁 {task.recurrenceInterval && task.recurrenceInterval > 1
-											? `every ${task.recurrenceInterval} ${freqNoun(task.recurrenceFrequency)}s`
-											: `every ${freqNoun(task.recurrenceFrequency)}`}
+											? `every ${task.recurrenceInterval} ${freqLabel(task.recurrenceFrequency)}s`
+											: `every ${freqLabel(task.recurrenceFrequency)}`}
 									</span>
 								{/if}
 							</span>

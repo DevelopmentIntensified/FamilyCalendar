@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
-	import { buildGoogleCalendarUrl } from '$lib/utils/ics';
 	import { toDate } from '$lib/utils/eventTime';
 
 	interface Props {
@@ -42,28 +41,6 @@
 	let endTime = $derived(event.endTime || tryFormat(event.end));
 	let eventDate = $derived(event.date || (event.start ? toDate(event.start) : undefined));
 	let reminderText = $derived(reminderLabel(event.reminderMinutes));
-	let icsUrl = $derived(`/api/events/${encodeURIComponent(event.id)}/ics`);
-	let googleCalendarUrl = $derived(
-		buildGoogleCalendarUrl({
-			id: event.masterId || event.id,
-			title: event.title,
-			start: event.start,
-			end: event.end,
-			allDay: !!event.allDay,
-			description: event.description,
-			location: event.location,
-			recurrence: event.recurrenceFrequency
-				? {
-						recurrenceFrequency: event.recurrenceFrequency,
-						recurrenceInterval: event.recurrenceInterval ?? null,
-						recurrenceByDay: event.recurrenceByDay ?? null,
-						recurrenceCount: event.recurrenceCount ?? null,
-						recurrenceUntil: event.recurrenceUntil ?? null
-					}
-				: null,
-			timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-		})
-	);
 </script>
 
 <div class="space-y-4 p-4 sm:p-6">
@@ -183,43 +160,6 @@
 		{#if event.description}
 			<div class="rounded-xl bg-slate-50 p-4">
 				<p class="whitespace-pre-wrap text-sm text-slate-600">{event.description}</p>
-			</div>
-		{/if}
-
-		<!-- Add to calendar (issue 028) -->
-		{#if !event.isAd}
-			<div class="flex flex-wrap gap-2">
-				<a
-					href={googleCalendarUrl}
-					target="_blank"
-					rel="noopener noreferrer"
-					class="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-				>
-					<svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-						/>
-					</svg>
-					Add to Google
-				</a>
-				<a
-					href={icsUrl}
-					download
-					class="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-				>
-					<svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-						/>
-					</svg>
-					Add to .ics
-				</a>
 			</div>
 		{/if}
 	</div>

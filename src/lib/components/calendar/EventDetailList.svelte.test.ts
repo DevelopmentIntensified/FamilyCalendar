@@ -25,7 +25,7 @@ const event = {
 describe('EventDetailList', () => {
 	afterEach(cleanup);
 
-	it('renders date, calendar, creator, location, reminder, description, export links', () => {
+	it('renders date, calendar, creator, location, reminder, description (export lives in the header menu)', () => {
 		render(EventDetailList, { props: { event, calendarName: 'Mine' } });
 		expect(screen.getByText(/September 10, 2026/)).toBeTruthy();
 		expect(screen.getByText('Mine')).toBeTruthy();
@@ -33,11 +33,11 @@ describe('EventDetailList', () => {
 		expect(screen.getByText('Home')).toBeTruthy();
 		expect(screen.getByText('Reminder: 30 minutes before')).toBeTruthy();
 		expect(screen.getByText('Bring pie')).toBeTruthy();
-		expect(screen.getByText('Add to Google')).toBeTruthy();
-		expect(screen.getByText('Add to .ics')).toBeTruthy();
+		expect(screen.queryByText('Add to Google')).toBeNull();
+		expect(screen.queryByText('Add to .ics')).toBeNull();
 	});
 
-	it('hides ads from export and empty fields entirely', () => {
+	it('hides empty fields entirely (ads carry no export menu in the header)', () => {
 		render(EventDetailList, {
 			props: {
 				event: { ...event, isAd: true, location: null, description: null },
