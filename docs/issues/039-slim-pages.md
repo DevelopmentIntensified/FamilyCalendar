@@ -74,6 +74,11 @@ markup + pure logic extract out with colocated tests.
   → EventFormModel (+ 2 tests, tz-safe assertions). Create smoke
   verified (event in DB). To go: parseNlInput/reportPhrase,
   handleSubmit/createAllEvents orchestration, task-mode lets.
+- [x] Duplicate kill: EventModal checklist → shared ChecklistSection
+  (−200 lines: fetch/add/toggle/delete fns + state + markup).
+  EventModal 1251 → 1051. Modal open + checklist header browser-
+  verified (bench session). Note: empty events now show the checklist
+  header + add affordance (was hidden) — deliberate discoverability.
 - [x] Duplicate kill: `bottomSheetSwipe.ts` (+ 3 tests) unifies the
   byte-identical swipe-to-close in EventModal + EventFormModal
   (immutable transitions keep legacy reactivity). EventModal open +

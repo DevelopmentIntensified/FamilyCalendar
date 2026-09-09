@@ -7,6 +7,7 @@
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { DateTime } from 'luxon';
 	import EventFormModal from './EventFormModal.svelte';
+	import ChecklistSection from './ChecklistSection.svelte';
 	import { createSwipeState, startSwipe, moveSwipe, endSwipe } from './bottomSheetSwipe';
 
 	export let event: Event;
@@ -46,13 +47,6 @@
 		rsvpStatus?: string;
 	};
 
-	/** Checklist task rows served by /api/tasks. */
-	type ChecklistTask = {
-		id: string;
-		title: string;
-		completedAt: Date | string | null;
-	};
-
 	let showEditForm = false;
 	let duplicating = false;
 	let showDeleteConfirm = false;
@@ -81,7 +75,6 @@
 
 	onMount(async () => {
 		if (!show || !event?.id) return;
-		loadEventTasks();
 		try {
 			const res = await fetch(`/api/events/${serverId}/rsvp`);
 			if (res.ok) {
@@ -284,83 +277,6 @@
 		maybe: maybeList.length,
 		declined: notGoingList.length
 	};
-
-	// Event checklist — hidden until it has content.
-	let eventTasks: ChecklistTask[] = [];
-	let showTaskInput = false;
-	let newTaskTitle = '';
-	let taskBusy = false;
-	let taskError = '';
-
-	async function loadEventTasks() {
-		if (event.isAd || !event?.id) return;
-		try {
-			const res = await fetch(`/api/tasks?eventId=${serverId}`);
-			if (res.ok) {
-				const body: { tasks?: ChecklistTask[] } = await res.json();
-				eventTasks = body.tasks ?? [];
-			}
-		} catch (e) {
-			console.error('Failed to load event tasks:', e);
-		}
-	}
-
-	async function addEventTask() {
-		const title = newTaskTitle.trim();
-		if (!title || taskBusy) return;
-		taskBusy = true;
-		taskError = '';
-		try {
-			const res = await fetch('/api/tasks', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title, eventId: serverId })
-			});
-			if (res.ok) {
-				const body: { task?: ChecklistTask } = await res.json();
-				if (body.task) eventTasks = [...eventTasks, body.task];
-				newTaskTitle = '';
-			} else {
-				const j = await res.json().catch(() => ({}));
-				taskError = j.error || "Couldn't add that task. Try again.";
-			}
-		} catch {
-			taskError = "Couldn't add that task. Check your connection and try again.";
-		} finally {
-			taskBusy = false;
-		}
-	}
-
-	async function toggleEventTask(task: ChecklistTask) {
-		if (taskBusy) return;
-		taskBusy = true;
-		try {
-			const res = await fetch(`/api/tasks/${task.id}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ toggleComplete: true })
-			});
-			if (res.ok) {
-				const body: { task?: ChecklistTask } = await res.json();
-				eventTasks = eventTasks.map((t) => (t.id === task.id ? (body.task ?? t) : t));
-			}
-		} finally {
-			taskBusy = false;
-		}
-	}
-
-	async function deleteEventTask(taskId: string) {
-		if (taskBusy) return;
-		taskBusy = true;
-		try {
-			const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
-			if (res.ok) {
-				eventTasks = eventTasks.filter((t) => t.id !== taskId);
-			}
-		} finally {
-			taskBusy = false;
-		}
-	}
 
 	async function duplicateEvent() {
 		if (duplicating) return;
@@ -985,115 +901,9 @@
 						</div>
 					{/if}
 
-					<!-- Event Checklist (hidden until it has content) -->
-					{#if !event.isAd && (eventTasks.length > 0 || showTaskInput)}
-						<div class="border-t border-slate-100 px-4 py-3 sm:px-6">
-							<div class="mb-1 flex items-center justify-between">
-								<h4 class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-									Checklist{#if eventTasks.length > 0}
-										· {eventTasks.filter((t) => t.completedAt).length}/{eventTasks.length}{/if}
-								</h4>
-								{#if !showTaskInput}
-									<button
-										type="button"
-										class="rounded-lg px-3 py-2 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
-										onclick={() => (showTaskInput = true)}
-									>
-										+ Add task
-									</button>
-								{/if}
-							</div>
-
-							<ul class="space-y-0.5">
-								{#each eventTasks as task (task.id)}
-									<li class="group flex items-center gap-2 rounded px-1.5 py-1.5 hover:bg-slate-50">
-										<button
-											type="button"
-											disabled={taskBusy}
-											onclick={() => toggleEventTask(task)}
-											class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border {task.completedAt
-												? 'border-primary-500 bg-primary-500 text-white'
-												: 'border-slate-300 hover:border-primary-400'}"
-											aria-label={task.completedAt ? 'Mark incomplete' : 'Complete'}
-										>
-											<span class="absolute -inset-2" aria-hidden="true"></span>
-											{#if task.completedAt}
-												<svg
-													class="h-2.5 w-2.5"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-													stroke-width="3"
-												>
-													<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-												</svg>
-											{/if}
-										</button>
-										<span
-											class="min-w-0 flex-1 truncate text-sm {task.completedAt
-												? 'text-slate-400 line-through'
-												: 'text-slate-700'}"
-										>
-											{task.title}
-										</span>
-										<button
-											type="button"
-											disabled={taskBusy}
-											onclick={() => deleteEventTask(task.id)}
-											class="shrink-0 rounded-lg p-1.5 text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
-											aria-label="Remove task"
-										>
-											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M6 18L18 6M6 6l12 12"
-												/>
-											</svg>
-										</button>
-									</li>
-								{/each}
-							</ul>
-
-							{#if showTaskInput}
-								<form
-									class="mt-2 flex gap-1.5"
-									onsubmit={(e) => {
-										e.preventDefault();
-										addEventTask();
-									}}
-								>
-									<input
-										type="text"
-										bind:value={newTaskTitle}
-										placeholder="Add a task..."
-										class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none"
-									/>
-									<button
-										type="submit"
-										disabled={taskBusy || !newTaskTitle.trim()}
-										class="rounded-lg bg-primary-600 px-3.5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-									>
-										Add
-									</button>
-									<button
-										type="button"
-										class="rounded-lg px-2.5 py-2.5 text-sm text-slate-400 hover:text-slate-600"
-										onclick={() => {
-											showTaskInput = false;
-											newTaskTitle = '';
-											taskError = '';
-										}}
-									>
-										Done
-									</button>
-								</form>
-								{#if taskError}
-									<p role="alert" class="mt-1 text-xs text-red-600">{taskError}</p>
-								{/if}
-							{/if}
-						</div>
+					<!-- Event checklist (shared section; hidden until it has content) -->
+					{#if !event.isAd}
+						<ChecklistSection eventId={serverId} />
 					{/if}
 
 					{#if actionError}
