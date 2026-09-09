@@ -1,9 +1,10 @@
 <script lang="ts">
 	interface Props {
 		tagFilter: string;
+		showNote?: boolean;
 	}
 
-	let { tagFilter = $bindable() }: Props = $props();
+	let { tagFilter = $bindable(), showNote = true }: Props = $props();
 </script>
 
 <div class="mb-4">
@@ -47,7 +48,7 @@
 			</button>
 		{/if}
 	</div>
-	{#if tagFilter.trim()}
+	{#if showNote && tagFilter.trim()}
 		<p class="mt-1.5 text-xs text-sky-600">
 			Filtering by <span class="font-medium">#{tagFilter.trim().toLowerCase()}</span>
 		</p>
