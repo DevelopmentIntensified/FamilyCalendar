@@ -79,8 +79,11 @@ markup + pure logic extract out with colocated tests.
   browser-verified.
 - [x] EventFormModal → 734: pure `shiftEventDates` multi-date fan-out
   → EventFormModel (+ 2 tests, tz-safe assertions). Create smoke
-  verified (event in DB). To go: parseNlInput/reportPhrase,
-  handleSubmit/createAllEvents orchestration, task-mode lets.
+  verified (event in DB).
+- [x] EventFormModal → 721: `calendarMatch.ts` (+ 3 tests) owns the
+  "on the X calendar" name match (exact → partial, null keeps default).
+  parseNlInput/reportPhrase, handleSubmit/createAllEvents, task submit +
+  seeds stay — handlers per rule (4 NLP failures pre-exist on HEAD).
 - [x] Calendar page 919 → 719: `bulkPlan.ts` (describePlanOp +
   past-checks, + 4 tests) + `BulkEditBar.svelte` (+ 5 tests).
   Selection-mode bar browser-verified (0 selected shows).

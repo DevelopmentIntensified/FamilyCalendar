@@ -22,6 +22,7 @@
 	import EventTaskFields from './EventTaskFields.svelte';
 	import EventModalShell from './EventModalShell.svelte';
 	import { queueMutation } from '$lib/utils/offline';
+	import { matchCalendarByName } from '$lib/utils/calendarMatch';
 
 	export let show = false;
 	export let onClose: () => void = () => {};
@@ -256,12 +257,7 @@
 					// "on the family calendar" preselects the matching calendar.
 					// Never blocks creation: unmatched names keep the default.
 					if (first.calendarName && calendarIds.length > 0) {
-						const want = String(first.calendarName).toLowerCase();
-						const match =
-							calendarIds.find((c) => c.name.toLowerCase() === want) ??
-							calendarIds.find(
-								(c) => c.name.toLowerCase().includes(want) || want.includes(c.name.toLowerCase())
-							);
+						const match = matchCalendarByName(calendarIds, first.calendarName);
 						if (match) form.selectedCalendarId = match.id;
 					}
 					// A fresh parse re-reveals previously collapsed detected fields.
