@@ -19,6 +19,8 @@
 		showRecurringSkipFeedback
 	} from '$lib/client/taskFeedback';
 	import { pushToast } from '$lib/client/toasts';
+	import { buildEditPayload } from '$lib/utils/taskEditPayload';
+	import { respondToTask as respondToTaskAction } from '$lib/utils/familyTaskActions';
 
 	export let data: PageData;
 
@@ -118,38 +120,22 @@
 		if (busyId) return;
 		busyId = task.id;
 		actionError = '';
-		try {
-			const res = await fetch(`/api/tasks/${task.id}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ assignmentStatus: accept ? 'accepted' : 'declined' })
+		const out = await respondToTaskAction(task, accept);
+		if (!out.ok) {
+			actionError = out.error;
+		} else {
+			pushToast({
+				message: accept
+					? `Accepted "${task.title}" — it's on your list.`
+					: `Declined "${task.title}" — sent back to the requester.`
 			});
-			if (!res.ok) {
-				const j = await res.json().catch(() => ({}));
-				actionError = j.error || "That didn't work. Try again.";
-			} else {
-				pushToast({
-					message: accept
-						? `Accepted "${task.title}" — it's on your list.`
-						: `Declined "${task.title}" — sent back to the requester.`
-				});
-				await invalidateAll();
-			}
-		} catch {
-			actionError = 'Network problem. Try again.';
-		} finally {
-			busyId = null;
+			await invalidateAll();
 		}
+		busyId = null;
 	}
 
 	function closeEdit() {
 		editing = null;
-	}
-
-	function inputToIso(value: string): string | null {
-		if (!value) return null;
-		const [y, m, d] = value.split('-').map(Number);
-		return new Date(y, m - 1, d, 23, 59, 0, 0).toISOString();
 	}
 
 	async function saveEdit(draft: EditDraft) {
@@ -157,36 +143,11 @@
 		editSaving = true;
 		actionError = '';
 		try {
-			const prevAssignee = editing.assignedTo ?? '';
-			let assignedTo: string | null = draft.assignedTo || null;
-			let assignmentStatus: string | null = null;
-			if (assignedTo !== prevAssignee) {
-				assignmentStatus = assignedTo
-					? assignedTo === data.user?.id
-						? 'accepted'
-						: 'pending'
-					: null;
-			}
-			const editPayload = {
-				title: draft.title.trim(),
-				notes: draft.notes.trim() || null,
-				dueDate: inputToIso(draft.due),
-				recurrenceFrequency: draft.freq || null,
-				recurrenceInterval: draft.freq ? Math.max(1, Math.floor(draft.interval)) : null,
-				assignedTo,
-				priority: draft.priority,
-				tags: parseEditTags(draft.tags),
-				// Visibility is owner-only (issue 019): the server 403s anyone
-				// else, so a non-owner assignee never sends the field (undefined
-				// keys are dropped by JSON.stringify).
-				visibility: editing.userId === data.user?.id ? draft.visibility : undefined
-			};
+			const { payload } = buildEditPayload(editing, draft, data.user?.id);
 			const res = await fetch(`/api/tasks/${editing.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(
-					assignmentStatus === null ? editPayload : { ...editPayload, assignmentStatus }
-				)
+				body: JSON.stringify(payload)
 			});
 			if (res.ok) {
 				closeEdit();
@@ -205,21 +166,6 @@
 	// Optimistic toggle overrides applied on top of server data until the
 	// request resolves; referenced inline so $: picks up reassignment.
 	let completedOverride: CompletedOverrides = {};
-
-	// Parse the comma-separated tags input from the edit dialog into a
-	// normalized list: trimmed, lowercased, deduped, empties dropped.
-	function parseEditTags(raw: string): string[] {
-		const seen = new Set<string>();
-		const out: string[] = [];
-		for (const part of raw.split(',')) {
-			const tag = part.trim().toLowerCase().replace(/^#/, '');
-			if (tag && !seen.has(tag)) {
-				seen.add(tag);
-				out.push(tag);
-			}
-		}
-		return out;
-	}
 
 	// Main list source (issue 019): MY tasks — personal rows plus accepted
 	// assignments, wherever they live. Pending assignments surface in the

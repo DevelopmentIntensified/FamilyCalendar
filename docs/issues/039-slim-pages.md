@@ -165,6 +165,9 @@ markup + pure logic extract out with colocated tests.
   `FamilyTaskAddForm` (+ 2 tests), `FamilyTasksList` (+ 2 tests),
   `FamilyTaskFilterBar` (+ 2 tests), `familyTaskList.ts` model (+ 5 tests:
   roster/search/filter/group); dead PRIORITY_DOT dropped.
+- [x] calendar/tasks 698 → 644: `taskEditPayload.ts` (+ 5 tests:
+  buildEditPayload/parseEditTags/inputToIso), respondAssignment reuses
+  shared familyTaskActions.
 - [ ] DayView/WeekView interaction unification (drag/drop/range/delete
   flows mirror each other) → separate issue: needs behavior-parity
   review before touching (43 existing interaction tests are the fence).
