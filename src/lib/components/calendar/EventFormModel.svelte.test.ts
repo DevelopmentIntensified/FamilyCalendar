@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createEventForm } from './EventFormModel.svelte';
+import { createEventForm, shiftEventDates, type FormEventData } from './EventFormModel.svelte';
 
 describe('EventFormModel - toEventData', () => {
 	it('should include attendants in toEventData output', () => {
@@ -386,5 +386,35 @@ describe('EventFormModel - default calendar selection chain', () => {
 			}
 		});
 		expect(form.selectedCalendarId).toBe('personal');
+	});
+});
+
+describe('shiftEventDates', () => {
+	const base: FormEventData = {
+		title: 'Dinner',
+		start: '2026-09-23T18:00:00.000Z',
+		end: '2026-09-23T19:00:00.000Z',
+		location: '',
+		description: '',
+		calendarId: 'cal1',
+		allDay: false,
+		recurrenceFrequency: null,
+		recurrenceInterval: null,
+		reminderMinutes: null
+	};
+
+	it('shifts extra dates by their offset from the base', () => {
+		const out = shiftEventDates(base, ['2026-09-23', '2026-09-30']);
+		expect(out).toHaveLength(1);
+		// Same instants as base +7d (zone repr varies by machine).
+		expect(new Date(out[0].start).getTime()).toBe(new Date('2026-09-30T18:00:00.000Z').getTime());
+		expect(new Date(out[0].end!).getTime()).toBe(new Date('2026-09-30T19:00:00.000Z').getTime());
+		expect(out[0].title).toBe('Dinner');
+	});
+
+	it('returns empty for single dates, missing input, or missing start', () => {
+		expect(shiftEventDates(base, ['2026-09-23'])).toEqual([]);
+		expect(shiftEventDates(base, undefined)).toEqual([]);
+		expect(shiftEventDates({ ...base, start: '' }, ['2026-09-23', '2026-09-30'])).toEqual([]);
 	});
 });

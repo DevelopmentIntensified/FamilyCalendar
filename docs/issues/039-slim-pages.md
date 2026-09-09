@@ -69,8 +69,11 @@ markup + pure logic extract out with colocated tests.
   tests). Task-mode form browser-verified.
 - [x] EventFormModal → 753: EventModalShell (overlay + grab handle +
   gradient header + close, children snippet, + 2 tests). Title/close
-  browser-verified. To go: submit fns (handleSubmit/createAllEvents/
-  parseNlInput/reportPhrase) + task-mode lets.
+  browser-verified.
+- [x] EventFormModal → 734: pure `shiftEventDates` multi-date fan-out
+  → EventFormModel (+ 2 tests, tz-safe assertions). Create smoke
+  verified (event in DB). To go: parseNlInput/reportPhrase,
+  handleSubmit/createAllEvents orchestration, task-mode lets.
 - [x] Duplicate kill: `bottomSheetSwipe.ts` (+ 3 tests) unifies the
   byte-identical swipe-to-close in EventModal + EventFormModal
   (immutable transitions keep legacy reactivity). EventModal open +

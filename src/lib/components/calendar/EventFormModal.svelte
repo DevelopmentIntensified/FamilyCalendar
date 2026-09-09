@@ -7,7 +7,7 @@
 	import LocationSearch from '$lib/components/LocationSearch.svelte';
 	import TaskQuickAddHelp from '$lib/components/TaskQuickAddHelp.svelte';
 	import { submitTaskQuickAdd } from '$lib/client/taskSubmit';
-	import { createEventForm } from './EventFormModel.svelte';
+	import { createEventForm, shiftEventDates } from './EventFormModel.svelte';
 	import type { NlpFormInput } from './EventFormModel.svelte';
 	import ChecklistSection from './ChecklistSection.svelte';
 	import AttendantPicker from './AttendantPicker.svelte';
@@ -464,38 +464,19 @@
 					}
 					dispatch('create', { ...eventData, created: json.event ?? null });
 					// Multi-date quick-add ("sept 23 & 30"): one event per
-					// date. Offsets apply from the parsed base date so a
-					// user-edited form date shifts the whole set together.
-					const parsedDates = lastParseResult?.dates;
-					const extraDates =
-						parsedDates && parsedDates.length > 1 && parsedDates[0] ? parsedDates.slice(1) : [];
-					if (extraDates.length > 0 && parsedDates?.[0] && eventData.start) {
-						const baseDay = DateTime.fromISO(parsedDates[0]).startOf('day');
-						const shiftIso = (iso: string, offset: number) =>
-							DateTime.fromISO(iso).plus({ days: offset }).toISO();
-						for (const d of extraDates) {
-							const offset = Math.round(
-								DateTime.fromISO(d).startOf('day').diff(baseDay, 'days').days
-							);
-							const shifted = {
-								...eventData,
-								start: shiftIso(eventData.start, offset) ?? eventData.start,
-								end: eventData.end
-									? (shiftIso(eventData.end, offset) ?? eventData.end)
-									: eventData.end
-							};
-							try {
-								const extra = await (
-									await fetch('/api/events', {
-										method: 'POST',
-										headers: { 'Content-Type': 'application/json' },
-										body: JSON.stringify(shifted)
-									})
-								).json();
-								dispatch('create', { ...shifted, created: extra.event ?? null });
-							} catch (e) {
-								console.error('Create failed:', e);
-							}
+					// date (offsets in the shared model helper).
+					for (const shifted of shiftEventDates(eventData, lastParseResult?.dates)) {
+						try {
+							const extra = await (
+								await fetch('/api/events', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify(shifted)
+								})
+							).json();
+							dispatch('create', { ...shifted, created: extra.event ?? null });
+						} catch (e) {
+							console.error('Create failed:', e);
 						}
 					}
 				} else {

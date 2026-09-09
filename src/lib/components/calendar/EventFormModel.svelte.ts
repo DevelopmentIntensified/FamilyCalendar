@@ -34,6 +34,31 @@ export interface FormEventData {
 	reminderMinutes?: number | null;
 }
 
+/**
+ * Multi-date quick-add ("sept 23 & 30"): extra occurrences beyond the
+ * first. Offsets apply from the parsed base date so a user-edited form
+ * date shifts the whole set together. Pure — the caller POSTs each.
+ */
+export function shiftEventDates(
+	eventData: FormEventData,
+	parsedDates: string[] | undefined
+): FormEventData[] {
+	const extraDates =
+		parsedDates && parsedDates.length > 1 && parsedDates[0] ? parsedDates.slice(1) : [];
+	if (extraDates.length === 0 || !parsedDates?.[0] || !eventData.start) return [];
+	const baseDay = DateTime.fromISO(parsedDates[0]).startOf('day');
+	const shiftIso = (iso: string, offset: number) =>
+		DateTime.fromISO(iso).plus({ days: offset }).toISO();
+	return extraDates.map((d) => {
+		const offset = Math.round(DateTime.fromISO(d).startOf('day').diff(baseDay, 'days').days);
+		return {
+			...eventData,
+			start: shiftIso(eventData.start, offset) ?? eventData.start,
+			end: eventData.end ? (shiftIso(eventData.end, offset) ?? eventData.end) : eventData.end
+		};
+	});
+}
+
 function loadRecentAttendants(): string[] {
 	try {
 		const stored = localStorage.getItem('recent_attendants');
