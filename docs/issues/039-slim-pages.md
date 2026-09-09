@@ -84,6 +84,10 @@ markup + pure logic extract out with colocated tests.
   tests green. Process fix: gate commits on tests AND build — a bad
   push went out with 1 failing test (caught + fixed forward same
   session).
+- [x] EventModal → ~640: EventDetailList (date/time, calendar, creator,
+  location, reminder, description, export links + helpers, + 2 tests).
+  Modal content browser-verified (date, calendar, exports render).
+  Drive-by: 'dayly' → 'daily' copy fix in the repeats line.
 - [x] Duplicate kill: `bottomSheetSwipe.ts` (+ 3 tests) unifies the
   byte-identical swipe-to-close in EventModal + EventFormModal
   (immutable transitions keep legacy reactivity). EventModal open +
