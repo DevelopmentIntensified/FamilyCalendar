@@ -8,6 +8,7 @@
 	import { DateTime } from 'luxon';
 	import EventFormModal from './EventFormModal.svelte';
 	import ChecklistSection from './ChecklistSection.svelte';
+	import EventAttendeeGroups from './EventAttendeeGroups.svelte';
 	import { createSwipeState, startSwipe, moveSwipe, endSwipe } from './bottomSheetSwipe';
 
 	export let event: Event;
@@ -348,10 +349,6 @@
 		const ampm = h >= 12 ? 'PM' : 'AM';
 		const hour = h > 12 ? h - 12 : h === 0 ? 12 : h;
 		return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
-	}
-
-	function getInitials(firstName: string, lastName: string): string {
-		return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
 	}
 </script>
 
@@ -730,178 +727,13 @@
 
 					<!-- RSVP Summary Section / Attendees -->
 					{#if goingList.length > 0 || maybeList.length > 0 || notGoingList.length > 0 || nonUserAttendants.length > 0}
-						<div class="border-t border-slate-100 px-4 py-4 sm:px-6">
-							<h3 class="mb-4 text-sm font-semibold text-slate-700">Attendees</h3>
-
-							<!-- Going -->
-							{#if goingList.length > 0}
-								<div class="mb-3">
-									<div class="mb-1.5 flex items-center gap-2">
-										<div class="h-2 w-2 rounded-full bg-green-500"></div>
-										<span class="text-xs font-medium text-green-700"
-											>Going ({goingList.length})</span
-										>
-									</div>
-									<div class="flex flex-wrap gap-1.5">
-										{#each goingList as rsvp}
-											<div
-												class="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1"
-											>
-												<div
-													class="flex h-5 w-5 items-center justify-center rounded-full bg-green-200 text-xs font-medium text-green-800"
-												>
-													{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
-												</div>
-												<span class="text-xs text-green-700">{rsvp.firstName || rsvp.userId}</span>
-												{#if rsvp.inviteType === 'required'}
-													<span
-														class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800"
-														>Req</span
-													>
-												{/if}
-											</div>
-										{/each}
-									</div>
-								</div>
-							{/if}
-
-							<!-- Maybe -->
-							{#if maybeList.length > 0}
-								<div class="mb-3">
-									<div class="mb-1.5 flex items-center gap-2">
-										<div class="h-2 w-2 rounded-full bg-yellow-500"></div>
-										<span class="text-xs font-medium text-yellow-700"
-											>Maybe ({maybeList.length})</span
-										>
-									</div>
-									<div class="flex flex-wrap gap-1.5">
-										{#each maybeList as rsvp}
-											<div
-												class="inline-flex items-center gap-1.5 rounded-full bg-yellow-50 px-2.5 py-1"
-											>
-												<div
-													class="flex h-5 w-5 items-center justify-center rounded-full bg-yellow-200 text-xs font-medium text-yellow-800"
-												>
-													{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
-												</div>
-												<span class="text-xs text-yellow-700">{rsvp.firstName || rsvp.userId}</span>
-												{#if rsvp.inviteType === 'required'}
-													<span
-														class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800"
-														>Req</span
-													>
-												{/if}
-											</div>
-										{/each}
-									</div>
-								</div>
-							{/if}
-
-							<!-- Not Going -->
-							{#if notGoingList.length > 0}
-								<div class="mb-3">
-									<div class="mb-1.5 flex items-center gap-2">
-										<div class="h-2 w-2 rounded-full bg-red-500"></div>
-										<span class="text-xs font-medium text-red-700"
-											>Not Going ({notGoingList.length})</span
-										>
-									</div>
-									<div class="flex flex-wrap gap-1.5">
-										{#each notGoingList as rsvp}
-											<div
-												class="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1"
-											>
-												<div
-													class="flex h-5 w-5 items-center justify-center rounded-full bg-red-200 text-xs font-medium text-red-800"
-												>
-													{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
-												</div>
-												<span class="text-xs text-red-700">{rsvp.firstName || rsvp.userId}</span>
-												{#if rsvp.inviteType === 'required'}
-													<span
-														class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800"
-														>Req</span
-													>
-												{/if}
-											</div>
-										{/each}
-									</div>
-								</div>
-							{/if}
-
-							<!-- Awaiting response (invited, hasn't answered) -->
-							{#if undecidedList.length > 0}
-								<div class="mb-3">
-									<div class="mb-1.5 flex items-center gap-2">
-										<div class="h-2 w-2 rounded-full bg-slate-400"></div>
-										<span class="text-xs font-medium text-slate-600"
-											>Awaiting response ({undecidedList.length})</span
-										>
-									</div>
-									<div class="flex flex-wrap gap-1.5">
-										{#each undecidedList as rsvp}
-											{@const isRequired = rsvp.inviteType === 'required'}
-											<div
-												class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 {isRequired
-													? 'bg-amber-50 ring-1 ring-inset ring-amber-300'
-													: 'bg-slate-100'}"
-											>
-												<div
-													class="flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium {isRequired
-														? 'bg-amber-200 text-amber-800'
-														: 'bg-slate-200 text-slate-700'}"
-												>
-													{getInitials(rsvp.firstName || '', rsvp.lastName || '')}
-												</div>
-												<span class="text-xs {isRequired ? 'text-amber-800' : 'text-slate-700'}">
-													{rsvp.firstName || rsvp.userId}
-													{#if isRequired}
-														<span
-															class="ml-1 rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800"
-															>Required</span
-														>
-													{/if}
-												</span>
-											</div>
-										{/each}
-									</div>
-								</div>
-							{/if}
-
-							<!-- Non-user Attendants -->
-							{#if nonUserAttendants.length > 0}
-								<div>
-									<div class="mb-1.5 flex items-center gap-2">
-										<div class="h-2 w-2 rounded-full bg-slate-400"></div>
-										<span class="text-xs font-medium text-slate-600"
-											>Guests ({nonUserAttendants.length})</span
-										>
-									</div>
-									<div class="flex flex-wrap gap-1.5">
-										{#each nonUserAttendants as att}
-											<span
-												class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
-											>
-												<svg
-													class="h-3 w-3 text-slate-400"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-													/>
-												</svg>
-												{att}
-											</span>
-										{/each}
-									</div>
-								</div>
-							{/if}
-						</div>
+						<EventAttendeeGroups
+							going={goingList}
+							maybe={maybeList}
+							notGoing={notGoingList}
+							undecided={undecidedList}
+							guests={nonUserAttendants}
+						/>
 					{/if}
 
 					<!-- Event checklist (shared section; hidden until it has content) -->

@@ -79,6 +79,11 @@ markup + pure logic extract out with colocated tests.
   EventModal 1251 → 1051. Modal open + checklist header browser-
   verified (bench session). Note: empty events now show the checklist
   header + add affordance (was hidden) — deliberate discoverability.
+- [x] EventModal → 886: EventAttendeeGroups (5 status groups collapse
+  into one config-driven loop + getInitials, + 2 tests). All 15 modal
+  tests green. Process fix: gate commits on tests AND build — a bad
+  push went out with 1 failing test (caught + fixed forward same
+  session).
 - [x] Duplicate kill: `bottomSheetSwipe.ts` (+ 3 tests) unifies the
   byte-identical swipe-to-close in EventModal + EventFormModal
   (immutable transitions keep legacy reactivity). EventModal open +
