@@ -35,8 +35,13 @@
 				fetch('/calendar/setUserDefaultTimeZone', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ timeZone: clientTz })
-				}).then(() => invalidateAll());
+					body: JSON.stringify({ timeZone: clientTz }),
+					keepalive: true
+				})
+					.then(() => invalidateAll())
+					.catch(() => {
+						/* navigation-away aborts are expected (#049) */
+					});
 			}
 		}
 		return initOfflineSync();

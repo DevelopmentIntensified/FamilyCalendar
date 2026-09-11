@@ -19,6 +19,9 @@ export function buildAutoBugReport(input: {
 	if (input.status === 404) return null;
 	const message = input.message.trim();
 	if (!message) return null;
+	// Client-cancelled navigations/fetches surface as AbortErrors with
+	// status 500 — not app bugs. Never file them (#049).
+	if (/abort/i.test(message)) return null;
 	const description = `[auto-filed ${input.status}] ${message}`.slice(0, 5000);
 	return {
 		userId: input.userId,

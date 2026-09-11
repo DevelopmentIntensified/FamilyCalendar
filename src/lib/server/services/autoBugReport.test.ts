@@ -42,6 +42,19 @@ describe('buildAutoBugReport', () => {
 		).toBeNull();
 	});
 
+	it('returns null for client-abort messages (#049)', () => {
+		for (const message of [
+			'aborted',
+			'AbortError: aborted',
+			'The operation was aborted',
+			'fetch aborted'
+		]) {
+			expect(
+				buildAutoBugReport({ status: 500, message, path: '/calendar', userId: null })
+			).toBeNull();
+		}
+	});
+
 	it('truncates long messages with a clear prefix', () => {
 		const report = buildAutoBugReport({
 			status: 500,
