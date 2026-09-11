@@ -1831,3 +1831,57 @@ describe('Bill quick-add NLP — robustness (parseBillQuickAdd)', () => {
 		expect(parsed.confidence).toBeLessThanOrEqual(1);
 	});
 });
+
+describe('Unmatched export 2026-09-10 — multi-word comma attendants (#052)', () => {
+	const tomorrow = DateTime.now().plus({ days: 1 }).toFormat('yyyy-MM-dd');
+
+	it('captures every name in "working with nathan dewhurst, matthew wilson, kelvin tomorrow from 5:30-9pm"', () => {
+		const result = parseEventInput(
+			'working with nathan dewhurst, matthew wilson, kelvin tomorrow from 5:30-9pm'
+		);
+		const attendants = (result.parsed.attendants ?? []).map((n) => n.toLowerCase());
+		expect(attendants).toEqual(
+			expect.arrayContaining(['nathan dewhurst', 'matthew wilson', 'kelvin'])
+		);
+		expect(result.parsed.date).toBe(tomorrow);
+		expect(result.parsed.startTime).toBe('17:30');
+		expect(result.parsed.endTime).toBe('21:00');
+	});
+
+	it('splits the friday clause into a second event inheriting title + attendants', () => {
+		const results = parseEventList(
+			'working with nathan dewhurst, matthew wilson, kelvin tomorrow from 5:30-9pm and friday from 5:30-9pm'
+		);
+		expect(results).toHaveLength(2);
+		expect(DateTime.fromISO(results[1].parsed.date!).weekday).toBe(5);
+		expect(results[1].parsed.startTime).toBe('17:30');
+		expect(results[1].parsed.endTime).toBe('21:00');
+		expect(results[1].parsed.title).toBe(results[0].parsed.title);
+		const attendants = (results[1].parsed.attendants ?? []).map((n) => n.toLowerCase());
+		expect(attendants).toEqual(
+			expect.arrayContaining(['nathan dewhurst', 'matthew wilson', 'kelvin'])
+		);
+	});
+
+	it.each([
+		['lunch with amy chen and bob lee friday', ['amy chen', 'bob lee']],
+		['dinner with nathan dewhurst, matthew wilson, kelvin tomorrow', ['nathan dewhurst', 'matthew wilson', 'kelvin']],
+		['brunch with sam oak, jo pine sunday', ['sam oak', 'jo pine']]
+	])('reads "%s" attendants %s', (input, names) => {
+		const attendants = (parseEventInput(input).parsed.attendants ?? []).map((n) =>
+			n.toLowerCase()
+		);
+		for (const name of names as string[]) expect(attendants, input).toContain(name);
+	});
+
+	it.each([
+		['lunch with amy tomorrow at noon', ['amy']],
+		['meeting with bob next week', ['bob']],
+		['coffee with john at the park friday', ['john']]
+	])('stops the second word at schedule clauses: "%s"', (input, names) => {
+		const attendants = (parseEventInput(input).parsed.attendants ?? []).map((n) =>
+			n.toLowerCase()
+		);
+		expect(attendants, input).toEqual(names);
+	});
+});

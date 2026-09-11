@@ -1553,13 +1553,13 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// nothing matched, so most parses never pay for a second NLP doc.
 
 	// "with X", "with X and Y and Z" — explicit lists are the trustworthy
-	// source. Continuations only extend on and/&/comma so prepositions end
+	// source. Names run two words (first + last); schedule words end the
+	// list ("kelvin tomorrow", "john at the park" — #052, WITH_NAME_ITEM).
+	// Continuations only extend on and/&/comma so prepositions end
 	// the list ("with John at the park" captures John, not "at the park").
 	// Lowercase names validate against compromise's person lexicon (one hit
 	// admits the list) so "with pizza and drinks" never reads as people.
-	const withMatch = nonUrlText.matchAll(
-		/\bwith\s+([A-Za-z][A-Za-z'’-]*(?:(?:\s+and\s+|\s*&\s*|\s*,\s*)[A-Za-z][A-Za-z'’-]*)*)/gi
-	);
+	const withMatch = nonUrlText.matchAll(new RegExp(WITH_LIST_PATTERN, 'gi'));
 	let withSpan: { text: string; end: number } | null = null;
 	for (const m of withMatch) {
 		const items = m[1]
@@ -1809,9 +1809,15 @@ const COMMA_SIGNAL =
 const MIN_SEGMENT_CONFIDENCE = 0.3;
 
 /** Attendee-list spans ("with james and joseph"): an "and"/comma inside one
- * never splits events — the list belongs to a single event (issue 030). */
+ * never splits events — the list belongs to a single event (issue 030).
+ * Names run two words max (first + last); a schedule word in second
+ * position ends the list instead of joining it ("kelvin tomorrow",
+ * "john at the park" — #052). */
+const WITH_NAME_STOP =
+	'today|tomorrow|yesterday|weekend|sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|am|pm|morning|afternoon|evening|noon|night|midnight|at|on|for|from|to|until|by|in|of|with|every|repeat|weekly|daily|monthly|all|each|next|this|last|remind|reminder|invite|and|or|the|a|an|my|our';
+const WITH_NAME_ITEM = `[A-Za-z][A-Za-z'’-]*(?:\\s+(?!${WITH_NAME_STOP}\\b)[A-Za-z][A-Za-z'’-]*)?`;
 const WITH_LIST_PATTERN =
-	"\\bwith\\s+[A-Za-z][A-Za-z'’-]*(?:(?:\\s+and\\s+|\\s*&\\s*|\\s*,\\s*)[A-Za-z][A-Za-z'’-]*)*";
+	`\\bwith\\s+(${WITH_NAME_ITEM}(?:(?:\\s+and\\s+|\\s*&\\s*|\\s*,\\s*)${WITH_NAME_ITEM})*)`;
 
 function withListSpans(text: string): Array<[number, number]> {
 	const spans: Array<[number, number]> = [];
@@ -1869,6 +1875,18 @@ function splitAt(input: string, cuts: number[], cutLen: number): string[] {
 	return parts.map((p) => p.trim()).filter((p) => p.length > 0);
 }
 
+/** A segment title carrying nothing but schedule words ("friday from
+ * 5:30-9pm") is a continuation of the first segment, not its own name —
+ * it inherits the head title + attendants (#052). Titles with any real
+ * word ("movie saturday") keep their own. */
+function isScheduleOnlyTitle(title: string | undefined): boolean {
+	if (!title || title.trim().length === 0) return true;
+	const SCHEDULE_WORD =
+		'(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat|today|tomorrow|yesterday|weekend|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|from|to|till|until|between|and|or|at|on|for|the|a|of)';
+	const SCHEDULE_TOKEN = `(?:${SCHEDULE_WORD}|\\d{1,2}(?:st|nd|rd|th)?|\\d{1,2}:\\d{2}|\\d{1,2}\\s*(?:am|pm)|[-–])`;
+	return new RegExp(`^(?:\\s*${SCHEDULE_TOKEN})*\\s*$`, 'i').test(title);
+}
+
 /**
  * Multi-event segmentation (item 5). Splits on semicolons/newlines and on
  * "and" only when both sides carry date/time signals, parses each segment
@@ -1890,6 +1908,14 @@ export function parseEventList(input: string, zone?: string): ParseResult[] {
 	const parsed = candidates.map((c) => parseEventInput(c, zone));
 	if (parsed.filter((p) => p.confidence >= MIN_SEGMENT_CONFIDENCE).length < 2) {
 		return [parseEventInput(input, zone)];
+	}
+	// Continuation segments inherit the head's title + attendants (#052).
+	const head = parsed[0].parsed;
+	for (const p of parsed.slice(1)) {
+		if (isScheduleOnlyTitle(p.parsed.title)) p.parsed.title = head.title;
+		if ((!p.parsed.attendants || p.parsed.attendants.length === 0) && head.attendants?.length) {
+			p.parsed.attendants = [...head.attendants];
+		}
 	}
 	return parsed;
 }
