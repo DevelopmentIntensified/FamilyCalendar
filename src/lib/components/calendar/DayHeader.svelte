@@ -15,7 +15,7 @@
 <div class="mb-4 flex items-center gap-3 border-b border-slate-200 pb-3">
 	<button
 		type="button"
-		onclick={() => dispatch('back')}
+		onclick={onBack}
 		class="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50"
 		aria-label="Back"
 	>
