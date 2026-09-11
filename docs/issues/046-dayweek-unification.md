@@ -27,6 +27,12 @@ flows under review and prop-drill ~10 callbacks per block.)
   machine (~120 lines ×2). Unify as framework-free `rangeSelect.ts`
   machine (always carries day) + thin adapters; move helper already
   shared, geometry converges later per issue.
+- Unify landed 2026-09-11: `src/lib/utils/rangeSelect.ts` (13 unit
+  tests) + Week/Day adapters (all 16 Day + 10 Week interaction tests
+  green, fence intact); `ExitSelectionAsk.svelte` extracted (was
+  verbatim ×2) + toolbar Add-mode test backfilled.
+- Still to split: week header, all-day row, hour grid + overlay, day
+  equivalents (markup + pure logic out, colocated tests).
 
 ## Needs doing
 
