@@ -1,6 +1,6 @@
 # 047 — Mobile select-range event creation needs a mode
 
-Status: open
+Status: done
 
 ## Done
 

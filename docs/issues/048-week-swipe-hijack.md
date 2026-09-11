@@ -1,6 +1,6 @@
 # 048 — Week-view horizontal scroll hijacked by week navigation
 
-Status: open
+Status: done
 
 ## Done
 

@@ -1,6 +1,6 @@
 # 049 — Auto-filed "aborted" 500s are client aborts, not bugs
 
-Status: open
+Status: done
 
 ## Done
 

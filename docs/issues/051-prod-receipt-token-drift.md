@@ -1,6 +1,6 @@
 # 051 — Prod schema drift: users.receiptIngestToken (8× 500s)
 
-Status: open
+Status: done
 
 ## Done
 

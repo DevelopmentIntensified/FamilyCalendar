@@ -4,6 +4,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- #047–#052 bug + NLP export triage (DONE 2026-09-11, commits auto-report filter .. nlp-lists): #047 Add-mode mobile range-select (toolbar toggle, instant drag, touch-action none, Week/Day + tests); #048 month-only swipe-nav (`shouldSwipeNavigate` + tests, week/day pan untouched); #049 abort-family auto-file skip + tz-probe keepalive/catch; #050/#051 prod drift bundled as migrations 011–014 (auto-applies on next deploy; manual Neon SQL in issues as immediate relief); #052 multi-word with-lists + continuation title/attendant inheritance (suite 425→433).
 - #001 Local Postgres via Docker (compose, npm scripts, local env wiring)
 - #004 Bill CRUD (bills table, role-gated API, minimal list UI, e2e green)
 - HIGH audit fixes (2026-09-06, commits 2f2637b..fa4ef7f): bills authz/validation,
@@ -169,12 +170,6 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
-- #047 Mobile select-range mode (filed 2026-09-11, bug export): long-press-drag fights scroll; decide explicit mode vs tap-endpoints vs stepper; unify inside #046 range-select action.
-- #048 Week-view swipe hijack (filed 2026-09-11, bug export): Calendar.svelte fling-nav fires on week-grid pan; scope to month/header or pan-safe gesture.
-- #049 Aborted-500 noise (filed 2026-09-11, bug export): auto-file skips abort-family messages; keepalive/catch setUserDefaultTimeZone fire-and-forget; close 2x aborted reports.
-- #050 Prod drift memberLimitOverride (filed 2026-09-11, 3x 500s /calendar/archive + /family/create): sql/005 never bundled (migrations/ only 001-010); bundle 005-014 + manual Neon SQL now.
-- #051 Prod drift receiptIngestToken (filed 2026-09-11, 8x 500s): sql/012 never bundled; manual Neon SQL now; closes with #050 bundling.
-- #052 NLP unmatched 2026-09-10 (filed 2026-09-11, 4 event phrases): multi-date and-split, with-A-and-B tails, till-end-time, repeat survival; TDD phrase tables.
 - #046 Day/Week unification (filed 2026-09-09, split from #039):
   parity review → unify drag/drop/range/delete → then sub-block
   split. Fence: DayView 16 + WeekView 43 interaction tests green.

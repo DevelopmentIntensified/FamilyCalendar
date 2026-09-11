@@ -1871,6 +1871,7 @@ describe('Unmatched export 2026-09-10 — multi-word comma attendants (#052)', (
 		const attendants = (parseEventInput(input).parsed.attendants ?? []).map((n) =>
 			n.toLowerCase()
 		);
+		// SAFETY: it.each rows above are all [string, string[]] pairs.
 		for (const name of names as string[]) expect(attendants, input).toContain(name);
 	});
 

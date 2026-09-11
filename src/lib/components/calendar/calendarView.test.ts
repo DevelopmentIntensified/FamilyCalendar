@@ -39,6 +39,7 @@ describe('shouldSwipeNavigate (#048)', () => {
 	});
 
 	it('never navigates off month view (week/day pan, list scrolls)', () => {
+		// SAFETY: literals are exactly the non-month CalendarView members.
 		for (const v of ['week', 'list', 'day'] as CalendarView[]) {
 			expect(shouldSwipeNavigate(v, -200, 0)).toBe(false);
 			expect(shouldSwipeNavigate(v, 200, 0)).toBe(false);
