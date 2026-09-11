@@ -171,10 +171,6 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
-- #046 Day/Week unification (filed 2026-09-09, split from #039):
-  parity review → unify drag/drop/range/delete → then sub-block
-  split. Fence: DayView 16 + WeekView 43 interaction tests green.
-
 - Tasks surfaces polish batch (UNCOMMITTED 2026-09-08): toasts on add/
   one-off complete/accept-decline, recurring single-toast on board + Top-3,
   shared `priorityTone.ts` (dot/label/due tones) across tasks page + board +

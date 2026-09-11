@@ -1,6 +1,6 @@
 # 046 — Day/Week interaction unification + sub-block split
 
-Status: in-progress
+Status: done
 
 Split out of #039: DayView (715) + WeekView (710) mirror each other's
 drag/drop/range/delete flows. Do NOT extract sub-blocks first — unify
@@ -31,8 +31,8 @@ flows under review and prop-drill ~10 callbacks per block.)
   tests) + Week/Day adapters (all 16 Day + 10 Week interaction tests
   green, fence intact); `ExitSelectionAsk.svelte` extracted (was
   verbatim ×2) + toolbar Add-mode test backfilled.
-- Still to split: week header, all-day row, hour grid + overlay, day
-  equivalents (markup + pure logic out, colocated tests).
+- Split landed 2026-09-11 (WeekView 738→404, DayView 742→404; fences green throughout): WeekHeader, WeekAllDayRow, WeekHourGrid (geometry fns moved with it), ExitSelectionAsk, DayHeader, DayAllDayList, DayHourGrid (owns autoscroll). Handlers stay in parents per #039 rule.
+- Follow-up (optional, not this issue): converge Week % geometry with Day layoutTimed into one util; unify PX_PER_HOUR 56/60 visual density.
 
 ## Needs doing
 
