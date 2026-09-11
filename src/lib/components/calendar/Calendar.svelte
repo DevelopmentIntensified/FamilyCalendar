@@ -8,7 +8,7 @@
 	import DayView from './DayView.svelte';
 	import DailyVerseCard from './DailyVerseCard.svelte';
 	import CalendarToolbar from './CalendarToolbar.svelte';
-	import { resolveInitialView, type CalendarView } from './calendarView';
+	import { resolveInitialView, shouldSwipeNavigate, type CalendarView } from './calendarView';
 
 	export let currentDate: Writable<DateTime>;
 	export let events: Event[] = [];
@@ -124,11 +124,11 @@
 		const touch = e.changedTouches[0];
 		const dx = touch.clientX - touchStartX;
 		const dy = touch.clientY - touchStartY;
-		// Horizontal flings navigate; taps and vertical scrolls pass through.
-		if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-			if (dx < 0) goNext();
-			else goPrevious();
-		}
+		// Month-only: week/day grids pan horizontally, so a fling there
+		// is a pan, not navigation (#048).
+		if (!shouldSwipeNavigate(view, dx, dy)) return;
+		if (dx < 0) goNext();
+		else goPrevious();
 	}
 
 	$: currentMonthYear = $currentDate.toFormat('MMMM yyyy');

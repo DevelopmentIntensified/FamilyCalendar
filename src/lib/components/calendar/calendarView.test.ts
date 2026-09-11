@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveInitialView, type CalendarView } from './calendarView';
+import { resolveInitialView, shouldSwipeNavigate, type CalendarView } from './calendarView';
 
 describe('resolveInitialView', () => {
 	it('prefers an explicit valid initialView', () => {
@@ -22,6 +22,26 @@ describe('resolveInitialView', () => {
 		// SAFETY: literals are exactly the CalendarView union members.
 		for (const v of ['month', 'week', 'list', 'day'] as CalendarView[]) {
 			expect(resolveInitialView(undefined, 'monthView', v)).toBe(v);
+		}
+	});
+});
+
+describe('shouldSwipeNavigate (#048)', () => {
+	it('navigates on month-view horizontal flings', () => {
+		expect(shouldSwipeNavigate('month', -80, 10)).toBe(true);
+		expect(shouldSwipeNavigate('month', 80, -10)).toBe(true);
+	});
+
+	it('ignores taps and vertical scrolls on month view', () => {
+		expect(shouldSwipeNavigate('month', 30, 5)).toBe(false);
+		expect(shouldSwipeNavigate('month', -80, 70)).toBe(false);
+		expect(shouldSwipeNavigate('month', 0, 0)).toBe(false);
+	});
+
+	it('never navigates off month view (week/day pan, list scrolls)', () => {
+		for (const v of ['week', 'list', 'day'] as CalendarView[]) {
+			expect(shouldSwipeNavigate(v, -200, 0)).toBe(false);
+			expect(shouldSwipeNavigate(v, 200, 0)).toBe(false);
 		}
 	});
 });

@@ -40,3 +40,14 @@ export function resolveInitialView(
 	}
 	return viewFromSettingKey(defaultViewSetting) ?? 'month';
 }
+
+/**
+ * Swipe-nav gate (#048): only the month grid has no horizontal panning,
+ * so only it may navigate on a horizontal fling. Week/day grids pan
+ * horizontally (day columns overflow) — a fling there is a pan, not nav.
+ * List scrolls vertically. Pure for testing; Calendar.svelte owns touch.
+ */
+export function shouldSwipeNavigate(view: CalendarView, dx: number, dy: number): boolean {
+	if (view !== 'month') return false;
+	return Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5;
+}
