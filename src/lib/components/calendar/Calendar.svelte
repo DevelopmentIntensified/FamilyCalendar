@@ -26,6 +26,19 @@
 	}[] = [];
 	export let createAt: (date: DateTime, end?: DateTime) => void = () => {};
 	export let selectionMode: boolean = false;
+	// Add mode (#047): explicit mobile range-select. Touch-drag on the
+	// week/day grid selects a time range immediately (no long-press, no
+	// scroll fight); default touch still scrolls. Mutually exclusive
+	// with bulk-selection mode.
+	let addMode = false;
+
+	function toggleAddMode(on: boolean) {
+		addMode = on;
+		if (on) onToggleSelectionMode(false);
+	}
+
+	// Parent-owned bulk-select wins when re-enabled externally.
+	$: if (selectionMode && addMode) addMode = false;
 	export let selectedIds: string[] = [];
 	export let onToggleSelectionMode: (on: boolean) => void = () => {};
 	export let onToggleSelect: (event: Event) => void = () => {};
@@ -145,6 +158,7 @@
 		{months}
 		{view}
 		{selectionMode}
+		{addMode}
 		dashboardDate={$currentDate.toISODate() ?? ''}
 		onToday={goToday}
 		onPrevious={goPrevious}
@@ -153,6 +167,7 @@
 		onYearSelect={handleYearSelect}
 		onViewChange={changeView}
 		{onToggleSelectionMode}
+		onToggleAddMode={toggleAddMode}
 	/>
 	<div
 		class="group/cal relative mx-auto w-full max-w-screen-2xl px-2 sm:px-4 lg:px-8"
@@ -210,6 +225,7 @@
 				{dueTasks}
 				{createAt}
 				{selectionMode}
+				{addMode}
 				{selectedIds}
 				{onToggleSelectionMode}
 				{onToggleSelect}
@@ -222,6 +238,7 @@
 				{dueTasks}
 				{createAt}
 				{selectionMode}
+				{addMode}
 				{selectedIds}
 				{onToggleSelectionMode}
 				{onToggleSelect}

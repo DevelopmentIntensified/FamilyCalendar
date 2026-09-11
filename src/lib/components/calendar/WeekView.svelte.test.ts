@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { writable } from 'svelte/store';
+import { tick } from 'svelte';
 import { DateTime } from 'luxon';
 import { invalidateAll } from '$app/navigation';
 import { stubFetchResponse, dispatchTouchEvent, isStringBody } from '$lib/utils/testDom';
@@ -43,6 +44,7 @@ type SetupOverrides = {
 	events?: Event[];
 	dueTasks?: never[];
 	selectionMode?: boolean;
+	addMode?: boolean;
 	selectedIds?: string[];
 	createAt?: CreateAtMock;
 	removeEvent?: (id: string) => void;
@@ -64,6 +66,7 @@ function setup(over: SetupOverrides = {}) {
 		dueTasks: [],
 		createAt: vi.fn<(start: DateTime, end?: DateTime) => void>(),
 		selectionMode: false,
+		addMode: false,
 		selectedIds: [] as string[],
 		onToggleSelectionMode: vi.fn<(on: boolean) => void>(),
 		onToggleSelect: vi.fn<(event: Event) => void>(),
@@ -76,6 +79,10 @@ function setup(over: SetupOverrides = {}) {
 // jsdom has no Touch constructor: dispatch plain events carrying touches.
 function dispatchTouchStart(el: Element, clientY: number) {
 	dispatchTouchEvent(el, 'touchstart', [{ identifier: 1, target: el, clientX: 0, clientY }]);
+}
+
+function dispatchTouchMove(el: Element, clientY: number) {
+	dispatchTouchEvent(el, 'touchmove', [{ identifier: 1, target: el, clientX: 0, clientY }]);
 }
 
 function dispatchTouchEnd(el: Element) {
@@ -190,6 +197,18 @@ describe('WeekView - slot create and drag move', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+
+	it('add mode drag-selects a range with no long-press (#047)', async () => {
+		const props = setup({ addMode: true });
+		const cols = screen.getAllByTestId('week-day-column');
+		// No fake timers: immediate select on touchstart, extend on move.
+		dispatchTouchStart(cols[0], 120);
+		dispatchTouchMove(cols[0], 240);
+		dispatchTouchEnd(cols[0]);
+		await tick();
+		expect(screen.getByText('2:00 AM – 4:00 AM')).toBeInTheDocument();
+		expect(props.createAt).not.toHaveBeenCalled();
 	});
 
 	it('moves a dropped event with a PUT preserving duration', async () => {

@@ -29,6 +29,7 @@
 	export let createAt: (start: DateTime, end?: DateTime) => void = () => {};
 	export let refreshAll: () => Promise<void> = invalidateAll;
 	export let selectionMode: boolean = false;
+	export let addMode: boolean = false;
 	export let selectedIds: string[] = [];
 	export let onToggleSelectionMode: (on: boolean) => void = () => {};
 	export let onToggleSelect: (event: Event) => void = () => {};
@@ -290,6 +291,16 @@
 		const top = grid?.getBoundingClientRect()?.top ?? 0;
 		longPressStartY = touch.clientY;
 		const anchorMin = yToMinutes(touch.clientY, top, PX_PER_HOUR);
+		if (addMode) {
+			// Add mode (#047): drag selects immediately — no long-press,
+			// grid has touch-action:none so the drag never scrolls.
+			if (!Number.isFinite(anchorMin)) return;
+			if (longPressTimer) clearTimeout(longPressTimer);
+			longPressTimer = null;
+			rangeSel = null;
+			selecting = { day, anchorMin, curMin: anchorMin };
+			return;
+		}
 		if (longPressTimer) clearTimeout(longPressTimer);
 		longPressTimer = setTimeout(() => {
 			// Long-press selects a default one-hour block; the popover
@@ -302,7 +313,17 @@
 		}, LONG_PRESS_MS);
 	}
 
-	function handleRangeTouchMove(e: TouchEvent) {
+	function handleRangeTouchMove(e: TouchEvent, day: DateTime, grid: HTMLElement | null) {
+		if (addMode && selecting) {
+			const touch = e.touches[0];
+			if (!touch) return;
+			const top = grid?.getBoundingClientRect()?.top ?? 0;
+			const minutes = yToMinutes(touch.clientY, top, PX_PER_HOUR);
+			if (!Number.isFinite(minutes)) return;
+			selecting = { ...selecting, curMin: minutes };
+			if (Math.abs(selecting.curMin - selecting.anchorMin) > 2) suppressClick = true;
+			return;
+		}
 		const touch = e.touches[0];
 		if (!touch || !longPressTimer) return;
 		// Finger moved before the long-press fired: it's a scroll, not a select.
@@ -313,6 +334,12 @@
 	}
 
 	function handleRangeTouchEnd() {
+		if (addMode && selecting) {
+			// Plain taps fall through to single-time create (desktop parity).
+			if (suppressClick) finalizeSelecting();
+			else selecting = null;
+			return;
+		}
 		if (longPressTimer) {
 			clearTimeout(longPressTimer);
 			longPressTimer = null;
@@ -324,7 +351,7 @@
 	function rangeTouch(node: HTMLElement, day: DateTime) {
 		let currentDay = day;
 		const onStart = (e: TouchEvent) => handleRangeTouchStart(e, currentDay, node);
-		const onMove = (e: TouchEvent) => handleRangeTouchMove(e);
+		const onMove = (e: TouchEvent) => handleRangeTouchMove(e, currentDay, node);
 		const onEnd = () => handleRangeTouchEnd();
 		node.addEventListener('touchstart', onStart);
 		node.addEventListener('touchmove', onMove);
@@ -527,6 +554,7 @@
 							onmousemove={handleRangeMouseMove}
 							onmouseup={handleRangeMouseUp}
 							use:rangeTouch={wd}
+							style:touch-action={addMode ? 'none' : undefined}
 						>
 							{#if selecting && selecting.day.hasSame(wd, 'day')}
 								{@const [selStart, selEnd] = normalizeRange(selecting.anchorMin, selecting.curMin)}

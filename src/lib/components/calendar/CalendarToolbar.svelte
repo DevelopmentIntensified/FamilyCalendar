@@ -8,6 +8,7 @@
 		months: string[];
 		view: CalendarView;
 		selectionMode: boolean;
+		addMode: boolean;
 		/** YYYY-MM-DD for the dashboard deep link. */
 		dashboardDate: string;
 		onToday: () => void;
@@ -17,6 +18,7 @@
 		onYearSelect: (year: number) => void;
 		onViewChange: (view: CalendarView) => void;
 		onToggleSelectionMode: (on: boolean) => void;
+		onToggleAddMode: (on: boolean) => void;
 	}
 
 	let {
@@ -26,6 +28,7 @@
 		months,
 		view,
 		selectionMode,
+		addMode,
 		dashboardDate,
 		onToday,
 		onPrevious,
@@ -33,7 +36,8 @@
 		onMonthSelect,
 		onYearSelect,
 		onViewChange,
-		onToggleSelectionMode
+		onToggleSelectionMode,
+		onToggleAddMode
 	}: Props = $props();
 
 	const views = [
@@ -176,6 +180,26 @@
 				</button>
 			{/each}
 		</div>
+
+		<!-- Add mode toggle (#047): explicit mobile range-select -->
+		<button
+			type="button"
+			onclick={() => onToggleAddMode(!addMode)}
+			aria-pressed={addMode}
+			title="Add by dragging a time range"
+			class="flex h-10 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-all active:scale-[0.97] {addMode
+				? 'border-primary-300 bg-primary-50 text-primary-700'
+				: 'border-slate-200 bg-white text-slate-400 hover:text-slate-800'}"
+		>
+			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M12 4v16m8-8H4"
+				/>
+			</svg>
+			<span class="sr-only sm:not-sr-only">Add</span>
+		</button>
 
 		<!-- Selection mode toggle -->
 		<button
