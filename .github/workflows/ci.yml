@@ -30,6 +30,16 @@ jobs:
     name: build + unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # $env/static/private imports are baked at BUILD time — every name must
+    # exist or Rollup fails the whole build (#053). Real secrets when
+    # present, inert placeholders otherwise (unit tests never send mail).
+    env:
+      DATABASE_URL: ${{ secrets.CI_PREVIEW_DATABASE_URL || 'postgres://ci:ci@localhost:5432/ci' }}
+      RESEND_API_KEY: ${{ secrets.CI_PREVIEW_RESEND_API_KEY || 'ci-placeholder' }}
+      NOREPLYEMAIL: ${{ secrets.CI_PREVIEW_NOREPLYEMAIL || 'ci@example.com' }}
+      EMAILSECRET: ${{ secrets.CI_PREVIEW_EMAILSECRET || 'ci-placeholder' }}
+      NODE_ENV: production
+      ADAPTER: ci
     steps:
       - uses: actions/checkout@v4
 

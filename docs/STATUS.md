@@ -5,6 +5,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 ## Done
 
 - #047–#052 bug + NLP export triage (DONE 2026-09-11, commits auto-report filter .. nlp-lists): #047 Add-mode mobile range-select (toolbar toggle, instant drag, touch-action none, Week/Day + tests); #048 month-only swipe-nav (`shouldSwipeNavigate` + tests, week/day pan untouched); #049 abort-family auto-file skip + tz-probe keepalive/catch; #050/#051 prod drift bundled as migrations 011–014 (auto-applies on next deploy; manual Neon SQL in issues as immediate relief); #052 multi-word with-lists + continuation title/attendant inheritance (suite 425→433).
+- #053 CI gate env (DONE 2026-09-11): quality-gate passed zero env so `$env/static/private` hard-failed the build; secret-or-placeholder fallbacks for all five static names + dummy DATABASE_URL.
 - #001 Local Postgres via Docker (compose, npm scripts, local env wiring)
 - #004 Bill CRUD (bills table, role-gated API, minimal list UI, e2e green)
 - HIGH audit fixes (2026-09-06, commits 2f2637b..fa4ef7f): bills authz/validation,
