@@ -10,6 +10,7 @@ function props(overrides = {}) {
 		months: ['January', 'February', 'March', 'April', 'May', 'June'],
 		view: 'month',
 		selectionMode: false,
+		addMode: false,
 		dashboardDate: '2026-09-08',
 		onToday: vi.fn(),
 		onPrevious: vi.fn(),
@@ -18,6 +19,7 @@ function props(overrides = {}) {
 		onYearSelect: vi.fn(),
 		onViewChange: vi.fn(),
 		onToggleSelectionMode: vi.fn(),
+		onToggleAddMode: vi.fn(),
 		...overrides
 	};
 }
@@ -58,5 +60,14 @@ describe('CalendarToolbar', () => {
 		expect(btn.getAttribute('aria-pressed')).toBe('false');
 		await fireEvent.click(btn);
 		expect(p.onToggleSelectionMode).toHaveBeenCalledWith(true);
+	});
+
+	it('toggles add mode with pressed state (#047)', async () => {
+		const p = props();
+		render(CalendarToolbar, { props: p });
+		const btn = screen.getByTitle('Add by dragging a time range');
+		expect(btn.getAttribute('aria-pressed')).toBe('false');
+		await fireEvent.click(btn);
+		expect(p.onToggleAddMode).toHaveBeenCalledWith(true);
 	});
 });
