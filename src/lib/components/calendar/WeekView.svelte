@@ -9,6 +9,7 @@
 	import { chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import { layoutTimed } from '$lib/utils/dayViewLayout';
+	import { RangeSelectMachine } from '$lib/utils/rangeSelect';
 	import {
 		buildMovePayload,
 		yToMinutes,
@@ -202,8 +203,8 @@
 		// Selection mode owns all taps; empty-grid taps must not open create.
 		if (selectionMode) return;
 		// A drag/long-press that just finalized must not fall through to create.
-		if (suppressClick) {
-			suppressClick = false;
+		if (rs.consumeSuppressClick()) {
+			syncRange();
 			return;
 		}
 		// Chip taps open the event; empty-grid taps start a new one.
@@ -219,26 +220,21 @@
 	}
 
 	// ---- Time-range select (drag on desktop, long-press on touch) ----
-	interface SelectingState {
-		day: DateTime;
-		anchorMin: number;
-		curMin: number;
+	// State machine is shared (#046); these locals mirror it so legacy
+	// assignments keep triggering updates. Always syncRange() after ops.
+	const rs = new RangeSelectMachine(PX_PER_HOUR);
+	let selecting = rs.selecting;
+	let rangeSel = rs.rangeSel;
+	let suppressClick = rs.suppressClick;
+	function syncRange() {
+		selecting = rs.selecting;
+		rangeSel = rs.rangeSel;
+		suppressClick = rs.suppressClick;
 	}
-	interface RangeSel {
-		day: DateTime;
-		startMin: number;
-		endMin: number;
-	}
-	let selecting: SelectingState | null = null;
-	let rangeSel: RangeSel | null = null;
-	let suppressClick = false;
-	let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-	let longPressStartY = 0;
-	const LONG_PRESS_MS = 450;
 
 	function minutesFromMouse(e: MouseEvent, grid: HTMLElement | null): number {
 		const top = grid?.getBoundingClientRect()?.top ?? 0;
-		return yToMinutes(e.clientY, top, PX_PER_HOUR);
+		return rs.minutesFromClientY(e.clientY, top);
 	}
 
 	function handleRangeMouseDown(e: MouseEvent, day: DateTime) {
@@ -249,37 +245,30 @@
 		const grid = e.currentTarget as HTMLElement | null;
 		const minutes = minutesFromMouse(e, grid);
 		if (!Number.isFinite(minutes)) return;
-		rangeSel = null;
-		selecting = { day, anchorMin: minutes, curMin: minutes };
+		rs.beginDrag(day, minutes);
+		syncRange();
 	}
 
 	function handleRangeMouseMove(e: MouseEvent) {
-		if (!selecting) return;
+		if (!rs.selecting) return;
 		// SAFETY: mousemove handler is bound to the week-day column element
 		const grid = e.currentTarget as HTMLElement | null;
 		const minutes = minutesFromMouse(e, grid);
 		if (!Number.isFinite(minutes)) return;
-		selecting = { ...selecting, curMin: minutes };
-		if (Math.abs(selecting.curMin - selecting.anchorMin) * (PX_PER_HOUR / 60) > 6) {
-			suppressClick = true;
-		}
+		rs.dragTo(minutes, rs.mouseMinDelta());
+		syncRange();
 	}
 
 	function finalizeSelecting() {
-		if (!selecting) return;
-		const [startMin, endMin] = normalizeRange(selecting.anchorMin, selecting.curMin);
-		rangeSel = { day: selecting.day, startMin, endMin };
-		selecting = null;
+		rs.finalize();
+		syncRange();
 	}
 
 	function handleRangeMouseUp() {
-		if (!selecting) return;
+		if (!rs.selecting) return;
 		// Plain taps (no real movement) fall through to single-time create.
-		if (suppressClick) {
-			finalizeSelecting();
-		} else {
-			selecting = null;
-		}
+		rs.endDrag();
+		syncRange();
 	}
 
 	function handleRangeTouchStart(e: TouchEvent, day: DateTime, grid: HTMLElement | null) {
@@ -289,61 +278,26 @@
 		const touch = e.touches[0];
 		if (!touch) return;
 		const top = grid?.getBoundingClientRect()?.top ?? 0;
-		longPressStartY = touch.clientY;
-		const anchorMin = yToMinutes(touch.clientY, top, PX_PER_HOUR);
-		if (addMode) {
-			// Add mode (#047): drag selects immediately — no long-press,
-			// grid has touch-action:none so the drag never scrolls.
-			if (!Number.isFinite(anchorMin)) return;
-			if (longPressTimer) clearTimeout(longPressTimer);
-			longPressTimer = null;
-			rangeSel = null;
-			selecting = { day, anchorMin, curMin: anchorMin };
-			return;
-		}
-		if (longPressTimer) clearTimeout(longPressTimer);
-		longPressTimer = setTimeout(() => {
-			// Long-press selects a default one-hour block; the popover
-			// steppers refine it (no gesture fighting with scroll).
-			if (!Number.isFinite(anchorMin)) return;
-			suppressClick = true;
-			rangeSel = null;
-			selecting = { day, anchorMin, curMin: Math.min(24 * 60, anchorMin + 60) };
-			finalizeSelecting();
-		}, LONG_PRESS_MS);
+		const anchorMin = rs.minutesFromClientY(touch.clientY, top);
+		rs.touchStart(day, touch.clientY, anchorMin, { selectionMode, addMode }, syncRange);
+		syncRange();
 	}
 
 	function handleRangeTouchMove(e: TouchEvent, day: DateTime, grid: HTMLElement | null) {
-		if (addMode && selecting) {
-			const touch = e.touches[0];
-			if (!touch) return;
-			const top = grid?.getBoundingClientRect()?.top ?? 0;
-			const minutes = yToMinutes(touch.clientY, top, PX_PER_HOUR);
-			if (!Number.isFinite(minutes)) return;
-			selecting = { ...selecting, curMin: minutes };
-			if (Math.abs(selecting.curMin - selecting.anchorMin) > 2) suppressClick = true;
-			return;
-		}
 		const touch = e.touches[0];
-		if (!touch || !longPressTimer) return;
-		// Finger moved before the long-press fired: it's a scroll, not a select.
-		if (Math.abs(touch.clientY - longPressStartY) > 10) {
-			clearTimeout(longPressTimer);
-			longPressTimer = null;
-		}
+		if (!touch) return;
+		const minutes =
+			addMode && rs.selecting
+				? rs.minutesFromClientY(touch.clientY, grid?.getBoundingClientRect()?.top ?? 0)
+				: null;
+		if (minutes !== null && !Number.isFinite(minutes)) return;
+		rs.touchMove(touch.clientY, minutes, addMode);
+		syncRange();
 	}
 
 	function handleRangeTouchEnd() {
-		if (addMode && selecting) {
-			// Plain taps fall through to single-time create (desktop parity).
-			if (suppressClick) finalizeSelecting();
-			else selecting = null;
-			return;
-		}
-		if (longPressTimer) {
-			clearTimeout(longPressTimer);
-			longPressTimer = null;
-		}
+		rs.touchEnd(addMode);
+		syncRange();
 	}
 
 	// Touch listeners go through an action (direct addEventListener):
@@ -369,19 +323,16 @@
 	}
 
 	function stepRangeEnd(delta: number) {
-		if (!rangeSel) return;
-		rangeSel = {
-			...rangeSel,
-			endMin: Math.min(24 * 60, Math.max(rangeSel.startMin + 15, rangeSel.endMin + delta))
-		};
+		rs.stepEnd(delta);
+		syncRange();
 	}
 
 	function createRange() {
-		if (!rangeSel) return;
-		const start = rangeSel.day.startOf('day').plus({ minutes: rangeSel.startMin });
-		const end = rangeSel.day.startOf('day').plus({ minutes: rangeSel.endMin });
-		rangeSel = null;
-		createAt(start, end);
+		const ep = rs.rangeEndpoints();
+		if (!ep) return;
+		rs.rangeSel = null;
+		syncRange();
+		createAt(ep.start, ep.end);
 	}
 
 	function closeModal() {
