@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { untrack } from 'svelte';
 	import MentionInput from '$lib/components/MentionInput.svelte';
 	import TaskQuickAddPreview from '$lib/components/TaskQuickAddPreview.svelte';
 	import TaskQuickAddHelp from '$lib/components/TaskQuickAddHelp.svelte';
@@ -11,7 +10,7 @@
 		type SmartEventTemplate
 	} from '$lib/data/smartEventTemplates';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
-	import { splitTaskRecords, type BulkGhost } from '$lib/utils/taskBulk';
+	import { splitTaskRecords } from '$lib/utils/taskBulk';
 	import { submitTaskQuickAdd } from '$lib/client/taskSubmit';
 	import { pushToast } from '$lib/client/toasts';
 
@@ -23,22 +22,10 @@
 		onError: (message: string) => void;
 		/** Optimistic insert: page prepends the created task instantly (invalidateAll reconciles). */
 		onAdded?: (task: unknown) => void;
-		/** Live bulk rows for ghost drafts in the list (empty when not bulk). */
-		onBulkRows?: (rows: BulkGhost[]) => void;
-		/** Ghost keys created/discarded in the list — excluded from counts. */
-		excludedKeys?: string[];
 	}
 
-	let {
-		familyRoster,
-		familyId,
-		memberName,
-		formatDue,
-		onError,
-		onAdded = () => {},
-		onBulkRows = () => {},
-		excludedKeys = []
-	}: Props = $props();
+	let { familyRoster, familyId, memberName, formatDue, onError, onAdded = () => {} }: Props =
+		$props();
 
 	let newTitle = $state('');
 	let newDueDate = $state('');
@@ -64,11 +51,7 @@
 	);
 	let isBulk = $derived(bulkRows.length > 1);
 	let skippedKeys = $state<string[]>([]);
-	let activeRows = $derived(
-		bulkRows.filter(
-			(r) => !skippedKeys.includes(r.rec.text) && !excludedKeys.includes(r.rec.text)
-		)
-	);
+	let activeRows = $derived(bulkRows.filter((r) => !skippedKeys.includes(r.rec.text)));
 	let bulkBlocked = $derived(
 		activeRows.find((r) => r.parsed.unknownMember)?.parsed.unknownMember
 	);
@@ -85,28 +68,45 @@
 		if (pruned.length !== skippedKeys.length) skippedKeys = pruned;
 	});
 
-	// Ghost feed: the list renders these as editable drafts (not in the DB).
-	// untrack is load-bearing: the parent callback reads parent state
-	// (ghostGoneKeys/ghostEdits), and without it this effect would subscribe
-	// to state the callback itself rewrites → cross-component infinite loop.
-	$effect(() => {
-		const feed = isBulk
-			? bulkRows.map(({ rec, parsed }) => ({
-					key: rec.text,
-					text: rec.text,
-					tag: rec.tag,
-					parsed,
-					vis: newVisibility,
-					dueFb: newDueDate || null
-				}))
-			: [];
-		untrack(() => onBulkRows(feed));
-	});
-
 	function toggleSkip(key: string) {
 		skippedKeys = skippedKeys.includes(key)
 			? skippedKeys.filter((k) => k !== key)
 			: [...skippedKeys, key];
+	}
+
+	/** Drop one record's lines from the composer (after per-row create or ✕). */
+	function removeRowLines(key: string) {
+		newTitle = splitTaskRecords(newTitle)
+			.filter((r) => r.text && r.text !== key)
+			.map((r) => r.text)
+			.join('\n');
+		skippedKeys = skippedKeys.filter((k) => k !== key);
+	}
+
+	let rowBusyKey: string | null = null;
+	/** Per-row Create: posts one task, toasts, and removes its line. */
+	async function createRow(key: string, text: string) {
+		if (rowBusyKey) return;
+		rowBusyKey = key;
+		try {
+			const result = await submitTaskQuickAdd({
+				title: text,
+				dueDateFallback: newDueDate || null,
+				visibilityFallback: newVisibility,
+				familyId,
+				members: familyRoster
+			});
+			if (!result.ok) {
+				onError(result.error);
+				return;
+			}
+			pushToast({ message: `Added "${result.title}".` });
+			onAdded(result.task);
+			removeRowLines(key);
+			await invalidateAll();
+		} finally {
+			rowBusyKey = null;
+		}
 	}
 
 	function setQuickDate(days: number) {
@@ -308,6 +308,32 @@
 								>
 							{/if}
 							<TaskQuickAddPreview {parsed} {memberName} {formatDue} />
+							{#if parsed.unknownMember}
+								<p class="mt-0.5 text-[11px] font-medium text-red-600">
+									Unknown member {parsed.unknownMember}
+								</p>
+							{/if}
+						</div>
+						<div class="flex shrink-0 items-center gap-1">
+							<button
+								type="button"
+								onclick={() => createRow(rec.text, rec.text)}
+								disabled={rowBusyKey === rec.text || !!parsed.unknownMember}
+								aria-label={`Create task ${parsed.title}`}
+								title="Create this task"
+								class="rounded-md px-2 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-50 disabled:opacity-40"
+							>
+								{rowBusyKey === rec.text ? '…' : 'Create'}
+							</button>
+							<button
+								type="button"
+								onclick={() => removeRowLines(rec.text)}
+								aria-label={`Remove ${parsed.title} from the list`}
+								title="Remove from the list"
+								class="rounded-md px-1.5 py-1 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+							>
+								✕
+							</button>
 						</div>
 					</li>
 				{/each}

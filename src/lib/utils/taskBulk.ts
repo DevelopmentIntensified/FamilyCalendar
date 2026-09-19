@@ -10,21 +10,6 @@ export interface TaskRecord {
 	tag: string;
 }
 
-import type { TaskQuickAddResult } from './taskQuickAdd';
-
-/** A bulk row the task list renders as a ghost draft (editable, not in the DB). */
-export interface BulkGhost {
-	/** Stable identity: the record text as split. */
-	key: string;
-	/** Full record text (title + date), re-parsed on create. */
-	text: string;
-	/** Canvas item type / section ('' for plain lists). */
-	tag: string;
-	parsed: TaskQuickAddResult;
-	vis: 'public' | 'private';
-	dueFb: string | null;
-}
-
 const BULLET_RE = /^[\s•\-\*›]+/;
 const NUMBERED_RE = /^\d+[.)\]]\s*/;
 const CANVAS_TYPE = /^(assignment|quiz|discussion topic)$/i;
