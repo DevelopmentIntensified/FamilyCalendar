@@ -15,7 +15,9 @@
 
 	const items = [
 		{
-			href: '/calendar',
+			// Explicit-calendar escape hatch (#056): without it, dashboard-default
+			// users bounce to /calendar/dashboard on every tap.
+			href: '/calendar?dashboardView=1',
 			label: 'Calendar',
 			icon: '<rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />'
 		},
@@ -98,10 +100,12 @@
 	});
 
 	// Longest prefix wins so /calendar/dashboard highlights Dashboard, not Calendar.
+	// Hrefs compare pathname-only so the Calendar escape hatch still highlights (#056).
 	$: active = (() => {
-		const matched = items.filter((i) => path === i.href || path.startsWith(i.href + '/'));
+		const base = (href: string) => href.split('?')[0];
+		const matched = items.filter((i) => path === base(i.href) || path.startsWith(base(i.href) + '/'));
 		if (matched.length === 0) return null;
-		return matched.reduce((a, b) => (b.href.length > a.href.length ? b : a));
+		return matched.reduce((a, b) => (base(b.href).length > base(a.href).length ? b : a));
 	})();
 
 	// If auth flips off while the nav stays mounted, drop the badge.

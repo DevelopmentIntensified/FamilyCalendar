@@ -8,7 +8,13 @@ import {
 
 describe('resolveActiveHref', () => {
 	it('matches exact paths', () => {
-		expect(resolveActiveHref('/calendar', loggedInNavItems)).toBe('/calendar');
+		expect(resolveActiveHref('/calendar', loggedInNavItems)).toBe('/calendar?dashboardView=1');
+	});
+
+	it('matches query-carrying hrefs pathname-only (#056)', () => {
+		const items: NavItem[] = [{ href: '/calendar?dashboardView=1', label: 'Calendar' }];
+		expect(resolveActiveHref('/calendar', items)).toBe('/calendar?dashboardView=1');
+		expect(resolveActiveHref('/other', items)).toBeNull();
 	});
 
 	it('lets the longest prefix win so /calendar/tasks highlights Tasks', () => {
@@ -36,7 +42,7 @@ describe('resolveActiveHref', () => {
 			'/contact'
 		]);
 		expect(loggedInNavItems.map((i) => i.href)).toEqual([
-			'/calendar',
+			'/calendar?dashboardView=1',
 			'/calendar/dashboard',
 			'/calendar/tasks',
 			'/family'

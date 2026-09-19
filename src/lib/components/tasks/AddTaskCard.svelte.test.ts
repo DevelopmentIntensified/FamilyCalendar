@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { invalidateAll } from '$app/navigation';
 import AddTaskCard from './AddTaskCard.svelte';
@@ -46,6 +46,22 @@ describe('AddTaskCard', () => {
 		const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1].body as string);
 		expect(body.title).toBe('Buy milk');
 		expect(invalidateAll).toHaveBeenCalledOnce();
+	});
+
+	it('passes the created task to onAdded for instant display', async () => {
+		const created = { id: 't1', title: 'Buy milk', tags: [] };
+		vi.mocked(fetch).mockResolvedValueOnce({
+			ok: true,
+			json: async () => ({ task: created })
+		} as unknown as Response);
+		const onAdded = vi.fn();
+		render(AddTaskCard, { props: { ...props(), onAdded } });
+		await fireEvent.input(screen.getByPlaceholderText(/Buy milk tomorrow/), {
+			target: { value: 'Buy milk' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+		await waitFor(() => expect(onAdded).toHaveBeenCalledOnce());
+		expect(onAdded).toHaveBeenCalledWith(created);
 	});
 
 	it('blocks unknown @members without fetching', async () => {

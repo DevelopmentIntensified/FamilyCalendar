@@ -42,6 +42,22 @@ describe('FamilyTaskAddForm', () => {
 		expect(screen.getByPlaceholderText('Add a family task...')).toHaveValue('');
 	});
 
+	it('passes the created task to onAdded for instant display', async () => {
+		const created = { id: 't9', title: 'Mow the lawn', tags: [] };
+		vi.mocked(fetch).mockResolvedValueOnce({
+			ok: true,
+			json: async () => ({ task: created })
+		} as unknown as Response);
+		const onAdded = vi.fn();
+		render(FamilyTaskAddForm, { props: { ...base, onAdded } });
+		await fireEvent.input(screen.getByPlaceholderText('Add a family task...'), {
+			target: { value: 'Mow the lawn' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+		await waitFor(() => expect(onAdded).toHaveBeenCalledOnce());
+		expect(onAdded).toHaveBeenCalledWith(created);
+	});
+
 	it('keeps the draft when the POST fails', async () => {
 		vi.mocked(fetch).mockResolvedValueOnce({ ok: false, json: async () => ({}) });
 		render(FamilyTaskAddForm, { props: base });

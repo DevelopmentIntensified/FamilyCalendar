@@ -178,6 +178,7 @@
 					bind:value={quickTitle}
 					{members}
 					placeholder="Add a family task… try &quot;saturday for Dad&quot;"
+					on:submit={addQuickTask}
 				/>
 			</div>
 			<TaskQuickAddHelp />

@@ -19,6 +19,10 @@
 		showRecurringSkipFeedback
 	} from '$lib/client/taskFeedback';
 	import { pushToast } from '$lib/client/toasts';
+	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
+	import { submitTaskQuickAdd } from '$lib/client/taskSubmit';
+	import TaskQuickAddPreview from '$lib/components/TaskQuickAddPreview.svelte';
+	import type { BulkGhost } from '$lib/utils/taskBulk';
 	import { buildEditPayload } from '$lib/utils/taskEditPayload';
 	import { respondToTask as respondToTaskAction } from '$lib/utils/familyTaskActions';
 
@@ -162,7 +166,84 @@
 		streamedLists = tl;
 		return '';
 	}
-	$: allTasks = streamedLists?.myTasks ?? streamedLists?.tasks ?? [];
+	$: serverTasks = streamedLists?.myTasks ?? streamedLists?.tasks ?? [];
+	/** Optimistic rows from AddTaskCard — shown instantly until the server list includes them. */
+	let addedTasks: TaskItem[] = [];
+	$: serverIds = new Set(serverTasks.map((t) => t.id));
+	$: allTasks = [...addedTasks.filter((t) => !serverIds.has(t.id)), ...serverTasks];
+
+	function handleTaskAdded(task: unknown) {
+		const t = task as Partial<TaskItem>;
+		if (!t || typeof t.id !== 'string') return;
+		addedTasks = [{ tags: [], ...t } as TaskItem, ...addedTasks];
+	}
+
+	// --- Ghost drafts: bulk rows from the composer, live in the list with
+	// task styling, editable, but not in the DB until created per-row.
+	let ghostRows: BulkGhost[] = [];
+	let ghostGoneKeys: string[] = [];
+	let ghostEdits: Record<string, string> = {};
+	let ghostBusyKey: string | null = null;
+	$: ghosts = ghostRows.filter((r) => !ghostGoneKeys.includes(r.key));
+
+	function handleBulkRows(rows: BulkGhost[]) {
+		ghostRows = rows;
+		const alive = new Set(rows.map((r) => r.key));
+		// Guarded writes: the composer effect calling this transitively
+		// subscribes to whatever it reads — fresh identities on every
+		// keystroke would ping-pong forever (effect_update_depth_exceeded).
+		const kept = ghostGoneKeys.filter((k) => alive.has(k));
+		if (kept.length !== ghostGoneKeys.length) ghostGoneKeys = kept;
+		let dropped = false;
+		for (const k of Object.keys(ghostEdits)) {
+			if (!alive.has(k)) {
+				delete ghostEdits[k];
+				dropped = true;
+			}
+		}
+		if (dropped) ghostEdits = { ...ghostEdits };
+	}
+
+	function ghostDraftText(g: BulkGhost): string {
+		return ghostEdits[g.key] ?? g.parsed.title;
+	}
+
+	function editGhost(g: BulkGhost, value: string) {
+		ghostEdits = { ...ghostEdits, [g.key]: value };
+	}
+
+	function dismissGhost(g: BulkGhost) {
+		ghostGoneKeys = [...ghostGoneKeys, g.key];
+		const { [g.key]: _, ...rest } = ghostEdits;
+		ghostEdits = rest;
+	}
+
+	async function createGhost(g: BulkGhost) {
+		if (ghostBusyKey) return;
+		ghostBusyKey = g.key;
+		try {
+			const result = await submitTaskQuickAdd({
+				title: ghostEdits[g.key] ?? g.text,
+				dueDateFallback: g.dueFb,
+				visibilityFallback: g.vis,
+				familyId: data.familyId ?? null,
+				members: familyRoster
+			});
+			if (!result.ok) {
+				actionError = result.error;
+				return;
+			}
+			pushToast({ message: `Added "${result.title}".` });
+			// Confirmed → out of the ghost list; the real row arrives via onAdded.
+			ghostGoneKeys = [...ghostGoneKeys, g.key];
+			const { [g.key]: _, ...rest } = ghostEdits;
+			ghostEdits = rest;
+			handleTaskAdded(result.task);
+			await invalidateAll();
+		} finally {
+			ghostBusyKey = null;
+		}
+	}
 	$: openTasks = allTasks.filter(
 		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === false
 	);
@@ -379,7 +460,65 @@
 			{memberName}
 			{formatDue}
 			onError={(message) => (actionError = message)}
+			onAdded={(task) => handleTaskAdded(task)}
+			onBulkRows={handleBulkRows}
+			excludedKeys={ghostGoneKeys}
 		/>
+
+		{#if ghosts.length}
+			<section
+				aria-label="Draft tasks"
+				class="mt-4 rounded-2xl border border-dashed border-primary-300 bg-primary-50/40 p-4"
+			>
+				<p class="text-xs font-semibold text-primary-700">
+					✨ Drafts — appear as you type, saved only when you create them
+				</p>
+				<ul class="mt-2 flex flex-col gap-2">
+					{#each ghosts as g (g.key)}
+						{@const draft = ghostDraftText(g)}
+						{@const eparsed = parseTaskQuickAdd(draft, { members: familyRoster })}
+						<li class="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
+							<div class="flex items-center gap-2">
+								<input
+										value={draft}
+										oninput={(e) => editGhost(g, e.currentTarget.value)}
+										aria-label="Draft title"
+										class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-800 focus:border-primary-500 focus:outline-none"
+									/>
+									{#if g.tag}
+										<span
+											class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500"
+											>{g.tag}</span
+										>
+									{/if}
+									<button
+										type="button"
+										onclick={() => createGhost(g)}
+										disabled={ghostBusyKey === g.key || !!eparsed.unknownMember}
+										class="shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+									>
+										{ghostBusyKey === g.key ? '…' : 'Create'}
+									</button>
+									<button
+										type="button"
+										onclick={() => dismissGhost(g)}
+										aria-label={`Discard draft ${draft}`}
+										class="shrink-0 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+									>
+										✕
+									</button>
+								</div>
+								<TaskQuickAddPreview parsed={eparsed} {memberName} {formatDue} />
+								{#if eparsed.unknownMember}
+									<p class="mt-1 text-xs font-medium text-red-600" role="alert">
+										Unknown member {eparsed.unknownMember} — fix the spelling before creating.
+									</p>
+								{/if}
+							</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
 
 		{#if actionError}
 			<div

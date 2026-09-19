@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>extract-test · 1 regex rules</title>
+<style>body{font-family:system-ui;max-width:720px;margin:2rem auto;padding:0 1rem}textarea{width:100%}table{border-collapse:collapse;width:100%;margin-top:1rem}td,th{border:1px solid #ccc;padding:.35rem;text-align:left}</style>
+</head>
+<body>
+<h1>1 · regex rules (zero deps)</h1>
+<p>Same priorities as <code>taskQuickAdd.ts</code>: next-weekday → month+day → ISO → in-N-units → today/tomorrow → bare weekday. Offline, instant.</p>
+<textarea id="in" rows="9"></textarea><br><br>
+<button id="go">extract</button> <span id="ms"></span>
+<table><thead><tr><th>title</th><th>due</th><th>note</th></tr></thead><tbody id="out"></tbody></table>
+<script type="module">
+import { wire, parseDateRegex, stripMatch, fmtLocal } from './common.js';
+wire(async (lines) => lines.map((line) => {
+	const hit = parseDateRegex(line);
+	return { title: stripMatch(line, hit), due: hit ? fmtLocal(hit.date) : '', note: hit ? 'regex' : 'no date found' };
+}));
+</script>
+</body>
+</html>

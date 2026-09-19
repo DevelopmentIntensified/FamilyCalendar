@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>extract-test · 2 compromise</title>
+<style>body{font-family:system-ui;max-width:720px;margin:2rem auto;padding:0 1rem}textarea{width:100%}table{border-collapse:collapse;width:100%;margin-top:1rem}td,th{border:1px solid #ccc;padding:.35rem;text-align:left}</style>
+</head>
+<body>
+<h1>2 · compromise + dates plugin</h1>
+<p>NLP POS tagging finds the date phrase (<code>#Date #Time</code>), remainder is the title. CDN: esm.sh. Note: needs network on first load.</p>
+<textarea id="in" rows="9"></textarea><br><br>
+<button id="go">extract</button> <span id="ms"></span>
+<table><thead><tr><th>title</th><th>due</th><th>note</th></tr></thead><tbody id="out"></tbody></table>
+<script type="module">
+import { wire, fmtLocal, parseDateRegex, stripMatch } from './common.js';
+import nlp from 'https://esm.sh/compromise@14.15.0';
+import dates from 'https://esm.sh/compromise-dates@latest';
+nlp.extend(dates);
+wire(async (lines) => lines.map((line) => {
+	const doc = nlp(line);
+	const found = doc.dates().json()[0];
+	if (found && found.dates && found.dates.start) {
+		const d = new Date(found.dates.start);
+		const idx = line.toLowerCase().indexOf(found.text.toLowerCase());
+		const title = idx >= 0 ? (line.slice(0, idx) + line.slice(idx + found.text.length)).replace(/\s{2,}/g, ' ').trim() : line.trim();
+		return { title, due: fmtLocal(d), note: 'compromise-dates' };
+	}
+	// fallback: same regex engine, so misses are comparable with page 1
+	const hit = parseDateRegex(line);
+	return { title: stripMatch(line, hit), due: hit ? fmtLocal(hit.date) : '', note: hit ? 'regex fallback' : 'no date found' };
+}));
+</script>
+</body>
+</html>

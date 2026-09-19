@@ -113,9 +113,12 @@ const TASK_QUICK_ADD_NEXT_WEEKDAY_RE = new RegExp(`\\bnext\\s+(${WEEKDAY_TOKEN})
 
 /** "jan 5", "february 14th", "dec 25, 2027" — month+day, optional year. */
 const TASK_QUICK_ADD_MONTH_DATE_RE = new RegExp(
-	`\\b${MONTH_NAME_TOKEN}\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(\\d{4}))?\\b`,
+	`\\b(?:due\\s+)?${MONTH_NAME_TOKEN}\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(\\d{4}))?\\b`,
 	'i'
 );
+
+/** Clock times Canvas/LMS dump after a due date — only stripped when a date matched. */
+const TASK_QUICK_ADD_CLOCK_RE = /\bat\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/gi;
 
 /**
  * "in 3 days", "in a week", "next month", "next year" — the "in"/"next"
@@ -516,7 +519,9 @@ export function parseTaskQuickAdd(raw: string, opts: TaskQuickAddOptions = {}): 
 	const resolved = resolveDateStep(title, now);
 	if (resolved.match) {
 		dueDate = resolved.due!.toISOString();
-		title = stripMatch(title, resolved.match);
+		title = stripMatch(title, resolved.match)
+			.replace(TASK_QUICK_ADD_CLOCK_RE, '')
+			.replace(/\bdue\b/gi, '');
 	} else if (recurrence.due) {
 		dueDate = recurrence.due.toISOString();
 	}

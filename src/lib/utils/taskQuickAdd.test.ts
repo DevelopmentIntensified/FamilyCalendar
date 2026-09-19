@@ -953,6 +953,46 @@ describe('parseTaskQuickAdd — richer date phrases (new surface)', () => {
 		expect(r.dueDate).toBeNull();
 	});
 
+	describe('parseTaskQuickAdd — Canvas / LMS due lines', () => {
+		const PHRASES: [string, string, Date][] = [
+			[
+				'Discussion Thread: Biblical Inerrancy Due Sep 10 at 11:59pm',
+				'Discussion Thread: Biblical Inerrancy',
+				new Date(2026, 8, 10)
+			],
+			[
+				'Research Paper: Outline Assignment Due Sep 13 at 11:59pm',
+				'Research Paper: Outline Assignment',
+				new Date(2026, 8, 13)
+			],
+			[
+				'Due Oct 4 at 11:59pm Practical Theology: The Word of God Assignment',
+				'Practical Theology: The Word of God Assignment',
+				new Date(2026, 9, 4)
+			],
+			[
+				'due sept 20 at 11:59 pm Wonder of God',
+				'Wonder of God',
+				new Date(2026, 8, 20)
+			],
+			[
+				'Discussion Thread: The Trinity Due Sep 24 at 11:59PM',
+				'Discussion Thread: The Trinity',
+				new Date(2026, 8, 24)
+			]
+		];
+		it.each(PHRASES)('%s', (phrase, title, due) => {
+			const r = parseTaskQuickAdd(phrase, { now: NOW });
+			expect(r.title).toBe(title);
+			expectDueOn(r, due);
+		});
+		it('clock time without a date stays in the title', () => {
+			const r = parseTaskQuickAdd('call dentist at 3pm', { now: NOW });
+			expect(r.title).toBe('call dentist at 3pm');
+			expect(r.dueDate).toBeNull();
+		});
+	});
+
 	it('richer dates combine with priority, assignee and tags', () => {
 		const ROSTER: TaskQuickAddMember[] = [{ userId: 'u-mom', firstName: 'Mom', lastName: '' }];
 		const r = parseTaskQuickAdd('high priority buy milk for mom #family in 3 days', {

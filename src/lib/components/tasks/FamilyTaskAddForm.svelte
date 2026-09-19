@@ -9,7 +9,8 @@
 		members: { userId: string; firstName: string; lastName: string }[];
 		currentUserId: string | undefined;
 		memberName: (userId: string | null | undefined) => string;
-		onAdded: () => void;
+		/** Optimistic insert: page prepends the created task instantly (invalidateAll reconciles). */
+		onAdded: (task: unknown) => void;
 	}
 
 	let { familyId, members, currentUserId, memberName, onAdded }: Props = $props();
@@ -68,7 +69,8 @@
 				newDueDate = '';
 				newAssignedTo = '';
 				newPriority = 'normal';
-				onAdded();
+				const created = await res.json().catch(() => null);
+				onAdded(created?.task);
 			}
 		} finally {
 			adding = false;
@@ -85,7 +87,7 @@
 >
 	<div class="flex flex-col gap-2 sm:flex-row">
 		<div class="flex-1">
-			<MentionInput bind:value={newTitle} {members} placeholder="Add a family task..." />
+			<MentionInput bind:value={newTitle} {members} placeholder="Add a family task..." on:submit={addTask} />
 			<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
 		</div>
 		<input

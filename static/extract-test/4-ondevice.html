@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>extract-test · 4 on-device NER</title>
+<style>body{font-family:system-ui;max-width:720px;margin:2rem auto;padding:0 1rem}textarea{width:100%}table{border-collapse:collapse;width:100%;margin-top:1rem}td,th{border:1px solid #ccc;padding:.35rem;text-align:left}#status{color:#555}</style>
+</head>
+<body>
+<h1>4 · on-device NER (transformers.js)</h1>
+<p>CoNLL-style NER runs fully local after first model download (~100MB+, slow first run). <b>Limit to watch:</b> this label set has PER/ORG/LOC/MISC — <b>no DATE</b> — so dates still come from the regex fallback. True date-NER needs GLiNER (Python sidecar, not browser).</p>
+<div id="status">model not loaded (loads on first extract)</div>
+<label>HF token (read-only, stays in this page — HF blocks anonymous downloads):</label><br>
+<input id="tok" type="password" size="40" placeholder="hf_…"> <small>get one: huggingface.co/settings/tokens</small><br><br>
+<textarea id="in" rows="9"></textarea><br><br>
+<button id="go">extract</button> <span id="ms"></span>
+<table><thead><tr><th>title</th><th>due</th><th>note</th></tr></thead><tbody id="out"></tbody></table>
+<script type="module">
+import { wire, fmtLocal, parseDateRegex, stripMatch } from './common.js';
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
+let ner = null;
+wire(async (lines) => {
+	if (!ner) {
+		const tok = document.getElementById('tok').value.trim();
+		if (tok) env.HF_TOKEN = tok;
+		document.getElementById('status').textContent = 'downloading NER model…';
+		try {
+			ner = await pipeline('token-classification', 'Xenova/bert-base-NERD', { aggregation_strategy: 'simple' });
+		} catch (e) {
+			if (String(e).includes('401') || String(e).includes('Unauthorized')) {
+				throw new Error('HF refused anonymous download (401). Paste a read-only token above and retry.');
+			}
+			throw e;
+		}
+		document.getElementById('status').textContent = 'model loaded, runs local from here';
+	}
+	return Promise.all(lines.map(async (line) => {
+		const ents = await ner(line);
+		const names = ents.map((e) => `${e.word}(${e.entity_group})`).join(', ');
+		const hit = parseDateRegex(line);
+		return { title: stripMatch(line, hit), due: hit ? fmtLocal(hit.date) : '', note: names ? 'entities: ' + names : 'no entities' };
+	}));
+});
+</script>
+</body>
+</html>

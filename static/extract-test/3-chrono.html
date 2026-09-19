@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>extract-test · 3 chrono</title>
+<style>body{font-family:system-ui;max-width:720px;margin:2rem auto;padding:0 1rem}textarea{width:100%}table{border-collapse:collapse;width:100%;margin-top:1rem}td,th{border:1px solid #ccc;padding:.35rem;text-align:left}</style>
+</head>
+<body>
+<h1>3 · chrono-node (date specialist)</h1>
+<p>Dedicated date parser: relative dates, ranges, implied times. Title = line minus matched date text. CDN: esm.sh.</p>
+<textarea id="in" rows="9"></textarea><br><br>
+<button id="go">extract</button> <span id="ms"></span>
+<table><thead><tr><th>title</th><th>due</th><th>note</th></tr></thead><tbody id="out"></tbody></table>
+<script type="module">
+import { wire, fmtLocal, parseDateRegex, stripMatch } from './common.js';
+import * as chrono from 'https://esm.sh/chrono-node@2';
+wire(async (lines) => {
+	const now = new Date();
+	return lines.map((line) => {
+		const r = chrono.parse(line, now, { forwardDate: true })[0];
+		if (r) {
+			const title = (line.slice(0, r.index) + line.slice(r.index + r.text.length)).replace(/\s{2,}/g, ' ').replace(/^[\s:,\-]+/, '').trim() || line.trim();
+			return { title, due: fmtLocal(r.start.date()), note: 'chrono' + (r.start.get('hour') != null && r.start.isCertain('hour') ? ' ' + r.text : '') };
+		}
+		const hit = parseDateRegex(line, now);
+		return { title: stripMatch(line, hit), due: hit ? fmtLocal(hit.date) : '', note: hit ? 'regex fallback' : 'no date found' };
+	});
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+body{font-family:system-ui,-apple-system,sans-serif;max-width:780px;margin:2rem auto;padding:0 1rem;color:#1c1c1e}
+h1{font-size:1.4rem;margin-bottom:.25rem}
+p.sub{color:#636366;margin-top:0}
+textarea{width:100%;border:1px solid #d1d1d6;border-radius:10px;padding:.6rem;font:inherit;box-sizing:border-box}
+textarea:focus{outline:2px solid #0a84ff55;border-color:#0a84ff}
+button{background:#0a84ff;color:#fff;border:0;border-radius:10px;padding:.5rem 1.1rem;font:inherit;cursor:pointer}
+button:disabled{opacity:.5}
+#ms,#status,.badge{color:#636366;font-size:.85rem}
+.badge{display:inline-block;background:#f2f2f7;border-radius:20px;padding:.15rem .7rem;margin-left:.5rem}
+.badge.on{background:#e5f6e5;color:#1a7f1a}
+.badge.off{background:#fdecec;color:#b3261e}
+table{border-collapse:collapse;width:100%;margin-top:1rem;font-size:.92rem}
+td,th{border:1px solid #e5e5ea;padding:.4rem .5rem;text-align:left;vertical-align:top}
+thead th{background:#f2f2f7}
+tbody tr:nth-child(even){background:#fafafa}
+tbody.updating td:first-child{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.45}}
+td.due{white-space:nowrap;font-variant-numeric:tabular-nums}
+.note{color:#636366;font-size:.82rem}
+input[type=password]{border:1px solid #d1d1d6;border-radius:8px;padding:.35rem;font:inherit}

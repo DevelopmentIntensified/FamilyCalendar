@@ -26,15 +26,15 @@ function titleProbe(container: HTMLElement): HTMLElement {
 	return probe;
 }
 
-/** The component renders exactly one native `<input>`; missing it is a harness bug. */
-function inputElement(container: HTMLElement): HTMLInputElement {
-	const input = container.querySelector('input');
-	if (!(input instanceof HTMLInputElement)) throw new Error('missing input element');
+/** The component renders exactly one native `<textarea>`; missing it is a harness bug. */
+function inputElement(container: HTMLElement): HTMLTextAreaElement {
+	const input = container.querySelector('textarea');
+	if (!(input instanceof HTMLTextAreaElement)) throw new Error('missing input element');
 	return input;
 }
 
 describe('MentionInput', () => {
-	it('renders a single native text input and forwards passthrough props', () => {
+	it('renders a single native textarea and forwards passthrough props', () => {
 		const { container } = render(MentionInput, {
 			props: {
 				value: 'hello',
@@ -171,6 +171,49 @@ describe('MentionInput', () => {
 		fireEvent.input(input, { target: { value: 'buy @dad' } });
 		await flush();
 		expect(container.querySelector('[role="listbox"]')).not.toBeNull();
+	});
+
+	it('shows the 👪 family row first when the fragment matches, Enter assigns @family', async () => {
+		const { container } = render(MentionInput, {
+			props: { value: 'buy @fam', members: MEMBERS }
+		});
+		const input = inputElement(container);
+		fireEvent.focus(input);
+		await flush();
+		const options = container.querySelectorAll('[role="option"]');
+		expect(options.length).toBeGreaterThanOrEqual(1);
+		expect(options[0].textContent).toContain('@family');
+		fireEvent.keyDown(input, { key: 'Enter' });
+		await flush();
+		expect(input.value).toBe('buy @family ');
+		expect(container.querySelector('[role="listbox"]')).toBeNull();
+	});
+
+	it('clicking the family row inserts @family', async () => {
+		const { container } = render(MentionInput, {
+			props: { value: 'buy @', members: MEMBERS }
+		});
+		const input = inputElement(container);
+		fireEvent.focus(input);
+		await flush();
+		const family = container.querySelector('#mention-test-option-family');
+		// id contains a random uid; fall back to first option (family sorts first).
+		const option = family ?? container.querySelector('[role="option"]');
+		if (!option) throw new Error('missing family option');
+		fireEvent.mouseDown(option);
+		fireEvent.click(option);
+		await flush();
+		expect(input.value).toBe('buy @family ');
+	});
+
+	it('member rows show a @handle subtitle', async () => {
+		const { container } = render(MentionInput, {
+			props: { value: 'buy @sa', members: MEMBERS }
+		});
+		const input = inputElement(container);
+		fireEvent.focus(input);
+		await flush();
+		expect(container.textContent).toContain('@sam');
 	});
 
 	it('the inserted value remains parseable by parseTaskQuickAdd', () => {

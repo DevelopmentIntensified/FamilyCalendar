@@ -132,7 +132,17 @@
 		}
 	}
 
-	$: filtered = filterTasks(data.tasks, { tagFilter, searchQuery, members });
+	/** Optimistic rows from the add form — shown instantly until the server list includes them. */
+	let addedTasks: TaskItem[] = [];
+	$: serverIds = new Set((data.tasks ?? []).map((t) => t.id));
+	$: allFamilyTasks = [...addedTasks.filter((t) => !serverIds.has(t.id)), ...(data.tasks ?? [])];
+	$: filtered = filterTasks(allFamilyTasks, { tagFilter, searchQuery, members });
+
+	function handleTaskAdded(task: unknown) {
+		const t = task as Partial<TaskItem>;
+		if (!t || typeof t.id !== 'string') return;
+		addedTasks = [{ tags: [], ...t } as TaskItem, ...addedTasks];
+	}
 	$: openTasks = filtered.open;
 	$: completedTasks = filtered.completed;
 	$: sortedOpenTasks = [...openTasks].sort((a, b) => sortTasks(a, b, sortBy));
@@ -210,7 +220,10 @@
 			{members}
 			{currentUserId}
 			{memberName}
-			onAdded={() => invalidateAll()}
+			onAdded={(task) => {
+				handleTaskAdded(task);
+				invalidateAll();
+			}}
 		/>
 
 		<FamilyTaskFilterBar bind:searchQuery bind:sortBy bind:tagFilter />
