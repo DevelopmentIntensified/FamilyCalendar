@@ -22,6 +22,7 @@ import m011 from '../../../../../sql/migrations/011_add_subscription_member_limi
 import m012 from '../../../../../sql/migrations/012_add_task_actor_mirror_visibility.sql?raw';
 import m013 from '../../../../../sql/migrations/013_add_receipt_tables_and_ingest.sql?raw';
 import m014 from '../../../../../sql/migrations/014_add_events_calendar_index.sql?raw';
+import m015 from '../../../../../sql/migrations/015_grocery_lists.sql?raw';
 
 export type BundledMigration = { name: string; sql: string };
 
@@ -39,7 +40,8 @@ const MIGRATIONS: BundledMigration[] = [
 	{ name: '011_add_subscription_member_limits.sql', sql: m011 },
 	{ name: '012_add_task_actor_mirror_visibility.sql', sql: m012 },
 	{ name: '013_add_receipt_tables_and_ingest.sql', sql: m013 },
-	{ name: '014_add_events_calendar_index.sql', sql: m014 }
+	{ name: '014_add_events_calendar_index.sql', sql: m014 },
+	{ name: '015_grocery_lists.sql', sql: m015 }
 ];
 
 /** Sorted ascending by numeric prefix. */

@@ -171,6 +171,8 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
+- #057 Grocery list (IN-PROGRESS 2026-09-20): Mine + Family tabs at `/calendar/groceries`, Store Memory auto-fill, check hides; slice 1 (tables + actions + page) built, dashboard card still parked.
+
 - #056 Nav Calendar button dead for dashboard-default users (DONE 2026-09-12): Calendar hrefs use the `?dashboardView=1` escape hatch (desktop nav + bottom nav); active-highlight matches pathname-only; tests green, svelte-check unchanged (44 pre-existing).
 - #055 Task add shows instantly (DONE 2026-09-12): optimistic `onAdded(task)` insert ahead of server list (personal + family tasks pages), `invalidateAll` stays as reconcile; component tests green, svelte-check error count unchanged (44 pre-existing).
 - Tasks surfaces polish batch (UNCOMMITTED 2026-09-08): toasts on add/

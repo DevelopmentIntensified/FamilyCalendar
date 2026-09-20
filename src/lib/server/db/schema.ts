@@ -861,6 +861,54 @@ export type Notification = typeof notifications.$inferSelect;
 export type Meal = typeof meals.$inferSelect;
 
 /**
+ * Grocery lists (057) — one row per item. Mine = familyId null
+ * (owner-only); Family tab = familyId set. checkedAt hides the item
+ * (check-off); Store Memory survives check + delete. stores is an
+ * ordered list: stores[0] = primary grouping, rest = alternates.
+ */
+export const groceryItems = pgTable('grocery_items', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	familyId: text('family_id').references(() => families.id, { onDelete: 'cascade' }),
+	name: text('name').notNull(),
+	nameKey: text('name_key').notNull(),
+	quantity: integer('quantity').notNull().default(1),
+	stores: text('stores').array().notNull().default([]),
+	checkedAt: timestamp('checked_at', { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export type GroceryItem = typeof groceryItems.$inferSelect;
+
+/**
+ * Store Memory (057) — family-wide item-name -> store learning.
+ * Family items train (familyId set); Mine items train user scope
+ * (familyId null + userId). Count = times confirmed; suggestion =
+ * most-frequent store for the nameKey in scope.
+ */
+export const groceryStoreMemory = pgTable('grocery_store_memory', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	familyId: text('family_id').references(() => families.id, { onDelete: 'cascade' }),
+	nameKey: text('name_key').notNull(),
+	store: text('store').notNull(),
+	count: integer('count').notNull().default(1),
+	updatedAt: timestamp('updated_at').defaultNow().notNull()
+});
+
+export type GroceryStoreMemory = typeof groceryStoreMemory.$inferSelect;
+
+/**
  * Web Push (VAPID) subscriptions — no Firebase. One row per
  * browser/device; endpoint is unique per subscription.
  */

@@ -253,6 +253,12 @@
 							>
 								Family Tasks
 							</a>
+							<a
+								href="/calendar/groceries"
+								class="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50"
+							>
+								Groceries
+							</a>
 							{#if isAdmin}
 								<a
 									href="/family/{family?.id}/members/add"

@@ -79,6 +79,24 @@ _Avoid_: my three tasks, priority list, must-do trio
 The Day Dashboard card listing every open Task in the family, grouped by assignee (falling back to the creator when a Task is unassigned). Complements the today-focused Top-3 Priorities.
 _Avoid_: chore board, chores card, task board for today
 
+### Groceries
+
+**Grocery List**:
+A check-off list with two tabs — Mine (personal) and Family (shared). Checking off hides the item; Store Memory is kept.
+_Avoid_: shopping cart
+
+**Grocery Item**:
+Name + optional quantity + ordered store list. First store = primary grouping; rest = alternates. History key = normalized name (trim + lowercase).
+_Avoid_: product, line item
+
+**Store**:
+A family-shared free-text label for where an item is bought. User-assigned first; new entries auto-fill the most-frequent store from family history, editable before/after save.
+_Avoid_: shop, merchant
+
+**Store Memory**:
+Family-wide item-name → store learning. Survives check-off and delete.
+_Avoid_: learning model
+
 ### Day Dashboard
 
 **Day Dashboard**:
