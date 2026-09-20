@@ -22,41 +22,32 @@ export const load: PageServerLoad = async (event) => {
 	const familyId = parentData.familyId;
 	const userZone = zoneFromSettings(parentData.userSettings) ?? 'UTC';
 
-	// Streamed lists (#044): shell (header chrome + add-task card) paints
-	// first; the six independent lists resolve together after. Each leg
-	// degrades to its fallback independently (same contract as the guards).
+	// The four list legs resolve together. Each leg degrades to its
+	// fallback independently (same contract as the guards).
 	const uid = event.locals.user!.id;
-	// Prod diagnosis (temporary): every leg logs one line — ok with row
-	// count, or the DB error text a missing migration would surface as.
-	// A leg that never logs is HANGING (lock/slow query), not failing.
+	// A failing leg degrades to its fallback — but the DB error text is
+	// logged (a missing migration surfaces here, not as a silent []).
 	const leg = async <T>(label: string, fn: () => Promise<T>, fallback: T) => {
-		const started = Date.now();
 		try {
-			const value = await fn();
-			console.log(
+			// SAFETY: null must widen to the string|null union shared with the catch branch.
+			return { value: await fn(), warning: null as string | null };
+		} catch (e) {
+			console.error(
 				'[tasks-leg]',
 				JSON.stringify({
 					uid,
 					label,
-					ms: Date.now() - started,
-					rows: Array.isArray(value) ? value.length : null
+					error: e instanceof Error ? e.message : String(e)
 				})
 			);
-			// SAFETY: null must widen to the string|null union shared with the catch branch.
-			return { value, warning: null as string | null, error: null as string | null };
-		} catch (e) {
-			const message = e instanceof Error ? e.message : String(e);
-			console.error(
-				'[tasks-leg]',
-				JSON.stringify({ uid, label, ms: Date.now() - started, error: message })
-			);
 			// SAFETY: literal must widen to the string|null union shared with the ok branch.
-			return { value: fallback, warning: label as string | null, error: message as string | null };
+			return { value: fallback, warning: label as string | null };
 		}
 	};
-	const taskLists = (async () => {
-		const t0 = Date.now();
-		console.log('[tasks-load] start', JSON.stringify({ uid, familyId: familyId ?? null }));
+	// Awaited (not streamed): the tasks shell previously streamed this
+	// promise and stalled on some clients — the family page awaits and
+	// always renders, so this matches that contract.
+	const taskLists = await (async () => {
 		const [tasks, myTasks, pending, requested] = await Promise.all([
 			leg(
 				'tasks+cursor',
@@ -76,29 +67,8 @@ export const load: PageServerLoad = async (event) => {
 			leg('pending', () => getPendingAssignments(uid), []),
 			leg('requested', () => getRequestedByMe(uid), [])
 		]);
-		// Prod diagnosis (temporary): always-on, one line per load.
 		const warnings = [tasks.warning, myTasks.warning, pending.warning, requested.warning].filter(
 			(w): w is string => w !== null
-		);
-		console.log(
-				'[tasks-load] done',
-			JSON.stringify({
-				uid,
-				ms: Date.now() - t0,
-				counts: {
-					tasks: tasks.value.length,
-					myTasks: myTasks.value.length,
-					pending: pending.value.length,
-					requested: requested.value.length
-				},
-				warnings,
-				errors: {
-					tasks: tasks.error,
-					myTasks: myTasks.error,
-					pending: pending.error,
-					requested: requested.error
-				}
-			})
 		);
 		return {
 			// Legacy full-list field (personal + family rows) — kept until every
