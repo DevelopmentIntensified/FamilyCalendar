@@ -84,10 +84,27 @@
 
 	// Remember sort + tag-filter choices across visits (client-only).
 	onMount(() => {
+		// Prod diagnosis (temporary): onMount firing proves hydration
+		// completed. If this logs but no resolve log follows, the streamed
+		// promise is stalling client-side; if this never logs, hydration
+		// itself is dead (JS crash/stale service worker).
+		console.log('[tasks-client] mounted, awaiting taskLists');
 		const v = localStorage.getItem('familyplanz:tasksSortBy');
 		if (v === 'due' || v === 'priority' || v === 'created' || v === 'title') sortBy = v;
 		const tf = localStorage.getItem('familyplanz:tagFilter');
 		if (tf !== null) tagFilter = tf;
+		setTimeout(() => {
+			if (!streamedLists) {
+				console.warn(
+					'[tasks-client] still waiting for taskLists',
+					JSON.stringify({
+						hasData: !!data,
+						taskListsType: typeof data.taskLists,
+						isPromise: data.taskLists instanceof Promise
+					})
+				);
+			}
+		}, 8000);
 	});
 	$: if (typeof localStorage !== 'undefined') {
 		localStorage.setItem('familyplanz:tasksSortBy', sortBy);
@@ -160,6 +177,16 @@
 	// invalidation), so unconditional assignment terminates.
 	function stashTaskLists(tl: NonNullable<typeof streamedLists>): string {
 		streamedLists = tl;
+		// Prod diagnosis (temporary): always-on resolve receipt.
+		console.log(
+			'[tasks-client] taskLists resolved',
+			JSON.stringify({
+				myTasks: tl.myTasks?.length ?? null,
+				tasks: tl.tasks?.length ?? null,
+				pending: tl.pendingAssignments?.length ?? null,
+				requested: tl.requestedByMe?.length ?? null
+			})
+		);
 		// Test-env trace (dev only): streamed payload shape on arrival.
 		if (import.meta.env.DEV)
 			console.log(
