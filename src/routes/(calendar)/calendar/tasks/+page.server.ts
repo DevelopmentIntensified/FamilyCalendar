@@ -55,12 +55,13 @@ export const load: PageServerLoad = async (event) => {
 			leg('tasks', () => getPendingAssignments(uid), []),
 			leg('tasks', () => getRequestedByMe(uid), [])
 		]);
-		// Test-env trace: leg counts per tasks-page load.
+		// Test-env trace (non-prod only): leg counts per tasks-page load.
 		const warnings = [tasks.warning, myTasks.warning, pending.warning, requested.warning].filter(
 			(w): w is string => w !== null
 		);
-		console.log(
-			'[tasks-load]',
+		if (process.env.NODE_ENV !== 'production')
+			console.log(
+				'[tasks-load]',
 			JSON.stringify({
 				uid,
 				familyId: familyId ?? null,

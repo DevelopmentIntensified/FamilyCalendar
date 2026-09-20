@@ -335,8 +335,9 @@ export async function getMyTasks(userId: string): Promise<TaskWithTags[]> {
 			)
 		)
 		.orderBy(desc(tasks.createdAt));
-	// Test-env trace: myTasks row mix per caller.
-	console.log(
+	// Test-env trace (non-prod only): myTasks row mix per caller.
+	if (process.env.NODE_ENV !== 'production')
+		console.log(
 		'[tasks-debug] getMyTasks',
 		JSON.stringify({
 			userId,
