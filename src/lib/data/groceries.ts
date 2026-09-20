@@ -34,19 +34,20 @@ export function mostFrequentStore(rows: { store: string; count: number }[]): str
 	return best;
 }
 
-/** Group items by primary store (stores[0]); empty -> NO_STORE_LABEL. */
+/** Group items by primary store (stores[0]), case-agnostic; empty -> NO_STORE_LABEL. */
 export function groupGroceriesByStore<T extends { stores: string[] }>(
 	items: T[]
 ): { store: string; items: T[] }[] {
 	const order: string[] = [];
-	const map = new Map<string, T[]>();
+	const map = new Map<string, { label: string; items: T[] }>();
 	for (const item of items) {
-		const key = item.stores[0] ?? NO_STORE_LABEL;
+		const label = item.stores[0] ?? NO_STORE_LABEL;
+		const key = label.toLowerCase();
 		if (!map.has(key)) {
-			map.set(key, []);
+			map.set(key, { label, items: [] });
 			order.push(key);
 		}
-		map.get(key)!.push(item);
+		map.get(key)!.items.push(item);
 	}
-	return order.map((store) => ({ store, items: map.get(store)! }));
+	return order.map((key) => ({ store: map.get(key)!.label, items: map.get(key)!.items }));
 }

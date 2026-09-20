@@ -45,7 +45,7 @@ async function trainMemory(scope: GroceryScope, nameKey: string, stores: string[
 		if (!label) continue;
 		const existing = (
 			await memoryRows(scope, nameKey)
-		).find((r) => r.store === label);
+		).find((r) => r.store.toLowerCase() === label.toLowerCase());
 		if (existing) {
 			await db
 				.update(groceryStoreMemory)
@@ -156,6 +156,20 @@ export async function setGroceryStores(
 	if (updated.length === 0) return false;
 	await trainMemory(scope, updated[0].nameKey, cleaned);
 	return true;
+}
+
+/** Move an item between Mine and Family. Store Memory stays where trained. */
+export async function moveGroceryItem(
+	scope: GroceryScope,
+	id: string,
+	target: GroceryScope
+): Promise<boolean> {
+	const updated = await db
+		.update(groceryItems)
+		.set({ familyId: target.familyId })
+		.where(scopeFilter(scope, id))
+		.returning({ id: groceryItems.id });
+	return updated.length > 0;
 }
 
 /** Check off (hides); uncheck revives. Delete keeps Store Memory. */

@@ -53,4 +53,13 @@ describe('groupGroceriesByStore', () => {
 		expect(groups.map((g) => g.store)).toEqual(['Aldi', 'Any store']);
 		expect(groups[0].items.map((i) => i.name)).toEqual(['milk', 'bread']);
 	});
+
+	it('merges stores case-agnostically, first-seen label wins', () => {
+		const groups = groupGroceriesByStore([
+			{ id: '1', name: 'milk', stores: ['Aldi'] },
+			{ id: '2', name: 'eggs', stores: ['aldi', 'Kroger'] }
+		]);
+		expect(groups).toHaveLength(1);
+		expect(groups[0].store).toBe('Aldi');
+	});
 });

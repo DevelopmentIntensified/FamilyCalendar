@@ -17,6 +17,7 @@ export const loggedInNavItems: NavItem[] = [
 	{ href: '/calendar?dashboardView=1', label: 'Calendar' },
 	{ href: '/calendar/dashboard', label: 'Dashboard' },
 	{ href: '/calendar/tasks', label: 'Tasks' },
+	{ href: '/calendar/groceries', label: 'Groceries' },
 	{ href: '/family', label: 'Family' }
 ];
 

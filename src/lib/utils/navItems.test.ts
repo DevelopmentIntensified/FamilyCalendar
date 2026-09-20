@@ -45,6 +45,7 @@ describe('resolveActiveHref', () => {
 			'/calendar?dashboardView=1',
 			'/calendar/dashboard',
 			'/calendar/tasks',
+			'/calendar/groceries',
 			'/family'
 		]);
 	});

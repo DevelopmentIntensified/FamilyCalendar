@@ -6,6 +6,7 @@ import { getUserFamilyId } from '$lib/server/db/actions/families';
 import {
 	checkGroceryItem,
 	deleteGroceryItem,
+	moveGroceryItem,
 	setGroceryStores,
 	uncheckGroceryItem,
 	type GroceryScope
@@ -51,8 +52,12 @@ export const PATCH: RequestHandler = async ({ request, locals, url }) => {
 				id,
 				body.stores.filter(isString)
 			);
+		} else if (body.op === 'move' && (body.target === 'mine' || body.target === 'family')) {
+			const target = await resolveScope(auth.user.id, body.target);
+			if (!target) return json({ error: 'No family to move to' }, { status: 400 });
+			ok = await moveGroceryItem(scope, id, target);
 		} else {
-			return json({ error: 'op must be check, uncheck, or stores' }, { status: 400 });
+			return json({ error: 'op must be check, uncheck, stores, or move' }, { status: 400 });
 		}
 		if (!ok) return json({ error: 'Item not found' }, { status: 404 });
 		return json({ ok: true });

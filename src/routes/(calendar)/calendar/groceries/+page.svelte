@@ -13,7 +13,7 @@
 		stores: string[];
 	};
 
-	let tab: 'mine' | 'family' = 'family';
+	let tab: 'mine' | 'family' = 'mine';
 	let input = '';
 	let storeInput = '';
 	let suggested: string | null = null;
@@ -114,6 +114,24 @@
 			await invalidateAll();
 		} else {
 			error = "Couldn't save stores. Try again.";
+		}
+		busyId = null;
+	}
+
+	async function move(item: Item, target: 'mine' | 'family') {
+		if (busyId || target === tab) return;
+		busyId = item.id;
+		const res = await fetch(`/api/groceries/${item.id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ scope: tab, op: 'move', target })
+		});
+		if (res.ok) {
+			pushToast({ message: `Moved "${item.name}" to ${target === 'mine' ? 'your list' : 'Family'}.` });
+			editingId = null;
+			await invalidateAll();
+		} else {
+			error = "Couldn't move that. Try again.";
 		}
 		busyId = null;
 	}
@@ -223,6 +241,12 @@
 								aria-label="Edit stores"
 							/>
 							<button class="text-xs font-semibold underline" onclick={() => saveStores(item)}>Save</button>
+							<button
+								class="text-xs text-gray-500 underline"
+								onclick={() => move(item, tab === 'mine' ? 'family' : 'mine')}
+							>
+								To {tab === 'mine' ? 'Family' : 'Mine'}
+							</button>
 							<button class="text-xs text-gray-500 underline" onclick={() => (editingId = null)}>Cancel</button>
 						{:else}
 							<button
