@@ -10,6 +10,8 @@
 	import FamilyOpenTaskRow from '$lib/components/tasks/FamilyOpenTaskRow.svelte';
 	import FamilyCompletedTaskList from '$lib/components/tasks/FamilyCompletedTaskList.svelte';
 	import TaskTagFilter from '$lib/components/tasks/TaskTagFilter.svelte';
+	import EditTaskDialog, { type EditDraft } from '$lib/components/tasks/EditTaskDialog.svelte';
+	import { buildEditPayload } from '$lib/utils/taskEditPayload';
 	import {
 		advanceTask,
 		deleteTask,
@@ -41,6 +43,9 @@
 
 	let busyId: string | null = null;
 	let tagFilter = '';
+	/** Edit dialog target + save (mirrors the personal tasks page; owner-only). */
+	let editing: FamilyTask | null = null;
+	let editSaving = false;
 	/** Inline delete confirmation (matches the family-member remove pattern). */
 	let confirmDeleteId: string | null = null;
 	/** Issue 019: Family tasks vs the family's Public tasks tab. */
@@ -109,6 +114,39 @@
 			pushToast({ message: out.error });
 		}
 		busyId = null;
+	}
+
+	function openEdit(task: FamilyTask) {
+		if (busyId || task.userId !== data.userId) return;
+		editing = task;
+	}
+
+	function closeEdit() {
+		editing = null;
+	}
+
+	async function saveEdit(draft: EditDraft) {
+		if (!editing || !draft.title.trim() || editSaving) return;
+		editSaving = true;
+		try {
+			const { payload } = buildEditPayload(editing, draft, data.userId);
+			const res = await fetch(`/api/tasks/${editing.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			if (res.ok) {
+				closeEdit();
+				await invalidateAll();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				pushToast({ message: j.error || "That didn't work. Try again." });
+			}
+		} catch {
+			pushToast({ message: 'Network problem. Try again.' });
+		} finally {
+			editSaving = false;
+		}
 	}
 
 	async function remove(task: FamilyTask) {
@@ -212,6 +250,7 @@
 					currentUserId={data.userId}
 					busy={busyId === task.id}
 					confirmDelete={confirmDeleteId === task.id}
+					onEdit={() => openEdit(task)}
 					onToggle={() => toggle(task)}
 					onAccept={() => respond(task, true)}
 					onDecline={() => respond(task, false)}
@@ -252,5 +291,19 @@
 				{/each}
 			</div>
 		{/if}
+	{/if}
+
+	<!-- Edit task dialog (owner-only; mirrors My Tasks) -->
+	{#if editing}
+		{#key editing.id}
+			<EditTaskDialog
+				task={editing}
+				currentUserId={data.userId}
+				familyRoster={data.familyRoster ?? []}
+				saving={editSaving}
+				onSave={(draft) => saveEdit(draft)}
+				onClose={closeEdit}
+			/>
+		{/key}
 	{/if}
 </div>

@@ -18,6 +18,7 @@ const task: OpenTask = {
 };
 
 const handlers = () => ({
+	onEdit: vi.fn(),
 	onToggle: vi.fn(),
 	onAccept: vi.fn(),
 	onDecline: vi.fn(),

@@ -23,6 +23,7 @@
 		currentUserId: string | undefined;
 		busy: boolean;
 		confirmDelete: boolean;
+		onEdit: () => void;
 		onToggle: () => void;
 		onAccept: () => void;
 		onDecline: () => void;
@@ -37,6 +38,7 @@
 		currentUserId,
 		busy,
 		confirmDelete,
+		onEdit,
 		onToggle,
 		onAccept,
 		onDecline,
@@ -74,7 +76,18 @@
 	</button>
 
 	<div class="min-w-0 flex-1">
-		<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+		{#if ownTask}
+			<button
+				type="button"
+				onclick={onEdit}
+				class="block w-full truncate text-left text-sm font-medium text-slate-900 hover:text-primary-600"
+				title="Edit task"
+			>
+				{task.title}
+			</button>
+		{:else}
+			<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+		{/if}
 		<div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
 			{#if task.dueDate}
 				<span class={overdue() ? 'font-semibold text-red-600' : ''}>{formatDue(task.dueDate)}</span>
