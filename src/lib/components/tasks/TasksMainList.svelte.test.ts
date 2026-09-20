@@ -27,7 +27,6 @@ function props(overrides = {}) {
 		sortBy: 'due' as const,
 		tagFilter: '',
 		confirmClear: false,
-		loaded: true,
 		openCount: 1,
 		completedCount: 0,
 		completedThisWeek: 0,
@@ -67,10 +66,6 @@ describe('TasksMainList', () => {
 		expect(screen.getByText('No tasks yet')).toBeTruthy();
 	});
 
-	it('shows skeleton while loading', () => {
-		render(TasksMainList, { props: props({ loaded: false, filteredOpen: [] }) });
-		expect(screen.queryByText('Buy milk')).toBeNull();
-	});
 
 	it('forwards row toggle', async () => {
 		const p = props();

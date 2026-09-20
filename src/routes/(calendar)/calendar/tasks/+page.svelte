@@ -72,7 +72,6 @@
 	let editing: TaskItem | null = null;
 	let editSaving = false;
 
-	$: data.familyMembers = data.familyMembers ?? [];
 	$: familyRoster = data.familyMembers ?? [];
 
 	function memberName(userId: string): string {
@@ -84,27 +83,10 @@
 
 	// Remember sort + tag-filter choices across visits (client-only).
 	onMount(() => {
-		// Prod diagnosis (temporary): onMount firing proves hydration
-		// completed. If this logs but no resolve log follows, the streamed
-		// promise is stalling client-side; if this never logs, hydration
-		// itself is dead (JS crash/stale service worker).
-		console.log('[tasks-client] mounted, awaiting taskLists');
 		const v = localStorage.getItem('familyplanz:tasksSortBy');
 		if (v === 'due' || v === 'priority' || v === 'created' || v === 'title') sortBy = v;
 		const tf = localStorage.getItem('familyplanz:tagFilter');
 		if (tf !== null) tagFilter = tf;
-		setTimeout(() => {
-			if (!streamedLists) {
-				console.warn(
-					'[tasks-client] still waiting for taskLists',
-					JSON.stringify({
-						hasData: !!data,
-						taskListsType: typeof data.taskLists,
-						isPromise: data.taskLists instanceof Promise
-					})
-				);
-			}
-		}, 8000);
 	});
 	$: if (typeof localStorage !== 'undefined') {
 		localStorage.setItem('familyplanz:tasksSortBy', sortBy);
@@ -169,38 +151,9 @@
 
 	// Main list source (issue 019): MY tasks — personal rows plus accepted
 	// assignments, wherever they live. Pending assignments surface in the
-	// "To accept" tab instead.
-	// Streamed lists cache (#044): set once when taskLists resolves; the
-	// derived chains (open/completed/filtered) run off the cache.
-	let streamedLists: Awaited<PageData['taskLists']> | null = null;
-	// Runs only when the taskLists promise identity changes (navigation /
-	// invalidation), so unconditional assignment terminates.
-	function stashTaskLists(tl: NonNullable<typeof streamedLists>): string {
-		streamedLists = tl;
-		// Prod diagnosis (temporary): always-on resolve receipt.
-		console.log(
-			'[tasks-client] taskLists resolved',
-			JSON.stringify({
-				myTasks: tl.myTasks?.length ?? null,
-				tasks: tl.tasks?.length ?? null,
-				pending: tl.pendingAssignments?.length ?? null,
-				requested: tl.requestedByMe?.length ?? null
-			})
-		);
-		// Test-env trace (dev only): streamed payload shape on arrival.
-		if (import.meta.env.DEV)
-			console.log(
-				'[tasks-client] stash',
-			JSON.stringify({
-				myTasks: tl.myTasks?.length ?? null,
-				tasks: tl.tasks?.length ?? null,
-				pending: tl.pendingAssignments?.length ?? null,
-				requested: tl.requestedByMe?.length ?? null,
-				warnings: tl.warnings
-			})
-		);
-		return '';
-	}
+	// "To accept" tab instead. Plain reactive read (no streaming): the
+	// data is in the HTML on first paint and refreshes on invalidateAll.
+	$: streamedLists = data.taskLists;
 	$: serverTasks = streamedLists?.myTasks ?? streamedLists?.tasks ?? [];
 	/** Optimistic rows from AddTaskCard — shown instantly until the server list includes them. */
 	let addedTasks: TaskItem[] = [];
@@ -410,33 +363,11 @@
 
 <div class="min-h-screen bg-slate-50">
 	<div class="mx-auto max-w-4xl px-3 py-4 pb-20 sm:px-4">
-		{#await data.taskLists}
-			<section
-				class="animate-pulse rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-				aria-hidden="true"
-			>
-				<div class="h-6 w-32 rounded bg-slate-100"></div>
-				<div class="mt-2 h-4 w-48 rounded bg-slate-100"></div>
-			</section>
-		{:then tl}
-			{@const _stash = stashTaskLists(tl)}
-			<TasksHeader
-				openCount={openTasks.length}
-				completedCount={completedTasks.length}
-				warnings={[...(data.loadWarnings ?? []), ...tl.warnings]}
-			/>
-		{:catch err}
-			{@const _logTaskListsError = console.error('[tasks-client] taskLists rejected', err)}
-			<div
-				class="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-				role="alert"
-			>
-				Couldn't load your tasks.
-				<button type="button" onclick={() => invalidateAll()} class="font-semibold underline">
-					Retry
-				</button>
-			</div>
-		{/await}
+		<TasksHeader
+			openCount={openTasks.length}
+			completedCount={completedTasks.length}
+			warnings={[...(data.loadWarnings ?? []), ...(streamedLists?.warnings ?? [])]}
+		/>
 
 		<AddTaskCard
 			{familyRoster}
@@ -469,7 +400,6 @@
 			bind:sortBy
 			bind:tagFilter
 			bind:confirmClear
-			loaded={!!streamedLists}
 			openCount={openTasks.length}
 			completedCount={completedTasks.length}
 			{completedThisWeek}

@@ -8,7 +8,6 @@
 		searchQuery: string;
 		sortBy: 'due' | 'priority' | 'created' | 'title';
 		tagFilter: string;
-		loaded: boolean;
 		openCount: number;
 		completedCount: number;
 		completedThisWeek: number;
@@ -39,7 +38,6 @@
 		sortBy = $bindable(),
 		tagFilter = $bindable(),
 		confirmClear = $bindable(),
-		loaded,
 		openCount,
 		completedCount,
 		completedThisWeek,
@@ -118,13 +116,7 @@
 		</p>
 	{/if}
 
-	{#if !loaded}
-		<div class="space-y-1.5" aria-hidden="true">
-			{#each Array(5) as _, i (i)}
-				<div class="h-14 animate-pulse rounded-lg bg-slate-100"></div>
-			{/each}
-		</div>
-	{:else if filteredOpen.length === 0 && filteredCompleted.length === 0}
+	{#if filteredOpen.length === 0 && filteredCompleted.length === 0}
 		<div class="flex flex-col items-center justify-center py-16 text-center">
 			<svg
 				class="mb-4 h-14 w-14 text-slate-300"
