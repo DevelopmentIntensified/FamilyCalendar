@@ -55,6 +55,24 @@ export const load: PageServerLoad = async (event) => {
 			leg('tasks', () => getPendingAssignments(uid), []),
 			leg('tasks', () => getRequestedByMe(uid), [])
 		]);
+		// Test-env trace: leg counts per tasks-page load.
+		const warnings = [tasks.warning, myTasks.warning, pending.warning, requested.warning].filter(
+			(w): w is string => w !== null
+		);
+		console.log(
+			'[tasks-load]',
+			JSON.stringify({
+				uid,
+				familyId: familyId ?? null,
+				counts: {
+					tasks: tasks.value.length,
+					myTasks: myTasks.value.length,
+					pending: pending.value.length,
+					requested: requested.value.length
+				},
+				warnings
+			})
+		);
 		return {
 			// Legacy full-list field (personal + family rows) — kept until every
 			// consumer has moved to the sectioned lists below.
@@ -62,9 +80,7 @@ export const load: PageServerLoad = async (event) => {
 			myTasks: myTasks.value,
 			pendingAssignments: pending.value,
 			requestedByMe: requested.value,
-			warnings: [tasks.warning, myTasks.warning, pending.warning, requested.warning].filter(
-				(w): w is string => w !== null
-			)
+			warnings
 		};
 	})();
 

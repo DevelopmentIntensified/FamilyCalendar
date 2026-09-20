@@ -335,6 +335,16 @@ export async function getMyTasks(userId: string): Promise<TaskWithTags[]> {
 			)
 		)
 		.orderBy(desc(tasks.createdAt));
+	// Test-env trace: myTasks row mix per caller.
+	console.log(
+		'[tasks-debug] getMyTasks',
+		JSON.stringify({
+			userId,
+			count: rows.length,
+			personal: rows.filter((r) => !r.familyId).length,
+				family: rows.filter((r) => !!r.familyId).length
+			})
+	);
 	return withTags(rows);
 }
 

@@ -160,6 +160,17 @@
 	// invalidation), so unconditional assignment terminates.
 	function stashTaskLists(tl: NonNullable<typeof streamedLists>): string {
 		streamedLists = tl;
+		// Test-env trace: streamed payload shape on arrival.
+		console.log(
+			'[tasks-client] stash',
+			JSON.stringify({
+				myTasks: tl.myTasks?.length ?? null,
+				tasks: tl.tasks?.length ?? null,
+				pending: tl.pendingAssignments?.length ?? null,
+				requested: tl.requestedByMe?.length ?? null,
+				warnings: tl.warnings
+			})
+		);
 		return '';
 	}
 	$: serverTasks = streamedLists?.myTasks ?? streamedLists?.tasks ?? [];
@@ -211,6 +222,20 @@
 	}
 	$: chipFilteredOpenTasks = sortedOpenTasks.filter(matchesChip);
 	$: chipFilteredCompletedTasks = sortedCompletedTasks.filter(matchesChip);
+	// Test-env trace: server → filtered counts per chip.
+	$: if (streamedLists) {
+		console.log(
+			'[tasks-client] filter',
+			JSON.stringify({
+				chip,
+				server: serverTasks.length,
+				added: addedTasks.length,
+				open: openTasks.length,
+					filteredOpen: filteredOpenTasks.length,
+					filteredCompleted: filteredCompletedTasks.length
+				})
+		);
+	}
 	$: filteredOpenTasks = chipFilteredOpenTasks.filter(
 		(t) => matchesTagFilter(t.tags) && matchesSearch(t)
 	);
