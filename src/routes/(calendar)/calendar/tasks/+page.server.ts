@@ -26,19 +26,40 @@ export const load: PageServerLoad = async (event) => {
 	// first; the six independent lists resolve together after. Each leg
 	// degrades to its fallback independently (same contract as the guards).
 	const uid = event.locals.user!.id;
+	// Prod diagnosis (temporary): every leg logs one line — ok with row
+	// count, or the DB error text a missing migration would surface as.
+	// A leg that never logs is HANGING (lock/slow query), not failing.
 	const leg = async <T>(label: string, fn: () => Promise<T>, fallback: T) => {
+		const started = Date.now();
 		try {
+			const value = await fn();
+			console.log(
+				'[tasks-leg]',
+				JSON.stringify({
+					uid,
+					label,
+					ms: Date.now() - started,
+					rows: Array.isArray(value) ? value.length : null
+				})
+			);
 			// SAFETY: null must widen to the string|null union shared with the catch branch.
-			return { value: await fn(), warning: null as string | null };
-		} catch {
+			return { value, warning: null as string | null, error: null as string | null };
+		} catch (e) {
+			const message = e instanceof Error ? e.message : String(e);
+			console.error(
+				'[tasks-leg]',
+				JSON.stringify({ uid, label, ms: Date.now() - started, error: message })
+			);
 			// SAFETY: literal must widen to the string|null union shared with the ok branch.
-			return { value: fallback, warning: label as string | null };
+			return { value: fallback, warning: label as string | null, error: message as string | null };
 		}
 	};
 	const taskLists = (async () => {
+		const t0 = Date.now();
+		console.log('[tasks-load] start', JSON.stringify({ uid, familyId: familyId ?? null }));
 		const [tasks, myTasks, pending, requested] = await Promise.all([
 			leg(
-				'tasks',
+				'tasks+cursor',
 				async () => {
 					// Overdue Recurring Tasks stick to today until done (cursor v3).
 					await syncRecurringCursors(uid, familyId, userZone);
@@ -51,27 +72,32 @@ export const load: PageServerLoad = async (event) => {
 			// "To accept" tab, assigned-out rows the "Requested" tab.
 			// (familyAssignedToMe/publicFamilyTasks were dead payload —
 			// fetched but never read. Removed #044.)
-			leg('tasks', () => getMyTasks(uid), []),
-			leg('tasks', () => getPendingAssignments(uid), []),
-			leg('tasks', () => getRequestedByMe(uid), [])
+			leg('myTasks', () => getMyTasks(uid), []),
+			leg('pending', () => getPendingAssignments(uid), []),
+			leg('requested', () => getRequestedByMe(uid), [])
 		]);
-		// Test-env trace (non-prod only): leg counts per tasks-page load.
+		// Prod diagnosis (temporary): always-on, one line per load.
 		const warnings = [tasks.warning, myTasks.warning, pending.warning, requested.warning].filter(
 			(w): w is string => w !== null
 		);
-		if (process.env.NODE_ENV !== 'production')
-			console.log(
-				'[tasks-load]',
+		console.log(
+				'[tasks-load] done',
 			JSON.stringify({
 				uid,
-				familyId: familyId ?? null,
+				ms: Date.now() - t0,
 				counts: {
 					tasks: tasks.value.length,
 					myTasks: myTasks.value.length,
 					pending: pending.value.length,
 					requested: requested.value.length
 				},
-				warnings
+				warnings,
+				errors: {
+					tasks: tasks.error,
+					myTasks: myTasks.error,
+					pending: pending.error,
+					requested: requested.error
+				}
 			})
 		);
 		return {

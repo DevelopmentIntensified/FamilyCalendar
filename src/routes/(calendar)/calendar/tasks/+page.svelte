@@ -398,7 +398,8 @@
 				completedCount={completedTasks.length}
 				warnings={[...(data.loadWarnings ?? []), ...tl.warnings]}
 			/>
-		{:catch}
+		{:catch err}
+			{@const _logTaskListsError = console.error('[tasks-client] taskLists rejected', err)}
 			<div
 				class="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
 				role="alert"
