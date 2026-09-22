@@ -23,6 +23,11 @@ import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
 import { TRANSLATIONS } from '$lib/server/services/verseService';
 import { DASHBOARD_MODULES } from '$lib/dashboardModules';
+import {
+	createApiToken as mintApiToken,
+	listTokensForUser,
+	revokeToken
+} from '$lib/server/db/actions/apiTokens';
 
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
@@ -110,7 +115,9 @@ export const load: PageServerLoad = async (event) => {
 		subscription,
 		planLimits,
 		aiUsage,
-		planPricing: getPlanPricing('monthly')
+		planPricing: getPlanPricing('monthly'),
+		// api_tokens ships via runtime migration; degrade to [] until applied.
+		apiTokens: await listTokensForUser(userId).catch(() => [])
 	};
 };
 
@@ -312,6 +319,41 @@ export const actions: Actions = {
 		} catch (error) {
 			console.error('Failed to logout from all devices:', error);
 			return fail(500, { success: false, message: 'Failed to logout from all devices' });
+		}
+	},
+
+	createApiToken: async ({ request, locals }) => {
+		const formData = await request.formData();
+		const name = formString(formData, 'name').trim();
+		if (!name) {
+			return fail(400, { success: false, message: 'Token name is required' });
+		}
+		try {
+			const { row, token } = await mintApiToken(locals.user.id, name.slice(0, 60));
+			return {
+				success: true,
+				message: `Token '${row.name}' created — copy it now, it won't be shown again.`,
+				apiToken: token,
+				apiTokenName: row.name
+			};
+		} catch (error) {
+			console.error('Failed to create API token:', error);
+			return fail(500, { success: false, message: 'Failed to create token' });
+		}
+	},
+
+	revokeApiToken: async ({ request, locals }) => {
+		const formData = await request.formData();
+		const tokenId = formString(formData, 'tokenId');
+		if (!tokenId) {
+			return fail(400, { success: false, message: 'Token id is required' });
+		}
+		try {
+			await revokeToken(locals.user.id, tokenId);
+			return { success: true, message: 'Token revoked' };
+		} catch (error) {
+			console.error('Failed to revoke API token:', error);
+			return fail(500, { success: false, message: 'Failed to revoke token' });
 		}
 	},
 

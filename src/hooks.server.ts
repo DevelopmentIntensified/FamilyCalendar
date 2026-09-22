@@ -2,6 +2,7 @@ import { lucia, setSessionCookie } from '$lib/server/auth';
 import { redirect, type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { createAnonymousUser, touchLastActiveAt } from '$lib/server/db/actions/users';
+import { getUserForApiToken } from '$lib/server/db/actions/apiTokens';
 import { runMigrations } from '$lib/server/db/migrations/runner';
 import { createBugReport } from '$lib/server/db/actions/bugReports';
 import { buildAutoBugReport, shouldFileAutoReport } from '$lib/server/services/autoBugReport';
@@ -32,6 +33,26 @@ function isAdminRoute(pathname: string): boolean {
 }
 
 const sessionHandle: Handle = async ({ event, resolve }) => {
+	// Personal API tokens (TaskFocus): `Authorization: Bearer` on /api/*
+	// authenticates as the token owner with no session. Invalid token →
+	// 401 JSON (never a redirect). No Bearer header → cookie path below,
+	// untouched. Permission checks in the routes keep working unchanged.
+	if (event.url.pathname.startsWith('/api/')) {
+		const auth = event.request.headers.get('authorization');
+		if (auth?.startsWith('Bearer ')) {
+			const user = await getUserForApiToken(auth.slice('Bearer '.length).trim());
+			if (!user) {
+				return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+					status: 401,
+					headers: { 'content-type': 'application/json' }
+				});
+			}
+			event.locals.user = user;
+			event.locals.session = null;
+			return resolve(event);
+		}
+	}
+
 	const sessionId = event.cookies.get(lucia.sessionCookieName);
 	if (!sessionId) {
 		event.locals.user = null;

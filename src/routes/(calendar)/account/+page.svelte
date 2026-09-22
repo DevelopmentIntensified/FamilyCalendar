@@ -8,6 +8,7 @@
 	import AccountSubscriptionSection from '$lib/components/account/AccountSubscriptionSection.svelte';
 	import AccountEmailSection from '$lib/components/account/AccountEmailSection.svelte';
 	import AccountSecuritySection from '$lib/components/account/AccountSecuritySection.svelte';
+	import AccountApiTokensSection from '$lib/components/account/AccountApiTokensSection.svelte';
 	import AccountDangerSection from '$lib/components/account/AccountDangerSection.svelte';
 
 	export let data: PageData;
@@ -90,6 +91,8 @@
 						<AccountEmailSection {user} />
 					{:else if activeSection === 'security'}
 						<AccountSecuritySection />
+					{:else if activeSection === 'api'}
+						<AccountApiTokensSection tokens={data.apiTokens ?? []} {form} />
 					{:else if activeSection === 'danger'}
 						<AccountDangerSection userId={user.id} />
 					{/if}
