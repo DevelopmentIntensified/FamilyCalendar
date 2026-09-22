@@ -501,6 +501,27 @@ export const claimTokens = pgTable('claim_tokens', {
 
 export type ClaimToken = typeof claimTokens.$inferSelect;
 
+/**
+ * Personal API tokens (TaskFocus Bearer auth). Only the SHA-256 hash is
+ * stored — the plaintext (`fp_` + base64url) is shown once at creation
+ * and never again. Tokens live until revoked; no expiry.
+ */
+export const apiTokens = pgTable('api_tokens', {
+	id: text('id')
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => generateId(15)),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	name: text('name').notNull(),
+	tokenHash: text('token_hash').notNull().unique(),
+	lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
+	createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export type ApiToken = typeof apiTokens.$inferSelect;
+
 export const tasks = pgTable('tasks', {
 	id: text('id')
 		.notNull()
