@@ -11,12 +11,19 @@
 	let { tokens = [], form = null }: { tokens: TokenRow[]; form?: unknown } = $props();
 
 	// Plaintext is returned once by the create action — never stored, never re-shown.
-	const formRecord =
-		typeof form === 'object' && form !== null ? (form as Record<string, unknown>) : null;
-	const newToken =
-		formRecord && typeof formRecord.apiToken === 'string' ? formRecord.apiToken : null;
-	const newTokenName =
-		formRecord && typeof formRecord.apiTokenName === 'string' ? formRecord.apiTokenName : '';
+	// $derived: `form` arrives AFTER submit (use:enhance), so a plain const
+	// would freeze at null and the copy box would never appear.
+	const formRecord = $derived(
+		typeof form === 'object' && form !== null ? (form as Record<string, unknown>) : null
+	);
+	const newToken = $derived(
+		formRecord && typeof formRecord.apiToken === 'string' ? formRecord.apiToken : null
+	);
+	const newTokenName = $derived(
+		formRecord && typeof formRecord.apiTokenName === 'string'
+			? formRecord.apiTokenName
+			: ''
+	);
 
 	let creating = $state(false);
 	let copied = $state(false);
