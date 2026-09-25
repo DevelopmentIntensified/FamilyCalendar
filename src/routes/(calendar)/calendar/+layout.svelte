@@ -3,7 +3,6 @@
 	import { fade } from 'svelte/transition';
 	import { page } from '$app/stores';
 	import { invalidateAll } from '$app/navigation';
-	import '../../../app.css';
 	import type { LayoutData } from './$types';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import OfflineBanner from '$lib/components/OfflineBanner.svelte';

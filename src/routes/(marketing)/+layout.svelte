@@ -3,7 +3,6 @@
 	import Toaster from '$lib/components/Toaster.svelte';
 	import { fade } from 'svelte/transition';
 	import type { LayoutData } from './$types';
-	import '../../app.css';
 
 	export let data: LayoutData;
 </script>
