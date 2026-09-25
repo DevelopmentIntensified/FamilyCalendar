@@ -9,7 +9,6 @@ import {
 // Schema re-exports the data module — this import pair IS the drift guard:
 // if either copy is edited independently, the equality below fails.
 import { BILL_CATEGORIES as SCHEMA_BILL_CATEGORIES } from '$lib/server/db/schema';
-import { cloudScanReceipt } from '$lib/client/receiptOcr';
 
 describe('BILL_CATEGORIES (single source of truth, arch audit #4)', () => {
 	it('matches the schema re-export exactly', () => {
@@ -39,29 +38,6 @@ describe('isBillCategory', () => {
 			expect(isBillCategory(value)).toBe(false);
 		}
 	});
-});
-
-describe('cloud normalization drift guard (the #4 audit live bug)', () => {
-	// receiptOcr's CLOUD_CATEGORIES copy dropped tax/fees: Azure scans with
-	// those categories silently downgraded to 'other'. This guard pins the
-	// cloud path to the shared vocabulary — every member must round-trip.
-	const file = new File([new Uint8Array(4)], 'r.jpg', { type: 'image/jpeg' });
-	const strip = async () => new Blob([new Uint8Array([9, 9])], { type: 'image/jpeg' });
-	const fetchReturning = (category: string) => async () =>
-		new Response(
-			JSON.stringify({ scan: { merchant: 'M', totalCents: 500, date: null, category } }),
-			{ status: 200 }
-		);
-
-	for (const category of BILL_CATEGORIES) {
-		it(`cloud scan with category "${category}" survives normalization`, async () => {
-			const scan = await cloudScanReceipt(file, {
-				fetchFn: fetchReturning(category),
-				strip
-			});
-			expect(scan.category, category).toBe(category);
-		});
-	}
 });
 
 describe('CATEGORY_KEYWORDS (shared merchant table)', () => {

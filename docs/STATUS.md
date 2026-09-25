@@ -200,6 +200,9 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #058 Task delete sync (FIXED 2026-09-24): `DELETE /api/tasks/[id]` honored
   issue-019 canMutateTask (family member could delete), `false` → 404 so
   Todoos-style external apps stop getting fake successes on delete syncs.
+- Bills area ARCHIVED (2026-09-25, user directive — supersedes the 09-08
+  PAUSED note): whole surface `git mv`'d to `_attic/money/` per #063; build
+  + suites green. DB tables and `data/categories` kept (NLP vocabulary).
 - #005 Bill calendar overlay (blocked by #004 — #004 done, so startable)
 - #006 Recurring bills (2026-09-08): frequency + interval on bills,
   `sql/013-recurring-bills.sql` (**LOCAL ONLY — NEON PENDING**), dueDate cursor
