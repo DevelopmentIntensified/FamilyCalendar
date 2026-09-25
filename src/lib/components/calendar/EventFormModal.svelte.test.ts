@@ -345,7 +345,8 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 		});
 		await vi.advanceTimersByTimeAsync(350);
 
-		await fireEvent.click(screen.getByRole('button', { name: /show more/i }));
+		// Fresh detection now opens the advanced pane itself (see
+		// parseNlInput), so the reminder picker is already in the DOM.
 		const select = asElementType(screen.getByLabelText(/reminder/i), HTMLSelectElement);
 		expect(select.value).toBe('30');
 	});

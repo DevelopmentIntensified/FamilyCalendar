@@ -214,14 +214,10 @@
 
 	$: eventIdForTasks = form?.isEditMode ? form.masterId || form.eventId : null;
 
-	$: hasDetectedFields =
-		form.isDetected('date') ||
-		form.isDetected('startTime') ||
-		form.isDetected('location') ||
-		form.isDetected('attendants');
-	$: if (hasDetectedFields && !showMore && !form.isEditMode) {
-		showMore = true;
-	}
+	// Detection-driven Show More reveal happens at the parse site (see
+	// parseNlInput); a `$:` watcher keyed on form.isDetected() never fires —
+	// the form object identity is stable, so the legacy compiler has no
+	// dependency to track.
 
 	$: selectedCal = calendarIds.find((c) => c.id === form.selectedCalendarId) || null;
 	$: calColor = selectedCal
@@ -254,6 +250,16 @@
 					form.applyNlpResult(first);
 					lastParseResult = first;
 					phraseReportable = true;
+					// Detected fields must be visible for the user to fill in
+					// or correct — open Show More from the parse site, not from
+					// a reactive watcher. The runes-class model's isDetected()
+					// reads don't register as legacy `$:` dependencies (the
+					// form reference never changes), so a `$: hasDetected &&
+					// !showMore` watcher would never fire.
+					if (form.isDetected('date') || form.isDetected('startTime') ||
+						form.isDetected('location') || form.isDetected('attendants')) {
+						if (!showMore && !form.isEditMode) showMore = true;
+					}
 					// "on the family calendar" preselects the matching calendar.
 					// Never blocks creation: unmatched names keep the default.
 					if (first.calendarName && calendarIds.length > 0) {

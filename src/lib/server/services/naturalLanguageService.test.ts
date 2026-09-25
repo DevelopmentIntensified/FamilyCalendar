@@ -1177,10 +1177,22 @@ describe('Multi-day span lists (issue 030)', () => {
 	});
 
 	it('expands weekday pairs with a shared time ("friday and saturday dinner")', () => {
+		// Parser rule (pinned at "resolves saturday as next Saturday… at least
+		// one day ahead"): every bare weekday resolves STRICTLY AFTER today,
+		// then the pair sorts ascending — so the list order depends on the
+		// run day. When today IS Friday, Fri skips a whole week and Saturday
+		// comes first. Compute the expectation per state the rule implies
+		// rather than hard-coding a weekday order that flips at midnight.
+		const now = DateTime.now();
+		const strictlyNext = (weekday: number) => {
+			const offset = (weekday - now.weekday + 7) % 7 || 7;
+			const dt = now.plus({ days: offset });
+			expect(DateTime.fromISO(dt.toISODate()).weekday).toBe(weekday); // sanity
+			return dt.toISODate();
+		};
 		const result = parseEventInput('friday and saturday dinner');
 		expect(result.parsed.dates).toHaveLength(2);
-		expect(DateTime.fromISO(result.parsed.dates![0]).weekday).toBe(5);
-		expect(DateTime.fromISO(result.parsed.dates![1]).weekday).toBe(6);
+		expect(result.parsed.dates).toEqual([strictlyNext(5), strictlyNext(6)].sort());
 		expect(result.parsed.startTime).toBeUndefined();
 		expect(result.parsed.title).toBe('dinner');
 	});
