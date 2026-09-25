@@ -181,41 +181,27 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   Top-3, tag `#` glyph + placeholder, 320px dialog grid, help/placeholder
   wording, muted due/recurrence on completed rows, focus-visible + opacity-40
   hover actions.
-- Bills area PAUSED (2026-09-08, user directive): the parked `/bills` +
-  `/spending` sub-app must NOT be triaged or checked for issues until the
-  user unpauses it. Open bills items below (#003/#005/#007–#010, word-
-  preservation correction) are frozen, not actionable.
+- Bills area ARCHIVED (2026-09-25, user directive — supersedes the 09-08
+  PAUSED note): whole surface `git mv`'d to `_attic/money/` per #063; build
+  + suites green. DB tables and `data/categories` kept (NLP vocabulary).
+  Bills tickets #003/#005–#012 and #032 closed as superseded.
 - Meals area PAUSED (2026-09-08, user directive — same treatment as bills):
   `MealsCard` unmounted from the dashboard, server no longer loads meals;
   component + `/api/meals` + actions + tables parked in place (#037). Do
   NOT triage meals until unpaused.
-- #003 Bill Tracking PRD (parent; slices #005–#011 pending)
-- #059 Diagnose 405 POST / (IN-PROGRESS: in-app causes ruled out; webhook
-  hypothesis needs Resend-dashboard evidence)
-- #060 Fix 405 + durable guard (blocked by #059)
-- #061 Triage/clear bug-report queue (blocked by #059; three 500s verified
-  stale — 09-19 red-green deploys, current build clean)
-- #062 Per-page style reliability + compression (user: styles sometimes
-  don't load)
+- #059 Diagnose 405 POST / (CLOSED 2026-09-25, "tried later": in-app causes
+  ruled out; Resend-webhook hypothesis unproven — reopen on next auto-filed
+  405 batch, then fix is repointing the webhook to /api/email-ingest)
+- #060 Fix 405 + durable guard (CLOSED 2026-09-25, folded into #059 retry;
+  user-side webhook repoint, no in-repo cause confirmed)
+- #061 Triage/clear bug-report queue (CLOSED 2026-09-25: stale 500s verified
+  resolved-by-build; 405 batch via #059/#060; queue clears in /admin/bugs)
+- #062 Per-page style reliability + compression (DONE 2026-09-24, user
+  confirmed 2026-09-25: single root app.css import; per-page payload reads
+  one global — admin/account unstyled pages fixed)
 - #058 Task delete sync (FIXED 2026-09-24): `DELETE /api/tasks/[id]` honored
   issue-019 canMutateTask (family member could delete), `false` → 404 so
   Todoos-style external apps stop getting fake successes on delete syncs.
-- Bills area ARCHIVED (2026-09-25, user directive — supersedes the 09-08
-  PAUSED note): whole surface `git mv`'d to `_attic/money/` per #063; build
-  + suites green. DB tables and `data/categories` kept (NLP vocabulary).
-- #005 Bill calendar overlay (blocked by #004 — #004 done, so startable)
-- #006 Recurring bills (2026-09-08): frequency + interval on bills,
-  `sql/013-recurring-bills.sql` (**LOCAL ONLY — NEON PENDING**), dueDate cursor
-  advanced by mark-paid (strictly-after-today, anchored on old due), unmark no
-  rewind, API `recurring` shape + 400s, bills-page ⟳ chip/pill/toast, e2e flow
-- #007 Paid cursor (blocked by #006)
-- #008 Monthly Burn card (blocked by #006)
-- #009 Due-soon reminders (blocked by #006)
-- #010 Bill receipts (in progress: OCR chain + process-and-delete landed;
-  opt-in Azure cloud step landed — scan chain complete)
-- #011 Bill quick-add NLP (blocked by #004 — startable)
-- #012 Bills MED/LOW follow-ups
-- #032 Spending reports page
 - #013 Tasks/family MED/LOW (8 of 10 audit items fixed 2026-09-06: assignment
   notifications, remove-member un-assign, undo cursor hardening, completion
   actor attribution (sql/006), sync family scope, sub-override filter,

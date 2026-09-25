@@ -1,6 +1,6 @@
 # 007 — Paid cursor
 
-Status: open
+Status: done
 
 Parent: #003 Bill Tracking PRD (stories 7, 9).
 

@@ -1,6 +1,6 @@
 # 008 — Monthly Burn card
 
-Status: open
+Status: done
 
 Parent: #003 Bill Tracking PRD (stories 4, 5).
 

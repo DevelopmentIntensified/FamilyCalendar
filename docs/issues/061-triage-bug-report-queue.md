@@ -1,6 +1,6 @@
 # 061 — Triage + clear bug-report queue
 
-Status: open
+Status: done
 
 ## Needs doing
 
@@ -13,5 +13,9 @@ Status: open
 
 ## Done
 
+- CLOSED (2026-09-25, user): stale reports verified resolved-by-build (both
+  files last compiled 2026-09-19; current build parses clean). 405 batch
+  handled via #059/#060 closure. Queue-clearing itself happens in
+  /admin/bugs; nothing left here.
 - Verification of staleness already grounded: both files' last commits land
   2026-09-19; `npm run build` green on 2026-09-24 with no compile errors.

@@ -1,6 +1,6 @@
 # 060 — Fix 405 POST / and add durable guard
 
-Status: open
+Status: done
 
 ## Needs doing
 
@@ -12,4 +12,7 @@ Status: open
 
 ## Done
 
-- (pending #059)
+- CLOSED (2026-09-25, user): folded into #059's later-retry. The fix is
+  currently a USER-side step (repoint the Resend webhook to
+  `/api/email-ingest`); no in-repo cause confirmed, so no guard landed.
+- (was pending #059)

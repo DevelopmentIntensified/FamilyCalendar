@@ -1,6 +1,6 @@
 # 005 — Bill calendar overlay
 
-Status: open
+Status: done
 
 Parent: #003 Bill Tracking PRD (story 2).
 

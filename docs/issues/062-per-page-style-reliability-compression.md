@@ -1,6 +1,6 @@
 # 062 — Per-page style reliability + compression
 
-Status: in-progress
+Status: done
 
 ## Needs doing
 
@@ -29,4 +29,5 @@ Status: in-progress
   pages previously got styles only by Toaster-chunk luck. Now the root layout
   guarantees availability on every page, and the tailwind JIT output is
   identical content served once.
+- CLOSED (2026-09-25, user: "you fixed 062 already"): compression slice added.
 

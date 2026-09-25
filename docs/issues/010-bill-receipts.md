@@ -2,7 +2,7 @@
 
 Parent: #003 Bill Tracking PRD (story 8).
 
-Status: in-progress (scan chain COMPLETE incl. opt-in Azure step;
+Status: done (superseded 2026-09-25: bills surface archived to _attic/money per #063;)
 remaining: line-item text #031, perf criterion)
 
 ## DECISION CHANGE (user, 2026-09-07): NO receipt image storage

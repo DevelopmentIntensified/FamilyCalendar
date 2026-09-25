@@ -1,6 +1,6 @@
 # 012 — Audit findings: bills MED/LOW follow-ups
 
-Status: in-progress
+Status: done (2026-09-25: bills surface archived to _attic/money per #063)
 
 ## Needs doing
 

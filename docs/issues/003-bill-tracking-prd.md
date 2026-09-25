@@ -1,6 +1,6 @@
 # 003 — Bill Tracking PRD ("where da money go")
 
-Status: open
+Status: done (2026-09-25: bills surface archived to _attic/money per #063)
 
 ## Done
 

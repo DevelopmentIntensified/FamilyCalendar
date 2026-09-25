@@ -1,6 +1,6 @@
 # 059 — Diagnose 405 POST / (auto-filed reports)
 
-Status: in-progress
+Status: done
 
 ## Needs doing
 
@@ -17,5 +17,9 @@ Status: in-progress
 
 ## Done
 
+- CLOSED (2026-09-25, user): "can be tried later." Verdict still unproven —
+  the Resend-dashboard evidence never gathered; web send-bloom 405s likely
+  whenever the webhook spams `/`. Reopen on the next auto-filed 405 batch for
+  one-pass verify + repoint.
 - Ruled out in-app causes: no `method="POST"` form, no JS fetch, no service
   worker POST targeting `/`; share-target is GET /calendar.

@@ -1,6 +1,6 @@
 # 009 — Due-soon reminders
 
-Status: open
+Status: done
 
 Parent: #003 Bill Tracking PRD (story 6).
 
