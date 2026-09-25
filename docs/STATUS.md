@@ -190,6 +190,13 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   component + `/api/meals` + actions + tables parked in place (#037). Do
   NOT triage meals until unpaused.
 - #003 Bill Tracking PRD (parent; slices #005–#011 pending)
+- #059 Diagnose 405 POST / (IN-PROGRESS: in-app causes ruled out; webhook
+  hypothesis needs Resend-dashboard evidence)
+- #060 Fix 405 + durable guard (blocked by #059)
+- #061 Triage/clear bug-report queue (blocked by #059; three 500s verified
+  stale — 09-19 red-green deploys, current build clean)
+- #062 Per-page style reliability + compression (user: styles sometimes
+  don't load)
 - #058 Task delete sync (FIXED 2026-09-24): `DELETE /api/tasks/[id]` honored
   issue-019 canMutateTask (family member could delete), `false` → 404 so
   Todoos-style external apps stop getting fake successes on delete syncs.
