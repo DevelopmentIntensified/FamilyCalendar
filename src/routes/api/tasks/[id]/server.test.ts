@@ -12,9 +12,13 @@ type Row = Record<string, string | null>;
 
 interface StubState {
 	queue: Row[][];
+	deletedWheres: unknown[];
+	updatedWheres: unknown[];
 }
 
-const state = vi.hoisted((): StubState => ({ queue: [] }));
+const state = vi.hoisted(
+	(): StubState => ({ queue: [], deletedWheres: [], updatedWheres: [] })
+);
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins query shapes; real-Postgres harness tracked in docs/issues/002.
 vi.mock('$lib/server/db', () => ({
@@ -22,6 +26,20 @@ vi.mock('$lib/server/db', () => ({
 		select: () => ({
 			from: () => ({
 				where: () => Promise.resolve(state.queue.shift() ?? [])
+			})
+		}),
+		delete: () => ({
+			where: (where: unknown) => {
+				state.deletedWheres.push(where);
+				return Promise.resolve();
+			}
+		}),
+		update: () => ({
+			set: () => ({
+				where: (where: unknown) => {
+					state.updatedWheres.push(where);
+					return Promise.resolve();
+				}
 			})
 		})
 	}
@@ -51,7 +69,7 @@ vi.mock('$lib/server/utils/userTimezone', () => ({
 	zonedNow: vi.fn()
 }));
 
-import { PUT } from './+server';
+import { PUT, DELETE } from './+server';
 import {
 	updateTask,
 	updateTaskInFamily,
@@ -102,6 +120,8 @@ const mockedIsValidAssignee = vi.mocked(isValidAssignee);
 
 beforeEach(() => {
 	state.queue = [];
+	state.deletedWheres = [];
+	state.updatedWheres = [];
 	vi.clearAllMocks();
 	mockedUpdateTask.mockResolvedValue(undefined);
 	mockedCanMutate.mockResolvedValue(true);
@@ -216,5 +236,61 @@ describe('PUT /api/tasks/[id] — visibility patch (issue 019)', () => {
 		expect(res.status).toBe(400);
 		expect(mockedUpdateTask).not.toHaveBeenCalled();
 		expect(state.queue).toEqual([]);
+	});
+});
+
+/**
+ * DELETE /api/tasks/[id] — permission-aware deletion (Bearer-token todo
+ * apps like Todoos sync deletions over this endpoint). Previously the
+ * handler always returned `success` even when the owner-only delete seam
+ * matched no row, so deleting a family task from the API silently
+ * no-opped and the task re-downloaded on the next GET. Now the handler
+ * maps `deleteTask === false` (missing OR not authorized under the same
+ * issue-019 canMutateTask rules PUT uses) to 404.
+ */
+describe('DELETE /api/tasks/[id] — deletion sync (canMutateTask rules)', () => {
+	function deleteEvent(userId: string, taskId: string) {
+		// SAFETY: test double — the DELETE handler only reads locals.user and url.
+		return {
+			locals: { user: { id: userId } },
+			url: new URL(`http://localhost/api/tasks/${taskId}`),
+			request: { url: `http://localhost/api/tasks/${taskId}` }
+		} as never;
+	}
+
+	it('deletes when canMutateTask authorizes (family member scenario)', async () => {
+		// deleteTask loads the full row; then the REAL canMutateTask → its
+		// internal isFamilyMember query needs a familyMembers hit.
+		state.queue.push([taskRow()], [{ familyId: 'fam-1' }]);
+
+		const res = await DELETE(deleteEvent('user-member', 't1'));
+
+		expect(res.status).toBe(200);
+		expect(state.deletedWheres).toHaveLength(1);
+		expect(state.updatedWheres).toHaveLength(0);
+	});
+
+	it('404s instead of a silent success when not authorized', async () => {
+		// Row exists, but the familyMembers lookup comes back empty → the
+		// real canMutateTask denies the caller → 404, never a fake success.
+		state.queue.push([taskRow()], []);
+
+		const res = await DELETE(deleteEvent('user-stranger', 't1'));
+
+		expect(res.status).toBe(404);
+		expect(state.deletedWheres).toHaveLength(0);
+	});
+
+	it('404s an unknown id instead of success', async () => {
+		const res = await DELETE(deleteEvent('user-owner', 'ghost'));
+
+		expect(res.status).toBe(404);
+		expect(state.deletedWheres).toHaveLength(0);
+	});
+
+	it('401s unauthenticated', async () => {
+		const res = await DELETE({ locals: {} } as never);
+
+		expect(res.status).toBe(401);
 	});
 });

@@ -684,20 +684,29 @@ export async function toggleTaskComplete(
 	return applyToggle(task, zone, userId);
 }
 
-export async function deleteTask(id: string, userId: string) {
-	const [task] = await db
-		.select({ completedAt: tasks.completedAt })
-		.from(tasks)
-		.where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
-	if (!task) return;
+/**
+ * Deletes (or archives, when completed) a task under the same issue-019
+ * rules as every other mutation: the owner, a live assignee on a personal
+ * task, or any member of a family task. External API clients (Bearer-token
+ * todo apps) rely on this for delete syncs — an unauthorized caller gets
+ * `false`, which the route turns into 404 (not a silent success).
+ *
+ * Completed tasks back the stats/streak history, so removing one archives
+ * it instead of deleting. Open tasks have no stats attached — hard delete.
+ * Returns true when the row was deleted/archived, false when missing or
+ * not permitted.
+ */
+export async function deleteTask(id: string, userId: string): Promise<boolean> {
+	const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+	if (!task) return false;
+	if (!(await canMutateTask(task, userId))) return false;
 
-	// Completed tasks back the stats/streak history, so removing one archives
-	// it instead of deleting. Open tasks have no stats attached — hard delete.
 	if (task.completedAt) {
 		await db.update(tasks).set({ archivedAt: new Date().toISOString() }).where(eq(tasks.id, id));
 	} else {
 		await db.delete(tasks).where(eq(tasks.id, id));
 	}
+	return true;
 }
 
 /** Archive completed tasks instead of deleting them: the rows power the stats

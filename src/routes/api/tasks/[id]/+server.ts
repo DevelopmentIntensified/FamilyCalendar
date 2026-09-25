@@ -240,7 +240,10 @@ export const DELETE: RequestHandler = async ({ request, locals, url }) => {
 	}
 
 	try {
-		await deleteTask(taskId, locals.user.id);
+		const deleted = await deleteTask(taskId, locals.user.id);
+		if (!deleted) {
+			return json({ error: 'Task not found' }, { status: 404 });
+		}
 		return json({ success: true });
 	} catch (error) {
 		console.error('Failed to delete task:', error);
