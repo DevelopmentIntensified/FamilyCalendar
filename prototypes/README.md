@@ -121,18 +121,31 @@ and so is a review board that lies.
 ## Check it
 
 ```powershell
-node prototypes/tree-check.mjs      # does the tree match the disk?
-node prototypes/serve-check.mjs     # does every page actually serve and run? (needs the server up)
-node prototypes/review-check.mjs    # is every prototype's review state the truth?
+npm run proto:serve     # the collector, on 4180, rooted at prototypes/
+npm run proto:check     # all thirteen suites, in order
+```
+
+**Run `proto:check`, not the list.** Thirteen scripts is thirteen commands
+nobody runs. The runner asks the port rather than assuming it, so a suite that
+needs HTTP is reported **SKIPPED** with the command that starts it — never
+silently counted as a pass. A check that quietly does nothing is worse than a
+check that fails.
+
+The individual suites, if you want one of them:
+
+```powershell
+node prototypes/review-check.mjs      # is every prototype's review state the truth?
+node prototypes/tree-check.mjs        # does the tree match the disk?
+node prototypes/serve-check.mjs       # does every page serve and run? (needs the server)
 node prototypes/app-ui/app-check.mjs
-foreach ($t in 'smoke','lint','nav-check','feedback-check','drag-check','dock-check','feedback-e2e','rounds-e2e') {
+foreach ($t in 'smoke','lint','nav-check','feedback-check','drag-check','dock-check','sync-baseline') {
   node "prototypes\calendar-ui\$t.mjs"
 }
 ```
 
-Eleven suites. Every expectation is derived from the repo — the directory, `schema.ts`,
-the nav tables in `navItems.ts` — so they fail when the prototypes drift rather than when
-someone remembers to update a list.
+Thirteen suites. Every expectation is derived from the repo — the directory,
+`schema.ts`, the nav tables in `navItems.ts` — so they fail when the prototypes
+drift rather than when someone remembers to update a list.
 
 `serve-check.mjs` is the one that answers "can I actually reach all of this from the
 browser": it walks every link in the tree over HTTP, resolves each page's assets, inlines
