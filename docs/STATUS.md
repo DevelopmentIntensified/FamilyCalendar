@@ -173,9 +173,15 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 - #064–#084 prototype-review round (2026-09-28, from the app-ui + calendar-ui
   review, 18 marks over 8 prototypes; 9 pages still unreviewed):
-  - Bugs found while grounding: #064 every family link is a literal
-    `{braces}` href (12 across 5 routes — the families list card itself is
-    dead); #065 bottom nav can't reach Groceries, top nav can't reach Alerts.
+  - Bugs found while grounding: #065 bottom nav can't reach Groceries, top nav
+    can't reach Alerts.
+  - #064 Family links (DONE 2026-09-28): the prototype's "braces ship literally"
+    claim was wrong — Svelte interpolates an attribute value, and 11 of 12 such
+    links were fine. Real defects: one href built as a JS string (the family
+    tasks breadcrumb, the only literal braces in the app), one href naming a
+    route that does not exist (Manage invitations), and a detail page that
+    rendered with a null family so five links pointed at an undefined id (now
+    a 404). Guard added: links.test.ts parses the Svelte sources.
   - Calendar key (the one rebuild mark): #066 non-overlapping events still
     give up column width, #067 sponsored events unlabelled, #068 all-day vs
     timed only a fill tint, #069 no calendar filter to make "colour = calendar"

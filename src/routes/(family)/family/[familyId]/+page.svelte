@@ -581,7 +581,7 @@
 							</h2>
 							<div class="space-y-1.5">
 								<a
-									href="/family/{family?.id}/invitations"
+									href="/family/invitations"
 									class="flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 								>
 									<svg

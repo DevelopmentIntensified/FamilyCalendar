@@ -12,7 +12,17 @@ import { db } from '$lib/server/db';
 import { families, familyMembers } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { PageServerLoad, Actions } from './$types';
-import { fail } from '@sveltejs/kit';
+import { error, fail, isHttpError, isRedirect } from '@sveltejs/kit';
+
+/**
+ * Unreachable-by-id: wrong family, or a viewer who is not a member of it.
+ * Declared as a function so the throw site reads as a statement — `error()`
+ * returns an HttpError to be thrown, and a bare `if (x) error(...)` body
+ * silently no-ops in a way that reads like a guard.
+ */
+function notFound(): never {
+	throw error(404, 'Family not found');
+}
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	try {
@@ -24,15 +34,18 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			)
 			.limit(1);
 
+		// A non-member gets a 404, not a rendered page whose five family links
+		// point at /family/undefined/... — the page has no empty state to catch
+		// it, so the refusal has to happen here (issue 064).
 		if (!currentMember) {
-			return { family: null, members: [], currentUserRole: null };
+			notFound();
 		}
 
 		const familyResult = await db.select().from(families).where(eq(families.id, params.familyId));
 		const family = familyResult[0] || null;
 
 		if (!family) {
-			return { family: null, members: [], currentUserRole: null };
+			notFound();
 		}
 
 		const members = await getFamilyRoster(params.familyId);
@@ -47,9 +60,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			activity,
 			moduleSwitches
 		};
-	} catch (error) {
-		console.error('[load] Error:', error);
-		return { family: null, members: [], currentUserRole: null };
+	} catch (err) {
+		// SvelteKit redirects/404s thrown above land here; re-throw them
+		// rather than turning a 404 into a page that renders broken links.
+		if (isRedirect(err) || isHttpError(err)) throw err;
+		console.error('[load] Error:', err);
+		throw error(500, 'Could not load this family');
 	}
 };
 

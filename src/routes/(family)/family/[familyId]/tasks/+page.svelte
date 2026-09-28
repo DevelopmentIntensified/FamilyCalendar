@@ -166,7 +166,7 @@
 		crumbs={[
 			{ label: 'Calendar', href: '/calendar' },
 			{ label: 'Family', href: '/family' },
-			{ label: data.family?.name || 'Family', href: '/family/{data.family?.id}' },
+			{ label: data.family?.name || 'Family', href: `/family/${data.family?.id}` },
 			{ label: 'Tasks' }
 		]}
 	/>
