@@ -171,6 +171,28 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
+- #064–#084 prototype-review round (2026-09-28, from the app-ui + calendar-ui
+  review, 18 marks over 8 prototypes; 9 pages still unreviewed):
+  - Bugs found while grounding: #064 every family link is a literal
+    `{braces}` href (12 across 5 routes — the families list card itself is
+    dead); #065 bottom nav can't reach Groceries, top nav can't reach Alerts.
+  - Calendar key (the one rebuild mark): #066 non-overlapping events still
+    give up column width, #067 sponsored events unlabelled, #068 all-day vs
+    timed only a fill tint, #069 no calendar filter to make "colour = calendar"
+    true, #070 the key itself (blocked by 067/068/069), #071 prototype-only
+    search move (the app has no search at all).
+  - Approved prototypes → the real app: #072 kids' card per-child colour +
+    grouped by child (test red already written), #073 alerts grouped by
+    needs-you vs news, #074 groceries restyle, #075 family-create page,
+    #076 family-create members before the finish line (blocked by 075).
+  - Composition marks: #077 family settings 793-line page, #078 family card
+    spacing + a stat, #079 tasks page filters/inbox/row-meta, #080 verse out
+    of the dashboard module band, #081 groceries card replaces parked meals.
+  - The two original bug reports: #082 calendar only loads the month it was
+    asked for (root cause of "import adds nothing in future months"),
+    #083 import preview before commit — **no batch-undo by decision**.
+  - #084 spacing pass on the 12 unreviewed prototype pages, measured not
+    eyeballed, plus a permanent spacing check.
 - #057 Grocery list (IN-PROGRESS 2026-09-20): Mine + Family tabs at `/calendar/groceries`, Store Memory auto-fill, check hides; slice 1 (tables + actions + page) built, dashboard card still parked.
 
 - #056 Nav Calendar button dead for dashboard-default users (DONE 2026-09-12): Calendar hrefs use the `?dashboardView=1` escape hatch (desktop nav + bottom nav); active-highlight matches pathname-only; tests green, svelte-check unchanged (44 pre-existing).
