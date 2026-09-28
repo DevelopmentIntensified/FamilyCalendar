@@ -174,7 +174,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #064–#084 prototype-review round (2026-09-28, from the app-ui + calendar-ui
   review, 18 marks over 8 prototypes; 9 pages still unreviewed):
   - Bugs found while grounding: #065 bottom nav can't reach Groceries, top nav
-    can't reach Alerts.
+    can't reach Alerts (DONE 2026-09-28 — one destination list feeds both navs;
+    the tab bar had its own hand-copied array *and* its own prefix-matching
+    copy, which was the bug. Groceries in the tab bar as "Shop" so six tabs
+    fit 320px, accessible name still "Groceries". Columns derive from the item
+    count instead of a hardcoded grid-cols-5. Mobile e2e pins the geometry).
   - #064 Family links (DONE 2026-09-28): the prototype's "braces ship literally"
     claim was wrong — Svelte interpolates an attribute value, and 11 of 12 such
     links were fine. Real defects: one href built as a JS string (the family

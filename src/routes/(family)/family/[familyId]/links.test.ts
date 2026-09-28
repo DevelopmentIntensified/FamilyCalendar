@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { parse } from 'svelte/compiler';
+import { bottomNavItems, loggedInNavItems } from '$lib/utils/navItems';
 
 const REPO = join(process.cwd(), 'src');
 const ROUTES = join(REPO, 'routes');
@@ -126,6 +127,26 @@ describe('every href in the app', () => {
 			}
 		}
 		expect(offenders).toEqual([]);
+	});
+
+	it('resolves every destination in both navs to a real route', () => {
+		// A nav item pointing at a page that does not exist is the same class of
+		// dead link as a bad href, and the two navs drifting apart is how the
+		// tab bar ended up missing Groceries (issue 065).
+		const offenders: string[] = [];
+		for (const item of [...loggedInNavItems, ...bottomNavItems]) {
+			if (!hrefResolves(item.href)) offenders.push(item.href);
+		}
+		expect(offenders).toEqual([]);
+	});
+
+	it('keeps every nav destination reachable, in both navs', () => {
+		// Alerts is the single documented exception: the desktop nav shows it as
+		// a bell, so the tab bar owns it alone.
+		const desktopOnly = loggedInNavItems.filter((i) => !bottomNavItems.includes(i));
+		expect(desktopOnly).toEqual([]);
+		const tabBarOnly = bottomNavItems.filter((i) => !loggedInNavItems.includes(i));
+		expect(tabBarOnly.map((i) => i.href)).toEqual(['/calendar/notifications']);
 	});
 
 	it('only points at routes the router actually serves', () => {

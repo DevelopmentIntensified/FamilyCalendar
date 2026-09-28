@@ -4,7 +4,7 @@ import { loginWithSession } from '../testUtils';
 test('mobile smoke: bottom nav, alerts, and task quick-add', async ({ page, testUser }) => {
 	await loginWithSession(page, testUser.email);
 
-	await test.step('BottomNav shows 5 tabs on calendar', async () => {
+	await test.step('BottomNav reaches every destination, including Groceries', async () => {
 		await page.goto('/calendar');
 		await page.waitForLoadState('networkidle');
 
@@ -15,6 +15,27 @@ test('mobile smoke: bottom nav, alerts, and task quick-add', async ({ page, test
 		await expect(nav.getByText('Tasks')).toBeVisible();
 		await expect(nav.getByText('Alerts')).toBeVisible();
 		await expect(nav.getByText('Family')).toBeVisible();
+		// Was desktop-only (issue 065). "Shop" is the width compromise at 320px;
+		// the accessible name stays "Groceries".
+		const shop = nav.getByLabel('Groceries');
+		await expect(shop).toBeVisible();
+		await expect(shop).toHaveAttribute('href', '/calendar/groceries');
+	});
+
+	await test.step('the tab bar fits 320px without overflow', async () => {
+		await page.setViewportSize({ width: 320, height: 640 });
+		await page.goto('/calendar');
+		await page.waitForLoadState('networkidle');
+		const nav = page.locator('nav[aria-label="Primary navigation"]');
+		const box = await nav.boundingBox();
+		expect(box?.width ?? 0).toBeLessThanOrEqual(320);
+		// No tab may be squeezed to nothing by a neighbour.
+		const tabs = nav.getByRole('link');
+		for (let i = 0; i < (await tabs.count()); i++) {
+			const tab = await tabs.nth(i).boundingBox();
+			expect(tab?.width ?? 0).toBeGreaterThan(40);
+		}
+		await page.setViewportSize({ width: 390, height: 844 });
 	});
 
 	await test.step('Alerts tab navigates to notifications', async () => {

@@ -12,13 +12,37 @@ afterEach(() => {
 });
 
 describe('BottomNav', () => {
-	it('renders all five tabs including Alerts', () => {
+	it('renders every destination, including Groceries (issue 065)', () => {
 		render(BottomNav, { props: { currentPath: '/calendar' } });
 		expect(screen.getByText('Calendar')).toBeInTheDocument();
 		expect(screen.getByText('Dashboard')).toBeInTheDocument();
 		expect(screen.getByText('Tasks')).toBeInTheDocument();
 		expect(screen.getByText('Alerts')).toBeInTheDocument();
 		expect(screen.getByText('Family')).toBeInTheDocument();
+		// The whole point: groceries was reachable on desktop and nowhere on mobile.
+		const shop = screen.getByText('Shop').closest('a');
+		expect(shop).toHaveAttribute('href', '/calendar/groceries');
+	});
+
+	it('links every tab and offers the full name to a screen reader', () => {
+		render(BottomNav, { props: { currentPath: '/calendar' } });
+		const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
+		expect(hrefs).toEqual([
+			'/calendar?dashboardView=1',
+			'/calendar/dashboard',
+			'/calendar/tasks',
+			'/calendar/groceries',
+			'/calendar/notifications',
+			'/family'
+		]);
+		// "Shop" is a width compromise; the accessible name is not.
+		expect(screen.getByText('Shop').closest('a')).toHaveAttribute('aria-label', 'Groceries');
+	});
+
+	it('highlights the Groceries tab when the list is open', () => {
+		render(BottomNav, { props: { currentPath: '/calendar/groceries' } });
+		expect(screen.getByText('Shop').closest('a')).toHaveAttribute('aria-current', 'page');
+		expect(screen.getByText('Tasks').closest('a')).not.toHaveAttribute('aria-current');
 	});
 
 	it('highlights the tab matching the injected currentPath (seam)', () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+	bottomNavItems,
 	loggedInNavItems,
 	marketingNavItems,
 	resolveActiveHref,
@@ -48,5 +49,37 @@ describe('resolveActiveHref', () => {
 			'/calendar/groceries',
 			'/family'
 		]);
+	});
+});
+
+describe('the two navs come from one list (issue 065)', () => {
+	it('reaches groceries from the tab bar, not just the desktop nav', () => {
+		expect(bottomNavItems.map((i) => i.href)).toContain('/calendar/groceries');
+	});
+
+	it('keeps alerts in the tab bar — the bell is desktop-only', () => {
+		expect(bottomNavItems.map((i) => i.href)).toContain('/calendar/notifications');
+	});
+
+	it('never hides a destination from the tab bar that the desktop nav shows', () => {
+		// The one permitted difference is the one the bell explains.
+		const bellOnly = bottomNavItems.filter((i) => !loggedInNavItems.includes(i));
+		expect(bellOnly.map((i) => i.href)).toEqual(['/calendar/notifications']);
+	});
+
+	it('gives every tab an icon and a label that fits a 320px bar', () => {
+		for (const item of bottomNavItems) {
+			expect(item.icon, `${item.label} has no icon`).toBeTruthy();
+			const label = item.shortLabel ?? item.label;
+			// 320px / 6 tabs ≈ 53px per tab; an 11px label fits ~9 characters.
+			expect(label.length, `${item.label} is too long for the tab bar`).toBeLessThanOrEqual(9);
+		}
+	});
+
+	it('resolves the active tab for a grocery-list visit', () => {
+		expect(resolveActiveHref('/calendar/groceries', bottomNavItems)).toBe('/calendar/groceries');
+		expect(resolveActiveHref('/calendar/groceries/abc', bottomNavItems)).toBe(
+			'/calendar/groceries'
+		);
 	});
 });
