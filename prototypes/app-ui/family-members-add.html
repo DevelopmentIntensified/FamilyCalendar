@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Add a member — FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "family-members-add", "label": "Add a member", "family": "app-ui",
+  "question": "Three ways in — find someone, email an invite, create a child. Should this be one form or three?",
+  "thesis": "Three tabs, because the three cases need different words. The child case needs the unique-email warning up front, not after a failed save.",
+  "realPage": "src/routes/(family)/family/[familyId]/members/add — +page.svelte 121"
+}
+</script>
+<style>
+	.tabs { display: inline-flex; background: var(--s100); border-radius: .75rem; padding: .25rem; }
+	.tabs button { min-height: 2.5rem; padding: 0 1.125rem; border: 0; background: transparent; border-radius: .5rem; font: 600 .875rem/1 inherit; color: var(--s500); cursor: pointer; }
+	.tabs button.is-on { background: #fff; color: var(--s900); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+	.pane { display: none; }
+	.pane.is-on { display: block; }
+	.hit { display: flex; align-items: center; gap: .75rem; padding: .75rem; border-radius: .875rem; border: 1px solid var(--s200); }
+	.hit + .hit { margin-top: .5rem; }
+	.hit__a { height: 2.25rem; width: 2.25rem; border-radius: 9999px; display: grid; place-items: center; font: 800 .75rem/1 inherit; flex: none; background: var(--s100); color: var(--s500); }
+	.col-2 { display: grid; gap: 0 1rem; grid-template-columns: 1fr; }
+	@media (min-width: 600px) { .col-2 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+	.note { border-radius: .875rem; padding: .875rem 1rem; font-size: .8125rem; line-height: 1.7; }
+	.note-warn { background: linear-gradient(140deg,rgba(254,213,207,.55),#fff); border: 1px solid rgba(254,213,207,.7); color: var(--s800); }
+	.note-ok { background: linear-gradient(140deg,rgba(196,233,218,.5),#fff); border: 1px solid rgba(196,233,218,.7); color: var(--s800); }
+	.stepchips { display: flex; gap: .375rem; flex-wrap: wrap; margin-top: .625rem; }
+	.stepsent { display: flex; align-items: center; gap: .5rem; padding: .625rem 0; font-size: .8125rem; color: var(--s600); }
+	.stepsent .dot { height: .5rem; width: .5rem; border-radius: 9999px; background: var(--mint); flex: none; }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+import { MEMBERS } from './app-data.js';
+
+const wrap = el('div');
+wrap.style.cssText = 'display:flex;flex-direction:column;gap:1rem;max-width:44rem';
+
+/* ── tabs ────────────────────────────────────────────────────────────── */
+const tabs = el('div', 'tabs');
+tabs.setAttribute('data-fb', 'add-tabs');
+tabs.setAttribute('data-fb-label', 'Three ways to add');
+tabs.innerHTML = `
+	<button data-t="search" class="is-on">Find someone</button>
+	<button data-t="email">Invite by email</button>
+	<button data-t="child">Create a child</button>`;
+wrap.appendChild(tabs);
+
+/* ── pane 1: search ─────────────────────────────────────────────────── */
+const p1 = el('div', 'pane is-on');
+p1.setAttribute('data-fb', 'pane-search');
+p1.setAttribute('data-fb-label', 'Find someone');
+p1.innerHTML = `
+	<div class="rail__card">
+	  <label class="field">
+	    <span class="hint" style="display:block;margin-bottom:.375rem">Search by name or email</span>
+	    <input class="input wide" placeholder="e.g. grandma@hoppers.test" oninput="srch(this.value)" />
+	  </label>
+	  <div id="hits"></div>
+	  <p class="hint" style="line-height:1.7;margin-top:.5rem">Only people who already have an account. If the
+	  second parent is not signed up yet, use the invite tab instead — the family is the only thing that lets
+	  them in without a shared password.</p>
+	</div>`;
+wrap.appendChild(p1);
+
+/* ── pane 2: email invite ───────────────────────────────────────────── */
+const p2 = el('div', 'pane');
+p2.setAttribute('data-fb', 'pane-email');
+p2.setAttribute('data-fb-label', 'Invite by email');
+p2.innerHTML = `
+	<div class="rail__card">
+	  <form onsubmit="send(event)">
+	    <div class="col-2">
+	      <label class="field"><span class="hint" style="display:block;margin-bottom:.375rem">Their name</span>
+	        <input class="input wide" id="iName" placeholder="Grandma" /></label>
+	      <label class="field"><span class="hint" style="display:block;margin-bottom:.375rem">Their email</span>
+	        <input class="input wide" id="iMail" type="email" placeholder="nan@hoppers.test" /></label>
+	    </div>
+	    <label class="field"><span class="hint" style="display:block;margin-bottom:.375rem">Role</span>
+	      <select class="input wide"><option>member — can see and edit</option><option>admin — can manage members and settings</option></select>
+	    </label>
+	    <button class="btn btn-primary btn-md" type="submit">Send invite</button>
+	  </form>
+	  <div id="sent"></div>
+	</div>
+	<div class="note note-ok" style="margin-top:1rem">
+	  <b>What they get.</b> A link to <code>/family/join/[code]</code>. They make an account with that email and
+	  land straight in the family — no invite list to accept, nothing to keep track of. The code is the whole
+	  mechanism: <code>familyInviteCodes</code>, one row, with <code>maxUses</code> and an expiry.
+	</div>`;
+wrap.appendChild(p2);
+
+/* ── pane 3: create a child ─────────────────────────────────────────── */
+const p3 = el('div', 'pane');
+p3.setAttribute('data-fb', 'pane-child');
+p3.setAttribute('data-fb-label', 'Create a child');
+p3.innerHTML = `
+	<div class="rail__card">
+	  <form onsubmit="mkchild(event)">
+	    <div class="col-2">
+	      <label class="field"><span class="hint" style="display:block;margin-bottom:.375rem">First name</span>
+	        <input class="input wide" id="cFirst" placeholder="Mia" required /></label>
+	      <label class="field"><span class="hint" style="display:block;margin-bottom:.375rem">Last name</span>
+	        <input class="input wide" id="cLast" placeholder="Hopper" /></label>
+	    </div>
+	    <label class="field"><span class="hint" style="display:block;margin-bottom:.375rem">Email</span>
+	      <input class="input wide" id="cMail" type="email" placeholder="mia@kids.hoppers.test" required />
+	    </label>
+	    <div class="note note-warn" style="margin:-.5rem 0 1rem">
+	      <b>A child is a real account.</b> <code>familyMembers.memberType = 'child'</code> is only a label on a row
+	      in <code>users</code> — and <code>users.email</code> has a unique index, so your child needs an address
+	      nobody else has. A placeholder like <code>mia@kids.hoppers.test</code> is fine; a shared one will be
+	      rejected on save.
+	    </div>
+	    <button class="btn btn-primary btn-md" type="submit">Create child profile</button>
+	  </form>
+	</div>
+	<div class="rail__card" style="margin-top:1rem">
+	  ${sectionTitle('Why it is done this way')}
+	  <p class="hint" style="line-height:1.75">A child row with no <code>passwordHash</code> can never sign in —
+	  it exists so an event can carry <code>eventAttendance.user_id</code> and so the kids’ schedule module has
+	  something to group by. It is a profile, not a login.</p>
+	  <p class="hint" style="line-height:1.75;margin-top:.5rem">The cost is that the family owns a fake inbox per
+	  child forever, and nothing cleans it up if the child grows up and wants a real account.</p>
+	</div>`;
+wrap.appendChild(p3);
+
+/* ── tab wiring ─────────────────────────────────────────────────────── */
+const PANES = [p1, p2, p3];
+tabs.addEventListener('click', (e) => {
+	const b = e.target.closest('[data-t]');
+	if (!b) return;
+	const i = [...tabs.children].indexOf(b);
+	tabs.querySelectorAll('button').forEach((x) => x.classList.toggle('is-on', x === b));
+	PANES.forEach((p, n) => p.classList.toggle('is-on', n === i));
+});
+
+const KNOWN = [
+	{ name: 'Nana Hopper', email: 'nana@hoppers.test', shared: ['Hopper (fam)'] },
+	{ name: 'Uncle Ben', email: 'ben@hoppers.test', shared: [] },
+	{ name: 'Aunt Rosa', email: 'rosa@hoppers.test', shared: ['Hopper (fam)'] }
+];
+window.srch = (v) => {
+	const q = v.trim().toLowerCase();
+	const box = document.getElementById('hits');
+	if (!q) { box.innerHTML = ''; return; }
+	const hit = KNOWN.filter((k) => k.name.toLowerCase().includes(q) || k.email.includes(q));
+	box.innerHTML = hit.map((k) => `
+		<div class="hit">
+		  <span class="hit__a">${k.name.split(' ').map((x) => x[0]).join('')}</span>
+		  <span style="flex:1;min-width:0">
+		    <span style="display:block;font-size:.875rem;font-weight:700;color:var(--s800)">${k.name}</span>
+		    <span class="hint">${k.email}${k.shared.length ? ' · already in ' + k.shared.join(', ') : ' · no families yet'}</span>
+		  </span>
+		  ${k.shared.length
+			? '<span class="pill pill-xs pill-mint">Already a member</span>'
+			: `<button class="btn btn-primary btn-sm" onclick="toast('${k.name} added')">Add</button>`}
+		</div>`).join('') || '<p class="hint" style="padding:.5rem 0">No account by that name. Try the invite tab.</p>';
+};
+window.send = (e) => {
+	e.preventDefault();
+	const n = document.getElementById('iName').value.trim() || 'Them';
+	document.getElementById('iMail').value = '';
+	document.getElementById('iName').value = '';
+	const box = document.getElementById('sent');
+	box.innerHTML = `<div class="note note-ok" style="margin-top:1rem">
+		<b>Invite sent to ${n}.</b>
+		<div class="stepchips">
+		  <span class="pill pill-xs pill-mint">1 · signed up</span>
+		  <span class="pill pill-xs pill-token">2 · opened the link</span>
+		  <span class="pill pill-xs pill-token">3 · joined</span>
+		</div>
+		<div class="stepsent"><span class="dot"></span>Pending — they have not signed up yet</div>
+	</div>`;
+	toast(`Invite sent to ${n}`);
+};
+window.mkchild = (e) => {
+	e.preventDefault();
+	const f = document.getElementById('cFirst').value.trim();
+	toast(`${f}’s profile created — they can never sign in with it`);
+};
+window.toast = toast;
+
+mountApp({
+	head: {
+		kicker: 'Prototype · Add a member',
+		title: 'Add someone to the Hopper family',
+		lede: 'Three cases, three sets of words. The child case has a constraint worth stating before the save button, not after it.',
+		actions: `<a class="btn btn-soft btn-sm" href="family-detail.html">← Family settings</a>`
+	},
+	body: wrap
+});
+</script>
+</body>
+</html>

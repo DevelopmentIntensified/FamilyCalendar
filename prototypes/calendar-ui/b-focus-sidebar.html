@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Prototype B · Focus Sidebar — FamilyPlanz calendar</title>
+
+<!-- Who this prototype is. The feedback overlay reads this so the review that
+     comes back says WHAT it reviewed, not just which file. Keep it honest. -->
+<script type="application/json" id="fb-page">
+{
+  "id": "b",
+  "label": "Prototype B · Focus Sidebar",
+  "family": "calendar-ui",
+  "question": "Does moving filtering and 'what's next' into a persistent rail beat putting it in the toolbar?",
+  "thesis": "Two panes: the rail owns filters, jumping and up-next; the grid answers 'when?'.",
+  "risk": "cells shrink ~14% at 1280px, so fewer chips fit on a small laptop"
+}
+</script>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<style>
+	/* B-only layout: two panes on desktop, rail collapses to a sheet on mobile */
+	.b-layout { display: grid; gap: 1.5rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 1100px) { .b-layout { grid-template-columns: 19rem minmax(0, 1fr); } }
+	.b-rail { position: sticky; top: 5.25rem; }
+	.b-rail-scroll { display: grid; gap: 1rem; max-height: calc(100vh - 7rem); overflow-y: auto; padding-right: .25rem; }
+	.b-rail::-webkit-scrollbar { width: 6px; }
+	.b-rail::-webkit-scrollbar-thumb { background: var(--s200); border-radius: 9999px; }
+	.b-search {
+		display: flex; align-items: center; gap: .5rem; border-radius: 9999px;
+		background: rgba(255,255,255,.85); box-shadow: inset 0 0 0 1px var(--s200);
+		padding: .5rem .875rem; color: var(--s400);
+	}
+	.b-search input { flex: 1; border: 0; background: transparent; font-family: inherit; font-size: .875rem; color: var(--s900); outline: none; }
+	.b-member { display: flex; align-items: center; gap: .625rem; padding: .5rem .625rem; border-radius: .75rem; transition: background-color 150ms; }
+	.b-member:hover { background: var(--s50); }
+	.b-ava { height: 2rem; width: 2rem; border-radius: 9999px; display: grid; place-items: center; font-size: .75rem; font-weight: 800; flex: none; }
+	.b-scrollhint { font-size: .6875rem; color: var(--s400); }
+	/* mobile rail drawer */
+	@media (max-width: 1099px) {
+		.b-drawer { position: fixed; inset: 0; z-index: 85; display: none; }
+		.b-drawer.is-open { display: block; }
+		.b-drawer__panel { position: absolute; left: 0; top: 0; bottom: 0; width: min(22rem, 88vw); background: var(--canvas); overflow-y: auto; padding: 1rem; box-shadow: 0 0 60px rgba(0,0,0,.2); }
+	}
+	@media (min-width: 1100px) { .b-only-mobile { display: none !important; } }
+</style>
+</head>
+<body>
+<div class="shell">
+	<nav class="navbar">
+		<div class="wrap navbar__in">
+			<a class="logo" href="#">
+				<svg class="logo__mark" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+				<span class="logo__text">Family Planz</span>
+			</a>
+			<div class="navlinks">
+				<a class="navlink is-active" href="#">Calendar</a>
+				<a class="navlink" href="#">Dashboard</a>
+				<a class="navlink" href="#">Tasks</a>
+				<a class="navlink" href="#">Groceries</a>
+				<a class="navlink" href="#">Family</a>
+			</div>
+			<span class="nav-avatar">J</span>
+		</div>
+	</nav>
+
+	<main>
+		<div class="wrap" style="padding-top:1.5rem;padding-bottom:3rem">
+
+			<!-- ══════════════ PROTOTYPE BANNER ══════════════ -->
+			<div class="rowflex between gap-4" style="margin-bottom:1.25rem;flex-wrap:wrap">
+				<div>
+					<span class="pill pill-xs pill-blue">Prototype B</span>
+					<h1 style="margin:.5rem 0 0;font-size:1.75rem;font-weight:800;letter-spacing:-.02em">Focus Sidebar</h1>
+					<p class="hint" style="margin:.25rem 0 0;max-width:36rem">Same views, new frame. A persistent left rail answers “what now?” and owns filtering; the calendar stops being a wall and becomes the answer to “when?”. Filters move off the toolbar and off tooltips into first-class UI.</p>
+				</div>
+				<div class="rowflex gap-2">
+					<a class="btn btn-soft btn-sm" href="index.html">← All prototypes</a>
+					<a class="btn btn-soft btn-sm" href="0-current.html">See current UI</a>
+				</div>
+			</div>
+
+			<div class="b-layout">
+				<!-- ══════════════ LEFT RAIL ══════════════ -->
+				<aside class="b-rail">
+					<!-- mobile: rail content is cloned into the drawer by a tiny script -->
+					<div class="b-rail-scroll" id="railDesktop">
+
+						<!-- mini month + jump -->
+						<div class="rail__card" data-fb="rail-mini" data-fb-label="Rail · mini month" style="background:rgba(255,255,255,.8);backdrop-filter:blur(8px)">
+							<div class="rowflex between" style="margin-bottom:.75rem">
+								<span class="pill pill-xs pill-blush" data-mlabel>September 2026</span>
+								<span class="rowflex gap-1">
+									<button class="btn-icon" data-act="prev" aria-label="Previous month" style="height:1.75rem;width:1.75rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:.75rem;width:.75rem"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg></button>
+									<button class="btn-icon" data-act="next" aria-label="Next month" style="height:1.75rem;width:1.75rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:.75rem;width:.75rem"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+								</span>
+							</div>
+							<div class="mini" id="miniMonth"></div>
+							<button class="btn btn-soft btn-sm" data-act="today" style="width:100%;margin-top:.75rem">Jump to today</button>
+						</div>
+
+						<!-- search -->
+						<div class="b-search" data-fb="rail-search" data-fb-label="Rail · search">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem;flex:none"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
+							<input placeholder="Search events, people, places…" />
+							<span class="hint">⌘K</span>
+						</div>
+
+						<!-- up next -->
+						<div class="rail__card" data-fb="rail-upnext" data-fb-label="Rail · up next" style="background:rgba(255,255,255,.8);backdrop-filter:blur(8px)">
+							<div class="rail__title">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:.875rem;width:.875rem"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+								Up next
+							</div>
+							<div class="stack-1" id="upcoming"></div>
+							<button class="chip__more" style="margin-top:.5rem;width:100%;justify-content:center">See the whole month →</button>
+						</div>
+
+						<!-- filters: calendars -->
+						<div class="rail__card" data-fb="rail-calendars" data-fb-label="Rail · calendar filters" style="background:rgba(255,255,255,.8);backdrop-filter:blur(8px)">
+							<div class="rail__title">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:.875rem;width:.875rem"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5h18l-7 8v6l-4 2v-8L3 5z"/></svg>
+								Calendars
+							</div>
+							<div class="legend" id="legend"></div>
+						</div>
+
+						<!-- filters: family members — NEW, does not exist today -->
+						<div class="rail__card" data-fb="rail-members" data-fb-label="Rail · by person" style="background:rgba(255,255,255,.8);backdrop-filter:blur(8px)">
+							<div class="rail__title">By person</div>
+							<div class="stack-1">
+								<div class="b-member"><span class="b-ava bg-[#FED5CF] text-[#c45e38]">J</span><span style="flex:1;font-size:.875rem;font-weight:600;color:var(--s700)">You</span><span class="legend__count">18</span></div>
+								<div class="b-member"><span class="b-ava bg-[#BEDAE3] text-[#366d7e]">S</span><span style="flex:1;font-size:.875rem;font-weight:600;color:var(--s700)">Sarah</span><span class="legend__count">11</span></div>
+								<div class="b-member"><span class="b-ava bg-[#C4E9DA] text-[#2d5866]">M</span><span style="flex:1;font-size:.875rem;font-weight:600;color:var(--s700)">Mia</span><span class="legend__count">14</span></div>
+								<div class="b-member"><span class="b-ava bg-[#F1B598] text-[#84412e]">E</span><span style="flex:1;font-size:.875rem;font-weight:600;color:var(--s700)">Eli</span><span class="legend__count">12</span></div>
+							</div>
+							<button class="chip__more" style="margin-top:.5rem;width:100%;justify-content:center">Show only kids →</button>
+						</div>
+
+						<!-- tasks glance — NEW -->
+						<div class="rail__card" data-fb="rail-tasks" data-fb-label="Rail · overdue tasks" style="background:linear-gradient(135deg,rgba(254,213,207,.4),#fff);border-color:transparent">
+							<div class="rail__title" style="color:var(--terracotta)">2 overdue tasks</div>
+							<div style="font-size:.875rem;color:var(--s800);font-weight:600">Sign Mia's permission slip</div>
+							<div class="hint" style="margin-bottom:.5rem">Due yesterday</div>
+							<div style="font-size:.875rem;color:var(--s800);font-weight:600">Book Eli's t-ball jersey</div>
+							<div class="hint">Due 3:00 PM</div>
+							<button class="btn btn-primary btn-sm" style="width:100%;margin-top:.75rem">Open task board</button>
+						</div>
+					</div>
+				</aside>
+
+				<!-- ══════════════ MAIN ══════════════ -->
+				<section style="min-width:0">
+					<div class="cal-frame" data-fb="toolbar" data-fb-label="Toolbar" style="padding:.875rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+						<button class="btn btn-soft btn-sm b-only-mobile" id="openDrawer">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:.875rem;width:.875rem"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5h18l-7 8v6l-4 2v-8L3 5z"/></svg>
+							Filters
+						</button>
+
+						<button class="btn btn-soft btn-sm" data-act="today">Today</button>
+						<span class="rowflex" style="background:rgba(255,255,255,.75);border-radius:9999px;box-shadow:inset 0 0 0 1px var(--s200)">
+							<button class="btn-icon" data-act="prev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg></button>
+							<button class="btn-icon" data-act="next" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+						</span>
+						<span style="font-size:1.375rem;font-weight:800;letter-spacing:-.02em;color:var(--s900)" data-mlabel>September 2026</span>
+
+						<span style="flex:1"></span>
+
+						<div class="seg seg--tint">
+							<button class="seg__btn" data-view="month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg><span class="hide-sm">Month</span></button>
+							<button class="seg__btn" data-view="week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 11v6M15 11v6"/></svg><span class="hide-sm">Week</span></button>
+							<button class="seg__btn" data-view="day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M9 15h6"/></svg><span class="hide-sm">Day</span></button>
+							<button class="seg__btn" data-view="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="hide-sm">List</span></button>
+						</div>
+						<button class="btn-icon" data-mode="add" aria-pressed="false" title="Add by dragging a time range" style="background:rgba(255,255,255,.75);box-shadow:inset 0 0 0 1px var(--s200)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg></button>
+						<button class="btn-icon" data-mode="select" aria-pressed="false" title="Select events to edit in bulk" style="background:rgba(255,255,255,.75);box-shadow:inset 0 0 0 1px var(--s200)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></button>
+						<span class="rowflex hide-sm" style="background:rgba(255,255,255,.75);border-radius:9999px;box-shadow:inset 0 0 0 1px var(--s200)">
+							<button class="btn-icon" title="Import" style="height:2.5rem;width:2.5rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4"/></svg></button>
+							<button class="btn-icon" title="Print" style="height:2.5rem;width:2.5rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2-2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg></button>
+							<button class="btn-icon" title="Day dashboard" style="height:2.5rem;width:2.5rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg></button>
+							<button class="btn-icon" title="Settings" style="height:2.5rem;width:2.5rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
+						</span>
+					</div>
+
+					<div id="view" data-fb="view" data-fb-label="Calendar view"></div>
+				</section>
+			</div>
+
+			<!-- ══════════════ CALLOUT ══════════════ -->
+			<div class="grid" data-fb="notes" data-fb-label="Notes" style="margin-top:2rem;gap:1.5rem;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr))">
+				<div class="rail__card" style="background:linear-gradient(135deg,rgba(190,218,227,.4),#fff)">
+					<div class="rail__title">What this adds</div>
+					<ul style="margin:0;padding-left:1.125rem;font-size:.875rem;line-height:1.7;color:var(--s700)">
+						<li><b>Filters as a destination</b> — 5 calendars + per-member “by person”, with counts. Today colour is only discoverable via tooltip.</li>
+						<li><b>Up next</b> — the five next events, always. Answers the question people actually open the app to ask.</li>
+						<li><b>Overdue-task glance</b> in the rail, not buried on the Tasks page.</li>
+						<li><b>Search</b> (⌘K) across events, people and places.</li>
+						<li>Mini-month doubles as the month picker — the toolbar popover disappears.</li>
+					</ul>
+				</div>
+				<div class="rail__card" style="background:linear-gradient(135deg,rgba(196,233,218,.4),#fff)">
+					<div class="rail__title">What it costs</div>
+					<p style="margin:0;font-size:.875rem;line-height:1.7;color:var(--s700)">A new <code>CalendarRail.svelte</code> (mini-month, filters, up-next) plus a <code>useCalendarFilters</code> store. Month grid stops being full-bleed so cells shrink ~14% at 1280px — that is the one real trade-off: <b>fewer chips per cell on smaller laptops</b>. Everything else in prototype A still applies.</p>
+				</div>
+				<div class="rail__card" style="background:linear-gradient(135deg,rgba(254,213,207,.4),#fff)">
+					<div class="rail__title">Responsive</div>
+					<p style="margin:0 0 .75rem;font-size:.875rem;line-height:1.7;color:var(--s700)">Below 1100px the rail becomes a left drawer behind <b>Filters</b>. Below 640px the month grid switches to the existing 3-chip + action-sheet pattern unchanged — the whole app keeps today's mobile behaviour.</p>
+					<p class="hint">Resize the window to see the breakpoint. (Or open at phone width.)</p>
+				</div>
+			</div>
+		</div>
+	</main>
+</div>
+
+<!-- mobile rail drawer -->
+<div class="b-drawer" id="drawer">
+	<div class="b-drawer__panel">
+		<div class="rowflex between" style="margin-bottom:1rem">
+			<span style="font-size:1.125rem;font-weight:800">Filters &amp; jump</span>
+			<button class="btn-icon" id="closeDrawer" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+		</div>
+		<div id="railMobile"></div>
+	</div>
+</div>
+
+<button class="fab" id="fab" data-act="new" aria-label="Add">
+	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 4v16m8-8H4"/></svg>
+</button>
+
+<script type="module">
+	import { mount } from './proto-shell.js';
+
+	const railDesktop = document.getElementById('railDesktop');
+	const railMobile = document.getElementById('railMobile');
+	const drawer = document.getElementById('drawer');
+
+	mount({
+		viewHost: document.getElementById('view'),
+		legendHost: document.getElementById('legend'),
+		railHost: railDesktop,
+		railMode: true
+	});
+
+	// The drawer is a lazy clone of the rail: filled on first open so it always
+	// shows the current month + filters. Cloned ids are stripped because
+	// #miniMonth / #upcoming / #legend must stay unique.
+	let cloned = false;
+	function fillDrawer() {
+		if (cloned) return;
+		cloned = true;
+		railMobile.innerHTML = railDesktop.innerHTML;
+		railMobile.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
+	}
+	document.getElementById('openDrawer').addEventListener('click', () => {
+		fillDrawer();
+		drawer.classList.add('is-open');
+	});
+	document.getElementById('closeDrawer').addEventListener('click', () => drawer.classList.remove('is-open'));
+	drawer.addEventListener('click', (e) => { if (e.target === drawer) drawer.classList.remove('is-open'); });
+	// a filter or mini-month tap inside the drawer means "I've chosen" — dismiss
+	railMobile.addEventListener('click', (e) => {
+		if (e.target.closest('[data-filter], [data-mini]')) drawer.classList.remove('is-open');
+	});
+</script>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="proto-nav.js"></script>
+<script src="feedback.js" defer></script>
+</body>
+</html>

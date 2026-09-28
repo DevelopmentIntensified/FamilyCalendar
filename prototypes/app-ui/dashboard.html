@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard — FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "dashboard", "label": "Dashboard", "family": "app-ui",
+  "question": "Is the day dashboard a useful morning read, or just eight cards competing for the same attention?",
+  "thesis": "One day, eight modules, all toggleable per family. Re-skinned into the marketing language, same structure.",
+  "realPage": "src/routes/(calendar)/calendar/dashboard/ — +page.svelte 110, +page.server.ts 388"
+}
+</script>
+<style>
+	.dash { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+	@media (min-width: 900px) { .dash { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+	@media (min-width: 1300px) { .dash { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, .85fr); } }
+	.span2 { grid-column: span 2; }
+	@media (max-width: 899px) { .span2 { grid-column: auto; } }
+	.timeline-row { display: flex; gap: .75rem; align-items: flex-start; padding: .5rem 0; }
+	.timeline-row + .timeline-row { border-top: 1px solid var(--s100); }
+	.tl-dot { height: .5rem; width: .5rem; border-radius: 9999px; margin-top: .45rem; flex: none; background: var(--s300); }
+	.tl-dot.is-now { background: var(--p600); box-shadow: 0 0 0 3px rgba(254,213,207,.8); }
+	.tl-dot.is-next { background: #2d5866; box-shadow: 0 0 0 3px rgba(196,233,218,.7); }
+	.tl-time { font-size: .6875rem; font-weight: 700; color: var(--s400); font-variant-numeric: tabular-nums; width: 6.5rem; flex: none; }
+	.pri { display: flex; align-items: center; gap: .5rem; padding: .5rem 0; }
+	.pri + .pri { border-top: 1px solid var(--s100); }
+	.pri__n { height: 1.5rem; width: 1.5rem; border-radius: 9999px; display: grid; place-items: center; font: 800 .75rem/1 inherit; flex: none; }
+	.streak { display: flex; align-items: baseline; gap: .375rem; }
+	.streak b { font-size: 2.25rem; font-weight: 800; letter-spacing: -.03em; color: var(--s900); }
+	.memberstrip { display: flex; gap: .5rem; flex-wrap: wrap; }
+	.kidrow { display: flex; gap: .75rem; padding: .5rem 0; }
+	.kidrow + .kidrow { border-top: 1px solid var(--s100); }
+	.verse { font-size: 1.0625rem; line-height: 1.6; color: var(--s800); }
+	.verse-ref { margin-top: .5rem; font-size: .75rem; font-weight: 700; color: var(--terracotta); }
+	.checklist { display: flex; align-items: center; gap: .5rem; padding: .375rem 0; font-size: .875rem; }
+	.checklist input { height: 1.125rem; width: 1.125rem; accent-color: var(--p600); flex: none; }
+	.daynav { display: flex; align-items: center; gap: .375rem; }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+import { MEMBERS, DAY_EVENTS, TASKS, KIDS_SCHEDULE, FAMILY_ACTIVITY, byId, nameOf } from './app-data.js';
+
+const openTasks = TASKS.filter((t) => !t.completedAt);
+const doneToday = TASKS.filter((t) => t.completedAt);
+const top3 = openTasks.slice(0, 3);
+
+const grid = el('div', 'dash');
+
+/* ── daily verse (dashboardModuleSwitches: verse) ───────────────────── */
+grid.appendChild(card(
+	`<div class="rail__title" style="color:var(--terracotta)">Psalm 127:1</div>
+	 <p class="verse">“Except the LORD build the house, they labour in vain.”</p>
+	 <div class="verse-ref">Psalm 127:1 · ESV</div>`,
+	'mod-verse', 'Daily verse',
+	'background:linear-gradient(140deg,rgba(254,213,207,.42),#fff);border-color:transparent'));
+
+/* ── today at a glance (glance) ─────────────────────────────────────── */
+grid.appendChild(card(
+	`${sectionTitle('Today at a glance')}
+	 <div class="rowflex gap-4" style="margin-bottom:.75rem">
+	   <div><div style="font-size:1.75rem;font-weight:800;letter-spacing:-.02em">${DAY_EVENTS.length}</div><div class="hint">events</div></div>
+	   <div><div style="font-size:1.75rem;font-weight:800;letter-spacing:-.02em">${openTasks.length}</div><div class="hint">tasks open</div></div>
+	   <div><div style="font-size:1.75rem;font-weight:800;letter-spacing:-.02em">2</div><div class="hint">overdue</div></div>
+	 </div>
+	 ${DAY_EVENTS.map((e) => `
+	   <div class="timeline-row">
+	     <span class="tl-time">${e.start} – ${e.end}</span>
+	     <span class="tl-dot${e.id === 'e1' ? ' is-now' : e.id === 'e3' ? ' is-next' : ''}"></span>
+	     <span style="flex:1;min-width:0">
+	       <span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)">${e.title}</span>
+	       ${e.where ? `<span class="hint">${e.where}</span>` : ''}
+	     </span>
+	     ${e.rsvp === 'going' ? '<span class="pill pill-xs pill-mint">Going</span>' : e.rsvp === 'maybe' ? '<span class="pill pill-xs pill-token">Maybe</span>' : ''}
+	   </div>`).join('')}`,
+	'mod-glance', 'Today at a glance'));
+
+/* ── top 3 (top3) ──────────────────────────────────────────────────── */
+grid.appendChild(card(
+	`${sectionTitle('Top 3 priorities', '<a class="hint" href="tasks.html" style="color:var(--terracotta)">All tasks →</a>')}
+	 ${top3.map((t, i) => `
+	   <div class="pri">
+	     <span class="pri__n" style="background:${['#FED5CF', '#BEDAE3', '#C4E9DA'][i]};color:${['#c45e38', '#366d7e', '#2d5866'][i]}">${i + 1}</span>
+	     <span style="flex:1;min-width:0">
+	       <span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)" class="truncate">${t.title}</span>
+	       <span class="hint">${t.due}${t.assignedTo ? ' · ' + nameOf(t.assignedTo).split(' ')[0] : ''}</span>
+	     </span>
+	     ${t.priority === 'high' ? '<span class="pill pill-xs pill-blush">High</span>' : ''}
+	   </div>`).join('')}`,
+	'mod-top3', 'Top 3 priorities'));
+
+/* ── completed today (completed) ────────────────────────────────────── */
+grid.appendChild(card(
+	`${sectionTitle('Completed today', `<span class="pill pill-xs pill-mint">${doneToday.length}</span>`)}
+	 ${doneToday.map((t) => `
+	   <label class="checklist">
+	     <input type="checkbox" checked onchange="this.checked=false" />
+	     <span style="text-decoration:line-through;color:var(--s400)">${t.title}</span>
+	   </label>`).join('')}`,
+	'mod-completed', 'Completed today',
+	'background:rgba(255,255,255,.7)'));
+
+/* ── family task board (board) — spans the middle column ───────────── */
+const board = card(
+	`${sectionTitle('Family task board', '<a class="hint" href="family-tasks.html" style="color:var(--terracotta)">Board →</a>')}
+	 ${MEMBERS.map((m) => {
+	   const mine = openTasks.filter((t) => t.assignedTo === m.id);
+	   return `
+	   <div style="padding:.625rem 0${m === MEMBERS[MEMBERS.length - 1] ? '' : ';border-bottom:1px solid var(--s100)'}">
+	     <div class="rowflex gap-2" style="margin-bottom:.375rem">
+	       <span class="d-ava" style="height:1.5rem;width:1.5rem;border-radius:9999px;display:grid;place-items:center;background:${m.tone};font-size:.625rem;font-weight:800">${m.initials}</span>
+	       <span style="font-size:.8125rem;font-weight:700;color:var(--s700)">${m.firstName}</span>
+	       <span class="legend__count">${mine.length}</span>
+	     </div>
+	     ${mine.slice(0, 2).map((t) => `<div class="hint truncate" style="padding-left:1.75rem">· ${t.title}</div>`).join('') || '<div class="hint" style="padding-left:1.75rem">nothing assigned</div>'}
+	   </div>`;
+	 }).join('')}`,
+	'mod-board', 'Family task board');
+board.classList.add('span2');
+grid.appendChild(board);
+
+/* ── member strip (memberStrip) ─────────────────────────────────────── */
+grid.appendChild(card(
+	`${sectionTitle('Who')}
+	 <div class="memberstrip">
+	   ${MEMBERS.map((m) => `
+	     <a href="family-detail.html" style="display:grid;place-items:center;gap:.375rem;padding:.5rem .625rem;border-radius:.875rem;background:${m.tone};text-decoration:none;min-width:3.5rem">
+	       <span style="font:800 .875rem/1 inherit">${m.initials}</span>
+	       <span style="font-size:.6875rem;font-weight:600">${m.firstName}</span>
+	     </a>`).join('')}
+	 </div>`,
+	'mod-members', 'Member strip'));
+
+/* ── kids' schedule (kids) ─────────────────────────────────────────── */
+grid.appendChild(card(
+	`${sectionTitle('Kids’ schedule')}
+	 ${KIDS_SCHEDULE.map((k) => `
+	   <div class="kidrow">
+	     <span class="d-ava" style="height:2rem;width:2rem;border-radius:9999px;display:grid;place-items:center;background:${byId(k.kid).tone};font-size:.6875rem;font-weight:800;flex:none">${byId(k.kid).initials}</span>
+	     <span style="flex:1;min-width:0">
+	       <span style="display:block;font-size:.8125rem;font-weight:700;color:var(--s700);margin-bottom:.125rem">${byId(k.kid).firstName}</span>
+	       ${k.items.map((i) => `
+	         <div style="font-size:.8125rem;color:var(--s700)">
+	           <span style="font-weight:600">${i.what}</span>
+	           <span class="hint"> · ${i.when}${i.where ? ' · ' + i.where : ''}</span>
+	         </div>`).join('')}
+	     </span>
+	   </div>`).join('')}`,
+	'mod-kids', 'Kids’ schedule'));
+
+/* ── meals: parked. The toggle is live in /account, the card is not mounted. ─ */
+const parked = card(
+	`${sectionTitle('Meals', '<span class="pill pill-xs pill-blush">parked</span>')}
+	 <p class="hint">The <code>meals</code> table, <code>/api/meals</code> and <code>MealsCard.svelte</code> all exist — but no loader reads meals and the card is imported by nothing except its own test. Yet <a href="account.html" style="color:var(--terracotta)">/account</a> still shows a Meals toggle that switches nothing.</p>
+	 <button class="btn btn-soft btn-sm" style="margin-top:.75rem" onclick="toast('Nothing to show — the module is not mounted')">Preview anyway</button>`,
+	'mod-meals', 'Meals (parked)',
+	'background:repeating-linear-gradient(135deg,rgba(226,232,240,.35) 0 10px,rgba(255,255,255,.6) 10px 20px);border-style:dashed');
+grid.appendChild(parked);
+
+mountApp({
+	head: {
+		kicker: 'Prototype · Dashboard',
+		title: 'Friday 25 September',
+		lede: 'The real page is <code>+page.server.ts</code> at 388 lines with eight independently-loading modules, each of which degrades on its own. Same structure, marketing skin.',
+		actions: `
+			<span class="daynav">
+				<a class="btn-icon" href="#" aria-label="Previous day">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>'}</a>
+				<button class="btn btn-soft btn-sm" onclick="toast('Back to today')">Today</button>
+				<a class="btn-icon" href="#" aria-label="Next day">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>'}</a>
+			</span>
+			<a class="btn btn-primary btn-sm" href="../calendar-ui/d-working-calendar.html">Open the calendar</a>`
+	},
+	body: grid
+});
+
+// the toast helper the inline handlers above use
+window.toast = toast;
+</script>
+</body>
+</html>

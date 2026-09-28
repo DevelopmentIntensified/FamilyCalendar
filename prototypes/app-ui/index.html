@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>App prototypes — FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "app-hub", "label": "App prototype hub", "family": "app-ui",
+  "question": "Do the app pages belong in the marketing design language, or does the app need its own?",
+  "thesis": "Same tokens, same shapes, the app's own information density. Each page keeps the structure of the real route it came from.",
+  "realPage": "prototypes/app-ui/ — the non-calendar half of the app"
+}
+</script>
+<style>
+	.hero { position: relative; overflow: hidden; border-radius: 2rem; padding: 2.5rem 2rem; background: linear-gradient(140deg, rgba(254,213,207,.55), rgba(255,255,255,.92) 55%, rgba(190,218,227,.45)); }
+	.hero h1 { margin: 0; font-size: 2.25rem; font-weight: 800; letter-spacing: -.03em; color: var(--s900); }
+	@media (max-width: 700px) { .hero { padding: 1.75rem 1.25rem; } .hero h1 { font-size: 1.75rem; } }
+	.orb1 { position: absolute; right: -3rem; top: -3rem; height: 11rem; width: 11rem; border-radius: 9999px; background: rgba(241,181,152,.45); filter: blur(28px); }
+	.orb2 { position: absolute; left: 30%; bottom: -4rem; height: 9rem; width: 9rem; border-radius: 9999px; background: rgba(196,233,218,.45); filter: blur(28px); }
+	.pgrid { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+	@media (min-width: 780px) { .pgrid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+	@media (min-width: 1200px) { .pgrid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+	.pcard { display: flex; flex-direction: column; gap: .625rem; padding: 1.125rem 1.25rem; text-decoration: none; transition: transform 150ms, box-shadow 150ms; }
+	.pcard:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -14px rgba(0,0,0,.22); }
+	.pcard__q { font-size: .875rem; line-height: 1.6; color: var(--s600); }
+	.pcard__t { font-size: .8125rem; line-height: 1.6; color: var(--s500); }
+	.pcard__src { font: 400 .6875rem/1.5 ui-monospace, Menlo, monospace; color: var(--s400); margin-top: auto; padding-top: .5rem; border-top: 1px solid var(--s100); }
+	.hstack { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+	.step { display: flex; gap: .875rem; padding: .75rem 0; }
+	.step + .step { border-top: 1px solid var(--s100); }
+	.step__n { height: 1.75rem; width: 1.75rem; border-radius: 9999px; display: grid; place-items: center; flex: none; font: 800 .75rem/1 inherit; background: var(--s100); color: var(--s600); }
+	.bug { display: flex; gap: .75rem; padding: .75rem 0; }
+	.bug + .bug { border-top: 1px solid var(--s100); }
+	.sev { height: .5rem; width: .5rem; border-radius: 9999px; flex: none; margin-top: .4rem; }
+	.sev-h { background: #b91c1c; } .sev-m { background: #d97706; } .sev-l { background: var(--s300); }
+	code { font: 600 .8125em ui-monospace, Menlo, monospace; background: var(--s100); padding: .1rem .3rem; border-radius: .25rem; color: var(--s700); }
+	.cmd { font: 600 .8125rem/1.6 ui-monospace, Menlo, monospace; background: #1e293b; color: #e2e8f0; padding: .75rem 1rem; border-radius: .75rem; overflow-x: auto; }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+
+/* Kept in sync with the directory by app-check.mjs §6 — the hub cannot list a
+   page that is not there, or miss one that is. */
+const PAGES = [
+	{ file: 'dashboard.html', label: 'Dashboard', tag: 'Day view', q: 'Is the day dashboard a useful morning read, or just eight cards competing for attention?', src: 'calendar/dashboard/ — +page.server.ts 388' },
+	{ file: 'tasks.html', label: 'Tasks', tag: 'Core', q: 'Can a 20–150 item list stay scannable, and is the assignment inbox clearly separate from it?', src: 'calendar/tasks/ — +page.svelte 471' },
+	{ file: 'groceries.html', label: 'Groceries', tag: 'Core', q: 'Is grouping by store the right primary organisation, or should it group by aisle?', src: 'calendar/groceries/ — +page.svelte 270' },
+	{ file: 'family.html', label: 'Family', tag: 'People', q: 'Is a list of families the right landing page, or should this be a people page?', src: 'family/ — +page.svelte 209' },
+	{ file: 'family-detail.html', label: 'Family settings', tag: 'People', q: '793 lines. What is the one job of this page, and what belongs somewhere else?', src: 'family/[familyId]/ — +page.svelte 793' },
+	{ file: 'family-tasks.html', label: 'Family tasks', tag: 'Core', q: 'Grouped by assignee rather than by due date — does that beat the personal list?', src: 'family/tasks/ — +page.svelte 309' },
+	{ file: 'family-members-add.html', label: 'Add a member', tag: 'People', q: 'Three ways in: find someone, email an invite, create a child. Should they be one form or three?', src: 'family/[familyId]/members/add — 121' },
+	{ file: 'family-invitations.html', label: 'Invitations', tag: 'People', q: 'Is a join code the right way to add a second adult, and is it discoverable?', src: 'family/invitations — 238' },
+	{ file: 'family-create.html', label: 'Create a family', tag: 'People', q: 'Does the family feel like a real thing to create, or an account setup step?', src: 'family/create — 163' },
+	{ file: 'notifications.html', label: 'Alerts', tag: 'Comms', q: 'Five notification types in one undifferentiated list — do they need to be told apart?', src: 'calendar/notifications — 121' },
+	{ file: 'stats.html', label: 'Stats', tag: 'Core', q: 'Streaks and streaks. Does the completion history earn this page?', src: 'calendar/stats — 113' },
+	{ file: 'archive.html', label: 'Archive', tag: 'Core', q: 'Does anyone ever come back here, or is this dead weight behind a paywall?', src: 'calendar/archive — 55' },
+	{ file: 'event.html', label: 'Event detail', tag: 'Calendar', q: 'Is the RSVP list worth a page of its own, or does the grid already say it?', src: 'calendar/event/[id] — 435' },
+	{ file: 'import.html', label: 'Import', tag: 'Calendar', q: 'Is ICS import a power feature or a migration crutch?', src: 'calendar/import — 169' },
+	{ file: 'account.html', label: 'Account', tag: 'Settings', q: 'Seven sections behind hash links. Should this be a settings page at all?', src: 'account/ — +page.svelte 197 + 7 sections' },
+	{ file: 'models.html', label: 'Data model', tag: 'Reference', q: 'Which of the 39 tables are real, which are wired, and which are advertised but dead?', src: 'lib/server/db/schema.ts — 955, 39 tables' }
+];
+
+const BUGS = [
+	{ sev: 'sev-h', t: 'Family detail 404s on “Manage invitations”', d: 'It points at <code>/family/{id}/invitations</code> and there is no <code>[familyId]/invitations</code> route. The braces are <i>not</i> the bug — Svelte interpolates an attribute value like that. The working path is <code>/family/invitations</code>, which the family list page already uses.' },
+	{ sev: 'sev-h', t: 'The changelog advertises a dead feature', d: '“Scan receipts” and “Mark bills paid” are still public. The whole money subsystem — 38 files — sits in <code>_attic/</code>, but <code>bills</code>, <code>receiptItems</code> and <code>itemTags</code> are still declared, still migrated, with zero readers.' },
+	{ sev: 'sev-m', t: 'Meals is half-wired and still has a switch', d: 'The <code>meals</code> table, <code>/api/meals</code> and <code>MealsCard.svelte</code> all exist. The card is imported by nothing but its own test and no loader reads meals — yet <code>dashboardModules.ts</code> still lists it, so /account shows a Meals toggle that switches nothing.' },
+	{ sev: 'sev-m', t: 'Groceries is unreachable on mobile', d: 'The top nav has Groceries and no Notifications; the bottom nav has Alerts and no Groceries. On a phone the grocery list simply has no way in.' },
+	{ sev: 'sev-m', t: 'Base tables have no migration', d: '18 tables were created with <code>drizzle-kit push</code> and appear in no <code>sql/migrations</code> file, so a fresh database cannot be built from the migration runner alone. <code>003_create_monetization_tables.sql</code> also contradicts the schema for six tables.' },
+	{ sev: 'sev-l', t: 'Three tables have never been used', d: '<code>groups</code>, <code>userGroups</code> and <code>familyGroups</code> are declared in the schema and referenced nowhere in <code>src/</code>.' },
+	{ sev: 'sev-l', t: 'Ad consent has two sources of truth', d: 'The same three booleans live on <code>userSettings</code> and on <code>userAdConsent</code>.' },
+	{ sev: 'sev-l', t: 'The waitlist duplicate guard never fires', d: 'It calls <code>onConflictDoNothing()</code> but <code>waitlist.email</code> has no unique index, so duplicate emails insert.' },
+	{ sev: 'sev-l', t: 'Nothing is ever pruned', d: 'Notifications, unmatched phrases and ad events grow unbounded. <code>/api/cron/cleanup</code> only removes stale anonymous users.' },
+	{ sev: 'sev-l', t: '/calendar/settings is a redirect stub', d: 'Zero inbound links, so the redirect never runs. Either give it a page or delete the directory.' }
+];
+
+const body = el('div');
+body.style.cssText = 'display:flex;flex-direction:column;gap:1rem';
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+const hero = el('div', 'hero');
+hero.setAttribute('data-fb', 'hub-hero');
+hero.setAttribute('data-fb-label', 'Hub header');
+hero.innerHTML = `
+	<div class="orb1"></div><div class="orb2"></div>
+	<div style="position:relative">
+	  <span class="pill pill-xs pill-token">prototypes / app-ui</span>
+	  <h1 style="margin:.625rem 0 0">The rest of the app</h1>
+	  <p class="hint" style="margin:.5rem 0 0;max-width:44rem;font-size:.9375rem;line-height:1.7">
+	    Every non-calendar route, re-skinned into the marketing design language but keeping the structure of the
+	    route it came from — the same loaders, the same data shapes, the same number of cards. Nothing here invents
+	    a feature. The audit that drove these pages is in <a href="models.html" style="color:var(--terracotta)">the model reference</a>.
+	  </p>
+	  <div class="hstack" style="margin-top:1.25rem">
+	    <span class="pill pill-xs pill-blush">${PAGES.length} pages</span>
+	    <span class="pill pill-xs pill-blush">39 tables mapped</span>
+	    <span class="pill pill-xs pill-blush">${BUGS.length} bugs found</span>
+	    <a class="btn btn-primary btn-sm" href="../index.html">All 23 prototypes (tree) →</a>
+	    <a class="btn btn-soft btn-sm" href="../calendar-ui/index.html">← Calendar prototypes</a>
+	  </div>
+	</div>`;
+body.appendChild(hero);
+
+/* ── the pages ────────────────────────────────────────────────────────── */
+const grid = el('div', 'pgrid');
+grid.setAttribute('data-fb', 'page-grid');
+grid.setAttribute('data-fb-label', 'Page grid');
+grid.innerHTML = PAGES.map((p) => `
+	<a class="card pcard" href="${p.file}">
+	  <div class="hstack">
+	    <span style="font-size:1rem;font-weight:800;color:var(--s900)">${p.label}</span>
+	    <span class="pill pill-xs pill-token" style="margin-left:auto">${p.tag}</span>
+	  </div>
+	  <div class="pcard__q">${p.q}</div>
+	  <div class="pcard__t">${p.t}</div>
+	  <div class="pcard__src">${p.src}</div>
+	</a>`).join('');
+body.appendChild(grid);
+
+/* ── how to review ────────────────────────────────────────────────────── */
+body.appendChild(card(
+	`${sectionTitle('How to review these')}
+	 <div class="step"><span class="step__n">1</span><div><b>Open a page</b> from the grid above. The feedback bar appears along the bottom and the switch bar along the top.</div></div>
+	 <div class="step"><span class="step__n">2</span><div><b>Drag both bars</b> wherever you like. They remember, and double-click resets.</div></div>
+	 <div class="step"><span class="step__n">3</span><div><b>Hover to highlight, click to pin.</b> Alt+click pins the parent instead; shift+click adds another pin to the same spot.</div></div>
+	 <div class="step"><span class="step__n">4</span><div><b>Mark it good, bad, or an idea.</b> Bad auto-ticks redo — that is the rebuild queue.</div></div>
+	 <div class="step"><span class="step__n">5</span><div><b>Switch pages and keep going.</b> Notes are per page but share one store, and the List panel can show all of them at once.</div></div>
+	 <div class="step"><span class="step__n">6</span><div><b>Hit “New round” when you are done.</b> Notes survive into the next round so nothing is lost.</div></div>
+	 <div class="cmd" style="margin-top:.75rem">node prototypes/app-ui/app-check.mjs</div>
+	 <p class="hint" style="margin:.5rem 0 0">The checker derives the page list from the directory and asserts the model against <code>schema.ts</code>, so neither can go stale behind your back.</p>`,
+	'hub-how', 'How to review'));
+
+/* ── the bugs ─────────────────────────────────────────────────────────── */
+body.appendChild(card(
+	`${sectionTitle('What the audit turned up', '<span class="pill pill-xs pill-blush">' + BUGS.length + ' issues</span>')}
+	 ${BUGS.map((b) => `
+	   <div class="bug">
+	     <span class="sev ${b.sev}"></span>
+	     <div style="min-width:0">
+	       <div style="font-size:.875rem;font-weight:700;color:var(--s800)">${b.t}</div>
+	       <div class="hint" style="margin-top:.1875rem;line-height:1.65">${b.d}</div>
+	     </div>
+	   </div>`).join('')}
+	 <a class="btn btn-soft btn-sm" href="models.html" style="margin-top:.875rem">See which tables are dead</a>`,
+	'hub-bugs', 'Audit findings',
+	'background:linear-gradient(140deg,rgba(254,202,202,.4),#fff);border-color:#fecaca'));
+
+/* ── the honest caveat ────────────────────────────────────────────────── */
+body.appendChild(card(
+	`${sectionTitle('What these are not')}
+	 <p class="hint" style="line-height:1.75">
+	   These are static mocks of real routes. The data is shaped like the schema and the copy comes from the loaders,
+	   but nothing here is wired to a database, and the interactions are stubbed. They exist to argue about layout,
+	   hierarchy and language — not to prove a feature works.
+	 </p>
+	 <p class="hint" style="line-height:1.75;margin-top:.5rem">
+	   Where a page has a real defect, the defect is reproduced rather than smoothed over: the broken
+	   <code>href</code> is shown broken, the parked Meals module is shown parked, and the two navs disagree because
+	   the real ones do.
+	 </p>`,
+	'hub-caveat', 'What these are not',
+	'background:rgba(255,255,255,.7)'));
+
+window.toast = toast;
+mountApp({ head: null, body });
+</script>
+</body>
+</html>

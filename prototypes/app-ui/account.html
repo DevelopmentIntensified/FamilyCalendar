@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Account — FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "account", "label": "Account & settings", "family": "app-ui",
+  "question": "Seven sections behind hash links. Should this be a settings page at all, or seven pages?",
+  "thesis": "Kept as one page, because six of the seven are short. The exception is Plan, which is really a purchase flow wearing a settings costume.",
+  "realPage": "src/routes/(calendar)/account/ — +page.svelte 197 + 7 section components. Note: this layout has NO BottomNav and NO Toaster, unlike (calendar)."
+}
+</script>
+<style>
+	.ac { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 1000px) { .ac { grid-template-columns: 15rem minmax(0,1fr); } }
+	.sidenav { position: sticky; top: 5.25rem; }
+	.snav a { display: flex; align-items: center; gap: .5rem; padding: .5rem .625rem; border-radius: .625rem; font: 600 .8125rem/1 inherit; color: var(--s600); text-decoration: none; }
+	.snav a:hover { background: var(--s50); }
+	.snav a.is-on { background: var(--s100); color: var(--s900); }
+	.snav .n { margin-left: auto; font-size: .6875rem; color: var(--s400); }
+	.sec { display: none; scroll-margin-top: 5.5rem; }
+	.sec.is-on { display: block; }
+	.tog { height: 1.375rem; width: 2.5rem; border-radius: 9999px; background: var(--s300); position: relative; cursor: pointer; flex: none; border: 0; transition: background-color 150ms; }
+	.tog::after { content: ''; position: absolute; top: .1875rem; left: .1875rem; height: 1rem; width: 1rem; border-radius: 9999px; background: #fff; transition: transform 150ms; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+	.tog.is-on { background: var(--p600); }
+	.tog.is-on::after { transform: translateX(1.125rem); }
+	.togrow { display: flex; align-items: center; gap: .75rem; padding: .625rem 0; }
+	.togrow + .togrow { border-top: 1px solid var(--s100); }
+	.ubar { flex: 1; height: .375rem; border-radius: 9999px; background: var(--s100); overflow: hidden; }
+	.ubar i { display: block; height: 100%; border-radius: 9999px; background: var(--p600); }
+	.tk { display: flex; align-items: center; gap: .625rem; padding: .625rem 0; font-size: .875rem; }
+	.tk + .tk { border-top: 1px solid var(--s100); }
+	.mask { font: 700 .75rem/1 ui-monospace, Menlo, monospace; background: var(--s100); padding: .25rem .4375rem; border-radius: .3125rem; color: var(--s600); letter-spacing: .06em; }
+	.kv { display: flex; align-items: baseline; gap: .625rem; padding: .5rem 0; font-size: .875rem; }
+	.kv + .kv { border-top: 1px solid var(--s100); }
+	.urgent { border: 1px solid #fca5a5; background: linear-gradient(140deg,rgba(254,202,202,.45),#fff); }
+	.flag { display: flex; gap: .625rem; padding: .5rem 0; font-size: .8125rem; line-height: 1.6; }
+	.flag + .flag { border-top: 1px solid var(--s100); }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+import { MEMBERS, DASHBOARD_MODULES, PLAN, USAGE, FAMILY } from './app-data.js';
+
+const SECTIONS = [
+	{ id: 'profile', label: 'Profile', n: '' },
+	{ id: 'family', label: 'Family', n: '' },
+	{ id: 'notifications', label: 'Notifications', n: '3' },
+	{ id: 'dashboard', label: 'Dashboard', n: '8' },
+	{ id: 'plan', label: 'Plan & usage', n: '' },
+	{ id: 'api', label: 'API tokens', n: '2' },
+	{ id: 'data', label: 'Data', n: '' }
+];
+
+const ac = el('div', 'ac');
+const left = el('div', 'sidenav');
+const main = el('div');
+ac.appendChild(left);
+ac.appendChild(main);
+
+/* ── sidenav ─────────────────────────────────────────────────────────── */
+const nav = el('div', 'rail__card snav');
+nav.setAttribute('data-fb', 'account-nav');
+nav.setAttribute('data-fb-label', 'Section nav');
+nav.innerHTML = `<div class="rail__title">Settings</div>` +
+	SECTIONS.map((s, i) => `<a href="#${s.id}" data-s="${s.id}" class="${i === 0 ? 'is-on' : ''}">${s.label}${s.n ? `<span class="n">${s.n}</span>` : ''}</a>`).join('');
+left.appendChild(nav);
+
+left.appendChild(card(
+	`<div class="rowflex gap-3">
+	   <span style="height:2.5rem;width:2.5rem;border-radius:9999px;display:grid;place-items:center;background:#FED5CF;color:#c45e38;font:800 .875rem/1 inherit;flex:none">J</span>
+	   <span style="min-width:0">
+	     <span style="display:block;font-size:.875rem;font-weight:700;color:var(--s800)">Jon Hopper</span>
+	     <span class="hint truncate">jon@example.com</span>
+	   </span>
+	 </div>`,
+	'account-id', 'Signed in as',
+	'margin-top:1rem;background:rgba(255,255,255,.8)'));
+
+/* ── profile ─────────────────────────────────────────────────────────── */
+main.appendChild(el('section', 'sec is-on', `
+	<div class="rail__card" data-fb="sec-profile" data-fb-label="Profile">
+	  <div class="rail__title">Profile</div>
+	  <div class="col-2" style="display:grid;gap:0 1rem;grid-template-columns:1fr">
+	    <label class="field"><span class="hint" style="display:block;margin-bottom:.375rem">First name</span><input class="input wide" value="Jon" /></label>
+	    <label class="field"><span class="hint" style="display:block;margin-bottom:.375rem">Last name</span><input class="input wide" value="Hopper" /></label>
+	    <label class="field"><span class="hint" style="display:block;margin-bottom:.375rem">Email</span><input class="input wide" value="jon@example.com" /></label>
+	    <label class="field"><span class="hint" style="display:block;margin-bottom:.375rem">Phone</span><input class="input wide" placeholder="Not set" /></label>
+	  </div>
+	  <button class="btn btn-primary btn-md" onclick="toast('Profile saved')">Save</button>
+	  <div class="note note-warn" style="margin-top:1rem;border-radius:.875rem;padding:.875rem 1rem;background:linear-gradient(140deg,rgba(241,181,152,.4),#fff);border:1px solid rgba(241,181,152,.6);font-size:.8125rem;line-height:1.7">
+	    <b>Phone and picture are write-only.</b> <code>users.picture</code> and
+	    <code>phonenumberVerified</code> are set to <code>''</code> and <code>false</code> at creation and never
+	    read again — <code>createNewUser</code> clears them on the way in. The fields look editable and nothing
+	    persists.
+	  </div>
+	</div>`));
+
+/* ── family ──────────────────────────────────────────────────────────── */
+main.appendChild(el('section', 'sec', `
+	<div class="rail__card" data-fb="sec-family" data-fb-label="Your families">
+	  <div class="rail__title">Your families</div>
+	  <a class="linkrow" href="family-detail.html" style="display:flex;align-items:center;gap:.75rem;padding:.75rem;border-radius:.875rem;text-decoration:none;border:1px solid var(--s200)">
+	    <span style="height:2.5rem;width:2.5rem;border-radius:.75rem;background:${FAMILY.color}22;display:grid;place-items:center;font-weight:800;color:${FAMILY.color};flex:none">H</span>
+	    <span style="flex:1;min-width:0"><span style="display:block;font-weight:700;color:var(--s800)">${FAMILY.name}</span>
+	    <span class="hint">${MEMBERS.length} members · creator</span></span>
+	    <span class="hint">Manage →</span>
+	  </a>
+	  <a class="btn btn-soft btn-sm" href="family-create.html" style="width:100%;margin-top:.75rem">+ Create a family</a>
+	  <p class="hint" style="line-height:1.7;margin-top:.75rem">Leaving a family is done from the family page,
+	  not from here — so the one irreversible action on a shared account is on a page you have to navigate to
+	  rather than the one that lists what you belong to.</p>
+	</div>`));
+
+/* ── notifications ───────────────────────────────────────────────────── */
+main.appendChild(el('section', 'sec', `
+	<div class="rail__card" data-fb="sec-notifications" data-fb-label="Notification settings">
+	  <div class="rail__title">Notifications</div>
+	  <div class="togrow"><button class="tog is-on" onclick="tt(this)" role="switch" aria-checked="true"></button>
+	    <span style="flex:1"><span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)">Task assigned to me</span><span class="hint">In-app and push</span></span></div>
+	  <div class="togrow"><button class="tog is-on" onclick="tt(this)" role="switch" aria-checked="true"></button>
+	    <span style="flex:1"><span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)">Task completed</span><span class="hint">In-app and push</span></span></div>
+	  <div class="togrow"><button class="tog" onclick="tt(this)" role="switch" aria-checked="false"></button>
+	    <span style="flex:1"><span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)">Someone joined the family</span><span class="hint">In-app only</span></span></div>
+	  <div class="togrow"><button class="tog is-on" onclick="tt(this)" role="switch" aria-checked="true"></button>
+	    <span style="flex:1"><span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)">AI event suggestions</span><span class="hint">Uses your AI allowance</span></span></div>
+	  <p class="hint" style="line-height:1.7;margin-top:.875rem">These map to
+	  <code>activeSubscriptions.notificationMethods</code>, a JSON column — not to a row per event type, so
+	  there is no migration path if a sixth type is added later.</p>
+	  <a class="btn btn-soft btn-sm" href="notifications.html" style="margin-top:.875rem">See the alerts</a>
+	</div>`));
+
+/* ── dashboard modules ───────────────────────────────────────────────── */
+const mods = el('section', 'sec');
+mods.setAttribute('data-fb', 'sec-dashboard');
+mods.setAttribute('data-fb-label', 'Dashboard modules');
+mods.innerHTML = `<div class="rail__card">` + sectionTitle('Dashboard modules', '<span class="hint">personal · overrides the family setting</span>') + `
+	${DASHBOARD_MODULES.map((m) => `
+	  <div class="togrow">
+	    <button class="tog${m.enabled ? ' is-on' : ''}" onclick="tt(this)" role="switch" aria-checked="${m.enabled}"></button>
+	    <span style="flex:1;min-width:0"><span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)">${m.label}</span>
+	    <span class="hint">${m.scope}${m.live ? '' : ' · not mounted anywhere'}</span></span>
+	    ${m.live ? '' : '<span class="pill pill-xs pill-blush">parked</span>'}
+	  </div>`).join('')}
+	<p class="hint" style="line-height:1.7;margin-top:.875rem">A row in
+	<code>dashboardModuleSwitches</code> exists only when a module is <b>off</b>, so an empty table means
+	everything on. The Meals toggle here writes a row that no loader ever reads — the card is not mounted
+	anywhere in the app.</p>
+	</div>`;
+main.appendChild(mods);
+
+/* ── plan ────────────────────────────────────────────────────────────── */
+const pct = Math.round((USAGE.aiUsed / USAGE.aiLimit) * 100);
+main.appendChild(el('section', 'sec', `
+	<div class="rail__card" data-fb="sec-plan" data-fb-label="Plan & usage">
+	  <div class="rowflex between gap-3" style="flex-wrap:wrap">
+	    <div>
+	      <div class="rail__title" style="margin:0">${PLAN.name} plan</div>
+	      <div class="hint" style="margin-top:.25rem">Renews 12 March 2027</div>
+	    </div>
+	    <button class="btn btn-primary btn-md" onclick="toast('Checkout')">Change plan</button>
+	  </div>
+	  <div style="margin-top:1.25rem">
+	    <div class="rowflex between" style="margin-bottom:.375rem">
+	      <span style="font-size:.8125rem;font-weight:600;color:var(--s700)">AI event creations</span>
+	      <span style="font-size:.75rem;color:var(--s500);font-variant-numeric:tabular-nums">${USAGE.aiUsed} of ${USAGE.aiLimit}</span>
+	    </div>
+	    <div class="ubar"><i style="width:${pct}%"></i></div>
+	    <div class="hint" style="margin-top:.375rem">Resets 1 October · count from <code>aiUsageTracking</code></div>
+	  </div>
+	  <div class="kv"><b>Families</b><span>${USAGE.families} of ${USAGE.familyLimit}</span></div>
+	  <div class="kv"><b>Members per family</b><span>${MEMBERS.length} of ${PLAN.memberLimit}</span></div>
+	  <div class="kv"><b>Look-back</b><span>${PLAN.retentionViewDays} days</span></div>
+	  <div class="kv"><b>Archive keeps</b><span>${PLAN.archivedRetentionDays} days</span></div>
+	  <div class="kv"><b>Attachment size</b><span>${Math.round(PLAN.attachmentLimitBytes / 1048576)} MB</span></div>
+	  <div class="kv"><b>Export &amp; import</b><span>${PLAN.exportImportEnabled ? 'enabled' : 'not on this plan'}</span></div>
+	  <p class="hint" style="line-height:1.7;margin-top:.875rem">Every limit on this page is read from
+	  <code>subscriptionTypes</code> at load — except the ones with an
+	  <code>…Override</code> column on the user’s own subscription, which win. The page shows the effective
+	  value and never says which table it came from.</p>
+	</div>`));
+
+/* ── api ─────────────────────────────────────────────────────────────── */
+main.appendChild(el('section', 'sec', `
+	<div class="rail__card" data-fb="sec-api" data-fb-label="API tokens">
+	  <div class="rail__title">API tokens</div>
+	  <div class="tk">
+	    <span style="flex:1;min-width:0"><span style="display:block;font-weight:600;color:var(--s800)">Home dashboard</span>
+	    <span class="hint">last used 3 days ago</span></span>
+	    <span class="mask">fp_live_••••••••7a2c</span>
+	    <button class="btn-icon" style="height:1.75rem;width:1.75rem" onclick="toast('Revoked')">✕</button>
+	  </div>
+	  <div class="tk">
+	    <span style="flex:1;min-width:0"><span style="display:block;font-weight:600;color:var(--s800)">Nightscout bridge</span>
+	    <span class="hint">last used 2 weeks ago</span></span>
+	    <span class="mask">fp_live_••••••••1f88</span>
+	    <button class="btn-icon" style="height:1.75rem;width:1.75rem" onclick="toast('Revoked')">✕</button>
+	  </div>
+	  <button class="btn btn-soft btn-md" style="margin-top:.875rem" onclick="toast('New token — shown once')">+ Create a token</button>
+	  <p class="hint" style="line-height:1.7;margin-top:.75rem">Only the hash is stored, so a lost token cannot
+	  be recovered — it has to be replaced. There is no scope per token: every token can read and write the
+	  whole account.</p>
+	</div>`));
+
+/* ── data ────────────────────────────────────────────────────────────── */
+main.appendChild(el('section', 'sec', `
+	<div class="rail__card" data-fb="sec-data" data-fb-label="Your data">
+	  <div class="rail__title">Your data</div>
+	  <div class="rowflex gap-2" style="flex-wrap:wrap">
+	    <a class="btn btn-soft btn-md" href="import.html">Import a calendar</a>
+	    <button class="btn btn-soft btn-md" onclick="toast('Exporting…')">Export everything</button>
+	  </div>
+	  <div class="kv" style="margin-top:1rem"><b>Signed in</b><span>12 Mar 2026</span></div>
+	  <div class="kv"><b>Last active</b><span>Today 08:42</span></div>
+	  <div class="kv"><b>Email verified</b><span>Yes</span></div>
+	  <div class="kv"><b>Sign-in method</b><span>Password</span></div>
+	  <div class="rowflex gap-2" style="margin-top:1rem">
+	    <button class="btn btn-md" style="background:#fff;border:1px solid var(--s200)" onclick="toast('Sign out everywhere')">Sign out everywhere</button>
+	  </div>
+	</div>
+
+	<div class="rail__card urgent" data-fb="sec-danger" data-fb-label="Delete account" style="margin-top:1rem">
+	  <div class="rail__title" style="color:#b91c1c">Delete account</div>
+	  <p class="hint" style="line-height:1.7">Deletes the account, detaches it from every family, and starts the
+	  retention clock on anything shared. It is the only action on this page that cannot be undone, and it sits
+	  under a section called “Data” with the same visual weight as “Export”.</p>
+	  <div class="flag"><span class="pill pill-xs pill-blush">unguarded</span><span>No confirmation beyond a
+	  type-the-name check, and no summary of what will go.</span></div>
+	  <div class="flag"><span class="pill pill-xs pill-blush">no receipt</span><span>A paying user gets no
+	  confirmation email and no record that the plan was cancelled.</span></div>
+	  <div class="flag"><span class="pill pill-xs pill-blush">co-owner</span><span>If you created a family,
+	  deleting does not tell you who inherits it.</span></div>
+	  <button class="btn btn-md" style="margin-top:1rem;background:#b91c1c;color:#fff" onclick="toast('Type DELETE to confirm')">Delete my account</button>
+	</div>`));
+
+/* ── nav wiring: hash links, no page reload ──────────────────────────── */
+const secs = [...main.querySelectorAll('.sec')];
+// the section bodies are written as markup strings, so the ids the nav links
+// to have to be assigned here — without these, show() hides every section.
+SECTIONS.forEach((s, i) => { if (secs[i]) secs[i].id = s.id; });
+function show(id) {
+	secs.forEach((s) => s.classList.toggle('is-on', s.id === id));
+	nav.querySelectorAll('[data-s]').forEach((a) => a.classList.toggle('is-on', a.dataset.s === id));
+}
+nav.addEventListener('click', (e) => {
+	const a = e.target.closest('[data-s]');
+	if (!a) return;
+	e.preventDefault();
+	location.hash = a.dataset.s;
+	show(a.dataset.s);
+	window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+show(location.hash.slice(1) || 'profile');
+
+window.addEventListener('hashchange', () => show(location.hash.slice(1) || 'profile'));
+window.tt = (b) => {
+	const on = !b.classList.contains('is-on');
+	b.classList.toggle('is-on', on);
+	b.setAttribute('aria-checked', String(on));
+	toast(on ? 'On' : 'Off');
+};
+window.toast = toast;
+
+mountApp({
+	head: {
+		kicker: 'Prototype · Account',
+		title: 'Account',
+		lede: 'Seven sections behind hash links. This layout is also the one place in the app with <b>no bottom nav and no toaster</b> — the notification settings on this page cannot show you a confirmation.',
+		actions: `<a class="btn btn-soft btn-sm" href="../calendar-ui/index.html">Calendar prototypes</a>`
+	},
+	body: ac
+});
+</script>
+</body>
+</html>

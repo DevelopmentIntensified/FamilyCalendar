@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Family settings — FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "family-detail", "label": "Family settings", "family": "app-ui",
+  "question": "This is 793 lines — the biggest page in the app. What is its one job, and what belongs somewhere else?",
+  "thesis": "Split into a members band, a shared-data band, and a danger band. The real page has no such split, which is why it is 793 lines.",
+  "realPage": "src/routes/(family)/family/[familyId]/ — +page.svelte 793. Sections: family name/colour, member list with role editing, add member, family calendar link, dashboard module switches, invitations, danger zone."
+}
+</script>
+<style>
+	.fd { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 1000px) { .fd { grid-template-columns: minmax(0, 1fr) 19.5rem; } }
+	.ident { position: relative; overflow: hidden; border-radius: 1.5rem; padding: 1.5rem; background: linear-gradient(140deg, rgba(254,213,207,.5), #fff 65%); border: 1px solid rgba(254,213,207,.6); }
+	.ident__glow { position: absolute; right: -2rem; bottom: -2rem; height: 8rem; width: 8rem; border-radius: 9999px; filter: blur(22px); }
+	.namein { font-size: 1.375rem; font-weight: 800; letter-spacing: -.02em; color: var(--s900); border: 0; background: transparent; padding: .25rem 0; width: 100%; border-bottom: 2px dashed transparent; }
+	.namein:hover { border-bottom-color: var(--s200); }
+	.namein:focus { outline: none; border-bottom-color: var(--terracotta); }
+	.swatches { display: flex; gap: .4375rem; flex-wrap: wrap; }
+	.sw { height: 1.75rem; width: 1.75rem; border-radius: 9999px; border: 2px solid transparent; cursor: pointer; }
+	.sw.is-on { border-color: var(--s900); box-shadow: 0 0 0 2px #fff inset; }
+	.mrow { display: flex; align-items: center; gap: .75rem; padding: .75rem 0; }
+	.mrow + .mrow { border-top: 1px solid var(--s100); }
+	.mrow__a { height: 2.25rem; width: 2.25rem; border-radius: 9999px; display: grid; place-items: center; font: 800 .75rem/1 inherit; flex: none; }
+	.mrow__n { flex: 1; min-width: 0; }
+	.role { display: inline-flex; align-items: center; height: 1.5rem; padding: 0 .5rem; border-radius: 9999px; font: 700 .625rem/1 inherit; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; border: 0; }
+	.mtype { display: inline-flex; align-items: center; height: 1.25rem; padding: 0 .4375rem; border-radius: 9999px; background: var(--s100); color: var(--s500); font: 700 .625rem/1 inherit; }
+	.toggle { display: flex; align-items: center; gap: .75rem; padding: .625rem 0; }
+	.toggle + .toggle { border-top: 1px solid var(--s100); }
+	.tog { height: 1.375rem; width: 2.5rem; border-radius: 9999px; background: var(--s300); position: relative; cursor: pointer; flex: none; border: 0; transition: background-color 150ms; }
+	.tog::after { content: ''; position: absolute; top: .1875rem; left: .1875rem; height: 1rem; width: 1rem; border-radius: 9999px; background: #fff; transition: transform 150ms; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+	.tog.is-on { background: var(--p600); }
+	.tog.is-on::after { transform: translateX(1.125rem); }
+	.usage { display: flex; align-items: center; gap: .625rem; }
+	.ubar { flex: 1; height: .375rem; border-radius: 9999px; background: var(--s100); overflow: hidden; }
+	.ubar i { display: block; height: 100%; border-radius: 9999px; background: var(--p600); }
+	.danger { border: 1px solid #fecaca; }
+	.kv { display: flex; align-items: baseline; gap: .5rem; padding: .4375rem 0; font-size: .8125rem; }
+	.kv + .kv { border-top: 1px solid var(--s100); }
+	.kv b { font-weight: 700; color: var(--s800); }
+	.emptynote { font-size: .75rem; color: var(--s400); }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+import { FAMILY, MEMBERS, DASHBOARD_MODULES, INVITE, USAGE, PLAN, byId, nameOf } from './app-data.js';
+
+const grid = el('div', 'fd');
+const main = el('div');
+const side = el('div');
+grid.appendChild(main);
+grid.appendChild(side);
+
+const COLORS = ['#c45e38', '#d38248', '#4d9c85', '#5b9fb5', '#8d7aa8', '#b45309'];
+
+/* ── identity: name + colour, editable in place ──────────────────────── */
+const ident = el('div', 'ident');
+ident.setAttribute('data-fb', 'family-identity');
+ident.setAttribute('data-fb-label', 'Family name & colour');
+ident.innerHTML = `
+	<div class="ident__glow" style="background:${FAMILY.color}33"></div>
+	<div style="position:relative">
+	  <span class="pill pill-xs pill-token">Family</span>
+	  <input class="namein" value="${FAMILY.name}" onchange="toast('Renamed')" aria-label="Family name" />
+	  <div class="rowflex between gap-3" style="margin-top:.875rem;flex-wrap:wrap">
+	    <div class="swatches" id="sws">
+	      ${COLORS.map((c) => `<button class="sw${c === FAMILY.color ? ' is-on' : ''}" style="background:${c}" data-c="${c}" onclick="pick(this)" title="${c}"></button>`).join('')}
+	    </div>
+	    <span class="hint">Colour tints the calendar, the members and the family calendar chip.</span>
+	  </div>
+	</div>`;
+main.appendChild(ident);
+
+/* ── members ─────────────────────────────────────────────────────────── */
+const members = el('div');
+members.setAttribute('data-fb', 'member-list');
+members.setAttribute('data-fb-label', 'Members & roles');
+members.appendChild(el('div', null, sectionTitle('Members', `<span class="hint">${MEMBERS.length} of ${PLAN.memberLimit}</span>`)));
+
+const list = el('div');
+members.appendChild(list);
+function paintMembers() {
+	list.innerHTML = MEMBERS.map((m, i) => `
+		<div class="mrow">
+		  <span class="mrow__a" style="background:${m.tone}">${m.initials}</span>
+		  <span class="mrow__n">
+		    <span style="display:block;font-size:.9375rem;font-weight:600;color:var(--s800)">${m.firstName} ${m.lastName}</span>
+		    <span class="hint">${m.email}</span>
+		  </span>
+		  <span class="mtype">${m.memberType}</span>
+		  <button class="role" data-role="${m.id}" onclick="cycle(${i})"
+		    style="background:${m.role === 'creator' ? 'rgba(241,181,152,.55);color:#84412e' : m.role === 'admin' ? 'rgba(190,218,227,.55);color:#366d7e' : 'var(--s100);color:var(--s500)'}"
+		    title="Change role">${m.role}</button>
+		  ${m.role === 'creator' ? '' : `<button class="btn-icon" style="height:1.75rem;width:1.75rem" title="Remove" onclick="toast('Removed ${m.firstName}')">✕</button>`}
+		</div>`).join('') + `
+		<a class="btn btn-soft btn-sm" href="family-members-add.html" style="width:100%;margin-top:.875rem">+ Add a member</a>`;
+}
+paintMembers();
+main.appendChild(members);
+
+/* ── dashboard module switches ───────────────────────────────────────── */
+const mods = el('div');
+mods.setAttribute('data-fb', 'module-switches');
+mods.setAttribute('data-fb-label', 'Dashboard module switches');
+mods.appendChild(el('div', null, sectionTitle('Dashboard modules', '<span class="hint" title="dashboardModuleSwitches: a row exists only when a module is OFF">family-wide</span>')));
+const modList = el('div');
+mods.appendChild(modList);
+function paintMods() {
+	modList.innerHTML = DASHBOARD_MODULES.map((m) => `
+		<div class="toggle">
+		  <button class="tog${m.enabled ? ' is-on' : ''}" onclick="tog('${m.id}')" role="switch" aria-checked="${m.enabled}" aria-label="${m.label}"></button>
+		  <span style="flex:1;min-width:0">
+		    <span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)">${m.label}</span>
+		    <span class="hint">${m.scope} · ${m.live ? 'wired' : 'not mounted anywhere'}</span>
+		  </span>
+		  ${m.live ? '' : '<span class="pill pill-xs pill-blush">parked</span>'}
+		</div>`).join('');
+}
+paintMods();
+main.appendChild(mods);
+
+/* ── the dead link, reproduced ───────────────────────────────────────── */
+main.appendChild(card(
+	`${sectionTitle('Broken in the real app', '<span class="pill pill-xs pill-blush">404</span>')}
+	 <p class="hint" style="line-height:1.7">The invitations button in the real page points at
+	 <code>/family/{id}/invitations</code>. Svelte interpolates those braces fine — they are not the bug.
+	 The bug is the shape: no <code>[familyId]/invitations</code> route exists. Every admin who clicks it
+	 gets a 404.</p>
+	 <p class="hint" style="line-height:1.7;margin-top:.5rem">Shown here working, from the correct path.</p>
+	 <a class="btn btn-soft btn-sm" href="family-invitations.html" style="margin-top:.75rem">/family/invitations</a>`,
+	'dead-invite-link', 'Broken link',
+	'background:linear-gradient(140deg,rgba(254,202,202,.4),#fff);border-color:#fecaca'));
+
+/* ── danger ──────────────────────────────────────────────────────────── */
+const danger = el('div', 'rail__card danger');
+danger.setAttribute('data-fb', 'danger-zone');
+danger.setAttribute('data-fb-label', 'Danger zone');
+danger.innerHTML = `
+	${sectionTitle('Danger zone')}
+	<p class="hint" style="line-height:1.7">Deleting the family removes every event, task and grocery item scoped to it for all ${MEMBERS.length} members. This cannot be undone — the retention window is not a backup.</p>
+	<button class="btn btn-md" style="margin-top:.875rem;background:#fff;color:#b91c1c;border:1px solid #fecaca" onclick="toast('Type the family name to confirm')">Delete this family</button>`;
+main.appendChild(danger);
+
+/* ── side: shared data ───────────────────────────────────────────────── */
+side.appendChild(card(
+	`${sectionTitle('Shared data', '<span class="hint">family_id scoped</span>')}
+	 <a class="btn btn-soft btn-sm" href="family-tasks.html" style="width:100%;margin-bottom:.5rem">Family tasks</a>
+	 <a class="btn btn-soft btn-sm" href="groceries.html" style="width:100%;margin-bottom:.5rem">Grocery list</a>
+	 <a class="btn btn-soft btn-sm" href="../calendar-ui/d-working-calendar.html" style="width:100%;margin-bottom:.5rem">Family calendar</a>
+	 <a class="btn btn-soft btn-sm" href="family-invitations.html" style="width:100%">Invitations</a>`,
+	'shared-data', 'Shared data'));
+
+/* ── side: the invitation ────────────────────────────────────────────── */
+side.appendChild(card(
+	`${sectionTitle('Active invitation')}
+	 <div class="kv"><b>Code</b><span style="font-family:ui-monospace,Menlo,monospace">${INVITE.code}</span></div>
+	 <div class="kv"><b>Uses</b><span>${INVITE.useCount} of ${INVITE.maxUses}</span></div>
+	 <div class="kv"><b>Expires</b><span>${INVITE.expiresAt}</span></div>
+	 <div class="kv"><b>Created by</b><span>${nameOf(INVITE.createdBy).split(' ')[0]}</span></div>`,
+	'invite-summary', 'Active invitation'));
+
+/* ── side: plan usage ────────────────────────────────────────────────── */
+const pct = Math.round((USAGE.aiUsed / USAGE.aiLimit) * 100);
+side.appendChild(card(
+	`${sectionTitle('Plan', `<span class="pill pill-xs pill-mint">${PLAN.name}</span>`)}
+	 <div class="usage" style="margin-top:.25rem">
+	   <span class="hint" style="flex:none">AI events</span>
+	   <span class="ubar"><i style="width:${pct}%"></i></span>
+	   <b style="font-size:.75rem">${USAGE.aiUsed}/${USAGE.aiLimit}</b>
+	 </div>
+	 <div class="kv"><b>Families</b><span>${USAGE.families} of ${PLAN.familyLimit}</span></div>
+	 <div class="kv"><b>Members</b><span>${MEMBERS.length} of ${PLAN.memberLimit}</span></div>
+	 <div class="kv"><b>Archive</b><span>${PLAN.archivedRetentionDays} days</span></div>
+	 <div class="kv"><b>Export</b><span>${PLAN.exportImportEnabled ? 'enabled' : 'not on this plan'}</span></div>`,
+	'plan-usage', 'Plan usage'));
+
+/* ── side: the constraint that is not obvious ────────────────────────── */
+side.appendChild(card(
+	`${sectionTitle('Children are users')}
+	 <p class="hint" style="line-height:1.7">A child is a real row in <code>users</code> with
+	 <code>memberType = 'child'</code> — which means a child needs a <b>unique email</b>, because
+	 <code>users.email</code> carries a unique index.</p>
+	 <p class="hint" style="line-height:1.7;margin-top:.5rem">So a family with two children must invent two
+	 addresses, and the add-member form has to say so before they do.</p>
+	 <a class="btn btn-soft btn-sm" href="family-members-add.html" style="margin-top:.75rem">See the form</a>`,
+	'child-constraint', 'The child-as-user constraint',
+	'background:linear-gradient(140deg,rgba(190,218,227,.4),#fff);border-color:transparent'));
+
+window.pick = (b) => { FAMILY.color = b.dataset.c; b.parentElement.querySelectorAll('.sw').forEach((x) => x.classList.toggle('is-on', x === b)); toast('Colour changed'); };
+window.cycle = (i) => {
+	const order = ['member', 'admin'];
+	const m = MEMBERS[i];
+	m.role = order[(order.indexOf(m.role) + 1) % order.length];
+	paintMembers();
+	toast(`${m.firstName} is now ${m.role}`);
+};
+window.tog = (id) => {
+	const m = DASHBOARD_MODULES.find((x) => x.id === id);
+	m.enabled = !m.enabled;
+	paintMods();
+	toast(m.enabled ? `${m.label} on` : `${m.label} off`);
+};
+window.toast = toast;
+
+mountApp({
+	head: {
+		kicker: 'Prototype · Family settings',
+		title: FAMILY.name,
+		lede: 'The real page is <b>793 lines</b> — the biggest in the app. It is a members list, a settings form, a module switchboard and a delete button in one file. This is the same content, split into three bands.',
+		actions: `<a class="btn btn-soft btn-sm" href="family.html">← All families</a>`
+	},
+	body: grid
+});
+</script>
+</body>
+</html>

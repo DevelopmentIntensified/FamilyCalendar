@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Calendar UI — analysis &amp; prototypes</title>
+
+<!-- Who this is. The feedback overlay reads this so the review that comes back
+     says WHAT it reviewed, not just which file. -->
+<script type="application/json" id="fb-page">
+{
+  "id": "readme",
+  "label": "Analysis & recommendation",
+  "question": "Where does the shipped calendar diverge from the marketing design language, and which way should it go?",
+  "thesis": "Findings, token comparison, and the recommendation to ship A then B and treat C as a bet."
+}
+</script>
+<link rel="stylesheet" href="proto.css" />
+<!-- feedback overlay: scaffolding chrome, not part of the design -->
+<link rel="stylesheet" href="feedback.css" />
+<style>
+	.hero { position: relative; overflow: hidden; padding: 3.5rem 0 3rem; }
+	.hero__wash { position: absolute; inset: 0; background: linear-gradient(140deg, rgba(190,218,227,.35), #fff 45%, rgba(254,213,207,.4)); }
+	.hero__in { position: relative; max-width: 80rem; margin: 0 auto; padding: 0 1.5rem; }
+	h1 { font-size: 2.5rem; font-weight: 800; line-height: 1.08; letter-spacing: -.03em; margin: 1rem 0 0; color: var(--s900); }
+	@media (min-width: 768px) { h1 { font-size: 3.5rem; } }
+	.lede { margin: 1rem 0 0; font-size: 1.125rem; line-height: 1.65; color: var(--s600); max-width: 40rem; }
+	@media (min-width: 768px) { .lede { font-size: 1.25rem; } }
+
+	.proto {
+		display: block; text-decoration: none; position: relative; overflow: hidden;
+		border-radius: 1.5rem; padding: 1.5rem; min-height: 15rem;
+		display: flex; flex-direction: column; transition: transform 150ms, box-shadow 150ms;
+	}
+	.proto:hover { transform: translateY(-4px); box-shadow: 0 25px 45px -20px rgba(45,88,102,.35); }
+	.proto__glow { position: absolute; right: -3rem; bottom: -3rem; height: 9rem; width: 9rem; border-radius: 9999px; filter: blur(24px); }
+	.proto h2 { font-size: 1.5rem; font-weight: 800; color: var(--s900); margin: .75rem 0 0; letter-spacing: -.02em; }
+	.proto p { font-size: .9375rem; line-height: 1.7; color: var(--s600); margin: .5rem 0 0; }
+	.proto ul { font-size: .875rem; line-height: 1.75; color: var(--s700); margin: .75rem 0 0; padding-left: 1.125rem; }
+	.proto .go { margin-top: auto; padding-top: 1.25rem; }
+
+	.stat { border-radius: 1.25rem; padding: 1rem 1.25rem; background: #fff; box-shadow: inset 0 0 0 1px var(--s200); }
+	.stat b { display: block; font-size: 1.75rem; font-weight: 800; color: var(--s900); letter-spacing: -.02em; line-height: 1.1; }
+	.stat span { display: block; margin-top: .25rem; font-size: .8125rem; line-height: 1.5; color: var(--s500); }
+
+	.tbl { width: 100%; border-collapse: collapse; font-size: .875rem; }
+	.tbl th { text-align: left; font-size: .6875rem; letter-spacing: .08em; text-transform: uppercase; color: var(--s400); font-weight: 700; padding: .625rem .75rem; border-bottom: 1px solid var(--s200); }
+	.tbl td { padding: .75rem; border-bottom: 1px solid var(--s100); color: var(--s700); vertical-align: top; line-height: 1.6; }
+	.tbl tr:last-child td { border-bottom: 0; }
+	.tbl code { background: var(--s100); padding: .0625rem .375rem; border-radius: .25rem; font-size: .8125rem; color: var(--s600); }
+	.tick { color: var(--mint-ink); font-weight: 800; }
+	.cross { color: #dc2626; font-weight: 800; }
+	.warn { color: #b45309; font-weight: 800; }
+
+	.sw { display: inline-block; height: .875rem; width: .875rem; border-radius: 9999px; vertical-align: -1px; }
+</style>
+</head>
+<body>
+<div class="shell">
+	<nav class="navbar">
+		<div class="wrap navbar__in">
+			<a class="logo" href="index.html">
+				<svg class="logo__mark" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+				<span class="logo__text">Family Planz</span>
+			</a>
+			<div class="navlinks">
+				<a class="navlink is-active" href="#">Calendar UI</a>
+				<a class="navlink" href="0-current.html">Baseline</a>
+				<a class="navlink" href="a-warm-studio.html">A</a>
+				<a class="navlink" href="b-focus-sidebar.html">B</a>
+				<a class="navlink" href="c-day-first.html">C</a>
+			</div>
+		</div>
+	</nav>
+
+	<main>
+		<section class="hero" data-fb="hero" data-fb-label="Hero">
+			<div class="hero__wash"></div>
+			<div class="orb orb-blue" style="right:-12rem;top:-14rem;height:36rem;width:36rem;opacity:.5"></div>
+			<div class="orb orb-blush" style="left:-10rem;bottom:-12rem;height:30rem;width:30rem;opacity:.45"></div>
+			<div class="hero__in">
+				<span class="pill pill-glass">UI analysis · 3 prototypes · full feature parity</span>
+				<h1>The calendar page is a <span style="color:var(--terracotta)">different product</span> from the marketing site.</h1>
+				<p class="lede">A read of <code>src/routes/(calendar)/calendar</code> (≈8,300 LOC across 41 components) against the marketing surfaces, plus three working prototypes. Every prototype keeps the whole feature set — drag-move, range-select pill, bulk edit, NLP quick add, RSVP, recurrence, offline queue and the rest.</p>
+				<div class="rowflex gap-3" style="margin-top:1.75rem;flex-wrap:wrap">
+					<a class="btn btn-primary btn-lg" href="0-current.html">Start with the baseline →</a>
+					<a class="btn btn-ghost btn-lg" href="a-warm-studio.html">Jump to prototype A</a>
+					<a class="btn btn-ghost btn-lg" href="../index.html">All 23 prototypes (tree) →</a>
+					<a class="btn btn-ghost btn-lg" href="../app-ui/index.html">The rest of the app →</a>
+				</div>
+			</div>
+		</section>
+
+		<!-- ══════════ THE FINDING ══════════ -->
+		<div class="wrap" style="padding-bottom:3.5rem">
+			<div class="mb-14" style="margin-bottom:3rem;text-align:center">
+				<h2 style="font-size:1.875rem;font-weight:800;color:var(--s900);letter-spacing:-.02em">One root cause, eight symptoms</h2>
+				<p class="hint" style="margin:.75rem auto 0;max-width:36rem;font-size:1.125rem">The marketing pages were designed as <i>warm, spacious, soft-edged</i>. The calendar was built as a <i>dense, cold, bordered</i> admin grid. Two design languages, one product.</p>
+			</div>
+
+			<div class="grid" data-fb="findings" data-fb-label="Headline findings" style="gap:1.5rem;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));margin-bottom:3rem">
+				<div class="stat"><b>2</b><span>unrelated design languages. Marketing = cream <code style="font-size:.75rem">#F8F6F3</code> + 5 pastels. App = slate + <code style="font-size:.75rem">#dd5822</code>. The calendar uses zero of the marketing palette.</span></div>
+				<div class="stat"><b>11px</b><span>event chips with 26px tap targets (<code style="font-size:.75rem">text-[11px]</code>, <code style="font-size:.75rem">min-h-[26px]</code>). The marketing pages never go below 12px.</span></div>
+				<div class="stat"><b>0</b><span>filters. No calendar toggle, no member filter, no search, no legend. <code style="font-size:.75rem">CalendarSelector.svelte</code> exists — 92 lines, zero importers.</span></div>
+				<div class="stat"><b>6</b><span>bordered control clusters in one toolbar row (nav · views · Add · Select · 4 icon links). No visual hierarchy.</span></div>
+			</div>
+
+			<div class="rail__card" data-fb="token-table" data-fb-label="Token comparison" style="background:rgba(255,255,255,.8);padding:1.5rem;overflow-x:auto">
+				<h3 style="margin:0 0 1rem;font-size:1.25rem;font-weight:800;color:var(--s900)">Marketing tokens vs. what the calendar uses</h3>
+				<table class="tbl">
+					<thead><tr><th>Concern</th><th>Marketing pages</th><th>Calendar today</th><th>Gap</th></tr></thead>
+					<tbody>
+						<tr>
+							<td>Page canvas</td>
+							<td><span class="sw" style="background:#F8F6F3"></span> <code>#F8F6F3</code> warm cream</td>
+							<td><span class="sw" style="background:#ffffff;border:1px solid #e2e8f0"></span> pure <code>bg-white</code></td>
+							<td><span class="cross">✕</span> no warmth</td>
+						</tr>
+						<tr>
+							<td>Accent palette</td>
+							<td><span class="sw" style="background:#FED5CF"></span> <span class="sw" style="background:#BEDAE3"></span> <span class="sw" style="background:#C4E9DA"></span> <span class="sw" style="background:#F1B598"></span> <span class="sw" style="background:#D3C7E6"></span></td>
+							<td><span class="sw" style="background:#dd5822"></span> <code>primary-500</code> only</td>
+							<td><span class="cross">✕</span> event colour has no system</td>
+						</tr>
+						<tr>
+							<td>Shape language</td>
+							<td><code>rounded-full</code> buttons, <code>rounded-2xl</code>/<code>3xl</code> cards</td>
+							<td><code>rounded-xl</code> boxes, <code>rounded-lg</code> chips, <code>rounded-md</code> task chips</td>
+							<td><span class="warn">△</span> everything is a rectangle</td>
+						</tr>
+						<tr>
+							<td>Shadow</td>
+							<td>coloured: <code>shadow-lg shadow-[#c45e38]/30</code></td>
+							<td>flat: <code>shadow-sm</code> on bordered boxes</td>
+							<td><span class="cross">✕</span> no depth or warmth</td>
+						</tr>
+						<tr>
+							<td>Depth / atmosphere</td>
+							<td>gradient washes + <code>blur-3xl</code> orbs + <code>backdrop-blur</code></td>
+							<td>none</td>
+							<td><span class="cross">✕</span></td>
+						</tr>
+						<tr>
+							<td>Container</td>
+							<td><code>max-w-7xl px-6</code> everywhere</td>
+							<td>full-bleed <code>grid-cols-7</code>, no max-width</td>
+							<td><span class="warn">△</span> stretches to 27"</td>
+						</tr>
+						<tr>
+							<td>Call to action</td>
+							<td>one <code>rounded-full</code> primary per surface</td>
+							<td>6 equal-weight clusters; <code>+</code> is a 12px icon inside a 20px hover target</td>
+							<td><span class="cross">✕</span> weak primary action</td>
+						</tr>
+						<tr>
+							<td>Type scale floor</td>
+							<td>12px min, 18–24px section copy</td>
+							<td>11px chips, 10px <code>text-[10px]</code> "today" tag</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<!-- ══════════ THE THREE PROTOTYPES ══════════ -->
+		<div style="background:linear-gradient-to-b,#fff,rgba(254,213,207,.12));padding:4rem 0">
+			<div class="wrap">
+				<div style="text-align:center;margin-bottom:3rem">
+					<h2 style="font-size:1.875rem;font-weight:800;color:var(--s900);letter-spacing:-.02em">Three directions</h2>
+					<p class="hint" style="margin:.75rem auto 0;max-width:36rem;font-size:1.125rem">All three keep <b>100% of the current feature set</b>. They differ only in how much of the page's structure they are willing to change.</p>
+				</div>
+
+				<!-- ═══ ROUND 1 VERDICT ═══ -->
+				<div class="cal-frame" data-fb="verdict-r1" data-fb-label="Round 1 verdict" style="padding:1.25rem 1.5rem;margin-bottom:1.5rem;background:linear-gradient(140deg,rgba(196,233,218,.4),rgba(254,213,207,.3));border-color:transparent">
+					<div class="rowflex between gap-3" style="flex-wrap:wrap;margin-bottom:1rem">
+						<div>
+							<span class="pill pill-xs pill-mint">Round 1 decided</span>
+							<h3 style="margin:.5rem 0 0;font-size:1.25rem;font-weight:800;color:var(--s900)">The review pointed one way: B's rail, A's toolbar</h3>
+							<p class="hint" style="margin:.25rem 0 0;max-width:44rem">3 of 3 rail cards marked good, the toolbar row marked “this looks great”, and two of the three toolbars marked as the weaker option. Rather than patch the losers, that became a fourth prototype.</p>
+						</div>
+						<a class="btn btn-primary btn-md" href="d-working-calendar.html">Prototype D →</a>
+					</div>
+					<div class="grid" style="gap:1rem;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))">
+						<div class="rail__card" style="background:rgba(255,255,255,.85)">
+							<div class="rail__title" style="color:var(--mint-ink)">Kept</div>
+							<ul style="margin:0;padding-left:1rem;font-size:.8125rem;line-height:1.7;color:var(--s700)">
+								<li>A's toolbar row</li>
+								<li>B's mini month, up next, calendar filters</li>
+							</ul>
+						</div>
+						<div class="rail__card" style="background:rgba(255,255,255,.85)">
+							<div class="rail__title">Changed</div>
+							<ul style="margin:0;padding-left:1rem;font-size:.8125rem;line-height:1.7;color:var(--s700)">
+								<li>Toolbar is one row (was 185px)</li>
+								<li>Legend moved under the grid</li>
+								<li>“Whose plans” → “By person”</li>
+								<li>C's vague copy made explicit</li>
+							</ul>
+						</div>
+						<div class="rail__card" style="background:rgba(255,255,255,.85)">
+							<div class="rail__title" style="color:#b45309">Dropped</div>
+							<ul style="margin:0;padding-left:1rem;font-size:.8125rem;line-height:1.7;color:var(--s700)">
+								<li>C's hero band — “feels dashboardy, not calendar feel”</li>
+								<li>C's toolbar — “the others are better”</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+
+				<div class="grid" data-fb="directions" data-fb-label="The three directions" style="gap:1.5rem;grid-template-columns:repeat(auto-fit,minmax(19rem,1fr))">
+					<a class="proto" href="a-warm-studio.html" style="background:linear-gradient(140deg,rgba(254,213,207,.42),#fff 65%)">
+						<div class="proto__glow" style="background:rgba(241,181,152,.35)"></div>
+						<div style="position:relative">
+							<span class="pill pill-xs pill-blush">A · lowest risk</span>
+							<h2>Warm Studio</h2>
+							<p>Same single-column shape. Every surface re-skinned with the marketing tokens. No re-architecture — this is a class-level change in six existing components.</p>
+							<ul>
+								<li>cream canvas + blurred orbs + glass calendar frame</li>
+								<li>chips 11px → 12px, cells 104px → 136px</li>
+								<li>event colours → brand tint family</li>
+								<li><b>Day view promoted into the toggle</b></li>
+								<li><b>Filters added</b> (5 calendars, with counts)</li>
+							</ul>
+							<div class="go"><span class="btn btn-primary btn-md">Open prototype A</span></div>
+						</div>
+					</a>
+
+					<a class="proto" href="b-focus-sidebar.html" style="background:linear-gradient(140deg,rgba(196,233,218,.42),#fff 65%)">
+						<div class="proto__glow" style="background:rgba(196,233,218,.45)"></div>
+						<div style="position:relative">
+							<span class="pill pill-xs pill-mint">B · most functional gain</span>
+							<h2>Focus Sidebar</h2>
+							<p>A persistent left rail owns filtering, jumping and “what's next”. The calendar stops being a wall and becomes the answer to “when?”</p>
+							<ul>
+								<li>mini-month replaces the toolbar popover</li>
+								<li><b>Up next</b> — next 5 events, always visible</li>
+								<li>per-member <b>“whose plans”</b> filter</li>
+								<li><b>search</b> across events, people, places</li>
+								<li>overdue-task glance in the rail</li>
+							</ul>
+							<div class="go"><span class="btn btn-token btn-md">Open prototype B</span></div>
+						</div>
+					</a>
+
+					<a class="proto" href="c-day-first.html" style="background:linear-gradient(140deg,rgba(190,218,227,.42),#fff 65%)">
+						<div class="proto__glow" style="background:rgba(190,218,227,.45)"></div>
+						<div style="position:relative">
+							<span class="pill pill-xs pill-blue">C · boldest</span>
+							<h2>Day First</h2>
+							<p>The calendar stops being the landing surface. A hero band answers “what now?” — the marketing hero recipe transplanted into the app — and the month grid is demoted below it.</p>
+							<ul>
+								<li>live <b>now / next / later</b> with countdowns</li>
+								<li>“You're on Family and Work” from real RSVP data</li>
+								<li>day-shape bar showing load by calendar</li>
+								<li>month grid fully intact below</li>
+							</ul>
+							<div class="go"><span class="btn btn-token btn-md">Open prototype C</span></div>
+						</div>
+					</a>
+				</div>
+			</div>
+		</div>
+
+		<!-- ══════════ PARITY + RECOMMENDATION ══════════ -->
+		<div class="wrap" style="padding:4rem 0">
+			<div class="grid" style="gap:2rem;grid-template-columns:1fr;align-items:start">
+				<div>
+					<h2 style="font-size:1.875rem;font-weight:800;color:var(--s900);letter-spacing:-.02em;margin:0">Feature parity</h2>
+					<p class="hint" style="margin:.75rem 0 1.5rem;font-size:1.0625rem">Every prototype was smoke-tested headlessly (jsdom) against this list. A 26-assertion suite runs green.</p>
+					<div class="rail__card" data-fb="parity" data-fb-label="Feature parity table" style="padding:0;overflow:hidden">
+						<table class="tbl">
+							<thead><tr><th>Capability</th><th>Source</th><th>A</th><th>B</th><th>C</th></tr></thead>
+							<tbody>
+								<tr><td>Month / Week / Day / List views</td><td><code>Calendar.svelte</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>Range-select pill −15/+15/Create/✕</td><td><code>rangeSelect.ts</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>Drag-move, 15-min snap</td><td><code>eventMove.ts</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>Add mode (touch range select)</td><td><code>Calendar.svelte:33</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>Select mode + bulk bar</td><td><code>BulkEditBar.svelte</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>Smart plan 2-phase dry run</td><td><code>bulkPlan.ts</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>NLP quick add, multi-parse</td><td><code>EventQuickAdd</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>Event ⇄ Task tabs + recurrence</td><td><code>EventFormModal</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>RSVP, attendance, checklists</td><td><code>EventRsvpList</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>Delete scopes (occurrence/series/one)</td><td><code>EventDeleteConfirm</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>Swipe month nav, deep links</td><td><code>Calendar.svelte:128</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>Overdue tasks, recurring cursors</td><td><code>+page.server.ts:214</code></td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td colspan="5" style="background:var(--canvas);font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--s400);font-weight:700">New capability — not in the current UI</td></tr>
+								<tr><td>Calendar visibility filters</td><td>—</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>Legend / colour key</td><td>—</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>“Up next” list</td><td>—</td><td class="warn">—</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+								<tr><td>Search (⌘K)</td><td>—</td><td class="warn">—</td><td class="tick">✓</td><td class="warn">—</td></tr>
+								<tr><td>Per-member filter</td><td>—</td><td class="warn">—</td><td class="tick">✓</td><td class="warn">—</td></tr>
+								<tr><td>“Right now” / next-up band</td><td>—</td><td class="warn">—</td><td class="warn">—</td><td class="tick">✓</td></tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+				<div class="stack-5" data-fb="verdict" data-fb-label="Recommendation">
+					<div class="rail__card" style="background:linear-gradient(140deg,rgba(196,233,218,.4),#fff);border-color:transparent">
+						<div class="rail__title" style="color:var(--mint-ink)">Recommendation</div>
+						<p style="margin:0;font-size:.9375rem;line-height:1.75;color:var(--s800)">
+							<b>Ship A now, then B, and treat C as a bet.</b>
+						</p>
+						<p style="margin:.75rem 0 0;font-size:.9375rem;line-height:1.75;color:var(--s700)">
+							A closes the whole style gap for a class-level change in six files and no state machine touched. It also fixes the two real usability bugs (11px tap targets, Day view being unreachable). B is where the genuine <i>functional</i> win is — zero filters on a shared family calendar is the largest gap, not the colours. C is the only one that risks the power-user habit of scanning the month, so it should be behind a toggle and measured.
+						</p>
+					</div>
+
+					<div class="rail__card">
+						<div class="rail__title">Order of work</div>
+						<ol style="margin:0;padding-left:1.25rem;font-size:.875rem;line-height:1.9;color:var(--s700)">
+							<li><b>Tokens first.</b> Add a <code>calendars.css</code> with the marketing palette as CSS vars. Zero behaviour change, lets every later step be reviewed as pure restyle.</li>
+							<li><b>Accessibility floor.</b> 11px → 12px chips, 26px → 28px+ targets, 44px on the primary <code>+</code>. Independent of style direction — do it either way.</li>
+							<li><b>Prototype A</b> as-is: cream canvas, glass frame, brand chips, Day view in the toggle.</li>
+							<li><b>Filters</b> — a <code>CalendarFilters.svelte</code> plus a <code>hiddenCalendarIds</code> store. Also delete the orphaned <code>CalendarSelector.svelte</code> or wire it.</li>
+							<li><b>Prototype B</b> rail on desktop, drawer on mobile.</li>
+							<li><b>Prototype C</b> behind <code>localStorage</code>, measure scroll-depth before deciding.</li>
+						</ol>
+					</div>
+
+					<div class="rail__card">
+						<div class="rail__title">Do not break</div>
+						<ul style="margin:0;padding-left:1.125rem;font-size:.875rem;line-height:1.8;color:var(--s700)">
+							<li><b>Print view</b> — <code>/calendar/print</code> inherits these classes. Gate every decorative change behind <code>print:</code> variants, the way the app already does.</li>
+							<li><b>41 colocated tests</b> assert class strings. Restyling is a test-breaking change by definition — update the assertions deliberately, don't loosen them.</li>
+							<li><b>Contrast.</b> Chips become tinted backgrounds, so the <code>text-slate-800</code>-on-tint pairing has to clear 4.5:1 at 12px. <code>#FED5CF</code> with slate-800 does; the lighter tints need checking.</li>
+							<li><b>Mobile</b> keeps today's 3-chip + action-sheet behaviour. Only the skin changes below 640px.</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div style="background:linear-gradient(to bottom,rgba(254,213,207,.12),#fff);padding:3rem 0 4rem">
+			<div class="wrap" style="text-align:center">
+				<h2 style="font-size:1.875rem;font-weight:800;color:var(--s900);letter-spacing:-.02em;margin:0">Pick a direction and we'll build it</h2>
+				<p class="hint" style="margin:.75rem auto 1.75rem;max-width:34rem;font-size:1.125rem">Each prototype is a static HTML/JS build — the repo is untouched apart from this folder.</p>
+				<div class="rowflex gap-3" style="justify-content:center;flex-wrap:wrap">
+					<a class="btn btn-primary btn-lg" href="d-working-calendar.html">Prototype D (from the review)</a>
+					<a class="btn btn-ghost btn-lg" href="a-warm-studio.html">Prototype A</a>
+					<a class="btn btn-ghost btn-lg" href="b-focus-sidebar.html">Prototype B</a>
+					<a class="btn btn-ghost btn-lg" href="c-day-first.html">Prototype C</a>
+					<a class="btn btn-ghost btn-lg" href="0-current.html">Baseline</a>
+				</div>
+			</div>
+		</div>
+	</main>
+</div>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="proto-nav.js"></script>
+<script src="feedback.js" defer></script>
+</body>
+</html>

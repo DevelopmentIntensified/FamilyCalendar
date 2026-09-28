@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data model — FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "models", "label": "Data model", "family": "app-ui",
+  "question": "Which of the 39 tables are real, which are wired, and which are advertised but dead?",
+  "thesis": "A browsable reference built from schema.ts, not invented. Every table lists its columns, its row count in a real family, and which pages touch it.",
+  "realPage": "src/lib/server/db/schema.ts — 955 lines, 39 tables"
+}
+</script>
+<style>
+	.mrow2 { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 1100px) { .mrow2 { grid-template-columns: 17rem minmax(0, 1fr); } }
+	.toc { position: sticky; top: 5.25rem; }
+	.toc button { display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left; border: 0; background: transparent; cursor: pointer; padding: .5rem .625rem; border-radius: .625rem; font: 600 .8125rem/1 inherit; color: var(--s600); }
+	.toc button:hover { background: var(--s50); }
+	.toc button.is-on { background: var(--s100); color: var(--s900); }
+	.toc .n { margin-left: auto; font-size: .6875rem; color: var(--s400); font-variant-numeric: tabular-nums; }
+	.tbl { width: 100%; border-collapse: collapse; }
+	.tbl th { text-align: left; font-size: .625rem; letter-spacing: .08em; text-transform: uppercase; color: var(--s400); font-weight: 700; padding: .5rem .625rem; border-bottom: 1px solid var(--s200); }
+	.tbl td { padding: .5rem .625rem; border-bottom: 1px solid var(--s100); font-size: .8125rem; color: var(--s700); vertical-align: top; }
+	.tbl tr:last-child td { border-bottom: 0; }
+	.tname { font: 800 .875rem/1.2 ui-monospace, Menlo, monospace; color: var(--s900); }
+	.pill2 { display: inline-flex; align-items: center; height: 1.25rem; padding: 0 .5rem; border-radius: 9999px; font: 700 .625rem/1 inherit; }
+	.p-live { background: rgba(196,233,218,.7); color: #2d5866; }
+	.p-dead { background: rgba(254,202,202,.7); color: #991b1b; }
+	.cols { display: flex; flex-direction: column; gap: .25rem; margin-top: .5rem; }
+	.col { font: 400 .6875rem/1.5 ui-monospace, Menlo, monospace; color: var(--s600); background: var(--canvas); border-radius: .25rem; padding: .1875rem .375rem; }
+	.col b { color: var(--terracotta); font-weight: 700; }
+	.group { margin-bottom: 2rem; scroll-margin-top: 5.5rem; }
+	.ghead { display: flex; align-items: baseline; gap: .625rem; margin-bottom: .875rem; }
+	.ghead h2 { margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--s900); letter-spacing: -.01em; }
+	.ghead .hint { font-size: .8125rem; }
+	.warnbox { border: 1px solid #fecaca; background: linear-gradient(140deg,rgba(254,202,202,.4),#fff); border-radius: 1rem; padding: 1rem 1.25rem; }
+	.warnbox li { font-size: .875rem; line-height: 1.75; color: var(--s700); }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+import { MODEL_GROUPS } from './app-data.js';
+
+const grid = el('div', 'mrow2');
+const toc = el('div', 'toc');
+const body = el('div');
+grid.appendChild(toc);
+grid.appendChild(body);
+
+/* ── table of contents ──────────────────────────────────────────────── */
+toc.setAttribute('data-fb', 'model-toc');
+toc.setAttribute('data-fb-label', 'Jump to');
+const nav = el('div', 'rail__card');
+nav.style.cssText = 'background:rgba(255,255,255,.8)';
+nav.innerHTML = `<div class="rail__title">Jump to</div>` +
+	MODEL_GROUPS.map((g, i) => `<button data-goto="${g.id}"><span class="legend__sw" style="background:${tone(g.tone)}"></span>${g.label}<span class="n">${g.tables.length}</span></button>`).join('');
+toc.appendChild(nav);
+
+function tone(t) {
+	return { blush: '#e87539', blue: '#5b9fb5', mint: '#4d9c85', peach: '#d38248', red: '#b91c1c', lav: '#8d7aa8' }[t] || '#94a3b8';
+}
+
+/* ── the groups ─────────────────────────────────────────────────────── */
+MODEL_GROUPS.forEach((g) => {
+	const sec = el('section', 'group');
+	sec.id = 'g-' + g.id;
+	sec.setAttribute('data-fb', 'models-' + g.id);
+	sec.setAttribute('data-fb-label', g.label);
+
+	const head = el('div', 'ghead');
+	head.innerHTML = `<h2>${g.label}</h2><span class="hint">${pluralish(g.tables.length)}</span>`;
+	sec.appendChild(head);
+
+	const tbl = el('table', 'tbl');
+	tbl.innerHTML = `<thead><tr><th style="width:14rem">table</th><th>columns</th><th style="width:11rem">used by</th></tr></thead><tbody>` +
+		g.tables.map((t) => {
+			const dead = /NOTHING|n\/a/.test(t.used) || /PARKED|ORPHANED/.test(t.purpose);
+			return `<tr>
+			  <td>
+			    <span class="tname">${t.name}</span>
+			    <div style="margin-top:.25rem"><span class="pill2 ${dead ? 'p-dead' : 'p-live'}">${dead ? 'NOT WIRED' : t.rows}</span></div>
+			    <p style="margin:.5rem 0 0;font-size:.8125rem;line-height:1.6;color:var(--s600)">${t.purpose}</p>
+			  </td>
+			  <td><div class="cols">${t.cols.map((c) => `<span class="col">${bold(c)}</span>`).join('')}</div></td>
+			  <td style="font-size:.75rem;color:var(--s500)">${t.used}</td>
+			</tr>`;
+		}).join('') + '</tbody>';
+	sec.appendChild(cardWrap(tbl, g));
+	body.appendChild(sec);
+});
+
+function cardWrap(node, g) {
+	const w = el('div', 'rail__card');
+	w.style.cssText = 'padding:0;overflow:hidden;background:rgba(255,255,255,.8)';
+	w.appendChild(node);
+	return w;
+}
+function bold(c) {
+	return c.replace(/\b(PK|FK[^·]*?|UNIQUE|COMPOSITE PK|NULLABLE|nullable)\b/g, '<b>$1</b>')
+		.replace(/\b([a-z_]+Id|[a-z_]+_id|[a-z_]+Id)\b(?=\s|$)/g, '<b>$1</b>');
+}
+function pluralish(n) { return `${n} table${n === 1 ? '' : 's'}`; }
+
+/* ── findings ───────────────────────────────────────────────────────── */
+const findings = card(
+	`${sectionTitle('What the audit turned up', '<span class="pill pill-xs pill-blush">read this</span>')}
+	 <ul style="margin:0;padding-left:1.125rem">
+	   <li><b>Meals is half-wired and still has a switch.</b> The <code>meals</code> table, <code>/api/meals</code> and <code>MealsCard.svelte</code> all exist — but the card is imported by nothing except its own test, and no loader reads meals. <code>dashboardModules.ts</code> still lists it, so <a href="account.html" style="color:var(--terracotta)">/account</a> shows a Meals toggle that switches nothing.</li>
+	   <li><b>The changelog advertises a dead feature.</b> “Scan receipts” and “Mark bills paid” are still on the public changelog. The entire money subsystem — 38 files — lives in <code>_attic/</code>, but the <code>bills</code>, <code>receiptItems</code> and <code>itemTags</code> tables are still declared and still migrated, with zero readers.</li>
+	   <li><b>Three tables have never been used.</b> <code>groups</code>, <code>userGroups</code> and <code>familyGroups</code> are declared in the schema and referenced nowhere.</li>
+	   <li><b>Ad consent has two sources of truth.</b> The same three booleans live on <code>userSettings</code> and on <code>userAdConsent</code>.</li>
+	   <li><b>The waitlist duplicate guard never fires.</b> It calls <code>onConflictDoNothing()</code> but <code>waitlist.email</code> has no unique index, so duplicates insert.</li>
+	   <li><b>Base tables have no migration.</b> 18 tables were created via <code>drizzle-kit push</code> and appear in no <code>sql/migrations</code> file, so a fresh database cannot be built from the runner alone. <code>003_create_monetization_tables.sql</code> also contradicts the schema for six tables.</li>
+	   <li><b>Nothing is ever pruned.</b> Notifications, unmatched phrases and ad events grow unbounded; <code>/api/cron/cleanup</code> only handles stale anonymous users.</li>
+	 </ul>`,
+	'findings', 'Audit findings',
+	'background:linear-gradient(140deg,rgba(254,202,202,.4),#fff);border-color:#fecaca;margin-bottom:2rem');
+body.insertBefore(findings, body.firstChild);
+
+/* ── scroll spy ─────────────────────────────────────────────────────── */
+const links = [...toc.querySelectorAll('[data-goto]')];
+toc.addEventListener('click', (e) => {
+	const b = e.target.closest('[data-goto]');
+	if (!b) return;
+	document.getElementById('g-' + b.dataset.goto)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+const io = typeof IntersectionObserver === 'function'
+	? new IntersectionObserver((entries) => {
+		entries.forEach((e) => {
+			if (!e.isIntersecting) return;
+			const id = e.target.id.replace('g-', '');
+			links.forEach((l) => l.classList.toggle('is-on', l.dataset.goto === id));
+		});
+	}, { rootMargin: '-5.5rem 0px -70% 0px' })
+	: null;   // the TOC still jumps; it just will not highlight. Not worth a hard dependency.
+if (io) document.querySelectorAll('.group').forEach((s) => io.observe(s));
+
+window.toast = toast;
+mountApp({
+	head: {
+		kicker: 'Prototype · Reference',
+		title: 'Data model',
+		lede: '39 tables in <code>schema.ts</code>, built up over time. This is what the pages actually read and write — and what turns out not to be wired to anything.',
+		actions: `<a class="btn btn-soft btn-sm" href="index.html">← All prototypes</a>`
+	},
+	body: grid
+});
+</script>
+</body>
+</html>

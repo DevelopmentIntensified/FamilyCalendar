@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tasks — FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "tasks", "label": "Tasks", "family": "app-ui",
+  "question": "Can a 20–150 item list stay scannable, and is the assignment inbox clearly separate from it?",
+  "thesis": "My tasks, then the assignment inbox as a distinct band. Marketing skin, same three data sources.",
+  "realPage": "src/routes/(calendar)/calendar/tasks/ — +page.svelte 471, 5 components. NOTE: the real page has no internal links at all; everything is an API call."
+}
+</script>
+<style>
+	.layout { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 1000px) { .layout { grid-template-columns: minmax(0, 1fr) 20rem; } }
+	.task { display: flex; align-items: flex-start; gap: .625rem; padding: .625rem 0; cursor: pointer; }
+	.task + .task { border-top: 1px solid var(--s100); }
+	.task.is-done .task__t { text-decoration: line-through; color: var(--s400); }
+	.task__box { height: 1.125rem; width: 1.125rem; border-radius: 9999px; border: 2px solid var(--s300); background: #fff; flex: none; margin-top: .15rem; cursor: pointer; }
+	.task.is-done .task__box { background: var(--p600); border-color: var(--p600); }
+	.task__t { font-size: .9375rem; font-weight: 600; color: var(--s800); display: block; }
+	.task__m { display: flex; align-items: center; gap: .375rem; flex-wrap: wrap; margin-top: .1875rem; }
+	.overdue { color: #b91c1c; font-weight: 700; }
+	.tag { display: inline-flex; align-items: center; height: 1.125rem; padding: 0 .4375rem; border-radius: 9999px; background: var(--s100); color: var(--s500); font: 600 .625rem/1 inherit; }
+	.ava-xs { height: 1.125rem; width: 1.125rem; border-radius: 9999px; display: grid; place-items: center; font: 800 .5rem/1 inherit; }
+	.addform { display: flex; gap: .5rem; }
+	.addform .input { flex: 1; }
+	.filters { display: flex; align-items: center; gap: .375rem; flex-wrap: wrap; }
+	.chipf { height: 1.875rem; padding: 0 .75rem; border-radius: 9999px; border: 1px solid var(--s200); background: #fff; color: var(--s600); font: 600 .75rem/1 inherit; cursor: pointer; }
+	.chipf.is-on { background: var(--p600); border-color: var(--p600); color: #fff; }
+	.inbox-row { display: flex; align-items: center; gap: .5rem; padding: .5rem 0; }
+	.inbox-row + .inbox-row { border-top: 1px solid var(--s100); }
+	.pri-pill { font-size: .625rem; font-weight: 800; letter-spacing: .04em; }
+	.pri-high { color: #b91c1c; }
+	.pri-normal { color: var(--s400); }
+	.pri-low { color: var(--s400); }
+	.recur { display: inline-flex; align-items: center; gap: .1875rem; color: var(--lavender-ink, #6b5b7b); }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+import { TASKS, ASSIGNMENT_INBOX, SENT_REQUESTS, RECURRING_LABEL, byId, nameOf, plural } from './app-data.js';
+
+const main = el('div', 'layout');
+const left = el('div');
+const right = el('div');
+main.appendChild(left);
+main.appendChild(right);
+
+/* ── add ─────────────────────────────────────────────────────────────── */
+left.appendChild(card(
+	`<form class="addform" onsubmit="addTask(event)">
+	   <input class="input" id="newTask" placeholder="Add a task — “Lunch Friday at noon with John” parses too" />
+	   <button class="btn btn-primary btn-md" type="submit">Add</button>
+	 </form>`,
+	'add-task', 'Add a task'));
+
+/* ── filter + sort row ───────────────────────────────────────────────── */
+const filters = el('div', 'filters');
+filters.setAttribute('data-fb', 'task-filters');
+filters.setAttribute('data-fb-label', 'Filters & sort');
+filters.innerHTML = `
+	<span class="chipf is-on" data-chip="open">Open</span>
+	<span class="chipf" data-chip="mine">Mine</span>
+	<span class="chipf" data-chip="assigned">Assigned to me</span>
+	<span class="chipf" data-chip="done">Done</span>
+	<span style="flex:1"></span>
+	<select class="input" style="height:1.875rem;padding:0 .625rem;width:auto;font-size:.8125rem">
+	  <option>Due date</option><option>Priority</option><option>Alphabetical</option>
+	</select>`;
+left.appendChild(filters);
+
+/* ── the list ────────────────────────────────────────────────────────── */
+const list = el('div');
+list.setAttribute('data-fb', 'task-list');
+list.setAttribute('data-fb-label', 'Task list');
+left.appendChild(list);
+
+let chip = 'open';
+function paint() {
+	const rows = TASKS.filter((t) => {
+		if (chip === 'open') return !t.completedAt;
+		if (chip === 'done') return !!t.completedAt;
+		if (chip === 'mine') return !t.completedAt && t.assignedTo === 'u_jon';
+		return !t.completedAt && t.assignedTo !== 'u_jon';
+	});
+	const grouped = rows.reduce((a, t) => {
+		const k = t.completedAt ? 'Done' : t.overdue ? 'Overdue' : t.due.includes('week') || t.due === 'Later' ? 'Up next' : 'Today';
+		(a[k] = a[k] || []).push(t);
+		return a;
+	}, {});
+	const order = ['Overdue', 'Today', 'Up next', 'Done'];
+	list.innerHTML = order.filter((k) => grouped[k]).map((k) => `
+		<div class="rail__card" style="margin-bottom:1rem">
+		  ${sectionTitle(k, `<span class="hint">${plural(grouped[k].length, 'task')}</span>`)}
+		  ${grouped[k].map((t) => {
+			const a = t.assignedTo ? byId(t.assignedTo) : null;
+			return `
+			<div class="task${t.completedAt ? ' is-done' : ''}" data-task="${t.id}">
+			  <span class="task__box" onclick="toggle('${t.id}')" role="checkbox" aria-checked="${!!t.completedAt}" tabindex="0"></span>
+			  <span style="flex:1;min-width:0">
+			    <span class="task__t">${t.title}</span>
+			    <span class="task__m">
+			      <span class="hint${t.overdue ? ' overdue' : ''}">${t.due}</span>
+			      ${t.recurrence ? `<span class="recur hint">↻ ${RECURRING_LABEL[t.recurrence]}${t.completionCount ? ' · done ' + t.completionCount + '×' : ''}</span>` : ''}
+			      ${t.tags.map((x) => `<span class="tag">${x}</span>`).join('')}
+			      <span class="pri-pill pri-${t.priority}">${t.priority.toUpperCase()}</span>
+			      ${a ? `<span class="ava-xs" style="background:${a.tone}" title="${nameOf(a.id)}">${a.initials}</span>` : '<span class="hint">unassigned</span>'}
+			    </span>
+			  </span>
+			  <button class="btn-icon" style="height:1.75rem;width:1.75rem" title="Edit" onclick="toast('EditTaskDialog — the real page has one')">✎</button>
+			</div>`;
+		  }).join('')}
+		</div>`).join('') || '<div class="rail__card" style="text-align:center;padding:2.5rem"><p class="hint">Nothing here.</p></div>';
+}
+paint();
+
+filters.addEventListener('click', (e) => {
+	const c = e.target.closest('[data-chip]');
+	if (!c) return;
+	chip = c.dataset.chip;
+	filters.querySelectorAll('[data-chip]').forEach((x) => x.classList.toggle('is-on', x === c));
+	paint();
+});
+
+/* ── assignment inbox — the real page's AssignmentsCard ─────────────── */
+right.appendChild(card(
+	`${sectionTitle('Assigned to you', `<span class="pill pill-xs pill-blush">${ASSIGNMENT_INBOX.length}</span>`)}
+	 ${ASSIGNMENT_INBOX.map((a) => `
+	   <div class="inbox-row">
+	     <span style="flex:1;min-width:0">
+	       <span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)" class="truncate">${a.title}</span>
+	       <span class="hint">${nameOf(a.from).split(' ')[0]} · ${a.due}</span>
+	     </span>
+	     <button class="btn btn-token btn-sm" onclick="toast('Accepted')" style="height:1.75rem">Accept</button>
+	     <button class="btn-icon" style="height:1.75rem;width:1.75rem" onclick="toast('Declined')" title="Decline">✕</button>
+	   </div>`).join('')}`,
+	'assignment-inbox', 'Assignment inbox',
+	'background:linear-gradient(140deg,rgba(254,213,207,.4),#fff);border-color:transparent'));
+
+/* ── sent requests ──────────────────────────────────────────────────── */
+right.appendChild(card(
+	`${sectionTitle('You asked for')}
+	 ${SENT_REQUESTS.map((r) => `
+	   <div class="inbox-row">
+	     <span style="flex:1;min-width:0">
+	       <span style="display:block;font-size:.875rem;color:var(--s700)" class="truncate">${r.title}</span>
+	       <span class="hint">${nameOf(r.to).split(' ')[0]}</span>
+	     </span>
+	     <span class="pill pill-xs ${r.status === 'accepted' ? 'pill-mint' : r.status === 'declined' ? 'pill-blush' : 'pill-token'}">${r.status}</span>
+	   </div>`).join('')}`,
+	'sent-requests', 'Sent requests'));
+
+/* ── model note ─────────────────────────────────────────────────────── */
+right.appendChild(card(
+	`${sectionTitle('How a repeat actually works')}
+	 <p class="hint" style="line-height:1.7">
+	   A repeating task is <b>one row</b>, and <code>dueDate</code> is a <b>cursor</b> that advances on completion. So <code>completedAt</code> is overwritten every time and cannot be history.
+	 </p>
+	 <p class="hint" style="line-height:1.7;margin-top:.5rem">
+	   That is why <code>taskCompletions</code> exists as a separate immutable table: it is the only reason streaks and the stats page work. “Done 12×” on the weekly meal plan is counting rows, not reading a counter.
+	 </p>
+	 <a class="btn btn-soft btn-sm" href="models.html" style="margin-top:.75rem">See the model</a>`,
+	'model-note', 'Recurrence model',
+	'background:linear-gradient(140deg,rgba(190,218,227,.4),#fff);border-color:transparent'));
+
+window.toggle = (id) => { const t = TASKS.find((x) => x.id === id); t.completedAt = t.completedAt ? null : new Date().toISOString(); paint(); toast(t.completedAt ? `Completed “${t.title}”` : 'Undone'); };
+window.addTask = (e) => { e.preventDefault(); const i = document.getElementById('newTask'); if (!i.value.trim()) return; toast(`Added “${i.value.trim()}”`); i.value = ''; };
+window.toast = toast;
+
+mountApp({
+	head: {
+		kicker: 'Prototype · Tasks',
+		title: 'Tasks',
+		lede: 'My tasks, and a separate band for things other people asked me to do. The real page links to nothing — every action is an API call — so this one earns its cross-links.',
+		actions: `<a class="btn btn-soft btn-sm" href="family-tasks.html">Family tasks</a><a class="btn btn-soft btn-sm" href="stats.html">Stats</a>`
+	},
+	body: main
+});
+</script>
+</body>
+</html>

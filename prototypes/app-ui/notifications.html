@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Alerts — FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "notifications", "label": "Alerts", "family": "app-ui",
+  "question": "Five notification types in one undifferentiated list — do they need to be told apart, or is the flat feed correct?",
+  "thesis": "Group by what needs a response, not by time. Only two of the five types actually want an action from you.",
+  "realPage": "src/routes/(calendar)/calendar/notifications/ — +page.svelte 121. Reached from the navbar bell and the bottom-nav Alerts tab; NOT in the top nav."
+}
+</script>
+<style>
+	.fw { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 980px) { .fw { grid-template-columns: minmax(0,1fr) 17rem; } }
+	.n { display: flex; align-items: flex-start; gap: .75rem; padding: .875rem .25rem; text-decoration: none; }
+	.n + .n { border-top: 1px solid var(--s100); }
+	.n.is-unread { background: linear-gradient(90deg,rgba(254,213,207,.28),transparent 70%); }
+	.n__i { height: 2rem; width: 2rem; border-radius: 9999px; display: grid; place-items: center; flex: none; font-size: .875rem; }
+	.n__b { flex: 1; min-width: 0; }
+	.n__t { font-size: .9375rem; color: var(--s800); line-height: 1.5; }
+	.n__t b { font-weight: 700; }
+	.n__m { display: flex; align-items: center; gap: .5rem; margin-top: .3125rem; flex-wrap: wrap; }
+	.unread { height: .5rem; width: .5rem; border-radius: 9999px; background: var(--terracotta); flex: none; margin-top: .5rem; }
+	.tl { display: flex; gap: .5rem; padding: .375rem 0; font-size: .8125rem; }
+	.ty { display: inline-flex; align-items: center; height: 1.25rem; padding: 0 .4375rem; border-radius: 9999px; font: 700 .625rem/1 inherit; }
+	.filters { display: flex; gap: .375rem; flex-wrap: wrap; }
+	.chipf { height: 1.875rem; padding: 0 .75rem; border-radius: 9999px; border: 1px solid var(--s200); background: #fff; color: var(--s600); font: 600 .75rem/1 inherit; cursor: pointer; }
+	.chipf.is-on { background: var(--p600); border-color: var(--p600); color: #fff; }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+import { NOTIFICATIONS, NOTIF_TYPES } from './app-data.js';
+
+const TONE = {
+	blue: 'background:rgba(190,218,227,.7);color:#366d7e',
+	mint: 'background:rgba(196,233,218,.7);color:#2d5866',
+	red: 'background:rgba(254,202,202,.7);color:#991b1b',
+	peach: 'background:rgba(241,181,152,.6);color:#84412e'
+};
+const GLYPH = { assignment_pending: '?', assignment_accepted: '✓', assignment_declined: '✕', task_completed: '✓', added_to_family: '+' };
+
+/* Two types want a decision, three are just news. Splitting on that, not on
+   recency, is the argument this page is making. */
+const NEEDS_YOU = ['assignment_pending', 'assignment_declined'];
+const isAction = (n) => NEEDS_YOU.includes(n.type);
+
+const fw = el('div', 'fw');
+const main = el('div');
+const side = el('div');
+fw.appendChild(main);
+fw.appendChild(side);
+
+let filter = 'all';
+const filters = el('div', 'filters');
+filters.setAttribute('data-fb', 'alert-filters');
+filters.setAttribute('data-fb-label', 'Filters');
+filters.innerHTML = `
+	<span class="chipf is-on" data-f="all">All</span>
+	<span class="chipf" data-f="action">Needs you</span>
+	<span class="chipf" data-f="unread">Unread</span>
+	<span style="flex:1"></span>
+	<button class="btn btn-soft btn-sm" onclick="readAll()">Mark all read</button>`;
+main.appendChild(filters);
+
+const feed = el('div');
+feed.setAttribute('data-fb', 'alert-feed');
+feed.setAttribute('data-fb-label', 'The feed');
+main.appendChild(feed);
+
+function paint() {
+	const rows = NOTIFICATIONS.filter((n) =>
+		filter === 'all' ? true : filter === 'action' ? isAction(n) : !n.read);
+
+	const groups = [
+		{ k: 'Needs you', rows: rows.filter(isAction) },
+		{ k: 'Just news', rows: rows.filter((n) => !isAction(n)) }
+	].filter((g) => g.rows.length);
+
+	feed.innerHTML = groups.map((g) => `
+		<div class="rail__card" style="margin-bottom:1rem">
+		  ${sectionTitle(g.k, `<span class="hint">${g.rows.length}</span>`)}
+		  ${g.rows.map((n) => {
+			const t = NOTIF_TYPES[n.type];
+			return `
+			<a class="n${n.read ? '' : ' is-unread'}" href="${n.link}" data-id="${n.id}">
+			  ${n.read ? '<span style="width:.5rem;flex:none"></span>' : '<span class="unread"></span>'}
+			  <span class="n__i" style="${TONE[t.tone]}">${GLYPH[n.type]}</span>
+			  <span class="n__b">
+			    <span class="n__t"><b>${n.actorName}</b> ${n.message}</span>
+			    <span class="n__m">
+			      <span class="ty" style="${TONE[t.tone]}">${t.label}</span>
+			      <span class="hint">${n.when}</span>
+			    </span>
+			  </span>
+			</a>`;
+		  }).join('')}
+		</div>`).join('') || '<div class="rail__card" style="text-align:center;padding:2.5rem"><p class="hint">Nothing here.</p></div>';
+}
+paint();
+
+filters.addEventListener('click', (e) => {
+	const c = e.target.closest('[data-f]');
+	if (!c) return;
+	filter = c.dataset.f;
+	filters.querySelectorAll('[data-f]').forEach((x) => x.classList.toggle('is-on', x === c));
+	paint();
+});
+
+/* ── the shape of the model, stated ──────────────────────────────────── */
+side.appendChild(card(
+	`${sectionTitle('Five types, one table')}
+	 ${Object.entries(NOTIF_TYPES).map(([k, v]) => `
+	   <div class="tl">
+	     <span class="ty" style="${TONE[v.tone]}">${v.label}</span>
+	     <span class="hint" style="flex:1">${k}</span>
+	   </div>`).join('')}
+	 <p class="hint" style="line-height:1.7;margin-top:.75rem">
+	   All five are the same row shape — <code>type</code>, <code>actorName</code>, <code>message</code>,
+	   <code>link</code>, <code>readAt</code>. The message is a pre-rendered string, so the client cannot
+	   re-word it for a different family member or translate it.
+	 </p>`,
+	'notif-model', 'The model'));
+
+side.appendChild(card(
+	`${sectionTitle('Never pruned')}
+	 <p class="hint" style="line-height:1.7"><code>notifications</code> has no delete path and no retention
+	 policy — it is not in <code>/api/cron/cleanup</code>, which only handles stale anonymous users. A heavy
+	 family generates thousands of rows and reads the newest handful.</p>
+	 <p class="hint" style="line-height:1.7;margin-top:.5rem">There is no “delete read items” here, and the
+	 only action on the page is “mark all read”, which hides the problem without solving it.</p>`,
+	'pruning', 'Never pruned',
+	'background:linear-gradient(140deg,rgba(254,202,202,.4),#fff);border-color:#fecaca'));
+
+side.appendChild(card(
+	`${sectionTitle('Where it is reachable')}
+	 <div class="kv2" style="display:flex;align-items:center;gap:.5rem;padding:.375rem 0;font-size:.8125rem">
+	   <span class="pill pill-xs pill-mint">yes</span> navbar bell</div>
+	 <div style="display:flex;align-items:center;gap:.5rem;padding:.375rem 0;font-size:.8125rem">
+	   <span class="pill pill-xs pill-mint">yes</span> bottom nav “Alerts”</div>
+	 <div style="display:flex;align-items:center;gap:.5rem;padding:.375rem 0;font-size:.8125rem">
+	   <span class="pill pill-xs pill-blush">no</span> top nav
+	 </div>
+	 <p class="hint" style="line-height:1.7;margin-top:.625rem">The top nav has Groceries instead — so
+	 Groceries is unreachable on a phone and Alerts is unreachable on a desktop tab bar.</p>`,
+	'reachability', 'Where it is reachable'));
+
+window.readAll = () => { NOTIFICATIONS.forEach((n) => (n.read = true)); paint(); toast('All marked read'); };
+window.toast = toast;
+
+mountApp({
+	head: {
+		kicker: 'Prototype · Alerts',
+		title: 'Alerts',
+		lede: 'Grouped by whether it needs a decision, not by when it arrived. Two of the five types do; the other three are news.',
+		actions: `<a class="btn btn-soft btn-sm" href="tasks.html">Go to tasks</a>`
+	},
+	body: fw
+});
+</script>
+</body>
+</html>

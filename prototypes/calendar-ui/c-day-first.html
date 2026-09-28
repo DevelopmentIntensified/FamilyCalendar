@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Prototype C · Day First — FamilyPlanz calendar</title>
+
+<!-- Who this prototype is. The feedback overlay reads this so the review that
+     comes back says WHAT it reviewed, not just which file. Keep it honest. -->
+<script type="application/json" id="fb-page">
+{
+  "id": "c",
+  "label": "Prototype C · Day First",
+  "family": "calendar-ui",
+  "question": "Should the calendar still be the landing surface, or should 'what now?' come first?",
+  "thesis": "A hero band answers 'what now?' using the marketing recipe; the month grid is demoted below it.",
+  "risk": "power users who open the app to scan the month now scroll past a hero every visit"
+}
+</script>
+<link rel="stylesheet" href="proto.css" />
+<!-- feedback overlay: scaffolding chrome, not part of the design -->
+<link rel="stylesheet" href="feedback.css" />
+<style>
+	/* C-only: the marketing hero recipe transplanted into the app */
+	.hero {
+		position: relative; overflow: hidden;
+		padding: 2rem 0 1.5rem;
+	}
+	.hero__wash { position: absolute; inset: 0; background: linear-gradient(150deg, rgba(190,218,227,.4), #fff 40%, rgba(254,213,207,.45)); }
+	.hero__in { position: relative; display: grid; gap: 1.5rem; grid-template-columns: 1fr; align-items: center; }
+	@media (min-width: 900px) { .hero__in { grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); gap: 2.5rem; } }
+
+	.now-hero {
+		position: relative; overflow: hidden; border-radius: 1.5rem; padding: 1.5rem;
+		background: rgba(255,255,255,.72); backdrop-filter: blur(10px);
+		border: 1px solid rgba(255,255,255,.9);
+		box-shadow: 0 20px 45px -18px rgba(45,88,102,.28);
+	}
+	.now-hero__glow {
+		position: absolute; right: -3.5rem; bottom: -3.5rem; height: 12rem; width: 12rem;
+		border-radius: 9999px; background: rgba(196,233,218,.6); filter: blur(28px);
+	}
+
+	.clock { font-size: 2.75rem; font-weight: 800; letter-spacing: -.03em; line-height: 1; color: var(--s900); font-variant-numeric: tabular-nums; }
+	.clock small { font-size: 1rem; font-weight: 700; color: var(--s400); margin-left: .375rem; letter-spacing: 0; }
+
+	.ring {
+		position: relative; height: 1.25rem; width: 1.25rem; border-radius: 9999px; flex: none;
+		background: var(--s200);
+	}
+	.ring.is-on { background: var(--terracotta); box-shadow: 0 0 0 4px rgba(254,213,207,.75); }
+	.ring.is-next { background: var(--mint); box-shadow: 0 0 0 4px rgba(196,233,218,.7); }
+
+	.shape-bar { display: flex; gap: 2px; height: .5rem; border-radius: 9999px; overflow: hidden; }
+	.shape-bar span { display: block; height: 100%; }
+
+	.timeline { position: relative; padding-left: 1.25rem; }
+	.timeline::before { content: ''; position: absolute; left: .375rem; top: .5rem; bottom: .5rem; width: 2px; background: var(--s200); }
+	.tl-item { position: relative; padding: .5rem 0; }
+	.tl-item::before {
+		content: ''; position: absolute; left: -1.125rem; top: .875rem; height: .625rem; width: .625rem;
+		border-radius: 9999px; background: #fff; box-shadow: inset 0 0 0 3px var(--s300);
+	}
+	.tl-item.is-now::before { background: var(--terracotta); box-shadow: 0 0 0 4px rgba(254,213,207,.8); }
+	.tl-item.is-next::before { background: var(--mint-ink); box-shadow: 0 0 0 4px rgba(196,233,218,.8); }
+
+	.demoted { opacity: .97; }
+	.demoted .cal-frame { box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+</style>
+</head>
+<body>
+<div class="shell">
+	<nav class="navbar">
+		<div class="wrap navbar__in">
+			<a class="logo" href="#">
+				<svg class="logo__mark" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+				<span class="logo__text">Family Planz</span>
+			</a>
+			<div class="navlinks">
+				<a class="navlink is-active" href="#">Calendar</a>
+				<a class="navlink" href="#">Dashboard</a>
+				<a class="navlink" href="#">Tasks</a>
+				<a class="navlink" href="#">Groceries</a>
+				<a class="navlink" href="#">Family</a>
+			</div>
+			<span class="nav-avatar">J</span>
+		</div>
+	</nav>
+
+	<main>
+		<!-- ══════════════ HERO BAND — marketing recipe (orbs + dual gradient) ══════════════ -->
+		<section class="hero" data-fb="hero" data-fb-label="Hero band">
+			<div class="hero__wash"></div>
+			<div class="orb orb-blue" style="right:-14rem;top:-16rem;height:40rem;width:40rem;opacity:.55"></div>
+			<div class="orb orb-blush" style="left:-12rem;bottom:-14rem;height:32rem;width:32rem;opacity:.5"></div>
+			<div class="wrap hero__in">
+				<div data-fb="hero-intro" data-fb-label="Hero · intro & actions">
+					<span class="pill pill-glass">Friday, 25 September</span>
+					<h1 style="margin:1rem 0 0;font-size:2.25rem;font-weight:800;line-height:1.1;letter-spacing:-.03em;color:var(--s900)">
+						Right now it's <span style="color:var(--terracotta)">8:42 AM</span>.
+					</h1>
+					<p style="margin:.75rem 0 0;font-size:1.125rem;line-height:1.6;color:var(--s600);max-width:34rem">
+						You're on <b>Family</b> and <b>Work</b>. Three things today, one of them needs a ride. Two tasks are overdue.
+					</p>
+
+					<div class="rowflex gap-3" style="margin-top:1.25rem;flex-wrap:wrap;align-items:center">
+						<button class="btn btn-primary btn-lg" data-act="new">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="height:1.125rem;width:1.125rem"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+							Add something
+						</button>
+						<button class="btn btn-ghost btn-lg" data-view="week">See the week</button>
+					</div>
+
+					<div class="rowflex gap-4" style="margin-top:1.5rem;flex-wrap:wrap">
+						<div class="donemark">
+							<span class="ring is-on"></span>
+							<span style="font-size:.8125rem;font-weight:700;color:var(--s700)">Morning prayer · 7:30</span>
+						</div>
+						<div class="donemark">
+							<span class="ring is-on"></span>
+							<span style="font-size:.8125rem;font-weight:700;color:var(--s700)">Team standup · 12:15</span>
+						</div>
+						<div class="donemark">
+							<span class="ring"></span>
+							<span style="font-size:.8125rem;font-weight:700;color:var(--s700)">Piano — Eli · 17:30</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- today card -->
+				<div class="now-hero" data-fb="hero-today" data-fb-label="Hero · today card">
+					<div class="now-hero__glow"></div>
+					<div style="position:relative">
+						<div class="rowflex between" style="margin-bottom:1rem">
+							<div>
+								<div style="font-size:.6875rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--s400)">Today</div>
+								<div class="clock">25 <small>Sep</small></div>
+							</div>
+							<div style="text-align:right">
+								<div class="hint">3 events · 2 tasks</div>
+								<div class="shape-bar" style="width:6rem;margin-top:.375rem">
+									<span style="flex:2;background:var(--terracotta)"></span>
+									<span style="flex:1;background:var(--blue-ink)"></span>
+									<span style="flex:3;background:var(--mint-ink)"></span>
+								</div>
+							</div>
+						</div>
+
+						<div class="timeline">
+							<div class="tl-item is-now">
+								<div class="rowflex between gap-2">
+									<span class="hint tnum">7:30 – 8:30 AM</span>
+									<span class="pill pill-xs pill-mint">Now · 48 min left</span>
+								</div>
+								<div style="font-size:.9375rem;font-weight:700;color:var(--s800)">Morning prayer</div>
+							</div>
+							<div class="tl-item is-next">
+								<div class="rowflex between gap-2">
+									<span class="hint tnum">12:15 – 1:00 PM</span>
+									<span class="pill pill-xs pill-blush">Next · in 3h 33m</span>
+								</div>
+								<div style="font-size:.9375rem;font-weight:700;color:var(--s800)">Team standup</div>
+							</div>
+							<div class="tl-item">
+								<div class="rowflex between gap-2">
+									<span class="hint tnum">5:30 – 6:30 PM</span>
+									<span class="hint">Later</span>
+								</div>
+								<div style="font-size:.9375rem;font-weight:700;color:var(--s800)">Piano — Eli</div>
+								<div class="hint">2 of 3 going</div>
+							</div>
+						</div>
+
+						<button class="btn btn-soft btn-sm" data-view="day" style="width:100%;margin-top:1rem">Open today's timeline</button>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ══════════════ CALLOUT ══════════════ -->
+		<div class="wrap" style="padding-bottom:0">
+			<div class="cal-frame" data-fb="callout" data-fb-label="The bet" style="padding:1rem 1.25rem;background:linear-gradient(135deg,rgba(241,181,152,.28),rgba(255,255,255,.75));border-color:transparent;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+				<span style="height:2.25rem;width:2.25rem;border-radius:.875rem;display:grid;place-items:center;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06),inset 0 0 0 1px var(--s200);color:var(--peach-ink);flex:none">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1.125rem;width:1.125rem"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+				</span>
+				<div style="flex:1;min-width:14rem">
+					<div style="font-size:.9375rem;font-weight:700;color:var(--s800)">The bet: the page answers "what's happening now?" before "what's happening when?" — so the calendar stops being the landing surface.</div>
+					<div class="hint">Today answers "what is happening right now"; the month grid below is the reference you scroll to when right now isn't enough.</div>
+				</div>
+				<div class="rowflex gap-2">
+					<a class="btn btn-soft btn-sm" href="index.html">← All prototypes</a>
+					<a class="btn btn-soft btn-sm" href="0-current.html">See current UI</a>
+				</div>
+			</div>
+		</div>
+
+		<!-- ══════════════ THE DEMOTED CALENDAR ══════════════ -->
+		<div class="wrap demoted" style="padding-top:1.5rem;padding-bottom:3rem">
+			<div class="cal-frame" data-fb="toolbar" data-fb-label="Toolbar" style="padding:.875rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+				<button class="btn btn-soft btn-sm" data-act="today">Today</button>
+				<span class="rowflex" style="background:rgba(255,255,255,.75);border-radius:9999px;box-shadow:inset 0 0 0 1px var(--s200)">
+					<button class="btn-icon" data-act="prev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg></button>
+					<button class="btn-icon" data-act="next" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+				</span>
+				<span style="font-size:1.375rem;font-weight:800;letter-spacing:-.02em;color:var(--s900)" data-mlabel>September 2026</span>
+
+				<span style="flex:1"></span>
+
+				<div class="rowflex gap-2" style="flex-wrap:wrap">
+					<div class="legend legend--row" id="legendInline"></div>
+					<div class="seg seg--tint">
+						<button class="seg__btn" data-view="month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg><span class="hide-sm">Month</span></button>
+						<button class="seg__btn" data-view="week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 11v6M15 11v6"/></svg><span class="hide-sm">Week</span></button>
+						<button class="seg__btn" data-view="day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M9 15h6"/></svg><span class="hide-sm">Day</span></button>
+						<button class="seg__btn" data-view="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="hide-sm">List</span></button>
+					</div>
+					<button class="btn-icon" data-mode="add" aria-pressed="false" title="Add by dragging a time range" style="background:rgba(255,255,255,.75);box-shadow:inset 0 0 0 1px var(--s200)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg></button>
+					<button class="btn-icon" data-mode="select" aria-pressed="false" title="Select events to edit in bulk" style="background:rgba(255,255,255,.75);box-shadow:inset 0 0 0 1px var(--s200)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></button>
+					<span class="rowflex hide-sm" style="background:rgba(255,255,255,.75);border-radius:9999px;box-shadow:inset 0 0 0 1px var(--s200)">
+						<button class="btn-icon" title="Import" style="height:2.5rem;width:2.5rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4"/></svg></button>
+						<button class="btn-icon" title="Print" style="height:2.5rem;width:2.5rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2-2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg></button>
+						<button class="btn-icon" title="Day dashboard" style="height:2.5rem;width:2.5rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-13z"/></svg></button>
+						<button class="btn-icon" title="Settings" style="height:2.5rem;width:2.5rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
+					</span>
+				</div>
+			</div>
+
+			<div id="view" data-fb="view" data-fb-label="Calendar view"></div>
+
+			<div class="grid" data-fb="notes" data-fb-label="Notes" style="margin-top:2rem;gap:1.5rem;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr))">
+				<div class="rail__card" style="background:linear-gradient(135deg,rgba(254,213,207,.4),#fff)">
+					<div class="rail__title">What this adds</div>
+					<ul style="margin:0;padding-left:1.125rem;font-size:.875rem;line-height:1.7;color:var(--s700)">
+						<li><b>“What now?” answered before “what's when?”</b> — the marketing hero recipe transplanted into the app</li>
+						<li>Time-aware state: <b>now</b> / <b>next</b> / later, with live countdowns</li>
+						<li>Reads the user's own attendance — “You're on Family and Work” is the same RSVP data the detail sheet already fetches</li>
+						<li>Day-shape bar: a glance at the day's load by calendar</li>
+						<li>Month grid demoted but fully intact below</li>
+					</ul>
+				</div>
+				<div class="rail__card" style="background:linear-gradient(135deg,rgba(241,181,152,.4),#fff)">
+					<div class="rail__title">The risk — say this out loud</div>
+					<p style="margin:0;font-size:.875rem;line-height:1.7;color:var(--s700)">This changes what the page <i>is</i>. Power users who open the app to scan the month now scroll past a hero every visit, and the “September 2026” month grid moves below the fold on a laptop. The mitigation is to make the hero band <b>collapsible and remembered</b> (<code>localStorage</code>, like <code>resolveInitialView</code> already does for views) so it costs one click for those who don't want it.</p>
+				</div>
+				<div class="rail__card" style="background:linear-gradient(135deg,rgba(190,218,227,.4),#fff)">
+					<div class="rail__title">Build notes</div>
+					<p style="margin:0;font-size:.875rem;line-height:1.7;color:var(--s700)">A new <code>TodayBand.svelte</code> fed by the existing streamed payload — no new endpoints needed, <code>+page.server.ts</code> already returns this month's events, the user's RSVP statuses and the tasks. The hero's orbs and washes are copied verbatim from <code>(marketing)/+page.svelte:11–19</code>, so the CSS is already proven.</p>
+				</div>
+			</div>
+		</div>
+	</main>
+</div>
+
+<button class="fab" id="fab" data-act="new" aria-label="Add">
+	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 4v16m8-8H4"/></svg>
+</button>
+
+<script type="module">
+	import { mount } from './proto-shell.js';
+	mount({ viewHost: document.getElementById('view'), legendHost: document.getElementById('legendInline') });
+</script>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="proto-nav.js"></script>
+<script src="feedback.js" defer></script>
+</body>
+</html>

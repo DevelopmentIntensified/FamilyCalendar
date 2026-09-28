@@ -1,0 +1,3 @@
+# Test scratch. The feedback e2e suites write here and clean up after
+# themselves, but a run that dies mid-way leaves it behind. Never committed.
+feedback/

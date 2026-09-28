@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Prototype tree — FamilyPlanz</title>
+<link rel="stylesheet" href="app-ui/proto.css" />
+<link rel="stylesheet" href="app-ui/feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "tree", "label": "Prototype tree", "family": "root",
+  "question": "Is the whole prototype estate discoverable from one place, and does the tree tell the truth about what is on disk?",
+  "thesis": "One tree, two sets, three views: lineage (how a prototype came to be), routes (what it maps to in the app), and files (what is actually on disk). Each view is a different question, and they are not the same question.",
+  "realPage": "prototypes/ — the root of every prototype in this repo"
+}
+</script>
+<style>
+	:root { --tree-line: #e2dcd4; }
+	.hero { position: relative; overflow: hidden; border-radius: 2rem; padding: 2.5rem 2rem; background: linear-gradient(140deg, rgba(254,213,207,.55), rgba(255,255,255,.92) 55%, rgba(190,218,227,.45)); }
+	@media (max-width: 700px) { .hero { padding: 1.75rem 1.25rem; } }
+	.hero h1 { margin: 0; font-size: 2.25rem; font-weight: 800; letter-spacing: -.03em; color: var(--s900); }
+	@media (max-width: 700px) { .hero h1 { font-size: 1.6rem; } }
+	.orb { position: absolute; border-radius: 9999px; filter: blur(30px); pointer-events: none; }
+	.orb.a { right: -3rem; top: -3rem; height: 11rem; width: 11rem; background: rgba(241,181,152,.45); }
+	.orb.b { left: 26%; bottom: -4rem; height: 9rem; width: 9rem; background: rgba(196,233,218,.45); }
+
+	/* view switch */
+	.views { display: inline-flex; background: var(--s100); border-radius: .75rem; padding: .25rem; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+	.views button { min-height: 2.25rem; padding: 0 1rem; border: 0; background: transparent; border-radius: .5rem; font: 600 .8125rem/1 inherit; color: var(--s500); cursor: pointer; }
+	.views button.is-on { background: #fff; color: var(--s900); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+	.views .n { font-size: .6875rem; color: var(--s400); margin-left: .375rem; }
+	.views button.is-on .n { color: var(--s500); }
+
+	/* ── the tree itself ───────────────────────────────────────────── */
+	.tree { font-size: .9375rem; line-height: 1.9; }
+	.tree ul { list-style: none; margin: 0; padding-left: 1.25rem; position: relative; }
+	.tree > ul { padding-left: 0; }
+	.tree li { position: relative; }
+	.tree ul ul { border-left: 1px solid var(--tree-line); margin-left: .5625rem; }
+	.tree ul ul > li::before {
+		content: ''; position: absolute; left: -1.25rem; top: .95em; width: 1rem; height: 1px; background: var(--tree-line);
+	}
+	.node { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; padding: .1875rem 0; }
+	.node__t { font-weight: 700; color: var(--s900); }
+	.node__m { font-size: .75rem; color: var(--s500); }
+	.node__q { font-size: .8125rem; color: var(--s600); width: 100%; line-height: 1.6; margin: -.25rem 0 .375rem; padding-left: 1.5rem; }
+	.folder > .node__t { color: var(--terracotta); }
+	.file > .node__t { font-weight: 600; color: var(--s700); font-family: ui-monospace, Menlo, monospace; font-size: .875rem; }
+	.dim { color: var(--s400); }
+
+	/* file rows */
+	.frow { display: flex; align-items: center; gap: .625rem; padding: .25rem 0; font-size: .8125rem; }
+	.frow + .frow { border-top: 1px solid var(--s100); }
+	.frow__n { font-family: ui-monospace, Menlo, monospace; color: var(--s800); font-weight: 600; flex: none; }
+	.frow__r { color: var(--s400); font-size: .6875rem; margin-left: auto; text-align: right; }
+	.swatch { height: .5rem; width: .5rem; border-radius: 9999px; flex: none; }
+
+	/* lineage */
+	.lin { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 760px) { .lin { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+	@media (min-width: 1200px) { .lin { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+	.step-node { position: relative; padding: 1.125rem 1.25rem; }
+	.step-node.is-base { background: linear-gradient(140deg,rgba(226,232,240,.5),#fff); }
+	.step-node.is-win { background: linear-gradient(140deg,rgba(196,233,218,.5),#fff); }
+	.step-node.is-loss { background: rgba(255,255,255,.6); }
+	.step-node__k { font-size: .625rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--s400); }
+	.arrow { color: var(--s300); font-size: 1.25rem; text-align: center; padding: .25rem 0; }
+	@media (min-width: 760px) { .arrow { display: none; } }
+	.route { font: 400 .6875rem/1.5 ui-monospace, Menlo, monospace; color: var(--s400); margin-top: .625rem; padding-top: .5rem; border-top: 1px solid var(--s100); }
+
+	/* feedback tally */
+	.tally { display: inline-flex; align-items: center; gap: .25rem; height: 1.25rem; padding: 0 .4375rem; border-radius: 9999px; font: 700 .625rem/1 inherit; }
+	.t-good { background: rgba(196,233,218,.75); color: #2d5866; }
+	.t-bad { background: rgba(254,202,202,.75); color: #991b1b; }
+	.t-idea { background: rgba(190,218,227,.75); color: #366d7e; }
+	.t-none { background: var(--s100); color: var(--s500); font-weight: 600; }
+	.rd { display: inline-flex; align-items: center; height: 1.25rem; padding: 0 .4375rem; border-radius: 9999px; background: var(--s100); color: var(--s600); font: 700 .625rem/1 inherit; }
+	.legend2 { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .75rem; color: var(--s500); }
+	.rules li { font-size: .875rem; line-height: 1.8; color: var(--s700); }
+	.rules li b { color: var(--s900); }
+	code { font: 600 .8125em ui-monospace, Menlo, monospace; background: var(--s100); padding: .1rem .3rem; border-radius: .25rem; color: var(--s700); }
+	.cmd { font: 600 .8125rem/1.7 ui-monospace, Menlo, monospace; background: #1e293b; color: #e2e8f0; padding: .875rem 1rem; border-radius: .75rem; overflow-x: auto; }
+</style>
+</head>
+<body>
+<script src="app-ui/drag.js"></script>
+<script src="app-ui/dock.js"></script>
+<script src="app-ui/feedback.js" defer></script>
+<script type="module">
+/* ============================================================================
+   The prototype tree.
+
+   One page, the whole estate, three views — because there are three different
+   questions and they have different answers:
+
+     lineage  how did this prototype come to be, and what was rejected?
+     routes   which real app route is this, and what is it arguing?
+     files    what is actually on disk right now?
+
+   The file view is derived from the same directory the pages live in, and
+   tree-check.mjs fails if the table below drifts from it. A tree that lies
+   about the filesystem is worse than no tree.
+   ========================================================================== */
+
+const TREE = {
+	calendar: {
+		label: 'Calendar',
+		href: 'calendar-ui/index.html',
+		blurb: 'The grid page. Three alternatives, then a synthesis of the round-1 review.',
+		prototypes: [
+			{ file: 'calendar-ui/0-current.html', name: '0 · current', role: 'baseline', route: 'src/routes/(calendar)/calendar/ — ≈8,300 LOC, 41 components',
+				note: 'The shipped page, unchanged, with the real data. Everything else is measured against this.' },
+			{ file: 'calendar-ui/a-warm-studio.html', name: 'A · warm studio', role: 'variant', route: 'same feature set, marketing skin',
+				note: 'Toolbar and legend in one panel. Warm canvas, generous spacing. Round 1: its toolbar row won.' },
+			{ file: 'calendar-ui/b-focus-sidebar.html', name: 'B · focus sidebar', role: 'variant', route: 'same feature set, marketing skin',
+				note: 'Left rail with mini month, up-next and calendars. Round 1: the rail won — it survived into D.' },
+			{ file: 'calendar-ui/c-day-first.html', name: 'C · day-first', role: 'variant', route: 'same feature set, marketing skin',
+				note: 'Day hero above a compressed grid. Round 1: rejected — the hero ate space and the copy was vague.' },
+			{ file: 'calendar-ui/d-working-calendar.html', name: 'D · working calendar', role: 'synthesis', route: "the round-1 rebuild, under review",
+				note: "Not a patch of the losers. B's rail + A's toolbar + the legend moved under the grid, C's hero dropped and its vague copy made explicit." }
+		]
+	},
+	app: {
+		label: 'App',
+		href: 'app-ui/index.html',
+		blurb: 'Every other route, plus a browsable read of the data model.',
+		prototypes: [
+			{ file: 'app-ui/dashboard.html', name: 'Dashboard', role: 'core', route: 'calendar/dashboard/ — +page.server.ts 388' },
+			{ file: 'app-ui/tasks.html', name: 'Tasks', role: 'core', route: 'calendar/tasks/ — +page.svelte 471' },
+			{ file: 'app-ui/groceries.html', name: 'Groceries', role: 'core', route: 'calendar/groceries/ — +page.svelte 270' },
+			{ file: 'app-ui/family.html', name: 'Family', role: 'people', route: 'family/ — +page.svelte 209' },
+			{ file: 'app-ui/family-detail.html', name: 'Family settings', role: 'people', route: 'family/[familyId]/ — +page.svelte 793' },
+			{ file: 'app-ui/family-tasks.html', name: 'Family tasks', role: 'people', route: 'family/tasks/ — +page.svelte 309' },
+			{ file: 'app-ui/family-members-add.html', name: 'Add a member', role: 'people', route: 'family/[familyId]/members/add — 121' },
+			{ file: 'app-ui/family-invitations.html', name: 'Invitations', role: 'people', route: 'family/invitations — 238' },
+			{ file: 'app-ui/family-create.html', name: 'Create a family', role: 'people', route: 'family/create — 163' },
+			{ file: 'app-ui/notifications.html', name: 'Alerts', role: 'comms', route: 'calendar/notifications — 121' },
+			{ file: 'app-ui/stats.html', name: 'Stats', role: 'core', route: 'calendar/stats — 113' },
+			{ file: 'app-ui/archive.html', name: 'Archive', role: 'core', route: 'calendar/archive — 55' },
+			{ file: 'app-ui/event.html', name: 'Event detail', role: 'calendar', route: 'calendar/event/[id]/ — 435' },
+			{ file: 'app-ui/import.html', name: 'Import', role: 'calendar', route: 'calendar/import — 169' },
+			{ file: 'app-ui/account.html', name: 'Account', role: 'settings', route: 'account/ — +page.svelte 197 + 7 sections' },
+			{ file: 'app-ui/models.html', name: 'Data model', role: 'reference', route: 'lib/server/db/schema.ts — 955 lines, 39 tables' }
+		]
+	}
+};
+
+/* the files each set really contains, with what each one is for. The checker
+   fails if this drifts from the directory. */
+const FILES = {
+	'calendar-ui': [
+		['index.html', 'hub', 'findings, round-1 verdict, parity matrix'],
+		['0-current.html', 'page', 'the shipped page, unchanged'],
+		['a-warm-studio.html', 'page', 'variant A'],
+		['b-focus-sidebar.html', 'page', 'variant B'],
+		['c-day-first.html', 'page', 'variant C'],
+		['d-working-calendar.html', 'page', 'the synthesis'],
+		['proto-shell.js', 'engine', 'shared view engine — every prototype is this + chrome'],
+		['proto-data.js', 'data', '63 events, 8 tasks'],
+		['proto-nav.js', 'engine', 'the prototype switch bar'],
+		['proto.css', 'style', 'design tokens'],
+		['sync-baseline.mjs', 'tool', 'keeps 0-current.html in step with proto-data'],
+		['smoke.mjs', 'test', 'every page renders'],
+		['lint.mjs', 'test', 'markup and asset hygiene'],
+		['nav-check.mjs', 'test', 'the switch bar covers every page'],
+		['feedback-check.mjs', 'test', 'overlay contract'],
+		['drag-check.mjs', 'test', 'both bars are draggable'],
+		['feedback-e2e.mjs', 'test', 'pick, pin, verdict, persist'],
+		['rounds-e2e.mjs', 'test', 'rounds survive a new round'],
+		['feedback.js', 'overlay', 'the review overlay (copy of the skill asset)'],
+		['feedback.css', 'overlay', 'overlay styles'],
+		['drag.js', 'overlay', 'the one movable thing (copy of the skill asset)'],
+		['dock.js', 'overlay', 'the collapsed launcher for both tools'],
+		['dock-check.mjs', 'test', 'the chrome collapses, the menu opens both'],
+		['README.md', 'doc', 'how to run, how to mark up']
+	],
+	'app-ui': [
+		['index.html', 'hub', 'the page grid and the audit findings'],
+		['app-shell.js', 'engine', 'navbar, bottom nav, page header, toast'],
+		['app-data.js', 'data', 'mock data + all 39 tables'],
+		['proto.css', 'style', 'design tokens'],
+		['feedback.js', 'overlay', 'the review overlay (copy of the skill asset)'],
+		['feedback.css', 'overlay', 'overlay styles'],
+		['drag.js', 'overlay', 'the one movable thing (copy of the skill asset)'],
+		['dock.js', 'overlay', 'the collapsed launcher for both tools'],
+		['app-check.mjs', 'test', 'eight sections, all derived from the repo'],
+		['README.md', 'doc', 'how to run, how to mark up']
+	]
+};
+
+const ROLE = {
+	baseline:  ['base', 'pill-token', 'baseline'],
+	variant:   ['', 'pill-glass', 'variant'],
+	synthesis: ['is-win', 'pill-mint', 'synthesis'],
+	core:      ['', 'pill-blush', 'core'],
+	people:    ['', 'pill-mint', 'people'],
+	comms:     ['', 'pill-blue', 'comms'],
+	calendar:  ['', 'pill-blue', 'calendar'],
+	settings:  ['', 'pill-token', 'settings'],
+	reference: ['', 'pill-glass', 'reference']
+};
+
+/* ── feedback tallies, straight from the shared store ───────────────── */
+const STORE = 'proto-fb:v1';
+function tally(file) {
+	try {
+		const all = JSON.parse(localStorage.getItem(STORE) || '{}');
+		const rec = (all.pages || {})[file];
+		if (!rec) return null;
+		const items = (rec.rounds || []).flatMap((r) => r.items || []);
+		if (!items.length) return null;
+		const n = (v) => items.filter((i) => i.verdict === v).length;
+		const rounds = (rec.rounds || []).length;
+		return { good: n('good'), bad: n('bad'), idea: n('idea'), rounds };
+	} catch (e) { return null; }
+}
+function badges(file) {
+	const t = tally(file);
+	if (!t) return '<span class="tally t-none">not reviewed</span>';
+	const bits = [];
+	if (t.good) bits.push(`<span class="tally t-good" title="marked good">${t.good} good</span>`);
+	if (t.bad)  bits.push(`<span class="tally t-bad" title="marked bad — the rebuild queue">${t.bad} redo</span>`);
+	if (t.idea) bits.push(`<span class="tally t-idea" title="ideas">${t.idea} idea</span>`);
+	if (t.rounds > 1) bits.push(`<span class="rd" title="review rounds">r${t.rounds}</span>`);
+	return bits.join(' ');
+}
+
+/* ── review state, from the registry (durable) not localStorage (per-browser) ──
+   The store above only knows what THIS browser marked. Two engineers, two
+   answers. review.json is the checked record — review-check.mjs proves it
+   against feedback/ — so the tree reads that, and falls back to the store
+   only if the fetch fails (file://). */
+const REVIEW = new Map();
+const OUTCOME_LABEL = {
+	approved: 'approved',
+	'changes-requested': 'changes requested',
+	rebuild: 'to rebuild'
+};
+async function loadReview() {
+	try {
+		const res = await fetch('review.json', { cache: 'no-store' });
+		if (!res.ok) return;
+		const reg = await res.json();
+		for (const p of reg.pages ?? []) REVIEW.set(p.file, p);
+		repaintReview();
+		paintTallies();
+	} catch (e) { /* file:// or offline — the per-browser store still renders */ }
+}
+function reviewBadge(file) {
+	const r = REVIEW.get(file);
+	if (!r) return '';
+	if (r.state === 'unreviewed') return '<span class="tally t-none">not reviewed</span>';
+	const label = OUTCOME_LABEL[r.outcome] ?? r.state;
+	const cls = r.outcome === 'approved' ? 't-good' : r.outcome === 'rebuild' ? 't-bad' : 't-idea';
+	const tickets = (r.tickets ?? []).map((t) => `#${t}`).join(' ');
+	return (
+		`<span class="tally ${cls}" title="review outcome: ${r.outcome}${r.closed ? '' : ' · round still open'}` +
+		`${tickets ? ' · ' + tickets : ''}">${label}</span>` +
+		(r.closed ? '' : ' <span class="rd" title="the review round is still open">open</span>')
+	);
+}
+/* Repaint every node's badge from the registry once it lands. The registry
+   wins: the per-browser store only fills in for a page it has no entry for,
+   so a node can never say "not reviewed" and "approved" at the same time. */
+function repaintReview() {
+	document.querySelectorAll('.node[data-file]').forEach((n) => {
+		const slot = n.querySelector('[data-badge-slot]');
+		if (!slot) return;
+		const f = n.dataset.file;
+		slot.innerHTML = REVIEW.has(f) ? reviewBadge(f) : badges(f);
+	});
+}
+
+const body = document.createElement('div');
+body.style.cssText = 'display:flex;flex-direction:column;gap:1rem';
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+const hero = document.createElement('div');
+hero.className = 'hero';
+hero.setAttribute('data-fb', 'tree-hero');
+hero.setAttribute('data-fb-label', 'Tree header');
+hero.innerHTML = `
+	<div class="orb a"></div><div class="orb b"></div>
+	<div style="position:relative">
+	  <span class="pill pill-xs pill-token">prototypes/</span>
+	  <h1 style="margin:.625rem 0 0">Prototype tree</h1>
+	  <p class="hint" style="margin:.5rem 0 0;max-width:46rem;font-size:.9375rem;line-height:1.7">
+	    Everything prototyped in this repo, in one tree. Twenty-one pages across two sets, each one tied to
+	    the real route it came from — and to the question it exists to answer.
+	  </p>
+	  <div class="rowflex gap-2" style="margin-top:1.25rem;flex-wrap:wrap" id="tallies"></div>
+	  <p class="hint" style="margin:.75rem 0 0;font-size:.8125rem;line-height:1.7">
+	    Serve this from the <code>prototypes/</code> root — the links between sets use <code>../</code>,
+	    so rooted anywhere deeper the other set goes missing. Run the checker to prove all of this
+	    still reaches a browser: <code>node prototypes/serve-check.mjs</code>
+	  </p>
+	</div>`;
+body.appendChild(hero);
+
+/* ── view switch ──────────────────────────────────────────────────────── */
+const views = document.createElement('div');
+views.className = 'views';
+views.setAttribute('data-fb', 'tree-views');
+views.setAttribute('data-fb-label', 'Switch view');
+/* id → the pane it shows. One registry, one rule: exactly the active pane is
+   displayed. Anything fancier and a pane silently survives the switch. */
+const PANES = {};
+function pane(id) {
+	const p = document.createElement('div');
+	p.setAttribute('data-pane', id);   // so a test can tell a view from the chrome
+	PANES[id] = p;
+	return p;
+}
+function show(id) {
+	views.querySelectorAll('button').forEach((b) => b.classList.toggle('is-on', b.dataset.v === id));
+	Object.entries(PANES).forEach(([k, p]) => { p.style.display = k === id ? '' : 'none'; });
+	try { location.hash = id; } catch (e) { /* file:// — the hash is a nicety, not a requirement */ }
+}
+[['lineup', 'Lineup'], ['lineage', 'Lineage'], ['files', 'Files']].forEach(([id, label]) => {
+	const b = document.createElement('button');
+	b.dataset.v = id;
+	b.innerHTML = `${label}<span class="n" data-n="${id}"></span>`;
+	b.onclick = () => show(id);
+	views.appendChild(b);
+});
+views.addEventListener('click', (e) => { if (e.target.closest('button')) show(e.target.closest('button').dataset.v); });
+
+/* count the pages per set for the switch labels */
+const ALL_FILES = [
+	...TREE.calendar.prototypes.map((p) => p.file),
+	...TREE.app.prototypes.map((p) => p.file)
+];
+views.querySelector('[data-n="lineup"]').textContent = ALL_FILES.length;
+views.querySelector('[data-n="lineage"]').textContent = TREE.calendar.prototypes.length;
+views.querySelector('[data-n="files"]').textContent = Object.values(FILES).reduce((a, f) => a + f.length, 0);
+
+const viewRow = document.createElement('div');
+viewRow.className = 'rowflex between gap-3';
+viewRow.style.cssText = 'flex-wrap:wrap';
+viewRow.innerHTML = `<div class="legend2">
+	<span><span class="swatch" style="background:#94a3b8;display:inline-block"></span> baseline — what ships today</span>
+	<span><span class="swatch" style="background:#c45e38;display:inline-block"></span> variant — one direction explored</span>
+	<span><span class="swatch" style="background:#4d9c85;display:inline-block"></span> synthesis — built from a review</span>
+</div>`;
+viewRow.appendChild(views);
+body.appendChild(viewRow);
+
+/* ── view 1: the lineup, as a tree ───────────────────────────────────── */
+function setNode(t, cls) {
+	const n = document.createElement('a');
+	n.className = 'node ' + cls;
+	n.href = t.file;
+	n.dataset.file = t.file;
+	n.style.textDecoration = 'none';
+	n.innerHTML = `<span class="node__t">${t.name}</span>
+		<span class="node__m">${t.file}</span>
+		<span data-badge-slot>${badges(t.file)}</span>`;
+	return n;
+}
+function li(t, cls) {
+	const l = document.createElement('li');
+	l.className = cls;
+	l.appendChild(setNode(t, cls));
+	if (t.note) {
+		const q = document.createElement('div');
+		q.className = 'node__q';
+		q.textContent = t.note;
+		l.appendChild(q);
+	}
+	if (t.route) {
+		const r = document.createElement('div');
+		r.className = 'route';
+		r.style.paddingLeft = '1.5rem';
+		r.textContent = t.route;
+		l.appendChild(r);
+	}
+	return l;
+}
+const lineup = pane('lineup');
+lineup.className = 'rail__card tree';
+lineup.setAttribute('data-fb', 'tree-lineup');
+lineup.setAttribute('data-fb-label', 'The tree');
+const root = document.createElement('ul');
+[['calendar', 'folder'], ['app', 'folder']].forEach(([key, cls]) => {
+	const set = TREE[key];
+	const l = document.createElement('li');
+	l.className = cls;
+	l.innerHTML = `<div class="node">
+		<span class="node__t">${set.label}</span>
+		<span class="node__m">${set.prototypes.length} pages</span>
+		<a class="pill pill-xs pill-token" href="${set.href}" style="text-decoration:none">hub →</a>
+		${badges(set.href)}
+	</div>
+	<div class="node__q" style="padding-left:0">${set.blurb}</div>`;
+	const ul = document.createElement('ul');
+	set.prototypes.forEach((p) => ul.appendChild(li(p, 'file')));
+	l.appendChild(ul);
+	root.appendChild(l);
+});
+lineup.appendChild(root);
+PANES.lineup = lineup;
+body.appendChild(lineup);
+
+/* ── view 2: the lineage ─────────────────────────────────────────────── */
+const lineage = pane('lineage');
+lineage.className = 'lin';
+lineage.setAttribute('data-fb', 'tree-lineage');
+lineage.setAttribute('data-fb-label', 'How D was built');
+const N = TREE.calendar.prototypes;
+[[N[0], 'Start'], [N[1], 'Round 1'], [N[2], 'Round 1'], [N[3], 'Round 1'], [N[4], 'Round 1 → 2']].forEach(([p, when], i, arr) => {
+	const cls = p.role === 'baseline' ? 'is-base' : p.role === 'synthesis' ? 'is-win' : 'is-loss';
+	const box = document.createElement('div');
+	box.className = 'card step-node ' + cls;
+	box.innerHTML = `
+		<div class="step-node__k">${when}</div>
+		<div style="font-size:1.0625rem;font-weight:800;color:var(--s900);margin-top:.25rem">${p.name}</div>
+		<div class="rowflex gap-2" style="margin-top:.5rem">
+			<span class="pill pill-xs ${ROLE[p.role][1]}">${ROLE[p.role][2]}</span>
+			${badges(p.file)}
+		</div>
+		<p class="hint" style="line-height:1.7;margin:.75rem 0 0">${p.note}</p>
+		<a class="btn btn-soft btn-sm" href="${p.file}" style="margin-top:.875rem">Open</a>
+		<div class="route">${p.file}</div>`;
+	lineage.appendChild(box);
+	if (i < arr.length - 1) {
+		const a = document.createElement('div');
+		a.className = 'arrow';
+		a.textContent = '↓';
+		lineage.appendChild(a);
+	}
+});
+PANES.lineage = lineage;
+body.appendChild(lineage);
+
+/* the synthesis card lives inside the lineage view, not beside it */
+const why = document.createElement('div');
+why.className = 'rail__card';
+why.style.cssText = 'grid-column:1/-1;background:linear-gradient(140deg,rgba(196,233,218,.4),#fff);border-color:transparent';
+why.setAttribute('data-fb', 'why-synthesis');
+why.setAttribute('data-fb-label', 'Why a synthesis and not a patch');
+why.innerHTML = `
+	<div class="rail__title">Why D is a synthesis, not a patch</div>
+	<p class="hint" style="line-height:1.8;margin:.625rem 0 0">Round 1 pointed one way: the rail was worth keeping
+	and the day hero was not. Patching A, B or C into shape would have destroyed the record of what each one
+	actually argued, and the evidence is the only thing that tells you <em>why</em> the result looks like it does.</p>
+	<p class="hint" style="line-height:1.8;margin:.5rem 0 0">So the losers stayed on disk, untouched, and a fourth
+	page was built from the parts that won. A and B are not deprecated — they are the argument.</p>
+	<p class="hint" style="line-height:1.8;margin:.5rem 0 0">The one shared root cause: the toolbar was carrying
+	both the controls and the key. Splitting them — a row of controls, and a slim strip sharing a border with the
+	grid — fixed the complaint against all three at once, which is the tell that it was one problem and not three.</p>`;
+lineage.appendChild(why);
+
+/* ── view 3: files on disk ───────────────────────────────────────────── */
+const filesPane = pane('files');
+filesPane.style.cssText += 'gap:1rem;align-items:start';
+filesPane.setAttribute('data-fb', 'tree-files');
+filesPane.setAttribute('data-fb-label', 'What is on disk');
+const fileCol = document.createElement('div');
+fileCol.style.cssText = 'display:flex;flex-direction:column;gap:1rem';
+Object.entries(FILES).forEach(([dir, rows]) => {
+	const c = document.createElement('div');
+	c.className = 'rail__card';
+	c.innerHTML = `<div class="rail__title" style="justify-content:space-between">
+		<span>${dir}/</span><span class="hint">${rows.length} entries</span></div>` +
+		rows.map(([n, kind, what]) => `
+		  <div class="frow">
+		    <span class="swatch" style="background:${kind === 'test' ? '#5b9fb5' : kind === 'overlay' ? '#8d7aa8' : kind === 'doc' || kind === 'scratch' ? '#94a3b8' : kind === 'style' ? '#e87539' : kind === 'engine' ? '#4d9c85' : '#c45e38'}"></span>
+		    <span class="frow__n">${n}</span>
+		    <span class="hint" style="flex:1;min-width:0">${what}</span>
+		    <span class="frow__r">${kind}</span>
+		    ${n.endsWith('.html') ? `<a class="pill pill-xs pill-token" href="${dir}/${n}" style="text-decoration:none">open</a>` : ''}
+		  </div>`).join('');
+	fileCol.appendChild(c);
+});
+filesPane.appendChild(fileCol);
+body.appendChild(filesPane);
+
+/* the switch needs to know about the extra panes */
+views.addEventListener('click', () => {
+	why.style.display = [...views.querySelectorAll('button')].some((b, i) => b.classList.contains('is-on') && i === 1) ? '' : 'none';
+});
+
+/* ── the rules this tree encodes ─────────────────────────────────────── */
+const rules = document.createElement('div');
+rules.className = 'rail__card';
+rules.setAttribute('data-fb', 'tree-rules');
+rules.setAttribute('data-fb-label', 'How prototyping should be done');
+rules.innerHTML = `
+	<div class="rail__title">How prototyping should be done</div>
+	<ol class="rules" style="margin:.625rem 0 0;padding-left:1.125rem">
+	 <li><b>Every prototype keeps the whole feature set.</b> A prototype that drops a control to make a layout
+	 argument is not a prototype, it is a lie about the layout. A–D all carry drag-move, range-select, bulk edit,
+	 NLP quick add, RSVP, recurrence and the offline queue.</li>
+	 <li><b>Every variant is one engine plus its own chrome.</b> <code>proto-shell.js</code> renders the view;
+	 the page file is only the frame around it. So a layout change is a small diff, and the variants cannot
+	 drift apart by accident. The baseline is the exception — it is standalone precisely because it has to
+	 reproduce the shipped page rather than a prototype of it.</li>
+	 <li><b>Every prototype states the question it exists to answer</b> in its <code>#fb-page</code> block, and
+	 the question is what the round-1 verdict is measured against — not taste.</li>
+	 <li><b>A review produces a synthesis, not a patch.</b> The losers stay on disk as the record of the
+	 argument. See <a href="calendar-ui/d-working-calendar.html" style="color:var(--terracotta)">D</a>.</li>
+	 <li><b>Feedback is per prototype and never erased.</b> Notes are keyed on the path, so two sets can both
+	 ship an <code>index.html</code> without merging. Rounds accumulate; a mark that flips bad→good is the
+	 evidence the fix landed.</li>
+	 <li><b>The chrome is one collapsed thing, not two bars.</b> A single 36px dock carries the review tool and
+	 the prototype switcher; both open from it, one at a time, and the dock is the only thing you drag. See
+	 <a href="calendar-ui/dock-check.mjs" style="color:var(--terracotta)">dock-check.mjs</a>, which asserts the
+	 chrome really is collapsed rather than just styled smaller.</li>
+	 <li><b>The tree is checked, not trusted.</b> <code>tree-check.mjs</code> fails if this page lists a file
+	 that is not on disk, or if a file on disk is missing from here. A tree that lies is worse than no tree.</li>
+	 <li><b>Defects in the real app are shown, not smoothed over.</b> A broken <code>href</code> renders
+	 broken, a parked module renders parked. The prototype is evidence.</li>
+	</ol>
+	<div class="cmd" style="margin-top:1rem">node prototypes/tree-check.mjs
+node prototypes/serve-check.mjs
+node prototypes/app-ui/app-check.mjs
+foreach ($t in 'smoke','lint','nav-check','feedback-check','drag-check','dock-check','feedback-e2e','rounds-e2e') {
+  node "prototypes\calendar-ui\$t.mjs"
+}</div>
+	<p class="hint" style="margin:.625rem 0 0;line-height:1.7">Eleven suites. Every expectation is derived from
+	the repo — the directory, <code>schema.ts</code>, the nav tables in <code>navItems.ts</code> — so they fail
+	when the prototypes drift rather than when someone remembers to update a list.</p>`;
+body.appendChild(rules);
+
+/* One registry, one rule: exactly the active pane is displayed. Anything
+   fancier and a pane silently survives the switch. */
+Object.entries(PANES).forEach(([k, p]) => { p.style.display = k === 'lineup' ? '' : 'none'; });
+views.querySelector('button').classList.add('is-on');
+const fromHash = (location.hash || '').slice(1);
+if (PANES[fromHash]) show(fromHash);
+
+/* ── tallies in the hero ─────────────────────────────────────────────── */
+/* Runs after body is in the document — it writes into the hero.
+   Two sources: the registry (durable, checked) for how many pages have been
+   reviewed, and the local store (this browser) for the live mark tallies. */
+function paintTallies() {
+	const all = [...ALL_FILES, 'calendar-ui/index.html', 'app-ui/index.html', 'index.html'];
+	let g = 0, b = 0, i = 0, local = 0;
+	all.forEach((f) => { const t = tally(f); if (t) { local++; g += t.good; b += t.bad; i += t.idea; } });
+	const reg = [...REVIEW.values()];
+	const reviewed = reg.filter((r) => r.state === 'reviewed').length;
+	const unreviewed = reg.filter((r) => r.state === 'unreviewed').length;
+	const approved = reg.filter((r) => r.outcome === 'approved').length;
+	const rebuild = reg.filter((r) => r.outcome === 'rebuild').length;
+	document.getElementById('tallies').innerHTML = `
+		<span class="pill pill-xs pill-blush">${ALL_FILES.length} prototypes</span>
+		<span class="pill pill-xs ${reviewed ? 'pill-mint' : 'pill-blush'}" title="from review.json, checked against feedback/ by review-check.mjs">${reviewed} reviewed</span>
+		${unreviewed ? `<span class="pill pill-xs pill-blush" title="never reviewed">${unreviewed} unreviewed</span>` : ''}
+		${approved ? `<span class="pill pill-xs pill-mint" title="reviewed, approved — port it to the app">${approved} approved</span>` : ''}
+		${rebuild ? `<span class="pill pill-xs pill-blush" title="reviewed, has marks flagged redo">${rebuild} to rebuild</span>` : ''}
+		${g ? `<span class="pill pill-xs pill-mint">${g} good</span>` : ''}
+		${b ? `<span class="pill pill-xs pill-blush">${b} to redo</span>` : ''}
+		${i ? `<span class="pill pill-xs pill-blue">${i} ideas</span>` : ''}
+		${REVIEW.size ? `<span class="pill pill-xs pill-token" title="review.json is the record; this browser's store is only the live tally">this browser: ${local} marked</span>` : ''}
+		<a class="btn btn-soft btn-sm" href="app-ui/models.html">the data model</a>`;
+}
+
+document.body.appendChild(body);
+paintTallies();
+loadReview();
+window.addEventListener('storage', paintTallies);
+</script>
+</body>
+</html>

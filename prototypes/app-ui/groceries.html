@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Groceries — FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "groceries", "label": "Groceries", "family": "app-ui",
+  "question": "Is grouping by store the right primary organisation, or should it group by aisle?",
+  "thesis": "Grouped by store, because that is the shape of the trip. Two tabs because the data has two scopes.",
+  "realPage": "src/routes/(calendar)/calendar/groceries/ — +page.svelte 270. The best-wired feature in the repo: one table, one actions module, no loose ends."
+}
+</script>
+<style>
+	.wrapx { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 950px) { .wrapx { grid-template-columns: 21rem minmax(0, 1fr); } }
+	.tabs { display: inline-flex; background: var(--s100); border-radius: .75rem; padding: .25rem; }
+	.tabs button { min-height: 2.5rem; padding: 0 1.125rem; border: 0; background: transparent; border-radius: .5rem; font: 600 .875rem/1 inherit; color: var(--s500); cursor: pointer; }
+	.tabs button.is-on { background: #fff; color: var(--s900); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+	.tabs .n { font-size: .6875rem; color: var(--s400); margin-left: .375rem; }
+	.grow { display: flex; align-items: center; gap: .625rem; padding: .5rem 0; }
+	.grow + .grow { border-top: 1px solid var(--s100); }
+	.gcheck { height: 1.25rem; width: 1.25rem; border-radius: .375rem; border: 2px solid var(--s300); background: #fff; flex: none; cursor: pointer; display: grid; place-items: center; }
+	.grow.is-done .gcheck { background: var(--p600); border-color: var(--p600); }
+	.grow.is-done .gname { text-decoration: line-through; color: var(--s400); }
+	.gname { font-size: .9375rem; font-weight: 600; color: var(--s800); }
+	.gmeta { display: flex; align-items: center; gap: .375rem; flex-wrap: wrap; margin-top: .125rem; }
+	.qty { font: 700 .75rem/1 inherit; color: var(--s500); }
+	.store { display: inline-flex; align-items: center; gap: .25rem; height: 1.25rem; padding: 0 .5rem; border-radius: 9999px; background: rgba(190,218,227,.45); color: var(--blue-ink); font: 600 .6875rem/1 inherit; }
+	.alt { font-size: .6875rem; color: var(--s400); }
+	.addrow { display: flex; gap: .5rem; }
+	.addrow .input { flex: 1; }
+	.suggest { display: flex; gap: .375rem; flex-wrap: wrap; margin-top: .5rem; }
+	.suggest button { height: 1.75rem; padding: 0 .625rem; border-radius: 9999px; border: 1px solid var(--s200); background: #fff; font: 600 .75rem/1 inherit; color: var(--s600); cursor: pointer; }
+	.storetot { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .5rem .75rem; background: linear-gradient(90deg,rgba(196,233,218,.35),transparent); border-radius: .5rem; margin-bottom: .5rem; }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+import { GROCERIES, plural } from './app-data.js';
+
+const wrap = el('div', 'wrapx');
+const left = el('div');
+const right = el('div');
+wrap.appendChild(left);
+wrap.appendChild(right);
+
+let tab = 'family';
+
+/* ── tabs ────────────────────────────────────────────────────────────── */
+const tabs = el('div', 'tabs');
+tabs.setAttribute('data-fb', 'scope-tabs');
+tabs.setAttribute('data-fb-label', 'Mine / Family tabs');
+tabs.innerHTML = `
+	<button data-tab="family" class="is-on">Family<span class="n">${GROCERIES.family.length}</span></button>
+	<button data-tab="mine">Mine<span class="n">${GROCERIES.mine.length}</span></button>`;
+left.appendChild(tabs);
+
+/* ── add ─────────────────────────────────────────────────────────────── */
+const add = el('div');
+add.setAttribute('data-fb', 'add-item');
+add.setAttribute('data-fb-label', 'Add an item');
+add.innerHTML = `
+	<form class="addrow" onsubmit="addItem(event)">
+	  <input class="input" id="newItem" placeholder="Milk, eggs, birthday cake…" oninput="sug(this.value)" />
+	  <button class="btn btn-primary btn-md" type="submit">Add</button>
+	</form>
+	<div class="suggest" id="sug"></div>`;
+left.appendChild(add);
+
+/* ── the model, stated on the page ──────────────────────────────────── */
+left.appendChild(card(
+	`${sectionTitle('Why two tabs')}
+	 <p class="hint" style="line-height:1.7">
+	   There is no grocery-<i>list</i> entity. <code>grocery_items</code> is one table and the list is a
+	   <b>scope</b>: <code>family_id IS NULL</code> means “mine”, <code>family_id SET</code> means “family”.
+	   The two tabs are a projection of a nullable column.
+	 </p>
+	 <p class="hint" style="line-height:1.7;margin-top:.5rem">
+	   A second table, <code>grocery_store_memory</code>, learns which store an item came from — so the store
+	   chip is a <b>suggestion</b>, not a question. It gets better the more you shop.
+	 </p>
+	 <a class="btn btn-soft btn-sm" href="models.html" style="margin-top:.75rem">See the model</a>`,
+	'model-note', 'Grocery model',
+	'background:linear-gradient(140deg,rgba(241,181,152,.35),#fff);border-color:transparent'));
+
+/* ── the list, grouped by store ──────────────────────────────────────── */
+const list = el('div');
+list.setAttribute('data-fb', 'store-groups');
+list.setAttribute('data-fb-label', 'Items grouped by store');
+right.appendChild(list);
+
+function paint() {
+	const rows = GROCERIES[tab].filter((g) => !g.checked);
+	const stores = [...new Set(rows.flatMap((g) => g.stores))].sort();
+	list.innerHTML = stores.map((s) => {
+		const items = rows.filter((g) => g.stores.includes(s));
+		const n = items.reduce((a, g) => a + g.qty, 0);
+		return `
+		<div class="rail__card" style="margin-bottom:1rem" data-store="${s}">
+		  <div class="storetot">
+		    <span style="font-size:.9375rem;font-weight:800;color:var(--s800)">${s}</span>
+		    <span class="hint">${plural(items.length, 'item')} · ${n} total</span>
+		  </div>
+		  ${items.map((g) => `
+		    <div class="grow" data-item="${g.id}">
+		      <span class="gcheck" onclick="check('${g.id}')" role="checkbox" aria-checked="false" tabindex="0"></span>
+		      <span style="flex:1;min-width:0">
+		        <span class="gname">${g.name} <span class="qty">×${g.qty}</span></span>
+		        <span class="gmeta">
+		          <span class="store">${g.stores[0]}</span>
+		          ${g.stores.length > 1 ? `<span class="alt">or ${g.stores.slice(1).join(', ')}</span>` : ''}
+		        </span>
+		      </span>
+		      <button class="btn-icon" style="height:1.75rem;width:1.75rem" title="Edit stores" onclick="toast('Edit stores')">✎</button>
+		      <button class="btn-icon" style="height:1.75rem;width:1.75rem" title="Move to ${tab === 'family' ? 'Mine' : 'Family'}" onclick="toast('Moved')">⇄</button>
+		      <button class="btn-icon" style="height:1.75rem;width:1.75rem" title="Delete" onclick="toast('Deleted')">✕</button>
+		    </div>`).join('')}
+		</div>`;
+	}).join('') || `<div class="rail__card" style="text-align:center;padding:2.5rem">
+		<p class="hint">${tab === 'family' ? 'The family list is empty.' : 'Your list is empty.'}</p></div>`;
+}
+paint();
+
+tabs.addEventListener('click', (e) => {
+	const b = e.target.closest('[data-tab]');
+	if (!b) return;
+	tab = b.dataset.tab;
+	tabs.querySelectorAll('button').forEach((x) => x.classList.toggle('is-on', x === b));
+	paint();
+});
+
+window.check = (id) => {
+	const all = [...GROCERIES.family, ...GROCERIES.mine];
+	const g = all.find((x) => x.id === id);
+	g.checked = !g.checked;
+	paint();
+	if (g.checked) toast(`${g.name} checked off`, 'Undo');
+};
+window.sug = (v) => {
+	// stands in for the 300ms debounce against grocery_store_memory
+	const known = ['Milk', 'Eggs', 'Sourdough', 'Coffee beans', 'Lemons', 'Oat milk', 'Granola', 'Dishwasher tablets', 'Lunch for work'];
+	const hit = v.trim() ? known.filter((k) => k.toLowerCase().includes(v.trim().toLowerCase())).slice(0, 4) : [];
+	document.getElementById('sug').innerHTML = hit.map((h) => `<button type="button" onclick="quick('${h}')">${h}</button>`).join('');
+};
+window.quick = (h) => { const i = document.getElementById('newItem'); i.value = h; document.getElementById('sug').innerHTML = ''; };
+window.addItem = (e) => { e.preventDefault(); const i = document.getElementById('newItem'); if (!i.value.trim()) return; toast(`Added “${i.value.trim()}” — store guessed from memory`); i.value = ''; document.getElementById('sug').innerHTML = ''; };
+window.toast = toast;
+
+mountApp({
+	head: {
+		kicker: 'Prototype · Groceries',
+		title: 'Groceries',
+		lede: 'Grouped by store, because that is the shape of the trip. The real page is the most complete feature in the repo — one table, one actions module, nothing half-wired.',
+		actions: `<a class="btn btn-soft btn-sm" href="family-detail.html">Family settings</a>`
+	},
+	body: wrap
+});
+</script>
+</body>
+</html>

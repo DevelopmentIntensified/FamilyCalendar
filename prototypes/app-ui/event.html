@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Piano — Eli · FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "event", "label": "Event detail", "family": "app-ui",
+  "question": "Is the RSVP list worth a page of its own, or does the grid already say it?",
+  "thesis": "Keep the page, drop the RSVP to a summary line. The grid already shows who is going; a page that repeats it is a dead end.",
+  "realPage": "src/routes/(calendar)/calendar/event/[id]/ — +page.svelte 435. One eventAttendance row per person or named guest."
+}
+</script>
+<style>
+	.ev { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 980px) { .ev { grid-template-columns: minmax(0,1fr) 19rem; } }
+	.hero2 { position: relative; overflow: hidden; border-radius: 1.5rem; padding: 1.5rem; }
+	.when { display: flex; align-items: center; gap: 1rem; }
+	.when__d { display: flex; flex-direction: column; align-items: center; padding: .625rem .875rem; border-radius: 1rem; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.08); flex: none; }
+	.when__m { font-size: .625rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--terracotta); }
+	.when__d2 { font-size: 1.75rem; font-weight: 800; line-height: 1; color: var(--s900); }
+	.when__t { font-size: 1.125rem; font-weight: 800; color: var(--s900); letter-spacing: -.01em; }
+	.kv { display: flex; align-items: baseline; gap: .625rem; padding: .5rem 0; font-size: .875rem; }
+	.kv + .kv { border-top: 1px solid var(--s100); }
+	.kv__k { width: 6rem; flex: none; color: var(--s400); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+	.rsvp { display: flex; align-items: center; gap: .5rem; padding: .5rem 0; }
+	.rsvp + .rsvp { border-top: 1px solid var(--s100); }
+	.rsvp__a { height: 1.75rem; width: 1.75rem; border-radius: 9999px; display: grid; place-items: center; font: 800 .625rem/1 inherit; flex: none; }
+	.dot { height: .5rem; width: .5rem; border-radius: 9999px; flex: none; }
+	.bar2 { display: flex; height: .5rem; border-radius: 9999px; overflow: hidden; background: var(--s100); }
+	.bar2 i { display: block; height: 100%; }
+	.guest { display: flex; align-items: center; gap: .5rem; padding: .4375rem 0; font-size: .8125rem; }
+	.guest + .guest { border-top: 1px solid var(--s100); }
+	.acts { display: flex; gap: .5rem; flex-wrap: wrap; }
+	.recur { display: flex; align-items: center; gap: .625rem; padding: .5rem 0; }
+	.recur + .recur { border-top: 1px solid var(--s100); }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+import { MEMBERS, ATTENDANCE, byId } from './app-data.js';
+
+const E = {
+	title: 'Piano — Eli', cal: 'kids', calName: 'Kids', day: '25', mon: 'Sep',
+	from: '5:30 PM', to: '6:30 PM', where: 'Lesson Room 2', desc: 'Eli’s weekly lesson with Ms Okafor. Bring the green folder — she keeps the theory worksheets in it.',
+	recur: 'Every Tuesday, 8:00 PM', series: '18 occurrences since Feb', remind: '30 minutes before',
+	mirror: 'Mirrored to the family calendar'
+};
+
+const RSVPS = [
+	{ who: 'u_sarah', status: 'going' }, { who: 'u_jon', status: 'going' },
+	{ who: 'u_eli', status: 'going' }, { who: 'u_mia', status: 'maybe' },
+	{ id: 'ms_okafor', name: 'Ms Okafor', status: 'going', guest: true },
+	{ id: 'g1', name: 'Nana', status: 'invited', guest: true }
+];
+const ST = {
+	going: ['#4d9c85', 'Going'], maybe: ['#d97706', 'Maybe'],
+	declined: ['#b91c1c', 'Can’t go'], invited: ['#94a3b8', 'Not yet answered'], undecided: ['#cbd5e1', 'No answer']
+};
+
+const ev = el('div', 'ev');
+const main = el('div');
+const side = el('div');
+ev.appendChild(main);
+ev.appendChild(side);
+
+/* ── hero ────────────────────────────────────────────────────────────── */
+const hero = el('div', 'hero2');
+hero.setAttribute('data-fb', 'event-hero');
+hero.setAttribute('data-fb-label', 'Title, when, where');
+hero.style.cssText = 'background:linear-gradient(140deg,rgba(196,233,218,.5),#fff 60%)';
+hero.innerHTML = `
+	<div style="position:relative">
+	  <div class="rowflex gap-2" style="margin-bottom:.875rem">
+	    <span class="pill pill-xs pill-mint">${E.calName}</span>
+	    ${E.mirror ? '<span class="pill pill-xs pill-token">shared</span>' : ''}
+	    <span class="pill pill-xs pill-token" style="margin-left:auto" onclick="toast('Edited')">Edit</span>
+	  </div>
+	  <div class="when">
+	    <span class="when__d">
+	      <span class="when__m">${E.mon}</span>
+	      <span class="when__d2">${E.day}</span>
+	    </span>
+	    <span>
+	      <span class="when__t" style="display:block">${E.title}</span>
+	      <span style="font-size:.9375rem;color:var(--s600);display:block;margin-top:.1875rem">${E.from} – ${E.to}</span>
+	      <span class="hint" style="display:block;margin-top:.125rem">${E.where}</span>
+	    </span>
+	  </div>
+	  <p class="hint" style="line-height:1.75;margin-top:1.125rem">${E.desc}</p>
+	  <div class="acts" style="margin-top:1.125rem">
+	    <button class="btn btn-primary btn-md" onclick="toast('Marked as going')">I’m going</button>
+	    <button class="btn btn-soft btn-md" onclick="toast('Marked as maybe')">Maybe</button>
+	    <button class="btn btn-soft btn-md" onclick="toast(\`Added to the list\`)">Add to my list</button>
+	  </div>
+	</div>`;
+main.appendChild(hero);
+
+/* ── the detail card ─────────────────────────────────────────────────── */
+main.appendChild(card(
+	`${sectionTitle('Details')}
+	 <div class="kv"><span class="kv__k">When</span><span>${E.from} – ${E.to}, today</span></div>
+	 <div class="kv"><span class="kv__k">Where</span><span>${E.where}</span></div>
+	 <div class="kv"><span class="kv__k">Calendar</span><span><a href="../calendar-ui/d-working-calendar.html" style="color:var(--terracotta)">${E.calName}</a></span></div>
+	 <div class="kv"><span class="kv__k">Reminder</span><span>${E.remind}</span></div>
+	 <div class="kv"><span class="kv__k">Created by</span><span>Sarah</span></div>`,
+	'event-details', 'Details'));
+
+/* ── recurrence ──────────────────────────────────────────────────────── */
+const rec = el('div', 'rail__card');
+rec.setAttribute('data-fb', 'recurrence');
+rec.setAttribute('data-fb-label', 'Recurrence & exceptions');
+rec.innerHTML = sectionTitle('This is a repeating event') + `
+	<div class="recur">
+	  <span style="flex:1;min-width:0"><span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)">${E.recur}</span>
+	  <span class="hint">${E.series}</span></span>
+	</div>
+	<div class="recur">
+	  <button class="btn btn-soft btn-sm" onclick="toast('This occurrence only')">This occurrence</button>
+	  <button class="btn btn-soft btn-sm" onclick="toast('This event and all 18')">All occurrences</button>
+	</div>
+	<div class="recur">
+	  <button class="btn btn-soft btn-sm" onclick="toast('Skipped this week')">Skip this week</button>
+	  <button class="btn btn-soft btn-sm" style="color:#b91c1c" onclick="toast('Cancelled — the grid will drop it')">Cancel this one</button>
+	</div>
+	<p class="hint" style="line-height:1.7;margin-top:.625rem">A cancel writes an
+	<code>eventExceptions</code> row with <code>is_cancelled</code> and leaves the series alone — which is why
+	the archive still shows it at its original time.</p>`;
+main.appendChild(rec);
+
+/* ── side: attendance ────────────────────────────────────────────────── */
+const going = RSVPS.filter((r) => r.status === 'going').length;
+const maybe = RSVPS.filter((r) => r.status === 'maybe').length;
+const pend = RSVPS.filter((r) => r.status === 'invited' || r.status === 'undecided').length;
+const tot = RSVPS.length;
+const att = el('div', 'rail__card');
+att.setAttribute('data-fb', 'attendance');
+att.setAttribute('data-fb-label', 'Who is going');
+att.innerHTML = sectionTitle('Who is going', `<span class="hint">${going}/${tot}</span>`) + `
+	<div class="bar2" style="margin-bottom:.75rem">
+	  <i style="width:${(going / tot) * 100}%;background:#4d9c85"></i>
+	  <i style="width:${(maybe / tot) * 100}%;background:#d97706"></i>
+	  <i style="width:${(pend / tot) * 100}%;background:#cbd5e1"></i>
+	</div>
+	${RSVPS.map((r) => {
+		const m = r.who ? byId(r.who) : null;
+		return `
+		<div class="rsvp">
+		  ${m
+			? `<span class="rsvp__a" style="background:${m.tone}">${m.initials}</span>`
+			: `<span class="rsvp__a" style="background:var(--s100);color:var(--s500)">${r.name[0]}</span>`}
+		  <span style="flex:1;min-width:0">
+		    <span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)">${m ? m.firstName : r.name}</span>
+		    ${r.guest ? '<span class="hint">guest — not a user</span>' : ''}
+		  </span>
+		  <span class="dot" style="background:${ST[r.status][0]}"></span>
+		  <span class="hint" style="width:5.5rem;text-align:right">${ST[r.status][1]}</span>
+		</div>`;
+	}).join('')}
+	<button class="btn btn-soft btn-sm" style="width:100%;margin-top:.875rem" onclick="toast('Invite someone')">+ Invite</button>`;
+side.appendChild(att);
+
+/* ── side: the argument about the RSVP list ──────────────────────────── */
+side.appendChild(card(
+	`${sectionTitle('Does this need a page?')}
+	 <p class="hint" style="line-height:1.7">The grid already shows a chip per event. Making that chip
+	 open a full page so you can read the same six names in a bigger list is a round trip for no new
+	 information.</p>
+	 <p class="hint" style="line-height:1.7;margin-top:.5rem">What the page <em>should</em> lead with is the
+	 thing the grid cannot show: whether the kids’ pickup needs coordinating, and who is free to do it. That is
+	 the <code>attendee</code> question, and it is currently at the bottom of a 435-line file.</p>`,
+	'rsvp-argument', 'Does this need a page?',
+	'background:linear-gradient(140deg,rgba(190,218,227,.4),#fff);border-color:transparent'));
+
+side.appendChild(card(
+	`${sectionTitle('Guests are strings')}
+	 <p class="hint" style="line-height:1.7"><code>eventAttendance.user_id</code> is nullable, and
+	 <code>name</code> is the fallback. Ms Okafor and Nana have attendance rows but no user — so they cannot be
+	 reminded, cannot be assigned a task, and vanish if the event is mirrored to a calendar they do not read.</p>`,
+	'guest-model', 'Guests are strings',
+	'background:linear-gradient(140deg,rgba(241,181,152,.4),#fff);border-color:transparent'));
+
+window.toast = toast;
+mountApp({
+	head: { kicker: 'Prototype · Event detail', title: '', lede: '', actions: `<a class="btn btn-soft btn-sm" href="../calendar-ui/d-working-calendar.html">← Calendar</a>` },
+	body: ev
+});
+</script>
+</body>
+</html>

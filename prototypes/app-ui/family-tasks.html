@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Family tasks — FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "family-tasks", "label": "Family tasks", "family": "app-ui",
+  "question": "Grouped by assignee rather than by due date — does the board beat the personal list, or is it the same tasks twice?",
+  "thesis": "One column per person, overdue surfaced at the top of each. The real page groups by assignee, which is the right instinct for a shared list and the wrong one for a deadline.",
+  "realPage": "src/routes/(family)/family/tasks/ — +page.svelte 309. NOTE: /family/[familyId]/tasks is a second, near-duplicate page that calls an undefined firstName() — a ReferenceError on load."
+}
+</script>
+<style>
+	.board { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 700px) { .board { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+	@media (min-width: 1100px) { .board { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+	@media (min-width: 1400px) { .board { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+	.col { padding: 1rem; }
+	.col__h { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; }
+	.col__a { height: 2rem; width: 2rem; border-radius: 9999px; display: grid; place-items: center; font: 800 .6875rem/1 inherit; flex: none; }
+	.t { display: flex; align-items: flex-start; gap: .5rem; padding: .5rem .625rem; border-radius: .75rem; background: var(--canvas); cursor: pointer; transition: background-color 150ms; }
+	.t + .t { margin-top: .375rem; }
+	.t:hover { background: var(--s100); }
+	.t.is-done { opacity: .55; }
+	.t.is-done .t__n { text-decoration: line-through; }
+	.t__box { height: 1rem; width: 1rem; border-radius: 9999px; border: 2px solid var(--s300); background: #fff; flex: none; margin-top: .1875rem; cursor: pointer; }
+	.t.is-done .t__box { background: var(--p600); border-color: var(--p600); }
+	.t__n { font-size: .8125rem; font-weight: 600; color: var(--s800); display: block; line-height: 1.45; }
+	.t__m { display: flex; align-items: center; gap: .3125rem; flex-wrap: wrap; margin-top: .1875rem; }
+	.overdue { color: #b91c1c; font-weight: 700; }
+	.tag { display: inline-flex; align-items: center; height: 1rem; padding: 0 .375rem; border-radius: 9999px; background: var(--s200); color: var(--s500); font: 600 .5625rem/1 inherit; }
+	.pri { font: 800 .5625rem/1 inherit; letter-spacing: .05em; }
+	.wide { width: 100%; }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+import { MEMBERS, TASKS, RECURRING_LABEL, byId, nameOf, plural } from './app-data.js';
+
+const open = TASKS.filter((t) => !t.completedAt);
+const wrap = el('div');
+wrap.style.cssText = 'display:flex;flex-direction:column;gap:1rem';
+
+const board = el('div', 'board');
+board.setAttribute('data-fb', 'assignee-columns');
+board.setAttribute('data-fb-label', 'One column per person');
+wrap.appendChild(board);
+
+const unassigned = open.filter((t) => !t.assignedTo);
+
+function paint() {
+	board.innerHTML = MEMBERS.map((m) => {
+		const mine = open.filter((t) => t.assignedTo === m.id);
+		// overdue first inside each column — the grouping is by person, the urgency is by date
+		mine.sort((a, b) => (a.overdue === b.overdue ? 0 : a.overdue ? -1 : 1));
+		return `
+		<div class="card col" data-who="${m.id}">
+		  <div class="col__h">
+		    <span class="col__a" style="background:${m.tone}">${m.initials}</span>
+		    <span style="font-size:.9375rem;font-weight:800;color:var(--s900)">${m.firstName}</span>
+		    <span class="legend__count" style="margin-left:auto">${mine.length}</span>
+		  </div>
+		  ${mine.map((t) => `
+		    <div class="t${t.completedAt ? ' is-done' : ''}" data-task="${t.id}">
+		      <span class="t__box" onclick="check('${t.id}')" role="checkbox" aria-checked="false" tabindex="0"></span>
+		      <span style="flex:1;min-width:0">
+		        <span class="t__n">${t.title}</span>
+		        <span class="t__m">
+		          <span class="hint${t.overdue ? ' overdue' : ''}">${t.due}</span>
+		          ${t.recurrence ? `<span class="hint">↻ ${RECURRING_LABEL[t.recurrence]}</span>` : ''}
+		          ${t.tags.map((x) => `<span class="tag">${x}</span>`).join('')}
+		          ${t.priority === 'high' ? '<span class="pri" style="color:#b91c1c">HIGH</span>' : ''}
+		        </span>
+		      </span>
+		    </div>`).join('') || '<div class="hint" style="padding:.375rem 0">Nothing assigned.</div>'}
+		</div>`;
+	}).join('');
+
+	// unassigned has no column of its own in the real page, so it gets a card
+	if (unassigned.length) {
+		const c = card(
+			`${sectionTitle('Nobody', '<span class="pill pill-xs pill-blush">unassigned</span>')}
+			 ${unassigned.map((t) => `
+			   <div class="t" style="background:var(--canvas)">
+			     <span class="t__box" onclick="check('${t.id}')" role="checkbox" aria-checked="false" tabindex="0"></span>
+			     <span style="flex:1;min-width:0"><span class="t__n">${t.title}</span>
+			     <span class="t__m"><span class="hint${t.overdue ? ' overdue' : ''}">${t.due}</span></span></span>
+			   </div>`).join('')}
+			 <p class="hint" style="margin-top:.625rem;line-height:1.6">A task with <code>assigned_to IS NULL</code> sits in no column at all in the real board, so it is effectively invisible. Shown here.</p>`,
+			'unassigned', 'Unassigned tasks',
+			'background:linear-gradient(140deg,rgba(254,202,202,.35),#fff);border-color:#fecaca');
+		wrap.appendChild(c);
+	}
+}
+paint();
+
+/* ── the argument: same tasks, different grouping ────────────────────── */
+wrap.appendChild(card(
+	`${sectionTitle('By assignee, or by due date?')}
+	 <p class="hint" style="line-height:1.75">Both pages read the same rows filtered on
+	 <code>family_id</code>. The personal list sorts by <code>dueDate</code>; this one groups by
+	 <code>assignedTo</code>. Grouping by person answers <i>“whose turn is it?”</i>; sorting by date answers
+	 <i>“what is about to be late?”</i> — and a shared family list needs the second more often.</p>
+	 <p class="hint" style="line-height:1.75;margin-top:.5rem">Every deadline is therefore a column header the
+	 reviewer has to hunt for. An overdue chip at the top of the page would serve both questions without
+	 re-sorting anything.</p>`,
+	'grouping-argument', 'Grouping argument',
+	'background:linear-gradient(140deg,rgba(254,213,207,.4),#fff);border-color:transparent'));
+
+/* ── the duplicate page, called out ──────────────────────────────────── */
+wrap.appendChild(card(
+	`${sectionTitle('Two pages, same job', '<span class="pill pill-xs pill-blush">bug</span>')}
+	 <p class="hint" style="line-height:1.75"><code>/family/tasks</code> (this page, 309 lines) and
+	 <code>/family/[familyId]/tasks</code> (312 lines) do the same thing. The second one calls
+	 <code>firstName(...)</code>, which is not defined anywhere in scope — so it throws a
+	 <code>ReferenceError</code> and renders nothing.</p>
+	 <p class="hint" style="line-height:1.75;margin-top:.5rem">One of them should be deleted.</p>`,
+	'duplicate-page', 'Duplicate route',
+	'background:linear-gradient(140deg,rgba(254,202,202,.4),#fff);border-color:#fecaca'));
+
+window.check = (id) => {
+	const t = TASKS.find((x) => x.id === id);
+	t.completedAt = t.completedAt ? null : 'now';
+	t.overdue = false;
+	paint();
+	toast(t.completedAt ? `Completed “${t.title}”` : 'Undone');
+};
+window.toast = toast;
+
+mountApp({
+	head: {
+		kicker: 'Prototype · Family tasks',
+		title: 'Family tasks',
+		lede: `${plural(open.length, 'task')} across ${plural(MEMBERS.length, 'member', 'members')}. Same rows as the personal list — grouped by person instead of by date.`,
+		actions: `<a class="btn btn-soft btn-sm" href="tasks.html">My tasks</a><a class="btn btn-primary btn-sm" href="#" onclick="toast('Add a family task')">+ Add</a>`
+	},
+	body: wrap
+});
+</script>
+</body>
+</html>

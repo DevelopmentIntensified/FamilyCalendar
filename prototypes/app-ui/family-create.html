@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Create a family — FamilyPlanz</title>
+<link rel="stylesheet" href="proto.css" />
+<link rel="stylesheet" href="feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "family-create", "label": "Create a family", "family": "app-ui",
+  "question": "Does the family feel like a real thing to create, or like an account setup step with extra steps?",
+  "thesis": "Name, colour, and who is in it — then straight to the calendar. A family created with nobody in it is an empty shell, so members come before the finish line.",
+  "realPage": "src/routes/(family)/family/create/ — +page.svelte 163"
+}
+</script>
+<style>
+	.narrow { max-width:42rem; display:flex; flex-direction:column; gap:1rem; }
+	.pick { display: flex; gap: .625rem; align-items: center; padding: .75rem; border-radius: .875rem; border: 1.5px solid var(--s200); cursor: pointer; transition: border-color 150ms, background-color 150ms; }
+	.pick:hover { background: var(--s50); }
+	.pick.is-on { border-color: var(--p600); background: rgba(254,213,207,.22); }
+	.pick__a { height: 2.25rem; width: 2.25rem; border-radius: 9999px; display: grid; place-items: center; font: 800 .75rem/1 inherit; flex: none; }
+	.bigname { font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; border: 0; border-bottom: 2px solid var(--s200); background: transparent; padding: .375rem 0; width: 100%; color: var(--s900); }
+	.bigname:focus { outline: none; border-bottom-color: var(--terracotta); }
+	.preview { position: relative; overflow: hidden; border-radius: 1.5rem; padding: 1.375rem; }
+	.preview__g { position: absolute; right: -1.5rem; top: -1.5rem; height: 7rem; width: 7rem; border-radius: 9999px; filter: blur(20px); }
+	.sw { height: 1.875rem; width: 1.875rem; border-radius: 9999px; border: 2px solid transparent; cursor: pointer; }
+	.sw.is-on { border-color: var(--s900); box-shadow: 0 0 0 2px #fff inset; }
+	.ol { display: flex; gap: .75rem; padding: .625rem 0; font-size: .875rem; color: var(--s700); }
+	.ol + .ol { border-top: 1px solid var(--s100); }
+	.ol b { color: var(--s900); }
+</style>
+</head>
+<body>
+<script src="drag.js"></script>
+<script src="dock.js"></script>
+<script src="feedback.js" defer></script>
+<script type="module">
+import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
+import { MEMBERS, USAGE, PLAN } from './app-data.js';
+
+const COLORS = ['#c45e38', '#d38248', '#4d9c85', '#5b9fb5', '#8d7aa8', '#b45309'];
+let color = COLORS[0];
+let picked = new Set(['u_jon', 'u_sarah']);
+
+const wrap = el('div', 'narrow');
+
+/* ── live preview ────────────────────────────────────────────────────── */
+const prev = el('div', 'preview');
+prev.setAttribute('data-fb', 'family-preview');
+prev.setAttribute('data-fb-label', 'Live preview');
+wrap.appendChild(prev);
+
+function paintPrev() {
+	// read the live input rather than hard-coding, so typing updates the preview
+	const typed = document.getElementById('fname')?.value?.trim();
+	const name = typed || 'Your family';
+	prev.innerHTML = `
+	  <div class="preview__g" style="background:${color}33"></div>
+	  <div style="position:relative">
+	    <span class="pill pill-xs" style="background:${color}22;color:${color}">Family</span>
+	    <div style="font-size:1.375rem;font-weight:800;letter-spacing:-.02em;color:var(--s900);margin-top:.5rem">${name}</div>
+	    <div style="display:flex;margin-top:1rem">
+	      ${[...picked].map((id) => { const m = MEMBERS.find((x) => x.id === id); return m ? `<span style="height:2rem;width:2rem;border-radius:9999px;display:grid;place-items:center;background:${m.tone};border:2px solid #fff;font:800 .6875rem/1 inherit">${m.initials}</span>` : ''; }).join('')}
+	      ${picked.size < 2 ? '<span style="height:2rem;width:2rem;border-radius:9999px;display:grid;place-items:center;border:2px dashed var(--s300);color:var(--s400);font-size:.875rem;margin-left:-.25rem">+</span>' : ''}
+	    </div>
+	  </div>`;
+}
+paintPrev();
+
+/* ── name ────────────────────────────────────────────────────────────── */
+wrap.appendChild(el('div', null, `
+	<div class="rail__card" data-fb="family-name" data-fb-label="Family name">
+	  <label class="field" style="margin-bottom:.875rem">
+	    <span class="hint" style="display:block;margin-bottom:.375rem">What do you call it?</span>
+	    <input class="bigname" id="fname" value="The Hoppers" oninput="paintPrev()" />
+	  </label>
+	  <span class="hint" style="display:block;margin-bottom:.5rem">Colour</span>
+	  <div class="rowflex gap-2" id="sws">
+	    ${COLORS.map((c) => `<button class="sw${c === color ? ' is-on' : ''}" style="background:${c}" data-c="${c}" onclick="pick(this)"></button>`).join('')}
+	  </div>
+	  <p class="hint" style="line-height:1.7;margin-top:.75rem">The colour tints the family calendar, the member
+	  avatars and the family chip. It is the one thing on this page that ends up visible everywhere else.</p>
+	</div>`));
+
+/* ── members ─────────────────────────────────────────────────────────── */
+const memb = el('div', 'rail__card');
+memb.setAttribute('data-fb', 'who-is-in-it');
+memb.setAttribute('data-fb-label', 'Who is in it');
+wrap.appendChild(memb);
+
+function paintMem() {
+	memb.innerHTML = sectionTitle('Who is in it', `<span class="hint">${picked.size} of ${PLAN.memberLimit}</span>`) +
+		MEMBERS.map((m) => `
+		  <div class="pick${picked.has(m.id) ? ' is-on' : ''}" data-id="${m.id}" onclick="toggle('${m.id}')" role="checkbox" aria-checked="${picked.has(m.id)}" tabindex="0">
+		    <span class="pick__a" style="background:${m.tone}">${m.initials}</span>
+		    <span style="flex:1;min-width:0">
+		      <span style="display:block;font-size:.875rem;font-weight:700;color:var(--s800)">${m.firstName} ${m.lastName}</span>
+		      <span class="hint">${m.email}</span>
+		    </span>
+		    <span style="height:1.25rem;width:1.25rem;border-radius:9999px;display:grid;place-items:center;flex:none;background:${picked.has(m.id) ? 'var(--p600)' : 'transparent'};color:#fff;font-size:.75rem">${picked.has(m.id) ? '✓' : ''}</span>
+		  </div>`).join('') +
+		`<a class="btn btn-soft btn-sm" href="family-members-add.html" style="width:100%;margin-top:.875rem">Add someone new</a>`;
+}
+paintMem();
+
+/* ── create ──────────────────────────────────────────────────────────── */
+wrap.appendChild(el('div', null, `
+	<button class="btn btn-primary btn-lg" style="width:100%" onclick="create()">Create the family</button>
+	<p class="hint" style="text-align:center;margin-top:.5rem">${USAGE.families} of ${USAGE.familyLimit} families used on your plan.</p>`));
+
+/* ── what happens next ───────────────────────────────────────────────── */
+wrap.appendChild(card(
+	`${sectionTitle('What happens next')}
+	 <div class="ol"><b>1</b><span>A row in <code>families</code> and a row per member in <code>familyMembers</code>, with a role and a <code>memberType</code>.</span></div>
+	 <div class="ol"><b>2</b><span>A family calendar, so events you add are shared rather than duplicated per person.</span></div>
+	 <div class="ol"><b>3</b><span>You land on the dashboard, with the family modules switched on for everyone.</span></div>
+	 <p class="hint" style="line-height:1.7;margin-top:.75rem">A family created with nobody in it is a shell —
+	 the calendar belongs to the family, and with no members there is nobody to see it. That is why members are
+	 picked here rather than after.</p>`,
+	'what-next', 'What happens next'));
+
+window.pick = (b) => {
+	color = b.dataset.c;
+	document.querySelectorAll('#sws .sw').forEach((x) => x.classList.toggle('is-on', x === b));
+	paintPrev();
+};
+window.toggle = (id) => { picked.has(id) ? picked.delete(id) : picked.add(id); paintMem(); paintPrev(); };
+window.create = () => {
+	const n = (document.getElementById('fname').value || 'The Hoppers').trim();
+	toast(`${n} created — ${picked.size} member${picked.size === 1 ? '' : 's'}`);
+};
+window.toast = toast;
+
+mountApp({
+	head: {
+		kicker: 'Prototype · Create a family',
+		title: 'Create a family',
+		lede: 'The family is the unit everything hangs off — the calendar, the tasks, the groceries, the permissions. So it is the first real thing you make.',
+		actions: `<a class="btn btn-soft btn-sm" href="family.html">← Your families</a>`
+	},
+	body: wrap
+});
+paintPrev();   // now the name input exists, so the preview can read it
+</script>
+</body>
+</html>
