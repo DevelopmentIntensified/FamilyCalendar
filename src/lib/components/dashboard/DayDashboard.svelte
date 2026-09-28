@@ -56,7 +56,7 @@
 		end: string | null;
 		allDay: boolean;
 		location: string | null;
-		kids: string[];
+		kids: { id: string; name: string }[];
 	}[];
 	/** Tasks completed within the viewed day (for the Completed Today card). */
 	export let completedToday: { id: string; title: string; completedAt: string | null }[] = [];

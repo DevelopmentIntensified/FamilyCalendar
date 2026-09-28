@@ -188,9 +188,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
     true, #070 the key itself (blocked by 067/068/069), #071 prototype-only
     search move (the app has no search at all).
   - Approved prototypes → the real app: #072 kids' card per-child colour +
-    grouped by child (test red already written), #073 alerts grouped by
-    needs-you vs news, #074 groceries restyle, #075 family-create page,
-    #076 family-create members before the finish line (blocked by 075).
+    grouped by child (DONE 2026-09-28 — child id now survives the loader, so
+    the card groups and colours per child off the existing avatar palette;
+    7 card tests, dashboard suites 29/29), #073 alerts grouped by needs-you vs
+    news, #074 groceries restyle, #075 family-create page, #076 family-create
+    members before the finish line (blocked by 075).
   - Composition marks: #077 family settings 793-line page, #078 family card
     spacing + a stat, #079 tasks page filters/inbox/row-meta, #080 verse out
     of the dashboard module band, #081 groceries card replaces parked meals.

@@ -42,7 +42,8 @@ type KidsScheduleEvent = {
 	end: string | null;
 	allDay: boolean;
 	location: string | null;
-	kids: string[];
+	/** Child attendees, by id so the card can group and colour per child. */
+	kids: { id: string; name: string }[];
 };
 
 /** A parsed-event time: ISO string, Date instance, or missing. */
@@ -243,9 +244,13 @@ export const load: PageServerLoad = async (event) => {
 							end: toIsoString(e.end),
 							allDay: e.allDay,
 							location: e.location ?? null,
-							kids: (kidsByEvent.get(e.masterId ?? e.id) ?? []).map(
-								(userId) => childNameByUserId.get(userId) ?? userId
-							)
+							// The child id rides along, not just the name: the card
+							// colours and groups by child, and a first name is
+							// ambiguous (two Mias) and carries no stable key (072).
+							kids: (kidsByEvent.get(e.masterId ?? e.id) ?? []).map((userId) => ({
+								id: userId,
+								name: childNameByUserId.get(userId) ?? userId
+							}))
 						}));
 				}
 				// SAFETY: null must widen to the string|null union shared with the catch branch.
