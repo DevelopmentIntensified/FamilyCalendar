@@ -20,10 +20,21 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #019 Task scoping public/private/family — visibility column + section
   queries (a4cb9be), chips/tabs/NLP UI (ebd8b45)
 - #020 Tasks page card-vocabulary restyle (commit 8d822d7)
-- #021 Task settings parity: dashboard + calendar surfaces (commit 8557796)
+- #021 Task settings parity: dashboard + calendar surfaces (DONE, commit
+  8557796, issue flipped to `done` 2026-09-29). Dashboard
+  TopPrioritiesCard pills + "→ Name" badge, calendar EventFormModal task
+  mode on the shared `submitTaskQuickAdd` path, `familyId` on the calendar
+  load, FamilyTaskBoardCard quick-add, TaskDetailModal pills. Only residue
+  is DEFERRED: Family/Public/Private pills on the tiny calendar-grid task
+  chips (DayView/WeekView/MonthDays) — too small for pill rows, e2e-text
+  risk, and it collides with the calendar-view components another lane
+  owns. Standalone item for a later wave.
 - #022 Default calendar not respected — caller passed calendars[0] as
   defaultCalendarId, overriding user setting (calendar/+page.svelte:841)
-- #024 @-handle multi-word names (commit 89e48b4)
+- #024 @-handle multi-word names (DONE, commit 89e48b4; issue flipped to
+  `done` 2026-09-29 after re-verification: greedy multi-word
+  `matchAtHandle` in `taskQuickAdd.ts:455-482`, table suite incl. the
+  ambiguous-tie case in `taskQuickAdd.test.ts:689`)
 - #025 NLP parse-misses: URL fidelity, word-snap titles, street
   addresses, bare calendar routing (commit d37dab8)
 - #026 Creator + going indications on all calendar views (commit 8758170)
@@ -213,7 +224,14 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   that #053 added, so `$env/static/private` names must exist in whatever
   environment runs the build. The `ci:secrets*` npm scripts are now orphaned:
   they only pushed secrets into GitHub Actions.
-- #057 Grocery list (IN-PROGRESS 2026-09-20): Mine + Family tabs at `/calendar/groceries`, Store Memory auto-fill, check hides; slice 1 (tables + actions + page) built, dashboard card still parked.
+- #057 Grocery list (IN-PROGRESS 2026-09-20; re-triaged 2026-09-29). Slice 1
+  (tables + migration 015 + actions + 12 tests) plus grouping, the Mine/Family
+  tabs, Store Memory suggestions, optimistic check-off, the full item surface
+  (edit stores / move / delete) and BOTH nav entry points
+  (`navItems.ts:54` + `family/[familyId]/+page.svelte:257`) are all shipped —
+  the old checkbox list in the issue was stale and is rewritten. **#074 is the
+  active ticket and owns the restyle**; do not open a second groceries lane.
+  Dashboard module slot is #081 (open).
 
 - #056 Nav Calendar button dead for dashboard-default users (DONE 2026-09-12): Calendar hrefs use the `?dashboardView=1` escape hatch (desktop nav + bottom nav); active-highlight matches pathname-only; tests green, svelte-check unchanged (44 pre-existing).
 - #055 Task add shows instantly (DONE 2026-09-12): optimistic `onAdded(task)` insert ahead of server list (personal + family tasks pages), `invalidateAll` stays as reconcile; component tests green, svelte-check error count unchanged (44 pre-existing).
@@ -244,11 +262,90 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #058 Task delete sync (FIXED 2026-09-24): `DELETE /api/tasks/[id]` honored
   issue-019 canMutateTask (family member could delete), `false` → 404 so
   Todoos-style external apps stop getting fake successes on delete syncs.
-- #013 Tasks/family MED/LOW (8 of 10 audit items fixed 2026-09-06: assignment
-  notifications, remove-member un-assign, undo cursor hardening, completion
-  actor attribution (sql/006), sync family scope, sub-override filter,
-  bell polling, deleteUser status reset; bulk-events item deferred to events
-  lane)
-- #014 Events/calendar MED/LOW
+- #013 Tasks/family MED/LOW (OPEN, 2 items; re-triaged 2026-09-29).
+  8 of the original 10 shipped 2026-09-06: assignment notifications,
+  remove-member un-assign, undo cursor hardening, completion actor
+  attribution (sql/006), sync family scope, sub-override filter, bell
+  polling, deleteUser status reset. 3 of the 5 residue bullets were also
+  already shipped and are struck: bulk `applied: ownedIds.length` (now
+  `applyPerItem` with per-item try/catch and a real count), unresolvable
+  invite stored as a raw-id guest name (now `resolveEventInvites` drops an
+  unknown member id rather than degrading it to a guest), and
+  `canUploadAttachment` — the bullet was factually wrong, it IS called from
+  `checkSubscriptionAction`; the gate it wanted is moot anyway (receipts are
+  process-and-delete, bills archived). STILL OPEN: (1) `calendar/stats`
+  queries `taskCompletions` by `userId` only, no actorId leg
+  (`(calendar)/calendar/stats/+page.server.ts:19`); (2) `upsertException`
+  is still select-then-write and `event_exceptions` has no unique index on
+  (event_id, original_date).
+- #014 Events/calendar MED/LOW (OPEN, 2 items; re-triaged 2026-09-29 —
+  7 of the 9 bullets are already shipped and are struck from the issue:
+  date-only `recurringUntil` inclusive end-of-day, family-mirror origin id +
+  propagation + transactional delete, multi-day split in the user zone,
+  offline 401/403 retry-instead-of-discard, scope-'this' attendee note,
+  master-edit exception-key shift, duplicate carrying reminderMinutes +
+  attendees, and the create/update/invites/mirror transaction). STILL OPEN:
+  (1) recurring DST drift — needs an ADR in `docs/adr/` before any change;
+  (2) single-occurrence Exception Overrides still don't propagate to the
+  family-calendar mirror.
 - #015 App UX MED/LOW
 - #016 Security LOWs (deferred)
+- #023 405 POST to `/` (NOT REPRODUCIBLE 2026-09-29 — awaiting Vercel log
+  evidence; kept, not deleted). All 33 `method="POST"` sites in `src/` were
+  swept: none targets `/`. The only root-shaped form is the bug-report form
+  at `?/submit`; no client `fetch('/')` mutation exists; `/` has no
+  `+page.server.ts` and therefore no form actions by design — which is
+  exactly what the reported message says about a POST arriving from outside
+  the app. Next action is evidence, not code: Vercel logs filtered to
+  `path=/ method=POST` at the report timestamp, for User-Agent. Cross-ref
+  #059/#060 (unproven Resend-webhook hypothesis).
+- #029 Privacy audit (OPEN — the M3/M4/LOWs + M5 retention). H3/M1/M2
+  shipped 2026-09-07; H1/H2/M6 and EXIF stripping are void by the
+  2026-09-07 process-and-delete decree. M5 sharpened 2026-09-29: it is the
+  SAME gap as the existing weekly cron (`vercel.json` → `/api/cron/cleanup`,
+  `src/routes/api/cron/cleanup/+server.ts:10-31`), which prunes only stale
+  anonymous users (90d) and expired claim tokens. `notifications`, resolved
+  `unmatchedPhrases`, `bugReports` and `adEvents` grow unbounded. Extend
+  `runCleanup()` rather than build new infra; suggested windows 180d for
+  resolved `unmatchedPhrases`/`bugReports`, 90d for read `notifications`.
+- #040 Console `reportAllChanges` TypeError (BLOCKED — awaiting reporter,
+  re-verified 2026-09-29: still zero hits in `src/`, in `node_modules/svelte`
+  and in `node_modules/luxon`; `VM1054` is Chrome's eval/extension-injection
+  label and our own chunks would show real filenames). Next action is to ask
+  the reporter: does it repro with extensions off / in another browser, what
+  extensions, which view, visually broken or console-only, which URL. It
+  revives as a real bug only if it repros extension-free, or a stack resolves
+  to our own filenames. No code change until then.
+- #085–#091 technical-debt sweep (filed 2026-09-29, from a pass over schema,
+  migrations and half-wired code). None is started; all `Status: open`.
+  - #086 **No migration baseline** — the load-bearing one. 21 of 39 declared
+    tables are created by nothing in `sql/migrations/`, and the runner fails on
+    migration 001 (its first statement is an `ALTER TABLE "userSettings"`) so
+    every later migration is skipped on an empty database. `003` disagrees with
+    the schema on 8 tables (worst: `waitlist` has `email` as primary key in 003
+    and an `id` key in the schema; `aiUsageTracking` and `adEvents` are
+    effectively different tables). `tasks` is created twice, 9 columns vs 16.
+    Step 1 is a manual schema dump the user must run — we cannot pick a winner
+    between `003` and the `drizzle/` copies until we see the real databases
+    (same trap as #050).
+  - #087 Archived money subsystem is still advertised — the changelog, the
+    **privacy policy** and the roadmap all describe scan-receipts / mark-bills-
+    paid / receipt-email ingest as live. The policy names a processor we never
+    call, which is the serious half. `bills`/`receiptItems`/`itemTags` are
+    declared and migrated with zero readers.
+  - #088 Ad consent has two sources of truth, and the one read at serve time can
+    never gain a row (its only writer has no callers), so ads never render at
+    all. Two of the three booleans are read and written nowhere.
+  - #089 Waitlist duplicate guard can never fire — `onConflictDoNothing()` with
+    no unique index on email, so the "already on the waitlist" branch is dead
+    and duplicates insert. Also unthrottled while every other public write uses
+    the shared limiter, and it stamps consent on a non-consenting submission.
+  - #090 `groups`/`userGroups`/`familyGroups` declared, joined, never used. Only
+    live reference is two e2e cleanup helpers. Blocked by #086.
+  - #091 Family invite link is only findable by knowing where to look — no share
+    sheet, no invite-by-link on the family page, no code-link email template,
+    and a non-admin sees an empty page. (The 404 premise was stale; #064 fixed
+    it. The rest stands.)
+  - Not filed: the retention/pruning gap folds into #029's M5, and the
+    half-wired Meals surface is #081's territory and stays parked per the
+    2026-09-08 user directive.

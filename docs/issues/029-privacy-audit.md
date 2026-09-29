@@ -126,5 +126,36 @@ Then H3/M1/M2 (privacy-fix slice), then the OCR fallback chain.
   parse data (bill title/merchant) is ordinary app data.
 - H3 (bulk-AI ignores useCloudAI), M1 (privacy policy processors),
   M2 (SW logout purge): DONE 2026-09-07 (see Done above).
-- M3–M5, LOWs: still open.
-- EXIF stripping: MOOT (no image persisted anywhere).
+- EXIF stripping: MOOT (no image persisted anywhere). The canvas re-encode
+  in `stripExif` survives only for the opt-in Azure cloud send, which
+  auto-deletes server-side within 24h.
+- **M3** (Nominatim static UA / query logging), **M4** (PII in server
+  logs), LOWs: still open.
+- **M5 — retention purge. SHARPENED 2026-09-29. This is the SAME gap as
+  the existing cleanup cron, not a separate project.** The weekly cron
+  already exists and is wired: `vercel.json` schedules
+  `GET /api/cron/cleanup` ("0 4 * * 1"), implemented at
+  `src/routes/api/cron/cleanup/+server.ts:10-31`. It prunes exactly two
+  things: stale unclaimed Anonymous Accounts past the 90-day inactivity
+  window (`getStaleAnonymousUsers` + `deleteUser`) and expired claim tokens
+  (`deleteExpiredClaimTokens`). Nothing else is pruned anywhere in the
+  codebase, so four tables grow unbounded for the life of the account:
+  - `notifications` — no purge, no read state expiry.
+  - `unmatchedPhrases` — NLP misses kept forever (and note: the `deleteUser`
+    cascade does not clear them either, so they outlive the account).
+  - `bugReports` — the auto-filed report queue is never trimmed.
+  - `adEvents` — ad/impression rows, never pruned.
+  **Fix shape:** extend `runCleanup()` in the same handler — it already has
+  the secret check, the weekly cadence and the response envelope, so this is
+  an additive sweep, not new infrastructure. Suggested windows (pick one,
+  record the decision here):
+  - 180 days for RESOLVED `unmatchedPhrases` and for RESOLVED `bugReports`
+    (keep the open ones; they are the working queue).
+  - 90 days for READ `notifications` (unread must survive until acted on).
+  - `adEvents` needs a product decision, not just a window — analytics
+    retention is a separate call, and it may be better served by an
+    aggregate/rollup than a delete.
+  Also still owed from the original M5 text: redact URL query strings before
+  persisting an unmatched phrase (they carry whatever the user typed after
+  the command).
+  **Do not file a new issue for this** — it is a slice of the existing cron.
