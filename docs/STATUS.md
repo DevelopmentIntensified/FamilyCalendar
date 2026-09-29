@@ -288,7 +288,19 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   (1) recurring DST drift — needs an ADR in `docs/adr/` before any change;
   (2) single-occurrence Exception Overrides still don't propagate to the
   family-calendar mirror.
-- #015 App UX MED/LOW
+- #015 App UX MED/LOW (re-triaged 2026-09-29: **14 of ~15 items are already
+  shipped**, verified against code). Toasts wired app-wide across 6 surfaces
+  with success *and* failure branches; all 7 `window.confirm()` sites replaced
+  by the inline pattern (`ExitSelectionAsk` + calendar bulk-bar confirm);
+  family actions render `form.error`; auth forms have `autocomplete` +
+  `inputmode` and no `location.reload()` left anywhere; 4 copy-link sites with
+  feedback + fallback; DayActionSheet and DayEventsModal both have
+  `role="dialog"` + focus trap + Escape; NotificationBell has a retry row; the
+  `?edit=` dead-end and the meals label are fixed. **Only 4 items remain**, each
+  one session and disjoint: 44px touch targets in the hour grids (steppers are
+  ~24px), delete/clear-completed have no pending state (double-tap = double
+  DELETE), the edit-task dialog is not scrollable, and the event modal's
+  attendee region has no skeleton. Do NOT put this in a fleet lane.
 - #016 Security LOWs (deferred)
 - #023 405 POST to `/` (NOT REPRODUCIBLE 2026-09-29 — awaiting Vercel log
   evidence; kept, not deleted). All 33 `method="POST"` sites in `src/` were
