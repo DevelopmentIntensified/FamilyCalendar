@@ -238,3 +238,76 @@ describe('WeekView - slot create and drag move', () => {
 		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
 });
+
+// #066 — the review's week view: a lone event gave up half its column because
+// two unrelated events collided hours earlier. The lane count is now per
+// overlap cluster, so the geometry below is the ticket's acceptance.
+describe('WeekView #066 — cluster-local lane widths', () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn<(input: string, init?: RequestInit) => Promise<Response>>(async () =>
+				stubFetchResponse({})
+			)
+		);
+	});
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	// 09:00 pair overlaps; 19:00 is alone. All on Mon Sep 7 (column 0).
+	const morning = (over: Partial<Event> & { id: string; start: string; end: string }) =>
+		({ ...evt, date: '2026-09-07', ...over }) as Event;
+	const day = [
+		morning({ id: 'a', title: 'Standup', start: '2026-09-07T09:00:00', end: '2026-09-07T10:00:00' }),
+		morning({ id: 'b', title: 'Review', start: '2026-09-07T09:30:00', end: '2026-09-07T10:30:00' }),
+		morning({ id: 'c', title: 'Dinner', start: '2026-09-07T19:00:00', end: '2026-09-07T20:00:00' })
+	];
+
+	/** `left: calc(N% + 2px)` → N. */
+	const leftPct = (chip: Element) =>
+		Number(/left:\s*calc\((-?[\d.]+)%/.exec(chip.getAttribute('style') ?? '')?.[1] ?? 'NaN');
+	/** `width: calc(N% - 4px)` → N. */
+	const widthPct = (chip: Element) =>
+		Number(/width:\s*calc\(([\d.]+)%/.exec(chip.getAttribute('style') ?? '')?.[1] ?? 'NaN');
+
+	it('splits the overlapping pair but gives the lone event the whole column', () => {
+		setup({ events: day });
+		const standup = screen.getByText('Standup').closest('button')!;
+		const review = screen.getByText('Review').closest('button')!;
+		const dinner = screen.getByText('Dinner').closest('button')!;
+		expect([leftPct(standup), widthPct(standup)]).toEqual([0, 50]);
+		expect([leftPct(review), widthPct(review)]).toEqual([50, 50]);
+		expect([leftPct(dinner), widthPct(dinner)]).toEqual([0, 100]);
+	});
+
+	it('keeps every chip inside its own day column (range-select safe)', () => {
+		// A chip wider than its column would swallow the NEXT day's clicks, and
+		// the column click/drag handlers resolve the day from `currentTarget`.
+		setup({ events: day });
+		for (const label of ['Standup', 'Review', 'Dinner']) {
+			const chip = screen.getByText(label).closest('button')!;
+			expect(leftPct(chip) + widthPct(chip)).toBeLessThanOrEqual(100);
+		}
+	});
+
+	it('still creates at the tapped slot on a day with mixed clusters', () => {
+		const props = setup({ events: day });
+		const cols = screen.getAllByTestId('week-day-column');
+		// 60px/hour: 19:00 is 1140px down, well clear of the 09:00 pair.
+		fireEvent.click(cols[0], { clientY: 1140 });
+		expect(props.createAt).toHaveBeenCalledTimes(1);
+		expect(props.createAt.mock.calls[0]?.[0].hour).toBe(19);
+	});
+
+	it('still range-selects across the column on a day with mixed clusters', async () => {
+		setup({ events: day });
+		const cols = screen.getAllByTestId('week-day-column');
+		// 60px/hour: 1140px → 19:00, 1260px → 21:00.
+		await fireEvent.mouseDown(cols[0], { button: 0, clientY: 1140 });
+		await fireEvent.mouseMove(cols[0], { clientY: 1260 });
+		await fireEvent.mouseUp(cols[0]);
+		expect(screen.getByText('7:00 PM – 9:00 PM')).toBeInTheDocument();
+	});
+});

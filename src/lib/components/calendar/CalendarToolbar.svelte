@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { CalendarView } from './calendarView';
+	import type { CalendarRef } from '$lib/utils/calendarVisibility';
+	import { allCalendarIds } from '$lib/utils/calendarVisibility';
 
 	interface Props {
 		currentMonthYear: string;
@@ -11,6 +13,9 @@
 		addMode: boolean;
 		/** YYYY-MM-DD for the dashboard deep link. */
 		dashboardDate: string;
+		/** #069: calendars the view filter can switch off. */
+		calendars?: CalendarRef[];
+		hiddenCalendarIds?: string[];
 		onToday: () => void;
 		onPrevious: () => void;
 		onNext: () => void;
@@ -19,6 +24,9 @@
 		onViewChange: (view: CalendarView) => void;
 		onToggleSelectionMode: (on: boolean) => void;
 		onToggleAddMode: (on: boolean) => void;
+		onToggleCalendar: (id: string) => void;
+		/** Hide every calendar, or show every one — one tap either way. */
+		onSetAllHidden: (hide: boolean) => void;
 	}
 
 	let {
@@ -30,6 +38,8 @@
 		selectionMode,
 		addMode,
 		dashboardDate,
+		calendars = [],
+		hiddenCalendarIds = [],
 		onToday,
 		onPrevious,
 		onNext,
@@ -37,7 +47,9 @@
 		onYearSelect,
 		onViewChange,
 		onToggleSelectionMode,
-		onToggleAddMode
+		onToggleAddMode,
+		onToggleCalendar,
+		onSetAllHidden
 	}: Props = $props();
 
 	const views = [
@@ -55,9 +67,22 @@
 	] as const;
 
 	let showMiniPicker = $state(false);
+	// #069: the popover hangs off the toolbar root, not off the horizontally
+	// scrolling action strip, so a scrolled strip can never clip it.
+	let showCalendarFilter = $state(false);
+
+	const filterableCalendars = $derived(calendars.filter((c) => c.id));
+	const allHidden = $derived(
+		filterableCalendars.length > 0 &&
+			allCalendarIds(filterableCalendars).every((id) => hiddenCalendarIds.includes(id))
+	);
 
 	function closeMiniPicker() {
 		showMiniPicker = false;
+	}
+
+	function closeCalendarFilter() {
+		showCalendarFilter = false;
 	}
 
 	function handlePickerOutsideClick(e: MouseEvent) {
@@ -65,15 +90,28 @@
 		if (showMiniPicker && !target?.closest('[data-testid="mini-picker-container"]')) {
 			closeMiniPicker();
 		}
+		if (
+			showCalendarFilter &&
+			!target?.closest('[data-testid="calendar-filter-trigger"]') &&
+			!target?.closest('[data-testid="calendar-filter-panel"]')
+		) {
+			closeCalendarFilter();
+		}
 	}
 </script>
 
 <svelte:window
 	on:click={handlePickerOutsideClick}
-	on:keydown={(e) => showMiniPicker && e.key === 'Escape' && closeMiniPicker()}
+	on:keydown={(e) => {
+		if (e.key !== 'Escape') return;
+		closeMiniPicker();
+		closeCalendarFilter();
+	}}
 />
 
-<div class="mb-6 flex flex-col items-center gap-3 px-4 sm:flex-row sm:flex-wrap sm:justify-between sm:gap-x-4 sm:gap-y-2">
+<div
+	class="relative mb-6 flex flex-col items-center gap-3 px-4 sm:flex-row sm:flex-wrap sm:justify-between sm:gap-x-4 sm:gap-y-2"
+>
 	<div class="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
 		<!-- Nav cluster: Today / prev / next as one joined control -->
 		<div class="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -221,8 +259,38 @@
 			<span class="sr-only sm:not-sr-only">Select</span>
 		</button>
 
-		<!-- Actions: import · print · dashboard · settings -->
+		<!-- Actions: calendars · import · print · dashboard · settings -->
 		<div class="flex min-w-0 max-w-full items-center divide-x divide-slate-200 overflow-x-auto overflow-y-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+			<!-- #069: the calendar filter. Leads the strip so it survives the
+				narrow-width scroll, and carries a count when calendars are off
+				— otherwise a filter that hides half the week is invisible. -->
+			{#if filterableCalendars.length > 0}
+				<button
+					type="button"
+					data-testid="calendar-filter-trigger"
+					onclick={() => (showCalendarFilter = !showCalendarFilter)}
+					aria-expanded={showCalendarFilter}
+					aria-label="Calendars"
+					title="Choose which calendars to show"
+					class="flex h-10 w-11 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M3 5h18M6 12h12M10 19h4"
+						/>
+					</svg>
+					{#if hiddenCalendarIds.length > 0}
+						<span
+							class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-700 px-1 text-[10px] font-bold leading-none text-white"
+							aria-hidden="true"
+						>
+							{hiddenCalendarIds.length}
+						</span>
+					{/if}
+				</button>
+			{/if}
 			<a
 				href="/calendar/import"
 				class="flex h-10 w-11 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary-600"
@@ -272,4 +340,75 @@
 			</a>
 		</div>
 	</div>
+
+	<!-- #069: the popover is a child of the toolbar ROOT, not of the scrolling
+		action strip, so `overflow-x-auto` can never clip it. Anchored right and
+		width-capped so it fits 320px (px-4 root padding + 0.5rem gutter). -->
+	{#if showCalendarFilter && filterableCalendars.length > 0}
+		<div
+			data-testid="calendar-filter-panel"
+			class="absolute right-4 top-full z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+		>
+			<div class="flex items-center justify-between gap-2 px-1 pb-1">
+				<span class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+					Calendars
+				</span>
+				<button
+					type="button"
+					data-testid="calendar-filter-all"
+					onclick={() => onSetAllHidden(!allHidden)}
+					class="shrink-0 rounded-md px-1.5 py-1 text-[11px] font-semibold text-primary-700 transition-colors hover:bg-primary-50"
+				>
+					{allHidden ? 'Show all' : 'Hide all'}
+				</button>
+			</div>
+			{#each filterableCalendars as cal (cal.id)}
+				{@const on = !hiddenCalendarIds.includes(cal.id)}
+				<button
+					type="button"
+					role="switch"
+					aria-checked={on}
+					aria-label={on
+						? `Hide ${cal.name ?? cal.id}`
+						: `Show ${cal.name ?? cal.id}`}
+					onclick={() => onToggleCalendar(cal.id)}
+					class="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-50 {on
+						? ''
+						: 'bg-slate-50'}"
+				>
+					<!-- The dot is the calendar's own colour: colour means
+						"which calendar", so the key must wear it. State is carried
+						by the row's mute and the switch's fill, never by hue. -->
+					<span
+						class="h-3 w-3 shrink-0 rounded-full {on ? '' : 'opacity-30 grayscale'}"
+						style="background-color: {cal.color || '#94a3b8'};"
+						aria-hidden="true"
+					></span>
+					<span
+						class="min-w-0 flex-1 truncate text-sm {on
+							? 'text-slate-700'
+							: 'text-slate-400 line-through'}"
+					>
+						{cal.name ?? cal.id}
+					</span>
+					<span
+						class="flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 transition-colors {on
+							? 'bg-primary-600'
+							: 'border border-slate-300 bg-white'}"
+						aria-hidden="true"
+					>
+						<span
+							class="h-3 w-3 rounded-full bg-white shadow-sm transition-transform {on
+								? 'translate-x-3'
+								: 'translate-x-0'}"
+						></span>
+					</span>
+				</button>
+			{/each}
+			<p class="px-2 pt-1.5 text-[11px] leading-snug text-slate-400">
+				Hidden calendars drop their events and their due tasks from every view. This is a
+				reading filter — new events still go to your default calendar.
+			</p>
+		</div>
+	{/if}
 </div>
