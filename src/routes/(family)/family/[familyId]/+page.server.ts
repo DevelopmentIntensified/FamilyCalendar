@@ -8,6 +8,7 @@ import {
 	setFamilyModuleSwitch
 } from '$lib/server/db/actions/dashboardModules';
 import { getRecentFamilyActivity } from '$lib/server/db/actions/familyActivity';
+import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import { db } from '$lib/server/db';
 import { families, familyMembers } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -51,6 +52,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		const members = await getFamilyRoster(params.familyId);
 		const activity = await getRecentFamilyActivity(params.familyId);
 		const moduleSwitches = await getFamilyModuleSwitches(params.familyId);
+		// The viewer's own hidden list, so a Dashboard Module row can tell
+		// "off for everyone" from "on, but you hid it for yourself" (#077).
+		const settings = await getUserSettings(locals.user.id);
 
 		return {
 			family,
@@ -58,7 +62,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			currentUserRole: currentMember.role || 'member',
 			currentUserId: locals.user.id,
 			activity,
-			moduleSwitches
+			moduleSwitches,
+			hiddenDashboardModules: settings?.hiddenDashboardModules ?? []
 		};
 	} catch (err) {
 		// SvelteKit redirects/404s thrown above land here; re-throw them

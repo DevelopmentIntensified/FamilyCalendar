@@ -3,9 +3,15 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { ActionData, PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import DashboardModuleRow from '$lib/components/dashboard/DashboardModuleRow.svelte';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { FAMILY_DASHBOARD_MODULES } from '$lib/dashboardModules';
+	import {
+		moduleRowState,
+		moduleToggleValue,
+		type ModuleRowState
+	} from '$lib/utils/moduleRowState';
 	import { pushToast } from '$lib/client/toasts';
 	import {
 		canEditRole as canEditRoleUtil,
@@ -16,14 +22,18 @@
 	import { DateTime } from 'luxon';
 	export let data: PageData;
 	export let form: ActionData;
-	const {
-		family,
-		members,
-		currentUserRole,
-		currentUserId,
-		activity = [],
-		moduleSwitches = {}
-	} = data;
+	const { family, members, currentUserRole, currentUserId, activity = [] } = data;
+
+	// Module switches read `data` reactively (not destructured) so the row
+	// settles on the server's truth the moment the action answers.
+	$: switches = data.moduleSwitches ?? {};
+	$: hiddenForMe = new Set<string>(data.hiddenDashboardModules ?? []);
+
+	/** Band rhythm (077): one gap between bands, one padding inside a band,
+	 * one label treatment. Every card on this page uses these three. */
+	const BAND = 'min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
+	const BAND_HEAD = 'mb-3 flex flex-wrap items-center justify-between gap-2';
+	const BAND_TITLE = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
 
 	type Member = (typeof members)[number];
 
@@ -134,6 +144,62 @@
 		memberTypeBusy = member.userId;
 		e.currentTarget.form?.requestSubmit();
 	}
+	// --- Dashboard Module switches (#077) --------------------------------
+	type Module = (typeof FAMILY_DASHBOARD_MODULES)[number];
+
+	/** moduleId of the row whose flip is in flight, if any. */
+	let modulePending: string | null = null;
+	/** moduleId → the state a row shows ahead of the server's answer. */
+	let moduleOptimistic: Record<string, ModuleRowState> = {};
+
+	function moduleState(mod: Module): ModuleRowState {
+		return (
+			moduleOptimistic[mod.id] ??
+			moduleRowState({
+				scope: mod.scope,
+				enabled: switches[mod.id] ?? true,
+				hiddenForViewer: hiddenForMe.has(mod.id)
+			})
+		);
+	}
+
+	/** Ack in the same tick: flip the row before the request is even sent. */
+	function optimisticModuleFlip(mod: Module) {
+		modulePending = mod.id;
+		moduleOptimistic = { ...moduleOptimistic, [mod.id]: moduleState(mod) === 'on' ? 'off' : 'on' };
+	}
+
+	/** Clear the optimistic flip — the row settles on the server's truth. */
+	function settleModule(mod: Module) {
+		const next = { ...moduleOptimistic };
+		delete next[mod.id];
+		moduleOptimistic = next;
+		modulePending = null;
+	}
+
+	function moduleSubmit(mod: Module) {
+		return async ({
+			result,
+			update
+		}: {
+			result?: { type: string };
+			update?: () => Promise<void>;
+		}) => {
+			// enhance calls back once before the action (no result) and once
+			// after; only the second call can confirm or revert.
+			if (!result || !update) return;
+			if (result.type === 'failure') {
+				// Revert first so the row never claims a switch that failed.
+				settleModule(mod);
+				pushToast({ message: `Couldn't switch ${mod.label.toLowerCase()} — try again.` });
+			}
+			await update();
+			settleModule(mod);
+			if (result.type !== 'success') return;
+			const now = switches[mod.id] ?? true;
+			pushToast({ message: `${mod.label} is now ${now ? 'on' : 'off'} for everyone.` });
+		};
+	}
 	function scrollToSettings() {
 		document
 			.getElementById('family-settings')
@@ -174,12 +240,9 @@
 			</div>
 		{/if}
 
-		<div class="mt-4 grid gap-4 sm:grid-cols-3">
+		<div class="mt-4 grid gap-5 sm:grid-cols-3">
 			<!-- Hero card -->
-			<section
-				class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-3"
-				aria-labelledby="family-hero-heading"
-			>
+			<section class="{BAND} sm:col-span-3" aria-labelledby="family-hero-heading">
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<div class="flex min-w-0 items-center gap-3">
 						<div
@@ -238,14 +301,11 @@
 			</section>
 
 			<!-- Left column: members + activity (activity relates to member actions) -->
-			<div class="flex min-w-0 flex-col gap-4 {isAdmin ? 'sm:col-span-2' : 'sm:col-span-3'}">
+			<div class="flex min-w-0 flex-col gap-5 {isAdmin ? 'sm:col-span-2' : 'sm:col-span-3'}">
 				<!-- Members card -->
-				<section
-					class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-					aria-labelledby="members-heading"
-				>
-					<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-						<h2 id="members-heading" class="text-lg font-semibold text-slate-900">Members</h2>
+				<section class={BAND} aria-labelledby="members-heading">
+					<div class={BAND_HEAD}>
+						<h2 id="members-heading" class={BAND_TITLE}>Members</h2>
 						<div class="flex items-center gap-2">
 							<a
 								href="/family/{family?.id}/tasks"
@@ -271,14 +331,14 @@
 					</div>
 
 					{#if members.length > 0}
-						<ul class="space-y-2">
+						<ul class="space-y-1.5">
 							{#each members as member (member.userId)}
 								<li
-									class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 transition-colors hover:bg-slate-100"
+									class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-1.5 transition-colors hover:bg-slate-100"
 								>
 									<div class="flex min-w-0 flex-1 items-center gap-2.5">
 										<div
-											class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold {avatarColor(
+											class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold {avatarColor(
 												member.userId
 											)}"
 											aria-hidden="true"
@@ -451,18 +511,13 @@
 				</section>
 
 				<!-- Activity card -->
-				<section
-					class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-					aria-labelledby="activity-heading"
-				>
-					<h2 id="activity-heading" class="mb-3 text-lg font-semibold text-slate-900">
-						Recent Activity
-					</h2>
+				<section class={BAND} aria-labelledby="activity-heading">
+					<h2 id="activity-heading" class="mb-3 {BAND_TITLE}">Recent Activity</h2>
 					{#if activity.length > 0}
-						<ul class="space-y-2">
+						<ul class="space-y-1.5">
 							{#each activity as item, i (i)}
 								<li
-									class="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 transition-colors hover:bg-slate-100"
+									class="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-1.5 transition-colors hover:bg-slate-100"
 								>
 									<span class="min-w-0 flex-1 truncate text-sm text-slate-700">
 										{item.kind === 'completed' ? '✅' : '📋'}
@@ -488,17 +543,11 @@
 
 			{#if isAdmin}
 				<!-- Right column: settings, invitations -->
-				<div class="flex min-w-0 flex-col gap-4">
+				<div class="flex min-w-0 flex-col gap-5">
 					<!-- Settings card (always visible; admin content) -->
 					{#if isAdmin}
-						<section
-							id="family-settings"
-							class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-							aria-labelledby="settings-heading"
-						>
-							<h2 id="settings-heading" class="mb-3 text-lg font-semibold text-slate-900">
-								Family Settings
-							</h2>
+						<section id="family-settings" class={BAND} aria-labelledby="settings-heading">
+							<h2 id="settings-heading" class="mb-3 {BAND_TITLE}">Family Settings</h2>
 							<form method="POST" action="?/updateFamily" use:enhance={saveFamilySubmit}>
 								<div class="grid gap-3">
 									<div>
@@ -510,7 +559,7 @@
 											id="name"
 											name="name"
 											bind:value={editingName}
-											class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+											class="w-full rounded-lg border border-slate-300 px-4 py-2 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 										/>
 									</div>
 									<div>
@@ -522,63 +571,50 @@
 											id="color"
 											name="color"
 											bind:value={editingColor}
-											class="h-11 w-full rounded-lg border border-slate-300"
+											class="h-10 w-full rounded-lg border border-slate-300"
 										/>
 									</div>
 								</div>
 								<button
 									type="submit"
 									disabled={savingFamily}
-									class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+									class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
 								>
 									{savingFamily ? 'Saving…' : 'Save Changes'}
 								</button>
 							</form>
 
-							<div class="mt-5 border-t border-slate-200 pt-4">
-								<h3 class="text-sm font-semibold text-slate-800">Day Dashboard Modules</h3>
+							<div class="mt-4 border-t border-slate-200 pt-4">
+								<h3 class={BAND_TITLE}>Day Dashboard Modules</h3>
 								<p class="mt-1 text-xs text-slate-500">
-									Family-wide master switches. Switched-off cards are hidden for everyone —
-									individual members can re-enable them from Account settings.
+									Family-wide master switches. A switched-off card is hidden for everyone — each
+									member can still hide or show a card for themself alone in Account settings.
 								</p>
-								<div class="mt-3 grid gap-2">
+								<ul class="mt-3 space-y-1.5">
 									{#each FAMILY_DASHBOARD_MODULES as mod (mod.id)}
-										<form
-											method="POST"
-											action="?/toggleDashboardModule"
-											use:enhance
-											class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5"
-										>
-											<span class="text-sm font-medium text-slate-800">{mod.label}</span>
-											<input type="hidden" name="module" value={mod.id} />
-											<button
-												type="submit"
-												name="enabled"
-												value={moduleSwitches[mod.id] ? 'false' : 'true'}
-												class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors {moduleSwitches[
-													mod.id
-												]
-													? 'bg-green-100 text-green-700 hover:bg-green-200'
-													: 'bg-slate-200 text-slate-600 hover:bg-slate-300'}"
-											>
-												{moduleSwitches[mod.id] ? 'On' : 'Off'}
-											</button>
-										</form>
+										<li>
+											<DashboardModuleRow
+												label={mod.label}
+												scope={mod.scope}
+												moduleId={mod.id}
+												state={moduleState(mod)}
+												optimistic={moduleOptimistic[mod.id] ?? null}
+												pending={modulePending === mod.id}
+												submitValue={moduleToggleValue(switches[mod.id] ?? true)}
+												onAcknowledge={() => optimisticModuleFlip(mod)}
+												onSubmit={() => moduleSubmit(mod)}
+											/>
+										</li>
 									{/each}
-								</div>
+								</ul>
 							</div>
 						</section>
 					{/if}
 
 					<!-- Invitations card -->
 					{#if isAdmin}
-						<section
-							class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-							aria-labelledby="invitations-heading"
-						>
-							<h2 id="invitations-heading" class="mb-3 text-lg font-semibold text-slate-900">
-								Invitations
-							</h2>
+						<section class={BAND} aria-labelledby="invitations-heading">
+							<h2 id="invitations-heading" class="mb-3 {BAND_TITLE}">Invitations</h2>
 							<div class="space-y-1.5">
 								<a
 									href="/family/invitations"

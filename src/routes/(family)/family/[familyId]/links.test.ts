@@ -111,7 +111,11 @@ describe('every href in the app', () => {
 			walk(ast.html ?? ast.fragment ?? ast);
 		}
 		expect(offenders).toEqual([]);
-	});
+		// Compiles every .svelte file under src/ with the Svelte parser. ~2s on
+		// its own, and it blows the default 5s timeout whenever it runs
+		// alongside a full parallel suite. Whole-repo static analysis is
+		// legitimately slow — give it room rather than let it flake.
+	}, 60_000);
 
 	it('never builds an href as a plain JS string with braces in it', () => {
 		// A quoted string never interpolates, so '{id}' ships as literal text.
@@ -180,7 +184,8 @@ describe('every href in the app', () => {
 			walk(ast.html ?? ast.fragment ?? ast);
 		}
 		expect(offenders).toEqual([]);
-	});
+		// Same whole-repo parse as above — see the note on the first one.
+	}, 60_000);
 
 	it('keeps the two family links this issue fixed working', () => {
 		// Named so a future regression names itself.
