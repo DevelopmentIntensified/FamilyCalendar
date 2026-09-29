@@ -7,6 +7,13 @@
 	import { formatRangeLabel, normalizeRange } from '$lib/utils/eventMove';
 	import { layoutTimed } from '$lib/utils/dayViewLayout';
 	import { chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
+	import {
+		chipA11y,
+		chipKindOf,
+		chipSurfaceStyle,
+		chipTreatment
+	} from '$lib/utils/chipVocabulary';
+	import ChipKindMark from './ChipKindMark.svelte';
 
 	interface Props {
 		weekDays: DateTime[];
@@ -177,14 +184,26 @@
 					{#each laidOut as slot (slot.event.id)}
 						{@const widthPct = (1 / slot.lanes) * 100}
 						{@const rv = rsvpVisual(slot.event.rsvpStatus)}
+						{@const kind = chipKindOf(slot.event)}
+						<!-- #067: a day column is ~35px at 320px, so the week grid
+							is a glyph view — the name rides on the hover hint and the
+							chip keeps bag + solid box + neutral hatch. -->
+						{@const named = chipA11y(kind, 'glyph')}
 						<button
 							type="button"
+							data-chip-kind={kind}
 							onclick={() => onEventClick(slot.event)}
 							draggable={!selectionMode}
 							ondragstart={(e) => onDragStart(e, slot.event)}
 							aria-pressed={selectionMode ? isSelected(slot.event) : undefined}
-							title={selectionMode ? undefined : chipTooltip(slot.event, calendarIds)}
-							class="absolute cursor-pointer overflow-hidden truncate rounded bg-white px-1 py-0.5 text-left text-xs font-medium transition-all hover:opacity-90 active:opacity-70 sm:text-sm {rv?.containerClass ??
+							title={selectionMode
+								? undefined
+								: named
+									? `${named} · ${chipTooltip(slot.event, calendarIds)}`
+									: chipTooltip(slot.event, calendarIds)}
+							class="absolute cursor-pointer overflow-hidden truncate rounded bg-white px-1 py-0.5 text-left text-xs font-medium transition-all hover:opacity-90 active:opacity-70 sm:text-sm {chipTreatment(
+								kind
+							).containerClass} {rv?.containerClass ??
 								''} {selectionMode ? 'active:scale-[0.98]' : ''} {selectionMode &&
 							isSelected(slot.event)
 								? 'bg-primary-50/70 ring-2 ring-primary-400'
@@ -192,10 +211,12 @@
 							style="top: {getEventTop(slot.event)}%; height: {getEventHeight(
 								slot.event
 							)}%; left: calc({slot.lane *
-								widthPct}% + 2px); width: calc({widthPct}% - 4px); border-left: 3px solid {slot
-								.event.color || '#94a3b8'}; min-height: 26px;"
+								widthPct}% + 2px); width: calc({widthPct}% - 4px); min-height: 26px; {chipSurfaceStyle(
+								slot.event
+							)}"
 						>
 							<span class="block truncate">
+								<ChipKindMark {kind} density="glyph" />
 								{#if selectionMode}
 									<span
 										class="mr-1 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-all {isSelected(

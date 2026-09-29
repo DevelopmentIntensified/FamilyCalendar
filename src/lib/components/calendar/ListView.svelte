@@ -10,7 +10,7 @@
 	import { freqNoun } from '$lib/utils/taskDisplay';
 	import { groupByDateKey, toDateMs } from '$lib/utils/listGroup';
 	import { chipColor, rsvpVisual } from '$lib/utils/eventChip';
-	import { chipKindOf, chipTreatment } from '$lib/utils/chipVocabulary';
+	import { chipKindOf, chipTreatment, chipWord } from '$lib/utils/chipVocabulary';
 	import { invalidateAll } from '$app/navigation';
 	import todoList from '$lib/assets/svgs/todo-list-svgrepo-com.svg';
 	import ChipKindMark from './ChipKindMark.svelte';
@@ -122,6 +122,7 @@
 				{#each dayEvents as event}
 					{@const rv = rsvpVisual(event.rsvpStatus)}
 					{@const kind = chipKindOf(event)}
+					{@const kindWord = chipWord(kind, 'word')}
 					<button
 						type="button"
 						data-chip-kind={kind}
@@ -158,12 +159,9 @@
 									{#if event.attendance && event.attendance.invited > 1}
 										<AttendanceBadge attendance={event.attendance} />
 									{/if}
-									{#if event.isAd}
-										<span
-											class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700"
-											>Ad</span
-										>
-									{/if}
+									<!-- #067: the hand-rolled amber "Ad" pill is gone. Amber
+										read as "someone else's colour"; the word now comes from
+										chipWord, the same source as every other view. -->
 								</div>
 								<div class="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-slate-500">
 									{#if calendarIds.length > 1 && calendarIds.find((c) => c.id === event.calendarId)}
@@ -175,12 +173,15 @@
 											{calendarIds.find((c) => c.id === event.calendarId)?.name}
 										</span>
 									{/if}
-									{#if event.allDay}
-										<!-- #068: the meta row is the one place a timed and an
-											all-day event sit side by side, so the kind is spelled out
-											from the shared vocabulary instead of a clock icon. -->
+									<!-- #067: keyed on the WORD, not on allDay. A timed ad
+										is still an ad, and the old `{#if event.allDay}`
+										guard left it unnamed here. `timed` has no word, so
+										an ordinary timed event renders no mark and the
+										clock below still carries it. -->
+									{#if kindWord}
 										<ChipKindMark {kind} density="word" />
-									{:else}
+									{/if}
+									{#if !event.allDay}
 										{@const st =
 											event.startTime || (event.start ? formatEventTime(event.start) : undefined)}
 										{@const et =

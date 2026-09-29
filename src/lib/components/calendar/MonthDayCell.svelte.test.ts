@@ -153,3 +153,51 @@ describe('MonthDayCell chip vocabulary', () => {
 		expect(mark('timed')).toBeNull();
 	});
 });
+
+// #067 — a sponsored event names itself in EVERY view. The month cell is a
+// glyph view, so "Ad" cannot be shown: the computed bar after the mark is
+// ~15px at 320px, and rendering the word there would erase the title. The
+// name therefore lands on the hover hint — the same phrase the screen reader
+// gets — and the chip keeps three wordless channels: bag, solid box, hatch.
+describe('MonthDayCell names a sponsored event', () => {
+	afterEach(cleanup);
+
+	const mark = (kind: string) => document.querySelector(`[data-chip-mark="${kind}"]`);
+	const chip = () => screen.getByText('Toys').closest('button');
+
+	const renderAd = () =>
+		render(MonthDayCell, {
+			props: { ...base, dayEvents: [{ ...evt('e1', 'Toys'), isAd: true }], dayTasks: [] }
+		});
+
+	it('puts the name on the hover hint, because the word cannot fit', () => {
+		renderAd();
+		expect(chip()?.getAttribute('title')).toBe('Sponsored · Toys');
+	});
+
+	it('stays glyph-only — no visible word to crowd the title out', () => {
+		renderAd();
+		expect(mark('sponsored')?.querySelector('[data-chip-word]')).toBeNull();
+		expect(screen.queryByText('Ad')).toBeNull();
+		// The title keeps its room; the mark stays shrink-0 beside it.
+		expect(screen.getByText('Toys').className).toContain('min-w-0');
+	});
+
+	it('carries the neutral hatch and the solid box, so the ad reads without a word', () => {
+		renderAd();
+		const style = chip()?.getAttribute('style') ?? '';
+		expect(style).toContain('repeating-linear-gradient');
+		expect(chip()?.className).toContain('border border-[var(--chip-color)]');
+		// Never amber: hue would read as "someone else's calendar colour".
+		expect(chip()?.className).not.toMatch(/amber/);
+	});
+
+	it('says nothing about ads on a chip that is not sponsored', () => {
+		render(MonthDayCell, {
+			props: { ...base, dayEvents: [{ ...evt('e1', 'Toys'), isAd: false }], dayTasks: [] }
+		});
+		expect(chip()?.getAttribute('title')).toBe('Toys');
+		expect(mark('sponsored')).toBeNull();
+		expect(chip()?.getAttribute('style')).not.toContain('repeating-linear-gradient');
+	});
+});

@@ -5,7 +5,7 @@
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
 	import { rsvpVisual } from '$lib/utils/eventChip';
-	import { chipKindOf, chipSurfaceStyle, chipTreatment, chipWord } from '$lib/utils/chipVocabulary';
+	import { chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import ChipKindMark from './ChipKindMark.svelte';
 
@@ -144,9 +144,12 @@
 							class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 active:bg-slate-100 sm:px-6 {treatment.containerClass}"
 							style={chipSurfaceStyle(event)}
 						>
-							<!-- #068: the leading mark is both signals at once — the
-								calendar's colour, the kind's shape. -->
-							<ChipKindMark {kind} density="glyph" />
+							<!-- #067: the sheet is a WORD view, so the mark spells
+								the kind out for every row — not just all-day. The old
+								`{:else}` branch below only fired for all-day, which left
+								a timed ad showing a bare bag glyph. `timed` has no word,
+								so an ordinary timed row renders the dot alone. -->
+							<ChipKindMark {kind} density="word" />
 							<div class="min-w-0 flex-1">
 								<div class="flex items-center gap-2">
 									<span class="truncate text-sm font-medium text-slate-800">{event.title}</span>
@@ -175,10 +178,6 @@
 											<span class="text-xs text-slate-500"> · by {event.creatorName}</span>
 										{/if}
 									{/if}
-								{:else}
-									<!-- The word comes from the shared vocabulary, so the sheet
-										cannot drift from the month cell's bar. -->
-									<span class="text-xs text-slate-500">{chipWord(kind, 'word')}</span>
 								{/if}
 							</div>
 							<svg

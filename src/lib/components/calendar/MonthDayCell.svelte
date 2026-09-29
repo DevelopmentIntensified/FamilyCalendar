@@ -2,7 +2,7 @@
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { toDate } from '$lib/utils/eventTime';
 	import { chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
-	import { chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
+	import { chipA11y, chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import AttendanceBadge from './AttendanceBadge.svelte';
@@ -153,16 +153,17 @@
 			{@const rv = rsvpVisual(event.rsvpStatus)}
 			{@const kind = chipKindOf(event)}
 			{@const treatment = chipTreatment(kind)}
+			<!-- #067: a glyph view has no room for the word, so the name
+				lands on the hover hint — the same phrase a screen reader gets
+				from the mark. One source: chipA11y, never a per-view string. -->
+			{@const named = chipA11y(kind, 'glyph')}
+			{@const hint = named ? `${named} · ${chipTooltip(event, calendars)}` : chipTooltip(event, calendars)}
 			<button
 				type="button"
 				data-chip-kind={kind}
 				onclick={() => (selectionMode ? onToggleSelect(event) : onEventClick(event))}
 				aria-pressed={selectionMode ? isSelected(event) : undefined}
-				title={selectionMode
-					? isSelected(event)
-						? 'Deselect'
-						: 'Select'
-					: chipTooltip(event, calendars)}
+				title={selectionMode ? (isSelected(event) ? 'Deselect' : 'Select') : hint}
 				class="flex min-h-[26px] w-full items-center gap-1 overflow-hidden rounded-md bg-white px-1 py-[3px] text-left text-[11px] font-medium leading-tight transition-colors hover:brightness-95 active:brightness-90 sm:min-h-0 {treatment.containerClass} {selectionMode &&
 				isSelected(event)
 					? 'ring-2 ring-primary-400'

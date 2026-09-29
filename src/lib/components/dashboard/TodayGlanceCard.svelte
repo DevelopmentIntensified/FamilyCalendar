@@ -10,6 +10,9 @@
 		end: Date | string | null;
 		date: Date | string;
 		allDay: boolean;
+		/** #067: sponsored rows must name themselves here too. Optional so a
+		 *  load that predates the flag still type-checks. */
+		isAd?: boolean;
 		location: string | null;
 		calendarId: string | null;
 		color: string;
@@ -21,7 +24,9 @@
 
 <script lang="ts">
 	import { rsvpVisual } from '$lib/utils/eventChip';
+	import { chipKindOf, chipSurfaceStyle } from '$lib/utils/chipVocabulary';
 	import AttendanceBadge from '../calendar/AttendanceBadge.svelte';
+	import ChipKindMark from '../calendar/ChipKindMark.svelte';
 
 	export let dateLabel: string;
 	export let events: GlanceEvent[];
@@ -52,13 +57,18 @@
 		<div class="mb-3 space-y-1.5">
 			{#each allDayEvents as e (e.id)}
 				{@const rv = rsvpVisual(e.rsvpStatus)}
+				{@const kind = chipKindOf(e)}
 				<button
 					type="button"
+					data-chip-kind={kind}
 					onclick={() => onEventClick(e)}
+					style={chipSurfaceStyle(e)}
 					class="flex w-full items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 text-left transition-colors hover:border-slate-200 hover:bg-slate-100 {rv?.containerClass ??
 						''}"
 				>
-					<span class="h-2 w-2 shrink-0 rounded-full" style:background={e.color}></span>
+					<!-- #067: a hand-rolled colour dot became the shared mark, so
+						the day dashboard says what every other view says. -->
+					<ChipKindMark {kind} density="word" />
 					<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{e.title}</span>
 					{#if rv}
 						<span
@@ -69,7 +79,6 @@
 					{#if e.attendance && e.attendance.invited > 1}
 						<AttendanceBadge attendance={e.attendance} variant="row" />
 					{/if}
-					<span class="shrink-0 text-[11px] font-medium text-slate-400">All day</span>
 				</button>
 			{/each}
 		</div>
@@ -79,9 +88,12 @@
 		<div class="space-y-1.5">
 			{#each timedEvents as e (e.id)}
 				{@const rv = rsvpVisual(e.rsvpStatus)}
+				{@const kind = chipKindOf(e)}
 				<button
 					type="button"
+					data-chip-kind={kind}
 					onclick={() => onEventClick(e)}
+					style={chipSurfaceStyle(e)}
 					class="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-50 {rv?.containerClass ??
 						''}"
 				>
@@ -93,7 +105,7 @@
 							<span class="block text-[10px] tabular-nums text-slate-400">{timeLabel(e.end)}</span>
 						{/if}
 					</div>
-					<span class="h-2 w-2 shrink-0 rounded-full" style:background={e.color}></span>
+					<ChipKindMark {kind} density="word" />
 					<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{e.title}</span>
 					{#if rv}
 						<span

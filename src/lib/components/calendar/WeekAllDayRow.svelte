@@ -4,7 +4,7 @@
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
 	import { rsvpVisual } from '$lib/utils/eventChip';
-	import { chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
+	import { chipA11y, chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
 	import ChipKindMark from './ChipKindMark.svelte';
 	import type { CalendarTask } from './TaskDetailModal.svelte';
 
@@ -44,9 +44,15 @@
 				{@const rv = rsvpVisual(event.rsvpStatus)}
 				{@const kind = chipKindOf(event)}
 				{@const treatment = chipTreatment(kind)}
+				<!-- #067: a glyph view has no room for the word, so the name
+					lands on the hover hint (chipA11y — the same phrase the mark
+					gives a screen reader). The band chip had no title at all
+					before, which is what left an ad here nameless. -->
+				{@const named = chipA11y(kind, 'glyph')}
 				<button
 					type="button"
 					data-chip-kind={kind}
+					title={named ? `${named} · ${event.title}` : event.title}
 					onclick={() => onEventClick(event)}
 					aria-pressed={selectionMode ? isSelected(event) : undefined}
 					class="flex w-full cursor-pointer items-center gap-1 truncate rounded bg-white px-1 py-0.5 text-left text-xs font-medium transition-all hover:opacity-90 active:scale-[0.99] active:opacity-70 {treatment.containerClass} {rv?.containerClass ??

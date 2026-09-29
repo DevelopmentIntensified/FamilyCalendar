@@ -81,3 +81,43 @@ describe('DayHourGrid', () => {
 		expect(p.onCreateRange).toHaveBeenCalledOnce();
 	});
 });
+
+// #067 — #068 never reached the hour grids, so an ad there was a bare colour
+// bar: no bag, no hatch, no word. The day grid is a WORD view — a single
+// column keeps ~250px of chip at 320px, so the word fits beside the title.
+describe('DayHourGrid names a sponsored event', () => {
+	afterEach(cleanup);
+
+	const mark = (kind: string) => document.querySelector(`[data-chip-mark="${kind}"]`);
+
+	const renderAd = () =>
+		render(DayHourGrid, {
+			props: props({
+				laidOut: [
+					{ event: { ...evt, id: 'ad', title: 'Toy drive', isAd: true }, lane: 0, lanes: 1, topPct: 40, heightPct: 5 }
+				]
+			})
+		});
+
+	it('marks the ad and spells it out', () => {
+		renderAd();
+		expect(mark('sponsored')).toBeTruthy();
+		expect(mark('sponsored')?.querySelector('[data-chip-word]')?.textContent).toBe('Ad');
+	});
+
+	it('hatches the chip neutrally, so an ad never reads as a calendar colour', () => {
+		renderAd();
+		const chip = screen.getByText('Toy drive').closest('button');
+		expect(chip?.getAttribute('style')).toContain('repeating-linear-gradient');
+		expect(chip?.className).not.toMatch(/amber/);
+	});
+
+	it('leaves an ordinary timed event with a bare dot and no word', () => {
+		render(DayHourGrid, {
+			props: props({ laidOut: [{ event: evt, lane: 0, lanes: 1, topPct: 40, heightPct: 5 }] })
+		});
+		expect(mark('timed')).toBeTruthy();
+		expect(mark('timed')?.querySelector('[data-chip-word]')).toBeNull();
+		expect(screen.queryByText('Ad')).toBeNull();
+	});
+});

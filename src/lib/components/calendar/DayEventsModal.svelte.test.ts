@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import DayEventsModal from './DayEventsModal.svelte';
+import type { Event } from '$lib/types';
 
 afterEach(() => {
 	cleanup();
@@ -79,5 +80,64 @@ describe('DayEventsModal', () => {
 		await fireEvent.click(screen.getByText('Buy milk'));
 		expect(onTaskClick).toHaveBeenCalledTimes(1);
 		expect(onTaskClick).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }));
+	});
+});
+
+// SAFETY: fixture covers the Event fields DayEventsModal renders.
+const evt = (over: Record<string, unknown> = {}) =>
+	({
+		id: 'e1',
+		ownerId: 'u1',
+		calendarId: 'cal1',
+		title: 'Standup',
+		date: '2024-01-15',
+		start: '2024-01-15T10:00:00',
+		end: '2024-01-15T11:00:00',
+		description: null,
+		location: null,
+		allDay: false,
+		recurrenceFrequency: null,
+		recurrenceInterval: null,
+		recurrenceByDay: null,
+		recurrenceCount: null,
+		recurrenceUntil: null,
+		reminderMinutes: null,
+		color: '#0ea5e9',
+		created_at: new Date('2024-01-01T00:00:00Z'),
+		...over
+	}) as Event;
+
+const mark = (kind: string) => document.querySelector(`[data-chip-mark="${kind}"]`);
+
+// #067 — the modal is a WORD view (max-w-lg rows), but it had no vocabulary at
+// all: a hand-rolled colour dot and a literal "All day". A sponsored event
+// opened from a month cell's "+N more" was therefore completely unnamed.
+describe('DayEventsModal names a sponsored event', () => {
+	function renderEvents(events: Event[]) {
+		return render(DayEventsModal, { props: { show: true, date: '01-15-2024', events, calendars: [] } });
+	}
+
+	it('shows the word for a TIMED ad', () => {
+		renderEvents([evt({ id: 'ad', title: 'Toy drive', isAd: true })]);
+		expect(mark('sponsored')?.querySelector('[data-chip-word]')?.textContent).toBe('Ad');
+	});
+
+	it('shows the word for an all-day ad, outranking the all-day word', () => {
+		renderEvents([evt({ id: 'ad', title: 'Toy drive', isAd: true, allDay: true })]);
+		expect(mark('sponsored')?.querySelector('[data-chip-word]')?.textContent).toBe('Ad');
+		expect(mark('allDay')).toBeNull();
+	});
+
+	it('takes the word from the vocabulary, not a hand-rolled string', () => {
+		renderEvents([evt({ allDay: true })]);
+		expect(mark('allDay')?.querySelector('[data-chip-word]')?.textContent).toBe('All day');
+		expect(screen.queryByText('Ad')).toBeNull();
+	});
+
+	it('leaves an ordinary timed event with a bare dot and no ad wording', () => {
+		renderEvents([evt({ title: 'Standup' })]);
+		expect(mark('timed')).toBeTruthy();
+		expect(mark('timed')?.querySelector('[data-chip-word]')).toBeNull();
+		expect(screen.queryByText('Ad')).toBeNull();
 	});
 });

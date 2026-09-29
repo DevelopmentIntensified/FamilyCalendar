@@ -93,3 +93,57 @@ describe('WeekAllDayRow chip vocabulary', () => {
 		expect(mark('allDay')?.querySelector('[data-chip-word]')).toBeNull();
 	});
 });
+
+// #067 — the week band is a glyph view for the same reason as the month cell,
+// so the sponsored name rides on the hover hint, not on a word. The band had
+// NO title attribute at all before, which is why an ad here was nameless.
+describe('WeekAllDayRow names a sponsored event', () => {
+	afterEach(cleanup);
+
+	const mark = (kind: string) => document.querySelector(`[data-chip-mark="${kind}"]`);
+	const ad = { ...evt, id: 'e2', title: 'Toy drive', isAd: true } as Event;
+
+	function renderAd(on: 'ad' | 'plain' = 'ad') {
+		render(WeekAllDayRow, {
+			props: {
+				weekDays,
+				eventsForDay: (d: DateTime) =>
+					d.toISODate() === '2026-09-08' ? [on === 'ad' ? ad : evt] : [],
+				tasksForDay: () => [],
+				selectionMode: false,
+				isSelected: () => false,
+				onEventClick: vi.fn(),
+				onOpenTask: vi.fn()
+			}
+		});
+		// The chip is the title's closest button by construction; assert it so a
+		// layout change fails loudly rather than reading a null attribute.
+		const chip = screen.getByText(on === 'ad' ? 'Toy drive' : 'Holiday').closest('button');
+		if (!chip) throw new Error('chip not found');
+		return chip;
+	}
+
+	it('names the ad on the hover hint', () => {
+		expect(renderAd().getAttribute('title')).toBe('Sponsored · Toy drive');
+	});
+
+	it('keeps the ad wordless so the title keeps its bar', () => {
+		renderAd();
+		expect(mark('sponsored')?.querySelector('[data-chip-word]')).toBeNull();
+		expect(screen.queryByText('Ad')).toBeNull();
+	});
+
+	it('hatches the ad neutrally and boxes it, so it reads without a word', () => {
+		const chip = renderAd();
+		expect(chip.getAttribute('style')).toContain('repeating-linear-gradient');
+		expect(chip.className).toContain('border border-[var(--chip-color)]');
+		expect(chip.className).not.toMatch(/amber/);
+	});
+
+	it('never calls a non-sponsored chip an ad', () => {
+		const chip = renderAd('plain');
+		expect(chip.getAttribute('title')).not.toMatch(/Sponsored/);
+		expect(mark('sponsored')).toBeNull();
+		expect(chip.getAttribute('style')).not.toContain('repeating-linear-gradient');
+	});
+});

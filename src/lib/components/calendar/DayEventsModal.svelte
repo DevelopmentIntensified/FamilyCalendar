@@ -3,9 +3,11 @@
 	import { DateTime } from 'luxon';
 	import { formatEventTime } from '$lib/utils/eventTime';
 	import { rsvpVisual } from '$lib/utils/eventChip';
+	import { chipKindOf, chipSurfaceStyle } from '$lib/utils/chipVocabulary';
 	import type { CalendarTask } from './TaskDetailModal.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
 	import AttendanceBadge from './AttendanceBadge.svelte';
+	import ChipKindMark from './ChipKindMark.svelte';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 
 	export let show = false;
@@ -88,6 +90,7 @@
 			<div class="divide-y divide-slate-100">
 				{#each events as event (event.id)}
 					{@const rv = rsvpVisual(event.rsvpStatus)}
+				{@const kind = chipKindOf(event)}
 					<button
 						type="button"
 						class="w-full px-6 py-4 text-left transition-colors hover:bg-slate-50 {rv?.containerClass ??
@@ -95,10 +98,9 @@
 						onclick={() => handleEventClick(event)}
 					>
 						<div class="flex items-start gap-3">
-							<div
-								class="mt-1 h-3 w-3 shrink-0 rounded-full"
-								style="background-color: {event.color || '#94a3b8'}"
-							></div>
+							<div class="mt-0.5 shrink-0" style={chipSurfaceStyle(event)}>
+								<ChipKindMark {kind} density="word" />
+							</div>
 							<div class="min-w-0 flex-1">
 								<div class="flex items-center gap-2">
 									<h3 class="truncate font-semibold text-slate-900">{event.title}</h3>
@@ -116,14 +118,15 @@
 									{/if}
 								</div>
 								<div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-									{#if event.allDay}
-										<span>All day</span>
-									{:else if event.startTime}
+									<!-- #067: the kind's word now rides on the mark, so this row
+										carries only the clock. It used to print a literal
+										"All day" here, which an ad would have inherited. -->
+									{#if !event.allDay && event.startTime}
 										<span
 											>{event.startTime}{#if event.endTime}
 												- {event.endTime}{/if}</span
 										>
-									{:else if event.start}
+									{:else if !event.allDay && event.start}
 										{@const st = formatEventTime(event.start)}
 										{@const et = event.end ? formatEventTime(event.end) : undefined}
 										<span

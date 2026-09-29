@@ -93,3 +93,41 @@ describe('DayAllDayList chip vocabulary', () => {
 		expect(chip?.getAttribute('style')).not.toContain('border-left');
 	});
 });
+
+// #067 — the day list is a WORD view, so the ad names itself in plain sight:
+// the same `Ad` the month cell can only hint at, from the one vocabulary.
+describe('DayAllDayList names a sponsored event', () => {
+	afterEach(cleanup);
+
+	const base = {
+		dayTasks: [],
+		selectionMode: false,
+		isSelected: () => false,
+		onEventClick: vi.fn(),
+		onOpenTask: vi.fn()
+	};
+	const mark = (kind: string) => document.querySelector(`[data-chip-mark="${kind}"]`);
+	const ad = { ...evt, id: 'e2', title: 'Toy drive', isAd: true } as Event;
+
+	it('shows the word on an all-day ad', () => {
+		render(DayAllDayList, { props: { ...base, allDayEvents: [ad] } });
+		expect(mark('sponsored')?.querySelector('[data-chip-word]')?.textContent).toBe('Ad');
+		// An ad outranks all-day, so the CHIP is not also called "All day"
+		// (the section heading still is — that is where the chips live).
+		expect(mark('allDay')).toBeNull();
+		expect(screen.getAllByText('All day')).toHaveLength(1);
+	});
+
+	it('keeps the hatch neutral so the ad never reads as a calendar colour', () => {
+		render(DayAllDayList, { props: { ...base, allDayEvents: [ad] } });
+		const chip = screen.getByText('Toy drive').closest('button');
+		expect(chip?.getAttribute('style')).toContain('repeating-linear-gradient');
+		expect(chip?.className).not.toMatch(/amber/);
+	});
+
+	it('says no such thing about a plain all-day event', () => {
+		render(DayAllDayList, { props: { ...base, allDayEvents: [evt] } });
+		expect(mark('sponsored')).toBeNull();
+		expect(screen.queryByText('Ad')).toBeNull();
+	});
+});
