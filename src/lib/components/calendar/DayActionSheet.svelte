@@ -5,7 +5,9 @@
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
 	import { rsvpVisual } from '$lib/utils/eventChip';
+	import { chipKindOf, chipSurfaceStyle, chipTreatment, chipWord } from '$lib/utils/chipVocabulary';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
+	import ChipKindMark from './ChipKindMark.svelte';
 
 	export let date: DateTime;
 	export let open = false;
@@ -130,18 +132,21 @@
 				>
 					{#each events as event (event.id)}
 						{@const rv = rsvpVisual(event.rsvpStatus)}
+						{@const kind = chipKindOf(event)}
+						{@const treatment = chipTreatment(kind)}
 						<button
 							type="button"
+							data-chip-kind={kind}
 							onclick={() => {
 								close();
 								onEventClick(event);
 							}}
-							class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 active:bg-slate-100 sm:px-6"
+							class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 active:bg-slate-100 sm:px-6 {treatment.containerClass}"
+							style={chipSurfaceStyle(event)}
 						>
-							<span
-								class="h-2.5 w-2.5 shrink-0 rounded-full"
-								style="background-color: {event.color || '#94a3b8'}"
-							></span>
+							<!-- #068: the leading mark is both signals at once — the
+								calendar's colour, the kind's shape. -->
+							<ChipKindMark {kind} density="glyph" />
 							<div class="min-w-0 flex-1">
 								<div class="flex items-center gap-2">
 									<span class="truncate text-sm font-medium text-slate-800">{event.title}</span>
@@ -171,7 +176,9 @@
 										{/if}
 									{/if}
 								{:else}
-									<span class="text-xs text-slate-500">All day</span>
+									<!-- The word comes from the shared vocabulary, so the sheet
+										cannot drift from the month cell's bar. -->
+									<span class="text-xs text-slate-500">{chipWord(kind, 'word')}</span>
 								{/if}
 							</div>
 							<svg

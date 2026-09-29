@@ -10,8 +10,10 @@
 	import { freqNoun } from '$lib/utils/taskDisplay';
 	import { groupByDateKey, toDateMs } from '$lib/utils/listGroup';
 	import { chipColor, rsvpVisual } from '$lib/utils/eventChip';
+	import { chipKindOf, chipTreatment } from '$lib/utils/chipVocabulary';
 	import { invalidateAll } from '$app/navigation';
 	import todoList from '$lib/assets/svgs/todo-list-svgrepo-com.svg';
+	import ChipKindMark from './ChipKindMark.svelte';
 	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
 
 	export let currentDate: Writable<DateTime>;
@@ -119,7 +121,16 @@
 			<div class="space-y-2">
 				{#each dayEvents as event}
 					{@const rv = rsvpVisual(event.rsvpStatus)}
-					<button type="button" onclick={() => handleEventClick(event)} class="w-full text-left">
+					{@const kind = chipKindOf(event)}
+					<button
+						type="button"
+						data-chip-kind={kind}
+						onclick={() => handleEventClick(event)}
+						class="w-full text-left"
+					>
+						<!-- The card keeps its own chrome (border + colour bar = the
+							calendar); the vocabulary rides on the chip in the meta
+							row below, so the two signals never fight. -->
 						<div
 							class="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-slate-300 hover:shadow-md {rv?.containerClass ??
 								''}"
@@ -165,17 +176,10 @@
 										</span>
 									{/if}
 									{#if event.allDay}
-										<span class="flex items-center gap-1">
-											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-												/>
-											</svg>
-											All day
-										</span>
+										<!-- #068: the meta row is the one place a timed and an
+											all-day event sit side by side, so the kind is spelled out
+											from the shared vocabulary instead of a clock icon. -->
+										<ChipKindMark {kind} density="word" />
 									{:else}
 										{@const st =
 											event.startTime || (event.start ? formatEventTime(event.start) : undefined)}
@@ -235,22 +239,19 @@
 				{/each}
 
 				{#each dayTasks as task (task.id)}
+					{@const taskTreatment = chipTreatment('task')}
 					<button
 						type="button"
+						data-chip-kind="task"
 						onclick={() => openTask(task)}
-						class="relative flex w-full items-center gap-4 rounded-xl border border-dashed border-slate-400 bg-slate-50 p-4 text-left transition-colors hover:border-slate-500 hover:bg-slate-100"
+						class="relative flex w-full items-center gap-4 overflow-hidden rounded-xl border border-dashed bg-slate-50 p-4 text-left transition-colors hover:bg-slate-100 {taskTreatment.containerClass}"
 					>
 						<span class="absolute -inset-2" aria-hidden="true"></span>
-						<span
-							class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300"
-						></span>
 						<span class="flex min-w-0 flex-1 flex-col gap-1">
 							<span class="block truncate font-medium text-slate-700">{task.title}</span>
 							<span class="flex flex-wrap items-center gap-x-3 text-sm text-slate-500">
-								<span
-									class="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600"
-									>Task</span
-								>
+								<!-- #068: the same word the month cell's ring implies. -->
+								<ChipKindMark kind="task" density="word" />
 								{#if task.recurrenceFrequency}
 									<span class="text-purple-500">
 										🔁 {task.recurrenceInterval && task.recurrenceInterval > 1

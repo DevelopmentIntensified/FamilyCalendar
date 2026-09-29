@@ -32,7 +32,7 @@ export const PATCH: RequestHandler = async ({ request, locals, url }) => {
 	const id = url.pathname.split('/').pop();
 	if (!id) return json({ error: 'Item ID required' }, { status: 400 });
 
-	let body: { scope?: unknown; op?: unknown; stores?: unknown };
+	let body: { scope?: unknown; op?: unknown; stores?: unknown; target?: unknown };
 	try {
 		body = await request.json();
 	} catch {

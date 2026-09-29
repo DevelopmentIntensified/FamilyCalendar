@@ -104,3 +104,52 @@ describe('MonthDayCell', () => {
 		expect(onAdd).toHaveBeenCalledOnce();
 	});
 });
+
+// #068 — the month cell is a glyph view: at 320px there is no room for a
+// word, so the kind rides on the mark's shape alone.
+describe('MonthDayCell chip vocabulary', () => {
+	afterEach(cleanup);
+
+	const mark = (kind: string) => document.querySelector(`[data-chip-mark="${kind}"]`);
+
+	it('marks a timed event with the dot treatment', () => {
+		render(MonthDayCell, {
+			props: { ...base, dayEvents: [{ ...evt('e1', 'Dentist'), allDay: false }], dayTasks: [] }
+		});
+		const el = mark('timed');
+		expect(el).toBeTruthy();
+		expect(el?.querySelector('[data-chip-a11y]')).toBeNull();
+	});
+
+	it('marks an all-day event with a bar, not a dot and not a tint', () => {
+		render(MonthDayCell, {
+			props: { ...base, dayEvents: [{ ...evt('e1', 'Concert'), allDay: true }], dayTasks: [] }
+		});
+		expect(mark('allDay')).toBeTruthy();
+		expect(mark('timed')).toBeNull();
+		expect(screen.getByText('Concert').closest('button')?.getAttribute('style')).not.toContain(
+			'background-color'
+		);
+	});
+
+	it('keeps the kind in a screen-reader phrase when the word cannot fit', () => {
+		render(MonthDayCell, {
+			props: { ...base, dayEvents: [{ ...evt('e1', 'Concert'), allDay: true }], dayTasks: [] }
+		});
+		expect(mark('allDay')?.querySelector('[data-chip-a11y]')?.textContent).toBe('All day');
+		expect(mark('allDay')?.querySelector('[data-chip-word]')).toBeNull();
+	});
+
+	it('marks a task with the dashed ring treatment', () => {
+		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [task('t1')] } });
+		expect(mark('task')).toBeTruthy();
+	});
+
+	it('marks a sponsored event with the hatched bag treatment', () => {
+		render(MonthDayCell, {
+			props: { ...base, dayEvents: [{ ...evt('e1', 'Toys'), isAd: true }], dayTasks: [] }
+		});
+		expect(mark('sponsored')).toBeTruthy();
+		expect(mark('timed')).toBeNull();
+	});
+});

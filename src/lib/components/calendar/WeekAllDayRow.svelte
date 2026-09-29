@@ -4,6 +4,8 @@
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
 	import { rsvpVisual } from '$lib/utils/eventChip';
+	import { chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
+	import ChipKindMark from './ChipKindMark.svelte';
 	import type { CalendarTask } from './TaskDetailModal.svelte';
 
 	interface Props {
@@ -16,7 +18,15 @@
 		onOpenTask: (task: CalendarTask) => void;
 	}
 
-	let { weekDays, eventsForDay, tasksForDay, selectionMode, isSelected, onEventClick, onOpenTask }: Props = $props();
+	let {
+		weekDays,
+		eventsForDay,
+		tasksForDay,
+		selectionMode,
+		isSelected,
+		onEventClick,
+		onOpenTask
+	}: Props = $props();
 </script>
 
 <!-- All-Day Events Row (#046 split: pure markup out of WeekView) -->
@@ -29,19 +39,21 @@
 	{#each weekDays as wd}
 		{@const allDayEvents = eventsForDay(wd).filter((e) => e.allDay)}
 		{@const dayTasks = tasksForDay(wd)}
-		<div
-			class="min-h-[40px] flex-1 space-y-0.5 border-r border-slate-100 p-0.5 last:border-r-0"
-		>
+		<div class="min-h-[40px] flex-1 space-y-0.5 border-r border-slate-100 p-0.5 last:border-r-0">
 			{#each allDayEvents as event}
 				{@const rv = rsvpVisual(event.rsvpStatus)}
+				{@const kind = chipKindOf(event)}
+				{@const treatment = chipTreatment(kind)}
 				<button
 					type="button"
+					data-chip-kind={kind}
 					onclick={() => onEventClick(event)}
 					aria-pressed={selectionMode ? isSelected(event) : undefined}
-					class="flex w-full cursor-pointer items-center gap-1 truncate rounded bg-white px-1 py-0.5 text-left text-xs font-medium transition-all hover:opacity-90 active:scale-[0.99] active:opacity-70 {rv?.containerClass ??
+					class="flex w-full cursor-pointer items-center gap-1 truncate rounded bg-white px-1 py-0.5 text-left text-xs font-medium transition-all hover:opacity-90 active:scale-[0.99] active:opacity-70 {treatment.containerClass} {rv?.containerClass ??
 						''} {selectionMode && isSelected(event)
 						? 'bg-primary-50/70 ring-2 ring-primary-400'
 						: ''}"
+					style={chipSurfaceStyle(event)}
 				>
 					{#if selectionMode}
 						<span
@@ -53,9 +65,7 @@
 							aria-hidden="true"
 						>
 							<svg
-								class="h-2 w-2 transition-transform {isSelected(event)
-									? 'scale-100'
-									: 'scale-0'}"
+								class="h-2 w-2 transition-transform {isSelected(event) ? 'scale-100' : 'scale-0'}"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"
@@ -65,13 +75,10 @@
 							</svg>
 						</span>
 					{/if}
-					style="border-left: 3px solid {event.color || '#94a3b8'}" >
-					{#if rv}
-						<span class="mr-0.5 shrink-0 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}"
-							>{rv.icon}</span
-						>
-					{/if}
-					<span class="truncate">{event.title}</span>
+					<!-- #068: the band header already reads "All day" for every
+						column, so a word per chip would only repeat it. -->
+					<ChipKindMark {kind} density="glyph" />
+					<span class="min-w-0 truncate">{event.title}</span>
 					{#if event.creatorName}
 						<CreatorBadge name={event.creatorName} />
 					{/if}
@@ -81,18 +88,19 @@
 				</button>
 			{/each}
 			{#each dayTasks as task (task.id)}
+				{@const taskTreatment = chipTreatment('task')}
 				<button
 					type="button"
+					data-chip-kind="task"
 					onclick={() => onOpenTask(task)}
 					title="View task details"
-					class="relative flex w-full items-center gap-1 rounded border border-dashed border-slate-400 bg-slate-50 px-1 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-500 hover:bg-slate-100 active:bg-slate-200"
+					class="relative flex w-full items-center gap-1 overflow-hidden rounded border border-dashed bg-white px-1 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 active:bg-slate-200 {taskTreatment.containerClass}"
 				>
 					<span class="absolute -inset-2" aria-hidden="true"></span>
-					<span class="h-3 w-3 shrink-0 rounded-full border-2 border-slate-300"></span>
-					<span class="truncate">{task.title}</span>
+					<ChipKindMark kind="task" density="glyph" />
+					<span class="min-w-0 truncate">{task.title}</span>
 				</button>
 			{/each}
 		</div>
 	{/each}
 </div>
-

@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { toDate } from '$lib/utils/eventTime';
-	import { chipStyle, chipColor, chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
+	import { chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
+	import { chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import AttendanceBadge from './AttendanceBadge.svelte';
+	import ChipKindMark from './ChipKindMark.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
 	import type { CalendarTask } from './TaskDetailModal.svelte';
 
@@ -59,10 +61,6 @@
 			dayEvents.length > MAX_CHIPS ||
 			dayTasks.length > MAX_TASK_CHIPS
 	);
-
-	function isAdEvent(event: Event): boolean {
-		return event.isAd === true;
-	}
 </script>
 
 <div
@@ -153,8 +151,11 @@
 	>
 		{#each dayEvents.slice(0, MAX_CHIPS) as event (event.id)}
 			{@const rv = rsvpVisual(event.rsvpStatus)}
+			{@const kind = chipKindOf(event)}
+			{@const treatment = chipTreatment(kind)}
 			<button
 				type="button"
+				data-chip-kind={kind}
 				onclick={() => (selectionMode ? onToggleSelect(event) : onEventClick(event))}
 				aria-pressed={selectionMode ? isSelected(event) : undefined}
 				title={selectionMode
@@ -162,14 +163,11 @@
 						? 'Deselect'
 						: 'Select'
 					: chipTooltip(event, calendars)}
-				class="flex min-h-[26px] w-full items-center gap-1 overflow-hidden rounded-md px-1 py-[3px] text-left text-[11px] font-medium leading-tight transition-colors sm:min-h-0 {isAdEvent(
-					event
-				)
-					? 'border border-amber-300 bg-amber-100'
-					: 'bg-white hover:brightness-95 active:brightness-90'} {selectionMode && isSelected(event)
+				class="flex min-h-[26px] w-full items-center gap-1 overflow-hidden rounded-md bg-white px-1 py-[3px] text-left text-[11px] font-medium leading-tight transition-colors hover:brightness-95 active:brightness-90 sm:min-h-0 {treatment.containerClass} {selectionMode &&
+				isSelected(event)
 					? 'ring-2 ring-primary-400'
 					: ''} {rv?.containerClass ?? ''}"
-				style={chipStyle(event)}
+				style={chipSurfaceStyle(event)}
 			>
 				{#if selectionMode}
 					<span
@@ -197,20 +195,11 @@
 					<span class="shrink-0 rounded px-0.5 text-[9px] font-bold {rv.badgeClass}">{rv.icon}</span
 					>
 				{/if}
-				{#if !event.allDay && !isAdEvent(event)}
-					<span
-						class="h-1.5 w-1.5 shrink-0 rounded-full"
-						style="background-color: {chipColor(event)}"
-					></span>
-				{/if}
-				{#if isAdEvent(event)}
-					<svg class="h-3 w-3 shrink-0 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-						<path
-							d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"
-						/>
-					</svg>
-				{/if}
-				<span class="truncate">{event.title}</span>
+				<!-- #068: the month cell is a glyph view — the computed chip
+					width at 320px cannot hold the word, so the mark's shape and
+					the screen-reader phrase carry the kind instead. -->
+				<ChipKindMark {kind} density="glyph" />
+				<span class="min-w-0 truncate">{event.title}</span>
 				{#if event.creatorName}
 					<CreatorBadge name={event.creatorName} />
 				{/if}
@@ -224,24 +213,22 @@
 			{@const overdue = task.dueDate
 				? toDate(task.dueDate).getTime() < DateTime.now().toMillis()
 				: false}
+			{@const treatment = chipTreatment('task')}
 			<button
 				type="button"
+				data-chip-kind="task"
 				onclick={(ev) => {
 					ev.stopPropagation();
 					onTaskClick(task);
 				}}
-				class="relative flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-slate-50 px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 active:bg-slate-200 {overdue
+				class="relative flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-white px-1 py-[3px] text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 active:bg-slate-200 {treatment.containerClass} {overdue
 					? 'border-red-400 text-red-600'
-					: 'border-slate-400'}"
+					: ''}"
 				title="View task details"
 			>
 				<span class="absolute -inset-2" aria-hidden="true"></span>
-				<span
-					class="h-3 w-3 shrink-0 rounded-full border-2 {overdue
-						? 'border-red-400'
-						: 'border-slate-300'}"
-				></span>
-				<span class="truncate">{task.title}</span>
+				<ChipKindMark kind="task" density="glyph" />
+				<span class="min-w-0 truncate">{task.title}</span>
 				{#if task.recurrenceFrequency}
 					<svg
 						class="ml-auto h-3 w-3 shrink-0 text-purple-400"

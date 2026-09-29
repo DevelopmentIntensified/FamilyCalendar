@@ -4,15 +4,10 @@ export function chipColor(event: Pick<Event, 'color' | 'isAd'>): string {
 	return event.color || '#94a3b8';
 }
 
-/** Inline style giving an event chip its calendar-colored identity. */
-export function chipStyle(event: Pick<Event, 'color' | 'allDay' | 'isAd'>): string {
-	if (event.isAd) return '';
-	const color = chipColor(event);
-	// All-day events read as solid blocks; timed ones stay light.
-	return event.allDay
-		? `background-color: ${color}33; border-left: 3px solid ${color};`
-		: `border-left: 3px solid ${color};`;
-}
+// NOTE: `chipStyle` used to live here, tinting all-day chips with a translucent
+// background. That is the fill-carries-meaning treatment the shared vocabulary
+// (chipVocabulary.ts) replaced: colour is the calendar, shape is the kind.
+// Every caller now uses `chipSurfaceStyle`. Do not reintroduce a colour fill.
 
 export type CalendarRef = { id: string; name: string };
 

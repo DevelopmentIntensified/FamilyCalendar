@@ -53,3 +53,43 @@ describe('WeekAllDayRow', () => {
 		expect(props.onOpenTask).toHaveBeenCalledOnce();
 	});
 });
+
+// #068 — the week band is also a glyph view: its gutter header already reads
+// "All day" for every column, so a word per chip would be pure repetition.
+describe('WeekAllDayRow chip vocabulary', () => {
+	afterEach(cleanup);
+
+	const mark = (kind: string) => document.querySelector(`[data-chip-mark="${kind}"]`);
+
+	it('marks all-day events and tasks with the shared treatments', () => {
+		render(WeekAllDayRow, {
+			props: {
+				weekDays,
+				eventsForDay: (d: DateTime) => (d.toISODate() === '2026-09-08' ? [evt] : []),
+				tasksForDay: (d: DateTime) => (d.toISODate() === '2026-09-08' ? [task] : []),
+				selectionMode: false,
+				isSelected: () => false,
+				onEventClick: vi.fn(),
+				onOpenTask: vi.fn()
+			}
+		});
+		expect(mark('allDay')).toBeTruthy();
+		expect(mark('task')).toBeTruthy();
+	});
+
+	it('carries the kind without a per-chip word', () => {
+		render(WeekAllDayRow, {
+			props: {
+				weekDays,
+				eventsForDay: (d: DateTime) => (d.toISODate() === '2026-09-08' ? [evt] : []),
+				tasksForDay: () => [],
+				selectionMode: false,
+				isSelected: () => false,
+				onEventClick: vi.fn(),
+				onOpenTask: vi.fn()
+			}
+		});
+		expect(mark('allDay')?.querySelector('[data-chip-a11y]')?.textContent).toBe('All day');
+		expect(mark('allDay')?.querySelector('[data-chip-word]')).toBeNull();
+	});
+});

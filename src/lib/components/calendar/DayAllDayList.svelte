@@ -3,7 +3,9 @@
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
 	import { rsvpVisual } from '$lib/utils/eventChip';
+	import { chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
 	import { freqNoun } from '$lib/utils/taskDisplay';
+	import ChipKindMark from './ChipKindMark.svelte';
 	import type { CalendarTask } from './TaskDetailModal.svelte';
 
 	interface Props {
@@ -15,7 +17,8 @@
 		onOpenTask: (task: CalendarTask) => void;
 	}
 
-	let { allDayEvents, dayTasks, selectionMode, isSelected, onEventClick, onOpenTask }: Props = $props();
+	let { allDayEvents, dayTasks, selectionMode, isSelected, onEventClick, onOpenTask }: Props =
+		$props();
 </script>
 
 <!-- Day all-day + tasks sections (#046 split out of DayView) -->
@@ -25,17 +28,20 @@
 		<div class="space-y-1.5">
 			{#each allDayEvents as event}
 				{@const rv = rsvpVisual(event.rsvpStatus)}
+				{@const kind = chipKindOf(event)}
+				{@const treatment = chipTreatment(kind)}
 				<button
 					type="button"
+					data-chip-kind={kind}
 					onclick={() => onEventClick(event)}
 					aria-pressed={selectionMode ? isSelected(event) : undefined}
-					class="w-full rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 transition-all hover:opacity-90 active:scale-[0.99] {rv?.containerClass ??
+					class="flex w-full items-center gap-2 overflow-hidden rounded bg-white px-3 py-2 text-left text-sm font-medium text-slate-900 transition-all hover:opacity-90 active:scale-[0.99] {treatment.containerClass} {rv?.containerClass ??
 						''} {selectionMode && isSelected(event)
 						? 'bg-primary-50/70 ring-2 ring-primary-400'
 						: ''}"
-					style="border-left: 3px solid {event.color || '#94a3b8'}"
+					style={chipSurfaceStyle(event)}
 				>
-					<span class="flex items-center gap-1.5">
+					<span class="flex min-w-0 items-center gap-1.5">
 						{#if selectionMode}
 							<span
 								class="flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all {isSelected(
@@ -64,6 +70,9 @@
 								>{rv.icon} {rv.label}</span
 							>
 						{/if}
+						<!-- #068: a full-width row has room, so the same all-day
+							event that showed only a bar in the month cell says it. -->
+						<ChipKindMark {kind} density="word" />
 						<span class="truncate">{event.title}</span>
 						{#if event.creatorName}
 							<CreatorBadge name={event.creatorName} />
@@ -83,16 +92,16 @@
 		<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tasks</h3>
 		<div class="space-y-1.5">
 			{#each dayTasks as task (task.id)}
+				{@const taskTreatment = chipTreatment('task')}
 				<button
 					type="button"
+					data-chip-kind="task"
 					onclick={() => onOpenTask(task)}
 					title="View task details"
-					class="relative flex w-full items-center gap-2 rounded border border-dashed border-slate-400 bg-white px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:border-slate-500 hover:bg-slate-50"
+					class="relative flex w-full items-center gap-2 overflow-hidden rounded border border-dashed bg-white px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 {taskTreatment.containerClass}"
 				>
 					<span class="absolute -inset-2" aria-hidden="true"></span>
-					<span
-						class="h-4 w-4 shrink-0 rounded-full border-2 border-slate-300 transition-colors group-hover:border-slate-500"
-					></span>
+					<ChipKindMark kind="task" density="word" />
 					<span class="truncate">{task.title}</span>
 					{#if task.recurrenceFrequency}
 						<span

@@ -40,8 +40,10 @@ describe('DayAllDayList', () => {
 			onOpenTask: vi.fn()
 		};
 		render(DayAllDayList, { props });
-		expect(screen.getByText('All day')).toBeInTheDocument();
-		expect(screen.getByText('Tasks')).toBeInTheDocument();
+		// #068: the section heading and each chip now both say "All day", so
+		// the heading is matched by role rather than by text.
+		expect(screen.getByRole('heading', { name: 'All day' })).toBeInTheDocument();
+		expect(screen.getByRole('heading', { name: 'Tasks' })).toBeInTheDocument();
 		await fireEvent.click(screen.getByText('Holiday'));
 		expect(props.onEventClick).toHaveBeenCalledOnce();
 		await fireEvent.click(screen.getByText('Buy milk'));
@@ -59,6 +61,35 @@ describe('DayAllDayList', () => {
 				onOpenTask: vi.fn()
 			}
 		});
-		expect(screen.queryByText('All day')).not.toBeInTheDocument();
+		expect(screen.queryByRole('heading', { name: 'All day' })).not.toBeInTheDocument();
+	});
+});
+
+// #068 — the day list is a word view: a full-width row has room, so the same
+// all-day event that showed only a bar in the month cell here says "All day".
+describe('DayAllDayList chip vocabulary', () => {
+	afterEach(cleanup);
+
+	const base = {
+		selectionMode: false,
+		isSelected: () => false,
+		onEventClick: vi.fn(),
+		onOpenTask: vi.fn()
+	};
+	const mark = (kind: string) => document.querySelector(`[data-chip-mark="${kind}"]`);
+
+	it('spells the kind out where the row has room', () => {
+		render(DayAllDayList, { props: { ...base, allDayEvents: [evt], dayTasks: [task] } });
+		expect(mark('allDay')?.querySelector('[data-chip-word]')?.textContent).toBe('All day');
+		expect(mark('allDay')?.querySelector('[data-chip-a11y]')).toBeNull();
+		expect(mark('task')?.querySelector('[data-chip-word]')?.textContent).toBe('Task');
+	});
+
+	it('drops the translucent all-day fill so colour stays free for the calendar', () => {
+		render(DayAllDayList, { props: { ...base, allDayEvents: [evt], dayTasks: [] } });
+		const chip = screen.getByText('Holiday').closest('button');
+		expect(chip?.getAttribute('style')).toContain('--chip-color');
+		expect(chip?.getAttribute('style')).not.toMatch(/background(-color)?\s*:/);
+		expect(chip?.getAttribute('style')).not.toContain('border-left');
 	});
 });

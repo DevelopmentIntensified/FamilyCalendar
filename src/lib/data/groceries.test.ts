@@ -62,4 +62,24 @@ describe('groupGroceriesByStore', () => {
 		expect(groups).toHaveLength(1);
 		expect(groups[0].store).toBe('Aldi');
 	});
+
+	it('sorts Store groups alphabetically, not by insertion order', () => {
+		const groups = groupGroceriesByStore([
+			{ id: '1', name: 'sourdough', stores: ['Whole Foods'] },
+			{ id: '2', name: 'eggs', stores: ['Aldi'] },
+			{ id: '3', name: 'coffee', stores: ['Costco'] },
+			{ id: '4', name: 'soap', stores: [] }
+		]);
+		expect(groups.map((g) => g.store)).toEqual(['Aldi', 'Any store', 'Costco', 'Whole Foods']);
+	});
+
+	it('keeps items inside a group in insertion order while sorting the groups', () => {
+		const groups = groupGroceriesByStore([
+			{ id: '1', name: 'zeta', stores: ['Aldi'] },
+			{ id: '2', name: 'apple', stores: ['Aldi'] },
+			{ id: '3', name: 'milk', stores: ['Baker'] }
+		]);
+		expect(groups.map((g) => g.store)).toEqual(['Aldi', 'Baker']);
+		expect(groups[0].items.map((i) => i.name)).toEqual(['zeta', 'apple']);
+	});
 });
