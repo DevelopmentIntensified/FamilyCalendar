@@ -1,26 +1,28 @@
 # 013 — Audit findings: tasks/family/dashboard MED/LOW
 
-Status: in-progress
+Status: done
+
+**Closed 2026-09-29.** Ten findings: eight shipped, three residue bullets
+turned out to be already fixed or moot, and the two real survivors were split
+into the issues that actually own them. The original 10 are all in `## Done`.
+
+## Moved out
+
+- **Completion attribution on the calendar stats page** → **#092**. It is a
+  stats question, not a tasks/family finding, and the actor leg is a query
+  change now that the column exists.
+- **Exception upsert race** → **#014**, which is the events-lane issue. It is a
+  unique index plus an `onConflictDoUpdate`, both squarely in #014's territory,
+  and it needs the same schema/SQL handling as #014's other items.
+
+Neither was dropped. Neither belongs here.
 
 ## Needs doing
 
-Re-triaged 2026-09-29 against the code; 2 of the 5 residue bullets are
-already shipped and are struck (see Done).
+(none)
 
-- **OPEN — `calendar/stats` actorId attribution.** The page still queries
-  `taskCompletions` by `userId` only:
-  `src/routes/(calendar)/calendar/stats/+page.server.ts:19`
-  (`eq(taskCompletions.userId, event.locals.user.id)`) — no actorId leg, no
-  legacy `userId` fallback. Same shape the dashboard already fixed; copy
-  that attribution. `actorId` column exists (sql/006), the work is the query.
-- **OPEN — exception upsert race.** `upsertException`
-  (`src/lib/server/db/actions/events.ts:50-98`) is still
-  select-then-write, and `event_exceptions` still has **no unique index on
-  (event_id, original_date)** (`schema.ts:458-484`). Two concurrent
-  single-occurrence edits can both miss the select and insert duplicates.
-  Fix is a unique index + `insert(...).onConflictDoUpdate({ target:
-  [eventId, originalDate] })` — the code comment at events.ts:61-64 already
-  spells out the target shape. Record the SQL alongside the change.
+Re-triaged 2026-09-29 against the code; 2 of the 5 residue bullets were
+already shipped and are struck (see Done).
 - **STRUCK (was open, verified shipped) — bulk `applied: ownedIds.length`
   inflated count.** `src/routes/api/events/bulk/+server.ts:53-74` now has
   `applyPerItem`, which loops the ids one at a time under per-item

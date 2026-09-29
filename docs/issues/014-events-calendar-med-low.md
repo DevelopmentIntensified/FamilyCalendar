@@ -3,10 +3,25 @@
 Status: in-progress
 
 Re-triaged 2026-09-29 against the code: **7 of the 9 bullets are already
-shipped** (moved to Done, evidence below). 2 remain. Nothing was changed in
-`src/` by this pass.
+shipped** (moved to Done, evidence below). 3 remain — the third arrived from
+#013's re-triage, which found the exception upsert race was an events concern
+all along. Nothing was changed in `src/` by this pass.
 
 ## Needs doing
+
+- **OPEN — exception upsert race (moved in from #013).** `upsertException`
+  (`src/lib/server/db/actions/events.ts:50-98`) is still select-then-write, and
+  `event_exceptions` still has **no unique index on
+  (event_id, original_date)** (`schema.ts:458-484`). Two concurrent
+  single-occurrence edits can both miss the select and insert duplicate rows.
+  Fix is a unique index + `insert(...).onConflictDoUpdate({ target:
+  [eventId, originalDate] })`; the code comment at `events.ts:61-64` already
+  spells out the target shape. **The index needs a duplicate-sweep first** —
+  if any duplicates already exist from the race, the build fails. The DDL is
+  hand-written SQL for the user, and #086 (the migration baseline) is not yet
+  in place, so coordinate rather than assume the runner can apply this.
+  Blocks nothing else, but it sits directly under the Exception Override
+  residue above — decide the mirror question first and they may share a change.
 
 - **OPEN — Recurring times drift across DST.** Unchanged: still the
   documented design limitation it always was. The real fix is zone-stepped

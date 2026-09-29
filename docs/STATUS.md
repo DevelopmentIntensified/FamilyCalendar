@@ -262,32 +262,40 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - #058 Task delete sync (FIXED 2026-09-24): `DELETE /api/tasks/[id]` honored
   issue-019 canMutateTask (family member could delete), `false` → 404 so
   Todoos-style external apps stop getting fake successes on delete syncs.
-- #013 Tasks/family MED/LOW (OPEN, 2 items; re-triaged 2026-09-29).
+- #013 Tasks/family MED/LOW (**DONE 2026-09-29**, closed by the re-triage).
   8 of the original 10 shipped 2026-09-06: assignment notifications,
   remove-member un-assign, undo cursor hardening, completion actor
   attribution (sql/006), sync family scope, sub-override filter, bell
   polling, deleteUser status reset. 3 of the 5 residue bullets were also
-  already shipped and are struck: bulk `applied: ownedIds.length` (now
+  already shipped or moot: bulk `applied: ownedIds.length` (now
   `applyPerItem` with per-item try/catch and a real count), unresolvable
   invite stored as a raw-id guest name (now `resolveEventInvites` drops an
   unknown member id rather than degrading it to a guest), and
   `canUploadAttachment` — the bullet was factually wrong, it IS called from
   `checkSubscriptionAction`; the gate it wanted is moot anyway (receipts are
-  process-and-delete, bills archived). STILL OPEN: (1) `calendar/stats`
-  queries `taskCompletions` by `userId` only, no actorId leg
-  (`(calendar)/calendar/stats/+page.server.ts:19`); (2) `upsertException`
-  is still select-then-write and `event_exceptions` has no unique index on
-  (event_id, original_date).
-- #014 Events/calendar MED/LOW (OPEN, 2 items; re-triaged 2026-09-29 —
+  process-and-delete, bills archived). The 2 real survivors were SPLIT to the
+  issues that own them: stats completion attribution → **#092**, exception
+  upsert race → **#014**. Neither was dropped.
+- #092 Calendar stats credit completions to the wrong person (NEW 2026-09-29,
+  split from #013). The stats page filters task completions by the Task's
+  OWNER, not by who completed it, so a partner checking off your task credits
+  you. The actor column exists and the dashboard already does this correctly;
+  this is the one query that was never updated. Small, self-contained, and the
+  number is quietly wrong rather than missing.
+- #014 Events/calendar MED/LOW (OPEN, 3 items; re-triaged 2026-09-29 —
   7 of the 9 bullets are already shipped and are struck from the issue:
   date-only `recurringUntil` inclusive end-of-day, family-mirror origin id +
   propagation + transactional delete, multi-day split in the user zone,
   offline 401/403 retry-instead-of-discard, scope-'this' attendee note,
   master-edit exception-key shift, duplicate carrying reminderMinutes +
-  attendees, and the create/update/invites/mirror transaction). STILL OPEN:
+  attendees, and the create/update/invites/mirror transaction). 3 OPEN:
   (1) recurring DST drift — needs an ADR in `docs/adr/` before any change;
   (2) single-occurrence Exception Overrides still don't propagate to the
-  family-calendar mirror.
+  family-calendar mirror (a scoping decision, not just code);
+  (3) **moved in from #013** — the exception upsert is select-then-write and
+  `event_exceptions` has no unique index on (event_id, original_date), so
+  concurrent single-occurrence edits insert duplicates. Needs a duplicate
+  sweep before the index, hand-written SQL, and coordination with #086.
 - #015 App UX MED/LOW (re-triaged 2026-09-29: **14 of ~15 items are already
   shipped**, verified against code). Toasts wired app-wide across 6 surfaces
   with success *and* failure branches; all 7 `window.confirm()` sites replaced
