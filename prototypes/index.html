@@ -225,32 +225,43 @@ function badges(file) {
 	return bits.join(' ');
 }
 
-/* ── review state, from the registry (durable) not localStorage (per-browser) ──
-   The store above only knows what THIS browser marked. Two engineers, two
-   answers. review.json is the checked record — review-check.mjs proves it
-   against feedback/ — so the tree reads that, and falls back to the store
-   only if the fetch fails (file://). */
-const REVIEW = new Map();
-const OUTCOME_LABEL = {
-	approved: 'approved',
-	'changes-requested': 'changes requested',
-	rebuild: 'to rebuild'
-};
-async function loadReview() {
+/* ── review state, from the shared module ────────────────────────────────
+   The review system is portable: the registry lives in the project's root,
+   the checker and the tree renderer come from the skill. This page only
+   supplies the page list and its own fallbacks.
+
+   Loaded with a DYNAMIC import inside an async IIFE — not a static import,
+   and not a top-level await: the checkers in this project evaluate this file
+   as a single CLASSIC script with import statements stripped, where both are
+   syntax errors. A static import left `reviewState` undefined and the tree
+   blank; a top-level await threw "Unexpected token". Degrade to an empty
+   registry rather than throw — the rule the overlay follows for a missing
+   collector. */
+let REVIEW = new Map();
+let refreshReview = null;
+(async () => {
 	try {
-		const res = await fetch('review.json', { cache: 'no-store' });
-		if (!res.ok) return;
-		const reg = await res.json();
-		for (const p of reg.pages ?? []) REVIEW.set(p.file, p);
+		const mod = await import('./review-tree.js');
+		refreshReview = () =>
+			mod.mountReviewState({ totals: document.getElementById('tallies'), total: ALL_FILES.length });
+		REVIEW = mod.reviewState();
+		await refreshReview();
 		repaintReview();
 		paintTallies();
-	} catch (e) { /* file:// or offline — the per-browser store still renders */ }
-}
-function reviewBadge(file) {
+		refreshLockBar();
+	} catch (e) {
+		/* standalone tree: no registry, badges fall back to the per-browser store */
+	}
+})();
+
+function badgeFor(file) {
 	const r = REVIEW.get(file);
 	if (!r) return '';
+	if (r.approved) {
+		return `<span class="tally t-good" title="approved in the review tool${r.approvedAt ? ' · ' + String(r.approvedAt).slice(0, 10) : ''}">approved</span>`;
+	}
 	if (r.state === 'unreviewed') return '<span class="tally t-none">not reviewed</span>';
-	const label = OUTCOME_LABEL[r.outcome] ?? r.state;
+	const label = { approved: 'approved', 'changes-requested': 'changes requested', rebuild: 'to rebuild' }[r.outcome] ?? r.state;
 	const cls = r.outcome === 'approved' ? 't-good' : r.outcome === 'rebuild' ? 't-bad' : 't-idea';
 	const tickets = (r.tickets ?? []).map((t) => `#${t}`).join(' ');
 	return (
@@ -259,15 +270,15 @@ function reviewBadge(file) {
 		(r.closed ? '' : ' <span class="rd" title="the review round is still open">open</span>')
 	);
 }
-/* Repaint every node's badge from the registry once it lands. The registry
-   wins: the per-browser store only fills in for a page it has no entry for,
-   so a node can never say "not reviewed" and "approved" at the same time. */
+
+/* The registry wins; the per-browser store only fills in for a page it has no
+   entry for, so a node can never say "not reviewed" AND "approved". */
 function repaintReview() {
 	document.querySelectorAll('.node[data-file]').forEach((n) => {
 		const slot = n.querySelector('[data-badge-slot]');
 		if (!slot) return;
 		const f = n.dataset.file;
-		slot.innerHTML = REVIEW.has(f) ? reviewBadge(f) : badges(f);
+		slot.innerHTML = REVIEW.has(f) ? badgeFor(f) : badges(f);
 	});
 }
 
@@ -555,10 +566,80 @@ function paintTallies() {
 		<a class="btn btn-soft btn-sm" href="app-ui/models.html">the data model</a>`;
 }
 
+/* ── lock-in ────────────────────────────────────────────────────────────
+   Approving happens on the page (the dock menu). LOCKING IN happens here.
+   A browser cannot write files, so the click goes to the collector's
+   /__lock, which delegates to the project's lockin.mjs. That hook owns the
+   project's vocabulary — what a ticket is called, how it is numbered — so
+   nothing in the skill has to know it. The hook also reads the page's own
+   record for its identity, so nothing here has to carry that either. */
+const lockBar = document.createElement('div');
+lockBar.className = 'lockbar';
+lockBar.setAttribute('data-fb', 'tree-lockin');
+lockBar.setAttribute('data-fb-label', 'Lock in an approval');
+lockBar.style.cssText = 'display:none';
+lockBar.innerHTML =
+	'<span class="hint" style="flex:1;min-width:0"></span>' +
+	'<button class="btn btn-primary btn-sm" type="button">Lock in and raise tickets</button>';
+const lockInfo = lockBar.querySelector('.hint');
+const lockBtn = lockBar.querySelector('button');
+
+/** Approved pages, in registry order. */
+function approvedPages() {
+	return [...REVIEW.entries()].filter(([, r]) => r.approved).map(([file, r]) => ({ file, r }));
+}
+
+function refreshLockBar() {
+	const pending = approvedPages();
+	if (!pending.length) {
+		lockBar.style.display = 'none';
+		return;
+	}
+	lockBar.style.display = '';
+	const { file, r } = pending[0];
+	const more = pending.length - 1;
+	lockInfo.textContent =
+		`Approved: ${file}` +
+		(r.tickets?.length ? ` — already raised as #${r.tickets.join(', #')}` : ' — not yet locked in') +
+		(more ? ` · ${more} more approved` : '');
+	lockBtn.textContent = r.tickets?.length ? 'Lock in again' : 'Lock in and raise tickets';
+	lockBar.dataset.target = file;
+}
+
+lockBtn.addEventListener('click', async () => {
+	const file = lockBar.dataset.target;
+	if (!file) return;
+	lockBtn.disabled = true;
+	lockBtn.textContent = 'Locking in…';
+	try {
+		const res = await fetch('/__lock', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ page: file, build: { approved: true, approvedAt: REVIEW.get(file).approvedAt } })
+		});
+		const out = await res.json();
+		lockInfo.textContent = out.message || out.error || 'no answer';
+		lockBtn.textContent = out.ok ? 'Locked in' : 'Lock-in failed';
+		if (out.ok) {
+			if (refreshReview) await refreshReview();
+			repaintReview();
+			refreshLockBar();
+		}
+	} catch (e) {
+		lockInfo.textContent = 'Lock-in failed — is the collector running? (npm run proto:serve)';
+		lockBtn.textContent = 'Lock-in failed';
+	} finally {
+		lockBtn.disabled = false;
+	}
+});
 document.body.appendChild(body);
+body.appendChild(lockBar);
 paintTallies();
-loadReview();
+/* The registry load lives in the IIFE at the top of this file: it has to await
+   a module before it can paint, and doing it here as well would fire it twice
+   and race the badges. */
 window.addEventListener('storage', paintTallies);
+document.addEventListener('proto-review:change', repaintReview);
 </script>
 </body>
 </html>

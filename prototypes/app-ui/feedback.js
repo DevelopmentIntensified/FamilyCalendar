@@ -355,6 +355,10 @@
 			title: rec.title,
 			viewport: rec.viewport,
 			updatedAt: new Date().toISOString(),
+			// Page-level build decision (approved / withdrawn). Top-level on
+			// purpose: the collector spreads the client record through, so it
+			// survives to disk without the server knowing what it means.
+			build: rec.build || null,
 			// every round, oldest first. Closed rounds are sent too so a second
 			// tab stays in sync, but the collector never lets the client drop one.
 			rounds: rec.rounds
@@ -1021,6 +1025,39 @@
 			});
 	}
 
+	/* ---------------------------------------------------------- build state
+	 * Approving a prototype is a PAGE-level decision, not a mark on an element,
+	 * so it does not live in a round. It is reversible by design: a click
+	 * toggles it, because "approved" is a judgement and judgements get revised
+	 * before anyone writes code.
+	 *
+	 * The collector spreads the client record through, so a top-level `build`
+	 * field survives to disk with no change on the server side.
+	 */
+	function buildState() {
+		return record().build || null;
+	}
+	function isApproved() {
+		var b = buildState();
+		return !!(b && b.approved);
+	}
+	function setApproved(on) {
+		var rec = record();
+		if (!on) delete rec.build;
+		else rec.build = { approved: true, approvedAt: new Date().toISOString() };
+		save();
+		renderBar();
+		push(true);
+		announce();
+	}
+	function toggleApproved() {
+		var next = !isApproved();
+		setApproved(next);
+		status(next ? 'Approved for building — the tree can lock it in and raise tickets.'
+					: 'Approval withdrawn.', next ? 'ok' : 'warn');
+		return next;
+	}
+
 	/* -------------------------------------------------------------- copy */
 	/** Human identity of this page, or a bare filename when undeclared. */
 	function whoami() {
@@ -1130,6 +1167,37 @@
 			return ok;
 		}
 	}
+
+	/* ------------------------------------------------------------- public
+	 * dock.js and this file have no shared API — the dock only ever read a
+	 * count. Approving a page is a decision about the PAGE, so the decision
+	 * lives here and the dock asks for it. Anything else that wants to drive
+	 * the overlay (a tree page, a test) goes through this too. */
+	window.__protoFb = {
+		page: key,
+		identity: function () { return IDENTITY; },
+		counts: function () {
+			return {
+				marked: items.length,
+				good: countVerdict(key(), 'good'),
+				bad: countVerdict(key(), 'bad'),
+				idea: countVerdict(key(), 'idea'),
+				redo: items.filter(function (i) { return i.redo; }).length,
+				rounds: roundNo()
+			};
+		},
+		approved: isApproved,
+		toggleApproved: toggleApproved,
+		// Every mark on this page, for a tree page deciding what to raise.
+		marks: function () {
+			var out = [];
+			roundsOf().forEach(function (r) { (r.items || []).forEach(function (i) { out.push(i); }); });
+			return out;
+		}
+	};
+	document.addEventListener('proto-fb:change', function (e) {
+		document.dispatchEvent(new CustomEvent('proto-fb:stats', { detail: e.detail }));
+	});
 
 	/* -------------------------------------------------------------- boot */
 	function start() {

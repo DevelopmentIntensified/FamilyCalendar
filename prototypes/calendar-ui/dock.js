@@ -86,7 +86,8 @@
 		cross: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
 		pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.2 7-11a7 7 0 10-14 0c0 5.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>',
 		grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
-		tree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h4v4H4zM4 15h4v4H4zM16 10h4v4h-4zM8 7h4a2 2 0 012 2v2M8 17h4a2 2 0 002-2v-2"/></svg>'
+		tree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h4v4H4zM4 15h4v4H4zM16 10h4v4h-4zM8 7h4a2 2 0 012 2v2M8 17h4a2 2 0 002-2v-2"/></svg>',
+		check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>'
 	};
 
 	function h(tag, attrs, kids) {
@@ -220,6 +221,45 @@
 		]);
 	}
 
+	/* Approving is a PAGE-level decision, so it lives in the overlay and the
+	 * dock only asks for it. Reversible by design: a second click withdraws
+	 * it, because a judgement gets revised before anyone writes code. The
+	 * page with no overlay loaded still renders a dead item rather than
+	 * throwing — a dock that breaks a page without feedback.js is worse than
+	 * a menu item that does nothing. */
+	function approveItem() {
+		var btn = h('button', { class: 'fb-dock__item fb-dock__item--approve', type: 'button', onclick: onApproveClick }, [
+			h('span', { html: ICON.check }),
+			h('b', { text: 'Approve for building' }),
+			h('span', { class: 'fb-dock__meta', 'data-meta': 'approve', text: '' })
+		]);
+		paintApprove(btn);
+		return btn;
+	}
+	function fb() { return window.__protoFb || null; }
+	function paintApprove(btn) {
+		var api = fb();
+		var on = !!(api && api.approved());
+		btn.classList.toggle('is-approved', on);
+		btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+		var meta = btn.querySelector('[data-meta="approve"]');
+		if (meta) meta.textContent = !api ? 'no overlay' : on ? 'approved' : 'not approved';
+		btn.setAttribute('aria-label', on ? 'Withdraw approval for building' : 'Approve for building');
+	}
+	function onApproveClick(e) {
+		e.stopPropagation();
+		var api = fb();
+		if (!api || typeof api.toggleApproved !== 'function') return;
+		api.toggleApproved();
+		paintApprove(e.currentTarget);
+		if (menuOpen) setMenu(false);
+	}
+	/* Keep the item honest when the overlay's own events fire. */
+	document.addEventListener('proto-fb:change', function () {
+		var b = menu && menu.querySelector('.fb-dock__item--approve');
+		if (b) paintApprove(b);
+	});
+
 	function build() {
 		if (document.querySelector('.fb-dock')) return;
 		injectStyle();
@@ -245,6 +285,7 @@
 
 		menu.appendChild(item(ICON.pin, 'Review', 'review', function () { togglePanel('bar'); }));
 		menu.appendChild(item(ICON.grid, 'Switch prototype', 'switch', function () { togglePanel('switch'); }));
+		menu.appendChild(approveItem());
 		menu.appendChild(h('span', { class: 'fb-dock__sep' }));
 		menu.appendChild(h('a', { class: 'fb-dock__item', href: '../index.html', role: 'menuitem' }, [
 			h('span', { html: ICON.tree }),

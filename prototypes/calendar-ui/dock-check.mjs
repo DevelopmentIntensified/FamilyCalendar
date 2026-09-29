@@ -105,8 +105,16 @@ console.log('\n── 4. the menu opens both tools ──');
 	const label = (i) => (i.querySelector('b').textContent + ' (' + i.querySelector('.fb-dock__meta').textContent + ')');
 	if (!/^Review/.test(label(items[0]))) fail(`first menu item is "${label(items[0])}", expected Review`);
 	if (!/^Switch/.test(label(items[1]))) fail(`second menu item is "${label(items[1])}", expected Switch`);
-	if (!/^All prototypes/.test(label(items[2]))) fail(`third menu item is "${label(items[2])}", expected a link to the tree`);
-	else ok(`menu: ${label(items[0])} · ${label(items[1])} · ${label(items[2])}`);
+	// The approve action is a page-level decision, not navigation, so it sits
+	// after the two tools and before the separator; the tree link stays last.
+	if (!/^Approve for building/.test(label(items[2])))
+		fail(`third menu item is "${label(items[2])}", expected the approve action`);
+	if (items[2].getAttribute('aria-pressed') !== 'false')
+		fail('the approve item does not expose its state (aria-pressed)');
+	if (!/^All prototypes/.test(label(items[3])))
+		fail(`fourth menu item is "${label(items[3])}", expected a link to the tree`);
+	else
+		ok(`menu: ${label(items[0])} · ${label(items[1])} · ${label(items[2])} · ${label(items[3])}`);
 
 	click(w, d.querySelector('.fb-dock__hit'));
 	if (d.querySelector('.fb-dock__menu').getAttribute('data-open') !== '1') fail('the menu did not open');
