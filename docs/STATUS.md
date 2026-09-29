@@ -205,6 +205,14 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
     #083 import preview before commit — **no batch-undo by decision**.
   - #084 spacing pass on the 12 unreviewed prototype pages, measured not
     eyeballed, plus a permanent spacing check.
+- CI workflow REMOVED (2026-09-29, user): `.github/workflows/ci.yml` is gone, so
+  there is no GitHub gate on pushes to `test`/`main` or on PRs. Local
+  verification is the gate now: `npm run build`, `npm run test:unit -- --run`,
+  `npm run check`, `npm run proto:check`. Note for #053 — its `quality-gate`
+  job no longer exists, and with it the CI-time env (`CI_PREVIEW_*` secrets)
+  that #053 added, so `$env/static/private` names must exist in whatever
+  environment runs the build. The `ci:secrets*` npm scripts are now orphaned:
+  they only pushed secrets into GitHub Actions.
 - #057 Grocery list (IN-PROGRESS 2026-09-20): Mine + Family tabs at `/calendar/groceries`, Store Memory auto-fill, check hides; slice 1 (tables + actions + page) built, dashboard card still parked.
 
 - #056 Nav Calendar button dead for dashboard-default users (DONE 2026-09-12): Calendar hrefs use the `?dashboardView=1` escape hatch (desktop nav + bottom nav); active-highlight matches pathname-only; tests green, svelte-check unchanged (44 pre-existing).
