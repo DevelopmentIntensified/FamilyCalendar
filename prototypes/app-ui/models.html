@@ -132,15 +132,29 @@ toc.addEventListener('click', (e) => {
 	if (!b) return;
 	document.getElementById('g-' + b.dataset.goto)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
-const io = typeof IntersectionObserver === 'function'
-	? new IntersectionObserver((entries) => {
-		entries.forEach((e) => {
-			if (!e.isIntersecting) return;
-			const id = e.target.id.replace('g-', '');
-			links.forEach((l) => l.classList.toggle('is-on', l.dataset.goto === id));
-		});
-	}, { rootMargin: '-5.5rem 0px -70% 0px' })
-	: null;   // the TOC still jumps; it just will not highlight. Not worth a hard dependency.
+// The scroll-spy is cosmetic: the TOC still jumps without it. So it must be
+// impossible for it to take the page down. Two guards, because the first alone
+// was not enough — checking that the API EXISTS says nothing about the
+// constructor REJECTING its options, and a throw here killed module execution
+// before mountApp(), leaving the page completely blank.
+// rootMargin takes px or %, never rem: '-5.5rem' threw in every real browser.
+const io = (() => {
+	if (typeof IntersectionObserver !== 'function') return null;
+	try {
+		return new IntersectionObserver(
+			(entries) => {
+				entries.forEach((e) => {
+					if (!e.isIntersecting) return;
+					const id = e.target.id.replace('g-', '');
+					links.forEach((l) => l.classList.toggle('is-on', l.dataset.goto === id));
+				});
+			},
+			{ rootMargin: '-88px 0px -70% 0px' }
+		);
+	} catch (e) {
+		return null;
+	}
+})();
 if (io) document.querySelectorAll('.group').forEach((s) => io.observe(s));
 
 window.toast = toast;

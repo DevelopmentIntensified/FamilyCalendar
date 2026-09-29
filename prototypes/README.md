@@ -136,6 +136,7 @@ The individual suites, if you want one of them:
 ```powershell
 node prototypes/review-check.mjs      # is every prototype's review state the truth?
 node prototypes/tree-check.mjs        # does the tree match the disk?
+node prototypes/render-check.mjs      # does every page RENDER in a real browser? (needs the server)
 node prototypes/serve-check.mjs       # does every page serve and run? (needs the server)
 node prototypes/app-ui/app-check.mjs
 foreach ($t in 'smoke','lint','nav-check','feedback-check','drag-check','dock-check','sync-baseline') {
@@ -143,9 +144,28 @@ foreach ($t in 'smoke','lint','nav-check','feedback-check','drag-check','dock-ch
 }
 ```
 
-Thirteen suites. Every expectation is derived from the repo — the directory,
+Fourteen suites. Every expectation is derived from the repo — the directory,
 `schema.ts`, the nav tables in `navItems.ts` — so they fail when the prototypes
 drift rather than when someone remembers to update a list.
+
+### Three render checks, and why there are three
+
+`app-check` renders pages under **jsdom**. `serve-check` walks the module graph
+over HTTP without executing it. `render-check` loads every page in **Chromium**
+and asserts it has real content.
+
+All three were green while `app-ui/models.html` was a **completely blank page**.
+An `IntersectionObserver` was constructed with a `rem` rootMargin — not a legal
+unit — and threw, killing module execution before `mountApp()` ran. jsdom is
+not the browser, and **a page that serves is not a page that renders**. The
+scroll-spy is now wrapped so a cosmetic feature can never take a page down, and
+`render-check` fails if it ever happens again:
+
+```
+FAIL  /app-ui/models.html — 0 chars of content
+        ! Failed to construct 'IntersectionObserver': rootMargin must be
+          specified in pixels or percent.
+```
 
 `serve-check.mjs` is the one that answers "can I actually reach all of this from the
 browser": it walks every link in the tree over HTTP, resolves each page's assets, inlines

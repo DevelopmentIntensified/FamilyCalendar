@@ -48,6 +48,7 @@ const SUITES = [
 	{ name: 'calendar/drag-check', path: 'calendar-ui/drag-check.mjs', needsServer: false, why: 'drag seam' },
 	{ name: 'calendar/feedback-check', path: 'calendar-ui/feedback-check.mjs', needsServer: false, why: 'overlay contract' },
 	// ---- need the collector over HTTP ----
+	{ name: 'render-check', path: 'render-check.mjs', needsServer: true, why: 'every page renders in a real browser' },
 	{ name: 'serve-check', path: 'serve-check.mjs', needsServer: true, why: 'every page serves and runs' },
 	{ name: 'calendar/feedback-e2e', path: 'calendar-ui/feedback-e2e.mjs', needsServer: true, why: 'marks round-trip' },
 	{ name: 'calendar/rounds-e2e', path: 'calendar-ui/rounds-e2e.mjs', needsServer: true, why: 'rounds are never truncated' }
