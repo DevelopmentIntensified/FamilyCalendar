@@ -112,9 +112,10 @@ describe('family manage page — card stack', () => {
 			.getByRole('heading', { name: 'Invitations', level: 2 })
 			.closest('section');
 		// SAFETY: closest('section') matches the rendered <section> card element.
+		// Invitations is one route, not per-family — see links.test.ts (#064).
 		expect(
 			within(invitations as HTMLElement).getByRole('link', { name: /Manage invitations/ })
-		).toHaveAttribute('href', '/family/fam1/invitations');
+		).toHaveAttribute('href', '/family/invitations');
 	});
 
 	it('surfaces form.error as an alert banner', () => {
