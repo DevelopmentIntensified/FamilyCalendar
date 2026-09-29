@@ -963,39 +963,60 @@
 		// whatever is still sitting in the debounce window
 		saveLocal();
 		if (!window.fetch) return;
+		var answered = false;
 		fetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload()) })
-			.then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); transport = 'server'; if (loud) status('Saved.', 'ok'); })
-			.catch(function () {
+			.then(function (r) {
+				answered = true;
+				if (!r.ok) throw new Error('HTTP ' + r.status);
+				transport = 'server';
+				if (loud) status('Saved.', 'ok');
+			})
+			.catch(function (err) {
 				transport = 'local';
-				if (loud) status('Saved in this browser only — the collector is not running. Hit Copy and paste it into chat.', 'warn');
+				if (!loud) return;
+				// A live collector that refused the write is not a collector that
+				// is not running. Say which one it actually was.
+				if (answered) { status('Saved in this browser only — the collector refused the write (' + (err && err.message || 'error') + '). Hit Copy and paste it into chat.', 'warn'); return; }
+				status('Saved in this browser only — the collector is not running. Hit Copy and paste it into chat.', 'warn');
 			});
 	}
 
 	function pull() {
 		if (!window.fetch) { status('Offline — marks are kept in this browser only.', 'warn'); return; }
+		// A response of ANY status proves the collector is UP. A 404 only means
+		// this page has nothing collected yet, and calling that "collector not
+		// running" made every never-reviewed page look like a broken setup.
+		var answered = false;
 		return fetch(ENDPOINT + '?page=' + encodeURIComponent(pageFile()))
-			.then(function (r) { return r.ok ? r.json() : null; })
-			.then(function (server) {
-				if (!server) throw new Error('no data');
+			.then(function (r) {
+				answered = true;
 				transport = 'server';
-				var rec = record();
-				// Adopt the server's closed rounds we have never seen (a fresh
-				// browser, or another machine). The OPEN round is ours: it is
-				// whatever this tab has been marking into.
-				var seen = {};
-				rec.rounds.forEach(function (r) { seen[r.id] = true; });
-				((server && server.rounds) || []).forEach(function (r) {
-					if (r && r.status !== 'open' && !seen[r.id]) rec.rounds.push(asRound(r, key()));
-				});
-				rec.rounds.sort(function (a, b) { return String(a.openedAt).localeCompare(String(b.openedAt)); });
-				if (server.about && Object.keys(server.about).length) rec.about = server.about;
-				saveLocal();
+				return r.ok ? r.json() : null;
+			})
+			.then(function (server) {
+				if (server) {
+					var rec = record();
+					// Adopt the server's closed rounds we have never seen (a fresh
+					// browser, or another machine). The OPEN round is ours: it is
+					// whatever this tab has been marking into.
+					var seen = {};
+					rec.rounds.forEach(function (r) { seen[r.id] = true; });
+					(server.rounds || []).forEach(function (r) {
+						if (r && r.status !== 'open' && !seen[r.id]) rec.rounds.push(asRound(r, key()));
+					});
+					rec.rounds.sort(function (a, b) { return String(a.openedAt).localeCompare(String(b.openedAt)); });
+					if (server.about && Object.keys(server.about).length) rec.about = server.about;
+					saveLocal();
+				}
 				renderPins();
 				renderBar();
 				renderList();
 			})
 			.catch(function () {
 				transport = 'local';
+				// The collector replied but the payload was unusable. That is a
+				// different problem from "not running", and must not claim it.
+				if (answered) { status('Collector answered with something unreadable — marks are kept in this browser only.', 'warn'); return; }
 				if (!items.length) status('Collector not running — marks are kept in this browser only. Hit Copy to share them.', 'warn');
 			});
 	}
