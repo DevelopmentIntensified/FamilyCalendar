@@ -53,9 +53,9 @@ export const userSettings = pgTable('userSettings', {
 	timeZone: text('timeZone'),
 	color: text('color'),
 	syncEventsToFamilyCalendar: boolean(),
-	showAdsAsEvents: boolean().default(true),
-	showAdMarkers: boolean().default(true),
-	personalizedAds: boolean().default(true),
+	// The ad gate (#088) — one field, one source of truth. Opt-in: no row, null
+	// or false means no ads are served to this user.
+	showAdsAsEvents: boolean().default(false),
 	autoParseEventDetails: boolean().default(true),
 	useCloudAI: boolean().default(true),
 	useLocalAI: boolean().default(true),
@@ -778,22 +778,6 @@ export const adEvents = pgTable('adEvents', {
 	conversions: integer('conversions').default(0).notNull(),
 	createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull()
 });
-
-export const userAdConsent = pgTable(
-	'userAdConsent',
-	{
-		userId: text('userId')
-			.notNull()
-			.references(() => users.id, { onDelete: 'cascade' }),
-		showAdsAsEvents: boolean('showAdsAsEvents').default(true),
-		showAdMarkers: boolean('showAdMarkers').default(true),
-		personalizedAds: boolean('personalizedAds').default(true),
-		updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow()
-	},
-	(userAdConsent) => ({
-		compoundKey: primaryKey({ columns: [userAdConsent.userId] })
-	})
-);
 
 export const waitlist = pgTable('waitlist', {
 	id: text('id')

@@ -12,6 +12,7 @@
 			syncEventsToFamilyCalendar?: boolean | null;
 			autoParseEventDetails?: boolean | null;
 			showDailyVerse?: boolean | null;
+			showAdsAsEvents?: boolean | null;
 			verseTranslation?: string | null;
 			hiddenDashboardModules?: string[] | null;
 		} | null;
@@ -235,6 +236,30 @@
 				</select>
 				<p class="text-xs text-slate-400">{selectedAttribution}</p>
 			</div>
+		</div>
+
+		<!-- Sponsorship (#088): the one ad control, and the one field the
+		     serve-time gate reads. Off by default; nothing is shown or shared
+		     with advertisers while it is off. -->
+		<div class="mt-6 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+			<h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Sponsorship</h3>
+
+			<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
+				<span>
+					<span class="block text-sm font-medium text-slate-800">Show sponsored items</span>
+					<span class="mt-0.5 block text-xs text-slate-500"
+						>Opt in to sponsored items on your calendar. Off by default — while it is off,
+						nothing sponsored is shown and nothing is shared with advertisers.</span
+					>
+				</span>
+				<input
+					type="checkbox"
+					name="showAdsAsEvents"
+					value="true"
+					class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300"
+					checked={userSettings?.showAdsAsEvents ?? false}
+				/>
+			</label>
 		</div>
 
 		<!-- Dashboard modules (per-user visibility) -->

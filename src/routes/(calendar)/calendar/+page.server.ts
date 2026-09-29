@@ -5,11 +5,7 @@ import { db } from '$lib/server/db';
 import { calendars, events, families, type CalendarEvent } from '$lib/server/db/schema';
 import { and, eq, isNotNull, isNull, lte, or, gte } from 'drizzle-orm';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
-import {
-	getAdEventsForUser,
-	checkUserAdConsent,
-	type AdDisplayEvent
-} from '$lib/server/services/adService';
+import { getAdEventsForUser, shouldServeAds, type AdDisplayEvent } from '$lib/server/services/adService';
 import {
 	expandEventsForUser,
 	monthGridWindow,
@@ -176,15 +172,15 @@ export const load: PageServerLoad = async (event) => {
 				}
 			}
 		),
-		guard('ads', { hasAdConsent: false, adEventsData: [] }, async () => {
-			const hasAdConsent = await checkUserAdConsent(userId);
-			const show = hasAdConsent && (userSettings?.showAdsAsEvents ?? false);
+		// The ad gate is one field on the settings row the layout already
+		// loaded — no second consent table, no extra SELECT (#088).
+		guard('ads', { adEventsData: [] }, async () => {
 			let adEventsData: CalendarEvent[] = [];
-			if (show) {
+			if (shouldServeAds(userSettings)) {
 				const now = zonedNow(userZone);
 				adEventsData = (await getAdEventsForUser(userId, now.month, now.year)).map(toCalendarEvent);
 			}
-			return { hasAdConsent, adEventsData };
+			return { adEventsData };
 		}),
 		guard('verse', null, async () =>
 			userSettings?.showDailyVerse ? await getTodayVerse(verseTranslation) : null
@@ -204,7 +200,7 @@ export const load: PageServerLoad = async (event) => {
 			: []),
 		...familyG.data.calendarIds
 	];
-	const showAds = adsG.data.hasAdConsent && (userSettings?.showAdsAsEvents ?? false);
+	const showAds = shouldServeAds(userSettings);
 	const adEventsData: CalendarEvent[] = adsG.data.adEventsData;
 	const dailyVerse = verseG.data;
 

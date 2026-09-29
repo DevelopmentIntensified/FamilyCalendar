@@ -2,7 +2,7 @@ import { getUser, updateUser } from '$lib/server/db/actions/users';
 import { getUserSettings, updateUserSettings } from '$lib/server/db/actions/userSettings';
 import { lucia } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { sessions, calendars, families, userAdConsent } from '$lib/server/db/schema';
+import { sessions, calendars, families } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import {
@@ -56,11 +56,6 @@ export const load: PageServerLoad = async (event) => {
 		}
 	}
 
-	const [adConsentRow] = await db
-		.select()
-		.from(userAdConsent)
-		.where(eq(userAdConsent.userId, userId));
-
 	// Subscription data is display-only for settings — never let a failure here
 	// break the rest of the settings page, so degrade to a "no subscription" state.
 	let subscription: Awaited<ReturnType<typeof getSubscriptionStatus>> = {
@@ -99,12 +94,9 @@ export const load: PageServerLoad = async (event) => {
 			defaultView: 'dayView',
 			defaultCalendarId: null,
 			syncEventsToFamilyCalendar: false,
+			// Ads are opt-in (#088): no settings row means no ads.
+			showAdsAsEvents: false,
 			verseTranslation: 'esv'
-		},
-		adConsent: adConsentRow ?? {
-			showAdsAsEvents: true,
-			showAdMarkers: true,
-			personalizedAds: true
 		},
 		calendars: calendarList,
 		verseTranslations: Object.values(TRANSLATIONS).map(({ id, label, attribution }) => ({
@@ -143,6 +135,8 @@ export const actions: Actions = {
 		const syncEventsToFamilyCalendar = formData.get('syncEventsToFamilyCalendar') === 'on';
 		const autoParseEventDetails = formData.get('autoParseEventDetails') === 'true';
 		const showDailyVerse = formData.get('showDailyVerse') === 'true';
+		// The ad gate (#088) — the one field that decides whether ads render.
+		const showAdsAsEvents = formData.get('showAdsAsEvents') === 'true';
 		const rawTranslation = formString(formData, 'verseTranslation');
 		const verseTranslation = rawTranslation in TRANSLATIONS ? rawTranslation : 'esv';
 
@@ -169,6 +163,7 @@ export const actions: Actions = {
 					syncEventsToFamilyCalendar,
 					autoParseEventDetails,
 					showDailyVerse,
+					showAdsAsEvents,
 					verseTranslation,
 					hiddenDashboardModules
 				});
@@ -182,6 +177,7 @@ export const actions: Actions = {
 					syncEventsToFamilyCalendar,
 					autoParseEventDetails,
 					showDailyVerse,
+					showAdsAsEvents,
 					verseTranslation,
 					hiddenDashboardModules
 				});
@@ -192,11 +188,6 @@ export const actions: Actions = {
 			console.error('Failed to save calendar settings:', error);
 			return fail(500, { success: false, message: 'Failed to save calendar settings' });
 		}
-	},
-
-	// UI is disabled; no-op preserves existing ad consent.
-	saveAds: async () => {
-		return { success: true };
 	},
 
 	updateProfile: async ({ request, locals }) => {

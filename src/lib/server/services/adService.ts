@@ -1,9 +1,10 @@
 import { db } from '$lib/server/db';
-import { adEvents, userAdConsent, events } from '$lib/server/db/schema';
+import { adEvents, events } from '$lib/server/db/schema';
 import { eq, and, sql, gte, lt, asc } from 'drizzle-orm';
 import { generateId } from 'lucia';
 import { DateTime } from 'luxon';
 import { getUserZone } from '$lib/server/utils/userTimezone';
+import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import { uploadAdAsset, getBlobUrl, deleteAdAssetByFilename, listBlobAssets } from './blobService';
 
 export interface AdEventData {
@@ -61,32 +62,27 @@ const AD_TEMPLATES = [
 	}
 ];
 
-export async function checkUserAdConsent(userId: string): Promise<boolean> {
-	const [consent] = await db.select().from(userAdConsent).where(eq(userAdConsent.userId, userId));
-
-	if (!consent) {
-		return false;
-	}
-
-	return true;
+/**
+ * The serve-time ad gate, one field, one place (#088).
+ *
+ * `showAdsAsEvents` on the user's settings row is the single source of truth —
+ * it is where every other personal preference already lives. There is no
+ * second consent table and no "does a row exist" check: a user with no settings
+ * row, a null flag, or a false flag has withheld consent and gets no ads.
+ *
+ * Ads are opt-in (schema default false). Personalisation and ad markers were
+ * dropped rather than wired: nothing read them, and a stored flag nobody reads
+ * is a switch that does nothing.
+ */
+export function shouldServeAds(
+	settings: { showAdsAsEvents?: boolean | null } | null | undefined
+): boolean {
+	return settings?.showAdsAsEvents === true;
 }
 
-export async function setUserAdConsent(userId: string, _enabled: boolean): Promise<void> {
-	const existing = await db.select().from(userAdConsent).where(eq(userAdConsent.userId, userId));
-
-	if (existing.length > 0) {
-		return;
-	}
-
-	await db.insert(userAdConsent).values({
-		userId
-	});
-}
-
-export async function getAdConsentStatus(userId: string): Promise<{ userId: string } | null> {
-	const [consent] = await db.select().from(userAdConsent).where(eq(userAdConsent.userId, userId));
-
-	return consent ?? null;
+/** The same decision, resolved for one user from the database. */
+export async function userAllowsAds(userId: string): Promise<boolean> {
+	return shouldServeAds(await getUserSettings(userId));
 }
 
 export async function getExistingAdEventsForMonth(
@@ -133,7 +129,7 @@ export async function generateAdEventsForMonth({
 	year,
 	adsPerMonth = 3
 }: GenerateAdsParams): Promise<AdEventData[]> {
-	const hasConsent = await checkUserAdConsent(userId);
+	const hasConsent = await userAllowsAds(userId);
 
 	if (!hasConsent) {
 		return [];
