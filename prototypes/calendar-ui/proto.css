@@ -291,6 +291,13 @@ main { flex: 1 1 auto; }
 .chip__box.is-on { background: var(--p600); border-color: var(--p600); color: #fff; }
 
 /* ------------------------------------------------- right rail / sidebar  */
+/* vstack — a column of blocks. A page's main column and its side rail are
+   both this, so the gap between two cards is declared ONCE here rather than
+   re-invented (or forgotten) on every page. spacing-check.mjs requires a real
+   gap between stacked blocks; a bare <div> column has none, so two cards in it
+   sit flush against each other. */
+.vstack { display: flex; flex-direction: column; gap: 1rem; }
+.vstack--tight { gap: .75rem; }
 .rail { display: flex; flex-direction: column; gap: 1rem; }
 .rail__card { background: #fff; border: 1px solid var(--s200); border-radius: 1.25rem; padding: 1rem; }
 .rail__title {

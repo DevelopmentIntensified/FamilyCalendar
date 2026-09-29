@@ -45,11 +45,39 @@ hardcoded list, so they fail when the prototypes drift:
 The calendar set has its own eight suites; run them the same way:
 
 ```powershell
+node prototypes/spacing-check.mjs
 foreach ($t in 'smoke','lint','nav-check','feedback-check','drag-check','dock-check','feedback-e2e','rounds-e2e') {
   node "prototypes\calendar-ui\$t.mjs"
 }
 node prototypes/tree-check.mjs
 ```
+
+## Spacing
+
+`spacing-check.mjs` is the floor the next pass checks against, so it is worth knowing what it
+measures. It loads **every** page in both sets in Chromium, at 390px and 1280px, and reads
+`getBoundingClientRect()` for the boxes and `getComputedStyle()` for the padding. Nothing is
+inferred from reading the CSS — a rule that declares a gap the layout never applied reports 0px
+and fails, which is how it caught a dead `.grid` class that looked like a grid in the markup.
+
+| Rule | Fails on | Floor |
+|---|---|---|
+| nothing touches | two adjacent **blocks** sharing an edge | 8px |
+| containers breathe | a card with content at its own frame | 8px |
+| compact but relaxed | a **declared** vertical gap over the ceiling | 24px |
+
+A *block* is a framed, shadowed or filled box holding structure. Chip rows, tags, swatches and
+segmented controls are not blocks — that density is a design-review finding, not a spacing
+defect, and a guard that flags every chip row is a guard that gets switched off. Overlap is not
+measured either: stacked avatars are a deliberate idiom.
+
+Two escape hatches, both loud. A page that is cramped *because the app is cramped* is marked
+`data-spacing="app"` with a `data-spacing-why` — that is ground rule 7, and the check prints the
+reason on every run rather than letting the defect disappear. `spacing-known.json` lists the
+breaches on pages a previous wave owned; the check **fails** if an entry stops matching, so the
+list cannot go stale or become a place to bury a page.
+
+It hosts its own static server, so it needs no collector and never skips.
 
 ---
 

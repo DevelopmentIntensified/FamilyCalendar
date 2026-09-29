@@ -519,16 +519,20 @@ rules.innerHTML = `
 	 chrome really is collapsed rather than just styled smaller.</li>
 	 <li><b>The tree is checked, not trusted.</b> <code>tree-check.mjs</code> fails if this page lists a file
 	 that is not on disk, or if a file on disk is missing from here. A tree that lies is worse than no tree.</li>
+	 <li><b>Spacing is measured, not eyeballed.</b> <code>spacing-check.mjs</code> loads every page in a real
+	 browser at two viewports and reads the boxes: nothing touches, containers breathe, bands stay compact.
+	 It is the floor the next pass checks against, instead of a fresh opinion.</li>
 	 <li><b>Defects in the real app are shown, not smoothed over.</b> A broken <code>href</code> renders
 	 broken, a parked module renders parked. The prototype is evidence.</li>
 	</ol>
 	<div class="cmd" style="margin-top:1rem">node prototypes/tree-check.mjs
 node prototypes/serve-check.mjs
+node prototypes/spacing-check.mjs
 node prototypes/app-ui/app-check.mjs
 foreach ($t in 'smoke','lint','nav-check','feedback-check','drag-check','dock-check','feedback-e2e','rounds-e2e') {
   node "prototypes\calendar-ui\$t.mjs"
 }</div>
-	<p class="hint" style="margin:.625rem 0 0;line-height:1.7">Eleven suites. Every expectation is derived from
+	<p class="hint" style="margin:.625rem 0 0;line-height:1.7">Twelve suites. Every expectation is derived from
 	the repo — the directory, <code>schema.ts</code>, the nav tables in <code>navItems.ts</code> — so they fail
 	when the prototypes drift rather than when someone remembers to update a list.</p>`;
 body.appendChild(rules);

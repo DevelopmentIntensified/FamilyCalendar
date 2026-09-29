@@ -75,7 +75,7 @@ const BUGS = [
 	{ sev: 'sev-m', t: 'Groceries is unreachable on mobile', d: 'The top nav has Groceries and no Notifications; the bottom nav has Alerts and no Groceries. On a phone the grocery list simply has no way in.' },
 	{ sev: 'sev-m', t: 'Base tables have no migration', d: '18 tables were created with <code>drizzle-kit push</code> and appear in no <code>sql/migrations</code> file, so a fresh database cannot be built from the migration runner alone. <code>003_create_monetization_tables.sql</code> also contradicts the schema for six tables.' },
 	{ sev: 'sev-l', t: 'Three tables have never been used', d: '<code>groups</code>, <code>userGroups</code> and <code>familyGroups</code> are declared in the schema and referenced nowhere in <code>src/</code>.' },
-	{ sev: 'sev-l', t: 'Ad consent has two sources of truth', d: 'The same three booleans live on <code>userSettings</code> and on <code>userAdConsent</code>.' },
+	{ sev: 'sev-l', t: 'Ad consent had two sources of truth — fixed in #088', d: 'Three booleans lived on both <code>userSettings</code> and <code>userAdConsent</code>; the table read at serve time had no writer, so ads could never render. One opt-in field now.' },
 	{ sev: 'sev-l', t: 'The waitlist duplicate guard never fires', d: 'It calls <code>onConflictDoNothing()</code> but <code>waitlist.email</code> has no unique index, so duplicate emails insert.' },
 	{ sev: 'sev-l', t: 'Nothing is ever pruned', d: 'Notifications, unmatched phrases and ad events grow unbounded. <code>/api/cron/cleanup</code> only removes stale anonymous users.' },
 	{ sev: 'sev-l', t: '/calendar/settings is a redirect stub', d: 'Zero inbound links, so the redirect never runs. Either give it a page or delete the directory.' }

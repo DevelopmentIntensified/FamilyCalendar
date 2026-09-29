@@ -22,6 +22,11 @@
 <style>
 	/* B-only layout: two panes on desktop, rail collapses to a sheet on mobile */
 	.b-layout { display: grid; gap: 1.5rem; grid-template-columns: 1fr; align-items: start; }
+	/* The notes callout carried its grid intent in the markup (gap +
+	   grid-template-columns inline) but no rule ever set display, so it laid
+	   out as a flush block stack. spacing-check.mjs measures the boxes, not
+	   the intent, and reported three cards 0px apart. */
+	.grid { display: grid; }
 	@media (min-width: 1100px) { .b-layout { grid-template-columns: 19rem minmax(0, 1fr); } }
 	.b-rail { position: sticky; top: 5.25rem; }
 	.b-rail-scroll { display: grid; gap: 1rem; max-height: calc(100vh - 7rem); overflow-y: auto; padding-right: .25rem; }

@@ -122,10 +122,10 @@ and so is a review board that lies.
 
 ```powershell
 npm run proto:serve     # the collector, on 4180, rooted at prototypes/
-npm run proto:check     # all thirteen suites, in order
+npm run proto:check     # all fourteen suites, in order
 ```
 
-**Run `proto:check`, not the list.** Thirteen scripts is thirteen commands
+**Run `proto:check`, not the list.** Fourteen scripts is fourteen commands
 nobody runs. The runner asks the port rather than assuming it, so a suite that
 needs HTTP is reported **SKIPPED** with the command that starts it — never
 silently counted as a pass. A check that quietly does nothing is worse than a
@@ -138,13 +138,14 @@ node prototypes/review-check.mjs      # is every prototype's review state the tr
 node prototypes/tree-check.mjs        # does the tree match the disk?
 node prototypes/render-check.mjs      # does every page RENDER in a real browser? (needs the server)
 node prototypes/serve-check.mjs       # does every page serve and run? (needs the server)
+node prototypes/spacing-check.mjs     # does anything touch, in a real layout engine?
 node prototypes/app-ui/app-check.mjs
 foreach ($t in 'smoke','lint','nav-check','feedback-check','drag-check','dock-check','sync-baseline') {
   node "prototypes\calendar-ui\$t.mjs"
 }
 ```
 
-Fourteen suites. Every expectation is derived from the repo — the directory,
+Fifteen suites. Every expectation is derived from the repo — the directory,
 `schema.ts`, the nav tables in `navItems.ts` — so they fail when the prototypes
 drift rather than when someone remembers to update a list.
 
@@ -170,6 +171,25 @@ FAIL  /app-ui/models.html — 0 chars of content
 `serve-check.mjs` is the one that answers "can I actually reach all of this from the
 browser": it walks every link in the tree over HTTP, resolves each page's assets, inlines
 the module graph transitively (page → engine → data), and asserts nothing renders empty.
+
+### Spacing is measured, and the floor is a file
+
+`spacing-check.mjs` loads every page in both sets in **Chromium**, at 390px and 1280px, and
+reads the boxes rather than the stylesheet: `getBoundingClientRect()` for the geometry,
+`getComputedStyle()` for the padding. It fails when two adjacent blocks share an edge, when a
+card holds content at its own frame, and when a *declared* vertical gap runs past the ceiling.
+It hosts its own static server, so unlike the other browser checks it never skips.
+
+It is also how the pass was done rather than guessed. A rule that declares a gap the layout
+never applies reports 0px and fails — which is how the checker found a dead `.grid` class that
+carried `gap` and `grid-template-columns` inline and laid out as a flush block stack. Reading
+the CSS would have called that page fine.
+
+Two escape hatches, and both are loud. A page that is cramped *because the app is cramped*
+carries `data-spacing="app"` plus a `data-spacing-why` — ground rule 7, and the reason is
+printed on every run rather than quietly swallowed. `spacing-known.json` lists the breaches on
+pages an earlier wave owned; the check **fails** when an entry stops matching, so the list
+goes stale loudly instead of becoming a place to bury a page.
 
 ## The review tool
 

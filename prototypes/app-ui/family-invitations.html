@@ -38,8 +38,8 @@ import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
 import { FAMILY, INVITE, byId, nameOf } from './app-data.js';
 
 const lg = el('div', 'lg');
-const main = el('div');
-const side = el('div');
+const main = el('div', 'vstack');
+const side = el('div', 'vstack');
 lg.appendChild(main);
 lg.appendChild(side);
 

@@ -28,6 +28,11 @@
 	}
 	.hero__wash { position: absolute; inset: 0; background: linear-gradient(150deg, rgba(190,218,227,.4), #fff 40%, rgba(254,213,207,.45)); }
 	.hero__in { position: relative; display: grid; gap: 1.5rem; grid-template-columns: 1fr; align-items: center; }
+	/* The notes callout carried its grid intent in the markup (gap +
+	   grid-template-columns inline) but no rule ever set display, so it laid
+	   out as a flush block stack. spacing-check.mjs measures the boxes, not
+	   the intent, and reported three cards 0px apart. */
+	.grid { display: grid; }
 	@media (min-width: 900px) { .hero__in { grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); gap: 2.5rem; } }
 
 	.now-hero {

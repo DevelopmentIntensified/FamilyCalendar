@@ -48,8 +48,10 @@ function serverIsUp(port) {
 	});
 }
 
-/** Suites named here are skipped without the collector; the rest need it. */
-const OFFLINE_HINTS = ['review-check', 'tree-check', 'lint', 'smoke', 'nav-check', 'app-check'];
+/** Suites named here are skipped without the collector; the rest need it.
+ *  spacing-check hosts its own static server, so it must be in this list —
+ *  a guard that skips when you forget a server is not a guard. */
+const OFFLINE_HINTS = ['review-check', 'tree-check', 'lint', 'smoke', 'nav-check', 'app-check', 'spacing-check'];
 
 /** Every *.mjs in the root and each set, minus this runner. */
 function discover() {

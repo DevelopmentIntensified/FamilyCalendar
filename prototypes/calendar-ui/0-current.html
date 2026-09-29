@@ -219,7 +219,12 @@ main{padding-top:calc(4rem + env(safe-area-inset-top));padding-bottom:5rem}
 
 	<!-- MonthView.svelte:48-92 + MonthDayCell.svelte:68-282 -->
 	<div class="wrap" data-fb="grid" data-fb-label="Month grid" style="max-width:none;padding:0 1rem">
-		<div class="grid7" id="grid"></div>
+		<!-- GROUND RULE 7: this page reproduces the SHIPPED month grid, so its
+		     cramping is the app's and stays until the app is fixed. .grid7 sets
+		     gap only from 640px up, and .cell pads 2px — below that the cells
+		     share a border. spacing-check.mjs measures 0px and would otherwise
+		     call it a prototype defect; the defect is MonthView.svelte's. -->
+		<div class="grid7" id="grid" data-spacing="app" data-spacing-why="the shipped month grid has no cell gap below 640px and pads each cell 2px, so day cells share a border edge on a phone — reproduced on purpose, fix MonthView.svelte"></div>
 	</div>
 
 	<button class="fab" onclick="alert('EventFormModal.svelte — 727 lines')" aria-label="Add">
