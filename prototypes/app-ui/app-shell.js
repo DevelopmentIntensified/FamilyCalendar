@@ -13,18 +13,21 @@ export const APP_NAME = 'Family Planz';
 
 /** Top nav — src/lib/utils/navItems.ts:13-22 (loggedInNavItems) */
 export const TOP_NAV = [
-	{ href: 'dashboard.html',  label: 'Dashboard', match: 'dashboard.html' },
-	{ href: 'tasks.html',      label: 'Tasks',     match: 'tasks.html' },
-	{ href: 'groceries.html',  label: 'Groceries', match: 'groceries.html' },
-	{ href: 'family.html',     label: 'Family',    match: 'family' }
+	{ href: 'dashboard.html',      label: 'Dashboard', match: 'dashboard.html' },
+	{ href: 'tasks.html',          label: 'Tasks',     match: 'tasks.html' },
+	{ href: 'groceries.html',      label: 'Groceries', match: 'groceries.html' },
+	{ href: 'notifications.html',  label: 'Alerts',    match: 'notifications.html' },
+	{ href: 'family.html',         label: 'Family',    match: 'family' }
 ];
 
 /** Bottom nav — src/lib/components/BottomNav.svelte:20-42.
- *  Has ALERTS, not Groceries. Groceries is unreachable on mobile. */
+ *  Groceries is here as "Shop" so six tabs fit 320px; the accessible name is
+ *  still Groceries. One destination list feeds both navs, so they cannot drift. */
 export const BOTTOM_NAV = [
 	{ href: 'dashboard.html',     label: 'Calendar',  icon: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z' },
 	{ href: 'dashboard.html',     label: 'Dashboard', icon: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z' },
 	{ href: 'tasks.html',         label: 'Tasks',     icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
+	{ href: 'groceries.html',     label: 'Shop',      icon: 'M3 3h2l.4 2M7 13h10l3-8H5.4M7 13L5.4 5M7 13l-2.3 5a1 1 0 00.9 1.5H19m-8-5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm6 0a2.5 2.5 0 100-5 2.5 2.5 0 000 5z' },
 	{ href: 'notifications.html', label: 'Alerts',    icon: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0', badge: 2 },
 	{ href: 'family.html',        label: 'Family',    icon: 'M17 20v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 10a4 4 0 100-8 4 4 0 000 8zM23 20v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75' }
 ];

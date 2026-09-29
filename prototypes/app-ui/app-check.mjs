@@ -91,13 +91,22 @@ console.log('\n── 4. the nav reproduces the real one, gaps included ──')
 	if (!top || !bottom) fail('could not read the nav tables');
 	else {
 		const T = top[1], B = bottom[1];
-		// navItems.ts:13-22 has Groceries and no Notifications.
-		if (!/Groceries/.test(T)) fail('top nav is missing Groceries (navItems.ts:20)');
-		if (/Notifications/.test(T)) fail('top nav should NOT have Notifications — that is the real state');
-		// BottomNav.svelte:20-42 has Alerts and no Groceries.
-		if (!/label: 'Alerts'/.test(B)) fail('bottom nav is missing Alerts (BottomNav.svelte:35)');
-		if (/Groceries/.test(B)) fail('bottom nav should NOT have Groceries — that is the real state');
-		ok('top nav has Groceries, bottom nav has Alerts — the real divergence, reproduced not hidden');
+		// #065: one destination list feeds both navs. Groceries is in BOTH, the
+		// bottom nav under the short label "Shop" so six tabs fit 320px, and
+		// Alerts is in both. The old divergence (Groceries desktop-only) is
+		// fixed in the app, so reproducing it here would be showing a bug that
+		// no longer exists.
+		if (!/Groceries/.test(T)) fail('top nav is missing Groceries (navItems.ts)');
+		if (!/label: 'Alerts'/.test(T)) fail('top nav is missing Alerts (navItems.ts)');
+		if (!/label: 'Alerts'/.test(B)) fail('bottom nav is missing Alerts (BottomNav.svelte)');
+		if (!/label: 'Shop'/.test(B)) fail("bottom nav is missing Groceries under the short label 'Shop'");
+		if (/label: 'Groceries'/.test(B)) {
+			fail("bottom nav should use the SHORT label 'Shop' at 320px, not the full word");
+		}
+		// Six tabs is the ceiling the app was measured at.
+		const tabs = (B.match(/label: '/g) || []).length;
+		if (tabs !== 6) fail(`bottom nav has ${tabs} tabs, expected 6`);
+		ok('both navs reach every destination — one list feeds both, 6 tabs fit 320px');
 	}
 }
 

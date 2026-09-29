@@ -132,21 +132,23 @@ side.appendChild(card(
 	 <a class="btn btn-soft btn-sm" href="family-invitations.html" style="width:100%;margin-top:.75rem">Manage invitations</a>`,
 	'invites', 'Invitations'));
 
-/* ── dead link, shown as a dead link ────────────────────────────────── */
+/* ── a real link bug that is FIXED, shown as fixed ────────────────────── */
 side.appendChild(card(
-	`${sectionTitle('Broken in the app', '<span class="pill pill-xs pill-blush">404</span>')}
+	`${sectionTitle('Link bug — fixed', '<span class="pill pill-xs pill-mint">resolved</span>')}
 	 <p class="hint" style="line-height:1.7">
-	   The family detail page points <b>Manage invitations</b> at
-	   <code>/family/{id}/invitations</code>. The braces are <i>not</i> the bug — Svelte interpolates an
-	   attribute value like that. The bug is the shape: there is no
-	   <code>[familyId]/invitations</code> route, so the link 404s for every admin.
+	   The family detail page used to point <b>Manage invitations</b> at
+	   <code>/family/{id}/invitations</code>. The braces were <i>not</i> the bug — Svelte interpolates an
+	   attribute value like that. The bug was the shape: there is no
+	   <code>[familyId]/invitations</code> route, so the link 404ed for every admin.
 	 </p>
 	 <p class="hint" style="line-height:1.7;margin-top:.5rem">
-	   The correct path is <code>/family/invitations</code>, which is what this list page already uses.
+	   It now points at <code>/family/invitations</code> — the one invitations route, the same one this
+	   list page uses. A test fails if that href regresses or if any static href stops naming a real
+	   route, so this cannot silently come back.
 	 </p>
 	 <a class="btn btn-soft btn-sm" href="family-invitations.html" style="margin-top:.75rem">The working page</a>`,
-	'dead-link', 'Broken link in the real app',
-	'background:linear-gradient(140deg,rgba(254,202,202,.4),#fff);border-color:#fecaca'));
+	'dead-link', 'Link bug, now fixed',
+	'background:linear-gradient(140deg,rgba(196,233,218,.4),#fff);border-color:transparent'));
 
 window.toast = toast;
 mountApp({
