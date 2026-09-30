@@ -28,7 +28,20 @@ export async function createNotification(data: {
 	}
 }
 
-export async function getNotifications(userId: string, limit = 20): Promise<Notification[]> {
+/**
+ * One feed, one window. The nav bell (GET /api/notifications) and the Alerts
+ * page used to read 20 and 50 rows, so the same user could see two different
+ * feeds and the bell could show rows the page had already dropped (issue 073).
+ * 50 is the number the page already used — it is the surface the bell
+ * deep-links into, so truncating the destination below the source is what
+ * makes "mark all read" and the unread filter lie about what is on screen.
+ */
+export const NOTIFICATION_PAGE_SIZE = 50;
+
+export async function getNotifications(
+	userId: string,
+	limit = NOTIFICATION_PAGE_SIZE
+): Promise<Notification[]> {
 	return db
 		.select()
 		.from(notifications)

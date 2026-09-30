@@ -11,7 +11,8 @@ import {
 	formatDateTimeInZone,
 	convertToUserTimeZone,
 	isValidTimeZone,
-	getTimeZoneOffset
+	getTimeZoneOffset,
+	relativeTime
 } from './dateUtils';
 
 describe('getDaysInMonth', () => {
@@ -246,5 +247,21 @@ describe('getTimeZoneOffset', () => {
 		const nyOffset = getTimeZoneOffset('America/New_York');
 		const tokyoOffset = getTimeZoneOffset('Asia/Tokyo');
 		expect(nyOffset).not.toBe(tokyoOffset);
+	});
+});
+
+// Issue 073: three surfaces stamped "x minutes ago" with their own copy of this
+// one-liner (nav bell, Alerts page, family detail activity rows).
+describe('relativeTime', () => {
+	it('renders a past timestamp as a relative stamp', () => {
+		const iso = DateTime.now().minus({ minutes: 12 }).toISO()!;
+		expect(relativeTime(iso)).toContain('12 minutes ago');
+	});
+
+	it('returns an empty string rather than "Invalid DateTime" for junk input', () => {
+		expect(relativeTime('not-a-date')).toBe('');
+		expect(relativeTime('')).toBe('');
+		expect(relativeTime(null)).toBe('');
+		expect(relativeTime(undefined)).toBe('');
 	});
 });

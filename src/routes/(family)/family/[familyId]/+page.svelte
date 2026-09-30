@@ -19,7 +19,7 @@
 		memberDisplayName,
 		rolePillClass
 	} from '$lib/utils/familyDisplay';
-	import { DateTime } from 'luxon';
+	import { relativeTime } from '$lib/utils/dateUtils';
 	export let data: PageData;
 	export let form: ActionData;
 	const { family, members, currentUserRole, currentUserId, activity = [] } = data;
@@ -37,9 +37,9 @@
 
 	type Member = (typeof members)[number];
 
-	function relativeTime(iso: string): string {
-		return DateTime.fromISO(iso).toRelative() ?? '';
-	}
+	// Relative time is shared (#073): this was the third copy of it, and the
+	// shared version also survives a null timestamp instead of rendering
+	// "Invalid DateTime".
 
 	let showRemoveConfirm: string | null = null;
 	let editingRole: string | null = null;

@@ -4,20 +4,24 @@ import {
 	getNotifications,
 	getUnreadCount,
 	markNotificationRead,
-	markAllNotificationsRead
+	markAllNotificationsRead,
+	NOTIFICATION_PAGE_SIZE
 } from '$lib/server/db/actions/notifications';
 import { requireUserJson } from '$lib/server/utils/requireUser';
+import { toNotificationRow } from '$lib/utils/notificationTypes';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	const auth = requireUserJson(locals);
 	if (auth.response) return auth.response;
 
-	const [notifications, unreadCount] = await Promise.all([
-		getNotifications(auth.user.id, 20),
+	// Same window as the Alerts page (issue 073), and the same guard: the bell
+	// and the page must never name a type differently or show a different feed.
+	const [rows, unreadCount] = await Promise.all([
+		getNotifications(auth.user.id, NOTIFICATION_PAGE_SIZE),
 		getUnreadCount(auth.user.id)
 	]);
 
-	return json({ notifications, unreadCount });
+	return json({ notifications: rows.map(toNotificationRow), unreadCount });
 };
 
 function isNotificationBody(value: unknown): value is { all?: unknown; id?: unknown } {

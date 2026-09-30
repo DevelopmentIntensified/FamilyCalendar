@@ -70,3 +70,13 @@ export const isValidTimeZone = (timeZone: string): boolean => {
 export const getTimeZoneOffset = (timeZone: string): string => {
 	return DateTime.now().setZone(timeZone).toFormat('ZZ');
 };
+
+/**
+ * "12 minutes ago" — the one relative stamp, shared by the nav bell, the
+ * Alerts page, and the family detail activity rows (issue 073). Junk or absent
+ * input yields '' so a bad timestamp never renders as "Invalid DateTime".
+ */
+export const relativeTime = (iso: string | null | undefined): string => {
+	if (!iso) return '';
+	return DateTime.fromISO(iso).toRelative() ?? '';
+};

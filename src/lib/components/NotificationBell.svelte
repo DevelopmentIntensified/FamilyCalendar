@@ -2,7 +2,14 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { slide } from 'svelte/transition';
-	import { DateTime } from 'luxon';
+	import { pushToast } from '$lib/client/toasts';
+	import { relativeTime } from '$lib/utils/dateUtils';
+	import {
+		notificationGlyph,
+		notificationLabel,
+		notificationTone,
+		type NotificationRow
+	} from '$lib/utils/notificationTypes';
 	import {
 		getPushState,
 		getServerPublicKey,
@@ -13,38 +20,13 @@
 		type PushState
 	} from '$lib/utils/pushClient';
 
-	interface Notification {
-		id: string;
-		type:
-			| 'assignment_pending'
-			| 'assignment_accepted'
-			| 'assignment_declined'
-			| 'task_completed'
-			| 'added_to_family';
-		actorName: string;
-		message: string;
-		link?: string | null;
-		readAt?: string | null;
-		createdAt: string;
-	}
-
 	let open = false;
 	let loading = false;
 	let loadError = false;
 	let unreadCount = 0;
-	let notifications: Notification[] = [];
-
-	const typeIcons: Record<Notification['type'], string> = {
-		assignment_pending: '📨',
-		assignment_accepted: '👍',
-		assignment_declined: '👋',
-		task_completed: '✅',
-		added_to_family: '🏠'
-	};
-
-	function relativeTime(iso: string): string {
-		return DateTime.fromISO(iso).toRelative() ?? '';
-	}
+	// Rows arrive guarded from /api/notifications (issue 073), so `type` is the
+	// known type or null and the label tables here are the shared ones.
+	let notifications: NotificationRow[] = [];
 
 	async function fetchSummary() {
 		try {
@@ -89,31 +71,47 @@
 		}
 	}
 
-	async function markRead(notification: Notification) {
+	async function markRead(notification: NotificationRow) {
+		open = false;
 		if (!notification.readAt) {
 			notification.readAt = new Date().toISOString();
 			unreadCount = Math.max(0, unreadCount - 1);
-			fetch('/api/notifications', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id: notification.id })
-			}).catch(() => {});
+			const ok = await post({ id: notification.id });
+			if (!ok) {
+				notification.readAt = null;
+				unreadCount += 1;
+				pushToast({ message: "Couldn't mark that alert read — it stays in your list." });
+			}
 		}
-		open = false;
 		if (notification.link) goto(notification.link);
 	}
 
 	async function markAllRead() {
+		const before = notifications;
 		notifications = notifications.map((n) => ({
 			...n,
 			readAt: n.readAt ?? new Date().toISOString()
 		}));
 		unreadCount = 0;
-		await fetch('/api/notifications', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ all: true })
-		}).catch(() => {});
+		if (!(await post({ all: true }))) {
+			notifications = before;
+			unreadCount = before.filter((n) => !n.readAt).length;
+			pushToast({ message: "Couldn't mark everything read — try again." });
+		}
+	}
+
+	/** POSTs a read-mark and reports whether the server took it. */
+	async function post(body: { id: string } | { all: true }): Promise<boolean> {
+		try {
+			const res = await fetch('/api/notifications', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			return res.ok;
+		} catch {
+			return false;
+		}
 	}
 
 	let pushState: PushState | null = null;
@@ -230,7 +228,14 @@
 									? ''
 									: 'bg-slate-50'}"
 							>
-								<span class="text-base leading-5">{typeIcons[notification.type] ?? '🔔'}</span>
+								<span
+									class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold {notificationTone(
+										notification.rawType ?? notification.type
+									)}"
+									aria-hidden="true"
+								>
+									{notificationGlyph(notification.rawType ?? notification.type)}
+								</span>
 								<span class="min-w-0 flex-1">
 									<span
 										class="block truncate text-sm {notification.readAt
@@ -239,9 +244,18 @@
 									>
 										{notification.message}
 									</span>
-									<span class="block text-xs text-slate-400"
-										>{relativeTime(notification.createdAt)}</span
-									>
+									<span class="mt-0.5 flex items-center gap-2">
+										<span
+											class="inline-flex h-4 items-center rounded-full px-1.5 text-[10px] font-bold {notificationTone(
+												notification.rawType ?? notification.type
+											)}"
+										>
+											{notificationLabel(notification.rawType ?? notification.type)}
+										</span>
+										<span class="truncate text-xs text-slate-400"
+											>{relativeTime(notification.createdAt)}</span
+										>
+									</span>
 								</span>
 							</button>
 						</li>
