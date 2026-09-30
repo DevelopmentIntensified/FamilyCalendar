@@ -10,6 +10,11 @@
  *
  * Moving a module between bands must NOT change its `id` — the id is the saved
  * state, and a user who hid a module before the move stays hidden after it.
+ * Retiring a module DOES remove its `id` (103 took the Member Strip off the
+ * dashboard), so a saved list still naming it is inert: `isDashboardModule`
+ * rejects it, `composeModuleVisibility` drops it, and /account rebuilds the
+ * list from this array on the next save, so the stale id clears itself. No
+ * data migration is owed to a retired id.
  */
 export const DASHBOARD_MODULES = [
 	{
@@ -23,7 +28,6 @@ export const DASHBOARD_MODULES = [
 	{ id: 'top3', label: 'Top 3 Priorities', scope: 'personal', band: 'card', meaning: 'Show the family’s three most urgent tasks.' },
 	{ id: 'completed', label: 'Completed Today', scope: 'personal', band: 'card', meaning: 'Show what got finished today.' },
 	{ id: 'board', label: 'Family Task Board', scope: 'family', band: 'card', meaning: 'Show the family task board.' },
-	{ id: 'memberStrip', label: 'Family Member Strip', scope: 'family', band: 'card', meaning: 'Show who is around today.' },
 	{ id: 'kids', label: "Kids' Schedule", scope: 'family', band: 'card', meaning: 'Show today’s kids’ events.' },
 	{ id: 'groceries', label: 'Groceries', scope: 'family', band: 'card', meaning: 'Show what’s still on the grocery list.' },
 	{ id: 'meals', label: 'Meals', scope: 'family', band: 'card', meaning: 'Show the family meal plan.' }

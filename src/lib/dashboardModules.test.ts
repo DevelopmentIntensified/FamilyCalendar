@@ -43,6 +43,14 @@ const savedVerseOff: SavedSettings = {
 	hiddenDashboardModules: []
 };
 
+/** Hid the Member Strip for themself, back when it was still a module. */
+const savedStripHidden: SavedSettings = {
+	userId: 'u-sarah',
+	showDailyVerse: true,
+	verseTranslation: 'esv',
+	hiddenDashboardModules: ['memberStrip']
+};
+
 /** The load's own two steps, run over a persisted row. */
 function verseFor(row: SavedSettings): boolean {
 	const modules = composeModuleVisibility({}, row.hiddenDashboardModules ?? []);
@@ -60,7 +68,6 @@ describe('dashboard module bands (080)', () => {
 			'top3',
 			'completed',
 			'board',
-			'memberStrip',
 			'kids',
 			'groceries',
 			'meals'
@@ -101,7 +108,6 @@ describe('dashboard module bands (080)', () => {
 			'top3',
 			'completed',
 			'board',
-			'memberStrip',
 			'kids',
 			'meals',
 			'groceries'
@@ -146,5 +152,40 @@ describe('verseIsVisible — the verse switch means "show the verse" (080)', () 
 		const modules = composeModuleVisibility({}, ['verse']);
 		expect(modules.verse).toBe(false);
 		expect(verseIsVisible({ showDailyVerse: true, modules })).toBe(false);
+	});
+});
+
+describe('the Member strip is no longer a Dashboard Module (103)', () => {
+	it('the id is retired: a saved hidden list can no longer name it', () => {
+		// The card is gone, so the id that switched it goes with it. An id that
+		// names nothing is a switch for a lie.
+		expect(isDashboardModule('memberStrip')).toBe(false);
+	});
+
+	it('leaves neither switch list with a row for it', () => {
+		// The account page renders the band lists and the family page renders
+		// FAMILY_DASHBOARD_MODULES, so both lose the row from this one entry.
+		expect(CARD_DASHBOARD_MODULES.map((m) => m.id)).not.toContain('memberStrip');
+		expect(INFO_DASHBOARD_MODULES.map((m) => m.id)).not.toContain('memberStrip');
+		expect(FAMILY_DASHBOARD_MODULES.map((m) => m.id)).not.toContain('memberStrip');
+	});
+
+	it('a saved hidden list still naming it composes to a clean map', () => {
+		// The state a real user is carrying out of the pre-103 dashboard. It
+		// must not throw, must not resurrect anything, and must not disturb the
+		// modules that are still here.
+		const modules = composeModuleVisibility(
+			{},
+			savedStripHidden.hiddenDashboardModules ?? []
+		);
+		expect(modules).toEqual(composeModuleVisibility({}, []));
+		expect(Object.keys(modules)).not.toContain('memberStrip');
+	});
+
+	it('that stale id leaves the verse exactly as it found it', () => {
+		expect(verseFor(savedStripHidden)).toBe(true);
+		expect(verseFor({ ...savedStripHidden, hiddenDashboardModules: ['memberStrip', 'verse'] })).toBe(
+			false
+		);
 	});
 });

@@ -1,0 +1,13 @@
+-- 103: the Member Strip is no longer a Dashboard Module.
+--
+-- The family master-switch table only holds a row while a module is switched
+-- OFF, so this is the set of families that had the strip turned off family-wide.
+-- Those rows now name a module that no longer exists: inert (the composer only
+-- reads canonical ids, and setFamilyModuleSwitch throws on an unknown id, so
+-- nothing can re-create or act on them) but still a row for a lie. Clear them.
+--
+-- Idempotent: re-running deletes nothing. Nothing else in this statement is
+-- needed — a per-user `userSettings.hiddenDashboardModules` entry naming
+-- 'memberStrip' is dropped by the canonical-id check on read and rebuilt from
+-- the canonical list on the next /account save, so it needs no migration.
+DELETE FROM "dashboardModuleSwitches" WHERE "module" = 'memberStrip';

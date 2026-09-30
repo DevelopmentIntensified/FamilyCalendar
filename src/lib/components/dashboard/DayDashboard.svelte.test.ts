@@ -26,7 +26,6 @@ const base = {
 	glance: { doneToday: 2, openToday: 3, weekStreak: 4 },
 	dayEvents: [],
 	top3: [],
-	memberStatus: [],
 	familyTasks: [],
 	familyMembers: [],
 	kidsSchedule: []
@@ -111,5 +110,75 @@ describe('DayDashboard — the Groceries card (081)', () => {
 		expect(within(screen.getByTestId('groceries-card')).getByTestId('groceries-scope-family')).toBeTruthy();
 		await rerender({ familyId: null, familyGroceries: [], mineGroceries: [] });
 		expect(within(screen.getByTestId('groceries-card')).queryByTestId('groceries-scope-family')).toBeNull();
+	});
+});
+
+describe('DayDashboard — the Member strip is gone, the board stays (103)', () => {
+	const withBoard = {
+		familyTasks: [
+			{
+				id: 't1',
+				title: 'Take out the bins',
+				dueDate: '2026-09-29',
+				completedAt: null,
+				priority: 'normal',
+				assignedTo: 'u-sarah',
+				assignmentStatus: null,
+				userId: 'u-sarah',
+				assigneeFirstName: 'Sarah',
+				assigneeLastName: 'Rivera',
+				creatorFirstName: 'Sarah'
+			}
+		],
+		familyMembers: [{ userId: 'u-sarah', firstName: 'Sarah', lastName: 'Rivera' }]
+	};
+
+	it('the Family Task Board still renders, and the strip does not', () => {
+		render(DayDashboard, { props: { ...base, ...withBoard, modules: modulesFor([]) } });
+		const band = screen.getByTestId('dashboard-card-band');
+		expect(within(band).getByText('Family Task Board')).toBeInTheDocument();
+		expect(within(band).queryByText('Today in the Family')).toBeNull();
+		expect(within(band).queryByText(/open tasks? & events by member/i)).toBeNull();
+	});
+
+	it('the board is no longer sharing a two-column grid with a card', () => {
+		// The strip and the board used to share one md:grid-cols-2 wrapper that
+		// rendered when *either* was visible. With the strip gone the board is
+		// the only thing left in it, so the wrapper goes and the board takes the
+		// full width rather than sitting in a half-empty row. (The glance row
+		// above it is still two columns — that pairing is intact.)
+		const { container } = render(DayDashboard, {
+			props: { ...base, ...withBoard, modules: modulesFor([]) }
+		});
+		const band = container.querySelector('[data-testid="dashboard-card-band"]')!;
+		let node = within(band).getByText('Family Task Board').parentElement;
+		while (node && node !== band) {
+			expect(node.className).not.toContain('md:grid-cols-2');
+			node = node.parentElement;
+		}
+		expect(band.querySelectorAll('.md\\:grid-cols-2')).toHaveLength(1);
+	});
+
+	it('a saved hidden list naming the retired strip leaves the board visible', () => {
+		// The state a real user carries: they hid the strip before it was
+		// retired. The board is not a casualty of their saved id.
+		render(DayDashboard, {
+			props: { ...base, ...withBoard, modules: modulesFor(['memberStrip']) }
+		});
+		expect(within(screen.getByTestId('dashboard-card-band')).getByText('Family Task Board')).toBeInTheDocument();
+	});
+
+	it('a saved hidden state for the board still hides the board', () => {
+		render(DayDashboard, {
+			props: { ...base, ...withBoard, modules: modulesFor(['memberStrip', 'board']) }
+		});
+		expect(within(screen.getByTestId('dashboard-card-band')).queryByText('Family Task Board')).toBeNull();
+	});
+
+	it('no family, no board — the strip was never the reason that gate existed', () => {
+		render(DayDashboard, {
+			props: { ...base, ...withBoard, familyId: null, modules: modulesFor([]) }
+		});
+		expect(within(screen.getByTestId('dashboard-card-band')).queryByText('Family Task Board')).toBeNull();
 	});
 });

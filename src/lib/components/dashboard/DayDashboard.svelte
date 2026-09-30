@@ -6,7 +6,6 @@
 	import TopPrioritiesCard from './TopPrioritiesCard.svelte';
 	import CompletedTodayCard from './CompletedTodayCard.svelte';
 	import FamilyTaskBoardCard from './FamilyTaskBoardCard.svelte';
-	import MemberStrip from './MemberStrip.svelte';
 	import KidsScheduleCard from './KidsScheduleCard.svelte';
 	import GroceriesCard, { type GroceryCardItem } from './GroceriesCard.svelte';
 	import EventModal from '$lib/components/calendar/EventModal.svelte';
@@ -30,13 +29,6 @@
 		assignmentStatus: string | null;
 		assigneeFirstName?: string | null;
 		assigneeLastName?: string | null;
-	}[];
-	export let memberStatus: {
-		userId: string;
-		firstName: string;
-		lastName: string;
-		openTasksToday: number;
-		attendingToday: boolean;
 	}[];
 	export let familyTasks: {
 		id: string;
@@ -121,22 +113,18 @@
 			<CompletedTodayCard tasks={completedToday} {isToday} />
 		{/if}
 
-		{#if familyId && (visible('memberStrip') || visible('board'))}
-			<div class="grid gap-4 md:grid-cols-2">
-				{#if familyId && visible('memberStrip')}
-					<MemberStrip members={memberStatus} {isToday} />
-				{/if}
-				{#if familyId && visible('board')}
-					<FamilyTaskBoardCard
-						tasks={familyTasks}
-						members={familyMembers}
-						{meId}
-						{familyId}
-						openToday={glance.openToday}
-						weekStreak={glance.weekStreak}
-					/>
-				{/if}
-			</div>
+		<!-- The Family Task Board owns this row on its own now (103): the Member
+		     Strip shared a two-column grid with it, and deleting the strip must
+		     not take the board — or its full width — with it. -->
+		{#if familyId && visible('board')}
+			<FamilyTaskBoardCard
+				tasks={familyTasks}
+				members={familyMembers}
+				{meId}
+				{familyId}
+				openToday={glance.openToday}
+				weekStreak={glance.weekStreak}
+			/>
 		{/if}
 
 		{#if familyId && visible('kids')}

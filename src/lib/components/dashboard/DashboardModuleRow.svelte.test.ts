@@ -141,9 +141,9 @@ describe('DashboardModuleRow — no horizontal overflow at 320px', () => {
 	it('truncates the label rather than widening the row', () => {
 		render(DashboardModuleRow, {
 			props: {
-				label: 'Family Member Strip with a very long descriptive label',
+				label: 'Kids Schedule with a very long descriptive label',
 				scope: 'family',
-				moduleId: 'memberStrip',
+				moduleId: 'kids',
 				state: 'hidden-for-me',
 				submitValue: 'false'
 			}

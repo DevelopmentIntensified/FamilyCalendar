@@ -119,7 +119,6 @@ vi.mock('$lib/server/db', () => ({
 import {
 	getUserDayCalendar,
 	getFamilyDayEvents,
-	getFamilyAttendanceForEvents,
 	getKidsScheduleAttendance,
 	getCompletionTimestamps,
 	getRecurringDayCompletions,
@@ -176,24 +175,6 @@ describe('getFamilyDayEvents', () => {
 		expect(result).toEqual([]);
 		// No second query driven once the family calendar is absent.
 		expect(state.selectQueue).toEqual([]);
-	});
-});
-
-describe('getFamilyAttendanceForEvents', () => {
-	it('returns the attendance userId rows for the family event ids', async () => {
-		const rows = [{ userId: 'u1' }, { userId: 'u2' }, { userId: null }];
-		state.selectQueue = [rows];
-
-		const result = await getFamilyAttendanceForEvents(['evt-1', 'evt-2']);
-
-		expect(result).toEqual(rows);
-		expect(state.selectQueue).toEqual([]);
-	});
-
-	it('returns empty when run against no event ids (guarded by caller before calling)', async () => {
-		state.selectQueue = [[]];
-		const result = await getFamilyAttendanceForEvents([]);
-		expect(result).toEqual([]);
 	});
 });
 

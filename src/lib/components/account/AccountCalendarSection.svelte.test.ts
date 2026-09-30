@@ -91,3 +91,28 @@ describe('AccountCalendarSection — the module list has two bands (080)', () =>
 	});
 });
 
+describe('AccountCalendarSection — a retired module leaves no switch behind (103)', () => {
+	afterEach(cleanup);
+
+	it('renders no switch for the removed member strip', () => {
+		// The rows come from the canonical module list, so the entry going is
+		// the whole edit — this pins that the account page really does follow.
+		render(AccountCalendarSection, { props: props() });
+		expect(document.querySelector('input[name="module_memberStrip"]')).toBeNull();
+		expect(document.querySelector('[name="module_board"]')).toBeTruthy();
+	});
+
+	it('renders normally for a user whose saved list still names it', () => {
+		// The stale id is not an error and not a phantom row: every other
+		// switch still shows, checked, exactly as an untouched account's does.
+		render(AccountCalendarSection, {
+			props: props({ userSettings: { ...settings, hiddenDashboardModules: ['memberStrip'] } })
+		});
+		const board = document.querySelector('input[name="module_board"]') as HTMLInputElement;
+		expect(board.checked).toBe(true);
+		const verseInput = document.querySelector('input[name="module_verse"]') as HTMLInputElement;
+		expect(verseInput.checked).toBe(true);
+		expect(document.querySelectorAll('input[name^="module_"]').length).toBe(8);
+	});
+});
+

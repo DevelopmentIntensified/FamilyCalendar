@@ -125,25 +125,6 @@ export async function getFamilyDayEvents(familyId: string): Promise<CalendarEven
 }
 
 /**
- * The set of family-member userIds "attending today": attendance rows for the
- * given family event ids whose user is set and hasn't declined.
- */
-export async function getFamilyAttendanceForEvents(
-	familyEventIds: string[]
-): Promise<{ userId: string | null }[]> {
-	return await db
-		.select({ userId: eventAttendance.userId })
-		.from(eventAttendance)
-		.where(
-			and(
-				inArray(eventAttendance.eventId, familyEventIds),
-				isNotNull(eventAttendance.userId),
-				ne(eventAttendance.status, 'declined')
-			)
-		);
-}
-
-/**
  * Kids' Schedule attendance rows: family event attendees who are children
  * (memberType='child') and haven't declined, keyed by event + user.
  */
