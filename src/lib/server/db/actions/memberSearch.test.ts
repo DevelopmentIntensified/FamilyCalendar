@@ -57,6 +57,7 @@ vi.mock('$lib/server/db', () => ({
 
 import {
 	findVerifiedUsersByPrefix,
+	maskEmail,
 	MEMBER_SEARCH_MIN_QUERY,
 	MEMBER_SEARCH_ROW_CAP
 } from './memberSearch';
@@ -104,6 +105,29 @@ beforeEach(() => {
 	state.rows = [];
 });
 
+describe('the full address never leaves the search', () => {
+	it('masks enough to tell two people apart, not enough to harvest', () => {
+		expect(maskEmail('sarah.mitchell@gmail.com')).toBe('s••••••@g••••••');
+		// The local part's length is capped, so a long address does not leak its
+		// length by proxy.
+		expect(maskEmail('a'.repeat(40) + '@example.org')).toBe('a••••••@e••••••');
+	});
+
+	it('never returns the address it was given', async () => {
+		state.rows = [{ id: 'u1', firstName: 'Ann', lastName: 'Lee', email: 'ann.lee@example.com' }];
+		const result = await findVerifiedUsersByPrefix('ann', { callerId: 'me' });
+		const hit = result.ok ? result.users[0] : null;
+		expect(hit?.email).toBeTruthy();
+		expect(hit?.email).not.toContain('ann.lee');
+		expect(hit?.email).not.toContain('example.com');
+		expect(hit?.email).toContain('•');
+	});
+
+	it('does not invent an address for someone who has none', () => {
+		expect(maskEmail('')).toBe('•••');
+	});
+});
+
 describe('prefix matching is what a type-ahead needs', () => {
 	it('finds a person by a prefix of their name', async () => {
 		state.rows = [{ id: 'u1', firstName: 'Ann', lastName: 'Lee', email: 'ann@x.com' }];
@@ -111,7 +135,7 @@ describe('prefix matching is what a type-ahead needs', () => {
 
 		expect(result).toEqual({
 			ok: true,
-			users: [{ id: 'u1', firstName: 'Ann', lastName: 'Lee', email: 'ann@x.com' }]
+			users: [{ id: 'u1', firstName: 'Ann', lastName: 'Lee', email: 'a••@x••••' }]
 		});
 
 		const sql = whereMarkers();

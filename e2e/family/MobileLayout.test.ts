@@ -166,11 +166,25 @@ test('family pages have no horizontal overflow on mobile widths', async ({ page 
 	await page.setViewportSize({ width: 375, height: 667 });
 	await page.goto('/family');
 	await page.waitForLoadState('networkidle');
-	const ctaBox = await page.locator('a:has-text("Create New Family")').boundingBox();
+	// Whichever CTA renders must fit — "Create New Family" below the plan
+	// limit, "Upgrade to add families" at or above it. The beforeAll seed puts
+	// this account at the default limit of exactly 1, so asserting on one of the
+	// two was asserting on a button that legitimately does not exist.
+	const ctaBox = await page
+		.locator('a:has-text("Create New Family"), a:has-text("Upgrade to add families")')
+		.first()
+		.boundingBox();
+	expect(ctaBox, 'family list CTA').not.toBeNull();
 	expect(ctaBox!.x + ctaBox!.width).toBeLessThanOrEqual(375);
 
 	await page.goto('/family/create');
 	await page.waitForLoadState('networkidle');
-	const swatchBox = await page.locator('button[title="Rose"]').boundingBox();
-	expect(swatchBox!.x + swatchBox!.width).toBeLessThanOrEqual(375);
+	// The last swatch, not a named one: the curated earthy palette replaced the
+	// old 17-hex grid (#099), so pinning "Rose" was pinning a colour that no
+	// longer exists. What this checks is the right-most edge of the row.
+	const swatches = page.locator('[role="group"][aria-label="Family colour"] button');
+	const swatchCount = await swatches.count();
+	expect(swatchCount, 'family colour swatches').toBeGreaterThan(0);
+	const lastSwatch = await swatches.nth(swatchCount - 1).boundingBox();
+	expect(lastSwatch!.x + lastSwatch!.width).toBeLessThanOrEqual(375);
 });

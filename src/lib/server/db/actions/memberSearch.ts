@@ -30,11 +30,33 @@ export const MEMBER_SEARCH_MAX_QUERY = 60;
 /** Most rows one search will ever return. */
 export const MEMBER_SEARCH_ROW_CAP = 10;
 
+/**
+ * Enough of an address to tell two people apart, not enough to harvest.
+ *
+ * The picker needs to distinguish "Sarah Mitchell" from "Sarah Jones" — a name
+ * will not do it — but handing back a full address turns a search box into an
+ * account directory, which is exactly what this endpoint's guards exist to
+ * prevent. The invite still goes to the real address; this is only what the
+ * picker is allowed to show.
+ */
+export function maskEmail(email: string): string {
+	const at = email.lastIndexOf('@');
+	if (at <= 0) return '•••';
+	const local = email.slice(0, at);
+	const domain = email.slice(at + 1);
+	const head = local.slice(0, 1);
+	const tail = domain.slice(0, 1);
+	return `${head}${'•'.repeat(Math.min(local.length - 1, 6))}@${tail}${'•'.repeat(
+		Math.min(domain.length - 1, 6)
+	)}`;
+}
+
 /** One person a picker can choose. */
 export interface MemberSearchHit {
 	id: string;
 	firstName: string | null;
 	lastName: string | null;
+	/** Masked for display. Never the full address. */
 	email: string | null;
 }
 
@@ -90,5 +112,13 @@ export async function findVerifiedUsersByPrefix(
 		)
 		.limit(MEMBER_SEARCH_ROW_CAP);
 
-	return { ok: true, users: rows };
+	// The full address never leaves this function.
+	const hits: MemberSearchHit[] = rows.map((r) => ({
+		id: r.id,
+		firstName: r.firstName,
+		lastName: r.lastName,
+		email: r.email ? maskEmail(r.email) : null
+	}));
+
+	return { ok: true, users: hits };
 }
