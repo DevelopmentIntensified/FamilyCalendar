@@ -10,6 +10,7 @@ import {
 	type FamilyInviteCode
 } from '$lib/server/db/schema';
 import { count, eq, and, gt, ilike, notInArray, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { generateId } from 'lucia';
 import { canAddFamilyMember } from '$lib/server/services/subscriptionService';
 
@@ -26,16 +27,71 @@ export async function getFamily(id: string) {
 	return familiesItem;
 }
 
-export async function getUserFamilies(userId: string) {
-	const [member] = await db.select().from(familyMembers).where(eq(familyMembers.userId, userId));
+/**
+ * One of a user's Family Memberships: the Family itself, the membership's own
+ * labels, and that family's roster size.
+ *
+ * `role` is the membership role — the PERMISSION (`creator` | `admin` |
+ * `member`). `memberType` is the Member Type — the personal-profile label
+ * (`parent` | `child` | `member`), which is NOT a permission.
+ */
+export interface UserFamilyMembership {
+	family: Family;
+	role: string | null;
+	memberType: string | null;
+	/** Roster size of this Family, counted by the same query. */
+	memberCount: number;
+}
 
-	if (!member) return null;
+/**
+ * EVERY Family the user holds a Family Membership in, oldest first, each with
+ * the membership's role/Member Type and that family's roster size.
+ *
+ * The canonical multi-family read (issue 098). This used to return only the
+ * member's FIRST `familyMembers` row with no ORDER BY, so "which row is
+ * first" was whatever the database handed back — and callers that compared it
+ * against a family id in the URL were silently refusing half a user's
+ * families. Callers that need one specific family now ask for it BY ID
+ * (`getFamilyMemberRole`); there is no "the user's one family" to guess at.
+ */
+export async function getUserFamilyMemberships(
+	userId: string
+): Promise<UserFamilyMembership[]> {
+	// `roster` is the family's WHOLE membership set, joined back onto the
+	// user's own row so the roster size rides along with the read instead of
+	// costing a second query per family.
+	const roster = alias(familyMembers, 'roster');
 
-	const family = member.familyId
-		? (await db.select().from(families).where(eq(families.id, member.familyId)))[0]
-		: null;
+	const rows = await db
+		.select({
+			id: families.id,
+			name: families.name,
+			color: families.color,
+			createdAt: families.createdAt,
+			role: familyMembers.role,
+			memberType: familyMembers.memberType,
+			memberCount: count(roster.userId)
+		})
+		.from(familyMembers)
+		.innerJoin(families, eq(familyMembers.familyId, families.id))
+		.leftJoin(roster, eq(roster.familyId, familyMembers.familyId))
+		.where(eq(familyMembers.userId, userId))
+		// families.id is the primary key, so Postgres resolves the rest of the
+		// selected family columns from it — no need to list them all here.
+		.groupBy(families.id, familyMembers.role, familyMembers.memberType)
+		.orderBy(families.createdAt);
 
-	return { families: family, familyMembers: member };
+	return rows.map((row) => ({
+		family: {
+			id: row.id,
+			name: row.name,
+			color: row.color,
+			createdAt: row.createdAt
+		},
+		role: row.role,
+		memberType: row.memberType,
+		memberCount: row.memberCount
+	}));
 }
 
 export async function createFamily(data: Omit<Family, 'id' | 'createdAt'>) {

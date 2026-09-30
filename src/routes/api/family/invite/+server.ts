@@ -7,7 +7,6 @@ import {
 	deleteInviteCode,
 	getFamilyMemberRole
 } from '$lib/server/db/actions/families';
-import { getUserFamilies } from '$lib/server/db/actions/families';
 import { db } from '$lib/server/db';
 import { familyMembers, familyInviteCodes } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -25,16 +24,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json();
 	const { familyId, expiresInDays, maxUses } = body;
 
-	const userFamilies = await getUserFamilies(locals.user.id);
-	if (!userFamilies || userFamilies.families?.id !== familyId) {
-		return json(
-			{ error: 'You do not have permission to invite members to this family' },
-			{ status: 403 }
-		);
-	}
-
+	// Membership + role in THIS family. The old check compared the family id in
+	// the body against the user's first `familyMembers` row, so a creator of a
+	// second family was refused here (issue 098).
 	const callerRole = await getFamilyMemberRole(locals.user.id, familyId);
-	if (!callerRole || !INVITE_MANAGER_ROLES.has(callerRole)) {
+	if (!callerRole) {
+		return json({ error: 'You are not a member of this family' }, { status: 403 });
+	}
+	if (!INVITE_MANAGER_ROLES.has(callerRole)) {
 		return json(
 			{ error: 'Only the family creator or an admin can create invitations' },
 			{ status: 403 }
@@ -117,13 +114,11 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Invite code not found' }, { status: 404 });
 	}
 
-	const userFamilies = await getUserFamilies(locals.user.id);
-	if (!userFamilies || userFamilies.families?.id !== invite.familyId) {
-		return json({ error: 'You do not have permission to revoke this invitation' }, { status: 403 });
-	}
-
 	const callerRole = await getFamilyMemberRole(locals.user.id, invite.familyId);
-	if (!callerRole || !INVITE_MANAGER_ROLES.has(callerRole)) {
+	if (!callerRole) {
+		return json({ error: 'You are not a member of this family' }, { status: 403 });
+	}
+	if (!INVITE_MANAGER_ROLES.has(callerRole)) {
 		return json(
 			{ error: 'Only the family creator or an admin can revoke invitations' },
 			{ status: 403 }

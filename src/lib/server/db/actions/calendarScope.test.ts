@@ -3,9 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 /**
  * calendarScope owns the read/write scope for Events: "a user may touch an
  * Event if they own it OR its Calendar is in their accessible set (personal
- * + first family)". getAccessibleCalendarIds and canTouchEvent hit `db`, so
- * the drizzle query-builder is replaced with the scripted stub used by the
- * other action tests; eventAccessFilter is a pure SQL fragment and is
+ * + every family they belong to)". getAccessibleCalendarIds and canTouchEvent
+ * hit `db`, so the drizzle query-builder is replaced with the scripted stub used
+ * by the other action tests; eventAccessFilter is a pure SQL fragment and is
  * verified directly.
  */
 /** A stubbed DB row: plain JSON-ish values only. */
@@ -126,10 +126,17 @@ describe('getAccessibleCalendarIds', () => {
 		expect(await getAccessibleCalendarIds('user-1')).toEqual(['c-personal']);
 	});
 
-	it('adds the first family calendar to the personal set', async () => {
-		// select #1 = familyMembers (member of family), select #2 = calendars
-		state.queue = [[{ familyId: 'fam-1' }], [{ id: 'c-personal' }, { id: 'c-family' }]];
-		expect(await getAccessibleCalendarIds('user-1')).toEqual(['c-personal', 'c-family']);
+	it('adds every family calendar the user belongs to, not just the first (issue 098)', async () => {
+		// select #1 = familyMembers (member of two families), select #2 = calendars
+		state.queue = [
+			[{ familyId: 'fam-1' }, { familyId: 'fam-2' }],
+			[{ id: 'c-personal' }, { id: 'c-family-1' }, { id: 'c-family-2' }]
+		];
+		expect(await getAccessibleCalendarIds('user-1')).toEqual([
+			'c-personal',
+			'c-family-1',
+			'c-family-2'
+		]);
 	});
 });
 

@@ -3,6 +3,8 @@
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	export let data: PageData;
 	let families = data.families;
+	let plan = data.plan;
+	$: atFamilyLimit = plan.used >= plan.limit;
 </script>
 
 <div class="min-h-screen bg-slate-50">
@@ -20,13 +22,33 @@
 					<p class="mt-0.5 text-xs text-slate-400">
 						{families.length === 1 ? '1 family' : `${families.length} families`} you belong to
 					</p>
+					<!-- Plan usage, read from the user's subscription (issue 098). At the
+					     limit the Create button below would only bounce off the create
+					     page's upgrade banner, so the pill says so up front. -->
+					<p
+						class="mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium {atFamilyLimit
+							? 'border-amber-200 bg-amber-50 text-amber-800'
+							: 'border-slate-200 bg-slate-50 text-slate-600'}"
+					>
+						{plan.used} of {plan.limit}
+						{plan.limit === 1 ? 'family' : 'families'} on your plan
+					</p>
 				</div>
-				<a
-					href="/family/create"
-					class="inline-flex min-h-11 items-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
-				>
-					Create New Family
-				</a>
+				{#if atFamilyLimit}
+					<a
+						href="/pricing"
+						class="inline-flex min-h-11 items-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+					>
+						Upgrade to add families
+					</a>
+				{:else}
+					<a
+						href="/family/create"
+						class="inline-flex min-h-11 items-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+					>
+						Create New Family
+					</a>
+				{/if}
 			</div>
 		</section>
 
@@ -66,6 +88,10 @@
 									<p class="truncate text-xs text-slate-400">
 										{family.memberCount}
 										member{family.memberCount !== 1 ? 's' : ''}
+										<span aria-hidden="true"> · </span>
+										<span class="sr-only">, </span>
+										{family.openTasks}
+										open task{family.openTasks !== 1 ? 's' : ''}
 									</p>
 								</div>
 								<span class="shrink-0 text-xs font-medium text-primary-600">Open</span>

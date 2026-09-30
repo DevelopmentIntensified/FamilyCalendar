@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { familyMembers, users } from '$lib/server/db/schema';
-import { getFamilyMemberRole, getUserFamilies } from '$lib/server/db/actions/families';
+import { getFamilyMemberRole } from '$lib/server/db/actions/families';
 import { createNotification } from '$lib/server/db/actions/notifications';
 import { canAddFamilyMember } from '$lib/server/services/subscriptionService';
 import { eq, and } from 'drizzle-orm';
@@ -32,18 +32,17 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 		return json({ error: 'Family ID is required' }, { status: 400 });
 	}
 
-	const userFamilies = await getUserFamilies(locals.user.id);
-	if (!userFamilies || userFamilies.families?.id !== familyId) {
-		return json(
-			{ error: 'You do not have permission to add members to this family' },
-			{ status: 403 }
-		);
+	// Membership + role in THIS family, not a comparison against the user's
+	// first `familyMembers` row — which refused a creator of a second family
+	// in their own (issue 098).
+	const callerRole = await getFamilyMemberRole(locals.user.id, familyId);
+	if (!callerRole) {
+		return json({ error: 'You are not a member of this family' }, { status: 403 });
 	}
 
 	// Adding a member silently, without the target's consent, is an admin-level
 	// action — a plain member must use the invite flow instead.
-	const callerRole = await getFamilyMemberRole(locals.user.id, familyId);
-	if (!callerRole || !ADDER_ROLES.has(callerRole)) {
+	if (!ADDER_ROLES.has(callerRole)) {
 		return json(
 			{ error: 'Only the family creator or an admin can add members directly' },
 			{ status: 403 }

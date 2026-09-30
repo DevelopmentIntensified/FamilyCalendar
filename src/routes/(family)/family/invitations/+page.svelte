@@ -4,7 +4,7 @@
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 
 	export let data: PageData;
-	let { invitations, family, canManageInvites } = data;
+	let { invitations, family, canManageInvites, memberships } = data;
 
 	let creating = false;
 	let revoking = '';
@@ -106,6 +106,25 @@
 
 			{#if error}
 				<div class="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-600">{error}</div>
+			{/if}
+
+			<!-- Multi-family: this page manages ONE family's invites at a time, so a
+			     user in two families needs a way to say which (issue 098). -->
+			{#if memberships.length > 1}
+				<nav class="mb-4 flex flex-wrap gap-1.5" aria-label="Choose a family">
+					{#each memberships as m (m.id)}
+						<a
+							href="/family/invitations?familyId={m.id}"
+							aria-current={m.id === family?.id ? 'page' : undefined}
+							class="inline-flex min-h-11 items-center rounded-full border px-3.5 text-sm font-medium transition-colors {m.id ===
+							family?.id
+								? 'border-primary-600 bg-primary-50 text-primary-700'
+								: 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}"
+						>
+							{m.name}
+						</a>
+					{/each}
+				</nav>
 			{/if}
 
 			{#if !canManageInvites}

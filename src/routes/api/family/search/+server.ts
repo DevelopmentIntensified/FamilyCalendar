@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { searchUsers, getUserFamilies } from '$lib/server/db/actions/families';
+import { searchUsers, getFamilyMemberRole } from '$lib/server/db/actions/families';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	if (!locals.user) {
@@ -14,8 +14,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		return json({ users: [] });
 	}
 
-	const userFamilies = await getUserFamilies(locals.user.id);
-	if (!userFamilies || userFamilies.families?.id !== familyId) {
+	// A membership check for THIS family — not "the user's one family". Any
+	// member may search the directory; non-members may not (issue 098).
+	const role = await getFamilyMemberRole(locals.user.id, familyId);
+	if (!role) {
 		return json({ error: 'You do not have permission to search in this family' }, { status: 403 });
 	}
 
