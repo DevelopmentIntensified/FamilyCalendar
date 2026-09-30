@@ -94,6 +94,8 @@
 			familyTasks={dd.familyTasks}
 			familyMembers={dd.familyMembers}
 			kidsSchedule={dd.kidsSchedule}
+			familyGroceries={dd.familyGroceries ?? []}
+			mineGroceries={dd.mineGroceries ?? []}
 			loadWarnings={[...(data.loadWarnings ?? []), ...dd.warnings]}
 		/>
 	{:catch}

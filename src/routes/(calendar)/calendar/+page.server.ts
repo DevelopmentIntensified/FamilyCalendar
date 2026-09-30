@@ -221,6 +221,11 @@ export const load: PageServerLoad = async (event) => {
 						recurrenceFrequency: t.recurrenceFrequency,
 						recurrenceInterval: t.recurrenceInterval,
 						completionCount: t.completionCount,
+						// Which calendar this Task rides with (#069), so
+						// hiding that calendar takes its due Tasks with it.
+						// A Task with no parent event belongs to the viewer's
+						// own personal calendar — the only one they author.
+						calendarId: t.eventCalendarId ?? userCalendar?.id ?? null,
 						// Richer fields for the task detail popup (calendar views).
 						priority: t.priority,
 						notes: t.notes,

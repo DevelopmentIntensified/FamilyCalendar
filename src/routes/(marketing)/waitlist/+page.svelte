@@ -9,7 +9,7 @@
 </script>
 
 <svelte:head>
-	<title>Join the Waitlist - Family Master</title>
+	<title>Join the Waitlist - Family Planz</title>
 </svelte:head>
 
 <div class="min-h-screen bg-slate-50 pt-20">

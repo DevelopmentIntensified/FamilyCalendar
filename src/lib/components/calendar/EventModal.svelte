@@ -45,6 +45,8 @@
 
 	let showEditForm = false;
 	let duplicating = false;
+	/** Issue 015: a DELETE in flight. Re-entry here used to fire it twice. */
+	let deleting = false;
 	let showDeleteConfirm = false;
 	let showDuplicateConfirm = false;
 	let actionError = '';
@@ -64,14 +66,21 @@
 	// Set once the viewer RSVPs: a slow initial load resolving afterwards is
 	// stale and must not clobber the fresher optimistic + POST state.
 	let rsvpTouched = false;
+	/** Attendees are client-fetched; the region shows a skeleton until they land. */
+	let attendanceLoading = false;
 
 	onMount(async () => {
 		if (!show || !event?.id) return;
-		const loaded = await fetchAttendance(serverId);
-		if (rsvpTouched) return;
-		if (loaded.attendees) attendees = loaded.attendees;
-		if (loaded.nonUserAttendants) nonUserAttendants = loaded.nonUserAttendants;
-		if (loaded.userRsvpStatus) currentUserRsvpStatus = loaded.userRsvpStatus;
+		attendanceLoading = true;
+		try {
+			const loaded = await fetchAttendance(serverId);
+			if (rsvpTouched) return;
+			if (loaded.attendees) attendees = loaded.attendees;
+			if (loaded.nonUserAttendants) nonUserAttendants = loaded.nonUserAttendants;
+			if (loaded.userRsvpStatus) currentUserRsvpStatus = loaded.userRsvpStatus;
+		} finally {
+			attendanceLoading = false;
+		}
 	});
 
 	$: attendanceSplit = splitAttendance(attendees);
@@ -80,6 +89,14 @@
 	$: notGoingList = attendanceSplit.notGoing;
 	// Invited members who haven't answered yet (incl. required invitations).
 	$: undecidedList = attendanceSplit.undecided;
+	// True once anything to show exists — server-passed props or a landed fetch.
+	// The skeleton only fills a genuinely empty region, never one that already
+	// has content the refresh is about to replace.
+	$: hasAttendance =
+		goingList.length > 0 ||
+		maybeList.length > 0 ||
+		notGoingList.length > 0 ||
+		nonUserAttendants.length > 0;
 
 	// Get calendar name from prop or event
 	$: calendarName =
@@ -97,12 +114,14 @@
 		showDeleteConfirm = false;
 		showDuplicateConfirm = false;
 		actionError = '';
+		deleting = false;
 		swipe = createSwipeState();
 		dispatch('close');
 		onClose();
 	}
 
 	function beginDelete() {
+		if (deleting) return;
 		actionError = '';
 		showDeleteConfirm = true;
 	}
@@ -120,6 +139,11 @@
 	}
 
 	async function performDelete(scope?: 'this' | 'all') {
+		// A double tap must not fire two DELETEs — the second is a 404 behind
+		// a modal that has already closed, so the user never sees it.
+		if (deleting) return;
+		deleting = true;
+		actionError = '';
 		const url = `/api/events/${event.masterId || event.id}`;
 		let options: DeleteRequestInit = {
 			method: 'DELETE'
@@ -145,6 +169,8 @@
 		} catch (error) {
 			console.error('Delete error:', error);
 			actionError = 'Network error. Check your connection and try again.';
+		} finally {
+			deleting = false;
 		}
 	}
 
@@ -198,6 +224,7 @@
 			calendarIds={calendars}
 			{userSettings}
 			{familyMembers}
+			{deleting}
 			onClose={handleFormClose}
 			on:update={handleUpdate}
 			on:delete={(e) => performDelete(e.detail?.scope)}
@@ -245,7 +272,26 @@
 					/>
 
 					<!-- RSVP Summary Section / Attendees -->
-					{#if goingList.length > 0 || maybeList.length > 0 || notGoingList.length > 0 || nonUserAttendants.length > 0}
+					{#if attendanceLoading && !hasAttendance}
+						<div
+							class="border-t border-slate-100 px-4 py-4 sm:px-6"
+							data-testid="attendee-skeleton"
+							role="status"
+							aria-label="Loading attendees"
+						>
+							<div class="mb-4 h-4 w-24 animate-pulse rounded bg-slate-100"></div>
+							<div class="mb-3 flex flex-wrap gap-1.5">
+								{#each Array.from({ length: 3 }, (_, i) => i) as i (i)}
+									<div class="h-7 w-24 animate-pulse rounded-full bg-slate-100"></div>
+								{/each}
+							</div>
+							<div class="flex flex-wrap gap-1.5">
+								{#each Array.from({ length: 2 }, (_, i) => i) as i (i)}
+									<div class="h-7 w-20 animate-pulse rounded-full bg-slate-100"></div>
+								{/each}
+							</div>
+						</div>
+					{:else if hasAttendance}
 						<EventAttendeeGroups
 							going={goingList}
 							maybe={maybeList}
@@ -274,6 +320,7 @@
 					isRecurring={!!event.recurrenceFrequency}
 					eventTitle={event.title}
 					{duplicating}
+					{deleting}
 					onDeleteScope={(scope) => performDelete(scope)}
 					onCancelDelete={() => (showDeleteConfirm = false)}
 					onConfirmDuplicate={() => {

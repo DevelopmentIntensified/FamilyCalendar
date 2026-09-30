@@ -6,6 +6,8 @@
 		isRecurring: boolean;
 		eventTitle: string;
 		duplicating: boolean;
+		/** Issue 015: a DELETE is in flight — the whole bar goes inert. */
+		deleting: boolean;
 		onDeleteScope: (scope?: 'this' | 'all') => void;
 		onCancelDelete: () => void;
 		onConfirmDuplicate: () => void;
@@ -22,6 +24,7 @@
 		isRecurring,
 		eventTitle,
 		duplicating,
+		deleting,
 		onDeleteScope,
 		onCancelDelete,
 		onConfirmDuplicate,
@@ -50,31 +53,35 @@
 					{#if isRecurring}
 						<button
 							type="button"
+							disabled={deleting}
 							onclick={() => onDeleteScope('this')}
-							class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
+							class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
 						>
 							This occurrence
 						</button>
 						<button
 							type="button"
+							disabled={deleting}
 							onclick={() => onDeleteScope('all')}
-							class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
+							class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
 						>
 							Whole series
 						</button>
 					{:else}
 						<button
 							type="button"
+							disabled={deleting}
 							onclick={() => onDeleteScope()}
-							class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
+							class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
 						>
-							Delete
+							{deleting ? 'Deleting…' : 'Delete'}
 						</button>
 					{/if}
 					<button
 						type="button"
+						disabled={deleting}
 						onclick={onCancelDelete}
-						class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+						class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
 					>
 						Cancel
 					</button>
@@ -112,7 +119,8 @@
 	<button
 		type="button"
 		onclick={onBeginDelete}
-		class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-red-600 transition-colors hover:bg-red-50 sm:w-auto sm:gap-1.5 sm:px-4 sm:text-sm sm:font-medium"
+		disabled={deleting}
+		class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 sm:w-auto sm:gap-1.5 sm:px-4 sm:text-sm sm:font-medium"
 		aria-label="Delete event"
 	>
 		<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -538,6 +538,7 @@
 			removeEvent={() => {}}
 			preferedFirstDayOfWeek={data.userSettings?.weekStart || data.user?.firstDayOfWeek || 'sunday'}
 			calendarIds={data.calendarIds || []}
+			filterUserId={data.user?.id ?? null}
 			dueTasks={cd.dueTasks || []}
 			defaultViewSetting={data.userSettings?.defaultView || 'monthView'}
 			initialView={initialViewParam}

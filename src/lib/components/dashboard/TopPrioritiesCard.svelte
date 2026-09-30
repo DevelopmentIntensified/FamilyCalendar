@@ -192,7 +192,7 @@
 								type="button"
 								onclick={() => setPriority(task, p)}
 								disabled={busy === task.id || task.priority === p}
-								class="rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors {task.priority ===
+								class="min-h-11 rounded-md px-2.5 text-[11px] font-semibold transition-colors {task.priority ===
 								p
 									? priorityTone(p)
 									: 'text-slate-300 hover:bg-slate-100 hover:text-slate-500'}"

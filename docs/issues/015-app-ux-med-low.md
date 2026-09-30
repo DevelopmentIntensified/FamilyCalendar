@@ -1,6 +1,6 @@
 # 015 — Audit findings: app-wide UX MED/LOW
 
-Status: in-progress
+Status: done
 
 **Re-triaged 2026-09-29.** This was filed as ~15 independent items and read as
 a 4-5 ticket rollup. It is not. Fourteen of the fifteen are already shipped —
@@ -10,26 +10,35 @@ lane; just do the four.**
 
 ## Needs doing
 
-- [ ] **Touch targets under 44px in the hour grids.** `DayHourGrid` stepper and
-      chip buttons are `px-1.5 py-1 text-[11px]` — roughly 24px tall, well
-      under the 44px target. These are the drag/step controls in the day view,
-      so they are hit constantly and by thumb. Also check the priority chips and
-      the navbar hamburger + bell. Measure, don't eyeball: the fix is a
-      `min-h-11 min-w-11` (or a computed minimum) that does not change the grid
-      geometry.
-- [ ] **Event delete has no pending state — double-tap deletes twice.**
-      `performDelete` in the event modal has no busy flag, and the confirm bar's
-      Delete / This occurrence / Whole series buttons are never disabled, so a
-      double tap fires two DELETEs. The second is a 404 the user never sees.
-      Same class: **"Clear completed"** on the tasks page has no busy state
-      either, so a double tap can clear twice.
-- [ ] **The edit-task dialog is not scrollable on a short screen.** The task
-      detail modal got `max-h-[80dvh] overflow-y-auto`; the edit dialog did not
-      — its card is `max-w-md` with no height cap, so on a landscape phone the
-      Save button is below the fold with no way to reach it.
-- [ ] **The event modal's attendee/checklist region has no skeleton.** It
-      client-fetches attendees and tasks and renders an empty region until they
-      land. Skeleton, not a blank card.
+_Nothing. All four shipped 2026-09-29._
+
+## Done (2026-09-29)
+
+- [x] **Touch targets under 44px in the hour grids.** Measured with
+      `src/lib/utils/touchTarget.ts`, which derives the border box from the
+      Tailwind class chain (jsdom has no layout, so the numbers have to come
+      from somewhere). Range-popover steppers `px-1.5 py-1 text-[11px]`
+      **23.2px → 44px** (`min-h-11`; the ✕ also gets `min-w-11`).
+      `TopPrioritiesCard` priority chips `px-2.5 py-1.5 text-[11px]`
+      **25.2px → 44px**. Grid geometry untouched — `PX_PER_HOUR`, `GRID_HEIGHT`
+      and the chip's inline `%` box are unchanged, pinned by a test.
+      Navbar hamburger and notification bell measured at **44×44 already** —
+      no change. **Not fixed:** the day-grid event chip itself (see Notes).
+- [x] **Delete has no pending state.** `EventModal.performDelete` now carries a
+      `deleting` guard (early return + `finally`), threaded to both confirm
+      bars — `EventModalBar` (detail popover) and `EventDeleteConfirm` (edit
+      form). Delete / This occurrence / Whole series / Cancel / the bar's
+      Delete trigger all go `disabled` and the primary reads "Deleting…".
+      Pinned by a double-tap test asserting exactly one DELETE.
+- [x] **Edit-task dialog not scrollable on a short screen.** The card is now
+      `flex max-h-[90dvh] flex-col` and the form is the scroll body
+      (`min-h-0 flex-1 overflow-y-auto overscroll-contain`), so Save is always
+      reachable on a landscape phone.
+- [x] **Event modal attendee/checklist region had no skeleton.** `EventModal`
+      renders an `attendee-skeleton` block and `ChecklistSection` a
+      `checklist-skeleton` row set while their client fetches are in flight.
+      Both are gated on "nothing to show yet", so a skeleton never flashes
+      over server-passed attendees.
 
 ## Done (verified 2026-09-29)
 
@@ -60,6 +69,21 @@ lane; just do the four.**
 
 ## Notes
 
+- **"Clear completed" was already guarded** — the re-triage note claiming it
+  had no busy state was stale. `+page.svelte` already had
+  `if (clearBusy) return;` and `TasksMainList` already had
+  `disabled={clearBusy}` + a "Deleting…" label. No code change; added the
+  missing double-tap test (page level, asserts one DELETE) so the guard stops
+  being folklore. Worth knowing before anyone re-files it as a bug.
+- **The day-grid event chip is still 26px, deliberately.** Its box is set
+  inline as a percentage of `GRID_HEIGHT` with a 26px floor
+  (`Math.max(slot.heightPct, (26 / GRID_HEIGHT) * 100)`), so a 30-minute event
+  renders 26–28px tall. Raising it to 44px would make packed events overlap and
+  would move the boundary that drag-to-create / range-select hit-testing reads
+  — the ticket that owns that geometry should do it in `dayViewLayout.ts`,
+  not here. Widening the *hit* area without moving the box is also blocked:
+  the chip is `overflow-hidden` (it truncates the title), so a pseudo-element
+  hit pad would be clipped.
 - The "silent mutation failures (~15 handlers)" bullet was the widest claim in
   the ticket and could not be verified as a count — the pattern is genuinely
   fixed in every region checked, but a repo-wide sweep was not done. If a

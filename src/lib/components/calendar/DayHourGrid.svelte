@@ -112,7 +112,7 @@
 						type="button"
 						onclick={() => onStepRangeEnd(-15)}
 						aria-label="Shorten by 15 minutes"
-						class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
+						class="min-h-11 rounded-md border border-slate-200 px-2.5 text-[11px] font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
 					>
 						−15
 					</button>
@@ -120,7 +120,7 @@
 						type="button"
 						onclick={() => onStepRangeEnd(15)}
 						aria-label="Extend by 15 minutes"
-						class="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
+						class="min-h-11 rounded-md border border-slate-200 px-2.5 text-[11px] font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-95"
 					>
 						+15
 					</button>
@@ -128,7 +128,7 @@
 						type="button"
 						onclick={onCreateRange}
 						aria-label="Create event for selected time"
-						class="rounded-md bg-primary-600 px-2 py-1 text-[11px] font-medium text-white transition-all hover:bg-primary-700 active:scale-95"
+						class="min-h-11 rounded-md bg-primary-600 px-2.5 text-[11px] font-medium text-white transition-all hover:bg-primary-700 active:scale-95"
 					>
 						Create
 					</button>
@@ -136,7 +136,7 @@
 						type="button"
 						onclick={onDismissRange}
 						aria-label="Dismiss time selection"
-						class="rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:text-slate-600"
+						class="flex min-h-11 min-w-11 items-center justify-center rounded-md text-[11px] text-slate-400 hover:text-slate-600"
 					>
 						✕
 					</button>

@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-	<title>Checkout - Family Master</title>
+	<title>Checkout - Family Planz</title>
 </svelte:head>
 
 <div class="min-h-screen bg-slate-50 pt-20">

@@ -1,0 +1,243 @@
+/* ============================================================================
+   The FamilyPlanz marketing theme.
+
+   Provenance: prototypes/calendar-ui/. Every value below is read off the
+   calendar prototype page and its stylesheet — the :root tokens, the hero
+   wash, the orbs, the card tints, the glass calendar frame, the button
+   shadows and the 150ms transition. Nothing here is invented, and nothing is
+   carried over from static/theme-preview.html, which was a fourth palette that
+   nothing ever adopted.
+
+   WHY THIS FILE EXISTS. The marketing surface had no theme at all: the pages
+   carry their colours as Tailwind arbitrary values, spelled out per class
+   (bg-[#FED5CF], text-[#c45e38], from-[#FED5CF]) across five files, so a
+   brand change was a find-and-replace with no list of what had to change and
+   no way to see what had been missed. This makes the palette addressable.
+
+   Two oracles, and they are not allowed to disagree:
+     · CSS    — this file. The theme.
+     · JS/SVG — prototypes/brand-ui/marks.js, which the app icon and the
+                share card are generated from, because SVG cannot read a custom
+                property and be rasterised outside a page.
+   Both carry the same eleven values. The brand-check suite compares every hex
+   in marks.js against calendar-ui's :root; that is what keeps them honest.
+
+   THE PALETTE IS NOT SETTLED. Two oranges live in this repo: the terracotta
+   below (#c45e38), which the calendar prototype and the marketing pages use,
+   and the Tailwind `primary` ramp peaking at #dd5822, which the app chrome and
+   theme_color use. --mp-brand and --mp-brand-ink are terracotta; the ramp under
+   --mp-warm-* is the app's. This file exposes both, named, so reconciling them
+   is a decision somebody makes rather than a drift nobody notices.
+   ========================================================================== */
+
+:root {
+	/* ── paper ───────────────────────────────────────────────────────────── */
+	--mp-canvas: #f8f6f3;
+	--mp-surface: #ffffff;
+	/* the calendar frame's own glass: 72% white over the wash, 8px blur */
+	--mp-glass: rgba(255, 255, 255, 0.72);
+	--mp-hairline: rgba(226, 232, 240, 0.9);
+	--mp-hairline-solid: #e2e8f0;
+
+	/* ── brand ───────────────────────────────────────────────────────────── */
+	--mp-brand: #c45e38;
+	--mp-brand-hover: #a14d32;
+	--mp-brand-ink: #84412e;
+	--mp-brand-shadow: rgba(196, 94, 56, 0.3);
+	--mp-brand-shadow-hover: rgba(196, 94, 56, 0.3);
+	/* the app's warm ramp, kept because theme_color is still on it */
+	--mp-warm-50: #fef7f0;
+	--mp-warm-100: #fdede0;
+	--mp-warm-200: #fad9bf;
+	--mp-warm-300: #f5be92;
+	--mp-warm-400: #ee9459;
+	--mp-warm-500: #e87539;
+	--mp-warm-600: #dd5822;
+	--mp-warm-700: #b8441c;
+
+	/* ── the four tints ──────────────────────────────────────────────────────
+	   blush / peach are the brand's own; blue and mint are data. lavender is
+	   the fifth, used for a card tint and nothing else. Each carries the ink
+	   that stays legible on it, as the calendar page does. */
+	--mp-blush: #fed5cf;
+	--mp-peach: #f1b598;
+	--mp-peach-ink: #84412e;
+	--mp-blue: #bedae3;
+	--mp-blue-ink: #366d7e;
+	--mp-mint: #c4e9da;
+	--mp-mint-ink: #2d5866;
+	--mp-lavender: #d3c7e6;
+	--mp-lavender-ink: #6b5b7b;
+
+	/* ── ink ─────────────────────────────────────────────────────────────── */
+	--mp-ink: #0f172a;
+	--mp-ink-soft: #334155;
+	--mp-ink-muted: #64748b;
+	--mp-ink-faint: #94a3b8;
+	--mp-ink-line: #cbd5e1;
+	--mp-ink-wash: #f1f5f9;
+	--mp-ink-tint: #f8fafc;
+
+	/* ── status ─────────────────────────────────────────────────────────────
+	   The calendar page reaches for an amber and a red that are in no palette
+	   here (#fffbeb / #b45309 / #dc2626). Named once so a marketing page can
+	   say "due today" without inventing a hex. */
+	--mp-warn-bg: #fffbeb;
+	--mp-warn: #b45309;
+	--mp-warn-deep: #92400e;
+	--mp-danger: #dc2626;
+
+	/* ── washes ──────────────────────────────────────────────────────────────
+	   The hero, verbatim from calendar-ui/index.html .hero__wash: a diagonal
+	   that starts in sky, goes to paper in the middle, and ends in blush. It
+	   is why the marketing pages feel like the calendar and not like a
+	   different product. */
+	--mp-wash-hero: linear-gradient(140deg, rgba(190, 218, 227, 0.35), #ffffff 45%, rgba(254, 213, 207, 0.4));
+	/* the four card tints, each a 135deg fade of its own tint into paper */
+	--mp-tint-blush: linear-gradient(135deg, rgba(254, 213, 207, 0.42), #ffffff);
+	--mp-tint-blue: linear-gradient(135deg, rgba(190, 218, 227, 0.42), #ffffff);
+	--mp-tint-mint: linear-gradient(135deg, rgba(196, 233, 218, 0.42), #ffffff);
+	--mp-tint-lavender: linear-gradient(135deg, rgba(211, 199, 230, 0.42), #ffffff);
+
+	/* ── the orbs ───────────────────────────────────────────────────────────
+	   64px blur is not a soft touch, it is the whole reason the wash reads as
+	   light rather than as a gradient. Four colours, four opacities, taken
+	   from the four .orb-* classes. */
+	--mp-orb-blur: blur(64px);
+	--mp-orb-blue: rgba(190, 218, 227, 0.45);
+	--mp-orb-blush: rgba(254, 213, 207, 0.5);
+	--mp-orb-mint: rgba(196, 233, 218, 0.5);
+	--mp-orb-peach: rgba(241, 181, 152, 0.45);
+
+	/* ── elevation ───────────────────────────────────────────────────────────
+	   The calendar frame's shadow is tinted with the blue ink rather than
+	   black, which is what keeps a white card from looking grey on warm paper. */
+	--mp-shadow-frame: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px -12px rgba(45, 88, 102, 0.14);
+	--mp-shadow-brand: 0 10px 15px -3px var(--mp-brand-shadow), 0 4px 6px -4px var(--mp-brand-shadow);
+	--mp-shadow-brand-hover: 0 20px 25px -5px var(--mp-brand-shadow-hover);
+	--mp-shadow-cell: 0 8px 20px -10px rgba(196, 94, 56, 0.4);
+	--mp-shadow-rest: 0 1px 2px rgba(0, 0, 0, 0.05);
+	--mp-shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+	/* ── radii ────────────────────────────────────────────────────────────── */
+	--mp-r-pill: 9999px;
+	--mp-r-seg: 0.75rem;
+	--mp-r-cell: 0.875rem;
+	--mp-r-card: 1rem;
+	--mp-r-frame: 1.5rem;
+	--mp-r-tile: 1.75rem;
+
+	/* ── type ───────────────────────────────────────────────────────────────
+	   The calendar page sets no font family, so neither does this: it is the
+	   platform sans, and a webfont would be a new decision rather than a
+	   recovered one. What it does set is the display treatment. */
+	--mp-font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+		'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+	--mp-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+	--mp-display-weight: 800;
+	--mp-display-tracking: -0.03em;
+	--mp-display-leading: 1.08;
+	--mp-lede-size: 1.125rem;
+	--mp-lede-leading: 1.65;
+
+	/* ── motion ─────────────────────────────────────────────────────────────
+	   150ms everywhere in the calendar prototype: background, shadow, transform,
+	   colour. One duration, no exceptions. */
+	--mp-motion: 150ms;
+	--mp-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+	/* ── focus ───────────────────────────────────────────────────────────────
+	   A white gap then a brand ring. The gap is what makes it visible on a
+	   tinted card, and it is why the ring is p500 rather than p600. */
+	--mp-focus: 0 0 0 2px var(--mp-surface), 0 0 0 4px var(--mp-warm-500);
+	--mp-focus-cell: 0 0 0 2px var(--mp-surface), 0 0 0 4px var(--mp-warm-400);
+}
+
+/* ============================================================================
+   The theme's own small vocabulary. The Tailwind classes on the marketing
+   pages keep working — these are for new marketing surfaces, and for the parts
+   of the existing ones that want the theme rather than a repeated hex.
+   ========================================================================== */
+
+.mp-wash-hero {
+	position: relative;
+	overflow: hidden;
+	background: var(--mp-wash-hero);
+}
+
+.mp-orb {
+	position: absolute;
+	border-radius: var(--mp-r-pill);
+	filter: var(--mp-orb-blur);
+	pointer-events: none;
+}
+.mp-orb--blue { background: var(--mp-orb-blue); }
+.mp-orb--blush { background: var(--mp-orb-blush); }
+.mp-orb--mint { background: var(--mp-orb-mint); }
+.mp-orb--peach { background: var(--mp-orb-peach); }
+
+.mp-frame {
+	position: relative;
+	background: var(--mp-glass);
+	backdrop-filter: blur(8px);
+	border: 1px solid var(--mp-hairline);
+	border-radius: var(--mp-r-frame);
+	box-shadow: var(--mp-shadow-frame);
+	overflow: hidden;
+}
+
+.mp-tint { border-color: transparent; }
+.mp-tint--blush { background: var(--mp-tint-blush); }
+.mp-tint--blue { background: var(--mp-tint-blue); }
+.mp-tint--mint { background: var(--mp-tint-mint); }
+.mp-tint--lavender { background: var(--mp-tint-lavender); }
+
+.mp-pill {
+	display: inline-flex;
+	align-items: center;
+	border-radius: var(--mp-r-pill);
+	padding: 0.125rem 0.5rem;
+	font-size: 0.6875rem;
+	font-weight: 600;
+}
+.mp-pill--blush { background: var(--mp-blush); color: var(--mp-brand); }
+.mp-pill--peach { background: var(--mp-peach); color: var(--mp-peach-ink); }
+.mp-pill--blue { background: var(--mp-blue); color: var(--mp-blue-ink); }
+.mp-pill--mint { background: var(--mp-mint); color: var(--mp-mint-ink); }
+.mp-pill--lavender { background: var(--mp-lavender); color: var(--mp-lavender-ink); }
+.mp-pill--brand { background: var(--mp-warm-100); color: var(--mp-warm-700); }
+
+.mp-lede {
+	margin: 1rem 0 0;
+	font-size: var(--mp-lede-size);
+	line-height: var(--mp-lede-leading);
+	color: var(--mp-ink-muted);
+	max-width: 40rem;
+}
+@media (min-width: 768px) {
+	.mp-lede { font-size: 1.25rem; }
+}
+
+/* The page background. The marketing pages currently set their own
+   arbitrary-value backgrounds; this is what a new one should use. */
+.mp-canvas {
+	background: var(--mp-canvas);
+	color: var(--mp-ink);
+	font-family: var(--mp-font);
+	-webkit-font-smoothing: antialiased;
+}
+
+.mp-skip {
+	position: absolute;
+	left: -9999px;
+	top: 0;
+	z-index: 100;
+	padding: 0.75rem 1rem;
+	background: var(--mp-surface);
+	color: var(--mp-brand);
+	border-radius: 0 0 var(--mp-r-seg) 0;
+	box-shadow: var(--mp-shadow-raised);
+}
+.mp-skip:focus {
+	left: 0;
+}

@@ -31,7 +31,7 @@
 </script>
 
 <svelte:head>
-	<title>Family Planz: Reset Password</title>
+	<title>Forgot Password - Family Planz</title>
 </svelte:head>
 
 <div class="min-h-screen bg-slate-50">

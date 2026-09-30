@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { CalendarEvent } from '$lib/server/db/schema';
+import type { CalendarEvent, GroceryItem } from '$lib/server/db/schema';
 import {
 	getTasksForUser,
 	getTasksForFamily,
@@ -21,8 +21,10 @@ import {
 	getFamilyModuleSwitches,
 	composeModuleVisibility
 } from '$lib/server/db/actions/dashboardModules';
+import { verseIsVisible } from '$lib/dashboardModules';
 import { zoneFromSettings, zonedNow } from '$lib/server/utils/userTimezone';
 import { guard } from '$lib/server/utils/guard';
+import { getOpenGroceries } from '$lib/server/db/actions/groceries';
 import {
 	expandEventsForUser,
 	parseEvents,
@@ -53,6 +55,11 @@ type ParsedEventTime = string | Date | null | undefined;
 function toIsoString(v: ParsedEventTime): string | null {
 	if (v instanceof Date) return v.toISOString();
 	return v ? String(v) : null;
+}
+
+/** Project a full Grocery Item row to the two fields the card reads. */
+function toGroceryCardItem(item: GroceryItem): { name: string; stores: string[] } {
+	return { name: item.name, stores: item.stores };
 }
 
 export const load: PageServerLoad = async (event) => {
@@ -312,10 +319,36 @@ export const load: PageServerLoad = async (event) => {
 		}
 	})();
 
+	// Groceries (081): the open list in both scopes, for the dashboard card.
+	// Two fixed reads in one batch — never one per item — and none at all when
+	// the card is switched off for the family or hidden for this member.
+	const groceriesLeg = (async () => {
+		if (!modules.groceries) return { family: [], mine: [] };
+		try {
+			const [family, mine] = await Promise.all([
+				familyId ? getOpenGroceries({ userId, familyId }) : Promise.resolve([]),
+				getOpenGroceries({ userId, familyId: null })
+			]);
+			return {
+				family: family.map(toGroceryCardItem),
+				mine: mine.map(toGroceryCardItem)
+			};
+		} catch {
+			// A card that cannot load says nothing rather than failing the page.
+			return { family: [], mine: [] };
+		}
+	})();
+
 	// One streamed promise: header data above paints first; everything
 	// below fills in when the legs resolve.
 	const dashboardData = (async () => {
-		const [t, e, w, s] = await Promise.all([taskLeg, eventLeg, winsLeg, streakLeg]);
+		const [t, e, w, s, g] = await Promise.all([
+			taskLeg,
+			eventLeg,
+			winsLeg,
+			streakLeg,
+			groceriesLeg
+		]);
 		const { userTasks, familyTasks } = t;
 		const { dayEvents } = e;
 		// The board shows only open tasks; completed ones vanish after toggle.
@@ -361,6 +394,8 @@ export const load: PageServerLoad = async (event) => {
 			glance: { doneToday: doneForDay, openToday: openForDay, weekStreak: s.streak },
 			completedToday,
 			kidsSchedule: fam.kidsSchedule,
+			familyGroceries: g.family,
+			mineGroceries: g.mine,
 			warnings: [t.warning, e.warning, w.warning, s.warning, fam.warning].filter(
 				(x): x is string => x !== null
 			)
@@ -368,8 +403,12 @@ export const load: PageServerLoad = async (event) => {
 	})();
 
 	const verseTranslation = userSettings?.verseTranslation ?? 'esv';
+	// The verse's switch means "show the verse" (080), and it is read in one
+	// place so a saved hidden state still applies after it left the band.
 	const verseG = await guard('verse', null, async () =>
-		userSettings?.showDailyVerse ? await getTodayVerse(verseTranslation) : null
+		verseIsVisible({ showDailyVerse: userSettings?.showDailyVerse, modules })
+			? await getTodayVerse(verseTranslation)
+			: null
 	);
 	// Verse gets its own friendly label: the banner template reads
 	// "Couldn't load {labels} just now — …", so the bare 'verse' label

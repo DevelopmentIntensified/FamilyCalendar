@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/sv
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import TopPrioritiesCard from './TopPrioritiesCard.svelte';
 import { pushToast } from '$lib/client/toasts';
+import { measureBox, MIN_TOUCH } from '$lib/utils/touchTarget';
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- toast store is global side-effect state; spying keeps assertions local.
 vi.mock('$lib/client/toasts', () => ({ pushToast: vi.fn() }));
@@ -31,6 +32,20 @@ const base: Row = {
 	assignedTo: null,
 	assignmentStatus: null
 };
+
+// Issue 015: the priority chips were `px-2.5 py-1.5 text-[11px]` = 25.2px tall,
+// thumbed on the Day Dashboard. The chips sit in a wrapping flex row, so a
+// min-height grows them without pushing the card wider.
+describe('TopPrioritiesCard priority chip touch targets', () => {
+	it('gives every priority chip a 44px target', () => {
+		render(TopPrioritiesCard, { props: { tasks: [{ ...base }], meId: 'u_me' } });
+		for (const label of ['Low', 'Normal', 'High']) {
+			// SAFETY: each priority chip is a <button> in TopPrioritiesCard.
+			const chip = screen.getByRole('button', { name: `Set priority ${label}` });
+			expect(measureBox(chip.className).height).toBe(MIN_TOUCH);
+		}
+	});
+});
 
 describe('TopPrioritiesCard - task scoping labels (issue 021)', () => {
 	it('labels a family task with the Family pill', () => {

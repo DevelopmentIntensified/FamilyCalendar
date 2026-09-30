@@ -102,6 +102,13 @@ export type TaskWithTags = Task & {
 	creatorFirstName?: string | null;
 	eventTitle?: string | null;
 	eventStart?: string | null;
+	/**
+	 * Calendar of the linked event (#069). Tasks have no calendar column of
+	 * their own, so a Task is filtered by its parent Event's calendar; null
+	 * when the Task stands alone. Read from the existing events LEFT JOIN —
+	 * no extra query.
+	 */
+	eventCalendarId?: string | null;
 };
 
 /** True for usable tag name strings. */
@@ -216,7 +223,10 @@ export async function getTasksForUser(
 			eventId: tasks.eventId,
 			createdAt: tasks.createdAt,
 			eventTitle: events.title,
-			eventStart: events.start
+			eventStart: events.start,
+			// Already joined above (#069) — a Task inherits its Event's
+			// calendar so the calendar filter can hide a Task with it.
+			eventCalendarId: events.calendarId
 		})
 		.from(tasks)
 		.leftJoin(events, eq(tasks.eventId, events.id))

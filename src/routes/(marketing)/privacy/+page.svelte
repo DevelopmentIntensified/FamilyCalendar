@@ -1,5 +1,5 @@
 <svelte:head>
-	<title>Family Planz: Privacy Policy</title>
+	<title>Privacy Policy - Family Planz</title>
 </svelte:head>
 
 <div class="min-h-screen bg-slate-50 pt-20">

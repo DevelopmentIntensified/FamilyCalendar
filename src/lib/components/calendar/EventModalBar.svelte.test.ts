@@ -10,6 +10,7 @@ function props(overrides = {}) {
 		isRecurring: false,
 		eventTitle: 'Dinner',
 		duplicating: false,
+		deleting: false,
 		onDeleteScope: vi.fn(),
 		onCancelDelete: vi.fn(),
 		onConfirmDuplicate: vi.fn(),

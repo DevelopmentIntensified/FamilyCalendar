@@ -76,3 +76,21 @@ describe('EditTaskDialog', () => {
 		expect(p.onClose).toHaveBeenCalledOnce();
 	});
 });
+
+// Issue 015: the detail modal got `max-h-[80dvh] overflow-y-auto`; this dialog
+// did not, so on a landscape phone Save sat below the fold with no way to
+// reach it. The card scrolls; the header and the Save row stay put.
+describe('EditTaskDialog on a short screen', () => {
+	it('caps the card height and gives the body a scroll region', () => {
+		render(EditTaskDialog, { props: props() });
+		// SAFETY: the dialog card is the [role="dialog"] element in EditTaskDialog.
+		const card = screen.getByRole('dialog');
+		expect(card.className).toContain('max-h-[90dvh]');
+		// SAFETY: the form is a <form> inside EditTaskDialog's card.
+		const form = card.querySelector('form') as HTMLElement;
+		expect(form.className).toContain('min-h-0');
+		expect(form.className).toContain('overflow-y-auto');
+		// The Save row rides the scroll body, so it is always reachable.
+		expect(screen.getByText('Save').closest('form')).toBe(form);
+	});
+});

@@ -50,3 +50,44 @@ describe('AccountCalendarSection', () => {
 		expect(weekStartValue()).toBe('sunday');
 	});
 });
+
+describe('AccountCalendarSection — the module list has two bands (080)', () => {
+	afterEach(cleanup);
+
+	function moduleChecked(id: string) {
+		return (document.querySelector(`input[name="module_${id}"]`) as HTMLInputElement).checked;
+	}
+
+	function bandOf(id: string) {
+		// Document order: the last heading seen before this module's checkbox
+		// is the band it renders in.
+		let heading: string | null = null;
+		for (const node of document.querySelectorAll('h4, input[name^="module_"]')) {
+			if (node.tagName === 'H4') heading = node.textContent?.trim() ?? null;
+			else if (node.getAttribute('name') === `module_${id}`) return heading;
+		}
+		return undefined;
+	}
+
+	it('puts the verse above the cards and the cards under their own heading', () => {
+		render(AccountCalendarSection, { props: props() });
+		expect(bandOf('verse')).toBe('Above your cards');
+		expect(bandOf('board')).toBe('Cards');
+	});
+
+	it('says what the verse switch now means', () => {
+		render(AccountCalendarSection, { props: props() });
+		const row = document.querySelector('input[name="module_verse"]')!.closest('label')!;
+		expect(row.textContent).toContain('Show the verse on your Day Dashboard.');
+	});
+
+	it('a saved hidden state unchecks the verse and leaves the cards alone', () => {
+		render(AccountCalendarSection, {
+			props: props({ userSettings: { ...settings, hiddenDashboardModules: ['verse'] } })
+		});
+		expect(moduleChecked('verse')).toBe(false);
+		expect(moduleChecked('board')).toBe(true);
+		expect(moduleChecked('glance')).toBe(true);
+	});
+});
+

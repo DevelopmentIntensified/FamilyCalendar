@@ -143,7 +143,7 @@
 </script>
 
 <svelte:head>
-	<title>Family Planz: Sign Up</title>
+	<title>Sign Up - Family Planz</title>
 </svelte:head>
 
 <div class="flex min-h-screen flex-col items-center bg-slate-50 px-4 pb-16 pt-10 sm:pt-16">

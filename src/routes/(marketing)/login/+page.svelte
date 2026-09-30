@@ -137,7 +137,7 @@
 </script>
 
 <svelte:head>
-	<title>Family Planz: Login</title>
+	<title>Log In - Family Planz</title>
 </svelte:head>
 
 <div class="flex min-h-screen flex-col items-center bg-slate-50 px-4 pb-16 pt-10 sm:pt-16">

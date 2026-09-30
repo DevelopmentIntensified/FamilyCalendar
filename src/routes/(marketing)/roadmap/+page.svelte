@@ -3,11 +3,8 @@
 </script>
 
 <svelte:head>
-	<title>Family Planz: Roadmap</title>
-	<meta
-		name="description"
-		content="Where Family Planz is headed — what's shipped, what we're working on, and what's coming next."
-	/>
+	<!-- Title only — description, og and canonical come from $lib/marketing/seo. -->
+	<title>Roadmap - Family Planz</title>
 </svelte:head>
 
 <div class="min-h-screen bg-slate-50 pt-20">

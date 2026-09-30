@@ -12,7 +12,8 @@ describe('isDashboardModule', () => {
 			'board',
 			'memberStrip',
 			'kids',
-			'meals'
+			'meals',
+			'groceries'
 		]) {
 			expect(isDashboardModule(id)).toBe(true);
 		}
@@ -30,21 +31,26 @@ describe('composeModuleVisibility', () => {
 		board: true,
 		memberStrip: true,
 		kids: true,
+		meals: true,
+		groceries: true
+	};
+
+	/** The full canonical map, all visible — what an untouched account has. */
+	const allVisible = {
+		verse: true,
+		glance: true,
+		top3: true,
+		completed: true,
+		board: true,
+		memberStrip: true,
+		kids: true,
+		groceries: true,
 		meals: true
 	};
 
 	it('defaults everything to visible', () => {
 		const v = composeModuleVisibility({}, []);
-		expect(v).toEqual({
-			verse: true,
-			glance: true,
-			top3: true,
-			completed: true,
-			board: true,
-			memberStrip: true,
-			kids: true,
-			meals: true
-		});
+		expect(v).toEqual(allVisible);
 	});
 
 	it('a family master switch off hides that module for everyone', () => {
@@ -85,20 +91,30 @@ describe('composeModuleVisibility', () => {
 
 	it('ignores unknown entries in the hidden list', () => {
 		const v = composeModuleVisibility({}, ['widget', 'nope']);
-		expect(v).toEqual({
-			verse: true,
-			glance: true,
-			top3: true,
-			completed: true,
-			board: true,
-			memberStrip: true,
-			kids: true,
-			meals: true
-		});
+		expect(v).toEqual(allVisible);
 	});
 
 	it('completed is personal: family switch ignored, user hide honored', () => {
 		expect(composeModuleVisibility({ completed: false }, []).completed).toBe(true);
 		expect(composeModuleVisibility({}, ['completed']).completed).toBe(false);
+	});
+});
+
+describe('the Groceries card as a Dashboard Module (081)', () => {
+	it('is a canonical id, so a saved hidden list can name it', () => {
+		expect(isDashboardModule('groceries')).toBe(true);
+	});
+
+	it('is family-scoped: an admin switch off hides it for everyone', () => {
+		expect(composeModuleVisibility({ groceries: false }, []).groceries).toBe(false);
+		expect(composeModuleVisibility({}, []).groceries).toBe(true);
+	});
+
+	it('family-off beats a member saying they can still see it', () => {
+		expect(composeModuleVisibility({ groceries: false }, ['board']).groceries).toBe(false);
+	});
+
+	it('each member can still hide it for themself alone', () => {
+		expect(composeModuleVisibility({ groceries: true }, ['groceries']).groceries).toBe(false);
 	});
 });

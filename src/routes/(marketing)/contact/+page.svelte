@@ -11,7 +11,7 @@
 </script>
 
 <svelte:head>
-	<title>Family Planz: Contact Us</title>
+	<title>Contact Us - Family Planz</title>
 </svelte:head>
 
 <div class="min-h-screen bg-slate-50 pt-20">

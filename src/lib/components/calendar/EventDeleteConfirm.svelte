@@ -2,6 +2,8 @@
 	interface Props {
 		isRecurringOccurrence: boolean;
 		attachedTaskCount: number;
+		/** Issue 015: a DELETE is in flight — the bar goes inert. */
+		deleting?: boolean;
 		onDeleteOccurrence: () => void;
 		onDeleteSeries: () => void;
 		onDeleteSingle: () => void;
@@ -11,6 +13,7 @@
 	let {
 		isRecurringOccurrence,
 		attachedTaskCount,
+		deleting = false,
 		onDeleteOccurrence,
 		onDeleteSeries,
 		onDeleteSingle,
@@ -29,31 +32,35 @@
 		{#if isRecurringOccurrence}
 			<button
 				type="button"
+				disabled={deleting}
 				on:click={onDeleteOccurrence}
-				class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
+				class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
 			>
 				This occurrence
 			</button>
 			<button
 				type="button"
+				disabled={deleting}
 				on:click={onDeleteSeries}
-				class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
+				class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
 			>
 				Whole series
 			</button>
 		{:else}
 			<button
 				type="button"
+				disabled={deleting}
 				on:click={onDeleteSingle}
-				class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
+				class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
 			>
-				Delete
+				{deleting ? 'Deleting…' : 'Delete'}
 			</button>
 		{/if}
 		<button
 			type="button"
+			disabled={deleting}
 			on:click={onCancel}
-			class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+			class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
 		>
 			Cancel
 		</button>

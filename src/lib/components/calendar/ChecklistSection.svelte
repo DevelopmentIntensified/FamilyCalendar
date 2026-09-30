@@ -17,6 +17,8 @@
 	}
 
 	let eventTasks: EventChecklistTask[] = [];
+	/** Issue 015: the rows are client-fetched — skeleton until they land. */
+	let tasksLoading = false;
 	let showChecklistInput = false;
 	let checklistTitle = '';
 	let checklistBusy = false;
@@ -31,6 +33,7 @@
 	}
 
 	async function fetchTasks(id: string) {
+		tasksLoading = true;
 		try {
 			const res = await fetch(`/api/tasks?eventId=${id}`);
 			if (res.ok) {
@@ -38,6 +41,8 @@
 			}
 		} catch (e) {
 			console.error('Failed to load event tasks:', e);
+		} finally {
+			tasksLoading = false;
 		}
 	}
 
@@ -130,6 +135,19 @@
 	</div>
 
 	<ul class="space-y-0.5">
+		{#if tasksLoading}
+			<li
+				class="flex items-center gap-2 rounded px-1 py-1"
+				data-testid="checklist-skeleton"
+				role="status"
+				aria-label="Loading checklist"
+			>
+				{#each Array.from({ length: 2 }, (_, i) => i) as i (i)}
+					<div class="h-4 w-4 shrink-0 animate-pulse rounded-full bg-slate-100"></div>
+					<div class="h-3.5 flex-1 animate-pulse rounded bg-slate-100"></div>
+				{/each}
+			</li>
+		{/if}
 		{#each pendingTitles as title, i (i)}
 			<li class="flex items-center gap-2 rounded px-1 py-1">
 				<span class="h-4 w-4 shrink-0 rounded-full border border-dashed border-slate-300"></span>

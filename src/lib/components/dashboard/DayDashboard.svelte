@@ -1,20 +1,23 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import type { Event } from '$lib/types';
-	import DailyVerseCard from '$lib/components/calendar/DailyVerseCard.svelte';
+	import DashboardInfoBand from './DashboardInfoBand.svelte';
 	import TodayGlanceCard, { type GlanceEvent } from './TodayGlanceCard.svelte';
 	import TopPrioritiesCard from './TopPrioritiesCard.svelte';
 	import CompletedTodayCard from './CompletedTodayCard.svelte';
 	import FamilyTaskBoardCard from './FamilyTaskBoardCard.svelte';
 	import MemberStrip from './MemberStrip.svelte';
 	import KidsScheduleCard from './KidsScheduleCard.svelte';
+	import GroceriesCard, { type GroceryCardItem } from './GroceriesCard.svelte';
 	import EventModal from '$lib/components/calendar/EventModal.svelte';
 
 	export let dateLabel: string;
 	export let isToday: boolean = true;
 	export let meId: string;
 	export let familyId: string | null;
-	export let dailyVerse: { reference: string; text: string; attribution?: string } | null;
+	/** The Daily Verse, already gated server-side by `verseIsVisible` (080).
+	 * It renders in the quiet info band above the cards, not as a band card. */
+	export let dailyVerse: { reference: string; text: string; attribution?: string } | null = null;
 	export let glance: { doneToday: number; openToday: number; weekStreak: number };
 	export let dayEvents: GlanceEvent[];
 	export let top3: {
@@ -60,6 +63,9 @@
 	}[];
 	/** Tasks completed within the viewed day (for the Completed Today card). */
 	export let completedToday: { id: string; title: string; completedAt: string | null }[] = [];
+	/** Open Grocery Items, per scope (081). Absent = nothing open. */
+	export let familyGroceries: GroceryCardItem[] = [];
+	export let mineGroceries: GroceryCardItem[] = [];
 	/** Section labels whose model failed to load — shown as a banner, not a 500. */
 	export let loadWarnings: string[] = [];
 	// Per-module visibility (family master switch AND per-user hides). Absent
@@ -89,53 +95,64 @@
 			Couldn't load {loadWarnings.join(', ')} just now — everything else is up to date.
 		</div>
 	{/if}
-	{#if dailyVerse && visible('verse')}
-		<DailyVerseCard
-			reference={dailyVerse.reference}
-			text={dailyVerse.text}
-			attribution={dailyVerse.attribution}
-		/>
+	<!-- Info band (080): readings, above the cards and out of the module band.
+	     Still gated on the verse's own saved switch, so a user who hid it
+	     before the move is still hidden. -->
+	{#if visible('verse')}
+		<DashboardInfoBand {dailyVerse} />
 	{/if}
 
-	{#if visible('glance') || visible('top3')}
-		<div class="grid gap-4 md:grid-cols-2">
-			{#if visible('glance')}
-				<TodayGlanceCard {dateLabel} {isToday} events={dayEvents} onEventClick={openEvent} />
-			{/if}
-			<div class="space-y-4">
-				{#if visible('top3')}
-					<TopPrioritiesCard tasks={top3} {meId} />
+	<div data-testid="dashboard-card-band" class="space-y-4">
+		{#if visible('glance') || visible('top3')}
+			<div class="grid gap-4 md:grid-cols-2">
+				{#if visible('glance')}
+					<TodayGlanceCard {dateLabel} {isToday} events={dayEvents} onEventClick={openEvent} />
 				{/if}
-				{#if visible('completed')}
-					<CompletedTodayCard tasks={completedToday} {isToday} />
+				<div class="space-y-4">
+					{#if visible('top3')}
+						<TopPrioritiesCard tasks={top3} {meId} />
+					{/if}
+					{#if visible('completed')}
+						<CompletedTodayCard tasks={completedToday} {isToday} />
+					{/if}
+				</div>
+			</div>
+		{:else if visible('completed')}
+			<CompletedTodayCard tasks={completedToday} {isToday} />
+		{/if}
+
+		{#if familyId && (visible('memberStrip') || visible('board'))}
+			<div class="grid gap-4 md:grid-cols-2">
+				{#if familyId && visible('memberStrip')}
+					<MemberStrip members={memberStatus} {isToday} />
+				{/if}
+				{#if familyId && visible('board')}
+					<FamilyTaskBoardCard
+						tasks={familyTasks}
+						members={familyMembers}
+						{meId}
+						{familyId}
+						openToday={glance.openToday}
+						weekStreak={glance.weekStreak}
+					/>
 				{/if}
 			</div>
-		</div>
-	{:else if visible('completed')}
-		<CompletedTodayCard tasks={completedToday} {isToday} />
-	{/if}
+		{/if}
 
-	{#if familyId && (visible('memberStrip') || visible('board'))}
-		<div class="grid gap-4 md:grid-cols-2">
-			{#if familyId && visible('memberStrip')}
-				<MemberStrip members={memberStatus} {isToday} />
-			{/if}
-			{#if familyId && visible('board')}
-				<FamilyTaskBoardCard
-					tasks={familyTasks}
-					members={familyMembers}
-					{meId}
-					{familyId}
-					openToday={glance.openToday}
-					weekStreak={glance.weekStreak}
-				/>
-			{/if}
-		</div>
-	{/if}
+		{#if familyId && visible('kids')}
+			<KidsScheduleCard events={kidsSchedule} {isToday} />
+		{/if}
 
-	{#if familyId && visible('kids')}
-		<KidsScheduleCard events={kidsSchedule} {isToday} />
-	{/if}
+		<!-- Groceries (081): family-scoped, but shown to a solo user too —
+		     their own list is the whole list. -->
+		{#if visible('groceries')}
+			<GroceriesCard
+				familyItems={familyGroceries}
+				mineItems={mineGroceries}
+				hasFamily={!!familyId}
+			/>
+		{/if}
+	</div>
 </div>
 
 {#if selectedEvent}

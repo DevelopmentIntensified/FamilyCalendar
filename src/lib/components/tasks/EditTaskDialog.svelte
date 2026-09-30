@@ -80,7 +80,7 @@
 >
 	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 	<div
-		class="w-full max-w-md rounded-xl bg-white shadow-2xl"
+		class="flex max-h-[90dvh] w-full max-w-md flex-col rounded-xl bg-white shadow-2xl"
 		tabindex="-1"
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
@@ -104,7 +104,7 @@
 		</div>
 
 		<form
-			class="space-y-3 p-5"
+			class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-5"
 			onsubmit={(e) => {
 				e.preventDefault();
 				onSave(draft);

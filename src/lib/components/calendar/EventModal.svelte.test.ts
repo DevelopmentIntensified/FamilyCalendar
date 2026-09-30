@@ -293,8 +293,118 @@ describe('EventModal - confirm popovers', () => {
 	});
 });
 
-describe('EventModal - duplicate payload', () => {
-	const dupEvent: Event = {
+// Issue 015: `performDelete` had no busy flag and the confirm bar never
+// disabled, so a double tap fired two DELETEs and the second 404 vanished
+// behind a modal that had already closed.
+describe('EventModal - delete pending state', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	/** Attendance GET resolves; the DELETE hangs so the modal stays open. */
+	function stubHangingDelete() {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url: string, init?: RequestInit) => {
+				if (init?.method === 'DELETE') return new Promise(() => {});
+				return { ok: true, json: async () => ({ attendance: [], userRsvpStatus: 'undecided' }) };
+			})
+		);
+	}
+
+	const deleteCalls = () => vi.mocked(fetch).mock.calls.filter(([, i]) => i?.method === 'DELETE');
+
+	it('sends exactly one DELETE when Delete is double-tapped', async () => {
+		stubHangingDelete();
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete event' }));
+		// SAFETY: the confirm popover's primary action is a <button>.
+		const del = screen.getByRole('button', { name: /^Delete$/ }) as HTMLButtonElement;
+		await fireEvent.click(del);
+		await fireEvent.click(del);
+		expect(deleteCalls()).toHaveLength(1);
+	});
+
+	it('disables the whole delete confirm bar while the request is in flight', async () => {
+		stubHangingDelete();
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete event' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }));
+		// The label names the pending state, and nothing in the bar is live.
+		for (const name of ['Deleting…', 'Cancel', 'Delete event']) {
+			expect(screen.getByRole('button', { name })).toBeDisabled();
+		}
+	});
+
+	it('sends exactly one DELETE when a series scope is double-tapped', async () => {
+		stubHangingDelete();
+		const recurring = { ...baseEvent, recurrenceFrequency: 'weekly', recurrenceInterval: 1 };
+		render(EventModal, { props: { show: true, event: recurring } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete event' }));
+		const scope = screen.getByRole('button', { name: 'Whole series' }) as HTMLButtonElement;
+		await fireEvent.click(scope);
+		await fireEvent.click(scope);
+		expect(deleteCalls()).toHaveLength(1);
+		expect(screen.getByRole('button', { name: 'This occurrence' })).toBeDisabled();
+	});
+});
+
+// Issue 015: the modal client-fetches attendees and checklist tasks, and
+// rendered an empty region until they landed. A skeleton names the wait.
+describe('EventModal - attendee/checklist loading state', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('shows a skeleton for attendees and the checklist, then swaps in the content', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Promise((resolve) =>
+						setTimeout(
+							() =>
+								resolve({
+									ok: true,
+									json: async () => ({
+										attendance: [{ userId: 'u1', status: 'going', firstName: 'Alice' }],
+										userRsvpStatus: 'going',
+										tasks: [{ id: 'k1', title: 'Bring plates', completedAt: null }]
+									})
+								}),
+							0
+						)
+					)
+			)
+		);
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		expect(screen.getByTestId('attendee-skeleton')).toBeInTheDocument();
+		expect(screen.getByTestId('checklist-skeleton')).toBeInTheDocument();
+
+		expect(await screen.findByText('Bring plates')).toBeInTheDocument();
+		// The two loads are independent, so wait each skeleton out in turn.
+		await waitFor(() => expect(screen.queryByTestId('checklist-skeleton')).toBeNull());
+		await waitFor(() => expect(screen.queryByTestId('attendee-skeleton')).toBeNull());
+		expect(screen.getByText('Alice')).toBeInTheDocument();
+	});
+
+	it('never covers attendees the server already passed in', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => new Promise(() => {})));
+		render(EventModal, {
+			props: {
+				show: true,
+				event: baseEvent,
+				attendees: [{ userId: 'u1', status: 'going', firstName: 'Alice' }]
+			}
+		});
+		await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+		expect(screen.queryByTestId('attendee-skeleton')).toBeNull();
+	});
+});
+
+describe('EventModal - duplicate payload', () => {	const dupEvent: Event = {
 		...baseEvent,
 		recurrenceFrequency: 'weekly',
 		recurrenceInterval: 1,

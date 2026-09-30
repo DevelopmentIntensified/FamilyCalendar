@@ -58,6 +58,8 @@
 	// Explicit create-mode default; falls back to the saved setting.
 	export let defaultCalendarId: string | null = null;
 	export let createCount = 0;
+	/** Issue 015: a DELETE is in flight (owned by EventModal). */
+	export let deleting = false;
 
 	const dispatch = createEventDispatcher();
 
@@ -678,6 +680,7 @@
 				<EventDeleteConfirm
 					isRecurringOccurrence={form.isRecurringOccurrence}
 					{attachedTaskCount}
+					{deleting}
 					onDeleteOccurrence={deleteThisOccurrence}
 					onDeleteSeries={deleteWholeSeries}
 					onDeleteSingle={deleteSingleEvent}

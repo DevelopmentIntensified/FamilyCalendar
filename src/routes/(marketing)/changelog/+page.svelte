@@ -14,11 +14,11 @@
 </script>
 
 <svelte:head>
-	<title>Family Planz: What's New</title>
-	<meta
-		name="description"
-		content="The latest updates to Family Planz — receipt scanning, task visibility, quick-add improvements, calendar exports, and more."
-	/>
+	<!-- The title is the one place it is set; the description, og and canonical
+	     come from $lib/marketing/seo. The old description here advertised
+	     "receipt scanning", which is issue 087 — the money subsystem was archived
+	     before it shipped. -->
+	<title>Changelog - Family Planz</title>
 </svelte:head>
 
 <div class="min-h-screen bg-slate-50 pt-20">

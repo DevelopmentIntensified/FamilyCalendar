@@ -15,6 +15,10 @@
 		assigneeFirstName?: string | null;
 		assigneeLastName?: string | null;
 		eventTitle?: string | null;
+		// #069: which calendar this Task rides with (its parent Event's
+		// calendar, or the viewer's own when it stands alone). Drives the
+		// per-calendar view filter — not the default-calendar setting.
+		calendarId?: string | null;
 		// Issue 021 parity: scoping fields ride along in the task JSON.
 		familyId?: string | null;
 		visibility?: 'public' | 'private';

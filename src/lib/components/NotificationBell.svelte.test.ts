@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import NotificationBell from './NotificationBell.svelte';
+import { measureBox, MIN_TOUCH } from '$lib/utils/touchTarget';
 
 beforeEach(() => {
 	// SAFETY: jsdom-only polyfill — svelte's slide transition calls
@@ -30,5 +31,16 @@ describe('NotificationBell empty state', () => {
 		expect(
 			await screen.findByText('No notifications yet — all quiet on the home front.')
 		).toBeInTheDocument();
+	});
+});
+
+// Issue 015 measured the bell rather than eyeballing it: already 44×44.
+describe('NotificationBell touch target', () => {
+	it('is 44px square', () => {
+		render(NotificationBell);
+		// SAFETY: the bell trigger is a <button> in NotificationBell.
+		const bell = screen.getByRole('button', { name: /notifications/i });
+		expect(measureBox(bell.className)).toEqual({ width: 44, height: 44 });
+		expect(MIN_TOUCH).toBe(44);
 	});
 });

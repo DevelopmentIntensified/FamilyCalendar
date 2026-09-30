@@ -2,6 +2,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { DateTime } from 'luxon';
 import DayHourGrid from './DayHourGrid.svelte';
+import { measureBox, MIN_TOUCH } from '$lib/utils/touchTarget';
 import type { Event } from '$lib/types';
 
 const TUESDAY = DateTime.fromISO('2026-09-08T12:00:00');
@@ -79,6 +80,47 @@ describe('DayHourGrid', () => {
 		expect(p.onStepRangeEnd).toHaveBeenCalledWith(15);
 		await fireEvent.click(screen.getByRole('button', { name: 'Create event for selected time' }));
 		expect(p.onCreateRange).toHaveBeenCalledOnce();
+	});
+});
+
+// Issue 015: the range steppers were `px-1.5 py-1 text-[11px]` = 23.2px tall —
+// half the 44px target, on the controls you thumb most in the day view. The
+// popover is anchored by its top edge, so a min-height grows it downward and
+// leaves the grid geometry (PX_PER_HOUR, hour lines, hit-testing) untouched.
+describe('DayHourGrid touch targets', () => {
+	afterEach(cleanup);
+
+	it('gives every range-popover control a 44px target', () => {
+		render(DayHourGrid, {
+			props: props({ rangeSel: { day: TUESDAY, startMin: 120, endMin: 240 } })
+		});
+		for (const name of [
+			'Shorten by 15 minutes',
+			'Extend by 15 minutes',
+			'Create event for selected time',
+			'Dismiss time selection'
+		]) {
+			// SAFETY: each control is a <button> in DayHourGrid.
+			const btn = screen.getByRole('button', { name }) as HTMLButtonElement;
+			expect(`${name}: ${measureBox(btn.className).height}`).toBe(`${name}: ${MIN_TOUCH}`);
+		}
+	});
+
+	it('leaves the grid geometry the other ticket owns alone', () => {
+		const { container } = render(DayHourGrid, {
+			props: props({
+				pxPerHour: 56,
+				gridHeight: 1344,
+				laidOut: [{ event: evt, lane: 0, lanes: 1, topPct: 40, heightPct: 5 }],
+				rangeSel: { day: TUESDAY, startMin: 120, endMin: 240 }
+			})
+		});
+		// SAFETY: the grid body is the [data-testid="day-grid"] element.
+		const grid = container.querySelector('[data-testid="day-grid"]') as HTMLElement;
+		expect(grid.style.height).toBe('1344px');
+		// SAFETY: the event chip is a <button> in DayHourGrid.
+		const chip = screen.getByText('Standup').closest('button') as HTMLElement;
+		expect(chip.style.height).toBe(`${Math.max(5, (26 / 1344) * 100)}%`);
 	});
 });
 

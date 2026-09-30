@@ -5,24 +5,20 @@
 	<title>Family Planz - The Family Calendar That Brings Everyone Together</title>
 </svelte:head>
 
-<div class="min-h-screen bg-[#F8F6F3]">
-	<!-- Hero Section -->
-	<section class="relative overflow-hidden pb-16 pt-16 md:pb-28 md:pt-24">
-		<div
-			class="absolute inset-0 bg-gradient-to-br from-[#BEDAE3]/30 via-white to-[#FED5CF]/30"
-		></div>
-		<div
-			class="absolute -right-32 -top-32 h-[500px] w-[500px] rounded-full bg-[#BEDAE3]/20 blur-3xl"
-		></div>
-		<div
-			class="absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-[#FED5CF]/20 blur-3xl"
-		></div>
+<div class="mp-canvas min-h-screen">
+	<!-- Hero Section. The wash and the orbs are the theme's, which are the
+	     calendar prototype page's: a 140° diagonal from sky through paper to
+	     blush, under two 64px-blurred orbs. Same language, so the landing page
+	     and the grid read as one product. -->
+	<section class="mp-wash-hero relative overflow-hidden pb-16 pt-16 md:pb-28 md:pt-24">
+		<div class="mp-orb mp-orb--blue absolute -right-32 -top-32 h-[500px] w-[500px]"></div>
+		<div class="mp-orb mp-orb--blush absolute -bottom-32 -left-32 h-[400px] w-[400px]"></div>
 
 		<div class="relative mx-auto max-w-7xl px-6">
 			<div class="grid gap-12 lg:grid-cols-2 lg:items-center">
 				<div class="text-center lg:text-left">
 					<div
-						class="mb-6 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-[#c45e38] shadow-sm backdrop-blur"
+						class="mp-pill mp-pill--brand mb-6 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-[var(--mp-brand)] shadow-sm backdrop-blur"
 					>
 						<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
 							<path
