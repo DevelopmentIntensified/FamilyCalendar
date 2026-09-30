@@ -17,7 +17,7 @@ full feature set and adopt the marketing visual language.
 | `b-focus-sidebar.html` | **B** — persistent rail: filters, up-next, search, mini-month. |
 | `c-day-first.html` | **C** — the calendar stops being the landing surface. |
 | `proto.css` | Design tokens copied exactly from the marketing pages. All three prototypes share it. |
-| `proto-data.js` | Mock data (63 events + 8 tasks) shaped like the app's `Event` type, plus chip/markup renderers. |
+| `proto-data.js` | Mock data (67 events + 8 tasks) shaped like the app's `Event` type, plus the chip vocabulary table and the chip/markup renderers. |
 | `proto-shell.js` | The shared view engine. All three prototypes are the same engine with different chrome. |
 | `proto-nav.js` | The prototype switcher. Self-initialising, injected into all five pages. |
 | `feedback.js` / `feedback.css` | Section-feedback overlay. Copied from `~/.agents/skills/prototype/assets/feedback/`. |
@@ -192,6 +192,39 @@ grid underneath it.
 
 Still untested: the rail costs 14% of grid width at 1280px, so cells fit fewer chips on a
 laptop. That trade-off came across from B and has not been checked.
+
+## The chip vocabulary (#068) — one table, mirrored from the app
+
+`proto-data.js` carries a mirror of the app's single source of truth,
+`src/lib/utils/chipVocabulary.ts` + `ChipKindMark.svelte`. **Shape carries the
+kind; colour carries the calendar.** Nothing keys off a hue, and **no kind has a
+background fill** — the all-day tint is gone, so the fill stops carrying meaning.
+
+| kind | mark | word | container |
+|---|---|---|---|
+| `timed` | 6px filled dot | *(none, deliberately)* | 3px rail in the calendar colour |
+| `allDay` | 10×5px bar, r=1 | `All day` | 3px rail in the calendar colour |
+| `task` | 9px hollow ring, 2px stroke | `Task` | 1px **dashed** slate outline — **no calendar colour at all** |
+| `sponsored` | 9px bag glyph | `Ad` (announced `Sponsored`) | solid box in the calendar colour + a **neutral** grey hatch |
+
+`chipKindOf` puts **sponsored above all-day**: an all-day ad is still an ad.
+
+**Density is computed, not chosen.** A month cell leaves ~15.4px of title at 320px
+and a week hour column ~8.4px, so the **month cell and the week band are glyph
+views** — the shape plus a screen-reader phrase carry the kind. The **day list,
+list view and the day sheet are word views** and do show the word. `timed` has
+no word in any view, because the row's own time already says it.
+
+Every view renders through `chipMarkHTML()`, and D's key is *generated* from the
+same table — so the key cannot claim anything the grid does not do.
+
+## Round 2 verdict (D)
+
+| | |
+|---|---|
+| **Changed** | the key was rebuilt against the shipped vocabulary — the old one claimed an all-day fill and a filter that no longer exist, and its swatches matched no chip · search left the rail for the toolbar row |
+| **Kept** | the key's position under the grid, sharing its border · the rail's five cards |
+| **Not done** | the shipped calendar has **no search** and **no calendar filter**. D says so in its notes rather than implying the app has them (ground rule 7). |
 
 ## Original recommendation
 

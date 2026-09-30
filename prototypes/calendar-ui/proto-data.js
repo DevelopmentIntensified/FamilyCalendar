@@ -31,6 +31,14 @@ const E = (day, start, durMin, title, cal, extra = {}) => ({
 	id: 'e' + ++SEQ, day, start, durMin, title, cal, allDay: false, ...extra
 });
 
+/* An all-day event. The app stores one with a start and an end like any other
+   row — `allDay` is what makes it a bar instead of a dot, and it is filtered
+   out of every hour grid. These exist because the key claims things about the
+   all-day bar and about the week band, and a claim nothing on the grid can
+   demonstrate is exactly the kind the round-2 review marked bad. */
+const A = (day, title, cal, extra = {}) =>
+	E(day, '00:00', 1440, title, cal, { allDay: true, ...extra });
+
 export function buildEvents(anchorYear, anchorMonth) {
 	SEQ = 0;
 	return [
@@ -58,6 +66,7 @@ export function buildEvents(anchorYear, anchorMonth) {
 		E(6,  '14:00', 90,  'Mia — birthday party', 'kids', { where: 'Jump City' }),
 		E(7,  '10:00', 60,  'Church', 'fam', { rsvp: 'going' }),
 		E(7,  '12:00', 60,  'Meal prep', 'chores'),
+		A(8,  'In-service day', 'school'),
 		E(8,  '08:00', 45,  'School drop-off', 'school'),
 		E(8,  '17:00', 60,  'Eli — piano', 'kids'),
 		E(9,  '12:30', 60,  'Lunch w/ Mom', 'fam'),
@@ -73,6 +82,7 @@ export function buildEvents(anchorYear, anchorMonth) {
 		E(14, '08:00', 45,  'Drop Mia at school', 'school'),
 		E(14, '12:00', 60,  'Retrospective', 'work'),
 		E(14, '17:45', 60,  'Taco night', 'fam'),
+		A(15, 'Conference — Portland', 'work'),
 		E(15, '09:00', 90,  'Dentist — follow-up', 'school'),
 		E(15, '18:30', 120, 'Date night 💛', 'fam'),
 		E(16, '07:45', 45,  'Drop Eli at school', 'school'),
@@ -88,6 +98,10 @@ export function buildEvents(anchorYear, anchorMonth) {
 		E(21, '18:30', 120, 'Fri night dinner', 'fam'),
 		E(22, '14:00', 90,  'Mia — birthday party', 'kids'),
 		E(23, '09:30', 60,  'Farmers market', 'fam'),
+		// an all-day AD. Sponsored outranks all-day, so this one wears the bag
+		// and the neutral hatch, not a bar — and the key says exactly that.
+		A(24, 'Fall toy drive', 'kids', { isAd: true, ad: 'Sponsored — 20% off everything, all weekend' }),
+		A(24, 'Grandma visiting', 'fam'),
 		E(24, '12:00', 60,  'Lunch w/ Mom', 'fam'),
 		E(25, '07:30', 60,  'Morning prayer', 'fam'),
 		E(25, '19:00', 60,  'Family game night', 'fam'),
@@ -172,10 +186,99 @@ export function chunkRows(cells) {
 export const esc = (s) =>
 	String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+/* ══════════════════════ #068 THE CHIP VOCABULARY ═══════════════════════
+   Mirrored from the app's single source of truth:
+     src/lib/utils/chipVocabulary.ts  +  src/lib/components/calendar/ChipKindMark.svelte
+
+   The rule that makes a chip decodable cold is one sentence: SHAPE carries the
+   kind, COLOUR carries the calendar. Nothing here keys off a hue, and NO kind
+   has a background fill — the all-day tint is gone, so the fill stops carrying
+   meaning. Every view renders through `chipMarkHTML`, and the key in D is built
+   from the same table, so a key claim cannot outlive its chip. */
+export const CHIP_GLYPH_PX = 10;
+export const CHIP_GAP_PX = 2;
+export const CHIP_RAIL_PX = 3;
+export const KINDS = ['timed', 'allDay', 'task', 'sponsored'];
+
+/** An ad outranks all-day: an all-day sponsored event is still an ad. */
+export function chipKindOf(ev) {
+	if (ev.isAd) return 'sponsored';
+	return ev.allDay ? 'allDay' : 'timed';
+}
+
+/* Neutral hatch, on purpose. Sponsored is told apart by TEXTURE, so the texture
+   must never repaint the chip — colour has to stay free to mean "which calendar". */
+export const CHIP_HATCH =
+	'repeating-linear-gradient(135deg, rgba(15,23,42,0.10) 0 2px, rgba(0,0,0,0) 2px 6px)';
+
+const MARKS = {
+	timed:     { name: 'dot',  w: 6,  h: 6,  r: '9999px', stroke: 0, word: '',         said: '' },
+	allDay:    { name: 'bar',  w: 10, h: 5,  r: '1px',    stroke: 0, word: 'All day', said: 'All day' },
+	task:      { name: 'ring', w: 9,  h: 9,  r: '9999px', stroke: 2, word: 'Task',    said: 'Task' },
+	sponsored: { name: 'bag',  w: 9,  h: 9,  r: '0px',    stroke: 0, word: 'Ad',      said: 'Sponsored' }
+};
+
+/* A task belongs to nobody's calendar, so it is the one kind that takes no
+   calendar colour at all. Everything else wears `--chip-color`. */
+const MARK_INK = {
+	timed: 'var(--chip-color)',
+	allDay: 'var(--chip-color)',
+	task: '#94a3b8',
+	sponsored: 'var(--chip-color)'
+};
+
+/** The kind's word in a word view, '' in a glyph view — and always '' for
+ *  `timed`, which the grid's own y-position already says. */
+export const chipWord = (kind, density) => (density === 'word' ? MARKS[kind].word : '');
+
+/** The screen-reader phrase a glyph view falls back to. The week band and the
+ *  month cell announce the kind here, because the shape is all they have. */
+export const chipA11y = (kind, density) => (density === 'word' ? '' : MARKS[kind].said);
+
+export const chipMark = (kind) => MARKS[kind];
+
+/** The chip's surface: the calendar colour as a variable, plus the hatch for a
+ *  sponsored chip. No background for any other kind. */
+export function chipSurfaceStyle(ev) {
+	const cal = CALENDARS.find((c) => c.id === ev.cal) ?? CALENDARS[0];
+	return `--chip-color:${cal.sw};${chipKindOf(ev) === 'sponsored' ? `background-image:${CHIP_HATCH};` : ''}`;
+}
+
+/** The one mark renderer — the prototype's ChipKindMark.svelte. A 10px box, a
+ *  2px gap, then the kind's word in a word view or a screen-reader phrase in a
+ *  glyph view. `timed` has neither, so it renders the dot on its own. */
+export function chipMarkHTML(kind, density = 'glyph') {
+	const m = MARKS[kind];
+	const word = chipWord(kind, density);
+	const said = chipA11y(kind, density);
+	const glyph =
+		m.name === 'bag'
+			? `<svg fill="currentColor" viewBox="0 0 20 20" style="width:${m.w}px;height:${m.h}px"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/></svg>`
+			: `<span style="display:block;width:${m.w}px;height:${m.h}px;border-radius:${m.r};background:${
+					m.stroke ? 'none' : 'currentColor'
+				};${m.stroke ? `border:${m.stroke}px solid currentColor;` : ''}"></span>`;
+	return (
+		`<span class="kmark" data-chip-mark="${kind}" style="gap:${CHIP_GAP_PX}px;color:${MARK_INK[kind]}">` +
+		`<span aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:${CHIP_GLYPH_PX}px;height:${CHIP_GLYPH_PX}px">${glyph}</span>` +
+		(word
+			? `<span class="kmark__word" data-chip-word="${word}">${word}</span>`
+			: said
+				? `<span class="sr-only">${said}</span>`
+				: '') +
+		`</span>`
+	);
+}
+
 /* -------------------------------------------------------------- chip DOM */
 export function chipHTML(ev, opts = {}) {
-	const cal = CALENDARS.find((c) => c.id === ev.cal) ?? CALENDARS[0];
-	const { compact = false, selected = false, showTime = true, showBox = false, drag = false } = opts;
+	const {
+		compact = false,
+		selected = false,
+		showTime = true,
+		showBox = false,
+		drag = false,
+		density = 'word'
+	} = opts;
 
 	const bits = [];
 	if (showBox) {
@@ -187,16 +290,10 @@ export function chipHTML(ev, opts = {}) {
 			}</span>`
 		);
 	}
-	if (ev.isAd) {
-		bits.push(
-			`<svg viewBox="0 0 20 20" fill="currentColor" style="height:.7rem;width:.7rem;flex:none;color:#f59e0b"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/></svg>`
-		);
-	}
 	if (showTime && !ev.allDay && !compact) {
 		bits.push(`<span class="chip__time">${to12(ev.start)}</span>`);
-	} else if (showTime && !ev.allDay) {
-		bits.push(`<span class="chip__dot" style="background:${cal.sw}"></span>`);
 	}
+	bits.push(chipMarkHTML(chipKindOf(ev), density));
 	bits.push(`<span class="chip__title">${esc(ev.title)}</span>`);
 
 	if (ev.rsvp === 'going' && !compact) {
@@ -217,16 +314,20 @@ export function chipHTML(ev, opts = {}) {
 		void pct;
 	}
 
-	const tone = ev.isAd ? 'chip--ad' : `chip--${cal.tone}`;
+	const tone = `chip--${chipKindOf(ev)}`;
 	const picked = selected ? ' is-picked' : '';
 	const rsvpDim = ev.rsvp === 'declined' ? ' style="opacity:.55"' : '';
 	const dragAttr = drag ? ' draggable="true"' : '';
 
-	return `<button type="button" class="chip ${tone}${picked}"${rsvpDim}${dragAttr} data-ev="${ev.id}" data-title="${esc(ev.title)}">${bits.join('')}</button>`;
+	return `<button type="button" class="chip ${tone}${picked}" style="${chipSurfaceStyle(
+		ev
+	)}" data-chip-kind="${chipKindOf(ev)}"${rsvpDim}${dragAttr} data-ev="${ev.id}" data-title="${esc(
+		ev.title
+	)}">${bits.join('')}</button>`;
 }
 
 export function taskChipHTML(t, opts = {}) {
-	const { selected = false, showBox = false } = opts;
+	const { selected = false, showBox = false, density = 'word' } = opts;
 	const cls = `chip--task${t.overdue ? ' is-overdue' : ''}${selected ? ' is-picked' : ''}`;
 	const box = showBox
 		? `<span class="chip__box${selected ? ' is-on' : ''}">${
@@ -234,8 +335,13 @@ export function taskChipHTML(t, opts = {}) {
 					? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" style="height:.6rem;width:.6rem"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
 					: ''
 			}</span>`
-		: `<span class="chip__check"></span>`;
-	return `<button type="button" class="chip ${cls}" data-task="${t.id}" data-title="${esc(t.title)}">${box}<span class="chip__title">${esc(t.title)}</span></button>`;
+		: '';
+	// The hollow ring IS the task mark — the app draws no second check circle,
+	// and two rings would leave the key's "hollow ring" claim ambiguous.
+	const mark = chipMarkHTML('task', density);
+	return `<button type="button" class="chip ${cls}" data-chip-kind="task" data-task="${t.id}" data-title="${esc(
+		t.title
+	)}">${box}${mark}<span class="chip__title">${esc(t.title)}</span></button>`;
 }
 
 /* ------------------------------------------------------- shared app state */

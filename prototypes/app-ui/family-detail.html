@@ -9,42 +9,79 @@
 <script type="application/json" id="fb-page">
 {
   "id": "family-detail", "label": "Family settings", "family": "app-ui",
-  "question": "This is 793 lines — the biggest page in the app. What is its one job, and what belongs somewhere else?",
-  "thesis": "Split into a members band, a shared-data band, and a danger band. The real page has no such split, which is why it is 793 lines.",
-  "realPage": "src/routes/(family)/family/[familyId]/ — +page.svelte 793. Sections: family name/colour, member list with role editing, add member, family calendar link, dashboard module switches, invitations, danger zone."
+  "question": "This is 829 lines — the biggest page in the app. What is its one job, and what belongs somewhere else?",
+  "thesis": "The composition answer, not a split: one band treatment everywhere (#077). Hero, members, activity, settings + modules, invitations — same gap, same padding, same label. The real page now ships this, so this page shows what shipped.",
+  "realPage": "src/routes/(family)/family/[familyId]/ — +page.svelte 829. Sections: hero, members, recent activity, family settings (name/colour + day dashboard module switches), invitations. No danger zone — deleteFamilies() is called by nothing."
 }
 </script>
 <style>
-	.fd { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	/* ══ the 077 band rhythm, copied off the shipped page ══════════════════
+	   One gap between bands (`gap-5` = 20px), one padding inside a band
+	   (`p-4` = 16px), one label treatment (`BAND_TITLE`). Every band on this
+	   page uses those three and nothing else — that is the whole fix. */
+	.fd { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
 	@media (min-width: 1000px) { .fd { grid-template-columns: minmax(0, 1fr) 19.5rem; } }
-	.ident { position: relative; overflow: hidden; border-radius: 1.5rem; padding: 1.5rem; background: linear-gradient(140deg, rgba(254,213,207,.5), #fff 65%); border: 1px solid rgba(254,213,207,.6); }
+	.col { display: flex; flex-direction: column; gap: 1.25rem; }
+	.band { background: #fff; border: 1px solid var(--s200); border-radius: 1.25rem; padding: 1rem; }
+	.band__t { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; font: 700 .6875rem/1.25 inherit; letter-spacing: .08em; text-transform: uppercase; color: var(--s500); }
+	.band__t em { font: 600 .6875rem/1.25 inherit; font-style: normal; letter-spacing: 0; text-transform: none; color: var(--s400); }
+	/* the shipped `mt-4 border-t pt-4` that separates the settings form from
+	   the module switchboard inside the same band */
+	.subrule { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--s100); }
+	.lede { font-size: .6875rem; color: var(--s400); line-height: 1.7; margin: -.25rem 0 .75rem; }
+
+	.ident { position: relative; overflow: hidden; }
 	.ident__glow { position: absolute; right: -2rem; bottom: -2rem; height: 8rem; width: 8rem; border-radius: 9999px; filter: blur(22px); }
+	.ident__dot { height: 3rem; width: 3rem; border-radius: 9999px; flex: none; display: grid; place-items: center; color: #fff; font: 800 1.25rem/1 inherit; }
 	.namein { font-size: 1.375rem; font-weight: 800; letter-spacing: -.02em; color: var(--s900); border: 0; background: transparent; padding: .25rem 0; width: 100%; border-bottom: 2px dashed transparent; }
 	.namein:hover { border-bottom-color: var(--s200); }
 	.namein:focus { outline: none; border-bottom-color: var(--terracotta); }
 	.swatches { display: flex; gap: .4375rem; flex-wrap: wrap; }
 	.sw { height: 1.75rem; width: 1.75rem; border-radius: 9999px; border: 2px solid transparent; cursor: pointer; }
 	.sw.is-on { border-color: var(--s900); box-shadow: 0 0 0 2px #fff inset; }
-	.mrow { display: flex; align-items: center; gap: .75rem; padding: .75rem 0; }
-	.mrow + .mrow { border-top: 1px solid var(--s100); }
+
+	/* rows: one hairline track, one height each, 6px between */
+	.mrow { display: flex; align-items: center; gap: .75rem; min-height: 3.125rem; padding: .5rem .625rem; border: 1px solid var(--s100); border-radius: .625rem; background: var(--s50); }
+	.mrow + .mrow, .actrow + .actrow, .modrow + .modrow { margin-top: .5rem; }
 	.mrow__a { height: 2.25rem; width: 2.25rem; border-radius: 9999px; display: grid; place-items: center; font: 800 .75rem/1 inherit; flex: none; }
 	.mrow__n { flex: 1; min-width: 0; }
-	.role { display: inline-flex; align-items: center; height: 1.5rem; padding: 0 .5rem; border-radius: 9999px; font: 700 .625rem/1 inherit; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; border: 0; }
-	.mtype { display: inline-flex; align-items: center; height: 1.25rem; padding: 0 .4375rem; border-radius: 9999px; background: var(--s100); color: var(--s500); font: 700 .625rem/1 inherit; }
-	.toggle { display: flex; align-items: center; gap: .75rem; padding: .625rem 0; }
-	.toggle + .toggle { border-top: 1px solid var(--s100); }
-	.tog { height: 1.375rem; width: 2.5rem; border-radius: 9999px; background: var(--s300); position: relative; cursor: pointer; flex: none; border: 0; transition: background-color 150ms; }
-	.tog::after { content: ''; position: absolute; top: .1875rem; left: .1875rem; height: 1rem; width: 1rem; border-radius: 9999px; background: #fff; transition: transform 150ms; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
-	.tog.is-on { background: var(--p600); }
-	.tog.is-on::after { transform: translateX(1.125rem); }
+	.mrow__n b { display: block; font: 600 .875rem/1.35 inherit; color: var(--s800); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.role { display: inline-flex; align-items: center; height: 1.25rem; padding: 0 .5rem; border-radius: 9999px; font: 700 .625rem/1 inherit; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; border: 0; flex: none; }
+	.mtype { display: inline-flex; align-items: center; height: 1.25rem; padding: 0 .4375rem; border-radius: 9999px; background: var(--s100); color: var(--s500); font: 700 .625rem/1 inherit; flex: none; }
+
+	.actrow { display: flex; align-items: center; gap: .75rem; min-height: 2.375rem; padding: .5rem .625rem; border: 1px solid var(--s100); border-radius: .625rem; background: var(--s50); }
+	.actrow span { min-width: 0; flex: 1; font: 400 .75rem/1.4 inherit; color: var(--s700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.actrow time { flex: none; font-size: .6875rem; color: var(--s400); }
+
+	/* the shipped module row: 40px, label + scope chip + state chip. Label
+	   truncates; neither chip ever does, so a row never changes width. */
+	.modrow { display: flex; align-items: center; gap: .5rem; width: 100%; min-width: 0; min-height: 2.5rem; padding: .5rem .625rem; border: 1px solid var(--s200); border-radius: .625rem; background: #fff; text-align: left; cursor: pointer; transition: background-color 150ms, border-color 150ms, opacity 150ms; }
+	.modrow:hover { background: var(--s50); border-color: var(--s300); }
+	.modrow.is-pending { opacity: .7; }
+	.modrow__l { flex: 1; min-width: 0; font: 600 .8125rem/1.25 inherit; color: var(--s800); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	/* `s-chip`, not `chip` — proto.css already owns `.chip` as a full-width
+	   calendar row (width:100%, min-height:1.75rem), and the two collide. */
+	.s-chip { display: inline-flex; align-items: center; flex: none; height: 1.125rem; padding: 0 .4375rem; border-radius: 9999px; font: 700 .625rem/1 inherit; letter-spacing: .04em; text-transform: uppercase; }
+	.s-chip--scope { background: var(--s100); color: var(--s500); }
+	.s-chip--on { background: var(--mint); color: var(--mint-ink); }
+	.s-chip--off { background: var(--s100); color: var(--s500); }
+	.s-chip--hid { background: #fdf0cf; color: #92610a; }
+	.s-chip--park { background: var(--blush); color: var(--terracotta); }
+	/* Below the width where label + both chips fit on one line, the LABEL wraps
+	   rather than collapsing to "T…". The row is 40px whenever it can be; it
+	   grows by ~5px when the label would otherwise be unreadable. */
+	@media (max-width: 639px) {
+		.modrow { align-items: flex-start; }
+		.modrow__l { white-space: normal; overflow: visible; line-height: 1.15; padding-top: .1875rem; }
+		.s-chip { margin-top: .1875rem; }
+	}
+
 	.usage { display: flex; align-items: center; gap: .625rem; }
 	.ubar { flex: 1; height: .375rem; border-radius: 9999px; background: var(--s100); overflow: hidden; }
 	.ubar i { display: block; height: 100%; border-radius: 9999px; background: var(--p600); }
-	.danger { border: 1px solid #fecaca; }
 	.kv { display: flex; align-items: baseline; gap: .5rem; padding: .4375rem 0; font-size: .8125rem; }
 	.kv + .kv { border-top: 1px solid var(--s100); }
 	.kv b { font-weight: 700; color: var(--s800); }
-	.emptynote { font-size: .75rem; color: var(--s400); }
 </style>
 </head>
 <body>
@@ -53,148 +90,223 @@
 <script src="feedback.js" defer></script>
 <script type="module">
 import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
-import { FAMILY, MEMBERS, DASHBOARD_MODULES, INVITE, USAGE, PLAN, byId, nameOf } from './app-data.js';
+import { FAMILY, MEMBERS, DASHBOARD_MODULES, FAMILY_ACTIVITY, INVITE, USAGE, PLAN, byId, nameOf } from './app-data.js';
 
 const grid = el('div', 'fd');
-const main = el('div');
-const side = el('div');
+const main = el('div', 'col');
+const side = el('div', 'col');
 grid.appendChild(main);
 grid.appendChild(side);
 
 const COLORS = ['#c45e38', '#d38248', '#4d9c85', '#5b9fb5', '#8d7aa8', '#b45309'];
 
-/* ── identity: name + colour, editable in place ──────────────────────── */
-const ident = el('div', 'ident');
+/* ── hero: the shipped band — colour dot, name, count + your role ────── */
+const ident = el('div', 'band ident');
 ident.setAttribute('data-fb', 'family-identity');
-ident.setAttribute('data-fb-label', 'Family name & colour');
+ident.setAttribute('data-fb-label', 'Family identity');
 ident.innerHTML = `
 	<div class="ident__glow" style="background:${FAMILY.color}33"></div>
-	<div style="position:relative">
-	  <span class="pill pill-xs pill-token">Family</span>
-	  <input class="namein" value="${FAMILY.name}" onchange="toast('Renamed')" aria-label="Family name" />
-	  <div class="rowflex between gap-3" style="margin-top:.875rem;flex-wrap:wrap">
-	    <div class="swatches" id="sws">
-	      ${COLORS.map((c) => `<button class="sw${c === FAMILY.color ? ' is-on' : ''}" style="background:${c}" data-c="${c}" onclick="pick(this)" title="${c}"></button>`).join('')}
+	<div class="rowflex between gap-3" style="position:relative;flex-wrap:wrap">
+	  <div class="rowflex gap-3" style="min-width:0">
+	    <span class="ident__dot" style="background:${FAMILY.color}">${FAMILY.name[0]}</span>
+	    <div style="min-width:0">
+	      <div style="font-size:1.375rem;font-weight:800;letter-spacing:-.02em;color:var(--s900)">${FAMILY.name}</div>
+	      <div class="rowflex gap-2" style="margin-top:.375rem;flex-wrap:wrap">
+	        <span class="hint">${MEMBERS.length} members</span>
+	        <span class="hint">·</span>
+	        <span class="hint">You:</span>
+	        <span class="role" style="background:var(--blush);color:var(--terracotta)">creator</span>
+	      </div>
 	    </div>
-	    <span class="hint">Colour tints the calendar, the members and the family calendar chip.</span>
+	  </div>
+	  <div class="rowflex gap-2">
+	    <a class="btn btn-primary btn-sm" href="family-members-add.html">Add member</a>
+	    <button class="btn-icon" style="height:2rem;width:2rem" title="Jump to family settings" onclick="document.getElementById('family-settings').scrollIntoView({behavior:'smooth'})">⚙</button>
 	  </div>
 	</div>`;
 main.appendChild(ident);
 
 /* ── members ─────────────────────────────────────────────────────────── */
-const members = el('div');
+const members = el('div', 'band');
 members.setAttribute('data-fb', 'member-list');
 members.setAttribute('data-fb-label', 'Members & roles');
-members.appendChild(el('div', null, sectionTitle('Members', `<span class="hint">${MEMBERS.length} of ${PLAN.memberLimit}</span>`)));
+members.innerHTML = `<div class="band__t">Members <em>${MEMBERS.length} of ${PLAN.memberLimit}</em></div><div id="mrow-list"></div>`;
 
-const list = el('div');
-members.appendChild(list);
+const list = members.querySelector('#mrow-list');
 function paintMembers() {
 	list.innerHTML = MEMBERS.map((m, i) => `
 		<div class="mrow">
 		  <span class="mrow__a" style="background:${m.tone}">${m.initials}</span>
 		  <span class="mrow__n">
-		    <span style="display:block;font-size:.9375rem;font-weight:600;color:var(--s800)">${m.firstName} ${m.lastName}</span>
-		    <span class="hint">${m.email}</span>
+		    <b>${m.firstName} ${m.lastName}</b>
+		    <span class="hint truncate" style="display:block">${m.email}</span>
 		  </span>
 		  <span class="mtype">${m.memberType}</span>
 		  <button class="role" data-role="${m.id}" onclick="cycle(${i})"
-		    style="background:${m.role === 'creator' ? 'rgba(241,181,152,.55);color:#84412e' : m.role === 'admin' ? 'rgba(190,218,227,.55);color:#366d7e' : 'var(--s100);color:var(--s500)'}"
+		    style="background:${m.role === 'creator' ? 'var(--blush);color:var(--terracotta)' : m.role === 'admin' ? 'var(--mint);color:var(--mint-ink)' : 'var(--s100);color:var(--s500)'}"
 		    title="Change role">${m.role}</button>
-		  ${m.role === 'creator' ? '' : `<button class="btn-icon" style="height:1.75rem;width:1.75rem" title="Remove" onclick="toast('Removed ${m.firstName}')">✕</button>`}
+		  ${m.role === 'creator' ? '' : `<button class="btn-icon" style="height:1.75rem;width:1.75rem;flex:none" title="Remove" onclick="toast('Removed ${m.firstName}')">✕</button>`}
 		</div>`).join('') + `
-		<a class="btn btn-soft btn-sm" href="family-members-add.html" style="width:100%;margin-top:.875rem">+ Add a member</a>`;
+		<a class="btn btn-soft btn-sm" href="family-members-add.html" style="width:100%;margin-top:.75rem">+ Add a member</a>`;
 }
 paintMembers();
 main.appendChild(members);
 
-/* ── dashboard module switches ───────────────────────────────────────── */
-const mods = el('div');
-mods.setAttribute('data-fb', 'module-switches');
-mods.setAttribute('data-fb-label', 'Dashboard module switches');
-mods.appendChild(el('div', null, sectionTitle('Dashboard modules', '<span class="hint" title="dashboardModuleSwitches: a row exists only when a module is OFF">family-wide</span>')));
-const modList = el('div');
-mods.appendChild(modList);
+/* ── recent activity — shipped in #077, was missing here ─────────────── */
+const activity = el('div', 'band');
+activity.setAttribute('data-fb', 'family-activity');
+activity.setAttribute('data-fb-label', 'Recent activity');
+activity.innerHTML = `
+	<div class="band__t">Recent activity <em>familyId scoped</em></div>
+	${FAMILY_ACTIVITY.map((a) => `
+	  <div class="actrow">
+	    <span>${nameOf(a.who).split(' ')[0]} ${a.what}</span>
+	    <time>${a.when}</time>
+	  </div>`).join('')}`;
+main.appendChild(activity);
+
+/* ── settings + the shared module row, in one band, as shipped ───────── */
+const settings = el('div', 'band');
+settings.id = 'family-settings';
+settings.setAttribute('data-fb', 'family-settings');
+settings.setAttribute('data-fb-label', 'Family settings');
+settings.innerHTML = `
+	<div class="band__t">Family settings</div>
+	<input class="input" value="${FAMILY.name}" onchange="toast('Renamed')" aria-label="Family name" style="font-weight:700" />
+	<div class="rowflex between gap-3" style="margin-top:.75rem;flex-wrap:wrap">
+	  <div class="swatches" id="sws">
+	    ${COLORS.map((c) => `<button class="sw${c === FAMILY.color ? ' is-on' : ''}" style="background:${c}" data-c="${c}" onclick="pick(this)" title="${c}"></button>`).join('')}
+	  </div>
+	  <span class="hint">Colour tints the calendar, the members and the family calendar chip.</span>
+	</div>
+	<button class="btn btn-soft btn-sm" style="width:100%;margin-top:.875rem" onclick="toast('Family settings saved')">Save changes</button>
+	<div class="subrule" id="mods"></div>`;
+main.appendChild(settings);
+
+/* The module rows live INSIDE the settings band, under a hairline — which is
+   where the shipped page puts them. 077 made the row 40px with a label, a
+   scope chip and a state chip, and split the two "off" meanings apart. */
+const modList = settings.querySelector('#mods');
+modList.setAttribute('data-fb', 'module-switches');
+modList.setAttribute('data-fb-label', 'Dashboard module switches');
+modList.innerHTML = `
+	<div class="band__t" style="margin-bottom:.25rem">Day dashboard modules</div>
+	<p class="lede">Family-wide master switches. A switched-off card is hidden for everyone — each
+	member can still hide or show a card for themself alone in Account settings.</p>
+	<div id="mod-rows"></div>`;
+const modRows = modList.querySelector('#mod-rows');
+
+/* moduleRowState.ts — family-off outranks hidden-for-me, so a row never
+   says two things at once. */
+function modState(m) {
+	if (!m.enabled) return 'off';
+	if (m.hiddenForMe) return 'hidden-for-me';
+	return 'on';
+}
+const STATE = {
+	'on':          { label: 'On',           cls: 's-chip--on' },
+	'off':         { label: 'Off',          cls: 's-chip--off' },
+	'hidden-for-me': { label: 'Hidden for you', cls: 's-chip--hid' }
+};
+let modPending = null;
+/* The loader also returns the VIEWER's own hidden list
+   (hiddenDashboardModules: settings?.hiddenDashboardModules ?? [],
+   +page.server.ts:66), so "on, but you hid it for yourself" is a state a real
+   viewer really lands in, not one the row invents. Seeded so it is on screen. */
+const HIDDEN_FOR_ME = new Set(['glance']);
+const stateOf = (m) => modState({ ...m, hiddenForMe: HIDDEN_FOR_ME.has(m.id) });
 function paintMods() {
-	modList.innerHTML = DASHBOARD_MODULES.map((m) => `
-		<div class="toggle">
-		  <button class="tog${m.enabled ? ' is-on' : ''}" onclick="tog('${m.id}')" role="switch" aria-checked="${m.enabled}" aria-label="${m.label}"></button>
-		  <span style="flex:1;min-width:0">
-		    <span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)">${m.label}</span>
-		    <span class="hint">${m.scope} · ${m.live ? 'wired' : 'not mounted anywhere'}</span>
-		  </span>
-		  ${m.live ? '' : '<span class="pill pill-xs pill-blush">parked</span>'}
-		</div>`).join('');
+	modRows.innerHTML = DASHBOARD_MODULES.map((m) => {
+		const st = STATE[stateOf(m)];
+		return `<button class="modrow${modPending === m.id ? ' is-pending' : ''}" data-mod="${m.id}"
+		          aria-pressed="${stateOf(m) === 'on'}" aria-busy="${modPending === m.id}" onclick="tog('${m.id}')">
+		  <span class="modrow__l">${m.label}</span>
+		  <span class="s-chip s-chip--scope">${m.scope === 'family' ? 'Family-wide' : 'Personal'}</span>
+		  <span class="s-chip ${st.cls}">${st.label}</span>
+		  ${m.live ? '' : '<span class="s-chip s-chip--park">Parked</span>'}
+		</button>`;
+	}).join('');
 }
 paintMods();
-main.appendChild(mods);
 
-/* ── the dead link, reproduced ───────────────────────────────────────── */
-main.appendChild(card(
-	`${sectionTitle('Broken in the real app', '<span class="pill pill-xs pill-blush">404</span>')}
-	 <p class="hint" style="line-height:1.7">The invitations button in the real page points at
-	 <code>/family/{id}/invitations</code>. Svelte interpolates those braces fine — they are not the bug.
-	 The bug is the shape: no <code>[familyId]/invitations</code> route exists. Every admin who clicks it
-	 gets a 404.</p>
-	 <p class="hint" style="line-height:1.7;margin-top:.5rem">Shown here working, from the correct path.</p>
-	 <a class="btn btn-soft btn-sm" href="family-invitations.html" style="margin-top:.75rem">/family/invitations</a>`,
-	'dead-invite-link', 'Broken link',
-	'background:linear-gradient(140deg,rgba(254,202,202,.4),#fff);border-color:#fecaca'));
+/* ── the link bug, shown as fixed (it used to 404) ───────────────────── */
+const dead = el('div', 'band');
+dead.setAttribute('data-fb', 'dead-invite-link');
+dead.setAttribute('data-fb-label', 'Invitations link');
+dead.innerHTML = `
+	<div class="band__t">Manage invitations <span class="s-chip s-chip--on">works</span></div>
+	<p class="hint" style="line-height:1.7">This button used to point at <code>/family/{id}/invitations</code>.
+	Svelte interpolated those braces fine — they were not the bug. The bug was the shape: there is no
+	<code>[familyId]/invitations</code> route, so every admin who clicked it got a 404.</p>
+	<p class="hint" style="line-height:1.7;margin-top:.5rem">It now points at <code>/family/invitations</code>, the one
+	invitations route. Shown here from the correct path.</p>
+	<a class="btn btn-soft btn-sm" href="family-invitations.html" style="margin-top:.75rem">/family/invitations</a>`;
+main.appendChild(dead);
 
-/* ── danger ──────────────────────────────────────────────────────────── */
-const danger = el('div', 'rail__card danger');
+/* ── where the danger zone went ───────────────────────────────────────── */
+const danger = el('div', 'band');
 danger.setAttribute('data-fb', 'danger-zone');
-danger.setAttribute('data-fb-label', 'Danger zone');
+danger.setAttribute('data-fb-label', 'No delete anywhere');
 danger.innerHTML = `
-	${sectionTitle('Danger zone')}
-	<p class="hint" style="line-height:1.7">Deleting the family removes every event, task and grocery item scoped to it for all ${MEMBERS.length} members. This cannot be undone — the retention window is not a backup.</p>
-	<button class="btn btn-md" style="margin-top:.875rem;background:#fff;color:#b91c1c;border:1px solid #fecaca" onclick="toast('Type the family name to confirm')">Delete this family</button>`;
+	<div class="band__t">No delete anywhere <span class="s-chip s-chip--hid">open question</span></div>
+	<p class="hint" style="line-height:1.7">This page used to carry a <b>Danger zone</b> with a
+	“Delete this family” button. The real page has never had one. <code>deleteFamilies()</code> exists in
+	<code>db/actions/families.ts</code> and is called by nothing — no route, no form, no action.</p>
+	<p class="hint" style="line-height:1.7;margin-top:.5rem">So a creator cannot leave a family they joined by
+	accident, and a family whose members are all gone cannot be cleaned up. Either the button was dropped or
+	never shipped; either way that card was the prototype inventing a control the app does not have.</p>`;
 main.appendChild(danger);
 
 /* ── side: shared data ───────────────────────────────────────────────── */
-side.appendChild(card(
-	`${sectionTitle('Shared data', '<span class="hint">family_id scoped</span>')}
-	 <a class="btn btn-soft btn-sm" href="family-tasks.html" style="width:100%;margin-bottom:.5rem">Family tasks</a>
-	 <a class="btn btn-soft btn-sm" href="groceries.html" style="width:100%;margin-bottom:.5rem">Grocery list</a>
-	 <a class="btn btn-soft btn-sm" href="../calendar-ui/d-working-calendar.html" style="width:100%;margin-bottom:.5rem">Family calendar</a>
-	 <a class="btn btn-soft btn-sm" href="family-invitations.html" style="width:100%">Invitations</a>`,
-	'shared-data', 'Shared data'));
+const sideBand = (fb, label, inner, extra = '') => {
+	const n = el('div', 'band');
+	n.setAttribute('data-fb', fb);
+	n.setAttribute('data-fb-label', label);
+	n.innerHTML = inner;
+	if (extra) n.style.cssText = extra;
+	side.appendChild(n);
+	return n;
+};
+sideBand('shared-data', 'Shared data', `
+	<div class="band__t">Shared data <em>family_id scoped</em></div>
+	<a class="btn btn-soft btn-sm" href="family-tasks.html" style="width:100%;margin-bottom:.5rem">Family tasks</a>
+	<a class="btn btn-soft btn-sm" href="groceries.html" style="width:100%;margin-bottom:.5rem">Grocery list</a>
+	<a class="btn btn-soft btn-sm" href="../calendar-ui/d-working-calendar.html" style="width:100%;margin-bottom:.5rem">Family calendar</a>
+	<a class="btn btn-soft btn-sm" href="family-invitations.html" style="width:100%">Invitations</a>`);
 
 /* ── side: the invitation ────────────────────────────────────────────── */
-side.appendChild(card(
-	`${sectionTitle('Active invitation')}
-	 <div class="kv"><b>Code</b><span style="font-family:ui-monospace,Menlo,monospace">${INVITE.code}</span></div>
-	 <div class="kv"><b>Uses</b><span>${INVITE.useCount} of ${INVITE.maxUses}</span></div>
-	 <div class="kv"><b>Expires</b><span>${INVITE.expiresAt}</span></div>
-	 <div class="kv"><b>Created by</b><span>${nameOf(INVITE.createdBy).split(' ')[0]}</span></div>`,
-	'invite-summary', 'Active invitation'));
+sideBand('invite-summary', 'Active invitation', `
+	<div class="band__t">Active invitation</div>
+	<div class="kv"><b>Code</b><span style="font-family:ui-monospace,Menlo,monospace">${INVITE.code}</span></div>
+	<div class="kv"><b>Uses</b><span>${INVITE.useCount} of ${INVITE.maxUses}</span></div>
+	<div class="kv"><b>Expires</b><span>${INVITE.expiresAt}</span></div>
+	<div class="kv"><b>Created by</b><span>${nameOf(INVITE.createdBy).split(' ')[0]}</span></div>`);
 
 /* ── side: plan usage ────────────────────────────────────────────────── */
 const pct = Math.round((USAGE.aiUsed / USAGE.aiLimit) * 100);
-side.appendChild(card(
-	`${sectionTitle('Plan', `<span class="pill pill-xs pill-mint">${PLAN.name}</span>`)}
-	 <div class="usage" style="margin-top:.25rem">
-	   <span class="hint" style="flex:none">AI events</span>
-	   <span class="ubar"><i style="width:${pct}%"></i></span>
-	   <b style="font-size:.75rem">${USAGE.aiUsed}/${USAGE.aiLimit}</b>
-	 </div>
-	 <div class="kv"><b>Families</b><span>${USAGE.families} of ${PLAN.familyLimit}</span></div>
-	 <div class="kv"><b>Members</b><span>${MEMBERS.length} of ${PLAN.memberLimit}</span></div>
-	 <div class="kv"><b>Archive</b><span>${PLAN.archivedRetentionDays} days</span></div>
-	 <div class="kv"><b>Export</b><span>${PLAN.exportImportEnabled ? 'enabled' : 'not on this plan'}</span></div>`,
-	'plan-usage', 'Plan usage'));
+sideBand('plan-usage', 'Plan usage', `
+	<div class="band__t">Plan <span class="s-chip s-chip--on">${PLAN.name}</span></div>
+	<div class="usage">
+	  <span class="hint" style="flex:none">AI events</span>
+	  <span class="ubar"><i style="width:${pct}%"></i></span>
+	  <b style="font-size:.75rem">${USAGE.aiUsed}/${USAGE.aiLimit}</b>
+	</div>
+	<div class="kv"><b>Families</b><span>${USAGE.families} of ${PLAN.familyLimit}</span></div>
+	<div class="kv"><b>Members</b><span>${MEMBERS.length} of ${PLAN.memberLimit}</span></div>
+	<div class="kv"><b>Archive</b><span>${PLAN.archivedRetentionDays} days</span></div>
+	<div class="kv"><b>Export</b><span>${PLAN.exportImportEnabled ? 'enabled' : 'not on this plan'}</span></div>`,
+	'background:linear-gradient(140deg,rgba(196,233,218,.32),#fff)');
 
 /* ── side: the constraint that is not obvious ────────────────────────── */
-side.appendChild(card(
-	`${sectionTitle('Children are users')}
-	 <p class="hint" style="line-height:1.7">A child is a real row in <code>users</code> with
-	 <code>memberType = 'child'</code> — which means a child needs a <b>unique email</b>, because
-	 <code>users.email</code> carries a unique index.</p>
-	 <p class="hint" style="line-height:1.7;margin-top:.5rem">So a family with two children must invent two
-	 addresses, and the add-member form has to say so before they do.</p>
-	 <a class="btn btn-soft btn-sm" href="family-members-add.html" style="margin-top:.75rem">See the form</a>`,
-	'child-constraint', 'The child-as-user constraint',
-	'background:linear-gradient(140deg,rgba(190,218,227,.4),#fff);border-color:transparent'));
+sideBand('child-constraint', 'The child-as-user constraint', `
+	<div class="band__t">Children are users</div>
+	<p class="hint" style="line-height:1.7">A child is a real row in <code>users</code> with
+	<code>memberType = 'child'</code> — which means a child needs a <b>unique email</b>, because
+	<code>users.email</code> carries a unique index.</p>
+	<p class="hint" style="line-height:1.7;margin-top:.5rem">So a family with two children must invent two
+	addresses, and the add-member form has to say so before they do.</p>
+	<a class="btn btn-soft btn-sm" href="family-members-add.html" style="margin-top:.75rem">See the form</a>`,
+	'background:linear-gradient(140deg,rgba(190,218,227,.32),#fff)');
 
 window.pick = (b) => { FAMILY.color = b.dataset.c; b.parentElement.querySelectorAll('.sw').forEach((x) => x.classList.toggle('is-on', x === b)); toast('Colour changed'); };
 window.cycle = (i) => {
@@ -204,11 +316,16 @@ window.cycle = (i) => {
 	paintMembers();
 	toast(`${m.firstName} is now ${m.role}`);
 };
+/* The shipped ack: flip in the click tick, dim while in flight, then confirm
+   what changed — and say who it changed for. */
 window.tog = (id) => {
 	const m = DASHBOARD_MODULES.find((x) => x.id === id);
 	m.enabled = !m.enabled;
+	modPending = id;
 	paintMods();
-	toast(m.enabled ? `${m.label} on` : `${m.label} off`);
+	const now = m.enabled;
+	setTimeout(() => { modPending = null; paintMods(); }, 420);
+	toast(`${m.label} is now ${now ? 'on' : 'off'} for everyone.`);
 };
 window.toast = toast;
 
@@ -216,7 +333,7 @@ mountApp({
 	head: {
 		kicker: 'Prototype · Family settings',
 		title: FAMILY.name,
-		lede: 'The real page is <b>793 lines</b> — the biggest in the app. It is a members list, a settings form, a module switchboard and a delete button in one file. This is the same content, split into three bands.',
+		lede: 'The real page is <b>829 lines</b> — the biggest in the app. Issue <b>077</b> fixed it without splitting the file: one gap between bands, one padding inside a band, one label treatment, and a module row that is 40px instead of 48. This is that page.',
 		actions: `<a class="btn btn-soft btn-sm" href="family.html">← All families</a>`
 	},
 	body: grid

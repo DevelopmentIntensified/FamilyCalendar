@@ -15,30 +15,63 @@
 }
 </script>
 <style>
-	.layout { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	/* minmax(0,1fr) at every width, not just the two-column one: a bare 1fr
+	   track lets a grid item keep its min-content width, and the add-task row
+	   pushed the whole column 36px past a 375px viewport. */
+	.layout { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
 	@media (min-width: 1000px) { .layout { grid-template-columns: minmax(0, 1fr) 20rem; } }
+	.col { display: flex; flex-direction: column; gap: 1.25rem; }
+	.band { background: #fff; border: 1px solid var(--s200); border-radius: 1.25rem; padding: 1rem; }
+	.band__t { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; font: 700 .6875rem/1.25 inherit; letter-spacing: .08em; text-transform: uppercase; color: var(--s500); }
+	.band__t em { font: 600 .6875rem/1.25 inherit; font-style: normal; letter-spacing: 0; text-transform: none; color: var(--s400); }
+	.sect { font: 700 .6875rem/1.25 inherit; letter-spacing: .08em; text-transform: uppercase; color: var(--s500); margin: 1.125rem 0 .5rem; }
+
+	.addform { display: flex; gap: .5rem; }
+	.addform .input { flex: 1; min-width: 0; }
+
+	/* ── filters: a soft surface, not four hard pills on bare canvas ────── */
+	.filters { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+	.chipf { height: 2rem; padding: 0 .875rem; border-radius: 9999px; border: 1px solid var(--s200); background: var(--s50); color: var(--s500); font: 600 .8125rem/1 inherit; cursor: pointer; transition: background-color 150ms, border-color 150ms, color 150ms; }
+	.chipf:hover { background: #fff; border-color: var(--s300); }
+	.chipf.is-on { background: var(--blush); border-color: rgba(196,94,56,.28); color: var(--terracotta); }
+	.sortsel { height: 2rem; margin-left: auto; padding: 0 .625rem; border-radius: .5rem; border: 1px solid var(--s200); background: var(--s50); color: var(--s500); font: 600 .8125rem/1 inherit; }
+
+	/* ── the list ───────────────────────────────────────────────────────── */
 	.task { display: flex; align-items: flex-start; gap: .625rem; padding: .625rem 0; cursor: pointer; }
 	.task + .task { border-top: 1px solid var(--s100); }
 	.task.is-done .task__t { text-decoration: line-through; color: var(--s400); }
 	.task__box { height: 1.125rem; width: 1.125rem; border-radius: 9999px; border: 2px solid var(--s300); background: #fff; flex: none; margin-top: .15rem; cursor: pointer; }
 	.task.is-done .task__box { background: var(--p600); border-color: var(--p600); }
-	.task__t { font-size: .9375rem; font-weight: 600; color: var(--s800); display: block; }
-	.task__m { display: flex; align-items: center; gap: .375rem; flex-wrap: wrap; margin-top: .1875rem; }
+	.task__t { font-size: .9375rem; font-weight: 600; color: var(--s800); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	/* ONE baseline, ONE separator, ONE height. The old meta line wrapped to
+	   two and three lines depending on the title, which is what made the rows
+	   look ununiform. It never wraps now: the row truncates, the title does. */
+	.task__m { display: flex; align-items: center; gap: .375rem; flex-wrap: nowrap; overflow: hidden; height: 1.25rem; margin-top: .1875rem; font-size: .6875rem; line-height: 1.25rem; color: var(--s400); }
+	.task__m > * { flex: none; }
+	.task__m .sep { flex: none; color: var(--s300); }
+	.task__m .grow { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.overdue { color: #b91c1c; font-weight: 700; }
 	.tag { display: inline-flex; align-items: center; height: 1.125rem; padding: 0 .4375rem; border-radius: 9999px; background: var(--s100); color: var(--s500); font: 600 .625rem/1 inherit; }
 	.ava-xs { height: 1.125rem; width: 1.125rem; border-radius: 9999px; display: grid; place-items: center; font: 800 .5rem/1 inherit; }
-	.addform { display: flex; gap: .5rem; }
-	.addform .input { flex: 1; }
-	.filters { display: flex; align-items: center; gap: .375rem; flex-wrap: wrap; }
-	.chipf { height: 1.875rem; padding: 0 .75rem; border-radius: 9999px; border: 1px solid var(--s200); background: #fff; color: var(--s600); font: 600 .75rem/1 inherit; cursor: pointer; }
-	.chipf.is-on { background: var(--p600); border-color: var(--p600); color: #fff; }
-	.inbox-row { display: flex; align-items: center; gap: .5rem; padding: .5rem 0; }
-	.inbox-row + .inbox-row { border-top: 1px solid var(--s100); }
-	.pri-pill { font-size: .625rem; font-weight: 800; letter-spacing: .04em; }
-	.pri-high { color: #b91c1c; }
-	.pri-normal { color: var(--s400); }
-	.pri-low { color: var(--s400); }
-	.recur { display: inline-flex; align-items: center; gap: .1875rem; color: var(--lavender-ink, #6b5b7b); }
+	.pri-dot { height: .5rem; width: .5rem; border-radius: 9999px; flex: none; }
+	.pri-high { background: #ef4444; }
+	.pri-normal { background: var(--s300); }
+	.pri-low { background: var(--s200); }
+	.pri-l { display: inline-flex; align-items: center; gap: .3125rem; font-weight: 600; color: var(--s500); }
+
+	/* ── the assignment inbox: its own band, rows with their own frame ──── */
+	.inbox-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .375rem .5rem; padding: .5rem .625rem; border-radius: .75rem; border: 1px solid #fde9c8; background: #fffaf0; }
+	.inbox-row + .inbox-row { margin-top: .5rem; }
+	.inbox-row.sent { border-color: var(--s100); background: var(--s50); }
+	.inbox-row b { display: block; font: 600 .875rem/1.35 inherit; color: var(--s800); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.inbox-row .meta { display: block; font: 400 .6875rem/1.35 inherit; color: var(--s400); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	/* the two answers get their own line rather than a column of buttons
+	   squeezing the title: the affordance is the point of this band */
+	.resp { grid-column: 1 / -1; display: flex; align-items: center; gap: .375rem; margin-top: .125rem; }
+	.yes { height: 1.75rem; padding: 0 .75rem; border-radius: 9999px; background: #d6f0e3; color: #166a4f; font: 700 .6875rem/1 inherit; cursor: pointer; border: 0; }
+	.no { height: 1.75rem; padding: 0 .75rem; border-radius: 9999px; background: #fde2e2; color: #a12a2a; font: 700 .6875rem/1 inherit; cursor: pointer; border: 0; }
+	.sent .pill { justify-self: start; display: inline-flex; align-items: center; flex: none; height: 1.25rem; padding: 0 .5rem; border-radius: 9999px; font: 700 .625rem/1 inherit; letter-spacing: .04em; text-transform: uppercase; }
+	.recur { display: inline-flex; align-items: center; gap: .1875rem; }
 </style>
 </head>
 <body>
@@ -50,8 +83,8 @@ import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
 import { TASKS, ASSIGNMENT_INBOX, SENT_REQUESTS, RECURRING_LABEL, byId, nameOf, plural } from './app-data.js';
 
 const main = el('div', 'layout');
-const left = el('div');
-const right = el('div');
+const left = el('div', 'col');
+const right = el('div', 'col');
 main.appendChild(left);
 main.appendChild(right);
 
@@ -64,18 +97,20 @@ left.appendChild(card(
 	'add-task', 'Add a task'));
 
 /* ── filter + sort row ───────────────────────────────────────────────── */
-const filters = el('div', 'filters');
+const filters = el('div', 'band');
 filters.setAttribute('data-fb', 'task-filters');
 filters.setAttribute('data-fb-label', 'Filters & sort');
 filters.innerHTML = `
-	<span class="chipf is-on" data-chip="open">Open</span>
-	<span class="chipf" data-chip="mine">Mine</span>
-	<span class="chipf" data-chip="assigned">Assigned to me</span>
-	<span class="chipf" data-chip="done">Done</span>
-	<span style="flex:1"></span>
-	<select class="input" style="height:1.875rem;padding:0 .625rem;width:auto;font-size:.8125rem">
-	  <option>Due date</option><option>Priority</option><option>Alphabetical</option>
-	</select>`;
+	<div class="band__t">Filter <em>${TASKS.length} tasks</em></div>
+	<div class="filters">
+	  <span class="chipf is-on" data-chip="open">Open</span>
+	  <span class="chipf" data-chip="mine">Mine</span>
+	  <span class="chipf" data-chip="assigned">Assigned to me</span>
+	  <span class="chipf" data-chip="done">Done</span>
+	  <select class="sortsel" aria-label="Sort tasks">
+	    <option>Due date</option><option>Priority</option><option>Alphabetical</option>
+	  </select>
+	</div>`;
 left.appendChild(filters);
 
 /* ── the list ────────────────────────────────────────────────────────── */
@@ -98,9 +133,23 @@ function paint() {
 		return a;
 	}, {});
 	const order = ['Overdue', 'Today', 'Up next', 'Done'];
+	/* One row, one meta line, one set of separators. The meta slots are joined
+	   with `·` and the line is nowrap + overflow hidden, so a row is the same
+	   shape whether it has one tag or four, and at 320px the LINE truncates
+	   instead of wrapping to a second row. */
+	const metaOf = (t, a) => {
+		const bits = [`<span class="grow${t.overdue ? ' overdue' : ''}">${t.due}</span>`];
+		if (t.recurrence) bits.push(`<span class="grow recur">↻ ${RECURRING_LABEL[t.recurrence]}${t.completionCount ? ' · done ' + t.completionCount + '×' : ''}</span>`);
+		t.tags.forEach((x) => bits.push(`<span class="tag">${x}</span>`));
+		// the real TaskRow only names a priority that is not normal; dot + label
+		// travel as ONE slot so the dot cannot read as a stray separator
+		if (t.priority !== 'normal') bits.push(`<span class="pri-l"><i class="pri-dot pri-${t.priority}"></i>${t.priority}</span>`);
+		bits.push(a ? `<span class="ava-xs" style="background:${a.tone}" title="${nameOf(a.id)}">${a.initials}</span>` : '<span class="grow">unassigned</span>');
+		return bits.join('<span class="sep">·</span>');
+	};
 	list.innerHTML = order.filter((k) => grouped[k]).map((k) => `
-		<div class="rail__card" style="margin-bottom:1rem">
-		  ${sectionTitle(k, `<span class="hint">${plural(grouped[k].length, 'task')}</span>`)}
+		<div class="band" style="margin-bottom:1rem">
+		  <div class="band__t">${k} <em>${plural(grouped[k].length, 'task')}</em></div>
 		  ${grouped[k].map((t) => {
 			const a = t.assignedTo ? byId(t.assignedTo) : null;
 			return `
@@ -108,18 +157,12 @@ function paint() {
 			  <span class="task__box" onclick="toggle('${t.id}')" role="checkbox" aria-checked="${!!t.completedAt}" tabindex="0"></span>
 			  <span style="flex:1;min-width:0">
 			    <span class="task__t">${t.title}</span>
-			    <span class="task__m">
-			      <span class="hint${t.overdue ? ' overdue' : ''}">${t.due}</span>
-			      ${t.recurrence ? `<span class="recur hint">↻ ${RECURRING_LABEL[t.recurrence]}${t.completionCount ? ' · done ' + t.completionCount + '×' : ''}</span>` : ''}
-			      ${t.tags.map((x) => `<span class="tag">${x}</span>`).join('')}
-			      <span class="pri-pill pri-${t.priority}">${t.priority.toUpperCase()}</span>
-			      ${a ? `<span class="ava-xs" style="background:${a.tone}" title="${nameOf(a.id)}">${a.initials}</span>` : '<span class="hint">unassigned</span>'}
-			    </span>
+			    <span class="task__m">${metaOf(t, a)}</span>
 			  </span>
-			  <button class="btn-icon" style="height:1.75rem;width:1.75rem" title="Edit" onclick="toast('EditTaskDialog — the real page has one')">✎</button>
+			  <button class="btn-icon" style="height:1.75rem;width:1.75rem;flex:none" title="Edit" onclick="toast('EditTaskDialog — the real page has one')">✎</button>
 			</div>`;
 		  }).join('')}
-		</div>`).join('') || '<div class="rail__card" style="text-align:center;padding:2.5rem"><p class="hint">Nothing here.</p></div>';
+		</div>`).join('') || '<div class="band" style="text-align:center;padding:2.5rem"><p class="hint">Nothing here.</p></div>';
 }
 paint();
 
@@ -131,37 +174,51 @@ filters.addEventListener('click', (e) => {
 	paint();
 });
 
-/* ── assignment inbox — the real page's AssignmentsCard ─────────────── */
-right.appendChild(card(
-	`${sectionTitle('Assigned to you', `<span class="pill pill-xs pill-blush">${ASSIGNMENT_INBOX.length}</span>`)}
-	 ${ASSIGNMENT_INBOX.map((a) => `
-	   <div class="inbox-row">
-	     <span style="flex:1;min-width:0">
-	       <span style="display:block;font-size:.875rem;font-weight:600;color:var(--s800)" class="truncate">${a.title}</span>
-	       <span class="hint">${nameOf(a.from).split(' ')[0]} · ${a.due}</span>
-	     </span>
-	     <button class="btn btn-token btn-sm" onclick="toast('Accepted')" style="height:1.75rem">Accept</button>
-	     <button class="btn-icon" style="height:1.75rem;width:1.75rem" onclick="toast('Declined')" title="Decline">✕</button>
-	   </div>`).join('')}`,
-	'assignment-inbox', 'Assignment inbox',
-	'background:linear-gradient(140deg,rgba(254,213,207,.4),#fff);border-color:transparent'));
+/* ── assignment inbox — ONE band, two lists, not two loose cards ────────
+   The real AssignmentsCard is a tabbed card: "To accept (n)" and
+   "Requested (n)". Tabs hide half the band, so this resolves them into two
+   stacked sections inside one card — every row framed, 8px between rows, and
+   Accept and Decline as two labelled buttons rather than a labelled Accept
+   beside a bare ✕. */
+const inbox = el('div', 'band');
+inbox.setAttribute('data-fb', 'assignment-inbox');
+inbox.setAttribute('data-fb-label', 'Assignment inbox');
+inbox.innerHTML = `
+	<div class="band__t">Assignments <em>${ASSIGNMENT_INBOX.length + SENT_REQUESTS.length} waiting</em></div>
+	<p class="hint" style="line-height:1.7;margin:-.25rem 0 .75rem">Tasks you've been sent, and ones you sent out.
+	The real page tabs these; both are open here so neither list hides the other.</p>
+	<div class="sect">To accept (${ASSIGNMENT_INBOX.length})</div>
+	${ASSIGNMENT_INBOX.map((a) => `
+	  <div class="inbox-row" id="ib-${a.id}">
+	    <span style="grid-column:1/-1;min-width:0">
+	      <b>${a.title}</b>
+	      <span class="meta">From ${nameOf(a.from).split(' ')[0]} · due ${a.due}</span>
+	    </span>
+	    <span class="resp">
+	      <button class="yes" onclick="respond('${a.id}',1)">✓ Accept</button>
+	      <button class="no" onclick="respond('${a.id}',0)">✕ Decline</button>
+	    </span>
+	  </div>`).join('')}
+	<div class="sect">You asked for (${SENT_REQUESTS.length})</div>
+	<div id="sent-requests" data-fb="sent-requests" data-fb-label="Sent requests"></div>`;
+right.appendChild(inbox);
 
-/* ── sent requests ──────────────────────────────────────────────────── */
-right.appendChild(card(
-	`${sectionTitle('You asked for')}
-	 ${SENT_REQUESTS.map((r) => `
-	   <div class="inbox-row">
-	     <span style="flex:1;min-width:0">
-	       <span style="display:block;font-size:.875rem;color:var(--s700)" class="truncate">${r.title}</span>
-	       <span class="hint">${nameOf(r.to).split(' ')[0]}</span>
-	     </span>
-	     <span class="pill pill-xs ${r.status === 'accepted' ? 'pill-mint' : r.status === 'declined' ? 'pill-blush' : 'pill-token'}">${r.status}</span>
-	   </div>`).join('')}`,
-	'sent-requests', 'Sent requests'));
+const sent = inbox.querySelector('#sent-requests');
+function paintSent() {
+	sent.innerHTML = SENT_REQUESTS.map((r) => `
+	  <div class="inbox-row sent">
+	    <span style="grid-column:1/-1;min-width:0">
+	      <b>${r.title}</b>
+	      <span class="meta">To ${nameOf(r.to).split(' ')[0]}</span>
+	    </span>
+	    <span class="pill" style="background:${r.status === 'accepted' ? 'var(--mint)' : r.status === 'declined' ? 'var(--s100)' : '#fdf0cf'};color:${r.status === 'accepted' ? 'var(--mint-ink)' : r.status === 'declined' ? 'var(--s500)' : '#92610a'}">${r.status}</span>
+	  </div>`).join('');
+}
+paintSent();
 
 /* ── model note ─────────────────────────────────────────────────────── */
 right.appendChild(card(
-	`${sectionTitle('How a repeat actually works')}
+	`<div class="band__t">How a repeat actually works</div>
 	 <p class="hint" style="line-height:1.7">
 	   A repeating task is <b>one row</b>, and <code>dueDate</code> is a <b>cursor</b> that advances on completion. So <code>completedAt</code> is overwritten every time and cannot be history.
 	 </p>
@@ -170,9 +227,16 @@ right.appendChild(card(
 	 </p>
 	 <a class="btn btn-soft btn-sm" href="models.html" style="margin-top:.75rem">See the model</a>`,
 	'model-note', 'Recurrence model',
-	'background:linear-gradient(140deg,rgba(190,218,227,.4),#fff);border-color:transparent'));
+	'background:linear-gradient(140deg,rgba(190,218,227,.32),#fff)'));
 
 window.toggle = (id) => { const t = TASKS.find((x) => x.id === id); t.completedAt = t.completedAt ? null : new Date().toISOString(); paint(); toast(t.completedAt ? `Completed “${t.title}”` : 'Undone'); };
+window.respond = (id, ok) => {
+	const row = document.getElementById('ib-' + id);
+	if (!row) return;
+	row.remove();
+	const a = ASSIGNMENT_INBOX.find((x) => x.id === id);
+	toast(ok ? `Accepted “${a.title}”` : `Declined “${a.title}”`);
+};
 window.addTask = (e) => { e.preventDefault(); const i = document.getElementById('newTask'); if (!i.value.trim()) return; toast(`Added “${i.value.trim()}”`); i.value = ''; };
 window.toast = toast;
 

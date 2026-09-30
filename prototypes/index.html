@@ -140,7 +140,19 @@ const TREE = {
 			{ file: 'app-ui/event.html', name: 'Event detail', role: 'calendar', route: 'calendar/event/[id]/ — 435' },
 			{ file: 'app-ui/import.html', name: 'Import', role: 'calendar', route: 'calendar/import — 169' },
 			{ file: 'app-ui/account.html', name: 'Account', role: 'settings', route: 'account/ — +page.svelte 197 + 7 sections' },
-			{ file: 'app-ui/models.html', name: 'Data model', role: 'reference', route: 'lib/server/db/schema.ts — 955 lines, 39 tables' }
+			{ file: 'app-ui/models.html', name: 'Data model', role: 'reference', route: 'lib/server/db/schema.ts — 955 lines, 39 tables' },
+			{ file: 'app-ui/logo.html', name: 'Logo', role: 'brand', route: 'static/icon.svg — two marks, two palettes, neither is the brand' }
+		]
+	},
+	brand: {
+		label: 'Brand',
+		href: 'brand-ui/index.html',
+		blurb: 'The palette, the icon, the share card and the words — generated, not sourced.',
+		prototypes: [
+			{ file: 'brand-ui/theme.html', name: 'Palette & theme', role: 'brand', route: 'prototypes/calendar-ui/ → src/lib/marketing/theme.css' },
+			{ file: 'brand-ui/icon.html', name: 'Icon', role: 'brand', route: 'static/icon.svg — the off-brand clipboard, replaced at real shipping sizes' },
+			{ file: 'brand-ui/og.html', name: 'Social card', role: 'brand', route: 'zero og/twitter/canonical tags exist anywhere in the repo' },
+			{ file: 'brand-ui/copy.html', name: 'Copy', role: 'brand', route: '(marketing)/+page.svelte:34, 448 — headlines the app can back up' }
 		]
 	}
 };
@@ -176,6 +188,7 @@ const FILES = {
 	],
 	'app-ui': [
 		['index.html', 'hub', 'the page grid and the audit findings'],
+		['logo.html', 'page', 'the mark - the repo has two, in two palettes that are not the brand'],
 		['app-shell.js', 'engine', 'navbar, bottom nav, page header, toast'],
 		['app-data.js', 'data', 'mock data + all 39 tables'],
 		['proto.css', 'style', 'design tokens'],
@@ -184,6 +197,18 @@ const FILES = {
 		['drag.js', 'overlay', 'the one movable thing (copy of the skill asset)'],
 		['dock.js', 'overlay', 'the collapsed launcher for both tools'],
 		['app-check.mjs', 'test', 'eight sections, all derived from the repo'],
+		['README.md', 'doc', 'how to run, how to mark up']
+	],
+	'brand-ui': [
+		['index.html', 'hub', 'the palette, what exists today, how the assets are built'],
+		['theme.html', 'page', 'the calendar prototype page, read off and named'],
+		['icon.html', 'page', 'three marks and a synthesis, at the sizes they ship at'],
+		['og.html', 'page', 'four headlines on one 1200×630 card, and the tags to wire'],
+		['copy.html', 'page', 'five headlines, each checked against what the app can do'],
+		['marks.js', 'data', 'every mark and card as a function — the one source'],
+		['brand-shell.js', 'engine', 'card, column, header — deliberately NOT the app navbar'],
+		['rasters', 'output', 'the real PNGs, same bytes as static/brand/, written by brand:build'],
+		['brand-check.mjs', 'test', 'hub vs directory, stated questions, assets, raster drift'],
 		['README.md', 'doc', 'how to run, how to mark up']
 	]
 };
@@ -197,7 +222,8 @@ const ROLE = {
 	comms:     ['', 'pill-blue', 'comms'],
 	calendar:  ['', 'pill-blue', 'calendar'],
 	settings:  ['', 'pill-token', 'settings'],
-	reference: ['', 'pill-glass', 'reference']
+	reference: ['', 'pill-glass', 'reference'],
+	brand:     ['', 'pill-peach', 'brand']
 };
 
 /* ── feedback tallies, straight from the shared store ───────────────── */

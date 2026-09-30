@@ -175,6 +175,11 @@ main { flex: 1 1 auto; }
 	box-shadow: 0 1px 2px rgba(0,0,0,.05);
 }
 .pill-token { background: var(--p100); color: var(--p700); }
+/* brand-ui only. --peach and --peach-ink were already tokens with no role
+   claiming them, so this adds no new colour to the palette. The two proto.css
+   files in this repo are duplicates and nothing kept them in step, so the
+   comment names neither of them: brand-check.mjs §2 fails on any drift. */
+.pill-peach { background: var(--peach); color: var(--peach-ink); }
 .pill-xs { font-size: 0.6875rem; font-weight: 600; padding: 0.125rem 0.5rem; }
 
 /* ----------------------------------------------------------------- orbs  */
@@ -252,17 +257,17 @@ main { flex: 1 1 auto; }
 .chip:hover { filter: brightness(0.97); transform: translateY(-1px); }
 .chip:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--p400); }
 .chip__time { font-size: 0.625rem; font-weight: 700; opacity: .7; font-variant-numeric: tabular-nums; flex: none; }
-.chip__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chip__dot { height: 0.375rem; width: 0.375rem; border-radius: 9999px; flex: none; }
+.chip__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
-.chip--blush  { background: rgba(254,213,207,.55); box-shadow: inset 3px 0 0 var(--terracotta); }
-.chip--blue   { background: rgba(190,218,227,.55); box-shadow: inset 3px 0 0 var(--blue-ink); }
-.chip--mint   { background: rgba(196,233,218,.55); box-shadow: inset 3px 0 0 var(--mint-ink); }
-.chip--peach  { background: rgba(241,181,152,.5);  box-shadow: inset 3px 0 0 var(--peach-ink); }
-.chip--lav    { background: rgba(211,199,230,.55); box-shadow: inset 3px 0 0 var(--lavender-ink); }
-.chip--solid  { background: var(--terracotta); color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
-.chip--solid .chip__time { opacity: .85; }
-
+/* #068 — the vocabulary. SHAPE carries the kind, COLOUR carries the calendar,
+   and no kind has a background fill: the all-day tint is gone, so the fill
+   stops carrying meaning. Mirrors chipVocabulary.ts, one rule per kind. */
+.chip--timed,
+.chip--allDay { background: #fff; box-shadow: inset 3px 0 0 var(--chip-color, #94a3b8); }
+.chip--sponsored {
+	background: #fff; border: 1px solid var(--chip-color, #94a3b8);
+	border-left-width: 3px; box-shadow: none;
+}
 .chip--task {
 	background: #fff; border: 1.5px dashed var(--s300); color: var(--s700);
 	font-weight: 600; box-shadow: none;
@@ -270,10 +275,20 @@ main { flex: 1 1 auto; }
 .chip--task:hover { background: var(--s50); border-color: var(--p300); }
 .chip--task.is-overdue { border-color: #f87171; color: #b91c1c; background: #fef2f2; }
 .chip--task.is-done { opacity: .5; text-decoration: line-through; }
-.chip__check { height: .875rem; width: .875rem; border-radius: 9999px; border: 2px solid var(--s300); flex: none; }
-.chip--task.is-overdue .chip__check { border-color: #ef4444; }
+.chip--ad { color: #92400e; }
 
-.chip--ad { background: #fffbeb; box-shadow: inset 3px 0 0 #f59e0b; color: #92400e; }
+/* the mark — the prototype's ChipKindMark.svelte. 10px box, 2px gap. */
+.kmark { display: inline-flex; align-items: center; flex: none; vertical-align: -1px; }
+.kmark__word {
+	font-size: 9px; font-weight: 700; line-height: 1; letter-spacing: .05em;
+	text-transform: uppercase; opacity: .7; flex: none;
+}
+.chip--task .kmark__word { color: var(--s500); opacity: 1; }
+.chip--sponsored .kmark__word { color: var(--s600); opacity: 1; }
+.sr-only {
+	position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+	overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
 .chip__more {
 	display: inline-flex; align-items: center; gap: 0.25rem; border: 0; background: transparent;
 	cursor: pointer; font-family: inherit; font-size: 0.6875rem; font-weight: 700;
@@ -359,6 +374,7 @@ main { flex: 1 1 auto; }
 .nextrow:hover { background: var(--s50); }
 .nextrow__rail { width: 3px; align-self: stretch; border-radius: 9999px; flex: none; }
 .nextrow__t { font-size: 0.6875rem; font-weight: 700; color: var(--s400); text-transform: uppercase; letter-spacing: .05em; }
+.nextrow__meta { display: flex; align-items: center; gap: .3125rem; }
 .nextrow__n { font-size: 0.875rem; font-weight: 700; color: var(--s800); line-height: 1.25; }
 .nextrow__m { font-size: 0.75rem; color: var(--s500); }
 
@@ -378,8 +394,24 @@ main { flex: 1 1 auto; }
 	box-shadow: 0 1px 2px rgba(0,0,0,.06); transition: box-shadow 150ms;
 }
 .wk__ev:hover { box-shadow: 0 8px 16px -6px rgba(0,0,0,.2); }
-.wk__ev strong { display: block; font-weight: 700; }
-.wk__ev span { opacity: .7; font-weight: 600; }
+.wk__ev strong { display: flex; align-items: center; gap: .25rem; font-weight: 700; }
+.wk__ev strong > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wk__ev > span { opacity: .7; font-weight: 600; }
+/* #068: the week grid is a glyph view, and no kind has a fill any more —
+   the box is white and the 3px rail in the calendar colour does the naming. */
+.wk__ev.chip--timed, .wk__ev.chip--allDay { background: #fff; box-shadow: inset 3px 0 0 var(--chip-color, #94a3b8), 0 1px 2px rgba(0,0,0,.06); }
+.wk__ev.chip--sponsored { background: #fff; border: 1px solid var(--chip-color, #94a3b8); border-left-width: 3px; box-shadow: none; }
+.wk__ev.chip--sponsored:hover { box-shadow: 0 8px 16px -6px rgba(0,0,0,.2); }
+
+/* the week all-day band — glyph view, white box, rail in the calendar colour */
+.wk__band {
+	display: flex; align-items: center; gap: .25rem; border-radius: .375rem;
+	background: #fff; box-shadow: inset 3px 0 0 var(--chip-color, #94a3b8);
+	padding: .125rem .25rem; font-size: .625rem; font-weight: 700;
+	overflow: hidden;
+}
+.wk__band.chip--sponsored { border: 1px solid var(--chip-color, #94a3b8); border-left-width: 3px; }
+.wk__bandt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .wk__now { position: absolute; left: 0; right: 0; height: 2px; background: var(--terracotta); z-index: 5; pointer-events: none; }
 .wk__now::before { content: ''; position: absolute; left: -0.3rem; top: -0.25rem; height: .625rem; width: .625rem; border-radius: 9999px; background: var(--terracotta); box-shadow: 0 0 0 3px rgba(254,213,207,.8); }
 

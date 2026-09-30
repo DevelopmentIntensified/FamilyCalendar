@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Brand — FamilyPlanz</title>
+<link rel="stylesheet" href="../app-ui/proto.css" />
+<link rel="stylesheet" href="../app-ui/feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "brand-hub", "label": "Brand hub", "family": "brand-ui",
+  "question": "The repo has four palettes, four spellings of the product name, one off-brand icon pulled off svgrepo, and no social card at all — which of those is a design decision, and which is just drift nobody has had to look at yet?",
+  "thesis": "Everything the outside of this product is made of, generated rather than sourced, in one palette, from one set of paths. Three pages, each answering one question, and a palette decision at the top that has to be made before any of it ships.",
+  "realPage": "static/ — icon.svg, manifest.webmanifest, theme-preview.html; and src/app.html, which is the only head that exists"
+}
+</script>
+<style>
+	/* The hub wash and orbs are the shared .orb classes from proto.css, not a
+	   second hand-rolled set of rgba() values — calendar-ui's hero is the
+	   reference, and it is built from tokens. */
+	.hero { position: relative; overflow: hidden; border-radius: 2rem; padding: 2.5rem 2rem; background: linear-gradient(140deg, rgba(190,218,227,.35), #fff 45%, rgba(254,213,207,.4)); }
+	@media (max-width: 700px) { .hero { padding: 1.75rem 1.25rem; } }
+	.hero h1 { margin: 0; font-size: 2.25rem; font-weight: 800; letter-spacing: -.03em; color: var(--s900); }
+	@media (max-width: 700px) { .hero h1 { font-size: 1.6rem; } }
+	.pgrid { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+	@media (min-width: 780px) { .pgrid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+	.pcard { display: flex; flex-direction: column; gap: .625rem; padding: 1.125rem 1.25rem; text-decoration: none; }
+	.pcard:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -14px rgba(0,0,0,.22); }
+	.pcard__q { font-size: .875rem; line-height: 1.6; color: var(--s600); }
+	.pcard__t { font-size: .8125rem; line-height: 1.6; color: var(--s500); }
+	.pcard__src { font: 400 .6875rem/1.5 ui-monospace, Menlo, monospace; color: var(--s400); margin-top: auto; padding-top: .5rem; border-top: 1px solid var(--s100); }
+	.sw { display: flex; gap: .5rem; flex-wrap: wrap; }
+	.sw figure { margin: 0; text-align: center; }
+	.sw figcaption { margin-top: .375rem; font: 600 .625rem/1.4 ui-monospace, Menlo, monospace; color: var(--s400); }
+	.sw__c { width: 3.5rem; height: 3.5rem; border-radius: .75rem; }
+	.rows { display: flex; flex-direction: column; }
+	.row { display: flex; gap: .75rem; padding: .625rem 0; align-items: flex-start; }
+	.row + .row { border-top: 1px solid var(--s100); }
+	.row__t { font-size: .8125rem; font-weight: 700; color: var(--s900); flex: none; width: 11rem; }
+	.row__d { font-size: .8125rem; line-height: 1.6; color: var(--s600); }
+	code { font: 600 .8125em ui-monospace, Menlo, monospace; background: var(--s100); padding: .1rem .3rem; border-radius: .25rem; color: var(--s700); }
+	.decision { border: 1px solid var(--peach); background: linear-gradient(140deg, rgba(241,181,152,.35), #fff); border-radius: 1rem; padding: 1.125rem 1.25rem; }
+	.decision h3 { margin: 0 0 .5rem; font-size: 1rem; font-weight: 800; color: var(--s900); }
+	.decision ol { margin: 0; padding-left: 1.125rem; font-size: .875rem; line-height: 1.75; color: var(--s700); }
+</style>
+</head>
+<body>
+<script src="../app-ui/drag.js"></script>
+<script src="../app-ui/dock.js"></script>
+<script src="../app-ui/feedback.js" defer></script>
+<script type="module">
+import { MARKS, T, OG } from './marks.js';
+import { card, column, el, head, inner } from './brand-shell.js';
+
+const body = column();
+
+/* Kept in sync with the directory by brand-check.mjs — the hub cannot list a
+   page that is not there, or miss one that is. */
+const PAGES = [
+	{ file: 'theme.html', label: 'Palette & theme', tag: 'Colour', q: 'What does the calendar prototype page actually specify, and is that enough to name?', src: 'prototypes/calendar-ui/ → src/lib/marketing/theme.css' },
+	{ file: 'icon.html', label: 'Icon', tag: 'Mark', q: 'Which of the three marks survives being shrunk to 16 pixels?', src: 'static/icon.svg — the svgrepo clipboard, off-brand' },
+	{ file: 'og.html', label: 'Social card', tag: 'Share', q: 'What should a shared link look like when it lands in a chat?', src: 'zero og/twitter tags exist in the repo' },
+	{ file: 'copy.html', label: 'Copy', tag: 'Words', q: 'Which headline can the app actually back up?', src: '(marketing)/+page.svelte:34, 448' }
+];
+
+/* ── hero ──────────────────────────────────────────────────────────────── */
+const hero = el('div', 'hero');
+hero.setAttribute('data-fb', 'hub-hero');
+hero.setAttribute('data-fb-label', 'Hub header');
+hero.innerHTML = `
+	<div class="orb orb-peach" style="right:-3rem;top:-3rem;height:11rem;width:11rem"></div>
+	<div class="orb orb-mint" style="left:30%;bottom:-4rem;height:9rem;width:9rem"></div>
+	<div style="position:relative">
+		<div style="display:flex;align-items:center;gap:.875rem">
+			<svg viewBox="0 0 512 512" width="56" height="56" style="flex:none">${inner(MARKS.mark.svg)}</svg>
+			<div>
+				<div style="font-size:1.25rem;font-weight:800;letter-spacing:-.02em;color:var(--s900)">Family Planz</div>
+				<div style="font-size:.8125rem;font-weight:600;color:var(--s500)">The shared family calendar</div>
+			</div>
+		</div>
+		<h1 style="margin:1.25rem 0 0">Everything outside the product</h1>
+		<p class="hint" style="margin:.5rem 0 0;max-width:46rem;font-size:.9375rem;line-height:1.7">
+			The icon, the share card and the words. <b>Generated, not sourced</b> — the mark that ships
+			today came off svgrepo and matches nothing, and the hero photo is hotlinked from Pexels.
+			Every asset here is drawn from <code>marks.js</code> in one palette and rendered to
+			<code>static/brand/</code> by <code>npm run brand:build</code>.
+		</p>
+		<div class="rowflex" style="margin-top:1.25rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+			<span class="pill pill-xs pill-token">prototypes / brand-ui</span>
+			<span class="pill pill-xs pill-blush">${PAGES.length} pages</span>
+			<span class="pill pill-xs pill-blush">3 marks · 4 headlines</span>
+			<a class="btn btn-primary btn-sm" href="../index.html">All prototypes (tree) →</a>
+			<a class="btn btn-soft btn-sm" href="../app-ui/index.html">← App prototypes</a>
+		</div>
+	</div>`;
+body.appendChild(hero);
+
+/* ── the three pages ───────────────────────────────────────────────────── */
+{
+	const g = el('div', 'pgrid');
+	g.setAttribute('data-fb', 'page-grid');
+	g.setAttribute('data-fb-label', 'Page grid');
+	g.innerHTML = PAGES.map((p) => `
+		<a class="card pcard" href="${p.file}">
+			<div style="display:flex;align-items:center;gap:.5rem">
+				<span style="font-size:1rem;font-weight:800;color:var(--s900)">${p.label}</span>
+				<span class="pill pill-xs pill-token" style="margin-left:auto">${p.tag}</span>
+			</div>
+			<div class="pcard__q">${p.q}</div>
+			<div class="pcard__src">${p.src}</div>
+		</a>`).join('');
+	body.appendChild(g);
+}
+
+/* ── the palette, which is a decision and not a fact ───────────────────── */
+{
+	const c = el('div');
+	c.setAttribute('data-fb', 'brand-palette');
+	c.setAttribute('data-fb-label', 'The palette');
+	const swatches = [
+		['canvas', T.canvas, 'the paper'],
+		['terracotta', T.terracotta, 'the brand'],
+		['blush', T.blush, 'card head'],
+		['peach', T.peach, 'accent'],
+		['sky', T.sky, 'data'],
+		['mint', T.mint, 'done'],
+		['ink', T.ink, 'text']
+	];
+	c.innerHTML = `
+		<div style="font-size:1rem;font-weight:800;color:var(--s900);margin-bottom:.25rem">One palette, from the prototypes</div>
+		<p class="hint" style="margin:0 0 1rem">Taken from <code>prototypes/app-ui/proto.css</code>, which is the
+		only palette in the repo the whole estate already agrees on. Every asset in this set is built from
+		these seven values and nothing else.</p>
+		<div class="sw">${swatches.map(([n, hex, use]) => `
+			<figure>
+				<div class="sw__c" style="background:${hex};border:1px solid rgba(0,0,0,.08)"></div>
+				<figcaption>${n}<br>${hex}<br>${use}</figcaption>
+			</figure>`).join('')}</div>
+		<div class="decision" style="margin-top:1.25rem">
+			<h3>The decision this set cannot make for you</h3>
+			<ol>
+				<li>The marketing pages use <code>#c45e38</code> and the app's Tailwind <code>primary</code> is
+				<code>#dd5822</code> — two oranges, close enough to be a mistake and different enough to be visible
+				side by side. This set uses the marketing one, because the marketing pages are the brand.</li>
+				<li><code>theme_color</code> is <code>#dd5822</code> in the manifest and in <code>app.html</code>. If
+				the marketing palette wins, that becomes <code>#c45e38</code>.</li>
+				<li><code>app.css</code> sets <code>::selection</code> to a sky blue
+				(<code>rgba(14,165,233,.2)</code>) that appears in no palette in the repo. One of these is a typo.</li>
+				<li><code>static/theme-preview.html</code> is a <i>fourth</i> palette — sky, peach, mint, ink — that
+				nothing adopts. It is where this set's colours came from before they were reconciled with
+				<code>proto.css</code>, and it is the reason the answer is not a guess.</li>
+			</ol>
+		</div>`;
+	body.appendChild(card(c.innerHTML, 'brand-palette-card', 'The palette'));
+}
+
+/* ── the state of the outside of the product ───────────────────────────── */
+{
+	const c = el('div');
+	c.setAttribute('data-fb', 'brand-state');
+	c.setAttribute('data-fb-label', 'What exists today');
+	const rows = [
+		['icon.svg', 'A clipboard from svgrepo, sky blue and yellow, on a 120×120 viewBox. Replaced here by a mark on the palette.'],
+		['theme_color', '<code>#dd5822</code> — neither of the two oranges the pages actually use.'],
+		['manifest icons', 'Three entries, all <code>purpose: "any"</code>. No maskable icon, so Android crops the tile\'s own rounded corners.'],
+		['og:image', 'None. No og, no twitter, no canonical, anywhere in the repo.'],
+		['hero photo', 'Hotlinked from Pexels — an external dependency in the first screen a visitor sees.'],
+		['wordmark', 'None. Three duplicated inline SVGs, each followed by a plain text span.'],
+		['robots.txt', 'None, so <code>/account</code> and every <code>/api/*</code> route is crawlable.'],
+		['sitemap.xml', 'None, for 13 marketing routes.'],
+		['app name', 'Spelled four ways. "Family Master" is a retired tier and is still a page title.']
+	];
+	c.innerHTML = `
+		<div style="font-size:1rem;font-weight:800;color:var(--s900);margin-bottom:.5rem">What the outside of this product is made of today</div>
+		<div class="rows">${rows.map(([k, v]) => `
+			<div class="row"><div class="row__t">${k}</div><div class="row__d">${v}</div></div>`).join('')}</div>`;
+	body.appendChild(card(c.innerHTML, 'brand-state-card', 'What exists today'));
+}
+
+/* ── how the assets are made, which is the part that has to survive ────── */
+{
+	const c = el('div');
+	c.setAttribute('data-fb', 'brand-build');
+	c.setAttribute('data-fb-label', 'How it is built');
+	c.innerHTML = `
+		<div class="rows">
+			<div class="row"><div class="row__t">one source</div><div class="row__d">Every mark and every card is
+			a function in <code>marks.js</code>. Nothing in <code>static/brand/</code> is hand-edited, so a page
+			and the shipped file cannot disagree.</div></div>
+			<div class="row"><div class="row__t">npm run brand:build</div><div class="row__d">Renders the SVGs and
+			rasterises them in Chromium — the Playwright the repo already has — into
+			<code>static/brand/</code> and into this set's <code>rasters/</code>.</div></div>
+			<div class="row"><div class="row__t">npm run brand:check</div><div class="row__d">Fails if any file has
+			drifted from <code>marks.js</code>. Compares <b>decoded pixels</b>, not PNG bytes: a PNG carries
+			encoder metadata, so two renders of identical art differ byte-for-byte after a browser bump.</div></div>
+			<div class="row"><div class="row__t">no new deps</div><div class="row__d">No image library. Chromium
+			already answers "how does this actually look", which is the only question that matters for a mark.</div></div>
+		</div>`;
+	body.appendChild(card(c.innerHTML, 'brand-build-card', 'How it is built'));
+}
+
+document.body.appendChild(body);
+</script>
+</body>
+</html>

@@ -7,7 +7,8 @@
 import {
 	CALENDARS, MONTHS, MONTHS_SHORT, buildEvents, TASKS,
 	monthGridTrimmed, monthGrid, dowRow, chunkRows, chipHTML, taskChipHTML,
-	to12, durLabel, esc, visibleEvents, createShellState, iso
+	to12, durLabel, esc, visibleEvents, createShellState, iso,
+	chipKindOf, chipMarkHTML, chipSurfaceStyle
 } from './proto-data.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -124,13 +125,21 @@ export function mount(opts) {
 										selected: state.picked.has(e.id),
 										showTime: false,
 										showBox: state.selectMode,
-										drag: true
+										drag: true,
+										// #068: a month cell is a GLYPH view. The word
+										// would eat the title at 320px, so the shape and
+										// the screen-reader phrase carry the kind instead.
+										density: 'glyph'
 									})
 								)
 								.join('') +
 							shownT
 								.map((t) =>
-									taskChipHTML(t, { selected: state.picked.has(t.id), showBox: state.selectMode })
+									taskChipHTML(t, {
+										selected: state.picked.has(t.id),
+										showBox: state.selectMode,
+										density: 'glyph'
+									})
 								)
 								.join('');
 
@@ -190,14 +199,16 @@ export function mount(opts) {
 					.map((lane, li) =>
 						lane
 							.map(({ s, en, e }) => {
-								const cal = CALENDARS.find((x) => x.id === e.cal) ?? CALENDARS[0];
+								const kind = chipKindOf(e);
 								const top = (s / 1440) * 100;
 								const h = Math.max(((en - s) / 1440) * 100, 2.4);
 								const w = 100 / total;
-								return `<button class="wk__ev" draggable="true" data-ev="${e.id}"
+								// #068: the week grid is a GLYPH view too — a day column is
+								// ~35px at 320px, so a word would leave less than the name.
+								return `<button class="wk__ev chip--${kind}" draggable="true" data-ev="${e.id}" data-chip-kind="${kind}"
 									style="top:${top}%;height:${h}%;left:${(li * w).toFixed(3)}%;width:calc(${w.toFixed(3)}% - 5px);
-									background:${rgba(cal.sw, 0.2)};box-shadow:inset 3px 0 0 ${cal.sw}, 0 1px 2px rgba(0,0,0,.06)">
-									<strong>${esc(e.title)}</strong>
+									${chipSurfaceStyle(e)}">
+									<strong>${chipMarkHTML(kind, 'glyph')}<span>${esc(e.title)}</span></strong>
 									${h > 4 ? `<span>${to12(e.start)}</span>` : ''}
 								</button>`;
 							})
@@ -214,8 +225,13 @@ export function mount(opts) {
 				const items = evsFor(c.d, c.m, c.y).filter((e) => e.allDay);
 				return `<div class="wk__c" style="min-height:1.75rem;padding:.25rem .25rem 0">${items
 					.map((e) => {
-						const cal = CALENDARS.find((x) => x.id === e.cal) ?? CALENDARS[0];
-						return `<div style="border-radius:.375rem;background:${rgba(cal.sw, 0.22)};box-shadow:inset 2px 0 0 ${cal.sw};padding:.125rem .25rem;font-size:.625rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.title)}</div>`;
+						const kind = chipKindOf(e);
+						// #068: the band header already reads "All day" for every column,
+						// so a word per chip would only repeat it — glyph view.
+						return `<div class="wk__band" data-chip-kind="${kind}" style="${chipSurfaceStyle(e)}">${chipMarkHTML(
+							kind,
+							'glyph'
+						)}<span class="wk__bandt">${esc(e.title)}</span></div>`;
 					})
 					.join('')}</div>`;
 			})
@@ -254,7 +270,12 @@ export function mount(opts) {
 	/* --------------------------------------------------------- day view  */
 	function dayView() {
 		const d = state.activeDay;
-		const evs = evsFor(d);
+		const allEvs = evsFor(d);
+		// #068: an all-day event is a bar, not a 24-hour block, so it never
+		// enters an hour grid. The app splits it the same way
+		// (DayAllDayList above DayHourGrid) and both halves are word views.
+		const allDayEvs = allEvs.filter((e) => e.allDay);
+		const evs = allEvs.filter((e) => !e.allDay);
 		const tsks = tskFor(d);
 		const HOUR_H = 56;
 		const rows = Array.from({ length: 24 }, (_, h) => {
@@ -278,11 +299,13 @@ export function mount(opts) {
 			.map((lane, li) =>
 				lane
 					.map(({ s, en, e }) => {
-						const cal = CALENDARS.find((x) => x.id === e.cal) ?? CALENDARS[0];
+						const kind = chipKindOf(e);
 						const w = 100 / total;
-						return `<button class="wk__ev" draggable="true" data-ev="${e.id}"
-							style="top:${(s / 1440) * 100}%;height:${Math.max(((en - s) / 1440) * 100, 2.6)}%;left:${(li * w).toFixed(3)}%;width:calc(${w.toFixed(3)}% - 8px);background:${rgba(cal.sw, 0.2)};box-shadow:inset 3px 0 0 ${cal.sw}, 0 2px 6px rgba(0,0,0,.08)">
-							<strong>${esc(e.title)}</strong><span>${to12(e.start)} – ${to12(minsToHHMM(s + e.durMin))}</span>
+						// #068: one column leaves ~250px of chip at 320px, so the day grid
+						// IS a word view — the kind rides beside the title on every row.
+						return `<button class="wk__ev chip--${kind}" draggable="true" data-ev="${e.id}" data-chip-kind="${kind}"
+							style="top:${(s / 1440) * 100}%;height:${Math.max(((en - s) / 1440) * 100, 2.6)}%;left:${(li * w).toFixed(3)}%;width:calc(${w.toFixed(3)}% - 8px);${chipSurfaceStyle(e)}">
+							<strong>${chipMarkHTML(kind, 'word')}<span>${esc(e.title)}</span></strong><span>${to12(e.start)} – ${to12(minsToHHMM(s + e.durMin))}</span>
 						</button>`;
 					})
 					.join('')
@@ -297,11 +320,14 @@ export function mount(opts) {
 			<button class="btn btn-soft btn-sm" data-act="back">${ICON.chevL} <span class="hide-sm">Back</span></button>
 			<div class="stack-1" style="text-align:center">
 				<div style="font-size:1.125rem;font-weight:800;color:var(--s900)">${dateLine}, ${MONTHS_SHORT[state.month - 1]} ${d}</div>
-				<div class="hint">${evs.length} event${evs.length === 1 ? '' : 's'} · ${tsks.length} task${tsks.length === 1 ? '' : 's'} due</div>
+				<div class="hint">${evs.length} event${evs.length === 1 ? '' : 's'}${allDayEvs.length ? ` · ${allDayEvs.length} all day` : ''} · ${tsks.length} task${tsks.length === 1 ? '' : 's'} due</div>
 			</div>
 			<button class="btn btn-primary btn-sm" data-act="new-day">${ICON.plus} New</button>
 		</div>
 		<div class="wk">
+			${allDayEvs.length ? `<div style="padding:.75rem 1rem;background:rgba(255,255,255,.6);border-bottom:1px solid var(--s200);display:flex;gap:.5rem;flex-wrap:wrap">
+				${allDayEvs.map((e) => chipHTML(e, { density: 'word' })).join('')}
+			</div>` : ''}
 			<div style="padding:.75rem 1rem;background:rgba(255,255,255,.6);border-bottom:1px solid var(--s200);display:flex;gap:.5rem;flex-wrap:wrap">
 				${tsks.length ? tsks.map((t) => taskChipHTML(t, { showBox: false })).join('') : ''}
 				${tsks.length ? '' : '<span class="hint">No tasks due.</span>'}
@@ -331,10 +357,11 @@ export function mount(opts) {
 				const rows =
 					evs
 						.map(
-							(e) => `<button class="nextrow" data-ev="${e.id}">
+							(e) => `<button class="nextrow" data-ev="${e.id}" data-chip-kind="${chipKindOf(e)}"
+								style="--chip-color:${(CALENDARS.find((x) => x.id === e.cal) ?? CALENDARS[0]).sw}">
 								<span class="nextrow__rail" style="background:${(CALENDARS.find((x) => x.id === e.cal) ?? CALENDARS[0]).sw}"></span>
-								<span style="flex:1">
-									<span class="nextrow__t" style="display:block">${to12(e.start)} · ${durLabel(e.durMin)}</span>
+								<span style="flex:1;min-width:0">
+									<span class="nextrow__t nextrow__meta">${chipMarkHTML(chipKindOf(e), 'word')}<span>${e.allDay ? 'All day' : `${to12(e.start)} · ${durLabel(e.durMin)}`}</span></span>
 									<span class="nextrow__n" style="display:block">${esc(e.title)}</span>
 									${e.where ? `<span class="nextrow__m" style="display:block">${esc(e.where)}</span>` : ''}
 								</span>
@@ -343,10 +370,10 @@ export function mount(opts) {
 						.join('') +
 					tsks
 						.map(
-							(t) => `<button class="nextrow" data-task="${t.id}">
+							(t) => `<button class="nextrow" data-task="${t.id}" data-chip-kind="task">
 								<span class="nextrow__rail" style="background:var(--s300)"></span>
-								<span style="flex:1">
-									<span class="nextrow__t" style="display:block">Task · ${esc(t.due)}</span>
+								<span style="flex:1;min-width:0">
+									<span class="nextrow__t nextrow__meta">${chipMarkHTML('task', 'word')}<span>Task · ${esc(t.due)}</span></span>
 									<span class="nextrow__n" style="display:block">${esc(t.title)}</span>
 								</span>
 							</button>`
@@ -389,10 +416,11 @@ export function mount(opts) {
 		}
 		return out
 			.map(
-				({ e, c }) => `<button class="nextrow" data-ev="${e.id}">
+				({ e, c }) => `<button class="nextrow" data-ev="${e.id}" data-chip-kind="${chipKindOf(e)}"
+					style="--chip-color:${(CALENDARS.find((x) => x.id === e.cal) ?? CALENDARS[0]).sw}">
 					<span class="nextrow__rail" style="background:${(CALENDARS.find((x) => x.id === e.cal) ?? CALENDARS[0]).sw}"></span>
 					<span style="flex:1;min-width:0">
-						<span class="nextrow__t" style="display:block">${c.d === state.today ? 'Today' : c.d === state.today + 1 ? 'Tomorrow' : `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow(c)]} ${c.d} ${MONTHS_SHORT[c.m - 1]}`} · ${to12(e.start)}</span>
+						<span class="nextrow__t nextrow__meta">${chipMarkHTML(chipKindOf(e), 'word')}<span>${c.d === state.today ? 'Today' : c.d === state.today + 1 ? 'Tomorrow' : `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow(c)]} ${c.d} ${MONTHS_SHORT[c.m - 1]}`}${e.allDay ? '' : ` · ${to12(e.start)}`}</span></span>
 						<span class="nextrow__n truncate" style="display:block">${esc(e.title)}</span>
 						${e.where ? `<span class="nextrow__m truncate" style="display:block">${esc(e.where)}</span>` : ''}
 					</span>
@@ -420,7 +448,7 @@ export function mount(opts) {
 				<div class="rail__card" style="background:var(--canvas)">
 					<div class="rail__title">${ICON.cal} When</div>
 					<div style="font-size:.9375rem;font-weight:600;color:var(--s800)">${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dow({ y: 0, m: 0, d: (ev.day + firstDow - 1) % 7 })]}, ${MONTHS_SHORT[state.month - 1]} ${ev.day}</div>
-					<div style="font-size:.875rem;color:var(--s500)">${to12(ev.start)} – ${to12(end)} · ${durLabel(ev.durMin)}</div>
+					<div style="font-size:.875rem;color:var(--s500)">${ev.allDay ? 'All day' : `${to12(ev.start)} – ${to12(end)} · ${durLabel(ev.durMin)}`}</div>
 				</div>
 				${ev.where ? `<div class="rail__card" style="background:var(--canvas)"><div class="rail__title">Where</div><div style="font-size:.9375rem;color:var(--s800)">${esc(ev.where)}</div></div>` : ''}
 				${ev.attendance ? `<div class="rail__card" style="background:var(--canvas)"><div class="rail__title">Going</div>

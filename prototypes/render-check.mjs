@@ -40,14 +40,17 @@ function serverIsUp(port) {
 	});
 }
 
-/** Every prototype page, derived from the directory rather than a list. */
+/** Every prototype page, derived from the directory rather than a list.
+ *  A SET is any directory holding html — previously the two names were
+ *  hardcoded, so a third set was never loaded into a browser and a blank page
+ *  in it would have passed this check. */
 function pages(dir = ROOT, prefix = '') {
 	const out = [];
 	for (const entry of readdirSync(dir)) {
 		if (entry === 'node_modules' || entry === 'feedback' || entry === 'assets') continue;
 		const full = join(dir, entry);
 		if (statSync(full).isDirectory()) {
-			if (entry === 'calendar-ui' || entry === 'app-ui') out.push(...pages(full, `${prefix}/${entry}`));
+			if (readdirSync(full).some((f) => f.endsWith('.html'))) out.push(...pages(full, `${prefix}/${entry}`));
 			continue;
 		}
 		if (entry.endsWith('.html')) out.push(`${prefix}/${entry}`);

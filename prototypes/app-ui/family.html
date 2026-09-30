@@ -10,15 +10,30 @@
 {
   "id": "family", "label": "Family (list)", "family": "app-ui",
   "question": "Is a list of families the right landing page, or should this be a people page?",
-  "thesis": "The family as the unit, with the members and modules one click in. Real page is 209 lines; the member page it links to is 793.",
+  "thesis": "The family as the unit, with the members and modules one click in. Real page is 209 lines; the member page it links to is 829.",
   "realPage": "src/routes/(family)/family/ — +page.svelte 209, +page.server.ts 22"
 }
 </script>
 <style>
-	.grid2 { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	/* 077 band rhythm, applied to this page too: one gap between bands
+	   (1.25rem = the app's `gap-5`), one padding inside a band. */
+	.grid2 { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
 	@media (min-width: 1000px) { .grid2 { grid-template-columns: minmax(0, 1fr) 19rem; } }
-	.famcard { position: relative; overflow: hidden; border-radius: 1.5rem; padding: 1.5rem; }
+	.col { display: flex; flex-direction: column; gap: 1.25rem; }
+	.famcard { position: relative; overflow: hidden; border-radius: 1.5rem; padding: 1.75rem; }
 	.famcard__glow { position: absolute; right: -2.5rem; bottom: -2.5rem; height: 9rem; width: 9rem; border-radius: 9999px; filter: blur(24px); }
+	.famdot { height: 2.75rem; width: 2.75rem; border-radius: 9999px; flex: none; display: grid; place-items: center; color: #fff; font: 800 1.125rem/1 inherit; }
+	/* one baseline, one separator, one height — the stat strip is a table, not
+	   a row of differently-sized pills. Column rules sit on the cells rather
+	   than rules top and bottom of the strip, so the strip itself is not a
+	   framed block with its content at its own edge. */
+	.stats { display: flex; flex-wrap: wrap; gap: .625rem 0; margin-top: 1.25rem; padding: 1.125rem 0; }
+	.stat { display: flex; align-items: baseline; gap: .4375rem; min-width: 0; }
+	.stat + .stat { border-left: 1px solid rgba(196,120,90,.28); padding-left: 1.25rem; margin-left: 1.25rem; }
+	.stat__k { font: 700 .625rem/1.5 inherit; letter-spacing: .08em; text-transform: uppercase; color: var(--s500); }
+	.stat__v { font: 700 .8125rem/1.5 inherit; color: var(--s800); white-space: nowrap; }
+	.stat__v i { display: inline-block; height: .625rem; width: .625rem; border-radius: 9999px; margin-right: .3125rem; vertical-align: baseline; }
+	.noteline { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px dashed rgba(196,120,90,.3); }
 	.avatars { display: flex; }
 	.avatars span { height: 2.25rem; width: 2.25rem; border-radius: 9999px; display: grid; place-items: center; font: 800 .8125rem/1 inherit; border: 2px solid #fff; }
 	.avatars span + span { margin-left: -0.5rem; }
@@ -41,8 +56,8 @@ import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
 import { FAMILY, MEMBERS, INVITE, USAGE, PLAN } from './app-data.js';
 
 const grid = el('div', 'grid2');
-const main = el('div');
-const side = el('div');
+const main = el('div', 'col');
+const side = el('div', 'col');
 grid.appendChild(main);
 grid.appendChild(side);
 
@@ -52,15 +67,26 @@ fam.href = 'family-detail.html';
 fam.setAttribute('data-fb', 'family-card');
 fam.setAttribute('data-fb-label', 'Family card');
 fam.style.cssText = 'display:block;text-decoration:none;background:linear-gradient(140deg,rgba(254,213,207,.5),#fff 70%);border:1px solid rgba(254,213,207,.6)';
+/* Every value below is a column the real loader already returns —
+   families.name, families.color, families.createdAt and familyMembers.length.
+   Nothing here is invented, which is why the strip stops at three. */
 fam.innerHTML = `
 	<div class="famcard__glow" style="background:rgba(241,181,152,.4)"></div>
 	<div style="position:relative">
 	  <div class="rowflex between gap-3" style="flex-wrap:wrap">
-	    <div>
-	      <div style="font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:var(--s900)">${FAMILY.name}</div>
-	      <div class="hint" style="margin-top:.125rem">${MEMBERS.length} members · created 12 March</div>
+	    <div class="rowflex gap-3" style="min-width:0">
+	      <span class="famdot" style="background:${FAMILY.color}">${FAMILY.name[0]}</span>
+	      <div style="min-width:0">
+	        <div style="font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:var(--s900)">${FAMILY.name}</div>
+	        <div class="hint" style="margin-top:.125rem">Family · open settings, members and modules</div>
+	      </div>
 	    </div>
-	    <span class="pill pill-xs pill-mint">${USAGE.families} of ${USAGE.familyLimit} families used</span>
+	    <span class="pill pill-xs pill-mint" title="Read by /account, not by this page's loader">${USAGE.families} of ${USAGE.familyLimit} families used</span>
+	  </div>
+	  <div class="stats">
+	    <span class="stat"><span class="stat__k">Members</span><span class="stat__v">${MEMBERS.length}</span></span>
+	    <span class="stat"><span class="stat__k">Created</span><span class="stat__v">12 Mar</span></span>
+	    <span class="stat"><span class="stat__k">Colour</span><span class="stat__v"><i style="background:${FAMILY.color}"></i>${FAMILY.color.toUpperCase()}</span></span>
 	  </div>
 	  <div class="avatars" style="margin-top:1.25rem">
 	    ${MEMBERS.map((m) => `<span style="background:${m.tone}">${m.initials}</span>`).join('')}
@@ -69,6 +95,16 @@ fam.innerHTML = `
 	    <span class="btn btn-primary btn-sm">Open family</span>
 	    <span class="btn btn-soft btn-sm">Members</span>
 	    <span class="btn btn-soft btn-sm">Family tasks</span>
+	  </div>
+	  <div class="noteline">
+	    <p class="hint" style="line-height:1.7"><b>Loader truth.</b>
+	      <code>+page.server.ts</code> returns <code>{ ...family, memberCount }</code> and nothing more, so
+	      <b>open tasks</b>, <b>upcoming this week</b> and <b>last activity</b> cannot be shown on this card
+	      without inventing them. They need a <code>tasks</code> join in the loader — an app ticket, not a
+	      prototype edit. The plan pill above is read by <code>/account</code>, not here.</p>
+	    <p class="hint" style="line-height:1.7;margin-top:.5rem"><b>A real defect.</b>
+	      <code>getUserFamilies</code> takes the member's <i>first</i> <code>familyMembers</code> row and returns
+	      only that one family, so the real hero's “N families you belong to” can only ever print 1.</p>
 	  </div>
 	</div>`;
 main.appendChild(fam);
@@ -81,7 +117,7 @@ main.appendChild(card(
 	     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 10a4 4 0 100-8 4 4 0 000 8z"/></svg>
 	   </span>
 	   <span style="flex:1"><span style="display:block;font-size:.875rem;font-weight:700;color:var(--s800)">Family settings &amp; members</span>
-	   <span class="hint">793 lines — the biggest page in the app</span></span>
+	   <span class="hint">829 lines — the biggest page in the app</span></span>
 	 </a>
 	 <a class="linkrow" href="family-members-add.html" data-fb="link-add">
 	   <span style="height:2rem;width:2rem;border-radius:.625rem;display:grid;place-items:center;background:rgba(190,218,227,.6);color:var(--blue-ink);flex:none">

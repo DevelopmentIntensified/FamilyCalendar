@@ -30,7 +30,21 @@ const onDisk = (rel) => readdirSync(join(here, rel), { withFileTypes: true })
 	.map((d) => ({ name: d.name, dir: d.dir }))
 	.sort((a, b) => a.name.localeCompare(b.name));
 
-const DISK = { 'calendar-ui': onDisk('calendar-ui'), 'app-ui': onDisk('app-ui') };
+/* The sets, DISCOVERED. This used to be a literal ['calendar-ui', 'app-ui'],
+   which meant a third set was invisible to §1, §2 and §3 — the tree could
+   claim pages that do not exist, and pages that do exist could go unmentioned,
+   and the check would pass. A guard that cannot see the thing it guards is
+   worse than no guard, so the directory is the list now. */
+const SETS = readdirSync(here, { withFileTypes: true })
+	.map((d) => d.name)
+	.filter((n) => {
+		if (n === 'feedback' || !statSync(join(here, n)).isDirectory()) return false;
+		return readdirSync(join(here, n)).some((f) => f.endsWith('.html'));
+	})
+	.sort();
+
+const DISK = Object.fromEntries(SETS.map((d) => [d, onDisk(d)]));
+const ok2 = (m) => console.log('  ok   ' + m);
 
 /* Pull the FILES table out of the page source without executing it. */
 function declaredFiles() {
@@ -38,7 +52,7 @@ function declaredFiles() {
 	const block = src.slice(src.indexOf('const FILES = {'), src.indexOf('const ROLE = {'));
 	if (!block.startsWith('const FILES')) return null;
 	const out = {};
-	for (const dir of ['calendar-ui', 'app-ui']) {
+	for (const dir of SETS) {
 		const start = block.indexOf(`'${dir}': [`);
 		if (start < 0) { out[dir] = null; continue; }
 		const open = block.indexOf('[', start);
@@ -60,7 +74,7 @@ console.log('\n── 1. every file on disk is in the tree ──');
 	const declared = declaredFiles();
 	if (!declared) fail('could not read the FILES table from index.html');
 	else {
-		for (const dir of ['calendar-ui', 'app-ui']) {
+		for (const dir of SETS) {
 			if (!declared[dir]) { fail(`${dir}/ is not declared in the tree`); continue; }
 			const listed = new Set(declared[dir].map((r) => r.name));
 			const supporting = DISK[dir].filter((f) => !f.name.endsWith('.html'));
@@ -75,7 +89,7 @@ console.log('\n── 2. nothing in the tree is missing from disk ──');
 {
 	const declared = declaredFiles();
 	if (declared) {
-		for (const dir of ['calendar-ui', 'app-ui']) {
+		for (const dir of SETS) {
 			const real = new Set(DISK[dir].map((f) => f.name));
 			const ghosts = (declared[dir] || []).filter((r) => !real.has(r.name)).map((r) => r.name);
 			if (ghosts.length) fail(`${dir}/ listed in the tree but not on disk: ${ghosts.join(', ')}`);
@@ -92,10 +106,9 @@ console.log('\n── 3. every prototype the tree links to is a real page, and v
 		...[...src.matchAll(/file:\s*'([^']+\.html)'/g)].map((m) => m[1]),
 		...[...src.matchAll(/href:\s*'([^']+\.html)'/g)].map((m) => m[1])
 	])];
-	const realPages = new Set([
-		...DISK['calendar-ui'].filter((f) => f.name.endsWith('.html')).map((f) => 'calendar-ui/' + f.name),
-		...DISK['app-ui'].filter((f) => f.name.endsWith('.html')).map((f) => 'app-ui/' + f.name)
-	]);
+	const realPages = new Set(
+		SETS.flatMap((d) => DISK[d].filter((f) => f.name.endsWith('.html')).map((f) => `${d}/${f.name}`))
+	);
 	const missing = linked.filter((h) => !realPages.has(h));
 	if (missing.length) fail(`tree links to pages that do not exist: ${missing.join(', ')}`);
 	else ok(`${linked.length} page links, all resolve`);
@@ -170,17 +183,22 @@ console.log('\n── 5. the stated rules are the rules the estate obeys ──'
 	else ok('the baseline stays standalone, because it reproduces the shipped page');
 
 	// Rule: every prototype states the question it exists to answer.
-	const silent = [...DISK['calendar-ui'], ...DISK['app-ui']]
-		.filter((f) => f.name.endsWith('.html') && f.name !== 'index.html')
-		.filter((f) => {
-			const dir = DISK['calendar-ui'].includes(f) ? 'calendar-ui' : 'app-ui';
-			const s = readFileSync(join(here, dir, f.name), 'utf8');
-			const m = s.match(/id="fb-page">([\s\S]*?)<\/script>/);
-			if (!m) return true;
-			try { return !JSON.parse(m[1]).question; } catch (e) { return true; }
-		});
-	if (silent.length) fail(`page(s) with no stated question: ${silent.map((f) => f.name).join(', ')}`);
-	else ok('every prototype states the question it exists to answer');
+	// Walked per set, not off a two-name literal: a page in a set this loop
+	// does not know about has no question to check, and silently passing a page
+	// nobody was ever asked to justify is the exact failure this rule exists for.
+	const silent = SETS.flatMap((set) =>
+		DISK[set]
+			.filter((f) => f.name.endsWith('.html') && f.name !== 'index.html')
+			.map((f) => `${set}/${f.name}`)
+			.filter((rel) => {
+				const s = readFileSync(join(here, ...rel.split('/')), 'utf8');
+				const m = s.match(/id="fb-page">([\s\S]*?)<\/script>/);
+				if (!m) return true;
+				try { return !JSON.parse(m[1]).question; } catch { return true; }
+			})
+	);
+	if (silent.length) fail(`page(s) with no stated question: ${silent.join(', ')}`);
+	else ok(`every prototype across ${SETS.length} sets states the question it exists to answer`);
 
 	// Rule: defects in the real app are shown, not smoothed over.
 	const hub = read('app-ui/index.html');

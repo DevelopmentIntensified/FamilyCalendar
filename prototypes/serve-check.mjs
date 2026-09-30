@@ -110,12 +110,22 @@ console.log('\n── 3. every page runs its own module without throwing ──'
 }
 
 
-console.log('\n── 4. the two index.html pages are different pages ──');
+console.log('\n── 4. every set hub is a different page ──');
 {
-	const a = await (await fetch(BASE + '/calendar-ui/index.html')).text();
-	const b = await (await fetch(BASE + '/app-ui/index.html')).text();
-	if (a === b) fail('both index.html serve the same content');
-	else ok('distinct content — the two hubs are not colliding');
+	// Two sets serving the same index.html means the collector is resolving them
+	// to one file, and one set is invisible. Scoped to the tree's declared
+	// sections, so a stray directory in prototypes/ cannot fail the estate.
+	const tree = await (await fetch(BASE + '/')).text();
+	const hubs = [...new Set([...tree.matchAll(/href:\s*'([^']+\/index\.html)'/g)].map((m) => m[1]))];
+	const seen = new Map();
+	for (const hub of hubs) {
+		const res = await fetch(`${BASE}/${hub}`);
+		if (!res.ok) { fail(`${hub} — HTTP ${res.status}`); continue; }
+		const text = await res.text();
+		if (seen.has(text)) fail(`${hub} and ${seen.get(text)} serve identical content`);
+		else seen.set(text, hub);
+	}
+	if (!bad) ok(`${hubs.length} hubs, all distinct`);
 }
 
 console.log(bad ? `\n${bad} problems` : '\nclean');

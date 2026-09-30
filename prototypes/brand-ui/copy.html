@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Copy — FamilyPlanz brand</title>
+<link rel="stylesheet" href="../app-ui/proto.css" />
+<link rel="stylesheet" href="../app-ui/feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "brand-copy", "label": "Copy", "family": "brand-ui",
+  "question": "The CTA says \"Join thousands of families\" — how many families are there? Every headline here is checked against what the app can actually do, because a marketing claim about a feature that was never reachable is a debt the copy pays later.",
+  "thesis": "Five headline directions, each drawn in the real hero at real size, each carrying the sentence underneath that would have to ship with it. Nothing is proposed that the app cannot honour: no receipt scanning, no bill tracking, no AI, and no number.",
+  "realPage": "src/routes/(marketing)/+page.svelte:34 — the H1, the subhead, and the closing CTA"
+}
+</script>
+<style>
+	.heads { display: flex; flex-direction: column; gap: 1.5rem; }
+	.h { border: 1px solid var(--s200); border-radius: 1rem; overflow: hidden; background: #fff; }
+	.h__top { display: flex; align-items: center; gap: .625rem; padding: .75rem 1.125rem; border-bottom: 1px solid var(--s100); background: var(--canvas); }
+	.h__id { font: 800 .75rem/1 ui-monospace, Menlo, monospace; color: var(--s900); }
+	.h__t { margin-left: auto; font-size: .6875rem; font-weight: 700; color: var(--s400); }
+	.h__hero { padding: 2.25rem 1.5rem; text-align: center; }
+	@media (min-width: 700px) { .h__hero { text-align: left; padding: 2.75rem 2rem; } }
+	.h__h1 { margin: 0; font-size: 1.75rem; font-weight: 800; line-height: 1.15; letter-spacing: -.03em; color: var(--s900); }
+	@media (min-width: 700px) { .h__h1 { font-size: 2.25rem; } }
+	.h__sub { margin: .875rem auto 0; max-width: 30rem; font-size: .9375rem; line-height: 1.6; color: var(--s600); }
+	@media (min-width: 700px) { .h__sub { margin-left: 0; } }
+	.h__why { padding: .875rem 1.125rem; border-top: 1px solid var(--s100); font-size: .8125rem; line-height: 1.65; color: var(--s600); background: var(--s50); }
+	.h__why b { color: var(--s900); }
+	dl.facts { display: grid; grid-template-columns: auto 1fr; gap: .375rem 1rem; margin: 0; font-size: .8125rem; }
+	dl.facts dt { color: var(--s400); font-weight: 600; white-space: nowrap; }
+	dl.facts dd { margin: 0; color: var(--s700); }
+	td, th { text-align: left; vertical-align: top; }
+</style>
+</head>
+<body>
+<script src="../app-ui/drag.js"></script>
+<script src="../app-ui/dock.js"></script>
+<script src="../app-ui/feedback.js" defer></script>
+<script type="module">
+import { card, column, el, head } from './brand-shell.js';
+
+const body = column();
+
+/* Each headline is a claim about the product. The "honest?" column is the
+   point of the page: a line is only usable if the app can back it up, and
+   087 is the open issue about the marketing surface promising a money
+   subsystem that was archived before it ever shipped. */
+const HEADS = [
+	{
+		id: 'live',
+		tag: 'in production',
+		h1: 'Where <span style="color:var(--terracotta)">family</span> schedules come together',
+		sub: 'Soccer practice, parent-teacher conferences, date night — keep every family member\'s schedule in one warm, welcoming place.',
+		why: '<b>The current H1.</b> True, and it names the product. "Where … come together" is a metaphor doing the work of a value proposition, so it tells a visitor what the category is and nothing about why to switch.',
+		honest: 'yes — events are the core feature'
+	},
+	{
+		id: 'a',
+		tag: 'the household',
+		h1: 'Everyone\'s week, on one page.',
+		sub: 'Events, RSVPs and the grocery list — the whole household, in one warm place.',
+		why: '<b>Names the outcome, not the category.</b> "On one page" is a claim a visitor can check in the first ten seconds, and the three nouns are all real, wired features. The shortest of the five, which is what a search result and a chat preview both reward.',
+		honest: 'yes — events, RSVPs and groceries all exist'
+	},
+	{
+		id: 'b',
+		tag: 'the pain',
+		h1: 'Stop being the family calendar.',
+		sub: 'The one who remembers. Give the week to everybody and keep your own head.',
+		why: '<b>Names who has the problem.</b> The second person is the person searching for this — the one holding it all in their head. The risk is that it is a slightly harder sell: it is a complaint, not a promise, and it needs the subhead to land the turn.',
+		honest: 'yes — assignment and handoff are built'
+	},
+	{
+		id: 'c',
+		tag: 'the mission',
+		h1: 'A family calendar that runs itself.',
+		sub: 'Recurring jobs roll forward on their own, and everyone sees whose turn it is.',
+		why: '<b>The strongest differentiator, and the most dangerous.</b> "Runs itself" is a promise about the recurring-task cursor, which is genuinely one row per task with no occurrence backlog — that is real. But "runs itself" also implies nobody is ever needed, and this app is a list somebody maintains. Keep the idea, drop the absolute.',
+		honest: 'partly — the cursor is real, "itself" overclaims'
+	},
+	{
+		id: 'd',
+		tag: 'concrete',
+		h1: 'The week your family actually has.',
+		sub: 'Soccer, conferences, date night, and whose turn it is — held by everyone, missed by no one.',
+		why: '<b>The most specific.</b> Four concrete nouns beat a metaphor, and "actually" quietly concedes that every other family calendar is a template. It is also the longest, and it sets an expectation of warmth the product has to earn in the first five seconds of use.',
+		honest: 'yes — but "missed by no one" is unprovable'
+	}
+];
+
+body.appendChild(head({
+	title: 'Copy',
+	lede: `Five headlines in the real hero at real size. The live one is here to be beaten, not to be
+		admired — a line is only usable if the app can back it up. The column that matters is the
+		last one: <b>087</b> is open precisely because the marketing surface has been promising a
+		money subsystem that was archived before it ever shipped.`
+}));
+
+/* ── the five ─────────────────────────────────────────────────────────── */
+{
+	const g = el('div', 'heads');
+	HEADS.forEach((h) => {
+		const n = el('div', 'h');
+		n.setAttribute('data-fb', 'copy-' + h.id);
+		n.setAttribute('data-fb-label', 'Headline ' + h.id);
+		n.innerHTML = `
+			<div class="h__top">
+				<span class="h__id">${h.id}</span>
+				<span class="pill pill-xs pill-token">${h.tag}</span>
+				<span class="h__t">${h.honest}</span>
+			</div>
+			<div class="h__hero">
+				<h2 class="h__h1">${h.h1}</h2>
+				<p class="h__sub">${h.sub}</p>
+			</div>
+			<div class="h__why">${h.why}</div>`;
+		g.appendChild(n);
+	});
+	body.appendChild(card(g.innerHTML, 'copy-heads', 'The five headlines'));
+}
+
+/* ── the claims that are already on the page and cannot be backed ──────── */
+{
+	const c = el('div');
+	c.setAttribute('data-fb', 'copy-claims');
+	c.setAttribute('data-fb-label', 'Claims to fix');
+	c.innerHTML = `
+		<div style="font-size:1rem;font-weight:800;color:var(--s900);margin-bottom:.5rem">Already live, already a problem</div>
+		<table style="width:100%;border-collapse:collapse;font-size:.8125rem">
+			<thead><tr>
+				<th style="padding:.5rem .625rem;border-bottom:1px solid var(--s200);font-size:.625rem;letter-spacing:.08em;text-transform:uppercase;color:var(--s400)">Claim</th>
+				<th style="padding:.5rem .625rem;border-bottom:1px solid var(--s200);font-size:.625rem;letter-spacing:.08em;text-transform:uppercase;color:var(--s400)">Where</th>
+				<th style="padding:.5rem .625rem;border-bottom:1px solid var(--s200);font-size:.625rem;letter-spacing:.08em;text-transform:uppercase;color:var(--s400)">The truth</th>
+			</tr></thead>
+			<tbody>
+				<tr><td style="padding:.5rem .625rem;border-bottom:1px solid var(--s100);font-weight:700">"Join thousands of families"</td>
+					<td style="padding:.5rem .625rem;border-bottom:1px solid var(--s100);color:var(--s600)">(marketing)/+page.svelte:448, features:260</td>
+					<td style="padding:.5rem .625rem;border-bottom:1px solid var(--s100);color:var(--s600)">A number nobody can produce. There is a waitlist table, so the honest number is knowable — use it or cut the claim.</td></tr>
+				<tr><td style="padding:.5rem .625rem;border-bottom:1px solid var(--s100);font-weight:700">"Scan receipts" / "Mark bills paid"</td>
+					<td style="padding:.5rem .625rem;border-bottom:1px solid var(--s100);color:var(--s600)">changelog page description</td>
+					<td style="padding:.5rem .625rem;border-bottom:1px solid var(--s100);color:var(--s600)">The whole money subsystem sits in <code style="font:600 .875em ui-monospace,Menlo,monospace">_attic/</code>. 38 files, no reader. This is issue 087.</td></tr>
+				<tr><td style="padding:.5rem .625rem;font-weight:700">"Meals"</td>
+					<td style="padding:.5rem .625rem;color:var(--s600)">dashboardModules.ts</td>
+					<td style="padding:.5rem .625rem;color:var(--s600)">The table and the API exist and no loader reads them; /account still shows a Meals toggle that switches nothing.</td></tr>
+			</tbody>
+		</table>
+		<p class="hint" style="margin:.875rem 0 0">None of these are copy problems that a better headline
+		solves. They are 087 and 088, and they are filed rather than quietly rewritten here — a review
+		that patches another issue's claim is a review that loses the record.</p>`;
+	body.appendChild(card(c.innerHTML, 'copy-claims-card', 'Claims to fix'));
+}
+
+/* ── the naming, since copy is where a name shows up ──────────────────── */
+{
+	const c = el('div');
+	c.setAttribute('data-fb', 'copy-name');
+	c.setAttribute('data-fb-label', 'Product name');
+	c.innerHTML = `
+		<div class="stack" style="display:grid;gap:1.5rem;grid-template-columns:1fr">
+			<div>
+				<div style="font-size:1rem;font-weight:800;color:var(--s900);margin-bottom:.5rem">One product, four names</div>
+				<p class="hint" style="margin:0 0 .75rem">This is a copy problem before it is a branding one: the
+				name is inconsistent inside the marketing surface a visitor is actually reading.</p>
+				<dl class="facts">
+					<dt>Family Planz</dt><dd>every <code style="font:600 .875em ui-monospace,Menlo,monospace">&lt;title&gt;</code> and all body copy — <b>the right one</b></dd>
+					<dt>FamilyPlanz</dt><dd>manifest, <code style="font:600 .875em ui-monospace,Menlo,monospace">apple-mobile-web-app-title</code>, the footer</dd>
+					<dt>FamilyPlanner</dt><dd>the waitlist confirmation email subject</dd>
+					<dt>Family Master</dt><dd>checkout title, waitlist title, two pricing plan names — a <b>retired tier</b> leaking as the brand</dd>
+				</dl>
+			</div>
+			<p class="hint" style="margin:0"><b>Recommendation:</b> <code style="font:600 .875em ui-monospace,Menlo,monospace">Family Planz</code>
+			everywhere, two words, capital P — it is what the pages already say and it survives being read
+			out loud. Not decided here: this page is a review surface, and a rename touches every page
+			title, the manifest, the emails and the pricing table.</p>
+		</div>`;
+	body.appendChild(card(c.innerHTML, 'copy-name-card', 'Product name'));
+}
+
+document.body.appendChild(body);
+</script>
+</body>
+</html>

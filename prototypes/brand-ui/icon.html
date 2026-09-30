@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Icon — FamilyPlanz brand</title>
+<link rel="stylesheet" href="../app-ui/proto.css" />
+<link rel="stylesheet" href="../app-ui/feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "brand-icon", "label": "Icon", "family": "brand-ui",
+  "question": "Which of the three marks survives being shrunk to 16 pixels, and does the synthesis earn the name it is shipping under?",
+  "thesis": "An icon is judged at 16px in a browser tab, not at 512px in a brand book. All three variants are drawn from the same paths and shown at the seven sizes it actually ships at, so the argument is about legibility and not about taste.",
+  "realPage": "static/icon.svg — the svgrepo clipboard that ships today, off-brand and never matching theme-color #dd5822"
+}
+</script>
+<style>
+	/* every size the mark is really used at, largest first */
+	.ramp { display: flex; align-items: flex-end; gap: 1.5rem; flex-wrap: wrap; }
+	.ramp figure { margin: 0; text-align: center; }
+	.ramp figcaption { margin-top: .5rem; font: 600 .625rem/1.4 ui-monospace, Menlo, monospace; color: var(--s400); }
+	.ramp svg, .ramp img { display: block; }
+	/* the 16px row is the whole argument, so it is on its own dark strip */
+	/* the 16px row is judged on a dark strip, as a tab bar is dark */
+	.tiny { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; background: var(--s800); border-radius: 1rem; padding: 1.25rem 1.5rem; }
+	.tiny figcaption { color: var(--s400); }
+	.vgrid { display: grid; gap: 1.25rem; grid-template-columns: 1fr; }
+	@media (min-width: 900px) { .vgrid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+	.vcard { display: flex; flex-direction: column; gap: .75rem; }
+	.vcard__mark { display: grid; place-items: center; padding: 1.5rem; background: var(--canvas); border-radius: 1rem; }
+	.vcard__mark svg { width: 7rem; height: 7rem; }
+	.vcard__n { font-size: .9375rem; font-weight: 800; color: var(--s900); }
+	.vcard__t { font-size: .8125rem; line-height: 1.6; color: var(--s600); }
+	.rowflex { display: flex; align-items: center; gap: .625rem; flex-wrap: wrap; }
+	.between { justify-content: space-between; }
+	dl.facts { display: grid; grid-template-columns: auto 1fr; gap: .375rem 1rem; margin: 0; font-size: .8125rem; }
+	dl.facts dt { color: var(--s400); font-weight: 600; }
+	dl.facts dd { margin: 0; color: var(--s700); }
+	dl.facts code { font: 600 .8125em ui-monospace, Menlo, monospace; background: var(--s100); padding: .1rem .3rem; border-radius: .25rem; color: var(--s700); }
+</style>
+</head>
+<body>
+<script src="../app-ui/drag.js"></script>
+<script src="../app-ui/dock.js"></script>
+<script src="../app-ui/feedback.js" defer></script>
+<script type="module">
+import { MARKS } from './marks.js';
+import { card, column, el, head, inner } from './brand-shell.js';
+
+const body = column();
+
+/* ── header ────────────────────────────────────────────────────────────── */
+body.appendChild(head({
+	title: 'The icon',
+	lede: `What ships today is a <b>clipboard off svgrepo</b> — sky blue, yellow and pink, on a 120×120 viewBox,
+		matching nothing. The PWA's own
+		<code style="font:600 .875em ui-monospace,Menlo,monospace">theme_color</code> is
+		<code style="font:600 .875em ui-monospace,Menlo,monospace">#dd5822</code>, so the installed app shows a blue
+		clipboard in an orange title bar. Three marks are drawn here from one set of paths; one of them ships.`
+}));
+
+/* ── the 16px strip, first, because it decides the page ─────────────────── */
+{
+	const s = el('div');
+	s.setAttribute('data-fb', 'icon-tiny');
+	s.setAttribute('data-fb-label', '16px strip');
+	const ids = ['a', 'b', 'c', 'mark'];
+	s.innerHTML = `<div class="tiny">` + ids.map((id) => `
+		<figure>
+			<svg viewBox="0 0 512 512" width="16" height="16" aria-label="${MARKS[id].name} at 16px">${inner(MARKS[id].svg)}</svg>
+			<figcaption>${MARKS[id].name} · 16</figcaption>
+		</figure>`).join('') + `</div>
+		<p class="hint" style="margin:.75rem 0 0">Real size on this page, not enlarged. A tab is 16px and
+		the favicon is 16px; if a mark cannot be told apart from the other two at 16, it is not the mark.</p>`;
+	body.appendChild(card(s.innerHTML, 'icon-tiny-card', '16px strip'));
+}
+
+/* ── the three variants ────────────────────────────────────────────────── */
+{
+	const g = el('div', 'vgrid');
+	['a', 'b', 'c'].forEach((id) => {
+		const m = MARKS[id];
+		const v = el('div', 'vcard');
+		v.setAttribute('data-fb', 'icon-variant-' + id);
+		v.setAttribute('data-fb-label', 'Variant ' + id.toUpperCase());
+		v.innerHTML = `
+			<div class="vcard__mark">${m.svg}</div>
+			<div class="vcard__n">${m.name}</div>
+			<div class="vcard__t">${m.thesis}</div>
+			<div class="tiny" style="padding:.75rem 1rem;gap:1rem">
+				${[16, 32, 48].map((n) => `<svg viewBox="0 0 512 512" width="${n}" height="${n}">${inner(m.svg)}</svg>`).join('')}
+			</div>`;
+		g.appendChild(v);
+	});
+	body.appendChild(card(g.innerHTML, 'icon-variants', 'The three variants'));
+}
+
+/* ── the synthesis, at every shipping size ─────────────────────────────── */
+{
+	const m = MARKS.mark;
+	const sizes = [16, 32, 48, 72, 180, 192, 512];
+	const c = el('div');
+	c.setAttribute('data-fb', 'icon-synthesis');
+	c.setAttribute('data-fb-label', 'The synthesis');
+	c.innerHTML = `
+		<div class="rowflex between" style="margin-bottom:1rem">
+			<div>
+				<div style="font-size:1.125rem;font-weight:800;color:var(--s900)">${m.name} — the shipping candidate</div>
+				<div class="hint" style="margin-top:.25rem">${m.thesis}</div>
+			</div>
+			<span class="pill pill-xs pill-mint">recommended</span>
+		</div>
+		<div class="ramp">${sizes.map((n) => {
+			const file = n === 512 ? 'icon-512.png' : n === 192 ? 'icon-192.png' : n === 180 ? 'apple-touch-icon.png' : null;
+			return `<figure>
+				${file
+					? `<img src="rasters/${file}" width="${n}" height="${n}" alt="mark at ${n}px" />`
+					: `<svg viewBox="0 0 512 512" width="${n}" height="${n}">${inner(m.svg)}</svg>`}
+				<figcaption>${n}px${file ? ' · file' : ''}</figcaption>
+			</figure>`;
+		}).join('')}</div>
+		<p class="hint" style="margin:1rem 0 0">The three files are the real rasters in
+		<code style="font:600 .875em ui-monospace,Menlo,monospace">static/brand/</code> — the collector is rooted at
+		<code style="font:600 .875em ui-monospace,Menlo,monospace">prototypes/</code> and cannot reach
+		<code style="font:600 .875em ui-monospace,Menlo,monospace">static/</code>, so
+		<code style="font:600 .875em ui-monospace,Menlo,monospace">npm run brand:build</code> writes the same bytes
+		here too and <code style="font:600 .875em ui-monospace,Menlo,monospace">brand:check</code> fails if either
+		copy drifts. The rest are the same paths inline, which is what the navbar and the login page draw.</p>`;
+	body.appendChild(card(c.innerHTML, 'icon-synthesis-card', 'The synthesis'));
+}
+
+/* ── the maskable twin ─────────────────────────────────────────────────── */
+{
+	const c = el('div');
+	c.setAttribute('data-fb', 'icon-maskable');
+	c.setAttribute('data-fb-label', 'Maskable icon');
+	c.innerHTML = `
+		<div class="rowflex" style="align-items:flex-start;gap:2rem;flex-wrap:wrap">
+			<div style="text-align:center">
+				<div class="legend__sw" style="width:9rem;height:9rem;border-radius:9999px;overflow:hidden;background:var(--terracotta);position:relative">
+					<img src="rasters/mark-maskable.svg" width="144" height="144" alt="maskable mark inside a circular mask" style="position:absolute;inset:0;width:100%;height:100%" />
+				</div>
+				<div class="legend__sw" style="margin:.75rem auto 0;background:none;color:var(--s400);font:600 .625rem/1.4 ui-monospace,Menlo,monospace">circle mask</div>
+			</div>
+			<div style="flex:1;min-width:18rem">
+				<p class="hint" style="margin:0 0 .75rem">Android crops a maskable icon to a circle inscribed in the
+				middle 80% of the canvas. The same paths, scaled to 80% about the centre, over a full-bleed tile —
+				otherwise the mask eats the tile's own corners and the icon reads as a circle with orange
+				corners showing round it.</p>
+				<dl class="facts">
+					<dt>manifest</dt><dd>no <code>purpose: "maskable"</code> entry exists today — this adds one</dd>
+					<dt>tile</dt><dd>rx 116 / 512 ≈ 0.227, drawn full-bleed behind the mask</dd>
+					<dt>source</dt><dd><code>maskable()</code> in <code>marks.js</code> — no second drawing</dd>
+				</dl>
+			</div>
+		</div>`;
+	body.appendChild(card(c.innerHTML, 'icon-maskable-card', 'Maskable icon'));
+}
+
+/* ── what the app has to change to ship this ───────────────────────────── */
+{
+	const c = el('div');
+	c.setAttribute('data-fb', 'icon-rollout');
+	c.setAttribute('data-fb-label', 'Rollout');
+	c.innerHTML = `
+		<div style="font-size:1rem;font-weight:800;color:var(--s900);margin-bottom:.5rem">What has to change in the app</div>
+		<ul class="hint" style="margin:0;padding-left:1.125rem;line-height:1.9">
+			<li><code style="font:600 .875em ui-monospace,Menlo,monospace">static/icon.svg</code> is a copy of <code style="font:600 .875em ui-monospace,Menlo,monospace">brand/mark.svg</code>, and the manifest gains a <b>maskable</b> entry.</li>
+			<li><code style="font:600 .875em ui-monospace,Menlo,monospace">theme_color</code> moves off <code style="font:600 .875em ui-monospace,Menlo,monospace">#dd5822</code> onto the palette in <code style="font:600 .875em ui-monospace,Menlo,monospace">proto.css</code> — or the app moves onto the app palette. That is a decision, not a design, and it is on the hub.</li>
+			<li>Three separate inline calendar SVGs (Navbar, login, signup) become one <b>Mark.svelte</b> — the wordmark lockup is on <a href="og.html" style="color:var(--terracotta)">og.html</a>.</li>
+		</ul>`;
+	body.appendChild(card(c.innerHTML, 'icon-rollout-card', 'Rollout'));
+}
+
+document.body.appendChild(body);
+</script>
+</body>
+</html>

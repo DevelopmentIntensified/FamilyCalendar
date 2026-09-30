@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Social card &amp; wordmark — FamilyPlanz brand</title>
+<link rel="stylesheet" href="../app-ui/proto.css" />
+<link rel="stylesheet" href="../app-ui/feedback.css" />
+<script type="application/json" id="fb-page">
+{
+  "id": "brand-og", "label": "Social card", "family": "brand-ui",
+  "question": "The repo has no og:image, no twitter:card and no canonical link — so a shared link is a bare blue URL. What should a Family Planz link look like when it lands in a chat, and which headline earns the space?",
+  "thesis": "One 1200×630 card generated from the same mark, with four headlines put side by side and the tag order the meta tags actually need. The card is a function of the copy, so the copy is the decision and the artwork follows it.",
+  "realPage": "src/app.html — %sveltekit.head% is the only head; 13 marketing routes set a title and 2 of them set a description"
+}
+</script>
+<style>
+	.cards { display: grid; gap: 1.5rem; grid-template-columns: 1fr; }
+	@media (min-width: 1000px) { .cards { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+	.one { display: flex; flex-direction: column; gap: .75rem; }
+	.one__n { font-size: .9375rem; font-weight: 800; color: var(--s900); }
+	.one__t { font-size: .8125rem; line-height: 1.6; color: var(--s600); }
+	/* the card at 1:1 with how a crawler sees it, and a 1/2 preview for the
+	   timeline crop most chat apps take */
+	.crop { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+	.crop figure { margin: 0; }
+	.crop figcaption { margin-top: .375rem; font: 600 .625rem/1.4 ui-monospace, Menlo, monospace; color: var(--s400); }
+	.stack { display: grid; gap: 1.5rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 1000px) { .stack { grid-template-columns: minmax(0,1fr) 22rem; } }
+	pre { margin: 0; font: 500 .75rem/1.7 ui-monospace, Menlo, monospace; background: var(--s800); color: var(--s200); padding: 1rem 1.125rem; border-radius: .75rem; overflow-x: auto; }
+	pre b { color: var(--peach); font-weight: 700; }
+	.lockup { display: flex; align-items: center; gap: .75rem; }
+	.lockup__w { font-size: 1.5rem; font-weight: 800; letter-spacing: -.03em; color: var(--s900); }
+	.lockup__t { font-size: .8125rem; font-weight: 600; color: var(--s500); }
+	dl.facts { display: grid; grid-template-columns: auto 1fr; gap: .375rem 1rem; margin: 0; font-size: .8125rem; }
+	dl.facts dt { color: var(--s400); font-weight: 600; }
+	dl.facts dd { margin: 0; color: var(--s700); }
+</style>
+</head>
+<body>
+<script src="../app-ui/drag.js"></script>
+<script src="../app-ui/dock.js"></script>
+<script src="../app-ui/feedback.js" defer></script>
+<script type="module">
+import { MARKS, OG, ogCard } from './marks.js';
+import { card, column, el, head, inner } from './brand-shell.js';
+
+const body = column();
+
+body.appendChild(head({
+	title: 'The social card',
+	lede: `A Family Planz link pasted into a chat today is a bare blue URL. The repo has
+		<b>no og:image, no twitter:card and no canonical link anywhere</b> — <code style="font:600 .875em ui-monospace,Menlo,monospace">src/app.html</code>
+		is the only head that exists, and 11 of the 13 marketing routes set a title and nothing else.
+		Four headlines are drawn onto the same card below; the one that wins sets the copy in
+		<a href="index.html" style="color:var(--terracotta)">the hub</a>.`
+}));
+
+/* ── the lockup, since the card has to set it first ───────────────────── */
+{
+	const c = el('div');
+	c.setAttribute('data-fb', 'og-lockup');
+	c.setAttribute('data-fb-label', 'Wordmark lockup');
+	c.innerHTML = `
+		<div class="stack">
+			<div>
+				<div class="lockup" style="padding:.5rem 0 1rem">
+					<svg viewBox="0 0 512 512" width="56" height="56">${inner(MARKS.mark.svg)}</svg>
+					<div>
+						<div class="lockup__w">Family Planz</div>
+						<div class="lockup__t">The shared family calendar</div>
+					</div>
+				</div>
+				<p class="hint" style="margin:0">The mark plus a <b>two-word</b> wordmark. The repo spells the product
+				four ways — <code style="font:600 .875em ui-monospace,Menlo,monospace">Family Planz</code> in every
+				<code style="font:600 .875em ui-monospace,Menlo,monospace">&lt;title&gt;</code>,
+				<code style="font:600 .875em ui-monospace,Menlo,monospace">FamilyPlanz</code> in the manifest and the
+				footer, <code style="font:600 .875em ui-monospace,Menlo,monospace">FamilyPlanner</code> in the waitlist
+				email, and <code style="font:600 .875em ui-monospace,Menlo,monospace">Family Master</code> — a retired
+				tier name — in the checkout and pricing pages. The card is the one place the two-word name is
+				unambiguous, because it has room for it.</p>
+			</div>
+			<dl class="facts">
+				<dt>type</dt><dd>stack (mark over wordmark) at &lt;=32px, horizontal from 48px</dd>
+				<dt>min size</dt><dd>the mark alone; the wordmark is unreadable under 24px</dd>
+				<dt>colour</dt><dd>ink <code style="font:600 .875em ui-monospace,Menlo,monospace">#0f172a</code> on paper; the mark is fixed terracotta</dd>
+			</dl>
+		</div>`;
+	body.appendChild(card(c.innerHTML, 'og-lockup-card', 'Wordmark lockup'));
+}
+
+/* ── the four cards ────────────────────────────────────────────────────── */
+{
+	const g = el('div', 'cards');
+	OG.heads.forEach((h) => {
+		const w = el('div', 'one');
+		w.setAttribute('data-fb', 'og-card-' + h.id);
+		w.setAttribute('data-fb-label', 'Card ' + h.id);
+		w.innerHTML = `
+			<div class="rowflex between">
+				<span class="one__n">${h.id} · ${h.head.replace(/\n/g, ' ')}</span>
+			</div>
+			${ogCard({ head: h.head, sub: h.sub })}
+			<div class="crop">
+				<figure>
+					<div style="width:22rem;max-width:100%;overflow:hidden;border-radius:.5rem">
+						${ogCard({ head: h.head, sub: h.sub }).replace('width="1200" height="630"', 'width="352" height="185"')}
+					</div>
+					<figcaption>352 wide — the crop a chat preview takes</figcaption>
+				</figure>
+			</div>
+			<div class="one__t">${h.note}</div>`;
+		g.appendChild(w);
+	});
+	body.appendChild(card(g.innerHTML, 'og-cards', 'Four headlines, one card'));
+}
+
+/* ── the tags the card has to be wired into ───────────────────────────── */
+{
+	const c = el('div');
+	c.setAttribute('data-fb', 'og-tags');
+	c.setAttribute('data-fb-label', 'Meta tags');
+	c.innerHTML = `
+		<div class="stack">
+			<div>
+				<div style="font-size:1rem;font-weight:800;color:var(--s900);margin-bottom:.5rem">The tags, in the order they have to be right</div>
+				<p class="hint" style="margin:0 0 .75rem">Written into <code style="font:600 .875em ui-monospace,Menlo,monospace">src/app.html</code>
+				so every route inherits them, with the per-page title and description overriding in each
+				<code style="font:600 .875em ui-monospace,Menlo,monospace">svelte:head</code>. A route that has no image
+				of its own falls back to the card above rather than shipping no image at all.</p>
+				<pre>&lt;meta property="og:type"        content="website" /&gt;
+&lt;meta property="og:site_name"   content="Family Planz" /&gt;
+&lt;meta property="og:image"       content="<b>https://familyplanz.com/brand/og.png</b>" /&gt;
+&lt;meta property="og:image:width"  content="<b>1200</b>" /&gt;
+&lt;meta property="og:image:height" content="<b>630</b>" /&gt;
+&lt;meta property="og:image:alt"    content="<b>Everyone's week, on one page.</b>" /&gt;
+&lt;meta name="twitter:card"        content="<b>summary_large_image</b>" /&gt;
+&lt;meta name="twitter:image"       content="<b>https://familyplanz.com/brand/og.png</b>" /&gt;
+&lt;link rel="canonical"            href="<b>https://familyplanz.com/</b>" /&gt;
+
+&lt;!-- per page, in svelte:head --&gt;
+&lt;title&gt;Pricing - Family Planz&lt;/title&gt;
+&lt;meta name="description" content="..." /&gt;
+&lt;meta property="og:url"         content="<b>https://familyplanz.com/pricing</b>" /&gt;</pre>
+			</div>
+			<dl class="facts">
+				<dt>absolute</dt><dd>og:image and og:url must be absolute URLs; a relative path is dropped by every crawler</dd>
+				<dt>og:title</dt><dd>falls back to <code style="font:600 .875em ui-monospace,Menlo,monospace">&lt;title&gt;</code> — SvelteKit emits both, so a page that sets a title needs no og:title</dd>
+				<dt>image:alt</dt><dd>the headline, so the card is described when the image does not load</dd>
+				<dt>size</dt><dd>1200×630 declared, so a timeline does not guess a square crop</dd>
+			</dl>
+		</div>`;
+	body.appendChild(card(c.innerHTML, 'og-tags-card', 'Meta tags'));
+}
+
+/* ── the two tags that are not about the image ────────────────────────── */
+{
+	const c = el('div');
+	c.setAttribute('data-fb', 'og-missing');
+	c.setAttribute('data-fb-label', 'Also missing');
+	c.innerHTML = `
+		<div style="font-size:1rem;font-weight:800;color:var(--s900);margin-bottom:.5rem">Two files a shared link needs and the repo has never had</div>
+		<ul class="hint" style="margin:0;padding-left:1.125rem;line-height:1.9">
+			<li><b>robots.txt</b> — without one, the whole app is crawlable, including
+			<code style="font:600 .875em ui-monospace,Menlo,monospace">/account</code>,
+			<code style="font:600 .875em ui-monospace,Menlo,monospace">/family/[familyId]</code> and every
+			<code style="font:600 .875em ui-monospace,Menlo,monospace">/api/*</code> route.</li>
+			<li><b>sitemap.xml</b> — 13 marketing routes and nothing telling a crawler they exist.</li>
+		</ul>
+		<p class="hint" style="margin:.75rem 0 0">Out of scope for the card, and filed on the hub rather than done
+		here — a robots.txt is a decision about what is public, and that is not a design call.</p>`;
+	body.appendChild(card(c.innerHTML, 'og-missing-card', 'Also missing'));
+}
+
+document.body.appendChild(body);
+</script>
+</body>
+</html>

@@ -62,10 +62,20 @@ const ok = (m) => console.log('  ok   ' + m);
    off: §3b fails if an entry stops matching, so the list cannot rot. */
 const KNOWN = JSON.parse(readFileSync(join(here, 'spacing-known.json'), 'utf8')).outstanding;
 
-const PAGES = ['app-ui', 'calendar-ui']
-	.flatMap((set) => readdirSync(join(here, set))
-		.filter((f) => f.endsWith('.html'))
-		.map((f) => `${set}/${f}`))
+/* Sets are discovered, not listed. A hardcoded pair here means a new set is
+   never measured, and a spacing breach in it goes unreported forever — which is
+   the same silent-pass this file exists to prevent. */
+const SETS = readdirSync(here, { withFileTypes: true })
+	.map((d) => d.name)
+	.filter((n) => {
+		if (n === 'feedback' || !statSync(join(here, n)).isDirectory()) return false;
+		return readdirSync(join(here, n)).some((f) => f.endsWith('.html'));
+	})
+	.sort();
+
+const PAGES = SETS.flatMap((set) => readdirSync(join(here, set))
+	.filter((f) => f.endsWith('.html'))
+	.map((f) => `${set}/${f}`))
 	.sort();
 
 /* ── 0. the browser ───────────────────────────────────────────────────── */

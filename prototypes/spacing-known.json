@@ -7,27 +7,14 @@
 		"grow stale and cannot be used to bury a page. Delete the entry when the",
 		"page is fixed; the check then fails until you do.",
 		"",
-		"All eleven are the same defect: a column of cards with no declared gap,",
-		"so two bordered blocks share an edge. Fix is one word per page — put",
-		"`vstack` on the column wrapper, or give the dead `.grid` class a",
-		"`display` so the inline grid-template-columns it already declares applies."
+		"Most of the rest are the same defect: a column of cards with no declared",
+		"gap, so two bordered blocks share an edge. The fix is one word per page —",
+		"put `vstack` on the column wrapper, or give the dead `.grid` class a",
+		"`display` so the inline grid-template-columns it already declares applies.",
+		"family-create is the odd one: stacked role=checkbox cards with no gap and",
+		"no hairline is not a column-of-cards defect."
 	],
 	"outstanding": [
-		{
-			"page": "app-ui/family.html",
-			"sel": "div.grid2 > div > div.rail__card",
-			"why": "the side column is a bare <div>; its cards share an edge. fix: el('div','vstack')"
-		},
-		{
-			"page": "app-ui/family-detail.html",
-			"sel": "div.fd > div > div.rail__card",
-			"why": "main and side are bare <div>s; members card and danger card share an edge. fix: el('div','vstack')"
-		},
-		{
-			"page": "app-ui/tasks.html",
-			"sel": "div.layout > div > div.rail__card",
-			"why": "left and right are bare <div>s. fix: el('div','vstack')"
-		},
 		{
 			"page": "app-ui/notifications.html",
 			"sel": "div.fw > div > div.rail__card",

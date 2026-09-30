@@ -17,7 +17,8 @@
   "question": "Does the review point one way — B's rail with A's toolbar — or is there something better than both?",
   "thesis": "The synthesis. B's rail (mini month, up next, calendars — all marked good) plus A's toolbar row verbatim (marked 'this looks great').",
   "risk": "cells shrink ~14% at 1280px, so fewer chips fit on a small laptop — inherited from B",
-  "round1": "Built from the round-1 review. Kept: A's toolbar row, B's rail. Changed: the legend moved out of the toolbar to a key under the grid, 'Whose plans' -> 'By person'. Dropped: C's hero band."
+  "round1": "Built from the round-1 review. Kept: A's toolbar row, B's rail. Changed: the legend moved out of the toolbar to a key under the grid, 'Whose plans' -> 'By person'. Dropped: C's hero band.",
+  "round2": "Two marks. The key was marked bad — 'This doesn't seem to be true. Can you make it true with the events themselves' — and it was: the app has since shipped one chip vocabulary, so the key is now generated from the same table the grid renders from instead of hand-drawn swatches. And search was marked 'move this to be on top of the calendar in the bar with everything else', so it left the rail for the toolbar row. The rail keeps the mini month, up next, calendars, by person and overdue tasks. Neither the search nor the rail's calendar filter exists in the shipped app; both are shown as prototype-only rather than smoothed over (ground rule 7)."
 }
 </script>
 
@@ -35,10 +36,23 @@
 		background: rgba(255, 255, 255, .85); box-shadow: inset 0 0 0 1px var(--s200);
 		padding: .5rem .875rem; color: var(--s400);
 	}
-	.d-search input { flex: 1; border: 0; background: transparent; font-family: inherit; font-size: .875rem; color: var(--s900); outline: none; }
+	.d-search input { flex: 1; min-width: 0; border: 0; background: transparent; font-family: inherit; font-size: .875rem; color: var(--s900); outline: none; }
 	.d-ava { height: 2rem; width: 2rem; border-radius: 9999px; display: grid; place-items: center; font-size: .75rem; font-weight: 800; flex: none; }
 	.d-member { display: flex; align-items: center; gap: .625rem; padding: .5rem .625rem; border-radius: .75rem; transition: background-color 150ms; }
 	.d-member:hover { background: var(--s50); }
+
+	/* ── round 2: search leaves the rail ──────────────────────────────────
+	   "Move this to be on top of the calendar in the bar with everything
+	   else." It is a control like every other one in that row, and it was the
+	   only card in the rail that was not about the family. The rail keeps the
+	   mini month, up next, calendars, by person and overdue tasks.
+
+	   PROTOTYPE ONLY — the shipped calendar has no search at all, and this
+	   page says so in its notes rather than implying the app has one. */
+	.d-search { order: 9; flex: 1 1 100%; min-width: 0; }
+	.d-bar-right { margin-left: auto; }
+	@media (min-width: 720px) { .d-search { order: 0; flex: 0 1 15rem; } }
+	@media (max-width: 719px) { .d-bar-right { margin-left: 0; } }
 
 	/* ── the legend, moved. ────────────────────────────────────────────────
 	   Round 1: "This seems like it's not tied into everything else why not move
@@ -48,23 +62,58 @@
 	   things — the *controls*, which belong together, and a *key*, which belongs
 	   with the thing it explains. So the toolbar is now one row of controls, and
 	   the key is a slim strip sitting directly under the grid it describes,
-	   where your eye already is when you finish reading a cell. */
+	   where your eye already is when you finish reading a cell.
+
+	   Round 2: the strip was marked bad — "This doesn't seem to be true. Can you
+	   make it true with the events themselves." It was, and now the app had
+	   already fixed the thing it described: the all-day fill is gone, sponsored
+	   is a hatched bag, and a task wears no calendar colour at all. So the key
+	   is no longer hand-drawn swatches. It is built at load time out of the SAME
+	   chipMarkHTML() the grid renders from — same table, same shapes, same
+	   surface. A claim here cannot outlive its chip. It is collapsed by default:
+	   it explains the grid, it does not control it. */
 	.key {
-		display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-		margin-top: .5rem; padding: .5rem .875rem;
+		margin-top: .5rem;
 		border-radius: 0 0 .875rem .875rem;
 		background: rgba(255, 255, 255, .55);
 		border: 1px solid var(--s200); border-top: 0;
 	}
+	.key__toggle {
+		display: flex; align-items: center; gap: .625rem; width: 100%; flex-wrap: wrap;
+		border: 0; background: transparent; cursor: pointer; font-family: inherit;
+		text-align: left; color: var(--s600); padding: .5rem .875rem;
+		border-radius: 0 0 .875rem .875rem;
+	}
+	.key__toggle:hover { background: rgba(255, 255, 255, .7); }
 	.key__label {
 		font-size: .625rem; font-weight: 700; letter-spacing: .08em;
 		text-transform: uppercase; color: var(--s400);
 	}
-	.key__i { display: inline-flex; align-items: center; gap: .3125rem; font-size: .6875rem; color: var(--s500); }
-	.key__sw { height: .625rem; width: .625rem; border-radius: 9999px; background: rgba(232, 117, 57, .25); flex: none; }
-	.key__sw--allday { box-shadow: inset 3px 0 0 var(--p500); }
-	.key__sw--task { background: #fff; border: 1.5px dashed var(--s300); border-radius: .1875rem; }
-	.key__sw--ad { background: #fffbeb; box-shadow: inset 3px 0 0 #f59e0b; }
+	.key__claim { flex: 1 1 14rem; min-width: 0; font-size: .75rem; line-height: 1.4; }
+	.key__chev { height: .75rem; width: .75rem; flex: none; transition: transform 150ms; }
+	.key__toggle[aria-expanded="true"] .key__chev { transform: rotate(180deg); }
+
+	.key__body { display: grid; gap: .5rem; padding: 0 .875rem .75rem; }
+	.key__body[hidden] { display: none; }
+	.key__row {
+		display: grid; gap: .75rem; align-items: center;
+		grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+	}
+	@media (max-width: 719px) { .key__row { grid-template-columns: minmax(0, 1fr); gap: .25rem; } }
+	.key__demo .chip, .key__dots .chip {
+		width: auto; max-width: 100%; cursor: default; min-height: 1.5rem;
+		padding: .1875rem .375rem;
+	}
+	.key__demo .chip:hover, .key__dots .chip:hover { transform: none; filter: none; }
+	.key__demo .chip__title { max-width: 11rem; }
+	.key__t { margin: 0; font-size: .75rem; line-height: 1.5; color: var(--s700); }
+	.key__t b { color: var(--s900); }
+	.key__note {
+		margin: 0; padding-top: .5rem; border-top: 1px solid var(--s200);
+		font-size: .6875rem; line-height: 1.6; color: var(--s500);
+	}
+	.key__note b { color: var(--s700); }
+	.key__dots { display: inline-flex; gap: .375rem; vertical-align: middle; margin: 0 .125rem; }
 
 	/* the grid and the key read as one object */
 	.cal-frame--withkey { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
@@ -129,11 +178,11 @@
 							<button class="btn btn-soft btn-sm" data-act="today" style="width:100%;margin-top:.75rem">Jump to today</button>
 						</div>
 
-						<div class="d-search" data-fb="rail-search" data-fb-label="Rail · search">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem;flex:none"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
-							<input placeholder="Search events, people, places…" />
-							<span class="hint">⌘K</span>
-						</div>
+						<!-- Search used to sit here, between the mini month and up next.
+						     Round 2 moved it into the toolbar row above the grid, where
+						     its marker now lives. The rail carries only things about
+						     the family: the mini month, up next, the calendars, by
+						     person, and overdue tasks. -->
 
 						<div class="rail__card" data-fb="rail-upnext" data-fb-label="Rail · up next" style="background:rgba(255,255,255,.8);backdrop-filter:blur(8px)">
 							<div class="rail__title">
@@ -197,9 +246,23 @@
 							<button style="border:0;background:transparent;cursor:pointer;font-family:inherit;font-size:1.375rem;font-weight:800;letter-spacing:-.02em;color:var(--s900);padding:.25rem .5rem;border-radius:.75rem" data-mlabel>September 2026</button>
 						</div>
 
-						<span style="flex:1"></span>
+						<!-- SEARCH — round 2. "Move this to be on top of the calendar
+						     in the bar with everything else." It is a control like
+						     every other one in this row, and in the rail it was the
+						     only card that was not about the family. Above 720px it
+						     sits inline between the month label and the view toggle;
+						     below that it drops onto its own full-width line so
+						     nothing is squeezed and nothing overflows at 320px.
 
-						<div class="rowflex gap-2" style="flex-wrap:wrap">
+						     PROTOTYPE ONLY: the shipped calendar has no search at all.
+						     The Notes card below says so — this is not the app. -->
+						<div class="d-search" data-fb="rail-search" data-fb-label="Toolbar · search">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem;flex:none"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
+							<input placeholder="Search events, people, places…" />
+							<span class="hint">⌘K</span>
+						</div>
+
+						<div class="rowflex gap-2 d-bar-right" style="flex-wrap:wrap">
 							<div class="seg seg--tint">
 								<button class="seg__btn" data-view="month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg><span class="hide-sm">Month</span></button>
 								<button class="seg__btn" data-view="week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 11v6M15 11v6"/></svg><span class="hide-sm">Week</span></button>
@@ -222,20 +285,40 @@
 						<div id="view"></div>
 					</div>
 
-					<!-- THE LEGEND, MOVED. Round 1: "This seems like it's not tied
-					     into everything else why not move it down?" It is a key, not
-					     a control. It now sits directly under the grid, and the two
-					     share a border so they read as one thing. -->
+					<!-- THE KEY, MADE TRUE. Round 2 marked this bad — "This doesn't
+					     seem to be true. Can you make it true with the events
+					     themselves." It was, in two ways. The old strip hand-drew
+					     four swatches that matched nothing the grid drew, and it
+					     promised a filter ("see the rail to filter") and an
+					     all-day fill that the app had already thrown away.
+
+					     So the swatches are gone: the four lines below are built at
+					     load time by buildKey() out of the SAME chipMarkHTML() the
+					     grid renders from — same table, same shapes, same surface
+					     styles, same calendar colours. Each line shows a live chip,
+					     not a picture of one, so the claim and the rendering cannot
+					     drift apart. Collapsed by default: a key explains the grid,
+					     it does not control it. -->
 					<div class="key" data-fb="key" data-fb-label="Key">
-						<span class="key__label">Key</span>
-						<span class="key__i"><span class="key__sw"></span>timed</span>
-						<span class="key__i"><span class="key__sw key__sw--allday"></span>all-day</span>
-						<span class="key__i"><span class="key__sw key__sw--task"></span>task</span>
-						<span class="key__i"><span class="key__sw key__sw--ad"></span>sponsored</span>
-						<span class="hint" style="margin-left:auto">Colour = calendar · see the rail to filter</span>
+						<button class="key__toggle" type="button" id="keyToggle" aria-expanded="false" aria-controls="keyBody">
+							<span class="key__label">Key</span>
+							<span class="key__claim">Shape says what an event <b>is</b>. Colour says <b>whose</b> it is. Nothing keys off a hue.</span>
+							<svg class="key__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+						</button>
+						<div class="key__body" id="keyBody" hidden>
+							<!-- built by buildKey() in the module below -->
+						</div>
 					</div>
 
 					<div class="grid" data-fb="notes" data-fb-label="Notes" style="margin-top:2rem;gap:1.5rem;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr))">
+						<div class="rail__card" style="background:linear-gradient(135deg,rgba(240,181,152,.35),#fff);border-color:transparent">
+							<div class="rail__title">Round 2 — what changed here</div>
+							<ul style="margin:0;padding-left:1.125rem;font-size:.875rem;line-height:1.75;color:var(--s700)">
+								<li><b>The key is now true.</b> It said four words and drew four swatches that matched no chip on the grid. It now enumerates the four kinds the app actually ships, and every line is built from the same <code>chipMarkHTML()</code> the grid renders from — so a claim cannot outlive its chip.</li>
+								<li><b>Search moved to the toolbar.</b> “Move this to be on top of the calendar in the bar with everything else.” The rail keeps the mini month, up next, calendars, by person and overdue tasks.</li>
+								<li><b>Both are prototype-only.</b> The shipped calendar has <b>no search</b> and <b>no calendar filter</b> — those blockers are landing, and this page shows them as missing rather than faking them (ground rule 7).</li>
+							</ul>
+						</div>
 						<div class="rail__card" style="background:linear-gradient(135deg,rgba(196,233,218,.4),#fff);border-color:transparent">
 							<div class="rail__title" style="color:var(--mint-ink)">What round 1 kept</div>
 							<ul style="margin:0;padding-left:1.125rem;font-size:.875rem;line-height:1.75;color:var(--s700)">
@@ -292,6 +375,7 @@
 <script src="proto-nav.js"></script>
 <script type="module">
 	import { mount } from './proto-shell.js';
+	import { chipMarkHTML, chipSurfaceStyle, esc } from './proto-data.js';
 
 	const railDesktop = document.getElementById('railDesktop');
 	const railMobile = document.getElementById('railMobile');
@@ -302,6 +386,89 @@
 		legendHost: document.getElementById('legend'),
 		railHost: railDesktop,
 		railMode: true
+	});
+
+	/* ══════════════ #070 THE KEY, GENERATED FROM THE CHIPS ═══════════════
+	   The old strip was hand-drawn: four swatches that matched no chip on the
+	   grid, plus a promise of a filter and an all-day fill the app had already
+	   dropped. Round 2 marked it bad — "This doesn't seem to be true. Can you
+	   make it true with the events themselves."
+
+	   So the key no longer describes the chips. It *is* chips: every sample
+	   below is the same chipHTML chrome the grid renders, with the same
+	   chipMarkHTML() and the same chipSurfaceStyle() straight out of
+	   proto-data.js (which mirrors the app's chipVocabulary.ts). If the
+	   vocabulary moves in the app, this key follows it on the next run. */
+
+	/* A sample chip — a real chip surface, minus the button, so clicking a
+	   legend row cannot open an event sheet behind the key. The kind is passed
+	   in rather than derived: a task is not an event, and chipKindOf() would
+	   hand back `timed` for it. */
+	const sampleChip = (kind, ev, density) =>
+		`<span class="chip chip--${kind}" data-chip-kind="${kind}" style="${chipSurfaceStyle(ev)}">${chipMarkHTML(
+			kind,
+			density
+		)}<span class="chip__title">${esc(ev.title)}</span></span>`;
+
+	const CAL_NAME = { fam: 'Family', school: 'School', work: 'Work', kids: 'Kids', chores: 'Chores' };
+
+	/* One line per kind, in KINDS order. The first cell is a REAL chip at the
+	   density the day list, list view and the day sheet use; the month cell and
+	   the week band are glyph-only (proven by the 320px arithmetic in the note
+	   below), so the sample shows the fuller form and the note carries the
+	   restriction. */
+	const KEY_ROWS = [
+		{
+			kind: 'timed',
+			ev: { id: 'key-timed', cal: 'fam', allDay: false, title: 'Piano', start: '16:00', durMin: 45 },
+			word: 'Timed',
+			say: 'a filled dot, and <b>no word on purpose</b> — the row already carries the time, and a key that repeats what the chips already say teaches you nothing.'
+		},
+		{
+			kind: 'allDay',
+			ev: { id: 'key-allday', cal: 'school', allDay: true, title: 'In-service day' },
+			word: 'All-day',
+			say: 'a wide bar, <b>not a fill</b>. The old translucent all-day tint is gone everywhere, so the background of a chip no longer means anything at all.'
+		},
+		{
+			kind: 'task',
+			ev: { id: 'key-task', cal: 'chores', allDay: false, title: "Sign Mia's permission slip" },
+			word: 'Task',
+			say: 'a <b>dashed outline</b> around a hollow ring. A task belongs to nobody\'s calendar, so it is the one kind that wears <b>no calendar colour at all</b>.'
+		},
+		{
+			kind: 'sponsored',
+			ev: { id: 'key-ad', cal: 'kids', allDay: true, isAd: true, title: 'Toy drive' },
+			word: 'Sponsored',
+			say: 'a bag glyph on a solid box, over a <b>neutral</b> diagonal hatch. The hatch is grey on purpose — an ad still sits on somebody\'s calendar, so its colour still has to mean calendar. Sponsored outranks all-day: an all-day ad is still an ad.'
+		}
+	];
+
+	document.getElementById('keyBody').innerHTML =
+		KEY_ROWS.map(
+			({ kind, ev, word, say }) => `<div class="key__row" data-key-kind="${kind}">
+				<span class="key__demo">${sampleChip(kind, ev, 'word')}</span>
+				<p class="key__t"><b>${word}</b> — ${say}</p>
+			</div>`
+		).join('') +
+		`<p class="key__note"><b>Where the word shows, and why.</b> The month cells above and the week band are
+			glyph-only, and that is computed rather than chosen: at 320px a month cell leaves ~15.4px of title
+			after the 10px mark, and a week hour column leaves ~8.4px — less than the word <i>Ad</i> needs. There
+			the kind is announced to a screen reader and rides on the hover hint instead. The day list, the list
+			view and the day sheet have the room, and do show the word.</p>` +
+		`<p class="key__note"><b>Colour = which calendar, and nothing else.</b> Same shape, three calendars:
+			<span class="key__dots">${['fam', 'school', 'kids']
+				.map((cal) => sampleChip('timed', { id: 'key-' + cal, cal, allDay: false, title: CAL_NAME[cal] }, 'glyph'))
+				.join('')}</span>
+			— and a task wears none. Filtering by that colour is the rail's calendar list, which is a
+			<b>prototype</b>: the shipped calendar has no calendar filter yet, so nothing in this key promises one.</p>`;
+
+	const keyToggle = document.getElementById('keyToggle');
+	const keyBody = document.getElementById('keyBody');
+	keyToggle.addEventListener('click', () => {
+		const open = keyToggle.getAttribute('aria-expanded') === 'true';
+		keyToggle.setAttribute('aria-expanded', String(!open));
+		keyBody.hidden = open;
 	});
 
 	let cloned = false;

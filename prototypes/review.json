@@ -156,6 +156,31 @@
     {
       "file": "app-ui/models.html",
       "state": "unreviewed"
+    },
+    {
+      "file": "app-ui/logo.html",
+      "state": "unreviewed"
+    },
+    {
+      "file": "brand-ui/theme.html",
+      "state": "unreviewed"
+    },
+    {
+      "file": "brand-ui/icon.html",
+      "state": "unreviewed"
+    },
+    {
+      "file": "brand-ui/og.html",
+      "state": "unreviewed"
+    },
+    {
+      "file": "brand-ui/copy.html",
+      "state": "unreviewed"
     }
-  ]
+  ],
+  "sets": {
+    "calendar-ui": "the grid page",
+    "app-ui": "the rest of the app, plus the brand exploration that lives there",
+    "brand-ui": "everything outside the product: the mark, the share card, the words"
+  }
 }

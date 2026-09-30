@@ -10,7 +10,7 @@
 {
   "id": "dashboard", "label": "Dashboard", "family": "app-ui",
   "question": "Is the day dashboard a useful morning read, or just eight cards competing for the same attention?",
-  "thesis": "One day, eight modules, all toggleable per family. Re-skinned into the marketing language, same structure.",
+  "thesis": "One day, eight modules: seven cards in a switchable band, and the verse as a strip above them. Re-skinned into the marketing language, same structure.",
   "realPage": "src/routes/(calendar)/calendar/dashboard/ — +page.svelte 110, +page.server.ts 388"
 }
 </script>
@@ -32,10 +32,37 @@
 	.streak { display: flex; align-items: baseline; gap: .375rem; }
 	.streak b { font-size: 2.25rem; font-weight: 800; letter-spacing: -.03em; color: var(--s900); }
 	.memberstrip { display: flex; gap: .5rem; flex-wrap: wrap; }
-	.kidrow { display: flex; gap: .75rem; padding: .5rem 0; }
-	.kidrow + .kidrow { border-top: 1px solid var(--s100); }
-	.verse { font-size: 1.0625rem; line-height: 1.6; color: var(--s800); }
-	.verse-ref { margin-top: .5rem; font-size: .75rem; font-weight: 700; color: var(--terracotta); }
+	/* 072 — one band per child, in that child's own avatar colour. Flat rows
+	   with every child in the same chip carried no information; the app groups
+	   and colours off the child id now (KidsScheduleCard.svelte:86-88). */
+	.kidband { border: 1px solid var(--s100); border-radius: .875rem; padding: .5rem .625rem; }
+	.kidband + .kidband { margin-top: .5rem; }
+	.kidband__h { display: flex; align-items: center; gap: .5rem; margin-bottom: .3125rem; }
+	.kidrow { display: flex; align-items: baseline; gap: .5rem; padding: .125rem 0; }
+	.kidrow__t { font-size: .8125rem; color: var(--s800); flex: 1; min-width: 0; }
+	.kidrow__w { font-size: .6875rem; color: var(--s600); flex: none; }
+	/* 081 — groceries: one block per scope, Family first, as
+	   GroceriesCard.svelte ships it. Store chips are neutral on purpose —
+	   the real card makes no claim that a store is more important. */
+	.pill-neutral { background: var(--s100); color: var(--s600); }
+	.gscope + .gscope { margin-top: .625rem; padding-top: .625rem; border-top: 1px solid var(--s100); }
+	.gscope__h { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+	.gscope__l { font-size: .625rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; text-decoration: none; }
+	.gscope__n { font-size: .6875rem; color: var(--s500); flex: none; }
+	.gscope__i { display: flex; flex-wrap: wrap; gap: .25rem; margin: .3125rem 0; }
+	.gscope__t { font-size: .8125rem; color: var(--s700); }
+	/* the page's notes: what the app does, and what is still a question */
+	.notes { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); margin-top: .5rem; }
+	.notes ul { margin: 0; padding-left: 1.0625rem; font-size: .8125rem; line-height: 1.65; color: var(--s700); }
+	.notes li + li { margin-top: .4375rem; }
+	.notes code { font-size: .75rem; }
+	.verse { font-size: .9375rem; line-height: 1.55; color: var(--s700); font-style: italic; }
+	.verse-ref { font-size: .6875rem; color: var(--s400); }
+	/* Info band (080): readings, above the cards — never a card in the band. */
+	.info-band { display: flex; flex-wrap: wrap; align-items: baseline; gap: .125rem .625rem; padding: .5rem .75rem; border: 1px solid var(--s200); border-radius: .75rem; background: rgba(255,255,255,.55); }
+	.info-band__label { font-size: .625rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--s400); flex: none; }
+	.info-band .verse { margin: 0; flex: 1 1 14rem; min-width: 0; }
+	.info-band .verse-ref { flex: none; }
 	.checklist { display: flex; align-items: center; gap: .5rem; padding: .375rem 0; font-size: .875rem; }
 	.checklist input { height: 1.125rem; width: 1.125rem; accent-color: var(--p600); flex: none; }
 	.daynav { display: flex; align-items: center; gap: .375rem; }
@@ -47,21 +74,47 @@
 <script src="feedback.js" defer></script>
 <script type="module">
 import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
-import { MEMBERS, DAY_EVENTS, TASKS, KIDS_SCHEDULE, FAMILY_ACTIVITY, byId, nameOf } from './app-data.js';
+import { MEMBERS, DAY_EVENTS, TASKS, KIDS_SCHEDULE, GROCERIES, byId, nameOf } from './app-data.js';
 
 const openTasks = TASKS.filter((t) => !t.completedAt);
 const doneToday = TASKS.filter((t) => t.completedAt);
 const top3 = openTasks.slice(0, 3);
 
+/* `tone` on a member is a Tailwind arbitrary-value pair — `bg-[#FED5CF] text-[#c45e38]`
+   — so it cannot be dropped into a style attribute whole; take the two hexes out.
+   Same colour source as the app's avatarColor(), one palette, not a new one. */
+const toneOf = (m) => {
+	const [bg, ink] = m.tone.split(/\s+/);
+	return { bg: bg.slice(4, -1), ink: ink.slice(6, -1) };
+};
+
+/* 081 — the open list in both scopes, as the loader hands it over: open items
+   only, already grouped by primary store (groupGroceriesByStore, which sorts
+   the groups so the list scans as a trip). */
+const GROC = [
+	{ key: 'family', label: 'Family', href: 'groceries.html?scope=family', items: GROCERIES.family.filter((g) => !g.checked) },
+	{ key: 'mine', label: 'Mine', href: 'groceries.html?scope=mine', items: GROCERIES.mine.filter((g) => !g.checked) }
+].filter((s) => s.items.length > 0);
+const GROC_OPEN = GROC.reduce((n, s) => n + s.items.length, 0);
+/** Primary store per item, grouped and alphabetised — the real helper's job. */
+const storesIn = (items) =>
+	[...new Set(items.map((g) => g.stores[0] || 'Any store'))].sort((a, b) => a.localeCompare(b));
+/** The real card names three, then counts the rest. */
+const NAMED = 3;
+
 const grid = el('div', 'dash');
 
-/* ── daily verse (dashboardModuleSwitches: verse) ───────────────────── */
-grid.appendChild(card(
-	`<div class="rail__title" style="color:var(--terracotta)">Psalm 127:1</div>
-	 <p class="verse">“Except the LORD build the house, they labour in vain.”</p>
-	 <div class="verse-ref">Psalm 127:1 · ESV</div>`,
-	'mod-verse', 'Daily verse',
-	'background:linear-gradient(140deg,rgba(254,213,207,.42),#fff);border-color:transparent'));
+/* ── info band (080) — the daily verse, above the module band ────────────
+   Its switch means "show the verse", not "render a card": same module id
+   (`verse`), same saved state, quieter home. It is not a child of `grid`.
+   Region id stays `mod-verse` so the mark that moved it still resolves. */
+const infoBand = el('div', 'info-band');
+infoBand.setAttribute('data-fb', 'mod-verse');
+infoBand.setAttribute('data-fb-label', 'Daily verse');
+infoBand.innerHTML = `
+	<span class="info-band__label">Daily verse</span>
+	<p class="verse">“Except the LORD build the house, they labour in vain.”</p>
+	<span class="verse-ref">Psalm 127:1 · ESV</span>`;
 
 /* ── today at a glance (glance) ─────────────────────────────────────── */
 grid.appendChild(card(
@@ -116,7 +169,7 @@ const board = card(
 	   return `
 	   <div style="padding:.625rem 0${m === MEMBERS[MEMBERS.length - 1] ? '' : ';border-bottom:1px solid var(--s100)'}">
 	     <div class="rowflex gap-2" style="margin-bottom:.375rem">
-	       <span class="d-ava" style="height:1.5rem;width:1.5rem;border-radius:9999px;display:grid;place-items:center;background:${m.tone};font-size:.625rem;font-weight:800">${m.initials}</span>
+	       <span class="d-ava" style="height:1.5rem;width:1.5rem;border-radius:9999px;display:grid;place-items:center;background:${toneOf(m).bg};color:${toneOf(m).ink};font-size:.625rem;font-weight:800">${m.initials}</span>
 	       <span style="font-size:.8125rem;font-weight:700;color:var(--s700)">${m.firstName}</span>
 	       <span class="legend__count">${mine.length}</span>
 	     </div>
@@ -132,44 +185,102 @@ grid.appendChild(card(
 	`${sectionTitle('Who')}
 	 <div class="memberstrip">
 	   ${MEMBERS.map((m) => `
-	     <a href="family-detail.html" style="display:grid;place-items:center;gap:.375rem;padding:.5rem .625rem;border-radius:.875rem;background:${m.tone};text-decoration:none;min-width:3.5rem">
+	     <a href="family-detail.html" style="display:grid;place-items:center;gap:.375rem;padding:.5rem .625rem;border-radius:.875rem;background:${toneOf(m).bg};color:${toneOf(m).ink};text-decoration:none;min-width:3.5rem">
 	       <span style="font:800 .875rem/1 inherit">${m.initials}</span>
 	       <span style="font-size:.6875rem;font-weight:600">${m.firstName}</span>
 	     </a>`).join('')}
 	 </div>`,
 	'mod-members', 'Member strip'));
 
-/* ── kids' schedule (kids) ─────────────────────────────────────────── */
+/* ── kids' schedule (kids) — 072 ─────────────────────────────────────── */
+/* One band per child, in that child's own colour, in the order their first
+   event starts — the shape KidsScheduleCard.svelte ships now. The child id
+   survives the loader, so the grouping has a stable key and the colour means
+   something. Before: one flat list, every child in the same chip. */
 grid.appendChild(card(
 	`${sectionTitle('Kids’ schedule')}
-	 ${KIDS_SCHEDULE.map((k) => `
-	   <div class="kidrow">
-	     <span class="d-ava" style="height:2rem;width:2rem;border-radius:9999px;display:grid;place-items:center;background:${byId(k.kid).tone};font-size:.6875rem;font-weight:800;flex:none">${byId(k.kid).initials}</span>
-	     <span style="flex:1;min-width:0">
-	       <span style="display:block;font-size:.8125rem;font-weight:700;color:var(--s700);margin-bottom:.125rem">${byId(k.kid).firstName}</span>
-	       ${k.items.map((i) => `
-	         <div style="font-size:.8125rem;color:var(--s700)">
-	           <span style="font-weight:600">${i.what}</span>
-	           <span class="hint"> · ${i.when}${i.where ? ' · ' + i.where : ''}</span>
-	         </div>`).join('')}
-	     </span>
-	   </div>`).join('')}`,
+	 ${KIDS_SCHEDULE.map((k) => {
+	   const t = toneOf(byId(k.kid));
+	   return `
+	   <section class="kidband" style="background:${t.bg}" aria-label="${byId(k.kid).firstName}">
+	     <div class="kidband__h">
+	       <span class="d-ava" style="height:1.5rem;width:1.5rem;border-radius:9999px;display:grid;place-items:center;background:${t.ink};color:${t.bg};font-size:.625rem;font-weight:800;flex:none">${byId(k.kid).initials}</span>
+	       <span style="font-size:.8125rem;font-weight:800;color:var(--s900)">${byId(k.kid).firstName}</span>
+	     </div>
+	     ${k.items.map((i) => `
+	       <div class="kidrow">
+	         <span class="kidrow__t truncate"><b style="font-weight:600">${i.what}</b></span>
+	         <span class="kidrow__w">${i.when}</span>
+	         ${i.where ? `<span class="kidrow__w hide-sm">· ${i.where}</span>` : ''}
+	       </div>`).join('')}
+	   </section>`;
+	 }).join('')}`,
 	'mod-kids', 'Kids’ schedule'));
 
-/* ── meals: parked. The toggle is live in /account, the card is not mounted. ─ */
-const parked = card(
-	`${sectionTitle('Meals', '<span class="pill pill-xs pill-blush">parked</span>')}
-	 <p class="hint">The <code>meals</code> table, <code>/api/meals</code> and <code>MealsCard.svelte</code> all exist — but no loader reads meals and the card is imported by nothing except its own test. Yet <a href="account.html" style="color:var(--terracotta)">/account</a> still shows a Meals toggle that switches nothing.</p>
-	 <button class="btn btn-soft btn-sm" style="margin-top:.75rem" onclick="toast('Nothing to show — the module is not mounted')">Preview anyway</button>`,
-	'mod-meals', 'Meals (parked)',
-	'background:repeating-linear-gradient(135deg,rgba(226,232,240,.35) 0 10px,rgba(255,255,255,.6) 10px 20px);border-style:dashed');
-grid.appendChild(parked);
+/* ── groceries (081) — takes the Meals slot in the band ──────────────────
+   Mirrors GroceriesCard.svelte, which landed after this round opened: the
+   title carries the open total, each scope names its own count, the stores
+   are chips and the first three names are spelled out. Meals stays parked in
+   the app by user directive (2026-09-08) — unmounted, not deleted. The region
+   id is still `mod-meals`: that is the pin the "remove for now, add groceries
+   here" mark was made on, so the round history still resolves. */
+grid.appendChild(card(
+	`${sectionTitle('Groceries', GROC_OPEN > 0 ? `<span class="hint">${GROC_OPEN} open</span>` : '')}
+	 ${GROC.length === 0
+		? `<p class="hint">Nothing on the list yet.</p>
+		   <a class="hint" href="groceries.html" style="color:var(--terracotta);font-weight:700">Open the list →</a>`
+		: GROC.map((s) => `
+		   <section class="gscope">
+		     <div class="gscope__h">
+		       <a class="gscope__l" href="${s.href}" style="color:var(--s400)">${s.label} →</a>
+		       <span class="gscope__n">${s.items.length} open</span>
+		     </div>
+		     <div class="gscope__i">${storesIn(s.items).map((st) => `<span class="pill pill-xs pill-neutral">${st}</span>`).join('')}</div>
+		     <p class="gscope__t">${s.items.slice(0, NAMED).map((g) => g.name).join(', ')}${s.items.length > NAMED ? `, +${s.items.length - NAMED} more` : ''}</p>
+		   </section>`).join('')}`,
+	'mod-meals', 'Groceries (replaces parked Meals)'));
+
+/* ── notes: what the app does now, and the one question left open ─────── */
+const notes = el('div', 'notes');
+notes.setAttribute('data-fb', 'notes');
+notes.setAttribute('data-fb-label', 'Notes');
+notes.innerHTML = `
+	<div class="rail__card">
+		${sectionTitle('Member strip — the case, both ways')}
+		<ul>
+			<li><b>Only it names everyone.</b> The app's Family Task Board builds its columns from <code>tasks.map(ownerId)</code>, so a member with a clear day is in no other module at all; this strip is the one place the roster is complete. (The board above is kinder than the app's — it lists every member, empty column included.)</li>
+			<li><b>Two of the real card's three facts are repeats.</b> <code>MemberStrip.svelte</code> renders an <code>N open</code> count per member — the number the Family Task Board already prints beside each assignee — and an <code>event</code> chip, which Today at a Glance already shows as Going/Maybe.</li>
+			<li><b>Left exactly as it is, for you to call.</b> If it goes, the count belongs on the glance row. If it stays, the two repeats are the part to cut.</li>
+		</ul>
+	</div>
+	<div class="rail__card">
+		${sectionTitle('What the app does now (checked 29 Sep)')}
+		<ul>
+			<li><b>080 has landed.</b> <code>DashboardInfoBand.svelte</code> puts the verse in a quiet strip above the band; the <code>verse</code> module is <code>band: 'info'</code> and its switch now means “show the verse”, reading the saved <code>showDailyVerse</code> <i>and</i> the module row, so a verse hidden before the move stays hidden.</li>
+			<li><b>072 has landed.</b> The child id survives the loader, so the kids card groups and colours per child off the existing avatar palette — those bands, not a new one.</li>
+			<li><b>081 has landed.</b> <code>GroceriesCard.svelte</code> is a real card in the band, and <code>groceries</code> is a real family-scoped module an admin can switch off. It reuses the list page's own <code>groupGroceriesByStore</code> for the store chips, names the first three items and counts the rest, and its scope links are the list page's <code>?scope=</code> URLs — so the card above is a re-skin of it, not a proposal. An empty list says “Nothing on the list yet.” and stops.</li>
+		</ul>
+	</div>
+	<div class="rail__card">
+		${sectionTitle('Meals is parked, not deleted')}
+		<ul>
+			<li>By directive (2026-09-08) the <code>meals</code> table, <code>/api/meals</code> and <code>MealsCard.svelte</code> are all still in the tree. Only the card's own test imports it.</li>
+			<li>It left this band by directive too. <code>dashboardModules.ts</code> still declares the module, so the family page still offers a Meals master switch that switches nothing while the card is unmounted.</li>
+		</ul>
+	</div>`;
+
+/* Info band above the cards, then the module band, then the notes. */
+const column = el('div');
+column.style.cssText = 'display:flex;flex-direction:column;gap:1rem';
+column.appendChild(infoBand);
+column.appendChild(grid);
+column.appendChild(notes);
 
 mountApp({
 	head: {
 		kicker: 'Prototype · Dashboard',
 		title: 'Friday 25 September',
-		lede: 'The real page is <code>+page.server.ts</code> at 388 lines with eight independently-loading modules, each of which degrades on its own. Same structure, marketing skin.',
+		lede: 'The real page is <code>+page.server.ts</code> at 388 lines with eight modules, each of which loads and degrades on its own. Seven are cards in the toggleable band; the eighth — the verse — is a quiet strip above them, because a reading is not a task. Same structure, marketing skin.',
 		actions: `
 			<span class="daynav">
 				<a class="btn-icon" href="#" aria-label="Previous day">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>'}</a>
@@ -178,7 +289,7 @@ mountApp({
 			</span>
 			<a class="btn btn-primary btn-sm" href="../calendar-ui/d-working-calendar.html">Open the calendar</a>`
 	},
-	body: grid
+	body: column
 });
 
 // the toast helper the inline handlers above use

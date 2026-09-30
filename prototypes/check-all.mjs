@@ -51,7 +51,7 @@ function serverIsUp(port) {
 /** Suites named here are skipped without the collector; the rest need it.
  *  spacing-check hosts its own static server, so it must be in this list —
  *  a guard that skips when you forget a server is not a guard. */
-const OFFLINE_HINTS = ['review-check', 'tree-check', 'lint', 'smoke', 'nav-check', 'app-check', 'spacing-check'];
+const OFFLINE_HINTS = ['review-check', 'tree-check', 'lint', 'smoke', 'nav-check', 'app-check', 'spacing-check', 'brand-check'];
 
 /** Every *.mjs in the root and each set, minus this runner. */
 function discover() {
@@ -66,7 +66,10 @@ function discover() {
 				}
 				continue;
 			}
-			if (!f.endsWith('.mjs') || f === SELF) continue;
+			// A leading underscore means "not a suite": a dev tool that happens to
+		// live here. Discovery is otherwise every *.mjs, so an ad-hoc debug
+		// script would be run as a check and report as one failing.
+		if (!f.endsWith('.mjs') || f === SELF || f.startsWith('_')) continue;
 			found.push({ name: f.replace(/\.mjs$/, ''), file: full, where: `${prefix}${f}` });
 		}
 	};
