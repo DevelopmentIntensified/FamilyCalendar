@@ -2,10 +2,16 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/svelte';
 import GroceriesPage from './+page.svelte';
 import type { PageData } from './$types';
+import { STORE_COLOURS, defaultStoreColourKey } from '$lib/data/groceries';
+import { pushToast } from '$lib/client/toasts';
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- SvelteKit $app/* is framework-injected; no DI seam exists.
 vi.mock('$app/navigation', () => ({
 	invalidateAll: vi.fn()
+}));
+
+vi.mock('$lib/client/toasts', () => ({
+	pushToast: vi.fn()
 }));
 
 // The dashboard's per-scope card links here, so `?scope=` has to be honoured —
@@ -50,7 +56,10 @@ function makeData(overrides: Partial<PageData> = {}) {
 			g('f3', 'Coffee beans', ['Aldi', 'Costco'], 2),
 			g('f4', 'Dish soap', [], 4)
 		],
-		hasFamily: true
+		hasFamily: true,
+		userId: 'u1',
+		familyId: 'fam1',
+		colours: [] as { storeKey: string; color: string; userId: string; familyId: string | null }[]
 	};
 	return { data: { ...base, ...overrides } as unknown as PageData };
 }
@@ -68,43 +77,251 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-describe('groceries page — scope tabs', () => {
-	it('opens on the scope the dashboard card linked to', () => {
-		// #081: the dashboard groceries card links per scope. Family is the
-		// default, but an explicit ?scope=mine must win or the link lies.
+describe('groceries page — one list, scope filter (097)', () => {
+	const list = () => screen.getByRole('region', { name: 'Items by store' });
+
+	it('opens on ALL scopes, so the page is not one scope the user switches away from', () => {
+		render(GroceriesPage, makeData());
+		expect(screen.getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'true');
+		// Both scopes' items are on screen at once — the whole point.
+		expect(screen.getByText('Oat milk')).toBeInTheDocument();
+		expect(screen.getByText('Sourdough')).toBeInTheDocument();
+	});
+
+	it('has no tabs left at all', () => {
+		render(GroceriesPage, makeData());
+		expect(screen.queryAllByRole('tab')).toHaveLength(0);
+	});
+
+	it('the ?scope= link still lands on that scope, now as a filter', () => {
+		// #081's promise: a "Mine →" link must not lie about which list.
 		searchParams.set('scope', 'mine');
 		render(GroceriesPage, makeData());
-		expect(screen.getByRole('tab', { name: /Mine/ })).toHaveAttribute('aria-selected', 'true');
-		// And the Mine scope's own items are what is on screen.
+		expect(screen.getByRole('button', { name: /^Mine/ })).toHaveAttribute('aria-pressed', 'true');
 		expect(screen.getByText('Oat milk')).toBeInTheDocument();
 		expect(screen.queryByText('Sourdough')).toBeNull();
 	});
 
-	it('ignores a junk scope rather than showing nothing', () => {
+	it('falls back to All on a junk scope rather than showing nothing', () => {
 		searchParams.set('scope', 'nonsense');
 		render(GroceriesPage, makeData());
-		expect(screen.getByRole('tab', { name: /Family/ })).toHaveAttribute('aria-selected', 'true');
+		expect(screen.getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'true');
 	});
 
-	it('opens on Family, with Family before Mine, each carrying its open count', () => {
+	it('carries the counts the tabs carried', () => {
 		render(GroceriesPage, makeData());
-		const tabs = screen.getAllByRole('tab');
-		expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Family4', 'Mine2']);
-		expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
-		expect(tabs[1]).toHaveAttribute('aria-selected', 'false');
+		const chips = screen
+			.getAllByRole('button')
+			.filter((b) => b.hasAttribute('aria-pressed'))
+			.map((b) => b.textContent?.replace(/\s+/g, ' ').trim());
+		expect(chips).toEqual(['All6', 'Family4', 'Mine2']);
 	});
 
-	it('switches to the Mine scope and shows that scope’s items', async () => {
+	it('narrows to one scope and widens back', async () => {
 		render(GroceriesPage, makeData());
-		await fireEvent.click(screen.getByRole('tab', { name: /Mine/ }));
-		expect(screen.getByRole('tab', { name: /Mine/ })).toHaveAttribute('aria-selected', 'true');
+		await fireEvent.click(screen.getByRole('button', { name: /^Family/ }));
+		expect(screen.getByText('Sourdough')).toBeInTheDocument();
+		expect(screen.queryByText('Oat milk')).not.toBeInTheDocument();
+		await fireEvent.click(screen.getByRole('button', { name: /^All/ }));
 		expect(screen.getByText('Oat milk')).toBeInTheDocument();
+	});
+
+	it('groups by STORE across scopes — one group holds both scopes, tagged per row', () => {
+		render(GroceriesPage, makeData());
+		// Aldi is a family group (Eggs, Coffee beans) and a mine group (Lemons).
+		// One store, one trip, so one group — and the rows say which is which.
+		const aldi = screen.getByRole('region', { name: 'Aldi' });
+		const rows = within(aldi).getAllByRole('listitem');
+		expect(rows).toHaveLength(3);
+		const tags = rows.map((r) => within(r).getByText(/^(Family|Mine)$/).textContent);
+		expect(tags.sort()).toEqual(['Family', 'Family', 'Mine']);
+	});
+
+	it('never carries the scope distinction by colour alone', () => {
+		render(GroceriesPage, makeData());
+		// Every row states its scope in words, on a plain background.
+		for (const row of within(list()).getAllByRole('listitem')) {
+			const tag = within(row).getByText(/^(Family|Mine)$/);
+			expect(tag).toHaveTextContent(/^(Family|Mine)$/);
+		}
+	});
+
+	it('counts the group summary honestly across both scopes', () => {
+		render(GroceriesPage, makeData());
+		// Aldi: Eggs x2 + Coffee beans x2 + Lemons x3 = 3 items, 7 total.
+		const aldi = screen.getByRole('region', { name: 'Aldi' });
+		expect(within(aldi).getByText(/3 items · 7 total/)).toBeInTheDocument();
+	});
+
+	it('says the family scope is empty rather than the page, when there is no family', () => {
+		render(GroceriesPage, makeData({ family: [], hasFamily: false }));
+		// The message names the FAMILY scope; the page itself is not empty.
+		expect(screen.getByText(/No family yet/)).toBeInTheDocument();
+		expect(screen.getByText('Oat milk')).toBeInTheDocument();
+		// And on the Mine filter the message is not even shown — nothing is missing there.
+		expect(screen.queryByText(/No family yet/)).toBeInTheDocument();
+	});
+
+	it('offers Mine as the only add scope when there is no family', () => {
+		render(GroceriesPage, makeData({ family: [], hasFamily: false }));
+		expect(screen.getByLabelText('Add to')).toHaveValue('mine');
+	});
+});
+
+describe('groceries page — search', () => {
+	const list = () => screen.getByRole('region', { name: 'Items by store' });
+
+	it('matches on the item name and says what it is searching for', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.input(screen.getByLabelText('Search groceries'), { target: { value: 'egg' } });
+		expect(within(list()).getByText('Eggs')).toBeInTheDocument();
+		expect(within(list()).queryByText('Sourdough')).not.toBeInTheDocument();
+		expect(screen.getByText(/Searching “egg”/)).toBeInTheDocument();
+	});
+
+	it('matches on the store too, because that is how people look for a thing', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.input(screen.getByLabelText('Search groceries'), { target: { value: 'aldi' } });
+		// Aldi groups survive: Eggs, Coffee beans, Lemons.
+		expect(
+			within(screen.getByRole('region', { name: 'Aldi' })).getAllByRole('listitem')
+		).toHaveLength(3);
 		expect(screen.queryByText('Sourdough')).not.toBeInTheDocument();
 	});
 
-	it('explains an empty Family list when there is no family yet', () => {
-		render(GroceriesPage, makeData({ family: [], hasFamily: false }));
-		expect(screen.getByText(/Join or create a family/)).toBeInTheDocument();
+	it('says so when nothing matches, rather than showing an empty list', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.input(screen.getByLabelText('Search groceries'), { target: { value: 'zzzz' } });
+		expect(screen.getByText(/No items match/)).toBeInTheDocument();
+	});
+
+	it('clears from a visible affordance', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.input(screen.getByLabelText('Search groceries'), { target: { value: 'egg' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+		expect(screen.getByLabelText('Search groceries')).toHaveValue('');
+		expect(screen.getByText('Sourdough')).toBeInTheDocument();
+	});
+});
+
+describe('groceries page — the add form names its scope', () => {
+	it('posts to an explicit, visible scope rather than inferring one from a tab', async () => {
+		render(GroceriesPage, makeData());
+		const picker = screen.getByLabelText('Add to');
+		expect(picker).toHaveValue('family');
+		await fireEvent.input(screen.getByLabelText('Add grocery item'), {
+			target: { value: 'Butter' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+		expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).toMatchObject({
+			scope: 'family',
+			input: 'Butter'
+		});
+	});
+
+	it('lets the user point the add form at their own list, and the toast says which', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.change(screen.getByLabelText('Add to'), { target: { value: 'mine' } });
+		await fireEvent.input(screen.getByLabelText('Add grocery item'), {
+			target: { value: 'Butter' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+		expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).toMatchObject({
+			scope: 'mine'
+		});
+		await vi.waitFor(() =>
+			expect(vi.mocked(pushToast).mock.calls[0][0].message).toMatch(/to Mine/)
+		);
+	});
+
+	it('fetches the Store Memory suggestion for the scope the form is pointed at', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.change(screen.getByLabelText('Add to'), { target: { value: 'mine' } });
+		await fireEvent.input(screen.getByLabelText('Add grocery item'), {
+			target: { value: 'lemons' }
+		});
+		await vi.waitFor(() =>
+			expect(
+				vi.mocked(fetch).mock.calls.some((c) => String(c[0]).includes('scope=mine&suggest=1'))
+			).toBe(true)
+		);
+	});
+
+	it('follows the filter when the filter names one scope, so the two cannot disagree', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: /^Mine/ }));
+		expect(screen.getByLabelText('Add to')).toHaveValue('mine');
+	});
+});
+
+describe('groceries page — checked-off rail and move, across scopes', () => {
+	it('holds everything checked this session, from either scope', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Check off Eggs' }));
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Check off Oat milk' }));
+		const rail = screen.getByRole('region', { name: 'Checked off' });
+		expect(within(rail).getByText('Eggs')).toBeInTheDocument();
+		expect(within(rail).getByText('Oat milk')).toBeInTheDocument();
+		// And it says which scope each came back from.
+		expect(within(rail).getByText('Family')).toBeInTheDocument();
+		expect(within(rail).getByText('Mine')).toBeInTheDocument();
+	});
+
+	it('unchecks on the scope the item actually came from, not the filter', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Check off Oat milk' }));
+		expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).toEqual({
+			scope: 'mine',
+			op: 'check'
+		});
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Uncheck Oat milk' }));
+		expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1][1]?.body))).toEqual({
+			scope: 'mine',
+			op: 'uncheck'
+		});
+	});
+
+	it('each row moves to ITS other scope and names the destination', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit stores for Sourdough' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Move Sourdough to Mine' }));
+		expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).toEqual({
+			scope: 'family',
+			op: 'move',
+			target: 'mine'
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit stores for Lemons' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Move Lemons to Family' }));
+		expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1][1]?.body))).toEqual({
+			scope: 'mine',
+			op: 'move',
+			target: 'family'
+		});
+	});
+
+	it('edits stores on the row’s own scope, whatever the filter says', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: /^Family/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit stores for Eggs' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save stores for Eggs' }));
+		expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).toEqual({
+			scope: 'family',
+			op: 'stores',
+			stores: ['Aldi']
+		});
+	});
+
+	it('deletes on the row’s own scope, with the filter on the other one', async () => {
+		render(GroceriesPage, makeData());
+		// Filtered to Family, but deleting a MINE row still says scope=mine —
+		// the filter says what you are looking at, never where the item lives.
+		await fireEvent.click(screen.getByRole('button', { name: /^All/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Lemons' }));
+		expect(vi.mocked(fetch).mock.calls[0][0]).toBe('/api/groceries/m2?scope=mine');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Dish soap' }));
+		expect(vi.mocked(fetch).mock.calls[1][0]).toBe('/api/groceries/f4?scope=family');
 	});
 });
 
@@ -117,14 +334,17 @@ describe('groceries page — Store groups', () => {
 			within(list())
 				.getAllByRole('heading', { level: 2 })
 				.map((h) => h.textContent?.trim())
-		).toEqual(['Aldi', 'Any store', 'Whole Foods']);
+		).toEqual(['Aldi', 'Any store', 'Trader Joe’s', 'Whole Foods']);
 	});
 
 	it('summarises each group with its item count and total quantity', () => {
 		render(GroceriesPage, makeData());
-		expect(screen.getByText('2 items · 4 total')).toBeInTheDocument();
-		expect(screen.getByText('1 item · 4 total')).toBeInTheDocument();
-		expect(screen.getByText('1 item · 1 total')).toBeInTheDocument();
+		// Aldi holds a family item (Eggs x2), a family item with an alternate
+		// (Coffee beans x2) AND a personal one (Lemons x3) — the summary counts
+		// the group, not a scope.
+		expect(screen.getByText(/3 items · 7 total/)).toBeInTheDocument();
+		expect(screen.getByText(/1 item · 4 total/)).toBeInTheDocument();
+		expect(screen.getByText(/1 item · 1 total/)).toBeInTheDocument();
 	});
 
 	it('shows a Store chip per row, with alternates as the "or X" line', () => {
@@ -132,6 +352,13 @@ describe('groceries page — Store groups', () => {
 		const aldi = screen.getByRole('region', { name: 'Aldi' });
 		expect(within(aldi).getByText('or Costco')).toBeInTheDocument();
 		expect(within(aldi).getAllByText('Aldi').length).toBeGreaterThan(0);
+	});
+
+	it('an alternate is not a group of its own — grouping is by the primary store', () => {
+		// Costco is an alternate on Coffee beans. It stays on that row, exactly
+		// as before 097; it does not become a trip you did not plan.
+		render(GroceriesPage, makeData());
+		expect(screen.queryByRole('region', { name: 'Costco' })).toBeNull();
 	});
 });
 
@@ -234,5 +461,189 @@ describe('groceries page — Store Memory suggestions', () => {
 			'placeholder',
 			'Store (optional, comma = alternates)'
 		);
+	});
+});
+
+/* ── 096: every store carries its own colour ────────────────────────────────
+ *
+ * The colour is what identifies the group: the header bar and the row chip
+ * take the store's own swatch instead of one hard-coded tint for every group.
+ */
+describe('groceries page — store colours (096)', () => {
+	const list = () => screen.getByRole('region', { name: 'Items by store' });
+
+	it('tints each group header with that store’s own colour, not one tint for all', () => {
+		render(GroceriesPage, makeData());
+		const aldi = screen.getByRole('region', { name: 'Aldi' });
+		const whole = screen.getByRole('region', { name: 'Whole Foods' });
+		const bars = [aldi, whole].map((r) => r.querySelector('[data-store-bar]'));
+		expect(bars[0]).toBeTruthy();
+		expect(bars[0]?.getAttribute('class')).not.toBe(bars[1]?.getAttribute('class'));
+	});
+
+	it('applies a colour set on the store to both the header and the row chip', () => {
+		render(
+			GroceriesPage,
+			makeData({
+				colours: [{ storeKey: 'aldi', color: 'lilac', userId: 'u1', familyId: 'fam1' }]
+			})
+		);
+		const aldi = screen.getByRole('region', { name: 'Aldi' });
+		const swatch = STORE_COLOURS.find((c) => c.key === 'lilac')!;
+		expect(aldi.querySelector('[data-store-bar]')).toHaveClass(swatch.bar);
+		expect(aldi.querySelector('[data-primary]')).toHaveClass(swatch.chip);
+	});
+
+	it('a personal override beats the family row', () => {
+		render(
+			GroceriesPage,
+			makeData({
+				colours: [
+					{ storeKey: 'aldi', color: 'sage', userId: 'u1', familyId: 'fam1' },
+					{ storeKey: 'aldi', color: 'lilac', userId: 'u1', familyId: null }
+				]
+			})
+		);
+		expect(
+			screen.getByRole('region', { name: 'Aldi' }).querySelector('[data-store-bar]')
+		).toHaveClass(STORE_COLOURS.find((c) => c.key === 'lilac')!.bar);
+	});
+
+	it('an unconfigured store gets its name-derived default', () => {
+		render(GroceriesPage, makeData());
+		const aldi = screen.getByRole('region', { name: 'Aldi' });
+		expect(aldi.querySelector('[data-store-bar]')).toHaveClass(
+			STORE_COLOURS.find((c) => c.key === defaultStoreColourKey('Aldi'))!.bar
+		);
+	});
+
+	it('never tints the "Any store" group — an absent store is not a shop', () => {
+		render(GroceriesPage, makeData());
+		const none = screen.getByRole('region', { name: 'Any store' });
+		expect(none.querySelector('[data-store-bar]')).toBeNull();
+		// And it has no colour control to mis-set.
+		expect(within(none).queryByRole('combobox', { name: /Colour for/ })).toBeNull();
+	});
+
+	it('discloses a shared colour on the group header rather than hiding it', () => {
+		// Aldi and Trader Joe's land on the same name-derived swatch.
+		expect(defaultStoreColourKey('Aldi')).toBe(defaultStoreColourKey('Trader Joe’s'));
+		searchParams.set('scope', 'mine');
+		render(GroceriesPage, makeData());
+		const aldi = screen.getByRole('region', { name: 'Aldi' });
+		const tj = screen.getByRole('region', { name: 'Trader Joe’s' });
+		expect(within(aldi).getByText(/shares .* with Trader Joe/)).toBeInTheDocument();
+		expect(within(tj).getByText(/shares .* with Aldi/)).toBeInTheDocument();
+	});
+
+	it('a colour set on a store reaches the row chip for a personal item too', () => {
+		searchParams.set('scope', 'mine');
+		render(
+			GroceriesPage,
+			makeData({
+				colours: [{ storeKey: 'trader joe’s', color: 'amber', userId: 'u1', familyId: 'fam1' }]
+			})
+		);
+		const tj = screen.getByRole('region', { name: 'Trader Joe’s' });
+		expect(tj.querySelector('[data-store-bar]')).toHaveClass(
+			STORE_COLOURS.find((c) => c.key === 'amber')!.bar
+		);
+	});
+
+	it('offers the colour picker on the group, and every declared swatch', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit colour for Aldi' }));
+		const picker = screen.getByLabelText('Colour for Aldi');
+		expect(picker).toBeInTheDocument();
+		for (const c of STORE_COLOURS) {
+			expect(
+				within(picker as HTMLSelectElement).getByRole('option', { name: c.label })
+			).toBeTruthy();
+		}
+		// Plus "Auto" — back to the name-derived default.
+		expect(within(picker as HTMLSelectElement).getByRole('option', { name: 'Auto' })).toBeTruthy();
+	});
+
+	it('suggests the stores already on the lists before offering a new one', () => {
+		// Free text makes a typo a second store, and a second colour.
+		render(GroceriesPage, makeData());
+		const field = screen.getByLabelText('Stores for this item');
+		expect(field).toHaveAttribute('list', 'known-stores');
+		const offered = Array.from(
+			document.querySelectorAll<HTMLOptionElement>('#known-stores option')
+		).map((o) => o.value);
+		expect(offered).toEqual(
+			expect.arrayContaining(['Trader Joe’s', 'Aldi', 'Kroger', 'Whole Foods', 'Costco'])
+		);
+	});
+
+	it('flips the colour optimistically and confirms it by toast, naming store and colour', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit colour for Aldi' }));
+		await fireEvent.change(screen.getByLabelText('Colour for Aldi'), {
+			target: { value: 'lilac' }
+		});
+
+		const [url, init] = vi.mocked(fetch).mock.calls[0];
+		expect(url).toBe('/api/groceries/colours');
+		expect(init?.method).toBe('PATCH');
+		expect(JSON.parse(String(init?.body))).toEqual({
+			store: 'Aldi',
+			color: 'lilac',
+			scope: 'family'
+		});
+		// Acked before the request resolves: the bar repaints immediately.
+		expect(
+			screen.getByRole('region', { name: 'Aldi' }).querySelector('[data-store-bar]')
+		).toHaveClass(STORE_COLOURS.find((c) => c.key === 'lilac')!.bar);
+		await vi.waitFor(() =>
+			expect(vi.mocked(pushToast).mock.calls[0][0].message).toMatch(/^Aldi is now Lavender/)
+		);
+	});
+
+	it('writes a personal override when the user picks "Just me"', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit colour for Aldi' }));
+		await fireEvent.click(screen.getByRole('radio', { name: 'Just me' }));
+		await fireEvent.change(screen.getByLabelText('Colour for Aldi'), {
+			target: { value: 'slate' }
+		});
+		expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).toEqual({
+			store: 'Aldi',
+			color: 'slate',
+			scope: 'personal'
+		});
+	});
+
+	it('reverts the colour and names the failure when the flip fails', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response('{}', { status: 500 }))
+		);
+		render(GroceriesPage, makeData());
+		const before = screen
+			.getByRole('region', { name: 'Aldi' })
+			.querySelector('[data-store-bar]')
+			?.getAttribute('class');
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit colour for Aldi' }));
+		await fireEvent.change(screen.getByLabelText('Colour for Aldi'), {
+			target: { value: 'lilac' }
+		});
+
+		await vi.waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent(/Couldn't set that colour/)
+		);
+		expect(
+			screen.getByRole('region', { name: 'Aldi' }).querySelector('[data-store-bar]')
+		).toHaveAttribute('class', before as string);
+	});
+
+	it('keeps the primary store distinguishable from its alternates on a second channel', () => {
+		render(GroceriesPage, makeData());
+		const aldi = screen.getByRole('region', { name: 'Aldi' });
+		// Colour answers "which store"; the ring + dot answer "the one I group
+		// this under". Both survive, on different channels.
+		expect(aldi.querySelector('[data-primary]')).toHaveTextContent('Aldi');
+		expect(within(aldi).getByText('or Costco')).toBeInTheDocument();
 	});
 });

@@ -2,7 +2,20 @@
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { PageData } from './$types';
-	import { groupGroceriesByStore } from '$lib/data/groceries';
+	import {
+		groupGroceriesByStore,
+		resolveGroceryColours,
+		storesSharingColour,
+		colourFor,
+		matchesGrocerySearch,
+		scopeFromParam,
+		scopeOf,
+		SCOPE_FILTERS,
+		STORE_COLOURS,
+		type GroceryScopeKey,
+		type StoreColour,
+		type StoreColourRow
+	} from '$lib/data/groceries';
 	import { pushToast } from '$lib/client/toasts';
 
 	export let data: PageData;
@@ -12,13 +25,18 @@
 		name: string;
 		quantity: number;
 		stores: string[];
+		familyId: string | null;
 	};
 	type Scope = 'mine' | 'family';
 
-	// The approved prototype opens on Family, with Mine second — unless the
-	// dashboard's per-scope card link asked for the other one. Honouring it
-	// matters: a "Mine →" link that lands on the Family tab is a broken promise.
-	let tab: Scope = page.url.searchParams.get('scope') === 'mine' ? 'mine' : 'family';
+	// 097: the two scope tabs are gone. ONE list, a scope FILTER, both scopes
+	// visible. The parameter keeps its promise — the dashboard's "Mine →" card
+	// link passes ?scope=mine and must not land on the wrong list — but it now
+	// selects the filter. Junk falls back to "all" rather than showing nothing.
+	let scope: GroceryScopeKey = scopeFromParam(page.url.searchParams.get('scope'));
+	/** The add form's scope is explicit and visible, never inferred. */
+	let addScope: Scope = data.hasFamily ? 'family' : 'mine';
+	let searchQuery = '';
 	let input = '';
 	let storeInput = '';
 	let suggested: string | null = null;
@@ -30,14 +48,20 @@
 	let hiddenIds = new Set<string>();
 	/** Checked off this session — the only place uncheck has a UI. */
 	let recentlyChecked: { item: Item; scope: Scope }[] = [];
+	/** Store whose colour is being edited (096). */
+	let colourStore: string | null = null;
+	/** personal | family — which row the flip writes. Personal wins on read. */
+	let colourScope: 'family' | 'personal' = 'family';
+	let colourBusy = false;
+	/**
+	 * Optimistic colour overrides, keyed by the store name. Read inline so
+	 * `$:` repaints; dropped on invalidateAll so the server stays the truth.
+	 */
+	let colourOverrides: Record<string, string> = {};
 
-	const scopes: { key: Scope; label: string }[] = [
-		{ key: 'family', label: 'Family' },
-		{ key: 'mine', label: 'Mine' }
-	];
-
-	function countIn(scope: Scope): number {
-		return (scope === 'family' ? data.family : data.mine).length;
+	function countIn(s: GroceryScopeKey): number {
+		if (s === 'all') return allItems.length;
+		return allItems.filter((i) => scopeOf(i) === s).length;
 	}
 
 	/** "2 items · 5 total" — the Store summary line. */
@@ -46,13 +70,103 @@
 		return `${items.length} ${items.length === 1 ? 'item' : 'items'} · ${total} total`;
 	}
 
-	// hiddenIds and tab are referenced directly: a filter hidden behind a helper
-	// call would drop out of Svelte's dependency tracking and never repaint.
-	$: scoped = (tab === 'family' ? data.family : data.mine) as Item[];
-	$: items = scoped.filter((i) => !hiddenIds.has(i.id));
+	// ONE list, both scopes, grouped by STORE. The group is per store, not per
+	// (scope, store): a shop is a shop and you do one trip to it, and a group
+	// that split "Aldi" in two would show the same colour twice on one page.
+	// The SCOPE rides on the row instead, in words — never in colour alone.
+	$: allItems = [...(data.family as Item[]), ...(data.mine as Item[])];
+	// hiddenIds, scope and searchQuery are referenced directly: a filter hidden
+	// behind a helper call would drop out of Svelte's tracking and never repaint.
+	$: scoped = allItems.filter((i) => scope === 'all' || scopeOf(i) === scope);
+	$: searched = scoped.filter((i) => matchesGrocerySearch(i, searchQuery));
+	$: items = searched.filter((i) => !hiddenIds.has(i.id));
 	$: groups = groupGroceriesByStore(items);
-	$: checked = recentlyChecked.filter((r) => r.scope === tab);
-	$: other = tab === 'mine' ? 'Family' : 'Mine';
+	// The rail holds everything checked this session, from either scope.
+	$: checked = recentlyChecked;
+	$: queryActive = searchQuery.trim().length > 0;
+
+	/**
+	 * The colour rows the page resolves against: the loader's rows, plus any
+	 * flip this session has not yet been revalidated for. Resolution is by the
+	 * VIEWER, not by which tab is open, so a colour set on one list reads the
+	 * same on the other.
+	 */
+	$: colourRows = (data.colours ?? []) as StoreColourRow[];
+	$: viewer = { userId: data.userId, familyId: data.familyId };
+	$: effectiveRows = [
+		...colourRows,
+		...Object.entries(colourOverrides).map(([key, color]) => ({
+			storeKey: key,
+			color,
+			userId: data.userId,
+			familyId: colourScope === 'family' ? data.familyId : null
+		}))
+	];
+	$: groupNames = groups.map((g) => g.store);
+	$: colours = resolveGroceryColours(groupNames, effectiveRows, viewer);
+	// Every store the page shows a chip for, so a collision is disclosed.
+	$: chipNames = [
+		...new Set(
+			items.flatMap((i) => [i.stores[0], ...i.stores.slice(1)].filter(Boolean) as string[])
+		)
+	];
+	/** Every store name anywhere on the page, for the free-text store field. */
+	$: knownStores = [
+		...new Set([...(data.family as Item[]), ...(data.mine as Item[])].flatMap((i) => i.stores))
+	];
+	$: onPage = (name: string) => !!colourOverrides[name.trim().toLowerCase()];
+
+	function colourOf(name: string | null | undefined): StoreColour | null {
+		return colourFor(name, effectiveRows, viewer);
+	}
+
+	function twinsOf(name: string): string[] {
+		return storesSharingColour(name, chipNames, effectiveRows, viewer);
+	}
+
+	async function setColour(store: string, color: string) {
+		if (colourBusy) return;
+		colourBusy = true;
+		error = '';
+		const key = store.trim().toLowerCase();
+		const was = effectiveRows.find(
+			(r) => r.storeKey === key && r.familyId === colourScopeForWrite()
+		);
+		// Optimistic repaint (<100ms ack); reverted below if the write fails.
+		colourOverrides = { ...colourOverrides, [key]: color };
+		const res = await fetch('/api/groceries/colours', {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ store, color, scope: colourScope })
+		});
+		if (res.ok) {
+			const label =
+				color === 'auto'
+					? 'Auto — back to its own default'
+					: (STORE_COLOURS.find((c) => c.key === color)?.label ?? color);
+			pushToast({
+				message:
+					color === 'auto'
+						? `${store} is back to its own default colour.`
+						: `${store} is now ${label}${colourScope === 'personal' ? ' (just you)' : ''}.`
+			});
+			colourStore = null;
+			await invalidateAll();
+		} else {
+			if (was) colourOverrides = { ...colourOverrides, [key]: was.color };
+			else {
+				const next = { ...colourOverrides };
+				delete next[key];
+				colourOverrides = next;
+			}
+			error = "Couldn't set that colour. Try again.";
+		}
+		colourBusy = false;
+	}
+
+	function colourScopeForWrite(): string | null {
+		return colourScope === 'family' ? data.familyId : null;
+	}
 
 	async function lookupSuggest(name: string) {
 		const q = name.trim();
@@ -61,8 +175,10 @@
 			return;
 		}
 		try {
+			// Scoped to the scope the form is pointed at, so the suggestion never
+			// silently answers for the other list.
 			const res = await fetch(
-				`/api/groceries?scope=${tab}&suggest=1&name=${encodeURIComponent(q)}`
+				`/api/groceries?scope=${addScope}&suggest=1&name=${encodeURIComponent(q)}`
 			);
 			if (res.ok) suggested = (await res.json()).store ?? null;
 		} catch {
@@ -85,6 +201,9 @@
 		adding = true;
 		error = '';
 		const guessed = suggested;
+		// Captured before the await so a mid-flight scope change cannot send
+		// the item to a list the toast did not name.
+		const target = addScope;
 		try {
 			const stores = storeInput
 				.split(',')
@@ -93,11 +212,13 @@
 			const res = await fetch('/api/groceries', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ scope: tab, input, stores: stores.length ? stores : undefined })
+				body: JSON.stringify({ scope: target, input, stores: stores.length ? stores : undefined })
 			});
 			if (res.ok) {
+				// The toast names the scope: with both lists on one page, "added"
+				// alone would not say where the row landed.
 				pushToast({
-					message: `Added "${input.trim()}"${guessed && !storeInput ? ` — ${guessed}` : ''}.`
+					message: `Added "${input.trim()}" to ${target === 'mine' ? 'Mine' : 'Family'}${guessed && !storeInput ? ` — ${guessed}` : ''}.`
 				});
 				input = '';
 				storeInput = '';
@@ -115,20 +236,22 @@
 
 	async function check(item: Item) {
 		// Optimistic hide (<100ms ack); revert on failure.
-		const scope = tab;
+		// The row's OWN scope, not the filter: with both lists on one page the
+		// filter says what you are looking at, never where the item lives.
+		const rowScope = scopeOf(item);
 		hiddenIds.add(item.id);
 		hiddenIds = hiddenIds;
 		const res = await fetch(`/api/groceries/${item.id}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ scope, op: 'check' })
+			body: JSON.stringify({ scope: rowScope, op: 'check' })
 		});
 		if (res.ok) {
-			recentlyChecked = [...recentlyChecked, { item, scope }];
+			recentlyChecked = [...recentlyChecked, { item, scope: rowScope }];
 			pushToast({
 				message: `Checked off "${item.name}".`,
 				actionLabel: 'Undo',
-				onAction: () => uncheck(item, scope)
+				onAction: () => uncheck(item, rowScope)
 			});
 			await invalidateAll();
 		} else {
@@ -171,7 +294,7 @@
 		const res = await fetch(`/api/groceries/${item.id}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ scope: tab, op: 'stores', stores })
+			body: JSON.stringify({ scope: scopeOf(item), op: 'stores', stores })
 		});
 		if (res.ok) {
 			pushToast({ message: `Stores updated for "${item.name}".` });
@@ -185,16 +308,18 @@
 
 	async function move(item: Item) {
 		if (busyId) return;
-		const scope = tab;
 		busyId = item.id;
+		// A row moves to ITS other scope. The destination is derived from the
+		// row, not from the filter, so "To Family" is never a no-op.
+		const target: Scope = scopeOf(item) === 'mine' ? 'family' : 'mine';
 		const res = await fetch(`/api/groceries/${item.id}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ scope, op: 'move', target: other === 'Mine' ? 'mine' : 'family' })
+			body: JSON.stringify({ scope: scopeOf(item), op: 'move', target })
 		});
 		if (res.ok) {
 			pushToast({
-				message: `Moved "${item.name}" to ${other === 'Mine' ? 'your list' : 'Family'}.`
+				message: `Moved "${item.name}" to ${target === 'mine' ? 'Mine' : 'Family'}.`
 			});
 			editingId = null;
 			await invalidateAll();
@@ -207,7 +332,9 @@
 	async function remove(item: Item) {
 		if (busyId) return;
 		busyId = item.id;
-		const res = await fetch(`/api/groceries/${item.id}?scope=${tab}`, { method: 'DELETE' });
+		const res = await fetch(`/api/groceries/${item.id}?scope=${scopeOf(item)}`, {
+			method: 'DELETE'
+		});
 		if (res.ok) {
 			pushToast({ message: `Removed "${item.name}" — store memory kept.` });
 			await invalidateAll();
@@ -226,29 +353,85 @@
 	<h1 class="text-2xl font-bold">Groceries</h1>
 
 	<div class="mt-4 grid items-start gap-6 lg:grid-cols-[21rem_minmax(0,1fr)]">
-		<!-- ── side rail: scope tabs, add field, Store Memory, checked rail ── -->
+		<!-- ── side rail: scope filter, search, add field, checked rail ── -->
 		<div class="min-w-0 space-y-4">
-			<div
-				class="inline-flex max-w-full rounded-xl bg-gray-100 p-1"
-				role="tablist"
-				aria-label="Grocery lists"
-			>
-				{#each scopes as s (s.key)}
+			<!-- One list, one filter — the same single-select chip idiom the
+			     tasks page uses, so the two pages filter the same way. -->
+			<div class="flex flex-wrap gap-1.5" role="group" aria-label="Filter groceries by scope">
+				{#each SCOPE_FILTERS as s (s.key)}
 					<button
-						role="tab"
-						aria-selected={tab === s.key}
-						class="min-h-9 shrink-0 rounded-lg px-4 text-sm font-semibold {tab === s.key
-							? 'bg-white text-black shadow-sm'
-							: 'text-gray-600 hover:text-black'}"
-						onclick={() => (tab = s.key)}
-						>{s.label}<span class="ml-1.5 text-xs font-normal text-gray-400">{countIn(s.key)}</span
+						type="button"
+						aria-pressed={scope === s.key}
+						class="min-h-[44px] shrink-0 rounded-full border px-3.5 text-sm font-medium transition-colors {scope ===
+						s.key
+							? 'border-slate-900 bg-slate-900 text-white'
+							: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
+						onclick={() => {
+							scope = s.key;
+							// When the filter names one scope, the add form follows
+							// it, so the two can never silently disagree.
+							if (s.key !== 'all') addScope = s.key;
+						}}
+						>{s.label}<span class="ml-1.5 text-xs font-normal opacity-70">{countIn(s.key)}</span
 						></button
 					>
 				{/each}
 			</div>
 
-			{#if tab === 'family' && !data.hasFamily}
-				<p class="text-sm text-gray-600">Join or create a family to use the shared list.</p>
+			<!-- A statement about the FAMILY scope, not about the page. -->
+			{#if !data.hasFamily && scope !== 'mine'}
+				<p class="text-sm text-gray-600">
+					No family yet — join or create one to use the shared list.
+				</p>
+			{/if}
+
+			<!-- Search is a filter over what is already loaded, not a new
+			     request: both scopes are on the page, so there is nothing to
+			     fetch. Same idiom as the tasks page's searchQuery. -->
+			<div class="relative">
+				<svg
+					class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+					aria-hidden="true"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
+					/>
+				</svg>
+				<input
+					type="text"
+					class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none"
+					placeholder="Search items or stores…"
+					aria-label="Search groceries"
+					bind:value={searchQuery}
+				/>
+				{#if searchQuery.trim()}
+					<button
+						type="button"
+						class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+						aria-label="Clear search"
+						onclick={() => (searchQuery = '')}
+					>
+						<svg
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+							aria-hidden="true"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M18 6L6 18M6 6l12 12" />
+						</svg>
+					</button>
+				{/if}
+			</div>
+			{#if queryActive}
+				<p class="text-xs text-sky-600">Searching “{searchQuery.trim()}”</p>
 			{/if}
 
 			<form
@@ -276,6 +459,20 @@
 					</button>
 				</div>
 
+				<!-- The scope the new row will use is stated on the form, not
+				     inferred from a tab that no longer exists. -->
+				<label class="flex items-center gap-2 text-xs text-gray-500">
+					<span class="shrink-0">Add to</span>
+					<select
+						class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700"
+						aria-label="Add to"
+						bind:value={addScope}
+					>
+						{#if data.hasFamily}<option value="family">Family (shared)</option>{/if}
+						<option value="mine">Mine (private)</option>
+					</select>
+				</label>
+
 				{#if suggested && !storeInput}
 					<div class="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
 						<span>Store Memory:</span>
@@ -291,9 +488,17 @@
 				<input
 					class="w-full min-w-0 rounded-lg border px-3 py-1.5 text-sm"
 					placeholder="Store (optional, comma = alternates)"
+					list="known-stores"
 					bind:value={storeInput}
 					aria-label="Stores for this item"
 				/>
+				<!-- Free text means a typo is a second store, and so a second
+				     colour. Offer the shops already on the lists first. -->
+				<datalist id="known-stores">
+					{#each knownStores as s (s)}
+						<option value={s}></option>
+					{/each}
+				</datalist>
 			</form>
 
 			{#if error}
@@ -319,6 +524,11 @@
 								<span class="min-w-0 truncate text-sm text-gray-400 line-through"
 									>{rec.item.name}</span
 								>
+								<!-- Which list it went back to, in words. -->
+								<span
+									class="ml-auto shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-gray-500"
+									>{rec.scope === 'mine' ? 'Mine' : 'Family'}</span
+								>
 							</li>
 						{/each}
 					</ul>
@@ -330,19 +540,106 @@
 		<section aria-label="Items by store" class="min-w-0">
 			{#if items.length === 0}
 				<p class="py-10 text-center text-sm text-gray-500">
-					{tab === 'family' ? 'The family list is empty.' : 'Your list is empty.'} Add the first item.
+					{#if queryActive}
+						No items match “{searchQuery.trim()}”.
+					{:else if scope === 'mine'}
+						Your list is empty. Add the first item.
+					{:else if scope === 'family'}
+						{data.hasFamily
+							? 'The family list is empty. Add the first item.'
+							: 'No family list yet — join or create a family to use the shared list.'}
+					{:else}
+						Both lists are empty. Add the first item.
+					{/if}
 				</p>
 			{:else}
 				{#each groups as group (group.store)}
+					{@const tint = colours.get(group.store)}
+					{@const twins = tint ? twinsOf(group.store) : []}
 					<section aria-label={group.store} class="mb-4 rounded-2xl border">
 						<div
-							class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-t-2xl bg-emerald-50/60 px-3 py-2"
+							data-store-bar={tint ? group.store : undefined}
+							class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-t-2xl px-3 py-2 {tint
+								? tint.bar
+								: 'bg-gray-50'}"
 						>
-							<h2 class="text-sm font-extrabold text-gray-900">{group.store}</h2>
-							<p class="text-xs text-gray-600">{summary(group.items)}</p>
+							<h2 class="flex min-w-0 items-center gap-2 text-sm font-extrabold text-gray-900">
+								{#if tint}
+									<span aria-hidden="true" class="h-2.5 w-2.5 shrink-0 rounded-full {tint.dot}"
+									></span>
+								{/if}
+								<span class="truncate">{group.store}</span>
+							</h2>
+							<p class="text-xs text-gray-600">
+								{summary(group.items)}{#if twins.length}
+									· shares {tint?.label} with {twins.join(', ')}{/if}
+							</p>
+							{#if tint}
+								<div class="ml-auto flex shrink-0 items-center gap-1.5">
+									{#if colourStore === group.store}
+										<div class="flex flex-wrap items-center gap-1.5">
+											<label class="sr-only" for="colour-{group.store}"
+												>Colour for {group.store}</label
+											>
+											<select
+												id="colour-{group.store}"
+												class="max-w-[9rem] rounded-lg border border-gray-300 bg-white px-1.5 py-1 text-xs font-semibold"
+												aria-label="Colour for {group.store}"
+												disabled={colourBusy}
+												onchange={(e) => setColour(group.store, e.currentTarget.value)}
+											>
+												{#each STORE_COLOURS as c (c.key)}
+													<option value={c.key} selected={c.key === tint.key}>{c.label}</option>
+												{/each}
+												<option value="auto" selected={!onPage(group.store)}>Auto</option>
+											</select>
+											{#if data.hasFamily}
+												<label class="flex items-center gap-1 text-[0.6875rem] text-gray-600">
+													<input
+														type="radio"
+														name="colour-scope"
+														class="h-3 w-3"
+														aria-label="Everyone"
+														checked={colourScope === 'family'}
+														onchange={() => (colourScope = 'family')}
+													/>Everyone
+												</label>
+												<label class="flex items-center gap-1 text-[0.6875rem] text-gray-600">
+													<input
+														type="radio"
+														name="colour-scope"
+														class="h-3 w-3"
+														aria-label="Just me"
+														checked={colourScope === 'personal'}
+														onchange={() => (colourScope = 'personal')}
+													/>Just me
+												</label>
+											{/if}
+											<button
+												type="button"
+												class="text-xs text-gray-500 underline"
+												aria-label="Done editing colour for {group.store}"
+												onclick={() => (colourStore = null)}>Done</button
+											>
+										</div>
+									{:else}
+										<button
+											type="button"
+											class="rounded-full border border-gray-300 bg-white px-2 py-1 text-[0.6875rem] font-semibold text-gray-700 hover:border-black"
+											aria-label="Edit colour for {group.store}"
+											onclick={() => {
+												colourStore = group.store;
+												colourScope = data.hasFamily ? 'family' : 'personal';
+											}}>Colour</button
+										>
+									{/if}
+								</div>
+							{/if}
 						</div>
 						<ul class="divide-y divide-gray-100">
 							{#each group.items as item (item.id)}
+								{@const rowScope = scopeOf(item)}
+								{@const destination = rowScope === 'mine' ? 'Family' : 'Mine'}
 								<li class="px-3 py-2">
 									<div class="flex min-w-0 flex-wrap items-center gap-2">
 										<button
@@ -359,10 +656,25 @@
 													>×{item.quantity}</span
 												>
 											</p>
-											{#if item.stores[0]}
-												<p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs">
+											<p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs">
+												<!-- Which list this row belongs to, in WORDS. A group
+												     can hold both scopes, and the store colour means
+												     "which store" — it must never mean "which
+												     scope" as well, so this is text, not a hue. -->
+												<span
+													class="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-gray-500"
+													>{rowScope === 'mine' ? 'Mine' : 'Family'}</span
+												>
+												{#if item.stores[0]}
+													{@const primary = colourOf(item.stores[0])}
 													<span
-														class="rounded-full bg-sky-100 px-2 py-0.5 font-semibold text-sky-900"
+														data-primary="true"
+														class="rounded-full px-2 py-0.5 font-bold ring-2 ring-inset {primary
+															? primary.chip
+															: 'bg-gray-100 text-gray-700'} {primary
+															? primary.dot
+															: 'bg-gray-400'}"
+														style={primary ? `box-shadow: inset 0 0 0 2px currentColor` : ''}
 														>{item.stores[0]}</span
 													>
 													{#if item.stores.length > 1}
@@ -370,8 +682,8 @@
 															>or {item.stores.slice(1).join(', ')}</span
 														>
 													{/if}
-												</p>
-											{/if}
+												{/if}
+											</p>
 										</div>
 										{#if editingId !== item.id}
 											<div class="ml-auto flex shrink-0 items-center gap-3 text-xs">
@@ -410,10 +722,10 @@
 											>
 											<button
 												class="text-gray-500 underline"
-												aria-label="Move {item.name} to {other}"
+												aria-label="Move {item.name} to {destination}"
 												onclick={() => move(item)}
 											>
-												To {other}
+												To {destination}
 											</button>
 											<button
 												class="text-gray-500 underline"

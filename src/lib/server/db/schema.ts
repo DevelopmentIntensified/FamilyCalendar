@@ -914,6 +914,48 @@ export const groceryStoreMemory = pgTable('grocery_store_memory', {
 export type GroceryStoreMemory = typeof groceryStoreMemory.$inferSelect;
 
 /**
+ * Store colours (096) — a store is free text inside groceryItems.stores, so
+ * there is no entity to hang a column on; one row per store NAME is what a
+ * colour needs. storeKey is the trim+lowercase key the store group already
+ * groups on, so two spellings of one shop are one row and one colour.
+ *
+ * Dual scope, exactly like Store Memory and the Tag Table: familyId SET is
+ * the family's colour, familyId NULL is the viewer's override, and the
+ * override wins on read. Postgres unique treats NULLs as distinct, so each
+ * scope gets its own partial unique index (cf. itemTags). color is free text
+ * in the column and is guarded by the app, which only ever writes a key from
+ * the declared STORE_COLOURS palette.
+ */
+export const groceryStoreColours = pgTable(
+	'grocery_store_colours',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		familyId: text('family_id').references(() => families.id, { onDelete: 'cascade' }),
+		storeKey: text('store_key').notNull(),
+		color: text('color').notNull(),
+		updatedAt: timestamp('updated_at').defaultNow().notNull()
+	},
+	(table) => ({
+		// One colour per store per scope, so a flip is a single-statement upsert.
+		familyStoreUnique: uniqueIndex('grocery_store_colours_family_store_unique')
+			.on(table.familyId, table.storeKey)
+			.where(sql`family_id IS NOT NULL`),
+		userStoreUnique: uniqueIndex('grocery_store_colours_user_store_unique')
+			.on(table.userId, table.storeKey)
+			.where(sql`family_id IS NULL`),
+		storeKeyIdx: index('grocery_store_colours_store_key_idx').on(table.storeKey)
+	})
+);
+
+export type GroceryStoreColour = typeof groceryStoreColours.$inferSelect;
+
+/**
  * Web Push (VAPID) subscriptions — no Firebase. One row per
  * browser/device; endpoint is unique per subscription.
  */
