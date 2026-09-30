@@ -120,6 +120,21 @@ describe('subscriptionService', () => {
 			expect(result.limit).toBe(1);
 		});
 
+		it('reports how many families are used, so the create page can show usage', async () => {
+			// select #1 = subscription (none → default limits), #2 = the user's
+			// membership rows: one family, duplicated row.
+			state.queue = [[], [{ familyId: 'fam-1' }, { familyId: 'fam-1' }]];
+			const result = await canCreateFamily('user-1');
+			expect(result.used).toBe(1);
+		});
+
+		it('reports zero used when the user belongs to no family', async () => {
+			// select #1 = subscription (none), #2 = memberships (none)
+			state.queue = [[], []];
+			const result = await canCreateFamily('user-1');
+			expect(result.used).toBe(0);
+		});
+
 		it('returns upgrade message on denial (mock returns empty - actual denial needs DB data)', async () => {
 			const result = await canCreateFamily('user-denied');
 			if (!result.allowed) {

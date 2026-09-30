@@ -2,34 +2,25 @@
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import { pushToast } from '$lib/client/toasts';
+	import { DEFAULT_FAMILY_COLOR, FAMILY_PALETTE } from '$lib/utils/familyPalette';
 
 	export let data: PageData;
 	export let form: ActionData;
 
 	$: limitReached = form?.upgradeRequired || data.familyLimitReached;
 
-	const colors = [
-		{ name: 'Red', value: '#EF4444' },
-		{ name: 'Orange', value: '#F97316' },
-		{ name: 'Amber', value: '#F59E0B' },
-		{ name: 'Yellow', value: '#EAB308' },
-		{ name: 'Lime', value: '#84CC16' },
-		{ name: 'Green', value: '#22C55E' },
-		{ name: 'Emerald', value: '#10B981' },
-		{ name: 'Teal', value: '#14B8A6' },
-		{ name: 'Cyan', value: '#06B6D4' },
-		{ name: 'Sky', value: '#0EA5E9' },
-		{ name: 'Blue', value: '#3B82F6' },
-		{ name: 'Indigo', value: '#6366F1' },
-		{ name: 'Violet', value: '#8B5CF6' },
-		{ name: 'Purple', value: '#A855F7' },
-		{ name: 'Fuchsia', value: '#D946EF' },
-		{ name: 'Pink', value: '#EC4899' },
-		{ name: 'Rose', value: '#F43F5E' }
-	];
+	// The approved prototype's curated earthy set (prototypes/app-ui/family-create.html)
+	// — six colours, named in plain words, rather than seventeen arbitrary hexes.
+	// The declaration, and with it the default, lives in $lib/utils/familyPalette so
+	// this view and the create action cannot drift apart (#099).
+	const colors = FAMILY_PALETTE;
 
-	let selectedColor = form?.color || '#3B82F6';
+	let name = form?.name ?? '';
+	let selectedColor = form?.color || DEFAULT_FAMILY_COLOR;
 	let loading = false;
+
+	$: selectedName = colors.find((c) => c.value === selectedColor)?.name ?? colors[0].name;
 </script>
 
 <svelte:head>
@@ -46,11 +37,11 @@
 			]}
 		/>
 
-		<div class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-			<div class="mb-6">
-				<h1 class="text-2xl font-bold text-slate-900">Create a Family</h1>
+		<div class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+			<div class="mb-5">
+				<h1 class="text-sm font-semibold text-slate-900">Create a Family</h1>
 				<p class="mt-1 text-sm text-slate-500">
-					Start a new family group to share calendars and events
+					One family holds the shared calendar, the tasks and the groceries.
 				</p>
 			</div>
 
@@ -70,7 +61,7 @@
 			{/if}
 
 			{#if form?.error}
-				<div class="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+				<div class="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700" role="alert">
 					{form.error}
 				</div>
 			{/if}
@@ -80,83 +71,109 @@
 				novalidate
 				use:enhance={() => {
 					loading = true;
-					return async ({ update }) => {
+					const created = name.trim() || 'Your family';
+					return async ({ update, result }) => {
 						loading = false;
 						await update();
+						// A redirect is a created family: the action throws one on success.
+						if (result.type === 'redirect' || result.type === 'success') {
+							pushToast({ message: `${created} created — opening it now` });
+						}
 					};
 				}}
 				class="space-y-6"
 				onsubmit={(e) => limitReached && e.preventDefault()}
 			>
+				<!-- Live preview: the family as it is named, in the colour it will carry. -->
+				<div
+					class="relative mb-1 overflow-hidden rounded-2xl p-5"
+					style="background-color: {selectedColor}1a"
+				>
+					<div
+						class="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full blur-2xl"
+						style="background-color: {selectedColor}33"
+					></div>
+					<div class="relative">
+						<span
+							class="inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide"
+							style="background-color: {selectedColor}22; color: {selectedColor}"
+						>
+							Family
+						</span>
+						<p class="mt-2 break-words text-2xl font-extrabold tracking-tight text-slate-900">
+							{name.trim() || 'Your family'}
+						</p>
+					</div>
+				</div>
+
 				<div class="space-y-2">
-					<label for="name" class="block text-sm font-medium text-slate-700">Family Name</label>
+					<label for="name" class="block text-sm font-medium text-slate-500">
+						What do you call it?
+					</label>
 					<input
 						type="text"
 						id="name"
 						name="name"
-						value={form?.name || ''}
+						bind:value={name}
 						placeholder="The Smiths"
 						maxlength="50"
-						class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+						class="w-full border-0 border-b-2 border-slate-200 bg-transparent px-0 py-2 text-2xl font-extrabold tracking-tight text-slate-900 placeholder:font-bold placeholder:text-slate-200 focus:border-primary-500 focus:outline-none focus:ring-0"
 					/>
-					<p class="text-xs text-slate-500">Choose a name for your family (max 50 characters)</p>
 				</div>
 
 				<div class="space-y-3">
-					<label for="color" class="block text-sm font-medium text-slate-700">Family Color</label>
-					<p class="text-xs text-slate-500">Pick a color to identify your family</p>
-
-					<div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+					<span class="block text-sm font-medium text-slate-500">Colour</span>
+					<div class="flex flex-wrap gap-2.5" role="group" aria-label="Family colour">
 						{#each colors as color}
 							<button
 								type="button"
+								aria-label={color.name}
+								aria-pressed={selectedColor === color.value}
 								onclick={() => (selectedColor = color.value)}
-								class="group relative h-11 w-11 rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+								class="h-9 w-9 rounded-full ring-offset-2 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 {selectedColor ===
+								color.value
+									? 'ring-2 ring-slate-900'
+									: ''}"
 								style="background-color: {color.value}"
-								title={color.name}
-							>
-								{#if selectedColor === color.value}
-									<svg
-										class="absolute inset-0 m-auto h-5 w-5 text-white"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="3"
-											d="M5 13l4 4L19 7"
-										/>
-									</svg>
-								{/if}
-							</button>
+							></button>
 						{/each}
 					</div>
+					<span class="sr-only" aria-live="polite">{selectedName} selected</span>
 
-					<input type="hidden" id="color" name="color" value={selectedColor} />
+					<input
+						type="hidden"
+						id="color"
+						name="color"
+						aria-label="Family colour value"
+						value={selectedColor}
+					/>
 
-					<div class="mt-3 flex items-center gap-3">
-						<div class="h-10 w-10 rounded-full" style="background-color: {selectedColor}"></div>
-						<span class="text-sm text-slate-600">Selected color</span>
-					</div>
+					<p class="text-xs leading-relaxed text-slate-500">
+						The colour tints the family calendar, the member avatars and the family chip. It is the
+						one thing on this page that ends up visible everywhere else.
+					</p>
 				</div>
 
-				<div class="flex gap-3 pt-2">
+				<div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
 					<a
 						href="/family"
-						class="flex-1 rounded-full border border-slate-300 px-6 py-2.5 text-center text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+						class="w-full rounded-full border border-slate-300 px-6 py-2.5 text-center text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 sm:flex-1"
 					>
 						Cancel
 					</a>
 					<button
 						type="submit"
 						disabled={loading || limitReached}
-						class="flex-1 rounded-full bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+						class="w-full rounded-full bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50 sm:flex-1"
 					>
-						{loading ? 'Creating...' : 'Create Family'}
+						{loading ? 'Creating…' : 'Create Family'}
 					</button>
 				</div>
+
+				<p class="text-center text-xs text-slate-500">
+					{data.familyUsed} of {data.familyLimit}
+					{data.familyLimit === 1 ? 'family' : 'families'} used on your plan.
+				</p>
 			</form>
 		</div>
 	</div>

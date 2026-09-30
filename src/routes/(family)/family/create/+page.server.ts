@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { families, familyMembers, calendars } from '$lib/server/db/schema';
 import { generateId } from 'lucia';
 import { canCreateFamily } from '$lib/server/services/subscriptionService';
+import { DEFAULT_FAMILY_COLOR, isFamilyColor } from '$lib/utils/familyPalette';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) {
@@ -15,7 +16,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		user: locals.user,
 		familyLimit: familyCheck.limit,
-		familyLimitReached: !familyCheck.allowed
+		familyLimitReached: !familyCheck.allowed,
+		// The usage line (#075): how many are used against the plan limit, so the
+		// upgrade banner is not the only signal. Counted by canCreateFamily itself.
+		familyUsed: familyCheck.used
 	};
 };
 
@@ -54,6 +58,14 @@ export const actions: Actions = {
 			return fail(400, { error: 'Family name must be 50 characters or less', name, color });
 		}
 
+		// The colour is free text in the column, so the guard is here (#099): a
+		// request carrying no colour gets the declared default, and a request
+		// carrying a colour we do not offer is refused rather than stored.
+		if (color && !isFamilyColor(color)) {
+			return fail(400, { error: 'Pick one of the offered family colours', name, color });
+		}
+		const familyColor = color || DEFAULT_FAMILY_COLOR;
+
 		const userId = locals.user.id;
 		const familyId = generateId(15);
 
@@ -61,7 +73,7 @@ export const actions: Actions = {
 			await db.insert(families).values({
 				id: familyId,
 				name: name.trim(),
-				color: color || '#3B82F6'
+				color: familyColor
 			});
 
 			await db.insert(familyMembers).values({

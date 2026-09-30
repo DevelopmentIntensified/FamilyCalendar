@@ -83,8 +83,27 @@ test('Create family page loads', async ({ page }) => {
 	await page.waitForLoadState('networkidle');
 
 	await expect(page.getByRole('heading', { name: 'Create a Family' })).toBeVisible();
-	await expect(page.getByLabel('Family Name')).toBeVisible();
+	await expect(page.getByLabel('What do you call it?')).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Create Family' })).toBeVisible();
+});
+
+test('Create family page previews the family and counts the plan usage', async ({ page }) => {
+	await loginWithSession(page, uid);
+	await page.goto('/family/create');
+	await page.waitForLoadState('networkidle');
+
+	// The preview reads the live name field, not a hard-coded string.
+	await expect(page.getByText('Your family')).toBeVisible();
+	await page.getByLabel('What do you call it?').fill(familyName);
+	await expect(page.getByText(familyName)).toBeVisible();
+
+	// The usage line: 0 of 1 families used, so the upgrade banner is not the only signal.
+	await expect(page.getByText('0 of 1 family used on your plan.')).toBeVisible();
+
+	// The colour is offered as the curated earthy set and explained, not just offered.
+	await expect(page.getByRole('group', { name: 'Family colour' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Terracotta' })).toBeVisible();
+	await expect(page.getByText(/tints the family calendar/)).toBeVisible();
 });
 
 test('Create family form validation', async ({ page }) => {
@@ -101,20 +120,22 @@ test('Create family with name only', async ({ page }) => {
 	await page.goto('/family/create');
 	await page.waitForLoadState('networkidle');
 
-	await page.getByLabel('Family Name').fill(familyName);
+	await page.getByLabel('What do you call it?').fill(familyName);
 	await page.getByRole('button', { name: 'Create Family' }).click();
 
 	await page.waitForURL(/\/family\/[a-z0-9]+/, { timeout: 10000 });
 	await page.waitForSelector(`text=${familyName}`, { timeout: 10000 });
 	await expect(page.getByRole('heading', { name: familyName })).toBeVisible();
+	// The create confirms itself: a toast naming the family it made.
+	await expect(page.getByRole('status').filter({ hasText: `${familyName} created` })).toBeVisible();
 });
 
-test('Create family with custom color', async ({ page }) => {
+test('Create family with the default color', async ({ page }) => {
 	await loginWithSession(page, uid);
 	await page.goto('/family/create');
 	await page.waitForLoadState('networkidle');
 
-	await page.getByLabel('Family Name').fill(familyName);
+	await page.getByLabel('What do you call it?').fill(familyName);
 	await page.getByRole('button', { name: 'Create Family' }).click();
 
 	await page.waitForURL(/\/family\/[a-z0-9]+/, { timeout: 10000 });
@@ -123,7 +144,25 @@ test('Create family with custom color', async ({ page }) => {
 
 	const familyId = page.url().split('/family/')[1];
 	const family = await db.select().from(families).where(eq(families.id, familyId));
-	expect(family[0].color).toBe('#3B82F6');
+	expect(family[0].color).toBe('#c45e38');
+});
+
+test('Create family with custom color', async ({ page }) => {
+	await loginWithSession(page, uid);
+	await page.goto('/family/create');
+	await page.waitForLoadState('networkidle');
+
+	await page.getByLabel('What do you call it?').fill(familyName);
+	await page.getByRole('button', { name: 'Sage' }).click();
+	await page.getByRole('button', { name: 'Create Family' }).click();
+
+	await page.waitForURL(/\/family\/[a-z0-9]+/, { timeout: 10000 });
+	await page.waitForSelector(`text=${familyName}`, { timeout: 10000 });
+	await expect(page.getByRole('heading', { name: familyName })).toBeVisible();
+
+	const familyId = page.url().split('/family/')[1];
+	const family = await db.select().from(families).where(eq(families.id, familyId));
+	expect(family[0].color).toBe('#4d9c85');
 });
 
 test('Cancel returns to family list', async ({ page }) => {

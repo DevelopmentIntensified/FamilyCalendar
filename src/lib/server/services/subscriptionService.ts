@@ -179,7 +179,7 @@ export async function canAddFamilyMember(
 
 export async function canCreateFamily(
 	userId: string
-): Promise<{ allowed: boolean; limit?: number; reason?: string }> {
+): Promise<{ allowed: boolean; limit?: number; used: number; reason?: string }> {
 	const limits = await getUserSubscriptionLimits(userId);
 
 	const userFamilies = await db
@@ -197,11 +197,12 @@ export async function canCreateFamily(
 		return {
 			allowed: false,
 			limit: limits.familyLimit,
+			used: familyCount,
 			reason: `Family limit reached (${limits.familyLimit}). Upgrade to create more families.`
 		};
 	}
 
-	return { allowed: true, limit: limits.familyLimit };
+	return { allowed: true, limit: limits.familyLimit, used: familyCount };
 }
 
 export async function canViewArchivedEvent(
