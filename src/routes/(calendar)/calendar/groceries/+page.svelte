@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import type { PageData } from './$types';
 	import { groupGroceriesByStore } from '$lib/data/groceries';
 	import { pushToast } from '$lib/client/toasts';
@@ -14,8 +15,10 @@
 	};
 	type Scope = 'mine' | 'family';
 
-	// The approved prototype opens on Family, with Mine second.
-	let tab: Scope = 'family';
+	// The approved prototype opens on Family, with Mine second — unless the
+	// dashboard's per-scope card link asked for the other one. Honouring it
+	// matters: a "Mine →" link that lands on the Family tab is a broken promise.
+	let tab: Scope = page.url.searchParams.get('scope') === 'mine' ? 'mine' : 'family';
 	let input = '';
 	let storeInput = '';
 	let suggested: string | null = null;

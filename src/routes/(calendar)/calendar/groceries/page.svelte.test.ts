@@ -8,6 +8,17 @@ vi.mock('$app/navigation', () => ({
 	invalidateAll: vi.fn()
 }));
 
+// The dashboard's per-scope card links here, so `?scope=` has to be honoured —
+// a "Mine →" link that lands on the Family tab is a broken promise.
+const searchParams = new URLSearchParams();
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return { searchParams };
+		}
+	}
+}));
+
 const g = (
 	id: string,
 	name: string,
@@ -45,6 +56,7 @@ function makeData(overrides: Partial<PageData> = {}) {
 }
 
 beforeEach(() => {
+	searchParams.delete('scope');
 	vi.stubGlobal(
 		'fetch',
 		vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }))
@@ -57,6 +69,23 @@ afterEach(() => {
 });
 
 describe('groceries page — scope tabs', () => {
+	it('opens on the scope the dashboard card linked to', () => {
+		// #081: the dashboard groceries card links per scope. Family is the
+		// default, but an explicit ?scope=mine must win or the link lies.
+		searchParams.set('scope', 'mine');
+		render(GroceriesPage, makeData());
+		expect(screen.getByRole('tab', { name: /Mine/ })).toHaveAttribute('aria-selected', 'true');
+		// And the Mine scope's own items are what is on screen.
+		expect(screen.getByText('Oat milk')).toBeInTheDocument();
+		expect(screen.queryByText('Sourdough')).toBeNull();
+	});
+
+	it('ignores a junk scope rather than showing nothing', () => {
+		searchParams.set('scope', 'nonsense');
+		render(GroceriesPage, makeData());
+		expect(screen.getByRole('tab', { name: /Family/ })).toHaveAttribute('aria-selected', 'true');
+	});
+
 	it('opens on Family, with Family before Mine, each carrying its open count', () => {
 		render(GroceriesPage, makeData());
 		const tabs = screen.getAllByRole('tab');
