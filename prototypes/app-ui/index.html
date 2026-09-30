@@ -52,6 +52,7 @@ import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
 const PAGES = [
 	{ file: 'dashboard.html', label: 'Dashboard', tag: 'Day view', q: 'Is the day dashboard a useful morning read, or just eight cards competing for attention?', src: 'calendar/dashboard/ — +page.server.ts 388' },
 	{ file: 'tasks.html', label: 'Tasks', tag: 'Core', q: 'Can a 20–150 item list stay scannable, and is the assignment inbox clearly separate from it?', src: 'calendar/tasks/ — +page.svelte 471' },
+	{ file: 'b-tasks-flat.html', label: 'Tasks — flat (B)', tag: 'Variant', q: 'At 150 tasks, does flattening the Overdue and Today bands into one continuous list help or hurt?', src: 'calendar/tasks/ — variant of tasks.html, 150 rows' },
 	{ file: 'groceries.html', label: 'Groceries', tag: 'Core', q: 'Is grouping by store the right primary organisation, or should it group by aisle?', src: 'calendar/groceries/ — +page.svelte 270' },
 	{ file: 'family.html', label: 'Family', tag: 'People', q: 'Is a list of families the right landing page, or should this be a people page?', src: 'family/ — +page.svelte 209' },
 	{ file: 'family-detail.html', label: 'Family settings', tag: 'People', q: '793 lines. What is the one job of this page, and what belongs somewhere else?', src: 'family/[familyId]/ — +page.svelte 793' },

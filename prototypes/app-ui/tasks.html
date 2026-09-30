@@ -11,7 +11,7 @@
   "id": "tasks", "label": "Tasks", "family": "app-ui",
   "question": "Can a 20–150 item list stay scannable, and is the assignment inbox clearly separate from it?",
   "thesis": "My tasks, then the assignment inbox as a distinct band. Marketing skin, same three data sources.",
-  "realPage": "src/routes/(calendar)/calendar/tasks/ — +page.svelte 471, 5 components. NOTE: the real page has no internal links at all; everything is an API call."
+  "realPage": "src/routes/(calendar)/calendar/tasks/ — +page.svelte 471, 5 components. NOTE: the real page has no internal links at all; everything is an API call. TASK SEARCH ALREADY EXISTS in the app — `TaskToolbar.svelte` binds `searchQuery` and `matchesSearch` (+page.svelte:186) matches title, notes, tags and assignee. It is not missing; it is just on its OWN full-width row BELOW the chips (44px tall, magnifier left, clear ✕ right) plus a second row for the #tag filter. The review asked for a small search on the chip line instead, which is what is shown here: same matcher, 32px tall, measuring 224px at 1280 / 94px at 375 / 115px at 320, and sharing the line with the sort select without adding a single row of height at any of them."
 }
 </script>
 <style>
@@ -34,7 +34,34 @@
 	.chipf { height: 2rem; padding: 0 .875rem; border-radius: 9999px; border: 1px solid var(--s200); background: var(--s50); color: var(--s500); font: 600 .8125rem/1 inherit; cursor: pointer; transition: background-color 150ms, border-color 150ms, color 150ms; }
 	.chipf:hover { background: #fff; border-color: var(--s300); }
 	.chipf.is-on { background: var(--blush); border-color: rgba(196,94,56,.28); color: var(--terracotta); }
-	.sortsel { height: 2rem; margin-left: auto; padding: 0 .625rem; border-radius: .5rem; border: 1px solid var(--s200); background: var(--s50); color: var(--s500); font: 600 .8125rem/1 inherit; }
+	.sortsel { height: 2rem; padding: 0 .625rem; border-radius: .5rem; border: 1px solid var(--s200); background: var(--s50); color: var(--s500); font: 600 .8125rem/1 inherit; }
+
+	/* ── a small search ON the filter line ───────────────────────────────
+	   Measured before: the row is 858px at 1280 and the four chips are 342.4
+	   of it, which leaves 368px of dead space between the last chip and the
+	   sort select (the select has always been pushed right by
+	   `margin-left:auto`). The search takes that gap — it is the one control
+	   here that is a filter AND a way-finding aid, so it earns the leftover
+	   width instead of a row of its own.
+
+	   `flex: 1 1 0` is load-bearing and the basis has to be ZERO. Line breaking
+	   uses the item's hypothetical main size, not its shrunk size, so a 14rem
+	   basis put the field on a line of its own at 375 and 320 (measured: 4
+	   lines, up from 2 and 3). With a zero basis the row packs first and the
+	   field grows into whatever is left: 224px at 1280 (max-width, sitting in
+	   the 368px gap), 94px at 375 on the line the sort used to sit on with
+	   102px of dead space, 115px at 320 on the sort's line with 123px of dead
+	   space. Line count is unchanged at all three.
+
+	   min-width 5.5rem = 88px is the number that buys that: at 6rem the 375
+	   layout is 2px too wide for the field to share the sort's line and the
+	   row goes to 3 lines (+40px). At 88px it fits, and 88 − 24 padding = 64px
+	   of text, which is why the placeholder is "Search…" (55.6px measured) and
+	   not the app's "Search tasks…" (90.4px, which clips in a 94px field).
+	   aria-label keeps the full name for anyone not reading the pixels. */
+	.qsearch { flex: 1 1 0; min-width: 5.5rem; max-width: 14rem; height: 2rem; margin-left: auto; padding: 0 .75rem; border-radius: 9999px; border: 1px solid var(--s200); background: var(--s50); color: var(--s500); font: 600 .8125rem/1 inherit; }
+	.qsearch::placeholder { color: var(--s400); font-weight: 400; }
+	.qsearch:focus { outline: none; border-color: var(--p500); box-shadow: 0 0 0 3px rgba(232,117,57,.18); background: #fff; }
 
 	/* ── the list ───────────────────────────────────────────────────────── */
 	.task { display: flex; align-items: flex-start; gap: .625rem; padding: .625rem 0; cursor: pointer; }
@@ -101,12 +128,13 @@ const filters = el('div', 'band');
 filters.setAttribute('data-fb', 'task-filters');
 filters.setAttribute('data-fb-label', 'Filters & sort');
 filters.innerHTML = `
-	<div class="band__t">Filter <em>${TASKS.length} tasks</em></div>
+	<div class="band__t">Filter <em id="fcount">${TASKS.length} tasks</em></div>
 	<div class="filters">
 	  <span class="chipf is-on" data-chip="open">Open</span>
 	  <span class="chipf" data-chip="mine">Mine</span>
 	  <span class="chipf" data-chip="assigned">Assigned to me</span>
 	  <span class="chipf" data-chip="done">Done</span>
+	  <input class="qsearch" id="q" type="search" placeholder="Search…" aria-label="Search tasks" />
 	  <select class="sortsel" aria-label="Sort tasks">
 	    <option>Due date</option><option>Priority</option><option>Alphabetical</option>
 	  </select>
@@ -120,13 +148,28 @@ list.setAttribute('data-fb-label', 'Task list');
 left.appendChild(list);
 
 let chip = 'open';
+let q = '';
+/* The app's matchesSearch (+page.svelte:186) checks title, notes, tags and
+   assignee. The mock has no `notes` field, so this checks the other three —
+   same shape, three of four fields. */
+function matchesQuery(t) {
+	const s = q.trim().toLowerCase();
+	if (!s) return true;
+	if (t.title.toLowerCase().includes(s)) return true;
+	if (t.tags.some((g) => g.toLowerCase().includes(s))) return true;
+	if (t.assignedTo && nameOf(t.assignedTo).toLowerCase().includes(s)) return true;
+	return false;
+}
 function paint() {
 	const rows = TASKS.filter((t) => {
 		if (chip === 'open') return !t.completedAt;
 		if (chip === 'done') return !!t.completedAt;
 		if (chip === 'mine') return !t.completedAt && t.assignedTo === 'u_jon';
 		return !t.completedAt && t.assignedTo !== 'u_jon';
-	});
+	}).filter(matchesQuery);
+	const active = q.trim().length > 0;
+	filters.querySelector('#fcount').textContent =
+		active ? `${rows.length} of ${TASKS.length} match “${q.trim()}”` : `${TASKS.length} tasks`;
 	const grouped = rows.reduce((a, t) => {
 		const k = t.completedAt ? 'Done' : t.overdue ? 'Overdue' : t.due.includes('week') || t.due === 'Later' ? 'Up next' : 'Today';
 		(a[k] = a[k] || []).push(t);
@@ -173,6 +216,11 @@ filters.addEventListener('click', (e) => {
 	filters.querySelectorAll('[data-chip]').forEach((x) => x.classList.toggle('is-on', x === c));
 	paint();
 });
+/* Typing filters live and the band title counts the matches, so the row is
+   never a control that did nothing. `type="search"` also gives a native
+   clear ✕ for free — at 115px wide (the 320px case) a bespoke clear button
+   would cost a fifth of the field. */
+filters.querySelector('#q').addEventListener('input', (e) => { q = e.target.value; paint(); });
 
 /* ── assignment inbox — ONE band, two lists, not two loose cards ────────
    The real AssignmentsCard is a tabbed card: "To accept (n)" and

@@ -30,6 +30,25 @@
 	.subrule { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--s100); }
 	.lede { font-size: .6875rem; color: var(--s400); line-height: 1.7; margin: -.25rem 0 .75rem; }
 
+	/* ── ONE control height on this page: 40px ───────────────────────────
+	   Measured before this rule: the hero gear was 32×32 and the member ✕
+	   28×28, while every other control measured 40px — .btn-sm (40), the
+	   default .btn-icon (40), .modrow (40), the side buttons (40), Save
+	   (40). Both odd ones were inline `style="height:Nrem"` overrides
+	   fighting the shared class, so the fix is to DELETE the overrides and
+	   let the class size the box: 40×40, square, beside a 40px pill.
+
+	   Square rather than circular because the shipped button is square:
+	   `[familyId]/+page.svelte:281` is `h-11 w-11 shrink-0 … border-slate-300
+	   bg-white rounded-lg` — a bordered box, not a bare glyph. At the app's
+	   44px that is 44 tall beside a 44 tall "Add member" (min-h-11); here it
+	   is 40 beside 40, which is the same rule at this page's scale. The
+	   radius is the one the rows here already use (.mrow/.actrow/.modrow =
+	   10px); the app's rounded-lg is 8px. */
+	.iconbtn { height: 2.5rem; width: 2.5rem; flex: none; border-radius: .625rem; background: #fff; box-shadow: inset 0 0 0 1px var(--s200); color: var(--s500); font-size: 1.125rem; line-height: 1; transition: background-color 150ms, box-shadow 150ms, color 150ms; }
+	.iconbtn:hover { background: var(--s50); box-shadow: inset 0 0 0 1px var(--s300); color: var(--s700); }
+	.iconbtn:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--p500); }
+
 	.ident { position: relative; overflow: hidden; }
 	.ident__glow { position: absolute; right: -2rem; bottom: -2rem; height: 8rem; width: 8rem; border-radius: 9999px; filter: blur(22px); }
 	.ident__dot { height: 3rem; width: 3rem; border-radius: 9999px; flex: none; display: grid; place-items: center; color: #fff; font: 800 1.25rem/1 inherit; }
@@ -121,7 +140,7 @@ ident.innerHTML = `
 	  </div>
 	  <div class="rowflex gap-2">
 	    <a class="btn btn-primary btn-sm" href="family-members-add.html">Add member</a>
-	    <button class="btn-icon" style="height:2rem;width:2rem" title="Jump to family settings" onclick="document.getElementById('family-settings').scrollIntoView({behavior:'smooth'})">⚙</button>
+	    <button class="btn-icon iconbtn" title="Jump to family settings" onclick="document.getElementById('family-settings').scrollIntoView({behavior:'smooth'})">⚙</button>
 	  </div>
 	</div>`;
 main.appendChild(ident);
@@ -145,7 +164,7 @@ function paintMembers() {
 		  <button class="role" data-role="${m.id}" onclick="cycle(${i})"
 		    style="background:${m.role === 'creator' ? 'var(--blush);color:var(--terracotta)' : m.role === 'admin' ? 'var(--mint);color:var(--mint-ink)' : 'var(--s100);color:var(--s500)'}"
 		    title="Change role">${m.role}</button>
-		  ${m.role === 'creator' ? '' : `<button class="btn-icon" style="height:1.75rem;width:1.75rem;flex:none" title="Remove" onclick="toast('Removed ${m.firstName}')">✕</button>`}
+		  ${m.role === 'creator' ? '' : `<button class="btn-icon iconbtn" title="Remove" onclick="toast('Removed ${m.firstName}')">✕</button>`}
 		</div>`).join('') + `
 		<a class="btn btn-soft btn-sm" href="family-members-add.html" style="width:100%;margin-top:.75rem">+ Add a member</a>`;
 }

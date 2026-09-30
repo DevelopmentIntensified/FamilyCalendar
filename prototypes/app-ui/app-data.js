@@ -241,6 +241,9 @@ export const MODEL_GROUPS = [
 			{ name: 'groceryItems', rows: '10–40 open per family', purpose: 'THE WHOLE FEATURE IS ONE TABLE. There is no grocery-list entity — the "list" is a scope: family_id NULL = Mine, family_id SET = Family. That is why the page has two tabs, not two lists.',
 				cols: ['id PK', 'user_id FK', 'family_id FK (NULL = Mine)', 'name', 'name_key (normalised)', 'quantity int', 'stores text[] (ordered, [0] primary, rest alternates)', 'checked_at (set = hidden)', 'created_at'],
 				used: 'Groceries' },
+			{ name: 'groceryStoreColours', rows: 'one per store per scope', purpose: 'A store carries its own colour, the way an event carries a calendar colour. Per family, with a personal override that wins. The default is a hash of the store NAME, so adding one store never repaints another. Collisions are allowed, never prevented, and always shown.',
+				cols: ['id PK', 'user_id FK', 'family_id FK (nullable)', 'store_key (trim+lowercase — the same key the grouping uses, so two spellings are one colour)', 'color', 'updated_at'],
+				used: 'Groceries' },
 			{ name: 'groceryStoreMemory', rows: '0–200 per family', purpose: 'Learned item → store mapping, so the store field is a suggestion not a question.',
 				cols: ['id PK', 'user_id FK', 'family_id FK (nullable)', 'name_key', 'store', 'count', 'updated_at'],
 				used: 'Groceries' }

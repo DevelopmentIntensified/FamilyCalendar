@@ -21,8 +21,14 @@ export const TOP_NAV = [
 ];
 
 /** Bottom nav — src/lib/components/BottomNav.svelte:20-42.
- *  Groceries is here as "Shop" so six tabs fit 320px; the accessible name is
- *  still Groceries. One destination list feeds both navs, so they cannot drift. */
+ *  Groceries is here as "Shop" so six tabs read at a glance; the accessible
+ *  name is still Groceries. One destination list feeds both navs, so they
+ *  cannot drift.
+ *
+ *  The tabs share the width evenly and shrink (flex:1 1 0; min-width:0), which
+ *  is what the real BottomNav does. A hard min-width per tab is what put the
+ *  sixth tab 20px behind the viewport edge at 320px: 6 x 3.5rem = 336px against
+ *  312px available, clipped silently by body{overflow-x:hidden}. */
 export const BOTTOM_NAV = [
 	{ href: 'dashboard.html',     label: 'Calendar',  icon: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z' },
 	{ href: 'dashboard.html',     label: 'Dashboard', icon: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z' },
@@ -79,7 +85,7 @@ function bottomNav(file) {
 	bar.setAttribute('data-fb', 'bottom-nav');
 	bar.setAttribute('data-fb-label', 'Bottom nav');
 	bar.innerHTML = BOTTOM_NAV.map((n) => `
-		<a href="${n.href}" style="display:grid;place-items:center;gap:.125rem;min-width:3.5rem;padding:.25rem 0;border-radius:.625rem;text-decoration:none;font:600 .625rem/1 inherit;position:relative;${isActive(n.href, n.match, file) ? 'color:var(--p600)' : 'color:var(--s400)'}">
+		<a href="${n.href}" style="display:grid;place-items:center;gap:.125rem;flex:1 1 0;min-width:0;padding:.25rem .125rem;border-radius:.625rem;text-decoration:none;font:600 .625rem/1 inherit;overflow:hidden;${isActive(n.href, n.match, file) ? 'color:var(--p600)' : 'color:var(--s400)'}">
 			${SVG(n.icon, '1.25rem')}
 			<span>${n.label}</span>
 			${n.badge ? `<span style="position:absolute;top:0;right:.75rem;min-width:.875rem;height:.875rem;border-radius:9999px;background:#b91c1c;color:#fff;font:800 .5rem/.875rem inherit;text-align:center">${n.badge}</span>` : ''}

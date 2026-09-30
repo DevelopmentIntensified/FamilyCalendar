@@ -10,16 +10,33 @@
 {
   "id": "dashboard", "label": "Dashboard", "family": "app-ui",
   "question": "Is the day dashboard a useful morning read, or just eight cards competing for the same attention?",
-  "thesis": "One day, eight modules: seven cards in a switchable band, and the verse as a strip above them. Re-skinned into the marketing language, same structure.",
+  "thesis": "One day, one card per thing. Six cards in a grid that has no empty cell at any width, the verse as a strip above them, and the day's own controls in one pill. Re-skinned into the marketing language.",
+  "round1": "Ten marks. Three were already landed as 072, 080 and 081. The seven below are actioned here. The member strip is removed — 'Why is this needed?' and 'This is uneeded' — and the complete roster it claimed as its own turns out to be on the Family Task Board already, which lists every member, empty column included. The board stops spanning two columns: 'This doesn't need to be as wide'. The kids' schedule is lifted a layer, into the column above where the people box was. Groceries moves up a layer into the cell the board gave up, so the grid has no empty cell at any width. The page header's day pager is rebuilt as the calendar page builds its own — one pill, 40px, the same translucent surface and inset ring — and the lede is cut to two lines, which is what makes this header and that one measure 101px each at 1280. The seventh mark, on the header with no note, was read as the same thing: the header was 116px against the calendar's 101px for no reason a reader could see, and its actions row did not fit 320px, squeezing the primary button's label onto two lines inside a 40px control.",
   "realPage": "src/routes/(calendar)/calendar/dashboard/ — +page.svelte 110, +page.server.ts 388"
 }
 </script>
 <style>
-	.dash { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+	/* ROUND 1 · THE GRID. One column on a phone, two on a laptop, three on a
+	   wide screen — and every card lands in a filled cell at every one of them.
+	   Before: the board spanned two columns and left a hole beside Completed
+	   today and another beside Groceries. Now it is one card in one cell.
+
+	   At 1300+ the kids' schedule is placed explicitly into row 1, column 3 —
+	   "bring this to the layer above where the people box was", and the people
+	   box sat in row 2 column 3. Everything after it is auto-placed into what
+	   is left, which is why Completed today drops into row 2 without being
+	   told to: the rows read glance·priorities·kids, then done·board·groceries.
+
+	   `align-items: start` so a short card is not stretched into a tall empty
+	   one — Completed today is 173px of content and the board beside it is
+	   354px. Stretched, that read was 181px of nothing inside a card frame;
+	   start-aligned, it reads as the board simply being the denser card. */
+	.dash { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
 	@media (min-width: 900px) { .dash { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-	@media (min-width: 1300px) { .dash { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, .85fr); } }
-	.span2 { grid-column: span 2; }
-	@media (max-width: 899px) { .span2 { grid-column: auto; } }
+	@media (min-width: 1300px) {
+		.dash { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, .85fr); }
+		.dash > .dash-lift { grid-column: 3; grid-row: 1; }
+	}
 	.timeline-row { display: flex; gap: .75rem; align-items: flex-start; padding: .5rem 0; }
 	.timeline-row + .timeline-row { border-top: 1px solid var(--s100); }
 	.tl-dot { height: .5rem; width: .5rem; border-radius: 9999px; margin-top: .45rem; flex: none; background: var(--s300); }
@@ -31,7 +48,6 @@
 	.pri__n { height: 1.5rem; width: 1.5rem; border-radius: 9999px; display: grid; place-items: center; font: 800 .75rem/1 inherit; flex: none; }
 	.streak { display: flex; align-items: baseline; gap: .375rem; }
 	.streak b { font-size: 2.25rem; font-weight: 800; letter-spacing: -.03em; color: var(--s900); }
-	.memberstrip { display: flex; gap: .5rem; flex-wrap: wrap; }
 	/* 072 — one band per child, in that child's own avatar colour. Flat rows
 	   with every child in the same chip carried no information; the app groups
 	   and colours off the child id now (KidsScheduleCard.svelte:86-88). */
@@ -65,7 +81,22 @@
 	.info-band .verse-ref { flex: none; }
 	.checklist { display: flex; align-items: center; gap: .5rem; padding: .375rem 0; font-size: .875rem; }
 	.checklist input { height: 1.125rem; width: 1.125rem; accent-color: var(--p600); flex: none; }
-	.daynav { display: flex; align-items: center; gap: .375rem; }
+	/* ROUND 1 · THE HEADER'S CONTROLS, matched to the calendar page.
+	   d-working-calendar.html builds its day/month pager as ONE pill —
+	   `rgba(255,255,255,.75)`, radius 9999px, `inset 0 0 0 1px var(--s200)`,
+	   40px tall, members 40px tall with a .25rem gap and no ring of their own
+	   (the same construction as its search pill, line 36-38). The dashboard had
+	   three loose circles and a fourth button beside them. Same pill, same
+	   40px, same gap; "Today" is a label inside it rather than a button that
+	   repeats the pill's own ring.
+
+	   `.dash-actions` wraps, so the whole control set keeps its 40px height at
+	   320px instead of the primary button squeezing its label onto two lines
+	   inside a 40px box. */
+	.dash-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+	.daynav { display: flex; align-items: center; gap: .25rem; padding: 0; border-radius: 9999px; background: rgba(255,255,255,.75); box-shadow: inset 0 0 0 1px var(--s200); }
+	.daynav__today { height: 2.5rem; padding: 0 .75rem; border: 0; border-radius: 9999px; background: transparent; cursor: pointer; font-family: inherit; font: 600 .8125rem/1 inherit; color: var(--s700); }
+	.daynav__today:hover { background: rgba(255,255,255,.9); color: var(--s900); box-shadow: inset 0 0 0 1px var(--s300); }
 </style>
 </head>
 <body>
@@ -161,7 +192,13 @@ grid.appendChild(card(
 	'mod-completed', 'Completed today',
 	'background:rgba(255,255,255,.7)'));
 
-/* ── family task board (board) — spans the middle column ───────────── */
+/* ── family task board (board) — one cell, not two ──────────────────────
+   "This doesn't need to be as wide" — it was 876px across two of three
+   columns. It is one card in one cell now, and the column it gave up holds
+   Completed today, so the band reads glance·priorities·kids over
+   done·board·groceries. The board also lists every member, empty column
+   included, which the app's does not: it builds its columns from
+   `tasks.map(ownerId)`, so a member with a clear day is in no module at all. */
 const board = card(
 	`${sectionTitle('Family task board', '<a class="hint" href="family-tasks.html" style="color:var(--terracotta)">Board →</a>')}
 	 ${MEMBERS.map((m) => {
@@ -177,27 +214,33 @@ const board = card(
 	   </div>`;
 	 }).join('')}`,
 	'mod-board', 'Family task board');
-board.classList.add('span2');
 grid.appendChild(board);
 
-/* ── member strip (memberStrip) ─────────────────────────────────────── */
-grid.appendChild(card(
-	`${sectionTitle('Who')}
-	 <div class="memberstrip">
-	   ${MEMBERS.map((m) => `
-	     <a href="family-detail.html" style="display:grid;place-items:center;gap:.375rem;padding:.5rem .625rem;border-radius:.875rem;background:${toneOf(m).bg};color:${toneOf(m).ink};text-decoration:none;min-width:3.5rem">
-	       <span style="font:800 .875rem/1 inherit">${m.initials}</span>
-	       <span style="font-size:.6875rem;font-weight:600">${m.firstName}</span>
-	     </a>`).join('')}
-	 </div>`,
-	'mod-members', 'Member strip'));
+/* ── the member strip is gone ───────────────────────────────────────────
+   "Why is this needed?" and then "This is uneeded". Both marks are kept
+   verbatim in #fb-page and in the notes below, because a mark that vanishes
+   with the thing it marked is how a review gets lost.
 
-/* ── kids' schedule (kids) — 072 ─────────────────────────────────────── */
+   The card is removed from THIS page. It is not removed from the app, and it
+   is not removed from the module registry either: `MemberStrip.svelte` still
+   ships and `DayDashboard.svelte:126` still mounts it, and
+   `app-data.js`'s DASHBOARD_MODULES is the prototype's copy of the app's
+   registry, read by account.html and family-detail.html to render the module
+   switches. So the app's card and the app's switch both stay, and this page
+   is the proposal to cut the first of them. The strip's one unique fact —
+   the roster is complete only where every member is listed, empty column
+   included — is not lost: the board above already does that, which is the
+   answer to "why is this needed". */
+
+/* ── kids' schedule (kids) — 072, lifted a layer at 1300+ ──────────────── */
 /* One band per child, in that child's own colour, in the order their first
    event starts — the shape KidsScheduleCard.svelte ships now. The child id
    survives the loader, so the grouping has a stable key and the colour means
-   something. Before: one flat list, every child in the same chip. */
-grid.appendChild(card(
+   something. Before: one flat list, every child in the same chip.
+
+   `.dash-lift` puts it in row 1 column 3 on a wide screen — the layer above
+   where the people box was. Below 1300 it is an ordinary card in the flow. */
+const kids = card(
 	`${sectionTitle('Kids’ schedule')}
 	 ${KIDS_SCHEDULE.map((k) => {
 	   const t = toneOf(byId(k.kid));
@@ -215,7 +258,9 @@ grid.appendChild(card(
 	       </div>`).join('')}
 	   </section>`;
 	 }).join('')}`,
-	'mod-kids', 'Kids’ schedule'));
+	'mod-kids', 'Kids’ schedule');
+kids.classList.add('dash-lift');
+grid.appendChild(kids);
 
 /* ── groceries (081) — takes the Meals slot in the band ──────────────────
    Mirrors GroceriesCard.svelte, which landed after this round opened: the
@@ -223,7 +268,11 @@ grid.appendChild(card(
    are chips and the first three names are spelled out. Meals stays parked in
    the app by user directive (2026-09-08) — unmounted, not deleted. The region
    id is still `mod-meals`: that is the pin the "remove for now, add groceries
-   here" mark was made on, so the round history still resolves. */
+   here" mark was made on, so the round history still resolves.
+
+   "Move this up one layer in the grid": with the board narrowed to one cell
+   and the people box gone, this lands in row 2 — the layer above where it
+   was, and the cell the board's old second column gave up. */
 grid.appendChild(card(
 	`${sectionTitle('Groceries', GROC_OPEN > 0 ? `<span class="hint">${GROC_OPEN} open</span>` : '')}
 	 ${GROC.length === 0
@@ -240,21 +289,21 @@ grid.appendChild(card(
 		   </section>`).join('')}`,
 	'mod-meals', 'Groceries (replaces parked Meals)'));
 
-/* ── notes: what the app does now, and the one question left open ─────── */
+/* ── notes: what round 1 decided, and what the app does now ───────────── */
 const notes = el('div', 'notes');
 notes.setAttribute('data-fb', 'notes');
 notes.setAttribute('data-fb-label', 'Notes');
 notes.innerHTML = `
 	<div class="rail__card">
-		${sectionTitle('Member strip — the case, both ways')}
+		${sectionTitle('Round 1 — what changed here')}
 		<ul>
-			<li><b>Only it names everyone.</b> The app's Family Task Board builds its columns from <code>tasks.map(ownerId)</code>, so a member with a clear day is in no other module at all; this strip is the one place the roster is complete. (The board above is kinder than the app's — it lists every member, empty column included.)</li>
-			<li><b>Two of the real card's three facts are repeats.</b> <code>MemberStrip.svelte</code> renders an <code>N open</code> count per member — the number the Family Task Board already prints beside each assignee — and an <code>event</code> chip, which Today at a Glance already shows as Going/Maybe.</li>
-			<li><b>Left exactly as it is, for you to call.</b> If it goes, the count belongs on the glance row. If it stays, the two repeats are the part to cut.</li>
+			<li><b>The member strip is gone.</b> “Why is this needed?” and then “This is uneeded”. Two of the real card's three facts were repeats — the <code>N open</code> count is the number the Family Task Board prints beside each assignee, and the <code>event</code> chip is what Today at a Glance already shows as Going/Maybe. The third, a complete roster, was never unique: this board already lists every member, empty column included, where the app builds its columns from <code>tasks.map(ownerId)</code> and drops whoever has a clear day.</li>
+			<li><b>The card is gone; the app's is not.</b> <code>MemberStrip.svelte</code> still ships, <code>DayDashboard.svelte:126</code> still mounts it, and the <code>memberStrip</code> row is still a real switch on <code>/account</code>. This page is the proposal, not the news.</li>
+			<li><b>The board is one cell wide.</b> “This doesn't need to be as wide” — it was 876px across two of three columns. Completed today takes the column it gave up, so the band reads glance·priorities·kids over done·board·groceries and <b>nothing is left over</b>: two columns at 900px, three at 1300px, and every card lands in a filled cell at every one of them. The kids' schedule is lifted into the column above where the people box was, and Groceries moves up a layer.</li>
 		</ul>
 	</div>
 	<div class="rail__card">
-		${sectionTitle('What the app does now (checked 29 Sep)')}
+		${sectionTitle('What the app does now (checked 30 Sep)')}
 		<ul>
 			<li><b>080 has landed.</b> <code>DashboardInfoBand.svelte</code> puts the verse in a quiet strip above the band; the <code>verse</code> module is <code>band: 'info'</code> and its switch now means “show the verse”, reading the saved <code>showDailyVerse</code> <i>and</i> the module row, so a verse hidden before the move stays hidden.</li>
 			<li><b>072 has landed.</b> The child id survives the loader, so the kids card groups and colours per child off the existing avatar palette — those bands, not a new one.</li>
@@ -280,14 +329,16 @@ mountApp({
 	head: {
 		kicker: 'Prototype · Dashboard',
 		title: 'Friday 25 September',
-		lede: 'The real page is <code>+page.server.ts</code> at 388 lines with eight modules, each of which loads and degrades on its own. Seven are cards in the toggleable band; the eighth — the verse — is a quiet strip above them, because a reading is not a task. Same structure, marketing skin.',
+		lede: 'The real page is <code>+page.server.ts</code> at 388 lines, eight modules, each loading and degrading on its own. Round 1 cut one: six cards, one job each, and the verse a quiet strip above them.',
 		actions: `
-			<span class="daynav">
-				<a class="btn-icon" href="#" aria-label="Previous day">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>'}</a>
-				<button class="btn btn-soft btn-sm" onclick="toast('Back to today')">Today</button>
-				<a class="btn-icon" href="#" aria-label="Next day">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>'}</a>
-			</span>
-			<a class="btn btn-primary btn-sm" href="../calendar-ui/d-working-calendar.html">Open the calendar</a>`
+			<div class="dash-actions">
+				<span class="daynav">
+					<a class="btn-icon" href="#" aria-label="Previous day">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>'}</a>
+					<button class="daynav__today" onclick="toast('Back to today')">Today</button>
+					<a class="btn-icon" href="#" aria-label="Next day">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="height:1rem;width:1rem"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>'}</a>
+				</span>
+				<a class="btn btn-primary btn-sm" href="../calendar-ui/d-working-calendar.html" aria-label="Open the calendar" title="Open the calendar"><span class="only-sm">Calendar</span><span class="hide-sm">Open the calendar</span></a>
+			</div>`
 	},
 	body: column
 });

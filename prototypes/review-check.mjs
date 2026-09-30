@@ -94,7 +94,9 @@ function readFeedback(page) {
 	return {
 		marks: [...byId.values()],
 		openRounds: rounds.filter((r) => r.status === 'open').length,
-		totalRounds: rounds.length
+		totalRounds: rounds.length,
+		approved: j.build?.approved === true,
+		approvedAt: j.build?.approvedAt
 	};
 }
 
@@ -158,6 +160,17 @@ for (const p of onDisk) {
 	if (!e || e.state !== 'reviewed') continue;
 	const fb = readFeedback(p);
 	if (!fb) continue;
+	// Approval is the reviewer's, recorded by the collector in the page's own
+	// record. The registry mirrors it; it never asserts it. Without this the
+	// tree can show nine approved pages the registry has never heard of, and
+	// nothing notices until someone counts.
+	const approved = fb.approved === true;
+	if (e.approved === true && !approved) {
+		fail(`${p}: registry claims approved, the review record does not`);
+	}
+	if (e.approved !== true && approved) {
+		fail(`${p}: approved in the review tool, registry does not say so`);
+	}
 	// The round is the unit of closure: a page is closed when no round is open.
 	const actuallyClosed = fb.openRounds === 0;
 	if (e.closed === true && !actuallyClosed) {

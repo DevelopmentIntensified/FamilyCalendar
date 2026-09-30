@@ -75,7 +75,19 @@
 		/* SSR / private browsing */
 	}
 
-	let view: View = resolveInitialView(initialView, defaultViewSetting, storedView);
+	// #104: the width, read in the same breath and for the same reason — the
+	// opening view is the ONE decision the width gets a vote in, and it is
+	// decided here, once. Resizing never re-runs it: a phone is a reason to
+	// pick an opening, not to move somebody who is already looking at a view.
+	let viewportWidth: number | null = null;
+	try {
+		viewportWidth = window.innerWidth;
+	} catch {
+		/* SSR / private browsing — resolveInitialView reads null as "wide",
+		   which is exactly today's behaviour. */
+	}
+
+	let view: View = resolveInitialView(initialView, defaultViewSetting, storedView, viewportWidth);
 	let previousView: 'month' | 'week' | 'list' = 'month';
 
 	function goToday() {

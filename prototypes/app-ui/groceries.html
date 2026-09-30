@@ -10,17 +10,31 @@
 {
   "id": "groceries", "label": "Groceries", "family": "app-ui",
   "question": "Is grouping by store the right primary organisation, or should it group by aisle?",
-  "thesis": "Grouped by store, because that is the shape of the trip. Two tabs because the data has two scopes.",
-  "realPage": "src/routes/(calendar)/calendar/groceries/ — +page.svelte 270. The best-wired feature in the repo: one table, one actions module, no loose ends."
+  "thesis": "Grouped by store, because that is the shape of the trip. Every store carries a family-assigned colour — not just the one the app still highlights — and the two data scopes are shown two ways: the shipped tabs, and one list behind a scope filter.",
+  "realPage": "src/routes/(calendar)/calendar/groceries/ — +page.svelte 433. The best-wired feature in the repo: one table, one actions module, no loose ends."
 }
 </script>
 <style>
-	.wrapx { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	.wrapx { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
 	@media (min-width: 950px) { .wrapx { grid-template-columns: 21rem minmax(0, 1fr); } }
-	.tabs { display: inline-flex; background: var(--s100); border-radius: .75rem; padding: .25rem; }
-	.tabs button { min-height: 2.5rem; padding: 0 1.125rem; border: 0; background: transparent; border-radius: .5rem; font: 600 .875rem/1 inherit; color: var(--s500); cursor: pointer; }
+	/* .tabs carries display:inline-flex, which outranks the UA [hidden] rule —
+	   without this the shipped tabs stay on screen in the filter view. */
+	[hidden] { display: none !important; }
+
+	/* ── tabs: the shipped scope switch, and the same control reused as the
+	   proposed view switch. One idiom, two jobs. ─────────────────────────── */
+	.tabs { display: inline-flex; background: var(--s100); border-radius: .75rem; padding: .25rem; max-width: 100%; }
+	.tabs button { min-height: 2.5rem; padding: 0 1.125rem; border: 0; background: transparent; border-radius: .5rem; font-weight: 600; font-size: .875rem; line-height: 1; color: var(--s500); cursor: pointer; }
 	.tabs button.is-on { background: #fff; color: var(--s900); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
 	.tabs .n { font-size: .6875rem; color: var(--s400); margin-left: .375rem; }
+
+	/* ── the scope FILTER, copied from tasks.html so the two pages filter the
+	   same way: same chip, same height, same 2rem track. ─────────────────── */
+	.filters { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+	.chipf { height: 2rem; padding: 0 .875rem; border-radius: 9999px; border: 1px solid var(--s200); background: var(--s50); color: var(--s500); font-weight: 600; font-size: .8125rem; line-height: 1; cursor: pointer; transition: background-color 150ms, border-color 150ms, color 150ms; }
+	.chipf:hover { background: #fff; border-color: var(--s300); }
+	.chipf.is-on { background: var(--blush); border-color: rgba(196,94,56,.28); color: var(--terracotta); }
+
 	.grow { display: flex; align-items: center; gap: .625rem; padding: .5rem 0; }
 	.grow + .grow { border-top: 1px solid var(--s100); }
 	.gcheck { height: 1.25rem; width: 1.25rem; border-radius: .375rem; border: 2px solid var(--s300); background: #fff; flex: none; cursor: pointer; display: grid; place-items: center; }
@@ -28,14 +42,39 @@
 	.grow.is-done .gname { text-decoration: line-through; color: var(--s400); }
 	.gname { font-size: .9375rem; font-weight: 600; color: var(--s800); }
 	.gmeta { display: flex; align-items: center; gap: .375rem; flex-wrap: wrap; margin-top: .125rem; }
-	.qty { font: 700 .75rem/1 inherit; color: var(--s500); }
-	.store { display: inline-flex; align-items: center; gap: .25rem; height: 1.25rem; padding: 0 .5rem; border-radius: 9999px; background: rgba(190,218,227,.45); color: var(--blue-ink); font: 600 .6875rem/1 inherit; }
+	.qty { font-weight: 700; font-size: .75rem; line-height: 1; color: var(--s500); }
+
+	/* ── EVERY store is a chip in ITS OWN colour. Primary keeps a second
+	   channel — a filled dot + a 2px ring — so "which one do I group this
+	   under" survives independently of colour. Text is --s800 on every tint
+	   because three of the six inks measure under 4.5:1 on their own tint at
+	   11px; the hue is carried by the fill and the ring, not the glyphs. ──── */
+	.store { display: inline-flex; align-items: center; gap: .25rem; height: 1.25rem; padding: 0 .5rem; border-radius: 9999px; background: var(--sc-bg); color: var(--s800); box-shadow: inset 0 0 0 1px var(--sc-ink); font-weight: 600; font-size: .6875rem; line-height: 1; }
+	.store.is-primary { font-weight: 700; box-shadow: inset 0 0 0 2px var(--sc-ink); }
+	.store.is-primary::before { content: ''; width: .375rem; height: .375rem; border-radius: 9999px; background: var(--sc-ink); flex: none; }
 	.alt { font-size: .6875rem; color: var(--s400); }
+	.scopetag { display: inline-flex; align-items: center; height: 1.125rem; padding: 0 .375rem; border-radius: .375rem; background: var(--s100); color: var(--s600); font-weight: 700; font-size: .625rem; line-height: 1; letter-spacing: .04em; text-transform: uppercase; }
+
 	.addrow { display: flex; gap: .5rem; }
-	.addrow .input { flex: 1; }
+	.addrow .input { flex: 1; min-width: 0; }
 	.suggest { display: flex; gap: .375rem; flex-wrap: wrap; margin-top: .5rem; }
 	.suggest button { height: 1.75rem; padding: 0 .625rem; border-radius: 9999px; border: 1px solid var(--s200); background: #fff; font: 600 .75rem/1 inherit; color: var(--s600); cursor: pointer; }
-	.storetot { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .5rem .75rem; background: linear-gradient(90deg,rgba(196,233,218,.35),transparent); border-radius: .5rem; margin-bottom: .5rem; }
+
+	/* group header: the store's own colour, not one green for every store */
+	.storetot { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .5rem .75rem; background: linear-gradient(90deg, var(--sc-bg), transparent); border-radius: .5rem; margin-bottom: .5rem; }
+	.storetot__n { display: flex; align-items: center; gap: .5rem; min-width: 0; font-size: .9375rem; font-weight: 800; color: var(--s800); }
+	.scdot { width: .625rem; height: .625rem; border-radius: 9999px; flex: none; background: var(--sc-bg); box-shadow: inset 0 0 0 2px var(--sc-ink); }
+
+	/* ── the colour control ─────────────────────────────────────────────── */
+	.crow { display: flex; align-items: center; gap: .5rem; padding: .4375rem 0; min-width: 0; }
+	.crow + .crow { border-top: 1px solid var(--s100); }
+	.crow__n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: .8125rem; line-height: 1; color: var(--s800); }
+	.csel { height: 1.75rem; max-width: 8.5rem; padding: 0 .375rem; border-radius: .5rem; border: 1px solid var(--s200); background: #fff; color: var(--s500); font-weight: 600; font-size: .75rem; line-height: 1; }
+
+	.off { display: flex; align-items: center; gap: .5rem; padding: .375rem 0; font-size: .8125rem; color: var(--s400); min-width: 0; }
+	.off + .off { border-top: 1px solid var(--s100); }
+	.off__t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: line-through; }
+	.uncheck { height: 1.25rem; width: 1.25rem; border-radius: .375rem; border: 2px solid var(--s400); background: #fff; color: var(--s400); flex: none; cursor: pointer; display: grid; place-items: center; font-weight: 700; font-size: .625rem; line-height: 1; }
 </style>
 </head>
 <body>
@@ -47,14 +86,109 @@ import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
 import { GROCERIES, plural } from './app-data.js';
 
 const wrap = el('div', 'wrapx');
-const left = el('div');
+const left = el('div', 'vstack');
 const right = el('div');
 wrap.appendChild(left);
 wrap.appendChild(right);
 
-let tab = 'family';
+/* ── store → colour ────────────────────────────────────────────────────────
+   WHERE IT STANDS, read off the repo, not assumed. Ticket 096 has LANDED:
+     · schema.ts:929 grocery_store_colours — one row per store, unique per
+       (family_id, store) and per (user_id, store)
+     · src/routes/api/groceries/colours/ — the PATCH
+     · src/lib/data/groceries.ts — STORE_COLOURS (6 curated swatches),
+       storeKey (trim+lowercase), colourFor (personal → family → default),
+       storesSharingColour, defaultStoreColourKey (the charCode-sum hash
+       contactColors.ts and avatarColor.ts already use)
+     · the page itself: the group bar takes the store's tint with a dot and
+       "shares X with Y" (:433-453), the primary chip is the store colour
+       with a ring and data-primary (:536-546), and the group carries the
+       colour <select> (:455-466)
 
-/* ── tabs ────────────────────────────────────────────────────────────── */
+   WHAT IS STILL OPEN — the half of the review mark that 096 did not touch.
+   +page.svelte:548 still emits the alternates as ONE muted text run:
+       <span class="min-w-0 truncate text-gray-500">or {slice(1).join(', ')}</span>
+   So Costco and Aldi still have no colour on a row even though the table can
+   colour them. That is what this page draws differently: EVERY store is a
+   chip in ITS OWN colour, and primary/alternate moves onto a second channel
+   so nothing is lost by colouring them all.
+
+   WHERE THE MAPPING LIVES: grocery_store_colours, keyed on the storeKey —
+   the same normalised string groupGroceriesByStore groups on, so two
+   spellings of one shop are one group and one colour. A store is free text
+   inside grocery_items.stores[], so there was no table to hang a column on.
+
+   SCOPE: per family, with a personal override that WINS. colourFor resolves
+   personal, then family, then the default, BY VIEWER rather than by which
+   list is open, so a colour set on the family list reads the same on a
+   personal one.
+
+   COLLISIONS: permitted, never enforced, always DISCLOSED. The default is a
+   hash of the NAME, never the list position, so adding a shop never repaints
+   the others — and six swatches over unlimited shops means two names can land
+   on one. When they do the group bar names the twin, because colour is a scan
+   aid and the store name is the identifier. "Any store" — an item with no shop
+   — is never tinted.
+
+   PRIMARY vs ALTERNATE: survives, on a SECOND channel. stores[0] is the
+   grouping key (schema.ts:870-872). Colour answers "which store"; the filled
+   dot + 2px ring answers "the one I group this under". Alternates are
+   full-colour chips like any other store.                            */
+/* The app's STORE_COLOURS, in the app's ORDER — the default is index-based, so
+   the index is part of the contract. Keys match src/lib/data/groceries.ts;
+   the fills are the same six tokens out of proto.css, re-paired so all six
+   clear 4.5:1 at 11px (three of the app's chip inks do not on their own tint,
+   so the hue is carried by the fill and the ring here, and the glyphs are
+   --s800 on every one of them). */
+const SWATCHES = [
+	{ k: 'terracotta', label: 'Terracotta', bg: 'var(--blush)',    ink: 'var(--terracotta)' },
+	{ k: 'sky', label: 'Blue',       bg: 'var(--blue)',    ink: 'var(--blue-ink)' },
+	{ k: 'sage', label: 'Mint',       bg: 'var(--mint)',    ink: 'var(--mint-ink)' },
+	{ k: 'lilac', label: 'Lavender',    bg: 'var(--lavender)', ink: 'var(--lavender-ink)' },
+	{ k: 'amber', label: 'Amber',      bg: 'var(--p100)',    ink: 'var(--p700)' },
+	{ k: 'slate', label: 'Slate',     bg: 'var(--s100)',    ink: 'var(--s600)' }
+];
+
+/* every store either scope knows, in first-seen order */
+const STORE_ORDER = [];
+const keyOf = (s) => s.trim().toLowerCase();
+const ALL = [...GROCERIES.family, ...GROCERIES.mine];
+ALL.forEach((g) => g.stores.forEach((s) => { if (!STORE_ORDER.some((x) => keyOf(x) === keyOf(s))) STORE_ORDER.push(s); }));
+
+/* defaultStoreColourKey — the app's own hash, copied so the prototype and
+   the app pick the same default for the same name. */
+const defaultColour = (s) => {
+	const key = keyOf(s);
+	let h = 0;
+	for (let i = 0; i < key.length; i++) h = key.charCodeAt(i) + ((h << 5) - h);
+	return SWATCHES[Math.abs(h) % SWATCHES.length];
+};
+
+/* familyId SET — the family row. Nothing set here, so every store shows the
+   name-derived default and any collision you see is the hash's, not a choice. */
+const FAMILY_COLOUR = new Map();
+const colourOf = (s) => FAMILY_COLOUR.get(keyOf(s)) || defaultColour(s);
+const onColour = (s) => STORE_ORDER.filter((x) => colourOf(x).k === colourOf(s).k);
+
+/* ── scope + view state ─────────────────────────────────────────────────── */
+let tab = 'family';     // the shipped tab
+let scope = 'all';      // the proposed filter
+let view = 'filter';    // 'filter' (proposed) | 'tabs' (shipped)
+
+const scopesOf = new Map();
+GROCERIES.family.forEach((g) => scopesOf.set(g.id, 'family'));
+GROCERIES.mine.forEach((g) => scopesOf.set(g.id, 'mine'));
+
+/* ── the view switch: which of the two ways of showing two scopes ───────── */
+const viewSwitch = el('div', 'tabs');
+viewSwitch.setAttribute('data-fb', 'scope-view');
+viewSwitch.setAttribute('data-fb-label', 'Tabs or filter');
+viewSwitch.innerHTML = `
+	<button data-view="filter" class="is-on">One list + filter</button>
+	<button data-view="tabs">Tabs</button>`;
+left.appendChild(viewSwitch);
+
+/* ── tabs: the shipped switch ───────────────────────────────────────────── */
 const tabs = el('div', 'tabs');
 tabs.setAttribute('data-fb', 'scope-tabs');
 tabs.setAttribute('data-fb-label', 'Mine / Family tabs');
@@ -63,7 +197,25 @@ tabs.innerHTML = `
 	<button data-tab="mine">Mine<span class="n">${GROCERIES.mine.length}</span></button>`;
 left.appendChild(tabs);
 
-/* ── add ─────────────────────────────────────────────────────────────── */
+/* ── the proposed switch: the same two scopes, as a filter ─────────────── */
+const filterBox = el('div');
+filterBox.setAttribute('data-fb', 'scope-filter');
+filterBox.setAttribute('data-fb-label', 'Scope filter');
+filterBox.innerHTML = `
+	<div class="filters">
+	  <button class="chipf is-on" data-scope="all">All<span class="alt"> ${ALL.length}</span></button>
+	  <button class="chipf" data-scope="family">Family<span class="alt"> ${GROCERIES.family.length}</span></button>
+	  <button class="chipf" data-scope="mine">Mine<span class="alt"> ${GROCERIES.mine.length}</span></button>
+	</div>
+	<p class="hint" style="margin:.5rem 0 0;line-height:1.6">Proposed, not shipped. The app opens
+	<code>tab</code> from a <code>?scope=</code> param and hides the other list
+	(<code>groceries/+page.svelte:21,232</code>); the filter takes that param instead of the tab,
+	so a “Mine” link still lands on Mine. Groups are per <b>store</b> and hold both scopes —
+	Costco below carries a Family item and a personal one — so each row says which scope it
+	is from in text, not in colour.</p>`;
+left.appendChild(filterBox);
+
+/* ── add ────────────────────────────────────────────────────────────────── */
 const add = el('div');
 add.setAttribute('data-fb', 'add-item');
 add.setAttribute('data-fb-label', 'Add an item');
@@ -75,13 +227,42 @@ add.innerHTML = `
 	<div class="suggest" id="sug"></div>`;
 left.appendChild(add);
 
-/* ── the model, stated on the page ──────────────────────────────────── */
+/* ── checked off, with uncheck — the app's rail (+page.svelte:303-326) ─── */
+const doneRail = el('div', 'rail__card');
+doneRail.setAttribute('data-fb', 'checked-off');
+doneRail.setAttribute('data-fb-label', 'Checked off');
+left.appendChild(doneRail);
+
+/* ── the colour control ─────────────────────────────────────────────────── */
+const colourCard = el('div', 'rail__card');
+colourCard.setAttribute('data-fb', 'store-colours');
+colourCard.setAttribute('data-fb-label', 'Store colours');
+colourCard.innerHTML = `${sectionTitle('Store colours')}<div id="crows"></div><p class="hint" id="cfoot" style="line-height:1.6;margin:.625rem 0 0"></p>`;
+left.appendChild(colourCard);
+
+const colourNote = card(
+	`<p class="hint" style="line-height:1.7;margin:0">
+	   <b>096 has landed; half the mark has not.</b> <code>grocery_store_colours</code>
+	   (<code>schema.ts:929</code>), <code>/api/groceries/colours</code>,
+	   <code>STORE_COLOURS</code>, <code>colourFor</code> and
+	   <code>defaultStoreColourKey</code> are all in the repo, and the group bar, the primary chip and the
+	   colour picker all take the store's own colour. But
+	   <code>+page.svelte:548</code> still paints the alternates as one muted text run —
+	   <code>or {slice(1).join(', ')}</code> in <code>text-gray-500</code> — so Costco and Aldi are
+	   still grey on a row the table can already colour. <b>Every store gets its own chip here</b>, and
+	   primary moves onto the dot + ring so nothing is lost by colouring them all. The swatch below is the
+	   one the app now ships, in the app's order, because the default is index-based.</p>`,
+	'colour-model', 'Where a store colour lives, and what is still open');
+left.appendChild(colourNote);
+
+/* ── the grocery model, stated on the page ─────────────────────────────── */
 left.appendChild(card(
-	`${sectionTitle('Why two tabs')}
+	`${sectionTitle('Two scopes, two ways to show them')}
 	 <p class="hint" style="line-height:1.7">
 	   There is no grocery-<i>list</i> entity. <code>grocery_items</code> is one table and the list is a
 	   <b>scope</b>: <code>family_id IS NULL</code> means “mine”, <code>family_id SET</code> means “family”.
-	   The two tabs are a projection of a nullable column.
+	   Tabs and a filter are two projections of the same nullable column — the tab hides a scope,
+	   the filter only dims it.
 	 </p>
 	 <p class="hint" style="line-height:1.7;margin-top:.5rem">
 	   A second table, <code>grocery_store_memory</code>, learns which store an item came from — so the store
@@ -91,32 +272,47 @@ left.appendChild(card(
 	'model-note', 'Grocery model',
 	'background:linear-gradient(140deg,rgba(241,181,152,.35),#fff);border-color:transparent'));
 
-/* ── the list, grouped by store ──────────────────────────────────────── */
+/* ── the list, grouped by store ─────────────────────────────────────────── */
 const list = el('div');
 list.setAttribute('data-fb', 'store-groups');
 list.setAttribute('data-fb-label', 'Items grouped by store');
 right.appendChild(list);
 
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const chip = (name, primary) => {
+	const c = colourOf(name);
+	return `<span class="store${primary ? ' is-primary' : ''}" style="--sc-bg:${c.bg};--sc-ink:${c.ink}">${esc(name)}</span>`;
+};
+
 function paint() {
-	const rows = GROCERIES[tab].filter((g) => !g.checked);
-	const stores = [...new Set(rows.flatMap((g) => g.stores))].sort();
+	tabs.hidden = view !== 'tabs';
+	filterBox.hidden = view !== 'filter';
+	tabs.querySelectorAll('button').forEach((x) => x.classList.toggle('is-on', view === 'tabs' && x.dataset.tab === tab));
+	filterBox.querySelectorAll('.chipf').forEach((x) => x.classList.toggle('is-on', x.dataset.scope === scope));
+
+	const pool = view === 'tabs' ? GROCERIES[tab] : (scope === 'all' ? ALL : GROCERIES[scope]);
+	const rows = pool.filter((g) => !g.checked);
+	const stores = [...new Set(rows.map((g) => g.stores[0]).filter(Boolean))].sort();
 	list.innerHTML = stores.map((s) => {
-		const items = rows.filter((g) => g.stores.includes(s));
+		const items = rows.filter((g) => g.stores[0] === s);
 		const n = items.reduce((a, g) => a + g.qty, 0);
+		const c = colourOf(s);
+		const twins = onColour(s).length - 1;
 		return `
-		<div class="rail__card" style="margin-bottom:1rem" data-store="${s}">
+		<div class="rail__card" style="margin-bottom:1rem;--sc-bg:${c.bg};--sc-ink:${c.ink}" data-store="${esc(s)}">
 		  <div class="storetot">
-		    <span style="font-size:.9375rem;font-weight:800;color:var(--s800)">${s}</span>
-		    <span class="hint">${plural(items.length, 'item')} · ${n} total</span>
+		    <span class="storetot__n"><i class="scdot"></i>${esc(s)}</span>
+		    <span class="hint">${plural(items.length, 'item')} · ${n} total${twins ? ` · shares ${c.label} with ${onColour(s).filter((x) => x !== s).join(', ')}` : ''}</span>
 		  </div>
 		  ${items.map((g) => `
 		    <div class="grow" data-item="${g.id}">
 		      <span class="gcheck" onclick="check('${g.id}')" role="checkbox" aria-checked="false" tabindex="0"></span>
 		      <span style="flex:1;min-width:0">
-		        <span class="gname">${g.name} <span class="qty">×${g.qty}</span></span>
+		        <span class="gname">${esc(g.name)} <span class="qty">×${g.qty}</span></span>
 		        <span class="gmeta">
-		          <span class="store">${g.stores[0]}</span>
-		          ${g.stores.length > 1 ? `<span class="alt">or ${g.stores.slice(1).join(', ')}</span>` : ''}
+		          ${chip(g.stores[0], true)}
+		          ${g.stores.length > 1 ? `<span class="alt">or</span>${g.stores.slice(1).map((x) => chip(x, false)).join('')}` : ''}
+		          ${view === 'filter' ? `<span class="scopetag">${scopesOf.get(g.id)}</span>` : ''}
 		        </span>
 		      </span>
 		      <button class="btn-icon" style="height:1.75rem;width:1.75rem" title="Edit stores" onclick="toast('Edit stores')">✎</button>
@@ -125,24 +321,81 @@ function paint() {
 		    </div>`).join('')}
 		</div>`;
 	}).join('') || `<div class="rail__card" style="text-align:center;padding:2.5rem">
-		<p class="hint">${tab === 'family' ? 'The family list is empty.' : 'Your list is empty.'}</p></div>`;
-}
-paint();
+		<p class="hint">${view === 'tabs' ? (tab === 'family' ? 'The family list is empty.' : 'Your list is empty.') : 'Nothing on this scope.'}</p></div>`;
 
+	/* Checked off. In the filter view the rail holds everything checked this
+	   session across BOTH scopes and each uncheck acts on the scope the item
+	   actually came from; in the tab view it is the app's one rail per tab. */
+	const done = ALL.filter((g) => g.checked && (view === 'tabs' ? scopesOf.get(g.id) === tab : true));
+	doneRail.innerHTML = done.length
+		? `${sectionTitle(`Checked off (${done.length})`)}${done.map((g) => `
+		    <div class="off">
+		      <span class="uncheck" onclick="uncheck('${g.id}')" role="checkbox" aria-checked="true" tabindex="0" title="Put back on the list">✓</span>
+		      <span class="off__t">${esc(g.name)}</span>
+		      <span class="scopetag">${scopesOf.get(g.id)}</span>
+		    </div>`).join('')}`
+		: `${sectionTitle('Checked off')}<p class="hint" style="margin:0">Nothing yet. Tick an item and it lands here — and can be put back.</p>`;
+
+	/* the control itself */
+	colourCard.querySelector('#crows').innerHTML = STORE_ORDER.map((s) => {
+		const c = colourOf(s);
+		const twins = onColour(s).length - 1;
+		return `
+		<div class="crow" data-store="${esc(s)}">
+		  <i class="scdot" style="--sc-bg:${c.bg};--sc-ink:${c.ink}"></i>
+		  <span class="crow__n" title="${esc(s)}${twins ? ` — shares ${c.label} with ${onColour(s).filter((x) => x !== s).join(', ')}` : ''}">${esc(s)}</span>
+		  <select class="csel" aria-label="Colour for ${esc(s)}" onchange="setColour('${esc(s)}', this.value)">
+		    ${SWATCHES.map((w) => `<option value="${w.k}"${w.k === c.k ? ' selected' : ''}>${w.label}</option>`).join('')}
+		  </select>
+		</div>`;
+	}).join('');
+
+	/* what the assignment actually did, stated where it can be checked */
+	const shared = STORE_ORDER.filter((s) => onColour(s).length > 1);
+	colourCard.querySelector('#cfoot').innerHTML =
+		`${STORE_ORDER.length} stores, ${SWATCHES.length} swatches. ` +
+		(shared.length
+			? `<b>${shared.length} of them land on the same swatch</b> — ${shared.map((s) => `${esc(s)}`).join(', ')}. Nothing was chosen here: every store is on <code>defaultStoreColourKey</code>, and the hash put those two together. A collision is permitted and always disclosed; a family can also set one on purpose, and then the group header names both.`
+			: 'No two stores land on the same swatch.');
+}
+
+viewSwitch.addEventListener('click', (e) => {
+	const b = e.target.closest('[data-view]');
+	if (!b) return;
+	view = b.dataset.view;
+	viewSwitch.querySelectorAll('button').forEach((x) => x.classList.toggle('is-on', x === b));
+	paint();
+});
 tabs.addEventListener('click', (e) => {
 	const b = e.target.closest('[data-tab]');
 	if (!b) return;
 	tab = b.dataset.tab;
-	tabs.querySelectorAll('button').forEach((x) => x.classList.toggle('is-on', x === b));
+	paint();
+});
+filterBox.addEventListener('click', (e) => {
+	const b = e.target.closest('[data-scope]');
+	if (!b) return;
+	scope = b.dataset.scope;
 	paint();
 });
 
-window.check = (id) => {
-	const all = [...GROCERIES.family, ...GROCERIES.mine];
-	const g = all.find((x) => x.id === id);
-	g.checked = !g.checked;
+window.setColour = (store, k) => {
+	FAMILY_COLOUR.set(keyOf(store), SWATCHES.find((w) => w.k === k) || SWATCHES[0]);
 	paint();
-	if (g.checked) toast(`${g.name} checked off`, 'Undo');
+	const twins = onColour(store).length - 1;
+	toast(`${store} → ${SWATCHES.find((w) => w.k === k).label}${twins ? ` · ${twins} other store now shares it` : ' · colour is now unique'}`);
+};
+window.check = (id) => {
+	const g = ALL.find((x) => x.id === id);
+	g.checked = true;
+	paint();
+	toast(`${g.name} checked off`, 'Undo');
+};
+window.uncheck = (id) => {
+	const g = ALL.find((x) => x.id === id);
+	g.checked = false;
+	paint();
+	toast(`${g.name} put back on the list`);
 };
 window.sug = (v) => {
 	// stands in for the 300ms debounce against grocery_store_memory
@@ -154,11 +407,13 @@ window.quick = (h) => { const i = document.getElementById('newItem'); i.value = 
 window.addItem = (e) => { e.preventDefault(); const i = document.getElementById('newItem'); if (!i.value.trim()) return; toast(`Added “${i.value.trim()}” — store guessed from memory`); i.value = ''; document.getElementById('sug').innerHTML = ''; };
 window.toast = toast;
 
+paint();
+
 mountApp({
 	head: {
 		kicker: 'Prototype · Groceries',
 		title: 'Groceries',
-		lede: 'Grouped by store, because that is the shape of the trip. The real page is the most complete feature in the repo — one table, one actions module, nothing half-wired.',
+		lede: 'Grouped by store, because that is the shape of the trip. Every store carries its own colour — the app colours the group bar and the primary chip, but still greys out the alternates. Two ways of showing the two scopes: the shipped tabs, and one list behind the same filter the Tasks page uses.',
 		actions: `<a class="btn btn-soft btn-sm" href="family-detail.html">Family settings</a>`
 	},
 	body: wrap
