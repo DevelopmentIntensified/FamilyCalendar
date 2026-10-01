@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { DateTime } from 'luxon';
 	import { pushToast } from '$lib/client/toasts';
 	import type { ActionData, PageData } from './$types';
 	import type { ImportPreviewItem } from './+page.server';
@@ -17,12 +18,23 @@
 	}
 
 	interface CommitReport {
+		calendarId: string;
 		calendarName: string;
 		imported: number;
 		selected: number;
 		skipped: number;
 		skippedDuplicates: number;
 		failed: string[];
+		/** What landed, by id — the batch an undo reverses. */
+		importedEvents: { id: string; title: string; startIso: string }[];
+	}
+
+	interface UndoReport {
+		calendarName: string;
+		removed: number;
+		/** Rows the import wrote that the user has since edited — left alone. */
+		kept: { id: string; title: string }[];
+		alreadyGone: number;
 	}
 
 	/** What ?/preview described, or null when we are not on the preview screen. */
@@ -41,12 +53,21 @@
 		return f as CommitReport;
 	}
 
+	/** What ?/undo put back, or null while the batch is still on the calendar. */
+	function undoOf(f: ActionData): UndoReport | null {
+		if (!f || !('removed' in f)) return null;
+		// SAFETY: `removed` exists only on the ?/undo bag, which is the shape above.
+		return f as UndoReport;
+	}
+
 	let fileName = '';
 	let fileInput: HTMLInputElement | undefined;
 	/** Back to the upload form after a finished (or abandoned) flow. */
 	let dismissed = false;
 	/** True while a POST is in flight (blocks double-submit). */
 	let pending = false;
+	/** A second in-flight flag: undo must not read as the commit still running. */
+	let undoing = false;
 	/**
 	 * The user's own tick set, or null while they are still following the
 	 * server's suggestion. Deriving `picked` from it means the duplicate-aware
@@ -55,13 +76,33 @@
 	let override: Set<string> | null = null;
 	/** Survives a failed commit so a re-try does not lose the selection. */
 	let lastPreview: PreviewPayload | null = null;
+	/** The commit report survives the undo POST, so the card can report it. */
+	let lastReport: CommitReport | null = reportOf(form);
 
 	$: preview = dismissed ? null : (previewOf(form) ?? lastPreview);
-	$: report = dismissed ? null : reportOf(form);
+	$: report = dismissed ? null : (reportOf(form) ?? lastReport);
+	$: undo = dismissed ? null : undoOf(form);
 	$: items = preview?.items ?? [];
 	$: duplicates = preview?.duplicates ?? 0;
 	$: picked = override ?? new Set(preview?.defaultSelection ?? []);
 	$: atDefault = override === null;
+
+	/**
+	 * Issue 082: the earliest event this commit wrote, as the day the calendar's
+	 * `?date=` param takes. An import usually lands in a month the user is not
+	 * looking at, so the success screen names one and links there — without it
+	 * "the import worked" is not a claim anybody can check.
+	 */
+	$: earliestImported = report?.importedEvents?.length
+		? report.importedEvents.reduce(
+				(min, e) => (e.startIso < min ? e.startIso : min),
+				report.importedEvents[0].startIso
+			)
+		: null;
+	$: firstImportedDate = earliestImported ? earliestImported.slice(0, 10) : null;
+	$: firstImportedDateLabel = firstImportedDate
+		? DateTime.fromISO(firstImportedDate).toFormat('ccc, LLL d, yyyy')
+		: '';
 
 	function onFileChange(e: Event) {
 		// SAFETY: this handler is only bound to the .ics file <input>,
@@ -130,31 +171,111 @@
 	{/if}
 
 	{#if report}
-		<!-- Success: what landed, where, and the way to fix a bad import. -->
+		<!-- Success: what landed, where, and the way to put a bad import back. -->
 		<div
 			class="mb-6 rounded-xl border border-green-200 bg-green-50 p-5"
 			data-testid="import-success"
 		>
-			<p class="text-lg font-semibold text-green-800">
-				Added {report.imported} event{report.imported === 1 ? '' : 's'} to your
-				{report.calendarName}
-			</p>
-			<ul class="mt-2 space-y-1 text-sm text-green-700">
-				<li>You ticked {report.selected}.</li>
-				{#if report.skippedDuplicates > 0}
-					<li>
-						Skipped {report.skippedDuplicates} already on the calendar when we checked again.
-					</li>
+			{#if undo}
+				<!-- Undone: this is the end of the batch, so the undo goes away. -->
+				<div data-testid="import-undone">
+					<p class="text-lg font-semibold text-green-800">
+						Removed {undo.removed} event{undo.removed === 1 ? '' : 's'} from your
+						{undo.calendarName}
+					</p>
+					<ul class="mt-2 space-y-1 text-sm text-green-700">
+						{#if undo.kept.length > 0}
+							<li>
+								Kept {undo.kept.length} you changed since the import:
+								{undo.kept.map((k) => k.title).join(', ')}. Open it to undo that yourself.
+							</li>
+						{/if}
+						{#if undo.alreadyGone > 0}
+							<li>{undo.alreadyGone} were already off the calendar — nothing to remove.</li>
+						{/if}
+					</ul>
+					<p class="mt-2 text-sm text-green-700">
+						Your calendar is back to how it was before this import.
+					</p>
+				</div>
+			{:else}
+				<p class="text-lg font-semibold text-green-800">
+					Added {report.imported} event{report.imported === 1 ? '' : 's'} to your
+					{report.calendarName}
+				</p>
+				<ul class="mt-2 space-y-1 text-sm text-green-700">
+					<li>You ticked {report.selected}.</li>
+					{#if firstImportedDate}
+						<!-- Issue 082: an import usually lands in some other month, and
+						     "it worked" is not checkable without going there. -->
+						<li>
+							First one landed on
+							<a href={`/calendar?date=${firstImportedDate}`} class="underline"
+								>{firstImportedDateLabel}</a
+							>.
+						</li>
+					{/if}
+					{#if report.skippedDuplicates > 0}
+						<li>
+							Skipped {report.skippedDuplicates} already on the calendar when we checked again.
+						</li>
+					{/if}
+					{#if report.failed.length > 0}
+						<li>Couldn't save: {report.failed.join(', ')}.</li>
+					{/if}
+				</ul>
+
+				<!-- Undo: the batch this commit wrote, carried back to the server.
+				     Nothing here is guessed — the server only removes rows that still
+				     look exactly like what this import put there. -->
+				{#if report.importedEvents.length > 0}
+					<form
+						method="POST"
+						action="?/undo"
+						class="mt-4"
+						use:enhance={() => {
+							undoing = true;
+							return async ({ result, update }) => {
+								await update();
+								undoing = false;
+								if (result.type !== 'success') {
+									pushToast({
+										message: "Couldn't undo that import — try again, or delete from the calendar."
+									});
+									return;
+								}
+								const u = undoOf(form);
+								pushToast({
+									message: u
+										? `Removed ${u.removed} event${u.removed === 1 ? '' : 's'} from your ${u.calendarName}.`
+										: 'Nothing was removed.'
+								});
+							};
+						}}
+					>
+						<input type="hidden" name="calendarId" value={report.calendarId} />
+						<input type="hidden" name="batch" value={JSON.stringify(report.importedEvents)} />
+						<button
+							type="submit"
+							disabled={undoing}
+							class="rounded-lg border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100 disabled:opacity-50"
+						>
+							{undoing
+								? 'Undoing…'
+								: `Undo this import (${report.importedEvents.length} event${report.importedEvents.length === 1 ? '' : 's'})`}
+						</button>
+						<span class="ml-2 text-xs text-green-700">
+							Removes what this import added. Anything you have edited since stays.
+						</span>
+					</form>
 				{/if}
-				{#if report.failed.length > 0}
-					<li>Couldn't save: {report.failed.join(', ')}.</li>
-				{/if}
-			</ul>
-			<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-				<strong>Something look wrong?</strong>
-				<a href="/calendar" class="underline">Open the calendar</a>, tap
-				<strong>Select</strong> in the toolbar, tick the events and delete them in bulk.
-			</div>
+
+				<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+					<strong>Need to pick and choose instead?</strong>
+					<a href="/calendar" class="underline">Open the calendar</a>, tap
+					<strong>Select</strong> in the toolbar, tick the events and delete them in bulk.
+				</div>
+			{/if}
 			<div class="mt-4 flex flex-wrap gap-2">
 				<a
 					href="/calendar"
@@ -276,6 +397,7 @@
 						return;
 					}
 					const r = reportOf(form);
+					if (r) lastReport = r;
 					pushToast({
 						message: r
 							? `Added ${r.imported} event${r.imported === 1 ? '' : 's'} to your ${r.calendarName}.`

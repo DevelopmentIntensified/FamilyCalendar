@@ -8,7 +8,11 @@ import {
 	describeWhen,
 	MAX_IMPORT_EVENTS,
 	planCommit,
-	type ImportPreviewItem
+	planUndo,
+	coerceUndoBatch,
+	type ImportPreviewItem,
+	type ImportedEventRef,
+	type UndoCandidate
 } from './icsImportPreview';
 import type { IcsEventDraft, IcsFrequency } from './icsImportService';
 
@@ -336,5 +340,102 @@ describe('coerceDrafts', () => {
 		const [out] = coerceDrafts([{ ...valid, endIso: undefined }]);
 
 		expect(out.endIso).toBeNull();
+	});
+});
+
+/* ── undo (issue 126) ────────────────────────────────────────────────── */
+
+/** One row a commit wrote: what it was, and where it landed. */
+function written(over: Partial<ImportedEventRef> = {}): ImportedEventRef {
+	return {
+		id: 'ev-1',
+		title: 'Soccer practice',
+		startIso: '2026-09-29T14:00:00.000Z',
+		...over
+	};
+}
+
+/** The row as the database still has it at undo time. */
+function row(over: Partial<UndoCandidate> = {}): UndoCandidate {
+	return { id: 'ev-1', title: 'Soccer practice', startIso: '2026-09-29T14:00:00.000Z', ...over };
+}
+
+describe('planUndo', () => {
+	it('removes a row that still looks exactly like the import wrote it', () => {
+		const plan = planUndo([written()], [row()]);
+
+		expect(plan.remove).toEqual(['ev-1']);
+		expect(plan.changed).toEqual([]);
+		expect(plan.missing).toEqual([]);
+	});
+
+	it('keeps a row the user has edited since the import', () => {
+		const plan = planUndo([written()], [row({ title: 'Soccer (moved indoors)' })]);
+
+		expect(plan.remove).toEqual([]);
+		expect(plan.changed.map((c) => c.title)).toEqual(['Soccer (moved indoors)']);
+	});
+
+	it('keeps a row whose start was moved', () => {
+		const plan = planUndo([written()], [row({ startIso: '2026-09-29T16:00:00.000Z' })]);
+
+		expect(plan.remove).toEqual([]);
+		expect(plan.changed).toHaveLength(1);
+	});
+
+	it('reports a row that is already gone as missing, not as a change', () => {
+		const plan = planUndo([written()], []);
+
+		expect(plan.remove).toEqual([]);
+		expect(plan.changed).toEqual([]);
+		expect(plan.missing).toEqual(['ev-1']);
+	});
+
+	it('plans one verdict per batch row, across the whole batch', () => {
+		const batch = [written(), written({ id: 'ev-2', title: 'Choir' }), written({ id: 'ev-3' })];
+		const live = [row(), row({ id: 'ev-2', title: 'Choir rehearsal' })];
+
+		const plan = planUndo(batch, live);
+
+		expect(plan.remove).toEqual(['ev-1']);
+		expect(plan.changed.map((c) => c.title)).toEqual(['Choir rehearsal']);
+		expect(plan.missing).toEqual(['ev-3']);
+	});
+
+	it('never repeats an id — a doubled batch row cannot delete twice', () => {
+		const plan = planUndo([written(), written()], [row()]);
+
+		expect(plan.remove).toEqual(['ev-1']);
+	});
+});
+
+describe('coerceUndoBatch', () => {
+	it('reads the rows a commit handed the success screen', () => {
+		expect(coerceUndoBatch([{ id: 'ev-1', title: 'Choir', startIso: '2026-12-25T00:00:00.000Z' }])).toEqual(
+			[{ id: 'ev-1', title: 'Choir', startIso: '2026-12-25T00:00:00.000Z' }]
+		);
+	});
+
+	it('is empty for anything that is not an array of rows', () => {
+		expect(coerceUndoBatch(null)).toEqual([]);
+		expect(coerceUndoBatch('ev-1')).toEqual([]);
+		expect(coerceUndoBatch([])).toEqual([]);
+	});
+
+	it('rejects the whole batch when one row is malformed', () => {
+		expect(coerceUndoBatch([{ id: 'ev-1', title: 'Choir', startIso: 'nope' }])).toEqual([]);
+		expect(coerceUndoBatch([{ id: 'ev-1', title: '', startIso: '2026-12-25T00:00:00.000Z' }])).toEqual(
+			[]
+		);
+	});
+
+	it('is bounded like the commit it reverses', () => {
+		const tooMany = Array.from({ length: MAX_IMPORT_EVENTS + 1 }, (_, i) => ({
+			id: `ev-${i}`,
+			title: 'Choir',
+			startIso: '2026-12-25T00:00:00.000Z'
+		}));
+
+		expect(coerceUndoBatch(tooMany)).toEqual([]);
 	});
 });

@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db';
 import { notifications, type Notification } from '$lib/server/db/schema';
 import { sendPushToUser } from '$lib/server/services/pushService';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 
 export async function createNotification(data: {
 	userId: string;
@@ -70,4 +70,18 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
 		.update(notifications)
 		.set({ readAt: new Date().toISOString() })
 		.where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
+}
+
+/**
+ * Prune the read rows — the delete path the feed had no way to reach (issue
+ * 073 left it unbuilt; the prototype calls it out as the reason "mark all read"
+ * hides the problem instead of solving it). Unread rows are never touched: an
+ * alert nobody has read is the one still asking something of them.
+ */
+export async function deleteReadNotifications(userId: string): Promise<number> {
+	const deleted = await db
+		.delete(notifications)
+		.where(and(eq(notifications.userId, userId), isNotNull(notifications.readAt)))
+		.returning({ id: notifications.id });
+	return deleted.length;
 }

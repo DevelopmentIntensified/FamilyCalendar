@@ -18,11 +18,21 @@
 
 	let filter: NotificationFilter = $state('all');
 	let markingAll = $state(false);
+	/**
+	 * The prune is a delete, so it asks first — in the page, where the count is
+	 * known, rather than in a window.confirm() (issue 126: the prototype's
+	 * "never pruned" card, the one thing #073 left unbuilt).
+	 */
+	let askingToPrune = $state(false);
+	let pruning = $state(false);
 
 	// Server rows are the source of truth; these two are what we render, so a
 	// read-mark can land instantly and then be reconciled by the reload.
 	let rows: NotificationRow[] = $state(data.notifications);
 	let unreadCount: number = $state(data.unreadCount);
+
+	/** How many rows are already read — the prune's count and its confirmation. */
+	const readCount = $derived(rows.filter((r) => r.readAt).length);
 
 	$effect(() => {
 		rows = data.notifications;
@@ -32,7 +42,9 @@
 	const counts = $derived(notificationCounts(rows));
 	const groups = $derived(groupNotifications(filterNotifications(rows, filter)));
 
-	async function postNotifications(body: { id: string } | { all: true }): Promise<boolean> {
+	async function postNotifications(
+		body: { id: string } | { all: true } | { pruneRead: true }
+	): Promise<boolean> {
 		try {
 			const res = await fetch('/api/notifications', {
 				method: 'POST',
@@ -68,6 +80,26 @@
 			unreadCount = beforeCount;
 			pushToast({ message: "Couldn't mark everything read — try again." });
 		}
+	}
+
+	/** Drop the read rows from the feed, then tell the server to drop them too. */
+	async function pruneRead() {
+		if (pruning) return;
+		pruning = true;
+		// Counted before the rows go: readCount is derived from the live list.
+		const doomed = rows.filter((r) => r.readAt).length;
+		const before = rows;
+		rows = rows.filter((r) => !r.readAt);
+		askingToPrune = false;
+
+		if (await postNotifications({ pruneRead: true })) {
+			pushToast({ message: `Deleted ${doomed} read alert${doomed === 1 ? '' : 's'}.` });
+			await invalidateAll();
+		} else {
+			rows = before;
+			pushToast({ message: "Couldn't delete those alerts — try again." });
+		}
+		pruning = false;
 	}
 
 	/**
@@ -149,16 +181,50 @@
 				{unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}
 			</p>
 		</div>
-		{#if unreadCount > 0}
-			<button
-				type="button"
-				onclick={markAllRead}
-				disabled={markingAll}
-				class="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50"
-			>
-				{markingAll ? 'Marking…' : 'Mark all read'}
-			</button>
-		{/if}
+		<div class="flex shrink-0 flex-wrap items-center gap-2">
+			{#if readCount > 0}
+				{#if askingToPrune}
+					<span class="text-xs text-slate-500">
+						Delete {readCount} read alert{readCount === 1 ? '' : 's'}?
+					</span>
+					<button
+						type="button"
+						onclick={pruneRead}
+						disabled={pruning}
+						class="rounded-full bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+					>
+						{pruning ? 'Deleting…' : 'Delete them'}
+					</button>
+					<button
+						type="button"
+						onclick={() => (askingToPrune = false)}
+						disabled={pruning}
+						class="rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+					>
+						Keep them
+					</button>
+				{:else}
+					<button
+						type="button"
+						onclick={() => (askingToPrune = true)}
+						disabled={pruning}
+						class="rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+					>
+						Delete read alerts
+					</button>
+				{/if}
+			{/if}
+			{#if unreadCount > 0}
+				<button
+					type="button"
+					onclick={markAllRead}
+					disabled={markingAll}
+					class="rounded-full px-3 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50"
+				>
+					{markingAll ? 'Marking…' : 'Mark all read'}
+				</button>
+			{/if}
+		</div>
 	</div>
 
 	{#if rows.length === 0}

@@ -160,6 +160,70 @@ export function planCommit(
 	return { toWrite, skippedDuplicates };
 }
 
+/**
+ * What a commit wrote, handed to the success screen so an undo can name it.
+ * Deliberately small: an id plus the two fields that say whether the row is
+ * still exactly what the import put there. There is no import-batch id on the
+ * events table, so the batch is carried by the client, not the database.
+ */
+export interface ImportedEventRef {
+	id: string;
+	title: string;
+	startIso: string;
+}
+
+/** The row as the database still has it when undo arrives. */
+export type UndoCandidate = ImportedEventRef;
+
+/** One batch row the user has since edited — undo leaves these alone. */
+export interface ChangedEvent {
+	id: string;
+	title: string;
+}
+
+export interface UndoPlan {
+	/** Ids to delete: still exactly what this import wrote. */
+	remove: string[];
+	/** Rows that exist but no longer match the import — kept, and named. */
+	changed: ChangedEvent[];
+	/** Rows already gone; nothing to do about them. */
+	missing: string[];
+}
+
+/**
+ * Decide what an undo may remove. A batch row is removed only when the stored
+ * row still carries the same title and start the import wrote — the events
+ * table has no updated_at and no batch id, so "did the user edit this since?"
+ * is answered by comparing what they are about to delete against what we wrote.
+ * Anything edited, and anything already gone, is reported rather than deleted.
+ */
+export function planUndo(
+	batch: readonly ImportedEventRef[],
+	live: readonly UndoCandidate[]
+): UndoPlan {
+	const liveById = new Map(live.map((r) => [r.id, r]));
+	const remove: string[] = [];
+	const changed: ChangedEvent[] = [];
+	const missing: string[] = [];
+	const seen = new Set<string>();
+
+	for (const ref of batch) {
+		if (seen.has(ref.id)) continue;
+		seen.add(ref.id);
+
+		const row = liveById.get(ref.id);
+		if (!row) {
+			missing.push(ref.id);
+			continue;
+		}
+		const unchanged =
+			dedupeKey(row.title, row.startIso) === dedupeKey(ref.title, ref.startIso);
+		if (unchanged) remove.push(ref.id);
+		else changed.push({ id: row.id, title: row.title });
+	}
+	return { remove, changed, missing };
+}
+
 /* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-runtime-typeof, anti-slop/no-unsafe-dictionary-type -- everything below IS the boundary parser: `coerceDrafts` takes a posted JSON payload, so `unknown` and runtime `typeof` are its contract, not a shortcut. */
 
 /** A parsed ISO instant, or null when the value is absent or unusable. */
@@ -279,6 +343,44 @@ export function coerceDrafts(value: unknown): IcsEventDraft[] {
 		const draft = coerceDraft(entry);
 		if (!draft) return [];
 		out.push(draft);
+	}
+	return out;
+}
+
+/* oxlint-enable anti-slop/no-unknown-parameters, anti-slop/no-runtime-typeof, anti-slop/no-unsafe-dictionary-type */
+
+/* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-runtime-typeof, anti-slop/no-unsafe-dictionary-type -- same boundary parser as above: an undo request is posted JSON, so `unknown` and runtime `typeof` are its contract, not a shortcut. */
+
+/** One posted undo row, parsed at the boundary. `undefined` means reject. */
+function coerceUndoRef(value: unknown): ImportedEventRef | undefined {
+	if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+	// SAFETY: the guard above narrows `value` to a non-null, non-array object;
+	// property reads below are therefore defined.
+	const row = value as Record<string, unknown>;
+
+	const id = textOrNull(row['id'], 64);
+	if (!id) return undefined;
+	const title = textOrNull(row['title'], 200);
+	if (!title) return undefined;
+	const startIso = isoOrNull(row['startIso']);
+	if (!startIso) return undefined;
+
+	return { id, title, startIso };
+}
+
+/**
+ * Parse the batch an undo request carries. Same rules as the commit it reverses:
+ * bounded, all-or-nothing, and never wider than `MAX_IMPORT_EVENTS` rows.
+ */
+export function coerceUndoBatch(value: unknown): ImportedEventRef[] {
+	if (!Array.isArray(value) || value.length === 0 || value.length > MAX_IMPORT_EVENTS) {
+		return [];
+	}
+	const out: ImportedEventRef[] = [];
+	for (const entry of value) {
+		const ref = coerceUndoRef(entry);
+		if (!ref) return [];
+		out.push(ref);
 	}
 	return out;
 }

@@ -208,6 +208,81 @@ describe('alerts page — rows are real links', () => {
 	});
 });
 
+// Issue 126: the prototype's "never pruned" card is the one thing notifications.html
+// shows that #073 did not do, and #073 named it as deliberately left unbuilt.
+describe('alerts page — pruning read alerts', () => {
+	const READ_TEXT = 'completed "Weekly meal plan"';
+	const withRead = () =>
+		renderPage([
+			dbRow({
+				id: 'unread-1',
+				type: 'assignment_pending',
+				message: 'asked you to book the wall'
+			}),
+			dbRow({
+				id: 'read-1',
+				type: 'task_completed',
+				message: READ_TEXT,
+				readAt: '2026-09-30T10:00:00.000Z'
+			})
+		]);
+
+	it('offers the prune only when there is something read to prune', () => {
+		withRead();
+		expect(screen.getByRole('button', { name: /Delete read alerts/ })).toBeInTheDocument();
+
+		cleanup();
+		renderPage([dbRow({ id: 'unread-1', type: 'task_completed' })]);
+		expect(screen.queryByRole('button', { name: /Delete read alerts/ })).not.toBeInTheDocument();
+	});
+
+	it('asks in the page before deleting, naming how many', async () => {
+		withRead();
+		await fireEvent.click(screen.getByRole('button', { name: /Delete read alerts/ }));
+
+		expect(screen.getByText(/Delete 1 read alert/)).toBeInTheDocument();
+		// Nothing is sent until the second, deliberate press.
+		expect(postCalls()).toHaveLength(0);
+	});
+
+	it('lets the ask be called off without deleting anything', async () => {
+		withRead();
+		await fireEvent.click(screen.getByRole('button', { name: /Delete read alerts/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Keep them' }));
+
+		expect(postCalls()).toHaveLength(0);
+		expect(screen.getByText(READ_TEXT)).toBeInTheDocument();
+	});
+
+	it('removes the read rows optimistically and says what happened', async () => {
+		withRead();
+		await fireEvent.click(screen.getByRole('button', { name: /Delete read alerts/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete them' }));
+
+		expect(screen.queryByText(READ_TEXT)).not.toBeInTheDocument();
+		expect(screen.getByText(/asked you to book the wall/)).toBeInTheDocument();
+		await vi.waitFor(() =>
+			expect(pushToast).toHaveBeenCalledWith({ message: expect.stringMatching(/deleted/i) })
+		);
+	});
+
+	it('puts the rows back and says so when the prune fails', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response('nope', { status: 500 }))
+		);
+		withRead();
+		await fireEvent.click(screen.getByRole('button', { name: /Delete read alerts/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete them' }));
+
+		await vi.waitFor(() =>
+			expect(vi.mocked(pushToast).mock.calls[0][0].message).toMatch(/couldn/i)
+		);
+		expect(screen.getByText(READ_TEXT)).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /Delete read alerts/ })).toBeInTheDocument();
+	});
+});
+
 describe('alerts page — feedback', () => {
 	it('acknowledges mark-all-read immediately and names the outcome', async () => {
 		renderPage(FEED);

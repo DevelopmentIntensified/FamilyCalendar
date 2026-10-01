@@ -5,6 +5,7 @@ import {
 	getUnreadCount,
 	markNotificationRead,
 	markAllNotificationsRead,
+	deleteReadNotifications,
 	NOTIFICATION_PAGE_SIZE
 } from '$lib/server/db/actions/notifications';
 import { requireUserJson } from '$lib/server/utils/requireUser';
@@ -24,7 +25,11 @@ export const GET: RequestHandler = async ({ locals }) => {
 	return json({ notifications: rows.map(toNotificationRow), unreadCount });
 };
 
-function isNotificationBody(value: unknown): value is { all?: unknown; id?: unknown } {
+function isNotificationBody(value: unknown): value is {
+	all?: unknown;
+	id?: unknown;
+	pruneRead?: unknown;
+} {
 	return typeof value === 'object' && value !== null;
 }
 
@@ -44,6 +49,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (body.all === true) {
 		await markAllNotificationsRead(auth.user.id);
 		return json({ success: true });
+	}
+
+	/**
+	 * Prune the read rows. The feed has no retention policy and, until this,
+	 * no delete path either (issue 073) — so "mark all read" was the only action
+	 * on the page and it hid a feed that only ever grows. Unread rows are never
+	 * touched: an alert nobody has read is the one still asking something.
+	 */
+	if (body.pruneRead === true) {
+		const removed = await deleteReadNotifications(auth.user.id);
+		return json({ success: true, removed });
 	}
 
 	if (!isNonEmptyString(body.id)) {

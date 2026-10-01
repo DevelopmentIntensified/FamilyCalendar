@@ -64,10 +64,37 @@
 			rows: { going, maybe, notGoing }[key]
 		}))
 	);
+
+	/**
+	 * The prototype (app-ui/event.html) leads with a count and a proportion
+	 * rather than only per-status totals: how many are going out of how many
+	 * were asked. Guests count toward the total — they were asked too — and the
+	 * split underneath keeps the proportion honest, so "2 of 7 going" never
+	 * implies the five who have not answered are out.
+	 */
+	const asked = $derived(going.length + maybe.length + undecided.length + guests.length);
+	const breakdown = $derived(
+		[
+			maybe.length > 0 ? `${maybe.length} maybe` : null,
+			undecided.length > 0 ? `${undecided.length} awaiting` : null,
+			notGoing.length > 0 ? `${notGoing.length} can't go` : null,
+			guests.length > 0 ? `${guests.length} guests` : null
+		]
+			.filter((part): part is string => part !== null)
+			.join(' · ')
+	);
 </script>
 
 <div class="border-t border-slate-100 px-4 py-4 sm:px-6">
-	<h3 class="mb-4 text-sm font-semibold text-slate-700">Attendees</h3>
+	<h3 class="mb-1 text-sm font-semibold text-slate-700">Who is going</h3>
+	{#if asked > 0}
+		<p class="mb-1 text-sm text-slate-600" data-testid="attendance-summary">
+			<span class="font-semibold text-slate-900">{going.length} of {asked} going</span>
+			{#if breakdown}
+				<span class="text-xs text-slate-400"> · {breakdown}</span>
+			{/if}
+		</p>
+	{/if}
 
 	{#each groups as group (group.key)}
 		{#if group.rows.length > 0}

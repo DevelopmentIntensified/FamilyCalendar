@@ -1,6 +1,8 @@
+/* oxlint-disable anti-slop/no-chained-type-assertions -- SAFETY: `createEvent` is typed as returning a whole `CalendarEvent` row, which a test double cannot construct honestly. Every such cast in this file supplies only the `id` the commit action reads, and the assertions are on the commit's report rather than on the row. */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { actions, type ImportDeps } from './+page.server';
 import { parseIcs, type IcsFrequency } from '$lib/server/services/icsImportService';
+import type { ImportedEventRef, UndoCandidate } from '$lib/server/services/icsImportPreview';
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- the action's return is SvelteKit's bag (Record<string, any>); tests narrow it via previewOf / commitOf / failureOf.
 type RequestResult = Record<string, unknown> | void;
@@ -11,18 +13,23 @@ interface ImportRequest {
 	locals: { user: { id: string } | null };
 }
 
-// SAFETY: SvelteKit's Actions type erases the handler's optional deps
-// parameter; the real handlers accept it (tests call them through this cast).
-const callPreview = actions.preview as (
-	event: ImportRequest,
-	deps: ImportDeps
-) => Promise<RequestResult>;
-// SAFETY: same erasure as callPreview above; the commit handler is also a
-// two-argument (event, deps) function at runtime.
-const callCommit = actions.commit as (
-	event: ImportRequest,
-	deps: ImportDeps
-) => Promise<RequestResult>;
+/** A handler as the tests call it: the deps seam plus a minimal RequestEvent. */
+type HandlerWithDeps = (event: ImportRequest, deps: ImportDeps) => Promise<RequestResult>;
+
+/*
+ * SAFETY: SvelteKit's `Actions` type erases each handler's optional `deps`
+ * parameter and widens its event to the full `RequestEvent`. At runtime all
+ * three are two-argument functions reading only `request.formData()` and
+ * `locals.user` — which `ImportRequest` is exactly — and both facts are
+ * re-verified by the 401/400 tests below. The `unknown` hop is what
+ * `tsc` asks for when neither declared type overlaps.
+ */
+// SAFETY: see the note above this block.
+const callPreview = actions.preview as unknown as HandlerWithDeps;
+// SAFETY: see the note above this block.
+const callCommit = actions.commit as unknown as HandlerWithDeps;
+// SAFETY: see the note above this block.
+const callUndo = actions.undo as unknown as HandlerWithDeps;
 
 function ics(...lines: string[]): string {
 	return ['BEGIN:VCALENDAR', ...lines, 'END:VCALENDAR'].join('\r\n');
@@ -55,6 +62,8 @@ function makeDeps(over: Partial<ImportDeps> = {}) {
 		// return; tests assert on the arguments it was called with, not the row.
 		createEvent: vi.fn(async () => ({ id: 'ev-1' }) as never),
 		getUserZone: vi.fn(async () => 'utc'),
+		loadUndoCandidates: vi.fn(async (): Promise<UndoCandidate[]> => []),
+		deleteImportedEvents: vi.fn(async () => 0),
 		...over
 	};
 	return deps;
@@ -91,6 +100,8 @@ interface CommitReport {
 	skippedDuplicates: number;
 	failed: string[];
 	calendarName: string;
+	calendarId: string;
+	importedEvents: ImportedEventRef[];
 }
 
 function previewOf(result: RequestResult): PreviewPayload {
@@ -103,7 +114,7 @@ function previewOf(result: RequestResult): PreviewPayload {
 function commitOf(result: RequestResult): CommitReport {
 	// SAFETY: the happy path returns the commit report directly; fail() branches
 	// are asserted separately through failureOf.
-	return result as CommitReport;
+	return result as unknown as CommitReport;
 }
 
 function failureOf(result: RequestResult): { status: number; data: { error: string } } {
@@ -451,5 +462,193 @@ describe('POST /calendar/import ?/commit', () => {
 		);
 
 		expect(failure.status).toBe(401);
+	});
+
+	it('hands back the rows it wrote, so an undo can name them without a batch id', async () => {
+		// SAFETY: createEvent returns a whole CalendarEvent row; these stubs
+		// supply only the `id` the commit reads, and the test asserts on the
+		// report rather than on the row.
+		const createEvent = vi
+			.fn()
+			.mockResolvedValueOnce({ id: 'ev-1' })
+			.mockResolvedValueOnce({ id: 'ev-2' }) as unknown as ImportDeps['createEvent'];
+		const deps = makeDeps({ createEvent });
+
+		const report = commitOf(
+			await callCommit(
+				commitEvent([
+					row('Soccer practice', '2026-09-29T14:00:00.000Z'),
+					{ ...row('Choir', '2026-12-25T00:00:00.000Z'), key: 'e1' }
+				]),
+				deps
+			)
+		);
+
+		expect(report.importedEvents).toEqual([
+			{ id: 'ev-1', title: 'Soccer practice', startIso: '2026-09-29T14:00:00.000Z' },
+			{ id: 'ev-2', title: 'Choir', startIso: '2026-12-25T00:00:00.000Z' }
+		]);
+	});
+
+	it('does not claim a row it failed to write as undoable', async () => {
+		const deps = makeDeps({
+			// SAFETY: stubbed rows stand in for createEvent's nominal return; the
+			// test asserts on the report, not the created event.
+			createEvent: vi
+				.fn()
+				.mockRejectedValueOnce(new Error('db down'))
+				.mockResolvedValue({ id: 'ev-2' } as never)
+		});
+
+		const report = commitOf(
+			await callCommit(
+				commitEvent([
+					row('Soccer practice', '2026-09-29T14:00:00.000Z'),
+					{ ...row('Choir', '2026-12-25T00:00:00.000Z'), key: 'e1' }
+				]),
+				deps
+			)
+		);
+
+		expect(report.importedEvents).toEqual([
+			{ id: 'ev-2', title: 'Choir', startIso: '2026-12-25T00:00:00.000Z' }
+		]);
+	});
+});
+
+/* ── undo (issue 126) ─────────────────────────────────────────────────── */
+
+/** A commit's written batch, exactly as the success screen posts it back. */
+function batchOf(...refs: ImportedEventRef[]) {
+	return refs;
+}
+
+/** An undo request carrying the batch the commit handed the page. */
+function undoEvent(batch: ImportedEventRef[], user: { id: string } | null = { id: 'user-1' }) {
+	const form = new FormData();
+	form.set('calendarId', 'cal-1');
+	form.set('batch', JSON.stringify(batch));
+	return { request: { formData: async () => form }, locals: { user } };
+}
+
+/** An undo request whose `batch` field is raw text, for the malformed cases. */
+function undoRawEvent(body: string) {
+	const form = new FormData();
+	form.set('calendarId', 'cal-1');
+	form.set('batch', body);
+	return { request: { formData: async () => form }, locals: { user: { id: 'user-1' } } };
+}
+
+interface UndoReport {
+	calendarName: string;
+	removed: number;
+	kept: { id: string; title: string }[];
+	alreadyGone: number;
+}
+
+function undoOf(result: RequestResult): UndoReport {
+	// SAFETY: the happy path returns the undo report directly; fail() branches
+	// are asserted separately through failureOf.
+	return result as unknown as UndoReport;
+}
+
+const BATCH = batchOf(
+	{ id: 'ev-1', title: 'Soccer practice', startIso: '2026-09-29T14:00:00.000Z' },
+	{ id: 'ev-2', title: 'Choir', startIso: '2026-12-25T00:00:00.000Z' }
+);
+
+describe('POST /calendar/import ?/undo', () => {
+	it('removes exactly the batch rows still unchanged, scoped to the target calendar', async () => {
+		const deps = makeDeps({
+			loadUndoCandidates: vi.fn(async (): Promise<UndoCandidate[]> => [
+				{ id: 'ev-1', title: 'Soccer practice', startIso: '2026-09-29T14:00:00.000Z' },
+				{ id: 'ev-2', title: 'Choir', startIso: '2026-12-25T00:00:00.000Z' }
+			]),
+			deleteImportedEvents: vi.fn(async () => 2)
+		});
+
+		const report = undoOf(await callUndo(undoEvent(BATCH), deps));
+
+		expect(report.removed).toBe(2);
+		expect(report.kept).toEqual([]);
+		expect(deps.deleteImportedEvents).toHaveBeenCalledWith(['ev-1', 'ev-2'], 'user-1', 'cal-1');
+	});
+
+	it('keeps and names a row the user edited since the import', async () => {
+		const deps = makeDeps({
+			loadUndoCandidates: vi.fn(async (): Promise<UndoCandidate[]> => [
+				{ id: 'ev-1', title: 'Soccer practice', startIso: '2026-09-29T14:00:00.000Z' },
+				{ id: 'ev-2', title: 'Choir rehearsal', startIso: '2026-12-25T00:00:00.000Z' }
+			]),
+			deleteImportedEvents: vi.fn(async () => 1)
+		});
+
+		const report = undoOf(await callUndo(undoEvent(BATCH), deps));
+
+		expect(report.removed).toBe(1);
+		expect(report.kept).toEqual([{ id: 'ev-2', title: 'Choir rehearsal' }]);
+		expect(deps.deleteImportedEvents).toHaveBeenCalledWith(['ev-1'], 'user-1', 'cal-1');
+	});
+
+	it('reports rows that are already gone instead of claiming to remove them', async () => {
+		const deps = makeDeps({
+			loadUndoCandidates: vi.fn(async (): Promise<UndoCandidate[]> => []),
+			deleteImportedEvents: vi.fn(async () => 0)
+		});
+
+		const report = undoOf(await callUndo(undoEvent(BATCH), deps));
+
+		expect(report.removed).toBe(0);
+		expect(report.alreadyGone).toBe(2);
+		expect(deps.deleteImportedEvents).not.toHaveBeenCalled();
+	});
+
+	it('never asks to delete a row the viewer did not write on that calendar', async () => {
+		// The deps are scoped by (ids, ownerId, calendarId); an id belonging to
+		// somebody else simply does not come back as a candidate.
+		const deps = makeDeps({
+			loadUndoCandidates: vi.fn(
+				async (ids: string[], userId: string, calendarId: string): Promise<UndoCandidate[]> => {
+					expect(userId).toBe('user-1');
+					expect(calendarId).toBe('cal-1');
+					return ids.includes('ev-1')
+						? [{ id: 'ev-1', title: 'Soccer practice', startIso: '2026-09-29T14:00:00.000Z' }]
+						: [];
+				}
+			),
+			deleteImportedEvents: vi.fn(async () => 1)
+		});
+
+		const report = undoOf(await callUndo(undoEvent(BATCH), deps));
+
+		expect(report.removed).toBe(1);
+		expect(report.alreadyGone).toBe(1);
+		expect(deps.deleteImportedEvents).toHaveBeenCalledWith(['ev-1'], 'user-1', 'cal-1');
+	});
+
+	it('refuses a calendar the viewer does not own, and deletes nothing', async () => {
+		const deps = makeDeps({ calendarIsOwned: vi.fn(async () => false) });
+
+		const failure = failureOf(await callUndo(undoEvent(BATCH), deps));
+
+		expect(failure.status).toBe(403);
+		expect(deps.deleteImportedEvents).not.toHaveBeenCalled();
+	});
+
+	it('rejects a malformed batch rather than half-undoing it', async () => {
+		const deps = makeDeps();
+
+		expect(failureOf(await callUndo(undoRawEvent('not json'), deps)).status).toBe(400);
+		expect(failureOf(await callUndo(undoRawEvent('[]'), deps)).status).toBe(400);
+		expect(deps.deleteImportedEvents).not.toHaveBeenCalled();
+	});
+
+	it('requires a signed-in viewer', async () => {
+		const deps = makeDeps();
+
+		const failure = failureOf(await callUndo(undoEvent(BATCH, null), deps));
+
+		expect(failure.status).toBe(401);
+		expect(deps.deleteImportedEvents).not.toHaveBeenCalled();
 	});
 });

@@ -114,6 +114,66 @@ describe('EventModal - display details', () => {
 	});
 });
 
+/**
+ * Issue 126: verifying the modal against app-ui/event.html. The prototype's
+ * three attendance marks — the creator's name, an indication of your own RSVP,
+ * and a "who's going" summary that leads with a proportion — are checked
+ * together here rather than per component, because the claim is about what the
+ * modal shows, not about which file renders it.
+ */
+describe('EventModal — against app-ui/event.html', () => {
+	beforeEach(() => {
+		vi.stubGlobal('fetch', vi.fn());
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('names who created the event', () => {
+		render(EventModal, {
+			props: { show: true, event: { ...baseEvent, creatorName: 'Sarah' } }
+		});
+
+		expect(screen.getByText('Created by Sarah')).toBeInTheDocument();
+	});
+
+	it('omits the creator row on a personal event, which has nobody to credit', () => {
+		render(EventModal, { props: { show: true, event: baseEvent } });
+
+		expect(screen.queryByText(/Created by/)).not.toBeInTheDocument();
+	});
+
+	it('shows your own RSVP as a first-class action', () => {
+		render(EventModal, {
+			props: { show: true, event: baseEvent, currentUserRsvpStatus: 'maybe' }
+		});
+
+		expect(screen.getByRole('button', { name: /^going$/i })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /^maybe$/i })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /can't go/i })).toBeInTheDocument();
+	});
+
+	it('leads the attendance block with a proportion, not a bare total', () => {
+		render(EventModal, {
+			props: {
+				show: true,
+				event: baseEvent,
+				attendees: [
+					{ userId: 'u1', status: 'going', firstName: 'Alice', lastName: 'Smith' },
+					{ userId: 'u2', status: 'going', firstName: 'Bob', lastName: 'Jones' },
+					{ userId: 'u3', status: 'maybe', firstName: 'Cleo', lastName: 'Ray' }
+				],
+				nonUserAttendants: ['Ms Okafor']
+			}
+		});
+
+		// 2 going of 4 asked — the guest counts, she was asked too.
+		expect(screen.getByTestId('attendance-summary')).toHaveTextContent('2 of 4 going');
+	});
+});
+
 describe('EventModal - onClose callback convention', () => {
 	beforeEach(() => {
 		vi.stubGlobal('fetch', vi.fn());
