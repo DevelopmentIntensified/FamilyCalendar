@@ -1,5 +1,6 @@
-import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/svelte';
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { tick } from 'svelte';
 import CalendarToolbar from './CalendarToolbar.svelte';
 
 function props(overrides = {}) {
@@ -24,6 +25,11 @@ function props(overrides = {}) {
 		hiddenCalendarIds: [],
 		onToggleCalendar: vi.fn(),
 		onSetAllHidden: vi.fn(),
+		searchQuery: '',
+		onSearch: vi.fn(),
+		searchMatches: null,
+		searchTotal: null,
+		isCurrentPeriod: false,
 		...overrides
 	};
 }
@@ -36,9 +42,9 @@ describe('CalendarToolbar', () => {
 		render(CalendarToolbar, { props: p });
 		await fireEvent.click(screen.getByText('Today'));
 		expect(p.onToday).toHaveBeenCalledOnce();
-		await fireEvent.click(screen.getByLabelText('Previous'));
+		await fireEvent.click(screen.getByLabelText('Previous period'));
 		expect(p.onPrevious).toHaveBeenCalledOnce();
-		await fireEvent.click(screen.getByLabelText('Next'));
+		await fireEvent.click(screen.getByLabelText('Next period'));
 		expect(p.onNext).toHaveBeenCalledOnce();
 	});
 
@@ -160,5 +166,276 @@ describe('CalendarToolbar calendar filter (#069)', () => {
 		const p = props({ calendars: [], hiddenCalendarIds: [] });
 		render(CalendarToolbar, { props: p });
 		expect(screen.queryByTestId('calendar-filter-trigger')).toBeNull();
+	});
+});
+
+/**
+ * #120 — three marks, one component.
+ *
+ * 1.16 "center this" (the month label), 1.17 "put on either side of the today
+ * button and make it a single item with buttons in it" (the arrow pair), and
+ * 1.15 "move this to the line below this" (search). 1.16 and 1.17 are one
+ * complaint: the date navigation was three loose pieces. It is now one control,
+ * and the toolbar has two rows.
+ */
+describe('CalendarToolbar — one centred date control (#120)', () => {
+	afterEach(cleanup);
+
+	it('holds the label, both arrows and Today inside ONE control', async () => {
+		render(CalendarToolbar, { props: props() });
+		const nav = within(screen.getByTestId('date-nav'));
+		// All four pieces are the same object now, not three siblings.
+		nav.getByText('September 2026');
+		nav.getByRole('button', { name: 'Previous period' });
+		nav.getByRole('button', { name: 'Next period' });
+		nav.getByRole('button', { name: 'Go to today' });
+	});
+
+	it('puts the label first, then the SHARED control in its own order', () => {
+		// "put on either side of the today button" (1.17) was read literally at
+		// first and the toolbar grew its own ‹ Today ›. Adopting DayNav (#119)
+		// means the shared order instead: Today leads, because it is the way
+		// back and the arrows are the way along. The label still comes first —
+		// it is what names the period. One control, one order, no second copy.
+		render(CalendarToolbar, { props: props() });
+		const nav = screen.getByTestId('date-nav');
+		const names = [...nav.querySelectorAll('button')].map((b) =>
+			b.getAttribute('aria-label') === null ? b.textContent?.trim() : b.getAttribute('aria-label')
+		);
+		expect(names).toEqual(['September 2026', 'Go to today', 'Previous period', 'Next period']);
+	});
+
+	it('centres that control with equal columns either side of it', () => {
+		// `1fr auto 1fr` is what makes "centred" true rather than hoped for:
+		// whatever the view toggle and the action strip weigh, the middle
+		// column is the centre of the toolbar.
+		render(CalendarToolbar, { props: props() });
+		const row = screen.getByTestId('toolbar-controls-row');
+		expect(row.className).toContain('grid-cols-[1fr_auto_1fr]');
+		expect(row.children[1]).toBe(screen.getByTestId('date-nav'));
+	});
+
+	it('still fires every nav callback out of the joined control', async () => {
+		const p = props();
+		render(CalendarToolbar, { props: p });
+		const nav = within(screen.getByTestId('date-nav'));
+		await fireEvent.click(nav.getByRole('button', { name: 'Go to today' }));
+		await fireEvent.click(nav.getByRole('button', { name: 'Previous period' }));
+		await fireEvent.click(nav.getByRole('button', { name: 'Next period' }));
+		expect(p.onToday).toHaveBeenCalledOnce();
+		expect(p.onPrevious).toHaveBeenCalledOnce();
+		expect(p.onNext).toHaveBeenCalledOnce();
+	});
+
+	it('opens the month picker from the label inside the control', async () => {
+		const p = props();
+		render(CalendarToolbar, { props: p });
+		await fireEvent.click(within(screen.getByTestId('date-nav')).getByText('September 2026'));
+		await fireEvent.click(screen.getByText('Mar'));
+		expect(p.onMonthSelect).toHaveBeenCalledWith(3);
+	});
+});
+
+/**
+ * #119 item 6 — the drift #118 was filed to prevent.
+ *
+ * 118 extracted `DayNav.svelte` so the dashboard header and the calendar header
+ * could not drift apart again. But the calendar toolbar still hand-built its own
+ * ‹ Today › beside the month label, so the drift was live: two "Today"
+ * controls, two label sets, two z-index stories. A third copy is how it started.
+ *
+ * So the toolbar mounts the shared control and names the period inside its own
+ * pill. These are the pins: a second navigator cannot be added without failing.
+ */
+describe('CalendarToolbar adopts the shared DayNav (#119)', () => {
+	afterEach(cleanup);
+
+	it('mounts DayNav rather than hand-building its own arrows', () => {
+		render(CalendarToolbar, { props: props() });
+		const nav = screen.getByTestId('daynav');
+		// the shared control IS the toolbar's date control, not a neighbour
+		expect(screen.getByTestId('date-nav').contains(nav)).toBe(true);
+	});
+
+	it('has exactly one navigation landmark, so there is one date control to drift', () => {
+		render(CalendarToolbar, { props: props() });
+		expect(document.querySelectorAll('nav')).toHaveLength(1);
+		expect(screen.getByRole('navigation', { name: 'Period navigation' })).toBeTruthy();
+	});
+
+	it('takes the shared labels, not the calendar page\'s private ones', () => {
+		// "Previous" alone could be a day, a week or a month. The shared control
+		// names the period in the label; the toolbar inherits that for free.
+		render(CalendarToolbar, { props: props() });
+		expect(screen.queryByLabelText('Previous')).toBeNull();
+		expect(screen.queryByLabelText('Next')).toBeNull();
+		expect(screen.getByLabelText('Previous period')).toBeTruthy();
+		expect(screen.getByLabelText('Next period')).toBeTruthy();
+	});
+
+	it('carries one ring only — the label is a segment of the pill, not a pill', () => {
+		render(CalendarToolbar, { props: props() });
+		const pill = screen.getByTestId('daynav');
+		// the toolbar's own wrapper positions it and carries no ring of its own
+		const wrapper = screen.getByTestId('date-nav');
+		expect(wrapper.className).not.toMatch(/\bborder\b/);
+		for (const member of pill.children) {
+			expect(member.className).not.toMatch(/\bborder\b/);
+		}
+	});
+
+	it('says where it already is when the period on screen is this one', () => {
+		// DayNav can say "you are on today". A hand-built copy never could, which
+		// is the other half of the drift: the shared control has affordances the
+		// copy did not.
+		render(CalendarToolbar, { props: props({ isCurrentPeriod: true }) });
+		const today = screen.getByRole('button', { name: 'Go to today' });
+		expect(today.getAttribute('aria-current')).toBe('date');
+	});
+
+	it('leaves Today a live control when the period on screen is another one', () => {
+		render(CalendarToolbar, { props: props({ isCurrentPeriod: false }) });
+		const today = screen.getByRole('button', { name: 'Go to today' });
+		expect(today.hasAttribute('aria-current')).toBe(false);
+		expect(today.hasAttribute('disabled')).toBe(false);
+	});
+});
+
+describe('CalendarToolbar — search on the second row (#120, mark 1.15)', () => {
+	afterEach(cleanup);
+
+	it('puts a full-width field on its own row, below the controls', () => {
+		render(CalendarToolbar, { props: props() });
+		const controls = screen.getByTestId('toolbar-controls-row');
+		const search = screen.getByTestId('toolbar-search-row');
+		// Below, not beside: the complaint was the row it was on, not its size.
+		expect(controls.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		// …and it takes the whole width, at every screen size.
+		expect(search.className).toMatch(/\bw-full\b/);
+	});
+
+	it('names what it searches, and is reachable by keyboard', async () => {
+		const p = props();
+		render(CalendarToolbar, { props: p });
+		const input = screen.getByRole('searchbox');
+		expect(input).toHaveAttribute('aria-label', 'Search events');
+		await fireEvent.input(input, { target: { value: 'piano' } });
+		expect(p.onSearch).toHaveBeenCalledWith('piano');
+	});
+
+	it('opens on ⌘K and on Ctrl+K — the shortcut still works', async () => {
+		render(CalendarToolbar, { props: props() });
+		// SAFETY: role `searchbox` is only ever the <input type="search"> above.
+		const input = screen.getByRole('searchbox') as HTMLInputElement;
+		await fireEvent.keyDown(window, { key: 'k', metaKey: true });
+		await tick();
+		expect(document.activeElement).toBe(input);
+		// SAFETY: the only focusable thing in this render is the field, so
+		// activeElement is either it or null, and blur() is what takes it back.
+		(document.activeElement as HTMLElement | null)?.blur();
+		await fireEvent.keyDown(window, { key: 'K', ctrlKey: true });
+		await tick();
+		expect(document.activeElement).toBe(input);
+	});
+
+	it('does not hijack the letter k while you are typing in the field', async () => {
+		const p = props();
+		render(CalendarToolbar, { props: p });
+		// SAFETY: role `searchbox` is only ever the <input type="search"> above.
+		const input = screen.getByRole('searchbox') as HTMLInputElement;
+		input.focus();
+		await fireEvent.keyDown(input, { key: 'k' });
+		await fireEvent.input(input, { target: { value: 'k' } });
+		await tick();
+		// The letter went into the field. No shortcut fired, no focus stolen.
+		expect(input.value).toBe('k');
+		expect(document.activeElement).toBe(input);
+		expect(p.onSearch).toHaveBeenCalledTimes(1);
+		expect(p.onSearch).toHaveBeenCalledWith('k');
+	});
+
+	it('says the shortcut on screen, so it is discoverable not just documented', () => {
+		render(CalendarToolbar, { props: props() });
+		// The hint is visible text, not a title attribute nobody sees.
+		expect(screen.getByTestId('search-shortcut-hint')).toHaveTextContent('⌘K');
+	});
+
+	it('names what a query kept, and offers the way back', async () => {
+		const p = props({ searchQuery: 'piano', searchMatches: 1, searchTotal: 12 });
+		render(CalendarToolbar, { props: p });
+		const status = screen.getByTestId('search-status');
+		expect(status).toHaveTextContent('1 of 12');
+		await fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+		expect(p.onSearch).toHaveBeenCalledWith('');
+	});
+
+	it('shows no status at all when nothing is being searched', () => {
+		render(CalendarToolbar, { props: props() });
+		expect(screen.queryByTestId('search-status')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull();
+	});
+});
+
+/**
+ * #119 mark 1.4 — "calendars should be a modal that opens from a button".
+ *
+ * There is no rail column below 768px any more, so a card cannot live in one.
+ * The filter is a BUTTON, and what it opens has to change shape with the
+ * screen: a bottom sheet on a phone (a backdrop, a dismiss, room for a thumb)
+ * and the popover it always was from `md` up.
+ *
+ * jsdom has no layout, so the breakpoint cannot be exercised by resizing. The
+ * shape is expressed in the one place it can be — the panel's own classes —
+ * and these pin both halves of it, so neither can be quietly deleted.
+ */
+describe('CalendarToolbar calendar filter — a sheet on a phone (#119)', () => {
+	afterEach(cleanup);
+
+	const calendars = [
+		{ id: 'cal-personal', name: 'Personal Calendar', color: '#fa8072' },
+		{ id: 'cal-family', name: 'Smith Family', color: '#e0ffff' }
+	];
+
+	it('is a bottom sheet below md and a popover from md up', async () => {
+		render(CalendarToolbar, { props: props({ calendars }) });
+		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
+		const panel = screen.getByTestId('calendar-filter-panel');
+		const cls = panel.className;
+		// the sheet: pinned to the bottom of the screen, edge to edge
+		expect(cls).toMatch(/\bfixed\b/);
+		expect(cls).toMatch(/\binset-x-0\b/);
+		expect(cls).toMatch(/\bbottom-0\b/);
+		// the popover: back inside the toolbar, on the right
+		expect(cls).toMatch(/md:absolute/);
+		expect(cls).toMatch(/md:right-4/);
+		expect(cls).toMatch(/md:top-full/);
+		// …and the sheet must not leak either form into the other half.
+		expect(cls).not.toMatch(/(?<!md:)\babsolute\b/);
+	});
+
+	it('is a labelled dialog with a close button, not a bare popover', async () => {
+		render(CalendarToolbar, { props: props({ calendars }) });
+		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
+		const panel = screen.getByTestId('calendar-filter-panel');
+		expect(panel.getAttribute('role')).toBe('dialog');
+		expect(panel.getAttribute('aria-label')).toBe('Calendars');
+		await fireEvent.click(screen.getByRole('button', { name: 'Close calendar filter' }));
+		expect(screen.queryByTestId('calendar-filter-panel')).toBeNull();
+	});
+
+	it('closes on the backdrop, so a phone has somewhere to tap away', async () => {
+		render(CalendarToolbar, { props: props({ calendars }) });
+		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
+		expect(screen.getByTestId('calendar-filter-backdrop')).toBeInTheDocument();
+		await fireEvent.click(screen.getByTestId('calendar-filter-backdrop'));
+		expect(screen.queryByTestId('calendar-filter-panel')).toBeNull();
+	});
+
+	it('still toggles a calendar from inside the sheet', async () => {
+		const p = props({ calendars, hiddenCalendarIds: [] });
+		render(CalendarToolbar, { props: p });
+		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
+		await fireEvent.click(screen.getByRole('switch', { name: /Smith Family/ }));
+		expect(p.onToggleCalendar).toHaveBeenCalledWith('cal-family');
 	});
 });

@@ -178,7 +178,8 @@
 							<h3 style="margin:.5rem 0 0;font-size:1.25rem;font-weight:800;color:var(--s900)">The review pointed one way: B's rail, A's toolbar</h3>
 							<p class="hint" style="margin:.25rem 0 0;max-width:44rem">3 of 3 rail cards marked good, the toolbar row marked “this looks great”, and two of the three toolbars marked as the weaker option. Rather than patch the losers, that became a fourth prototype.</p>
 						</div>
-						<a class="btn btn-primary btn-md" href="d-working-calendar.html">Prototype D →</a>
+						<a class="btn btn-primary btn-md" href="e-grid-is-the-page.html">Prototype E →</a>
+						<a class="btn btn-soft btn-md" href="d-working-calendar.html">Prototype D (the record)</a>
 					</div>
 					<div class="grid" style="gap:1rem;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))">
 						<div class="rail__card" style="background:rgba(255,255,255,.85)">
@@ -202,6 +203,40 @@
 							<ul style="margin:0;padding-left:1rem;font-size:.8125rem;line-height:1.7;color:var(--s700)">
 								<li>C's hero band — “feels dashboardy, not calendar feel”</li>
 								<li>C's toolbar — “the others are better”</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+
+				<!-- ═══ ROUND 2 VERDICT — the rail loses the first screen ═══ -->
+				<div class="cal-frame" data-fb="verdict-r2" data-fb-label="Round 2 verdict" style="padding:1.25rem 1.5rem;margin-top:1.5rem;background:linear-gradient(140deg,rgba(254,213,207,.4),rgba(190,218,227,.35));border-color:transparent">
+					<div style="margin-bottom:1rem">
+						<span class="pill pill-xs pill-blush">Round 2 decided</span>
+						<h3 style="margin:.5rem 0 0;font-size:1.25rem;font-weight:800;color:var(--s900)">The rail wins the first screen — so there is no rail</h3>
+						<p class="hint" style="margin:.25rem 0 0;max-width:44rem">D was measured at 400px wide: <code>#railDesktop</code> came out 352×646 inside a 400×3188 page, so the grid started below the fold. Mark 1.1 asked for the calendar to stay the main focus. Collapsing the rail or stacking it under the grid does not answer that — deleting it does.</p>
+					</div>
+					<div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))">
+						<div class="rail__card" style="background:rgba(255,255,255,.85)">
+							<div class="rail__title" style="color:#b45309">Deleted</div>
+							<ul style="margin:0;padding-left:1rem;font-size:.8125rem;line-height:1.7;color:var(--s700)">
+								<li><b>Mini month</b> — a smaller copy of the grid already on screen</li>
+								<li><b>Up next</b> — leaves the calendar entirely; it is on the dashboard (1.10)</li>
+								<li><b>Overdue tasks</b> — a Task surface; Tasks has a page (1.13)</li>
+							</ul>
+						</div>
+						<div class="rail__card" style="background:rgba(255,255,255,.85)">
+							<div class="rail__title" style="color:var(--mint-ink)">Became a filter</div>
+							<ul style="margin:0;padding-left:1rem;font-size:.8125rem;line-height:1.7;color:var(--s700)">
+								<li><b>Calendars</b> — one <b>Filters</b> button opening a sheet, at every width (1.4)</li>
+								<li><b>By person</b> — filter rows in that same sheet (1.11)</li>
+							</ul>
+						</div>
+						<div class="rail__card" style="background:rgba(255,255,255,.85)">
+							<div class="rail__title">Toolbar</div>
+							<ul style="margin:0;padding-left:1rem;font-size:.8125rem;line-height:1.7;color:var(--s700)">
+								<li><b>Search</b> on row two, full width (1.15)</li>
+								<li><b>One date control</b>, the shared <code>DayNav</code> order (1.16, 1.17)</li>
+								<li><b>Day cells</b> stop growing at the app's own 768 (1.14)</li>
 							</ul>
 						</div>
 					</div>
@@ -336,7 +371,8 @@
 				<h2 style="font-size:1.875rem;font-weight:800;color:var(--s900);letter-spacing:-.02em;margin:0">Pick a direction and we'll build it</h2>
 				<p class="hint" style="margin:.75rem auto 1.75rem;max-width:34rem;font-size:1.125rem">Each prototype is a static HTML/JS build — the repo is untouched apart from this folder.</p>
 				<div class="rowflex gap-3" style="justify-content:center;flex-wrap:wrap">
-					<a class="btn btn-primary btn-lg" href="d-working-calendar.html">Prototype D (from the review)</a>
+					<a class="btn btn-primary btn-lg" href="e-grid-is-the-page.html">Prototype E (from the review)</a>
+					<a class="btn btn-ghost btn-lg" href="d-working-calendar.html">Prototype D (the record)</a>
 					<a class="btn btn-ghost btn-lg" href="a-warm-studio.html">Prototype A</a>
 					<a class="btn btn-ghost btn-lg" href="b-focus-sidebar.html">Prototype B</a>
 					<a class="btn btn-ghost btn-lg" href="c-day-first.html">Prototype C</a>

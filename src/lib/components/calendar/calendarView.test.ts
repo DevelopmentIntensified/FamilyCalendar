@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { DateTime } from 'luxon';
 import {
 	resolveInitialView,
 	shouldSwipeNavigate,
 	resolveCalendarLayout,
+	isCurrentPeriod,
 	VIEW_BREAKPOINT_PX,
 	type CalendarLayout,
 	type CalendarView
@@ -70,25 +72,45 @@ describe('resolveCalendarLayout (#104) — the one named breakpoint rule', () =>
 	});
 });
 
-describe('resolveInitialView — the width joins the order (#104)', () => {
+describe('resolveInitialView — the width joins the order (#104, #119)', () => {
 	// The order, loudest first:
 	//   1. an explicit `?view=` link      (the user said so, right now)
-	//   2. the last view they used        (the user said so, last time)
-	//   3. the width                      (the screen, when nobody has said)
+	//   2. the width, when it is narrow   (month is the phone's opening view)
+	//   3. the last view they used        (the user said so, last time)
 	//   4. the settings default
 	//   5. month
-	// Width sits BELOW both "the user picked this" inputs, so a phone is
-	// never a reason to overrule somebody's stated preference.
+	//
+	// #104 put the width BELOW the stored view, on the reasoning that a phone
+	// is never a reason to overrule a stated preference. #119 supersedes that
+	// for the phone case: mark 1.14 asked for the month grid on mobile, and the
+	// owner's decision is that month IS the mobile opening view — the last-used
+	// view is remembered across devices, so a phone inherits a week or a day
+	// grid chosen on a laptop, and the first screen stops being the calendar.
+	// A `?view=` link still wins, because a link is a statement about THIS
+	// screen, and tapping a day or a week button is one tap away either way.
 
 	it('a link beats the width', () => {
 		expect(resolveInitialView('day', 'dayView', null, 320)).toBe('day');
 		expect(resolveInitialView('list', 'dayView', null, 375)).toBe('list');
 	});
 
-	it('a stored view beats the width at every screen size', () => {
+	it('a narrow screen opens on month, whatever was used last (#119)', () => {
 		// SAFETY: literals are exactly the CalendarView union members.
 		for (const v of ['month', 'week', 'list', 'day'] as CalendarView[]) {
-			for (const width of [320, 414, 767, 768, 834, 1440]) {
+			for (const width of [320, 375, 414, 767]) {
+				expect(resolveInitialView(undefined, 'dayView', v, width), `${v} @ ${width}px`).toBe(
+					'month'
+				);
+			}
+		}
+	});
+
+	it('a stored view still wins from the breakpoint up', () => {
+		// The laptop keeps its memory: nothing about this decision touches a
+		// wide screen, which is where the stored view is usually set anyway.
+		// SAFETY: literals are exactly the CalendarView union members.
+		for (const v of ['month', 'week', 'list', 'day'] as CalendarView[]) {
+			for (const width of [768, 834, 1024, 1440]) {
 				expect(resolveInitialView(undefined, 'dayView', v, width), `${v} @ ${width}px`).toBe(v);
 			}
 		}
@@ -118,6 +140,46 @@ describe('resolveInitialView — the width joins the order (#104)', () => {
 		expect(resolveInitialView(undefined, 'dayView', null, null)).toBe('day');
 		expect(resolveInitialView(undefined, 'weekView', null, null)).toBe('week');
 		expect(resolveInitialView(undefined, 'bogus-setting', null, null)).toBe('month');
+	});
+});
+
+/**
+ * #119 — the shared DayNav can say "you are already on today" (`aria-current`
+ * + a muted Today). That needs one question answered per view: is the period on
+ * screen the current one? It lives beside the other view vocabulary because
+ * "which period am I looking at" is a view question, and a second definition of
+ * it in the toolbar is how two controls drift.
+ */
+describe('isCurrentPeriod (#119)', () => {
+	const now = DateTime.fromISO('2026-09-30T14:00:00');
+
+	it('compares at the granularity of the view, not the day', () => {
+		expect(isCurrentPeriod('month', DateTime.fromISO('2026-09-01T00:00:00'), now)).toBe(true);
+		expect(isCurrentPeriod('month', DateTime.fromISO('2026-10-01T00:00:00'), now)).toBe(false);
+		// the same day is "current" in a week and in a day view
+		expect(isCurrentPeriod('week', DateTime.fromISO('2026-09-28T00:00:00'), now)).toBe(true);
+		expect(isCurrentPeriod('week', DateTime.fromISO('2026-10-05T00:00:00'), now)).toBe(false);
+		expect(isCurrentPeriod('day', DateTime.fromISO('2026-09-30T23:30:00'), now)).toBe(true);
+		expect(isCurrentPeriod('day', DateTime.fromISO('2026-09-29T23:30:00'), now)).toBe(false);
+	});
+
+	it('treats the list view as one day, because that is what it draws', () => {
+		expect(isCurrentPeriod('list', DateTime.fromISO('2026-09-30T08:00:00'), now)).toBe(true);
+		expect(isCurrentPeriod('list', DateTime.fromISO('2026-09-29T08:00:00'), now)).toBe(false);
+	});
+
+	it('ignores the time of day, because a period is not an instant', () => {
+		// SAFETY: literals are exactly the CalendarView union members.
+		for (const v of ['month', 'week', 'day', 'list'] as CalendarView[]) {
+			expect(isCurrentPeriod(v, DateTime.fromISO('2026-09-30T00:00:01'), now), v).toBe(true);
+			expect(isCurrentPeriod(v, DateTime.fromISO('2026-09-30T23:59:59'), now), v).toBe(true);
+		}
+	});
+
+	it('crosses a year boundary on the calendar, not on the week-number', () => {
+		const nye = DateTime.fromISO('2026-12-31T09:00:00');
+		expect(isCurrentPeriod('month', DateTime.fromISO('2027-01-01T00:00:00'), nye)).toBe(false);
+		expect(isCurrentPeriod('month', DateTime.fromISO('2026-12-01T00:00:00'), nye)).toBe(true);
 	});
 });
 

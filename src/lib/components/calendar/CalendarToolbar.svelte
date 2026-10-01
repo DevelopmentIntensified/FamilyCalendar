@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { CalendarView } from './calendarView';
+	import DayNav from '$lib/components/DayNav.svelte';
 	import type { CalendarRef } from '$lib/utils/calendarVisibility';
 	import { allCalendarIds } from '$lib/utils/calendarVisibility';
 
@@ -27,6 +28,18 @@
 		onToggleCalendar: (id: string) => void;
 		/** Hide every calendar, or show every one — one tap either way. */
 		onSetAllHidden: (hide: boolean) => void;
+		/** #120: the query the page is filtering by. Owned above, like the
+		 *  hidden-calendar list — this control never owns a filter. */
+		searchQuery: string;
+		onSearch: (query: string) => void;
+		/** What the query kept, and what it kept it out of. Null when the
+		 *  caller has no count to give (tests, print). */
+		searchMatches?: number | null;
+		searchTotal?: number | null;
+		/** #119: is the period on screen the current one? The page knows (it
+		 *  owns the date store and the view); the toolbar does not. Passed so the
+		 *  shared DayNav can say so, which the hand-built copy never could. */
+		isCurrentPeriod?: boolean;
 	}
 
 	let {
@@ -49,7 +62,12 @@
 		onToggleSelectionMode,
 		onToggleAddMode,
 		onToggleCalendar,
-		onSetAllHidden
+		onSetAllHidden,
+		searchQuery = '',
+		onSearch,
+		searchMatches = null,
+		searchTotal = null,
+		isCurrentPeriod = false
 	}: Props = $props();
 
 	const views = [
@@ -70,6 +88,14 @@
 	// #069: the popover hangs off the toolbar root, not off the horizontally
 	// scrolling action strip, so a scrolled strip can never clip it.
 	let showCalendarFilter = $state(false);
+	// #120: the field is on the second row at every width, so the shortcut
+	// still has to find it — ⌘K on a Mac, Ctrl+K everywhere else.
+	let searchInput = $state<HTMLInputElement | null>(null);
+
+	function focusSearch() {
+		searchInput?.focus();
+		searchInput?.select();
+	}
 
 	const filterableCalendars = $derived(calendars.filter((c) => c.id));
 	const allHidden = $derived(
@@ -103,121 +129,132 @@
 <svelte:window
 	on:click={handlePickerOutsideClick}
 	on:keydown={(e) => {
-		if (e.key !== 'Escape') return;
-		closeMiniPicker();
-		closeCalendarFilter();
+		if (e.key === 'Escape') {
+			closeMiniPicker();
+			closeCalendarFilter();
+			return;
+		}
+		// Keyboard parity: the shortcut the prototype's `⌘K` pill implied is
+		// real here. Never steal the key from the field it opens.
+		if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey) && !e.altKey) {
+			e.preventDefault();
+			focusSearch();
+		}
 	}}
 />
 
-<div
-	class="relative mb-6 flex flex-col items-center gap-3 px-4 sm:flex-row sm:flex-wrap sm:justify-between sm:gap-x-4 sm:gap-y-2"
->
-	<div class="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
-		<!-- Nav cluster: Today / prev / next as one joined control -->
-		<div class="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-			<button
-				type="button"
-				onclick={onToday}
-				class="px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 active:bg-slate-200"
-			>
-				Today
-			</button>
-			<button
-				type="button"
-				onclick={onPrevious}
-				class="flex h-10 w-11 items-center justify-center text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 active:bg-slate-200"
-				aria-label="Previous"
-			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-				</svg>
-			</button>
-			<button
-				type="button"
-				onclick={onNext}
-				class="flex h-10 w-11 items-center justify-center text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 active:bg-slate-200"
-				aria-label="Next"
-			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-				</svg>
-			</button>
+<div class="relative mb-4 flex flex-col gap-2 px-4">
+	<!-- ROW 1 — the controls. `1fr auto 1fr` is what makes "centred" true rather
+	     than hoped for: the middle column is the centre of the toolbar whatever
+	     the view toggle and the action strip weigh. Below `sm` it collapses to
+	     one column and the date control — the thing you came here to move —
+	     is first, because `order` decides the stack, not the DOM. -->
+	<div data-testid="toolbar-controls-row" class="grid grid-cols-1 items-center gap-2 sm:grid-cols-[1fr_auto_1fr]">
+		<!-- ROW 1 · left: the view toggle -->
+		<div class="order-2 flex min-w-0 items-center gap-2 sm:order-1 sm:justify-start">
+			<!-- View Toggle -->
+			<div class="flex min-w-0 items-center gap-1 rounded-xl bg-slate-100 p-1 shadow-sm">
+				{#each views as v}
+					<button
+						type="button"
+						onclick={() => onViewChange(v.id)}
+						class="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all active:scale-[0.97] {view === v.id
+							? 'bg-white text-slate-900 shadow-sm'
+							: 'text-slate-500 hover:text-slate-900'}"
+					>
+						<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+							<path d={v.icon} />
+						</svg>
+						<span class="sr-only sm:not-sr-only">{v.label}</span>
+					</button>
+				{/each}
+			</div>
 		</div>
 
-		<!-- Mini Month Picker -->
-		<div class="relative" data-testid="mini-picker-container">
-			<button
-				type="button"
-				onclick={() => (showMiniPicker = !showMiniPicker)}
-				class="text-lg font-bold tracking-tight text-slate-900 transition-colors hover:text-primary-600 sm:text-2xl"
-			>
-				{currentMonthYear}
-			</button>
-			{#if showMiniPicker}
-				<div class="absolute left-0 top-full z-20 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
-					<div class="mb-4 flex items-center justify-between">
-						<button
-							type="button"
-							onclick={() => onYearSelect(currentYear - 1)}
-							class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-							aria-label="Previous year"
-						>
-							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-							</svg>
-						</button>
-						<span class="font-semibold text-slate-900">{currentYear}</span>
-						<button
-							type="button"
-							onclick={() => onYearSelect(currentYear + 1)}
-							class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-							aria-label="Next year"
-						>
-							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-							</svg>
-						</button>
-					</div>
-					<div class="grid grid-cols-3 gap-2">
-						{#each months as monthName, i}
-							<button
-								type="button"
-								onclick={() => {
-									onMonthSelect(i + 1);
-									closeMiniPicker();
-								}}
-								class="rounded-lg py-2 text-sm font-medium transition-colors {currentMonth === i + 1
-									? 'bg-primary-600 text-white'
-									: 'text-slate-700 hover:bg-slate-100'}"
-							>
-								{monthName.slice(0, 3)}
-							</button>
-						{/each}
-					</div>
-				</div>
-			{/if}
-		</div>
-	</div>
+		<!-- ROW 1 · middle: THE DATE CONTROL.
+		     #120 marks 1.16 and 1.17 are one complaint — the month label, the
+		     arrow pair and Today were three loose pieces, and the label was not
+		     even in the toolbar's centre. They are one object now.
 
-	<!-- Right cluster: views + actions, one cohesive control row -->
-	<div class="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:flex-wrap sm:justify-end">
-		<!-- View Toggle -->
-		<div class="flex min-w-0 items-center gap-1 rounded-xl bg-slate-100 p-1 shadow-sm">
-			{#each views as v}
+		     #119 then closed the loop: the arrows and Today are not built here
+		     either. They are `DayNav` — the control #118 extracted so this header
+		     and the dashboard header cannot drift apart, and which this toolbar
+		     was still hand-rolling beside. The label goes in as the pill's LEADING
+		     segment, so the whole thing stays ONE control with ONE ring and there
+		     is no second "Today" left to drift. -->
+		<div
+			data-testid="date-nav"
+			class="order-1 flex items-center justify-center sm:order-2"
+		>
+			<DayNav period="period" isToday={isCurrentPeriod} {onToday} {onPrevious} {onNext}>
+				{#snippet leading()}
+					<!-- Mini Month Picker: the label is the control that names the period -->
+					<div class="relative min-w-0" data-testid="mini-picker-container">
 				<button
 					type="button"
-					onclick={() => onViewChange(v.id)}
-					class="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all active:scale-[0.97] {view === v.id
-						? 'bg-white text-slate-900 shadow-sm'
-						: 'text-slate-500 hover:text-slate-900'}"
+					onclick={() => (showMiniPicker = !showMiniPicker)}
+					aria-expanded={showMiniPicker}
+					class="px-3 py-2.5 text-lg font-bold tracking-tight text-slate-900 transition-colors hover:bg-slate-100 active:bg-slate-200 sm:px-4 sm:text-2xl"
 				>
-					<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-						<path d={v.icon} />
-					</svg>
-					<span class="sr-only sm:not-sr-only">{v.label}</span>
+					{currentMonthYear}
 				</button>
-			{/each}
+				{#if showMiniPicker}
+					<div class="absolute left-1/2 top-full z-20 mt-2 w-64 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+						<div class="mb-4 flex items-center justify-between">
+							<button
+								type="button"
+								onclick={() => onYearSelect(currentYear - 1)}
+								class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+								aria-label="Previous year"
+							>
+								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+								</svg>
+							</button>
+							<span class="font-semibold text-slate-900">{currentYear}</span>
+							<button
+								type="button"
+								onclick={() => onYearSelect(currentYear + 1)}
+								class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+								aria-label="Next year"
+							>
+								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+								</svg>
+							</button>
+						</div>
+						<div class="grid grid-cols-3 gap-2">
+							{#each months as monthName, i}
+								<button
+									type="button"
+									onclick={() => {
+										onMonthSelect(i + 1);
+										closeMiniPicker();
+									}}
+									class="rounded-lg py-2 text-sm font-medium transition-colors {currentMonth === i + 1
+										? 'bg-primary-600 text-white'
+										: 'text-slate-700 hover:bg-slate-100'}"
+								>
+									{monthName.slice(0, 3)}
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
+					</div>
+
+					<!-- The rule between the label and the pager. Inside the pill,
+					     so the label reads as a segment of the control rather than a
+					     button that happens to sit near one. -->
+					<span class="h-6 w-px shrink-0 bg-slate-200" aria-hidden="true"></span>
+				{/snippet}
+			</DayNav>
 		</div>
+
+		<!-- ROW 1 · right: the modes and the actions -->
+		<div
+			class="order-3 flex min-w-0 items-center gap-2 sm:justify-end"
+		>
 
 		<!-- Add mode toggle (#047): explicit mobile range-select -->
 		<button
@@ -339,20 +376,98 @@
 				</svg>
 			</a>
 		</div>
+		</div>
+	</div>
+
+	<!-- ROW 2 — search, full width, on EVERY screen size.
+	     #120 mark 1.15: "move this to the line below this". A 240px pill that
+	     shows only `⌘K` is a shortcut dressed as a control — it means nothing to
+	     anybody who has not already read the docs. Under the controls it is a
+	     field, it is the width of the toolbar, and it says what it searches. -->
+	<div data-testid="toolbar-search-row" class="flex w-full items-center gap-2">
+		<div class="relative flex min-w-0 flex-1 items-center">
+			<svg
+				class="pointer-events-none absolute left-3 h-4 w-4 text-slate-400"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+				stroke-width="2"
+				aria-hidden="true"
+			>
+				<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+			</svg>
+			<input
+				type="search"
+				bind:this={searchInput}
+				aria-label="Search events"
+				placeholder="Search events, places, notes…"
+				value={searchQuery}
+				oninput={(e) => onSearch(e.currentTarget.value)}
+				class="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-16 text-sm text-slate-900 shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+			/>
+			<!-- The shortcut is ON the field, not in a doc: discoverable means
+			     visible before you have pressed anything. -->
+			<span
+				data-testid="search-shortcut-hint"
+				aria-hidden="true"
+				class="pointer-events-none absolute right-3 hidden select-none rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 sm:block"
+			>
+				⌘K
+			</span>
+		</div>
+		{#if searchQuery}
+			<!-- The ack: what the query kept, and the one tap back. A filter with
+			     no way out is a dead end. -->
+			<span
+				data-testid="search-status"
+				aria-live="polite"
+				class="shrink-0 whitespace-nowrap text-xs tabular-nums text-slate-500"
+			>
+				{searchMatches === null ? 'No matches' : `${searchMatches} of ${searchTotal ?? 0}`}
+			</span>
+			<button
+				type="button"
+				onclick={() => onSearch('')}
+				aria-label="Clear search"
+				class="h-10 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+			>
+				Clear
+			</button>
+		{/if}
 	</div>
 
 	<!-- #069: the popover is a child of the toolbar ROOT, not of the scrolling
 		action strip, so `overflow-x-auto` can never clip it. Anchored right and
 		width-capped so it fits 320px (px-4 root padding + 0.5rem gutter). -->
 	{#if showCalendarFilter && filterableCalendars.length > 0}
+		<button
+			type="button"
+			data-testid="calendar-filter-backdrop"
+			aria-label="Dismiss the calendar filter sheet"
+			tabindex="-1"
+			onclick={closeCalendarFilter}
+			class="fixed inset-0 z-[55] cursor-default bg-slate-900/30 md:hidden"
+		></button>
 		<div
 			data-testid="calendar-filter-panel"
-			class="absolute right-4 top-full z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+			role="dialog"
+			aria-label="Calendars"
+			class="fixed inset-x-0 bottom-0 z-[60] max-h-[75vh] overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl md:absolute md:inset-x-auto md:bottom-auto md:right-4 md:top-full md:z-30 md:mt-2 md:max-h-none md:w-64 md:overflow-visible md:rounded-xl md:p-2 md:shadow-xl"
 		>
 			<div class="flex items-center justify-between gap-2 px-1 pb-1">
 				<span class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
 					Calendars
 				</span>
+				<button
+					type="button"
+					aria-label="Close calendar filter"
+					onclick={closeCalendarFilter}
+					class="-mr-0.5 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 md:hidden"
+				>
+					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18" />
+					</svg>
+				</button>
 				<button
 					type="button"
 					data-testid="calendar-filter-all"

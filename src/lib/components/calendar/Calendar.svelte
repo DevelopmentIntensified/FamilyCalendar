@@ -9,7 +9,7 @@
 	import DayView from './DayView.svelte';
 	import DailyVerseCard from './DailyVerseCard.svelte';
 	import CalendarToolbar from './CalendarToolbar.svelte';
-	import { resolveInitialView, shouldSwipeNavigate, type CalendarView } from './calendarView';
+	import { resolveInitialView, shouldSwipeNavigate, isCurrentPeriod, type CalendarView } from './calendarView';
 	import {
 		hiddenCalendarNames,
 		isCalendarHidden,
@@ -19,6 +19,7 @@
 		toggleCalendarVisibility,
 		visibleByCalendar
 	} from '$lib/utils/calendarVisibility';
+	import { bySearch, countMatches } from '$lib/utils/calendarSearch';
 	import { pushToast } from '$lib/client/toasts';
 
 	export let currentDate: Writable<DateTime>;
@@ -195,6 +196,15 @@
 	// never disagree about what is hidden. Tasks ride the same predicate.
 	$: visibleEvents = visibleByCalendar(events, hiddenCalendarIds);
 	$: visibleTasks = visibleByCalendar(dueTasks, hiddenCalendarIds);
+
+	// #120: search is the SECOND filter, and it is a reading filter too — the
+	// page owns the query, the toolbar only owns the field, so the two compose
+	// in one place and the grid is the last word on what gets drawn.
+	let searchQuery = '';
+	$: searchedEvents = bySearch(visibleEvents, searchQuery);
+	$: searchedTasks = bySearch(visibleTasks, searchQuery);
+	$: searchMatches = countMatches(visibleEvents, searchQuery) + countMatches(visibleTasks, searchQuery);
+	$: searchTotal = visibleEvents.length + visibleTasks.length;
 	$: allCalendarsHidden =
 		calendarIds.length > 0 && calendarIds.every((c) => isCalendarHidden(c.id, hiddenCalendarIds));
 	// The empty state is for "you turned everything off and there is literally
@@ -202,9 +212,17 @@
 	// event belongs to no calendar, so it survives hide-all; when one is on
 	// screen the grid is not blank and an empty state would be a lie. Neither
 	// is an empty week with calendars shown.
+	// Search is NOT folded into this: a query that matches nothing is not the
+	// same claim as a calendar being switched off, and reusing this card would
+	// say "Every calendar is hidden" about a calendar that is very much on.
 	$: nothingLeftToDraw = visibleEvents.length === 0 && visibleTasks.length === 0;
 	$: showFilterEmpty = allCalendarsHidden && nothingLeftToDraw;
 	$: hiddenNames = hiddenCalendarNames(calendarIds, hiddenCalendarIds);
+	// …and a search that finds nothing gets its own words, because a blank
+	// grid reads as "nothing scheduled", which is a different and wrong thing
+	// to tell a family.
+	$: showSearchEmpty =
+		searchQuery.trim().length > 0 && !showFilterEmpty && searchedEvents.length === 0 && searchedTasks.length === 0;
 
 	// Swipe / edge navigation
 	let touchStartX = 0;
@@ -230,6 +248,10 @@
 	$: currentYear = $currentDate.year;
 	$: currentMonth = $currentDate.month;
 	$: months = Info.months('long');
+	// #119: the page owns the date store and the view, so the page is what can
+	// say whether the period on screen is this one. The shared DayNav mutes
+	// Today when it is — a control that is still the way back, never hidden.
+	$: onCurrentPeriod = isCurrentPeriod(view, $currentDate, DateTime.now());
 </script>
 
 <div class="mb-2 bg-white pt-4">
@@ -244,6 +266,7 @@
 		calendars={calendarIds}
 		{hiddenCalendarIds}
 		dashboardDate={$currentDate.toISODate() ?? ''}
+		isCurrentPeriod={onCurrentPeriod}
 		onToday={goToday}
 		onPrevious={goPrevious}
 		onNext={goNext}
@@ -254,6 +277,10 @@
 		onToggleAddMode={toggleAddMode}
 		onToggleCalendar={handleToggleCalendar}
 		onSetAllHidden={handleSetAllHidden}
+		{searchQuery}
+		{searchMatches}
+		{searchTotal}
+		onSearch={(q) => (searchQuery = q)}
 	/>
 	<div
 		class="group/cal relative mx-auto w-full max-w-screen-2xl px-2 sm:px-4 lg:px-8"
@@ -269,10 +296,13 @@
 				/>
 			</div>
 		{/if}
+		<!-- #119: these hover arrows sit over the grid, and below `md` a cell tap
+		     opens the day-action sheet instead. `md`, so they never land on a cell
+		     that is in sheet mode. -->
 		<button
 			onclick={goPrevious}
 			aria-label="Previous period"
-			class="absolute -left-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-0 shadow-md transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 sm:flex"
+			class="absolute -left-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-0 shadow-md transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
 		>
 			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
@@ -281,7 +311,7 @@
 		<button
 			onclick={goNext}
 			aria-label="Next period"
-			class="absolute -right-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-0 shadow-md transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 sm:flex"
+			class="absolute -right-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-0 shadow-md transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
 		>
 			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -332,14 +362,54 @@
 					Show all calendars
 				</button>
 			</div>
+		{:else if showSearchEmpty}
+			<!-- #120: a search that matched nothing is not a calendar switched
+				off, and it is not an empty month. It says so, and the way back is
+				one tap. -->
+			<div
+				class="flex flex-col items-center px-2 py-14 text-center sm:py-20"
+				data-testid="search-empty"
+			>
+				<svg
+					class="mb-4 h-12 w-12 text-slate-300"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="1.5"
+					aria-hidden="true"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
+					/>
+				</svg>
+				<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+					Searching
+				</p>
+				<h2 class="mt-1 max-w-[16rem] text-lg font-medium text-slate-700 sm:max-w-none">
+					Nothing matches &ldquo;{searchQuery.trim()}&rdquo;
+				</h2>
+				<p class="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
+					Nothing on this calendar matches those words. Everything is still here — only the view is
+					narrowed.
+				</p>
+				<button
+					type="button"
+					onclick={() => (searchQuery = '')}
+					class="mt-5 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary-700 active:scale-[0.98]"
+				>
+					Clear search
+				</button>
+			</div>
 		{:else if view === 'month'}
 			<MonthView
 				{currentDate}
-				events={visibleEvents}
+				events={searchedEvents}
 				{preferedFirstDayOfWeek}
 				{calendarIds}
 				{openDay}
-				dueTasks={visibleTasks}
+				dueTasks={searchedTasks}
 				{createAt}
 				{selectionMode}
 				{selectedIds}
@@ -348,12 +418,12 @@
 		{:else if view === 'week'}
 			<WeekView
 				{currentDate}
-				events={visibleEvents}
+				events={searchedEvents}
 				{removeEvent}
 				{preferedFirstDayOfWeek}
 				{calendarIds}
 				{openDay}
-				dueTasks={visibleTasks}
+				dueTasks={searchedTasks}
 				{createAt}
 				{selectionMode}
 				{addMode}
@@ -364,9 +434,9 @@
 		{:else if view === 'day'}
 			<DayView
 				{currentDate}
-				events={visibleEvents}
+				events={searchedEvents}
 				{calendarIds}
-				dueTasks={visibleTasks}
+				dueTasks={searchedTasks}
 				{createAt}
 				{selectionMode}
 				{addMode}
@@ -376,7 +446,7 @@
 				on:back={backFromDay}
 			/>
 		{:else if view === 'list'}
-			<ListView {currentDate} events={visibleEvents} {calendarIds} dueTasks={visibleTasks} />
+			<ListView {currentDate} events={searchedEvents} {calendarIds} dueTasks={searchedTasks} />
 		{/if}
 	</div>
 </div>

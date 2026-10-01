@@ -64,11 +64,11 @@
 </script>
 
 <div
-	class="group relative min-h-[72px] min-w-0 overflow-hidden rounded-lg border p-0.5 transition-colors {isTodayDate
+	class="group relative min-h-[72px] min-w-0 overflow-hidden rounded-lg border p-0.5 transition-colors md:min-h-[92px] {isTodayDate
 		? 'border-primary-300 bg-primary-50/40 ring-1 ring-inset ring-primary-200'
 		: isOtherMonth
 			? 'border-slate-100 bg-slate-50/50'
-			: 'border-slate-100 hover:bg-slate-50'} sm:min-h-[104px]"
+			: 'border-slate-100 hover:bg-slate-50'} lg:min-h-[104px]"
 >
 	<button
 		type="button"
@@ -90,7 +90,12 @@
 		</span>
 		<div class="flex items-center gap-0.5">
 			{#if !isOtherMonth}
-				<div class="hidden items-center gap-0.5 sm:flex">
+				<!-- #119: `md`, not `sm`. Below the breakpoint a day tap opens the
+				     day-action sheet and the chips are inert (MonthDays), so these
+				     per-cell tools would be the one thing on the cell that answers
+				     the tap a different way. They are also 20px squares, which is
+				     a mouse target and not a thumb one. -->
+				<div class="hidden items-center gap-0.5 md:flex">
 					<button
 						type="button"
 						class="pointer-events-auto -m-1 flex h-5 w-5 items-center justify-center rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 sm:m-0 sm:p-0"

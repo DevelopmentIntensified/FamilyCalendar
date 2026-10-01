@@ -13,11 +13,12 @@
 		{ href: 'a-warm-studio.html', full: 'A · Warm', short: 'A', title: 'Prototype A — Warm Studio' },
 		{ href: 'b-focus-sidebar.html', full: 'B · Rail', short: 'B', title: 'Prototype B — Focus Sidebar' },
 		{ href: 'c-day-first.html', full: 'C · Hero', short: 'C', title: 'Prototype C — Day First' },
-		{ href: 'd-working-calendar.html', full: 'D · Working', short: 'D', title: 'Prototype D — the synthesis, built from the round-1 review' }
+		{ href: 'd-working-calendar.html', full: 'D · Working', short: 'D', title: 'Prototype D — the synthesis, built from the round-1 review' },
+		{ href: 'e-grid-is-the-page.html', full: 'E · Grid', short: 'E', title: 'Prototype E — the grid is the page, built from the round-2 review' }
 	];
 
-	// separators: after the read-only pages, and before the winner
-	var SEPARATE_AFTER = { 1: 1, 4: 1 };
+	// separators: after the read-only pages, and after the rejected variants
+	var SEPARATE_AFTER = { 1: 1, 4: 1, 6: 1 };
 
 	function currentFile() {
 		var p = location.pathname.split('/').pop();

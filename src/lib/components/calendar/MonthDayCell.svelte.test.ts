@@ -154,6 +154,64 @@ describe('MonthDayCell chip vocabulary', () => {
 	});
 });
 
+/**
+ * #119 mark 1.14 — "the circle is really big on tablet view. Also on tablet view
+ * we need the cal view, not the micro cal view."
+ *
+ * The micro cal view is gone (there is no rail, at any width). The oversized
+ * cell was not: the month cell grew to 104px at Tailwind's `sm` (640px), while
+ * the app's own breakpoint — the one `calendarView.ts` calls out as "the
+ * boundary this file names and the boundary the stylesheets use are the same
+ * number" — is 768px. So 640–767px got the tall cell, and at 768px a day cell
+ * measured ~98 × 104px: a 104px tap target on a screen that is itself 768px
+ * tall, six rows of it.
+ *
+ * jsdom has no layout, so the shape is asserted where it can be: the cell's own
+ * classes. Every one of these is a boundary that can silently move back.
+ */
+describe('MonthDayCell sizing at tablet (#119, mark 1.14)', () => {
+	afterEach(cleanup);
+
+	const cellRoot = () => screen.getByRole('button', { name: 'Open 09-09-2026' }).parentElement!;
+
+	it('keeps the phone cell, and starts the tall cell at md — the app\'s own 768', () => {
+		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
+		const cls = cellRoot().className;
+		expect(cls).toMatch(/(^|\s)min-h-\[72px\]/);
+		// md = 768px = VIEW_BREAKPOINT_PX. `sm` = 640px is a different number.
+		expect(cls).toMatch(/(^|\s)md:min-h-\[92px\]/);
+		expect(cls).toMatch(/(^|\s)lg:min-h-\[104px\]/);
+		expect(cls).not.toMatch(/sm:min-h-/);
+	});
+
+	it('grows the cell in steps, so no width is handed the wrong one', () => {
+		//  0–767  : phone cell (72)   — 640px is NOT tall enough
+		// 768–1023: tablet cell (92)  — six rows plus the toolbar fit a 768 screen
+		// 1024+    : desktop cell (104)
+		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
+		const heights = [...cellRoot().className.matchAll(/(?:^|\s)([a-z]+:)?min-h-\[(\d+)px\]/g)].map(
+			(m) => [m[1] ?? '', Number(m[2])] as const
+		);
+		expect(heights).toEqual([
+			['', 72],
+			['md:', 92],
+			['lg:', 104]
+		]);
+	});
+
+	it('reveals the per-cell tools at md, where the day-action sheet stops', () => {
+		// MonthDays reads `max-width: 767px` and then makes the chips inert and
+		// hands a cell tap to the day-action sheet. The tools used to appear at
+		// `sm` (640px), so 640–767px was in sheet mode AND showing per-cell
+		// tools: two different answers to the same tap. One boundary, `md`.
+		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
+		const tools = screen.getByRole('button', { name: 'Add on 09-09-2026' }).parentElement!;
+		expect(tools.className).toMatch(/\bhidden\b/);
+		expect(tools.className).toMatch(/\bmd:flex\b/);
+		expect(tools.className).not.toMatch(/\bsm:flex\b/);
+	});
+});
+
 // #067 — a sponsored event names itself in EVERY view. The month cell is a
 // glyph view, so "Ad" cannot be shown: the computed bar after the mark is
 // ~15px at 320px, and rendering the word there would erase the title. The

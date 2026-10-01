@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { groupByDateKey } from '$lib/utils/eventDisplay';
+	import { smallScreenQuery } from './calendarView';
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
@@ -95,9 +96,12 @@
 
 	let smallScreen = false;
 	onMount(() => {
-		// Aligned with BottomNav (md:hidden ⇒ shows below 768px) so landscape
-		// phones/small tablets get the day action sheet instead of day-view nav.
-		const mq = window.matchMedia('(max-width: 767px)');
+		// Derived from the app's ONE breakpoint (#119), the exact complement of
+		// Tailwind's `md:`. It used to be a typed 767px while the month cell
+		// revealed its per-cell tools at `sm` (640px) — so 640–767px answered the
+		// same tap two ways. Landscape phones and small tablets get the sheet;
+		// aligned with BottomNav (md:hidden) too.
+		const mq = window.matchMedia(smallScreenQuery());
 		const apply = () => (smallScreen = mq.matches);
 		apply();
 		if (mq.addEventListener) {
