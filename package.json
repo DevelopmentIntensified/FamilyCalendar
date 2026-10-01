@@ -33,6 +33,8 @@
 		"db:start": "docker compose up",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
+		"brand:build": "node scripts/build-brand-rasters.mjs",
+		"brand:check": "node scripts/build-brand-rasters.mjs --check",
 		"deploy:test": "node scripts/deploy.mjs test",
 		"deploy:prod": "node scripts/deploy.mjs prod",
 		"ci:secrets": "node scripts/pull-ci-secrets.mjs",

@@ -25,6 +25,10 @@ function props(overrides = {}) {
 		hiddenCalendarIds: [],
 		onToggleCalendar: vi.fn(),
 		onSetAllHidden: vi.fn(),
+		assignees: [],
+		hiddenAssigneeIds: [],
+		onToggleAssignee: vi.fn(),
+		onShowAllAssignees: vi.fn(),
 		searchQuery: '',
 		onSearch: vi.fn(),
 		searchMatches: null,
@@ -418,7 +422,9 @@ describe('CalendarToolbar calendar filter — a sheet on a phone (#119)', () => 
 		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
 		const panel = screen.getByTestId('calendar-filter-panel');
 		expect(panel.getAttribute('role')).toBe('dialog');
-		expect(panel.getAttribute('aria-label')).toBe('Calendars');
+		// #127: the panel holds two axes now, so it is no longer "Calendars" —
+		// the name would be a lie with a second filter sitting under it.
+		expect(panel.getAttribute('aria-label')).toBe('Filters');
 		await fireEvent.click(screen.getByRole('button', { name: 'Close calendar filter' }));
 		expect(screen.queryByTestId('calendar-filter-panel')).toBeNull();
 	});
@@ -437,5 +443,133 @@ describe('CalendarToolbar calendar filter — a sheet on a phone (#119)', () => 
 		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
 		await fireEvent.click(screen.getByRole('switch', { name: /Smith Family/ }));
 		expect(p.onToggleCalendar).toHaveBeenCalledWith('cal-family');
+	});
+});
+
+/**
+ * #127 mark 1.11 — "by person is unneeded on mobile and should be filter buttons".
+ *
+ * The rail card was a list of names and counts you could read and not act on.
+ * It is a filter now, and the mark is specific about where: "in the same sheet
+ * as Calendars — same question, two axes". So these pin that it is the SAME
+ * panel (not a new surface), that each row is a control with a value, and that
+ * the shape works at 320px — the premise of the mark was that a rail card was
+ * the wrong shape on a phone, and a grid of avatars would be the same mistake
+ * wearing a filter's clothes.
+ */
+describe('CalendarToolbar — by person is a filter inside the Filters sheet (#127, mark 1.11)', () => {
+	afterEach(cleanup);
+
+	const calendars = [
+		{ id: 'cal-personal', name: 'Personal Calendar', color: '#fa8072' },
+		{ id: 'cal-family', name: 'Smith Family', color: '#e0ffff' }
+	];
+	const assignees = [
+		{ id: 'u-sarah', name: 'You', isViewer: true, count: 18 },
+		{ id: 'u-mia', name: 'Mia', isViewer: false, count: 14 },
+		{ id: 'u-eli', name: 'Eli', isViewer: false, count: 0 }
+	];
+
+	/** The two things these tests vary about the person axis. Named, not an
+	 *  open dictionary: an override bag with no contract is how a fixture
+	 *  starts lying about what the component was given. */
+	interface SheetOverrides {
+		assignees?: typeof assignees;
+		hiddenAssigneeIds?: string[];
+	}
+
+	const open = async (over: SheetOverrides = {}) => {
+		const p = props({ calendars, assignees, hiddenAssigneeIds: [], ...over });
+		render(CalendarToolbar, { props: p });
+		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
+		return p;
+	};
+
+	it('puts the rows in the SAME panel as the calendars, not on a surface of its own', async () => {
+		await open();
+		const panel = screen.getByTestId('calendar-filter-panel');
+		// One dialog, two axes. A second sheet would be the "new surface" the
+		// mark explicitly did not ask for.
+		expect(document.querySelectorAll('[data-testid="calendar-filter-panel"]')).toHaveLength(1);
+		expect(within(panel).getByRole('switch', { name: /Smith Family/ })).toBeTruthy();
+		expect(within(panel).getByRole('button', { name: /^Mia,/ })).toBeTruthy();
+	});
+
+	it('makes each person a toggle button carrying its own state, the way a filter row is', async () => {
+		const p = await open({ hiddenAssigneeIds: ['u-mia'] });
+		const on = screen.getByRole('button', { name: /^You,/ });
+		const off = screen.getByRole('button', { name: /^Mia,/ });
+		expect(on.getAttribute('aria-pressed')).toBe('true');
+		expect(off.getAttribute('aria-pressed')).toBe('false');
+		await fireEvent.click(off);
+		expect(p.onToggleAssignee).toHaveBeenCalledWith('u-mia');
+	});
+
+	it('counts what each person would keep, and says 0 rather than hiding the row', async () => {
+		// The counts come from the already-filtered rows, so 0 is the REASON a
+		// filtered grid is empty — and the row must stay switchable to get out.
+		await open();
+		expect(screen.getByRole('button', { name: /^You,/ })).toHaveTextContent('18');
+		expect(screen.getByRole('button', { name: /^Eli,/ })).toHaveTextContent('0');
+	});
+
+	it('marks an off row by shape and mute, never by hue alone', async () => {
+		await open({ hiddenAssigneeIds: ['u-mia'] });
+		const off = screen.getByRole('button', { name: /^Mia,/ });
+		const on = screen.getByRole('button', { name: /^You,/ });
+		expect(off.className).not.toBe(on.className);
+		expect(off.innerHTML).toContain('line-through');
+	});
+
+	it('brings everyone back in one tap, and says so only while somebody is off', async () => {
+		const p = await open({ hiddenAssigneeIds: ['u-mia'] });
+		const all = screen.getByRole('button', { name: 'Show everyone' });
+		await fireEvent.click(all);
+		expect(p.onShowAllAssignees).toHaveBeenCalledOnce();
+		cleanup();
+		await open({ hiddenAssigneeIds: [] });
+		expect(screen.queryByRole('button', { name: 'Show everyone' })).toBeNull();
+	});
+
+	it('works at 320px: one full-width column, a thumb-sized row, a truncating name', async () => {
+		await open();
+		const section = screen.getByTestId('assignee-filter');
+		// No column track anywhere: a two-up grid of avatars is the rail card
+		// again, just with a filter's name on it.
+		expect(section.className).not.toMatch(/grid-cols-/);
+		for (const row of screen.getAllByTestId('assignee-row')) {
+			expect(row.className).toMatch(/\bw-full\b/);
+			expect(row.className).toMatch(/min-h-11/);
+			expect(row.className).not.toMatch(/min-w-\[/);
+		}
+		// The name truncates rather than pushing the row past the screen.
+		expect(screen.getByRole('button', { name: /^You,/ }).innerHTML).toContain('truncate');
+	});
+
+	it('says so when there is nobody to filter by, rather than rendering nothing', async () => {
+		await open({ assignees: [] });
+		expect(screen.getByTestId('assignee-nobody')).toHaveTextContent('Nobody');
+		expect(screen.queryAllByTestId('assignee-row')).toHaveLength(0);
+	});
+
+	it('shows the trigger for a person filter even with no calendar to list', async () => {
+		const p = props({ calendars: [], assignees, hiddenAssigneeIds: [] });
+		render(CalendarToolbar, { props: p });
+		expect(screen.getByTestId('calendar-filter-trigger')).toBeInTheDocument();
+		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
+		expect(screen.getByTestId('assignee-filter')).toBeInTheDocument();
+	});
+
+	it('counts hidden people on the trigger badge beside hidden calendars', async () => {
+		const p = props({
+			calendars,
+			assignees,
+			hiddenCalendarIds: ['cal-family'],
+			hiddenAssigneeIds: ['u-mia', 'u-eli']
+		});
+		render(CalendarToolbar, { props: p });
+		// One filter button, one number: a filter that hides half your week
+		// must not be invisible, whichever axis did it.
+		expect(screen.getByTestId('calendar-filter-trigger')).toHaveTextContent('3');
 	});
 });

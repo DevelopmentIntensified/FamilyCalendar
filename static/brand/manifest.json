@@ -1,0 +1,61 @@
+{
+	"source": "prototypes/brand-ui/marks.js",
+	"sourceHash": "afb7cf0d26d55c60",
+	"files": {
+		"mark.svg": {
+			"w": 512,
+			"h": 512,
+			"hash": "2e0969b247a16204"
+		},
+		"mark-maskable.svg": {
+			"w": 512,
+			"h": 512,
+			"hash": "5d2f199a7c0ed392"
+		},
+		"icon.svg": {
+			"w": 512,
+			"h": 512,
+			"hash": "2e0969b247a16204"
+		},
+		"apple-touch-icon.png": {
+			"w": 180,
+			"h": 180,
+			"hash": "62c63bb4bf0d8c65"
+		},
+		"icon-192.png": {
+			"w": 192,
+			"h": 192,
+			"hash": "61a427226bad3b87"
+		},
+		"icon-512.png": {
+			"w": 512,
+			"h": 512,
+			"hash": "4040454665f0ffa1"
+		},
+		"maskable-192.png": {
+			"w": 192,
+			"h": 192,
+			"hash": "2155109839b02675"
+		},
+		"maskable-512.png": {
+			"w": 512,
+			"h": 512,
+			"hash": "f8d4dc2511aa1303"
+		},
+		"favicon.png": {
+			"w": 128,
+			"h": 128,
+			"hash": "ab4cb2b18ffb0111"
+		},
+		"og.svg": {
+			"w": 1200,
+			"h": 630,
+			"hash": "39803efb50309d3a"
+		},
+		"og.png": {
+			"w": 1200,
+			"h": 630,
+			"hash": "a658a1ce61fc2d25"
+		}
+	}
+}

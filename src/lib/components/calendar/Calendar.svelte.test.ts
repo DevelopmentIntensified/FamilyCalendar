@@ -407,3 +407,222 @@ describe('Calendar — search filters the grid (#120)', () => {
 		expect(screen.queryByTestId('search-status')).toBeNull();
 	});
 });
+
+/**
+ * #127 mark 1.11 — "by person … should be filter buttons".
+ *
+ * The rail card was a reading aid; this is a filter, so it has to behave like
+ * one. These pin the four things a filter owes the person using it: it filters
+ * the whole grid (events AND due tasks), it COMPOSES with the two filters
+ * already on this page rather than replacing them, it survives a reload and a
+ * `?view=` link without becoming something else, and when it matches nothing it
+ * says so in one tap instead of leaving a blank grid that reads as "nothing
+ * scheduled".
+ */
+describe('Calendar — the person filter (#127, mark 1.11)', () => {
+	const piano = evt({ id: 'e1', title: 'Piano', calendarId: 'cal-family', ownerId: 'u-sarah' });
+	const soccer = evt({ id: 'e2', title: 'Soccer', calendarId: 'cal-family', ownerId: 'u-mia' });
+	const people = [
+		{
+			id: 't1',
+			title: 'Bins out',
+			dueDate: new Date('2026-09-08T09:00:00'),
+			calendarId: 'cal-family',
+			assignedTo: 'u-sarah',
+			assigneeFirstName: 'Sarah'
+		},
+		{
+			id: 't2',
+			title: 'Permission slip',
+			dueDate: new Date('2026-09-08T09:00:00'),
+			calendarId: 'cal-family',
+			assignedTo: 'u-mia',
+			assigneeFirstName: 'Mia'
+		}
+	];
+
+	/** The three things this fixture varies. Named, not an open dictionary:
+	 *  an override bag with no contract is how a fixture starts lying. */
+	interface PeopleOverrides {
+		events?: Event[];
+		filterUserId?: string | null;
+		initialView?: string;
+	}
+
+	function setupPeople(over: PeopleOverrides = {}) {
+		const props = {
+			currentDate: writable(DateTime.fromISO('2026-09-08T12:00:00')),
+			events: [piano, soccer, ad],
+			calendarIds: [PERSONAL, FAMILY],
+			filterUserId: 'u-sarah',
+			dueTasks: people,
+			...over
+		};
+		render(Calendar, { props });
+		return props;
+	}
+
+	beforeEach(() => {
+		window.localStorage.clear();
+		toasts.set([]);
+	});
+	afterEach(() => {
+		window.localStorage.clear();
+		toasts.set([]);
+		cleanup();
+	});
+
+	async function openSheet() {
+		// The trigger is a toggle, so opening twice would close it.
+		if (!screen.queryByTestId('calendar-filter-panel')) {
+			await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
+		}
+	}
+
+	async function hidePerson(name: string | RegExp) {
+		await openSheet();
+		await fireEvent.click(screen.getByRole('button', { name }));
+		await tick();
+	}
+
+	it('lists the people who have something, viewer first, with what each would keep', async () => {
+		setupPeople();
+		await openSheet();
+		// The roster comes from the loaded rows, not a member list: a person with
+		// nothing on this calendar has nothing to switch on or off.
+		expect(screen.getByRole('button', { name: /^You,/ })).toHaveTextContent('2');
+		expect(screen.getByRole('button', { name: /^Mia,/ })).toHaveTextContent('2');
+		// …and the viewer is listed first, so the row you want is the row you see.
+		const rows = screen.getAllByTestId('assignee-row');
+		expect(rows[0]).toHaveAccessibleName(/^You,/);
+	});
+
+	it('drops that person\'s events AND their due tasks from the grid', async () => {
+		setupPeople();
+		await hidePerson(/^Mia,/);
+		expect(screen.queryByText('Soccer')).toBeNull();
+		expect(screen.queryByText('Permission slip')).toBeNull();
+		// Everyone else stays.
+		expect(screen.getByText('Piano')).toBeInTheDocument();
+		expect(screen.getByText('Bins out')).toBeInTheDocument();
+	});
+
+	it('never reaches a sponsored event, which belongs to nobody', async () => {
+		// The same rule the calendar filter already states: an ad is on no
+		// calendar, so no calendar toggle hides it — and it is on nobody's list
+		// either, so no person filter may invent one and hide it.
+		setupPeople();
+		await hidePerson(/^You,/);
+		expect(screen.getByText('Toy drive')).toBeInTheDocument();
+	});
+
+	it('composes with the calendar filter instead of replacing it', async () => {
+		setupPeople();
+		// Both axes on: Sarah's personal-calendar plans and Mia's stay; the
+		// family calendar's are gone whichever filter was applied.
+		await hidePerson(/^Mia,/);
+		await openSheet();
+		await fireEvent.click(screen.getByRole('switch', { name: /Smith Family/ }));
+		await tick();
+		expect(screen.queryByText('Piano')).toBeNull();
+		expect(screen.queryByText('Soccer')).toBeNull();
+		// The ad is on no calendar and nobody's list: it is still here.
+		expect(screen.getByText('Toy drive')).toBeInTheDocument();
+		// …and switching Mia back on does not bring the family calendar back.
+		await openSheet();
+		await fireEvent.click(screen.getByRole('button', { name: /^Mia,/ }));
+		await tick();
+		expect(screen.getByText('Toy drive')).toBeInTheDocument();
+	});
+
+	it('composes with search, and the sheet counts what is actually left', async () => {
+		setupPeople();
+		await hidePerson(/^Mia,/);
+		await fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'soccer' } });
+		await tick();
+		// Mia is off, so her one match is not on the calendar…
+		expect(screen.queryByText('Soccer')).toBeNull();
+		// …and the sheet says so rather than still claiming she has two.
+		await openSheet();
+		expect(screen.getByRole('button', { name: /^Mia,/ })).toHaveAccessibleName(/switched off/);
+		// The person who IS on has nothing left either, and the row says 0
+		// rather than vanishing — a filter whose options disappear is a dead end.
+		expect(screen.getByRole('button', { name: /^You,/ })).toHaveTextContent('0');
+	});
+
+	it('says so when the filter matches nothing, and clears in one action', async () => {
+		// No sponsored event in this fixture: an ad belongs to no calendar and no
+		// person, so it would keep the grid alive and this state would be a lie.
+		setupPeople({ events: [piano, soccer] });
+		await hidePerson(/^Mia,/);
+		// Now take away the calendar her plans were on. The grid has nothing to
+		// draw, and a blank grid would read as "nothing scheduled".
+		await openSheet();
+		await fireEvent.click(screen.getByRole('switch', { name: /Smith Family/ }));
+		await tick();
+		const empty = screen.getByTestId('assignee-empty');
+		expect(empty).toHaveTextContent('Mia');
+		// The other two empty states would both be a lie here, so neither is used.
+		expect(screen.queryByTestId('calendar-filter-empty')).toBeNull();
+		expect(screen.queryByTestId('search-empty')).toBeNull();
+		await fireEvent.click(within(empty).getByRole('button', { name: 'Show everyone' }));
+		await tick();
+		expect(screen.queryByTestId('assignee-empty')).toBeNull();
+		// The grid is back — an empty month, which is what it honestly is.
+		expect(screen.getByTestId('month-grid')).toBeInTheDocument();
+	});
+
+	it('survives a reload, and keeps two users\' filters apart on one device', async () => {
+		setupPeople();
+		await hidePerson(/^Mia,/);
+		expect(JSON.parse(window.localStorage.getItem('familyplanz:hiddenAssignees:u-sarah') ?? '[]')).toEqual([
+			'u-mia'
+		]);
+		// A fresh mount is what a reload looks like.
+		cleanup();
+		setupPeople();
+		expect(screen.queryByText('Soccer')).toBeNull();
+		expect(screen.getByText('Piano')).toBeInTheDocument();
+		cleanup();
+		setupPeople({ filterUserId: 'u-someone-else' });
+		expect(screen.getByText('Soccer')).toBeInTheDocument();
+	});
+
+	it('leaves the ?view= deep link alone: a filtered month view is still a month view', async () => {
+		// The filter is a reading preference on its own key. It must not decide
+		// what the grid is, and a link that names a view must still win.
+		setupPeople({ initialView: 'week' });
+		await hidePerson(/^Mia,/);
+		// The week grid still draws — no per-day "Open <date>" month cells.
+		expect(screen.queryAllByRole('button', { name: /^Open \d{2}-\d{2}-\d{4}$/ })).toHaveLength(0);
+		expect(screen.getByText('Piano')).toBeInTheDocument();
+		cleanup();
+		setupPeople();
+		await hidePerson(/^Mia,/);
+		expect(screen.getAllByRole('button', { name: /^Open \d{2}-\d{2}-\d{4}$/ }).length).toBeGreaterThan(27);
+	});
+
+	it('acknowledges every switch with a toast naming what changed and what is next', async () => {
+		setupPeople();
+		await hidePerson(/^Mia,/);
+		expect(get(toasts).at(-1)?.message).toMatch(/Hidden Mia/);
+		await openSheet();
+		await fireEvent.click(screen.getByRole('button', { name: /^Mia,/ }));
+		await tick();
+		expect(get(toasts).at(-1)?.message).toMatch(/Showing Mia/);
+	});
+
+	it('writes its own key, beside the calendar one and never on top of it', async () => {
+		// #069 pinned that the reading filters leave the default-calendar setting
+		// alone; this is the same promise for the second filter.
+		setupPeople();
+		await hidePerson(/^Mia,/);
+		await openSheet();
+		await fireEvent.click(screen.getByRole('switch', { name: /Smith Family/ }));
+		await tick();
+		expect(Object.keys(window.localStorage).sort()).toEqual([
+			'familyplanz:hiddenAssignees:u-sarah',
+			'familyplanz:hiddenCalendars:u-sarah'
+		]);
+	});
+});

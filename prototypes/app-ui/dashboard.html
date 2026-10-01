@@ -16,26 +16,30 @@
 }
 </script>
 <style>
-	/* ROUND 1 · THE GRID. One column on a phone, two on a laptop, three on a
-	   wide screen — and every card lands in a filled cell at every one of them.
-	   Before: the board spanned two columns and left a hole beside Completed
-	   today and another beside Groceries. Now it is one card in one cell.
+	/* THE BAND · TWO ROWS, AS #118 SHIPPED IT. This page showed the round-1
+	   arrangement — one 3-column grid with the kids' schedule placed by hand
+	   into row 1 column 3 — while the app moved to two even rows. A prototype
+	   that shows the rejected grid is worse than no prototype (121), so the
+	   arrangement here is now the app's: row 1 is the day's own reading across
+	   the full width (glance · top 3 · completed), row 2 is the small family
+	   cards three-up (board · kids · groceries). No `grid-column`, no
+	   `grid-row`, and no `dash-lift`: nothing is placed by hand, so nothing
+	   can leave a hole.
 
-	   At 1300+ the kids' schedule is placed explicitly into row 1, column 3 —
-	   "bring this to the layer above where the people box was", and the people
-	   box sat in row 2 column 3. Everything after it is auto-placed into what
-	   is left, which is why Completed today drops into row 2 without being
-	   told to: the rows read glance·priorities·kids, then done·board·groceries.
+	   `md:grid-cols-2` on row 1 is 103's pinned glance/top-3 pairing and is
+	   still there in the app; row 2 is three-up from `lg` and is never two-up,
+	   which is the ancestor walk `DayDashboard.svelte.test.ts` pins.
 
-	   `align-items: start` so a short card is not stretched into a tall empty
-	   one — Completed today is 173px of content and the board beside it is
-	   354px. Stretched, that read was 181px of nothing inside a card frame;
-	   start-aligned, it reads as the board simply being the denser card. */
-	.dash { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
-	@media (min-width: 900px) { .dash { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-	@media (min-width: 1300px) {
-		.dash { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, .85fr); }
-		.dash > .dash-lift { grid-column: 3; grid-row: 1; }
+	   `align-items: start` on both rows so a short card is not stretched into a
+	   tall empty one — Completed today is 173px of content and the board beside
+	   it is 354px. Stretched, that read was 181px of nothing inside a card
+	   frame; start-aligned, it reads as the board simply being the denser card. */
+	.dash-band { display: grid; gap: 1rem; }
+	.dash-row { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+	@media (min-width: 768px) { .dash-row--day { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+	@media (min-width: 1024px) {
+		.dash-row--day { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+		.dash-row--family { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 	}
 	.timeline-row { display: flex; gap: .75rem; align-items: flex-start; padding: .5rem 0; }
 	.timeline-row + .timeline-row { border-top: 1px solid var(--s100); }
@@ -133,7 +137,16 @@ const storesIn = (items) =>
 /** The real card names three, then counts the rest. */
 const NAMED = 3;
 
-const grid = el('div', 'dash');
+/* #118: TWO rows, in two grids, and each row is skipped when it is empty —
+   an empty grid still costs a 16px gap in a solo account with the family
+   cards switched off. The rows are declared here, not inferred from order. */
+const band = el('div', 'dash-band');
+band.setAttribute('data-testid', 'dashboard-card-band');
+const dayRow = el('div', 'dash-row dash-row--day');
+dayRow.setAttribute('data-testid', 'dashboard-day-band');
+const familyRow = el('div', 'dash-row dash-row--family');
+familyRow.setAttribute('data-testid', 'dashboard-family-row');
+const grid = dayRow;
 
 /* ── info band (080) — the daily verse, above the module band ────────────
    Its switch means "show the verse", not "render a card": same module id
@@ -214,7 +227,7 @@ const board = card(
 	   </div>`;
 	 }).join('')}`,
 	'mod-board', 'Family task board');
-grid.appendChild(board);
+familyRow.appendChild(board);
 
 /* ── the member strip is gone, in the prototype AND in the app ─────────────
    "Why is this needed?" and then "This is uneeded". Both marks are kept
@@ -229,14 +242,17 @@ grid.appendChild(board);
    stays is the reason it went: the board above already lists every member,
    empty column included, which is the answer to "why is this needed". */
 
-/* ── kids' schedule (kids) — 072, lifted a layer at 1300+ ──────────────── */
+/* ── kids' schedule (kids) — 072, and in the SECOND row since 118 ───────── */
 /* One band per child, in that child's own colour, in the order their first
    event starts — the shape KidsScheduleCard.svelte ships now. The child id
    survives the loader, so the grouping has a stable key and the colour means
-   something. Before: one flat list, every child in the same chip.
+   something.
 
-   `.dash-lift` puts it in row 1 column 3 on a wide screen — the layer above
-   where the people box was. Below 1300 it is an ordinary card in the flow. */
+   It moved with everything else: `dash-lift` used to place it in row 1 column
+   3 on a 1300px screen, "the layer above where the people box was". The
+   people box is gone (103) and #118 settled the whole band on two even rows,
+   so the card sits in row 2 beside the board it moved in with. Nothing is
+   placed by hand any more. */
 const kids = card(
 	`${sectionTitle('Kids’ schedule')}
 	 ${KIDS_SCHEDULE.map((k) => {
@@ -256,8 +272,8 @@ const kids = card(
 	   </section>`;
 	 }).join('')}`,
 	'mod-kids', 'Kids’ schedule');
-kids.classList.add('dash-lift');
-grid.appendChild(kids);
+// #118: the small family cards ride in the second row, not the first.
+familyRow.appendChild(kids);
 
 /* ── groceries (081) — takes the Meals slot in the band ──────────────────
    Mirrors GroceriesCard.svelte, which landed after this round opened: the
@@ -265,12 +281,8 @@ grid.appendChild(kids);
    are chips and the first three names are spelled out. Meals stays parked in
    the app by user directive (2026-09-08) — unmounted, not deleted. The region
    id is still `mod-meals`: that is the pin the "remove for now, add groceries
-   here" mark was made on, so the round history still resolves.
-
-   "Move this up one layer in the grid": with the board narrowed to one cell
-   and the people box gone, this lands in row 2 — the layer above where it
-   was, and the cell the board's old second column gave up. */
-grid.appendChild(card(
+   here" mark was made on, so the round history still resolves. */
+const groceries = card(
 	`${sectionTitle('Groceries', GROC_OPEN > 0 ? `<span class="hint">${GROC_OPEN} open</span>` : '')}
 	 ${GROC.length === 0
 		? `<p class="hint">Nothing on the list yet.</p>
@@ -284,7 +296,13 @@ grid.appendChild(card(
 		     <div class="gscope__i">${storesIn(s.items).map((st) => `<span class="pill pill-xs pill-neutral">${st}</span>`).join('')}</div>
 		     <p class="gscope__t">${s.items.slice(0, NAMED).map((g) => g.name).join(', ')}${s.items.length > NAMED ? `, +${s.items.length - NAMED} more` : ''}</p>
 		   </section>`).join('')}`,
-	'mod-meals', 'Groceries (replaces parked Meals)'));
+	'mod-meals', 'Groceries (replaces parked Meals)');
+familyRow.appendChild(groceries);
+
+// #118: each row goes into the band only when it has something in it, exactly
+// as DayDashboard.svelte skips a row whose cards are all hidden.
+if (dayRow.children.length) band.appendChild(dayRow);
+if (familyRow.children.length) band.appendChild(familyRow);
 
 /* ── notes: what round 1 decided, and what the app does now ───────────── */
 const notes = el('div', 'notes');
@@ -296,12 +314,14 @@ notes.innerHTML = `
 		<ul>
 			<li><b>The member strip is gone.</b> “Why is this needed?” and then “This is uneeded”. Two of the real card's three facts were repeats — the <code>N open</code> count is the number the Family Task Board prints beside each assignee, and the <code>event</code> chip is what Today at a Glance already shows as Going/Maybe. The third, a complete roster, was never unique: this board already lists every member, empty column included, where the app builds its columns from <code>tasks.map(ownerId)</code> and drops whoever has a clear day.</li>
 			<li><b>The card is gone, and #103 has landed.</b> <code>MemberStrip.svelte</code> and its test are deleted, <code>DayDashboard.svelte</code> no longer mounts it, and <code>memberStrip</code> is out of <code>dashboardModules.ts</code> — so this page, <code>app-data.js</code>, and the /account and family switches all agree that there is no such module. A user who hid the strip before it was retired carries a stale id in their saved settings; it is inert, and the next settings save clears it.</li>
-			<li><b>The board is one cell wide.</b> “This doesn't need to be as wide” — it was 876px across two of three columns. Completed today takes the column it gave up, so the band reads glance·priorities·kids over done·board·groceries and <b>nothing is left over</b>: two columns at 900px, three at 1300px, and every card lands in a filled cell at every one of them. The kids' schedule is lifted into the column above where the people box was, and Groceries moves up a layer.</li>
+			<li><b>The board is one cell wide.</b> “This doesn't need to be as wide” — it was 876px across two of three columns.</li>
+			<li><b>…and then the whole grid moved again, in #118, and this page followed it.</b> Round 1 left ONE 3-column grid with the kids' schedule placed by hand into row 1 column 3 and everything else auto-placed around it. The app is now <b>two even rows</b> in two grids: row 1 is the day's own reading across the full width (glance · top 3 · completed), row 2 is the small family cards three-up (board · kids · groceries). <code>.dash-lift</code>, <code>grid-column</code> and <code>grid-row</code> are gone from this page, because a card placed by hand is a card that can leave a hole, and a prototype that shows the rejected arrangement is worse than no prototype (121). Each row is skipped when it is empty, as the app skips it. The reasoning is unchanged: the board was 876px and read as the page; it is one third of a row now, beside two day-scoped cards it belongs next to.</li>
 		</ul>
 	</div>
 	<div class="rail__card">
 		${sectionTitle('What the app does now (checked 30 Sep)')}
 		<ul>
+			<li><b>118 has landed.</b> <code>DayDashboard.svelte</code> is two rows in two grids, each row skipped when it is empty, and this page copies that arrangement rather than the round-1 one. <code>dashboard-day-band</code> keeps 103's pinned <code>md:grid-cols-2</code> glance/top-3 pairing as its 768–1023px tier; <code>dashboard-family-row</code> is three-up from 1024 and is never two-up.</li>
 			<li><b>080 has landed.</b> <code>DashboardInfoBand.svelte</code> puts the verse in a quiet strip above the band; the <code>verse</code> module is <code>band: 'info'</code> and its switch now means “show the verse”, reading the saved <code>showDailyVerse</code> <i>and</i> the module row, so a verse hidden before the move stays hidden.</li>
 			<li><b>072 has landed.</b> The child id survives the loader, so the kids card groups and colours per child off the existing avatar palette — those bands, not a new one.</li>
 			<li><b>081 has landed.</b> <code>GroceriesCard.svelte</code> is a real card in the band, and <code>groceries</code> is a real family-scoped module an admin can switch off. It reuses the list page's own <code>groupGroceriesByStore</code> for the store chips, names the first three items and counts the rest, and its scope links are the list page's <code>?scope=</code> URLs — so the card above is a re-skin of it, not a proposal. An empty list says “Nothing on the list yet.” and stops.</li>
@@ -319,14 +339,14 @@ notes.innerHTML = `
 const column = el('div');
 column.style.cssText = 'display:flex;flex-direction:column;gap:1rem';
 column.appendChild(infoBand);
-column.appendChild(grid);
+column.appendChild(band);
 column.appendChild(notes);
 
 mountApp({
 	head: {
 		kicker: 'Prototype · Dashboard',
 		title: 'Friday 25 September',
-		lede: 'The real page is <code>+page.server.ts</code> at 388 lines, eight modules, each loading and degrading on its own. Round 1 cut one: six cards, one job each, and the verse a quiet strip above them.',
+		lede: 'The real page is <code>+page.server.ts</code> at 388 lines, eight modules, each loading and degrading on its own. Round 1 cut one: six cards, one job each, and the verse a quiet strip above them. <b>The band is two rows, as #118 shipped it</b> — this page no longer shows the round-1 grid.',
 		actions: `
 			<div class="dash-actions">
 				<span class="daynav">

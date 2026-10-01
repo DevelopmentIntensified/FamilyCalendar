@@ -19,7 +19,16 @@
 		toggleCalendarVisibility,
 		visibleByCalendar
 	} from '$lib/utils/calendarVisibility';
-	import { bySearch, countMatches } from '$lib/utils/calendarSearch';
+	import { bySearch } from '$lib/utils/calendarSearch';
+	import {
+		assigneeCounts,
+		assigneeRoster,
+		hiddenAssigneeNames,
+		loadHiddenAssignees,
+		saveHiddenAssignees,
+		toggleAssigneeVisibility,
+		visibleByAssignee
+	} from '$lib/utils/calendarAssignees';
 	import { pushToast } from '$lib/client/toasts';
 
 	export let currentDate: Writable<DateTime>;
@@ -161,14 +170,25 @@
 	// Read after mount so the server HTML and the hydrated DOM agree; the read
 	// is one synchronous localStorage get in the same tick as hydration.
 	let hiddenCalendarIds: string[] = [];
+	// #127 mark 1.11 — the person filter. A second reading filter on its own
+	// key, in the same sense and with the same rules as the calendar one: it
+	// says what to draw, it is stored per user on THIS device, and it never
+	// decides where a new event or an assignment lands.
+	let hiddenAssigneeIds: string[] = [];
 
 	onMount(() => {
 		hiddenCalendarIds = loadHiddenCalendars(window.localStorage, filterUserId);
+		hiddenAssigneeIds = loadHiddenAssignees(window.localStorage, filterUserId);
 	});
 
 	function persistHidden(next: string[]) {
 		hiddenCalendarIds = next;
 		saveHiddenCalendars(window.localStorage, filterUserId, next);
+	}
+
+	function persistHiddenAssignees(next: string[]) {
+		hiddenAssigneeIds = next;
+		saveHiddenAssignees(window.localStorage, filterUserId, next);
 	}
 
 	function handleToggleCalendar(id: string) {
@@ -192,19 +212,53 @@
 		);
 	}
 
+	// ---- #127: the person filter, owned here like the calendar one ----
+	// The roster comes from the UNFILTERED rows so a person does not vanish
+	// from the filter because another filter took their plans away; the counts
+	// come from the filtered rows, so a 0 is the reason the grid is empty.
+	$: assignees = assigneeRoster(events, dueTasks, filterUserId);
+	$: assigneeTally = assigneeCounts(visibleEvents, visibleTasks);
+	$: assigneeRows = assignees.map((person) => ({
+		...person,
+		count: assigneeTally.get(person.id) ?? 0
+	}));
+
+	function handleToggleAssignee(id: string) {
+		const next = toggleAssigneeVisibility(hiddenAssigneeIds, id);
+		persistHiddenAssignees(next);
+		const name = assignees.find((p) => p.id === id)?.name ?? 'That person';
+		pushToast({
+			message: next.includes(id)
+				? `Hidden ${name} — their events and due tasks are out of every view.`
+				: `Showing ${name} again.`
+		});
+	}
+
+	function handleShowAllAssignees() {
+		persistHiddenAssignees([]);
+		pushToast({ message: 'Showing everyone again.' });
+	}
+
 	// ONE filter, applied above the views, so month, week, day and list can
 	// never disagree about what is hidden. Tasks ride the same predicate.
-	$: visibleEvents = visibleByCalendar(events, hiddenCalendarIds);
-	$: visibleTasks = visibleByCalendar(dueTasks, hiddenCalendarIds);
-
-	// #120: search is the SECOND filter, and it is a reading filter too — the
-	// page owns the query, the toolbar only owns the field, so the two compose
-	// in one place and the grid is the last word on what gets drawn.
+	// #127 adds a SECOND reading filter on the same rung: the calendars, then
+	// the query, then the people. They compose (each narrows the last) and none
+	// of them replaces another.
 	let searchQuery = '';
-	$: searchedEvents = bySearch(visibleEvents, searchQuery);
-	$: searchedTasks = bySearch(visibleTasks, searchQuery);
-	$: searchMatches = countMatches(visibleEvents, searchQuery) + countMatches(visibleTasks, searchQuery);
-	$: searchTotal = visibleEvents.length + visibleTasks.length;
+	$: calendarEvents = visibleByCalendar(events, hiddenCalendarIds);
+	$: calendarTasks = visibleByCalendar(dueTasks, hiddenCalendarIds);
+	$: unassignedEvents = bySearch(calendarEvents, searchQuery);
+	$: unassignedTasks = bySearch(calendarTasks, searchQuery);
+	$: visibleEvents = visibleByAssignee(unassignedEvents, hiddenAssigneeIds);
+	$: visibleTasks = visibleByAssignee(unassignedTasks, hiddenAssigneeIds);
+
+	// #120: search is a reading filter like the others — the page owns the
+	// query, the toolbar only owns the field, so the two compose in one place
+	// and the grid is the last word on what gets drawn. The "N of M" line
+	// counts what is left of what the OTHER filters allow, so a person filter
+	// moves N and never M.
+	$: searchMatches = visibleEvents.length + visibleTasks.length;
+	$: searchTotal = calendarEvents.length + calendarTasks.length;
 	$: allCalendarsHidden =
 		calendarIds.length > 0 && calendarIds.every((c) => isCalendarHidden(c.id, hiddenCalendarIds));
 	// The empty state is for "you turned everything off and there is literally
@@ -222,7 +276,18 @@
 	// grid reads as "nothing scheduled", which is a different and wrong thing
 	// to tell a family.
 	$: showSearchEmpty =
-		searchQuery.trim().length > 0 && !showFilterEmpty && searchedEvents.length === 0 && searchedTasks.length === 0;
+		searchQuery.trim().length > 0 && !showFilterEmpty && visibleEvents.length === 0 && visibleTasks.length === 0;
+	// #127: and a PERSON filter that matches nothing gets its own words too, for
+	// the same reason — "Every calendar is hidden" about a calendar that is very
+	// much on would be a lie, and so would reusing that card for a person. It is
+	// last of the three so each card only ever appears for its own claim.
+	$: hiddenAssigneeLabels = hiddenAssigneeNames(assignees, hiddenAssigneeIds);
+	$: showAssigneeEmpty =
+		hiddenAssigneeIds.length > 0 &&
+		!showFilterEmpty &&
+		!showSearchEmpty &&
+		visibleEvents.length === 0 &&
+		visibleTasks.length === 0;
 
 	// Swipe / edge navigation
 	let touchStartX = 0;
@@ -277,6 +342,10 @@
 		onToggleAddMode={toggleAddMode}
 		onToggleCalendar={handleToggleCalendar}
 		onSetAllHidden={handleSetAllHidden}
+		assignees={assigneeRows}
+		{hiddenAssigneeIds}
+		onToggleAssignee={handleToggleAssignee}
+		onShowAllAssignees={handleShowAllAssignees}
 		{searchQuery}
 		{searchMatches}
 		{searchTotal}
@@ -402,14 +471,59 @@
 					Clear search
 				</button>
 			</div>
+		{:else if showAssigneeEmpty}
+			<!-- #127 mark 1.11. A person filter that matches nothing is not an
+			     empty month and not a hidden calendar, and a blank grid reads as
+			     "nothing scheduled" — which is a different and wrong thing to
+			     tell a family. It names who is switched off, and the way back is
+			     one tap. -->
+			<div
+				class="flex flex-col items-center px-2 py-14 text-center sm:py-20"
+				data-testid="assignee-empty"
+			>
+				<svg
+					class="mb-4 h-12 w-12 text-slate-300"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="1.5"
+					aria-hidden="true"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+					/>
+				</svg>
+				<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+					Filtered
+				</p>
+				<h2 class="mt-1 max-w-[16rem] text-lg font-medium text-slate-700 sm:max-w-none">
+					{hiddenAssigneeLabels.length === 1
+						? `Nothing for ${hiddenAssigneeLabels[0]} in this view`
+						: 'Nothing left in this view'}
+				</h2>
+				<p class="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
+					{hiddenAssigneeLabels.length === 1
+						? `${hiddenAssigneeLabels[0]} is switched off, and another filter has taken what was left of their plans. Everything is still here — only the view is narrowed.`
+						: 'Everyone is switched off, and another filter has taken the rest. Everything is still here — only the view is narrowed.'}
+				</p>
+				<button
+					type="button"
+					onclick={handleShowAllAssignees}
+					class="mt-5 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary-700 active:scale-[0.98]"
+				>
+					Show everyone
+				</button>
+			</div>
 		{:else if view === 'month'}
 			<MonthView
 				{currentDate}
-				events={searchedEvents}
+				events={visibleEvents}
 				{preferedFirstDayOfWeek}
 				{calendarIds}
 				{openDay}
-				dueTasks={searchedTasks}
+				dueTasks={visibleTasks}
 				{createAt}
 				{selectionMode}
 				{selectedIds}
@@ -418,12 +532,12 @@
 		{:else if view === 'week'}
 			<WeekView
 				{currentDate}
-				events={searchedEvents}
+				events={visibleEvents}
 				{removeEvent}
 				{preferedFirstDayOfWeek}
 				{calendarIds}
 				{openDay}
-				dueTasks={searchedTasks}
+				dueTasks={visibleTasks}
 				{createAt}
 				{selectionMode}
 				{addMode}
@@ -434,9 +548,9 @@
 		{:else if view === 'day'}
 			<DayView
 				{currentDate}
-				events={searchedEvents}
+				events={visibleEvents}
 				{calendarIds}
-				dueTasks={searchedTasks}
+				dueTasks={visibleTasks}
 				{createAt}
 				{selectionMode}
 				{addMode}
@@ -446,7 +560,7 @@
 				on:back={backFromDay}
 			/>
 		{:else if view === 'list'}
-			<ListView {currentDate} events={searchedEvents} {calendarIds} dueTasks={searchedTasks} />
+			<ListView {currentDate} events={visibleEvents} {calendarIds} dueTasks={visibleTasks} />
 		{/if}
 	</div>
 </div>

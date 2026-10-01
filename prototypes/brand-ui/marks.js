@@ -32,6 +32,14 @@ export const T = {
 	peach: '#f1b598',
 	peachInk: '#84412e',
 	blue: '#bedae3',
+	/* Added 2026-09-30 for the header band the owner asked for. `--blue-ink` in
+	 * proto.css, and the same value already ships in the app as --mp-blue-ink in
+	 * src/lib/marketing/theme.css. T.blue is a TINT: everywhere in this repo
+	 * #bedae3 appears only as a background with #366d7e as the text on top, so it
+	 * is a surface, not an ink. A #bedae3 band on the #f8f6f3 page is a surface
+	 * on a surface — lower contrast than the #fed5cf band it replaced. Both were
+	 * measured at 16px; see docs/issues/095. */
+	blueInk: '#366d7e',
 	mint: '#c4e9da',
 	s900: '#0f172a'
 };
@@ -86,16 +94,71 @@ const C_HALO = (id) => `
 	<circle cx="256" cy="256" r="16" fill="${T.canvas}"/>
 	<circle cx="300" cy="256" r="16" fill="${T.canvas}"/>`;
 
-/** The synthesis: A with the bar dropped and the family given real weight. */
-const SYNTH_BODY = (id) => `
-	<clipPath id="${id}-page"><rect x="96" y="104" width="320" height="304" rx="36"/></clipPath>
+/* The synthesis, redrawn on 2026-09-30 after the round-1 review said "make it
+ * look more like a calendar". The old one was a page with a blush band and
+ * three circles — no top edge, no grid, no ring. At 16px (÷32) the circles were
+ * r=35 → a 2px three-dot blob that read as a face, and nothing on the
+ * silhouette said "calendar" at any size.
+ *
+ * Geometry is the owner's direction of 2026-09-30, in two parts. The grid is
+ * 4 across by 3 down — twelve cells — with ONE carrying the "today" accent,
+ * because a grid where every cell weighs the same reads as texture. And the
+ * page carries a header band, in blue, which the owner asked for AFTER this band
+ * had been measured out on 16px evidence. The reversal is the owner's call and
+ * the cost is re-measured below and recorded, not dropped again.
+ *
+ * What survives 16px:
+ *   - the page         canvas on terracotta: the one strong shape.
+ *   - two ink rings    the calendar signifier, the only element that survives
+ *                      1px. INK, not terracotta: a terracotta ring on the
+ *                      terracotta tile is invisible.
+ *   - the header band  T.blueInk, which is why it survives at all — see T.
+ *   - the 4 x 3 grid   1.75px cells with 0.625px gaps: texture, not a grid.
+ *   - the accent cell  the one feature the eye is meant to find.
+ *
+ * THE BAND IS BACK, and the page grew to carry it: 324 x 306 instead of
+ * 336 x 280. The cells stay 56 units, because 56 is the largest square cell that
+ * fits four across, and the cells were never what moved. Cells are square on
+ * purpose: a rectangular cell's SHORT side is what has to survive 16px, and a
+ * square maximises it for the area.
+ *
+ * THE COLOUR IS T.blueInk (#366d7e), NOT T.blue (#bedae3), which is a deviation
+ * from the literal instruction "make it the blue color". The reason is measured,
+ * not aesthetic: #bedae3 is a tint, and against the #f8f6f3 page it is a surface
+ * on a surface — measurably lower contrast than the #fed5cf blush it replaced.
+ * Across this whole repo #bedae3 only ever appears as a background with #366d7e
+ * as the text on it. Both were rasterised at 16px and the numbers are in
+ * docs/issues/095, so the owner can see what the literal reading costs and
+ * reverse this if they disagree.
+ *
+ * The three family circles are gone. A family of three cannot be told apart from
+ * a face, a cluster or a blob at the size an icon is judged at, and carrying it
+ * is what cost this mark its calendar reading. The family is carried by the
+ * name now.
+ *
+ * Envelope x 94..418, y 112..464. Worst sharp corner r=264.1 from the centre,
+ * which is why maskable() scales by 0.72 — see its comment. */
+const SYNTH_BODY = (id) => {
+	/* 4 across by 3 down, 56 units with 20 between: 4·56 + 3·20 = 284 of grid
+	 * inside a 324 page, 20 of padding each side. */
+	const CELLS = [228, 304, 380].flatMap((y) => [114, 190, 266, 342].map((x) => [x, y]));
+	/* the "today" cell: the middle of the grid, so the accent does not have to
+	 * compete with the rings or the band for the eye at the top. */
+	const ACCENT = [190, 304];
+	const cell = ([x, y]) =>
+		`<rect x="${x}" y="${y}" width="56" height="56" rx="14" fill="${
+			x === ACCENT[0] && y === ACCENT[1] ? T.terracotta : T.peach
+		}"/>`;
+	return `
+	<clipPath id="${id}-page"><rect x="94" y="158" width="324" height="306" rx="36"/></clipPath>
 	<g clip-path="url(#${id}-page)">
-		<rect x="96" y="104" width="320" height="304" rx="36" fill="${T.canvas}"/>
-		<rect x="96" y="104" width="320" height="100" fill="${T.blush}"/>
+		<rect x="94" y="158" width="324" height="306" rx="36" fill="${T.canvas}"/>
+		<rect x="94" y="158" width="324" height="50" fill="${T.blueInk}"/>
+		${CELLS.map(cell).join('')}
 	</g>
-	<circle cx="174" cy="306" r="35" fill="${T.terracotta}"/>
-	<circle cx="256" cy="306" r="27" fill="${T.terracotta}"/>
-	<circle cx="338" cy="306" r="35" fill="${T.terracotta}"/>`;
+	<rect x="158" y="112" width="44" height="92" rx="22" fill="${T.s900}"/>
+	<rect x="310" y="112" width="44" height="92" rx="22" fill="${T.s900}"/>`;
+};
 
 /* ── the marks ───────────────────────────────────────────────────────────── */
 
@@ -132,13 +195,24 @@ export const MARKS = {
  * centre and the tile is re-drawn full-bleed underneath to fill whatever the
  * mask leaves. Without that, the tile's own rounded corners get cut and the
  * icon reads as a circle with orange corners around it.
+ *
+ * The tile used to be the SCALED one drawn over a flat #c45e38 rect, which put
+ * a visible colour break at y=384 (the 80% line) and contradicted the sentence
+ * above. It is now the real full-bleed tile, the same way ogCard() does it — so
+ * "full-bleed" is true in the code as well as on the page.
+ *
+ * Safe area, measured not assumed. Android's safe circle is r=204.8 (40% of
+ * 512). SYNTH_BODY's worst SHARP corner is r=263.6 from the centre (measured by
+ * parsing every rect in the drawn body, not estimated), so the old 0.8 scale
+ * put it at 210.9 — OUTSIDE the safe circle, and the bottom corners of the page
+ * were being eaten. At 0.72 it lands at r=189.8, which is 15.0 units of
+ * clearance. If a future redraw grows, re-measure this rather than trusting 0.72.
  */
 export function maskable(id = 'maskable') {
 	return svg(
 		id,
-		`<rect width="512" height="512" fill="${T.terracotta}"/>` +
-			`<g transform="translate(256 256) scale(.8) translate(-256 -256)">` +
-			tile(id) +
+		tile(id) +
+			`<g transform="translate(256 256) scale(.72) translate(-256 -256)">` +
 			SYNTH_BODY(id) +
 			`</g>`
 	);

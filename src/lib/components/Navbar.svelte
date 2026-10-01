@@ -3,6 +3,7 @@
 	import NotificationBell from '$lib/components/NotificationBell.svelte';
 	import NavbarProfileMenu from '$lib/components/NavbarProfileMenu.svelte';
 	import NavbarMobileMenu from '$lib/components/NavbarMobileMenu.svelte';
+	import Mark from '$lib/components/brand/Mark.svelte';
 	import { loggedInNavItems, marketingNavItems, resolveActiveHref } from '$lib/utils/navItems';
 
 	export let isLoggedIn = false;
@@ -65,18 +66,7 @@
 	<div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 		<div class="flex items-center gap-2">
 			<a href="/" class="flex items-center gap-2">
-				<svg
-					class="h-8 w-8 text-primary-600"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<rect x="3" y="4" width="18" height="18" rx="2" />
-					<line x1="16" y1="2" x2="16" y2="6" />
-					<line x1="8" y1="2" x2="8" y2="6" />
-					<line x1="3" y1="10" x2="21" y2="10" />
-				</svg>
+				<Mark class="h-8 w-8 text-primary-600" />
 				<span class="text-xl font-bold text-slate-800">Family Planz</span>
 			</a>
 		</div>

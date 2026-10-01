@@ -3,6 +3,11 @@
 	import DayNav from '$lib/components/DayNav.svelte';
 	import type { CalendarRef } from '$lib/utils/calendarVisibility';
 	import { allCalendarIds } from '$lib/utils/calendarVisibility';
+	import type { AssigneeRef } from '$lib/utils/calendarAssignees';
+	import { avatarColor } from '$lib/utils/avatarColor';
+
+	/** One row of the person filter: who, and what they would keep. */
+	export type AssigneeRow = AssigneeRef & { count: number };
 
 	interface Props {
 		currentMonthYear: string;
@@ -28,6 +33,14 @@
 		onToggleCalendar: (id: string) => void;
 		/** Hide every calendar, or show every one — one tap either way. */
 		onSetAllHidden: (hide: boolean) => void;
+		/** #127 mark 1.11: the people whose plans are on this calendar. The
+		 *  counts are read from the ALREADY-filtered rows, so a 0 is the reason
+		 *  the grid is empty. Owned above, exactly like the calendars. */
+		assignees?: AssigneeRow[];
+		hiddenAssigneeIds?: string[];
+		onToggleAssignee: (id: string) => void;
+		/** Show every person again — one tap out of a person filter. */
+		onShowAllAssignees: () => void;
 		/** #120: the query the page is filtering by. Owned above, like the
 		 *  hidden-calendar list — this control never owns a filter. */
 		searchQuery: string;
@@ -63,6 +76,10 @@
 		onToggleAddMode,
 		onToggleCalendar,
 		onSetAllHidden,
+		assignees = [],
+		hiddenAssigneeIds = [],
+		onToggleAssignee,
+		onShowAllAssignees,
 		searchQuery = '',
 		onSearch,
 		searchMatches = null,
@@ -102,6 +119,11 @@
 		filterableCalendars.length > 0 &&
 			allCalendarIds(filterableCalendars).every((id) => hiddenCalendarIds.includes(id))
 	);
+	// #127: one filter button for BOTH axes, and one number on it. A filter that
+	// hides half your week must not be invisible whichever axis did it, and a
+	// second trigger would be the "new surface" mark 1.11 did not ask for.
+	const hasFilters = $derived(filterableCalendars.length > 0 || assignees.length > 0);
+	const hiddenFilterCount = $derived(hiddenCalendarIds.length + hiddenAssigneeIds.length);
 
 	function closeMiniPicker() {
 		showMiniPicker = false;
@@ -301,14 +323,14 @@
 			<!-- #069: the calendar filter. Leads the strip so it survives the
 				narrow-width scroll, and carries a count when calendars are off
 				— otherwise a filter that hides half the week is invisible. -->
-			{#if filterableCalendars.length > 0}
+			{#if hasFilters}
 				<button
 					type="button"
 					data-testid="calendar-filter-trigger"
 					onclick={() => (showCalendarFilter = !showCalendarFilter)}
 					aria-expanded={showCalendarFilter}
-					aria-label="Calendars"
-					title="Choose which calendars to show"
+					aria-label="Filters"
+					title="Choose which calendars and people to show"
 					class="flex h-10 w-11 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
 				>
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -318,12 +340,12 @@
 							d="M3 5h18M6 12h12M10 19h4"
 						/>
 					</svg>
-					{#if hiddenCalendarIds.length > 0}
+					{#if hiddenFilterCount > 0}
 						<span
 							class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-700 px-1 text-[10px] font-bold leading-none text-white"
 							aria-hidden="true"
 						>
-							{hiddenCalendarIds.length}
+							{hiddenFilterCount}
 						</span>
 					{/if}
 				</button>
@@ -439,7 +461,7 @@
 	<!-- #069: the popover is a child of the toolbar ROOT, not of the scrolling
 		action strip, so `overflow-x-auto` can never clip it. Anchored right and
 		width-capped so it fits 320px (px-4 root padding + 0.5rem gutter). -->
-	{#if showCalendarFilter && filterableCalendars.length > 0}
+	{#if showCalendarFilter && hasFilters}
 		<button
 			type="button"
 			data-testid="calendar-filter-backdrop"
@@ -451,9 +473,10 @@
 		<div
 			data-testid="calendar-filter-panel"
 			role="dialog"
-			aria-label="Calendars"
-			class="fixed inset-x-0 bottom-0 z-[60] max-h-[75vh] overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl md:absolute md:inset-x-auto md:bottom-auto md:right-4 md:top-full md:z-30 md:mt-2 md:max-h-none md:w-64 md:overflow-visible md:rounded-xl md:p-2 md:shadow-xl"
+			aria-label="Filters"
+			class="fixed inset-x-0 bottom-0 z-[60] max-h-[75vh] overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl md:absolute md:inset-x-auto md:bottom-auto md:right-4 md:top-full md:z-30 md:mt-2 md:max-h-[min(70vh,26rem)] md:w-64 md:overflow-y-auto md:rounded-xl md:p-2 md:shadow-xl"
 		>
+			{#if filterableCalendars.length > 0}
 			<div class="flex items-center justify-between gap-2 px-1 pb-1">
 				<span class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
 					Calendars
@@ -524,6 +547,83 @@
 				Hidden calendars drop their events and their due tasks from every view. This is a
 				reading filter — new events still go to your default calendar.
 			</p>
+			{/if}
+
+			<!-- #127 mark 1.11. "By person" was a rail card: a list of names and
+			     counts you could read and not act on. It is a filter now, in the
+			     SAME sheet as Calendars — "same question, two axes" — and the
+			     mark's own complaint was the shape: a card is the wrong thing on
+			     a 320px phone, so this is one full-width column of 44px rows with
+			     a truncating name, not a grid of avatars. -->
+			<div
+				data-testid="assignee-filter"
+				class="mt-1 flex flex-col gap-0.5 border-t border-slate-200 pt-1.5 {filterableCalendars.length >
+				0
+					? ''
+					: 'border-t-0 pt-0'}"
+			>
+				<div class="flex items-center justify-between gap-2 px-1 pb-1">
+					<span class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+						Assignee
+					</span>
+					{#if hiddenAssigneeIds.length > 0}
+						<button
+							type="button"
+							data-testid="assignee-filter-all"
+							onclick={onShowAllAssignees}
+							class="shrink-0 rounded-md px-1.5 py-1 text-[11px] font-semibold text-primary-700 transition-colors hover:bg-primary-50"
+						>
+							Show everyone
+						</button>
+					{/if}
+				</div>
+				{#if assignees.length === 0}
+					<p data-testid="assignee-nobody" class="px-2 text-[11px] leading-snug text-slate-400">
+						Nobody has anything on this calendar yet, so there is nobody to filter by. The
+						people who put something here will show up.
+					</p>
+				{:else}
+					{#each assignees as person (person.id)}
+						{@const on = !hiddenAssigneeIds.includes(person.id)}
+						<button
+							type="button"
+							data-testid="assignee-row"
+							aria-pressed={on}
+							aria-label={`${person.name}, ${on ? `${person.count} ${person.count === 1 ? 'item' : 'items'}` : 'switched off'}`}
+							onclick={() => onToggleAssignee(person.id)}
+							class="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-50 {on
+								? ''
+								: 'bg-slate-50'}"
+						>
+							<!-- The avatar is the one place a hue may ride a person:
+							     it is identification, not state. State is the row's
+							     mute and the strike, never the colour. -->
+							<span
+								class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold {avatarColor(
+									person.id
+								)} {on ? '' : 'opacity-40 grayscale'}"
+								aria-hidden="true"
+							>
+								{person.name.slice(0, 1).toUpperCase()}
+							</span>
+							<span
+								class="min-w-0 flex-1 truncate text-sm {on
+									? 'text-slate-700'
+									: 'text-slate-400 line-through'}"
+							>
+								{person.name}
+							</span>
+							<span class="shrink-0 text-xs font-semibold tabular-nums text-slate-400">
+								{on ? person.count : '–'}
+							</span>
+						</button>
+					{/each}
+					<p class="px-2 pt-1.5 text-[11px] leading-snug text-slate-400">
+						Switched-off people drop their events and their due tasks from every view. The
+						number is what is left on the calendar now, so a 0 is why the grid is empty.
+					</p>
+				{/if}
+			</div>
 		</div>
 	{/if}
 </div>

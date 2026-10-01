@@ -10,19 +10,19 @@
 {
   "id": "groceries", "label": "Groceries", "family": "app-ui",
   "question": "Is grouping by store the right primary organisation, or should it group by aisle?",
-  "thesis": "Grouped by store, because that is the shape of the trip. Every store carries a family-assigned colour — not just the one the app still highlights — and the two data scopes are shown two ways: the shipped tabs, and one list behind a scope filter.",
-  "realPage": "src/routes/(calendar)/calendar/groceries/ — +page.svelte 433. The best-wired feature in the repo: one table, one actions module, no loose ends."
+  "thesis": "Grouped by store, because that is the shape of the trip. Every store carries its own colour - not just the one the app used to highlight. And the two data scopes are shown the way the review asked: ONE list with a scope filter, not two tabs. The tabs were the shipped design when this page opened; #097 replaced them, so the tabs below are the SUPERSEDED alternative and the filter is the app.",
+  "realPage": "src/routes/(calendar)/calendar/groceries/ - +page.svelte. The best-wired feature in the repo: one list, one actions module, no loose ends. 097 shipped the filter: the `role=\"tablist\"` is gone, single-select `aria-pressed` chips over ONE list, counts read All 6 / Family 4 / Mine 2, and every row carries a MINE / FAMILY word tag because colour already means 'which store'. The view switch below can still flip back to the old tabs so the difference is visible; the tabs are not the product."
 }
 </script>
 <style>
 	.wrapx { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
 	@media (min-width: 950px) { .wrapx { grid-template-columns: 21rem minmax(0, 1fr); } }
 	/* .tabs carries display:inline-flex, which outranks the UA [hidden] rule —
-	   without this the shipped tabs stay on screen in the filter view. */
+	   without this the RETIRED tabs stay on screen in the filter view. */
 	[hidden] { display: none !important; }
 
-	/* ── tabs: the shipped scope switch, and the same control reused as the
-	   proposed view switch. One idiom, two jobs. ─────────────────────────── */
+	/* ── the segmented-control idiom, used twice: the shipped view switch, and
+	   the retired scope tabs it replaced. One idiom, two jobs. ─────────────── */
 	.tabs { display: inline-flex; background: var(--s100); border-radius: .75rem; padding: .25rem; max-width: 100%; }
 	.tabs button { min-height: 2.5rem; padding: 0 1.125rem; border: 0; background: transparent; border-radius: .5rem; font-weight: 600; font-size: .875rem; line-height: 1; color: var(--s500); cursor: pointer; }
 	.tabs button.is-on { background: #fff; color: var(--s900); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
@@ -171,24 +171,28 @@ const colourOf = (s) => FAMILY_COLOUR.get(keyOf(s)) || defaultColour(s);
 const onColour = (s) => STORE_ORDER.filter((x) => colourOf(x).k === colourOf(s).k);
 
 /* ── scope + view state ─────────────────────────────────────────────────── */
-let tab = 'family';     // the shipped tab
-let scope = 'all';      // the proposed filter
-let view = 'filter';    // 'filter' (proposed) | 'tabs' (shipped)
+let tab = 'family';     // the RETIRED tab (074), kept only for the comparison
+let scope = 'all';      // the SHIPPED filter (097), and the app's default
+let view = 'filter';    // 'filter' (shipped) | 'tabs' (retired)
 
 const scopesOf = new Map();
 GROCERIES.family.forEach((g) => scopesOf.set(g.id, 'family'));
 GROCERIES.mine.forEach((g) => scopesOf.set(g.id, 'mine'));
 
 /* ── the view switch: which of the two ways of showing two scopes ───────── */
+/* The FILTER is what the app ships (097). The tabs are what it shipped before
+   that, kept here only so the difference is visible side by side — a
+   prototype that offers two arrangements without saying which one is the
+   product is how this page got marked a third time. */
 const viewSwitch = el('div', 'tabs');
 viewSwitch.setAttribute('data-fb', 'scope-view');
-viewSwitch.setAttribute('data-fb-label', 'Tabs or filter');
+viewSwitch.setAttribute('data-fb-label', 'Shipped filter, or the old tabs');
 viewSwitch.innerHTML = `
-	<button data-view="filter" class="is-on">One list + filter</button>
-	<button data-view="tabs">Tabs</button>`;
+	<button data-view="filter" class="is-on">One list + filter (shipped)</button>
+	<button data-view="tabs">Tabs (retired)</button>`;
 left.appendChild(viewSwitch);
 
-/* ── tabs: the shipped switch ───────────────────────────────────────────── */
+/* ── tabs: the RETIRED switch (#097 replaced this) ───────────────────────── */
 const tabs = el('div', 'tabs');
 tabs.setAttribute('data-fb', 'scope-tabs');
 tabs.setAttribute('data-fb-label', 'Mine / Family tabs');
@@ -197,7 +201,7 @@ tabs.innerHTML = `
 	<button data-tab="mine">Mine<span class="n">${GROCERIES.mine.length}</span></button>`;
 left.appendChild(tabs);
 
-/* ── the proposed switch: the same two scopes, as a filter ─────────────── */
+/* ── the SHIPPED switch: the same two scopes, as a filter (#097) ─────────── */
 const filterBox = el('div');
 filterBox.setAttribute('data-fb', 'scope-filter');
 filterBox.setAttribute('data-fb-label', 'Scope filter');
@@ -207,12 +211,14 @@ filterBox.innerHTML = `
 	  <button class="chipf" data-scope="family">Family<span class="alt"> ${GROCERIES.family.length}</span></button>
 	  <button class="chipf" data-scope="mine">Mine<span class="alt"> ${GROCERIES.mine.length}</span></button>
 	</div>
-	<p class="hint" style="margin:.5rem 0 0;line-height:1.6">Proposed, not shipped. The app opens
-	<code>tab</code> from a <code>?scope=</code> param and hides the other list
-	(<code>groceries/+page.svelte:21,232</code>); the filter takes that param instead of the tab,
-	so a “Mine” link still lands on Mine. Groups are per <b>store</b> and hold both scopes —
-	Costco below carries a Family item and a personal one — so each row says which scope it
-	is from in text, not in colour.</p>`;
+	<p class="hint" style="margin:.5rem 0 0;line-height:1.6">This is what the app ships. <b>097</b> took
+	the <code>role="tablist"</code> out and put these chips in its place, on the same single-select
+	<code>aria-pressed</code> idiom the tasks page uses, and the default is <b>All</b> so the page opens
+	on everything. <code>?scope=mine</code> still lands on Mine — the param now selects the filter —
+	so the dashboard's per-scope link is not broken by it. Groups are per <b>store</b> and hold both
+	scopes — Costco below carries a Family item and a personal one — so each row says which scope
+	it is from in text, not in colour: 096 gave colour to the store, and reusing it for scope would
+	overload the one channel it just defined.</p>`;
 left.appendChild(filterBox);
 
 /* ── add ────────────────────────────────────────────────────────────────── */
@@ -413,7 +419,7 @@ mountApp({
 	head: {
 		kicker: 'Prototype · Groceries',
 		title: 'Groceries',
-		lede: 'Grouped by store, because that is the shape of the trip. Every store carries its own colour — the app colours the group bar and the primary chip, but still greys out the alternates. Two ways of showing the two scopes: the shipped tabs, and one list behind the same filter the Tasks page uses.',
+		lede: 'Grouped by store, because that is the shape of the trip. Every store carries its own colour — <b>096</b> coloured the group bar and the row chips, alternates included. The two scopes are shown the way the review asked: <b>one list behind a scope filter</b>, which is what the app ships (<b>097</b>). The tabs it replaced are here only so the difference is visible.',
 		actions: `<a class="btn btn-soft btn-sm" href="family-detail.html">Family settings</a>`
 	},
 	body: wrap

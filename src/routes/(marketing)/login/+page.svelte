@@ -6,6 +6,7 @@
 	import AuthCard from '$lib/components/auth/AuthCard.svelte';
 	import AuthInput from '$lib/components/auth/AuthInput.svelte';
 	import ModeToggle from '$lib/components/auth/ModeToggle.svelte';
+	import Mark from '$lib/components/brand/Mark.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -146,20 +147,7 @@
 		aria-label="Family Planz home"
 		class="mb-8 flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
 	>
-		<svg
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			class="h-5 w-5 text-primary-600"
-			aria-hidden="true"
-		>
-			<path d="M8 2v4" /><path d="M16 2v4" /><rect width="18" height="18" x="3" y="4" rx="2" /><path
-				d="M3 10h18"
-			/>
-		</svg>
+		<Mark size={20} class="text-primary-600" />
 		<span class="text-lg font-bold tracking-tight text-slate-800">Family Planz</span>
 	</a>
 

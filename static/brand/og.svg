@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img">
+		<defs>
+			<linearGradient id="og-bg" x1="0" y1="0" x2="1" y2="1">
+				<stop offset="0" stop-color="#f8f6f3"/>
+				<stop offset="1" stop-color="#fed5cf"/>
+			</linearGradient>
+			<clipPath id="og-mark"><rect width="512" height="512" rx="116"/></clipPath>
+		</defs>
+		<rect width="1200" height="630" fill="url(#og-bg)"/>
+		<circle cx="1090" cy="90" r="230" fill="#f1b598" opacity=".35"/>
+		<circle cx="60" cy="620" r="190" fill="#bedae3" opacity=".45"/>
+		<g transform="translate(72 60) scale(.203125)">
+			<g clip-path="url(#og-mark)">
+				<rect width="512" height="512" rx="116" fill="#c45e38"/>
+				<g transform="translate(256 256) scale(.8) translate(-256 -256)">
+	<clipPath id="og-page"><rect x="94" y="158" width="324" height="306" rx="36"/></clipPath>
+	<g clip-path="url(#og-page)">
+		<rect x="94" y="158" width="324" height="306" rx="36" fill="#f8f6f3"/>
+		<rect x="94" y="158" width="324" height="50" fill="#366d7e"/>
+		<rect x="114" y="228" width="56" height="56" rx="14" fill="#f1b598"/><rect x="190" y="228" width="56" height="56" rx="14" fill="#f1b598"/><rect x="266" y="228" width="56" height="56" rx="14" fill="#f1b598"/><rect x="342" y="228" width="56" height="56" rx="14" fill="#f1b598"/><rect x="114" y="304" width="56" height="56" rx="14" fill="#f1b598"/><rect x="190" y="304" width="56" height="56" rx="14" fill="#c45e38"/><rect x="266" y="304" width="56" height="56" rx="14" fill="#f1b598"/><rect x="342" y="304" width="56" height="56" rx="14" fill="#f1b598"/><rect x="114" y="380" width="56" height="56" rx="14" fill="#f1b598"/><rect x="190" y="380" width="56" height="56" rx="14" fill="#f1b598"/><rect x="266" y="380" width="56" height="56" rx="14" fill="#f1b598"/><rect x="342" y="380" width="56" height="56" rx="14" fill="#f1b598"/>
+	</g>
+	<rect x="158" y="112" width="44" height="92" rx="22" fill="#0f172a"/>
+	<rect x="310" y="112" width="44" height="92" rx="22" fill="#0f172a"/></g>
+			</g>
+		</g>
+		<text x="200" y="128" font-family="ui-rounded, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="40" font-weight="800"
+			letter-spacing="-0.5" fill="#0f172a">Family Planz</text>
+		<text x="200" y="172" font-family="ui-rounded, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="26" font-weight="600"
+			fill="#0f172a" opacity=".62">The shared family calendar</text>
+		<text x="72" y="307" font-family="ui-rounded, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="74" font-weight="800" letter-spacing="-2" fill="#0f172a">Everyone’s week, on one page.</text>
+		<text x="72" y="411" font-family="ui-rounded, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="500" fill="#0f172a" opacity=".7">Events, RSVPs and the grocery list — the whole</text>
+		<text x="72" y="453" font-family="ui-rounded, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="500" fill="#0f172a" opacity=".7">household, in one warm place.</text>
+		<rect x="72" y="556" width="120" height="8" rx="4" fill="#c45e38"/>
+		<text x="72" y="600" font-family="ui-rounded, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="25" font-weight="700"
+			fill="#c45e38">familyplanz.com</text>
+	</svg>
