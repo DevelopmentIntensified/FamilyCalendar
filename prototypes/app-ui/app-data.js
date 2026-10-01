@@ -129,14 +129,16 @@ export const INVITE = {
 
 /* ── dashboardModuleSwitches (schema.ts:306) + dashboardModules.ts ────────
    A row only exists when the module is switched OFF, so an empty table means
-   "everything on". `meals` is listed but its card is not mounted anywhere. */
+   "everything on". `meals` is listed but its card is not mounted anywhere.
+   `memberStrip` is NOT listed: 103 retired it from dashboardModules.ts, so the
+   app has no such module and a row here would be a switch for nothing — the
+   same lie #103 deleted. */
 export const DASHBOARD_MODULES = [
 	{ id: 'verse',         label: 'Daily verse',   scope: 'personal', enabled: true,  live: true },
 	{ id: 'glance',        label: 'Today at a glance', scope: 'personal', enabled: true, live: true },
 	{ id: 'top3',          label: 'Top 3 priorities',  scope: 'personal', enabled: true, live: true },
 	{ id: 'completed',     label: 'Completed today',  scope: 'personal', enabled: true, live: true },
 	{ id: 'board',         label: 'Family task board',scope: 'family',   enabled: true,  live: true },
-	{ id: 'memberStrip',   label: 'Member strip',    scope: 'family',   enabled: true,  live: true },
 	{ id: 'kids',          label: 'Kids’ schedule', scope: 'family',   enabled: true,  live: true },
 	{ id: 'meals',         label: 'Meals',          scope: 'family',   enabled: false, live: false }
 ];

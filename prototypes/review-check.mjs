@@ -105,6 +105,12 @@ function readFeedback(page) {
  * bad mark that is not is a change request; no bad marks at all is an
  * approval. An empty verdict still counts — a mark left without a verdict is
  * a question the reviewer asked, not a pass.
+ *
+ * A page can be `reviewed`, `reviewed-clean` (opened, examined, nothing marked —
+ * an approval in all but name), or `unreviewed` (never looked at). The middle
+ * state existed because the only way to record "reviewed" used to be to write a
+ * mark, so a reviewer who found nothing on a page was recorded as never having
+ * opened it.
  */
 function deriveOutcome(feedback) {
 	if (!feedback || feedback.marks.length === 0) return null;
@@ -128,11 +134,38 @@ section(2, 'state matches the marks that were actually made');
 for (const p of onDisk) {
 	const e = byFile.get(p);
 	if (!e) continue;
-	const marked = (readFeedback(p)?.marks.length ?? 0) > 0;
-	if (e.state === 'reviewed' && !marked) fail(`${p}: marked reviewed but no marks exist`);
+	const fb = readFeedback(p);
+	const marked = (fb?.marks.length ?? 0) > 0;
+	// "Reviewed and found nothing" is a real verdict, and it is not the same as
+	// never having looked. It is entered deliberately — the reviewer approved a
+	// page carrying no marks — so the absence of a finding IS the finding, and
+	// the page says in a note what was looked at. Before this state existed
+	// those pages silently read `unreviewed`, which claimed nobody had looked
+	// when somebody had.
+	const startedARound = (fb?.totalRounds ?? 0) > 0;
+	if (e.state === 'reviewed' && !marked) {
+		fail(`${p}: marked reviewed but no marks exist — use "reviewed-clean" for a page with no findings`);
+	}
+	if (e.state === 'reviewed-clean') {
+		if (marked) fail(`${p}: reviewed-clean but marks exist — that is an ordinary reviewed page`);
+		if (e.approved !== true) {
+			fail(`${p}: reviewed-clean but never approved — a round on its own is not a verdict`);
+		}
+		if (!startedARound) fail(`${p}: reviewed-clean but the reviewer never opened a round on it`);
+		if (e.outcome) fail(`${p}: reviewed-clean carries an outcome; a clean review has nothing to change`);
+	}
 	if (e.state === 'unreviewed' && marked) fail(`${p}: marked unreviewed but marks exist`);
-	if (e.state === 'reviewed' && !e.outcome) fail(`${p}: reviewed with no outcome`);
 	if (e.state === 'unreviewed' && e.outcome) fail(`${p}: unreviewed but carries an outcome`);
+	// Deliberately NOT checked here: a round exists with no verdict.
+	//
+	// The overlay opens a round on every page load, so "a round was started" is
+	// true of any page the reviewer merely glanced at. Treating that as a review
+	// would record a verdict nobody made — the exact failure the staging change
+	// exists to prevent, committed in the checker instead of the tool.
+	//
+	// The signal that a page was genuinely judged is `approved`, and §5 already
+	// fails when the registry and the review tool disagree about it. That is the
+	// check that matters; this one was noise wearing a check's clothes.
 }
 if (!failures) ok('reviewed <-> marks present, on every page');
 
@@ -144,6 +177,21 @@ for (const p of onDisk) {
 	if (e.outcome !== derived) fail(`${p}: says "${e.outcome}", the marks say "${derived}"`);
 }
 if (!failures) ok('no page claims a verdict its marks do not support');
+
+section('3b', 'a clean review is recorded as one');
+for (const p of onDisk) {
+	const e = byFile.get(p);
+	if (!e || e.state !== 'reviewed-clean') continue;
+	const fb = readFeedback(p);
+	if (!fb) {
+		fail(`${p}: reviewed-clean with no review record at all`);
+		continue;
+	}
+	if (!fb.approved && !e.note) {
+		fail(`${p}: reviewed-clean, nothing found, and no note saying what was looked at`);
+	}
+}
+if (!failures) ok('every page with no findings says it was still looked at');
 
 section(4, 'mark counts match');
 for (const p of onDisk) {
@@ -157,7 +205,9 @@ if (!failures) ok('declared mark counts agree with the record');
 section(5, 'closure mirrors the reviewer, never runs ahead of it');
 for (const p of onDisk) {
 	const e = byFile.get(p);
-	if (!e || e.state !== 'reviewed') continue;
+	// reviewed-clean is a closed loop too: a round was opened and a verdict was
+	// reached, so its closure has to mirror the record like any other.
+	if (!e || (e.state !== 'reviewed' && e.state !== 'reviewed-clean')) continue;
 	const fb = readFeedback(p);
 	if (!fb) continue;
 	// Approval is the reviewer's, recorded by the collector in the page's own
@@ -193,11 +243,21 @@ for (const p of onDisk) {
 }
 if (!failures) ok('every reviewed page records its outcome and its destination');
 
+section('6b', 'a clean review is not a silent one');
+for (const p of onDisk) {
+	const e = byFile.get(p);
+	if (!e || e.state !== 'reviewed-clean') continue;
+	if (!e.note) fail(`${p}: reviewed-clean with no note — "nothing found" is a claim, not a default`);
+}
+if (!failures) ok('every clean review says what was looked at');
+
 const counts = { approved: 0, 'changes-requested': 0, rebuild: 0, unreviewed: 0, approvedByHuman: 0 };
+let clean = 0;
 for (const p of onDisk) {
 	const e = byFile.get(p);
 	if (!e) continue;
 	if (e.state === 'unreviewed') counts.unreviewed++;
+	else if (e.state === 'reviewed-clean') clean++;
 	else counts[e.outcome] = (counts[e.outcome] ?? 0) + 1;
 	if (e.approved) counts.approvedByHuman++;
 }
@@ -206,11 +266,12 @@ if (!QUIET) {
 	// is not registered is not "reviewed", it is unregistered, and folding it
 	// into the total is how a drifted registry still looks tidy.
 	const reg = entries.filter((e) => existsSync(join(ROOT, ...e.file.split('/'))));
-	const reviewed = reg.filter((r) => r.state === 'reviewed').length;
+	const reviewed = reg.filter((r) => r.state === 'reviewed').length + clean;
 	const unregistered = onDisk.length - reg.length;
 	console.log(
 		`\n${onDisk.length} prototypes · ${reviewed} reviewed (${counts.approved} approved, ` +
-			`${counts['changes-requested']} changes requested, ${counts.rebuild} to rebuild) · ` +
+			`${counts['changes-requested']} changes requested, ${counts.rebuild} to rebuild, ` +
+			`${clean} clean) · ` +
 			`${counts.unreviewed} unreviewed` +
 			(unregistered ? ` · ${unregistered} unregistered (see §1)` : '') +
 			(counts.approvedByHuman ? ` · ${counts.approvedByHuman} approved in the review tool` : '')

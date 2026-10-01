@@ -216,21 +216,18 @@ const board = card(
 	'mod-board', 'Family task board');
 grid.appendChild(board);
 
-/* ── the member strip is gone ───────────────────────────────────────────
+/* ── the member strip is gone, in the prototype AND in the app ─────────────
    "Why is this needed?" and then "This is uneeded". Both marks are kept
    verbatim in #fb-page and in the notes below, because a mark that vanishes
    with the thing it marked is how a review gets lost.
 
-   The card is removed from THIS page. It is not removed from the app, and it
-   is not removed from the module registry either: `MemberStrip.svelte` still
-   ships and `DayDashboard.svelte:126` still mounts it, and
-   `app-data.js`'s DASHBOARD_MODULES is the prototype's copy of the app's
-   registry, read by account.html and family-detail.html to render the module
-   switches. So the app's card and the app's switch both stay, and this page
-   is the proposal to cut the first of them. The strip's one unique fact —
-   the roster is complete only where every member is listed, empty column
-   included — is not lost: the board above already does that, which is the
-   answer to "why is this needed". */
+   #103 has since landed in the app, so this page is no longer the proposal:
+   `MemberStrip.svelte` and its test are deleted, `DayDashboard.svelte` no
+   longer mounts it, and the `memberStrip` row is out of
+   `dashboardModules.ts` — so `app-data.js` no longer carries it either, and
+   account.html and family-detail.html no longer offer a switch for it. What
+   stays is the reason it went: the board above already lists every member,
+   empty column included, which is the answer to "why is this needed". */
 
 /* ── kids' schedule (kids) — 072, lifted a layer at 1300+ ──────────────── */
 /* One band per child, in that child's own colour, in the order their first
@@ -298,7 +295,7 @@ notes.innerHTML = `
 		${sectionTitle('Round 1 — what changed here')}
 		<ul>
 			<li><b>The member strip is gone.</b> “Why is this needed?” and then “This is uneeded”. Two of the real card's three facts were repeats — the <code>N open</code> count is the number the Family Task Board prints beside each assignee, and the <code>event</code> chip is what Today at a Glance already shows as Going/Maybe. The third, a complete roster, was never unique: this board already lists every member, empty column included, where the app builds its columns from <code>tasks.map(ownerId)</code> and drops whoever has a clear day.</li>
-			<li><b>The card is gone; the app's is not.</b> <code>MemberStrip.svelte</code> still ships, <code>DayDashboard.svelte:126</code> still mounts it, and the <code>memberStrip</code> row is still a real switch on <code>/account</code>. This page is the proposal, not the news.</li>
+			<li><b>The card is gone, and #103 has landed.</b> <code>MemberStrip.svelte</code> and its test are deleted, <code>DayDashboard.svelte</code> no longer mounts it, and <code>memberStrip</code> is out of <code>dashboardModules.ts</code> — so this page, <code>app-data.js</code>, and the /account and family switches all agree that there is no such module. A user who hid the strip before it was retired carries a stale id in their saved settings; it is inert, and the next settings save clears it.</li>
 			<li><b>The board is one cell wide.</b> “This doesn't need to be as wide” — it was 876px across two of three columns. Completed today takes the column it gave up, so the band reads glance·priorities·kids over done·board·groceries and <b>nothing is left over</b>: two columns at 900px, three at 1300px, and every card lands in a filled cell at every one of them. The kids' schedule is lifted into the column above where the people box was, and Groceries moves up a layer.</li>
 		</ul>
 	</div>

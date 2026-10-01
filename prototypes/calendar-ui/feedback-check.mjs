@@ -54,6 +54,23 @@ function boot() {
 }
 const tick = () => sleep(10);
 const click = (w, node, opts) => node.dispatchEvent(new w.MouseEvent('click', Object.assign({ bubbles: true, cancelable: true }, opts || {})));
+
+/**
+ * Click an element and get a real mark out of it.
+ *
+ * A click alone no longer creates anything — it stages the element and opens a
+ * composer. Every check that wants a MARK has to say what the mark is, because
+ * that is the contract now: no message, no mark. Anything that still expects a
+ * bare click to produce `items()` is asserting the old, wrong behaviour.
+ */
+const writeMark = (w, d, api, node, note, opts) => {
+	click(w, node, opts);
+	const ta = d.querySelector('.fb-card__text--draft');
+	if (!ta) throw new Error('click did not open a draft composer for ' + (node.id || node.tagName));
+	ta.value = note;
+	ta.dispatchEvent(new w.Event('input', { bubbles: true }));
+	api.submitDraft();
+};
 const press = (w, key, opts) => w.document.dispatchEvent(new w.KeyboardEvent('keydown', Object.assign({ key, bubbles: true, cancelable: true }, opts || {})));
 
 /* ────────────────────────────────────────────────── 1. chrome never mounts twice */
@@ -103,18 +120,51 @@ console.log('\n── 2. free-form element picking (stagewise) ──');
 	reached = false;
 	click(w, today);
 	if (reached) fail('page handler fired during picking — clicks are not being swallowed');
-	if (api.items().length !== 1) fail(`expected 1 mark, got ${api.items().length}`);
+
+	// A click alone records NOTHING. It stages the element and opens a
+	// composer; the mark exists only once a message is written and submitted.
+	// This is the behaviour change: a stray click while hunting for the right
+	// element used to leave a verdict-less mark behind.
+	if (api.items().length !== 0) fail(`a bare click recorded ${api.items().length} mark(s) — a click must not create a mark`);
+	const st = api.draft && api.draft();
+	if (!st) fail('a click did not stage the element as a pending mark');
+	else if (st.selector !== '#today') fail(`staged the wrong element: ${st.selector}`);
+	else ok('a bare click stages the element and records nothing');
+
+	// the composer is open, and it is a DRAFT — no number, no verdict
+	if (d.querySelector('.fb-card').hidden) fail('composer did not open on select');
+	else if (d.querySelector('.fb-card').getAttribute('data-draft') !== 'true') fail('composer is not marked as a draft');
+	else if (d.querySelector('.fb-pin')) fail('a staged element drew a pin — pins are for recorded marks');
+	else if (!d.querySelector('.fb-pending')) fail('the staged element has no pending outline');
+	else ok('composer opens as a draft, with a pending outline and no pin');
+
+	// submitting with no message must not create a mark
+	api.submitDraft();
+	if (api.items().length !== 0) fail('an empty submit created a mark — an empty mark records nothing');
+	else ok('an empty message cannot become a mark');
+
+	// write it, then submit
+	const ta = d.querySelector('.fb-card__text--draft');
+	if (!ta) fail('the draft composer has no message field');
+	ta.value = 'Today button is 120x32, below the 44px touch target';
+	ta.dispatchEvent(new w.Event('input', { bubbles: true }));
+	if (api.items().length !== 0) fail('typing created a mark — only submitting may');
+	api.submitDraft();
+	if (api.items().length !== 1) fail(`expected 1 mark after submit, got ${api.items().length}`);
+	if (api.draft && api.draft()) fail('the draft survived submission');
 	const it = api.items()[0];
 	if (it.tag !== 'button') fail(`picked the wrong element: <${it.tag}>`);
 	if (it.selector !== '#today') fail(`selector wrong: ${it.selector}`);
+	if (it.note !== 'Today button is 120x32, below the 44px touch target') fail('the message did not reach the mark');
 	if (!it.region || it.regionLabel !== 'Toolbar') fail(`enclosing region not captured: ${it.region}`);
 	if (it.box.w === undefined) fail('no bounding box captured');
 	if (!it.styles) fail('no computed styles captured');
-	ok(`click picked <${it.tag}> ${it.selector} in region ${it.region}`);
+	ok(`submitted <${it.tag}> ${it.selector} in region ${it.region}`);
 
-	// a card opened automatically
-	if (d.querySelector('.fb-card').hidden) fail('comment card did not open on select');
-	else ok('comment card opens on select');
+	// the submitted mark is a real mark: pinned, and the outline is gone
+	if (!d.querySelector('.fb-pin')) fail('the submitted mark drew no pin');
+	if (d.querySelector('.fb-pending')) fail('the pending outline outlived submission');
+	else ok('submitted mark is pinned; the pending outline is gone');
 }
 
 /* ───────────────────────────────────────────────────── 3. alt+click goes coarser */
@@ -124,7 +174,7 @@ console.log('\n── 3. alt+click selects the parent ──');
 	await tick();
 	const w = dom.window, d = w.document, api = w.__protoFeedback;
 	click(w, d.querySelector('.fb-bar__pick'));
-	click(w, d.getElementById('views'), { altKey: true });
+	writeMark(w, d, api, d.getElementById('views'), 'the whole view switch, not one button', { altKey: true });
 	if (api.items().length !== 1) fail('alt+click produced no mark');
 	else if (api.items()[0].tag !== 'div') fail(`alt+click picked <${api.items()[0].tag}>, expected the parent div`);
 	else ok(`alt+click walked up to <${api.items()[0].tag}> (${api.items()[0].selector})`);
@@ -138,8 +188,8 @@ console.log('\n── 4. shift+click adds · re-click opens · shift removes ─
 	const w = dom.window, d = w.document, api = w.__protoFeedback;
 	click(w, d.querySelector('.fb-bar__pick'));
 
-	click(w, d.getElementById('today'));
-	click(w, d.getElementById('views'), { shiftKey: true });
+	writeMark(w, d, api, d.getElementById('today'), 'the Today button');
+	writeMark(w, d, api, d.getElementById('views'), 'the whole view switch', { shiftKey: true });
 	if (api.items().length !== 2) fail(`shift+click did not add: ${api.items().length} items`);
 	else ok('shift+click adds a second mark');
 
@@ -163,9 +213,9 @@ console.log('\n── 5. verdict: good / bad / idea ──');
 	const w = dom.window, d = w.document, api = w.__protoFeedback;
 	click(w, d.querySelector('.fb-bar__pick'));
 
-	click(w, d.getElementById('today'));
-	click(w, d.getElementById('c1'), { shiftKey: true });
-	click(w, d.getElementById('views'), { shiftKey: true });
+	writeMark(w, d, api, d.getElementById('today'), 'the Today button');
+	writeMark(w, d, api, d.getElementById('c1'), 'the first cell', { shiftKey: true });
+	writeMark(w, d, api, d.getElementById('views'), 'the whole view switch', { shiftKey: true });
 
 	// mark the currently-open card
 	const mark = (v) => {
@@ -191,20 +241,23 @@ console.log('\n── 5. verdict: good / bad / idea ──');
 	else if (!bad.redo) fail('bad did not default to redo=true');
 	else ok('bad recorded and defaulted onto the redo list');
 
+	// The third mark is the whole view switch, which is a `div` — the pin and
+	// the card are the same for every kind, so nothing here is element-specific.
 	click(w, d.querySelectorAll('.fb-pin')[2]);
 	mark('idea');
-	if (api.items()[2].verdict !== 'idea') fail('idea not recorded');
-	else ok('idea recorded');
+	if (api.items()[2].verdict !== 'idea') {
+		fail(`idea not recorded: "${api.items()[2].verdict}" on ${api.items()[2].selector}`);
+	} else ok('idea recorded');
 
 	// toggling the same verdict off
 	mark('idea');
-	if (api.items()[2].verdict !== '') fail('re-clicking a verdict did not clear it');
+	if (api.items()[2].verdict !== '') fail(`re-clicking a verdict did not clear it: "${api.items()[2].verdict}"`);
 	else ok('re-clicking a verdict clears it');
 
 	// keyboard verdicts, on the still-unmarked third mark (verdicts toggle,
 	// so this must not be a mark that already has one)
 	click(w, d.querySelectorAll('.fb-pin')[2]);
-	if (api.items()[2].verdict) fail('third mark was not unmarked to begin with');
+	if (api.items()[2].verdict) fail(`third mark was not unmarked to begin with: "${api.items()[2].verdict}"`);
 	press(w, '1');
 	if (api.items()[2].verdict !== 'good') fail(`key "1" did not set good: "${api.items()[2].verdict}"`);
 	press(w, '2');
@@ -244,20 +297,25 @@ console.log('\n── 6. comment on a selection, then markdown ──');
 	await tick();
 	const w = dom.window, d = w.document, api = w.__protoFeedback;
 	click(w, d.querySelector('.fb-bar__pick'));
-	click(w, d.getElementById('views'));
-	click(w, d.getElementById('c1'), { shiftKey: true });
+	// Both marks are written before either is judged: a mark is a message plus
+	// a verdict, and the message comes first. A click alone would stage, not
+	// record, so there is nothing to verdict until the note exists.
+	writeMark(w, d, api, d.getElementById('views'), 'The week and day switches are cramped next to each other.');
+	writeMark(w, d, api, d.getElementById('c1'), 'Week column is 44px per hour but the day grid is 56px — make them match.', { shiftKey: true });
 
+	// judge the first one bad, which is what puts it on the rebuild queue
+	click(w, d.querySelectorAll('.fb-pin')[0]);
 	click(w, d.querySelector('.fb-card .fb-v[data-v="bad"]'));
 	const ta = d.querySelector('.fb-card__text');
-	ta.value = 'Week column is 44px per hour but the day grid is 56px — make them match.';
-	ta.dispatchEvent(new w.Event('input', { bubbles: true }));
+	if (ta.value !== 'The week and day switches are cramped next to each other.') fail('the note did not survive submission');
 
 	// marks live in the open round now, not at the top level
 	const p = api.payload();
 	const open = p.rounds.filter((r) => r.status === 'open');
 	if (open.length !== 1) fail(`expected exactly 1 open round, got ${open.length}`);
 	else if (open[0].items.length !== 2) fail(`open round has ${open[0].items.length} items, expected 2`);
-	else if (open[0].items[1].note !== ta.value) fail('note not captured');
+	else if (!/make them match/.test(open[0].items[1].note || '')) fail(`note not captured: "${open[0].items[1].note}"`);
+	else if (open[0].items[0].verdict !== 'bad') fail('the bad verdict did not land on the first mark');
 	if (!/^\d+x\d+$/.test(p.viewport)) fail('viewport not captured: ' + p.viewport);
 	if (!p.page || !p.updatedAt || !p.title || !p.about) fail('payload metadata incomplete: ' + JSON.stringify({ page: p.page, t: p.updatedAt, title: p.title, about: p.about }));
 	else ok(`note captured, viewport ${p.viewport}, page ${p.page}, ${p.rounds.length} round(s)`);
@@ -282,8 +340,8 @@ console.log('\n── 7. pins stay attached, list navigates ──');
 	await tick();
 	const w = dom.window, d = w.document, api = w.__protoFeedback;
 	click(w, d.querySelector('.fb-bar__pick'));
-	click(w, d.getElementById('today'));
-	click(w, d.getElementById('c1'), { shiftKey: true });
+	writeMark(w, d, api, d.getElementById('today'), 'the Today button');
+	writeMark(w, d, api, d.getElementById('c1'), 'the first cell', { shiftKey: true });
 
 	if (d.querySelectorAll('.fb-pin').length !== 2) fail(`expected 2 pins, got ${d.querySelectorAll('.fb-pin').length}`);
 	else ok('2 pins rendered, numbered');
@@ -350,7 +408,8 @@ console.log('\n── 8. keyboard and safety ──');
 
 	// F must not fire while typing a note
 	click(w, d.getElementById('c1'));
-	const ta = d.querySelector('.fb-card__text');
+	const ta = d.querySelector('.fb-card__text--draft');
+	if (!ta) fail('the draft composer has no message field to type into');
 	ta.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'f', bubbles: true, cancelable: true }));
 	if (d.querySelector('.fb-bar__pick').getAttribute('aria-pressed') === 'true') fail('F hijacked while typing a note');
 	else ok('F is ignored while typing in a note');
@@ -372,7 +431,7 @@ console.log('\n── 9. transport ──');
 	const dom = boot();
 	await tick();
 	click(dom.window, dom.window.document.querySelector('.fb-bar__pick'));
-	click(dom.window, dom.window.document.getElementById('today'));
+	writeMark(dom.window, dom.window.document, dom.window.__protoFeedback, dom.window.document.getElementById('today'), 'the Today button');
 	await sleep(500);
 	const d = dom.window.document;
 	const s = d.querySelector('.fb-status');
@@ -428,7 +487,7 @@ console.log('\n── 11. identity reaches the review ──');
 
 	// and the markdown leads with it, not the filename
 	click(w, d.querySelector('.fb-bar__pick'));
-	click(w, d.getElementById('today'));
+	writeMark(w, d, api, d.getElementById('today'), 'the Today button');
 	click(w, d.querySelector('.fb-card .fb-v[data-v="bad"]'));
 	const md = api.markdown(false, 'page');
 	if (!/^# Prototype review/.test(md)) fail('markdown has no top-level heading');
@@ -446,7 +505,7 @@ console.log('\n── 12. marks accumulate across prototypes ──');
 	const a = boot();
 	await tick();
 	click(a.window, a.window.document.querySelector('.fb-bar__pick'));
-	click(a.window, a.window.document.getElementById('today'));
+	writeMark(a.window, a.window.document, a.window.__protoFeedback, a.window.document.getElementById('today'), 'the Today button is below the touch target');
 	click(a.window, a.window.document.querySelector('.fb-card .fb-v[data-v="bad"]'));
 	await sleep(500);
 
@@ -474,7 +533,7 @@ console.log('\n── 12. marks accumulate across prototypes ──');
 	else ok('page B starts empty — marks are per page');
 
 	click(dom.window, dom.window.document.querySelector('.fb-bar__pick'));
-	click(dom.window, dom.window.document.getElementById('c1'));
+	writeMark(dom.window, dom.window.document, api, dom.window.document.getElementById('c1'), 'the cell padding is right');
 	click(dom.window, dom.window.document.querySelector('.fb-card .fb-v[data-v="good"]'));
 	await sleep(500);
 
@@ -521,7 +580,7 @@ console.log('\n── 13. rounds are kept, not overwritten ──');
 
 	// round 1
 	click(w, d.querySelector('.fb-bar__pick'));
-	click(w, d.getElementById('today'));
+	writeMark(w, d, api, d.getElementById('today'), 'the Today button is under the touch target');
 	click(w, d.querySelector('.fb-card .fb-v[data-v="bad"]'));
 	await sleep(500);
 	if (api.rounds().length !== 1) fail(`expected 1 round, got ${api.rounds().length}`);
@@ -540,7 +599,7 @@ console.log('\n── 13. rounds are kept, not overwritten ──');
 	if (d.querySelector('.fb-bar__pick').getAttribute('aria-pressed') !== 'true') {
 		click(w, d.querySelector('.fb-bar__pick'));
 	}
-	click(w, d.getElementById('today'));
+	writeMark(w, d, api, d.getElementById('today'), 'still under the touch target a round later');
 	click(w, d.querySelector('.fb-card .fb-v[data-v="bad"]'));
 	await sleep(500);
 	const rs = api.rounds();

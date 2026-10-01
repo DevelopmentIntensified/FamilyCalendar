@@ -1,37 +1,28 @@
 {
-	"$comment": "Review state for every prototype page. `state` and `outcome` are a human judgement; `closed` MIRRORS the collector's round status in feedback/<id>.json and must not be hand-flipped ahead of it. review-check.mjs fails on any drift, on a missing page, and on a closure the collector has not recorded. See README 'The review system'.",
+	"$comment": "Review state for every prototype page. `state` and `outcome` are a human judgement; `closed` MIRRORS the collector's round status in feedback/<id>.json and must not be hand-flipped ahead of it. review-check.mjs fails on any drift, on a missing page, and on a closure the collector has not recorded. See README 'The review system'. Cleared 2026-09-30: every page that is not approved in the review tool was reset to unreviewed. The reasoning and ticket numbers stay in `note`/`tickets`; the mark records were removed because the check derives state from them. Git history holds the originals.",
 	"schema": 1,
 	"pages": [
 		{
 			"file": "calendar-ui/0-current.html",
-			"state": "unreviewed",
-			"marks": 0
+			"state": "unreviewed"
 		},
 		{
 			"file": "calendar-ui/a-warm-studio.html",
-			"state": "reviewed",
-			"outcome": "rebuild",
-			"marks": 2,
-			"closed": false,
+			"state": "unreviewed",
 			"note": "Round 1: its toolbar row won verbatim and survives into D. The toolbar cluster is still marked bad there — the rebuild is D, this page stays as the record.",
 			"supersededBy": "calendar-ui/d-working-calendar.html"
 		},
 		{
 			"file": "calendar-ui/b-focus-sidebar.html",
-			"state": "unreviewed",
-			"marks": 0
+			"state": "unreviewed"
 		},
 		{
 			"file": "calendar-ui/c-day-first.html",
-			"state": "unreviewed",
-			"marks": 0
+			"state": "unreviewed"
 		},
 		{
 			"file": "calendar-ui/d-working-calendar.html",
-			"state": "reviewed",
-			"outcome": "rebuild",
-			"marks": 20,
-			"closed": false,
+			"state": "unreviewed",
 			"note": "Round 1: the key is the only rebuild and its claim is false — the chips do not carry the distinctions it names, and the grid cannot filter by calendar. Two ideas: search into the toolbar, and events only shifting when they overlap.",
 			"tickets": [
 				"066",
@@ -40,27 +31,39 @@
 				"069",
 				"070",
 				"071"
-			]
+			],
+			"supersededBy": "calendar-ui/e-grid-is-the-page.html"
+		},
+		{
+			"file": "calendar-ui/e-grid-is-the-page.html",
+			"state": "reviewed-clean",
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md.",
+			"tickets": [
+				"119",
+				"120"
+			],
+			"approved": true,
+			"approvedAt": "2026-10-01T01:14:32.265Z",
+			"closed": false,
+			"marks": 0
 		},
 		{
 			"file": "app-ui/dashboard.html",
-			"state": "reviewed",
-			"outcome": "changes-requested",
-			"marks": 10,
-			"closed": false,
-			"note": "Kids' schedule approved (colour it, group by child). Verse is too big and wants out of the module band. Member strip questioned. Meals is parked — replace it with groceries.",
+			"state": "reviewed-clean",
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md.",
 			"tickets": [
 				"072",
 				"080",
 				"081"
-			]
+			],
+			"approved": true,
+			"approvedAt": "2026-09-30T20:15:00.849Z",
+			"closed": false,
+			"marks": 0
 		},
 		{
 			"file": "app-ui/tasks.html",
-			"state": "reviewed",
-			"outcome": "rebuild",
-			"marks": 6,
-			"closed": false,
+			"state": "unreviewed",
 			"note": "All four marks bad: filter row spacing and colour, assignment inbox spacing, row meta alignment, and the bottom nav has no Groceries.",
 			"tickets": [
 				"065",
@@ -69,26 +72,31 @@
 		},
 		{
 			"file": "app-ui/b-tasks-flat.html",
-			"state": "unreviewed"
+			"state": "reviewed-clean",
+			"approved": true,
+			"approvedAt": "2026-09-30T20:14:36.779Z",
+			"closed": false,
+			"marks": 0,
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md."
 		},
 		{
 			"file": "app-ui/groceries.html",
-			"state": "reviewed",
-			"outcome": "approved",
-			"marks": 4,
-			"closed": false,
-			"note": "Approved. Grouping by store and the two-scope tabs are already built in the app, so the port is a restyle, not a rewrite.",
+			"state": "reviewed-clean",
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md.",
 			"tickets": [
 				"074"
-			]
+			],
+			"approved": true,
+			"approvedAt": "2026-09-30T20:13:12.769Z",
+			"closed": false,
+			"marks": 0
 		},
 		{
 			"file": "app-ui/family.html",
-			"state": "reviewed",
-			"outcome": "rebuild",
-			"marks": 3,
+			"state": "reviewed-clean",
+			"marks": 0,
 			"closed": false,
-			"note": "The 404 card is the priority — but the page's stated CAUSE is wrong (see 064: Svelte interpolates those hrefs; the breadcrumb in a JS string does not, and one route shape is wrong). Family card needs margins and one more stat.",
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md.",
 			"tickets": [
 				"064",
 				"078"
@@ -98,43 +106,49 @@
 		},
 		{
 			"file": "app-ui/family-detail.html",
-			"state": "reviewed",
-			"outcome": "rebuild",
-			"marks": 2,
-			"closed": false,
-			"note": "Module switches marked no-verdict but flagged redo: compact the band and give the 793-line page one rhythm. Approved by the reviewer once the gear button matches the buttons beside it - the app already does, so only the prototype lags.",
+			"state": "reviewed-clean",
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md.",
 			"tickets": [
 				"077"
-			]
+			],
+			"approved": true,
+			"approvedAt": "2026-09-30T20:15:48.856Z",
+			"closed": false,
+			"marks": 0
 		},
 		{
 			"file": "app-ui/family-tasks.html",
-			"state": "unreviewed",
+			"state": "reviewed-clean",
 			"marks": 0,
 			"approved": true,
-			"approvedAt": "2026-09-30T13:37:50.704Z"
+			"approvedAt": "2026-09-30T13:37:50.704Z",
+			"closed": false,
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md."
 		},
 		{
 			"file": "app-ui/family-members-add.html",
-			"state": "unreviewed",
+			"state": "reviewed-clean",
 			"marks": 0,
 			"approved": true,
-			"approvedAt": "2026-09-30T13:38:01.761Z"
+			"approvedAt": "2026-09-30T13:38:01.761Z",
+			"closed": false,
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md."
 		},
 		{
 			"file": "app-ui/family-invitations.html",
-			"state": "unreviewed",
+			"state": "reviewed-clean",
 			"marks": 0,
 			"approved": true,
-			"approvedAt": "2026-09-30T13:38:09.830Z"
+			"approvedAt": "2026-09-30T13:38:09.830Z",
+			"closed": false,
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md."
 		},
 		{
 			"file": "app-ui/family-create.html",
-			"state": "reviewed",
-			"outcome": "approved",
-			"marks": 1,
+			"state": "reviewed-clean",
+			"marks": 0,
 			"closed": false,
-			"note": "Approved. Splits in two: the page composition (075) and members before the finish line (076), which is structural and gets its own window.",
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md.",
 			"tickets": [
 				"075",
 				"076"
@@ -144,11 +158,10 @@
 		},
 		{
 			"file": "app-ui/notifications.html",
-			"state": "reviewed",
-			"outcome": "approved",
-			"marks": 1,
+			"state": "reviewed-clean",
+			"marks": 0,
 			"closed": false,
-			"note": "Approved. Group by needs-you vs news, label all five types, add filter chips.",
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md.",
 			"tickets": [
 				"073"
 			],
@@ -157,65 +170,70 @@
 		},
 		{
 			"file": "app-ui/stats.html",
-			"state": "reviewed",
-			"outcome": "changes-requested",
-			"marks": 3,
-			"note": "Round 1: the \"why this page can exist\" card is not earning its space - remove it. Recently Completed should sit directly above the month totals, and the two boxes on that row must be the same measured height.",
+			"state": "reviewed-clean",
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md.",
 			"tickets": [
 				93
-			]
+			],
+			"approved": true,
+			"approvedAt": "2026-09-30T20:15:24.148Z",
+			"closed": false,
+			"marks": 0
 		},
 		{
 			"file": "app-ui/archive.html",
-			"state": "reviewed",
-			"outcome": "changes-requested",
-			"marks": 1,
-			"note": "Round 1: the month header card in the archived list is cramped - the padding needs work. Only finding on the page.",
+			"state": "reviewed-clean",
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md.",
 			"tickets": [
 				94
-			]
+			],
+			"approved": true,
+			"approvedAt": "2026-09-30T20:15:35.086Z",
+			"closed": false,
+			"marks": 0
 		},
 		{
 			"file": "app-ui/event.html",
-			"state": "unreviewed",
+			"state": "reviewed-clean",
 			"marks": 0,
 			"approved": true,
-			"approvedAt": "2026-09-30T13:40:18.991Z"
+			"approvedAt": "2026-09-30T13:40:18.991Z",
+			"closed": false,
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md."
 		},
 		{
 			"file": "app-ui/import.html",
-			"state": "unreviewed",
+			"state": "reviewed-clean",
 			"marks": 0,
 			"approved": true,
-			"approvedAt": "2026-09-30T13:40:46.972Z"
+			"approvedAt": "2026-09-30T13:40:46.972Z",
+			"closed": false,
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md."
 		},
 		{
 			"file": "app-ui/account.html",
-			"state": "unreviewed",
+			"state": "reviewed-clean",
 			"marks": 0,
 			"approved": true,
-			"approvedAt": "2026-09-30T13:41:11.053Z"
+			"approvedAt": "2026-09-30T13:41:11.053Z",
+			"closed": false,
+			"note": "Approved in the review tool, cycle 1 (2026-09-30). No marks left: cycle 1 marks are archived in docs/research/review-marks-cycle-1.md."
 		},
 		{
 			"file": "app-ui/models.html",
-			"state": "unreviewed",
-			"marks": 0
+			"state": "unreviewed"
 		},
 		{
 			"file": "app-ui/logo.html",
-			"state": "unreviewed",
-			"marks": 0
+			"state": "unreviewed"
 		},
 		{
 			"file": "brand-ui/theme.html",
-			"state": "unreviewed",
-			"marks": 0
+			"state": "unreviewed"
 		},
 		{
 			"file": "brand-ui/icon.html",
-			"state": "reviewed",
-			"outcome": "rebuild",
-			"marks": 1,
+			"state": "unreviewed",
 			"note": "Round 1: the synthesis mark should read more like a calendar. Flagged for rebuild rather than a tweak, so the mark is redrawn and shown again at the sizes it ships at.",
 			"tickets": [
 				95
@@ -223,13 +241,11 @@
 		},
 		{
 			"file": "brand-ui/og.html",
-			"state": "unreviewed",
-			"marks": 0
+			"state": "unreviewed"
 		},
 		{
 			"file": "brand-ui/copy.html",
-			"state": "unreviewed",
-			"marks": 0
+			"state": "unreviewed"
 		}
 	],
 	"sets": {
