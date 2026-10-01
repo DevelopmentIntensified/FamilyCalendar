@@ -2,11 +2,19 @@
 	import TaskRow, { type TaskRowTask } from './TaskRow.svelte';
 	import TaskCompletedRow from './TaskCompletedRow.svelte';
 	import TaskToolbar, { type TaskChip } from './TaskToolbar.svelte';
+	import {
+		bucketCounts,
+		sortFlatTasks,
+		urgencyBucket,
+		TIME_FILTERS,
+		type TimeFilter
+	} from '$lib/utils/taskUrgency';
+	import type { TaskSortKey } from '$lib/utils/taskSort';
 
 	interface Props {
 		chip: TaskChip;
 		searchQuery: string;
-		sortBy: 'due' | 'priority' | 'created' | 'title';
+		sortBy: TaskSortKey;
 		tagFilter: string;
 		openCount: number;
 		completedCount: number;
@@ -82,6 +90,26 @@
 	let queryActive = $derived(searchQuery.trim().length > 0);
 	let filterActive = $derived(tagFilterActive || queryActive);
 	let chipActive = $derived(chip !== 'all');
+
+	/* ── The flat list (issue 101, decision 2) ─────────────────────────────
+	   ONE continuous list, no Overdue / Today / Up next headings and no
+	   running header — a sticky group heading would re-create the bands. Time
+	   is a filter state (the jump bar) and a sort key; each row prints its own
+	   date, and an overdue row washes and chips itself (TaskRow). */
+
+	/** Jump-bar state. Local to the list: it is a view of the list, not a URL. */
+	let timeFilter = $state<TimeFilter>('all');
+
+	/** Everything the chips/search/tag filter left, open and finished alike. */
+	let matched = $derived([...filteredOpen, ...filteredCompleted]);
+	/** The counts the band headings used to print, now on the jump bar. */
+	let counts = $derived(bucketCounts(matched));
+	let rows = $derived(
+		matched
+			.filter((t) => timeFilter === 'all' || urgencyBucket(t) === timeFilter)
+			.sort((a, b) => sortFlatTasks(a, b, sortBy))
+	);
+	let timeActive = $derived(timeFilter !== 'all');
 </script>
 
 <section
@@ -93,30 +121,56 @@
 
 	<TaskToolbar bind:chip bind:searchQuery bind:sortBy bind:tagFilter />
 
-	{#if filterActive || chipActive}
+	<!-- The jump bar: time as a filter state, carrying the counts the band
+	     headings used to print. Clicking one is a door, not a section. -->
+	<div class="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter tasks by time">
+		{#each TIME_FILTERS as f (f.value)}
+			{@const n = f.value === 'all' ? matched.length : counts[f.value]}
+			<button
+				type="button"
+				onclick={() => (timeFilter = f.value)}
+				aria-pressed={timeFilter === f.value}
+				class="min-h-[44px] rounded-full border px-3 text-sm font-medium transition-colors {timeFilter ===
+				f.value
+					? 'border-slate-900 bg-slate-900 text-white'
+					: f.value === 'overdue' && n > 0
+						? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+						: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
+			>
+				{f.label} <span class="font-bold tabular-nums">{n}</span>
+			</button>
+		{/each}
+	</div>
+
+	{#if filterActive || chipActive || timeActive}
 		<p class="mb-3 text-xs font-medium text-sky-600">
 			{#if chipActive}
 				Showing
 				<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
 					{chip === 'family' ? 'family tasks assigned to you' : `${chip} tasks`}
 				</span>
-				{#if tagFilterActive || queryActive}·{/if}
+				{#if tagFilterActive || queryActive || timeActive}·{/if}
 			{/if}
 			{#if tagFilterActive}
 				Filtering by <span
 					class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
 					>#{tagFilter.trim().toLowerCase()}</span
 				>
-				{#if queryActive}·
-				{/if}
+				{#if queryActive || timeActive}·{/if}
 			{/if}
 			{#if queryActive}
 				Searching “{searchQuery.trim()}”
 			{/if}
+			{#if timeActive}
+				{#if queryActive}·{/if}
+				<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+					>{TIME_FILTERS.find((f) => f.value === timeFilter)?.label}</span
+				>
+			{/if}
 		</p>
 	{/if}
 
-	{#if filteredOpen.length === 0 && filteredCompleted.length === 0}
+	{#if matched.length === 0}
 		<div class="flex flex-col items-center justify-center py-16 text-center">
 			<svg
 				class="mb-4 h-14 w-14 text-slate-300"
@@ -142,85 +196,11 @@
 		</div>
 	{/if}
 
-	<!-- Open tasks -->
-	{#if filteredOpen.length > 0}
-		<h2
-			class="mb-2 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
-		>
-			<span>Open ({filteredOpen.length})</span>
-		</h2>
-	{/if}
+	<!-- ONE list. Open and finished rows sit in the same run, ordered by
+	     urgency; finished work sorts last and strikes itself. -->
 	<div class="space-y-1.5">
-		{#each filteredOpen as task (task.id)}
-			<TaskRow
-				{task}
-				{currentUserId}
-				assigneeName={assigneeName(task)}
-				busy={busyId === task.id}
-				celebrating={celebratingId === task.id}
-				confirmDelete={confirmDeleteId === task.id}
-				onToggle={() => onToggle(task.id)}
-				onEdit={() => onEdit(task)}
-				onAccept={() => onRespond(task, true)}
-				onDecline={() => onRespond(task, false)}
-				onAdvance={() => onAdvance(task.id)}
-				onDelete={() => onDelete(task.id)}
-				onAskDelete={() => onAskDelete(task.id)}
-				{onCancelDelete}
-			/>
-		{/each}
-	</div>
-
-	{#if openCount === 0 && completedCount > 0 && !filterActive && !chipActive}
-		<div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
-			<p class="text-sm font-medium text-emerald-600">All caught up 🎉</p>
-			<p class="text-sm text-slate-500">Nothing open right now</p>
-		</div>
-	{/if}
-
-	<!-- Completed -->
-	{#if filteredCompleted.length > 0}
-		<h2
-			class="mb-2 mt-8 flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"
-		>
-			<span>Completed ({filteredCompleted.length})</span>
-			{#if completedThisWeek > 0}
-				<span class="ml-1 font-normal normal-case text-emerald-600"
-					>· {completedThisWeek} this week</span
-				>
-			{/if}
-			{#if confirmClear}
-				<span class="ml-auto flex items-center gap-1.5 font-normal normal-case">
-					<span class="text-xs font-medium text-red-600">Delete all completed?</span>
-					<button
-						type="button"
-						onclick={onClearCompleted}
-						disabled={clearBusy}
-						class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-					>
-						{clearBusy ? 'Deleting…' : 'Yes, delete'}
-					</button>
-					<button
-						type="button"
-						onclick={onCancelClear}
-						disabled={clearBusy}
-						class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
-					>
-						No
-					</button>
-				</span>
-			{:else}
-				<button
-					type="button"
-					class="ml-auto font-medium normal-case text-slate-400 transition-colors hover:text-red-500"
-					onclick={onBeginClear}
-				>
-					Clear completed
-				</button>
-			{/if}
-		</h2>
-		<div class="space-y-1.5">
-			{#each filteredCompleted as task (task.id)}
+		{#each rows as task (task.id)}
+			{#if task.completedAt}
 				<TaskCompletedRow
 					{task}
 					busy={busyId === task.id}
@@ -230,7 +210,83 @@
 					onAskDelete={() => onAskDelete(task.id)}
 					{onCancelDelete}
 				/>
-			{/each}
+			{:else}
+				<TaskRow
+					{task}
+					{currentUserId}
+					assigneeName={assigneeName(task)}
+					busy={busyId === task.id}
+					celebrating={celebratingId === task.id}
+					confirmDelete={confirmDeleteId === task.id}
+					onToggle={() => onToggle(task.id)}
+					onEdit={() => onEdit(task)}
+					onAccept={() => onRespond(task, true)}
+					onDecline={() => onRespond(task, false)}
+					onAdvance={() => onAdvance(task.id)}
+					onDelete={() => onDelete(task.id)}
+					onAskDelete={() => onAskDelete(task.id)}
+					{onCancelDelete}
+				/>
+			{/if}
+		{/each}
+	</div>
+
+	{#if matched.length > 0 && rows.length === 0}
+		<p
+			class="rounded-xl border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500"
+		>
+			Nothing {TIME_FILTERS.find((f) => f.value === timeFilter)?.label.toLowerCase()} right now.
+			<button
+				type="button"
+				onclick={() => (timeFilter = 'all')}
+				class="font-semibold text-primary-600 hover:underline">Show all {matched.length}</button
+			>
+		</p>
+	{/if}
+
+	{#if openCount === 0 && completedCount > 0 && !filterActive && !chipActive && !timeActive}
+		<div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
+			<p class="text-sm font-medium text-emerald-600">All caught up 🎉</p>
+			<p class="text-sm text-slate-500">Nothing open right now</p>
+		</div>
+	{/if}
+
+	<!-- Clearing finished work is a list-level action now; it used to hang off
+	     the "Completed" band heading, which the flat list does not have. -->
+	{#if filteredCompleted.length > 0}
+		<div class="mt-6 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+			{#if completedThisWeek > 0}
+				<span class="mr-auto text-xs text-emerald-600"
+					>· {completedThisWeek} completed this week</span
+				>
+			{/if}
+			{#if confirmClear}
+				<span class="text-xs font-medium text-red-600">Delete all completed?</span>
+				<button
+					type="button"
+					onclick={onClearCompleted}
+					disabled={clearBusy}
+					class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+				>
+					{clearBusy ? 'Deleting…' : 'Yes, delete'}
+				</button>
+				<button
+					type="button"
+					onclick={onCancelClear}
+					disabled={clearBusy}
+					class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+				>
+					No
+				</button>
+			{:else}
+				<button
+					type="button"
+					class="text-xs font-medium text-slate-400 transition-colors hover:text-red-500"
+					onclick={onBeginClear}
+				>
+					Clear completed
+				</button>
+			{/if}
 		</div>
 	{/if}
 </section>

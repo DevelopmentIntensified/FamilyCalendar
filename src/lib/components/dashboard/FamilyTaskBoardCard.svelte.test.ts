@@ -134,3 +134,82 @@ describe('FamilyTaskBoardCard - quick-add scoping (issue 021)', () => {
 		expect(screen.queryByText(/no streak yet/i)).not.toBeInTheDocument();
 	});
 });
+
+// Issue 101, decision 1: the card is the Family Task Board, so it groups by
+// assignee (falling back to the creator) and prints each person's open count —
+// the number the card exists to show. The rule itself is unit-tested in
+// src/lib/utils/familyTaskGroups.test.ts; this pins the wiring.
+describe('FamilyTaskBoardCard - grouped by assignee', () => {
+	type BoardTask = {
+		id: string;
+		title: string;
+		dueDate: string | null;
+		completedAt: string | null;
+		priority: string;
+		assignedTo: string | null;
+		assignmentStatus: string | null;
+		userId: string;
+	};
+
+	const openTask = (overrides = {}): BoardTask => ({
+		id: 't1',
+		title: 'Mow the lawn',
+		dueDate: null,
+		completedAt: null,
+		priority: 'normal',
+		assignedTo: null,
+		assignmentStatus: 'none',
+		userId: 'u_dad',
+		...overrides
+	});
+
+	function renderWith(tasks: BoardTask[]) {
+		render(FamilyTaskBoardCard, {
+			props: { tasks, members, meId: 'u_me', familyId: 'fam1' }
+		});
+	}
+
+	afterEach(cleanup);
+
+	it('gives each assignee a heading carrying their open-task count', () => {
+		renderWith([
+			openTask({ id: 'a', title: 'Mow', assignedTo: 'u_dad' }),
+			openTask({ id: 'b', title: 'Cook', assignedTo: 'u_dad' }),
+			openTask({ id: 'c', title: 'Read', assignedTo: 'u_mom', userId: 'u_mom' })
+		]);
+		expect(screen.getByRole('heading', { name: /Dad Smith · 2/i })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: /Maya Lopez · 1/i })).toBeTruthy();
+	});
+
+	it('files an unassigned Task under the person who created it', () => {
+		renderWith([
+			openTask({ id: 'a', title: 'Nobody claimed this', assignedTo: null, userId: 'u_mom' })
+		]);
+		// No "Unassigned" heading: the documented fallback is the creator.
+		expect(screen.queryByText(/unassigned/i)).toBeNull();
+		expect(screen.getByRole('heading', { name: /Maya Lopez · 1/i })).toBeTruthy();
+		expect(screen.getByText('Nobody claimed this')).toBeTruthy();
+	});
+
+	it('gives a family member with nothing assigned no heading', () => {
+		renderWith([openTask({ id: 'a', assignedTo: 'u_dad' })]);
+		expect(screen.getByRole('heading', { name: /Dad Smith · 1/i })).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: /Maya Lopez/ })).toBeNull();
+	});
+
+	it('puts the most overdue Task at the top of a column', () => {
+		vi.useFakeTimers();
+		try {
+			vi.setSystemTime(new Date(2026, 8, 30, 10, 0, 0));
+			renderWith([
+				openTask({ id: 'a', title: 'Later', dueDate: '2026-10-04T09:00:00.000Z' }),
+				openTask({ id: 'b', title: 'Overdue', dueDate: '2026-09-25T09:00:00.000Z' }),
+				openTask({ id: 'c', title: 'Undated' })
+			]);
+			const order = [...document.querySelectorAll('section p')].map((p) => p.textContent?.trim());
+			expect(order).toEqual(['Overdue', 'Later', 'Undated']);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});

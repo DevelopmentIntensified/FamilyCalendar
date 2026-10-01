@@ -11,6 +11,8 @@
 	import FamilyCompletedTaskList from '$lib/components/tasks/FamilyCompletedTaskList.svelte';
 	import TaskTagFilter from '$lib/components/tasks/TaskTagFilter.svelte';
 	import EditTaskDialog, { type EditDraft } from '$lib/components/tasks/EditTaskDialog.svelte';
+	import { avatarColor } from '$lib/utils/avatarColor';
+	import { groupTasksByAssignee } from '$lib/utils/familyTaskGroups';
 	import { buildEditPayload } from '$lib/utils/taskEditPayload';
 	import {
 		advanceTask,
@@ -63,6 +65,25 @@
 		if (!task.dueDate || task.completedAt) return false;
 		return new Date(task.dueDate).getTime() < Date.now();
 	}
+
+	/* ── The board (issue 101, decision 1) ──────────────────────────────────
+	   One column per person, the way CONTEXT.md defines the Family Task Board:
+	   grouped by assignee, falling back to the creator when a Task is
+	   unassigned. The grouping lives in one module so this page and the
+	   dashboard card cannot drift into two shapes. Empty columns do not render
+	   (a member with nothing assigned gets no heading about nothing). */
+	function memberName(userId: string): string {
+		if (userId === data.userId) return 'You';
+		const m = (data.familyRoster ?? []).find((r) => r.userId === userId);
+		if (m) return `${m.firstName} ${m.lastName}`.trim();
+		return userId.slice(0, 8);
+	}
+
+	function initial(name: string): string {
+		return (name[0] ?? '?').toUpperCase();
+	}
+
+	$: boardGroups = groupTasksByAssignee(openTasks, memberName, data.userId);
 
 	function formatDue(due: string | null): string {
 		if (!due) return '';
@@ -164,7 +185,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-2xl p-6">
+<div class="mx-auto max-w-5xl p-4 sm:p-6">
 	<div class="mb-6">
 		<a href="/family" class="text-sm text-slate-500 hover:text-slate-700">← Family</a>
 		<div class="mt-1 flex items-center justify-between">
@@ -243,24 +264,48 @@
 			</div>
 		{/if}
 
-		<div class="space-y-1.5">
-			{#each openTasks as task (task.id)}
-				<FamilyOpenTaskRow
-					{task}
-					currentUserId={data.userId}
-					busy={busyId === task.id}
-					confirmDelete={confirmDeleteId === task.id}
-					onEdit={() => openEdit(task)}
-					onToggle={() => toggle(task)}
-					onAccept={() => respond(task, true)}
-					onDecline={() => respond(task, false)}
-					onAdvance={() => advance(task)}
-					onBeginDelete={() => (confirmDeleteId = task.id)}
-					onCancelDelete={() => (confirmDeleteId = null)}
-					onDelete={() => remove(task)}
-				/>
-			{/each}
-		</div>
+		<!-- One column per person. Steps down to a single column on a phone
+		     rather than becoming a horizontally scrolling board. -->
+		{#if boardGroups.length > 0}
+			<div class="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+				{#each boardGroups as group (group.ownerId)}
+					<section class="min-w-0" aria-label="{group.name}’s open tasks">
+						<h3
+							class="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+						>
+							<span
+								class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold {avatarColor(
+									group.ownerId
+								)}"
+								aria-hidden="true"
+							>
+								{initial(group.name === 'You' ? 'Y' : group.name)}
+							</span>
+							{group.name}
+							<span class="font-normal normal-case text-slate-300">· {group.tasks.length}</span>
+						</h3>
+						<div class="space-y-1.5">
+							{#each group.tasks as task (task.id)}
+								<FamilyOpenTaskRow
+									{task}
+									currentUserId={data.userId}
+									busy={busyId === task.id}
+									confirmDelete={confirmDeleteId === task.id}
+									onEdit={() => openEdit(task)}
+									onToggle={() => toggle(task)}
+									onAccept={() => respond(task, true)}
+									onDecline={() => respond(task, false)}
+									onAdvance={() => advance(task)}
+									onBeginDelete={() => (confirmDeleteId = task.id)}
+									onCancelDelete={() => (confirmDeleteId = null)}
+									onDelete={() => remove(task)}
+								/>
+							{/each}
+						</div>
+					</section>
+				{/each}
+			</div>
+		{/if}
 
 		<FamilyCompletedTaskList tasks={completedTasks} />
 	{:else}

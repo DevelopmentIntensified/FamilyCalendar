@@ -2,9 +2,10 @@
  * Shared task-list ordering for the My Tasks and Family-board pages.
  * Pure + deterministic so both lists sort identically.
  */
+import { compareUrgency } from './taskUrgency';
 import type { TaskPriority } from '$lib/server/db/actions/dashboard';
 
-export type TaskSortKey = 'due' | 'priority' | 'created' | 'title';
+export type TaskSortKey = 'urgency' | 'due' | 'priority' | 'created' | 'title';
 
 export interface SortableTask {
 	title: string;
@@ -32,12 +33,17 @@ function time(value: string | Date | number | null | undefined): number {
 
 /**
  * Ascending comparator for the open-task list.
+ *  - urgency:  overdue → today → up next → done, then by due date (101)
  *  - due:      overdue pinned first, then soonest, undated tasks last
  *  - priority: high → normal → low (missing = normal)
  *  - created:  newest first
  *  - title:    case-insensitive A–Z
+ *
+ * 'urgency' is bucketed by taskUrgency (which needs the flat list's own
+ * comparison); the flat list never calls this with it.
  */
 export function sortTasks(a: SortableTask, b: SortableTask, key: TaskSortKey): number {
+	if (key === 'urgency') return compareUrgency(a, b);
 	if (key === 'priority') {
 		const pa = priorityRank(a.priority ?? 'normal');
 		const pb = priorityRank(b.priority ?? 'normal');

@@ -49,12 +49,15 @@ test('mobile smoke: bottom nav, alerts, and task quick-add', async ({ page, test
 		await page.goto('/calendar/tasks');
 		await page.waitForLoadState('networkidle');
 
-		const quickAdd = page.locator('input[placeholder="Add a task... e.g. Buy milk tomorrow @maya"]');
+		// The composer is a MentionInput, which renders a <textarea> (combobox)
+		// and forwards the placeholder copy. Enter belongs to the @mention menu
+		// now, so adding is the Add button — the same path a thumb takes.
+		const quickAdd = page.locator('textarea[placeholder*="Buy milk tomorrow"]');
 		await expect(quickAdd).toBeVisible();
 		await quickAdd.fill('Buy groceries');
-		await quickAdd.press('Enter');
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
 
-		const row = page.getByText('Buy groceries');
+		const row = page.getByRole('button', { name: 'Buy groceries' });
 		await expect(row).toBeVisible();
 	});
 
@@ -63,6 +66,19 @@ test('mobile smoke: bottom nav, alerts, and task quick-add', async ({ page, test
 		const deleteBtn = page.locator('button[aria-label="Delete task"]');
 		await expect(toggle).toBeVisible();
 		await expect(deleteBtn).toBeVisible();
+	});
+
+	// The flat list put five jump-bar chips above the rows (issue 101); 320px is
+	// the hard floor, and a chip row that scrolls sideways is a bug, not a style.
+	await test.step('The task list fits 320px without sideways scrolling', async () => {
+		await page.setViewportSize({ width: 320, height: 640 });
+		await page.waitForTimeout(250);
+		const { scrollW, vw } = await page.evaluate(() => ({
+			scrollW: document.documentElement.scrollWidth,
+			vw: window.innerWidth
+		}));
+		expect(scrollW).toBeLessThanOrEqual(vw + 1);
+		await page.setViewportSize({ width: 390, height: 844 });
 	});
 
 	await test.step('Toggle the task complete', async () => {

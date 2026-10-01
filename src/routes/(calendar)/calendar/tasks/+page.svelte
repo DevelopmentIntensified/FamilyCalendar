@@ -13,7 +13,7 @@
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { queueMutation } from '$lib/utils/offline';
 	import { dueTone, priorityDot, priorityLabel } from '$lib/utils/priorityTone';
-	import { sortByCompletedDesc, sortTasks, type TaskSortKey } from '$lib/utils/taskSort';
+	import { type TaskSortKey } from '$lib/utils/taskSort';
 	import {
 		showRecurringCompleteFeedback,
 		showRecurringSkipFeedback
@@ -64,7 +64,7 @@
 	let clearBusy = false;
 	let tagFilter = '';
 	let searchQuery = '';
-	let sortBy: TaskSortKey = 'due';
+	let sortBy: TaskSortKey = 'urgency';
 	/** Active main-list chip (issue 019). */
 	let chip: TaskChip = 'all';
 
@@ -84,7 +84,8 @@
 	// Remember sort + tag-filter choices across visits (client-only).
 	onMount(() => {
 		const v = localStorage.getItem('familyplanz:tasksSortBy');
-		if (v === 'due' || v === 'priority' || v === 'created' || v === 'title') sortBy = v;
+		if (v === 'urgency' || v === 'due' || v === 'priority' || v === 'created' || v === 'title')
+			sortBy = v;
 		const tf = localStorage.getItem('familyplanz:tagFilter');
 		if (tf !== null) tagFilter = tf;
 	});
@@ -173,9 +174,8 @@
 		(t) => (t.id in completedOverride ? completedOverride[t.id] : !!t.completedAt) === true
 	);
 
-	$: sortedOpenTasks = [...openTasks].sort((a, b) => sortTasks(a, b, sortBy));
-	$: sortedCompletedTasks = [...completedTasks].sort(sortByCompletedDesc);
-
+	// Ordering lives in the list itself (101): one flat run of rows sorted by
+	// urgency, which is the only place that knows whether a Task is finished.
 	/** Chip predicate: family tasks partition off first, then visibility. */
 	function matchesChip(t: TaskItem): boolean {
 		if (chip === 'all') return true;
@@ -201,8 +201,8 @@
 		if (!q) return true;
 		return (tags ?? []).some((t) => t.toLowerCase().startsWith(q));
 	}
-	$: chipFilteredOpenTasks = sortedOpenTasks.filter(matchesChip);
-	$: chipFilteredCompletedTasks = sortedCompletedTasks.filter(matchesChip);
+	$: chipFilteredOpenTasks = openTasks.filter(matchesChip);
+	$: chipFilteredCompletedTasks = completedTasks.filter(matchesChip);
 	// Test-env trace (dev only): server → filtered counts per chip.
 	$: if (streamedLists && import.meta.env.DEV) {
 		console.log(
@@ -212,9 +212,9 @@
 				server: serverTasks.length,
 				added: addedTasks.length,
 				open: openTasks.length,
-					filteredOpen: filteredOpenTasks.length,
-					filteredCompleted: filteredCompletedTasks.length
-				})
+				filteredOpen: filteredOpenTasks.length,
+				filteredCompleted: filteredCompletedTasks.length
+			})
 		);
 	}
 	$: filteredOpenTasks = chipFilteredOpenTasks.filter(

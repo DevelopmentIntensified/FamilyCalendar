@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { dueTone, priorityDot, priorityLabel } from '$lib/utils/priorityTone';
+	import { lateChip } from '$lib/utils/taskUrgency';
 	import { formatDue, freqNoun } from '$lib/utils/taskDisplay';
 
 	/** Structural task shape — both task pages pass their local TaskItem. */
@@ -60,6 +61,8 @@
 
 	let mine = $derived(task.assignedTo === currentUserId);
 	let pending = $derived(task.assignmentStatus === 'pending');
+	/** The flat list has no Overdue heading, so the row says how late it is. */
+	let late = $derived(lateChip(task.dueDate));
 	let showAssignment = $derived(
 		task.assignedTo &&
 			task.assignmentStatus !== 'none' &&
@@ -68,9 +71,9 @@
 </script>
 
 <div
-	class="group flex min-w-0 flex-wrap items-center gap-2.5 overflow-hidden rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 transition-colors hover:bg-slate-100 {celebrating
-		? 'celebrate'
-		: ''}"
+	class="group flex min-w-0 flex-wrap items-center gap-2.5 overflow-hidden rounded-lg border px-2.5 py-2 transition-colors {late
+		? 'border-red-200 bg-red-50 hover:bg-red-100'
+		: 'border-slate-100 bg-slate-50/60 hover:bg-slate-100'} {celebrating ? 'celebrate' : ''}"
 >
 	<button
 		type="button"
@@ -153,6 +156,12 @@
 		<span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {dueTone(task.dueDate)}">
 			{formatDue(task.dueDate)}
 		</span>
+	{/if}
+	{#if late}
+		<span
+			class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700"
+			title="Overdue">{late}</span
+		>
 	{/if}
 	{#if task.priority && task.priority !== 'normal'}
 		<span class="flex shrink-0 items-center gap-1" title="Priority: {task.priority}">

@@ -40,15 +40,21 @@ export function startOfToday(): Date {
 	return d;
 }
 
-export function isOverdue(due: string | null | undefined): boolean {
-	if (!due) return false;
-	const t = new Date(due).getTime();
+/** Coerce a due value (ISO string or Date) to a timestamp, or NaN. */
+function dueTime(due: string | Date | null | undefined): number {
+	if (!due) return NaN;
+	return due instanceof Date ? due.getTime() : new Date(due).getTime();
+}
+
+export function isOverdue(due: string | Date | null | undefined): boolean {
+	const t = dueTime(due);
 	if (isNaN(t)) return false;
 	return t < startOfToday().getTime();
 }
 
-function isToday(due: string): boolean {
-	const t = new Date(due).getTime();
+/** True when a due date falls on the current local day (today, later today included). */
+export function isDueToday(due: string | Date | null | undefined): boolean {
+	const t = dueTime(due);
 	if (isNaN(t)) return false;
 	const start = startOfToday().getTime();
 	const end = new Date();
@@ -60,6 +66,6 @@ function isToday(due: string): boolean {
 export function dueTone(due: string | null | undefined): string {
 	if (!due) return '';
 	if (isOverdue(due)) return 'bg-red-100 text-red-700';
-	if (isToday(due)) return 'bg-amber-100 text-amber-700';
+	if (isDueToday(due)) return 'bg-amber-100 text-amber-700';
 	return 'bg-slate-100 text-slate-600';
 }

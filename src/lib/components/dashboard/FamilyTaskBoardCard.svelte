@@ -3,6 +3,7 @@
 	import MentionInput from '$lib/components/MentionInput.svelte';
 	import TaskQuickAddHelp from '$lib/components/TaskQuickAddHelp.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
+	import { groupTasksByAssignee } from '$lib/utils/familyTaskGroups';
 	import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
 	import { dueTone, priorityDot } from '$lib/utils/priorityTone';
 	import { showRecurringCompleteFeedback } from '$lib/client/taskFeedback';
@@ -89,10 +90,6 @@
 		return name === 'You' ? 'Y' : (name[0]?.toUpperCase() ?? '?');
 	}
 
-	function ownerId(t: (typeof tasks)[number]): string {
-		return t.assignedTo ?? t.userId;
-	}
-
 	function dueLabel(due: string | null): string {
 		if (!due) return '';
 		const d = new Date(due);
@@ -103,17 +100,10 @@
 
 	/** Due/priority tones live in the shared priorityTone module. */
 
-	$: groups = [...new Set(tasks.map(ownerId))]
-		.map((uid) => ({
-			userId: uid,
-			name: memberName(uid),
-			tasks: tasks.filter((t) => ownerId(t) === uid)
-		}))
-		.sort((a, b) => {
-			if (a.userId === meId) return -1;
-			if (b.userId === meId) return 1;
-			return a.name.localeCompare(b.name);
-		});
+	// The Family Task Board, grouped by assignee with the creator fallback and
+	// one open-task count per person (issue 101). Same module as the family
+	// tasks page: one name, one shape, one rule.
+	$: groups = groupTasksByAssignee(tasks, memberName, meId);
 
 	async function toggleTask(task: (typeof tasks)[number]) {
 		if (busy) return;
@@ -209,17 +199,17 @@
 		</div>
 	{:else}
 		<div class="space-y-2.5">
-			{#each groups as group (group.userId)}
+			{#each groups as group (group.ownerId)}
 				<section>
 					<h3
 						class="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400"
 					>
 						<span
 							class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold {avatarColor(
-								group.userId
+								group.ownerId
 							)}"
 						>
-							{initial(group.userId)}
+							{initial(group.ownerId)}
 						</span>
 						{group.name}
 						<span class="font-normal normal-case text-slate-300">· {group.tasks.length}</span>

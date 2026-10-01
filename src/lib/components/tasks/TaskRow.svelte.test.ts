@@ -46,6 +46,47 @@ function props(overrides = {}) {
 describe('TaskRow', () => {
 	afterEach(cleanup);
 
+	// The flat list dropped its Overdue heading (101), so the row itself has to
+	// say how late it is. Fake timers pin "now" at 2026-09-30 10:00 local.
+	const overdueAt = () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(2026, 8, 30, 10, 0, 0));
+	};
+	const realTimers = () => vi.useRealTimers();
+
+	it('washes an overdue row and chips how late it is', () => {
+		overdueAt();
+		try {
+			const p = props({
+				task: { ...baseTask, dueDate: new Date(2026, 8, 28, 9, 0, 0).toISOString() }
+			});
+			const { container } = render(TaskRow, { props: p });
+			expect(screen.getByText('2 days late')).toBeTruthy();
+			// SAFETY: render() mounts the row as the container's only child element.
+			expect((container.firstElementChild as HTMLElement).className).toMatch(/bg-red-50/);
+			// The date still prints on the row — a chip is not a summary.
+			expect(screen.getByText('Sep 28')).toBeTruthy();
+		} finally {
+			realTimers();
+		}
+	});
+
+	it.each([
+		['today', new Date(2026, 8, 30, 18, 0, 0)],
+		['next week', new Date(2026, 9, 7, 9, 0, 0)],
+		['undated', null]
+	])('says nothing about lateness for a task due %s', (_when, due) => {
+		overdueAt();
+		try {
+			render(TaskRow, {
+				props: props({ task: { ...baseTask, dueDate: due?.toISOString() ?? null } })
+			});
+			expect(screen.queryByText(/late$/)).toBeNull();
+		} finally {
+			realTimers();
+		}
+	});
+
 	it('renders the title and fires onEdit when the title is clicked', async () => {
 		const p = props();
 		render(TaskRow, { props: p });
