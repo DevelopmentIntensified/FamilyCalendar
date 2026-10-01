@@ -37,82 +37,38 @@ describe('AccountCalendarSection', () => {
 		render(AccountCalendarSection, { props: props() });
 		expect(weekStartValue()).toBe('monday');
 		expect(screen.getByLabelText('Default View')).toBeTruthy();
-		expect(screen.getByText('Dashboard modules')).toBeTruthy();
+		expect(screen.getByText('Week Starts On')).toBeTruthy();
 	});
 
 	it('syncs fields when reloaded settings arrive', async () => {
 		const { rerender } = render(AccountCalendarSection, { props: props() });
 		expect(weekStartValue()).toBe('monday');
-		await rerender({
-			props: props({ userSettings: { ...settings, weekStart: 'sunday' } })
-		});
+		await rerender(props({ userSettings: { ...settings, weekStart: 'sunday' } }));
 		await tick();
 		expect(weekStartValue()).toBe('sunday');
 	});
 });
 
-describe('AccountCalendarSection — the module list has two bands (080)', () => {
+describe('AccountCalendarSection — the module list moved out (105)', () => {
 	afterEach(cleanup);
 
-	function moduleChecked(id: string) {
-		return (document.querySelector(`input[name="module_${id}"]`) as HTMLInputElement).checked;
-	}
-
-	function bandOf(id: string) {
-		// Document order: the last heading seen before this module's checkbox
-		// is the band it renders in.
-		let heading: string | null = null;
-		for (const node of document.querySelectorAll('h4, input[name^="module_"]')) {
-			if (node.tagName === 'H4') heading = node.textContent?.trim() ?? null;
-			else if (node.getAttribute('name') === `module_${id}`) return heading;
-		}
-		return undefined;
-	}
-
-	it('puts the verse above the cards and the cards under their own heading', () => {
+	// 105 split the Dashboard Module switches into their own section with their
+	// own action, because hiding a card and changing your week start were one
+	// save. This is the pin for the split: if the switches ever creep back into
+	// this form, the server would derive the hidden list from a form that has
+	// no module checkboxes — and blank the whole dashboard on any save.
+	it('renders no dashboard module switch inside the calendar form', () => {
 		render(AccountCalendarSection, { props: props() });
-		expect(bandOf('verse')).toBe('Above your cards');
-		expect(bandOf('board')).toBe('Cards');
+		expect(document.querySelector('input[name^="module_"]')).toBeNull();
+		expect(screen.queryByText('Dashboard modules')).toBeNull();
 	});
 
-	it('says what the verse switch now means', () => {
+	it('still owns the ad switch, so 088 keeps its consent record (088)', () => {
+		// 105's own note: if the module switches leave this form, check 088's
+		// seam at the same time rather than leaving the ad switch as the only
+		// thing trapped in here. It stays, on purpose — it is the one field
+		// whose save also writes a consent record.
 		render(AccountCalendarSection, { props: props() });
-		const row = document.querySelector('input[name="module_verse"]')!.closest('label')!;
-		expect(row.textContent).toContain('Show the verse on your Day Dashboard.');
-	});
-
-	it('a saved hidden state unchecks the verse and leaves the cards alone', () => {
-		render(AccountCalendarSection, {
-			props: props({ userSettings: { ...settings, hiddenDashboardModules: ['verse'] } })
-		});
-		expect(moduleChecked('verse')).toBe(false);
-		expect(moduleChecked('board')).toBe(true);
-		expect(moduleChecked('glance')).toBe(true);
+		expect(document.querySelector('input[name="showAdsAsEvents"]')).toBeTruthy();
 	});
 });
-
-describe('AccountCalendarSection — a retired module leaves no switch behind (103)', () => {
-	afterEach(cleanup);
-
-	it('renders no switch for the removed member strip', () => {
-		// The rows come from the canonical module list, so the entry going is
-		// the whole edit — this pins that the account page really does follow.
-		render(AccountCalendarSection, { props: props() });
-		expect(document.querySelector('input[name="module_memberStrip"]')).toBeNull();
-		expect(document.querySelector('[name="module_board"]')).toBeTruthy();
-	});
-
-	it('renders normally for a user whose saved list still names it', () => {
-		// The stale id is not an error and not a phantom row: every other
-		// switch still shows, checked, exactly as an untouched account's does.
-		render(AccountCalendarSection, {
-			props: props({ userSettings: { ...settings, hiddenDashboardModules: ['memberStrip'] } })
-		});
-		const board = document.querySelector('input[name="module_board"]') as HTMLInputElement;
-		expect(board.checked).toBe(true);
-		const verseInput = document.querySelector('input[name="module_verse"]') as HTMLInputElement;
-		expect(verseInput.checked).toBe(true);
-		expect(document.querySelectorAll('input[name^="module_"]').length).toBe(8);
-	});
-});
-

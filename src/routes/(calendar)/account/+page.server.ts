@@ -2,9 +2,9 @@ import { getUser, updateUser } from '$lib/server/db/actions/users';
 import { getUserSettings, updateUserSettings } from '$lib/server/db/actions/userSettings';
 import { lucia } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { sessions, calendars, families } from '$lib/server/db/schema';
+import { sessions, calendars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { getUserFamilyId } from '$lib/server/db/actions/families';
+import { getUserFamilyMemberships } from '$lib/server/db/actions/families';
 import {
 	getSubscriptionStatus,
 	getUserSubscriptionLimits,
@@ -24,6 +24,7 @@ import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
 import { TRANSLATIONS } from '$lib/server/services/verseService';
 import { recordAdConsentChange } from '$lib/server/services/adConsentService';
 import { DASHBOARD_MODULES } from '$lib/dashboardModules';
+import { hiddenModulesFromForm } from '$lib/components/account/accountDashboardModules';
 import {
 	createApiToken as mintApiToken,
 	listTokensForUser,
@@ -45,15 +46,27 @@ export const load: PageServerLoad = async (event) => {
 		color: userSettings?.color || undefined
 	}));
 
-	const memberFamilyId = await getUserFamilyId(userId);
+	// 105: the page's own "Your families" section, and the family calendars it
+	// lists, both read the multi-family helper. `getUserFamilyId` is the
+	// first-row guess 098 retired for authorisation - this loader was its last
+	// reader here, so a second family no longer loses its calendar or its row.
+	const memberships = await getUserFamilyMemberships(userId).catch((error) => {
+		console.error('Failed to load family memberships:', error);
+		return [];
+	});
+
+	const memberFamilyId = memberships[0]?.family.id ?? null;
 	if (memberFamilyId) {
 		const familyCals = await db
 			.select()
 			.from(calendars)
 			.where(eq(calendars.familyId, memberFamilyId));
-		const [family] = await db.select().from(families).where(eq(families.id, memberFamilyId));
+		const familyNames = new Map(memberships.map((m) => [m.family.id, m.family.name]));
 		for (const fc of familyCals) {
-			calendarList.push({ id: fc.id, name: family?.name || 'Family Calendar' });
+			calendarList.push({
+				id: fc.id,
+				name: familyNames.get(memberFamilyId) || 'Family Calendar'
+			});
 		}
 	}
 
@@ -100,6 +113,15 @@ export const load: PageServerLoad = async (event) => {
 			verseTranslation: 'esv'
 		},
 		calendars: calendarList,
+		// 105: one row per family the user belongs to, oldest first, each with
+		// its real roster size (098). The section's count cannot be a guess.
+		families: memberships.map((m) => ({
+			id: m.family.id,
+			name: m.family.name,
+			role: m.role,
+			memberType: m.memberType,
+			memberCount: m.memberCount
+		})),
 		verseTranslations: Object.values(TRANSLATIONS).map(({ id, label, attribution }) => ({
 			id,
 			label,
@@ -141,14 +163,6 @@ export const actions: Actions = {
 		const rawTranslation = formString(formData, 'verseTranslation');
 		const verseTranslation = rawTranslation in TRANSLATIONS ? rawTranslation : 'esv';
 
-		// Checkboxes are show-based; absent checkbox = hidden.
-		const shownModules = DASHBOARD_MODULES.filter(
-			(m) => formData.get(`module_${m.id}`) === 'on'
-		).map((m) => m.id);
-		const hiddenDashboardModules = DASHBOARD_MODULES.map((m) => m.id).filter(
-			(id) => !shownModules.includes(id)
-		);
-
 		try {
 			const existingSettings = await getUserSettings(userId);
 			// The ad value as it stands BEFORE this save. Consent records are
@@ -157,6 +171,10 @@ export const actions: Actions = {
 			// one (#088).
 			const previousAdsConsent = existingSettings?.showAdsAsEvents;
 
+			// 105: `hiddenDashboardModules` is NOT written here. The switches
+			// live in their own section and their own action. Deriving the list
+			// from this form would mark every module hidden on every save,
+			// because a form without module checkboxes reports them all absent.
 			if (!existingSettings) {
 				const { createUserSettings } = await import('$lib/server/db/actions/userSettings');
 				await createUserSettings({
@@ -170,8 +188,7 @@ export const actions: Actions = {
 					autoParseEventDetails,
 					showDailyVerse,
 					showAdsAsEvents,
-					verseTranslation,
-					hiddenDashboardModules
+					verseTranslation
 				});
 			} else {
 				await updateUserSettings(userId, {
@@ -184,20 +201,83 @@ export const actions: Actions = {
 					autoParseEventDetails,
 					showDailyVerse,
 					showAdsAsEvents,
-					verseTranslation,
-					hiddenDashboardModules
+					verseTranslation
 				});
 			}
 
 			// Evidence beside the setting, not a second gate (#088). The ad gate
 			// is still shouldServeAds(userSettings) alone; this row is what
 			// answers "prove I consented" and "when did they withdraw".
-			await recordAdConsentChange(userId, previousAdsConsent, showAdsAsEvents);
+			//
+			// It must NOT be able to fail the save. The settings are already
+			// written by this point, so a throw here was caught by the block
+			// below and returned fail(500) — the user was told their settings
+			// had not saved when they had. That is worse than a crash: it is a
+			// false report about work that succeeded, on a toggle the user
+			// believes IS their consent.
+			//
+			// So the record is best-effort evidence and a failure is LOUD, not
+			// silent: logged with the reason, because a consent trail that
+			// quietly stops recording is the exact failure this table exists to
+			// prevent. Until the hand-written DDL in the issue has been run, the
+			// reason is almost always that the table does not exist.
+			try {
+				await recordAdConsentChange(userId, previousAdsConsent, showAdsAsEvents);
+			} catch (consentError) {
+				console.error(
+					'Consent record NOT written; the ad setting itself WAS saved. ' +
+						'Run the adConsentRecords DDL in ' +
+						'docs/issues/088-ad-consent-two-sources-of-truth.md. Cause:',
+					consentError
+				);
+			}
 
 			return { success: true, message: 'Calendar settings saved successfully' };
 		} catch (error) {
 			console.error('Failed to save calendar settings:', error);
 			return fail(500, { success: false, message: 'Failed to save calendar settings' });
+		}
+	},
+
+	// 105: the Dashboard Module switches are their own save. Kept apart from
+	// saveCalendarSettings so hiding a card and changing your week start are two
+	// acts with two receipts, and a failure in one cannot rewrite the other.
+	saveDashboardModules: async ({ request, locals }) => {
+		const userId = locals.user.id;
+		const formData = await request.formData();
+
+		try {
+			const hiddenDashboardModules = hiddenModulesFromForm(formData);
+			const existingSettings = await getUserSettings(userId);
+
+			if (!existingSettings) {
+				const { createUserSettings } = await import('$lib/server/db/actions/userSettings');
+				await createUserSettings({
+					userId,
+					weekStart: 'sunday',
+					timeZone: 'UTC',
+					color: '#3b82f6',
+					defaultView: 'dayView',
+					defaultCalendarId: null,
+					syncEventsToFamilyCalendar: false,
+					showAdsAsEvents: false,
+					verseTranslation: 'esv',
+					hiddenDashboardModules
+				});
+			} else {
+				await updateUserSettings(userId, { hiddenDashboardModules });
+			}
+
+			const hiddenCount = hiddenDashboardModules.length;
+			return {
+				success: true,
+				message: hiddenCount
+					? `Dashboard modules saved — ${DASHBOARD_MODULES.length - hiddenCount} of ${DASHBOARD_MODULES.length} cards on.`
+					: `Dashboard modules saved — all ${DASHBOARD_MODULES.length} cards on.`
+			};
+		} catch (error) {
+			console.error('Failed to save dashboard modules:', error);
+			return fail(500, { success: false, message: 'Failed to save dashboard modules' });
 		}
 	},
 

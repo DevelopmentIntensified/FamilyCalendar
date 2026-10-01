@@ -15,6 +15,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 
 	const userId = locals.user.id;
+	// 125: read the plan's windows ONCE, before the gate branch. The gated
+	// branch used to hand back a hardcoded `retentionDays: 30`, which the page
+	// printed as "Events from 30 days ago" — a number no plan ever produced.
+	// A gate that misreports its own size is not a gate, it is a rumour.
+	const limits = await getUserSubscriptionLimits(userId);
 	const archiveCheck = await canViewArchive(userId);
 
 	if (!archiveCheck.allowed) {
@@ -22,11 +27,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 			events: [],
 			archiveAllowed: false,
 			reason: archiveCheck.reason,
-			retentionDays: 30
+			retentionDays: limits.retentionViewDays,
+			archivedRetentionDays: limits.archivedRetentionDays
 		};
 	}
 
-	const limits = await getUserSubscriptionLimits(userId);
 	const cutoffDate = new Date();
 	cutoffDate.setDate(cutoffDate.getDate() - limits.retentionViewDays);
 
@@ -81,6 +86,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		events: allEvents,
 		archiveAllowed: true,
-		retentionDays: limits.retentionViewDays
+		retentionDays: limits.retentionViewDays,
+		archivedRetentionDays: limits.archivedRetentionDays
 	};
 };

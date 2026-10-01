@@ -30,3 +30,16 @@ export function subscriptionPeriodLabel(
 		return `Lifetime access · active since ${fmt(new Date(sub.row.startDate))}`;
 	return `Started ${fmt(new Date(sub.row.startDate))} · renews ${fmt(new Date(sub.row.endDate))}`;
 }
+
+/**
+ * 105: the usage line the approved page shows — "N of M" against the plan's
+ * real limit, not a bare plan name.
+ *
+ * `999` is the codebase's stand-in for "no limit", so a usage count is only
+ * worth rendering when the limit is a real number; otherwise the row says
+ * `Unlimited`, which is the truth, rather than "3 of 999".
+ */
+export function usageLine(used: number, limit: number | null | undefined): string {
+	if (!limit || limit >= 999) return 'Unlimited';
+	return `${used} of ${limit}`;
+}

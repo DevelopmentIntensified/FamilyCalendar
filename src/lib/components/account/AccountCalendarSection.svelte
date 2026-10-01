@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { CARD_DASHBOARD_MODULES, INFO_DASHBOARD_MODULES } from '$lib/dashboardModules';
 
 	interface Props {
 		userSettings: {
@@ -66,9 +65,11 @@
 		verseTranslations?.find((t) => t.id === selectedTranslation)?.attribution
 	);
 
-	// Module visibility toggles: checked = show on dashboard. The server
-	// action stores the inverse (hidden list) in userSettings.hiddenDashboardModules.
-	let hiddenDashboardModules = $derived(userSettings?.hiddenDashboardModules ?? []);
+	// 105: the per-user Dashboard Module switches moved to their own section
+	// (AccountDashboardSection) with their own action, so this form no longer
+	// saves them. The one thing that must NOT happen here is a hidden-module
+	// list derived from a form that has no module checkboxes in it — that would
+	// hide the whole dashboard on any calendar-settings save.
 </script>
 
 <div id="calendar">
@@ -248,8 +249,8 @@
 				<span>
 					<span class="block text-sm font-medium text-slate-800">Show sponsored items</span>
 					<span class="mt-0.5 block text-xs text-slate-500"
-						>Opt in to sponsored items on your calendar. Off by default — while it is off,
-						nothing sponsored is shown and nothing is shared with advertisers.</span
+						>Opt in to sponsored items on your calendar. Off by default — while it is off, nothing
+						sponsored is shown and nothing is shared with advertisers.</span
 					>
 				</span>
 				<input
@@ -260,42 +261,6 @@
 					checked={userSettings?.showAdsAsEvents ?? false}
 				/>
 			</label>
-		</div>
-
-		<!-- Dashboard modules (per-user visibility). One list, two bands (080):
-		     the verse reads above the cards, the rest render as cards. Each
-		     switch says what it means — the meaning is declared once, on the
-		     module itself, so the two never disagree. -->
-		<div class="mt-6 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
-			<h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-				Dashboard modules
-			</h3>
-			<p class="mb-1 text-xs text-slate-500">
-				Choose what appears on your Day Dashboard. Family admins can also switch family cards
-				off for everyone from the family page.
-			</p>
-			{#each [{ band: 'Above your cards', modules: INFO_DASHBOARD_MODULES }, { band: 'Cards', modules: CARD_DASHBOARD_MODULES }] as group (group.band)}
-				<h4 class="pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-					{group.band}
-				</h4>
-				{#each group.modules as mod (mod.id)}
-					<label
-						class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3"
-					>
-						<span class="min-w-0">
-							<span class="block text-sm font-medium text-slate-800">{mod.label}</span>
-							<span class="mt-0.5 block text-xs text-slate-500">{mod.meaning}</span>
-						</span>
-						<input
-							type="checkbox"
-							name="module_{mod.id}"
-							value="on"
-							class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300"
-							checked={!hiddenDashboardModules.includes(mod.id)}
-						/>
-					</label>
-				{/each}
-			{/each}
 		</div>
 
 		<button

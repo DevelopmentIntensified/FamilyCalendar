@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatBytesLabel, subscriptionPeriodLabel } from './accountSubscription';
+import { formatBytesLabel, subscriptionPeriodLabel, usageLine } from './accountSubscription';
 
 describe('formatBytesLabel', () => {
 	it('renders em-dash for missing, MB over a megabyte, KB below', () => {
@@ -34,5 +34,18 @@ describe('subscriptionPeriodLabel', () => {
 			row: { startDate: day('2026-01-05'), endDate: day('2026-02-05') }
 		});
 		expect(monthly).toContain('renews');
+	});
+});
+
+describe('usageLine', () => {
+	// 105: the plan section keeps the usage line the approved page shows.
+	it('reads a real count against a real limit', () => {
+		expect(usageLine(3, 5)).toBe('3 of 5');
+	});
+
+	it('says Unlimited rather than inventing a ceiling', () => {
+		expect(usageLine(3, 999)).toBe('Unlimited');
+		expect(usageLine(3, null)).toBe('Unlimited');
+		expect(usageLine(3, 0)).toBe('Unlimited');
 	});
 });

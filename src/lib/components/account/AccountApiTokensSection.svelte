@@ -8,22 +8,22 @@
 		lastUsedAt: string | Date | null;
 	}
 
-	let { tokens = [], form = null }: { tokens: TokenRow[]; form?: unknown } = $props();
+	/** What the create action answers with. The one-time plaintext token and its
+	 *  name, or neither. Typed at the prop, so nothing downstream has to
+	 *  narrow an `unknown` by hand. */
+	interface TokenFormResult {
+		apiToken?: string;
+		apiTokenName?: string;
+	}
+
+	let { tokens = [], form = null }: { tokens: TokenRow[]; form?: TokenFormResult | null } =
+		$props();
 
 	// Plaintext is returned once by the create action — never stored, never re-shown.
 	// $derived: `form` arrives AFTER submit (use:enhance), so a plain const
 	// would freeze at null and the copy box would never appear.
-	const formRecord = $derived(
-		typeof form === 'object' && form !== null ? (form as Record<string, unknown>) : null
-	);
-	const newToken = $derived(
-		formRecord && typeof formRecord.apiToken === 'string' ? formRecord.apiToken : null
-	);
-	const newTokenName = $derived(
-		formRecord && typeof formRecord.apiTokenName === 'string'
-			? formRecord.apiTokenName
-			: ''
-	);
+	const newToken = $derived(form?.apiToken ?? null);
+	const newTokenName = $derived(form?.apiTokenName ?? '');
 
 	let creating = $state(false);
 	let copied = $state(false);
@@ -43,8 +43,8 @@
 <div id="api">
 	<h2 class="mb-4 text-lg font-semibold text-slate-900">API Tokens</h2>
 	<p class="mb-4 text-sm text-slate-600">
-		Tokens let a desktop app (e.g. TaskFocus) use the task API as you. They live until
-		revoked — treat them like passwords.
+		Tokens let a desktop app (e.g. TaskFocus) use the task API as you. They live until revoked —
+		treat them like passwords.
 	</p>
 
 	{#if newToken}
@@ -113,7 +113,9 @@
 					<form
 						method="POST"
 						action="?/revokeApiToken"
-						use:enhance={() => async ({ update }) => await update()}
+						use:enhance={() =>
+							async ({ update }) =>
+								await update()}
 					>
 						<input type="hidden" name="tokenId" value={token.id} />
 						<button

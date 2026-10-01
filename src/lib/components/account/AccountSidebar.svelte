@@ -1,52 +1,37 @@
 <script lang="ts">
+	import { ACCOUNT_SECTIONS, type AccountSectionId } from './accountSections';
+
 	interface Props {
 		activeSection: string;
 	}
 
 	let { activeSection }: Props = $props();
 
-	const sections = [
-		{
-			id: 'profile',
-			label: 'Profile',
-			icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
-		},
-		{
-			id: 'calendar',
-			label: 'Calendar',
-			icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'
-		},
-		{
-			id: 'subscription',
-			label: 'Subscription',
-			icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z'
-		},
-		{
-			id: 'email',
-			label: 'Email',
-			icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'
-		},
-		{
-			id: 'security',
-			label: 'Security',
-			icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z'
-		},
-		{
-			id: 'api',
-			label: 'API Tokens',
-			icon: 'M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 13a6 6 0 01-6-6H9a6 6 0 01-6-6'
-		},
-		{
-			id: 'danger',
-			label: 'Danger Zone',
-			icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
-		}
-	];
+	// The icon per section is presentation; which sections exist is declared
+	// once, in accountSections.ts, and shared with the page's own dispatch.
+	const icons: Record<AccountSectionId, string> = {
+		profile: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+		families:
+			'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
+		calendar:
+			'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+		dashboard:
+			'M4 5a1 1 0 011-1h14a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm10 0a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z',
+		subscription:
+			'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z',
+		email:
+			'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+		security:
+			'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
+		api: 'M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 13a6 6 0 01-6-6H9a6 6 0 01-6-6',
+		danger:
+			'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+	};
 </script>
 
 <nav class="w-full border-b border-slate-200 p-4 lg:w-64 lg:border-b-0 lg:border-r">
 	<ul class="space-y-1">
-		{#each sections as section}
+		{#each ACCOUNT_SECTIONS as section}
 			<li>
 				<a
 					href="#{section.id}"
@@ -62,7 +47,7 @@
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							stroke-width="2"
-							d={section.icon}
+							d={icons[section.id]}
 						/>
 					</svg>
 					{section.label}

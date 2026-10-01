@@ -4,12 +4,15 @@
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import AccountSidebar from '$lib/components/account/AccountSidebar.svelte';
 	import AccountProfileSection from '$lib/components/account/AccountProfileSection.svelte';
+	import AccountFamiliesSection from '$lib/components/account/AccountFamiliesSection.svelte';
 	import AccountCalendarSection from '$lib/components/account/AccountCalendarSection.svelte';
+	import AccountDashboardSection from '$lib/components/account/AccountDashboardSection.svelte';
 	import AccountSubscriptionSection from '$lib/components/account/AccountSubscriptionSection.svelte';
 	import AccountEmailSection from '$lib/components/account/AccountEmailSection.svelte';
 	import AccountSecuritySection from '$lib/components/account/AccountSecuritySection.svelte';
 	import AccountApiTokensSection from '$lib/components/account/AccountApiTokensSection.svelte';
 	import AccountDangerSection from '$lib/components/account/AccountDangerSection.svelte';
+	import { resolveAccountSection } from '$lib/components/account/accountSections';
 
 	export let data: PageData;
 	export let form: ActionData;
@@ -18,7 +21,9 @@
 	$: success = form?.success;
 	$: message = form?.message;
 
-	$: activeSection = $page.url.hash.replace('#', '') || 'profile';
+	// 105: the hash names a section from the one list the sidebar renders, so the
+	// nav and the page cannot disagree about which sections exist.
+	$: activeSection = resolveAccountSection($page.url.hash);
 </script>
 
 <svelte:head>
@@ -74,11 +79,17 @@
 
 					{#if activeSection === 'profile'}
 						<AccountProfileSection {user} />
+					{:else if activeSection === 'families'}
+						<AccountFamiliesSection families={data.families ?? []} />
 					{:else if activeSection === 'calendar'}
 						<AccountCalendarSection
 							userSettings={data.userSettings}
 							calendars={data.calendars ?? []}
 							verseTranslations={data.verseTranslations ?? []}
+						/>
+					{:else if activeSection === 'dashboard'}
+						<AccountDashboardSection
+							hiddenDashboardModules={data.userSettings?.hiddenDashboardModules ?? []}
 						/>
 					{:else if activeSection === 'subscription'}
 						<AccountSubscriptionSection
@@ -86,6 +97,7 @@
 							planLimits={data.planLimits}
 							aiUsage={data.aiUsage}
 							planPricing={data.planPricing}
+							families={data.families ?? []}
 						/>
 					{:else if activeSection === 'email'}
 						<AccountEmailSection {user} />

@@ -1,8 +1,21 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import {
+		ARCHIVE_CARD_PADDING,
+		archiveEventDate,
+		groupEventsByMonth,
+		retentionSummary
+	} from '$lib/components/archive/archiveMonths';
 
 	export let data: PageData;
+
+	$: months = groupEventsByMonth(data.events ?? []);
+	$: retention = retentionSummary({
+		retentionViewDays: data.retentionDays,
+		archivedRetentionDays: data.archivedRetentionDays
+	});
+	$: eventDate = (start: Date) => archiveEventDate(start).toFormat('d LLL yyyy');
 </script>
 
 <svelte:head>
@@ -17,7 +30,10 @@
 			<div class="mb-6">
 				<h1 class="text-2xl font-bold text-slate-900">Archive</h1>
 				<p class="mt-1 text-sm text-slate-500">
-					Events from {data.retentionDays} days ago
+					You can look back {retention.viewDays} days
+				</p>
+				<p class="text-sm text-slate-500">
+					Events stay in the archive for {retention.archivedDays} days
 				</p>
 			</div>
 
@@ -33,20 +49,43 @@
 						Upgrade to View Archive
 					</a>
 				</div>
-			{:else if data.events.length === 0}
+			{:else if months.length === 0}
 				<p class="text-sm text-slate-500">No archived events found.</p>
 			{:else}
-				<div class="space-y-3">
-					{#each data.events as event}
-						<div class="rounded-lg border border-slate-200 p-4">
-							<h3 class="font-medium text-slate-900">{event.title}</h3>
-							<p class="text-sm text-slate-500">
-								{new Date(event.start).toLocaleDateString()}
-							</p>
-							{#if event.location}
-								<p class="text-sm text-slate-600">{event.location}</p>
-							{/if}
-						</div>
+				<!-- 094: one card per month, the events under it. The month card
+				     and the event cards share ARCHIVE_CARD_PADDING, so the header
+				     cannot end up sitting tighter than the cards it heads.
+				     e2e/calendar/ArchivePage.test.ts measures the rendered padding. -->
+				<div class="space-y-4">
+					{#each months as month (month.key)}
+						<section
+							data-testid="archive-month"
+							class="rounded-xl border border-slate-200 bg-slate-50/60 {ARCHIVE_CARD_PADDING}"
+						>
+							<h2
+								class="flex items-baseline justify-between gap-3 text-sm font-semibold text-slate-900"
+							>
+								{month.label}
+								<span class="text-xs font-normal text-slate-500">
+									{month.events.length}
+									{month.events.length === 1 ? 'event' : 'events'}
+								</span>
+							</h2>
+							<ul class="mt-3 space-y-3">
+								{#each month.events as event (event.id)}
+									<li
+										data-testid="archive-event"
+										class="rounded-lg border border-slate-200 bg-white {ARCHIVE_CARD_PADDING}"
+									>
+										<p class="font-medium text-slate-900">{event.title}</p>
+										<p class="text-sm text-slate-500">{eventDate(event.start)}</p>
+										{#if event.location}
+											<p class="text-sm text-slate-600">{event.location}</p>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						</section>
 					{/each}
 				</div>
 			{/if}

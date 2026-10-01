@@ -2,6 +2,7 @@
 	import {
 		formatBytesLabel,
 		subscriptionPeriodLabel,
+		usageLine,
 		type SubRow,
 		type SubTier
 	} from './accountSubscription';
@@ -10,6 +11,7 @@
 		subscription: { tier?: SubTier | null; subscription?: SubRow | null } | null;
 		planLimits: {
 			familyLimit?: number | null;
+			memberLimit?: number | null;
 			retentionViewDays?: number | null;
 			archivedRetentionDays?: number | null;
 			attachmentLimitBytes?: number | null;
@@ -18,14 +20,20 @@
 		} | null;
 		aiUsage: { used: number; limit: number };
 		planPricing: { monthly?: number; annual?: number; lifetime?: number } | null;
+		/** 105: the usage line the approved page shows. Real counts, loaded from
+		 *  the multi-family helper — never a guess at "the user's one family". */
+		families?: { id: string; memberCount: number }[];
 	}
 
-	let { subscription, planLimits, aiUsage, planPricing }: Props = $props();
+	let { subscription, planLimits, aiUsage, planPricing, families = [] }: Props = $props();
 
 	let subTier = $derived(subscription?.tier ?? null);
 	let subRow = $derived(subscription?.subscription ?? null);
 	let isPaidPlan = $derived(subTier != null && subTier.tierName !== 'free');
 	let periodLabel = $derived(subscriptionPeriodLabel(isPaidPlan, { tier: subTier, row: subRow }));
+	// The fullest family is the one that would hit a member limit first, so it
+	// is the honest number to show against the per-family limit.
+	let largestFamily = $derived(families.reduce((max, f) => Math.max(max, f.memberCount), 0));
 </script>
 
 <div id="subscription">
@@ -69,7 +77,14 @@
 			<div class="rounded-lg bg-slate-50 p-3">
 				<dt class="text-xs font-medium text-slate-500">Family Members</dt>
 				<dd class="mt-1 text-lg font-bold text-slate-900">
-					{planLimits?.familyLimit === 999 ? 'Unlimited' : (planLimits?.familyLimit ?? 1)}
+					{usageLine(largestFamily, planLimits?.memberLimit)}
+					<span class="text-xs font-normal text-slate-500">per family</span>
+				</dd>
+			</div>
+			<div class="rounded-lg bg-slate-50 p-3">
+				<dt class="text-xs font-medium text-slate-500">Families</dt>
+				<dd class="mt-1 text-lg font-bold text-slate-900">
+					{usageLine(families.length, planLimits?.familyLimit)}
 				</dd>
 			</div>
 			<div class="rounded-lg bg-slate-50 p-3">
