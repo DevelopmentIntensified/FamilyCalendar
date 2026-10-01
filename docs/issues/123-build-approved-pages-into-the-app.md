@@ -1,13 +1,29 @@
 # 123 — Build the approved pages into the app
 
-Status: open
+Status: in-progress
 
-Source: prototype review cycle 1 approvals, 2026-09-30 — 15 pages approved in
-the review tool.
+Source: prototype review cycle 1 approvals, 2026-09-30 — **16 pages approved**
+(15 app-ui plus **Prototype E**).
 
-**Blocked by:** Nothing. This is the port. Read #122 first — it carries the
-rule about not re-porting work that is already shipped, and it holds the marks
-from cycle 1 that this ticket supersedes.
+**Blocked by:** Nothing.
+
+## Owner directive, 2026-09-30
+
+> "all approved pages need to be built into the real app"
+
+This supersedes the framing below. The question is no longer *does the app
+already match* — it is **build every approved page, and close the gap against
+the prototype wherever one exists.** The "already shipped" column stays because
+it tells the porter where **not** to re-implement, but a match is not an
+excuse to skip a page. Each page gets read, compared, and the difference
+closed or recorded as a deliberate divergence with a reason.
+
+**Prototype E is approved and its app work is already shipped** (#119/#120:
+month default on narrow, search on the second row, shared `DayNav`). What
+remains open from it is **By Person as filter buttons** — mark 1.11 asked for
+it, the app has no per-member filter, and the earlier lane flagged it rather
+than inventing one. Under this directive it gets **built** as a real assignee
+filter, not left as a note.
 
 ## The approvals
 
