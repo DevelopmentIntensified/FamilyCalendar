@@ -4,7 +4,7 @@
 	 *
 	 * It holds readings, not work: no grid slot, no card chrome, no heading, and
 	 * a type step below the cards'. Today its only occupant is the Daily Verse,
-	 * whose switch now means "show the verse" — see `verseIsVisible`.
+	 * whose switch now means "show the verse" — see `dashboardVisibility`.
 	 */
 	export let dailyVerse: { reference: string; text: string; attribution?: string } | null = null;
 </script>

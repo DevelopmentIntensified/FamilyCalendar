@@ -10,18 +10,14 @@ import {
 	rankTop3,
 	getUserDayCalendar,
 	getFamilyDayEvents,
-	getFamilyAttendanceForEvents,
 	getKidsScheduleAttendance,
 	getCompletionTimestamps,
 	getRecurringDayCompletions,
 	mergeDayCompletions,
 	type RankableTask
 } from '$lib/server/db/actions/dashboard';
-import {
-	getFamilyModuleSwitches,
-	composeModuleVisibility
-} from '$lib/server/db/actions/dashboardModules';
-import { verseIsVisible } from '$lib/dashboardModules';
+import { getFamilyModuleSwitches } from '$lib/server/db/actions/dashboardModules';
+import { dashboardVisibility } from '$lib/dashboardModules';
 import { zoneFromSettings, zonedNow } from '$lib/server/utils/userTimezone';
 import { guard } from '$lib/server/utils/guard';
 import { getOpenGroceries } from '$lib/server/db/actions/groceries';
@@ -93,18 +89,18 @@ export const load: PageServerLoad = async (event) => {
 	const isToday = dayStart.hasSame(now, 'day');
 
 	// Effective per-module visibility: family master switch AND this user's
-	// own hidden list. Family-heavy fetches below are skipped when no family
-	// module is visible, so hidden-low-priority families don't pay for them.
+	// own hidden list. One composed answer (109), which also says which of the
+	// expensive family reads below nothing on screen wants — so a family that
+	// switched the last consumer off stops paying for it.
 	const switchesG = await guard('settings', {}, async () =>
 		familyId ? await getFamilyModuleSwitches(familyId) : {}
 	);
 	warn(switchesG.error);
-	const familySwitches = switchesG.data;
-	const modules = composeModuleVisibility(
-		familySwitches,
-		userSettings?.hiddenDashboardModules ?? []
-	);
-	const familyModulesVisible = modules.board || modules.memberStrip || modules.kids;
+	const visibility = dashboardVisibility({
+		settings: userSettings,
+		familySwitches: switchesG.data
+	});
+	const { modules } = visibility;
 
 	// Streamed legs (#042): everything below resolves after first paint.
 	// Each leg degrades to its fallback independently (same contract as the
@@ -115,7 +111,9 @@ export const load: PageServerLoad = async (event) => {
 			await syncRecurringCursors(userId, familyId, zone);
 			const [userTasks, familyTasks] = await Promise.all([
 				getTasksForUser(userId, familyId),
-				familyId && familyModulesVisible ? getTasksForFamily(familyId) : Promise.resolve([])
+				familyId && visibility.needs('familyTasks')
+					? getTasksForFamily(familyId)
+					: Promise.resolve([])
 			]);
 			// SAFETY: null must widen to the string|null union shared with the catch branch.
 			return { userTasks, familyTasks, warning: null as string | null };
@@ -138,7 +136,9 @@ export const load: PageServerLoad = async (event) => {
 		try {
 			const { events: userEventsData } = await getUserDayCalendar(userId);
 			let familyEventsData: CalendarEvent[] = [];
-			if (familyId) {
+			// The family's day events are read for Day at a Glance and Kids'
+			// Schedule, and for nothing else on this page (109).
+			if (familyId && visibility.needs('familyDayEvents')) {
 				familyEventsData = await getFamilyDayEvents(familyId);
 			}
 
@@ -176,8 +176,8 @@ export const load: PageServerLoad = async (event) => {
 				return d >= dayStart.toJSDate() && d < dayEnd.toJSDate();
 			});
 
-			// Compact "who's going" summary per event so glance rows and the member
-			// strip can show family attendance.
+			// Compact "who's going" summary per event so the glance rows can show
+			// family attendance.
 			const dayEvents = await attachAttendanceSummaries(
 				dayEventsRaw.map((e) => ({ ...e, masterId: e.masterId ?? e.id }))
 			);
@@ -189,44 +189,24 @@ export const load: PageServerLoad = async (event) => {
 		}
 	})();
 
-	// Family roster + per-member status for the Member Strip, plus the
-	// attendance join for the "in an event today" dot. Attendance rows are
-	// keyed by the master event id, so the join uses masterId (occurrences
-	// of a series share the master's attendance).
+	// Family roster, plus the attendance join behind the Kids' Schedule.
+	// Attendance rows are keyed by the master event id, so the join uses
+	// masterId (occurrences of a series share the master's attendance).
 	// Kids' Schedule: the viewed day's family events with a Child attendee
 	// (memberType='child', RSVP not declined) — decision 7.
-	const familyLeg = async (
-		familyTasks: Awaited<typeof taskLeg>['familyTasks'],
-		dayEvents: Awaited<typeof eventLeg>['dayEvents']
-	) => {
+	// The Member Strip's per-member task/event count and its "in an event
+	// today" attendance read went with the strip (103); nothing here builds them.
+	const familyLeg = async (dayEvents: Awaited<typeof eventLeg>['dayEvents']) => {
 		try {
-			if (familyId && familyModulesVisible) {
+			if (familyId && visibility.needs('familyRoster')) {
 				const roster = parentData.familyMembers ?? [];
 				const childMembers = roster.filter((m) => m.memberType === 'child');
 				const familyEventIds = dayEvents
 					.filter((e) => e.source === 'family')
 					.map((e) => e.masterId ?? e.id);
-				const attendanceRows = familyEventIds.length
-					? await getFamilyAttendanceForEvents(familyEventIds)
-					: [];
-				const attending = new Set(attendanceRows.map((a) => a.userId!).filter(Boolean));
-				const status = roster.map((m) => {
-					const owned = familyTasks.filter(
-						(t) =>
-							!t.completedAt &&
-							(t.assignedTo === m.userId || (!t.assignedTo && t.userId === m.userId))
-					);
-					return {
-						userId: m.userId,
-						firstName: m.firstName,
-						lastName: m.lastName,
-						openTasksToday: owned.length,
-						attendingToday: attending.has(m.userId)
-					};
-				});
 
 				let kids: KidsScheduleEvent[] = [];
-				if (modules.kids && childMembers.length > 0) {
+				if (visibility.needs('kidsAttendance') && childMembers.length > 0) {
 					const childIds = new Set(childMembers.map((m) => m.userId));
 					const childNameByUserId = new Map(
 						childMembers.map((m) => [m.userId, m.firstName.trim() || m.userId])
@@ -263,7 +243,6 @@ export const load: PageServerLoad = async (event) => {
 				// SAFETY: null must widen to the string|null union shared with the catch branch.
 				return {
 					familyMembers: roster,
-					memberStatus: status,
 					kidsSchedule: kids,
 					warning: null as string | null
 				};
@@ -271,7 +250,6 @@ export const load: PageServerLoad = async (event) => {
 			// SAFETY: null must widen to the string|null union shared with the catch branch.
 			return {
 				familyMembers: [],
-				memberStatus: [],
 				kidsSchedule: [],
 				warning: null as string | null
 			};
@@ -279,7 +257,6 @@ export const load: PageServerLoad = async (event) => {
 			// SAFETY: literal must widen to the string|null union shared with the ok branch.
 			return {
 				familyMembers: [],
-				memberStatus: [],
 				kidsSchedule: [],
 				warning: 'family' as string | null
 			};
@@ -323,7 +300,7 @@ export const load: PageServerLoad = async (event) => {
 	// Two fixed reads in one batch — never one per item — and none at all when
 	// the card is switched off for the family or hidden for this member.
 	const groceriesLeg = (async () => {
-		if (!modules.groceries) return { family: [], mine: [] };
+		if (!visibility.needs('groceries')) return { family: [], mine: [] };
 		try {
 			const [family, mine] = await Promise.all([
 				familyId ? getOpenGroceries({ userId, familyId }) : Promise.resolve([]),
@@ -353,7 +330,7 @@ export const load: PageServerLoad = async (event) => {
 		const { dayEvents } = e;
 		// The board shows only open tasks; completed ones vanish after toggle.
 		const openFamilyTasks = familyTasks.filter((f) => !f.completedAt);
-		const fam = await familyLeg(familyTasks, dayEvents);
+		const fam = await familyLeg(dayEvents);
 		// Top-3 ranking: mine-first → priority → overdue → due-today → next,
 		// bucketed relative to the viewed day (rankTop3 returns bare rows).
 		// SAFETY: userTasks rows are TaskWithTags, which carries every RankableTask field.
@@ -388,7 +365,6 @@ export const load: PageServerLoad = async (event) => {
 			userTasks,
 			familyTasks: openFamilyTasks,
 			familyMembers: fam.familyMembers,
-			memberStatus: fam.memberStatus,
 			dayEvents,
 			top3,
 			glance: { doneToday: doneForDay, openToday: openForDay, weekStreak: s.streak },
@@ -404,11 +380,10 @@ export const load: PageServerLoad = async (event) => {
 
 	const verseTranslation = userSettings?.verseTranslation ?? 'esv';
 	// The verse's switch means "show the verse" (080), and it is read in one
-	// place so a saved hidden state still applies after it left the band.
+	// place — the shared visibility answer — so a saved hidden state still
+	// applies after it left the band, here and on /calendar alike (109).
 	const verseG = await guard('verse', null, async () =>
-		verseIsVisible({ showDailyVerse: userSettings?.showDailyVerse, modules })
-			? await getTodayVerse(verseTranslation)
-			: null
+		visibility.needs('verse') ? await getTodayVerse(verseTranslation) : null
 	);
 	// Verse gets its own friendly label: the banner template reads
 	// "Couldn't load {labels} just now — …", so the bare 'verse' label

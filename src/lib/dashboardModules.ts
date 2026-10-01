@@ -12,9 +12,9 @@
  * state, and a user who hid a module before the move stays hidden after it.
  * Retiring a module DOES remove its `id` (103 took the Member Strip off the
  * dashboard), so a saved list still naming it is inert: `isDashboardModule`
- * rejects it, `composeModuleVisibility` drops it, and /account rebuilds the
- * list from this array on the next save, so the stale id clears itself. No
- * data migration is owed to a retired id.
+ * rejects it, `dashboardVisibility` drops it, and /account rebuilds the list
+ * from this array on the next save, so the stale id clears itself. No data
+ * migration is owed to a retired id.
  */
 export const DASHBOARD_MODULES = [
 	{
@@ -52,16 +52,117 @@ export function isDashboardModule(id: string): id is DashboardModuleId {
 	return DASHBOARD_MODULES.some((m) => m.id === id);
 }
 
-/** Whether the Daily Verse shows at all.
+/** Module id → visible. Only canonical ids appear; anything unlisted is
+ * defaulted to visible by {@link showsModule}. */
+export type ModuleSwitchMap = Record<string, boolean>;
+
+/** The stated default for a module the map says nothing about: VISIBLE (109).
  *
- * Now that the verse renders as an info strip rather than a band card, its
- * switch means exactly this: show or hide the verse. It reads BOTH persisted
- * facts — the `showDailyVerse` setting and the composed module visibility — so
- * a user who hid the verse before the move is still hidden after it.
+ * Absent is not hidden. A module whose entry never reaches the client — a
+ * loader that did not compose, an id that is not canonical — must not silently
+ * blank a card the reader asked to see.
  */
-export function verseIsVisible(input: {
-	showDailyVerse: boolean | null | undefined;
-	modules: Record<string, boolean> | undefined;
-}): boolean {
-	return input.showDailyVerse === true && (input.modules?.verse ?? true);
+export function showsModule(modules: ModuleSwitchMap | undefined | null, id: string): boolean {
+	return (modules?.[id] ?? true) !== false;
+}
+
+/** An expensive read a Dashboard Module justifies paying for (109).
+ *
+ * Declared with the module that consumes it, so a loader asks "may I skip
+ * this read?" instead of re-deriving which cards feed which SELECT. A read
+ * with no visible module behind it is work nobody will ever look at.
+ */
+export type DashboardRead =
+	| 'verse'
+	| 'familyTasks'
+	| 'familyRoster'
+	| 'familyDayEvents'
+	| 'kidsAttendance'
+	| 'groceries';
+
+/** Which reads each module consumes. One entry per read; the vocabulary is
+ * declared once, here, so the dashboard loader's skip rules stop being a
+ * private detail of one loader. */
+export const DASHBOARD_READS: Record<DashboardModuleId, readonly DashboardRead[]> = {
+	// The verse has a persisted fact of its own (showDailyVerse) on top of the
+	// composition — see dashboardVisibility.
+	verse: ['verse'],
+	// Day at a Glance lists family events alongside the viewer's own.
+	glance: ['familyDayEvents'],
+	// Top 3 ranks the viewer's own tasks; Completed Today counts them.
+	top3: [],
+	completed: [],
+	// The board lists every open family task, grouped by assignee — which takes
+	// the family roster as well.
+	board: ['familyTasks', 'familyRoster'],
+	// Kids' Schedule is the family's day events filtered to child attendees, so
+	// it wants the roster and the attendance rows, not the whole task board.
+	kids: ['familyDayEvents', 'familyRoster', 'kidsAttendance'],
+	groceries: ['groceries'],
+	// The meal plan is not loaded by the dashboard yet.
+	meals: []
+};
+
+/** What a loader, a page, or a component needs to know about one viewer.
+ *
+ * One answer, three questions. Callers stopped asking for "these two booleans"
+ * (and each inventing their own rollup of them) after 109; this is the whole
+ * surface, and every site derives its answer from here.
+ */
+export interface DashboardVisibility {
+	/** Canonical module id → visible to this viewer. Every id is present, so a
+	 * payload can carry this map to a component verbatim. */
+	readonly modules: Record<DashboardModuleId, boolean>;
+	/** Is this module visible to this viewer? */
+	shows(id: string): boolean;
+	/** Can the loader skip this read? True while some visible module still
+	 * consumes it. */
+	needs(read: DashboardRead): boolean;
+}
+
+/** The viewer's effective Dashboard Module visibility, composed once (109).
+ *
+ * Family master switch (family-scoped modules only) AND the viewer's own
+ * hidden list both apply. Personal modules are only ever gated by the hidden
+ * list. The Daily Verse additionally reads the calendar's own `showDailyVerse`
+ * setting — it is the one module whose visibility is a function of a second
+ * persisted fact, and it is why this function takes `settings` as one object:
+ * the two facts arrive together or not at all.
+ *
+ * Pure. It touches no database, so the same answer serves a loader, a page
+ * payload, and a component.
+ */
+export function dashboardVisibility(input: {
+	/** The settings row, or the two facts off it. Absent = nothing saved. */
+	settings?:
+		| { showDailyVerse?: boolean | null; hiddenDashboardModules?: readonly string[] | null }
+		| null;
+	/** Current family master switches. Absent = every family module enabled. */
+	familySwitches?: ModuleSwitchMap;
+}): DashboardVisibility {
+	const switches = input.familySwitches ?? {};
+	const hidden = new Set((input.settings?.hiddenDashboardModules ?? []).filter(isDashboardModule));
+	const showsForViewer = (id: DashboardModuleId): boolean => {
+		const master =
+			DASHBOARD_MODULES.find((m) => m.id === id)?.scope === 'family'
+				? (switches[id] ?? true)
+				: true;
+		return master && !hidden.has(id);
+	};
+	// SAFETY: every canonical id is a key here by construction, which
+	// Object.fromEntries' index signature cannot prove.
+	const modules = Object.fromEntries(
+		DASHBOARD_MODULES.map(({ id }) => [
+			id,
+			// The verse's second fact is its own settings field, not a module
+			// switch, and it only ever removes visibility (080).
+			showsForViewer(id) && (id !== 'verse' || input.settings?.showDailyVerse === true)
+		])
+	) as Record<DashboardModuleId, boolean>;
+	return {
+		modules,
+		shows: (id: string) => showsModule(modules, id),
+		needs: (read: DashboardRead) =>
+			DASHBOARD_MODULES.some(({ id }) => modules[id] && DASHBOARD_READS[id].includes(read))
+	};
 }

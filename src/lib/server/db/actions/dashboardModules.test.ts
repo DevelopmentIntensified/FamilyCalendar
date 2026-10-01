@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { composeModuleVisibility } from './dashboardModules';
-import { DASHBOARD_MODULES, isDashboardModule } from '$lib/dashboardModules';
+import { DASHBOARD_MODULES, dashboardVisibility, isDashboardModule } from '$lib/dashboardModules';
+
+/**
+ * The composition used to live here, next to the rows it reads. It is pure, so
+ * it moved to `$lib/dashboardModules` (109) where the module vocabulary is, and
+ * the client-side DayDashboard can reach it too. These tests keep every
+ * property it had to hold; the reader that answers "is this module visible to
+ * this viewer" is `dashboardVisibility(...).modules`.
+ */
 
 const allOn = {
 	board: true,
@@ -20,6 +27,17 @@ const allVisible = {
 	groceries: true,
 	meals: true
 };
+
+/** The two facts a viewer contributes from their settings row. */
+type SavedFacts = { showDailyVerse?: boolean | null; hiddenDashboardModules?: string[] | null };
+
+/** The viewer's own saved row: verse setting on, nothing hidden. */
+const untouched: SavedFacts = { showDailyVerse: true, hiddenDashboardModules: [] };
+
+/** The composed map for one viewer. */
+function visibilityFor(settings: SavedFacts | null, familySwitches: Record<string, boolean> = {}) {
+	return dashboardVisibility({ settings, familySwitches }).modules;
+}
 
 describe('isDashboardModule', () => {
 	it('accepts every canonical module id', () => {
@@ -48,56 +66,66 @@ describe('isDashboardModule', () => {
 	});
 });
 
-describe('composeModuleVisibility', () => {
+describe('dashboardVisibility — the composition', () => {
 	it('defaults everything to visible', () => {
-		const v = composeModuleVisibility({}, []);
-		expect(v).toEqual(allVisible);
+		expect(visibilityFor(untouched)).toEqual(allVisible);
 	});
 
 	it('a family master switch off hides that module for everyone', () => {
-		const v = composeModuleVisibility({ board: false }, []);
+		const v = visibilityFor(untouched, { board: false });
 		expect(v.board).toBe(false);
 		expect(v.kids).toBe(true);
 	});
 
 	it('kids and meals respect their family master switch', () => {
-		const v = composeModuleVisibility({ kids: false, meals: false }, []);
+		const v = visibilityFor(untouched, { kids: false, meals: false });
 		expect(v.kids).toBe(false);
 		expect(v.meals).toBe(false);
 		expect(v.board).toBe(true);
 	});
 
 	it('personal modules ignore family switches entirely', () => {
-		const v = composeModuleVisibility({ verse: false, glance: false }, []);
+		const v = visibilityFor(untouched, { verse: false, glance: false });
 		expect(v.verse).toBe(true);
 		expect(v.glance).toBe(true);
 	});
 
 	it('a per-user hidden module is hidden even when family switch is on', () => {
-		const v = composeModuleVisibility(allOn, ['top3', 'kids']);
+		const v = visibilityFor(
+			{ showDailyVerse: true, hiddenDashboardModules: ['top3', 'kids'] },
+			allOn
+		);
 		expect(v.top3).toBe(false);
 		expect(v.kids).toBe(false);
 		expect(v.board).toBe(true);
 	});
 
 	it('family-off plus user-hidden stays hidden', () => {
-		const v = composeModuleVisibility({ board: false }, ['board']);
-		expect(v.board).toBe(false);
+		expect(visibilityFor({ showDailyVerse: true, hiddenDashboardModules: ['board'] }, { board: false }).board).toBe(
+			false
+		);
 	});
 
 	it('user hides do not bypass a family-off switch', () => {
-		const v = composeModuleVisibility({ board: true }, ['board']);
-		expect(v.board).toBe(false); // hidden, not visible — no bypass
+		// hidden, not visible — no bypass
+		expect(visibilityFor({ showDailyVerse: true, hiddenDashboardModules: ['board'] }, { board: true }).board).toBe(
+			false
+		);
 	});
 
 	it('ignores unknown entries in the hidden list', () => {
-		const v = composeModuleVisibility({}, ['widget', 'nope']);
-		expect(v).toEqual(allVisible);
+		expect(visibilityFor({ showDailyVerse: true, hiddenDashboardModules: ['widget', 'nope'] })).toEqual(
+			allVisible
+		);
 	});
 
 	it('completed is personal: family switch ignored, user hide honored', () => {
-		expect(composeModuleVisibility({ completed: false }, []).completed).toBe(true);
-		expect(composeModuleVisibility({}, ['completed']).completed).toBe(false);
+		expect(visibilityFor(untouched, { completed: false }).completed).toBe(true);
+		expect(visibilityFor({ showDailyVerse: true, hiddenDashboardModules: ['completed'] }).completed).toBe(false);
+	});
+
+	it('a null hidden list is an empty one', () => {
+		expect(visibilityFor({ showDailyVerse: true, hiddenDashboardModules: null })).toEqual(allVisible);
 	});
 });
 
@@ -107,16 +135,22 @@ describe('the Groceries card as a Dashboard Module (081)', () => {
 	});
 
 	it('is family-scoped: an admin switch off hides it for everyone', () => {
-		expect(composeModuleVisibility({ groceries: false }, []).groceries).toBe(false);
-		expect(composeModuleVisibility({}, []).groceries).toBe(true);
+		expect(visibilityFor(untouched, { groceries: false }).groceries).toBe(false);
+		expect(visibilityFor(untouched).groceries).toBe(true);
 	});
 
 	it('family-off beats a member saying they can still see it', () => {
-		expect(composeModuleVisibility({ groceries: false }, ['board']).groceries).toBe(false);
+		expect(
+			visibilityFor({ showDailyVerse: true, hiddenDashboardModules: ['board'] }, { groceries: false })
+				.groceries
+		).toBe(false);
 	});
 
 	it('each member can still hide it for themself alone', () => {
-		expect(composeModuleVisibility({ groceries: true }, ['groceries']).groceries).toBe(false);
+		expect(
+			visibilityFor({ showDailyVerse: true, hiddenDashboardModules: ['groceries'] }, { groceries: true })
+				.groceries
+		).toBe(false);
 	});
 });
 
@@ -126,7 +160,7 @@ describe('the retired member strip id in saved state (103)', () => {
 		// filters the saved list through the canonical check, so the id is inert
 		// — no throw, no resurrected key, and the modules that are still here
 		// keep composing exactly as they always did.
-		const v = composeModuleVisibility({}, ['memberStrip', 'board']);
+		const v = visibilityFor({ showDailyVerse: true, hiddenDashboardModules: ['memberStrip', 'board'] });
 		expect(v).toEqual({ ...allVisible, board: false });
 		expect(Object.keys(v)).not.toContain('memberStrip');
 	});
@@ -136,7 +170,7 @@ describe('the retired member strip id in saved state (103)', () => {
 		// composer only ever reads canonical ids, so it is ignored; the row
 		// itself is cleared by sql/015 (and setFamilyModuleSwitch throws on an
 		// unknown id, so nothing can write it back).
-		const v = composeModuleVisibility({ memberStrip: false }, []);
+		const v = visibilityFor(untouched, { memberStrip: false });
 		expect(v).toEqual(allVisible);
 		expect(Object.keys(v)).not.toContain('memberStrip');
 	});
@@ -147,6 +181,6 @@ describe('the retired member strip id in saved state (103)', () => {
 		// itself on the next save and can never fail one.
 		const saved = DASHBOARD_MODULES.map((m) => m.id).filter((id) => id !== 'board');
 		expect(saved).not.toContain('memberStrip');
-		expect(composeModuleVisibility({}, saved).board).toBe(true);
+		expect(visibilityFor({ showDailyVerse: true, hiddenDashboardModules: saved }).board).toBe(true);
 	});
 });

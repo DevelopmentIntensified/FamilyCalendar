@@ -1,19 +1,13 @@
 import { db } from '$lib/server/db';
 import { dashboardModuleSwitches } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
-import {
-	DASHBOARD_MODULES,
-	FAMILY_DASHBOARD_MODULES,
-	isDashboardModule
-} from '$lib/dashboardModules';
-
-/** Module id → visible. Only canonical ids appear; anything unlisted defaults to true. */
-export interface ModuleSwitchMap {
-	[moduleId: string]: boolean;
-}
+import { DASHBOARD_MODULES, FAMILY_DASHBOARD_MODULES, type ModuleSwitchMap } from '$lib/dashboardModules';
 
 /** Current family master switches for the family-scoped modules.
  * Missing row → enabled (the default); rows only exist while switched off.
+ *
+ * The persisted half of visibility. The composed answer lives one layer up, in
+ * `dashboardVisibility` — this file reads rows and nothing else (109).
  */
 export async function getFamilyModuleSwitches(familyId: string): Promise<ModuleSwitchMap> {
 	const rows = await db
@@ -29,23 +23,6 @@ export async function getFamilyModuleSwitches(familyId: string): Promise<ModuleS
 	return map;
 }
 
-/** Effective visibility for a viewer: family master switch (family modules
- * only) AND the user's own hidden list both apply. Personal modules are only
- * ever gated by the user's own hidden list.
- */
-export function composeModuleVisibility(
-	familySwitches: ModuleSwitchMap,
-	hiddenModules: string[]
-): ModuleSwitchMap {
-	const hidden = new Set(hiddenModules.filter(isDashboardModule));
-	const out: ModuleSwitchMap = {};
-	for (const { id, scope } of DASHBOARD_MODULES) {
-		const master = scope === 'family' ? (familySwitches[id] ?? true) : true;
-		out[id] = master && !hidden.has(id);
-	}
-	return out;
-}
-
 /** Toggle a family master switch. `enabled: false` writes a row; re-enabling
  * removes the row back to the default-on state.
  */
@@ -59,10 +36,7 @@ export async function setFamilyModuleSwitch(familyId: string, module: string, en
 		await db
 			.delete(dashboardModuleSwitches)
 			.where(
-				and(
-					eq(dashboardModuleSwitches.familyId, familyId),
-					eq(dashboardModuleSwitches.module, module)
-				)
+				and(eq(dashboardModuleSwitches.familyId, familyId), eq(dashboardModuleSwitches.module, module))
 			);
 	} else {
 		await db

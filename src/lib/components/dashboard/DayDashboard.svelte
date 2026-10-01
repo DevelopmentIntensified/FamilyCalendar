@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import type { Event } from '$lib/types';
+	import { showsModule } from '$lib/dashboardModules';
 	import DashboardInfoBand from './DashboardInfoBand.svelte';
 	import TodayGlanceCard, { type GlanceEvent } from './TodayGlanceCard.svelte';
 	import TopPrioritiesCard from './TopPrioritiesCard.svelte';
@@ -14,7 +15,7 @@
 	export let isToday: boolean = true;
 	export let meId: string;
 	export let familyId: string | null;
-	/** The Daily Verse, already gated server-side by `verseIsVisible` (080).
+	/** The Daily Verse, already gated server-side by `dashboardVisibility` (080).
 	 * It renders in the quiet info band above the cards, not as a band card. */
 	export let dailyVerse: { reference: string; text: string; attribution?: string } | null = null;
 	export let glance: { doneToday: number; openToday: number; weekStreak: number };
@@ -60,11 +61,13 @@
 	export let mineGroceries: GroceryCardItem[] = [];
 	/** Section labels whose model failed to load — shown as a banner, not a 500. */
 	export let loadWarnings: string[] = [];
-	// Per-module visibility (family master switch AND per-user hides). Absent
-	// keys default to visible so the component stays safe when not supplied.
+	// Per-module visibility (family master switch AND per-user hides), composed
+	// server-side by `dashboardVisibility` (109). An absent key is visible —
+	// `showsModule` is the module's stated default, not a guess about what was
+	// passed in.
 	export let modules: Record<string, boolean> = {};
 
-	const visible = (id: string) => modules[id] ?? true;
+	const visible = (id: string) => showsModule(modules, id);
 
 	let selectedEvent: Event | null = null;
 
@@ -95,50 +98,58 @@
 	{/if}
 
 	<div data-testid="dashboard-card-band" class="space-y-4">
-		{#if visible('glance') || visible('top3')}
-			<div class="grid gap-4 md:grid-cols-2">
+		<!-- Row 1 — the day's own reading, across the full width (118). This is
+		     the band the Member Strip vacated, and it now says what it is for:
+		     three cards side by side instead of one card and a half-empty column.
+		     `md:grid-cols-2` is 103's pinned glance/top-3 pairing, still intact. -->
+		{#if visible('glance') || visible('top3') || visible('completed')}
+			<div
+				data-testid="dashboard-day-band"
+				class="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3"
+			>
 				{#if visible('glance')}
 					<TodayGlanceCard {dateLabel} {isToday} events={dayEvents} onEventClick={openEvent} />
 				{/if}
-				<div class="space-y-4">
-					{#if visible('top3')}
-						<TopPrioritiesCard tasks={top3} {meId} />
-					{/if}
-					{#if visible('completed')}
-						<CompletedTodayCard tasks={completedToday} {isToday} />
-					{/if}
-				</div>
+				{#if visible('top3')}
+					<TopPrioritiesCard tasks={top3} {meId} />
+				{/if}
+				{#if visible('completed')}
+					<CompletedTodayCard tasks={completedToday} {isToday} />
+				{/if}
 			</div>
-		{:else if visible('completed')}
-			<CompletedTodayCard tasks={completedToday} {isToday} />
 		{/if}
 
-		<!-- The Family Task Board owns this row on its own now (103): the Member
-		     Strip shared a two-column grid with it, and deleting the strip must
-		     not take the board — or its full width — with it. -->
-		{#if familyId && visible('board')}
-			<FamilyTaskBoardCard
-				tasks={familyTasks}
-				members={familyMembers}
-				{meId}
-				{familyId}
-				openToday={glance.openToday}
-				weekStreak={glance.weekStreak}
-			/>
-		{/if}
-
-		{#if familyId && visible('kids')}
-			<KidsScheduleCard events={kidsSchedule} {isToday} />
-		{/if}
-
-		<!-- Groceries (081): family-scoped, but shown to a solo user too —
-		     their own list is the whole list. -->
-		{#if visible('groceries')}
-			<GroceriesCard
-				familyItems={familyGroceries}
-				mineItems={mineGroceries}
-				hasFamily={!!familyId}
-			/>
+		<!-- Row 2 — the small family cards, three-up (118). "This doesn't need to
+		     be as wide": the board was one 876px card that read as the page. It is
+		     one column of a row now, and the two cells the Member Strip's row gave
+		     up hold Kids' Schedule and Groceries, which are day-scoped and small.
+		     Their internal grouping is 101's business and is untouched.
+		     `items-start` so a short card is not stretched into a tall empty one. -->
+		{#if (familyId && visible('board')) || (familyId && visible('kids')) || visible('groceries')}
+			<div data-testid="dashboard-family-row" class="grid items-start gap-4 lg:grid-cols-3">
+				{#if familyId && visible('board')}
+					<FamilyTaskBoardCard
+						tasks={familyTasks}
+						members={familyMembers}
+						{meId}
+						{familyId}
+						openToday={glance.openToday}
+						weekStreak={glance.weekStreak}
+					/>
+				{/if}
+				{#if familyId && visible('kids')}
+					<KidsScheduleCard events={kidsSchedule} {isToday} />
+				{/if}
+				<!-- Groceries (081): family-scoped, but shown to a solo user too —
+				     their own list is the whole list. -->
+				{#if visible('groceries')}
+					<GroceriesCard
+						familyItems={familyGroceries}
+						mineItems={mineGroceries}
+						hasFamily={!!familyId}
+					/>
+				{/if}
+			</div>
 		{/if}
 	</div>
 </div>

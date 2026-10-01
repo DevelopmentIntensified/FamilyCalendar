@@ -17,6 +17,8 @@ import {
 import { getTasksForUser, syncRecurringCursors } from '$lib/server/db/actions/tasks';
 import { zoneFromSettings, zonedNow } from '$lib/server/utils/userTimezone';
 import { getTodayVerse } from '$lib/server/services/verseService';
+import { getFamilyModuleSwitches } from '$lib/server/db/actions/dashboardModules';
+import { dashboardVisibility } from '$lib/dashboardModules';
 import { GUEST_MERGE_COOKIE } from '$lib/server/services/guestMergeService';
 import { guard } from '$lib/server/utils/guard';
 
@@ -182,9 +184,22 @@ export const load: PageServerLoad = async (event) => {
 			}
 			return { adEventsData };
 		}),
-		guard('verse', null, async () =>
-			userSettings?.showDailyVerse ? await getTodayVerse(verseTranslation) : null
-		)
+		guard('verse', null, async () => {
+			// The verse's visibility is a function of BOTH persisted facts — the
+			// `showDailyVerse` setting and the Dashboard Module switch — so it
+			// asks the one shared answer rather than reading one of them (109).
+			// This loader used to read only the setting, and a user who hid the
+			// verse in /account was still served one here.
+			const switchesG = await guard('settings', {}, async () =>
+				familyId ? await getFamilyModuleSwitches(familyId) : {}
+			);
+			warn(switchesG.error);
+			const visibility = dashboardVisibility({
+				settings: userSettings,
+				familySwitches: switchesG.data
+			});
+			return visibility.needs('verse') ? await getTodayVerse(verseTranslation) : null;
+		})
 	]);
 	warn(personalG.error);
 	warn(familyG.error);

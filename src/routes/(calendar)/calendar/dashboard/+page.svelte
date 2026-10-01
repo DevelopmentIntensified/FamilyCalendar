@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { DateTime } from 'luxon';
 	import { invalidateAll } from '$app/navigation';
+	import DayNav from '$lib/components/DayNav.svelte';
 	import DayDashboard from '$lib/components/dashboard/DayDashboard.svelte';
 	import type { PageData } from './$types';
 
@@ -10,6 +11,7 @@
 	$: dateLabel = dayDt.toFormat('cccc, LLLL d');
 	$: prevDayHref = '/calendar/dashboard?date=' + dayDt.minus({ days: 1 }).toISODate();
 	$: nextDayHref = '/calendar/dashboard?date=' + dayDt.plus({ days: 1 }).toISODate();
+	$: todayHref = '/calendar/dashboard';
 	$: backToCalendarHref =
 		data.userSettings?.defaultView === 'dashboard' ? '/calendar?dashboardView=1' : '/calendar';
 </script>
@@ -26,37 +28,16 @@
 				{dateLabel}{data.isToday ? ' · today' : ''}
 			</p>
 		</div>
-		<nav class="flex items-center gap-1.5" aria-label="Day navigation">
-			<a
-				href={prevDayHref}
-				class="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-				aria-label="Previous day"
-				title="Previous day"
-			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-				</svg>
-			</a>
-			<a
-				href="/calendar/dashboard"
-				class="flex h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 {data.isToday
-					? 'pointer-events-none opacity-50'
-					: ''}"
-				aria-label="Go to today"
-			>
-				Today
-			</a>
-			<a
-				href={nextDayHref}
-				class="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-				aria-label="Next day"
-				title="Next day"
-			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-				</svg>
-			</a>
-		</nav>
+		<!-- 118 mark 1.5: the same navigator the calendar page uses, so "Today"
+		     cannot drift between the two headers again. Hrefs, not callbacks —
+		     a day is a URL here, and a link can be opened in a new tab. -->
+		<DayNav
+			period="day"
+			isToday={data.isToday}
+			{todayHref}
+			previousHref={prevDayHref}
+			nextHref={nextDayHref}
+		/>
 		<a
 			href={`/calendar?date=${dayDt.toISODate()}&view=day`}
 			class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
@@ -73,10 +54,19 @@
 	</header>
 
 	{#await data.dashboardData}
-		<div class="grid gap-4 md:grid-cols-2" aria-hidden="true">
-			{#each Array(4) as _, i (i)}
-				<div class="h-44 animate-pulse rounded-2xl bg-slate-100"></div>
-			{/each}
+		<!-- Skeletons, in the two rows the band actually renders (118), so the
+		     page does not change shape when the data lands. -->
+		<div class="space-y-4" aria-hidden="true">
+			<div class="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
+				{#each Array(3) as _, i (i)}
+					<div class="h-44 animate-pulse rounded-2xl bg-slate-100"></div>
+				{/each}
+			</div>
+			<div class="grid items-start gap-4 lg:grid-cols-3">
+				{#each Array(3) as _, i (i)}
+					<div class="h-56 animate-pulse rounded-2xl bg-slate-100"></div>
+				{/each}
+			</div>
 		</div>
 	{:then dd}
 		<DayDashboard
@@ -90,7 +80,6 @@
 			dayEvents={dd.dayEvents}
 			top3={dd.top3}
 			completedToday={dd.completedToday ?? []}
-			memberStatus={dd.memberStatus}
 			familyTasks={dd.familyTasks}
 			familyMembers={dd.familyMembers}
 			kidsSchedule={dd.kidsSchedule}
