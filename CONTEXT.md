@@ -37,6 +37,16 @@ _Avoid_: repeating event, series
 A user edit to a single occurrence of a Recurring Event, stored separately without altering the schedule.
 _Avoid_: edit exception, split
 
+**Sponsored Event**:
+An Event carrying a paid placement. Always labelled as sponsored on every surface it renders — a user must never mistake an ad for something a family member chose. Distinct from a family Event in provenance only, never in behaviour: it lives on the same calendar and takes the same actions.
+_Avoid_: promoted event, ad slot, featured event
+
+### Alerts
+
+**Alert**:
+One row in the notification feed. A **closed set** of types — `assignment_pending`, `assignment_accepted`, `assignment_declined`, `task_completed`, `added_to_family` — and nothing else; an unrecognised type in the column is not a member of the vocabulary. The feed groups Alerts by what they ask of the reader, not by when they arrived: **needs you** (an unanswered assignment handoff) versus **news** (everything already settled). A type's group is a property of the type, never decided at the call site.
+_Avoid_: notification, message, activity item
+
 ### Work Items
 
 **Task**:
@@ -82,7 +92,7 @@ _Avoid_: chore board, chores card, task board for today
 ### Groceries
 
 **Grocery List**:
-A check-off list with two tabs — Mine (personal) and Family (shared). Checking off hides the item; Store Memory is kept.
+A check-off list, one list with a scope filter over All / Family (shared) / Mine (personal). Not two tabs: the same list, filtered. Checking off hides the item; Store Memory is kept.
 _Avoid_: shopping cart
 
 **Grocery Item**:
@@ -97,10 +107,14 @@ _Avoid_: shop, merchant
 Family-wide item-name → store learning. Survives check-off and delete.
 _Avoid_: learning model
 
+**Store Colour**:
+The colour a Store is drawn in. Two scopes with one precedence rule: a personal choice wins over a family one, and with neither set the colour is hashed from the Store *name*. Collisions are permitted and disclosed to the user, never prevented — two Stores sharing a colour is a less bad outcome than repainting one to avoid it. Sits alongside Store Memory: family-wide by default, overridable alone.
+_Avoid_: store tag colour, category colour
+
 ### Day Dashboard
 
 **Day Dashboard**:
-A per-day, at-a-glance page answering "what do I need to know — and do — about today": today's events, the Top-3 Priorities, the Family Task Board, Kids' Schedule, Member Strip, Meals, and the Daily Verse. Phase 1 covers today; a `?date=` parameter extends it to any day. A composition layer over Tasks/events/family — not a new data model.
+A per-day, at-a-glance page answering "what do I need to know — and do — about today": today's events, the Top-3 Priorities, the Family Task Board, Kids' Schedule, Groceries, and the Daily Verse. Meals is parked. Phase 1 covers today; a `?date=` parameter extends it to any day. A composition layer over Tasks/events/family — not a new data model.
 _Avoid_: home screen, overview, dashboard widget page
 
 **Daily Verse**:
@@ -108,7 +122,9 @@ A scripture verse rendered on the calendar (compact strip) and/or the Day Dashbo
 _Avoid_: vault verse, verse of the day strip
 
 **Dashboard Module**:
-One card on the Day Dashboard (Today at a Glance, Top-3 Priorities, Family Task Board, Kids' Schedule, Member Strip, Meals, Daily Verse). Each family-level module has a master enable switch controlled by an admin; each user may hide a module for themselves alone. A family-level switch off hides the module for everyone.
+One card on the Day Dashboard (Today at a Glance, Top-3 Priorities, Completed Today, Family Task Board, Kids' Schedule, Groceries, Meals, Daily Verse). Each family-level module has a master enable switch controlled by an admin; each user may hide a module for themselves alone. A family-level switch off hides the module for everyone.
+
+The Daily Verse is the exception that proves the rule: it is a Dashboard Module **and** gated by its own `showDailyVerse` setting, because it also renders on the calendar. Two persisted facts, one visibility answer.
 _Avoid_: widget, tile, panel
 
 ### Family

@@ -182,6 +182,60 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
+- **Architecture review → deepening tickets (2026-09-30, #109–#117).** Nine
+  modules whose interface is nearly as complex as their implementation, found by
+  a read-only pass scoped to the 60 most recent commits. Every candidate is an
+  invariant that lives at the call site instead of behind an interface. The
+  HTML report: `%TEMP%\architecture-review-20260930.html`.
+  - **#109 DONE** — "which Dashboard Modules are visible" existed in five
+    shapes and two already disagreed: `verseIsVisible` read both persisted
+    facts but the calendar loader never called it, so a verse hidden in
+    /account still rendered on /calendar. Now one `dashboardVisibility()` whose
+    answer also tells a loader which reads it can skip. Two reads are now
+    skipped that were not before.
+  - **#108 DONE** — `at <place>` needed the article `the` and had no
+    terminator, so `at snow flex` never matched and `at the annex on monday at
+    2pm` read as `annex on monday at`. `in the X` had the identical shape and is
+    now the same rule. Suite 433 → 539, measured red-against-old-parser.
+  - **#101 DONE** — the Family Task Board is grouped by assignee and the
+    personal list is flat, via one shared module both surfaces call.
+  - **#088b DONE, DDL PENDING** — an append-only `adConsentRecords` trail
+    (granted/withdrawn, timestamped). Cannot change the serve-time gate, and
+    four tests prove it does not. **The DDL is hand-written in the issue and
+    must be run by hand before the code is useful.**
+  - **#118 DONE** — the board stops being full-width; kids' and groceries move
+    up a layer; `DayNav.svelte` extracted so two hand-built "Today" controls
+    cannot drift again.
+  - **#119 / #120 in progress** — the mobile rail, and the toolbar's three
+    marks. Mobile default is now the month grid (supersedes part of #104). New
+    **Prototype E** (`e-grid-is-the-page.html`) carries the answer; D stays on
+    disk as the record with `supersededBy`.
+  - #110 task visibility + the Recurring Task cursor invariant (two dead
+    exports; `syncRecurringCursors` hand-copied into five loaders) — the
+    largest prize. #111 chip shell, nine hand-composed copies. #112 parser
+    claims that cannot overlap. #113 `tasks.ts` split (after #110). #114 one
+    date resolution across three parsers. #115 grocery Store colour. #116 the
+    DB seam (blocked by #002). #117 loader re-joins (lowest confidence; may
+    close as a false positive).
+- **Prototype review cycle 1 → 16 approved pages (2026-09-30, #123).** 15 app-ui
+  pages plus **Prototype E**. **Eleven of the fifteen app pages were already in
+  the app** — #101, #096, #097, #075, #077, #073 among them — so #123 is
+  verification, not construction. Cycle 1's 20 marks are archived in
+  `docs/research/review-marks-cycle-1.md` and triaged into #093, #094, #095,
+  #118, #119, #120.
+  - **#121** — why that happened: closing a ticket in the app does not touch
+    the prototype, so **9 of 35 marks in round 2 described already-shipped
+    work**. A 26% false-positive rate. The check that would stop it recurring
+    is #121's deliverable.
+  - **#122** — the port of every approved change, blocked on the prototype edits
+    settling. One test per real mark: the rail *cannot* render below 768px,
+    search *cannot* sit on row one, the board *cannot* be full-width.
+- **The review tool changed shape (2026-09-30).** A click no longer creates a
+  mark — it **stages** the element, and a mark exists only once a message is
+  written and submitted. An empty mark cannot be created at all. `reviewed-clean`
+  is a new registry state: looked at, nothing found. Before it, six pages you
+  had genuinely reviewed showed as never opened, because the only way to say
+  "reviewed" was to write a mark.
 - #064–#084 prototype-review round (2026-09-28, from the app-ui + calendar-ui
   review, 18 marks over 8 prototypes; 9 pages still unreviewed):
   - Bugs found while grounding: #065 bottom nav can't reach Groceries, top nav
