@@ -1877,7 +1877,9 @@ describe('Unmatched export 2026-09-10 — multi-word comma attendants (#052)', (
 
 	it.each([
 		['lunch with amy chen and bob lee friday', ['amy chen', 'bob lee']],
-		['dinner with nathan dewhurst, matthew wilson, kelvin tomorrow', ['nathan dewhurst', 'matthew wilson', 'kelvin']],
+		[
+			'dinner with nathan dewhurst, matthew wilson, kelvin tomorrow', ['nathan dewhurst', 'matthew wilson', 'kelvin']
+		],
 		['brunch with sam oak, jo pine sunday', ['sam oak', 'jo pine']]
 	])('reads "%s" attendants %s', (input, names) => {
 		const attendants = (parseEventInput(input).parsed.attendants ?? []).map((n) =>
@@ -1897,4 +1899,180 @@ describe('Unmatched export 2026-09-10 — multi-word comma attendants (#052)', (
 		);
 		expect(attendants, input).toEqual(names);
 	});
+});
+
+// ===== Issue 108 — "at <place>" reads with and without the article =====
+
+describe('Location phrase table (issue 108)', () => {
+	// The whole class, not the three reported strings. Dimensions:
+	//   article  none | "the"
+	//   words    1 | 2 | 3
+	//   name     lowercase | Proper | digit | apostrophe/dot
+	//   tail     bare | "on <day>" | "at <time>" | "from <time> to <time>"
+	//   guards   time | daypart | street address | "my <place>" | "home"
+	// `undefined` means "no location at all" — a confidently wrong location
+	// is worse than none, so rows that end in schedule words pin the exact
+	// end of the place rather than merely "defined".
+	const LOCATION_PHRASES: Array<[string, string | undefined]> = [
+		// --- article: none (before the fix: no location at all) ---
+		['running with george at snow flex on tuesday at 3pm', 'snow flex'],
+		['coffee at blue bottle on friday at 9am', 'blue bottle'],
+		['movie at school on friday', 'school'],
+		['practice at soccer practice on wednesday at 5pm', 'soccer practice'],
+		['lunch at blue bottle', 'blue bottle'],
+		['grocery at whole foods', 'whole foods'],
+		['run at snow flex', 'snow flex'],
+		['hike at ridge trail', 'ridge trail'],
+		['run at barn', 'barn'],
+		['run at the old stone barn', 'old stone barn'],
+		['run at neighborhood community clubhouse', 'neighborhood community clubhouse'],
+		// --- article: "the" (before the fix: swallowed the tail) ---
+		['meeting at the annex on monday at 2pm', 'annex'],
+		['brunch at the corner cafe on saturday at 10am', 'corner cafe'],
+		['party at the annex from 6pm to 9pm', 'annex'],
+		['gym at the gym on tuesday', 'gym'],
+		['wedding at the barn on june 3rd at 4pm', 'barn'],
+		['dinner at the mall on friday', 'mall'],
+		['pizza at the library', 'library'],
+		['coffee at the downtown roastery', 'downtown roastery'],
+		['run at the big red barn', 'big red barn'],
+		['run at the neighborhood community clubhouse', 'neighborhood community clubhouse'],
+		// --- a capitalised name keeps its capital, capital "The" is part of it ---
+		['picnic at Central Park', 'Central Park'],
+		['race at Fort Fun', 'Fort Fun'],
+		['lunch at The Olive Garden', 'The Olive Garden'],
+		// --- a name with a digit ---
+		['run at Route 9 Park', 'Route 9 Park'],
+		['meet at Room 201', 'Room 201'],
+		['dinner at Route 66 Diner', 'Route 66 Diner'],
+		// --- a name with a dot or an apostrophe ---
+		["brunch at St. Mary's on saturday", "St. Mary's"],
+		// --- the sibling rule: "in the <place>" has the same shape ---
+		['coffee in the park on friday', 'park'],
+		['meeting in the annex on monday at 2pm', 'annex'],
+		['meeting in the big red barn on monday', 'big red barn'],
+		['shopping in the downtown square', 'downtown square'],
+		['walk in the neighborhood park on sunday', 'neighborhood park'],
+		['party in the annex from 6pm to 9pm', 'annex'],
+		// --- guards: "at" that is not a place ---
+		['lunch at noon', undefined],
+		['event beginning at dusk', undefined],
+		['flash mob starting at noon and about 15 min', undefined],
+		['meeting at 3pm for about 15 min', undefined],
+		['meeting at 8 AM sharp', undefined],
+		['yoga every Tuesday for 6 weeks at 6pm', undefined],
+		['dentist tomorrow at 3pm remind me 30 min before', undefined],
+		['team sync weekly on Mon & Wed at 9am', undefined],
+		['flight Monday at 6am remind me 1 day before', undefined],
+		['checkup in 3 days', undefined],
+		['hike early morning', undefined],
+		['run at the', undefined],
+		['book club at the annex third thursday at 7pm', 'annex'],
+		['meet at the annex next friday at 4pm', 'annex'],
+		// --- guards: dedicated rules own these, the generic rule must not steal them ---
+		['movie night at home', 'Home'],
+		['dinner at home on thursday at 7pm', 'Home'],
+		['game night at my apartment', 'Apartment'],
+		['sale at 450 Main Street', '450 Main Street'],
+		['meeting at 742 evergreen terrace', '742 evergreen terrace'],
+		['meeting at 12 oak st, springfield, il 62704', '12 oak st, springfield, il 62704'],
+		['meeting location at the park', 'the park'],
+		['Party at LU with friends', 'LU'],
+		['team meeting Friday location: HQ', 'HQ'],
+		// --- reported evidence, pinned so the fix cannot move it ---
+		['a5pm disc golf at independence park. with jay and the league', 'independence park'],
+		[
+			'running on friday at peaksview park at 5pm till 6pm with james and joseph repeat every week',
+			'peaksview park'
+		],
+		[
+			'We are doing a team building hiking trip early tomorrow morning, leaving at 6 AM and returning by 2 PM from the Blue Ridge Trailhead.',
+			'Blue Ridge Trailhead'
+		]
+	];
+	for (const [input, location] of LOCATION_PHRASES) {
+		it(`"${input.slice(0, 58)}" → location ${location ?? '(none)'}`, () => {
+			expect(parseEventInput(input).parsed.location, input).toBe(location);
+		});
+	}
+
+	// A tail is a tail whether or not the article is there, and for either
+	// preposition. Each pins the exact place, not just "defined".
+	const TAILS = [
+		'on monday',
+		'at 2pm',
+		'from 6pm to 9pm',
+		'with george',
+		'and dinner',
+		'for 2 hours',
+		'on monday at 2pm',
+		'from 6pm until 9pm',
+		'next friday',
+		'third thursday',
+		'for two hours'
+	];
+	for (const tail of TAILS) {
+		for (const preposition of ['at the annex', 'in the annex']) {
+			it(`"meeting ${preposition} ${tail}" keeps the place at "annex"`, () => {
+				expect(parseEventInput(`meeting ${preposition} ${tail}`).parsed.location).toBe('annex');
+			});
+		}
+	}
+
+	// The date and the time never ride into the place.
+	const LEAK_TOKENS = [
+		'monday',
+		'tuesday',
+		'friday',
+		'saturday',
+		'sunday',
+		'thursday',
+		'wednesday'
+	];
+	const LEAK_CASES = [
+		'meeting at the annex on monday at 2pm',
+		'running with george at snow flex on tuesday at 3pm',
+		'brunch at the corner cafe on saturday at 10am',
+		'meeting in the annex on monday at 2pm'
+	];
+	for (const input of LEAK_CASES) {
+		it(`"${input.slice(0, 46)}" leaks no schedule word into the place`, () => {
+			const location = (parseEventInput(input).parsed.location ?? '').toLowerCase();
+			for (const token of [...LEAK_TOKENS, 'am', 'pm', 'at', 'on', 'from', 'the']) {
+				expect(new RegExp(`\\b${token}\\b`).test(location), `${input} → "${location}"`).toBe(false);
+			}
+		});
+	}
+});
+
+describe('Location span never leaks into the title (issue 108)', () => {
+	const TITLES: Array<[string, string]> = [
+		// before: "running with george snow flex" / "coffee blue bottle" /
+		// "meeting the annex" / "run at the annex" / "gym at the gym"
+		['running with george at snow flex on tuesday at 3pm', 'running with george'],
+		['coffee at blue bottle on friday at 9am', 'coffee'],
+		['movie at school on friday', 'movie'],
+		['practice at soccer practice on wednesday at 5pm', 'practice'],
+		['run at snow flex', 'run'],
+		['gym at the gym on tuesday', 'gym'],
+		['meeting at the annex on monday at 2pm', 'meeting'],
+		['brunch at the corner cafe on saturday at 10am', 'brunch'],
+		['party at the annex from 6pm to 9pm', 'party'],
+		['wedding at the barn on june 3rd at 4pm', 'wedding'],
+		['dinner at the mall on friday', 'dinner'],
+		['run at the big red barn', 'run'],
+		['picnic at Central Park', 'picnic'],
+		['run at Route 9 Park', 'run'],
+		["brunch at St. Mary's on saturday", 'brunch'],
+		['lunch at The Olive Garden', 'lunch'],
+		['coffee in the park on friday', 'coffee'],
+		['meeting in the annex on monday at 2pm', 'meeting'],
+		['shopping in the downtown square', 'shopping'],
+		['walk in the neighborhood park on sunday', 'walk']
+	];
+	for (const [input, title] of TITLES) {
+		it(`"${input.slice(0, 52)}" → title "${title}"`, () => {
+			expect(parseEventInput(input).parsed.title, input).toBe(title);
+		});
+	}
 });

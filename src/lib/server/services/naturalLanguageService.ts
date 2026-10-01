@@ -394,6 +394,141 @@ function cleanTitleText(title: string): string {
 	return text;
 }
 
+// ===== Places introduced by "at" / "in the" (issue 108) =====
+
+/** Words that END a place name. First the schedule prepositions that hand the
+ *  sentence back to the calendar ("on monday", "at 2pm", "from 6pm"), then the
+ *  conjunctions that hand it to company ("with george"). This terminator is
+ *  what the old capture lacked — without it
+ *  `meeting at the annex on monday at 2pm` read as "annex on monday at". */
+const PLACE_TAIL_WORDS = new Set([
+	'on',
+	'at',
+	'from',
+	'in',
+	'to',
+	'for',
+	'by',
+	'until',
+	'till',
+	'til',
+	'after',
+	'before',
+	'during',
+	'through',
+	'starting',
+	'ending',
+	'around',
+	'with',
+	'and',
+	'but',
+	'or',
+	'nor',
+	'plus',
+	'because',
+	'since',
+	'then',
+	'so',
+	'if',
+	'when',
+	'while'
+]);
+
+/** A whole token that ends a place name on its own: a weekday, a month, an
+ *  ordinal day, a relative day. "on monday" already stops on "on"; "… the
+ *  annex third thursday" does not, so the day words have to stop it too. */
+const PLACE_CALENDAR_WORD =
+	/^(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday|january|february|march|april|may|june|july|august|september|october|november|december|today|tomorrow|tonight|yesterday|weekend|week|month|year|next|last|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth)$/i;
+
+/** A clock or a bare number: "at 8", "at 2pm", "at 8:00", "at 30". Never the
+ *  name of a place. Digits INSIDE a name are fine ("Room 201", "Route 9") —
+ *  this only ever looks at the first word. */
+const PLACE_CLOCK = /^(?:\d+(?::\d+)?[ap]\.?m\.?|\d+(?::\d+)?|[ap]\.?m\.?)$/i;
+
+/** "at" whose object is not a place: a bare article ("at the"), a daypart
+ *  ("at noon", "at dusk"), a meal ("at lunch"), or a phrase a dedicated rule
+ *  owns ("at home" → Home, "at my apartment" → Apartment). Rejecting defers to
+ *  that rule — or to the compromise place guess — instead of inventing one. */
+const PLACE_HEAD_BLOCKLIST = new Set([
+	'the',
+	'a',
+	'an',
+	'home',
+	'my',
+	'our',
+	'noon',
+	'midnight',
+	'morning',
+	'afternoon',
+	'evening',
+	'night',
+	'dusk',
+	'dawn',
+	'sunset',
+	'sunrise',
+	'bedtime',
+	'lunch',
+	'breakfast',
+	'dinner',
+	'suppertime',
+	'naptime',
+	'sharp',
+	'all'
+]);
+
+/** One word of a place: letters, digits, internal apostrophes/dots/hyphens.
+ *  Sticky — it is anchored at each candidate position. */
+const PLACE_WORD = /[A-Za-z0-9][A-Za-z0-9'’.-]*/y;
+
+/** Read the place that starts at `from` — the first character AFTER the opener
+ *  match, so the first word needs no leading gap and every later one does.
+ *  Stops at the first terminator, after at most five words. Returns null when
+ *  there is nothing place-shaped there. */
+function readPlacePhrase(text: string, from: number): { place: string; length: number } | null {
+	let end = from;
+	for (let words = 0; words < 5; words++) {
+		const start = words === 0 ? end : end + 1;
+		if (words > 0 && !/[\s ]/.test(text[end] ?? '')) break;
+		PLACE_WORD.lastIndex = start;
+		const token = PLACE_WORD.exec(text)?.[0];
+		if (!token) break;
+		// "St." and "p.c." keep their dot — it is part of the name, not a gap.
+		const word = token.replace(/[.-]+$/, '');
+		if (!word) break;
+		if (words === 0 && (PLACE_HEAD_BLOCKLIST.has(word.toLowerCase()) || PLACE_CLOCK.test(word))) {
+			return null;
+		}
+		if (PLACE_TAIL_WORDS.has(word.toLowerCase()) || PLACE_CALENDAR_WORD.test(word)) break;
+		end = start + token.length;
+	}
+	if (end <= from) return null;
+	return { place: text.slice(from, end), length: end - from };
+}
+
+/** The first "at <place>" (article optional) or "in the <place>" in the text,
+ *  with the exact span it consumed — preposition and article included, so the
+ *  whole thing can be stripped from the title. "in" keeps its article: bare
+ *  "in" is a date or a mood ("in 3 days"), never a place. The article is only
+ *  consumed in lower case — a capital "The" is part of a proper name, so
+ *  "at The Olive Garden" reads as "The Olive Garden". */
+function matchPlacePhrase(text: string): { place: string; span: string } | null {
+	const opener = /\b(?:at|in)\s+/gi;
+	let match: RegExpExecArray | null;
+	while ((match = opener.exec(text)) !== null) {
+		const start = match.index + match[0].length;
+		// Case-sensitive on purpose: only a lower-case article is consumed.
+		const article = /^the\s+/.exec(text.slice(start))?.[0] ?? '';
+		if (match[0].toLowerCase().startsWith('in') && !article) continue;
+		const found = readPlacePhrase(text, start + article.length);
+		if (found)
+			return {
+				place: found.place,
+				span: text.slice(match.index, start + article.length + found.length)
+			};
+	}
+	return null;
+}
+
 export function parseEventInput(input: string, zone?: string): ParseResult {
 	const result: Partial<ParsedEvent> = { allDay: false };
 	let confidence = 0;
@@ -1441,6 +1576,20 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		stripSpans.push(streetAddressMatch[1]);
 	}
 
+	// "at <place>" (article optional) and "in the <place>" — one rule, because
+	// the two had the identical shape and the identical blind spot. Runs after
+	// the address rules (a street address is more specific than a bare "at")
+	// and BEFORE the compromise guess: an explicit preposition beats an NLP
+	// guess, which otherwise truncated "the downtown roastery" to "downtown".
+	const placePhrase = !result.location ? matchPlacePhrase(nonUrlText) : null;
+	if (placePhrase) {
+		result.location = placePhrase.place;
+		confidence += 0.15;
+		// Consume the whole span — preposition, article and place — so none of
+		// it rides into the title.
+		titleOnlySpans.push(placePhrase.span);
+	}
+
 	// Compromise places, lazily and only as a fallback: explicit locations
 	// ("location: X", "at X") already won above and must not be overwritten.
 	if (!result.location) {
@@ -1451,25 +1600,6 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			// The place name is consumed metadata — keep it out of the title.
 			titleOnlySpans.push(places[0]);
 		}
-	}
-
-	// "at the X" - capture multi-word locations like "neighborhood clubhouse", "yoga studio"
-	const atLocMatch = nonUrlText.match(/at\s+the\s+([A-Za-z][a-z]+(?:\s+[A-Za-z][a-z]+)*)/);
-	if (atLocMatch && !result.location) {
-		let loc = atLocMatch[1];
-		// Stop at conjunctions/prepositions
-		loc = loc.replace(/\s+(?:and|but|with|for|to|by|because|since)\s+.*$/, '');
-		result.location = loc;
-		confidence += 0.15;
-		titleOnlySpans.push(atLocMatch[0]);
-	}
-
-	// "in the X" - capture locations like "downtown square"
-	const inLocMatch = nonUrlText.match(/in\s+the\s+([a-z]+(?:\s+[a-z]+)*)/i);
-	if (inLocMatch && !result.location) {
-		result.location = inLocMatch[1];
-		confidence += 0.15;
-		titleOnlySpans.push(inLocMatch[0]);
 	}
 
 	// "at home"
@@ -1739,7 +1869,11 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			window
 		) {
 			const final = cleaned.replace(/[.,;:!?]+$/, '');
-			if (final.length > 3 && !/^[\s,]*$/.test(final)) {
+			// Any non-empty remainder wins, however short: "run at snow flex"
+			// leaves exactly "run". The raw-text fallback is the LAST resort
+			// (it re-injects whatever was just stripped, location included), so
+			// it is reserved for a window that was emptied completely.
+			if (final.length > 0 && !/^[\s,]*$/.test(final)) {
 				result.title = final;
 			} else {
 				const fallback = nonUrlText.substring(0, 50).replace(/[.,;:!?]+$/, '');
@@ -1816,8 +1950,7 @@ const MIN_SEGMENT_CONFIDENCE = 0.3;
 const WITH_NAME_STOP =
 	'today|tomorrow|yesterday|weekend|sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|am|pm|morning|afternoon|evening|noon|night|midnight|at|on|for|from|to|until|by|in|of|with|every|repeat|weekly|daily|monthly|all|each|next|this|last|remind|reminder|invite|and|or|the|a|an|my|our';
 const WITH_NAME_ITEM = `[A-Za-z][A-Za-z'’-]*(?:\\s+(?!${WITH_NAME_STOP}\\b)[A-Za-z][A-Za-z'’-]*)?`;
-const WITH_LIST_PATTERN =
-	`\\bwith\\s+(${WITH_NAME_ITEM}(?:(?:\\s+and\\s+|\\s*&\\s*|\\s*,\\s*)${WITH_NAME_ITEM})*)`;
+const WITH_LIST_PATTERN = `\\bwith\\s+(${WITH_NAME_ITEM}(?:(?:\\s+and\\s+|\\s*&\\s*|\\s*,\\s*)${WITH_NAME_ITEM})*)`;
 
 function withListSpans(text: string): Array<[number, number]> {
 	const spans: Array<[number, number]> = [];
