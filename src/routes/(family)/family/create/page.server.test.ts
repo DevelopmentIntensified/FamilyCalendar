@@ -11,27 +11,37 @@ import { isActionFailure, isRedirect } from '@sveltejs/kit';
 type Row = Record<string, string | number | boolean | null>;
 
 interface StubState {
-	/** Every row handed to db.insert().values(), in call order. */
+	/** Every row handed to db.insert().values(), in call order (flattened). */
 	inserts: Row[];
+	/** How many transactions the action opened. */
+	transactions: number;
 }
 
-const state = vi.hoisted((): StubState => ({ inserts: [] }));
+const state = vi.hoisted((): StubState => ({ inserts: [], transactions: 0 }));
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- scripted insert stub records what the action would write; real-Postgres harness tracked in docs/issues/002.
-vi.mock('$lib/server/db', () => ({
-	db: {
+vi.mock('$lib/server/db', () => {
+	const db = {
 		insert: () => ({
-			values: (row: Row) => {
-				state.inserts.push(row);
-				return Promise.resolve([row]);
+			values: (row: Row | Row[]) => {
+				// One call may carry a batch (the memberships are written as one).
+				const rows = Array.isArray(row) ? row : [row];
+				state.inserts.push(...rows);
+				return Promise.resolve(rows);
 			}
-		})
-	}
-}));
+		}),
+		transaction: async (run: (tx: unknown) => Promise<unknown>) => {
+			state.transactions += 1;
+			return await run(db);
+		}
+	};
+	return { db };
+});
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- the plan check is a separate service with its own tests; this file is about the colour.
 vi.mock('$lib/server/services/subscriptionService', () => ({
-	canCreateFamily: async () => ({ allowed: true, limit: 1, used: 0 })
+	canCreateFamily: async () => ({ allowed: true, limit: 1, used: 0 }),
+	getUserSubscriptionLimits: async () => ({ memberLimit: 5 })
 }));
 
 import { actions } from './+page.server';
@@ -77,6 +87,7 @@ async function create(fields: Record<string, string>): Promise<{ outcome: Outcom
 
 beforeEach(() => {
 	state.inserts = [];
+	state.transactions = 0;
 });
 
 describe('create action — the default colour has one source of truth (issue 099)', () => {
@@ -93,6 +104,14 @@ describe('create action — the default colour has one source of truth (issue 09
 
 		expect(outcome).toMatchObject({ redirect: 302 });
 		expect(outcome.location).toMatch(/^\/family\//);
+	});
+
+	it('writes the family, its members and its calendar in one transaction', async () => {
+		await create({ name: 'The Hoppers' });
+
+		// Three inserts used to be three separate statements, so a failure half
+		// way left a family with no calendar (issue 076).
+		expect(state.transactions).toBe(1);
 	});
 });
 

@@ -115,6 +115,17 @@ export async function deleteFamilies(id: string) {
 	await db.delete(families).where(eq(families.id, id));
 }
 
+/**
+ * How many people one join code admits when nobody says otherwise.
+ *
+ * Minting used to answer this question twice with two numbers: this action
+ * defaulted to a single use, and `/api/family/invite` clamped to ten. The same
+ * link then meant two different things depending on which door it came out of,
+ * so the default is declared once here and the route's clamp matches it
+ * (issue 091).
+ */
+export const DEFAULT_INVITE_MAX_USES = 10;
+
 export async function generateInviteCode(
 	familyId: string,
 	options?: { expiresInDays?: number; maxUses?: number; createdBy?: string }
@@ -130,7 +141,7 @@ export async function generateInviteCode(
 			code,
 			familyId,
 			expiresAt,
-			maxUses: options?.maxUses ?? 1,
+			maxUses: options?.maxUses ?? DEFAULT_INVITE_MAX_USES,
 			useCount: 0,
 			createdBy: options?.createdBy
 		})

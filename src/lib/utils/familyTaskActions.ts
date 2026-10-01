@@ -8,12 +8,41 @@ export interface ActionTask {
 	userId?: string;
 }
 
-export interface TaskActionPayload {
-	task?: { id: string };
+/**
+ * The task row these actions hand back.
+ *
+ * It used to be `unknown`, which pushed the guessing onto every caller — the
+ * family-tasks page could not pass it to the recurring feedback without
+ * tripping svelte-check, and the next person would have had to find out what
+ * the API actually returns by reading it. These are the fields the callers
+ * read: `id` for undo, `recurrenceFrequency` and `dueDate` for the feedback
+ * toast. The rest of the row comes back typed as whatever the task has.
+ */
+export interface ActionTaskRow {
+	id: string;
+	recurrenceFrequency?: string | null;
+	dueDate?: string | Date | null;
+	completedAt?: string | null;
+}
+
+/** What `/api/tasks/:id` answers with: a `task` wrapper, or the row itself. */
+export interface TaskActionPayload extends Partial<ActionTaskRow> {
+	task?: ActionTaskRow;
 	error?: string;
 }
 
-export type FamilyTaskActionResult = { ok: true; task: unknown } | { ok: false; error: string };
+export type FamilyTaskActionResult = { ok: true; task: ActionTaskRow } | { ok: false; error: string };
+
+/**
+ * One place that decides what "the task" is: the `task` wrapper when the API
+ * sends one, the payload itself when it sends the row bare, and the caller's
+ * own id as the floor. Every mutation returns the same shape this way, so a
+ * caller never has to check which door a row came through.
+ */
+function rowFrom(payload: TaskActionPayload, fallbackId: string): ActionTaskRow {
+	if (payload.task) return payload.task;
+	return { ...payload, id: payload.id ?? fallbackId };
+}
 
 export type FetchLike = (
 	url: string,
@@ -39,7 +68,7 @@ async function putTask(
 		});
 		const j = await res.json().catch((): TaskActionPayload => ({}));
 		if (!res.ok) return { ok: false, error: j.error || fallbackError };
-		return { ok: true, task: j.task ?? j };
+		return { ok: true, task: rowFrom(j, task.id) };
 	} catch {
 		return { ok: false, error: 'Network problem — try again.' };
 	}
@@ -91,7 +120,7 @@ export async function deleteTask(
 		const j = await res.json().catch((): TaskActionPayload => ({}));
 		if (!res.ok)
 			return { ok: false, error: j.error || `Couldn't delete "${task.title}" — try again.` };
-		return { ok: true, task: j };
+		return { ok: true, task: rowFrom(j, task.id) };
 	} catch {
 		return { ok: false, error: `Couldn't delete "${task.title}" — check your connection.` };
 	}

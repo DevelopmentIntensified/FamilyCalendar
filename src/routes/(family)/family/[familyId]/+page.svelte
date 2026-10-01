@@ -307,8 +307,11 @@
 					<div class={BAND_HEAD}>
 						<h2 id="members-heading" class={BAND_TITLE}>Members</h2>
 						<div class="flex items-center gap-2">
+							<!-- The board is one route, /family/tasks (issue 124): the
+							     per-family path used to point at a near-copy page that
+							     threw on load. The old path still redirects here. -->
 							<a
-								href="/family/{family?.id}/tasks"
+								href="/family/tasks"
 								class="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50"
 							>
 								Family Tasks

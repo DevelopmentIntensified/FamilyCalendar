@@ -76,6 +76,7 @@ interface FamilyListData {
 		color: string | null;
 		memberCount: number;
 		openTasks: number;
+		canInvite: boolean;
 	}[];
 	plan: { used: number; limit: number };
 }
@@ -86,13 +87,19 @@ interface FamilyListData {
 const runLoad = load as (event: { locals: { user: { id: string } } }) => Promise<FamilyListData>;
 
 /** One membership row as the memberships query returns it (oldest first). */
-function membership(familyId: string, name: string, memberCount: number, createdAt: string) {
+function membership(
+	familyId: string,
+	name: string,
+	memberCount: number,
+	createdAt: string,
+	role = 'creator'
+) {
 	return {
 		id: familyId,
 		name,
 		color: '#3b82f6',
 		createdAt: new Date(createdAt),
-		role: 'creator',
+		role,
 		memberType: 'parent',
 		memberCount
 	};
@@ -184,6 +191,28 @@ describe('families list loader — the card costs a fixed number of queries (iss
 		expect(threeFamilyQueries).toBe(oneFamilyQueries);
 		// memberships + one grouped open-Task count + the subscription read.
 		expect(oneFamilyQueries).toBe(3);
+	});
+});
+
+describe('families list loader — who may mint an invite link (issue 091)', () => {
+	it('offers the invite affordance for a family you create or administer', async () => {
+		const data = await loadPage(
+			[
+				membership('fam-old', 'Rivera Home', 4, '2026-01-04', 'creator'),
+				membership('fam-new', 'Lake House', 2, '2026-06-01', 'admin')
+			],
+			[]
+		);
+
+		expect(data.families.map((f) => f.canInvite)).toEqual([true, true]);
+	});
+
+	it('does not offer it to a plain member of their own family', async () => {
+		const data = await loadPage([membership('fam-old', 'Rivera Home', 4, '2026-01-04', 'member')], []);
+
+		// The membership ROLE is the permission here. memberType — the personal
+		// profile — is not, per CONTEXT.md and ADR-0001.
+		expect(data.families[0].canInvite).toBe(false);
 	});
 });
 

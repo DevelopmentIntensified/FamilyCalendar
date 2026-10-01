@@ -2,12 +2,22 @@
 // stat that answers "is this family actually in use" and the plan usage the
 // pill reads (issue 098: this loader used to answer with the member's FIRST
 // `familyMembers` row, so a two-family user only ever saw one of them).
-import { getUserFamilyMemberships } from '$lib/server/db/actions/families';
+import {
+	generateInviteCode,
+	getFamilyMemberRole,
+	getUserFamilyMemberships
+} from '$lib/server/db/actions/families';
 import { getUserSubscriptionLimits } from '$lib/server/services/subscriptionService';
 import { db } from '$lib/server/db';
 import { tasks } from '$lib/server/db/schema';
 import { and, count, inArray, isNull } from 'drizzle-orm';
-import type { PageServerLoad } from './$types';
+import { fail } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
+
+// Minting an invite code is creator/admin-only — the same gate
+// `/api/family/invite` and `members/add/direct` use. The membership ROLE is
+// the permission; memberType (the personal profile) is not (ADR-0001).
+const INVITE_MANAGER_ROLES = new Set(['creator', 'admin']);
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const memberships = await getUserFamilyMemberships(locals.user.id);
@@ -41,8 +51,51 @@ export const load: PageServerLoad = async ({ locals }) => {
 		families: memberships.map((m) => ({
 			...m.family,
 			memberCount: m.memberCount,
-			openTasks: openTasksByFamily.get(m.family.id) ?? 0
+			openTasks: openTasksByFamily.get(m.family.id) ?? 0,
+			// Whether THIS page offers "Invite by link" for the family (issue 091).
+			canInvite: m.role !== null && INVITE_MANAGER_ROLES.has(m.role)
 		})),
 		plan: { used: familyIds.length, limit: familyLimit }
 	};
+};
+
+function formString(formData: FormData, key: string): string {
+	const value = formData.get(key);
+	return typeof value === 'string' ? value : '';
+}
+
+export const actions: Actions = {
+	/**
+	 * "Invite by link" (issue 091). Minting a code is a creator/admin action, so
+	 * it is checked here rather than in the view: a plain member posting this
+	 * form gets a refusal that says who may use it, and no code is written.
+	 */
+	mintInvite: async ({ request, locals }) => {
+		if (!locals.user) {
+			return fail(401, { error: 'Sign in to invite someone to your family.' });
+		}
+
+		const familyId = formString(await request.formData(), 'familyId');
+		if (!familyId) {
+			return fail(400, { error: 'Pick the family to invite someone to.' });
+		}
+
+		const role = await getFamilyMemberRole(locals.user.id, familyId);
+		if (!role) {
+			return fail(403, { error: 'You are not a member of that family.' });
+		}
+		if (!INVITE_MANAGER_ROLES.has(role)) {
+			return fail(403, {
+				error: 'Only the family creator or an admin can invite someone by link.'
+			});
+		}
+
+		const invite = await generateInviteCode(familyId, { createdBy: locals.user.id });
+
+		return {
+			familyId,
+			inviteCode: invite.code,
+			inviteUrl: `/family/join/${invite.code}`
+		};
+	}
 };

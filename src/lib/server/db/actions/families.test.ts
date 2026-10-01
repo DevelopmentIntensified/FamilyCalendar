@@ -12,6 +12,8 @@ type Row = Record<string, string | number | boolean | null | Date>;
 interface StubState {
 	/** Rows returned by successive select calls. */
 	queue: Row[][];
+	/** Every row handed to insert().values(), in call order. */
+	inserts: Row[];
 	/** First argument of each select's where() call, in call order. */
 	capturedWhere: unknown[];
 	/** Patch of the tx update issued by removeFamilyMember. */
@@ -25,6 +27,7 @@ interface StubState {
 const state = vi.hoisted(
 	(): StubState => ({
 		queue: [],
+		inserts: [],
 		capturedWhere: [],
 		updatePatch: null,
 		updateWhere: null,
@@ -50,10 +53,12 @@ vi.mock('$lib/server/db', () => ({
 			})
 		}),
 		insert: () => ({
-			values: () =>
-				Object.assign(Promise.resolve([{}]), {
-					returning: () => Promise.resolve([{}])
-				})
+			values: (row: Row) => {
+				state.inserts.push(row);
+				return Object.assign(Promise.resolve([row]), {
+					returning: () => Promise.resolve([row])
+				});
+			}
 		}),
 		update: () => ({
 			set: () => ({
@@ -84,7 +89,7 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-import { searchUsers, acceptInvite, removeFamilyMember } from './families';
+import { searchUsers, acceptInvite, removeFamilyMember, generateInviteCode, DEFAULT_INVITE_MAX_USES } from './families';
 import { clampCount } from '$lib/server/utils/clampCount';
 
 /** A drizzle SQL internal: string leaf, chunk array, or wrapper object. */
@@ -281,6 +286,26 @@ describe('removeFamilyMember', () => {
 		expect(deleteMarkers.join(' ')).toContain('familyMembers');
 		expect(deleteMarkers).toContain('fam-1');
 		expect(deleteMarkers).toContain('member-7');
+	});
+});
+
+describe('generateInviteCode — one default for how many people a code admits (issue 091)', () => {
+	it('defaults to ten uses, which is what the invite route defaults to', async () => {
+		await generateInviteCode('fam-1');
+
+		// Minting through this action used to default to ONE use while
+		// minting through `/api/family/invite` defaulted to ten, so the same
+		// link meant two different things depending on which door it came out of.
+		// The route clamps with `clampCount(maxUses, 1, 50, 10)` — 10 is the
+		// number the two have to agree on.
+		expect(DEFAULT_INVITE_MAX_USES).toBe(10);
+		expect(state.inserts.at(-1)).toMatchObject({ maxUses: DEFAULT_INVITE_MAX_USES });
+	});
+
+	it('still honours an explicit count', async () => {
+		await generateInviteCode('fam-1', { maxUses: 3 });
+
+		expect(state.inserts.at(-1)).toMatchObject({ maxUses: 3 });
 	});
 });
 

@@ -5,7 +5,11 @@ import {
 	generateInviteCode,
 	verifyInviteCode,
 	deleteInviteCode,
-	getFamilyMemberRole
+	getFamilyMemberRole,
+	// The route's fallback is the action's default, not a second number beside
+	// it: the same link must not mean two different things depending on which
+	// door it was minted through (issue 124).
+	DEFAULT_INVITE_MAX_USES
 } from '$lib/server/db/actions/families';
 import { db } from '$lib/server/db';
 import { familyMembers, familyInviteCodes } from '$lib/server/db/schema';
@@ -41,7 +45,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
 		const inviteCode = await generateInviteCode(familyId, {
 			expiresInDays: clampCount(expiresInDays, 1, 30, 7),
-			maxUses: clampCount(maxUses, 1, 50, 10),
+			maxUses: clampCount(maxUses, 1, 50, DEFAULT_INVITE_MAX_USES),
 			createdBy: locals.user.id
 		});
 

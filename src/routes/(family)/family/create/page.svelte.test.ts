@@ -19,6 +19,7 @@ function makeData(overrides: Partial<PageData> = {}): CreatePageProps {
 		familyLimit: 1,
 		familyLimitReached: false,
 		familyUsed: 0,
+		memberLimit: 5,
 		...overrides
 	};
 	return { data: base as PageData, form: null };
@@ -81,6 +82,20 @@ describe('create family page — the approved composition', () => {
 
 		expect(screen.getByText('The Hoppers')).toBeInTheDocument();
 		expect(screen.queryByText('Your family')).not.toBeInTheDocument();
+	});
+
+	it('asks who is in it, and says how many the plan allows', () => {
+		// "Members before the finish line" (issue 076): a family created with
+		// nobody in it is a shell. The picker lives INSIDE the create form, so
+		// a pick rides along with the submit rather than needing a second trip.
+		render(CreateFamilyPage, makeData({ memberLimit: 6 }));
+
+		expect(screen.getByText('Who is in it')).toBeInTheDocument();
+		expect(screen.getByLabelText('Search by name or email')).toBeInTheDocument();
+		expect(screen.getByText('1 of 6 members')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /create family/i }).closest('form')).toContainElement(
+			screen.getByLabelText('Search by name or email')
+		);
 	});
 
 	it('asks for the name and for the colour in plain words, not a character count', () => {

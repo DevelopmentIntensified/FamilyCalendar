@@ -197,10 +197,10 @@ describe('every href in the app', () => {
 		expect(detail).toContain('href="/family/invitations"');
 		expect(detail).not.toContain('{family?.id}/invitations');
 
-		const tasks = readFileSync(
-			join(ROUTES, '(family)', 'family', '[familyId]', 'tasks', '+page.svelte'),
-			'utf8'
-		);
-		expect(tasks).toContain('href: `/family/${data.family?.id}`');
+		// The family task board is ONE route (#124). The per-family path used to
+		// name a near-copy page that threw on load, and this page linked to it.
+		const familyRoutes = files.filter((f) => f.includes(`${join('family', '[familyId]', 'tasks')}`));
+		expect(familyRoutes).toEqual([]);
+		expect(detail).toContain('href="/family/tasks"');
 	});
 });

@@ -1,45 +1,47 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { getPublicTasksForFamily, getTasksForFamily } from '$lib/server/db/actions/tasks';
-import { getFamilyRoster } from '$lib/server/db/actions/families';
-import { db } from '$lib/server/db';
-import { familyMembers } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import {
+	getPublicTasksForFamily,
+	getTasksForFamily,
+	syncRecurringCursors
+} from '$lib/server/db/actions/tasks';
+import { getFamilyRoster, getUserFamilyMemberships } from '$lib/server/db/actions/families';
+import { getUserZone } from '$lib/server/utils/userTimezone';
 
-export const load: PageServerLoad = async (event) => {
-	if (!event.locals.user) {
+export const load: PageServerLoad = async ({ locals, url }) => {
+	if (!locals.user) {
 		return redirect(302, '/login');
 	}
 
-	const [member] = await db
-		.select()
-		.from(familyMembers)
-		.where(eq(familyMembers.userId, event.locals.user.id));
+	const memberships = await getUserFamilyMemberships(locals.user.id);
 
-	if (!member?.familyId) {
+	// `?familyId=` addresses one family; without it the OLDEST family is chosen —
+	// defined, rather than whatever `familyMembers` row the database hands back.
+	// This used to take the user's FIRST membership row, so a user in two
+	// families got whichever one the database felt like, and the board could
+	// only ever be about one of them (issue 098's bug class, still here).
+	const requested = url.searchParams.get('familyId');
+	const chosen = memberships.find((m) => m.family.id === requested) ?? memberships[0] ?? null;
+
+	if (!chosen) {
 		return redirect(302, '/family');
 	}
+	const familyId = chosen.family.id;
 
 	// Overdue Recurring Tasks stick to today until done (cursor v3).
-	const { syncRecurringCursors } = await import('$lib/server/db/actions/tasks');
-	const { getUserZone } = await import('$lib/server/utils/userTimezone');
-	await syncRecurringCursors(
-		event.locals.user.id,
-		member.familyId,
-		await getUserZone(event.locals.user.id)
-	);
+	await syncRecurringCursors(locals.user.id, familyId, await getUserZone(locals.user.id));
 
 	const [tasks, publicTasks, familyRoster] = await Promise.all([
-		getTasksForFamily(member.familyId),
-		getPublicTasksForFamily(member.familyId),
-		getFamilyRoster(member.familyId)
+		getTasksForFamily(familyId),
+		getPublicTasksForFamily(familyId),
+		getFamilyRoster(familyId)
 	]);
 
 	return {
 		tasks,
 		publicTasks,
 		familyRoster,
-		familyId: member.familyId,
-		userId: event.locals.user.id
+		familyId,
+		userId: locals.user.id
 	};
 };

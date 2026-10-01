@@ -106,7 +106,9 @@ describe('family manage page — card stack', () => {
 		expect(screen.getByRole('heading', { name: 'Members', level: 2 })).toBeInTheDocument();
 		expect(screen.getByRole('link', { name: 'Family Tasks' })).toHaveAttribute(
 			'href',
-			'/family/fam1/tasks'
+			// One board, one route: the per-family path held a near-copy page
+			// that threw on load (issue 124).
+			'/family/tasks'
 		);
 		const invitations = screen
 			.getByRole('heading', { name: 'Invitations', level: 2 })

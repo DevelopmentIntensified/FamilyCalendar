@@ -1,48 +1,25 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import {
-	getPublicTasksForFamily,
-	getTasksForFamily,
-	isFamilyMember,
-	syncRecurringCursors
-} from '$lib/server/db/actions/tasks';
-import { getUserZone } from '$lib/server/utils/userTimezone';
-import { db } from '$lib/server/db';
-import { families } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { getFamilyRoster } from '$lib/server/db/actions/families';
 
-export const load: PageServerLoad = async ({ params, locals }) => {
-	// Viewing the family task list requires membership (existence only;
-	// `role` stays permission-only per ADR-0001).
-	if (!(await isFamilyMember(locals.user.id, params.familyId))) {
-		return redirect(302, '/family');
+/**
+ * Issue 124 — this path used to be a second, near-copy family-tasks board.
+ *
+ * It was never the approved one (`/family/tasks` is, since issue 101) and it
+ * threw a ReferenceError on load: the page called `firstName(...)`, a name
+ * defined nowhere in the file, four times while rendering task rows. The
+ * family detail page linked straight to it, so the crash was reachable from a
+ * shipped page.
+ *
+ * The page is deleted rather than fixed — a second board cannot be correct,
+ * only differently wrong (issue 101 records the shape the first one settled
+ * on). What is left is the redirect, so a bookmark or an old link lands on the
+ * real board instead of on a 404.
+ */
+export const load: PageServerLoad = async ({ locals }) => {
+	if (!locals.user) {
+		throw redirect(302, '/login');
 	}
 
-	const [family] = await db.select().from(families).where(eq(families.id, params.familyId));
-	if (!family) {
-		return redirect(302, '/family');
-	}
-
-	// Overdue Recurring Tasks stick to today until done (cursor v3).
-	await syncRecurringCursors(locals.user.id, params.familyId, await getUserZone(locals.user.id));
-
-	const [familyTasks, publicTasks, roster] = await Promise.all([
-		getTasksForFamily(params.familyId),
-		getPublicTasksForFamily(params.familyId),
-		getFamilyRoster(params.familyId)
-	]);
-
-	return {
-		family,
-		tasks: familyTasks,
-		publicTasks,
-		members: roster.map(({ userId, firstName, lastName, email }) => ({
-			userId,
-			firstName,
-			lastName,
-			email
-		})),
-		currentUserId: locals.user.id
-	};
+	// 308: the target is permanent. The old path is not coming back.
+	throw redirect(308, '/family/tasks');
 };

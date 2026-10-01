@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import { copyOrShare } from '$lib/client/share';
 
 	export let data: PageData;
 	let { invitations, family, canManageInvites, memberships } = data;
@@ -13,15 +14,12 @@
 	let copyFailedCode = '';
 	let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
+	/** One copy path for every link on this page (issue 124). */
 	async function copyInvite(code: string, url: string) {
-		try {
-			await navigator.clipboard.writeText(url);
-			copyFailedCode = '';
-			copiedCode = code;
-		} catch {
-			copiedCode = '';
-			copyFailedCode = code;
-		}
+		const outcome = await copyOrShare(url, { share: true, title: `Join ${family?.name ?? 'the family'}` });
+		if (outcome === 'cancelled') return;
+		copyFailedCode = outcome === 'failed' ? code : '';
+		copiedCode = outcome === 'failed' ? '' : code;
 		clearTimeout(copyTimer);
 		copyTimer = setTimeout(() => {
 			copiedCode = '';

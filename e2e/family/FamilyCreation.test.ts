@@ -23,7 +23,16 @@ const lastName = 'createfamily';
 const email = `delivered+createfamily${Date.now()}@resend.dev`;
 const familyName = 'The Smiths';
 
+// The second person in the family. A family created with nobody in it is a
+// shell (issue 076), so the create page can pick somebody who already has an
+// account — and `createNewUser` marks the address verified, which is what the
+// picker searches and what the create action requires.
+const memberFirstName = 'Nana';
+const memberLastName = 'Ray';
+const memberEmail = `delivered+nanaray${Date.now()}@resend.dev`;
+
 let uid = '';
+let memberUid = '';
 
 async function loginWithSession(page: Page, userId: string) {
 	const session = await lucia.createSession(userId, {});
@@ -46,6 +55,11 @@ test.beforeEach(async () => {
 	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
 	await db.delete(codes).where(eq(codes.email, email));
+	// The person the create page will pick, seeded the same way — a real,
+	// verified account, because that is what the picker searches.
+	const member = await createNewUser(memberFirstName, memberLastName, memberEmail);
+	memberUid = member.id;
+	await db.delete(codes).where(eq(codes.email, memberEmail));
 });
 
 test.afterEach(async () => {
@@ -55,6 +69,12 @@ test.afterEach(async () => {
 		await db.delete(users).where(eq(users.id, user[0].id));
 		await deleteCodesByEmail(email);
 	}
+	const member = await db.select().from(users).where(eq(users.email, memberEmail));
+	if (member[0]) {
+		await cleanupUserData(member[0].id);
+		await db.delete(users).where(eq(users.id, member[0].id));
+		await deleteCodesByEmail(memberEmail);
+	}
 });
 
 async function cleanupExistingUser() {
@@ -63,6 +83,12 @@ async function cleanupExistingUser() {
 		await cleanupUserData(existingUser[0].id);
 		await db.delete(users).where(eq(users.id, existingUser[0].id));
 		await deleteCodesByEmail(email);
+	}
+	const existingMember = await db.select().from(users).where(eq(users.email, memberEmail));
+	if (existingMember[0]) {
+		await cleanupUserData(existingMember[0].id);
+		await db.delete(users).where(eq(users.id, existingMember[0].id));
+		await deleteCodesByEmail(memberEmail);
 	}
 }
 
@@ -163,6 +189,40 @@ test('Create family with custom color', async ({ page }) => {
 	const familyId = page.url().split('/family/')[1];
 	const family = await db.select().from(families).where(eq(families.id, familyId));
 	expect(family[0].color).toBe('#4d9c85');
+});
+
+test('Create family with members picked before the finish line', async ({ page }) => {
+	await loginWithSession(page, uid);
+	await page.goto('/family/create');
+	await page.waitForLoadState('networkidle');
+
+	// "Who is in it": the picker searches verified accounts, and it is inside
+	// the create form, so a pick posts with the create. Searching by this run's
+	// unique address rather than by name keeps the result unambiguous even when
+	// an earlier run left a "Nana Ray" behind.
+	await page.getByLabel('Search by name or email').fill(memberEmail);
+	await page.getByRole('button', { name: `Add ${memberFirstName} ${memberLastName}` }).click();
+	await expect(page.getByText('2 of 6 members')).toBeVisible();
+
+	await page.getByLabel('What do you call it?').fill(familyName);
+	await page.getByRole('button', { name: 'Create Family' }).click();
+
+	await page.waitForURL(/\/family\/[a-z0-9]+/, { timeout: 10000 });
+
+	// The family is not a shell: the picked person is a member of it.
+	await expect(page.getByText('2 members')).toBeVisible();
+	await expect(page.getByText(`${memberFirstName} ${memberLastName}`)).toBeVisible();
+
+	const familyId = page.url().split('/family/')[1];
+	const memberships = await db
+		.select()
+		.from(familyMembers)
+		.where(eq(familyMembers.familyId, familyId));
+	expect(memberships.map((m) => m.userId).sort()).toEqual([uid, memberUid].sort());
+	// role is the permission; the creator keeps it and the picked person is a
+	// plain member (CONTEXT.md, ADR-0001).
+	expect(memberships.find((m) => m.userId === uid)?.role).toBe('creator');
+	expect(memberships.find((m) => m.userId === memberUid)?.role).toBe('member');
 });
 
 test('Cancel returns to family list', async ({ page }) => {

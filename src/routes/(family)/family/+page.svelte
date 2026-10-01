@@ -1,10 +1,74 @@
 <script lang="ts">
-	import type { PageData } from './$types';
+	import { enhance } from '$app/forms';
+	import type { ActionData, PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import { pushToast } from '$lib/client/toasts';
+	import { copyOrShare } from '$lib/client/share';
 	export let data: PageData;
+	export let form: ActionData;
 	let families = data.families;
 	let plan = data.plan;
 	$: atFamilyLimit = plan.used >= plan.limit;
+
+	/* ── Invite by link (issue 091) ─────────────────────────────────────────
+	   The code, the copy button and the join route all worked; nobody could
+	   find them. So the family page mints its own code and shows the link where
+	   the person already is, instead of sending them to a page about managing
+	   codes. Gate is creator/admin — the same rule the action enforces. */
+	type MintResult = { familyId?: string; inviteUrl?: string; error?: string } | null | undefined;
+	function asMintResult(value: ActionData): MintResult {
+		// SAFETY: `?/mintInvite` is this page's only action, so `form` is one of
+		// those three shapes — or absent before the first submit.
+		return (value ?? null) as MintResult;
+	}
+	$: mint = asMintResult(form);
+	$: mintError = mint?.error ?? '';
+	/** The family the last answer belongs to, so a link never shows above another. */
+	$: mintedFor = mint?.inviteUrl ? (mint.familyId ?? '') : '';
+	$: mintedUrl = mint?.inviteUrl ?? '';
+
+	/** familyId whose request is in flight. */
+	let mintingFamilyId = '';
+	let copiedFamilyId = '';
+	let copyFailedFamilyId = '';
+
+	const origin = typeof window !== 'undefined' ? window.location.origin : '';
+
+	function mintInviteSubmit(familyId: string, name: string) {
+		// Ack in the click tick: the button goes busy before the request is sent.
+		mintingFamilyId = familyId;
+		return async ({
+			result,
+			update
+		}: {
+			result?: { type: string };
+			update?: () => Promise<void>;
+		}) => {
+			// enhance calls back once before the action (no result) and once after.
+			if (!result || !update) return;
+			mintingFamilyId = '';
+			await update();
+			pushToast({
+				message:
+					result.type === 'success'
+						? `Join link ready for ${name} — send it to them; it admits 10 people for 7 days.`
+						: `Couldn't make a join link for ${name} — try again.`
+			});
+		};
+	}
+
+	async function copyInviteLink(familyId: string) {
+		// One copy path for the whole app (issue 124): the platform share sheet
+		// where there is one, the clipboard where there is not, and an honest
+		// failure where neither is available.
+		const outcome = await copyOrShare(origin + mintedUrl, {
+			share: true,
+			title: `Join ${data.families.find((f) => f.id === familyId)?.name ?? 'the family'}`
+		});
+		if (outcome === 'cancelled') return;
+		copiedFamilyId = outcome === 'failed' ? '' : familyId;
+		copyFailedFamilyId = outcome === 'failed' ? familyId : '';
+	}
 </script>
 
 <div class="min-h-screen bg-slate-50">
@@ -159,8 +223,79 @@
 			<h2 id="families-invitations-heading" class="text-sm font-semibold text-slate-900">
 				Invitations
 			</h2>
-			<p class="mt-0.5 text-xs text-slate-400">Families you've been invited to</p>
+			<p class="mt-0.5 text-xs text-slate-400">
+				Get a join link to send, or manage the codes your family already has
+			</p>
+			{#if mintError}
+				<div role="alert" class="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+					{mintError}
+				</div>
+			{/if}
 			<div class="mt-3 space-y-1.5">
+				{#each families.filter((f) => f.canInvite) as family (family.id)}
+					{@const minting = mintingFamilyId === family.id}
+					<div class="rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2">
+						<form
+							method="POST"
+							action="?/mintInvite"
+							use:enhance={() => mintInviteSubmit(family.id, family.name)}
+						>
+							<input type="hidden" name="familyId" value={family.id} />
+							<div class="flex min-w-0 items-center gap-3">
+								<svg
+									class="h-5 w-5 shrink-0 text-slate-400"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									aria-hidden="true"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5m8.656 2.828a4 4 0 000-5.656l-3-3a4 4 0 00-5.656 5.656l1.5 1.5"
+									/>
+								</svg>
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm font-medium text-slate-700">{family.name}</p>
+									<p class="text-xs text-slate-400">Join link, good for 10 people</p>
+								</div>
+								<button
+									type="submit"
+									disabled={minting}
+									aria-busy={minting}
+									class="shrink-0 rounded-full bg-primary-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+								>
+									{minting ? 'Making link…' : 'Invite by link'}
+								</button>
+							</div>
+						</form>
+
+						{#if mintedFor === family.id}
+							<div class="mt-2 flex items-center gap-2">
+								<input
+									type="text"
+									readonly
+									aria-label="Join link for {family.name}"
+									value={origin + mintedUrl}
+									class="min-w-0 flex-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600"
+								/>
+								<button
+									type="button"
+									onclick={() => copyInviteLink(family.id)}
+									class="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+								>
+									{copiedFamilyId === family.id ? 'Copied' : 'Copy'}
+								</button>
+							</div>
+							{#if copyFailedFamilyId === family.id}
+								<p class="mt-1 text-xs text-red-600">
+									Copy failed — select the link above and copy it manually.
+								</p>
+							{/if}
+						{/if}
+					</div>
+				{/each}
 				<a
 					href="/family/invitations"
 					class="flex min-h-11 items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"

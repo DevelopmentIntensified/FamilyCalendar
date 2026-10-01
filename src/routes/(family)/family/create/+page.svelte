@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
+	import CreateFamilyMemberPicker from '$lib/components/family/CreateFamilyMemberPicker.svelte';
 	import { pushToast } from '$lib/client/toasts';
 	import { DEFAULT_FAMILY_COLOR, FAMILY_PALETTE } from '$lib/utils/familyPalette';
 
@@ -152,6 +153,13 @@
 						The colour tints the family calendar, the member avatars and the family chip. It is the
 						one thing on this page that ends up visible everywhere else.
 					</p>
+				</div>
+
+				<!-- Members before the finish line (issue 076). Inside the form, so a
+				     pick posts with the create; the action re-checks every id against
+				     a real verified account and the plan's member limit. -->
+				<div class="border-t border-slate-200 pt-6">
+					<CreateFamilyMemberPicker limit={data.memberLimit} />
 				</div>
 
 				<div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
