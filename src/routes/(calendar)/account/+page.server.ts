@@ -22,6 +22,7 @@ import { TimeSpan } from 'lucia';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
 import { TRANSLATIONS } from '$lib/server/services/verseService';
+import { recordAdConsentChange } from '$lib/server/services/adConsentService';
 import { DASHBOARD_MODULES } from '$lib/dashboardModules';
 import {
 	createApiToken as mintApiToken,
@@ -150,6 +151,11 @@ export const actions: Actions = {
 
 		try {
 			const existingSettings = await getUserSettings(userId);
+			// The ad value as it stands BEFORE this save. Consent records are
+			// written on a transition, so this is what decides whether the save
+			// is an event at all — saving the form with the box untouched is not
+			// one (#088).
+			const previousAdsConsent = existingSettings?.showAdsAsEvents;
 
 			if (!existingSettings) {
 				const { createUserSettings } = await import('$lib/server/db/actions/userSettings');
@@ -182,6 +188,11 @@ export const actions: Actions = {
 					hiddenDashboardModules
 				});
 			}
+
+			// Evidence beside the setting, not a second gate (#088). The ad gate
+			// is still shouldServeAds(userSettings) alone; this row is what
+			// answers "prove I consented" and "when did they withdraw".
+			await recordAdConsentChange(userId, previousAdsConsent, showAdsAsEvents);
 
 			return { success: true, message: 'Calendar settings saved successfully' };
 		} catch (error) {

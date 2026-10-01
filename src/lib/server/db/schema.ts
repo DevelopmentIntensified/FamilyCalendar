@@ -782,6 +782,47 @@ export const adEvents = pgTable('adEvents', {
 	createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull()
 });
 
+/** The decision an adConsentRecords row can record. */
+export type AdConsentDecision = 'granted' | 'withdrawn';
+
+/**
+ * Ad consent RECORD (#088). One row per consent *event* — a user turning ads
+ * on, and a user turning them off. This is evidence, not a preference: it
+ * answers "prove I consented" and "when did they withdraw", neither of which
+ * `userSettings.showAdsAsEvents` can answer on its own.
+ *
+ * Deliberately NOT a second source of truth. Nothing here is read at serve
+ * time: `shouldServeAds(userSettings)` remains the whole gate, and no row here
+ * can change whether an ad renders. The setting is the current value; this is
+ * the trail of how it got there.
+ *
+ * Append-only. A transition appends; nothing rewrites or deletes a row, so
+ * `decision` ordered by `recordedAt` is the consent history. There is no
+ * unique key on userId — that was the bug in the old `userAdConsent` table,
+ * which could hold exactly one row per user and so could never record history
+ * at all.
+ */
+export const adConsentRecords = pgTable(
+	'adConsentRecords',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		userId: text('userId')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		/** The decision this row records: consent given, or consent withdrawn. */
+		decision: text('decision').$type<AdConsentDecision>().notNull(),
+		recordedAt: timestamp('recordedAt', { mode: 'date' }).defaultNow().notNull()
+	},
+	(record) => ({
+		// "Prove I consented" and "when did they withdraw" are both a per-user
+		// history read, ordered newest-first.
+		userRecordedIdx: index('ad_consent_records_user_recorded_idx').on(record.userId, record.recordedAt)
+	})
+);
+
 export const waitlist = pgTable('waitlist', {
 	id: text('id')
 		.notNull()

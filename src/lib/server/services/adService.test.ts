@@ -11,7 +11,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const rows = vi.hoisted(() => ({
 	userSettings: [] as unknown[],
-	events: [] as unknown[]
+	events: [] as unknown[],
+	adConsentRecords: [] as unknown[]
+}));
+
+// Which tables the serve path actually touched, so "the record table is not
+// read at serve time" is an observation rather than a claim.
+const touched = vi.hoisted(() => ({
+	read: [] as string[],
+	written: [] as string[]
 }));
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- scripts the drizzle
@@ -19,15 +27,22 @@ const rows = vi.hoisted(() => ({
 // real-Postgres harness is tracked in docs/issues/002.
 vi.mock('$lib/server/db', async () => {
 	const { getTableName } = await import('drizzle-orm');
+	const nameOf = (table: unknown) => getTableName(table as never);
 	const where = (table: unknown) => {
-		const p = Promise.resolve(rows[getTableName(table as never) as keyof typeof rows] ?? []) as
-			Promise<unknown[]>;
+		const name = nameOf(table);
+		touched.read.push(name);
+		const p = Promise.resolve(rows[name as keyof typeof rows] ?? []) as Promise<unknown[]>;
 		return Object.assign(p, { orderBy: () => p });
 	};
 	return {
 		db: {
 			select: () => ({ from: (table: unknown) => ({ where: () => where(table) }) }),
-			insert: () => ({ values: () => ({ returning: () => Promise.resolve([]) }) })
+			insert: (table: unknown) => ({
+				values: () => {
+					touched.written.push(nameOf(table));
+					return { returning: () => Promise.resolve([]) };
+				}
+			})
 		}
 	};
 });
@@ -42,6 +57,9 @@ function settingsRow(showAdsAsEvents: boolean | null): unknown[] {
 beforeEach(() => {
 	rows.userSettings = [];
 	rows.events = [];
+	rows.adConsentRecords = [];
+	touched.read = [];
+	touched.written = [];
 });
 
 describe('shouldServeAds — the serve-time decision, one field', () => {
@@ -98,5 +116,62 @@ describe('generateAdEventsForMonth — consent withheld means no ads', () => {
 		for (const ad of ads) {
 			expect(ad.adType).toBe('sponsored');
 		}
+	});
+});
+
+/**
+ * The consent RECORD added beside the setting must not move the gate (#088).
+ * These are the tests that make "nothing about what renders changes" an
+ * assertion rather than a promise: same rows, same output, whatever the record
+ * table happens to hold.
+ */
+describe('the consent record does not gate anything', () => {
+	/** A user who once consented, then withdrew — evidence, not a setting. */
+	function consentHistory(): unknown[] {
+		return [
+			{ userId: 'u1', decision: 'granted', recordedAt: new Date('2026-01-01') },
+			{ userId: 'u1', decision: 'withdrawn', recordedAt: new Date('2026-02-01') }
+		];
+	}
+
+	it('serves ads exactly as before when the field is true and records exist', async () => {
+		rows.adConsentRecords = consentHistory();
+		rows.userSettings = settingsRow(true);
+
+		// Byte-for-byte the same decision as with an empty record table.
+		expect(shouldServeAds({ showAdsAsEvents: true })).toBe(true);
+		expect(await userAllowsAds('u1')).toBe(true);
+		const ads = await generateAdEventsForMonth({ userId: 'u1', month: 9, year: 2026 });
+		expect(ads.length).toBeGreaterThan(0);
+	});
+
+	it('withholds ads exactly as before when the field is false and records exist', async () => {
+		// The strongest form: a `granted` record on file, but the setting says
+		// no. A record is evidence of a past event, never a live permission.
+		rows.adConsentRecords = consentHistory();
+		rows.userSettings = settingsRow(false);
+
+		expect(shouldServeAds({ showAdsAsEvents: false })).toBe(false);
+		expect(await userAllowsAds('u1')).toBe(false);
+		expect(await generateAdEventsForMonth({ userId: 'u1', month: 9, year: 2026 })).toEqual([]);
+	});
+
+	it('never reads the record table to make the decision', async () => {
+		rows.adConsentRecords = consentHistory();
+		rows.userSettings = settingsRow(true);
+		await generateAdEventsForMonth({ userId: 'u1', month: 9, year: 2026 });
+
+		// The gate is settings-only: no consent-record SELECT on the read path.
+		expect(touched.read).not.toContain('adConsentRecords');
+	});
+
+	it('writes no consent record when ads are served', async () => {
+		// A record is evidence of a DECISION. Serving an ad is not a decision,
+		// so it must leave the trail untouched — otherwise the history is a log.
+		rows.userSettings = settingsRow(true);
+		await generateAdEventsForMonth({ userId: 'u1', month: 9, year: 2026 });
+		await userAllowsAds('u1');
+
+		expect(touched.written).not.toContain('adConsentRecords');
 	});
 });
