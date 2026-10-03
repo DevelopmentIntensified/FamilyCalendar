@@ -91,13 +91,25 @@ ticket, and its copy must not be copied: the prototype's "a child row with no
 passwordHash can never sign in" is false (verified in #102). Not ported here
 on purpose.
 
-**`family-tasks.html` — the app is better, and the prototype's one ask was
-decided against already.** #101 shipped the assignee board from the documented
-domain language, including the decision that an unassigned Task falls back to
-the creator rather than getting an "Unassigned" bucket — the prototype's red
-"Nobody" card is exactly that bucket, so porting it would re-litigate a settled
-owner decision. What the prototype also flags — a second, near-copy page at the
-same job — was true, and is fixed below.
+**`family-tasks.html` — a real difference, built. It contradicted #101.**
+#101 shipped the assignee board and its decision 1 made unassigned Tasks fall
+back to the **creator**, explicitly rejecting a visible "Nobody" bucket. The
+prototype the owner approved shows that bucket. **An approval is a
+specification, so the card is built and #101 is updated**, not silently vetoed:
+
+- Tasks with no assignee now get the prototype's **"Nobody" card** — its own
+  region, an `unassigned` pill, a count, and the prototype's honest note that
+  nobody is on the hook for them.
+- The board is fed only the Tasks that genuinely have an assignee, so nothing is
+  double-counted: the old behaviour put an unassigned Task in the creator's
+  column, and it now appears in exactly one place.
+- `groupTasksByAssignee` keeps its creator fallback for the **dashboard card** —
+  a different surface, still one column per person.
+- Everything 101 built survives: the two tabs, the tag filter, the
+  waiting-for-your-response banner, the completed list, the owner-only edit
+  dialog, complete/advance/accept/decline, delete with its confirmation, and the
+  mobile step-down to one column. The Nobody card is real capability, not a
+  picture: its rows are the same `FamilyOpenTaskRow` with the same handlers.
 
 ### The duplicate family-tasks route is gone, not fixed
 

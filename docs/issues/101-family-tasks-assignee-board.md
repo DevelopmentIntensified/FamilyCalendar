@@ -37,7 +37,18 @@ tasks list goes flat.
       column, and the tag filter interacting with the grouping (the filter runs
       before the grouping, so a filtered-out task leaves no column behind).
 
-### Decision 1 — the board groups by assignee, falling back to the creator
+### Decision 1 - the board groups by assignee, falling back to the creator
+
+> **Superseded in part, 2026-10-03 (issue 124).** The owner approved
+> `prototypes/app-ui/family-tasks.html`, which shows an "Nobody" card for Tasks
+> with `assigned_to IS NULL` instead of filing them under the creator. An
+> approval is a specification, so the **family tasks page now renders that card**
+> and its board is fed only the Tasks that genuinely have an assignee — no task
+> appears twice, and an unassigned one is neither invisible nor misattributed.
+> The shared `groupTasksByAssignee` keeps its creator fallback for the **dashboard
+> card**, which is a different surface and still shows one column per person.
+> The reasoning below stands as history: the trade-off was named honestly, and
+> the owner has now answered it with a layout rather than with a rule.
 
 `CONTEXT.md` defines the Family Task Board as "grouped by assignee (falling
 back to the creator when a Task is unassigned)". The rule now lives in one
