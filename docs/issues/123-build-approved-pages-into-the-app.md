@@ -50,17 +50,36 @@ already in the app. This is largely a *verification* ticket, not a build ticket,
 and the most valuable thing it can produce is a list of where the app and the
 approved page genuinely disagree.
 
-## What "approved" means here, and what it does not
+## What "approved" means here — corrected
 
-Approval is a judgement about the **page**, not a promise that the app matches
-it. It does not mean:
+**An approval is a specification, not a comparison.** The first round treated
+"the app is already better" as an acceptable outcome and changed nothing. That
+was the wrong call and it was mine, not the agents' — the brief offered three
+outcomes and the second one was a loophole. Corrected per the owner, 2026-10-03:
 
-- every mark on the page is fixed — cycle 1's marks are archived in
-  `docs/research/review-marks-cycle-1.md` and mostly triaged into #093, #094,
-  #095, #118, #119, #120
-- the page is better than what shipped — several approvals cover work the app
-  did differently and possibly better
-- the page's declared question has been answered in the product
+> "no, if I approved the prototype, keep the way it looks and rebuild the page
+> using that look and function"
+
+The rule now:
+
+- **The approved prototype is the spec for BOTH appearance and function.** Build
+  the page the way the prototype looks and behaves. Do not substitute your own
+  judgement about which version is better.
+- **Where the prototype shows something the app lacks, build it.** A plan bar, an
+  invitation summary, a "Nobody" group, a search on the chip line, attendance
+  proportions — these were declined as "new product" or "already better", and
+  they are what was approved.
+- **Do not delete real capability to match the picture.** A prototype has no
+  loading, empty or error state, no real data volume and no authorisation
+  checks. Adding the prototype's layout is the work; *removing* a grouped query,
+  an empty state or an authz gate is not, and is not asked for.
+- If a prototype element genuinely cannot be built — no data exists to build it
+  from — say so with the reason and stop. Do not quietly substitute something
+  else and call the page done.
+
+Still true: cycle 1's marks are archived in
+`docs/research/review-marks-cycle-1.md` and triaged into #093, #094, #095, #118,
+#119, #120 — that record is a record, and archiving it did not discharge them.
 
 ## Needs doing
 

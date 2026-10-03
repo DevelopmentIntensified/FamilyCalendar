@@ -63,6 +63,22 @@ whether ads were governed by a setting they controlled.
 
 ## SQL for the user to run
 
+**088b APPLIED 2026-10-03 via Neon.** `adConsentRecords` and its composite index
+exist on **both** branches of `hidden-resonance-16080139` (`main` and
+`preview/test`), verified against `information_schema` and `pg_indexes`. The
+table is empty, which is correct: nobody has toggled ads since the code shipped.
+
+**Step 7 — dropping `userAdConsent` — NOT run.** It is verifiably empty (0 rows
+against 239 users) and holds only booleans, so no consent history can be lost.
+It is still not dropped: an irreversible statement waits for an explicit
+instruction, not an inference from an empty result.
+
+Verified while connected: the live schema has **40 tables**. `grocery_items`
+and `grocery_store_memory` exist — snake_case, which is why a camelCase probe
+misses them — and both are empty. `userAdConsent` had never been written, the
+predicted consequence of its only writer having no callers.
+
+
 Hand-run this; do not add it as a migration file until #086 has a baseline, and
 do not rely on a push.
 

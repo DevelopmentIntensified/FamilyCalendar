@@ -7,6 +7,72 @@ Source: instruction — technical-debt sweep of schema, migrations, and dead cod
 **Blocked by:** None (can start immediately) — but the first step is a manual
 command the user must run, see Step 1.
 
+## 🔴 FOUND 2026-10-03, against the live database — not a migration problem
+
+Neon is connected, so the "manual schema dump" this ticket was blocked on is no
+longer needed. `to_regclass` against **both** branches of
+`hidden-resonance-16080139` (`main` and `preview/test`) gives the authoritative
+answer, and it is not what anybody expected:
+
+> **`grocery_store_colours` does not exist.**
+
+It is declared at `schema.ts:973` and **eleven places read or write it** —
+`groceries.ts:221-291` selects it, deletes from it, and inserts into it with
+`onConflictDoUpdate` on two partial unique indexes. **#096's store colours are
+broken in production.** The default name-hashed colour renders, so the feature
+looks alive; the moment a person picks a colour, the write throws.
+
+This is the whole class of bug #086 was filed to prevent, caught by looking at
+the database instead of at the migrations — and it survived shipping, an
+approval, a code review, and a prototype review cycle.
+
+### The exact drift, both directions
+
+| Table | In `schema.ts` | In the live DB |
+|---|---|---|
+| `grocery_store_colours` | declared (`:973`) | **MISSING** |
+| `userAdConsent` | **not declared** | present, 0 rows |
+
+Every other one of the 40 declared tables matches by physical name. So the
+schema and the database are two near-identical lists that disagree twice, and
+neither check looked.
+
+Note the naming trap, recorded so the next person does not repeat my first
+probe: `schema.ts` exports `groceryStoreColours` and `subscriptions`, but the
+**physical** names are `grocery_store_colours` and `activeSubscriptions`
+(`schema.ts:122` maps `subscriptions` onto `'activeSubscriptions'`). Diffing the
+export names against the database reports four false mismatches.
+
+A `DO $$ … INSERT … $$` probe was also attempted and returned nothing in either
+direction, so it proved nothing and is not relied on. `to_regclass` returning
+`null` is the evidence.
+
+### APPLIED 2026-10-03
+
+`grocery_store_colours` and all four indexes now exist on **both** branches,
+created in a transaction from `schema.ts:973-998`. The DDL is also kept as
+`sql/HAND-RUN-2026-10-03-store-colours.sql` for any other environment.
+
+The constraint that matters was probed, not assumed: inserting a second
+personal-scope row for the same store is **refused** by
+`grocery_store_colours_user_store_unique` — that is what makes the scope flip a
+single-statement upsert instead of a delete-then-insert. Probe rows were removed;
+the table is empty, which is correct since nobody could write to it before.
+
+- [x] **Create `grocery_store_colours`**, with both partial unique indexes.
+- [ ] **#115's confirmed bug is now reachable.** `groceries.ts:60` keys the
+      optimistic override map by `storeKey` alone while rebuilding `familyId`
+      from the page's *current* scope control, so a personal colour is
+      overwritten by a later family one and merely flipping "Everyone / Just
+      me" re-labels an existing override. Until this minute that bug could not
+      even be triggered, because every write threw. It can now.
+- [ ] `userAdConsent` is not in the schema and holds 0 rows against 239 users.
+      Dropping it is irreversible and waits for an explicit instruction.
+- [ ] **The real baseline is now obtainable**: dump the live schema rather than
+      reconstructing it from migrations that cannot run. The migration runner is
+      still broken, but "what is true" is no longer in doubt — only "how do we
+      rebuild it from scratch" is.
+
 ## The problem
 
 A fresh database cannot be built from the migration runner. The runner replays
