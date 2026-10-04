@@ -12,9 +12,17 @@
 		scopeOf,
 		SCOPE_FILTERS,
 		STORE_COLOURS,
+		NO_STORE_LABEL,
+		storeKey,
+		colourOverrideKey,
+		isStoreColourKey,
+		withColourOverrides,
+		type ColourOverrides,
+		type ColourScopeKey,
 		type GroceryScopeKey,
 		type StoreColour,
-		type StoreColourRow
+		type StoreColourRow,
+		type StoreColourViewer
 	} from '$lib/data/groceries';
 	import { pushToast } from '$lib/client/toasts';
 
@@ -51,13 +59,23 @@
 	/** Store whose colour is being edited (096). */
 	let colourStore: string | null = null;
 	/** personal | family — which row the flip writes. Personal wins on read. */
-	let colourScope: 'family' | 'personal' = 'family';
+	let colourScope: ColourScopeKey = 'family';
 	let colourBusy = false;
 	/**
-	 * Optimistic colour overrides, keyed by the store name. Read inline so
-	 * `$:` repaints; dropped on invalidateAll so the server stays the truth.
+	 * 115: the rail card has its OWN scope. Sharing `colourScope` with the group
+	 * picker would let a group that is open on "Just me" silently retarget the
+	 * next card flip for a different shop — the same control-drives-another-
+	 * store bug, one row over.
 	 */
-	let colourOverrides: Record<string, string> = {};
+	let railScope: ColourScopeKey = 'family';
+	/**
+	 * Optimistic colour overrides, keyed `scope:storeKey` (115). The SCOPE is
+	 * in the key and in the value, so a personal colour and a family colour for
+	 * one shop are two answers rather than one slot fighting over the other, and
+	 * nothing the page can change afterwards re-labels an override. Read inline
+	 * so `$:` repaints; dropped on invalidateAll so the server stays the truth.
+	 */
+	let colourOverrides: ColourOverrides = {};
 
 	function countIn(s: GroceryScopeKey): number {
 		if (s === 'all') return allItems.length;
@@ -90,18 +108,14 @@
 	 * flip this session has not yet been revalidated for. Resolution is by the
 	 * VIEWER, not by which tab is open, so a colour set on one list reads the
 	 * same on the other.
+	 *
+	 * 115: the overrides are merged in at THEIR OWN scope (`withColourOverrides`),
+	 * not at whatever `colourScope` happens to say right now — that rebuild was
+	 * what let a control re-label a pending colour.
 	 */
 	$: colourRows = (data.colours ?? []) as StoreColourRow[];
 	$: viewer = { userId: data.userId, familyId: data.familyId };
-	$: effectiveRows = [
-		...colourRows,
-		...Object.entries(colourOverrides).map(([key, color]) => ({
-			storeKey: key,
-			color,
-			userId: data.userId,
-			familyId: colourScope === 'family' ? data.familyId : null
-		}))
-	];
+	$: effectiveRows = withColourOverrides(colourRows, colourOverrides, viewer);
 	$: groupNames = groups.map((g) => g.store);
 	$: colours = resolveGroceryColours(groupNames, effectiveRows, viewer);
 	// Every store the page shows a chip for, so a collision is disclosed.
@@ -114,30 +128,81 @@
 	$: knownStores = [
 		...new Set([...(data.family as Item[]), ...(data.mine as Item[])].flatMap((i) => i.stores))
 	];
-	$: onPage = (name: string) => !!colourOverrides[name.trim().toLowerCase()];
+	/**
+	 * groceries.html, approved: the rail's Store colours card lists every shop
+	 * the page knows, from BOTH scopes and in first-seen order — so the card does
+	 * not empty out when the scope filter narrows the list beside it.
+	 *
+	 * "Any store" is the absence of a shop, never a shop, so it is never listed
+	 * and never tinted.
+	 */
+	$: colourStores = knownStores.filter((s) => s.trim() && s.trim() !== NO_STORE_LABEL);
+	/**
+	 * Swatches carrying more than one shop. Six swatches over unbounded shops
+	 * makes a collision ordinary, not exceptional, so the card counts the shops
+	 * involved rather than the pairs — and the group header names the twin.
+	 */
+	$: sharedStores = (() => {
+		const bySwatch = new Map<string, string[]>();
+		for (const s of colourStores) {
+			const tint = colourOf(s);
+			if (!tint) continue;
+			const group = bySwatch.get(tint.key) ?? [];
+			group.push(s);
+			bySwatch.set(tint.key, group);
+		}
+		return [...bySwatch.values()].filter((shops) => shops.length > 1).flat();
+	})();
+
+	/**
+	 * What a picker shows for ONE shop in ONE scope: the pending override if
+	 * there is one, else the stored row at that scope, else `auto`.
+	 *
+	 * 115: the answer is scoped, and the scope is the one the control is pointing
+	 * at — so `Auto` here says "you have not chosen a colour for this shop AT
+	 * THIS SCOPE", which is the truth. Reading it back from the resolved tint
+	 * would let the control re-label a colour the other scope owns (and would
+	 * mark two options `selected` at once, so the select would show whichever
+	 * came first in the DOM rather than what was actually chosen).
+	 */
+	function pickerValue(name: string, scope: ColourScopeKey): string {
+		const key = storeKey(name);
+		const pending = colourOverrides[colourOverrideKey(scope, key)];
+		if (pending) return pending;
+		const stored = colourRows.find(
+			(r) => r.storeKey === key && r.familyId === familyIdForScope(scope, viewer)
+		);
+		if (stored && isStoreColourKey(stored.color)) return stored.color;
+		return 'auto';
+	}
 
 	function colourOf(name: string | null | undefined): StoreColour | null {
 		return colourFor(name, effectiveRows, viewer);
 	}
 
-	function twinsOf(name: string): string[] {
-		return storesSharingColour(name, chipNames, effectiveRows, viewer);
+	function twinsOf(name: string, names: string[] = chipNames): string[] {
+		return storesSharingColour(name, names, effectiveRows, viewer);
 	}
 
-	async function setColour(store: string, color: string) {
+	async function setColour(store: string, color: string, scope: ColourScopeKey) {
 		if (colourBusy) return;
 		colourBusy = true;
 		error = '';
-		const key = store.trim().toLowerCase();
-		const was = effectiveRows.find(
-			(r) => r.storeKey === key && r.familyId === colourScopeForWrite()
+		const key = storeKey(store);
+		// 115: the scope is captured HERE, with the write. Every later read of
+		// this override names the scope it was made at, so the Everyone/Just me
+		// control can only choose where the NEXT write goes — never where an
+		// existing one is read from.
+		const overrideKey = colourOverrideKey(scope, key);
+		const was = colourRows.find(
+			(r) => r.storeKey === key && r.familyId === familyIdForScope(scope, viewer)
 		);
 		// Optimistic repaint (<100ms ack); reverted below if the write fails.
-		colourOverrides = { ...colourOverrides, [key]: color };
+		colourOverrides = { ...colourOverrides, [overrideKey]: color };
 		const res = await fetch('/api/groceries/colours', {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ store, color, scope: colourScope })
+			body: JSON.stringify({ store, color, scope })
 		});
 		if (res.ok) {
 			const label =
@@ -148,15 +213,15 @@
 				message:
 					color === 'auto'
 						? `${store} is back to its own default colour.`
-						: `${store} is now ${label}${colourScope === 'personal' ? ' (just you)' : ''}.`
+						: `${store} is now ${label}${scope === 'personal' ? ' (just you)' : ''}.`
 			});
 			colourStore = null;
 			await invalidateAll();
 		} else {
-			if (was) colourOverrides = { ...colourOverrides, [key]: was.color };
+			if (was) colourOverrides = { ...colourOverrides, [overrideKey]: was.color };
 			else {
 				const next = { ...colourOverrides };
-				delete next[key];
+				delete next[overrideKey];
 				colourOverrides = next;
 			}
 			error = "Couldn't set that colour. Try again.";
@@ -164,8 +229,10 @@
 		colourBusy = false;
 	}
 
-	function colourScopeForWrite(): string | null {
-		return colourScope === 'family' ? data.familyId : null;
+	/** The `familyId` a scope writes. "Everyone" is not a place without a
+	 *  family, so it resolves to the personal row rather than inventing one. */
+	function familyIdForScope(scope: ColourScopeKey, who: StoreColourViewer): string | null {
+		return scope === 'family' ? who.familyId : null;
 	}
 
 	async function lookupSuggest(name: string) {
@@ -534,6 +601,109 @@
 					</ul>
 				</section>
 			{/if}
+
+			<!-- groceries.html, approved: a STORE COLOURS card — one place to see
+			     and change every shop, instead of only finding a colour by opening
+			     the group it belongs to. It is not a replacement for the group's
+			     own picker (096 put that there on purpose, one tap from the item
+			     that revealed the problem); it is the other direction, and it is
+			     built from BOTH scopes so a colour you set on Mine is still yours
+			     to see while you are looking at Family.
+
+			     The card carries the collision disclosure the group header carries:
+			     six swatches over unbounded shops means two names CAN land on one,
+			     and a collision is permitted but never silent. -->
+			<section data-testid="store-colours" aria-label="Store colours" class="rounded-xl border p-3">
+				<div class="flex items-center justify-between gap-2">
+					<h2 class="text-xs font-bold uppercase tracking-wide text-gray-500">Store colours</h2>
+					{#if data.hasFamily}
+						<!-- The card's OWN scope, not the group picker's: it says where a
+						     flip from THIS card lands, and moving one never retargets
+						     the other (115). -->
+						<label class="sr-only" for="rail-colour-scope">Colour scope for the card</label>
+						<select
+							id="rail-colour-scope"
+							class="max-w-[6.5rem] rounded-lg border border-gray-300 bg-white px-1 py-0.5 text-[0.625rem] font-semibold text-gray-600"
+							aria-label="Colour scope for the card"
+							bind:value={railScope}
+						>
+							<option value="family">Everyone</option>
+							<option value="personal">Just me</option>
+						</select>
+					{/if}
+				</div>
+				{#if colourStores.length === 0}
+					<p data-testid="store-colours-empty" class="mt-1 text-sm text-gray-500">
+						No shops yet. Type one on an item and it turns up here with a colour of its
+						own.
+					</p>
+				{:else}
+					<ul class="mt-2">
+						{#each colourStores as store, index (storeKey(store))}
+							{@const tint = colourOf(store)}
+							{@const twins = tint ? twinsOf(store, colourStores) : []}
+							<li
+								data-testid="store-colour-row"
+								data-store={store}
+								class="flex flex-wrap items-center gap-2 py-1.5 {index
+									? 'border-t border-gray-100'
+									: ''}"
+							>
+								<span
+									class="h-3 w-3 shrink-0 rounded-full {tint
+										? tint.dot
+										: 'bg-gray-400'}"
+									aria-hidden="true"
+								></span>
+								<span class="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800">
+									{store}
+								</span>
+								{#if colourStore === store}
+									<!-- One picker per shop. While its group is open for
+									     editing, that group owns the control, so the shop
+									     never answers to two selects with the same name. -->
+									<span class="text-[0.625rem] font-semibold text-gray-400">editing →</span>
+								{:else}
+									{@const choice = pickerValue(store, railScope)}
+									<label class="sr-only" for="rail-colour-{storeKey(store)}"
+										>Colour for {store}</label
+									>
+									<select
+										id="rail-colour-{storeKey(store)}"
+										class="max-w-[7.5rem] rounded-lg border border-gray-300 bg-white px-1.5 py-1 text-xs font-semibold"
+										aria-label="Colour for {store}"
+										value={choice}
+										disabled={colourBusy}
+										onchange={(e) => setColour(store, e.currentTarget.value, railScope)}
+									>
+										{#each STORE_COLOURS as c (c.key)}
+											<option value={c.key} selected={c.key === choice}>{c.label}</option>
+										{/each}
+										<option value="auto" selected={choice === 'auto'}>Auto</option>
+									</select>
+								{/if}
+								{#if twins.length > 0 && tint}
+									<!-- A collision is never silent. -->
+									<p class="w-full text-[0.6875rem] leading-snug text-gray-400">
+										shares {tint.label} with {twins.join(', ')}
+									</p>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+					<p class="mt-2 text-[0.6875rem] leading-snug text-gray-400">
+						{colourStores.length}
+						{colourStores.length === 1 ? 'store' : 'stores'}, {STORE_COLOURS.length} swatches.
+						{#if sharedStores.length > 0}
+							<b>{sharedStores.length} of them land on the same swatch</b> — {sharedStores.join(
+								', '
+							)}. A collision is permitted and always named here and on the group.
+						{:else}
+							No two stores land on the same swatch.
+						{/if}
+					</p>
+				{/if}
+			</section>
 		</div>
 
 		<!-- ── the list, grouped by Store ── -->
@@ -577,21 +747,23 @@
 							{#if tint}
 								<div class="ml-auto flex shrink-0 items-center gap-1.5">
 									{#if colourStore === group.store}
+										{@const choice = pickerValue(group.store, colourScope)}
 										<div class="flex flex-wrap items-center gap-1.5">
-											<label class="sr-only" for="colour-{group.store}"
+											<label class="sr-only" for="colour-{storeKey(group.store)}"
 												>Colour for {group.store}</label
 											>
 											<select
-												id="colour-{group.store}"
+												id="colour-{storeKey(group.store)}"
 												class="max-w-[9rem] rounded-lg border border-gray-300 bg-white px-1.5 py-1 text-xs font-semibold"
 												aria-label="Colour for {group.store}"
+												value={choice}
 												disabled={colourBusy}
-												onchange={(e) => setColour(group.store, e.currentTarget.value)}
+												onchange={(e) => setColour(group.store, e.currentTarget.value, colourScope)}
 											>
 												{#each STORE_COLOURS as c (c.key)}
-													<option value={c.key} selected={c.key === tint.key}>{c.label}</option>
+													<option value={c.key} selected={c.key === choice}>{c.label}</option>
 												{/each}
-												<option value="auto" selected={!onPage(group.store)}>Auto</option>
+												<option value="auto" selected={choice === 'auto'}>Auto</option>
 											</select>
 											{#if data.hasFamily}
 												<label class="flex items-center gap-1 text-[0.6875rem] text-gray-600">
@@ -666,43 +838,76 @@
 													>{rowScope === 'mine' ? 'Mine' : 'Family'}</span
 												>
 												{#if item.stores[0]}
-													{@const primary = colourOf(item.stores[0])}
-													<span
-														data-primary="true"
-														class="rounded-full px-2 py-0.5 font-bold ring-2 ring-inset {primary
-															? primary.chip
-															: 'bg-gray-100 text-gray-700'} {primary
-															? primary.dot
-															: 'bg-gray-400'}"
-														style={primary ? `box-shadow: inset 0 0 0 2px currentColor` : ''}
-														>{item.stores[0]}</span
-													>
-													{#if item.stores.length > 1}
-														<span class="min-w-0 truncate text-gray-500"
-															>or {item.stores.slice(1).join(', ')}</span
+													<!-- groceries.html, approved. EVERY store on the row
+													     is a chip in ITS OWN colour — that was the
+													     half of the review mark 096 never touched
+													     ("so Costco and Aldi are still grey on a
+													     row the table can already colour").
+
+													     Colouring them all costs the primary/alternate
+													     distinction, so that moves onto a SECOND
+													     channel: the filled dot and the 2px ring on
+													     `stores[0]`, which is the key this row is
+													     grouped under. Colour says "which shop";
+													     the ring says "the one I file it under". -->
+													{#each item.stores as store, index (store)}
+														{@const tint = colourOf(store)}
+														<span
+															data-store-chip
+															data-primary={index === 0 ? 'true' : undefined}
+															title={tint
+																? `${store} — ${tint.label}${index === 0 ? ' (the shop this row is grouped under)' : ''}`
+																: store}
+															class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] leading-none ring-inset {index ===
+																0
+																	? 'font-bold ring-2 ring-current'
+																	: 'font-semibold ring-1 ring-current'} {tint
+																? tint.chip
+																: 'bg-gray-100 text-gray-700 ring-gray-300'}"
+															>
+															{#if index === 0}
+																<!-- The second channel: this filled dot and the heavier ring
+															     name the shop the row is filed under, so colouring
+															     every store costs nothing. -->
+																<span
+																	class="h-1.5 w-1.5 shrink-0 rounded-full bg-current"
+																	aria-hidden="true"
+																></span>
+															{/if}{store}</span
 														>
-													{/if}
+													{/each}
 												{/if}
 											</p>
 										</div>
-										{#if editingId !== item.id}
-											<div class="ml-auto flex shrink-0 items-center gap-3 text-xs">
+										<div class="ml-auto flex shrink-0 items-center gap-1">
+											<!-- groceries.html, approved: the row carries all THREE
+											     actions as quiet icon buttons — edit, move,
+											     delete — rather than hiding move behind an
+											     edit-mode the user has to find first. -->
 												<button
-													class="text-gray-500 underline"
+													class="flex h-7 w-7 items-center justify-center rounded-lg text-sm text-gray-400 hover:bg-gray-100 hover:text-gray-700"
 													aria-label="Edit stores for {item.name}"
+													title="Edit stores"
 													onclick={() => {
 														editingId = item.id;
 														editStores = item.stores.join(', ');
-													}}>Stores</button
+													}}>✎</button
 												>
 												<button
-													class="text-gray-400 underline hover:text-red-600"
-													aria-label="Delete {item.name}"
+													class="flex h-7 w-7 items-center justify-center rounded-lg text-sm text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+													aria-label="Move {item.name} to {destination}"
+													title="Move to {destination}"
 													disabled={busyId === item.id}
-													onclick={() => remove(item)}>Delete</button
+													onclick={() => move(item)}>⇄</button
+												>
+												<button
+													class="flex h-7 w-7 items-center justify-center rounded-lg text-sm text-gray-400 hover:bg-red-50 hover:text-red-600"
+													aria-label="Delete {item.name}"
+													title="Delete"
+													disabled={busyId === item.id}
+													onclick={() => remove(item)}>✕</button
 												>
 											</div>
-										{/if}
 									</div>
 
 									{#if editingId === item.id}
@@ -720,13 +925,6 @@
 												aria-label="Save stores for {item.name}"
 												onclick={() => saveStores(item)}>Save</button
 											>
-											<button
-												class="text-gray-500 underline"
-												aria-label="Move {item.name} to {destination}"
-												onclick={() => move(item)}
-											>
-												To {destination}
-											</button>
 											<button
 												class="text-gray-500 underline"
 												aria-label="Cancel editing {item.name}"

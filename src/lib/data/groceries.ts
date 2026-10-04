@@ -233,6 +233,96 @@ export function resolveGroceryColours(
 	return new Map(storeNames.map((n) => [n, colourFor(n, rows, viewer)]));
 }
 
+/* ── Optimistic colour overrides (115) ────────────────────────────────────
+ *
+ * A flip repaints before the server answers, so the page keeps the pending
+ * value itself. That map used to be keyed by the STORE NAME ALONE, which is
+ * the whole bug: "what colour is Aldi" has two answers — yours and the
+ * family's — and one key can only hold one of them. Worse, each override's
+ * `familyId` was rebuilt from the scope control's CURRENT value, so merely
+ * flipping Everyone/Just me moved an existing override to the other scope
+ * without a single write happening.
+ *
+ * The rule, stated once so no call site can forget it: **an override carries
+ * its own scope, and the key carries it too.** Nothing downstream can re-label
+ * an override, because the label is already inside the value.
+ */
+
+/** Which row a colour write targets. Mirrors the write API's `scope`. */
+export type ColourScopeKey = 'family' | 'personal';
+
+/** The override map: `scope:storeKey` → a swatch key. */
+export type ColourOverrides = Readonly<Record<string, string>>;
+
+/** The key an override for one shop in one scope is stored under. */
+export function colourOverrideKey(scope: ColourScopeKey, key: string): string {
+	return `${scope}:${key}`;
+}
+
+/** Is this shop overridden in THIS scope? */
+export function hasColourOverride(
+	overrides: ColourOverrides,
+	scope: ColourScopeKey,
+	key: string
+): boolean {
+	const colour = overrides[colourOverrideKey(scope, key)];
+	return typeof colour === 'string' && colour.length > 0;
+}
+
+/**
+ * The colour row an override stands for, at the scope the override was MADE at.
+ *
+ * A viewer with no family has nowhere to put an "everyone" colour, so `family`
+ * resolves to `null` there — the same row a personal one would write, which is
+ * the honest answer: with no family, everyone's list is yours.
+ */
+export function optimisticColourRow(
+	scope: ColourScopeKey,
+	key: string,
+	color: string,
+	viewer: StoreColourViewer
+): StoreColourRow {
+	return {
+		storeKey: key,
+		color,
+		userId: viewer.userId,
+		familyId: scope === 'family' ? viewer.familyId : null
+	};
+}
+
+/**
+ * The loader's rows with every pending override merged in, in the override's
+ * OWN scope.
+ *
+ * An override replaces a loaded row only when it names the same scope, so a
+ * personal override never erases the family's answer — `colourFor` reads both
+ * and personal still wins, which is the precedence rule stated once.
+ */
+export function withColourOverrides(
+	rows: readonly StoreColourRow[],
+	overrides: ColourOverrides,
+	viewer: StoreColourViewer
+): StoreColourRow[] {
+	const merged = rows.slice();
+	for (const [entry, color] of Object.entries(overrides)) {
+		if (!color) continue;
+		const at = entry.indexOf(':');
+		// A key with no scope in it is the pre-115 shape; it cannot be honoured
+		// safely (it has no scope to honour) and dropping it repaints from the
+		// server's truth rather than guessing one.
+		if (at < 1) continue;
+		const scope = entry.slice(0, at) as ColourScopeKey;
+		if (scope !== 'family' && scope !== 'personal') continue;
+		const row = optimisticColourRow(scope, entry.slice(at + 1), color, viewer);
+		const existing = merged.findIndex(
+			(r) => r.storeKey === row.storeKey && r.familyId === row.familyId && r.userId === row.userId
+		);
+		if (existing >= 0) merged[existing] = row;
+		else merged.push(row);
+	}
+	return merged;
+}
+
 /* ── One list, a scope filter (097) ─────────────────────────────────────────
  *
  * The two scope tabs are gone: one list, one filter, both scopes visible. The

@@ -14,6 +14,10 @@ import {
 	scopeFromParam,
 	matchesGrocerySearch,
 	scopeOf,
+	colourOverrideKey,
+	optimisticColourRow,
+	withColourOverrides,
+	hasColourOverride,
 	type StoreColourRow
 } from './groceries';
 
@@ -291,5 +295,99 @@ describe('scopeOf', () => {
 	it('reads the scope off the row itself, not off which list it was loaded from', () => {
 		expect(scopeOf({ familyId: null })).toBe('mine');
 		expect(scopeOf({ familyId: 'fam1' })).toBe('family');
+	});
+});
+
+/**
+ * #115's flagged bug, CONFIRMED. The optimistic override map was keyed by the
+ * store name ALONE, so a personal colour and a family colour for one shop could
+ * not both exist — and the page rebuilt each override's `familyId` from the
+ * scope control's CURRENT value, so merely flipping "Everyone / Just me"
+ * re-labelled an existing override as the other scope.
+ *
+ * The fix is one rule stated once: **an override carries its own scope**, and
+ * the key carries it too.
+ */
+describe('optimistic colour overrides are scoped (115)', () => {
+	const viewer = { userId: 'u1', familyId: 'fam1' };
+
+	it('keys an override by its scope AND its store, never the store alone', () => {
+		// Two answers to "what colour is Aldi" are two rows, so they need two keys.
+		expect(colourOverrideKey('personal', 'aldi')).not.toBe(colourOverrideKey('family', 'aldi'));
+		expect(colourOverrideKey('personal', 'aldi')).toBe('personal:aldi');
+		expect(colourOverrideKey('family', 'aldi')).toBe('family:aldi');
+	});
+
+	it('turns a scoped override into a colour row at ITS OWN scope', () => {
+		expect(optimisticColourRow('personal', 'aldi', 'lilac', viewer)).toEqual({
+			storeKey: 'aldi',
+			color: 'lilac',
+			userId: 'u1',
+			familyId: null
+		});
+		expect(optimisticColourRow('family', 'aldi', 'sage', viewer)).toEqual({
+			storeKey: 'aldi',
+			color: 'sage',
+			userId: 'u1',
+			familyId: 'fam1'
+		});
+	});
+
+	it('keeps a personal and a family colour for the same shop at once', () => {
+		// HALF ONE of the bug: with the store alone as the key, the second write
+		// destroyed the first, so the personal choice silently became the
+		// family's — or the family's silently buried the personal one.
+		const rows = withColourOverrides(
+			[],
+			{ 'personal:aldi': 'lilac', 'family:aldi': 'sage' },
+			viewer
+		);
+		expect(rows).toHaveLength(2);
+		// Personal beats family on read, and now both actually exist.
+		expect(colourFor('Aldi', rows, viewer)?.key).toBe('lilac');
+	});
+
+	it('is not re-labelled by anything the page can change afterwards', () => {
+		// HALF TWO of the bug: the override's familyId used to be rebuilt from
+		// the scope control's live value, so flipping the control moved an
+		// existing override to the other scope without any write happening.
+		// The scope travels INSIDE the key, so there is nothing left to re-label.
+		const overrides = { 'personal:aldi': 'lilac' };
+		const rows = withColourOverrides([], overrides, viewer);
+		expect(rows[0].familyId).toBeNull();
+		// Whatever the control says next, the row is still the personal one.
+		expect(withColourOverrides([], { ...overrides, 'family:aldi': 'sage' }, viewer)[0].familyId).toBeNull();
+	});
+
+	it('lets a loader row be replaced by an override in the SAME scope only', () => {
+		const loaded = [{ storeKey: 'aldi', color: 'clay', userId: 'u1', familyId: 'fam1' }];
+		const rows = withColourOverrides(loaded, { 'family:aldi': 'sage' }, viewer);
+		expect(rows).toHaveLength(1);
+		expect(rows[0].color).toBe('sage');
+		// A personal override for the same shop does NOT replace the family row;
+		// it is a second row, and personal wins on read.
+		const both = withColourOverrides(loaded, { 'personal:aldi': 'lilac' }, viewer);
+		expect(both).toHaveLength(2);
+		expect(colourFor('Aldi', both, viewer)?.key).toBe('lilac');
+	});
+
+	it('answers whether a store is overridden in a given scope', () => {
+		const overrides = { 'personal:aldi': 'lilac' };
+		expect(hasColourOverride(overrides, 'personal', 'aldi')).toBe(true);
+		// The family scope has nothing pending, so the picker may still offer
+		// "Auto" for it rather than pretending a family colour is set.
+		expect(hasColourOverride(overrides, 'family', 'aldi')).toBe(false);
+		expect(hasColourOverride(overrides, 'personal', 'costco')).toBe(false);
+	});
+
+	it('resolves the family scope to null for a viewer with no family', () => {
+		// "Everyone" is not a place when there is no family, and a key that
+		// silently means "personal" would make a family write a personal one.
+		expect(optimisticColourRow('family', 'aldi', 'sage', { userId: 'u1', familyId: null })).toEqual({
+			storeKey: 'aldi',
+			color: 'sage',
+			userId: 'u1',
+			familyId: null
+		});
 	});
 });

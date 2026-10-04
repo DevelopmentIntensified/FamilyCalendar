@@ -347,11 +347,16 @@ describe('groceries page — Store groups', () => {
 		expect(screen.getByText(/1 item · 1 total/)).toBeInTheDocument();
 	});
 
-	it('shows a Store chip per row, with alternates as the "or X" line', () => {
+	it('shows a Store chip per row — and every alternate in its OWN colour', () => {
+		// 096 pinned this as "the alternates as the `or X` line". groceries.html was
+		// approved afterwards and says that line is the half of the mark 096 never
+		// touched: "so Costco and Aldi are still grey on a row the table can
+		// already colour". Each store is now its own chip.
 		render(GroceriesPage, makeData());
 		const aldi = screen.getByRole('region', { name: 'Aldi' });
-		expect(within(aldi).getByText('or Costco')).toBeInTheDocument();
 		expect(within(aldi).getAllByText('Aldi').length).toBeGreaterThan(0);
+		expect(within(aldi).getByText('Costco')).toBeInTheDocument();
+		expect(within(aldi).queryByText(/^or /)).toBeNull();
 	});
 
 	it('an alternate is not a group of its own — grouping is by the primary store', () => {
@@ -615,6 +620,73 @@ describe('groceries page — store colours (096)', () => {
 		});
 	});
 
+	/**
+	 * 115, HALF ONE, as a user sees it. The override map was keyed by the store
+	 * alone, so a personal colour and a family colour for one shop were the same
+	 * slot: the second write destroyed the first, and a personal choice either
+	 * silently became the family's or silently stopped existing.
+	 *
+	 * The loader's colours are `invalidateAll`-d away, so the fixture supplies
+	 * them as the server would have them after a settled write.
+	 */
+	it('keeps a personal colour when the same store is given a family one', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit colour for Aldi' }));
+		await fireEvent.click(screen.getByRole('radio', { name: 'Just me' }));
+		await fireEvent.change(screen.getByLabelText('Colour for Aldi'), { target: { value: 'lilac' } });
+		await vi.waitFor(() =>
+			expect(
+				screen.getByRole('region', { name: 'Aldi' }).querySelector('[data-store-bar]')
+			).toHaveClass(STORE_COLOURS.find((c) => c.key === 'lilac')!.bar)
+		);
+
+		// Now the family row, same store. The personal choice is still the one
+		// on screen — precedence says personal beats family, and until the two
+		// can coexist that promise is unsatisfiable.
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit colour for Aldi' }));
+		await fireEvent.click(screen.getByRole('radio', { name: 'Everyone' }));
+		await fireEvent.change(screen.getByLabelText('Colour for Aldi'), { target: { value: 'sage' } });
+		expect(JSON.parse(String(vi.mocked(fetch).mock.calls.at(-1)?.[1]?.body))).toEqual({
+			store: 'Aldi',
+			color: 'sage',
+			scope: 'family'
+		});
+		expect(
+			screen.getByRole('region', { name: 'Aldi' }).querySelector('[data-store-bar]')
+		).toHaveClass(STORE_COLOURS.find((c) => c.key === 'lilac')!.bar);
+	});
+
+	/**
+	 * 115, HALF TWO, as a user sees it. The override's scope used to be rebuilt
+	 * from the control's live value, so moving "Everyone / Just me" re-labelled a
+	 * pending colour with no write at all. The control chooses where the NEXT
+	 * write goes; it must never move a colour that is already on screen.
+	 */
+	it('moving the Everyone / Just me control does not re-label a colour already chosen', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit colour for Aldi' }));
+		await fireEvent.click(screen.getByRole('radio', { name: 'Just me' }));
+		await fireEvent.change(screen.getByLabelText('Colour for Aldi'), { target: { value: 'lilac' } });
+		await vi.waitFor(() =>
+			expect(
+				screen.getByRole('region', { name: 'Aldi' }).querySelector('[data-store-bar]')
+			).toHaveClass(STORE_COLOURS.find((c) => c.key === 'lilac')!.bar)
+		);
+
+		// Reopen on the other scope. Nothing has been written there, so the
+		// picker must offer Auto — a control that re-labelled the pending colour
+		// would have shown the family's answer as your own Lavender.
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit colour for Aldi' }));
+		const picker = screen.getByLabelText('Colour for Aldi') as HTMLSelectElement;
+		expect(picker.value).toBe('auto');
+		// …and the colour on screen is still the personal one, untouched.
+		expect(screen.getByRole('region', { name: 'Aldi' }).querySelector('[data-store-bar]')).toHaveClass(
+			STORE_COLOURS.find((c) => c.key === 'lilac')!.bar
+		);
+		// Reopening never wrote anything.
+		expect(vi.mocked(fetch).mock.calls).toHaveLength(1);
+	});
+
 	it('reverts the colour and names the failure when the flip fails', async () => {
 		vi.stubGlobal(
 			'fetch',
@@ -644,6 +716,116 @@ describe('groceries page — store colours (096)', () => {
 		// Colour answers "which store"; the ring + dot answer "the one I group
 		// this under". Both survive, on different channels.
 		expect(aldi.querySelector('[data-primary]')).toHaveTextContent('Aldi');
-		expect(within(aldi).getByText('or Costco')).toBeInTheDocument();
+		// The old assertion here was `getByText('or Costco')`. groceries.html was
+		// approved afterwards and removed that line on purpose - it was the half
+		// of 096 it said left every alternate grey on a row the table can already
+		// colour - so the alternates are chips now, which is what the sibling
+		// test asserts by requiring NO /^or / text in this region. Both cannot
+		// hold: anything matching 'or Costco' matches /^or /. The approved
+		// version wins; the alternate is a chip, checked below.
+		expect(within(aldi).getByText('Costco')).toBeInTheDocument();
+		expect(within(aldi).queryByText(/^or /)).toBeNull();
+	});
+});
+
+/**
+ * `groceries.html`, approved. The page names exactly two things the app was
+ * still missing when it was approved, and both are the half of the review mark
+ * that 096 did not touch:
+ *
+ *   1. a **Store colours** rail card — one place to see and change every
+ *      shop's colour, instead of only finding it by opening a group;
+ *   2. **every store on a row is a chip in its own colour**, with the
+ *      primary/alternate distinction moved onto a second channel (a filled dot
+ *      and a ring), so colouring the alternates costs nothing.
+ */
+describe('groceries page — the approved Store colours card (groceries.html)', () => {
+	const card = () => screen.getByTestId('store-colours');
+
+	it('lists every shop with its colour, not just the ones on screen', () => {
+		render(GroceriesPage, makeData({ scope: 'family' } as never));
+		// The card is the roster of shops, so it is built from BOTH scopes — a
+		// colour you set on Mine is still yours to see while looking at Family.
+		const rows = within(card()).getAllByTestId('store-colour-row');
+		expect(rows.map((r) => r.getAttribute('data-store'))).toEqual(
+			expect.arrayContaining(['Aldi', 'Whole Foods', 'Costco', 'Trader Joe’s', 'Kroger'])
+		);
+	});
+
+	it('gives each shop its own picker, and writes through the same seam', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.change(within(card()).getByLabelText('Colour for Costco'), {
+			target: { value: 'lilac' }
+		});
+		expect(JSON.parse(String(vi.mocked(fetch).mock.calls.at(-1)?.[1]?.body))).toEqual({
+			store: 'Costco',
+			color: 'lilac',
+			scope: 'family'
+		});
+	});
+
+	it('names a collision, because a shared swatch is permitted and always disclosed', () => {
+		render(
+			GroceriesPage,
+			makeData({
+				colours: [
+					{ storeKey: 'aldi', color: 'sage', userId: 'u1', familyId: 'fam1' },
+					{ storeKey: 'costco', color: 'sage', userId: 'u1', familyId: 'fam1' }
+				]
+			})
+		);
+		// `data-store` is the DISPLAY NAME, because groceries.html (approved)
+		// writes the shops that way and this card is its transcription. An
+		// earlier revision asked for the SINGLE row keyed by the lowercase store
+		// KEY ('costco') - which cannot coexist with the test above asserting
+		// five rows named 'Aldi', 'Costco', … in the same fixture. One
+		// convention, the approved one.
+		const costco = within(card())
+			.getAllByTestId('store-colour-row')
+			.find((r) => r.getAttribute('data-store') === 'Costco');
+		expect(costco).toBeDefined();
+		expect(costco?.textContent).toMatch(/shares Mint with Aldi/i);
+	});
+
+	it('says so when there is no shop to colour, rather than an empty card', () => {
+		render(GroceriesPage, makeData({ mine: [], family: [] }));
+		expect(screen.getByTestId('store-colours-empty')).toHaveTextContent('No shops');
+		expect(within(card()).queryAllByTestId('store-colour-row')).toHaveLength(0);
+	});
+
+	it('never tints "Any store" — that is the absence of a shop', () => {
+		render(GroceriesPage, makeData());
+		const names = within(card())
+			.getAllByTestId('store-colour-row')
+			.map((r) => r.getAttribute('data-store'));
+		expect(names).not.toContain('Any store');
+	});
+});
+
+describe('groceries page — every store on a row is a chip in its own colour', () => {
+	it('colours the alternates too, and moves primary onto a second channel', () => {
+		render(GroceriesPage, makeData());
+		// "Lemons" is Aldi + Kroger, and neither is grey any more.
+		const chips = [...document.querySelectorAll('[data-store-chip]')];
+		const aldi = chips.find((c) => c.textContent?.trim() === 'Aldi');
+		const kroger = chips.find((c) => c.textContent?.trim() === 'Kroger');
+		expect(aldi).toBeTruthy();
+		expect(kroger).toBeTruthy();
+		// Each wears ITS OWN colour class, from the same resolution the bar uses.
+		expect(aldi?.getAttribute('class')).not.toBe(kroger?.getAttribute('class'));
+		for (const chip of [aldi, kroger]) {
+			expect(chip?.getAttribute('class')).toMatch(/bg-|chip/);
+		}
+		// The grouping store — the one this row is filed under — is still
+		// distinguishable, on the dot and the ring rather than on its colour.
+		expect(aldi?.getAttribute('data-primary')).toBe('true');
+		expect(kroger?.getAttribute('data-primary')).toBeNull();
+	});
+
+	it('never carries the store identity by colour alone', () => {
+		render(GroceriesPage, makeData());
+		for (const chip of document.querySelectorAll('[data-store-chip]')) {
+			expect(chip.textContent?.trim()).toBeTruthy();
+		}
 	});
 });
