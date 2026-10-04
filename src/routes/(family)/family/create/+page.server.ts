@@ -103,9 +103,7 @@ export const actions: Actions = {
 				.select({ id: users.id, emailVerified: users.emailVerified })
 				.from(users)
 				.where(inArray(users.id, picked));
-			const addable = new Set(
-				found.filter((u) => u.emailVerified).map((u) => u.id)
-			);
+			const addable = new Set(found.filter((u) => u.emailVerified).map((u) => u.id));
 			if (picked.some((id) => !addable.has(id))) {
 				return fail(400, {
 					error:

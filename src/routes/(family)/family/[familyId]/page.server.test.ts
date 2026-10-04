@@ -50,7 +50,9 @@ vi.mock('$lib/server/db/actions/dashboardModules', () => ({
 }));
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- the activity list the loader reads; it has its own tests.
-vi.mock('$lib/server/db/actions/familyActivity', () => ({ getRecentFamilyActivity: async () => [] }));
+vi.mock('$lib/server/db/actions/familyActivity', () => ({
+	getRecentFamilyActivity: async () => []
+}));
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- the viewer's hidden-module list; not what these bands are about.
 vi.mock('$lib/server/db/actions/userSettings', () => ({
@@ -97,7 +99,12 @@ import { load } from './+page.server';
 /** The loader's return, narrowed from SvelteKit's open PageData bag. */
 interface DetailData {
 	family: { id: string; name: string } | null;
-	activeInvite: { code: string; useCount: number; maxUses: number | null; expiresAt: string } | null;
+	activeInvite: {
+		code: string;
+		useCount: number;
+		maxUses: number | null;
+		expiresAt: string;
+	} | null;
 	inviteCreatedBy: string | null;
 	planUsage: {
 		tierName: string | null;
@@ -155,7 +162,10 @@ describe('family detail loader — the active invitation band (issue 124)', () =
 		];
 		state.roster = [{ userId: 'u_mom', firstName: 'Maya', lastName: 'Lopez' }];
 
-		const data = await runLoad({ params: { familyId: 'fam-1' }, locals: { user: { id: 'u_mom' } } });
+		const data = await runLoad({
+			params: { familyId: 'fam-1' },
+			locals: { user: { id: 'u_mom' } }
+		});
 
 		expect(data.activeInvite?.code).toBe('LIVE');
 		expect(data.activeInvite?.useCount).toBe(1);
@@ -175,7 +185,10 @@ describe('family detail loader — the active invitation band (issue 124)', () =
 			}
 		];
 
-		const data = await runLoad({ params: { familyId: 'fam-1' }, locals: { user: { id: 'u_mom' } } });
+		const data = await runLoad({
+			params: { familyId: 'fam-1' },
+			locals: { user: { id: 'u_mom' } }
+		});
 
 		expect(data.activeInvite).toBeNull();
 	});
@@ -190,7 +203,10 @@ describe('family detail loader — the plan usage bar (issue 124)', () => {
 			{ userId: 'u_eli', firstName: 'Eli', lastName: 'Smith' }
 		];
 
-		const data = await runLoad({ params: { familyId: 'fam-1' }, locals: { user: { id: 'u_mom' } } });
+		const data = await runLoad({
+			params: { familyId: 'fam-1' },
+			locals: { user: { id: 'u_mom' } }
+		});
 
 		expect(data.planUsage).toEqual({
 			tierName: 'Family Master',
@@ -208,7 +224,10 @@ describe('family detail loader — the plan usage bar (issue 124)', () => {
 	it('says "no plan" rather than naming a tier nobody has', async () => {
 		state.tierName = '';
 
-		const data = await runLoad({ params: { familyId: 'fam-1' }, locals: { user: { id: 'u_mom' } } });
+		const data = await runLoad({
+			params: { familyId: 'fam-1' },
+			locals: { user: { id: 'u_mom' } }
+		});
 
 		expect(data.planUsage.tierName).toBeNull();
 	});

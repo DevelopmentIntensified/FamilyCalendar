@@ -72,6 +72,19 @@
 	</div>
 	<div>
 		<label for="childEmail" class="mb-2 block text-sm font-medium text-slate-700">Email</label>
+		<!-- The constraint, said BEFORE the save button rather than after a failed
+		     save (`family-members-add.html:117-122`). `users.email` carries a unique
+		     index, so a shared address is refused on save; a placeholder is not. -->
+		<aside
+			role="note"
+			aria-label="A child is a real account"
+			class="mb-4 rounded-xl border border-orange-200 bg-gradient-to-br from-orange-100/70 to-white px-4 py-3.5 text-[13px] leading-relaxed text-slate-800"
+		>
+			<b>A child is a real account.</b> <code>memberType = 'child'</code> is only a label on a row
+			in your accounts, and that table's email column carries a <b>unique index</b> — so your child
+			needs an address nobody else has. A placeholder like <code>mia@kids.example.com</code> is fine;
+			a shared one will be rejected on save.
+		</aside>
 		<input
 			type="email"
 			id="childEmail"

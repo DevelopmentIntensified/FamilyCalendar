@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import MemberInviteTab from './MemberInviteTab.svelte';
 import MemberChildTab from './MemberChildTab.svelte';
@@ -68,5 +68,41 @@ describe('MemberChildTab', () => {
 			'/family/fam1/members/add/child',
 			expect.objectContaining({ method: 'POST' })
 		);
+	});
+});
+
+describe('add-a-member — the approved warnings (issue 124)', () => {
+	// `family-members-add.html` puts two notes on the page that the app page did
+	// not carry at all. Measured: `noteWarn: 0`, `noteWarnText: "MISSING"` — the
+	// child pane had only the one grey line under the email field.
+	it('warns about the unique email BEFORE the child save button, not after it', () => {
+		render(MemberChildTab, { props });
+
+		const warn = screen.getByRole('note', { name: /a child is a real account/i });
+		expect(warn).toBeInTheDocument();
+		expect(within(warn).getByText(/unique index/i)).toBeInTheDocument();
+		expect(within(warn).getByText(/rejected on save/i)).toBeInTheDocument();
+
+		// …and the warning comes before the button that trips it.
+		const order = [...document.querySelectorAll('body *')];
+		const warnAt = order.findIndex((el) => el.getAttribute('role') === 'note');
+		const buttonAt = order.findIndex((el) => (el.textContent ?? '') === 'Create Child');
+		expect(warnAt).toBeGreaterThanOrEqual(0);
+		expect(warnAt).toBeLessThan(buttonAt);
+	});
+
+	it('washes that warning blush, the way the prototype’s .note-warn does', () => {
+		render(MemberChildTab, { props });
+
+		const warn = screen.getByRole('note', { name: /a child is a real account/i });
+		expect(warn.getAttribute('class')).toContain('from-orange-100');
+	});
+
+	it('says what an emailed invite actually gets them', () => {
+		// The prototype's `.note-ok` under the email form. It was missing.
+		render(MemberInviteTab, { props });
+
+		const note = screen.getByRole('note', { name: /what they get/i });
+		expect(within(note).getByText(/\/family\/join/)).toBeInTheDocument();
 	});
 });

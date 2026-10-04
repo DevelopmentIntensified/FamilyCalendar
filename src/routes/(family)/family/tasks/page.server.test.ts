@@ -28,9 +28,7 @@ interface StubState {
 	askedFor: string[];
 }
 
-const state = vi.hoisted(
-	(): StubState => ({ memberships: [], askedFor: [] })
-);
+const state = vi.hoisted((): StubState => ({ memberships: [], askedFor: [] }));
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- the loader's seams are the actions it calls; the real-Postgres harness is tracked in docs/issues/002.
 vi.mock('$lib/server/db/actions/families', () => ({
@@ -112,7 +110,7 @@ describe('family task board — which family it reads (issue 124)', () => {
 		expect(state.askedFor).toContain('tasks:fam-new');
 	});
 
-	it('falls back to the oldest when the named family is not the user\'s', async () => {
+	it("falls back to the oldest when the named family is not the user's", async () => {
 		state.memberships = [membership('fam-old', 'Rivera Home')];
 
 		const data = await loadBoard('?familyId=someone-elses');

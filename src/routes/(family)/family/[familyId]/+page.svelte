@@ -20,9 +20,15 @@
 		rolePillClass
 	} from '$lib/utils/familyDisplay';
 	import { relativeTime } from '$lib/utils/dateUtils';
+	import { FAMILY_PALETTE } from '$lib/utils/familyPalette';
 	export let data: PageData;
 	export let form: ActionData;
 	const { family, members, currentUserRole, currentUserId, activity = [] } = data;
+
+	// The approved colour swatches (`family-detail.html:195-200`). Declared once in
+	// $lib/utils/familyPalette so this page and the create page offer the same six
+	// colours and cannot drift (#099).
+	const colors = FAMILY_PALETTE;
 
 	/* ── The approved side bands (issue 124) ──────────────────────────────────
 	   `family-detail.html` was approved with a side column of four bands, and
@@ -241,7 +247,7 @@
 />
 
 <div class="min-h-screen bg-slate-50">
-	<div class="mx-auto max-w-4xl px-3 py-4 pb-20 sm:px-4">
+	<div class="mx-auto max-w-6xl px-3 py-4 pb-20 sm:px-4">
 		<Breadcrumbs
 			crumbs={[
 				{ label: 'Calendar', href: '/calendar' },
@@ -259,72 +265,94 @@
 			</div>
 		{/if}
 
-		<div class="mt-4 grid gap-5 sm:grid-cols-3">
-			<!-- Hero card -->
-			<section class="{BAND} sm:col-span-3" aria-labelledby="family-hero-heading">
-				<div class="flex flex-wrap items-center justify-between gap-3">
-					<div class="flex min-w-0 items-center gap-3">
-						<div
-							class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white"
-							style="background-color: {family?.color || '#3b82f6'}"
-							aria-hidden="true"
-						>
-							{(family?.name || 'F').charAt(0).toUpperCase()}
-						</div>
-						<div class="min-w-0">
-							<h1 id="family-hero-heading" class="truncate text-xl font-bold text-slate-900">
-								{family?.name}
-							</h1>
-							<div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
-								<span>{members.length} member{members.length !== 1 ? 's' : ''}</span>
-								<span aria-hidden="true">·</span>
-								<span class="flex items-center gap-1">
-									You:
-									<span class={rolePillClass(currentUserRole || 'member')}>{currentUserRole}</span>
-								</span>
+		<!-- The approved composition (issue 124): a main column and a 19.5rem rail.
+		     Measured at 1440px, `family-detail.html`'s `.fd` resolves to `900px 312px`
+		     with all four side bands in the rail. The page was a three-column grid
+		     whose fourth child wrapped onto a second row, so the invitation, plan and
+		     children bands sat BELOW the members rather than beside them. -->
+		<div class="mt-4 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19.5rem]">
+			<div class="flex min-w-0 flex-col gap-5">
+				<!-- Hero card -->
+				<section class="{BAND} relative overflow-hidden" aria-labelledby="family-hero-heading">
+					<!-- `family-detail.html:127` — `.ident__glow`: one blurred wash of the
+				     family's own colour in the corner, behind everything. -->
+					<div
+						data-family-glow
+						class="pointer-events-none absolute right-1 -bottom-8 h-32 w-32 rounded-full blur-xl"
+						style="background-color: {family?.color || '#3b82f6'}33"
+						aria-hidden="true"
+					></div>
+					<div class="relative flex flex-wrap items-center justify-between gap-3">
+						<div class="flex min-w-0 items-center gap-3">
+							<div
+								class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-xl font-extrabold text-white"
+								style="background-color: {family?.color || '#3b82f6'}"
+								aria-hidden="true"
+							>
+								{(family?.name || 'F').charAt(0).toUpperCase()}
+							</div>
+							<div class="min-w-0">
+								<h1
+									id="family-hero-heading"
+									class="truncate text-[22px] font-extrabold tracking-tight text-slate-900"
+								>
+									{family?.name}
+								</h1>
+								<div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
+									<span>{members.length} member{members.length !== 1 ? 's' : ''}</span>
+									<span aria-hidden="true">·</span>
+									<span class="flex items-center gap-1">
+										You:
+										<span class={rolePillClass(currentUserRole || 'member')}>{currentUserRole}</span
+										>
+									</span>
+								</div>
 							</div>
 						</div>
+						<div class="flex items-center gap-2">
+							{#if isAdmin}
+								<a
+									href="/family/{family?.id}/members/add"
+									class="inline-flex min-h-11 items-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+								>
+									Add member
+								</a>
+								<button
+									type="button"
+									on:click={scrollToSettings}
+									aria-label="Jump to family settings"
+									class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50"
+								>
+									<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+										/>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+										/>
+									</svg>
+								</button>
+							{/if}
+						</div>
 					</div>
-					<div class="flex items-center gap-2">
-						{#if isAdmin}
-							<a
-								href="/family/{family?.id}/members/add"
-								class="inline-flex min-h-11 items-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
-							>
-								Add member
-							</a>
-							<button
-								type="button"
-								on:click={scrollToSettings}
-								aria-label="Jump to family settings"
-								class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50"
-							>
-								<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-									/>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-									/>
-								</svg>
-							</button>
-						{/if}
-					</div>
-				</div>
-			</section>
+				</section>
 
-			<!-- Left column: members + activity (activity relates to member actions) -->
-			<div class="flex min-w-0 flex-col gap-5 {isAdmin ? 'sm:col-span-2' : 'sm:col-span-3'}">
 				<!-- Members card -->
 				<section class={BAND} aria-labelledby="members-heading">
 					<div class={BAND_HEAD}>
 						<h2 id="members-heading" class={BAND_TITLE}>Members</h2>
+						<!-- The prototype's `band__t` carries the count against the plan's
+						     own limit (`family-detail.html:152`). Measured: the app band
+						     title read "Members" and nothing beside it. -->
+						<span class="text-xs font-normal normal-case tracking-normal text-slate-400">
+							{members.length} of {plan.memberLimit}
+						</span>
 						<div class="flex items-center gap-2">
 							<!-- The board is one route, /family/tasks (issue 124): the
 							     per-family path used to point at a near-copy page that
@@ -530,6 +558,18 @@
 							<p class="text-slate-500">No members found.</p>
 						</div>
 					{/if}
+
+					<!-- The prototype puts the door under the list, full width
+					     (`family-detail.html:169`). The app had it only in the band header,
+					     above the people it adds to. -->
+					{#if isAdmin}
+						<a
+							href="/family/{family?.id}/members/add"
+							class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200"
+						>
+							+ Add a member
+						</a>
+					{/if}
 				</section>
 
 				<!-- Activity card -->
@@ -561,196 +601,219 @@
 						</div>
 					{/if}
 				</section>
-			</div>
 
-			{#if isAdmin}
-				<!-- Right column: settings, invitations -->
-				<div class="flex min-w-0 flex-col gap-5">
-					<!-- Settings card (always visible; admin content) -->
-					{#if isAdmin}
-						<section id="family-settings" class={BAND} aria-labelledby="settings-heading">
-							<h2 id="settings-heading" class="mb-3 {BAND_TITLE}">Family Settings</h2>
-							<form method="POST" action="?/updateFamily" use:enhance={saveFamilySubmit}>
-								<div class="grid gap-3">
-									<div>
-										<label for="name" class="mb-1 block text-sm font-medium text-slate-700"
-											>Family Name</label
-										>
-										<input
-											type="text"
-											id="name"
-											name="name"
-											bind:value={editingName}
-											class="w-full rounded-lg border border-slate-300 px-4 py-2 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-										/>
-									</div>
-									<div>
-										<label for="color" class="mb-1 block text-sm font-medium text-slate-700"
-											>Color</label
-										>
-										<input
-											type="color"
-											id="color"
-											name="color"
-											bind:value={editingColor}
-											class="h-10 w-full rounded-lg border border-slate-300"
-										/>
-									</div>
+				<!-- Settings card (always visible; admin content) -->
+				{#if isAdmin}
+					<section id="family-settings" class={BAND} aria-labelledby="settings-heading">
+						<h2 id="settings-heading" class="mb-3 {BAND_TITLE}">Family Settings</h2>
+						<form method="POST" action="?/updateFamily" use:enhance={saveFamilySubmit}>
+							<div class="grid gap-3">
+								<div>
+									<label for="name" class="mb-1 block text-sm font-medium text-slate-700"
+										>Family Name</label
+									>
+									<input
+										type="text"
+										id="name"
+										name="name"
+										bind:value={editingName}
+										class="w-full rounded-lg border border-slate-300 px-4 py-2 text-[22px] font-extrabold tracking-tight transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+									/>
 								</div>
-								<button
-									type="submit"
-									disabled={savingFamily}
-									class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-								>
-									{savingFamily ? 'Saving…' : 'Save Changes'}
-								</button>
-							</form>
-
-							<div class="mt-4 border-t border-slate-200 pt-4">
-								<h3 class={BAND_TITLE}>Day Dashboard Modules</h3>
-								<p class="mt-1 text-xs text-slate-500">
-									Family-wide master switches. A switched-off card is hidden for everyone — each
-									member can still hide or show a card for themself alone in Account settings.
-								</p>
-								<ul class="mt-3 space-y-1.5">
-									{#each FAMILY_DASHBOARD_MODULES as mod (mod.id)}
-										<li>
-											<DashboardModuleRow
-												label={mod.label}
-												scope={mod.scope}
-												moduleId={mod.id}
-												state={moduleState(mod)}
-												optimistic={moduleOptimistic[mod.id] ?? null}
-												pending={modulePending === mod.id}
-												submitValue={moduleToggleValue(switches[mod.id] ?? true)}
-												onAcknowledge={() => optimisticModuleFlip(mod)}
-												onSubmit={() => moduleSubmit(mod)}
-											/>
-										</li>
-									{/each}
-								</ul>
+								<div>
+									<!-- The prototype offers six `.sw` swatches and no colour field
+									     (`family-detail.html:195-200`). The swatches are added; the
+									     free colour field STAYS, because it is a capability the
+									     prototype never had and `FamilySettings.test.ts` writes
+									     through it. A swatch only sets the same input. -->
+									<span class="mb-1.5 block text-sm font-medium text-slate-700">Colour</span>
+									<div class="flex flex-wrap gap-2" role="group" aria-label="Colour swatches">
+										{#each colors as swatch (swatch.value)}
+											<button
+												type="button"
+												aria-label="Set colour {swatch.name}"
+												aria-pressed={editingColor === swatch.value}
+												on:click={() => (editingColor = swatch.value)}
+												title={swatch.name}
+												class="h-7 w-7 rounded-full transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 {editingColor ===
+												swatch.value
+													? 'ring-2 ring-slate-900 ring-offset-2'
+													: ''}"
+												style="background-color: {swatch.value}"
+											></button>
+										{/each}
+									</div>
+									<input
+										type="color"
+										id="color"
+										name="color"
+										aria-label="Family colour"
+										bind:value={editingColor}
+										class="mt-3 h-10 w-full rounded-lg border border-slate-300"
+									/>
+									<p class="mt-2 text-xs leading-relaxed text-slate-500">
+										Colour tints the calendar, the members and the family calendar chip.
+									</p>
+								</div>
 							</div>
-						</section>
-					{/if}
+							<button
+								type="submit"
+								disabled={savingFamily}
+								class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+							>
+								{savingFamily ? 'Saving…' : 'Save Changes'}
+							</button>
+						</form>
 
-					<!-- Invitations card -->
-					{#if isAdmin}
-						<section class={BAND} aria-labelledby="invitations-heading">
-							<h2 id="invitations-heading" class="mb-3 {BAND_TITLE}">Invitations</h2>
-							<div class="space-y-1.5">
-								<a
-									href="/family/invitations"
-									class="flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-								>
-									<svg
-										class="h-5 w-5 shrink-0 text-slate-400"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-										aria-hidden="true"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+						<div class="mt-4 border-t border-slate-200 pt-4">
+							<h3 class={BAND_TITLE}>Day Dashboard Modules</h3>
+							<p class="mt-1 text-xs text-slate-500">
+								Family-wide master switches. A switched-off card is hidden for everyone — each
+								member can still hide or show a card for themself alone in Account settings.
+							</p>
+							<ul class="mt-3 space-y-1.5">
+								{#each FAMILY_DASHBOARD_MODULES as mod (mod.id)}
+									<li>
+										<DashboardModuleRow
+											label={mod.label}
+											scope={mod.scope}
+											moduleId={mod.id}
+											state={moduleState(mod)}
+											optimistic={moduleOptimistic[mod.id] ?? null}
+											pending={modulePending === mod.id}
+											submitValue={moduleToggleValue(switches[mod.id] ?? true)}
+											onAcknowledge={() => optimisticModuleFlip(mod)}
+											onSubmit={() => moduleSubmit(mod)}
 										/>
-									</svg>
-									<span class="flex-1">Manage invitations</span>
-									<svg
-										class="h-4 w-4 shrink-0 text-slate-300"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-										aria-hidden="true"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M9 5l7 7-7 7"
-										/>
-									</svg>
-								</a>
-								<a
-									href="/family/{family?.id}/members/add"
-									class="flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-								>
-									<svg
-										class="h-5 w-5 shrink-0 text-slate-400"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-										aria-hidden="true"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
-										/>
-									</svg>
-									<span class="flex-1">Add member</span>
-									<svg
-										class="h-4 w-4 shrink-0 text-slate-300"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-										aria-hidden="true"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M9 5l7 7-7 7"
-										/>
-									</svg>
-								</a>
-							</div>
-						</section>
-					{/if}
+									</li>
+								{/each}
+							</ul>
+						</div>
+					</section>
+				{/if}
 
-					<!-- The approved side bands. Same rhythm as every other card here:
-					     one gap between bands, one padding inside, one label treatment
-					     (077). A member sees them too — who can still join and what
-					     the family is spending on are facts, not controls. -->
-					<section class={BAND} aria-label="Shared data">
-						<h2 class="mb-3 {BAND_TITLE}">Shared data</h2>
+				<!-- Invitations card -->
+				{#if isAdmin}
+					<section class={BAND} aria-labelledby="invitations-heading">
+						<h2 id="invitations-heading" class="mb-3 {BAND_TITLE}">Invitations</h2>
 						<div class="space-y-1.5">
 							<a
-								href="/family/tasks"
-								class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-							>
-								Family tasks
-								<span class="text-xs font-normal text-slate-400">One column per person</span>
-							</a>
-							<a
-								href="/calendar/groceries"
-								class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-							>
-								Grocery list <span class="text-xs font-normal text-slate-400">Shared</span>
-							</a>
-							<a
-								href="/calendar"
-								class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-							>
-								Family calendar
-								<span class="text-xs font-normal text-slate-400">Everyone's events</span>
-							</a>
-							<a
 								href="/family/invitations"
-								class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+								class="flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
 							>
-								Invitations <span class="text-xs font-normal text-slate-400">Manage codes</span>
+								<svg
+									class="h-5 w-5 shrink-0 text-slate-400"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									aria-hidden="true"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+									/>
+								</svg>
+								<span class="flex-1">Manage invitations</span>
+								<svg
+									class="h-4 w-4 shrink-0 text-slate-300"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									aria-hidden="true"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M9 5l7 7-7 7"
+									/>
+								</svg>
+							</a>
+							<a
+								href="/family/{family?.id}/members/add"
+								class="flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+							>
+								<svg
+									class="h-5 w-5 shrink-0 text-slate-400"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									aria-hidden="true"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+								<span class="flex-1">Add member</span>
+								<svg
+									class="h-4 w-4 shrink-0 text-slate-300"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									aria-hidden="true"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M9 5l7 7-7 7"
+									/>
+								</svg>
 							</a>
 						</div>
 					</section>
-				</div>
-			{/if}
+				{/if}
+			</div>
 
-			<!-- Shared with every member, not admin-only: who can still join this
-			     family, and what the plan allows it to do. -->
-			<div class="flex min-w-0 flex-col gap-5 {isAdmin ? '' : 'sm:col-span-3'}">
+			<!-- The approved side rail (issue 124): shared data, the live invitation,
+			     plan usage and the children-are-users constraint, in that order, all
+			     four in one column beside the main stack. -->
+			<aside aria-label="Family details" class="flex min-w-0 flex-col gap-5">
+				<!-- The approved side bands. Same rhythm as every other card here:
+					     one gap between bands, one padding inside, one label treatment
+					     (077). A member sees them too — who can still join and what
+					     the family is spending on are facts, not controls. The prototype
+					     shows all four to every viewer; the app used to hide Shared data
+					     behind the admin gate. -->
+				<section class={BAND} aria-label="Shared data">
+					<h2 class="mb-3 {BAND_TITLE}">Shared data</h2>
+					<div class="space-y-1.5">
+						<a
+							href="/family/tasks"
+							class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+						>
+							Family tasks
+							<span class="text-xs font-normal text-slate-400">One column per person</span>
+						</a>
+						<a
+							href="/calendar/groceries"
+							class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+						>
+							Grocery list <span class="text-xs font-normal text-slate-400">Shared</span>
+						</a>
+						<a
+							href="/calendar"
+							class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+						>
+							Family calendar
+							<span class="text-xs font-normal text-slate-400">Everyone's events</span>
+						</a>
+						<a
+							href="/family/invitations"
+							class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+						>
+							Invitations <span class="text-xs font-normal text-slate-400">Manage codes</span>
+						</a>
+					</div>
+				</section>
+
+				<!-- Shared with every member, not admin-only: who can still join this
+				     family, and what the plan allows it to do. -->
 				<section class={BAND} aria-label="Active invitation">
 					<h2 class="mb-3 {BAND_TITLE}">Active invitation</h2>
 					{#if activeInvite}
@@ -873,7 +936,7 @@
 						See the form
 					</a>
 				</section>
-			</div>
+			</aside>
 		</div>
 	</div>
 </div>

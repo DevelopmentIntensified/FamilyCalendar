@@ -21,6 +21,21 @@
 	let selectedColor = form?.color || DEFAULT_FAMILY_COLOR;
 	let loading = false;
 
+	/**
+	 * The people picked so far, mirrored up from the picker so the approved
+	 * preview can draw them (`family-create.html:63-66`: one avatar per picked
+	 * member, and a dashed "+" slot while there is room). The picker owns the
+	 * choice; this only draws it.
+	 */
+	type Picked = { id: string; firstName: string; lastName: string };
+	let picked: Picked[] = [];
+
+	function initialsFor(person: Picked): string {
+		const first = person.firstName?.charAt(0) ?? '';
+		const last = person.lastName?.charAt(0) ?? '';
+		return (first + last).toUpperCase() || '?';
+	}
+
 	$: selectedName = colors.find((c) => c.value === selectedColor)?.name ?? colors[0].name;
 </script>
 
@@ -85,13 +100,19 @@
 				class="space-y-6"
 				onsubmit={(e) => limitReached && e.preventDefault()}
 			>
-				<!-- Live preview: the family as it is named, in the colour it will carry. -->
+				<!-- Live preview: the family as it is named, in the colour it will carry,
+				     with the people who will be in it. Measured against
+				     `family-create.html`: padding 22px (1.375rem), radius 24px, a 112px
+				     blurred glow, and — the part that was missing — one avatar per picked
+				     member plus a dashed "+" slot while there is room. -->
 				<div
-					class="relative mb-1 overflow-hidden rounded-2xl p-5"
+					data-family-preview
+					class="relative mb-1 overflow-hidden rounded-3xl p-6"
 					style="background-color: {selectedColor}1a"
 				>
 					<div
-						class="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full blur-2xl"
+						data-preview-glow
+						class="pointer-events-none absolute right-1 -top-6 h-28 w-28 rounded-full blur-xl"
 						style="background-color: {selectedColor}33"
 					></div>
 					<div class="relative">
@@ -101,9 +122,29 @@
 						>
 							Family
 						</span>
-						<p class="mt-2 break-words text-2xl font-extrabold tracking-tight text-slate-900">
+						<p class="mt-2 break-words text-[22px] font-extrabold tracking-tight text-slate-900">
 							{name.trim() || 'Your family'}
 						</p>
+						<div class="mt-4 flex items-center">
+							{#each picked as person (person.id)}
+								<span
+									data-preview-avatar
+									title="{person.firstName} {person.lastName}"
+									class="grid h-8 w-8 place-items-center rounded-full border-2 border-white bg-white/70 text-[11px] font-extrabold text-slate-700"
+								>
+									{initialsFor(person)}
+								</span>
+							{/each}
+							{#if picked.length < 2}
+								<span
+									data-preview-open-slot
+									title="Room for another"
+									class="-ml-1 grid h-8 w-8 place-items-center rounded-full border-2 border-dashed border-slate-300 text-sm text-slate-400"
+								>
+									+
+								</span>
+							{/if}
+						</div>
 					</div>
 				</div>
 
@@ -159,7 +200,10 @@
 				     pick posts with the create; the action re-checks every id against
 				     a real verified account and the plan's member limit. -->
 				<div class="border-t border-slate-200 pt-6">
-					<CreateFamilyMemberPicker limit={data.memberLimit} />
+					<CreateFamilyMemberPicker
+						limit={data.memberLimit}
+						onPicked={(people) => (picked = people)}
+					/>
 				</div>
 
 				<div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
@@ -183,6 +227,39 @@
 					{data.familyLimit === 1 ? 'family' : 'families'} used on your plan.
 				</p>
 			</form>
+
+			<!-- What happens next (`family-create.html:113-121`). The page used to end at
+			     the usage line, with nothing saying what creating a family actually
+			     does — which is the whole argument for picking members here. -->
+			<section
+				aria-label="What happens next"
+				class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+			>
+				<h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+					What happens next
+				</h2>
+				<ol class="space-y-2 text-sm text-slate-700">
+					<li class="flex gap-2.5 border-t border-slate-100 pt-2">
+						<b class="text-slate-900">1</b>
+						<span>A family, and a membership for you in it with the creator role.</span>
+					</li>
+					<li class="flex gap-2.5 border-t border-slate-100 pt-2">
+						<b class="text-slate-900">2</b>
+						<span>
+							A family calendar, so events you add are shared rather than duplicated per person.
+						</span>
+					</li>
+					<li class="flex gap-2.5 border-t border-slate-100 pt-2">
+						<b class="text-slate-900">3</b>
+						<span>You land on the family page, with everyone you picked already in it.</span>
+					</li>
+				</ol>
+				<p class="mt-3 text-xs leading-relaxed text-slate-500">
+					A family created with nobody in it is a shell — the calendar belongs to the family, and
+					with no members there is nobody to see it. That is why members are picked here rather than
+					after.
+				</p>
+			</section>
 		</div>
 	</div>
 </div>

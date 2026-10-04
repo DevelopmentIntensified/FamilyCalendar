@@ -9,8 +9,8 @@ import {
 } from '$lib/server/db/actions/families';
 import { getUserSubscriptionLimits } from '$lib/server/services/subscriptionService';
 import { db } from '$lib/server/db';
-import { tasks } from '$lib/server/db/schema';
-import { and, count, inArray, isNull } from 'drizzle-orm';
+import { familyInviteCodes, familyMembers, tasks, users } from '$lib/server/db/schema';
+import { and, count, eq, inArray, isNull } from 'drizzle-orm';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -43,6 +43,48 @@ export const load: PageServerLoad = async ({ locals }) => {
 		: [];
 	const openTasksByFamily = new Map(openTaskRows.map((row) => [row.familyId, row.openTasks]));
 
+	// `family.html`'s side rail: a row per person — name, Member Type, role — and
+	// the join code. ONE roster read for the whole page across every family the
+	// viewer belongs to, so the rail costs the same for one family or five.
+	const roster = familyIds.length
+		? await db
+				.select({
+					familyId: familyMembers.familyId,
+					userId: users.id,
+					firstName: users.firstName,
+					lastName: users.lastName,
+					role: familyMembers.role,
+					memberType: familyMembers.memberType
+				})
+				.from(users)
+				.innerJoin(familyMembers, eq(users.id, familyMembers.userId))
+				.where(inArray(familyMembers.familyId, familyIds))
+				.orderBy(users.firstName)
+		: [];
+
+	// One code read for every family, filtered to the codes that can still be
+	// used. `family-detail.html`'s band established the rule and this page holds
+	// to it: an expired or used-up code is not an invitation, and presenting one
+	// as live is worse than showing none.
+	const codeRows = familyIds.length
+		? await db
+				.select({
+					familyId: familyInviteCodes.familyId,
+					code: familyInviteCodes.code,
+					useCount: familyInviteCodes.useCount,
+					maxUses: familyInviteCodes.maxUses,
+					expiresAt: familyInviteCodes.expiresAt
+				})
+				.from(familyInviteCodes)
+				.where(inArray(familyInviteCodes.familyId, familyIds))
+		: [];
+	const now = Date.now();
+	const activeInvites = codeRows.filter(
+		(row) =>
+			new Date(row.expiresAt).getTime() > now &&
+			(row.maxUses === null || (row.useCount ?? 0) < row.maxUses)
+	);
+
 	// Plan usage for the pill — the same familyLimit the create gate enforces,
 	// counted the same way (family Memberships, not families created).
 	const { familyLimit } = await getUserSubscriptionLimits(locals.user.id);
@@ -53,12 +95,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 			memberCount: m.memberCount,
 			openTasks: openTasksByFamily.get(m.family.id) ?? 0,
 			// The approved card's roster strip — first names, so the card can show
-			// WHO is in this family and not only how many (issue 124).
-			members: (m.firstNames ?? []).map((firstName) => ({ firstName })),
+			// WHO is in this family and not only how many (issue 124). The
+			// userId rides along so each avatar can carry that person's own
+			// colour, the way `family.html` draws `${m.tone}`.
+			members: (m.firstNames ?? []).map((firstName, i) => ({
+				firstName,
+				userId:
+					roster.find((r) => r.familyId === m.family.id && r.firstName === firstName)?.userId ??
+					`roster-${i}`
+			})),
 			createdLabel: m.family.createdAt.toLocaleDateString(),
 			// Whether THIS page offers "Invite by link" for the family (issue 091).
 			canInvite: m.role !== null && INVITE_MANAGER_ROLES.has(m.role)
 		})),
+		roster,
+		activeInvites,
 		plan: { used: familyIds.length, limit: familyLimit }
 	};
 };

@@ -11,8 +11,17 @@
 	let error = '';
 	let success = false;
 
+	/**
+	 * The approved tab strip (`family-members-add.html:18-20`).
+	 *
+	 * Measured: the prototype's `.tabs` is `display:inline-flex` at radius 12px,
+	 * and its three buttons measured 120 / 121 / 118px — the strip hugs its
+	 * labels. The app used `flex` with `flex-1` on every button, so all three
+	 * stretched to 173px and the control read as a three-column layout rather
+	 * than three tabs.
+	 */
 	const tabCls = (active: boolean) =>
-		'flex-1 rounded-md py-2.5 text-sm font-medium transition-colors ' +
+		'min-h-10 rounded-lg px-4.5 text-sm font-semibold transition-colors ' +
 		(active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900');
 </script>
 
@@ -61,17 +70,37 @@
 					<p class="mt-1 text-sm text-slate-500">Search for existing users or invite someone new</p>
 				</div>
 
-				<div class="mb-5 flex rounded-lg bg-slate-100 p-1">
-					<button on:click={() => (mode = 'search')} class={tabCls(mode === 'search')}>
-						Search Users
+				<!-- The prototype's three ways in, in its words and in one tablist. -->
+				<div
+					class="mb-5 inline-flex rounded-xl bg-slate-100 p-1"
+					role="tablist"
+					aria-label="Three ways to add a member"
+				>
+					<button
+						role="tab"
+						aria-selected={mode === 'search'}
+						on:click={() => (mode = 'search')}
+						class={tabCls(mode === 'search')}
+					>
+						Find someone
 					</button>
 					{#if data.canInviteByEmail}
-						<button on:click={() => (mode = 'invite')} class={tabCls(mode === 'invite')}>
-							Invite by Email
+						<button
+							role="tab"
+							aria-selected={mode === 'invite'}
+							on:click={() => (mode = 'invite')}
+							class={tabCls(mode === 'invite')}
+						>
+							Invite by email
 						</button>
 					{/if}
-					<button on:click={() => (mode = 'child')} class={tabCls(mode === 'child')}>
-						Create Child
+					<button
+						role="tab"
+						aria-selected={mode === 'child'}
+						on:click={() => (mode = 'child')}
+						class={tabCls(mode === 'child')}
+					>
+						Create a child
 					</button>
 				</div>
 
@@ -79,25 +108,27 @@
 					<div class="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-600">{error}</div>
 				{/if}
 
-				{#if mode === 'search'}
-					<MemberSearchTab
-						familyId={data.familyId}
-						onSuccess={() => (success = true)}
-						onError={(message) => (error = message)}
-					/>
-				{:else if mode === 'invite' && data.canInviteByEmail}
-					<MemberInviteTab
-						familyId={data.familyId}
-						onSuccess={() => (success = true)}
-						onError={(message) => (error = message)}
-					/>
-				{:else}
-					<MemberChildTab
-						familyId={data.familyId}
-						onSuccess={() => (success = true)}
-						onError={(message) => (error = message)}
-					/>
-				{/if}
+				<div data-member-pane>
+					{#if mode === 'search'}
+						<MemberSearchTab
+							familyId={data.familyId}
+							onSuccess={() => (success = true)}
+							onError={(message) => (error = message)}
+						/>
+					{:else if mode === 'invite' && data.canInviteByEmail}
+						<MemberInviteTab
+							familyId={data.familyId}
+							onSuccess={() => (success = true)}
+							onError={(message) => (error = message)}
+						/>
+					{:else}
+						<MemberChildTab
+							familyId={data.familyId}
+							onSuccess={() => (success = true)}
+							onError={(message) => (error = message)}
+						/>
+					{/if}
+				</div>
 
 				<div class="mt-6 border-t border-slate-200 pt-6">
 					<a

@@ -229,3 +229,71 @@ describe('family manage page — card stack', () => {
 		expect(screen.getByText(/completed 'Wash dishes'/)).toBeInTheDocument();
 	});
 });
+
+describe('family page — the approved composition (issue 124)', () => {
+	// Measured at 1440px. `family-detail.html`'s `.fd` resolves to `900px 312px`
+	// — a main column and a 19.5rem rail — with ALL FOUR side bands in the rail.
+	// The app page measured `274.656px 274.656px 274.656px`: three equal columns
+	// and a fourth grid child, so the Active invitation / Plan / Children bands
+	// wrapped onto a SECOND ROW instead of sitting beside the members.
+	it('puts the four side bands in one rail beside the main column', () => {
+		render(FamilyManagePage, makeData());
+
+		const rail = screen.getByRole('complementary', { name: /family details/i });
+		const grid = rail.parentElement;
+		expect(grid?.getAttribute('class')).toContain('lg:grid-cols-[minmax(0,1fr)_19.5rem]');
+		for (const name of [
+			/shared data/i,
+			/active invitation/i,
+			/plan usage/i,
+			/children are users/i
+		]) {
+			expect(within(rail).getByRole('region', { name })).toBeTruthy();
+		}
+	});
+
+	it('gives the members band the prototype count against the plan limit', () => {
+		// `family-detail.html:152`: `Members <em>N of PLAN.memberLimit</em>`.
+		// The app band title read "Members" and nothing else.
+		render(FamilyManagePage, makeData());
+
+		const head = screen.getByRole('heading', { name: 'Members', level: 2 }).parentElement;
+		expect(head?.textContent).toContain('2 of 6');
+	});
+
+	it('puts a full-width "Add a member" under the list, as the prototype does', () => {
+		// `family-detail.html:169`. The app page had the affordance only in the
+		// band header, above the list.
+		render(FamilyManagePage, makeData());
+
+		const add = screen.getByRole('link', { name: '+ Add a member' });
+		expect(add.getAttribute('href')).toBe('/family/fam1/members/add');
+		expect(add.getAttribute('class')).toContain('w-full');
+	});
+
+	it('offers the approved colour swatches as well as the colour field', () => {
+		// `family-detail.html` has six `.sw` swatches and no colour input. The free
+		// colour field stays: `FamilySettings.test.ts` writes through it and
+		// dropping it would take away a capability the prototype never had.
+		render(FamilyManagePage, makeData());
+
+		expect(screen.getByLabelText('Family colour')).toBeInTheDocument();
+		expect(screen.getAllByRole('button', { name: /^set colour/i })).toHaveLength(6);
+	});
+
+	it('says what the colour is for, the way the prototype does', () => {
+		render(FamilyManagePage, makeData());
+
+		expect(screen.getByText(/colour tints the calendar/i)).toBeTruthy();
+	});
+
+	it('washes the hero with the family colour, like the prototype glow does', () => {
+		// `family-detail.html:127` — `.ident__glow`, a blurred wash of the colour.
+		render(FamilyManagePage, makeData());
+
+		const hero = screen.getByRole('heading', { name: 'Testers', level: 1 }).closest('section');
+		const glow = hero?.querySelector('[data-family-glow]');
+		expect(glow).toBeTruthy();
+		expect(glow?.getAttribute('style')).toContain('#3b82f6');
+	});
+});

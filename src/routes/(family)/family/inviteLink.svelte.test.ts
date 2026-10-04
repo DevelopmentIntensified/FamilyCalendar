@@ -181,10 +181,11 @@ describe('families list — the minted link is readable without a clipboard', ()
 	it('does not show one link above another family it was not minted for', () => {
 		render(
 			FamilyListPage,
-			makeData(
-				[family(), family({ id: 'fam-2', name: 'Lake House' })],
-				{ familyId: 'fam-1', inviteCode: 'abc123', inviteUrl: REL }
-			)
+			makeData([family(), family({ id: 'fam-2', name: 'Lake House' })], {
+				familyId: 'fam-1',
+				inviteCode: 'abc123',
+				inviteUrl: REL
+			})
 		);
 
 		const links = screen.getAllByDisplayValue(JOIN_URL);

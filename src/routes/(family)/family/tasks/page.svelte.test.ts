@@ -86,8 +86,17 @@ describe('family tasks page — the board, grouped by assignee (issue 101)', () 
 				familyTask({ id: 'c', title: 'Read', assignedTo: 'u_mom', userId: 'u_mom' })
 			])
 		});
-		expect(screen.getByRole('heading', { name: /You · 2/i })).toBeTruthy();
-		expect(screen.getByRole('heading', { name: /Maya Lopez · 1/i })).toBeTruthy();
+		// The name and the count are two elements, as the prototype's
+		// `.col__h` has them (`legend__count` is a sibling, not part of the
+		// name) — but the column still has to carry the count.
+		const yours = screen.getByRole('region', { name: /Your? open tasks|You’s open tasks/i });
+		expect(within(yours).getByRole('heading', { name: 'You' })).toBeTruthy();
+		expect(within(yours).getByText('2')).toBeTruthy();
+
+		const mayas = screen.getByRole('region', { name: /Maya Lopez’s open tasks/i });
+		expect(within(mayas).getByRole('heading', { name: 'Maya Lopez' })).toBeTruthy();
+		expect(within(mayas).getByText('1')).toBeTruthy();
+
 		// A family member with nothing assigned gets no column at all.
 		expect(screen.queryByRole('heading', { name: /Eli Smith/ })).toBeNull();
 	});
@@ -148,5 +157,84 @@ describe('family tasks page — the board, grouped by assignee (issue 101)', () 
 	it('still says so when the family has no open tasks', () => {
 		render(FamilyTasksPage, { ...data([]) });
 		expect(screen.getByText('No family tasks yet')).toBeTruthy();
+	});
+});
+
+describe('family tasks page — the approved board (issue 124)', () => {
+	// `family-tasks.html` is a BOARD: up to four columns across, each a bordered
+	// white card with a large, non-uppercase name over it. Measured at 1440px the
+	// prototype resolved to `296px 296px 296px 296px`; the app page measured
+	// `480px 480px` with no border, no padding and an 11px uppercase heading.
+
+	it('goes to four columns on a wide screen, the way the approved board does', () => {
+		render(FamilyTasksPage, { ...data([familyTask({ id: 'a', assignedTo: 'u_dad' })]) });
+
+		const board = screen.getByRole('region', { name: /open tasks by assignee/i });
+		expect(board.getAttribute('class')).toContain('xl:grid-cols-4');
+	});
+
+	it('draws each column as a card, not a bare heading in the gutter', () => {
+		render(FamilyTasksPage, {
+			...data([familyTask({ id: 'a', title: 'Mow', assignedTo: 'u_mom', userId: 'u_mom' })])
+		});
+
+		const col = screen.getByRole('region', { name: /Maya Lopez’s open tasks/i });
+		expect(col.getAttribute('data-board-column')).toBe('');
+		expect(col.getAttribute('class')).toContain('rounded-2xl');
+		expect(col.getAttribute('class')).toContain('border-slate-200');
+		expect(col.getAttribute('class')).toContain('p-4');
+	});
+
+	it('names the person in a large plain heading, not an 11px uppercase label', () => {
+		render(FamilyTasksPage, {
+			...data([familyTask({ id: 'a', title: 'Mow', assignedTo: 'u_mom', userId: 'u_mom' })])
+		});
+
+		const heading = screen.getByRole('heading', { name: /Maya Lopez/ });
+		expect(heading.getAttribute('class')).not.toContain('uppercase');
+		expect(heading.getAttribute('class')).toContain('text-[15px]');
+	});
+
+	it('puts the overdue task at the top of its column, before the ones that are not', () => {
+		// `family-tasks.html`: "the grouping is by person, the urgency is by
+		// date" — it sorts each column so the overdue row is first. The app
+		// printed them in insertion order, so a late task sat under a calm one.
+		const past = new Date(Date.now() - 86400000).toISOString();
+		const future = new Date(Date.now() + 6 * 86400000).toISOString();
+		render(FamilyTasksPage, {
+			...data([
+				familyTask({
+					id: 'calm',
+					title: 'Book the boiler',
+					dueDate: future,
+					assignedTo: 'u_mom',
+					userId: 'u_mom'
+				}),
+				familyTask({
+					id: 'late',
+					title: 'Take the bins out',
+					dueDate: past,
+					assignedTo: 'u_mom',
+					userId: 'u_mom'
+				})
+			])
+		});
+
+		const col = screen.getByRole('region', { name: /Maya Lopez’s open tasks/i });
+		const late = within(col).getByText(/Take the bins out/);
+		const calm = within(col).getByText(/Book the boiler/);
+		expect(late.compareDocumentPosition(calm) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	});
+
+	it('washes the Nobody card blush, the way the approved card is washed', () => {
+		// Measured: the prototype's is
+		// `linear-gradient(140deg, rgba(254,202,202,.35), #fff)` over a #fecaca
+		// border; the app card was flat white.
+		render(FamilyTasksPage, {
+			...data([familyTask({ id: 'a', title: 'Unclaimed', assignedTo: null, userId: 'u_mom' })])
+		});
+
+		const nobody = screen.getByRole('region', { name: /nobody/i });
+		expect(nobody.getAttribute('class')).toContain('from-red-100/40');
 	});
 });

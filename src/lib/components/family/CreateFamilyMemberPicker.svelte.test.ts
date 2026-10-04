@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import CreateFamilyMemberPicker from './CreateFamilyMemberPicker.svelte';
 
@@ -123,5 +123,65 @@ describe('CreateFamilyMemberPicker', () => {
 
 		expect(document.querySelectorAll('input[name="memberIds"]')).toHaveLength(0);
 		expect(screen.getByText('1 of 5 members')).toBeInTheDocument();
+	});
+});
+describe('CreateFamilyMemberPicker — the approved pick row (issue 124)', () => {
+	// `family-create.html:19-21, 95-102` draws each person as a `.pick` row: the
+	// whole row is the toggle, a picked one carries a terracotta border and wash
+	// plus a filled round badge with a tick. The app row was a bordered list
+	// item with a grey Remove button and no state of its own.
+	it('draws the chosen people with a filled tick badge and the chosen wash', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({
+				json: async () => ({
+					users: [{ id: 'u2', firstName: 'Nana', lastName: 'Ray', email: 'nana@x.com' }]
+				})
+			}))
+		);
+		const onPicked = vi.fn();
+		render(CreateFamilyMemberPicker, { props: { limit: 6, onPicked } });
+
+		await fireEvent.input(screen.getByLabelText('Search by name or email'), {
+			target: { value: 'nana' }
+		});
+		await vi.waitFor(() =>
+			expect(screen.getByRole('button', { name: /add nana ray/i })).toBeTruthy()
+		);
+		await fireEvent.click(screen.getByRole('button', { name: /add nana ray/i }));
+
+		const row = screen.getByTestId('picked-row');
+		expect(row.getAttribute('class')).toContain('border-primary-600');
+		expect(row.getAttribute('data-picked')).toBe('true');
+		expect(within(row).getByText('✓')).toBeInTheDocument();
+		vi.unstubAllGlobals();
+	});
+
+	it('reports every change to the picks, so the preview can draw them', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({
+				json: async () => ({
+					users: [{ id: 'u2', firstName: 'Nana', lastName: 'Ray', email: 'nana@x.com' }]
+				})
+			}))
+		);
+		const onPicked = vi.fn();
+		render(CreateFamilyMemberPicker, { props: { limit: 6, onPicked } });
+
+		await fireEvent.input(screen.getByLabelText('Search by name or email'), {
+			target: { value: 'nana' }
+		});
+		await vi.waitFor(() =>
+			expect(screen.getByRole('button', { name: /add nana ray/i })).toBeTruthy()
+		);
+		await fireEvent.click(screen.getByRole('button', { name: /add nana ray/i }));
+		expect(onPicked).toHaveBeenLastCalledWith([
+			expect.objectContaining({ id: 'u2', firstName: 'Nana' })
+		]);
+
+		await fireEvent.click(screen.getByRole('button', { name: /remove nana ray/i }));
+		expect(onPicked).toHaveBeenLastCalledWith([]);
+		vi.unstubAllGlobals();
 	});
 });

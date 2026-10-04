@@ -140,6 +140,18 @@
 	</div>
 </form>
 
+<!-- What the person on the other end actually gets (`family-members-add.html:94-97`).
+     The mint note was missing: the tab explained how to send an invite and never
+     said what the recipient does with it. -->
+<aside
+	role="note"
+	aria-label="What they get"
+	class="mt-4 rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-100/60 to-white px-4 py-3.5 text-[13px] leading-relaxed text-slate-800"
+>
+	<b>What they get.</b> A link to <code>/family/join/[code]</code>. They make an account with that
+	email and land straight in the family — no invite list to accept, nothing to keep track of.
+</aside>
+
 {#if inviteLink}
 	<div class="mt-4 rounded-lg border border-primary-200 bg-primary-50 p-4">
 		<p class="mb-2 text-sm font-medium text-primary-800">

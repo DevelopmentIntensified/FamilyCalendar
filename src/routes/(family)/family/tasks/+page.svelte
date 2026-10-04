@@ -105,6 +105,19 @@
 			: dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 	}
 
+	/**
+	 * Overdue first inside a column (issue 124). `family-tasks.html` sorts each
+	 * person's tasks so the late one is at the top: "the grouping is by person,
+	 * the urgency is by date". The board used to print them in insertion order,
+	 * so a task that was due yesterday could sit under one due next week.
+	 *
+	 * The grouping lives in `$lib/utils/familyTaskGroups`, which also serves the
+	 * dashboard card — so the sort is applied here, on this surface only.
+	 */
+	function overdueFirst(tasks: FamilyTask[]): FamilyTask[] {
+		return [...tasks].sort((a, b) => Number(isOverdue(b)) - Number(isOverdue(a)));
+	}
+
 	async function toggle(task: FamilyTask) {
 		if (busyId) return;
 		const previousDueDate = task.dueDate;
@@ -276,28 +289,39 @@
 			</div>
 		{/if}
 
-		<!-- One column per person. Steps down to a single column on a phone
-		     rather than becoming a horizontally scrolling board. -->
+		<!-- One column per person, and a column is a CARD (issue 124). Measured at
+		     1440px: `family-tasks.html`'s `.board` resolved to four 296px columns,
+		     each a bordered white card at 16px padding. The board was two 480px
+		     columns of bare headings with no card around them. Steps down to one
+		     column on a phone rather than becoming a horizontally scrolling board. -->
 		{#if boardGroups.length > 0}
-			<div class="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+			<div
+				class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+				role="region"
+				aria-label="Open tasks by assignee"
+			>
 				{#each boardGroups as group (group.ownerId)}
-					<section class="min-w-0" aria-label="{group.name}’s open tasks">
-						<h3
-							class="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400"
-						>
+					<section
+						data-board-column
+						class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+						aria-label="{group.name}’s open tasks"
+					>
+						<div class="mb-3 flex items-center gap-2">
 							<span
-								class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold {avatarColor(
+								class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-extrabold {avatarColor(
 									group.ownerId
 								)}"
 								aria-hidden="true"
 							>
 								{initial(group.name === 'You' ? 'Y' : group.name)}
 							</span>
-							{group.name}
-							<span class="font-normal normal-case text-slate-300">· {group.tasks.length}</span>
-						</h3>
+							<h3 class="min-w-0 flex-1 truncate text-[15px] font-extrabold text-slate-900">
+								{group.name}
+							</h3>
+							<span class="shrink-0 text-xs font-bold text-slate-400">{group.tasks.length}</span>
+						</div>
 						<div class="space-y-1.5">
-							{#each group.tasks as task (task.id)}
+							{#each overdueFirst(group.tasks) as task (task.id)}
 								<FamilyOpenTaskRow
 									{task}
 									currentUserId={data.userId}
@@ -325,8 +349,11 @@
 		     no column, so it gets its own card rather than being invisible or
 		     filed under whoever created it. -->
 		{#if unassignedTasks.length > 0}
+			<!-- The prototype washes this card blush
+			     (`family-tasks.html:99`: `linear-gradient(140deg, rgba(254,202,202,.35), #fff)`
+			     over a `#fecaca` border). The app card was flat white on the same border. -->
 			<section
-				class="mt-5 rounded-2xl border border-red-200 bg-white p-4 shadow-sm"
+				class="mt-5 rounded-2xl border border-red-200 bg-gradient-to-br from-red-100/40 to-white p-4 shadow-sm"
 				aria-label="Nobody’s open tasks"
 			>
 				<h3 class="mb-2.5 flex items-center gap-2">
@@ -336,7 +363,7 @@
 					>
 						unassigned
 					</span>
-					<span class="font-normal text-sm text-slate-400">· {unassignedTasks.length}</span>
+					<span class="text-sm font-normal text-slate-400">· {unassignedTasks.length}</span>
 				</h3>
 				<div class="space-y-1.5">
 					{#each unassignedTasks as task (task.id)}
@@ -357,8 +384,8 @@
 					{/each}
 				</div>
 				<p class="mt-2.5 text-xs leading-relaxed text-slate-500">
-					Nobody is on the hook for these. Assign one to a member, or leave it here — it is still on the
-					family's list either way.
+					Nobody is on the hook for these. Assign one to a member, or leave it here — it is still on
+					the family's list either way.
 				</p>
 			</section>
 		{/if}

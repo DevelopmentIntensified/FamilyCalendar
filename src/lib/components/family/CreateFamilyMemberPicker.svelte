@@ -27,9 +27,15 @@
 	interface Props {
 		/** How many people the plan allows in one family, creator included. */
 		limit: number;
+		/**
+		 * Called with the current picks whenever they change. The create page uses
+		 * it to draw the approved preview's avatar strip (`family-create.html:63-66`),
+		 * which sits above this component and so cannot read `picked` itself.
+		 */
+		onPicked?: (people: FoundUser[]) => void;
 	}
 
-	let { limit }: Props = $props();
+	let { limit, onPicked }: Props = $props();
 
 	let query = $state('');
 	let results = $state<FoundUser[]>([]);
@@ -39,6 +45,10 @@
 	let searchFailed = $state(false);
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	let searchRequestId = 0;
+
+	$effect(() => {
+		onPicked?.(picked);
+	});
 
 	// The search refuses anything shorter, so the picker does not spend a
 	// request on a letter the answer would be empty for.
@@ -106,20 +116,38 @@
 		<span class="text-xs text-slate-400">{`${picked.length + 1} of ${limit} members`}</span>
 	</div>
 	<p class="mt-1 text-xs leading-relaxed text-slate-500">
-		Pick the people who already have an account. Anyone new — a second parent, a grandparent, a child —
-		you add from the family page once it exists.
+		Pick the people who already have an account. Anyone new — a second parent, a grandparent, a
+		child — you add from the family page once it exists.
 	</p>
 
 	{#if picked.length > 0}
-		<ul class="mt-3 space-y-1.5">
+		<ul class="mt-3 space-y-2">
 			{#each picked as person (person.id)}
+				<!-- The approved `.pick` row, in its chosen state
+				     (`family-create.html:20-21`): a terracotta border, a warm wash
+				     and a filled round badge with a tick. The row also carries the
+				     Remove control, so the same affordance is not duplicated. -->
 				<li
-					class="flex min-h-11 items-center gap-2.5 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-1.5"
+					data-testid="picked-row"
+					data-picked="true"
+					class="flex min-h-11 items-center gap-3 rounded-[0.875rem] border border-primary-600 bg-orange-50/60 px-3 py-2.5"
 				>
-					<div class="min-w-0 flex-1">
-						<p class="truncate text-sm font-medium text-slate-900">{fullName(person)}</p>
-						<p class="truncate text-xs text-slate-400">{person.email}</p>
+					<div
+						class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-200 text-sm font-medium text-slate-600"
+						aria-hidden="true"
+					>
+						{person.firstName?.[0] || '?'}
 					</div>
+					<div class="min-w-0 flex-1">
+						<p class="truncate text-sm font-semibold text-slate-800">{fullName(person)}</p>
+						<p class="truncate text-xs text-slate-500">{person.email}</p>
+					</div>
+					<span
+						class="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary-600 text-xs text-white"
+						aria-hidden="true"
+					>
+						✓
+					</span>
 					<button
 						type="button"
 						onclick={() => remove(person.id)}
@@ -165,7 +193,7 @@
 							type="button"
 							onclick={() => add(person)}
 							aria-label="Add {fullName(person)}"
-							class="flex w-full min-h-11 items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50"
+							class="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50"
 						>
 							<div
 								class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-medium text-slate-600"

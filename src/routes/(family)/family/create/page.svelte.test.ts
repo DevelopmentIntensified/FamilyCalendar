@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 import { enhance } from '$app/forms';
 import { toasts } from '$lib/client/toasts';
@@ -167,5 +167,61 @@ describe('create family page — the approved composition', () => {
 		await submitWithResult('failure');
 
 		expect(get(toasts)).toEqual([]);
+	});
+});
+
+describe('create family page — the approved preview and closing note (issue 124)', () => {
+	// `family-create.html` measures the preview as padding 22px / radius 24px with
+	// a 112px blurred glow, and shows an avatar per PICKED member under the name,
+	// plus a dashed "+" slot while fewer than two are picked (`:63-66`). Measured
+	// on the app page: `previewAvatars: 0`, `previewDashPlus: 0`.
+	function preview() {
+		return document.querySelector('[data-family-preview]') as HTMLElement;
+	}
+
+	it('gives the preview the prototype’s box', () => {
+		render(CreateFamilyPage, makeData());
+
+		expect(preview().getAttribute('class')).toContain('rounded-3xl');
+		expect(preview().querySelector('[data-preview-glow]')).toBeTruthy();
+	});
+
+	it('offers a slot for the first member even before anybody is picked', () => {
+		// The dashed "+" is how the preview says "there is room here".
+		render(CreateFamilyPage, makeData({ memberLimit: 6 }));
+
+		expect(preview().querySelector('[data-preview-open-slot]')).toBeTruthy();
+	});
+
+	it('draws one avatar per person who is in it', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({
+				json: async () => ({
+					users: [{ id: 'u2', firstName: 'Nana', lastName: 'Ray', email: 'n@x.com' }]
+				})
+			}))
+		);
+		render(CreateFamilyPage, makeData({ memberLimit: 6 }));
+
+		await fireEvent.input(screen.getByLabelText('Search by name or email'), {
+			target: { value: 'nana' }
+		});
+		await vi.waitFor(() =>
+			expect(screen.getByRole('button', { name: /add nana ray/i })).toBeTruthy()
+		);
+		await fireEvent.click(screen.getByRole('button', { name: /add nana ray/i }));
+
+		expect(preview().querySelectorAll('[data-preview-avatar]')).toHaveLength(1);
+		vi.unstubAllGlobals();
+	});
+
+	it('closes with "What happens next", the way the approved page does', () => {
+		// `family-create.html:113-121`. The app page ended at the usage line.
+		render(CreateFamilyPage, makeData());
+
+		const next = screen.getByRole('region', { name: /what happens next/i });
+		expect(within(next).getByText(/a family calendar/i)).toBeInTheDocument();
+		expect(within(next).getByText(/nobody in it is a shell/i)).toBeInTheDocument();
 	});
 });
