@@ -1554,7 +1554,9 @@ describe('Bill quick-add NLP — recurrence (parseBillQuickAdd)', () => {
 		['music $9.99/mo', 'monthly', 'monthly', 1],
 		['streaming $9 per month', 'monthly', 'monthly', 1],
 		['car insurance $210 every 6 months', 'every_6_months', 'monthly', 6],
-		['water $30 every 2 weeks', 'every_2_weeks', 'weekly', 2],
+		// "every 2 weeks" is biweekly: one value grammar for every parser
+		// (issue 114). Every-2-weeks and `every_2_weeks` mean the same thing.
+		['water $30 every 2 weeks', 'biweekly', 'weekly', 2],
 		['dog walker $40 every other week', 'biweekly', 'weekly', 2],
 		['daily parking $12', 'daily', 'daily', 1],
 		['laundry $5 every day', 'daily', 'daily', 1],

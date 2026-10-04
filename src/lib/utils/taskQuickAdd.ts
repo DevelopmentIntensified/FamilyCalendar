@@ -7,17 +7,24 @@
  *   - Dates:    "tomorrow", "today", "saturday", "next monday",
  *               "in 3 days", "in a week", "next week|month|year",
  *               "jan 5", "feb 14, 2027". Relative/absolute dates land at
- *               the end of the target (local) day; a past month+day rolls
- *               to next year unless an explicit year is given.
+ *               the end of the target (local) day; the YEAR a bare month+day
+ *               belongs to is `resolveMonthDay`'s call (issue 114).
  *   - Priority: high/low keywords (word-order tolerant, case-insensitive).
  *   - Assignee: roster-scoped "@sam", "assign to Sam", "for Dad"...
- *   - Recurrence: "every day", "every 2 weeks", "every other month",
- *                 "weekly", "monthly", "yearly/annually", "every saturday"
- *                 (weekly + its next occurrence as the due date).
+ *   - Recurrence: every cadence phrase in the SHARED table — "every day",
+ *                 "every 2 weeks", "every other month", "quarterly",
+ *                 "weekly", "monthly", "yearly/annually" — plus this
+ *                 parser's weekday anchor, "every saturday" (weekly + its
+ *                 next occurrence as the due date), which carries a date.
  *   - Tags:     "#groceries".
+ *
+ * Client-safe ON PURPOSE: no server-action imports. The cadence and date
+ * RULES live in `dateResolution.ts` (shared with the event and bill parsers);
+ * this file keeps only the quick-add specifics — the weekday anchor, the
+ * end-of-day landing time, the roster. Before issue 114 it reached into
+ * `$lib/server/db/actions/` for its types because there was no shared layer
+ * to import; that is gone.
  */
-import type { TaskPriority } from '$lib/server/db/actions/dashboard';
-import type { TaskFrequency } from '$lib/server/db/actions/tasks';
 import {
 	MONTH_INDEX_0,
 	MONTH_NAME_TOKEN,
@@ -26,6 +33,16 @@ import {
 	WEEKDAY_TOKEN,
 	escapeRegExp
 } from '$lib/utils/dateVocab';
+import {
+	cadenceFrequency,
+	daysInMonth,
+	daysUntilWeekday,
+	matchCadence,
+	resolveMonthDay,
+	type CadenceFrequency,
+	type CalendarDate
+} from '$lib/utils/dateResolution';
+import type { TaskPriority } from '$lib/utils/priorityTone';
 
 /** A family roster member the quick-add can be pointed at. */
 export interface TaskQuickAddMember {
@@ -59,7 +76,7 @@ export interface TaskQuickAddResult {
 	 * Recurrence cadence parsed from the title ("weekly", "monthly", ...),
 	 * or null when the title carries no cadence.
 	 */
-	recurrenceFrequency: TaskFrequency | null;
+	recurrenceFrequency: CadenceFrequency | null;
 	/**
 	 * Multiplier for the cadence: "every 2 weeks" ⇒ weekly + interval 2.
 	 * Null only when recurrenceFrequency is null.
@@ -129,13 +146,6 @@ const TASK_QUICK_ADD_RELATIVE_RE =
 	/\b(?:in\s+(\d+|a|an)\s+(days?|weeks?|months?|years?)|next\s+(week|month|year))\b/i;
 
 type RecurrenceUnit = 'day' | 'week' | 'month' | 'year';
-
-const FREQ_FROM_UNIT: Record<RecurrenceUnit, TaskFrequency> = {
-	day: 'daily',
-	week: 'weekly',
-	month: 'monthly',
-	year: 'yearly'
-};
 
 /** 0-based month name/abbreviation → index (shared vocabulary). */
 const MONTH_INDEX = MONTH_INDEX_0;
@@ -238,14 +248,13 @@ function nextWeekdayDate(now: Date, token: string): Date {
 	const target = endOfDayNow(now);
 	const full = WEEKDAYS.findIndex((d) => d.startsWith(token.toLowerCase().slice(0, 3)));
 	if (full === -1) return target;
-	let delta = (full - target.getDay() + 7) % 7;
-	if (delta === 0) delta = 7;
-	target.setDate(target.getDate() + delta);
+	target.setDate(target.getDate() + daysUntilWeekday(target.getDay(), full));
 	return target;
 }
 
-function daysInMonth(year: number, month: number): number {
-	return new Date(year, month + 1, 0).getDate();
+/** Days in a 0-based month, the way `Date.getMonth()` counts them. */
+function daysIn0Month(year: number, month0: number): number {
+	return daysInMonth(year, month0 + 1);
 }
 
 /** Add months, clamped to the target month's length ("Jan 31 + 1" ⇒ Feb 28). */
@@ -254,7 +263,7 @@ function addMonthsClamped(base: Date, n: number): Date {
 	const day = c.getDate();
 	c.setDate(1);
 	c.setMonth(c.getMonth() + n);
-	c.setDate(Math.min(day, daysInMonth(c.getFullYear(), c.getMonth())));
+	c.setDate(Math.min(day, daysIn0Month(c.getFullYear(), c.getMonth())));
 	return c;
 }
 
@@ -263,7 +272,7 @@ function addYearsClamped(base: Date, n: number): Date {
 	const day = c.getDate();
 	c.setDate(1);
 	c.setFullYear(c.getFullYear() + n);
-	c.setDate(Math.min(day, daysInMonth(c.getFullYear(), c.getMonth())));
+	c.setDate(Math.min(day, daysIn0Month(c.getFullYear(), c.getMonth())));
 	return c;
 }
 
@@ -276,100 +285,73 @@ function shiftDate(base: Date, n: number, unit: RecurrenceUnit): Date {
 	return c;
 }
 
+/**
+ * A month+day phrase → the local `Date` the shared rollover rule picked,
+ * landing at the end of that day. `month` is 1-based, the shape the shared
+ * rule takes; THIS rule (which year a bare "sept 1" belongs to) is its call.
+ */
 function monthDayDate(now: Date, month: number, day: number, year: number | null): Date {
-	let y = year ?? now.getFullYear();
-	if (year === null) {
-		const candidate = new Date(y, month, Math.min(day, daysInMonth(y, month)), 23, 59, 0, 0);
-		if (candidate.getTime() <= now.getTime()) y += 1;
-	}
-	const d = Math.min(Math.max(1, day), daysInMonth(y, month));
-	return new Date(y, month, d, 23, 59, 0, 0);
+	const today: CalendarDate = { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
+	const resolved = resolveMonthDay(today, month, day, year);
+	if (!resolved) return endOfDayNow(now);
+	return new Date(resolved.year, resolved.month - 1, resolved.day, 23, 59, 0, 0);
 }
 
 interface RecurrenceResult {
-	frequency: TaskFrequency | null;
+	frequency: CadenceFrequency | null;
 	interval: number | null;
 	/** Due date implied by the cadence ("every saturday" ⇒ next Saturday), or null. */
 	due: Date | null;
 	remaining: string;
 }
 
-function unitFrequency(unit: string): TaskFrequency {
-	// SAFETY: callers pass tokens captured by the RECURRENCE_STEPS regexes,
-	// which only match day|week|month|year — always a valid RecurrenceUnit key.
-	return FREQ_FROM_UNIT[unit as RecurrenceUnit];
+/** Weekday alternation for the quick-add's own anchor ("every saturday"). */
+const TASK_QUICK_ADD_DAY_ALT = 'sunday|monday|tuesday|wednesday|thursday|friday|saturday';
+
+/**
+ * A weekday-anchored cadence: "every saturday" ⇒ weekly + that day's next
+ * occurrence. It carries a DATE, so it cannot live in the shared cadence
+ * table — but the interval and the frequency word come from the shared
+ * cadence so "every other saturday" is biweekly here too.
+ */
+const TASK_QUICK_ADD_EVERY_OTHER_DAY_RE = new RegExp(`\\bevery\\s+other\\s+(${TASK_QUICK_ADD_DAY_ALT})\\b`, 'i');
+const TASK_QUICK_ADD_EVERY_DAY_RE = new RegExp(`\\bevery\\s+(${TASK_QUICK_ADD_DAY_ALT})\\b`, 'i');
+
+function weekdayAnchor(title: string, re: RegExp, now: Date, every: number): RecurrenceResult | null {
+	const m = title.match(re);
+	if (!m) return null;
+	const cadence = { unit: 'week' as const, every };
+	return {
+		frequency: cadenceFrequency(cadence),
+		interval: cadence.every,
+		due: nextWeekdayDate(now, m[1]),
+		remaining: stripMatch(title, m)
+	};
 }
 
 /**
- * Longest phrases first so compound forms ("every other week", "every 3 days")
- * win over the bare words they contain ("week", "day").
+ * Cadence resolution: the weekday anchors first (they carry a date), then
+ * the SHARED cadence table, which every parser reads. A phrase is added
+ * there once and it lands here, in the event parser and in bills.
  */
-const RECURRENCE_STEPS: {
-	re: RegExp;
-	resolve: (
-		m: RegExpMatchArray,
-		now: Date
-	) => Pick<RecurrenceResult, 'frequency' | 'interval' | 'due'>;
-}[] = [
-	{
-		re: /\bevery other\s+(day|week|month|year)\b/i,
-		resolve: (m) => ({
-			frequency: unitFrequency(m[1].toLowerCase()),
-			interval: 2,
-			due: null
-		})
-	},
-	{
-		re: /\bevery other\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i,
-		resolve: (m, now) => ({ frequency: 'weekly', interval: 2, due: nextWeekdayDate(now, m[1]) })
-	},
-	{
-		re: /\bevery\s+(\d+)\s+(day|week|month|year)s?\b/i,
-		resolve: (m) => ({
-			frequency: unitFrequency(m[2].toLowerCase()),
-			interval: Math.max(1, parseInt(m[1], 10)),
-			due: null
-		})
-	},
-	{
-		re: /\bevery\s+(day|week|month|year)\b/i,
-		resolve: (m) => ({
-			frequency: unitFrequency(m[1].toLowerCase()),
-			interval: 1,
-			due: null
-		})
-	},
-	{
-		re: /\bevery\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i,
-		resolve: (m, now) => ({ frequency: 'weekly', interval: 1, due: nextWeekdayDate(now, m[1]) })
-	},
-	{
-		re: /\b(?:daily|every day)\b/i,
-		resolve: () => ({ frequency: 'daily', interval: 1, due: null })
-	},
-	{
-		re: /\bweekly\b/i,
-		resolve: () => ({ frequency: 'weekly', interval: 1, due: null })
-	},
-	{
-		re: /\bmonthly\b/i,
-		resolve: () => ({ frequency: 'monthly', interval: 1, due: null })
-	},
-	{
-		re: /\b(?:yearly|annually)\b/i,
-		resolve: () => ({ frequency: 'yearly', interval: 1, due: null })
-	}
-];
-
 function parseRecurrence(title: string, now: Date): RecurrenceResult {
-	for (const step of RECURRENCE_STEPS) {
-		const m = title.match(step.re);
-		if (m) {
-			const resolved = step.resolve(m, now);
-			return { ...resolved, remaining: stripMatch(title, m) };
-		}
-	}
-	return { frequency: null, interval: null, due: null, remaining: title };
+	return (
+		weekdayAnchor(title, TASK_QUICK_ADD_EVERY_OTHER_DAY_RE, now, 2) ??
+		weekdayAnchor(title, TASK_QUICK_ADD_EVERY_DAY_RE, now, 1) ??
+		sharedCadence(title) ?? { frequency: null, interval: null, due: null, remaining: title }
+	);
+}
+
+/** The shared cadence table's answer for a title, as quick-add's two fields. */
+function sharedCadence(title: string): RecurrenceResult | null {
+	const hit = matchCadence(title);
+	if (!hit) return null;
+	return {
+		frequency: cadenceFrequency(hit.cadence),
+		interval: hit.cadence.every,
+		due: null,
+		remaining: stripMatch(title, hit.match)
+	};
 }
 
 interface DateResolution {
@@ -388,7 +370,8 @@ function resolveDateStep(title: string, now: Date): DateResolution {
 
 	const md = title.match(TASK_QUICK_ADD_MONTH_DATE_RE);
 	if (md) {
-		const month = MONTH_INDEX[md[1].toLowerCase()];
+		// MONTH_INDEX is 0-based; the shared rule takes 1-based months.
+		const month = MONTH_INDEX[md[1].toLowerCase()] + 1;
 		const year = md[3] ? parseInt(md[3], 10) : null;
 		return { due: monthDayDate(now, month, parseInt(md[2], 10), year), match: md };
 	}
@@ -504,7 +487,7 @@ export function parseTaskQuickAdd(raw: string, opts: TaskQuickAddOptions = {}): 
 
 	// 2. Recurrence cadence, removed from the title. "every saturday" also
 	// carries its next occurrence through as the due date.
-	let recurrenceFrequency: TaskFrequency | null = null;
+	let recurrenceFrequency: CadenceFrequency | null = null;
 	let recurrenceInterval: number | null = null;
 	const recurrence = parseRecurrence(title, now);
 	if (recurrence.frequency) {

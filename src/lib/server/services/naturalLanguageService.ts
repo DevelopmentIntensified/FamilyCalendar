@@ -9,6 +9,14 @@ import {
 } from '$lib/server/utils/dateParsing';
 import { BILL_CATEGORIES, type BillCategory } from '$lib/server/db/schema';
 import { categoryForKeyword } from '$lib/data/categories';
+import {
+	cadenceFrequency,
+	cadenceToValue,
+	cadenceUnit,
+	matchCadence,
+	resolveMonthDay,
+	valueToCadence
+} from '$lib/utils/dateResolution';
 
 export interface ParsedEvent {
 	title: string;
@@ -122,20 +130,31 @@ function ordinalWeekdayOfMonth(
 	return dt.month === month ? dt : null;
 }
 
-/** Rollover rule shared with month-day parsing: explicit year wins,
- * otherwise this year, rolling to next year when the date sits in the past
- * within a current-or-earlier month. */
+/**
+ * Rollover rule shared with month-day parsing in all three parsers (issue
+ * 114): explicit year wins, otherwise this year, rolling to next year only
+ * when the date sits STRICTLY BEFORE today — today stays today. The DAY is
+ * clamped to the target month ("feb 30" is the 28th), which a bare
+ * `DateTime.fromObject` cannot do: it returns an invalid DateTime instead.
+ *
+ * This is the ONLY rollover rule in the file; the date chain below and the
+ * bill parser both call it. Nothing here knows about zones or times — that
+ * is the caller's half.
+ */
 function withRolloverYear(
 	month: number,
 	day: number,
 	explicitYear: number | null,
 	now: DateTime
 ): DateTime {
-	let year = explicitYear ?? now.year;
-	if (!explicitYear && DateTime.fromObject({ year, month, day }) < now && month <= now.month) {
-		year += 1;
-	}
-	return DateTime.fromObject({ year, month, day });
+	const resolved = resolveMonthDay(
+		{ year: now.year, month: now.month, day: now.day },
+		month,
+		day,
+		explicitYear
+	);
+	if (!resolved) return DateTime.invalid('unparseable month-day');
+	return DateTime.fromObject(resolved);
 }
 
 /** Weekday abbreviation/full name → RRULE code. Null when unrecognized. */
@@ -182,14 +201,6 @@ const TOD_TIMES = {
 };
 
 const WEEK_ORDER = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
-
-/** Recurrence unit word → event-parser recurrence value. */
-const UNIT_RECURRENCE = {
-	day: 'daily',
-	week: 'weekly',
-	month: 'monthly',
-	year: 'yearly'
-} as const;
 
 const FULL_WEEKDAYS = [
 	'sunday',
@@ -707,10 +718,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		const month = MONTH_MAP[ordinalFirstMatch[2].toLowerCase()];
 		const day = parseInt(ordinalFirstMatch[1]);
 		if (day >= 1 && day <= 31) {
-			let year = now.year;
-			const target = DateTime.fromObject({ year, month, day });
-			if (target < now && month <= now.month) year = now.year + 1;
-			result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+			result.date = withRolloverYear(month, day, null, now).toFormat('yyyy-MM-dd');
 			confidence += 0.3;
 		}
 	}
@@ -725,10 +733,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		const normalized = rawWord.replace(/\s+/g, ' ').trim();
 		const day = lookup(ORDINAL_WORD_MAP, normalized);
 		if (day) {
-			let year = now.year;
-			const target = DateTime.fromObject({ year, month, day });
-			if (target < now && month <= now.month) year = now.year + 1;
-			result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+			result.date = withRolloverYear(month, day, null, now).toFormat('yyyy-MM-dd');
 			confidence += 0.3;
 		}
 	}
@@ -1046,17 +1051,21 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			/\bweekly\s+on\s+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)s?\b/i,
 			() => 'weekly'
 		],
-		[/\bevery other\s+(?:day|week|month)\b/i, () => 'biweekly'],
+		[/\bevery other\s+(day|week|month|year)s?\b/i, (m) => cadenceToValue({ unit: cadenceUnit(m[1]) ?? 'week', every: 2 })],
 		[
 			/\bevery\s+(\d+)\s+(days?|weeks?|months?|years?)\b/i,
-			(m) => `every_${m[1]}_${m[2].toLowerCase()}`
+			(m) =>
+				cadenceToValue({
+					unit: cadenceUnit(m[2]) ?? 'week',
+					every: Math.max(1, parseInt(m[1], 10))
+				})
 		],
 		[/\bevery\s+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i, () => 'weekly'],
 		// "repeat every week", "repeats weekly" — trailing cues are recurrence,
 		// never title text (issue 030). Full span captured so "repeat" leaves.
 		[
 			/\brepeats?\s+every\s+(day|week|month|year)\b/i,
-			(m) => lookup(UNIT_RECURRENCE, m[1].toLowerCase()) ?? 'weekly'
+			(m) => cadenceToValue({ unit: cadenceUnit(m[1]) ?? 'week', every: 1 })
 		],
 		[
 			/\brepeats?\s+(daily|weekly|monthly|yearly|annually)\b/i,
@@ -1064,12 +1073,15 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		],
 		[
 			/\bevery\s+(day|week|month|year)s?\b/i,
-			(m) => lookup(UNIT_RECURRENCE, m[1].toLowerCase()) ?? 'weekly'
+			(m) => cadenceToValue({ unit: cadenceUnit(m[1]) ?? 'week', every: 1 })
 		],
 		[/\b(?:daily|every day)\b/i, () => 'daily'],
 		[/\bweekly\b/i, () => 'weekly'],
 		[/\bmonthly\b/i, () => 'monthly'],
-		[/\b(?:yearly|annually)\b/i, () => 'yearly']
+		// `(?<![\w-])` keeps "annually" from swallowing the tail of a
+		// hyphen-prefixed form — "bi-annually" is twice a year, not yearly
+		// (the shared cadence table resolves it as monthly x 6).
+		[/(?<![\w-])(?:yearly|annually)\b/i, () => 'yearly']
 	];
 	const recurrencePhrases: string[] = [];
 	for (const [pattern, value] of recurrencePatterns) {
@@ -1079,6 +1091,20 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			recurrencePhrases.push(m[0]);
 			confidence += 0.2;
 			break;
+		}
+	}
+
+	// Whatever cadence phrases the rules above do not cover — "quarterly",
+	// "twice a year", "every 2 wks", "bi-annually" — come from the SHARED
+	// cadence table every parser reads (issue 114). It runs LAST and only
+	// when nothing above matched, so it can add vocabulary without ever
+	// reordering a rule or stealing a phrase a specific rule owns.
+	if (!result.recurring) {
+		const shared = matchCadence(input);
+		if (shared) {
+			result.recurring = cadenceToValue(shared.cadence);
+			recurrencePhrases.push(shared.match[0]);
+			confidence += 0.2;
 		}
 	}
 
@@ -2241,37 +2267,24 @@ const BILL_DUE_STEPS: BillDueStep[] = [
 interface BillRecurrenceStep {
 	re: RegExp;
 	value: (m: RegExpMatchArray) => string;
+	/** "every <weekday>" also anchors the due date on that day (#011). */
+	anchorsWeekday?: boolean;
 }
 
-/** Recurrence cues, mapped into the SAME value vocabulary the event parser
- * emits ("monthly", "biweekly", "every_6_months") so #006 can store
- * frequency + interval without a second grammar. */
-const BILL_RECURRENCE_STEPS: BillRecurrenceStep[] = [
-	{
-		re: /\bevery\s+other\s+(day|week|month)\b/i,
-		value: (m) => (m[1].toLowerCase() === 'week' ? 'biweekly' : `every_2_${m[1].toLowerCase()}`)
-	},
-	{
-		re: /\bevery\s+(\d+)\s+(days?|weeks?|months?|years?)\b/i,
-		value: (m) => `every_${m[1]}_${m[2].toLowerCase()}`
-	},
-	{
-		re: /\b(?:quarterly|every\s+quarter|per\s+quarter|\/\s*quarter)\b/i,
-		value: () => 'every_3_months'
-	},
-	{
-		re: /\b(?:biannually|semi-?annually|twice\s+a\s+year)\b/i,
-		value: () => 'every_6_months'
-	},
+/**
+ * Bill-ONLY cue forms. Everything else — "every other week", "every 3 months",
+ * "quarterly", "monthly", "nightly" — comes from the SHARED cadence table
+ * (issue 114), so the two server parsers and the client quick-add cannot hold
+ * three vocabularies. What stays here is what carries a date or a
+ * shorthand the shared table has no reason to know: a weekday anchor, and
+ * "$60/month" · "a month" · "per week" style pricing shorthands.
+ */
+const BILL_ONLY_RECURRENCE_STEPS: BillRecurrenceStep[] = [
 	{
 		re: new RegExp(`\\bevery\\s+(${BILL_DAY_ALT})\\b`, 'i'),
-		value: () => 'weekly'
+		value: () => 'weekly',
+		anchorsWeekday: true
 	},
-	{ re: /\bevery\s+months?\b/i, value: () => 'monthly' },
-	{ re: /\b(?:daily|every\s+day)\b/i, value: () => 'daily' },
-	{ re: /\bweekly\b/i, value: () => 'weekly' },
-	{ re: /\bmonthly\b/i, value: () => 'monthly' },
-	{ re: /\b(?:yearly|annually)\b/i, value: () => 'yearly' },
 	{ re: /\b(?:\/\s*|per\s+|a\s+|each\s+)(?:months?|mos?)\b/i, value: () => 'monthly' },
 	{ re: /\b(?:\/\s*|per\s+|a\s+|each\s+)(?:weeks?|wks?)\b/i, value: () => 'weekly' },
 	{ re: /\b(?:\/\s*|per\s+|a\s+|each\s+)(?:years?|yrs?)\b/i, value: () => 'yearly' }
@@ -2283,30 +2296,15 @@ interface BillSchedule {
 	interval: number | null;
 }
 
-/** Schedule pairs for the plain value words (interval 2 = every other). */
-const BASE_SCHEDULES = {
-	daily: ['daily', 1],
-	weekly: ['weekly', 1],
-	biweekly: ['weekly', 2],
-	monthly: ['monthly', 1],
-	yearly: ['yearly', 1]
-} as const;
-
-/** Event-parser recurrence value → DB frequency + interval (bills #006). */
+/**
+ * Recurrence value → the DB's frequency + interval columns, read through the
+ * SHARED value grammar: "biweekly" is weekly x 2 because that is what it
+ * means, and "every_2_weeks" (still accepted on the way in) means the same.
+ */
 function recurrenceToSchedule(recurring: string | undefined): BillSchedule {
-	if (!recurring) return { frequency: null, interval: null };
-	const intervalMatch = recurring.match(/^every_(\d+)_(days?|weeks?|months?|years?)$/);
-	if (intervalMatch) {
-		const unit = intervalMatch[2].replace(/s$/, '');
-		// SAFETY: the regex above whitelists exactly these four unit words.
-		const freq = { day: 'daily', week: 'weekly', month: 'monthly', year: 'yearly' }[
-			unit as 'day' | 'week' | 'month' | 'year'
-		] as BillRecurrenceFrequency;
-		return { frequency: freq, interval: Math.max(1, parseInt(intervalMatch[1])) };
-	}
-	const base = lookup(BASE_SCHEDULES, recurring);
-	if (!base) return { frequency: null, interval: null };
-	return { frequency: base[0], interval: base[1] };
+	const cadence = recurring ? valueToCadence(recurring) : null;
+	if (!cadence) return { frequency: null, interval: null };
+	return { frequency: cadenceFrequency(cadence), interval: cadence.every };
 }
 
 /** "1,234.56" → integer cents, guarded to the Postgres int4 ceiling. */
@@ -2414,21 +2412,28 @@ export function parseBillQuickAdd(input: string, zone?: string): ParsedBill {
 		}
 	}
 
-	// Recurrence: same value vocabulary as the event parser. "every <day>"
-	// also anchors the due date on the next occurrence.
+	// Recurrence: the SHARED cadence table first, then the bill-only cue
+	// forms. "every <day>" also anchors the due date on the next occurrence.
 	let recurring: string | undefined;
-	for (const step of BILL_RECURRENCE_STEPS) {
-		const m = text.match(step.re);
-		if (!m) continue;
-		recurring = step.value(m);
-		text = text.replace(m[0], ' ');
+	const sharedCadence = matchCadence(text);
+	if (sharedCadence) {
+		recurring = cadenceToValue(sharedCadence.cadence);
+		text = text.replace(sharedCadence.match[0], ' ');
 		confidence += 0.2;
-		if (!dueDate && step.re.source.includes('every')) {
-			const dayMatch = m[0].match(new RegExp(`(${BILL_DAY_ALT})`, 'i'));
-			const code = dayMatch ? normalizeDayToken(dayMatch[1]) : null;
-			if (code) dueDate = nextWeekdayFrom(now, [code]);
+	} else {
+		for (const step of BILL_ONLY_RECURRENCE_STEPS) {
+			const m = text.match(step.re);
+			if (!m) continue;
+			recurring = step.value(m);
+			text = text.replace(m[0], ' ');
+			confidence += 0.2;
+			if (!dueDate && step.anchorsWeekday) {
+				const dayMatch = m[0].match(new RegExp(`(${BILL_DAY_ALT})`, 'i'));
+				const code = dayMatch ? normalizeDayToken(dayMatch[1]) : null;
+				if (code) dueDate = nextWeekdayFrom(now, [code]);
+			}
+			break;
 		}
-		break;
 	}
 
 	// Amount: $-prefixed, then worded currency, then a bare leftover number.
