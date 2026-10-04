@@ -208,6 +208,71 @@ describe('alerts page — rows are real links', () => {
 	});
 });
 
+/**
+ * Issue 126: the two side cards `notifications.html` draws and #073 never built —
+ * "Five types, one table" and "Never pruned". Both were approved as part of the
+ * page, so they are part of the page. The third card ("Where it is reachable")
+ * is a reachability statement about the app's own navs and is checked below too.
+ */
+describe('alerts page — the model card', () => {
+	it('names all five types with their human label', () => {
+		renderPage([dbRow({ id: 'n1', type: 'task_completed' })]);
+		const card = screen.getByRole('region', { name: 'Five types, one table' });
+		for (const label of [
+			'Asked you',
+			'Accepted',
+			'Declined',
+			'Completed',
+			'Added to family'
+		]) {
+			expect(within(card).getAllByText(label).length).toBeGreaterThan(0);
+		}
+	});
+
+	it('shows the raw column value beside each label', () => {
+		renderPage([dbRow({ id: 'n1', type: 'task_completed' })]);
+		const card = screen.getByRole('region', { name: 'Five types, one table' });
+		expect(within(card).getByText('assignment_pending')).toBeInTheDocument();
+		expect(within(card).getByText('added_to_family')).toBeInTheDocument();
+	});
+
+	it('states the shape of the row, including the pre-rendered message', () => {
+		renderPage([dbRow({ id: 'n1', type: 'task_completed' })]);
+		expect(screen.getByTestId('notification-model-note')).toHaveTextContent(/pre-rendered/i);
+	});
+});
+
+describe('alerts page — the never-pruned card', () => {
+	it('names the missing retention policy and the cleanup that omits it', () => {
+		renderPage([dbRow({ id: 'n1', type: 'task_completed' })]);
+		const card = screen.getByRole('region', { name: 'Never pruned' });
+		expect(card).toHaveTextContent(/no retention policy/i);
+		expect(card).toHaveTextContent(/api\/cron\/cleanup/i);
+	});
+
+	it('says plainly that pruning read alerts is the only way rows leave', () => {
+		renderPage([dbRow({ id: 'n1', type: 'task_completed' })]);
+		expect(screen.getByTestId('prune-card-note')).toHaveTextContent(/read alerts/i);
+	});
+});
+
+describe('alerts page — the reachability card', () => {
+	it('states where the feed is reachable from', () => {
+		renderPage([dbRow({ id: 'n1', type: 'task_completed' })]);
+		const card = screen.getByRole('region', { name: 'Where it is reachable' });
+		expect(card).toHaveTextContent('navbar bell');
+		expect(card).toHaveTextContent('Alerts');
+		expect(card).toHaveTextContent('top nav');
+	});
+
+	it('keeps the card on an empty feed, where the feed itself has no rows', () => {
+		renderPage([]);
+		expect(
+			screen.getByRole('region', { name: 'Where it is reachable' })
+		).toBeInTheDocument();
+	});
+});
+
 // Issue 126: the prototype's "never pruned" card is the one thing notifications.html
 // shows that #073 did not do, and #073 named it as deliberately left unbuilt.
 describe('alerts page — pruning read alerts', () => {

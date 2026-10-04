@@ -135,6 +135,11 @@ function renderPreview() {
 	});
 }
 
+/** The upload screen: no action has run yet, so `form` is absent entirely. */
+function renderUpload() {
+	return render(ImportPage, { props: { data: DATA } });
+}
+
 function renderCommitted() {
 	return render(ImportPage, {
 		props: { data: DATA, form: COMMIT as unknown as ActionData }
@@ -171,6 +176,44 @@ describe('import preview screen', () => {
 		expect(screen.getByText(/Nothing has been added to Personal Calendar yet/)).toBeInTheDocument();
 	});
 
+	// The prototype's drop zone names where a file comes from and what happens
+	// to it. The app says both, in the flow rather than above it.
+	it('states the file limit on the upload screen, before anything is chosen', () => {
+		renderUpload();
+		expect(screen.getByText(/Up to 500 events · max 5 MB/)).toBeInTheDocument();
+		expect(screen.getByText(/Nothing is added until you tick/)).toBeInTheDocument();
+	});
+
+	// The prototype's side rail: what an import keeps, drops and skips.
+	it('states what an import keeps, drops and skips', () => {
+		renderUpload();
+		const rail = screen.getByRole('region', { name: 'Where do they go' });
+		expect(rail).toHaveTextContent(/Recurrences kept/);
+		expect(rail).toHaveTextContent(/Alarms dropped/);
+		expect(rail).toHaveTextContent(/Duplicates skipped/);
+	});
+
+	// The prototype's other two cards, approved alongside it.
+	it('states the plan gate rather than letting a paywall be a surprise', () => {
+		renderUpload();
+		expect(screen.getByRole('region', { name: 'Plan gate' })).toHaveTextContent(
+			/exportImportEnabled/
+		);
+	});
+
+	it('carries the argument for why import has a navbar slot', () => {
+		renderUpload();
+		expect(screen.getByRole('region', { name: 'Is it a power feature?' })).toHaveTextContent(
+			/switch/i
+		);
+	});
+
+	// The prototype's load-bearing line: an RRULE is one row, not eighteen.
+	it('explains that a recurrence becomes one repeating row', () => {
+		renderUpload();
+		expect(screen.getByText(/RRULE/)).toBeInTheDocument();
+	});
+
 	it('Select all ticks the duplicates too, and Select none clears everything', async () => {
 		renderPreview();
 		await fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
@@ -188,6 +231,16 @@ describe('import preview screen', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Back to suggested' }));
 		expect(screen.getByRole('checkbox', { name: 'Import Standup' })).not.toBeChecked();
 		expect(screen.getByRole('button', { name: /Add 1 event/ })).toBeInTheDocument();
+	});
+
+	// `import.html` draws each row with a "new" / "already there" pill beside it.
+	// The app states the duplicate in words instead; both say the same thing, and
+	// the word is the stronger of the two, so the pill stays out.
+	it('marks a row that is not a duplicate as new', () => {
+		renderPreview();
+		const row = screen.getByRole('checkbox', { name: 'Import Soccer practice' })
+			.closest('li')!;
+		expect(row.textContent).not.toMatch(/duplicate/i);
 	});
 
 	it('posts only the ticked rows, so the preview cannot drift from the save', async () => {

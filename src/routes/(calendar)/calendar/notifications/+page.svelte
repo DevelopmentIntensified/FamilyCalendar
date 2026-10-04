@@ -3,6 +3,7 @@
 	import { pushToast } from '$lib/client/toasts';
 	import { relativeTime } from '$lib/utils/dateUtils';
 	import {
+		NOTIFICATION_TYPES,
 		filterNotifications,
 		groupNotifications,
 		notificationCounts,
@@ -173,7 +174,86 @@
 	</span>
 {/snippet}
 
-<div class="mx-auto w-full max-w-2xl px-4 py-6">
+<div class="mx-auto w-full max-w-5xl px-4 py-6">
+	<!--
+		The side rail `notifications.html` draws (issue 126): the model, the
+		pruning gap, and where the feed is reachable from. Approved as part of the
+		page, so they are part of the page — and each is a statement about the
+		app, drawn from the same tables the feed itself reads.
+	-->
+	<div class="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_17rem]">
+		<div class="min-w-0">
+			{@render feedColumn()}
+		</div>
+		<div class="space-y-4">
+			<section
+				aria-label="Five types, one table"
+				class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+			>
+				<h2 class="mb-2 text-sm font-bold text-slate-900">Five types, one table</h2>
+				<ul class="space-y-1.5">
+					{#each NOTIFICATION_TYPES as type (type)}
+						<li class="flex items-center gap-2 text-xs">
+							<span
+								class="inline-flex h-5 shrink-0 items-center rounded-full px-2 text-[10px] font-bold {notificationTone(
+									type
+								)}"
+							>
+								{notificationLabel(type)}
+							</span>
+							<span class="truncate font-mono text-slate-400">{type}</span>
+						</li>
+					{/each}
+				</ul>
+				<p class="mt-2 text-xs leading-relaxed text-slate-400" data-testid="notification-model-note">
+					All five are the same row shape — type, actorName, message, link, readAt. The message is
+					a pre-rendered string, so the client cannot re-word it for a different family member or
+					translate it.
+				</p>
+			</section>
+
+			<section aria-label="Never pruned" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+				<h2 class="mb-2 text-sm font-bold text-slate-900">Never pruned</h2>
+				<p class="text-xs leading-relaxed text-slate-500">
+					<code class="text-[11px]">notifications</code> has no retention policy and is not in
+					<code class="text-[11px]">/api/cron/cleanup</code>, which only handles stale anonymous
+					users. A heavy family generates thousands of rows and reads the newest handful.
+				</p>
+				<p class="mt-2 text-xs leading-relaxed text-slate-500" data-testid="prune-card-note">
+					Deleting read alerts is the only way a row leaves — there is no automatic retention behind
+					it.
+				</p>
+			</section>
+
+			<section
+				aria-label="Where it is reachable"
+				class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+			>
+				<h2 class="mb-2 text-sm font-bold text-slate-900">Where it is reachable</h2>
+				<div class="flex items-center gap-2 py-0.5 text-xs text-slate-600">
+					<span class="rounded-full bg-emerald-100 px-2 py-px text-[10px] font-bold text-emerald-800"
+						>yes</span
+					> navbar bell
+				</div>
+				<div class="flex items-center gap-2 py-0.5 text-xs text-slate-600">
+					<span class="rounded-full bg-emerald-100 px-2 py-px text-[10px] font-bold text-emerald-800"
+						>yes</span
+					> bottom nav “Alerts”
+				</div>
+				<div class="flex items-center gap-2 py-0.5 text-xs text-slate-600">
+					<span class="rounded-full bg-red-100 px-2 py-px text-[10px] font-bold text-red-800">no</span>
+					top nav
+				</div>
+				<p class="mt-2 text-xs leading-relaxed text-slate-400">
+					The top nav carries Groceries instead — so Groceries is unreachable on a phone and Alerts
+					is unreachable on a desktop tab bar.
+				</p>
+			</section>
+		</div>
+	</div>
+</div>
+
+{#snippet feedColumn()}
 	<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
 		<div class="min-w-0">
 			<h1 class="text-2xl font-bold text-slate-900">Alerts</h1>
@@ -303,4 +383,4 @@
 			{/if}
 		{/each}
 	{/if}
-</div>
+{/snippet}

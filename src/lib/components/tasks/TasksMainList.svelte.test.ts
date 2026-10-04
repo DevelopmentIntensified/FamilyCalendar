@@ -167,3 +167,79 @@ describe('TasksMainList', () => {
 		});
 	});
 });
+
+/**
+ * `tasks.html`'s approved owner axis, on the flat list. Two of these are
+ * reconciliations rather than transcriptions, and each says so in the test that
+ * pins it: the prototype's third chip misnamed its own predicate, and its
+ * `Open` bucket would have undone b-tasks-flat's decision that finished work
+ * sorts LAST rather than disappearing.
+ */
+describe('TasksMainList — the approved owner axis (tasks.html)', () => {
+	afterEach(cleanup);
+
+	const queue = () =>
+		props({
+			openCount: 3,
+			completedCount: 1,
+			filteredOpen: [
+				task({ id: 'a', title: 'Mine: bins', assignedTo: 'u1' }),
+				task({ id: 'b', title: 'Theirs: roof', assignedTo: 'u2' }),
+				task({ id: 'c', title: 'Nobody: hose', assignedTo: null })
+			],
+			filteredCompleted: [
+				task({ id: 'd', title: 'Finished thing', assignedTo: 'u1', completedAt: '2026-09-01' })
+			]
+		});
+
+	it('opens on Open, which is the whole queue — finished work still sorts last', async () => {
+		// b-tasks-flat is approved too, and its decision is that finished work is
+		// NOT hidden: "the list is flat, but finished work is not work". So the
+		// default chip narrows nothing, and `Done` is the bucket that shows the
+		// finished rows alone.
+		render(TasksMainList, { props: queue() });
+		expect(renderedTitles()).toHaveLength(4);
+		expect(screen.getByRole('button', { name: 'Open' })).toHaveAttribute('aria-pressed', 'true');
+	});
+
+	it('Mine is the tasks assigned to me, and says so', async () => {
+		render(TasksMainList, { props: queue() });
+		await fireEvent.click(screen.getByRole('button', { name: 'Mine' }));
+		expect(renderedTitles()).toEqual(['Mine: bins', 'Finished thing']);
+	});
+
+	it('the chip the prototype called "Assigned to me" is really the unowned tasks', async () => {
+		// The prototype's predicate for that chip was `assignedTo !== viewer` —
+		// everybody ELSE's, under a label claiming it was mine. The bucket is
+		// kept and named for what it is.
+		render(TasksMainList, { props: queue() });
+		await fireEvent.click(screen.getByRole('button', { name: 'Unassigned' }));
+		expect(renderedTitles()).toEqual(['Nobody: hose']);
+	});
+
+	it('Done shows the finished rows alone', async () => {
+		render(TasksMainList, { props: queue() });
+		await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+		expect(renderedTitles()).toEqual(['Finished thing']);
+	});
+
+	it('titles the filter line with what is left, so the chips are never silent', async () => {
+		render(TasksMainList, { props: queue() });
+		expect(screen.getByTestId('task-filter-count')).toHaveTextContent('4 tasks');
+		await fireEvent.click(screen.getByRole('button', { name: 'Mine' }));
+		expect(screen.getByTestId('task-filter-count')).toHaveTextContent('2 tasks');
+	});
+
+	it('never claims an account has no tasks while a filter is switched on', async () => {
+		render(TasksMainList, {
+			props: props({
+				filteredOpen: [task({ id: 'a', title: 'Theirs: roof', assignedTo: 'u2' })],
+				filteredCompleted: []
+			})
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Mine' }));
+		// "No matching tasks", not "No tasks yet" — the account has plenty.
+		expect(screen.getByText('No matching tasks')).toBeTruthy();
+		expect(screen.queryByText('No tasks yet')).toBeNull();
+	});
+});

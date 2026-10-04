@@ -1,7 +1,7 @@
 <script lang="ts">
 	import TaskRow, { type TaskRowTask } from './TaskRow.svelte';
 	import TaskCompletedRow from './TaskCompletedRow.svelte';
-	import TaskToolbar, { type TaskChip } from './TaskToolbar.svelte';
+	import TaskToolbar, { type TaskChip, type TaskView, VIEWS } from './TaskToolbar.svelte';
 	import {
 		bucketCounts,
 		sortFlatTasks,
@@ -16,6 +16,9 @@
 		searchQuery: string;
 		sortBy: TaskSortKey;
 		tagFilter: string;
+		/** Which bucket of the queue is on screen. Owned here: it is a view of
+		 *  the list, not a URL, exactly like the jump bar's time filter. */
+		view?: TaskView;
 		openCount: number;
 		completedCount: number;
 		completedThisWeek: number;
@@ -45,6 +48,7 @@
 		searchQuery = $bindable(),
 		sortBy = $bindable(),
 		tagFilter = $bindable(),
+		view = $bindable('open'),
 		confirmClear = $bindable(),
 		openCount,
 		completedCount,
@@ -100,8 +104,39 @@
 	/** Jump-bar state. Local to the list: it is a view of the list, not a URL. */
 	let timeFilter = $state<TimeFilter>('all');
 
-	/** Everything the chips/search/tag filter left, open and finished alike. */
-	let matched = $derived([...filteredOpen, ...filteredCompleted]);
+	/**
+	 * `tasks.html`'s approved owner axis, on top of the flat list. It chooses
+	 * WHICH bucket of the queue is on screen — the prototype's own four, in its
+	 * own order — and it is a view of the list, not a URL, exactly like the time
+	 * jump bar below it.
+	 *
+	 * Two reconciliations, both recorded because both are departures from a
+	 * literal reading of the prototype:
+	 *
+	 * 1. **The prototype's third chip lied.** It was labelled "Assigned to me"
+	 *    while its own predicate was `assignedTo !== viewer` — everybody else's.
+	 *    A chip that misnames what it filters is not a vocabulary, so the
+	 *    structure is kept and the bucket is named for what it is: the tasks
+	 *    nobody owns.
+	 * 2. **`Open` is the unfiltered default, not "hide the finished ones".**
+	 *    `b-tasks-flat.html` is approved too, and it decided that finished work
+	 *    SORTS LAST in one run rather than disappearing — the list is flat, but
+	 *    finished work is not work. Narrowing the default to open rows would
+	 *    have quietly undone that, so `Open` narrows nothing and `Done` is the
+	 *    bucket that shows finished work alone.
+	 */
+	function inOwnerView(task: TaskRowTask): boolean {
+		if (view === 'mine') return !!task.assignedTo && task.assignedTo === currentUserId;
+		if (view === 'unassigned') return !task.assignedTo;
+		return true;
+	}
+	let viewActive = $derived(view !== 'open');
+
+	/** The open half and the finished half, each cut to the owner bucket. */
+	let openRows = $derived(view === 'done' ? [] : filteredOpen.filter(inOwnerView));
+	let doneRows = $derived(filteredCompleted.filter(inOwnerView));
+	/** Everything the chips/scope/search/tag filter and the owner axis left. */
+	let matched = $derived([...openRows, ...doneRows]);
 	/** The counts the band headings used to print, now on the jump bar. */
 	let counts = $derived(bucketCounts(matched));
 	let rows = $derived(
@@ -110,6 +145,10 @@
 			.sort((a, b) => sortFlatTasks(a, b, sortBy))
 	);
 	let timeActive = $derived(timeFilter !== 'all');
+	/** Anything at all narrowing the list. "No tasks here" must only be claimed
+	 *  when nothing is switched off — otherwise it is a claim about the account
+	 *  that the filters made false. */
+	let anyFilterActive = $derived(filterActive || chipActive || viewActive || timeActive);
 </script>
 
 <section
@@ -119,7 +158,15 @@
 	<h2 id="tasks-list-heading" class="text-sm font-semibold text-slate-900">Your tasks</h2>
 	<p class="mt-0.5 text-xs text-slate-400">Filter, search, and sort your list</p>
 
-	<TaskToolbar bind:chip bind:searchQuery bind:sortBy bind:tagFilter />
+	<TaskToolbar
+		bind:chip
+		bind:searchQuery
+		bind:sortBy
+		bind:tagFilter
+		bind:view
+		matchCount={matched.length}
+		totalCount={filteredOpen.length + filteredCompleted.length}
+	/>
 
 	<!-- The jump bar: time as a filter state, carrying the counts the band
 	     headings used to print. Clicking one is a door, not a section. -->
@@ -142,8 +189,15 @@
 		{/each}
 	</div>
 
-	{#if filterActive || chipActive || timeActive}
+	{#if filterActive || chipActive || viewActive || timeActive}
 		<p class="mb-3 text-xs font-medium text-sky-600">
+			{#if viewActive}
+				Showing <span
+					class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+					>{VIEWS.find((v) => v.value === view)?.label} tasks</span
+				>
+				{#if tagFilterActive || queryActive || chipActive || timeActive}·{/if}
+			{/if}
 			{#if chipActive}
 				Showing
 				<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
@@ -186,10 +240,10 @@
 				/>
 			</svg>
 			<p class="text-lg font-medium text-slate-700">
-				{filterActive || chipActive ? 'No matching tasks' : CHIP_EMPTY[chip].title}
+				{anyFilterActive ? 'No matching tasks' : CHIP_EMPTY[chip].title}
 			</p>
 			<p class="text-sm text-slate-500">
-				{filterActive || chipActive
+				{anyFilterActive
 					? 'Try another chip, or clear the search and filters'
 					: CHIP_EMPTY[chip].hint}
 			</p>
@@ -244,7 +298,7 @@
 		</p>
 	{/if}
 
-	{#if openCount === 0 && completedCount > 0 && !filterActive && !chipActive && !timeActive}
+	{#if openCount === 0 && completedCount > 0 && !anyFilterActive}
 		<div class="rounded-xl border border-dashed border-slate-200 py-10 text-center">
 			<p class="text-sm font-medium text-emerald-600">All caught up 🎉</p>
 			<p class="text-sm text-slate-500">Nothing open right now</p>

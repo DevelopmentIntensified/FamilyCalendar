@@ -525,4 +525,60 @@
 			definitions outside common US zones) are simplified.
 		</p>
 	</div>
+
+	<!--
+		The side rail `import.html` draws (issue 126). Each card is a statement
+		about this import surface rather than a control: what survives the
+		conversion, what the plan allows, and why the page has a navbar slot.
+	-->
+	<section
+		aria-label="Where do they go"
+		class="mt-4 rounded-xl border border-slate-200 bg-white p-5"
+	>
+		<h2 class="mb-2 text-sm font-semibold text-slate-900">Where do they go</h2>
+		<div class="flex flex-wrap gap-1.5">
+			<span class="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800"
+				>Recurrences kept</span
+			>
+			<span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800"
+				>Alarms dropped</span
+			>
+			<span class="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800"
+				>Duplicates skipped</span
+			>
+		</div>
+		<p class="mt-3 text-sm leading-relaxed text-slate-600">
+			An iCalendar <code class="text-xs">RRULE</code> becomes one <code class="text-xs">events</code>
+			row with <code class="text-xs">recurrence_frequency</code> set — not 18 rows. That is why the family
+			calendar stays small no matter how much you import.
+		</p>
+	</section>
+
+	<section
+		aria-label="Plan gate"
+		class="mt-4 rounded-xl border border-transparent bg-gradient-to-br from-rose-50 to-white p-5"
+	>
+		<h2 class="mb-2 text-sm font-semibold text-slate-900">Plan gate</h2>
+		<p class="text-sm leading-relaxed text-slate-600">
+			Import is gated on <code class="text-xs">subscriptionTypes.exportImportEnabled</code>, read on
+			every load. On a plan without it the whole page is replaced by an upsell — but the page is in
+			the navbar regardless, so a user on a free plan finds a button that leads to a paywall with no
+			warning.
+		</p>
+	</section>
+
+	<section
+		aria-label="Is it a power feature?"
+		class="mt-4 rounded-xl border border-slate-200 bg-white p-5"
+	>
+		<h2 class="mb-2 text-sm font-semibold text-slate-900">Is it a power feature?</h2>
+		<p class="text-sm leading-relaxed text-slate-600">
+			It is the single biggest reason families switch — everyone arrives from Google Calendar. So it
+			earns the navbar slot.
+		</p>
+		<p class="mt-2 text-sm leading-relaxed text-slate-600">
+			But it is a one-time event, and it is treated as a destination. The preview is the actual
+			product; the drop zone is just the way in.
+		</p>
+	</section>
 </div>
