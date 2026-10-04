@@ -64,9 +64,11 @@ describe('EventModal - display details', () => {
 			props: { show: true, event: baseEvent, attendees }
 		});
 
-		expect(screen.getByText(/Going.*2/)).toBeInTheDocument();
-		expect(screen.getByText(/Alice/)).toBeInTheDocument();
-		expect(screen.getByText(/Bob/)).toBeInTheDocument();
+		// The approved region lists each person with their own status rather
+		// than grouping them, so the count and the names are separate claims.
+		expect(screen.getByTestId('attendance-heading')).toHaveTextContent('2/2 going');
+		expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+		expect(screen.getByText('Bob Jones')).toBeInTheDocument();
 	});
 
 	it('should show non-user attendants when passed', () => {
@@ -109,8 +111,9 @@ describe('EventModal - display details', () => {
 			props: { show: true, event: baseEvent, attendees }
 		});
 
-		expect(screen.getByText(/Maybe.*1/)).toBeInTheDocument();
-		expect(screen.getByText(/Charlie/)).toBeInTheDocument();
+		const row = screen.getByTestId('attendance-row');
+		expect(row).toHaveTextContent('Charlie Brown');
+		expect(row).toHaveTextContent('Maybe');
 	});
 });
 
@@ -170,7 +173,9 @@ describe('EventModal — against app-ui/event.html', () => {
 		});
 
 		// 2 going of 4 asked — the guest counts, she was asked too.
-		expect(screen.getByTestId('attendance-summary')).toHaveTextContent('2 of 4 going');
+		expect(screen.getByTestId('attendance-heading')).toHaveTextContent('2/4 going');
+		// The proportion is drawn, not only stated.
+		expect(screen.getByTestId('attendance-bar')).toBeInTheDocument();
 	});
 });
 

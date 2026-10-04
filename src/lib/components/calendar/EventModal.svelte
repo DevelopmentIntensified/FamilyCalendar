@@ -28,6 +28,9 @@
 		inviteType?: string | null;
 	}[] = [];
 	export let nonUserAttendants: string[] = [];
+	/** Guests with their own status; names-only callers fall back to one row each. */
+	export let guestStatuses: { name: string; status: string; inviteType?: string | null }[] | null =
+		null;
 	export let currentUserRsvpStatus: string = 'undecided';
 	export let calendars: { id: string; name: string; color?: string }[] = [];
 	export let userSettings: { defaultCalendarId?: string | null } | null = null;
@@ -50,6 +53,8 @@
 	let showDeleteConfirm = false;
 	let showDuplicateConfirm = false;
 	let actionError = '';
+	/** An invite POST in flight; re-entry would add the same guest twice. */
+	let invitingGuest = false;
 
 	// Mobile bottom-sheet swipe state (shared with EventFormModal).
 	let swipe = createSwipeState();
@@ -77,6 +82,7 @@
 			if (rsvpTouched) return;
 			if (loaded.attendees) attendees = loaded.attendees;
 			if (loaded.nonUserAttendants) nonUserAttendants = loaded.nonUserAttendants;
+			if (loaded.guestRows) guestStatuses = loaded.guestRows;
 			if (loaded.userRsvpStatus) currentUserRsvpStatus = loaded.userRsvpStatus;
 		} finally {
 			attendanceLoading = false;
@@ -97,6 +103,44 @@
 		maybeList.length > 0 ||
 		notGoingList.length > 0 ||
 		nonUserAttendants.length > 0;
+
+	/**
+	 * Guests as the attendance region draws them: one row each, still carrying
+	 * their own status. A caller that only knows the names falls back to one
+	 * row per name, which is what the region rendered before.
+	 */
+	$: guestRows = guestStatuses
+		? guestStatuses.map((g) => ({ name: g.name, status: g.status, inviteType: g.inviteType }))
+		: nonUserAttendants.map((name) => ({ name, status: 'invited', inviteType: null }));
+
+	/** Invite a named guest: a POST, then the same refresh every other RSVP does. */
+	async function inviteGuest(name: string) {
+		if (invitingGuest || !name.trim()) return;
+		invitingGuest = true;
+		actionError = '';
+		try {
+			const res = await fetch(`/api/events/${serverId}/rsvp`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ guest: name.trim() })
+			});
+			if (res.ok) {
+				const loaded = await fetchAttendance(serverId);
+				if (loaded.attendees) attendees = loaded.attendees;
+				if (loaded.nonUserAttendants) nonUserAttendants = loaded.nonUserAttendants;
+				if (loaded.guestRows) guestStatuses = loaded.guestRows;
+				await invalidateAll();
+			} else {
+				const j = await res.json().catch(() => ({}));
+				actionError = j.error || "Couldn't invite them. Try again.";
+			}
+		} catch (e) {
+			console.error('Invite failed:', e);
+			actionError = 'Network error. Check your connection and try again.';
+		} finally {
+			invitingGuest = false;
+		}
+	}
 
 	// Get calendar name from prop or event
 	$: calendarName =
@@ -297,7 +341,8 @@
 							maybe={maybeList}
 							notGoing={notGoingList}
 							undecided={undecidedList}
-							guests={nonUserAttendants}
+							guests={guestRows}
+							onInvite={inviteGuest}
 						/>
 					{/if}
 
