@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupEventsByMonth, ARCHIVE_CARD_PADDING } from './archiveMonths';
+import { groupEventsByMonth, retentionScale, ARCHIVE_CARD_PADDING } from './archiveMonths';
 
 function ev(title: string, start: string) {
 	return { id: title, title, start: new Date(start), location: null };
@@ -63,5 +63,49 @@ describe('ARCHIVE_CARD_PADDING', () => {
 	// the rendered padding to prove the token reached the screen.
 	it('is a single padding token, not a per-card value', () => {
 		expect(ARCHIVE_CARD_PADDING).toMatch(/^p-/);
+	});
+});
+
+describe('retentionScale', () => {
+	// 094 rerun: the approved page draws the gate as a three-band track, not
+	// two sentences. The bands are the plan's two real windows, so they are
+	// derived here rather than typed into the markup.
+	it('splits the total window into viewable, kept and gone', () => {
+		const scale = retentionScale({ viewDays: 365, archivedDays: 730 });
+		expect(scale.total).toBe(730);
+		expect(scale.viewable).toBe(365);
+		expect(scale.kept).toBe(365);
+		expect(scale.deletedAfter).toBe(730);
+	});
+
+	it('fills the track in the proportion the windows really are', () => {
+		expect(retentionScale({ viewDays: 365, archivedDays: 730 }).viewablePct).toBe(50);
+		expect(retentionScale({ viewDays: 90, archivedDays: 365 }).viewablePct).toBe(25);
+	});
+
+	it('draws no track at all for a plan that keeps nothing', () => {
+		// archivedRetentionDays <= 0 means the archive keeps nothing, so there
+		// is no "deleted after" date to draw and no band to fill. Zeros, not a
+		// negative kept window and not a division by zero.
+		expect(retentionScale({ viewDays: 30, archivedDays: 0 })).toEqual({
+			total: 0,
+			viewable: 0,
+			kept: 0,
+			deletedAfter: 0,
+			viewablePct: 0
+		});
+	});
+
+	it('does not divide by zero on a plan with no windows at all', () => {
+		expect(retentionScale({ viewDays: 0, archivedDays: 0 }).viewablePct).toBe(0);
+	});
+
+	it('caps the viewable band when a plan keeps less than it shows', () => {
+		// retentionViewDays > archivedRetentionDays is contradictory config;
+		// the track must still fill exactly once.
+		const scale = retentionScale({ viewDays: 730, archivedDays: 365 });
+		expect(scale.viewable).toBe(365);
+		expect(scale.kept).toBe(0);
+		expect(scale.viewablePct).toBe(100);
 	});
 });

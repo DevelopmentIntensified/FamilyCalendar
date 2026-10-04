@@ -96,3 +96,48 @@ export function retentionSummary(limits: {
 		archivedDays: limits.archivedRetentionDays ?? 0
 	};
 }
+
+/**
+ * The retention windows as the three bands of a track.
+ *
+ * 094 rerun: the approved page states the gate as a picture - viewable now,
+ * kept but not viewable, deleted - rather than as two sentences. Every number
+ * is still the plan's; only the shape is new.
+ *
+ * `total` is the far end of the track, so the two windows are read as one span
+ * rather than as two unrelated limits. That far end is the retention window -
+ * when the data is actually gone - and the viewable band is clamped to it, so
+ * contradictory config (a plan showing more than it keeps) fills the track
+ * exactly once instead of overflowing it. A plan with no windows at all
+ * divides by nothing and fills nothing.
+ */
+export interface RetentionScale {
+	/** Days from today to the far end of the track. */
+	total: number;
+	/** Days you can open right now. */
+	viewable: number;
+	/** Days kept but out of reach. Never negative. */
+	kept: number;
+	/** The day the whole thing goes. */
+	deletedAfter: number;
+	/** `viewable` as a whole percent of `total`. */
+	viewablePct: number;
+}
+
+export function retentionScale(summary: RetentionSummary): RetentionScale {
+	// `archivedRetentionDays` is the far end: it is when the data is actually
+	// gone. Every real tier keeps at least as long as it shows (free 30/90,
+	// family 365/730), so this is normally the larger number - and taking the
+	// maximum would silently draw a track whose last band says "deleted" at a
+	// date the plan has not reached yet.
+	const total = Math.max(summary.archivedDays, 0);
+	const viewable = Math.min(summary.viewDays, total);
+	const kept = Math.max(total - viewable, 0);
+	return {
+		total,
+		viewable,
+		kept,
+		deletedAfter: total,
+		viewablePct: total === 0 ? 0 : Math.round((viewable / total) * 100)
+	};
+}

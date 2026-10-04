@@ -23,7 +23,9 @@
 	<h2 class="mb-1 text-lg font-semibold text-slate-900">Your families</h2>
 	<p class="mb-4 text-sm text-slate-500">
 		You belong to {families.length}
-		{families.length === 1 ? 'family' : 'families'}. Leaving a family is done from the family page.
+		{families.length === 1 ? 'family' : 'families'}. Leaving a family is done from the family page,
+		not from here — so the one irreversible action on a shared account is on a page you have to
+		navigate to rather than the one that lists what you belong to.
 	</p>
 
 	{#if families.length === 0}

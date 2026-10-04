@@ -1,11 +1,27 @@
 <script lang="ts">
 	import { ACCOUNT_SECTIONS, type AccountSectionId } from './accountSections';
 
-	interface Props {
-		activeSection: string;
+	interface Identity {
+		firstName?: string | null;
+		lastName?: string | null;
+		email?: string | null;
 	}
 
-	let { activeSection }: Props = $props();
+	interface Props {
+		activeSection: string;
+		/** 105: the approved page puts a "Signed in as" card under the section
+		 *  nav. Absent renders no card rather than an empty one. */
+		user?: Identity | null;
+	}
+
+	let { activeSection, user = null }: Props = $props();
+
+	// 105: a name with a trailing space reads as a typo, and an anonymous
+	// account has an email of null, so both are assembled rather than printed.
+	const displayName = $derived(
+		[user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || null
+	);
+	const initial = $derived((displayName?.[0] ?? '?').toUpperCase());
 
 	// The icon per section is presentation; which sections exist is declared
 	// once, in accountSections.ts, and shared with the page's own dispatch.
@@ -29,8 +45,15 @@
 	};
 </script>
 
-<nav class="w-full border-b border-slate-200 p-4 lg:w-64 lg:border-b-0 lg:border-r">
-	<ul class="space-y-1">
+<!-- The approved page's left column is two stacked cards: the section nav
+     and, under it, who you are signed in as. The nav element still wraps the
+     section links alone so "nav a" stays the section list. -->
+<div class="w-full lg:w-64 lg:border-r lg:border-slate-200">
+	<nav class="border-b border-slate-200 p-4">
+		<div class="px-3 pb-2 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+			Settings
+		</div>
+		<ul class="space-y-1">
 		{#each ACCOUNT_SECTIONS as section}
 			<li>
 				<a
@@ -70,5 +93,24 @@
 				Report a Bug
 			</a>
 		</li>
-	</ul>
-</nav>
+		</ul>
+	</nav>
+
+	{#if user}
+		<div data-testid="account-identity" class="flex items-center gap-3 p-4">
+			<span
+				data-testid="account-initial"
+				aria-hidden="true"
+				class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-orange-100 text-sm font-extrabold text-orange-700"
+			>
+				{initial}
+			</span>
+			<span class="min-w-0">
+				{#if displayName}
+					<span class="block truncate text-sm font-bold text-slate-800">{displayName}</span>
+				{/if}
+				<span class="block truncate text-xs text-slate-500">{user.email ?? 'No email yet'}</span>
+			</span>
+		</div>
+	{/if}
+</div>

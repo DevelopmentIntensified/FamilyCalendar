@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+import { lastUsedLabel } from './accountSubscription';
 
 	interface TokenRow {
 		id: string;
@@ -28,10 +29,11 @@
 	let creating = $state(false);
 	let copied = $state(false);
 
-	function fmt(v: string | Date | null): string {
-		if (!v) return 'Never';
-		return new Date(v).toLocaleString();
-	}
+	// 105 rerun: the approved row says "last used 3 days ago" rather than a
+	// timestamp, because the question a row answers is which token is the one
+	// in use. `now` is read once per render so a list of rows cannot disagree
+	// with itself about what day it is.
+	const now = $derived(new Date());
 
 	async function copyToken() {
 		if (!newToken) return;
@@ -45,6 +47,10 @@
 	<p class="mb-4 text-sm text-slate-600">
 		Tokens let a desktop app (e.g. TaskFocus) use the task API as you. They live until revoked —
 		treat them like passwords.
+	</p>
+	<p class="mb-4 text-xs leading-relaxed text-slate-500">
+		Only the hash is stored, so a lost token cannot be recovered — it has to be replaced. There is
+		no scope per token: every token can read and write the whole account.
 	</p>
 
 	{#if newToken}
@@ -104,10 +110,10 @@
 				<li
 					class="flex items-center justify-between gap-4 rounded-lg border border-slate-200 px-4 py-3"
 				>
-					<div>
-						<p class="text-sm font-semibold text-slate-900">{token.name}</p>
+					<div class="min-w-0">
+						<p class="truncate text-sm font-semibold text-slate-900">{token.name}</p>
 						<p class="text-xs text-slate-500">
-							Created {fmt(token.createdAt)} · Last used {fmt(token.lastUsedAt)}
+							{lastUsedLabel(token.lastUsedAt, now) ?? 'last used at an unknown time'}
 						</p>
 					</div>
 					<form

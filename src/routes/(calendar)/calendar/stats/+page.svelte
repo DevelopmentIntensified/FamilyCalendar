@@ -1,56 +1,107 @@
 <script lang="ts">
 	import { DateTime } from 'luxon';
 	import type { PageData } from './$types';
+	import {
+		assignmentBars,
+		assignedVsDone,
+		monthCompletionLabel,
+		recentWeekCells
+	} from './statsPageModel';
 
 	export let data: PageData;
 
 	$: stats = data.stats;
 	$: streak = data.streak;
+	// The hero's squares and the number above them are drawn from one list of
+	// instants, so the grid can never disagree with the streak it illustrates.
+	$: weeks = recentWeekCells(data.completionIso ?? [], data.todayIso);
+	$: monthLabel = monthCompletionLabel(data.todayIso);
+	$: landOn = assignmentBars(stats.topAssignees);
+	$: comeFrom = assignmentBars(stats.topAssigners);
+	// "Assigned to" beside "done by" - the pair the argument card turns on.
+	$: paired = assignedVsDone({
+		assigned: stats.topAssignees,
+		done: data.doneBy ?? [],
+		roster: data.roster ?? []
+	});
+	$: hasChildren = paired.some((p) => p.isChild);
 </script>
 
+<svelte:head>
+	<title>Task Stats - Family Planz</title>
+</svelte:head>
+
 <div class="min-h-screen bg-slate-50 px-4 py-8 pt-20">
-	<div class="mx-auto max-w-4xl">
-		<h1 class="mb-1 text-2xl font-bold text-slate-900">Task Stats</h1>
+	<div class="mx-auto max-w-5xl">
+		<h1 class="mb-1 text-2xl font-bold text-slate-900">Task stats</h1>
 		<p class="mb-6 text-sm text-slate-500">
-			Your wins, your recurring rhythms, and who keeps you busiest.
+			Everything here is a read of the completion history - the one record that survives the
+			recurring-task cursor overwriting itself.
 		</p>
 
-		<!-- 093: the streak hero and the recent list share row one, and the
-		     recent list therefore sits DIRECTLY ABOVE the totals it summarises
-		     instead of trailing the page below them. Grid flow, not a hardcoded
-		     row number, so the adjacency holds at every width. -->
-		<div class="mb-8 grid gap-4 lg:grid-cols-3">
-			<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
-				<p class="text-3xl font-bold text-orange-500">{streak.current}</p>
-				<p class="text-sm text-slate-500">week streak 🔥</p>
-				<p class="mt-1 text-xs text-slate-400">
-					Best: {streak.best} weeks
-					{#if streak.freezeUsedInCurrentGap}
-						· Freeze kept this alive — no biggie.
-					{/if}
+		<!-- 093 rerun: the hero takes columns 2-3 and the recent list takes
+		     column 1, so the list sits DIRECTLY ABOVE "This month" at every
+		     width. Grid flow, not a hardcoded row number. -->
+		<div class="mb-6 grid gap-4 lg:grid-cols-3">
+			<section
+				data-testid="streak-hero"
+				class="rounded-xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-6 shadow-sm lg:col-span-2"
+			>
+				<div class="flex flex-wrap items-start justify-between gap-4">
+					<div>
+						<p
+							class="text-[10px] font-bold uppercase tracking-widest text-slate-400"
+						>
+							Current streak
+						</p>
+						<p class="mt-1 flex items-baseline gap-1.5" data-testid="streak-weeks">
+							<span class="text-5xl font-extrabold tracking-tight text-slate-900"
+								>{streak.current}</span
+							>
+							<span class="text-base font-bold text-slate-700">weeks</span>
+						</p>
+						<p class="mt-1.5 text-xs text-slate-400">
+							Best: {streak.best} weeks{streak.freezeUsedInCurrentGap ? ' · one frozen' : ''}
+						</p>
+					</div>
+					<div class="grid min-w-[13rem] flex-1 grid-cols-7 gap-2">
+						{#each weeks as week (week.key)}
+							<span class="flex flex-col items-center gap-1.5" data-testid="streak-week">
+								<i
+									class="block h-9 w-full rounded-lg {week.hit
+										? 'bg-mint-200'
+										: 'bg-slate-100'} {week.isCurrent
+										? 'ring-2 ring-primary-500 ring-offset-1'
+										: ''}"
+									aria-hidden="true"
+								></i>
+								<b class="text-[9px] font-bold uppercase text-slate-400">{week.label}</b>
+							</span>
+						{/each}
+					</div>
+				</div>
+				<p class="mt-4 text-xs leading-relaxed text-slate-500">
+					Weeks of "at least one task completed". A week is the smallest unit that survives a
+					normal family week, and it is the unit a missed Sunday does not erase.
 				</p>
-			</div>
+			</section>
 
 			<section
-				data-testid="stats-recently-completed"
+				data-testid="recently-completed"
 				class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
 			>
-				<h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-					Recently completed
-				</h2>
+				<h2 class="mb-3 text-sm font-semibold text-slate-900">Recently completed</h2>
 				<ul class="divide-y divide-slate-100">
 					{#each stats.recentlyCompleted as t (t.title + t.completedAt)}
-						<li class="flex items-center justify-between py-2 text-sm">
-							<span class="truncate text-slate-800">
-								{t.title}
-								{#if t.recurring}
-									<span
-										class="ml-1 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700"
-										>recurring</span
-									>
-								{/if}
-							</span>
-							<span class="shrink-0 text-xs text-slate-400">
+						<li class="flex items-center gap-2 py-2 text-sm">
+							<span class="truncate text-slate-800">{t.title}</span>
+							{#if t.recurring}
+								<span
+									class="shrink-0 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700"
+									>↻ repeating</span
+								>
+							{/if}
+							<span class="ml-auto shrink-0 text-xs tabular-nums text-slate-400">
 								{t.completedAt ? DateTime.fromISO(t.completedAt).toFormat('MMM d') : ''}
 							</span>
 						</li>
@@ -60,78 +111,111 @@
 						</li>
 					{/each}
 				</ul>
+				<p class="mt-2.5 text-xs leading-relaxed text-slate-500">
+					The repeating tag is not a flag on the task — it is a recurrence on the same row,
+					shown next to a timestamp that lives in a different table.
+				</p>
 			</section>
 		</div>
 
-		<!-- 093: one row, one height, MEASURED. The totals box sits in the same
-		     row as the two assignment lists, so it stretches to their height by
-		     layout rather than reading as a fraction of its neighbour — which is
-		     what the reviewer meant by "a mistake rather than restraint".
-		     `items-stretch` is the grid default; it is stated here so a future
-		     `items-start` on this container cannot quietly reintroduce the mark.
-		     e2e/calendar/StatsPage.test.ts measures the three rendered heights
-		     and fails if they ever diverge. -->
+		<!-- 093: one row, one height. The monthly box shares a row with the two
+		     bar charts, so it stretches to their height by layout rather than
+		     reading as a fraction of its neighbour. `items-stretch` is the grid
+		     default; it is stated here so a future `items-start` cannot
+		     reintroduce the mark. e2e/calendar/StatsPage.test.ts measures the
+		     three rendered heights and fails if they ever diverge. -->
 		<div
 			data-testid="stats-equal-row"
-			class="mb-8 grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3"
+			class="mb-6 grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3"
 		>
 			<section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-				<h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Totals</h2>
-				<div class="flex flex-wrap gap-x-8 gap-y-4">
+				<h2 class="text-sm font-semibold text-slate-900">This month</h2>
+				{#if monthLabel}
+					<p class="mt-0.5 text-xs text-slate-500">{monthLabel}</p>
+				{/if}
+				<div class="mt-2 flex flex-wrap gap-x-8 gap-y-4">
 					<div>
-						<p class="text-3xl font-bold text-primary-600">{stats.completedOnce}</p>
-						<p class="text-sm text-slate-500">Completed tasks</p>
+						<p
+							class="text-3xl font-extrabold tracking-tight text-slate-900"
+							data-testid="month-completed"
+						>
+							{data.month?.completed ?? 0}
+						</p>
+						<p class="text-sm text-slate-500">completed</p>
 					</div>
 					<div>
-						<p class="text-3xl font-bold text-purple-600">{stats.recurringTasks}</p>
-						<p class="text-sm text-slate-500">Recurring tasks</p>
-					</div>
-					<div>
-						<p class="text-3xl font-bold text-emerald-600">{stats.recurringCompletions}</p>
-						<p class="text-sm text-slate-500">Recurring check-offs</p>
+						<p
+							class="text-3xl font-extrabold tracking-tight text-slate-900"
+							data-testid="month-recurring"
+						>
+							{data.month?.recurring ?? 0}
+						</p>
+						<p class="text-sm text-slate-500">of them recurring</p>
 					</div>
 				</div>
 			</section>
 
-			<section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-				<h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-					Assigned you the most
-				</h2>
-				<ul class="space-y-2">
-					{#each stats.topAssigners as person (person.name)}
-						<li class="flex items-center justify-between text-sm">
-							<span class="truncate text-slate-800">{person.name}</span>
-							<span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-								{person.total} task{person.total === 1 ? '' : 's'}
-							</span>
-						</li>
+			{#snippet bars(title: string, rows: typeof landOn, empty: string, testid: string)}
+				<section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+					<h2 class="mb-3 text-sm font-semibold text-slate-900">{title}</h2>
+					{#if rows.length === 0}
+						<p class="text-sm text-slate-400">{empty}</p>
 					{:else}
-						<li class="text-sm text-slate-400">No assignments yet — be the first to delegate.</li>
-					{/each}
-				</ul>
-			</section>
-
-			<section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-				<h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-					You assign the most
-				</h2>
-				<ul class="space-y-2">
-					{#each stats.topAssignees as person (person.name)}
-						<li class="flex items-center justify-between text-sm">
-							<span class="truncate text-slate-800">{person.name}</span>
-							<span
-								class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700"
-							>
-								{person.total} task{person.total === 1 ? '' : 's'}
-							</span>
-						</li>
-					{:else}
-						<li class="text-sm text-slate-400">
-							You haven't delegated anything yet — share the load.
-						</li>
-					{/each}
-				</ul>
-			</section>
+						{#each rows as row (row.name)}
+							<div class="flex items-center gap-2.5 py-1.5">
+								<span class="w-20 shrink-0 truncate text-sm font-semibold text-slate-700"
+									>{row.name}</span
+								>
+								<span class="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+									<i
+										class="block h-full rounded-full bg-primary-500"
+										style="width:{row.pct}%"
+										data-testid={testid}
+									></i>
+								</span>
+								<span
+									class="w-8 shrink-0 text-right text-xs font-bold tabular-nums text-slate-500"
+									>{row.total}</span
+								>
+							</div>
+						{/each}
+					{/if}
+				</section>
+			{/snippet}
+			{@render bars('Tasks land on', landOn, 'No assignments out yet.', 'bar-fill')}
+			{@render bars('Tasks come from', comeFrom, 'Nobody has assigned you anything yet.', 'bar-fill')}
 		</div>
+
+		<!-- 093 rerun: the card the previous round cut for "never existed in the
+		     app". It is in the approved prototype, so it is here. Every number in
+		     it is read, none of it is an example. -->
+		<section
+			data-testid="children-in-the-numbers"
+			class="rounded-xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-5 shadow-sm"
+		>
+			<h2 class="text-sm font-semibold text-slate-900">The children are in the numbers</h2>
+			<div class="mt-3 grid gap-3 lg:grid-cols-3">
+				<p class="m-0 rounded-lg bg-slate-100 p-2 text-xs text-slate-600" data-testid="assigned-vs-done">
+					{#if paired.length === 0}
+						Nobody is in the numbers yet.
+					{:else}
+						Assigned / done by: {paired
+							.map((p) => `${p.name} ${p.assigned} / ${p.done}`)
+							.join(', ')}
+					{/if}
+				</p>
+				<p class="m-0 text-xs leading-relaxed text-slate-600">
+					A child is a row in the member list, so a task can be assigned to one and counted
+					in these stats. But a completion records who actually did it — and a child account
+					has no way to sign in, so it can never be that person.
+				</p>
+				<p class="m-0 text-xs leading-relaxed text-slate-600" data-testid="children-claim">
+					So a child can be assigned four things and complete none of them, and the chart
+					cannot tell that apart from "she has not got round to it". The stat says
+					<i>assigned to</i>; the page beside it says <i>done by</i>. Only one of them is true
+					about {hasChildren ? 'the children' : 'a member'}.
+				</p>
+			</div>
+		</section>
 	</div>
 </div>

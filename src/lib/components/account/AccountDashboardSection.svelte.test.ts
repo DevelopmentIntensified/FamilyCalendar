@@ -73,8 +73,13 @@ describe('AccountDashboardSection — 105: its own section, its own save', () =>
 		expect(moduleChecked('board')).toBe(true);
 	});
 
-	it('says the setting is personal, and where family admins switch', () => {
+	// 105 rerun: the approved page's subtitle is "personal · overrides the
+	// family setting". It replaced the app's longer sentence, which said the
+	// same thing in a paragraph; the meaning is unchanged.
+	it('says the setting is personal, and that it overrides the family setting', () => {
 		render(AccountDashboardSection, { props: props() });
-		expect(screen.getByText(/family admins can also switch family cards off/i)).toBeTruthy();
+		expect(screen.getByTestId('dashboard-subtitle').textContent).toContain(
+			'personal · overrides the family setting'
+		);
 	});
 });

@@ -43,3 +43,53 @@ export function usageLine(used: number, limit: number | null | undefined): strin
 	if (!limit || limit >= 999) return 'Unlimited';
 	return `${used} of ${limit}`;
 }
+
+/**
+ * The "Renews 12 March 2027" line the approved plan card carries.
+ *
+ * 105 rerun: the date used to live inside `subscriptionPeriodLabel`'s one
+ * sentence ("Started 5 Jan 2026 · renews 12 Mar 2027"), which put the one date
+ * a reader actually wants — when they are next charged — behind a second fact
+ * they did not ask for. This is that date on its own line.
+ *
+ * A lifetime tier (`durationMonths >= 100`) has an endDate like any other row,
+ * so it says it never renews rather than promising a charge that is not
+ * coming. No row, or an unparseable date, yields null: the line is then simply
+ * absent rather than reading "Renews Invalid Date".
+ */
+export function renewalDateLabel(
+	row: SubRow | null | undefined,
+	durationMonths: number | null | undefined = null
+): string | null {
+	if (!row) return null;
+	const fmt = (d: Date) =>
+		d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+	if ((durationMonths ?? 0) >= 100) return 'One payment · never renews';
+	const end = new Date(row.endDate);
+	if (isNaN(end.getTime())) return null;
+	return `Renews ${fmt(end)}`;
+}
+
+/**
+ * "last used 3 days ago" — the approved token row's one-line provenance.
+ *
+ * Relative, because a reader comparing two tokens wants to know which one they
+ * have actually been using, and an absolute timestamp makes them do the
+ * subtraction. Never used is its own state, not "just now".
+ *
+ * The approved row also shows a masked token (`fp_live_••••••••7a2c`). That is
+ * NOT built: `api_tokens` stores only `token_hash`, with no last-four column,
+ * so those four characters do not exist to show. Printing bullets anyway would
+ * be a badge of invented characters. It needs a `token_hint` column.
+ */
+export function lastUsedLabel(value: string | Date | null | undefined, now: Date): string | null {
+	if (!value) return 'never used';
+	const when = new Date(value);
+	if (isNaN(when.getTime())) return null;
+	const days = Math.floor((now.getTime() - when.getTime()) / 86_400_000);
+	if (days <= 0) return 'last used today';
+	if (days === 1) return 'last used yesterday';
+	if (days < 14) return `last used ${days} days ago`;
+	if (days < 60) return `last used ${Math.floor(days / 7)} weeks ago`;
+	return `last used ${Math.floor(days / 30)} months ago`;
+}

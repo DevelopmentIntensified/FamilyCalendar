@@ -59,7 +59,7 @@
 			</div>
 
 			<div class="flex flex-col lg:flex-row">
-				<AccountSidebar {activeSection} />
+				<AccountSidebar {activeSection} user={user} />
 
 				<div class="flex-1 p-6">
 					{#if success && message}
