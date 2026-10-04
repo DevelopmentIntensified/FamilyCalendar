@@ -76,12 +76,16 @@ describe('TaskToolbar', () => {
  * three rows: chips, then a full-width field, then the tag filter — which is
  * what an owner approving the page asked to change.
  *
- * The chip VOCABULARY is the approved one too. Its third bucket was labelled
- * "Assigned to me" while its own predicate was "assigned to somebody else",
- * which is a control that lies; the structure is kept and the label is made
- * true (`Unassigned`). 019's scope chips are capability the prototype cannot
- * show, so they stay — on the same line, after a divider, with `All` renamed
- * so it cannot be read as the time jump bar's `All`.
+ * The chip VOCABULARY is the approved one too: `Open / Mine / … / Done`. The
+ * prototype's own code made its third chip a lie — labelled "Assigned to me"
+ * while filtering `assignedTo !== viewer`, i.e. everybody ELSE's — so the owner's
+ * ruling keeps the approved labels and fixes that one name to `Created by me`. A
+ * previous round instead renamed the bucket `Unassigned`, which was neither the
+ * approved label nor the approved set; `Unassigned` still filters in
+ * `EditTaskDialog` and `FamilyTasksList`, so nothing was lost either way. 019's
+ * scope chips are capability
+ * the prototype cannot show, so they stay — on the same line, after a divider,
+ * with `All` renamed so it cannot be read as the time jump bar's `All`.
  */
 describe('TaskToolbar — the approved filter line (tasks.html)', () => {
 	afterEach(cleanup);
@@ -103,7 +107,7 @@ describe('TaskToolbar — the approved filter line (tasks.html)', () => {
 		expect([...group.querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual([
 			'Open',
 			'Mine',
-			'Unassigned',
+			'Created by me',
 			'Done'
 		]);
 	});

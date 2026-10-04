@@ -419,7 +419,14 @@
 <div class="mx-auto w-full max-w-5xl px-4 py-6">
 	<h1 class="text-2xl font-bold">Groceries</h1>
 
-	<div class="mt-4 grid items-start gap-6 lg:grid-cols-[21rem_minmax(0,1fr)]">
+	<!-- groceries.html, approved, and measured: `.wrapx` is ONE column at 949px
+	     and `336px + 590px` at 990px, i.e. the break is 950px and the rail is
+	     21rem. The app broke at `lg` (1024px), so between those widths a rail
+	     and a list that both fit were stacked. -->
+	<div
+		data-testid="grocery-layout"
+		class="mt-4 grid items-start gap-6 min-[950px]:grid-cols-[21rem_minmax(0,1fr)]"
+	>
 		<!-- ── side rail: scope filter, search, add field, checked rail ── -->
 		<div class="min-w-0 space-y-4">
 			<!-- One list, one filter — the same single-select chip idiom the
@@ -852,6 +859,17 @@
 													     the ring says "the one I file it under". -->
 													{#each item.stores as store, index (store)}
 														{@const tint = colourOf(store)}
+														{#if index === 1}
+															<!-- groceries.html, approved: `<span class="alt">or</span>`
+															     between the shop this row is filed under and its
+															     alternates. Every store is its own coloured chip now,
+															     so without the word a row reads "Aldi, Kroger" and
+															     primary/alternate rides on a 2px ring alone. -->
+															<span
+																data-store-alternate-join
+																class="shrink-0 text-[0.6875rem] text-gray-400">or</span
+															>
+														{/if}
 														<span
 															data-store-chip
 															data-primary={index === 0 ? 'true' : undefined}

@@ -10,20 +10,37 @@
 	];
 
 	/**
-	 * The approved owner axis (`tasks.html`). Which bucket of the queue is on
-	 * screen — the prototype's own four, in its own order.
+	 * The approved owner axis (`tasks.html`), its four chips in its order.
 	 *
-	 * Its third bucket was labelled "Assigned to me" while its predicate was
-	 * "assigned to somebody else". The structure is approved and kept; the label
-	 * is made true, because a control that lies about what it filters is not a
-	 * vocabulary.
+	 * Its third chip was labelled "Assigned to me" while its own predicate was
+	 * "assigned to somebody else" — a control that lies about what it filters.
+	 * A previous round then renamed the bucket `Unassigned`, which is neither
+	 * the approved label nor the approved set, and dropped the one bucket in
+	 * the vocabulary the account actually has rows in.
+	 *
+	 * OWNER'S RULING: keep the approved labels, fix the lie. The prototype's
+	 * filter code (`tasks.html:167`) is the authority for what `Mine` FILTERS —
+	 * `t.assignedTo === 'u_jon'`, assigned to me — so that is what `Mine` does.
+	 * What does not survive is its label for the fourth bucket, which read
+	 * "Assigned to me" while filtering `assignedTo !== 'u_jon'`, i.e. assigned to
+	 * somebody ELSE. Shipping a chip whose name contradicts its own predicate is
+	 * worse than renaming it, and the prototype's other three labels are kept
+	 * verbatim.
+	 *
+	 * - **Mine** — handed to me (`assignedTo` is me). `tasks.html:167`.
+	 * - **Created by me** — I made it (`userId` is me). The honest name for the
+	 *   column that was mislabelled.
+	 *
+	 * Neither label now lies, and with `Open` and `Done` they still cover every
+	 * row. A task I created and assigned to myself appears under both, which is
+	 * true of both and no worse than `Open` overlapping everything.
 	 */
-	export type TaskView = 'open' | 'mine' | 'unassigned' | 'done';
+	export type TaskView = 'open' | 'mine' | 'created' | 'done';
 
 	export const VIEWS: { value: TaskView; label: string }[] = [
 		{ value: 'open', label: 'Open' },
 		{ value: 'mine', label: 'Mine' },
-		{ value: 'unassigned', label: 'Unassigned' },
+		{ value: 'created', label: 'Created by me' },
 		{ value: 'done', label: 'Done' }
 	];
 </script>

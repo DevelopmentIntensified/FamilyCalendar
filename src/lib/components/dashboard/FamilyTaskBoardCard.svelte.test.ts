@@ -119,19 +119,105 @@ describe('FamilyTaskBoardCard - quick-add scoping (issue 021)', () => {
 		expect(screen.getByText(/type these right in the title/i)).toBeInTheDocument();
 	});
 
-	it('names the calm empty state with a tasks deep link', async () => {
+	it('names the calm empty state, and links the card at the board itself', async () => {
 		await renderBoard();
 		expect(screen.getByText('No open family tasks — enjoy the calm 👪.')).toBeInTheDocument();
-		// Header link + the empty-state CTA both point at the task list.
-		const links = screen.getAllByRole('link', { name: /view all tasks/i });
-		expect(links).toHaveLength(2);
-		for (const a of links) expect(a).toHaveAttribute('href', '/calendar/tasks');
+		// dashboard.html, approved: the card's own link is "Board →" and it
+		// points at the FAMILY BOARD, not the personal list. The old link said
+		// "View all tasks" and pointed at /calendar/tasks, which is a different
+		// surface with a different name.
+		const board = screen.getByRole('link', { name: /board/i });
+		expect(board).toHaveAttribute('href', '/family/tasks');
 	});
 
 	it('invites starting a streak when there is none', async () => {
 		await renderBoard();
 		expect(screen.getByText(/Start a streak — check off today's tasks 🔥/)).toBeInTheDocument();
 		expect(screen.queryByText(/no streak yet/i)).not.toBeInTheDocument();
+	});
+});
+
+// dashboard.html, approved, and it says so in the page's own note: "The board
+// ALSO LISTS EVERY MEMBER, EMPTY COLUMN INCLUDED, which the app's does not: it
+// builds its columns from `tasks.map(ownerId)`, so a member with a clear day is
+// in no module at all." That sentence is why the Member Strip was deleted — the
+// board had to be able to answer it. It could not.
+describe('FamilyTaskBoardCard — the complete roster (dashboard.html)', () => {
+	type BoardTask = {
+		id: string;
+		title: string;
+		dueDate: string | null;
+		completedAt: string | null;
+		priority: string;
+		assignedTo: string | null;
+		assignmentStatus: string | null;
+		userId: string;
+	};
+	const openTask = (overrides = {}): BoardTask => ({
+		id: 't1',
+		title: 'Mow the lawn',
+		dueDate: null,
+		completedAt: null,
+		priority: 'normal',
+		assignedTo: null,
+		assignmentStatus: 'none',
+		userId: 'u_dad',
+		...overrides
+	});
+
+	afterEach(cleanup);
+
+	it('gives a member with nothing assigned a column that says so', () => {
+		render(FamilyTaskBoardCard, {
+			props: {
+				tasks: [openTask({ id: 'a', assignedTo: 'u_dad' })],
+				members,
+				meId: 'u_me',
+				familyId: 'fam1'
+			}
+		});
+		expect(screen.getByRole('heading', { name: /Dad Smith · 1/i })).toBeTruthy();
+		// The clear day is a line on the board, not a missing person.
+		expect(screen.getByRole('heading', { name: /Maya Lopez · 0/i })).toBeTruthy();
+		expect(screen.getByText('nothing assigned')).toBeTruthy();
+	});
+
+	it('lists the whole roster even when nothing at all is open', () => {
+		render(FamilyTaskBoardCard, {
+			props: { tasks: [], members, meId: 'u_me', familyId: 'fam1' }
+		});
+		expect(screen.getByRole('heading', { name: /Dad Smith · 0/i })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: /Maya Lopez · 0/i })).toBeTruthy();
+		expect(screen.getAllByText('nothing assigned')).toHaveLength(2);
+	});
+
+	it('keeps a column for somebody who is no longer in the roster', () => {
+		// Their tasks are still open. Dropping the column would hide live work.
+		render(FamilyTaskBoardCard, {
+			props: {
+				tasks: [openTask({ id: 'a', title: 'Orphaned chore', assignedTo: 'u_gone' })],
+				members,
+				meId: 'u_me',
+				familyId: 'fam1'
+			}
+		});
+		expect(screen.getByText('Orphaned chore')).toBeTruthy();
+		expect(screen.getAllByText('nothing assigned')).toHaveLength(2);
+	});
+
+	it('reads in the same order as the shared grouping: by name', () => {
+		render(FamilyTaskBoardCard, {
+			props: {
+				tasks: [openTask({ id: 'a', assignedTo: 'u_dad' })],
+				members,
+				meId: 'u_me',
+				familyId: 'fam1'
+			}
+		});
+		const headings = screen
+			.getAllByRole('heading', { level: 3 })
+			.map((h) => h.textContent?.replace(/\s+/g, ' ').replace(/^[A-Z]\s+/, '').trim());
+		expect(headings).toEqual(['Dad Smith · 1', 'Maya Lopez · 0']);
 	});
 });
 
@@ -191,12 +277,6 @@ describe('FamilyTaskBoardCard - grouped by assignee', () => {
 		expect(screen.getByText('Nobody claimed this')).toBeTruthy();
 	});
 
-	it('gives a family member with nothing assigned no heading', () => {
-		renderWith([openTask({ id: 'a', assignedTo: 'u_dad' })]);
-		expect(screen.getByRole('heading', { name: /Dad Smith · 1/i })).toBeTruthy();
-		expect(screen.queryByRole('heading', { name: /Maya Lopez/ })).toBeNull();
-	});
-
 	it('puts the most overdue Task at the top of a column', () => {
 		vi.useFakeTimers();
 		try {
@@ -206,7 +286,8 @@ describe('FamilyTaskBoardCard - grouped by assignee', () => {
 				openTask({ id: 'b', title: 'Overdue', dueDate: '2026-09-25T09:00:00.000Z' }),
 				openTask({ id: 'c', title: 'Undated' })
 			]);
-			const order = [...document.querySelectorAll('section p')].map((p) => p.textContent?.trim());
+			const column = screen.getByRole('heading', { name: /Dad Smith/ }).parentElement!;
+			const order = [...column.querySelectorAll('p')].map((p) => p.textContent?.trim());
 			expect(order).toEqual(['Overdue', 'Later', 'Undated']);
 		} finally {
 			vi.useRealTimers();

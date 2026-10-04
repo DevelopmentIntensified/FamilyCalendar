@@ -105,6 +105,32 @@
 	// tasks page: one name, one shape, one rule.
 	$: groups = groupTasksByAssignee(tasks, memberName, meId);
 
+	/**
+	 * THE COMPLETE ROSTER, empty columns included — `dashboard.html`, approved:
+	 * "The board also lists every member, empty column included, which the
+	 * app's does not: it builds its columns from `tasks.map(ownerId)`, so a
+	 * member with a clear day is in no module at all."
+	 *
+	 * That sentence is the whole reason the Member Strip was deleted in 103:
+	 * the board was supposed to answer "who has what", and a member with a
+	 * clear day had vanished from it. So the roster is the union of the people
+	 * the rows name and the people the family has, in `groupTasksByAssignee`'s
+	 * own order — viewer first, then by name — with the module's sorting reused
+	 * rather than restated, so the two surfaces cannot drift apart.
+	 */
+	$: roster = (() => {
+		const byId = new Map(groups.map((g) => [g.ownerId, g]));
+		const ids = new Set<string>([...byId.keys(), ...members.map((m) => m.userId)]);
+		return [...ids]
+			.map((ownerId) => byId.get(ownerId) ?? { ownerId, name: memberName(ownerId), tasks: [] })
+			.sort((a, b) => {
+				if (a.ownerId === meId) return -1;
+				if (b.ownerId === meId) return 1;
+				return a.name.localeCompare(b.name) || a.ownerId.localeCompare(b.ownerId);
+			});
+	})();
+	$: openTotal = tasks.length;
+
 	async function toggleTask(task: (typeof tasks)[number]) {
 		if (busy) return;
 		busy = task.id;
@@ -148,10 +174,10 @@
 				: "Start a streak — check off today's tasks 🔥"}
 		</span>
 		<a
-			href="/calendar/tasks"
+			href="/family/tasks"
 			class="shrink-0 text-xs font-semibold text-primary-600 hover:text-primary-700 hover:underline"
 		>
-			View all tasks
+			Board →
 		</a>
 	</div>
 
@@ -185,35 +211,32 @@
 		{/if}
 	</form>
 
-	{#if groups.length === 0}
-		<div
-			class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400"
-		>
-			<p>No open family tasks — enjoy the calm 👪.</p>
-			<a
-				href="/calendar/tasks"
-				class="mt-1 inline-block text-xs font-semibold text-primary-600 hover:text-primary-700 hover:underline"
-			>
-				View all tasks →
-			</a>
-		</div>
-	{:else}
-		<div class="space-y-2.5">
-			{#each groups as group (group.ownerId)}
-				<section>
-					<h3
-						class="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+	{#if openTotal === 0}
+		<p class="mb-2 text-xs text-slate-400">No open family tasks — enjoy the calm 👪.</p>
+	{/if}
+	<div class="space-y-2.5">
+		{#each roster as group (group.ownerId)}
+			<section>
+				<h3
+					class="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+				>
+					<span
+						class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold {avatarColor(
+							group.ownerId
+						)}"
 					>
-						<span
-							class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold {avatarColor(
-								group.ownerId
-							)}"
-						>
-							{initial(group.ownerId)}
-						</span>
-						{group.name}
-						<span class="font-normal normal-case text-slate-300">· {group.tasks.length}</span>
-					</h3>
+						{initial(group.ownerId)}
+					</span>
+					{group.name}
+					<span class="font-normal normal-case text-slate-300">· {group.tasks.length}</span>
+				</h3>
+				{#if group.tasks.length === 0}
+					<!-- dashboard.html, approved: the empty column says so, in the
+					     prototype's own words. A member with a clear day used to be
+					     in no column at all, which is what a "who has what" board
+					     must never do. -->
+					<p class="truncate pl-7 text-xs text-slate-400">nothing assigned</p>
+				{:else}
 					<div class="space-y-1.5">
 						{#each group.tasks as task (task.id)}
 							<div
@@ -246,8 +269,8 @@
 							</div>
 						{/each}
 					</div>
-				</section>
-			{/each}
-		</div>
-	{/if}
+				{/if}
+			</section>
+		{/each}
+	</div>
 </div>

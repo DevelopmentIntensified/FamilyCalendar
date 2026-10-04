@@ -110,24 +110,32 @@
 	 * own order — and it is a view of the list, not a URL, exactly like the time
 	 * jump bar below it.
 	 *
-	 * Two reconciliations, both recorded because both are departures from a
-	 * literal reading of the prototype:
+	 * OWNER'S RULING — keep the approved labels, fix the lie. The prototype's
+	 * third chip paired the label "Assigned to me" with the predicate
+	 * `assignedTo !== viewer` (everybody ELSE's). Its own filter code is the
+	 * authority for the other chip: `tasks.html:167` has `mine` filtering
+	 * `assignedTo === viewer`. So `Mine` filters handed-to-me exactly as the
+	 * prototype's code does, and the mislabelled fourth column becomes `Created
+	 * me` — the honest name for `userId` is me.
 	 *
-	 * 1. **The prototype's third chip lied.** It was labelled "Assigned to me"
-	 *    while its own predicate was `assignedTo !== viewer` — everybody else's.
-	 *    A chip that misnames what it filters is not a vocabulary, so the
-	 *    structure is kept and the bucket is named for what it is: the tasks
-	 *    nobody owns.
-	 * 2. **`Open` is the unfiltered default, not "hide the finished ones".**
-	 *    `b-tasks-flat.html` is approved too, and it decided that finished work
-	 *    SORTS LAST in one run rather than disappearing — the list is flat, but
-	 *    finished work is not work. Narrowing the default to open rows would
-	 *    have quietly undone that, so `Open` narrows nothing and `Done` is the
-	 *    bucket that shows finished work alone.
+	 * A previous round answered the same contradiction by renaming the bucket
+	 * `Unassigned`, which discarded the approved label and left the account with
+	 * no chip for the rows it actually has. `Unassigned` still filters in
+	 * `EditTaskDialog` and `FamilyTasksList`; nothing was lost.
+	 *
+	 * `Open` stays the unfiltered default, not "hide the finished ones".
+	 * `b-tasks-flat.html` is approved too, and it decided that finished work
+	 * SORTS LAST in one run rather than disappearing — the list is flat, but
+	 * finished work is not work. Narrowing the default to open rows would have
+	 * quietly undone that, so `Open` narrows nothing and `Done` is the bucket
+	 * that shows finished work alone.
 	 */
 	function inOwnerView(task: TaskRowTask): boolean {
-		if (view === 'mine') return !!task.assignedTo && task.assignedTo === currentUserId;
-		if (view === 'unassigned') return !task.assignedTo;
+		// Owner's ruling: `Mine` filters what the prototype's own code filters
+		// (`tasks.html:167` — `assignedTo` is me). `Created by me` is the column
+		// the prototype mislabelled, so it filters `userId` is me.
+		if (view === 'mine') return task.assignedTo === currentUserId;
+		if (view === 'created') return task.userId === currentUserId;
 		return true;
 	}
 	let viewActive = $derived(view !== 'open');

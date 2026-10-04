@@ -182,13 +182,21 @@ describe('TasksMainList — the approved owner axis (tasks.html)', () => {
 		props({
 			openCount: 3,
 			completedCount: 1,
+			// u1 is the viewer. `a` is hers; `b` and `d` were handed TO her by
+			// somebody else, which is the other approved bucket.
 			filteredOpen: [
-				task({ id: 'a', title: 'Mine: bins', assignedTo: 'u1' }),
-				task({ id: 'b', title: 'Theirs: roof', assignedTo: 'u2' }),
+				task({ id: 'a', title: 'Mine: bins', assignedTo: null, userId: 'u1' }),
+				task({ id: 'b', title: 'Theirs: roof', assignedTo: 'u1', userId: 'u2' }),
 				task({ id: 'c', title: 'Nobody: hose', assignedTo: null })
 			],
 			filteredCompleted: [
-				task({ id: 'd', title: 'Finished thing', assignedTo: 'u1', completedAt: '2026-09-01' })
+				task({
+					id: 'd',
+					title: 'Finished thing',
+					assignedTo: 'u1',
+					userId: 'u2',
+					completedAt: '2026-09-01'
+				})
 			]
 		});
 
@@ -202,19 +210,55 @@ describe('TasksMainList — the approved owner axis (tasks.html)', () => {
 		expect(screen.getByRole('button', { name: 'Open' })).toHaveAttribute('aria-pressed', 'true');
 	});
 
-	it('Mine is the tasks assigned to me, and says so', async () => {
+	it('Mine is the tasks handed to me, exactly as the prototype filters them', async () => {
+		// tasks.html:167 — `if (chip === 'mine') return !t.completedAt && t.assignedTo === 'u_jon'`.
+		// So `Mine` is assigned-to-me, not created-by-me. The roof and the finished
+		// thing were both handed to her; `a` and `c` are hers by authorship but
+		// nobody's job yet, so they belong to `Created by me`.
 		render(TasksMainList, { props: queue() });
 		await fireEvent.click(screen.getByRole('button', { name: 'Mine' }));
-		expect(renderedTitles()).toEqual(['Mine: bins', 'Finished thing']);
+		expect(renderedTitles()).toEqual(['Theirs: roof', 'Finished thing']);
 	});
 
-	it('the chip the prototype called "Assigned to me" is really the unowned tasks', async () => {
-		// The prototype's predicate for that chip was `assignedTo !== viewer` —
-		// everybody ELSE's, under a label claiming it was mine. The bucket is
-		// kept and named for what it is.
+	it('Created by me is the authorship column, under the name it actually has', async () => {
+		// The prototype labelled this column "Assigned to me" while filtering
+		// `assignedTo !== viewer` — everybody ELSE's. Renamed rather than
+		// shipped as a control that lies about what it does.
 		render(TasksMainList, { props: queue() });
-		await fireEvent.click(screen.getByRole('button', { name: 'Unassigned' }));
-		expect(renderedTitles()).toEqual(['Nobody: hose']);
+		await fireEvent.click(screen.getByRole('button', { name: 'Created by me' }));
+		expect(renderedTitles()).toEqual(['Mine: bins', 'Nobody: hose']);
+	});
+
+	it('the approved vocabulary, each chip true of what it names', async () => {
+		// tasks.html, approved, prints Open / Mine / Assigned to me / Done. Its
+		// own code made the third a lie — labelled "Assigned to me", filtering
+		// `assignedTo !== viewer` — so the owner's ruling keeps the labels and
+		// fixes that one name to `Created by me`. The other three are verbatim.
+		const p = queue();
+		render(TasksMainList, { props: p });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Mine' }));
+		expect(renderedTitles()).toEqual(['Theirs: roof', 'Finished thing']);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Created by me' }));
+		expect(renderedTitles()).toEqual(['Mine: bins', 'Nobody: hose']);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+		expect(renderedTitles()).toEqual(['Finished thing']);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+		expect(renderedTitles()).toEqual([
+			'Mine: bins',
+			'Nobody: hose',
+			'Theirs: roof',
+			'Finished thing'
+		]);
+	});
+
+	it('the unowned bucket is still reachable — through Open, where it belongs', async () => {
+		render(TasksMainList, { props: queue() });
+		await fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+		expect(renderedTitles()).toContain('Nobody: hose');
 	});
 
 	it('Done shows the finished rows alone', async () => {
@@ -228,16 +272,20 @@ describe('TasksMainList — the approved owner axis (tasks.html)', () => {
 		expect(screen.getByTestId('task-filter-count')).toHaveTextContent('4 tasks');
 		await fireEvent.click(screen.getByRole('button', { name: 'Mine' }));
 		expect(screen.getByTestId('task-filter-count')).toHaveTextContent('2 tasks');
+		await fireEvent.click(screen.getByRole('button', { name: 'Created by me' }));
+		expect(screen.getByTestId('task-filter-count')).toHaveTextContent('2 tasks');
 	});
 
 	it('never claims an account has no tasks while a filter is switched on', async () => {
 		render(TasksMainList, {
 			props: props({
-				filteredOpen: [task({ id: 'a', title: 'Theirs: roof', assignedTo: 'u2' })],
+				filteredOpen: [task({ id: 'a', title: 'Theirs: roof', assignedTo: 'u1', userId: 'u2' })],
 				filteredCompleted: []
 			})
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Mine' }));
+		// The one row is handed to her but authored by somebody else, so `Mine`
+		// matches it and `Created by me` matches nothing. Filter to nothing.
+		await fireEvent.click(screen.getByRole('button', { name: 'Created by me' }));
 		// "No matching tasks", not "No tasks yet" — the account has plenty.
 		expect(screen.getByText('No matching tasks')).toBeTruthy();
 		expect(screen.queryByText('No tasks yet')).toBeNull();

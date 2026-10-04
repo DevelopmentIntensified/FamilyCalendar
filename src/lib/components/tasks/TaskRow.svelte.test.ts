@@ -144,6 +144,109 @@ describe('TaskRow', () => {
 		expect(p.onAdvance).toHaveBeenCalledOnce();
 	});
 
+	// tasks.html / b-tasks-flat.html, approved: "ONE baseline, ONE separator,
+	// ONE height. The old meta line wrapped to two and three lines depending on
+	// the title, which is what made the rows look ununiform. It never wraps
+	// now: the row truncates, the title does." (#101 shipped the flat LIST; the
+	// row it ships in the prototype was never built, so every fact had drifted
+	// onto its own line and the rows varied in height with their content.)
+	describe('the one meta line (tasks.html, b-tasks-flat.html)', () => {
+		const crowded = {
+			...baseTask,
+			title: 'A title long enough that the row would otherwise wrap its meta line',
+			dueDate: new Date(2026, 8, 28, 9, 0, 0).toISOString(),
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 2,
+			completionCount: 12,
+			priority: 'high',
+			familyId: 'f-rivera',
+			notes: 'a note that would have been its own line',
+			tags: ['groceries', 'errands', 'home', 'health']
+		};
+
+		it('carries every fact in ONE nowrap element of ONE height', () => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date(2026, 8, 30, 10, 0, 0));
+			try {
+				render(TaskRow, { props: props({ task: crowded }) });
+				const metas = screen.getAllByTestId('task-meta');
+				expect(metas).toHaveLength(1);
+				const meta = metas[0];
+				// One baseline that never wraps: the LINE truncates, not the row.
+				expect(meta.className).toContain('flex-nowrap');
+				expect(meta.className).toContain('overflow-hidden');
+				expect(meta.className).toContain('whitespace-nowrap');
+				// ONE height, so a row with four tags is the same height as a
+				// bare one.
+				expect(meta.className).toContain('h-5');
+				// And nothing else is a line of its own: title + meta, only.
+				const body = meta.parentElement!;
+				expect(body.children).toHaveLength(2);
+				expect(body.children[0].tagName).toBe('BUTTON');
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it('a bare row is the same shape as a crowded one', () => {
+			render(TaskRow, { props: props() });
+			expect(screen.getAllByTestId('task-meta')).toHaveLength(1);
+			expect(screen.getByTestId('task-meta').parentElement!.children).toHaveLength(2);
+		});
+
+		it('separates the slots with the prototype’s middot, not a stray bullet', () => {
+			render(TaskRow, {
+				props: props({
+					task: { ...baseTask, dueDate: '2026-10-30', priority: 'high', tags: ['home'] }
+				})
+			});
+			const meta = screen.getByTestId('task-meta');
+			expect(meta.querySelectorAll('[data-slot="sep"]').length).toBeGreaterThan(0);
+			for (const sep of Array.from(meta.querySelectorAll('[data-slot="sep"]'))) {
+				expect(sep.textContent).toBe('·');
+			}
+		});
+
+		it('says “unassigned” rather than printing nothing for an unowned row', () => {
+			// The prototype's last slot: an avatar when there is a person, the
+			// WORD “unassigned” when there is not. The app printed neither, so a
+			// gap in the queue looked like a row that had been forgotten.
+			render(TaskRow, { props: props() });
+			expect(screen.getByText('unassigned')).toBeTruthy();
+		});
+
+		it('keeps the assignee chip and does NOT print “unassigned”', () => {
+			render(TaskRow, {
+				props: props({
+					task: { ...baseTask, assignedTo: 'u2', assignmentStatus: 'accepted' },
+					assigneeName: 'Sarah Rivera'
+				})
+			});
+			expect(screen.queryByText('unassigned')).toBeNull();
+			expect(screen.getByTitle('Assigned to Sarah Rivera')).toBeTruthy();
+		});
+
+		it('prints recurrence and its count as ONE slot, not two lines', () => {
+			render(TaskRow, {
+				props: props({
+					task: {
+						...baseTask,
+						recurrenceFrequency: 'weekly',
+						recurrenceInterval: 1,
+						completionCount: 12,
+						notes: 'a note'
+					}
+				})
+			});
+			const meta = screen.getByTestId('task-meta');
+			expect(meta.textContent).toContain('every week');
+			expect(meta.textContent).toContain('done 12×');
+			// The note is not on the row at all when a recurrence says it, so it
+			// cannot become a second line.
+			expect(screen.queryByText('a note')).toBeNull();
+		});
+	});
+
 	it('disables actions while busy', () => {
 		const p = props({ busy: true });
 		render(TaskRow, { props: p });

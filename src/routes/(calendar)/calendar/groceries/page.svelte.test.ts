@@ -829,3 +829,39 @@ describe('groceries page — every store on a row is a chip in its own colour', 
 		}
 	});
 });
+
+// groceries.html, approved: two things the app did not carry, both measured in
+// Chromium against the prototype (see the report) rather than eyeballed.
+describe('groceries.html — the layout and the `or` between primary and alternate', () => {
+	it('goes two-column at 950px, the width the prototype does', () => {
+		// MEASURED on prototypes/app-ui/groceries.html in Chromium: `.wrapx` is
+		// ONE 901px column at 949px and `336px 590px` at 990px. The app broke at
+		// `lg` (1024px), so a 950–1023px window — a 1024-wide tablet in portrait,
+		// or any laptop at 80% zoom — stacked a rail and a list that both fit.
+		render(GroceriesPage, makeData());
+		const wrap = screen.getByTestId('grocery-layout');
+		expect(wrap.className).toContain('min-[950px]:grid-cols-[21rem_minmax(0,1fr)]');
+		expect(wrap.className).not.toContain('lg:grid-cols-');
+	});
+
+	it('separates the shop a row is filed under from its alternates with the word “or”', () => {
+		// The prototype: `<span class="alt">or</span>` between the primary chip
+		// and the alternates. Every store is now its own coloured chip, so
+		// without the word a row reads "Aldi, Kroger" and the primary/alternate
+		// distinction is carried by a 2px ring alone.
+		render(GroceriesPage, makeData());
+		const ors = document.querySelectorAll('[data-store-alternate-join]');
+		expect(ors.length).toBeGreaterThan(0);
+		for (const o of ors) expect(o.textContent?.trim()).toBe('or');
+	});
+
+	it('prints no `or` on a row with only one shop', () => {
+		// The base fixture: `Lemons` and `Coffee beans` have two shops each,
+		// `Sourdough` and `Eggs` have one.
+		render(GroceriesPage, makeData());
+		expect(document.querySelectorAll('[data-store-alternate-join]')).toHaveLength(2);
+		const one = screen.getByText('Sourdough').closest('li')!;
+		expect(one.querySelectorAll('[data-store-chip]')).toHaveLength(1);
+		expect(one.querySelectorAll('[data-store-alternate-join]')).toHaveLength(0);
+	});
+});
