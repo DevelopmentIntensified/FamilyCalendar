@@ -54,6 +54,12 @@ export interface AssigneeRef {
 	isViewer: boolean;
 }
 
+/** A family member the page already loaded, in the shape it loads them. */
+export interface AssigneeMember {
+	userId: string;
+	firstName: string;
+}
+
 /** The slice of the Web Storage API this module needs. Null means unavailable
  *  (SSR, private browsing) and degrades to "nobody hidden". */
 export interface KeyValueStorage {
@@ -143,19 +149,32 @@ export function assigneeCounts(
 }
 
 /**
- * The filter's rows: everyone who has something, viewer first then by name.
+ * The filter's rows: the family roster PLUS everyone who has something, viewer
+ * first then by name.
  *
  * Built from the UNFILTERED rows, so a person does not vanish from the filter
  * because a search query or a hidden calendar took their plans away — a filter
  * whose own options disappear is not a filter. Their count reads 0 instead.
+ *
+ * `members` is the family roster the page already loaded. Passing it is what
+ * makes the filter complete rather than derived: a member with nothing in this
+ * window is still a row with a real first name and a count of 0, and a member
+ * whose only rows are personal-calendar events stops being "A member" —
+ * `attachCreatorNames` runs on FAMILY events only, so the loaded rows cannot
+ * name them. Someone with plans who is NO LONGER on the roster is still added,
+ * because their tasks are still on the calendar and still need a way back on.
+ *
+ * Omit it (or pass nothing) and the roster is derived from the rows alone,
+ * exactly as it was: same ids, same order, same names.
  */
 export function assigneeRoster(
 	events: readonly AssigneeEventLike[],
 	tasks: readonly AssigneeTaskLike[],
-	viewerId?: string | null
+	viewerId?: string | null,
+	members: readonly AssigneeMember[] = []
 ): AssigneeRef[] {
 	// The loader attaches an assignee's name to any task and a creator's first
-	// name to FAMILY events only, so the task is the richer source.
+	// name to FAMILY events only, so the roster is the best source of all.
 	const names = new Map<string, string>();
 	for (const event of events) {
 		const person = eventOwner(event);
@@ -167,8 +186,23 @@ export function assigneeRoster(
 		const name = clean(task.assigneeFirstName);
 		if (person && name) names.set(person, name);
 	}
+	for (const member of members) {
+		const person = clean(member.userId);
+		const name = clean(member.firstName);
+		if (person && name) names.set(person, name);
+	}
 
-	const ids = new Set<string>([...events.map(eventOwner), ...tasks.map(taskAssignee)].filter(isPresent));
+	const ids = new Set<string>();
+	for (const member of members) {
+		// A member with no usable id cannot be filtered by, so a row for one
+		// would be a control that does nothing.
+		const person = clean(member.userId);
+		if (person) ids.add(person);
+	}
+	for (const person of [...events.map(eventOwner), ...tasks.map(taskAssignee)]) {
+		if (person) ids.add(person);
+	}
+
 	const isViewer = (id: string) => clean(viewerId) === id;
 
 	return [...ids]
@@ -187,11 +221,6 @@ export function assigneeRoster(
  *  know are skipped — a member who left should not haunt the copy. */
 export function hiddenAssigneeNames(roster: readonly AssigneeRef[], hidden: readonly string[]): string[] {
 	return roster.filter((person) => hidden.includes(person.id)).map((person) => person.name);
-}
-
-/** Narrow an id list to the present ones, so the roster holds `string`s. */
-function isPresent(id: string | null): id is string {
-	return id !== null;
 }
 
 // ---- storage, per user per device: a reading preference, not account data ----

@@ -497,7 +497,41 @@ describe('Calendar — the person filter (#127, mark 1.11)', () => {
 		expect(rows[0]).toHaveAccessibleName(/^You,/);
 	});
 
-	it('drops that person\'s events AND their due tasks from the grid', async () => {
+	it('lists a family member with nothing in this window, and says 0', async () => {
+		// The roster is what makes the filter complete rather than derived: a
+		// member with a clear month is a row that says 0, not a gap — and 0 is
+		// the truth, so nothing is claimed that is not there.
+		setupPeople({
+			familyMembers: [
+				{ userId: 'u-sarah', firstName: 'Sarah' },
+				{ userId: 'u-mia', firstName: 'Mia' },
+				{ userId: 'u-eli', firstName: 'Eli' }
+			]
+		});
+		await openSheet();
+		expect(screen.getByRole('button', { name: /^Eli,/ })).toHaveTextContent('0');
+		// …and named from the roster, because a personal-calendar-only member
+		// carries no creatorName and would otherwise read "A member".
+		expect(screen.getByRole('button', { name: /^Eli,/ })).toHaveAccessibleName(/^Eli, 0 items$/);
+	});
+
+	it('lists a family member with nothing at all on the calendar', async () => {
+		// An empty month with a family behind it: the filter still has rows, and
+		// the section never renders as though there were nobody to filter by.
+		setupPeople({
+			events: [],
+			dueTasks: [],
+			familyMembers: [
+				{ userId: 'u-sarah', firstName: 'Sarah' },
+				{ userId: 'u-mia', firstName: 'Mia' }
+			]
+		});
+		await openSheet();
+		expect(screen.queryByTestId('assignee-nobody')).toBeNull();
+		expect(screen.getByRole('button', { name: /^Mia,/ })).toHaveTextContent('0');
+	});
+
+	it('drops the hidden family\'s events AND their due tasks from the grid', async () => {
 		setupPeople();
 		await hidePerson(/^Mia,/);
 		expect(screen.queryByText('Soccer')).toBeNull();

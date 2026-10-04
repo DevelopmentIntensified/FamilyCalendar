@@ -52,6 +52,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 			...m.family,
 			memberCount: m.memberCount,
 			openTasks: openTasksByFamily.get(m.family.id) ?? 0,
+			// The approved card's roster strip — first names, so the card can show
+			// WHO is in this family and not only how many (issue 124).
+			members: (m.firstNames ?? []).map((firstName) => ({ firstName })),
+			createdLabel: m.family.createdAt.toLocaleDateString(),
 			// Whether THIS page offers "Invite by link" for the family (issue 091).
 			canInvite: m.role !== null && INVITE_MANAGER_ROLES.has(m.role)
 		})),

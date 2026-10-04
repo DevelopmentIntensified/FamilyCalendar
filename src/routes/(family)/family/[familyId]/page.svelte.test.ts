@@ -36,6 +36,19 @@ const baseMembers = [
 	}
 ];
 
+/** The plan band with no tier behind it — what a user on the default plan sees. */
+const PLAN_USAGE_NO_TIER = {
+	tierName: null,
+	aiUsed: 0,
+	aiLimit: 10,
+	familiesUsed: 1,
+	familyLimit: 1,
+	members: 2,
+	memberLimit: 6,
+	archivedRetentionDays: 90,
+	exportImportEnabled: false
+} satisfies NonNullable<PageData['planUsage']>;
+
 type ManagePageProps = { data: PageData; form: null };
 
 function makeData(overrides: Partial<PageData> = {}): ManagePageProps {
@@ -46,13 +59,85 @@ function makeData(overrides: Partial<PageData> = {}): ManagePageProps {
 		currentUserId: 'u1',
 		activity: [],
 		moduleSwitches: {},
+		activeInvite: null,
+		inviteCreatedBy: null,
+		planUsage: {
+			tierName: 'Family Master',
+			aiUsed: 4,
+			aiLimit: 10,
+			familiesUsed: 2,
+			familyLimit: 5,
+			members: 2,
+			memberLimit: 6,
+			archivedRetentionDays: 90,
+			exportImportEnabled: true
+		},
 		...overrides
 	};
 	// SAFETY: fixture mirrors the full +page.server.ts load shape (family, members,
-	// currentUserRole, currentUserId, activity, moduleSwitches); literal values match
-	// the member/activity row shapes the server returns.
+	// currentUserRole, currentUserId, activity, moduleSwitches, activeInvite,
+	// inviteCreatedBy, planUsage); literal values match the shapes the server returns.
 	return { data: base as PageData, form: null };
 }
+
+describe('family page — the approved side bands (issue 124)', () => {
+	it('shows the live invitation with its code, uses, expiry and who minted it', () => {
+		render(
+			FamilyManagePage,
+			makeData({
+				activeInvite: {
+					code: 'LIVE123',
+					useCount: 2,
+					maxUses: 10,
+					expiresAt: new Date('2026-10-10T00:00:00Z')
+				},
+				inviteCreatedBy: 'Maya'
+			})
+		);
+		const band = screen.getByRole('region', { name: /active invitation/i });
+		expect(within(band).getByText('LIVE123')).toBeTruthy();
+		expect(within(band).getByText(/2 of 10/)).toBeTruthy();
+		expect(within(band).getByText(/Maya/)).toBeTruthy();
+	});
+
+	it('says there is no live invitation rather than leaving the band blank', () => {
+		render(FamilyManagePage, makeData({ activeInvite: null }));
+		const band = screen.getByRole('region', { name: /active invitation/i });
+		expect(within(band).getByText(/no active invitation/i)).toBeTruthy();
+	});
+
+	it('shows the plan usage band with the tier name and every figure', () => {
+		render(FamilyManagePage, makeData());
+		const band = screen.getByRole('region', { name: /plan usage/i });
+		expect(within(band).getByText('Family Master')).toBeTruthy();
+		expect(within(band).getByText('4/10')).toBeTruthy();
+		expect(within(band).getByText('2 of 5')).toBeTruthy();
+		expect(within(band).getByText('2 of 6')).toBeTruthy();
+		expect(within(band).getByText(/90 days/)).toBeTruthy();
+	});
+
+	it('says "no plan" rather than naming a tier the user does not have', () => {
+		render(FamilyManagePage, makeData({ planUsage: PLAN_USAGE_NO_TIER }));
+		const band = screen.getByRole('region', { name: /plan usage/i });
+		expect(within(band).getByText(/no plan/i)).toBeTruthy();
+		expect(within(band).getByText(/not on this plan/i)).toBeTruthy();
+	});
+
+	it('explains the child constraint, because a child is a real user row', () => {
+		render(FamilyManagePage, makeData());
+		const band = screen.getByRole('region', { name: /children are users/i });
+		expect(within(band).getByText(/unique email/i)).toBeTruthy();
+		expect(within(band).getByRole('link', { name: /see the form/i })).toBeTruthy();
+	});
+
+	it('offers the shared-data links the prototype groups together', () => {
+		render(FamilyManagePage, makeData());
+		const band = screen.getByRole('region', { name: /shared data/i });
+		for (const name of [/family tasks/i, /grocery/i, /family calendar/i, /invitations/i]) {
+			expect(within(band).getByRole('link', { name })).toBeTruthy();
+		}
+	});
+});
 
 describe('family manage page — card stack', () => {
 	it('renders the hero with family name, member count and viewer role pill', () => {

@@ -39,6 +39,11 @@
 	/** #069: the filter is stored per user on THIS device, so the key needs
 	 *  the user id. It is a reading preference, not account data. */
 	export let filterUserId: string | null = null;
+	/** #127: the family roster the page already loaded, so the person filter can
+	 *  list a member with nothing in this window (count 0) and can name one
+	 *  whose only rows are personal-calendar events. Absent = derive the roster
+	 *  from the rows alone, which is what the filter did before. */
+	export let familyMembers: { userId: string; firstName: string }[] = [];
 	export let defaultViewSetting: string = 'monthView';
 	export let initialView: string | undefined = undefined;
 	export let dueTasks: {
@@ -213,10 +218,10 @@
 	}
 
 	// ---- #127: the person filter, owned here like the calendar one ----
-	// The roster comes from the UNFILTERED rows so a person does not vanish
-	// from the filter because another filter took their plans away; the counts
-	// come from the filtered rows, so a 0 is the reason the grid is empty.
-	$: assignees = assigneeRoster(events, dueTasks, filterUserId);
+	// The roster is the loaded family roster PLUS everyone with something here,
+	// so a member with a clear month is a row that says 0 rather than a gap. The
+	// counts come from the filtered rows, so a 0 is the reason the grid is empty.
+	$: assignees = assigneeRoster(events, dueTasks, filterUserId, familyMembers);
 	$: assigneeTally = assigneeCounts(visibleEvents, visibleTasks);
 	$: assigneeRows = assignees.map((person) => ({
 		...person,

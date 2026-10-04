@@ -28,9 +28,18 @@ export function splitAttendance(rows: AttendanceRow[]): AttendanceSplit {
 	return split;
 }
 
+/** A named guest, kept whole so its status survives to the attendance list. */
+export interface GuestAttendance {
+	name: string;
+	status: string;
+	inviteType?: string | null;
+}
+
 export interface AttendanceLoad {
 	attendees: AttendanceRow[] | null;
 	nonUserAttendants: string[] | null;
+	/** Guests with their own status — the attendance region draws one row each. */
+	guestRows: GuestAttendance[] | null;
 	userRsvpStatus: string | null;
 }
 
@@ -47,15 +56,30 @@ export async function fetchAttendance(
 	serverId: string,
 	fetchFn: FetchLike = fetch
 ): Promise<AttendanceLoad> {
-	const empty: AttendanceLoad = { attendees: null, nonUserAttendants: null, userRsvpStatus: null };
+	const empty: AttendanceLoad = {
+		attendees: null,
+		nonUserAttendants: null,
+		guestRows: null,
+		userRsvpStatus: null
+	};
 	try {
 		const res = await fetchFn(`/api/events/${serverId}/rsvp`);
 		if (!res.ok) return empty;
 		const data = await res.json();
+		const guests = data.attendance
+			? data.attendance.filter((a) => !a.userId && a.name)
+			: null;
 		return {
 			attendees: data.attendance ? data.attendance.filter((a) => a.userId) : null,
-			nonUserAttendants: data.attendance
-				? data.attendance.filter((a) => !a.userId && a.name).map((a) => a.name ?? '')
+			nonUserAttendants: guests ? guests.map((a) => a.name ?? '') : null,
+			// The same guests, still carrying their status: a guest who declined is
+			// not the same row as one who never answered.
+			guestRows: guests
+				? guests.map((a) => ({
+						name: a.name ?? '',
+						status: a.status,
+						inviteType: a.inviteType ?? null
+					}))
 				: null,
 			userRsvpStatus: data.userRsvpStatus ?? null
 		};

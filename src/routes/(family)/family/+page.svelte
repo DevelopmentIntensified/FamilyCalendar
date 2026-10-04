@@ -10,6 +10,29 @@
 	let plan = data.plan;
 	$: atFamilyLimit = plan.used >= plan.limit;
 
+	/* ── The approved card (issue 124) ──────────────────────────────────────
+	   `family.html` draws one family's face: its initial on its colour, a stat
+	   strip, an avatar per member and three ways in. The app keeps the list —
+	   every family the user belongs to — and gives each family that card.
+
+	   The strip is capped so a twelve-person household cannot push the card's
+	   buttons off the fold; the rest are counted out loud instead of dropped
+	   silently. */
+	const ROSTER_STRIP_CAP = 5;
+
+	function initial(name: string): string {
+		return (name || 'F').charAt(0).toUpperCase();
+	}
+
+	/** "Maya" → "M", "Maya Lopez" → "ML". A name with no letters is a dot, not a blank. */
+	function initials(firstName: string | null | undefined): string {
+		const parts = (firstName ?? '').trim().split(/\s+/).filter(Boolean);
+		if (parts.length === 0) return '•';
+		return parts.length === 1
+			? parts[0].charAt(0).toUpperCase()
+			: (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+	}
+
 	/* ── Invite by link (issue 091) ─────────────────────────────────────────
 	   The code, the copy button and the join route all worked; nobody could
 	   find them. So the family page mints its own code and shows the link where
@@ -126,54 +149,155 @@
 					Your families
 				</h2>
 				<p class="mt-0.5 text-xs text-slate-400">Open a family to see members and settings</p>
-				<ul class="mt-3 space-y-2">
+				<ul class="mt-3 space-y-2.5">
 					{#each families as family (family.id)}
-						<li>
-							<a
-								href="/family/{family.id}"
-								class="flex min-h-11 items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 transition-colors hover:bg-slate-100"
-							>
-								{#if family.color}
-									<div
-										class="h-10 w-10 shrink-0 rounded-full"
-										style="background-color: {family.color}"
-										aria-hidden="true"
-									></div>
-								{:else}
-									<div
-										class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-600"
-										aria-hidden="true"
-									>
-										{(family.name || 'F').charAt(0).toUpperCase()}
+						{@const rosterShown = (family.members ?? []).slice(0, ROSTER_STRIP_CAP)}
+						{@const rosterHidden = (family.members ?? []).length - rosterShown.length}
+						<li
+							class="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50/70 to-white p-4 shadow-sm transition-shadow hover:shadow-md"
+						>
+							<!-- The whole face of the card is the way into the family. The
+							     three affordances below sit OUTSIDE this link — a link inside a
+							     link is not a link, it is a bug. -->
+							<a href="/family/{family.id}" class="group block">
+								<div class="flex flex-wrap items-start justify-between gap-3">
+									<div class="flex min-w-0 items-center gap-3">
+										{#if family.color}
+											<div
+												class="grid h-11 w-11 shrink-0 place-items-center rounded-full text-lg font-extrabold text-white"
+												style="background-color: {family.color}"
+												aria-hidden="true"
+											>
+												{initial(family.name)}
+											</div>
+										{:else}
+											<div
+												class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-200 text-lg font-extrabold text-slate-600"
+												aria-hidden="true"
+											>
+												{initial(family.name)}
+											</div>
+										{/if}
+										<div class="min-w-0">
+											<p class="truncate text-xl font-extrabold tracking-tight text-slate-900">
+												{family.name}
+											</p>
+											<p class="mt-0.5 text-xs text-slate-500">
+												Family · settings, members and modules
+											</p>
+										</div>
 									</div>
-								{/if}
-								<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-semibold text-slate-900">{family.name}</p>
-									<p class="truncate text-xs text-slate-400">
-										{family.memberCount}
-										member{family.memberCount !== 1 ? 's' : ''}
-										<span aria-hidden="true"> · </span>
-										<span class="sr-only">, </span>
-										{family.openTasks}
-										open task{family.openTasks !== 1 ? 's' : ''}
-									</p>
 								</div>
-								<span class="shrink-0 text-xs font-medium text-primary-600">Open</span>
-								<svg
-									class="h-4 w-4 shrink-0 text-slate-300"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									aria-hidden="true"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M9 5l7 7-7 7"
-									/>
-								</svg>
+
+								<!-- The stat strip: one baseline, one separator, per the approved
+								     card. Column rules sit on the cells, not on the strip. -->
+								<dl class="mt-4 flex flex-wrap items-baseline gap-x-5 gap-y-1 border-t border-orange-100 pt-3">
+									<div class="flex items-baseline gap-1.5">
+										<dt
+											class="text-[10px] font-bold uppercase tracking-widest text-slate-500"
+										>
+											Members
+										</dt>
+										<dd class="text-[13px] font-bold whitespace-nowrap text-slate-800">
+											{family.memberCount}
+										</dd>
+									</div>
+									<div class="flex items-baseline gap-1.5 border-l border-orange-200 pl-5">
+										<dt
+											class="text-[10px] font-bold uppercase tracking-widest text-slate-500"
+										>
+											Created
+										</dt>
+										<dd class="text-[13px] font-bold whitespace-nowrap text-slate-800">
+											{family.createdLabel}
+										</dd>
+									</div>
+									<div class="flex items-baseline gap-1.5 border-l border-orange-200 pl-5">
+										<dt
+											class="text-[10px] font-bold uppercase tracking-widest text-slate-500"
+										>
+											Colour
+										</dt>
+										<dd
+											class="flex items-center gap-1.5 text-[13px] font-bold whitespace-nowrap text-slate-800"
+										>
+											{#if family.color}
+												<span
+													class="inline-block h-2.5 w-2.5 rounded-full"
+													style="background-color: {family.color}"
+													aria-hidden="true"
+												></span>
+												{family.color.toUpperCase()}
+											{:else}
+												Not set
+											{/if}
+										</dd>
+									</div>
+									<div class="flex items-baseline gap-1.5 border-l border-orange-200 pl-5">
+										<dt
+											class="text-[10px] font-bold uppercase tracking-widest text-slate-500"
+										>
+											Open tasks
+										</dt>
+										<dd class="text-[13px] font-bold whitespace-nowrap text-slate-800">
+											{family.openTasks}
+										</dd>
+									</div>
+								</dl>
+
+								<!-- The roster strip (issue 124): WHO is in this family. The
+								     avatars are initials; the names underneath are what makes it
+								     answer a person rather than a tally. -->
+								<div class="mt-4">
+									{#if rosterShown.length > 0}
+										<ul class="flex items-center" aria-hidden="true">
+											{#each rosterShown as member, i (i)}
+												<li
+													class="grid h-9 w-9 place-items-center rounded-full border-2 border-white bg-slate-200 text-xs font-extrabold text-slate-600 {i >
+														0
+														? '-ml-2'
+														: ''}"
+												>
+													{initials(member.firstName)}
+												</li>
+											{/each}
+										</ul>
+										<p class="mt-1.5 truncate text-xs text-slate-500">
+											<span class="sr-only">Members: </span>
+											{rosterShown.map((m) => m.firstName).join(', ')}
+											{#if rosterHidden > 0}
+												<span class="text-slate-400">+{rosterHidden} more</span>
+											{/if}
+										</p>
+									{:else}
+										<p class="text-xs text-slate-500">
+											No names yet — add a member and this strip fills in.
+										</p>
+									{/if}
+								</div>
 							</a>
+
+							<!-- The approved card's three ways in. Each names where it goes. -->
+							<div class="mt-4 flex flex-wrap gap-2">
+								<a
+									href="/family/{family.id}"
+									class="inline-flex min-h-11 items-center rounded-lg bg-primary-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary-700"
+								>
+									Open family
+								</a>
+								<a
+									href="/family/{family.id}#members-heading"
+									class="inline-flex min-h-11 items-center rounded-lg bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200"
+								>
+									Members
+								</a>
+								<a
+									href="/family/tasks"
+									class="inline-flex min-h-11 items-center rounded-lg bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200"
+								>
+									Family tasks
+								</a>
+							</div>
 						</li>
 					{/each}
 				</ul>

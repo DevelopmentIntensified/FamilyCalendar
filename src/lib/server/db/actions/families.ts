@@ -41,6 +41,13 @@ export interface UserFamilyMembership {
 	memberType: string | null;
 	/** Roster size of this Family, counted by the same query. */
 	memberCount: number;
+	/**
+	 * Every member's first name for this Family, first-name order, aggregated by
+	 * the SAME query that counts the roster (issue 124). The approved family card
+	 * shows WHO is in the family, not how many — and a second read per family is
+	 * exactly the shape issues 078 and 098 removed.
+	 */
+	firstNames: string[];
 }
 
 /**
@@ -61,6 +68,11 @@ export async function getUserFamilyMemberships(
 	// user's own row so the roster size rides along with the read instead of
 	// costing a second query per family.
 	const roster = alias(familyMembers, 'roster');
+	// …and `rosterUser` carries that same roster's first names home with it, for
+	// the approved card's roster strip (issue 124). Aggregated here, not in a
+	// second query per family: this read stays ONE query however many families
+	// the user is in (issue 078).
+	const rosterUser = alias(users, 'roster_user');
 
 	const rows = await db
 		.select({
@@ -70,11 +82,13 @@ export async function getUserFamilyMemberships(
 			createdAt: families.createdAt,
 			role: familyMembers.role,
 			memberType: familyMembers.memberType,
-			memberCount: count(roster.userId)
+			memberCount: count(roster.userId),
+			firstNames: sql<string[]>`coalesce(array_agg(${rosterUser.firstName} order by ${rosterUser.firstName}) filter (where ${rosterUser.firstName} is not null), '{}')`
 		})
 		.from(familyMembers)
 		.innerJoin(families, eq(familyMembers.familyId, families.id))
 		.leftJoin(roster, eq(roster.familyId, familyMembers.familyId))
+		.leftJoin(rosterUser, eq(roster.userId, rosterUser.id))
 		.where(eq(familyMembers.userId, userId))
 		// families.id is the primary key, so Postgres resolves the rest of the
 		// selected family columns from it — no need to list them all here.
@@ -90,7 +104,8 @@ export async function getUserFamilyMemberships(
 		},
 		role: row.role,
 		memberType: row.memberType,
-		memberCount: row.memberCount
+		memberCount: row.memberCount,
+		firstNames: row.firstNames ?? []
 	}));
 }
 

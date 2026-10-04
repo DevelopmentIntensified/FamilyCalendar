@@ -13,8 +13,11 @@ import type { PgTable } from 'drizzle-orm/pg-core';
  * card's stats must be a fixed number of queries, never one per card.
  */
 
-/** A stubbed DB row: plain JSON-ish values only. */
-type Row = Record<string, string | number | boolean | null | Date>;
+/**
+ * A stubbed DB row: plain JSON-ish values only. `string[]` is here because the
+ * memberships query aggregates the roster's first names into an array.
+ */
+type Row = Record<string, string | string[] | number | boolean | null | Date>;
 
 interface StubState {
 	/** Rows the stub hands back for each queried schema table. */
@@ -66,7 +69,7 @@ vi.mock('$lib/server/db', () => ({
 }));
 
 import { load } from './+page.server';
-import { familyMembers, subscriptionTypes, subscriptions, tasks } from '$lib/server/db/schema';
+import { familyMembers, subscriptionTypes, subscriptions, tasks, users } from '$lib/server/db/schema';
 
 /** The loader's return shape, narrowed from SvelteKit's open PageData bag. */
 interface FamilyListData {
@@ -77,6 +80,9 @@ interface FamilyListData {
 		memberCount: number;
 		openTasks: number;
 		canInvite: boolean;
+		/** First names of the roster, for the approved card's avatar strip. */
+		members: { firstName: string | null }[];
+		createdLabel: string;
 	}[];
 	plan: { used: number; limit: number };
 }
@@ -92,7 +98,8 @@ function membership(
 	name: string,
 	memberCount: number,
 	createdAt: string,
-	role = 'creator'
+	role = 'creator',
+	firstNames: string[] = []
 ) {
 	return {
 		id: familyId,
@@ -101,7 +108,8 @@ function membership(
 		createdAt: new Date(createdAt),
 		role,
 		memberType: 'parent',
-		memberCount
+		memberCount,
+		firstNames
 	};
 }
 
@@ -111,17 +119,28 @@ function openTasks(familyId: string, openTaskCount: number) {
 }
 
 /** Script which rows the stub hands back for each table the loader touches. */
-function scriptDb(memberships: Row[], counts: Row[], subs: Row[] = [], tiers: Row[] = []) {
+function scriptDb(
+	memberships: Row[],
+	counts: Row[],
+	subs: Row[] = [],
+	tiers: Row[] = [],
+	roster: Row[] = []
+) {
 	state.rowsByTable = new Map();
 	state.rowsByTable.set(familyMembers, memberships);
 	state.rowsByTable.set(tasks, counts);
 	state.rowsByTable.set(subscriptions, subs);
 	state.rowsByTable.set(subscriptionTypes, tiers);
+	state.rowsByTable.set(users, roster);
 }
 
 /** Load the page for a user, with the given memberships and task counts. */
-function loadPage(memberships: Row[], counts: Row[]): Promise<FamilyListData> {
-	scriptDb(memberships, counts);
+function loadPage(
+	memberships: Row[],
+	counts: Row[],
+	roster: Row[] = []
+): Promise<FamilyListData> {
+	scriptDb(memberships, counts, [], [], roster);
 	return runLoad({ locals: { user: { id: 'user-1' } } });
 }
 
@@ -189,8 +208,28 @@ describe('families list loader — the card costs a fixed number of queries (iss
 		const threeFamilyQueries = state.selectCount;
 
 		expect(threeFamilyQueries).toBe(oneFamilyQueries);
-		// memberships + one grouped open-Task count + the subscription read.
+		// memberships (which also aggregate the roster's first names) + one
+		// grouped open-Task count + the subscription read.
 		expect(oneFamilyQueries).toBe(3);
+	});
+});
+
+describe('families list loader — the approved card has a roster strip (issue 124)', () => {
+	it('carries first names so the card can show who is in the family', async () => {
+		// The roster rides home on the memberships read, so the row a membership
+		// query returns carries the family's first names itself.
+		const data = await loadPage(
+			[membership('fam-old', 'Rivera Home', 4, '2026-01-04', 'creator', ['Maya', 'Sam'])],
+			[]
+		);
+
+		expect(data.families[0].members.map((m) => m.firstName)).toEqual(['Maya', 'Sam']);
+	});
+
+	it('says when the family was created, in a form the card can print', async () => {
+		const data = await loadPage([membership('fam-old', 'Rivera Home', 4, '2026-01-04')], []);
+
+		expect(data.families[0].createdLabel).toMatch(/2026/);
 	});
 });
 

@@ -66,12 +66,18 @@
 		return new Date(task.dueDate).getTime() < Date.now();
 	}
 
-	/* ── The board (issue 101, decision 1) ──────────────────────────────────
+	/* ── The board (issue 101, decision 1; revised by the owner) ─────────────
 	   One column per person, the way CONTEXT.md defines the Family Task Board:
-	   grouped by assignee, falling back to the creator when a Task is
-	   unassigned. The grouping lives in one module so this page and the
+	   grouped by assignee. The grouping lives in one module so this page and the
 	   dashboard card cannot drift into two shapes. Empty columns do not render
-	   (a member with nothing assigned gets no heading about nothing). */
+	   (a member with nothing assigned gets no heading about nothing).
+
+	   **The creator fallback is no longer used here.** The owner approved
+	   `family-tasks.html`'s "Nobody" card, which shows unassigned Tasks where
+	   they actually are instead of filing them under whoever created them, so
+	   the board is fed only the Tasks that really have an assignee. The shared
+	   module keeps its fallback for the dashboard card, which is a different
+	   surface with its own decision. */
 	function memberName(userId: string): string {
 		if (userId === data.userId) return 'You';
 		const m = (data.familyRoster ?? []).find((r) => r.userId === userId);
@@ -83,7 +89,13 @@
 		return (name[0] ?? '?').toUpperCase();
 	}
 
-	$: boardGroups = groupTasksByAssignee(openTasks, memberName, data.userId);
+	/** Tasks nobody has taken — the approved card's own home. */
+	$: unassignedTasks = openTasks.filter((t) => !t.assignedTo);
+	$: boardGroups = groupTasksByAssignee(
+		openTasks.filter((t) => t.assignedTo),
+		memberName,
+		data.userId
+	);
 
 	function formatDue(due: string | null): string {
 		if (!due) return '';
@@ -308,6 +320,48 @@
 		{/if}
 
 		<FamilyCompletedTaskList tasks={completedTasks} />
+
+		<!-- The approved "Nobody" card: a Task with `assignedTo IS NULL` belongs to
+		     no column, so it gets its own card rather than being invisible or
+		     filed under whoever created it. -->
+		{#if unassignedTasks.length > 0}
+			<section
+				class="mt-5 rounded-2xl border border-red-200 bg-white p-4 shadow-sm"
+				aria-label="Nobody’s open tasks"
+			>
+				<h3 class="mb-2.5 flex items-center gap-2">
+					<span class="text-sm font-semibold text-slate-900">Nobody</span>
+					<span
+						class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700"
+					>
+						unassigned
+					</span>
+					<span class="font-normal text-sm text-slate-400">· {unassignedTasks.length}</span>
+				</h3>
+				<div class="space-y-1.5">
+					{#each unassignedTasks as task (task.id)}
+						<FamilyOpenTaskRow
+							{task}
+							currentUserId={data.userId}
+							busy={busyId === task.id}
+							confirmDelete={confirmDeleteId === task.id}
+							onEdit={() => openEdit(task)}
+							onToggle={() => toggle(task)}
+							onAccept={() => respond(task, true)}
+							onDecline={() => respond(task, false)}
+							onAdvance={() => advance(task)}
+							onBeginDelete={() => (confirmDeleteId = task.id)}
+							onCancelDelete={() => (confirmDeleteId = null)}
+							onDelete={() => remove(task)}
+						/>
+					{/each}
+				</div>
+				<p class="mt-2.5 text-xs leading-relaxed text-slate-500">
+					Nobody is on the hook for these. Assign one to a member, or leave it here — it is still on the
+					family's list either way.
+				</p>
+			</section>
+		{/if}
 	{:else}
 		<!-- Public tasks tab (issue 019): members' public personal tasks, read-only -->
 		{#if publicTasks.length === 0}

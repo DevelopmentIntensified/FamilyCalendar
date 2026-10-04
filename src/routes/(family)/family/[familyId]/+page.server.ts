@@ -1,5 +1,7 @@
 import {
 	getFamilyRoster,
+	getFamilyInviteCodes,
+	getUserFamilyMemberships,
 	removeFamilyMember,
 	updateFamilies
 } from '$lib/server/db/actions/families';
@@ -9,6 +11,11 @@ import {
 } from '$lib/server/db/actions/dashboardModules';
 import { getRecentFamilyActivity } from '$lib/server/db/actions/familyActivity';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
+import {
+	getAiUsageThisMonth,
+	getSubscriptionStatus,
+	getUserSubscriptionLimits
+} from '$lib/server/services/subscriptionService';
 import { db } from '$lib/server/db';
 import { families, familyMembers } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -23,6 +30,35 @@ import { error, fail, isHttpError, isRedirect } from '@sveltejs/kit';
  */
 function notFound(): never {
 	throw error(404, 'Family not found');
+}
+
+/**
+ * The one code somebody could still join with (issue 124).
+ *
+ * The approved family page shows an "Active invitation" summary, so the band
+ * has to mean what it says: an expired code or a code that has used up its
+ * `maxUses` is not an invitation any more. Where there is none, the band says
+ * so — a dead code presented as live is worse than no band.
+ */
+function pickActiveInvite(invites: Awaited<ReturnType<typeof getFamilyInviteCodes>>) {
+	const now = Date.now();
+	return (
+		invites.find((invite) => {
+			const expired = new Date(invite.expiresAt).getTime() <= now;
+			const usedUp = invite.maxUses !== null && (invite.useCount ?? 0) >= invite.maxUses;
+			return !expired && !usedUp;
+		}) ?? null
+	);
+}
+
+/** First name only — the band says "Created by Maya", like the prototype. */
+function firstNameOf(
+	members: Awaited<ReturnType<typeof getFamilyRoster>>,
+	userId: string | null | undefined
+): string | null {
+	if (!userId) return null;
+	const member = members.find((m) => m.userId === userId);
+	return member?.firstName || null;
 }
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -56,6 +92,21 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		// "off for everyone" from "on, but you hid it for yourself" (#077).
 		const settings = await getUserSettings(locals.user.id);
 
+		// The approved side bands (issue 124): the live invitation and the plan
+		// the family is living on. Read once, in parallel — a band is not worth
+		// a waterfall.
+		const [invites, limits, subscription, aiUsage, memberships] = await Promise.all([
+			getFamilyInviteCodes(params.familyId),
+			getUserSubscriptionLimits(locals.user.id),
+			getSubscriptionStatus(locals.user.id),
+			getAiUsageThisMonth(locals.user.id),
+			// "Families" is the families this user belongs to, which is what the
+			// create gate counts too (canCreateFamily) — the same function, so
+			// the band and the gate cannot disagree.
+			getUserFamilyMemberships(locals.user.id)
+		]);
+		const activeInvite = pickActiveInvite(invites);
+
 		return {
 			family,
 			members,
@@ -63,7 +114,32 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			currentUserId: locals.user.id,
 			activity,
 			moduleSwitches,
-			hiddenDashboardModules: settings?.hiddenDashboardModules ?? []
+			hiddenDashboardModules: settings?.hiddenDashboardModules ?? [],
+			activeInvite: activeInvite
+				? {
+						code: activeInvite.code,
+						useCount: activeInvite.useCount ?? 0,
+						maxUses: activeInvite.maxUses,
+						expiresAt: activeInvite.expiresAt
+					}
+				: null,
+			inviteCreatedBy: firstNameOf(members, activeInvite?.createdBy),
+			planUsage: {
+				tierName: subscription.tier?.name || null,
+				// `getAiUsageThisMonth` answers { used, limit, remaining }; the band
+				// wants the COUNT and the plan's ceiling, so the object is unpacked
+				// here rather than printed into the markup.
+				aiUsed: aiUsage.used,
+				aiLimit: limits.aiEventCreationsPerMonth ?? aiUsage.limit ?? 0,
+				// "Families" is the families this user belongs to, which is what
+				// the create gate counts too (canCreateFamily).
+				familiesUsed: memberships.length,
+				familyLimit: limits.familyLimit ?? 0,
+				members: members.length,
+				memberLimit: limits.memberLimit ?? 0,
+				archivedRetentionDays: limits.archivedRetentionDays ?? 0,
+				exportImportEnabled: limits.exportImportEnabled ?? false
+			}
 		};
 	} catch (err) {
 		// SvelteKit redirects/404s thrown above land here; re-throw them

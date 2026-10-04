@@ -24,6 +24,24 @@
 	export let form: ActionData;
 	const { family, members, currentUserRole, currentUserId, activity = [] } = data;
 
+	/* ── The approved side bands (issue 124) ──────────────────────────────────
+	   `family-detail.html` was approved with a side column of four bands, and
+	   three of the four read data this page's loader did not return. The loader
+	   now returns them, and they render here with the same band rhythm as every
+	   other card on the page (077). The prototype's own notes about them — that
+	   they are fixture views — were true of the loader and are not true of the
+	   page: an invitation that has been used up is not an invitation, so the
+	   band names the live one or says there is none. */
+	$: activeInvite = data.activeInvite ?? null;
+	$: plan = data.planUsage;
+
+	function inviteExpiry(iso: string | Date): string {
+		const d = iso instanceof Date ? iso : new Date(iso);
+		return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+	}
+
+	$: aiPercent = plan.aiLimit > 0 ? Math.min(100, Math.round((plan.aiUsed / plan.aiLimit) * 100)) : 0;
+
 	// Module switches read `data` reactively (not destructured) so the row
 	// settles on the server's truth the moment the action answers.
 	$: switches = data.moduleSwitches ?? {};
@@ -690,8 +708,157 @@
 							</div>
 						</section>
 					{/if}
+
+					<!-- The approved side bands. Same rhythm as every other card here:
+					     one gap between bands, one padding inside, one label treatment
+					     (077). A member sees them too — who can still join and what
+					     the family is spending on are facts, not controls. -->
+					<section class={BAND} aria-label="Shared data">
+						<h2 class="mb-3 {BAND_TITLE}">Shared data</h2>
+						<div class="space-y-1.5">
+							<a
+								href="/family/tasks"
+								class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+							>
+								Family tasks
+								<span class="text-xs font-normal text-slate-400">One column per person</span>
+							</a>
+							<a
+								href="/calendar/groceries"
+								class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+							>
+								Grocery list <span class="text-xs font-normal text-slate-400">Shared</span>
+							</a>
+							<a
+								href="/calendar"
+								class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+							>
+								Family calendar
+								<span class="text-xs font-normal text-slate-400">Everyone's events</span>
+							</a>
+							<a
+								href="/family/invitations"
+								class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+							>
+								Invitations <span class="text-xs font-normal text-slate-400">Manage codes</span>
+							</a>
+						</div>
+					</section>
 				</div>
 			{/if}
+
+			<!-- Shared with every member, not admin-only: who can still join this
+			     family, and what the plan allows it to do. -->
+			<div class="flex min-w-0 flex-col gap-5 {isAdmin ? '' : 'sm:col-span-3'}">
+				<section class={BAND} aria-label="Active invitation">
+					<h2 class="mb-3 {BAND_TITLE}">Active invitation</h2>
+					{#if activeInvite}
+						<dl class="text-sm">
+							<div class="flex items-baseline justify-between gap-3 py-1.5">
+								<dt class="font-medium text-slate-700">Code</dt>
+								<dd class="font-mono text-slate-600">{activeInvite.code}</dd>
+							</div>
+							<div class="flex items-baseline justify-between gap-3 border-t border-slate-100 py-1.5">
+								<dt class="font-medium text-slate-700">Uses</dt>
+								<dd class="text-slate-600">{activeInvite.useCount} of {activeInvite.maxUses ??
+									'∞'}</dd>
+							</div>
+							<div class="flex items-baseline justify-between gap-3 border-t border-slate-100 py-1.5">
+								<dt class="font-medium text-slate-700">Expires</dt>
+								<dd class="text-slate-600">{inviteExpiry(activeInvite.expiresAt)}</dd>
+							</div>
+							{#if data.inviteCreatedBy}
+								<div
+									class="flex items-baseline justify-between gap-3 border-t border-slate-100 py-1.5"
+								>
+									<dt class="font-medium text-slate-700">Created by</dt>
+									<dd class="text-slate-600">{data.inviteCreatedBy}</dd>
+								</div>
+							{/if}
+						</dl>
+						<a
+							href="/family/invitations"
+							class="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-primary-600 hover:text-primary-700"
+						>
+							Send this link to someone
+						</a>
+					{:else}
+						<p class="py-2 text-sm text-slate-500">
+							No active invitation. Mint a link to bring somebody into this family.
+						</p>
+						{#if isAdmin}
+							<a
+								href="/family/invitations"
+								class="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-primary-600 hover:text-primary-700"
+							>
+								Get a join link
+							</a>
+						{/if}
+					{/if}
+				</section>
+
+				<section class={BAND} aria-label="Plan usage">
+					<h2 class="mb-3 flex flex-wrap items-center gap-2 {BAND_TITLE}">
+						Plan
+						<span
+							class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide {plan.tierName
+								? 'bg-emerald-100 text-emerald-800'
+								: 'bg-slate-100 text-slate-500'}"
+						>
+							{plan.tierName || 'No plan'}
+						</span>
+					</h2>
+					<div class="flex items-center gap-2">
+						<span class="shrink-0 text-xs text-slate-500">AI events</span>
+						<span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+							<span
+								class="block h-full rounded-full bg-primary-600"
+								style="width: {aiPercent}%"
+							></span>
+						</span>
+						<span class="shrink-0 text-xs font-bold text-slate-700">{plan.aiUsed}/{plan.aiLimit}</span
+						>
+					</div>
+					<dl class="mt-2 text-sm">
+						<div class="flex items-baseline justify-between gap-3 py-1.5">
+							<dt class="font-medium text-slate-700">Families</dt>
+							<dd class="text-slate-600">{plan.familiesUsed} of {plan.familyLimit}</dd>
+						</div>
+						<div class="flex items-baseline justify-between gap-3 border-t border-slate-100 py-1.5">
+							<dt class="font-medium text-slate-700">Members</dt>
+							<dd class="text-slate-600">{plan.members} of {plan.memberLimit}</dd>
+						</div>
+						<div class="flex items-baseline justify-between gap-3 border-t border-slate-100 py-1.5">
+							<dt class="font-medium text-slate-700">Archive</dt>
+							<dd class="text-slate-600">{plan.archivedRetentionDays} days</dd>
+						</div>
+						<div class="flex items-baseline justify-between gap-3 border-t border-slate-100 py-1.5">
+							<dt class="font-medium text-slate-700">Export</dt>
+							<dd class="text-slate-600">
+								{plan.exportImportEnabled ? 'enabled' : 'not on this plan'}
+							</dd>
+						</div>
+					</dl>
+				</section>
+
+				<!-- The constraint that is not obvious, said where it bites. -->
+				<section class={BAND} aria-label="Children are users">
+					<h2 class="mb-2 {BAND_TITLE}">Children are users</h2>
+					<p class="text-xs leading-relaxed text-slate-500">
+						A child is a real row in your account with a unique email address, which is what lets an
+						event carry their attendance and the kids' schedule have something to group by.
+					</p>
+					<p class="mt-1.5 text-xs leading-relaxed text-slate-500">
+						So a family with two children needs two addresses nobody else has.
+					</p>
+					<a
+						href="/family/{family?.id}/members/add"
+						class="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-primary-600 hover:text-primary-700"
+					>
+						See the form
+					</a>
+				</section>
+			</div>
 		</div>
 	</div>
 </div>

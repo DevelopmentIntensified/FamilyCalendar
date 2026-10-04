@@ -92,15 +92,41 @@ describe('family tasks page — the board, grouped by assignee (issue 101)', () 
 		expect(screen.queryByRole('heading', { name: /Eli Smith/ })).toBeNull();
 	});
 
-	it('files an unassigned Task under its creator, with no "Unassigned" column', () => {
+	it('gives unassigned Tasks a home of their own — the approved "Nobody" card', () => {
+		// The owner overruled #101's creator fallback: the approved prototype
+		// (`family-tasks.html`, the "Nobody" card) shows unassigned Tasks where
+		// the board cannot see them, and says so. An approval is a spec.
 		render(FamilyTasksPage, {
 			...data([
 				familyTask({ id: 'a', title: 'Nobody claimed this', assignedTo: null, userId: 'u_mom' })
 			])
 		});
-		expect(screen.queryByText(/^Unassigned/)).toBeNull();
+		const nobody = screen.getByRole('region', { name: /nobody/i });
+		expect(within(nobody).getByText('Nobody claimed this')).toBeTruthy();
+		expect(within(nobody).getByText(/unassigned/i)).toBeTruthy();
+	});
+
+	it('does not double-count: an unassigned Task is in the Nobody card only', () => {
+		render(FamilyTasksPage, {
+			...data([
+				familyTask({ id: 'a', title: 'Unclaimed', assignedTo: null, userId: 'u_mom' }),
+				familyTask({ id: 'b', title: 'Claimed', assignedTo: 'u_mom', userId: 'u_mom' })
+			])
+		});
+		const nobody = screen.getByRole('region', { name: /nobody/i });
+		expect(within(nobody).getByText('Unclaimed')).toBeTruthy();
+		expect(within(nobody).queryByText('Claimed')).toBeNull();
+		// Maya's column carries only the task that is actually hers.
 		const col = screen.getByRole('region', { name: /Maya Lopez’s open tasks/i });
-		expect(within(col).getByText('Nobody claimed this')).toBeTruthy();
+		expect(within(col).queryByText('Unclaimed')).toBeNull();
+		expect(within(col).getByText('Claimed')).toBeTruthy();
+	});
+
+	it('shows no Nobody card when everything is assigned', () => {
+		render(FamilyTasksPage, {
+			...data([familyTask({ id: 'a', title: 'Claimed', assignedTo: 'u_dad', userId: 'u_dad' })])
+		});
+		expect(screen.queryByRole('region', { name: /nobody/i })).toBeNull();
 	});
 
 	it('keeps the waiting-for-your-response banner and the two tabs', () => {

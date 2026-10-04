@@ -149,6 +149,65 @@ describe('calendarAssignees — the roster', () => {
 		expect(roster).toEqual([{ id: 'u-mia', name: 'A member', isViewer: false }]);
 	});
 
+	/**
+	 * 127 follow-on: the calendar page hands this the FAMILY roster, so a member
+	 * with nothing in the loaded window is still a row — with their real name,
+	 * and a count of 0. A member who cannot be named is the last resort, not
+	 * the normal case, and a member with nothing on screen is a fact the filter
+	 * should be able to show rather than hide.
+	 */
+	it('lists the family roster even when nobody has anything on the calendar', () => {
+		const roster = assigneeRoster([], [], 'u-sarah', [
+			{ userId: 'u-sarah', firstName: 'Sarah' },
+			{ userId: 'u-mia', firstName: 'Mia' },
+			{ userId: 'u-eli', firstName: 'Eli' }
+		]);
+		expect(roster).toEqual([
+			{ id: 'u-sarah', name: 'You', isViewer: true },
+			{ id: 'u-eli', name: 'Eli', isViewer: false },
+			{ id: 'u-mia', name: 'Mia', isViewer: false }
+		]);
+	});
+
+	it('names a roster member by their real name, not "A member"', () => {
+		// The reason the roster is passed in at all: `creatorName` is attached to
+		// FAMILY events only, so without it a member whose only rows are
+		// personal-calendar events would be unnameable here.
+		const roster = assigneeRoster([evt({ id: 'e1', ownerId: 'u-mia' })], [], 'u-sarah', [
+			{ userId: 'u-mia', firstName: 'Mia' }
+		]);
+		expect(roster).toEqual([{ id: 'u-mia', name: 'Mia', isViewer: false }]);
+	});
+
+	it('adds a person who has plans but is no longer on the roster', () => {
+		// Someone removed from the family, or a task assigned before they left.
+		// Their plans are still on the calendar and still need a way back on.
+		const roster = assigneeRoster(
+			[],
+			[task({ id: 't1', assignedTo: 'u-gone', assigneeFirstName: 'Gone' })],
+			'u-sarah',
+			[{ userId: 'u-sarah', firstName: 'Sarah' }]
+		);
+		expect(roster.map((p) => p.id)).toEqual(['u-sarah', 'u-gone']);
+		expect(roster[1].name).toBe('Gone');
+	});
+
+	it('skips a roster row with no usable id or name rather than rendering a ghost', () => {
+		const roster = assigneeRoster([], [], 'u-sarah', [
+			{ userId: '', firstName: 'Nobody' },
+			{ userId: 'u-mia', firstName: '   ' }
+		]);
+		// Neither is a person the page can act on: one has no id to filter by and
+		// the other has no name to print. A blank row is worse than no row.
+		expect(roster).toEqual([{ id: 'u-mia', name: 'A member', isViewer: false }]);
+	});
+
+	it('accepts no roster at all and behaves exactly as before', () => {
+		expect(assigneeRoster([miaEvent], [sarahTask], 'u-mia')).toEqual(
+			assigneeRoster([miaEvent], [sarahTask], 'u-mia', [])
+		);
+	});
+
 	it('counts nobody when there is nobody to filter by', () => {
 		// Ads and nothing else: an empty roster, not a fake "Unassigned" row.
 		expect(assigneeRoster([evt({ id: 'ad', calendarId: '' })], [], 'u-sarah')).toEqual([]);

@@ -532,6 +532,9 @@
 		{#if showFirstRunCard}
 			<FirstRunCard onDismiss={dismissFirstRun} />
 		{/if}
+		<!-- #127: the roster is already loaded by the group layout, so the
+		     person filter can list a member with nothing in this window instead
+		     of deriving its rows from whatever happens to be on the calendar. -->
 		<Calendar
 			{currentDate}
 			events={[...cd.user, ...cd.family, ...(data.adEvents || []), ...localExtras]}
@@ -539,6 +542,10 @@
 			preferedFirstDayOfWeek={data.userSettings?.weekStart || data.user?.firstDayOfWeek || 'sunday'}
 			calendarIds={data.calendarIds || []}
 			filterUserId={data.user?.id ?? null}
+			familyMembers={(data.familyMembers ?? []).map((m) => ({
+				userId: m.userId,
+				firstName: m.firstName
+			}))}
 			dueTasks={cd.dueTasks || []}
 			defaultViewSetting={data.userSettings?.defaultView || 'monthView'}
 			initialView={initialViewParam}

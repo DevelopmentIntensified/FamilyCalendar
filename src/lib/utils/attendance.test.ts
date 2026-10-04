@@ -41,8 +41,25 @@ describe('fetchAttendance', () => {
 		expect(out).toEqual({
 			attendees: [{ userId: 'u1', status: 'going', firstName: 'A' }],
 			nonUserAttendants: ['Walk-in'],
+			// Guests keep their status: the attendance region draws one row each,
+			// and a guest who declined is not the same row as one who never answered.
+			guestRows: [{ name: 'Walk-in', status: 'going', inviteType: null }],
 			userRsvpStatus: 'going'
 		});
+	});
+
+	it('carries a required invitation through to the guest row', async () => {
+		const fetchFn = vi.fn(async () => ({
+			ok: true,
+			json: async () => ({
+				attendance: [{ userId: null, status: 'undecided', name: 'Nana', inviteType: 'required' }],
+				userRsvpStatus: 'undecided'
+			})
+		}));
+		const out = await fetchAttendance('evt1', fetchFn);
+		expect(out.guestRows).toEqual([
+			{ name: 'Nana', status: 'undecided', inviteType: 'required' }
+		]);
 	});
 
 	it('returns nulls on a failed fetch so the modal keeps prior state', async () => {
@@ -53,6 +70,7 @@ describe('fetchAttendance', () => {
 		await expect(fetchAttendance('evt1', fetchFn)).resolves.toEqual({
 			attendees: null,
 			nonUserAttendants: null,
+			guestRows: null,
 			userRsvpStatus: null
 		});
 	});
