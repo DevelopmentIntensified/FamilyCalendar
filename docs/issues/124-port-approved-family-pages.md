@@ -7,6 +7,14 @@ into the real app."
 
 **Blocked by:** None. Owns the `/family` routes exclusively.
 
+**Why still open:** all six approved pages are ported and the last two bands are
+built. What is left is not this lane's to close: #091's email-template registry
+and what a plain Family Member sees on the invitations page (both named, outside
+the `/family` fence), #091's usage-semantics decision (an owner's choice between
+two meanings of a counter), #102's up-front child warning, and 076's
+member-limit e2e, which needs a `memberLimitOverride: 1` subscription row to
+set up.
+
 ## The six approved pages
 
 `family.html` · `family-detail.html` · `family-create.html` ·
@@ -39,7 +47,7 @@ into the real app."
       affordance on the family page, and the one shared `maxUses` default. The
       rest are named below, two as out of fence and one as a product decision.
 - [x] **The create page has no member picker.** The prototype declares
-      "members before the finish line" and #076 shipped *something*; verify
+      "members before the finish line" and #076 shipped _something_; verify
       what actually renders and whether the search belongs there. This is the
       one place a client importing server action types was found earlier — do
       not reintroduce it.
@@ -60,13 +68,13 @@ count per card (one grouped query for the whole page, #078/#098), the plan pill
 backed by a real subscription read, and an empty state. The prototype's card is
 a single fixture; the app's version answers "which family, and is it in use".
 
-**`family-detail.html` — already matches.** #077 shipped this prototype's own
-answer (one gap, one padding, one label treatment, the 40px module row), and
-#064 fixed its one dead href. The two prototype bands the app does not carry
-(the "Active invitation" summary and the plan-usage bar) are fixture views of
-data the detail loader does not read; adding either is new product, not a port.
-The prototype's own "no danger zone" card stands: `deleteFamilies()` still has
-no caller.
+**`family-detail.html` — a real difference, built.** #077 shipped this
+prototype's own answer to the main column (one gap, one padding, one label
+treatment, the 40px module row) and #064 fixed its one dead href, but **two of
+the four side bands read data the detail loader did not return, so they were
+never built**. An approval is a specification, so both are built — see "The two
+side bands". The prototype's own "no danger zone" card still stands:
+`deleteFamilies()` still has no caller.
 
 **`family-create.html` — a real difference, built.** Two gaps: the prototype
 declares members before the finish line and the app had none, and the create
@@ -86,10 +94,10 @@ management page — is now on the family page itself.
 Three tabs, same order (find someone / invite by email / create a child), all
 three existing affordances intact. The app gates the email tab on
 `canInviteByEmail`, which the prototype cannot do. The prototype's remaining
-ask is its child-account warning, and that is **#102** — unclaimed, out of this
-ticket, and its copy must not be copied: the prototype's "a child row with no
-passwordHash can never sign in" is false (verified in #102). Not ported here
-on purpose.
+ask is its child-account warning, and that is **#102** — still unclaimed and
+still the owner's to claim. Its _copy_ is no longer a hazard: the prototype's "a
+child row with no `passwordHash` can never sign in" was false and is corrected
+there (see "#102's false line"), so nothing untrue is waiting to be ported.
 
 **`family-tasks.html` — a real difference, built. It contradicted #101.**
 #101 shipped the assignee board and its decision 1 made unassigned Tasks fall
@@ -110,6 +118,57 @@ specification, so the card is built and #101 is updated**, not silently vetoed:
   dialog, complete/advance/accept/decline, delete with its confirmation, and the
   mobile step-down to one column. The Nobody card is real capability, not a
   picture: its rows are the same `FamilyOpenTaskRow` with the same handlers.
+
+### The two side bands — an approval is a specification
+
+`family-detail.html:289-328` puts four bands in the side rail: shared-data links,
+**Active invitation**, **Plan usage**, and the children-are-users constraint. The
+first and last were built earlier; the middle two were not, and the reason is in
+this file's own earlier draft — "fixture views of data the detail loader does not
+read; adding either is new product, not a port". That reasoning was wrong about
+what the owner asked for. The directive was to keep the approved look **and
+function**, and a prototype that cannot render a live code has no empty, loading
+or error state — so where the fixture lied, the band has to be honest rather than
+absent.
+
+**What the prototype shows, transcribed:** the invitation band is four key/value
+rows — Code (monospace), Uses `n of max`, Expires, Created by (first name). The
+plan band is a tier chip, an "AI events" progress bar reading `used/limit`, then
+Families `used of limit`, Members `used of limit`, Archive `n days`, Export
+`enabled | not on this plan`. No copy button, no mint action, no manage link —
+those live on the invitations page, which is where a change to an invite should
+be made.
+
+**What the loader now reads** (`+page.server.ts:98-107`, five reads in one
+`Promise.all`, no waterfall):
+
+- `getFamilyInviteCodes(familyId)` — the codes, ordered, with `useCount`,
+  `maxUses`, `expiresAt`, `createdBy`.
+- `getUserSubscriptionLimits(userId)` — the ceilings.
+- `getSubscriptionStatus(userId)` — the tier's name.
+- `getAiUsageThisMonth(userId)` — this month's AI creations.
+- `getUserFamilyMemberships(userId)` — the families this user belongs to, which
+  is the same count `canCreateFamily` gates on, so the band cannot disagree with
+  the create gate.
+
+**What was built, beyond transcription.** The prototype's `INVITE` fixture has one
+live code, so it never had to decide what a dead one looks like. `pickActiveInvite`
+(`+page.server.ts:43-52`) treats a code as an invitation only while it is neither
+expired nor used up, and the band falls back to "No active invitation. Mint a
+link to bring somebody into this family." A dead code presented as live is worse
+than no band. "Created by" resolves through the roster already loaded for the
+member list, so it names a person and never leaks a user id. `maxUses` is
+nullable in the schema and prints `∞`, not `null`.
+
+The `Plan` chip is honest about an absent tier ("No plan") rather than naming
+one the user does not hold, and the AI bar's denominator falls back through
+`limits.aiEventCreationsPerMonth` → `getAiUsageThisMonth().limit` → `0`. Pinned
+by `page.server.test.ts` (4 tests) and `page.svelte.test.ts` (6).
+
+The side rail's two tinted bands are transcribed too: the prototype washes Plan
+mint-green and the children band blue via inline `cssText`. The app's own
+families-list card already carries a `bg-gradient-to-br from-*-50/70 to-white`
+(`family/+page.svelte:157`), so the tint is the house idiom, not a new one.
 
 ### The duplicate family-tasks route is gone, not fixed
 
@@ -176,7 +235,7 @@ Closed here:
 - **The two disagreeing `maxUses` defaults.** Minting through the action
   defaulted to one use; through `/api/family/invite`, ten. The default is now
   declared once — `DEFAULT_INVITE_MAX_USES = 10` in `db/actions/families.ts` —
-  and the route clamps to *that* constant rather than to a second literal. The
+  and the route clamps to _that_ constant rather than to a second literal. The
   invite route had no test at all; it has four now.
 
 Still open, and outside this lane's fence:
@@ -210,26 +269,30 @@ current copy promises a join count, so this is safe to leave as it is until the
 decision is made — but it must not be "fixed" by writing an audit table nobody
 asked for.
 
-### #102's false line — verified, and it is not in the app
+### #102's false line — corrected at the prototype, still the ticket's in the app
 
 Checked rather than assumed, because the instruction was not to leave a false
-statement in the UI:
+statement in the UI. It was false, and it was false **twice**:
 
 - **The app is truthful.** `src/lib/components/family/MemberChildTab.svelte:84`
-  says "Each child needs their own email address for their account." That is
-  true, and it is the one hint the ticket asks to expand on.
-- **The false statement is prototype-only**:
-  `prototypes/app-ui/family-members-add.html:128` — "A child row with no
-  `passwordHash` can never sign in". It is wrong: the child endpoint's own
-  docblock says the account it creates is "email-verified, magic-link/password
-  sign-in capable"
-  (`family/[familyId]/members/add/child/+server.ts:15`), which `createNewUser`
-  backs by setting `emailVerified: true`.
+  says "Each child needs their own email address for their account." True, and
+  the one hint #102 asks to expand on. Unchanged here.
+- **The prototype asserted the opposite.** `family-members-add.html:128` said "A
+  child row with no `passwordHash` can never sign in … It is a profile, not a
+  login", and its success toast said the same thing. Both were wrong: the child
+  endpoint writes the account through `createNewUser`
+  (`family/[familyId]/members/add/child/+server.ts:76`), which sets
+  `emailVerified: true` and attaches an `email` provider account — so a magic
+  link to that address signs the child in. A profile with no login would also
+  have made the Kids' Schedule's own grouping pointless.
 
-So there is nothing false in the UI to fix here. #102 remains **unclaimed** and
-owns both the true up-front warning and the correction of that prototype line;
-both surfaces are outside this lane's fence (`components/family/**` and the
-prototype tree, which #122/#123 own).
+Both prototype lines now say what the code does: the account is real, there is
+no password to set or share, and the cost is the permanent inbox. That was a
+copy fix inside a prototype, which sits outside this lane's fence, but leaving a
+false claim in an approved page would have the next reviewer re-open it.
+
+#102 stays **unclaimed** and owns the real work: the true up-front warning on the
+child tab.
 
 ### One copy helper, and the share sheet
 
@@ -268,7 +331,49 @@ this fence**, named for whoever picks them up:
 - `npx playwright test e2e/family/ --project=chromium` — **14 passed**,
   including the new create-with-members spec.
 
+### Verification — the two side bands, re-run
+
+- `npx vitest run "src/routes/(family)" "src/lib/components/family"` — **16 files,
+  114 passed**. Split by project: server **8 files, 54 passed**, client **8
+  files, 60 passed**. Re-run after the band tints: `[familyId]` alone, **4 files,
+  30 passed**.
+- `npx svelte-check` — **40 errors in 30 files**, none on a line this slice
+  wrote. One is in `[familyId]/+page.svelte:626` and is pre-existing: 077's
+  `moduleSubmit` signature against SvelteKit's `SubmitFunction`. The other 39 are
+  other lanes' in-flight files (calendar, tasks, dashboard, marketing login).
+- `npx oxlint "src/routes/(family)" "src/lib/components/family"` — **40 errors**,
+  unchanged in count by this slice. The two on the file this slice edited are
+  `[familyId]/+page.svelte:187,194`, both `no-known-value-widening` on
+  `moduleOptimistic` — 077's, untouched here. The rest sit in test files this
+  slice did not author (`links.test.ts`, the create-page tests,
+  `MemberSearchTab.svelte.test.ts`).
+- `npm run build` — **green**, exit 0, twice.
+- `npx playwright test e2e/family/ --project=chromium` — **14 passed** (1.5m).
+  Note for whoever runs it next: the suite needs `familycalendar-db` up
+  (`docker start familycalendar-db`); with it stopped every spec fails at the
+  migration step on `ECONNREFUSED 127.0.0.1:5433`, which looks like a product
+  failure and is not.
+- `npx prettier --check "src/routes/(family)/**/*.svelte"` — **clean**. The
+  detail page was not prettier-clean at HEAD; it is now.
+
 ## Notes
+
+- **The earlier draft of this ticket was wrong about the two bands, and the
+  wrongness is why they had to be built.** It recorded them as "fixture views of
+  data the detail loader does not read; adding either is new product, not a
+  port". Both claims failed against the code: `getFamilyInviteCodes`,
+  `getUserSubscriptionLimits`, `getSubscriptionStatus` and `getAiUsageThisMonth`
+  all already existed, so the read was a wiring change, not new data modelling,
+  and no table was needed. It also read the approved side rail as decoration when
+  it carries the two things a family member cannot otherwise answer on that page:
+  _can I still send this link_ and _what does my plan allow_. Anyone who reads
+  the older revision and stops there will skip work that is already committed.
+- **The tints are transcribed, not invented.** `family-detail.html` washes the
+  Plan band mint and the children band blue through inline `cssText` on the two
+  `sideBand(...)` calls (`:317`, `:328`). The app's families-list card already
+  wears that gradient idiom, so the transcription is a house style, not a new
+  one. `prettier --write` on the detail page also reflowed eight lines inside
+  these two bands that were not prettier-clean at HEAD.
 
 - `npx vitest run --project server` over this subtree — **8 files, 74 passed**
   (97 with `subscriptionService.test.ts` alongside it).
@@ -307,7 +412,7 @@ this fence**, named for whoever picks them up:
 - `CONTEXT.md` is canonical. `Family Member` (membership **role**) and
   `Member Type` (personal profile) are distinct and must not be conflated. Both
   gates added in this slice read `role` and never `memberType`.
-- **Not done here:** 076's e2e for a create that *hits* the member limit. The
+- **Not done here:** 076's e2e for a create that _hits_ the member limit. The
   limit is enforced and covered at the action (`create/members.test.ts`) and in
   the picker's own count; only the browser-level refusal is missing, and it needs
   a subscription row with `memberLimitOverride: 1` to set up.

@@ -40,7 +40,8 @@
 		return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
 	}
 
-	$: aiPercent = plan.aiLimit > 0 ? Math.min(100, Math.round((plan.aiUsed / plan.aiLimit) * 100)) : 0;
+	$: aiPercent =
+		plan.aiLimit > 0 ? Math.min(100, Math.round((plan.aiUsed / plan.aiLimit) * 100)) : 0;
 
 	// Module switches read `data` reactively (not destructured) so the row
 	// settles on the server's truth the moment the action answers.
@@ -758,12 +759,17 @@
 								<dt class="font-medium text-slate-700">Code</dt>
 								<dd class="font-mono text-slate-600">{activeInvite.code}</dd>
 							</div>
-							<div class="flex items-baseline justify-between gap-3 border-t border-slate-100 py-1.5">
+							<div
+								class="flex items-baseline justify-between gap-3 border-t border-slate-100 py-1.5"
+							>
 								<dt class="font-medium text-slate-700">Uses</dt>
-								<dd class="text-slate-600">{activeInvite.useCount} of {activeInvite.maxUses ??
-									'∞'}</dd>
+								<dd class="text-slate-600">
+									{activeInvite.useCount} of {activeInvite.maxUses ?? '∞'}
+								</dd>
 							</div>
-							<div class="flex items-baseline justify-between gap-3 border-t border-slate-100 py-1.5">
+							<div
+								class="flex items-baseline justify-between gap-3 border-t border-slate-100 py-1.5"
+							>
 								<dt class="font-medium text-slate-700">Expires</dt>
 								<dd class="text-slate-600">{inviteExpiry(activeInvite.expiresAt)}</dd>
 							</div>
@@ -797,7 +803,14 @@
 					{/if}
 				</section>
 
-				<section class={BAND} aria-label="Plan usage">
+				<!-- The prototype tints this one band mint-green (`rgba(196,233,218,.32)`,
+				     `family-detail.html:317`) and the children band blue; the card idiom is
+				     the one the families list already uses (`/family/+page.svelte:157`),
+				     gradient over the band rhythm rather than a new one. -->
+				<section
+					class="{BAND} border-emerald-100 bg-gradient-to-br from-emerald-50/70 to-white"
+					aria-label="Plan usage"
+				>
 					<h2 class="mb-3 flex flex-wrap items-center gap-2 {BAND_TITLE}">
 						Plan
 						<span
@@ -811,12 +824,11 @@
 					<div class="flex items-center gap-2">
 						<span class="shrink-0 text-xs text-slate-500">AI events</span>
 						<span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-							<span
-								class="block h-full rounded-full bg-primary-600"
-								style="width: {aiPercent}%"
+							<span class="block h-full rounded-full bg-primary-600" style="width: {aiPercent}%"
 							></span>
 						</span>
-						<span class="shrink-0 text-xs font-bold text-slate-700">{plan.aiUsed}/{plan.aiLimit}</span
+						<span class="shrink-0 text-xs font-bold text-slate-700"
+							>{plan.aiUsed}/{plan.aiLimit}</span
 						>
 					</div>
 					<dl class="mt-2 text-sm">
@@ -842,7 +854,10 @@
 				</section>
 
 				<!-- The constraint that is not obvious, said where it bites. -->
-				<section class={BAND} aria-label="Children are users">
+				<section
+					class="{BAND} border-sky-100 bg-gradient-to-br from-sky-50/70 to-white"
+					aria-label="Children are users"
+				>
 					<h2 class="mb-2 {BAND_TITLE}">Children are users</h2>
 					<p class="text-xs leading-relaxed text-slate-500">
 						A child is a real row in your account with a unique email address, which is what lets an

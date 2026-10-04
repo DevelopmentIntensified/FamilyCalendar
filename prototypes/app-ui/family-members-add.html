@@ -125,11 +125,13 @@ p3.innerHTML = `
 	</div>
 	<div class="rail__card" style="margin-top:1rem">
 	  ${sectionTitle('Why it is done this way')}
-	  <p class="hint" style="line-height:1.75">A child row with no <code>passwordHash</code> can never sign in —
-	  it exists so an event can carry <code>eventAttendance.user_id</code> and so the kids’ schedule module has
-	  something to group by. It is a profile, not a login.</p>
-	  <p class="hint" style="line-height:1.75;margin-top:.5rem">The cost is that the family owns a fake inbox per
-	  child forever, and nothing cleans it up if the child grows up and wants a real account.</p>
+	  <p class="hint" style="line-height:1.75">A child row created here is a real account, not a profile: the
+	  child endpoint writes <code>emailVerified = true</code> and attaches an <code>email</code> provider account, so
+	  the address on the form is a working sign-in — a magic link, with no password to set, forget or share. It
+	  exists so an event can carry <code>eventAttendance.user_id</code> and so the kids’ schedule module has
+	  something to group by.</p>
+	  <p class="hint" style="line-height:1.75;margin-top:.5rem">The cost is that the family owns an inbox per
+	  child forever, and nothing cleans it up if the child grows up and wants an account of their own.</p>
 	</div>`;
 wrap.appendChild(p3);
 
@@ -185,7 +187,7 @@ window.send = (e) => {
 window.mkchild = (e) => {
 	e.preventDefault();
 	const f = document.getElementById('cFirst').value.trim();
-	toast(`${f}’s profile created — they can never sign in with it`);
+	toast(`${f}’s account created — a magic link to that address signs them in`);
 };
 window.toast = toast;
 
