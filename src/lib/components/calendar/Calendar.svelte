@@ -8,8 +8,14 @@
 	import WeekView from './WeekView.svelte';
 	import DayView from './DayView.svelte';
 	import DailyVerseCard from './DailyVerseCard.svelte';
+	import CalendarKey from './CalendarKey.svelte';
 	import CalendarToolbar from './CalendarToolbar.svelte';
-	import { resolveInitialView, shouldSwipeNavigate, isCurrentPeriod, type CalendarView } from './calendarView';
+	import {
+		resolveInitialView,
+		shouldSwipeNavigate,
+		isCurrentPeriod,
+		type CalendarView
+	} from './calendarView';
 	import {
 		hiddenCalendarNames,
 		isCalendarHidden,
@@ -281,7 +287,10 @@
 	// grid reads as "nothing scheduled", which is a different and wrong thing
 	// to tell a family.
 	$: showSearchEmpty =
-		searchQuery.trim().length > 0 && !showFilterEmpty && visibleEvents.length === 0 && visibleTasks.length === 0;
+		searchQuery.trim().length > 0 &&
+		!showFilterEmpty &&
+		visibleEvents.length === 0 &&
+		visibleTasks.length === 0;
 	// #127: and a PERSON filter that matches nothing gets its own words too, for
 	// the same reason — "Every calendar is hidden" about a calendar that is very
 	// much on would be a lie, and so would reusing that card for a person. It is
@@ -324,248 +333,258 @@
 	$: onCurrentPeriod = isCurrentPeriod(view, $currentDate, DateTime.now());
 </script>
 
-<div class="mb-2 bg-white pt-4">
-	<CalendarToolbar
-		{currentMonthYear}
-		{currentYear}
-		{currentMonth}
-		{months}
-		{view}
-		{selectionMode}
-		{addMode}
-		calendars={calendarIds}
-		{hiddenCalendarIds}
-		dashboardDate={$currentDate.toISODate() ?? ''}
-		isCurrentPeriod={onCurrentPeriod}
-		onToday={goToday}
-		onPrevious={goPrevious}
-		onNext={goNext}
-		onMonthSelect={handleMonthSelect}
-		onYearSelect={handleYearSelect}
-		onViewChange={changeView}
-		{onToggleSelectionMode}
-		onToggleAddMode={toggleAddMode}
-		onToggleCalendar={handleToggleCalendar}
-		onSetAllHidden={handleSetAllHidden}
-		assignees={assigneeRows}
-		{hiddenAssigneeIds}
-		onToggleAssignee={handleToggleAssignee}
-		onShowAllAssignees={handleShowAllAssignees}
-		{searchQuery}
-		{searchMatches}
-		{searchTotal}
-		onSearch={(q) => (searchQuery = q)}
-	/>
+<!-- #128 gap 1: ONE card. The toolbar ran to the viewport edge while the grid
+     stopped at 1536px, with 16px of padding on one and 32px on the other, so
+     the two halves of a single control sat on two different grids above 1280px.
+     E welds them into one 80rem card with 1.5rem corners. The card is NOT
+     `overflow-hidden`: the month picker and the filter sheet both hang off the
+     toolbar, and a clipping ancestor would eat them. The weld is done with
+     corners instead — rounded where the card ends, square where it meets. -->
+<div class="w-full px-3 pb-2 sm:px-6">
 	<div
-		class="group/cal relative mx-auto w-full max-w-screen-2xl px-2 sm:px-4 lg:px-8"
-		ontouchstart={handleTouchStart}
-		ontouchend={handleTouchEnd}
+		data-testid="calendar-card"
+		class="mx-auto w-full max-w-[80rem] rounded-3xl border border-slate-200 bg-white shadow-sm"
 	>
-		{#if dailyVerse}
-			<div class="mb-3">
-				<DailyVerseCard
-					reference={dailyVerse.reference}
-					text={dailyVerse.text}
-					attribution={dailyVerse.attribution}
-				/>
-			</div>
-		{/if}
-		<!-- #119: these hover arrows sit over the grid, and below `md` a cell tap
+		<CalendarToolbar
+			{currentMonthYear}
+			{currentYear}
+			{currentMonth}
+			{months}
+			{view}
+			{selectionMode}
+			{addMode}
+			calendars={calendarIds}
+			{hiddenCalendarIds}
+			dashboardDate={$currentDate.toISODate() ?? ''}
+			isCurrentPeriod={onCurrentPeriod}
+			onToday={goToday}
+			onPrevious={goPrevious}
+			onNext={goNext}
+			onMonthSelect={handleMonthSelect}
+			onYearSelect={handleYearSelect}
+			onViewChange={changeView}
+			{onToggleSelectionMode}
+			onToggleAddMode={toggleAddMode}
+			onToggleCalendar={handleToggleCalendar}
+			onSetAllHidden={handleSetAllHidden}
+			assignees={assigneeRows}
+			{hiddenAssigneeIds}
+			onToggleAssignee={handleToggleAssignee}
+			onShowAllAssignees={handleShowAllAssignees}
+			{searchQuery}
+			{searchMatches}
+			{searchTotal}
+			onSearch={(q) => (searchQuery = q)}
+		/>
+		<div
+			class="group/cal relative w-full p-3"
+			ontouchstart={handleTouchStart}
+			ontouchend={handleTouchEnd}
+		>
+			{#if dailyVerse}
+				<div class="mb-3">
+					<DailyVerseCard
+						reference={dailyVerse.reference}
+						text={dailyVerse.text}
+						attribution={dailyVerse.attribution}
+					/>
+				</div>
+			{/if}
+			<!-- #119: these hover arrows sit over the grid, and below `md` a cell tap
 		     opens the day-action sheet instead. `md`, so they never land on a cell
 		     that is in sheet mode. -->
-		<button
-			onclick={goPrevious}
-			aria-label="Previous period"
-			class="absolute -left-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-0 shadow-md transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
-		>
-			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-			</svg>
-		</button>
-		<button
-			onclick={goNext}
-			aria-label="Next period"
-			class="absolute -right-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-0 shadow-md transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
-		>
-			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-			</svg>
-		</button>
-		{#if showFilterEmpty}
-			<!-- #069: hiding everything is a choice, not an empty calendar. Say
+			<button
+				onclick={goPrevious}
+				aria-label="Previous period"
+				class="absolute -left-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-0 shadow-md transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+				</svg>
+			</button>
+			<button
+				onclick={goNext}
+				aria-label="Next period"
+				class="absolute -right-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-0 shadow-md transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+				</svg>
+			</button>
+			{#if showFilterEmpty}
+				<!-- #069: hiding everything is a choice, not an empty calendar. Say
 				so, name what is off, and make the way back one tap. It replaces
 				the grid on purpose: a blank grid reads as "nothing scheduled",
 				which is a different (and wrong) thing to tell a family. -->
-			<div
-				class="flex flex-col items-center px-2 py-14 text-center sm:py-20"
-				data-testid="calendar-filter-empty"
-			>
-				<svg
-					class="mb-4 h-12 w-12 text-slate-300"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="1.5"
-					aria-hidden="true"
+				<div
+					class="flex flex-col items-center px-2 py-14 text-center sm:py-20"
+					data-testid="calendar-filter-empty"
 				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M3 5h18M6 12h12M10 19h4"
-					/>
-				</svg>
-				<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-					Filtered
-				</p>
-				<h2 class="mt-1 max-w-[16rem] text-lg font-medium text-slate-700 sm:max-w-none">
-					Every calendar is hidden
-				</h2>
-				<p class="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
-					{hiddenNames.length > 0
-						? `${hiddenNames.join(', ')} ${hiddenNames.length === 1 ? 'is' : 'are'} hidden.`
-						: 'Every calendar is hidden.'}
-					Nothing is drawn until you turn one back on — your events and due tasks are all
-					still here.
-				</p>
-				<button
-					type="button"
-					data-testid="calendar-filter-show-all"
-					onclick={() => handleSetAllHidden(false)}
-					class="mt-5 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary-700 active:scale-[0.98]"
-				>
-					Show all calendars
-				</button>
-			</div>
-		{:else if showSearchEmpty}
-			<!-- #120: a search that matched nothing is not a calendar switched
+					<svg
+						class="mb-4 h-12 w-12 text-slate-300"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="1.5"
+						aria-hidden="true"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M3 5h18M6 12h12M10 19h4" />
+					</svg>
+					<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Filtered</p>
+					<h2 class="mt-1 max-w-[16rem] text-lg font-medium text-slate-700 sm:max-w-none">
+						Every calendar is hidden
+					</h2>
+					<p class="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
+						{hiddenNames.length > 0
+							? `${hiddenNames.join(', ')} ${hiddenNames.length === 1 ? 'is' : 'are'} hidden.`
+							: 'Every calendar is hidden.'}
+						Nothing is drawn until you turn one back on — your events and due tasks are all still here.
+					</p>
+					<button
+						type="button"
+						data-testid="calendar-filter-show-all"
+						onclick={() => handleSetAllHidden(false)}
+						class="mt-5 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary-700 active:scale-[0.98]"
+					>
+						Show all calendars
+					</button>
+				</div>
+			{:else if showSearchEmpty}
+				<!-- #120: a search that matched nothing is not a calendar switched
 				off, and it is not an empty month. It says so, and the way back is
 				one tap. -->
-			<div
-				class="flex flex-col items-center px-2 py-14 text-center sm:py-20"
-				data-testid="search-empty"
-			>
-				<svg
-					class="mb-4 h-12 w-12 text-slate-300"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="1.5"
-					aria-hidden="true"
+				<div
+					class="flex flex-col items-center px-2 py-14 text-center sm:py-20"
+					data-testid="search-empty"
 				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
-					/>
-				</svg>
-				<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-					Searching
-				</p>
-				<h2 class="mt-1 max-w-[16rem] text-lg font-medium text-slate-700 sm:max-w-none">
-					Nothing matches &ldquo;{searchQuery.trim()}&rdquo;
-				</h2>
-				<p class="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
-					Nothing on this calendar matches those words. Everything is still here — only the view is
-					narrowed.
-				</p>
-				<button
-					type="button"
-					onclick={() => (searchQuery = '')}
-					class="mt-5 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary-700 active:scale-[0.98]"
-				>
-					Clear search
-				</button>
-			</div>
-		{:else if showAssigneeEmpty}
-			<!-- #127 mark 1.11. A person filter that matches nothing is not an
+					<svg
+						class="mb-4 h-12 w-12 text-slate-300"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="1.5"
+						aria-hidden="true"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
+						/>
+					</svg>
+					<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Searching</p>
+					<h2 class="mt-1 max-w-[16rem] text-lg font-medium text-slate-700 sm:max-w-none">
+						Nothing matches &ldquo;{searchQuery.trim()}&rdquo;
+					</h2>
+					<p class="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
+						Nothing on this calendar matches those words. Everything is still here — only the view
+						is narrowed.
+					</p>
+					<button
+						type="button"
+						onclick={() => (searchQuery = '')}
+						class="mt-5 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary-700 active:scale-[0.98]"
+					>
+						Clear search
+					</button>
+				</div>
+			{:else if showAssigneeEmpty}
+				<!-- #127 mark 1.11. A person filter that matches nothing is not an
 			     empty month and not a hidden calendar, and a blank grid reads as
 			     "nothing scheduled" — which is a different and wrong thing to
 			     tell a family. It names who is switched off, and the way back is
 			     one tap. -->
-			<div
-				class="flex flex-col items-center px-2 py-14 text-center sm:py-20"
-				data-testid="assignee-empty"
-			>
-				<svg
-					class="mb-4 h-12 w-12 text-slate-300"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="1.5"
-					aria-hidden="true"
+				<div
+					class="flex flex-col items-center px-2 py-14 text-center sm:py-20"
+					data-testid="assignee-empty"
 				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-					/>
-				</svg>
-				<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-					Filtered
-				</p>
-				<h2 class="mt-1 max-w-[16rem] text-lg font-medium text-slate-700 sm:max-w-none">
-					{hiddenAssigneeLabels.length === 1
-						? `Nothing for ${hiddenAssigneeLabels[0]} in this view`
-						: 'Nothing left in this view'}
-				</h2>
-				<p class="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
-					{hiddenAssigneeLabels.length === 1
-						? `${hiddenAssigneeLabels[0]} is switched off, and another filter has taken what was left of their plans. Everything is still here — only the view is narrowed.`
-						: 'Everyone is switched off, and another filter has taken the rest. Everything is still here — only the view is narrowed.'}
-				</p>
-				<button
-					type="button"
-					onclick={handleShowAllAssignees}
-					class="mt-5 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary-700 active:scale-[0.98]"
-				>
-					Show everyone
-				</button>
-			</div>
-		{:else if view === 'month'}
-			<MonthView
-				{currentDate}
-				events={visibleEvents}
-				{preferedFirstDayOfWeek}
-				{calendarIds}
-				{openDay}
-				dueTasks={visibleTasks}
-				{createAt}
-				{selectionMode}
-				{selectedIds}
-				{onToggleSelect}
-			/>
-		{:else if view === 'week'}
-			<WeekView
-				{currentDate}
-				events={visibleEvents}
-				{removeEvent}
-				{preferedFirstDayOfWeek}
-				{calendarIds}
-				{openDay}
-				dueTasks={visibleTasks}
-				{createAt}
-				{selectionMode}
-				{addMode}
-				{selectedIds}
-				{onToggleSelectionMode}
-				{onToggleSelect}
-			/>
-		{:else if view === 'day'}
-			<DayView
-				{currentDate}
-				events={visibleEvents}
-				{calendarIds}
-				dueTasks={visibleTasks}
-				{createAt}
-				{selectionMode}
-				{addMode}
-				{selectedIds}
-				{onToggleSelectionMode}
-				{onToggleSelect}
-				on:back={backFromDay}
-			/>
-		{:else if view === 'list'}
-			<ListView {currentDate} events={visibleEvents} {calendarIds} dueTasks={visibleTasks} />
-		{/if}
+					<svg
+						class="mb-4 h-12 w-12 text-slate-300"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="1.5"
+						aria-hidden="true"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+						/>
+					</svg>
+					<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Filtered</p>
+					<h2 class="mt-1 max-w-[16rem] text-lg font-medium text-slate-700 sm:max-w-none">
+						{hiddenAssigneeLabels.length === 1
+							? `Nothing for ${hiddenAssigneeLabels[0]} in this view`
+							: 'Nothing left in this view'}
+					</h2>
+					<p class="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
+						{hiddenAssigneeLabels.length === 1
+							? `${hiddenAssigneeLabels[0]} is switched off, and another filter has taken what was left of their plans. Everything is still here — only the view is narrowed.`
+							: 'Everyone is switched off, and another filter has taken the rest. Everything is still here — only the view is narrowed.'}
+					</p>
+					<button
+						type="button"
+						onclick={handleShowAllAssignees}
+						class="mt-5 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary-700 active:scale-[0.98]"
+					>
+						Show everyone
+					</button>
+				</div>
+			{:else if view === 'month'}
+				<MonthView
+					{currentDate}
+					events={visibleEvents}
+					{preferedFirstDayOfWeek}
+					{calendarIds}
+					{openDay}
+					dueTasks={visibleTasks}
+					{createAt}
+					{selectionMode}
+					{selectedIds}
+					{onToggleSelect}
+				/>
+			{:else if view === 'week'}
+				<WeekView
+					{currentDate}
+					events={visibleEvents}
+					{removeEvent}
+					{preferedFirstDayOfWeek}
+					{calendarIds}
+					{openDay}
+					dueTasks={visibleTasks}
+					{createAt}
+					{selectionMode}
+					{addMode}
+					{selectedIds}
+					{onToggleSelectionMode}
+					{onToggleSelect}
+				/>
+			{:else if view === 'day'}
+				<DayView
+					{currentDate}
+					events={visibleEvents}
+					{calendarIds}
+					dueTasks={visibleTasks}
+					{createAt}
+					{selectionMode}
+					{addMode}
+					{selectedIds}
+					{onToggleSelectionMode}
+					{onToggleSelect}
+					on:back={backFromDay}
+				/>
+			{:else if view === 'list'}
+				<ListView {currentDate} events={visibleEvents} {calendarIds} dueTasks={visibleTasks} />
+			{/if}
+
+			<!-- #128 gap 9 — E's Key strip, welded under the grid it explains. It is
+		     only here when a view IS being drawn: the three empty states replace
+		     the grid on purpose, and a key under "every calendar is hidden" would
+		     be explaining nothing. The strip owns no filter state, so it needs no
+		     toast — the disclosure is its whole acknowledgement. -->
+			{#if !showFilterEmpty && !showSearchEmpty && !showAssigneeEmpty}
+				<CalendarKey sampleColor={calendarIds[0]?.color} />
+			{/if}
+		</div>
 	</div>
 </div>

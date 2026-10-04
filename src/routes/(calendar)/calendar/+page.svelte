@@ -500,12 +500,23 @@
 
 <div class="pb-24">
 	{#await data.calendarData}
-		<div class="mx-auto max-w-3xl px-4 pt-4" aria-hidden="true">
-			<div class="mb-3 h-10 animate-pulse rounded-xl bg-slate-100"></div>
-			<div class="grid grid-cols-7 gap-1.5">
-				{#each Array(35) as _, i (i)}
-					<div class="h-16 animate-pulse rounded-lg bg-slate-100 md:h-24"></div>
-				{/each}
+		<!-- #128 gap 1: the skeleton wears the SAME card the loaded page does —
+		     same 80rem cap, same 1.5rem corners, same 72/92/104px cells at the
+		     same 14px radius. A skeleton on a narrower, squarer grid than the
+		     page it stands in for is a layout jump paid for by the person who
+		     was already waiting. -->
+		<div class="w-full px-3 pb-2 pt-2 sm:px-6" aria-hidden="true">
+			<div
+				class="mx-auto w-full max-w-[80rem] rounded-3xl border border-slate-200 bg-white p-3 shadow-sm"
+			>
+				<div class="mb-3 h-10 w-64 max-w-full animate-pulse rounded-xl bg-slate-100"></div>
+				<div class="grid grid-cols-7 gap-1.5">
+					{#each Array(35) as _, i (i)}
+						<div
+							class="h-[72px] animate-pulse rounded-[14px] bg-slate-100 md:h-[92px] lg:h-[104px]"
+						></div>
+					{/each}
+				</div>
 			</div>
 		</div>
 	{:then cd}

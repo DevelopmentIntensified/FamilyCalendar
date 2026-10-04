@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { writable, get } from 'svelte/store';
+import { writable, get, type Writable } from 'svelte/store';
 import { DateTime } from 'luxon';
 import { tick } from 'svelte';
 import { toasts } from '$lib/client/toasts';
@@ -14,7 +14,7 @@ import type { Event } from '$lib/types';
 
 // SAFETY: fixture covers the Event fields the views read.
 function evt(over: Partial<Event> & { id: string; title: string; calendarId: string }): Event {
-	return {
+	const base = {
 		ownerId: 'u1',
 		date: '2026-09-08',
 		start: '2026-09-08T10:00:00',
@@ -28,9 +28,12 @@ function evt(over: Partial<Event> & { id: string; title: string; calendarId: str
 		recurrenceCount: null,
 		recurrenceUntil: null,
 		reminderMinutes: null,
-		created_at: new Date('2026-01-01T00:00:00Z'),
-		...over
-	} as Event;
+		created_at: new Date('2026-01-01T00:00:00Z')
+	};
+	// SAFETY: `base` is the whole Event surface the calendar views read, and
+	// `over` is the only thing allowed to change it — so the spread below is an
+	// Event, not merely something shaped like one.
+	return { ...base, ...over } as Event;
 }
 
 const PERSONAL = { id: 'cal-personal', name: 'Personal Calendar', color: '#fa8072' };
@@ -42,11 +45,35 @@ const rehearsal = evt({ id: 'e2', title: 'Rehearsal', calendarId: 'cal-family' }
 const ad = evt({ id: 'e3', title: 'Toy drive', calendarId: '', allDay: true });
 
 const dueTasks = [
-	{ id: 't1', title: 'Sign form', dueDate: new Date('2026-09-08T09:00:00'), calendarId: 'cal-personal' },
-	{ id: 't2', title: 'Book sitter', dueDate: new Date('2026-09-08T09:00:00'), calendarId: 'cal-family' }
+	{
+		id: 't1',
+		title: 'Sign form',
+		dueDate: new Date('2026-09-08T09:00:00'),
+		calendarId: 'cal-personal'
+	},
+	{
+		id: 't2',
+		title: 'Book sitter',
+		dueDate: new Date('2026-09-08T09:00:00'),
+		calendarId: 'cal-family'
+	}
 ];
 
-function setup(over: Record<string, unknown> = {}) {
+/** What `setup` will let a test change. Named, not `Record<string, unknown>`:
+ *  an open bag is how a fixture starts lying about what it was given, and the
+ *  compiler cannot tell a typo in a prop name from a good one. */
+interface SetupOverrides {
+	currentDate?: Writable<DateTime>;
+	events?: Event[];
+	calendarIds?: { id: string; name: string; color?: string }[];
+	filterUserId?: string | null;
+	dueTasks?: { id: string; title: string; dueDate: Date | string; calendarId?: string }[];
+	familyMembers?: { userId: string; firstName: string }[];
+	initialView?: string;
+	defaultViewSetting?: string;
+}
+
+function setup(over: SetupOverrides = {}) {
 	const props = {
 		currentDate: writable(DateTime.fromISO('2026-09-08T12:00:00')),
 		events: [standup, rehearsal, ad],
@@ -117,9 +144,9 @@ describe('Calendar — per-calendar view filter (#069)', () => {
 		await openFilter();
 		await fireEvent.click(screen.getByRole('switch', { name: 'Hide Smith Family' }));
 		await tick();
-		expect(JSON.parse(window.localStorage.getItem('familyplanz:hiddenCalendars:u1') ?? '[]')).toEqual(
-			['cal-family']
-		);
+		expect(
+			JSON.parse(window.localStorage.getItem('familyplanz:hiddenCalendars:u1') ?? '[]')
+		).toEqual(['cal-family']);
 		// A fresh mount is what a reload looks like.
 		cleanup();
 		setup();
@@ -205,9 +232,7 @@ describe('Calendar — per-calendar view filter (#069)', () => {
 		await openFilter();
 		await fireEvent.click(screen.getByRole('switch', { name: 'Hide Personal Calendar' }));
 		await tick();
-		expect(window.localStorage.getItem('familyplanz:hiddenCalendars:u1')).toBe(
-			'["cal-personal"]'
-		);
+		expect(window.localStorage.getItem('familyplanz:hiddenCalendars:u1')).toBe('["cal-personal"]');
 		expect(Object.keys(window.localStorage)).toEqual(['familyplanz:hiddenCalendars:u1']);
 		expect(p.events.map((e) => e.calendarId)).toContain('cal-personal');
 	});
@@ -245,7 +270,11 @@ describe('Calendar — the grid is the page on mobile (#119)', () => {
 	}
 
 	function atDesktopWidth() {
-		Object.defineProperty(window, 'innerWidth', { value: 1280, configurable: true, writable: true });
+		Object.defineProperty(window, 'innerWidth', {
+			value: 1280,
+			configurable: true,
+			writable: true
+		});
 	}
 
 	beforeEach(() => {
@@ -255,7 +284,11 @@ describe('Calendar — the grid is the page on mobile (#119)', () => {
 	afterEach(() => {
 		window.localStorage.clear();
 		toasts.set([]);
-		Object.defineProperty(window, 'innerWidth', { value: realWidth, configurable: true, writable: true });
+		Object.defineProperty(window, 'innerWidth', {
+			value: realWidth,
+			configurable: true,
+			writable: true
+		});
 		cleanup();
 	});
 
@@ -267,9 +300,9 @@ describe('Calendar — the grid is the page on mobile (#119)', () => {
 		atPhoneWidth();
 		setup();
 		// The month grid is the only view that draws whole day cells.
-		expect(screen.getAllByRole('button', { name: /^Open \d{2}-\d{2}-\d{4}$/ }).length).toBeGreaterThan(
-			27
-		);
+		expect(
+			screen.getAllByRole('button', { name: /^Open \d{2}-\d{2}-\d{4}$/ }).length
+		).toBeGreaterThan(27);
 	});
 
 	it('still honours a ?view= link on a phone — the link is about this screen', () => {
@@ -309,7 +342,9 @@ describe('Calendar — the grid is the page on mobile (#119)', () => {
 			const grid = screen.getByTestId('month-grid');
 			// seven days across, and nothing that narrows it into a column
 			expect(grid.className, width).toMatch(/\bgrid-cols-7\b/);
-			expect(grid.className, width).not.toMatch(/max-w-|lg:grid-cols-|sm:grid-cols-\[|md:grid-cols-\[/);
+			expect(grid.className, width).not.toMatch(
+				/max-w-|lg:grid-cols-|sm:grid-cols-\[|md:grid-cols-\[/
+			);
 			cleanup();
 			window.localStorage.clear();
 		}
@@ -323,9 +358,9 @@ describe('Calendar — the grid is the page on mobile (#119)', () => {
 		atTabletWidth();
 		window.localStorage.setItem('familyplanz:lastView', 'month');
 		setup();
-		expect(screen.getAllByRole('button', { name: /^Open \d{2}-\d{2}-\d{4}$/ }).length).toBeGreaterThan(
-			27
-		);
+		expect(
+			screen.getAllByRole('button', { name: /^Open \d{2}-\d{2}-\d{4}$/ }).length
+		).toBeGreaterThan(27);
 		// and no miniature twin anywhere on the page
 		expect(document.querySelectorAll('.mini, [data-testid="mini-month"]')).toHaveLength(0);
 	});
@@ -338,7 +373,96 @@ describe('Calendar — the grid is the page on mobile (#119)', () => {
 		const task = screen.getByText('Sign form');
 		expect(task).toBeInTheDocument();
 		// It lives inside a day cell, so it is reachable from the grid itself.
-		expect(task.closest('[class*="min-h-"]')).not.toBeNull();
+		expect(task.closest('[data-testid="month-day-cell"]')).not.toBeNull();
+	});
+});
+
+/**
+ * #128 gaps 1 + 9 — E's two page-level shapes.
+ *
+ * Gap 1: above 1280px the app ran its toolbar to the viewport edge while the
+ * grid stopped at 1536px, with 16px of padding on one and 32px on the other, so
+ * the two halves of one control sat on two different grids. E welds them into
+ * ONE card capped at 80rem.
+ *
+ * Gap 9: E's Key strip, welded under the grid it explains, so it cannot be
+ * misread as a control. The app had none.
+ */
+describe('Calendar — one card, and the key under the grid (#128 gaps 1 + 9)', () => {
+	beforeEach(() => {
+		window.localStorage.clear();
+		toasts.set([]);
+	});
+	afterEach(() => {
+		window.localStorage.clear();
+		toasts.set([]);
+		cleanup();
+	});
+
+	it('puts the toolbar and the grid inside ONE card, capped at 80rem', () => {
+		setup();
+		const card = screen.getByTestId('calendar-card');
+		expect(card.className).toMatch(/\bmax-w-\[80rem\]/);
+		expect(card.className).toMatch(/\bmx-auto\b/);
+		// One object, so the toolbar and the grid cannot sit on two different
+		// widths or two different paddings again.
+		expect(card.contains(screen.getByTestId('toolbar-controls-row'))).toBe(true);
+		expect(card.contains(screen.getByTestId('month-grid'))).toBe(true);
+		// …and the toolbar is NOT capped on its own any more.
+		const toolbar = screen.getByTestId('toolbar-controls-row').parentElement!;
+		expect(toolbar.className).not.toMatch(/max-w-/);
+	});
+
+	it('welds the toolbar to the grid: square where they meet, rounded where the card ends', () => {
+		setup();
+		const toolbar = screen.getByTestId('toolbar-controls-row').parentElement!;
+		// The toolbar is the card's top edge, so its own bottom corners are square.
+		expect(toolbar.className).toMatch(/rounded-t-3xl/);
+		expect(toolbar.className).toMatch(/border-b/);
+		expect(toolbar.className).not.toMatch(/(^|\s)rounded-3xl(\s|$)/);
+		// …and it no longer floats above the grid with a margin under it.
+		expect(toolbar.className).not.toMatch(/\bmb-4\b/);
+	});
+
+	it('hangs the Key off the bottom of the same card, below the grid', () => {
+		setup();
+		const card = screen.getByTestId('calendar-card');
+		const key = screen.getByTestId('calendar-key');
+		expect(card.contains(key)).toBe(true);
+		// After the grid in the DOM: it explains the grid, so it sits under it.
+		const grid = screen.getByTestId('month-grid');
+		expect(grid.compareDocumentPosition(key) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(key.className).toMatch(/rounded-b-3xl/);
+	});
+
+	it('says what shape means, and keeps the key folded until it is asked for', async () => {
+		setup();
+		const toggle = within(screen.getByTestId('calendar-key')).getByRole('button');
+		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+		// The claim is on the strip itself, so the key teaches before it opens.
+		expect(screen.getByTestId('calendar-key')).toHaveTextContent(/shape/i);
+		expect(screen.queryByTestId('calendar-key-body')).toBeNull();
+
+		await fireEvent.click(toggle);
+		expect(toggle.getAttribute('aria-expanded')).toBe('true');
+		const body = screen.getByTestId('calendar-key-body');
+		// All four kinds of chip the grid can draw, from ONE vocabulary.
+		for (const kind of ['timed', 'allDay', 'task', 'sponsored']) {
+			expect(body.querySelector(`[data-chip-mark="${kind}"]`), kind).toBeTruthy();
+		}
+	});
+
+	it('has no Key on an empty grid — there is nothing on screen to explain', async () => {
+		// The three empty states replace the grid on purpose; a key under a card
+		// that says "every calendar is hidden" would be explaining nothing.
+		// No sponsored event here: an ad is on no calendar, so it survives
+		// hide-all and the grid is not blank.
+		setup({ events: [standup, rehearsal], dueTasks: [] });
+		await openFilter();
+		await fireEvent.click(screen.getByTestId('calendar-filter-all'));
+		await tick();
+		expect(screen.getByTestId('calendar-filter-empty')).toBeInTheDocument();
+		expect(screen.queryByTestId('calendar-key')).toBeNull();
 	});
 });
 
@@ -531,7 +655,7 @@ describe('Calendar — the person filter (#127, mark 1.11)', () => {
 		expect(screen.getByRole('button', { name: /^Mia,/ })).toHaveTextContent('0');
 	});
 
-	it('drops the hidden family\'s events AND their due tasks from the grid', async () => {
+	it("drops the hidden family's events AND their due tasks from the grid", async () => {
 		setupPeople();
 		await hidePerson(/^Mia,/);
 		expect(screen.queryByText('Soccer')).toBeNull();
@@ -606,12 +730,12 @@ describe('Calendar — the person filter (#127, mark 1.11)', () => {
 		expect(screen.getByTestId('month-grid')).toBeInTheDocument();
 	});
 
-	it('survives a reload, and keeps two users\' filters apart on one device', async () => {
+	it("survives a reload, and keeps two users' filters apart on one device", async () => {
 		setupPeople();
 		await hidePerson(/^Mia,/);
-		expect(JSON.parse(window.localStorage.getItem('familyplanz:hiddenAssignees:u-sarah') ?? '[]')).toEqual([
-			'u-mia'
-		]);
+		expect(
+			JSON.parse(window.localStorage.getItem('familyplanz:hiddenAssignees:u-sarah') ?? '[]')
+		).toEqual(['u-mia']);
 		// A fresh mount is what a reload looks like.
 		cleanup();
 		setupPeople();
@@ -633,7 +757,9 @@ describe('Calendar — the person filter (#127, mark 1.11)', () => {
 		cleanup();
 		setupPeople();
 		await hidePerson(/^Mia,/);
-		expect(screen.getAllByRole('button', { name: /^Open \d{2}-\d{2}-\d{4}$/ }).length).toBeGreaterThan(27);
+		expect(
+			screen.getAllByRole('button', { name: /^Open \d{2}-\d{2}-\d{4}$/ }).length
+		).toBeGreaterThan(27);
 	});
 
 	it('acknowledges every switch with a toast naming what changed and what is next', async () => {

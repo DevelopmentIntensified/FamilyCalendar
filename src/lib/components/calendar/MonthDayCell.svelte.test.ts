@@ -155,33 +155,37 @@ describe('MonthDayCell chip vocabulary', () => {
 });
 
 /**
- * #119 mark 1.14 — "the circle is really big on tablet view. Also on tablet view
- * we need the cal view, not the micro cal view."
+ * #128 gaps 2 + 6 — Prototype E, transcribed. E's cell is 14px, `#e2e8f0`,
+ * white, 8px/10px, with a weekend gradient; and its height is `height`, never
+ * `min-height`, "a busy Tuesday is not allowed to push the bottom of the month
+ * off the screen".
  *
- * The micro cal view is gone (there is no rail, at any width). The oversized
- * cell was not: the month cell grew to 104px at Tailwind's `sm` (640px), while
- * the app's own breakpoint — the one `calendarView.ts` calls out as "the
- * boundary this file names and the boundary the stylesheets use are the same
- * number" — is 768px. So 640–767px got the tall cell, and at 768px a day cell
- * measured ~98 × 104px: a 104px tap target on a screen that is itself 768px
- * tall, six rows of it.
+ * The `min-h-` was the whole of gap 2 and it was measured, not guessed: with a
+ * busy September fixture in a real browser at 375×812 the busiest day cell
+ * rendered **182px** tall (the minimum is 72), the grid came to **867px** and
+ * the page to **1111px** — 291px of month below an 812px fold. `overflow-hidden`
+ * clips only AFTER a box has grown, which is why the minimum, not the overflow,
+ * was the defect.
  *
  * jsdom has no layout, so the shape is asserted where it can be: the cell's own
  * classes. Every one of these is a boundary that can silently move back.
  */
-describe('MonthDayCell sizing at tablet (#119, mark 1.14)', () => {
+describe('MonthDayCell cell height (#128 gap 2 — the grid is the page)', () => {
 	afterEach(cleanup);
 
-	const cellRoot = () => screen.getByRole('button', { name: 'Open 09-09-2026' }).parentElement!;
+	const cellRoot = () => document.querySelector('[data-testid="month-day-cell"]')!;
 
-	it('keeps the phone cell, and starts the tall cell at md — the app\'s own 768', () => {
+	it('fixes the cell height at every step instead of only flooring it', () => {
 		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
 		const cls = cellRoot().className;
-		expect(cls).toMatch(/(^|\s)min-h-\[72px\]/);
+		// `height`, not `min-height`: a minimum is a licence to grow, and growing
+		// is what pushed the bottom of the month off a phone.
+		expect(cls).toMatch(/(^|\s)h-\[72px\]/);
+		expect(cls).not.toMatch(/min-h-\[72px\]/);
 		// md = 768px = VIEW_BREAKPOINT_PX. `sm` = 640px is a different number.
-		expect(cls).toMatch(/(^|\s)md:min-h-\[92px\]/);
-		expect(cls).toMatch(/(^|\s)lg:min-h-\[104px\]/);
-		expect(cls).not.toMatch(/sm:min-h-/);
+		expect(cls).toMatch(/(^|\s)md:h-\[92px\]/);
+		expect(cls).toMatch(/(^|\s)lg:h-\[104px\]/);
+		expect(cls).not.toMatch(/sm:h-\[/);
 	});
 
 	it('grows the cell in steps, so no width is handed the wrong one', () => {
@@ -189,7 +193,7 @@ describe('MonthDayCell sizing at tablet (#119, mark 1.14)', () => {
 		// 768–1023: tablet cell (92)  — six rows plus the toolbar fit a 768 screen
 		// 1024+    : desktop cell (104)
 		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
-		const heights = [...cellRoot().className.matchAll(/(?:^|\s)([a-z]+:)?min-h-\[(\d+)px\]/g)].map(
+		const heights = [...cellRoot().className.matchAll(/(?:^|\s)([a-z]+:)?h-\[(\d+)px\]/g)].map(
 			(m) => [m[1] ?? '', Number(m[2])] as const
 		);
 		expect(heights).toEqual([
@@ -199,16 +203,146 @@ describe('MonthDayCell sizing at tablet (#119, mark 1.14)', () => {
 		]);
 	});
 
-	it('reveals the per-cell tools at md, where the day-action sheet stops', () => {
-		// MonthDays reads `max-width: 767px` and then makes the chips inert and
-		// hands a cell tap to the day-action sheet. The tools used to appear at
-		// `sm` (640px), so 640–767px was in sheet mode AND showing per-cell
-		// tools: two different answers to the same tap. One boundary, `md`.
+	it('clips, so a busy Tuesday cannot push the bottom of the month off the screen', () => {
+		// E clips, and says so. Clipping is only safe once the box can no longer
+		// grow, which is why the fixed height above and this go together.
 		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
-		const tools = screen.getByRole('button', { name: 'Add on 09-09-2026' }).parentElement!;
-		expect(tools.className).toMatch(/\bhidden\b/);
-		expect(tools.className).toMatch(/\bmd:flex\b/);
-		expect(tools.className).not.toMatch(/\bsm:flex\b/);
+		expect(cellRoot().className).toMatch(/overflow-hidden/);
+	});
+
+	it('clips the chips, not the whole cell, so the overflow button stays reachable', () => {
+		// The escape hatch for a clipped day is the `+N more` button. E clips it
+		// away; on a phone the day tap opens the day-action sheet instead, but
+		// from `sm` up this button is the only way into the day's full list, so
+		// it must sit outside the region that clips.
+		render(MonthDayCell, {
+			props: {
+				...base,
+				dayEvents: [evt('e1', 'A'), evt('e2', 'B'), evt('e3', 'C'), evt('e4', 'D')],
+				dayTasks: []
+			}
+		});
+		const more = screen.getByRole('button', { name: '+1 more' });
+		const chips = document.querySelector('[data-testid="month-chips"]')!;
+		expect(chips.className).toMatch(/overflow-hidden/);
+		expect(chips.contains(more)).toBe(false);
+	});
+});
+
+/** #128 gap 4 — E draws the per-cell tools at EVERY width, hover-revealed. */
+describe('MonthDayCell per-cell tools (#128 gap 4)', () => {
+	afterEach(cleanup);
+
+	const tools = () => screen.getByRole('button', { name: 'Add on 09-09-2026' }).parentElement!;
+
+	it('renders them at every width, not from md up', () => {
+		// E: "present at every width, hover-revealed via opacity:0". The app hid
+		// them below `md`, so a 375px phone had a cell with no `+` on it.
+		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
+		expect(tools().className).not.toMatch(/\bhidden\b/);
+		expect(tools().className).not.toMatch(/\bmd:flex\b/);
+		expect(tools().className).not.toMatch(/\bsm:flex\b/);
+	});
+
+	it('hides them until the cell is hovered or something inside is focused', () => {
+		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
+		const cls = tools().className;
+		expect(cls).toMatch(/\bopacity-0\b/);
+		expect(cls).toMatch(/group-hover:opacity-100/);
+		// Keyboard parity: tabbing to the tool must reveal it, or it is a control
+		// nobody can find.
+		expect(cls).toMatch(/focus-within:opacity-100/);
+	});
+
+	it('leaves an un-hovered tool unclickable, so an invisible one is not a trap', () => {
+		// `opacity:0` alone would leave a 20px invisible target live under the
+		// thumb. E has that bug; it is not worth porting.
+		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
+		expect(screen.getByRole('button', { name: 'Add on 09-09-2026' }).className).toMatch(
+			/pointer-events-none/
+		);
+		expect(screen.getByRole('button', { name: 'Add on 09-09-2026' }).className).toMatch(
+			/group-hover:pointer-events-auto/
+		);
+	});
+});
+
+/** #128 gap 5 — E draws a 28px disc on EVERY day; the app drew 20px, on today only. */
+describe('MonthDayCell day-number disc (#128 gap 5)', () => {
+	afterEach(cleanup);
+
+	const disc = () => document.querySelector('[data-testid="day-disc"]')!;
+
+	it('is a 28px circle on an ordinary day, not only on today', () => {
+		render(MonthDayCell, {
+			props: { ...base, isTodayDate: false, dayEvents: [], dayTasks: [] }
+		});
+		expect(disc().className).toMatch(/\bh-7\b/);
+		expect(disc().className).toMatch(/\bw-7\b/);
+		expect(disc().className).toMatch(/rounded-full/);
+	});
+
+	it('keeps the disc the same size today, so today reads as a fill not a size', () => {
+		render(MonthDayCell, {
+			props: { ...base, isTodayDate: true, dayEvents: [], dayTasks: [] }
+		});
+		expect(disc().className).toMatch(/\bh-7\b/);
+		expect(disc().className).toMatch(/bg-primary-600/);
+		expect(disc().className).toMatch(/text-white/);
+	});
+
+	it('mutes an out-of-month day by ink, never by dropping the circle', () => {
+		render(MonthDayCell, {
+			props: { ...base, isOtherMonth: true, dayEvents: [], dayTasks: [] }
+		});
+		expect(disc().className).toMatch(/rounded-full/);
+		expect(disc().className).toMatch(/text-slate-400/);
+	});
+});
+
+/** #128 gap 6 — E's cell chrome: 14px, `#e2e8f0`, white, 8px/10px, weekend wash. */
+describe('MonthDayCell chrome (#128 gap 6)', () => {
+	afterEach(cleanup);
+
+	const cellRoot = () => document.querySelector('[data-testid="month-day-cell"]')!;
+
+	it("wears E's radius, border and background", () => {
+		render(MonthDayCell, {
+			props: { ...base, dayEvents: [], dayTasks: [] }
+		});
+		const cls = cellRoot().className;
+		// 0.875rem = 14px; --s200 = #e2e8f0 = slate-200; the card is white.
+		expect(cls).toMatch(/rounded-\[14px\]/);
+		expect(cls).toMatch(/\bbg-white\b/);
+		expect(cls).toMatch(/border-slate-200/);
+		expect(cls).not.toMatch(/border-slate-100/);
+		expect(cls).not.toMatch(/rounded-lg\b/);
+	});
+
+	it('pads 8px across and 10px below, like E, instead of 2px all round', () => {
+		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
+		const cls = cellRoot().className;
+		expect(cls).toMatch(/\bpx-2\b/);
+		expect(cls).toMatch(/\bpt-2\b/);
+		expect(cls).toMatch(/\bpb-2\.5\b/);
+		expect(cls).not.toMatch(/\bp-0\.5\b/);
+	});
+
+	it('washes a weekend day, and only a weekend day', () => {
+		// 2026-09-12 is a Saturday, 2026-09-09 a Wednesday.
+		render(MonthDayCell, {
+			props: {
+				...base,
+				cellDate: DateTime.fromISO('2026-09-12'),
+				day: 12,
+				dayEvents: [],
+				dayTasks: []
+			}
+		});
+		expect(cellRoot().className).toMatch(/bg-gradient-to-b/);
+		cleanup();
+		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
+		expect(cellRoot().className).not.toMatch(/bg-gradient-to-b/);
 	});
 });
 

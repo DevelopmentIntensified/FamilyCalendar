@@ -138,10 +138,19 @@
 
 	   `height`, not `min-height`: proto.css's cell grows with whatever it
 	   holds, and a row is as tall as its tallest cell. With min-height alone
-	   this page measured 205px cells and the sentence above was a lie. The
-	   app's cell is `overflow-hidden` at a fixed minimum for the same reason —
-	   a busy Tuesday is not allowed to push the bottom of the month off the
-	   screen. Clipped, like the app. */
+	   this page measured 205px cells and the sentence above was a lie.
+
+	   ⚠️ CORRECTED 2026-10-03 (#128). This comment used to claim "the app's cell
+	   is `overflow-hidden` at a fixed minimum … Clipped, like the app." THAT WAS
+	   FALSE and it was load-bearing: a defect asserted on the product was being
+	   used to excuse a real one in it. The app's cell was `min-h-[72px]` — a
+	   MINIMUM, not a height — with `overflow-hidden`, and `overflow-hidden` clips
+	   only AFTER a box has already grown, so it never stopped the growth it was
+	   credited with preventing. Measured in a real browser at 375x812 with a busy
+	   September: the busiest day cell rendered 182px, the grid 867px, the page
+	   1111px — 291px of month below an 812px fold. Fixed under #128 gap 2 (fixed
+	   height, chips clip, `+N more` reserved). A `min-height` is not a height,
+	   and a clip is not a cap. */
 	.cal-cell { height: 72px; min-height: 0; }
 	@media (min-width: 768px) { .cal-cell { height: 92px; } }
 	@media (min-width: 1024px) { .cal-cell { height: 104px; } }
@@ -414,7 +423,7 @@
 						</div>
 					</div>
 					<p style="margin-top:.75rem">
-						<b>1 · The grid still runs past the fold in the APP.</b> The shipped toolbar is 88px of two rows and the shipped month is six 104px rows: 88 + 16 + 16 margins + a 44px weekday header + 624px of cells + 40px of gaps ≈ <b>828px of content in an 800px window</b>. That is arithmetic on the shipped classes, <i>not</i> a browser measurement — and it is why this note exists. <b>The four boxes above are measured, and they disagree:</b> this page comes out around 790px and says it fits, because its cells are narrower and its chrome is lighter than the app's. The claim above is the one to check in the app; the numbers here are this page's. If they ever agree, believe the measurement.
+						<b>1 · The grid ran past the fold in the APP — measured, then fixed.</b> The claim this round was built on was arithmetic on the shipped classes ("88px of two toolbar rows plus six 104px cells ≈ 828px in an 800px window"), and on inspection it was <b>wrong about the mechanism</b>: the shipped cell was a <code>min-h-[72px]</code> minimum, so what actually pushed the month down was a busy day growing its cell, not the cell being tall. Measured in Chromium at 375&times;812 with a busy September fixture: <b>busiest day cell 182px, grid 867px, page 1111px</b> — 291px of month below the fold, and 55px more month than the screen is tall. Fixed 2026-10-03 under #128 gap 2, which also fixed the false claim this note originally rested on (see the CSS comment above the cell rules: a <code>min-height</code> is not a height, and a clip is not a cap). The four boxes above are this page's own live numbers, not the app's.
 					</p>
 					<p style="margin-top:.5rem">
 						<b>2 · By person does not exist yet.</b> The rows in the Filters sheet are this page's answer to mark 1.11. The shipped calendar has no per-member filter, no member data on this surface, and nothing to persist a choice to. It is an idea, not a port.

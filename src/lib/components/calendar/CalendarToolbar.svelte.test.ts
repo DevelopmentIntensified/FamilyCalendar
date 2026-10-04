@@ -165,7 +165,6 @@ describe('CalendarToolbar calendar filter (#069)', () => {
 		await fireEvent.click(document.body);
 		expect(screen.queryByTestId('calendar-filter-panel')).toBeNull();
 	});
-
 	it('says so when there is no calendar to filter', async () => {
 		const p = props({ calendars: [], hiddenCalendarIds: [] });
 		render(CalendarToolbar, { props: p });
@@ -215,8 +214,43 @@ describe('CalendarToolbar — one centred date control (#120)', () => {
 		// column is the centre of the toolbar.
 		render(CalendarToolbar, { props: props() });
 		const row = screen.getByTestId('toolbar-controls-row');
-		expect(row.className).toContain('grid-cols-[1fr_auto_1fr]');
+		expect(row.className).toContain('min-[1150px]:grid-cols-[1fr_auto_1fr]');
 		expect(row.children[1]).toBe(screen.getByTestId('date-nav'));
+	});
+
+	/**
+	 * #128 gap 7 — "three columns where E is not until 1150px".
+	 *
+	 * Measured, not argued: at 768px the app's `1fr auto 1fr` left the Filters
+	 * trigger **16px wide** in a browser, because the action strip was clipped
+	 * by its own `min-w-0` column. E's row is `1fr auto` — the date control on
+	 * its own row, the toggle and the actions sharing the one under it — until
+	 * 1150px, the width the three columns actually need.
+	 */
+	it('stacks the date control on its own row until 1150px, not until sm', () => {
+		render(CalendarToolbar, { props: props() });
+		const row = screen.getByTestId('toolbar-controls-row');
+		// Two columns below 1150: the toggle at its own width, the actions in
+		// the rest. NOT `1fr auto` — the toggle carries `min-w-0`, and as a `1fr`
+		// (floor = min-content = 0) it measured 0px wide at 375 and pushed the
+		// whole strip past the screen.
+		expect(row.className).toContain('grid-cols-[auto_minmax(0,1fr)]');
+		// …and NO bare three-column rule at `sm` or `md`.
+		expect(row.className).not.toMatch(/(^|\s)sm:grid-cols-/);
+		expect(row.className).not.toMatch(/(^|\s)md:grid-cols-/);
+	});
+
+	it('puts the date control on its own row, spanning both columns, below 1150px', () => {
+		render(CalendarToolbar, { props: props() });
+		const row = screen.getByTestId('toolbar-controls-row');
+		const nav = screen.getByTestId('date-nav');
+		// row 1, spanning; the toggle and the actions sit under it either side.
+		expect(nav.className).toMatch(/col-span-2/);
+		expect(nav.className).toMatch(/row-start-1/);
+		expect(nav.className).toMatch(/min-\[1150px\]:col-span-1/);
+		// The toggle leads in the DOM and takes row 2's first column.
+		expect(row.children[0].className).toMatch(/col-start-1/);
+		expect(row.children[2].className).toMatch(/col-start-2/);
 	});
 
 	it('still fires every nav callback out of the joined control', async () => {
@@ -267,7 +301,7 @@ describe('CalendarToolbar adopts the shared DayNav (#119)', () => {
 		expect(screen.getByRole('navigation', { name: 'Period navigation' })).toBeTruthy();
 	});
 
-	it('takes the shared labels, not the calendar page\'s private ones', () => {
+	it("takes the shared labels, not the calendar page's private ones", () => {
 		// "Previous" alone could be a day, a week or a month. The shared control
 		// names the period in the label; the toolbar inherits that for free.
 		render(CalendarToolbar, { props: props() });
@@ -313,7 +347,9 @@ describe('CalendarToolbar — search on the second row (#120, mark 1.15)', () =>
 		const controls = screen.getByTestId('toolbar-controls-row');
 		const search = screen.getByTestId('toolbar-search-row');
 		// Below, not beside: the complaint was the row it was on, not its size.
-		expect(controls.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(
+			controls.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
 		// …and it takes the whole width, at every screen size.
 		expect(search.className).toMatch(/\bw-full\b/);
 	});
@@ -383,16 +419,17 @@ describe('CalendarToolbar — search on the second row (#120, mark 1.15)', () =>
 /**
  * #119 mark 1.4 — "calendars should be a modal that opens from a button".
  *
- * There is no rail column below 768px any more, so a card cannot live in one.
- * The filter is a BUTTON, and what it opens has to change shape with the
- * screen: a bottom sheet on a phone (a backdrop, a dismiss, room for a thumb)
- * and the popover it always was from `md` up.
+ * E opens ONE surface at every width: a bottom sheet on a phone and the SAME
+ * sheet, centred, from 640px. The app opened a bottom sheet below 768px and an
+ * anchored popover above it, so on a 768px tablet — the width #119 mark 1.14
+ * argued hardest about — the filter was a 16rem popover hanging off a trigger
+ * the same layout had clipped to 16px wide (measured, not argued).
  *
  * jsdom has no layout, so the breakpoint cannot be exercised by resizing. The
  * shape is expressed in the one place it can be — the panel's own classes —
  * and these pin both halves of it, so neither can be quietly deleted.
  */
-describe('CalendarToolbar calendar filter — a sheet on a phone (#119)', () => {
+describe('CalendarToolbar calendar filter — a sheet on a phone, the same sheet centred (#119, #128 gap 8)', () => {
 	afterEach(cleanup);
 
 	const calendars = [
@@ -400,21 +437,61 @@ describe('CalendarToolbar calendar filter — a sheet on a phone (#119)', () => 
 		{ id: 'cal-family', name: 'Smith Family', color: '#e0ffff' }
 	];
 
-	it('is a bottom sheet below md and a popover from md up', async () => {
+	it('is a bottom sheet below sm and the SAME sheet, centred, from sm up', async () => {
 		render(CalendarToolbar, { props: props({ calendars }) });
 		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
-		const panel = screen.getByTestId('calendar-filter-panel');
-		const cls = panel.className;
+		const cls = screen.getByTestId('calendar-filter-panel').className;
 		// the sheet: pinned to the bottom of the screen, edge to edge
 		expect(cls).toMatch(/\bfixed\b/);
 		expect(cls).toMatch(/\binset-x-0\b/);
 		expect(cls).toMatch(/\bbottom-0\b/);
-		// the popover: back inside the toolbar, on the right
-		expect(cls).toMatch(/md:absolute/);
-		expect(cls).toMatch(/md:right-4/);
-		expect(cls).toMatch(/md:top-full/);
-		// …and the sheet must not leak either form into the other half.
-		expect(cls).not.toMatch(/(?<!md:)\babsolute\b/);
+		// the same sheet, centred from 640px — E's 26rem, not an anchored popover
+		expect(cls).toMatch(/sm:left-1\/2/);
+		expect(cls).toMatch(/sm:top-1\/2/);
+		expect(cls).toMatch(/sm:w-\[26rem\]/);
+		expect(cls).toMatch(/sm:-translate-x-1\/2/);
+		expect(cls).toMatch(/sm:-translate-y-1\/2/);
+		expect(cls).toMatch(/sm:rounded-3xl/);
+		// …and the anchored popover is gone at every width, not just below.
+		expect(cls).not.toMatch(/\babsolute\b/);
+		expect(cls).not.toMatch(/md:right-4/);
+		expect(cls).not.toMatch(/md:top-full/);
+	});
+
+	it('caps the centred sheet so it cannot run off a 640px screen', async () => {
+		render(CalendarToolbar, { props: props({ calendars }) });
+		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
+		expect(screen.getByTestId('calendar-filter-panel').className).toMatch(
+			/sm:max-w-\[calc\(100vw-2rem\)\]/
+		);
+	});
+
+	it('titles the sheet and closes it from one place at every width', async () => {
+		// The app's close button lived inside the Calendars group and was
+		// `md:hidden`, so with no calendars to list there was no way out of the
+		// sheet but Escape and the backdrop.
+		render(CalendarToolbar, {
+			props: props({
+				calendars: [],
+				assignees: [{ id: 'u-mia', name: 'Mia', isViewer: false, count: 1 }]
+			})
+		});
+		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
+		const panel = screen.getByTestId('calendar-filter-panel');
+		expect(within(panel).getByRole('heading', { name: 'Filters' })).toBeTruthy();
+		const close = screen.getByRole('button', { name: 'Close calendar filter' });
+		expect(close.className).not.toMatch(/md:hidden/);
+		await fireEvent.click(close);
+		expect(screen.queryByTestId('calendar-filter-panel')).toBeNull();
+	});
+
+	it('dismisses on the backdrop at every width, not only below md', async () => {
+		render(CalendarToolbar, { props: props({ calendars }) });
+		await fireEvent.click(screen.getByTestId('calendar-filter-trigger'));
+		const backdrop = screen.getByTestId('calendar-filter-backdrop');
+		expect(backdrop.className).not.toMatch(/md:hidden/);
+		await fireEvent.click(backdrop);
+		expect(screen.queryByTestId('calendar-filter-panel')).toBeNull();
 	});
 
 	it('is a labelled dialog with a close button, not a bare popover', async () => {
@@ -571,5 +648,50 @@ describe('CalendarToolbar — by person is a filter inside the Filters sheet (#1
 		// One filter button, one number: a filter that hides half your week
 		// must not be invisible, whichever axis did it.
 		expect(screen.getByTestId('calendar-filter-trigger')).toHaveTextContent('3');
+	});
+});
+
+/**
+ * #128 gap 3 — "Filters button carries no word".
+ *
+ * E's trigger is `icon + "Filters" + count`, and the word is hidden only below
+ * 640px. The app's was `w-11` — a 44px icon box whose only name was an
+ * `aria-label` nobody sees — with the count floating outside it in an
+ * absolutely-positioned badge that had to be nudged back inside the toolbar
+ * edge by half a pixel.
+ */
+describe('CalendarToolbar — the Filters button names itself (#128 gap 3)', () => {
+	afterEach(cleanup);
+
+	const calendars = [{ id: 'cal-personal', name: 'Personal Calendar', color: '#fa8072' }];
+
+	it('carries the word Filters, not only an icon', () => {
+		render(CalendarToolbar, { props: props({ calendars }) });
+		const trigger = screen.getByTestId('calendar-filter-trigger');
+		expect(trigger).toHaveTextContent('Filters');
+		// Screen-reader-only below 640px, like every other toolbar word: the
+		// button is never unlabelled, it is just quiet on a phone.
+		expect(trigger.querySelector('[data-testid="filters-label"]')?.className).toMatch(
+			/sr-only sm:not-sr-only/
+		);
+		// …and it is no longer a fixed 44px square.
+		expect(trigger.className).not.toMatch(/\bw-11\b/);
+	});
+
+	it('puts the count in line with the word, not floating over the toolbar edge', () => {
+		render(CalendarToolbar, {
+			props: props({ calendars, hiddenCalendarIds: ['cal-personal'] })
+		});
+		const trigger = screen.getByTestId('calendar-filter-trigger');
+		// E draws the badge INSIDE the button, after the word. Absolutely
+		// positioning it needed a half-pixel nudge back inside the toolbar edge.
+		expect(trigger.className).toMatch(/\brelative\b/);
+		expect(screen.getByTestId('calendar-filter-badge').className).not.toMatch(/\babsolute\b/);
+		expect(screen.getByTestId('calendar-filter-badge').className).toMatch(/\bflex\b/);
+	});
+
+	it('shows no count when nothing is hidden', () => {
+		render(CalendarToolbar, { props: props({ calendars, hiddenCalendarIds: [] }) });
+		expect(screen.queryByTestId('calendar-filter-badge')).toBeNull();
 	});
 });
