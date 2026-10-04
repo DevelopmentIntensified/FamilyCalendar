@@ -15,6 +15,8 @@
 		items: ImportPreviewItem[];
 		duplicates: number;
 		defaultSelection: string[];
+		/** One row per uploaded export — the prototype's "What is in them". */
+		files: { fileName: string; events: number; duplicates: number }[];
 	}
 
 	interface CommitReport {
@@ -60,8 +62,17 @@
 		return f as UndoReport;
 	}
 
-	let fileName = '';
+	/**
+	 * The uploads themselves, not a summary of them: the list can drop one with
+	 * its ✕ and the form has to post only what is left. A file input's FileList
+	 * cannot be edited, so the kept files are re-appended on submit.
+	 */
+	let chosenFiles: File[] = [];
+	/** What the list draws: a name and a size per chosen file. */
+	$: chosen = chosenFiles.map((file) => ({ name: file.name, size: file.size }));
 	let fileInput: HTMLInputElement | undefined;
+	/** A file is over the drop zone: the zone says so before anything is read. */
+	let dragging = false;
 	/** Back to the upload form after a finished (or abandoned) flow. */
 	let dismissed = false;
 	/** True while a POST is in flight (blocks double-submit). */
@@ -86,6 +97,14 @@
 	$: duplicates = preview?.duplicates ?? 0;
 	$: picked = override ?? new Set(preview?.defaultSelection ?? []);
 	$: atDefault = override === null;
+	$: files = preview?.files ?? [];
+	/** What the drop zone says once files are chosen: one name, or a count. */
+	$: chosenLabel =
+		chosen.length === 0 ? '' : chosen.length === 1 ? chosen[0].name : `${chosen.length} files chosen`;
+	$: totals = files.reduce(
+		(acc, f) => ({ events: acc.events + f.events, duplicates: acc.duplicates + f.duplicates }),
+		{ events: 0, duplicates: 0 }
+	);
 
 	/**
 	 * Issue 082: the earliest event this commit wrote, as the day the calendar's
@@ -104,11 +123,35 @@
 		? DateTime.fromISO(firstImportedDate).toFormat('ccc, LLL d, yyyy')
 		: '';
 
+	function takeFiles(list: FileList | null | undefined) {
+		chosenFiles = [...(list ?? [])];
+	}
+
 	function onFileChange(e: Event) {
 		// SAFETY: this handler is only bound to the .ics file <input>,
 		// so currentTarget is always that input element when it fires.
 		const input = e.currentTarget as HTMLInputElement;
-		fileName = input.files?.[0]?.name ?? '';
+		takeFiles(input.files);
+	}
+
+	function onDrop(e: DragEvent) {
+		e.preventDefault();
+		dragging = false;
+		takeFiles(e.dataTransfer?.files);
+	}
+
+	function removeChosen(name: string) {
+		chosenFiles = chosenFiles.filter((file) => file.name !== name);
+	}
+
+	/**
+	 * Replace whatever the input holds with the files still on the list. The
+	 * input is never emptied (that would read as "nothing chosen"), so this is
+	 * what keeps a removed file out of the POST.
+	 */
+	function postChosenFiles(formData: FormData) {
+		formData.delete('files');
+		for (const file of chosenFiles) formData.append('files', file, file.name);
 	}
 
 	function toggle(key: string, on: boolean) {
@@ -126,6 +169,19 @@
 		override = new Set();
 	}
 
+	/**
+	 * Take one file out of the import, the prototype's per-file ✕. The rows stay
+	 * on screen and unticked rather than vanishing: a family dropping three
+	 * exports has to be able to change its mind.
+	 */
+	function dropFile(fileName: string) {
+		const next = new Set(picked);
+		for (const item of items) {
+			if (item.fileName === fileName) next.delete(item.key);
+		}
+		override = next;
+	}
+
 	/** Back to the server's suggestion: duplicates unticked. */
 	function useSuggested() {
 		override = null;
@@ -139,7 +195,8 @@
 	function startOver() {
 		dismissed = true;
 		override = null;
-		fileName = '';
+		chosenFiles = [];
+		dragging = false;
 		if (fileInput) fileInput.value = '';
 	}
 </script>
@@ -310,6 +367,65 @@
 					there is nothing to preview. Try the .ics from inside your export again.
 				</p>
 			{:else}
+				<!--
+					"What is in them": one row per export, with its own count and its
+					own remove ✕. The prototype draws it before the preview because a
+					static file can be counted; the app counts during the parse, so the
+					card lands here — still nothing written.
+				-->
+				<section
+					aria-label="What is in them"
+					class="mb-4 rounded-lg border border-slate-200 bg-slate-50/60 p-3"
+				>
+					<div class="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
+						<h3 class="text-sm font-semibold text-slate-800">What is in them</h3>
+						<span class="text-xs text-slate-500" data-testid="import-totals">
+							{totals.events} event{totals.events === 1 ? '' : 's'} · {totals.duplicates}
+							likely duplicate{totals.duplicates === 1 ? '' : 's'}
+						</span>
+					</div>
+					<ul class="divide-y divide-slate-100">
+						{#each files as file (file.fileName)}
+							<li class="flex items-center gap-2 py-2 text-sm">
+								<span
+									class="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-600"
+									>ics</span
+								>
+								<span class="min-w-0 flex-1 truncate font-medium text-slate-800">{file.fileName}</span>
+								<span class="text-xs tabular-nums text-slate-500"
+									>{file.events} event{file.events === 1 ? '' : 's'}</span
+								>
+								{#if file.duplicates > 0}
+									<span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700"
+										>{file.duplicates} dupe{file.duplicates === 1 ? '' : 's'}</span
+									>
+								{:else}
+									<span
+										class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+										>no dupes</span
+									>
+								{/if}
+								<button
+									type="button"
+									onclick={() => dropFile(file.fileName)}
+									aria-label="Remove {file.fileName} from this import"
+									class="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+								>
+									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M6 18L18 6M6 6l12 12"
+										/>
+									</svg>
+								</button>
+							</li>
+						{/each}
+					</ul>
+					<p class="mt-2 text-xs text-slate-500">Nothing is written until you confirm.</p>
+				</section>
+
 				{#if duplicates > 0}
 					<p
 						class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
@@ -358,11 +474,15 @@
 								type="checkbox"
 								checked={picked.has(item.key)}
 								onchange={(e) => toggle(item.key, e.currentTarget.checked)}
-								class="mt-1 h-4 w-4 shrink-0 rounded border-slate-300"
+								class="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 {item.duplicate
+									? 'border-rose-300 bg-rose-100'
+									: ''}"
 								aria-label="Import {item.title}"
 							/>
 							<div class="min-w-0 flex-1">
-								<p class="truncate text-sm font-medium text-slate-900">{item.title}</p>
+								<p class="truncate text-sm font-medium {item.duplicate ? 'text-slate-600' : 'text-slate-900'}">
+									{item.title}
+								</p>
 								<p class="text-xs text-slate-600">{item.whenText}</p>
 								{#if item.location}
 									<p class="truncate text-xs text-slate-500">📍 {item.location}</p>
@@ -375,8 +495,24 @@
 									<p class="mt-0.5 text-xs font-medium text-amber-700">
 										Likely duplicate — appears earlier in this file
 									</p>
+								{:else if item.duplicateReason === 'earlier-in-import'}
+									<p class="mt-0.5 text-xs font-medium text-amber-700">
+										Likely duplicate — appears earlier in this import
+									</p>
 								{/if}
 							</div>
+							<!-- The prototype badges every row; the words above say why. -->
+							{#if item.duplicate}
+								<span
+									class="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700"
+									>already there</span
+								>
+							{:else}
+								<span
+									class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+									>new</span
+								>
+							{/if}
 						</li>
 					{/each}
 				</ul>
@@ -433,7 +569,8 @@
 			method="POST"
 			action="?/preview"
 			enctype="multipart/form-data"
-			use:enhance={() => {
+			use:enhance={({ formData }) => {
+				postChosenFiles(formData);
 				pending = true;
 				return async ({ result, update }) => {
 					pending = false;
@@ -464,8 +601,22 @@
 				</select>
 			</div>
 
+			<!--
+				The drop zone `import.html` draws: several exports at once, named,
+				with the promise that decides whether anyone trusts it with a whole
+				family's calendar.
+			-->
 			<label
-				class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition-colors hover:border-primary-400 hover:bg-primary-50/40"
+				class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors {dragging
+					? 'border-primary-500 bg-primary-50'
+					: 'border-slate-300 bg-slate-50 hover:border-primary-400 hover:bg-primary-50/40'}"
+				ondragover={(e) => {
+					e.preventDefault();
+					dragging = true;
+				}}
+				ondragleave={() => (dragging = false)}
+				ondrop={onDrop}
+				data-testid="import-drop-zone"
 			>
 				<svg class="h-10 w-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path
@@ -476,15 +627,19 @@
 					/>
 				</svg>
 				<span class="text-sm font-medium text-slate-700">
-					{fileName || 'Drop or choose an .ics file'}
+					{chosenLabel || 'Drop or choose .ics files'}
 				</span>
 				<span class="text-xs text-slate-400"
-					>{fileName ? 'Ready to preview' : 'Up to 500 events · max 5 MB'}</span
+					>{chosenLabel ? 'Ready to preview' : 'Up to 500 events · max 5 MB each · 10 files'}</span
 				>
+				<span class="text-xs text-slate-400">
+					Files are read in the browser and sent as text — nothing is uploaded to a third party.
+				</span>
 				<input
 					type="file"
-					name="file"
+					name="files"
 					accept=".ics,text/calendar"
+					multiple
 					class="sr-only"
 					required
 					bind:this={fileInput}
@@ -492,9 +647,38 @@
 				/>
 			</label>
 
+			{#if chosen.length > 0}
+				<ul class="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
+					{#each chosen as file, index (file.name + index)}
+						<li class="flex items-center gap-2 px-3 py-2 text-sm" data-testid="chosen-file">
+							<span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500"
+								>ics</span
+							>
+							<span class="min-w-0 flex-1 truncate font-medium text-slate-800">{file.name}</span>
+							<span class="text-xs text-slate-400">{Math.max(1, Math.round(file.size / 1024))} KB</span>
+							<button
+								type="button"
+								onclick={() => removeChosen(file.name)}
+								aria-label="Remove {file.name}"
+								class="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+							>
+								<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M6 18L18 6M6 6l12 12"
+									/>
+								</svg>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+
 			<button
 				type="submit"
-				disabled={!fileName || pending}
+				disabled={chosen.length === 0 || pending}
 				class="w-full rounded-lg bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
 			>
 				{pending ? 'Reading file…' : 'Preview events'}

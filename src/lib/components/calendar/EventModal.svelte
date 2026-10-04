@@ -9,6 +9,8 @@
 	import ChecklistSection from './ChecklistSection.svelte';
 	import EventAttendeeGroups from './EventAttendeeGroups.svelte';
 	import EventDetailList from './EventDetailList.svelte';
+	import EventRecurrenceCard from './EventRecurrenceCard.svelte';
+	import EventGuestNote from './EventGuestNote.svelte';
 	import EventModalBar from './EventModalBar.svelte';
 	import EventModalHeader from './EventModalHeader.svelte';
 	import EventRsvpRow from './EventRsvpRow.svelte';
@@ -43,6 +45,9 @@
 
 	const dispatch = createEventDispatcher();
 
+	/** The two scopes a change to a repeating event can be made at. */
+	type DeleteScope = 'this' | 'all';
+
 	// Two-way from the shared checklist: warns before deleting an event with tasks.
 	let attachedTaskCount = 0;
 
@@ -51,6 +56,12 @@
 	/** Issue 015: a DELETE in flight. Re-entry here used to fire it twice. */
 	let deleting = false;
 	let showDeleteConfirm = false;
+	/**
+	 * Which scope a delete is armed at. The recurrence card chooses it, as
+	 * `event.html` draws it; the trash defaults to this occurrence, so opening
+	 * one occurrence and tapping delete never takes the whole series.
+	 */
+	let deleteScope: 'this' | 'all' = 'this';
 	let showDuplicateConfirm = false;
 	let actionError = '';
 	/** An invite POST in flight; re-entry would add the same guest twice. */
@@ -67,6 +78,20 @@
 
 	// Occurrences share the series master's API identity.
 	$: serverId = event.masterId || event.id;
+
+	/**
+	 * A single occurrence can only be addressed when the modal was opened on one.
+	 * A series opened whole (list view, archive) has no occurrence date, and a
+	 * DELETE with no scope takes the whole series — so this is also what the
+	 * delete path falls back to rather than sending a scope it cannot honour.
+	 */
+	/** The scopes to offer: a series opened whole can only be changed whole. */
+	function scopesFor(canScope: boolean): DeleteScope[] {
+		return canScope ? ['this', 'all'] : ['all'];
+	}
+
+	$: canScopeOccurrence = !!event.occurrenceDate;
+	$: scopes = scopesFor(canScopeOccurrence);
 
 	// Set once the viewer RSVPs: a slow initial load resolving afterwards is
 	// stale and must not clobber the fresher optimistic + POST state.
@@ -156,6 +181,7 @@
 		show = false;
 		showEditForm = false;
 		showDeleteConfirm = false;
+		deleteScope = 'this';
 		showDuplicateConfirm = false;
 		actionError = '';
 		deleting = false;
@@ -164,9 +190,18 @@
 		onClose();
 	}
 
-	function beginDelete() {
+	function beginDelete(scope?: DeleteScope) {
 		if (deleting) return;
 		actionError = '';
+		// Only a real scope counts. The trash icon is also bound to this handler,
+		// and a click event landing in `scope` would arm a nonsense DELETE body.
+		if (scope === 'this' || scope === 'all') {
+			deleteScope = scope;
+		} else if (!canScopeOccurrence) {
+			// Without an open occurrence there is no "this" to delete, so the
+			// confirm must not claim there is one.
+			deleteScope = 'all';
+		}
 		showDeleteConfirm = true;
 	}
 
@@ -193,7 +228,17 @@
 			method: 'DELETE'
 		};
 
-		if (scope !== undefined && event.occurrenceDate) {
+		if (event.recurrenceFrequency) {
+			// Always send the scope on a series. Omitting it makes the server
+			// read "all", so a request that meant one occurrence and had no
+			// occurrenceDate to name would delete every week instead.
+			const effective: 'this' | 'all' = canScopeOccurrence ? (scope ?? 'this') : 'all';
+			options = {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ scope: effective, occurrenceDate: event.occurrenceDate ?? null })
+			};
+		} else if (scope !== undefined && event.occurrenceDate) {
 			options = {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
@@ -302,6 +347,10 @@
 					<!-- Content -->
 					<EventDetailList {event} {calendarName} />
 
+					<!-- The series, as `event.html` draws it: rule, size, and the
+					     two scopes a change can be made at. -->
+					<EventRecurrenceCard {event} {deleteScope} {scopes} onScope={beginDelete} />
+
 					<!-- Your RSVP (sits above Attendees so the action is in the thumb fold) -->
 					<EventRsvpRow
 						{serverId}
@@ -351,6 +400,9 @@
 						<ChecklistSection eventId={serverId} bind:attachedCount={attachedTaskCount} />
 					{/if}
 
+					<!-- The sentence behind the list's "guest — not a user" label. -->
+					<EventGuestNote guestCount={guestRows.length} />
+
 					{#if actionError}
 						<div class="px-4 pb-3 sm:px-6">
 							<p role="alert" class="text-sm text-red-600">{actionError}</p>
@@ -363,6 +415,7 @@
 					{showDuplicateConfirm}
 					{attachedTaskCount}
 					isRecurring={!!event.recurrenceFrequency}
+					{deleteScope}
 					eventTitle={event.title}
 					{duplicating}
 					{deleting}
@@ -373,7 +426,7 @@
 						duplicateEvent();
 					}}
 					onCancelDuplicate={() => (showDuplicateConfirm = false)}
-					onBeginDelete={beginDelete}
+					onBeginDelete={() => beginDelete()}
 					onBeginDuplicate={beginDuplicate}
 					onEdit={handleEdit}
 				/>

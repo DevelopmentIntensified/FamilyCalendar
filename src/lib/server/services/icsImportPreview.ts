@@ -5,12 +5,14 @@ import type { IcsEventDraft, IcsFrequency } from './icsImportService';
 export const MAX_IMPORT_EVENTS = 500;
 
 /** How a preview row came to be flagged as a likely duplicate. */
-export type DuplicateReason = 'already-on-calendar' | 'earlier-in-file';
+export type DuplicateReason = 'already-on-calendar' | 'earlier-in-file' | 'earlier-in-import';
 
 /** One row of the import preview: the draft plus what the user needs to judge it. */
 export interface ImportPreviewItem extends IcsEventDraft {
-	/** Stable id within one parse — the row's position in the file. */
+	/** Stable id within one parse — the row's position across every file. */
 	key: string;
+	/** The file this row was parsed out of. `''` for a preview of unnamed drafts. */
+	fileName: string;
 	/** Human "when", recurrence in words rather than a raw RRULE. */
 	whenText: string;
 	/** A likely duplicate by the existing title + exact start key. */
@@ -18,9 +20,28 @@ export interface ImportPreviewItem extends IcsEventDraft {
 	duplicateReason: DuplicateReason | null;
 }
 
+/** One file handed to the preview, and the drafts it produced. */
+export interface ImportSource {
+	fileName: string;
+	drafts: IcsEventDraft[];
+}
+
+/**
+ * What one file contributed — `import.html` answers "what is in them" per file,
+ * so a family importing three exports can see which one is all duplicates.
+ */
+export interface PreviewFileSummary {
+	fileName: string;
+	/** Rows this file contributed to the preview (0 once the cap is reached). */
+	events: number;
+	duplicates: number;
+}
+
 export interface ImportPreview {
 	items: ImportPreviewItem[];
 	duplicates: number;
+	/** One row per file, in the order the files were given. */
+	files: PreviewFileSummary[];
 }
 
 const WEEKDAY_NAMES: ReadonlyMap<string, string> = new Map([
@@ -99,30 +120,69 @@ export function describeWhen(draft: IcsEventDraft, zone = 'utc'): string {
  * described and flagged, so the user decides what happens next.
  *
  * `existingKeys` are the dedupe keys already on the target calendar. A row
- * repeating an earlier row in the same file is flagged too — importing it
- * would double the calendar just as surely.
+ * repeating an earlier row in the same import is flagged too — importing it
+ * would double the calendar just as surely. One file is the degenerate case.
  */
 export function buildPreview(
 	drafts: IcsEventDraft[],
 	existingKeys: ReadonlySet<string>,
 	zone = 'utc'
 ): ImportPreview {
-	const seenInFile = new Set<string>();
-	const items: ImportPreviewItem[] = drafts.slice(0, MAX_IMPORT_EVENTS).map((draft, index) => {
-		const key = dedupeKey(draft.title, draft.startIso);
-		let duplicateReason: DuplicateReason | null = null;
-		if (existingKeys.has(key)) duplicateReason = 'already-on-calendar';
-		else if (seenInFile.has(key)) duplicateReason = 'earlier-in-file';
-		seenInFile.add(key);
-		return {
-			...draft,
-			key: `e${index}`,
-			whenText: describeWhen(draft, zone),
-			duplicate: duplicateReason !== null,
-			duplicateReason
-		};
-	});
-	return { items, duplicates: items.filter((i) => i.duplicate).length };
+	return buildFilePreview([{ fileName: '', drafts }], existingKeys, zone);
+}
+
+/**
+ * The same preview for several files at once, which is what `import.html`
+ * draws: rows keep the file they were parsed out of, keys run on across every
+ * file, and the dedupe pass sees all of them — a repeat in the *second* file
+ * doubles the calendar exactly as surely as one in the first.
+ *
+ * The merged list is still capped at `MAX_IMPORT_EVENTS` in total, and a file
+ * that arrives past the cap contributes nothing rather than being counted as
+ * though it had been described.
+ */
+export function buildFilePreview(
+	sources: readonly ImportSource[],
+	existingKeys: ReadonlySet<string>,
+	zone = 'utc'
+): ImportPreview {
+	const seenInImport = new Set<string>();
+	const items: ImportPreviewItem[] = [];
+	const files: PreviewFileSummary[] = [];
+
+	for (const source of sources) {
+		const remaining = Math.max(0, MAX_IMPORT_EVENTS - items.length);
+		const own: ImportPreviewItem[] = [];
+		for (const draft of source.drafts.slice(0, remaining)) {
+			const key = dedupeKey(draft.title, draft.startIso);
+			let duplicateReason: DuplicateReason | null = null;
+			if (existingKeys.has(key)) duplicateReason = 'already-on-calendar';
+			else if (seenInImport.has(key)) {
+				// Same file reads as a repeated line; a second file repeats an
+				// export the user already chose to import.
+				duplicateReason = own.some((i) => dedupeKey(i.title, i.startIso) === key)
+					? 'earlier-in-file'
+					: 'earlier-in-import';
+			}
+			seenInImport.add(key);
+			own.push({
+				...draft,
+				key: `e${items.length + own.length}`,
+				fileName: source.fileName,
+				whenText: describeWhen(draft, zone),
+				duplicate: duplicateReason !== null,
+				duplicateReason
+			});
+		}
+		items.push(...own);
+		files.push({
+			fileName: source.fileName,
+			events: own.length,
+			duplicates: own.filter((i) => i.duplicate).length
+		});
+	}
+
+	return { items, duplicates: items.filter((i) => i.duplicate).length, files };
 }
 
 /** The rows ticked when the preview opens: everything that is not a duplicate. */

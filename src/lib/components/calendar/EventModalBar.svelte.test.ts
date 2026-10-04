@@ -1,13 +1,18 @@
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/svelte';
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import type { ComponentProps } from 'svelte';
 import EventModalBar from './EventModalBar.svelte';
 
-function props(overrides = {}) {
+/** The bar's own prop contract, so a widened literal cannot slip past it. */
+type BarProps = ComponentProps<typeof EventModalBar>;
+
+function props(overrides: Partial<BarProps> = {}): BarProps {
 	return {
 		showDeleteConfirm: false,
 		showDuplicateConfirm: false,
 		attachedTaskCount: 0,
 		isRecurring: false,
+		deleteScope: 'this',
 		eventTitle: 'Dinner',
 		duplicating: false,
 		deleting: false,
@@ -46,13 +51,19 @@ describe('EventModalBar', () => {
 		expect(p.onDeleteScope).toHaveBeenCalledWith();
 	});
 
-	it('confirms occurrence vs series for recurring events', async () => {
-		const p = props({ showDeleteConfirm: true, isRecurring: true });
-		render(EventModalBar, { props: p });
-		await fireEvent.click(screen.getByText('This occurrence'));
-		expect(p.onDeleteScope).toHaveBeenCalledWith('this');
-		await fireEvent.click(screen.getByText('Whole series'));
-		expect(p.onDeleteScope).toHaveBeenCalledWith('all');
+	// The recurrence card picks the scope; the confirm only has to say which one
+	// it is about to do, so it does not carry a second pair of scope buttons.
+	it('names the scope the recurrence card chose, for recurring events', async () => {
+		const one = props({ showDeleteConfirm: true, isRecurring: true, deleteScope: 'this' });
+		const { unmount } = render(EventModalBar, { props: one });
+		await fireEvent.click(screen.getByText('Delete this occurrence'));
+		expect(one.onDeleteScope).toHaveBeenCalledWith('this');
+		unmount();
+
+		const all = props({ showDeleteConfirm: true, isRecurring: true, deleteScope: 'all' });
+		render(EventModalBar, { props: all });
+		await fireEvent.click(screen.getByText('Delete every occurrence'));
+		expect(all.onDeleteScope).toHaveBeenCalledWith('all');
 	});
 
 	it('confirms duplication with the copy title', async () => {

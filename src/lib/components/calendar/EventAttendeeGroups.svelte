@@ -135,6 +135,9 @@
 	const maybeCount = $derived(maybe.length);
 	/** Everyone who is neither going nor maybe — the bar's third, honest slice. */
 	const pendingCount = $derived(Math.max(0, asked - goingCount - maybeCount));
+	/** The declined are inside that third slice, so the label has to say so. */
+	const declinedCount = $derived(notGoing.length);
+	const awaitingCount = $derived(Math.max(0, pendingCount - declinedCount));
 
 	/** One segment of the proportion bar. */
 	interface BarSegment {
@@ -190,7 +193,7 @@
 			class="mb-3 flex h-2 w-full overflow-hidden rounded-full bg-slate-100"
 			data-testid="attendance-bar"
 			role="img"
-			aria-label="{goingCount} going, {maybeCount} maybe, {pendingCount} not yet answered, out of {asked}"
+			aria-label="{goingCount} going, {maybeCount} maybe, {declinedCount} can't go, {awaitingCount} awaiting an answer, out of {asked}"
 		>
 			{#each segments as segment (segment.key)}
 				<div

@@ -42,13 +42,27 @@ describe('EventAttendeeGroups', () => {
 		const bar = screen.getByTestId('attendance-bar');
 		const segments = bar.querySelectorAll('[data-segment]');
 		expect(segments).toHaveLength(3);
-		// 2/6 going, 1/6 maybe, 3/6 not yet answered.
+		// 2/6 going, 1/6 maybe, 3/6 neither.
 		expect(segments[0].getAttribute('data-segment')).toBe('going');
 		expect(segments[0].getAttribute('style')).toContain('width: 33%');
 		expect(segments[1].getAttribute('data-segment')).toBe('maybe');
 		expect(segments[1].getAttribute('style')).toContain('width: 17%');
 		expect(segments[2].getAttribute('data-segment')).toBe('pending');
 		expect(segments[2].getAttribute('style')).toContain('width: 50%');
+	});
+
+	// The third slice is "neither going nor maybe", which includes the people
+	// who said no. Announcing the whole slice as "not yet answered" would tell
+	// a screen-reader user someone is still deciding when they already declined.
+	it('names the declined separately in the bar it is drawn over', () => {
+		render(EventAttendeeGroups, {
+			props: { ...props, notGoing: [{ userId: 'u-d', firstName: 'Dana', lastName: 'Hopper' }] }
+		});
+
+		expect(screen.getByTestId('attendance-bar')).toHaveAttribute(
+			'aria-label',
+			"2 going, 1 maybe, 1 can't go, 3 awaiting an answer, out of 7"
+		);
 	});
 
 	// One row per person, each carrying its own status — the prototype's list.

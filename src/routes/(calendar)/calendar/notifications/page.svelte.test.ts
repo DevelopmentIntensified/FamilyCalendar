@@ -172,6 +172,23 @@ describe('alerts page — unread treatment', () => {
 		expect(rows[0].getAttribute('data-unread')).toBe('true');
 		expect(rows[1].getAttribute('data-unread')).toBe('false');
 	});
+
+	/*
+	 * `.n.is-unread` in `notifications.html` washes an unread row in the brand's
+	 * peach, fading out to the right — the prototype's only visual difference
+	 * between a read row and an unread one. A flat grey reads as *quieter* than
+	 * the white rows around it, which is the opposite of the mark's job.
+	 */
+	it('washes an unread row, and only an unread row', () => {
+		renderPage([
+			dbRow({ id: 'unread-1', type: 'task_completed' }),
+			dbRow({ id: 'read-1', type: 'added_to_family', readAt: '2026-09-30T10:00:00.000Z' })
+		]);
+		const list = screen.getByRole('list', { name: 'Just news' });
+		const [unread, read] = within(list).getAllByRole('listitem');
+		expect(unread.className).toContain('from-primary-50');
+		expect(read.className).not.toContain('from-primary-50');
+	});
 });
 
 describe('alerts page — rows are real links', () => {

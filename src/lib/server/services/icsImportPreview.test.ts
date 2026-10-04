@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+	buildFilePreview,
 	buildPreview,
 	coerceDrafts,
 	dedupeKey,
@@ -184,7 +185,11 @@ describe('buildPreview', () => {
 	it('leaves a clean file untouched', () => {
 		const preview = buildPreview([draft()], new Set());
 
-		expect(preview).toEqual({ items: preview.items, duplicates: 0 });
+		expect(preview).toEqual({
+			items: preview.items,
+			duplicates: 0,
+			files: [{ fileName: '', events: 1, duplicates: 0 }]
+		});
 		expect(preview.items[0].duplicate).toBe(false);
 	});
 
@@ -194,8 +199,91 @@ describe('buildPreview', () => {
 		expect(buildPreview([draft()], existing).items[0].duplicate).toBe(false);
 	});
 
-	it('handles a file that parsed to nothing', () => {
-		expect(buildPreview([], new Set())).toEqual({ items: [], duplicates: 0 });
+	it('lists a file that parsed to nothing, so an empty export is visible', () => {
+		expect(buildPreview([], new Set())).toEqual({
+			items: [],
+			duplicates: 0,
+			files: [{ fileName: '', events: 0, duplicates: 0 }]
+		});
+	});
+});
+
+/*
+ * `import.html` drops several files and answers "what is in them" per file:
+ * how many events each carried, and how many of those look like duplicates.
+ * One file is the degenerate case of that, not a different shape.
+ */
+describe('buildFilePreview', () => {
+	it('keeps one row per event, tagged with the file it came from', () => {
+		const preview = buildFilePreview(
+			[
+				{ fileName: 'jon-hopper.ics', drafts: [draft({ title: 'One' })] },
+				{ fileName: 'kids-activities.ics', drafts: [draft({ title: 'Two' })] }
+			],
+			new Set()
+		);
+
+		expect(preview.items.map((i) => [i.fileName, i.title])).toEqual([
+			['jon-hopper.ics', 'One'],
+			['kids-activities.ics', 'Two']
+		]);
+	});
+
+	it('numbers keys across files, so no two rows can collide', () => {
+		const preview = buildFilePreview(
+			[
+				{ fileName: 'a.ics', drafts: [draft({ title: 'A' }), draft({ title: 'B' })] },
+				{ fileName: 'b.ics', drafts: [draft({ title: 'C' })] }
+			],
+			new Set()
+		);
+
+		expect(preview.items.map((i) => i.key)).toEqual(['e0', 'e1', 'e2']);
+	});
+
+	it('counts events and duplicates per file, in the order given', () => {
+		const existing = new Set([dedupeKey('Stale', '2026-09-29T14:00:00.000Z')]);
+		const preview = buildFilePreview(
+			[
+				{
+					fileName: 'kids-activities.ics',
+					drafts: [draft({ title: 'One' }), draft({ title: 'Stale' }), draft({ title: 'one' })]
+				},
+				{ fileName: 'nfl-2026.ics', drafts: [draft({ title: 'Game day' })] }
+			],
+			existing
+		);
+
+		expect(preview.files).toEqual([
+			{ fileName: 'kids-activities.ics', events: 3, duplicates: 2 },
+			{ fileName: 'nfl-2026.ics', events: 1, duplicates: 0 }
+		]);
+		expect(preview.duplicates).toBe(2);
+	});
+
+	it('calls a repeat across two files an earlier-in-import duplicate', () => {
+		const preview = buildFilePreview(
+			[
+				{ fileName: 'a.ics', drafts: [draft({ title: 'Standup' })] },
+				{ fileName: 'b.ics', drafts: [draft({ title: 'Standup' })] }
+			],
+			new Set()
+		);
+
+		expect(preview.items[1].duplicateReason).toBe('earlier-in-import');
+	});
+
+	it('caps the merged preview at MAX_IMPORT_EVENTS and stops counting there', () => {
+		const preview = buildFilePreview(
+			[
+				{ fileName: 'a.ics', drafts: Array.from({ length: MAX_IMPORT_EVENTS }, () => draft()) },
+				{ fileName: 'b.ics', drafts: [draft({ title: 'Late' })] }
+			],
+			new Set()
+		);
+
+		expect(preview.items).toHaveLength(MAX_IMPORT_EVENTS);
+		expect(preview.files[1]).toEqual({ fileName: 'b.ics', events: 0, duplicates: 0 });
 	});
 });
 
@@ -252,6 +340,7 @@ describe('coerceDrafts', () => {
 	/** A preview row exactly as the client posts it back. */
 	const valid: ImportPreviewItem = {
 		key: 'e0',
+		fileName: 'cal.ics',
 		whenText: 'Tue, Sep 29, 2026 · 2:00 PM–3:30 PM · every week on Mon',
 		duplicate: false,
 		duplicateReason: null,

@@ -77,12 +77,23 @@ function previewEvent(body: string, user: { id: string } | null = { id: 'user-1'
 	return { request: { formData: async () => form }, locals: { user } };
 }
 
+/** A preview request carrying several exports at once, as the drop zone posts them. */
+function previewFilesEvent(files: { name: string; body: string }[]) {
+	const form = new FormData();
+	form.set('calendarId', 'cal-1');
+	for (const file of files) {
+		form.append('files', new File([file.body], file.name, { type: 'text/calendar' }));
+	}
+	return { request: { formData: async () => form }, locals: { user: { id: 'user-1' } } };
+}
+
 interface PreviewPayload {
 	calendarId: string;
 	calendarName: string;
 	fileName: string;
 	items: Array<{
 		key: string;
+		fileName: string;
 		title: string;
 		whenText: string;
 		location: string | null;
@@ -91,6 +102,8 @@ interface PreviewPayload {
 	}>;
 	duplicates: number;
 	defaultSelection: string[];
+	/** One row per uploaded export: `import.html`'s "What is in them". */
+	files: Array<{ fileName: string; events: number; duplicates: number }>;
 }
 
 interface CommitReport {
@@ -250,6 +263,91 @@ describe('POST /calendar/import ?/preview', () => {
 		expect(preview.calendarId).toBe('cal-1');
 		expect(preview.calendarName).toBe('Personal Calendar');
 		expect(preview.fileName).toBe('cal.ics');
+		expect(preview.files).toEqual([{ fileName: 'cal.ics', events: 1, duplicates: 0 }]);
+	});
+
+	/*
+	 * `import.html` drops three exports at once and answers "what is in them"
+	 * per file — the counts and the remove ✕ are the whole point of that card,
+	 * and a family arriving from Google Calendar has more than one calendar to
+	 * bring across.
+	 */
+	it('previews several files in one pass, keeping each row on its own file', async () => {
+		const deps = makeDeps();
+
+		const preview = previewOf(
+			await callPreview(
+				previewFilesEvent([
+					{ name: 'kids-activities.ics', body: ics(SOCCER) },
+					{ name: 'work.ics', body: ics(CHOIR) }
+				]),
+				deps
+			)
+		);
+
+		expect(preview.items.map((i) => [i.fileName, i.title])).toEqual([
+			['kids-activities.ics', 'Soccer practice'],
+			['work.ics', 'Choir']
+		]);
+		expect(preview.files).toEqual([
+			{ fileName: 'kids-activities.ics', events: 1, duplicates: 0 },
+			{ fileName: 'work.ics', events: 1, duplicates: 0 }
+		]);
+		expect(preview.fileName).toBe('2 files');
+	});
+
+	it('counts duplicates per file, so one bad export is visible on its own', async () => {
+		const deps = makeDeps({
+			listExistingKeys: vi.fn(async () => ['soccer practice|2026-09-29T14:00:00.000Z'])
+		});
+
+		const preview = previewOf(
+			await callPreview(
+				previewFilesEvent([
+					{ name: 'kids-activities.ics', body: ics(SOCCER) },
+					{ name: 'work.ics', body: ics(CHOIR) }
+				]),
+				deps
+			)
+		);
+
+		expect(preview.files[0]).toEqual({
+			fileName: 'kids-activities.ics',
+			events: 1,
+			duplicates: 1
+		});
+		expect(preview.files[1]).toEqual({ fileName: 'work.ics', events: 1, duplicates: 0 });
+	});
+
+	it('flags a repeat that spans two files, unticked', async () => {
+		const deps = makeDeps();
+
+		const preview = previewOf(
+			await callPreview(
+				previewFilesEvent([
+					{ name: 'kids-activities.ics', body: ics(SOCCER) },
+					{ name: 'school.ics', body: ics(SOCCER) }
+				]),
+				deps
+			)
+		);
+
+		expect(preview.items[1].duplicateReason).toBe('earlier-in-import');
+		expect(preview.defaultSelection).toEqual(['e0']);
+	});
+
+	it('bounds how many files one request may carry', async () => {
+		const deps = makeDeps();
+		const many = Array.from({ length: 11 }, (_, i) => ({
+			name: `cal-${i}.ics`,
+			body: ics(SOCCER)
+		}));
+
+		const failure = failureOf(await callPreview(previewFilesEvent(many), deps));
+
+		expect(failure.status).toBe(400);
+		expect(failure.data.error).toMatch(/10 files/i);
+		expect(deps.createEvent).not.toHaveBeenCalled();
 	});
 
 	it('explains an empty parse instead of failing flat', async () => {

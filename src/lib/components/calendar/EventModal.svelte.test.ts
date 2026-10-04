@@ -406,12 +406,130 @@ describe('EventModal - delete pending state', () => {
 		stubHangingDelete();
 		const recurring = { ...baseEvent, recurrenceFrequency: 'weekly', recurrenceInterval: 1 };
 		render(EventModal, { props: { show: true, event: recurring } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete event' }));
-		const scope = screen.getByRole('button', { name: 'Whole series' }) as HTMLButtonElement;
+		// The scope is chosen on the recurrence card, which opens the confirm.
+		await fireEvent.click(screen.getByRole('button', { name: 'All occurrences' }));
+		const scope = screen.getByRole('button', { name: 'Delete every occurrence' });
 		await fireEvent.click(scope);
 		await fireEvent.click(scope);
 		expect(deleteCalls()).toHaveLength(1);
-		expect(screen.getByRole('button', { name: 'This occurrence' })).toBeDisabled();
+		expect(scope).toBeDisabled();
+	});
+});
+
+// `event.html` draws a recurrence region with its own scope buttons; the modal
+// only said "Repeats weekly" in the header and left the series size unsaid.
+describe('EventModal — the recurrence region', () => {
+	beforeEach(() => {
+		vi.stubGlobal('fetch', vi.fn());
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	/** The body the DELETE carries: which scope, and which occurrence. */
+	interface DeleteBody {
+		scope: string;
+		occurrenceDate: string | null;
+	}
+
+	/** That body as the server would read it. */
+	const deleteBody = (): DeleteBody => {
+		const call = vi.mocked(fetch).mock.calls.find(([, i]) => i?.method === 'DELETE');
+		// SAFETY: `performDelete` is the only writer, and it builds this body
+		// from `JSON.stringify` of exactly these two fields.
+		return JSON.parse(String(call?.[1]?.body)) as DeleteBody;
+	};
+
+	it('says what repeats and how many times it has happened', () => {
+		const recurring = { ...baseEvent, recurrenceFrequency: 'weekly', recurrenceInterval: 1 };
+		render(EventModal, { props: { show: true, event: recurring } });
+
+		expect(screen.getByText('This is a repeating event')).toBeInTheDocument();
+		expect(screen.getByText('Every week on Fridays')).toBeInTheDocument();
+		expect(screen.getByTestId('series-count')).toHaveTextContent(/occurrences since/);
+	});
+
+	it('draws no recurrence region for a one-off event', () => {
+		render(EventModal, { props: { show: true, event: baseEvent } });
+
+		expect(screen.queryByTestId('recurrence-card')).not.toBeInTheDocument();
+	});
+
+	// The prototype explains the "guest — not a user" label its own attendance
+	// list draws, and the label is there without the sentence.
+	it('explains the guest rows the attendance list marks', () => {
+		render(EventModal, {
+			props: { show: true, event: baseEvent, nonUserAttendants: ['Ms Okafor', 'Nana'] }
+		});
+
+		expect(screen.getByRole('region', { name: 'Guests are strings' })).toHaveTextContent(
+			'2 people on this event are a guest'
+		);
+	});
+
+	it('arms the delete confirm at the scope the card chose', async () => {
+		const recurring = {
+			...baseEvent,
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			masterId: 'evt1',
+			occurrenceDate: '2026-07-17T10:00:00.000Z'
+		};
+		render(EventModal, { props: { show: true, event: recurring } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'This occurrence' }));
+
+		expect(screen.getByRole('button', { name: 'Delete this occurrence' })).toBeInTheDocument();
+	});
+
+	/*
+	 * A series opened as a whole (the list view, the archive) has no occurrence
+	 * to point at, so "this occurrence" cannot be sent — and a DELETE without a
+	 * scope deletes the entire series. The card says so instead of offering a
+	 * button that would quietly do that.
+	 */
+	it('offers only the whole series when there is no single occurrence open', () => {
+		const recurring = { ...baseEvent, recurrenceFrequency: 'weekly', recurrenceInterval: 1 };
+		render(EventModal, { props: { show: true, event: recurring } });
+
+		expect(screen.getByRole('button', { name: 'All occurrences' })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'This occurrence' })).not.toBeInTheDocument();
+		expect(screen.getByText(/Open one occurrence/)).toBeInTheDocument();
+	});
+
+	it('sends the whole-series scope when a series with no occurrence is deleted', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({}) })));
+		const recurring = { ...baseEvent, recurrenceFrequency: 'weekly', recurrenceInterval: 1 };
+		render(EventModal, { props: { show: true, event: recurring } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete event' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete every occurrence' }));
+
+		const call = vi.mocked(fetch).mock.calls.find(([, i]) => i?.method === 'DELETE');
+		expect(String(call?.[0])).toContain('evt1');
+		expect(deleteBody()).toMatchObject({ scope: 'all' });
+	});
+
+	it('deletes only the open occurrence, and names the date it took', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({}) })));
+		const recurring = {
+			...baseEvent,
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			masterId: 'evt1',
+			occurrenceDate: '2026-07-17T10:00:00.000Z'
+		};
+		render(EventModal, { props: { show: true, event: recurring } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete event' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete this occurrence' }));
+
+		expect(deleteBody()).toMatchObject({
+			scope: 'this',
+			occurrenceDate: '2026-07-17T10:00:00.000Z'
+		});
 	});
 });
 

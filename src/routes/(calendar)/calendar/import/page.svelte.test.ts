@@ -25,17 +25,23 @@ interface EnhanceResult {
 	update: () => Promise<void>;
 }
 
-/** `enhance`'s submit callback: takes nothing, returns the result handler. */
-type SubmitCallback = () => ResultHandler;
+/** `enhance`'s submit callback: the FormData it is handed, and the result handler. */
+type SubmitCallback = (payload?: { formData: FormData }) => ResultHandler;
 
 interface EnhanceState {
 	/** The page's submit callback for the form currently on screen. */
 	submit: SubmitCallback | null;
 	/** What that callback returned: the in-flight result handler. */
 	handler: ResultHandler | null;
+	/** The FormData the last submit handed the callback. */
+	formData: FormData | null;
 }
 
-const enhanceState = vi.hoisted((): EnhanceState => ({ submit: null, handler: null }));
+const enhanceState = vi.hoisted((): EnhanceState => ({
+	submit: null,
+	handler: null,
+	formData: null
+}));
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- SvelteKit $app/* is framework-injected; no DI seam exists.
 vi.mock('$app/forms', () => ({
@@ -46,8 +52,10 @@ vi.mock('$app/forms', () => ({
 		return (node: FormNode) => {
 			node.addEventListener('submit', (event) => {
 				event.preventDefault();
+				const formData = new FormData(node);
+				enhanceState.formData = formData;
 				// The page flips its pending flag inside this call, synchronously.
-				enhanceState.handler = submit?.() ?? null;
+				enhanceState.handler = submit?.({ formData }) ?? null;
 			});
 		};
 	}
@@ -75,6 +83,7 @@ type ItemFields = typeof ITEM;
 /** A preview row exactly as `?/preview` describes one event. */
 interface PreviewItem extends ItemFields {
 	key: string;
+	fileName: string;
 	whenText: string;
 	duplicate: boolean;
 	duplicateReason: string | null;
@@ -84,6 +93,7 @@ function previewItem(over: Partial<PreviewItem> = {}): PreviewItem {
 	return {
 		...ITEM,
 		key: 'e0',
+		fileName: 'jon-hopper.ics',
 		whenText: 'Tue, Sep 29, 2026 · 2:00 PM–3:30 PM',
 		duplicate: false,
 		duplicateReason: null,
@@ -107,7 +117,8 @@ const PREVIEW = {
 			})
 		],
 		duplicates: 1,
-		defaultSelection: ['e0']
+		defaultSelection: ['e0'],
+		files: [{ fileName: 'jon-hopper.ics', events: 2, duplicates: 1 }]
 	}
 };
 
@@ -135,6 +146,55 @@ function renderPreview() {
 	});
 }
 
+/** The preview as a multi-file import describes it: two exports, one flagged. */
+const MULTI_PREVIEW = {
+	preview: {
+		calendarId: 'cal-1',
+		calendarName: 'Personal Calendar',
+		fileName: '2 files',
+		items: [
+			previewItem({ key: 'e0', fileName: 'kids-activities.ics' }),
+			previewItem({
+				key: 'e1',
+				fileName: 'kids-activities.ics',
+				title: 'Standup',
+				duplicate: true,
+				duplicateReason: 'already-on-calendar'
+			}),
+			previewItem({ key: 'e2', fileName: 'work.ics', title: 'All-hands' })
+		],
+		duplicates: 1,
+		defaultSelection: ['e0', 'e2'],
+		files: [
+			{ fileName: 'kids-activities.ics', events: 2, duplicates: 1 },
+			{ fileName: 'work.ics', events: 1, duplicates: 0 }
+		]
+	}
+};
+
+/** The file input as the browser fills it: a list, not a single file. */
+function chooseFiles(names: string[]) {
+	const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+	// jsdom exposes `files` as a read-only IDL attribute, so the test stands in
+	// for the picker rather than assigning to it.
+	Object.defineProperty(input, 'files', {
+		configurable: true,
+		value: names.map((name) => new File(['BEGIN:VCALENDAR\r\nEND:VCALENDAR'], name))
+	});
+	return fireEvent.change(input);
+}
+
+/** The rows of the chosen-files list on the upload screen. */
+function chosenFiles() {
+	return screen.getAllByTestId('chosen-file');
+}
+
+function renderMultiPreview() {
+	return render(ImportPage, {
+		props: { data: DATA, form: MULTI_PREVIEW as unknown as ActionData }
+	});
+}
+
 /** The upload screen: no action has run yet, so `form` is absent entirely. */
 function renderUpload() {
 	return render(ImportPage, { props: { data: DATA } });
@@ -149,6 +209,7 @@ function renderCommitted() {
 beforeEach(() => {
 	enhanceState.submit = null;
 	enhanceState.handler = null;
+	enhanceState.formData = null;
 });
 
 afterEach(() => {
@@ -182,6 +243,108 @@ describe('import preview screen', () => {
 		renderUpload();
 		expect(screen.getByText(/Up to 500 events · max 5 MB/)).toBeInTheDocument();
 		expect(screen.getByText(/Nothing is added until you tick/)).toBeInTheDocument();
+	});
+
+	// `import.html`: "nothing is uploaded to a third party" — the promise that
+	// makes dropping a whole family's exports feel safe.
+	it('says the file never leaves the app', () => {
+		renderUpload();
+		expect(screen.getByText(/nothing is uploaded to a third party/i)).toBeInTheDocument();
+	});
+
+	// The prototype drops three exports at once and lists each one with its own
+	// count and its own remove ✕. One file is the degenerate case, not the only
+	// case the page has to work.
+	describe('choosing files', () => {
+		it('takes several exports at once and names each one', async () => {
+			renderUpload();
+			await chooseFiles(['kids-activities.ics', 'work.ics']);
+
+			const names = chosenFiles().map((row) => row.textContent ?? '');
+			expect(names).toHaveLength(2);
+			expect(names[0]).toContain('kids-activities.ics');
+			expect(names[1]).toContain('work.ics');
+			expect(screen.getByRole('button', { name: /Preview events/ })).not.toBeDisabled();
+		});
+
+		it('removes one file without losing the others', async () => {
+			renderUpload();
+			await chooseFiles(['kids-activities.ics', 'work.ics']);
+
+			await fireEvent.click(
+				screen.getByRole('button', { name: 'Remove kids-activities.ics' })
+			);
+
+			const names = chosenFiles().map((row) => row.textContent ?? '');
+			expect(names).toHaveLength(1);
+			expect(names[0]).toContain('work.ics');
+		});
+
+		// A file input's FileList cannot be edited, so the ✕ alone would leave the
+		// removed file in the POST. This is the assertion that says it does not.
+		it('posts only the files still on the list', async () => {
+			renderUpload();
+			await chooseFiles(['kids-activities.ics', 'work.ics']);
+			await fireEvent.click(screen.getByRole('button', { name: 'Remove kids-activities.ics' }));
+
+			// What the browser would have sent: both files, because the input
+			// still holds them.
+			const formData = new FormData();
+			formData.append('calendarId', 'cal-1');
+			formData.append('files', new File(['a'], 'kids-activities.ics'));
+			formData.append('files', new File(['b'], 'work.ics'));
+			enhanceState.submit?.({ formData });
+
+			expect([...formData.getAll('files')].map((f) => (f as File).name)).toEqual(['work.ics']);
+		});
+
+		it('keeps the preview disabled until something is chosen', () => {
+			renderUpload();
+			expect(screen.getByRole('button', { name: /Preview events/ })).toBeDisabled();
+		});
+	});
+
+	// "What is in them": per-file counts, the duplicate count per file, and the
+	// remove ✕. The app draws it after the parse rather than before it, because
+	// the counts are what the parse produces — but nothing is written yet.
+	describe('what is in them', () => {
+		it('counts events and duplicates for each file', () => {
+			renderMultiPreview();
+			const card = screen.getByRole('region', { name: 'What is in them' });
+			expect(card).toHaveTextContent('kids-activities.ics');
+			expect(card).toHaveTextContent('2 events');
+			expect(card).toHaveTextContent('1 dupe');
+			expect(card).toHaveTextContent('work.ics');
+			expect(card).toHaveTextContent('no dupes');
+			expect(card).toHaveTextContent(/3 events · 1 likely duplicate/);
+		});
+
+		it('takes one file out of the import without touching the other', async () => {
+			renderMultiPreview();
+
+			await fireEvent.click(
+				screen.getByRole('button', { name: 'Remove work.ics from this import' })
+			);
+
+			expect(screen.getByRole('checkbox', { name: 'Import Soccer practice' })).toBeChecked();
+			expect(screen.getByRole('checkbox', { name: 'Import All-hands' })).not.toBeChecked();
+			expect(screen.getByRole('button', { name: /Add 1 event$/ })).toBeInTheDocument();
+		});
+
+		it('says plainly that nothing has been written yet', () => {
+			renderMultiPreview();
+			expect(screen.getByText(/Nothing is written until you confirm/)).toBeInTheDocument();
+		});
+	});
+
+	// The prototype badges each row `new` / `already there`. The app also
+	// spells the duplicate out in words; both are the approved artefact.
+	it('badges each row new, or already there when it is a duplicate', () => {
+		renderPreview();
+		const fresh = screen.getByRole('checkbox', { name: 'Import Soccer practice' }).closest('li')!;
+		const dupe = screen.getByRole('checkbox', { name: 'Import Standup' }).closest('li')!;
+		expect(fresh).toHaveTextContent('new');
+		expect(dupe).toHaveTextContent('already there');
 	});
 
 	// The prototype's side rail: what an import keeps, drops and skips.
@@ -234,13 +397,12 @@ describe('import preview screen', () => {
 	});
 
 	// `import.html` draws each row with a "new" / "already there" pill beside it.
-	// The app states the duplicate in words instead; both say the same thing, and
-	// the word is the stronger of the two, so the pill stays out.
-	it('marks a row that is not a duplicate as new', () => {
+	// The app keeps the words too: the pill is the prototype's mark, the words
+	// are why it is there.
+	it('names why a row is a likely duplicate, not just that it is one', () => {
 		renderPreview();
-		const row = screen.getByRole('checkbox', { name: 'Import Soccer practice' })
-			.closest('li')!;
-		expect(row.textContent).not.toMatch(/duplicate/i);
+		const row = screen.getByRole('checkbox', { name: 'Import Standup' }).closest('li')!;
+		expect(row).toHaveTextContent(/already on Personal Calendar/);
 	});
 
 	it('posts only the ticked rows, so the preview cannot drift from the save', async () => {

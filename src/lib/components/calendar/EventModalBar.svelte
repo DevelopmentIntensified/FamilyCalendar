@@ -4,6 +4,12 @@
 		showDuplicateConfirm: boolean;
 		attachedTaskCount: number;
 		isRecurring: boolean;
+		/**
+		 * Which scope the delete is armed at. `EventRecurrenceCard` owns the
+		 * choice, as `event.html` draws it; the confirm only has to say which
+		 * one it is about to do rather than asking a second time.
+		 */
+		deleteScope: 'this' | 'all';
 		eventTitle: string;
 		duplicating: boolean;
 		/** Issue 015: a DELETE is in flight — the whole bar goes inert. */
@@ -22,6 +28,7 @@
 		showDuplicateConfirm,
 		attachedTaskCount,
 		isRecurring,
+		deleteScope,
 		eventTitle,
 		duplicating,
 		deleting,
@@ -33,6 +40,11 @@
 		onBeginDuplicate,
 		onEdit
 	}: Props = $props();
+
+	/** What the confirm is about to do, in words — never a bare "Delete". */
+	const deleteLabel = $derived(
+		deleteScope === 'all' ? 'Delete every occurrence' : 'Delete this occurrence'
+	);
 </script>
 
 <div
@@ -43,40 +55,34 @@
 	{#if showDeleteConfirm}
 		<div class="absolute inset-x-3 bottom-full z-10 mb-2 sm:inset-x-6">
 			<div class="rounded-xl border border-red-200 bg-red-50 p-4 shadow-xl">
-				<p class="text-sm font-medium text-red-700">Delete this event?</p>
+				<p class="text-sm font-medium text-red-700">
+					{isRecurring ? (deleteScope === 'all' ? 'Delete the whole series?' : 'Delete just this one?') : 'Delete this event?'}
+				</p>
+				{#if isRecurring}
+					<p class="mt-1 text-xs text-red-600">
+						{deleteScope === 'all'
+							? 'Every occurrence goes. The rest of the series with it.'
+							: 'Just this occurrence goes. The series carries on.'}
+					</p>
+				{/if}
 				{#if attachedTaskCount > 0}
 					<p class="mt-1 text-xs text-red-600">
 						⚠️ {attachedTaskCount} attached task(s) will also be deleted.
 					</p>
 				{/if}
 				<div class="mt-3 flex flex-wrap items-center gap-2">
-					{#if isRecurring}
-						<button
-							type="button"
-							disabled={deleting}
-							onclick={() => onDeleteScope('this')}
-							class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-						>
-							This occurrence
-						</button>
-						<button
-							type="button"
-							disabled={deleting}
-							onclick={() => onDeleteScope('all')}
-							class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-						>
-							Whole series
-						</button>
-					{:else}
-						<button
-							type="button"
-							disabled={deleting}
-							onclick={() => onDeleteScope()}
-							class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-						>
-							{deleting ? 'Deleting…' : 'Delete'}
-						</button>
-					{/if}
+					<button
+						type="button"
+						disabled={deleting}
+						onclick={() => (isRecurring ? onDeleteScope(deleteScope) : onDeleteScope())}
+						class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+					>
+						{deleting
+							? 'Deleting…'
+							: isRecurring
+								? deleteLabel
+								: 'Delete'}
+					</button>
 					<button
 						type="button"
 						disabled={deleting}

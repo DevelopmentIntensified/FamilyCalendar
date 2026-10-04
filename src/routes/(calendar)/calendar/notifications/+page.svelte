@@ -355,9 +355,14 @@
 						class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
 					>
 						{#each section.rows as row (row.id)}
+							<!--
+								`.n.is-unread`: the prototype washes an unread row in the
+								brand's peach and lets it fade out, which is what makes
+								a row read as unanswered at a glance in a long list.
+							-->
 							<li
 								data-unread={row.readAt ? 'false' : 'true'}
-								class={row.readAt ? '' : 'bg-slate-50'}
+								class={row.readAt ? '' : 'bg-gradient-to-r from-primary-50 to-transparent'}
 							>
 								{#if row.link}
 									<a

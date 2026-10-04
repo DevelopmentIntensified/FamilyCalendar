@@ -6,7 +6,7 @@ import { eq, and, or, inArray } from 'drizzle-orm';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { parseIcs, type IcsEventDraft } from '$lib/server/services/icsImportService';
 import {
-	buildPreview,
+	buildFilePreview,
 	coerceDrafts,
 	coerceUndoBatch,
 	dedupeKey,
@@ -15,6 +15,7 @@ import {
 	planUndo,
 	type ImportedEventRef,
 	type ImportPreviewItem,
+	type ImportSource,
 	type UndoCandidate
 } from '$lib/server/services/icsImportPreview';
 import { createEvent } from '$lib/server/db/actions/events';
@@ -38,6 +39,12 @@ export const load: PageServerLoad = async (event) => {
 };
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
+/**
+ * `import.html` drops several exports at once, so the preview reads several
+ * files. The bound is per request rather than per file: `formData()` has
+ * already buffered everything the browser sent by the time this runs.
+ */
+const MAX_FILES = 10;
 
 /** The owner-ish name a calendar is shown by, matching the load's labels. */
 function calendarName(calendarId: string, ownerId: string, familyId: string | null): string {
@@ -182,6 +189,18 @@ const EMPTY_PARSE_ERROR =
 	'No events found in that file. An .ics export wraps each event in BEGIN:VEVENT with a ' +
 	'SUMMARY and a DTSTART — check you picked the .ics from inside the export, not the whole zip.';
 
+/**
+ * The uploads a preview request carries. `files` is what the drop zone posts
+ * when several were chosen; `file` is the single-file shape the older client
+ * and every direct form post still send, and one file is not a different flow.
+ */
+function uploadedFiles(form: FormData): File[] {
+	const many = form.getAll('files').filter((entry): entry is File => entry instanceof File);
+	if (many.length > 0) return many;
+	const one = form.get('file');
+	return one instanceof File ? [one] : [];
+}
+
 export const actions: Actions = {
 	/**
 	 * Step one of two: parse and describe, write nothing. Returns the rows the
@@ -195,35 +214,48 @@ export const actions: Actions = {
 		const target = await resolveTarget(form, userId, deps);
 		if ('error' in target) return fail(target.status, { error: target.error });
 
-		const file = form.get('file');
-		if (!(file instanceof File) || file.size === 0) {
+		const uploads = uploadedFiles(form).filter((file) => file.size > 0);
+		if (uploads.length === 0) {
 			return fail(400, { error: 'Choose an .ics file to import.' });
 		}
-		if (file.size > MAX_FILE_BYTES) {
-			return fail(400, { error: 'File is larger than 5 MB.' });
+		if (uploads.length > MAX_FILES) {
+			return fail(400, { error: `Choose up to ${MAX_FILES} files at a time.` });
 		}
 
-		let text: string;
-		try {
-			text = await file.text();
-		} catch {
-			return fail(400, { error: 'Could not read that file.' });
+		// Every file is parsed before anything is described: the preview is the
+		// only thing the user sees, so a file that cannot be read has to fail
+		// the request rather than quietly vanish from the counts.
+		const sources: ImportSource[] = [];
+		for (const file of uploads) {
+			if (file.size > MAX_FILE_BYTES) {
+				return fail(400, { error: `${file.name} is larger than 5 MB.` });
+			}
+			let text: string;
+			try {
+				text = await file.text();
+			} catch {
+				return fail(400, { error: `Could not read ${file.name}.` });
+			}
+			sources.push({ fileName: file.name, drafts: deps.parseIcs(text) });
 		}
-
-		const drafts = deps.parseIcs(text);
-		if (drafts.length === 0) return fail(400, { error: EMPTY_PARSE_ERROR });
+		if (sources.every((source) => source.drafts.length === 0)) {
+			return fail(400, { error: EMPTY_PARSE_ERROR });
+		}
 
 		const existing = new Set(await deps.listExistingKeys(target.calendarId));
 		const zone = (await deps.getUserZone(userId)) ?? 'utc';
-		const { items, duplicates } = buildPreview(drafts, existing, zone);
+		const { items, duplicates, files } = buildFilePreview(sources, existing, zone);
 
 		return {
 			preview: {
 				calendarId: target.calendarId,
 				calendarName: target.name,
-				fileName: file.name,
+				// One file keeps its own name in the heading; several are counted,
+				// because "kids-activities.ics, work.ics" is not a heading.
+				fileName: sources.length === 1 ? sources[0].fileName : `${sources.length} files`,
 				items,
 				duplicates,
+				files,
 				defaultSelection: [...defaultSelection(items)]
 			}
 		};
