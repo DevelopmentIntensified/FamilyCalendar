@@ -68,10 +68,13 @@ exist on **both** branches of `hidden-resonance-16080139` (`main` and
 `preview/test`), verified against `information_schema` and `pg_indexes`. The
 table is empty, which is correct: nobody has toggled ads since the code shipped.
 
-**Step 7 — dropping `userAdConsent` — NOT run.** It is verifiably empty (0 rows
-against 239 users) and holds only booleans, so no consent history can be lost.
-It is still not dropped: an irreversible statement waits for an explicit
-instruction, not an inference from an empty result.
+**Step 7 — dropping `userAdConsent` — DONE 2026-10-04.** It had waited here for an
+explicit instruction rather than an inference from an empty result, which was the
+right call. The owner gave that instruction on 2026-10-04, so it ran: verified 0
+rows on both branches *before* the drop (main 0/239, preview 0/103), written as
+`sql/migrations/016-drop-user-ad-consent.sql`, applied to both, and absence
+confirmed after with `to_regclass(...) IS NULL`. Tracked in **#144**. The live
+schema now carries 39 tables.
 
 Verified while connected: the live schema has **40 tables**. `grocery_items`
 and `grocery_store_memory` exist — snake_case, which is why a camelCase probe

@@ -148,22 +148,16 @@ console.log('\n── 6. the hub lists every page, and only real pages ──');
 
 console.log('\n── 7. account.html hash sections have ids the nav can reach ──');
 {
-	// Regression guard: the sections are written as markup strings, so nothing
-	// guarantees an id. Without them show() hides every section on load.
-	const src = read('account.html');
-	const nav = [...src.matchAll(/data-s="([^"]+)"/g)].map((m) => m[1]);
-	const assigns = /SECTIONS\.forEach\(\(s, i\) => \{ if \(secs\[i\]\) secs\[i\]\.id = s\.id; \}\)/.test(src);
-	if (!nav.length) fail('could not read the section nav');
-	else if (!assigns) fail('sections are never given ids — show() will hide all of them');
-	else {
-		const dom = new JSDOM(read('account.html'), { url: 'https://x.test/account.html', runScripts: 'outside-only', pretendToBeVisual: true });
-		dom.window.Element.prototype.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 40, right: 100, bottom: 40, x: 0, y: 0 });
-		await dom.window.eval([flat(read('app-data.js')), flat(read('app-shell.js')), flat((read('account.html').match(/<script type="module">([\s\S]*?)<\/script>/) || [])[1])].join('\n;\n'));
-		await sleep(20);
-		const shown = dom.window.document.querySelectorAll('.sec.is-on');
-		if (shown.length !== 1) fail(`expected exactly 1 visible section, found ${shown.length}`);
-		else ok(`${nav.length} sections, exactly one visible on load (${shown[0].id})`);
-	}
+	// RETIRED 2026-10-04. This guarded a real defect — the sections are written as
+	// markup strings, so nothing guaranteed an id, and without one show() hid every
+	// section on load. But it guarded it on a page that has since been approved,
+	// built into the app, and removed, so there is nothing left to guard.
+	//
+	// The behaviour it protected is not lost: it lives in the app's own section
+	// registry, which derives each section's hash and resolves a hash to a section.
+	// That is covered there by unit tests against the real component, which is a
+	// stronger check than rendering a prototype page.
+	ok('retired — the page it guarded was built and removed; the behaviour is covered in the app');
 }
 
 console.log('\n── 8. the feedback store keys on the path, not the filename ──');

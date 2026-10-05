@@ -131,8 +131,18 @@ console.log('\n── 4. the tree renders, and the view switch leaves exactly on
 
 		if (!d.querySelector('.tree')) fail('no .tree rendered');
 		const links = d.querySelectorAll('.tree a[href]');
-		if (links.length < 20) fail(`only ${links.length} links in the tree, expected at least 20`);
-		else ok(`tree rendered with ${links.length} links`);
+		/* The floor used to be a literal 20 links, which was a proxy for "the tree is
+	 * not broken". It cannot be a literal once pages are deliberately removed: on
+	 * 2026-10-04 twenty-four were, and the correct answer is one link per page that
+	 * actually exists. Sections 1-3 already prove the tree neither omits nor invents
+	 * a page, so the only thing worth asserting here is that it is not empty. */
+	const realPages = Object.keys(DISK).flatMap((s) =>
+		DISK[s].filter((f) => f.name.endsWith('.html')).map((f) => `${s}/${f.name}`)
+	);
+	if (links.length < realPages.length)
+		fail(`tree shows ${links.length} links but ${realPages.length} pages exist on disk`);
+	else if (links.length === 0) fail('the tree rendered no links at all');
+	else ok(`tree renders ${links.length} links for ${realPages.length} pages on disk`);
 
 		// PANES is closed over, so exercise the switch the way a user would
 		const buttons = d.querySelectorAll('.views button');
@@ -162,25 +172,29 @@ console.log('\n── 5. the stated rules are the rules the estate obeys ──'
 	const stated = (src.match(/<li><b>/g) || []).length;
 	if (stated < 6) fail(`only ${stated} rules stated, expected at least 6`);
 
-	// Rule: a review produces a synthesis, not a patch — so the rejected
-	// variants must still be on disk. They are the record of the argument.
+	// Rule, REVISED 2026-10-04 by the owner: a rejected or incorporated
+	// prototype is removed once its outcome is recorded. It used to be the
+	// opposite - "the losers are the record", enforced by requiring a-warm-studio,
+	// b-focus-sidebar and c-day-first to still be on disk. That rule is gone
+	// because the owner overruled it: version control plus the tracker are the
+	// record now, not the working tree.
+	//
+	// What replaced it is the weaker but still real check: every file on disk is
+	// declared in the tree (section 1) and every tree link resolves (section 2),
+	// so the estate cannot quietly accumulate undeclared or unreachable files.
+	const goneStill = DISK['calendar-ui'] ?? [];
 	const losers = ['a-warm-studio.html', 'b-focus-sidebar.html', 'c-day-first.html'];
-	const gone = losers.filter((f) => !DISK['calendar-ui'].some((d) => d.name === f));
-	if (gone.length) fail(`a rejected prototype was deleted: ${gone.join(', ')} — the losers are the record`);
-	else ok(`all ${losers.length} rejected variants still on disk`);
+	const stillThere = losers.filter((f) => goneStill.some((d) => d.name === f));
+	if (stillThere.length)
+		ok(`superseded variants still on disk (not yet removed): ${stillThere.join(', ')}`);
+	else ok('superseded variants removed, as the owner ruled - the record is version control');
 
-	// Rule: every VARIANT is one engine plus its own chrome. The baseline is
-	// the exception — it has to reproduce the shipped page, not a prototype of
-	// it, so it is deliberately standalone.
-	const variants = ['a-warm-studio.html', 'b-focus-sidebar.html', 'c-day-first.html', 'd-working-calendar.html'];
-	const noEngine = variants.filter((f) => !/proto-shell\.js/.test(readFileSync(join(here, 'calendar-ui', f), 'utf8')));
-	if (noEngine.length) fail(`variant(s) not using the shared engine: ${noEngine.join(', ')}`);
-	else ok(`all ${variants.length} variants are the shared engine plus their own chrome`);
-
-	// …and the baseline is the one page that is allowed to be standalone.
-	const base = readFileSync(join(here, 'calendar-ui', '0-current.html'), 'utf8');
-	if (/proto-shell\.js/.test(base)) fail('0-current.html uses the engine — it must reproduce the shipped page, not a prototype of it');
-	else ok('the baseline stays standalone, because it reproduces the shipped page');
+	// Rule: every VARIANT is one engine plus its own chrome, and the baseline is the
+	// one page allowed to be standalone. Both rules described pages that no longer
+	// exist, so both are retired rather than left to crash on a missing file.
+	// Nothing replaces them: the surviving sets (app-ui, brand-ui) each have one
+	// page kind, and their own checkers cover them.
+	ok('variant/baseline engine rules retired - the pages they described were removed');
 
 	// Rule: every prototype states the question it exists to answer.
 	// Walked per set, not off a two-name literal: a page in a set this loop

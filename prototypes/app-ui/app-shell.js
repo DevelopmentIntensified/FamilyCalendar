@@ -72,7 +72,7 @@ function navbar(file) {
 				${SVG('M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0', '1.25rem')}
 				<span style="position:absolute;top:.1rem;right:.1rem;min-width:1rem;height:1rem;padding:0 .2rem;border-radius:9999px;background:#b91c1c;color:#fff;font:800 .5625rem/1rem inherit;text-align:center">2</span>
 			</a>
-			<a class="nav-avatar" href="account.html" title="Account">J</a>
+			<a class="nav-avatar" href="index.html" title="Data model reference — the route prototypes were built and removed">J</a>
 		</div>
 	</div>`;
 	return nav;

@@ -1,49 +1,18 @@
 {
-	"$comment": [
-		"Outstanding spacing-check breaches on pages this wave did not own.",
-		"Every entry names a page, a selector fragment that matches the finding,",
-		"and a reason. spacing-check.mjs FAILS on a finding no entry covers, and",
-		"FAILS on an entry that no longer covers a finding — so the list cannot",
-		"grow stale and cannot be used to bury a page. Delete the entry when the",
-		"page is fixed; the check then fails until you do.",
-		"",
-		"Most of the rest are the same defect: a column of cards with no declared",
-		"gap, so two bordered blocks share an edge. The fix is one word per page —",
-		"put `vstack` on the column wrapper, or give the dead `.grid` class a",
-		"`display` so the inline grid-template-columns it already declares applies.",
-		"family-create is the odd one: stacked role=checkbox cards with no gap and",
-		"no hairline is not a column-of-cards defect."
-	],
-	"outstanding": [
-		{
-			"page": "app-ui/notifications.html",
-			"sel": "div.fw > div > div.rail__card",
-			"why": "main and side are bare <div>s. fix: el('div','vstack')"
-		},
-		{
-			"page": "app-ui/family-create.html",
-			"sel": "div.narrow > div.rail__card > div.pick",
-			"why": "the member picker stacks role=checkbox cards with no gap and no hairline; unlike a segmented control there is no shared track, so they read as one block"
-		},
-		{
-			"page": "calendar-ui/a-warm-studio.html",
-			"sel": "div.wrap > div.grid > div.rail__card",
-			"why": "dead .grid class: gap and grid-template-columns are declared inline but no rule sets display, so the notes callout lays out as a flush block stack"
-		},
-		{
-			"page": "calendar-ui/d-working-calendar.html",
-			"sel": "section > div.grid > div.rail__card",
-			"why": "dead .grid class, same as a-warm-studio"
-		},
-		{
-			"page": "calendar-ui/index.html",
-			"sel": "div.cal-frame > div.grid > div.rail__card",
-			"why": "dead .grid class in the hub's prototype cards"
-		},
-		{
-			"page": "calendar-ui/index.html",
-			"sel": "div.grid > div.stat",
-			"why": "dead .grid class in the hub's stat band"
-		}
-	]
+  "$comment": [
+    "Outstanding spacing-check breaches on pages this wave did not own.",
+    "Every entry names a page, a selector fragment that matches the finding,",
+    "and a reason. spacing-check.mjs FAILS on a finding no entry covers, and",
+    "FAILS on an entry that no longer covers a finding — so the list cannot",
+    "grow stale and cannot be used to bury a page. Delete the entry when the",
+    "page is fixed; the check then fails until you do.",
+    "",
+    "Most of the rest are the same defect: a column of cards with no declared",
+    "gap, so two bordered blocks share an edge. The fix is one word per page —",
+    "put `vstack` on the column wrapper, or give the dead `.grid` class a",
+    "`display` so the inline grid-template-columns it already declares applies.",
+    "family-create is the odd one: stacked role=checkbox cards with no gap and",
+    "no hairline is not a column-of-cards defect."
+  ],
+  "outstanding": []
 }

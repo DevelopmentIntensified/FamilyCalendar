@@ -50,24 +50,7 @@ import { mountApp, card, sectionTitle, toast, el } from './app-shell.js';
 /* Kept in sync with the directory by app-check.mjs §6 — the hub cannot list a
    page that is not there, or miss one that is. */
 const PAGES = [
-	{ file: 'dashboard.html', label: 'Dashboard', tag: 'Day view', q: 'Is the day dashboard a useful morning read, or just eight cards competing for attention?', src: 'calendar/dashboard/ — +page.server.ts 388' },
-	{ file: 'tasks.html', label: 'Tasks', tag: 'Core', q: 'Can a 20–150 item list stay scannable, and is the assignment inbox clearly separate from it?', src: 'calendar/tasks/ — +page.svelte 471' },
-	{ file: 'b-tasks-flat.html', label: 'Tasks — flat (B)', tag: 'Variant', q: 'At 150 tasks, does flattening the Overdue and Today bands into one continuous list help or hurt?', src: 'calendar/tasks/ — variant of tasks.html, 150 rows' },
-	{ file: 'groceries.html', label: 'Groceries', tag: 'Core', q: 'Is grouping by store the right primary organisation, or should it group by aisle?', src: 'calendar/groceries/ — +page.svelte 270' },
-	{ file: 'family.html', label: 'Family', tag: 'People', q: 'Is a list of families the right landing page, or should this be a people page?', src: 'family/ — +page.svelte 209' },
-	{ file: 'family-detail.html', label: 'Family settings', tag: 'People', q: '793 lines. What is the one job of this page, and what belongs somewhere else?', src: 'family/[familyId]/ — +page.svelte 793' },
-	{ file: 'family-tasks.html', label: 'Family tasks', tag: 'Core', q: 'Grouped by assignee rather than by due date — does that beat the personal list?', src: 'family/tasks/ — +page.svelte 309' },
-	{ file: 'family-members-add.html', label: 'Add a member', tag: 'People', q: 'Three ways in: find someone, email an invite, create a child. Should they be one form or three?', src: 'family/[familyId]/members/add — 121' },
-	{ file: 'family-invitations.html', label: 'Invitations', tag: 'People', q: 'Is a join code the right way to add a second adult, and is it discoverable?', src: 'family/invitations — 238' },
-	{ file: 'family-create.html', label: 'Create a family', tag: 'People', q: 'Does the family feel like a real thing to create, or an account setup step?', src: 'family/create — 163' },
-	{ file: 'notifications.html', label: 'Alerts', tag: 'Comms', q: 'Five notification types in one undifferentiated list — do they need to be told apart?', src: 'calendar/notifications — 121' },
-	{ file: 'stats.html', label: 'Stats', tag: 'Core', q: 'Streaks and streaks. Does the completion history earn this page?', src: 'calendar/stats — 113' },
-	{ file: 'archive.html', label: 'Archive', tag: 'Core', q: 'Does anyone ever come back here, or is this dead weight behind a paywall?', src: 'calendar/archive — 55' },
-	{ file: 'event.html', label: 'Event detail', tag: 'Calendar', q: 'Is the RSVP list worth a page of its own, or does the grid already say it?', src: 'calendar/event/[id] — 435' },
-	{ file: 'import.html', label: 'Import', tag: 'Calendar', q: 'Is ICS import a power feature or a migration crutch?', src: 'calendar/import — 169' },
-	{ file: 'account.html', label: 'Account', tag: 'Settings', q: 'Seven sections behind hash links. Should this be a settings page at all?', src: 'account/ — +page.svelte 197 + 7 sections' },
 	{ file: 'models.html', label: 'Data model', tag: 'Reference', q: 'Which of the 39 tables are real, which are wired, and which are advertised but dead?', src: 'lib/server/db/schema.ts — 955, 39 tables' },
-	{ file: 'logo.html', label: 'Logo', tag: 'Brand', q: 'The repo has two unrelated marks in two palettes that are not the brand. Which one is it?', src: 'static/icon.svg — one mark, in one palette' }
 ];
 
 const BUGS = [

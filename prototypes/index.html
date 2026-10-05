@@ -103,48 +103,19 @@
    ========================================================================== */
 
 const TREE = {
-	calendar: {
-		label: 'Calendar',
-		href: 'calendar-ui/index.html',
-		blurb: 'The grid page. Three alternatives, then a synthesis of the round-1 review.',
-		prototypes: [
-			{ file: 'calendar-ui/0-current.html', name: '0 · current', role: 'baseline', route: 'src/routes/(calendar)/calendar/ — ≈8,300 LOC, 41 components',
-				note: 'The shipped page, unchanged, with the real data. Everything else is measured against this.' },
-			{ file: 'calendar-ui/a-warm-studio.html', name: 'A · warm studio', role: 'variant', route: 'same feature set, marketing skin',
-				note: 'Toolbar and legend in one panel. Warm canvas, generous spacing. Round 1: its toolbar row won.' },
-			{ file: 'calendar-ui/b-focus-sidebar.html', name: 'B · focus sidebar', role: 'variant', route: 'same feature set, marketing skin',
-				note: 'Left rail with mini month, up-next and calendars. Round 1: the rail won — it survived into D.' },
-			{ file: 'calendar-ui/c-day-first.html', name: 'C · day-first', role: 'variant', route: 'same feature set, marketing skin',
-				note: 'Day hero above a compressed grid. Round 1: rejected — the hero ate space and the copy was vague.' },
-			{ file: 'calendar-ui/d-working-calendar.html', name: 'D · working calendar', role: 'synthesis', route: "the round-1 rebuild, under review",
-				note: "Not a patch of the losers. B's rail + A's toolbar + the legend moved under the grid, C's hero dropped and its vague copy made explicit. Round 2 marked the rail bad — superseded by E, and kept on disk as the record of the argument." },
-			{ file: 'calendar-ui/e-grid-is-the-page.html', name: 'E · the grid is the page', role: 'synthesis', route: 'the round-2 rebuild, under review',
-				note: 'The rail is deleted at every width. Calendars becomes a Filters sheet, By person becomes filter rows, overdue tasks become a day, Up next leaves for the dashboard, and the date control is the shared DayNav construction rather than a fourth hand-built pager.' }
-		]
-	},
+	/* The calendar set had six pages: a baseline, three variants, a synthesis and
+	 * a round-2 rebuild. They were approved, built into the app, and removed on
+	 * 2026-10-04, along with the rejected variants. The engine and checkers remain
+	 * in that directory and are still referenced; only the pages are gone. The set
+	 * therefore has nothing to link to and is absent here rather than present and
+	 * broken. Version control holds every removed page. */
 	app: {
 		label: 'App',
 		href: 'app-ui/index.html',
-		blurb: 'Every other route, plus a browsable read of the data model.',
+		blurb: 'A browsable read of the data model. The route prototypes were approved, built, and removed.',
 		prototypes: [
-			{ file: 'app-ui/dashboard.html', name: 'Dashboard', role: 'core', route: 'calendar/dashboard/ — +page.server.ts 388' },
-			{ file: 'app-ui/tasks.html', name: 'Tasks', role: 'core', route: 'calendar/tasks/ — +page.svelte 471' },
-			{ file: 'app-ui/b-tasks-flat.html', name: 'Tasks — flat (B)', role: 'core', route: 'calendar/tasks/ — variant of tasks.html: one list, time as a filter, 150 rows' },
-			{ file: 'app-ui/groceries.html', name: 'Groceries', role: 'core', route: 'calendar/groceries/ — +page.svelte 270' },
-			{ file: 'app-ui/family.html', name: 'Family', role: 'people', route: 'family/ — +page.svelte 209' },
-			{ file: 'app-ui/family-detail.html', name: 'Family settings', role: 'people', route: 'family/[familyId]/ — +page.svelte 793' },
-			{ file: 'app-ui/family-tasks.html', name: 'Family tasks', role: 'people', route: 'family/tasks/ — +page.svelte 309' },
-			{ file: 'app-ui/family-members-add.html', name: 'Add a member', role: 'people', route: 'family/[familyId]/members/add — 121' },
-			{ file: 'app-ui/family-invitations.html', name: 'Invitations', role: 'people', route: 'family/invitations — 238' },
-			{ file: 'app-ui/family-create.html', name: 'Create a family', role: 'people', route: 'family/create — 163' },
-			{ file: 'app-ui/notifications.html', name: 'Alerts', role: 'comms', route: 'calendar/notifications — 121' },
-			{ file: 'app-ui/stats.html', name: 'Stats', role: 'core', route: 'calendar/stats — 113' },
-			{ file: 'app-ui/archive.html', name: 'Archive', role: 'core', route: 'calendar/archive — 55' },
-			{ file: 'app-ui/event.html', name: 'Event detail', role: 'calendar', route: 'calendar/event/[id]/ — 435' },
-			{ file: 'app-ui/import.html', name: 'Import', role: 'calendar', route: 'calendar/import — 169' },
-			{ file: 'app-ui/account.html', name: 'Account', role: 'settings', route: 'account/ — +page.svelte 197 + 7 sections' },
-			{ file: 'app-ui/models.html', name: 'Data model', role: 'reference', route: 'lib/server/db/schema.ts — 955 lines, 39 tables' },
-			{ file: 'app-ui/logo.html', name: 'Logo', role: 'brand', route: 'static/icon.svg — two marks, two palettes, neither is the brand' }
+			{ file: 'app-ui/models.html', name: 'Data model', role: 'reference', route: 'lib/server/db/schema.ts — 955 lines, 39 tables',
+				note: 'Reviewed 2026-10-04 by the owner: a reference to consult, not a candidate for approval. Kept deliberately.' }
 		]
 	},
 	brand: {
@@ -162,15 +133,18 @@ const TREE = {
 
 /* the files each set really contains, with what each one is for. The checker
    fails if this drifts from the directory. */
+/* calendar-ui has no pages left: its variants and its synthesis were approved,
+ * built, and removed, and the rejected ones were removed with them. What remains
+ * in that directory is the shared engine and its checkers, which the brand and app
+ * sets and this tree still reference, so the directory stays and the tree simply
+ * does not claim pages for it. `tree-check.mjs` discovers sets by looking for HTML,
+ * so a page-less set excludes itself rather than being special-cased here.
+ *
+ * The rule this estate used to enforce - that rejected variants stay on disk
+ * because "the losers are the record" - was overruled by the owner on 2026-10-04.
+ * The record is now version control plus the tracker, and the check says so. */
 const FILES = {
 	'calendar-ui': [
-		['index.html', 'hub', 'findings, round-1 verdict, parity matrix'],
-		['0-current.html', 'page', 'the shipped page, unchanged'],
-		['a-warm-studio.html', 'page', 'variant A'],
-		['b-focus-sidebar.html', 'page', 'variant B'],
-		['c-day-first.html', 'page', 'variant C'],
-		['d-working-calendar.html', 'page', 'the synthesis'],
-		['proto-shell.js', 'engine', 'shared view engine — every prototype is this + chrome'],
 		['proto-data.js', 'data', '63 events, 8 tasks'],
 		['proto-nav.js', 'engine', 'the prototype switch bar'],
 		['proto.css', 'style', 'design tokens'],
@@ -191,7 +165,7 @@ const FILES = {
 	],
 	'app-ui': [
 		['index.html', 'hub', 'the page grid and the audit findings'],
-		['logo.html', 'page', 'the mark - the repo has two, in two palettes that are not the brand'],
+		['models.html', 'page', 'the data model - which of the tables are real. Reviewed 2026-10-04: a reference, not a candidate for approval'],
 		['app-shell.js', 'engine', 'navbar, bottom nav, page header, toast'],
 		['app-data.js', 'data', 'mock data + all 39 tables'],
 		['proto.css', 'style', 'design tokens'],
@@ -365,13 +339,13 @@ function show(id) {
 });
 views.addEventListener('click', (e) => { if (e.target.closest('button')) show(e.target.closest('button').dataset.v); });
 
-/* count the pages per set for the switch labels */
-const ALL_FILES = [
-	...TREE.calendar.prototypes.map((p) => p.file),
-	...TREE.app.prototypes.map((p) => p.file)
-];
+/* count the pages per set for the switch labels. Every set is walked, not
+ * listed by name: the calendar set had six pages and was removed on 2026-10-04,
+ * and a literal here would have thrown on the missing key instead of counting
+ * whatever sets actually exist. */
+const ALL_FILES = Object.values(TREE).flatMap((s) => s.prototypes.map((p) => p.file));
 views.querySelector('[data-n="lineup"]').textContent = ALL_FILES.length;
-views.querySelector('[data-n="lineage"]').textContent = TREE.calendar.prototypes.length;
+views.querySelector('[data-n="lineage"]').textContent = TREE.calendar?.prototypes.length ?? 0;
 views.querySelector('[data-n="files"]').textContent = Object.values(FILES).reduce((a, f) => a + f.length, 0);
 
 const viewRow = document.createElement('div');
@@ -421,8 +395,10 @@ lineup.className = 'rail__card tree';
 lineup.setAttribute('data-fb', 'tree-lineup');
 lineup.setAttribute('data-fb-label', 'The tree');
 const root = document.createElement('ul');
-[['calendar', 'folder'], ['app', 'folder']].forEach(([key, cls]) => {
-	const set = TREE[key];
+/* Walk the sets that exist rather than a literal list of keys. The calendar set
+ * was removed on 2026-10-04; naming it here would throw on the missing key. */
+Object.entries(TREE).forEach(([key, set]) => {
+	const cls = 'folder';
 	const l = document.createElement('li');
 	l.className = cls;
 	l.innerHTML = `<div class="node">
@@ -446,7 +422,24 @@ const lineage = pane('lineage');
 lineage.className = 'lin';
 lineage.setAttribute('data-fb', 'tree-lineage');
 lineage.setAttribute('data-fb-label', 'How D was built');
-const N = TREE.calendar.prototypes;
+/* The lineage pane narrated how the calendar synthesis was reached, by walking
+ * the calendar set's five pages in order. That set was approved, built and
+ * removed on 2026-10-04, so there is no lineage left to draw. The pane now states
+ * the outcome rather than throwing on a missing set, and the narrative is
+ * recoverable from version control. */
+const N = TREE.calendar?.prototypes ?? [];
+if (N.length === 0) {
+	const done = document.createElement('div');
+	done.className = 'card';
+	done.innerHTML = `
+		<div class="step-node__k">Resolved</div>
+		<div style="font-size:1.0625rem;font-weight:800;color:var(--s900);margin-top:.25rem">The calendar set is built</div>
+		<p class="hint" style="line-height:1.7;margin:.75rem 0 0">Six pages — a baseline, three variants, a synthesis and a
+		round-2 rebuild. The rebuild was approved and every one of them is now in the app, so they were
+		removed on 2026-10-04 along with the rejected variants. The record of how the rebuild was reached
+		is in version control, not in this working tree.</p>`;
+	lineage.appendChild(done);
+} else
 [[N[0], 'Start'], [N[1], 'Round 1'], [N[2], 'Round 1'], [N[3], 'Round 1'], [N[4], 'Round 1 → 2']].forEach(([p, when], i, arr) => {
 	const cls = p.role === 'baseline' ? 'is-base' : p.role === 'synthesis' ? 'is-win' : 'is-loss';
 	const box = document.createElement('div');
@@ -468,8 +461,7 @@ const N = TREE.calendar.prototypes;
 		a.textContent = '↓';
 		lineage.appendChild(a);
 	}
-});
-PANES.lineage = lineage;
+});PANES.lineage = lineage;
 body.appendChild(lineage);
 
 /* the synthesis card lives inside the lineage view, not beside it */
