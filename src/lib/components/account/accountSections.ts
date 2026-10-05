@@ -8,10 +8,14 @@
  * Changed here: `families` and `dashboard` are new sections, and
  * `subscription` is labelled "Plan & usage" because that is what the section
  * shows — a limits table, not a bare plan name.
+ *
+ * `notifications` sits where the approved page puts it: after the families and
+ * before the calendar and dashboard sections.
  */
 export const ACCOUNT_SECTIONS = [
 	{ id: 'profile', label: 'Profile' },
 	{ id: 'families', label: 'Your families' },
+	{ id: 'notifications', label: 'Notifications' },
 	{ id: 'calendar', label: 'Calendar' },
 	{ id: 'dashboard', label: 'Dashboard' },
 	{ id: 'subscription', label: 'Plan & usage' },

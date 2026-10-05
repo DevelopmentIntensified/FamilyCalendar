@@ -139,8 +139,23 @@ export const subscriptions = pgTable('activeSubscriptions', {
 			return endOfDay;
 		})
 		.notNull(),
+	// One JSON column, two jobs. `email`/`sms` are the billing half that was
+	// here first and every row written before the Notifications card carries
+	// only those. `preferences` is the sibling key the account page's four
+	// switches write — optional precisely so a legacy `{ email, sms }` row
+	// still satisfies this type without a migration. See
+	// `src/lib/components/account/accountNotifications.ts`.
 	notificationMethods: jsonb('notificationMethods')
-		.$type<{ email: boolean; sms: boolean }>()
+		.$type<{
+			email: boolean;
+			sms: boolean;
+			preferences?: {
+				taskAssigned: boolean;
+				taskCompleted: boolean;
+				familyJoined: boolean;
+				aiSuggestions: boolean;
+			};
+		}>()
 		.notNull(),
 	subscriptionTypeId: text('subscriptionTypeId').references(() => subscriptionTypes.id, {
 		onDelete: 'restrict'

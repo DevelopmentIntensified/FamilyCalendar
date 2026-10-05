@@ -6,7 +6,7 @@ import { ACCOUNT_SECTIONS, resolveAccountSection } from './accountSections';
 describe('AccountSidebar — 105: the approved section list', () => {
 	afterEach(cleanup);
 
-	it('lists Your families, Dashboard and Plan & usage, each reachable by its own hash', () => {
+	it('lists Your families, Notifications, Dashboard and Plan & usage, each reachable by its own hash', () => {
 		render(AccountSidebar, { props: { activeSection: 'profile' } });
 		const hrefs = [...document.querySelectorAll('nav a[href^="#"]')].map((a) =>
 			a.getAttribute('href')
@@ -20,6 +20,7 @@ describe('AccountSidebar — 105: the approved section list', () => {
 		render(AccountSidebar, { props: { activeSection: 'profile' } });
 		const labels = [...document.querySelectorAll('nav a')].map((a) => a.textContent?.trim());
 		expect(labels).toContain('Your families');
+		expect(labels).toContain('Notifications');
 		expect(labels).toContain('Dashboard');
 		expect(labels).toContain('Plan & usage');
 	});
@@ -43,12 +44,13 @@ describe('resolveAccountSection', () => {
 	it('renders the section a hash names', () => {
 		expect(resolveAccountSection('#dashboard')).toBe('dashboard');
 		expect(resolveAccountSection('#families')).toBe('families');
+		expect(resolveAccountSection('#notifications')).toBe('notifications');
 	});
 
 	it('falls back to the first section rather than rendering nothing', () => {
-		// A stale bookmark (#api renamed, #notifications never shipped) shows
-		// the page instead of a blank panel.
+		// A stale bookmark — a hash from a section that was renamed, or never
+		// shipped — shows the page instead of a blank panel.
 		expect(resolveAccountSection('')).toBe('profile');
-		expect(resolveAccountSection('#notifications')).toBe('profile');
+		expect(resolveAccountSection('#meals')).toBe('profile');
 	});
 });

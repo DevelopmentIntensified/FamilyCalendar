@@ -5,6 +5,7 @@
 	import AccountSidebar from '$lib/components/account/AccountSidebar.svelte';
 	import AccountProfileSection from '$lib/components/account/AccountProfileSection.svelte';
 	import AccountFamiliesSection from '$lib/components/account/AccountFamiliesSection.svelte';
+	import AccountNotificationsSection from '$lib/components/account/AccountNotificationsSection.svelte';
 	import AccountCalendarSection from '$lib/components/account/AccountCalendarSection.svelte';
 	import AccountDashboardSection from '$lib/components/account/AccountDashboardSection.svelte';
 	import AccountSubscriptionSection from '$lib/components/account/AccountSubscriptionSection.svelte';
@@ -81,6 +82,8 @@
 						<AccountProfileSection {user} />
 					{:else if activeSection === 'families'}
 						<AccountFamiliesSection families={data.families ?? []} />
+					{:else if activeSection === 'notifications'}
+						<AccountNotificationsSection preferences={data.notificationPreferences ?? null} />
 					{:else if activeSection === 'calendar'}
 						<AccountCalendarSection
 							userSettings={data.userSettings}

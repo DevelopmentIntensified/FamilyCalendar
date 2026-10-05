@@ -30,6 +30,15 @@ import {
 	listTokensForUser,
 	revokeToken
 } from '$lib/server/db/actions/apiTokens';
+import {
+	getNotificationPreferences,
+	setNotificationPreference
+} from '$lib/server/db/actions/notificationMethods';
+import {
+	DEFAULT_NOTIFICATION_PREFERENCES,
+	isNotificationPreferenceId,
+	notificationPreferenceChangeLabel
+} from '$lib/components/account/accountNotifications';
 
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
@@ -92,6 +101,13 @@ export const load: PageServerLoad = async (event) => {
 		console.error('Failed to load subscription data:', error);
 	}
 
+	// A never-touched account sees the approved defaults here, and this read
+	// writes nothing: the defaults are persisted only by a first toggle.
+	const notificationPreferences = await getNotificationPreferences(userId).catch((error) => {
+		console.error('Failed to load notification preferences:', error);
+		return { ...DEFAULT_NOTIFICATION_PREFERENCES };
+	});
+
 	return {
 		user: {
 			id: user!.id,
@@ -131,6 +147,7 @@ export const load: PageServerLoad = async (event) => {
 		planLimits,
 		aiUsage,
 		planPricing: getPlanPricing('monthly'),
+		notificationPreferences,
 		// api_tokens ships via runtime migration; degrade to [] until applied.
 		apiTokens: await listTokensForUser(userId).catch(() => [])
 	};
@@ -278,6 +295,39 @@ export const actions: Actions = {
 		} catch (error) {
 			console.error('Failed to save dashboard modules:', error);
 			return fail(500, { success: false, message: 'Failed to save dashboard modules' });
+		}
+	},
+
+	// The Notifications card's own save: one switch, one receipt. Kept apart from
+	// every other action so a failure here cannot report that something else
+	// failed to save.
+	setNotificationPreference: async ({ request, locals }) => {
+		const formData = await request.formData();
+		const preference = formString(formData, 'preference');
+
+		// The posted key decides which row is written, so a hand-rolled POST must
+		// not be able to invent a fifth switch or write an unrecognised shape.
+		if (!isNotificationPreferenceId(preference)) {
+			return fail(400, { success: false, message: 'Unknown notification preference' });
+		}
+		const rawValue = formString(formData, 'value');
+		if (rawValue !== 'true' && rawValue !== 'false') {
+			return fail(400, { success: false, message: 'Notification preference value is required' });
+		}
+		const value = rawValue === 'true';
+
+		try {
+			await setNotificationPreference(locals.user.id, preference, value);
+			return {
+				success: true,
+				message: `${notificationPreferenceChangeLabel(preference, value)} Saved.`
+			};
+		} catch (error) {
+			console.error('Failed to save notification preference:', error);
+			return fail(500, {
+				success: false,
+				message: `${notificationPreferenceChangeLabel(preference, value)} This did not save.`
+			});
 		}
 	},
 
