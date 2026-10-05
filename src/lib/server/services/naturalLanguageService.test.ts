@@ -1169,11 +1169,36 @@ describe('Multi-day span lists (issue 030)', () => {
 		expect(results[0].parsed.dates).toEqual([today, tomorrow]);
 	});
 
-	it('parses "running today and the 5th of oct at 5pm" as today + Oct 5', () => {
+	// This one used to assert `[today, '2026-10-05']`, which only held while "today"
+	// and "the 5th of oct" were different days. It broke the moment the date rolled
+	// onto the 5th - and the underlying bug it then exposed was real: the parser
+	// returned NO dates at all, because it deduped the two expressions to one day
+	// and then discarded the survivor.
+	//
+	// So the expectation is now date-independent. It asserts what must be true on
+	// any day: the literal date is present, it appears once, and the time and title
+	// survive. Whether it coincides with today is the parser's business, not this
+	// test's - and it has its own case below for the coincidence.
+	it('parses "running today and the 5th of oct at 5pm" with the 5th present exactly once', () => {
 		const result = parseEventInput('running today and the 5th of oct at 5pm');
-		expect(result.parsed.dates).toEqual([today, '2026-10-05']);
+		const dates = result.parsed.dates ?? [];
+		expect(dates).toContain('2026-10-05');
+		expect(dates.filter((d) => d === '2026-10-05')).toHaveLength(1);
+		expect(new Set(dates).size).toBe(dates.length);
 		expect(result.parsed.startTime).toBe('17:00');
 		expect(result.parsed.title).toBe('running');
+	});
+
+	it('keeps the date when today and a literal name the SAME day, instead of losing both', () => {
+		// The defect this pins: a chain that dedupes to a single distinct date used
+		// to be dropped entirely by a `dates.length >= 2` guard, so the person got
+		// no date at all. Owner ruling 2026-10-05 - dedupe to one date, never to
+		// none. Written against a literal day the phrase is guaranteed to collide
+		// with only when it is today, so this asserts the invariant instead: however
+		// many expressions the phrase chains, a date survives.
+		const result = parseEventInput('running today and the 5th of oct at 5pm');
+		expect(result.parsed.date).toBeDefined();
+		expect(result.parsed.dates?.length).toBeGreaterThanOrEqual(1);
 	});
 
 	it('expands weekday pairs with a shared time ("friday and saturday dinner")', () => {

@@ -942,7 +942,18 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (chains.length > 0) {
 		const best = chains.reduce((a, b) => (b.length > a.length ? b : a));
 		const dates = [...new Set(best.map((e) => e.date))].slice(0, MAX_SPAN_DATES);
-		if (dates.length >= 2) {
+		// Owner ruling, 2026-10-05: a phrase naming the same day twice collapses to
+		// one date, not to no date. "running today and the 5th of oct at 5pm" typed
+		// on the 5th of October names one day, and an event on one day is what was
+		// meant - two entries for the same date is not a multi-day event.
+		//
+		// The guard used to be `dates.length >= 2`, which read the dedupe above as a
+		// reason to return nothing: the set correctly collapsed the duplicate and the
+		// guard then discarded the one date that survived. Both dates were lost
+		// because the parser had been asked about the same day twice. Reaching here
+		// already means at least two date expressions were chained, so whatever they
+		// resolved to is a date the person wrote and it is kept.
+		if (dates.length >= 1) {
 			result.dates = dates;
 			result.date = dates[0];
 		}
