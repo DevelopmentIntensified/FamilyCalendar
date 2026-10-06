@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	normalizeGroceryName,
 	parseGroceryQuickAdd,
+	uniqueStores,
 	groupGroceriesByStore,
 	mostFrequentStore,
 	STORE_COLOURS,
@@ -389,5 +390,56 @@ describe('optimistic colour overrides are scoped (115)', () => {
 			userId: 'u1',
 			familyId: null
 		});
+	});
+});
+
+/* ── uniqueStores ─────────────────────────────────────────────────────────
+   Regression for a LIVE crash on the test environment:
+
+     Uncaught (in promise) Svelte error: each_key_duplicate
+     Keyed each block has duplicate key `walmart` at indexes 2 and 3
+
+   The store field is free text with commas for alternates, so nothing stopped
+   a person typing the same shop twice — and nothing stopped the database
+   storing it. The chips are a keyed each block keyed by the store name, so a
+   repeated name is a duplicate key and the WHOLE page throws, not one row.
+
+   These tests describe external behaviour only: what comes out.
+   ──────────────────────────────────────────────────────────────────────── */
+describe('uniqueStores', () => {
+	it('removes the repeat that crashed the page', () => {
+		// The literal shape reported in the browser: walmart at indexes 2 and 3.
+		expect(uniqueStores(['Aldi', 'Kroger', 'walmart', 'Walmart', 'Costco'])).toEqual([
+			'Aldi',
+			'Kroger',
+			'walmart',
+			'Costco'
+		]);
+	});
+
+	it('treats case as the same shop, and keeps the first spelling', () => {
+		expect(uniqueStores(['Walmart', 'walmart', 'WALMART'])).toEqual(['Walmart']);
+	});
+
+	it('keeps the first store in first position, because it is the primary one', () => {
+		// stores[0] is the shop the row is filed under and the one the approved
+		// design puts the ring on. Dedupe must never reorder.
+		expect(uniqueStores(['Costco', 'costco', 'Aldi'])).toEqual(['Costco', 'Aldi']);
+	});
+
+	it('trims and drops blanks, so "aldi, , aldi" is one shop', () => {
+		expect(uniqueStores([' aldi ', '', '   ', 'aldi'])).toEqual(['aldi']);
+	});
+
+	it('returns an empty list rather than throwing on empty input', () => {
+		expect(uniqueStores([])).toEqual([]);
+		expect(uniqueStores(['', '  '])).toEqual([]);
+	});
+
+	it('keeps genuinely different shops apart even when one contains the other', () => {
+		expect(uniqueStores(['Walgreens', 'Walgreens Market', 'Walgreens'])).toEqual([
+			'Walgreens',
+			'Walgreens Market'
+		]);
 	});
 });

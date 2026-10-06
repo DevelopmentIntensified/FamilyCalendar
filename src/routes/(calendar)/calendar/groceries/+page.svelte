@@ -6,6 +6,7 @@
 		groupGroceriesByStore,
 		resolveGroceryColours,
 		storesSharingColour,
+		uniqueStores,
 		colourFor,
 		matchesGrocerySearch,
 		scopeFromParam,
@@ -272,10 +273,10 @@
 		// the item to a list the toast did not name.
 		const target = addScope;
 		try {
-			const stores = storeInput
-				.split(',')
-				.map((s) => s.trim())
-				.filter(Boolean);
+			// The store field is free text with commas for alternates, so nothing
+			// stops "Walmart, walmart" reaching the database. The chips are keyed by
+			// store name, so a repeat is a duplicate key and the whole page throws.
+			const stores = uniqueStores(storeInput.split(','));
 			const res = await fetch('/api/groceries', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -354,10 +355,7 @@
 	async function saveStores(item: Item) {
 		if (busyId) return;
 		busyId = item.id;
-		const stores = editStores
-			.split(',')
-			.map((s) => s.trim())
-			.filter(Boolean);
+		const stores = uniqueStores(editStores.split(','));
 		const res = await fetch(`/api/groceries/${item.id}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
@@ -857,7 +855,7 @@
 													     `stores[0]`, which is the key this row is
 													     grouped under. Colour says "which shop";
 													     the ring says "the one I file it under". -->
-													{#each item.stores as store, index (store)}
+													{#each uniqueStores(item.stores) as store, index (store)}
 														{@const tint = colourOf(store)}
 														{#if index === 1}
 															<!-- groceries.html, approved: `<span class="alt">or</span>`

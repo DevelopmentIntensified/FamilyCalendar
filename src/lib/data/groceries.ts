@@ -39,6 +39,47 @@ export function mostFrequentStore(rows: { store: string; count: number }[]): str
  * Groups are sorted alphabetically so the list scans as a trip; items keep their
  * given order inside a group.
  */
+/**
+ * A grocery item's store list, with repeats removed.
+ *
+ * WHY THIS EXISTS
+ *
+ * `walmart, walmart, costco` is one shop said twice and one other shop. The store
+ * field is free text with commas for alternates, so nothing stopped a person
+ * typing the same shop twice — and nothing stopped the database storing it either.
+ *
+ * That became a hard crash rather than a cosmetic flaw. The store chips are a
+ * keyed each block keyed by the store name, so a repeated name is a duplicate key
+ * and Svelte throws `each_key_duplicate` — the whole groceries page dies, not just
+ * the one row. Reported live on the test environment: "duplicate key `walmart` at
+ * indexes 2 and 3".
+ *
+ * Matching is case-insensitive, because "Walmart" and "walmart" are the same shop
+ * and a person should not get two chips for it. First spelling wins, so the shop
+ * keeps the casing it was first typed with rather than being silently rewritten.
+ * Order is otherwise preserved, which matters: the FIRST store is the one the row
+ * is filed under and the one the approved design puts the ring on.
+ *
+ * Dedupe belongs here, at the one place a store list is interpreted, rather than at
+ * each of the four places one is rendered. Two of those already dedupe — the
+ * known-store list and the by-store grouping both key on a Set/Map — and the third,
+ * this chip list, did not. This also repairs rows already in the database, which
+ * fixing only the write path would not: the crash comes from reading them.
+ */
+export function uniqueStores(stores: readonly string[]): string[] {
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const raw of stores) {
+		const store = raw.trim();
+		if (!store) continue;
+		const key = store.toLowerCase();
+		if (seen.has(key)) continue;
+		seen.add(key);
+		out.push(store);
+	}
+	return out;
+}
+
 export function groupGroceriesByStore<T extends { stores: string[] }>(
 	items: T[]
 ): { store: string; items: T[] }[] {
