@@ -3,7 +3,6 @@
 	import type { PageData } from './$types';
 	import {
 		assignmentBars,
-		assignedVsDone,
 		monthCompletionLabel,
 		recentWeekCells
 	} from './statsPageModel';
@@ -18,13 +17,6 @@
 	$: monthLabel = monthCompletionLabel(data.todayIso);
 	$: landOn = assignmentBars(stats.topAssignees);
 	$: comeFrom = assignmentBars(stats.topAssigners);
-	// "Assigned to" beside "done by" - the pair the argument card turns on.
-	$: paired = assignedVsDone({
-		assigned: stats.topAssignees,
-		done: data.doneBy ?? [],
-		roster: data.roster ?? []
-	});
-	$: hasChildren = paired.some((p) => p.isChild);
 </script>
 
 <svelte:head>
@@ -185,37 +177,5 @@
 			{@render bars('Tasks land on', landOn, 'No assignments out yet.', 'bar-fill')}
 			{@render bars('Tasks come from', comeFrom, 'Nobody has assigned you anything yet.', 'bar-fill')}
 		</div>
-
-		<!-- 093 rerun: the card the previous round cut for "never existed in the
-		     app". It is in the approved prototype, so it is here. Every number in
-		     it is read, none of it is an example. -->
-		<section
-			data-testid="children-in-the-numbers"
-			class="rounded-xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-5 shadow-sm"
-		>
-			<h2 class="text-sm font-semibold text-slate-900">The children are in the numbers</h2>
-			<div class="mt-3 grid gap-3 lg:grid-cols-3">
-				<p class="m-0 rounded-lg bg-slate-100 p-2 text-xs text-slate-600" data-testid="assigned-vs-done">
-					{#if paired.length === 0}
-						Nobody is in the numbers yet.
-					{:else}
-						Assigned / done by: {paired
-							.map((p) => `${p.name} ${p.assigned} / ${p.done}`)
-							.join(', ')}
-					{/if}
-				</p>
-				<p class="m-0 text-xs leading-relaxed text-slate-600">
-					A child is a row in the member list, so a task can be assigned to one and counted
-					in these stats. But a completion records who actually did it — and a child account
-					has no way to sign in, so it can never be that person.
-				</p>
-				<p class="m-0 text-xs leading-relaxed text-slate-600" data-testid="children-claim">
-					So a child can be assigned four things and complete none of them, and the chart
-					cannot tell that apart from "she has not got round to it". The stat says
-					<i>assigned to</i>; the page beside it says <i>done by</i>. Only one of them is true
-					about {hasChildren ? 'the children' : 'a member'}.
-				</p>
-			</div>
-		</section>
 	</div>
 </div>

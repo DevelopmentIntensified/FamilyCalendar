@@ -150,45 +150,6 @@ describe('Task stats page — the assignment bars', () => {
 	});
 });
 
-describe('Task stats page — the children are in the numbers', () => {
-	afterEach(cleanup);
-
-	// The card the previous round deleted on the grounds it "never existed in
-	// the app". The prototype shows it full-width, so the page shows it too.
-	it('carries the card arguing that assigned-to is not done-by', () => {
-		render(StatsPage, props());
-		const card = screen.getByText('The children are in the numbers').closest('section')!;
-		const text = card.textContent?.replace(/\s+/g, ' ') ?? '';
-		expect(text).toContain('assigned to');
-		expect(text).toContain('done by');
-	});
-
-	it('reads the paired numbers off the real data, not a hardcoded example', () => {
-		render(StatsPage, props());
-		const chip = screen.getByTestId('assigned-vs-done').textContent!.replace(/\s+/g, ' ');
-		// Mia: 4 assigned, 0 done. Eli: 3 assigned, 0 done.
-		expect(chip).toContain('Mia 4 / 0');
-		expect(chip).toContain('Eli 3 / 0');
-		expect(chip).toContain('Jon 14 / 12');
-	});
-
-	it('does not call a member a child when the roster does not say so', () => {
-		// No child Member Types means no children; the card still runs, but the
-		// claim it makes is the weaker one it can actually support.
-		render(
-			StatsPage,
-			props({
-				...makeData(),
-				roster: [
-					{ firstName: 'Jon', memberType: 'parent' },
-					{ firstName: 'Sarah', memberType: 'parent' }
-				]
-			})
-		);
-		expect(screen.getByTestId('children-claim').textContent).toContain('a member');
-	});
-});
-
 describe('Task stats page — structure the prototype fixes', () => {
 	afterEach(cleanup);
 
@@ -233,6 +194,5 @@ describe('Task stats page — structure the prototype fixes', () => {
 			})
 		);
 		expect(screen.getByText(/first win awaits/i)).toBeTruthy();
-		expect(screen.getByText('The children are in the numbers')).toBeTruthy();
 	});
 });
