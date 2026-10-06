@@ -1180,10 +1180,20 @@ describe('Multi-day span lists (issue 030)', () => {
 	// survive. Whether it coincides with today is the parser's business, not this
 	// test's - and it has its own case below for the coincidence.
 	it('parses "running today and the 5th of oct at 5pm" with the 5th present exactly once', () => {
+		// Genuinely date-independent: asserts what must hold on ANY run day.
+		//
+		// "The 5th of oct" resolves to the NEXT 5th of October, because the
+		// parser's pinned rule is that a day-of-month rolls forward once it has
+		// already passed ("Day-of-month with monthly rollover when it already
+		// passed"). So on the 5th it is today; on the 6th it is next year's.
+		// Either way exactly one October 5th survives - and that is the point.
+		//
+		// This assertion previously hardcoded '2026-10-05' while the comment above
+		// it claimed the expectation was date-independent. It was not, and it broke
+		// the day the 5th became yesterday. The parser was right; the test was not.
 		const result = parseEventInput('running today and the 5th of oct at 5pm');
 		const dates = result.parsed.dates ?? [];
-		expect(dates).toContain('2026-10-05');
-		expect(dates.filter((d) => d === '2026-10-05')).toHaveLength(1);
+		expect(dates.filter((d) => d.slice(5) === '10-05')).toHaveLength(1);
 		expect(new Set(dates).size).toBe(dates.length);
 		expect(result.parsed.startTime).toBe('17:00');
 		expect(result.parsed.title).toBe('running');
