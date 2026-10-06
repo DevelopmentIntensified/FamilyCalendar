@@ -57,15 +57,19 @@ sign-off) require the owner. #137–141 depend on findings #135/#136 haven't pro
 
 ### Frontier (unblocked)
 - **#131** design-conformance harness — the one new seam
-- **#132** close the estate — *mostly done, verifying*
-- **#136** security audit (read-only) → tickets
-- **#144** drop `userAdConsent` — needs Neon, both branches, verify after
-- **#145** day sheet at all widths
-- **#146** stats count real completions
+- **#132** close the estate — **done** (landed in `9c2c741`)
+- **#133** serve the estate on test — unblocked, not started
+- **#136** security audit (read-only) → tickets — unblocked, not started
+- **#145** day sheet at every widths — unblocked
+- **#146** stats count real completions — unblocked
 
 ### Blocked
-#133 → #132 · #134 → #133 · #135 → #131 · #137 → #131,#135 · #138/#139/#141 →
+#134 → #133 · #135 → #131 · #137 → #131,#135 · #138/#139/#141 →
 #137,#135 · #140 → #137,#135,#129 · #142 → #136 · #143 → almost everything
+
+### Agents cancelled mid-flight, nothing running
+#131, #136, #133 were all dispatched and all cancelled when the session ran out
+of context. They produced no work and left no partial files. Re-dispatch them.
 
 ## Also open
 - **#129** settings page look: rail is one bordered box w/ 8px rows; prototype
@@ -73,8 +77,101 @@ sign-off) require the owner. #137–141 depend on findings #135/#136 haven't pro
 - Notification settings **built and green** (4 toggles, persists, sibling JSON key
   in `notificationMethods`, legacy `{email,sms}` rows survive). Known gap: the
   network round-trip under `use:enhance` isn't covered by vitest.
-- Pre-existing `proto:check` red: `adConsentRecords` in schema.ts but unmodelled.
-  Ties to #144.
+- Pre-existing `proto:check` red: `adConsentRecords` in schema.ts but unmodelled,
+  `feedback.js` drift ×2.
+
+## 🔴 UNCOMMITTED IN THE WORKING TREE — do this first
+
+Pushed state is `fda07a0` and is clean and green. These are NOT committed.
+**STATUS 2026-10-06: code DONE, tests GREEN, build NOT YET GREEN — see below.**
+
+### 1. Live crash: groceries page dies — `each_key_duplicate` — ✅ CODE DONE
+Reported live on test: **"Keyed each block has duplicate key `walmart` at indexes
+2 and 3"**. The whole page throws, not one row.
+
+- **Cause**: the store field is free text with commas for alternates. Nothing
+  deduped it. `{#each item.stores as store, index (store)}` is keyed by the store
+  name, so a repeated name is a duplicate key.
+- **DONE**: `uniqueStores()` added to `src/lib/data/groceries.ts`
+  (case-insensitive, first spelling wins, order preserved because `stores[0]` is
+  the row's primary shop) **and wired into all three sites**:
+  1. add handler `groceries/+page.svelte:279`
+  2. edit handler `:358`
+  3. **render `:858`** — `{#each uniqueStores(item.stores) as store, index (store)}`
+     This is the one that mattered: fixing only the write path would NOT have
+     fixed it, because the crash comes from reading rows already in the database.
+- **Tests**: 6 new cases in `src/lib/data/groceries.test.ts`, including the
+  literal reported shape `['Aldi','Kroger','walmart','Walmart','Costco']`.
+  File total 58 passing.
+- Two other key sites were already safe, no change needed: `knownStores` uses a
+  `Set`, `groupGroceriesByStore` keys a `Map` on lowercase.
+- Dashboard `GroceriesCard.storesOf` routes through `groupGroceriesByStore` too,
+  so it was never exposed.
+- **Suite green**: 3,524 tests / 240 files, 0 failures (the 1 NLP failure was a
+  separate date-pin bug, fixed in the same slice — see §4).
+- **⚠️ BUILD NOT YET GREEN.** `npm run build` failed with
+  `ENOENT .svelte-kit/output/client` during prerender — the client compiled
+  (`✓ built in 7.63s`) then a **concurrent subagent build wiped the output dir**.
+  This is the documented race, NOT a code error. **Re-run the build once the
+  subagents (#131/#133/#136) have finished**, then commit and push to `test`.
+
+### 2. Stats card: owner ruled "That card isn't needed" — ✅ REMOVED 2026-10-06
+**OWNER DECISION, overrides the approved prototype.** The "The children are in
+the numbers" card is GONE from the stats page. Asked A/B/C; owner answered
+"That card isn't needed" — i.e. remove the whole card, stronger than option C
+(which only dropped paragraphs 2-3).
+
+**Context for whoever revisits this:** the card WAS approved — it is at
+`git show 2ce04ac:prototypes/app-ui/stats.html:132-146`, three `argcols` columns
+(numbers pill, mechanism paragraph, "So Mia can be assigned… she…" paragraph) in
+a blush box (`border-color:#fecaca`, which is literally Tailwind's
+`border-red-200`). The port was faithful.
+
+**⚠️ MY WRONG CALL, corrected 2026-10-06:** I told the owner the agent
+"substituted a critique for the approved card", and that a bare blush tile would
+be "closer to the approval". **Both false.** I grepped the prototype with context
+*after* a match, saw only JS, and never read the card body. Read the whole block,
+not post-match context.
+
+**Removed in this slice:**
+- the `<section data-testid="children-in-the-numbers">` in `stats/+page.svelte`
+- the now-dead `paired` and `hasChildren` reactive derivations
+- the now-unused `assignedVsDone` import (the MODEL function stays — it has its
+  own 14 tests in `statsPageModel.test.ts` and is not mine to delete)
+- 3 tests asserting on the card, plus an assertion at
+  `page.svelte.test.ts:204` in the empty-history test
+- an emptied `describe('… the children are in the numbers')` shell
+
+**Status:** stats + conformance suites green (52 tests), zero leftover references
+in `src/` or `e2e/`.
+
+**The underlying finding still stands and still wants a ticket:** a child has no
+`passwordHash`, so `taskCompletions.actorId` can never be a child — "done by" is
+always 0 for a member who can be assigned work. Removing the card removes the
+explanation, not the defect.
+
+### 3. Owner report not yet ticketed
+"dashboard page - the sizes of sections is not cohesive." Unmeasured. This is
+exactly what **#135** is for; do not eyeball it, take real numbers from a browser.
+
+### 4. NLP test was date-pinned, broke on Oct 6 — ✅ FIXED
+`naturalLanguageService.test.ts` — `parses "running today and the 5th of oct at
+5pm" with the 5th present exactly once` failed with
+`expected [ '2026-10-06', '2027-10-05' ] to include '2026-10-05'`.
+
+- **The parser was RIGHT, the test was wrong.** Its own comment claimed the
+  expectation was date-independent, then hardcoded `2026-10-05`. On Oct 6 the 5th
+  has passed, and the parser's *pinned* rule is that a day-of-month rolls forward
+  once passed (`:1461` "Day-of-month with monthly rollover when it already
+  passed"; absolute dates resolving to `2027-` at `:502`, `:512`).
+- **Fixed** by asserting the invariant instead of a calendar date:
+  `dates.filter((d) => d.slice(5) === '10-05')` has length 1 on ANY run day.
+  Passes on the 5th (collides with today, dedupes to one) and after it (rolls to
+  next year). Time + title assertions kept.
+- Same class of bug as the earlier "running today and the 5th" dedupe fix. When a
+  test compares against the clock, compute the expectation from the clock — the
+  sibling test at `:1204` already does this with `DateTime.now()`.
+
 
 ## Verified state at last check
 Full suite **238 files / 3,490 tests / 0 failures** · `npm run build` exit 0 ·
