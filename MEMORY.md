@@ -80,10 +80,36 @@ of context. They produced no work and left no partial files. Re-dispatch them.
 - Pre-existing `proto:check` red: `adConsentRecords` in schema.ts but unmodelled,
   `feedback.js` drift ×2.
 
-## 🔴 UNCOMMITTED IN THE WORKING TREE — do this first
+## ✅ COMMITTED + PUSHED 2026-10-06 — `fda07a0..d93a89a` on `test` (8 commits)
 
-Pushed state is `fda07a0` and is clean and green. These are NOT committed.
-**STATUS 2026-10-06: code DONE, tests GREEN, build NOT YET GREEN — see below.**
+Build exit 0, **242 files / 3,546 tests / 0 failures**, `brand:check` green,
+`proto:check` unchanged (4 green · 1 red · 3 skipped). Index clean; working tree
+holds ONLY the seven do-not-touch files (`.probe.mts`, `film/`, the four
+`docs/research/calendar-sync-*.md`, `docs/plans/group-chat-video.md`).
+
+| commit | slice |
+|---|---|
+| `0183f39` | groceries `each_key_duplicate` crash |
+| `7fdea91` | date-independent NLP test |
+| `474fc94` | stats card removed (owner ruling) |
+| `16cb748` | #131 conformance harness |
+| `6c5d915` | #133 prototype publishing |
+| `653fb71` | #136 — 15 security tickets |
+| `5506913` | MEMORY.md sync |
+| `d93a89a` | ignore `film/out/` |
+
+### Owner rulings this session — all three answered
+1. **Stats card** → "That card isn't needed" → removed (see §2).
+2. **Geometry reference** → **B: the PROTOTYPE governs geometry.** Marketing
+   tokens govern colour/type/shadow; sizes and spacing must come from the
+   prototype (`git show 9c2c741^:…account.html`). **NOT YET IMPLEMENTED** — #131
+   shipped the marketing-token path only, and its own report flagged geometry as
+   inexpressible from marketing. This ruling is what unblocks #129's geometry
+   rows (rail 16rem vs 15rem, 1024 vs 1000px grid, avatar). Precedence tie-break
+   needed where marketing says `lg:` 1024 and the prototype says 1000.
+3. **`film/`** → `/film/out/` added to `.gitignore` (it had never been there —
+   the do-not-touch note guarded a non-existent entry while `film/` sat
+   untracked AND unignored). Sources stay trackable.
 
 ### 1. Live crash: groceries page dies — `each_key_duplicate` — ✅ CODE DONE
 Reported live on test: **"Keyed each block has duplicate key `walmart` at indexes
@@ -109,11 +135,11 @@ Reported live on test: **"Keyed each block has duplicate key `walmart` at indexe
   so it was never exposed.
 - **Suite green**: 3,524 tests / 240 files, 0 failures (the 1 NLP failure was a
   separate date-pin bug, fixed in the same slice — see §4).
-- **⚠️ BUILD NOT YET GREEN.** `npm run build` failed with
+- **✅ PUSHED in `0183f39`.** The first build attempt failed with
   `ENOENT .svelte-kit/output/client` during prerender — the client compiled
-  (`✓ built in 7.63s`) then a **concurrent subagent build wiped the output dir**.
-  This is the documented race, NOT a code error. **Re-run the build once the
-  subagents (#131/#133/#136) have finished**, then commit and push to `test`.
+  (`✓ built in 7.63s`) then a **concurrent subagent build wiped the output
+  dir**. That is the documented race, NOT a code error; it cleared once the
+  subagents finished. Final build exit 0.
 
 ### 2. Stats card: owner ruled "That card isn't needed" — ✅ REMOVED 2026-10-06
 **OWNER DECISION, overrides the approved prototype.** The "The children are in
