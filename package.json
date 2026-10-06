@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build",
+		"build": "node scripts/publish-prototypes.mjs && vite build",
 		"build:capacitor": "node scripts/build-capacitor.mjs",
 		"cap:add": "npm run build:capacitor && cap add android",
 		"cap:sync": "npm run build:capacitor && cap sync",
@@ -42,7 +42,8 @@
 		"ci:secrets:prod": "node scripts/pull-ci-secrets.mjs prod",
 		"test-ct": "playwright test -c playwright-ct.config.ts",
 		"proto:serve": "node \"$env:USERPROFILE/.agents/skills/prototype/assets/feedback/collector.mjs\" --root prototypes --port 4180",
-		"proto:check": "node prototypes/check-all.mjs"
+		"proto:check": "node prototypes/check-all.mjs",
+		"proto:publish": "node scripts/publish-prototypes.mjs"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",

@@ -2,6 +2,8 @@ test-results
 node_modules
 
 # Output
+# generated copy of prototypes/ (source of truth stays /prototypes) - publish-prototypes.mjs
+/static/prototypes/
 .output
 .vercel
 .netlify
