@@ -2,18 +2,7 @@
 
 Status: done
 
-**Done (local, uncommitted):** `scripts/publish-prototypes.mjs` copies
-`prototypes/` -> `static/prototypes/` (clean-first, `feedback/` excluded,
-gitignored), wired as `npm run build` first step. Gate: skips when
-`VERCEL_ENV=production` (override `PUBLISH_PROTOTYPES=0/1`).
-Verified over HTTP against build output: tree index, all 8 pages + refs,
-`brand-ui/` 200; `feedback/`, deleted prototype, `/__feedback` 404.
-`brand:check` green; `proto:check` unchanged (4 green / 1 red / 3 skipped);
-`npm run build` green.
-
-**Needs doing:** orchestrator commit + push to `test`, then confirm live
-status codes on test.familyplanz.com (build-output proof only so far);
-flip to `done`, roll up `docs/STATUS.md`.
+**History:** `scripts/publish-prototypes.mjs` copies `prototypes/` -> `static/prototypes/` (clean-first, `feedback/` excluded, gitignored), wired as `npm run build` first step. Gate: skips when `VERCEL_ENV=production` (override `PUBLISH_PROTOTYPES=0/1`).
 
 ## Done 2026-10-15 — verified live on test.familyplanz.com (deploy d825325)
 
@@ -26,8 +15,7 @@ flip to `done`, roll up `docs/STATUS.md`.
 
 **What to build:** The owner cannot review prototypes in the deployed
 environment. They exist only on one developer's machine, at a local collector
-port. Make them reachable at `test.familyplanz.com/prototypes/...` so review can
-**Status:** done
+port. Make them reachable at `test.familyplanz.com/prototypes/...` so review can happen against a URL anyone can open.
 
 Everything else in the review programme depends on this: the owner cannot mark up
 a page they cannot load.

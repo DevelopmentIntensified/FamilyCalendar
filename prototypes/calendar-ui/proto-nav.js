@@ -29,7 +29,7 @@
 		label.textContent = 'View';
 		nav.appendChild(label);
 
-		PAGES.forEach(function (p, i) {
+		PAGES.forEach(function (p) {
 			var isCur = p.href === here;
 			var a = document.createElement('a');
 			a.className = 'proto-switch__btn' + (isCur ? ' is-active' : '');

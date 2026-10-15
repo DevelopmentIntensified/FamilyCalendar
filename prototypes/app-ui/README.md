@@ -121,7 +121,7 @@ disagree because the real ones do.
 |---|---|
 | `proto.css` | Design tokens copied from the marketing pages |
 | `app-shell.js` | Navbar, bottom nav, page header, toast — one chrome, many pages |
-| `app-data.js` | Mock data + the 39-table model, derived from `schema.ts` |
+| `app-data.js` | Mock data + the 40-table model, derived from `schema.ts` |
 | `app-check.mjs` | The eight check sections above |
 | `feedback.js` / `feedback.css` / `drag.js` / `dock.js` | The review overlay, the drag helper and the collapsed launcher |
 | `app-check.mjs` | The nine check sections above |
