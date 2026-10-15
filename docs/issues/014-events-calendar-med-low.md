@@ -7,6 +7,11 @@ shipped** (moved to Done, evidence below). 3 remain — the third arrived from
 #013's re-triage, which found the exception upsert race was an events concern
 all along. Nothing was changed in `src/` by this pass.
 
+## Owner rulings 2026-10-15
+
+- DST drift: fix properly — ADR in `docs/adr/` first (zone-stepped series anchoring), then implement.
+- Mirror propagation: single-occurrence exception overrides propagate to the family mirror. May share the change with the exception-upsert unique index below (decide mirror shape first — now decided).
+
 ## Needs doing
 
 - **OPEN — exception upsert race (moved in from #013).** `upsertException`

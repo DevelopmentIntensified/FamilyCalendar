@@ -22,3 +22,5 @@ memory by whoever is available.
       approved or waived
 - [ ] Every audit finding is closed or waived with the waiver recorded
 - [ ] Nothing remains blocked on an owner decision
+
+**Confirmed 2026-10-15:** strict gate stands — no low-risk bypass to `master`. Every item above is pass/fail before promotion.

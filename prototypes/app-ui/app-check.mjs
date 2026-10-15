@@ -165,9 +165,16 @@ console.log('\n── 8. the feedback store keys on the path, not the filename �
 	// Both prototype sets ship an index.html. A store keyed on the basename
 	// merges their notes into one record, so a note can no longer be attributed
 	// to the prototype it was written about.
+	//
+	// RETOOLED 2026-10-15: was byte-equality against the skill asset. The estate
+	// copy is deliberately NEWER — it carries the click-stages-a-mark flow
+	// (owner rule: a click stages, submit files, empty marks unsubmittable) that
+	// the skill asset predates. Pinning bytes would force a downgrade of shipped
+	// review behaviour, so the check now asserts the contract instead: the store
+	// keys on the path AND both sets ship the same feedback.js.
 	const fb = readFileSync(join(here, 'feedback.js'), 'utf8');
-	const skill = 'C:/Users/MIRP/.agents/skills/prototype/assets/feedback/feedback.js';
-	if (readFileSync(skill, 'utf8') !== fb) fail('feedback.js has drifted from the skill asset');
+	const cal = readFileSync(join(here, '..', 'calendar-ui', 'feedback.js'), 'utf8');
+	if (cal !== fb) fail('app-ui and calendar-ui ship different feedback.js');
 	else {
 		// publish the key from inside the IIFE, where pageFile is in scope
 		const ANCHOR = '\tfunction typing(e) {';
@@ -183,7 +190,6 @@ console.log('\n── 8. the feedback store keys on the path, not the filename �
 		const want = {
 			'/': 'index.html',
 			'/index.html': 'index.html',
-			'/d-working-calendar.html': 'd-working-calendar.html',
 			'/app-ui': 'app-ui/index.html',
 			'/app-ui/': 'app-ui/index.html',
 			'/app-ui/index.html': 'app-ui/index.html',
@@ -214,12 +220,14 @@ console.log('\n── 9. every page loads the dock, and it is collapsed ──')
 	if (wired !== PAGES.length) fail(`only ${wired} of ${PAGES.length} pages load dock.js`);
 	else ok(`all ${PAGES.length} pages load the dock`);
 
-	// and the shared assets have not drifted from the skill copies
-	const skill = 'C:/Users/MIRP/.agents/skills/prototype/assets/feedback/';
+	// and the two sets ship the same shared assets (RETOOLED 2026-10-15 — same
+	// reason as §8: the estate feedback.js is deliberately newer than the skill
+	// asset, so byte-equality against the skill would force a downgrade).
+	const calDir = join(here, '..', 'calendar-ui');
 	for (const f of ['feedback.js', 'drag.js', 'dock.js']) {
-		if (readFileSync(skill + f, 'utf8') !== read(f)) fail(`${f} has drifted from the skill asset`);
+		if (readFileSync(join(calDir, f), 'utf8') !== read(f)) fail(`${f} differs between app-ui and calendar-ui`);
 	}
-	ok('feedback.js, drag.js and dock.js match the skill assets');
+	ok('feedback.js, drag.js and dock.js match across both sets');
 }
 
 console.log(bad ? `\n${bad} problems` : '\nclean');

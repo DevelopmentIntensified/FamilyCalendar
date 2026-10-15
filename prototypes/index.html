@@ -10,7 +10,7 @@
 {
   "id": "tree", "label": "Prototype tree", "family": "root",
   "question": "Is the whole prototype estate discoverable from one place, and does the tree tell the truth about what is on disk?",
-  "thesis": "One tree, two sets, three views: lineage (how a prototype came to be), routes (what it maps to in the app), and files (what is actually on disk). Each view is a different question, and they are not the same question.",
+  "thesis": "One tree, three sets, three views: lineup (what survives and why), lineage (resolved — the calendar set is built), and files (what is actually on disk). Each view is a different question, and they are not the same question.",
   "realPage": "prototypes/ — the root of every prototype in this repo"
 }
 </script>
@@ -145,10 +145,11 @@ const TREE = {
  * The record is now version control plus the tracker, and the check says so. */
 const FILES = {
 	'calendar-ui': [
+		['proto-shell.js', 'engine', 'the calendar view engine — kept: brand pages and checks still import its tokens and data'],
 		['proto-data.js', 'data', '63 events, 8 tasks'],
 		['proto-nav.js', 'engine', 'the prototype switch bar'],
 		['proto.css', 'style', 'design tokens'],
-		['sync-baseline.mjs', 'tool', 'keeps 0-current.html in step with proto-data'],
+		['sync-baseline.mjs', 'tool', 'regenerates the removed baseline literals from proto-data — kept with the engine it serves'],
 		['smoke.mjs', 'test', 'every page renders'],
 		['lint.mjs', 'test', 'markup and asset hygiene'],
 		['nav-check.mjs', 'test', 'the switch bar covers every page'],
@@ -173,7 +174,7 @@ const FILES = {
 		['feedback.css', 'overlay', 'overlay styles'],
 		['drag.js', 'overlay', 'the one movable thing (copy of the skill asset)'],
 		['dock.js', 'overlay', 'the collapsed launcher for both tools'],
-		['app-check.mjs', 'test', 'eight sections, all derived from the repo'],
+		['app-check.mjs', 'test', 'nine sections, all derived from the repo'],
 		['README.md', 'doc', 'how to run, how to mark up']
 	],
 	'brand-ui': [
@@ -299,8 +300,8 @@ hero.innerHTML = `
 	  <span class="pill pill-xs pill-token">prototypes/</span>
 	  <h1 style="margin:.625rem 0 0">Prototype tree</h1>
 	  <p class="hint" style="margin:.5rem 0 0;max-width:46rem;font-size:.9375rem;line-height:1.7">
-	    Everything prototyped in this repo, in one tree. Twenty-one pages across two sets, each one tied to
-	    the real route it came from — and to the question it exists to answer.
+	    Every surviving prototype, in one tree. Five pages across two sets — the data-model reference and
+	    the brand set — each one tied to the question it exists to answer.
 	  </p>
 	  <div class="rowflex gap-2" style="margin-top:1.25rem;flex-wrap:wrap" id="tallies"></div>
 	  <p class="hint" style="margin:.75rem 0 0;font-size:.8125rem;line-height:1.7">
@@ -421,7 +422,7 @@ body.appendChild(lineup);
 const lineage = pane('lineage');
 lineage.className = 'lin';
 lineage.setAttribute('data-fb', 'tree-lineage');
-lineage.setAttribute('data-fb-label', 'How D was built');
+lineage.setAttribute('data-fb-label', 'Lineage — resolved');
 /* The lineage pane narrated how the calendar synthesis was reached, by walking
  * the calendar set's five pages in order. That set was approved, built and
  * removed on 2026-10-04, so there is no lineage left to draw. The pane now states
@@ -529,9 +530,10 @@ rules.innerHTML = `
 	 reproduce the shipped page rather than a prototype of it.</li>
 	 <li><b>Every prototype states the question it exists to answer</b> in its <code>#fb-page</code> block, and
 	 the question is what the round-1 verdict is measured against — not taste.</li>
-	 <li><b>A review produces a synthesis, not a patch.</b> The losers stay on disk as the record of the
-	 argument. See <a href="calendar-ui/d-working-calendar.html" style="color:var(--terracotta)">D</a>.</li>
-	 <li><b>Feedback is per prototype and never erased.</b> Notes are keyed on the path, so two sets can both
+	 <li><b>A review produces a synthesis, then the estate is closed.</b> Rejected and incorporated pages are
+	 removed once their outcome is recorded — version control plus the tracker are the record, not the
+	 working tree (owner ruling 2026-10-04).</li>
+	 <li><b>Feedback is per prototype and never erased.</b> Notes are keyed on the path, so sets can each
 	 ship an <code>index.html</code> without merging. Rounds accumulate; a mark that flips bad→good is the
 	 evidence the fix landed.</li>
 	 <li><b>The chrome is one collapsed thing, not two bars.</b> A single 36px dock carries the review tool and
@@ -570,7 +572,7 @@ if (PANES[fromHash]) show(fromHash);
    Two sources: the registry (durable, checked) for how many pages have been
    reviewed, and the local store (this browser) for the live mark tallies. */
 function paintTallies() {
-	const all = [...ALL_FILES, 'calendar-ui/index.html', 'app-ui/index.html', 'index.html'];
+	const all = [...ALL_FILES, 'app-ui/index.html', 'brand-ui/index.html', 'index.html'];
 	let g = 0, b = 0, i = 0, local = 0;
 	all.forEach((f) => { const t = tally(f); if (t) { local++; g += t.good; b += t.bad; i += t.idea; } });
 	const reg = [...REVIEW.values()];

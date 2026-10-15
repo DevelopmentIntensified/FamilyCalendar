@@ -76,8 +76,7 @@ deleted prototype's 1000px. Two options, for the owner:
 
 ## Needs doing
 
-- [ ] Owner rules on the fork above (geometry rows: marketing reference vs
-      prototype-paired diff).
+- [x] Owner ruled 2026-10-15: **Option A, token conformance only.** Geometry rows stay manual measurement against the prototype — no paired-geometry diff (deleted pages pinned to a git rev, hand-written pairings per route, 1000-vs-1024 breakpoint conflict).
 - [ ] #135 runs every route through `findDeviations` and files findings.
 
 ## Done

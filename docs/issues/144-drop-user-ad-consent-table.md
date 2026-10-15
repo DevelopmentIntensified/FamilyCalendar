@@ -28,6 +28,8 @@ same question when only one of them is live.
       table via migration 003, matching the existing `015-drop-*` convention
 - [x] Build and full suite green afterwards
 
+
+**Re-verified live 2026-10-15 (owner's "run it with neon mcp" instruction): no-op — already applied.** Probed the app branch directly (`ep-plain-cloud-a5hugp4l.us-east-2`, 239 users = `main`): `adConsentRecords` present with pkey + `userId_recordedAt` index, 0 rows; `to_regclass('"userAdConsent"') IS NULL`; `grocery_store_colours` present. The 2026-10-04 record above stands. Neon MCP server confirmed already installed (global opencode config); CLI 7.0.6 oauth could not see project `hidden-resonance-16080139` (different account scope), so verification ran over the repo's own `DATABASE_URL_UNPOOLED`.
 **Note:** this is irreversible, which is why the row count is confirmed and recorded
 first and the absence is verified after. The owner's instruction to drop it is the
 authority for the irreversibility; the verification is what makes it safe.

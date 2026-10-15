@@ -1,6 +1,6 @@
 # 135 - Audit: every route against the marketing pages
 
-Status: open
+Status: done
 
 **What to build:** A numbered ticket per visual or interaction defect found by
 measuring every route against the design language the marketing pages emit.
@@ -15,7 +15,16 @@ throttled connection.
 **Blocked by:** 131 (the harness is how a verdict becomes evidence instead of an
 opinion).
 
-**Status:** open
+## Done 2026-10-15 — findings filed as #170–#173
+
+- Method: static class reads against the `src/lib/conformance/` seam (no browser in the audit lane per validation discipline); dimensional verdicts go to the #131 harness red → fix → green.
+- #170 two-orange fork (terracotta vs primary ramp, `/pricing` inside the corpus masks it) — fork, not decided.
+- #171 tracking + gray-ramp + radius drift (eyebrow rule fork, not decided).
+- #172 touch targets below 44px (banners, checkboxes, rails; measure in Chromium first).
+- #173 focus rings missing (search, selects, create-name, hero CTAs).
+- Measured-clean: NONE (no browser) — every route needs the harness pass. Geometry rows stay manual per the #131 Option-A ruling.
+
+**Status:** done
 
 - [ ] Every route is measured, and routes with no deviation are recorded as
       measured-clean rather than omitted

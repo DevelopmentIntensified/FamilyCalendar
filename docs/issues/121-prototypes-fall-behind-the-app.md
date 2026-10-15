@@ -55,13 +55,9 @@ stayed.
 - [ ] Re-review the pages in this round *after* the app catches up, or accept
       that round 2's nine false positives stand as triage cost.
 
-## The one thing I am not deciding
+## Decided 2026-10-15 — kill the calendar prototype
 
-Whether the calendar keeps a prototype at all. It is the largest set, the most
-rebuilt, and the one most often behind the app. `d-working-calendar.html` is
-three rounds stale and 070 ("the key itself") was never built. Keeping a
-prototype of the grid is defensible; keeping one that can only mislead is not.
-Ask before deciding.
+Owner ruled: `d-working-calendar.html` is deleted, not rebuilt. Three rounds stale, 070 ("the key itself") was never built, and it produced 9 of 35 false-positive marks in round 2. Prototype E (`e-grid-is-the-page.html`) is the only calendar reference. #132's prune executes the deletion; #119's "D stays on disk as the record" is superseded by this ruling.
 
 ## Notes
 

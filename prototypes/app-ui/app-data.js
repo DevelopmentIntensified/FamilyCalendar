@@ -282,6 +282,9 @@ export const MODEL_GROUPS = [
 			{ name: 'adEvents', rows: '0–20/month site-wide', purpose: 'Sponsored “events” shown on the grid. The ad gate is ONE field — userSettings.showAdsAsEvents, default false. The duplicate userAdConsent table is gone (#088).',
 				cols: ['adEvents: sponsorName, message, ctaText, scheduledFor, impressions, clicks, conversions', 'userSettings.showAdsAsEvents (the only ad control)'],
 				used: 'Calendar · /account' },
+			{ name: 'adConsentRecords', rows: '0–2 per user who ever toggled', purpose: 'APPEND-ONLY consent trail (#088b). One row per granted/withdrawn event — proves past consent without being the live gate. Nothing on the request path reads it.',
+				cols: ['id PK', 'userId FK→users (cascade)', 'decision: granted | withdrawn (CHECK)', 'recordedAt', 'userId_recordedAt index'],
+				used: 'privacy view (wired reader exists, no page calls it yet)' },
 			{ name: 'waitlist · unmatchedPhrases · bugReports', rows: 'site-wide', purpose: 'Growth + ops. waitlist.email has NO unique index, so the onConflictDoNothing duplicate guard never fires and duplicate emails insert.',
 				cols: ['waitlist: email (no unique!), status, region, preferences', 'unmatchedPhrases: source, phrase, sample, count, resolved', 'bugReports: area, description, status, resolvedAt'],
 				used: '/waitlist · /admin · /report-bug' }

@@ -12,8 +12,8 @@ Source: security audit (issue 136), 2026-10-06. Rank 1/15 — pre-auth, single r
 - Reach: attacker registers `victim@example.com` as a password account, flag already `true` → shows as verified in family search (impersonation), and the real victim is blocked from registering their own address (`signup/password/+server.ts:24-27` "account already exists").
 - `src/lib/server/utils/createNewUser.ts:14` sets the same flag but its callers (magic-link signup code, invite-email join) prove email possession first; the password route is the unproven one. Checked — that path is fine.
 
-## Needs doing
+## Needs doing — owner decided 2026-10-15: Option A (verify-first)
 
-- Option A — set `emailVerified: false` on password signup and require verification before member-search findability. Cost: new password users invisible to family search until verified; needs a resend-verification path for password users (none exists today — confirm during implementation).
-- Option B — keep the flag, add rate limiting (per IP + per email, e.g. `rateLimit(clientKey(request, ...), N, window)` pattern from `login/password/+server.ts:25`) plus a verification notice email. Cost: impersonation/squatting window stays open, only slowed.
-- A+B combined is also viable. Not choosing here (issue 136: forks reported, not decided).
+- Set `emailVerified: false` on password signup; new password users stay invisible to family member search until verified.
+- Build the missing resend-verification path for password users (none exists today — confirm shape during implementation).
+- Per-IP + per-email rate limiting on the route still wanted as defence-in-depth (`login/password/+server.ts:25` pattern), but it is not the fix.

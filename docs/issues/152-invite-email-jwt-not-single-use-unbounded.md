@@ -12,6 +12,7 @@ Source: security audit (issue 136), 2026-10-06. Rank 6/15 — authorisation-sema
 - Double duty: existing account for the token's email → join **and** session cookie for that account (lines 111–118); new account → created + signed in (121–132). The `/link` variant is designed to be forwarded; a forwarded/leaked link yields a session as the invitee if already registered.
 - Contrast (the intended pattern): password-reset uses a durable single-use marker (`forgot-password/reset/+server.ts:95-115`).
 - Secondary: `members/add/email/+server.ts:93-101` send has no rate limit (admin-gated — lower). Password floor here is 6 (`invite/email:158`) vs 8 at signup (`signup/password:20`) — inconsistency.
+- **Re-audit 2026-10-15 (#136, new rank 1): confirmed live** — bearer-login-as-existing-account (`family/invite/email/+page.server.ts:106-132`) is the most exploitable defect in the app. Forks above stand; owner decision still owed.
 
 ## Needs doing
 

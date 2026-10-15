@@ -46,6 +46,8 @@ decision, not an assumption.
 3. **A new prototype E** carries the answer. D stays on disk as the record with
    `supersededBy` pointing at E.
 
+**Superseded 2026-10-15:** owner ruled per #121 that D (`d-working-calendar.html`) is deleted outright — decision 3's "D stays on disk as the record" no longer holds. Prototype E is the only calendar reference.
+
 ## Done
 
 - [x] **The mobile opening view is the month grid.** `calendarView.ts` moved the

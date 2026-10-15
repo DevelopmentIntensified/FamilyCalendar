@@ -1,8 +1,10 @@
 # Calendar UI — analysis & prototypes
 
 Analysis of the calendar page (`src/routes/(calendar)/calendar`, ~8,300 LOC across 41
-components) against the marketing surfaces, plus three working prototypes that keep the
-full feature set and adopt the marketing visual language.
+components) against the marketing surfaces, plus working prototypes that keep the
+full feature set and adopt the marketing visual language. Prototype D
+(`d-working-calendar.html`) was deleted per the 2026-10-15 owner ruling; Prototype E
+(`e-grid-is-the-page.html`, feedback record in `feedback/`) is the only calendar reference.
 
 **Nothing in `src/` is touched.** Open `index.html` in a browser.
 
@@ -12,14 +14,10 @@ full feature set and adopt the marketing visual language.
 |---|---|
 | `index.html` | The writeup. Findings, the three directions, parity table, recommendation, order of work. |
 | `0-current.html` | Baseline — the shipped UI reproduced class-for-class from the real components, so the comparison is honest. |
-| `a-warm-studio.html` | **A** — lowest-risk re-skin. No re-architecture. |
-| `d-working-calendar.html` | **D** — the synthesis, built from the round-1 review. B's rail + A's toolbar + the legend moved out. |
-| `b-focus-sidebar.html` | **B** — persistent rail: filters, up-next, search, mini-month. |
-| `c-day-first.html` | **C** — the calendar stops being the landing surface. |
-| `proto.css` | Design tokens copied exactly from the marketing pages. All three prototypes share it. |
-| `proto-data.js` | Mock data (67 events + 8 tasks) shaped like the app's `Event` type, plus the chip vocabulary table and the chip/markup renderers. |
-| `proto-shell.js` | The shared view engine. All three prototypes are the same engine with different chrome. |
-| `proto-nav.js` | The prototype switcher. Self-initialising, injected into all five pages. |
+| `a-warm-studio.html` | **A** — lowest-risk re-skin. No re-architecture. Kept as rejected-variant record. |
+| `b-focus-sidebar.html` | **B** — persistent rail: filters, up-next, search, mini-month. Kept as rejected-variant record. |
+| `c-day-first.html` | **C** — the calendar stops being the landing surface. Kept as rejected-variant record. |
+| `proto.css` | Design tokens copied exactly from the marketing pages. All prototypes share it. |
 | `feedback.js` / `feedback.css` | Section-feedback overlay. Copied from `~/.agents/skills/prototype/assets/feedback/`. |
 | `serve.mjs` | *(removed)* superseded by the skill's `collector.mjs`, which also collects feedback. |
 | `smoke.mjs` | 26 headless assertions over every view and interaction. |

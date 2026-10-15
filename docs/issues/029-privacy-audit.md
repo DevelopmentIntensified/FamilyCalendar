@@ -147,8 +147,8 @@ Then H3/M1/M2 (privacy-fix slice), then the OCR fallback chain.
   - `adEvents` — ad/impression rows, never pruned.
   **Fix shape:** extend `runCleanup()` in the same handler — it already has
   the secret check, the weekly cadence and the response envelope, so this is
-  an additive sweep, not new infrastructure. Suggested windows (pick one,
-  record the decision here):
+  an additive sweep, not new infrastructure.
+  **DECIDED 2026-10-15 (owner): 180 days for RESOLVED `unmatchedPhrases` and RESOLVED `bugReports`, 90 days for READ `notifications`. `adEvents` still needs a product decision (aggregate/rollup vs delete) — not covered by this ruling. Implement as an additive sweep in `runCleanup()`; URL query-string redaction still owed.**
   - 180 days for RESOLVED `unmatchedPhrases` and for RESOLVED `bugReports`
     (keep the open ones; they are the working queue).
   - 90 days for READ `notifications` (unread must survive until acted on).

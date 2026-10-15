@@ -1,6 +1,6 @@
 # 132 - Close the prototype estate
 
-Status: open
+Status: done
 
 **What to build:** The prototype tree currently holds three loose ends created by
 the removal of 24 superseded and incorporated page prototypes. Finish it so the
@@ -18,7 +18,15 @@ estate is coherent and its own tooling tells the truth.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** open
+## Done 2026-10-15
+
+- Root + app-ui indexes list only surviving files, zero dead links (EstateCloser slice + owner follow-ups).
+- Registry: 5 entries, all resolve; `logo.html` absent, `models.html` kept-note present.
+- Owner ruling executed: `d-working-calendar.html` killed outright (was already off disk in 9c2c741) — live refs pruned from `proto-nav.js`, `feedback-check.mjs` PAGES, `app-check.mjs` key map, calendar README (pages table now marks all deleted variants as git-history).
+- Checkers repaired to policy: `app-check.mjs` §8/§9 retooled from skill-asset byte-equality to cross-set parity (estate `feedback.js` deliberately newer — click-stages-a-mark flow); `models.html`/`app-data.js` gained the `adConsentRecords` row (schema now 40 tables).
+- `npm run proto:check` **5 green · 0 red · 3 skipped** (collector-dependent); `brand:check` green after `brand:build` (needed `npx playwright install chromium` — env gap, not code).
+
+**Status:** done
 
 - [ ] Root index lists only surviving files, no dead links
 - [ ] App-ui index lists only surviving files
