@@ -13,10 +13,11 @@ full feature set and adopt the marketing visual language. Prototype D
 | File | What it is |
 |---|---|
 | `index.html` | The writeup. Findings, the three directions, parity table, recommendation, order of work. |
-| `0-current.html` | Baseline — the shipped UI reproduced class-for-class from the real components, so the comparison is honest. |
-| `a-warm-studio.html` | **A** — lowest-risk re-skin. No re-architecture. Kept as rejected-variant record. |
-| `b-focus-sidebar.html` | **B** — persistent rail: filters, up-next, search, mini-month. Kept as rejected-variant record. |
-| `c-day-first.html` | **C** — the calendar stops being the landing surface. Kept as rejected-variant record. |
+| `0-current.html` | *(deleted 9c2c741)* Baseline — the shipped UI reproduced class-for-class. In git history. |
+| `a-warm-studio.html` | *(deleted 9c2c741)* **A** — lowest-risk re-skin. In git history. |
+| `b-focus-sidebar.html` | *(deleted 9c2c741)* **B** — persistent rail. In git history. |
+| `c-day-first.html` | *(deleted 9c2c741)* **C** — day-first. In git history. |
+| `d-working-calendar.html` | *(deleted 9c2c741; kill confirmed 2026-10-15 owner ruling)* **D** — the synthesis. In git history. |
 | `proto.css` | Design tokens copied exactly from the marketing pages. All prototypes share it. |
 | `feedback.js` / `feedback.css` | Section-feedback overlay. Copied from `~/.agents/skills/prototype/assets/feedback/`. |
 | `serve.mjs` | *(removed)* superseded by the skill's `collector.mjs`, which also collects feedback. |
