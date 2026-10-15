@@ -445,7 +445,7 @@ console.log('\n── 9. transport ──');
 /* ─────────────────────────────────────────────────── 10. real pages wired */
 console.log('\n── 10. every real page is wired and marked ──');
 {
-	const PAGES = ['index.html', '0-current.html', 'a-warm-studio.html', 'b-focus-sidebar.html', 'c-day-first.html'];
+	const PAGES = ['index.html'];
 	for (const p of PAGES) {
 		const src = readFileSync(join(here, p), 'utf8');
 		if (!/feedback\.js/.test(src)) { fail(`${p} does not load feedback.js`); continue; }

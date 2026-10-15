@@ -22,7 +22,7 @@ opinion).
 - #171 tracking + gray-ramp + radius drift (eyebrow rule fork, not decided).
 - #172 touch targets below 44px (banners, checkboxes, rails; measure in Chromium first).
 - #173 focus rings missing (search, selects, create-name, hero CTAs).
-- Measured-clean: NONE (no browser) — every route needs the harness pass. Geometry rows stay manual per the #131 Option-A ruling.
+- Measured-clean: NONE (no browser) — every route needs the harness pass. Geometry rows stay manual per the #131 Option-A ruling. **Follow-up: the harness red → fix → green pass per route is #137's pilot then #138–#141, not this ticket.**
 
 **Status:** done
 

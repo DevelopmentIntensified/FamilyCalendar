@@ -101,7 +101,7 @@ It hosts its own static server, so it needs no collector and never skips.
 | `event.html` | `calendar/event/[id]/` | Is the RSVP list worth a page? |
 | `import.html` | `calendar/import/` | Power feature or migration crutch? |
 | `account.html` | `account/` | Seven hash sections — one page or seven? |
-| `models.html` | `lib/server/db/schema.ts` | 39 tables: which are real, which are dead? |
+| `models.html` | `lib/server/db/schema.ts` | 40 tables: which are real, which are dead? |
 
 ## What these are not
 

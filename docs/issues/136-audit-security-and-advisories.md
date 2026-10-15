@@ -24,14 +24,14 @@ apply is not a finding.
 - Deduped, not refiled: rank 1 → #152 confirmed live (annotated); rank 8 → #150 stands; rank 9 → covered by #147–149/#151/#089; rank 13 (no CSP) tracked-not-finding; rank 16 by design; advisories all covered by #156–161 (none new: svelte 5.20.1 out of range for CVE-2025-15265, vite/esbuild dev-only).
 - Checked clean (full list in SecAuditor report): every /api mutation authed, family role gates, event/calendar/task authz seams, magic-link/forgot/claim/cron guards, parameterised queries, no bundle secrets.
 
-**Status:** done
+**Status:** done — evidence is the SecAuditor report rows (file:line per finding) + the checked-clean list in the Done section above. Fixes live in #162–#169 + #147–#155.
 
-- [ ] Every action with a side effect has an explicit authorisation check, or a
+- [x] Every action with a side effect has an explicit authorisation check, or a
       ticket saying why not
-- [ ] Every resource read verifies the caller may see that resource
-- [ ] No secret appears in the client bundle, the repository, or a log line
-- [ ] Each advisory finding states the installed version and why it is in range
-- [ ] Findings are ordered by exploitability, with a reachable authorisation defect
+- [x] Every resource read verifies the caller may see that resource
+- [x] No secret appears in the client bundle, the repository, or a log line
+- [x] Each advisory finding states the installed version and why it is in range
+- [x] Findings are ordered by exploitability, with a reachable authorisation defect
       above a theoretical dependency advisory, and the ordering is stated
 
 **Note:** order matters more than count. One reachable ownership defect matters

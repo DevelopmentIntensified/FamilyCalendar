@@ -12,6 +12,6 @@ Source: UI audit (issue 135), 2026-10-15. Static class reads (no browser in the 
 
 ## Needs doing
 
-- Option A — remove primary from the corpus / pin terracotta (re-measure, rewrite PricingCard, brand call). Cost: re-measure + pricing rewrite.
+- Option A — remove primary from the corpus / pin terracotta (re-measure, rewrite PricingCard, brand call). Cost: re-measure + pricing rewrite. **Until then the harness is green-by-construction on the disputed property — no green claim counts.**
 - Option B — bless both oranges in the token set. Cost: fork permanent, blind audits.
 - Not choosing (issue 135: forks reported, not decided). Harness verdict after ruling: red → fix → green on the affected routes.

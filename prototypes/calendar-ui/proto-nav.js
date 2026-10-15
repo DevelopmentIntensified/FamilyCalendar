@@ -8,16 +8,10 @@
 	'use strict';
 
 	var PAGES = [
-		{ href: 'index.html', full: 'Analysis', short: '≡', title: 'Analysis & recommendation' },
-		{ href: '0-current.html', full: 'Current', short: '0', title: "Baseline — today's UI" },
-		{ href: 'a-warm-studio.html', full: 'A · Warm', short: 'A', title: 'Prototype A — Warm Studio' },
-		{ href: 'b-focus-sidebar.html', full: 'B · Rail', short: 'B', title: 'Prototype B — Focus Sidebar' },
-		{ href: 'c-day-first.html', full: 'C · Hero', short: 'C', title: 'Prototype C — Day First' },
-		{ href: 'e-grid-is-the-page.html', full: 'E · Grid', short: 'E', title: 'Prototype E — the grid is the page, built from the round-2 review' }
+		{ href: 'index.html', full: 'Analysis', short: '≡', title: 'Analysis & recommendation' }
 	];
 
-	// separators: after the read-only pages, and after the rejected variants
-	var SEPARATE_AFTER = { 1: 1, 4: 1, 5: 1 };
+	// single surviving page — no separators needed
 
 	function currentFile() {
 		var p = location.pathname.split('/').pop();
@@ -46,12 +40,6 @@
 				'<span class="proto-switch__short">' + p.short + '</span>' +
 				'<span class="proto-switch__full">' + p.full + '</span>';
 			nav.appendChild(a);
-
-			if (SEPARATE_AFTER[i]) {
-				var sep = document.createElement('span');
-				sep.className = 'proto-switch__sep';
-				nav.appendChild(sep);
-			}
 		});
 
 		return nav;

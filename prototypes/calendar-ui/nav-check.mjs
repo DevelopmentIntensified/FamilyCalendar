@@ -80,14 +80,9 @@ console.log('\n── no collisions with fixed chrome ──');
 	const bulk = css.match(/\.bulkbar\s*\{[^}]*left:\s*50%/);
 	bulk ? console.log('  ok   bulk bar owns bottom-centre (no overlap)') : fail('bulk bar position changed');
 
-	const baseline = readFileSync(join(here, '0-current.html'), 'utf8');
-	const hasBody = /<body class="has-fixed-footer">/.test(baseline);
-	const hasRule = /has-fixed-footer\s+\.proto-switch\s*\{[^}]*bottom:\s*3\.75rem/.test(css);
-	if (hasBody && hasRule) {
-		console.log('  ok   baseline lifted to clear its full-width footer');
-	} else {
-		fail(`baseline footer clearance missing (body=${hasBody}, rule=${hasRule})`);
-	}
+	// RETIRED 2026-10-15: the baseline page was removed in 9c2c741, so there is
+	// no footer left to clear. The switcher position is still pinned above.
+	console.log('  ok   retired — baseline page removed, nothing to clear');
 }
 
 console.log(bad ? `\n${bad} problems` : '\nclean');

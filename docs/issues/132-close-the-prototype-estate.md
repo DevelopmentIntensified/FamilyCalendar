@@ -28,11 +28,11 @@ estate is coherent and its own tooling tells the truth.
 
 **Status:** done
 
-- [ ] Root index lists only surviving files, no dead links
-- [ ] App-ui index lists only surviving files
-- [ ] Registry contains no entry for a missing file
-- [ ] `npm run proto:check` passes
-- [ ] `npm run brand:check` passes - the build renders app rasters from the brand
+ - [x] Root index lists only surviving files, no dead links
+ - [x] App-ui index lists only surviving files
+ - [x] Registry contains no entry for a missing file
+ - [x] `npm run proto:check` passes
+ - [x] `npm run brand:check` passes - the build renders app rasters from the brand
       prototype directory, so that directory must survive untouched
 
 **Note:** `brand-ui/**` is retained because `scripts/build-brand-rasters.mjs`

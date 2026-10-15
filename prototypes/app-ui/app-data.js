@@ -180,7 +180,7 @@ export const USAGE = { aiUsed: 23, aiLimit: PLAN.aiEventCreationsPerMonth, famil
 /* ============================================================================
    The data model, as a browsable reference.
 
-   39 tables in src/lib/server/db/schema.ts. Each lists its columns, the
+   40 tables in src/lib/server/db/schema.ts. Each lists its columns, the
    relationships, roughly how many rows a real family has, and which pages
    read and write it. Built from the schema, not invented.
    ========================================================================== */
