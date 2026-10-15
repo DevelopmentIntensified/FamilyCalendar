@@ -2,14 +2,19 @@
 
 Status: done
 
-**History:** `scripts/publish-prototypes.mjs` copies `prototypes/` -> `static/prototypes/` (clean-first, `feedback/` excluded, gitignored), wired as `npm run build` first step. Gate: skips when `VERCEL_ENV=production` (override `PUBLISH_PROTOTYPES=0/1`).
+**History [pre-2026-10-15, superseded — see Off-test section below]:** `scripts/publish-prototypes.mjs` copies `prototypes/` -> `static/prototypes/` (clean-first, `feedback/` excluded, gitignored), wired as `npm run build` first step. Gate: skips when `VERCEL_ENV=production` (override `PUBLISH_PROTOTYPES=0/1`).
 
 ## Done 2026-10-15 — verified live on test.familyplanz.com (deploy d825325)
 
 - Tree index 200 (`/prototypes/`); app-ui hub 200 (`/prototypes/app-ui/`); models leaf 200 with the new `adConsentRecords` row (`/prototypes/app-ui/models.html` — deploy lag noted: first probe showed the pre-fix copy, re-probe after ~2 min carried the row).
 - Brand set 200 (`/prototypes/brand-ui/`); `feedback/` 404 (machine-local, never published).
 - Marketing `/` unaffected (page shell only, no prototype chrome).
-- Production gate stands: `VERCEL_ENV=production` skips publish (owner call to change).
+- [Superseded — all deploys now skip, not just production]: Production gate stands: `VERCEL_ENV=production` skips publish (owner call to change).
+
+## Off test 2026-10-15 — prototypes approved, estate pulled
+
+- Owner approved all prototypes wholesale. Publish gate cut to local-only (`VERCEL_ENV` set → skip + clean; `PUBLISH_PROTOTYPES=1` forces on): no deploy serves `/prototypes/...` any more. Verified: local run publishes 57 files, `VERCEL_ENV=preview` run skips and removes output, `npm run build` green.
+- #134 closed moot (no marking round will run).
 
 **Original ticket below:**
 

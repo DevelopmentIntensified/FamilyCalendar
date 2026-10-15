@@ -179,7 +179,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   label → "today's verse" (exact-sentence banner needs a DayDashboard
   template touch — out of lane scope); calendar first-run hint points at
   ✨ Smart tasks. Tests: +7 across 5 card/bell suites (TDD red→green).
-- Audit closure (DONE 2026-10-15): #132 estate (D killed per owner ruling, checkers retooled to cross-set parity, models at 40 tables; proto:check 5/0/3, brand green), #133 served live on test.familyplanz.com (tree/hub/models/brand 200, feedback/ 404, marketing unaffected; deploy d825325), #135 UI findings as #170–#173 (two-orange fork, tracking/gray drift, touch targets suspect-unmeasured, focus rings), #136 security findings as #162–#169 (deduped vs #147–#155). Owner rulings: #131 token-only, #147 verify-first, strict gate, 180d/90d retention. Full spec: `docs/specs/fullspecsnapshots/`. Verify: build green, unit 3545/3546 (1 known date-drift), check 39/42 pre-existing floor.
+- Audit closure (DONE 2026-10-15): #132 estate (D killed per owner ruling, checkers retooled to cross-set parity, models at 40 tables; proto:check 5/0/3, brand green), #133 served live then pulled off test same day (owner approved all prototypes wholesale; publish gate cut to local-only, no deploy serves `/prototypes/...`), #134 closed moot (no marking round), #135 UI findings as #170–#173, #136 security findings as #162–#169. Owner rulings: #131 token-only, #147 verify-first, strict gate, 180d/90d retention. Full spec: `docs/specs/fullspecsnapshots/`. Verify: build green, unit 3545/3546 (1 known date-drift), check 39/42 pre-existing floor.
 
 ## Open
 

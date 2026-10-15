@@ -1,6 +1,6 @@
 # 134 - The owner's marks become filed tickets
 
-Status: open
+Status: done (moot 2026-10-15 — prototypes approved wholesale, estate pulled off test; no marking round will run)
 
 **What to build:** The owner reviews by clicking an element on a page and writing
 a note. That feedback currently goes nowhere an agent will read. Make a submitted
@@ -11,8 +11,6 @@ mark must not be submittable. This behaviour already exists in the review toolin
 reuse it, do not rebuild it.
 
 **Blocked by:** 133 (there must be a URL to review).
-
-**Status:** open
 
 - [ ] A mark submitted on any page produces a ticket file, numbered in sequence
 - [ ] The ticket records the page, the element marked, the note verbatim, and the

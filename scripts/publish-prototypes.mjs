@@ -12,11 +12,11 @@
      and is NEVER published. Deployed pages find no collector and must say so
      rather than pretend a save worked.
 
-   GATE (default): published on local + preview/test builds; NOT published when
-   VERCEL_ENV=production. Internal design artefacts on the customer-facing
-   domain is an owner's call, so production stays clean by default. To flip:
-   set PUBLISH_PROTOTYPES=1 in the production environment (or change the
-   `!production` default below to `true`).
+   GATE (default): local builds only. Any deployed build (VERCEL_ENV set —
+   preview/test or production) skips publish: the estate was approved
+   2026-10-15 and pulled off test, so no deploy serves it. To force on:
+   set PUBLISH_PROTOTYPES=1 (any environment). To force off:
+   PUBLISH_PROTOTYPES=0 (or false).
    ========================================================================== */
 import { cpSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
@@ -42,15 +42,14 @@ function countFiles(dir) {
 	return n;
 }
 
-// gate: PUBLISH_PROTOTYPES=1 forces on (even production), =0 forces off
 const override = process.env.PUBLISH_PROTOTYPES;
-const production = process.env.VERCEL_ENV === 'production';
-const publish = override != null ? override !== '0' && override !== 'false' : !production;
+const deployed = process.env.VERCEL_ENV != null && process.env.VERCEL_ENV !== '';
+const publish = override != null ? override !== '0' && override !== 'false' : !deployed;
 
 if (!publish) {
 	clean();
 	console.log(
-		'prototypes: NOT published (production default; set PUBLISH_PROTOTYPES=1 to publish)'
+		'prototypes: NOT published (deployed builds skip; set PUBLISH_PROTOTYPES=1 to force)'
 	);
 	process.exit(0);
 }
