@@ -1,6 +1,18 @@
 # 146 - The statistics page counts real completions
 
-Status: open
+Status: done
+
+## Done
+
+- Shared action `taskStats.ts` counts every completion figure off `taskCompletions` history: `completedOnce` = `count(distinct taskId)` over history (re-check-offs don't inflate), `recurringCompletions` from history rows (replaces `sum(tasks.completionCount)`), `recentlyCompleted` from latest history instants per task (recurring check-offs now visible; undo-cleared one-offs no longer shown). `month` + `doneBy` moved INTO the action from the loader — one counting path, loader forwards verbatim.
+- Streak reuses the day dashboard's `getCompletionTimestamps` + shared `computeWeeklyStreak` (also fixed a divergence: birthday-style `userId` attribution → actor-with-owner-fallback).
+- Caller list: exactly one caller (stats page loader), verified by repo grep; page component + its 13 tests untouched and passing.
+- Recurrence steadiness test in scripted-drizzle `taskStats.completions.test.ts`: 5 vs 6 check-offs of the same weekly task keep `completedOnce`=2 / `recurringTasks`=1 steady, completions count up truthfully; every completion figure's query origin is the history table (2 red against old code first).
+- Corrected historical values (true jump, expect it): `recurringCompletions`, `completedOnce` (recurring now included), "Recently completed" (recurring check-offs appear) rise vs. old undercounts; `month` unchanged; streak can rise for users whose recurring tasks are checked off by family members. No dedupe/clamp/smoothing anywhere.
+
+**Blocked by:** None — started immediately.
+
+**Status:** done
 
 **What to build:** The statistics page keeps its place and its links, and its
 numbers stop drifting. Six of its seven figures count a column that the recurring
@@ -14,7 +26,7 @@ finishes the job for the remaining figures.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** open
+**Status:** in-progress
 
 - [ ] Every completion figure reads from the completion history table, never from the
       column the recurrence cursor overwrites
