@@ -100,17 +100,16 @@ describe('dateVocab — month names', () => {
 		}
 	});
 
-	it('MONTH_ALT regex matches the abbreviations it exposes (no jun/jul)', () => {
-		// Matches the canonical dateParsing MONTH_ALT, which intentionally omits
-		// "jun"/"jul" from the alternation (they exist in the index maps).
+	it('MONTH_ALT regex matches every abbreviation, jun/jul included', () => {
+		// The index maps expose all twelve abbreviations, so the alternation
+		// must match them all: a token in the map but not in MONTH_ALT made
+		// "jul 14" a non-date in the event/bill parsers while "july 14th"
+		// parsed — one vocabulary, one match surface.
 		const re = new RegExp(`\\b(${MONTH_ALT})\\b`, 'i');
-		const abbrevs = ['jan', 'feb', 'mar', 'apr', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec'];
+		const abbrevs = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec'];
 		for (const a of abbrevs) {
 			expect(re.test(a)).toBe(true);
 		}
-		// And confirm jun/jul are NOT in MONTH_ALT (preserved server behaviour).
-		expect(MONTH_ALT.split('|')).not.toContain('jun');
-		expect(MONTH_ALT.split('|')).not.toContain('jul');
 	});
 
 	it('MONTH_NAME_TOKEN captures group works for all month tokens', () => {

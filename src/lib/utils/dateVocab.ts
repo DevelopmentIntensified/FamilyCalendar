@@ -71,7 +71,7 @@ for (const [k, v] of Object.entries(MONTH_INDEX_0)) {
  * "september" wins over "sept"/"sep". Matches dateParsing.ts MONTH_ALT.
  */
 export const MONTH_ALT =
-	'january|february|september|december|november|october|august|april|march|june|july|may|sept|jan|feb|mar|apr|aug|sep|oct|nov|dec';
+	'january|february|september|december|november|october|august|april|march|june|july|jun|jul|may|sept|jan|feb|mar|apr|aug|sep|oct|nov|dec';
 
 /**
  * Regex-safe alternation of month tokens for group capture.

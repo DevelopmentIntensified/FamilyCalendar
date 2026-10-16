@@ -1,8 +1,11 @@
 <script lang="ts">
 	import type { TaskQuickAddResult } from '$lib/utils/taskQuickAdd';
-	import type { TaskFrequency } from '$lib/server/db/actions/tasks';
+	// Client-safe: the quick-add cadence vocabulary is the shared one (issue
+	// 114) — 'daily' | 'weekly' | 'monthly' | 'yearly', same union the task
+	// actions module types as TaskFrequency.
+	import type { CadenceFrequency } from '$lib/utils/dateResolution';
 
-	const FREQ_NOUN: Record<TaskFrequency, string> = {
+	const FREQ_NOUN: Record<CadenceFrequency, string> = {
 		daily: 'day',
 		weekly: 'week',
 		monthly: 'month',

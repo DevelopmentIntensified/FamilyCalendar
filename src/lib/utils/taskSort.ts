@@ -3,7 +3,10 @@
  * Pure + deterministic so both lists sort identically.
  */
 import { compareUrgency } from './taskUrgency';
-import type { TaskPriority } from '$lib/server/db/actions/dashboard';
+// Client-safe: the priority vocabulary lives in priorityTone (shared with
+// the quick-add parser); dashboard.ts is a server module and re-exports it
+// only for pre-existing server importers (issue 114).
+import type { TaskPriority } from '$lib/utils/priorityTone';
 
 export type TaskSortKey = 'urgency' | 'due' | 'priority' | 'created' | 'title';
 

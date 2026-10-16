@@ -447,9 +447,13 @@ const PLACE_TAIL_WORDS = new Set([
 
 /** A whole token that ends a place name on its own: a weekday, a month, an
  *  ordinal day, a relative day. "on monday" already stops on "on"; "… the
- *  annex third thursday" does not, so the day words have to stop it too. */
+ *  annex third thursday" does not, so the day words have to stop it too.
+ *  The relative-day determiners ("this friday", "that saturday") belong
+ *  here as much as "next"/"last" do: the date family claims them, and the
+ *  place name must stop where that claim starts — "at the annex this
+ *  friday" is the annex, not "annex this" (issue 112). */
 const PLACE_CALENDAR_WORD =
-	/^(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday|january|february|march|april|may|june|july|august|september|october|november|december|today|tomorrow|tonight|yesterday|weekend|week|month|year|next|last|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth)$/i;
+	/^(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday|january|february|march|april|may|june|july|august|september|october|november|december|today|tomorrow|tonight|yesterday|weekend|week|month|year|next|last|this|that|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth)$/i;
 
 /** A clock or a bare number: "at 8", "at 2pm", "at 8:00", "at 30". Never the
  *  name of a place. Digits INSIDE a name are fine ("Room 201", "Route 9") —
@@ -774,15 +778,15 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		}
 	}
 
-	// Numeric date: "05/03", "12/25" (MM/DD format)
+	// Numeric date: "05/03", "12/25" (MM/DD format). Same rollover rule as
+	// every other spelling of a bare month-day (issue 112): 12/25 typed ON
+	// Dec 25 stays today — a midnight-vs-now comparison silently booked a
+	// year out.
 	const numericDateMatch = dateInput.match(/\b(\d{1,2})\/(\d{1,2})\b/);
 	if (numericDateMatch && !result.date) {
 		const month = parseInt(numericDateMatch[1]);
 		const day = parseInt(numericDateMatch[2]);
-		let year = now.year;
-		const target = DateTime.fromObject({ year, month, day });
-		if (target < now) year = now.year + 1;
-		result.date = DateTime.fromObject({ year, month, day }).toFormat('yyyy-MM-dd');
+		result.date = withRolloverYear(month, day, null, now).toFormat('yyyy-MM-dd');
 		confidence += 0.3;
 	}
 
@@ -830,15 +834,13 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 	const numericSweep = /\b(\d{1,2})\/(\d{1,2})\b/g;
 	while ((sweep = numericSweep.exec(dateInput)) !== null) {
-		const month = parseInt(sweep[1]);
-		const day = parseInt(sweep[2]);
-		let year = now.year;
-		if (DateTime.fromObject({ year, month, day }) < now) year = now.year + 1;
-		const dt = DateTime.fromObject({ year, month, day });
+		const dt = withRolloverYear(parseInt(sweep[1]), parseInt(sweep[2]), null, now);
 		if (dt.isValid) pushExplicit(sweep.index, dt.toFormat('yyyy-MM-dd'), sweep[0]);
 	}
-	const ordinalSweep =
-		/\b(\d{1,2})(?:st|nd|rd|th)\s+of\s+(january|february|march|april|may|june|july|august|september|october|november|december|sept|jan|feb|mar|apr|aug|sep|oct|nov|dec)\b/gi;
+	const ordinalSweep = new RegExp(
+		`\\b(\\d{1,2})(?:st|nd|rd|th)\\s+of\\s+(${MONTH_ALT})\\b`,
+		'gi'
+	);
 	while ((sweep = ordinalSweep.exec(dateInput)) !== null) {
 		const month = MONTH_MAP[sweep[2].toLowerCase()];
 		const day = parseInt(sweep[1]);
@@ -1312,16 +1314,26 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 
 	// Military / compact 24h: "1830" (not years like 2026). Runs on URL-free
 	// text so digit runs inside links never read as times.
-	const militaryMatch = nonUrlText.match(/(?<![\d:])(\d{2})(\d{2})(?!\d)/);
-	if (militaryMatch && !foundTime) {
-		const whole = militaryMatch[0];
-		const hh = parseInt(militaryMatch[1]);
-		const mm = parseInt(militaryMatch[2]);
-		if (!/^20\d{2}$/.test(whole) && hh <= 23 && mm <= 59) {
-			result.startTime = normalizeTime(hh, mm);
-			foundTime = true;
-			confidence += 0.25;
+	//
+	// Claim skip (issue 112): the date family claims its year tokens — an ISO
+	// date, a "20\dd{2}" year. The old single `.match()` let one year-shaped
+	// candidate veto the whole rule: "standup 2026-08-30 1830" silently lost
+	// its time. Now a claimed candidate is skipped and the scan continues to
+	// the next digit run — a rule that would overlap is skipped, not applied.
+	let militaryStart: { hh: number; mm: number } | null = null;
+	for (const m of nonUrlText.matchAll(/(?<![\d:])(\d{2})(\d{2})(?!\d)/g)) {
+		const hh = parseInt(m[1]);
+		const mm = parseInt(m[2]);
+		if (/^20\d{2}$/.test(m[0])) continue;
+		if (hh <= 23 && mm <= 59) {
+			militaryStart = { hh, mm };
+			break;
 		}
+	}
+	if (militaryStart && !foundTime) {
+		result.startTime = normalizeTime(militaryStart.hh, militaryStart.mm);
+		foundTime = true;
+		confidence += 0.25;
 	}
 
 	// Time of day: "early morning", "morning", "afternoon", "evening"
@@ -2258,7 +2270,11 @@ const BILL_DUE_STEPS: BillDueStep[] = [
 		}
 	},
 	{
-		re: /\b(?:due|starting|starts)\s+(\d{1,2})\/(\d{1,2})\b/,
+		// The cue family ("on 8/15", "by 5/30") claims the whole phrase so the
+		// amount family never reads its first half as dollars ("water bill on
+		// 8/15" was an $8 bill titled "…on /15" — issue 112). Month-strict:
+		// "40/15" resolves null and the rule passes it through unclaimed.
+		re: /\b(?:due|starting|starts|on|by)\s+(?:on\s+|by\s+)?(\d{1,2})\/(\d{1,2})\b/,
 		resolve: (m, now) => {
 			const month = parseInt(m[1]);
 			const day = parseInt(m[2]);

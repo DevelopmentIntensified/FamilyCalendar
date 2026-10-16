@@ -53,6 +53,17 @@ duplication is not.
 
 ## Done
 
+- [x] **2026-10-16 — residual closure.** The shared `dateResolution.ts`
+      layer and the all-three-parser parity suite had already landed
+      (adc894f); the commit flagged two remaining clients that still
+      reached into `$lib/server/db/actions/` as vocabulary. Both now read
+      client-safe types: `taskSort.ts` takes `TaskPriority` from
+      `$lib/utils/priorityTone`, and `TaskQuickAddPreview.svelte` takes
+      the cadence union (`CadenceFrequency`) from
+      `$lib/utils/dateResolution` — the same union the task actions
+      module named `TaskFrequency`. No client module imports a server
+      action any more.
+
 ## Notes
 
 - Do not unify the *interfaces*. The three parsers should stay separately

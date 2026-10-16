@@ -56,6 +56,39 @@ size, is the problem.
 
 ## Done
 
+- [x] **2026-10-16 (partial — the double-claims that existed are gone):** six
+      live overlaps found red-first and fixed, each pinned in
+      `naturalLanguageService.test.ts`'s new sibling
+      `parserClaimGuards.test.ts`:
+      1. *The two Date implementations had a third sibling.* The numeric
+         `m/d` rules (first-match and sweep) still rolled against a
+         midnight-vs-`now` comparison: `7/15` typed **on** Jul 15 booked
+         2027 while `jul 15` stayed today. Both now call the shared
+         `withRolloverYear` — `sept 1` has one answer, and so does `9/1`.
+      2. *`jun`/`jul` were absent from MONTH_ALT* (though present in the
+         index maps): `jul 14` was not a date in the event/bill parsers while
+         `july 14th` and the task quick-add both parsed it. Vocabulary gap
+         fixed in `dateVocab.ts`; the dateVocab pin asserting the omission
+         flipped; the event parser's hard-coded ordinal-sweep month list
+         now reads MONTH_ALT instead of its own copy.
+      3. *One year-shaped candidate vetoed the compact-time rule entirely:*
+         `standup 2026-08-30 1830` lost `1830` because the single
+         `.match()` stopped at the claimed `2026`. The rule now skips a
+         claimed candidate and keeps scanning.
+      4. *The place reader walked through the date rule's words:*
+         `at the annex this friday` read place `annex this`. The place
+         terminator set now ends at `this`/`that` exactly as it did at
+         `next`/`last`.
+      5. *The bill amount family ate half of a cued numeric date:*
+         `water bill on 8/15` was an $8 bill titled `water bill on /15`
+         with no due date. The due step now claims `on|by m/d` whole.
+- [ ] Remaining: the 55-rule chain is still a linear priority chain
+      guarded by `!result.date`/`foundTime` feature guards, not a span
+      claim book; the ~272-test table still aims at outputs, not at a
+      claim seam; `inviteMatch` keeps its own partial terminator list
+      (deliberately — `and` splits its names, so the shared place list
+      does not transfer). These are the same seam, unfinished.
+
 ## Notes
 
 - The Location cluster is 120 lines behind **5 tests** in the current suite. The
