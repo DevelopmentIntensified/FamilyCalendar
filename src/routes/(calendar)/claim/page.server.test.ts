@@ -26,21 +26,28 @@ function makeDeps() {
 	return { deps, sendClaimLinkEmail, getUserByEmail };
 }
 
-function mockEvent(email: string | null, user: { id: string; email?: string } | null = null) {
+function mockEvent(
+	email: string | null,
+	user: { id: string; email?: string } | null = null,
+	ip?: string
+) {
 	const formData = new FormData();
 	if (email) formData.set('email', email);
-	// SAFETY: test double — the action only reads request.formData() and locals.user.
-	return { request: { formData: () => Promise.resolve(formData) }, locals: { user } } as never;
+	const headers = {
+		get: (name: string) => (name === 'x-forwarded-for' ? (ip ?? null) : null)
+	};
+	// SAFETY: test double — the action only reads request.formData(),
+	// request.headers (for rate limiting) and locals.user.
+	return { request: { formData: () => Promise.resolve(formData), headers }, locals: { user } } as never;
 }
 
 function successOf(result: RequestResult): {
 	success: true;
 	email: string;
-	alreadyRegistered: boolean;
 } {
 	// SAFETY: happy-path branches return the plain object; fail() branches are
 	// asserted separately via failureOf.
-	return result as { success: true; email: string; alreadyRegistered: boolean };
+	return result as { success: true; email: string };
 }
 
 function failureOf(result: RequestResult): { status: number; data: { error: string } } {
@@ -67,10 +74,10 @@ describe('POST /claim ?/request', () => {
 		expect(emailInput.email).toBe('claim@user.com');
 		expect(emailInput.verifyUrl).toBe('http://test.com/claim/verify/tok-1');
 		expect(emailInput.alreadyRegistered).toBe(false);
-		expect(result).toEqual({ success: true, email: 'claim@user.com', alreadyRegistered: false });
+		expect(result).toEqual({ success: true, email: 'claim@user.com' });
 	});
 
-	it('flags the email as alreadyRegistered when a user already exists', async () => {
+	it('returns the same success shape for a taken email (no oracle) but tailors the email copy', async () => {
 		const { deps, sendClaimLinkEmail, getUserByEmail } = makeDeps();
 		getUserByEmail.mockResolvedValue({ id: 'existing-1' });
 
@@ -80,7 +87,7 @@ describe('POST /claim ?/request', () => {
 
 		const emailInput = sendClaimLinkEmail.mock.calls[0][1];
 		expect(emailInput.alreadyRegistered).toBe(true);
-		expect(result.alreadyRegistered).toBe(true);
+		expect(result).toEqual({ success: true, email: 'taken@user.com' });
 	});
 
 	it('fails with 401 when not signed in', async () => {
@@ -121,5 +128,44 @@ describe('POST /claim ?/request', () => {
 		);
 
 		expect(failure.status).toBe(500);
+	});
+
+	it('returns 429 after 3 requests for the same email without minting more tokens', async () => {
+		const { deps } = makeDeps();
+		const user = { id: 'guest-email-throttle' };
+
+		for (let i = 0; i < 3; i++) {
+			const ok = successOf(
+				await callRequest(mockEvent('throttled@user.com', user, '10.7.7.1'), deps)
+			);
+			expect(ok).toEqual({ success: true, email: 'throttled@user.com' });
+		}
+
+		const failure = failureOf(
+			await callRequest(mockEvent('throttled@user.com', user, '10.7.7.1'), deps)
+		);
+
+		expect(failure.status).toBe(429);
+		expect(failure.data).toEqual({ error: 'Too many attempts. Try again shortly.' });
+		expect(deps.issueClaimToken).toHaveBeenCalledTimes(3);
+	});
+
+	it('returns 429 after 10 requests from the same IP without minting more tokens', async () => {
+		const { deps } = makeDeps();
+		const user = { id: 'guest-ip-throttle' };
+
+		for (let i = 0; i < 10; i++) {
+			const address = `ip-throttle-${i}@user.com`;
+			const ok = successOf(await callRequest(mockEvent(address, user, '10.7.7.2'), deps));
+			expect(ok).toEqual({ success: true, email: address });
+		}
+
+		const failure = failureOf(
+			await callRequest(mockEvent('ip-throttle-overflow@user.com', user, '10.7.7.2'), deps)
+		);
+
+		expect(failure.status).toBe(429);
+		expect(failure.data).toEqual({ error: 'Too many attempts. Try again shortly.' });
+		expect(deps.issueClaimToken).toHaveBeenCalledTimes(10);
 	});
 });

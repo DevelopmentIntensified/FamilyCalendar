@@ -17,17 +17,9 @@
 
 	{#if form?.success}
 		<div class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-			{#if form.alreadyRegistered}
-				<p class="font-semibold">This email already has a Family Planz account.</p>
-				<p class="mt-1">
-					Check <strong>{form.email}</strong> for a link. Clicking it will merge the calendar you've
-					added on this device into that existing account.
-				</p>
-			{:else}
-				<p>
-					Check <strong>{form.email}</strong> for a link to save your calendar. It expires in 15 minutes.
-				</p>
-			{/if}
+			<p>
+				Check <strong>{form.email}</strong> for a link to save your calendar. It expires in 15 minutes.
+			</p>
 		</div>
 	{:else}
 		{#if form?.error}

@@ -7,6 +7,7 @@ import {
 	magicLinkDeps,
 	type MagicLinkDeps
 } from '$lib/server/services/magicLink';
+import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 import { getUrl } from '$lib/utils/getUrl';
 
 export const load: PageServerLoad = async (event) => {
@@ -57,10 +58,19 @@ export const actions: Actions = {
 		if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
 			return fail(400, { error: 'Please enter a valid email address' });
 		}
+		// Throttle the email bomb before minting any token: per-IP caps spray
+		// across addresses, per-email caps repeat sends to one inbox. Either
+		// rejection returns the same 429 without revealing registration state.
+		if (!rateLimit(clientKey(request, 'claim-ip'), 10, 15 * 60 * 1000)) {
+			return fail(429, { error: 'Too many attempts. Try again shortly.' });
+		}
+		if (!rateLimit(`claim:${email}`, 3, 15 * 60 * 1000)) {
+			return fail(429, { error: 'Too many attempts. Try again shortly.' });
+		}
 
-		// Note: we intentionally do NOT block on an already-registered email here.
-		// Ownership is proven by the verification link click; the verify endpoint
-		// then auto-merges the guest's data into that existing account.
+ 		// Note: we intentionally do NOT block on an already-registered email here.
+ 		// Ownership is proven by the verification link click; the verify endpoint
+ 		// then auto-merges the guest's data into that existing account.
 		const token = await deps.issueClaimToken(locals.user.id, email);
 
 		const verifyUrl = `${deps.baseSiteUrl}/claim/verify/${token}`;
@@ -75,6 +85,8 @@ export const actions: Actions = {
 			return fail(500, { error: 'Failed to send email. Please try again.' });
 		}
 
-		return { success: true, email, alreadyRegistered };
+		// Uniform shape: alreadyRegistered tailors the email copy above only and
+		// is never echoed back, so the response can't oracle registration state.
+		return { success: true, email };
 	}
 };

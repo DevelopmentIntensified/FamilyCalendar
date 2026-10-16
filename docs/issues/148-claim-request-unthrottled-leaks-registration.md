@@ -1,6 +1,13 @@
 # 148 — Claim-link request: unthrottled send + registration oracle
 
-Status: open
+Status: done
+
+## Shipped 2026-10-15 (Option A)
+
+- Response is `{ success: true, email }` always — `alreadyRegistered` tailors the email copy server-side only, never echoed. Page collapsed to one inbox-check screen.
+- Rate limits before token mint: per-IP `claim-ip` 10/15min + per-email `claim:<email>` 3/15min, both `fail(429)`.
+- Merge hint lives post-inbox (email copy) + verify landing signs merged users into their existing account — no new surface needed.
+- Verify: claim suite 9/9, check clean on claim, build green.
 
 Source: security audit (issue 136), 2026-10-06. Rank 2/15 — pre-auth (anonymous session only), trivially reachable, dual impact (email bomb + enumeration).
 
