@@ -3,8 +3,7 @@
 	import { page } from '$app/state';
 	import type { PageData } from './$types';
 	import {
-		groupGroceriesByStore,
-		resolveGroceryColours,
+		groceryStoreGroups,
 		storesSharingColour,
 		uniqueStores,
 		colourFor,
@@ -99,7 +98,10 @@
 	$: scoped = allItems.filter((i) => scope === 'all' || scopeOf(i) === scope);
 	$: searched = scoped.filter((i) => matchesGrocerySearch(i, searchQuery));
 	$: items = searched.filter((i) => !hiddenIds.has(i.id));
-	$: groups = groupGroceriesByStore(items);
+	// 115: grouping AND colour in one call — each group carries its colour,
+	// resolved by the VIEWER with the overrides merged in, so a group header
+	// and a row chip can never disagree about a shop.
+	$: groups = groceryStoreGroups(items, effectiveRows, viewer);
 	// The rail holds everything checked this session, from either scope.
 	$: checked = recentlyChecked;
 	$: queryActive = searchQuery.trim().length > 0;
@@ -117,8 +119,6 @@
 	$: colourRows = (data.colours ?? []) as StoreColourRow[];
 	$: viewer = { userId: data.userId, familyId: data.familyId };
 	$: effectiveRows = withColourOverrides(colourRows, colourOverrides, viewer);
-	$: groupNames = groups.map((g) => g.store);
-	$: colours = resolveGroceryColours(groupNames, effectiveRows, viewer);
 	// Every store the page shows a chip for, so a collision is disclosed.
 	$: chipNames = [
 		...new Set(
@@ -729,7 +729,7 @@
 				</p>
 			{:else}
 				{#each groups as group (group.store)}
-					{@const tint = colours.get(group.store)}
+					{@const tint = group.colour}
 					{@const twins = tint ? twinsOf(group.store) : []}
 					<section aria-label={group.store} class="mb-4 rounded-2xl border">
 						<div

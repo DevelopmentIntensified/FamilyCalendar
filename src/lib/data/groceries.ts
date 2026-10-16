@@ -3,6 +3,8 @@
  * Store Memory + grouping logic shared by server actions and UI.
  */
 
+import { hashName } from '$lib/utils/hashName';
+
 export const NO_STORE_LABEL = 'Any store';
 
 /** History key: trim + lowercase. Blank -> ''. */
@@ -35,10 +37,29 @@ export function mostFrequentStore(rows: { store: string; count: number }[]): str
 }
 
 /**
- * Group items by primary Store (stores[0]), case-agnostic; empty -> NO_STORE_LABEL.
- * Groups are sorted alphabetically so the list scans as a trip; items keep their
- * given order inside a group.
+ * Grouping + colour resolution as ONE concept (115). A store group on the
+ * page is coloured, so the page asks for both at once instead of assembling
+ * them from four calls with two key conventions.
+ *
+ * The key convention is `storeKey(name)` — trim + lowercase — the ONE key all
+ * three layers use: this grouping, `colourFor`'s row lookup, and the
+ * `grocery_store_colours` rows. " Costco " and "Costco" are one shop, one
+ * group, one colour, whatever the spelling. The label keeps the first
+ * spelling the item gave it; the colour is resolved by the VIEWER, so the
+ * same answer reads the same on a personal list and the family one.
  */
+export function groceryStoreGroups<T extends { stores: string[] }>(
+	items: T[],
+	rows: StoreColourRow[],
+	viewer: StoreColourViewer
+): { store: string; items: T[]; colour: StoreColour | null }[] {
+	return groupGroceriesByStore(items).map((g) => ({
+		store: g.store,
+		items: g.items,
+		colour: colourFor(g.store, rows, viewer)
+	}));
+}
+
 /**
  * A grocery item's store list, with repeats removed.
  *
@@ -72,7 +93,7 @@ export function uniqueStores(stores: readonly string[]): string[] {
 	for (const raw of stores) {
 		const store = raw.trim();
 		if (!store) continue;
-		const key = store.toLowerCase();
+		const key = storeKey(store);
 		if (seen.has(key)) continue;
 		seen.add(key);
 		out.push(store);
@@ -86,7 +107,10 @@ export function groupGroceriesByStore<T extends { stores: string[] }>(
 	const map = new Map<string, { label: string; items: T[] }>();
 	for (const item of items) {
 		const label = item.stores[0] ?? NO_STORE_LABEL;
-		const key = label.toLowerCase();
+		// 115: ONE key convention everywhere — `storeKey(name)`, trim +
+		// lowercase — the same key the colour table filters on and the DB rows
+		// store, so whitespace can never split a shop into two groups.
+		const key = storeKey(label);
 		if (!map.has(key)) {
 			map.set(key, { label, items: [] });
 		}
@@ -200,13 +224,14 @@ function colourKeyFor(name: string | null | undefined): string | null {
 /**
  * The name-derived default. Deliberately NOT position-based: the set of
  * stores on the page is not an input, so adding one never repaints another.
- * Uses the repo's existing charCode-sum hash (contactColors.ts, avatarColor.ts).
+ * Uses the repo's ONE name hash (`src/lib/utils/hashName.ts`, shared with
+ * contactColors) — avatarColor runs a different additive hash on an ID, and
+ * swapping it would repaint every existing avatar, so it stays its own
+ * deliberate variant (115).
  */
 export function defaultStoreColourKey(name: string): string {
 	const key = storeKey(name);
-	let hash = 0;
-	for (let i = 0; i < key.length; i++) hash = key.charCodeAt(i) + ((hash << 5) - hash);
-	return STORE_COLOURS[Math.abs(hash) % STORE_COLOURS.length].key;
+	return STORE_COLOURS[Math.abs(hashName(key)) % STORE_COLOURS.length].key;
 }
 
 /** A colour row: the table's shape, minus the columns the UI never reads. */
@@ -260,18 +285,6 @@ export function storesSharingColour(
 		if (storeKey(other) === storeKey(name)) return false;
 		return colourFor(other, rows, viewer)?.key === colour.key;
 	});
-}
-
-/**
- * Resolve every store label on the page, keyed by the label AS WRITTEN, so a
- * caller reading `groups` can look a group up without re-normalising.
- */
-export function resolveGroceryColours(
-	storeNames: string[],
-	rows: StoreColourRow[],
-	viewer: StoreColourViewer
-): Map<string, StoreColour | null> {
-	return new Map(storeNames.map((n) => [n, colourFor(n, rows, viewer)]));
 }
 
 /* ── Optimistic colour overrides (115) ────────────────────────────────────

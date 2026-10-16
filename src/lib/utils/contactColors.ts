@@ -1,3 +1,5 @@
+import { hashName } from './hashName';
+
 export interface ContactColor {
 	bg: string;
 	text: string;
@@ -17,11 +19,8 @@ const COLORS: ContactColor[] = [
 ];
 
 export function getContactColor(name: string): ContactColor {
-	let hash = 0;
-	for (let i = 0; i < name.length; i++) {
-		hash = name.charCodeAt(i) + ((hash << 5) - hash);
-	}
-	return COLORS[Math.abs(hash) % COLORS.length];
+	// 115: the repo's ONE name hash, shared with the store-colour default.
+	return COLORS[Math.abs(hashName(name)) % COLORS.length];
 }
 
 export function getInitials(firstName: string, lastName?: string): string {

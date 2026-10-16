@@ -28,11 +28,6 @@
 	$: openTotal = familyItems.length + mineItems.length;
 	/** Where "Open the list" goes when there is nothing to name. */
 	$: emptyHref = hasFamily ? href('family') : href('mine');
-
-	/** Primary stores the scope spans, via the same grouping the list uses. */
-	function storesOf(items: GroceryCardItem[]): string[] {
-		return groupGroceriesByStore(items).map((group) => group.store);
-	}
 </script>
 
 <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="groceries-card">
@@ -67,10 +62,10 @@
 						<span class="text-xs text-slate-500">{scope.items.length} open</span>
 					</div>
 					<div data-testid="groceries-stores" class="mt-1 flex flex-wrap gap-1">
-						{#each storesOf(scope.items) as store (store)}
+						{#each groupGroceriesByStore(scope.items) as g (g.store)}
 							<span
 								class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600"
-								>{store}</span
+								>{g.store}</span
 							>
 						{/each}
 					</div>

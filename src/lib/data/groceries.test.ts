@@ -4,13 +4,14 @@ import {
 	parseGroceryQuickAdd,
 	uniqueStores,
 	groupGroceriesByStore,
+	groceryStoreGroups,
 	mostFrequentStore,
+	NO_STORE_LABEL,
 	STORE_COLOURS,
 	isStoreColourKey,
 	defaultStoreColourKey,
 	colourFor,
 	storesSharingColour,
-	resolveGroceryColours,
 	SCOPE_FILTERS,
 	scopeFromParam,
 	matchesGrocerySearch,
@@ -110,6 +111,23 @@ describe('groupGroceriesByStore', () => {
 		]);
 		expect(groups).toHaveLength(1);
 		expect(groups[0].store.toLowerCase()).toBe(normalizeGroceryName('  aldi '));
+	});
+
+	it('group keys use the ONE convention: trimmed, so " Costco " joins "Costco"', () => {
+		// 115: one key convention across grouping, colour and the DB rows —
+		// `storeKey(name)` — so whitespace can never split a shop in two.
+		const groups = groupGroceriesByStore([
+			{ id: '1', name: 'milk', stores: [' Costco '] },
+			{ id: '2', name: 'eggs', stores: ['Costco'] }
+		]);
+		expect(groups).toHaveLength(1);
+	});
+
+	it('groups the no-store items under the disclosed NO_STORE_LABEL', () => {
+		const groups = groupGroceriesByStore([{ id: '1', name: 'milk', stores: [] }]);
+		expect(groups).toHaveLength(1);
+		expect(groups[0].store).toBe(NO_STORE_LABEL);
+		expect(groups[0].items).toEqual([{ id: '1', name: 'milk', stores: [] }]);
 	});
 });
 
@@ -219,29 +237,6 @@ describe('storesSharingColour', () => {
 
 	it('never counts "Any store" as a twin — it is not tinted', () => {
 		expect(storesSharingColour('Any store', ['Any store', 'Lidl'], [], viewer)).toEqual([]);
-	});
-});
-
-describe('resolveGroceryColours', () => {
-	const viewer = { userId: 'u1', familyId: 'fam1' };
-	const rows = [{ storeKey: 'aldi', color: 'sky', userId: 'u1', familyId: 'fam1' }];
-
-	it('resolves every group on the page by its label', () => {
-		const colours = resolveGroceryColours(['Aldi', 'Kroger', 'Any store'], rows, viewer);
-		expect(colours.get('Aldi')?.key).toBe('sky');
-		expect(colours.get('Kroger')?.key).toBe(defaultStoreColourKey('Kroger'));
-		expect(colours.get('Any store')).toBeNull();
-	});
-
-	it('is keyed by the group label as written, so the page reads it straight off the group', () => {
-		const colours = resolveGroceryColours(['  ALDI '], rows, viewer);
-		expect(colours.get('  ALDI ')?.key).toBe('sky');
-	});
-
-	it('resolves a list with no configured stores at all', () => {
-		const colours = resolveGroceryColours(['Aldi', 'Kroger'], [], viewer);
-		expect(colours.get('Aldi')?.key).toBe(defaultStoreColourKey('Aldi'));
-		expect(colours.get('Kroger')?.key).toBe(defaultStoreColourKey('Kroger'));
 	});
 });
 
@@ -441,5 +436,77 @@ describe('uniqueStores', () => {
 			'Walgreens',
 			'Walgreens Market'
 		]);
+	});
+});
+
+/* ── 115: grouping + colour is ONE concept, keyed by ONE convention ─────── */
+describe('groceryStoreGroups', () => {
+	const viewer = { userId: 'u1', familyId: 'fam1' };
+	const rows: StoreColourRow[] = [
+		{ storeKey: 'aldi', color: 'sky', userId: 'u1', familyId: null },
+		{ storeKey: 'kroger', color: 'sage', userId: 'u1', familyId: 'fam1' }
+	];
+
+	it('returns each group with its colour attached, in one call', () => {
+		const groups = groceryStoreGroups(
+			[
+				{ id: '1', stores: ['Aldi'] },
+				{ id: '2', stores: ['Kroger'] },
+				{ id: '3', stores: [] }
+			],
+			rows,
+			viewer
+		);
+		const aldi = groups.find((g) => g.store === 'Aldi')!;
+		expect(aldi.items).toEqual([{ id: '1', stores: ['Aldi'] }]);
+		expect(aldi.colour?.key).toBe('sky');
+		expect(groups.find((g) => g.store === 'Kroger')?.colour?.key).toBe('sage');
+	});
+
+	it('the same STORE is the same colour on every surface, under any spelling', () => {
+		// " Costco " as typed and 'costco' lean on the ONE key — trim +
+		// lowercase — so a group header and a row chip never split a shop in
+		// two by an accidental whitespace difference.
+		const groups = groceryStoreGroups(
+			[{ id: '1', stores: [' Costco '], name: 'milk' }],
+			rows,
+			viewer
+		);
+		expect(groups).toHaveLength(1);
+		expect(groups[0].colour).toEqual(
+			colourFor('costco', rows, viewer)
+		);
+	});
+
+	it('an unconfigured (unknown) store is deterministic: the name-derived default', () => {
+		const groups = groceryStoreGroups(
+			[{ id: '1', stores: ['HEB'], name: 'chips' }],
+			[],
+			viewer
+		);
+		expect(groups[0].colour?.key).toBe(defaultStoreColourKey('HEB'));
+		// Deterministic across calls and casings.
+		expect(defaultStoreColourKey('HEB')).toBe(defaultStoreColourKey('heb'));
+	});
+
+	it('the no-store group is never tinted — colour is null, as colourFor says', () => {
+		const groups = groceryStoreGroups([{ id: '1', stores: [] }], rows, viewer);
+		expect(groups[0].store).toBe(NO_STORE_LABEL);
+		expect(groups[0].colour).toBeNull();
+	});
+
+	it('matches colourFor exactly for every configured tier (personal, family, default)', () => {
+		const groups = groceryStoreGroups(
+			[
+				{ id: '1', stores: ['Aldi'] },
+				{ id: '2', stores: ['Kroger'] },
+				{ id: '3', stores: ['Lidl'] }
+			],
+			rows,
+			viewer
+		);
+		for (const g of groups) {
+			expect(g.colour).toEqual(colourFor(g.store, rows, viewer));
+		}
 	});
 });
