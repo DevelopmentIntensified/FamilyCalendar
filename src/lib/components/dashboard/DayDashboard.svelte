@@ -67,8 +67,6 @@
 	// passed in.
 	export let modules: Record<string, boolean> = {};
 
-	const visible = (id: string) => showsModule(modules, id);
-
 	let selectedEvent: Event | null = null;
 
 	function openEvent(e: GlanceEvent) {
@@ -93,7 +91,7 @@
 	<!-- Info band (080): readings, above the cards and out of the module band.
 	     Still gated on the verse's own saved switch, so a user who hid it
 	     before the move is still hidden. -->
-	{#if visible('verse')}
+	{#if showsModule(modules, 'verse')}
 		<DashboardInfoBand {dailyVerse} />
 	{/if}
 
@@ -102,18 +100,18 @@
 		     the band the Member Strip vacated, and it now says what it is for:
 		     three cards side by side instead of one card and a half-empty column.
 		     `md:grid-cols-2` is 103's pinned glance/top-3 pairing, still intact. -->
-		{#if visible('glance') || visible('top3') || visible('completed')}
+		{#if showsModule(modules, 'glance') || showsModule(modules, 'top3') || showsModule(modules, 'completed')}
 			<div
 				data-testid="dashboard-day-band"
 				class="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3"
 			>
-				{#if visible('glance')}
+				{#if showsModule(modules, 'glance')}
 					<TodayGlanceCard {dateLabel} {isToday} events={dayEvents} onEventClick={openEvent} />
 				{/if}
-				{#if visible('top3')}
+				{#if showsModule(modules, 'top3')}
 					<TopPrioritiesCard tasks={top3} {meId} />
 				{/if}
-				{#if visible('completed')}
+				{#if showsModule(modules, 'completed')}
 					<CompletedTodayCard tasks={completedToday} {isToday} />
 				{/if}
 			</div>
@@ -125,9 +123,9 @@
 		     up hold Kids' Schedule and Groceries, which are day-scoped and small.
 		     Their internal grouping is 101's business and is untouched.
 		     `items-start` so a short card is not stretched into a tall empty one. -->
-		{#if (familyId && visible('board')) || (familyId && visible('kids')) || visible('groceries')}
+		{#if (familyId && showsModule(modules, 'board')) || (familyId && showsModule(modules, 'kids')) || showsModule(modules, 'groceries')}
 			<div data-testid="dashboard-family-row" class="grid items-start gap-4 lg:grid-cols-3">
-				{#if familyId && visible('board')}
+				{#if familyId && showsModule(modules, 'board')}
 					<FamilyTaskBoardCard
 						tasks={familyTasks}
 						members={familyMembers}
@@ -137,12 +135,12 @@
 						weekStreak={glance.weekStreak}
 					/>
 				{/if}
-				{#if familyId && visible('kids')}
+				{#if familyId && showsModule(modules, 'kids')}
 					<KidsScheduleCard events={kidsSchedule} {isToday} />
 				{/if}
 				<!-- Groceries (081): family-scoped, but shown to a solo user too —
 				     their own list is the whole list. -->
-				{#if visible('groceries')}
+				{#if showsModule(modules, 'groceries')}
 					<GroceriesCard
 						familyItems={familyGroceries}
 						mineItems={mineGroceries}

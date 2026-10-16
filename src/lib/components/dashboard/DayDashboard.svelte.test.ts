@@ -154,7 +154,8 @@ describe('DayDashboard — the Member strip is gone, the board stays (103)', () 
 		const { container } = render(DayDashboard, {
 			props: { ...base, ...withBoard, modules: modulesFor([]) }
 		});
-		const band = container.querySelector('[data-testid="dashboard-card-band"]')!;
+		// querySelector's return type is Element; `within` wants an HTMLElement.
+		const band = container.querySelector<HTMLElement>('[data-testid="dashboard-card-band"]')!;
 		let node = within(band).getByText('Family Task Board').parentElement;
 		while (node && node !== band) {
 			expect(node.className).not.toContain('md:grid-cols-2');
@@ -238,9 +239,8 @@ describe('DayDashboard — the band knows what deserves the top row (118)', () =
 
 	it('a hidden card leaves its row; the row itself never goes empty', async () => {
 		const { rerender } = render(DayDashboard, { props: layered });
-		const row = () => within(screen.getByTestId('dashboard-card-band')).getByTestId('dashboard-family-row');
 		await rerender({ modules: modulesFor(['kids']) });
-		expect(row().children).toHaveLength(2);
+		expect(within(screen.getByTestId('dashboard-card-band')).getByTestId('dashboard-family-row').children).toHaveLength(2);
 		// A solo viewer with no family and groceries switched off has no row at
 		// all — an empty grid would still cost a 16px gap in the band.
 		await rerender({ familyId: null, modules: modulesFor(['kids', 'groceries']) });
