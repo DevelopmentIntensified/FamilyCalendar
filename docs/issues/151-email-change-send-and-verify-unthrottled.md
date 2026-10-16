@@ -1,6 +1,8 @@
 # 151 — Email-change: unthrottled send + unthrottled, unbound verify
 
-Status: open
+Status: done
+
+**Shipped 2026-10-15 (Option A, both in one push per owner):** `updateEmail` 3 sends/15min per user+IP; `verify` 10 attempts/15min per IP; code path requires `existingCode.email === consumer.email` (sniffed-code identity grab dead). Known non-blockers left as-is: `deleteCodesByEmail(currentUser.email)` self-DoS nudge (ticket text line 12), token-path gaps owned by #166. Verify: check 39/42-in-29 exact baseline, account-component unit 75/75, build green (delegate-gated; edit-session breakage — missing `fail`/`formData`/`codes` imports — repaired in the same push).
 
 Source: security audit (issue 136), 2026-10-06. Rank 5/15 — needs any registered session (attacker registers once, cf. 147), then unbounded send + code-consumption weaknesses.
 
