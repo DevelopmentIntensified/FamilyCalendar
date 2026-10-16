@@ -8,7 +8,7 @@
 	import { formatEventTime } from '$lib/utils/eventTime';
 	import { formatRangeLabel, normalizeRange } from '$lib/utils/eventMove';
 	import { rsvpVisual } from '$lib/utils/eventChip';
-	import { chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
+	import { chipShell } from '$lib/utils/chipVocabulary';
 	import ChipKindMark from './ChipKindMark.svelte';
 
 	interface Props {
@@ -166,17 +166,15 @@
 		{#each laidOut as slot (slot.event.id)}
 			{@const widthPct = (1 / slot.lanes) * 100}
 			{@const rv = rsvpVisual(slot.event.rsvpStatus)}
-			{@const kind = chipKindOf(slot.event)}
+			{@const chip = chipShell({ event: slot.event, density: 'word' })}
 			<button
 				type="button"
-				data-chip-kind={kind}
+				data-chip-kind={chip.kind}
 				onclick={() => onEventClick(slot.event)}
 				draggable={!selectionMode}
 				ondragstart={(e) => onDragStart(e, slot.event)}
 				aria-pressed={selectionMode ? isSelected(slot.event) : undefined}
-				class="absolute z-10 overflow-hidden rounded-md border border-slate-200 bg-white px-1.5 py-1 text-left shadow-sm transition-all hover:brightness-95 {chipTreatment(
-					kind
-				).containerClass} {rv?.containerClass ??
+				class="absolute z-10 overflow-hidden rounded-md border border-slate-200 bg-white px-1.5 py-1 text-left shadow-sm transition-all hover:brightness-95 {chip.containerClass} {rv?.containerClass ??
 					''} {selectionMode ? 'active:scale-[0.98]' : ''} {selectionMode &&
 				isSelected(slot.event)
 					? 'bg-primary-50/70 ring-2 ring-primary-400'
@@ -186,7 +184,7 @@
 					height: {Math.max(slot.heightPct, (26 / GRID_HEIGHT) * 100)}%;
 					left: calc({slot.lane * widthPct}% + 2px);
 					width: calc({widthPct}% - 4px);
-					{chipSurfaceStyle(slot.event)}
+					{chip.style}
 				"
 				title="{formatEventTime(slot.event.start)} {slot.event.title}"
 			>
@@ -197,7 +195,7 @@
 						~250px of chip at 320px, so the kind rides beside the title
 						on every row. The mark is shrink-0 and the title truncates,
 						so a long title never eats the label. -->
-					<ChipKindMark {kind} density="word" />
+					<ChipKindMark kind={chip.kind} density={chip.markDensity} />
 					{#if selectionMode}
 						<span
 							class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-all {isSelected(

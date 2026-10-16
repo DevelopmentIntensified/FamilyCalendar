@@ -342,6 +342,7 @@
 			{weekDays}
 			eventsForDay={getEventsForDay}
 			tasksForDay={getTasksForDay}
+			calendars={calendarIds}
 			{selectionMode}
 			{isSelected}
 			onEventClick={handleEventClick}

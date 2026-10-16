@@ -10,7 +10,7 @@
 	import { freqNoun } from '$lib/utils/taskDisplay';
 	import { groupByDateKey, toDateMs } from '$lib/utils/listGroup';
 	import { chipColor, rsvpVisual } from '$lib/utils/eventChip';
-	import { chipKindOf, chipTreatment, chipWord } from '$lib/utils/chipVocabulary';
+	import { chipShell } from '$lib/utils/chipVocabulary';
 	import { invalidateAll } from '$app/navigation';
 	import todoList from '$lib/assets/svgs/todo-list-svgrepo-com.svg';
 	import ChipKindMark from './ChipKindMark.svelte';
@@ -121,11 +121,10 @@
 			<div class="space-y-2">
 				{#each dayEvents as event}
 					{@const rv = rsvpVisual(event.rsvpStatus)}
-					{@const kind = chipKindOf(event)}
-					{@const kindWord = chipWord(kind, 'word')}
+					{@const chip = chipShell({ event, density: 'word' })}
 					<button
 						type="button"
-						data-chip-kind={kind}
+						data-chip-kind={chip.kind}
 						onclick={() => handleEventClick(event)}
 						class="w-full text-left"
 					>
@@ -178,8 +177,8 @@
 										guard left it unnamed here. `timed` has no word, so
 										an ordinary timed event renders no mark and the
 										clock below still carries it. -->
-									{#if kindWord}
-										<ChipKindMark {kind} density="word" />
+									{#if chip.word}
+										<ChipKindMark kind={chip.kind} density={chip.markDensity} />
 									{/if}
 									{#if !event.allDay}
 										{@const st =
@@ -240,19 +239,19 @@
 				{/each}
 
 				{#each dayTasks as task (task.id)}
-					{@const taskTreatment = chipTreatment('task')}
+					{@const chip = chipShell({ kind: 'task', density: 'word' })}
 					<button
 						type="button"
-						data-chip-kind="task"
+						data-chip-kind={chip.kind}
 						onclick={() => openTask(task)}
-						class="relative flex w-full items-center gap-4 overflow-hidden rounded-xl border border-dashed bg-slate-50 p-4 text-left transition-colors hover:bg-slate-100 {taskTreatment.containerClass}"
+						class="relative flex w-full items-center gap-4 overflow-hidden rounded-xl border border-dashed bg-slate-50 p-4 text-left transition-colors hover:bg-slate-100 {chip.containerClass}"
 					>
 						<span class="absolute -inset-2" aria-hidden="true"></span>
 						<span class="flex min-w-0 flex-1 flex-col gap-1">
 							<span class="block truncate font-medium text-slate-700">{task.title}</span>
 							<span class="flex flex-wrap items-center gap-x-3 text-sm text-slate-500">
 								<!-- #068: the same word the month cell's ring implies. -->
-								<ChipKindMark kind="task" density="word" />
+								<ChipKindMark kind={chip.kind} density={chip.markDensity} />
 								{#if task.recurrenceFrequency}
 									<span class="text-purple-500">
 										🔁 {task.recurrenceInterval && task.recurrenceInterval > 1

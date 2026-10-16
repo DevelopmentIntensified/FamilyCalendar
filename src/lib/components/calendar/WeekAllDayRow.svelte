@@ -4,15 +4,18 @@
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
 	import { rsvpVisual } from '$lib/utils/eventChip';
-	import { chipA11y, chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
+	import { chipShell } from '$lib/utils/chipVocabulary';
 	import ChipKindMark from './ChipKindMark.svelte';
 	import type { CalendarTask } from './TaskDetailModal.svelte';
+	import type { CalendarRef } from '$lib/utils/eventChip';
 
 	interface Props {
 		weekDays: DateTime[];
 		eventsForDay: (day: DateTime) => Event[];
 		tasksForDay: (day: DateTime) => CalendarTask[];
 		selectionMode: boolean;
+		/** #111: gives the band chip its calendar attribution back on the hover hint. */
+		calendars?: CalendarRef[];
 		isSelected: (event: Event) => boolean;
 		onEventClick: (event: Event) => void;
 		onOpenTask: (task: CalendarTask) => void;
@@ -23,6 +26,7 @@
 		eventsForDay,
 		tasksForDay,
 		selectionMode,
+		calendars = [],
 		isSelected,
 		onEventClick,
 		onOpenTask
@@ -42,24 +46,18 @@
 		<div class="min-h-[40px] flex-1 space-y-0.5 border-r border-slate-100 p-0.5 last:border-r-0">
 			{#each allDayEvents as event}
 				{@const rv = rsvpVisual(event.rsvpStatus)}
-				{@const kind = chipKindOf(event)}
-				{@const treatment = chipTreatment(kind)}
-				<!-- #067: a glyph view has no room for the word, so the name
-					lands on the hover hint (chipA11y — the same phrase the mark
-					gives a screen reader). The band chip had no title at all
-					before, which is what left an ad here nameless. -->
-				{@const named = chipA11y(kind, 'glyph')}
+				{@const chip = chipShell({ event, density: 'glyph', calendars })}
 				<button
 					type="button"
-					data-chip-kind={kind}
-					title={named ? `${named} · ${event.title}` : event.title}
+					data-chip-kind={chip.kind}
+					title={chip.tooltip}
 					onclick={() => onEventClick(event)}
 					aria-pressed={selectionMode ? isSelected(event) : undefined}
-					class="flex w-full cursor-pointer items-center gap-1 truncate rounded bg-white px-1 py-0.5 text-left text-xs font-medium transition-all hover:opacity-90 active:scale-[0.99] active:opacity-70 {treatment.containerClass} {rv?.containerClass ??
+					class="flex w-full cursor-pointer items-center gap-1 truncate rounded bg-white px-1 py-0.5 text-left text-xs font-medium transition-all hover:opacity-90 active:scale-[0.99] active:opacity-70 {chip.containerClass} {rv?.containerClass ??
 						''} {selectionMode && isSelected(event)
 						? 'bg-primary-50/70 ring-2 ring-primary-400'
 						: ''}"
-					style={chipSurfaceStyle(event)}
+					style={chip.style}
 				>
 					{#if selectionMode}
 						<span
@@ -83,7 +81,7 @@
 					{/if}
 					<!-- #068: the band header already reads "All day" for every
 						column, so a word per chip would only repeat it. -->
-					<ChipKindMark {kind} density="glyph" />
+					<ChipKindMark kind={chip.kind} density={chip.markDensity} />
 					<span class="min-w-0 truncate">{event.title}</span>
 					{#if event.creatorName}
 						<CreatorBadge name={event.creatorName} />
@@ -94,16 +92,16 @@
 				</button>
 			{/each}
 			{#each dayTasks as task (task.id)}
-				{@const taskTreatment = chipTreatment('task')}
+				{@const chip = chipShell({ kind: 'task', density: 'glyph' })}
 				<button
 					type="button"
 					data-chip-kind="task"
 					onclick={() => onOpenTask(task)}
 					title="View task details"
-					class="relative flex w-full items-center gap-1 overflow-hidden rounded border border-dashed bg-white px-1 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 active:bg-slate-200 {taskTreatment.containerClass}"
+					class="relative flex w-full items-center gap-1 overflow-hidden rounded border border-dashed bg-white px-1 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 active:bg-slate-200 {chip.containerClass}"
 				>
 					<span class="absolute -inset-2" aria-hidden="true"></span>
-					<ChipKindMark kind="task" density="glyph" />
+					<ChipKindMark kind={chip.kind} density={chip.markDensity} />
 					<span class="min-w-0 truncate">{task.title}</span>
 				</button>
 			{/each}

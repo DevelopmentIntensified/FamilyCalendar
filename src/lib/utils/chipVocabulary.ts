@@ -1,4 +1,5 @@
-import { chipColor } from './eventChip';
+import { chipColor, chipTooltip, type CalendarRef } from './eventChip';
+import type { Event } from '$lib/types';
 
 /**
  * The one chip vocabulary every calendar view speaks (#068).
@@ -186,4 +187,89 @@ export function chipSurfaceStyle(event: {
 	return kind === 'sponsored'
 		? `--chip-color:${color};background-image:${HATCH};`
 		: `--chip-color:${color};`;
+}
+
+/**
+ * The one chip recipe every view imports (#111). All nine hand-copies of
+ * "classify → treatment class → surface style → word-vs-hidden-phrase" fold
+ * into this single call.
+ *
+ * One input shape: an EVENT chip is described by `event` (the shell derives
+ * the kind herself, so a hand-computed kind can never desync from the style);
+ * a TASK chip is described by `kind: 'task'`. Passing an event to the task
+ * branch — or a kind to the event branch — is a type error, which the old
+ * interface could not express.
+ */
+export interface ChipShell {
+	kind: ChipKind;
+	markDensity: ChipDensity;
+	/** raw treatment — for anything the shell does not own yet. */
+	treatment: ChipTreatment;
+	/** container classes the vocabulary earns: the treatment's own, with an
+	 *  overdue task's red border SWAPPED IN for the slate one rather than
+	 *  appended — so the winner is decided here, not by stylesheet order. */
+	containerClass: string;
+	/** the calendar-coloured inline style ('' for task chips, which carry no
+	 *  calendar colour). */
+	style: string;
+	/** the visible word when the density allows one ('' otherwise, including
+	 *  timed, which has no word). */
+	word: string;
+	/** hover/sr text for a glyph view: the treatment's hidden phrase prefixed
+	 *  onto the calendar-attributed title. '' in a word view, where the word
+	 *  is already visible. */
+	tooltip: string;
+}
+
+export type ChipShellInput =
+	| {
+			density: ChipDensity;
+			event: {
+				title?: string;
+				calendarId?: string | null;
+				color?: string | null;
+				allDay?: boolean | null;
+				isAd?: boolean | null;
+			};
+			/** calendar list for attribution on the hover hint (#067). Leave
+			 *  unset when the view has no calendar names to give. */
+			calendars?: CalendarRef[];
+	  }
+	| { density: ChipDensity; kind: 'task'; overdue?: boolean };
+
+export function chipShell(input: ChipShellInput): ChipShell {
+	if ('kind' in input) {
+		const taskTreatment = chipTreatment('task');
+		return {
+			kind: 'task',
+			markDensity: input.density,
+			treatment: taskTreatment,
+			containerClass: input.overdue
+				? taskTreatment.containerClass.replace('border-slate-300', 'border-red-400')
+				: taskTreatment.containerClass,
+			style: '',
+			word: chipWord('task', input.density),
+			tooltip: ''
+		};
+	}
+	const kind = chipKindOf(input.event);
+	const treatment = chipTreatment(kind);
+	const attributed = chipTooltip(input.event as Pick<Event, 'title' | 'calendarId'>, input.calendars ?? []);
+	return {
+		kind,
+		markDensity: input.density,
+		treatment,
+		containerClass: treatment.containerClass,
+		style: chipSurfaceStyle(input.event),
+		word: chipWord(kind, input.density),
+		// #067: a glyph view spells the kind on the hover hint — the same
+		// phrase the mark gives a screen reader (chipA11y), prefixed onto the
+		// calendar-attributed title. A word view already shows the word.
+		tooltip:
+			input.density === 'glyph'
+				? chipA11y(kind, 'glyph') && attributed
+					? `${chipA11y(kind, 'glyph')} · ${attributed}`
+					: attributed
+				: ''
+	};
 }

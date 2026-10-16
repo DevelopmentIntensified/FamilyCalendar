@@ -133,6 +133,28 @@ describe('WeekAllDayRow names a sponsored event', () => {
 		expect(screen.queryByText('Ad')).toBeNull();
 	});
 
+	// #111 — the copied recipe dropped this attribution once already; the shell
+	// carries the calendars now, so the band chip names its calendar again.
+	it('attributes the chip to its calendar on the hover hint', () => {
+		render(WeekAllDayRow, {
+			props: {
+				weekDays,
+				calendars: [
+					{ id: 'cal1', name: 'Family' },
+					{ id: 'cal2', name: 'School' }
+				],
+				eventsForDay: (d: DateTime) => (d.toISODate() === '2026-09-08' ? [evt] : []),
+				tasksForDay: () => [],
+				selectionMode: false,
+				isSelected: () => false,
+				onEventClick: vi.fn(),
+				onOpenTask: vi.fn()
+			}
+		});
+		const chip = screen.getByText('Holiday').closest('button');
+		expect(chip?.getAttribute('title')).toBe('All day · Holiday · Family');
+	});
+
 	it('hatches the ad neutrally and boxes it, so it reads without a word', () => {
 		const chip = renderAd();
 		expect(chip.getAttribute('style')).toContain('repeating-linear-gradient');

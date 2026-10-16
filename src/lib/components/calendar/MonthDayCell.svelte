@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { toDate } from '$lib/utils/eventTime';
-	import { chipTooltip, rsvpVisual } from '$lib/utils/eventChip';
-	import { chipA11y, chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
+	import { rsvpVisual } from '$lib/utils/eventChip';
+	import { chipShell } from '$lib/utils/chipVocabulary';
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import AttendanceBadge from './AttendanceBadge.svelte';
@@ -190,26 +190,18 @@
 		>
 			{#each dayEvents.slice(0, MAX_CHIPS) as event (event.id)}
 				{@const rv = rsvpVisual(event.rsvpStatus)}
-				{@const kind = chipKindOf(event)}
-				{@const treatment = chipTreatment(kind)}
-				<!-- #067: a glyph view has no room for the word, so the name
-				lands on the hover hint — the same phrase a screen reader gets
-				from the mark. One source: chipA11y, never a per-view string. -->
-				{@const named = chipA11y(kind, 'glyph')}
-				{@const hint = named
-					? `${named} · ${chipTooltip(event, calendars)}`
-					: chipTooltip(event, calendars)}
+				{@const chip = chipShell({ event, density: 'glyph', calendars })}
 				<button
 					type="button"
-					data-chip-kind={kind}
+					data-chip-kind={chip.kind}
 					onclick={() => (selectionMode ? onToggleSelect(event) : onEventClick(event))}
 					aria-pressed={selectionMode ? isSelected(event) : undefined}
-					title={selectionMode ? (isSelected(event) ? 'Deselect' : 'Select') : hint}
-					class="flex min-h-[18px] w-full items-center gap-1 overflow-hidden rounded-md bg-white px-1 py-0 text-left text-[11px] font-medium leading-tight transition-colors hover:brightness-95 active:brightness-90 sm:min-h-0 sm:py-[3px] {treatment.containerClass} {selectionMode &&
+					title={selectionMode ? (isSelected(event) ? 'Deselect' : 'Select') : chip.tooltip}
+					class="flex min-h-[18px] w-full items-center gap-1 overflow-hidden rounded-md bg-white px-1 py-0 text-left text-[11px] font-medium leading-tight transition-colors hover:brightness-95 active:brightness-90 sm:min-h-0 sm:py-[3px] {chip.containerClass} {selectionMode &&
 					isSelected(event)
 						? 'ring-2 ring-primary-400'
 						: ''} {rv?.containerClass ?? ''}"
-					style={chipSurfaceStyle(event)}
+					style={chip.style}
 				>
 					{#if selectionMode}
 						<span
@@ -241,7 +233,7 @@
 					<!-- #068: the month cell is a glyph view — the computed chip
 					width at 320px cannot hold the word, so the mark's shape and
 					the screen-reader phrase carry the kind instead. -->
-					<ChipKindMark {kind} density="glyph" />
+					<ChipKindMark kind={chip.kind} density={chip.markDensity} />
 					<span class="min-w-0 truncate">{event.title}</span>
 					{#if event.creatorName}
 						<CreatorBadge name={event.creatorName} />
@@ -256,7 +248,7 @@
 				{@const overdue = task.dueDate
 					? toDate(task.dueDate).getTime() < DateTime.now().toMillis()
 					: false}
-				{@const treatment = chipTreatment('task')}
+				{@const chip = chipShell({ kind: 'task', density: 'glyph', overdue })}
 				<button
 					type="button"
 					data-chip-kind="task"
@@ -264,13 +256,13 @@
 						ev.stopPropagation();
 						onTaskClick(task);
 					}}
-					class="relative flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-white px-1 py-0 text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 active:bg-slate-200 sm:min-h-0 sm:py-[3px] {treatment.containerClass} {overdue
-						? 'border-red-400 text-red-600'
+					class="relative flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-white px-1 py-0 text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 active:bg-slate-200 sm:min-h-0 sm:py-[3px] {chip.containerClass} {overdue
+						? 'text-red-600'
 						: ''}"
 					title="View task details"
 				>
 					<span class="absolute -inset-2" aria-hidden="true"></span>
-					<ChipKindMark kind="task" density="glyph" />
+					<ChipKindMark kind={chip.kind} density={chip.markDensity} />
 					<span class="min-w-0 truncate">{task.title}</span>
 					{#if task.recurrenceFrequency}
 						<svg

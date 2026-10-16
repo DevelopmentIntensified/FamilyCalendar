@@ -5,7 +5,7 @@
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
 	import { rsvpVisual } from '$lib/utils/eventChip';
-	import { chipKindOf, chipSurfaceStyle, chipTreatment } from '$lib/utils/chipVocabulary';
+	import { chipShell } from '$lib/utils/chipVocabulary';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import ChipKindMark from './ChipKindMark.svelte';
 
@@ -132,24 +132,23 @@
 				>
 					{#each events as event (event.id)}
 						{@const rv = rsvpVisual(event.rsvpStatus)}
-						{@const kind = chipKindOf(event)}
-						{@const treatment = chipTreatment(kind)}
+						{@const chip = chipShell({ event, density: 'word' })}
 						<button
 							type="button"
-							data-chip-kind={kind}
+							data-chip-kind={chip.kind}
 							onclick={() => {
 								close();
 								onEventClick(event);
 							}}
-							class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 active:bg-slate-100 sm:px-6 {treatment.containerClass}"
-							style={chipSurfaceStyle(event)}
+							class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 active:bg-slate-100 sm:px-6 {chip.containerClass}"
+							style={chip.style}
 						>
 							<!-- #067: the sheet is a WORD view, so the mark spells
 								the kind out for every row — not just all-day. The old
 								`{:else}` branch below only fired for all-day, which left
 								a timed ad showing a bare bag glyph. `timed` has no word,
 								so an ordinary timed row renders the dot alone. -->
-							<ChipKindMark {kind} density="word" />
+							<ChipKindMark kind={chip.kind} density={chip.markDensity} />
 							<div class="min-w-0 flex-1">
 								<div class="flex items-center gap-2">
 									<span class="truncate text-sm font-medium text-slate-800">{event.title}</span>

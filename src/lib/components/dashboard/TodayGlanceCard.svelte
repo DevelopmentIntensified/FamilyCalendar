@@ -24,7 +24,7 @@
 
 <script lang="ts">
 	import { rsvpVisual } from '$lib/utils/eventChip';
-	import { chipKindOf, chipSurfaceStyle } from '$lib/utils/chipVocabulary';
+	import { chipShell } from '$lib/utils/chipVocabulary';
 	import AttendanceBadge from '../calendar/AttendanceBadge.svelte';
 	import ChipKindMark from '../calendar/ChipKindMark.svelte';
 
@@ -57,18 +57,18 @@
 		<div class="mb-3 space-y-1.5">
 			{#each allDayEvents as e (e.id)}
 				{@const rv = rsvpVisual(e.rsvpStatus)}
-				{@const kind = chipKindOf(e)}
+				{@const chip = chipShell({ event: e, density: 'word' })}
 				<button
 					type="button"
-					data-chip-kind={kind}
+					data-chip-kind={chip.kind}
 					onclick={() => onEventClick(e)}
-					style={chipSurfaceStyle(e)}
+					style={chip.style}
 					class="flex w-full items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 text-left transition-colors hover:border-slate-200 hover:bg-slate-100 {rv?.containerClass ??
 						''}"
 				>
 					<!-- #067: a hand-rolled colour dot became the shared mark, so
 						the day dashboard says what every other view says. -->
-					<ChipKindMark {kind} density="word" />
+					<ChipKindMark kind={chip.kind} density={chip.markDensity} />
 					<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{e.title}</span>
 					{#if rv}
 						<span
@@ -88,12 +88,12 @@
 		<div class="space-y-1.5">
 			{#each timedEvents as e (e.id)}
 				{@const rv = rsvpVisual(e.rsvpStatus)}
-				{@const kind = chipKindOf(e)}
+				{@const chip = chipShell({ event: e, density: 'word' })}
 				<button
 					type="button"
-					data-chip-kind={kind}
+					data-chip-kind={chip.kind}
 					onclick={() => onEventClick(e)}
-					style={chipSurfaceStyle(e)}
+					style={chip.style}
 					class="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-50 {rv?.containerClass ??
 						''}"
 				>
@@ -105,7 +105,7 @@
 							<span class="block text-[10px] tabular-nums text-slate-400">{timeLabel(e.end)}</span>
 						{/if}
 					</div>
-					<ChipKindMark {kind} density="word" />
+					<ChipKindMark kind={chip.kind} density={chip.markDensity} />
 					<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{e.title}</span>
 					{#if rv}
 						<span
