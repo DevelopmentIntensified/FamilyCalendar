@@ -88,11 +88,13 @@
 		scopes?: ('this' | 'all')[];
 		/** Change scope. Absent draws the card without the scope buttons. */
 		onScope?: (scope: 'this' | 'all') => void;
+		/** Clock override for tests; defaults to the viewer's own clock. */
+		now?: DateTime;
 	}
 
-	let { event, deleteScope = 'all', scopes = ['this', 'all'], onScope }: Props = $props();
+	let { event, deleteScope = 'all', scopes = ['this', 'all'], onScope, now = DateTime.now() }: Props = $props();
 
-	const series = $derived(describeSeries(event));
+	const series = $derived(describeSeries(event, now));
 
 	/** `event.html`'s scope labels, verbatim. */
 	const SCOPE_LABEL: Record<'this' | 'all', string> = {

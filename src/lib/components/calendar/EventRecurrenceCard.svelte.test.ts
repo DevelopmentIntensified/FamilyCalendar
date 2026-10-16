@@ -89,7 +89,9 @@ describe('describeSeries', () => {
 
 describe('the recurrence card', () => {
 	it('says this is a repeating event, and what the rule is', () => {
-		render(EventRecurrenceCard, { props: { event: recurring() } });
+		// Fixed now: the occurrence count is a fact of the rule, not of today's
+		// date — real time turns this assertion into a time bomb otherwise.
+		render(EventRecurrenceCard, { props: { event: recurring(), now: NOW } });
 
 		expect(screen.getByText('This is a repeating event')).toBeInTheDocument();
 		expect(screen.getByText('Every week on Tuesdays')).toBeInTheDocument();
