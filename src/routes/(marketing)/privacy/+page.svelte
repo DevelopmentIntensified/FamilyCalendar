@@ -22,6 +22,18 @@
 		</div>
 
 		<div class="mb-8 rounded-2xl bg-white p-8 shadow-sm">
+			<h2 class="mb-4 text-2xl font-bold text-slate-900">Children's data</h2>
+			<p class="text-slate-600">
+				A child account is created and controlled by a parent or guardian — a child cannot create
+				one themselves. When a parent adds a child, we store the child's name, their email address
+				(used to sign in), and the family calendar content the parent shares with them, just like
+				any other family member. The parent who creates the account must confirm they consent to
+				it, and we keep a record of that consent, with who gave it and when. A parent can remove a
+				child account from the family at any time.
+			</p>
+		</div>
+
+		<div class="mb-8 rounded-2xl bg-white p-8 shadow-sm">
 			<h2 class="mb-4 text-2xl font-bold text-slate-900">What we never do</h2>
 			<p class="text-slate-600">
 				We never sell your personal data. We never share your information with advertisers beyond

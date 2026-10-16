@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
-import { familyMembers } from '$lib/server/db/schema';
+import { familyMembers, childConsentRecords } from '$lib/server/db/schema';
 import { getFamilyMemberRole } from '$lib/server/db/actions/families';
 import { canAddFamilyMember } from '$lib/server/services/subscriptionService';
 import { emailExists } from '$lib/server/db/actions/users';
@@ -71,8 +71,24 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 		);
 	}
 
+	// Parental-consent attestation (#190): enforced server-side, not just in the
+	// UI — a scripted POST without it must not create the child. This records
+	// the parent's acknowledgment; it is NOT a verified/email consent flow.
+	if (body?.consentAcknowledged !== true) {
+		return json(
+			{
+				error:
+					'Please confirm you are this child’s parent or guardian and consent to creating their account.'
+			},
+			{ status: 400 }
+		);
+	}
+
 	// Create the child's account (user + email account + settings + calendar),
-	// then attach them to the family as a memberType='child' member.
+	// then attach them to the family as a memberType='child' member and append
+	// the consent record. Account creation itself is a multi-step helper, so the
+	// transaction covers the two rows that must stand or fall together: the
+	// membership and the evidence that a parent consented to it.
 	const user = await createNewUser(firstName.trim(), lastName.trim(), cleanEmail);
 
 	const [existingMember] = await db
@@ -84,10 +100,19 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 		return json({ error: 'This child is already a member of the family' }, { status: 400 });
 	}
 
-	await db.insert(familyMembers).values({
-		userId: user.id,
-		familyId,
-		memberType: 'child'
+	await db.transaction(async (tx) => {
+		await tx.insert(familyMembers).values({
+			userId: user.id,
+			familyId,
+			memberType: 'child'
+		});
+
+		await tx.insert(childConsentRecords).values({
+			childUserId: user.id,
+			parentUserId: locals.user.id,
+			familyId,
+			source: 'child-create'
+		});
 	});
 
 	return json({

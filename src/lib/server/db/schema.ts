@@ -838,6 +838,45 @@ export const adConsentRecords = pgTable(
 	})
 );
 
+/**
+ * Parental-consent RECORD (#190). One row per consent *event* — a parent
+ * creating a child account. Same shape and rationale as `adConsentRecords`
+ * (#088b): evidence, not a setting. Nothing here is read at request time; a
+ * row answers "did a parent consent, who, and when", which no boolean on the
+ * child's row can.
+ *
+ * Append-only. No unique key on childUserId — a record is a trail, not a
+ * current value. Cascades on user delete with every other user-scoped table.
+ */
+export const childConsentRecords = pgTable(
+	'childConsentRecords',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		/** The child the consent is about. */
+		childUserId: text('childUserId')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		/** The parent (or family admin) who gave it. */
+		parentUserId: text('parentUserId')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		familyId: text('familyId').notNull(),
+		/** Which surface recorded the consent. 'child-create' is the first one. */
+		source: text('source').$type<'child-create'>().notNull(),
+		recordedAt: timestamp('recordedAt', { mode: 'date' }).defaultNow().notNull()
+	},
+	(record) => ({
+		// "Prove a parent consented" is a per-child history read, newest first.
+		childRecordedIdx: index('child_consent_records_child_recorded_idx').on(
+			record.childUserId,
+			record.recordedAt
+		)
+	})
+);
+
 export const waitlist = pgTable('waitlist', {
 	id: text('id')
 		.notNull()

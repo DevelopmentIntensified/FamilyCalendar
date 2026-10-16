@@ -10,6 +10,7 @@
 	let childFirstName = $state('');
 	let childLastName = $state('');
 	let childEmail = $state('');
+	let consentAcknowledged = $state(false);
 	let creatingChild = $state(false);
 
 	async function createChild() {
@@ -22,7 +23,8 @@
 				body: JSON.stringify({
 					firstName: childFirstName,
 					lastName: childLastName,
-					email: childEmail
+					email: childEmail,
+					consentAcknowledged
 				})
 			});
 			const json = await res.json().catch(() => ({}));
@@ -96,6 +98,22 @@
 		<p class="mt-1 text-xs text-slate-400">
 			Each child needs their own email address for their account.
 		</p>
+	</div>
+	<div>
+		<label for="childConsent" class="flex items-start gap-3 text-sm text-slate-700">
+			<input
+				type="checkbox"
+				id="childConsent"
+				bind:checked={consentAcknowledged}
+				required
+				class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary-600 focus:ring-2 focus:ring-primary-500/20"
+			/>
+			<span>
+				I am this child’s parent or guardian and I consent to Family Planz creating and
+				storing this account for them. I can remove it at any time. A record of this
+				consent is kept.
+			</span>
+		</label>
 	</div>
 	<button
 		type="submit"

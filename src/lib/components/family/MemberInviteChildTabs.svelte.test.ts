@@ -62,12 +62,29 @@ describe('MemberChildTab', () => {
 		await fireEvent.input(screen.getByLabelText('Email'), {
 			target: { value: 'kid@x.com' }
 		});
+		// #190: the parental-consent checkbox is required, client and server.
+		await fireEvent.click(screen.getByLabelText(/I am this child’s parent or guardian/));
 		await fireEvent.click(screen.getByRole('button', { name: 'Create Child' }));
 		await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
 		expect(vi.mocked(fetch)).toHaveBeenCalledWith(
 			'/family/fam1/members/add/child',
-			expect.objectContaining({ method: 'POST' })
+			expect.objectContaining({
+				method: 'POST',
+				body: expect.stringContaining('"consentAcknowledged":true')
+			})
 		);
+	});
+
+	it('does not submit without the parental-consent acknowledgment', async () => {
+		render(MemberChildTab, { props });
+		await fireEvent.input(screen.getByLabelText("Child's First Name"), {
+			target: { value: 'Kid' }
+		});
+		await fireEvent.input(screen.getByLabelText("Child's Last Name"), {
+			target: { value: 'Kidson' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Child' }));
+		expect(vi.mocked(fetch)).not.toHaveBeenCalled();
 	});
 });
 
