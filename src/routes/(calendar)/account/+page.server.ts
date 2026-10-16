@@ -20,6 +20,7 @@ import { getUrl } from '$lib/utils/getUrl';
 import { createJWT } from 'oslo/jwt';
 import { TimeSpan } from 'lucia';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
+import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
 import { TRANSLATIONS } from '$lib/server/services/verseService';
 import { recordAdConsentChange } from '$lib/server/services/adConsentService';
@@ -352,13 +353,12 @@ export const actions: Actions = {
 	},
 
 	updateEmail: async ({ request, locals }) => {
+		// Throttle email bombing: 3 sends per 15min per user+IP (forgot-password pattern).
+		if (!rateLimit(clientKey(request, `email-change:${locals.user.id}`), 3, 15 * 60 * 1000)) {
+			return fail(429, { success: false, message: 'Too many attempts. Try again shortly.' });
+		}
 		const userId = locals.user.id;
 		const currentUser = await getUser(userId);
-		const formData = await request.formData();
-
-		if (!currentUser) {
-			return fail(401, { success: false, message: 'Not signed in' });
-		}
 
 		// Anonymous Accounts have no email yet — they claim their first
 		// email via the magic-link save flow, not the change-email flow.
@@ -370,6 +370,7 @@ export const actions: Actions = {
 				guestNeedsClaim: true
 			});
 		}
+		const formData = await request.formData();
 
 		const email = formString(formData, 'email');
 

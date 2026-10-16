@@ -1,12 +1,13 @@
 import { parseJWT, validateJWT } from 'oslo/jwt';
 import type { PageServerLoad, Actions } from './$types';
-import { redirect } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { EMAILSECRET } from '$env/static/private';
 import { getCode, deleteCode } from '$lib/server/db/actions/codes';
+import { getUser } from '$lib/server/db/actions/users';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
-import { fail } from '@sveltejs/kit';
+import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
 type EmailChangePayload = {
 	code: string;
@@ -40,6 +41,10 @@ function formString(formData: FormData, key: string): string {
 
 export const actions: Actions = {
 	verify: async ({ request, locals }) => {
+		// Throttle code guessing: 10 attempts per 15min per IP (login-code pattern).
+		if (!rateLimit(clientKey(request, 'verify-email-change'), 10, 15 * 60 * 1000)) {
+			return fail(429, { success: false, message: 'Too many attempts. Try again shortly.' });
+		}
 		const formData = await request.formData();
 		const token = formString(formData, 'token');
 		const code = formString(formData, 'code');
@@ -92,6 +97,12 @@ export const actions: Actions = {
 					return fail(400, { success: false, message: 'Invalid code type' });
 				}
 
+				// Identity binding: the code belongs to the address that requested it.
+				// A sniffed code cannot rewrite a different user's row.
+				const consumer = await getUser(userId);
+				if (!consumer?.email || existingCode.email !== consumer.email) {
+					return fail(400, { success: false, message: 'Invalid verification code' });
+				}
 				pendingEmail = existingCode.pendingEmail ?? null;
 				if (!pendingEmail) {
 					return fail(400, { success: false, message: 'No pending email found' });
