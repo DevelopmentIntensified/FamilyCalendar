@@ -1,8 +1,12 @@
 # 158 — Advisory: drizzle-orm 0.38.4 — SQL identifier injection (CVE-2026-39356), in range, not reachable
 
-Status: open
+Status: done
 
 Source: security audit (issue 136), 2026-10-06. Rank 12/15 — HIGH severity in a runtime dependency, but current usage makes it unreachable; upgrade cost is the open question.
+
+## Done
+
+- **Upgraded drizzle-orm 0.38.4 → 0.45.4** (Option A) — CVE-2026-39356 cleared. No breaking-change fallout: full suite (249/3598) + migration runner + build green; `@lucia-auth/adapter-drizzle` peer range `>=0.29 <1` satisfied. drizzle-kit 0.31.10 unchanged and compatible.
 
 ## Done
 

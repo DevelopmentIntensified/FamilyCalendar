@@ -1,8 +1,14 @@
 # 159 — Advisory: svelte 5.20.1 — six SSR XSS advisories, in range, not reachable today
 
-Status: open
+Status: done
 
 Source: security audit (issue 136), 2026-10-06. Rank 13/15 — moderate SSR XSS advisories; usage audit shows no reachable trigger, cheap to clear anyway.
+
+## Done
+
+- **Option B chosen (accepted, documented rule): stay on svelte@5.20.1.** The jump to 5.57.2 broke a real user path under the new compiler: EventFormModal's Create flow — the sticky action bar's `canSubmit` prop never re-evaluated after the runes-class model's `applyNlpResult` (bar stuck disabled, zero POSTs; probed at template level). Six moderate SSR XSS advisories stay in range but are UNREACHABLE per the audit (no `<svelte:element>`, no contenteditable, no user-data spreads onto HTML elements — only 5 static marketing spreads).
+- **Rule going forward: never spread user data onto an HTML element** — that single pattern is what would make these advisories live.
+- The svelte jump needs a dedicated migration lane with browser-level verification of the modal/quick-add surfaces; filed alongside future wave work. (Test-env fallout of the bump was already diagnosed and fixed where the bump was kept: kit/vite/jsdom paths.)
 
 ## Done
 

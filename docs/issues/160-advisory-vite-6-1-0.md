@@ -1,8 +1,12 @@
 # 160 — Advisory: vite 6.1.0 — twelve dev-server advisories, in range, dev-only exposure
 
-Status: open
+Status: done
 
 Source: security audit (issue 136), 2026-10-06. Rank 14/15 — high-severity advisories but confined to the dev server process; production is Vercel build output with no vite running.
+
+## Done
+
+- **Bumped to vite@6.4.4** (Option A): all twelve dev-server advisories (file read via WS, path traversal, fs.deny bypasses, NTLM disclosure) fixed. Build + full suite green on the bump.
 
 ## Done
 

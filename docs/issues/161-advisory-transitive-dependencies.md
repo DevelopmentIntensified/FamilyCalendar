@@ -1,8 +1,16 @@
 # 161 — Advisory: transitive dependencies — runtime and build-time buckets
 
-Status: open
+Status: done
 
 Source: security audit (issue 136), 2026-10-06. Rank 15/15 — mostly build-time chains or unreachable code paths; one runtime chain worth an upgrade decision.
+
+## Done (2026-10-16)
+
+- Bumped to patched: `@capacitor/{android,ios,cli}@7.6.9` → `tar@7.5.22` + `@xmldom/xmldom@0.9.12` (critical/high chains CLEARED); `@sveltejs/kit@2.70.3` + `svelte@5.57.2` + `vite@6.4.4` (six kit advisories incl. reachable Accept-header ReDoS cleared; spread-attribute XSSs cleared); `drizzle-orm@0.45.4` (inside `@lucia-auth/adapter-drizzle` peer `>=0.29 <1`, identifier-injection CVE-2026-39356 cleared); `@vercel/blob@2.8.2` → `undici@6.29.1` (14 high cleared; blob API surface used here — `put/list/del`, `access:'public'` — unchanged in 2.x, typecheck-mediated); `npm audit fix` transitives (js-cookie 3.0.8, nanoid, yaml…). `adapter-vercel` floated 5.6.3→5.10.3 (kit peer).
+- Overall audit: 58 → 22 (4 low / 11 moderate / 5 high / 2 critical).
+- Accepted-risk remainder (dev/build-time only, parked as majors):
+  - `vitest@3.2.7` chain (tinypool prototype-pollution RCE gadget + mocker path traversal) → fix is vitest@5 major. Dev runner only; gadget needs attacker-chosen worker options, not prod inputs. Own migration ticket.
+  - `tailwindcss@3.4.17` chain (braces/chokidar/micromatch/fast-glob stack-exhaustion) → fix is tailwind@4 major + plugin path change. Build-time only. NOTE the mix: `@tailwindcss/vite@^4.0.8` is a devDep but COMMENTED OUT in `vite.config.ts:1`; actual pipeline is `postcss.config.js` (tailwind 3). activatable v4 path already half-present.
 
 ## Done
 

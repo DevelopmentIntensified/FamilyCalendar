@@ -1,8 +1,13 @@
 # 157 — Advisory: @capacitor/android + @capacitor/ios 7.0.1 — CRITICAL, in range
 
-Status: open
+Status: done
 
 Source: security audit (issue 136), 2026-10-06. Rank 11/15 — highest-severity advisory found; native shell shipped from this repo (`scripts/build-capacitor.mjs`), exploit needs a device/network attacker rather than a web request.
+
+## Done
+
+- **Bumped @capacitor/{android,ios,cli} to 7.6.9** (Option A, same major). The cli's `tar@7.5.22` + `@xmldom/xmldom@0.9.12` chains are patched — the critical/high install-time chain cleared (`npm ls` verified).
+- Web (Vercel) gates green. **Residual, human step:** the packaged Android/iOS shell needs a native rebuild (`npm run capacitor:build` / scripts/build-capacitor.mjs) + on-device smoke of remote-content loading before the app binary ships the fix — nothing in the web deploy proves it.
 
 ## Done
 
