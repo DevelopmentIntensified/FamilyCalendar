@@ -149,7 +149,7 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-import { undoRecurringCompletion } from './tasks';
+import { undoRecurringCompletion } from './index';
 
 /** Base row for a daily recurring Task under test. */
 type TaskRow = {

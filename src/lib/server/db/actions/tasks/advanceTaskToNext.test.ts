@@ -44,7 +44,7 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-import { advanceTaskToNext, advanceCursor } from './tasks';
+import { advanceTaskToNext, advanceCursor } from './index';
 
 const nowIso = () => new Date().toISOString();
 

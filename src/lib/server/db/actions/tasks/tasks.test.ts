@@ -12,7 +12,7 @@ import {
 	getTasksForFamily,
 	canMutateTask,
 	type TaskFrequency
-} from './tasks';
+} from './index';
 
 /**
  * Task scoping (issue 019): the section queries and permission rules hit

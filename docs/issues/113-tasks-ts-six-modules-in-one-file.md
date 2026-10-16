@@ -39,9 +39,9 @@ a different view. It is not hypothetical.
       worst state: it advertises a shared shape it does not deliver.
 - [ ] `eventCalendarId` reaches **all** list queries, or is deliberately absent
       from all of them. Pin with a test per query.
-- [ ] Split by the six concerns above. Each piece should *concentrate* — the
+- [x] Split by the six concerns above. Each piece should *concentrate* — the
       deletion test, not a line count.
-- [ ] The public type bag stays a type bag. Consumers should not import the
+- [x] The public type bag stays a type bag. Consumers should not import the
       implementation to get a shape.
 - [ ] The 7 near-identical visibility queries are the highest-value merge: seven
       copies of one filter shape is seven chances to have got the join wrong.
@@ -53,6 +53,16 @@ signal that the file already knows it should be several. The half-used
 `sectionSelect` is the proof.
 
 ## Done
+
+- 2026-10-16: split performed (`src/lib/server/db/actions/tasks/`): `types.ts`
+  (public shape bag incl. the `TASK_VISIBILITIES` re-export), `cursor.ts`,
+  `auth.ts`, `tags.ts`, `queries.ts`, `assignment.ts`, `mutations.ts`, with
+  `index.ts` as the barrel — the public export surface is unchanged, so loaders
+  and api routes need zero edits. Colocated suites moved with their modules.
+  **Honesty note:** this pass moved the seams without moving the seams'
+  design — `sectionSelect` is unused by two of the seven list readers and
+  `eventCalendarId` still reaches only `getTasksForUser`; those two items stay
+  open deliberately (no behavior changes were in scope for the split).
 
 ## Notes
 

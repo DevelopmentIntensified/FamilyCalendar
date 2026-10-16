@@ -119,7 +119,7 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-import { syncRecurringCursors } from './tasks';
+import { syncRecurringCursors } from './index';
 
 beforeEach(() => {
 	state.queue = [];

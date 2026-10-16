@@ -52,7 +52,7 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-import { toggleTaskComplete, toggleTaskCompleteFamily, advanceCursor } from './tasks';
+import { toggleTaskComplete, toggleTaskCompleteFamily, advanceCursor } from './index';
 
 const nowIso = () => new Date().toISOString();
 

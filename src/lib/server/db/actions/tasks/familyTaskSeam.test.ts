@@ -53,7 +53,7 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-import { toggleTaskComplete, toggleTaskCompleteFamily, isFamilyMember } from './tasks';
+import { toggleTaskComplete, toggleTaskCompleteFamily, isFamilyMember } from './index';
 
 /** Base row for a one-off family Task under test. */
 type TaskRow = {

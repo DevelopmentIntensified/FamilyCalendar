@@ -48,7 +48,7 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-import { canMutateTask, applyToggle, nonOwnerAssignmentPatch, isValidAssignee } from './tasks';
+import { canMutateTask, applyToggle, nonOwnerAssignmentPatch, isValidAssignee } from './index';
 
 /** Base row for a daily recurring Task under test. */
 type TaskRow = {
