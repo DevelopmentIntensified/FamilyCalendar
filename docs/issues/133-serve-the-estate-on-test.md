@@ -14,7 +14,7 @@ Status: done
 ## Off test 2026-10-15 — prototypes approved, estate pulled
 
 - Owner approved all prototypes wholesale. Publish gate cut to local-only (`VERCEL_ENV` set → skip + clean; `PUBLISH_PROTOTYPES=1` forces on): no deploy serves `/prototypes/...` any more. Verified: local run publishes 57 files, `VERCEL_ENV=preview` run skips and removes output, `npm run build` green.
-- #134 closed moot (no marking round will run).
+- Live 2026-10-15 (deploy eb12daa): `/prototypes/` 404s, `/` unaffected. #134 closed moot (no marking round will run).
 
 **Original ticket below:**
 

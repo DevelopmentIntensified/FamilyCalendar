@@ -1,6 +1,7 @@
 import { db } from '$lib/server/db';
 import { subscriptions, userSettings } from '$lib/server/db/schema';
 import { and, sql, or, isNull, isNotNull } from 'drizzle-orm';
+import { logEvent } from './logger';
 
 export interface KPIStats {
 	totalUsers: number;
@@ -42,21 +43,21 @@ export async function getKPIMetrics(): Promise<KPIStats> {
 }
 
 export async function trackPricingView(userId: string, planType: string): Promise<void> {
-	console.log(`[KPI] Pricing view: user=${userId}, plan=${planType}`);
+	logEvent('info', 'pricing_view', { userId, planType });
 }
 
 export async function trackCheckoutStart(userId: string, planType: string): Promise<void> {
-	console.log(`[KPI] Checkout start: user=${userId}, plan=${planType}`);
+	logEvent('info', 'checkout_start', { userId, planType });
 }
 
 export async function trackSubscriptionUpgrade(userId: string, planType: string): Promise<void> {
-	console.log(`[KPI] Subscription upgrade: user=${userId}, plan=${planType}`);
+	logEvent('info', 'subscription_upgrade', { userId, planType });
 }
 
 export async function trackWaitlistSignup(email: string): Promise<void> {
-	console.log(`[KPI] Waitlist signup: email=${email}`);
+	logEvent('info', 'waitlist_signup', { email });
 }
 
 export async function trackAdConsentChange(userId: string, enabled: boolean): Promise<void> {
-	console.log(`[KPI] Ad consent: user=${userId}, enabled=${enabled}`);
+	logEvent('info', 'ad_consent_change', { userId, enabled });
 }
