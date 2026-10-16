@@ -179,7 +179,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   label → "today's verse" (exact-sentence banner needs a DayDashboard
   template touch — out of lane scope); calendar first-run hint points at
   ✨ Smart tasks. Tests: +7 across 5 card/bell suites (TDD red→green).
-- Audit closure (DONE 2026-10-15): #132 estate (D killed per owner ruling, checkers retooled to cross-set parity, models at 40 tables; proto:check 5/0/3, brand green), #133 served live then pulled off test same day (owner approved all prototypes wholesale; publish gate cut to local-only, no deploy serves `/prototypes/...`), #134 closed moot (no marking round), #135 UI findings as #170–#173, #136 security findings as #162–#169. Owner rulings: #131 token-only, #147 verify-first, strict gate, 180d/90d retention. Full spec: `docs/specs/fullspecsnapshots/`. Verify: build green, unit 3545/3546 (1 known date-drift), check 39/42 pre-existing floor.
+- Dual-skill audit (DONE 2026-10-16, 8 read-only lanes, findings as #174-#195): ui-design-principles (contrast #192, emoji fork #193, glass/tiles #194, error fallbacks #195) + production-readiness x7 (billing N-A clean; access-control #174-176; database #177-179; security #180-182; operations #183-186 before-money blockers; AI #187-188; governance #189-191). Deduped vs #136 family (#086 reconfirmed, #169/#170/#171/#166 referenced not re-filed). Before-money blockers: #183 observability, #184 CI, #177 backups, #187 AI caps, #189 export-vs-pricing-promise.
 
 ## Open
 
