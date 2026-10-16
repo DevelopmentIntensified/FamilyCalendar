@@ -339,16 +339,35 @@ export interface BulkAiSettings {
 	autoParseEventDetails?: boolean;
 }
 
+/**
+ * AI spend cap gate (issue 187): who is calling, how to check the monthly
+ * cap, and how to record a billed call. Injectable so tests pass fakes
+ * through the seam instead of mocking the subscription module.
+ */
+export interface AiSpendGate {
+	userId: string;
+	canUseAiFeature: (userId: string) => Promise<{ allowed: boolean; reason?: string }>;
+	recordAiUsage: (userId: string) => Promise<unknown>;
+}
+
 export async function planBulkEditsWithAI(
 	instruction: string,
 	events: BulkEventSummary[],
 	today: string,
 	calendars: BulkCalendarRef[] = [],
-	settings: BulkAiSettings = {}
+	settings: BulkAiSettings = {},
+	aiGate: AiSpendGate
 ): Promise<BulkPlanOp[]> {
 	// Issue 029 H3: the cloud-AI opt-out is absolute — no Cerebras call when
 	// the user disabled cloud AI or auto-parse (mirrors parse-event).
 	if (settings.useCloudAI === false || settings.autoParseEventDetails === false) return [];
+
+	// Issue 187: the monthly spend cap is checked BEFORE the vendor request —
+	// an over-cap caller gets [] and the Cerebras API is never hit. The gate is
+	// a required argument so a future caller cannot forget to wire the cap —
+	// dead-cap machinery was the original defect.
+	const cap = await aiGate.canUseAiFeature(aiGate.userId);
+	if (!cap.allowed) return [];
 
 	// Data minimisation: only events NAMED in the instruction carry their
 	// title (and location) to the LLM; everything else ships as id + start so
@@ -360,6 +379,10 @@ export async function planBulkEditsWithAI(
 		BULK_SYSTEM_PROMPT,
 		`Today is ${today}.\nInstruction: ${instruction}\nEvents: ${JSON.stringify(payload)}\nCalendars: ${JSON.stringify(calendars)}`
 	);
+	// Billed call happened (issue 187) — count it against the month's cap.
+	// The vendor charges for the request whether or not it yields ops, so usage
+	// is recorded even when chatJson comes back null.
+	await aiGate.recordAiUsage(aiGate.userId);
 	if (!json) return [];
 	return parseBulkPlan(
 		JSON.stringify(json),

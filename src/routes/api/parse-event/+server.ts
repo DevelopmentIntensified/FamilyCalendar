@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestEvent } from './$types';
 import { parseEventInput, parseEventList } from '$lib/server/services/naturalLanguageService';
 import { chatJson, llmConfigured } from '$lib/server/services/llm';
+import { canUseAiFeature, recordAiUsage } from '$lib/server/services/subscriptionService';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
@@ -12,9 +13,11 @@ import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 export type ParseEventDeps = {
 	chatJson: typeof chatJson;
 	llmConfigured: typeof llmConfigured;
+	canUseAiFeature: typeof canUseAiFeature;
+	recordAiUsage: typeof recordAiUsage;
 };
 
-const defaultDeps: ParseEventDeps = { chatJson, llmConfigured };
+const defaultDeps: ParseEventDeps = { chatJson, llmConfigured, canUseAiFeature, recordAiUsage };
 
 const PARSE_SYSTEM_PROMPT = `Parse this calendar event. Return JSON with: title, date (YYYY-MM-DD), startTime (HH:MM), endTime (HH:MM), location, description, allDay (boolean), attendants (array of names).
 
@@ -55,6 +58,9 @@ export const POST = async (
 	// cloud path stays available to logged-in users.
 	const cloudAllowed =
 		Boolean(locals.user) && rateLimit(clientKey(request, 'parse-event'), 20, 5 * 60 * 1000);
+	// The cloud path is reachable only for authenticated callers (cloudAllowed
+	// above), so userId is non-null whenever the cap check / usage record runs.
+	const userId = locals.user?.id ?? null;
 
 	try {
 		let result: ParseOutcome = { parsed: null, confidence: 0, method: 'none' };
@@ -66,12 +72,24 @@ export const POST = async (
 			return json({ results: list, method: 'regex-list' });
 		}
 
-		// 1. Cloud AI - default
+		// 1. Cloud AI - default. The monthly AI spend cap is checked BEFORE the
+		// vendor request (issue 187): an over-cap caller gets a clean refusal
+		// and the Cerebras API is never hit.
 		if (useCloud && cloudAllowed && deps.llmConfigured()) {
+			if (userId) {
+				const cap = await deps.canUseAiFeature(userId);
+				if (!cap.allowed) {
+					return json({ error: cap.reason ?? 'AI usage limit reached' }, { status: 429 });
+				}
+			}
 			const parsed = await deps.chatJson(
 				PARSE_SYSTEM_PROMPT,
 				zone ? `${input}\n(The user's timezone is ${zone}.)` : input
 			);
+			// Billed call happened — count it against the month's cap. The vendor
+			// charges for the request whether or not it yields a usable parse, so
+			// usage is recorded even when chatJson comes back null (issue 187).
+			if (userId) await deps.recordAiUsage(userId);
 			if (parsed && (parsed.title || parsed.date)) {
 				result = { parsed, confidence: 0.85, method: 'cloud' };
 			}

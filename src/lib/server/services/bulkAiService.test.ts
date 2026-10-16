@@ -357,16 +357,22 @@ describe('bare day-of-month ("move to the 26th")', () => {
 	});
 });
 
+/** Required AI spend-cap gate (issue 187). Allow-all; cap tests flip the mocks. */
+const canUseAiFeature = vi.fn();
+const recordAiUsage = vi.fn();
+const gate = () => ({ userId: 'user-1', canUseAiFeature, recordAiUsage });
+
 describe('planBulkEditsWithAI (cloud opt-out + data minimisation, issue 029 H3)', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		chatJsonMock.mockResolvedValue({ ops: [{ id: 'evt-2', date: '2026-08-28' }] });
+		canUseAiFeature.mockResolvedValue({ allowed: true, remaining: 42 });
 	});
 
 	it('returns [] without any LLM call when useCloudAI is off', async () => {
 		const ops = await planBulkEditsWithAI('move soccer practice to friday', EVENTS, TODAY, CALS, {
 			useCloudAI: false
-		});
+		}, gate());
 		expect(ops).toEqual([]);
 		expect(chatJsonMock).not.toHaveBeenCalled();
 	});
@@ -374,19 +380,19 @@ describe('planBulkEditsWithAI (cloud opt-out + data minimisation, issue 029 H3)'
 	it('returns [] without any LLM call when autoParseEventDetails is off', async () => {
 		const ops = await planBulkEditsWithAI('move soccer practice to friday', EVENTS, TODAY, CALS, {
 			autoParseEventDetails: false
-		});
+		}, gate());
 		expect(ops).toEqual([]);
 		expect(chatJsonMock).not.toHaveBeenCalled();
 	});
 
 	it('calls the LLM and parses its ops when both cloud settings are on', async () => {
-		const ops = await planBulkEditsWithAI('move soccer practice to friday', EVENTS, TODAY, CALS);
+		const ops = await planBulkEditsWithAI('move soccer practice to friday', EVENTS, TODAY, CALS, {}, gate());
 		expect(chatJsonMock).toHaveBeenCalledTimes(1);
 		expect(ops).toEqual([{ id: 'evt-2', date: '2026-08-28' }]);
 	});
 
 	it("never ships untargeted events' titles to the LLM (ids + start only)", async () => {
-		await planBulkEditsWithAI('move soccer practice to friday', EVENTS, TODAY, CALS);
+		await planBulkEditsWithAI('move soccer practice to friday', EVENTS, TODAY, CALS, {}, gate());
 
 		const prompt = String(chatJsonMock.mock.calls[0][1]);
 		expect(prompt).toContain('Soccer practice'); // named in the instruction
@@ -396,7 +402,56 @@ describe('planBulkEditsWithAI (cloud opt-out + data minimisation, issue 029 H3)'
 
 	it('still returns [] on a null LLM answer', async () => {
 		chatJsonMock.mockResolvedValue(null);
-		const ops = await planBulkEditsWithAI('make it purple', EVENTS, TODAY, CALS);
+		const ops = await planBulkEditsWithAI('make it purple', EVENTS, TODAY, CALS, {}, gate());
 		expect(ops).toEqual([]);
+	});
+});
+
+describe('planBulkEditsWithAI (AI spend cap, issue 187)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		chatJsonMock.mockResolvedValue({ ops: [{ id: 'evt-2', date: '2026-08-28' }] });
+		canUseAiFeature.mockResolvedValue({ allowed: true, remaining: 42 });
+	});
+
+	it('refuses over-cap callers without any LLM call', async () => {
+		canUseAiFeature.mockResolvedValue({ allowed: false, reason: 'limit reached', remaining: 0 });
+
+		const ops = await planBulkEditsWithAI(
+			'move soccer practice to friday',
+			EVENTS,
+			TODAY,
+			CALS,
+			{},
+			gate()
+		);
+
+		expect(ops).toEqual([]);
+		expect(chatJsonMock).not.toHaveBeenCalled();
+	});
+
+	it('calls the LLM and records usage for under-cap callers', async () => {
+		const ops = await planBulkEditsWithAI(
+			'move soccer practice to friday',
+			EVENTS,
+			TODAY,
+			CALS,
+			{},
+			gate()
+		);
+
+		expect(chatJsonMock).toHaveBeenCalledTimes(1);
+		expect(canUseAiFeature).toHaveBeenCalledWith('user-1');
+		expect(recordAiUsage).toHaveBeenCalledTimes(1);
+		expect(recordAiUsage).toHaveBeenCalledWith('user-1');
+		expect(ops).toEqual([{ id: 'evt-2', date: '2026-08-28' }]);
+	});
+
+	it('records usage even when the LLM returns nothing (the request is still billed)', async () => {
+		chatJsonMock.mockResolvedValue(null);
+
+		await planBulkEditsWithAI('move soccer practice to friday', EVENTS, TODAY, CALS, {}, gate());
+
+		expect(recordAiUsage).toHaveBeenCalledTimes(1);
 	});
 });
