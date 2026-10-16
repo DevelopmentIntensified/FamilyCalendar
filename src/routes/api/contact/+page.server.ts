@@ -3,6 +3,7 @@ import { apiError } from '$lib/server/utils/apiError';
 import type { Actions } from './$types';
 import { sendEmail } from '$lib/utils/sendEmail';
 import { NOREPLYEMAIL } from '$env/static/private';
+import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
 function escapeHtml(value: string): string {
 	return value
@@ -24,6 +25,10 @@ function formString(formData: FormData, key: string): string {
 
 export const actions: Actions = {
 	default: async ({ request }) => {
+		// Throttle quota-burn: 3 sends per 15min per client (bug-report pattern).
+		if (!rateLimit(clientKey(request, 'contact'), 3, 15 * 60 * 1000)) {
+			return json({ error: 'Too many attempts. Try again shortly.' }, { status: 429 });
+		}
 		const formData = await request.formData();
 
 		const website = formString(formData, 'website');

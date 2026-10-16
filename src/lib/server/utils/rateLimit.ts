@@ -18,8 +18,16 @@ export function rateLimit(key: string, limit: number, windowMs: number): boolean
 	return true;
 }
 
-/** Stable per-client bucket key combining the caller IP with a scope label. */
+/** Stable per-client bucket key combining the caller IP with a scope label.
+ *
+ * Vercel overwrites `x-forwarded-for` with the real client IP (no spoofing —
+ * https://vercel.com/docs/headers/request-headers), but the value can still
+ * be a multi-hop chain, so only the first hop is keyed. `x-real-ip` is
+ * preferred when present (single IP by construction). Local dev has neither
+ * and falls back to 'local'. */
 export function clientKey(request: Request, scope: string): string {
-	const ip = request?.headers?.get('x-forwarded-for') ?? 'local';
+	const fwd = request?.headers?.get('x-forwarded-for');
+	const real = request?.headers?.get('x-real-ip');
+	const ip = (real ?? fwd?.split(',')[0] ?? 'local').trim() || 'local';
 	return `${scope}:${ip}`;
 }

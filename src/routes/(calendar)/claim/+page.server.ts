@@ -64,7 +64,7 @@ export const actions: Actions = {
 		if (!rateLimit(clientKey(request, 'claim-ip'), 10, 15 * 60 * 1000)) {
 			return fail(429, { error: 'Too many attempts. Try again shortly.' });
 		}
-		if (!rateLimit(`claim:${email}`, 3, 15 * 60 * 1000)) {
+		if (!rateLimit(clientKey(request, `claim:${email}`), 3, 15 * 60 * 1000)) {
 			return fail(429, { error: 'Too many attempts. Try again shortly.' });
 		}
 

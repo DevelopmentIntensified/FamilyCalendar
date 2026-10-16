@@ -1,6 +1,8 @@
 # 150 — Rate-limit key trusts client-supplied `x-forwarded-for` verbatim
 
-Status: open
+Status: done
+
+**Shipped 2026-10-15 (Option A, docs-verified, live probe skipped per owner):** `src/lib/server/utils/rateLimit.ts` — `clientKey` prefers `x-real-ip`, else first XFF hop, else `'local'`. Vercel docs confirm the edge overwrites XFF (no spoofing); first-hop + real-ip covers multi-hop chains. All 15 callsites inherit, zero further edits. Drive-by: claim per-email limiter re-bound through `clientKey` (was bare `claim:<email>`, no IP binding). Verify: touched-area unit 103/103, check 39/42-in-29 exact baseline match, build green.
 
 Source: security audit (issue 136), 2026-10-06. Rank 4/15 — conditional but multiplies every rate limit in the app (147–149, 151, login/reset limits).
 

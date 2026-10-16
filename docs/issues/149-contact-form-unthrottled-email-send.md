@@ -1,6 +1,8 @@
 # 149 — Public contact form sends email unauthenticated and unthrottled
 
-Status: open
+Status: done
+
+**Shipped 2026-10-15 (Option A, probe skipped per owner):** `src/routes/api/contact/+page.server.ts` — `rateLimit(clientKey(request, 'contact'), 3, 15 * 60 * 1000)` at the top of the `default` action, 429 on excess, bug-report pattern. Rides the hardened `clientKey` (#150, same push). Verify: touched-area unit 103/103, check 39/42-in-29 exact baseline match, build green.
 
 Source: security audit (issue 136), 2026-10-06. Rank 3/15 — pre-auth, direct monetary/deliverability abuse (Resend quota), one request per iteration.
 
