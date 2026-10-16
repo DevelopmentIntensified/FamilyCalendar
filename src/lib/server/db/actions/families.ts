@@ -189,38 +189,62 @@ export async function verifyInviteCode(
 	return { family, inviteCode };
 }
 
+/**
+ * Accept an invite under concurrency (issue 155). The whole accept runs in one
+ * transaction that takes `SELECT ... FOR UPDATE` on the invite row: concurrent
+ * accepts of the same code serialise on that lock, so the maxUses check, the
+ * duplicate-member guard and the family-size cap are all evaluated against a
+ * state no other accept can mutate mid-flight. The use-count increment is
+ * DB-side (`use_count + 1`) so even a snapshot read can never be written back.
+ */
 export async function acceptInvite(
 	userId: string,
 	code: string
 ): Promise<{ accepted: boolean; reason?: 'family-full' }> {
-	const verification = await verifyInviteCode(code);
-	if (!verification) return { accepted: false };
+	return await db.transaction(async (tx) => {
+		const [inviteCode] = await tx
+			.select()
+			.from(familyInviteCodes)
+			.where(and(eq(familyInviteCodes.code, code), gt(familyInviteCodes.expiresAt, new Date())))
+			.for('update');
+		if (!inviteCode) return { accepted: false };
 
-	const [existing] = await db
-		.select()
-		.from(familyMembers)
-		.where(
-			and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, verification.family.id))
-		);
+		const [family] = await tx.select().from(families).where(eq(families.id, inviteCode.familyId));
+		if (!family) return { accepted: false };
 
-	if (existing) return { accepted: false };
+		if (
+			inviteCode.maxUses !== null &&
+			inviteCode.useCount !== null &&
+			inviteCode.useCount >= inviteCode.maxUses
+		) {
+			return { accepted: false };
+		}
 
-	// Enforce the subscription member limit on the join path too — an invite
-	// code must not become a way to bypass the family-size cap.
-	const limitCheck = await canAddFamilyMember(verification.family.id);
-	if (!limitCheck.allowed) return { accepted: false, reason: 'family-full' };
+		const [existing] = await tx
+			.select()
+			.from(familyMembers)
+			.where(and(eq(familyMembers.userId, userId), eq(familyMembers.familyId, family.id)));
+		if (existing) return { accepted: false };
 
-	await db.insert(familyMembers).values({
-		userId,
-		familyId: verification.family.id
+		// Enforce the subscription member limit on the join path too — an invite
+		// code must not become a way to bypass the family-size cap. Concurrent
+		// accepts are serialised by the invite-row lock above, so this count
+		// includes memberships committed by any earlier accept of this code.
+		const limitCheck = await canAddFamilyMember(family.id);
+		if (!limitCheck.allowed) return { accepted: false, reason: 'family-full' };
+
+		await tx.insert(familyMembers).values({
+			userId,
+			familyId: family.id
+		});
+
+		await tx
+			.update(familyInviteCodes)
+			.set({ useCount: sql`${familyInviteCodes.useCount} + 1` })
+			.where(eq(familyInviteCodes.code, code));
+
+		return { accepted: true };
 	});
-
-	await db
-		.update(familyInviteCodes)
-		.set({ useCount: (verification.inviteCode.useCount ?? 0) + 1 })
-		.where(eq(familyInviteCodes.code, code));
-
-	return { accepted: true };
 }
 
 /** The user's family id, or null. Single-membership assumption. */

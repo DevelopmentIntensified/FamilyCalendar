@@ -22,6 +22,12 @@ interface StubState {
 	updateWhere: unknown;
 	/** Raw SQL handed to tx.execute (the roster delete). */
 	executeSql: unknown;
+	/** Patch of the tx update (removeFamilyMember, acceptInvite increment). */
+	txUpdatePatch: Row | null;
+	/** Where condition of the tx update. */
+	txUpdateWhere: unknown;
+	/** Lock strengths requested via `.for(...)` on tx selects, in call order. */
+	forUpdate: string[];
 }
 
 const state = vi.hoisted(
@@ -31,7 +37,10 @@ const state = vi.hoisted(
 		capturedWhere: [],
 		updatePatch: null,
 		updateWhere: null,
-		executeSql: null
+		executeSql: null,
+		txUpdatePatch: null,
+		txUpdateWhere: null,
+		forUpdate: []
 	})
 );
 
@@ -65,14 +74,55 @@ vi.mock('$lib/server/db', () => ({
 				where: () => Promise.resolve()
 			})
 		}),
-		// removeFamilyMember runs its writes through a transaction client.
+		// Transactional paths (removeFamilyMember, acceptInvite) run through a
+		// transaction client mirroring the db stub: shared row queue and where
+		// capture, plus `.for(...)` lock capture and a tx-scoped update patch.
 		transaction: async (run: (tx: FamilyRemovalTx) => Promise<void>) => {
 			const tx: FamilyRemovalTx = {
+				select: () => ({
+					from: () => {
+						const rows = state.queue.shift() ?? [];
+						const base = Object.assign(Promise.resolve(rows), {
+							orderBy: () => ({ limit: () => Promise.resolve(rows) }),
+							limit: () => Promise.resolve(rows),
+							for: (strength: string) => {
+								state.forUpdate.push(strength);
+								return base;
+							}
+						});
+						return {
+							where: (...args: unknown[]) => {
+								state.capturedWhere.push(args[0]);
+								return base;
+							},
+							for: (strength: string) => {
+								state.forUpdate.push(strength);
+								return {
+									where: (...args: unknown[]) => {
+										state.capturedWhere.push(args[0]);
+										return base;
+									}
+								};
+							}
+						};
+					}
+				}),
+				insert: () => ({
+					values: (row: Row) => {
+						state.inserts.push(row);
+						return Object.assign(Promise.resolve([row]), {
+							returning: () => Promise.resolve([row])
+						});
+					}
+				}),
 				update: () => ({
 					set: (patch: Row) => {
+						state.txUpdatePatch = patch;
+						// removeFamilyMember's assertions read the shared patch slot.
 						state.updatePatch = patch;
 						return {
 							where: (...args: unknown[]) => {
+								state.txUpdateWhere = args[0];
 								state.updateWhere = args[0];
 								return Promise.resolve();
 							}
@@ -101,8 +151,26 @@ interface SqlChunk {
 
 type SqlFragment = string | undefined | readonly SqlFragment[] | SqlChunk;
 
-/** The slice of the drizzle transaction client removeFamilyMember uses. */
+/** The slice of the drizzle transaction client the transactional actions use. */
 interface FamilyRemovalTx {
+	select(): {
+		from(): {
+			where(...args: unknown[]): Promise<Row[]> & {
+				for(strength: string): unknown;
+				orderBy(): { limit(): Promise<Row[]> };
+				limit(): Promise<Row[]>;
+			};
+			for(strength: string): {
+				where(...args: unknown[]): Promise<Row[]> & {
+					orderBy(): { limit(): Promise<Row[]> };
+					limit(): Promise<Row[]>;
+				};
+			};
+		};
+	};
+	insert(): {
+		values(row: Row): Promise<Row[]> & { returning(): Promise<Row[]> };
+	};
 	update(): {
 		set(patch: Row): { where(...args: unknown[]): Promise<void> };
 	};
@@ -255,6 +323,86 @@ describe('acceptInvite', () => {
 		const result = await acceptInvite('joiner-1', 'code-dead');
 		expect(result.accepted).toBe(false);
 		expect(result.reason).toBeUndefined();
+	});
+
+	beforeEach(() => {
+		state.inserts = [];
+		state.updatePatch = null;
+		state.txUpdatePatch = null;
+		state.forUpdate = [];
+	});
+
+	it('locks the invite row FOR UPDATE and verifies expiry inside the transaction', async () => {
+		state.queue = [
+			[{ code: 'code-1', familyId: 'fam-1', maxUses: 10, useCount: 0 }],
+			[{ id: 'fam-1' }],
+			[],
+			[{ memberCount: 0 }],
+			[]
+		];
+		await acceptInvite('joiner-1', 'code-1');
+
+		// Serialisation anchor: concurrent accepts of the same code must queue
+		// behind this row lock, or the read-then-check below is racy again.
+		expect(state.forUpdate).toEqual(['update']);
+		const inviteMarkers = collectMarkers(state.capturedWhere[0] as SqlChunk);
+		expect(inviteMarkers).toContain('code');
+		// Expiry is enforced by the locking select itself, inside the tx.
+		expect(inviteMarkers).toContain('expiresAt');
+	});
+
+	it('rejects an accept once useCount has reached maxUses and inserts nothing', async () => {
+		// select #1 = invite code already at its cap
+		state.queue = [[{ code: 'code-1', familyId: 'fam-1', maxUses: 3, useCount: 3 }]];
+		const result = await acceptInvite('joiner-1', 'code-1');
+		expect(result.accepted).toBe(false);
+		expect(state.inserts).toEqual([]);
+		expect(state.txUpdatePatch).toBeNull();
+	});
+
+	it('rejects an expired code before any membership write', async () => {
+		// Expiry lives in the locking select's WHERE, so an expired code returns no row.
+		state.queue = [[]];
+		const result = await acceptInvite('joiner-1', 'code-old');
+		expect(result.accepted).toBe(false);
+		expect(state.inserts).toEqual([]);
+	});
+
+	it('rejects a duplicate member without writing membership or incrementing', async () => {
+		// select #1 = invite, #2 = family, #3 = existing membership
+		state.queue = [
+			[{ code: 'code-1', familyId: 'fam-1', maxUses: 10, useCount: 1 }],
+			[{ id: 'fam-1' }],
+			[{ userId: 'joiner-1', familyId: 'fam-1' }]
+		];
+		const result = await acceptInvite('joiner-1', 'code-1');
+		expect(result.accepted).toBe(false);
+		expect(state.inserts).toEqual([]);
+		expect(state.txUpdatePatch).toBeNull();
+	});
+
+	it('increments useCount in the database, not from the stale read', async () => {
+		state.queue = [
+			[{ code: 'code-1', familyId: 'fam-1', maxUses: 10, useCount: 4 }],
+			[{ id: 'fam-1' }],
+			[],
+			[{ memberCount: 0 }],
+			[]
+		];
+		const result = await acceptInvite('joiner-1', 'code-1');
+		expect(result.accepted).toBe(true);
+
+		// Membership insert happens inside the tx.
+		expect(state.inserts).toEqual([{ userId: 'joiner-1', familyId: 'fam-1' }]);
+
+		// The increment must compile to `use_count + 1` (DB-side), never the
+		// value read above (4) — a read-value write is the lost update.
+		const patchUseCount = state.txUpdatePatch?.useCount;
+		expect(patchUseCount).toBeDefined();
+		expect(patchUseCount).not.toBe(5);
+		const incrementMarkers = collectMarkers(patchUseCount as SqlChunk).join(' ');
+		expect(incrementMarkers).toContain('useCount');
+		expect(incrementMarkers).toContain('+');
 	});
 });
 
