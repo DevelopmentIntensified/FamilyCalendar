@@ -178,3 +178,13 @@ _file: `app-ui/stats.html` · approved: yes · tickets: 093_
 - selector: `[data-fb="totals"]`
 - size: 400×106
 - note: Make this still the same height as the box beside it
+
+## Calendar — prototype E (explicit exception)
+
+_file: `app-ui/calendar.html` · approved: yes · tickets: 145_
+
+**1. Exception** `OVERRIDDEN` — prototype E deliberately NOT followed here.
+- note: E sends a wide-viewport month-grid day tap straight to the day view;
+  owner ruled (2026-10-04, ticket #145) that the day action sheet is the tap
+  target at EVERY width. This is the one recorded divergence from E's tap
+  behaviour; E is followed everywhere else.

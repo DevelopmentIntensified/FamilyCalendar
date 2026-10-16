@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { groupByDateKey } from '$lib/utils/eventDisplay';
-	import { smallScreenQuery } from './calendarView';
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
 	import EventModal from './EventModal.svelte';
@@ -9,7 +8,6 @@
 	import DayActionSheet from './DayActionSheet.svelte';
 	import MonthDayCell from './MonthDayCell.svelte';
 	import { invalidateAll } from '$app/navigation';
-	import { onMount } from 'svelte';
 	import { toDate } from '$lib/utils/eventTime';
 	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
 
@@ -86,41 +84,19 @@
 		invalidateAll().then(closeModal);
 	}
 
-	// Mobile day-action sheet: on small screens a day tap opens a bottom sheet
-	// (Add event / Open Day Dashboard / View events) instead of the tiny header
-	// buttons. Desktop keeps the existing tap-to-open-day behavior.
+	// Day-action sheet (#145): a day tap opens the sheet at EVERY width — the
+	// owner's 2026-10-04 ruling. There is no breakpoint where the tap changes
+	// meaning; "Open Day View" inside the sheet still reaches the day grid.
 	let sheetOpen = false;
 	let sheetDate: DateTime | null = null;
 	let sheetEvents: Event[] = [];
 	let sheetTasks: CalendarTask[] = [];
 
-	let smallScreen = false;
-	onMount(() => {
-		// Derived from the app's ONE breakpoint (#119), the exact complement of
-		// Tailwind's `md:`. It used to be a typed 767px while the month cell
-		// revealed its per-cell tools at `sm` (640px) — so 640–767px answered the
-		// same tap two ways. Landscape phones and small tablets get the sheet;
-		// aligned with BottomNav (md:hidden) too.
-		const mq = window.matchMedia(smallScreenQuery());
-		const apply = () => (smallScreen = mq.matches);
-		apply();
-		if (mq.addEventListener) {
-			mq.addEventListener('change', apply);
-			return () => mq.removeEventListener('change', apply);
-		}
-		mq.addListener(apply);
-		return () => mq.removeListener(apply);
-	});
-
 	function handleCellTap(cellDate: DateTime, evts: Event[], tasks: CalendarTask[] = []) {
-		if (smallScreen) {
-			sheetDate = cellDate;
-			sheetEvents = evts;
-			sheetTasks = tasks;
-			sheetOpen = true;
-		} else {
-			openDay(cellDate);
-		}
+		sheetDate = cellDate;
+		sheetEvents = evts;
+		sheetTasks = tasks;
+		sheetOpen = true;
 	}
 
 	function onSheetViewEvents() {
@@ -138,7 +114,6 @@
 		dayTasks={tasksByDate.get(date) ?? []}
 		isTodayDate={date === formatDate(today)}
 		isOtherMonth={nextMonth || lastMonth}
-		{smallScreen}
 		{selectionMode}
 		{calendars}
 		{isSelected}

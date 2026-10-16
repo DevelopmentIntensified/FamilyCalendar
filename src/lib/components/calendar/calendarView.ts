@@ -37,20 +37,6 @@ export const VIEW_BREAKPOINT_PX = 768;
 export type CalendarLayout = 'narrow' | 'wide';
 
 /**
- * #119 — the media query that means "this is a phone: a day tap opens the
- * day-action sheet instead of the day grid".
- *
- * Derived from the one breakpoint rather than typed out. It used to be a
- * literal `(max-width: 767px)` in MonthDays while the month cell revealed its
- * per-cell tools at Tailwind's `sm` (640px), so 640–767px was in sheet mode AND
- * showing per-cell tools — two answers to the same tap. The exact complement of
- * `md:` is the only value that can stay true as the breakpoint moves.
- */
-export function smallScreenQuery(): string {
-	return `(max-width: ${VIEW_BREAKPOINT_PX - 1}px)`;
-}
-
-/**
  * An unmeasurable width (SSR has no window; 0/NaN is a broken reading) is not
  * a phone, so it resolves 'wide' — today's behaviour, untouched. Never let a
  * failed measurement change what a user sees.

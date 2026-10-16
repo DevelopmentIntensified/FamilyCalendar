@@ -17,7 +17,6 @@
 		dayTasks: CalendarTask[];
 		isTodayDate: boolean;
 		isOtherMonth: boolean;
-		smallScreen: boolean;
 		selectionMode: boolean;
 		calendars: { id: string; name: string; color?: string }[];
 		isSelected: (event: Event) => boolean;
@@ -36,7 +35,6 @@
 		dayTasks,
 		isTodayDate,
 		isOtherMonth,
-		smallScreen,
 		selectionMode,
 		calendars,
 		isSelected,
@@ -180,12 +178,15 @@
 				{/if}
 			</div>
 		</div>
+		<!-- #145: the sheet owns the tap at every width, so chips stay taps
+			against the CELL (they open the day sheet) unless selection mode
+			needs them clickable — no width condition left in the markup. -->
 		<div
 			data-testid="month-chips"
-			class="mt-1 min-h-0 flex-1 space-y-[2px] overflow-hidden {smallScreen && !selectionMode
+			class="mt-1 min-h-0 flex-1 space-y-[2px] overflow-hidden {!selectionMode
 				? 'pointer-events-none'
 				: ''}"
-			inert={smallScreen && !selectionMode ? true : undefined}
+			inert={!selectionMode ? true : undefined}
 		>
 			{#each dayEvents.slice(0, MAX_CHIPS) as event (event.id)}
 				{@const rv = rsvpVisual(event.rsvpStatus)}

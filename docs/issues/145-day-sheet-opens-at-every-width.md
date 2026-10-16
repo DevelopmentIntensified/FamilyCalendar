@@ -1,6 +1,16 @@
 # 145 - The day sheet opens at every width
 
-Status: open
+Status: done
+
+## Done
+
+- Breakpoint branch removed: `MonthDays.svelte` lost `matchMedia(smallScreenQuery())` gating and `calendarView.ts` lost the now-dead `smallScreenQuery()`; `handleCellTap` opens the day action sheet unconditionally.
+- Desktop sheet geometry: below `md` unchanged (bottom sheet); at `md`+ it is a full-height 448px panel anchored to the viewport's right edge — not a centered phone dialog.
+- Dismiss at every width: Escape (`svelte:window`), backdrop click, focus-trapped Close button.
+- Event chips `pointer-events-none`/`inert` outside selection mode at every width — the sheet owns the tap; event details reachable via the sheet's list.
+- Regression restated to ONE behaviour: table-driven `it.each([true, false])` over the possible `matchMedia` answers.
+- Playwright (real Chromium, throwaway spec deleted after), 375/640/768/1024/1440: opens at every width, four options visible, `overflowX=0`, all three dismiss routes work. Geometry: 375→375×407 bottom-docked, 640→640×405, 768/1024/1440→448×852 right-anchored.
+- Prototype-E exception recorded in `docs/research/review-marks-cycle-1.md`: sheet wins at all widths per owner ruling 2026-10-04; E followed everywhere else.
 
 **What to build:** Tapping a day opens the day action sheet at **every** width,
 including desktop. Today the sheet is only reachable below the wider breakpoint;
@@ -16,7 +26,7 @@ followed everywhere else.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** open
+**Status:** done
 
 - [ ] Tapping a day in the month grid opens the sheet at every viewport width, with
       no breakpoint where the behaviour differs

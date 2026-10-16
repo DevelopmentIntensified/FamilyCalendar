@@ -73,7 +73,7 @@
 
 {#if open}
 	<div
-		class="fixed inset-0 z-50 flex items-end justify-center overflow-hidden sm:items-center sm:p-4"
+		class="fixed inset-0 z-50 flex items-end justify-center overflow-hidden md:items-stretch md:justify-end md:p-6"
 	>
 		<div
 			class="absolute inset-0 bg-black/40 backdrop-blur-sm"
@@ -83,7 +83,7 @@
 
 		<div
 			use:trapFocusAction
-			class="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl"
+			class="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl md:h-full md:max-h-none md:max-w-md md:rounded-2xl"
 			style="transform: translateY({dragOffset}px); transition: transform {dragTransition
 				? '150ms ease-out'
 				: '0ms'}; touch-action: pan-y;"

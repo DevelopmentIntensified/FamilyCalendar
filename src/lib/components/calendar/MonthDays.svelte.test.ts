@@ -3,7 +3,6 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/sv
 import { DateTime } from 'luxon';
 import MonthDays from './MonthDays.svelte';
 import type { Event } from '$lib/types';
-import { VIEW_BREAKPOINT_PX, smallScreenQuery } from './calendarView';
 
 afterEach(() => {
 	cleanup();
@@ -72,43 +71,43 @@ describe('MonthDays overflow ("+N more")', () => {
  * #119 mark 1.14 — "the circle is really big on tablet view", and the day cell's
  * own per-cell tools appearing while the day-action sheet was also live.
  *
- * Both are one root: two different width numbers for one question. The app has
- * ONE breakpoint — `VIEW_BREAKPOINT_PX`, 768, Tailwind's `md` — and the media
- * query that flips a phone into day-action-sheet mode is DERIVED from it, so a
- * cell can never disagree with its own tap handler.
+ * That defect's fix was a media query; #145 replaces the whole question. The
+ * owner ruled (2026-10-04) that a day tap opens the day action sheet at EVERY
+ * width — there is no breakpoint left for the tap to disagree about, so the
+ * regression test now asserts ONE behaviour under BOTH answers matchMedia can
+ * give, instead of two consistent ones.
  */
-describe('MonthDays owns one breakpoint (#119)', () => {
-	it('derives the day-action-sheet media query from the app breakpoint', () => {
-		// One below the breakpoint, so it is the exact complement of `md:`.
-		expect(smallScreenQuery()).toBe(`(max-width: ${VIEW_BREAKPOINT_PX - 1}px)`);
-		expect(smallScreenQuery()).toBe('(max-width: 767px)');
-	});
-
-	it('follows the media query, and opens the sheet when it matches', async () => {
-		const asked: string[] = [];
+describe('MonthDays: a day tap opens the sheet at every width (#145)', () => {
+	// jsdom has no layout, so the width is simulated by what matchMedia answers.
+	// Both answers must produce the same tap result — that IS the one behaviour.
+	function stubMatchMedia(matches: boolean) {
 		const real = window.matchMedia;
-		const matches = (q: string) => {
-			asked.push(q);
-			return {
-				matches: q === smallScreenQuery(),
-				media: q,
-				onchange: null,
-				addEventListener: () => {},
-				removeEventListener: () => {},
-				addListener: () => {},
-				removeListener: () => {},
-				dispatchEvent: () => false
-			};
-		};
-		window.matchMedia = matches;
-		try {
-			renderJanuaryWithFourEvents();
-			expect(asked).toContain(smallScreenQuery());
-			// In sheet mode a cell tap opens the sheet, not the day view.
-			await fireEvent.click(screen.getByRole('button', { name: 'Open 01-15-2024' }));
-			expect(await screen.findByRole('dialog', { name: 'Day actions' })).toBeTruthy();
-		} finally {
+		window.matchMedia = ((q: string) => ({
+			matches,
+			media: q,
+			onchange: null,
+			addEventListener: () => {},
+			removeEventListener: () => {},
+			addListener: () => {},
+			removeListener: () => {},
+			dispatchEvent: () => false
+		})) as unknown as typeof window.matchMedia;
+		return () => {
 			window.matchMedia = real;
+		};
+	}
+
+	it.each([true, false])(
+		'opens the day action sheet on tap, whether the media query %s',
+		async (matches) => {
+			const restore = stubMatchMedia(matches);
+			try {
+				renderJanuaryWithFourEvents();
+				await fireEvent.click(screen.getByRole('button', { name: 'Open 01-15-2024' }));
+				expect(await screen.findByRole('dialog', { name: 'Day actions' })).toBeTruthy();
+			} finally {
+				restore();
+			}
 		}
-	});
+	);
 });

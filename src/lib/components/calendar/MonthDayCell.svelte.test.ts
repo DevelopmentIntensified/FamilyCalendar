@@ -36,7 +36,6 @@ const base = {
 	cellDate: DateTime.fromISO('2026-09-09'),
 	isTodayDate: false,
 	isOtherMonth: false,
-	smallScreen: false,
 	selectionMode: false,
 	calendars: [],
 	isSelected: () => false,
