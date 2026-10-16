@@ -14,12 +14,13 @@ import {
 // Re-exported so the API routes import the visibility enum from this
 // actions module (the seam they already mock) instead of schema directly.
 export { TASK_VISIBILITIES };
-import { and, eq, inArray, or, desc, gt, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, or, desc, gt, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { DateTime } from 'luxon';
 import { zonedNow } from '$lib/server/utils/userTimezone';
 import { toDateTime } from '$lib/server/utils/eventTimes';
 import { scheduleStep, type RecurrenceFrequency } from '$lib/server/services/recurrenceService';
+import { logEvent } from '$lib/server/services/logger';
 
 const assignee = alias(users, 'assignee');
 const creator = alias(users, 'creator');
@@ -192,11 +193,15 @@ export async function createTask(data: {
 }
 
 /** Personal tasks + family tasks + tasks attached to the given events,
- *  with the parent event's title/start so lists can attribute them. */
+ *  with the parent event's title/start so lists can attribute them.
+ *  Runs the Recurring Task cursor pin (110) for its scope FIRST — the
+ *  interface, not the caller, owns the sync-before-read order. */
 export async function getTasksForUser(
 	userId: string,
-	familyId?: string | null
+	familyId?: string | null,
+	zone?: string
 ): Promise<TaskWithTags[]> {
+	await syncRecurringCursors(userId, familyId ?? null, zone);
 	const conditions = [eq(tasks.userId, userId)];
 	if (familyId) {
 		conditions.push(eq(tasks.familyId, familyId));
@@ -245,8 +250,10 @@ export async function getTasksForEvent(eventId: string) {
 		.orderBy(tasks.createdAt);
 }
 
-/** Every task in a family, with assignee and creator attribution. */
-export async function getTasksForFamily(familyId: string): Promise<TaskWithTags[]> {
+/** Every task in a family, with assignee and creator attribution.
+ *  Cursor pin (110) runs first, scoped to family rows (no user leg). */
+export async function getTasksForFamily(familyId: string, zone?: string): Promise<TaskWithTags[]> {
+	await syncRecurringCursors(null, familyId, zone);
 	const rows = await db
 		.select({
 			id: tasks.id,
@@ -347,15 +354,12 @@ export async function getMyTasks(userId: string): Promise<TaskWithTags[]> {
 		.orderBy(desc(tasks.createdAt));
 	// Test-env trace (non-prod only): myTasks row mix per caller.
 	if (process.env.NODE_ENV !== 'production')
-		console.log(
-		'[tasks-debug] getMyTasks',
-		JSON.stringify({
+		logEvent('debug', 'tasks_debug_getMyTasks', {
 			userId,
 			count: rows.length,
 			personal: rows.filter((r) => !r.familyId).length,
-				family: rows.filter((r) => !!r.familyId).length
-			})
-	);
+			family: rows.filter((r) => !!r.familyId).length
+		});
 	return withTags(rows);
 }
 
@@ -393,7 +397,14 @@ export async function getRequestedByMe(userId: string): Promise<TaskWithTags[]> 
  * creators since removed are filtered out at the SQL level — visibility
  * filtering lives in the query, never in the caller.
  */
-export async function getPublicTasksForFamily(familyId: string): Promise<TaskWithTags[]> {
+export async function getPublicTasksForFamily(
+	familyId: string,
+	zone?: string
+): Promise<TaskWithTags[]> {
+	// The public tab reads members' PERSONAL rows (familyId null), so its
+	// sync adds the member-personal leg — otherwise this view would show
+	// stale overdue recurring cursors no other sync covers (110).
+	await syncRecurringCursors(null, familyId, zone, true);
 	const rows = await db
 		.select(sectionSelect)
 		.from(tasks)
@@ -405,24 +416,6 @@ export async function getPublicTasksForFamily(familyId: string): Promise<TaskWit
 		.leftJoin(assignee, eq(tasks.assignedTo, assignee.id))
 		.leftJoin(creator, eq(tasks.userId, creator.id))
 		.where(and(isNull(tasks.familyId), eq(tasks.visibility, 'public'), isNull(tasks.archivedAt)))
-		.orderBy(desc(tasks.createdAt));
-	return withTags(rows);
-}
-
-/**
- * FAMILY tasks on a PERSONAL list (issue 019): the family tasks assigned
- * to me in the given family, filterable by the caller. Pending rows also
- * surface here unfiltered — the UI slices 2 decide the split with the
- * "To accept" tab.
- */
-export async function getFamilyTasksAssignedTo(
-	userId: string,
-	familyId: string
-): Promise<TaskWithTags[]> {
-	const rows = await sectionQuery()
-		.where(
-			and(eq(tasks.familyId, familyId), eq(tasks.assignedTo, userId), isNull(tasks.archivedAt))
-		)
 		.orderBy(desc(tasks.createdAt));
 	return withTags(rows);
 }
@@ -572,13 +565,6 @@ export async function canMutateTask(task: Task, userId: string): Promise<boolean
 	return isFamilyMember(userId, task.familyId);
 }
 
-/**
- * Visibility toggle authority (issue 019): the owner only. Assignees and
- * family members may use a public task but never change who can see it.
- */
-export function canChangeVisibility(task: Pick<Task, 'userId'>, userId: string): boolean {
-	return task.userId === userId;
-}
 
 /** Assignment-only patch for task reassignment responses. */
 export type AssignmentPatch = {
@@ -915,23 +901,46 @@ export async function updateTaskInFamily(
 
 /**
  * Overdue Recurring Tasks stick to today: their due date follows the
- * current date until dismissed. Piggybacked on task/calendar loads.
+ * current date until dismissed. Piggybacked on task loads — the list
+ * readers (getTasksForUser/getTasksForFamily/getPublicTasksForFamily)
+ * own this call, so a read cannot happen unpinned (issue 110).
  *
  * Scope: the caller's OWN tasks plus — when a family is known — every task
- * in that family. (The old `userId AND familyId` conjunction made the
- * family leg unreachable, so other members' family-task cursors never
- * pinned; an OR over the same family scope fixes that while staying
- * scoped to the caller's family.)
+ * in that family (an OR over the same scopes; the old `userId AND familyId`
+ * conjunction made the family leg unreachable, so other members'
+ * family-task cursors never pinned). With `null` userId only the family leg
+ * runs; with `memberPersonal` only family-less personal rows of the family's
+ * members are added (the family page's public tab reads those).
  */
 export async function syncRecurringCursors(
-	userId: string,
-	familyId?: string | null,
-	zone?: string
+	userId: string | null,
+	familyId: string | null | undefined,
+	zone?: string,
+	memberPersonal = false
 ) {
 	const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
 	const todayEnd = DateTime.fromISO(nowIso)
 		.set({ hour: 23, minute: 59, second: 0, millisecond: 0 })
 		.toISO()!;
+
+	const scopeLegs: SQL[] = [];
+	if (userId) scopeLegs.push(eq(tasks.userId, userId));
+	if (familyId) {
+		scopeLegs.push(eq(tasks.familyId, familyId));
+		if (memberPersonal) {
+			scopeLegs.push(
+				inArray(
+					tasks.userId,
+					db
+						.select({ id: familyMembers.userId })
+						.from(familyMembers)
+						.where(eq(familyMembers.familyId, familyId))
+				)
+			);
+		}
+	}
+	if (scopeLegs.length === 0) return;
+	const scope = scopeLegs.length === 1 ? scopeLegs[0] : or(...scopeLegs);
 
 	const base = [
 		isNotNull(tasks.recurrenceFrequency),
@@ -939,9 +948,6 @@ export async function syncRecurringCursors(
 		isNull(tasks.archivedAt),
 		isNotNull(tasks.dueDate)
 	];
-	const scope = familyId
-		? or(eq(tasks.userId, userId), eq(tasks.familyId, familyId))
-		: eq(tasks.userId, userId);
 
 	// One SELECT + one batched UPDATE (#041) — ids are scope-filtered here,
 	// so the update needs only the id list. Previously N sequential UPDATEs.

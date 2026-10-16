@@ -1,10 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import {
-	getPublicTasksForFamily,
-	getTasksForFamily,
-	syncRecurringCursors
-} from '$lib/server/db/actions/tasks';
+import { getPublicTasksForFamily, getTasksForFamily } from '$lib/server/db/actions/tasks';
 import { getFamilyRoster, getUserFamilyMemberships } from '$lib/server/db/actions/families';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 
@@ -28,12 +24,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 	const familyId = chosen.family.id;
 
-	// Overdue Recurring Tasks stick to today until done (cursor v3).
-	await syncRecurringCursors(locals.user.id, familyId, await getUserZone(locals.user.id));
+	const zone = await getUserZone(locals.user.id);
 
 	const [tasks, publicTasks, familyRoster] = await Promise.all([
-		getTasksForFamily(familyId),
-		getPublicTasksForFamily(familyId),
+		// Cursor pin (110) now lives inside each list read (family scope,
+		// plus the member-personal leg for the public tab).
+		getTasksForFamily(familyId, zone),
+		getPublicTasksForFamily(familyId, zone),
 		getFamilyRoster(familyId)
 	]);
 

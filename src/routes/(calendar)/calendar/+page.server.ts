@@ -14,7 +14,7 @@ import {
 	attachAttendanceSummaries,
 	attachCreatorNames
 } from '$lib/server/services/eventDisplayService';
-import { getTasksForUser, syncRecurringCursors } from '$lib/server/db/actions/tasks';
+import { getTasksForUser } from '$lib/server/db/actions/tasks';
 import { zoneFromSettings, zonedNow } from '$lib/server/utils/userTimezone';
 import { getTodayVerse } from '$lib/server/services/verseService';
 import { getFamilyModuleSwitches } from '$lib/server/db/actions/dashboardModules';
@@ -224,8 +224,8 @@ export const load: PageServerLoad = async (event) => {
 	// its fallback independently (same contract as the old guard()s).
 	const taskPipeline = (async () => {
 		try {
-			await syncRecurringCursors(userId, familyId, userZone);
-			const allTasks = await getTasksForUser(userId, familyId);
+			// Cursor pin (110) now lives inside getTasksForUser.
+			const allTasks = await getTasksForUser(userId, familyId, userZone);
 			const tasks = allTasks.flatMap((t) => {
 				if (!t.dueDate || t.completedAt) return [];
 				return [

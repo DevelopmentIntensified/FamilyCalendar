@@ -5,7 +5,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * Scope contract: the caller's OWN tasks PLUS — when a family is known —
  * every task in that family (an OR over family scope; the old
  * `userId AND familyId` conjunction made the family leg unreachable, so
- * other members' family-task cursors never pinned).
+ * other members' family-task cursors never pinned). Since issue 110 the
+ * list readers (getTasksForUser/getTasksForFamily/getPublicTasksForFamily)
+ * own this call — sync-before-read lives in the interface — so a user-only
+ * and a family-only scope both exist, and the family-only scope can add the
+ * member-personal leg for the public tab.
  */
 /** A stubbed DB row: plain JSON-ish values only. */
 type Row = Record<string, string | number | boolean | null | Date>;
@@ -145,6 +149,35 @@ describe('syncRecurringCursors', () => {
 		expect(markers).toContain('user_id');
 		expect(markers).toContain('me-1');
 		expect(markers).not.toContain('family_id');
+	});
+
+	it('family-only scope (getTasksForFamily, 110) has no user leg', async () => {
+		state.queue = [[]];
+		await syncRecurringCursors(null, 'fam-1');
+
+		const markers = lastWhereMarkers();
+		expect(markers).toContain('family_id');
+		expect(markers).toContain('fam-1');
+		expect(markers).not.toContain('user_id');
+		expect(markers).not.toContain('me-1');
+	});
+
+	it('family-only scope with memberPersonal adds the members-personal leg (public tab, 110)', async () => {
+		state.queue = [[]];
+		await syncRecurringCursors(null, 'fam-1', undefined, true);
+
+		const markers = lastWhereMarkers();
+		// Family rows leg...
+		expect(markers).toContain('family_id');
+		// ...plus personal rows of the family's current members.
+		expect(markers).toContain('user_id');
+	});
+
+	it('does nothing when neither a user nor a family is given', async () => {
+		await syncRecurringCursors(null, null);
+
+		expect(state.capturedWhere).toHaveLength(0);
+		expect(state.updateCount).toBe(0);
 	});
 
 	it("pins only overdue rows to today's end", async () => {

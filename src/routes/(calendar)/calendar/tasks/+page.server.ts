@@ -4,8 +4,7 @@ import {
 	getMyTasks,
 	getPendingAssignments,
 	getRequestedByMe,
-	getTasksForUser,
-	syncRecurringCursors
+	getTasksForUser
 } from '$lib/server/db/actions/tasks';
 import { zoneFromSettings } from '$lib/server/utils/userTimezone';
 
@@ -51,11 +50,8 @@ export const load: PageServerLoad = async (event) => {
 		const [tasks, myTasks, pending, requested] = await Promise.all([
 			leg(
 				'tasks+cursor',
-				async () => {
-					// Overdue Recurring Tasks stick to today until done (cursor v3).
-					await syncRecurringCursors(uid, familyId, userZone);
-					return await getTasksForUser(uid, familyId);
-				},
+				// Cursor pin (110; "cursor v3") now lives inside getTasksForUser.
+				async () => getTasksForUser(uid, familyId, userZone),
 				[]
 			),
 			// Sectioned task lists (issue 019): the main list is MY tasks

@@ -41,15 +41,16 @@ vi.mock('$lib/server/db/actions/families', () => ({
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- as above; also covers the loader's dynamic import of the same module.
 vi.mock('$lib/server/db/actions/tasks', () => ({
-	getTasksForFamily: async (familyId: string) => {
-		state.askedFor.push(`tasks:${familyId}`);
+	// Issue 110: the cursor pin lives inside the readers — no separate
+	// sync stub exists anymore.
+	getTasksForFamily: async (familyId: string, zone?: string) => {
+		state.askedFor.push(`tasks:${familyId}:${zone}`);
 		return [];
 	},
-	getPublicTasksForFamily: async (familyId: string) => {
-		state.askedFor.push(`public:${familyId}`);
+	getPublicTasksForFamily: async (familyId: string, zone?: string) => {
+		state.askedFor.push(`public:${familyId}:${zone}`);
 		return [];
-	},
-	syncRecurringCursors: async () => {}
+	}
 }));
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- a pure function of the user; its own tests cover the zone rules.
@@ -98,7 +99,8 @@ describe('family task board — which family it reads (issue 124)', () => {
 
 		expect(data.familyId).toBe('fam-old');
 		// every query the page makes is scoped to the family it chose
-		expect(state.askedFor.every((entry) => entry.endsWith(':fam-old'))).toBe(true);
+		// (task entries are `<query>:<familyId>:<zone>`; roster has no zone).
+		expect(state.askedFor.every((entry) => entry.includes(':fam-old'))).toBe(true);
 	});
 
 	it('honours ?familyId= for a family the user actually belongs to', async () => {
@@ -107,7 +109,7 @@ describe('family task board — which family it reads (issue 124)', () => {
 		const data = await loadBoard('?familyId=fam-new');
 
 		expect(data.familyId).toBe('fam-new');
-		expect(state.askedFor).toContain('tasks:fam-new');
+		expect(state.askedFor).toContain('tasks:fam-new:UTC');
 	});
 
 	it("falls back to the oldest when the named family is not the user's", async () => {

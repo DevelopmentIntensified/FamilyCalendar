@@ -44,8 +44,9 @@ vi.mock('$lib/server/db/actions/calendar', () => ({
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- the calendar/task reads are not what this suite is about.
 vi.mock('$lib/server/db/actions/tasks', () => ({
-	getTasksForUser: vi.fn(async () => []),
-	syncRecurringCursors: vi.fn(async () => undefined)
+	// Issue 110: the cursor pin lives inside getTasksForUser — no separate
+	// sync stub exists anymore.
+	getTasksForUser: vi.fn(async () => [])
 }));
 
 const VERSE = {

@@ -1,11 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { CalendarEvent, GroceryItem } from '$lib/server/db/schema';
-import {
-	getTasksForUser,
-	getTasksForFamily,
-	syncRecurringCursors
-} from '$lib/server/db/actions/tasks';
+import { getTasksForUser, getTasksForFamily } from '$lib/server/db/actions/tasks';
 import {
 	rankTop3,
 	getUserDayCalendar,
@@ -108,11 +104,13 @@ export const load: PageServerLoad = async (event) => {
 	// v3), so "today" surfaces the same pinned occurrences the calendar would.
 	const taskLeg = (async () => {
 		try {
-			await syncRecurringCursors(userId, familyId, zone);
+			// Cursor pin (110) now lives inside each list read; the two reads
+			// each sync their own scope (an extra roundtrip, accepted for
+			// keeping one boring shape).
 			const [userTasks, familyTasks] = await Promise.all([
-				getTasksForUser(userId, familyId),
+				getTasksForUser(userId, familyId, zone),
 				familyId && visibility.needs('familyTasks')
-					? getTasksForFamily(familyId)
+					? getTasksForFamily(familyId, zone)
 					: Promise.resolve([])
 			]);
 			// SAFETY: null must widen to the string|null union shared with the catch branch.

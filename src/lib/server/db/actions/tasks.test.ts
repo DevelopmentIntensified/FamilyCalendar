@@ -8,11 +8,9 @@ import {
 	getPendingAssignments,
 	getRequestedByMe,
 	getPublicTasksForFamily,
-	getFamilyTasksAssignedTo,
 	getTasksForUser,
 	getTasksForFamily,
 	canMutateTask,
-	canChangeVisibility,
 	type TaskFrequency
 } from './tasks';
 
@@ -29,13 +27,19 @@ interface StubState {
 	capturedWhere: SqlFragment[];
 	/** On-condition (2nd arg) of each join call, in call order. */
 	capturedJoins: SqlFragment[];
+	/** Number of UPDATE statements executed (cursor-pin audit, issue 110). */
+	updateCount: number;
+	/** Latest UPDATE patch. */
+	updatePatch: Record<string, unknown> | null;
 }
 
 const state = vi.hoisted(
 	(): StubState => ({
 		queue: [],
 		capturedWhere: [],
-		capturedJoins: []
+		capturedJoins: [],
+		updateCount: 0,
+		updatePatch: null
 	})
 );
 
@@ -74,7 +78,18 @@ vi.mock('$lib/server/db', () => {
 	};
 	return {
 		db: {
-			select: () => node()
+			select: () => node(),
+			update: () => ({
+				set: (patch: Record<string, unknown>) => {
+					state.updatePatch = patch;
+					return {
+						where: () => {
+							state.updateCount += 1;
+							return Promise.resolve();
+						}
+					};
+				}
+			})
 		}
 	};
 });
@@ -316,6 +331,8 @@ describe('task scoping section queries (issue 019)', () => {
 		state.queue = [];
 		state.capturedWhere = [];
 		state.capturedJoins = [];
+		state.updateCount = 0;
+		state.updatePatch = null;
 	});
 
 	it('getMyTasks returns my personal rows + accepted assignments with visibility and tags', async () => {
@@ -373,46 +390,75 @@ describe('task scoping section queries (issue 019)', () => {
 	});
 
 	it('getPublicTasksForFamily returns only public personal rows whose creator is in the family', async () => {
-		state.queue = [[scopeRow({ id: 't-pub', visibility: 'public', creatorFirstName: 'Ali' })], []];
+		// Select order for the member-personal sync (110): #1 the executed
+		// family-members subquery, #2 the sync scope read, #3 the public
+		// read, #4 attachTags.
+		state.queue = [[], [], [scopeRow({ id: 't-pub', visibility: 'public', creatorFirstName: 'Ali' })], []];
 
 		const result = await getPublicTasksForFamily('fam-1');
 
 		expect(result.map((t) => [t.id, t.visibility, t.creatorFirstName])).toEqual([
 			['t-pub', 'public', 'Ali']
 		]);
-		const markers = whereMarkers(state.capturedWhere[0]);
+		const markers = whereMarkers(state.capturedWhere[2]);
 		expect(markers).toContain('visibility');
 		expect(markers).toContain('public');
-		expect(markers).toContain('family_id');
-		// The creator-membership join carries the family id.
+		// The reader's own where is family-less (personal rows only); the
+		// creator-membership join carries the family id.
 		const joinMarkers = state.capturedJoins.flatMap((j) => whereMarkers(j));
 		expect(joinMarkers).toContain('family_id');
 		expect(joinMarkers).toContain('fam-1');
 	});
 
-	it('getFamilyTasksAssignedTo scopes to family tasks assigned to me in the given family', async () => {
-		state.queue = [[scopeRow({ id: 't-fam', familyId: 'fam-1', assignedTo: 'user-a' })], []];
-
-		const result = await getFamilyTasksAssignedTo('user-a', 'fam-1');
-
-		expect(result.map((t) => t.id)).toEqual(['t-fam']);
-		const markers = whereMarkers(state.capturedWhere[0]);
-		expect(markers).toContain('family_id');
-		expect(markers).toContain('fam-1');
-		expect(markers).toContain('assigned_to');
-		expect(markers).toContain('user-a');
-	});
-
 	it('getTasksForUser and getTasksForFamily expose visibility on rows', async () => {
-		state.queue = [[scopeRow({ id: 't-u', visibility: 'private' })], []];
+		// Select #1 = the cursor-pin sync (issue 110); #2 = the list read; #3 = attachTags.
+		state.queue = [[], [scopeRow({ id: 't-u', visibility: 'private' })], []];
 		expect((await getTasksForUser('user-a')).map((t) => [t.id, t.visibility])).toEqual([
 			['t-u', 'private']
 		]);
 
-		state.queue = [[scopeRow({ id: 't-f', visibility: 'public' })], []];
+		state.queue = [[], [scopeRow({ id: 't-f', visibility: 'public' })], []];
 		expect((await getTasksForFamily('fam-1')).map((t) => [t.id, t.visibility])).toEqual([
 			['t-f', 'public']
 		]);
+	});
+
+	it('sync-before-read: getTasksForUser pins an overdue recurring row before listing (issue 110)', async () => {
+		// Select #1 = the sync scope; it returns one overdue recurring row,
+		// so a pin UPDATE must fire before the list read (select #2).
+		state.queue = [[{ id: 'stale-1', dueDate: '2020-01-01T00:00:00.000Z' }], [], []];
+
+		await getTasksForUser('user-a');
+
+		expect(state.updateCount).toBe(1);
+		expect(String(state.updatePatch!.dueDate)).toMatch(/T23:59:00/);
+		// The sync ran FIRST: its where (recurring + not-completed filters)
+		// was captured before the reader's own conditions.
+		expect(whereMarkers(state.capturedWhere[0])).toContain('recurrence_frequency');
+	});
+
+	it('sync-before-read pin is family-scoped for getPublicTasksForFamily (member-personal leg)', async () => {
+		// The stale row sits in a member's PRIVATE personal list — the leg
+		// the sync's subquery covers. #1 members subquery, #2 sync scope,
+		// #3 list read, #4 attachTags.
+		state.queue = [
+			[{ id: 'member-1' }],
+			[{ id: 'stale-2', dueDate: '2020-01-01T00:00:00.000Z' }],
+			[],
+			[]
+		];
+
+		await getPublicTasksForFamily('fam-1');
+
+		expect(state.updateCount).toBe(1);
+	});
+
+	it('issues no pin UPDATE when nothing in scope is overdue', async () => {
+		state.queue = [[{ id: 'fresh-1', dueDate: '2099-09-02T23:59:00.000Z' }], [], []];
+
+		await getTasksForFamily('fam-1');
+
+		expect(state.updateCount).toBe(0);
 	});
 });
 
@@ -506,13 +552,5 @@ describe('canMutateTask — task scoping (issue 019)', () => {
 		const task = personalTask({ userId: 'user-b', familyId: 'fam-1' });
 		state.queue = [[{ familyId: 'fam-1' }]];
 		expect(await canMutateTask(task, 'user-c')).toBe(true);
-	});
-});
-
-describe('canChangeVisibility (issue 019)', () => {
-	it('grants the owner only', () => {
-		const task = { userId: 'user-a', assignedTo: 'user-b', familyId: 'fam-1' };
-		expect(canChangeVisibility(task, 'user-a')).toBe(true);
-		expect(canChangeVisibility(task, 'user-b')).toBe(false);
 	});
 });
