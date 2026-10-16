@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NOREPLYEMAIL } from '$env/static/private';
 import {
 	issueMagicLink,
+	issueVerificationCode,
 	consumeMagicLink,
 	sessionCookieFor,
 	sendClaimLinkEmail,
@@ -225,6 +226,145 @@ describe('issueMagicLink', () => {
 			expect(createCode).not.toHaveBeenCalled();
 		}
 	);
+});
+
+describe('issueVerificationCode', () => {
+	const seamCases = [
+		{
+			name: 'with names',
+			input: { email: 'New@User.com', firstName: 'New', lastName: 'User' },
+			opts: { callbackPath: '/password/verify', gateKey: 'password-code:new@user.com' },
+			expectedNames: { firstName: 'New', lastName: 'User' }
+		},
+		{
+			name: 'without names',
+			input: { email: 'noname@user.com' },
+			opts: { callbackPath: '/password/verify', gateKey: 'password-code:noname@user.com' },
+			expectedNames: { firstName: undefined, lastName: undefined }
+		},
+		{
+			name: 'kind passthrough',
+			input: { email: 'kind@user.com', firstName: 'K', lastName: 'U' },
+			opts: {
+				callbackPath: '/signup/email/callback',
+				gateKey: 'signup-code:kind@user.com',
+				kind: 'signup' as const
+			},
+			expectedNames: { firstName: 'K', lastName: 'U' }
+		}
+	];
+
+	it.each(seamCases)(
+		'[$name] mints an 8-digit code, JWT, canonical email at the opts callbackPath, and persists the code',
+		async ({ input, opts, expectedNames }) => {
+			const before = Date.now();
+			const result = await issueVerificationCode(deps, input, passGate, opts);
+			const after = Date.now();
+
+			if (result.status !== 'sent') throw new Error(`expected sent, got ${result.status}`);
+			const { code } = result;
+			expect(code).toMatch(/^\d{8}$/);
+
+			expect(createJwt).toHaveBeenCalledTimes(1);
+			const [alg, secret, payload, options] = createJwt.mock.calls[0];
+			expect(alg).toBe('HS256');
+			expect(secret).toBe(deps.jwtSecret);
+			expect(payload).toMatchObject({ email: input.email, code });
+			if (opts.kind !== undefined) {
+				expect(payload).toMatchObject({ kind: opts.kind });
+			} else {
+				expect(payload).not.toHaveProperty('kind');
+			}
+			expect(options).toHaveProperty('expiresIn');
+
+			expect(sendEmail).toHaveBeenCalledTimes(1);
+			const emailArg = sendEmail.mock.calls[0][0];
+			expect(emailArg.to).toBe(input.email);
+			expect(emailArg.from).toBe(deps.fromEmail);
+			expect(emailArg.subject).toBe(`Family Planz Email Confirmation for ${input.email}`);
+			expect(emailArg.html).toContain('for logging in:');
+			expect(emailArg.html).toContain(code);
+			const linkMatch = /href="([^"]+)"/.exec(emailArg.html);
+			expect(linkMatch).not.toBeNull();
+			const link = new URL(linkMatch![1]);
+			expect(link.pathname).toBe(opts.callbackPath);
+			expect(link.searchParams.get('token')).toBe('mock.jwt.token');
+
+			expect(createCode).toHaveBeenCalledTimes(1);
+			const persisted = createCode.mock.calls[0][0];
+			expect(persisted.code).toBe(code);
+			expect(persisted.email).toBe(input.email);
+			expect(persisted.firstName).toBe(expectedNames.firstName);
+			expect(persisted.lastName).toBe(expectedNames.lastName);
+			expect(persisted.emailId).toBe('email-1');
+			// 15-minute code lifecycle, tolerant to clock skew across the call.
+			expect(persisted.expiresAt.getTime()).toBeGreaterThanOrEqual(before + 15 * 60 * 1000);
+			expect(persisted.expiresAt.getTime()).toBeLessThanOrEqual(after + 15 * 60 * 1000);
+		}
+	);
+
+	it('does not validate email at this layer — the caller owns input rules', async () => {
+		const result = await issueVerificationCode(
+			deps,
+			{ email: 'not-an-email' },
+			passGate,
+			{ callbackPath: '/password/verify', gateKey: 'password-code:not-an-email' }
+		);
+
+		expect(result.status).toBe('sent');
+		expect(sendEmail).toHaveBeenCalledTimes(1);
+	});
+
+	it('forwards the caller-supplied gate key and sends nothing when the gate blocks', async () => {
+		const gate = vi.fn().mockReturnValue(false);
+
+		const result = await issueVerificationCode(
+			deps,
+			{ email: 'flood@user.com', firstName: 'F', lastName: 'L' },
+			gate,
+			{ callbackPath: '/password/verify', gateKey: 'password-code:flood@user.com' }
+		);
+
+		expect(result).toEqual({ status: 'rejected', reason: 'rate-limited' });
+		expect(gate).toHaveBeenCalledWith('password-code:flood@user.com');
+		expect(sendEmail).not.toHaveBeenCalled();
+		expect(createCode).not.toHaveBeenCalled();
+		expect(createJwt).not.toHaveBeenCalled();
+	});
+
+	it('reports send-failed and persists nothing when the email fails', async () => {
+		sendEmail.mockResolvedValue({ success: false, error: 'smtp down', data: undefined });
+
+		const result = await issueVerificationCode(
+			deps,
+			{ email: 'new@user.com', firstName: 'New', lastName: 'User' },
+			passGate,
+			{ callbackPath: '/password/verify', gateKey: 'password-code:new@user.com' }
+		);
+
+		expect(result).toEqual({ status: 'rejected', reason: 'send-failed' });
+		expect(createCode).not.toHaveBeenCalled();
+	});
+
+	it('sends a code-only email with no link when emailVariant is code-only', async () => {
+		const result = await issueVerificationCode(
+			deps,
+			{ email: 'pw@user.com', firstName: 'Pw', lastName: 'User' },
+			passGate,
+			{
+				callbackPath: '/signup/password/verify',
+				gateKey: 'pw-signup-code:pw@user.com',
+				emailVariant: 'code-only'
+			}
+		);
+
+		if (result.status !== 'sent') throw new Error(`expected sent, got ${result.status}`);
+		expect(sendEmail).toHaveBeenCalledTimes(1);
+		const emailArg = sendEmail.mock.calls[0][0];
+		expect(emailArg.html).toContain(result.code);
+		expect(emailArg.html).not.toContain('href=');
+		expect(emailArg.html).toContain('verification code');
+	});
 });
 
 describe('consumeMagicLink', () => {

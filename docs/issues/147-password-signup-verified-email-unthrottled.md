@@ -1,6 +1,16 @@
 # 147 — Password signup grants verified email and is unthrottled
 
-Status: open
+Status: done
+
+## Shipped 2026-10-15 (verify-first, Option A)
+
+- Password signup creates `emailVerified: false` (`signup/password/+server.ts`); new users stay invisible to member search until verified.
+- Kind-agnostic `issueVerificationCode` seam (`services/magicLink.ts`) — mint+send+persist shared; `issueMagicLink` is a thin wrapper, signup-email caller untouched.
+- `POST /signup/password/verify` flips the flag on code proof (generic errors, idempotent, single-use codes); `POST /signup/password/resend` re-issues for the caller's own email (auth, per-user + per-IP limits).
+- Client: pending signups land on the code screen; amber banner on `/calendar` with inline code + resend for users who navigated away. Password emails are code-only (POST-only endpoint, no dead link).
+- Rate limits: signup 30/IP + 10/email per 5min; verify 10/IP per 15min; resend 5/user per 15min + 30/IP per 5min.
+- Verify: 53/53 across 4 touched files, full suite 3568/3569 (1 pre-existing `EventRecurrenceCard` failure, fails clean-tree too), check 39/42 = baseline, build green. Review: 1 should-fix (dead emailed link → code-only email) fixed + tested; kind-less replay impossible (`consumeMagicLink` kind-mismatch).
+- Smoke users left in Neon dev DB (`pwsmoke-*`, `fresh-*`, `re-pwsmoke-*` @test.com) — purge at will.
 
 Source: security audit (issue 136), 2026-10-06. Rank 1/15 — pre-auth, single request, identity-level impact (squatting + impersonation).
 

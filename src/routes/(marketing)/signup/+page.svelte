@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { pushToast } from '$lib/client/toasts';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import AuthCard from '$lib/components/auth/AuthCard.svelte';
@@ -20,6 +21,10 @@
 	let emailSent = $state(false);
 	let code = $state('');
 	let resent = $state(false);
+	// Password-signup verification reuses the magic-link `emailSent` code
+	// screen above instead of forking a second one: when true, the code +
+	// resend buttons hit the NEW /signup/password/* endpoints below.
+	let pwVerifyPending = $state(false);
 	let resentTimer: ReturnType<typeof setTimeout> | undefined;
 
 	onMount(() => {
@@ -53,6 +58,12 @@
 
 			if (json.error) {
 				error = json.error;
+			} else if (json.emailVerification === 'pending') {
+				// Account created (session set) but the email isn't verified:
+				// show the code screen instead of silently landing on the
+				// calendar — the banner there covers users who navigate away.
+				pwVerifyPending = true;
+				emailSent = true;
 			} else {
 				await goto('/calendar', { invalidateAll: true });
 			}
@@ -93,13 +104,14 @@
 		error = '';
 
 		try {
-			const res = await fetch('/signup/email/code', {
+			const res = await fetch(pwVerifyPending ? '/signup/password/verify' : '/signup/email/code', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ code })
 			});
 
 			if (res.ok) {
+				pushToast({ message: 'Email verified — welcome to Family Planz.' });
 				await goto('/calendar', { invalidateAll: true });
 			} else {
 				const json = await res.json();
@@ -117,11 +129,16 @@
 		error = '';
 
 		try {
-			const res = await fetch('/signup/email', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email, firstName, lastName })
-			});
+			// Password signups are already signed in, so resend is
+			// authenticated and needs no body; magic-link resend re-posts
+			// the signup (anonymous) instead.
+			const res = pwVerifyPending
+				? await fetch('/signup/password/resend', { method: 'POST' })
+				: await fetch('/signup/email', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ email, firstName, lastName })
+					});
 
 			const json = await res.json();
 

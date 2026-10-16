@@ -125,12 +125,120 @@ function linkEmailHtml(code: string, linkUrl: string): string {
 `;
 }
 
+// Password signup has no GET callback to land a clicked link on (the verify
+// endpoint is POST-only by design — codes, not tokens), so its email carries
+// the code alone instead of a dead link. Magic-link keeps the link: its
+// callbacks consume the JWT.
+function codeOnlyEmailHtml(code: string): string {
+	return `<h1>Your Family Planz verification code is: ${code}</h1>
+<p>Enter this code to verify your email. It expires in 15 minutes.</p>
+`;
+}
+
+export type IssueVerificationCodeInput = {
+	email: string;
+	firstName?: string | null;
+	lastName?: string | null;
+};
+
+export type IssueVerificationCodeOpts = {
+	/** Where the emailed link points, e.g. `/signup/email/callback`. Required:
+	 *  the seam is kind-agnostic so there is no sensible default. */
+	callbackPath: string;
+	/** Bucket key the gate checks, e.g. `signup-code:user@example.com`. */
+	gateKey: string;
+	/** Opaque JWT claim passthrough: the seam never branches on it, but the
+	 *  legacy kind-tagged wrapper supplies it to keep its wire shape (and
+	 *  `consumeMagicLink` compatibility). Omit for kind-less tokens. */
+	kind?: MagicLinkTokenKind;
+	/** Code-only email (no clickable link): for flows with no GET callback
+	 *  to land the link on. Defaults to the link email. */
+	emailVariant?: 'link' | 'code-only';
+};
+export type IssueVerificationCodeResult =
+	| { status: 'sent'; code: string }
+	| { status: 'rejected'; reason: 'rate-limited' | 'send-failed' };
+
 /**
- * Issues a magic link for `kind`: validates input, applies the shared rate
- * limit, suppresses for known/unknown emails, then generates an 8-digit code,
- * mints a 15-minute kind-tagged JWT, sends the code+link email from the
- * canonical address and persists the code. The route only maps the result to
- * its HTTP response.
+ * Kind-agnostic verification-code seam: applies the caller's gate, mints an
+ * 8-digit code plus a 15-minute JWT, sends the code+link email from the
+ * canonical address and persists the code. No email validation, no
+ * kind-specific rules, no account/existence suppression, no name
+ * requirements — the caller owns all of that and supplies whatever names it
+ * has.
+ */
+export async function issueVerificationCode(
+	deps: Pick<
+		MagicLinkDeps,
+		'createCode' | 'sendEmail' | 'fromEmail' | 'createJwt' | 'jwtSecret' | 'baseSiteUrl'
+	>,
+	input: IssueVerificationCodeInput,
+	gate: MagicLinkGate,
+	opts: IssueVerificationCodeOpts
+): Promise<IssueVerificationCodeResult> {
+	const { email, firstName, lastName } = input;
+
+	if (!gate(opts.gateKey)) {
+		return { status: 'rejected', reason: 'rate-limited' };
+	}
+
+	const code = generateRandomString(randomReader, '0123456789', 8);
+
+	const token = await deps.createJwt(
+		'HS256',
+		deps.jwtSecret,
+		{
+			...(opts.kind !== undefined ? { kind: opts.kind } : {}),
+			email,
+			firstName,
+			lastName,
+			code
+		},
+		{
+			headers: {
+				alg: 'HS256',
+				typ: 'JWT'
+			},
+			expiresIn: new TimeSpan(15, 'm')
+		}
+	);
+
+	const callbackUrl = new URL(deps.baseSiteUrl);
+	callbackUrl.pathname = opts.callbackPath;
+	callbackUrl.searchParams.set('token', token);
+
+	const html =
+		opts.emailVariant === 'code-only'
+			? codeOnlyEmailHtml(code)
+			: linkEmailHtml(code, callbackUrl.toString());
+	const { success, data } = await deps.sendEmail({
+		to: email,
+		from: deps.fromEmail,
+		subject: LINK_EMAIL_SUBJECT + email,
+		html
+	});
+
+	if (!success) {
+		return { status: 'rejected', reason: 'send-failed' };
+	}
+
+	await deps.createCode({
+		code,
+		expiresAt: new Date(Date.now() + 60 * 1000 * 15),
+		email,
+		firstName,
+		lastName,
+		emailId: data?.id || null
+	});
+
+	return { status: 'sent', code };
+}
+
+/**
+ * Issues a magic link for `kind`: validates input, suppresses for
+ * known/unknown emails, then delegates the gated mint + send + persist to
+ * `issueVerificationCode` (passing `kind` through for the JWT claim and the
+ * callback path). The route only maps the result to its HTTP response.
  */
 export async function issueMagicLink(
 	deps: MagicLinkDeps,
@@ -147,8 +255,8 @@ export async function issueMagicLink(
 	if (kind === 'signup' && (!firstName || !lastName || firstName === '' || lastName === '')) {
 		return { status: 'rejected', reason: 'missing-name' };
 	}
-
-	if (!gate(rateLimitKey(kind, email))) {
+	const gateKey = rateLimitKey(kind, email);
+	if (!gate(gateKey)) {
 		return { status: 'rejected', reason: 'rate-limited' };
 	}
 
@@ -165,52 +273,15 @@ export async function issueMagicLink(
 		codeNames = { firstName: user.firstName, lastName: user.lastName };
 	}
 
-	const code = generateRandomString(randomReader, '0123456789', 8);
-
-	const token = await deps.createJwt(
-		'HS256',
-		deps.jwtSecret,
-		{
-			kind,
-			email,
-			firstName: codeNames.firstName,
-			lastName: codeNames.lastName,
-			code
-		},
-		{
-			headers: {
-				alg: 'HS256',
-				typ: 'JWT'
-			},
-			expiresIn: new TimeSpan(15, 'm')
-		}
+	// The gate already ran above with this same key (it must run before
+	// suppression, and the limiter is stateful so it must run exactly
+	// once). The seam's gate is trivially satisfied here.
+	return issueVerificationCode(
+		deps,
+		{ email, firstName: codeNames.firstName, lastName: codeNames.lastName },
+		() => true,
+		{ callbackPath: `/${kind}/email/callback`, gateKey, kind }
 	);
-
-	const callbackUrl = new URL(deps.baseSiteUrl);
-	callbackUrl.pathname = `/${kind}/email/callback`;
-	callbackUrl.searchParams.set('token', token);
-
-	const { success, data } = await deps.sendEmail({
-		to: email,
-		from: deps.fromEmail,
-		subject: LINK_EMAIL_SUBJECT + email,
-		html: linkEmailHtml(code, callbackUrl.toString())
-	});
-
-	if (!success) {
-		return { status: 'rejected', reason: 'send-failed' };
-	}
-
-	await deps.createCode({
-		code,
-		expiresAt: new Date(Date.now() + 60 * 1000 * 15),
-		email,
-		firstName: codeNames.firstName,
-		lastName: codeNames.lastName,
-		emailId: data?.id || null
-	});
-
-	return { status: 'sent', code };
 }
 
 export type ConsumeMagicLinkResult =

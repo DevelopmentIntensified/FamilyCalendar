@@ -60,13 +60,68 @@
 	$: justMerged = Number.isFinite(mergedCount) && mergedCount >= 0 && !isAnonymous;
 	let claimedDismissed = false;
 	let mergedDismissed = false;
+	// Unverified password signups: the account exists and the session is set,
+	// but the email isn't confirmed yet (member search only lists verified
+	// users). The banner is self-sufficient — code input + resend inline —
+	// because a user who navigated away has nowhere else to enter the code.
+	$: needsVerify = !isAnonymous && data.user?.emailVerified === false;
+	let verifyDismissed = false;
+	let verifyCode = '';
+	let verifyBusy = false;
+	let verifyError = '';
+	let verifyResent = false;
 	$: showTopNotice =
-		isAnonymous || (justClaimed && !claimedDismissed) || (justMerged && !mergedDismissed);
+		isAnonymous ||
+		(needsVerify && !verifyDismissed) ||
+		(justClaimed && !claimedDismissed) ||
+		(justMerged && !mergedDismissed);
 	// Offline banner visibility is owned by OfflineBanner (bind:visible below).
 	let offlineVisible = false;
 	$: bannerCount = (offlineVisible ? 1 : 0) + (showTopNotice ? 1 : 0);
-</script>
+	async function submitVerifyCode() {
+		if (!verifyCode.trim() || verifyBusy) return;
+		verifyBusy = true;
+		verifyError = '';
+		try {
+			const res = await fetch('/signup/password/verify', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code: verifyCode.trim() })
+			});
+			if (res.ok) {
+				await invalidateAll();
+			} else {
+				const body = await res.json().catch(() => ({}));
+				verifyError = body.error || 'Invalid code';
+			}
+		} catch {
+			verifyError = 'Verification failed — check your connection and try again.';
+		} finally {
+			verifyBusy = false;
+		}
+	}
 
+	async function resendVerifyCode() {
+		if (verifyBusy) return;
+		verifyBusy = true;
+		verifyError = '';
+		try {
+			const res = await fetch('/signup/password/resend', { method: 'POST' });
+			if (res.ok) {
+				verifyResent = true;
+				setTimeout(() => (verifyResent = false), 3000);
+			} else {
+				const body = await res.json().catch(() => ({}));
+				verifyError = body.error || "Couldn't resend the code — try again.";
+			}
+		} catch {
+			verifyError = "Couldn't resend the code — check your connection.";
+		} finally {
+			verifyBusy = false;
+		}
+	}
+
+</script>
 <div class="flex min-h-screen flex-col">
 	<Navbar isLoggedIn={true} user={data.user} />
 	<!-- Single fixed banner stack: offline + guest/claim notices share one
@@ -90,6 +145,68 @@
 				>
 					✕
 				</button>
+			</div>
+		{:else if needsVerify && !verifyDismissed}
+			<div
+				class="w-full border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800"
+				role="status"
+				transition:fade={{ duration: 150 }}
+			>
+				<div class="mx-auto flex max-w-xl flex-col items-center gap-2">
+					<span class="text-center">
+						Your email isn't verified yet — enter the code we sent to unlock family
+						features like member search.
+					</span>
+					<form
+						class="flex w-full items-center justify-center gap-2"
+						onsubmit={(e) => {
+							e.preventDefault();
+							submitVerifyCode();
+						}}
+					>
+						<input
+							type="text"
+							bind:value={verifyCode}
+							placeholder="Verification code"
+							autocomplete="one-time-code"
+							inputmode="numeric"
+							aria-label="Verification code"
+							class="w-40 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-center text-sm tracking-[0.2em] text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none"
+						/>
+						<button
+							type="submit"
+							disabled={verifyBusy || !verifyCode.trim()}
+							class="min-h-[44px] rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+						>
+							{verifyBusy ? 'Verifying…' : 'Verify'}
+						</button>
+						<button
+							type="button"
+							onclick={resendVerifyCode}
+							disabled={verifyBusy}
+							class="min-h-[44px] rounded px-1 text-sm underline disabled:opacity-50"
+						>
+							Resend
+						</button>
+						<button
+							type="button"
+							class="rounded-full p-1 font-semibold hover:bg-amber-100"
+							aria-label="Dismiss"
+							onclick={() => (verifyDismissed = true)}
+						>
+							✕
+						</button>
+					</form>
+					{#if verifyResent}
+						<span
+							class="rounded-full bg-[#C4E9DA]/60 px-2.5 py-1 text-xs font-medium text-slate-800"
+							>Sent again ✓</span
+						>
+					{/if}
+					{#if verifyError}
+						<span class="text-center text-xs font-medium text-red-700">{verifyError}</span>
+					{/if}
+				</div>
 			</div>
 		{:else if justMerged && !mergedDismissed}
 			<div
