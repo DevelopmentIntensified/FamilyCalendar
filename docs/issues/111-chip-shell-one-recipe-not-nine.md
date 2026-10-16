@@ -1,8 +1,16 @@
 # 111 — The chip mark is deep; the chip around it is nine copies of a recipe
 
-Status: open
+Status: done
 
 Source: architecture review, 2026-09-30, candidate #6.
+
+## Done (2026-10-16)
+
+- One recipe: `chipShell()` in `chipVocabulary.ts` — discriminated union `{event, density, calendars?}` (event chips, kind derived internally — no desync) vs `{kind:'task', density, overdue?}`. Returns `kind / markDensity / treatment / containerClass / style / word / tooltip`.
+- Nine named copies converted (MonthDayCell event+task, WeekAllDayRow event+task, DayAllDayList event+task, DayActionSheet, DayHourGrid, WeekHourGrid) plus the same recipe found beyond them: DayEventsModal, TodayGlanceCard's both chips, ListView event-row — folded. Mark ownership (`ChipKindMark`) untouched; `chipTreatment/chipKindOf/chipA11y/chipWord/chipSurfaceStyle` stay exported for ChipKindMark/CalendarKey/legends.
+- Hazard 2 (overdue border) fixed structurally: the red border is SWAPPED in for the vocabulary's `border-slate-300` inside `containerClass` by the module — stylesheet-order winner removed.
+- Acceptance (attribution): WeekView now passes `calendars` so WeekAllDayRow's drifted hint is restored (`'All day · Holiday · Family'`) — pinned by one new test, red-first.
+- Fence: #068/#070/#026 suites green UNCHANGED (18 vocabulary teeth untouched); full suite 253 files / 3632 tests; check 39/42 baseline; no visual changes (point edits) beyond the restored hint.
 
 **Blocked by:** None.
 
