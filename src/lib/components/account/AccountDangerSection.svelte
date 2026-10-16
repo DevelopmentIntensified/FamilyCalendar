@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { pushToast } from '$lib/client/toasts';
 
 	interface Props {
 		userId: string;
@@ -9,9 +10,51 @@
 
 	let deleteLoading = $state(false);
 	let showDeleteConfirmation = $state(false);
+	let exportLoading = $state(false);
+
+	// #189: stream the requester's own data as a JSON file download. Toast
+	// immediately (<100ms ack) naming the action, then on the outcome.
+	async function exportData() {
+		exportLoading = true;
+		pushToast({ message: 'Preparing your data export…' });
+		try {
+			const response = await fetch('/api/account/export');
+			if (!response.ok) throw new Error(`Export failed (${response.status})`);
+			const blob = await response.blob();
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = `familyplanz-export-${new Date().toISOString().slice(0, 10)}.json`;
+			link.click();
+			URL.revokeObjectURL(url);
+			pushToast({ message: 'Data export downloaded.' });
+		} catch (error) {
+			console.error('Data export failed:', error);
+			pushToast({ message: 'Data export failed — please try again.' });
+		} finally {
+			exportLoading = false;
+		}
+	}
 </script>
 
 <div id="danger">
+	<div class="mb-8">
+		<h2 class="mb-4 text-lg font-semibold text-slate-900">Export your data 👪</h2>
+		<p class="mb-4 text-sm text-slate-600">
+			Download a copy of everything your account stores: profile, settings, families,
+			calendars and events, tasks, bills and receipt lines, grocery lists and notifications.
+			The download is JSON.
+		</p>
+		<button
+			type="button"
+			onclick={exportData}
+			disabled={exportLoading}
+			class="rounded-full bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+		>
+			{exportLoading ? 'Preparing…' : 'Export your data'}
+		</button>
+	</div>
+
 	<h2 class="mb-4 text-lg font-semibold text-red-600">Danger Zone</h2>
 	<p class="mb-4 text-sm text-slate-600">
 		Permanently delete your account and all associated data. This action cannot be undone.
