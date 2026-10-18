@@ -1,11 +1,12 @@
 # 196 — Migrate sessions from lucia (archived, EOL) to Better Auth
 
-Status: open
+Status: in-progress
 
-Source: owner question 2026-10-16 ("are we still using lucia? why haven't we moved to betterauth?") + #161 finding (`lucia@3.2.2` archived upstream, no CVE, zero maintenance). Lucia's author's successor project is Better Auth.
+Source: owner question 2026-10-16 ("are we still using lucia? why haven't we moved to betterauth?") + #161 finding (`lucia@3.2.2` archived upstream, no CVE, zero maintenance). Lucia's author's successor project is Better Auth. **Design decided 2026-10-16 — ADR-0002 governs** (self-hosted Better Auth 1.7.x on Neon; sliding 90d sessions; bcrypt custom verify; placeholder-email guests; codes table replaced wholesale; normalization ours; throttle policy table; MFA deferred).
 
 ## Done
 
+- **Slice 0 (prep, 190f8a4):** row-id generation decoupled from lucia — `src/lib/server/utils/generateId.ts` (byte-identical alphabet/lengths to lucia's generator); `schema.ts` + 6 actions/routes re-pointed; remaining lucia imports = auth.ts (slice 1) + 5 TimeSpan/oslo sites (slice B). ADR-0002 written.
 - Ground truth (grep, 2026-10-16): the load-bearing lucia surface is exactly one module — `src/lib/server/auth.ts:2-8` (`Lucia`, `TimeSpan`, `DrizzlePostgreSQLAdapter` over `sessions`/`users`), used by hooks for session create/validate/invalidate and by login/signup/claim/auth-helper actions.
 - Trivial couplings, easily swapped: `generateId` from `'lucia'` (8 files) and `TimeSpan` (5 files). `oslo/jwt` (magic link, password reset, email-change binding) is pilcrow's separate library — not lucia — and can stay or ride along (see risks).
 - Why no move happened so far: no recorded decision anywhere in docs; the Oct hardening lane (contact/claim/password/email-change throttles, code binding to consumers) worked beside lucia, not through it.
