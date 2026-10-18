@@ -1,6 +1,5 @@
-import { lucia, setSessionCookie } from '$lib/server/auth';
+import { createBlankSessionCookie, createSessionCookie, session, sessionCookieName, setSessionCookie } from '$lib/server/auth';
 import { redirect, type Handle } from '@sveltejs/kit';
-import { sequence } from '@sveltejs/kit/hooks';
 import { createAnonymousUser, touchLastActiveAt } from '$lib/server/db/actions/users';
 import { getUserForApiToken } from '$lib/server/db/actions/apiTokens';
 import { runMigrations } from '$lib/server/db/migrations/runner';
@@ -53,8 +52,8 @@ const sessionHandle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	const sessionId = event.cookies.get(lucia.sessionCookieName);
-	if (!sessionId) {
+	const cookieValue = event.cookies.get(sessionCookieName);
+	if (!cookieValue) {
 		event.locals.user = null;
 		event.locals.session = null;
 		// Admin routes must never be served anonymously — gate BEFORE the
@@ -73,26 +72,28 @@ const sessionHandle: Handle = async ({ event, resolve }) => {
 			event.request.method === 'GET' &&
 			(event.request.headers.get('accept')?.includes('text/html') ?? false);
 		if (isDocumentNavigation && matchesRoute(event.url.pathname, protectedRoutes)) {
-			// Anonymous Account: silently create a server-side account
-			// with no email so the app is usable immediately.
+			// Anonymous Account: silently create a server-side account with a
+			// placeholder email (better-auth anonymous model) so the app is
+			// usable immediately.
 			const anonUser = await createAnonymousUser();
-			const session = await lucia.createSession(anonUser.id, {});
-			setSessionCookie(event.cookies, lucia.createSessionCookie(session.id));
+			const anonSession = await session.createSession(anonUser.id);
+			setSessionCookie(event.cookies, await createSessionCookie(anonSession));
 			event.locals.user = anonUser;
-			event.locals.session = session;
+			event.locals.session = anonSession;
 			return resolve(event);
 		}
 		return resolve(event);
 	}
 
-	const { session, user } = await lucia.validateSession(sessionId);
-	if (session && session.fresh) {
-		setSessionCookie(event.cookies, lucia.createSessionCookie(session.id));
+	const { session: sessionRow, user } = await session.validateSession(cookieValue);
+	if (sessionRow?.fresh) {
+		setSessionCookie(event.cookies, await createSessionCookie(sessionRow));
 	}
-	if (!session) {
-		setSessionCookie(event.cookies, lucia.createBlankSessionCookie());
+	if (!sessionRow) {
+		// Blank-cookie cascade: overwrite the dead cookie so we stop seeing it.
+		setSessionCookie(event.cookies, createBlankSessionCookie());
 	}
-	if (session && user) {
+	if (sessionRow && user) {
 		// Inactivity Window: any authenticated request counts as activity,
 		// throttled to one write per hour.
 		const lastActive = user.lastActiveAt ? new Date(user.lastActiveAt).getTime() : 0;
@@ -101,7 +102,7 @@ const sessionHandle: Handle = async ({ event, resolve }) => {
 		}
 	}
 	event.locals.user = user;
-	event.locals.session = session;
+	event.locals.session = sessionRow;
 	if (isAdminRoute(event.url.pathname) && !event.locals.user?.roles?.includes('admin')) {
 		return redirect(302, '/login');
 	}
@@ -150,7 +151,20 @@ const apiOriginCheck: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(securityHeaders, apiOriginCheck, sessionHandle);
+// Manual composition rather than kit's `sequence()` helper: 2.70's helper
+// resolves hooks through an ALS request store that only exists inside a real
+// server, which breaks direct invocation (hooks.server.test.ts) and any
+// non-server harness. Nesting the resolves keeps the identical order:
+// security headers → API origin check → session.
+export const handle: Handle = async ({ event, resolve }) =>
+	securityHeaders({
+		event,
+		resolve: (event) =>
+			apiOriginCheck({
+				event,
+				resolve: (event) => sessionHandle({ event, resolve })
+			})
+	});
 
 // Expected 404s (bot probes like /xmlrpc.php, mistyped URLs) shouldn't
 // spam the logs with stack traces — the styled error page still renders.

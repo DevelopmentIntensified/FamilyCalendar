@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import type { ActionData, PageData } from './$types';
@@ -202,27 +203,25 @@
 		modulePending = null;
 	}
 
-	function moduleSubmit(mod: Module) {
-		return async ({
-			result,
-			update
-		}: {
-			result?: { type: string };
-			update?: () => Promise<void>;
-		}) => {
-			// enhance calls back once before the action (no result) and once
-			// after; only the second call can confirm or revert.
-			if (!result || !update) return;
-			if (result.type === 'failure') {
-				// Revert first so the row never claims a switch that failed.
+	function moduleSubmit(mod: Module): SubmitFunction<{ type: string }> {
+		// enhance calls the outer callback at submit time and then invokes the
+		// inner one it returns before the action (no result) and after; only
+		// the second call can confirm or revert. syncToServer stays out so the
+		// parent never re-renders on server-only updates.
+		return async () => {
+			return async ({ result, update }) => {
+				if (!result || !update) return;
+				if (result.type === 'failure') {
+					// Revert first so the row never claims a switch that failed.
+					settleModule(mod);
+					pushToast({ message: `Couldn't switch ${mod.label.toLowerCase()} — try again.` });
+				}
+				await update();
 				settleModule(mod);
-				pushToast({ message: `Couldn't switch ${mod.label.toLowerCase()} — try again.` });
-			}
-			await update();
-			settleModule(mod);
-			if (result.type !== 'success') return;
-			const now = switches[mod.id] ?? true;
-			pushToast({ message: `${mod.label} is now ${now ? 'on' : 'off'} for everyone.` });
+				if (result.type !== 'success') return;
+				const now = switches[mod.id] ?? true;
+				pushToast({ message: `${mod.label} is now ${now ? 'on' : 'off'} for everyone.` });
+			};
 		};
 	}
 	function scrollToSettings() {

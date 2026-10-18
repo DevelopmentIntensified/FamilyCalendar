@@ -197,7 +197,7 @@ function renderMultiPreview() {
 
 /** The upload screen: no action has run yet, so `form` is absent entirely. */
 function renderUpload() {
-	return render(ImportPage, { props: { data: DATA } });
+	return render(ImportPage, { props: { data: DATA, form: null } });
 }
 
 function renderCommitted() {

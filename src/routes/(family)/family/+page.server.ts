@@ -12,6 +12,7 @@ import { db } from '$lib/server/db';
 import { familyInviteCodes, familyMembers, tasks, users } from '$lib/server/db/schema';
 import { and, count, eq, inArray, isNull } from 'drizzle-orm';
 import { fail } from '@sveltejs/kit';
+import { requireUser } from '$lib/server/utils/requireUser';
 import type { Actions, PageServerLoad } from './$types';
 
 // Minting an invite code is creator/admin-only — the same gate
@@ -20,7 +21,8 @@ import type { Actions, PageServerLoad } from './$types';
 const INVITE_MANAGER_ROLES = new Set(['creator', 'admin']);
 
 export const load: PageServerLoad = async ({ locals }) => {
-	const memberships = await getUserFamilyMemberships(locals.user.id);
+	const user = requireUser(locals);
+	const memberships = await getUserFamilyMemberships(user.id);
 	const familyIds = memberships.map((m) => m.family.id);
 
 	// The card's stat: open Family Tasks per family — ONE grouped query for the
@@ -87,7 +89,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	// Plan usage for the pill — the same familyLimit the create gate enforces,
 	// counted the same way (family Memberships, not families created).
-	const { familyLimit } = await getUserSubscriptionLimits(locals.user.id);
+	const { familyLimit } = await getUserSubscriptionLimits(user.id);
 
 	return {
 		families: memberships.map((m) => ({

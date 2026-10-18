@@ -1,5 +1,5 @@
 import type { RequestEvent } from './$types';
-import { lucia } from '$lib/server/auth';
+import { invalidateStaleAnonymousSession, session as sessionModule } from '$lib/server/auth';
 import { deleteCode, deleteDeadCodes, getCode } from '$lib/server/db/actions/codes';
 import { getAccount } from '$lib/server/db/actions/accounts';
 import { getUserByEmail } from '$lib/server/db/actions/users';
@@ -15,7 +15,10 @@ export type LoginCodeDeps = {
 	deleteDeadCodes: typeof deleteDeadCodes;
 	getAccount: typeof getAccount;
 	getUserByEmail: typeof getUserByEmail;
-	lucia: Pick<typeof lucia, 'createSession' | 'createSessionCookie' | 'invalidateSession'>;
+	session: Pick<
+		typeof sessionModule,
+		'createSession' | 'createSessionCookie' | 'invalidateSession'
+	>;
 };
 
 const defaultDeps: LoginCodeDeps = {
@@ -24,7 +27,7 @@ const defaultDeps: LoginCodeDeps = {
 	deleteDeadCodes,
 	getAccount,
 	getUserByEmail,
-	lucia
+	session: sessionModule
 };
 
 export const POST = async function (
@@ -37,7 +40,7 @@ export const POST = async function (
 		deleteDeadCodes,
 		getAccount: lookupAccount,
 		getUserByEmail: lookupUser,
-		lucia: session
+		session
 	} = deps;
 
 	if (!rateLimit(clientKey(event.request, 'verify-login-code'), 10, 15 * 60 * 1000)) {
@@ -86,18 +89,10 @@ export const POST = async function (
 		const oldSessionId = event.locals?.session?.id;
 		const oldUser = event.locals?.user;
 
-		const sessionRecord = await session.createSession(userAccount.userId, {});
-		const sessionCookie = session.createSessionCookie(sessionRecord.id);
+		const sessionRecord = await session.createSession(userAccount.userId);
+		const sessionCookie = await session.createSessionCookie(sessionRecord);
 
-		if (
-			oldSessionId &&
-			oldUser &&
-			!oldUser.email &&
-			oldUser.id !== userAccount.userId &&
-			oldSessionId !== sessionRecord.id
-		) {
-			await session.invalidateSession(oldSessionId).catch(() => {});
-		}
+		await invalidateStaleAnonymousSession(oldUser, oldSessionId, userAccount.userId, sessionRecord.id);
 
 		const headers = new Headers();
 		headers.append('Set-Cookie', sessionCookie.serialize());

@@ -44,7 +44,7 @@
 		assigneeLastName?: string | null;
 		creatorFirstName?: string | null;
 		userId: string;
-		eventId: string | null;
+		eventId?: string | null;
 		eventTitle?: string | null;
 		eventStart?: string | Date | null;
 		createdAt?: string | Date | number | null;
@@ -99,7 +99,7 @@
 		editing = task;
 	}
 
-	async function respondAssignment(task: TaskItem, accept: boolean) {
+	async function respondAssignment(task: Pick<TaskItem, 'id' | 'title'>, accept: boolean) {
 		if (busyId) return;
 		busyId = task.id;
 		actionError = '';

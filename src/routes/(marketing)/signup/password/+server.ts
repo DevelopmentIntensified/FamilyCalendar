@@ -4,7 +4,7 @@ import { getUserByEmail, createUser } from '$lib/server/db/actions/users';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { createCode } from '$lib/server/db/actions/codes';
 import { hashPassword } from '$lib/server/utils/password';
-import { lucia, setSessionCookie } from '$lib/server/auth';
+import { session, setSessionCookie } from '$lib/server/auth';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 import {
 	issueVerificationCode,
@@ -26,7 +26,7 @@ export type SignupPasswordDeps = {
 	createUser: typeof createUser;
 	ensurePersonalCalendar: typeof ensurePersonalCalendar;
 	hashPassword: typeof hashPassword;
-	lucia: Pick<typeof lucia, 'createSession' | 'createSessionCookie'>;
+	session: Pick<typeof session, 'createSession' | 'createSessionCookie'>;
 	setSessionCookie: typeof setSessionCookie;
 	createCode: typeof createCode;
 	sendEmail: typeof sendEmail;
@@ -42,7 +42,7 @@ const defaultDeps: SignupPasswordDeps = {
 	createUser,
 	ensurePersonalCalendar,
 	hashPassword,
-	lucia,
+	session,
 	setSessionCookie,
 	createCode,
 	sendEmail,
@@ -98,8 +98,8 @@ export const POST = async (
 
 		await deps.ensurePersonalCalendar(user.id);
 
-		const session = await deps.lucia.createSession(user.id, {});
-		deps.setSessionCookie(cookies, deps.lucia.createSessionCookie(session.id));
+		const newSession = await deps.session.createSession(user.id);
+		deps.setSessionCookie(cookies, await deps.session.createSessionCookie(newSession));
 
 		// The account already exists and is signed in at this point, so a
 		// verification-email failure must not fail the signup: log and keep

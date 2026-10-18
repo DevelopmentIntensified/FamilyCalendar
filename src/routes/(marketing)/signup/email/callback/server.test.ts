@@ -10,7 +10,7 @@ const createCode = vi.fn();
 const sendEmail = vi.fn();
 const createJwt = vi.fn();
 const verifyJwt = vi.fn();
-const lucia = { createSession: vi.fn(), createSessionCookie: vi.fn() };
+const sessionApi = { createSession: vi.fn(), createSessionCookie: vi.fn() };
 const createNewUser = vi.fn();
 
 const deps: SignupEmailCallbackDeps = {
@@ -24,7 +24,7 @@ const deps: SignupEmailCallbackDeps = {
 	jwtSecret: new TextEncoder().encode('test-secret-1234567890'),
 	baseSiteUrl: 'http://test.com',
 	fromEmail: 'noreply@test.com',
-	lucia,
+	session: sessionApi,
 	createNewUser
 };
 
@@ -46,9 +46,11 @@ beforeEach(() => {
 	getUser.mockResolvedValue(undefined);
 	getUserByEmail.mockResolvedValue(undefined);
 	createNewUser.mockResolvedValue({ id: 'user-new' });
-	lucia.createSession.mockResolvedValue({ id: 'session-1' });
-	lucia.createSessionCookie.mockReturnValue({
-		serialize: () => 'auth_session=new123; Path=/'
+	sessionApi.createSession.mockResolvedValue({ id: 'session-1', token: 'new123' });
+	// Restated for #196 slice 1: cookie name moved from lucia's `auth_session`
+	// to better-auth's default `better-auth.session_token`.
+	sessionApi.createSessionCookie.mockResolvedValue({
+		serialize: () => 'better-auth.session_token=new123.sig; Path=/'
 	});
 	verifyJwt.mockResolvedValue({
 		payload: {
@@ -67,9 +69,9 @@ describe('GET /signup/email/callback', () => {
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get('Location')).toContain('/calendar');
-		expect(response.headers.get('Set-Cookie')).toBe('auth_session=new123; Path=/');
+		expect(response.headers.get('Set-Cookie')).toBe('better-auth.session_token=new123.sig; Path=/');
 		expect(createNewUser).toHaveBeenCalledWith('New', 'User', 'new@user.com');
-		expect(lucia.createSession).toHaveBeenCalledWith('user-new', {});
+		expect(sessionApi.createSession).toHaveBeenCalledWith('user-new');
 	});
 
 	it('redirects to /signup?error when no token is provided', async () => {

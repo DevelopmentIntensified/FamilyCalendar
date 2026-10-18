@@ -550,12 +550,12 @@
 			{currentDate}
 			events={[...cd.user, ...cd.family, ...(data.adEvents || []), ...localExtras]}
 			removeEvent={() => {}}
-			preferedFirstDayOfWeek={data.userSettings?.weekStart || data.user?.firstDayOfWeek || 'sunday'}
+			preferedFirstDayOfWeek={data.userSettings?.weekStart || 'sunday'}
 			calendarIds={data.calendarIds || []}
 			filterUserId={data.user?.id ?? null}
 			familyMembers={(data.familyMembers ?? []).map((m) => ({
 				userId: m.userId,
-				firstName: m.firstName
+				firstName: m.name
 			}))}
 			dueTasks={cd.dueTasks || []}
 			defaultViewSetting={data.userSettings?.defaultView || 'monthView'}

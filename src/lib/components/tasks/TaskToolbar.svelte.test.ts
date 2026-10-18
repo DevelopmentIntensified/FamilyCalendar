@@ -1,8 +1,12 @@
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/svelte';
 import { describe, it, expect, afterEach } from 'vitest';
+import type { ComponentProps } from 'svelte';
 import TaskToolbar from './TaskToolbar.svelte';
 
-function props(overrides = {}) {
+/** The toolbar's own prop contract, so a widened literal cannot slip past it. */
+type ToolbarProps = ComponentProps<typeof TaskToolbar>;
+
+function props(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
 	return {
 		chip: 'all',
 		searchQuery: '',

@@ -4,6 +4,9 @@ import EventDetailList from './EventDetailList.svelte';
 
 const event = {
 	id: 'e1',
+	ownerId: 'u-ana',
+	created_at: new Date('2026-09-01T10:00:00'),
+	calendarId: 'cal-personal',
 	title: 'Dinner',
 	start: '2026-09-10T18:00:00',
 	end: '2026-09-10T19:00:00',
@@ -13,7 +16,6 @@ const event = {
 	reminderMinutes: 30,
 	creatorName: 'Ana',
 	isAd: false,
-	masterId: null,
 	recurrenceFrequency: null,
 	recurrenceInterval: null,
 	recurrenceByDay: null,

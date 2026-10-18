@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
 import { getUrl } from '$lib/utils/getUrl';
-import { lucia } from '$lib/server/auth';
+import { session as sessionModule } from '$lib/server/auth';
 import { accounts } from '$lib/server/db/schema';
 import { db } from '$lib/server/db/';
 import { eq } from 'drizzle-orm';
@@ -58,8 +58,8 @@ export const POST: RequestHandler = async function (event) {
 
 		const user = await createNewUser(firstName, lastName, email);
 
-		const session = await lucia.createSession(user.id, {});
-		const sessionCookie = lucia.createSessionCookie(session.id);
+		const newSession = await sessionModule.createSession(user.id);
+		const sessionCookie = await sessionModule.createSessionCookie(newSession);
 
 		const headers = new Headers();
 		headers.append('Set-Cookie', sessionCookie.serialize());

@@ -1,6 +1,10 @@
-import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/svelte';
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import type { ComponentProps } from 'svelte';
 import FamilyTaskRow from './FamilyTaskRow.svelte';
+
+/** The row's own prop contract, so a widened literal cannot slip past it. */
+type RowProps = ComponentProps<typeof FamilyTaskRow>;
 
 const open = {
 	id: 't1',
@@ -21,7 +25,7 @@ const open = {
 	userId: 'u2'
 };
 
-function props(overrides = {}) {
+function props(overrides: Partial<RowProps> = {}): RowProps {
 	return {
 		task: { ...open },
 		variant: 'open',

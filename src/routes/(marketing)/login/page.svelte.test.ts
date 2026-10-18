@@ -30,7 +30,7 @@ describe('/login page URL error display', () => {
 		mockPageState.url = new URL('http://test.com/login?error=Token+expired');
 
 		render(LoginPage, {
-			props: { data: { isLoggedIn: false, user: null, pathname: '/login', mergeMode: false } }
+			props: { data: { isLoggedIn: false, user: null, origin: 'http://test.com', pathname: '/login', mergeMode: false } }
 		});
 
 		expect(screen.getByText('Token expired')).toBeInTheDocument();
@@ -38,7 +38,7 @@ describe('/login page URL error display', () => {
 
 	it('does not show error when no ?error= parameter', async () => {
 		render(LoginPage, {
-			props: { data: { isLoggedIn: false, user: null, pathname: '/login', mergeMode: false } }
+			props: { data: { isLoggedIn: false, user: null, origin: 'http://test.com', pathname: '/login', mergeMode: false } }
 		});
 
 		expect(screen.queryByText(/Token expired|Invalid|Error/)).not.toBeInTheDocument();

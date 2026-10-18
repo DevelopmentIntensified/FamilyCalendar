@@ -20,7 +20,7 @@ const createCode = vi.fn();
 const sendEmail = vi.fn();
 const createJwt = vi.fn();
 const verifyJwt = vi.fn();
-const lucia = {
+const sessionApi = {
 	createSession: vi.fn(),
 	createSessionCookie: vi.fn()
 };
@@ -36,7 +36,7 @@ const deps: MagicLinkDeps = {
 	jwtSecret: new TextEncoder().encode('test-secret-1234567890'),
 	baseSiteUrl: 'http://test.com',
 	fromEmail: 'noreply@test.com',
-	lucia
+	session: sessionApi
 };
 
 const passGate = () => true;
@@ -432,14 +432,17 @@ describe('consumeMagicLink', () => {
 
 describe('sessionCookieFor', () => {
 	it('creates a session for the user and returns the session cookie', async () => {
-		lucia.createSession.mockResolvedValue({ id: 'session-1' });
-		const cookie = { serialize: () => 'auth_session=session-1; Path=/' };
-		lucia.createSessionCookie.mockReturnValue(cookie);
+		sessionApi.createSession.mockResolvedValue({ id: 'session-1', token: 'tok-1' });
+		const cookie = { serialize: () => 'better-auth.session_token=tok-1.sig; Path=/' };
+		sessionApi.createSessionCookie.mockResolvedValue(cookie);
 
 		const result = await sessionCookieFor(deps, 'user-1');
 
-		expect(lucia.createSession).toHaveBeenCalledWith('user-1', {});
-		expect(lucia.createSessionCookie).toHaveBeenCalledWith('session-1');
+		expect(sessionApi.createSession).toHaveBeenCalledWith('user-1');
+		expect(sessionApi.createSessionCookie).toHaveBeenCalledWith({
+			id: 'session-1',
+			token: 'tok-1'
+		});
 		expect(result).toEqual({ sessionId: 'session-1', cookie });
 	});
 });

@@ -43,7 +43,9 @@ describe('AddTaskCard', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
 		expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
 		// SAFETY: the stubbed fetch is called with (url, { body }) in addTask.
-		const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1].body as string);
+		const requestBody = vi.mocked(fetch).mock.calls[0]?.[1]?.body;
+		expect(requestBody).toBeDefined();
+		const body = JSON.parse(requestBody as string);
 		expect(body.title).toBe('Buy milk');
 		expect(invalidateAll).toHaveBeenCalledOnce();
 	});

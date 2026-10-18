@@ -1,4 +1,5 @@
 import { getUserFamilyMemberships } from '$lib/server/db/actions/families';
+import { requireUser } from '$lib/server/utils/requireUser';
 import { db } from '$lib/server/db';
 import { familyInviteCodes } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -9,7 +10,8 @@ import type { PageServerLoad } from './$types';
 const INVITE_MANAGER_ROLES = new Set(['creator', 'admin']);
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	const memberships = await getUserFamilyMemberships(locals.user.id);
+	const user = requireUser(locals);
+	const memberships = await getUserFamilyMemberships(user.id);
 
 	// `?familyId=` addresses one family; without it the OLDEST family is chosen.
 	// Either way the choice is defined — this used to compare against the

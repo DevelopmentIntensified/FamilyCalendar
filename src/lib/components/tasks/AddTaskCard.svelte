@@ -376,7 +376,7 @@
 				{/if}
 				<button
 					type="submit"
-					disabled={adding || bulkAdding || !newTitle.trim() || (isBulk && bulkBlocked)}
+					disabled={adding || bulkAdding || !newTitle.trim() || (isBulk && !!bulkBlocked)}
 					class="min-h-[36px] rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
 				>
 					{bulkAdding

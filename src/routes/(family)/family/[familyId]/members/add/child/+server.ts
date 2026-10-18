@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { familyMembers, childConsentRecords } from '$lib/server/db/schema';
 import { getFamilyMemberRole } from '$lib/server/db/actions/families';
+import { requireUser } from '$lib/server/utils/requireUser';
 import { canAddFamilyMember } from '$lib/server/services/subscriptionService';
 import { emailExists } from '$lib/server/db/actions/users';
 import { createNewUser } from '$lib/server/utils/createNewUser';
@@ -109,7 +110,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 
 		await tx.insert(childConsentRecords).values({
 			childUserId: user.id,
-			parentUserId: locals.user.id,
+			parentUserId: requireUser(locals).id,
 			familyId,
 			source: 'child-create'
 		});

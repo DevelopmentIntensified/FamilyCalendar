@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import NavbarProfileMenu from './NavbarProfileMenu.svelte';
 
 const admin = { firstName: 'Al', lastName: 'Admin', email: 'al@x.com', roles: ['admin'] };
-const member = { firstName: 'Bo', lastName: null, email: 'bo@x.com', roles: ['member'] };
+const member = { firstName: 'Bo', lastName: undefined, email: 'bo@x.com', roles: ['member'] };
 
 afterEach(cleanup);
 

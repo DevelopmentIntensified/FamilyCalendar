@@ -10,7 +10,7 @@ const createCode = vi.fn();
 const sendEmail = vi.fn();
 const createJwt = vi.fn();
 const verifyJwt = vi.fn();
-const lucia = { createSession: vi.fn(), createSessionCookie: vi.fn() };
+const sessionApi = { createSession: vi.fn(), createSessionCookie: vi.fn() };
 const gate = vi.fn(() => true);
 
 const deps: SignupEmailDeps = {
@@ -24,7 +24,7 @@ const deps: SignupEmailDeps = {
 	jwtSecret: new TextEncoder().encode('test-secret-1234567890'),
 	baseSiteUrl: 'http://test.com',
 	fromEmail: 'noreply@test.com',
-	lucia,
+	session: sessionApi,
 	gate
 };
 

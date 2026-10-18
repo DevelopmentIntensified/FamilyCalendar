@@ -79,10 +79,11 @@ export const GET: RequestHandler = async ({ request, locals, params }) => {
 	const access = await canTouchEvent(locals.user.id, params.id);
 	if (access === 'not-found') return json({ error: 'Event not found' }, { status: 404 });
 	if (access === 'forbidden') return json({ error: 'No access to this event' }, { status: 403 });
+	const currentUserId = locals.user.id;
 
 	try {
 		const attendance = await getEventAttendance(params.id);
-		const userRsvp = attendance.find((a) => a.userId === locals.user.id);
+		const userRsvp = attendance.find((a) => a.userId === currentUserId);
 		return json({
 			attendance,
 			userRsvpStatus: userRsvp?.status || 'undecided',

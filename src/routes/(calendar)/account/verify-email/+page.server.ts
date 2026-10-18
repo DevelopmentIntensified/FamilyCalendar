@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
+import { requireUser } from '$lib/server/utils/requireUser';
 
 type EmailChangePayload = {
 	code: string;
@@ -54,7 +55,7 @@ export const actions: Actions = {
 		}
 
 		const secret = new TextEncoder().encode(EMAILSECRET);
-		const userId = locals.user.id;
+		const userId = requireUser(locals).id;
 
 		try {
 			let pendingEmail: string | null;

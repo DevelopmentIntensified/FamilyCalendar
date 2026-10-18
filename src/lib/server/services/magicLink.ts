@@ -2,12 +2,12 @@ import { sendEmail } from '$lib/utils/sendEmail';
 import { NOREPLYEMAIL, EMAILSECRET } from '$env/static/private';
 import { getUrl } from '$lib/utils/getUrl';
 import { createJWT, validateJWT } from 'oslo/jwt';
-import { TimeSpan } from 'lucia';
+import { TimeSpan } from 'oslo';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { createCode } from '$lib/server/db/actions/codes';
 import { getAccount } from '$lib/server/db/actions/accounts';
 import { getUser, getUserByEmail } from '$lib/server/db/actions/users';
-import { lucia } from '$lib/server/auth';
+import { session, type SessionCookie } from '$lib/server/auth';
 
 /**
  * Single source of truth for the magic-link lifecycle (email → code + JWT link
@@ -60,7 +60,7 @@ export type MagicLinkDeps = {
 	jwtSecret: Uint8Array;
 	// misc
 	baseSiteUrl: string;
-	lucia: Pick<typeof lucia, 'createSession' | 'createSessionCookie'>;
+	session: Pick<typeof session, 'createSession' | 'createSessionCookie'>;
 };
 
 const randomReader: RandomReader = {
@@ -80,7 +80,7 @@ export const magicLinkDeps: MagicLinkDeps = {
 	verifyJwt: validateJWT,
 	jwtSecret: new TextEncoder().encode(EMAILSECRET),
 	baseSiteUrl: getUrl(),
-	lucia
+	session
 };
 
 const EMAIL_REGEX =
@@ -379,13 +379,18 @@ export async function consumeMagicLink(
  * endpoint: creates the Lucia session for `userId` and returns its id plus the
  * session cookie (which also `.serialize()`s for a raw Set-Cookie header).
  */
+/**
+ * Session assembly shared by the signup/login callbacks and the claim-verify
+ * endpoint: creates the session for `userId` and returns its id plus the
+ * session cookie (which also `.serialize()`s for a raw Set-Cookie header).
+ */
 export async function sessionCookieFor(
-	deps: Pick<MagicLinkDeps, 'lucia'>,
+	deps: Pick<MagicLinkDeps, 'session'>,
 	userId: string
-): Promise<{ sessionId: string; cookie: ReturnType<typeof lucia.createSessionCookie> }> {
-	const session = await deps.lucia.createSession(userId, {});
-	const cookie = deps.lucia.createSessionCookie(session.id);
-	return { sessionId: session.id, cookie };
+): Promise<{ sessionId: string; cookie: SessionCookie }> {
+	const sessionRow = await deps.session.createSession(userId);
+	const cookie = await deps.session.createSessionCookie(sessionRow);
+	return { sessionId: sessionRow.id, cookie };
 }
 
 const CLAIM_MERGE_HTML = (verifyUrl: string) =>

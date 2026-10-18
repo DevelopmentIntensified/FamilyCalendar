@@ -9,6 +9,7 @@
 	import BottomNav from '$lib/components/BottomNav.svelte';
 	import Toaster from '$lib/components/Toaster.svelte';
 	import { initOfflineSync } from '$lib/utils/offline';
+	import { isAnonymousAccount } from '$lib/utils/anonymous';
 
 	export let data: LayoutData;
 
@@ -47,7 +48,7 @@
 	});
 
 	const INACTIVITY_WINDOW_DAYS = 90;
-	$: isAnonymous = !data.user?.email;
+	$: isAnonymous = isAnonymousAccount(data.user);
 	$: daysRemaining = (() => {
 		if (!data.user?.lastActiveAt) return INACTIVITY_WINDOW_DAYS;
 		const elapsed = Date.now() - new Date(data.user.lastActiveAt).getTime();

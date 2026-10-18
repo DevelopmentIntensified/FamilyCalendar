@@ -1,6 +1,8 @@
 import { db } from '$lib/server/db';
 import { users, subscriptions, tasks, type User } from '$lib/server/db/schema';
 import { createUserSettings } from '$lib/server/db/actions/userSettings';
+import { generateId } from '$lib/server/utils/generateId';
+import { ANONYMOUS_EMAIL_DOMAIN } from '$lib/utils/anonymous';
 import { eq, and, lt, sql } from 'drizzle-orm';
 
 export async function getUsers() {
@@ -69,12 +71,16 @@ export async function deleteUserByEmail(email: string) {
 }
 
 export async function createAnonymousUser() {
+	// Anonymous Account (better-auth anonymous model): placeholder email
+	// instead of the old null-email marker (#196 slice 1).
+	const userId = generateId(15);
 	const [createdUser] = await db
 		.insert(users)
 		.values({
+			id: userId,
 			firstName: 'Guest',
 			lastName: '',
-			email: null,
+			email: userId + ANONYMOUS_EMAIL_DOMAIN,
 			emailVerified: false,
 			roles: []
 		})
@@ -102,5 +108,10 @@ export async function getStaleAnonymousUsers(inactivityCutoff: Date) {
 	return await db
 		.select()
 		.from(users)
-		.where(and(sql`${users.email} IS NULL`, lt(users.lastActiveAt, inactivityCutoff)));
+		.where(
+			and(
+				sql`${users.email} LIKE ${'%' + ANONYMOUS_EMAIL_DOMAIN}`,
+				lt(users.lastActiveAt, inactivityCutoff)
+			)
+		);
 }

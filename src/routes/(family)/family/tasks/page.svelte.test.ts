@@ -63,7 +63,23 @@ function familyTask(overrides: Partial<FamilyRow> = {}): FamilyRow {
 
 function data(tasks: PageData['tasks']) {
 	const payload: PageData = {
-		user: null,
+		user: {
+			id: 'u_dad',
+			firstName: 'Dad',
+			lastName: 'Smith',
+			email: null,
+			passwordHash: null,
+			emailVerified: null,
+			picture: null,
+			roles: [],
+			createdAt: new Date('2026-08-01T00:00:00.000Z'),
+			lastActiveAt: new Date('2026-09-01T00:00:00.000Z'),
+			updatedAt: new Date('2026-09-01T00:00:00.000Z'),
+			phonenumber: null,
+			phonenumberVerified: null,
+			lastLogin: new Date('2026-09-01T00:00:00.000Z'),
+			receiptIngestToken: null
+		},
 		isLoggedIn: true,
 		pathname: '/family/tasks',
 		tasks,

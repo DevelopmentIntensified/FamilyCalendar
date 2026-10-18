@@ -1,9 +1,10 @@
 import { db } from '$lib/server/db';
-import { events, sessions, tasks, users } from '$lib/server/db/schema';
+import { authSession, events, tasks, users } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Cookies } from '@sveltejs/kit';
-import { lucia } from '$lib/server/auth';
+import { session, sessionCookieName } from '$lib/server/auth';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
+import { isAnonymousAccount } from '$lib/utils/anonymous';
 
 export const GUEST_MERGE_COOKIE = 'guest_merge';
 
@@ -14,28 +15,25 @@ export const GUEST_MERGE_COOKIE = 'guest_merge';
  */
 export async function stashGuestFromCookies(cookies: Pick<Cookies, 'get' | 'set' | 'delete'>) {
 	try {
-		const sessionId = cookies.get(lucia.sessionCookieName);
-		if (!sessionId) return;
-		const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
-		if (!session || session.expiresAt < new Date()) return;
-		const guest = await getAnonymousUser(session.userId);
-		if (guest) {
-			cookies.set(GUEST_MERGE_COOKIE, guest.id, {
-				path: '/',
-				httpOnly: true,
-				sameSite: 'lax',
-				maxAge: 60 * 15
-			});
-		}
+		const { session: sessionRow, user } = await session.validateSession(
+			cookies.get(sessionCookieName)
+		);
+		if (!sessionRow || !user || !isAnonymousAccount(user)) return;
+		cookies.set(GUEST_MERGE_COOKIE, user.id, {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			maxAge: 60 * 15
+		});
 	} catch {
 		// Never block login because of stash bookkeeping.
 	}
 }
 
-/** True when the user row is an Anonymous Account (no email yet). */
+/** The Anonymous Account row for `userId`, or null when the user is real. */
 export async function getAnonymousUser(userId: string) {
 	const [user] = await db.select().from(users).where(eq(users.id, userId));
-	if (!user || user.email !== null) return null;
+	if (!isAnonymousAccount(user)) return null;
 	return user;
 }
 
@@ -80,7 +78,7 @@ export async function mergeGuestIntoUser(
 			.returning({ id: tasks.id });
 
 		// Kill guest sessions first so cascade order stays clean.
-		await tx.delete(sessions).where(eq(sessions.userId, guestId));
+		await tx.delete(authSession).where(eq(authSession.userId, guestId));
 		await tx.delete(users).where(eq(users.id, guestId));
 
 		return { events: movedEvents.length, tasks: movedTasks.length };

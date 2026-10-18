@@ -11,7 +11,7 @@ const setSessionCookie = vi.fn();
 const createCode = vi.fn();
 const sendEmail = vi.fn();
 const createJwt = vi.fn();
-const lucia = { createSession: vi.fn(), createSessionCookie: vi.fn() };
+const sessionApi = { createSession: vi.fn(), createSessionCookie: vi.fn() };
 const gate = vi.fn(() => true);
 
 const deps: SignupPasswordDeps = {
@@ -19,7 +19,7 @@ const deps: SignupPasswordDeps = {
 	createUser,
 	ensurePersonalCalendar,
 	hashPassword,
-	lucia,
+	session: sessionApi,
 	setSessionCookie,
 	createCode,
 	sendEmail,
@@ -62,10 +62,12 @@ beforeEach(() => {
 	hashPassword.mockResolvedValue('hashed-password');
 	createUser.mockResolvedValue({ id: 'user-1', email: 'new@user.com', firstName: 'New' });
 	ensurePersonalCalendar.mockResolvedValue({ id: 'cal-1' });
-	lucia.createSession.mockResolvedValue({ id: 'session-1' });
-	lucia.createSessionCookie.mockReturnValue({
-		name: 'auth_session',
-		value: 'abc',
+	sessionApi.createSession.mockResolvedValue({ id: 'session-1', token: 'abc' });
+	// Restated for #196 slice 1: cookie name moved from lucia's `auth_session`
+	// to better-auth's default `better-auth.session_token`.
+	sessionApi.createSessionCookie.mockResolvedValue({
+		name: 'better-auth.session_token',
+		value: 'abc.sig',
 		attributes: {}
 	});
 	sendEmail.mockResolvedValue({ success: true, error: undefined, data: { id: 'email-1' } });

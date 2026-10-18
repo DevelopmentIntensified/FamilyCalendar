@@ -59,7 +59,7 @@ describe('FamilyTaskAddForm', () => {
 	});
 
 	it('keeps the draft when the POST fails', async () => {
-		vi.mocked(fetch).mockResolvedValueOnce({ ok: false, json: async () => ({}) });
+		vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 500 }));
 		render(FamilyTaskAddForm, { props: base });
 		await fireEvent.input(screen.getByPlaceholderText('Add a family task...'), {
 			target: { value: 'Mow the lawn' }

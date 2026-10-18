@@ -5,7 +5,7 @@ import { sendEmail } from '$lib/utils/sendEmail';
 import { NOREPLYEMAIL, EMAILSECRET } from '$env/static/private';
 import { getUrl } from '$lib/utils/getUrl';
 import { createJWT } from 'oslo/jwt';
-import { TimeSpan } from 'lucia';
+import { TimeSpan } from 'oslo';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
 /**

@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/svelte';
 import TodayGlanceCard from './TodayGlanceCard.svelte';
+import type { GlanceEvent } from './TodayGlanceCard.svelte';
 
 afterEach(() => {
 	cleanup();
@@ -9,7 +10,7 @@ afterEach(() => {
 const mark = (kind: string) => document.querySelector(`[data-chip-mark="${kind}"]`);
 
 // SAFETY: fixture covers the GlanceEvent fields TodayGlanceCard renders.
-const glance = (over: Record<string, unknown> = {}) => ({
+const glance = (over: Partial<GlanceEvent> = {}): GlanceEvent => ({
 	id: 'e1',
 	masterId: null,
 	title: 'Standup',
@@ -76,7 +77,7 @@ describe('TodayGlanceCard all-day-only days', () => {
 // Dashboard was indistinguishable from a family event. `GlanceEvent` now
 // carries `isAd`, so the card names one the same way every other view does.
 describe('TodayGlanceCard names a sponsored event', () => {
-	const renderCard = (events: unknown[]) =>
+	const renderCard = (events: GlanceEvent[]) =>
 		render(TodayGlanceCard, {
 			props: { dateLabel: 'Thursday, September 3', isToday: true, onEventClick: () => {}, events }
 		});

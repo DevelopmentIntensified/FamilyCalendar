@@ -1,4 +1,5 @@
 import type { PageServerLoad, Actions } from './$types';
+import type { Cookies } from '@sveltejs/kit';
 import { fail, redirect } from '@sveltejs/kit';
 import { parseJWT, validateJWT } from 'oslo/jwt';
 import { EMAILSECRET } from '$env/static/private';
@@ -7,7 +8,7 @@ import { users, familyMembers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAccount } from '$lib/server/db/actions/accounts';
 import { createNewUser } from '$lib/server/utils/createNewUser';
-import { lucia } from '$lib/server/auth';
+import { createSession, createSessionCookie, setSessionCookie } from '$lib/server/auth';
 import { hashPassword } from '$lib/server/utils/password';
 
 type InvitePayload = {
@@ -88,18 +89,10 @@ async function validateToken(token: string) {
 	return payload;
 }
 
-async function setSessionCookie(
-	event: { cookies: import('@sveltejs/kit').Cookies },
-	userId: string
-) {
-	const session = await lucia.createSession(userId, {});
-	const sessionCookie = lucia.createSessionCookie(session.id);
-	event.cookies.set(sessionCookie.name, sessionCookie.value, {
-		path: '/',
-		httpOnly: true,
-		sameSite: 'lax',
-		secure: import.meta.env.PROD
-	});
+/** Session-cookie producer for this route: delegates to the auth module. */
+async function startSessionFor(event: { cookies: Cookies }, userId: string) {
+	const newSession = await createSession(userId);
+	setSessionCookie(event.cookies, await createSessionCookie(newSession));
 }
 
 async function createAccountAndJoin(
@@ -114,7 +107,7 @@ async function createAccountAndJoin(
 			userId: existingAccount.userId,
 			familyId
 		});
-		await setSessionCookie(event, existingAccount.userId);
+		await startSessionFor(event, existingAccount.userId);
 		throw redirect(303, '/family/' + familyId);
 	}
 
@@ -128,7 +121,7 @@ async function createAccountAndJoin(
 		familyId
 	});
 
-	await setSessionCookie(event, user.id);
+	await startSessionFor(event, user.id);
 	throw redirect(303, '/family/' + familyId);
 }
 

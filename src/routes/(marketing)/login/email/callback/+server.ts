@@ -5,7 +5,7 @@ import {
 	sessionCookieFor,
 	type MagicLinkDeps
 } from '$lib/server/services/magicLink';
-import { lucia } from '$lib/server/auth';
+import { invalidateStaleAnonymousSession, session as sessionModule } from '$lib/server/auth';
 import { users } from '$lib/server/db/schema';
 import { db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
@@ -17,14 +17,17 @@ import { deleteCodesByEmail } from '$lib/server/db/actions/codes';
  * Token verification is single-sourced in the magicLink module.
  */
 export type EmailCallbackDeps = Omit<MagicLinkDeps, 'lucia'> & {
-	lucia: Pick<typeof lucia, 'createSession' | 'createSessionCookie' | 'invalidateSession'>;
+	session: Pick<
+		typeof sessionModule,
+		'createSession' | 'createSessionCookie' | 'invalidateSession'
+	>;
 	deleteCodesByEmail: typeof deleteCodesByEmail;
 	updateLastLogin: (userId: string) => Promise<void> | void;
 };
 
 const defaultDeps: EmailCallbackDeps = {
 	...magicLinkDeps,
-	lucia,
+	session: sessionModule,
 	deleteCodesByEmail,
 	updateLastLogin: async (userId: string) => {
 		await db.update(users).set({ lastLogin: new Date() }).where(eq(users.id, userId));
@@ -79,15 +82,7 @@ export const GET = async function (
 		await deps.updateLastLogin(userId);
 		const { sessionId, cookie } = await sessionCookieFor(deps, userId);
 
-		if (
-			oldSessionId &&
-			oldUser &&
-			!oldUser.email &&
-			oldUser.id !== userId &&
-			oldSessionId !== sessionId
-		) {
-			await deps.lucia.invalidateSession(oldSessionId).catch(() => {});
-		}
+		await invalidateStaleAnonymousSession(oldUser, oldSessionId, userId, sessionId);
 
 		await deps.deleteCodesByEmail(email);
 

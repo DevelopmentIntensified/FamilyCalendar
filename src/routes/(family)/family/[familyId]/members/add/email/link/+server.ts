@@ -2,7 +2,7 @@ import { json, type RequestEvent } from '@sveltejs/kit';
 import { EMAILSECRET } from '$env/static/private';
 import { getUrl } from '$lib/utils/getUrl';
 import { createJWT } from 'oslo/jwt';
-import { TimeSpan } from 'lucia';
+import { TimeSpan } from 'oslo';
 import { db } from '$lib/server/db';
 import { familyMembers } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';

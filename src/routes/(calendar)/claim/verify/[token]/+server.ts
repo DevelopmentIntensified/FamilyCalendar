@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { RequestEvent } from './$types';
 import { verifyClaimToken } from '$lib/server/services/claimService';
 import { sessionCookieFor } from '$lib/server/services/magicLink';
-import { lucia, setSessionCookie } from '$lib/server/auth';
+import { session, setSessionCookie } from '$lib/server/auth';
 
 /**
  * Collaborators GET needs, injectable so tests can pass fakes through a real
@@ -12,13 +12,13 @@ import { lucia, setSessionCookie } from '$lib/server/auth';
  */
 export type ClaimVerifyDeps = {
 	verifyClaimToken: typeof verifyClaimToken;
-	lucia: Pick<typeof lucia, 'createSession' | 'createSessionCookie'>;
+	session: Pick<typeof session, 'createSession' | 'createSessionCookie'>;
 	setSessionCookie: typeof setSessionCookie;
 };
 
 const defaultDeps: ClaimVerifyDeps = {
 	verifyClaimToken,
-	lucia,
+	session,
 	setSessionCookie
 };
 

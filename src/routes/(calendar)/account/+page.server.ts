@@ -1,8 +1,8 @@
 import { getUser, updateUser } from '$lib/server/db/actions/users';
 import { getUserSettings, updateUserSettings } from '$lib/server/db/actions/userSettings';
-import { lucia } from '$lib/server/auth';
+import { invalidateSession, invalidateUserSessions } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { sessions, calendars } from '$lib/server/db/schema';
+import { authSession, calendars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserFamilyMemberships } from '$lib/server/db/actions/families';
 import {
@@ -13,12 +13,13 @@ import {
 } from '$lib/server/services/subscriptionService';
 import { getPlanPricing } from '$lib/server/services/checkoutService';
 import { fail, redirect } from '@sveltejs/kit';
+import { requireUser } from '$lib/server/utils/requireUser';
 import type { Actions, PageServerLoad } from './$types';
 import { sendEmail } from '$lib/utils/sendEmail';
 import { NOREPLYEMAIL, EMAILSECRET } from '$env/static/private';
 import { getUrl } from '$lib/utils/getUrl';
 import { createJWT } from 'oslo/jwt';
-import { TimeSpan } from 'lucia';
+import { TimeSpan } from 'oslo';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
@@ -165,7 +166,8 @@ function formString(formData: FormData, key: string): string {
 
 export const actions: Actions = {
 	saveCalendarSettings: async ({ request, locals }) => {
-		const userId = locals.user.id;
+		const user = requireUser(locals);
+		const userId = user.id;
 		const formData = await request.formData();
 
 		const weekStart = formString(formData, 'weekStart');
@@ -261,7 +263,8 @@ export const actions: Actions = {
 	// saveCalendarSettings so hiding a card and changing your week start are two
 	// acts with two receipts, and a failure in one cannot rewrite the other.
 	saveDashboardModules: async ({ request, locals }) => {
-		const userId = locals.user.id;
+		const user = requireUser(locals);
+		const userId = user.id;
 		const formData = await request.formData();
 
 		try {
@@ -318,7 +321,8 @@ export const actions: Actions = {
 		const value = rawValue === 'true';
 
 		try {
-			await setNotificationPreference(locals.user.id, preference, value);
+			const user = requireUser(locals);
+			await setNotificationPreference(user.id, preference, value);
 			return {
 				success: true,
 				message: `${notificationPreferenceChangeLabel(preference, value)} Saved.`
@@ -333,7 +337,8 @@ export const actions: Actions = {
 	},
 
 	updateProfile: async ({ request, locals }) => {
-		const userId = locals.user.id;
+		const user = requireUser(locals);
+		const userId = user.id;
 		const formData = await request.formData();
 
 		const firstName = formString(formData, 'firstName');
@@ -354,10 +359,11 @@ export const actions: Actions = {
 
 	updateEmail: async ({ request, locals }) => {
 		// Throttle email bombing: 3 sends per 15min per user+IP (forgot-password pattern).
-		if (!rateLimit(clientKey(request, `email-change:${locals.user.id}`), 3, 15 * 60 * 1000)) {
+		const user = requireUser(locals);
+		if (!rateLimit(clientKey(request, `email-change:${user.id}`), 3, 15 * 60 * 1000)) {
 			return fail(429, { success: false, message: 'Too many attempts. Try again shortly.' });
 		}
-		const userId = locals.user.id;
+		const userId = user.id;
 		const currentUser = await getUser(userId);
 
 		// Anonymous Accounts have no email yet — they claim their first
@@ -436,15 +442,19 @@ export const actions: Actions = {
 	},
 
 	logoutAllDevices: async ({ locals }) => {
-		const userId = locals.user.id;
+		const user = requireUser(locals);
+		const userId = user.id;
 		const currentSessionId = locals.session?.id;
 
 		try {
-			const allSessions = await db.select().from(sessions).where(eq(sessions.userId, userId));
+			const allSessions = await db
+				.select()
+				.from(authSession)
+				.where(eq(authSession.userId, userId));
 
-			for (const session of allSessions) {
-				if (session.id !== currentSessionId) {
-					await lucia.invalidateSession(session.id);
+			for (const sessionRow of allSessions) {
+				if (sessionRow.id !== currentSessionId) {
+					await invalidateSession(sessionRow.id);
 				}
 			}
 
@@ -462,7 +472,7 @@ export const actions: Actions = {
 			return fail(400, { success: false, message: 'Token name is required' });
 		}
 		try {
-			const { row, token } = await mintApiToken(locals.user.id, name.slice(0, 60));
+			const { row, token } = await mintApiToken(requireUser(locals).id, name.slice(0, 60));
 			return {
 				success: true,
 				message: `Token '${row.name}' created — copy it now, it won't be shown again.`,
@@ -482,7 +492,7 @@ export const actions: Actions = {
 			return fail(400, { success: false, message: 'Token id is required' });
 		}
 		try {
-			await revokeToken(locals.user.id, tokenId);
+			await revokeToken(requireUser(locals).id, tokenId);
 			return { success: true, message: 'Token revoked' };
 		} catch (error) {
 			console.error('Failed to revoke API token:', error);
@@ -491,7 +501,8 @@ export const actions: Actions = {
 	},
 
 	deleteAccount: async ({ request, locals }) => {
-		const userId = locals.user.id;
+		const user = requireUser(locals);
+		const userId = user.id;
 		const formData = await request.formData();
 
 		const confirmation = formString(formData, 'confirmation');
@@ -500,9 +511,9 @@ export const actions: Actions = {
 			return fail(400, { success: false, message: 'Confirmation does not match' });
 		}
 
-		await lucia.invalidateSession(locals.session!.id);
+		await invalidateSession(locals.session!.id);
 
-		await db.delete(sessions).where(eq(sessions.userId, userId));
+		await invalidateUserSessions(userId);
 
 		const { deleteUser } = await import('$lib/server/db/actions/users');
 		await deleteUser(userId);

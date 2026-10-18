@@ -8,7 +8,7 @@ const deleteCode = vi.fn();
 const deleteDeadCodes = vi.fn();
 const getAccount = vi.fn();
 const getUserByEmail = vi.fn();
-const lucia = {
+const sessionApi = {
 	createSession: vi.fn(),
 	createSessionCookie: vi.fn(),
 	invalidateSession: vi.fn()
@@ -20,7 +20,7 @@ const deps: LoginCodeDeps = {
 	deleteDeadCodes,
 	getAccount,
 	getUserByEmail,
-	lucia
+	session: sessionApi,
 };
 
 function mockEvent(code: string) {
@@ -46,15 +46,17 @@ describe('POST /login/email/code', () => {
 		getCode.mockResolvedValue(mockCode);
 		getAccount.mockResolvedValue(undefined);
 		getUserByEmail.mockResolvedValue(mockUser);
-		lucia.createSession.mockResolvedValue({ id: 'session-123' });
-		lucia.createSessionCookie.mockReturnValue({
-			serialize: () => 'auth_session=abc123; Path=/'
+		sessionApi.createSession.mockResolvedValue({ id: 'session-123', token: 'abc123' });
+		// Restated for #196 slice 1: cookie name moved from lucia's `auth_session`
+		// to better-auth's default `better-auth.session_token`.
+		sessionApi.createSessionCookie.mockResolvedValue({
+			serialize: () => 'better-auth.session_token=abc123.sig; Path=/'
 		});
 
 		const response = await POST(mockEvent('ABC123'), deps);
 
 		expect(response.status).toBe(200);
-		expect(response.headers.get('Set-Cookie')).toContain('auth_session');
+		expect(response.headers.get('Set-Cookie')).toContain('better-auth.session_token');
 		expect(getUserByEmail).toHaveBeenCalledWith('password@user.com');
 		expect(deleteCode).toHaveBeenCalledWith('ABC123');
 	});
@@ -77,9 +79,9 @@ describe('POST /login/email/code', () => {
 			userId: 'user-456',
 			providerAccountId: 'email@user.com'
 		});
-		lucia.createSession.mockResolvedValue({ id: 'session-456' });
-		lucia.createSessionCookie.mockReturnValue({
-			serialize: () => 'auth_session=xyz; Path=/'
+		sessionApi.createSession.mockResolvedValue({ id: 'session-456', token: 'xyz' });
+		sessionApi.createSessionCookie.mockResolvedValue({
+			serialize: () => 'better-auth.session_token=xyz.sig; Path=/'
 		});
 
 		const response = await POST(mockEvent('GHI789'), deps);

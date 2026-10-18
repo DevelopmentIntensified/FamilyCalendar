@@ -10,7 +10,7 @@ const createCode = vi.fn();
 const sendEmail = vi.fn();
 const createJwt = vi.fn();
 const verifyJwt = vi.fn();
-const lucia = {
+const sessionApi = {
 	createSession: vi.fn(),
 	createSessionCookie: vi.fn(),
 	invalidateSession: vi.fn()
@@ -29,7 +29,7 @@ const deps: EmailCallbackDeps = {
 	jwtSecret: new TextEncoder().encode('test-secret-1234567890'),
 	baseSiteUrl: 'http://test.com',
 	fromEmail: 'noreply@test.com',
-	lucia,
+	session: sessionApi,
 	deleteCodesByEmail,
 	updateLastLogin
 };
@@ -52,9 +52,11 @@ beforeEach(() => {
 	getUser.mockResolvedValue(undefined);
 	getUserByEmail.mockResolvedValue({ id: 'user-pw', email: 'pw@user.com' });
 	deleteCodesByEmail.mockResolvedValue(undefined);
-	lucia.createSession.mockResolvedValue({ id: 'session-pw' });
-	lucia.createSessionCookie.mockReturnValue({
-		serialize: () => 'auth_session=pw123; Path=/'
+	sessionApi.createSession.mockResolvedValue({ id: 'session-pw', token: 'pw123' });
+	// Restated for #196 slice 1: cookie name moved from lucia's `auth_session`
+	// to better-auth's default `better-auth.session_token`.
+	sessionApi.createSessionCookie.mockResolvedValue({
+		serialize: () => 'better-auth.session_token=pw123.sig; Path=/'
 	});
 	verifyJwt.mockResolvedValue({
 		payload: { kind: 'login', email: 'pw@user.com', code: '12345678' }

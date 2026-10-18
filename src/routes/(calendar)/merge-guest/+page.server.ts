@@ -6,6 +6,7 @@ import {
 	isClaimableGuest,
 	mergeGuestIntoUser
 } from '$lib/server/services/guestMergeService';
+import { isAnonymousAccount } from '$lib/utils/anonymous';
 
 async function readStash(cookieStore: {
 	get: (n: string) => string | undefined;
@@ -17,7 +18,7 @@ async function readStash(cookieStore: {
 
 export const load: PageServerLoad = async ({ locals, cookies }) => {
 	if (!locals.user) throw redirect(302, '/login');
-	if (locals.user.email === null) throw redirect(302, '/claim');
+	if (isAnonymousAccount(locals.user)) throw redirect(302, '/claim');
 
 	const guestId = await readStash(cookies);
 	if (!guestId || guestId === locals.user.id) throw redirect(302, '/calendar');

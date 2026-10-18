@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GET, type ClaimVerifyDeps } from './+server';
 
 const verifyClaimToken = vi.fn<ClaimVerifyDeps['verifyClaimToken']>();
-const lucia = {
+const sessionApi = {
 	createSession: vi.fn(),
 	createSessionCookie: vi.fn()
 };
@@ -10,7 +10,7 @@ const setSessionCookie = vi.fn<ClaimVerifyDeps['setSessionCookie']>();
 
 const deps: ClaimVerifyDeps = {
 	verifyClaimToken,
-	lucia,
+	session: sessionApi,
 	setSessionCookie
 };
 
@@ -49,15 +49,19 @@ describe('GET /claim/verify/[token]', () => {
 			outcome: 'merged',
 			targetUserId: 'existing-9'
 		});
-		lucia.createSession.mockResolvedValue({ id: 'session-9' });
-		lucia.createSessionCookie.mockReturnValue({ value: 'auth_session=s9; Path=/' });
+		// Restated for #196 slice 1: cookie name moved from lucia's
+		// `auth_session` to better-auth's default `better-auth.session_token`.
+		sessionApi.createSession.mockResolvedValue({ id: 'session-9', token: 'tok-9' });
+		sessionApi.createSessionCookie.mockResolvedValue({
+			value: 'better-auth.session_token=tok-9.sig; Path=/'
+		});
 
 		const event = mockEvent('guest-1');
 		const redirect = await redirectOf(GET(event, deps));
 
 		expect(verifyClaimToken).toHaveBeenCalledWith('tok-1', 'guest-1');
 		// Signed into the existing account the guest merged into.
-		expect(lucia.createSession).toHaveBeenCalledWith('existing-9', {});
+		expect(sessionApi.createSession).toHaveBeenCalledWith('existing-9');
 		expect(setSessionCookie).toHaveBeenCalled();
 		expect(redirect.status).toBe(302);
 		expect(redirect.location).toContain('/calendar');
@@ -69,7 +73,7 @@ describe('GET /claim/verify/[token]', () => {
 		const redirect = await redirectOf(GET(mockEvent('guest-1'), deps));
 
 		expect(verifyClaimToken).toHaveBeenCalledWith('tok-1', 'guest-1');
-		expect(lucia.createSession).not.toHaveBeenCalled();
+		expect(sessionApi.createSession).not.toHaveBeenCalled();
 		expect(redirect.status).toBe(302);
 		expect(redirect.location).toContain('/calendar');
 	});
@@ -79,7 +83,7 @@ describe('GET /claim/verify/[token]', () => {
 
 		const redirect = await redirectOf(GET(mockEvent('guest-1'), deps));
 
-		expect(lucia.createSession).not.toHaveBeenCalled();
+		expect(sessionApi.createSession).not.toHaveBeenCalled();
 		expect(redirect.status).toBe(302);
 		expect(redirect.location).toContain('/claim?error=invalid');
 	});

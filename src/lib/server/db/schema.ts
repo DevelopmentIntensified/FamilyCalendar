@@ -227,12 +227,56 @@ export const codes = pgTable('codes', {
 	pendingEmail: text('pendingEmail')
 });
 
-export const sessions = pgTable('sessions', {
+/**
+ * Better Auth session store (#196 slice 1). Replaces the lucia `sessions`
+ * table (dropped, not migrated — sessions carry no user data; PITR is the
+ * recovery path). Rows are minted/validated by `$lib/server/auth` using
+ * better-auth's model: cookie value = URL-encoded `token.hmacSHA256(token)`,
+ * lookup by `token`.
+ */
+export const authSession = pgTable('auth_session', {
 	id: text('id').notNull().primaryKey(),
-	userId: text('user_id')
+	token: text('token').notNull().unique(),
+	userId: text('userId')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
-	expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull()
+	expiresAt: timestamp('expiresAt', { withTimezone: true, mode: 'date' }).notNull(),
+	ipAddress: text('ipAddress'),
+	userAgent: text('userAgent'),
+	createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+	updatedAt: timestamp('updatedAt', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
+});
+
+/**
+ * Better Auth account store: one row per credential/provider binding. The
+ * password account (`providerId: 'credential'`) carries `account.password` —
+ * seeded from `users.passwordHash` by migration 018 (bcrypt kept; new hashes
+ * stay bcrypt, no forced resets). MFA-ready for #176 (two-factor is a later
+ * slice).
+ */
+export const authAccount = pgTable('auth_account', {
+	id: text('id').notNull().primaryKey(),
+	userId: text('userId')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	providerId: text('providerId').notNull(),
+	accountId: text('accountId').notNull(),
+	password: text('password'),
+	createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+	updatedAt: timestamp('updatedAt', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
+});
+
+/**
+ * Better Auth verification store — one-time tokens (email tokens replace the
+ * `codes` table in slice B, ADR-0002 #6).
+ */
+export const authVerification = pgTable('auth_verification', {
+	id: text('id').notNull().primaryKey(),
+	identifier: text('identifier').notNull(),
+	value: text('value').notNull(),
+	expiresAt: timestamp('expiresAt', { withTimezone: true, mode: 'date' }).notNull(),
+	createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+	updatedAt: timestamp('updatedAt', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
 });
 
 export const familyMembers = pgTable(
@@ -764,7 +808,7 @@ export const notifications = pgTable('notifications', {
 	createdAt: timestamp('createdAt', { withTimezone: true, mode: 'string' }).defaultNow().notNull()
 });
 
-export type Session = typeof sessions.$inferSelect;
+export type Session = typeof authSession.$inferSelect;
 export type Code = typeof codes.$inferSelect;
 // mirrorOf stays OPTIONAL at the type level: it is written only by the
 // family-mirror path (issue 014), and a required field here would force

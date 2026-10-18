@@ -567,10 +567,25 @@ describe('Calendar — the person filter (#127, mark 1.11)', () => {
 
 	/** The three things this fixture varies. Named, not an open dictionary:
 	 *  an override bag with no contract is how a fixture starts lying. */
+	/** Structural due-task shape — Calendar's own dueTasks prop reads only
+	 *  these fields; the fixture rows carry extra display fields. */
+	interface CalendarDueTask {
+		id: string;
+		title: string;
+		dueDate: Date | string;
+		calendarId?: string | null;
+		recurrenceFrequency?: string | null;
+		recurrenceInterval?: number | null;
+		assignedTo?: string | null;
+		assigneeFirstName?: string | null;
+	}
+
 	interface PeopleOverrides {
 		events?: Event[];
 		filterUserId?: string | null;
 		initialView?: string;
+		familyMembers?: { userId: string; firstName: string }[];
+		dueTasks?: CalendarDueTask[];
 	}
 
 	function setupPeople(over: PeopleOverrides = {}) {

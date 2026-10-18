@@ -8,9 +8,9 @@
 
 	export let isLoggedIn = false;
 	export let user: {
-		firstName?: string;
-		lastName?: string;
-		email?: string;
+		firstName?: string | null;
+		lastName?: string | null;
+		email?: string | null;
 		roles?: string[];
 	} | null = null;
 

@@ -26,7 +26,9 @@ describe('submitTaskQuickAdd', () => {
 		expect(result.ok).toBe(true);
 		expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
 		// SAFETY: the stubbed fetch is called with (url, { body }) in submitTaskQuickAdd.
-		const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1].body as string);
+		const requestBody = vi.mocked(fetch).mock.calls[0]?.[1]?.body;
+		expect(requestBody).toBeDefined();
+		const body = JSON.parse(requestBody as string);
 		expect(body.title).toBe('Buy milk');
 		expect(body.dueDate).not.toBeNull();
 	});
@@ -66,7 +68,9 @@ describe('submitTaskQuickAdd', () => {
 		});
 		expect(result.ok).toBe(true);
 		// SAFETY: the stubbed fetch is called with (url, { body }) in submitTaskQuickAdd.
-		const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1].body as string);
+		const requestBody = vi.mocked(fetch).mock.calls[0]?.[1]?.body;
+		expect(requestBody).toBeDefined();
+		const body = JSON.parse(requestBody as string);
 		expect(body.dueDate).toBe('2026-09-08T23:59:00.000Z');
 		expect(body.visibility).toBe('private');
 		expect(body.familyId).toBeNull();

@@ -3,7 +3,7 @@ import type { RequestEvent } from './$types';
 import { getUserByEmail, updateUser } from '$lib/server/db/actions/users';
 import { getCode, createCode } from '$lib/server/db/actions/codes';
 import { hashPassword } from '$lib/server/utils/password';
-import { lucia } from '$lib/server/auth';
+import { invalidateUserSessions } from '$lib/server/auth';
 import { EMAILSECRET } from '$env/static/private';
 import { parseJWT, validateJWT } from 'oslo/jwt';
 import { createHash } from 'node:crypto';
@@ -18,7 +18,7 @@ export type ResetPasswordDeps = {
 	getCode: typeof getCode;
 	createCode: typeof createCode;
 	hashPassword: typeof hashPassword;
-	invalidateUserSessions: typeof lucia.invalidateUserSessions;
+	invalidateUserSessions: typeof invalidateUserSessions;
 	jwtSecret: Uint8Array;
 	verifyJwt: typeof validateJWT;
 	parseJwt: typeof parseJWT;
@@ -39,7 +39,7 @@ const defaultDeps: ResetPasswordDeps = {
 	getCode,
 	createCode,
 	hashPassword,
-	invalidateUserSessions: (userId: string) => lucia.invalidateUserSessions(userId),
+	invalidateUserSessions: (userId: string) => invalidateUserSessions(userId),
 	jwtSecret: new TextEncoder().encode(EMAILSECRET),
 	verifyJwt: validateJWT,
 	parseJwt: parseJWT

@@ -87,12 +87,34 @@ function loadEvent(settings: SavedSettings, familyId: string | null = 'f-rivera'
 	// SAFETY: the loader reads only `locals.user`, `url.searchParams`,
 	// `cookies.get` and `parent()` off the event; each is supplied above with
 	// the shape it is read as, and the rest of RequestEvent is irrelevant here.
+	// `locals.user` is the real `users` row now — spelled out, no cast.
 	return {
-		locals: { user: { id: 'u-sarah', email: 'sarah@example.com' } },
+		locals: {
+			user: {
+				id: 'u-sarah',
+				firstName: 'Sarah',
+				lastName: 'Rivera',
+				email: 'sarah@example.com',
+				passwordHash: null,
+				emailVerified: null,
+				picture: null,
+				roles: [],
+				createdAt: new Date(0),
+				lastActiveAt: new Date(0),
+				updatedAt: new Date(0),
+				phonenumber: null,
+				phonenumberVerified: null,
+				lastLogin: new Date(0),
+				receiptIngestToken: null
+			}
+		},
 		url: { searchParams: new URLSearchParams() },
 		cookies: { get: () => undefined, delete: () => {} },
 		parent: async () => ({ userSettings: settings, familyId, familyMembers: [] })
-	} as Parameters<typeof load>[0];
+		// SAFETY: the loader reads four members off the event (see above); the
+		// partial mock is intentionally incomplete vs RequestEvent, so the cast
+		// goes through unknown by design.
+	} as unknown as Parameters<typeof load>[0];
 }
 
 interface CalendarData {

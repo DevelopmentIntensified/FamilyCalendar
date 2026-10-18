@@ -7,6 +7,7 @@ import { deleteEvent, getEventAttendance } from '$lib/server/db/actions/events';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
+import { requireUser } from '$lib/server/utils/requireUser';
 
 function isString(value: FormDataEntryValue | null): value is string {
 	return typeof value === 'string';
@@ -33,16 +34,17 @@ export const load: PageServerLoad = async (e) => {
 	}
 
 	const event = eventData[0].event;
-	const calIds = await getAccessibleCalendarIds(e.locals.user.id);
+	const user = e.locals.user;
+	const calIds = await getAccessibleCalendarIds(user.id);
 	const hasCalendarAccess = !!event.calendarId && calIds.includes(event.calendarId);
-	if (event.ownerId !== e.locals.user.id && !hasCalendarAccess) {
+	if (event.ownerId !== user.id && !hasCalendarAccess) {
 		error(403, 'No access to this event');
 	}
 
 	// Joined with users so the UI can show names instead of raw ids.
 	const attendanceData = await getEventAttendance(e.params.id);
 
-	const userAttendance = attendanceData.find((a) => a.userId === e.locals.user.id);
+	const userAttendance = attendanceData.find((a) => a.userId === user.id);
 
 	return {
 		event: {
@@ -61,6 +63,7 @@ export const load: PageServerLoad = async (e) => {
 
 export const actions: Actions = {
 	deleteEvent: async ({ request, locals }) => {
+		const user = requireUser(locals);
 		const formData = await request.formData();
 		const rawEventId = formData.get('eventId');
 		const eventId = isString(rawEventId) ? rawEventId : '';
@@ -71,7 +74,7 @@ export const actions: Actions = {
 
 		// Check ownership
 		const eventData = await db.select().from(events).where(eq(events.id, eventId)).limit(1);
-		if (!eventData.length || eventData[0].ownerId !== locals.user.id) {
+		if (!eventData.length || eventData[0].ownerId !== user.id) {
 			return fail(403, { message: 'Not authorized to delete this event' });
 		}
 

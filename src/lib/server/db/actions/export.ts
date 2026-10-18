@@ -27,7 +27,8 @@ import type { Family, FamilyMember, User } from '$lib/server/db/schema';
  * - `users.passwordHash` is never selected — a credential, not user data.
  * - Other family members appear as names only (id/firstName/lastName):
  *   the minimum needed to identify who shares calendars/tasks with you.
- * - Auth-mechanical tables are excluded: `sessions`, `apiTokens`,
+ * - Auth-mechanical tables are excluded: `auth_session`, `auth_account`,
+ *   `apiTokens`,
  *   `pushSubscriptions`, `claimTokens`, `codes`; also `adConsentRecords` and
  *   `aiUsageTracking` (consent/usage rows, no user content).
  */
@@ -176,9 +177,10 @@ export async function buildUserDataExport(userId: string): Promise<UserDataExpor
 			membership,
 			otherMembers: allMemberRows
 				.filter((member) => member.familyId === family.id && member.userId !== userId)
-				.flatMap((member) =>
-					nameById.has(member.userId) ? [toNamesOnly(nameById.get(member.userId))] : []
-				)
+				.flatMap((member) => {
+					const named = nameById.get(member.userId);
+					return named ? [toNamesOnly(named)] : [];
+				})
 		};
 	});
 
