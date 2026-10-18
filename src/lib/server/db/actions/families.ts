@@ -11,7 +11,7 @@ import {
 } from '$lib/server/db/schema';
 import { count, eq, and, gt, ilike, notInArray, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import { generateId } from 'lucia';
+import { generateId } from '$lib/server/utils/generateId';
 import { canAddFamilyMember } from '$lib/server/services/subscriptionService';
 
 export async function getFamiliesCount() {

@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db';
 import { adEvents, events } from '$lib/server/db/schema';
 import { eq, and, sql, gte, lt, asc } from 'drizzle-orm';
-import { generateId } from 'lucia';
+import { generateId } from '$lib/server/utils/generateId';
 import { DateTime } from 'luxon';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';

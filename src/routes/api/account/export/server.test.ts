@@ -53,7 +53,9 @@ describe('GET /api/account/export', () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get('Content-Type')).toContain('application/json');
 		expect(response.headers.get('Content-Disposition')).toContain('attachment');
-		expect(response.headers.get('Content-Disposition')).toMatch(/export-2026-10-16\.json/);
+		// The filename carries the export DATE; asserting a literal would make
+		// this a time bomb. The invariant is the format: export-YYYY-MM-DD.json.
+		expect(response.headers.get('Content-Disposition')).toMatch(/export-\d{4}-\d{2}-\d{2}\.json/);
 
 		const text = await response.text();
 		const document = JSON.parse(text) as {

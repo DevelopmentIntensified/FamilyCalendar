@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import type { Actions } from './$types';
 import { db } from '$lib/server/db';
 import { waitlist } from '$lib/server/db/schema';
-import { generateId } from 'lucia';
+import { generateId } from '$lib/server/utils/generateId';
 import { sendWaitlistConfirmation } from '$lib/server/services/emailService';
 
 function isString(value: FormDataEntryValue | null): value is string {

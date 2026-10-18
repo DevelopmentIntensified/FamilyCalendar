@@ -1,6 +1,6 @@
 import { createAccount } from '../db/actions/accounts';
 import { createUser } from '../db/actions/users';
-import { generateId } from 'lucia';
+import { generateId } from '$lib/server/utils/generateId';
 import { createUserSettings } from '../db/actions/userSettings';
 import { randHex } from '@ngneat/falso';
 import { ensurePersonalCalendar } from '../db/actions/calendar';

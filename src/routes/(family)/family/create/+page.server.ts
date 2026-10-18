@@ -2,7 +2,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { families, familyMembers, calendars, users } from '$lib/server/db/schema';
-import { generateId } from 'lucia';
+import { generateId } from '$lib/server/utils/generateId';
 import {
 	canCreateFamily,
 	getUserSubscriptionLimits

@@ -13,7 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { generateId } from 'lucia';
+import { generateId } from '$lib/server/utils/generateId';
 
 export const users = pgTable('users', {
 	id: text('id')
