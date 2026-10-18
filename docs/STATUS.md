@@ -226,13 +226,12 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
     marks. Mobile default is now the month grid (supersedes part of #104). New
     **Prototype E** (`e-grid-is-the-page.html`) carries the answer; D stays on
     disk as the record with `supersededBy`.
-  - #110 task visibility + the Recurring Task cursor invariant (two dead
-    exports; `syncRecurringCursors` hand-copied into five loaders) — the
-    largest prize. #111 chip shell, nine hand-composed copies. #112 parser
-    claims that cannot overlap. #113 `tasks.ts` split (after #110). #114 one
-    date resolution across three parsers. #115 grocery Store colour. #116 the
-    DB seam (blocked by #002). #117 loader re-joins (lowest confidence; may
-    close as a false positive).
+  - **#110–#115 LANDED 2026-10-16** (see the grind-session Done block above:
+    cursor pin into the list reads, chipShell one recipe, the six parser
+    overlap fixes of #112 under clock-pinned claim guards, tasks.ts split,
+    date resolution verified landed as `adc894f`, store colour).
+    Remaining open: **#116** the DB seam (blocked by #002), **#117** loader
+    re-joins (lowest confidence; may close as a false positive).
 - **Prototype review cycle 1 → 16 approved pages (2026-09-30, #123).** 15 app-ui
   pages plus **Prototype E**. **Eleven of the fifteen app pages were already in
   the app** — #101, #096, #097, #075, #077, #073 among them — so #123 is
