@@ -40,6 +40,11 @@ export interface RankableTask {
 	assignedTo: string | null;
 	assignmentStatus: string | null;
 	archivedAt?: string | null;
+	// Present on TaskWithTags rows (the list queries join them); optional here
+	// so any structural subset still ranks — and so callers never re-join by id
+	// (#117: rankTop3 returns the exact input rows it selected).
+	assigneeFirstName?: string | null;
+	assigneeLastName?: string | null;
 }
 
 export interface RankOpts {
@@ -56,11 +61,11 @@ export interface RankOpts {
  * by them); then priority high → normal → low; then urgency bucket
  * overdue → due-today → next-due → no-due; then earliest due date; then title.
  */
-export function rankTop3(
-	tasks: RankableTask[],
+export function rankTop3<T extends RankableTask>(
+	tasks: T[],
 	viewerId: string,
 	opts: RankOpts = {}
-): RankableTask[] {
+): T[] {
 	const { limit = 3 } = opts;
 	const todayStart = Date.parse(opts.todayStartIso ?? new Date().toISOString());
 	const tomorrow = todayStart + 86_400_000;

@@ -9,8 +9,7 @@ import {
 	getKidsScheduleAttendance,
 	getCompletionTimestamps,
 	getRecurringDayCompletions,
-	mergeDayCompletions,
-	type RankableTask
+	mergeDayCompletions
 } from '$lib/server/db/actions/dashboard';
 import { getFamilyModuleSwitches } from '$lib/server/db/actions/dashboardModules';
 import { dashboardVisibility } from '$lib/dashboardModules';
@@ -330,18 +329,10 @@ export const load: PageServerLoad = async (event) => {
 		const openFamilyTasks = familyTasks.filter((f) => !f.completedAt);
 		const fam = await familyLeg(dayEvents);
 		// Top-3 ranking: mine-first → priority → overdue → due-today → next,
-		// bucketed relative to the viewed day (rankTop3 returns bare rows).
-		// SAFETY: userTasks rows are TaskWithTags, which carries every RankableTask field.
-		const top3 = rankTop3(userTasks as RankableTask[], userId, { todayStartIso: dayStartIso }).map(
-			(row) => {
-				const src = userTasks.find((u) => u.id === row.id);
-				return {
-					...row,
-					assigneeFirstName: src?.assigneeFirstName,
-					assigneeLastName: src?.assigneeLastName
-				};
-			}
-		);
+		// bucketed relative to the viewed day. rankTop3 returns a subset of its
+		// input rows by reference (#117), so TaskWithTags rows keep the
+		// assigneeFirstName/LastName the card needs — no re-join, no cast.
+		const top3 = rankTop3(userTasks, userId, { todayStartIso: dayStartIso });
 		const oneOffCompleted = userTasks
 			.filter(
 				(row) =>

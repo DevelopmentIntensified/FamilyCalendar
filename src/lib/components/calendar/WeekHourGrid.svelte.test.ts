@@ -128,3 +128,66 @@ describe('WeekHourGrid names a sponsored event', () => {
 		expect(chip?.getAttribute('style')).not.toContain('repeating-linear-gradient');
 	});
 });
+
+// #117 — the chip's geometry must come from layoutTimed's own slot fields
+// (topPct/heightPct/lane/lanes), not from private re-derivations, and the
+// module's 26px floor must be a clamp on layoutTimed's height — the module's
+// decision wins, not a CSS min-height the layout never knew about. The grid is
+// `24 * 60px` tall, so the percentages are of 1440 — the same denominator
+// DayHourGrid.svelte:184 clamps with.
+const GRID_HEIGHT_PX = 24 * 60;
+const MIN_CHIP_PCT = (26 / GRID_HEIGHT_PX) * 100;
+
+const MINUTES_PER_DAY = 1440;
+
+function mkEvent(over: Partial<typeof evt> & { id: string; start: string }): typeof evt {
+	return { ...evt, ...over } as typeof evt;
+}
+
+function renderChips(events: Event[]) {
+	render(WeekHourGrid, {
+		props: props({
+			eventsForDay: (d: DateTime) =>
+				d.toISODate() === '2026-09-08' ? events : []
+		})
+	});
+}
+
+function chipById(id: string): HTMLButtonElement {
+	return screen.getByText('Standup').closest('button') as unknown as HTMLButtonElement;
+}
+
+describe('WeekHourGrid chip geometry from layoutTimed (#117)', () => {
+	afterEach(cleanup);
+
+	it('positions the chip at layoutTimed topPct', () => {
+		renderChips([mkEvent({ id: 'a1', start: '2026-09-08T06:00:00', end: '2026-09-08T07:00:00' })]);
+		const topPct = (6 * 60 / MINUTES_PER_DAY) * 100;
+		expect(chipById('a1').getAttribute('style')).toContain(`top: ${topPct}%;`);
+	});
+
+	it('clamps a 5-minute event to at least the 26px-equivalent height', () => {
+		renderChips([mkEvent({ id: 'b1', start: '2026-09-08T09:00:00', end: '2026-09-08T09:05:00' })]);
+		const style = chipById('b1').getAttribute('style') ?? '';
+		const heightPct = Number(style.match(/height: ([\d.]+)%/)?.[1]);
+		expect(heightPct).toBeGreaterThanOrEqual(MIN_CHIP_PCT);
+		// The clamp lives in the height, not in a CSS min-height the layout
+		// never authorized (the module's decision was overridden by CSS).
+		expect(style).not.toContain('min-height');
+	});
+
+	it('clamps a past-midnight event the same way DayHourGrid does', () => {
+		// 23:50 → 00:30 next day: layoutTimed clamps the span at midnight.
+		renderChips([mkEvent({ id: 'c1', start: '2026-09-08T23:50:00', end: '2026-09-09T00:30:00' })]);
+		const startMin = 23 * 60 + 50;
+		// layoutTimed clamps the span at midnight (60 raw minutes, only 10 of
+		// the day remain); the component then applies the same 26px floor as
+		// DayHourGrid.svelte:184 — `Math.max(slot.heightPct, (26 / GRID) * 100)`
+		// over that grid's own height (here 24 * 60px).
+		const slotPct = (Math.min(60, MINUTES_PER_DAY - startMin) / MINUTES_PER_DAY) * 100;
+		const heightPct = Math.max(slotPct, MIN_CHIP_PCT);
+		const style = chipById('c1').getAttribute('style') ?? '';
+		expect(style).toContain(`top: ${(startMin / MINUTES_PER_DAY) * 100}%;`);
+		expect(style).toContain(`height: ${heightPct}%;`);
+	});
+});

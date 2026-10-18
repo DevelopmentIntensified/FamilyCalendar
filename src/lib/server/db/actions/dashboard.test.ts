@@ -114,4 +114,27 @@ describe('rankTop3', () => {
 		const out = rankTop3([one], ME, { todayStartIso: TODAY });
 		expect(out.map((t) => t.id)).toEqual(['only']);
 	});
+
+	// #117 — the dashboard loader feeds getTasksForUser rows (TaskWithTags,
+	// names joined in queries.ts) straight to rankTop3. The contract the loader
+	// leans on: the output is a subset of the input — same objects, names left
+	// attached — so callers never re-join by id and a priority can never lose
+	// its assignee's name (previously hidden behind an as-RankableTask cast).
+	it('returns a subset of its input rows with joined assignee names intact', () => {
+		const withNames = [
+			task({
+				id: 'named',
+				priority: 'high',
+				dueDate: '2026-08-18T00:00:00.000Z',
+				assigneeFirstName: 'Maya',
+				assigneeLastName: 'Rivera'
+			})
+		];
+		const out = rankTop3(withNames, ME, { todayStartIso: TODAY });
+		expect(out).toHaveLength(1);
+		// Subset of the input, by reference — not a reconstruction.
+		expect(withNames.includes(out[0])).toBe(true);
+		expect(out[0].assigneeFirstName).toBe('Maya');
+		expect(out[0].assigneeLastName).toBe('Rivera');
+	});
 });

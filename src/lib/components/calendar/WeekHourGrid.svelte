@@ -45,24 +45,9 @@
 		onCreateRange, onDismissRange, onEventClick, onDragStart
 	}: Props = $props();
 
-	function getEventTop(event: Event): number {
-		if (!event.start) return 0;
-		const d = toDate(event.start);
-		return ((d.getHours() * 60 + d.getMinutes()) / (24 * 60)) * 100;
-	}
-
-	function getEventHeight(event: Event): number {
-		if (!event.start) return 5;
-		const start = toDate(event.start);
-		const startMin = start.getHours() * 60 + start.getMinutes();
-		let endMin = startMin + 60;
-		if (event.end) {
-			const end = toDate(event.end);
-			endMin = end.getHours() * 60 + end.getMinutes();
-			if (endMin <= startMin) endMin = startMin + 60;
-		}
-		return Math.max(((endMin - startMin) / (24 * 60)) * 100, 2.5);
-	}
+	// The grid is one fixed-height column of 24 hour rows; layoutTimed returns
+	// percentages of the day, so this is the denominator its values live in.
+	const GRID_HEIGHT = 24 * 60;
 </script>
 
 <!-- Week hour grid + event overlay (#046 split out of WeekView) -->
@@ -195,10 +180,9 @@
 							isSelected(slot.event)
 								? 'bg-primary-50/70 ring-2 ring-primary-400'
 								: ''}"
-							style="top: {getEventTop(slot.event)}%; height: {getEventHeight(
-								slot.event
-							)}%; left: calc({slot.lane *
-								widthPct}% + 2px); width: calc({widthPct}% - 4px); min-height: 26px; {chip.style}"
+							style="top: {slot.topPct}%; height: {Math.max(slot.heightPct, (26 / GRID_HEIGHT) *
+								100)}%; left: calc({slot.lane *
+								widthPct}% + 2px); width: calc({widthPct}% - 4px); {chip.style}"
 						>
 							<span class="block truncate">
 								<ChipKindMark kind={chip.kind} density={chip.markDensity} />
