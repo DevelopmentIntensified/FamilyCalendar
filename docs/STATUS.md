@@ -231,8 +231,10 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
     cursor pin into the list reads, chipShell one recipe, the six parser
     overlap fixes of #112 under clock-pinned claim guards, tasks.ts split,
     date resolution verified landed as `adc894f`, store colour).
-    Remaining open: **#116** the DB seam (blocked by #002), **#117** loader
-    re-joins (lowest confidence; may close as a false positive).
+    Remaining open: **#116** the DB seam (blocked by #002). **#117 LANDED
+    2026-10-18** (`bf9e8d2`): no-op top3 re-join deleted, WeekHourGrid
+    consumes layoutTimed slots (shadow implementation gone), item 3 closed
+    as a false positive.
 - **Prototype review cycle 1 → 16 approved pages (2026-09-30, #123).** 15 app-ui
   pages plus **Prototype E**. **Eleven of the fifteen app pages were already in
   the app** — #101, #096, #097, #075, #077, #073 among them — so #123 is
