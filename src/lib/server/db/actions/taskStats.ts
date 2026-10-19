@@ -1,5 +1,6 @@
 import { db } from '$lib/server/db';
 import { taskCompletions, tasks, users } from '$lib/server/db/schema';
+import { attributedToViewer } from '$lib/server/db/actions/completionAttribution';
 import { and, count, desc, eq, gte, isNotNull, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { DateTime } from 'luxon';
@@ -47,7 +48,7 @@ export async function getTaskStats(userId: string): Promise<TaskStats> {
 	const [completed] = await db
 		.select({ total: sql<number>`count(distinct ${taskCompletions.taskId})::int` })
 		.from(taskCompletions)
-		.where(eq(taskCompletions.userId, userId));
+		.where(attributedToViewer(userId));
 
 	// Recurring load: how many repeating task rows exist. This is a count of
 	// tasks, not completions — the cursor does not touch it.
@@ -63,7 +64,7 @@ export async function getTaskStats(userId: string): Promise<TaskStats> {
 		.from(taskCompletions)
 		.innerJoin(tasks, eq(taskCompletions.taskId, tasks.id))
 		.where(
-			and(eq(taskCompletions.userId, userId), isNotNull(tasks.recurrenceFrequency))
+			and(attributedToViewer(userId), isNotNull(tasks.recurrenceFrequency))
 		);
 
 	// Who has assigned THIS user the most tasks.
@@ -103,7 +104,7 @@ export async function getTaskStats(userId: string): Promise<TaskStats> {
 		})
 		.from(taskCompletions)
 		.innerJoin(tasks, eq(taskCompletions.taskId, tasks.id))
-		.where(eq(taskCompletions.userId, userId))
+		.where(attributedToViewer(userId))
 		.orderBy(desc(taskCompletions.completedAt))
 		.limit(10);
 
@@ -117,11 +118,17 @@ export async function getTaskStats(userId: string): Promise<TaskStats> {
 		})
 		.from(taskCompletions)
 		.innerJoin(tasks, eq(taskCompletions.taskId, tasks.id))
-		.where(and(eq(taskCompletions.userId, userId), gte(taskCompletions.completedAt, monthStart)));
+		.where(and(attributedToViewer(userId), gte(taskCompletions.completedAt, monthStart)));
 
 	// Who actually checked things off. `actorId` is the ACTING user, which is
 	// what separates "assigned to" from "done by"; a row with no actor
 	// cannot be attributed to anyone and drops out of the join.
+	//
+	// Scope pinned (#092): this breakdown stays filtered by the viewer's OWN
+	// tasks on purpose — it names the other people who did the work on them
+	// (feeds the assigned-vs-done card), so viewer-attribution would collapse
+	// it to a single row. The four "how much did I complete" figures above
+	// use attributedToViewer instead.
 	const actorRows = await db
 		.select({ name: users.firstName, count: count() })
 		.from(taskCompletions)

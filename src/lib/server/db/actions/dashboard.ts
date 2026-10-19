@@ -15,9 +15,10 @@ import {
 	tasks,
 	type CalendarEvent
 } from '$lib/server/db/schema';
-import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, ne, or } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, ne } from 'drizzle-orm';
 import { PRIORITY_WEIGHT, isTaskPriority } from '$lib/server/db/actions/taskPriority';
 import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
+import { attributedToViewer } from '$lib/server/db/actions/completionAttribution';
 
 /** Re-exported for pre-existing importers (task writers, sort utils). */
 export {
@@ -150,18 +151,6 @@ export async function getKidsScheduleAttendance(
 				ne(eventAttendance.status, 'declined')
 			)
 		);
-}
-
-/**
- * Attribution predicate for completion history: rows written since the
- * actorId column carry the ACTING user; legacy rows only have the task
- * owner in userId. Either leg attributes a completion to the viewer.
- */
-function attributedToViewer(userId: string) {
-	return or(
-		and(isNotNull(taskCompletions.actorId), eq(taskCompletions.actorId, userId)),
-		and(isNull(taskCompletions.actorId), eq(taskCompletions.userId, userId))
-	);
 }
 
 /**
