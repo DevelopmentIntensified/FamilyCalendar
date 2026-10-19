@@ -1,11 +1,12 @@
 # 042 — Dashboard load perf (playbook run #2)
 
-Status: in-progress
+Status: done
 
 Method: docs/guides/page-perf-playbook.md.
 
 ## Done
 
+- **Status flipped done 2026-10-19** (hygiene pass): baseline, load-chain map, and slices all recorded; TTFB 1.4s→0.54s.
 - Filed; method: docs/guides/page-perf-playbook.md.
 - Baseline (Neon, bench anon, warmed): TTFB ~1.4s median, 124607B.
   Page svelte thin (91 lines, card composition); server 346 lines.

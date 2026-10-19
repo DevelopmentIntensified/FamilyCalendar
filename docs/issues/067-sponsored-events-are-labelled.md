@@ -1,6 +1,6 @@
 # 067 — Sponsored events are not labelled as sponsored
 
-Status: in-progress
+Status: done
 
 Source: `calendar-ui/d-working-calendar.html` review, the key marked
 **rebuild** — "can you make it true with the events themselves".
@@ -22,6 +22,8 @@ Source: `calendar-ui/d-working-calendar.html` review, the key marked
       event is not sponsored.
 
 ## Done
+
+- **Status flipped done 2026-10-19** (hygiene pass): every Needs-doing item checked; labelled in bad53df.
 
 **Every view now names a sponsored event, from `chipVocabulary` only** — no
 view invents a string. Two densities, decided from the real padding chain at

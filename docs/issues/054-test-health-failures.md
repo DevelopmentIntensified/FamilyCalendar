@@ -1,8 +1,10 @@
 # 054 — Test-health: 6 failing on test branch (pre-existing)
 
-Status: in-progress
+Status: done
 
 ## Done
+
+- **Status flipped done 2026-10-19** (hygiene pass): the 2026-09-29 re-verification above is the close evidence.
 
 - Triaged 2026-09-11 full-suite run (2318 passed, 6 failed). All six fail
   WITHOUT any of the 047–053 / 046 changes in the loop (verified: touched

@@ -7,6 +7,7 @@ Source: owner question 2026-10-16 ("are we still using lucia? why haven't we mov
 ## Done
 
 - **Slice 0 (prep, 190f8a4):** row-id generation decoupled from lucia — `src/lib/server/utils/generateId.ts` (byte-identical alphabet/lengths to lucia's generator); `schema.ts` + 6 actions/routes re-pointed; remaining lucia imports = auth.ts (slice 1) + 5 TimeSpan/oslo sites (slice B). ADR-0002 written.
+- **Slice 1 (session cutover, dd2412c):** `auth.ts` moved to better-auth behind the same interface; anon invariant concentrated; migration 018; typed check 0 errors. Follow-up fixed 2026-10-19: `auth.test.ts` shipped with an unhandled rejection (inner-scoped env swap could never apply to the cached `SESSION_SECRET`) — tests now load a fresh module instance per secret (`vi.resetModules()`), matching the per-process scheme.
 - Ground truth (grep, 2026-10-16): the load-bearing lucia surface is exactly one module — `src/lib/server/auth.ts:2-8` (`Lucia`, `TimeSpan`, `DrizzlePostgreSQLAdapter` over `sessions`/`users`), used by hooks for session create/validate/invalidate and by login/signup/claim/auth-helper actions.
 - Trivial couplings, easily swapped: `generateId` from `'lucia'` (8 files) and `TimeSpan` (5 files). `oslo/jwt` (magic link, password reset, email-change binding) is pilcrow's separate library — not lucia — and can stay or ride along (see risks).
 - Why no move happened so far: no recorded decision anywhere in docs; the Oct hardening lane (contact/claim/password/email-change throttles, code binding to consumers) worked beside lucia, not through it.

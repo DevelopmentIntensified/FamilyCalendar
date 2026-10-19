@@ -1,6 +1,6 @@
 # 124 — Port the approved Family pages into the app
 
-Status: in-progress
+Status: done
 
 Source: #123, owner directive 2026-09-30 — "all approved pages need to be built
 into the real app."
@@ -58,6 +58,8 @@ set up.
       error state.
 
 ## Done
+
+- **Status flipped done 2026-10-19** (hygiene pass): no open items; residue named for #091/#076/#102.
 
 ### Per page, one of three outcomes
 

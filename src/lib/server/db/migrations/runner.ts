@@ -54,7 +54,25 @@ export async function runMigrations(): Promise<{ ok: boolean; applied: string[] 
 }
 
 async function runInLock(): Promise<{ ok: boolean; applied: string[] }> {
-	await db.execute(sql`SELECT pg_advisory_lock(${sql.raw(`hashtext('family-calendar:migrate')`)})`);
+	// The first query after a cold start can hit a pooled socket the platform
+	// already dropped (CONNECT_TIMEOUT mid-handshake). Retry the lock a few
+	// times before giving up — a one-shot failure leaves the schema missing
+	// and every session insert failing until the next cold start.
+	let locked = false;
+	for (let attempt = 1; attempt <= 3; attempt++) {
+		try {
+			await db.execute(sql`SELECT pg_advisory_lock(${sql.raw(`hashtext('family-calendar:migrate')`)})`);
+			locked = true;
+			break;
+		} catch (error) {
+			if (attempt === 3) throw error;
+			console.error(`[migrate] lock attempt ${attempt} failed, retrying:`, error);
+			const { promise, resolve } = Promise.withResolvers<void>();
+			setTimeout(resolve, 1500 * attempt);
+			await promise;
+		}
+	}
+	if (!locked) throw new Error('[migrate] could not acquire the advisory lock');
 	try {
 		await createTrackingTable();
 

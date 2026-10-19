@@ -1,6 +1,6 @@
 # 125 — Port the approved day pages into the app
 
-Status: in-progress
+Status: done
 
 Source: #123, owner directive 2026-09-30.
 
@@ -55,6 +55,8 @@ and the two navbar links (`NavbarProfileMenu.svelte:64,71`,
 - [x] Test per closed mark, so the difference cannot recur.
 
 ## Done
+
+- **Status flipped done 2026-10-19** (hygiene pass): no open items; #093/#094/#105/#102 closed in-lane.
 
 ### #093 — stats layout: CLOSED
 

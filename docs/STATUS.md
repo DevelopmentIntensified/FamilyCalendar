@@ -4,6 +4,18 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **Tracker hygiene + cold-start fix (2026-10-19, pushed to `test`):**
+  25 in-progress tickets audited against STATUS + `git log`; **#042/#054/#067/#124/#125
+  flipped `done`** — no new work in the slice, evidence already in the tickets
+  (042: TTFB 1.4s→0.54s via 736e21b/b09be7b/a0926b4; 054: re-verified 2026-09-29,
+  3b35652; 067: bad53df; 124: 6279f2d/7afd273/d135b6b; 125: 2ce04ac/dd78e13).
+  Remaining 20 keep in-progress, each with named-open residue (088 DDL hand-run,
+  177/190 human steps, 043 NEON PENDING, 123/124-slice/127 porting, 057/014/016/029
+  scoped lanes, 196 slices open, 095 og-census, 119/120 measurements).
+  Also: migrations-runner advisory-lock acquire retries 3× with backoff (cold-start
+  pooled-socket drop left the schema missing until next redeploy); `docs/research/
+  calendar-sync-*` committed for #198 (open — awaiting owner verdict); film sources
+  archived to `_attic/money/film` with `out/` local-only; #199 plan draft left untracked.
 - **Grind session 2026-10-16 (post-dual-skill-audit), all pushed to `test`:**
   - **Advisories (#155–#161):** deps bumped — kit 2.70.3 (incl. reachable Accept-header ReDoS), capacitor 7.6.9 + tar 7.5.22 + xmldom 0.9.12 (critical chain cleared; on-device smoke = human step), drizzle-orm 0.45.4 (CVE-2026-39356), vite 6.4.4, blob 2.8.2 → undici 6.29.1; adapter-vercel PINNED 5.6.3 (5.10.3 symlinks break the Windows build gate). svelte kept at 5.20.1 (Option B): the 5.57 jump breaks EventFormModal's Create flow (action-bar `canSubmit` never re-evaluates after runes-class model writes — probed) and its six XSSs are unreachable; rule recorded: never spread user data onto HTML elements. Parked majors, dev/build-time only: vitest 5 (tinypool RCE gadget), tailwind 4 (braces chain; note `@tailwindcss/vite` is a commented-out dead devDep, pipeline is postcss+tailwind3). Audit 58 → 23 overall / 10 prod (0 critical in prod).
   - **#155** invite race: `acceptInvite` serialised in one tx with `SELECT ... FOR UPDATE`, DB-side useCount increment (6bb3b0d; 31/31, 2 red first). Residual: cross-code/direct-add family-size race = issue-143 zone.
@@ -270,10 +282,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
     rendered with a null family so five links pointed at an undefined id (now
     a 404). Guard added: links.test.ts parses the Svelte sources.
   - Calendar key (the one rebuild mark): #066 non-overlapping events still
-    give up column width, #067 sponsored events unlabelled, #068 all-day vs
+    give up column width, #068 all-day vs
     timed only a fill tint, #069 no calendar filter to make "colour = calendar"
-    true, #070 the key itself (blocked by 067/068/069), #071 prototype-only
-    search move (the app has no search at all).
+    true, #070 the key itself (blocked by 068/069), #071 prototype-only
+    search move (the app has no search at all). Closed separately: #067
+    sponsored events labelled — **DONE `bad53df`** (flipped 2026-10-19).
   - Approved prototypes → the real app: #072 kids' card per-child colour +
     grouped by child (DONE 2026-09-28 — child id now survives the loader, so
     the card groups and colours per child off the existing avatar palette;
