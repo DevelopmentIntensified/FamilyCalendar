@@ -10,7 +10,7 @@ node_modules
 .wrangler
 /.svelte-kit
 /build
-/film/out/
+_attic/money/film/out/
 
 # OS
 .DS_Store

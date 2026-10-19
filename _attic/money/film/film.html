@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Family Planz — The Group Chat</title>
+<style>
+  :root{
+    --bg:#F8F6F3; --brand:#c45e38; --brand-hi:#a14d32; --app:#dd5822;
+    --blush:#FED5CF; --peach:#F1B598; --mint:#C4E9DA;
+    --teal:#366d7e; --ink:#2d5866;
+    --slate-900:#0f172a; --slate-800:#1e293b; --slate-700:#334155; --slate-600:#475569;
+    --slate-500:#64748b; --slate-400:#94a3b8; --slate-300:#cbd5e1; --slate-100:#f1f5f9;
+    --serif:Georgia,'Times New Roman',serif;
+    --ui:'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1920px;height:1080px;overflow:hidden;background:#000}
+  #stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:#000}
+  .shot{position:absolute;inset:0;opacity:0;pointer-events:none}
+
+  /* ---------- global film treatment ---------- */
+  #grain{position:absolute;inset:0;z-index:900;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+  #vig{position:absolute;inset:0;z-index:901;pointer-events:none;
+    background:radial-gradient(120% 95% at 50% 45%,rgba(0,0,0,0) 42%,rgba(0,0,0,.55) 100%)}
+  #barT,#barB{position:absolute;left:0;right:0;height:0;background:#000;z-index:902;pointer-events:none}
+
+  /* ---------- shot 1 : the glow in the dark ---------- */
+  #s1{background:#080605}
+  #glow{position:absolute;left:50%;top:52%;width:1250px;height:900px;transform:translate(-50%,-50%);
+    background:radial-gradient(closest-side,rgba(241,181,152,.5),rgba(196,94,56,.16) 46%,rgba(0,0,0,0) 74%);
+    opacity:0;filter:blur(2px)}
+  #glowPool{position:absolute;left:50%;top:52%;width:1900px;height:1200px;transform:translate(-50%,-50%);
+    background:radial-gradient(closest-side,rgba(70,50,38,.34),rgba(0,0,0,0) 70%)}
+
+  /* ---------- environment for the phone shots ---------- */
+  .room{position:absolute;inset:0;background:
+      radial-gradient(90% 70% at 50% 38%,#3c2c20 0%,#241a13 46%,#0f0b08 100%)}
+  .window{position:absolute;left:60px;top:-90px;width:820px;height:900px;filter:blur(70px);opacity:.5;
+    background:linear-gradient(155deg,rgba(255,236,208,.85),rgba(255,214,170,.12) 62%,rgba(0,0,0,0) 78%)}
+  .table{position:absolute;left:0;right:0;bottom:0;height:300px;filter:blur(46px);opacity:.6;
+    background:linear-gradient(180deg,rgba(0,0,0,0),rgba(96,66,44,.75) 58%,rgba(52,34,22,.95))}
+
+  /* ---------- the phone ---------- */
+  .phone{position:absolute;left:730px;top:70px;width:460px;height:940px;border-radius:56px;
+    background:linear-gradient(160deg,#3a3a3c,#141416 40%,#0a0a0b);
+    padding:12px;box-shadow:0 70px 130px rgba(0,0,0,.72),0 0 0 1.5px rgba(255,255,255,.09) inset}
+  .screen{position:relative;width:436px;height:916px;border-radius:45px;overflow:hidden;background:#000}
+  .notch{position:absolute;left:50%;top:11px;transform:translateX(-50%);width:150px;height:30px;border-radius:16px;
+    background:#000;z-index:30}
+  .status{position:absolute;left:0;right:0;top:0;height:52px;z-index:20;display:flex;align-items:center;
+    justify-content:space-between;padding:0 30px 0 34px;color:#fff;font:600 21px/1 var(--ui);letter-spacing:.2px}
+  .status .r{display:flex;gap:9px;align-items:center}
+  .sb{width:5px;border-radius:3px;background:#fff;display:inline-block}
+  .batt{width:36px;height:19px;border-radius:5px;border:2px solid rgba(255,255,255,.55);position:relative}
+  .batt::after{content:'';position:absolute;inset:2.5px;width:22px;border-radius:2px;background:#fff}
+  .nav{position:absolute;left:0;right:0;top:52px;height:96px;z-index:15;background:#1c1c1e;
+    border-bottom:.5px solid rgba(255,255,255,.11);display:flex;align-items:center;gap:14px;padding:0 22px}
+  .back{color:#F1B598;font:400 34px/1 var(--ui);margin-left:2px;margin-top:-4px}
+  .ttl{flex:1}
+  .ttl b{display:block;color:#fff;font:600 22px/1.25 var(--ui);letter-spacing:.1px}
+  .ttl s{display:block;color:#8d8d92;font:400 17px/1.3 var(--ui);text-decoration:none;margin-top:3px}
+  .navi{color:#F1B598;font:400 26px/1 var(--ui);letter-spacing:1px}
+  .avstack{display:flex;margin-right:2px}
+  .avstack i{width:34px;height:34px;border-radius:50%;display:block;border:2px solid #1c1c1e;margin-left:-11px;
+    font:700 14px/30px var(--ui);font-style:normal;text-align:center;color:#fff}
+  .chatwin{position:absolute;left:0;right:0;top:148px;bottom:76px;overflow:hidden}
+  .compose{position:absolute;left:0;right:0;bottom:0;height:76px;background:#1c1c1e;z-index:16;
+    border-top:.5px solid rgba(255,255,255,.11);display:flex;align-items:center;gap:12px;padding:0 16px}
+  .compose .field{flex:1;height:46px;border-radius:23px;border:1px solid rgba(255,255,255,.16);
+    background:rgba(255,255,255,.05);display:flex;align-items:center;padding:0 18px;
+    color:#6e6e73;font:400 18px/1 var(--ui)}
+  .compose .send{width:34px;height:34px;border-radius:50%;background:#F1B598;display:grid;place-items:center}
+  .chat{position:absolute;left:0;top:0;width:436px;padding:12px 0 30px}
+  .daysep{text-align:center;margin:10px 0 16px}
+  .daysep s{display:inline-block;color:#8d8d92;background:#1c1c1e;font:600 14px/1 var(--ui);text-decoration:none;
+    padding:7px 14px;border-radius:11px;letter-spacing:.3px}
+  .msg{display:flex;gap:11px;padding:0 16px 12px 16px;position:relative;align-items:flex-start}
+  .av{flex:0 0 40px;width:40px;height:40px;border-radius:50%;font:700 17px/40px var(--ui);text-align:center;color:#fff}
+  .mcol{flex:1;min-width:0}
+  .who{font:600 16px/1 var(--ui);margin:0 0 5px 2px;letter-spacing:.1px}
+  .bub{background:#262629;border-radius:20px;padding:11px 15px;display:inline-block;max-width:100%}
+  .bub p{color:#fff;font:400 20px/1.34 var(--ui);letter-spacing:.05px}
+  .stamp{font:400 15px/1 var(--ui);color:#73737a;margin:6px 0 0 4px}
+  .hlbg{position:absolute;left:4px;right:4px;top:-2px;bottom:-2px;border-radius:18px;opacity:0;
+    background:linear-gradient(100deg,rgba(241,181,152,.42),rgba(241,181,152,.14) 52%,rgba(241,181,152,.03) 84%);
+    box-shadow:0 0 0 1.5px rgba(241,181,152,.5) inset,0 0 34px rgba(241,181,152,.22)}
+  .hlbg::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:4px;border-radius:3px;
+    background:#F1B598;box-shadow:0 0 14px rgba(241,181,152,.9)}
+  .selbg{position:absolute;left:10px;right:10px;top:0;bottom:0;border-radius:14px;background:rgba(10,132,255,.3);
+    box-shadow:0 0 0 1.5px rgba(10,132,255,.65) inset;opacity:0;z-index:5}
+  .bub.pulse{animation:none}
+  #smear{position:absolute;inset:0;z-index:12;opacity:0;pointer-events:none;
+    background:repeating-linear-gradient(180deg,rgba(255,255,255,.055) 0 2px,rgba(255,255,255,0) 2px 9px)}
+  #sheen{position:absolute;left:0;top:0;bottom:0;width:190px;z-index:14;pointer-events:none;opacity:0;
+    background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.07),rgba(255,255,255,0))}
+
+  /* ---------- desk / browser shots ---------- */
+  .desk{position:absolute;inset:0;background:
+      radial-gradient(78% 66% at 46% 34%,#f3ece2 0%,#ded3c5 44%,#b9a894 100%)}
+  .deskShade{position:absolute;inset:0;background:
+      linear-gradient(105deg,rgba(255,246,232,.55),rgba(0,0,0,0) 46%,rgba(60,40,26,.16))}
+  .browser{position:absolute;left:336px;top:158px;width:1248px;height:764px;border-radius:18px;overflow:hidden;
+    background:var(--bg);box-shadow:0 54px 110px rgba(60,38,22,.34),0 6px 20px rgba(60,38,22,.2)}
+  .chrome{height:56px;background:#e6ded4;display:flex;align-items:center;gap:16px;padding:0 20px;
+    border-bottom:1px solid rgba(0,0,0,.09)}
+  .dots{display:flex;gap:8px}
+  .dots i{width:13px;height:13px;border-radius:50%;display:block}
+  .url{flex:1;height:32px;background:#f6f2ec;border-radius:9px;display:flex;align-items:center;padding:0 13px;
+    font:400 15px/1 var(--ui);color:var(--slate-600);gap:8px}
+  .lock{color:#3f9d6b;font:700 13px/1 var(--ui)}
+  .app{flex:1;display:flex;height:calc(764px - 56px)}
+  .nav2{width:214px;background:#fffdfa;border-right:1px solid rgba(0,0,0,.07);padding:24px 0}
+  .nav2 .logo{display:flex;align-items:center;gap:11px;padding:0 22px 24px 22px}
+  .nav2 .logo b{font:600 20px/1 var(--ui);color:var(--slate-900);letter-spacing:-.2px}
+  .nav2 a{display:flex;align-items:center;gap:12px;padding:12px 22px;font:400 17px/1 var(--ui);
+    color:var(--slate-600);position:relative}
+  .nav2 a.on{color:var(--app);font-weight:600;background:#fdf1ea}
+  .nav2 a.on::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3.5px;background:var(--app);border-radius:0 4px 4px 0}
+  .nav2 .dot{width:9px;height:9px;border-radius:50%;background:var(--slate-300);flex:0 0 9px}
+  .nav2 a.on .dot{background:var(--app)}
+  .main{flex:1;padding:28px 32px;display:flex;flex-direction:column;min-width:0}
+  .qa{background:#fff;border:1.5px solid var(--slate-300);border-radius:15px;padding:17px 20px;
+    box-shadow:0 3px 10px rgba(0,0,0,.045);min-height:126px}
+  .qa .lbl{font:600 13px/1 var(--ui);color:var(--slate-400);letter-spacing:.7px;text-transform:uppercase}
+  .qa .val{font:400 19px/1.5 var(--ui);color:var(--slate-900);margin-top:11px;white-space:pre-wrap}
+  .qa .val .c1{color:var(--slate-700)}
+  .caret{display:inline-block;width:2.5px;height:24px;background:var(--app);vertical-align:-4px;margin-left:3px}
+  .hintrow{display:flex;align-items:center;gap:14px;margin-top:14px;opacity:0}
+  .key{font:600 13px/1 var(--ui);color:var(--slate-500);background:#fff;border:1.5px solid var(--slate-300);
+    border-radius:7px;padding:7px 10px;box-shadow:0 2px 0 var(--slate-300)}
+  .hint{font:400 15px/1 var(--ui);color:var(--slate-400)}
+  .out{margin:auto 0;display:flex;gap:16px;height:392px}
+  .panel{flex:1.06;background:linear-gradient(150deg,#1e293b,#0f172a);border-radius:17px;padding:22px 24px;
+    box-shadow:0 16px 40px rgba(15,23,42,.26);position:relative;overflow:hidden}
+  .ptitle{font:600 13px/1 var(--ui);color:#94a3b8;letter-spacing:1.1px;text-transform:uppercase;margin-bottom:18px}
+  .src{border-radius:13px;background:rgba(255,255,255,.05);padding:14px 16px}
+  .wrow{display:flex;gap:11px;align-items:center;padding:6px 0}
+  .src .av2{width:30px;height:30px;border-radius:50%;flex:0 0 30px;font:700 13px/30px var(--ui);text-align:center;color:#fff}
+  .wtxt{color:#cbd5e1;font:400 15.5px/1.35 var(--ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chev{margin:14px auto;width:26px;height:26px;color:#F1B598;opacity:0}
+  .res{background:rgba(241,181,152,.12);border:1px solid rgba(241,181,152,.26);border-radius:13px;padding:16px 17px}
+  .res .ok{display:flex;align-items:center;gap:9px;color:#F1B598;font:600 16.5px/1 var(--ui)}
+  .cards{flex:1;display:flex;flex-direction:column;gap:11px}
+  .ecard{background:#fff;border:1px solid rgba(0,0,0,.07);border-radius:13px;padding:13px 15px;display:flex;
+    align-items:center;gap:14px;box-shadow:0 3px 9px rgba(0,0,0,.05);border-left-width:5px;border-left-style:solid;
+    opacity:0}
+  .ecard .kind{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#fff;flex:0 0 34px}
+  .ecard .t{flex:1;min-width:0}
+  .ecard .t b{display:block;font:600 17.5px/1.25 var(--ui);color:var(--slate-900);opacity:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ecard .t s{display:block;font:400 14px/1.4 var(--ui);color:var(--slate-500);text-decoration:none;opacity:0;
+    margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ecard .chip{font:600 12.5px/1 var(--ui);padding:7px 12px;border-radius:20px;display:flex;align-items:center;
+    gap:6px;opacity:0;color:#fff;flex:0 0 auto}
+  .ecard .chip i{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.75}
+  .recur{opacity:0;flex:0 0 auto;display:grid;place-items:center;width:26px;height:26px;border-radius:7px;
+    background:var(--slate-100);color:var(--slate-600)}
+  .stats{display:flex;align-items:center;gap:9px;margin-top:17px;padding-top:15px;
+    border-top:1px solid rgba(255,255,255,.1);opacity:0}
+  .stats b{font:600 13px/1 var(--ui);color:#F1B598;letter-spacing:.2px}
+  .stats s{text-decoration:none;font:400 13px/1 var(--ui);color:#94a3b8}
+
+  /* ---------- month view ---------- */
+  .calwrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .cal{width:1180px;background:#fff;border-radius:18px;box-shadow:0 46px 100px rgba(60,38,22,.3);
+    padding:30px 32px 32px;transform-origin:center}
+  .calhead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px}
+  .calhead b{font:600 30px/1 var(--serif);color:var(--slate-900);letter-spacing:-.3px}
+  .calhead s{font:400 15px/1 var(--ui);color:var(--slate-400);text-decoration:none;letter-spacing:.2px}
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:9px}
+  .dow div{font:600 12.5px/1 var(--ui);color:var(--slate-400);letter-spacing:1.1px;text-transform:uppercase;padding-left:3px}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:66px;gap:8px}
+  .cell{border:1px solid rgba(0,0,0,.065);border-radius:10px;padding:8px 9px;position:relative;background:#fdfcfb}
+  .cell.pad{background:transparent;border-color:transparent}
+  .cell .dn{font:600 15px/1 var(--ui);color:var(--slate-600)}
+  .cell.today{border-color:var(--app);background:#fffaf7;box-shadow:0 0 0 1.5px var(--app) inset}
+  .cell.today .dn{color:var(--app)}
+  .ev{position:absolute;left:8px;right:8px;height:19px;border-radius:5px;display:flex;align-items:center;
+    padding:0 7px;font:600 11.5px/1 var(--ui);color:#fff;opacity:0;overflow:hidden;white-space:nowrap}
+  .ev.r1{top:31px} .ev.r2{top:54px}
+  .who2{position:absolute;width:15px;height:15px;border-radius:50%;border:1.6px solid #fff;opacity:0;z-index:6}
+  #cur{margin-top:18px;display:flex;align-items:center;gap:10px;opacity:0}
+  #cur .ptr{width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;
+    border-top:15px solid var(--slate-900);filter:drop-shadow(0 2px 2px rgba(0,0,0,.3))}
+  #cur .lb{background:var(--slate-900);color:#fff;font:600 13.5px/1 var(--ui);padding:7px 11px;border-radius:7px}
+  #cur .lb s{text-decoration:none;color:#94a3b8;font-weight:400;margin-left:7px}
+
+  /* ---------- fridge ---------- */
+  #s5{background:#0e0b09}
+  .steel{position:absolute;inset:0;background:
+      linear-gradient(97deg,rgba(255,255,255,.14) 0%,rgba(255,255,255,0) 22%,rgba(0,0,0,.2) 48%,rgba(255,255,255,.09) 72%,rgba(0,0,0,.26) 100%),
+      linear-gradient(180deg,#a9a49d,#8d8880 40%,#79746c 100%)}
+  .brushed{position:absolute;inset:0;opacity:.5;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,rgba(0,0,0,.05) 1px 2px)}
+  .seam{position:absolute;left:0;right:0;top:212px;height:9px;background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.16) 40%,rgba(255,255,255,.13));
+    box-shadow:0 3px 12px rgba(0,0,0,.4)}
+  .handle{position:absolute;right:96px;top:250px;width:26px;height:560px;border-radius:13px;
+    background:linear-gradient(90deg,#6d6963,#c8c3bb 32%,#eae6df 48%,#8f8a82 100%);
+    box-shadow:0 8px 22px rgba(0,0,0,.5)}
+  .paper{position:absolute;left:436px;top:398px;width:1050px;height:500px;background:#fff;
+    box-shadow:0 30px 62px rgba(0,0,0,.5),0 3px 10px rgba(0,0,0,.28);padding:42px 46px;
+    transform-origin:50% 0}
+  .paper .ph{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px solid var(--brand);
+    padding-bottom:15px;margin-bottom:24px}
+  .paper .ph b{font:600 40px/1 var(--serif);color:var(--slate-900);letter-spacing:-.4px}
+  .paper .ph s{font:400 18px/1 var(--ui);color:var(--slate-500);text-decoration:none}
+  .paper .wk{display:grid;grid-template-columns:96px repeat(7,1fr);gap:9px;margin-bottom:9px}
+  .paper .wk .h{font:700 13px/1 var(--ui);color:var(--slate-400);text-align:center;letter-spacing:.9px;text-transform:uppercase}
+  .paper .wk .h.d{color:var(--app)}
+  .row{display:grid;grid-template-columns:96px repeat(7,1fr);gap:9px;align-items:center;margin-bottom:9px}
+  .row .n{font:600 16px/1.2 var(--ui);color:var(--slate-800)}
+  .row .n s{display:block;font:400 12.5px/1 var(--ui);color:var(--slate-400);text-decoration:none;margin-top:4px}
+  .blk{border-radius:9px;padding:9px 11px;opacity:0}
+  .blk b{display:block;font:600 15px/1.2 var(--ui)}
+  .blk s{display:block;font:400 12.5px/1 var(--ui);opacity:.8;text-decoration:none;margin-top:3px}
+  .today{margin-top:26px;padding-top:22px;border-top:2px solid rgba(0,0,0,.09);display:flex;align-items:center;gap:13px}
+  .today .lb{font:700 12.5px/1 var(--ui);color:var(--slate-400);letter-spacing:1.2px;text-transform:uppercase;
+    width:96px;flex:0 0 96px}
+  .task{display:flex;align-items:center;gap:10px;font:600 15px/1 var(--ui);color:var(--slate-800);
+    background:#f7f4f0;border-radius:9px;padding:11px 14px}
+  .task .box{width:17px;height:17px;border-radius:5px;border:2px solid var(--slate-300);flex:0 0 17px;position:relative}
+  .task.done{color:var(--slate-400)}
+  .task.done .box{background:var(--brand);border-color:var(--brand)}
+  .task.done .box::after{content:'';position:absolute;left:3.5px;top:.5px;width:5px;height:9px;border:solid #fff;
+    border-width:0 2.4px 2.4px 0;transform:rotate(42deg)}
+  .magnet{position:absolute;left:922px;top:371px;width:74px;height:74px;border-radius:50%;
+    background:radial-gradient(circle at 34% 30%,#f7a99a,#c9563a 62%,#96341f);
+    box-shadow:0 8px 18px rgba(0,0,0,.45),inset 0 -5px 10px rgba(0,0,0,.28);z-index:5}
+
+  /* ---------- end card ---------- */
+  #s6{background:var(--bg);display:flex;align-items:center;justify-content:center}
+  .card{text-align:center;transform:translateZ(0)}
+  .mark{margin:0 auto 30px;filter:blur(0)}
+  .wm{font:400 78px/1 var(--serif);color:var(--slate-900);letter-spacing:-1.6px;margin-bottom:26px}
+  .tag{font:400 31px/1.3 var(--serif);color:var(--ink);letter-spacing:.1px;margin-bottom:46px}
+  .url2{font:600 21px/1 var(--ui);color:var(--slate-500);letter-spacing:3.6px;text-transform:uppercase}
+  .rule{width:74px;height:3px;background:var(--brand);margin:0 auto 46px;border-radius:2px}
+  /* ---------- vertical 9:16 mode (?vertical=1) : 1080x1920 ---------- */
+  /* Phone shots are already phone-shaped: centre them. Desk shots stack instead
+     of cropping: the browser keeps its chrome and event card, the month gets
+     taller rows, the print sheet narrows its day columns. */
+  html.vert, html.vert body{width:1080px;height:1920px}
+  html.vert #stage{width:1080px;height:1920px}
+  html.vert .phone{left:310px;top:490px}
+  html.vert .window{left:-140px;top:-120px}
+  html.vert .browser{left:50px;top:200px;width:980px;height:1520px}
+  html.vert .app{flex-direction:column;height:calc(1520px - 56px)}
+  html.vert .nav2{width:auto;border-right:none;border-bottom:1px solid rgba(0,0,0,.07);
+    padding:18px 22px 6px;display:flex;align-items:center;flex-wrap:wrap}
+  html.vert .nav2 .logo{padding:0 18px 12px 0}
+  html.vert .nav2 a{padding:10px 14px}
+  html.vert .main{padding:24px 26px}
+  html.vert .out{flex-direction:column;height:auto;flex:1;min-height:0}
+  html.vert .panel{flex:0 0 auto}
+  html.vert .cards{flex:1;min-height:0;justify-content:center}
+  html.vert .ecard .t b, html.vert .ecard .t s{white-space:normal}
+  html.vert .cal{width:980px;padding:30px 30px 32px}
+  html.vert .grid{grid-auto-rows:104px}
+  html.vert .paper{left:50px;top:690px;width:980px;padding:34px 30px}
+  html.vert .paper .wk{grid-template-columns:70px repeat(7,1fr)}
+  html.vert .row{grid-template-columns:70px repeat(7,1fr)}
+  html.vert .paper .ph b{font-size:32px}
+  html.vert .paper .ph s{font-size:15px}
+  html.vert .row .n{font-size:13px}
+  html.vert .blk{padding:7px 6px}
+  html.vert .blk b{font-size:12.5px}
+  html.vert .blk s{font-size:10.5px}
+  html.vert .magnet{left:503px;top:663px}
+  html.vert .handle{right:64px}
+  html.vert .card{padding:0 70px}
+  html.vert .wm{font-size:92px}
+  html.vert .tag{font-size:37px}
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- ================= SHOT 1 ================= -->
+  <div class="shot" id="s1">
+    <div id="glowPool"></div><div id="glow"></div>
+  </div>
+
+  <!-- ================= SHOT 2 / 3 / 4a / 7 : the phone ================= -->
+  <div class="shot" id="s2">
+    <div class="room"></div><div class="window"></div><div class="table"></div>
+    <div class="phone" id="phoneA">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="status"><span id="clkA">7:22</span><span class="r">
+          <i class="sb" style="height:8px"></i><i class="sb" style="height:12px"></i><i class="sb" style="height:16px"></i>
+          <i class="sb" style="height:20px"></i><span class="batt"></span></span></div>
+        <div class="nav"><span class="back">&#8249;</span>
+          <span class="avstack"><i style="background:#F1B598">S</i><i style="background:#366d7e">M</i><i style="background:#94a3b8">A</i></span>
+          <span class="ttl"><b>The Planz Family</b><s>4 participants</s></span>
+          <span class="navi">&#8226;&#8226;&#8226;</span></div>
+        <div class="chatwin"><div class="chat" id="chatA"></div></div>
+        <div class="compose"><span class="field">Message</span><span class="send">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></div>
+        <div id="smear"></div><div id="sheen"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SHOT 4b / 5 ================= -->
+  <div class="shot" id="s3">
+    <div class="desk"></div><div class="deskShade"></div>
+    <div class="browser">
+      <div class="chrome"><span class="dots"><i style="background:#ec6a5e"></i><i style="background:#f4bf4f"></i><i style="background:#61c554"></i></span>
+        <span class="url"><span class="lock">&#128274;</span>familyplanz.com/calendar</span></div>
+      <div class="app">
+        <div class="nav2">
+          <div class="logo"><svg width="30" height="30" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="#c45e38"/><rect x="8" y="11" width="24" height="21" rx="4" fill="#fff"/><rect x="8" y="11" width="24" height="7" rx="3.5" fill="#F1B598"/><circle cx="14.5" cy="24.5" r="2.6" fill="#366d7e"/><circle cx="20" cy="24.5" r="2.6" fill="#C4E9DA"/><circle cx="25.5" cy="24.5" r="2.6" fill="#F1B598"/></svg><b>Family Planz</b></div>
+          <a class="on"><span class="dot"></span>Calendar</a>
+          <a><span class="dot"></span>Tasks</a>
+          <a><span class="dot"></span>Kids&rsquo; Schedule</a>
+          <a><span class="dot"></span>Groceries</a>
+          <a><span class="dot"></span>Family</a>
+        </div>
+        <div class="main">
+          <div class="qa">
+            <div class="lbl">Quick add &mdash; paste anything</div>
+            <div class="val" id="qaVal"></div>
+          </div>
+          <div class="hintrow" id="hintRow">
+            <span class="key">&#8984;V</span><span class="hint">parsing &hellip;</span>
+          </div>
+          <div class="out">
+            <div class="panel">
+              <div class="ptitle">From your family chat</div>
+              <div class="src"><div id="srcRows"></div></div>
+              <div class="chev" id="chev">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+              </div>
+              <div class="res" id="resBox">
+                <div class="ok"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8.5 15.5l2.5 2.5 4.5-5"/></svg>Added to Family Calendar</div>
+                <div class="stats" id="stats"><b>3 events</b><s>2 recurring</s><s>2 calendars</s><s>2 people</s></div>
+              </div>
+            </div>
+            <div class="cards" id="cards"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SHOT 6 ================= -->
+  <div class="shot" id="s4">
+    <div class="desk"></div><div class="deskShade"></div>
+    <div class="calwrap"><div class="cal" id="calBox">
+      <div class="calhead"><b id="calTitle">September 2026</b><s id="calSub">The Planz Family</s></div>
+      <div class="dow"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div>
+      <div class="grid" id="grid"></div>
+      <div id="cur"><span class="ptr"></span><span class="lb">Mike <s>viewing</s></span></div>
+    </div></div>
+  </div>
+
+  <!-- ================= SHOT 8 ================= -->
+  <div class="shot" id="s5">
+    <div class="steel"></div><div class="brushed"></div><div class="seam"></div>
+    <div class="handle"></div>
+    <div class="paper" id="paper">
+      <div class="ph"><b>Family Planz</b><s>Week of 28 September 2026</s></div>
+      <div class="wk"><div></div><div class="h">Mon</div><div class="h">Tue</div><div class="h">Wed</div><div class="h">Thu</div><div class="h">Fri</div><div class="h">Sat</div><div class="h">Sun</div></div>
+      <div id="paperRows"></div>
+      <div class="today">
+        <span class="lb">Today</span>
+        <span class="task done"><span class="box"></span>Pack Emma&rsquo;s kit</span>
+        <span class="task"><span class="box"></span>Milk, eggs, bread</span>
+        <span class="task"><span class="box"></span>Call the dentist back</span>
+      </div>
+    </div>
+    <div class="magnet"></div>
+  </div>
+
+  <!-- ================= SHOT 9 ================= -->
+  <div class="shot" id="s6">
+    <div class="card" id="endcard">
+      <div class="mark"><svg width="150" height="150" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="24" fill="#c45e38"/>
+        <rect x="19" y="26" width="62" height="55" rx="9" fill="#fff"/>
+        <rect x="19" y="26" width="62" height="19" rx="9" fill="#F1B598"/>
+        <rect x="19" y="38" width="62" height="7" fill="#F1B598"/>
+        <circle cx="35" cy="60" r="7" fill="#366d7e"/>
+        <circle cx="50" cy="60" r="7" fill="#C4E9DA"/>
+        <circle cx="65" cy="60" r="7" fill="#dd5822"/>
+        <rect x="30" y="70" width="40" height="4" rx="2" fill="#e6dcd4"/>
+      </svg></div>
+      <div class="wm">Family Planz</div>
+      <div class="rule"></div>
+      <div class="tag">The calendar your family deserves.</div>
+      <div class="url2">familyplanz.com</div>
+    </div>
+  </div>
+
+  <div id="grain"></div><div id="vig"></div>
+  <div id="barT"></div><div id="barB"></div>
+</div>
+
+<script>if(/vertical=1/.test(location.search))document.documentElement.classList.add('vert');
+/* ═══════════════════════ data ═══════════════════════ */
+const C = {peach:'#F1B598',teal:'#366d7e',slate:'#94a3b8',mint:'#C4E9DA',blush:'#FED5CF',brand:'#c45e38',app:'#dd5822'};
+
+const CHAT = [
+  {who:'Sarah', t:'7:22', c:C.peach, x:'plumber is coming sometime between 8 and 12 apparently'},
+  {who:'Mike',  t:'7:24', c:C.teal,  x:'ill be out'},
+  {who:'Ruth',  t:'7:31', c:C.mint,  x:'\u{1F4F7} look at this little lady', photo:true},
+  {who:'Mike',  t:'7:33', c:C.teal,  x:'she has your whole personality \u{1F602}'},
+  {who:'Sarah', t:'7:35', c:C.peach, x:'we need milk, eggs and bread'},
+  {who:'Mike',  t:'7:36', c:C.teal,  x:'added it to the list'},
+  {who:'Sarah', t:'7:38', c:C.peach, x:'did you ever call the dentist back'},
+  {sep:'Today'},
+  {who:'Ms. Alvarez', t:'7:41', c:C.slate, x:'Practice is back on Tuesdays, 4pm at Riverside Park.'},
+  {who:'Mike',  t:'7:42', c:C.teal,  x:'ok'},
+  {who:'Sarah', t:'7:43', c:C.peach, x:'wait is it 4 or 4:15? emma says 4:30'},
+  {who:'Mike',  t:'7:43', c:C.teal,  x:'4. shes always early'},
+  {who:'Sarah', t:'7:44', c:C.peach, x:'piano moved to thursdays 5pm studio B'},
+  {who:'Ruth',  t:'7:45', c:C.mint,  x:'call your mother on the way home please'},
+  {who:'Sarah', t:'7:46', c:C.peach, x:'ok. can someone pick emma up wednesday? dentist at 2:30'},
+  {who:'Mike',  t:'7:46', c:C.teal,  x:'i can'},
+  {who:'Ms. Alvarez', t:'7:47', c:C.slate, x:'permission slip for the field trip is due friday'},
+  {who:'Ms. Alvarez', t:'7:47', c:C.slate, x:'also practice is cancelled next tuesday, inset day'},
+  {who:'Sarah', t:'7:48', c:C.peach, x:'of course it is'},
+  {who:'Mike',  t:'7:52', c:C.teal,  x:'got it \u{1F44D}', late:true}
+];
+
+/* indices count the {sep} entry at 7, so 8 = the 7:41 message */
+const HILITE = [14,16,17];               /* the three nobody answered */
+const SELECT = [8,12,14];               /* the three copied   */
+const PASTE = CHAT[8].x + '\n' + CHAT[12].x + '\n' + CHAT[14].x;
+
+const EVENTS = [
+  {t:'Soccer Practice', w:'Tuesdays \u00b7 4:00 PM', l:'Riverside Park', c:C.teal,  cal:'Mike',  r:'Weekly', tc:'#fff'},
+  {t:'Piano Lesson',    w:'Thursdays \u00b7 5:00 PM', l:'Studio B',       c:C.peach, cal:'Sarah', r:'Weekly', tc:'#4a2c15'},
+  {t:'Dentist',         w:'Wednesday \u00b7 2:30 PM', l:'',               c:C.slate, cal:'Mike',  r:'',      tc:'#fff'}
+];
+
+const PAPEVENTS = [
+  {n:'Soccer', place:'Riverside Park', when:'Tue 4pm',     d:1, c:C.teal,  tc:'#fff'},
+  {n:'Piano',  place:'Studio B',       when:'Thu 5pm',     d:3, c:C.peach, tc:'#4a2c15'},
+  {n:'Dentist',place:'Riverside Dental',when:'Wed 2:30pm',  d:2, c:C.slate, tc:'#fff'},
+  {n:'Book club',place:'Rose\u2019s',  when:'Thu 7:30pm',  d:3, c:C.mint,  tc:'#22505e'}
+];
+const PAPER_TASKS = 3;
+
+/* September 2026: 1st is a Tuesday */
+const GRID = [];
+(function(){
+  const lead = 1; /* Mon=0 ; Sep 1 2026 is Tuesday => one pad cell */
+  for(let i=0;i<lead;i++) GRID.push(null);
+  for(let d=1;d<=30;d++){
+    const cell = {d, evs:[]};
+    const dow = (lead + d - 1) % 7; /* 0=Mon */
+    if(cell.d>=28 && cell.d<=30){ /* the week the print sheet shows */
+      PAPEVENTS.forEach(p=>{ if(p.d===dow) cell.evs.push(p); });
+    } else {
+      if(dow===1) cell.evs.push({n:'Soccer',c:C.teal,live:true});
+      if(dow===3) cell.evs.push({n:'Piano',c:C.peach,live:true});
+      if(d===16) cell.evs.push({n:'Parents eve',c:C.mint,live:true});
+    }
+    GRID.push(cell);
+  }
+  while(GRID.length%7) GRID.push(null);
+})();
+
+/* ═══════════════════════ build DOM ═══════════════════════ */
+const $ = s=>document.querySelector(s);
+const esc = s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const ini = w=>w.trim().split(/\s+/).pop()[0].toUpperCase();
+
+/* chat */
+const chat = $('#chatA');
+let html = '';
+CHAT.forEach((m,i)=>{
+  if(m.sep){ html += `<div class="daysep"><s>${m.sep}</s></div>`; return; }
+  const photo = m.photo
+    ? `<div class="bub" style="padding:5px"><div style="width:150px;height:104px;border-radius:14px;
+        background:linear-gradient(160deg,#C4E9DA,#7fb8a4 55%,#4d8d7c)"></div></div>`
+    : `<div class="bub"><p>${esc(m.x)}</p></div>`;
+  html += `<div class="msg" data-i="${i}">
+      <span class="hlbg" data-hl></span><span class="selbg" data-sel></span>
+      <span class="av" style="background:${m.c}">${ini(m.who)}</span>
+      <span class="mcol"><span class="who" style="color:${m.c}">${m.who}</span>${photo}
+        <span class="stamp">${m.t}</span></span></div>`;
+});
+chat.innerHTML = html;
+
+/* event cards */
+$('#cards').innerHTML = EVENTS.map(e=>`
+  <div class="ecard" style="border-left-color:${e.c}">
+    <span class="kind" style="background:${e.c}">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 9.5h18"/></svg></span>
+    <span class="t"><b>${e.t}</b><s>${e.w}${e.l?' \u00b7 '+e.l:''}</s></span>
+    <span class="recur" data-recur>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg></span>
+    <span class="chip" style="background:${e.c};color:${e.tc}"><i></i>${e.cal}</span>
+  </div>`).join('');
+
+/* month grid */
+$('#grid').innerHTML = GRID.map(c=>{
+  if(!c) return `<div class="cell pad"></div>`;
+  const evs = c.evs.slice(0,2).map((e,k)=>
+    `<div class="ev r${k+1}" style="background:${e.c}">${e.n}</div>`).join('');
+  return `<div class="cell ${c.d===29?'today':''}" data-d="${c.d}"><span class="dn">${c.d}</span>${evs}</div>`;
+}).join('');
+
+/* fridge paper */
+$('#paperRows').innerHTML = PAPEVENTS.map(p=>`
+  <div class="row">
+    <span class="n">${p.n}<s>${p.place}</s></span>
+    ${[0,1,2,3,4,5,6].map(i=>`<div>${i===p.d?`<div class="blk" style="background:${p.c};color:${p.tc}"><b>${p.n}</b><s>${p.when}</s></div>`:''}</div>`).join('')}
+  </div>`).join('');
+
+/* the panel shows which three messages were taken, not the text again */
+$('#srcRows').innerHTML = SELECT.map(i=>{
+  const m = CHAT[i];
+  return `<div class="wrow"><span class="av2" style="background:${m.c}">${ini(m.who)}</span>
+    <span class="wtxt">${esc(m.x.length>44?m.x.slice(0,42)+'…':m.x)}</span></div>`;
+}).join('');
+
+/* panel heading */
+document.querySelector('.ptitle').textContent = 'Three messages, taken from The Planz Family';
+
+/* ═══════════════════════ timeline ═══════════════════════ */
+const clamp=(v,a=0,b=1)=>v<a?a:v>b?b:v;
+const seg=(t,a,b)=>clamp((t-a)/(b-a));
+const eo =x=>1-Math.pow(1-x,3);
+const eo2=x=>1-Math.pow(1-x,4);
+const eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+
+/* measure once */
+const chatH = chat.scrollHeight, winH = $('#s2 .chatwin').clientHeight;
+const maxScroll = Math.max(0, chatH - winH + 40);
+const msgEl = i => chat.querySelector(`[data-i="${i}"]`);
+const selScroll = Math.min(maxScroll, msgEl(8).offsetTop - 4);
+
+const SHOTS = ['s1','s2','s3','s4','s5','s6'];
+function on(id,t,a,b){ const e=document.getElementById(id); e.style.opacity = (t>=a&&t<b)?1:0; }
+
+const BUZZ=[0.4,1.2,1.55,1.8,2.25,2.55,2.8,3.05,3.3,3.5,3.7,3.9,4.1,4.3,4.5,4.7,4.9,5.1,5.3,5.5,5.7,5.9,6.1,6.3,6.5,6.7,6.9,7.1,7.3,7.5,7.7];
+
+window.setTime = function(t){
+  on('s1',t,0,2); on('s2',t,2,37); on('s3',t,14.8,24.6); on('s4',t,24,31.2);
+  on('s5',t,37,42); on('s6',t,42,45.1);
+
+  /* ---- shot 1 : pulse on each buzz ---- */
+  let g=0.06;
+  for(const b of BUZZ){ if(t<b) continue; const d=t-b; if(d<0.62) g=Math.max(g, 0.30*Math.pow(1-d/0.62,2.2)); }
+  const gl=document.getElementById('glow');
+  gl.style.opacity = g.toFixed(3);
+  const s=1+0.05*g; gl.style.transform=`translate(-50%,-50%) scale(${s.toFixed(3)})`;
+
+  /* ---- phone shared state ---- */
+  const phone = t<14.8 ? t : 31;
+  let scroll, smear=0, sheen=0, clk='7:22', hls=[], sels=[];
+  if(t<2){ scroll=0; }
+  else if(t<8){                       /* shot 2 : the scroll */
+    const p = seg(t,2,8);
+    const e = Math.pow(p,2.05);        /* accelerates, then the reader gives up */
+    scroll = e*maxScroll;
+    const vel = 2.05*Math.pow(Math.max(p,1e-4),1.05)*maxScroll/6;
+    smear = clamp(vel/maxScroll*3.4)*0.9;
+    const u = (p*3.1)%1;                       /* a smooth specular sweep, glass catching window light */
+    sheen = u<0.30 ? Math.sin(u/0.30*Math.PI)*0.55*clamp(vel/maxScroll*2.2) : 0;
+    clk = mins(7*60+22 + seg(t,2,8)*26);
+  }
+  else if(t<14.8){                      /* shot 3 blooms, then the selection: scroll up to find them */
+    const k = eio(seg(t,14.02,14.6));
+    scroll = maxScroll + (selScroll-maxScroll)*k;
+    clk=mins(7*60+48);
+    const fade = 1-seg(t,13.62,14.02);
+    hls = HILITE.map((mi,j)=> t>8.6+j*1.4 ? Math.min(1,(t-(8.6+j*1.4))/0.85)*fade : 0);
+    sels = SELECT.map((mi,j)=> t>14.26+j*0.16 ? clamp((t-(14.26+j*0.16))/0.26) : 0); }
+  else if(t<31){                      /* shots 4-6 : desk, phone not visible */
+    scroll=maxScroll; clk=mins(7*60+48);
+  }
+  else if(t<37){                      /* shot 7 : the quiet */
+    scroll=maxScroll; clk=mins(7*60+48 + seg(t,31,32.4)*4);
+  }
+  const win=document.querySelector('#s2 .chatwin');
+  const chatEl=document.getElementById('chatA');
+  chatEl.style.transform=`translate3d(0,${(-scroll).toFixed(2)}px,0)`;
+  document.getElementById('smear').style.opacity=(t>=2&&t<8)?smear.toFixed(3):0;
+  const sh=document.getElementById('sheen');
+  sh.style.opacity=sheen.toFixed(2);
+  sh.style.transform=`translateX(${((-40+sheen*520)|0)}px)`;
+  document.getElementById('clkA').textContent=clk;
+
+  /* "got it" only exists in shot 7 — it must not be sitting there the whole time */
+  const late = msgEl(19);
+  if(late){ const v = t>31.9 ? Math.min(1,(t-31.9)/0.34) : 0;
+    late.style.opacity = v.toFixed(3);
+    late.style.transform = `translateY(${((1-v)*16).toFixed(1)}px)`; }
+
+  /* handheld drift */
+  const hd = t<2?0:1;
+  const amp = (t<8)?1:(t<14.8)?0.28:(t>31?0.34:0);
+  const dx=(Math.sin(t*0.72)*7+Math.sin(t*1.93)*2.6)*amp*hd;
+  const dy=(Math.cos(t*0.91)*4.4+Math.sin(t*1.4)*1.6)*amp*hd;
+  const dr=(Math.sin(t*0.51)*0.42+Math.sin(t*1.1)*0.14)*amp*hd;
+  const ph=document.getElementById('phoneA');
+  ph.style.transform=`translate(${dx.toFixed(2)}px,${dy.toFixed(2)}px) rotate(${dr.toFixed(3)}deg)`;
+
+  /* highlights + selection */
+  chat.querySelectorAll('[data-hl]').forEach(e=>e.style.opacity=0);
+  chat.querySelectorAll('[data-sel]').forEach(e=>e.style.opacity=0);
+  HILITE.forEach((mi,k)=>{ const v=hls[k]||0; if(v>0){
+    chat.querySelector(`[data-i="${mi}"] [data-hl]`).style.opacity=v.toFixed(3); } });
+  SELECT.forEach((mi,k)=>{ const v=sels[k]||0; if(v>0){
+    chat.querySelector(`[data-i="${mi}"] [data-sel]`).style.opacity=v.toFixed(3); } });
+
+  /* ---- shot 4b : the paste ---- */
+  const qa=document.getElementById('qaVal');
+  if(t<14.8){ qa.textContent=''; }
+  else if(t<16.0){
+    const p=seg(t,15.0,16.0); qa.textContent = PASTE.slice(0, Math.round(PASTE.length*eo(p)));
+  } else { qa.innerHTML = `<span class="c1">${esc(PASTE).replace(/\n/g,'<br>')}</span><span class="caret"></span>`; }
+  const hr=document.getElementById('hintRow');
+  hr.style.opacity = (t>15.6&&t<18.4)? (Math.min(1,(t-15.6)/0.25)*Math.min(1,(18.4-t)/0.5)).toFixed(3):0;
+  if(t>=15.0) document.querySelectorAll('.caret').forEach(c=>c.style.opacity='0');
+
+  /* chevron + result panel */
+  document.getElementById('chev').style.opacity=(t>17.5?clamp((t-17.5)/0.5):0).toFixed(3);
+  const rb=document.getElementById('resBox');
+  rb.style.opacity=(t>18.0?clamp((t-18.0)/0.4):0).toFixed(3);
+  rb.style.transform=`translateY(${((1-clamp((t-18.0)/0.4))*10).toFixed(1)}px)`;
+  document.getElementById('stats').style.opacity=(t>19.9?clamp((t-19.9)/0.5):0).toFixed(3);
+
+  /* ---- shot 5 : the parse, three cards land ---- */
+  const cards=[...document.querySelectorAll('.ecard')];
+  cards.forEach((c,i)=>{
+    const st = 19.05 + i*0.44;
+    const p = seg(t,st,st+0.62);
+    c.style.opacity = eo(p).toFixed(3);
+    c.style.transform=`translateY(${((1-eo(p))*22).toFixed(1)}px) scale(${(0.975+0.025*eo(p)).toFixed(4)})`;
+    const f = k => clamp((t-(st+0.1+k*0.09))/0.3);
+    c.querySelector('.t b').style.opacity=f(0).toFixed(3);
+    c.querySelector('.t s').style.opacity=f(1).toFixed(3);
+    c.querySelector('[data-recur]').style.opacity=(EVENTS[i].r?f(2):0).toFixed(3);
+    c.querySelector('.chip').style.opacity=f(3).toFixed(3);
+  });
+
+  /* ---- shot 6 : the month, filling in ---- */
+  const cells=[...document.querySelectorAll('.cell:not(.pad)')];
+  cells.forEach((c,i)=>{
+    const d=+c.dataset.d;
+    const live = c.querySelectorAll('.ev');
+    live.forEach((e,k)=>{
+      const st = 24.5 + (i*0.035) + k*0.03;
+      const p = seg(t,st,st+0.5);
+      e.style.opacity = eo(p).toFixed(3);
+      e.style.transform=`translateX(${((1-eo(p))*-10).toFixed(1)}px)`;
+    });
+  });
+  const calBox=document.getElementById('calBox');
+  const zoom = 1.16 - 0.16*eio(seg(t,24,30.6));
+  calBox.style.transform=`scale(${zoom.toFixed(4)})`;
+  const cur=document.getElementById('cur');
+  const cp=seg(t,27.4,30.4);
+  cur.style.opacity=(t>27.4?clamp((t-27.4)/0.4)*Math.min(1,(31.2-t)/0.5):0).toFixed(3);
+  if(t>27.4) cur.style.transform=`translate(${(eio(cp)*176).toFixed(1)}px,0)`;
+
+  /* ---- shot 8 : the fridge sheet ---- */
+  const pap=document.getElementById('paper');
+  const pz = 1.0 + 0.045*eio(seg(t,37,41.6));
+  pap.style.transform=`scale(${pz.toFixed(4)})`;
+  pap.querySelectorAll('.blk').forEach((b,i)=>{
+    const st=37.25+i*0.13, p=seg(t,st,st+0.5);
+    b.style.opacity=eo(p).toFixed(3);
+  });
+  document.querySelector('.magnet').style.opacity=t>37?1:0;
+
+  /* ---- shot 9 : resolve out of blur ---- */
+  const ec=document.getElementById('endcard');
+  const rp=seg(t,42,42.5);
+  ec.style.opacity=(t>=42?clamp((t-42)/0.22):0).toFixed(3);
+  ec.style.filter=`blur(${((1-eo(rp))*11).toFixed(2)}px)`;
+  ec.style.transform=`translateY(${((1-eo(rp))*16).toFixed(1)}px)`;
+
+  /* mattes */
+  const mat=o=>{ document.getElementById('barT').style.height=o+'px';
+                 document.getElementById('barB').style.height=o+'px'; };
+  mat(t<0.35 ? 0 : (t>44.55 ? Math.round(eio(seg(t,44.55,45))*1080) : 0));
+  document.getElementById('vig').style.opacity = (t<37?0.85:1).toFixed(2);
+};
+
+function mins(m){ const h=Math.floor(m/60); const mm=Math.round(m%60); return `${h}:${mm<10?'0':''}${mm}`; }
+</script>
+</body>
+</html>
