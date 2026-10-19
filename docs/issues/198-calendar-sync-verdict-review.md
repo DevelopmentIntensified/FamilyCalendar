@@ -6,7 +6,7 @@ Source: owner directive 2026-10-16 — keep the research (`docs/research/calenda
 
 ## Done
 
-- Research docs sit untracked-but-kept at `docs/research/`: per-provider sync notes + verdict.
+- Research docs committed under `docs/research/` (kept per owner directive): per-provider sync notes + verdict.
 
 ## Needs doing
 
