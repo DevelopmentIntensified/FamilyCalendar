@@ -23,19 +23,9 @@ export const roadmap: RoadmapSection[] = [
 		blurb: 'Live in the app today.',
 		items: [
 			{
-				title: 'Bill tracking',
+				title: 'Quick-add for events',
 				description:
-					'Add, edit, and mark bills paid, with overdue badges and a clear list your whole family can see — maturing as its own Bills section with spending reports.'
-			},
-			{
-				title: 'Receipt scanning',
-				description:
-					'Scan a receipt with your phone and the details fill in automatically — on your device, with the photo never stored.'
-			},
-			{
-				title: 'Quick-add for events and bills',
-				description:
-					'Type a plain sentence and Family Planz turns it into an event or a bill, complete with dates, amounts, and people.'
+					'Type a plain sentence and Family Planz turns it into an event, complete with dates, times, and people.'
 			},
 			{
 				title: 'Task visibility',
@@ -44,6 +34,11 @@ export const roadmap: RoadmapSection[] = [
 			{
 				title: 'Family hub redesign',
 				description: 'Members, invites, settings, and activity in one clear, card-based page.'
+			},
+			{
+				title: 'Grocery lists',
+				description:
+					'A shared list with store sections, per-person "Mine" filtering, and check-off as you shop.'
 			}
 		]
 	},
@@ -56,10 +51,6 @@ export const roadmap: RoadmapSection[] = [
 				title: 'Privacy hardening',
 				description:
 					"Ongoing work to keep your family's data yours — tighter access rules and clearer controls."
-			},
-			{
-				title: 'Spending reports',
-				description: 'A simple view of what your family spent and where, built from your bills.'
 			}
 		]
 	},
@@ -69,26 +60,9 @@ export const roadmap: RoadmapSection[] = [
 		blurb: 'On our list, in rough priority order.',
 		items: [
 			{
-				title: 'Recurring bills',
+				title: 'Calendar sync',
 				description:
-					'Bills that repeat — rent, utilities, subscriptions — tracked automatically month after month.'
-			},
-			{
-				title: 'Monthly burn',
-				description: 'A single number for what your family typically spends each month.'
-			},
-			{
-				title: 'Due-soon reminders',
-				description: 'Gentle nudges before a bill is due, so nothing sneaks up on you.'
-			},
-			{
-				title: 'Budgeting trends',
-				description: 'See how your spending changes over time and spot where to trim.'
-			},
-			{
-				title: 'Item-level receipt intelligence',
-				description:
-					'Label and learn from individual items on receipts, so reports know groceries from takeout.'
+					'Bring your Google, Outlook, or Apple calendar events into Family Planz — research is underway.'
 			}
 		]
 	}

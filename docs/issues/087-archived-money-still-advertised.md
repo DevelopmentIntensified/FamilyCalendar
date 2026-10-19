@@ -46,28 +46,35 @@ should not list a processor the app never calls.
 
 `bills`, `receiptItems` and `itemTags` are still declared in the schema and still
 created by a bundled migration, with zero readers anywhere in the app. They are
-the storage half of the lie.
+## Done
+
+- 2026-10-19: changelog — the three Bills entries removed ("Scan receipts
+  straight into your bills", "Quick-add now understands bills", "Bills, tidied
+  up"); the entries describe a feature no user could reach.
+- 2026-10-19: roadmap rewritten — Shipped now lists Quick-add for events,
+  Task visibility, Family hub redesign, Grocery lists; Spending reports and
+  the four money "coming next" items removed; Coming next carries one honest
+  item (Calendar sync — research underway, `docs/research/calendar-sync-*`).
+- 2026-10-19: privacy policy — the "Resend (receipt email forwarding)"
+  processor row removed (the app never calls it for receipts); the
+  receipt-scanning/PDF footnote paragraph removed; Neon row now reads
+  "calendars and tasks"; "Last updated" bumped to October 2026. Ad-image
+  upload disclosure on the Vercel row kept (ads are live, unlike money).
+- The changelog SEO description was already fixed before this slice
+  (`$lib/marketing/seo.ts` deliberately does not name features — comment cites
+  this issue).
+- 2026-10-19: whole-marketing grep for `bill|receipt|spend|burn|ingest` —
+  only legitimate pricing "billing period" text remains. Sweep clean.
 
 ## Needs doing
 
-- [ ] Correct the changelog: entries describe a feature that was never
-      reachable by a user, so they are not a historical record — they are
-      incorrect. Remove the claims or re-scope them to what shipped. The page is
-      prerendered, so this needs a rebuild, not just a data edit.
-- [ ] Move the roadmap entries out of **Shipped** into the section they actually
-      belong to, and make the descriptions match reality.
-- [ ] Rewrite the privacy policy's receipt paragraphs and fix the processor
-      table. A policy that names a processor we never call is worse than one
-      that says nothing — remove the claims rather than hedge them.
-- [ ] Fix the changelog page's SEO description.
-- [ ] Decide the tables' fate, as its own slice (see Notes): dropping `bills`
-      and `receiptItems` needs child-first ordering, and the archived code in
-      `_attic/money/` reads them.
-- [ ] Grep the whole marketing surface for any other claim about a feature that
-      was never reachable. Treat the list above as a starting sample, not the
-      full set.
-
-## Done
+- [ ] Decide the tables' fate (`bills`, `receiptItems`, `itemTags`) as its own
+      slice — blocked by #086 (dropping tables needs child-first ordering, and
+      the archived code in `_attic/money/` reads them; deleting DDL before the
+      baseline exists makes 086's job harder).
+- [ ] `parseBillQuickAdd` in the natural-language service (~400 lines of
+      tests, no production caller) — remove when the money lane's NLP
+      vocabulary split lands (`src/lib/data/categories` keeps the live part).
 
 ## Notes
 

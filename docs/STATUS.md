@@ -4,6 +4,25 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **Retention/attribution/marketing-truth batch (2026-10-19, pushed to `test`):**
+  **#092 fixed** — the four viewer-facing stats figures (`completedOnce`,
+  `recurringCompletions`, `recentlyCompleted`, `month`) now filter completions
+  by actor with legacy-owner fallback (`attributedToViewer`), extracted to
+  ONE home `src/lib/server/db/actions/completionAttribution.ts` (dashboard.ts
+  imports it, no hand-copy); `doneBy` deliberately stays scoped to the
+  viewer's own tasks (it names who did the work on them — pinned by test +
+  comment). TDD: red via QueryBuilder-rendered SQL proving the owner-only
+  predicate, then green. **#029 M5 landed** — `runCleanup()` now prunes read
+  notifications (90d), resolved unmatchedPhrases (180d) and closed bugReports
+  (180d) in parallel, counts in the response; per-predicate SQL tests in
+  `*.prune.test.ts`; `adEvents` window + URL-redaction still owe an owner
+  call. **#087 public claims corrected** — three Bills changelog entries
+  removed, roadmap rewritten to what's live (quick-add events, task
+  visibility, family hub, grocery lists) + one honest coming-next (calendar
+  sync research), privacy policy dropped the Resend receipt-ingest processor
+  row and the receipt-scanning footnote, Neon row reworded, whole-marketing
+  grep clean. Tables' fate stays blocked by #086. Full suite 257 files /
+  3658 tests green.
 - **Tracker hygiene + cold-start fix (2026-10-19, pushed to `test`):**
   25 in-progress tickets audited against STATUS + `git log`; **#042/#054/#067/#124/#125
   flipped `done`** — no new work in the slice, evidence already in the tickets
@@ -362,11 +381,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   issues that own them: stats completion attribution → **#092**, exception
   upsert race → **#014**. Neither was dropped.
 - #092 Calendar stats credit completions to the wrong person (NEW 2026-09-29,
-  split from #013). The stats page filters task completions by the Task's
-  OWNER, not by who completed it, so a partner checking off your task credits
-  you. The actor column exists and the dashboard already does this correctly;
-  this is the one query that was never updated. Small, self-contained, and the
-  number is quietly wrong rather than missing.
+  split from #013) — **DONE 2026-10-19, see the Done rollup.**
 - #014 Events/calendar MED/LOW (OPEN, 3 items; re-triaged 2026-09-29 —
   7 of the 9 bullets are already shipped and are struck from the issue:
   date-only `recurringUntil` inclusive end-of-day, family-mirror origin id +
@@ -404,15 +419,14 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   the app. Next action is evidence, not code: Vercel logs filtered to
   `path=/ method=POST` at the report timestamp, for User-Agent. Cross-ref
   #059/#060 (unproven Resend-webhook hypothesis).
-- #029 Privacy audit (OPEN — the M3/M4/LOWs + M5 retention). H3/M1/M2
+- #029 Privacy audit (OPEN — the M3/M4/LOWs + M5 residue). H3/M1/M2
   shipped 2026-09-07; H1/H2/M6 and EXIF stripping are void by the
-  2026-09-07 process-and-delete decree. M5 sharpened 2026-09-29: it is the
-  SAME gap as the existing weekly cron (`vercel.json` → `/api/cron/cleanup`,
-  `src/routes/api/cron/cleanup/+server.ts:10-31`), which prunes only stale
-  anonymous users (90d) and expired claim tokens. `notifications`, resolved
-  `unmatchedPhrases`, `bugReports` and `adEvents` grow unbounded. Extend
-  `runCleanup()` rather than build new infra; suggested windows 180d for
-  resolved `unmatchedPhrases`/`bugReports`, 90d for read `notifications`.
+  2026-09-07 process-and-delete decree. **M5's three prunes LANDED 2026-10-19**
+  (read notifications 90d, resolved unmatchedPhrases 180d, closed bugReports
+  180d, inside `runCleanup()` — see the Done rollup). M5 residue: the
+  `adEvents` retention window needs an owner decision
+  (aggregate/rollup vs delete), and redact-URL-query-strings before persisting
+  an unmatched phrase is still owed.
 - #040 Console `reportAllChanges` TypeError (BLOCKED — awaiting reporter,
   re-verified 2026-09-29: still zero hits in `src/`, in `node_modules/svelte`
   and in `node_modules/luxon`; `VM1054` is Chrome's eval/extension-injection
@@ -433,11 +447,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
     Step 1 is a manual schema dump the user must run — we cannot pick a winner
     between `003` and the `drizzle/` copies until we see the real databases
     (same trap as #050).
-  - #087 Archived money subsystem is still advertised — the changelog, the
-    **privacy policy** and the roadmap all describe scan-receipts / mark-bills-
-    paid / receipt-email ingest as live. The policy names a processor we never
-    call, which is the serious half. `bills`/`receiptItems`/`itemTags` are
-    declared and migrated with zero readers.
+  - #087 **DONE 2026-10-19 (public claims only)** — changelog Bills entries
+    removed, roadmap + privacy policy rewritten to the truth, marketing grep
+    clean (see the Done rollup). Residue stays open, blocked by #086: the
+    `bills`/`receiptItems`/`itemTags` tables' fate, and the caller-less
+    `parseBillQuickAdd`.
   - #088 Ad consent has two sources of truth, and the one read at serve time can
     never gain a row (its only writer has no callers), so ads never render at
     all. Two of the three booleans are read and written nowhere.

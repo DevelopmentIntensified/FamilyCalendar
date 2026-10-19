@@ -9,7 +9,7 @@
 			<p class="mx-auto max-w-2xl text-lg text-slate-600">
 				How we handle your family's data — in plain language.
 			</p>
-			<p class="mt-2 text-sm text-slate-500">Last updated: August 2026</p>
+			<p class="mt-2 text-sm text-slate-500">Last updated: October 2026</p>
 		</div>
 
 		<div class="mb-8 rounded-2xl bg-white p-8 shadow-sm">
@@ -72,30 +72,14 @@
 							<td class="py-3">Sending sign-in links and password resets.</td>
 						</tr>
 						<tr class="border-t border-slate-100">
-							<td class="py-3 pr-4 font-medium text-slate-800">
-								Resend (receipt email forwarding)
-							</td>
-							<td class="py-3 pr-4">
-								Emails you forward to your personal receipt-ingest address
-							</td>
-							<td class="py-3">
-								Turning forwarded receipt emails into a draft bill for you to review. Resend
-								receives and stores that mail on their servers — we keep only the parsed draft
-								fields, never the email itself or its attachments. The feature only exists for you
-								if you use your ingest address.
-							</td>
-						</tr>
-						<tr class="border-t border-slate-100">
 							<td class="py-3 pr-4 font-medium text-slate-800">Vercel</td>
 							<td class="py-3 pr-4">Hosting, technical logs, and ad images you upload</td>
-							<td class="py-3">
-								Running the site. Receipt photos are never uploaded — we never store them.
-							</td>
+							<td class="py-3">Running the site.</td>
 						</tr>
 						<tr class="border-t border-slate-100">
 							<td class="py-3 pr-4 font-medium text-slate-800">Neon</td>
 							<td class="py-3 pr-4">Your app data</td>
-							<td class="py-3">The database that stores your calendars and bills.</td>
+							<td class="py-3">The database that stores your calendars and tasks.</td>
 						</tr>
 						<tr class="border-t border-slate-100">
 							<td class="py-3 pr-4 font-medium text-slate-800">OpenStreetMap Nominatim</td>
@@ -110,13 +94,6 @@
 					</tbody>
 				</table>
 			</div>
-			<p class="mt-4 text-sm text-slate-500">
-				Receipt scanning runs entirely on your device: the photo is read on your phone or computer,
-				the details are dropped into the form, and the image is discarded. It is never uploaded or
-				stored. The same applies to receipt PDFs: their text is read in your browser (or, for
-				forwarded emails, read from the attachment at arrival) and only the parsed draft fields are
-				kept for you to confirm — the file itself is never stored by us.
-			</p>
 		</div>
 
 		<div class="mb-16 grid gap-8 md:grid-cols-2">

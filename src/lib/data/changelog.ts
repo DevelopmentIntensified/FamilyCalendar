@@ -14,20 +14,6 @@ export interface ChangelogEntry {
 export const changelog: ChangelogEntry[] = [
 	{
 		date: '2026-09-07',
-		title: 'Scan receipts straight into your bills',
-		description:
-			'Snap a photo of a receipt and the details fill in your bill automatically. The scanning runs on your device — the photo itself is never stored.',
-		tag: 'Bills'
-	},
-	{
-		date: '2026-09-07',
-		title: 'Quick-add now understands bills',
-		description:
-			'Type something like "Electric bill 84.50 due September 15" into quick-add and it becomes a bill with the amount and due date already set.',
-		tag: 'Bills'
-	},
-	{
-		date: '2026-09-07',
 		title: 'Multi-day events and attendee lists in quick-add',
 		description:
 			'Phrases like "camping trip Friday to Sunday with @mom and @dad" now create a single event spanning multiple days with everyone tagged.',
@@ -81,13 +67,6 @@ export const changelog: ChangelogEntry[] = [
 		description:
 			'The family page got a full redesign: clear cards for members, invites, settings, and recent activity, all in one place.',
 		tag: 'Family'
-	},
-	{
-		date: '2026-09-06',
-		title: 'Bills, tidied up',
-		description:
-			'Mark bills paid with one toggle, spot overdue ones at a glance with an overdue pill, and delete with a quick confirm instead of a scare.',
-		tag: 'Bills'
 	},
 	{
 		date: '2026-09-06',
