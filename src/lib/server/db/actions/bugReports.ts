@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { bugReports, users, type BugReport } from '$lib/server/db/schema';
-import { and, count, desc, eq, isNull, isNotNull } from 'drizzle-orm';
+import { and, count, desc, eq, isNull, isNotNull, lt, ne, sql } from 'drizzle-orm';
 
 /** Bug report areas offered in the submission form. */
 export const BUG_AREAS = [
@@ -92,4 +92,22 @@ export async function countOpenBugReports(): Promise<number> {
 		.from(bugReports)
 		.where(isNull(bugReports.resolvedAt));
 	return row?.n ?? 0;
+}
+
+/**
+ * #029 M5 — weekly-cron retention: closed reports older than the cutoff are
+ * deleted. Anchored on resolvedAt, falling back to createdAt for rows closed
+ * without a timestamp; open reports never match. Returns rows removed.
+ */
+export async function pruneResolvedBugReports(cutoff: Date): Promise<number> {
+	const deleted = await db
+		.delete(bugReports)
+		.where(
+			and(
+				ne(bugReports.status, 'open'),
+				lt(sql`coalesce(${bugReports.resolvedAt}, ${bugReports.createdAt})`, cutoff)
+			)
+		)
+		.returning({ id: bugReports.id });
+	return deleted.length;
 }

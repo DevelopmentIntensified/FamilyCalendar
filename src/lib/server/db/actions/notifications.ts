@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db';
 import { notifications, type Notification } from '$lib/server/db/schema';
 import { sendPushToUser } from '$lib/server/services/pushService';
-import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 
 export async function createNotification(data: {
 	userId: string;
@@ -82,6 +82,19 @@ export async function deleteReadNotifications(userId: string): Promise<number> {
 	const deleted = await db
 		.delete(notifications)
 		.where(and(eq(notifications.userId, userId), isNotNull(notifications.readAt)))
+		.returning({ id: notifications.id });
+	return deleted.length;
+}
+
+/**
+ * #029 M5 — weekly-cron retention: notifications read before the cutoff are
+ * deleted. Unread rows never match (the readAt IS NOT NULL leg): an alert
+ * nobody has read is still asking something of them. Returns rows removed.
+ */
+export async function pruneReadNotificationsOlderThan(cutoffIso: string): Promise<number> {
+	const deleted = await db
+		.delete(notifications)
+		.where(and(isNotNull(notifications.readAt), lt(notifications.readAt, cutoffIso)))
 		.returning({ id: notifications.id });
 	return deleted.length;
 }

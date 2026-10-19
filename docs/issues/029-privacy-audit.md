@@ -152,6 +152,16 @@ Then H3/M1/M2 (privacy-fix slice), then the OCR fallback chain.
   - 180 days for RESOLVED `unmatchedPhrases` and for RESOLVED `bugReports`
     (keep the open ones; they are the working queue).
   - 90 days for READ `notifications` (unread must survive until acted on).
+  - **LANDED 2026-10-19** — `runCleanup()` now runs the three prunes in
+    parallel with the existing sweep and reports
+    `notificationsPruned`/`phrasesPruned`/`bugReportsPruned` in the response:
+    `pruneReadNotificationsOlderThan` (actions/notifications.ts, readAt IS
+    NOT NULL + readAt < cutoff), `pruneResolvedUnmatchedPhrases`
+    (resolved AND updatedAt < cutoff), `pruneResolvedBugReports`
+    (status <> 'open' AND coalesce(resolvedAt, createdAt) < cutoff — falls
+    back to createdAt for rows closed without a timestamp). SQL-level tests
+    pin each predicate via QueryBuilder-rendered Postgres
+    (`*.prune.test.ts`); unscoped deletes would fail them.
   - `adEvents` needs a product decision, not just a window — analytics
     retention is a separate call, and it may be better served by an
     aggregate/rollup than a delete.

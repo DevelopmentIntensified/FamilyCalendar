@@ -2,10 +2,17 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { deleteUser, getStaleAnonymousUsers } from '$lib/server/db/actions/users';
 import { deleteExpiredClaimTokens } from '$lib/server/services/claimService';
+import { pruneReadNotificationsOlderThan } from '$lib/server/db/actions/notifications';
+import { pruneResolvedUnmatchedPhrases } from '$lib/server/db/actions/unmatchedPhrases';
+import { pruneResolvedBugReports } from '$lib/server/db/actions/bugReports';
 
 // Inactivity Window: unclaimed Anonymous Accounts are deleted after
 // 90 days without account action. Run weekly via external scheduler.
 const INACTIVITY_WINDOW_DAYS = 90;
+// #029 M5 retention windows: read notifications 90d; resolved unmatched
+// phrases and closed bug reports 180d.
+const NOTIFICATION_RETENTION_DAYS = 90;
+const RESOLVED_RECORD_RETENTION_DAYS = 180;
 
 async function runCleanup() {
 	const cutoff = new Date(Date.now() - INACTIVITY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
@@ -23,10 +30,25 @@ async function runCleanup() {
 
 	await deleteExpiredClaimTokens();
 
+	// Independent retention prunes — none of them gate the others.
+	const resolvedCutoff = new Date(
+		Date.now() - RESOLVED_RECORD_RETENTION_DAYS * 24 * 60 * 60 * 1000
+	);
+	const [notificationsPruned, phrasesPruned, bugReportsPruned] = await Promise.all([
+		pruneReadNotificationsOlderThan(
+			new Date(Date.now() - NOTIFICATION_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString()
+		),
+		pruneResolvedUnmatchedPhrases(resolvedCutoff),
+		pruneResolvedBugReports(resolvedCutoff)
+	]);
+
 	return {
 		deleted,
 		scanned: staleUsers.length,
-		cutoff: cutoff.toISOString()
+		cutoff: cutoff.toISOString(),
+		notificationsPruned,
+		phrasesPruned,
+		bugReportsPruned
 	};
 }
 

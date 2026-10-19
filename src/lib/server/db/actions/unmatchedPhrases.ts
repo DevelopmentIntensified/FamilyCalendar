@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { unmatchedPhrases, type UnmatchedPhrase } from '$lib/server/db/schema';
-import { and, count, desc, eq, sql, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, lt, sql, type SQL } from 'drizzle-orm';
 
 export type UnmatchedSource = 'event_parse' | 'bulk_edit';
 
@@ -106,4 +106,19 @@ export async function countOpenUnmatchedPhrases(): Promise<number> {
 		.from(unmatchedPhrases)
 		.where(eq(unmatchedPhrases.resolved, false));
 	return row?.n ?? 0;
+}
+
+/**
+ * #029 M5 — weekly-cron retention: resolved phrases whose row was last
+ * touched before the cutoff are deleted. Unresolved phrases are the parser's
+ * improvement signal and never match. Returns rows removed.
+ */
+export async function pruneResolvedUnmatchedPhrases(cutoff: Date): Promise<number> {
+	const deleted = await db
+		.delete(unmatchedPhrases)
+		.where(
+			and(eq(unmatchedPhrases.resolved, true), lt(unmatchedPhrases.updatedAt, cutoff))
+		)
+		.returning({ id: unmatchedPhrases.id });
+	return deleted.length;
 }
