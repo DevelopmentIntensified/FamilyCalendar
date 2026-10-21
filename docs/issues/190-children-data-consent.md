@@ -17,7 +17,10 @@ Parental-consent **attestation** at child creation, not a verified flow:
 - `childConsentRecords` (schema.ts, shape of 088b's `adConsentRecords`: append-only,
   no unique key on childUserId, cascades on user delete). DDL in
   `sql/migrations/017_create_child_consent_records.sql` — **must also be applied to
-  production by hand (Neon, both branches), 088 precedent; do not rely on push.**
+  production by hand (088's
+  precedent); since #196 slice 2 (2026-10-21) it is also BUNDLED in `db/migrations/scripts.ts` and auto-applied by the
+  cold-start runner on any env that hadn't run it** (`scripts.test.ts` parity gate would now catch any unbundled
+  migration).
 - The child-create action requires `consentAcknowledged === true` server-side and,
   on success, writes the membership row and the consent record
   (`source='child-create'`, parent actor, family, timestamp) in one transaction.

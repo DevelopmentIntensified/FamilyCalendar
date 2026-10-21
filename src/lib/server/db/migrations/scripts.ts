@@ -24,6 +24,9 @@ import m013 from '../../../../../sql/migrations/013_add_receipt_tables_and_inges
 import m014 from '../../../../../sql/migrations/014_add_events_calendar_index.sql?raw';
 import m015 from '../../../../../sql/migrations/015_grocery_lists.sql?raw';
 import m016 from '../../../../../sql/migrations/016_api_tokens.sql?raw';
+import m016Drop from '../../../../../sql/migrations/016-drop-user-ad-consent.sql?raw';
+import m017 from '../../../../../sql/migrations/017_create_child_consent_records.sql?raw';
+import m018 from '../../../../../sql/migrations/018_better_auth_tables.sql?raw';
 
 export type BundledMigration = { name: string; sql: string };
 
@@ -43,7 +46,10 @@ const MIGRATIONS: BundledMigration[] = [
 	{ name: '013_add_receipt_tables_and_ingest.sql', sql: m013 },
 	{ name: '014_add_events_calendar_index.sql', sql: m014 },
 	{ name: '015_grocery_lists.sql', sql: m015 },
-	{ name: '016_api_tokens.sql', sql: m016 }
+	{ name: '016_api_tokens.sql', sql: m016 },
+	{ name: '016-drop-user-ad-consent.sql', sql: m016Drop },
+	{ name: '017_create_child_consent_records.sql', sql: m017 },
+	{ name: '018_better_auth_tables.sql', sql: m018 }
 ];
 
 /** Sorted ascending by numeric prefix. */

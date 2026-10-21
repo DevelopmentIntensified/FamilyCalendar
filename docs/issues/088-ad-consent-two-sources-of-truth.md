@@ -1,5 +1,10 @@
 # 088 — Ad consent lives on two tables, and the one that is read can never be set
 
+> 2026-10-21 (#196 slice 2): `016-drop-user-ad-consent.sql` was hand-applied to
+> Neon on both branches but never bundled in `db/migrations/scripts.ts` (the
+> #050 failure class). Bundled now, covered by the `scripts.test.ts` parity
+> gate.
+
 Status: in-progress
 
 Source: instruction — technical-debt sweep of schema, migrations, and dead code.
