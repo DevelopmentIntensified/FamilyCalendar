@@ -2,14 +2,14 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { getPendingCount, isOnline, subscribeToOnlineStatus } from '$lib/utils/offline';
 
-	let online = isOnline();
-	let pendingCount = 0;
-	let syncedCount: number | null = null;
+	let online = $state(isOnline());
+	let pendingCount = $state(0);
+	let syncedCount = $state<number | null>(null);
 
-	/** Render without fixed positioning for embedding in a parent banner stack. */
-	export let stacked = false;
-	/** Bound by stack owners to size main-content compensation. */
-	export let visible = false;
+	let {
+		stacked = false,
+		onVisibleChange
+	}: { stacked?: boolean; onVisibleChange?: (visible: boolean) => void } = $props();
 
 	let syncTimer: ReturnType<typeof setTimeout>;
 	let refreshTimer: ReturnType<typeof setTimeout>;
@@ -37,7 +37,13 @@
 		}
 	});
 
-	$: visible = !online || pendingCount > 0 || syncedCount !== null;
+	const visible = $derived(!online || pendingCount > 0 || syncedCount !== null);
+
+	// Report visibility to stack owners (main-content compensation). Client-only
+	// by construction — offline status and pending counts never exist during SSR.
+	$effect(() => {
+		onVisibleChange?.(visible);
+	});
 
 	onMount(() => {
 		updatePendingCount();

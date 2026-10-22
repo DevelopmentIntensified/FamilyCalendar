@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { invalidateAll } from '$app/navigation';
 	import type { LayoutData } from './$types';
 	import Navbar from '$lib/components/Navbar.svelte';
@@ -11,7 +12,7 @@
 	import { initOfflineSync } from '$lib/utils/offline';
 	import { isAnonymousAccount } from '$lib/utils/anonymous';
 
-	export let data: LayoutData;
+	let { data, children }: { data: LayoutData; children?: Snippet } = $props();
 
 	onMount(() => {
 		// Auto-detect client timezone if user still has the 'UTC' default —
@@ -48,37 +49,43 @@
 	});
 
 	const INACTIVITY_WINDOW_DAYS = 90;
-	$: isAnonymous = isAnonymousAccount(data.user);
-	$: daysRemaining = (() => {
+	const isAnonymous = $derived(isAnonymousAccount(data.user));
+	const daysRemaining = $derived.by(() => {
 		if (!data.user?.lastActiveAt) return INACTIVITY_WINDOW_DAYS;
 		const elapsed = Date.now() - new Date(data.user.lastActiveAt).getTime();
 		return Math.max(0, Math.ceil(INACTIVITY_WINDOW_DAYS - elapsed / (24 * 60 * 60 * 1000)));
-	})();
-	$: urgent = isAnonymous && daysRemaining <= 14;
-	$: justClaimed = $page.url.searchParams.get('claimed') === '1' && !isAnonymous;
-	$: mergedCount = parseInt($page.url.searchParams.get('merged') || '');
-	$: mergedTasks = parseInt($page.url.searchParams.get('tasks') || '0');
-	$: justMerged = Number.isFinite(mergedCount) && mergedCount >= 0 && !isAnonymous;
-	let claimedDismissed = false;
-	let mergedDismissed = false;
+	});
+	const urgent = $derived(isAnonymous && daysRemaining <= 14);
+	const justClaimed = $derived(page.url.searchParams.get('claimed') === '1' && !isAnonymous);
+	const mergedCount = $derived(parseInt(page.url.searchParams.get('merged') || ''));
+	const mergedTasks = $derived(parseInt(page.url.searchParams.get('tasks') || '0'));
+	const justMerged = $derived(Number.isFinite(mergedCount) && mergedCount >= 0 && !isAnonymous);
+	let claimedDismissed = $state(false);
+	let mergedDismissed = $state(false);
 	// Unverified password signups: the account exists and the session is set,
 	// but the email isn't confirmed yet (member search only lists verified
 	// users). The banner is self-sufficient — code input + resend inline —
 	// because a user who navigated away has nowhere else to enter the code.
-	$: needsVerify = !isAnonymous && data.user?.emailVerified === false;
-	let verifyDismissed = false;
-	let verifyCode = '';
-	let verifyBusy = false;
-	let verifyError = '';
-	let verifyResent = false;
-	$: showTopNotice =
+	const needsVerify = $derived(!isAnonymous && data.user?.emailVerified === false);
+	let verifyDismissed = $state(false);
+	let verifyCode = $state('');
+	let verifyBusy = $state(false);
+	let verifyError = $state('');
+	let verifyResent = $state(false);
+	const showTopNotice = $derived(
 		isAnonymous ||
-		(needsVerify && !verifyDismissed) ||
-		(justClaimed && !claimedDismissed) ||
-		(justMerged && !mergedDismissed);
-	// Offline banner visibility is owned by OfflineBanner (bind:visible below).
-	let offlineVisible = false;
-	$: bannerCount = (offlineVisible ? 1 : 0) + (showTopNotice ? 1 : 0);
+			(needsVerify && !verifyDismissed) ||
+			(justClaimed && !claimedDismissed) ||
+			(justMerged && !mergedDismissed)
+	);
+	// Offline banner visibility is owned by OfflineBanner and reported via
+	// onVisibleChange below. It is deliberately not a `bind:` — a
+	// BindDirective on a child component makes Svelte 5.20.1 emit its legacy
+	// SSR settle loop, whose render helper is a function *expression* Rollup
+	// drops from the server bundle, leaving a bare call that 500s every
+	// /calendar GET (#200).
+	let offlineVisible = $state(false);
+	const bannerCount = $derived((offlineVisible ? 1 : 0) + (showTopNotice ? 1 : 0));
 	async function submitVerifyCode() {
 		if (!verifyCode.trim() || verifyBusy) return;
 		verifyBusy = true;
@@ -130,7 +137,7 @@
 	<div
 		class="fixed left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 flex w-full flex-col print:hidden"
 	>
-		<OfflineBanner stacked={true} bind:visible={offlineVisible} />
+		<OfflineBanner stacked={true} onVisibleChange={(v) => (offlineVisible = v)} />
 		{#if justClaimed && !claimedDismissed}
 			<div
 				class="flex w-full items-center justify-center gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800"
@@ -254,7 +261,7 @@
 			: ''} print:!mt-0 print:min-h-0 print:!pb-0 print:!pt-0"
 	>
 		<div in:fade|local={{ duration: 100 }}>
-			<slot />
+			{@render children?.()}
 		</div>
 	</main>
 	<BottomNav isLoggedIn={true} />
