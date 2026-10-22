@@ -26,6 +26,9 @@
 		phraseReported: boolean;
 		reportingPhrase: boolean;
 		calendarIds: { id: string; name: string }[];
+		onBulkLocation: (v: string) => void;
+		onBulkAttendants: (v: string) => void;
+		onBulkInstruction: (v: string) => void;
 		onRunBulk: (op: BulkOp) => void;
 		onRunSmart: (force?: boolean) => void;
 		onApplyBulkCalendar: (e: Event) => void;
@@ -44,9 +47,12 @@
 		bulkConfirmDelete,
 		smartPlan,
 		pastWarning,
-		bulkLocation = $bindable(),
-		bulkAttendants = $bindable(),
-		bulkInstruction = $bindable(),
+		bulkLocation,
+		bulkAttendants,
+		bulkInstruction,
+		onBulkLocation,
+		onBulkAttendants,
+		onBulkInstruction,
 		moreToolsOpen,
 		bulkError,
 		phraseReported,
@@ -154,7 +160,8 @@
 			<div class="flex items-center gap-1">
 				<input
 					type="text"
-					bind:value={bulkLocation}
+					value={bulkLocation}
+					oninput={(e)=>onBulkLocation((e.currentTarget as HTMLInputElement).value)}
 					placeholder="Location…"
 					aria-label="Set location"
 					class="w-28 rounded-lg border border-slate-300 px-2 py-2 text-xs disabled:opacity-50 sm:py-1.5"
@@ -175,7 +182,8 @@
 			<div class="flex items-center gap-1">
 				<input
 					type="text"
-					bind:value={bulkAttendants}
+					value={bulkAttendants}
+					oninput={(e)=>onBulkAttendants((e.currentTarget as HTMLInputElement).value)}
 					placeholder="+ Attendant…"
 					aria-label="Add attendant"
 					class="w-28 rounded-lg border border-slate-300 px-2 py-2 text-xs disabled:opacity-50 sm:py-1.5"
@@ -225,7 +233,8 @@
 				<div class="flex items-center gap-1 {moreToolsOpen ? '' : 'hidden'} sm:contents">
 					<input
 						type="text"
-						bind:value={bulkInstruction}
+						value={bulkInstruction}
+					oninput={(e)=>onBulkInstruction((e.currentTarget as HTMLInputElement).value)}
 						placeholder="e.g. 'move all to next friday'"
 						aria-label="Smart instruction"
 						class="w-44 rounded-lg border border-purple-200 bg-purple-50/40 px-2 py-2 text-xs placeholder:text-purple-300 disabled:opacity-50 sm:py-1.5"

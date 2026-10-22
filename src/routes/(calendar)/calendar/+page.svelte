@@ -622,9 +622,12 @@
 		{bulkConfirmDelete}
 		{smartPlan}
 		{pastWarning}
-		bind:bulkLocation
-		bind:bulkAttendants
-		bind:bulkInstruction
+		bulkLocation={bulkLocation}
+		bulkAttendants={bulkAttendants}
+		bulkInstruction={bulkInstruction}
+		onBulkLocation={(v)=>bulkLocation=v}
+		onBulkAttendants={(v)=>bulkAttendants=v}
+		onBulkInstruction={(v)=>bulkInstruction=v}
 		{moreToolsOpen}
 		{bulkError}
 		{phraseReported}
