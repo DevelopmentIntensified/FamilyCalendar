@@ -1,6 +1,6 @@
 # 105 — Account: the section list is not the approved one
 
-Status: open
+Status: done
 
 Source: `app-ui/account.html` review, prototype approved (no marks). The
 prototype's decision — one settings page behind hash-linked section nav — is
@@ -57,3 +57,7 @@ already built. The section list underneath it is not the same.
   this ticket moves the module switches out of the form, check 088's seam at
   the same time rather than leaving the ad switch as the only thing still
   trapped in there.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified by #125 lane: AccountFamiliesSection, AccountDashboardSection + own action (077 deferral consumed), AccountNotificationsSection + accountNotifications.ts, accountSections.ts, usageLine.

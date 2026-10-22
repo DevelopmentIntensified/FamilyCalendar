@@ -1,6 +1,6 @@
 # 070 — The key is true
 
-Status: open
+Status: done
 
 Source: `calendar-ui/d-working-calendar.html` review, the only **rebuild** mark:
 "This doesn't seem to be true. Can you make it true with the events themselves."
@@ -28,3 +28,7 @@ Source: `calendar-ui/d-working-calendar.html` review, the only **rebuild** mark:
 
 - The app has no legend today. This ticket adds one only after the chips earn
   it; the ordering with 067/068/069 is the whole point.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: CalendarKey.svelte rendered (Calendar.svelte:586), collapsed-by-default, tests pinned (Calendar.svelte.test.ts:430-465). All blockers 067/068/069 resolved.

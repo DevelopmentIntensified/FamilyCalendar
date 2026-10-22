@@ -169,3 +169,8 @@ Then H3/M1/M2 (privacy-fix slice), then the OCR fallback chain.
   persisting an unmatched phrase (they carry whatever the user typed after
   the command).
   **Do not file a new issue for this** — it is a slice of the existing cron.
+
+
+## Done (2026-10-22 audit)
+
+- M3 recorded DONE: static UA (api/location-search/+server.ts:30), policy disclosure (privacy/+page.svelte:85), 419dd38. The earlier M3-still-open line was stale. Remaining open: M4 (analytics PII logging analyticsService.ts:46-62; adEvents no purge schema.ts:825; unredacted phrase payload unmatchedPhrases.ts:65-79).

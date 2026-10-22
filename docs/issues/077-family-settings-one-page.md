@@ -1,6 +1,6 @@
 # 077 — Family settings: the page reads as one page
 
-Status: in-progress
+Status: done
 
 Source: `app-ui/family-detail.html` review, dashboard module switches marked
 **rebuild** — "compact this and make the whole page look more put together and
@@ -100,3 +100,12 @@ The component's own `state` union would only need widening if a genuinely new
 state is introduced; the `ModuleRowState` type is the seam. The component
 test asserts the row never flips itself, so a dumb-row regression fails there
 rather than on the page.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: DashboardModuleRow + moduleRowState (60114e2), overflow tests at 320/375 (MobileLayout.test.ts:109-149), e2e green vs real DB (312fcba).
+
+
+## Done (2026-10-22 audit)
+
+- 2026-10-22 audit: removed the duplicate density bullet from Needs doing (density landed in 60114e2/51b9940 and was already ticked in Done).

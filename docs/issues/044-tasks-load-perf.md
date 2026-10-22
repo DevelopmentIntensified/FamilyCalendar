@@ -1,6 +1,6 @@
 # 044 — Tasks page load perf (playbook run #3)
 
-Status: in-progress
+Status: done
 
 Method: docs/guides/page-perf-playbook.md.
 
@@ -33,3 +33,7 @@ Method: docs/guides/page-perf-playbook.md.
   page-level `assignTab` removed). Page 1659 → ~1200 and falling.
   Caught live: sed range-delete ate a container `</div>` — build caught
   it; line-range deletes need immediate build verification.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: Promise.all legs (tasks/+page.server.ts:49-50), dead legs dropped (a63c4c1), AssignmentsCard + EditTaskDialog extracted (a4c03e6), page 1659→475 lines.

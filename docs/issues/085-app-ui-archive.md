@@ -1,6 +1,6 @@
 # 085 — Archive: port the approved prototype to the app
 
-Status: open
+Status: done
 
 Source: `app-ui/archive.html`, approved for building in the review tool on 2026-09-29.
 
@@ -22,3 +22,7 @@ Source: `app-ui/archive.html`, approved for building in the review tool on 2026-
 
 - Raised by the prototype tree's lock-in button, not by hand.
 - Approved with no bad marks.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: archive port in 2ce04ac — eyebrow+pill+trackbar, two-column layout, side rail copy, tests.

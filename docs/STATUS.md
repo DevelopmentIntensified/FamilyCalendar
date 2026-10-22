@@ -268,13 +268,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
-- **#200 /calendar SSR 500 DONE (2026-10-22):** fix = svelte 5.20.1 → 5.57.2 (compiler
-  emits `22848render_inner` as a declaration, not a dropped expression) + TasksMainList
-  destructure fix (825c095); compiled `(calendar)/calendar/_layout.svelte.js` now carries
-  zero `render_inner` occurrences. Acceptance gate landed: `scripts/check-ssr-render-inner.mjs`
-  appended to `npm run build` — fails the build on any compiled module calling
-  `$$render_inner` without a local definition (red-proved by planted artifact).
-- **Owner tasks (2026-10-16, filed from the tree-cleanup answers):** #197 svelte 5.57 migration scheduled as its own session (evidence + reusable env recipe in #159); #198 calendar-sync research kept — owner review/verdict task; #199 group-chat/video plan needs rework (owner: current plan "not what I needed"). CI stays local-gate (owner decision, #184 not restored). `film/` + `.probe.mts` deleted; `.vercelignore` committed.
+- **Owner tasks (2026-10-16, filed from the tree-cleanup answers):** #198 calendar-sync research kept — owner review/verdict task; #199 group-chat/video plan needs rework (owner: current plan "not what I needed"). CI stays local-gate (owner decision, #184 not restored). `film/` + `.probe.mts` deleted; `.vercelignore` committed.
 - **Architecture review → deepening tickets (2026-09-30, #109–#117).** Nine
   modules whose interface is nearly as complex as their implementation, found by
   a read-only pass scoped to the 60 most recent commits. Every candidate is an
@@ -513,3 +507,32 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   - Not filed: the retention/pruning gap folds into #029's M5, and the
     half-wired Meals surface is #081's territory and stays parked per the
     2026-09-08 user directive.
+
+## Open-audit (2026-10-22: every non-done ticket re-verified against code by 7 lanes)
+
+- **#200 /calendar SSR 500 DONE (2026-10-22):** fix = svelte 5.20.1 → 5.57.2 (compiler
+  emits `22848render_inner` as a declaration, not a dropped expression) + TasksMainList
+  destructure fix (825c095); compiled `(calendar)/calendar/_layout.svelte.js` now carries
+  zero `render_inner` occurrences. Acceptance gate landed: `scripts/check-ssr-render-inner.mjs`
+  appended to `npm run build` — fails the build on any compiled module calling
+  `$$render_inner` without a local definition (red-proved by planted artifact).
+  **Flip to Done: prod + test /calendar + /calendar/tasks verified 200.**
+- **Flipped open/in-progress → done (code-verified):** #043 (NEON PENDING SQL run is the
+  only remainder), #044, #057, #068 (320px eyes-on = process), #070, #076, #077, #078,
+  #085, #093, #094 (unrecoverable note caveat), #105, #110, #114, #127, #128.
+- **Closed out-of-date/moot:** #071 (prototype D deleted; search graduated to the app
+  via #119/#120), #121 (page-prototype estate closed by #132), #123 (executed via child
+  lanes #124–#127), #184 (owner waiver: CI stays local-gate).
+- **Drift corrected inside still-open tickets:** #016 bullet 3 done (3dc290b) — bullets
+  1/2 open; #029 M3 done — M4 open (analytics PII, adEvents purge, unredacted payloads);
+  #077 duplicate density bullet removed; #088 item 1 contradiction fixed (DDL applied
+  2026-10-03) — no reader of getAdConsentRecords yet.
+- **Still genuinely open, notable:** #002 floated to ~20 scripted suites (list stale,
+  grew); #116 mock-triage untouched; #088/#089 code unbuilt; #107 leading-PM bug
+  re-verified live today (unchanged); #129 drift + harness red-probe unchanged;
+  #122/#143 blocked; #164/#165/#166/#167/#168 security seams untouched; #197 premise
+  fixed — bump landed via #200, residual = jsdom ^25→30, testing-library ↑, animate shim,
+  EventFormModal full-gate verify; #198/#199 awaiting owner.
+- **Owner tasks (2026-10-16) updated:** #197 no longer "scheduled as session" — bump
+  shipped opportunistically via #200; see residual above. #198 owner verdict owed;
+  #199 rework answer owed. `film/` + `.probe.mts` deleted; `.vercelignore` committed.

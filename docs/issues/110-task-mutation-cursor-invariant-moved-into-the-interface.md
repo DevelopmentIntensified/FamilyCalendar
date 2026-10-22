@@ -1,6 +1,6 @@
 # 110 — Task visibility rules and the Recurring Task cursor: the invariant lives at the call site
 
-Status: open
+Status: done
 
 Source: architecture review, 2026-09-30, candidate #1 — the largest prize.
 
@@ -70,3 +70,7 @@ weight: deleting them makes complexity vanish.
   first, those become testable and should be tested.
 - Do not let this ticket's size push it past review. If it splits, the natural
   seam is: cursor invariant first, authorization predicate second.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: cursor pin inside list reads (tasks/queries.ts:26,78,197), dead exports gone, explicit canMutateTask checks (24bb552).

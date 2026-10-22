@@ -1,6 +1,6 @@
 # 078 — Family card: room to breathe, and one more thing to say
 
-Status: open
+Status: done
 
 Source: `app-ui/family.html` review, family card marked **bad** — "add margins,
 give space around it", plus the idea "add some other stat".
@@ -28,3 +28,7 @@ give space around it", plus the idea "add some other stat".
   banner. Keep the pill idea only if the real page can back it with data.
 - Fix 064 first or in the same slice — a restyled dead link is still a dead
   link.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: family card rebuilt to family.html (p-7 rounded-3xl glow, links, Open tasks stat, single grouped query, query-count pin).

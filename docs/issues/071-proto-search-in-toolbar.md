@@ -1,6 +1,6 @@
 # 071 — Prototype: calendar search moves into the toolbar
 
-Status: open
+Status: done (out-of-date/moot — see note)
 
 Source: `calendar-ui/d-working-calendar.html` review, rail search — "move this
 to be on top of the calendar in the bar with everything else".
@@ -27,3 +27,7 @@ to be on top of the calendar in the bar with everything else".
 
 - If the search graduates to a real feature it becomes its own ticket against
   the app, sized as a feature (index, query, results) rather than as a move.
+
+## Done 2026-10-22
+
+- 2026-10-22 closed moot: prototype D deleted (9c2c741) and the proposal graduated to the shipped app — search is full-width in the toolbar at every width (CalendarToolbar.svelte:472-525, shipped via #119/#120 in 75263cd). Nothing left to move.

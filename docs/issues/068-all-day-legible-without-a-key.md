@@ -1,6 +1,6 @@
 # 068 — All-day vs timed is legible without a legend
 
-Status: in-progress
+Status: done
 
 Source: `calendar-ui/d-working-calendar.html` review, the key marked
 **rebuild**.
@@ -82,3 +82,7 @@ Source: `calendar-ui/d-working-calendar.html` review, the key marked
   off a hue, and that the sponsored hatch is neutral so it never repaints the
   chip amber. That is the reviewer's "this reads as someone else's colour"
   complaint, pre-empted.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: chipStyle deleted (eventChip.ts:7-10), hour grids on chipShell+ChipKindMark vocabulary, sponsored hatch (chipVocabulary.ts:157). Caveat: final 320px eyes-on pass is process, not code.

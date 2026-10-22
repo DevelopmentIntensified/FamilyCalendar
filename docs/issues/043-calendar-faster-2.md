@@ -1,6 +1,6 @@
 # 043 — Calendar even faster, round 2
 
-Status: in-progress
+Status: done
 
 ## Done
 
@@ -27,3 +27,7 @@ Status: in-progress
   no measurable delta either way (Neon ±300ms variance dominates) —
   kept for production-scale tables where unindexed per-calendar filters
   seq-scan everything.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: sql/014 indexes exist + schema parity (schema.ts:512-513); EventFormModal lazy-loaded (calendar/+page.svelte). Views static by reverted experiment — moot. Remainder: manual Neon SQL run (NEON PENDING, idempotent).

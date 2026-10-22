@@ -20,3 +20,8 @@ Status: in-progress
 - `members/add/email` (JWT-invite flow) lets any member invite — same
   "any member can mint invites" shape as the fixed direct-add; decide if
   creator/admin-only.
+
+
+## Done (2026-10-22 audit)
+
+- Bullet 3 (email-invite creator/admin gating) landed 3dc290b: gates at members/add/email/+server.ts:13-14,46-47 and email/link/+server.ts:12-13,37-38. Bullets 1 (origin check /api/*-only, hooks.server.ts:131-135) and 2 (checkout finalPrice client-supplied, +page.server.ts:63) still open.

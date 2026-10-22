@@ -1,6 +1,6 @@
 # 121 — The prototypes are behind the app, and reviewing them marks finished work
 
-Status: open
+Status: done (out-of-date/moot — see note)
 
 Source: prototype review round 2, 2026-09-30. Raised by triage, not by a mark.
 
@@ -67,3 +67,7 @@ Owner ruled: `d-working-calendar.html` is deleted, not rebuilt. Three rounds sta
 - Do not solve this by reviewing only what is unreviewed. Nine marks this round
   were on pages that had *already* been reviewed and closed, which is exactly
   when the drift is worst.
+
+## Done 2026-10-22
+
+- 2026-10-22 closed obsolete: page-prototype estate closed by #132 (9c2c741 removed built+rejected pages); prototypes/app-ui holds only infra, no HTML pages. Nothing can drift.

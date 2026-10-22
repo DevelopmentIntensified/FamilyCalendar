@@ -222,3 +222,8 @@ the privacy questions; neither fabricates.
   not select ad events, so the card's ad path is tested but unreachable. Same
   shape as the parked Meals card — worth deciding whether sponsored items on
   the dashboard are wanted at all before building the plumbing.
+
+
+## Done (2026-10-22 audit)
+
+- 2026-10-22 audit: item 1 contradicted the body — migration 016 DDL was APPLIED 2026-10-03 and the userAdConsent DROP landed 2026-10-04 (bundled in scripts.ts:27). Remaining open: no page reads getAdConsentRecords; no retention/purge for adConsentRecords; adEvents has no reporting query.

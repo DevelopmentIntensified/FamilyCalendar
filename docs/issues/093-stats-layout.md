@@ -1,6 +1,6 @@
 # 093 — Stats: drop the justification card, reorder, equalise
 
-Status: open
+Status: done
 
 Source: prototype review, `app-ui/stats.html`, round 1 — 3 marks, 1 bad.
 
@@ -41,3 +41,7 @@ Two structural notes on top:
 - The page is about streaks and completion history, and the reviewer did **not**
   dispute that the history earns the page — only the card defending it.
 - Round is still open in the review tool; closure belongs to the collector.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified by #125 lane: justification-card closed by test, Recently-completed ordering, equal-height pinned (stats-equal-row, e2e heights 206/206/206).

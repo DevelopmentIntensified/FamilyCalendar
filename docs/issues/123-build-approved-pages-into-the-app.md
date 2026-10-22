@@ -1,6 +1,6 @@
 # 123 — Build the approved pages into the app
 
-Status: in-progress
+Status: done (out-of-date/moot — see note)
 
 Source: prototype review cycle 1 approvals, 2026-09-30 — **16 pages approved**
 (15 app-ui plus **Prototype E**).
@@ -113,3 +113,7 @@ fail on exactly that. **That reconciliation is the first thing this ticket does.
 - If this ticket's honest output is "11 pages already match, 3 gaps, 1 prototype
   was wrong about the app", that is a good outcome and should be written down
   plainly rather than padded with ports nobody needed.
+
+## Done 2026-10-22
+
+- 2026-10-22 closed superseded: build directive executed via child lanes #124/#125/#126 (2ce04ac, d135b6b, fda07a0) and #127; registry-reconciliation precondition erased by #132 estate closure + #134 wholesale approval.

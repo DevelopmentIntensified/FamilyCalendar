@@ -1,6 +1,6 @@
 # 076 — Create a family: members before the finish line
 
-Status: open
+Status: done
 
 Source: `app-ui/family-create.html` review — "a family created with nobody in it
 is an empty shell, so members come before the finish line". The structural half
@@ -37,3 +37,7 @@ to it).
   consequence, not an accident — decide whether it belongs here or stays on
   the members/add page, and say so in the issue when it lands.
 - Family creation e2e specs exist and assert the current shape; extend them.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: member picker (d135b6b), 3 inserts in one tx (create/+page.server.ts:130-149), server-side limit (:120-127), unit tests + e2e.

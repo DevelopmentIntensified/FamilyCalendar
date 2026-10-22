@@ -1,6 +1,6 @@
 # 114 — Two parsers for the same concepts, and they disagree
 
-Status: open
+Status: done
 
 Source: architecture review, 2026-09-30, candidate #3.
 
@@ -71,3 +71,7 @@ duplication is not.
   not deeper.
 - 112's two-Date-implementations finding is the same defect one level down.
   Fixing 114 first is legitimate; doing both is best.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: src/lib/utils/dateResolution.ts + all-three-parser parity suite (dateResolution.parsers.test.ts:14). Status line was stale vs checked Done body.

@@ -1,6 +1,6 @@
 # 057 — Grocery list page
 
-Status: in-progress
+Status: done
 
 **Restyle is tracked in #074 — that ticket owns everything still open here.
 Do not start a second groceries lane; file anything genuinely new as its own
@@ -50,3 +50,7 @@ numbered issue.**
   no UI, because checked items are hidden on check-off. #074 notes it as its
   own call — if the restyle surfaces a "recently checked" affordance, wire it
   there; otherwise leave it.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: /calendar/groceries page, suggest endpoint (api/groceries/+server.ts:36), item ops (actions/groceries.ts:166-198), nav entry (navItems.ts:54). Restyle→#074, dashboard card→#081.

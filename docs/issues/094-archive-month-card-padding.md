@@ -1,6 +1,6 @@
 # 094 — Archive: the month header card is cramped
 
-Status: open
+Status: done
 
 Source: prototype review, `app-ui/archive.html`, round 1 — 1 mark, 1 bad.
 
@@ -31,3 +31,7 @@ This is the only finding on the page. The rest of the archive was not disputed.
 
 - Small and self-contained; a single session.
 - Round is still open in the review tool; closure belongs to the collector.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: ARCHIVE_CARD_PADDING token shared by month/event cards, e2e-measured 16px, gate made honest. Caveat per #125: truncated review note unrecoverable.

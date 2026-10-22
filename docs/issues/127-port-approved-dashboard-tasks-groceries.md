@@ -1,6 +1,6 @@
 # 127 — Port the approved Dashboard, Tasks and Groceries pages, and Prototype E's last mark
 
-Status: in-progress
+Status: done
 
 Source: #123, owner directive 2026-09-30.
 
@@ -240,3 +240,7 @@ copies.
       reconciliation; this slice changed no state there.
 - [ ] **`prototypes/app-ui/app-data.js` has no `groceries` row**, though the
       card shipped in 081. Shared file, other lanes; #118 left the same item.
+
+## Done 2026-10-22
+
+- 2026-10-22 verified: calendarAssignees.ts + filter tests, Match-one orchestration; #115 bug DISPROVED + fixed (23d173a); review.json reconciliation moot post-#132.
