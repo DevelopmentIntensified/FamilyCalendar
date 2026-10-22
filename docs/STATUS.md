@@ -30,6 +30,19 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   (zero src imports), full gates green, ticket flipped done. Slices 0–7 complete — the
   move is over; queue t-196 closed (rig retired per owner 'kill rig' session).
 
+- **#002 harness + #116 pilot (2026-10-22, 7d9dfd4):** real-Postgres harness landed —
+  Docker stack verified, `familycalendar_test` schema-pushed (which surfaced + fixed
+  the `itemTags` partial-index `user_id` vs `"userId"` mirror bug; sql/ files were
+  always right), vitest `server` project now runs a **DB lane guard** (`vitest-setup-server.ts`:
+  env hard-pinned to 127.0.0.1/familycalendar_test before the db singleton resolves —
+  closes the local-runs-touch-prod outage class; migrations off; fail-loud on drift).
+  `resetTestDb()` truncates every discovered public table between tests. PILOT:
+  `toggleTaskComplete.real.test.ts` — the double-click race verified under a REAL row
+  lock for the first time (2 concurrent toggles → exactly 1 history row), append-only
+  history, owner/family-member/outsider authZ legs. Written twice per #116: mock and
+  real side by side. Full gates: 3681/3681 + build. #116's remaining open item: triage
+  the 26 mock suites.
+
 - **Retention/attribution/marketing-truth batch (2026-10-19, pushed to `test`):**
   **#092 fixed** — the four viewer-facing stats figures (`completedOnce`,
   `recurringCompletions`, `recentlyCompleted`, `month`) now filter completions

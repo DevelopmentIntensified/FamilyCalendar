@@ -44,11 +44,16 @@ is a working example, not a proposal.
 
 ## Needs doing
 
-- [ ] Read `events.creatorNames.test.ts` and name what made its seam work.
-- [ ] A plan for the harness, filed against #002. Not the harness itself.
-- [ ] One representative query module moved to the real seam as a pilot, and the
+- [x] Read `events.creatorNames.test.ts` and name what made its seam work.
+  **RESULT 2026-10-22: it did not; it is the same scripted stub. No real-DB precedent
+  exists; the pilot was built fresh (see #002's Done).**
+- [x] A plan for the harness, filed against #002. Not the harness itself.
+  **Done: the harness + lane guard landed as 7d9dfd4 (see #002).**
+- [x] One representative query module moved to the real seam as a pilot, and the
       test written twice — mock and real — so the difference is visible.
-- [ ] The double-click race gets a test the moment any of this is unblocked.
+      **Done: `toggleTaskComplete` — the scripted test and `toggleTaskComplete.real.test.ts` sit side by side.**
+- [x] The double-click race gets a test the moment any of this is unblocked.
+      **Done: `double-click race completes exactly once under a real row lock` — two concurrent toggles, guarded UPDATE decides in Postgres.**
 - [ ] Triage the 26: which mock the DB, and which mock *the module under test's
       own dependencies*? Those are not the same smell and should not be counted
       together.
