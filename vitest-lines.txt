@@ -1,0 +1,358 @@
+ ✓ |client| src/routes/(calendar)/calendar/notifications/page.svelte.test.ts (31 tests) 2241ms
+   ✓ alerts page — needs you vs just news > splits the feed into the two sections, each with its count  411ms
+ ✓ |client| src/routes/(family)/family/[familyId]/page.svelte.test.ts (21 tests) 2423ms
+   ✓ family page — the approved side bands (issue 124) > shows the live invitation with its code, uses, expiry and who minted it  469ms
+ ✓ |client| src/lib/components/calendar/EventModal.svelte.test.ts (34 tests) 4027ms
+   ✓ EventModal - display details > should show location when event has location  418ms
+   ✓ EventModal - display details > should show RSVP status badge when currentUserRsvpStatus is set  318ms
+ ✓ |client| src/lib/components/calendar/WeekView.svelte.test.ts (14 tests) 2526ms
+   ✓ WeekView - slot create and drag move > starts a new event at the tapped slot, snapped to 15 minutes  379ms
+   ✓ WeekView - slot create and drag move > asks to leave selection mode when a drag starts there  466ms
+ ✓ |client| src/lib/components/calendar/EventFormModal.svelte.test.ts (53 tests) 5335ms
+   ✓ EventFormModal - NLP Field Detection & Visibility > should show date field inline when NLP detects it, without clicking Show More  509ms
+ ✓ |client| src/routes/(calendar)/calendar/groceries/page.svelte.test.ts (60 tests) 10009ms
+   ✓ groceries page — one list, scope filter (097) > opens on ALL scopes, so the page is not one scope the user switches away from  590ms
+   ✓ groceries page — the add form names its scope > fetches the Store Memory suggestion for the scope the form is pointed at  478ms
+   ✓ groceries page — checked-off rail and move, across scopes > each row moves to ITS other scope and names the destination  353ms
+   ✓ groceries page — row actions survive the restyle > moves an item to the other scope and deletes one  305ms
+   ✓ groceries page — Store Memory suggestions > offers the remembered Store as a chip under the add field, not as placeholder text  1413ms
+   ✓ groceries page — store colours (096) > keeps a personal colour when the same store is given a family one  420ms
+   ✓ groceries page — store colours (096) > moving the Everyone / Just me control does not re-label a colour already chosen  398ms
+ ✓ |client| src/routes/(calendar)/calendar/import/page.svelte.test.ts (29 tests) 2786ms
+   ✓ import preview screen > opens on the suggested selection — duplicates unticked  711ms
+ ✓ |client| src/lib/components/tasks/TasksMainList.svelte.test.ts (17 tests) 3536ms
+   ✓ TasksMainList > renders open rows  333ms
+   ✓ TasksMainList > flat, no bands > prints the counts the headings used to carry, on the jump bar  765ms
+   ✓ TasksMainList > flat, no bands > makes time a filter state, not a section  388ms
+ ✓ |client| src/routes/(family)/family/create/page.svelte.test.ts (15 tests) 2075ms
+   ✓ create family page — the approved composition > previews the family under its placeholder name until one is typed  365ms
+   ✓ create family page — the approved preview and closing note (issue 124) > draws one avatar per person who is in it  667ms
+ ✓ |client| src/routes/(family)/family/page.svelte.test.ts (17 tests) 2135ms
+   ✓ families list — the approved card (issue 124) > names the people in the family, not just how many there are  710ms
+ ✓ |client| src/lib/components/calendar/CalendarToolbar.svelte.test.ts (51 tests) 3225ms
+   ✓ CalendarToolbar calendar filter (#069) > lists every calendar with a switch that reads its visibility  301ms
+ ✓ |client| src/lib/components/calendar/WeekHourGrid.svelte.test.ts (9 tests) 1392ms
+   ✓ WeekHourGrid > renders seven day columns and hour labels  310ms
+ ✓ |client| src/routes/(calendar)/calendar/tasks/page.svelte.test.ts (2 tests) 1615ms
+   ✓ tasks page — clear completed > sends exactly one DELETE when the confirm is double-tapped  1014ms
+   ✓ tasks page — clear completed > names the pending state and blocks a second tap  598ms
+ ✓ |client| src/lib/components/family/CreateFamilyMemberPicker.svelte.test.ts (10 tests) 1624ms
+   ✓ CreateFamilyMemberPicker — the approved pick row (issue 124) > draws the chosen people with a filled tick badge and the chosen wash  455ms
+   ✓ CreateFamilyMemberPicker — the approved pick row (issue 124) > reports every change to the picks, so the preview can draw them  458ms
+ ✓ |client| src/lib/components/tasks/AddTaskCard.svelte.test.ts (4 tests) 1091ms
+   ✓ AddTaskCard > submits the parsed title and refreshes  637ms
+ ✓ |client| src/lib/components/calendar/DayView.svelte.test.ts (9 tests) 1185ms
+   ✓ DayView - slot create and drag move > starts a new event at the tapped slot, snapped to 15 minutes  367ms
+ ✓ |client| src/lib/components/calendar/Calendar.svelte.test.ts (39 tests) 16009ms
+   ✓ Calendar — per-calendar view filter (#069) > shows every calendar when nothing is hidden  895ms
+   ✓ Calendar — per-calendar view filter (#069) > removes the hidden calendar’s events and its due tasks from the view  572ms
+   ✓ Calendar — per-calendar view filter (#069) > filters every view, not just the one on screen  476ms
+   ✓ Calendar — per-calendar view filter (#069) > survives a reload  554ms
+   ✓ Calendar — per-calendar view filter (#069) > keeps two users’ filters apart on one device  506ms
+   ✓ Calendar — per-calendar view filter (#069) > hides everything in one tap and brings it back in one tap  409ms
+   ✓ Calendar — per-calendar view filter (#069) > leaves the default-calendar setting alone  343ms
+   ✓ Calendar — the grid is the page on mobile (#119) > opens on the month grid at phone width even when a day view was last used  572ms
+   ✓ Calendar — the grid is the page on mobile (#119) > carries no rail at any width: no up next, no overdue card, no by person, no mini month  596ms
+   ✓ Calendar — the grid is the page on mobile (#119) > is ONE full-width column at every width — no side pane, no mini month beside the grid  395ms
+   ✓ Calendar — the grid is the page on mobile (#119) > draws the real month grid at 768, not a miniature of it  559ms
+   ✓ Calendar — one card, and the key under the grid (#128 gaps 1 + 9) > says what shape means, and keeps the key folded until it is asked for  326ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > lists the people who have something, viewer first, with what each would keep  527ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > lists a family member with nothing in this window, and says 0  498ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > lists a family member with nothing at all on the calendar  384ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > drops the hidden family's events AND their due tasks from the grid  611ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > never reaches a sponsored event, which belongs to nobody  461ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > composes with the calendar filter instead of replacing it  762ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > composes with search, and the sheet counts what is actually left  537ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > says so when the filter matches nothing, and clears in one action  498ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > survives a reload, and keeps two users' filters apart on one device  664ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > leaves the ?view= deep link alone: a filtered month view is still a month view  1058ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > acknowledges every switch with a toast naming what changed and what is next  613ms
+   ✓ Calendar — the person filter (#127, mark 1.11) > writes its own key, beside the calendar one and never on top of it  450ms
+ ✓ |client| src/routes/(family)/family/inviteLink.svelte.test.ts (9 tests) 1277ms
+   ✓ families list — invite by link is on the page (issue 091) > offers a link for a family you create or administer  498ms
+ ✓ |client| src/lib/components/calendar/MonthDays.svelte.test.ts (3 tests) 1398ms
+   ✓ MonthDays overflow ("+N more") > opens the day events modal, and reopens it after closing  1083ms
+ ✓ |client| src/lib/components/tasks/TaskToolbar.svelte.test.ts (10 tests) 805ms
+ ✓ |client| src/routes/(family)/family/invitations/page.svelte.test.ts (14 tests) 1028ms
+ ✓ |client| src/lib/components/account/AccountCalendarSection.svelte.test.ts (4 tests) 1190ms
+   ✓ AccountCalendarSection > reflects the settings in its fields  534ms
+ ✓ |client| src/lib/components/calendar/MonthDayCell.svelte.test.ts (26 tests) 982ms
+   ✓ MonthDayCell > renders the day number + event and task chips  356ms
+ ✓ |client| src/routes/(calendar)/calendar/stats/page.svelte.test.ts (13 tests) 787ms
+ ✓ |client| src/routes/(family)/family/tasks/page.svelte.test.ts (11 tests) 981ms
+   ✓ family tasks page — the board, grouped by assignee (issue 101) > gives each assignee a column carrying their open-task count  458ms
+ ✓ |client| src/routes/(calendar)/calendar/archive/page.svelte.test.ts (16 tests) 923ms
+   ✓ Archive page — the retention gate is shown as a gate > names the plan the windows come from  349ms
+ ✓ |client| src/lib/components/dashboard/DashboardModuleRow.svelte.test.ts (11 tests) 667ms
+ ✓ |client| src/lib/components/dashboard/FamilyTaskBoardCard.svelte.test.ts (14 tests) 1003ms
+   ✓ FamilyTaskBoardCard - quick-add scoping (issue 021) > assigns to a roster member with @name and keeps the family scope  481ms
+ ✓ |client| src/lib/components/calendar/DayHourGrid.svelte.test.ts (7 tests) 827ms
+ ✓ |client| src/routes/(family)/family/[familyId]/members/add/page.svelte.test.ts (5 tests) 556ms
+   ✓ add a member — the approved three tabs (issue 124) > names the tabs the way the prototype names them  313ms
+ ✓ |client| src/lib/components/tasks/TaskRow.svelte.test.ts (17 tests) 507ms
+ ✓ |client| src/lib/components/calendar/DayEventsModal.svelte.test.ts (11 tests) 714ms
+   ✓ DayEventsModal > formats the "MM-dd-yyyy" date fed in by MonthDays (bug: header said "Invalid DateTime")  315ms
+ ✓ |client| src/lib/components/calendar/EventModalHeader.svelte.test.ts (3 tests) 406ms
+   ✓ EventModalHeader > renders the title and close button  314ms
+ ✓ |client| src/lib/components/dashboard/DayDashboard.svelte.test.ts (20 tests) 864ms
+ ✓ |client| src/lib/components/calendar/EventAttendeeGroups.svelte.test.ts (13 tests) 644ms
+ ✓ |client| src/lib/components/calendar/EventQuickAdd.svelte.test.ts (4 tests) 177ms
+ ✓ |client| src/lib/components/tasks/FamilyTasksList.svelte.test.ts (2 tests) 393ms
+ ✓ |client| src/lib/components/account/AccountNotificationsSection.svelte.test.ts (13 tests) 670ms
+ ✓ |client| src/lib/components/tasks/FamilyTaskAddForm.svelte.test.ts (3 tests) 531ms
+   ✓ FamilyTaskAddForm > posts the parsed quick-add and resets on success  435ms
+ ✓ |client| src/lib/components/dashboard/TopPrioritiesCard.svelte.test.ts (8 tests) 622ms
+   ✓ TopPrioritiesCard priority chip touch targets > gives every priority chip a 44px target  386ms
+ ✓ |client| src/lib/components/tasks/FamilyOpenTaskRow.svelte.test.ts (4 tests) 615ms
+   ✓ FamilyOpenTaskRow > shows accept/decline for my pending handoffs  338ms
+ ✓ |client| src/lib/components/calendar/EventExportMenu.svelte.test.ts (3 tests) 562ms
+   ✓ EventExportMenu > renders a closed three-dot button with no menu items  352ms
+ ✓ |client| src/lib/components/calendar/DayActionSheet.svelte.test.ts (5 tests) 549ms
+   ✓ DayActionSheet names a sponsored event > shows the word for a TIMED ad  344ms
+ ✓ |client| src/lib/components/NotificationBell.svelte.test.ts (5 tests) 567ms
+ ✓ |client| src/lib/components/marketing/marketingCards.svelte.test.ts (5 tests) 334ms
+ ✓ |client| src/lib/components/NavbarMobileMenu.svelte.test.ts (3 tests) 468ms
+   ✓ NavbarMobileMenu > highlights the active item for logged-in users  397ms
+ ✓ |client| src/lib/components/BottomNav.svelte.test.ts (7 tests) 565ms
+ ✓ |client| src/lib/components/dashboard/GroceriesCard.svelte.test.ts (11 tests) 373ms
+ ✓ |client| src/lib/components/tasks/EditTaskDialog.svelte.test.ts (5 tests) 604ms
+ ✓ |client| src/lib/components/NavbarProfileMenu.svelte.test.ts (3 tests) 516ms
+   ✓ NavbarProfileMenu > shows the user header + settings links  341ms
+ ✓ |client| src/lib/components/calendar/DayAllDayList.svelte.test.ts (7 tests) 503ms
+   ✓ DayAllDayList > renders all-day events + tasks and fires clicks  365ms
+ ✓ |client| src/lib/components/calendar/EventMetaFields.svelte.test.ts (2 tests) 296ms
+ ✓ |client| src/lib/components/family/MemberInviteChildTabs.svelte.test.ts (7 tests) 744ms
+   ✓ MemberInviteTab > posts the invite and reports success  364ms
+ ✓ |client| src/routes/(calendar)/calendar/dashboard/page.svelte.test.ts (3 tests) 868ms
+   ✓ the Day Dashboard header > mounts the shared day navigator, once  374ms
+   ✓ the Day Dashboard header > names the three days it can reach, by URL  371ms
+ ✓ |client| src/lib/components/DayNav.svelte.test.ts (7 tests) 473ms
+ ✓ |client| src/lib/components/calendar/__diag2.svelte.test.ts (1 test) 620ms
+   ✓ diag2 > dump title field + isDetected  616ms
+ ✓ |client| src/lib/components/dashboard/KidsScheduleCard.svelte.test.ts (7 tests) 509ms
+   ✓ KidsScheduleCard per-child grouping > heads each child under their own name  393ms
+ ✓ |client| src/lib/components/dashboard/TodayGlanceCard.svelte.test.ts (6 tests) 508ms
+ ✓ |client| src/lib/components/tasks/TaskTagFilter.svelte.test.ts (2 tests) 343ms
+ ✓ |client| src/lib/components/account/AccountDashboardSection.svelte.test.ts (7 tests) 356ms
+ ✓ |client| src/lib/components/marketing/PricingCard.svelte.test.ts (3 tests) 313ms
+ ✓ |client| src/lib/components/tasks/AssignmentsCard.svelte.test.ts (9 tests) 700ms
+   ✓ AssignmentsCard > shows pending with accept/decline and fires onRespond  329ms
+ ✓ |client| src/lib/components/calendar/EventGuestNote.svelte.test.ts (3 tests) 390ms
+   ✓ the guest-model note > says why a guest is marked "not a user"  345ms
+ ✓ |client| src/routes/(marketing)/family/join/[code]/page.svelte.test.ts (6 tests) 438ms
+ ✓ |client| src/lib/components/calendar/EventRecurrenceCard.svelte.test.ts (11 tests) 803ms
+   ✓ the recurrence card > offers both scopes, and says which one was chosen  576ms
+ ✓ |client| src/lib/components/calendar/TaskDetailBar.svelte.test.ts (4 tests) 321ms
+ ✓ |client| src/lib/components/calendar/EventDateTimeFields.svelte.test.ts (2 tests) 267ms
+ ✓ |client| src/lib/components/calendar/TaskDetailModal.svelte.test.ts (3 tests) 558ms
+   ✓ TaskDetailModal - onClose callback convention > notifies the parent via onClose on X so selection state can clear  484ms
+ ✓ |client| src/lib/components/tasks/FamilyTaskRow.svelte.test.ts (6 tests) 491ms
+ ✓ |client| src/lib/components/brand/Mark.svelte.test.ts (6 tests) 615ms
+ ✓ |client| src/routes/(marketing)/page.svelte.test.ts (1 test) 501ms
+   ✓ /+page.svelte > should render h1  498ms
+ ✓ |client| src/lib/admin/AdminExport.svelte.test.ts (2 tests) 616ms
+   ✓ AdminExport > reveals the export text with Copy and Download actions on toggle  542ms
+ ✓ |client| src/lib/components/MentionInput.svelte.test.ts (14 tests) 649ms
+ ✓ |client| src/routes/(marketing)/login/page.svelte.test.ts (2 tests) 275ms
+ ✓ |client| src/lib/components/calendar/EventTaskFields.svelte.test.ts (2 tests) 846ms
+   ✓ EventTaskFields > binds title, visibility, and due date  552ms
+ ✓ |client| src/lib/components/calendar/EventModalBar.svelte.test.ts (4 tests) 259ms
+ ✓ |client| src/lib/components/family/MemberSearchTab.svelte.test.ts (3 tests) 371ms
+ ✓ |client| src/lib/components/calendar/WeekAllDayRow.svelte.test.ts (8 tests) 424ms
+ ✓ |client| src/lib/components/tasks/TasksHeader.svelte.test.ts (3 tests) 270ms
+ ✓ |client| src/lib/components/tasks/FamilyTaskFilterBar.svelte.test.ts (2 tests) 349ms
+ ✓ |client| src/lib/components/calendar/ListView.svelte.test.ts (5 tests) 256ms
+ ✓ |client| src/lib/components/calendar/EventDetailList.svelte.test.ts (2 tests) 212ms
+ ✓ |client| src/lib/components/dashboard/CompletedTodayCard.svelte.test.ts (3 tests) 355ms
+ ✓ |client| src/lib/components/account/AccountSidebar.svelte.test.ts (6 tests) 373ms
+ ✓ |client| src/lib/components/calendar/BulkEditBar.svelte.test.ts (5 tests) 221ms
+ ✓ |client| src/lib/components/calendar/EventFormModel.svelte.test.ts (28 tests) 200ms
+ ✓ |client| src/lib/components/calendar/EventRsvpRow.svelte.test.ts (2 tests) 182ms
+ ✓ |client| src/lib/components/account/AccountFamiliesSection.svelte.test.ts (5 tests) 196ms
+ ✓ |client| src/lib/components/calendar/DayHeader.svelte.test.ts (2 tests) 170ms
+ ✓ |client| src/lib/components/tasks/TaskCompletedRow.svelte.test.ts (3 tests) 210ms
+ ✓ |client| src/lib/components/Navbar.svelte.test.ts (1 test) 162ms
+ ✓ |client| src/lib/components/calendar/WeekHeader.svelte.test.ts (2 tests) 117ms
+ ✓ |client| src/lib/components/calendar/EventRsvpList.svelte.test.ts (2 tests) 136ms
+ ✓ |client| src/lib/components/dashboard/DashboardInfoBand.svelte.test.ts (6 tests) 143ms
+ ✓ |client| src/lib/components/calendar/EventRecurrenceFields.svelte.test.ts (2 tests) 198ms
+ ✓ |client| src/routes/report-bug/page.svelte.test.ts (3 tests) 192ms
+ ✓ |client| src/lib/components/calendar/EventTitleFields.svelte.test.ts (3 tests) 397ms
+ ✓ |client| src/lib/components/calendar/EventActionBar.svelte.test.ts (4 tests) 205ms
+ ✓ |client| src/lib/components/calendar/FirstRunCard.svelte.test.ts (2 tests) 139ms
+ ✓ |client| src/lib/components/tasks/FamilyCompletedTaskList.svelte.test.ts (2 tests) 211ms
+ ✓ |client| src/lib/components/dashboard/MealsCard.svelte.test.ts (1 test) 151ms
+ ✓ |client| src/lib/components/calendar/ExitSelectionAsk.svelte.test.ts (2 tests) 166ms
+ ✓ |client| src/lib/components/calendar/EventDeleteConfirm.svelte.test.ts (2 tests) 191ms
+ ✓ |client| src/lib/components/calendar/EventModalShell.svelte.test.ts (2 tests) 146ms
+ ✓ |client| src/lib/components/calendar/BottomSheetHandle.svelte.test.ts (2 tests) 69ms
+ ✓ |client| src/lib/components/calendar/bottomSheetSwipe.svelte.test.ts (2 tests) 11ms
+ ✓ |server| src/lib/server/auth.test.ts (6 tests) 1978ms
+   ✓ session token cookie (better-auth signed scheme) > returns raw signed value — no percent encoding (kit cookies.set encodes once on the wire)  1628ms
+ ✓ |server| src/lib/server/services/eventDisplayService.test.ts (5 tests) 581ms
+   ✓ expandEventsForUser window > bounds recurring expansion to the given window  488ms
+ ✓ |server| src/lib/utils/dateResolution.parsers.test.ts (159 tests) 650ms
+ ✓ |server| src/routes/api/parse-event/server.test.ts (8 tests) 953ms
+   ✓ POST /api/parse-event > never calls the paid LLM for unauthenticated callers, even when configured  310ms
+   ✓ POST /api/parse-event > keeps the cloud path for authenticated callers  528ms
+ ✓ |server| src/lib/server/services/parserClaimGuards.test.ts (6 tests) 446ms
+   ✓ bare month-day rollover — one rule, one answer per phrase > a numeric month-day rolls by the same rule as its month-name spelling  311ms
+ ✓ |server| src/lib/server/services/recurrenceService.test.ts (37 tests) 298ms
+ ✓ |server| src/lib/server/services/naturalLanguageService.test.ts (540 tests) 3202ms
+   ✓ Parser performance > parses an everyday corpus instantly (mean < 15ms, 200 parses < 4000ms)  916ms
+ ✓ |server| src/lib/server/db/actions/tasks/undoRecurringCompletion.test.ts (7 tests) 377ms
+ ✓ |server| src/lib/server/services/icsImportPreview.test.ts (70 tests) 343ms
+ ✓ |server| src/lib/server/db/actions/tasks/toggleTaskComplete.real.test.ts (6 tests) 7478ms
+   ✓ toggleTaskComplete — real Postgres seam (pilot) > completes and records append-only history attributed to the acting user  1811ms
+   ✓ toggleTaskComplete — real Postgres seam (pilot) > double-click race completes exactly once under a real row lock  898ms
+   ✓ toggleTaskComplete — real Postgres seam (pilot) > un-complete keeps the history row and only sets the un-completed state  952ms
+   ✓ toggleTaskComplete — real Postgres seam (pilot) > a second completion appends its own history row  972ms
+   ✓ toggleTaskComplete — real Postgres seam (pilot) > refuses outsiders: undefined result, no state change, no history  1232ms
+   ✓ toggleTaskComplete — real Postgres seam (pilot) > family member may toggle a family task and gets attributed as the actor  1599ms
+ ✓ |server| src/lib/server/services/eventDisplayService.creators.test.ts (4 tests) 16ms
+ ✓ |server| src/routes/(calendar)/calendar/import/page.server.test.ts (33 tests) 358ms
+ ✓ |server| src/lib/server/services/icsImportService.test.ts (18 tests) 321ms
+ ✓ |server| src/routes/(calendar)/calendar/notifications/page.server.test.ts (8 tests) 33ms
+ ✓ |server| src/lib/utils/ics.test.ts (29 tests) 176ms
+ ✓ |server| src/lib/server/db/actions/tasks/taskMutation.test.ts (18 tests) 128ms
+ ✓ |server| src/lib/server/services/bulkAiService.test.ts (63 tests) 90ms
+ ✓ |server| src/lib/server/services/adService.test.ts (13 tests) 246ms
+ ✓ |server| src/routes/(family)/family/create/members.test.ts (10 tests) 48ms
+ ✓ |server| src/routes/(marketing)/signup/password/server.test.ts (6 tests) 278ms
+ ✓ |server| src/lib/server/db/actions/taskStats.completions.test.ts (2 tests) 92ms
+ ✓ |server| src/lib/server/db/actions/taskStats.attribution.test.ts (3 tests) 195ms
+ ✓ |server| src/lib/server/services/magicLink.test.ts (36 tests) 204ms
+ ✓ |server| src/lib/server/services/verseService.test.ts (13 tests) 269ms
+ ✓ |server| src/routes/(calendar)/claim/page.server.test.ts (9 tests) 120ms
+ ✓ |server| src/routes/api/tasks/server.test.ts (9 tests) 295ms
+ ✓ |server| src/routes/api/events/[id]/server.test.ts (8 tests) 171ms
+ ✓ |server| src/lib/server/utils/userTimezone.test.ts (2 tests) 82ms
+ ✓ |server| src/routes/(family)/family/page.server.test.ts (17 tests) 190ms
+ ✓ |server| src/lib/server/db/actions/taskStats.test.ts (4 tests) 72ms
+ ✓ |server| src/lib/utils/taskQuickAdd.test.ts (141 tests) 112ms
+ ✓ |server| src/lib/server/services/streakService.test.ts (14 tests) 137ms
+ ✓ |server| src/lib/utils/dateUtils.test.ts (45 tests) 159ms
+ ✓ |server| src/lib/components/archive/archiveMonths.test.ts (11 tests) 74ms
+ ✓ |server| src/routes/api/push/unsubscribe/server.test.ts (3 tests) 43ms
+ ✓ |server| src/lib/server/services/discountService.test.ts (5 tests) 14ms
+ ✓ |server| src/routes/(family)/family/[familyId]/links.test.ts (7 tests) 11608ms
+   ✓ every href in the app > never ships literal braces in a rendered href  7553ms
+   ✓ every href in the app > only points at routes the router actually serves  3927ms
+ ✓ |server| src/lib/server/db/actions/tasks/syncRecurringCursors.test.ts (7 tests) 121ms
+ ✓ |server| src/lib/server/db/actions/export.test.ts (4 tests) 61ms
+ ✓ |server| src/lib/server/db/actions/unmatchedPhrases.test.ts (5 tests) 14ms
+ ✓ |server| src/routes/(calendar)/calendar/stats/statsPageModel.test.ts (14 tests) 95ms
+ ✓ |server| src/routes/(marketing)/forgot-password/reset/server.test.ts (4 tests) 50ms
+ ✓ |server| src/routes/api/notifications/server.test.ts (2 tests) 77ms
+ ✓ |server| src/lib/server/db/actions/tasks/toggleTaskComplete.test.ts (6 tests) 80ms
+ ✓ |server| src/routes/(marketing)/login/email/code/server.test.ts (3 tests) 83ms
+ ✓ |server| src/routes/(calendar)/account/page.server.test.ts (4 tests) 31ms
+ ✓ |server| src/lib/server/db/actions/tasks/advanceTaskToNext.test.ts (7 tests) 95ms
+ ✓ |server| src/routes/(family)/family/[familyId]/page.server.test.ts (4 tests) 11ms
+ ✓ |server| src/lib/server/db/actions/tasks/tasks.test.ts (33 tests) 151ms
+ ✓ |server| src/lib/utils/eventDisplay.test.ts (10 tests) 135ms
+ ✓ |server| src/lib/utils/pushClient.test.ts (9 tests) 48ms
+ ✓ |server| src/routes/(calendar)/calendar/page.server.test.ts (7 tests) 22ms
+ ✓ |server| src/lib/server/utils/eventIds.test.ts (15 tests) 86ms
+ ✓ |server| src/routes/(marketing)/signup/password/resend/server.test.ts (5 tests) 71ms
+ ✓ |server| src/lib/server/db/actions/bugReports.prune.test.ts (3 tests) 16ms
+ ✓ |server| src/lib/server/db/actions/families.test.ts (31 tests) 33ms
+ ✓ |server| src/routes/(family)/family/inviteLink.test.ts (4 tests) 24ms
+ ✓ |server| src/lib/server/db/actions/groceries.test.ts (12 tests) 18ms
+ ✓ |server| src/routes/(calendar)/account/verify-email/page.server.test.ts (7 tests) 100ms
+ ✓ |server| src/lib/utils/priorityTone.test.ts (5 tests) 10ms
+ ✓ |server| src/routes/api/events/server.test.ts (10 tests) 126ms
+ ✓ |server| src/lib/server/services/adConsentService.test.ts (12 tests) 20ms
+ ✓ |server| src/routes/api/family/invite/server.test.ts (4 tests) 24ms
+ ✓ |server| src/lib/server/db/actions/dashboard.db.test.ts (13 tests) 25ms
+ ✓ |server| src/lib/data/groceries.test.ts (62 tests) 61ms
+ ✓ |server| src/routes/(marketing)/login/email/callback/server.test.ts (4 tests) 135ms
+ ✓ |server| src/lib/utils/listGroup.test.ts (4 tests) 74ms
+ ✓ |server| src/lib/utils/bulkPlan.test.ts (4 tests) 71ms
+ ✓ |server| src/lib/server/db/actions/notifications.test.ts (6 tests) 18ms
+ ✓ |server| src/routes/api/family/member-search/server.test.ts (8 tests) 23ms
+ ✓ |server| src/lib/utils/taskUrgency.test.ts (22 tests) 60ms
+ ✓ |server| src/lib/server/db/actions/dashboard.test.ts (9 tests) 53ms
+ ✓ |server| src/lib/components/account/accountSubscription.test.ts (14 tests) 71ms
+ ✓ |server| src/routes/(family)/family/create/page.server.test.ts (10 tests) 40ms
+ ✓ |server| src/routes/(marketing)/signup/email/server.test.ts (7 tests) 77ms
+ ✓ |server| src/lib/utils/taskDisplay.test.ts (6 tests) 68ms
+ ✓ |server| src/hooks.server.test.ts (9 tests) 53ms
+ ✓ |server| src/lib/utils/dateVocab.test.ts (29 tests) 29ms
+ ✓ |server| src/routes/(marketing)/signup/email/callback/server.test.ts (7 tests) 195ms
+ ✓ |server| src/lib/utils/familyTaskGroups.test.ts (9 tests) 92ms
+ ✓ |server| src/lib/utils/calendarAssignees.test.ts (26 tests) 52ms
+ ✓ |server| src/lib/utils/taskSort.test.ts (5 tests) 43ms
+ ✓ |server| src/routes/(marketing)/login/email/server.test.ts (5 tests) 185ms
+ ✓ |server| src/lib/server/db/actions/tasks/familyTaskSeam.test.ts (8 tests) 50ms
+ ✓ |server| src/lib/conformance/tokens.test.ts (12 tests) 46ms
+ ✓ |server| src/lib/utils/offline.test.ts (24 tests) 48ms
+ ✓ |server| src/lib/server/db/actions/events.test.ts (15 tests) 43ms
+ ✓ |server| src/lib/data/categories.test.ts (75 tests) 42ms
+ ✓ |server| src/lib/utils/navItems.test.ts (11 tests) 17ms
+ ✓ |server| src/lib/utils/dateResolution.test.ts (101 tests) 39ms
+ ✓ |server| src/lib/components/account/accountNotifications.test.ts (20 tests) 19ms
+ ✓ |server| src/routes/(family)/family/[familyId]/members/add/child/server.test.ts (5 tests) 107ms
+ ✓ |server| src/routes/api/tasks/[id]/server.test.ts (13 tests) 82ms
+ ✓ |server| src/lib/server/db/actions/apiTokens.test.ts (10 tests) 23ms
+ ✓ |server| src/lib/marketing/seo.test.ts (37 tests) 33ms
+ ✓ |server| src/routes/(marketing)/signup/password/verify/server.test.ts (6 tests) 49ms
+ ✓ |server| src/lib/server/db/actions/notificationMethods.test.ts (8 tests) 18ms
+ ✓ |server| src/lib/components/calendar/calendarView.test.ts (21 tests) 28ms
+ ✓ |server| src/lib/server/db/actions/memberSearch.test.ts (13 tests) 21ms
+ ✓ |server| src/lib/server/db/actions/dashboardModules.test.ts (20 tests) 17ms
+ ✓ |server| src/lib/server/services/logger.test.ts (8 tests) 31ms
+ ✓ |server| src/lib/dashboardModules.test.ts (50 tests) 27ms
+ ✓ |server| src/routes/api/tasks/[id]/bearer.test.ts (3 tests) 72ms
+ ✓ |server| src/lib/utils/rangeSelect.test.ts (13 tests) 30ms
+ ✓ |server| src/routes/api/account/export/server.test.ts (2 tests) 21ms
+ ✓ |server| src/routes/(marketing)/forgot-password/server.test.ts (3 tests) 21ms
+ ✓ |server| src/lib/utils/familyTaskActions.test.ts (8 tests) 23ms
+ ✓ |server| src/lib/server/db/actions/unmatchedPhrases.prune.test.ts (3 tests) 17ms
+ ✓ |server| src/routes/api/health/server.test.ts (5 tests) 34ms
+ ✓ |server| src/lib/utils/calendarVisibility.test.ts (27 tests) 24ms
+ ✓ |server| src/lib/client/taskSubmit.test.ts (5 tests) 38ms
+ ✓ |server| src/lib/utils/notificationTypes.test.ts (21 tests) 27ms
+ ✓ |server| src/lib/client/share.test.ts (9 tests) 22ms
+ ✓ |server| src/lib/server/services/subscriptionService.test.ts (23 tests) 24ms
+ ✓ |server| src/lib/server/services/claimService.test.ts (7 tests) 19ms
+ ✓ |server| src/lib/utils/eventMove.test.ts (21 tests) 28ms
+ ✓ |server| src/lib/conformance/rules.test.ts (13 tests) 13ms
+ ✓ |server| src/lib/server/db/migrations/scripts.test.ts (3 tests) 21ms
+ ✓ |server| src/lib/utils/dayViewLayout.test.ts (16 tests) 18ms
+ ✓ |server| src/lib/admin/export.test.ts (13 tests) 18ms
+ ✓ |server| src/lib/server/db/actions/calendarScope.test.ts (10 tests) 21ms
+ ✓ |server| src/lib/utils/moduleRowState.test.ts (10 tests) 17ms
+ ✓ |server| src/lib/utils/chipVocabulary.test.ts (18 tests) 20ms
+ ✓ |server| src/lib/server/utils/apiError.test.ts (4 tests) 24ms
+ ✓ |server| src/lib/utils/taskBulk.test.ts (4 tests) 14ms
+ ✓ |server| src/lib/utils/familyPalette.test.ts (13 tests) 18ms
+ ✓ |server| src/lib/server/services/eventRange.test.ts (8 tests) 15ms
+ ✓ |server| src/lib/server/db/actions/users.test.ts (3 tests) 13ms
+ ✓ |server| src/lib/utils/mentionFilter.test.ts (12 tests) 14ms
+ ✓ |server| src/lib/utils/avatarColor.test.ts (3 tests) 13ms
+ ✓ |server| src/lib/server/db/actions/calendar.test.ts (4 tests) 10ms
+ ✓ |server| src/lib/utils/taskEditPayload.test.ts (5 tests) 15ms
+ ✓ |server| src/lib/server/utils/eventInvites.test.ts (9 tests) 22ms
+ ✓ |server| src/lib/utils/calendarSearch.test.ts (10 tests) 17ms
+ ✓ |server| src/lib/utils/attendance.test.ts (5 tests) 14ms
+ ✓ |server| src/routes/(family)/family/tasks/page.server.test.ts (4 tests) 16ms
+ ✓ |server| src/lib/server/utils/guard.test.ts (3 tests) 12ms
+ ✓ |server| src/routes/(family)/family/[familyId]/tasks/page.server.test.ts (4 tests) 16ms
+ ✓ |server| src/routes/(calendar)/claim/verify/[token]/server.test.ts (4 tests) 15ms
+ ✓ |server| src/lib/utils/familyTaskList.test.ts (5 tests) 13ms
+ ✓ |server| src/lib/server/services/eventRecurrence.test.ts (12 tests) 14ms
+ ✓ |server| src/lib/components/account/accountDashboardModules.test.ts (6 tests) 13ms
+ ✓ |server| src/lib/utils/touchTarget.test.ts (13 tests) 14ms
+ ✓ |server| src/lib/utils/weekView.test.ts (6 tests) 11ms
+ ✓ |server| src/lib/server/utils/svixVerify.test.ts (8 tests) 13ms
+ ✓ |server| src/lib/server/services/autoBugReport.test.ts (7 tests) 10ms
+ ✓ |server| src/lib/utils/eventDuplicate.test.ts (2 tests) 13ms
+ ✓ |server| src/routes/(marketing)/family/join/[code]/page.server.test.ts (2 tests) 8ms
+ ✓ |server| src/lib/utils/familyDisplay.test.ts (4 tests) 9ms
+ ✓ |server| src/lib/utils/shareTarget.test.ts (8 tests) 8ms
+ ✓ |server| src/lib/components/calendar/bottomSheetSwipe.test.ts (3 tests) 8ms
+ ✓ |server| src/lib/utils/calendarMatch.test.ts (3 tests) 7ms
+ ✓ |server| src/lib/utils/hashName.test.ts (4 tests) 9ms
+ ✓ |server| src/lib/server/db/actions/meals.test.ts (4 tests) 8ms
+ ✓ |server| src/lib/server/db/actions/events.creatorNames.test.ts (3 tests) 8ms

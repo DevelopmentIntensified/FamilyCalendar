@@ -594,10 +594,12 @@
 				{#if entryType === 'event'}
 					{#if !form.isEditMode}
 						<EventQuickAdd
-							bind:nlInput
+							nlInput={nlInput}
+							onNlInputValueChange={(v) => (nlInput = v)}
 							{parsing}
 							{parseError}
-							bind:multiResults
+							multiResults={multiResults}
+							onMultiResultsChange={(v) => (multiResults = v)}
 							{submitting}
 							{lastParseResult}
 							{phraseReportable}
@@ -622,7 +624,11 @@
 
 					{#if form.isEditMode || showMore || (!nlpCollapsed && (form.isDetected('date') || form.isDetected('startTime') || form.isDetected('location') || form.isDetected('attendants')))}
 						{#if showMore || form.isEditMode}
-							<EventDateTimeFields {form} bind:editScope />
+							<EventDateTimeFields
+								{form}
+								editScope={editScope}
+								onEditScopeChange={(v) => (editScope = v)}
+							/>
 						{/if}
 
 						<EventMetaFields
@@ -636,7 +642,15 @@
 						/>
 					{/if}
 				{:else}
-					<EventTaskFields bind:taskTitle bind:taskVisibility bind:taskDueDate {taskError} />
+					<EventTaskFields
+						taskTitle={taskTitle}
+						onTaskTitleChange={(v) => (taskTitle = v)}
+						taskVisibility={taskVisibility}
+						onTaskVisibilityChange={(v) => (taskVisibility = v)}
+						taskDueDate={taskDueDate}
+						onTaskDueDateChange={(v) => (taskDueDate = v)}
+						{taskError}
+					/>
 				{/if}
 			</div>
 
@@ -671,8 +685,9 @@
 			{#if entryType === 'event'}
 				<ChecklistSection
 					eventId={eventIdForTasks}
-					bind:pendingTitles={pendingTaskTitles}
-					bind:attachedCount={attachedTaskCount}
+					pendingTitles={pendingTaskTitles}
+					onPendingTitlesChange={(v) => (pendingTaskTitles = v)}
+					onAttachedCountChange={(n) => (attachedTaskCount = n)}
 				/>
 			{/if}
 

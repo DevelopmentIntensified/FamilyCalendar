@@ -74,7 +74,7 @@
 			</select>
 		</label>
 	</div>
-	<TaskTagFilter bind:tagFilter showNote={false} />
+	<TaskTagFilter {tagFilter} showNote={false} onTagFilterChange={(v) => (tagFilter = v)} />
 	{#if filterActive}
 		<p class="text-xs text-sky-600">
 			{#if tagFilter.trim()}

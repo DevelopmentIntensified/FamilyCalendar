@@ -395,11 +395,15 @@
 			</div>
 		{/if}
 		<TasksMainList
-			bind:chip
-			bind:searchQuery
-			bind:sortBy
-			bind:tagFilter
-			bind:confirmClear
+			{chip}
+			{searchQuery}
+			{sortBy}
+			{tagFilter}
+			{confirmClear}
+			onChipChange={(v) => (chip = v)}
+			onSearchQueryChange={(v) => (searchQuery = v)}
+			onSortByChange={(v) => (sortBy = v)}
+			onTagFilterChange={(v) => (tagFilter = v)}
 			openCount={openTasks.length}
 			completedCount={completedTasks.length}
 			{completedThisWeek}

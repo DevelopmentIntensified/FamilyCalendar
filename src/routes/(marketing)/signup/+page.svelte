@@ -286,7 +286,8 @@
 				</section>
 			{:else}
 				<ModeToggle
-					bind:value={mode}
+					value={mode}
+					onValueChange={(v) => (mode = v)}
 					groupLabel="Signup method"
 					options={[
 						{ value: 'password', label: 'Password' },

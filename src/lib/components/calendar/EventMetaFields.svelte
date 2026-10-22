@@ -36,7 +36,12 @@
 		Location
 		{#if form.isDetected('location')}<span class="ml-1 text-emerald-600">✓</span>{/if}
 	</div>
-	<LocationSearch bind:value={form.location} />
+	<LocationSearch
+		value={form.location}
+		onValueChange={(v: string) => {
+			form.location = v;
+		}}
+	/>
 </div>
 
 {#if showAttendees}

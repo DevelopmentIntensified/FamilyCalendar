@@ -53,6 +53,11 @@
 		searchQuery: string;
 		sortBy: TaskSortKey;
 		tagFilter: string;
+		onChipChange?: (v: TaskChip) => void;
+		onSearchQueryChange?: (v: string) => void;
+		onSortByChange?: (v: TaskSortKey) => void;
+		onTagFilterChange?: (v: string) => void;
+		onViewChange?: (v: TaskView) => void;
 		/** The approved owner axis. `Open` is the default, as it is on the page. */
 		view?: TaskView;
 		/** What every control on this line left, so pressing one is never a
@@ -63,11 +68,16 @@
 	}
 
 	let {
-		chip = $bindable(),
-		searchQuery = $bindable(),
-		sortBy = $bindable(),
-		tagFilter = $bindable(),
-		view = $bindable('open'),
+		chip,
+		searchQuery,
+		sortBy,
+		tagFilter,
+		onChipChange,
+		onSearchQueryChange,
+		onSortByChange,
+		onTagFilterChange,
+		onViewChange,
+		view = 'open',
 		matchCount = 0,
 		totalCount = 0
 	}: Props = $props();
@@ -100,7 +110,7 @@
 		{#each VIEWS as v (v.value)}
 			<button
 				type="button"
-				onclick={() => (view = v.value)}
+				onclick={() => onViewChange?.(v.value)}
 				aria-pressed={view === v.value}
 				class="min-h-[44px] rounded-full border px-3.5 text-sm font-medium transition-colors {view ===
 				v.value
@@ -122,7 +132,7 @@
 		{#each CHIPS as c (c.value)}
 			<button
 				type="button"
-				onclick={() => (chip = c.value)}
+				onclick={() => onChipChange?.(c.value)}
 				aria-pressed={chip === c.value}
 				class="min-h-[44px] rounded-full border px-3.5 text-sm font-medium transition-colors {chip ===
 				c.value
@@ -153,7 +163,8 @@
 		</svg>
 		<input
 			type="search"
-			bind:value={searchQuery}
+			value={searchQuery}
+			oninput={(e) => onSearchQueryChange?.(e.currentTarget.value)}
 			placeholder="Search…"
 			aria-label="Search tasks"
 			class="h-11 w-full rounded-lg border border-slate-300 bg-white pl-8 pr-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -163,7 +174,8 @@
 	<label class="flex items-center gap-2 text-sm text-slate-500">
 		<span class="shrink-0">Sort</span>
 		<select
-			bind:value={sortBy}
+			value={sortBy}
+			onchange={(e) => onSortByChange?.(e.currentTarget.value as TaskSortKey)}
 			aria-label="Sort tasks"
 			class="h-11 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 		>
@@ -187,7 +199,8 @@
 	>
 	<input
 		type="text"
-		bind:value={tagFilter}
+		value={tagFilter}
+		oninput={(e) => onTagFilterChange?.(e.currentTarget.value)}
 		placeholder="Filter by #tag…"
 		aria-label="Filter tasks by tag"
 		title="Prefix match: typing “gro” matches #groceries"
@@ -196,7 +209,7 @@
 	{#if tagFilter}
 		<button
 			type="button"
-			onclick={() => (tagFilter = '')}
+			onclick={() => onTagFilterChange?.('')}
 			class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
 			aria-label="Clear tag filter"
 			title="Clear tag filter"

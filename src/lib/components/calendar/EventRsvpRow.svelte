@@ -13,14 +13,20 @@
 		currentUserRsvpStatus: string;
 		attendees: Attendee[];
 		nonUserAttendants: string[];
+		onCurrentUserRsvpStatusChange: (v: string) => void;
+		onAttendeesChange: (v: Attendee[]) => void;
+		onNonUserAttendantsChange: (v: string[]) => void;
 		onResponded: (status: string) => void | Promise<void>;
 	}
 
 	let {
 		serverId,
-		currentUserRsvpStatus = $bindable(),
-		attendees = $bindable(),
-		nonUserAttendants = $bindable(),
+		currentUserRsvpStatus,
+		attendees,
+		nonUserAttendants,
+		onCurrentUserRsvpStatusChange,
+		onAttendeesChange,
+		onNonUserAttendantsChange,
 		onResponded
 	}: Props = $props();
 
@@ -43,7 +49,7 @@
 		// Clicking the active choice again = "no answer yet".
 		const next = currentUserRsvpStatus === status ? 'undecided' : status;
 		const previous = currentUserRsvpStatus;
-		currentUserRsvpStatus = next; // optimistic
+		onCurrentUserRsvpStatusChange(next); // optimistic
 		rsvpPending = true;
 		try {
 			const response = await fetch(`/api/events/${serverId}/rsvp`, {
@@ -57,19 +63,19 @@
 					rsvpStatus?: string;
 				} = await response.json();
 				if (data.attendance) {
-					attendees = data.attendance.filter((a) => a.userId);
-					nonUserAttendants = data.attendance
-						.filter((a) => !a.userId && a.name)
-						.map((a) => a.name ?? '');
+					onAttendeesChange(data.attendance.filter((a) => a.userId));
+					onNonUserAttendantsChange(
+						data.attendance.filter((a) => !a.userId && a.name).map((a) => a.name ?? '')
+					);
 				}
-				currentUserRsvpStatus = data.rsvpStatus || next;
+				onCurrentUserRsvpStatusChange(data.rsvpStatus || next);
 				await onResponded(next);
 			} else {
-				currentUserRsvpStatus = previous;
+				onCurrentUserRsvpStatusChange(previous);
 			}
 		} catch (error) {
 			console.error('RSVP error:', error);
-			currentUserRsvpStatus = previous;
+			onCurrentUserRsvpStatusChange(previous);
 		} finally {
 			rsvpPending = false;
 		}

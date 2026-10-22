@@ -5,9 +5,10 @@
 	interface Props {
 		form: ReturnType<typeof createEventForm>;
 		editScope: string;
+		onEditScopeChange: (v: string) => void;
 	}
 
-	let { form, editScope = $bindable() }: Props = $props();
+	let { form, editScope, onEditScopeChange }: Props = $props();
 </script>
 
 <div class="flex items-center gap-3">
@@ -59,7 +60,7 @@
 	</button>
 </div>
 
-<EventRecurrenceFields {form} bind:editScope />
+<EventRecurrenceFields {form} {editScope} {onEditScopeChange} />
 
 <div class={form.multiDay ? 'grid grid-cols-2 gap-3' : ''}>
 	<div>

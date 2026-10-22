@@ -7,8 +7,10 @@
 	export let eventId: string | null = null;
 	export let pendingTitles: string[] = [];
 
-	// Two-way: lets the parent warn before deleting an event with tasks.
-	export let attachedCount = 0;
+	/** Reported to the parent so it can warn before deleting an event with tasks. */
+	export let onAttachedCountChange: ((n: number) => void) | null = null;
+	/** Reported when pending titles are queued in create mode. */
+	export let onPendingTitlesChange: ((v: string[]) => void) | null = null;
 
 	interface EventChecklistTask {
 		id: string;
@@ -25,7 +27,15 @@
 	let checklistError = '';
 	let tasksLoadedFor: string | null = null;
 
+	let attachedCount = 0;
 	$: attachedCount = eventTasks.length;
+	// Report once per actual count change; the callback prop's identity
+	// changes on every parent re-render, so key on the value instead.
+	let lastReportedCount: number | null = null;
+	$: if (onAttachedCountChange && attachedCount !== lastReportedCount) {
+		lastReportedCount = attachedCount;
+		onAttachedCountChange(attachedCount);
+	}
 
 	$: if (eventId && eventId !== tasksLoadedFor) {
 		tasksLoadedFor = eventId;
@@ -50,7 +60,9 @@
 		const title = checklistTitle.trim();
 		if (!title || checklistBusy) return;
 		if (!eventId) {
-			pendingTitles = [...pendingTitles, title];
+			const next = [...pendingTitles, title];
+			if (onPendingTitlesChange) onPendingTitlesChange(next);
+			else pendingTitles = next;
 			checklistTitle = '';
 			return;
 		}

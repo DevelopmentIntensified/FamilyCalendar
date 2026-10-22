@@ -1,0 +1,19 @@
+{
+	"version": "ternrig/1",
+	"name": "familyplanz",
+	"workspace_root": "C:/Users/MIRP/development/familyCalendar",
+	"summary": "Family calendar / Lodestone CRM work: a builder and a reviewer, both tern-managed omp.",
+	"pods": [
+		{
+			"id": "dev",
+			"label": "Dev",
+			"members": [
+				{ "id": "impl", "role": "builder", "runtime": "omp", "cwd": ".", "permissions": "full" },
+				{ "id": "rev", "role": "reviewer", "runtime": "omp", "cwd": ".", "permissions": "full" }
+			]
+		}
+	],
+	"edges": [
+		{ "kind": "delegates_to", "from": "dev.impl", "to": "dev.rev" }
+	]
+}

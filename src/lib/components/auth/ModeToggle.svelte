@@ -2,11 +2,13 @@
 	/* eslint-disable no-undef -- Svelte 5 generics ("T") are invisible to eslint's svelte parser */
 	let {
 		options,
-		value = $bindable(),
+		value,
+		onValueChange,
 		groupLabel = 'Login method'
 	}: {
 		options: { value: T; label: string }[];
 		value?: T;
+		onValueChange?: (v: T) => void;
 		groupLabel?: string;
 	} = $props();
 </script>
@@ -16,7 +18,7 @@
 		<button
 			type="button"
 			aria-pressed={value === option.value}
-			onclick={() => (value = option.value)}
+		onclick={() => onValueChange?.(option.value)}
 			class="min-h-[44px] flex-1 rounded-lg px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 {value ===
 			option.value
 				? 'bg-white text-slate-900 shadow-sm'

@@ -268,6 +268,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
+- **#200 /calendar SSR 500 (2026-10-22, in progress):** every /calendar GET 500s on prod —
+  legacy-compile of `+layout.svelte` leaves a bare `$$render_inner` call, never defined,
+  in the SSR build (`_layout.svelte.js:30`; bugReports auto-filed 08:37; not a version
+  bump). Fix lane running: runes-migrate the script; acceptance = build-artifact smoke
+  test asserting no bare `$$render_inner` in the compiled layout.
 - **Owner tasks (2026-10-16, filed from the tree-cleanup answers):** #197 svelte 5.57 migration scheduled as its own session (evidence + reusable env recipe in #159); #198 calendar-sync research kept — owner review/verdict task; #199 group-chat/video plan needs rework (owner: current plan "not what I needed"). CI stays local-gate (owner decision, #184 not restored). `film/` + `.probe.mts` deleted; `.vercelignore` committed.
 - **Architecture review → deepening tickets (2026-09-30, #109–#117).** Nine
   modules whose interface is nearly as complex as their implementation, found by

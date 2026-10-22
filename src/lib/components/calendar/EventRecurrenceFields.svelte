@@ -4,15 +4,16 @@
 	interface Props {
 		form: ReturnType<typeof createEventForm>;
 		editScope: string;
+		onEditScopeChange: (v: string) => void;
 	}
 
-	let { form, editScope = $bindable() }: Props = $props();
+	let { form, editScope, onEditScopeChange }: Props = $props();
 </script>
 
 <!-- Repeat picker -->
 <div class="flex items-center gap-2">
 	<select
-		on:change={(e) => {
+		onchange={(e) => {
 			form.recurrenceFrequency = e.currentTarget.value || null;
 		}}
 		value={form.recurrenceFrequency || ''}
@@ -75,11 +76,23 @@
 		</h4>
 		<div class="flex gap-4 text-sm text-slate-700">
 			<label class="flex cursor-pointer items-center gap-1.5">
-				<input type="radio" bind:group={editScope} value="this" name="editScope" />
+				<input
+					type="radio"
+					checked={editScope === 'this'}
+					onchange={() => onEditScopeChange('this')}
+					value="this"
+					name="editScope"
+				/>
 				This event only
 			</label>
 			<label class="flex cursor-pointer items-center gap-1.5">
-				<input type="radio" bind:group={editScope} value="all" name="editScope" />
+				<input
+					type="radio"
+					checked={editScope === 'all'}
+					onchange={() => onEditScopeChange('all')}
+					value="all"
+					name="editScope"
+				/>
 				All events in series
 			</label>
 		</div>

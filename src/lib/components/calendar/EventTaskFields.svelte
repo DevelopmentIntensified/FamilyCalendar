@@ -6,13 +6,19 @@
 		taskVisibility: string;
 		taskDueDate: string;
 		taskError: string | null;
+		onTaskTitleChange: (v: string) => void;
+		onTaskVisibilityChange: (v: string) => void;
+		onTaskDueDateChange: (v: string) => void;
 	}
 
 	let {
-		taskTitle = $bindable(),
-		taskVisibility = $bindable(),
-		taskDueDate = $bindable(),
-		taskError
+		taskTitle,
+		taskVisibility,
+		taskDueDate,
+		taskError,
+		onTaskTitleChange,
+		onTaskVisibilityChange,
+		onTaskDueDateChange
 	}: Props = $props();
 </script>
 
@@ -24,7 +30,8 @@
 	<input
 		id="task-title"
 		type="text"
-		bind:value={taskTitle}
+		value={taskTitle}
+		oninput={(e) => onTaskTitleChange((e.currentTarget as HTMLInputElement).value)}
 		placeholder="e.g., Pay water bill — or try &quot;#private tomorrow @family&quot;"
 		required
 		class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -40,7 +47,8 @@
 	>
 	<select
 		id="task-visibility"
-		bind:value={taskVisibility}
+		value={taskVisibility}
+		onchange={(e) => onTaskVisibilityChange((e.currentTarget as HTMLSelectElement).value)}
 		class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 	>
 		<option value="public">🌐 Public — family can see it (read-only)</option>
@@ -57,7 +65,8 @@
 	<input
 		id="task-due-date"
 		type="date"
-		bind:value={taskDueDate}
+		value={taskDueDate}
+		oninput={(e) => onTaskDueDateChange((e.currentTarget as HTMLInputElement).value)}
 		class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 	/>
 	<p class="mt-1 text-xs text-slate-400">Optional — shows as a dashed chip on its due day.</p>

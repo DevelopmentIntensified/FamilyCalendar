@@ -2,9 +2,10 @@
 	interface Props {
 		tagFilter: string;
 		showNote?: boolean;
+		onTagFilterChange?: (v: string) => void;
 	}
 
-	let { tagFilter = $bindable(), showNote = true }: Props = $props();
+	let { tagFilter, showNote = true, onTagFilterChange }: Props = $props();
 </script>
 
 <div class="mb-4">
@@ -24,7 +25,8 @@
 		</svg>
 		<input
 			type="text"
-			bind:value={tagFilter}
+			value={tagFilter}
+			oninput={(e) => onTagFilterChange?.(e.currentTarget.value)}
 			placeholder="Filter by #tag..."
 			aria-label="Filter tasks by tag"
 			class="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none"
@@ -32,7 +34,7 @@
 		{#if tagFilter.trim()}
 			<button
 				type="button"
-				onclick={() => (tagFilter = '')}
+				onclick={() => onTagFilterChange?.('')}
 				aria-label="Clear tag filter"
 				class="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 			>

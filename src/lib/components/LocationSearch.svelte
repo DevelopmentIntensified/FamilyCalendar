@@ -2,7 +2,8 @@
 	import { onMount } from 'svelte';
 
 	let {
-		value = $bindable(''),
+		value = '',
+		onValueChange,
 		placeholder = 'Where? (address or any place)',
 		inputClass = 'w-full rounded-lg border border-slate-200 px-3 py-2.5',
 		searchEndpoint = '',
@@ -96,16 +97,16 @@
 		}
 	}
 
-	function handleInput() {
+	function handleInput(query: string) {
 		clearTimeout(searchTimer);
-		if (value.length < 2) {
+		if (query.length < 2) {
 			suggestions = [];
 			showDropdown = false;
 			activeIndex = -1;
 			return;
 		}
 		searchTimer = setTimeout(() => {
-			searchLocations(value);
+			searchLocations(query);
 		}, 50);
 	}
 
@@ -147,7 +148,7 @@
 	}
 
 	function selectLocation(location: string) {
-		value = location;
+		onValueChange?.(location);
 		showDropdown = false;
 		suggestions = [];
 		activeIndex = -1;
@@ -162,8 +163,12 @@
 <div class="relative">
 	<input
 		type="text"
-		bind:value
-		oninput={handleInput}
+		value={value}
+		oninput={(e) => {
+			const v = (e.currentTarget as HTMLInputElement).value;
+			onValueChange?.(v);
+			handleInput(v);
+		}}
 		onfocus={handleFocus}
 		onblur={handleBlur}
 		onkeydown={handleKeydown}

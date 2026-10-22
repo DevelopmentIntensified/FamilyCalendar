@@ -259,7 +259,7 @@
 	</div>
 
 	{#if tab === 'family'}
-		<TaskTagFilter bind:tagFilter />
+		<TaskTagFilter {tagFilter} onTagFilterChange={(v) => (tagFilter = v)} />
 
 		{#if openTasks.length === 0 && completedTasks.length === 0}
 			{#if tagFilter.trim()}

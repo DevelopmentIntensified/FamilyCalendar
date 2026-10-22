@@ -11,7 +11,11 @@
 		phraseReportable: boolean;
 		phraseReported: boolean;
 		reportingPhrase: boolean;
+		onNlInputValueChange: (v: string) => void;
 		onNlInputChange: () => void;
+		onMultiResultsChange: (
+			v: Array<{ parsed: NlpFormInput; confidence: number }> | null
+		) => void;
 		onClear: () => void;
 		onCreateAll: () => void;
 		onDismissMulti: () => void;
@@ -19,16 +23,18 @@
 	}
 
 	let {
-		nlInput = $bindable(),
+		nlInput,
 		parsing,
 		parseError,
-		multiResults = $bindable(),
+		multiResults,
 		submitting,
 		lastParseResult,
 		phraseReportable,
 		phraseReported,
 		reportingPhrase,
+		onNlInputValueChange,
 		onNlInputChange,
+		onMultiResultsChange,
 		onClear,
 		onCreateAll,
 		onDismissMulti,
@@ -43,8 +49,11 @@
 			<input
 				id="nl-input"
 				type="text"
-				bind:value={nlInput}
-				on:input={onNlInputChange}
+				value={nlInput}
+				on:input={(e) => {
+					onNlInputValueChange((e.currentTarget as HTMLInputElement).value);
+					onNlInputChange();
+				}}
 				placeholder="Lunch Friday at noon with John"
 				class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm transition-all focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 			/>

@@ -16,9 +16,10 @@
 		searchQuery: string;
 		sortBy: TaskSortKey;
 		tagFilter: string;
-		/** Which bucket of the queue is on screen. Owned here: it is a view of
-		 *  the list, not a URL, exactly like the jump bar's time filter. */
-		view?: TaskView;
+		onChipChange?: (v: TaskChip) => void;
+		onSearchQueryChange?: (v: string) => void;
+		onSortByChange?: (v: TaskSortKey) => void;
+		onTagFilterChange?: (v: string) => void;
 		openCount: number;
 		completedCount: number;
 		completedThisWeek: number;
@@ -44,12 +45,14 @@
 	}
 
 	let {
-		chip = $bindable(),
-		searchQuery = $bindable(),
-		sortBy = $bindable(),
-		tagFilter = $bindable(),
-		view = $bindable('open'),
-		confirmClear = $bindable(),
+		chip,
+		searchQuery,
+		sortBy,
+		tagFilter,
+		onChipChange,
+		onSearchQueryChange,
+		onSortByChange,
+		onTagFilterChange,
 		openCount,
 		completedCount,
 		completedThisWeek,
@@ -72,6 +75,10 @@
 		onCancelClear,
 		onClearCompleted
 	}: Props = $props();
+
+	/** Which bucket of the queue is on screen. Owned here: it is a view of
+	 *  the list, not a URL, exactly like the jump bar's time filter. */
+	let view = $state<TaskView>('open');
 
 	/** Per-chip helper copy for the empty state. */
 	const CHIP_EMPTY: Record<TaskChip, { title: string; hint: string }> = {
@@ -167,11 +174,16 @@
 	<p class="mt-0.5 text-xs text-slate-400">Filter, search, and sort your list</p>
 
 	<TaskToolbar
-		bind:chip
-		bind:searchQuery
-		bind:sortBy
-		bind:tagFilter
-		bind:view
+		{chip}
+		{searchQuery}
+		{sortBy}
+		{tagFilter}
+		{view}
+		onChipChange={onChipChange}
+		onSearchQueryChange={onSearchQueryChange}
+		onSortByChange={onSortByChange}
+		onTagFilterChange={onTagFilterChange}
+		onViewChange={(v) => (view = v)}
 		matchCount={matched.length}
 		totalCount={filteredOpen.length + filteredCompleted.length}
 	/>

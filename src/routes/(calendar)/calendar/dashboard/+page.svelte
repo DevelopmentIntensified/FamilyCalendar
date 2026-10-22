@@ -5,15 +5,16 @@
 	import DayDashboard from '$lib/components/dashboard/DayDashboard.svelte';
 	import type { PageData } from './$types';
 
-	export let data: PageData;
+	let { data }: { data: PageData } = $props();
 
-	$: dayDt = DateTime.fromISO(data.dayISO).setZone(data.zone).startOf('day');
-	$: dateLabel = dayDt.toFormat('cccc, LLLL d');
-	$: prevDayHref = '/calendar/dashboard?date=' + dayDt.minus({ days: 1 }).toISODate();
-	$: nextDayHref = '/calendar/dashboard?date=' + dayDt.plus({ days: 1 }).toISODate();
-	$: todayHref = '/calendar/dashboard';
-	$: backToCalendarHref =
-		data.userSettings?.defaultView === 'dashboard' ? '/calendar?dashboardView=1' : '/calendar';
+	const dayDt = $derived(DateTime.fromISO(data.dayISO).setZone(data.zone).startOf('day'));
+	const dateLabel = $derived(dayDt.toFormat('cccc, LLLL d'));
+	const prevDayHref = $derived('/calendar/dashboard?date=' + dayDt.minus({ days: 1 }).toISODate());
+	const nextDayHref = $derived('/calendar/dashboard?date=' + dayDt.plus({ days: 1 }).toISODate());
+	const todayHref = $derived('/calendar/dashboard');
+	const backToCalendarHref = $derived(
+		data.userSettings?.defaultView === 'dashboard' ? '/calendar?dashboardView=1' : '/calendar'
+	);
 </script>
 
 <svelte:head>
