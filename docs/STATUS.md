@@ -20,7 +20,12 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   running at push time (owner's explicit mid-outage override of the gates-first rule); full
   suite + build reran green afterwards (260 files / 3674 tests; build touches prod DB too —
   hooks import reached from prerender, see #196 lesson). Project-level `opencode.json` added with Resend + Neon MCPs
-  for the rig seats (picked up on next seat restart).
+  for the rig seats (picked up on next seat restart). Next-day: field "can't login, no
+  error" reproduced server-side — post-login calendar load bounced to /login because
+  `sessionCookieValue` percent-encoded a value Kit's `cookies.set` encodes once more
+  (double-encode → unsign guard fails → locals.user null). Fix c8b06c6 (raw signed
+  scheme + contract test; gates 3675/3675), deployed to prod `57nkkee7i`, verified live
+  (calendar `__data.json` 200 isLoggedIn, no redirect); SW cache bumped v1→v2.
 
 - **Retention/attribution/marketing-truth batch (2026-10-19, pushed to `test`):**
   **#092 fixed** — the four viewer-facing stats figures (`completedOnce`,
