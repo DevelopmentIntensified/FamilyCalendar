@@ -1,5 +1,5 @@
-const CACHE_NAME = 'familyplanz-v1';
-const DATA_CACHE_NAME = 'familyplanz-data-v1';
+const CACHE_NAME = 'familyplanz-v2';
+const DATA_CACHE_NAME = 'familyplanz-data-v2';
 const DATA_CACHE_LIMIT = 60;
 /** Age cap for cached data (privacy audit #029 M2): 1 day. */
 const DATA_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;

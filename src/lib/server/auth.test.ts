@@ -27,6 +27,20 @@ async function loadAuth(secret: string | undefined): Promise<typeof AuthModule> 
 }
 
 describe('session token cookie (better-auth signed scheme)', () => {
+	it('returns raw signed value — no percent encoding (kit cookies.set encodes once on the wire)', async () => {
+		const { sessionCookieValue, unsignSessionToken } = await loadAuth('unit-test-secret-key-material');
+		const value = sessionCookieValue('tok-123');
+		// Contract fix 2026-10-22: the value must be better-auth's raw signed
+		// scheme `token.hmacSHA256(token)`. Kit's cookies.set does the one URL
+		// encoding and cookies.get does the one decode, so a module-level
+		// encodeURIComponent double-encoded the wire value (%2B → %252B) and
+		// every second-leg request failed unsign → anonymous → /login bounce.
+		// RED first at 89-char encodings seen from prod; green post-fix.
+		expect(value).not.toContain('%');
+		expect(value.startsWith('tok-123.')).toBe(true);
+		expect(unsignSessionToken(value)).toBe('tok-123');
+	});
+
 	it('signs and round-trips a token', async () => {
 		const { sessionCookieValue, unsignSessionToken } = await loadAuth('unit-test-secret-key-material');
 		const value = sessionCookieValue('tok-123');

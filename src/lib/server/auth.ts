@@ -58,7 +58,13 @@ function signSessionToken(token: string): string {
 }
 
 export function sessionCookieValue(token: string): string {
-	return encodeURIComponent(`${token}.${signSessionToken(token)}`);
+	// RAW `token.signature` — better-auth's signed-cookie scheme. Do NOT
+	// encodeURIComponent here: SvelteKit's cookies.set already URL-encodes
+	// once on the wire and cookies.get URLs-decodes once on read, so an
+	// extra layer here double-encoded the value (%2B → %252B) and every
+	// post-login request failed unsign → anonymous → /login bounce (#196
+	// cutover, 2026-10-22).
+	return `${token}.${signSessionToken(token)}`;
 }
 
 /** Inverse of `sessionCookieValue`: verifies the signature and returns the raw session token, or null. */
