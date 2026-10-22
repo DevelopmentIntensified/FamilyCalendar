@@ -1,6 +1,6 @@
 # 200 — /calendar SSR 500: $$render_inner is not defined (legacy-mode compile)
 
-Status: in-progress
+Status: done
 
 Source: bugReports auto-filed 2026-10-22 08:37 + prod logs (ReferenceError stack on every /calendar GET). svelte pinned 5.20.1, kit 2.70.3 — **NOT a version bump**: the SSR break is the legacy-compile pattern triggered by the `+layout.svelte` script.
 
@@ -14,3 +14,17 @@ Source: bugReports auto-filed 2026-10-22 08:37 + prod logs (ReferenceError stack
 
 - **Fix (in flight, parallel lane):** runes migration of `src/routes/(calendar)/calendar/+layout.svelte`'s script, then rebuild the SSR artifact so the compiled layout ships a defined render path — no bare `$$render_inner` call — and deploy; every /calendar GET back to 200.
 - **Regression gate — the acceptance for this ticket:** a build-artifact smoke test asserting the compiled layout contains no bare `$$render_inner` call. File it with the fix and run it after each `vite build` so this failure class cannot land silently again.
+
+## DONE 2026-10-22
+
+- **Fix landed** (commit 9cec5fe): svelte 5.20.1 → 5.57.2 — the compiler now emits
+  `22848render_inner` as a declaration instead of a dropped expression; plus 825c095
+  (TasksMainList onChip/Sort/Search/TagFilterChange destructured, was undefined → SSR 500).
+  Compiled artifact verified: `(calendar)/calendar/_layout.svelte.js` carries **zero**
+  `render_inner` occurrences; the other four compiled files that still name it all define
+  `function $$render_inner(...)` locally (legal compile output).
+- **Regression gate landed:** `scripts/check-ssr-render-inner.mjs` appended to `npm run
+  build` — scans every module in `.svelte-kit/output/server/entries` and fails the build
+  if any file *calls* `$$render_inner` without a local definition (the legacy-compile
+  bug shape). Red-proved by planting a bare-call artifact (exit 1) and by the full build
+  (exit 0, 137 modules). This failure class can no longer land silently.

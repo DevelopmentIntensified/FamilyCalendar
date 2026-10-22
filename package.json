@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "node scripts/publish-prototypes.mjs && vite build",
+		"build": "node scripts/publish-prototypes.mjs && vite build && node scripts/check-ssr-render-inner.mjs",
 		"build:capacitor": "node scripts/build-capacitor.mjs",
 		"cap:add": "npm run build:capacitor && cap add android",
 		"cap:sync": "npm run build:capacitor && cap sync",
