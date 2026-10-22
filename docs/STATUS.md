@@ -16,10 +16,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   went better-auth while prod code was still lucia → www.familyplanz.com 500'd on all
   session-cookie routes. Owner ordered test→prod commit `2fc4bcc` (slices 2–5) — pushed,
   Vercel production `jjbtsw8id` Ready, verified /api/health, /login, /calendar/tasks all
-  200 with junk cookie. Prod is the ADR-0002 end state. Residual: full vitest gate was
-  still running at push time (owner's explicit mid-outage override of the gates-first
-  rule); result checks the push after the fact. Project-level `opencode.json` added with
-  Resend + Neon MCPs for the rig seats (picked up on next seat restart).
+  200 with junk cookie. Prod is the ADR-0002 end state. Residual: the vitest gate was still
+  running at push time (owner's explicit mid-outage override of the gates-first rule); full
+  suite + build reran green afterwards (260 files / 3674 tests; build touches prod DB too —
+  hooks import reached from prerender, see #196 lesson). Project-level `opencode.json` added with Resend + Neon MCPs
+  for the rig seats (picked up on next seat restart).
 
 - **Retention/attribution/marketing-truth batch (2026-10-19, pushed to `test`):**
   **#092 fixed** — the four viewer-facing stats figures (`completedOnce`,
