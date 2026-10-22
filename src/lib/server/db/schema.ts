@@ -729,10 +729,10 @@ export const itemTags = pgTable(
 		// distinct, so the global scope gets its own partial unique index.
 		userKeyCategoryUnique: uniqueIndex('item_tags_user_key_category_unique')
 			.on(table.userId, table.key, table.category)
-			.where(sql`user_id IS NOT NULL`),
+			.where(sql`"userId" IS NOT NULL`),
 		globalKeyCategoryUnique: uniqueIndex('item_tags_global_key_category_unique')
 			.on(table.key, table.category)
-			.where(sql`user_id IS NULL`),
+			.where(sql`"userId" IS NULL`),
 		// Indexed batch lookup for predictions (O(log n) at any scale).
 		keyIdx: index('item_tags_key_idx').on(table.key)
 	})
