@@ -4,6 +4,23 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **#196 prod cutover + Neon access lane (2026-10-21, pushed to `test` and `main`):**
+  Neon API access set up: `neon` CLI profile `familyplanz` (separate oauth account owns
+  project `hidden-resonance-16080139`; branch map: main=`ep-plain-cloud`, preview/test=
+  `ep-bitter-water` — currently idle-archived, restores on access). Migrations ran the
+  self-serve way: 017+018 applied + verified on `preview/test` (auth_account backfill 8/8
+  pages, lucia sessions dropped, 112 guests placeholder-converted); on main the runner had
+  already applied 016-drop/017/018 at 12:26Z via a local cold-start (the seat's slice-2
+  verification run charged `.env`'s DB — `.env` points at MAIN; lesson recorded in #196:
+  local runs against `.env` DB = prod migrations without deploys). Consequence: prod DB
+  went better-auth while prod code was still lucia → www.familyplanz.com 500'd on all
+  session-cookie routes. Owner ordered test→prod commit `2fc4bcc` (slices 2–5) — pushed,
+  Vercel production `jjbtsw8id` Ready, verified /api/health, /login, /calendar/tasks all
+  200 with junk cookie. Prod is the ADR-0002 end state. Residual: full vitest gate was
+  still running at push time (owner's explicit mid-outage override of the gates-first
+  rule); result checks the push after the fact. Project-level `opencode.json` added with
+  Resend + Neon MCPs for the rig seats (picked up on next seat restart).
+
 - **Retention/attribution/marketing-truth batch (2026-10-19, pushed to `test`):**
   **#092 fixed** — the four viewer-facing stats figures (`completedOnce`,
   `recurringCompletions`, `recentlyCompleted`, `month`) now filter completions
