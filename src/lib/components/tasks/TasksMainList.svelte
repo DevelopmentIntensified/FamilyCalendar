@@ -52,7 +52,7 @@
 		onChipChange,
 		onSearchQueryChange,
 		onSortByChange,
-		confirmClear,
+		onTagFilterChange,
 		openCount,
 		completedCount,
 		completedThisWeek,
