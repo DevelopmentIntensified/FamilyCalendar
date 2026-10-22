@@ -1,6 +1,6 @@
 # 196 — Migrate sessions from lucia (archived, EOL) to Better Auth
 
-Status: in-progress
+Status: done
 
 Source: owner question 2026-10-16 ("are we still using lucia? why haven't we moved to betterauth?") + #161 finding (`lucia@3.2.2` archived upstream, no CVE, zero maintenance). Lucia's author's successor project is Better Auth. **Design decided 2026-10-16 — ADR-0002 governs** (self-hosted Better Auth 1.7.x on Neon; sliding 90d sessions; bcrypt custom verify; placeholder-email guests; codes table replaced wholesale; normalization ours; throttle policy table; MFA deferred).
 
@@ -13,6 +13,7 @@ Source: owner question 2026-10-16 ("are we still using lucia? why haven't we mov
 - Ground truth (slice-2 recon 2026-10-21): slices 0/1 landed more than the Done notes said — schema.ts already has the three better-auth tables matching 018 byte-for-byte, hooks/login/signup/claim/forgot-password/email-change/account-deletion call sites are cutover (zero source imports of `lucia`/`@lucia-auth` left), and 018 already keeps bcryptjs (login verifies `users.passwordHash`; 018 backfills `auth_account.password` from it). Crisp gaps found and killed in slice 2:
   - **Migration bundle drift (the real bug, #050's failure class):** `db/migrations/scripts.ts` stopped at 016 — `016-drop-user-ad-consent`, `017_create_child_consent_records` (190) and `018_better_auth_tables` were never bundled, so the cold-start runner would NEVER create the better-auth tables on deployed envs. Fixed + `scripts.test.ts` parity gate added: every file in `sql/migrations/` must be bundled byte-identically, sorted — the omission class is now impossible to miss silently.
   - **`auth_account` had no writer** (only the 018 backfill): new signups got `users.passwordHash` but no credential account row. Fixed in slice 5 — `createNewUser` writes both in one transaction.
+- **Slice 7 FINISHED (16feb4c, omp lane 2026-10-22):** `lucia` + `@lucia-auth/adapter-drizzle` deleted from package.json + lockfile (26 deletions, none in src — recon confirmed zero lucia imports). `oslo` TimeSpan stays as designed (oslo is a separate maintained lib). Full gates green 3675/3675 + build. **#196 CLOSED — all slices (0–7) landed; cookie double-encode hotfix c8b06c6 shipped prod; degenerate cutover done.**
 - **HAND-RUN SQL for the operator (prod Neon, both branches):** the bundled runner applies these on cold start for any env that tracks `__schema_migrations` honestly, but per repo rule run them by hand ONCE on prod `test` + main branches before the next deploy cuts cookies:
   1. `psql $PROD_URL -f sql/migrations/017_create_child_consent_records.sql` (already hand-run per #190's notes — idempotent re-run is a no-op; skip if the table exists)
   2. `psql $PROD_URL -f sql/migrations/018_better_auth_tables.sql` (idempotent; **irreversible step**: drops lucia `sessions` rows historically — acceptable per ADR-0002, old cookies die at cutover anyway; MUST be run before/at the deploy that ships this branch, or live sessions 500 on `auth_session`)

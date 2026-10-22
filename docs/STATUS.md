@@ -26,6 +26,9 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   (double-encode → unsign guard fails → locals.user null). Fix c8b06c6 (raw signed
   scheme + contract test; gates 3675/3675), deployed to prod `57nkkee7i`, verified live
   (calendar `__data.json` 200 isLoggedIn, no redirect); SW cache bumped v1→v2.
+  **#196 DONE 2026-10-22 (16feb4c):** lucia + @lucia-auth/adapter-drizzle deps deleted
+  (zero src imports), full gates green, ticket flipped done. Slices 0–7 complete — the
+  move is over; queue t-196 closed (rig retired per owner 'kill rig' session).
 
 - **Retention/attribution/marketing-truth batch (2026-10-19, pushed to `test`):**
   **#092 fixed** — the four viewer-facing stats figures (`completedOnce`,
