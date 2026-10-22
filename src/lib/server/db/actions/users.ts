@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { users, subscriptions, tasks, type User } from '$lib/server/db/schema';
+import { users, subscriptions, tasks, authAccount, type User } from '$lib/server/db/schema';
 import { createUserSettings } from '$lib/server/db/actions/userSettings';
 import { generateId } from '$lib/server/utils/generateId';
 import { ANONYMOUS_EMAIL_DOMAIN } from '$lib/utils/anonymous';
@@ -36,14 +36,33 @@ export async function createUser(data: {
 	phonenumber?: string;
 	phonenumberVerified?: boolean;
 }) {
-	const [createdUser] = await db
-		.insert(users)
-		.values({
-			...data,
-			emailVerified: data.emailVerified ?? false,
-			roles: data.roles ?? []
-		})
-		.returning();
+	const insertValues = {
+		...data,
+		emailVerified: data.emailVerified ?? false,
+		roles: data.roles ?? []
+	};
+
+	if (!data.passwordHash) {
+		const [createdUser] = await db.insert(users).values(insertValues).returning();
+		return createdUser;
+	}
+
+	// #196 slice 5: password users get BOTH the legacy `users.passwordHash`
+	// column (login/password verifies against it — bcryptjs stays) and the
+	// better-auth `auth_account` credential row (same shape migration 018
+	// backfilled for existing users), atomically so a failed account insert
+	// never strands a user without credentials.
+	const [createdUser] = await db.transaction(async (tx) => {
+		const [user] = await tx.insert(users).values(insertValues).returning();
+		await tx.insert(authAccount).values({
+			id: `pw-${user.id}`,
+			userId: user.id,
+			providerId: 'credential',
+			accountId: user.id,
+			password: data.passwordHash
+		});
+		return [user];
+	});
 	return createdUser;
 }
 
