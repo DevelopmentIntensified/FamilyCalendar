@@ -40,8 +40,35 @@ function formString(formData: FormData, key: string): string {
 	return isString(value) ? value : '';
 }
 
+/**
+ * Testable seam for the hardened email-change verification (Oct lane).
+ *
+ * Keeps the 10/15m IP throttle + code-consumer binding verbatim while letting
+ * route tests inject fakes (claim-page pattern: SvelteKit's Actions type
+ * erases the deps parameter).
+ */
+export type VerifyEmailDeps = {
+	getCode: typeof getCode;
+	deleteCode: typeof deleteCode;
+	getUser: typeof getUser;
+	applyEmailChange: (userId: string, pendingEmail: string) => Promise<unknown>;
+	emailSecret: Uint8Array;
+};
+
+const verifyEmailDeps: VerifyEmailDeps = {
+	getCode,
+	deleteCode,
+	getUser,
+	applyEmailChange: (userId: string, pendingEmail: string) =>
+		db
+			.update(users)
+			.set({ email: pendingEmail, emailVerified: true })
+			.where(eq(users.id, userId)),
+	emailSecret: new TextEncoder().encode(EMAILSECRET)
+};
+
 export const actions: Actions = {
-	verify: async ({ request, locals }) => {
+	verify: async ({ request, locals }, deps: VerifyEmailDeps = verifyEmailDeps) => {
 		// Throttle code guessing: 10 attempts per 15min per IP (login-code pattern).
 		if (!rateLimit(clientKey(request, 'verify-email-change'), 10, 15 * 60 * 1000)) {
 			return fail(429, { success: false, message: 'Too many attempts. Try again shortly.' });
@@ -54,7 +81,7 @@ export const actions: Actions = {
 			return fail(400, { success: false, message: 'Verification code is required' });
 		}
 
-		const secret = new TextEncoder().encode(EMAILSECRET);
+		const secret = deps.emailSecret;
 		const userId = requireUser(locals).id;
 
 		try {
@@ -78,14 +105,11 @@ export const actions: Actions = {
 				}
 				pendingEmail = payload.pendingEmail;
 
-				await db
-					.update(users)
-					.set({ email: pendingEmail, emailVerified: true })
-					.where(eq(users.id, userId));
+				await deps.applyEmailChange(userId, pendingEmail);
 
 				return { success: true, message: 'Email verified successfully!' };
 			} else if (code) {
-				const existingCode = await getCode(code);
+				const existingCode = await deps.getCode(code);
 				if (!existingCode) {
 					return fail(400, { success: false, message: 'Invalid verification code' });
 				}
@@ -100,7 +124,7 @@ export const actions: Actions = {
 
 				// Identity binding: the code belongs to the address that requested it.
 				// A sniffed code cannot rewrite a different user's row.
-				const consumer = await getUser(userId);
+				const consumer = await deps.getUser(userId);
 				if (!consumer?.email || existingCode.email !== consumer.email) {
 					return fail(400, { success: false, message: 'Invalid verification code' });
 				}
@@ -109,11 +133,8 @@ export const actions: Actions = {
 					return fail(400, { success: false, message: 'No pending email found' });
 				}
 
-				await db
-					.update(users)
-					.set({ email: pendingEmail, emailVerified: true })
-					.where(eq(users.id, userId));
-				await deleteCode(code);
+				await deps.applyEmailChange(userId, pendingEmail);
+				await deps.deleteCode(code);
 
 				return { success: true, message: 'Email verified successfully!' };
 			}

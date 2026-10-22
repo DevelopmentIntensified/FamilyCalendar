@@ -31,3 +31,11 @@ export function clientKey(request: Request, scope: string): string {
 	const ip = (real ?? fwd?.split(',')[0] ?? 'local').trim() || 'local';
 	return `${scope}:${ip}`;
 }
+
+/** TEST-ONLY: empties the module-scope window store so route tests can claim
+ * clean buckets per case (the map is in-process state shared across test
+ * files otherwise).
+ */
+export function clearRateLimitState(): void {
+	buckets.clear();
+}

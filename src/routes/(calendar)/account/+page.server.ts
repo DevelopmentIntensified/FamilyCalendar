@@ -42,6 +42,35 @@ import {
 	notificationPreferenceChangeLabel
 } from '$lib/components/account/accountNotifications';
 
+/**
+ * Testable seam for the hardened email-change request (Oct lane).
+ *
+ * Keeps the 3/15m throttle + code-consumer binding behavior verbatim while
+ * letting route tests inject fakes (claim-page pattern: SvelteKit's Actions
+ * type erases the deps parameter).
+ */
+export type UpdateEmailDeps = {
+	getUser: typeof getUser;
+	sendEmail: typeof sendEmail;
+	createJwt: typeof createJWT;
+	baseUrl: string;
+	fromEmail: string;
+	emailSecret: Uint8Array;
+	deleteCodesByEmail: typeof deleteCodesByEmail;
+	createCode: typeof createCode;
+};
+
+const updateEmailDeps: UpdateEmailDeps = {
+	getUser,
+	sendEmail,
+	createJwt: createJWT,
+	baseUrl: getUrl(),
+	fromEmail: NOREPLYEMAIL,
+	emailSecret: new TextEncoder().encode(EMAILSECRET),
+	deleteCodesByEmail,
+	createCode
+};
+
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
 		return redirect(302, '/login');
@@ -357,14 +386,14 @@ export const actions: Actions = {
 		}
 	},
 
-	updateEmail: async ({ request, locals }) => {
+	updateEmail: async ({ request, locals }, deps: UpdateEmailDeps = updateEmailDeps) => {
 		// Throttle email bombing: 3 sends per 15min per user+IP (forgot-password pattern).
 		const user = requireUser(locals);
 		if (!rateLimit(clientKey(request, `email-change:${user.id}`), 3, 15 * 60 * 1000)) {
 			return fail(429, { success: false, message: 'Too many attempts. Try again shortly.' });
 		}
 		const userId = user.id;
-		const currentUser = await getUser(userId);
+		const currentUser = await deps.getUser(userId);
 
 		// Anonymous Accounts have no email yet — they claim their first
 		// email via the magic-link save flow, not the change-email flow.
@@ -400,8 +429,8 @@ export const actions: Actions = {
 			const nums = '0123456789';
 			const code = generateRandomString(random, nums, 8);
 
-			const secret = new TextEncoder().encode(EMAILSECRET);
-			const token = await createJWT(
+			const secret = deps.emailSecret;
+			const token = await deps.createJwt(
 				'HS256',
 				secret,
 				{ code, pendingEmail: email },
@@ -411,20 +440,20 @@ export const actions: Actions = {
 				}
 			);
 
-			const verifyUrl = new URL(getUrl());
+			const verifyUrl = new URL(deps.baseUrl);
 			verifyUrl.pathname = '/account/verify-email';
 			verifyUrl.searchParams.set('token', token);
 
-			await sendEmail({
+			await deps.sendEmail({
 				to: email,
-				from: NOREPLYEMAIL,
+				from: deps.fromEmail,
 				subject: 'Family Planz Email Change Verification',
 				html: `<h1>Your verification code is: ${code}</h1>
 <p>Or click this link to verify: <a href="${verifyUrl.toString()}">Verify Email</a></p>`
 			});
 
-			await deleteCodesByEmail(currentUser!.email);
-			await createCode({
+			await deps.deleteCodesByEmail(currentUser!.email);
+			await deps.createCode({
 				code,
 				expiresAt: new Date(Date.now() + 60 * 1000 * 15),
 				email: currentUser!.email,
