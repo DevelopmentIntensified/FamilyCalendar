@@ -1065,6 +1065,164 @@ describe('EventFormModal - edit save preserves series + invites', () => {
 	});
 });
 
+describe('EventFormModal - submit error copy (issue 195)', () => {
+	beforeEach(() => {
+		vi.stubGlobal('fetch', vi.fn());
+		vi.stubGlobal('localStorage', createMockLocalStorage());
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	/** A non-ok reply with no error message: the fallback copy is what shows. */
+	const failStub = (status: number) => ({
+		ok: false,
+		status,
+		json: () => Promise.resolve({})
+	});
+
+	describe('create (POST /api/events, sites 479 + 380/388)', () => {
+		it('names creating and the next step when the server says nothing', async () => {
+			// SAFETY: the stub satisfies only the ok/status/json surface read here.
+			vi.mocked(fetch).mockImplementation(((url: string, init?: RequestInit) =>
+				Promise.resolve(
+					String(url).includes('/api/events') && init?.method === 'POST'
+						? failStub(500)
+						: fetchStub({})
+				)) as typeof fetch);
+
+			render(EventFormModal, {
+				props: {
+					show: true,
+					calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
+					initialDate: '2026-09-08'
+				}
+			});
+
+			await fireEvent.input(screen.getByLabelText(/title/i), { target: { value: 'Lunch' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+			expect(
+				await screen.findByText(
+					"Couldn't create the event. Check your connection (a VPN can block it), then try again."
+				)
+			).toBeInTheDocument();
+		});
+
+		it('wants a fresh sign-in when the session was rejected', async () => {
+			// SAFETY: the stub satisfies only the ok/status/json surface read here.
+			vi.mocked(fetch).mockImplementation(((url: string, init?: RequestInit) =>
+				Promise.resolve(
+					String(url).includes('/api/events') && init?.method === 'POST'
+						? failStub(401)
+						: fetchStub({})
+				)) as typeof fetch);
+
+			render(EventFormModal, {
+				props: {
+					show: true,
+					calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
+					initialDate: '2026-09-08'
+				}
+			});
+
+			await fireEvent.input(screen.getByLabelText(/title/i), { target: { value: 'Lunch' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+			expect(await screen.findByText(/Your session expired. Sign in/)).toBeInTheDocument();
+		});
+	});
+
+	describe('multi-create (site 380/388)', () => {
+		it('names creating when one of the parsed events fails with no message', async () => {
+			// SAFETY: the stub satisfies only the ok/status/json surface read here.
+			vi.mocked(fetch).mockImplementation(((url: string, init?: RequestInit) =>
+				Promise.resolve(
+					String(url).includes('/api/parse-event')
+						? fetchStub({
+								results: [
+									{ parsed: { title: 'Dinner', date: '2026-09-04' }, confidence: 0.8 },
+									{ parsed: { title: 'Movie', date: '2026-09-05' }, confidence: 0.8 }
+								],
+								method: 'regex-list'
+							})
+						: init?.method === 'POST'
+							? failStub(500)
+							: fetchStub({})
+				)) as typeof fetch);
+
+			render(EventFormModal, {
+				props: { show: true, calendarIds: [{ id: 'cal1', name: 'My Calendar' }] }
+			});
+
+			const nlInput = screen.getAllByPlaceholderText(/lunch friday/i)[0];
+			await fireEvent.input(nlInput, { target: { value: 'dinner Friday and movie Saturday' } });
+			await waitFor(() =>
+				expect(screen.getByText(/2 events detected/i)).toBeInTheDocument()
+			);
+			await fireEvent.click(screen.getByRole('button', { name: /create 2 events/i }));
+
+			expect(
+				await screen.findByText(
+					"Couldn't create the event. Check your connection (a VPN can block it), then try again."
+				)
+			).toBeInTheDocument();
+		});
+	});
+
+	describe('save (PUT, site 429)', () => {
+		const editEvent = {
+			id: 'mstr1',
+			masterId: 'mstr1',
+			ownerId: 'u1',
+			calendarId: 'cal1',
+			title: 'Yoga',
+			start: '2026-07-17T10:00:00Z',
+			end: '2026-07-17T11:00:00Z',
+			description: '',
+			location: '',
+			allDay: false,
+			recurrenceFrequency: null,
+			recurrenceInterval: null,
+			recurrenceByDay: null,
+			recurrenceCount: null,
+			recurrenceUntil: null,
+			reminderMinutes: null,
+			created_at: new Date('2026-06-01T00:00:00Z')
+		};
+
+		it('names saving when the update lands with no server message', async () => {
+			// SAFETY: the stub satisfies only the ok/status/json surface read here.
+			vi.mocked(fetch).mockImplementation(((url: string, init?: RequestInit) =>
+				Promise.resolve(
+					init?.method === 'PUT'
+						? failStub(500)
+						: String(url).includes('/rsvp')
+							? fetchStub({})
+							: fetchStub({})
+				)) as typeof fetch);
+
+			render(EventFormModal, {
+				props: {
+					show: true,
+					event: editEvent,
+					calendarIds: [{ id: 'cal1', name: 'My Calendar' }]
+				}
+			});
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+
+			expect(
+				await screen.findByText(
+					"Couldn't save your changes. Check your connection (a VPN can block it), then try again."
+				)
+			).toBeInTheDocument();
+		});
+	});
+});
+
 describe('EventFormModal - task-mode scoping (issue 021)', () => {
 	const roster = [
 		{ userId: 'u_mom', firstName: 'Maya', lastName: 'Lopez', email: 'maya@example.com' },

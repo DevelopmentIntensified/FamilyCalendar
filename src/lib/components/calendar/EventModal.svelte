@@ -18,6 +18,7 @@
 	import { fetchAttendance, splitAttendance } from '$lib/utils/attendance';
 	import { createSwipeState, createSwipeHandlers } from './bottomSheetSwipe';
 	import BottomSheetHandle from './BottomSheetHandle.svelte';
+	import { actionErrorCopy } from '$lib/utils/actionError';
 
 	export let event: Event;
 	export let show = false;
@@ -251,10 +252,10 @@
 			if (response.ok) {
 				dispatch('delete', { id: event.masterId || event.id });
 				close();
-			} else {
-				const j = await response.json().catch(() => ({}));
-				actionError = j.error || 'Something went wrong. Try again.';
-			}
+		} else {
+			const j = await response.json().catch(() => ({}));
+			actionError = actionErrorCopy('delete', j.error, response.status);
+		}
 		} catch (error) {
 			console.error('Delete error:', error);
 			actionError = 'Network error. Check your connection and try again.';
@@ -292,7 +293,7 @@
 				close();
 			} else {
 				const j = await res.json().catch(() => ({}));
-				actionError = j.error || 'Something went wrong. Try again.';
+				actionError = actionErrorCopy('duplicate', j.error, res.status);
 			}
 		} catch (e) {
 			console.error('Duplicate failed:', e);

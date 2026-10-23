@@ -23,6 +23,7 @@
 	import EventModalShell from './EventModalShell.svelte';
 	import { queueMutation } from '$lib/utils/offline';
 	import { matchCalendarByName } from '$lib/utils/calendarMatch';
+	import { actionErrorCopy } from '$lib/utils/actionError';
 
 	export let show = false;
 	export let onClose: () => void = () => {};
@@ -377,7 +378,7 @@
 				});
 				if (!res.ok) {
 					const j = await res.json().catch(() => ({}));
-					throw new Error(j.error || 'Something went wrong. Try again.');
+					throw new Error(j.error || actionErrorCopy('create', null, res.status));
 				}
 				const json = await res.json();
 				dispatch('create', { ...payload, created: json.event ?? null });
@@ -385,7 +386,7 @@
 			close();
 		} catch (err) {
 			console.error('Create failed:', err);
-			submitError = err instanceof Error ? err.message : 'Something went wrong. Try again.';
+			submitError = err instanceof Error ? err.message : actionErrorCopy('create');
 		} finally {
 			submitting = false;
 		}
@@ -426,7 +427,7 @@
 					dispatch('update', { id: targetId, ...eventData });
 				} else {
 					const j = await res.json().catch(() => ({}));
-					submitError = j.error || 'Something went wrong. Try again.';
+					submitError = actionErrorCopy('save', j.error, res.status);
 				}
 			} catch (err) {
 				console.error('Update failed:', err);
@@ -477,7 +478,7 @@
 					}
 				} else {
 					const j = await res.json().catch(() => ({}));
-					submitError = j.error || 'Something went wrong. Try again.';
+					submitError = actionErrorCopy('create', j.error, res.status);
 				}
 			} catch (err) {
 				console.error('Create failed:', err);

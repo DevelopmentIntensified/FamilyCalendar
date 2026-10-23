@@ -587,6 +587,64 @@ describe('EventModal - attendee/checklist loading state', () => {
 	});
 });
 
+// Issue 195: a server reply with no message of its own must not fall back to
+// a bare "Something went wrong" — the copy names the action and the next step.
+describe('EventModal - action error copy (issue 195)', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	/** Routes every call the modal makes; DELETE/POST answers fail with `status`. */
+	function stubApi(fail: { status: number }) {
+		// SAFETY: the stub satisfies only the ok/status/json surface read here.
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string, init?: RequestInit) => {
+				if (init?.method === 'DELETE' || init?.method === 'POST') {
+					return { ok: false, status: fail.status, json: async () => ({}) };
+				}
+				return { ok: true, json: async () => ({ attendance: [], userRsvpStatus: 'undecided' }) };
+			})
+		);
+	}
+
+	it('names deleting and the next step when the server says nothing', async () => {
+		stubApi({ status: 500 });
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete event' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }));
+
+		expect(
+			await screen.findByText(
+				"Couldn't delete the event. Check your connection (a VPN can block it), then try again."
+			)
+		).toBeInTheDocument();
+	});
+
+	it('wants a fresh sign-in when the session was rejected', async () => {
+		stubApi({ status: 401 });
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete event' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }));
+
+		expect(await screen.findByText(/Your session expired/)).toBeInTheDocument();
+	});
+
+	it('names duplicating when the copy request fails with no server message', async () => {
+		stubApi({ status: 500 });
+		render(EventModal, { props: { show: true, event: baseEvent } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Duplicate event' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Duplicate$/ }));
+
+		expect(
+			await screen.findByText(
+				"Couldn't duplicate the event. Check your connection (a VPN can block it), then try again."
+			)
+		).toBeInTheDocument();
+	});
+});
+
 describe('EventModal - duplicate payload', () => {	const dupEvent: Event = {
 		...baseEvent,
 		recurrenceFrequency: 'weekly',

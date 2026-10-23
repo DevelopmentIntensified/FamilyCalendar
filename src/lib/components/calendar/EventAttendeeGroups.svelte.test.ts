@@ -169,3 +169,57 @@ describe('EventAttendeeGroups', () => {
 		expect(screen.getByRole('button', { name: '+ Invite' })).toBeInTheDocument();
 	});
 });
+
+// Issue 106: above the fold, the list is the detail under the summary — the
+// region leads with the count + proportion and hands the rows over on a toggle.
+describe('EventAttendeeGroups - long list collapse (issue 106)', () => {
+	afterEach(cleanup);
+
+	const crowd = {
+		going: [
+			member('Aa', 'One'),
+			member('Bb', 'Two'),
+			member('Cc', 'Three'),
+			member('Dd', 'Four')
+		],
+		maybe: [member('Ee', 'Five')],
+		notGoing: [member('Ff', 'Six')],
+		undecided: [member('Gg', 'Seven'), member('Hh', 'Eight')],
+		guests: [{ name: 'Ii Nine', status: 'invited' }]
+	};
+
+	it('collapses a list longer than the fold to the summary line', () => {
+		render(EventAttendeeGroups, { props: crowd });
+
+		expect(screen.queryAllByTestId('attendance-row')).toHaveLength(0);
+		// The proportion survives the collapse — the bar still announces the split.
+		expect(screen.getByTestId('attendance-heading')).toHaveTextContent('4/9 going');
+		expect(screen.getByTestId('attendance-bar')).toBeInTheDocument();
+
+		const toggle = screen.getByTestId('attendance-toggle');
+		expect(toggle).toHaveAttribute('aria-expanded', 'false');
+		expect(toggle).toHaveTextContent(/show all 9 people/i);
+	});
+
+	it('keeps everyone reachable and collapses again on the second tap', async () => {
+		render(EventAttendeeGroups, { props: crowd });
+
+		await fireEvent.click(screen.getByTestId('attendance-toggle'));
+
+		expect(screen.getAllByTestId('attendance-row')).toHaveLength(9);
+		const open = screen.getByTestId('attendance-toggle');
+		expect(open).toHaveAttribute('aria-expanded', 'true');
+		expect(open).toHaveTextContent(/show fewer/i);
+
+		await fireEvent.click(open);
+		expect(screen.queryAllByTestId('attendance-row')).toHaveLength(0);
+		expect(screen.getByTestId('attendance-toggle')).toHaveTextContent(/show all 9 people/i);
+	});
+
+	it('keeps the list unfolded while nobody asked more than the fold', () => {
+		render(EventAttendeeGroups, { props: { ...crowd, guests: [] } });
+
+		expect(screen.queryByTestId('attendance-toggle')).toBeNull();
+		expect(screen.getAllByTestId('attendance-row')).toHaveLength(8);
+	});
+});

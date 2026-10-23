@@ -168,6 +168,12 @@
 	let inviting = $state(false);
 	let inviteName = $state('');
 
+	// Above the fold the rows are the detail under the summary, not its peer
+	// (issue 106): the list collapses so the proportion leads.
+	const COLLAPSE_AFTER = 8;
+	let expanded = $state(false);
+	const collapsed = $derived(people.length > COLLAPSE_AFTER);
+
 	async function submitInvite() {
 		const name = inviteName.trim();
 		// An empty name invites nobody; the button is disabled, this is the guard.
@@ -205,45 +211,68 @@
 		</div>
 	{/if}
 
-	<ul>
-		{#each people as person, index (person.name + index)}
-			{@const status = statusOf(person.row.status, person.bucket)}
-			<li
-				data-testid="attendance-row"
-				data-name={person.name}
-				class="flex items-center gap-2 border-t border-slate-100 py-2 first:border-t-0"
-			>
-				<span
-					class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold {person.row
-						.userId
-						? 'bg-slate-200 text-slate-700'
-						: 'bg-slate-100 text-slate-500'}"
-					aria-hidden="true"
+	{#if collapsed && !expanded}
+		<button
+			type="button"
+			data-testid="attendance-toggle"
+			aria-expanded="false"
+			onclick={() => (expanded = true)}
+			class="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+		>
+			Show all {asked} people
+		</button>
+	{:else}
+		<ul>
+			{#each people as person, index (person.name + index)}
+				{@const status = statusOf(person.row.status, person.bucket)}
+				<li
+					data-testid="attendance-row"
+					data-name={person.name}
+					class="flex items-center gap-2 border-t border-slate-100 py-2 first:border-t-0"
 				>
-					{person.row.userId
-						? initials(person.row.firstName, person.row.lastName)
-						: (person.name.charAt(0) || '?')}
-				</span>
-				<span class="min-w-0 flex-1">
-					<span class="block truncate text-sm font-semibold text-slate-800">{person.name}</span>
-					{#if !person.row.userId}
-						<span class="block text-xs text-slate-400">guest — not a user</span>
-					{/if}
-				</span>
-				{#if person.row.inviteType === 'required'}
 					<span
-						class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800"
+						class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold {person.row
+							.userId
+							? 'bg-slate-200 text-slate-700'
+							: 'bg-slate-100 text-slate-500'}"
+						aria-hidden="true"
 					>
-						Required
+						{person.row.userId
+							? initials(person.row.firstName, person.row.lastName)
+							: (person.name.charAt(0) || '?')}
 					</span>
-				{/if}
-				<span class="h-2 w-2 shrink-0 rounded-full {TONE[status].dot}" aria-hidden="true"></span>
-				<span class="w-24 shrink-0 text-right text-xs {TONE[status].text}">
-					{STATUS_LABEL[status]}
-				</span>
-			</li>
-		{/each}
-	</ul>
+					<span class="min-w-0 flex-1">
+						<span class="block truncate text-sm font-semibold text-slate-800">{person.name}</span>
+						{#if !person.row.userId}
+							<span class="block text-xs text-slate-400">guest — not a user</span>
+						{/if}
+					</span>
+					{#if person.row.inviteType === 'required'}
+						<span
+							class="rounded bg-amber-200 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-800"
+						>
+							Required
+						</span>
+					{/if}
+					<span class="h-2 w-2 shrink-0 rounded-full {TONE[status].dot}" aria-hidden="true"></span>
+					<span class="w-24 shrink-0 text-right text-xs {TONE[status].text}">
+						{STATUS_LABEL[status]}
+					</span>
+				</li>
+			{/each}
+		</ul>
+		{#if collapsed}
+			<button
+				type="button"
+				data-testid="attendance-toggle"
+				aria-expanded="true"
+				onclick={() => (expanded = false)}
+				class="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+			>
+				Show fewer
+			</button>
+		{/if}
+	{/if}
 
 	{#if inviting}
 		<form
