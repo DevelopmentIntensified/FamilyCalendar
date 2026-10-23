@@ -195,19 +195,32 @@ the privacy questions; neither fabricates.
 
 ## Needs doing
 
-- [ ] **The user runs the DDL above** — the `DROP` and the `CREATE` — and
-      confirms both land.
-- [ ] Decide whether the ad-events table is wanted at all. It is written by the
-      ad injection path and **read by nothing** — no reporting query exists
-      anywhere in the app. It is retention work, not consent work, and belongs
-      with #029's M5.
-- [ ] Decide the retention period for `adConsentRecords`. Evidence ages
-      differently from a preference: a withdrawal must be provable long after
-      the fact, but the trail also cannot become an unbounded log. No purge
-      job is written.
-- [ ] Wire `getAdConsentRecords(userId)` to a user-facing privacy view. It
-      exists and is tested as the read path, but no page calls it yet — so
-      today the only way to answer "prove I consented" is a direct SQL query.
+- [x] **The user runs the DDL above** — the `DROP` and the `CREATE` — and
+      confirms both land. DONE 2026-10-03 (see 088b note) / 2026-10-04 (step 7).
+- [x] adEvents is retained and read (2026-10-22, local build — unpushed):
+      `pruneAdEventsOlderThan` (90-day window, createdAt anchor) runs in the
+      weekly cleanup cron beside the other prunes; `countRecentAdEventsByTargetPlan`
+      (last window, grouped by targetPlan as kind) exported for reporting — no
+      UI consumer yet, none obvious.
+- [x]       Retention for `adConsentRecords`: DECLARED append-only forever. The DDL
+      above and the schema comment both advertise a trail ("Append-only ... no
+      purge"), and a withdrawal must stay provable long past 90 days. So it is
+      NOT pruned and nothing was blanked in the select: the four columns it
+      selects are exactly the evidence (who / which / when). Owner can revisit.
+- [x] `getAdConsentRecords` wired (2026-10-22, local build — unpushed): the
+      account page's load degrades to `[]` on read failure and the calendar
+      settings' Sponsorship section renders the trail inline — "No ad consent
+      recorded yet" when empty, "Consented — d Month yyyy" / "Consent withdrawn
+      — d Month yyyy" per row, newest first. Component tests
+      (`AccountCalendarSection.svelte.test.ts`, red→green). Display-only; the
+      serve-time gate is untouched.
+
+Deployed-state answer (2026-10-22 audit): the shipped slice — `shouldServeAds`
+gate, `recordAdConsentChange` writer, DDL, migration 016 — is on the test-branch
+HEAD (`ca05b0d`) and therefore live on test.familyplanz.com. Nothing for the
+three items above existed anywhere in the repo before this session (grep: zero
+callers of `getAdConsentRecords`, zero ad prune, zero adEvents reads). The three
+items ship to test only when these changes are pushed.
 
 ## Notes
 

@@ -1,6 +1,6 @@
 # 089 — The waitlist duplicate guard can never fire, and the endpoint is unthrottled
 
-Status: open
+Status: done
 
 Source: instruction — technical-debt sweep of schema, migrations, and dead code.
 
@@ -59,13 +59,49 @@ Three more problems on the same path, all worth fixing in the same slice:
 
 ## Done
 
+- Unique index added (`waitlist_email_key` on the `email` column,
+  `src/lib/server/db/schema.ts`) and the insert now names an explicit conflict
+  target: `.onConflictDoNothing({ target: waitlist.email })`. The
+  already-on-the-waitlist branch is live.
+  **Deviation from the ticket's "index on lower(email)":** drizzle-orm 0.45
+  types `onConflictDoNothing.target` as `PgColumn` only and Postgres conflict
+  inference needs the target expression to match the index, so a `lower()`
+  expression index cannot have a working explicit target through drizzle. Same
+  case-insensitive behavior achieved by: the action lowercasing at insert
+  (already did), and the hand-run SQL lowercasing historical rows before
+  building the index. SQL is identical to what `db:push` generates.
+- Dedupe + index SQL for hand-running on prod/test (independent branches):
+  `sql/HAND-RUN-2026-10-22-waitlist-dedupe-unique-email.sql`. Tolerant of both
+  table shapes for 086 (keys rows by ctid, not id). NOT run anywhere remote;
+  smoke-tested on the local docker test DB (dedupe keeps earliest, case
+  normalized, index built, 0 dupes after).
+- Rate-limited on the shared limiter (`src/lib/server/utils/rateLimit.ts`,
+  `clientKey(request, 'waitlist-join')`, 5 per 10 min) with an injectable gate
+  (`WaitlistDeps`), following the contact-page deps pattern.
+- Consent fields stamped only when the form actually posts a consent field
+  (`consent=on|true|yes`; the current form collects none, so rows stay null and
+  no longer claim consent).
+- Confirmation-email failure surfaced: the send is awaited and a provider
+  failure returns fail(500) with "We saved your spot, but the confirmation
+  email failed to send..."; the row stays (a retry gets the duplicate message).
+  Email validation regex kept (no shared email validator exists in-repo;
+  magicLink's is unexported lane-local).
+- Tests (real-Postgres seam, mocks only at the provider boundary:
+  `src/routes/(marketing)/waitlist/page.server.real.test.ts`, 7 tests): RED
+  4/7 first (duplicate guard x2, consent stamping, email-failure), then GREEN
+  7/7 after the fixes. toggleTaskComplete.real precedent, no vi.mock of db.
+- Build green; prettier/svelte-check clean on touched files. Full-suite rollup:
+  pre-existing unrelated client reds + a shared-DB race among real-Postgres
+  suites when many files run together (toggleTaskComplete fails in trios while
+  any pair passes — pre-existing harness property, see 002).
+- NOT done here (stays open): an admin listing / owner for waitlist rows, and
+  retention (cleanup-cron work owns both).
+
 ## Notes
 
-- TDD applies: the duplicate case has **no test at all** today. The existing
-  waitlist spec only checks that the page renders and never submits the form.
 - The dedupe migration is manual SQL for the user, per the repo rule.
 - Retention for these rows belongs with the cleanup-cron work; do not build a
   second mechanism here.
 - Two of the older migrations declare this table with a different shape
   (email as primary key, no id) — that contradiction is tracked in 086, and
-  writing this migration before 086 lands means writing it twice.
+  this migration was written to tolerate both shapes.

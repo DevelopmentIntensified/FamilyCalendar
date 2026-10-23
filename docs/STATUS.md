@@ -4,6 +4,17 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **#107 leading-PM quick-add fix (2026-10-22, local, uncommitted):** bare
+  meridiem confirmed as text, not a time; leading `PM`/`AM`/`P.M.`/`pm` kept in
+  the title (`isLeadingMeridiem` in cleanTitleText), dangling trailing `in`
+  dropped, pre-window strip no longer amputates an hour's own meridiem
+  ("Pack meeting 10" → stray digits gone). Table suite 11 tests
+  (red 8/11 → green 11/11) + 2 integration cases through the
+  `POST /api/parse-event` regex seam; the real e2e
+  `e2e/events/NlpTimeParsing.test.ts` passes unmodified. Ticket-line title now
+  `PM Certification 4 Days Classroom Training`; location stays `Lynchburg`
+  (e2e-pinned; `, VA` upgrade deliberately left, documented in the issue).
+
 - **#196 prod cutover + Neon access lane (2026-10-21, pushed to `test` and `main`):**
   Neon API access set up: `neon` CLI profile `familyplanz` (separate oauth account owns
   project `hidden-resonance-16080139`; branch map: main=`ep-plain-cloud`, preview/test=
@@ -494,10 +505,14 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   - #088 Ad consent has two sources of truth, and the one read at serve time can
     never gain a row (its only writer has no callers), so ads never render at
     all. Two of the three booleans are read and written nowhere.
-  - #089 Waitlist duplicate guard can never fire — `onConflictDoNothing()` with
-    no unique index on email, so the "already on the waitlist" branch is dead
-    and duplicates insert. Also unthrottled while every other public write uses
-    the shared limiter, and it stamps consent on a non-consenting submission.
+  - #089 **DONE 2026-10-22** — unique index `waitlist_email_key` + explicit
+    conflict target (duplicate branch live), shared rate limiter on the join,
+    consent stamped only when collected, confirmation-email failure surfaces
+    (fail 500, row kept). Hand-run dedupe+index SQL at
+    `sql/HAND-RUN-2026-10-22-waitlist-dedupe-unique-email.sql` (prod/test
+    branches; note the lower(email)→plain-column deviation explained in the
+    issue). Real-Postgres tests 7/7 (RED 4/7 first). Open residue: admin
+    listing/owner for waitlist rows.
   - #090 `groups`/`userGroups`/`familyGroups` declared, joined, never used. Only
     live reference is two e2e cleanup helpers. Blocked by #086.
   - #091 Family invite link is only findable by knowing where to look — no share
@@ -526,10 +541,10 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - **Drift corrected inside still-open tickets:** #016 bullet 3 done (3dc290b) — bullets
   1/2 open; #029 M3 done — M4 open (analytics PII, adEvents purge, unredacted payloads);
   #077 duplicate density bullet removed; #088 item 1 contradiction fixed (DDL applied
-  2026-10-03) — no reader of getAdConsentRecords yet.
+  2026-10-03) — consent history now rendered on the account page, adEvents prune +
+  30-day reporting read built 2026-10-22 (local, unpushed).
 - **Still genuinely open, notable:** #002 floated to ~20 scripted suites (list stale,
-  grew); #116 mock-triage untouched; #088/#089 code unbuilt; #107 leading-PM bug
-  re-verified live today (unchanged); #129 drift + harness red-probe unchanged;
+  grew); #116 mock-triage untouched; #129 drift + harness red-probe unchanged;
   #122/#143 blocked; #164/#165/#166/#167/#168 security seams untouched; #197 premise
   fixed — bump landed via #200, residual = jsdom ^25→30, testing-library ↑, animate shim,
   EventFormModal full-gate verify; #198/#199 awaiting owner.

@@ -1,6 +1,6 @@
 # 116 — 26 suites mock the database module; that count is the seam report
 
-Status: open
+Status: done (owner 2026-10-22: #002 cancelled, so the mock-triage sweep is capped by the pilot done)
 
 Source: architecture review, 2026-09-30, candidate #9. Explicitly deferred work —
 `AGENTS.md` records a real-Postgres harness as future work (#002).
@@ -66,3 +66,8 @@ is a working example, not a proposal.
   Two passes, same answer.
 - Until this lands, treat every test in `db/actions/` as a test of *the shape of
   the query*, not of the query. Say so when quoting coverage.
+
+
+## Done 2026-10-22
+
+- Owner ruling upon cancelling #002: close the ticket with the pilot's provisions as the finishing line — toggleTaskComplete.real.test.ts lives beside the mock test; sweep is not continued.

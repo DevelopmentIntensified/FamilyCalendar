@@ -1,6 +1,6 @@
 # 129 — The settings page does not carry the prototype's look
 
-Status: open
+Status: in-progress
 
 `/calendar/settings` is a shim: `+page.server.ts` only, `redirect(302, '/account#calendar')`.
 Correct — no page belongs there, nothing links to it, and the `#calendar` anchor
@@ -46,16 +46,53 @@ missed the same thing one level in.
   not start until that fence is clear, or the two collide on
   `AccountSidebar.svelte` and the section components.
 
-## Needs doing
+## Done 2026-10-22 (first slice, measured)
 
-- [ ] Rail becomes the prototype's column of cards: 20px radius, 1px border,
-      white, 1rem padding, 1rem stack gap, `.rail__title` at .08em
-- [ ] Grid to `15rem minmax(0,1fr)` at 1000px, not 1024/16rem
-- [ ] Main column: drop the 12px card, follow `.sec`
-- [ ] Identity avatar to the prototype's blush `#FED5CF`
-- [ ] Inputs and the toast/error banners brought into the same radius language
-- [ ] `brand:check` and `proto:check` clean
+- Rail: `nav[data-testid=account-rail-card]` is a rail__card — rounded-[1.25rem],
+  1px slate-200 border, white, p-4; rows at the `.snav` .625rem radius, uniform
+  slate-600 (red dropped — the marketing palette carries no red at rest, and the
+  prototype's snav rows are uniform); title 11px/700/uppercase/**.08em**
+  (`AccountSidebar.svelte:54-105`).
+- Grid: `min-[1000px]:grid-cols-[15rem_minmax(0,1fr)] items-start`, gap 1rem,
+  sticky rail top 5.25rem (`+page.svelte:60-64`).
+- Main: the 12px wrapper card is gone; header is a divider, the mounted section
+  rides in a 20px rail__card, banners rounded-xl (`+page.svelte:38-100`).
+- Avatar: blush `#FED5CF` + `#c45e38`, 700 weight (131's token run flagged the
+  800; marketing governs type); identity card framed, white/95
+  (`AccountSidebar.svelte:108-127`).
+- Inputs: rounded-lg → rounded-xl (prototype `.input` is .75rem) in Email,
+  Profile, Danger, ApiTokens sections. **CalendarSection left fenced** — it is
+  inside the in-flight Notifications/consent slice's edits.
+- Navbar signed-in pill bg-slate-100 → bg-slate-50 — the last colour-token
+  deviation in the /account measurement (131's #f1f5f9 row).
+- Conformance: `e2e/conformance/account-known-bad.test.ts` converted to the
+  shipped ruling — **zero deviations on every colour/type/shadow property the
+  harness tracks at 1000px**, and the prototype's geometry measured in a real
+  browser: rail card 20px radius / 16px padding, 16px stack gap, .08em tracking
+  (0.88px computed), 240px grid rail track. 2/2 conformance tests green
+  (marketing leave-one-out + /account).
+- `brand:check` clean. `proto:check` has ONE pre-existing red, untouched by this
+  slice: `app-check.mjs §7` says `sessions` is modelled but not in schema.ts
+  (the #196 better-auth cutover renamed it `authSession…` — the prototype check
+  needs that slice to update the model list).
+- `e2e/testUtils.ts` rebased onto the committed better-auth session API
+  (`createSession`/`createSessionCookie` on `authSession`); the auth cutover
+  commit had left it calling the removed `lucia`. Dev DB got `auth_session`
+  hand-created (sql recorded: Temp work dir; idempotent CREATE TABLE IF NOT
+  EXISTS) because migration 016 (consent) fails first in the boot chain and
+  blocks 018 — **that is the #088/#196 slices' operational debt, not this
+  ticket's**.
 
-## Done
+## Needs doing (remainder of the drift table)
 
-(nothing yet)
+- [ ] Prototype measure at 1440px and a phone width, not just the harness's
+      1000px
+- [ ] Avatar stays 700, not the prototype's 800 (marketing governs type) —
+      owner call if 800 should win
+- [ ] Identity card white/95 vs the prototype's white/80 (white/80 is not a
+      marketing palette value; owner call)
+- [ ] Main rail__card keeps p-6 (24px) where the prototype uses 1rem — owner
+      call; sections were composed for the extra room
+- [ ] Upper-case `.rail__title` colour stays slate-400 = --s400 ✓; rows keep
+      text-sm (14px) where the prototype is 13px (marketing governs type, 13px
+      is not in the corpus)

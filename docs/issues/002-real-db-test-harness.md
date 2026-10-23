@@ -1,6 +1,6 @@
 # 002 — Real-Postgres test harness for DB action tests
 
-Status: open
+Status: cancelled (owner 2026-10-22: local-db fixes made the stub-replacement sweep moot)
 
 ## Done
 
@@ -18,3 +18,11 @@ Status: open
 - Then remove the disable comments; the `no-module-mocking` rule goes fully clean.
 - Keep suites fast (<30s total); parallelize on distinct schemas if needed.
 - **Harness setup contract (from the verification above):** tests must pin `familycalendar_test` explicitly (`db:push:test` is the canonical push; recreate on drift: drop/create database then push); the main local volume's push requires an interactive rename-answer — not part of the harness.
+
+
+## Cancelled 2026-10-22
+
+- Owner ruling (2026-10-22): cancel — "local db fixes" make the stub-replacement sweep
+  moot. What landed and stays: the harness prerequisites (vitest-setup-server.ts pin) and
+  the pilot `toggleTaskComplete.real.test.ts` running against real Postgres. The scripted
+  stub suites are NOT converted; #116 closed on the same ruling.
