@@ -35,49 +35,55 @@
 	<div class="mx-auto max-w-6xl">
 		<Breadcrumbs crumbs={[{ label: 'Calendar', href: '/calendar' }, { label: 'Account' }]} />
 
-		<div class="rounded-xl border border-slate-200 bg-white shadow-sm">
-			<div
-				class="flex flex-col border-b border-slate-200 p-6 lg:flex-row lg:items-center lg:justify-between"
-			>
-				<div>
-					<h1 class="text-2xl font-bold text-slate-900">Account Settings</h1>
-					<p class="mt-1 text-sm text-slate-500">Manage your account settings and preferences</p>
-				</div>
-				<a
-					href="/calendar"
-					class="mt-4 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-primary-600 lg:mt-0"
-				>
-					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-						/>
-					</svg>
-					Back to Calendar
-				</a>
+		<!-- 129: the approved page is unframed — no 12px card around the header
+		     and the grid. The header is a divider, the main column reads as the
+		     prototype's .sec, and the mounted section rides in a rail__card. -->
+		<div
+			class="mt-4 flex flex-col border-b border-slate-200 pb-6 min-[1000px]:flex-row min-[1000px]:items-center min-[1000px]:justify-between"
+		>
+			<div>
+				<h1 class="text-2xl font-bold text-slate-900">Account Settings</h1>
+				<p class="mt-1 text-sm text-slate-500">Manage your account settings and preferences</p>
 			</div>
+			<a
+				href="/calendar"
+				class="mt-4 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-primary-600 min-[1000px]:mt-0"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+					/>
+				</svg>
+				Back to Calendar
+			</a>
+		</div>
 
-			<div class="flex flex-col lg:flex-row">
-				<AccountSidebar {activeSection} user={user} />
+		<!-- 129: grid `15rem minmax(0,1fr)` at 1000px, as the prototype spells it. -->
+		<div
+			class="mt-6 grid grid-cols-1 items-start gap-4 min-[1000px]:grid-cols-[15rem_minmax(0,1fr)]"
+		>
+			<AccountSidebar {activeSection} {user} />
 
-				<div class="flex-1 p-6">
-					{#if success && message}
-						<div class="mb-6 rounded-lg bg-green-50 p-4 text-sm text-green-800">
-							{message}
-						</div>
-					{:else if form && !form.success}
-						<div class="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-800">
-							{form.message}
-							{#if 'guestNeedsClaim' in form && form.guestNeedsClaim}
-								<a href="/claim" class="ml-1 font-semibold underline"
-									>Open the save-your-calendar flow →</a
-								>
-							{/if}
-						</div>
-					{/if}
+			<div class="min-w-0">
+				{#if success && message}
+					<div class="mb-4 rounded-xl bg-green-50 p-4 text-sm text-green-800">
+						{message}
+					</div>
+				{:else if form && !form.success}
+					<div class="mb-4 rounded-xl bg-red-50 p-4 text-sm text-red-800">
+						{form.message}
+						{#if 'guestNeedsClaim' in form && form.guestNeedsClaim}
+							<a href="/claim" class="ml-1 font-semibold underline"
+								>Open the save-your-calendar flow →</a
+							>
+						{/if}
+					</div>
+				{/if}
 
+				<div class="rounded-[1.25rem] border border-slate-200 bg-white p-6">
 					{#if activeSection === 'profile'}
 						<AccountProfileSection {user} />
 					{:else if activeSection === 'families'}
@@ -89,6 +95,7 @@
 							userSettings={data.userSettings}
 							calendars={data.calendars ?? []}
 							verseTranslations={data.verseTranslations ?? []}
+							consentHistory={data.consentHistory ?? []}
 						/>
 					{:else if activeSection === 'dashboard'}
 						<AccountDashboardSection

@@ -1,7 +1,7 @@
 import { test as base } from '@playwright/test';
 import { db } from '$lib/server/db';
-import { sessions, users, calendars, events, userSettings } from '$lib/server/db/schema';
-import { lucia } from '$lib/server/auth';
+import { authSession, users, calendars, events, userSettings } from '$lib/server/db/schema';
+import { createSession, createSessionCookie } from '$lib/server/auth';
 import { eq } from 'drizzle-orm';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 import { deleteAccount } from '$lib/server/db/actions/accounts';
@@ -38,7 +38,7 @@ export async function teardownTestUser(testUser: TestUser) {
 		await db.delete(events).where(eq(events.ownerId, user[0].id));
 		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
 		await db.delete(userSettings).where(eq(userSettings.userId, user[0].id));
-		await db.delete(sessions).where(eq(sessions.userId, user[0].id));
+		await db.delete(authSession).where(eq(authSession.userId, user[0].id));
 		await deleteCodesByEmail(testUser.email);
 		await deleteAccount(testUser.email);
 		await deleteUser(testUser.uid);
@@ -95,13 +95,9 @@ export async function getSessionCookie(email: string) {
 	const user = await db.select().from(users).where(eq(users.email, email));
 	if (!user[0]) throw new Error('User not found');
 
-	const userSessions = await db.select().from(sessions).where(eq(sessions.userId, user[0].id));
-
-	if (userSessions.length === 0) {
-		const session = await lucia.createSession(user[0].id, {});
-		return lucia.createSessionCookie(session.id);
-	}
-
-	const session = userSessions[0];
-	return lucia.createSessionCookie(session.id);
+	// 196 cutover: session minting goes through the better-auth data model —
+	// a row in `authSession` plus the module's signed cookie — not lucia.
+	const session = await createSession(user[0].id);
+	const cookie = await createSessionCookie({ token: session.token });
+	return cookie;
 }

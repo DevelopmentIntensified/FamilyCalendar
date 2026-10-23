@@ -40,6 +40,69 @@ describe('AccountSidebar — 105: the approved section list', () => {
 	});
 });
 
+describe('AccountSidebar — 129: the prototype rail, measured', () => {
+	afterEach(cleanup);
+
+	it('wears the rail__card chrome: 1.25rem radius, 1px slate border, white, 1rem padding', () => {
+		render(AccountSidebar, { props: { activeSection: 'profile' } });
+		const card = document.querySelector('nav[data-testid="account-rail-card"]')!;
+		expect(card.className).toContain('rounded-[1.25rem]');
+		expect(card.className).toContain('border border-slate-200');
+		expect(card.className).toContain('bg-white');
+		expect(card.className).toContain('p-4');
+	});
+
+	it('stacks the nav card and the identity card 1rem apart', () => {
+		render(AccountSidebar, { props: { activeSection: 'profile', user: { email: 'a@b.c' } } });
+		const rail = document.querySelector('[data-testid="account-rail"]')!;
+		expect(rail.className).toContain('gap-4');
+	});
+
+	it('sets the rail__title at .08em, not the old .1em widest', () => {
+		render(AccountSidebar, { props: { activeSection: 'profile' } });
+		const title = document.querySelector('[data-testid="account-rail-title"]')!;
+		expect(title.className).toContain('tracking-[0.08em]');
+		expect(title.className).not.toContain('tracking-widest');
+	});
+
+	it('wears the blush #FED5CF avatar, not Tailwind orange-100', () => {
+		render(AccountSidebar, { props: { activeSection: 'profile', user: { email: 'a@b.c' } } });
+		const avatar = document.querySelector('[data-testid="account-initial"]')!;
+		expect(avatar.className).toContain('bg-[#FED5CF]');
+		expect(avatar.className).toContain('text-[#c45e38]');
+		expect(avatar.className).not.toContain('orange');
+	});
+
+	it('drops the avatar to the 700 weight against the box-shadow-free reference', () => {
+		render(AccountSidebar, { props: { activeSection: 'profile', user: { email: 'a@b.c' } } });
+		const avatar = document.querySelector('[data-testid="account-initial"]')!;
+		expect(avatar.className).toContain('font-bold');
+		expect(avatar.className).not.toContain('font-extrabold');
+	});
+
+	it('frames the signed-in-as card like the nav card above it', () => {
+		render(AccountSidebar, { props: { activeSection: 'profile', user: { email: 'a@b.c' } } });
+		const identity = document.querySelector('[data-testid="account-identity"]')!;
+		expect(identity.className).toContain('rounded-[1.25rem]');
+		expect(identity.className).toContain('border border-slate-200');
+	});
+
+	it('sits the rows at the .625rem snav radius', () => {
+		render(AccountSidebar, { props: { activeSection: 'profile' } });
+		const row = document.querySelector('nav[data-testid="account-rail-card"] a')!;
+		expect(row.className).toContain('rounded-[0.625rem]');
+		expect(row.className).not.toContain('rounded-lg');
+	});
+
+	it('reads the danger section stop like every other row, as the snav rows are uniform', () => {
+		render(AccountSidebar, { props: { activeSection: 'profile' } });
+		const danger = document.querySelector('a[href="#danger"]')!;
+		expect(danger.className).toContain('text-slate-600');
+		expect(danger.className).not.toContain('text-red-600');
+		expect(danger.className).not.toContain('text-red-700');
+	});
+});
+
 describe('resolveAccountSection', () => {
 	it('renders the section a hash names', () => {
 		expect(resolveAccountSection('#dashboard')).toBe('dashboard');

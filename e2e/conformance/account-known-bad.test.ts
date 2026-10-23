@@ -3,15 +3,31 @@ import { collectRoute, marketingTokens } from './helpers';
 import { findDeviations, formatDeviations } from '../../src/lib/conformance/tokens';
 
 /**
- * 131 — the known-bad proof. Issue 129 measured the settings surface against
- * the approved prototype and found the identity avatar wearing Tailwind
- * orange-100 where the approved design wears the blush #FED5CF, and the
- * section title at .1em tracking where the approved design sits at .08em.
- * Both are off the language the marketing pages emit, so this test must find
- * them — it is the check that a "matches the prototype" verdict cannot be an
- * opinion any more.
+ * 129 + the owner ruling on 131's fork: the PROTOTYPE governs geometry (sizes
+ * and spacing), the marketing tokens govern colour, type and shadow. /account
+ * now carries the approved design, so this test is the proof it stopped
+ * drifting: the harness must report zero deviations on every colour, type and
+ * shadow property it tracks, while the rail's geometry — inexpressible from
+ * the marketing pages (131's own finding) — is measured in the browser against
+ * the prototype's own numbers: 1.25rem rail cards, 1rem stack gap, .08em
+ * rail__title.
  */
-test('#129: /account at 1000px reports the settings-rail deviations', async ({
+
+/** Geometry and the rail title's .08em tracking are governed by the prototype
+ *  (129 measures them there), not the marketing token set — asserted
+ *  explicitly below instead of judged against marketing. */
+const GEOMETRY = new Set([
+	'border-radius',
+	'letter-spacing',
+	'padding-top',
+	'padding-right',
+	'padding-bottom',
+	'padding-left',
+	'row-gap',
+	'column-gap'
+]);
+
+test('#129: /account at 1000px conforms — zero colour/type/shadow deviations, prototype geometry', async ({
 	page,
 	testUser
 }) => {
@@ -23,20 +39,28 @@ test('#129: /account at 1000px reports the settings-rail deviations', async ({
 	const deviations = findDeviations(measured, tokens);
 	console.log(`design-conformance /account @1000px:\n${formatDeviations(deviations)}`);
 
-	const avatar = deviations.find(
-		(d) => d.property === 'background-color' && d.actual === '#ffedd5'
-	);
+	const governed = deviations.filter((d) => !GEOMETRY.has(d.property));
 	expect(
-		avatar,
-		`the identity avatar (orange-100) must be flagged off-palette:\n${formatDeviations(deviations)}`
-	).toBeTruthy();
-	expect(avatar!.selector).toContain('account-initial');
-	expect(avatar!.expected).toContain('#fed5cf');
+		governed,
+		`the settings surface must sit inside the marketing colour/type/shadow set, with no finding left:\n${formatDeviations(deviations)}`
+	).toHaveLength(0);
 
-	const title = deviations.find((d) => d.property === 'letter-spacing');
-	expect(
-		title,
-		'the section title (.1em tracking) must be flagged against the marketing tracking set'
-	).toBeTruthy();
-	expect(title!.selector).toContain('px-3.pb-2');
+	const rail = await page.evaluate(() => {
+		const style = (testid: string, property: string): string =>
+			getComputedStyle(document.querySelector(`[data-testid="${testid}"]`)!).getPropertyValue(
+				property
+			);
+		return {
+			radius: style('account-rail-card', 'border-radius'),
+			padding: style('account-rail-card', 'padding-top'),
+			stack: style('account-rail', 'row-gap'),
+			title: style('account-rail-title', 'letter-spacing'),
+			width: style('account-rail-card', 'width')
+		};
+	});
+	expect(rail.radius, 'the rail card is the prototype rail__card at 1.25rem').toBe('20px');
+	expect(rail.padding, 'the rail card keeps 1rem of room, as the prototype spells it').toBe('16px');
+	expect(rail.stack, 'the rail stacks its two cards 1rem apart').toBe('16px');
+	expect(rail.title, 'the rail__title tracks at .08em against its 11px font').toBe('0.88px');
+	expect(rail.width, 'the rail column sits in the 15rem grid track').toBe('240px');
 });

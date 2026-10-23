@@ -47,63 +47,74 @@
 	};
 </script>
 
-<!-- The approved page's left column is two stacked cards: the section nav
-     and, under it, who you are signed in as. The nav element still wraps the
-     section links alone so "nav a" stays the section list. -->
-<div class="w-full lg:w-64 lg:border-r lg:border-slate-200">
-	<nav class="border-b border-slate-200 p-4">
-		<div class="px-3 pb-2 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+<!-- 129: the approved page's left column is the prototype's rail — two
+     stacked rail__cards 1rem apart (nav + signed in as) — not a bordered
+     box. The nav element still wraps the section links alone so "nav a"
+     stays the section list. -->
+<div
+	data-testid="account-rail"
+	class="flex w-full flex-col gap-4 min-[1000px]:sticky min-[1000px]:top-[5.25rem]"
+>
+	<nav
+		data-testid="account-rail-card"
+		class="rounded-[1.25rem] border border-slate-200 bg-white p-4"
+	>
+		<div
+			data-testid="account-rail-title"
+			class="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400"
+		>
 			Settings
 		</div>
-		<ul class="space-y-1">
-		{#each ACCOUNT_SECTIONS as section}
+		<ul>
+			{#each ACCOUNT_SECTIONS as section}
+				<li>
+					<a
+						href="#{section.id}"
+						class="flex items-center gap-2 rounded-[0.625rem] px-2.5 py-2 text-sm font-semibold transition-colors
+						{activeSection === section.id
+							? 'bg-primary-50 text-primary-700'
+							: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+					>
+						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d={icons[section.id]}
+							/>
+						</svg>
+						{section.label}
+					</a>
+				</li>
+			{/each}
 			<li>
 				<a
-					href="#{section.id}"
-					class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
-						{activeSection === section.id
-						? 'bg-primary-50 text-primary-700'
-						: section.id === 'danger'
-							? 'text-red-600 hover:bg-red-50'
-							: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+					href="/report-bug"
+					class="flex items-center gap-2 rounded-[0.625rem] px-2.5 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
 				>
 					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							stroke-width="2"
-							d={icons[section.id]}
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 						/>
 					</svg>
-					{section.label}
+					Report a Bug
 				</a>
 			</li>
-		{/each}
-		<li class="pt-2">
-			<a
-				href="/report-bug"
-				class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-			>
-				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-					/>
-				</svg>
-				Report a Bug
-			</a>
-		</li>
 		</ul>
 	</nav>
 
 	{#if user}
-		<div data-testid="account-identity" class="flex items-center gap-3 p-4">
+		<div
+			data-testid="account-identity"
+			class="flex items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white/95 p-4"
+		>
 			<span
 				data-testid="account-initial"
 				aria-hidden="true"
-				class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-orange-100 text-sm font-extrabold text-orange-700"
+				class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#FED5CF] text-sm font-bold text-[#c45e38]"
 			>
 				{initial}
 			</span>

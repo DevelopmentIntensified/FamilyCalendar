@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-import { lastUsedLabel } from './accountSubscription';
+	import { lastUsedLabel } from './accountSubscription';
 
 	interface TokenRow {
 		id: string;
@@ -91,7 +91,7 @@ import { lastUsedLabel } from './accountSubscription';
 			name="name"
 			placeholder="Token name (e.g. TaskFocus laptop)"
 			maxlength="60"
-			class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+			class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
 		/>
 		<button
 			type="submit"

@@ -41,9 +41,8 @@
 	<div class="mb-8">
 		<h2 class="mb-4 text-lg font-semibold text-slate-900">Export your data 👪</h2>
 		<p class="mb-4 text-sm text-slate-600">
-			Download a copy of everything your account stores: profile, settings, families,
-			calendars and events, tasks, bills and receipt lines, grocery lists and notifications.
-			The download is JSON.
+			Download a copy of everything your account stores: profile, settings, families, calendars and
+			events, tasks, bills and receipt lines, grocery lists and notifications. The download is JSON.
 		</p>
 		<button
 			type="button"
@@ -95,7 +94,7 @@
 					id="confirmation"
 					name="confirmation"
 					placeholder="Enter your user ID to confirm"
-					class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+					class="w-full rounded-xl border border-slate-300 px-4 py-2.5 transition-colors focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
 					required
 				/>
 			</div>

@@ -34,7 +34,7 @@
 					id="firstName"
 					name="firstName"
 					value={user.firstName}
-					class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+					class="w-full rounded-xl border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 					required
 				/>
 			</div>
@@ -45,7 +45,7 @@
 					id="lastName"
 					name="lastName"
 					value={user.lastName}
-					class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+					class="w-full rounded-xl border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 					required
 				/>
 			</div>
