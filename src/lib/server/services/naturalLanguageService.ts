@@ -324,7 +324,7 @@ function resolveUntilDate(m: RegExpMatchArray, now: DateTime, zone?: string): st
 
 /** Title stop-words: schedule connectors left after span stripping.
  * Dropped only at the edges or next to punctuation — never mid-title. */
-const TITLE_STOP = new Set(['on', 'from', 'for', 'at', 'to', 'and', 'or', '&', 'am', 'pm']);
+const TITLE_STOP = new Set(['on', 'from', 'for', 'at', 'to', 'and', 'or', '&', 'am', 'pm', 'in']);
 
 /** Fan-out ceiling for a date chain ("sept 1 and 2 and 3 …"): one event per
  * date, never a combinatorial blast. */
@@ -369,6 +369,12 @@ function cleanTitleText(title: string): string {
 			const core = t.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '').toLowerCase();
 			if (core === '') return false;
 			if (!TITLE_STOP.has(core)) return true;
+			// A title may open with a meridiem token ("PM Certification 4 Days…"):
+			// with no hour before it, it is text, never a time marker (issue 107).
+			// Position check (i === lead), not value: the same token can also be last.
+			const lead = tokens.findIndex((x) => x !== '');
+			const isLeadingMeridiem = i === lead && (core === 'am' || core === 'pm');
+			if (isLeadingMeridiem) return true;
 			const prev = tokens[i - 1] ?? '';
 			const next = tokens[i + 1] ?? '';
 			const isPunct = (s: string) => s.length > 0 && /^[^a-z0-9]+$/i.test(s);
@@ -1888,7 +1894,9 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 	// A connector left dangling by the snap ("…jennifer and") goes too — but
 	// only when nothing follows it, so the pinned "dinner for " cut survives.
-	title = title.replace(/\s+(?:and|or|on|at|to|for|from|&|am|pm)$/i, '');
+	// (?<!\d) keeps an hour's own meridiem ("…saturday 10 am") for the
+	// cosmetic half-strip, which removes the whole time (issue 107).
+	title = title.replace(/(?<!\d)\s+(?:and|or|on|at|to|for|from|&|am|pm|in)$/i, '');
 	// Remove trailing punctuation (but preserve spaces to match first 50 chars behavior)
 	title = title.replace(/[.,;:!?]+$/, '');
 

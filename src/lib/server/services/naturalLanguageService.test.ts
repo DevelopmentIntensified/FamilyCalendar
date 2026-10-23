@@ -2113,3 +2113,61 @@ describe('Location span never leaks into the title (issue 108)', () => {
 		});
 	}
 });
+
+describe('Bare leading meridiem stays title text (issue 107)', () => {
+	const TICKET_LINE =
+		'PM Certification 4 Days Classroom Training in Lynchburg, VA Tue, May 26 • 9:00 AM Lynchburg, VA From $1,659.95';
+
+	// [input, expected title, expected location, expected startTime]
+	const cases: Array<[string, string | undefined, string | undefined, string | undefined]> = [
+		[
+			TICKET_LINE,
+			'PM Certification 4 Days Classroom Training',
+			'Lynchburg',
+			'09:00'
+		],
+		['AM Pack meeting saturday 10 am', 'AM Pack meeting', undefined, '10:00'],
+		[
+			'P.M. Certification 4 Days Classroom Training in Lynchburg, VA May 26 2027 9:00 AM',
+			'P.M. Certification 4 Days Classroom Training',
+			'Lynchburg',
+			'09:00'
+		],
+		['pm dentist monday 3 pm', 'pm dentist', undefined, '15:00'],
+		[
+			'PM Certification 4 Days Classroom Training in Lynchburg, VA May 26 2027 9 AM',
+			'PM Certification 4 Days Classroom Training',
+			'Lynchburg',
+			'09:00'
+		],
+		['Dentist appointment friday 4 pm', 'Dentist appointment', undefined, '16:00'],
+		['Kickoff meeting thursday pm', 'Kickoff meeting', undefined, undefined],
+		['PM snack duty tuesday 2:30 PM', 'PM snack duty', undefined, '14:30'],
+		['Science fair wednesday am', 'Science fair', undefined, undefined]
+	];
+	for (const [input, title, location, startTime] of cases) {
+		it(`"${input.slice(0, 52)}" → "${title}" ${startTime ?? ''}`.trimEnd(), () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.title, input).toBe(title);
+			expect(result.parsed.location, input).toBe(location);
+			expect(result.parsed.startTime, input).toBe(startTime);
+		});
+	}
+
+	it('ticket line resolves the real May 26 date', () => {
+		const now = DateTime.now();
+		let year = now.year;
+		if (DateTime.fromObject({ year, month: 5, day: 26 }) < now) year += 1;
+		const result = parseEventInput(TICKET_LINE);
+		expect(result.parsed.date).toBe(
+			DateTime.fromObject({ year, month: 5, day: 26 }).toFormat('yyyy-MM-dd')
+		);
+		expect(result.parsed.startTime).toBe('09:00');
+	});
+
+	it('meridiem still parses when it follows an hour ("9:00 AM" form)', () => {
+		const result = parseEventInput('PM clinic walk-in may 1 8:30 AM');
+		expect(result.parsed.startTime).toBe('08:30');
+		expect(result.parsed.title, 'PM clinic walk-in').toContain('PM');
+	});
+});

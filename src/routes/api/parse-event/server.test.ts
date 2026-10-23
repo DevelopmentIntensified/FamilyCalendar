@@ -146,3 +146,38 @@ describe('POST /api/parse-event', () => {
 		expect(chatJson).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe('POST /api/parse-event — bare leading meridiem (issue 107)', () => {
+	it('keeps the leading PM in the quick-add regex parse', async () => {
+		llmConfigured.mockReturnValue(false);
+
+		const response = await POST(
+			mockEvent({
+				input:
+					'PM Certification 4 Days Classroom Training in Lynchburg, VA Tue, May 26 • 9:00 AM Lynchburg, VA From $1,659.95'
+			}),
+			makeDeps()
+		);
+
+		const body = await response.json();
+
+		expect(body.method).toBe('regex');
+		expect(body.parsed.title).toBe('PM Certification 4 Days Classroom Training');
+		expect(body.parsed.location).toBe('Lynchburg');
+		expect(body.parsed.startTime).toBe('09:00');
+	});
+
+	it('keeps a lowercase leading pm with an explicit time later in the phrase', async () => {
+		llmConfigured.mockReturnValue(false);
+
+		const response = await POST(
+			mockEvent({ input: 'pm dentist monday 3 pm', useCloud: false }),
+			makeDeps()
+		);
+
+		const body = await response.json();
+
+		expect(body.parsed.title).toBe('pm dentist');
+		expect(body.parsed.startTime).toBe('15:00');
+	});
+});
