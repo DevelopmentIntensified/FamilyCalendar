@@ -330,10 +330,13 @@ const TITLE_STOP = new Set(['on', 'from', 'for', 'at', 'to', 'and', 'or', '&', '
  * date, never a combinatorial blast. */
 const MAX_SPAN_DATES = 5;
 
-/** Cosmetic digit-times the parser consumed ("5:30", "9am", "a5pm"). */
+/** Cosmetic digit-times the parser consumed ("5:30", "9am", "a5pm").
+ * "at 6:30pm" goes whole — the colon rule alone would strand "at 6" in
+ * the title (issue 204). */
 const TITLE_TIME_RES = [
+	/\bat\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/gi,
 	/\b\d{1,2}:\d{2}\s*(?:am|pm)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(?:am|pm)?/gi,
-	/\b\d{1,2}:\d{2}\b/g,
+	/\b\d{1,2}:\d{2}(?:\s*(?:am|pm))?\b/gi,
 	/\ba\s*\d{1,2}(?::?\d{2})?\s*(?:am|pm)\b/gi,
 	/\b\d{1,2}\s*(?:am|pm)\b/gi
 ];
@@ -459,7 +462,7 @@ const PLACE_TAIL_WORDS = new Set([
  *  place name must stop where that claim starts — "at the annex this
  *  friday" is the annex, not "annex this" (issue 112). */
 const PLACE_CALENDAR_WORD =
-	/^(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday|january|february|march|april|may|june|july|august|september|october|november|december|today|tomorrow|tonight|yesterday|weekend|week|month|year|next|last|this|that|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth)$/i;
+	/^(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|today|tomorrow|tonight|yesterday|weekend|week|month|year|next|last|this|that|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth)$/i;
 
 /** A clock or a bare number: "at 8", "at 2pm", "at 8:00", "at 30". Never the
  *  name of a place. Digits INSIDE a name are fine ("Room 201", "Route 9") —
@@ -501,6 +504,13 @@ const PLACE_HEAD_BLOCKLIST = new Set([
  *  Sticky — it is anchored at each candidate position. */
 const PLACE_WORD = /[A-Za-z0-9][A-Za-z0-9'’.-]*/y;
 
+/** Mid-place text that is actually clock data ends the name: "at ccl
+ *  6-8pm" is ccl, "goes to aunt ruth's 4:45pm" is aunt ruth's (issue 204).
+ *  Bare numbers stay place words ("Room 201", "Route 9") — only colon
+ *  times, meridiem hours, and hour ranges stop it. */
+const PLACE_TIME_GUARD =
+	/^(?:\d{1,2}(?::\d{2})+|\d{1,2}\s*(?:am|pm)|\d{1,2}\s*[-–—to]+\s*\d{1,2}\s*(?:am|pm))/i;
+
 /** Read the place that starts at `from` — the first character AFTER the opener
  *  match, so the first word needs no leading gap and every later one does.
  *  Stops at the first terminator, after at most five words. Returns null when
@@ -510,6 +520,7 @@ function readPlacePhrase(text: string, from: number): { place: string; length: n
 	for (let words = 0; words < 5; words++) {
 		const start = words === 0 ? end : end + 1;
 		if (words > 0 && !/[\s ]/.test(text[end] ?? '')) break;
+		if (words > 0 && PLACE_TIME_GUARD.test(text.slice(start))) break;
 		PLACE_WORD.lastIndex = start;
 		const token = PLACE_WORD.exec(text)?.[0];
 		if (!token) break;
@@ -545,6 +556,25 @@ function matchPlacePhrase(text: string): { place: string; span: string } | null 
 			return {
 				place: found.place,
 				span: text.slice(match.index, start + article.length + found.length)
+			};
+	}
+	return null;
+}
+
+/** "goes to <place>" / "goes over to" / "heading to" — a movement verb
+ *  pointing at a destination reads the same place grammar as "at <place>"
+ *  (issue 204, mirroring the #114 shared-resolution work). Article forms
+ *  ("goes to the range") stay title text: readPlacePhrase's first-word
+ *  blocklist rejects them. */
+function matchGoPlacePhrase(text: string): { place: string; span: string } | null {
+	const opener = /\b(?:goes\s+(?:over\s+)?to|heading\s+to)\s+/gi;
+	let match: RegExpExecArray | null;
+	while ((match = opener.exec(text)) !== null) {
+		const found = readPlacePhrase(text, match.index + match[0].length);
+		if (found)
+			return {
+				place: found.place,
+				span: text.slice(match.index, match.index + match[0].length + found.length)
 			};
 	}
 	return null;
@@ -641,6 +671,23 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 					? now.plus({ months: n })
 					: now.plus({ days: n })
 		).toFormat('yyyy-MM-dd');
+		confidence += 0.25;
+	}
+
+	// "in 48hrs", "in 90 minutes", "in 2 hours" — clock-relative durations
+	// land the start point itself: date AND wall-clock start. Glued and
+	// spaced spellings both match; day/week/month went to the rule above.
+	const relativeDurationMatch = dateInput.match(
+		/\bin\s+(a|\d+)\s*(minutes?|mins?|min|hours?|hrs?|hr)s?\b/i
+	);
+	if (relativeDurationMatch && !result.date) {
+		const n =
+			relativeDurationMatch[1].toLowerCase() === 'a' ? 1 : parseInt(relativeDurationMatch[1]);
+		const unit = relativeDurationMatch[2].toLowerCase();
+		const point = unit.startsWith('h') ? now.plus({ hours: n }) : now.plus({ minutes: n });
+		stripSpans.push(relativeDurationMatch[0]);
+		result.date = point.toFormat('yyyy-MM-dd');
+		result.startTime = point.toFormat('HH:mm');
 		confidence += 0.25;
 	}
 
@@ -843,10 +890,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		const dt = withRolloverYear(parseInt(sweep[1]), parseInt(sweep[2]), null, now);
 		if (dt.isValid) pushExplicit(sweep.index, dt.toFormat('yyyy-MM-dd'), sweep[0]);
 	}
-	const ordinalSweep = new RegExp(
-		`\\b(\\d{1,2})(?:st|nd|rd|th)\\s+of\\s+(${MONTH_ALT})\\b`,
-		'gi'
-	);
+	const ordinalSweep = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)\\s+of\\s+(${MONTH_ALT})\\b`, 'gi');
 	while ((sweep = ordinalSweep.exec(dateInput)) !== null) {
 		const month = MONTH_MAP[sweep[2].toLowerCase()];
 		const day = parseInt(sweep[1]);
@@ -1055,6 +1099,32 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		confidence += 0.25;
 	}
 
+	// "6-8pm", "6-8 pm", "6 to 8pm", "6–8pm" — bare hour range whose END
+	// carries the meridiem; the start back-extends it. Bare digits without a
+	// meridiem ("20-30 pages") never match. The "from"-led forms are
+	// handled above.
+	const bareRangeMatch = !foundTime
+		? input.match(
+				/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?\s*(?:-|–|—|\bto\b)\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/i
+			)
+		: null;
+	if (bareRangeMatch) {
+		const startPeriod = bareRangeMatch[3]?.toLowerCase();
+		const endPeriod = bareRangeMatch[6]?.toLowerCase();
+		const effectiveStartPeriod = startPeriod || endPeriod;
+		result.startTime = normalizeTime(
+			applyPeriod(parseInt(bareRangeMatch[1]), effectiveStartPeriod),
+			bareRangeMatch[2] ? parseInt(bareRangeMatch[2]) : 0
+		);
+		result.endTime = normalizeTime(
+			applyPeriod(parseInt(bareRangeMatch[4]), endPeriod),
+			bareRangeMatch[5] ? parseInt(bareRangeMatch[5]) : 0
+		);
+		foundTime = true;
+		confidence += 0.25;
+		stripSpans.push(bareRangeMatch[0]);
+	}
+
 	// Check all-day first
 	if (['all day', 'all-day', 'whole day', 'birthday'].some((p) => lower.includes(p))) {
 		result.allDay = true;
@@ -1070,7 +1140,10 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			/\bweekly\s+on\s+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)s?\b/i,
 			() => 'weekly'
 		],
-		[/\bevery other\s+(day|week|month|year)s?\b/i, (m) => cadenceToValue({ unit: cadenceUnit(m[1]) ?? 'week', every: 2 })],
+		[
+			/\bevery other\s+(day|week|month|year)s?\b/i,
+			(m) => cadenceToValue({ unit: cadenceUnit(m[1]) ?? 'week', every: 2 })
+		],
 		[
 			/\bevery\s+(\d+)\s+(days?|weeks?|months?|years?)\b/i,
 			(m) =>
@@ -1636,6 +1709,13 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// the address rules (a street address is more specific than a bare "at")
 	// and BEFORE the compromise guess: an explicit preposition beats an NLP
 	// guess, which otherwise truncated "the downtown roastery" to "downtown".
+	const goPlace = !result.location ? matchGoPlacePhrase(nonUrlText) : null;
+	if (goPlace) {
+		result.location = goPlace.place;
+		confidence += 0.15;
+		titleOnlySpans.push(goPlace.span);
+	}
+
 	const placePhrase = !result.location ? matchPlacePhrase(nonUrlText) : null;
 	if (placePhrase) {
 		result.location = placePhrase.place;
@@ -1936,6 +2016,25 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 				const fallback = nonUrlText.substring(0, 50).replace(/[.,;:!?]+$/, '');
 				if (fallback.length > 0) result.title = fallback;
 			}
+		}
+
+		// Relative-duration phrases ("remind me ... in 48hrs") keep their whole
+		// sentence as the name: the temporal span is schedule, stripped, but the
+		// remaining text is never truncated by the 50-char window (issue 204).
+		// The day/week/month rule counts too when the phrase is a "remind me"
+		// — "remind me ... in 2 days" is the same defect from the relativeMatch
+		// side.
+		if (relativeDurationMatch || (relativeMatch && lower.startsWith('remind me'))) {
+			const stripped = stripTitleSpans(nonUrlText, [
+				...recurrencePhrases,
+				...stripSpans,
+				...titleOnlySpans
+			]);
+			const candidate = cleanTitleText(stripped)
+				.replace(/\s{2,}/g, ' ')
+				.trim()
+				.replace(/[.,;:!?]+$/, '');
+			if (candidate.length > 0) result.title = candidate;
 		}
 	}
 

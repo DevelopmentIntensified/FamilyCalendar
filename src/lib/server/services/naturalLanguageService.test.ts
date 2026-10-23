@@ -1915,13 +1915,12 @@ describe('Unmatched export 2026-09-10 — multi-word comma attendants (#052)', (
 	it.each([
 		['lunch with amy chen and bob lee friday', ['amy chen', 'bob lee']],
 		[
-			'dinner with nathan dewhurst, matthew wilson, kelvin tomorrow', ['nathan dewhurst', 'matthew wilson', 'kelvin']
+			'dinner with nathan dewhurst, matthew wilson, kelvin tomorrow',
+			['nathan dewhurst', 'matthew wilson', 'kelvin']
 		],
 		['brunch with sam oak, jo pine sunday', ['sam oak', 'jo pine']]
 	])('reads "%s" attendants %s', (input, names) => {
-		const attendants = (parseEventInput(input).parsed.attendants ?? []).map((n) =>
-			n.toLowerCase()
-		);
+		const attendants = (parseEventInput(input).parsed.attendants ?? []).map((n) => n.toLowerCase());
 		// SAFETY: it.each rows above are all [string, string[]] pairs.
 		for (const name of names as string[]) expect(attendants, input).toContain(name);
 	});
@@ -1931,9 +1930,7 @@ describe('Unmatched export 2026-09-10 — multi-word comma attendants (#052)', (
 		['meeting with bob next week', ['bob']],
 		['coffee with john at the park friday', ['john']]
 	])('stops the second word at schedule clauses: "%s"', (input, names) => {
-		const attendants = (parseEventInput(input).parsed.attendants ?? []).map((n) =>
-			n.toLowerCase()
-		);
+		const attendants = (parseEventInput(input).parsed.attendants ?? []).map((n) => n.toLowerCase());
 		expect(attendants, input).toEqual(names);
 	});
 });
@@ -2120,12 +2117,7 @@ describe('Bare leading meridiem stays title text (issue 107)', () => {
 
 	// [input, expected title, expected location, expected startTime]
 	const cases: Array<[string, string | undefined, string | undefined, string | undefined]> = [
-		[
-			TICKET_LINE,
-			'PM Certification 4 Days Classroom Training',
-			'Lynchburg',
-			'09:00'
-		],
+		[TICKET_LINE, 'PM Certification 4 Days Classroom Training', 'Lynchburg', '09:00'],
 		['AM Pack meeting saturday 10 am', 'AM Pack meeting', undefined, '10:00'],
 		[
 			'P.M. Certification 4 Days Classroom Training in Lynchburg, VA May 26 2027 9:00 AM',
@@ -2170,4 +2162,135 @@ describe('Bare leading meridiem stays title text (issue 107)', () => {
 		expect(result.parsed.startTime).toBe('08:30');
 		expect(result.parsed.title, 'PM clinic walk-in').toContain('PM');
 	});
+});
+
+function nextYearIfPast(month: number, day: number): string {
+	const now = DateTime.now();
+	let year = now.year;
+	if (DateTime.fromObject({ year, month, day }) < now) year += 1;
+	return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+describe('Range time without "from" (issue 204)', () => {
+	const exact = 'fall festival at ccl 6-8pm oct 30';
+	it(`exact phrase "${exact}"`, () => {
+		const result = parseEventInput(exact);
+		expect(result.parsed.title, exact).toBe('fall festival');
+		expect(result.parsed.location, exact).toBe('ccl');
+		expect(result.parsed.date, exact).toBe(nextYearIfPast(10, 30));
+		expect(result.parsed.startTime, exact).toBe('18:00');
+		expect(result.parsed.endTime, exact).toBe('20:00');
+	});
+
+	const cases: Array<[string, string, string, string]> = [
+		['fall festival at ccl 6-8pm oct 30', '18:00', '20:00', 'fall festival'],
+		['fall festival at ccl 6-8 pm oct 30', '18:00', '20:00', 'fall festival'],
+		['fall festival at ccl 6 to 8pm oct 30', '18:00', '20:00', 'fall festival'],
+		['fall festival at ccl 6–8pm oct 30', '18:00', '20:00', 'fall festival'],
+		['fall festival at ccl from 6pm until 8pm oct 30', '18:00', '20:00', 'fall festival'],
+		['open mic 8-10pm at the annex', '20:00', '22:00', 'open mic'],
+		['breakfast 7-9am saturday', '07:00', '09:00', 'breakfast']
+	];
+	for (const [input, startTime, endTime, title] of cases) {
+		it(`"${input.slice(0, 48)}" → ${startTime}-${endTime} "${title}"`, () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.startTime, input).toBe(startTime);
+			expect(result.parsed.endTime, input).toBe(endTime);
+			expect(result.parsed.title, input).toBe(title);
+		});
+	}
+});
+
+describe('Relative duration "in 48hrs" (issue 204)', () => {
+	const freezer = 'remind me that i can take my books out of the freezer';
+	it(`exact phrase "${freezer} in 48hrs"`, () => {
+		const point = DateTime.now().plus({ hours: 48 });
+		const result = parseEventInput(`${freezer} in 48hrs`);
+		expect(result.parsed.title).toBe(freezer);
+		expect(result.parsed.location).toBeUndefined();
+		expect(result.parsed.date).toBe(point.toFormat('yyyy-MM-dd'));
+		expect(result.parsed.startTime).toBe(point.toFormat('HH:mm'));
+		expect(result.parsed.endTime).toBeUndefined();
+	});
+
+	const cases: Array<[string, number, 'hours' | 'minutes' | 'days', string]> = [
+		[`${freezer} in 48 hrs`, 48, 'hours', freezer],
+		['remind me to call grandma in 90 minutes', 90, 'minutes', 'remind me to call grandma'],
+		['party in 90 minutes', 90, 'minutes', 'party'],
+		['remind me to call grandpa in 2 hours', 2, 'hours', 'remind me to call grandpa'],
+		[`${freezer} in 2 days`, 2, 'days', freezer]
+	];
+	for (const [input, n, unit, title] of cases) {
+		it(`"${input.slice(0, 52)}" → "${title}"`, () => {
+			const now = DateTime.now();
+			const point =
+				unit === 'days'
+					? now.plus({ days: n })
+					: unit === 'hours'
+						? now.plus({ hours: n })
+						: now.plus({ minutes: n });
+			const result = parseEventInput(input);
+			expect(result.parsed.title, input).toBe(title);
+			expect(result.parsed.date, input).toBe(point.toFormat('yyyy-MM-dd'));
+			if (unit === 'days') {
+				expect(result.parsed.startTime, input).toBeUndefined();
+			} else {
+				expect(result.parsed.startTime, input).toBe(point.toFormat('HH:mm'));
+			}
+		});
+	}
+});
+
+describe('goes to / heading to <place> (issue 204)', () => {
+	const exact = "lrc goes to yoder's at 6:30pm";
+	it(`exact phrase "${exact}" — place, not a stray "at 6" title`, () => {
+		const result = parseEventInput(exact);
+		expect(result.parsed.title, exact).toBe('lrc');
+		expect(result.parsed.location, exact).toBe("yoder's");
+		expect(result.parsed.date, exact).toBe(DateTime.now().toFormat('yyyy-MM-dd'));
+		expect(result.parsed.startTime, exact).toBe('18:30');
+		expect(result.parsed.endTime, exact).toBeUndefined();
+	});
+
+	const cases: Array<[string, string | undefined, string]> = [
+		['lrc goes to yoders at 6:30pm', 'yoders', 'lrc'],
+		["market goes over to aunt ruth's 4:45pm", "aunt ruth's", 'market'],
+		["nate heading to yoder's at 6:30pm", "yoder's", 'nate'],
+		['scout meeting heading to yoders sunday', 'yoders', 'scout meeting'],
+		['crew goes to the range on monday', undefined, 'crew goes to the range']
+	];
+	for (const [input, location, title] of cases) {
+		it(`"${input.slice(0, 48)}" → "${title}" @ ${location ?? 'none'}`, () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.location, input).toBe(location);
+			expect(result.parsed.title, input).toBe(title);
+		});
+	}
+});
+
+describe('start date at <place> claim-split (issue 204)', () => {
+	const nov16 = nextYearIfPast(11, 16);
+	it('exact phrase "november 16th start date at cloudfit"', () => {
+		const result = parseEventInput('november 16th start date at cloudfit');
+		expect(result.parsed.title).toBe('start date');
+		expect(result.parsed.location).toBe('cloudfit');
+		expect(result.parsed.date).toBe(nov16);
+		expect(result.parsed.startTime).toBeUndefined();
+		expect(result.parsed.endTime).toBeUndefined();
+	});
+
+	const cases: Array<[string, string, string]> = [
+		['start date at cloudfit november 16th', 'start date', 'cloudfit'],
+		['nov 16 start date at cloudfit', 'start date', 'cloudfit'],
+		['starts on november 16 at cloudfit', 'starts', 'cloudfit'],
+		['starts on nov 16 at cloudfit', 'starts', 'cloudfit'],
+		['workshop start date at cloudfit nov 16', 'workshop start date', 'cloudfit']
+	];
+	for (const [input, title, location] of cases) {
+		it(`"${input.slice(0, 48)}" → "${title}" @ ${location}`, () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.title, input).toBe(title);
+			expect(result.parsed.location, input).toBe(location);
+		});
+	}
 });
