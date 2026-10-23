@@ -1,5 +1,5 @@
 import { render, cleanup, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { tick } from 'svelte';
 import AccountNotificationsSection from './AccountNotificationsSection.svelte';
 import {
@@ -126,13 +126,21 @@ describe('AccountNotificationsSection — the approved card', () => {
 	});
 
 	describe('a switch that only renders is a failure', () => {
-		// The payload is carried entirely by the DOM: a hidden `preference` field
-		// naming the row, and the switch itself as the submit button carrying the
-		// value being saved. `use:enhance` with a parameter never runs under vitest
-		// in this repo (an action without one does), so the payload is asserted here
-		// at the level the browser serializes it from, and the save itself is
-		// covered by notificationMethods.test.ts.
-		it('posts the value it is flipping TO, not the one it is leaving', async () => {
+	// The payload is carried entirely by the DOM: a hidden `preference` field
+	// naming the row, and the switch itself as the submit button carrying the
+	// value being saved. `use:enhance` with a parameter never runs under vitest
+	// in this repo (an action without one does), so the payload is asserted here
+	// at the level the browser serializes it from, and the save itself is
+	// covered by notificationMethods.test.ts.
+	// The save must stay IN FLIGHT while the payload is read: jsdom does run
+	// enhance's submit, so fetch is held open here — a completed save clears the
+	// `intent` the switch's value derives from, which is the window pinned below.
+	beforeEach(() => {
+		vi.stubGlobal('fetch', () => new Promise(() => {}));
+	});
+	afterEach(vi.unstubAllGlobals);
+
+	it('posts the value it is flipping TO, not the one it is leaving', async () => {
 			await renderCard({ preferences: prefs() });
 			const button = switchByLabel('Task completed');
 			// Rendered value: the row is on, so the next value is off.

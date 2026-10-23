@@ -151,7 +151,8 @@ describe('CalendarToolbar calendar filter (#069)', () => {
 		const personal = screen.getByRole('switch', { name: /Personal Calendar/ });
 		expect(family.className).not.toBe(personal.className);
 		// The calendar's own colour still rides the dot in both states.
-		expect(family.innerHTML).toContain('#e0ffff');
+		// jsdom's cssstyle normalizes hex styles to rgb() form.
+		expect(family.innerHTML).toContain('rgb(224, 255, 255)');
 	});
 
 	it('closes on Escape and on an outside click', async () => {
@@ -660,6 +661,64 @@ describe('CalendarToolbar — by person is a filter inside the Filters sheet (#1
  * absolutely-positioned badge that had to be nudged back inside the toolbar
  * edge by half a pixel.
  */
+// #202 — "Icons for different calendar actions are small (4 in top right) and
+// hard to click": below sm the top-right icon strip folds behind ONE accessible
+// sandwich button opening the same actions in a top-right dialog ("in the same
+// place with a modal like with events"). Desktop keeps the strip inline.
+describe('CalendarToolbar — the mobile sandwich menu (#202)', () => {
+	afterEach(cleanup);
+
+	const calendars = [{ id: 'cal-personal', name: 'Personal Calendar', color: '#fa8072' }];
+
+	it('folds the strip below sm behind one named 44px sandwich trigger', () => {
+		render(CalendarToolbar, { props: props({ calendars }) });
+		expect(screen.getByTestId('action-strip').className).toMatch(/hidden sm:flex/);
+		const trigger = screen.getByTestId('action-menu-trigger');
+		expect(trigger.className).toMatch(/sm:hidden/);
+		expect(trigger.className).toMatch(/\bh-11\b/);
+		expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
+	});
+
+	it('opens a top-right dialog of the same actions as full-width 44px rows', async () => {
+		render(CalendarToolbar, { props: props({ calendars }) });
+		const trigger = screen.getByRole('button', { name: 'Calendar actions' });
+		expect(trigger.getAttribute('aria-expanded')).toBe('false');
+		await fireEvent.click(trigger);
+		expect(trigger.getAttribute('aria-expanded')).toBe('true');
+		const menu = screen.getByRole('dialog', { name: 'Calendar actions' });
+		for (const pin of [/\bfixed\b/, /\btop-2\b/, /\bright-2\b/]) {
+			expect(menu.className).toMatch(pin);
+		}
+		// Rows whose name is their visible word, not a hidden aria-label.
+		const rows = [
+			...within(menu).getAllByRole('button'),
+			...within(menu).getAllByRole('link')
+		].filter((r) => r.getAttribute('aria-label') === null);
+		for (const name of ['Filters', 'Import', 'Print', 'Day dashboard', 'Calendar settings']) {
+			const row = rows.find((r) => r.textContent?.trim() === name);
+			expect(row, name).toBeTruthy();
+			for (const pin of [/min-h-11/, /\bw-full\b/]) expect(row?.className).toMatch(pin);
+		}
+	});
+
+	it('routes Filters into the filter sheet, then closes by Escape, backdrop, close', async () => {
+		render(CalendarToolbar, { props: props({ calendars }) });
+		await fireEvent.click(screen.getByTestId('action-menu-trigger'));
+		await fireEvent.click(screen.getByTestId('action-menu-filters'));
+		expect(screen.getByTestId('calendar-filter-panel')).toBeTruthy();
+		expect(screen.queryByTestId('action-menu-panel')).toBeNull();
+		for (const close of [
+			() => fireEvent.keyDown(window, { key: 'Escape' }),
+			() => fireEvent.click(screen.getByTestId('action-menu-backdrop')),
+			() => fireEvent.click(screen.getByRole('button', { name: 'Close calendar actions' }))
+		]) {
+			await fireEvent.click(screen.getByTestId('action-menu-trigger'));
+			await close();
+			expect(screen.queryByTestId('action-menu-panel')).toBeNull();
+		}
+	});
+});
+
 describe('CalendarToolbar — the Filters button names itself (#128 gap 3)', () => {
 	afterEach(cleanup);
 

@@ -1,9 +1,16 @@
 <script lang="ts">
+	import type { createEventForm } from './EventFormModel.svelte';
+
 	interface Props {
 		isEditMode: boolean;
 		entryType: string;
 		submitting: boolean;
 		canSubmit: boolean;
+		/** When handed the shared form model, canSubmit is derived from its
+		 *  fields instead: the modal is a legacy component whose template
+		 *  cannot see the model's runes mutations, so the prop stays stale. */
+		form?: ReturnType<typeof createEventForm> | null;
+		taskTitle?: string;
 		submitBlockedReason?: string;
 		onDelete: () => void;
 		onClose: () => void;
@@ -15,11 +22,21 @@
 		entryType,
 		submitting,
 		canSubmit,
+		form = null,
+		taskTitle = '',
 		submitBlockedReason,
 		onDelete,
 		onClose,
 		onClear
 	}: Props = $props();
+
+	let canSubmitResolved = $derived(
+		form
+			? entryType === 'task'
+				? !!taskTitle.trim()
+				: !!form.title && !!form.date && !form.endBeforeStart && !form.endDateBeforeStart
+			: canSubmit
+	);
 </script>
 
 <div
@@ -53,7 +70,7 @@
 		form="event-form"
 		class="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
 		title={submitBlockedReason}
-		disabled={!canSubmit || submitting}
+		disabled={!canSubmitResolved || submitting}
 	>
 		{#if submitting}
 			<div class="flex items-center gap-2">

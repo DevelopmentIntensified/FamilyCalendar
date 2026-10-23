@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/svelte';
 import { describe, it, expect, afterEach } from 'vitest';
 import type { ComponentProps } from 'svelte';
-import TaskToolbar from './TaskToolbar.svelte';
+import TaskToolbar, { type TaskChip, type TaskView } from './TaskToolbar.svelte';
 
 /** The toolbar's own prop contract, so a widened literal cannot slip past it. */
 type ToolbarProps = ComponentProps<typeof TaskToolbar>;
@@ -23,12 +23,18 @@ describe('TaskToolbar', () => {
 	afterEach(cleanup);
 
 	it('flips the pressed chip on click', async () => {
-		const p = props();
-		render(TaskToolbar, { props: p });
+		const state = { chip: 'all' as TaskChip };
+		const wired = (): ToolbarProps => ({
+			...props(),
+			chip: state.chip,
+			onChipChange: (v) => (state.chip = v)
+		});
+		const { rerender } = render(TaskToolbar, { props: wired() });
 		const pub = screen.getByText('Public');
 		expect(pub.getAttribute('aria-pressed')).toBe('false');
 		await fireEvent.click(pub);
-		expect(pub.getAttribute('aria-pressed')).toBe('true');
+		await rerender({ props: wired() });
+		expect(screen.getByText('Public').getAttribute('aria-pressed')).toBe('true');
 	});
 
 	it('exposes search, sort, and tag inputs', async () => {
@@ -48,9 +54,15 @@ describe('TaskToolbar', () => {
 	});
 
 	it('clears the tag filter via its button', async () => {
-		const p = props({ tagFilter: 'gro' });
-		render(TaskToolbar, { props: p });
+		const state = { tagFilter: 'gro' };
+		const wired = (): ToolbarProps => ({
+			...props(),
+			tagFilter: state.tagFilter,
+			onTagFilterChange: (v) => (state.tagFilter = v)
+		});
+		const { rerender } = render(TaskToolbar, { props: wired() });
 		await fireEvent.click(screen.getByLabelText('Clear tag filter'));
+		await rerender({ props: wired() });
 		// SAFETY: labelled field is an <input> in TaskToolbar.
 		expect((screen.getByLabelText('Filter tasks by tag') as HTMLInputElement).value).toBe('');
 	});
@@ -117,12 +129,20 @@ describe('TaskToolbar — the approved filter line (tasks.html)', () => {
 	});
 
 	it('is single-select over the owner axis, and defaults to Open', async () => {
-		const p = props();
-		render(TaskToolbar, { props: p });
+		const state = { chip: 'all' as TaskChip, view: 'open' as TaskView };
+		const wired = (): ToolbarProps => ({
+			...props(),
+			chip: state.chip,
+			view: state.view,
+			onChipChange: (v) => (state.chip = v),
+			onViewChange: (v) => (state.view = v)
+		});
+		const { rerender } = render(TaskToolbar, { props: wired() });
 		const group = screen.getByRole('group', { name: 'Filter tasks by owner' });
 		const [open, mine] = [...group.querySelectorAll('button')];
 		expect(open?.getAttribute('aria-pressed')).toBe('true');
 		await fireEvent.click(mine!);
+		await rerender({ props: wired() });
 		// One axis, one value: pressing the second releases the first.
 		expect(mine?.getAttribute('aria-pressed')).toBe('true');
 		expect(open?.getAttribute('aria-pressed')).toBe('false');

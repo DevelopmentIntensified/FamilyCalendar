@@ -94,13 +94,87 @@
 		aria-label="Open {date}"
 		onclick={() => onCellTap(cellDate, dayEvents, dayTasks)}
 	></button>
-	<!-- One column that fills the fixed height: the day-number row, the chips
-	     that clip, and the overflow button that must NOT clip. -->
+	<!-- One column that fills the fixed height: the chips that clip (the
+	     disc flows inline as their first item, so chips start in the disc's
+	     own top row), the hover tools that float and cost no flow row, and
+	     the overflow button that must NOT clip. -->
 	<div class="pointer-events-none relative z-10 flex h-full min-h-0 flex-col">
-		<div class="flex shrink-0 items-center justify-between gap-1">
-			<!-- #128 gap 5: E draws a 28px disc on EVERY day, and makes today a
-			     fill rather than a different size. A circle that only appears on
-			     one day is not a shape, it is an exception. -->
+		<div
+			class="absolute right-1 top-1 z-10 flex items-center gap-0.5 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100"
+		>
+			{#if !isOtherMonth}
+				<!-- #128 gap 4: E draws the per-cell tools at EVERY width and
+				     reveals them on hover or focus. The app hid them below
+				     `md`, so a 375px phone had a cell with no `+` on it at
+				     all. Because the reveal is hover-gated they stay
+				     unreachable by touch, so this does NOT re-open #119's
+				     "one tap, two answers" at 640-767: there is no second
+				     answer on a phone, only on a pointer.
+				     The `pointer-events` pair is E's bug and not its look: at
+				     opacity 0 an un-hovered 20px target would still be live
+				     under a thumb. -->
+				<button
+					type="button"
+					class="pointer-events-none flex h-5 w-5 items-center justify-center rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 group-hover:pointer-events-auto sm:m-0 sm:p-0"
+					aria-label="Add on {date}"
+					title="Add on {date}"
+					onclick={(e) => {
+						e.stopPropagation();
+						onAdd(cellDate);
+					}}
+				>
+					<svg
+						class="h-3 w-3"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2.5"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+					</svg>
+				</button>
+				<a
+					href="/calendar/dashboard?date={cellDate.toISODate()}"
+					class="pointer-events-none flex h-5 w-5 items-center justify-center rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 group-hover:pointer-events-auto sm:m-0 sm:p-0 {selectionMode
+						? 'hidden'
+						: ''}"
+					aria-label="Day dashboard for {date}"
+					title="Day dashboard"
+				>
+					<svg
+						class="h-3 w-3"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"
+						/>
+					</svg>
+				</a>
+			{/if}
+			{#if isTodayDate}
+				<span
+					class="hidden whitespace-nowrap pr-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-500 sm:inline"
+					>today</span
+				>
+			{/if}
+		</div>
+		<!-- #145: the sheet owns the tap at every width, so chips stay taps
+			against the CELL (they open the day sheet) unless selection mode
+			needs them clickable — no width condition left in the markup.
+			#128 gap 5: the 28px disc leads the wrap flow, at the padded edge
+			the column already gives it — no row above the chips. -->
+		<div
+			data-testid="month-chips"
+			class="flex min-h-0 flex-1 flex-wrap content-start items-start gap-x-1 gap-y-[2px] overflow-hidden {!selectionMode
+				? 'pointer-events-none'
+				: ''}"
+			inert={!selectionMode ? true : undefined}
+		>
 			<span
 				data-testid="day-disc"
 				class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold {isTodayDate
@@ -111,83 +185,6 @@
 			>
 				{day}
 			</span>
-			<div class="flex items-center gap-0.5">
-				{#if !isOtherMonth}
-					<!-- #128 gap 4: E draws the per-cell tools at EVERY width and
-					     reveals them on hover or focus. The app hid them below
-					     `md`, so a 375px phone had a cell with no `+` on it at
-					     all. Because the reveal is hover-gated they stay
-					     unreachable by touch, so this does NOT re-open #119's
-					     "one tap, two answers" at 640-767: there is no second
-					     answer on a phone, only on a pointer.
-					     The `pointer-events` pair is E's bug and not its look: at
-					     opacity 0 an un-hovered 20px target would still be live
-					     under a thumb. -->
-					<div
-						class="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100"
-					>
-						<button
-							type="button"
-							class="pointer-events-none flex h-5 w-5 items-center justify-center rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 group-hover:pointer-events-auto sm:m-0 sm:p-0"
-							aria-label="Add on {date}"
-							title="Add on {date}"
-							onclick={(e) => {
-								e.stopPropagation();
-								onAdd(cellDate);
-							}}
-						>
-							<svg
-								class="h-3 w-3"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2.5"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-							</svg>
-						</button>
-						<a
-							href="/calendar/dashboard?date={cellDate.toISODate()}"
-							class="pointer-events-none flex h-5 w-5 items-center justify-center rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 group-hover:pointer-events-auto sm:m-0 sm:p-0 {selectionMode
-								? 'hidden'
-								: ''}"
-							aria-label="Day dashboard for {date}"
-							title="Day dashboard"
-						>
-							<svg
-								class="h-3 w-3"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"
-								/>
-							</svg>
-						</a>
-					</div>
-				{/if}
-				{#if isTodayDate}
-					<span
-						class="hidden whitespace-nowrap pr-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-500 sm:inline"
-						>today</span
-					>
-				{/if}
-			</div>
-		</div>
-		<!-- #145: the sheet owns the tap at every width, so chips stay taps
-			against the CELL (they open the day sheet) unless selection mode
-			needs them clickable — no width condition left in the markup. -->
-		<div
-			data-testid="month-chips"
-			class="mt-1 min-h-0 flex-1 space-y-[2px] overflow-hidden {!selectionMode
-				? 'pointer-events-none'
-				: ''}"
-			inert={!selectionMode ? true : undefined}
-		>
 			{#each dayEvents.slice(0, MAX_CHIPS) as event (event.id)}
 				{@const rv = rsvpVisual(event.rsvpStatus)}
 				{@const chip = chipShell({ event, density: 'glyph', calendars })}
@@ -197,7 +194,7 @@
 					onclick={() => (selectionMode ? onToggleSelect(event) : onEventClick(event))}
 					aria-pressed={selectionMode ? isSelected(event) : undefined}
 					title={selectionMode ? (isSelected(event) ? 'Deselect' : 'Select') : chip.tooltip}
-					class="flex min-h-[18px] w-full items-center gap-1 overflow-hidden rounded-md bg-white px-1 py-0 text-left text-[11px] font-medium leading-tight transition-colors hover:brightness-95 active:brightness-90 sm:min-h-0 sm:py-[3px] {chip.containerClass} {selectionMode &&
+					class="flex min-h-[18px] max-w-full items-center gap-1 overflow-hidden rounded-md bg-white px-1 py-0 text-left text-[11px] font-medium leading-tight transition-colors hover:brightness-95 active:brightness-90 sm:min-h-0 sm:py-[3px] {chip.containerClass} {selectionMode &&
 					isSelected(event)
 						? 'ring-2 ring-primary-400'
 						: ''} {rv?.containerClass ?? ''}"
@@ -256,7 +253,7 @@
 						ev.stopPropagation();
 						onTaskClick(task);
 					}}
-					class="relative flex w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-white px-1 py-0 text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 active:bg-slate-200 sm:min-h-0 sm:py-[3px] {chip.containerClass} {overdue
+					class="relative flex max-w-full items-center gap-1 overflow-hidden rounded-md border border-dashed bg-white px-1 py-0 text-left text-[11px] font-medium leading-tight text-slate-600 transition-colors hover:bg-slate-100 active:bg-slate-200 sm:min-h-0 sm:py-[3px] {chip.containerClass} {overdue
 						? 'text-red-600'
 						: ''}"
 					title="View task details"
@@ -295,11 +292,12 @@
 			<div class="relative z-10 mt-px shrink-0">
 				<button
 					type="button"
+					data-chip-kind="overflow"
 					onclick={(e) => {
 						e.stopPropagation();
 						onOverflow(cellDate, dayEvents, dayTasks);
 					}}
-					class="pointer-events-auto inline-flex h-4 items-center rounded px-0.5 text-[10px] font-medium text-slate-400 transition-colors hover:text-primary-600 sm:h-auto sm:min-h-0 sm:text-[11px]"
+					class="pointer-events-auto inline-flex min-h-[32px] min-w-[44px] items-center justify-center rounded px-2 text-[18px] font-medium leading-[18px] text-slate-600 transition-colors hover:text-primary-600 sm:h-auto sm:min-h-0 sm:min-w-0 sm:px-0.5 sm:text-[11px] sm:leading-tight sm:text-slate-400"
 				>
 					+{overflow} more
 				</button>

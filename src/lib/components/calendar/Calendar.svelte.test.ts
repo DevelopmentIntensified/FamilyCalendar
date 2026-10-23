@@ -71,6 +71,8 @@ interface SetupOverrides {
 	familyMembers?: { userId: string; firstName: string }[];
 	initialView?: string;
 	defaultViewSetting?: string;
+	loadRange?: (from: string, to: string) => Promise<Event[]>;
+	loadedMonths?: string[];
 }
 
 function setup(over: SetupOverrides = {}) {
@@ -799,5 +801,131 @@ describe('Calendar — the person filter (#127, mark 1.11)', () => {
 			'familyplanz:hiddenAssignees:u-sarah',
 			'familyplanz:hiddenCalendars:u-sarah'
 		]);
+	});
+});
+
+/**
+ * #082 / #201 — the page load covers ONE month, and moving to another month
+ * was purely a client-side store mutation: nothing fetched, merged or cached,
+ * so a month beyond the opened one rendered an empty grid. These pin the
+ * fetch-on-month-move contract: fetch what is about to show, show pending
+ * while in flight, never refetch what is held, and keep the held set bounded.
+ */
+describe('Calendar — fetches the month it is about to show (#082)', () => {
+	const octoberEvent = evt({
+		id: 'e9',
+		title: 'Harvest',
+		calendarId: 'cal-family',
+		date: '2026-10-14',
+		start: '2026-10-14T10:00:00',
+		end: '2026-10-14T11:00:00'
+	});
+
+	function deferred() {
+		let resolve!: (evts: Event[]) => void;
+		let reject!: (err: unknown) => void;
+		const promise = new Promise<Event[]>((res, rej) => {
+			resolve = res;
+			reject = rej;
+		});
+		return { promise, resolve, reject };
+	}
+
+	beforeEach(() => {
+		toasts.set([]);
+	});
+	afterEach(() => {
+		toasts.set([]);
+		cleanup();
+	});
+
+	it('fetches a month the server window did not load and renders it', async () => {
+		const calls: [string, string][] = [];
+		const d = deferred();
+		const p = setup({
+			loadRange: (from, to) => {
+				calls.push([from, to]);
+				return d.promise;
+			},
+			loadedMonths: ['2026-09']
+		});
+		await tick();
+		// The month the page load covered was not fetched again on mount.
+		expect(calls).toEqual([]);
+		p.currentDate.set(DateTime.fromISO('2026-10-14T12:00:00'));
+		await tick();
+		expect(calls).toEqual([['2026-10-01', '2026-10-31']]);
+		// Nothing renders while waiting — and nothing LIES that the month is empty.
+		expect(screen.queryByText('Harvest')).toBeNull();
+		expect(screen.getByTestId('calendar-range-pending')).toBeInTheDocument();
+		d.resolve([octoberEvent]);
+		await tick();
+		await tick();
+		expect(screen.getByText('Harvest')).toBeInTheDocument();
+		expect(screen.queryByTestId('calendar-range-pending')).toBeNull();
+	});
+
+	it('does not refetch a month already held, moving back and forth', async () => {
+		const calls: [string, string][] = [];
+		const p = setup({
+			loadRange: (from, to) => {
+				calls.push([from, to]);
+				return Promise.resolve([]);
+			},
+			loadedMonths: ['2026-09']
+		});
+		p.currentDate.set(DateTime.fromISO('2026-10-14T12:00:00'));
+		await tick();
+		p.currentDate.set(DateTime.fromISO('2026-11-14T12:00:00'));
+		await tick();
+		p.currentDate.set(DateTime.fromISO('2026-10-14T12:00:00'));
+		await tick();
+		expect(calls).toEqual([['2026-10-01', '2026-10-31'], ['2026-11-01', '2026-11-30']]);
+	});
+
+	it('merges the fetched month without duplicating what the page load already had', async () => {
+		// The September the SERVER loaded and a fetch for September would return
+		// the same Standup. Only one may render.
+		const p = setup({
+			events: [standup],
+			loadRange: () => Promise.resolve([standup, rehearsal]),
+			loadedMonths: []
+		});
+		await tick();
+		expect(screen.getAllByText('Standup')).toHaveLength(1);
+		expect(screen.getByText('Rehearsal')).toBeInTheDocument();
+	});
+
+	it('evicts the oldest month once twelve are held, and refetches it', async () => {
+		const calls: string[] = [];
+		const p = setup({
+			loadRange: (from) => {
+				calls.push(from);
+				return Promise.resolve([]);
+			},
+			loadedMonths: []
+		});
+		for (let i = 0; i < 14; i++) {
+			p.currentDate.set(DateTime.fromISO('2026-09-08T12:00:00').plus({ months: 13 - i }));
+			await tick();
+		}
+		// Wound back to the FIRST month fetched, twelve months later: it was
+		// evicted, so it must be fetched anew.
+		p.currentDate.set(DateTime.fromISO('2026-09-08T12:00:00').plus({ months: 13 }));
+		await tick();
+		expect(calls.filter((f) => f === '2026-09-01').length).toBeGreaterThanOrEqual(2);
+	});
+
+	it('says so in a toast when a month fails to load', async () => {
+		const p = setup({
+			loadRange: () => Promise.reject(new Error('offline')),
+			loadedMonths: []
+		});
+		p.currentDate.set(DateTime.fromISO('2026-10-14T12:00:00'));
+		await tick();
+		await tick();
+		expect(get(toasts).at(-1)?.message).toMatch(/load that month/i);
+		// Not lying about success: no pending spinner, and the month stays unfetched.
+		expect(screen.queryByTestId('calendar-range-pending')).toBeNull();
 	});
 });

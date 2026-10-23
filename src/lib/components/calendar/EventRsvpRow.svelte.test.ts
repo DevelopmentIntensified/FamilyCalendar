@@ -8,6 +8,9 @@ function props(overrides = {}) {
 		currentUserRsvpStatus: 'undecided',
 		attendees: [],
 		nonUserAttendants: [],
+		onCurrentUserRsvpStatusChange: vi.fn(),
+		onAttendeesChange: vi.fn(),
+		onNonUserAttendantsChange: vi.fn(),
 		onResponded: vi.fn(),
 		...overrides
 	};
@@ -33,8 +36,14 @@ describe('EventRsvpRow', () => {
 	});
 
 	it('posts the choice optimistically and refreshes lists', async () => {
-		const p = props();
-		render(EventRsvpRow, { props: p });
+		const rerenderRef: { rerender?: (props: Record<string, unknown>) => Promise<void> } = {};
+		const p = props({
+			onCurrentUserRsvpStatusChange: vi.fn((v: string) => {
+				rerenderRef.rerender?.({ currentUserRsvpStatus: v });
+			})
+		});
+		const api = render(EventRsvpRow, { props: p });
+		rerenderRef.rerender = api.rerender;
 		await fireEvent.click(screen.getByText('Going'));
 		expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
 		expect(vi.mocked(fetch).mock.calls[0][0]).toBe('/api/events/evt1/rsvp');

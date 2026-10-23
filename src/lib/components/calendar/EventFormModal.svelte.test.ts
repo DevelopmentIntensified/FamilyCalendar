@@ -251,7 +251,8 @@ describe('EventFormModal - NLP Field Detection & Visibility', () => {
 
 		expect(screen.getByText(/creates 2 events/i)).toBeInTheDocument();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+		const createBtn = screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement;
+		await fireEvent.click(createBtn);
 		await vi.advanceTimersByTimeAsync(50);
 
 		const posts = vi.mocked(fetch).mock.calls.filter(([u]) => String(u) === '/api/events');

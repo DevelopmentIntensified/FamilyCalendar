@@ -228,6 +228,37 @@ describe('MonthDayCell cell height (#128 gap 2 — the grid is the page)', () =>
 	});
 });
 
+// #202 — "+3 is hard to see and read": a measured mobile floor on the
+// overflow chip; the sm+ desktop word is untouched.
+describe('MonthDayCell overflow chip floor (#202)', () => {
+	afterEach(cleanup);
+
+	it('pins the mobile floor and the desktop word', () => {
+		render(MonthDayCell, {
+			props: {
+				...base,
+				dayEvents: [evt('e1', 'A'), evt('e2', 'B'), evt('e3', 'C'), evt('e4', 'D')],
+				dayTasks: []
+			}
+		});
+		const more = screen.getByRole('button', { name: '+1 more' });
+		expect(more.getAttribute('data-chip-kind')).toBe('overflow');
+		const cls = more.className;
+		for (const pin of [
+			/text-\[18px\]/,
+			/leading-\[18px\]/,
+			/min-h-\[32px\]/,
+			/min-w-\[44px\]/,
+			/text-slate-600/,
+			/sm:text-\[11px\]/,
+			/sm:text-slate-400/
+		]) {
+			expect(cls).toMatch(pin);
+		}
+		expect(cls).not.toMatch(/sm:min-h-\[32px\]|sm:min-w-\[44px\]/);
+	});
+});
+
 /** #128 gap 4 — E draws the per-cell tools at EVERY width, hover-revealed. */
 describe('MonthDayCell per-cell tools (#128 gap 4)', () => {
 	afterEach(cleanup);
@@ -390,5 +421,49 @@ describe('MonthDayCell names a sponsored event', () => {
 		expect(chip()?.getAttribute('title')).toBe('Toys');
 		expect(mark('sponsored')).toBeNull();
 		expect(chip()?.getAttribute('style')).not.toContain('repeating-linear-gradient');
+	});
+});
+
+// Compact layout — chips stop being full-width rows, share horizontal space
+// by wrapping, and begin in the disc's own top row so more fit the fixed
+// height; the hover tools float so they cost no flow row.
+describe('MonthDayCell compact layout', () => {
+	afterEach(cleanup);
+
+	const chips = () => document.querySelector('[data-testid="month-chips"]')!;
+	const disc = () => document.querySelector('[data-testid="day-disc"]')!;
+
+	it('wraps chips, so more than one can share a horizontal row', () => {
+		render(MonthDayCell, {
+			props: { ...base, dayEvents: [evt('e1', 'A'), evt('e2', 'B')], dayTasks: [] }
+		});
+		expect(chips().className).toMatch(/\bflex-wrap\b/);
+	});
+
+	it('flows the disc inline with the chips, not in a row above them', () => {
+		render(MonthDayCell, { props: { ...base, dayEvents: [evt('e1', 'A')], dayTasks: [] } });
+		expect(chips().contains(disc())).toBe(true);
+		expect(chips().firstElementChild).toBe(disc());
+		expect(chips().className).not.toMatch(/\bmt-1\b/);
+	});
+
+	it('hugs each chip to its content instead of stretching it full width', () => {
+		render(MonthDayCell, { props: { ...base, dayEvents: [evt('e1', 'Dentist')], dayTasks: [] } });
+		const chip = screen.getByText('Dentist').closest('button')!;
+		expect(chip.className).not.toMatch(/(^|\s)w-full\b/);
+		expect(chip.className).toMatch(/\bmax-w-full\b/);
+	});
+
+	it('hugs a task chip to its content too', () => {
+		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [task('t1')] } });
+		const chip = screen.getByText('Task t1').closest('button')!;
+		expect(chip.className).not.toMatch(/(^|\s)w-full\b/);
+		expect(chip.className).toMatch(/\bmax-w-full\b/);
+	});
+
+	it('floats the hover tools out of the chip flow', () => {
+		render(MonthDayCell, { props: { ...base, dayEvents: [], dayTasks: [] } });
+		const tools = screen.getByRole('button', { name: 'Add on 09-09-2026' }).parentElement!;
+		expect(tools.className).toMatch(/\babsolute\b/);
 	});
 });

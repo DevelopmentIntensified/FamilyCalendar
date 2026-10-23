@@ -108,6 +108,8 @@
 	// #120: the field is on the second row at every width, so the shortcut
 	// still has to find it — ⌘K on a Mac, Ctrl+K everywhere else.
 	let searchInput = $state<HTMLInputElement | null>(null);
+	// #202: below sm the icon strip folds behind one sandwich button.
+	let showActionMenu = $state(false);
 
 	function focusSearch() {
 		searchInput?.focus();
@@ -124,9 +126,22 @@
 	// second trigger would be the "new surface" mark 1.11 did not ask for.
 	const hasFilters = $derived(filterableCalendars.length > 0 || assignees.length > 0);
 	const hiddenFilterCount = $derived(hiddenCalendarIds.length + hiddenAssigneeIds.length);
+	// #202: one class for the menu rows, one list for the plain links.
+	const menuRow =
+		'flex min-h-11 w-full items-center rounded-lg px-2 text-left text-base text-slate-700 transition-colors hover:bg-slate-50';
+	const menuLinks = (date: string): [string, string][] => [
+		['/calendar/import', 'Import'],
+		['/calendar/print', 'Print'],
+		[`/calendar/dashboard?date=${date}`, 'Day dashboard'],
+		['/account#calendar', 'Calendar settings']
+	];
 
 	function closeMiniPicker() {
 		showMiniPicker = false;
+	}
+
+	function closeActionMenu() {
+		showActionMenu = false;
 	}
 
 	function closeCalendarFilter() {
@@ -141,7 +156,8 @@
 		if (
 			showCalendarFilter &&
 			!target?.closest('[data-testid="calendar-filter-trigger"]') &&
-			!target?.closest('[data-testid="calendar-filter-panel"]')
+			!target?.closest('[data-testid="calendar-filter-panel"]') &&
+			!target?.closest('[data-testid="action-menu-filters"]')
 		) {
 			closeCalendarFilter();
 		}
@@ -154,6 +170,7 @@
 		if (e.key === 'Escape') {
 			closeMiniPicker();
 			closeCalendarFilter();
+			closeActionMenu();
 			return;
 		}
 		// Keyboard parity: the shortcut the prototype's `⌘K` pill implied is
@@ -341,9 +358,11 @@
 				<span class="sr-only sm:not-sr-only">Select</span>
 			</button>
 
-			<!-- Actions: calendars · import · print · dashboard · settings -->
+			<!-- Actions: calendars · import · print · dashboard · settings.
+		     #202: below sm these small icons fold behind the sandwich button. -->
 			<div
-				class="flex min-w-0 max-w-full items-center divide-x divide-slate-200 overflow-x-auto overflow-y-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+				data-testid="action-strip"
+				class="hidden sm:flex min-w-0 max-w-full items-center divide-x divide-slate-200 overflow-x-auto overflow-y-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
 			>
 				<!-- #069: the calendar filter. Leads the strip so it survives the
 				narrow-width scroll, and carries a count when calendars are off
@@ -466,6 +485,21 @@
 					</svg>
 				</a>
 			</div>
+
+		<!-- #202: one named 44px control in the same top-right place. -->
+			<button
+				type="button"
+				data-testid="action-menu-trigger"
+				onclick={() => (showActionMenu = !showActionMenu)}
+				aria-expanded={showActionMenu}
+				aria-haspopup="dialog"
+				aria-label="Calendar actions"
+				class="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 sm:hidden"
+			>
+				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" />
+				</svg>
+			</button>
 		</div>
 	</div>
 
@@ -529,6 +563,54 @@
 			</button>
 		{/if}
 	</div>
+
+	<!-- #202: the sandwich sheet — a top-right modal of the strip's actions as
+		full-width 44px rows. Only exists below sm, where the trigger lives. -->
+	{#if showActionMenu}
+		<button
+			type="button"
+			data-testid="action-menu-backdrop"
+			aria-label="Dismiss the calendar actions menu"
+			tabindex="-1"
+			onclick={closeActionMenu}
+			class="fixed inset-0 z-[55] cursor-default bg-slate-900/30"
+		></button>
+		<div
+			data-testid="action-menu-panel"
+			role="dialog"
+			aria-label="Calendar actions"
+			class="fixed left-2 right-2 top-2 z-[60] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+		>
+			<button
+				type="button"
+				aria-label="Close calendar actions"
+				onclick={closeActionMenu}
+				class="absolute right-2 top-2 rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18" />
+				</svg>
+			</button>
+			<div class="flex flex-col gap-0.5 px-2 pb-3 pt-11">
+				{#if hasFilters}
+					<button
+						type="button"
+						data-testid="action-menu-filters"
+						onclick={() => {
+							closeActionMenu();
+							showCalendarFilter = true;
+						}}
+						class={menuRow}
+					>
+						Filters
+					</button>
+				{/if}
+				{#each menuLinks(dashboardDate) as [href, label] (href)}
+					<a href={href} class={menuRow}>{label}</a>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	<!-- #128 gap 8. E opens ONE surface at every width: a bottom sheet on a
 		phone and the SAME sheet, centred at 26rem, from 640px. The app opened a

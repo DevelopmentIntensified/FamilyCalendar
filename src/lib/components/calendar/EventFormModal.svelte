@@ -449,8 +449,9 @@
 								await fetch('/api/tasks', {
 									method: 'POST',
 									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({ title, eventId: createdId })
-								});
+								body: JSON.stringify({ title, eventId: createdId })
+	});
+
 							} catch (e) {
 								console.error('Failed to attach task:', e);
 							}
@@ -718,6 +719,8 @@
 			canSubmit={entryType === 'task'
 				? !!taskTitle.trim()
 				: !!form.title && !!form.date && !form.endBeforeStart && !form.endDateBeforeStart}
+			{form}
+			{taskTitle}
 			submitBlockedReason={form.endBeforeStart || form.endDateBeforeStart
 				? 'End must be after start'
 				: undefined}

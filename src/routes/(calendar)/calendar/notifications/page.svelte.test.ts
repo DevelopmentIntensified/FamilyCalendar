@@ -205,7 +205,8 @@ describe('alerts page — rows are real links', () => {
 		expect(JSON.parse(String(postCalls()[0][1]?.body))).toEqual({ id: 'n2' });
 		// Server rows stay the source of truth: a taken read-mark is reconciled.
 		expect(invalidateAll).toHaveBeenCalled();
-		expect(goto).toHaveBeenCalledWith('/calendar/tasks');
+		// The read-mark, reload, and navigation are one async chain off the click.
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/calendar/tasks'));
 	});
 
 	it('leaves a modified click to the browser so open-in-new-tab still opens', async () => {

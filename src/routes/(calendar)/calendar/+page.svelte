@@ -30,6 +30,30 @@
 
 	export let data: PageData;
 
+	// #082/#201: the page load covers ONE month; moving to another month fetches
+	// it here through the ranged endpoint and Calendar merges/caches it client-side.
+	// The SSR window (today, or the deep-linked ?date= month) is never refetched.
+	const ssrLoadedMonth = (() => {
+		const dateParam = $page.url.searchParams.get('date');
+		if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && DateTime.fromISO(dateParam).isValid) {
+			return dateParam.slice(0, 7);
+		}
+		const zone = data.userSettings?.timeZone;
+		const now = zone && DateTime.local().setZone(zone).isValid ? DateTime.local().setZone(zone) : DateTime.now();
+		return now.toFormat('yyyy-MM');
+	})();
+
+	async function loadRange(from: string, to: string): Promise<Event[]> {
+		const res = await fetch(`/api/events?from=${from}&to=${to}`);
+		if (!res.ok) throw new Error(`GET /api/events ${res.status}`);
+		const body = await res.json();
+		const familyIds = new Set((data.calendarIds ?? []).slice(1).map((c) => c.id));
+		return (body.events ?? []).map((e: Event) => ({
+			...e,
+			color: familyIds.has(e.calendarId ?? '') ? data.familyCalendarColor : data.userCalendarColor
+		}));
+	}
+
 	// Shape of one planned change returned by /api/events/bulk smart dry-run
 	// (mirrors the server's BulkPlanOp; duplicated here to keep server code
 	// out of the client bundle).
@@ -570,6 +594,8 @@
 					? selectedIds.filter((x) => x !== e.id)
 					: [...selectedIds, e.id];
 			}}
+			{loadRange}
+			loadedMonths={[ssrLoadedMonth]}
 			on:eventClick={handleEventClick}
 		/>
 	{:catch}

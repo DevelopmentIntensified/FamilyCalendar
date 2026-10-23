@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import EventTaskFields from './EventTaskFields.svelte';
 
 describe('EventTaskFields', () => {
@@ -11,7 +11,10 @@ describe('EventTaskFields', () => {
 				taskTitle: 'Pay bill',
 				taskVisibility: 'public',
 				taskDueDate: '',
-				taskError: null
+				taskError: null,
+				onTaskTitleChange: vi.fn(),
+				onTaskVisibilityChange: vi.fn(),
+				onTaskDueDateChange: vi.fn()
 			}
 		});
 		// SAFETY: the Task Title field is an <input> in EventTaskFields.
@@ -24,7 +27,15 @@ describe('EventTaskFields', () => {
 
 	it('shows the task error when set', () => {
 		render(EventTaskFields, {
-			props: { taskTitle: '', taskVisibility: 'public', taskDueDate: '', taskError: 'Nope' }
+			props: {
+				taskTitle: '',
+				taskVisibility: 'public',
+				taskDueDate: '',
+				taskError: 'Nope',
+				onTaskTitleChange: vi.fn(),
+				onTaskVisibilityChange: vi.fn(),
+				onTaskDueDateChange: vi.fn()
+			}
 		});
 		expect(screen.getByRole('alert').textContent).toBe('Nope');
 	});

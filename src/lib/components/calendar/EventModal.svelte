@@ -354,9 +354,12 @@
 					<!-- Your RSVP (sits above Attendees so the action is in the thumb fold) -->
 					<EventRsvpRow
 						{serverId}
-						bind:currentUserRsvpStatus
-						bind:attendees
-						bind:nonUserAttendants
+						{currentUserRsvpStatus}
+						{attendees}
+						{nonUserAttendants}
+						onCurrentUserRsvpStatusChange={(v) => (currentUserRsvpStatus = v)}
+						onAttendeesChange={(v) => (attendees = v)}
+						onNonUserAttendantsChange={(v) => (nonUserAttendants = v)}
 						onResponded={async (status) => {
 							rsvpTouched = true;
 							dispatch('rsvp', { id: serverId, status });

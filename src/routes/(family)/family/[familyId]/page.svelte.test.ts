@@ -294,6 +294,6 @@ describe('family page — the approved composition (issue 124)', () => {
 		const hero = screen.getByRole('heading', { name: 'Testers', level: 1 }).closest('section');
 		const glow = hero?.querySelector('[data-family-glow]');
 		expect(glow).toBeTruthy();
-		expect(glow?.getAttribute('style')).toContain('#3b82f6');
+		expect(glow?.getAttribute('style')).toContain('59, 130, 246');
 	});
 });

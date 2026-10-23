@@ -52,6 +52,11 @@
 	export let familyMembers: { userId: string; firstName: string }[] = [];
 	export let defaultViewSetting: string = 'monthView';
 	export let initialView: string | undefined = undefined;
+	/** #082: the ranged read for a month the page load did not cover.
+	 *  Absent = behave as before (single-window calendar). */
+	export let loadRange: ((from: string, to: string) => Promise<Event[]>) | undefined = undefined;
+	/** Months the server already loaded — the SSR window is never refetched. */
+	export let loadedMonths: string[] = [];
 	export let dueTasks: {
 		id: string;
 		title: string;
@@ -174,6 +179,79 @@
 		currentDate.set(current);
 	}
 
+	// #082: fetch-merge-cache for months beyond the page-load window. Swipes,
+	// arrows, month/year pickers and goToday all change the store, so the
+	// month on screen is the one trigger — not the controls.
+	// Bounded at twelve months: walking forward forever cannot grow the client
+	// cache without limit.
+	const RANGE_CACHE_MAX = 12;
+	let rangeBusy: string[] = [];
+	let rangeLoaded: string[] = [];
+	let remoteEvents: Event[] = [];
+
+	function occurrenceKey(e: Event): string {
+		const day = e.occurrenceDate
+			?? (e.date instanceof Date ? e.date.toISOString().slice(0, 10) : (e.date as string | undefined))
+			?? '';
+		return `${e.masterId ?? e.id}|${day}`;
+	}
+
+	function monthBounds(month: string): [string, string] {
+		const d = DateTime.fromISO(`${month}-01T12:00:00`);
+		return [d.startOf('month').toISODate() ?? month, d.endOf('month').toISODate() ?? month];
+	}
+
+	function rememberMonth(month: string) {
+		rangeLoaded = [...rangeLoaded, month];
+		if (rangeLoaded.length > RANGE_CACHE_MAX) {
+			rangeLoaded = rangeLoaded.slice(-RANGE_CACHE_MAX);
+		}
+	}
+
+	function mergeFetched(month: string, fetched: Event[]) {
+		rememberMonth(month);
+		const seen = new Set([...events, ...remoteEvents].map(occurrenceKey));
+		remoteEvents = [...remoteEvents, ...fetched.filter((e) => !seen.has(occurrenceKey(e)))];
+	}
+
+	function scheduleRangeLoad(month: string) {
+		if (!loadRange) return;
+		if (typeof window === 'undefined') return;
+		if (rangeBusy.includes(month) || rangeLoaded.includes(month) || loadedMonths.includes(month)) {
+			return;
+		}
+		rangeBusy = [...rangeBusy, month];
+		const [from, to] = monthBounds(month);
+		loadRange(from, to)
+			.then((fetched) => mergeFetched(month, fetched))
+			.catch(() => {
+				// Mark the month attempted even on failure: the reactive guard
+				// would otherwise retry it in a hot loop. Revisiting after a
+				// reload is the retry path.
+				rememberMonth(month);
+				pushToast({ message: "Couldn't load that month's events — try again." });
+			})
+			.finally(() => {
+				rangeBusy = rangeBusy.filter((m) => m !== month);
+			});
+	}
+
+	// MONTH, not the date — a same-month re-render must not retrigger, and a
+	// still-busy or already-held month re-runs the guard cheaply.
+	$: monthOnScreen = $currentDate.toFormat('yyyy-MM');
+	$: if (
+		!(typeof window === 'undefined') &&
+		!rangeBusy.includes(monthOnScreen) &&
+		!rangeLoaded.includes(monthOnScreen) &&
+		!loadedMonths.includes(monthOnScreen)
+	) {
+		scheduleRangeLoad(monthOnScreen);
+	}
+	$: mergedEvents = [
+		...events,
+		...remoteEvents.filter((e) => !events.some((row) => occurrenceKey(row) === occurrenceKey(e)))
+	];
+
 	// ---- #069: per-calendar view filter ----
 	// A VIEW filter: it says what to draw, not where new events land. The
 	// default-calendar setting (`defaultCalendarId`, read by the create form)
@@ -227,7 +305,7 @@
 	// The roster is the loaded family roster PLUS everyone with something here,
 	// so a member with a clear month is a row that says 0 rather than a gap. The
 	// counts come from the filtered rows, so a 0 is the reason the grid is empty.
-	$: assignees = assigneeRoster(events, dueTasks, filterUserId, familyMembers);
+	$: assignees = assigneeRoster(mergedEvents, dueTasks, filterUserId, familyMembers);
 	$: assigneeTally = assigneeCounts(visibleEvents, visibleTasks);
 	$: assigneeRows = assignees.map((person) => ({
 		...person,
@@ -256,7 +334,7 @@
 	// the query, then the people. They compose (each narrows the last) and none
 	// of them replaces another.
 	let searchQuery = '';
-	$: calendarEvents = visibleByCalendar(events, hiddenCalendarIds);
+	$: calendarEvents = visibleByCalendar(mergedEvents, hiddenCalendarIds);
 	$: calendarTasks = visibleByCalendar(dueTasks, hiddenCalendarIds);
 	$: unassignedEvents = bySearch(calendarEvents, searchQuery);
 	$: unassignedTasks = bySearch(calendarTasks, searchQuery);
@@ -381,6 +459,11 @@
 			ontouchstart={handleTouchStart}
 			ontouchend={handleTouchEnd}
 		>
+			{#if rangeBusy.includes(monthOnScreen)}
+				<p class="mb-2 text-center text-sm text-slate-500" role="status" data-testid="calendar-range-pending">
+					Downloading this month&hellip;
+				</p>
+			{/if}
 			{#if dailyVerse}
 				<div class="mb-3">
 					<DailyVerseCard

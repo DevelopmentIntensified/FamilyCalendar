@@ -86,6 +86,6 @@ describe('AddTaskCard', () => {
 		const first = screen.getAllByTitle(/Every /)[0];
 		await fireEvent.click(first);
 		expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
-		expect(invalidateAll).toHaveBeenCalledOnce();
+		await waitFor(() => expect(invalidateAll).toHaveBeenCalledOnce());
 	});
 });

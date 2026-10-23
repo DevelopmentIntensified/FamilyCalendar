@@ -62,6 +62,7 @@
 		busyId,
 		celebratingId,
 		confirmDeleteId,
+		confirmClear,
 		clearBusy,
 		assigneeName,
 		onToggle,
