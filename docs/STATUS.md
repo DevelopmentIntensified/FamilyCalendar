@@ -578,19 +578,21 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   to our own filenames. No code change until then.
 - #085–#091 technical-debt sweep (filed 2026-09-29, from a pass over schema,
   migrations and half-wired code). None is started; all `Status: open`.
-  - #086 **No migration baseline** — the load-bearing one. 21 of 39 declared
-    tables are created by nothing in `sql/migrations/`, and the runner fails on
-    migration 001 (its first statement is an `ALTER TABLE "userSettings"`) so
-    every later migration is skipped on an empty database. `003` disagrees with
-    the schema on 8 tables (worst: `waitlist` has `email` as primary key in 003
-    and an `id` key in the schema; `aiUsageTracking` and `adEvents` are
-    effectively different tables). `tasks` is created twice, 9 columns vs 16.
-    Step 1 is a manual schema dump the user must run — we cannot pick a winner
-    between `003` and the `drizzle/` copies until we see the real databases
-    (same trap as #050).
+  - #086 **DONE 2026-10-23 — no more drift anywhere** — `0000-baseline-tables.sql`
+    (all 40 schema tables, drizzle-kit shape, guarded re-runs, FKs to 010
+    preserved) bundled as the runner's first file; `020` dropped the two
+    orphaned ad columns from both Neon branches. Ground-truth probe
+    `scripts/db-schema-diff.ts` (table-by-column, information-schema) now reads
+    NO DRIFT on prod, preview AND a fresh docker `scratch_rebuild` replayed from
+    the full 21-file set. One migration path retired: `drizzle/`,
+    `drizzle.config.ts` and `db:push`/`db:push:*`/`db:migrate` gone;
+    `npm run db:apply` (`scripts/db-apply.mjs`) replaces local pushing.
+    Residue (tracked, not this ticket): #115 groceries storeKey bug now
+    reachable.
   - #087 **DONE 2026-10-19 (public claims only)** — changelog Bills entries
     removed, roadmap + privacy policy rewritten to the truth, marketing grep
-    clean (see the Done rollup). Residue stays open, blocked by #086: the
+    clean (see the Done rollup). Residue unblocked by #086 (tables all exist
+    now still carries no callers/data): the
     `bills`/`receiptItems`/`itemTags` tables' fate, and the caller-less
     `parseBillQuickAdd`.
   - #088 **DONE 2026-10-23** - single source of truth (`shouldServeAds` reads
@@ -613,7 +615,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
     runner (parity green), schema declarations removed, two e2e cleanup
     helpers stopped deleting from `userGroups`. Owner retired the hand-run-DDL
     rule same day: schema SQL runs via Neon directly from now on (AGENTS.md).
-    #086 baseline stays open.
+    #086 landed 2026-10-23 (see its entry) — drift zero everywhere.
   - #091 **DONE 2026-10-23** - Family invite link discoverable: `copyOrShare`
     ladder on all four handlers, "Invite by link" on the family page, DI-able
     `family-invite.ts` email template replacing the inline HTML, member sees

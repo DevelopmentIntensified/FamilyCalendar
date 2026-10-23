@@ -1,6 +1,6 @@
 # 02 — Schema (40 tables) + seams + migrations
 
-Client: `src/lib/server/db/index.ts:1-7` (drizzle over postgres-js, `DATABASE_URL` required). Runner `src/lib/server/db/migrations/runner.ts` replays 16 bundled raw-SQL files at cold start (`hooks.server.ts:12-14`), tracked in `__schema_migrations`, per-migration tx, one failure BREAKs but still returns ok. `drizzle/` is stale codegen, NOT in the runtime path.
+Client: `src/lib/server/db/index.ts:1-7` (drizzle over postgres-js, `DATABASE_URL` required). Runner `src/lib/server/db/migrations/runner.ts` replays 21 bundled raw-SQL files (0000 baseline - #086 - through 020) at cold start (`hooks.server.ts:12-14`), tracked in `__schema_migrations`, per-migration tx, one failure BREAKs but still returns ok. `drizzle-kit push` retired (#086): one bundled path only.
 
 Naming traps: export `subscriptions` = physical `activeSubscriptions` (`schema.ts:122`); export `groceryStoreColours` = `grocery_store_colours` (`:988`).
 

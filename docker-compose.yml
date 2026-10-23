@@ -4,8 +4,7 @@
 #   npm run db:up        # start (port 5433, data survives restarts)
 #   npm run db:down      # stop
 #   npm run db:reset     # stop + wipe volumes (fresh schema needed)
-#   npm run db:push      # apply drizzle schema to the dev DB
-#   npm run db:push:test # apply drizzle schema to the test DB
+#   npm run db:apply     # apply the bundled schema to the dev DB (#086)
 #   npx tsx src/lib/server/seed.ts   # seed subscription types + ad events
 #
 # Ports: 5432/5434 are taken by other project containers on this machine,

@@ -1,6 +1,6 @@
 # 086 — No baseline: 21 tables exist only in the schema, and 003 contradicts it
 
-Status: open
+Status: in-progress
 
 Source: instruction — technical-debt sweep of schema, migrations, and dead code.
 
@@ -66,12 +66,12 @@ the table is empty, which is correct since nobody could write to it before.
       overwritten by a later family one and merely flipping "Everyone / Just
       me" re-labels an existing override. Until this minute that bug could not
       even be triggered, because every write threw. It can now.
-- [ ] `userAdConsent` is not in the schema and holds 0 rows against 239 users.
-      Dropping it is irreversible and waits for an explicit instruction.
-- [ ] **The real baseline is now obtainable**: dump the live schema rather than
-      reconstructing it from migrations that cannot run. The migration runner is
-      still broken, but "what is true" is no longer in doubt — only "how do we
-      rebuild it from scratch" is.
+      (Tracked with #115 — not part of the baseline work.)
+- [x] `userAdConsent` — dropped on both branches 2026-10-04 as
+      `sql/migrations/016-drop-user-ad-consent.sql` (owner instruction, #144).
+      Stale probe text; kept for the record.
+- [x] **The real baseline is now obtainable**: see Steps 1–6 — 0000-baseline +
+      db-schema-diff + scratch-rebuild proof landed 2026-10-23.
 
 ## The problem
 
@@ -128,28 +128,45 @@ and priority columns, so every recurring-task and priority query breaks.
 
 ## Needs doing
 
-- [ ] **Step 1 (user, manual).** Dump the live schema and diff it against the
-      schema file. We cannot pick a winner between 003 and the `drizzle/` copies
-      until we know what the real databases actually have. The same drift has
-      already bitten us once — see 050.
-- [ ] **Step 2.** Write one baseline migration that creates the 21 uncovered
-      tables in the **schema** shape, and have the runner record the existing
-      migrations as already applied on databases that are past them, so nothing
-      re-runs.
-- [ ] **Step 3.** Do NOT edit 003 — it is already applied everywhere, and applied
-      history is not rewritten. Add a new forward migration that reconciles all
-      8 disagreeing tables plus `tasks` to the schema shape, idempotently.
-- [ ] **Step 4.** Bring the `drizzle/` folder back in line (it is stale: one
-      generated file is orphaned from its journal, six tables were never
-      generated, and a task column added by hand never made it in), then pick
-      **one** migration path and retire the other. Two paths pointed at one
-      database is how the drift happened.
-- [ ] **Step 5.** Prove it: build a scratch database from empty using the runner
-      alone, and diff the result against the schema file.
-- [ ] **Step 6.** Update the docs that describe both paths so they describe the
-      surviving one.
+- [x] **Step 1 (dump + diff).** `scripts/db-schema-diff.ts` (tsx) compares every
+      `schema.ts` pgTable (physical names via `getTableName`) against
+      `information_schema`, column by column. 2026-10-23: both Neon branches
+      read **NO DRIFT** once 020 (below) dropped the two orphaned ad columns.
+- [x] **Step 2 (baseline).** `sql/migrations/0000-baseline-tables.sql` — all 40
+      schema tables (columns + indexes + FKs) generated from `schema.ts` via
+      drizzle-kit, hand-adapted: guarded `CREATE TABLE IF NOT EXISTS` /
+      `CREATE INDEX IF NOT EXISTS`, constraint adds wrapped in DO-blocks
+      (`duplicate_object` catch) so re-runs are no-ops, `familyInviteCodes`
+      FKs deferred to 010 with the same names. Bundled in `scripts.ts`
+      (parity gate green).
+- [x] **Step 3 (reconcile).** Live DBs already carried the schema shapes
+      (step-1 ground truth proved it — the 003 divergence lost when the DBs
+      were actually pushed), so the reconcile shrank to the two orphaned
+      ad columns: `sql/migrations/020-drop-stale-ad-flag-columns.sql` drops
+      `userSettings.showAdMarkers`/`personalizedAds` (undeclared since #088's
+      single source). Applied to both Neon branches; 003 rewritten nowhere.
+- [x] **Step 4 (retire a path).** One path remains: bundled `sql/migrations/`
+      replayed by the runtime runner + the `scripts.test.ts` parity gate.
+      Retired: `drizzle/` folder deleted, `drizzle.config.ts` deleted,
+      `db:push`/`db:push:*`/`db:migrate` scripts removed, and
+      `npm run db:apply` (`scripts/db-apply.mjs`) replaces local pushing.
+      `drizzle-orm` stays as the runtime ORM.
+- [x] **Step 5 (proof).** Fresh docker DB `scratch_rebuild` replayed all 21
+      files in order (0000 first) with zero failures; then
+      `db-schema-diff` against it: **NO DRIFT** (2026-10-23). Byte-parity
+      between replayed files and the runtime bundle is enforced by the
+      parity test.
+- [x] **Step 6 (docs).** README + docker-compose quickstart now say `db:apply`
+      (`db:push` retired); spec snapshot `02-schema.md` describes the single
+      bundled path.
 
 ## Done
+
+- **2026-10-23 — baseline landed.** Steps 1–6 above; ticket stays open for
+  the two real-code residues: #115's groceries storeKey bug (now reachable
+  that `grocery_store_colours` exists) and the stale `bills` tidbits noted
+  under #087. All probes are one-command reproducible
+  (`npx dotenv -e .env.prod -- npx tsx scripts/db-schema-diff.ts`).
 
 ## Notes
 
@@ -160,3 +177,4 @@ and priority columns, so every recurring-task and priority query breaks.
   live database, not against the folder, which is how all 39 tables got created
   without a migration.
 - Ground truth for the real database beats both copies. Dump first, write second.
+

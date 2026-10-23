@@ -8,6 +8,7 @@
  * Names are sorted by their numeric prefix (001_, 002_, ...) and applied in
  * that order. Each is idempotent (uses IF NOT EXISTS) so re-runs are safe.
  */
+import m0000 from '../../../../../sql/migrations/0000-baseline-tables.sql?raw';
 import m001 from '../../../../../sql/migrations/001_add_ads_columns.sql?raw';
 import m002 from '../../../../../sql/migrations/002_add_family_members_role.sql?raw';
 import m003 from '../../../../../sql/migrations/003_create_monetization_tables.sql?raw';
@@ -28,10 +29,12 @@ import m016Drop from '../../../../../sql/migrations/016-drop-user-ad-consent.sql
 import m017 from '../../../../../sql/migrations/017_create_child_consent_records.sql?raw';
 import m018 from '../../../../../sql/migrations/018_better_auth_tables.sql?raw';
 import m019 from '../../../../../sql/migrations/019-drop-unused-group-tables.sql?raw';
+import m020 from '../../../../../sql/migrations/020-drop-stale-ad-flag-columns.sql?raw';
 
 export type BundledMigration = { name: string; sql: string };
 
 const MIGRATIONS: BundledMigration[] = [
+	{ name: '0000-baseline-tables.sql', sql: m0000 },
 	{ name: '001_add_ads_columns.sql', sql: m001 },
 	{ name: '002_add_family_members_role.sql', sql: m002 },
 	{ name: '003_create_monetization_tables.sql', sql: m003 },
@@ -51,7 +54,8 @@ const MIGRATIONS: BundledMigration[] = [
 	{ name: '016-drop-user-ad-consent.sql', sql: m016Drop },
 	{ name: '017_create_child_consent_records.sql', sql: m017 },
 	{ name: '018_better_auth_tables.sql', sql: m018 },
-	{ name: '019-drop-unused-group-tables.sql', sql: m019 }
+	{ name: '019-drop-unused-group-tables.sql', sql: m019 },
+	{ name: '020-drop-stale-ad-flag-columns.sql', sql: m020 }
 ];
 
 /** Sorted ascending by numeric prefix. */
