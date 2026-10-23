@@ -1,10 +1,13 @@
 # 152 — Invite email/share JWT: not single-use, unbounded, doubles as sign-in
 
-Status: open
+Status: done
 
 Source: security audit (issue 136), 2026-10-06. Rank 6/15 — authorisation-semantics defect; reachable whenever a link is forwarded, shared, or leaks (one URL in browser history/logs).
 
 ## Done
+
+- **Fixed 2026-10-22 (local, uncommitted):** join path rewired to the durable single-use `familyInviteCodes` row the JWT embeds — `(marketing)/family/invite/email/+page.server.ts:140-182` routes both account branches through `acceptInvite` (maxUses / expiry / revocation / family-size cap enforced; replayed or forwarded JWT cannot mint memberships). Existing account is joined but **never signed in** from a bearer link (`loginWithNotice(JOIN_COMPLETE)` → normal login). Password floor here is now 8, matching signup. Both mint routes rate-limited before minting: `members/add/email/+server.ts:64` (`INVITE_EMAIL_LIMIT = 10`), `members/add/email/link/+server.ts:56` (`INVITE_LINK_LIMIT = 10`).
+- Gates: **19/19 green** across the three server suites — `invite/email/page.server.test.ts` (7), `members/add/email/server.test.ts` (6), `members/add/email/link/server.test.ts` (6). Drift note: the limiter tests hardcode `const limit = 10` instead of importing the constants — exporting them is a later nicety.
 
 - Mint: `members/add/email/link/+server.ts:57-76` returns a shareable link (1-day HS256 JWT, no `jti`); `members/add/email/+server.ts:71-101` emails the same shape. Admin-gated (lines 36–41) — sender side fine.
 - Consume: `src/routes/(marketing)/family/invite/email/+page.server.ts:105-133` `createAccountAndJoin` inserts `familyMembers` directly (113–118, 126–129) — **bypasses** `acceptInvite` (`families.ts:192`), so no `useCount`/`maxUses` cap, no revocation check, no single-use marker.
@@ -16,6 +19,4 @@ Source: security audit (issue 136), 2026-10-06. Rank 6/15 — authorisation-sema
 
 ## Needs doing
 
-- Option A — single-use + revocable: store token hash with consumed marker at accept (mirror `reset_used` pattern) and embed the invite-code id in the JWT so revocation/maxUses are enforced. Cost: one small table/column + consume-path change; share links become mint-per-guest (admin re-mints per forwarded guest — UX change).
-- Option B — keep stateless 24h token but stop auto-signing-in existing accounts (require normal login to join) and record joins per token in DB to cap them. Cost: extra step for the legit invitee; token still unrevocable for its remaining lifetime.
-- Also fold in: rate limit the invite send (both mint routes) regardless of option.
+- Nicety only: export the invite-limit constants and let the tests read them instead of hardcoding 10 (recorded drift note, not a defect).

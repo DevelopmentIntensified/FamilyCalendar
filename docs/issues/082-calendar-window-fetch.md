@@ -9,25 +9,38 @@ beyond current".
 
 ## Needs doing
 
-- [ ] The calendar fetches the window it is about to show. Today the server
+- [x] The calendar fetches the window it is about to show. Today the server
       loads only the visible month and month navigation is client-side, so a
       navigated-to month has no data — which is why imported events appear
       nowhere while events created in the app do (they ride the optimistic
-      local list).
-- [ ] A ranged read endpoint over the user's accessible calendars, covering
-      personal and family, recurring masters expanded, exceptions and RSVP
-      status attached — the same pipeline the page load uses, not a second
-      dialect of it.
-- [ ] Moving to a month that is not loaded fetches it, merges it into the
-      calendar, and shows a pending state rather than an empty grid.
-- [ ] Moving back and forth does not re-fetch what is already held, and the
-      cache is bounded.
+      local list). **LANDED 2026-10-22** — `GET /api/events?from=&to=` was
+      already served (`src/routes/api/events/+server.ts`, #126); the client
+      now calls it on month move: `Calendar.svelte` fetches the on-screen
+      month via the `loadRange` prop wired by `+page.svelte`.
+- [x] A ranged read endpoint over the user's accessible calendars (already
+      existed — #126 port).
+- [x] Moving to a month that is not loaded fetches it, merges it into the
+      calendar (dedup on masterId+occurrence key), and shows a pending state
+      ("Downloading this month…", `calendar-range-pending`). **LANDED
+      2026-10-22**, pins in `Calendar.svelte.test.ts` #082 describe.
+- [x] Moving back and forth does not re-fetch what is already held, and the
+      cache is bounded (twelve months, oldest evicted). **LANDED**.
 - [ ] The import success screen links to the first imported date, so an import
       that landed in another month is verifiable.
-- [ ] Tests: the endpoint's range, its auth scope (personal + family, nothing
-      else), and the client's merge/cache behaviour.
+- [ ] Tests: the endpoint's range (covered in `api/events/server.test.ts`) and
+      its auth scope (personal + family, nothing else) — auth 401 covered,
+      scope still needs a pin. Client merge/cache behaviour covered in the
+      #082 describe.
 
 ## Done
+
+- Client half painted 2026-10-22 (TDD, red→green in one suite): fetch-on-
+  month-move + pending + merge-dedup + bounded cache + failure toast in
+  `src/lib/components/calendar/Calendar.svelte` (RANGE_CACHE_MAX = 12);
+  `+page.svelte` wires `loadRange` (fetch `/api/events?from=&to=`, colour by
+  calendar scope) and `loadedMonths` = the SSR window (today or ?date=), so
+  the page-load month is never refetched.
+
 
 ## Notes
 

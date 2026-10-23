@@ -4,6 +4,39 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **Security-lane batch #152/#154/#162/#163/#164/#165 (2026-10-22, local,
+  uncommitted):** five audit findings closed code+test-side.
+  **#152** invite JWT joins via the durable single-use inviteCode row
+  (`acceptInvite` enforces maxUses/expiry/revocation/size cap); existing
+  account joined but never signed in; both mint routes rate-limited
+  (INVITE_EMAIL/INVITE_LINK limit = 10; tests hardcode 10 — export the
+  constants later). 19/19 across three server suites.
+  **#154+#162** email codes hashed at rest (`hashEmailCode` sha256 in
+  `codes.ts:15`) and redeemed through `HashedCodeFilter` {code,email,type} —
+  login/signup/password-verify consumers bound, generic 400 oracle-free;
+  16/16 across three consumer suites.
+  **#163** claim-verify GET confirm-page / POST burn split (6/6).
+  **#164** `api/tasks?eventId=` filters private tasks to the owner (11/11).
+  **#165** event writes gated by `canMutateEventRow` owner leg
+  (`calendarScope.ts:49`, `events.ts:303/:462`; bulk member-move = not
+  applied); 34/34 (events 19 + calendarScope 15).
+  **#082/#201 stay open** — client month-window fetch + 12-month cache
+  bounded landed (`loadRange`/`loadedMonths`); residue: cache-bound test,
+  endpoint auth-scope pin, import-first-date link, live verify on test env.
+- **#204 event NLP four unmatched phrases (2026-10-22, local, uncommitted):**
+  bare hour range `6-8pm`/`6 to 8pm`/`6–8pm` (end meridiem back-extends,
+  `bareRangeMatch`), relative duration `in 48hrs|in 90 minutes|in 2 hours`
+  (date + wall-clock startTime, `relativeDurationMatch`), `goes to|goes over
+  to|heading to <place>` location rule (`matchGoPlacePhrase`, mirroring #114),
+  mid-place clock guard (`PLACE_TIME_GUARD`), `at H:MMpm` whole-span title
+  strip, month abbrevs as place stop words. RED 19 fail / 7 pass → green;
+  exact phrases now: `lrc goes to yoder's at 6:30pm` → lrc @ yoder's 18:30;
+  freezer remind → date+time +48h, full-sentence title; `fall festival at ccl
+  6-8pm oct 30` → fall festival @ ccl 18:00–20:00 oct 30; `november 16th start
+  date at cloudfit` → start date @ cloudfit (already green post-#107; the
+  `workshop … nov 16` word order fixed). Suites: NLP 577/577 + claim-guards
+  6/6 + dateResolution.parsers 159/159 + dateResolution 101/101 +
+  taskQuickAdd 141/141 + bulkAiService 63/63 + eventRecurrence 12/12.
 - **#107 leading-PM quick-add fix (2026-10-22, local, uncommitted):** bare
   meridiem confirmed as text, not a time; leading `PM`/`AM`/`P.M.`/`pm` kept in
   the title (`isLeadingMeridiem` in cleanTitleText), dangling trailing `in`
@@ -279,6 +312,14 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
+- **#202 mobile tap targets + sandwich menu (2026-10-22, local, uncommitted):**
+  chip slice + sandwich slice landed (details in the ticket's Landmark
+  section): `data-chip-kind="overflow"` chip floored at 18px/44x32/slate-600 on
+  mobile; below sm the toolbar icon strip folds behind one named 44px
+  `Calendar actions` trigger opening a top-right dialog of the same five
+  actions as 44px rows. Suites 86/86 in the two touched files. Residue:
+  overflow toast ack (owned by `+page.svelte` lane), 360px Playwright spec,
+  Add-toggle-on-touch reassessment.
 - **Owner tasks (2026-10-16, filed from the tree-cleanup answers):** #198 calendar-sync research kept — owner review/verdict task; #199 group-chat/video plan needs rework (owner: current plan "not what I needed"). CI stays local-gate (owner decision, #184 not restored). `film/` + `.probe.mts` deleted; `.vercelignore` committed.
 - **Architecture review → deepening tickets (2026-09-30, #109–#117).** Nine
   modules whose interface is nearly as complex as their implementation, found by
@@ -545,7 +586,12 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   30-day reporting read built 2026-10-22 (local, unpushed).
 - **Still genuinely open, notable:** #002 floated to ~20 scripted suites (list stale,
   grew); #116 mock-triage untouched; #129 drift + harness red-probe unchanged;
-  #122/#143 blocked; #164/#165/#166/#167/#168 security seams untouched; #197 premise
+  #122/#143 blocked; #166 security seam still open; #168 DONE 2026-10-22 (updateUser/updateUserSettings
+  narrowed to explicit field allowlists + runtime drop, privilege writes via
+  verifyUserEmail/setUserPasswordHash seams) (152/154/162/163/164/165
+  fixed 2026-10-22 — see Done); #167 DONE 2026-10-22 (saveCalendarSettings now
+  access-checks defaultCalendarId against getAccessibleCalendarIds, fail(400) + no write;
+  red→green in page.server.test.ts); #197 premise
   fixed — bump landed via #200, residual = jsdom ^25→30, testing-library ↑, animate shim,
   EventFormModal full-gate verify; #198/#199 awaiting owner.
 - **Owner tasks (2026-10-16) updated:** #197 no longer "scheduled as session" — bump
