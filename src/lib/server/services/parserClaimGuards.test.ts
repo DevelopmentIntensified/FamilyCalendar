@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 import { parseBillQuickAdd, parseEventInput } from './naturalLanguageService';
 import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
@@ -96,6 +96,95 @@ describe('family disjointness inside the event parser', () => {
 		expect(parseEventInput('party at the annex that saturday').parsed.location).toBe('annex');
 		// Control: the 108 rule still reads plain places.
 		expect(parseEventInput('meeting at the annex on monday at 2pm').parsed.location).toBe('annex');
+	});
+});
+
+describe('the claim book — a rule cannot read text another family claimed', () => {
+	// July clock (Wed 15 Jul 2026): the floor rows reuse the file's wired
+	// clock, so "this friday" = 2026-07-17 and the ordinal October date does
+	// not roll (still future).
+	beforeEach(() => {
+		withClock();
+	});
+
+	it('an address rule skips a month-day span the date family claimed', () => {
+		// Digit-first word order: the month-day claim and the address capture
+		// are the same text — the claim wins, "5 May" is not a location.
+		// Month-first order is the control: the address rule never sees a
+		// digit run there, so it never had the bug.
+		const rows: Array<[string, string, string | undefined]> = [
+			['digit-first', 'graduation on 5 May', undefined],
+			['digit-first-year', 'graduation on 5 May 2027', undefined],
+			['digit-first-mid', 'party on 12 May', undefined],
+			['month-first', 'graduation on May 5', undefined],
+			['digit-first-beside-place', 'graduation on 5 May at the park', 'park']
+		];
+		for (const [form, input, expected] of rows) {
+			const parsed = parseEventInput(input).parsed;
+			expect(parsed.location, `${form}: ${input}`).toBe(expected);
+		}
+	});
+
+	it("an 'at my …' read stops at a month-day claim, keeps real street reads", () => {
+		// "at my cabin on 5 May" names the cabin and the 5th of May — the
+		// claimed date must not ride in as the location. The street form is
+		// claimed by nobody and keeps its address.
+		expect(parseEventInput('party at my cabin on 5 May').parsed.location).toBe('Cabin');
+		expect(parseEventInput('party at my apartment on 42 Maple Drive').parsed.location).toBe(
+			'42 Maple Drive'
+		);
+	});
+
+	it('a weekly scan does not re-claim the weekday of a date rule', () => {
+		// "first friday of october" and "this friday" are DATE claims; their
+		// weekday words belong to the one-off date, not to the weekly list.
+		// Bare weekday floors stay: "weekly dinner friday" is weekly [FR],
+		// "dinner friday" is a single dated event.
+		const rows: Array<[string, string, string | undefined, string[] | undefined]> = [
+			['ordinal-first', 'first friday of october and every monday ride', '2026-10-02', ['MO']],
+			['ordinal-rev', 'every monday and the first friday of october', '2026-10-02', ['MO']],
+			['relative-first', 'party this friday every monday', '2026-07-17', ['MO']],
+			['plural-weekly', 'weekly dinner friday', '2026-07-17', ['FR']],
+			['bare-day', 'dinner friday', '2026-07-17', undefined]
+		];
+		for (const [form, input, date, byDay] of rows) {
+			const parsed = parseEventInput(input).parsed;
+			expect(parsed.date, `${form}: ${input}`).toBe(date);
+			expect(parsed.recurringByDay, `${form}: ${input}`).toEqual(byDay);
+		}
+	});
+
+	it('military time skips claimed digit runs in either word order', () => {
+		for (const input of ['standup 2026-08-30 1830', 'standup 1830 2026-08-30']) {
+			const parsed = parseEventInput(input).parsed;
+			expect(parsed.date).toBe('2026-08-30');
+			expect(parsed.startTime).toBe('18:30');
+		}
+	});
+
+	it('an invite does not swallow a claimed date beside its name', () => {
+		// The date claim leaves the sentence whether it sits after the name
+		// or before it; the invite keeps exactly the names.
+		const rows: Array<[string, string, string[]]> = [
+			['date-after', 'party invite jane jul 4', ['jane']],
+			['date-before', 'party invite jul 4 jane', ['jane']],
+			['month-first', 'party invite jane may 5', ['jane']],
+			['floor', 'party invite jane and mo', ['jane', 'mo']]
+		];
+		for (const [form, input, expected] of rows) {
+			expect(parseEventInput(input).parsed.attendants, `${form}: ${input}`).toEqual(expected);
+		}
+	});
+
+	it('calendar routing stays clean beside a claimed date (floor)', () => {
+		// These were already green — pinned so the book never trades them away.
+		for (const input of [
+			'party on jul 4 family calendar',
+			'party next may family calendar',
+			'party today on the family calendar'
+		]) {
+			expect(parseEventInput(input).parsed.calendarName).toBe('family calendar');
+		}
 	});
 });
 

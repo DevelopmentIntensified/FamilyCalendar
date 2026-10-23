@@ -56,6 +56,53 @@ size, is the problem.
 
 ## Done
 
+- [x] **2026-10-23 (the claim book — later rules cannot see claimed text):**
+      `parseEventInput` now keeps a span claim registry and mask. Design:
+      - `claims[]` — char ranges over the input's canonical index space,
+        which all working texts share (the `until <date>` blank is now
+        same-length spacing, so `input` / `nonUrlText` / `dateInput` never
+        drift apart).
+      - `claimText(span, index)` — the only way a rule joins the book;
+        overlapping re-claims are no-ops (first claim wins).
+      - `maskClaims(text)` — claimed ranges become blanks; the reader sees
+        spaces, never the claimed words.
+      - Ordering: date-family rules claim at resolution time (this/next
+        day, today/tomorrow, in N days, duration weekends, next <month>,
+        returning, word ordinals, and every chain atom from the sweeps).
+        The weekly day scan then reads the mask so a date claim's weekday
+        ("first friday of october", "this friday") is invisible to the
+        weekly list; it claims its own day words. The bare-weekday
+        fallback moved below the weekly scan for the same reason: it dates
+        only unclaimed weekdays and claims what it takes. The compact
+        24h scan, `on <address>` / `at my <place>` reads, the calendar
+        target trio and the invite reader all read `claimMasked` — a rule
+        that would overlap a claim is skipped, not applied anyway.
+      Six live overlaps found red-first and fixed, tables pinned in
+      `parserClaimGuards.test.ts` ("the claim book" describe):
+      1. `graduation on 5 May` / `party on 12 May` — the digit-first
+         month-day claim rode in as the location; month-first order was
+         clean (word-order split).
+      2. `party at my cabin on 5 May` — same theft through the
+         `at my … on <address>` read; the real street read stays green.
+      3. `first friday of october and every monday` — byDay was
+         `[MO, FR]`; the ordinal date's weekday joined the weekly list
+         from the other word order too.
+      4. `party this friday every monday` — relative-day claim leaking
+         FR into byDay.
+      5. `party invite jane jul 4` — the invite swallowed the claimed
+         date ("jane jul 4", and the reversed order too).
+      6. military time now skips ANY claimed digit run via the mask (the
+         `^20\d{2}$` year hack stays for unclaimed years); both word
+         orders pinned.
+      Floors pinned green beside the fixes: `weekly dinner friday`
+      (weekly [FR] + dated), `dinner friday` (single dated event),
+      `invite jane and mo`, calendar routing beside claimed dates.
+      Interaction with #107/#204's committed rules: untouched —
+      `bareRangeMatch`/`relativeDurationMatch` still resolve bare ranges
+      and point-anchored starts (the book only claims the duration
+      phrase), and `matchGoPlacePhrase`/`PLACE_TIME_GUARD` still govern
+      place readers (the book does not feed the place family; its
+      terminators stay).
 - [x] **2026-10-16 (partial — the double-claims that existed are gone):** six
       live overlaps found red-first and fixed, each pinned in
       `naturalLanguageService.test.ts`'s new sibling
@@ -83,11 +130,14 @@ size, is the problem.
          `water bill on 8/15` was an $8 bill titled `water bill on /15`
          with no due date. The due step now claims `on|by m/d` whole.
 - [ ] Remaining: the 55-rule chain is still a linear priority chain
-      guarded by `!result.date`/`foundTime` feature guards, not a span
-      claim book; the ~272-test table still aims at outputs, not at a
-      claim seam; `inviteMatch` keeps its own partial terminator list
-      (deliberately — `and` splits its names, so the shared place list
-      does not transfer). These are the same seam, unfinished.
+      guarded by `!result.date`/`foundTime` feature guards — the claim
+      book now exists and the weekly/military/address/calendar/invite
+      border rules read it, but the whole chain is not yet routed
+      through the book session after session; the ~272-test table still
+      aims at outputs, not at a claim seam; `inviteMatch` keeps its own
+      partial terminator list (deliberately — `and` splits its names, so
+      the shared place list does not transfer). These are the same seam,
+      unfinished.
 
 ## Notes
 

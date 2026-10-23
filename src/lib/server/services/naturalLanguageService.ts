@@ -607,7 +607,35 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			'i'
 		)
 	);
-	const dateInput = untilMatch ? nonUrlText.replace(untilMatch[0], ' ') : nonUrlText;
+	// Same-length blanking keeps index alignment: every working text
+	// (input, nonUrlText, dateInput) then shares the char offsets the claim
+	// book needs (issue 112).
+	const dateInput = untilMatch
+		? nonUrlText.replace(untilMatch[0], ' '.repeat(untilMatch[0].length))
+		: nonUrlText;
+
+	// Claim book (issue 112): each date-family rule registers the span it
+	// consumed. A later rule runs on the masked view, where claimed ranges
+	// are blanks, so it cannot re-read claimed words — and a rule that
+	// would overlap a claim is skipped, not applied anyway.
+	const claims: Array<{ start: number; end: number }> = [];
+	const claimText = (span: string, index: number | undefined) => {
+		if (index === undefined || !span) return;
+		const start = index;
+		const end = index + span.length;
+		if (claims.some((c) => start < c.end && end > c.start)) return;
+		claims.push({ start, end });
+	};
+	const maskClaims = (text: string): string => {
+		if (claims.length === 0) return text;
+		const out = text.split('');
+		for (const c of claims) {
+			for (let i = Math.max(0, c.start); i < Math.min(c.end, out.length); i++) {
+				if (out[i] !== '\n') out[i] = ' ';
+			}
+		}
+		return out.join('');
+	};
 
 	// Exact schedule spans consumed by the parser (explicit dates, relative
 	// days, reminders, calendar targets). The title step strips these so the
@@ -629,6 +657,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (thisDayMatch) {
 		result.date = getNextDayOfWeek(thisDayMatch[1], zone).toFormat('yyyy-MM-dd');
 		stripSpans.push(thisDayMatch[0]);
+		claimText(thisDayMatch[0], thisDayMatch.index);
 		confidence += 0.25;
 	}
 
@@ -639,6 +668,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (nextDayMatch && !result.date) {
 		result.date = getNextDayOfWeek(nextDayMatch[1], zone).plus({ weeks: 1 }).toFormat('yyyy-MM-dd');
 		stripSpans.push(nextDayMatch[0]);
+		claimText(nextDayMatch[0], nextDayMatch.index);
 		confidence += 0.25;
 	}
 
@@ -647,6 +677,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (todayMatch && !result.date) {
 		result.date = now.toFormat('yyyy-MM-dd');
 		stripSpans.push(todayMatch[0]);
+		claimText(todayMatch[0], todayMatch.index);
 		confidence += 0.2;
 	}
 
@@ -655,6 +686,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (tomorrowMatch && !result.date) {
 		result.date = now.plus({ days: 1 }).toFormat('yyyy-MM-dd');
 		stripSpans.push(tomorrowMatch[0]);
+		claimText(tomorrowMatch[0], tomorrowMatch.index);
 		confidence += 0.2;
 	}
 
@@ -663,6 +695,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (relativeMatch && !result.date) {
 		const n = relativeMatch[1].toLowerCase() === 'a' ? 1 : parseInt(relativeMatch[1]);
 		stripSpans.push(relativeMatch[0]);
+		claimText(relativeMatch[0], relativeMatch.index);
 		const unit = relativeMatch[2].toLowerCase();
 		result.date = (
 			unit === 'week'
@@ -686,6 +719,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		const unit = relativeDurationMatch[2].toLowerCase();
 		const point = unit.startsWith('h') ? now.plus({ hours: n }) : now.plus({ minutes: n });
 		stripSpans.push(relativeDurationMatch[0]);
+		claimText(relativeDurationMatch[0], relativeDurationMatch.index);
 		result.date = point.toFormat('yyyy-MM-dd');
 		result.startTime = point.toFormat('HH:mm');
 		confidence += 0.25;
@@ -697,6 +731,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		let daysUntilSat = (6 - (now.weekday % 7) + 7) % 7;
 		if (daysUntilSat === 0) daysUntilSat = 7;
 		stripSpans.push(weekendMatch[0]);
+		claimText(weekendMatch[0], weekendMatch.index);
 		result.date = now.plus({ days: daysUntilSat }).toFormat('yyyy-MM-dd');
 		confidence += 0.2;
 	}
@@ -707,6 +742,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		const month = MONTH_MAP[nextMonthMatch[1].toLowerCase()];
 		result.date = DateTime.fromObject({ year: now.year + 1, month, day: 1 }).toFormat('yyyy-MM-dd');
 		stripSpans.push(nextMonthMatch[0]);
+		claimText(nextMonthMatch[0], nextMonthMatch.index);
 		confidence += 0.2;
 	}
 
@@ -717,6 +753,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (returnDayMatch && !result.date) {
 		result.date = getNextDayOfWeek(returnDayMatch[1], zone).toFormat('yyyy-MM-dd');
 		stripSpans.push(returnDayMatch[0]);
+		claimText(returnDayMatch[0], returnDayMatch.index);
 		if (returnDayMatch[2]) {
 			result.endTime = lookup(DAYPART_TIMES, returnDayMatch[2].toLowerCase()) ?? '18:00';
 		}
@@ -791,6 +828,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		const day = lookup(ORDINAL_WORD_MAP, normalized);
 		if (day) {
 			result.date = withRolloverYear(month, day, null, now).toFormat('yyyy-MM-dd');
+			claimText(ordinalWordMatch[0], ordinalWordMatch.index);
 			confidence += 0.3;
 		}
 	}
@@ -990,7 +1028,10 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		}
 	}
 	flushChain();
-	for (const atom of chainAtoms) stripSpans.push(atom.span);
+	for (const atom of chainAtoms) {
+		stripSpans.push(atom.span);
+		claimText(atom.span, atom.index);
+	}
 	if (chains.length > 0) {
 		const best = chains.reduce((a, b) => (b.length > a.length ? b : a));
 		const dates = [...new Set(best.map((e) => e.date))].slice(0, MAX_SPAN_DATES);
@@ -1008,28 +1049,6 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		if (dates.length >= 1) {
 			result.dates = dates;
 			result.date = dates[0];
-		}
-	}
-
-	// Bare-weekday fallback ("dinner friday"): no date matched anywhere, so
-	// the first named weekday is the event day (next occurrence). Exact
-	// names first; typo forms ("wensday") resolve fuzzily with lower weight.
-	if (!result.date) {
-		const bareDay = dateInput.match(
-			/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i
-		);
-		if (bareDay) {
-			result.date = getNextDayOfWeek(bareDay[1], zone).toFormat('yyyy-MM-dd');
-			confidence += 0.2;
-			stripSpans.push(bareDay[0]);
-		} else {
-			const fuzzy = extractDayTokens(dateInput);
-			if (fuzzy.length > 0) {
-				const name = FULL_WEEKDAYS[(WEEK_ORDER.indexOf(fuzzy[0].code) + 1) % 7];
-				result.date = getNextDayOfWeek(name, zone).toFormat('yyyy-MM-dd');
-				confidence += 0.15;
-				stripSpans.push(fuzzy[0].raw);
-			}
 		}
 	}
 
@@ -1203,7 +1222,10 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// Weekday recurrence, single pass: "every Monday", "on wednesdays",
 	// "every Mon, Wed, Fri", "tuesday and thrusday" (typo-tolerant). One
 	// token scan over dateInput (until-span blanked) feeds every rule below.
-	const dayTokens = extractDayTokens(dateInput);
+	// The scan reads the claim-masked view (issue 112): a date claim that
+	// names a weekday ("first friday of october", "this friday") marks a
+	// concrete date, and the weekly list must not re-claim its weekday.
+	const dayTokens = extractDayTokens(maskClaims(dateInput));
 	const dayRaws = dayTokens.map((t) => t.raw);
 	const distinctDays = [...new Set(dayTokens.map((t) => t.code))];
 	const anyPluralDay = dayRaws.some((t) => t.toLowerCase().endsWith('s'));
@@ -1218,6 +1240,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			result.recurring = 'weekly';
 			result.recurringByDay = orderWeekdays(distinctDays);
 			recurrencePhrases.push(...dayRaws);
+			for (const t of dayTokens) claimText(t.raw, t.index);
 			confidence += 0.2;
 			if (!result.date) {
 				result.date = nearestWeekday(distinctDays, zone).toFormat('yyyy-MM-dd');
@@ -1230,6 +1253,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 				.sort();
 			result.dates = dates;
 			recurrencePhrases.push(...dayRaws);
+			for (const t of dayTokens) claimText(t.raw, t.index);
 			confidence += 0.2;
 			if (!result.date) {
 				result.date = dates[0];
@@ -1257,6 +1281,33 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			result.recurringUntil = untilDate;
 			recurrencePhrases.push(untilMatch[0]);
 			confidence += 0.15;
+		}
+	}
+
+	// Bare-weekday fallback ("dinner friday"): no date matched anywhere, so
+	// the first named weekday is the event day (next occurrence). Exact
+	// names first; typo forms ("wensday") resolve fuzzily with lower weight.
+	// Moved after the weekly scan (issue 112): the weekly family claims its
+	// day words first, and this fallback reads only the unclaimed rest.
+	if (!result.date) {
+		const maskedDayInput = maskClaims(dateInput);
+		const bareDay = maskedDayInput.match(
+			/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i
+		);
+		if (bareDay) {
+			result.date = getNextDayOfWeek(bareDay[1], zone).toFormat('yyyy-MM-dd');
+			confidence += 0.2;
+			stripSpans.push(bareDay[0]);
+			claimText(bareDay[0], bareDay.index);
+		} else {
+			const fuzzy = extractDayTokens(maskedDayInput);
+			if (fuzzy.length > 0) {
+				const name = FULL_WEEKDAYS[(WEEK_ORDER.indexOf(fuzzy[0].code) + 1) % 7];
+				result.date = getNextDayOfWeek(name, zone).toFormat('yyyy-MM-dd');
+				confidence += 0.15;
+				stripSpans.push(fuzzy[0].raw);
+				claimText(fuzzy[0].raw, fuzzy[0].index);
+			}
 		}
 	}
 
@@ -1391,6 +1442,11 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		confidence += 0.25;
 	}
 
+	// Claim-masked view (issue 112): every consumer from here on reads the
+	// text with claimed spans blanked, so claimed digit runs, weekday words
+	// and dates never feed a second family.
+	const claimMasked = maskClaims(nonUrlText);
+
 	// Military / compact 24h: "1830" (not years like 2026). Runs on URL-free
 	// text so digit runs inside links never read as times.
 	//
@@ -1400,7 +1456,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// its time. Now a claimed candidate is skipped and the scan continues to
 	// the next digit run — a rule that would overlap is skipped, not applied.
 	let militaryStart: { hh: number; mm: number } | null = null;
-	for (const m of nonUrlText.matchAll(/(?<![\d:])(\d{2})(\d{2})(?!\d)/g)) {
+	for (const m of claimMasked.matchAll(/(?<![\d:])(\d{2})(\d{2})(?!\d)/g)) {
 		const hh = parseInt(m[1]);
 		const mm = parseInt(m[2]);
 		if (/^20\d{2}$/.test(m[0])) continue;
@@ -1746,7 +1802,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	}
 
 	// "at my apartment on 42 Maple Drive" or "at my apartment"
-	const myPlaceMatch = nonUrlText.match(
+	const myPlaceMatch = claimMasked.match(
 		/at\s+(?:my|our)\s+([a-z]+)(?:\s+on\s+(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*))?/i
 	);
 	if (myPlaceMatch && !result.location) {
@@ -1764,7 +1820,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 
 	// Address: "at 450 Main Street" or standalone address
 	// Match address pattern: number + street name, possibly after "on"
-	const addressMatch = nonUrlText.match(/\bon\s+(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
+	const addressMatch = claimMasked.match(/\bon\s+(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
 	if (addressMatch && !result.location) {
 		result.location = addressMatch[1].trim();
 		confidence += 0.15;
@@ -1788,7 +1844,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 
 	// Calendar targeting: "on the family calendar", "to my work calendar".
 	// Stores the raw name; the caller matches it against the user's calendars.
-	const calendarMatch = nonUrlText.match(
+	const calendarMatch = claimMasked.match(
 		/\b(?:on|to)\s+(?:the\s+|my\s+)?([A-Za-z][A-Za-z ]*?)\s+calendar\b/i
 	);
 	if (calendarMatch) {
@@ -1802,9 +1858,9 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// safe to route without an on/to preposition; arbitrary calendar names
 	// still need "on"/"to" to avoid over-capture ("budget calendar review").
 	const bareCalendarMatch =
-		!result.calendarName && nonUrlText.match(/\b(family|personal)\s+calendar\s*[.!]?\s*$/i);
+		!result.calendarName && claimMasked.match(/\b(family|personal)\s+calendar\s*[.!]?\s*$/i);
 	const leadingCalendarMatch =
-		!result.calendarName && nonUrlText.match(/^(?:the\s+|my\s+)?(family|personal)\s+calendar\b/i);
+		!result.calendarName && claimMasked.match(/^(?:the\s+|my\s+)?(family|personal)\s+calendar\b/i);
 	const bareMatch = bareCalendarMatch ?? leadingCalendarMatch;
 	if (bareMatch) {
 		// SAFETY: the alternation above whitelists family|personal only.
@@ -1869,8 +1925,10 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		}
 	}
 
-	// "invite X" / "invite Jay and Mo" — explicit beats guessed.
-	const inviteMatch = nonUrlText.match(/\binvite\s+([^,.]+)/i);
+	// "invite X" / "invite Jay and Mo" — explicit beats guessed. Reads the
+	// claim-masked text (issue 112): a claimed date beside the names is not
+	// part of the invite list.
+	const inviteMatch = claimMasked.match(/\binvite\s+([^,.]+)/i);
 	if (inviteMatch) {
 		const raw = inviteMatch[1]
 			.replace(/\s+(?:on|at|for|from|to|until|remind|reminder)\b.*$/i, '')
