@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { copyOrShare } from '$lib/client/share';
+
 	interface Props {
 		familyId: string;
 		onSuccess: () => void;
@@ -14,6 +16,7 @@
 	let inviteLink = $state('');
 	let generatingLink = $state(false);
 	let copiedLink = $state(false);
+	let wasShared = $state(false);
 	let copyFailed = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -71,15 +74,13 @@
 
 	async function copyLink() {
 		if (!inviteLink) return;
-		try {
-			await navigator.clipboard.writeText(inviteLink);
-			copyFailed = false;
-			copiedLink = true;
+		const outcome = await copyOrShare(inviteLink, { share: true, title: 'Join our family' });
+		copyFailed = outcome === 'failed';
+		wasShared = outcome === 'shared';
+		copiedLink = wasShared || outcome === 'copied';
+		if (outcome === 'copied') {
 			clearTimeout(copyTimer);
 			copyTimer = setTimeout(() => (copiedLink = false), 2000);
-		} catch {
-			copiedLink = false;
-			copyFailed = true;
 		}
 	}
 </script>
@@ -168,9 +169,8 @@
 				onclick={copyLink}
 				class="rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700"
 			>
-				{copiedLink ? 'Copied ✓' : 'Copy'}
-			</button>
-		</div>
+				{copiedLink ? (wasShared ? 'Shared ✓' : 'Copied ✓') : 'Copy'}
+			</button>		</div>
 		{#if copyFailed}
 			<p class="mt-2 text-xs text-red-600">
 				Copy failed — select the link above and copy it manually: {inviteLink}

@@ -9,6 +9,7 @@ import { db } from '$lib/server/db';
 import { familyMembers } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getFamilyMemberRole, generateInviteCode } from '$lib/server/db/actions/families';
+import { getFamilyInviteEmailHtml } from '$lib/server/emails/family-invite';
 
 // Sending email invites mints a join token for the family — an admin-level
 // action, mirroring the direct-add gate in members/add/direct.
@@ -33,6 +34,9 @@ export type InviteEmailSendDeps = {
 	generateInviteCode: typeof generateInviteCode;
 	createJwt: typeof createJWT;
 	sendEmail: typeof sendEmail;
+	// Issue 091 — the body is rendered outside the handler, through the same
+	// dependency-injection seam as the magic-link service.
+	renderEmail: typeof getFamilyInviteEmailHtml;
 	jwtSecret: Uint8Array;
 };
 
@@ -49,6 +53,7 @@ const defaultDeps: InviteEmailSendDeps = {
 	generateInviteCode,
 	createJwt: createJWT,
 	sendEmail,
+	renderEmail: getFamilyInviteEmailHtml,
 	jwtSecret: new TextEncoder().encode(EMAILSECRET)
 };
 
@@ -138,10 +143,10 @@ export const POST = async (
 		to: email,
 		from: NOREPLYEMAIL,
 		subject: 'You have been invited to join a family by ' + user.firstName + ' ' + user.lastName,
-		html: `
-			Here is a link for joining: <a href="${signInUrl.toString()}"> link </a>
-It will Expire in 24hrs.
-`
+		html: deps.renderEmail({
+			inviterName: user.firstName + ' ' + user.lastName,
+			inviteUrl: signInUrl.toString()
+		})
 	});
 
 	if (success) {

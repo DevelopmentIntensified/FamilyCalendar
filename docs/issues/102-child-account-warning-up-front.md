@@ -1,6 +1,6 @@
 # 102 — Add a member: explain the child account before the save, not after
 
-Status: open
+Status: done
 
 Source: `app-ui/family-members-add.html` review, prototype approved (no
 marks). The prototype's one ask beyond the three-tab layout — which the app
@@ -26,6 +26,23 @@ already has — is that the child case explains itself up front.
       create-a-child, and that decision is not up for re-litigating.
 
 ## Done
+
+- Red first: `MemberInviteChildTabs.svelte.test.ts:104-113` demanded the true
+  copy — "no password is set", "magic link" only, "only holder", uniqueness
+  "across all of Family Planz" — and asserted the note no longer says
+  "rejected on save" (rule framing, not error framing). Failed against the
+  pre-102 copy (which also kept the prototype's error-discovery framing).
+- Green: `MemberChildTab.svelte:77-92` now states, above the email field and
+  before the save button: creating a child makes a real, sign-in-capable
+  account with that email; no password is set; signing in works only through a
+  magic link to that address; the parent is the only holder of it; the address
+  must be unique across all of Family Planz; a placeholder is fine.
+- The single grey line under the field stays (existing affordance; the ticket
+  fixed the tab shape and meaning, not the layout) and now has its reason in
+  the note above it. Three-tab shape, tab order, consent checkbox untouched.
+- Suite: `MemberInviteChildTabs.svelte.test.ts` 10/10; touched-surface sweep
+  (family components, share, emails, members/add, join, invite lanes, family
+  pages, api/family/invite) 18 files / 145 tests green.
 
 ## Notes
 

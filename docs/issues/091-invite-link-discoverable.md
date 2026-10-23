@@ -1,6 +1,6 @@
 # 091 — The family invite link is only findable by knowing where to look
 
-Status: open
+Status: done
 
 Source: instruction — technical-debt sweep of dead features and half-wired code.
 
@@ -66,6 +66,46 @@ Three smaller things on the same path:
       something useful.
 
 ## Done
+
+*(This ticket was finished across several slices; the last two landed now.)*
+
+- **Share surface**: one ladder, `$lib/client/share.ts` (`copyOrShare` —
+  platform share sheet, async clipboard, selection copy, honest `failed`),
+  tested in `share.test.ts` including the fallback where `navigator.share` is
+  absent and where the clipboard is denied. All four bespoke handlers now call
+  it: family page (minted link + live code), invitations page, and
+  `MemberInviteTab` (final one, red-first this slice:
+  `MemberInviteChildTabs.svelte.test.ts` asserts share-sheet use, copy
+  fallback, and the kept manual-copy failure copy). The tab acks "Shared ✓"
+  when the sheet carried the send.
+- **"Invite by link" on the family page**: landed with the families-list lane —
+  `family/inviteLink.svelte.test.ts` + `family/page.server.test.ts` gate it by
+  the same creator/admin rule as the mint route; it lands on the link itself
+  and walks the ladder.
+- **Email template**: this slice. `src/lib/server/emails/family-invite.ts`
+  (`getFamilyInviteEmailHtml`) holds the copy — inviter name, join link as a
+  real anchor, 24-hour expiry, ignore-if-unexpected line — exported through
+  the route's `InviteEmailSendDeps.renderEmail` (the magic-link service's DI
+  pattern), and the inline HTML string is gone from
+  `members/add/email/+server.ts`. Tests: the template itself asserts all four
+  copy rules without sending (`family-invite.test.ts`), and the route test
+  proves the send call's body is exactly what the injected render produced,
+  with the minted code-bound link inside it (issue 152's durable invite row:
+  the code rides in the signed token the link carries).
+- **Plain Family Member**: decided on the families-list lane — members see
+  their existing invitations ("View family invitations"), only
+  creator/admin see the mint affordance (`family/inviteLink.svelte.test.ts`).
+- **Join page**: invalid codes are answered on the page (no redirect; the
+  loader returns `invalid` — `join/[code]/page.server.test.ts`), with copy
+  naming the three reasons and next steps; API errors render in an
+  "explained" alert block with a fresh-link hint (`+page.svelte:108-115`).
+- **Use-count semantics + unified default**: accepting (not consuming on
+  opened) increments `useCount` under the same transaction lock as the
+  maxUses check (`families.ts:243`), and every mint path uses
+  `DEFAULT_INVITE_MAX_USES` (`api/family/invite/server.test.ts` pins it).
+- Build-on-this-slice gates: touched-surface sweep 18 files / 145 tests green;
+  `svelte-check` error count unchanged for every file touched here (tree-wide
+  count moves with a concurrent agent's unrelated edits).
 
 ## Notes
 

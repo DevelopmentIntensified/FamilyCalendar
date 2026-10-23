@@ -74,18 +74,21 @@
 	</div>
 	<div>
 		<label for="childEmail" class="mb-2 block text-sm font-medium text-slate-700">Email</label>
-		<!-- The constraint, said BEFORE the save button rather than after a failed
-		     save (`family-members-add.html:117-122`). `users.email` carries a unique
-		     index, so a shared address is refused on save; a placeholder is not. -->
+		<!-- The true version of the prototype's warning (issue 102). The child
+	     endpoint creates the account through the standard user-creation path, so
+	     the child CAN sign in — by magic link only, since no password is set.
+	     Uniqueness is stated as a rule, not as a save-time error. -->
 		<aside
 			role="note"
 			aria-label="A child is a real account"
 			class="mb-4 rounded-xl border border-orange-200 bg-gradient-to-br from-orange-100/70 to-white px-4 py-3.5 text-[13px] leading-relaxed text-slate-800"
 		>
-			<b>A child is a real account.</b> <code>memberType = 'child'</code> is only a label on a row
-			in your accounts, and that table's email column carries a <b>unique index</b> — so your child
-			needs an address nobody else has. A placeholder like <code>mia@kids.example.com</code> is fine;
-			a shared one will be rejected on save.
+			<b>A child is a real account.</b> Creating this child makes a real, sign-in-capable account
+			with the email you type. <b>No password is set</b>, so the child signs in only through a
+			<b>magic link</b> sent to that address — and because you are the <b>only holder</b> of that
+			address, only you can let them in. The address has to be <b>unique across all of Family
+			Planz</b>, so each child needs one of their own. A placeholder like
+			<code>mia@kids.example.com</code> is fine as long as nobody else uses it.
 		</aside>
 		<input
 			type="email"

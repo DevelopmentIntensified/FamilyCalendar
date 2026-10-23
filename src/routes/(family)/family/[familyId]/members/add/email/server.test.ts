@@ -12,13 +12,27 @@ const deps = {
 	generateInviteCode: vi.fn(),
 	createJwt: realCreateJwt,
 	sendEmail: vi.fn(),
+	renderEmail: vi.fn(),
 	jwtSecret: new TextEncoder().encode('test-secret-1234567890')
 } as unknown as InviteEmailSendDeps;
+
+// Issue 091 — the rendered body must come out of the injected template
+// function with the minted, code-bound link inside it, not from HTML built
+// inline in the handler.
+const TEMPLATE_RENDER = vi.fn(
+	(input: { inviterName: string; inviteUrl: string }) =>
+		`<a href="${input.inviteUrl}">Join — from ${input.inviterName}</a>`
+);
 
 const TOKEN_BODY = { email: 'guest@x.com', firstName: 'Guest', lastName: 'User' };
 
 // SAFETY: test double — POST only reads params, locals and request.json().
-function postEvent(ip: string, user: { id: string } | null = { id: 'admin-1' }) {
+function postEvent(
+	ip: string,
+	user:
+		| { id: string; firstName: string; lastName: string }
+		| null = { id: 'admin-1', firstName: 'Ann', lastName: 'Admin' }
+) {
 	return {
 		params: { familyId: 'fam-1' },
 		locals: { user },
@@ -36,6 +50,9 @@ beforeEach(() => {
 	deps.familyRole.mockResolvedValue('creator');
 	deps.generateInviteCode.mockResolvedValue({ code: 'code-1', familyId: 'fam-1' });
 	deps.sendEmail.mockResolvedValue({ success: true });
+	// SAFETY: deps.renderEmail is a vi.fn — reset per test so each assertion
+	// sees its own call.
+	vi.mocked(deps.renderEmail).mockImplementation(TEMPLATE_RENDER);
 	clearRateLimitState();
 });
 
@@ -61,6 +78,24 @@ describe('POST /family/[familyId]/members/add/email', () => {
 			familyId: 'fam-1',
 			inviteCode: 'code-1'
 		});
+	});
+
+	it('renders the body through the injected email template, with the minted link in it', async () => {
+		const res = await POST(postEvent('1.2.3.5'), deps);
+
+		expect(res.status).toBe(200);
+		const renderArg = vi.mocked(deps.renderEmail).mock.calls[0][0];
+		expect(renderArg.inviterName).toBe('Ann Admin');
+		expect(renderArg.inviteUrl).toContain('/family/invite/email?token=');
+		// The minted code rides inside the link as a signed claim (issue 152):
+		// whoever follows it joins through that exact invite row.
+		const rawToken = renderArg.inviteUrl.match(/token=([^&\s]+)/)![1];
+		const parsed = parseJWT(decodeURIComponent(rawToken));
+		expect(parsed?.payload).toMatchObject({ familyId: 'fam-1', inviteCode: 'code-1' });
+		// What landed in the send call is exactly what the template rendered.
+		expect(deps.sendEmail.mock.calls[0][0].html).toBe(
+			`<a href="${renderArg.inviteUrl}">Join — from Ann Admin</a>`
+		);
 	});
 
 	it('trips the limiter on a send burst, before minting', async () => {
