@@ -4,7 +4,24 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
-- **Security-lane batch #152/#154/#162/#163/#164/#165 (2026-10-22, local,
+
+- **#205 desktop date-tap opens the mobile day sheet (filed 2026-10-22, 3302392):**
+  owner bug report - pressing a month-cell date on PC opens DayActionSheet
+  (`MonthDays.svelte:95` has no width/pointer check), which blocks the
+  selection tool; supersedes the every-width clause of #145 (owner reversal
+  recorded in the ticket). Open: fork key + desktop-native tap answer.
+- **#204 four unmatched NLP phrases (2026-10-22, d7e7a90):** bare hour ranges
+  (`bareRangeMatch`), relative duration in X hrs/hrs/min (`relativeDurationMatch`),
+  goes-to place (`matchGoPlacePhrase`, mirroring #114), mid-place clock guard
+  (`PLACE_TIME_GUARD`). Red 19->green, paired off 583/583; live-verified phrases
+  pinned in the suites.
+- **#107 leading-PM quick-add fix (2026-10-22):** `PM` leading token kept out
+  of quick-add trim; table suite green; awaiting its own landing.
+- **#196 build fix (2026-10-22):** Svelte 5 migration build break fixed;
+  `npm run build` green; verified against the 4th-run tree.
+- **Session lanes not on the board:** perf runs + `agents/sandbox/` and
+  `verify/` untracked from agent lane leftovers - audit trail pending, no
+  code committed from them yet.- **Security-lane batch #152/#154/#162/#163/#164/#165 (2026-10-22, local,
   uncommitted):** five audit findings closed code+test-side.
   **#152** invite JWT joins via the durable single-use inviteCode row
   (`acceptInvite` enforces maxUses/expiry/revocation/size cap); existing
