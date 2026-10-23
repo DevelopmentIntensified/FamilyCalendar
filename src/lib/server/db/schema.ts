@@ -311,45 +311,6 @@ export const familyInviteCodes = pgTable('familyInviteCodes', {
 	createdBy: text('createdBy').references(() => users.id, { onDelete: 'cascade' })
 });
 
-export const familyGroups = pgTable(
-	'familyGroups',
-	{
-		groupId: text('group_id')
-			.notNull()
-			.references(() => groups.id),
-		familyId: text('family_id')
-			.notNull()
-			.references(() => families.id)
-	},
-	(familyGroup) => ({
-		compoundKey: primaryKey({ columns: [familyGroup.groupId, familyGroup.familyId] })
-	})
-);
-
-export const groups = pgTable('groups', {
-	id: text('id')
-		.notNull()
-		.primaryKey()
-		.$defaultFn(() => generateId(15)),
-	color: text('color'),
-	createdAt: timestamp('created_at').defaultNow().notNull()
-});
-
-export const userGroups = pgTable(
-	'userGroups',
-	{
-		userId: text('user_id')
-			.notNull()
-			.references(() => users.id),
-		groupId: text('group_id')
-			.notNull()
-			.references(() => groups.id)
-	},
-	(familyGroup) => ({
-		compoundKey: primaryKey({ columns: [familyGroup.groupId, familyGroup.userId] })
-	})
-);
-
 export const families = pgTable('families', {
 	id: text('id')
 		.notNull()

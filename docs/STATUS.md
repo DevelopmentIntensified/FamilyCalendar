@@ -604,8 +604,14 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
     branches; note the lower(email)→plain-column deviation explained in the
     issue). Real-Postgres tests 7/7 (RED 4/7 first). Open residue: admin
     listing/owner for waitlist rows.
-  - #090 `groups`/`userGroups`/`familyGroups` declared, joined, never used. Only
-    live reference is two e2e cleanup helpers. Blocked by #086.
+  - #090 **DONE 2026-10-23** - the three never-used Grouping tables
+    (`groups`/`userGroups`/`familyGroups`) dropped on both Neon branches and
+    local docker via `sql/migrations/019-drop-unused-group-tables.sql`
+    (`scripts/db-exec.mjs`, 0 rows verified first everywhere), bundled in the
+    runner (parity green), schema declarations removed, two e2e cleanup
+    helpers stopped deleting from `userGroups`. Owner retired the hand-run-DDL
+    rule same day: schema SQL runs via Neon directly from now on (AGENTS.md).
+    #086 baseline stays open.
   - #091 **DONE 2026-10-23** - Family invite link discoverable: `copyOrShare`
     ladder on all four handlers, "Invite by link" on the family page, DI-able
     `family-invite.ts` email template replacing the inline HTML, member sees

@@ -37,7 +37,8 @@ Build before every push: `npm run build` → `git push origin test`
 ## Conventions
 
 - Issues: start → `Status: in-progress`; finish → `Done` + `done`, build green.
-- DB: hand SQL lives in `sql/` (run manually, record in issue); `drizzle/`
+- DB: schema SQL lives in `sql/` (applied via `scripts/db-exec.mjs` against
+  Neon, recorded in the issue); `drizzle/`
   holds drizzle-kit generated migrations. Never rely on push alone.
 - Tests: `vitest` unit (colocated `*.test.ts`), `playwright` e2e. New NLP
   surface = table-driven phrase suite first.

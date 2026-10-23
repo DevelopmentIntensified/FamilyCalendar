@@ -7,7 +7,7 @@
 - Subagents doing implementation work should follow the `tdd` skill (red-green-refactor; tests first where a seam exists).
 - Research subagents should move fast: breadth-first, skim, report file:line evidence — don't over-verify.
 - Caveman mode default: terse, no filler, always. Full sentences only when explaining on request.
-- Give the user SQL to run manually for schema changes when asked; record alongside (`sql/` + notes in the issue); don't rely only on `drizzle-kit push`.
+- Run schema SQL directly against Neon (2026-10-23 owner override, replaces the hand-run convention) using `scripts/db-exec.mjs` with `.env.prod` (main) and `.env.preview` (test) — never print `DATABASE_URL`. Still record the DDL in `sql/migrations/` + the ticket, bundle it in `src/lib/server/db/migrations/scripts.ts` (parity gate), and don't rely on `drizzle-kit push`.
 
 ## Answering unknowns
 

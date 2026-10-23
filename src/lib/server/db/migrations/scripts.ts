@@ -27,6 +27,7 @@ import m016 from '../../../../../sql/migrations/016_api_tokens.sql?raw';
 import m016Drop from '../../../../../sql/migrations/016-drop-user-ad-consent.sql?raw';
 import m017 from '../../../../../sql/migrations/017_create_child_consent_records.sql?raw';
 import m018 from '../../../../../sql/migrations/018_better_auth_tables.sql?raw';
+import m019 from '../../../../../sql/migrations/019-drop-unused-group-tables.sql?raw';
 
 export type BundledMigration = { name: string; sql: string };
 
@@ -49,7 +50,8 @@ const MIGRATIONS: BundledMigration[] = [
 	{ name: '016_api_tokens.sql', sql: m016 },
 	{ name: '016-drop-user-ad-consent.sql', sql: m016Drop },
 	{ name: '017_create_child_consent_records.sql', sql: m017 },
-	{ name: '018_better_auth_tables.sql', sql: m018 }
+	{ name: '018_better_auth_tables.sql', sql: m018 },
+	{ name: '019-drop-unused-group-tables.sql', sql: m019 }
 ];
 
 /** Sorted ascending by numeric prefix. */

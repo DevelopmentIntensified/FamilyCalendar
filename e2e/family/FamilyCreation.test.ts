@@ -10,7 +10,6 @@ import {
 	families,
 	familyMembers,
 	accounts,
-	userGroups,
 	subscriptions,
 	codes
 } from '../../src/lib/server/db/schema';
@@ -98,7 +97,6 @@ async function cleanupUserData(userId: string) {
 	await db.delete(userSettings).where(eq(userSettings.userId, userId));
 	await db.delete(sessions).where(eq(sessions.userId, userId));
 	await db.delete(familyMembers).where(eq(familyMembers.userId, userId));
-	await db.delete(userGroups).where(eq(userGroups.userId, userId));
 	await db.delete(subscriptions).where(eq(subscriptions.userId, userId));
 	await db.delete(accounts).where(eq(accounts.userId, userId));
 }
