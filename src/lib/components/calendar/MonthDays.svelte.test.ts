@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
 import { DateTime } from 'luxon';
 import MonthDays from './MonthDays.svelte';
@@ -68,22 +68,19 @@ describe('MonthDays overflow ("+N more")', () => {
 });
 
 /**
- * #119 mark 1.14 — "the circle is really big on tablet view", and the day cell's
- * own per-cell tools appearing while the day-action sheet was also live.
- *
- * That defect's fix was a media query; #145 replaces the whole question. The
- * owner ruled (2026-10-04) that a day tap opens the day action sheet at EVERY
- * width — there is no breakpoint left for the tap to disagree about, so the
- * regression test now asserts ONE behaviour under BOTH answers matchMedia can
- * give, instead of two consistent ones.
+ * #205 — supersedes #145's 2026-10-04 "every width" ruling. The day tap now
+ * forks on width + Selection mode, COMBINED: below the floor (VIEW_BREAKPOINT_PX,
+ * #128's md = 768) the mobile sheet owns the tap; above it a desktop tap opens
+ * the Day View. Selection mode suppresses the sheet at EVERY width (touch
+ * included, so mobile users keep the selection tool) — the tap routes to the
+ * desktop answer instead.
  */
-describe('MonthDays: a day tap opens the sheet at every width (#145)', () => {
+describe('MonthDays: day tap forks on width + Selection mode (#205)', () => {
 	// jsdom has no layout, so the width is simulated by what matchMedia answers.
-	// Both answers must produce the same tap result — that IS the one behaviour.
-	function stubMatchMedia(matches: boolean) {
+	function stubMatchMedia(minWidthMatches: boolean) {
 		const real = window.matchMedia;
 		window.matchMedia = ((q: string) => ({
-			matches,
+			matches: minWidthMatches,
 			media: q,
 			onchange: null,
 			addEventListener: () => {},
@@ -97,14 +94,61 @@ describe('MonthDays: a day tap opens the sheet at every width (#145)', () => {
 		};
 	}
 
-	it.each([true, false])(
-		'opens the day action sheet on tap, whether the media query %s',
-		async (matches) => {
-			const restore = stubMatchMedia(matches);
+	function renderJanuaryWithOpenDay(extra: Record<string, unknown> = {}) {
+		const openDay = vi.fn();
+		render(MonthDays, {
+			props: {
+				currentDate: DateTime.local(2024, 1, 1),
+				events: [
+					makeEvent('e1', 'Alpha'),
+					makeEvent('e2', 'Beta'),
+					makeEvent('e3', 'Gamma'),
+					makeEvent('e4', 'Delta')
+				],
+				days: [15],
+				calendars: [],
+				openDay,
+				...extra
+			}
+		});
+		return openDay;
+	}
+
+	it('below the floor the mobile sheet owns the tap (openDay untouched)', async () => {
+		const restore = stubMatchMedia(false);
+		try {
+			const openDay = renderJanuaryWithOpenDay();
+			await fireEvent.click(screen.getByRole('button', { name: 'Open 01-15-2024' }));
+			expect(await screen.findByRole('dialog', { name: 'Day actions' })).toBeTruthy();
+			expect(openDay).not.toHaveBeenCalled();
+		} finally {
+			restore();
+		}
+	});
+
+	it('above the floor a desktop tap opens Day View and never the sheet', async () => {
+		const restore = stubMatchMedia(true);
+		try {
+			const openDay = renderJanuaryWithOpenDay();
+			await fireEvent.click(screen.getByRole('button', { name: 'Open 01-15-2024' }));
+			expect(openDay).toHaveBeenCalledOnce();
+			expect(openDay.mock.calls[0][0].toISODate()).toBe('2024-01-15');
+			expect(screen.queryByRole('dialog', { name: 'Day actions' })).toBeNull();
+		} finally {
+			restore();
+		}
+	});
+
+	it.each([false, true])(
+		'Selection mode suppresses the sheet at matchMedia(min-width:768px)=%s — tap routes to Day View',
+		async (minWidthMatches) => {
+			const restore = stubMatchMedia(minWidthMatches);
 			try {
-				renderJanuaryWithFourEvents();
+				const openDay = renderJanuaryWithOpenDay({ selectionMode: true });
 				await fireEvent.click(screen.getByRole('button', { name: 'Open 01-15-2024' }));
-				expect(await screen.findByRole('dialog', { name: 'Day actions' })).toBeTruthy();
+				expect(openDay).toHaveBeenCalledOnce();
+				expect(openDay.mock.calls[0][0].toISODate()).toBe('2024-01-15');
+				expect(screen.queryByRole('dialog', { name: 'Day actions' })).toBeNull();
 			} finally {
 				restore();
 			}

@@ -10,6 +10,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { toDate } from '$lib/utils/eventTime';
 	import TaskDetailModal, { type CalendarTask } from './TaskDetailModal.svelte';
+	import { VIEW_BREAKPOINT_PX } from './calendarView';
 
 	export let currentDate: DateTime;
 	export let events: Event[];
@@ -84,19 +85,22 @@
 		invalidateAll().then(closeModal);
 	}
 
-	// Day-action sheet (#145): a day tap opens the sheet at EVERY width — the
-	// owner's 2026-10-04 ruling. There is no breakpoint where the tap changes
-	// meaning; "Open Day View" inside the sheet still reaches the day grid.
 	let sheetOpen = false;
 	let sheetDate: DateTime | null = null;
 	let sheetEvents: Event[] = [];
 	let sheetTasks: CalendarTask[] = [];
 
+	// #205: below the floor (VIEW_BREAKPOINT_PX) the mobile sheet owns the tap;
+	// wide or Selection mode gets the desktop answer — Day View — instead.
 	function handleCellTap(cellDate: DateTime, evts: Event[], tasks: CalendarTask[] = []) {
-		sheetDate = cellDate;
-		sheetEvents = evts;
-		sheetTasks = tasks;
-		sheetOpen = true;
+		if (!selectionMode && !window.matchMedia(`(min-width: ${VIEW_BREAKPOINT_PX}px)`).matches) {
+			sheetDate = cellDate;
+			sheetEvents = evts;
+			sheetTasks = tasks;
+			sheetOpen = true;
+			return;
+		}
+		openDay(cellDate);
 	}
 
 	function onSheetViewEvents() {

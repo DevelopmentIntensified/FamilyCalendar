@@ -9,7 +9,9 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   owner bug report - pressing a month-cell date on PC opens DayActionSheet
   (`MonthDays.svelte:95` has no width/pointer check), which blocks the
   selection tool; supersedes the every-width clause of #145 (owner reversal
-  recorded in the ticket). Open: fork key + desktop-native tap answer.
+  recorded in the ticket). Closed: fork = width (\`VIEW_BREAKPOINT_PX\` 768) +
+  Selection mode COMBINED; below-floor tap keeps the sheet, above-floor or
+  Selection-mode tap opens Day View via \`openDay\` (already wired). Red 3->green 5.
 - **#204 four unmatched NLP phrases (2026-10-22, d7e7a90):** bare hour ranges
   (`bareRangeMatch`), relative duration in X hrs/hrs/min (`relativeDurationMatch`),
   goes-to place (`matchGoPlacePhrase`, mirroring #114), mid-place clock guard
