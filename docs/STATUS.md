@@ -593,9 +593,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
     clean (see the Done rollup). Residue stays open, blocked by #086: the
     `bills`/`receiptItems`/`itemTags` tables' fate, and the caller-less
     `parseBillQuickAdd`.
-  - #088 Ad consent has two sources of truth, and the one read at serve time can
-    never gain a row (its only writer has no callers), so ads never render at
-    all. Two of the three booleans are read and written nowhere.
+  - #088 **DONE 2026-10-23** - single source of truth (`shouldServeAds` reads
+    `userSettings.showAdsAsEvents` only), `userAdConsent` dropped (016 bundled
+    + parity), `adConsentRecords` trail applied to both Neon branches
+    10-03/10-04, 90-day prune + trail UI shipped to test HEAD this morning.
+    All boxes checked; flip done.
   - #089 **DONE 2026-10-22** — unique index `waitlist_email_key` + explicit
     conflict target (duplicate branch live), shared rate limiter on the join,
     consent stamped only when collected, confirmation-email failure surfaces

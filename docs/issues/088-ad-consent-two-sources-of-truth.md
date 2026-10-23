@@ -5,7 +5,7 @@
 > #050 failure class). Bundled now, covered by the `scripts.test.ts` parity
 > gate.
 
-Status: in-progress
+Status: done
 
 Source: instruction — technical-debt sweep of schema, migrations, and dead code.
 
@@ -39,6 +39,9 @@ whether ads were governed by a setting they controlled.
 
 ## Done
 
+- **CLOSED 2026-10-23** — every Needs-doing box is checked (DDL applied and
+  verified on both branches 2026-10-03/04; prune + trail wiring shipped to
+  test HEAD this morning). Flip done.
 - **One source of truth.** `shouldServeAds(settings)` in the ad service is the
   whole decision, and it reads exactly one field: `userSettings.showAdsAsEvents`.
   No "does a row exist" check anywhere.
