@@ -3,7 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
 import { EMAILSECRET } from '$env/static/private';
 import { getCode, deleteCode } from '$lib/server/db/actions/codes';
-import { getUser } from '$lib/server/db/actions/users';
+import { getUser, emailExists } from '$lib/server/db/actions/users';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
@@ -14,7 +14,6 @@ type EmailChangePayload = {
 	code: string;
 	pendingEmail: string;
 };
-
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
 		return redirect(302, '/login');
@@ -26,6 +25,8 @@ function isEmailChangePayload(value: unknown): value is EmailChangePayload {
 	return (
 		typeof value === 'object' &&
 		value !== null &&
+		'code' in value &&
+		typeof value.code === 'string' &&
 		'pendingEmail' in value &&
 		typeof value.pendingEmail === 'string'
 	);
@@ -51,6 +52,7 @@ export type VerifyEmailDeps = {
 	getCode: typeof getCode;
 	deleteCode: typeof deleteCode;
 	getUser: typeof getUser;
+	emailExists: typeof emailExists;
 	applyEmailChange: (userId: string, pendingEmail: string) => Promise<unknown>;
 	emailSecret: Uint8Array;
 };
@@ -59,6 +61,7 @@ const verifyEmailDeps: VerifyEmailDeps = {
 	getCode,
 	deleteCode,
 	getUser,
+	emailExists,
 	applyEmailChange: (userId: string, pendingEmail: string) =>
 		db
 			.update(users)
@@ -105,7 +108,27 @@ export const actions: Actions = {
 				}
 				pendingEmail = payload.pendingEmail;
 
+				const linkRow = await deps.getCode(payload.code);
+				if (!linkRow || linkRow.expiresAt < new Date() || linkRow.type !== 'email_change') {
+					return fail(400, { success: false, message: 'Invalid or expired token' });
+				}
+
+				if (linkRow.pendingEmail !== pendingEmail) {
+					return fail(400, { success: false, message: 'Invalid or expired token' });
+				}
+
+				// Identity binding: the link code belongs to the address that requested it.
+				const consumer = await deps.getUser(userId);
+				if (!consumer?.email || linkRow.email !== consumer.email) {
+					return fail(400, { success: false, message: 'Invalid or expired token' });
+				}
+
+				if (await deps.emailExists(pendingEmail)) {
+					return fail(400, { success: false, message: 'That email is already in use' });
+				}
+
 				await deps.applyEmailChange(userId, pendingEmail);
+				await deps.deleteCode(payload.code);
 
 				return { success: true, message: 'Email verified successfully!' };
 			} else if (code) {
@@ -131,6 +154,10 @@ export const actions: Actions = {
 				pendingEmail = existingCode.pendingEmail ?? null;
 				if (!pendingEmail) {
 					return fail(400, { success: false, message: 'No pending email found' });
+				}
+
+				if (await deps.emailExists(pendingEmail)) {
+					return fail(400, { success: false, message: 'That email is already in use' });
 				}
 
 				await deps.applyEmailChange(userId, pendingEmail);

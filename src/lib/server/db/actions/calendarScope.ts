@@ -35,6 +35,26 @@ export function eventAccessFilter(userId: string, accessibleCalIds: string[]) {
 }
 
 /**
+ * Issue 165 — the write leg, deliberately narrower than eventAccessFilter:
+ * update/delete require the user to own the Event OR to own the Calendar it
+ * sits on (personal-calendar case). A passing family member may read an
+ * event and participate, but must not rewrite or delete someone else's row.
+ */
+export async function getOwnedCalendarIds(userId: string): Promise<string[]> {
+	return (
+		await db.select({ id: calendars.id }).from(calendars).where(eq(calendars.ownerId, userId))
+	).map((c) => c.id);
+}
+
+export function canMutateEventRow(
+	row: { ownerId: string; calendarId: string | null },
+	userId: string,
+	ownedCalIds: string[]
+): boolean {
+	return row.ownerId === userId || (!!row.calendarId && ownedCalIds.includes(row.calendarId));
+}
+
+/**
  * Whether the user may touch a single Event: they own it OR its Calendar
  * is in their accessible set (personal + every family they belong to).
  * Fetches the event itself so the caller doesn't duplicate the lookup.

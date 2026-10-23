@@ -107,7 +107,7 @@
 			const res = await fetch(pwVerifyPending ? '/signup/password/verify' : '/signup/email/code', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code })
+				body: JSON.stringify({ code, email })
 			});
 
 			if (res.ok) {

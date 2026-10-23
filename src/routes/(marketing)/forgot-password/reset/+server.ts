@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from './$types';
-import { getUserByEmail, updateUser } from '$lib/server/db/actions/users';
+import { getUserByEmail, setUserPasswordHash } from '$lib/server/db/actions/users';
 import { getCode, createCode } from '$lib/server/db/actions/codes';
 import { hashPassword } from '$lib/server/utils/password';
 import { invalidateUserSessions } from '$lib/server/auth';
@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto';
  */
 export type ResetPasswordDeps = {
 	getUserByEmail: typeof getUserByEmail;
-	updateUser: typeof updateUser;
+	setUserPasswordHash: typeof setUserPasswordHash;
 	getCode: typeof getCode;
 	createCode: typeof createCode;
 	hashPassword: typeof hashPassword;
@@ -35,7 +35,7 @@ function isResetPayload(value: unknown): value is { email: string; exp?: number 
 
 const defaultDeps: ResetPasswordDeps = {
 	getUserByEmail,
-	updateUser,
+	setUserPasswordHash,
 	getCode,
 	createCode,
 	hashPassword,
@@ -51,7 +51,7 @@ export const POST = async (
 ): Promise<Response> => {
 	const {
 		getUserByEmail: lookupUser,
-		updateUser,
+		setUserPasswordHash,
 		getCode,
 		createCode,
 		hashPassword,
@@ -115,7 +115,7 @@ export const POST = async (
 		});
 
 		const passwordHash = await hashPassword(password);
-		await updateUser(user.id, { passwordHash });
+		await setUserPasswordHash(user.id, passwordHash);
 
 		// A password reset means existing credentials were compromised;
 		// kill every live session so a hijacker cannot keep access.

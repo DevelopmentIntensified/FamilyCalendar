@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GET, type ClaimVerifyDeps } from './+server';
+import { GET, POST, type ClaimVerifyDeps } from './+server';
 
 const verifyClaimToken = vi.fn<ClaimVerifyDeps['verifyClaimToken']>();
 const sessionApi = {
@@ -15,7 +15,7 @@ const deps: ClaimVerifyDeps = {
 };
 
 function mockEvent(userId: string | null) {
-	// SAFETY: test double — GET only reads locals.user, params.token, cookies.set.
+	// SAFETY: test double — handlers only read locals.user, params.token, cookies.set.
 	return {
 		locals: { user: userId ? { id: userId } : null },
 		params: { token: 'tok-1' },
@@ -35,9 +35,33 @@ beforeEach(() => {
 	vi.clearAllMocks();
 });
 
-describe('GET /claim/verify/[token]', () => {
+describe('GET /claim/verify/[token] — confirm page (issue 163)', () => {
 	it('redirects to login when unauthenticated', async () => {
-		const redirect = await redirectOf(GET(mockEvent(null), deps));
+		const redirect = await redirectOf(GET(mockEvent(null)));
+
+		expect(redirect.status).toBe(302);
+		expect(redirect.location).toBe('/login');
+		expect(verifyClaimToken).not.toHaveBeenCalled();
+	});
+
+	it('renders the confirm page without consuming the token', async () => {
+		const res = await GET(mockEvent('guest-1'));
+
+		expect(res.status).toBe(200);
+		expect(res.headers.get('content-type')).toContain('text/html');
+
+		const text = await res.text();
+		expect(text).toContain('method="POST"');
+		expect(text).toContain('/claim/verify/tok-1');
+		// The mutation must never fire on GET — prefetchers and link
+		// crawlers hit this endpoint without any user interaction.
+		expect(verifyClaimToken).not.toHaveBeenCalled();
+	});
+});
+
+describe('POST /claim/verify/[token] — consumes the token once', () => {
+	it('redirects to login when unauthenticated', async () => {
+		const redirect = await redirectOf(POST(mockEvent(null), deps));
 
 		expect(redirect.status).toBe(302);
 		expect(redirect.location).toBe('/login');
@@ -57,7 +81,7 @@ describe('GET /claim/verify/[token]', () => {
 		});
 
 		const event = mockEvent('guest-1');
-		const redirect = await redirectOf(GET(event, deps));
+		const redirect = await redirectOf(POST(event, deps));
 
 		expect(verifyClaimToken).toHaveBeenCalledWith('tok-1', 'guest-1');
 		// Signed into the existing account the guest merged into.
@@ -70,7 +94,7 @@ describe('GET /claim/verify/[token]', () => {
 	it('redirects to the calendar without re-signing when the email is claimed', async () => {
 		verifyClaimToken.mockResolvedValue({ outcome: 'claimed', userId: 'guest-1' });
 
-		const redirect = await redirectOf(GET(mockEvent('guest-1'), deps));
+		const redirect = await redirectOf(POST(mockEvent('guest-1'), deps));
 
 		expect(verifyClaimToken).toHaveBeenCalledWith('tok-1', 'guest-1');
 		expect(sessionApi.createSession).not.toHaveBeenCalled();
@@ -81,7 +105,7 @@ describe('GET /claim/verify/[token]', () => {
 	it('redirects back to claim with an error when the token is invalid', async () => {
 		verifyClaimToken.mockResolvedValue({ outcome: 'invalid' });
 
-		const redirect = await redirectOf(GET(mockEvent('guest-1'), deps));
+		const redirect = await redirectOf(POST(mockEvent('guest-1'), deps));
 
 		expect(sessionApi.createSession).not.toHaveBeenCalled();
 		expect(redirect.status).toBe(302);

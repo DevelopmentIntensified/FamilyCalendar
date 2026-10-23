@@ -4,7 +4,7 @@ import { POST, type ResetPasswordDeps } from './+server';
 // Untyped vi.fn()s: fakes flow into the typed deps seam, so the SUT stays
 // type-checked while mocks accept any resolved value without casts.
 const getUserByEmail = vi.fn();
-const updateUser = vi.fn();
+const setUserPasswordHash = vi.fn();
 const getCode = vi.fn();
 const createCode = vi.fn();
 const hashPassword = vi.fn();
@@ -14,7 +14,7 @@ const parseJwt = vi.fn();
 
 const deps: ResetPasswordDeps = {
 	getUserByEmail,
-	updateUser,
+	setUserPasswordHash,
 	getCode,
 	createCode,
 	hashPassword,
@@ -53,7 +53,7 @@ describe('POST /forgot-password/reset', () => {
 
 		expect(response.status).toBe(200);
 		expect(body.success).toBe(true);
-		expect(updateUser).toHaveBeenCalledWith('user-1', { passwordHash: 'hashed-password' });
+		expect(setUserPasswordHash).toHaveBeenCalledWith('user-1', 'hashed-password');
 		expect(createCode).toHaveBeenCalledTimes(1);
 		expect(createCode.mock.calls[0][0].code).toMatch(/^used:[0-9a-f]{64}$/);
 		expect(invalidateUserSessions).toHaveBeenCalledWith('user-1');

@@ -3,26 +3,26 @@ import { POST, type PasswordVerifyDeps } from './+server';
 
 // Untyped vi.fn()s: fakes flow into the typed deps seam, so the SUT stays
 // type-checked while mocks accept any resolved value without casts.
-const getCode = vi.fn();
-const deleteCode = vi.fn();
+const getHashedCode = vi.fn();
+const deleteHashedCode = vi.fn();
 const deleteDeadCodes = vi.fn();
 const getUserByEmail = vi.fn();
-const updateUser = vi.fn();
+const verifyUserEmail = vi.fn();
 
 const deps: PasswordVerifyDeps = {
-	getCode,
-	deleteCode,
+	getHashedCode,
+	deleteHashedCode,
 	deleteDeadCodes,
 	getUserByEmail,
-	updateUser
+	verifyUserEmail
 };
 
 const GENERIC_ERROR = { success: false, error: 'Unexpected error, please try again' };
+const VERIFY_BODY = { code: '12345678', email: 'new@user.com' };
 
 // SAFETY: test double — POST only reads request.json() and request.headers
 // via clientKey.
-function mockEvent(body: { code?: string }, ip: string) {
-	// SAFETY: test double — the handler only reads the fields set below.
+function mockEvent(body: Record<string, unknown>, ip: string) {
 	return {
 		request: {
 			json: () => Promise.resolve(body),
@@ -32,57 +32,69 @@ function mockEvent(body: { code?: string }, ip: string) {
 	} as never;
 }
 
+const loginFilter = {
+	code: '12345678',
+	email: 'new@user.com',
+	type: 'password-signup'
+};
+
 beforeEach(() => {
 	vi.clearAllMocks();
 	deleteDeadCodes.mockResolvedValue(undefined);
-	deleteCode.mockResolvedValue(undefined);
-	getCode.mockResolvedValue({
-		code: '12345678',
+	deleteHashedCode.mockResolvedValue(undefined);
+	getHashedCode.mockResolvedValue({
+		code: 'hashed-12345678',
 		email: 'new@user.com',
 		firstName: 'New',
-		lastName: 'User'
+		lastName: 'User',
+		type: 'password-signup'
 	});
 	getUserByEmail.mockResolvedValue({
 		id: 'user-1',
 		email: 'new@user.com',
 		emailVerified: false
 	});
-	updateUser.mockResolvedValue({ id: 'user-1', emailVerified: true });
+	verifyUserEmail.mockResolvedValue({ id: 'user-1', emailVerified: true });
 });
 
 describe('POST /signup/password/verify', () => {
 	it('flips emailVerified, deletes the code, and returns success', async () => {
-		const response = await POST(mockEvent({ code: '12345678' }, 'ip-happy'), deps);
+		const response = await POST(mockEvent(VERIFY_BODY, 'ip-happy'), deps);
 
 		const body = await response.json();
 
 		expect(response.status).toBe(200);
 		expect(body).toEqual({ success: true });
-		expect(updateUser).toHaveBeenCalledWith('user-1', { emailVerified: true });
-		expect(deleteCode).toHaveBeenCalledWith('12345678');
+		expect(getHashedCode).toHaveBeenCalledWith(loginFilter);
+		expect(verifyUserEmail).toHaveBeenCalledWith('user-1');
+		expect(deleteHashedCode).toHaveBeenCalledWith(loginFilter);
 	});
 
-	it('returns a generic error for an unknown code without touching the user', async () => {
-		getCode.mockResolvedValue(undefined);
+	it('rejects with a generic 400 when the filtered lookup misses (unknown code, wrong email, or mismatched type)', async () => {
+		getHashedCode.mockResolvedValue(undefined);
 
-		const response = await POST(mockEvent({ code: '00000000' }, 'ip-unknown'), deps);
+		const response = await POST(mockEvent(VERIFY_BODY, 'ip-missing'), deps);
 
 		const body = await response.json();
 
 		expect(response.status).toBe(400);
 		expect(body).toEqual(GENERIC_ERROR);
 		expect(getUserByEmail).not.toHaveBeenCalled();
-		expect(updateUser).not.toHaveBeenCalled();
+		expect(verifyUserEmail).not.toHaveBeenCalled();
+		expect(deleteHashedCode).not.toHaveBeenCalled();
 	});
 
-	it('returns a generic error once expiry sweep has run (expired code reads as missing)', async () => {
-		getCode.mockResolvedValue(undefined);
+	it.each([
+		{ label: 'code missing', body: { email: 'new@user.com' } },
+		{ label: 'email missing', body: { code: '12345678' } },
+		{ label: 'both missing', body: {} }
+	])('rejects with a generic 400 when the request is incomplete ($label)', async ({ body }) => {
+		const response = await POST(mockEvent(body, 'ip-incomplete'), deps);
 
-		const response = await POST(mockEvent({ code: '99999999' }, 'ip-expired'), deps);
-
+		const bodyJson = await response.json();
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual(GENERIC_ERROR);
-		expect(deleteDeadCodes).toHaveBeenCalled();
+		expect(bodyJson).toEqual(GENERIC_ERROR);
+		expect(getHashedCode).not.toHaveBeenCalled();
 	});
 
 	it('is idempotent for an already-verified user: success without flipping', async () => {
@@ -92,34 +104,34 @@ describe('POST /signup/password/verify', () => {
 			emailVerified: true
 		});
 
-		const response = await POST(mockEvent({ code: '12345678' }, 'ip-verified'), deps);
+		const response = await POST(mockEvent(VERIFY_BODY, 'ip-verified'), deps);
 
 		const body = await response.json();
 
 		expect(response.status).toBe(200);
 		expect(body).toEqual({ success: true });
-		expect(updateUser).not.toHaveBeenCalled();
-		expect(deleteCode).toHaveBeenCalledWith('12345678');
+		expect(verifyUserEmail).not.toHaveBeenCalled();
+		expect(deleteHashedCode).toHaveBeenCalledWith(loginFilter);
 	});
 
 	it('deletes the orphaned code and stays generic when the user is gone', async () => {
 		getUserByEmail.mockResolvedValue(undefined);
 
-		const response = await POST(mockEvent({ code: '12345678' }, 'ip-orphan'), deps);
+		const response = await POST(mockEvent(VERIFY_BODY, 'ip-orphan'), deps);
 
 		expect(response.status).toBe(400);
 		expect(await response.json()).toEqual(GENERIC_ERROR);
-		expect(updateUser).not.toHaveBeenCalled();
-		expect(deleteCode).toHaveBeenCalledWith('12345678');
+		expect(verifyUserEmail).not.toHaveBeenCalled();
+		expect(deleteHashedCode).toHaveBeenCalledWith(loginFilter);
 	});
 
 	it('returns 429 once the rate limit trips', async () => {
 		for (let i = 0; i < 10; i++) {
-			const allowed = await POST(mockEvent({ code: '12345678' }, 'ip-limit'), deps);
+			const allowed = await POST(mockEvent(VERIFY_BODY, 'ip-limit'), deps);
 			expect(allowed.status).toBe(200);
 		}
 
-		const limited = await POST(mockEvent({ code: '12345678' }, 'ip-limit'), deps);
+		const limited = await POST(mockEvent(VERIFY_BODY, 'ip-limit'), deps);
 
 		expect(limited.status).toBe(429);
 		expect(await limited.json()).toEqual({

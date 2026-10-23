@@ -1,14 +1,50 @@
 import type { RequestHandler } from './$types';
-import { getUrl } from '$lib/utils/getUrl';
 import { session as sessionModule } from '$lib/server/auth';
-import { accounts } from '$lib/server/db/schema';
-import { db } from '$lib/server/db/';
-import { eq } from 'drizzle-orm';
-import { deleteCode, deleteDeadCodes, getCode } from '$lib/server/db/actions/codes';
+import {
+	deleteDeadCodes,
+	deleteHashedCode,
+	getHashedCode,
+	type HashedCodeFilter
+} from '$lib/server/db/actions/codes';
+import { getAccount } from '$lib/server/db/actions/accounts';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
-export const POST: RequestHandler = async function (event) {
+/**
+ * Collaborators POST needs, injectable so tests can pass fakes through a real
+ * seam instead of mocking modules. Defaults wire the production services.
+ */
+export type SignupCodeDeps = {
+	getHashedCode: typeof getHashedCode;
+	deleteHashedCode: typeof deleteHashedCode;
+	deleteDeadCodes: typeof deleteDeadCodes;
+	getAccount: typeof getAccount;
+	createNewUser: typeof createNewUser;
+	session: Pick<typeof sessionModule, 'createSession' | 'createSessionCookie'>;
+};
+
+const defaultDeps: SignupCodeDeps = {
+	getHashedCode,
+	deleteHashedCode,
+	deleteDeadCodes,
+	getAccount,
+	createNewUser,
+	session: sessionModule
+};
+
+// #154/#162: wrong code, wrong email, and mismatched type all read identically.
+const GENERIC_ERROR = 'Unexpected error, please try again';
+
+export const POST: RequestHandler = async function (event, deps = defaultDeps) {
+	const {
+		getHashedCode: lookupCode,
+		deleteHashedCode,
+		deleteDeadCodes,
+		getAccount: lookupAccount,
+		createNewUser,
+		session
+	} = deps;
+
 	if (!rateLimit(clientKey(event.request, 'verify-signup-code'), 10, 15 * 60 * 1000)) {
 		return new Response(
 			JSON.stringify({ success: false, error: 'Too many attempts. Try again shortly.' }),
@@ -20,36 +56,37 @@ export const POST: RequestHandler = async function (event) {
 	const { stashGuestFromCookies } = await import('$lib/server/services/guestMergeService');
 	await stashGuestFromCookies(event.cookies);
 
-	const siteUrl = getUrl();
-	const redirectUrl = new URL(siteUrl + '/signup');
-	redirectUrl.searchParams.set('error', 'The code incorrect. Please try again');
-	const code = (await event.request.json()).code;
+	const { code, email } = await event.request.json();
+
+	if (!code || !email) {
+		return new Response(JSON.stringify({ success: false, error: GENERIC_ERROR }), {
+			status: 400
+		});
+	}
 
 	await deleteDeadCodes();
 
-	const codeToCheck = await getCode(code);
+	// #154: only signup-stamped rows redeem; #162: lookup hashes + binds the
+	// email so a digest match alone is not sufficient.
+	const filter: HashedCodeFilter = { code, email, type: 'signup' };
+	const codeToCheck = await lookupCode(filter);
 	if (!codeToCheck) {
-		return new Response(
-			JSON.stringify({ success: false, error: 'Unexpected error, please try again' }),
-			{ status: 500 }
-		);
+		return new Response(JSON.stringify({ success: false, error: GENERIC_ERROR }), {
+			status: 400
+		});
 	}
 
 	try {
-		const { firstName, lastName, email } = codeToCheck;
-		if (!email || !lastName || !firstName) {
-			return new Response(
-				JSON.stringify({ success: false, error: 'Unexpected error, please try again' }),
-				{ status: 500 }
-			);
+		const { firstName, lastName } = codeToCheck;
+		if (!codeToCheck.email || !lastName || !firstName) {
+			return new Response(JSON.stringify({ success: false, error: GENERIC_ERROR }), {
+				status: 500
+			});
 		}
 
-		const userAccount = await db
-			.select()
-			.from(accounts)
-			.where(eq(accounts.providerAccountId, email));
-		if (userAccount.length !== 0) {
-			await deleteCode(code);
+		const userAccount = await lookupAccount(email);
+		if (userAccount) {
+			await deleteHashedCode(filter);
 			return new Response(
 				JSON.stringify({ success: false, error: 'Account with this email already Exists' }),
 				{ status: 500 }
@@ -58,8 +95,8 @@ export const POST: RequestHandler = async function (event) {
 
 		const user = await createNewUser(firstName, lastName, email);
 
-		const newSession = await sessionModule.createSession(user.id);
-		const sessionCookie = await sessionModule.createSessionCookie(newSession);
+		const newSession = await session.createSession(user.id);
+		const sessionCookie = await session.createSessionCookie(newSession);
 
 		const headers = new Headers();
 		headers.append('Set-Cookie', sessionCookie.serialize());
@@ -69,13 +106,12 @@ export const POST: RequestHandler = async function (event) {
 			headers
 		});
 
-		await deleteCode(code);
+		await deleteHashedCode(filter);
 
 		return result;
 	} catch {
-		return new Response(
-			JSON.stringify({ success: false, error: 'Unexpected error, please try again' }),
-			{ status: 500 }
-		);
+		return new Response(JSON.stringify({ success: false, error: GENERIC_ERROR }), {
+			status: 500
+		});
 	}
 };

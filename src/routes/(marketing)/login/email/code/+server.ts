@@ -1,6 +1,11 @@
 import type { RequestEvent } from './$types';
 import { invalidateStaleAnonymousSession, session as sessionModule } from '$lib/server/auth';
-import { deleteCode, deleteDeadCodes, getCode } from '$lib/server/db/actions/codes';
+import {
+	deleteDeadCodes,
+	deleteHashedCode,
+	getHashedCode,
+	type HashedCodeFilter
+} from '$lib/server/db/actions/codes';
 import { getAccount } from '$lib/server/db/actions/accounts';
 import { getUserByEmail } from '$lib/server/db/actions/users';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
@@ -10,8 +15,8 @@ import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
  * seam instead of mocking modules. Defaults wire the production services.
  */
 export type LoginCodeDeps = {
-	getCode: typeof getCode;
-	deleteCode: typeof deleteCode;
+	getHashedCode: typeof getHashedCode;
+	deleteHashedCode: typeof deleteHashedCode;
 	deleteDeadCodes: typeof deleteDeadCodes;
 	getAccount: typeof getAccount;
 	getUserByEmail: typeof getUserByEmail;
@@ -22,21 +27,24 @@ export type LoginCodeDeps = {
 };
 
 const defaultDeps: LoginCodeDeps = {
-	getCode,
-	deleteCode,
+	getHashedCode,
+	deleteHashedCode,
 	deleteDeadCodes,
 	getAccount,
 	getUserByEmail,
 	session: sessionModule
 };
 
+// #154/#162: wrong code, wrong email, and mismatched type all read identically.
+const GENERIC_ERROR = 'Unexpected error, please try again';
+
 export const POST = async function (
 	event: RequestEvent,
 	deps: LoginCodeDeps = defaultDeps
 ): Promise<Response> {
 	const {
-		getCode: lookupCode,
-		deleteCode: removeCode,
+		getHashedCode: lookupCode,
+		deleteHashedCode,
 		deleteDeadCodes,
 		getAccount: lookupAccount,
 		getUserByEmail: lookupUser,
@@ -50,7 +58,13 @@ export const POST = async function (
 		);
 	}
 
-	const code = (await event.request.json()).code;
+	const { code, email } = await event.request.json();
+
+	if (!code || !email) {
+		return new Response(JSON.stringify({ success: false, error: GENERIC_ERROR }), {
+			status: 400
+		});
+	}
 
 	// Remember any anonymous session so its data can be merged after auth.
 	const { stashGuestFromCookies } = await import('$lib/server/services/guestMergeService');
@@ -58,26 +72,27 @@ export const POST = async function (
 
 	await deleteDeadCodes();
 
-	const codeToCheck = await lookupCode(code);
+	// #154: only login-stamped rows redeem; #162: lookup hashes + binds the
+	// email so a digest match alone is not sufficient.
+	const filter: HashedCodeFilter = { code, email, type: 'login' };
+	const codeToCheck = await lookupCode(filter);
 	if (!codeToCheck) {
-		return new Response(
-			JSON.stringify({ success: false, error: 'Unexpected error, please try again' }),
-			{ status: 500 }
-		);
+		return new Response(JSON.stringify({ success: false, error: GENERIC_ERROR }), {
+			status: 400
+		});
 	}
 
 	try {
-		const email = codeToCheck.email;
-		if (!email) {
-			return new Response(
-				JSON.stringify({ success: false, error: 'Unexpected error, please try again' }),
-				{ status: 500 }
-			);
+		const rowEmail = codeToCheck.email;
+		if (!rowEmail) {
+			return new Response(JSON.stringify({ success: false, error: GENERIC_ERROR }), {
+				status: 500
+			});
 		}
 
-		let userAccount: { userId: string } | null = await lookupAccount(email);
+		let userAccount: { userId: string } | null = await lookupAccount(rowEmail);
 		if (!userAccount) {
-			const user = await lookupUser(email);
+			const user = await lookupUser(rowEmail);
 			if (!user) {
 				return new Response(JSON.stringify({ success: false, error: 'No Account found' }), {
 					status: 500
@@ -102,13 +117,12 @@ export const POST = async function (
 			headers
 		});
 
-		await removeCode(code);
+		await deleteHashedCode(filter);
 
 		return result;
 	} catch {
-		return new Response(
-			JSON.stringify({ success: false, error: 'Unexpected error, please try again' }),
-			{ status: 500 }
-		);
+		return new Response(JSON.stringify({ success: false, error: GENERIC_ERROR }), {
+			status: 500
+		});
 	}
 };

@@ -56,7 +56,7 @@
 					id="password"
 					name="password"
 					required
-					minlength="6"
+					minlength="8"
 					class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 				/>
 			</div>
@@ -70,7 +70,7 @@
 					id="passwordConfirm"
 					name="passwordConfirm"
 					required
-					minlength="6"
+					minlength="8"
 					class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 				/>
 			</div>

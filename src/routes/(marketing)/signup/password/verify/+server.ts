@@ -1,11 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from './$types';
 import {
-	getCode,
-	deleteCode,
-	deleteDeadCodes
+	deleteDeadCodes,
+	deleteHashedCode,
+	getHashedCode,
+	type HashedCodeFilter
 } from '$lib/server/db/actions/codes';
-import { getUserByEmail, updateUser } from '$lib/server/db/actions/users';
+import { getUserByEmail, verifyUserEmail } from '$lib/server/db/actions/users';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 
 // Never reveal whether a code exists: unknown, expired, and orphaned codes
@@ -17,25 +18,26 @@ const GENERIC_ERROR = 'Unexpected error, please try again';
  * seam instead of mocking modules. Defaults wire the production services.
  */
 export type PasswordVerifyDeps = {
-	getCode: typeof getCode;
-	deleteCode: typeof deleteCode;
+	getHashedCode: typeof getHashedCode;
+	deleteHashedCode: typeof deleteHashedCode;
 	deleteDeadCodes: typeof deleteDeadCodes;
 	getUserByEmail: typeof getUserByEmail;
-	updateUser: typeof updateUser;
+	verifyUserEmail: typeof verifyUserEmail;
 };
 
 const defaultDeps: PasswordVerifyDeps = {
-	getCode,
-	deleteCode,
+	getHashedCode,
+	deleteHashedCode,
 	deleteDeadCodes,
 	getUserByEmail,
-	updateUser
+	verifyUserEmail
 };
 
 // Dedicated password-verify endpoint: the password user already exists, so
 // unlike /signup/email/code (which mints a brand-new user via createNewUser
 // and errors when the account exists) this looks the user up by the code
-// row's email and flips emailVerified on them.
+// row's email and flips emailVerified on them. #154/#162: only rows stamped
+// `password-signup` redeem with a matching email.
 export const POST = async (
 	event: RequestEvent,
 	deps: PasswordVerifyDeps = defaultDeps
@@ -49,25 +51,30 @@ export const POST = async (
 		);
 	}
 
-	const { code } = await request.json();
+	const { code, email } = await request.json();
+
+	if (!code || !email) {
+		return json({ success: false, error: GENERIC_ERROR }, { status: 400 });
+	}
 
 	await deps.deleteDeadCodes();
 
-	const codeRow = await deps.getCode(code);
+	const filter: HashedCodeFilter = { code, email, type: 'password-signup' };
+	const codeRow = await deps.getHashedCode(filter);
 	if (!codeRow) {
 		return json({ success: false, error: GENERIC_ERROR }, { status: 400 });
 	}
 
 	const user = await deps.getUserByEmail(codeRow.email);
 	if (!user) {
-		await deps.deleteCode(code);
+		await deps.deleteHashedCode(filter);
 		return json({ success: false, error: GENERIC_ERROR }, { status: 400 });
 	}
 
 	if (!user.emailVerified) {
-		await deps.updateUser(user.id, { emailVerified: true });
+		await deps.verifyUserEmail(user.id);
 	}
-	await deps.deleteCode(code);
+	await deps.deleteHashedCode(filter);
 
 	return json({ success: true });
 };

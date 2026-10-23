@@ -3,36 +3,72 @@ import { EMAILSECRET } from '$env/static/private';
 import { getUrl } from '$lib/utils/getUrl';
 import { createJWT } from 'oslo/jwt';
 import { TimeSpan } from 'oslo';
+import { rateLimit, clientKey } from '$lib/server/utils/rateLimit';
 import { db } from '$lib/server/db';
 import { familyMembers } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { getFamilyMemberRole } from '$lib/server/db/actions/families';
+import {
+	getFamilyMemberRole,
+	generateInviteCode,
+	DEFAULT_INVITE_MAX_USES
+} from '$lib/server/db/actions/families';
 
 // Shareable invite links carry the same join token as email invites — the
 // same admin-level gate applies (mirror of members/add/email).
 const INVITE_SENDER_ROLES = new Set(['creator', 'admin']);
 
-export const POST = async (event: RequestEvent) => {
+// IP burst cap for link minting (issue 152). Admin-gated, lower risk.
+const INVITE_LINK_LIMIT = 10;
+const INVITE_LINK_WINDOW_MS = 15 * 60 * 1000;
+
+export type InviteLinkSendDeps = {
+	familyMember: (userId: string, familyId: string) => Promise<{ userId: string } | undefined>;
+	familyRole: typeof getFamilyMemberRole;
+	generateInviteCode: typeof generateInviteCode;
+	createJwt: typeof createJWT;
+	jwtSecret: Uint8Array;
+};
+
+const defaultDeps: InviteLinkSendDeps = {
+	familyMember: async (userId, familyId) => {
+		const [member] = await db
+			.select({ userId: familyMembers.userId })
+			.from(familyMembers)
+			.where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)))
+			.limit(1);
+		return member;
+	},
+	familyRole: getFamilyMemberRole,
+	generateInviteCode,
+	createJwt: createJWT,
+	jwtSecret: new TextEncoder().encode(EMAILSECRET)
+};
+
+export const POST = async (
+	event: RequestEvent,
+	deps: InviteLinkSendDeps = defaultDeps
+): Promise<Response> => {
 	if (!event.locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const [member] = await db
-		.select({ userId: familyMembers.userId })
-		.from(familyMembers)
-		.where(
-			and(
-				eq(familyMembers.familyId, event.params.familyId!),
-				eq(familyMembers.userId, event.locals.user.id)
-			)
+	if (
+		!rateLimit(
+			clientKey(event.request, 'invite-link-ip'),
+			INVITE_LINK_LIMIT,
+			INVITE_LINK_WINDOW_MS
 		)
-		.limit(1);
+	) {
+		return json({ error: 'Too many requests. Try again later.' }, { status: 429 });
+	}
+
+	const member = await deps.familyMember(event.locals.user.id, event.params.familyId!);
 
 	if (!member) {
 		return json({ error: 'Not a member of this family' }, { status: 403 });
 	}
 
-	const callerRole = await getFamilyMemberRole(event.locals.user.id, event.params.familyId!);
+	const callerRole = await deps.familyRole(event.locals.user.id, event.params.familyId!);
 	if (!callerRole || !INVITE_SENDER_ROLES.has(callerRole)) {
 		return json(
 			{ error: 'Only the family creator or an admin can generate invite links' },
@@ -52,16 +88,24 @@ export const POST = async (event: RequestEvent) => {
 		return json({ success: false, error: 'First and last name are required' }, { status: 400 });
 	}
 
-	const secret = new TextEncoder().encode(EMAILSECRET);
+	// The JWT is stateless, so the shared cap and revocation live in the
+	// durable invite row it embeds; the consumer joins through acceptInvite
+	// against it (issue 152, mirroring DEFAULT_INVITE_MAX_USES from issue 091).
+	const inviteCode = await deps.generateInviteCode(event.params.familyId!, {
+		expiresInDays: 1,
+		maxUses: DEFAULT_INVITE_MAX_USES,
+		createdBy: event.locals.user.id
+	});
 
-	const token = await createJWT(
+	const token = await deps.createJwt(
 		'HS256',
-		secret,
+		deps.jwtSecret,
 		{
 			email,
 			firstName,
 			lastName,
-			familyId: event.params.familyId
+			familyId: event.params.familyId,
+			inviteCode: inviteCode.code
 		},
 		{
 			headers: {

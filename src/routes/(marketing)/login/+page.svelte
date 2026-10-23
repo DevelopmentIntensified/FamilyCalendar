@@ -90,7 +90,7 @@
 			const res = await fetch('/login/email/code', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code })
+				body: JSON.stringify({ code, email })
 			});
 
 			if (res.ok) {

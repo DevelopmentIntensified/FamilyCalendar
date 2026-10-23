@@ -5,6 +5,7 @@ import { db } from '$lib/server/db';
 import { authSession, calendars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserFamilyMemberships } from '$lib/server/db/actions/families';
+import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import {
 	getSubscriptionStatus,
 	getUserSubscriptionLimits,
@@ -225,6 +226,19 @@ export const actions: Actions = {
 		const showAdsAsEvents = formData.get('showAdsAsEvents') === 'true';
 		const rawTranslation = formString(formData, 'verseTranslation');
 		const verseTranslation = rawTranslation in TRANSLATIONS ? rawTranslation : 'esv';
+
+		// 167: the create-event POST re-validates its target calendar the same
+		// way (api/events/+server.ts) — a saved default must point at a calendar
+		// this user can actually see, or it is not saved at all.
+		if (defaultCalendarId) {
+			const accessibleCalIds = await getAccessibleCalendarIds(userId);
+			if (!accessibleCalIds.includes(defaultCalendarId)) {
+				return fail(400, {
+					success: false,
+					message: 'Selected default calendar is not available'
+				});
+			}
+		}
 
 		try {
 			const existingSettings = await getUserSettings(userId);

@@ -31,7 +31,9 @@ vi.mock('$lib/server/db', () => {
 			where: () => {
 				const rows = state.queue.shift() ?? [];
 				return Object.assign(Promise.resolve(rows), {
-					orderBy: () => Promise.resolve(rows)
+					orderBy: () => Promise.resolve(rows),
+					// The eventId branch chains .limit(1) on its event lookup.
+					limit: () => Promise.resolve(rows)
 				});
 			}
 		};
@@ -69,7 +71,9 @@ vi.mock('$lib/server/db/actions/families', () => ({
 }));
 
 import { POST, GET } from './+server';
-import { createTask } from '$lib/server/db/actions/tasks';
+import { createTask, getTasksForEvent } from '$lib/server/db/actions/tasks';
+
+const mockedGetEventTasks = vi.mocked(getTasksForEvent);
 
 function event(userId: string, body: Record<string, string>) {
 	// SAFETY: test double — the handler only reads locals.user and request.json().
@@ -201,5 +205,48 @@ describe('GET /api/tasks — recurring cursor pin invariant (issue 110)', () => 
 
 		expect(res.status).toBe(200);
 		expect(state.updateCount).toBe(0);
+	});
+});
+
+describe('GET /api/tasks?eventId= — event-task visibility (issue 164)', () => {
+	function eventDetailEvent(userId: string) {
+		// SAFETY: test double — the eventId GET branch reads locals.user + url.
+		return {
+			locals: { user: { id: userId } },
+			url: new URL('http://localhost/api/tasks?eventId=ev-1')
+		} as never;
+	}
+
+	it("hides the creator's private task from a non-owner member reading the event", async () => {
+		// Queue order: (1) event lookup, (2) familyMembers for calendar scope,
+		// (3) calendars — user-1 is a member with access to the family calendar.
+		state.queue = [
+			[{ id: 'ev-1', calendarId: 'cal-fam', ownerId: 'user-2' }],
+			[{ familyId: 'fam-1' }],
+			[{ id: 'cal-fam' }]
+		];
+		mockedGetEventTasks.mockResolvedValue([
+			{ id: 't-pub', visibility: 'public', userId: 'user-2' },
+			{ id: 't-priv', visibility: 'private', userId: 'user-2' }
+		] as never);
+
+		const res = await GET(eventDetailEvent('user-1'));
+		const body = (await res.json()) as { tasks: { id: string }[] };
+
+		expect(res.status).toBe(200);
+		expect(body.tasks.map((t) => t.id)).toEqual(['t-pub']);
+	});
+
+	it('shows the owner their own private task on the event', async () => {
+		state.queue = [[{ id: 'ev-1', calendarId: null, ownerId: 'user-1' }]];
+		mockedGetEventTasks.mockResolvedValue([
+			{ id: 't-priv-mine', visibility: 'private', userId: 'user-1' }
+		] as never);
+
+		const res = await GET(eventDetailEvent('user-1'));
+		const body = (await res.json()) as { tasks: { id: string }[] };
+
+		expect(res.status).toBe(200);
+		expect(body.tasks.map((t) => t.id)).toEqual(['t-priv-mine']);
 	});
 });

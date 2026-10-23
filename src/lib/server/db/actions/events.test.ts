@@ -134,10 +134,15 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-// oxlint-disable-next-line anti-slop/no-module-mocking -- scope inputs scripted; the filter itself is covered by calendarScope.test.ts.
-vi.mock('$lib/server/db/actions/calendarScope', () => ({
-	getAccessibleCalendarIds: async () => ['cal-fam'],
-	eventAccessFilter: () => ({})
+const scope = vi.hoisted(() => ({
+	getAccessibleCalendarIds: vi.fn(async () => ['cal-fam']),
+	getOwnedCalendarIds: vi.fn(async () => ['cal-owned'])
+}));
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the two calendar-scope DB readers are scripted seams; eventAccessFilter and canMutateEventRow (issue 165) stay real so their behavior is exercised here.
+vi.mock('$lib/server/db/actions/calendarScope', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	...scope
 }));
 
 import { deleteEventInScope, updateEventById, createEvent, shiftException } from './events';
@@ -151,13 +156,15 @@ beforeEach(() => {
 	state.txDeletes = [];
 	state.deleteReturning = [];
 	state.transactionOpened = false;
+	vi.clearAllMocks();
+	scope.getOwnedCalendarIds.mockResolvedValue(['cal-owned']);
 });
 
 function eventRow(over: Partial<CalendarEvent> = {}): CalendarEvent {
 	return {
 		id: 'e1',
 		calendarId: 'cal-fam',
-		ownerId: 'owner',
+		ownerId: 'u1',
 		title: 'T',
 		start: '2026-08-01T10:00:00.000Z',
 		end: null,
@@ -195,16 +202,19 @@ function exceptionRow(over: Partial<EventException> = {}): EventException {
 
 describe('deleteEventInScope', () => {
 	it('returns 1 when the scoped row was deleted', async () => {
+		state.txSelectQueue = [[eventRow()]];
 		state.deleteReturning = [[{ id: 'e1' }]];
 		await expect(deleteEventInScope('e1', 'u1', ['cal-fam'])).resolves.toBe(1);
 	});
 
 	it('returns 0 when nothing matched the scope', async () => {
+		state.txSelectQueue = [[]];
 		state.deleteReturning = [[]];
 		await expect(deleteEventInScope('e1', 'u1', ['cal-fam'])).resolves.toBe(0);
 	});
 
 	it('removes the family-mirror rows in the same transaction as the master', async () => {
+		state.txSelectQueue = [[eventRow()]];
 		state.deleteReturning = [[{ id: 'e1' }]];
 		await deleteEventInScope('e1', 'u1', ['cal-fam']);
 
@@ -213,6 +223,7 @@ describe('deleteEventInScope', () => {
 	});
 
 	it('does not issue a mirror delete when nothing matched', async () => {
+		state.txSelectQueue = [[eventRow()]];
 		state.deleteReturning = [[]];
 		await deleteEventInScope('e1', 'u1', ['cal-fam']);
 
@@ -243,6 +254,46 @@ describe('shiftException', () => {
 });
 
 describe('updateEventById', () => {
+	describe('mutate leg (issue 165)', () => {
+		it('blocks a passing member from updating an event owned by another member', async () => {
+			scope.getOwnedCalendarIds.mockResolvedValue([]);
+			state.txSelectQueue = [[eventRow({ ownerId: 'member-2', calendarId: 'cal-fam' })]];
+			state.txUpdateReturning = [[eventRow({ title: 'Hacked' })]];
+
+			const result = await updateEventById('e1', { title: 'Hacked' }, 'u1', undefined, ['cal-fam']);
+
+			expect(result).toBeUndefined();
+			expect(state.txUpdates).toHaveLength(0);
+		});
+
+		it('blocks a passing member from deleting an event owned by another member', async () => {
+			scope.getOwnedCalendarIds.mockResolvedValue([]);
+			state.txSelectQueue = [[eventRow({ ownerId: 'member-2', calendarId: 'cal-fam' })]];
+			state.deleteReturning = [[{ id: 'e1' }]];
+
+			await expect(deleteEventInScope('e1', 'u1', ['cal-fam'])).resolves.toBe(0);
+			expect(state.txDeletes).toHaveLength(0);
+		});
+
+		it('still allows the update when the user owns the calendar the event sits on', async () => {
+			scope.getOwnedCalendarIds.mockResolvedValue(['cal-fam']);
+			state.txSelectQueue = [[eventRow({ ownerId: 'member-2', calendarId: 'cal-fam' })]];
+			state.txUpdateReturning = [[eventRow({ title: 'X' })]];
+
+			await updateEventById('e1', { title: 'X' }, 'u1', undefined, ['cal-fam']);
+
+			expect(state.txUpdates.length).toBeGreaterThan(0);
+		});
+
+		it('still allows the delete when the user owns the calendar the event sits on', async () => {
+			scope.getOwnedCalendarIds.mockResolvedValue(['cal-fam']);
+			state.txSelectQueue = [[eventRow({ ownerId: 'member-2', calendarId: 'cal-fam' })]];
+			state.deleteReturning = [[{ id: 'e1' }]];
+
+			await expect(deleteEventInScope('e1', 'u1', ['cal-fam'])).resolves.toBe(1);
+		});
+	});
+
 	it('shifts exception slots in the same transaction when the master start moves', async () => {
 		const existing = eventRow();
 		const updated = eventRow({ start: '2026-08-08T10:00:00.000Z' });

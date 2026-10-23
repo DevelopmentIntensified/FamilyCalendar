@@ -4,7 +4,7 @@ import { getUrl } from '$lib/utils/getUrl';
 import { createJWT, validateJWT } from 'oslo/jwt';
 import { TimeSpan } from 'oslo';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
-import { createCode } from '$lib/server/db/actions/codes';
+import { createCode, hashEmailCode } from '$lib/server/db/actions/codes';
 import { getAccount } from '$lib/server/db/actions/accounts';
 import { getUser, getUserByEmail } from '$lib/server/db/actions/users';
 import { session, type SessionCookie } from '$lib/server/auth';
@@ -223,12 +223,17 @@ export async function issueVerificationCode(
 	}
 
 	await deps.createCode({
-		code,
+		// #162: the plaintext code never touches the DB — sha256 digest only.
+		code: hashEmailCode(code),
 		expiresAt: new Date(Date.now() + 60 * 1000 * 15),
 		email,
 		firstName,
 		lastName,
-		emailId: data?.id || null
+		emailId: data?.id || null,
+		// #154: rows are type-stamped so consumers can enforce code-kind
+		// isolation. Kind-less mints (password-signup verify flow) get their
+		// own type so /login and /signup can never accept them.
+		type: opts.kind ?? 'password-signup'
 	});
 
 	return { status: 'sent', code };

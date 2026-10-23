@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createHash } from 'crypto';
 import { NOREPLYEMAIL } from '$env/static/private';
 import {
 	issueMagicLink,
@@ -70,20 +71,22 @@ describe('issueMagicLink', () => {
 			input: { email: 'New@User.com', firstName: 'New', lastName: 'User' },
 			gateKey: 'signup-code:new@user.com',
 			callbackPath: '/signup/email/callback',
-			expectedCodeNames: { firstName: 'New', lastName: 'User' }
+			expectedCodeNames: { firstName: 'New', lastName: 'User' },
+			expectedCodeType: 'signup'
 		},
 		{
 			kind: 'login' as const,
 			input: { email: 'New@User.com' },
 			gateKey: 'login-code:new@user.com',
 			callbackPath: '/login/email/callback',
-			expectedCodeNames: { firstName: 'New', lastName: 'User' }
+			expectedCodeNames: { firstName: 'New', lastName: 'User' },
+			expectedCodeType: 'login'
 		}
 	];
 
 	it.each(kindCases)(
 		'[$kind] generates an 8-digit code, kind-tagged JWT, canonical email, and writes the code',
-		async ({ kind, input, gateKey, callbackPath, expectedCodeNames }) => {
+		async ({ kind, input, gateKey, callbackPath, expectedCodeNames, expectedCodeType }) => {
 			if (kind === 'login') {
 				getUserByEmail.mockResolvedValue({
 					id: 'user-1',
@@ -122,7 +125,14 @@ describe('issueMagicLink', () => {
 			expect(link.searchParams.get('token')).toBe('mock.jwt.token');
 
 			expect(createCode).toHaveBeenCalledWith(
-				expect.objectContaining({ code, email: 'New@User.com', ...expectedCodeNames })
+				expect.objectContaining({
+					// #162: the plaintext code never touches the DB — sha256 digest at rest.
+					code: createHash('sha256').update(code).digest('hex'),
+					email: 'New@User.com',
+					// #154: the row is stamped with its kind so consumers can type-check.
+					type: expectedCodeType,
+					...expectedCodeNames
+				})
 			);
 			// The gate key exists so routes can wire their per-request limiter.
 			expect(gateKey).toContain(kind === 'signup' ? 'signup-code' : 'login-code');
@@ -228,35 +238,49 @@ describe('issueMagicLink', () => {
 	);
 });
 
-describe('issueVerificationCode', () => {
-	const seamCases = [
-		{
-			name: 'with names',
-			input: { email: 'New@User.com', firstName: 'New', lastName: 'User' },
-			opts: { callbackPath: '/password/verify', gateKey: 'password-code:new@user.com' },
-			expectedNames: { firstName: 'New', lastName: 'User' }
-		},
-		{
-			name: 'without names',
-			input: { email: 'noname@user.com' },
-			opts: { callbackPath: '/password/verify', gateKey: 'password-code:noname@user.com' },
-			expectedNames: { firstName: undefined, lastName: undefined }
-		},
-		{
-			name: 'kind passthrough',
-			input: { email: 'kind@user.com', firstName: 'K', lastName: 'U' },
-			opts: {
-				callbackPath: '/signup/email/callback',
-				gateKey: 'signup-code:kind@user.com',
-				kind: 'signup' as const
+	describe('issueVerificationCode', () => {
+		const seamCases = [
+			{
+				name: 'with names',
+				input: { email: 'New@User.com', firstName: 'New', lastName: 'User' },
+				opts: { callbackPath: '/password/verify', gateKey: 'password-code:new@user.com' },
+				expectedNames: { firstName: 'New', lastName: 'User' },
+				expectedType: 'password-signup'
 			},
-			expectedNames: { firstName: 'K', lastName: 'U' }
-		}
-	];
+			{
+				name: 'without names',
+				input: { email: 'noname@user.com' },
+				opts: { callbackPath: '/password/verify', gateKey: 'password-code:noname@user.com' },
+				expectedNames: { firstName: undefined, lastName: undefined },
+				expectedType: 'password-signup'
+			},
+			{
+				name: 'signup kind passthrough',
+				input: { email: 'kind@user.com', firstName: 'K', lastName: 'U' },
+				opts: {
+					callbackPath: '/signup/email/callback',
+					gateKey: 'signup-code:kind@user.com',
+					kind: 'signup' as const
+				},
+				expectedNames: { firstName: 'K', lastName: 'U' },
+				expectedType: 'signup'
+			},
+			{
+				name: 'login kind passthrough',
+				input: { email: 'kind@user.com' },
+				opts: {
+					callbackPath: '/login/email/callback',
+					gateKey: 'login-code:kind@user.com',
+					kind: 'login' as const
+				},
+				expectedNames: { firstName: undefined, lastName: undefined },
+				expectedType: 'login'
+			}
+		];
 
-	it.each(seamCases)(
-		'[$name] mints an 8-digit code, JWT, canonical email at the opts callbackPath, and persists the code',
-		async ({ input, opts, expectedNames }) => {
+		it.each(seamCases)(
+			'[$name] mints an 8-digit code, JWT, canonical email at the opts callbackPath, and persists the code',
+			async ({ input, opts, expectedNames, expectedType }) => {
 			const before = Date.now();
 			const result = await issueVerificationCode(deps, input, passGate, opts);
 			const after = Date.now();
@@ -292,7 +316,9 @@ describe('issueVerificationCode', () => {
 
 			expect(createCode).toHaveBeenCalledTimes(1);
 			const persisted = createCode.mock.calls[0][0];
-			expect(persisted.code).toBe(code);
+			expect(createHash('sha256').update(code).digest('hex')).not.toBe(code);
+			expect(persisted.code).toBe(createHash('sha256').update(code).digest('hex'));
+			expect(persisted.type).toBe(expectedType);
 			expect(persisted.email).toBe(input.email);
 			expect(persisted.firstName).toBe(expectedNames.firstName);
 			expect(persisted.lastName).toBe(expectedNames.lastName);

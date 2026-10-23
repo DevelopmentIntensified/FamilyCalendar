@@ -38,7 +38,13 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-import { getAccessibleCalendarIds, eventAccessFilter, canTouchEvent } from './calendarScope';
+import {
+	getAccessibleCalendarIds,
+	eventAccessFilter,
+	canTouchEvent,
+	getOwnedCalendarIds,
+	canMutateEventRow
+} from './calendarScope';
 
 beforeEach(() => {
 	state.queue = [];
@@ -176,5 +182,38 @@ describe('canTouchEvent', () => {
 		// #3 = calendars (own only)
 		state.queue = [[{ ownerId: 'user-2', calendarId: null }], [], [{ id: 'c-personal' }]];
 		expect(await canTouchEvent('user-1', 'event-1')).toBe('forbidden');
+	});
+});
+
+describe('getOwnedCalendarIds (issue 165)', () => {
+	it('returns only the calendars whose owner is the user — no family legs', async () => {
+		// ONE select on calendars; familyMembers is never consulted.
+		state.queue = [[{ id: 'c-own-1' }, { id: 'c-own-2' }]];
+		expect(await getOwnedCalendarIds('user-1')).toEqual(['c-own-1', 'c-own-2']);
+		expect(state.queue).toEqual([]);
+	});
+});
+
+describe('canMutateEventRow (issue 165)', () => {
+	const sharedRow = { ownerId: 'member-2', calendarId: 'cal-fam' };
+
+	it('allows the event owner', () => {
+		expect(canMutateEventRow({ ownerId: 'user-1', calendarId: 'cal-fam' }, 'user-1', [])).toBe(
+			true
+		);
+	});
+
+	it('allows the owner of the calendar the event sits on', () => {
+		expect(canMutateEventRow(sharedRow, 'user-1', ['cal-fam'])).toBe(true);
+	});
+
+	it('blocks a member who neither owns the event nor its calendar', () => {
+		expect(canMutateEventRow(sharedRow, 'user-1', ['cal-other'])).toBe(false);
+	});
+
+	it('blocks on a hollow event row regardless of owned calendars', () => {
+		expect(
+			canMutateEventRow({ ownerId: 'user-2', calendarId: null }, 'user-1', ['cal-a', 'cal-b'])
+		).toBe(false);
 	});
 });

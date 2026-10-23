@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
-import { createUser, deleteUser } from './users';
+import { createUser, deleteUser, updateUser, verifyUserEmail, setUserPasswordHash } from './users';
 // Type-only: the factory below dynamic-imports these to dodge TDZ during mock init.
-import type { users, subscriptions, tasks } from '$lib/server/db/schema';
+import type { users, subscriptions, tasks, User } from '$lib/server/db/schema';
 
 /**
  * deleteUser contract, in ONE transaction:
@@ -31,10 +31,11 @@ interface StubState {
 	statusPatch: unknown;
 	inserts: ('users' | 'authAccount' | 'unknown')[];
 	insertValues: Record<string, unknown>[];
+	updatePatches: Record<string, unknown>[];
 }
 
 const state = vi.hoisted(
-	(): StubState => ({ order: [], statusPatch: null, inserts: [], insertValues: [] })
+	(): StubState => ({ order: [], statusPatch: null, inserts: [], insertValues: [], updatePatches: [] })
 );
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub pins the transaction + write order; real-Postgres harness tracked in docs/issues/002.
@@ -96,6 +97,14 @@ vi.mock('$lib/server/db', () => ({
 					return [values];
 				}
 			})
+		}),
+		update: (_table: unknown) => ({
+			set: (patch: Record<string, unknown>) => ({
+				where: () => {
+					state.updatePatches.push(patch);
+					return { returning: async () => [patch] };
+				}
+			})
 		})
 	}
 }));
@@ -105,6 +114,7 @@ beforeEach(() => {
 	state.statusPatch = null;
 	state.inserts = [];
 	state.insertValues = [];
+	state.updatePatches = [];
 });
 
 describe('deleteUser', () => {
@@ -150,5 +160,36 @@ describe('createUser (#196 slice 5: better-auth credential parity)', () => {
 		});
 
 		expect(state.inserts).toEqual(['users']);
+	});
+});
+
+describe('updateUser (#168: the generic seam drops privilege fields at runtime)', () => {
+	it('writes safe profile fields and silently drops privilege fields even if handed them', async () => {
+		const handed: Partial<User> = {
+			firstName: 'Pat',
+			lastName: 'Smith',
+			email: 'mass.assigned@evil.test',
+			emailVerified: true,
+			passwordHash: '$2a$12$evilhash0000000000000000000000000000000000000000000000',
+			roles: ['admin']
+		};
+
+		await updateUser('user-1', handed);
+
+		expect(state.updatePatches).toEqual([{ firstName: 'Pat', lastName: 'Smith' }]);
+	});
+});
+
+describe('privileged-field seams (#168: each privilege write has one dedicated action)', () => {
+	it('verifyUserEmail writes only emailVerified: true', async () => {
+		await verifyUserEmail('user-1');
+
+		expect(state.updatePatches).toEqual([{ emailVerified: true }]);
+	});
+
+	it('setUserPasswordHash writes only the passwordHash', async () => {
+		await setUserPasswordHash('user-1', '$2a$12$newhash00000000000000000000000000000000');
+
+		expect(state.updatePatches).toEqual([{ passwordHash: '$2a$12$newhash00000000000000000000000000000000' }]);
 	});
 });

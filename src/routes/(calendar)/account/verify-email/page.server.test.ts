@@ -21,6 +21,7 @@ type DepsMocks = {
 	deleteCode: Mock;
 	getUser: Mock;
 	applyEmailChange: Mock;
+	emailExists: Mock;
 };
 
 function makeDeps(codeRow: Record<string, unknown> | undefined): DepsMocks {
@@ -31,14 +32,16 @@ function makeDeps(codeRow: Record<string, unknown> | undefined): DepsMocks {
 		email: 'delivered+verify-current@resend.dev'
 	});
 	const applyEmailChange = vi.fn();
+	const emailExists = vi.fn().mockResolvedValue(false);
 	const deps: VerifyEmailDeps = {
 		getCode,
 		deleteCode,
 		getUser,
 		applyEmailChange,
+		emailExists,
 		emailSecret: SECRET
 	};
-	return { deps, getCode, deleteCode, getUser, applyEmailChange };
+	return { deps, getCode, deleteCode, getUser, applyEmailChange, emailExists };
 }
 
 function mockEvent(fields: { token?: string; code?: string }, ip = '10.0.0.1') {
@@ -59,12 +62,13 @@ function failureOf(result: RequestResult): { status: number; data: Record<string
 	return result as { status: number; data: Record<string, unknown> };
 }
 
-const validCode = () => ({
+const validCode = (overrides: Record<string, unknown> = {}) => ({
 	code: '24681357',
 	email: 'delivered+verify-current@resend.dev',
 	pendingEmail: 'delivered+verify-new@resend.dev',
 	type: 'email_change',
-	expiresAt: new Date(Date.now() + 60 * 1000 * 15)
+	expiresAt: new Date(Date.now() + 60 * 1000 * 15),
+	...overrides
 });
 
 beforeEach(() => {
@@ -137,15 +141,93 @@ describe('verify-email action — Oct-hardening survival (#196 slice 4)', () => 
 	});
 
 	it('accepts a signed JWT link and applies its pending email', async () => {
-		const { deps, applyEmailChange } = makeDeps(undefined);
+		const { deps, applyEmailChange, deleteCode } = makeDeps(
+			validCode({ code: '86421357', pendingEmail: 'delivered+verify-link@resend.dev' })
+		);
 
-		const token = await createJWT('HS256', SECRET, { code: '86421357', pendingEmail: 'delivered+verify-link@resend.dev' });
-		const parsed = await parseJWT(token);
-		expect(parsed, 'fixture sanity: token parses').not.toBeNull();
+	const token = await createJWT('HS256', SECRET, { code: '86421357', pendingEmail: 'delivered+verify-link@resend.dev' });
+	const parsed = await parseJWT(token);
+	expect(parsed, 'fixture sanity: token parses').not.toBeNull();
 
-		const result = await callVerify(mockEvent({ token }, '10.0.0.8'), deps);
+	const result = await callVerify(mockEvent({ token }, '10.0.0.8'), deps);
 
-		expect(result).toMatchObject({ success: true });
-		expect(applyEmailChange).toHaveBeenCalledWith('u-1', 'delivered+verify-link@resend.dev');
+	expect(result).toMatchObject({ success: true });
+	expect(applyEmailChange).toHaveBeenCalledWith('u-1', 'delivered+verify-link@resend.dev');
+	expect(deleteCode).toHaveBeenCalledWith('86421357');
+});
+
+describe('verify-email token path — single-use + collision (#166)', () => {
+	const linkToken = () =>
+		createJWT('HS256', SECRET, {
+			code: '86421357',
+			pendingEmail: 'delivered+verify-link@resend.dev'
+		});
+	const linkRow = () =>
+		validCode({ code: '86421357', pendingEmail: 'delivered+verify-link@resend.dev' });
+
+	it('rejects a replayed token on second use (single-use burn)', async () => {
+		const { deps, applyEmailChange, getCode } = makeDeps(undefined);
+		const token = await linkToken();
+		getCode.mockResolvedValueOnce(linkRow()).mockResolvedValueOnce(undefined);
+
+		const first = await callVerify(mockEvent({ token }, '10.0.0.9'), deps);
+		expect(first).toMatchObject({ success: true });
+
+		const replay = await callVerify(mockEvent({ token }, '10.0.0.9'), deps);
+
+		expect(failureOf(replay).status).toBe(400);
+		expect(applyEmailChange).toHaveBeenCalledTimes(1);
 	});
+
+	it('fails clean when the pending email is already registered (token path)', async () => {
+		const { deps, applyEmailChange, emailExists, getCode } = makeDeps(undefined);
+		getCode.mockResolvedValue(linkRow());
+		emailExists.mockResolvedValue(true);
+
+		const result = await callVerify(mockEvent({ token: await linkToken() }, '10.0.1.0'), deps);
+
+		expect(failureOf(result).status).toBe(400);
+		expect(failureOf(result).data.message).toBe('That email is already in use');
+		expect(applyEmailChange).not.toHaveBeenCalled();
+	});
+
+	it('fails clean when the pending email is already registered (code path)', async () => {
+		const { deps, applyEmailChange, emailExists } = makeDeps(validCode());
+		emailExists.mockResolvedValue(true);
+
+		const result = await callVerify(mockEvent({ code: '24681357' }, '10.0.1.1'), deps);
+
+		expect(failureOf(result).status).toBe(400);
+		expect(failureOf(result).data.message).toBe('That email is already in use');
+		expect(applyEmailChange).not.toHaveBeenCalled();
+	});
+
+	it('rejects a token whose code row does not match its pending email', async () => {
+		const { deps, applyEmailChange, getCode } = makeDeps(undefined);
+		getCode.mockResolvedValue(
+			validCode({ code: '86421357', pendingEmail: 'delivered+verify-other@resend.dev' })
+		);
+
+		const result = await callVerify(mockEvent({ token: await linkToken() }, '10.0.1.2'), deps);
+
+		expect(failureOf(result).status).toBe(400);
+		expect(applyEmailChange).not.toHaveBeenCalled();
+	});
+
+	it('rejects a token bound to a different consumer than the current session', async () => {
+		const { deps, applyEmailChange, getCode } = makeDeps(undefined);
+		getCode.mockResolvedValue(
+			validCode({
+				code: '86421357',
+				pendingEmail: 'delivered+verify-link@resend.dev',
+				email: 'delivered+someone-else@resend.dev'
+			})
+		);
+
+		const result = await callVerify(mockEvent({ token: await linkToken() }, '10.0.1.3'), deps);
+
+		expect(failureOf(result).status).toBe(400);
+		expect(applyEmailChange).not.toHaveBeenCalled();
+	});
+});
 });

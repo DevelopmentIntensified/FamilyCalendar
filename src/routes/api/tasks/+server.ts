@@ -43,7 +43,9 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		if (event.ownerId !== auth.user.id && !hasCalendarAccess) {
 			return json({ error: 'No access to this event' }, { status: 403 });
 		}
-		const eventTasks = await getTasksForEvent(eventId);
+		const eventTasks = (await getTasksForEvent(eventId)).filter(
+			(t) => t.visibility !== 'private' || t.userId === auth.user.id
+		);
 		return json({ tasks: eventTasks });
 	}
 

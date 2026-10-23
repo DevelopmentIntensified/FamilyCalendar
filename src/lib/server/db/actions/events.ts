@@ -7,8 +7,13 @@ import {
 	type CalendarEvent
 } from '$lib/server/db/schema';
 import type { EventAttendanceSummary } from '$lib/types';
-import { eq, and, sql, inArray, or } from 'drizzle-orm';
-import { getAccessibleCalendarIds, eventAccessFilter } from '$lib/server/db/actions/calendarScope';
+import { eq, and, sql, inArray } from 'drizzle-orm';
+import {
+	getAccessibleCalendarIds,
+	eventAccessFilter,
+	getOwnedCalendarIds,
+	canMutateEventRow
+} from '$lib/server/db/actions/calendarScope';
 import { toDateTime } from '$lib/server/utils/eventTimes';
 
 /**
@@ -289,12 +294,13 @@ export async function updateEventById(
 	accessibleCalIds?: string[]
 ): Promise<CalendarEvent | undefined> {
 	const calIds = accessibleCalIds ?? (await getAccessibleCalendarIds(userId));
+	const ownedCalIds = await getOwnedCalendarIds(userId);
 	const updatedEvent = await db.transaction(async (tx) => {
 		const [existing] = await tx
 			.select()
 			.from(events)
 			.where(and(eq(events.id, id), eventAccessFilter(userId, calIds)));
-		if (!existing) return undefined;
+		if (!existing || !canMutateEventRow(existing, userId, ownedCalIds)) return undefined;
 		const [updated] = await tx.update(events).set(data).where(eq(events.id, id)).returning();
 		// A whole-series move re-anchors every occurrence slot. Exception
 		// Overrides are keyed to the ORIGINAL recurrence slot (originalDate),
@@ -441,24 +447,20 @@ export function shiftException(
 	};
 }
 
-/** Delete an event the user owns OR one living on an accessible calendar
- *  (personal or family) — mirrors the calendar's read scope. Any family-
- *  mirror copies (mirrorOf = id) go with the master in the SAME transaction
- *  so no ghost copy survives. Returns the number of rows actually deleted. */
+/** Delete an event under the issue 165 write leg: the user owns the event
+ *  OR owns the calendar it sits on (personal-calendar case) — being readable
+ *  on a shared family calendar is not enough. Any family-mirror copies
+ *  (mirrorOf = id) go with the master in the SAME transaction so no ghost
+ *  copy survives. Returns the number of rows actually deleted. */
 export async function deleteEventInScope(id: string, userId: string, calendarIds: string[]) {
+	const ownedCalIds = await getOwnedCalendarIds(userId);
 	return await db.transaction(async (tx) => {
-		const removed = await tx
-			.delete(events)
-			.where(
-				and(
-					eq(events.id, id),
-					or(
-						eq(events.ownerId, userId),
-						calendarIds.length > 0 ? inArray(events.calendarId, calendarIds) : sql`false`
-					)
-				)
-			)
-			.returning({ id: events.id });
+		const [existing] = await tx
+			.select({ ownerId: events.ownerId, calendarId: events.calendarId })
+			.from(events)
+			.where(and(eq(events.id, id), eventAccessFilter(userId, calendarIds)));
+		if (!existing || !canMutateEventRow(existing, userId, ownedCalIds)) return 0;
+		const removed = await tx.delete(events).where(eq(events.id, id)).returning({ id: events.id });
 		if (removed.length > 0) {
 			// Belt-and-braces: the mirrorOf FK also cascades this at the DB
 			// level; the explicit delete keeps the behavior visible and covered

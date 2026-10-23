@@ -2,8 +2,15 @@ import { db } from '$lib/server/db';
 import { users, subscriptions, tasks, authAccount, type User } from '$lib/server/db/schema';
 import { createUserSettings } from '$lib/server/db/actions/userSettings';
 import { generateId } from '$lib/server/utils/generateId';
+import { pickWritableFields } from '$lib/server/utils/pickWritableFields';
 import { ANONYMOUS_EMAIL_DOMAIN } from '$lib/utils/anonymous';
 import { eq, and, lt, sql } from 'drizzle-orm';
+
+// #168: the generic update seam writes profile fields only; privilege fields
+// (email, emailVerified, passwordHash, roles) each get a dedicated action below.
+const USER_UPDATE_FIELDS = ['firstName', 'lastName'] as const;
+
+export type UserUpdateData = Partial<Pick<User, (typeof USER_UPDATE_FIELDS)[number]>>;
 
 export async function getUsers() {
 	return await db.select().from(users);
@@ -66,8 +73,30 @@ export async function createUser(data: {
 	return createdUser;
 }
 
-export async function updateUser(id: string, data: Partial<Omit<User, 'id'>>) {
-	const [updatedUser] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+export async function updateUser(id: string, data: UserUpdateData) {
+	const [updatedUser] = await db
+		.update(users)
+		.set(pickWritableFields(data, USER_UPDATE_FIELDS))
+		.where(eq(users.id, id))
+		.returning();
+	return updatedUser;
+}
+
+export async function verifyUserEmail(userId: string) {
+	const [updatedUser] = await db
+		.update(users)
+		.set({ emailVerified: true })
+		.where(eq(users.id, userId))
+		.returning();
+	return updatedUser;
+}
+
+export async function setUserPasswordHash(userId: string, passwordHash: string) {
+	const [updatedUser] = await db
+		.update(users)
+		.set({ passwordHash })
+		.where(eq(users.id, userId))
+		.returning();
 	return updatedUser;
 }
 
