@@ -41,6 +41,10 @@ export const T = {
 	 * measured at 16px; see docs/issues/095. */
 	blueInk: '#366d7e',
 	mint: '#c4e9da',
+	/* --mint-ink from proto.css: the darker stop of the test-environment tile.
+	 * No new hex was invented - brand-check 1 fails on any colour that is not
+	 * already a calendar-ui token. */
+	mintInk: '#2d5866',
 	s900: '#0f172a'
 };
 
@@ -161,6 +165,40 @@ const SYNTH_BODY = (id) => {
 };
 
 /* ── the marks ───────────────────────────────────────────────────────────── */
+
+/* The test-environment tile: the SAME synthesis body as `mark`, on a blue
+ * envelope, so test.familyplanz.com is distinguishable from production at a
+ * glance - which tab is which, which home-screen install is which. Only the
+ * envelope changes: the band, grid and rings are untouched. testMaskable()
+ * reuses the same 0.72 maskable math, because that scaling is geometry, not
+ * colour. Rendered by scripts/build-brand-rasters.mjs into test-* names; the
+ * ROOT set there deliberately does NOT include mark.svg/icon-* - production
+ * keeps the terracotta art at every path the app references. */
+const testTile = (id) => `
+	<defs>
+		<linearGradient id="${id}-tile" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" stop-color="${T.blueInk}"/>
+			<stop offset="1" stop-color="${T.mintInk}"/>
+		</linearGradient>
+	</defs>
+	<rect width="512" height="512" rx="116" fill="url(#${id}-tile)"/>`;
+
+export const TEST_MARK = {
+	id: 'test-mark',
+	name: 'Test Synthesis',
+	thesis: 'The shipping mark on a blue envelope: test environment at a glance, same art.',
+	svg: svg('test-mark', testTile('test-mark') + SYNTH_BODY('test-mark'))
+};
+
+export function testMaskable(id = 'test-maskable') {
+	return svg(
+		id,
+		testTile(id) +
+			`<g transform="translate(256 256) scale(.72) translate(-256 -256)">` +
+			SYNTH_BODY(id) +
+			`</g>`
+	);
+}
 
 export const MARKS = {
 	a: {

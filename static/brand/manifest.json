@@ -1,6 +1,6 @@
 {
 	"source": "prototypes/brand-ui/marks.js",
-	"sourceHash": "afb7cf0d26d55c60",
+	"sourceHash": "630ecda628d90659",
 	"files": {
 		"mark.svg": {
 			"w": 512,
@@ -32,6 +32,26 @@
 			"h": 512,
 			"hash": "4040454665f0ffa1"
 		},
+		"test-icon.svg": {
+			"w": 512,
+			"h": 512,
+			"hash": "8be735fd31e535c2"
+		},
+		"test-apple-touch-icon.png": {
+			"w": 180,
+			"h": 180,
+			"hash": "a0a8daa58b9eaf9f"
+		},
+		"test-icon-192.png": {
+			"w": 192,
+			"h": 192,
+			"hash": "12cfcd2e9f64133a"
+		},
+		"test-icon-512.png": {
+			"w": 512,
+			"h": 512,
+			"hash": "80a9560b96c5fdcf"
+		},
 		"maskable-192.png": {
 			"w": 192,
 			"h": 192,
@@ -41,6 +61,16 @@
 			"w": 512,
 			"h": 512,
 			"hash": "f8d4dc2511aa1303"
+		},
+		"test-maskable-192.png": {
+			"w": 192,
+			"h": 192,
+			"hash": "6397efa4e12d4e0c"
+		},
+		"test-maskable-512.png": {
+			"w": 512,
+			"h": 512,
+			"hash": "4a670a2f5c1c2c79"
 		},
 		"favicon.png": {
 			"w": 128,

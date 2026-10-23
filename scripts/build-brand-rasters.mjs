@@ -45,15 +45,16 @@ function loadMarks() {
 		.replace(/^\/\*[\s\S]*?\*\/\s*$/gm, '')
 		.replace(/^import[\s\S]*?;\s*$/gm, '');
 	// eslint-disable-next-line no-new-func
-	return new Function(`${body}; return { MARKS, maskable, ogCard, OG };`)();
+	return new Function(`${body}; return { MARKS, TEST_MARK, maskable, testMaskable, ogCard, OG };`)();
 }
 
-const { MARKS, maskable, ogCard, OG } = loadMarks();
+const { MARKS, TEST_MARK, maskable, testMaskable, ogCard, OG } = loadMarks();
 
 /* static/brand/ is generated in full. The list is here, not on disk, so a file
    that is no longer wanted cannot linger by being left behind. */
 function plan() {
 	const og = ogCard({ head: OG.heads[1].head, sub: OG.heads[1].sub });
+	const testMask = { svg: testMaskable('test-maskable') };
 	return new Map([
 		// the mark and its maskable twin
 		['mark.svg', { svg: MARKS.mark.svg }],
@@ -63,11 +64,23 @@ function plan() {
 		['apple-touch-icon.png', { svg: MARKS.mark.svg, w: 180, h: 180 }],
 		['icon-192.png', { svg: MARKS.mark.svg, w: 192, h: 192 }],
 		['icon-512.png', { svg: MARKS.mark.svg, w: 512, h: 512 }],
+		// the test-environment twins (blue envelope) - see TEST_MARK. Same
+		// shapes, NO root copies of the PRODUCTION names: static/icon.svg and
+		// static/icon-*.png stay terracotta, and app.html swaps the test host
+		// to these paths at runtime.
+		['test-icon.svg', { svg: TEST_MARK.svg }],
+		['test-apple-touch-icon.png', { svg: TEST_MARK.svg, w: 180, h: 180 }],
+		['test-icon-192.png', { svg: TEST_MARK.svg, w: 192, h: 192 }],
+		['test-icon-512.png', { svg: TEST_MARK.svg, w: 512, h: 512 }],
 		// the maskable rasters. The SVG twin is not enough on its own: Android
 		// picks from the manifest by declared purpose and a raster is what it
 		// actually decodes, so a maskable icon nobody declares is decoration.
 		['maskable-192.png', { svg: maskable(), w: 192, h: 192 }],
 		['maskable-512.png', { svg: maskable(), w: 512, h: 512 }],
+		// the test-environment maskables - referenced only by
+		// static/test-manifest.webmanifest, so /brand/ paths are enough
+		['test-maskable-192.png', { ...testMask, w: 192, h: 192 }],
+		['test-maskable-512.png', { ...testMask, w: 512, h: 512 }],
 		// what a browser asks for when it falls back to /favicon.png, at the
 		// size the stale one already was
 		['favicon.png', { svg: MARKS.mark.svg, w: 128, h: 128 }],
@@ -139,7 +152,18 @@ const MIRROR = new Set(['icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 
  * redraw in marks.js was reaching static/brand/ and nothing else — the
  * installed app kept the old clipboard. Same bytes, same hash, drift-checked
  * exactly like the brand/ copies. */
-const ROOT = new Set(['icon.svg', 'icon-192.png', 'icon-512.png', 'favicon.png']);
+const ROOT = new Set([
+	'icon.svg',
+	'icon-192.png',
+	'icon-512.png',
+	'favicon.png',
+	// the test-environment set: app.html's shim swaps the test host to these
+	// root paths, exactly as the production references resolve at root
+	'test-icon.svg',
+	'test-apple-touch-icon.png',
+	'test-icon-192.png',
+	'test-icon-512.png'
+]);
 
 for (const [name, spec] of files) {
 	const want = { w: spec.w ?? 512, h: spec.h ?? 512 };

@@ -16,6 +16,19 @@
 		<meta name="apple-mobile-web-app-title" content="FamilyPlanz" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<script>
+			// The test environment wears the blue envelope (static/test-*, rendered
+			// by scripts/build-brand-rasters.mjs) so it is obvious which tab and
+			// which home-screen install is which. Production keeps the terracotta
+			// art untouched at every path below.
+			if (/(^|\.)test\.familyplanz\.com$/.test(window.location.hostname)) {
+				document.querySelector('link[rel="icon"]').href = '/test-icon.svg';
+				document.querySelector('link[rel="apple-touch-icon"]').href =
+					'/test-apple-touch-icon.png';
+				document.querySelector('link[rel="manifest"]').href = '/test-manifest.webmanifest';
+				document.querySelector('meta[name="theme-color"]').content = '#366d7e';
+			}
+		</script>
+		<script>
 			try {
 				const isProd = !/(^|\.)(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
 				if ('serviceWorker' in navigator && isProd) {
