@@ -3,6 +3,7 @@
 	import { showRecurringCompleteFeedback } from '$lib/client/taskFeedback';
 	import { pushToast } from '$lib/client/toasts';
 	import { dueTone, PRIORITY_LABEL, PRIORITY_ORDER, priorityTone } from '$lib/utils/priorityTone';
+	import { splitByRecurrence } from '$lib/utils/taskRecurrence';
 
 	export let tasks: {
 		id: string;
@@ -23,6 +24,20 @@
 	export let meId: string;
 
 	let busy: string | null = null;
+
+	// Issue 203: the two buckets cut from this one rankTop3 read. One-off
+	// leads (what needs you now); recurring follows; numbering continues
+	// across the groups so the card still reads as one Top-3 list.
+	$: recurringSplit = splitByRecurrence(tasks);
+	$: groups = [
+		{ id: 'one-off', label: 'One-off', list: recurringSplit.oneOff, start: 0 },
+		{
+			id: 'recurring',
+			label: 'Recurring',
+			list: recurringSplit.recurring,
+			start: recurringSplit.oneOff.length
+		}
+	];
 
 	function memberName(t: (typeof tasks)[number]): string {
 		if (t.assignedTo === meId) return 'You';
@@ -128,84 +143,103 @@
 			</a>
 		</div>
 	{:else}
-		<ol class="space-y-2">
-			{#each tasks as task, i (task.id)}
-				<li
-					class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-3"
+		{#snippet ranked(task: (typeof tasks)[number], displayNumber: number)}
+			<li
+				class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-3"
+			>
+				<span class="w-4 shrink-0 select-none text-center text-xs font-bold text-slate-300">
+					{displayNumber}
+				</span>
+				<button
+					type="button"
+					onclick={() => toggleTask(task)}
+					disabled={busy === task.id}
+					class="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors enabled:hover:border-primary-500 disabled:opacity-40"
+					title="Mark done"
+					aria-label="Mark done: {task.title}"
+					><span class="absolute -inset-2" aria-hidden="true"></span></button
 				>
-					<span class="w-4 shrink-0 select-none text-center text-xs font-bold text-slate-300">
-						{i + 1}
-					</span>
-					<button
-						type="button"
-						onclick={() => toggleTask(task)}
-						disabled={busy === task.id}
-						class="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 transition-colors enabled:hover:border-primary-500 disabled:opacity-40"
-						title="Mark done"
-						aria-label="Mark done: {task.title}"
-						><span class="absolute -inset-2" aria-hidden="true"></span></button
-					>
-					<div class="min-w-0 flex-1">
-						<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
-						{#if assigneeBadge(task)}
+				<div class="min-w-0 flex-1">
+					<p class="truncate text-sm font-medium text-slate-900">{task.title}</p>
+					{#if assigneeBadge(task)}
+						<span
+							class="mt-0.5 inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+							title="Assigned to {assigneeBadge(task)}"
+						>
+							→ {assigneeBadge(task)}
+						</span>
+					{:else}
+						<p class="text-[11px] text-slate-400">{memberName(task)}</p>
+					{/if}
+					<div class="mt-0.5 flex flex-wrap items-center gap-1">
+						{#if task.familyId}
 							<span
-								class="mt-0.5 inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
-								title="Assigned to {assigneeBadge(task)}"
+								class="inline-flex items-center rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700"
+								title="Family task"
 							>
-								→ {assigneeBadge(task)}
+								Family
 							</span>
 						{:else}
-							<p class="text-[11px] text-slate-400">{memberName(task)}</p>
-						{/if}
-						<div class="mt-0.5 flex flex-wrap items-center gap-1">
-							{#if task.familyId}
-								<span
-									class="inline-flex items-center rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700"
-									title="Family task"
-								>
-									Family
-								</span>
-							{:else}
-								<span
-									class="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
-									title={task.visibility === 'private'
-										? 'Private — only you and the assignee'
-										: 'Public — family can see it (read-only)'}
-								>
-									{task.visibility === 'private' ? '🔒 Private' : '🌐 Public'}
-								</span>
-							{/if}
-						</div>
-					</div>
-					{#if task.dueDate}
-						<span
-							class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium {dueTone(
-								task.dueDate
-							)}"
-						>
-							{dueLabel(task.dueDate)}
-						</span>
-					{/if}
-					<div class="flex shrink-0 flex-wrap items-center gap-0.5" title="Priority">
-						{#each PRIORITY_ORDER as p (p)}
-							<button
-								type="button"
-								onclick={() => setPriority(task, p)}
-								disabled={busy === task.id || task.priority === p}
-								class="min-h-11 rounded-md px-2.5 text-[11px] font-semibold transition-colors {task.priority ===
-								p
-									? priorityTone(p)
-									: 'text-slate-300 hover:bg-slate-100 hover:text-slate-500'}"
-								aria-label="Set priority {PRIORITY_LABEL[p]}"
-								title="{PRIORITY_LABEL[p]} priority"
+							<span
+								class="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
+								title={task.visibility === 'private'
+									? 'Private — only you and the assignee'
+									: 'Public — family can see it (read-only)'}
 							>
-								{PRIORITY_LABEL[p]}
-							</button>
-						{/each}
+								{task.visibility === 'private' ? '🔒 Private' : '🌐 Public'}
+							</span>
+						{/if}
 					</div>
-				</li>
-			{/each}
-		</ol>
+				</div>
+				{#if task.dueDate}
+					<span
+						class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium {dueTone(
+							task.dueDate
+						)}"
+					>
+						{dueLabel(task.dueDate)}
+					</span>
+				{/if}
+				<div class="flex shrink-0 flex-wrap items-center gap-0.5" title="Priority">
+					{#each PRIORITY_ORDER as p (p)}
+						<button
+							type="button"
+							onclick={() => setPriority(task, p)}
+							disabled={busy === task.id || task.priority === p}
+							class="min-h-11 rounded-md px-2.5 text-[11px] font-semibold transition-colors {task.priority ===
+							p
+								? priorityTone(p)
+								: 'text-slate-300 hover:bg-slate-100 hover:text-slate-500'}"
+							aria-label="Set priority {PRIORITY_LABEL[p]}"
+							title="{PRIORITY_LABEL[p]} priority"
+						>
+							{PRIORITY_LABEL[p]}
+						</button>
+					{/each}
+				</div>
+			</li>
+		{/snippet}
+
+		<!-- Issue 203: each ranked row drops into ONE bucket (the shared
+		     taskRecurrence seam); the two labelled groups come from the same
+		     rankTop3 read, numbered continuously, so no row counts twice. -->
+		{#each groups as group (group.id)}
+			{#if group.list.length > 0}
+				<div class="mb-3 last:mb-0" data-testid="top3-{group.id}">
+					<h3
+						class="mb-1.5 flex items-baseline gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400"
+					>
+						{group.label}
+						<span data-testid="top3-count" class="tabular-nums">({group.list.length})</span>
+					</h3>
+					<ol class="space-y-2" start={group.start + 1}>
+						{#each group.list as task, i (task.id)}
+							{@render ranked(task, group.start + i + 1)}
+						{/each}
+					</ol>
+				</div>
+			{/if}
+		{/each}
 	{/if}
 	<div class="mt-3 text-right">
 		<a

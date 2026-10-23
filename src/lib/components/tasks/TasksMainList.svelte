@@ -10,6 +10,7 @@
 		type TimeFilter
 	} from '$lib/utils/taskUrgency';
 	import type { TaskSortKey } from '$lib/utils/taskSort';
+	import { splitByRecurrence } from '$lib/utils/taskRecurrence';
 
 	interface Props {
 		chip: TaskChip;
@@ -165,6 +166,16 @@
 	 *  when nothing is switched off — otherwise it is a claim about the account
 	 *  that the filters made false. */
 	let anyFilterActive = $derived(filterActive || chipActive || viewActive || timeActive);
+
+	/* ── Issue 203: two labelled lists ─────────────────────────────────────
+	   The owner's ruling split the flat band: recurring rows leave the main
+	   run. Both buckets cut from the same synced `rows` read in one pass —
+	   the recurring cursor pins (110) already ran inside getTasks before the
+	   list ever saw these — so no row can appear twice and counts cannot
+	   double-book. One-off leads (what needs you now); recurring follows.
+	   An empty bucket prints no label at all: a zero-claim heading would be
+	   a lie the same way an empty band was. */
+	let split = $derived(splitByRecurrence(rows));
 </script>
 
 <section
@@ -271,37 +282,53 @@
 		</div>
 	{/if}
 
-	<!-- ONE list. Open and finished rows sit in the same run, ordered by
-	     urgency; finished work sorts last and strikes itself. -->
-	<div class="space-y-1.5">
-		{#each rows as task (task.id)}
-			{#if task.completedAt}
-				<TaskCompletedRow
-					{task}
-					busy={busyId === task.id}
-					confirmDelete={confirmDeleteId === task.id}
-					onToggle={() => onToggle(task.id)}
-					onDelete={() => onDelete(task.id)}
-					onAskDelete={() => onAskDelete(task.id)}
-					{onCancelDelete}
-				/>
-			{:else}
-				<TaskRow
-					{task}
-					{currentUserId}
-					assigneeName={assigneeName(task)}
-					busy={busyId === task.id}
-					celebrating={celebratingId === task.id}
-					confirmDelete={confirmDeleteId === task.id}
-					onToggle={() => onToggle(task.id)}
-					onEdit={() => onEdit(task)}
-					onAccept={() => onRespond(task, true)}
-					onDecline={() => onRespond(task, false)}
-					onAdvance={() => onAdvance(task.id)}
-					onDelete={() => onDelete(task.id)}
-					onAskDelete={() => onAskDelete(task.id)}
-					{onCancelDelete}
-				/>
+	<!-- Issue 203: two labelled lists, cut from the same synced read. One-off
+	     leads; recurring follows. Each keeps the flat list's own sort, so open
+	     work sorts by urgency and finished work still sorts last within its
+	     bucket. -->
+	<div class="space-y-5">
+		{#each [{ label: 'One-off', list: split.oneOff }, { label: 'Recurring', list: split.recurring }] as list (list.label)}
+			{#if list.list.length > 0}
+				<div data-testid="group-{list.label.toLowerCase()}">
+					<h3
+						class="mb-1.5 flex items-baseline gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400"
+					>
+						{list.label}
+						<span data-testid="group-count" class="tabular-nums">({list.list.length})</span>
+					</h3>
+					<div class="space-y-1.5">
+						{#each list.list as task (task.id)}
+							{#if task.completedAt}
+								<TaskCompletedRow
+									{task}
+									busy={busyId === task.id}
+									confirmDelete={confirmDeleteId === task.id}
+									onToggle={() => onToggle(task.id)}
+									onDelete={() => onDelete(task.id)}
+									onAskDelete={() => onAskDelete(task.id)}
+									{onCancelDelete}
+								/>
+							{:else}
+								<TaskRow
+									{task}
+									{currentUserId}
+									assigneeName={assigneeName(task)}
+									busy={busyId === task.id}
+									celebrating={celebratingId === task.id}
+									confirmDelete={confirmDeleteId === task.id}
+									onToggle={() => onToggle(task.id)}
+									onEdit={() => onEdit(task)}
+									onAccept={() => onRespond(task, true)}
+									onDecline={() => onRespond(task, false)}
+									onAdvance={() => onAdvance(task.id)}
+									onDelete={() => onDelete(task.id)}
+									onAskDelete={() => onAskDelete(task.id)}
+									{onCancelDelete}
+								/>
+							{/if}
+						{/each}
+					</div>
+				</div>
 			{/if}
 		{/each}
 	</div>

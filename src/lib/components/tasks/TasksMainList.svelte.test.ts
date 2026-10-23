@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/svelte';
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import TasksMainList from './TasksMainList.svelte';
 import type { TaskChip } from './TaskToolbar.svelte';
@@ -274,6 +274,46 @@ describe('TasksMainList — the approved owner axis (tasks.html)', () => {
 		expect(screen.getByTestId('task-filter-count')).toHaveTextContent('2 tasks');
 		await fireEvent.click(screen.getByRole('button', { name: 'Created by me' }));
 		expect(screen.getByTestId('task-filter-count')).toHaveTextContent('2 tasks');
+	});
+
+	// ── issue 203: recurring and one-off land in two labelled lists ─────────
+	// Both buckets read the same synced list (one filteredOpen prop); the
+	// recurring definition lives in taskRecurrence.ts, not on the page.
+	describe('two lists: recurring vs one-off (issue 203)', () => {
+		const splitBoard = () =>
+			props({
+				openCount: 4,
+				completedCount: 0,
+				filteredOpen: [
+					task({ id: 'r1', title: 'Take bins', recurrenceFrequency: 'weekly' }),
+					task({ id: 'o1', title: 'Buy milk' }),
+					task({ id: 'r2', title: 'Water plants', recurrenceFrequency: 'daily' }),
+					task({ id: 'o2', title: 'Post letter' })
+				],
+				filteredCompleted: []
+			});
+
+		it('renders two labelled lists with counts, from the same synced list', () => {
+			render(TasksMainList, { props: splitBoard() });
+			expect(screen.getByRole('heading', { name: /Recurring/ })).toBeTruthy();
+			expect(within(screen.getByTestId('group-recurring')).getByTestId('group-count')).toHaveTextContent('2');
+			expect(screen.getByRole('heading', { name: /One-off/ })).toBeTruthy();
+			expect(within(screen.getByTestId('group-one-off')).getByTestId('group-count')).toHaveTextContent('2');
+		});
+
+		it('a recurring task never lands in the one-off list, nor the reverse', () => {
+			render(TasksMainList, { props: splitBoard() });
+			expect(within(screen.getByTestId('group-recurring')).getByText('Water plants')).toBeTruthy();
+			expect(within(screen.getByTestId('group-recurring')).queryByText('Buy milk')).toBeNull();
+			expect(within(screen.getByTestId('group-one-off')).getByText('Buy milk')).toBeTruthy();
+			expect(within(screen.getByTestId('group-one-off')).queryByText('Water plants')).toBeNull();
+		});
+
+		it('the empty bucket never prints a label claiming rows', () => {
+			render(TasksMainList, { props: props({ filteredOpen: [task({ id: 'o1', title: 'Buy milk' })] }) });
+			expect(screen.queryByTestId('group-recurring')).toBeNull();
+			expect(screen.getByTestId('group-one-off')).toBeTruthy();
+		});
 	});
 
 	it('never claims an account has no tasks while a filter is switched on', async () => {

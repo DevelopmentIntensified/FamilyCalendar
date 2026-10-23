@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import TopPrioritiesCard from './TopPrioritiesCard.svelte';
 import { pushToast } from '$lib/client/toasts';
@@ -93,6 +93,43 @@ describe('TopPrioritiesCard - task scoping labels (issue 021)', () => {
 		});
 		expect(screen.getByText('You')).toBeInTheDocument();
 		expect(screen.queryByText('→ Maya Lopez')).not.toBeInTheDocument();
+	});
+});
+
+// ── issue 203: the Top-3 module drops each ranked row into a bucket ─────────
+// Same shared taskRecurrence seam the tasks page uses; a row shows in exactly
+// one group, so no count can double-book.
+describe('TopPrioritiesCard - recurring vs one-off split (issue 203)', () => {
+	const board = () => ({
+		tasks: [
+			{ ...base, id: 'r1', title: 'Water plants', recurrenceFrequency: 'daily' },
+			{ ...base, id: 'o1', title: 'Wash the car', recurrenceFrequency: null },
+			{ ...base, id: 'r2', title: 'Take bins', recurrenceFrequency: 'weekly' }
+		],
+		meId: 'u_me'
+	});
+
+	it('resolves both buckets into labelled groups with counts', () => {
+		render(TopPrioritiesCard, { props: board() });
+		expect(within(screen.getByTestId('top3-one-off')).getByTestId('top3-count')).toHaveTextContent('1');
+		expect(within(screen.getByTestId('top3-recurring')).getByTestId('top3-count')).toHaveTextContent('2');
+	});
+
+	it('a recurring row never lands in the one-off group, nor the reverse', () => {
+		render(TopPrioritiesCard, { props: board() });
+		const recurring = screen.getByTestId('top3-recurring');
+		const oneOff = screen.getByTestId('top3-one-off');
+		expect(within(recurring).getByText('Water plants')).toBeInTheDocument();
+		expect(within(recurring).getByText('Take bins')).toBeInTheDocument();
+		expect(within(recurring).queryByText('Wash the car')).not.toBeInTheDocument();
+		expect(within(oneOff).getByText('Wash the car')).toBeInTheDocument();
+		expect(within(oneOff).queryByText('Water plants')).not.toBeInTheDocument();
+	});
+
+	it('the empty bucket never prints a label claiming rows', () => {
+		render(TopPrioritiesCard, { props: { tasks: [{ ...base, recurrenceFrequency: 'daily' }], meId: 'u_me' } });
+		expect(screen.queryByTestId('top3-one-off')).toBeNull();
+		expect(screen.getByTestId('top3-recurring')).toBeInTheDocument();
 	});
 });
 
