@@ -21,6 +21,10 @@
 - Bugs that surface should be logical mistakes caught by tests (red-green), not typos, unbalanced delimiters, missing imports, or wrong tool parameters. Slow down on edit boundaries: `oldString` must match exactly, `newString` must be complete.
 - One region per edit call; keep replacements small enough to eyeball in full.
 
+
+## Service worker
+
+- Bump the cache keys in static/service-worker.js (`familyplanz-vN` + `familyplanz-data-vN`) IN THE SAME COMMIT whenever brand assets, `static/manifest*.webmanifest`, or `src/app.html` change - the SW cache otherwise serves stale icons/manifest until the next key bump. Reason: 491a745 shipped the test-icon shim without a bump; 0964fd3 bumped after the fact.
 ## Git workflow
 
 - Always run `npm run build` before pushing — never push a broken build.
