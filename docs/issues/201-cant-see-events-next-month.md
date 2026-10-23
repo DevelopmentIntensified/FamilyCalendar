@@ -30,3 +30,11 @@ Source: user bug report, https://www.familyplanz.com/report-bug, 2026-10-22 19:3
   path: create or import one event in a future month, navigate to it).
 - Confirm the reporter's original session was the SSR-outage 5.57 artifact, or
   chase junk-cookie 200 repro if it persists on the fixed deploy.
+
+### Still owed (sharpened 2026-10-23 — same three as #082, this ticket holds the live check)
+
+- [ ] Live verify on test.familyplanz.com after #082's import-link + scope-pin
+      residue ships: navigate to a future month holding an imported or created
+      event and confirm it renders.
+- [ ] Attribute the original report: SSR-outage 5.57 artifact (200 fix shipped)
+      vs junk-cookie repro on the fixed deploy. No in-app work left.

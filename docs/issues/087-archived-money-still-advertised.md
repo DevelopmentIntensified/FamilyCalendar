@@ -1,6 +1,6 @@
 # 087 — The changelog, roadmap and privacy policy advertise a subsystem that was archived
 
-Status: open
+Status: done
 
 Source: instruction — technical-debt sweep of schema, migrations, and dead code.
 
@@ -65,16 +65,38 @@ created by a bundled migration, with zero readers anywhere in the app. They are
   this issue).
 - 2026-10-19: whole-marketing grep for `bill|receipt|spend|burn|ingest` —
   only legitimate pricing "billing period" text remains. Sweep clean.
+- 2026-10-23: re-verification pass, whole-marketing grep rerun over the full
+  `src/` tree. Marketing surfaces have NO live copy hits — the only matches
+  are: the code comments in `changelog/+page.svelte:19` and
+  `src/lib/marketing/seo.ts:74` citing this very issue (both author-only,
+  never rendered), and legitimate pricing `billing period` text. Verified
+  additionally: `src/lib/data/changelog.ts` (9 entries, zero money ones),
+  `src/lib/data/roadmap.ts` (shipped = quick-add events / task visibility /
+  family hub / grocery lists; coming-next = calendar-sync research only),
+  privacy policy `+page.svelte` (the surviving Resend row is sign-in-emails,
+  not receipt ingest; Neon row = "calendars and tasks"; "Last updated:
+  October 2026"; no receipt-scanning footnote), meta/og copy in `seo.ts`
+  (features row's "ICS import" is live — `(calendar)/calendar/import`
+  runs `parseIcs`), and emoji rule check over `(marketing)`
+  (only the approved 👨‍👩‍👧‍👦 plus neutral 🏈📧✅ — no forbidden emoji).
+  Cross-checked the one app-side money claim: `AccountDangerSection.svelte:45`
+  lists "bills and receipt lines" in the data export — the export at
+  `src/lib/server/db/actions/export.ts:188-193` really reads `bills` +
+  `receiptItems` (the tables still exist), so it is a factual description of
+  the download, not an advert. No copy edits were required this pass; ticket
+  flipped done on grep evidence.
 
 ## Needs doing
 
-- [ ] Decide the tables' fate (`bills`, `receiptItems`, `itemTags`) as its own
-      slice — blocked by #086 (dropping tables needs child-first ordering, and
-      the archived code in `_attic/money/` reads them; deleting DDL before the
-      baseline exists makes 086's job harder).
-- [ ] `parseBillQuickAdd` in the natural-language service (~400 lines of
-      tests, no production caller) — remove when the money lane's NLP
-      vocabulary split lands (`src/lib/data/categories` keeps the live part).
+Both items below are residue from the money lane, deliberately outside this
+copy-only ticket; they stay recorded here so they are not dropped on flip.
+
+- Table fate (`bills`, `receiptItems`, `itemTags`) — blocked by #086 (dropping
+  tables needs child-first ordering, and the archived code in `_attic/money/`
+  reads them; deleting DDL before the baseline exists makes 086's job harder).
+- `parseBillQuickAdd` in the natural-language service (~400 lines of tests, no
+  production caller) — remove when the money lane's NLP vocabulary split lands
+  (`src/lib/data/categories` keeps the live part).
 
 ## Notes
 

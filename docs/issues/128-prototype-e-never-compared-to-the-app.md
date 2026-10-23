@@ -1,6 +1,6 @@
 # 128 — Prototype E was never compared against the product
 
-Status: open
+Status: done 2026-10-23 (gaps closed lane-by-lane 2026-10-22, code-verified by the open-audit)
 
 Source: read-only comparison, 2026-10-03, after the owner corrected the
 process — *"if I approved the prototype, keep the way it looks and rebuild the
@@ -81,3 +81,18 @@ used to justify a real one in the product. Fix the claim on E.
 
 **So gap 2's "~1150px down a 375px screen" is arithmetic, not observed.** Measure
 it in a real browser before treating it as a number to fix to.
+
+## Done
+
+- 2026-10-23 — flipped to match the 2026-10-22 open-audit flip (7 lanes,
+  code-verified), which had never been written back into this file. Spot
+  evidence in the tree: gap 3 is tagged in code — `#128 gap 3` comment at
+  `CalendarToolbar.svelte:371` with the `Filters` label + count
+  (`:370-396`, `filters-label` pin); gap 9 closed — `CalendarKey.svelte` exists;
+  gap 6 chrome converging — `MonthDayCell.svelte:93` builds the 14px-radius
+  focused cell. Gap 10 (the owner-ruled one) was settled by #205: width
+  (`VIEW_BREAKPOINT_PX` 768) + Selection-mode fork, fd080b1 — E is wrong there
+  by ruling, recorded in #205 and #145, so it does not block.
+- Caveats carried, not smoothed: the pixel figures in the gap table were
+  arithmetic, and only the three gaps above were re-spotted today; the rest
+  rest on the open-audit lanes' code verification.

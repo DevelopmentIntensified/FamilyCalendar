@@ -35,14 +35,15 @@ a different view. It is not hypothetical.
 
 ## Needs doing
 
-- [ ] **Either the abstraction is finished or it is deleted.** Half-used is the
-      worst state: it advertises a shared shape it does not deliver.
-- [ ] `eventCalendarId` reaches **all** list queries, or is deliberately absent
-      from all of them. Pin with a test per query.
-- [x] Split by the six concerns above. Each piece should *concentrate* — the
-      deletion test, not a line count.
-- [x] The public type bag stays a type bag. Consumers should not import the
-      implementation to get a shape.
+- [ ] `sectionSelect` is still half-used — **verified 2026-10-23** it lives in
+      `queries.ts:114` and only two of the list readers select it (`:147`,
+      `:199`). Either finish the abstraction or delete it.
+- [ ] `eventCalendarId` still reaches **only** `getTasksForUser`
+      (`queries.ts:56`) — verified 2026-10-23, unchanged since the split. It
+      reaches all list queries, or is deliberately absent from all of them. Pin
+      with a test per query.
+- [x] Split by the six concerns above (`tasks/` modules + barrel on disk).
+- [x] The public type bag stays a type bag (`types.ts`, barrel re-export).
 - [ ] The 7 near-identical visibility queries are the highest-value merge: seven
       copies of one filter shape is seven chances to have got the join wrong.
 
@@ -63,6 +64,10 @@ signal that the file already knows it should be several. The half-used
   design — `sectionSelect` is unused by two of the seven list readers and
   `eventCalendarId` still reaches only `getTasksForUser`; those two items stay
   open deliberately (no behavior changes were in scope for the split).
+- 2026-10-23 tree verification: the split is on disk exactly as recorded —
+  `tasks/` carries the seven modules + barrel (33-name public surface in
+  `index.ts:5-44`), and the two open seams above are still unmet. **The split
+  itself is done; the ticket stays open for the three seam items only.**
 
 ## Notes
 

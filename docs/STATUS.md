@@ -4,7 +4,38 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
-
+- **#112 claim book (2026-10-23):** `parseEventInput` claims — span registry
+  (`claims[]` + `claimText` + `maskClaims`) with same-length `until` blanking
+  for index alignment. Date family claims each resolved span incl. chain
+  atoms; the weekly day scan, bare-weekday fallback (moved below the weekly
+  scan), compact 24h scan, `on <address>` / `at my <place>` reads, calendar
+  trio and invite reader all mask-read, so claimed text never feeds a second
+  family. Six red-first overlaps closed (digit-first `on 5 May` as location,
+  `at my cabin on 5 May`, ordinal/relative weekday leaking into byDay,
+  invite swallowing claimed dates, military) + red tables across word orders
+  in `parserClaimGuards.test.ts` ("the claim book"). Family green:
+  NLP + claim-guards + taskQuickAdd + dateResolution parsers + bulkAiService
+  (1053/1053). #107/#204 rules untouched. Remaining: whole-chain routing,
+  table re-point at the claim seam.
+- **#153 unauthenticated action 500s + bug-report spam CLOSED 2026-10-23:**
+  `1feaf71` had already put `requireUser` on the named actions (Kit 2.70.3 skips
+  `handleError` for `HttpError`, so the 500/report spam had already stopped);
+  finished with ticket Option B - new `requireUserAction(locals)` guard
+  (`fail(401, {success:false, error:'Not signed in'})`) applied auth-first to all
+  9 `account` actions and 5 `family/[familyId]` actions (the `(marketing)`/root
+  public actions re-audited clean: none derefs `locals.user` unguarded).
+  `handleError` now skips auto-filing when `locals.user` is null - attacker
+  noise gone, authenticated filing kept. Junk-cookie red->green: account 10,
+  family 6, hooks 3. Touched suites 36/36; eslint/prettier clean on touched files.
+- **#195 + #106 DONE 2026-10-23:** #195 bare "Something went wrong" fallbacks
+  (EventFormModal 380/388/429/479 + EventModal 256/295) now route through
+  `src/lib/utils/actionError.ts` `actionErrorCopy` - names create/save/duplicate/delete
+  plus next step per status (401/403 sign-in, 5xx connection+VPN, other 4xx recheck fields);
+  server message wins when present. #106 attendance region leads with its summary:
+  `EventAttendeeGroups` collapses rows > 8 behind a full-width "Show all N people"
+  toggle (`aria-expanded`), proportion bar persists, expand reveals all.
+  TDD both; targeted suites + neighbours green (120 tests); `npm run check` no new
+  errors in touched files.
 - **#205 desktop date-tap opens the mobile day sheet (filed 2026-10-22, 3302392):**
   owner bug report - pressing a month-cell date on PC opens DayActionSheet
   (`MonthDays.svelte:95` has no width/pointer check), which blocks the
@@ -575,10 +606,14 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
     listing/owner for waitlist rows.
   - #090 `groups`/`userGroups`/`familyGroups` declared, joined, never used. Only
     live reference is two e2e cleanup helpers. Blocked by #086.
-  - #091 Family invite link is only findable by knowing where to look — no share
-    sheet, no invite-by-link on the family page, no code-link email template,
-    and a non-admin sees an empty page. (The 404 premise was stale; #064 fixed
-    it. The rest stands.)
+  - #091 **DONE 2026-10-23** - Family invite link discoverable: `copyOrShare`
+    ladder on all four handlers, "Invite by link" on the family page, DI-able
+    `family-invite.ts` email template replacing the inline HTML, member sees
+    their own invitations, join page explains itself, accept-time useCount +
+    unified `DEFAULT_INVITE_MAX_USES`. Evidence in the ticket. (Also this
+    morning: **#102 DONE** - the create-a-child tab states the true account
+    story up front: sign-in-capable, no password, magic-link-only, parent-only
+    holder, uniqueness as a rule.)
   - Not filed: the retention/pruning gap folds into #029's M5, and the
     half-wired Meals surface is #081's territory and stays parked per the
     2026-09-08 user directive.
@@ -616,3 +651,23 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 - **Owner tasks (2026-10-16) updated:** #197 no longer "scheduled as session" — bump
   shipped opportunistically via #200; see residual above. #198 owner verdict owed;
   #199 rework answer owed. `film/` + `.probe.mts` deleted; `.vercelignore` committed.
+
+## Open-audit follow-up (2026-10-23: doc-only sweep - verify-or-note, no src edits)
+
+- **#166 flip done** - token burn + `emailExists` + identity binding verified at
+  `verify-email/+page.server.ts:111-131`; 12/12 in `page.server.test.ts` (5-test
+  #166 describe). Ticket + Done above updated.
+- **#128 flip written back into the ticket** (Open-audit had it done since
+  2026-10-22; the file did not). In-code ticket tags confirm: gap 3
+  (`CalendarToolbar.svelte:371`), gap 9 (`CalendarKey.svelte`), gap 6
+  (`MonthDayCell.svelte:93`); gap 10 owned by #205.
+- **#145 - cross-reference only, no flip:** owner reversal (2026-10-22, #205:
+  width+selection fork, fd080b1) appended to the ticket's Done; STATUS #145
+  line annotated. Ticket stays done.
+- **#113 stays open, sharpened** - split verified on disk (barrel 33-name
+  surface in `index.ts:5-44`), but `sectionSelect` half-used and
+  `eventCalendarId` one-query-only are still unmet; Needs doing now carries the
+  file:line evidence, no flip.
+- **#095 stays in-progress** - noted in-ticket: the 2026-10-22 test-icon shim
+  (491a745) is a test-environment envelope, not the "reads as calendar" mark;
+  the og/twitter/canonical census + two owner rulings remain open.

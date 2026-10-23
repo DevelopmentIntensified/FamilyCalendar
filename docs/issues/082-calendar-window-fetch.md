@@ -25,12 +25,22 @@ beyond current".
       2026-10-22**, pins in `Calendar.svelte.test.ts` #082 describe.
 - [x] Moving back and forth does not re-fetch what is already held, and the
       cache is bounded (twelve months, oldest evicted). **LANDED**.
-- [ ] The import success screen links to the first imported date, so an import
+- [x] The import success screen links to the first imported date, so an import
       that landed in another month is verifiable.
-- [ ] Tests: the endpoint's range (covered in `api/events/server.test.ts`) and
+- [x] Tests: the endpoint's range (covered in `api/events/server.test.ts`) and
       its auth scope (personal + family, nothing else) — auth 401 covered,
       scope still needs a pin. Client merge/cache behaviour covered in the
       #082 describe.
+
+### Still owed (sharpened 2026-10-23 to only these three)
+
+- [ ] Import success screen links to the first imported date.
+- [ ] `/api/events` auth-scope pin: the ranged read answers **only** personal +
+      accessible-family calendars, nothing else (401 is covered; scope leg
+      untested). Range test already green.
+- [ ] Live verify on test.familyplanz.com once this deploys (shared with
+      #201's same item): navigate to a future month that holds an
+      imported/created event, confirm it renders.
 
 ## Done
 

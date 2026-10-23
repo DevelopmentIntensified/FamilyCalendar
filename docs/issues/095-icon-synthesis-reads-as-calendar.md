@@ -242,6 +242,10 @@ path data (`M8 2v4` / `M16 2v4`) across `src/` now returns hits only in
 
 ## Notes
 
+- **2026-10-23 context:** the 2026-10-22 static-icon work (491a745 —
+  `test-icon.{svg,192,512}.png` / `test-apple-touch-icon.png` in `static/`) is
+  a **test-environment envelope**, not this ticket's mark. It does not move the
+  "reads as a calendar" synthesis or any of the open items below.
 - Round is still open in the review tool; closure belongs to the collector.
 - The mark is brand surface, not app code: nothing here changes product
   behaviour, so it cannot regress the app's test suite.

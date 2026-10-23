@@ -11,6 +11,7 @@ Status: done
 - Regression restated to ONE behaviour: table-driven `it.each([true, false])` over the possible `matchMedia` answers.
 - Playwright (real Chromium, throwaway spec deleted after), 375/640/768/1024/1440: opens at every width, four options visible, `overflowX=0`, all three dismiss routes work. Geometry: 375→375×407 bottom-docked, 640→640×405, 768/1024/1440→448×852 right-anchored.
 - Prototype-E exception recorded in `docs/research/review-marks-cycle-1.md`: sheet wins at all widths per owner ruling 2026-10-04; E followed everywhere else.
+- 2026-10-23: that sheet-wins-at-all-widths ruling was **reversed by the owner** on 2026-10-22 (#205): desktop date-tap must open the day view, not the sheet. Fork = width (`VIEW_BREAKPOINT_PX` 768) + Selection mode; below-floor tap keeps the sheet, above-floor or Selection tap opens day view (fd080b1). Recorded in #205's Done; no change to this ticket's closed state.
 
 **What to build:** Tapping a day opens the day action sheet at **every** width,
 including desktop. Today the sheet is only reachable below the wider breakpoint;
