@@ -24,7 +24,7 @@ import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
 import { TRANSLATIONS } from '$lib/server/services/verseService';
-import { recordAdConsentChange } from '$lib/server/services/adConsentService';
+import { recordAdConsentChange, getAdConsentRecords } from '$lib/server/services/adConsentService';
 import { DASHBOARD_MODULES } from '$lib/dashboardModules';
 import { hiddenModulesFromForm } from '$lib/components/account/accountDashboardModules';
 import {
@@ -139,7 +139,21 @@ export const load: PageServerLoad = async (event) => {
 		return { ...DEFAULT_NOTIFICATION_PREFERENCES };
 	});
 
+	// #088: the trail read — the privacy promise ("prove I consented") needs to
+	// be visible to the user it belongs to, not only to a SQL query. Display
+	// only; nothing here feeds the serve-time gate. Degrade to [] so a consent
+	// read outage is a blank trail, not a dead settings page.
+	const consentHistory = await getAdConsentRecords(userId)
+		.then((rows) =>
+			rows.map((row) => ({ decision: row.decision, recordedAt: row.recordedAt.toISOString() }))
+		)
+		.catch((error) => {
+			console.error('Failed to load ad consent history:', error);
+			return [];
+		});
+
 	return {
+		consentHistory,
 		user: {
 			id: user!.id,
 			email: user!.email,

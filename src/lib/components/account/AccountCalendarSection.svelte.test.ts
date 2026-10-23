@@ -72,3 +72,24 @@ describe('AccountCalendarSection — the module list moved out (105)', () => {
 		expect(document.querySelector('input[name="showAdsAsEvents"]')).toBeTruthy();
 	});
 });
+
+describe('AccountCalendarSection — the consent history the trail promises (088)', () => {
+	afterEach(cleanup);
+
+	it('says no consent is recorded when the trail is empty', () => {
+		render(AccountCalendarSection, { props: props() });
+		expect(screen.getByText(/no ad consent recorded/i)).toBeTruthy();
+	});
+
+	it('renders each consent event with its decision labelled and dated', () => {
+		const history = [
+			{ decision: 'withdrawn', recordedAt: '2026-02-08T09:00:00.000Z' },
+			{ decision: 'granted', recordedAt: '2026-10-01T09:00:00.000Z' }
+		];
+		render(AccountCalendarSection, { props: props({ consentHistory: history }) });
+
+		expect(screen.queryByText(/no ad consent recorded/i)).toBeNull();
+		expect(screen.getByText('Consented — 1 October 2026')).toBeTruthy();
+		expect(screen.getByText('Consent withdrawn — 8 February 2026')).toBeTruthy();
+	});
+});

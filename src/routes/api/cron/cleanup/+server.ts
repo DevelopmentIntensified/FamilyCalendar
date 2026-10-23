@@ -5,6 +5,7 @@ import { deleteExpiredClaimTokens } from '$lib/server/services/claimService';
 import { pruneReadNotificationsOlderThan } from '$lib/server/db/actions/notifications';
 import { pruneResolvedUnmatchedPhrases } from '$lib/server/db/actions/unmatchedPhrases';
 import { pruneResolvedBugReports } from '$lib/server/db/actions/bugReports';
+import { pruneAdEventsOlderThan } from '$lib/server/db/actions/adEvents';
 
 // Inactivity Window: unclaimed Anonymous Accounts are deleted after
 // 90 days without account action. Run weekly via external scheduler.
@@ -13,6 +14,8 @@ const INACTIVITY_WINDOW_DAYS = 90;
 // phrases and closed bug reports 180d.
 const NOTIFICATION_RETENTION_DAYS = 90;
 const RESOLVED_RECORD_RETENTION_DAYS = 180;
+// #088: injected ad rows are read by nothing — keep them 90 days, then prune.
+const AD_EVENT_RETENTION_DAYS = 90;
 
 async function runCleanup() {
 	const cutoff = new Date(Date.now() - INACTIVITY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
@@ -34,12 +37,15 @@ async function runCleanup() {
 	const resolvedCutoff = new Date(
 		Date.now() - RESOLVED_RECORD_RETENTION_DAYS * 24 * 60 * 60 * 1000
 	);
-	const [notificationsPruned, phrasesPruned, bugReportsPruned] = await Promise.all([
+	const [notificationsPruned, phrasesPruned, bugReportsPruned, adEventsPruned] = await Promise.all([
 		pruneReadNotificationsOlderThan(
 			new Date(Date.now() - NOTIFICATION_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString()
 		),
 		pruneResolvedUnmatchedPhrases(resolvedCutoff),
-		pruneResolvedBugReports(resolvedCutoff)
+		pruneResolvedBugReports(resolvedCutoff),
+		pruneAdEventsOlderThan(
+			new Date(Date.now() - AD_EVENT_RETENTION_DAYS * 24 * 60 * 60 * 1000)
+		)
 	]);
 
 	return {
@@ -48,7 +54,8 @@ async function runCleanup() {
 		cutoff: cutoff.toISOString(),
 		notificationsPruned,
 		phrasesPruned,
-		bugReportsPruned
+		bugReportsPruned,
+		adEventsPruned
 	};
 }
 

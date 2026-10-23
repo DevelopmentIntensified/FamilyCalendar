@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 
+	interface AdConsentHistoryEntry {
+		decision: string;
+		recordedAt: string;
+	}
+
 	interface Props {
 		userSettings: {
 			weekStart?: string | null;
@@ -17,9 +22,21 @@
 		} | null;
 		calendars: { id: string; name: string }[];
 		verseTranslations: { id: string; label: string; attribution: string }[];
+		consentHistory?: AdConsentHistoryEntry[];
 	}
 
-	let { userSettings, calendars, verseTranslations }: Props = $props();
+	let { userSettings, calendars, verseTranslations, consentHistory = [] }: Props = $props();
+
+	const dateFormat = new Intl.DateTimeFormat('en-GB', {
+		day: 'numeric',
+		month: 'long',
+		year: 'numeric'
+	});
+
+	function consentLabel(decision: string, recordedAt: string): string {
+		const when = dateFormat.format(new Date(recordedAt));
+		return decision === 'granted' ? `Consented — ${when}` : `Consent withdrawn — ${when}`;
+	}
 
 	// SAFETY: Intl.supportedValuesOf is a newer API — probing for it and
 	// falling back to UTC keeps older browsers working.
@@ -261,6 +278,21 @@
 					checked={userSettings?.showAdsAsEvents ?? false}
 				/>
 			</label>
+
+			<div class="rounded-lg bg-white p-3">
+				<p class="text-xs font-medium text-slate-500">Consent history</p>
+				{#if consentHistory.length === 0}
+					<p class="text-xs text-slate-400">
+						No ad consent recorded yet — the trail begins when the setting is first changed.
+					</p>
+				{:else}
+					<ul class="mt-1 space-y-1">
+						{#each consentHistory as entry (entry.recordedAt)}
+							<li class="text-xs text-slate-500">{consentLabel(entry.decision, entry.recordedAt)}</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
 		</div>
 
 		<button
