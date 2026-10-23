@@ -1,4 +1,4 @@
-import { error, json } from '@sveltejs/kit';
+import { error, json, fail, type ActionFailure } from '@sveltejs/kit';
 
 export type SessionUser = NonNullable<App.Locals['user']>;
 
@@ -9,6 +9,27 @@ export function requireUser(locals: App.Locals): SessionUser {
 	const user = locals.user;
 	if (!user) error(401, 'Unauthorized');
 	return user;
+}
+
+export type ActionAuthGuard =
+	| { user: SessionUser; response?: undefined }
+	| { user?: undefined; response: ActionFailure<{ success: boolean; error: string }> };
+
+/**
+ * For +page.server.ts actions (#153): non-throwing guard so an unauthenticated
+ * POST gets a form-aware fail(401) — the claim-page pattern — instead of a
+ * thrown error page or a swallowed fail(500).
+ *
+ *   const auth = requireUserAction(locals);
+ *   if (auth.response) return auth.response;
+ *   // auth.user is narrowed here
+ */
+export function requireUserAction(locals: App.Locals): ActionAuthGuard {
+	const user = locals.user;
+	if (!user) {
+		return { response: fail(401, { success: false, error: 'Not signed in' }) };
+	}
+	return { user };
 }
 
 export type JsonAuthGuard =

@@ -14,7 +14,7 @@ import {
 } from '$lib/server/services/subscriptionService';
 import { getPlanPricing } from '$lib/server/services/checkoutService';
 import { fail, redirect } from '@sveltejs/kit';
-import { requireUser } from '$lib/server/utils/requireUser';
+import { requireUserAction } from '$lib/server/utils/requireUser';
 import type { Actions, PageServerLoad } from './$types';
 import { sendEmail } from '$lib/utils/sendEmail';
 import { NOREPLYEMAIL, EMAILSECRET } from '$env/static/private';
@@ -210,7 +210,9 @@ function formString(formData: FormData, key: string): string {
 
 export const actions: Actions = {
 	saveCalendarSettings: async ({ request, locals }) => {
-		const user = requireUser(locals);
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
+		const user = auth.user;
 		const userId = user.id;
 		const formData = await request.formData();
 
@@ -320,7 +322,9 @@ export const actions: Actions = {
 	// saveCalendarSettings so hiding a card and changing your week start are two
 	// acts with two receipts, and a failure in one cannot rewrite the other.
 	saveDashboardModules: async ({ request, locals }) => {
-		const user = requireUser(locals);
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
+		const user = auth.user;
 		const userId = user.id;
 		const formData = await request.formData();
 
@@ -363,6 +367,8 @@ export const actions: Actions = {
 	// every other action so a failure here cannot report that something else
 	// failed to save.
 	setNotificationPreference: async ({ request, locals }) => {
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
 		const formData = await request.formData();
 		const preference = formString(formData, 'preference');
 
@@ -378,8 +384,7 @@ export const actions: Actions = {
 		const value = rawValue === 'true';
 
 		try {
-			const user = requireUser(locals);
-			await setNotificationPreference(user.id, preference, value);
+			await setNotificationPreference(auth.user.id, preference, value);
 			return {
 				success: true,
 				message: `${notificationPreferenceChangeLabel(preference, value)} Saved.`
@@ -394,7 +399,9 @@ export const actions: Actions = {
 	},
 
 	updateProfile: async ({ request, locals }) => {
-		const user = requireUser(locals);
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
+		const user = auth.user;
 		const userId = user.id;
 		const formData = await request.formData();
 
@@ -415,8 +422,10 @@ export const actions: Actions = {
 	},
 
 	updateEmail: async ({ request, locals }, deps: UpdateEmailDeps = updateEmailDeps) => {
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
+		const user = auth.user;
 		// Throttle email bombing: 3 sends per 15min per user+IP (forgot-password pattern).
-		const user = requireUser(locals);
 		if (!rateLimit(clientKey(request, `email-change:${user.id}`), 3, 15 * 60 * 1000)) {
 			return fail(429, { success: false, message: 'Too many attempts. Try again shortly.' });
 		}
@@ -499,15 +508,14 @@ export const actions: Actions = {
 	},
 
 	logoutAllDevices: async ({ locals }) => {
-		const user = requireUser(locals);
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
+		const user = auth.user;
 		const userId = user.id;
 		const currentSessionId = locals.session?.id;
 
 		try {
-			const allSessions = await db
-				.select()
-				.from(authSession)
-				.where(eq(authSession.userId, userId));
+			const allSessions = await db.select().from(authSession).where(eq(authSession.userId, userId));
 
 			for (const sessionRow of allSessions) {
 				if (sessionRow.id !== currentSessionId) {
@@ -523,13 +531,15 @@ export const actions: Actions = {
 	},
 
 	createApiToken: async ({ request, locals }) => {
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
 		const formData = await request.formData();
 		const name = formString(formData, 'name').trim();
 		if (!name) {
 			return fail(400, { success: false, message: 'Token name is required' });
 		}
 		try {
-			const { row, token } = await mintApiToken(requireUser(locals).id, name.slice(0, 60));
+			const { row, token } = await mintApiToken(auth.user.id, name.slice(0, 60));
 			return {
 				success: true,
 				message: `Token '${row.name}' created — copy it now, it won't be shown again.`,
@@ -543,13 +553,15 @@ export const actions: Actions = {
 	},
 
 	revokeApiToken: async ({ request, locals }) => {
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
 		const formData = await request.formData();
 		const tokenId = formString(formData, 'tokenId');
 		if (!tokenId) {
 			return fail(400, { success: false, message: 'Token id is required' });
 		}
 		try {
-			await revokeToken(requireUser(locals).id, tokenId);
+			await revokeToken(auth.user.id, tokenId);
 			return { success: true, message: 'Token revoked' };
 		} catch (error) {
 			console.error('Failed to revoke API token:', error);
@@ -558,7 +570,9 @@ export const actions: Actions = {
 	},
 
 	deleteAccount: async ({ request, locals }) => {
-		const user = requireUser(locals);
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
+		const user = auth.user;
 		const userId = user.id;
 		const formData = await request.formData();
 

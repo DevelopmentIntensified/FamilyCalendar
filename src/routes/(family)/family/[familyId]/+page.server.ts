@@ -21,7 +21,7 @@ import { families, familyMembers } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { PageServerLoad, Actions } from './$types';
 import { error, fail, isHttpError, isRedirect } from '@sveltejs/kit';
-import { requireUser } from '$lib/server/utils/requireUser';
+import { requireUser, requireUserAction } from '$lib/server/utils/requireUser';
 
 /**
  * Unreachable-by-id: wrong family, or a viewer who is not a member of it.
@@ -68,9 +68,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		const [currentMember] = await db
 			.select({ role: familyMembers.role })
 			.from(familyMembers)
-			.where(
-				and(eq(familyMembers.familyId, params.familyId), eq(familyMembers.userId, user.id))
-			)
+			.where(and(eq(familyMembers.familyId, params.familyId), eq(familyMembers.userId, user.id)))
 			.limit(1);
 
 		// A non-member gets a 404, not a rendered page whose five family links
@@ -194,7 +192,8 @@ async function requireMinRole(familyId: string, userId: string, minRole: 'creato
 
 export const actions: Actions = {
 	removeMember: async ({ request, params, locals }) => {
-		const user = requireUser(locals);
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
 		const formData = await request.formData();
 		const userId = formString(formData, 'userId');
 		const familyId = params.familyId;
@@ -208,14 +207,15 @@ export const actions: Actions = {
 			return fail(403, { error: 'Cannot remove the family creator' });
 		}
 
-		const roleCheck = await requireMinRole(familyId, user.id, 'admin');
+		const roleCheck = await requireMinRole(familyId, auth.user.id, 'admin');
 		if (roleCheck) return roleCheck;
 
 		await removeFamilyMember(familyId, userId);
 		return { success: true };
 	},
 	updateRole: async ({ request, params, locals }) => {
-		const user = requireUser(locals);
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
 		const formData = await request.formData();
 		const userId = formString(formData, 'userId');
 		const role = formString(formData, 'role');
@@ -229,10 +229,10 @@ export const actions: Actions = {
 			return fail(400, { error: 'Role must be creator, admin, or member' });
 		}
 
-		const currentUserRole = await getMemberRole(familyId, user.id);
+		const currentUserRole = await getMemberRole(familyId, auth.user.id);
 		if (!currentUserRole) return fail(403, { error: 'You do not have permission' });
 
-		const isSelf = userId === user.id;
+		const isSelf = userId === auth.user.id;
 		if (isSelf) return fail(400, { error: 'Cannot change your own role' });
 
 		const targetRole = await getMemberRole(familyId, userId);
@@ -261,7 +261,8 @@ export const actions: Actions = {
 	// permission — and this action is admin-only (decision 7). Unlike role,
 	// members cannot change their own label either.
 	setMemberType: async ({ request, params, locals }) => {
-		const user = requireUser(locals);
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
 		const formData = await request.formData();
 		const userId = formString(formData, 'userId');
 		const memberType = formString(formData, 'memberType');
@@ -275,7 +276,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Member type must be parent, child, or member' });
 		}
 
-		const roleCheck = await requireMinRole(familyId, user.id, 'admin');
+		const roleCheck = await requireMinRole(familyId, auth.user.id, 'admin');
 		if (roleCheck) return roleCheck;
 
 		const target = await getMemberRole(familyId, userId);
@@ -288,12 +289,13 @@ export const actions: Actions = {
 		return { success: true };
 	},
 	updateFamily: async ({ request, params, locals }) => {
-		const user = requireUser(locals);
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
 		const formData = await request.formData();
 		const name = formString(formData, 'name');
 		const color = formString(formData, 'color');
 
-		const roleCheck = await requireMinRole(params.familyId, user.id, 'admin');
+		const roleCheck = await requireMinRole(params.familyId, auth.user.id, 'admin');
 		if (roleCheck) return roleCheck;
 
 		const updateData = name && color ? { name, color } : name ? { name } : color ? { color } : null;
@@ -304,12 +306,13 @@ export const actions: Actions = {
 		return { success: true };
 	},
 	toggleDashboardModule: async ({ request, params, locals }) => {
-		const user = requireUser(locals);
+		const auth = requireUserAction(locals);
+		if (auth.response) return auth.response;
 		const formData = await request.formData();
 		const module = formString(formData, 'module');
 		const enabled = formData.get('enabled') === 'true';
 
-		const roleCheck = await requireMinRole(params.familyId, user.id, 'admin');
+		const roleCheck = await requireMinRole(params.familyId, auth.user.id, 'admin');
 		if (roleCheck) return roleCheck;
 
 		if (!module) {

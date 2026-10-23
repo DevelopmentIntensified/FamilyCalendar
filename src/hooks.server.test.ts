@@ -68,19 +68,24 @@ vi.mock('$lib/server/auth', () => {
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- anonymous-account creation writes Postgres; hooks tests only need a fake row.
 vi.mock('$lib/server/db/actions/users', () => ({
-	createAnonymousUser: vi.fn(async () => ({ id: 'guest-1', email: 'guest-1@anonymous.placeholder.invalid' })),
+	createAnonymousUser: vi.fn(async () => ({
+		id: 'guest-1',
+		email: 'guest-1@anonymous.placeholder.invalid'
+	})),
 	touchLastActiveAt: vi.fn()
 }));
 
-import { handle } from './hooks.server';
+// oxlint-disable-next-line anti-slop/no-module-mocking -- bug-report filing writes Postgres; these tests only pin whether handleError decides to file.
+vi.mock('$lib/server/db/actions/bugReports', () => ({
+	createBugReport: vi.fn(async () => undefined)
+}));
+
+import { handle, handleError } from './hooks.server';
+import { __resetAutoReportThrottle } from '$lib/server/services/autoBugReport';
 import { getUserForApiToken } from '$lib/server/db/actions/apiTokens';
 import { createAnonymousUser } from '$lib/server/db/actions/users';
-import {
-	createBlankSessionCookie,
-	invalidateStaleAnonymousSession,
-	sessionCookieName,
-	setSessionCookie
-} from '$lib/server/auth';
+import { sessionCookieName } from '$lib/server/auth';
+import { createBugReport } from '$lib/server/db/actions/bugReports';
 
 const mockedLookup = vi.mocked(getUserForApiToken);
 const mockedCreateAnonymousUser = vi.mocked(createAnonymousUser);
@@ -134,7 +139,10 @@ function handleEvent(event: ReturnType<typeof makeEvent>): Promise<Response> {
 function redirectAsResponse(thrown: unknown): Response {
 	if (thrown && typeof thrown === 'object' && 'location' in thrown) {
 		const redirect = thrown as { status?: number; location: string };
-		return new Response(null, { status: redirect.status ?? 307, headers: { location: redirect.location } });
+		return new Response(null, {
+			status: redirect.status ?? 307,
+			headers: { location: redirect.location }
+		});
 	}
 	throw thrown;
 }
@@ -145,6 +153,7 @@ const resolveFn = vi.fn(async (e: { locals: { user: { id: string } | null } }) =
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	__resetAutoReportThrottle();
 });
 
 describe('hooks Bearer auth (TaskFocus API tokens)', () => {
@@ -256,5 +265,42 @@ describe('hooks cookie path (session seam)', () => {
 		expect(mockedCreateAnonymousUser).not.toHaveBeenCalled();
 		expect(res.status).toBe(302);
 		expect(res.headers.get('location')).toBe('/login');
+	});
+});
+
+describe('handleError auto-filing (issue 153)', () => {
+	const call = (
+		status: number,
+		message: string,
+		user: { id: string } | null,
+		pathname = '/account'
+	) =>
+		handleError({
+			status,
+			error: new Error(message),
+			event: { url: new URL(`http://localhost${pathname}`), locals: { user } } as never
+		});
+
+	it('does NOT file a bug report for an unauthenticated caller (attacker-generated, not an app signal)', async () => {
+		await call(500, 'Cannot read properties of null (reading id)', null);
+
+		expect(createBugReport).not.toHaveBeenCalled();
+	});
+
+	it('still files for an authenticated 500, keyed to the user', async () => {
+		await call(500, 'genuine app failure', { id: 'user-1' }, '/calendar');
+
+		expect(createBugReport).toHaveBeenCalledTimes(1);
+		expect(vi.mocked(createBugReport).mock.calls[0]?.[0]).toMatchObject({
+			userId: 'user-1',
+			area: 'calendar'
+		});
+	});
+
+	it('throttles repeated identical authenticated failures within the window', async () => {
+		await call(500, 'same failure', { id: 'user-1' }, '/calendar');
+		await call(500, 'same failure', { id: 'user-1' }, '/calendar');
+
+		expect(createBugReport).toHaveBeenCalledTimes(1);
 	});
 });

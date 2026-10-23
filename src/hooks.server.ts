@@ -1,4 +1,10 @@
-import { createBlankSessionCookie, createSessionCookie, session, sessionCookieName, setSessionCookie } from '$lib/server/auth';
+import {
+	createBlankSessionCookie,
+	createSessionCookie,
+	session,
+	sessionCookieName,
+	setSessionCookie
+} from '$lib/server/auth';
 import { redirect, type Handle } from '@sveltejs/kit';
 import { createAnonymousUser, touchLastActiveAt } from '$lib/server/db/actions/users';
 import { getUserForApiToken } from '$lib/server/db/actions/apiTokens';
@@ -179,6 +185,10 @@ export const handleError = async ({
 }) => {
 	if (status === 404) return;
 	console.error(error);
+	// Unauthenticated callers get no auto-file (#153): a crash reachable
+	// without a session is attacker-generated noise, not an app signal.
+	// Signed-in users (including Anonymous Accounts) keep full auto-filing.
+	if (!event?.locals?.user) return;
 	// Truly-unexpected failures auto-file a bug report so a 500 never
 	// vanishes silently. Filing never throws (and is throttled per failure),
 	// so it can't break the error response itself.

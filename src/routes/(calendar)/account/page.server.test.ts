@@ -2,7 +2,11 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import type { RequestEvent } from '@sveltejs/kit';
 import { actions, type UpdateEmailDeps } from './+page.server';
 import { clearRateLimitState } from '$lib/server/utils/rateLimit';
-import { getUserSettings, updateUserSettings, createUserSettings } from '$lib/server/db/actions/userSettings';
+import {
+	getUserSettings,
+	updateUserSettings,
+	createUserSettings
+} from '$lib/server/db/actions/userSettings';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- settings/calendarScope are DB-backed seams this route action reads directly; there is no deps parameter (Actions type erases it).
@@ -66,7 +70,11 @@ function makeDeps(overrides: Partial<UpdateEmailDeps> = {}): DepsMocks {
 	return { deps, getUser, sendEmail, createJwt, deleteCodesByEmail, createCode };
 }
 
-function mockEvent(email: string, userId = `u-${Math.random().toString(36).slice(2, 10)}`, ip = '10.0.0.1') {
+function mockEvent(
+	email: string,
+	userId = `u-${Math.random().toString(36).slice(2, 10)}`,
+	ip = '10.0.0.1'
+) {
 	const formData = new FormData();
 	formData.set('email', email);
 	const headers = {
@@ -74,7 +82,10 @@ function mockEvent(email: string, userId = `u-${Math.random().toString(36).slice
 	};
 	// SAFETY: test double — the action only reads request.formData() and
 	// request.headers (for rate limiting), plus locals.user.
-	return { request: { formData: () => Promise.resolve(formData), headers }, locals: { user: { id: userId } } } as never;
+	return {
+		request: { formData: () => Promise.resolve(formData), headers },
+		locals: { user: { id: userId } }
+	} as never;
 }
 
 function failureOf(result: RequestResult): { status: number; data: Record<string, unknown> } {
@@ -92,9 +103,15 @@ describe('updateEmail action — Oct-hardening survival (#196 slice 4)', () => {
 		const { deps, sendEmail } = makeDeps();
 
 		for (let i = 0; i < 3; i++) {
-			await callUpdateEmail(mockEvent('delivered+email-change@resend.dev', 'throttle-user', '10.0.0.7'), deps);
+			await callUpdateEmail(
+				mockEvent('delivered+email-change@resend.dev', 'throttle-user', '10.0.0.7'),
+				deps
+			);
 		}
-		const fourth = await callUpdateEmail(mockEvent('delivered+email-change@resend.dev', 'throttle-user', '10.0.0.7'), deps);
+		const fourth = await callUpdateEmail(
+			mockEvent('delivered+email-change@resend.dev', 'throttle-user', '10.0.0.7'),
+			deps
+		);
 
 		expect(failureOf(fourth).status).toBe(429);
 		expect(sendEmail).toHaveBeenCalledTimes(3);
@@ -105,7 +122,10 @@ describe('updateEmail action — Oct-hardening survival (#196 slice 4)', () => {
 			getUser: vi.fn().mockResolvedValue({ id: 'u-g', email: null })
 		});
 
-		const result = await callUpdateEmail(mockEvent('delivered+email-change-guest@resend.dev'), deps);
+		const result = await callUpdateEmail(
+			mockEvent('delivered+email-change-guest@resend.dev'),
+			deps
+		);
 
 		expect(failureOf(result).status).toBe(400);
 		expect(failureOf(result).data.guestNeedsClaim).toBe(true);
@@ -115,14 +135,20 @@ describe('updateEmail action — Oct-hardening survival (#196 slice 4)', () => {
 	it('binds the code to the current address and the new one (email_change + pendingEmail), wiping stale codes first', async () => {
 		const { deps, createJwt, deleteCodesByEmail, createCode, sendEmail } = makeDeps();
 
-		const result = await callUpdateEmail(mockEvent('delivered+email-change-new@resend.dev', 'binding-user'), deps);
+		const result = await callUpdateEmail(
+			mockEvent('delivered+email-change-new@resend.dev', 'binding-user'),
+			deps
+		);
 		expect(result).toMatchObject({ success: true });
 
 		expect(deleteCodesByEmail).toHaveBeenCalledWith('delivered+email-change-current@resend.dev');
 		expect(createJwt).toHaveBeenCalledWith(
 			'HS256',
 			deps.emailSecret,
-			expect.objectContaining({ pendingEmail: 'delivered+email-change-new@resend.dev', code: expect.any(String) }),
+			expect.objectContaining({
+				pendingEmail: 'delivered+email-change-new@resend.dev',
+				code: expect.any(String)
+			}),
 			expect.objectContaining({ expiresIn: expect.anything() })
 		);
 		expect(createCode.mock.calls[0]?.[0]).toMatchObject({
@@ -132,7 +158,9 @@ describe('updateEmail action — Oct-hardening survival (#196 slice 4)', () => {
 			firstName: 'Pat',
 			lastName: 'Smith'
 		});
-		expect(deleteCodesByEmail.mock.invocationCallOrder[0]).toBeLessThan(createCode.mock.invocationCallOrder[0]);
+		expect(deleteCodesByEmail.mock.invocationCallOrder[0]).toBeLessThan(
+			createCode.mock.invocationCallOrder[0]
+		);
 
 		expect(sendEmail.mock.calls[0]?.[0]).toMatchObject({
 			to: 'delivered+email-change-new@resend.dev',
@@ -143,11 +171,63 @@ describe('updateEmail action — Oct-hardening survival (#196 slice 4)', () => {
 	it('rejects a change to the currently-used address (no self-loop codes)', async () => {
 		const { deps, sendEmail, createCode } = makeDeps();
 
-		const result = await callUpdateEmail(mockEvent('delivered+email-change-current@resend.dev'), deps);
+		const result = await callUpdateEmail(
+			mockEvent('delivered+email-change-current@resend.dev'),
+			deps
+		);
 
 		expect(failureOf(result).status).toBe(400);
 		expect(sendEmail).not.toHaveBeenCalled();
 		expect(createCode).not.toHaveBeenCalled();
+	});
+});
+
+const UNSIGNED = {
+	request: {
+		formData: () => Promise.resolve(new FormData()),
+		headers: { get: (name: string) => (name === 'x-forwarded-for' ? '10.0.0.9' : null) }
+	},
+	locals: { user: null, session: null }
+} as never;
+
+describe('unauthenticated POSTs to account actions fail 401 (issue 153)', () => {
+	const unsignedActions = [
+		'saveCalendarSettings',
+		'saveDashboardModules',
+		'setNotificationPreference',
+		'updateProfile',
+		'logoutAllDevices',
+		'createApiToken',
+		'revokeApiToken',
+		'deleteAccount'
+	] as const;
+
+	it.each(unsignedActions)('%s returns fail(401) instead of throwing', async (name) => {
+		const handler = actions[name] as (event: RequestEvent) => Promise<RequestResult>;
+
+		const result = await handler(UNSIGNED);
+
+		expect(failureOf(result).status).toBe(401);
+	});
+
+	it('updateEmail returns fail(401) without touching email deps', async () => {
+		const { deps, sendEmail, createCode } = makeDeps();
+
+		const result = await callUpdateEmail(UNSIGNED as unknown as RequestEvent, deps);
+
+		expect(failureOf(result).status).toBe(401);
+		expect(sendEmail).not.toHaveBeenCalled();
+		expect(createCode).not.toHaveBeenCalled();
+	});
+
+	it('unauthenticated POSTs write nothing (no settings mutation)', async () => {
+		for (const name of unsignedActions) {
+			const handler = actions[name] as (event: RequestEvent) => Promise<RequestResult>;
+			await handler(UNSIGNED);
+		}
+
+		expect(updateUserSettings as Mock).not.toHaveBeenCalled();
+		expect(createUserSettings as Mock).not.toHaveBeenCalled();
 	});
 });
 
@@ -173,9 +253,7 @@ describe('saveCalendarSettings — defaultCalendarId access check (issue 167)', 
 
 	// SAFETY: SvelteKit's Actions type erases the handler's signature; tests
 	// call it with a plain event double (same style as callUpdateEmail above).
-	const callSave = actions.saveCalendarSettings as (
-		event: RequestEvent
-	) => Promise<RequestResult>;
+	const callSave = actions.saveCalendarSettings as (event: RequestEvent) => Promise<RequestResult>;
 
 	it('rejects a foreign calendar id with a form error and writes nothing', async () => {
 		// SAFETY: the settings bindings are vi.mock factory mocks; their real
@@ -185,9 +263,7 @@ describe('saveCalendarSettings — defaultCalendarId access check (issue 167)', 
 		(updateUserSettings as Mock).mockResolvedValue(undefined);
 		vi.mocked(getAccessibleCalendarIds).mockResolvedValue(['cal-own']);
 
-		const result = await callSave(
-			calendarEvent({ defaultCalendarId: 'cal-someone-else' })
-		);
+		const result = await callSave(calendarEvent({ defaultCalendarId: 'cal-someone-else' }));
 
 		expect(failureOf(result).status).toBe(400);
 		expect(failureOf(result).data.success).toBe(false);
@@ -202,9 +278,7 @@ describe('saveCalendarSettings — defaultCalendarId access check (issue 167)', 
 		(updateUserSettings as Mock).mockResolvedValue(undefined);
 		vi.mocked(getAccessibleCalendarIds).mockResolvedValue(['cal-own']);
 
-		const result = await callSave(
-			calendarEvent({ defaultCalendarId: 'cal-never-existed' })
-		);
+		const result = await callSave(calendarEvent({ defaultCalendarId: 'cal-never-existed' }));
 
 		expect(failureOf(result).status).toBe(400);
 		expect(createUserSettings).not.toHaveBeenCalled();
@@ -218,9 +292,7 @@ describe('saveCalendarSettings — defaultCalendarId access check (issue 167)', 
 		(updateUserSettings as Mock).mockResolvedValue(undefined);
 		vi.mocked(getAccessibleCalendarIds).mockResolvedValue(['cal-own']);
 
-		const result = await callSave(
-			calendarEvent({ defaultCalendarId: 'cal-own' })
-		);
+		const result = await callSave(calendarEvent({ defaultCalendarId: 'cal-own' }));
 
 		expect(result).toMatchObject({ success: true });
 		expect(updateUserSettings).toHaveBeenCalledWith(
@@ -236,9 +308,7 @@ describe('saveCalendarSettings — defaultCalendarId access check (issue 167)', 
 		(updateUserSettings as Mock).mockResolvedValue(undefined);
 		vi.mocked(getAccessibleCalendarIds).mockResolvedValue(['cal-own', 'cal-fam']);
 
-		const result = await callSave(
-			calendarEvent({ defaultCalendarId: 'cal-fam' })
-		);
+		const result = await callSave(calendarEvent({ defaultCalendarId: 'cal-fam' }));
 
 		expect(result).toMatchObject({ success: true });
 		expect(updateUserSettings).toHaveBeenCalledWith(
