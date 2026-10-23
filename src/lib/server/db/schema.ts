@@ -921,21 +921,27 @@ export const childConsentRecords = pgTable(
 	})
 );
 
-export const waitlist = pgTable('waitlist', {
-	id: text('id')
-		.notNull()
-		.primaryKey()
-		.$defaultFn(() => generateId(15)),
-	email: text('email').notNull(),
-	firstName: text('firstName'),
-	lastName: text('lastName'),
-	region: text('region'),
-	consentedAt: timestamp('consentedAt', { mode: 'date' }),
-	preferences: jsonb('preferences').$type<{ marketing: boolean; updates: boolean }>(),
-	optedInAt: timestamp('optedInAt', { mode: 'date' }),
-	status: text('status').default('pending').notNull(),
-	createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull()
-});
+export const waitlist = pgTable(
+	'waitlist',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		email: text('email').notNull(),
+		firstName: text('firstName'),
+		lastName: text('lastName'),
+		region: text('region'),
+		consentedAt: timestamp('consentedAt', { mode: 'date' }),
+		preferences: jsonb('preferences').$type<{ marketing: boolean; updates: boolean }>(),
+		optedInAt: timestamp('optedInAt', { mode: 'date' }),
+		status: text('status').default('pending').notNull(),
+		createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull()
+	},
+	(table) => ({
+		emailKey: uniqueIndex('waitlist_email_key').on(table.email)
+	})
+);
 
 export const unmatchedPhrases = pgTable(
 	'unmatchedPhrases',

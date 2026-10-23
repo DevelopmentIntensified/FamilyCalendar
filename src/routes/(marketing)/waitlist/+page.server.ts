@@ -4,6 +4,19 @@ import { db } from '$lib/server/db';
 import { waitlist } from '$lib/server/db/schema';
 import { generateId } from '$lib/server/utils/generateId';
 import { sendWaitlistConfirmation } from '$lib/server/services/emailService';
+import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
+
+const RATE_LIMIT = { limit: 5, windowMs: 10 * 60 * 1000 } as const;
+
+export type WaitlistDeps = {
+	sendConfirmation?: typeof sendWaitlistConfirmation;
+	gate?: (key: string) => boolean;
+};
+
+const defaultDeps: Required<WaitlistDeps> = {
+	sendConfirmation: sendWaitlistConfirmation,
+	gate: (key) => rateLimit(key, RATE_LIMIT.limit, RATE_LIMIT.windowMs)
+};
 
 function isString(value: FormDataEntryValue | null): value is string {
 	return typeof value === 'string';
@@ -15,7 +28,14 @@ function formString(formData: FormData, key: string): string | null {
 }
 
 export const actions: Actions = {
-	join: async ({ request }) => {
+	join: async ({ request }, deps: WaitlistDeps = defaultDeps) => {
+		const send = deps.sendConfirmation ?? defaultDeps.sendConfirmation;
+		const gate = deps.gate ?? defaultDeps.gate;
+
+		if (!gate(clientKey(request, 'waitlist-join'))) {
+			return fail(429, { error: 'Too many attempts. Try again shortly.', email: '', name: '' });
+		}
+
 		const formData = await request.formData();
 
 		const email = formString(formData, 'email')?.trim();
@@ -37,6 +57,8 @@ export const actions: Actions = {
 		const nameParts = name.split(' ');
 		const firstName = nameParts[0];
 		const lastName = nameParts.slice(1).join(' ') || null;
+		const consent = (formString(formData, 'consent') ?? '').trim().toLowerCase();
+		const consented = consent === 'on' || consent === 'true' || consent === 'yes';
 
 		try {
 			const [entry] = await db
@@ -46,21 +68,26 @@ export const actions: Actions = {
 					email: email.toLowerCase(),
 					firstName,
 					lastName: lastName,
-					consentedAt: new Date(),
+					...(consented ? { consentedAt: new Date(), optedInAt: new Date() } : {}),
 					preferences: { marketing: false, updates: false },
-					optedInAt: new Date(),
 					status: 'pending'
 				})
-				.onConflictDoNothing()
+				.onConflictDoNothing({ target: waitlist.email })
 				.returning();
 
 			if (!entry) {
 				return fail(400, { error: 'You are already on the waitlist!', email, name });
 			}
 
-			sendWaitlistConfirmation({ email, name }).catch((err) => {
-				console.error('Failed to send waitlist confirmation email:', err);
-			});
+			const sendResult = await send({ email, name });
+			if (!sendResult.success) {
+				return fail(500, {
+					error:
+						'We saved your spot, but the confirmation email failed to send. Please try again or contact support.',
+					email,
+					name
+				});
+			}
 
 			return { success: true, email, name };
 		} catch (err) {
