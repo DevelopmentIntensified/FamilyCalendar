@@ -10,20 +10,20 @@ going; a page that repeats it is a dead end."
 
 ## Needs doing
 
-- [ ] The attendance block leads with a count and a proportion — how many are
+- [x] The attendance block leads with a count and a proportion — how many are
       going out of how many were asked — instead of a bare total. The app shows
       the total number of attendees and nothing about the split.
-- [ ] Your own RSVP is a first-class action on the page, in the same place the
+- [x] Your own RSVP is a first-class action on the page, in the same place the
       prototype puts it, rather than a separate section below the attendee
       list. It stays optimistic, still reverts on failure, and still says what
       happened.
-- [ ] The attendee list stops being the page's second half. If it stays, it is
+- [x] The attendee list stops being the page's second half. If it stays, it is
       the detail under the summary and not a peer of it. If it goes, the
       summary line has to carry enough to be useful on its own.
-- [ ] Guests and members are distinguishable. Attendance rows exist for named
+- [x] Guests and members are distinguishable. Attendance rows exist for named
       guests who have no account behind them, and the summary must not imply
       every name on it is a family member.
-- [ ] Everything the page already does survives: the recurrence and exceptions
+- [x] Everything the page already does survives: the recurrence and exceptions
       section, the edit affordances, and the existing attendance mutation.
 
 ## Done
