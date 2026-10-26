@@ -2296,32 +2296,58 @@ describe('start date at <place> claim-split (issue 204)', () => {
 });
 
 describe('Perioded meridiem ("8:00 p.m.") + activity-then-place suffix (#207)', () => {
-	const cases: Array<[string, string | undefined, string | undefined]> = [
-		// [input, startTime, location]
-		['pick up isaiah at 8:00 p.m. for swimming at the y', '20:00', 'y'],
-		['swim at 6:30 p.m. at the y', '18:30', 'y'],
-		['meeting at 9 a.m. at the annex', '09:00', 'annex'],
-		['dinner at 7 p.m. at yoders', '19:00', 'yoders'],
+	// [input, startTime, endTime, location, date]
+	const cases: Array<[string, string, string | undefined, string | undefined]> = [
+		// The reported phrase: TWO "at" clauses — the time one consumes, the
+		// place one lands as location ("second-location capture").
+		['pick up isaiah at 8:00 p.m. for swimming at the y', '20:00', undefined, 'y'],
+		['pick up isaiah at 8:00pm for swimming at the y', '20:00', undefined, 'y'],
+		['pick up isaiah at 8pm for swimming at the ymca', '20:00', undefined, 'ymca'],
+		['pick up isaiah at 8pm for practice at the y', '20:00', undefined, 'y'],
+		['swim at 6:30 p.m. at the y', '18:30', undefined, 'y'],
+		['meeting at 9 a.m. at the annex', '09:00', undefined, 'annex'],
+		['dinner at 7 p.m. at yoders', '19:00', undefined, 'yoders'],
+		['volleyball at 7 p.m. at the ymca', '19:00', undefined, 'ymca'],
+		['laundry at 9 a. m. at the annex', '09:00', undefined, 'annex'],
 		// The no-period variant of the same shape must keep working.
-		['pick up isaiah at 8pm for swimming at the y', '20:00', 'y']
+		['pick up isaiah at 8pm for swimming at the y', '20:00', undefined, 'y'],
+		// Dotted meridiem applies on range forms too (#207 user directive:
+		// a.m./p.m. accounted for everywhere).
+		['6:30-8:00 p.m. practice at ccl', '18:30', '20:00', 'ccl'],
+		['from 2-4 p.m. workshop', '14:00', '16:00', undefined],
+		['party 8-10 p.m. at ccl', '20:00', '22:00', 'ccl'],
+		['between 2 and 4 p.m. sessions', '14:00', '16:00', undefined],
+		// Regression pins: single-letter meridiem after a colon time keeps
+		// parsing (unadjusted), as before the dotted support landed.
+		['dinner 7:15P at yoders', '07:15', undefined, 'yoders']
 	];
-	for (const [input, startTime, location] of cases) {
-		it(`"${input}" → ${startTime ?? '(no time)'} @ ${location ?? '(no loc)'}`, () => {
+	for (const [input, startTime, endTime, location] of cases) {
+		it(`"${input}" → ${startTime}${endTime ? '-' + endTime : ''} @ ${location ?? '(no loc)'}`, () => {
 			const result = parseEventInput(input);
 			expect(result.parsed.startTime, input).toBe(startTime);
+			if (endTime) expect(result.parsed.endTime, input).toBe(endTime);
 			expect(result.parsed.location, input).toBe(location);
 		});
 	}
 
-	it('keeps perioded meridiem out of the title', () => {
+	it('titles the exact phrase clean of the consumed spans', () => {
 		const result = parseEventInput('pick up isaiah at 8:00 p.m. for swimming at the y');
-		expect(result.parsed.title).not.toMatch(/p\.?m\.?/i);
-		expect(result.parsed.title).not.toMatch(/at the y\b/i);
-		expect(result.parsed.title!.toLowerCase()).toContain('isaiah');
+		expect(result.parsed.title).toBe('pick up isaiah swimming');
 	});
 
-	it('keeps the no-period variant title free of the place clause', () => {
+	it('titles the no-period variant identically', () => {
 		const result = parseEventInput('pick up isaiah at 8pm for swimming at the y');
-		expect(result.parsed.title).not.toMatch(/at the y\b/i);
+		expect(result.parsed.title).toBe('pick up isaiah swimming');
+	});
+
+	it('keeps a spaced meridiem out of the title and lands the date word', () => {
+		const result = parseEventInput('remind me at 9 a. m. tomorrow');
+		expect(result.parsed.title).toBe('remind me');
+		expect(result.parsed.date).not.toBeUndefined();
+	});
+
+	it('keeps an activity-suffix dotted time out of the title', () => {
+		const result = parseEventInput('swim practice at 5 p.m. at the y');
+		expect(result.parsed.title).toBe('swim practice');
 	});
 });

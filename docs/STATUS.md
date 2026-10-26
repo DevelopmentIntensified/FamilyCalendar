@@ -4,6 +4,15 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **#207 event NLP phrase (2026-10-25, GREEN):** "pick up isaiah at 8:00 p.m.
+  for swimming at the y" fixed — dotted meridiem (`p.m.`/`a.m.`, spaced or
+  tight) applies pm/am at every capture site (at-form, standalone colon, bare
+  hour, hyphen/from/between/bare ranges, colloquial fractions) and strips out
+  of titles; place guard stops dotted forms too. Suites: NLP 608/608, claim
+  guards 6/6. `7:15P` single-letter regression restored + pinned. Residual
+  smell on record: dotted-meridiem fragment hand-copied across regex
+  constants (extraction deferred to #197). Ticket:
+  `207-event-nlp-pickup-phrase-2026-10-26.md`.
 - **#112 claim book (2026-10-23):** `parseEventInput` claims — span registry
   (`claims[]` + `claimText` + `maskClaims`) with same-length `until` blanking
   for index alignment. Date family claims each resolved span incl. chain
@@ -362,8 +371,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
-- **#206 bug-report batch (2026-10-25 export, filed):** 8 open reports triaged into classes — (3) tasks-page 500 cluster (`confirmClear is not defined`, auto-filed ×3 + manual ×2) likely already fixed by 825c095, verify-then-close; (1) "Keep getting 500" needs route repro; (1) mobile tasks/dashboard taps — compare against #202/#205; (1) task-description/scheduling/time-tracking feature request needs owner decomposition. Ticket: `206-bug-report-batch-2026-10-25.md`.
-- **#207 event NLP phrase (2026-10-26 export, filed):** "pick up isaiah at 8:00 p.m. for swimming at the y" — `p.m.`-with-periods time suffix not tokenized (title keeps `p.m.`); second `at the y` should land as location. TDD table in `naturalLanguageService.test.ts` (#204 workflow). Ticket: `207-event-nlp-pickup-phrase-2026-10-26.md`.
+- **#206 bug-report batch (2026-10-25 export, filed):** 8 open reports triaged into classes — (3) tasks-page 500 cluster (`confirmClear is not defined`, auto-filed ×3 + manual ×2) likely already fixed by 825c095, verify-then-close; (1) "Keep getting 500" needs route repro; (1) mobile tasks/dashboard taps — compare against #202/#205; (1) task-description/scheduling/time-tracking feature request needs owner decomposition. Ticket: `206-bug-report-batch-2026-10-25.md`. Follow-up: all 8 rows verified `resolved` in `bugReports` same evening (zero open), prod probes 200 — no SQL close-out needed; remaining open items are repro-dependent.
 - **#202 mobile tap targets + sandwich menu (2026-10-22, local, uncommitted):**
   chip slice + sandwich slice landed (details in the ticket's Landmark
   section): `data-chip-kind="overflow"` chip floored at 18px/44x32/slate-600 on

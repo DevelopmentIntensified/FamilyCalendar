@@ -337,7 +337,7 @@ const MAX_SPAN_DATES = 5;
 const TITLE_TIME_RES = [
 	/\bat\s+\d{1,2}(?::\d{2})?\s*(?:[ap])\.?\s?m\.?(?![a-z])/gi,
 	/\bat\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/gi,
-	/\b\d{1,2}:\d{2}\s*(?:am|pm)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(?:am|pm)?/gi,
+	/\b\d{1,2}:\d{2}\s*((?:[ap])\.?\s?m\.?(?![a-z])|am|pm)?\s*[-–—]\s*\d{1,2}:\d{2}\s*((?:[ap])\.?\s?m\.?(?![a-z])|am|pm)?/gi,
 	/\b\d{1,2}(?::\d{2})?\s*(?:[ap])\.?\s?m\.?(?![a-z])/gi,
 	/\b\d{1,2}:\d{2}(?:\s*(?:am|pm))?\b/gi,
 	/\ba\s*\d{1,2}(?::?\d{2})?\s*(?:am|pm)\b/gi,
@@ -514,7 +514,7 @@ const PLACE_WORD = /[A-Za-z0-9][A-Za-z0-9'’.-]*/y;
  *  Bare numbers stay place words ("Room 201", "Route 9") — only colon
  *  times, meridiem hours, and hour ranges stop it. */
 const PLACE_TIME_GUARD =
-	/^(?:\d{1,2}(?::\d{2})+|\d{1,2}\s*(?:(?:[ap])\.?\s?m\.?|am|pm)|\d{1,2}\s*[-–—to]+\s*\d{1,2}\s*(?:am|pm))/i;
+	/^(?:\d{1,2}(?::\d{2})+|\d{1,2}\s*(?:(?:[ap])\.?\s?m\.?|am|pm)|\d{1,2}\s*[-–—to]+\s*\d{1,2}\s*(?:(?:[ap])\.?\s?m\.?|am|pm))/i;
 
 /** Read the place that starts at `from` — the first character AFTER the opener
  *  match, so the first word needs no leading gap and every later one does.
@@ -1064,15 +1064,15 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// A missing start meridiem inherits the end one ("5:30-6:30pm" is evening),
 	// mirroring the from/to and between rules below.
 	const hyphenRangeMatch = input.match(
-		/(\d{1,2}):(\d{2})\s*(am?|pm?)?\s*[-–—]\s*(\d{1,2}):(\d{2})\s*(am?|pm?)/i
+		/(\d{1,2}):(\d{2})\s*((?:[ap])\.?\s?m\.?|am?|pm?)?\s*[-–—]\s*(\d{1,2}):(\d{2})\s*((?:[ap])\.?\s?m\.?|am?|pm?)/i
 	);
 	if (hyphenRangeMatch) {
 		let startHour = parseInt(hyphenRangeMatch[1]);
 		const startMin = parseInt(hyphenRangeMatch[2]);
 		let endHour = parseInt(hyphenRangeMatch[4]);
 		const endMin = parseInt(hyphenRangeMatch[5]);
-		const startPeriod = hyphenRangeMatch[3]?.toLowerCase();
-		const endPeriod = hyphenRangeMatch[6]?.toLowerCase();
+		const startPeriod = normalizeMeridiem(hyphenRangeMatch[3]);
+		const endPeriod = normalizeMeridiem(hyphenRangeMatch[6]);
 		const effectiveStart = startPeriod || endPeriod;
 		if (effectiveStart === 'pm' && startHour < 12) startHour += 12;
 		if (effectiveStart === 'am' && startHour === 12) startHour = 0;
@@ -1089,8 +1089,8 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		/\bfrom\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?\s*(?:-|–|—|to)\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/i
 	);
 	if (shortRangeMatch && !foundTime) {
-		const startPeriod = shortRangeMatch[3]?.toLowerCase();
-		const endPeriod = shortRangeMatch[6]?.toLowerCase();
+		const startPeriod = normalizeMeridiem(shortRangeMatch[3]);
+		const endPeriod = normalizeMeridiem(shortRangeMatch[6]);
 		const effectiveStartPeriod = startPeriod || endPeriod;
 		result.startTime = normalizeTime(
 			applyPeriod(parseInt(shortRangeMatch[1]), effectiveStartPeriod),
@@ -1106,11 +1106,11 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 
 	// "between 2 and 4 PM"
 	const betweenRangeMatch = input.match(
-		/\bbetween\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s+and\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i
+		/\bbetween\s+(\d{1,2})(?::(\d{2}))?\s*((?:[ap])\.?\s?m\.?|am|pm)?\s+and\s+(\d{1,2})(?::(\d{2}))?\s*((?:[ap])\.?\s?m\.?|am|pm)/i
 	);
 	if (betweenRangeMatch && !foundTime) {
-		const endPeriod = betweenRangeMatch[6]?.toLowerCase();
-		const startPeriod = betweenRangeMatch[3]?.toLowerCase() || endPeriod;
+		const endPeriod = normalizeMeridiem(betweenRangeMatch[6]);
+		const startPeriod = normalizeMeridiem(betweenRangeMatch[3]) || endPeriod;
 		result.startTime = normalizeTime(
 			applyPeriod(parseInt(betweenRangeMatch[1]), startPeriod),
 			betweenRangeMatch[2] ? parseInt(betweenRangeMatch[2]) : 0
@@ -1133,8 +1133,8 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			)
 		: null;
 	if (bareRangeMatch) {
-		const startPeriod = bareRangeMatch[3]?.toLowerCase();
-		const endPeriod = bareRangeMatch[6]?.toLowerCase();
+		const startPeriod = normalizeMeridiem(bareRangeMatch[3]);
+		const endPeriod = normalizeMeridiem(bareRangeMatch[6]);
 		const effectiveStartPeriod = startPeriod || endPeriod;
 		result.startTime = normalizeTime(
 			applyPeriod(parseInt(bareRangeMatch[1]), effectiveStartPeriod),
@@ -1366,7 +1366,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// Bare meridiem form without colon or "at" ("mon and tue 6am") follows.
 	if (!startTimeMatch && !foundTime) {
 		const standaloneTimeMatch = input.match(
-			/\b(\d{1,2}):(\d{2})\s*((?:[ap])\.?\s?m\.?|[ap]m)(?![a-z0-9])/i
+			/\b(\d{1,2}):(\d{2})\s*((?:[ap])\.?\s?m\.?|[ap]m?)(?![a-z0-9])/i
 		);
 		// Bare meridiem time without colon or "at" ("mon and tue 6am",
 		// "mon and tue 8 p.m.").
@@ -1430,7 +1430,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	};
 	const colloquialMatch = input.match(
 		new RegExp(
-			`\\b(half\\s+past|quarter\\s+to|quarter\\s+past)\\s+(\\d{1,2}|${Object.keys(WORD_HOUR).join('|')})\\s*(am|pm)?\\b`,
+			`\\b(half\\s+past|quarter\\s+to|quarter\\s+past)\\s+(\\d{1,2}|${Object.keys(WORD_HOUR).join('|')})\\s*((?:[ap])\\.?\\s?m\\.?(?![a-z])|am|pm)?\\b`,
 			'i'
 		)
 	);
@@ -1438,7 +1438,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		const kind = colloquialMatch[1].toLowerCase().replace(/\s+/g, ' ');
 		const rawHour = colloquialMatch[2].toLowerCase();
 		const hour = /^\d+$/.test(rawHour) ? parseInt(rawHour) : (lookup(WORD_HOUR, rawHour) ?? 0);
-		const period = colloquialMatch[3]?.toLowerCase();
+		const period = normalizeMeridiem(colloquialMatch[3]);
 		if (kind === 'half past') {
 			result.startTime = normalizeTime(applyPeriod(hour, period), 30);
 		} else if (kind === 'quarter past') {
