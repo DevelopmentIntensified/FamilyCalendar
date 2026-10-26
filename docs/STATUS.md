@@ -362,6 +362,8 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
+- **#206 bug-report batch (2026-10-25 export, filed):** 8 open reports triaged into classes — (3) tasks-page 500 cluster (`confirmClear is not defined`, auto-filed ×3 + manual ×2) likely already fixed by 825c095, verify-then-close; (1) "Keep getting 500" needs route repro; (1) mobile tasks/dashboard taps — compare against #202/#205; (1) task-description/scheduling/time-tracking feature request needs owner decomposition. Ticket: `206-bug-report-batch-2026-10-25.md`.
+- **#207 event NLP phrase (2026-10-26 export, filed):** "pick up isaiah at 8:00 p.m. for swimming at the y" — `p.m.`-with-periods time suffix not tokenized (title keeps `p.m.`); second `at the y` should land as location. TDD table in `naturalLanguageService.test.ts` (#204 workflow). Ticket: `207-event-nlp-pickup-phrase-2026-10-26.md`.
 - **#202 mobile tap targets + sandwich menu (2026-10-22, local, uncommitted):**
   chip slice + sandwich slice landed (details in the ticket's Landmark
   section): `data-chip-kind="overflow"` chip floored at 18px/44x32/slate-600 on
