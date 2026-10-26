@@ -43,4 +43,13 @@ already loads — read-only, no mutations.
 
 ## Done
 
-- (in progress)
+- **Built 2026-10-26** (30834ce): three variants + dispatch + review dock +
+  `prototypeProps.ts` in `src/lib/components/dashboard/prototype/`; page
+  renders the prototype only when `?variant=` is set and the build is dev
+  (`import.meta.env.PROD === false`) — deploys unaffected. Verified in a real
+  browser session: variant markers render per variant
+  (A: `The day, in order` timeline, B: `Focus hero` + `Where the day stands`,
+  C: `Day and household rails`), the dock cycles via ←/→ and `?variant=`,
+  and the feedback loop works end-to-end (select → verdict card → note →
+  localStorage autosave). Probe mark exercised + cleared.
+- Owner review pending (see Needs doing).
