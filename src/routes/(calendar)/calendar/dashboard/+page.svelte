@@ -1,11 +1,21 @@
 <script lang="ts">
 	import { DateTime } from 'luxon';
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import DayNav from '$lib/components/DayNav.svelte';
 	import DayDashboard from '$lib/components/dashboard/DayDashboard.svelte';
 	import type { PageData } from './$types';
+	// PROTOTYPE (issue 208): reflow variants on this route, only when
+	// `?variant=` is set in a DEV session. Prod builds (test + prod deploys)
+	// never render the prototype chrome. Deleted with the ticket.
+	import DashboardPrototype from '$lib/components/dashboard/prototype/DashboardPrototype.svelte';
 
 	let { data }: { data: PageData } = $props();
+
+	const prototypeOn = $derived(
+		import.meta.env.PROD === false &&
+			(page.url.searchParams.get('variant') ?? '') !== ''
+	);
 
 	const dayDt = $derived(DateTime.fromISO(data.dayISO).setZone(data.zone).startOf('day'));
 	const dateLabel = $derived(dayDt.toFormat('cccc, LLLL d'));
@@ -70,24 +80,47 @@
 			</div>
 		</div>
 	{:then dd}
-		<DayDashboard
-			{dateLabel}
-			isToday={data.isToday}
-			meId={data.meId}
-			familyId={data.familyId}
-			modules={data.modules}
-			dailyVerse={data.dailyVerse}
-			glance={dd.glance}
-			dayEvents={dd.dayEvents}
-			top3={dd.top3}
-			completedToday={dd.completedToday ?? []}
-			familyTasks={dd.familyTasks}
-			familyMembers={dd.familyMembers}
-			kidsSchedule={dd.kidsSchedule}
-			familyGroceries={dd.familyGroceries ?? []}
-			mineGroceries={dd.mineGroceries ?? []}
-			loadWarnings={[...(data.loadWarnings ?? []), ...dd.warnings]}
-		/>
+		{#if prototypeOn}
+			<DashboardPrototype
+				props={{
+					dateLabel,
+					isToday: data.isToday,
+					meId: data.meId,
+					familyId: data.familyId,
+					dailyVerse: data.dailyVerse,
+					glance: dd.glance,
+					dayEvents: dd.dayEvents,
+					top3: dd.top3,
+					completedToday: dd.completedToday ?? [],
+					familyTasks: dd.familyTasks,
+					familyMembers: dd.familyMembers,
+					kidsSchedule: dd.kidsSchedule,
+					familyGroceries: dd.familyGroceries ?? [],
+					mineGroceries: dd.mineGroceries ?? [],
+					loadWarnings: [...(data.loadWarnings ?? []), ...dd.warnings],
+					modules: data.modules
+				}}
+			/>
+		{:else}
+			<DayDashboard
+				{dateLabel}
+				isToday={data.isToday}
+				meId={data.meId}
+				familyId={data.familyId}
+				modules={data.modules}
+				dailyVerse={data.dailyVerse}
+				glance={dd.glance}
+				dayEvents={dd.dayEvents}
+				top3={dd.top3}
+				completedToday={dd.completedToday ?? []}
+				familyTasks={dd.familyTasks}
+				familyMembers={dd.familyMembers}
+				kidsSchedule={dd.kidsSchedule}
+				familyGroceries={dd.familyGroceries ?? []}
+				mineGroceries={dd.mineGroceries ?? []}
+				loadWarnings={[...(data.loadWarnings ?? []), ...dd.warnings]}
+			/>
+		{/if}
 	{:catch}
 		<div
 			class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
