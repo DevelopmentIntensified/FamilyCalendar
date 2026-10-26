@@ -38,6 +38,16 @@ export function normalizeTime(hour: number, minute = 0): string {
 	return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 }
 
+/**
+ * Normalize a meridiem capture that may carry periods ("p.m.", "a. m.")
+ * down to `pm`/`am`. Anything else passes through unchanged, so bare
+ * partial captures ("p") keep their old no-adjustment behavior (#207).
+ */
+export function normalizeMeridiem(period?: string): string | undefined {
+	if (!period) return undefined;
+	return period.toLowerCase().replace(/[^apm]/g, '');
+}
+
 export function applyPeriod(hour: number, period?: string): number {
 	const p = period?.toLowerCase();
 	if (p === 'pm' && hour < 12) return hour + 12;

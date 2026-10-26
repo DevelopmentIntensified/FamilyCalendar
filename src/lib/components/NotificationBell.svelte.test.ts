@@ -18,11 +18,15 @@ let rows: unknown[] = [];
 
 beforeEach(() => {
 	// SAFETY: jsdom-only polyfill — svelte's slide transition calls
-	// Element.animate on open; jsdom does not implement it.
-	Object.defineProperty(window.Element.prototype, 'animate', {
-		value: vi.fn().mockReturnValue({ finished: Promise.resolve(), cancel: vi.fn() }),
-		configurable: true
-	});
+	// Element.animate on open; jsdom does not implement it. Svelte 5.57's
+	// test environment may already have installed one (non-configurable),
+	// so only patch when absent — redefining throws (#207 follow-up).
+	if (typeof window.Element.prototype.animate !== 'function') {
+		Object.defineProperty(window.Element.prototype, 'animate', {
+			value: vi.fn().mockReturnValue({ finished: Promise.resolve(), cancel: vi.fn() }),
+			configurable: true
+		});
+	}
 	vi.stubGlobal(
 		'fetch',
 		vi.fn().mockResolvedValue({

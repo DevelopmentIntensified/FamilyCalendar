@@ -2294,3 +2294,34 @@ describe('start date at <place> claim-split (issue 204)', () => {
 		});
 	}
 });
+
+describe('Perioded meridiem ("8:00 p.m.") + activity-then-place suffix (#207)', () => {
+	const cases: Array<[string, string | undefined, string | undefined]> = [
+		// [input, startTime, location]
+		['pick up isaiah at 8:00 p.m. for swimming at the y', '20:00', 'y'],
+		['swim at 6:30 p.m. at the y', '18:30', 'y'],
+		['meeting at 9 a.m. at the annex', '09:00', 'annex'],
+		['dinner at 7 p.m. at yoders', '19:00', 'yoders'],
+		// The no-period variant of the same shape must keep working.
+		['pick up isaiah at 8pm for swimming at the y', '20:00', 'y']
+	];
+	for (const [input, startTime, location] of cases) {
+		it(`"${input}" → ${startTime ?? '(no time)'} @ ${location ?? '(no loc)'}`, () => {
+			const result = parseEventInput(input);
+			expect(result.parsed.startTime, input).toBe(startTime);
+			expect(result.parsed.location, input).toBe(location);
+		});
+	}
+
+	it('keeps perioded meridiem out of the title', () => {
+		const result = parseEventInput('pick up isaiah at 8:00 p.m. for swimming at the y');
+		expect(result.parsed.title).not.toMatch(/p\.?m\.?/i);
+		expect(result.parsed.title).not.toMatch(/at the y\b/i);
+		expect(result.parsed.title!.toLowerCase()).toContain('isaiah');
+	});
+
+	it('keeps the no-period variant title free of the place clause', () => {
+		const result = parseEventInput('pick up isaiah at 8pm for swimming at the y');
+		expect(result.parsed.title).not.toMatch(/at the y\b/i);
+	});
+});

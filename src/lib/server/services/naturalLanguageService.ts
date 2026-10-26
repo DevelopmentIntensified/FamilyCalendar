@@ -5,6 +5,7 @@ import {
 	dayNumber,
 	MONTH_ALT,
 	MONTH_MAP,
+	normalizeMeridiem,
 	normalizeTime
 } from '$lib/server/utils/dateParsing';
 import { BILL_CATEGORIES, type BillCategory } from '$lib/server/db/schema';
@@ -334,11 +335,15 @@ const MAX_SPAN_DATES = 5;
  * "at 6:30pm" goes whole — the colon rule alone would strand "at 6" in
  * the title (issue 204). */
 const TITLE_TIME_RES = [
+	/\bat\s+\d{1,2}(?::\d{2})?\s*(?:[ap])\.?\s?m\.?(?![a-z])/gi,
 	/\bat\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/gi,
 	/\b\d{1,2}:\d{2}\s*(?:am|pm)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(?:am|pm)?/gi,
+	/\b\d{1,2}(?::\d{2})?\s*(?:[ap])\.?\s?m\.?(?![a-z])/gi,
 	/\b\d{1,2}:\d{2}(?:\s*(?:am|pm))?\b/gi,
 	/\ba\s*\d{1,2}(?::?\d{2})?\s*(?:am|pm)\b/gi,
-	/\b\d{1,2}\s*(?:am|pm)\b/gi
+	/\ba\s*\d{1,2}(?::?\d{2})?\s*(?:[ap])\.?\s?m\.?(?![a-z])/gi,
+	/\b\d{1,2}\s*(?:am|pm)\b/gi,
+	/\b\d{1,2}\s*(?:[ap])\.?\s?m\.?(?![a-z])/gi
 ];
 
 /** Strip consumed schedule spans plus cosmetic digit-times. Spans become
@@ -509,7 +514,7 @@ const PLACE_WORD = /[A-Za-z0-9][A-Za-z0-9'’.-]*/y;
  *  Bare numbers stay place words ("Room 201", "Route 9") — only colon
  *  times, meridiem hours, and hour ranges stop it. */
 const PLACE_TIME_GUARD =
-	/^(?:\d{1,2}(?::\d{2})+|\d{1,2}\s*(?:am|pm)|\d{1,2}\s*[-–—to]+\s*\d{1,2}\s*(?:am|pm))/i;
+	/^(?:\d{1,2}(?::\d{2})+|\d{1,2}\s*(?:(?:[ap])\.?\s?m\.?|am|pm)|\d{1,2}\s*[-–—to]+\s*\d{1,2}\s*(?:am|pm))/i;
 
 /** Read the place that starts at `from` — the first character AFTER the opener
  *  match, so the first word needs no leading gap and every later one does.
@@ -1353,17 +1358,21 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	// "starting at 6 PM", "at 8 AM", "beginning at 9 AM", "7:15A"
 	// (?!\d) keeps bare 4-digit military time ("1830") from matching here.
 	const startTimeMatch = input.match(
-		/(?:start(?:ing)?\s+at|at|beginning\s+at)\s+(\d{1,2})(?::(\d{2}))?(?!\d)\s*(am?|pm?|AM?|PM?)?/i
+		/(?:start(?:ing)?\s+at|at|beginning\s+at)\s+(\d{1,2})(?::(\d{2}))?(?!\d)\s*((?:[ap])\.?\s?m\.?|am?|pm?)?/i
 	);
 
-	// Standalone time: "9:00 AM", "7:15P", "3:30 PM" (may appear after date).
+	// Standalone time: "9:00 AM", "7:15P", "3:30 PM", "8:00 p.m." (dotted
+	// meridiem, #207) (may appear after date).
 	// Bare meridiem form without colon or "at" ("mon and tue 6am") follows.
 	if (!startTimeMatch && !foundTime) {
-		const standaloneTimeMatch = input.match(/\b(\d{1,2}):(\d{2})\s*(am?|pm?|AM?|PM?)\b/i);
-		// Bare meridiem time without colon or "at" ("mon and tue 6am").
+		const standaloneTimeMatch = input.match(
+			/\b(\d{1,2}):(\d{2})\s*((?:[ap])\.?\s?m\.?|[ap]m)(?![a-z0-9])/i
+		);
+		// Bare meridiem time without colon or "at" ("mon and tue 6am",
+		// "mon and tue 8 p.m.").
 		const bareMeridiemMatch = standaloneTimeMatch
 			? null
-			: input.match(/(?<![\d:])(\d{1,2})\s*(am|pm)\b/i);
+			: input.match(/(?<![\d:])(\d{1,2})\s*((?:[ap])\.?\s?m\.?|[ap]m)(?![a-z0-9])/i);
 		const timeMatch: RegExpMatchArray | null = standaloneTimeMatch ?? bareMeridiemMatch;
 		const isColonTime = standaloneTimeMatch !== null;
 		if (timeMatch) {
@@ -1372,10 +1381,10 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 			let period: string | undefined;
 			if (isColonTime && standaloneTimeMatch) {
 				minute = parseInt(standaloneTimeMatch[2]);
-				period = standaloneTimeMatch[3]?.toLowerCase();
+				period = normalizeMeridiem(standaloneTimeMatch[3]);
 			} else if (bareMeridiemMatch) {
-				// SAFETY: bareMeridiemMatch has exactly the two groups (hour, am|pm).
-				period = bareMeridiemMatch[2].toLowerCase();
+				// SAFETY: bareMeridiemMatch has exactly the two groups (hour, meridiem).
+				period = normalizeMeridiem(bareMeridiemMatch[2]);
 			}
 			if (period === 'pm' && hour < 12) hour += 12;
 			if (period === 'am' && hour === 12) hour = 0;
@@ -1387,7 +1396,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 	if (startTimeMatch) {
 		let hour = parseInt(startTimeMatch[1]);
 		const minute = startTimeMatch[2] ? parseInt(startTimeMatch[2]) : 0;
-		const period = startTimeMatch[3]?.toLowerCase();
+		const period = normalizeMeridiem(startTimeMatch[3]);
 		if (period === 'pm' && hour < 12) hour += 12;
 		if (period === 'am' && hour === 12) hour = 0;
 		if (!period && hour < 8) hour += 12;
