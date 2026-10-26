@@ -43,13 +43,17 @@ already loads — read-only, no mutations.
 
 ## Done
 
-- **Built 2026-10-26** (30834ce): three variants + dispatch + review dock +
-  `prototypeProps.ts` in `src/lib/components/dashboard/prototype/`; page
-  renders the prototype only when `?variant=` is set and the build is dev
-  (`import.meta.env.PROD === false`) — deploys unaffected. Verified in a real
-  browser session: variant markers render per variant
-  (A: `The day, in order` timeline, B: `Focus hero` + `Where the day stands`,
-  C: `Day and household rails`), the dock cycles via ←/→ and `?variant=`,
-  and the feedback loop works end-to-end (select → verdict card → note →
-  localStorage autosave). Probe mark exercised + cleared.
+- **Round 1 REJECTED 2026-10-26 (owner verdict):** the three variants removed
+  parts of the dashboard and read as bare wireframes — the hand-rolled stat
+  strips and thin rails replaced real cards, and the arrangements solved
+  nothing. Round-1 files kept only in git history (30834ce).
+- **Round 2 built 2026-10-26** — same `?variant=A|B|C` dock, three FULL
+  treatments (every module renders as its real card, nothing removed):
+  **A · Split Paper** — schedule main column (glance + kids), actions rail
+  (top3, completed, board, groceries); **B · Zoned** — three named zone rows
+  (The day / Actions / Household), cards paired inside; **C · Rhythm** — the
+  shipped 3+3 arrangement kept with one visual system: polished KPI bar
+  (numbers + next event), equal-height rows. Verified in a real session:
+  all three render their structure, dock cycles, 320px has no horizontal
+  overflow on any variant.
 - Owner review pending (see Needs doing).

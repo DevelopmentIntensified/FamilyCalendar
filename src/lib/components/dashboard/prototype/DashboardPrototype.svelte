@@ -13,9 +13,9 @@
 	let { props }: { props: PrototypeProps } = $props();
 
 	const variantNames: Record<VariantKey, string> = {
-		A: 'Morning Read',
-		B: 'Focus First',
-		C: 'Board First'
+		A: 'Split Paper',
+		B: 'Zoned',
+		C: 'Rhythm'
 	};
 
 	let variant = $derived.by(() => {

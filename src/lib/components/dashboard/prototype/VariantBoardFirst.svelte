@@ -1,11 +1,15 @@
 <script lang="ts">
-	/** PROTOTYPE (issue 208) — Variant C "Board First": the family board is
-	 *  the page (revisiting #118's narrowing — the counter-argument is that a
-	 *  shared household read IS the morning's job). Day reading compresses
-	 *  into a left rail; kids + groceries hold the right rail. Hierarchy =
-	 *  people. */
+	/** PROTOTYPE (issue 208, round 2) — Variant C "Rhythm": the shipped 3+3
+	 *  arrangement kept, but the cards get ONE visual system — a KPI strip
+	 *  up top (the glance numbers, polished), aligned card heights, and
+	 *  consistent spacing. The counter-hypothesis: the arrangement was never
+	 *  the problem; the inconsistent card rhythm was. */
 	import { showsModule } from '$lib/dashboardModules';
 	import type { PrototypeProps } from './prototypeProps';
+	import DashboardInfoBand from '../DashboardInfoBand.svelte';
+	import TodayGlanceCard from '../TodayGlanceCard.svelte';
+	import TopPrioritiesCard from '../TopPrioritiesCard.svelte';
+	import CompletedTodayCard from '../CompletedTodayCard.svelte';
 	import FamilyTaskBoardCard from '../FamilyTaskBoardCard.svelte';
 	import KidsScheduleCard from '../KidsScheduleCard.svelte';
 	import GroceriesCard from '../GroceriesCard.svelte';
@@ -29,83 +33,59 @@
 		modules,
 		onEventClick
 	}: PrototypeProps = $props();
+
+	const nextEvent = $derived(dayEvents.find((e) => !e.allDay) ?? null);
 </script>
 
-<div class="mx-auto w-full max-w-5xl space-y-4" data-fb="page" data-fb-label="C · Board First">
+<div class="mx-auto w-full max-w-6xl space-y-4" data-fb="page" data-fb-label="C · Rhythm">
 	{#if loadWarnings.length > 0}
 		<div class="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="alert">
 			Couldn't load {loadWarnings.join(', ')} just now — everything else is up to date.
 		</div>
 	{/if}
 
-	{#if dailyVerse}
-		<aside class="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
-			<p class="text-[13px] italic leading-snug text-slate-600">“{dailyVerse.text}”</p>
-			<p class="mt-1 text-[11px] text-slate-400">{dailyVerse.reference}</p>
-		</aside>
+	{#if dailyVerse && showsModule(modules, 'verse')}
+		<DashboardInfoBand {dailyVerse} />
 	{/if}
 
-	{#if familyId && showsModule(modules, 'board')}
-		<FamilyTaskBoardCard tasks={familyTasks} members={familyMembers} {meId} {familyId} openToday={glance.openToday} weekStreak={glance.weekStreak} />
-	{/if}
+	<!-- KPI strip: the morning's numbers in one quiet bar. -->
+	<div class="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-slate-200 bg-white px-5 py-3" data-fb="kpi" data-fb-label="Morning numbers">
+		<span class="text-sm font-medium text-slate-900">{dateLabel}{isToday ? ' · today' : ''}</span>
+		{#if nextEvent}
+			<span class="text-sm text-slate-600">
+				Next: <b class="font-semibold">{nextEvent.title}</b>
+			</span>
+		{:else if isToday}
+			<span class="text-sm text-slate-500">Nothing left on today's calendar</span>
+		{/if}
+		<span class="ml-auto flex gap-5 text-sm tabular-nums">
+			<span class="text-slate-500">{glance.openToday} <span class="text-slate-400">open</span></span>
+			<span class="text-slate-500">{glance.doneToday} <span class="text-slate-400">done</span></span>
+			<span class="text-slate-500">{glance.weekStreak} <span class="text-slate-400">wk streak</span></span>
+		</span>
+	</div>
 
-	<div class="grid items-start gap-4 md:grid-cols-2" data-fb="rails" data-fb-label="Day and household rails">
-		<!-- Left rail: the day's own reading, compressed. -->
-		<div class="flex flex-col gap-4" data-fb="day-rail">
+	<!-- Row 1: the day's own reading, three-up, stretched equal. -->
+	{#if showsModule(modules, 'glance') || showsModule(modules, 'top3') || showsModule(modules, 'completed')}
+		<div class="grid items-stretch gap-4 md:grid-cols-2 lg:grid-cols-3 [&>*]:flex [&>*]:flex-col">
 			{#if showsModule(modules, 'glance')}
-				<section class="rounded-2xl border border-slate-200 bg-white p-4">
-					<h2 class="mb-1 text-sm font-semibold text-slate-900">{dateLabel}{isToday ? ' · today' : ''}</h2>
-					<p class="text-xs tabular-nums text-slate-500">
-						{glance.openToday} open · {glance.doneToday} done · {glance.weekStreak}-week streak
-					</p>
-					{#if dayEvents.length > 0}
-						<ul class="mt-2 flex flex-col border-t border-slate-100 pt-2">
-							{#each dayEvents.slice(0, 6) as e (e.id)}
-								<li>
-									<button
-										type="button"
-										class="flex w-full min-h-9 items-center gap-2 truncate text-left text-sm text-slate-700 hover:underline"
-										onclick={() => onEventClick?.(e)}
-									>
-										<span class="h-2 w-2 shrink-0 rounded-full" style:background={e.color} aria-hidden="true"></span>
-										<span class="truncate">{e.title}</span>
-									</button>
-								</li>
-							{/each}
-						</ul>
-					{:else}
-						<p class="mt-2 text-xs text-slate-400">Nothing on the calendar.</p>
-					{/if}
-				</section>
+				<TodayGlanceCard {dateLabel} {isToday} events={dayEvents} onEventClick={onEventClick} />
 			{/if}
 			{#if showsModule(modules, 'top3')}
-				<section class="rounded-2xl border border-slate-200 bg-white p-4">
-					<h2 class="mb-2 text-sm font-semibold text-slate-900">Top 3</h2>
-					<ol class="flex flex-col">
-						{#each top3 as t (t.id)}
-							<li class="min-h-8 truncate border-b border-slate-100 py-1.5 text-sm text-slate-800 last:border-0">
-								{t.title}{t.assigneeFirstName ? ` · ${t.assigneeFirstName}` : ''}
-							</li>
-						{/each}
-					</ol>
-				</section>
+				<TopPrioritiesCard tasks={top3} {meId} />
 			{/if}
-			{#if showsModule(modules, 'completed') && completedToday.length > 0}
-				<section class="rounded-2xl border border-slate-200 bg-white p-4">
-					<h2 class="mb-2 text-sm font-semibold text-slate-900">Completed today</h2>
-					<ol class="flex flex-col">
-						{#each completedToday as t (t.id)}
-							<li class="min-h-8 truncate border-b border-slate-100 py-1.5 text-sm text-slate-500 line-through last:border-0">
-								{t.title}
-							</li>
-						{/each}
-					</ol>
-				</section>
+			{#if showsModule(modules, 'completed')}
+				<CompletedTodayCard tasks={completedToday} {isToday} />
 			{/if}
 		</div>
+	{/if}
 
-		<!-- Right rail: household. -->
-		<div class="flex flex-col gap-4" data-fb="household-rail">
+	<!-- Row 2: the household, three-up. -->
+	{#if (familyId && showsModule(modules, 'board')) || (familyId && showsModule(modules, 'kids')) || showsModule(modules, 'groceries')}
+		<div class="grid items-stretch gap-4 md:grid-cols-2 lg:grid-cols-3 [&>*]:flex [&>*]:flex-col">
+			{#if familyId && showsModule(modules, 'board')}
+				<FamilyTaskBoardCard tasks={familyTasks} members={familyMembers} {meId} {familyId} openToday={glance.openToday} weekStreak={glance.weekStreak} />
+			{/if}
 			{#if familyId && showsModule(modules, 'kids')}
 				<KidsScheduleCard events={kidsSchedule} {isToday} />
 			{/if}
@@ -113,5 +93,5 @@
 				<GroceriesCard familyItems={familyGroceries} mineItems={mineGroceries} hasFamily={!!familyId} />
 			{/if}
 		</div>
-	</div>
+	{/if}
 </div>
