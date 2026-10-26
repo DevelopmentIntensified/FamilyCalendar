@@ -15,7 +15,7 @@
 	const variantNames: Record<VariantKey, string> = {
 		A: 'Split Paper',
 		B: 'Zoned',
-		C: 'Rhythm'
+		C: 'Rhythm, Integrated'
 	};
 
 	let variant = $derived.by(() => {

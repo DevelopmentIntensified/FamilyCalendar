@@ -56,4 +56,14 @@ already loads — read-only, no mutations.
   (numbers + next event), equal-height rows. Verified in a real session:
   all three render their structure, dock cycles, 320px has no horizontal
   overflow on any variant.
+- **Round 3 (2026-10-26, owner direction: "3 is best, but integrate the way
+  things look")** — variant C rebuilt as **Rhythm, Integrated**: same
+  arrangement, internals unified into ONE system — unboxed rows everywhere
+  (the glance row style became THE row style), one group-header form (avatar
+  chip + name + count, the board's own, now on top-3/kids/groceries too),
+  header counts right-aligned on every card, one footer style (bottom-right
+  primary link, only where navigation exists), emoji badges (📍🔒🌐) replaced
+  with text chips, the completed card's lone 2xl number demoted into its
+  header count. Real-card chrome differences are the explicit target of the
+  round; interactions stubbed with a visible prototype notice.
 - Owner review pending (see Needs doing).
