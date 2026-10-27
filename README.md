@@ -4,8 +4,8 @@ Family calendar + tasks + bills. Live at https://familyplanz.com.
 
 ## Stack
 
-SvelteKit 2 + Svelte 5 · Postgres (Drizzle) · Tailwind 4 · Capacitor (Android)
-· Vercel. Local DB via Docker (`db:up`). Schema: bundled SQL migrations, applied by the runtime runner at first server start (#086); locally via `npm run db:apply`.
+SvelteKit 2 + Svelte 5 · Postgres (Drizzle) · Tailwind 4
+· Vercel. Native Android app lives at `apps/android/` (Kotlin + Compose). Local DB via Docker (`db:up`). Schema: bundled SQL migrations, applied by the runtime runner at first server start (#086); locally via `npm run db:apply`.
 
 ## Quickstart
 

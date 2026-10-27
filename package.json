@@ -6,10 +6,6 @@
   "scripts": {
     "dev": "vite dev",
     "build": "node scripts/publish-prototypes.mjs && vite build && node scripts/check-ssr-render-inner.mjs",
-    "build:capacitor": "node scripts/build-capacitor.mjs",
-    "cap:add": "npm run build:capacitor && cap add android",
-    "cap:sync": "npm run build:capacitor && cap sync",
-    "cap:open:android": "cap open android",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -50,7 +46,6 @@
     "@oxlint/plugins": "1.81.0",
     "@playwright/test": "^1.59.1",
     "@sveltejs/adapter-node": "^5.2.11",
-    "@sveltejs/adapter-static": "^3.0.8",
     "@sveltejs/adapter-vercel": "^5.6.3",
     "@sveltejs/kit": "^2.70.3",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
@@ -84,11 +79,6 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
-    "@capacitor/android": "^7.6.9",
-    "@capacitor/cli": "^7.6.9",
-    "@capacitor/core": "^7.0.1",
-    "@capacitor/geolocation": "^7.1.1",
-    "@capacitor/ios": "^7.6.9",
     "@ngneat/falso": "^7.3.0",
     "@oslojs/crypto": "^1.0.1",
     "@oslojs/encoding": "^1.1.0",

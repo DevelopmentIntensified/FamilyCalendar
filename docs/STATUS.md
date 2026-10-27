@@ -4,6 +4,12 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **#209 Capacitor wrap removed (2026-10-27):** `@capacitor/*` +
+  `adapter-static` deps, `cap:*`/`build:capacitor` scripts,
+  `capacitor.config.ts`, `scripts/build-capacitor.mjs` out;
+  `svelte.config.js` scaled to adapter-vercel only (no `CAPACITOR_BUILD`
+  branch). Web build green post-cut (ssr-render 137/137). Native Android
+  starts fresh in `apps/android/`. Ticket: `209-remove-capacitor-wrap.md`.
 - **#207 event NLP phrase (2026-10-25, GREEN):** "pick up isaiah at 8:00 p.m.
   for swimming at the y" fixed — dotted meridiem (`p.m.`/`a.m.`, spaced or
   tight) applies pm/am at every capture site (at-form, standalone colon, bare
@@ -371,6 +377,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
+- **#210 native Android app (2026-10-27, in-progress):** Capacitor wrap
+  dropped (#209); real native Kotlin + Compose app under `apps/android/`
+  against new `/api` JSON surface. Stack + 8 slices in the ticket. First
+  slice = toolchain (Temurin 21 + cmdline-tools + SDK licenses) + scaffold
+  assembleDebug green.
 - **#206 bug-report batch (2026-10-25 export, filed):** 8 open reports triaged into classes — (3) tasks-page 500 cluster (`confirmClear is not defined`, auto-filed ×3 + manual ×2) likely already fixed by 825c095, verify-then-close; (1) "Keep getting 500" needs route repro; (1) mobile tasks/dashboard taps — compare against #202/#205; (1) task-description/scheduling/time-tracking feature request needs owner decomposition. Ticket: `206-bug-report-batch-2026-10-25.md`. Follow-up: all 8 rows verified `resolved` in `bugReports` same evening (zero open), prod probes 200 — no SQL close-out needed; remaining open items are repro-dependent.
 - **#202 mobile tap targets + sandwich menu (2026-10-22, local, uncommitted):**
   chip slice + sandwich slice landed (details in the ticket's Landmark
