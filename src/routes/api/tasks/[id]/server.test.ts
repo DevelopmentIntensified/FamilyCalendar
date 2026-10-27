@@ -248,6 +248,74 @@ describe('PUT /api/tasks/[id] — visibility patch (issue 019)', () => {
  * maps `deleteTask === false` (missing OR not authorized under the same
  * issue-019 canMutateTask rules PUT uses) to 404.
  */
+describe('PUT /api/tasks/[id] — focusMinutes (021 device-channel spec)', () => {
+	it('absent field: patch carries undefined (stored minutes untouched)', async () => {
+		state.queue.push([taskRow()]);
+		mockedUpdateTask.mockResolvedValue(taskRow() as never);
+
+		const res = await PUT(event('user-owner', { title: 'Renamed' }));
+
+		expect(res.status).toBe(200);
+		expect(mockedUpdateTask).toHaveBeenCalledWith('t1', 'user-owner', {
+			title: 'Renamed',
+			notes: undefined,
+			dueDate: undefined,
+			priority: undefined,
+			visibility: undefined,
+			recurrenceFrequency: undefined,
+			recurrenceInterval: undefined,
+			completedAt: undefined,
+			tags: undefined
+		});
+		const patch = mockedUpdateTask.mock.calls[0][2] as Record<string, unknown>;
+		// The route passes the key with an undefined value; the real
+		// updateTask filters undefined out of its SQL SET — stored minutes
+		// stay untouched.
+		expect(patch.focusMinutes).toBeUndefined();
+	});
+
+	it('explicit value overwrites (desktop push)', async () => {
+		state.queue.push([taskRow()]);
+		mockedUpdateTask.mockResolvedValue(taskRow() as never);
+
+		const res = await PUT(event('user-owner', { focusMinutes: 42 }));
+
+		expect(res.status).toBe(200);
+		const patch = mockedUpdateTask.mock.calls[0][2] as Record<string, unknown>;
+		expect(patch.focusMinutes).toBe(42);
+	});
+
+	it('null is tolerated as unchanged (phone edits never know the field)', async () => {
+		state.queue.push([taskRow()]);
+		mockedUpdateTask.mockResolvedValue(taskRow() as never);
+
+		const res = await PUT(event('user-owner', { notes: 'x', focusMinutes: null }));
+
+		expect(res.status).toBe(200);
+		const patch = mockedUpdateTask.mock.calls[0][2] as Record<string, unknown>;
+		expect(patch.focusMinutes).toBeUndefined();
+	});
+
+	it('rejects a negative value before any mutation', async () => {
+		state.queue.push([taskRow()]);
+		mockedUpdateTask.mockResolvedValue(taskRow() as never);
+
+		const res = await PUT(event('user-owner', { focusMinutes: -3 }));
+
+		expect(res.status).toBe(400);
+		expect(mockedUpdateTask).not.toHaveBeenCalled();
+	});
+
+	it('rejects a fractional value', async () => {
+		state.queue.push([taskRow()]);
+
+		const res = await PUT(event('user-owner', { focusMinutes: 1.5 }));
+
+		expect(res.status).toBe(400);
+		expect(mockedUpdateTask).not.toHaveBeenCalled();
+	});
+});
+
 describe('DELETE /api/tasks/[id] — deletion sync (canMutateTask rules)', () => {
 	function deleteEvent(userId: string, taskId: string) {
 		// SAFETY: test double — the DELETE handler only reads locals.user and url.

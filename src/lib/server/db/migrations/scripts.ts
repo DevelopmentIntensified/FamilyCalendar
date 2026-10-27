@@ -30,6 +30,7 @@ import m017 from '../../../../../sql/migrations/017_create_child_consent_records
 import m018 from '../../../../../sql/migrations/018_better_auth_tables.sql?raw';
 import m019 from '../../../../../sql/migrations/019-drop-unused-group-tables.sql?raw';
 import m020 from '../../../../../sql/migrations/020-drop-stale-ad-flag-columns.sql?raw';
+import m021 from '../../../../../sql/migrations/021-taskfocus-focus-minutes-commands.sql?raw';
 
 export type BundledMigration = { name: string; sql: string };
 
@@ -55,7 +56,8 @@ const MIGRATIONS: BundledMigration[] = [
 	{ name: '017_create_child_consent_records.sql', sql: m017 },
 	{ name: '018_better_auth_tables.sql', sql: m018 },
 	{ name: '019-drop-unused-group-tables.sql', sql: m019 },
-	{ name: '020-drop-stale-ad-flag-columns.sql', sql: m020 }
+	{ name: '020-drop-stale-ad-flag-columns.sql', sql: m020 },
+	{ name: '021-taskfocus-focus-minutes-commands.sql', sql: m021 }
 ];
 
 /** Sorted ascending by numeric prefix. */

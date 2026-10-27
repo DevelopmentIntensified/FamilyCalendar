@@ -137,6 +137,23 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				assignmentPatch = { assignedTo: null, assignmentStatus: 'none' };
 			}
 
+			// TaskFocus (device-channel spec): absent/null = UNCHANGED (the
+			// phone PUTs edits without knowing this field — a wipe-on-absent
+			// would erase accrued time on every phone edit). An explicit
+			// whole-minutes value >= 0 overwrites; anything else is rejected
+			// BEFORE any mutation, like visibility above.
+			let focusMinutes: number | undefined;
+			if (body.focusMinutes !== undefined && body.focusMinutes !== null) {
+				if (
+					typeof body.focusMinutes !== 'number' ||
+					!Number.isInteger(body.focusMinutes) ||
+					body.focusMinutes < 0
+				) {
+					return json({ error: 'Invalid focusMinutes' }, { status: 400 });
+				}
+				focusMinutes = body.focusMinutes;
+			}
+
 			updated = await updateTask(taskId, user.id, {
 				title: isNonEmptyString(body.title) && body.title.trim() ? body.title.trim() : undefined,
 				notes: body.notes === undefined ? undefined : body.notes,
@@ -154,6 +171,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 					isString(body.completedAt) && !isNaN(Date.parse(body.completedAt))
 						? body.completedAt
 						: undefined,
+				focusMinutes,
 				...assignmentPatch,
 				tags: body.tags === undefined ? undefined : normalizeTags(body.tags)
 			});

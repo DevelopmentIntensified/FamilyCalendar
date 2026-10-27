@@ -250,3 +250,33 @@ describe('GET /api/tasks?eventId= — event-task visibility (issue 164)', () => 
 		expect(body.tasks.map((t) => t.id)).toEqual(['t-priv-mine']);
 	});
 });
+
+describe('POST /api/tasks — focusMinutes (021 device-channel spec)', () => {
+	it('passes an explicit value to createTask', async () => {
+		const res = await POST(event('user-1', { title: 'Dishes', focusMinutes: 25 }));
+
+		expect(res.status).toBe(201);
+		expect(mockedCreateTask.mock.calls[0][0]).toMatchObject({ focusMinutes: 25 });
+	});
+
+	it('absent field creates the task with null (no time yet)', async () => {
+		const res = await POST(event('user-1', { title: 'Dishes' }));
+
+		expect(res.status).toBe(201);
+		expect(mockedCreateTask.mock.calls[0][0]).toMatchObject({ focusMinutes: null });
+	});
+
+	it('rejects a fractional value', async () => {
+		const res = await POST(event('user-1', { title: 'Dishes', focusMinutes: 0.5 }));
+
+		expect(res.status).toBe(400);
+		expect(mockedCreateTask).not.toHaveBeenCalled();
+	});
+
+	it('rejects a negative value', async () => {
+		const res = await POST(event('user-1', { title: 'Dishes', focusMinutes: -1 }));
+
+		expect(res.status).toBe(400);
+		expect(mockedCreateTask).not.toHaveBeenCalled();
+	});
+});

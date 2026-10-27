@@ -542,6 +542,35 @@ export const apiTokens = pgTable('api_tokens', {
 
 export type ApiToken = typeof apiTokens.$inferSelect;
 
+/**
+ * TaskFocus device command channel (021): a phone enqueues start/stop; the
+ * desktop pulls FIFO (oldest first) and acks by DELETE (idempotent). task_id
+ * is nullable — "stop" may target whatever is running.
+ */
+export const taskfocusCommands = pgTable(
+	'taskfocus_commands',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		// 'start' | 'stop'
+		command: text('command').notNull(),
+		taskId: text('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
+		issuedAt: timestamp('issued_at', { withTimezone: true, mode: 'date' })
+			.defaultNow()
+			.notNull()
+	},
+	(table) => ({
+		userQueueIdx: index('taskfocus_commands_user_queue_idx').on(table.userId, table.issuedAt)
+	})
+);
+
+export type TaskfocusCommand = typeof taskfocusCommands.$inferSelect;
+
 export const tasks = pgTable('tasks', {
 	id: text('id')
 		.notNull()
@@ -573,6 +602,10 @@ export const tasks = pgTable('tasks', {
 		.references(() => users.id, { onDelete: 'cascade' }),
 	familyId: text('family_id').references(() => families.id, { onDelete: 'cascade' }),
 	eventId: text('event_id').references(() => events.id, { onDelete: 'cascade' }),
+	// TaskFocus: whole focus minutes accrued by the desktop clock. One writer
+	// (the desktop push); the phone only reads. Null = no time yet — a PUT
+	// without the field never resets it (021 / device-channel spec).
+	focusMinutes: integer('focus_minutes'),
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
 

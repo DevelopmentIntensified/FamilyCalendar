@@ -24,6 +24,7 @@ export async function createTask(data: {
 	userId: string;
 	familyId?: string | null;
 	eventId?: string | null;
+	focusMinutes?: number | null;
 }): Promise<TaskWithTags> {
 	const tags = normalizeTags(data.tags);
 	const created = await db.transaction(async (tx) => {
@@ -41,7 +42,8 @@ export async function createTask(data: {
 				visibility: normalizeTaskVisibility(data.visibility),
 				userId: data.userId,
 				familyId: data.familyId ?? null,
-				eventId: data.eventId ?? null
+				eventId: data.eventId ?? null,
+				focusMinutes: data.focusMinutes ?? null
 			})
 			.returning();
 		if (tags.length > 0) {
@@ -67,6 +69,7 @@ export async function updateTask(
 			| 'assignmentStatus'
 			| 'priority'
 			| 'visibility'
+			| 'focusMinutes'
 		>
 	> & { tags?: string[] | null }
 ): Promise<TaskWithTags | undefined> {

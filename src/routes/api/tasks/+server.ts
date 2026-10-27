@@ -102,6 +102,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 		const assignmentStatus = assignedTo === auth.user.id ? 'accepted' : 'pending';
 
+		// TaskFocus (device-channel spec): focusMinutes is the desktop clock's
+		// field, accepted at create for the desktop's own pushes. Whole
+		// minutes, >= 0; anything else is an invalid request, not a guess.
+		let focusMinutes: number | null = null;
+		if (body.focusMinutes !== undefined && body.focusMinutes !== null) {
+			if (typeof body.focusMinutes !== 'number' || !Number.isInteger(body.focusMinutes) || body.focusMinutes < 0) {
+				return json({ error: 'Invalid focusMinutes' }, { status: 400 });
+			}
+			focusMinutes = body.focusMinutes;
+		}
+
 		const created = await createTask({
 			title: body.title.trim(),
 			notes: body.notes || null,
@@ -115,7 +126,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			tags: normalizeTags(body.tags),
 			eventId: body.eventId || null,
 			familyId,
-			userId: auth.user.id
+			userId: auth.user.id,
+			focusMinutes
 		});
 
 		// Assignment fan-out: tell the assignee there's a pending task.
