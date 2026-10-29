@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Flat-color port of brand/test-icon.svg onto the 108dp adaptive-icon
+     grid (safe zone is the inner 66dp). Tile comes from ic_launcher_background. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+	android:width="108dp"
+	android:height="108dp"
+	android:viewportWidth="108"
+	android:viewportHeight="108">
+
+	<!-- calendar page -->
+	<path
+		android:fillColor="#F8F6F3"
+		android:pathData="M30,34 h48 a6,6 0 0 1 6,6 v42 a6,6 0 0 1 -6,6 h-48 a6,6 0 0 1 -6,-6 v-42 a6,6 0 0 1 6,-6 z" />
+	<!-- page header band (brand teal) -->
+	<path
+		android:fillColor="#366D7E"
+		android:pathData="M36,34 h42 a6,6 0 0 1 6,6 v6 h-60 v-6 a6,6 0 0 1 6,-6 z" />
+	<!-- date cells: rows y=52,62,72 (8dp squares, 4 columns) -->
+	<path android:fillColor="#F1B598" android:pathData="M28,52 h8 a2,2 0 0 1 2,2 v6 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-6 a2,2 0 0 1 2,-2 z" />
+	<path android:fillColor="#F1B598" android:pathData="M42,52 h8 a2,2 0 0 1 2,2 v6 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-6 a2,2 0 0 1 2,-2 z" />
+	<path android:fillColor="#F1B598" android:pathData="M56,52 h8 a2,2 0 0 1 2,2 v6 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-6 a2,2 0 0 1 2,-2 z" />
+	<path android:fillColor="#F1B598" android:pathData="M70,52 h8 a2,2 0 0 1 2,2 v6 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-6 a2,2 0 0 1 2,-2 z" />
+	<path android:fillColor="#F1B598" android:pathData="M28,62 h8 a2,2 0 0 1 2,2 v6 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-6 a2,2 0 0 1 2,-2 z" />
+	<!-- highlighted "today" cell -->
+	<path android:fillColor="#C45E38" android:pathData="M42,62 h8 a2,2 0 0 1 2,2 v6 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-6 a2,2 0 0 1 2,-2 z" />
+	<path android:fillColor="#F1B598" android:pathData="M56,62 h8 a2,2 0 0 1 2,2 v6 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-6 a2,2 0 0 1 2,-2 z" />
+	<path android:fillColor="#F1B598" android:pathData="M70,62 h8 a2,2 0 0 1 2,2 v6 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-6 a2,2 0 0 1 2,-2 z" />
+	<path android:fillColor="#F1B598" android:pathData="M28,72 h8 a2,2 0 0 1 2,2 v6 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-6 a2,2 0 0 1 2,-2 z" />
+	<path android:fillColor="#F1B598" android:pathData="M42,72 h8 a2,2 0 0 1 2,2 v6 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-6 a2,2 0 0 1 2,-2 z" />
+	<path android:fillColor="#F1B598" android:pathData="M56,72 h8 a2,2 0 0 1 2,2 v6 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-6 a2,2 0 0 1 2,-2 z" />
+	<!-- binding rings -->
+	<path android:fillColor="#0F172A" android:pathData="M44.5,27 h5 a2.5,2.5 0 0 1 2.5,2.5 v6 a2.5,2.5 0 0 1 -5,0 v-6 a2.5,2.5 0 0 1 2.5,-2.5 z" />
+	<path android:fillColor="#0F172A" android:pathData="M59.5,27 h5 a2.5,2.5 0 0 1 2.5,2.5 v6 a2.5,2.5 0 0 1 -5,0 v-6 a2.5,2.5 0 0 1 2.5,-2.5 z" />
+</vector>

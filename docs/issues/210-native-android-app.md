@@ -25,8 +25,13 @@ Android app first, Apple (Swift) after. App reuses package id
 
 ## Slices
 
-1. Toolchain + scaffold: gradle wrapper, AGP/Kotlin/Compose BOM current
-   stable, app boots (empty Compose shell) — assembleDebug green.
+1. [DONE 2026-10-27] Toolchain + scaffold: gradle wrapper 9.6.0, AGP 9.4.0,
+   Kotlin (built-in, AGP 9 runtime KGP 2.2.10+ w/ compose-compiler plugin
+   2.4.21), compose BOM 2026.09.00, `:app:assembleDebug` green (36 tasks,
+   `app-debug.apk` exists). Temurin 21 JDK + cmdline-tools 16111833 into
+   `%LOCALAPPDATA%\Android\Sdk`; platform android-37.0 (compileSdk 37 is
+   required by Compose 1.12), targetSdk 36, minSdk 26, build-tools 36.0.0.
+   `local.properties` (sdk.dir) written, gitignored. On-device boot smoke = human step (no emulator/device attached this session).
 2. Session/account bootstrap against `/api`: anonymous account create +
    session persistence (secure storage), claim deep link.
 3. Calendar read: events for window (existing `/api` shape), month + day
@@ -46,7 +51,16 @@ Android app first, Apple (Swift) after. App reuses package id
 ## Toolchain (2026-10-27)
 
 - Machine was bare: only Java 25 installed, no Android Studio, `Sdk/` dir
-  empty of cmdline-tools contents. Plan: WinGet Temurin 21 (AGP-supported
-  LTS), commandline-tools zip into `%LOCALAPPDATA%\Android\Sdk`, sdkmanager
-  licenses + `platform-tools` + `platforms;android-3x` + `build-tools`.
+  empty. Now: WinGet Temurin 21 (AGP runs on JDK 17+, Gradle daemon on 21),
+  cmd-tools `commandlinetools-win-16111833_latest.zip` →
+  `%LOCALAPPDATA%\Android\Sdk`, licenses auto-accepted, `platform-tools` +
+  `platforms;android-37.0` + `build-tools;36.0.0` installed. Gradle dist
+  9.6.0 at `%LOCALAPPDATA%\gradle-dist`.
+- AGP 9 gotcha hit: `org.jetbrains.kotlin.android` plugin now FAILS to
+  apply (built-in Kotlin since AGP 9.0) — removed; compose-compiler plugin
+  (`org.jetbrains.kotlin.plugin.compose` 2.4.21) remains; `kotlin {}`
+  compilerOptions DSL still valid.
 - `local.properties` (`sdk.dir`) is machine-local: stays uncommitted.
+- Gradle invocation quirk on this box: `gradle.bat`/`cmd //c gradlew.bat`
+  wreck JAVA_HOME quoting; working invocation is
+  `java -cp gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain :app:assembleDebug` from `apps/android/`.

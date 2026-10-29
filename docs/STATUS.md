@@ -378,10 +378,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 ## Open
 
 - **#210 native Android app (2026-10-27, in-progress):** Capacitor wrap
-  dropped (#209); real native Kotlin + Compose app under `apps/android/`
-  against new `/api` JSON surface. Stack + 8 slices in the ticket. First
-  slice = toolchain (Temurin 21 + cmdline-tools + SDK licenses) + scaffold
-  assembleDebug green.
+  dropped (#209); real native Kotlin + Compose app under `apps/android/`.
+  SLICE 1 GREEN: AGP 9.4.0 + built-in Kotlin (2.4.21 compose plugin) +
+  BOM 2026.09.00, compileSdk 37/target 36/min 26, assembleDebug →
+  `app-debug.apk`; toolchain facts + invocation quirk in the ticket.
+  Next: slice 2 session/account bootstrap against `/api`, device smoke.
 - **#206 bug-report batch (2026-10-25 export, filed):** 8 open reports triaged into classes — (3) tasks-page 500 cluster (`confirmClear is not defined`, auto-filed ×3 + manual ×2) likely already fixed by 825c095, verify-then-close; (1) "Keep getting 500" needs route repro; (1) mobile tasks/dashboard taps — compare against #202/#205; (1) task-description/scheduling/time-tracking feature request needs owner decomposition. Ticket: `206-bug-report-batch-2026-10-25.md`. Follow-up: all 8 rows verified `resolved` in `bugReports` same evening (zero open), prod probes 200 — no SQL close-out needed; remaining open items are repro-dependent.
 - **#202 mobile tap targets + sandwich menu (2026-10-22, local, uncommitted):**
   chip slice + sandwich slice landed (details in the ticket's Landmark
