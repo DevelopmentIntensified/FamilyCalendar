@@ -16,14 +16,16 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (auth.response) return auth.response;
 
 	try {
-		const id = params.id;
-		if (!id) return new Response(null, { status: 204 });
+		// SAFETY: SvelteKit fills params.id for a [id] route; route-param
+		// absence is not a runtime state. The scoped delete makes an unknown
+		// or other-user's id indistinguishable from a live one — 204 either
+		// way (device-channel spec: idempotent ack, never 404-only).
 		await db
 			.delete(taskfocusCommands)
-			.where(and(eq(taskfocusCommands.id, id), eq(taskfocusCommands.userId, auth.user.id)));
+			.where(and(eq(taskfocusCommands.id, params.id!), eq(taskfocusCommands.userId, auth.user.id)));
 		return new Response(null, { status: 204 });
 	} catch (error) {
 		console.error('Failed to ack command:', error);
-		return apiError('/api/taskfocus/commands/:id', 500, 'Failed to ack command', auth.user?.id ?? null);
+		return apiError('/api/taskfocus/commands/:id', 500, 'Failed to ack command', auth.user.id);
 	}
 };

@@ -4,6 +4,12 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **#211 TaskFocus hub API (2026-10-27, landed):** `tasks.focus_minutes`
+  (desktop writes, phone reads, PUT-without-field NEVER wipes — pinned) +
+  `/api/taskfocus/commands` device channel (phone enqueues start/stop, desktop
+  pulls FIFO incl. stale purge, idempotent 204 ack). Migration 021 idempotent
+  on preview + prod; contract doc updated (`docs/guides/task-api-spec.md`);
+  32 new seam tests green; review notes folded (`211-taskfocus-focus-minutes-and-commands.md`).
 - **#209 Capacitor wrap removed (2026-10-27):** `@capacitor/*` +
   `adapter-static` deps, `cap:*`/`build:capacitor` scripts,
   `capacitor.config.ts`, `scripts/build-capacitor.mjs` out;

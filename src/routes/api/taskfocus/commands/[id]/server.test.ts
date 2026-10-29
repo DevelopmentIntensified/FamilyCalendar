@@ -46,11 +46,6 @@ describe('DELETE /api/taskfocus/commands/[id]', () => {
 		expect(res.status).toBe(204);
 	});
 
-	it('acks with no id the same way (no params row)', async () => {
-		const res = await DELETE(event(undefined, 'u1'));
-		expect(res.status).toBe(204);
-	});
-
 	it('rejects without a session or token', async () => {
 		const res = await DELETE(event('c1', null));
 		expect(res.status).toBe(401);

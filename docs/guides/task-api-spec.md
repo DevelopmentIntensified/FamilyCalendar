@@ -75,10 +75,12 @@ JSON body (examples of accepted values): `title` (required, non-empty),
 `notes`, `dueDate`, `recurrenceFrequency`/`recurrenceInterval`,
 `priority`, `visibility` (`public` default), `tags` (array, normalized),
 `eventId`, `familyId` (omit/null → your own family; explicit id → must be
-a family you belong to), `assignedTo` (defaults you).
+a family you belong to), `assignedTo` (defaults you),
+`focusMinutes` (TaskFocus only: whole focus minutes, ≥ 0; omit → `null`).
 
 - `201 {"success":true,"task":<Task + tags>}`
 - `400 {"error":"Title is required"}` — empty/missing title.
+- `400 {"error":"Invalid focusMinutes"}` — not an integer ≥ 0.
 - `400 {"error":"Invalid visibility"}` — visibility not in the enum.
 - `400 {"error":"Assignee is not a member of this family"}` — assignedTo is
   neither you nor a member of the target family.
@@ -91,6 +93,11 @@ a family you belong to), `assignedTo` (defaults you).
 Partial update; send only the fields you change. Mutations:
 
 - Plain fields: `title`, `notes`, `dueDate` (null clears), `priority`, `tags`.
+- `focusMinutes` (TaskFocus only): **absent or null leaves the stored minutes
+  untouched — never send a guessed value** (the desktop is the only writer of
+  focus time; wiping on phone edits would erase accrued time). An explicit
+  integer ≥ 0 overwrites. `400 {"error":"Invalid focusMinutes"}` for negative
+  or fractional values, rejected before any mutation.
 - `toggleComplete: true` — check off / uncheck. Server-side logic; don't send
   `completedAt` directly alongside it.
 - `advanceToNext: true` — skip the current occurrence of a recurring task.
@@ -139,3 +146,21 @@ kept server-side) — either way it disappears from every `GET /api/tasks` list.
    server-side.** Do not read that as data loss.
 4. Ids are server-generated text; POST echoes them via `task.id`. Use that id
    for PUT/DELETE paths; never send your own ids.
+
+## TaskFocus device command channel
+
+Phone → desktop start/stop, one FIFO queue per token owner. Same Bearer auth.
+
+- `GET /api/taskfocus/commands` — the queue, oldest first:
+  `200 {"commands":[{"id","command":"start"|"stop","taskId" (string or null),"issuedAt" ISO}]}`.
+  Empty list when nothing is pending. Commands older than ~10 minutes are
+  dropped server-side on read (hygiene; check `issuedAt` age before acting
+  anyway). A `stop` may carry `taskId: null` (stop whatever is running).
+- `POST /api/taskfocus/commands` — enqueue one:
+  `{"command":"start","taskId":"<your task id>"}` or `{"command":"stop"}`.
+  `start` requires a `taskId` that exists and is yours — `400` otherwise.
+  → `201 {id,command,taskId,issuedAt}`.
+- `DELETE /api/taskfocus/commands/:id` — ack after the desktop acted.
+  **Idempotent: unknown / already-acked / another-user's id all return
+  `204`, never `404`-only.** Each command is acked once, individually; with
+  several phones enqueuing, the desktop consumes strictly in FIFO order.

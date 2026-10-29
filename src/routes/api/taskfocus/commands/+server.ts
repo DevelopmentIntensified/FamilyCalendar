@@ -55,7 +55,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 		});
 	} catch (error) {
 		console.error('Failed to read commands:', error);
-		return apiError('/api/taskfocus/commands', 500, 'Failed to read commands', auth.user?.id ?? null);
+		return apiError('/api/taskfocus/commands', 500, 'Failed to read commands', auth.user.id);
 	}
 };
 
@@ -101,6 +101,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		);
 	} catch (error) {
 		console.error('Failed to enqueue command:', error);
-		return apiError('/api/taskfocus/commands', 500, 'Failed to enqueue command', auth.user?.id ?? null);
+		return apiError('/api/taskfocus/commands', 500, 'Failed to enqueue command', auth.user.id);
 	}
 };

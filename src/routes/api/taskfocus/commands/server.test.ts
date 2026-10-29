@@ -70,10 +70,6 @@ function getEvent(userId: string | null) {
 	return localsFor(userId) as never;
 }
 
-function deleteEvent(id: string | undefined, userId: string | null) {
-	return { params: { id }, ...localsFor(userId) } as never;
-}
-
 /** Command row the scripted select hands back. */
 function commandRow(over: Partial<Record<string, unknown>> = {}) {
 	return {
