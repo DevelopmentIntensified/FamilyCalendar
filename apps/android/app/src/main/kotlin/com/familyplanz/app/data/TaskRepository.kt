@@ -10,6 +10,10 @@ interface TaskRepository {
 	suspend fun requestFocusStop(): ApiResult<Unit>
 
 	suspend fun monthEvents(year: Int, month: Int): ApiResult<List<EventDto>>
+
+	suspend fun parseQuickAdd(input: String): ApiResult<QuickParseResponse>
+
+	suspend fun createEvent(request: CreateEventRequest): ApiResult<EventDto>
 }
 
 class NetworkTaskRepository(private val api: FamilyPlanzApi) : TaskRepository {
@@ -33,4 +37,10 @@ class NetworkTaskRepository(private val api: FamilyPlanzApi) : TaskRepository {
 		val first = "%04d-%02d-01".format(year, month)
 		return apiCall { api.events(first, last).events }
 	}
+
+	override suspend fun parseQuickAdd(input: String): ApiResult<QuickParseResponse> =
+		apiCall { api.parseEvent(QuickParseRequest(input)) }
+
+	override suspend fun createEvent(request: CreateEventRequest): ApiResult<EventDto> =
+		apiCall { api.createEvent(request).event }
 }

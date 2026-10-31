@@ -1,5 +1,6 @@
 package com.familyplanz.app.data
 
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -22,4 +23,25 @@ interface FamilyPlanzApi {
 	/** Existing calendar endpoint (issue 082, max 62-day window, strict dates). */
 	@GET("api/events")
 	suspend fun events(@Query("from") from: String, @Query("to") to: String): EventsResponse
+
+	/** Natural-language quick-add parse (POST, single or multi-event). */
+	@POST("api/parse-event")
+	suspend fun parseEvent(@Body body: QuickParseRequest): QuickParseResponse
+
+	/** Event creation (201 shape mirrors the spec's task POST). */
+	@POST("api/events")
+	suspend fun createEvent(@Body body: CreateEventRequest): CreatedEventResponse
 }
+
+@Serializable
+data class CreateEventRequest(
+	val title: String,
+	val start: String,
+	val end: String? = null,
+	val allDay: Boolean = false,
+	val location: String? = null,
+	val description: String? = null,
+)
+
+@Serializable
+data class CreatedEventResponse(val success: Boolean = true, val event: EventDto)

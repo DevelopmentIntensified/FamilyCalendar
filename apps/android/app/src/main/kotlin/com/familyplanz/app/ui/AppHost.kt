@@ -35,10 +35,13 @@ enum class PhoneTab { TASKS, CALENDAR }
 fun FamilyPlanzHost(
 	vm: AppViewModel,
 	calVm: CalendarViewModel,
+	quickVm: QuickAddViewModel,
 	initialTab: PhoneTab,
 ) {
 	val taskUi by vm.ui.collectAsStateWithLifecycle()
 	val calUi by calVm.ui.collectAsStateWithLifecycle()
+	val quickUi by quickVm.ui.collectAsStateWithLifecycle()
+	val quickRefresh by quickVm.needsRefresh.collectAsStateWithLifecycle()
 	val snackFlow by vm.snack.collectAsStateWithLifecycle()
 	val snackbarHostState = remember { SnackbarHostState() }
 	var tab by rememberSaveable { mutableIntStateOf(initialTab.ordinal) }
@@ -51,6 +54,12 @@ fun FamilyPlanzHost(
 	}
 	LaunchedEffect(calUi.unauthorized) {
 		if (calUi.unauthorized) vm.invalidateSession()
+	}
+	LaunchedEffect(quickRefresh) {
+		if (quickRefresh) {
+			quickVm.consumeRefresh()
+			calVm.refresh()
+		}
 	}
 
 	when (val state = taskUi) {
@@ -93,6 +102,11 @@ fun FamilyPlanzHost(
 
 					else -> CalendarScreen(
 						state = calUi,
+						quickAdd = quickUi,
+						onQuickAddParse = quickVm::parse,
+						onQuickAddDismiss = quickVm::dismiss,
+						onQuickAddConfirm = quickVm::confirm,
+						onQuickAddUpdate = quickVm::updateDraft,
 						onPrevMonth = { calVm.move(-1) },
 						onNextMonth = { calVm.move(1) },
 						onSelectDay = calVm::selectDay,

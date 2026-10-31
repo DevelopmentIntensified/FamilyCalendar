@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -30,12 +31,18 @@ import java.time.LocalDate
 /**
  * Month view grouped by the server's per-day `date` buckets; a selected day
  * narrows to that day's sections. Recurrence and multi-day splitting are
- * server work (issue 082 pipeline) — this screen only renders.
+ * server work (issue 082 pipeline) — this screen renders only. The quick-add
+ * panel sits above the list (parse = hint, user confirms creation).
  */
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun CalendarScreen(
 	state: CalendarUiState,
+	quickAdd: QuickAddUiState,
+	onQuickAddParse: (String) -> Unit,
+	onQuickAddDismiss: () -> Unit,
+	onQuickAddConfirm: () -> Unit,
+	onQuickAddUpdate: (title: String?, date: String?, startTime: String?, endTime: String?, location: String?, allDay: Boolean?) -> Unit,
 	onPrevMonth: () -> Unit,
 	onNextMonth: () -> Unit,
 	onSelectDay: (String) -> Unit,
@@ -52,39 +59,58 @@ fun CalendarScreen(
 			)
 		},
 	) { padding ->
-		Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-			when {
-				state.loading -> LinearProgressIndicator(
-					modifier = Modifier.fillMaxWidth().padding(16.dp),
-				)
+		Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+			QuickAddPanel(
+				state = quickAdd,
+				onParse = onQuickAddParse,
+				onDismiss = onQuickAddDismiss,
+				onConfirm = onQuickAddConfirm,
+				onUpdateDraft = onQuickAddUpdate,
+			)
+			CalendarBody(state, onSelectDay, onClearDay, onRetry = onPrevMonth)
+		}
+	}
+}
 
-				state.errorText != null -> Column(
-					modifier = Modifier.fillMaxSize().padding(24.dp),
-					verticalArrangement = Arrangement.Center,
-					horizontalAlignment = Alignment.CenterHorizontally,
-				) {
-					Text(state.errorText, style = MaterialTheme.typography.bodyMedium)
-					TextButton(onClick = { onPrevMonth() }) { Text("Retry") }
+@Composable
+fun CalendarBody(
+	state: CalendarUiState,
+	onSelectDay: (String) -> Unit,
+	onClearDay: () -> Unit,
+	onRetry: () -> Unit,
+) {
+	Box(modifier = Modifier.fillMaxSize()) {
+		when {
+			state.loading -> LinearProgressIndicator(
+				modifier = Modifier.fillMaxWidth().padding(16.dp),
+			)
+
+			state.errorText != null -> Column(
+				modifier = Modifier.fillMaxSize().padding(24.dp),
+				verticalArrangement = Arrangement.Center,
+				horizontalAlignment = Alignment.CenterHorizontally,
+			) {
+				Text(state.errorText, style = MaterialTheme.typography.bodyMedium)
+				TextButton(onClick = onRetry) { Text("Retry") }
+			}
+
+			else -> {
+				val sections = if (state.selectedDay != null) {
+					state.grouped.filter { it.day == state.selectedDay }
+				} else {
+					state.grouped
 				}
-
-				else -> {
-					val sections = if (state.selectedDay != null) {
-						state.grouped.filter { it.day == state.selectedDay }
-					} else {
-						state.grouped
+				if (sections.isEmpty()) {
+					Column(
+						modifier = Modifier.fillMaxSize().padding(24.dp),
+						verticalArrangement = Arrangement.Center,
+						horizontalAlignment = Alignment.CenterHorizontally,
+					) {
+						Text("No events this month", style = MaterialTheme.typography.titleMedium)
+						Text("Add events in the web app or via quick add.", style = MaterialTheme.typography.bodyMedium)
 					}
-					if (sections.isEmpty()) {
-						Column(
-							modifier = Modifier.fillMaxSize().padding(24.dp),
-							verticalArrangement = Arrangement.Center,
-							horizontalAlignment = Alignment.CenterHorizontally,
-						) {
-							Text("No events this month", style = MaterialTheme.typography.titleMedium)
-							Text("Add events in the web app.", style = MaterialTheme.typography.bodyMedium)
-						}
-					} else {
-						EventSections(sections, state.selectedDay != null, onSelectDay, onClearDay)
-					}
+				} else {
+					EventSections(sections, state.selectedDay != null, onSelectDay, onClearDay)
 				}
 			}
 		}
@@ -181,7 +207,7 @@ internal fun friendlyTime(iso: String?): String? {
 		val fmt = java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a", java.util.Locale.ENGLISH)
 		fmt.format(
 			java.time.OffsetDateTime.parse(iso)
-				.atZoneSameInstant(java.time.ZoneId.systemDefault())
+				.atZoneSameInstant(java.time.ZoneId.systemDefault()),
 		)
 	} catch (_: java.time.format.DateTimeParseException) {
 		iso.take(16)

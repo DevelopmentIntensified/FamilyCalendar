@@ -16,6 +16,7 @@ import com.familyplanz.app.ui.AppViewModel
 import com.familyplanz.app.ui.CalendarViewModel
 import com.familyplanz.app.ui.FamilyPlanzHost
 import com.familyplanz.app.ui.PhoneTab
+import com.familyplanz.app.ui.QuickAddViewModel
 import kotlinx.coroutines.runBlocking
 
 const val FP_DEBUG_TOKEN = "fp_debug_token"
@@ -40,26 +41,36 @@ class MainActivity : ComponentActivity() {
 			MaterialTheme {
 				val vm: AppViewModel = viewModel(factory = appViewModelFactory())
 				val calVm: CalendarViewModel = viewModel(factory = calendarViewModelFactory())
-				FamilyPlanzHost(vm, calVm, initialTab)
+				val quickVm: QuickAddViewModel = viewModel(factory = quickAddViewModelFactory())
+				FamilyPlanzHost(vm, calVm, quickVm, initialTab)
 			}
 		}
+	}
+
+	private fun taskRepository(store: DataStoreTokenStore): NetworkTaskRepository {
+		val api = ApiFactory.create(BuildConfig.API_BASE_URL) { runBlocking { store.token() } }
+		return NetworkTaskRepository(api)
 	}
 
 	private fun appViewModelFactory() = viewModelFactory {
 		initializer {
 			val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as android.app.Application
 			val store = DataStoreTokenStore(app)
-			val api = ApiFactory.create(BuildConfig.API_BASE_URL) { runBlocking { store.token() } }
-			AppViewModel(NetworkTaskRepository(api), store)
+			AppViewModel(taskRepository(store), store)
 		}
 	}
 
 	private fun calendarViewModelFactory() = viewModelFactory {
 		initializer {
 			val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as android.app.Application
-			val store = DataStoreTokenStore(app)
-			val api = ApiFactory.create(BuildConfig.API_BASE_URL) { runBlocking { store.token() } }
-			CalendarViewModel(NetworkTaskRepository(api))
+			CalendarViewModel(taskRepository(DataStoreTokenStore(app)))
+		}
+	}
+
+	private fun quickAddViewModelFactory() = viewModelFactory {
+		initializer {
+			val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as android.app.Application
+			QuickAddViewModel(taskRepository(DataStoreTokenStore(app)))
 		}
 	}
 }
