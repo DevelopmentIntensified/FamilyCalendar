@@ -47,30 +47,30 @@ class MainActivity : ComponentActivity() {
 		}
 	}
 
-	private fun taskRepository(store: DataStoreTokenStore): NetworkTaskRepository {
+	private fun taskRepository(app: android.app.Application): NetworkTaskRepository {
+		val store = DataStoreTokenStore(app)
 		val api = ApiFactory.create(BuildConfig.API_BASE_URL) { runBlocking { store.token() } }
-		return NetworkTaskRepository(api)
+		return NetworkTaskRepository(api, com.familyplanz.app.data.FileTaskCache(app.filesDir))
 	}
 
 	private fun appViewModelFactory() = viewModelFactory {
 		initializer {
 			val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as android.app.Application
-			val store = DataStoreTokenStore(app)
-			AppViewModel(taskRepository(store), store)
+			AppViewModel(taskRepository(app), DataStoreTokenStore(app))
 		}
 	}
 
 	private fun calendarViewModelFactory() = viewModelFactory {
 		initializer {
 			val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as android.app.Application
-			CalendarViewModel(taskRepository(DataStoreTokenStore(app)))
+			CalendarViewModel(taskRepository(app))
 		}
 	}
 
 	private fun quickAddViewModelFactory() = viewModelFactory {
 		initializer {
 			val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as android.app.Application
-			QuickAddViewModel(taskRepository(DataStoreTokenStore(app)))
+			QuickAddViewModel(taskRepository(app))
 		}
 	}
 }

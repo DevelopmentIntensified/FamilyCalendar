@@ -18,11 +18,22 @@ interface TaskRepository {
 	suspend fun me(): ApiResult<MeDto>
 
 	suspend fun respondToAssignment(taskId: String, status: String): ApiResult<TaskDto>
+
+	/** Offline fallback reads (null = nothing cached yet). */
+	suspend fun cachedTasks(): List<TaskDto>?
+
+	suspend fun cachedEvents(year: Int, month: Int): List<EventDto>?
 }
 
-class NetworkTaskRepository(private val api: FamilyPlanzApi) : TaskRepository {
-	override suspend fun allTasks(): ApiResult<List<TaskDto>> =
-		apiCall { api.tasks().tasks }
+class NetworkTaskRepository(
+	private val api: FamilyPlanzApi,
+	private val cache: TaskCache? = null,
+) : TaskRepository {
+	override suspend fun allTasks(): ApiResult<List<TaskDto>> {
+		val result = apiCall { api.tasks().tasks }
+		if (result is ApiResult.Ok) cache?.saveTasks(result.value)
+		return result
+	}
 
 	override suspend fun toggleComplete(id: String): ApiResult<TaskDto> =
 		apiCall { api.updateTask(id, TaskUpdatePatch.completeToggle().json).task }
@@ -39,7 +50,9 @@ class NetworkTaskRepository(private val api: FamilyPlanzApi) : TaskRepository {
 	override suspend fun monthEvents(year: Int, month: Int): ApiResult<List<EventDto>> {
 		val last = java.time.YearMonth.of(year, month).atEndOfMonth().toString()
 		val first = "%04d-%02d-01".format(year, month)
-		return apiCall { api.events(first, last).events }
+		val result = apiCall { api.events(first, last).events }
+		if (result is ApiResult.Ok) cache?.saveEvents(year, month, result.value)
+		return result
 	}
 
 	override suspend fun parseQuickAdd(input: String): ApiResult<QuickParseResponse> =
@@ -53,4 +66,8 @@ class NetworkTaskRepository(private val api: FamilyPlanzApi) : TaskRepository {
 
 	override suspend fun respondToAssignment(taskId: String, status: String): ApiResult<TaskDto> =
 		apiCall { api.updateTask(taskId, TaskUpdatePatch.respondAssignment(status).json).task }
+
+	override suspend fun cachedTasks(): List<TaskDto>? = cache?.loadTasks()
+
+	override suspend fun cachedEvents(year: Int, month: Int): List<EventDto>? = cache?.loadEvents(year, month)
 }

@@ -73,9 +73,21 @@ class CalendarViewModel(private val repository: TaskRepository) : ViewModel() {
 				)
 			}
 
-			is ApiResult.Err -> _ui.value = when (val error = result.error) {
-				ApiError.Unauthorized -> _ui.value.copy(loading = false, unauthorized = true)
-				else -> _ui.value.copy(loading = false, errorText = error.message)
+			is ApiResult.Err -> when (val error = result.error) {
+				ApiError.Unauthorized -> _ui.value = _ui.value.copy(loading = false, unauthorized = true)
+				else -> {
+					val cached = repository.cachedEvents(month.year, month.monthValue)
+					if (cached != null) {
+						val mapped = cached.map(EventMapper::fromDto)
+						_ui.value = _ui.value.copy(
+							loading = false,
+							events = mapped,
+							grouped = monthSections(mapped, month),
+						)
+					} else {
+						_ui.value = _ui.value.copy(loading = false, errorText = error.message)
+					}
+				}
 			}
 		}
 	}

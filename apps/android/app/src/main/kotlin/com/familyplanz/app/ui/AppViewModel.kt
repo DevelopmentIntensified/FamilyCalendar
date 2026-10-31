@@ -82,7 +82,19 @@ class AppViewModel(
 			val meId = loadMe()
 			when (val result = repository.allTasks()) {
 				is ApiResult.Ok -> _ui.value = AppUiState.Ready(result.value.map(TaskMapper::fromDto), meId)
-				is ApiResult.Err -> presentError(result)
+				is ApiResult.Err -> {
+					if (result.error is ApiError.Unauthorized) {
+						presentError(result)
+					} else {
+						val cached = repository.cachedTasks()
+						if (cached != null) {
+							_ui.value = AppUiState.Ready(cached.map(TaskMapper::fromDto), null)
+							_snack.value = UiSnack("Offline - showing the last synced tasks")
+						} else {
+							presentError(result)
+						}
+					}
+				}
 			}
 		}
 	}
