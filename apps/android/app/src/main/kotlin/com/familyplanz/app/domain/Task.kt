@@ -29,6 +29,10 @@ data class Task(
 	val recurringLabel: String?,
 	val assignedName: String?,
 	val familyTask: Boolean,
+	/** Raw assignment state (`none|pending|accepted|declined`, null absent). */
+	val assignmentStatus: String?,
+	/** Raw assignee id; equals the token owner id when the task is assigned to me. */
+	val assignedTo: String?,
 )
 
 object TaskMapper {
@@ -44,5 +48,7 @@ object TaskMapper {
 			.joinToString(" ")
 			.ifBlank { null },
 		familyTask = dto.familyId != null,
+		assignmentStatus = dto.assignmentStatus?.takeIf { it.isNotBlank() && it != "none" },
+		assignedTo = dto.assignedTo,
 	)
 }

@@ -28,6 +28,10 @@ interface FamilyPlanzApi {
 	@POST("api/parse-event")
 	suspend fun parseEvent(@Body body: QuickParseRequest): QuickParseResponse
 
+	/** The authenticated identity (needed to react to pending assignments). */
+	@GET("api/me")
+	suspend fun me(): MeDto
+
 	/** Event creation (201 shape mirrors the spec's task POST). */
 	@POST("api/events")
 	suspend fun createEvent(@Body body: CreateEventRequest): CreatedEventResponse
@@ -45,3 +49,6 @@ data class CreateEventRequest(
 
 @Serializable
 data class CreatedEventResponse(val success: Boolean = true, val event: EventDto)
+
+@Serializable
+data class MeDto(val id: String, val firstName: String? = null, val lastName: String? = null)

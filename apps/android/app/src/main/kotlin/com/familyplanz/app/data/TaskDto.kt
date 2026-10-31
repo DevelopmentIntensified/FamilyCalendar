@@ -59,6 +59,17 @@ class TaskUpdatePatch private constructor(val json: kotlinx.serialization.json.J
 				put("toggleComplete", true)
 			}
 		)
+
+		/**
+		 * Respond to a pending assignment. Only the assignee may answer
+		 * (403 otherwise, unowned paths never send the field) — the caller
+		 * checks `assignedTo == me` before offering the buttons.
+		 */
+		fun respondAssignment(status: String): TaskUpdatePatch = TaskUpdatePatch(
+			buildJsonObject {
+				put("assignmentStatus", status)
+			}
+		)
 	}
 }
 

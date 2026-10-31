@@ -17,7 +17,7 @@ sealed interface AppUiState {
 
 	data class NeedToken(val note: String? = null) : AppUiState
 
-	data class Ready(val tasks: List<Task>) : AppUiState
+	data class Ready(val tasks: List<Task>, val meId: String?) : AppUiState
 
 	data class Failed(val reason: String) : AppUiState
 }
@@ -50,6 +50,13 @@ class AppViewModel(
 		}
 	}
 
+	private suspend fun loadMe(): String? {
+		return when (val result = repository.me()) {
+			is ApiResult.Ok -> result.value.id
+			else -> null
+		}
+	}
+
 	fun consumeSnack() {
 		_snack.value = null
 	}
@@ -72,8 +79,28 @@ class AppViewModel(
 	fun refresh() {
 		viewModelScope.launch {
 			_ui.value = AppUiState.Loading
+			val meId = loadMe()
 			when (val result = repository.allTasks()) {
-				is ApiResult.Ok -> _ui.value = AppUiState.Ready(result.value.map(TaskMapper::fromDto))
+				is ApiResult.Ok -> _ui.value = AppUiState.Ready(result.value.map(TaskMapper::fromDto), meId)
+				is ApiResult.Err -> presentError(result)
+			}
+		}
+	}
+
+	fun respondAssignment(task: Task, status: String) {
+		viewModelScope.launch {
+			when (val result = repository.respondToAssignment(task.id, status)) {
+				is ApiResult.Ok -> {
+					replaceTask(result.value)
+					_snack.value = UiSnack(
+						if (status == "accepted") {
+							"Task accepted - it moved to your list"
+						} else {
+							"Task declined - back to the assigner"
+						},
+					)
+				}
+
 				is ApiResult.Err -> presentError(result)
 			}
 		}

@@ -98,6 +98,7 @@ fun FamilyPlanzHost(
 						onToggleComplete = vm::toggleComplete,
 						onStartFocus = vm::startFocus,
 						onStopFocus = vm::stopFocus,
+						onRespond = vm::respondAssignment,
 					)
 
 					else -> CalendarScreen(

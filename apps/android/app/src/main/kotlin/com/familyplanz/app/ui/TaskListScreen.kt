@@ -41,7 +41,7 @@ fun TaskListScreen(
 	onToggleComplete: (Task) -> Unit,
 	onStartFocus: (Task) -> Unit,
 	onStopFocus: () -> Unit,
-	snackbarHostState: SnackbarHostState? = null,
+	onRespond: ((Task, String) -> Unit)? = null,
 ) {
 	Scaffold(
 		topBar = {
@@ -55,7 +55,6 @@ fun TaskListScreen(
 				},
 			)
 		},
-		snackbarHost = { snackbarHostState?.let { SnackbarHost(it) } },
 	) { padding ->
 		Box(modifier = Modifier.padding(padding).fillMaxSize()) {
 			when (state) {
@@ -66,7 +65,7 @@ fun TaskListScreen(
 				is AppUiState.Ready -> if (state.tasks.isEmpty()) {
 					EmptyTasks()
 				} else {
-					TaskRows(state.tasks, onToggleComplete, onStartFocus)
+					TaskRows(state, onToggleComplete, onStartFocus, onRespond)
 				}
 
 				is AppUiState.Failed -> Column(
@@ -101,13 +100,14 @@ private fun EmptyTasks() {
 
 @Composable
 private fun TaskRows(
-	tasks: List<Task>,
+	state: AppUiState.Ready,
 	onToggleComplete: (Task) -> Unit,
 	onStartFocus: (Task) -> Unit,
+	onRespond: ((Task, String) -> Unit)?,
 ) {
 	LazyColumn {
-		items(tasks, key = { it.id }) { task ->
-			TaskRow(task, onToggleComplete, onStartFocus)
+		items(state.tasks, key = { it.id }) { task ->
+			TaskRow(state.meId, task, onToggleComplete, onStartFocus, onRespond)
 			HorizontalDivider()
 		}
 	}
@@ -115,9 +115,11 @@ private fun TaskRows(
 
 @Composable
 fun TaskRow(
+	meId: String?,
 	task: Task,
 	onToggleComplete: (Task) -> Unit,
 	onStartFocus: (Task) -> Unit,
+	onRespond: ((Task, String) -> Unit)?,
 ) {
 	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
 		Row(verticalAlignment = Alignment.CenterVertically) {
@@ -145,15 +147,29 @@ fun TaskRow(
 				TextButton(onClick = { onStartFocus(task) }) { Text("Focus") }
 			}
 		}
+		if (meId != null && task.assignmentStatus == "pending" && task.assignedTo == meId && onRespond != null) {
+			Row(
+				horizontalArrangement = Arrangement.spacedBy(8.dp),
+				modifier = Modifier.padding(start = 48.dp, bottom = 8.dp),
+			) {
+				TextButton(onClick = { onRespond(task, "accepted") }) { Text("Accept") }
+				TextButton(onClick = { onRespond(task, "declined") }) { Text("Decline") }
+			}
+		}
 	}
 }
 
 internal fun taskMeta(task: Task): String =
 	buildList {
-		if (task.priority != TaskPriority.NORMAL) add(task.priority.name.lowercase())
+		if (task.priority != TaskPriority.NORMAL) {
+			add(task.priority.name.lowercase())
+		}
 		task.dueDate?.let { add("due ${it.take(10)}") }
-		if (task.familyTask) add("family")
+		if (task.familyTask) {
+			add("family")
+		}
 		task.assignedName?.let { add("→ $it") }
+		task.assignmentStatus?.let { add(it) }
 		task.recurringLabel?.let { add(it) }
 		task.focusMinutes?.let { add("${it}m focus") }
 	}.joinToString(" · ")

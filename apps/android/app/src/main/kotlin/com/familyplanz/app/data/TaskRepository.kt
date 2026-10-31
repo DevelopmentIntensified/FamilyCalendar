@@ -14,6 +14,10 @@ interface TaskRepository {
 	suspend fun parseQuickAdd(input: String): ApiResult<QuickParseResponse>
 
 	suspend fun createEvent(request: CreateEventRequest): ApiResult<EventDto>
+
+	suspend fun me(): ApiResult<MeDto>
+
+	suspend fun respondToAssignment(taskId: String, status: String): ApiResult<TaskDto>
 }
 
 class NetworkTaskRepository(private val api: FamilyPlanzApi) : TaskRepository {
@@ -43,4 +47,10 @@ class NetworkTaskRepository(private val api: FamilyPlanzApi) : TaskRepository {
 
 	override suspend fun createEvent(request: CreateEventRequest): ApiResult<EventDto> =
 		apiCall { api.createEvent(request).event }
+
+	override suspend fun me(): ApiResult<MeDto> =
+		apiCall { api.me() }
+
+	override suspend fun respondToAssignment(taskId: String, status: String): ApiResult<TaskDto> =
+		apiCall { api.updateTask(taskId, TaskUpdatePatch.respondAssignment(status).json).task }
 }
