@@ -4,65 +4,36 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.familyplanz.app.data.ApiFactory
+import com.familyplanz.app.data.DataStoreTokenStore
+import com.familyplanz.app.data.NetworkTaskRepository
+import com.familyplanz.app.ui.AppViewModel
+import com.familyplanz.app.ui.FamilyPlanzHost
+import kotlinx.coroutines.runBlocking
 
-/**
- * Native app shell (issue #210, slice 1). Render-only state until the
- * session bootstrap slice lands: no invented data, no dummy features.
- */
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		enableEdgeToEdge()
 		setContent {
 			MaterialTheme {
-				FamilyPlanzApp()
+				val vm: AppViewModel = viewModel(factory = appViewModelFactory())
+				FamilyPlanzHost(vm)
 			}
 		}
 	}
-}
 
-@Composable
-fun FamilyPlanzApp(modifier: Modifier = Modifier) {
-	Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
-		Column(
-			modifier = Modifier
-				.fillMaxSize()
-				.padding(innerPadding)
-				.padding(horizontal = 24.dp),
-			horizontalAlignment = Alignment.CenterHorizontally,
-			verticalArrangement = Arrangement.Center,
-		) {
-			Text(
-				text = "Family Planz",
-				style = MaterialTheme.typography.headlineMedium,
-				textAlign = TextAlign.Center,
-			)
-			Text(
-				text = "Native Android app skeleton is running.",
-				style = MaterialTheme.typography.bodyMedium,
-				textAlign = TextAlign.Center,
-			)
+	private fun appViewModelFactory() = viewModelFactory {
+		initializer {
+			val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as android.app.Application
+			val store = DataStoreTokenStore(app)
+			val api = ApiFactory.create(BuildConfig.API_BASE_URL) { runBlocking { store.token() } }
+			AppViewModel(NetworkTaskRepository(api), store)
 		}
-	}
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun FamilyPlanzAppPreview() {
-	MaterialTheme {
-		FamilyPlanzApp()
 	}
 }

@@ -32,8 +32,18 @@ Android app first, Apple (Swift) after. App reuses package id
    `%LOCALAPPDATA%\Android\Sdk`; platform android-37.0 (compileSdk 37 is
    required by Compose 1.12), targetSdk 36, minSdk 26, build-tools 36.0.0.
    `local.properties` (sdk.dir) written, gitignored. On-device boot smoke = human step (no emulator/device attached this session).
-2. Session/account bootstrap against `/api`: anonymous account create +
-   session persistence (secure storage), claim deep link.
+2. [DONE 2026-10-29, tests-only pending live smoke] Session + task read +
+   focus enqueue (per `docs/guides/task-api-spec.md`): bearer token storage
+   (DataStore), Retrofit 3.0 + OkHttp 5.5.1 + kotlinx-serialization 1.12,
+   GET `/api/tasks` list screen, PUT `toggleComplete` via manual JSON patch
+   (focusMinutes unconstructible on phone write paths — regression test
+   pinned), POST focus start/stop. Settings screen takes a pasted fp_ token;
+   401 → token screen. 12 wire-contract tests (MockWebServer) green;
+   assembleDebug green. LIVE device smoke vs test env pending owner token
+   (paste path in-app; focus start would enqueue on the owner desktop on
+   purpose). Emulator: medium-phone AVD (google_apis_playstore x86_64-36),
+   WHPX accel, fp-emulator headless service; prior instance died once under
+   concurrent Gradle RAM pressure — relaunch clean.
 3. Calendar read: events for window (existing `/api` shape), month + day
    views. Reuse server date logic; native does rendering only.
 4. Event quick-add + guidance parse via `/api/parse-event`.
