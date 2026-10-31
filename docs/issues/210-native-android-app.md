@@ -32,18 +32,29 @@ Android app first, Apple (Swift) after. App reuses package id
    `%LOCALAPPDATA%\Android\Sdk`; platform android-37.0 (compileSdk 37 is
    required by Compose 1.12), targetSdk 36, minSdk 26, build-tools 36.0.0.
    `local.properties` (sdk.dir) written, gitignored. On-device boot smoke = human step (no emulator/device attached this session).
-2. [DONE 2026-10-29, tests-only pending live smoke] Session + task read +
-   focus enqueue (per `docs/guides/task-api-spec.md`): bearer token storage
-   (DataStore), Retrofit 3.0 + OkHttp 5.5.1 + kotlinx-serialization 1.12,
-   GET `/api/tasks` list screen, PUT `toggleComplete` via manual JSON patch
+2. [DONE 2026-10-31] Session + task read + focus enqueue (per
+   `docs/guides/task-api-spec.md`): bearer token storage (DataStore),
+   Retrofit 3.0 + OkHttp 5.5.1 + kotlinx-serialization 1.12, GET
+   `/api/tasks` list screen, PUT `toggleComplete` via manual JSON patch
    (focusMinutes unconstructible on phone write paths — regression test
-   pinned), POST focus start/stop. Settings screen takes a pasted fp_ token;
-   401 → token screen. 12 wire-contract tests (MockWebServer) green;
-   assembleDebug green. LIVE device smoke vs test env pending owner token
-   (paste path in-app; focus start would enqueue on the owner desktop on
-   purpose). Emulator: medium-phone AVD (google_apis_playstore x86_64-36),
-   WHPX accel, fp-emulator headless service; prior instance died once under
-   concurrent Gradle RAM pressure — relaunch clean.
+   pinned), POST focus start/stop. Settings screen takes a pasted fp_
+   token; 401 → token screen. 12 MockWebServer wire-contract tests green;
+   assembleDebug green.
+   LIVE verified on the WHPX emulator (medium_phone, playstore image):
+   throwaway anonymous account bootstrapped via plain curl on
+   test.familyplanz.com (Accept text/html → anonymous session; POST
+   `/account?/createApiToken` with `x-sveltekit-action: true`), task
+   created via Bearer POST — app opened cold (`-S -W`, **TotalTime 3.1s
+   on SwiftShader**; real-device budget still the human step —
+   structural first frame is network-free), list rendered the row with
+   priority/due/assignee meta. Debug-only bootstrap hook for UI checks:
+   `adb shell am start ... --es fp_debug_token <fp_...>` (release has no
+   hook). NOT driven live: toggle/focus gestures — headless emulator
+   `input tap` unreliable (System UI ANR episodes; reader app took
+   foreground mid-session); those paths stay proven by the wire tests
+   and get re-driven on a stable emulator (snapshot save) or physical
+   device in slice 7 (CI). Focus command enqueue vs a real desktop is
+   owner-consented work (my throwaway queue expires unread).
 3. Calendar read: events for window (existing `/api` shape), month + day
    views. Reuse server date logic; native does rendering only.
 4. Event quick-add + guidance parse via `/api/parse-event`.
