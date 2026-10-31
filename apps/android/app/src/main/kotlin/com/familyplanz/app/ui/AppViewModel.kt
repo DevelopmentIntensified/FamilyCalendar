@@ -79,6 +79,11 @@ class AppViewModel(
 		}
 	}
 
+	/** Hand-hosted hook: any other screen's 401 swaps the host to token entry. */
+	fun invalidateSession(note: String = "Sign in again - mint a new token in the web app (Settings > API tokens).") {
+		_ui.value = AppUiState.NeedToken(note)
+	}
+
 	fun toggleComplete(task: Task) {
 		viewModelScope.launch {
 			when (val result = repository.toggleComplete(task.id)) {

@@ -394,6 +394,11 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
   (SwiftShader) → list rendered a Bearer-created task with full meta.
   Toggle/focus gestures left to wire tests (emulator input flaky);
   focus command enqueue hits owner desktops only with consent.
+  SLICE 3 GREEN (24/24 incl. padded-grid filter test + assembleDebug):
+  calendar tab consumes `GET /api/events` (pre-existing, issue 082) —
+  month/day sections with zone-correct times + RSVP/creator, debug
+  `--es fp_screen calendar` drives it; live-verified on emulator with
+  bearer-created events.
 - **#206 bug-report batch (2026-10-25 export, filed):** 8 open reports triaged into classes — (3) tasks-page 500 cluster (`confirmClear is not defined`, auto-filed ×3 + manual ×2) likely already fixed by 825c095, verify-then-close; (1) "Keep getting 500" needs route repro; (1) mobile tasks/dashboard taps — compare against #202/#205; (1) task-description/scheduling/time-tracking feature request needs owner decomposition. Ticket: `206-bug-report-batch-2026-10-25.md`. Follow-up: all 8 rows verified `resolved` in `bugReports` same evening (zero open), prod probes 200 — no SQL close-out needed; remaining open items are repro-dependent.
 - **#202 mobile tap targets + sandwich menu (2026-10-22, local, uncommitted):**
   chip slice + sandwich slice landed (details in the ticket's Landmark

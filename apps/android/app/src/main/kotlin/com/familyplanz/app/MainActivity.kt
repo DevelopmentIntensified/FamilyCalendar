@@ -13,27 +13,34 @@ import com.familyplanz.app.data.ApiFactory
 import com.familyplanz.app.data.DataStoreTokenStore
 import com.familyplanz.app.data.NetworkTaskRepository
 import com.familyplanz.app.ui.AppViewModel
+import com.familyplanz.app.ui.CalendarViewModel
 import com.familyplanz.app.ui.FamilyPlanzHost
+import com.familyplanz.app.ui.PhoneTab
 import kotlinx.coroutines.runBlocking
 
-/** Debug-only intent bootstrap key (see onCreate). */
 const val FP_DEBUG_TOKEN = "fp_debug_token"
+const val FP_DEBUG_SCREEN = "fp_screen"
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		enableEdgeToEdge()
-		// Debug-only emulator bootstrap: `adb shell am start ... --es fp_debug_token fp_xxx`
-		// seeds a throwaway DataStore token so UI checks run without hand-typing.
-		// Release builds have no such hook (issue #210, slice-2 verification).
+		// Debug-only emulator bootstrap (issue #210): `--es fp_debug_token` seeds
+		// a throwaway DataStore token; `--es fp_screen calendar|tasks` picks the
+		// initial tab so UI checks run without hand-typing. Release has neither.
 		val debugToken = if (BuildConfig.DEBUG) intent?.getStringExtra(FP_DEBUG_TOKEN) else null
 		if (debugToken != null) {
 			runBlocking { DataStoreTokenStore(applicationContext).save(debugToken) }
 		}
+		val initialTab = when (intent?.getStringExtra(FP_DEBUG_SCREEN)) {
+			"calendar" -> PhoneTab.CALENDAR
+			else -> PhoneTab.TASKS
+		}
 		setContent {
 			MaterialTheme {
 				val vm: AppViewModel = viewModel(factory = appViewModelFactory())
-				FamilyPlanzHost(vm)
+				val calVm: CalendarViewModel = viewModel(factory = calendarViewModelFactory())
+				FamilyPlanzHost(vm, calVm, initialTab)
 			}
 		}
 	}
@@ -44,6 +51,15 @@ class MainActivity : ComponentActivity() {
 			val store = DataStoreTokenStore(app)
 			val api = ApiFactory.create(BuildConfig.API_BASE_URL) { runBlocking { store.token() } }
 			AppViewModel(NetworkTaskRepository(api), store)
+		}
+	}
+
+	private fun calendarViewModelFactory() = viewModelFactory {
+		initializer {
+			val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as android.app.Application
+			val store = DataStoreTokenStore(app)
+			val api = ApiFactory.create(BuildConfig.API_BASE_URL) { runBlocking { store.token() } }
+			CalendarViewModel(NetworkTaskRepository(api))
 		}
 	}
 }

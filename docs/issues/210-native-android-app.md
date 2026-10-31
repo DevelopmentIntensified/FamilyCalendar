@@ -55,8 +55,20 @@ Android app first, Apple (Swift) after. App reuses package id
    and get re-driven on a stable emulator (snapshot save) or physical
    device in slice 7 (CI). Focus command enqueue vs a real desktop is
    owner-consented work (my throwaway queue expires unread).
-3. Calendar read: events for window (existing `/api` shape), month + day
-   views. Reuse server date logic; native does rendering only.
+3. [DONE 2026-10-31] Calendar read: no server work needed — `GET
+   /api/events?from=&to=` existed (issue 082) with the exact page-load
+   pipeline (recurring expansion incl. composite occurrence ids,
+   exception overrides RSVP/attendance/creator attach, month grid window
+   ±7d, strict 62-day window, verbatim 400 text). Native: EventDto +
+   `CalendarViewModel`/`CalendarScreen` (bottom-bar tabs Tasks|Calendar,
+   month fetch per view, server-day buckets grouped, day view =
+   client-side filter on the bucket), month-filter regression test for
+   the padded-grid leak + friendlyTime/heading hygiene tests — 24/24
+   unit tests, assembleDebug green. LIVE: month screen rendered the
+   seeded events (priority/time/location/rsvp/creator all present);
+   Prev/Next + Day view gestures still emulator-tap-bound (wire tests
+   cover, on-device drive in slice 7). Events cannot be created from the
+   phone yet (POST /api/events exists server-side if a create slice is wanted).
 4. Event quick-add + guidance parse via `/api/parse-event`.
 5. Tasks: lists, complete/assign handoff flows, recurring cursor display.
 6. Room cache + delta sync (updatedAt watermark, per archive plan ideas).
