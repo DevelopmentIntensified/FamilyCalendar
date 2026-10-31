@@ -16,10 +16,20 @@ import com.familyplanz.app.ui.AppViewModel
 import com.familyplanz.app.ui.FamilyPlanzHost
 import kotlinx.coroutines.runBlocking
 
+/** Debug-only intent bootstrap key (see onCreate). */
+const val FP_DEBUG_TOKEN = "fp_debug_token"
+
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		enableEdgeToEdge()
+		// Debug-only emulator bootstrap: `adb shell am start ... --es fp_debug_token fp_xxx`
+		// seeds a throwaway DataStore token so UI checks run without hand-typing.
+		// Release builds have no such hook (issue #210, slice-2 verification).
+		val debugToken = if (BuildConfig.DEBUG) intent?.getStringExtra(FP_DEBUG_TOKEN) else null
+		if (debugToken != null) {
+			runBlocking { DataStoreTokenStore(applicationContext).save(debugToken) }
+		}
 		setContent {
 			MaterialTheme {
 				val vm: AppViewModel = viewModel(factory = appViewModelFactory())
