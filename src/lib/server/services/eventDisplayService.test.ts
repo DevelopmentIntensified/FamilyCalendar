@@ -1,4 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// #264: expansion reads Exception Overrides through the events actions; stub
+// that DB call so this pure-expansion suite never needs a live Postgres.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- DB action stubbed; spread keeps the real actions module intact.
+vi.mock('$lib/server/db/actions/events', async (importOriginal) => ({
+	// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- real actions spread untouched.
+	...(await importOriginal<Record<string, unknown>>()),
+	getExceptionsByEventIds: vi.fn(async () => [])
+}));
+
 import { expandEventsForUser, monthGridWindow } from './eventDisplayService';
 import type { CalendarEvent } from '$lib/server/db/schema';
 

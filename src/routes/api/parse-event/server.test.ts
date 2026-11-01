@@ -1,4 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// #264: authenticated calls look up the viewer's zone (a userSettings query);
+// stub it so this suite never needs a live Postgres.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the viewer's zone is a settings lookup, not this contract.
+vi.mock('$lib/server/utils/userTimezone', () => ({
+	getUserZone: vi.fn(async () => undefined)
+}));
+
 import { POST, type ParseEventDeps } from './+server';
 
 // Untyped vi.fn()s: fakes flow into the typed deps seam, so the SUT stays
