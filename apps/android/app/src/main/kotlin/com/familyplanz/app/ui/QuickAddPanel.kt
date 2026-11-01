@@ -67,10 +67,13 @@ fun QuickAddPanel(
 				TextButton(onClick = onDismiss) { Text("Dismiss") }
 			}
 
-			is QuickAddUiState.Draft -> DraftCard(state, onDismiss, onConfirm, onUpdateDraft)
+			is QuickAddUiState.Draft -> DraftCard(state, onDismiss, onConfirm, onDraftUpdate)
 		}
 	}
 }
+
+private fun ((title: String?, date: String?, startTime: String?, endTime: String?, location: String?, allDay: Boolean?) -> Unit).updateTitle(value: String) =
+	invoke(value, null, null, null, null, null)
 
 @Composable
 private fun DraftCard(

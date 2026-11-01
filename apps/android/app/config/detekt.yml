@@ -1,0 +1,16 @@
+# App-tuned detekt (issue 210 slice 7): defaults first, only platform
+# idioms relaxed, each with its reason.
+
+naming:
+  FunctionNaming:
+    # Compose composables are PascalCase by platform convention.
+    ignoreAnnotated: ["Composable"]
+
+style:
+  MagicNumber:
+    # Android code carries dp values, timeouts and format lengths at the
+    # call site; a named-constant chase adds noise without catching slop
+    # that matters here.
+    active: false
+  MaxLineLength:
+    maxLineLength: 140

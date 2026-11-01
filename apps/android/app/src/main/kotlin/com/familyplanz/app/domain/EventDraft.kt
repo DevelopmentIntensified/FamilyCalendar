@@ -42,14 +42,19 @@ object EventDraftMapper {
 	 * Missing date blocks creation with `null` — the UI asks for a date.
 	 */
 	fun toCreateRequest(draft: EventDraft, zone: ZoneId): CreateEventRequest? {
-		val date = draft.date ?: return null
-		val time = draft.allDay.not() && !draft.startTime.isNullOrBlank()
-		val startIso = composeIso(date, if (time) draft.startTime!! else "00:00", zone) ?: return null
-		val endIso = if (!time || draft.endTime.isNullOrBlank()) {
-			null
+		val date = draft.date
+		val usesTime = draft.allDay.not() && !draft.startTime.isNullOrBlank()
+		val startIso = if (date != null) {
+			composeIso(date, if (usesTime) draft.startTime!! else "00:00", zone)
 		} else {
-			composeIso(date, draft.endTime!!, zone)
+			null
 		}
+		val endIso = if (usesTime && !draft.endTime.isNullOrBlank()) {
+			composeIso(date!!, draft.endTime!!, zone)
+		} else {
+			null
+		}
+		if (startIso == null) return null
 		return CreateEventRequest(
 			title = draft.title.ifBlank { "Event" },
 			start = startIso,

@@ -2,6 +2,33 @@ plugins {
 	alias(libs.plugins.android.application)
 	alias(libs.plugins.kotlin.compose)
 	alias(libs.plugins.kotlin.serialization)
+	alias(libs.plugins.detekt)
+}
+
+// Local CI gate (issue 210 slice 7): no hosted CI for this repo by owner
+// decree (#184), so the merge gate runs from the command line in one task.
+tasks.register("mobileGate") {
+	group = "verification"
+	description = "Detekt + unit tests + debug APK build"
+	dependsOn("detekt", "testDebugUnitTest", "assembleDebug")
+}
+
+detekt {
+	buildUponDefaultConfig = true
+	parallel = true
+	// Kotlin 2.4 sources get parsed fine by detekt 1.23.8; source root follows
+	// the built-in-Kotlin source set (src/main/kotlin, tests included).
+	// config/detekt.yml only relaxes platform tropes (compose naming, dp
+	// values, long callback signatures) — the slop rules stay on.
+	config.setFrom("config/detekt.yml")
+	source.setFrom(
+		"src/main/kotlin",
+		"src/test/kotlin"
+	)
+	reports {
+		html.required.set(true)
+		xml.required.set(true)
+	}
 }
 
 android {

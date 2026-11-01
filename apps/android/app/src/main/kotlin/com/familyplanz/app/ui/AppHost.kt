@@ -90,8 +90,8 @@ fun FamilyPlanzHost(
 			},
 		) { padding ->
 			Box(modifier = Modifier.padding(padding)) {
-				when (tab) {
-					PhoneTab.TASKS.ordinal -> TaskListScreen(
+				if (tab == PhoneTab.TASKS.ordinal) {
+					TaskSlot(
 						state = state,
 						onRefresh = vm::refresh,
 						onOpenSettings = vm::clearToken,
@@ -100,21 +100,52 @@ fun FamilyPlanzHost(
 						onStopFocus = vm::stopFocus,
 						onRespond = vm::respondAssignment,
 					)
-
-					else -> CalendarScreen(
-						state = calUi,
-						quickAdd = quickUi,
-						onQuickAddParse = quickVm::parse,
-						onQuickAddDismiss = quickVm::dismiss,
-						onQuickAddConfirm = quickVm::confirm,
-						onQuickAddUpdate = quickVm::updateDraft,
-						onPrevMonth = { calVm.move(-1) },
-						onNextMonth = { calVm.move(1) },
-						onSelectDay = calVm::selectDay,
-						onClearDay = calVm::clearDay,
-					)
+				} else {
+					CalendarSlot(calVm, calUi, quickVm, quickUi)
 				}
 			}
 		}
 	}
+}
+
+@Composable
+private fun TaskSlot(
+	state: AppUiState,
+	onRefresh: () -> Unit,
+	onOpenSettings: () -> Unit,
+	onToggleComplete: (com.familyplanz.app.domain.Task) -> Unit,
+	onStartFocus: (com.familyplanz.app.domain.Task) -> Unit,
+	onStopFocus: () -> Unit,
+	onRespond: ((com.familyplanz.app.domain.Task, String) -> Unit)?,
+) {
+	TaskListScreen(
+		state = state,
+		onRefresh = onRefresh,
+		onOpenSettings = onOpenSettings,
+		onToggleComplete = onToggleComplete,
+		onStartFocus = onStartFocus,
+		onStopFocus = onStopFocus,
+		onRespond = onRespond,
+	)
+}
+
+@Composable
+private fun CalendarSlot(
+	calVm: CalendarViewModel,
+	calUi: CalendarUiState,
+	quickVm: QuickAddViewModel,
+	quickUi: QuickAddUiState,
+) {
+	CalendarScreen(
+		state = calUi,
+		quickAdd = quickUi,
+		onQuickAddParse = quickVm::parse,
+		onQuickAddDismiss = quickVm::dismiss,
+		onQuickAddConfirm = quickVm::confirm,
+		onQuickAddUpdate = quickVm::updateDraft,
+		onPrevMonth = { calVm.move(-1) },
+		onNextMonth = { calVm.move(1) },
+		onSelectDay = calVm::selectDay,
+		onClearDay = calVm::clearDay,
+	)
 }
