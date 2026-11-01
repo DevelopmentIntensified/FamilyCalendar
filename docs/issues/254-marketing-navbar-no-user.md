@@ -1,6 +1,6 @@
 # 254 — Marketing pages show "U / User" for signed-in users and hide admin links
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane G).
 
@@ -14,9 +14,9 @@ Signed in, visit /pricing -> avatar 'U', no name/email/admin links.
 
 ## Done
 
-(none yet)
+- `(marketing)/+layout.svelte` now passes `user={data.user}` to `Navbar` (layout.server already returned it).
+- Red-green: new `src/routes/(marketing)/layout.svelte.test.ts` asserts the navbar shows the first name (not "User") and the mobile menu shows admin links for an admin.
 
 ## Needs doing
 
-- Pass `user={data.user}`.
-- Red test first where a seam exists (`tdd`).
+(none)

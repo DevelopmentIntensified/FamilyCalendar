@@ -41,7 +41,7 @@
 
 <div class="mp-canvas flex min-h-screen flex-col">
 	<a class="mp-skip" href="#main">Skip to content</a>
-	<Navbar isLoggedIn={data.isLoggedIn} />
+	<Navbar isLoggedIn={data.isLoggedIn} user={data.user} />
 	<main id="main" class="flex-grow pt-[calc(4rem+env(safe-area-inset-top))]">
 		<div in:fade|local={{ duration: 150 }}>
 			<slot />
