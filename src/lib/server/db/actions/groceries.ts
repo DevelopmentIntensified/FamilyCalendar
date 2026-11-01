@@ -258,7 +258,11 @@ export async function setStoreColour(
 	const key = normalizeGroceryName(label);
 	const scopeWhere =
 		familyId === null
-			? and(eq(groceryStoreColours.userId, viewer.userId), isNull(groceryStoreColours.familyId))
+			? and(
+					eq(groceryStoreColours.userId, viewer.userId),
+					isNull(groceryStoreColours.familyId),
+					eq(groceryStoreColours.storeKey, key)
+				)
 			: and(eq(groceryStoreColours.familyId, familyId), eq(groceryStoreColours.storeKey, key));
 
 	if (data.color === 'auto') {

@@ -14,6 +14,9 @@ interface StubState {
 	inserted: Row | null;
 	conflictSet: Row | null;
 	deleted: number;
+	deleteWhere: unknown;
+	updateSet: Row | null;
+	updateReturning: Row[];
 }
 
 const state = vi.hoisted(
@@ -21,7 +24,10 @@ const state = vi.hoisted(
 		queue: [],
 		inserted: null,
 		conflictSet: null,
-		deleted: 0
+		deleted: 0,
+		deleteWhere: null,
+		updateSet: null,
+		updateReturning: [{ id: 'g1' }]
 	})
 );
 
@@ -45,15 +51,31 @@ vi.mock('$lib/server/db', () => ({
 			}
 		}),
 		delete: () => ({
-			where: () => {
+			where: (where: unknown) => {
 				state.deleted++;
+				state.deleteWhere = where;
 				return Promise.resolve();
+			}
+		}),
+		update: () => ({
+			set: (values: Row) => {
+				state.updateSet = values;
+				return {
+					where: () => ({ returning: () => Promise.resolve(state.updateReturning) })
+				};
 			}
 		})
 	}
 }));
 
+import { PgDialect } from 'drizzle-orm/pg-core';
+import type { SQL } from 'drizzle-orm';
 import { setStoreColour, getStoreColours } from './groceries';
+
+/** Render a captured drizzle where-clause to SQL text + params. */
+function renderWhere(where: unknown) {
+	return new PgDialect().sqlToQuery(where as SQL);
+}
 import { defaultStoreColourKey, isStoreColourKey } from '$lib/data/groceries';
 
 const viewer = { userId: 'u1', familyId: 'fam1' };
@@ -63,6 +85,9 @@ beforeEach(() => {
 	state.inserted = null;
 	state.conflictSet = null;
 	state.deleted = 0;
+	state.deleteWhere = null;
+	state.updateSet = null;
+	state.updateReturning = [{ id: 'g1' }];
 });
 
 describe('setStoreColour', () => {
@@ -117,6 +142,21 @@ describe('setStoreColour', () => {
 		);
 		expect(state.deleted).toBe(1);
 		expect(state.inserted).toBeNull();
+	});
+
+	// 236: personal Auto used to delete every personal colour for the user.
+	it('clearing one personal colour scopes the delete to that store only', async () => {
+		await setStoreColour(viewer, { scope: 'personal', store: 'Aldi', color: 'auto' });
+		const q = renderWhere(state.deleteWhere);
+		expect(q.sql).toContain('"store_key"');
+		expect(q.params).toContain('aldi');
+		expect(q.params).toContain('u1');
+	});
+
+	it('clearing one family colour scopes the delete to that store only', async () => {
+		await setStoreColour(viewer, { scope: 'family', store: 'Aldi', color: 'auto' });
+		const q = renderWhere(state.deleteWhere);
+		expect(q.params).toEqual(expect.arrayContaining(['fam1', 'aldi']));
 	});
 
 	it('refuses to clear the no-store group — it has no colour to carry', async () => {

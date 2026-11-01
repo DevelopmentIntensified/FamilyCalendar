@@ -1,6 +1,6 @@
 # 236 — Resetting one store colour to Auto (Just me) deletes all personal store colours
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane D).
 
@@ -14,9 +14,10 @@ Aldi red, Costco blue, set Aldi to Auto -> Costco colour gone too.
 
 ## Done
 
-(none yet)
+- Confirmed real: personal `scopeWhere` = `userId AND familyId IS NULL` only, so Auto deleted every personal colour row.
+- Added `eq(groceryStoreColours.storeKey, key)` to the personal branch of `setStoreColour`.
+- Red→green: `groceries.test.ts` captures the delete where-clause, renders via `PgDialect`, asserts `store_key`/`aldi` present (personal + family).
 
 ## Needs doing
 
-- Add `eq(groceryStoreColours.storeKey, key)` to personal branch.
-- Red test first where a seam exists (`tdd`).
+(none)
