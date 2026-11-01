@@ -58,7 +58,11 @@ export function parseEvents<T extends EventLike>(eventsData: T[], zone?: string)
 			return [deriveEventProps(e, startDate, endDate)];
 		}
 
-		const diffDays = Math.round(Math.abs(end.diff(start, 'days').days));
+		// #224: count CALENDAR days touched (local midnights crossed), not
+		// rounded 24h blocks — an overnight 22:00→02:00 must reach day 2.
+		const diffDays = Math.round(
+			Math.abs(end.startOf('day').diff(start.startOf('day'), 'days').days)
+		);
 		const days: ParsedDay<T>[] = [];
 
 		for (let i = 0; i <= diffDays; i++) {

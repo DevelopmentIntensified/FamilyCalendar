@@ -98,6 +98,16 @@ describe('parseEvents', () => {
 		expect(inAuckland).toHaveLength(1);
 		expect(inAuckland[0].date.toISOString()).toBe('2026-09-05T12:00:00.000Z'); // Sep 6 local
 	});
+
+	// #224: span counts CALENDAR days, not rounded 24h blocks.
+	it.each([
+		['overnight Mon 22:00 → Tue 02:00', '2026-03-02T22:00:00Z', '2026-03-03T02:00:00Z', ['2026-03-02', '2026-03-03']],
+		['Fri 20:00 → Sun 02:00', '2026-03-06T20:00:00Z', '2026-03-08T02:00:00Z', ['2026-03-06', '2026-03-07', '2026-03-08']],
+		['Mon 23:30 → Wed 00:30', '2026-03-02T23:30:00Z', '2026-03-04T00:30:00Z', ['2026-03-02', '2026-03-03', '2026-03-04']]
+	])('multi-day %s appears on every calendar day it touches (#224)', (_label, start, end, days) => {
+		const result = parseEvents([{ id: 9, start, end }], 'UTC');
+		expect(result.map((r) => r.date.toISOString().slice(0, 10))).toEqual(days);
+	});
 });
 
 describe('groupByDateKey', () => {
