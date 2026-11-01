@@ -386,6 +386,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
+- **#213-#264 repo bug audit (2026-11-01, filed):** 52 visible bugs from 5 audit lanes (calendar UI, tasks/dashboard/groceries, family/auth, API/server, shell/nav). Highest impact: #241 guests can't Claim (placeholder email), #213/#214/#215/#216/#219 UTC-vs-user-zone day math, #217 multi-day events hidden, #220 other-month cache never refreshes, #221 week view week-start. Fix lanes A-G.
 - **#210 native Android app (2026-10-27, in-progress):** Capacitor wrap
   2026-11-01: SLICES 1-8 code/doc DONE (4 f4f966e, 5 bfd5962, 6 be1aba7 file
   cache scoped down, 7 c8a0786 detekt + `:app:mobileGate`, 8 plan doc banner).
