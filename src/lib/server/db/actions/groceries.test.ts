@@ -70,7 +70,7 @@ vi.mock('$lib/server/db', () => ({
 
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
-import { setStoreColour, getStoreColours } from './groceries';
+import { setStoreColour, getStoreColours, moveGroceryItem } from './groceries';
 
 /** Render a captured drizzle where-clause to SQL text + params. */
 function renderWhere(where: unknown) {
@@ -169,6 +169,26 @@ describe('setStoreColour', () => {
 		expect(await setStoreColour(viewer, { scope: 'personal', store: '   ', color: 'sky' })).toBe(
 			false
 		);
+	});
+});
+
+// 237: moving to Mine must hand the item to the viewer, not its adder.
+describe('moveGroceryItem', () => {
+	it('moving a family item to Mine re-owns it to the viewer', async () => {
+		const dad = { userId: 'dad', familyId: 'fam1' };
+		expect(await moveGroceryItem(dad, 'g1', { userId: 'dad', familyId: null })).toBe(true);
+		expect(state.updateSet).toEqual({ familyId: null, userId: 'dad' });
+	});
+
+	it('moving a personal item to Family keeps the owner and sets the family', async () => {
+		const mine = { userId: 'u1', familyId: null };
+		await moveGroceryItem(mine, 'g1', { userId: 'u1', familyId: 'fam1' });
+		expect(state.updateSet).toEqual({ familyId: 'fam1', userId: 'u1' });
+	});
+
+	it('returns false when nothing in scope matched', async () => {
+		state.updateReturning = [];
+		expect(await moveGroceryItem(viewer, 'nope', { userId: 'u1', familyId: null })).toBe(false);
 	});
 });
 

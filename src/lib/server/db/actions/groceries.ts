@@ -162,7 +162,11 @@ export async function setGroceryStores(
 	return true;
 }
 
-/** Move an item between Mine and Family. Store Memory stays where trained. */
+/**
+ * Move an item between Mine and Family. Store Memory stays where trained.
+ * The item is re-owned to the target scope's user (the viewer): a family
+ * item another member added must land on the mover's Mine list, not theirs.
+ */
 export async function moveGroceryItem(
 	scope: GroceryScope,
 	id: string,
@@ -170,7 +174,7 @@ export async function moveGroceryItem(
 ): Promise<boolean> {
 	const updated = await db
 		.update(groceryItems)
-		.set({ familyId: target.familyId })
+		.set({ familyId: target.familyId, userId: target.userId })
 		.where(scopeFilter(scope, id))
 		.returning({ id: groceryItems.id });
 	return updated.length > 0;

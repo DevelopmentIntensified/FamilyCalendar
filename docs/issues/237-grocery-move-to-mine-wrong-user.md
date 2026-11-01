@@ -1,6 +1,6 @@
 # 237 — Moving another member's family grocery item to Mine sends it to their list
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane D).
 
@@ -14,9 +14,10 @@ Mom adds milk (Family); Dad taps To Mine -> toast 'Moved to Mine', item lands in
 
 ## Done
 
-(none yet)
+- Confirmed real: `moveGroceryItem` only set `familyId`; family scopeFilter matches any member's item, so `userId` stayed the adder's.
+- `moveGroceryItem` now sets `userId: target.userId` (target comes from `resolveScope(auth.user.id, …)` in `api/groceries/[id]` = the viewer). Personal→Family is unchanged in effect (personal scopeFilter already pins `userId` to the viewer).
+- Red→green: `groceries.test.ts` `moveGroceryItem` suite (update stub captures `.set()`): family→Mine re-owns to viewer; Mine→Family keeps owner; no-match → false.
 
 ## Needs doing
 
-- When moving to personal, set `userId` to the viewer.
-- Red test first where a seam exists (`tdd`).
+(none)
