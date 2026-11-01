@@ -205,3 +205,22 @@ describe('invitations — what revoking can and cannot do (issue 124)', () => {
 		expect(within(create).getByText(/leaves the current code working/i)).toBeTruthy();
 	});
 });
+
+describe('invitations — follows fresh data (issue 247)', () => {
+	it('redraws the codes when the loader re-runs (create / revoke / family switch)', async () => {
+		const { rerender } = render(InvitationsPage, makeData());
+		expect(screen.getAllByText('HOP-4K2X').length).toBeGreaterThan(0);
+
+		await rerender(makeData([{ ...ACTIVE, code: 'NEW-9ZZZ' } as Invite]));
+
+		expect(screen.queryByText('HOP-4K2X')).toBeNull();
+		expect(screen.getAllByText('NEW-9ZZZ').length).toBeGreaterThan(0);
+	});
+
+	it('drops the create controls when the switched-to family withholds them', async () => {
+		const { rerender } = render(InvitationsPage, makeData());
+		await rerender(makeData([ACTIVE], false));
+
+		expect(screen.queryByRole('button', { name: /create new code/i })).toBeNull();
+	});
+});

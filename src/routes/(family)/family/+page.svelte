@@ -8,8 +8,9 @@
 	import { rolePillClass } from '$lib/utils/familyDisplay';
 	export let data: PageData;
 	export let form: ActionData;
-	let families = data.families;
-	let plan = data.plan;
+	// Reactive (issue 247/248 sweep): minting a code reloads `data` via enhance.
+	$: families = data.families;
+	$: plan = data.plan;
 	$: atFamilyLimit = plan.used >= plan.limit;
 
 	/* ── The approved card (issue 124) ──────────────────────────────────────

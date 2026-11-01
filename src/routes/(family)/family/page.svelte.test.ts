@@ -346,3 +346,17 @@ describe('families list — the approved invitations card (issue 124)', () => {
 		expect(within(rail).getByRole('link', { name: 'Manage invitations' })).toBeTruthy();
 	});
 });
+
+describe('families list — follows fresh data (issues 247/248 sweep)', () => {
+	it('redraws the families and plan figures when the loader re-runs', async () => {
+		const { rerender } = render(FamilyListPage, makeData());
+		expect(screen.getByText('1 family', { exact: false })).toBeTruthy();
+
+		await rerender(
+			makeData([BASE_FAMILY, { ...BASE_FAMILY, id: 'fam-2', name: 'Lake House' }])
+		);
+
+		expect(screen.getByRole('link', { name: /Lake House/ })).toBeTruthy();
+		expect(screen.getByText(/2 families/)).toBeTruthy();
+	});
+});

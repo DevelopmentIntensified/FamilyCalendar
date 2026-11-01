@@ -1,6 +1,6 @@
 # 247 — Invitations page does not update after create/revoke or family switch
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane F).
 
@@ -14,9 +14,13 @@ Create code -> toast but list unchanged; revoke -> still shown; switch family pi
 
 ## Done
 
-(none yet)
+- Red: `invitations/page.svelte.test.ts` "follows fresh data (issue 247)" — rerender with new `data` kept the old code and the create controls (2 failing).
+- Fix: `let { ... } = data` -> `$: ({ invitations, family, canManageInvites, memberships } = data);`. Green 16/16.
+- Sweep of `src/routes/(family)/**` for the same one-time `= data` capture:
+  - `family/+page.svelte` — `let families = data.families; let plan = data.plan;` froze the list after the mint-invite `use:enhance` reload. Now `$:`. Red/green test in `family/page.svelte.test.ts` ("follows fresh data").
+  - `family/[familyId]/+page.svelte` — fixed under #248.
+  - `family/create`, `family/[familyId]/members/add`, `(family)/+layout.svelte` read `data.*` inline — clean.
 
 ## Needs doing
 
-- Reactive destructure.
-- Red test first where a seam exists (`tdd`).
+(none)

@@ -6,7 +6,9 @@
 	import { pushToast } from '$lib/client/toasts';
 
 	export let data: PageData;
-	let { invitations, family, canManageInvites, memberships } = data;
+	// Reactive (issue 247): `invalidateAll()` after create/revoke and the family
+	// switcher both hand this page a fresh `data`; a one-time destructure froze it.
+	$: ({ invitations, family, canManageInvites, memberships } = data);
 
 	let creating = false;
 	let revoking = '';
