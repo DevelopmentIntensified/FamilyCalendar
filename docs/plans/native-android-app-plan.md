@@ -1,5 +1,13 @@
 # Family Planz - Native Android App & AI Integration Plan
 
+> **Superseded for the Android app itself (2026-11-01).** The authoritative
+> plan, stack and slice status is `docs/issues/210-native-android-app.md`:
+> pure native Kotlin + Jetpack Compose in `apps/android/`, **no Capacitor**
+> (the wrap was removed in #209). Sections 2-5 and 8 below (on-device AI,
+> Gemini, text-selection, browser extension) are unscheduled ideas, not
+> commitments; section 1's stack line is corrected below and section 9's
+> phases are replaced by #210's slices.
+
 ## Overview
 
 Build a native Android app with AI-powered event creation from text, Gemini assistant integration, and a browser extension for seamless event capture.
@@ -10,7 +18,7 @@ Build a native Android app with AI-powered event creation from text, Gemini assi
 
 ### Tech Stack
 
-- **App Framework**: Native Android (Kotlin) via Capacitor
+- **App Framework**: Native Android (Kotlin + Jetpack Compose) — no Capacitor (#209/#210)
 - **AI Engine**: Google ML Kit + TensorFlow Lite (local, on-device)
 - **UI**: Jetpack Compose with Material Design 3
 - **Local Storage**: Room Database

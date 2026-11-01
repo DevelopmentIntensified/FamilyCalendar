@@ -69,17 +69,40 @@ Android app first, Apple (Swift) after. App reuses package id
    Prev/Next + Day view gestures still emulator-tap-bound (wire tests
    cover, on-device drive in slice 7). Events cannot be created from the
    phone yet (POST /api/events exists server-side if a create slice is wanted).
-4. Event quick-add + guidance parse via `/api/parse-event`.
-5. Tasks: lists, complete/assign handoff flows, recurring cursor display.
-6. Room cache + delta sync (updatedAt watermark, per archive plan ideas).
-7. Detekt + CI assemble gate; then Play listing (signing key = human step).
-8. Stale `docs/plans/native-android-app-plan.md` (says "via Capacitor") —
-   replace with this issue as the authoritative plan.
+4. [DONE f4f966e] Event quick-add: `POST /api/parse-event` phrase -> editable
+   draft card (parse is a hint, never a commit); confirm POSTs `/api/events`
+   with device-zone offsets (all-day = midnight start, no end). Multi-event
+   phrases deferred (one-at-a-time note); 429 AI-cap text surfaced. Parse wire
+   contract + draft->request conversion table tests.
+5. [DONE bfd5962] Tasks: `GET /api/me` (id + names only) so the phone knows
+   who "me" is; Accept/Decline on rows where `assignedTo == me` and status
+   pending (PUT manual patch, accepted/declined only; server 403 rule tested);
+   rows show assignment + recurrence chips (`recurringLabel` =
+   `recurrenceFrequency`). 39 native + 2 server tests.
+6. [DONE be1aba7, scoped down] Offline cache: JSON files in `filesDir` per list,
+   write-through on success, 401 never reads cache, network error serves last
+   sync with an "offline - showing last synced" snack; corrupt/truncated file =
+   no cache. Full-refresh reconcile stays the sync contract
+   (`docs/guides/task-api-spec.md` "Sync guidance").
+   NOT built, by design for now: Room (no KSP line for Kotlin 2.4.x yet);
+   `updatedAt` watermark delta sync (`tasks` has no `updated_at` column and
+   deletes are hard, so a watermark can't see deletes without a schema
+   migration + tombstones; owner call); WorkManager periodic sync (nothing to
+   sync in the background until a delta exists).
+7. [DONE c8a0786, except human steps] Detekt 1.23.8 (`app/config/detekt.yml`,
+   platform idioms relaxed only) + one local gate task `:app:mobileGate` =
+   detekt + `testDebugUnitTest` + `assembleDebug` (no hosted CI by #184
+   ruling). Play listing draft: `docs/play-store-listing.md`.
+   Human steps left: upload signing key, Play Console submission, real-device
+   drive of toggle/focus/Prev-Next/Day gestures.
+8. [DONE 2026-11-01] `docs/plans/native-android-app-plan.md` gets a superseded
+   banner pointing here; its "via Capacitor" stack line corrected.
 
 ## Needs doing
 
-- Slice 1 beyond toolchain below.
-- API endpoints list per slice as backend side lands.
+- Owner: signing key + Play submission; real-device gesture drive.
+- Owner call: delta sync (needs `tasks.updated_at` + tombstones) — or keep full refresh.
+- Next phase (not slices 1-8): FCM push, iOS app.
 
 ## Toolchain (2026-10-27)
 

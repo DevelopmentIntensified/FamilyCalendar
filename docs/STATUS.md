@@ -387,6 +387,9 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 ## Open
 
 - **#210 native Android app (2026-10-27, in-progress):** Capacitor wrap
+  2026-11-01: SLICES 1-8 code/doc DONE (4 f4f966e, 5 bfd5962, 6 be1aba7 file
+  cache scoped down, 7 c8a0786 detekt + `:app:mobileGate`, 8 plan doc banner).
+  Left = owner: signing key + Play submit, device gesture drive, delta-sync call.
   dropped (#209); real native Kotlin + Compose app under `apps/android/`.
   SLICE 1 GREEN: AGP 9.4.0 + built-in Kotlin (2.4.21 compose plugin) +
   BOM 2026.09.00, compileSdk 37/target 36/min 26, assembleDebug →
