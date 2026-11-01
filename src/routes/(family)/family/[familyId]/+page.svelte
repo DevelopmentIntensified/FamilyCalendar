@@ -24,7 +24,9 @@
 	import { FAMILY_PALETTE } from '$lib/utils/familyPalette';
 	export let data: PageData;
 	export let form: ActionData;
-	const { family, members, currentUserRole, currentUserId, activity = [] } = data;
+	// Reactive (issue 248): every action here ends in a fresh `data`
+	// (enhance / invalidateAll); a one-time destructure froze the page.
+	$: ({ family, members, currentUserRole, currentUserId, activity = [] } = data);
 
 	// The approved colour swatches (`family-detail.html:195-200`). Declared once in
 	// $lib/utils/familyPalette so this page and the create page offer the same six
@@ -71,8 +73,20 @@
 	let editingRole: string | null = null;
 	/** The member whose mobile action sheet is open. */
 	let sheetMember: Member | null = null;
-	let editingName = family?.name || '';
-	let editingColor = family?.color || '#3b82f6';
+	let editingName = '';
+	let editingColor = '#3b82f6';
+	/** The server's name/colour the fields were last seeded from. Re-seed only
+	 * when that changes (rename, other family), so an unrelated reload never
+	 * clobbers a half-typed name. */
+	let seededFamilyKey: string | null = null;
+	$: {
+		const key = `${family?.id}|${family?.name}|${family?.color}`;
+		if (key !== seededFamilyKey) {
+			seededFamilyKey = key;
+			editingName = family?.name || '';
+			editingColor = family?.color || '#3b82f6';
+		}
+	}
 	let savingFamily = false;
 	/** userId of the member whose member-type select is submitting. */
 	let memberTypeBusy: string | null = null;
@@ -81,7 +95,7 @@
 	/** userId of the member whose remove form is submitting. */
 	let removeBusy: string | null = null;
 
-	const isAdmin = currentUserRole === 'creator' || currentUserRole === 'admin';
+	$: isAdmin = currentUserRole === 'creator' || currentUserRole === 'admin';
 
 	function toastResult(result: { type: string }, okMessage: string, failMessage: string) {
 		if (result.type === 'success') {

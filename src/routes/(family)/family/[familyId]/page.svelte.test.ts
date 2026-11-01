@@ -297,3 +297,33 @@ describe('family page — the approved composition (issue 124)', () => {
 		expect(glow?.getAttribute('style')).toContain('59, 130, 246');
 	});
 });
+
+describe('family page — follows fresh data (issue 248)', () => {
+	it('drops a removed member once the loader re-runs', async () => {
+		const { rerender } = render(FamilyManagePage, makeData());
+		expect(screen.getAllByText(/Bob/).length).toBeGreaterThan(0);
+
+		await rerender(makeData({ members: [baseMembers[0]] } as Partial<PageData>));
+
+		expect(screen.queryByText(/Bob/)).toBeNull();
+	});
+
+	it('shows the new name after a rename', async () => {
+		const { rerender } = render(FamilyManagePage, makeData());
+		await rerender(
+			makeData({ family: { id: 'fam1', name: 'Renamed', color: '#3b82f6' } } as Partial<PageData>)
+		);
+
+		expect(screen.getByRole('heading', { name: 'Renamed', level: 1 })).toBeInTheDocument();
+		expect((screen.getByLabelText('Family Name') as HTMLInputElement).value).toBe('Renamed');
+	});
+
+	it('re-gates the admin controls when the viewer role changes', async () => {
+		const { rerender } = render(FamilyManagePage, makeData());
+		await rerender(makeData({ currentUserRole: 'member' }));
+
+		expect(
+			screen.queryByRole('heading', { name: 'Family Settings', level: 2 })
+		).not.toBeInTheDocument();
+	});
+});
