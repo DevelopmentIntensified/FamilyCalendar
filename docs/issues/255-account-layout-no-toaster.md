@@ -1,6 +1,6 @@
 # 255 — /account has no Toaster (export feedback lost) and no bottom nav
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane G).
 
@@ -14,9 +14,9 @@ Export data -> no feedback, failure silent; no bottom tabs on phone.
 
 ## Done
 
-(none yet)
+- `(calendar)/account/+layout.svelte` now renders `<Toaster />` and `<BottomNav isLoggedIn />`; slot wrapped in `pb-20 md:pb-0` so content clears the phone tab bar.
+- Red-green: new `src/routes/(calendar)/account/layout.svelte.test.ts` (pushToast message appears; Primary navigation present).
 
 ## Needs doing
 
-- Add `<Toaster />` and `<BottomNav isLoggedIn />` with bottom padding.
-- Red test first where a seam exists (`tdd`).
+(none)
