@@ -12,6 +12,7 @@ import { sendEmail } from '$lib/utils/sendEmail';
 import { createJWT } from 'oslo/jwt';
 import { NOREPLYEMAIL, EMAILSECRET } from '$env/static/private';
 import { getUrl } from '$lib/utils/getUrl';
+import { isRegisteredAccount } from '$lib/utils/anonymous';
 import { PASSWORD_VERIFY_CALLBACK_PATH } from '../verifyPath';
 
 /**
@@ -65,7 +66,7 @@ export const POST = async (
 	const user = await deps.getUser(userId);
 	// A session whose user row is gone — or an anonymous row with no email
 	// yet — has nothing to resend to, and 401 reveals nothing either way.
-	if (!user || !user.email) {
+	if (!user || !user.email || !isRegisteredAccount(user)) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 

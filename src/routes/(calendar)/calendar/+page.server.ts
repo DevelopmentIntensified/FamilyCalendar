@@ -21,6 +21,7 @@ import { getFamilyModuleSwitches } from '$lib/server/db/actions/dashboardModules
 import { dashboardVisibility } from '$lib/dashboardModules';
 import { GUEST_MERGE_COOKIE } from '$lib/server/services/guestMergeService';
 import { guard } from '$lib/server/utils/guard';
+import { isRegisteredAccount } from '$lib/utils/anonymous';
 
 /** Project an ad display event onto the stored event row shape (stored-only fields are null). */
 function toCalendarEvent(ad: AdDisplayEvent): CalendarEvent {
@@ -52,7 +53,9 @@ export const load: PageServerLoad = async (event) => {
 	// Pending guest-merge from a recent login? Prompt before anything else.
 	// A failing merge check degrades to "no merge" rather than a 500.
 	const stashCookie = event.cookies.get(GUEST_MERGE_COOKIE);
-	if (stashCookie && event.locals.user.email !== null && stashCookie !== userId) {
+	// Only a registered account merges a guest — an Anonymous Account's
+	// placeholder email is non-null since #196 (#241).
+	if (stashCookie && isRegisteredAccount(event.locals.user) && stashCookie !== userId) {
 		const mergeG = await guard('merge-check', false, async () => {
 			const { isClaimableGuest } = await import('$lib/server/services/guestMergeService');
 			return await isClaimableGuest(stashCookie);

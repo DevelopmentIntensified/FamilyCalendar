@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { RequestEvent } from '@sveltejs/kit';
-import { actions, type ClaimRequestDeps } from './+page.server';
+import { actions, load, type ClaimRequestDeps } from './+page.server';
+import { ANONYMOUS_EMAIL_DOMAIN } from '$lib/utils/anonymous';
+
+const GUEST_EMAIL = `guest-1${ANONYMOUS_EMAIL_DOMAIN}`;
 
 // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- the action's return is SvelteKit's bag (Record<string, any>); tests narrow it via successOf/failureOf.
 type RequestResult = Record<string, unknown> | void;
@@ -110,6 +113,17 @@ describe('POST /claim ?/request', () => {
 		expect(deps.issueClaimToken).not.toHaveBeenCalled();
 	});
 
+	it('lets an Anonymous Account (placeholder email) request a claim link (#241)', async () => {
+		const { deps } = makeDeps();
+
+		const result = successOf(
+			await callRequest(mockEvent('claim@user.com', { id: 'guest-1', email: GUEST_EMAIL }), deps)
+		);
+
+		expect(result).toEqual({ success: true, email: 'claim@user.com' });
+		expect(deps.issueClaimToken).toHaveBeenCalledWith('guest-1', 'claim@user.com');
+	});
+
 	it.each(['', 'not-an-email'])('fails with 400 for invalid email %s', async (badEmail) => {
 		const { deps } = makeDeps();
 
@@ -167,5 +181,30 @@ describe('POST /claim ?/request', () => {
 		expect(failure.status).toBe(429);
 		expect(failure.data).toEqual({ error: 'Too many attempts. Try again shortly.' });
 		expect(deps.issueClaimToken).toHaveBeenCalledTimes(10);
+	});
+});
+
+describe('GET /claim load (#241)', () => {
+	// SAFETY: test double — load only reads locals.user.
+	const ev = (user: { id: string; email: string | null } | null) => ({ locals: { user } }) as never;
+
+	async function outcome(user: { id: string; email: string | null } | null) {
+		try {
+			return { data: await load(ev(user)) };
+		} catch (e) {
+			return { redirect: (e as { location?: string }).location };
+		}
+	}
+
+	it('renders the claim form for an Anonymous Account (placeholder email)', async () => {
+		expect(await outcome({ id: 'guest-1', email: GUEST_EMAIL })).toEqual({ data: {} });
+	});
+
+	it('bounces a registered account to /calendar', async () => {
+		expect(await outcome({ id: 'u1', email: 'real@user.com' })).toEqual({ redirect: '/calendar' });
+	});
+
+	it('bounces a signed-out visitor to /login', async () => {
+		expect(await outcome(null)).toEqual({ redirect: '/login' });
 	});
 });

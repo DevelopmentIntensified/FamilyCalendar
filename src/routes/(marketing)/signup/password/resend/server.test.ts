@@ -105,6 +105,22 @@ describe('POST /signup/password/resend', () => {
 		expect(sendEmail).not.toHaveBeenCalled();
 	});
 
+	it('returns 401 for an Anonymous Account (placeholder email) without emailing (#241)', async () => {
+		getUser.mockResolvedValue({
+			id: 'user-1',
+			email: 'user-1@anonymous.placeholder.invalid',
+			firstName: '',
+			lastName: '',
+			emailVerified: false
+		});
+
+		const response = await POST(mockEvent('ip-guest', caller()), deps);
+
+		expect(response.status).toBe(401);
+		expect(sendEmail).not.toHaveBeenCalled();
+		expect(createCode).not.toHaveBeenCalled();
+	});
+
 	it('returns 429 once the per-user rate limit trips', async () => {
 		for (let i = 0; i < 5; i++) {
 			const allowed = await POST(mockEvent('ip-rl', { id: 'user-limited' }), deps);

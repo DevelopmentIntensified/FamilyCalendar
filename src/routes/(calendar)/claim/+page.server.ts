@@ -9,13 +9,14 @@ import {
 } from '$lib/server/services/magicLink';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 import { getUrl } from '$lib/utils/getUrl';
+import { isRegisteredAccount } from '$lib/utils/anonymous';
 
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
 		return redirect(302, '/login');
 	}
 	// Already-claimed users don't need to claim.
-	if (event.locals.user.email) {
+	if (isRegisteredAccount(event.locals.user)) {
 		return redirect(302, '/calendar');
 	}
 	return {};
@@ -50,7 +51,7 @@ const defaultDeps: ClaimRequestDeps = {
 export const actions: Actions = {
 	request: async ({ request, locals }, deps: ClaimRequestDeps = defaultDeps) => {
 		if (!locals.user) return fail(401, { error: 'Not signed in' });
-		if (locals.user.email) return fail(400, { error: 'Account already has an email' });
+		if (isRegisteredAccount(locals.user)) return fail(400, { error: 'Account already has an email' });
 
 		const formData = await request.formData();
 		const rawEmail = formData.get('email');

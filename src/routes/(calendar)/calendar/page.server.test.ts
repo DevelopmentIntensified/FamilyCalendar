@@ -63,8 +63,15 @@ vi.mock('$lib/server/services/verseService', async (importOriginal) => ({
 	getTodayVerse: vi.fn(async () => VERSE)
 }));
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- #241: the merge-candidate DB check is not under test, only who gets prompted.
+vi.mock('$lib/server/services/guestMergeService', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/server/services/guestMergeService')>()),
+	isClaimableGuest: vi.fn(async () => false)
+}));
+
 import { load } from './+page.server';
 import { getTodayVerse } from '$lib/server/services/verseService';
+import { isClaimableGuest } from '$lib/server/services/guestMergeService';
 
 /** A persisted userSettings row, as the group layout hands it to the loader. */
 type SavedSettings = {
@@ -189,5 +196,34 @@ describe('/calendar — the Daily Verse reads BOTH persisted facts (109)', () =>
 	it('hiding the verse carries no warning — a hidden module is not a failure', async () => {
 		const data = await runLoad(settingsFor({ hiddenDashboardModules: ['verse'] }));
 		expect(data.loadWarnings).not.toContain('verse');
+	});
+});
+
+describe('/calendar — guest-merge prompt only for registered accounts (#241)', () => {
+	async function outcome(email: string) {
+		vi.mocked(isClaimableGuest).mockResolvedValue(true);
+		const ev = loadEvent(settingsFor());
+		// SAFETY: same partial event as loadEvent; only email + the stash cookie differ.
+		const e = ev as unknown as {
+			locals: { user: { email: string } };
+			cookies: { get: () => string | undefined };
+		};
+		e.locals.user.email = email;
+		e.cookies.get = () => 'other-guest';
+		try {
+			const data = await load(ev);
+			await (data as { calendarData?: Promise<unknown> } | undefined)?.calendarData;
+			return 'stayed';
+		} catch (err) {
+			return (err as { location?: string }).location ?? 'threw';
+		}
+	}
+
+	it('an Anonymous Account (placeholder email) with a stale stash cookie is not sent to /merge-guest', async () => {
+		expect(await outcome('u-sarah@anonymous.placeholder.invalid')).toBe('stayed');
+	});
+
+	it('a registered account with a claimable stash is sent to /merge-guest', async () => {
+		expect(await outcome('sarah@example.com')).toBe('/merge-guest');
 	});
 });
