@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { afterNavigate } from '$app/navigation';
 	import NotificationBell from '$lib/components/NotificationBell.svelte';
 	import NavbarProfileMenu from '$lib/components/NavbarProfileMenu.svelte';
 	import NavbarMobileMenu from '$lib/components/NavbarMobileMenu.svelte';
@@ -16,6 +17,13 @@
 
 	let isOpen = false;
 	let profileDropdownOpen = false;
+
+	// Issue 253: any navigation (bell goto, bottom tabs, logo) closes menus,
+	// not just clicks on the menu's own links.
+	afterNavigate(() => {
+		isOpen = false;
+		profileDropdownOpen = false;
+	});
 
 	function toggleProfileDropdown() {
 		profileDropdownOpen = !profileDropdownOpen;
