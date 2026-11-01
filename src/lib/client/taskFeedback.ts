@@ -77,12 +77,21 @@ export async function undoTaskWithFeedback(
 	taskId: string,
 	previousDueDate: string | Date | null
 ): Promise<boolean> {
-	const res = await fetch(`/api/tasks/${taskId}`, {
-		method: 'PUT',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ undoComplete: true, previousDueDate: previousDueDate ?? null })
-	});
-	if (!res.ok) return false;
+	let res: Response;
+	try {
+		res = await fetch(`/api/tasks/${taskId}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ undoComplete: true, previousDueDate: previousDueDate ?? null })
+		});
+	} catch {
+		pushToast({ message: "Couldn't undo — check your connection and try again." });
+		return false;
+	}
+	if (!res.ok) {
+		pushToast({ message: "Couldn't undo — the task may have changed. Refresh and try again." });
+		return false;
+	}
 	await invalidateAll();
 	pushToast({ message: '↩️ Undone — back to the previous occurrence.' });
 	return true;
