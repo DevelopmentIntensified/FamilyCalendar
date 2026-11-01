@@ -170,9 +170,9 @@
 			the column already gives it — no row above the chips. -->
 		<div
 			data-testid="month-chips"
-			class="flex min-h-0 flex-1 flex-wrap content-start items-start gap-x-1 gap-y-[2px] overflow-hidden {!selectionMode
-				? 'pointer-events-none'
-				: ''}"
+			class="flex min-h-0 flex-1 flex-wrap content-start items-start gap-x-1 gap-y-[2px] overflow-hidden {selectionMode
+				? 'pointer-events-auto'
+				: 'pointer-events-none'}"
 			inert={!selectionMode ? true : undefined}
 		>
 			<span

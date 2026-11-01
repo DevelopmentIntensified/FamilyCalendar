@@ -4,6 +4,9 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **#212 desktop month Selection mode clicks fell through (2026-11-01):** chips region
+  inherited the column's `pointer-events-none`; now `pointer-events-auto` in Selection
+  mode. Ticket: `212-desktop-month-selection-clicks-fall-through.md`.
 - **#211 TaskFocus hub API (2026-10-27, landed):** `tasks.focus_minutes`
   (desktop writes, phone reads, PUT-without-field NEVER wipes — pinned) +
   `/api/taskfocus/commands` device channel (phone enqueues start/stop, desktop

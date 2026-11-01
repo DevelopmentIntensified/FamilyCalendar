@@ -467,3 +467,26 @@ describe('MonthDayCell compact layout', () => {
 		expect(tools.className).toMatch(/\babsolute\b/);
 	});
 });
+
+// #212 — desktop Selection mode: the column wrapper is pointer-events-none
+// (so empty space reaches the cell overlay). pointer-events INHERITS, so the
+// chips region must opt back in explicitly or clicks fall through to
+// "Open <date>" and selection never toggles.
+describe('MonthDayCell selection hit-testing (#212)', () => {
+	afterEach(cleanup);
+
+	const chipsRegion = () => document.querySelector('[data-testid="month-chips"]')!;
+
+	it('re-enables pointer events on the chips region in selection mode', () => {
+		render(MonthDayCell, {
+			props: { ...base, selectionMode: true, dayEvents: [evt('e1', 'A')], dayTasks: [] }
+		});
+		expect(chipsRegion().className).toMatch(/\bpointer-events-auto\b/);
+		expect(chipsRegion().className).not.toMatch(/\bpointer-events-none\b/);
+	});
+
+	it('keeps the chips region inert outside selection mode', () => {
+		render(MonthDayCell, { props: { ...base, dayEvents: [evt('e1', 'A')], dayTasks: [] } });
+		expect(chipsRegion().className).toMatch(/\bpointer-events-none\b/);
+	});
+});
