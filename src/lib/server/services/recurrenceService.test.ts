@@ -514,3 +514,30 @@ describe('scheduleStep (shared frequency+interval stepping)', () => {
 		).toThrow();
 	});
 });
+
+describe('non-recurring events that overlap the window (#217)', () => {
+	const winStart = d('2026-11-01T00:00:00Z');
+	const winEnd = d('2026-12-01T00:00:00Z');
+	const once = (start: string, end: string | null): RecurringEventInput => ({
+		id: 'trip',
+		start,
+		end,
+		recurrenceFrequency: null,
+		recurrenceInterval: null
+	});
+
+	it.each([
+		['trip started last month, ends inside', '2026-10-15T00:00:00Z', '2026-11-10T00:00:00Z', 1],
+		['spans the whole window', '2026-10-15T00:00:00Z', '2026-12-15T00:00:00Z', 1],
+		['ends exactly at window start', '2026-10-31T20:00:00Z', '2026-11-01T00:00:00Z', 1],
+		['ended before the window', '2026-10-15T00:00:00Z', '2026-10-31T23:00:00Z', 0],
+		['starts inside the window', '2026-11-05T18:00:00Z', '2026-11-05T19:00:00Z', 1],
+		['starts at window end', '2026-12-01T00:00:00Z', '2026-12-02T00:00:00Z', 0],
+		['no end, started before the window', '2026-10-31T23:00:00Z', null, 0],
+		['no end, starts inside the window', '2026-11-02T09:00:00Z', null, 1]
+	])('%s', (_label, start, end, n) => {
+		const out = expandRecurrence(once(start, end), winStart, winEnd);
+		expect(out).toHaveLength(n);
+		if (n) expect(out[0].toISOString()).toBe(new Date(start).toISOString());
+	});
+});

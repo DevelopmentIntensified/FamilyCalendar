@@ -129,8 +129,12 @@ export function expandRecurrence(
 		? event.recurrenceFrequency
 		: null;
 	if (!frequency) {
+		// #217: overlap, not start-in-window — a trip that began last month
+		// and ends this month must still show (loaders query by overlap too).
 		const s = anchor.toJSDate();
-		return s >= windowStart && s < windowEnd ? [s] : [];
+		const endDt = event.end ? parseTimestamp(event.end) : null;
+		const e = endDt?.isValid ? endDt.toJSDate() : s;
+		return s < windowEnd && e >= windowStart ? [s] : [];
 	}
 
 	const interval = Math.max(1, event.recurrenceInterval ?? 1);
