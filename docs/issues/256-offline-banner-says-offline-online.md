@@ -1,6 +1,6 @@
 # 256 — Offline banner says "You're offline" while online
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane G).
 
@@ -14,9 +14,9 @@ Reconnect after queued change -> 'You're offline — … Synced 1 change.'
 
 ## Done
 
-(none yet)
+- `OfflineBanner.svelte`: offline explanation paragraph wrapped in `{#if !online}`; online pending/synced states show only their status line.
+- Red-green: new `src/lib/components/OfflineBanner.svelte.test.ts` (online + 2 pending -> no "You're offline"; offline -> explanation shown).
 
 ## Needs doing
 
-- Wrap offline paragraph in `{#if !online}`.
-- Red test first where a seam exists (`tdd`).
+(none)

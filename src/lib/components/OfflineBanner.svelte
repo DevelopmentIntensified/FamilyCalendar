@@ -63,18 +63,20 @@
 			: 'fixed left-0 right-0 top-[calc(4rem+env(safe-area-inset-top))] z-30 '}border-b border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900"
 		role="status"
 	>
-		<p>
-			You're offline — showing your recent events and tasks (this month, last month, next month).
-			Months or tasks you haven't visited recently aren't available offline. Changes you make now
-			will sync automatically when you're back online.
-		</p>
+		{#if !online}
+			<p class="mb-1 last:mb-0">
+				You're offline — showing your recent events and tasks (this month, last month, next month).
+				Months or tasks you haven't visited recently aren't available offline. Changes you make now
+				will sync automatically when you're back online.
+			</p>
+		{/if}
 		{#if pendingCount > 0}
-			<p class="mt-1 font-medium">
+			<p class="font-medium">
 				{pendingCount}
 				{pendingCount === 1 ? 'change' : 'changes'} waiting to sync.
 			</p>
 		{:else if syncedCount !== null}
-			<p class="mt-1 font-medium">
+			<p class="font-medium">
 				Synced {syncedCount}
 				{syncedCount === 1 ? 'change' : 'changes'}.
 			</p>
