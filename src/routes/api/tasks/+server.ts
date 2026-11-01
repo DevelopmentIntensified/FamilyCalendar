@@ -19,6 +19,7 @@ import { createNotification } from '$lib/server/db/actions/notifications';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { requireUserJson } from '$lib/server/utils/requireUser';
+import { parseFocusStartedAt } from '$lib/server/utils/focusStartedAt';
 
 function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && value.trim().length > 0;
@@ -112,6 +113,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 			focusMinutes = body.focusMinutes;
 		}
+		// 022: when the desktop creates a task that is already running.
+		const focusStartedAt = parseFocusStartedAt(body);
+		if (!focusStartedAt.ok) {
+			return json({ error: 'Invalid focusStartedAt' }, { status: 400 });
+		}
 
 		const created = await createTask({
 			title: body.title.trim(),
@@ -127,7 +133,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			eventId: body.eventId || null,
 			familyId,
 			userId: auth.user.id,
-			focusMinutes
+			focusMinutes,
+			focusStartedAt: focusStartedAt.value ?? null
 		});
 
 		// Assignment fan-out: tell the assignee there's a pending task.

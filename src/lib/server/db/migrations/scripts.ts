@@ -31,6 +31,7 @@ import m018 from '../../../../../sql/migrations/018_better_auth_tables.sql?raw';
 import m019 from '../../../../../sql/migrations/019-drop-unused-group-tables.sql?raw';
 import m020 from '../../../../../sql/migrations/020-drop-stale-ad-flag-columns.sql?raw';
 import m021 from '../../../../../sql/migrations/021-taskfocus-focus-minutes-commands.sql?raw';
+import m022 from '../../../../../sql/migrations/022-taskfocus-focus-started-at.sql?raw';
 
 export type BundledMigration = { name: string; sql: string };
 
@@ -57,7 +58,8 @@ const MIGRATIONS: BundledMigration[] = [
 	{ name: '018_better_auth_tables.sql', sql: m018 },
 	{ name: '019-drop-unused-group-tables.sql', sql: m019 },
 	{ name: '020-drop-stale-ad-flag-columns.sql', sql: m020 },
-	{ name: '021-taskfocus-focus-minutes-commands.sql', sql: m021 }
+	{ name: '021-taskfocus-focus-minutes-commands.sql', sql: m021 },
+	{ name: '022-taskfocus-focus-started-at.sql', sql: m022 }
 ];
 
 /** Sorted ascending by numeric prefix. */

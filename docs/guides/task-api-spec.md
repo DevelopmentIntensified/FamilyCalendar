@@ -63,6 +63,8 @@ Task shape (`Task`; `tags` present on the list endpoint only):
   "familyId": "family id | null (null = personal task)",
   "eventId": "text|null", "eventTitle": "text|null", "eventStart": "text|null",
   "createdAt": "ISO string",
+  "focusMinutes": "integer|null (TaskFocus: whole focus minutes, desktop-written)",
+  "focusStartedAt": "ISO datetime string|null (TaskFocus: current focus began; null = idle)",
   "tags": ["text", …]
 }
 ```
@@ -76,11 +78,13 @@ JSON body (examples of accepted values): `title` (required, non-empty),
 `priority`, `visibility` (`public` default), `tags` (array, normalized),
 `eventId`, `familyId` (omit/null → your own family; explicit id → must be
 a family you belong to), `assignedTo` (defaults you),
-`focusMinutes` (TaskFocus only: whole focus minutes, ≥ 0; omit → `null`).
+`focusMinutes` (TaskFocus only: whole focus minutes, ≥ 0; omit → `null`),
+`focusStartedAt` (TaskFocus only: ISO datetime; omit/null → `null` = idle).
 
 - `201 {"success":true,"task":<Task + tags>}`
 - `400 {"error":"Title is required"}` — empty/missing title.
 - `400 {"error":"Invalid focusMinutes"}` — not an integer ≥ 0.
+- `400 {"error":"Invalid focusStartedAt"}` — not null and not a parseable ISO datetime.
 - `400 {"error":"Invalid visibility"}` — visibility not in the enum.
 - `400 {"error":"Assignee is not a member of this family"}` — assignedTo is
   neither you nor a member of the target family.
@@ -98,6 +102,11 @@ Partial update; send only the fields you change. Mutations:
   focus time; wiping on phone edits would erase accrued time). An explicit
   integer ≥ 0 overwrites. `400 {"error":"Invalid focusMinutes"}` for negative
   or fractional values, rejected before any mutation.
+- `focusStartedAt` (TaskFocus only, 265): **field present → overwrite, explicit
+  `null` included** (null = "stopped"); field absent → unchanged. Unlike
+  `focusMinutes`, null is a value here. `400 {"error":"Invalid focusStartedAt"}`
+  for non-string or unparseable values, rejected before any mutation. Live
+  minutes for a running task = `focusMinutes + (now − focusStartedAt)`.
 - `toggleComplete: true` — check off / uncheck. Server-side logic; don't send
   `completedAt` directly alongside it.
 - `advanceToNext: true` — skip the current occurrence of a recurring task.

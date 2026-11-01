@@ -22,6 +22,7 @@ import { tasks, users } from '$lib/server/db/schema';
 import { createNotification } from '$lib/server/db/actions/notifications';
 import { eq } from 'drizzle-orm';
 import { getUserZone } from '$lib/server/utils/userTimezone';
+import { parseFocusStartedAt } from '$lib/server/utils/focusStartedAt';
 
 /** True for strings (decoded request fields that must be text). */
 function isString(v: unknown): v is string {
@@ -153,6 +154,12 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				}
 				focusMinutes = body.focusMinutes;
 			}
+			// 022: field present = overwrite (explicit null = "stopped"), field
+			// absent = unchanged. Validated before any mutation.
+			const focusStartedAt = parseFocusStartedAt(body);
+			if (!focusStartedAt.ok) {
+				return json({ error: 'Invalid focusStartedAt' }, { status: 400 });
+			}
 
 			updated = await updateTask(taskId, user.id, {
 				title: isNonEmptyString(body.title) && body.title.trim() ? body.title.trim() : undefined,
@@ -172,6 +179,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 						? body.completedAt
 						: undefined,
 				focusMinutes,
+				focusStartedAt: focusStartedAt.value,
 				...assignmentPatch,
 				tags: body.tags === undefined ? undefined : normalizeTags(body.tags)
 			});

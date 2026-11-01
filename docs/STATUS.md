@@ -4,6 +4,10 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **#265 TaskFocus focus time actually reaches the phone (2026-11-01):** `GET /api/tasks`
+  dropped `focusMinutes` (hand-listed select omitted it — PUT 200, GET absent on test);
+  list readers now carry it plus new `focusStartedAt` (migration 022, present-overwrites /
+  absent-keeps, explicit null clears). Ticket: `265-taskfocus-focus-started-at.md`.
 - **#212 desktop month Selection mode clicks fell through (2026-11-01):** chips region
   inherited the column's `pointer-events-none`; now `pointer-events-auto` in Selection
   mode. Ticket: `212-desktop-month-selection-clicks-fall-through.md`.

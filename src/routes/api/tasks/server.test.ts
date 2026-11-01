@@ -75,7 +75,7 @@ import { createTask, getTasksForEvent } from '$lib/server/db/actions/tasks';
 
 const mockedGetEventTasks = vi.mocked(getTasksForEvent);
 
-function event(userId: string, body: Record<string, string>) {
+function event(userId: string, body: Record<string, string | number | null>) {
 	// SAFETY: test double — the handler only reads locals.user and request.json().
 	return {
 		locals: { user: { id: userId } },
@@ -275,6 +275,32 @@ describe('POST /api/tasks — focusMinutes (021 device-channel spec)', () => {
 
 	it('rejects a negative value', async () => {
 		const res = await POST(event('user-1', { title: 'Dishes', focusMinutes: -1 }));
+
+		expect(res.status).toBe(400);
+		expect(mockedCreateTask).not.toHaveBeenCalled();
+	});
+});
+
+describe('POST /api/tasks — focusStartedAt (022: what is running)', () => {
+	it('passes an ISO stamp to createTask as a Date', async () => {
+		const res = await POST(event('user-1', { title: 'Dishes', focusStartedAt: '2026-11-01T12:00:00Z' }));
+
+		expect(res.status).toBe(201);
+		const data = mockedCreateTask.mock.calls[0][0] as { focusStartedAt?: Date | null };
+		expect(data.focusStartedAt).toBeInstanceOf(Date);
+		expect(data.focusStartedAt!.toISOString()).toBe('2026-11-01T12:00:00.000Z');
+	});
+
+	it('absent or null creates the task idle', async () => {
+		await POST(event('user-1', { title: 'Dishes' }));
+		await POST(event('user-1', { title: 'Dishes', focusStartedAt: null }));
+
+		expect(mockedCreateTask.mock.calls[0][0]).toMatchObject({ focusStartedAt: null });
+		expect(mockedCreateTask.mock.calls[1][0]).toMatchObject({ focusStartedAt: null });
+	});
+
+	it('rejects an unparseable stamp', async () => {
+		const res = await POST(event('user-1', { title: 'Dishes', focusStartedAt: 'later' }));
 
 		expect(res.status).toBe(400);
 		expect(mockedCreateTask).not.toHaveBeenCalled();

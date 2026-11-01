@@ -1,6 +1,6 @@
 # 230 — GET /api/tasks never returns focusMinutes
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane C).
 
@@ -14,9 +14,5 @@ Android task rows never show focus minutes.
 
 ## Done
 
-(none yet)
-
-## Needs doing
-
-- Add `focusMinutes: tasks.focusMinutes` to all task list selects.
-- Red test first where a seam exists (`tdd`).
+- Fixed by #265 (2026-11-01): `getTasksForUser`, `getTasksForFamily` and `sectionSelect` now select
+  `focusMinutes` (+ new `focusStartedAt`); red-first select-shape test in `tasks.test.ts`.

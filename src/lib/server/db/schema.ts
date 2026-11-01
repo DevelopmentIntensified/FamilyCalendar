@@ -606,6 +606,9 @@ export const tasks = pgTable('tasks', {
 	// (the desktop push); the phone only reads. Null = no time yet — a PUT
 	// without the field never resets it (021 / device-channel spec).
 	focusMinutes: integer('focus_minutes'),
+	// TaskFocus: when the current focus began, null when idle. Desktop-written;
+	// unlike focusMinutes an explicit null on PUT clears it ("stopped") (022).
+	focusStartedAt: timestamp('focus_started_at', { withTimezone: true }),
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
 

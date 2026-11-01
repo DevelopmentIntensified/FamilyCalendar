@@ -43,6 +43,9 @@ export async function getTasksForUser(
 			assignmentStatus: tasks.assignmentStatus,
 			priority: tasks.priority,
 			visibility: tasks.visibility,
+			// TaskFocus (021/022): the phone reads task time off this list.
+			focusMinutes: tasks.focusMinutes,
+			focusStartedAt: tasks.focusStartedAt,
 			assigneeFirstName: assignee.firstName,
 			assigneeLastName: assignee.lastName,
 			userId: tasks.userId,
@@ -91,6 +94,9 @@ export async function getTasksForFamily(familyId: string, zone?: string): Promis
 			assignmentStatus: tasks.assignmentStatus,
 			priority: tasks.priority,
 			visibility: tasks.visibility,
+			// TaskFocus (021/022): the phone reads task time off this list.
+			focusMinutes: tasks.focusMinutes,
+			focusStartedAt: tasks.focusStartedAt,
 			assigneeFirstName: assignee.firstName,
 			assigneeLastName: assignee.lastName,
 			userId: tasks.userId,
@@ -125,6 +131,8 @@ const sectionSelect = {
 	assignmentStatus: tasks.assignmentStatus,
 	priority: tasks.priority,
 	visibility: tasks.visibility,
+	focusMinutes: tasks.focusMinutes,
+	focusStartedAt: tasks.focusStartedAt,
 	assigneeFirstName: assignee.firstName,
 	assigneeLastName: assignee.lastName,
 	userId: tasks.userId,

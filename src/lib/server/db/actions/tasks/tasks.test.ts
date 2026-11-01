@@ -31,6 +31,8 @@ interface StubState {
 	updateCount: number;
 	/** Latest UPDATE patch. */
 	updatePatch: Record<string, unknown> | null;
+	/** Column shape handed to each select() call, in call order. */
+	capturedSelects: (Record<string, unknown> | undefined)[];
 }
 
 const state = vi.hoisted(
@@ -39,7 +41,8 @@ const state = vi.hoisted(
 		capturedWhere: [],
 		capturedJoins: [],
 		updateCount: 0,
-		updatePatch: null
+		updatePatch: null,
+		capturedSelects: []
 	})
 );
 
@@ -78,7 +81,10 @@ vi.mock('$lib/server/db', () => {
 	};
 	return {
 		db: {
-			select: () => node(),
+			select: (shape?: Record<string, unknown>) => {
+				state.capturedSelects.push(shape);
+				return node();
+			},
 			update: () => ({
 				set: (patch: Record<string, unknown>) => {
 					state.updatePatch = patch;
@@ -421,6 +427,30 @@ describe('task scoping section queries (issue 019)', () => {
 		expect((await getTasksForFamily('fam-1')).map((t) => [t.id, t.visibility])).toEqual([
 			['t-f', 'public']
 		]);
+	});
+
+	it('list readers select the TaskFocus focus fields (021/022) — the phone reads time off GET', async () => {
+		// An explicit column list that omits focusMinutes accepts the desktop's
+		// PUT and then drops the value on every read (test.familyplanz.com,
+		// 2026-10-30). Every list reader must carry both focus fields.
+		const readers: [string, () => Promise<unknown>][] = [
+			['getTasksForUser', () => getTasksForUser('user-a')],
+			['getTasksForFamily', () => getTasksForFamily('fam-1')],
+			['getMyTasks', () => getMyTasks('user-a')]
+		];
+		for (const [name, read] of readers) {
+			state.queue = [[], [], [], []];
+			state.capturedSelects = [];
+			await read();
+			const listSelects = state.capturedSelects.filter(
+				(shape): shape is Record<string, unknown> => !!shape && 'title' in shape
+			);
+			expect(listSelects.length, `${name} ran no list select`).toBeGreaterThan(0);
+			for (const shape of listSelects) {
+				expect(Object.keys(shape), name).toContain('focusMinutes');
+				expect(Object.keys(shape), name).toContain('focusStartedAt');
+			}
+		}
 	});
 
 	it('sync-before-read: getTasksForUser pins an overdue recurring row before listing (issue 110)', async () => {

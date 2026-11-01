@@ -101,7 +101,7 @@ function taskRow(over: Partial<TaskStub> = {}): TaskStub {
 	};
 }
 
-function event(userId: string, body: Record<string, string | null>) {
+function event(userId: string, body: Record<string, string | number | null>) {
 	// SAFETY: test double — the handler only reads locals.user, url.pathname, and request.json().
 	return {
 		locals: { user: { id: userId } },
@@ -310,6 +310,62 @@ describe('PUT /api/tasks/[id] — focusMinutes (021 device-channel spec)', () =>
 		state.queue.push([taskRow()]);
 
 		const res = await PUT(event('user-owner', { focusMinutes: 1.5 }));
+
+		expect(res.status).toBe(400);
+		expect(mockedUpdateTask).not.toHaveBeenCalled();
+	});
+});
+
+describe('PUT /api/tasks/[id] — focusStartedAt (022: what is running)', () => {
+	it('absent field leaves the stored stamp unchanged (phone edits)', async () => {
+		state.queue.push([taskRow()]);
+		mockedUpdateTask.mockResolvedValue(taskRow() as never);
+
+		const res = await PUT(event('user-owner', { title: 'Renamed' }));
+
+		expect(res.status).toBe(200);
+		const patch = mockedUpdateTask.mock.calls[0][2] as Record<string, unknown>;
+		expect(patch.focusStartedAt).toBeUndefined();
+	});
+
+	it('an ISO stamp overwrites (desktop start)', async () => {
+		state.queue.push([taskRow()]);
+		mockedUpdateTask.mockResolvedValue(taskRow() as never);
+
+		const res = await PUT(event('user-owner', { focusStartedAt: '2026-11-01T12:00:00.0000000Z' }));
+
+		expect(res.status).toBe(200);
+		const patch = mockedUpdateTask.mock.calls[0][2] as Record<string, unknown>;
+		expect(patch.focusStartedAt).toBeInstanceOf(Date);
+		expect((patch.focusStartedAt as Date).toISOString()).toBe('2026-11-01T12:00:00.000Z');
+	});
+
+	it('explicit null clears it (desktop stop) — unlike focusMinutes, null is a value', async () => {
+		state.queue.push([taskRow()]);
+		mockedUpdateTask.mockResolvedValue(taskRow() as never);
+
+		const res = await PUT(event('user-owner', { focusMinutes: 30, focusStartedAt: null }));
+
+		expect(res.status).toBe(200);
+		const patch = mockedUpdateTask.mock.calls[0][2] as Record<string, unknown>;
+		expect('focusStartedAt' in patch).toBe(true);
+		expect(patch.focusStartedAt).toBeNull();
+		expect(patch.focusMinutes).toBe(30);
+	});
+
+	it('rejects an unparseable stamp before any mutation', async () => {
+		state.queue.push([taskRow()]);
+
+		const res = await PUT(event('user-owner', { focusStartedAt: 'soon' }));
+
+		expect(res.status).toBe(400);
+		expect(mockedUpdateTask).not.toHaveBeenCalled();
+	});
+
+	it('rejects a non-string stamp', async () => {
+		state.queue.push([taskRow()]);
+
+		const res = await PUT(event('user-owner', { focusStartedAt: 12345 }));
 
 		expect(res.status).toBe(400);
 		expect(mockedUpdateTask).not.toHaveBeenCalled();
