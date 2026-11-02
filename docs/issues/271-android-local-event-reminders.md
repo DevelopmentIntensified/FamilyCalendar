@@ -15,6 +15,7 @@ Events carry `reminderMinutes` (EventDto.kt:25, from GET /api/events). The phone
 ## Needs doing
 
 - Schedule a local notification at `start - reminderMinutes` for each upcoming cached event occurrence (recurring occurrences arrive expanded with composite ids); cancel ones that disappeared/changed; dedupe by occurrence id.
+- Expose one entry point (e.g. `ReminderScheduler.rescheduleFromCache()`) that #273's FCM `events_changed` handler and the refresh worker both call.
 - Exact timing: `USE_EXACT_ALARM` (calendar apps qualify under Play policy) or `SCHEDULE_EXACT_ALARM` + `canScheduleExactAlarms()` fallback to inexact `setAndAllowWhileIdle`; document the choice.
 - Reschedule on: app start, after every successful events fetch (incl. the #268 worker), BOOT_COMPLETED, time/zone change. Make sure the next ~14 days are covered across a month boundary (fetch next month too when needed).
 - Notification channel 'Event reminders'; POST_NOTIFICATIONS runtime request (API 33+) with a clear rationale; tap opens the app on that day.

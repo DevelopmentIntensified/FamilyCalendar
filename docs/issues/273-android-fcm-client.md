@@ -16,6 +16,7 @@ Depends on #272's API (`POST/DELETE /api/devices`). Firebase project + config ar
 
 - Add firebase-messaging WITHOUT the google-services Gradle plugin: init Firebase manually from BuildConfig fields read from `apps/android/firebase.properties` (gitignored; projectId, applicationId, apiKey, gcmSenderId). Absent -> push disabled, app works, build green.
 - FirebaseMessagingService: onNewToken -> POST /api/devices (when a bearer token exists; retry via WorkManager on failure); onMessageReceived -> notification on an 'Family activity' channel, tap opens the app (deep link from data.link best-effort). Register after token entry; DELETE on sign-out/token clear.
+- Data message `type=events_changed` (no UI): enqueue an expedited one-off refresh (WorkManager) of cached events for the current + next month, then re-run #271's reminder scheduler, so a reminder follows an event the family moved/added/deleted on the server.
 - Reuse #271's POST_NOTIFICATIONS permission flow and notification helper (don't duplicate).
 - Wire-contract test (MockWebServer) for register/unregister; unit test for message -> notification mapping; owner doc: create Firebase project, add Android app com.familyplanz.app, copy values into firebase.properties, create service account -> Vercel env FCM_SERVICE_ACCOUNT_JSON.
 - Gate: Android `:app:mobileGate` / web `npm run build` + targeted vitest green.
