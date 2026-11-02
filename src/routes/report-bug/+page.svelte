@@ -31,6 +31,11 @@
 	let from = '';
 	$: if (data.from) from = data.from;
 
+	// Issue 258: this route sits outside the app layouts (no navbar), so the
+	// form needs its own way out, and a pending state while it sends.
+	$: backHref = from || '/calendar';
+	let submitting = false;
+
 	$: echoedDescription =
 		form && 'description' in form && isString(form.description) ? form.description : '';
 </script>
@@ -69,6 +74,12 @@
 					</a>
 				</div>
 			{:else}
+				<a
+					href={backHref}
+					class="-ml-2 mb-3 inline-flex min-h-[44px] items-center gap-1 rounded-lg px-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+				>
+					<span aria-hidden="true">←</span> Back
+				</a>
 				<h1 class="mb-1 text-xl font-bold text-slate-900">Report a Bug</h1>
 				<p class="mb-5 text-sm text-slate-500">
 					Something not working? Tell us what happened and we'll look into it.
@@ -82,8 +93,13 @@
 					method="POST"
 					action="?/submit"
 					use:enhance={() => {
+						submitting = true;
 						return async ({ update }) => {
-							await update({ reset: false });
+							try {
+								await update({ reset: false });
+							} finally {
+								submitting = false;
+							}
 						};
 					}}
 					class="space-y-4"
@@ -122,9 +138,10 @@
 
 					<button
 						type="submit"
-						class="rounded-full bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+						disabled={submitting}
+						class="rounded-full bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
 					>
-						Submit Bug Report
+						{submitting ? 'Submitting…' : 'Submit Bug Report'}
 					</button>
 				</form>
 			{/if}
