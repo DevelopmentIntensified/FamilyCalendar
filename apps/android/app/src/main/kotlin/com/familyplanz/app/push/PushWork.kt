@@ -16,8 +16,15 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.familyplanz.app.R
+import com.familyplanz.app.data.FileTaskCache
+import com.familyplanz.app.reminders.ReminderPlanner
+import com.familyplanz.app.sync.RefreshOutcome
 import com.familyplanz.app.sync.refreshAndReplan
 import com.familyplanz.app.sync.toWorkResult
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 private val ONLINE = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
@@ -37,9 +44,26 @@ class WorkManagerEventsRefresh(private val context: Context) : EventsRefreshSche
 	}
 }
 
-/** Refresh the reminder-horizon months, then #271's re-plan. No UI except the pre-31 expedited shim. */
+/**
+ * Refresh the reminder-horizon months, #271's re-plan, then the 'Event updates'
+ * summary from the before/after cache diff (only months that had a snapshot).
+ */
 class EventsChangedWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-	override suspend fun doWork(): Result = refreshAndReplan(applicationContext).toWorkResult()
+	override suspend fun doWork(): Result {
+		val app = applicationContext
+		val cache = FileTaskCache(app.filesDir)
+		val months = ReminderPlanner.monthsToCover(LocalDate.now())
+		val before = months.associateWith { cache.loadEvents(it.year, it.monthValue) }
+		val outcome = refreshAndReplan(app)
+		val snapshotted = months.filter { before[it] != null }
+		if (outcome == RefreshOutcome.REFRESHED && snapshotted.isNotEmpty()) {
+			val old = snapshotted.flatMap { before[it].orEmpty() }
+			val new = snapshotted.flatMap { cache.loadEvents(it.year, it.monthValue).orEmpty() }
+			EventUpdatePlanner.notice(old, new, Instant.now(), ZoneId.systemDefault(), Locale.getDefault())
+				?.let { EventUpdateNotifier.post(app, it) }
+		}
+		return outcome.toWorkResult()
+	}
 
 	/** Below API 31 expedited work runs as a foreground service and needs a (silent) notification. */
 	override suspend fun getForegroundInfo(): ForegroundInfo {
