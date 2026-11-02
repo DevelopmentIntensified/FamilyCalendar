@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { building } from '$app/environment';
 	import { afterNavigate } from '$app/navigation';
 	import NotificationBell from '$lib/components/NotificationBell.svelte';
 	import NavbarProfileMenu from '$lib/components/NavbarProfileMenu.svelte';
@@ -53,7 +54,8 @@
 	// Longest prefix wins, so /calendar/tasks highlights Tasks - not Calendar.
 	$: activeHref = resolveActiveHref($page.url.pathname, navItems);
 	$: isActive = (href: string) => activeHref === href;
-	$: bugHref = reportBugHref($page.url.pathname + $page.url.search);
+	// Prerendered pages may not read url.search; the path alone is enough there.
+	$: bugHref = reportBugHref($page.url.pathname + (building ? '' : $page.url.search));
 
 	function toggleMenu() {
 		isOpen = !isOpen;

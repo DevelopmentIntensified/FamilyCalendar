@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { building } from '$app/environment';
 	import { reportBugHref } from '$lib/utils/reportBug';
 
 	$: status = $page.status ?? 500;
@@ -18,7 +19,8 @@
 		: isClientError
 			? $page.error?.message || 'This page isn’t available to you.'
 			: "We've been notified automatically and will look into it. Your data is safe — try going back to your calendar.";
-	$: bugHref = reportBugHref($page.url ? $page.url.pathname + $page.url.search : '');
+	// Prerendered pages may not read url.search; the path alone is enough there.
+	$: bugHref = reportBugHref($page.url ? $page.url.pathname + (building ? '' : $page.url.search) : '');
 </script>
 
 <svelte:head>
