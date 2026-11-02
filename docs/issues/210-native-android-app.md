@@ -102,7 +102,8 @@ Android app first, Apple (Swift) after. App reuses package id
 
 - Owner: signing key + Play submission; real-device gesture drive.
 - Owner call: delta sync (needs `tasks.updated_at` + tombstones) — or keep full refresh.
-- Next phase (not slices 1-8): FCM push, iOS app.
+- Finish pass 2026-11-02: #266 detekt gate, #267 release build, #268 background refresh, #269 UI gesture tests, #270 create task.
+- Next phase: FCM push (needs Firebase project — owner), iOS app.
 
 ## Toolchain (2026-10-27)
 
