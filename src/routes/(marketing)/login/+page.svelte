@@ -7,6 +7,7 @@
 	import AuthInput from '$lib/components/auth/AuthInput.svelte';
 	import ModeToggle from '$lib/components/auth/ModeToggle.svelte';
 	import Mark from '$lib/components/brand/Mark.svelte';
+	import { loginErrorCopy } from './loginMessages';
 
 	let { data }: { data: PageData } = $props();
 
@@ -26,12 +27,18 @@
 	let resent = $state(false);
 	let resentTimer: ReturnType<typeof setTimeout> | undefined;
 
+	// #246: success notices from redirects (e.g. "Family joined") render green.
+	let notice = $state('');
+
 	onMount(() => {
 		const urlError = page.url.searchParams.get('error');
-		if (urlError) {
-			error = urlError;
+		const urlNotice = page.url.searchParams.get('notice');
+		if (urlError) error = loginErrorCopy(urlError);
+		if (urlNotice) notice = urlNotice;
+		if (urlError || urlNotice) {
 			const url = new URL(page.url);
 			url.searchParams.delete('error');
+			url.searchParams.delete('notice');
 			goto(url.pathname + url.search, { replaceState: true });
 		}
 
@@ -198,15 +205,49 @@
 			</div>
 		{/if}
 
+		<!-- #246: notices + errors render in both branches (signed in or not). -->
+		{#if notice}
+			<div
+				role="status"
+				class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
+			>
+				{notice}
+			</div>
+		{/if}
+		{#if error}
+			<div
+				role="alert"
+				class="mb-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+			>
+				<svg
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="mt-0.5 h-4 w-4 shrink-0"
+					aria-hidden="true"
+				>
+					<circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line
+						x1="12"
+						x2="12.01"
+						y1="16"
+						y2="16"
+					/>
+				</svg>
+				<span>{error}</span>
+			</div>
+		{/if}
+
 		{#if data.isLoggedIn && !data.mergeMode}
 			<a href={redirectTo} class={submitClasses}
 				>{redirectTo === '/calendar' ? 'Go to Calendar' : 'Continue'}</a
 			>
-		{:else}
-			{#if error}
+		{:else if emailSent}
+			<section class="text-center">
 				<div
-					role="alert"
-					class="mb-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+					class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#BEDAE3]/50"
 				>
 					<svg
 						viewBox="0 0 24 24"
@@ -215,152 +256,125 @@
 						stroke-width="2"
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						class="mt-0.5 h-4 w-4 shrink-0"
+						class="h-7 w-7 text-slate-700"
 						aria-hidden="true"
 					>
-						<circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line
-							x1="12"
-							x2="12.01"
-							y1="16"
-							y2="16"
+						<rect width="20" height="16" x="2" y="4" rx="2" /><path
+							d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"
 						/>
 					</svg>
-					<span>{error}</span>
 				</div>
-			{/if}
+				<h2 class="mb-2 text-xl font-semibold text-slate-900">Check Your Email</h2>
+				<p class="mb-6 text-sm text-slate-600">
+					We've sent a login code to
+					<strong class="font-semibold text-slate-900">{email}</strong>
+				</p>
 
-			{#if emailSent}
-				<section class="text-center">
-					<div
-						class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#BEDAE3]/50"
+				<form
+					onsubmit={(e) => {
+						e.preventDefault();
+						handleCodeVerification();
+					}}
+					class="space-y-4"
+				>
+					<AuthInput
+						id="code"
+						label="Login code"
+						placeholder="Enter login code"
+						autocomplete="one-time-code"
+						inputmode="numeric"
+						center
+						bind:value={code}
+						required
+					/>
+					<button type="submit" disabled={waiting} aria-busy={waiting} class={submitClasses}>
+						{waiting ? 'Logging in...' : 'Login'}
+					</button>
+				</form>
+
+				<div class="mt-4 flex items-center justify-center gap-2">
+					<button
+						type="button"
+						onclick={resendCode}
+						class="min-h-[44px] rounded px-1 text-sm text-slate-600 transition-colors hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
 					>
-						<svg
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							class="h-7 w-7 text-slate-700"
-							aria-hidden="true"
+						Didn't receive the code? Resend
+					</button>
+					{#if resent}
+						<span
+							class="rounded-full bg-[#C4E9DA]/60 px-2.5 py-1 text-xs font-medium text-slate-800"
+							>Sent again ✓</span
 						>
-							<rect width="20" height="16" x="2" y="4" rx="2" /><path
-								d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"
-							/>
-						</svg>
-					</div>
-					<h2 class="mb-2 text-xl font-semibold text-slate-900">Check Your Email</h2>
-					<p class="mb-6 text-sm text-slate-600">
-						We've sent a login code to
-						<strong class="font-semibold text-slate-900">{email}</strong>
-					</p>
+					{/if}
+				</div>
+			</section>
+		{:else}
+			<ModeToggle
+				value={mode}
+				onValueChange={(v) => (mode = v)}
+				options={[
+					{ value: 'password', label: 'Password' },
+					{ value: 'magic-link', label: 'Email Link' }
+				]}
+			/>
 
-					<form
-						onsubmit={(e) => {
-							e.preventDefault();
-							handleCodeVerification();
-						}}
-						class="space-y-4"
+			{#if mode === 'password'}
+				<form
+					onsubmit={(e) => {
+						e.preventDefault();
+						handlePasswordLogin();
+					}}
+					class="space-y-5"
+				>
+					<AuthInput
+						id="email"
+						type="email"
+						autocomplete="email"
+						label="Email"
+						bind:value={email}
+						required
+					/>
+					<AuthInput
+						id="password"
+						type="password"
+						autocomplete="current-password"
+						label="Password"
+						bind:value={password}
+						required
 					>
-						<AuthInput
-							id="code"
-							label="Login code"
-							placeholder="Enter login code"
-							autocomplete="one-time-code"
-							inputmode="numeric"
-							center
-							bind:value={code}
-							required
-						/>
-						<button type="submit" disabled={waiting} aria-busy={waiting} class={submitClasses}>
-							{waiting ? 'Logging in...' : 'Login'}
-						</button>
-					</form>
-
-					<div class="mt-4 flex items-center justify-center gap-2">
-						<button
-							type="button"
-							onclick={resendCode}
-							class="min-h-[44px] rounded px-1 text-sm text-slate-600 transition-colors hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-						>
-							Didn't receive the code? Resend
-						</button>
-						{#if resent}
-							<span
-								class="rounded-full bg-[#C4E9DA]/60 px-2.5 py-1 text-xs font-medium text-slate-800"
-								>Sent again ✓</span
+						{#snippet labelRight()}
+							<a
+								href="/forgot-password"
+								class="rounded text-xs font-medium text-primary-600 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
 							>
-						{/if}
-					</div>
-				</section>
+								Forgot your password?
+							</a>
+						{/snippet}
+					</AuthInput>
+					<button type="submit" disabled={waiting} aria-busy={waiting} class={submitClasses}>
+						{waiting ? 'Logging in...' : 'Login'}
+					</button>
+				</form>
 			{:else}
-				<ModeToggle
-					value={mode}
-					onValueChange={(v) => (mode = v)}
-					options={[
-						{ value: 'password', label: 'Password' },
-						{ value: 'magic-link', label: 'Email Link' }
-					]}
-				/>
-
-				{#if mode === 'password'}
-					<form
-						onsubmit={(e) => {
-							e.preventDefault();
-							handlePasswordLogin();
-						}}
-						class="space-y-5"
-					>
-						<AuthInput
-							id="email"
-							type="email"
-							autocomplete="email"
-							label="Email"
-							bind:value={email}
-							required
-						/>
-						<AuthInput
-							id="password"
-							type="password"
-							autocomplete="current-password"
-							label="Password"
-							bind:value={password}
-							required
-						>
-							{#snippet labelRight()}
-								<a
-									href="/forgot-password"
-									class="rounded text-xs font-medium text-primary-600 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-								>
-									Forgot your password?
-								</a>
-							{/snippet}
-						</AuthInput>
-						<button type="submit" disabled={waiting} aria-busy={waiting} class={submitClasses}>
-							{waiting ? 'Logging in...' : 'Login'}
-						</button>
-					</form>
-				{:else}
-					<form
-						onsubmit={(e) => {
-							e.preventDefault();
-							handleMagicLinkLogin();
-						}}
-						class="space-y-4"
-					>
-						<AuthInput
-							id="emailML"
-							type="email"
-							autocomplete="email"
-							label="Email"
-							bind:value={email}
-							required
-						/>
-						<button type="submit" disabled={waiting} aria-busy={waiting} class={submitClasses}>
-							{waiting ? 'Sending...' : 'Send Login Link'}
-						</button>
-					</form>
-				{/if}
+				<form
+					onsubmit={(e) => {
+						e.preventDefault();
+						handleMagicLinkLogin();
+					}}
+					class="space-y-4"
+				>
+					<AuthInput
+						id="emailML"
+						type="email"
+						autocomplete="email"
+						label="Email"
+						bind:value={email}
+						required
+					/>
+					<button type="submit" disabled={waiting} aria-busy={waiting} class={submitClasses}>
+						{waiting ? 'Sending...' : 'Send Login Link'}
+					</button>
+				</form>
 			{/if}
 		{/if}
 

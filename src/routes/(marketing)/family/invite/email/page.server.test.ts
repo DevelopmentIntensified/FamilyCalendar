@@ -70,6 +70,8 @@ describe('invite/email actions', () => {
 
 		expect(isRedirect(thrown)).toBe(true);
 		expect((thrown as { location: string }).location).toContain('/login');
+		// #246: success travels as ?notice= (green), never ?error=.
+		expect((thrown as { location: string }).location).toMatch(/^\/login\?notice=/);
 		expect(deps.acceptInvite).toHaveBeenCalledWith('u1', 'code-1');
 		expect(deps.startSession).not.toHaveBeenCalled();
 	});
@@ -87,6 +89,7 @@ describe('invite/email actions', () => {
 
 		expect(isRedirect(thrown)).toBe(true);
 		expect((thrown as { location: string }).location).toContain('/login');
+		expect((thrown as { location: string }).location).toMatch(/^\/login\?error=/);
 		expect(deps.startSession).not.toHaveBeenCalled();
 	});
 

@@ -27,6 +27,11 @@ function loginWithNotice(message: string): never {
 	throw redirect(303, '/login?error=' + encodeURIComponent(message));
 }
 
+/** #246: success is a green `?notice=`, not a red `?error=`. */
+function loginWithSuccess(message: string): never {
+	throw redirect(303, '/login?notice=' + encodeURIComponent(message));
+}
+
 function isInvitePayload(value: unknown): value is InvitePayload {
 	return (
 		typeof value === 'object' &&
@@ -159,7 +164,7 @@ async function createAccountAndJoin(
 		if (!joined.accepted) {
 			loginWithNotice(JOIN_UNAVAILABLE);
 		}
-		loginWithNotice(JOIN_COMPLETE);
+		loginWithSuccess(JOIN_COMPLETE);
 	}
 
 	const verified = await deps.verifyInviteCode(payload.inviteCode);

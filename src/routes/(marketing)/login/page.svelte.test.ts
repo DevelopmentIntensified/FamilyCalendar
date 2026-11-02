@@ -87,3 +87,37 @@ describe('/login page URL error display', () => {
 		expect(screen.queryByText(/Token expired|Invalid|Error/)).not.toBeInTheDocument();
 	});
 });
+
+describe('/login notices + error codes (#246)', () => {
+	const base = {
+		isLoggedIn: false,
+		user: null,
+		origin: 'http://test.com',
+		pathname: '/login',
+		mergeMode: false,
+		redirectTo: '/calendar'
+	};
+
+	it.each(['invalid_token', 'missing_token'])('maps ?error=%s to human copy', (code) => {
+		mockPageState.url = new URL(`http://test.com/login?error=${code}`);
+		render(LoginPage, { props: { data: base } });
+		const alert = screen.getByRole('alert');
+		expect(alert.textContent).not.toContain(code);
+		expect(alert.textContent).toMatch(/invite link/i);
+	});
+
+	it('renders ?notice= as a green status, not a red alert', () => {
+		mockPageState.url = new URL('http://test.com/login?notice=Family+joined.+Sign+in+to+continue.');
+		render(LoginPage, { props: { data: base } });
+		const status = screen.getByRole('status');
+		expect(status.textContent).toContain('Family joined. Sign in to continue.');
+		expect(status.className).toContain('green');
+		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	it('shows the message to an already-signed-in user too', () => {
+		mockPageState.url = new URL('http://test.com/login?error=invalid_token');
+		render(LoginPage, { props: { data: { ...base, isLoggedIn: true } } });
+		expect(screen.getByRole('alert').textContent).toMatch(/invite link/i);
+	});
+});

@@ -1,6 +1,6 @@
 # 246 — Login shows raw error codes / success as error / nothing when signed in
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane E).
 
@@ -14,9 +14,11 @@ Expired invite link -> 'invalid_token' text, or nothing if signed in.
 
 ## Done
 
-(none yet)
+- New `login/loginMessages.ts` `loginErrorCopy()` maps `invalid_token` / `missing_token` to human copy; free-text errors pass through.
+- `family/invite/email/+page.server.ts`: JOIN_COMPLETE now redirects `/login?notice=…` (failures stay `?error=`).
+- `login/+page.svelte`: reads `?notice=` into a green `role="status"` banner; error + notice banners moved above the signed-in/form branch so both render for signed-in users; both params stripped from the URL.
+- Tests: `login/page.svelte.test.ts` (code mapping x2, green notice, signed-in still sees message); `family/invite/email/page.server.test.ts` asserts `?notice=` for join-complete, `?error=` for refused.
 
 ## Needs doing
 
-- Map codes to copy; success via `?notice=` styled green; render notices in both branches.
-- Red test first where a seam exists (`tdd`).
+(none)
