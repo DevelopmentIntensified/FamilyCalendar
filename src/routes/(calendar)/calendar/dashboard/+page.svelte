@@ -106,6 +106,7 @@
 		{:else}
 			<DayDashboard
 				{dateLabel}
+				dayDate={dayDt.toISODate()}
 				isToday={data.isToday}
 				meId={data.meId}
 				familyId={data.familyId}

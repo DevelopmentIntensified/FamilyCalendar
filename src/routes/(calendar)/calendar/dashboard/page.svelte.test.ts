@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/svelte';
+import { render, screen, cleanup, waitFor } from '@testing-library/svelte';
 import DashboardPage from './+page.svelte';
 import type { PageData } from './$types';
 
@@ -75,5 +75,17 @@ describe('the Day Dashboard header', () => {
 			'/calendar?date=2026-09-29&view=day'
 		);
 		expect(screen.getByRole('link', { name: /back to calendar/i })).toBeTruthy();
+	});
+
+	// #240: the empty Today card's day-view link opens the VIEWED day, not today.
+	it('points the empty-day card at the viewed day', async () => {
+		render(DashboardPage, makeData(false));
+		await waitFor(() =>
+			expect(screen.getAllByRole('link', { name: /open day view/i }).length).toBeGreaterThan(1)
+		);
+		const links = screen.getAllByRole('link', { name: /open day view/i });
+		for (const link of links) {
+			expect(link).toHaveAttribute('href', '/calendar?date=2026-09-29&view=day');
+		}
 	});
 });
