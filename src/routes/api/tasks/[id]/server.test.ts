@@ -74,7 +74,8 @@ import {
 	updateTask,
 	updateTaskInFamily,
 	canMutateTask,
-	isValidAssignee
+	isValidAssignee,
+	toggleTaskComplete
 } from '$lib/server/db/actions/tasks';
 import { createNotification } from '$lib/server/db/actions/notifications';
 
@@ -202,6 +203,65 @@ describe('PUT /api/tasks/[id] — assignment authorization', () => {
 
 		expect(res.status).toBe(400);
 		expect(mockedUpdateTask).not.toHaveBeenCalled();
+	});
+});
+
+describe('PUT /api/tasks/[id] toggleComplete — completion notification direction (#229)', () => {
+	const toggle = (userId: string) =>
+		// SAFETY: test double — boolean body field; event() types string bodies only.
+		PUT(event(userId, { toggleComplete: true } as never));
+	const mockedToggle = vi.mocked(toggleTaskComplete);
+
+	const cases: [string, Record<string, unknown>, Record<string, unknown>, boolean][] = [
+		// label, row before, row after, notifies owner?
+		['open one-off -> done notifies', { completedAt: null }, { completedAt: '2026-11-01T10:00:00Z' }, true],
+		['done one-off -> open (un-check) does NOT notify', { completedAt: '2026-11-01T10:00:00Z' }, { completedAt: null }, false],
+		[
+			'recurring advance (count +1) notifies',
+			{ completedAt: null, recurrenceFrequency: 'daily', completionCount: 3 },
+			{ completedAt: null, recurrenceFrequency: 'daily', completionCount: 4 },
+			true
+		],
+		[
+			'recurring double-tap (guard miss, count unchanged) does NOT notify',
+			{ completedAt: null, recurrenceFrequency: 'daily', completionCount: 4 },
+			{ completedAt: null, recurrenceFrequency: 'daily', completionCount: 4 },
+			false
+		],
+		[
+			'legacy completed recurring row un-checked does NOT notify',
+			{ completedAt: '2026-11-01T10:00:00Z', recurrenceFrequency: 'daily', completionCount: 4 },
+			{ completedAt: null, recurrenceFrequency: 'daily', completionCount: 4 },
+			false
+		]
+	];
+	for (const [label, before, after, notifies] of cases) {
+		it(label, async () => {
+			state.queue.push([{ ...taskRow(), ...before } as Row]); // pre-toggle row
+			state.queue.push([{ firstName: 'Ali' }]); // getActorName
+			mockedToggle.mockResolvedValue({ ...taskRow(), ...after } as never);
+
+			const res = await toggle('user-assignee');
+
+			expect(res.status).toBe(200);
+			if (notifies) {
+				expect(createNotification).toHaveBeenCalledWith(
+					expect.objectContaining({ userId: 'user-owner', type: 'task_completed' })
+				);
+			} else {
+				expect(createNotification).not.toHaveBeenCalled();
+			}
+		});
+	}
+
+	it('never notifies the owner about their own toggle', async () => {
+		state.queue.push([{ ...taskRow(), completedAt: null } as Row]);
+		mockedToggle.mockResolvedValue({ ...taskRow(), completedAt: '2026-11-01T10:00:00Z' } as never);
+
+		const res = await toggle('user-owner');
+
+		expect(res.status).toBe(200);
+		expect(createNotification).not.toHaveBeenCalled();
 	});
 });
 

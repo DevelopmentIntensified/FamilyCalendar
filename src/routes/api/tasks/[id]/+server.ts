@@ -72,8 +72,18 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 			updated = await advanceTaskToNext(taskId, user.id, zone);
 		} else if (body.toggleComplete) {
 			// Owner, assignee, or any family member may toggle (one seam).
+			// The pre-toggle row decides the direction (#229): only an
+			// open -> done transition notifies — an un-check, or a double-tap
+			// whose guarded update matched nothing, stays silent.
+			const [before] = await db.select().from(tasks).where(eq(tasks.id, taskId));
 			updated = await toggleTaskComplete(taskId, user.id, zone);
-			if (updated && updated.userId !== user.id) {
+			const completedNow =
+				!!before &&
+				!!updated &&
+				!before.completedAt &&
+				(updated.completedAt !== null ||
+					(updated.completionCount ?? 0) > (before.completionCount ?? 0));
+			if (updated && completedNow && updated.userId !== user.id) {
 				const actorName = await getActorName();
 				await createNotification({
 					userId: updated.userId,
