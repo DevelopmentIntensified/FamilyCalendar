@@ -115,12 +115,17 @@ function generateOccurrence(
  * Occurrences are generated from the original start as an anchor so that
  * "monthly on the 31st" re-anchors after short months and Feb 29 yearly
  * rolls to Mar 1. Stepping happens in UTC so instants stay stable
- * regardless of server timezone.
+ * regardless of server timezone (and stored Exception keys keep matching).
+ *
+ * `zone` (the viewer's IANA zone, default UTC) is where calendar-day
+ * questions are answered: which weekday a BYDAY slot falls on and which
+ * week it is in (#215). BYDAY letters are local weekdays.
  */
 export function expandRecurrence(
 	event: RecurringEventInput,
 	windowStart: Date,
-	windowEnd: Date
+	windowEnd: Date,
+	zone: string = 'utc'
 ): Date[] {
 	const anchor = parseTimestamp(event.start);
 	if (!anchor.isValid) return [];
@@ -152,7 +157,8 @@ export function expandRecurrence(
 			event.recurrenceCount ?? null,
 			recurrenceUntil(event),
 			windowStart,
-			windowEnd
+			windowEnd,
+			zone
 		);
 	}
 
@@ -224,7 +230,8 @@ function expandWeekdaySeries(
 	count: number | null,
 	until: Date | null,
 	windowStart: Date,
-	windowEnd: Date
+	windowEnd: Date,
+	zone: string
 ): Date[] {
 	const occurrences: Date[] = [];
 	// Same split as the plain loop: COUNT consumes from the series start,
@@ -233,15 +240,22 @@ function expandWeekdaySeries(
 	let emitted = 0;
 	let cur = anchor;
 	const windowEndMs = windowEnd.getTime();
+	// #215: weekday + week phase are LOCAL facts — a Mon 7pm PST start is
+	// Tue in UTC. Step instants in UTC, read the calendar in `zone`.
+	const anchorWeek = anchor.setZone(zone).startOf('week');
 
 	while (emitted < MAX_OCCURRENCES) {
-		const weekday = WEEKDAY_LETTERS[cur.weekday - 1];
+		const local = cur.setZone(zone);
+		const weekday = WEEKDAY_LETTERS[local.weekday - 1];
 		let passes = false;
 		if (frequency === 'daily') {
 			passes = byDay.has(weekday);
 		} else {
 			// weekly: must be a listed weekday AND in phase with the interval.
-			const weeksFromAnchor = cur.startOf('week').diff(anchor.startOf('week'), 'weeks').weeks;
+			// Round: a DST shift inside the span makes the diff fractional.
+			const weeksFromAnchor = Math.round(
+				local.startOf('week').diff(anchorWeek, 'weeks').weeks
+			);
 			passes = byDay.has(weekday) && weeksFromAnchor % interval === 0;
 		}
 

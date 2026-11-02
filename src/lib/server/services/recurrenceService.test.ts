@@ -541,3 +541,91 @@ describe('non-recurring events that overlap the window (#217)', () => {
 		if (n) expect(out[0].toISOString()).toBe(new Date(start).toISOString());
 	});
 });
+
+const localDates = (out: Date[], zone: string) =>
+	out.map((o) => DateTime.fromJSDate(o, { zone }).toISODate());
+
+describe('BYDAY weekdays are read in the viewer zone (#215)', () => {
+	const cases: {
+		name: string;
+		event: RecurringEventInput;
+		zone: string;
+		window: [Date, Date];
+		expected: string[];
+	}[] = [
+		{
+			name: 'Mon 7pm PST, weekly MO+WE lands on local Mon/Wed (anchor kept)',
+			event: {
+				id: 'a',
+				start: '2026-11-03T03:00:00Z', // Mon Nov 2, 7 PM PST
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceByDay: ['MO', 'WE']
+			},
+			zone: 'America/Los_Angeles',
+			window: [d('2026-11-01T00:00:00Z'), d('2026-11-16T00:00:00Z')],
+			expected: ['2026-11-02', '2026-11-04', '2026-11-09', '2026-11-11']
+		},
+		{
+			name: '"every weekday at 7pm" Chicago is Mon-Fri local, not Sun-Thu',
+			event: {
+				id: 'b',
+				start: '2026-11-03T01:00:00Z', // Mon Nov 2, 7 PM CST
+				recurrenceFrequency: 'daily',
+				recurrenceInterval: 1,
+				recurrenceByDay: ['MO', 'TU', 'WE', 'TH', 'FR']
+			},
+			zone: 'America/Chicago',
+			window: [d('2026-11-01T00:00:00Z'), d('2026-11-10T06:00:00Z')],
+			expected: ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-09']
+		},
+		{
+			name: 'every-2-weeks MO+WE keeps its phase in the local week',
+			event: {
+				id: 'c',
+				start: '2026-11-03T03:00:00Z', // Mon Nov 2, 7 PM PST
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 2,
+				recurrenceByDay: ['MO', 'WE']
+			},
+			zone: 'America/Los_Angeles',
+			window: [d('2026-11-01T00:00:00Z'), d('2026-11-23T00:00:00Z')],
+			expected: ['2026-11-02', '2026-11-04', '2026-11-16', '2026-11-18']
+		},
+		{
+			name: 'east of UTC: Mon 8am Tokyo, weekly MO+FR is local Mon/Fri',
+			event: {
+				id: 'd',
+				start: '2026-11-01T23:00:00Z', // Mon Nov 2, 8 AM JST
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceByDay: ['MO', 'FR']
+			},
+			zone: 'Asia/Tokyo',
+			window: [d('2026-11-01T00:00:00Z'), d('2026-11-12T00:00:00Z')],
+			expected: ['2026-11-02', '2026-11-06', '2026-11-09']
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const out = expandRecurrence(c.event, c.window[0], c.window[1], c.zone);
+			expect(localDates(out, c.zone)).toEqual(c.expected);
+		});
+	}
+
+	it('no zone given keeps the UTC reading (unchanged default)', () => {
+		const out = expandRecurrence(
+			{
+				id: 'e',
+				start: '2026-08-03T18:00:00Z', // Monday UTC
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceByDay: ['MO', 'WE']
+			},
+			d('2026-08-01T00:00:00Z'),
+			d('2026-08-10T00:00:00Z')
+		);
+		expect(localDates(out, 'UTC')).toEqual(['2026-08-03', '2026-08-05']);
+	});
+});

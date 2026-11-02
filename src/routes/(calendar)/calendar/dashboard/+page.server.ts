@@ -145,8 +145,8 @@ export const load: PageServerLoad = async (event) => {
 				endIso: dayWindow.end.toISOString()
 			};
 			const [parsedUser, parsedFamily] = await Promise.all([
-				parseEvents(await expandEventsForUser(userEventsData, window), zone),
-				parseEvents(await expandEventsForUser(familyEventsData, window), zone)
+				parseEvents(await expandEventsForUser(userEventsData, window, zone), zone),
+				parseEvents(await expandEventsForUser(familyEventsData, window, zone), zone)
 			]);
 
 			// Current user's RSVP per event, so the glance card can tint going /

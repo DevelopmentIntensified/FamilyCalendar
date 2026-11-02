@@ -69,7 +69,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		.orderBy(events.start);
 
 	const zone = (await getUserZone(userId)) ?? 'utc';
-	const expanded = await parseEvents(await expandEventsForUser(rows, window), zone);
+	const expanded = await parseEvents(await expandEventsForUser(rows, window, zone), zone);
 	const withRsvp = await attachRsvpStatus(userId, expanded);
 	const withAttendance = await attachAttendanceSummaries(withRsvp);
 

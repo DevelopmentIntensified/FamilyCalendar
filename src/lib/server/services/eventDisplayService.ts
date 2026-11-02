@@ -64,10 +64,13 @@ export function monthGridWindow(dateIso?: string | null): ExpansionWindow {
  * Expands recurring event masters into virtual occurrences with composite
  * ids (`{masterId}~{occurrenceISO}`), then applies Exception Overrides:
  * cancelled occurrences are dropped, edited ones are merged in place.
+ * `zone` is the viewer's IANA zone: BYDAY weekdays and date-only UNTILs
+ * are read there (#215/#216). Defaults to UTC.
  */
 export async function expandEventsForUser(
 	eventsData: CalendarEvent[],
-	window: ExpansionWindow = legacyWindow()
+	window: ExpansionWindow = legacyWindow(),
+	zone?: string
 ): Promise<DisplayEvent[]> {
 	const exceptions = await getExceptionsByEventIds(eventsData.map((e) => e.id));
 
@@ -86,7 +89,7 @@ export async function expandEventsForUser(
 
 	const result: DisplayEvent[] = [];
 	for (const e of eventsData) {
-		const occurrences = expandRecurrence(e, windowStart, windowEnd);
+		const occurrences = expandRecurrence(e, windowStart, windowEnd, zone);
 		if (occurrences.length === 0) continue;
 
 		const durationMs = e.end ? new Date(e.end).getTime() - new Date(e.start).getTime() : null;

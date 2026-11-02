@@ -263,8 +263,8 @@ export const load: PageServerLoad = async (event) => {
 	const eventPipeline = (async () => {
 		try {
 			const [parsedUserEvents, parsedFamilyEvents] = await Promise.all([
-				parseEvents(await expandEventsForUser(userEvents, gridWindow), userZone),
-				parseEvents(await expandEventsForUser(familyEventsData, gridWindow), userZone)
+				parseEvents(await expandEventsForUser(userEvents, gridWindow, userZone), userZone),
+				parseEvents(await expandEventsForUser(familyEventsData, gridWindow, userZone), userZone)
 			]);
 			// Current user's RSVP per event (keyed on masterId) so views can tint
 			// going / maybe events and dim ones you can't attend.

@@ -6,6 +6,7 @@ import { calendars, events, families } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
+import { zoneFromSettings } from '$lib/server/utils/userTimezone';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { parseEvents, expandEventsForUser } from '$lib/server/services/eventDisplayService';
 
@@ -40,6 +41,8 @@ export const load: PageServerLoad = async (event) => {
 		Math.max(1, parseInt(event.url.searchParams.get('month') || '') || now.month)
 	);
 
+	// BYDAY weekdays / date-only UNTIL are read in the viewer's zone (#215/#216).
+	const viewerZone = zoneFromSettings(userSettings);
 	const weekStart = userSettings?.weekStart === 'monday' ? 'monday' : 'sunday';
 	const personalColor = userSettings?.color || '#fa8072';
 
@@ -80,11 +83,11 @@ export const load: PageServerLoad = async (event) => {
 	if (userCalendar[0]) colorByCalId.set(userCalendar[0].id, personalColor);
 
 	const displayEvents = [
-		...parseEvents(await expandEventsForUser(rawEvents)).map((e) => ({
+		...parseEvents(await expandEventsForUser(rawEvents, undefined, viewerZone)).map((e) => ({
 			...e,
 			color: colorByCalId.get(String(e.calendarId)) || personalColor
 		})),
-		...parseEvents(await expandEventsForUser(familyRawEvents)).map((e) => ({
+		...parseEvents(await expandEventsForUser(familyRawEvents, undefined, viewerZone)).map((e) => ({
 			...e,
 			color: familyColor
 		}))
