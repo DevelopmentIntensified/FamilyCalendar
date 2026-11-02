@@ -100,9 +100,9 @@ Android app first, Apple (Swift) after. App reuses package id
 
 ## Needs doing
 
-- Owner: signing key + Play submission; real-device gesture drive.
 - Owner call: delta sync (needs `tasks.updated_at` + tombstones) — or keep full refresh.
-- Finish pass 2026-11-02: #266 detekt gate, #267 release build, #268 background refresh, #269 UI gesture tests, #270 create task.
+- Finish pass 2026-11-02 DONE: #266 detekt gate green (refactor, no suppressions), #267 release build (R8 keep rule fixed a focus-command crash; optional signing via keystore.properties; docs/guides/android-release.md), #268 WorkManager 6h cache refresh, #269 20 Robolectric Compose UI tests in mobileGate, #270 create task from phone. `:app:mobileGate :app:assembleRelease` green, 88 tests.
+- Owner: generate upload key + keystore.properties, Play submission, run the APK on a real phone once.
 - Next phase: FCM push (needs Firebase project — owner), iOS app.
 
 ## Toolchain (2026-10-27)
