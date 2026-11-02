@@ -229,4 +229,70 @@ describe('PUT /api/events/[id]', () => {
 		expect(mockedReplaceInvites).not.toHaveBeenCalled();
 		expect((await res.json()).note).toBeDefined();
 	});
+
+	// #228: a drag-move sends only {start, end}; omitted fields must keep
+	// their stored values instead of being nulled by the full-row update.
+	it('a start/end-only move keeps reminder, description, location, title, allDay', async () => {
+		mockedGetEvent.mockResolvedValue(
+			eventRow({
+				reminderMinutes: 30,
+				description: 'Bring pie',
+				location: 'Grandma',
+				allDay: false
+			})
+		);
+		mockedUpdate.mockResolvedValue(eventRow());
+
+		const res = await PUT(
+			req('member-1', { start: '2026-08-10T19:00:00.000Z', end: '2026-08-10T20:00:00.000Z' })
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockedUpdate).toHaveBeenCalledWith(
+			'eventabc123',
+			expect.objectContaining({
+				title: 'Family dinner',
+				start: '2026-08-10T19:00:00.000Z',
+				end: '2026-08-10T20:00:00.000Z',
+				reminderMinutes: 30,
+				description: 'Bring pie',
+				location: 'Grandma',
+				allDay: false
+			}),
+			'member-1',
+			undefined,
+			['cal-fam']
+		);
+	});
+
+	it('explicit nulls still clear (edit form sends every field)', async () => {
+		mockedGetEvent.mockResolvedValue(
+			eventRow({ reminderMinutes: 30, description: 'Bring pie', location: 'Grandma' })
+		);
+		mockedUpdate.mockResolvedValue(eventRow());
+
+		await PUT(
+			req('member-1', {
+				title: 'Family dinner',
+				start: '2026-08-10T18:00:00.000Z',
+				end: null,
+				reminderMinutes: null,
+				description: '',
+				location: ''
+			})
+		);
+
+		expect(mockedUpdate).toHaveBeenCalledWith(
+			'eventabc123',
+			expect.objectContaining({
+				reminderMinutes: null,
+				description: null,
+				location: null,
+				end: null
+			}),
+			'member-1',
+			undefined,
+			['cal-fam']
+		);
+	});
 });

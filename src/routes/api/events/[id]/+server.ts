@@ -93,15 +93,20 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 			calendarId = body.calendarId;
 		}
 
+		// #228: partial bodies (drag-move sends only start/end) keep stored
+		// values for omitted keys; an explicit null/'' still clears.
+		const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
 		const eventData = {
-			title: body.title,
-			start: body.start,
-			end: body.end || null,
-			description: body.description || null,
-			location: body.location || null,
-			allDay: body.allDay || false,
+			title: has('title') ? body.title : existing.title,
+			start: has('start') ? body.start : existing.start,
+			end: has('end') ? body.end || null : existing.end,
+			description: has('description') ? body.description || null : existing.description,
+			location: has('location') ? body.location || null : existing.location,
+			allDay: has('allDay') ? body.allDay || false : existing.allDay,
 			calendarId,
-			reminderMinutes: body.reminderMinutes ?? null,
+			reminderMinutes: has('reminderMinutes')
+				? (body.reminderMinutes ?? null)
+				: existing.reminderMinutes,
 			...normalizeEventRecurrence(body)
 		};
 
