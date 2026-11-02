@@ -14,11 +14,12 @@ import {
 	isValidAssignee,
 	TASK_FREQUENCIES,
 	TASK_VISIBILITIES,
-	type AssignmentPatch
+	type AssignmentPatch,
+	type TaskFrequency
 } from '$lib/server/db/actions/tasks';
 import { normalizeTaskPriority } from '$lib/server/db/actions/taskPriority';
 import { db } from '$lib/server/db';
-import { tasks, users } from '$lib/server/db/schema';
+import { tasks, users, type Task } from '$lib/server/db/schema';
 import { createNotification } from '$lib/server/db/actions/notifications';
 import { eq } from 'drizzle-orm';
 import { getUserZone } from '$lib/server/utils/userTimezone';
@@ -94,10 +95,41 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				});
 			}
 		} else {
-			const frequency =
-				body.recurrenceFrequency === null || TASK_FREQUENCIES.includes(body.recurrenceFrequency)
-					? body.recurrenceFrequency
-					: undefined;
+			// One cached read of the stored row, shared by every check below.
+			let existingPromise: Promise<Task | undefined> | undefined;
+			const loadExisting = () =>
+				(existingPromise ??= db
+					.select()
+					.from(tasks)
+					.where(eq(tasks.id, taskId))
+					.then(([row]) => row));
+
+			// Recurrence (#231): an unknown frequency is a 400, never a silent
+			// no-op. The interval may be patched alone when the STORED task
+			// is recurring; with a new frequency it rides along (default 1);
+			// clearing the frequency clears it.
+			let frequency: TaskFrequency | null | undefined;
+			if (body.recurrenceFrequency !== undefined) {
+				if (body.recurrenceFrequency !== null && !TASK_FREQUENCIES.includes(body.recurrenceFrequency)) {
+					return json({ error: 'Invalid recurrenceFrequency' }, { status: 400 });
+				}
+				frequency = body.recurrenceFrequency;
+			}
+			const rawInterval = body.recurrenceInterval;
+			if (
+				rawInterval !== undefined &&
+				rawInterval !== null &&
+				(typeof rawInterval !== 'number' || !Number.isFinite(rawInterval))
+			) {
+				return json({ error: 'Invalid recurrenceInterval' }, { status: 400 });
+			}
+			const toInterval = (n: number | null | undefined) => Math.max(1, Math.floor(n ?? 1));
+			let recurrenceInterval: number | null | undefined;
+			if (frequency === null) recurrenceInterval = null;
+			else if (frequency) recurrenceInterval = toInterval(rawInterval);
+			else if (typeof rawInterval === 'number' && (await loadExisting())?.recurrenceFrequency) {
+				recurrenceInterval = toInterval(rawInterval);
+			}
 
 			// Task scoping (issue 019): a visibility patch is owner-only and
 			// enum-validated. Checked BEFORE any mutation so a non-owner's
@@ -107,7 +139,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				if (!TASK_VISIBILITIES.includes(body.visibility)) {
 					return json({ error: 'Invalid visibility' }, { status: 400 });
 				}
-				const [existing] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+				const existing = await loadExisting();
 				if (!existing) {
 					return json({ error: 'Task not found' }, { status: 404 });
 				}
@@ -130,10 +162,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				// member of the task's family — or the task strands as a
 				// pending row the assignee can never see.
 				if (body.assignedTo !== user.id) {
-					const [target] = await db
-						.select({ familyId: tasks.familyId })
-						.from(tasks)
-						.where(eq(tasks.id, taskId));
+					const target = await loadExisting();
 					if (target && !(await isValidAssignee(user.id, target.familyId, body.assignedTo))) {
 						return json({ error: 'Assignee is not a member of this family' }, { status: 400 });
 					}
@@ -178,12 +207,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				priority,
 				visibility,
 				recurrenceFrequency: frequency,
-				recurrenceInterval:
-					frequency === null
-						? null
-						: frequency
-							? Math.max(1, Math.floor(body.recurrenceInterval ?? 1))
-							: undefined,
+				recurrenceInterval,
 				completedAt:
 					isString(body.completedAt) && !isNaN(Date.parse(body.completedAt))
 						? body.completedAt
@@ -200,7 +224,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 			// narrowed further: only the CURRENT assignee may accept or decline
 			// their own assignment — reassignment and clearing stay owner-only.
 			if (!updated && (Object.keys(assignmentPatch).length > 0 || body.tags !== undefined)) {
-				const [existing] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+				const existing = await loadExisting();
 				if (existing?.familyId && (await canMutateTask(existing, user.id))) {
 					const scoped = nonOwnerAssignmentPatch(existing, user.id, assignmentPatch);
 					if (!scoped) {

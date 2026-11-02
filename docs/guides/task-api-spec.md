@@ -112,7 +112,10 @@ Partial update; send only the fields you change. Mutations:
 - `advanceToNext: true` — skip the current occurrence of a recurring task.
 - `undoComplete: true` — reverse a recurring-task check-off; pass
   `previousDueDate` (ISO string you captured from the task before completing).
-- Recurrence: `recurrenceFrequency` (enum or null), `recurrenceInterval`.
+- Recurrence: `recurrenceFrequency` (enum or null; null clears both fields),
+  `recurrenceInterval` (number, floored, min 1). The interval may be sent
+  alone to change a task that is already recurring (ignored on a
+  non-recurring task); with a new frequency and no interval it defaults to 1.
 - Assignment: `assignedTo` (string target, or null to clear) and/or
   `assignmentStatus` (`accepted` / `declined`). Non-owner rules: only the
   current assignee may accept/decline; reassignment is owner-only.
@@ -124,6 +127,9 @@ Partial update; send only the fields you change. Mutations:
   not yours to mutate, or a recurring cursor is out of sync on undo.
 - `404 {"error":"Nothing to undo"}` — `undoComplete` with nothing to reverse.
 - `400 {"error":"Invalid visibility"}`
+- `400 {"error":"Invalid recurrenceFrequency"}` — not one of the enum values
+  (and not null); rejected before any mutation.
+- `400 {"error":"Invalid recurrenceInterval"}` — not a finite number.
 - `400 {"error":"Assignee is not a member of this family"}`
 - `403 {"error":"Only the task owner can change visibility"}`
 - `403 {"error":"You can only respond to your own assignments"}`

@@ -1,6 +1,6 @@
 # 231 — PUT /api/tasks/[id] with only recurrenceInterval silently ignored (200)
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane C).
 
@@ -14,9 +14,13 @@ Source: repo bug audit 2026-11-01 (lane C).
 
 ## Done
 
-(none yet)
+- `src/routes/api/tasks/[id]/+server.ts` PUT plain-field path:
+  - unknown `recurrenceFrequency` (not enum, not null) -> `400 Invalid recurrenceFrequency`; non-finite / non-number `recurrenceInterval` -> `400 Invalid recurrenceInterval`; both before any mutation.
+  - interval alone is patched (floored, min 1) when the stored task is recurring; ignored on non-recurring tasks. frequency+interval and frequency=null behave as before.
+  - one cached `loadExisting()` read now serves the visibility, assignee and non-owner checks (fewer duplicate selects).
+- `docs/guides/task-api-spec.md`: recurrence semantics + the two new 400s.
+- Tests `[id]/server.test.ts` › `recurrence patch (#231)` (14 cases: interval-only, clamp, non-recurring, freq+interval, null clear, 4 bad frequencies, 5 bad intervals) — 11 red -> green.
 
 ## Needs doing
 
-- Patch interval alone when stored task is recurring; 400 on unknown frequency.
-- Red test first where a seam exists (`tdd`).
+(none)

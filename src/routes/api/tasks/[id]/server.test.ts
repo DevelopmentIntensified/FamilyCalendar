@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * and the DB-hitting action seams are injected as spies.
  */
 /** A stubbed DB row: plain JSON-ish values only (house stub style). */
-type Row = Record<string, string | null>;
+type Row = Record<string, string | number | boolean | null | undefined>;
 
 interface StubState {
 	queue: Row[][];
@@ -84,9 +84,11 @@ type TaskStub = {
 	id: string;
 	title: string;
 	userId: string;
-	familyId: string;
+	familyId: string | null;
 	assignedTo: string | null;
 	assignmentStatus: string;
+	recurrenceFrequency?: string | null;
+	recurrenceInterval?: number | null;
 };
 
 /** Family task owned by user-owner, pending-assigned to user-assignee. */
@@ -102,7 +104,7 @@ function taskRow(over: Partial<TaskStub> = {}): TaskStub {
 	};
 }
 
-function event(userId: string, body: Record<string, string | number | null>) {
+function event(userId: string, body: Record<string, unknown>) {
 	// SAFETY: test double — the handler only reads locals.user, url.pathname, and request.json().
 	return {
 		locals: { user: { id: userId } },
@@ -207,9 +209,7 @@ describe('PUT /api/tasks/[id] — assignment authorization', () => {
 });
 
 describe('PUT /api/tasks/[id] toggleComplete — completion notification direction (#229)', () => {
-	const toggle = (userId: string) =>
-		// SAFETY: test double — boolean body field; event() types string bodies only.
-		PUT(event(userId, { toggleComplete: true } as never));
+	const toggle = (userId: string) => PUT(event(userId, { toggleComplete: true }));
 	const mockedToggle = vi.mocked(toggleTaskComplete);
 
 	const cases: [string, Record<string, unknown>, Record<string, unknown>, boolean][] = [
@@ -263,6 +263,76 @@ describe('PUT /api/tasks/[id] toggleComplete — completion notification directi
 		expect(res.status).toBe(200);
 		expect(createNotification).not.toHaveBeenCalled();
 	});
+});
+
+describe('PUT /api/tasks/[id] — recurrence patch (#231)', () => {
+	const patchOf = () => mockedUpdateTask.mock.calls[0][2] as Record<string, unknown>;
+
+	beforeEach(() => {
+		mockedUpdateTask.mockResolvedValue(taskRow() as never);
+	});
+
+	it('interval alone on a recurring task patches the interval', async () => {
+		state.queue.push([taskRow({ userId: 'user-owner', recurrenceFrequency: 'weekly', recurrenceInterval: 1 })]);
+
+		const res = await PUT(event('user-owner', { recurrenceInterval: 2 }));
+
+		expect(res.status).toBe(200);
+		expect(patchOf().recurrenceInterval).toBe(2);
+		expect(patchOf().recurrenceFrequency).toBeUndefined();
+	});
+
+	it('interval alone floors and clamps to >= 1', async () => {
+		state.queue.push([taskRow({ recurrenceFrequency: 'daily' })]);
+
+		await PUT(event('user-owner', { recurrenceInterval: 0.4 }));
+
+		expect(patchOf().recurrenceInterval).toBe(1);
+	});
+
+	it('interval alone on a non-recurring task leaves recurrence untouched', async () => {
+		state.queue.push([taskRow({ recurrenceFrequency: null, recurrenceInterval: null })]);
+
+		const res = await PUT(event('user-owner', { recurrenceInterval: 2 }));
+
+		expect(res.status).toBe(200);
+		expect(patchOf().recurrenceInterval).toBeUndefined();
+	});
+
+	it('frequency + interval patches both', async () => {
+		const res = await PUT(event('user-owner', { recurrenceFrequency: 'monthly', recurrenceInterval: 3 }));
+
+		expect(res.status).toBe(200);
+		expect(patchOf()).toMatchObject({ recurrenceFrequency: 'monthly', recurrenceInterval: 3 });
+	});
+
+	it('frequency null clears both', async () => {
+		await PUT(event('user-owner', { recurrenceFrequency: null, recurrenceInterval: 4 }));
+
+		expect(patchOf()).toMatchObject({ recurrenceFrequency: null, recurrenceInterval: null });
+	});
+
+	for (const bad of ['fortnightly', 'Weekly', '', 7]) {
+		it(`400s an unknown frequency ${JSON.stringify(bad)} before any mutation`, async () => {
+			const res = await PUT(event('user-owner', { recurrenceFrequency: bad }));
+
+			expect(res.status).toBe(400);
+			expect(await res.json()).toEqual({ error: 'Invalid recurrenceFrequency' });
+			expect(mockedUpdateTask).not.toHaveBeenCalled();
+		});
+	}
+
+	for (const bad of ['2', 'abc', Number.NaN, Number.POSITIVE_INFINITY, true]) {
+		it(`400s an invalid interval ${String(bad)} before any mutation`, async () => {
+			state.queue.push([taskRow({ recurrenceFrequency: 'weekly' })]);
+
+			const res = await PUT(event('user-owner', { recurrenceInterval: bad }));
+
+			expect(res.status).toBe(400);
+			expect(await res.json()).toEqual({ error: 'Invalid recurrenceInterval' });
+			expect(mockedUpdateTask).not.toHaveBeenCalled();
+		});
+	}
 });
 
 describe('PUT /api/tasks/[id] — visibility patch (issue 019)', () => {
