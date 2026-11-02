@@ -26,6 +26,11 @@
 	// `form` is a union across action branches; only failure branches carry the
 	// echoed inputs, so guard before reading them.
 	$: echoedArea = form && 'area' in form && isString(form.area) ? form.area : 'calendar';
+	// Issue 257: remember where the reporter came from. A post-submit reload
+	// reruns load with /report-bug as referer, so keep the first non-empty value.
+	let from = '';
+	$: if (data.from) from = data.from;
+
 	$: echoedDescription =
 		form && 'description' in form && isString(form.description) ? form.description : '';
 </script>
@@ -83,6 +88,7 @@
 					}}
 					class="space-y-4"
 				>
+					<input type="hidden" name="from" value={from} />
 					<div class="space-y-2">
 						<label for="area" class="block text-sm font-medium text-slate-700"
 							>What's the bug about?</label

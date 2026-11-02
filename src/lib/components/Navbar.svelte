@@ -6,6 +6,7 @@
 	import NavbarMobileMenu from '$lib/components/NavbarMobileMenu.svelte';
 	import Mark from '$lib/components/brand/Mark.svelte';
 	import { loggedInNavItems, marketingNavItems, resolveActiveHref } from '$lib/utils/navItems';
+	import { reportBugHref } from '$lib/utils/reportBug';
 
 	export let isLoggedIn = false;
 	export let user: {
@@ -52,6 +53,7 @@
 	// Longest prefix wins, so /calendar/tasks highlights Tasks - not Calendar.
 	$: activeHref = resolveActiveHref($page.url.pathname, navItems);
 	$: isActive = (href: string) => activeHref === href;
+	$: bugHref = reportBugHref($page.url.pathname + $page.url.search);
 
 	function toggleMenu() {
 		isOpen = !isOpen;
@@ -120,6 +122,7 @@
 							{user}
 							onNavigate={closeProfileDropdown}
 							onLogoutSubmit={purgeSwDataCache}
+							reportBugHref={bugHref}
 						/>
 					{/if}
 				</div>
@@ -171,6 +174,7 @@
 			{activeHref}
 			onNavigate={closeMenu}
 			onLogoutSubmit={purgeSwDataCache}
+			reportBugHref={bugHref}
 		/>
 	{/if}
 </nav>

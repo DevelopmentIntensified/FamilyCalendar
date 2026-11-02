@@ -18,7 +18,7 @@ const areas: BugArea[] = ['calendar', 'tasks', 'account', 'dashboard', 'other'];
 
 function renderForm(form: ActionData | undefined) {
 	return render(ReportBugPage, {
-		props: { data: { areas }, form: form ?? null }
+		props: { data: { areas, from: '/calendar/tasks' }, form: form ?? null }
 	});
 }
 
@@ -39,5 +39,11 @@ describe('/report-bug page', () => {
 		renderForm({ error: 'Please describe the bug.', area: 'calendar', description: '' });
 		expect(screen.getByText('Please describe the bug.')).toBeInTheDocument();
 		expect(screen.queryByText('Thanks — report submitted')).not.toBeInTheDocument();
+	});
+
+	it('posts the originating page back as a hidden `from` field (issue 257)', () => {
+		renderForm(undefined);
+		const input = document.querySelector<HTMLInputElement>('input[type="hidden"][name="from"]');
+		expect(input?.value).toBe('/calendar/tasks');
 	});
 });

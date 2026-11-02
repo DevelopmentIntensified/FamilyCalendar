@@ -45,3 +45,14 @@ describe('Navbar closes menus after navigation', () => {
 		expect(screen.getByText('Open menu')).toBeInTheDocument();
 	});
 });
+
+// Issue 257: the bug-form link carries the page the user was on.
+describe('Navbar report-bug link', () => {
+	it('passes the current path as ?from=', async () => {
+		render(Navbar, { props: { isLoggedIn: true, user: { firstName: 'Sam' } } });
+		await fireEvent.click(screen.getByText('Open menu').closest('button')!);
+		expect(screen.getByText('Report a Bug').closest('a')?.getAttribute('href')).toBe(
+			'/report-bug?from=%2Fcalendar'
+		);
+	});
+});

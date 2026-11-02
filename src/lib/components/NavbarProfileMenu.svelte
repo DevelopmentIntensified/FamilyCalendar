@@ -11,9 +11,11 @@
 		} | null;
 		onNavigate: () => void;
 		onLogoutSubmit: () => void;
+		/** Issue 257: bug-form link carrying the current page as `?from=`. */
+		reportBugHref?: string;
 	}
 
-	let { user, onNavigate, onLogoutSubmit }: Props = $props();
+	let { user, onNavigate, onLogoutSubmit, reportBugHref = '/report-bug' }: Props = $props();
 </script>
 
 <div
@@ -75,7 +77,7 @@
 		Archive
 	</a>
 	<a
-		href="/report-bug"
+		href={reportBugHref}
 		onclick={onNavigate}
 		class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
 	>

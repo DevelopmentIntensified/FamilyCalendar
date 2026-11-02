@@ -11,9 +11,19 @@
 		activeHref: string | null;
 		onNavigate: () => void;
 		onLogoutSubmit: () => void;
+		/** Issue 257: bug-form link carrying the current page as `?from=`. */
+		reportBugHref?: string;
 	}
 
-	let { isLoggedIn, user, navItems, activeHref, onNavigate, onLogoutSubmit }: Props = $props();
+	let {
+		isLoggedIn,
+		user,
+		navItems,
+		activeHref,
+		onNavigate,
+		onLogoutSubmit,
+		reportBugHref = '/report-bug'
+	}: Props = $props();
 </script>
 
 <div transition:slide={{ duration: 200 }} class="border-t border-slate-200 bg-white md:hidden">
@@ -54,7 +64,7 @@
 					class="block rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">Archive</a
 				>
 				<a
-					href="/report-bug"
+					href={reportBugHref}
 					onclick={onNavigate}
 					class="block rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
 					>Report a Bug</a
