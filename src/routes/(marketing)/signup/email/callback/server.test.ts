@@ -115,6 +115,18 @@ describe('GET /signup/email/callback', () => {
 		expect(createNewUser).not.toHaveBeenCalled();
 	});
 
+	it('a guest session (#196 placeholder email) still gets the new account + session (#243)', async () => {
+		const response = await GET(
+			mockEvent('valid.jwt.token', { email: 'g1@anonymous.placeholder.invalid' }),
+			deps
+		);
+
+		expect(response.status).toBe(302);
+		expect(response.headers.get('Location')).toContain('/calendar');
+		expect(createNewUser).toHaveBeenCalledWith('New', 'User', 'new@user.com');
+		expect(response.headers.get('Set-Cookie')).toBe('better-auth.session_token=new123.sig; Path=/');
+	});
+
 	it('redirects to the calendar without creating a user when the account exists', async () => {
 		getAccount.mockResolvedValue({ id: 'account-1', userId: 'user-1' });
 

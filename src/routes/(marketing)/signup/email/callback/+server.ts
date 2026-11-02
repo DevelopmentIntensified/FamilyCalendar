@@ -6,6 +6,7 @@ import {
 } from '$lib/server/services/magicLink';
 import type { RequestEvent } from '@sveltejs/kit';
 import { createNewUser } from '$lib/server/utils/createNewUser';
+import { isRegisteredAccount } from '$lib/utils/anonymous';
 
 /**
  * Collaborators GET needs, injectable so tests can pass fakes through a real
@@ -48,7 +49,9 @@ export const GET = async function (
 		return errorRedirect();
 	}
 
-	if (event.locals.user?.email) {
+	// A guest session (placeholder email since #196) is not signed in — fall
+	// through and create the account; the stashed guest merges after (#243).
+	if (isRegisteredAccount(event.locals.user)) {
 		return redirect(deps.baseSiteUrl + '/calendar/');
 	}
 
