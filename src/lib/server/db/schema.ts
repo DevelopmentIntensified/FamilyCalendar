@@ -609,10 +609,42 @@ export const tasks = pgTable('tasks', {
 	// TaskFocus: when the current focus began, null when idle. Desktop-written;
 	// unlike focusMinutes an explicit null on PUT clears it ("stopped") (022).
 	focusStartedAt: timestamp('focus_started_at', { withTimezone: true }),
+	// Task category (#280): a NAME shared with TaskFocus (its rule-sets stay
+	// desktop-side). Null = uncategorized. <= 80 chars, trimmed; setting one
+	// auto-adds it to the caller's taskCategories list (024).
+	category: text('category'),
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
 export type Task = typeof tasks.$inferSelect;
+
+/**
+ * Per-user task category list (#280), synced by name with TaskFocus.
+ * Unique per user, case-insensitive (lower(name)). Renames/deletes
+ * propagate to the user's tasks (owned or assigned) carrying the name.
+ */
+export const taskCategories = pgTable(
+	'task_categories',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
+	},
+	(table) => ({
+		userNameUnique: uniqueIndex('task_categories_user_name_unique').on(
+			table.userId,
+			sql`lower(${table.name})`
+		)
+	})
+);
+export type TaskCategory = typeof taskCategories.$inferSelect;
 
 /**
  * Task scoping (issue 019) — visibility of a personal task to the rest of
