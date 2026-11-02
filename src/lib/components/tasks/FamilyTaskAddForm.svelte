@@ -3,6 +3,8 @@
 	import TaskQuickAddPreview from '$lib/components/TaskQuickAddPreview.svelte';
 	import { formatDue } from '$lib/utils/taskDisplay';
 	import { parseTaskQuickAdd, TASK_QUICK_ADD_PRIORITY_RE } from '$lib/utils/taskQuickAdd';
+	import { normalizeCategoryInput } from '$lib/utils/taskCategory';
+	import CategoryField from './CategoryField.svelte';
 
 	interface Props {
 		familyId: string;
@@ -11,14 +13,24 @@
 		memberName: (userId: string | null | undefined) => string;
 		/** Optimistic insert: page prepends the created task instantly (invalidateAll reconciles). */
 		onAdded: (task: unknown) => void;
+		/** #283: the viewer's category names (suggestions; free entry allowed). */
+		categories?: string[];
 	}
 
-	let { familyId, members, currentUserId, memberName, onAdded }: Props = $props();
+	let {
+		familyId,
+		members,
+		currentUserId,
+		memberName,
+		onAdded,
+		categories = []
+	}: Props = $props();
 
 	let newTitle = $state('');
 	let newDueDate = $state('');
 	let newAssignedTo = $state('');
 	let newPriority = $state('normal');
+	let newCategory = $state('');
 	let adding = $state(false);
 
 	/** End-of-today ISO slot — used when a recurrence is typed with no due date. */
@@ -61,7 +73,9 @@
 					priority: TASK_QUICK_ADD_PRIORITY_RE.test(newTitle) ? parsed.priority : newPriority,
 					tags: parsed.tags,
 					recurrenceFrequency: parsed.recurrenceFrequency,
-					recurrenceInterval: parsed.recurrenceInterval
+					recurrenceInterval: parsed.recurrenceInterval,
+					// Undefined is dropped by JSON.stringify — blank never reaches the wire.
+					category: normalizeCategoryInput(newCategory) ?? undefined
 				})
 			});
 			if (res.ok) {
@@ -69,6 +83,7 @@
 				newDueDate = '';
 				newAssignedTo = '';
 				newPriority = 'normal';
+				newCategory = '';
 				const created = await res.json().catch(() => null);
 				onAdded(created?.task);
 			}
@@ -122,6 +137,15 @@
 		>
 			Add
 		</button>
+	</div>
+	<div class="mt-2 sm:max-w-xs">
+		<CategoryField
+			id="family-add-task-category"
+			value={newCategory}
+			{categories}
+			compact
+			onChange={(v) => (newCategory = v)}
+		/>
 	</div>
 	<p class="mt-2 text-xs text-slate-400">
 		Try "clean gutters saturday", "high priority pay rent for Dad", "every 2 weeks" — dates,

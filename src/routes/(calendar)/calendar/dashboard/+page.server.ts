@@ -16,6 +16,7 @@ import { dashboardVisibility } from '$lib/dashboardModules';
 import { zoneFromSettings, zonedNow } from '$lib/server/utils/userTimezone';
 import { guard } from '$lib/server/utils/guard';
 import { getOpenGroceries } from '$lib/server/db/actions/groceries';
+import { listCategoryOptions } from '$lib/server/db/actions/taskCategories';
 import {
 	expandEventsForUser,
 	parseEvents,
@@ -64,6 +65,10 @@ export const load: PageServerLoad = async (event) => {
 	const warn = (label: string | null) => {
 		if (label) loadWarnings.push(label);
 	};
+
+	// #283: the viewer's task categories for the board quick-add. Started
+	// first so it overlaps the reads below; never throws (→ []).
+	const categoriesP = listCategoryOptions(userId);
 
 	// Settings + family scope come from the group layout (#042) — no refetch.
 	const parentData = await event.parent();
@@ -391,6 +396,7 @@ export const load: PageServerLoad = async (event) => {
 		modules,
 		dashboardData,
 		dailyVerse,
-		loadWarnings
+		loadWarnings,
+		taskCategories: await categoriesP
 	};
 };

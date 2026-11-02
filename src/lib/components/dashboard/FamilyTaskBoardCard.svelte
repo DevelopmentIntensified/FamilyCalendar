@@ -9,6 +9,8 @@
 	import { dueTone, priorityDot } from '$lib/utils/priorityTone';
 	import { showRecurringCompleteFeedback } from '$lib/client/taskFeedback';
 	import { pushToast } from '$lib/client/toasts';
+	import CategoryField from '$lib/components/tasks/CategoryField.svelte';
+	import { normalizeCategoryInput } from '$lib/utils/taskCategory';
 
 	export let tasks: {
 		id: string;
@@ -32,8 +34,11 @@
 	/** Family that created tasks post to when added from the board. */
 	export let familyId: string;
 	export let weekStreak: number = 0;
+	/** #283: the viewer's category names for the quick-add (suggestions; free entry allowed). */
+	export let categories: string[] = [];
 
 	let quickTitle = '';
+	let quickCategory = '';
 	let quickError = '';
 	let busy: string | null = null;
 
@@ -61,11 +66,14 @@
 					priority: parsed.priority,
 					tags: parsed.tags,
 					recurrenceFrequency: parsed.recurrenceFrequency,
-					recurrenceInterval: parsed.recurrenceInterval
+					recurrenceInterval: parsed.recurrenceInterval,
+					// Undefined is dropped by JSON.stringify — blank never reaches the wire.
+					category: normalizeCategoryInput(quickCategory) ?? undefined
 				})
 			});
 			if (res.ok) {
 				quickTitle = '';
+				quickCategory = '';
 				pushToast({ message: `Added "${parsed.title}" to the family board.` });
 				await invalidateAll();
 			} else {
@@ -209,6 +217,16 @@
 			>
 				Add
 			</button>
+			<!-- #283: own line under the input; the card is one narrow column. -->
+			<div class="min-w-0 basis-full">
+				<CategoryField
+					id="board-quick-add-category"
+					value={quickCategory}
+					{categories}
+					compact
+					onChange={(v) => (quickCategory = v)}
+				/>
+			</div>
 		</div>
 		{#if quickError}
 			<p class="text-xs text-red-600" role="alert">{quickError}</p>

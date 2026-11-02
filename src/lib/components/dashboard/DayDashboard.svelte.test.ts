@@ -69,6 +69,27 @@ describe('DayDashboard — the viewed day (240)', () => {
 	});
 });
 
+describe('DayDashboard — board quick-add categories (#283)', () => {
+	it('hands the viewer’s category names to the board’s quick-add', () => {
+		render(DayDashboard, {
+			props: {
+				...base,
+				modules: modulesFor([]),
+				taskCategories: [
+					{ id: 'c1', name: 'Errands' },
+					{ id: 'c2', name: 'Home' }
+				]
+			}
+		});
+		// SAFETY: the Category field is an <input> in CategoryField.
+		const input = screen.getByLabelText('Category') as HTMLInputElement;
+		const names = [
+			...document.querySelectorAll(`datalist#${input.getAttribute('list')} option`)
+		].map((o) => o.getAttribute('value'));
+		expect(names).toEqual(['Errands', 'Home']);
+	});
+});
+
 describe('DayDashboard — the verse reads above the cards, not inside the band (080)', () => {
 	it('puts the verse in the info band, outside the card band', () => {
 		render(DayDashboard, {

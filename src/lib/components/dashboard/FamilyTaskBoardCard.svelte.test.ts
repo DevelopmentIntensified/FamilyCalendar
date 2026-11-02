@@ -135,6 +135,45 @@ describe('FamilyTaskBoardCard - quick-add scoping (issue 021)', () => {
 		expect(screen.getByText(/Start a streak — check off today's tasks 🔥/)).toBeInTheDocument();
 		expect(screen.queryByText(/no streak yet/i)).not.toBeInTheDocument();
 	});
+
+	describe('category (#283)', () => {
+		it('offers the viewer categories and sends the chosen one, then resets', async () => {
+			vi.mocked(fetch).mockResolvedValue(stubFetchResponse({ task: { id: 't1' } }));
+			render(FamilyTaskBoardCard, {
+				props: {
+					tasks: [],
+					members,
+					meId: 'u_me',
+					familyId: 'fam1',
+					categories: ['Errands', 'Home']
+				}
+			});
+			// SAFETY: the Category field is an <input> in CategoryField.
+			const input = screen.getByLabelText('Category') as HTMLInputElement;
+			expect(
+				document.querySelectorAll(`datalist#${input.getAttribute('list')} option`)
+			).toHaveLength(2);
+			await fireEvent.input(input, { target: { value: ' Errands ' } });
+			await fireEvent.input(screen.getByPlaceholderText(/saturday for dad/i), {
+				target: { value: 'buy milk' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+			await waitFor(() => expect(taskPosts()).toHaveLength(1));
+			expect(taskBody().category).toBe('Errands');
+			await waitFor(() => expect(input.value).toBe(''));
+		});
+
+		it('sends no category key when none is set', async () => {
+			vi.mocked(fetch).mockResolvedValue(stubFetchResponse({ task: { id: 't1' } }));
+			await renderBoard();
+			await fireEvent.input(screen.getByPlaceholderText(/saturday for dad/i), {
+				target: { value: 'buy milk' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+			await waitFor(() => expect(taskPosts()).toHaveLength(1));
+			expect('category' in taskBody()).toBe(false);
+		});
+	});
 });
 
 // dashboard.html, approved, and it says so in the page's own note: "The board

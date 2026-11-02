@@ -89,3 +89,18 @@ describe('the Day Dashboard header', () => {
 		}
 	});
 });
+
+describe('the board quick-add categories (#283)', () => {
+	it('passes the loader’s taskCategories down to the board', async () => {
+		const { data } = makeData(true);
+		render(DashboardPage, {
+			data: { ...data, familyId: 'f-rivera', taskCategories: [{ id: 'c1', name: 'Errands' }] }
+		});
+		// SAFETY: the Category field is an <input> in CategoryField.
+		const input = (await screen.findByLabelText('Category')) as HTMLInputElement;
+		const names = [
+			...document.querySelectorAll(`datalist#${input.getAttribute('list')} option`)
+		].map((o) => o.getAttribute('value'));
+		expect(names).toEqual(['Errands']);
+	});
+});

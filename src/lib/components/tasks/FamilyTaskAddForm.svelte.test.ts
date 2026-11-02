@@ -69,4 +69,43 @@ describe('FamilyTaskAddForm', () => {
 			expect(screen.getByPlaceholderText('Add a family task...')).not.toHaveValue('')
 		);
 	});
+
+	describe('category (#283)', () => {
+		const lastBody = () => {
+			const call = vi.mocked(fetch).mock.calls.at(-1);
+			// SAFETY: the form always POSTs a JSON string body.
+			return JSON.parse(call?.[1]?.body as string);
+		};
+
+		it('offers the viewer categories and sends the chosen one, then resets', async () => {
+			const onAdded = vi.fn();
+			render(FamilyTaskAddForm, {
+				props: { ...base, onAdded, categories: ['Errands', 'Home'] }
+			});
+			// SAFETY: the Category field is an <input> in CategoryField.
+			const input = screen.getByLabelText('Category') as HTMLInputElement;
+			expect(
+				document.querySelectorAll(`datalist#${input.getAttribute('list')} option`)
+			).toHaveLength(2);
+			await fireEvent.input(input, { target: { value: '  Home ' } });
+			await fireEvent.input(screen.getByPlaceholderText('Add a family task...'), {
+				target: { value: 'Mow the lawn' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+			await waitFor(() => expect(onAdded).toHaveBeenCalledOnce());
+			expect(lastBody().category).toBe('Home');
+			expect(input.value).toBe('');
+		});
+
+		it('sends no category key when none is set', async () => {
+			const onAdded = vi.fn();
+			render(FamilyTaskAddForm, { props: { ...base, onAdded } });
+			await fireEvent.input(screen.getByPlaceholderText('Add a family task...'), {
+				target: { value: 'Mow the lawn' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+			await waitFor(() => expect(onAdded).toHaveBeenCalledOnce());
+			expect('category' in lastBody()).toBe(false);
+		});
+	});
 });

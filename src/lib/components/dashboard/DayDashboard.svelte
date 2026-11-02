@@ -53,6 +53,8 @@
 		lastName: string;
 		email?: string | null;
 	}[];
+	/** #283: the viewer's task categories, for the board's quick-add. */
+	export let taskCategories: { id: string; name: string }[] = [];
 	export let kidsSchedule: {
 		id: string;
 		title: string;
@@ -146,6 +148,7 @@
 						{meId}
 						{familyId}
 						weekStreak={glance.weekStreak}
+						categories={taskCategories.map((c) => c.name)}
 					/>
 				{/if}
 				{#if familyId && showsModule(modules, 'kids')}

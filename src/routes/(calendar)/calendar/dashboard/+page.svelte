@@ -118,6 +118,7 @@
 				completedToday={dd.completedToday ?? []}
 				familyTasks={dd.familyTasks}
 				familyMembers={dd.familyMembers}
+				taskCategories={data.taskCategories ?? []}
 				kidsSchedule={dd.kidsSchedule}
 				familyGroceries={dd.familyGroceries ?? []}
 				mineGroceries={dd.mineGroceries ?? []}
