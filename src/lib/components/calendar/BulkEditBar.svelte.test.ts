@@ -96,4 +96,25 @@ describe('BulkEditBar', () => {
 		await fireEvent.keyDown(screen.getByLabelText('Set location'), { key: 'Enter' });
 		expect(p.onRunBulk).toHaveBeenCalledWith({ type: 'location', location: 'Park' });
 	});
+
+	// #226: Enter must split/trim like the Add button.
+	it.each([
+		['Ann, Bob', ['Ann', 'Bob']],
+		['  Ann ,,Bob , ', ['Ann', 'Bob']],
+		['Ann', ['Ann']]
+	])('Enter in + Attendant splits %j like the button (#226)', async (raw, add) => {
+		const p = props({ bulkAttendants: raw });
+		render(BulkEditBar, { props: p });
+		await fireEvent.keyDown(screen.getByLabelText('Add attendant'), { key: 'Enter' });
+		expect(p.onRunBulk).toHaveBeenCalledWith({ type: 'attendants', add });
+		await fireEvent.click(screen.getByText('Add'));
+		expect(p.onRunBulk).toHaveBeenLastCalledWith({ type: 'attendants', add });
+	});
+
+	it('Enter in an empty + Attendant does nothing (#226)', async () => {
+		const p = props({ bulkAttendants: ' , ' });
+		render(BulkEditBar, { props: p });
+		await fireEvent.keyDown(screen.getByLabelText('Add attendant'), { key: 'Enter' });
+		expect(p.onRunBulk).not.toHaveBeenCalled();
+	});
 });

@@ -76,6 +76,18 @@
 		if (bulkBusy || selectedIds.length === 0 || !bulkLocation.trim()) return;
 		onRunBulk({ type: 'location', location: bulkLocation });
 	}
+
+	// #226: Enter and the Add button share one split/trim/filter so
+	// "Ann, Bob" becomes two attendants, never one guest named "Ann, Bob".
+	function runAttendants() {
+		if (bulkBusy || selectedIds.length === 0) return;
+		const add = bulkAttendants
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean);
+		if (add.length === 0) return;
+		onRunBulk({ type: 'attendants', add });
+	}
 </script>
 
 <div
@@ -194,19 +206,11 @@
 					aria-label="Add attendant"
 					class="w-28 rounded-lg border border-slate-300 px-2 py-2 text-xs disabled:opacity-50 sm:py-1.5"
 					disabled={bulkBusy || selectedIds.length === 0}
-					onkeydown={(e) =>
-						e.key === 'Enter' && onRunBulk({ type: 'attendants', add: [bulkAttendants] })}
+					onkeydown={(e) => e.key === 'Enter' && runAttendants()}
 				/>
 				<button
 					type="button"
-					onclick={() =>
-						onRunBulk({
-							type: 'attendants',
-							add: bulkAttendants
-								.split(',')
-								.map((s) => s.trim())
-								.filter(Boolean)
-						})}
+					onclick={runAttendants}
 					disabled={bulkBusy || selectedIds.length === 0 || !bulkAttendants.trim()}
 					class="rounded-lg border border-slate-300 px-2 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:py-1.5"
 				>
