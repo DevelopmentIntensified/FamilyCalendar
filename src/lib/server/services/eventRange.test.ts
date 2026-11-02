@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MAX_RANGE_DAYS, resolveEventRange } from './eventRange';
+import { MAX_RANGE_DAYS, eventRangeWindow, resolveEventRange } from './eventRange';
 
 const range = (query: string) => resolveEventRange(new URLSearchParams(query));
 
@@ -43,5 +43,25 @@ describe('resolveEventRange', () => {
 	it('serves a whole month, which is what the calendar asks for', () => {
 		// 31 days of span — inside a 62-day cap.
 		expect(range('from=2026-10-01&to=2026-10-31')).not.toHaveProperty('error');
+	});
+});
+describe('eventRangeWindow (#218)', () => {
+	it.each([
+		['two months', '2026-11-01', '2026-12-31'],
+		['one month', '2026-10-01', '2026-10-31'],
+		['a single day', '2026-10-15', '2026-10-15'],
+		['across a year end', '2026-12-15', '2027-01-20']
+	])('covers the whole requested range: %s', (_label, from, to) => {
+		const w = eventRangeWindow({ from, to });
+		expect(w.start.getTime()).toBeLessThanOrEqual(Date.parse(from + 'T00:00:00.000Z'));
+		expect(w.end.getTime()).toBeGreaterThanOrEqual(Date.parse(to + 'T23:59:59.999Z'));
+		expect(w.startIso).toBe(w.start.toISOString());
+		expect(w.endIso).toBe(w.end.toISOString());
+	});
+
+	it('pads a grid week each side, no more', () => {
+		const w = eventRangeWindow({ from: '2026-11-01', to: '2026-12-31' });
+		expect(w.startIso).toBe('2026-10-25T00:00:00.000Z');
+		expect(w.endIso).toBe('2027-01-07T23:59:59.999Z');
 	});
 });

@@ -57,3 +57,23 @@ export function resolveEventRange(search: URLSearchParams): EventRangeResult {
 	}
 	return { from, to };
 }
+
+/** A grid week of padding each side (adjacent-month cells, viewer-zone slack). */
+const PAD_MS = 7 * 86_400_000;
+
+/**
+ * The expansion window for a resolved range (#218): `from` 00:00Z through
+ * `to` 23:59:59.999Z, padded a week each side like `monthGridWindow`. The
+ * old handler built the month of `to` only, so a two-month read lost `from`'s
+ * month.
+ */
+export function eventRangeWindow(range: EventRange): {
+	start: Date;
+	end: Date;
+	startIso: string;
+	endIso: string;
+} {
+	const start = new Date(Date.parse(`${range.from}T00:00:00.000Z`) - PAD_MS);
+	const end = new Date(Date.parse(`${range.to}T23:59:59.999Z`) + PAD_MS);
+	return { start, end, startIso: start.toISOString(), endIso: end.toISOString() };
+}

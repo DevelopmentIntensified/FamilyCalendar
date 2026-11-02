@@ -16,11 +16,10 @@ import {
 	attachCreatorNames,
 	attachRsvpStatus,
 	expandEventsForUser,
-	monthGridWindow,
 	parseEvents
 } from '$lib/server/services/eventDisplayService';
 import { getUserZone } from '$lib/server/utils/userTimezone';
-import { resolveEventRange } from '$lib/server/services/eventRange';
+import { eventRangeWindow, resolveEventRange } from '$lib/server/services/eventRange';
 
 /**
  * GET /api/events?from=&to= — the ranged read (issue 082).
@@ -43,9 +42,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		return json({ error: range.error }, { status: 400 });
 	}
 
-	// The visible-month window, but built from the RANGE's end so a fetch for
-	// October expands October (plus the grid's week of padding), never today.
-	const window = monthGridWindow(range.to);
+	// The REQUESTED range (plus the grid's week of padding), never today and
+	// never just the month of `to` (#218).
+	const window = eventRangeWindow(range);
 	const accessibleCalIds = await getAccessibleCalendarIds(userId);
 
 	const rows = await db

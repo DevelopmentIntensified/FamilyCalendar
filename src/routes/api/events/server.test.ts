@@ -63,10 +63,12 @@ vi.mock('$lib/server/services/eventDisplayService', () => ({
 			endIso: `${dateIso ?? 'today'}T23:59:59.999Z`
 		};
 	}),
-	expandEventsForUser: vi.fn(async (rows: ScriptedRow[]) => {
-		state.windows.push({ startIso: 'expanded', endIso: 'expanded' });
-		return rows.map((r, i) => ({ ...r, id: `occ-${i}`, masterId: `m-${i}` }));
-	}),
+	expandEventsForUser: vi.fn(
+		async (rows: ScriptedRow[], window: { startIso: string; endIso: string }) => {
+			state.windows.push({ startIso: window.startIso, endIso: window.endIso });
+			return rows.map((r, i) => ({ ...r, id: `occ-${i}`, masterId: `m-${i}` }));
+		}
+	),
 	parseEvents: vi.fn(async (rows: unknown[]) => rows),
 	attachRsvpStatus: vi.fn(async (_userId: string, rows: unknown[]) => rows),
 	attachAttendanceSummaries: vi.fn(async (rows: unknown[]) => rows),
@@ -114,6 +116,7 @@ async function json(res: Response): Promise<RangeBody> {
 beforeEach(() => {
 	state.scopeCalls = [];
 	state.rows = [];
+	state.windows = [];
 	vi.clearAllMocks();
 });
 
@@ -177,6 +180,15 @@ describe('GET /api/events', () => {
 		const body = await json(await request('?from=2026-10-01&to=2026-10-31'));
 
 		expect(body.events).toHaveLength(1);
+	});
+
+	it('expands the WHOLE from..to range, not just the month of `to` (#218)', async () => {
+		await request('?from=2026-11-01&to=2026-12-31');
+
+		expect(state.windows).toHaveLength(1);
+		const [w] = state.windows;
+		expect(w.startIso <= '2026-11-01T00:00:00.000Z').toBe(true);
+		expect(w.endIso >= '2026-12-31T23:59:59.999Z').toBe(true);
 	});
 
 	it('says what is wrong when the range is not usable', async () => {
