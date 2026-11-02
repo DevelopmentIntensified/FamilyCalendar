@@ -629,3 +629,62 @@ describe('BYDAY weekdays are read in the viewer zone (#215)', () => {
 		expect(localDates(out, 'UTC')).toEqual(['2026-08-03', '2026-08-05']);
 	});
 });
+
+describe('date-only recurrenceUntil ends the day in the viewer zone (#216)', () => {
+	const cases: {
+		name: string;
+		event: RecurringEventInput;
+		zone: string;
+		expected: string[];
+	}[] = [
+		{
+			name: 'daily 5pm PST until 2026-11-05 keeps the Nov 5 occurrence',
+			event: {
+				id: 'u1',
+				start: '2026-11-03T01:00:00Z', // Mon Nov 2, 5 PM PST
+				recurrenceFrequency: 'daily',
+				recurrenceInterval: 1,
+				recurrenceUntil: '2026-11-05'
+			},
+			zone: 'America/Los_Angeles',
+			expected: ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05']
+		},
+		{
+			name: 'BYDAY weekly evening in Chicago keeps the until day',
+			event: {
+				id: 'u2',
+				start: '2026-11-03T01:00:00Z', // Mon Nov 2, 7 PM CST
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceByDay: ['MO'],
+				recurrenceUntil: '2026-11-16'
+			},
+			zone: 'America/Chicago',
+			expected: ['2026-11-02', '2026-11-09', '2026-11-16']
+		},
+		{
+			name: 'east of UTC: daily 8am Tokyo until 2026-11-05 stops ON Nov 5, not Nov 6',
+			event: {
+				id: 'u3',
+				start: '2026-11-01T23:00:00Z', // Mon Nov 2, 8 AM JST
+				recurrenceFrequency: 'daily',
+				recurrenceInterval: 1,
+				recurrenceUntil: '2026-11-05'
+			},
+			zone: 'Asia/Tokyo',
+			expected: ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05']
+		}
+	];
+
+	for (const c of cases) {
+		it(c.name, () => {
+			const out = expandRecurrence(
+				c.event,
+				d('2026-11-01T00:00:00Z'),
+				d('2026-12-01T00:00:00Z'),
+				c.zone
+			);
+			expect(localDates(out, c.zone)).toEqual(c.expected);
+		});
+	}
+});

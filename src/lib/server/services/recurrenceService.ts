@@ -155,7 +155,7 @@ export function expandRecurrence(
 			interval,
 			byDay,
 			event.recurrenceCount ?? null,
-			recurrenceUntil(event),
+			recurrenceUntil(event, zone),
 			windowStart,
 			windowEnd,
 			zone
@@ -163,7 +163,7 @@ export function expandRecurrence(
 	}
 
 	const count = positiveCount(event.recurrenceCount);
-	const until = recurrenceUntil(event);
+	const until = recurrenceUntil(event, zone);
 
 	const occurrences: Date[] = [];
 	let steps = 0;
@@ -196,11 +196,12 @@ function positiveCount(raw?: number | null): number | null {
 }
 
 /** The series cutoff instant (RRULE UNTIL), or null when unbounded. */
-function recurrenceUntil(event: RecurringEventInput): Date | null {
+function recurrenceUntil(event: RecurringEventInput, zone: string): Date | null {
 	if (!event.recurrenceUntil) return null;
 	// NLP quick-add ("every monday until Sep 7") stores a DATE-ONLY string.
-	// The until day is INCLUSIVE: expand to end-of-day UTC so that day's own
-	// occurrence survives (an 18:00 start beat a 00:00 cutoff and vanished).
+	// The until day is INCLUSIVE: expand to end-of-day in the viewer's zone
+	// (#216) so that day's own occurrence survives — end-of-day UTC dropped
+	// a 5pm PST occurrence (01:00Z next day) and kept an extra one east of UTC.
 	// Full-timestamp UNTILs (ICS import, API) keep their exact instant.
 	let dateOnly: string | null = null;
 	if (!(event.recurrenceUntil instanceof Date)) {
@@ -208,7 +209,7 @@ function recurrenceUntil(event: RecurringEventInput): Date | null {
 		if (/^\d{4}-\d{2}-\d{2}$/.test(s)) dateOnly = s;
 	}
 	if (dateOnly) {
-		const dt = DateTime.fromISO(dateOnly, { zone: 'utc' }).endOf('day');
+		const dt = DateTime.fromISO(dateOnly, { zone }).endOf('day');
 		return dt.isValid ? dt.toJSDate() : null;
 	}
 	const dt = parseTimestamp(event.recurrenceUntil);
