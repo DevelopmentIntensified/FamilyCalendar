@@ -118,9 +118,8 @@ code, server, or the live Console.
 - Record keystore + key passwords in the owner's password vault. Losing both = orphaned app.
 - Enroll in **Play App Signing** during app creation in the Console (Google keeps the release
   key; the upload key signs each `.aab`). Upload bundles are signed with that upload key.
-- Repo currently has **no release signing config** — `buildTypes.release` only minifies
-  (`apps/android/app/build.gradle.kts`). When wiring signingConfig, use a properties file
-  outside the repo, and never let the password enter VCS.
+- Release signing (#267) reads the gitignored `apps/android/keystore.properties`; absent →
+  unsigned release. Steps: [guides/android-release.md](guides/android-release.md).
 - Release artifacts point at production: `API_BASE_URL https://familyplanz.com/`
   (debug points at `test.familyplanz.com`). Bundle command: `:app:bundleRelease`.
 

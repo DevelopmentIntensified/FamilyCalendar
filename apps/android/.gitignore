@@ -6,3 +6,8 @@ local.properties
 .idea/
 *.iml
 captures/
+
+# Release signing secrets (issue #267) - never commit
+keystore.properties
+*.jks
+*.keystore

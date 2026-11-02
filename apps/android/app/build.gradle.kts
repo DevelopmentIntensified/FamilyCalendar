@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
 	alias(libs.plugins.android.application)
 	alias(libs.plugins.kotlin.compose)
@@ -31,6 +33,13 @@ detekt {
 	}
 }
 
+// Upload-key signing (issue #267): secrets live in the uncommitted
+// apps/android/keystore.properties; absent → release builds unsigned.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+	if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+}
+
 android {
 	namespace = "com.familyplanz.app"
 	compileSdk = 37
@@ -44,12 +53,24 @@ android {
 		buildConfigField("String", "API_BASE_URL", "\"https://familyplanz.com/\"")
 	}
 
+	signingConfigs {
+		if (keystorePropsFile.exists()) {
+			create("release") {
+				storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+				storePassword = keystoreProps.getProperty("storePassword")
+				keyAlias = keystoreProps.getProperty("keyAlias")
+				keyPassword = keystoreProps.getProperty("keyPassword")
+			}
+		}
+	}
+
 	buildTypes {
 		debug {
 			buildConfigField("String", "API_BASE_URL", "\"https://test.familyplanz.com/\"")
 		}
 		release {
 			isMinifyEnabled = true
+			signingConfigs.findByName("release")?.let { signingConfig = it }
 			proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
 		}
 	}
