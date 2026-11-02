@@ -19,6 +19,7 @@
 	import { createSwipeState, createSwipeHandlers } from './bottomSheetSwipe';
 	import BottomSheetHandle from './BottomSheetHandle.svelte';
 	import { actionErrorCopy } from '$lib/utils/actionError';
+	import { pushToast } from '$lib/client/toasts';
 
 	export let event: Event;
 	export let show = false;
@@ -272,9 +273,13 @@
 		showEditForm = false;
 	}
 
+	// #223: the `event` prop is stale after a save (parents only refetch), so
+	// returning to the detail view showed old data. Close and name the result.
 	function handleUpdate(e: CustomEvent) {
 		dispatch('update', e.detail);
-		showEditForm = false;
+		const title = (e.detail?.title as string | undefined)?.trim() || event.title;
+		pushToast({ message: `Saved "${title}".` });
+		close();
 	}
 
 	async function duplicateEvent() {

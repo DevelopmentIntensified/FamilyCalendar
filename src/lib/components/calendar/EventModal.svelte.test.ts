@@ -2,6 +2,8 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/sv
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { invalidateAll } from '$app/navigation';
 import type { Event } from '$lib/types';
+import { get } from 'svelte/store';
+import { toasts } from '$lib/client/toasts';
 import EventModal from './EventModal.svelte';
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- DI seam impossible: `$app/navigation` is a SvelteKit virtual module imported inside EventModal; there is no injectable surface short of changing the component's public API.
@@ -699,5 +701,45 @@ describe('EventModal - duplicate payload', () => {	const dupEvent: Event = {
 			{ value: 'u1', isUser: true, inviteType: 'required' },
 			{ value: 'Grandma Rose', isUser: false, inviteType: 'optional' }
 		]);
+	});
+});
+
+// #223: Edit -> Save used to drop back to the detail view still showing the
+// stale `event` prop. Saving now closes the modal and names what happened.
+describe('EventModal - save from edit (#223)', () => {
+	beforeEach(() => {
+		toasts.set([]);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url: string, init?: RequestInit) => {
+				if (init?.method === 'PUT') {
+					return { ok: true, json: async () => ({ success: true }) };
+				}
+				return { ok: true, json: async () => ({ attendance: [], userRsvpStatus: 'undecided' }) };
+			})
+		);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	it('closes on save and toasts instead of showing the old title', async () => {
+		const onClose = vi.fn();
+		render(EventModal, { props: { show: true, event: baseEvent, onClose } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit event' }));
+		const title = await screen.findByLabelText(/Event Title/);
+		await fireEvent.input(title, { target: { value: 'Renamed Event' } });
+		const form = document.getElementById('event-form');
+		expect(form).not.toBeNull();
+		await fireEvent.submit(form!);
+		await waitFor(() => {
+			const put = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PUT');
+			expect(put).toBeDefined();
+		});
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+		expect(screen.queryByText('Test Event')).toBeNull();
+		expect(get(toasts).map((t) => t.message)).toContain('Saved "Renamed Event".');
 	});
 });

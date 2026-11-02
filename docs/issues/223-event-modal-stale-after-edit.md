@@ -1,6 +1,6 @@
 # 223 — Event detail modal shows old data after Edit -> Save
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane B).
 
@@ -14,9 +14,9 @@ Day view -> event -> Edit -> change title -> Save -> modal still shows old title
 
 ## Done
 
-(none yet)
+- `EventModal.svelte` `handleUpdate`: still dispatches `update` (parents refetch), then `pushToast('Saved "<title>".')` and `close()` (dispatches close + `onClose`) instead of returning to the stale detail view.
+- Test (`EventModal.svelte.test.ts`): `EventModal - save from edit (#223) > closes on save and toasts instead of showing the old title` (Edit -> rename -> submit #event-form -> PUT). Red: onClose 0 calls (detail view re-shown with old title) -> green. Full `src/lib/components` suite 829/829.
 
 ## Needs doing
 
-- Close modal on update (or re-find by id) and push a 'Saved' toast.
-- Red test first where a seam exists (`tdd`).
+(none)
