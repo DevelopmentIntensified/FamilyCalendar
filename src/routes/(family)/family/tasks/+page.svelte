@@ -13,7 +13,7 @@
 	import EditTaskDialog, { type EditDraft } from '$lib/components/tasks/EditTaskDialog.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { groupTasksByAssignee } from '$lib/utils/familyTaskGroups';
-	import { buildEditPayload } from '$lib/utils/taskEditPayload';
+	import { saveTaskEdit } from '$lib/client/taskEditSave';
 	import {
 		advanceTask,
 		deleteTask,
@@ -177,21 +177,13 @@
 		if (!editing || !draft.title.trim() || editSaving) return;
 		editSaving = true;
 		try {
-			const { payload } = buildEditPayload(editing, draft, data.userId);
-			const res = await fetch(`/api/tasks/${editing.id}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-			if (res.ok) {
+			// #283: the shared save names what happened in a toast, both ways.
+			const out = await saveTaskEdit(editing, draft, data.userId);
+			pushToast({ message: out.message });
+			if (out.ok) {
 				closeEdit();
 				await invalidateAll();
-			} else {
-				const j = await res.json().catch(() => ({}));
-				pushToast({ message: j.error || "That didn't work. Try again." });
 			}
-		} catch {
-			pushToast({ message: 'Network problem. Try again.' });
 		} finally {
 			editSaving = false;
 		}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 import TasksPage from './+page.svelte';
 import type { PageData } from './$types';
 
@@ -80,5 +80,57 @@ describe('tasks page — clear completed', () => {
 		await fireEvent.click(pending);
 		expect(clearCalls()).toHaveLength(1);
 		expect(clearCalls()[0][0]).toBe('/api/tasks/completed');
+	});
+});
+
+// #283: the edit dialog's save names what happened, both ways.
+describe('tasks page — edit save feedback', () => {
+	function withOpenTask() {
+		const d = makeData();
+		// SAFETY: the fixture's taskLists is the plain object built in makeData.
+		const lists = (d.data as unknown as { taskLists: { myTasks: unknown[] } }).taskLists;
+		lists.myTasks.push({
+			id: 't2',
+			title: 'Mow the lawn',
+			notes: null,
+			dueDate: null,
+			completedAt: null,
+			userId: 'u1',
+			eventId: null,
+			createdAt: '2026-09-01T10:00:00.000Z',
+			tags: []
+		});
+		return d;
+	}
+
+	async function editAndSave() {
+		await fireEvent.click(screen.getByRole('button', { name: 'Mow the lawn' }));
+		await fireEvent.input(screen.getByLabelText('Title *'), { target: { value: 'Mow the yard' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+	}
+
+	it('toasts Saved "<title>" and closes the dialog', async () => {
+		const { pushToast } = await import('$lib/client/toasts');
+		render(TasksPage, withOpenTask());
+		await editAndSave();
+		await waitFor(() =>
+			expect(pushToast).toHaveBeenCalledWith({ message: 'Saved "Mow the yard".' })
+		);
+		expect(screen.queryByRole('dialog', { name: 'Edit task' })).toBeNull();
+	});
+
+	it('toasts the failure and keeps the dialog open', async () => {
+		vi.mocked(fetch).mockImplementation(
+			async () => new Response(JSON.stringify({ error: 'Not allowed' }), { status: 403 })
+		);
+		const { pushToast } = await import('$lib/client/toasts');
+		render(TasksPage, withOpenTask());
+		await editAndSave();
+		await waitFor(() =>
+			expect(pushToast).toHaveBeenCalledWith({
+				message: 'Couldn\'t save "Mow the yard" — Not allowed'
+			})
+		);
+		expect(screen.getByRole('dialog', { name: 'Edit task' })).toBeInTheDocument();
 	});
 });

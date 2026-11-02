@@ -20,7 +20,7 @@
 		showRecurringSkipFeedback
 	} from '$lib/client/taskFeedback';
 	import { pushToast } from '$lib/client/toasts';
-	import { buildEditPayload } from '$lib/utils/taskEditPayload';
+	import { saveTaskEdit } from '$lib/client/taskEditSave';
 	import { respondToTask as respondToTaskAction } from '$lib/utils/familyTaskActions';
 
 	export let data: PageData;
@@ -132,21 +132,15 @@
 		editSaving = true;
 		actionError = '';
 		try {
-			const { payload } = buildEditPayload(editing, draft, data.user?.id);
-			const res = await fetch(`/api/tasks/${editing.id}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-			if (res.ok) {
+			// #283: the shared save names what happened in a toast, both ways.
+			const out = await saveTaskEdit(editing, draft, data.user?.id);
+			pushToast({ message: out.message });
+			if (out.ok) {
 				closeEdit();
 				await invalidateAll();
 			} else {
-				const j = await res.json().catch(() => ({}));
-				actionError = j.error || "That didn't work. Try again.";
+				actionError = out.error;
 			}
-		} catch {
-			actionError = 'Network problem. Try again.';
 		} finally {
 			editSaving = false;
 		}

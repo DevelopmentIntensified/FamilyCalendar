@@ -1,7 +1,12 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, cleanup, within } from '@testing-library/svelte';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { render, screen, cleanup, within, fireEvent, waitFor } from '@testing-library/svelte';
 import FamilyTasksPage from './+page.svelte';
 import type { PageData } from './$types';
+import { pushToast } from '$lib/client/toasts';
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- SvelteKit $app/* is framework-injected; no DI seam exists.
+vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn(() => Promise.resolve()) }));
+vi.mock('$lib/client/toasts', () => ({ pushToast: vi.fn() }));
 
 /**
  * Fixture typed from the loader's own types, so nothing here needs a cast:
@@ -256,5 +261,49 @@ describe('family tasks page — the approved board (issue 124)', () => {
 
 		const nobody = screen.getByRole('region', { name: /nobody/i });
 		expect(nobody.getAttribute('class')).toContain('from-red-100/40');
+	});
+});
+
+// #283: the edit dialog's save names what happened, both ways.
+describe('family tasks page — edit save feedback', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	async function editAndSave() {
+		render(FamilyTasksPage, {
+			...data([
+				familyTask({ id: 'e1', title: 'Mow the lawn', assignedTo: 'u_dad', userId: 'u_dad' })
+			])
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Mow the lawn' }));
+		await fireEvent.input(screen.getByLabelText('Title *'), { target: { value: 'Mow the yard' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+	}
+
+	it('toasts Saved "<title>" and closes the dialog', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify({ task: { id: 'e1' } }), { status: 200 }))
+		);
+		await editAndSave();
+		await waitFor(() =>
+			expect(pushToast).toHaveBeenCalledWith({ message: 'Saved "Mow the yard".' })
+		);
+		expect(screen.queryByRole('dialog', { name: 'Edit task' })).toBeNull();
+	});
+
+	it('toasts the failure and keeps the dialog open', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify({ error: 'Not allowed' }), { status: 403 }))
+		);
+		await editAndSave();
+		await waitFor(() =>
+			expect(pushToast).toHaveBeenCalledWith({
+				message: 'Couldn\'t save "Mow the yard" — Not allowed'
+			})
+		);
+		expect(screen.getByRole('dialog', { name: 'Edit task' })).toBeInTheDocument();
 	});
 });
