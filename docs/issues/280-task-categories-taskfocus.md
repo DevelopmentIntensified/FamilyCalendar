@@ -1,6 +1,6 @@
 # 280 — Task categories synced with TaskFocus
 
-Status: open
+Status: in-progress
 
 Source: owner 2026-11-02 — "since TaskFocus has a task category, we need to have that"; answers: sync the category list; set it in the web task editor and the Android app; TaskFocus maps by name; ping the TaskFocus agent for its side.
 
@@ -32,8 +32,19 @@ TaskFocus (desktop, repo DevelopmentIntensified/taskfocus) gives every task exac
 
 ## Done
 
-(none yet)
+- **Server + API + spec (lane 1)** — 2026-11-02, branch commits `feat(280): …`.
+  - Migration `sql/migrations/024-task-categories.sql` (idempotent, additive: `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS category`, `CREATE TABLE IF NOT EXISTS task_categories`, `CREATE UNIQUE INDEX IF NOT EXISTS task_categories_user_name_unique (user_id, lower(name))`), bundled in `src/lib/server/db/migrations/scripts.ts` (parity gate green). Not hand-run against Neon: no `.env.preview`/`.env.prod` in the agent sandbox — applies at cold start, or run `scripts/db-exec.mjs` per the spec.
+  - Schema `tasks.category`, `taskCategories` (`src/lib/server/db/schema.ts`).
+  - Actions `src/lib/server/db/actions/taskCategories.ts`: `parseTaskCategory`, `parseCategoryName`, `listTaskCategories`, `ensureTaskCategory` (idempotent, race-safe), `renameTaskCategory` / `deleteTaskCategory` (one transaction each, propagate to the caller's owned + assigned tasks, case-insensitive match).
+  - Routes `src/routes/api/task-categories/+server.ts` (GET, POST) and `[id]/+server.ts` (PATCH, DELETE) — contract as above.
+  - `/api/tasks` POST + `/api/tasks/[id]` PUT (owner and #232 non-owner family write) accept `category`; all list reads (`getTasksForUser`, `getTasksForFamily`, `getMyTasks`, `getPublicTasksForFamily`, pending/requested assignment sections) select it, so web page loaders already carry `task.category` for the UI lane.
+  - Spec: `docs/guides/task-api-spec.md` (Task shape, POST/PUT `category`, new "Task categories" section).
+  - Tests: `taskCategories.test.ts` (30), `api/task-categories/server.test.ts` (20), `api/tasks/category.test.ts` (12), `api/tasks/[id]/category.test.ts` (12), `actions/tasks/queries.category.test.ts` (6); `taskCategories.real.test.ts` written for the #002 harness (not run here: no Postgres).
+  - Contract clarifications (additive, no shape change): non-string task category → `400 {"error":"category must be a string"}`; list-endpoint name errors → `400 {"error":"name is required"}` / `{"error":"name is too long"}`; DELETE on a non-caller id → `404 {"error":"Category not found"}` (same as PATCH); a case variant of a listed name is stored in the list's spelling (`"work"` → `"Work"`); there is no `GET /api/tasks/[id]` endpoint — the `[id]` PUT response carries `category`.
 
 ## Needs doing
 
-- FamilyPlanz server + spec (lane 1), web editor (lane 2), Android (lane 3); TaskFocus side messaged to its session.
+- Web editor (lane 2): category combobox in task create + edit dialogs, chip on task rows; optimistic + toast. Data already on `task.category`; list from `GET /api/task-categories` (or a loader call to `listTaskCategories`).
+- Android (lane 3): chip on rows; picker in #270 AddTaskBar from `GET /api/task-categories`.
+- TaskFocus side: messaged to its session (push/pull names, list sync by name, remember remote ids).
+- Owner: apply 024 to Neon (`.env.preview` then `.env.prod`) if not waiting for cold start.

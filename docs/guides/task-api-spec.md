@@ -65,6 +65,7 @@ Task shape (`Task`; `tags` present on the list endpoint only):
   "createdAt": "ISO string",
   "focusMinutes": "integer|null (TaskFocus: whole focus minutes, desktop-written)",
   "focusStartedAt": "ISO datetime string|null (TaskFocus: current focus began; null = idle)",
+  "category": "text|null (#280: category NAME shared with TaskFocus; null = uncategorized)",
   "tags": ["text", …]
 }
 ```
@@ -79,7 +80,10 @@ JSON body (examples of accepted values): `title` (required, non-empty),
 `eventId`, `familyId` (omit/null → your own family; explicit id → must be
 a family you belong to), `assignedTo` (defaults you),
 `focusMinutes` (TaskFocus only: whole focus minutes, ≥ 0; omit → `null`),
-`focusStartedAt` (TaskFocus only: ISO datetime; omit/null → `null` = idle).
+`focusStartedAt` (TaskFocus only: ISO datetime; omit/null → `null` = idle),
+`category` (#280: name string, trimmed, ≤ 80 chars; omit/null/blank → `null`.
+A name not in your category list is auto-added to it; a case variant of a
+listed name is stored in the list's spelling, e.g. `"work"` → `"Work"`).
 
 - `201 {"success":true,"task":<Task + tags>}`
 - `400 {"error":"Title is required"}` — empty/missing title.
@@ -87,6 +91,8 @@ a family you belong to), `assignedTo` (defaults you),
 - `400 {"error":"Invalid focusStartedAt"}` — not null and not a parseable ISO datetime.
 - `400 {"error":"Invalid dueDate"}` — present (not null/empty) but not an ISO
   date or datetime string.
+- `400 {"error":"category is too long"}` — over 80 chars after trimming.
+- `400 {"error":"category must be a string"}` — present, not null, not a string.
 - `400 {"error":"Invalid eventId"}` — present but not a string.
 - `400 {"error":"Event not found"}` — `eventId` names no event.
 - `403 {"error":"No access to this event"}` — the event exists but you cannot
@@ -116,6 +122,12 @@ Partial update; send only the fields you change. Mutations:
   `focusMinutes`, null is a value here. `400 {"error":"Invalid focusStartedAt"}`
   for non-string or unparseable values, rejected before any mutation. Live
   minutes for a running task = `focusMinutes + (now − focusStartedAt)`.
+- `category` (#280): **absent → unchanged; `null` or blank → cleared; string
+  → set** (trimmed, ≤ 80 chars). Any permitted editor may set it (owner,
+  live assignee, family member); an unknown name is auto-added to the
+  EDITOR's category list, and a case variant of a listed name is stored in
+  the list's spelling. `400 {"error":"category is too long"}` /
+  `400 {"error":"category must be a string"}`, rejected before any mutation.
 - `toggleComplete: true` — check off / uncheck. Server-side logic; don't send
   `completedAt` directly alongside it.
 - `advanceToNext: true` — skip the current occurrence of a recurring task.
@@ -154,6 +166,47 @@ kept server-side) — either way it disappears from every `GET /api/tasks` list.
   lack mutation rights (someone else's personal task). Both mean "the list
   state and your local copy no longer agree"; healing is to re-GET.
 - 401 / 500.
+
+## Task categories (`/api/task-categories`, #280)
+
+Per-user list of category NAMES, synced with TaskFocus (its rule-sets stay
+desktop-side; FamilyPlanz only carries names). Same auth (Bearer `fp_…` or
+session). Names are unique per user **case-insensitively**; ≤ 80 chars,
+trimmed. Category wire shape:
+`{"id":"text","name":"text","createdAt":"ISO","updatedAt":"ISO"}`.
+
+- `GET /api/task-categories` → `200 {"categories":[<Category>, …]}` — the
+  caller's list, sorted by name (case-insensitive).
+- `POST /api/task-categories` body `{"name":"Work"}` → `200 {"category":<Category>}`.
+  **Idempotent:** an existing name (any case) returns the existing row, never
+  a duplicate — safe to replay on every sync.
+- `PATCH /api/task-categories/[id]` body `{"name":"Deep Work"}` →
+  `200 {"category":<Category>}` (updatedAt bumped). Every task **owned by
+  or assigned to the caller** whose category equals the old name
+  (case-insensitive) is renamed in the same transaction. A case-only rename
+  of the same row is allowed.
+  - `409 {"error":"A category with that name already exists"}` — another of
+    your categories has that name (case-insensitive).
+- `DELETE /api/task-categories/[id]` → `200 {"success":true}`; the caller's
+  tasks (owned or assigned) carrying that name get `category: null`.
+- `400 {"error":"name is required"}` — missing / blank / non-string name
+  (POST, PATCH); also malformed JSON.
+- `400 {"error":"name is too long"}` — over 80 chars after trimming.
+- `404 {"error":"Category not found"}` — PATCH/DELETE on an id that is not
+  yours (or unknown). Treat as "already gone": drop the local remote id.
+- 401 / 500 as universal.
+
+Notes for sync clients:
+- Setting a task's `category` (POST/PUT `/api/tasks`) to a name not in the
+  list auto-adds it, so the list never drifts behind the tasks.
+- The list is per user; family members do not share lists. A family task
+  may carry a name that is not in YOUR list (another member set it) — map it
+  by name; do not treat that as an error.
+- Rename/delete propagate only to tasks owned by or assigned to the caller;
+  another member's tasks keep their stored name.
+- Create the table/column (also bundled for the cold-start runner):
+  `npx dotenv -e .env.preview -- node scripts/db-exec.mjs sql/migrations/024-task-categories.sql`
+  then the same with `.env.prod`. Idempotent.
 
 ## Sync guidance (deletion handling)
 
