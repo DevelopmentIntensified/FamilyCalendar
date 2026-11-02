@@ -391,6 +391,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
+- **#271-#273 Android notifications (2026-11-02, filed):** owner call: Firebase (FCM) for family-activity push; event reminders scheduled on-device with no server push. #271 local reminders, #272 server FCM sender + device tokens (migration 023, owner runs), #273 Android FCM client (needs owner Firebase config).
 - **#210 native Android app (2026-10-27, in-progress):** Capacitor wrap
   2026-11-01: SLICES 1-8 code/doc DONE (4 f4f966e, 5 bfd5962, 6 be1aba7 file
   cache scoped down, 7 c8a0786 detekt + `:app:mobileGate`, 8 plan doc banner).
