@@ -32,6 +32,7 @@ import m019 from '../../../../../sql/migrations/019-drop-unused-group-tables.sql
 import m020 from '../../../../../sql/migrations/020-drop-stale-ad-flag-columns.sql?raw';
 import m021 from '../../../../../sql/migrations/021-taskfocus-focus-minutes-commands.sql?raw';
 import m022 from '../../../../../sql/migrations/022-taskfocus-focus-started-at.sql?raw';
+import m023 from '../../../../../sql/migrations/023-device-tokens.sql?raw';
 
 export type BundledMigration = { name: string; sql: string };
 
@@ -59,7 +60,8 @@ const MIGRATIONS: BundledMigration[] = [
 	{ name: '019-drop-unused-group-tables.sql', sql: m019 },
 	{ name: '020-drop-stale-ad-flag-columns.sql', sql: m020 },
 	{ name: '021-taskfocus-focus-minutes-commands.sql', sql: m021 },
-	{ name: '022-taskfocus-focus-started-at.sql', sql: m022 }
+	{ name: '022-taskfocus-focus-started-at.sql', sql: m022 },
+	{ name: '023-device-tokens.sql', sql: m023 }
 ];
 
 /** Sorted ascending by numeric prefix. */

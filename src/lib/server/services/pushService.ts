@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { pushSubscriptions } from '$lib/server/db/schema';
 import webpushModule from 'web-push';
+import { sendNotificationToDevices } from './devicePushService';
 
 interface WebPushModule {
 	sendNotification(
@@ -67,10 +68,34 @@ export async function removeSubscription(userId: string, endpoint: string): Prom
 		.where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.endpoint, endpoint)));
 }
 
+export type PushPayload = { title: string; body: string; link?: string };
+
+export interface PushChannels {
+	web: (userId: string, payload: PushPayload) => Promise<void>;
+	devices: (userId: string, payload: PushPayload) => Promise<void>;
+}
+
+/**
+ * Every channel the user has: browser Web Push (VAPID) and Android FCM (#272),
+ * in parallel. Channels are independent — one failing or being unconfigured
+ * never blocks the other, and this never rejects.
+ */
 export async function sendPushToUser(
 	userId: string,
-	payload: { title: string; body: string; link?: string }
+	payload: PushPayload,
+	channels: PushChannels = { web: sendWebPushToUser, devices: sendNotificationToDevices }
 ): Promise<void> {
+	const results = await Promise.allSettled([
+		channels.web(userId, payload),
+		channels.devices(userId, payload)
+	]);
+	for (const r of results) {
+		if (r.status === 'rejected') console.error('Push channel failed:', r.reason);
+	}
+}
+
+/** Web Push leg of sendPushToUser; skips silently when VAPID is unset. */
+export async function sendWebPushToUser(userId: string, payload: PushPayload): Promise<void> {
 	if (!isVapidConfigured()) return;
 
 	try {

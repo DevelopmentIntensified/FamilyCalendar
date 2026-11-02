@@ -1124,3 +1124,30 @@ export const pushSubscriptions = pgTable(
 	})
 );
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+
+/**
+ * FCM registration tokens for the Android app (#272, migration 023). Token is
+ * globally unique: a token re-registered by another account is re-owned.
+ */
+export const deviceTokens = pgTable(
+	'device_tokens',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		token: text('token').notNull().unique(),
+		platform: text('platform').notNull().default('android'),
+		createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+		lastSeenAt: timestamp('last_seen_at', { withTimezone: true, mode: 'date' })
+			.defaultNow()
+			.notNull()
+	},
+	(table) => ({
+		userIdx: index('device_tokens_user_id_idx').on(table.userId)
+	})
+);
+export type DeviceToken = typeof deviceTokens.$inferSelect;
