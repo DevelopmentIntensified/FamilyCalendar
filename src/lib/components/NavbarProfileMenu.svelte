@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
+	import { isRegisteredAccount } from '$lib/utils/anonymous';
 
 	interface Props {
 		user: {
@@ -23,7 +24,8 @@
 	transition:slide={{ duration: 150 }}
 	class="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
 >
-	{#if user?.email}
+	<!-- #242: a guest's email is the #196 placeholder; no header for guests. -->
+	{#if isRegisteredAccount(user)}
 		<div class="border-b border-slate-100 px-4 pb-2">
 			<p class="truncate text-sm font-medium text-slate-900">
 				{user.firstName}

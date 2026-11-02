@@ -17,6 +17,17 @@ describe('NavbarProfileMenu', () => {
 		expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument();
 	});
 
+	it('never shows a guest the #196 placeholder email (#242)', () => {
+		render(NavbarProfileMenu, {
+			props: {
+				user: { firstName: '', lastName: '', email: 'g1@anonymous.placeholder.invalid', roles: [] },
+				onNavigate: vi.fn(),
+				onLogoutSubmit: vi.fn()
+			}
+		});
+		expect(document.body.textContent).not.toContain('anonymous.placeholder.invalid');
+	});
+
 	it('gates admin links on the admin role', () => {
 		const { unmount } = render(NavbarProfileMenu, {
 			props: { user: admin, onNavigate: vi.fn(), onLogoutSubmit: vi.fn() }

@@ -103,6 +103,27 @@ describe('AccountSidebar — 129: the prototype rail, measured', () => {
 	});
 });
 
+describe('AccountSidebar — guests (#242)', () => {
+	afterEach(cleanup);
+
+	it('shows "No email yet" + a claim link instead of the placeholder address', () => {
+		render(AccountSidebar, {
+			props: { activeSection: 'profile', user: { email: 'g1@anonymous.placeholder.invalid' } }
+		});
+		const card = document.querySelector('[data-testid="account-identity"]')!;
+		expect(card.textContent).not.toContain('anonymous.placeholder.invalid');
+		expect(card.textContent).toContain('No email yet');
+		expect(card.querySelector('a[href="/claim"]')).toBeTruthy();
+	});
+
+	it('shows a registered user their real email', () => {
+		render(AccountSidebar, { props: { activeSection: 'profile', user: { email: 'a@b.co' } } });
+		const card = document.querySelector('[data-testid="account-identity"]')!;
+		expect(card.textContent).toContain('a@b.co');
+		expect(card.querySelector('a[href="/claim"]')).toBeNull();
+	});
+});
+
 describe('resolveAccountSection', () => {
 	it('renders the section a hash names', () => {
 		expect(resolveAccountSection('#dashboard')).toBe('dashboard');

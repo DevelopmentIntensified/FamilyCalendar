@@ -28,6 +28,7 @@ import { TRANSLATIONS } from '$lib/server/services/verseService';
 import { recordAdConsentChange, getAdConsentRecords } from '$lib/server/services/adConsentService';
 import { DASHBOARD_MODULES } from '$lib/dashboardModules';
 import { hiddenModulesFromForm } from '$lib/components/account/accountDashboardModules';
+import { isRegisteredAccount } from '$lib/utils/anonymous';
 import {
 	createApiToken as mintApiToken,
 	listTokensForUser,
@@ -433,8 +434,9 @@ export const actions: Actions = {
 		const currentUser = await deps.getUser(userId);
 
 		// Anonymous Accounts have no email yet — they claim their first
-		// email via the magic-link save flow, not the change-email flow.
-		if (!currentUser.email) {
+		// email via the magic-link save flow, not the change-email flow. Since
+		// #196 a guest's email is a placeholder, not null (#242).
+		if (!isRegisteredAccount(currentUser)) {
 			return fail(400, {
 				success: false,
 				message:

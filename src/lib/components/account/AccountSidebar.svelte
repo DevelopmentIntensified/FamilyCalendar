@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ACCOUNT_SECTIONS, type AccountSectionId } from './accountSections';
+	import { isRegisteredAccount } from '$lib/utils/anonymous';
 
 	interface Identity {
 		firstName?: string | null;
@@ -22,6 +23,8 @@
 		[user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || null
 	);
 	const initial = $derived((displayName?.[0] ?? '?').toUpperCase());
+	// #242: a guest's email is the #196 placeholder — never print it.
+	const registered = $derived(isRegisteredAccount(user));
 
 	// The icon per section is presentation; which sections exist is declared
 	// once, in accountSections.ts, and shared with the page's own dispatch.
@@ -122,7 +125,14 @@
 				{#if displayName}
 					<span class="block truncate text-sm font-bold text-slate-800">{displayName}</span>
 				{/if}
-				<span class="block truncate text-xs text-slate-500">{user.email ?? 'No email yet'}</span>
+				{#if registered}
+					<span class="block truncate text-xs text-slate-500">{user.email}</span>
+				{:else}
+					<span class="block truncate text-xs text-slate-500">
+						No email yet ·
+						<a href="/claim" class="font-semibold text-primary-600 underline">Save your calendar</a>
+					</span>
+				{/if}
 			</span>
 		</div>
 	{/if}

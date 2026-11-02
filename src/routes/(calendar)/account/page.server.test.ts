@@ -132,6 +132,23 @@ describe('updateEmail action — Oct-hardening survival (#196 slice 4)', () => {
 		expect(sendEmail).not.toHaveBeenCalled();
 	});
 
+	it('guests with the #196 placeholder email are told to claim, never mailed (#242)', async () => {
+		const { deps, sendEmail } = makeDeps({
+			getUser: vi
+				.fn()
+				.mockResolvedValue({ id: 'u-g', email: 'u-g@anonymous.placeholder.invalid' })
+		});
+
+		const result = await callUpdateEmail(
+			mockEvent('delivered+email-change-guest2@resend.dev', 'guest-placeholder'),
+			deps
+		);
+
+		expect(failureOf(result).status).toBe(400);
+		expect(failureOf(result).data.guestNeedsClaim).toBe(true);
+		expect(sendEmail).not.toHaveBeenCalled();
+	});
+
 	it('binds the code to the current address and the new one (email_change + pendingEmail), wiping stale codes first', async () => {
 		const { deps, createJwt, deleteCodesByEmail, createCode, sendEmail } = makeDeps();
 
