@@ -1,6 +1,6 @@
 # 263 — LocationSearch: aborted request clears the newer controller (stale suggestions)
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane G).
 
@@ -14,9 +14,9 @@ Fast typing -> stale suggestions overwrite fresh ones.
 
 ## Done
 
-(none yet)
+- `LocationSearch.svelte` `searchLocations`: per-request `const controller`; `finally` only resets `loading`/`abortController` when `abortController === controller`; results (and error-clears) from an aborted request are dropped.
+- Red-green: new `src/lib/components/LocationSearch.svelte.test.ts` (abort-aware fetch double, fake timers: 3 rapid queries -> request 2 is aborted by 3, stale "Maine" never shown after fresh "Main St").
 
 ## Needs doing
 
-- Only null if `abortController === thisController`.
-- Red test first where a seam exists (`tdd`).
+(none)

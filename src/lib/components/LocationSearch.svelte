@@ -63,7 +63,10 @@
 		if (abortController) {
 			abortController.abort();
 		}
-		abortController = new AbortController();
+		// Issue 263: track THIS request's controller; an older request settling
+		// must never clear (or apply results over) a newer one.
+		const controller = new AbortController();
+		abortController = controller;
 
 		loading = true;
 		try {
@@ -71,8 +74,9 @@
 				? `${searchEndpoint}${encodeURIComponent(searchQuery)}`
 				: `/api/location-search?q=${encodeURIComponent(searchQuery)}`;
 
-			const res = await fetch(url, { signal: abortController.signal });
+			const res = await fetch(url, { signal: controller.signal });
 			const data = await res.json();
+			if (controller.signal.aborted) return;
 
 			if (searchEndpoint) {
 				suggestions = data.slice(0, 5);
@@ -88,12 +92,14 @@
 				showDropdown = false;
 			}
 		} catch (e) {
-			if (!(e instanceof Error) || e.name !== 'AbortError') {
+			if (!controller.signal.aborted && (!(e instanceof Error) || e.name !== 'AbortError')) {
 				suggestions = [];
 			}
 		} finally {
-			loading = false;
-			abortController = null;
+			if (abortController === controller) {
+				loading = false;
+				abortController = null;
+			}
 		}
 	}
 
