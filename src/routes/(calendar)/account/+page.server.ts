@@ -3,7 +3,7 @@ import { getUserSettings, updateUserSettings } from '$lib/server/db/actions/user
 import { invalidateSession, invalidateUserSessions } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { authSession, calendars } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { getUserFamilyMemberships } from '$lib/server/db/actions/families';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import {
@@ -29,6 +29,7 @@ import { recordAdConsentChange, getAdConsentRecords } from '$lib/server/services
 import { DASHBOARD_MODULES } from '$lib/dashboardModules';
 import { hiddenModulesFromForm } from '$lib/components/account/accountDashboardModules';
 import { isRegisteredAccount } from '$lib/utils/anonymous';
+import { familyCalendarEntries } from '$lib/components/account/accountCalendars';
 import {
 	createApiToken as mintApiToken,
 	listTokensForUser,
@@ -97,19 +98,14 @@ export const load: PageServerLoad = async (event) => {
 		return [];
 	});
 
-	const memberFamilyId = memberships[0]?.family.id ?? null;
-	if (memberFamilyId) {
+	// #251: every family's calendar, not just memberships[0]'s.
+	const memberFamilyIds = memberships.map((m) => m.family.id);
+	if (memberFamilyIds.length > 0) {
 		const familyCals = await db
 			.select()
 			.from(calendars)
-			.where(eq(calendars.familyId, memberFamilyId));
-		const familyNames = new Map(memberships.map((m) => [m.family.id, m.family.name]));
-		for (const fc of familyCals) {
-			calendarList.push({
-				id: fc.id,
-				name: familyNames.get(memberFamilyId) || 'Family Calendar'
-			});
-		}
+			.where(inArray(calendars.familyId, memberFamilyIds));
+		calendarList.push(...familyCalendarEntries(memberships, familyCals));
 	}
 
 	// Subscription data is display-only for settings — never let a failure here
