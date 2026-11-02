@@ -6,6 +6,7 @@ import {
 	getRequestedByMe,
 	getTasksForUser
 } from '$lib/server/db/actions/tasks';
+import { listCategoryOptions } from '$lib/server/db/actions/taskCategories';
 import { zoneFromSettings } from '$lib/server/utils/userTimezone';
 
 export const load: PageServerLoad = async (event) => {
@@ -46,6 +47,9 @@ export const load: PageServerLoad = async (event) => {
 	// Awaited (not streamed): the tasks shell previously streamed this
 	// promise and stalled on some clients — the family page awaits and
 	// always renders, so this matches that contract.
+	// #280: the viewer's category list for the editor combobox + manage
+	// section. Never throws (degrades to []), so it rides alongside the lists.
+	const categoriesP = listCategoryOptions(uid);
 	const taskLists = await (async () => {
 		// Cursor pin (110; "cursor v3") lives inside getTasksForUser; the
 		// section reads below don't sync, so they wait for it (#235) —
@@ -86,6 +90,7 @@ export const load: PageServerLoad = async (event) => {
 
 	return {
 		taskLists,
+		taskCategories: await categoriesP,
 		familyMembers: familyMembersList,
 		familyId: familyId ?? null,
 		loadWarnings

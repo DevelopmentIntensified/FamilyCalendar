@@ -26,6 +26,11 @@ vi.mock('$lib/server/db/actions/tasks', () => {
 	};
 });
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the category list read is covered in actions/taskCategories tests.
+vi.mock('$lib/server/db/actions/taskCategories', () => ({
+	listCategoryOptions: vi.fn(async () => [{ id: 'c1', name: 'Work' }])
+}));
+
 import { load } from './+page.server';
 import { getTasksForUser } from '$lib/server/db/actions/tasks';
 
@@ -72,5 +77,15 @@ describe('/calendar/tasks load — sync before section reads (#235)', () => {
 
 		expect(data.taskLists.warnings).toEqual(['tasks+cursor']);
 		expect(order.log).toContain('getMyTasks:end');
+	});
+});
+
+describe('/calendar/tasks load — category options (#280)', () => {
+	it("returns the viewer's categories for the editor", async () => {
+		// SAFETY: load returns the plain data object (no redirect for a signed-in user).
+		const data = (await load(loadEvent())) as { taskCategories: unknown };
+		expect(data.taskCategories).toEqual([{ id: 'c1', name: 'Work' }]);
+		const { listCategoryOptions } = await import('$lib/server/db/actions/taskCategories');
+		expect(listCategoryOptions).toHaveBeenCalledWith('user-1');
 	});
 });

@@ -88,4 +88,53 @@ describe('AddTaskCard', () => {
 		expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
 		await waitFor(() => expect(invalidateAll).toHaveBeenCalledOnce());
 	});
+
+	describe('category (#280)', () => {
+		const bodies = () =>
+			// SAFETY: the stubbed fetch is called with (url, { body }) in submitTaskQuickAdd.
+			vi.mocked(fetch).mock.calls.map((c) => JSON.parse(c[1]?.body as string));
+
+		it('offers the viewer categories under More and sends the chosen one', async () => {
+			render(AddTaskCard, { props: props({ categories: ['Errands', 'Work'] }) });
+			await fireEvent.click(screen.getByRole('button', { name: 'More' }));
+			// SAFETY: the Category field is an <input> in CategoryField.
+			const input = screen.getByLabelText('Category') as HTMLInputElement;
+			const options = [
+				...document.querySelectorAll(`datalist#${input.getAttribute('list')} option`)
+			];
+			expect(options).toHaveLength(2);
+			await fireEvent.input(input, { target: { value: 'Work' } });
+			await fireEvent.input(screen.getByPlaceholderText(/Buy milk tomorrow/), {
+				target: { value: 'Buy milk' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+			await waitFor(() => expect(invalidateAll).toHaveBeenCalled());
+			expect(bodies()[0].category).toBe('Work');
+			// Reset after a successful add, like the due date.
+			expect(input.value).toBe('');
+		});
+
+		it('sends no category when none is set', async () => {
+			render(AddTaskCard, { props: props({ categories: ['Work'] }) });
+			await fireEvent.input(screen.getByPlaceholderText(/Buy milk tomorrow/), {
+				target: { value: 'Buy milk' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+			await waitFor(() => expect(invalidateAll).toHaveBeenCalled());
+			expect('category' in bodies()[0]).toBe(false);
+		});
+
+		it('applies the category to every task of a bulk add', async () => {
+			render(AddTaskCard, { props: props() });
+			await fireEvent.click(screen.getByRole('button', { name: 'More' }));
+			await fireEvent.input(screen.getByLabelText('Category'), { target: { value: 'Home' } });
+			await fireEvent.input(screen.getByPlaceholderText(/Buy milk tomorrow/), {
+				target: { value: 'Buy milk\nWalk dog' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: /^Add 2$/ }));
+			await fireEvent.click(screen.getByRole('button', { name: /^Confirm 2$/ }));
+			await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2));
+			expect(bodies().map((b) => b.category)).toEqual(['Home', 'Home']);
+		});
+	});
 });

@@ -104,6 +104,7 @@ interface TaskListsFixture {
 interface PageOverrides {
 	loadWarnings?: string[];
 	taskLists?: TaskListsFixture;
+	taskCategories?: { id: string; name: string }[];
 }
 
 function pageData(overrides: PageOverrides = {}): PageData {
@@ -202,5 +203,36 @@ describe('/calendar/tasks SSR render (#277)', () => {
 	it('TasksMainList SSR: clear-completed in flight', () => {
 		const { body } = render(TasksMainList, { props: mainListProps(true, true) });
 		expect(body).toContain('Deleting…');
+	});
+
+	// #280: category chips + the Categories manager render on the server, with
+	// and without the loader's list (an older cached payload has none).
+	it('renders category chips and the Categories section', () => {
+		const lunch = { ...open, category: 'School' };
+		const data = pageData({
+			taskCategories: [
+				{ id: 'c1', name: 'School' },
+				{ id: 'c2', name: 'Home' }
+			],
+			taskLists: {
+				tasks: [lunch, done],
+				myTasks: [lunch, { ...done, category: 'Home' }],
+				pendingAssignments: [],
+				requestedByMe: [],
+				warnings: []
+			}
+		});
+		const { body } = render(TasksPage, { props: { data } });
+		expect(body).toContain('data-slot="category"');
+		expect(body).toContain('School');
+		expect(body).toContain('Categories · 2');
+	});
+
+	it('renders without a taskCategories field', () => {
+		const data = pageData();
+		// SAFETY: test double — drop the field to mimic a payload from before #280.
+		delete (data as { taskCategories?: unknown }).taskCategories;
+		const { body } = render(TasksPage, { props: { data } });
+		expect(body).toContain('Categories · 0');
 	});
 });

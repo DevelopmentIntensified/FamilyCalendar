@@ -109,7 +109,7 @@
 		{#if task.tags?.length || task.category}
 			<div class="mt-1 flex flex-wrap items-center gap-1">
 				<CategoryChip name={task.category} />
-				{#each task.tags as tag (tag)}
+				{#each task.tags ?? [] as tag (tag)}
 					<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
 						>#{tag}</span
 					>

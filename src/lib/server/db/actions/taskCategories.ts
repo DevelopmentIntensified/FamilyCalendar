@@ -111,7 +111,10 @@ export const drizzleTaskCategoryStore: TaskCategoryStore = {
 					.set({ name, updatedAt: new Date() })
 					.where(and(eq(taskCategories.userId, userId), eq(taskCategories.id, category.id)))
 					.returning();
-				await tx.update(tasks).set({ category: name }).where(callerTasksNamed(userId, category.name));
+				await tx
+					.update(tasks)
+					.set({ category: name })
+					.where(callerTasksNamed(userId, category.name));
 				return row;
 			});
 		} catch (err) {
@@ -136,6 +139,28 @@ export async function listTaskCategories(
 ): Promise<TaskCategory[]> {
 	const rows = await store.list(userId);
 	return [...rows].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+}
+
+/**
+ * Page-loader read for the web editor (#280): the viewer's list as
+ * `{id, name}`. Never throws — a failed read (e.g. 024 not applied yet)
+ * logs and yields [] so the tasks pages still render; the combobox then just
+ * has no suggestions.
+ */
+export async function listCategoryOptions(
+	userId: string,
+	store: TaskCategoryStore = drizzleTaskCategoryStore
+): Promise<{ id: string; name: string }[]> {
+	try {
+		const rows = await listTaskCategories(userId, store);
+		return rows.map(({ id, name }) => ({ id, name }));
+	} catch (e) {
+		console.error(
+			'[task-categories] list failed',
+			JSON.stringify({ userId, error: e instanceof Error ? e.message : String(e) })
+		);
+		return [];
+	}
 }
 
 /**

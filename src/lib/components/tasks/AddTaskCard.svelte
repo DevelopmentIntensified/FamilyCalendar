@@ -13,6 +13,7 @@
 	import { splitTaskRecords } from '$lib/utils/taskBulk';
 	import { submitTaskQuickAdd } from '$lib/client/taskSubmit';
 	import { pushToast } from '$lib/client/toasts';
+	import CategoryField from './CategoryField.svelte';
 
 	interface Props {
 		familyRoster: { userId: string; firstName: string; lastName: string }[];
@@ -22,14 +23,25 @@
 		onError: (message: string) => void;
 		/** Optimistic insert: page prepends the created task instantly (invalidateAll reconciles). */
 		onAdded?: (task: unknown) => void;
+		/** #280: the viewer's category names (suggestions; free entry allowed). */
+		categories?: string[];
 	}
 
-	let { familyRoster, familyId, memberName, formatDue, onError, onAdded = () => {} }: Props =
-		$props();
+	let {
+		familyRoster,
+		familyId,
+		memberName,
+		formatDue,
+		onError,
+		onAdded = () => {},
+		categories = []
+	}: Props = $props();
 
 	let newTitle = $state('');
 	let newDueDate = $state('');
 	let newVisibility: 'public' | 'private' = $state('private');
+	/** #280: category for the next add ('' = none); resets after a full success. */
+	let newCategory = $state('');
 	let showMore = $state(false);
 	let adding = $state(false);
 	let busyTemplateId: string | null = $state(null);
@@ -52,9 +64,7 @@
 	let isBulk = $derived(bulkRows.length > 1);
 	let skippedKeys = $state<string[]>([]);
 	let activeRows = $derived(bulkRows.filter((r) => !skippedKeys.includes(r.rec.text)));
-	let bulkBlocked = $derived(
-		activeRows.find((r) => r.parsed.unknownMember)?.parsed.unknownMember
-	);
+	let bulkBlocked = $derived(activeRows.find((r) => r.parsed.unknownMember)?.parsed.unknownMember);
 	// Any edit re-arms: confirm never survives a changed input. Skipped
 	// keys for vanished rows are pruned at the same time.
 	$effect(() => {
@@ -94,7 +104,8 @@
 				dueDateFallback: newDueDate || null,
 				visibilityFallback: newVisibility,
 				familyId,
-				members: familyRoster
+				members: familyRoster,
+				category: newCategory
 			});
 			if (!result.ok) {
 				onError(result.error);
@@ -137,7 +148,8 @@
 							dueDateFallback: newDueDate || null,
 							visibilityFallback: newVisibility,
 							familyId,
-							members: familyRoster
+							members: familyRoster,
+							category: newCategory
 						});
 						if (result.ok) {
 							bulkDone += 1;
@@ -153,7 +165,9 @@
 				}
 				const total = activeRows.length;
 				if (failedKeys.size) {
-					pushToast({ message: `Added ${bulkDone} of ${total} — failed: ${failedNames.join(', ')}.` });
+					pushToast({
+						message: `Added ${bulkDone} of ${total} — failed: ${failedNames.join(', ')}.`
+					});
 					// Keep only the failures in the composer for retry.
 					newTitle = activeRows
 						.filter(({ rec }) => failedKeys.has(rec.text))
@@ -165,6 +179,7 @@
 					});
 					newTitle = '';
 					newDueDate = '';
+					newCategory = '';
 				}
 				await invalidateAll();
 			} finally {
@@ -180,7 +195,8 @@
 				dueDateFallback: newDueDate || null,
 				visibilityFallback: newVisibility,
 				familyId,
-				members: familyRoster
+				members: familyRoster,
+				category: newCategory
 			});
 			if (!result.ok) {
 				onError(result.error);
@@ -189,6 +205,7 @@
 			pushToast({ message: `Added "${result.title}".` });
 			newTitle = '';
 			newDueDate = '';
+			newCategory = '';
 			onAdded(result.task);
 			await invalidateAll();
 		} finally {
@@ -279,6 +296,9 @@
 				{:else if newDueDate}
 					<span> · due {formatDue(`${newDueDate}T23:59:00`)}</span>
 				{/if}
+				{#if newCategory.trim()}
+					<span> · {newCategory.trim()}</span>
+				{/if}
 			</p>
 			<TaskQuickAddPreview parsed={quick} {memberName} {formatDue} />
 		{/if}
@@ -289,7 +309,10 @@
 					? ' — press Confirm to add'
 					: ''}
 			</p>
-			<ul class="max-h-48 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/80 p-1.5" aria-live="polite">
+			<ul
+				class="max-h-48 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/80 p-1.5"
+				aria-live="polite"
+			>
 				{#each bulkRows as { rec, parsed } (rec.text)}
 					{@const skipped = skippedKeys.includes(rec.text)}
 					<li class="flex items-start gap-2 rounded-lg px-1.5 py-1 {skipped ? 'opacity-40' : ''}">
@@ -391,6 +414,15 @@
 		</div>
 
 		{#if showMore}
+			<div class="mt-2 max-w-xs">
+				<CategoryField
+					id="add-task-category"
+					value={newCategory}
+					{categories}
+					compact
+					onChange={(v) => (newCategory = v)}
+				/>
+			</div>
 			<label class="mt-2 flex items-center gap-2 text-xs text-slate-500">
 				Who can see this
 				<select

@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
 	parseTaskCategory,
 	parseCategoryName,
 	listTaskCategories,
+	listCategoryOptions,
 	ensureTaskCategory,
 	renameTaskCategory,
 	deleteTaskCategory,
@@ -51,7 +52,11 @@ function fakeStore(seed: { categories?: TaskCategory[]; tasks?: FakeTask[] } = {
 		},
 		renameWithTasks: async (userId, category, name) => {
 			const row = categories.find((c) => c.id === category.id)!;
-			if (categories.some((c) => c.userId === userId && c.id !== row.id && lower(c.name) === lower(name))) {
+			if (
+				categories.some(
+					(c) => c.userId === userId && c.id !== row.id && lower(c.name) === lower(name)
+				)
+			) {
 				return undefined;
 			}
 			retag(userId, row.name, name);
@@ -115,10 +120,41 @@ describe('parseCategoryName (list endpoints)', () => {
 describe('listTaskCategories', () => {
 	it("returns only the caller's categories, name-sorted case-insensitively", async () => {
 		const { store } = fakeStore({
-			categories: [cat('1', 'u1', 'work'), cat('2', 'u2', 'Alpha'), cat('3', 'u1', 'Errands'), cat('4', 'u1', 'admin')]
+			categories: [
+				cat('1', 'u1', 'work'),
+				cat('2', 'u2', 'Alpha'),
+				cat('3', 'u1', 'Errands'),
+				cat('4', 'u1', 'admin')
+			]
 		});
 		const list = await listTaskCategories('u1', store);
 		expect(list.map((c) => c.name)).toEqual(['admin', 'Errands', 'work']);
+	});
+});
+
+describe('listCategoryOptions (page loaders, #280 web UI)', () => {
+	it('returns {id, name} only, name-sorted', async () => {
+		const { store } = fakeStore({
+			categories: [cat('1', 'u1', 'work'), cat('3', 'u1', 'Errands'), cat('2', 'u2', 'x')]
+		});
+		expect(await listCategoryOptions('u1', store)).toEqual([
+			{ id: '3', name: 'Errands' },
+			{ id: '1', name: 'work' }
+		]);
+	});
+
+	it('degrades to [] when the read fails (page still renders)', async () => {
+		const { store } = fakeStore();
+		const broken: TaskCategoryStore = {
+			...store,
+			list: async () => {
+				throw new Error('relation "task_categories" does not exist');
+			}
+		};
+		const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		expect(await listCategoryOptions('u1', broken)).toEqual([]);
+		expect(spy).toHaveBeenCalled();
+		spy.mockRestore();
 	});
 });
 

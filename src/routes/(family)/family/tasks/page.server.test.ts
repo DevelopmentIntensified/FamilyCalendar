@@ -58,12 +58,18 @@ vi.mock('$lib/server/utils/userTimezone', () => ({
 	getUserZone: async () => 'UTC'
 }));
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the category list read is covered in actions/taskCategories tests.
+vi.mock('$lib/server/db/actions/taskCategories', () => ({
+	listCategoryOptions: async (userId: string) => [{ id: 'c1', name: `Work:${userId}` }]
+}));
+
 import { load } from './+page.server';
 
 /** The loader's return, narrowed from SvelteKit's open PageData bag. */
 interface BoardData {
 	familyId: string;
 	userId: string;
+	taskCategories: { id: string; name: string }[];
 }
 
 // SAFETY: the loader reads only locals.user and url.searchParams — both carried
@@ -132,5 +138,13 @@ describe('family task board — which family it reads (issue 124)', () => {
 		}
 		expect(isRedirect(thrown)).toBe(true);
 		expect(thrown).toMatchObject({ location: '/family' });
+	});
+});
+
+describe('family task board — category options (#280)', () => {
+	it("returns the viewer's categories for the editor", async () => {
+		state.memberships = [membership('fam-old', 'Rivera Home')];
+		const data = await loadBoard();
+		expect(data.taskCategories).toEqual([{ id: 'c1', name: 'Work:user-1' }]);
 	});
 });

@@ -54,7 +54,10 @@ const BASE: FamilyRow = {
 	familyId: 'fam1',
 	eventId: null,
 	createdAt: new Date('2026-09-01T00:00:00.000Z'),
-	tags: []
+	tags: [],
+	focusMinutes: null,
+	focusStartedAt: null,
+	category: null
 };
 
 function familyTask(overrides: Partial<FamilyRow> = {}): FamilyRow {
@@ -86,7 +89,8 @@ function data(tasks: PageData['tasks']) {
 		publicTasks: [],
 		familyRoster: roster,
 		familyId: 'fam1',
-		userId: 'u_dad'
+		userId: 'u_dad',
+		taskCategories: []
 	};
 	return { data: payload };
 }

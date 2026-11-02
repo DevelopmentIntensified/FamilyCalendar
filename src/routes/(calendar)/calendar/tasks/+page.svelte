@@ -8,6 +8,7 @@
 	import type { TaskChip } from '$lib/components/tasks/TaskToolbar.svelte';
 	import AddTaskCard from '$lib/components/tasks/AddTaskCard.svelte';
 	import EditTaskDialog, { type EditDraft } from '$lib/components/tasks/EditTaskDialog.svelte';
+	import TaskCategoryManager from '$lib/components/tasks/TaskCategoryManager.svelte';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { formatDue } from '$lib/utils/taskDisplay';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
@@ -49,6 +50,8 @@
 		eventStart?: string | Date | null;
 		createdAt?: string | Date | number | null;
 		tags?: string[];
+		/** #280 category name (null = uncategorized). */
+		category?: string | null;
 	};
 
 	/** TaskId -> optimistic completion state while a toggle is in flight. */
@@ -73,6 +76,9 @@
 	let editSaving = false;
 
 	$: familyRoster = data.familyMembers ?? [];
+	/** #280: the viewer's categories (combobox suggestions + manage list). */
+	$: taskCategories = data.taskCategories ?? [];
+	$: categoryNames = taskCategories.map((c) => c.name);
 
 	function memberName(userId: string): string {
 		const m = familyRoster.find((f) => f.userId === userId);
@@ -376,6 +382,7 @@
 			{formatDue}
 			onError={(message) => (actionError = message)}
 			onAdded={(task) => handleTaskAdded(task)}
+			categories={categoryNames}
 		/>
 
 		{#if actionError}
@@ -438,6 +445,9 @@
 				onRespond={(task, accept) => respondAssignment(task, accept)}
 			/>
 		{/if}
+
+		<!-- #280: rename/delete the viewer's task categories (synced with TaskFocus). -->
+		<TaskCategoryManager categories={taskCategories} onChanged={() => invalidateAll()} />
 	</div>
 </div>
 
@@ -449,6 +459,7 @@
 			currentUserId={data.user?.id}
 			{familyRoster}
 			saving={editSaving}
+			categories={categoryNames}
 			onSave={(draft) => saveEdit(draft)}
 			onClose={closeEdit}
 		/>

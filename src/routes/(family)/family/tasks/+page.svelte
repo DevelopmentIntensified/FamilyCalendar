@@ -41,6 +41,8 @@
 		userId: string;
 		creatorFirstName?: string | null;
 		tags?: string[];
+		/** #280 category name (null = uncategorized). */
+		category?: string | null;
 	};
 
 	let busyId: string | null = null;
@@ -427,6 +429,7 @@
 				currentUserId={data.userId}
 				familyRoster={data.familyRoster ?? []}
 				saving={editSaving}
+				categories={(data.taskCategories ?? []).map((c) => c.name)}
 				onSave={(draft) => saveEdit(draft)}
 				onClose={closeEdit}
 			/>

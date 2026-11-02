@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getPublicTasksForFamily, getTasksForFamily } from '$lib/server/db/actions/tasks';
 import { getFamilyRoster, getUserFamilyMemberships } from '$lib/server/db/actions/families';
+import { listCategoryOptions } from '$lib/server/db/actions/taskCategories';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -26,12 +27,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	const zone = await getUserZone(locals.user.id);
 
-	const [tasks, publicTasks, familyRoster] = await Promise.all([
+	const [tasks, publicTasks, familyRoster, taskCategories] = await Promise.all([
 		// Cursor pin (110) now lives inside each list read (family scope,
 		// plus the member-personal leg for the public tab).
 		getTasksForFamily(familyId, zone),
 		getPublicTasksForFamily(familyId, zone),
-		getFamilyRoster(familyId)
+		getFamilyRoster(familyId),
+		// #280: the viewer's own category list (editor suggestions); never throws.
+		listCategoryOptions(locals.user.id)
 	]);
 
 	return {
@@ -39,6 +42,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		publicTasks,
 		familyRoster,
 		familyId,
-		userId: locals.user.id
+		userId: locals.user.id,
+		taskCategories
 	};
 };
