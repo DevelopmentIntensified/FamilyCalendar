@@ -1,6 +1,6 @@
 # 250 — Add-member tabs show success when the server errors
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane F).
 
@@ -14,9 +14,10 @@ Server throw -> 'Member Added!'.
 
 ## Done
 
-(none yet)
+- Red: table-driven tests (500 with `{message}`, 500 with empty body) in `MemberInviteChildTabs.svelte.test.ts` (invite, invite link, child) and `MemberSearchTab.svelte.test.ts` (direct add) — 8 failing.
+- Fix: new `src/lib/components/family/responseError.ts` — `json.error`, else `!res.ok` -> `json.message ?? 'Something went wrong. Please try again.'`, else `null`. Used at all four call sites (incl. the invite-link generator, which silently did nothing on a 500).
+- Green: `src/lib/components/family/` + `src/routes/(family)/family/` 21 files / 210 tests.
 
 ## Needs doing
 
-- Check `!res.ok || json.error`; fallback `json.message ?? 'Something went wrong'`.
-- Red test first where a seam exists (`tdd`).
+(none)

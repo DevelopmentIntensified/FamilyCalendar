@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { copyOrShare } from '$lib/client/share';
+	import { responseError } from './responseError';
 
 	interface Props {
 		familyId: string;
@@ -34,8 +35,9 @@
 				})
 			});
 			const json = await res.json().catch(() => ({}));
-			if (json.error) {
-				onError(json.error);
+			const failure = responseError(res, json);
+			if (failure) {
+				onError(failure);
 			} else {
 				onSuccess(inviteEmail);
 			}
@@ -61,8 +63,9 @@
 				})
 			});
 			const json = await res.json().catch(() => ({}));
-			if (json.error) {
-				onError(json.error);
+			const failure = responseError(res, json);
+			if (failure) {
+				onError(failure);
 			} else if (json.link) {
 				inviteLink = json.link;
 			}

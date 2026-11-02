@@ -79,4 +79,32 @@ describe('MemberSearchTab', () => {
 		await waitFor(() => expect(onError).toHaveBeenCalledWith('Already a member'));
 		expect(onSuccess).not.toHaveBeenCalled();
 	});
+
+	it.each([
+		['a SvelteKit 500 body ({message})', { message: 'Internal Error' }, 'Internal Error'],
+		['an empty error body', {}, 'Something went wrong. Please try again.']
+	])('reports a server error (%s) without success — issue 250', async (_label, body, shown) => {
+		const onError = vi.fn();
+		const onSuccess = vi.fn();
+		vi.mocked(fetch).mockImplementation(async (url) => {
+			if (String(url).startsWith('/api/family/search')) {
+				return {
+					ok: true,
+					json: async () => ({
+						users: [{ id: 'u9', firstName: 'Zed', lastName: 'Zedson', email: 'zed@x.com' }]
+					})
+				} as Response;
+			}
+			return { ok: false, status: 500, json: async () => body } as Response;
+		});
+		render(MemberSearchTab, { props: { ...props, onError, onSuccess } });
+		await fireEvent.input(screen.getByPlaceholderText('Type to search...'), {
+			target: { value: 'ze' }
+		});
+		await vi.advanceTimersByTimeAsync(350);
+		await fireEvent.click(await screen.findByText('zed@x.com'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add to Family' }));
+		await waitFor(() => expect(onError).toHaveBeenCalledWith(shown));
+		expect(onSuccess).not.toHaveBeenCalled();
+	});
 });

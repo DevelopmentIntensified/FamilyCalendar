@@ -90,6 +90,60 @@ describe('MemberChildTab', () => {
 	});
 });
 
+describe('add-member tabs — a server error is not a success (issue 250)', () => {
+	// SvelteKit's 500 body is `{ message }`, not `{ error }`.
+	const cases = [
+		['a SvelteKit 500 body ({message})', { message: 'Internal Error' }, 'Internal Error'],
+		['an empty error body', {}, 'Something went wrong. Please try again.']
+	] as const;
+
+	function serverFails(body: object) {
+		vi.mocked(fetch).mockResolvedValue({
+			ok: false,
+			status: 500,
+			json: async () => body
+		} as Response);
+	}
+
+	it.each(cases)('invite: %s', async (_label, body, shown) => {
+		serverFails(body);
+		const onSuccess = vi.fn();
+		const onError = vi.fn();
+		render(MemberInviteTab, { props: { ...props, onSuccess, onError } });
+		await fillInvite();
+		await fireEvent.click(screen.getByRole('button', { name: 'Send Invite' }));
+		await waitFor(() => expect(onError).toHaveBeenCalledWith(shown));
+		expect(onSuccess).not.toHaveBeenCalled();
+	});
+
+	it.each(cases)('invite link: %s', async (_label, body, shown) => {
+		serverFails(body);
+		const onError = vi.fn();
+		render(MemberInviteTab, { props: { ...props, onError } });
+		await fillInvite();
+		await fireEvent.click(screen.getByRole('button', { name: 'Get Invite Link' }));
+		await waitFor(() => expect(onError).toHaveBeenCalledWith(shown));
+	});
+
+	it.each(cases)('child: %s', async (_label, body, shown) => {
+		serverFails(body);
+		const onSuccess = vi.fn();
+		const onError = vi.fn();
+		render(MemberChildTab, { props: { ...props, onSuccess, onError } });
+		await fireEvent.input(screen.getByLabelText("Child's First Name"), {
+			target: { value: 'Kid' }
+		});
+		await fireEvent.input(screen.getByLabelText("Child's Last Name"), {
+			target: { value: 'Kidson' }
+		});
+		await fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'kid@x.com' } });
+		await fireEvent.click(screen.getByLabelText(/I am this child’s parent or guardian/));
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Child' }));
+		await waitFor(() => expect(onError).toHaveBeenCalledWith(shown));
+		expect(onSuccess).not.toHaveBeenCalled();
+	});
+});
+
 describe('add-a-member — the approved warnings (issue 124)', () => {
 	// `family-members-add.html` puts two notes on the page that the app page did
 	// not carry at all. Measured: `noteWarn: 0`, `noteWarnText: "MISSING"` — the

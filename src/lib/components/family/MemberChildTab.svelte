@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { responseError } from './responseError';
+
 	interface Props {
 		familyId: string;
 		onSuccess: () => void;
@@ -28,8 +30,9 @@
 				})
 			});
 			const json = await res.json().catch(() => ({}));
-			if (json.error) {
-				onError(json.error);
+			const failure = responseError(res, json);
+			if (failure) {
+				onError(failure);
 			} else {
 				onSuccess();
 			}

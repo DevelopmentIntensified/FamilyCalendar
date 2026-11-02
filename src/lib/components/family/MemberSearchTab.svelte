@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { responseError } from './responseError';
+
 	interface FoundUser {
 		id: string;
 		firstName: string;
@@ -75,8 +77,9 @@
 				body: JSON.stringify({ userId: selectedUser.id })
 			});
 			const json = await res.json().catch(() => ({}));
-			if (json.error) {
-				onError(json.error);
+			const failure = responseError(res, json);
+			if (failure) {
+				onError(failure);
 			} else {
 				onSuccess();
 			}
