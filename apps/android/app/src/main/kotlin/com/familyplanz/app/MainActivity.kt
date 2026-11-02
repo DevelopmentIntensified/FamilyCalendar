@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.familyplanz.app.data.ApiFactory
 import com.familyplanz.app.data.DataStoreTokenStore
 import com.familyplanz.app.data.NetworkTaskRepository
+import com.familyplanz.app.sync.BackgroundRefresh
 import com.familyplanz.app.ui.AppViewModel
 import com.familyplanz.app.ui.CalendarViewModel
 import com.familyplanz.app.ui.FamilyPlanzHost
@@ -26,6 +27,7 @@ class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		enableEdgeToEdge()
+		BackgroundRefresh.schedule(applicationContext)
 		// Debug-only emulator bootstrap (issue #210): `--es fp_debug_token` seeds
 		// a throwaway DataStore token; `--es fp_screen calendar|tasks` picks the
 		// initial tab so UI checks run without hand-typing. Release has neither.
