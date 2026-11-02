@@ -1,6 +1,6 @@
 package com.familyplanz.app.ui
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -33,6 +33,7 @@ fun FamilyPlanzHost(
 	calVm: CalendarViewModel,
 	quickVm: QuickAddViewModel,
 	initialTab: PhoneTab,
+	banner: @Composable () -> Unit = {},
 ) {
 	val taskUi by vm.ui.collectAsStateWithLifecycle()
 	val snackbarHostState = remember { SnackbarHostState() }
@@ -52,7 +53,8 @@ fun FamilyPlanzHost(
 			snackbarHost = { SnackbarHost(snackbarHostState) },
 			bottomBar = { PhoneTabBar(tab) { tab = it.ordinal } },
 		) { padding ->
-			Box(modifier = Modifier.padding(padding)) {
+			Column(modifier = Modifier.padding(padding)) {
+				banner()
 				if (tab == PhoneTab.TASKS.ordinal) {
 					TaskListScreen(state = state, actions = vm.taskActions())
 				} else {

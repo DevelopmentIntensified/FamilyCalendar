@@ -14,23 +14,8 @@ class ReminderPlannerTest {
 	private val zone = ZoneId.of("America/Chicago")
 	private val now = Instant.parse("2026-11-02T15:00:00Z")
 
-	private fun event(
-		id: String,
-		start: String,
-		reminder: Int? = 15,
-		allDay: Boolean = false,
-		title: String = "Dentist",
-		mirrorOf: String? = null,
-		rsvp: String? = null,
-	) = EventDto(
-		id = id,
-		title = title,
-		start = start,
-		allDay = allDay,
-		reminderMinutes = reminder,
-		mirrorOf = mirrorOf,
-		rsvpStatus = rsvp,
-	)
+	private fun event(id: String, start: String, reminder: Int? = 15, allDay: Boolean = false) =
+		EventDto(id = id, title = "Dentist", start = start, allDay = allDay, reminderMinutes = reminder)
 
 	private fun desired(vararg events: EventDto) = ReminderPlanner.desired(events.toList(), now, zone)
 
@@ -125,20 +110,20 @@ class ReminderPlannerTest {
 	fun `mirror of an event already present is dropped`() {
 		val out = desired(
 			event("orig", "2026-11-03T14:00:00.000Z"),
-			event("copy", "2026-11-03T14:00:00.000Z", mirrorOf = "orig"),
+			event("copy", "2026-11-03T14:00:00.000Z").copy(mirrorOf = "orig"),
 		)
 		assertEquals(listOf("orig"), out.map { it.occurrenceId })
 	}
 
 	@Test
 	fun `mirror whose original is absent still reminds`() {
-		val out = desired(event("copy", "2026-11-03T14:00:00.000Z", mirrorOf = "elsewhere"))
+		val out = desired(event("copy", "2026-11-03T14:00:00.000Z").copy(mirrorOf = "elsewhere"))
 		assertEquals(listOf("copy"), out.map { it.occurrenceId })
 	}
 
 	@Test
 	fun `declined events do not remind`() {
-		assertTrue(desired(event("e1", "2026-11-03T14:00:00.000Z", rsvp = "declined")).isEmpty())
+		assertTrue(desired(event("e1", "2026-11-03T14:00:00.000Z").copy(rsvpStatus = "declined")).isEmpty())
 	}
 
 	@Test
@@ -183,8 +168,8 @@ class ReminderPlannerTest {
 
 	@Test
 	fun `changed title reschedules so the notification text is fresh`() {
-		val scheduled = desired(event("e1", "2026-11-03T14:00:00.000Z", title = "Dentist"))
-		val changed = listOf(event("e1", "2026-11-03T14:00:00.000Z", title = "Orthodontist"))
+		val scheduled = desired(event("e1", "2026-11-03T14:00:00.000Z"))
+		val changed = listOf(event("e1", "2026-11-03T14:00:00.000Z").copy(title = "Orthodontist"))
 		val plan = ReminderPlanner.plan(changed, now, zone, scheduled)
 		assertEquals(listOf("Orthodontist"), plan.toSchedule.map { it.title })
 	}

@@ -51,6 +51,14 @@ class CalendarViewModel(private val repository: EventSource) : ViewModel() {
 		_ui.value = _ui.value.copy(selectedDay = day)
 	}
 
+	/** Reminder tap (#271): jump to the day's month and open its Day view; bad input is ignored. */
+	fun openDay(day: String) {
+		val date = runCatching { java.time.LocalDate.parse(day) }.getOrNull() ?: return
+		_ui.value = _ui.value.copy(selectedDay = date.toString())
+		val month = YearMonth.from(date)
+		if (month != _ui.value.month) viewModelScope.launch { load(month) }
+	}
+
 	fun clearDay() {
 		_ui.value = _ui.value.copy(selectedDay = null)
 	}
@@ -62,7 +70,10 @@ class CalendarViewModel(private val repository: EventSource) : ViewModel() {
 			errorText = null,
 			unauthorized = false,
 		)
-		when (val result = repository.monthEvents(month.year, month.monthValue)) {
+		val result = repository.monthEvents(month.year, month.monthValue)
+		// A newer move/openDay superseded this fetch; don't paint its rows over the new month.
+		if (_ui.value.month != month) return
+		when (result) {
 			is ApiResult.Ok -> {
 				val mapped = result.value.map(EventMapper::fromDto)
 				val grouped = monthSections(mapped, month)

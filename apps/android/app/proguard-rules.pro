@@ -8,3 +8,8 @@
 # class 'Any' is not found" at call time. Keep every wire DTO (names may still
 # be obfuscated; serial names live in the generated descriptors).
 -keep,allowobfuscation @kotlinx.serialization.Serializable class com.familyplanz.app.data.** { *; }
+
+# Issue #271: the persisted reminder set (scheduled-reminders.json) is
+# kotlinx-serialized; keep it like the wire DTOs. Receivers are manifest
+# entries, which AAPT already keeps.
+-keep,allowobfuscation @kotlinx.serialization.Serializable class com.familyplanz.app.reminders.** { *; }

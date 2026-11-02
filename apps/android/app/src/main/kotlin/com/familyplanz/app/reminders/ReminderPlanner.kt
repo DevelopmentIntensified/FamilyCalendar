@@ -88,15 +88,16 @@ object ReminderPlanner {
 
 	private fun toReminder(dto: EventDto, zone: ZoneId): PlannedReminder? {
 		val minutes = dto.reminderMinutes?.takeIf { it >= 0 } ?: return null
-		val start = startOf(dto, zone) ?: return null
-		return PlannedReminder(
-			occurrenceId = dto.id,
-			title = dto.title,
-			fireAtMillis = start.minus(Duration.ofMinutes(minutes.toLong())).toEpochMilli(),
-			startMillis = start.toEpochMilli(),
-			allDay = dto.allDay,
-			day = start.atZone(zone).toLocalDate().toString(),
-		)
+		return startOf(dto, zone)?.let { start ->
+			PlannedReminder(
+				occurrenceId = dto.id,
+				title = dto.title,
+				fireAtMillis = start.minus(Duration.ofMinutes(minutes.toLong())).toEpochMilli(),
+				startMillis = start.toEpochMilli(),
+				allDay = dto.allDay,
+				day = start.atZone(zone).toLocalDate().toString(),
+			)
+		}
 	}
 
 	private fun startOf(dto: EventDto, zone: ZoneId): Instant? = runCatching {

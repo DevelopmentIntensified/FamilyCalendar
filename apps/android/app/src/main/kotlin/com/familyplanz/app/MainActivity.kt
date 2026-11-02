@@ -5,29 +5,40 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.familyplanz.app.data.ApiFactory
 import com.familyplanz.app.data.DataStoreTokenStore
+import com.familyplanz.app.data.FileTaskCache
 import com.familyplanz.app.data.NetworkTaskRepository
+import com.familyplanz.app.reminders.ReminderAwareCache
+import com.familyplanz.app.reminders.Reminders
 import com.familyplanz.app.sync.BackgroundRefresh
 import com.familyplanz.app.ui.AppViewModel
 import com.familyplanz.app.ui.CalendarViewModel
 import com.familyplanz.app.ui.FamilyPlanzHost
 import com.familyplanz.app.ui.PhoneTab
 import com.familyplanz.app.ui.QuickAddViewModel
+import com.familyplanz.app.ui.ReminderPermissionSlot
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 const val FP_DEBUG_TOKEN = "fp_debug_token"
 const val FP_DEBUG_SCREEN = "fp_screen"
+
+/** Reminder tap (#271): YYYY-MM-DD to open on the calendar Day view. */
+const val FP_OPEN_DAY = "fp_open_day"
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		enableEdgeToEdge()
 		BackgroundRefresh.schedule(applicationContext)
+		lifecycleScope.launch { Reminders.rescheduleFromCache(applicationContext) }
 		// Debug-only emulator bootstrap (issue #210): `--es fp_debug_token` seeds
 		// a throwaway DataStore token; `--es fp_screen calendar|tasks` picks the
 		// initial tab so UI checks run without hand-typing. Release has neither.
@@ -35,8 +46,9 @@ class MainActivity : ComponentActivity() {
 		if (debugToken != null) {
 			runBlocking { DataStoreTokenStore(applicationContext).save(debugToken) }
 		}
-		val initialTab = when (intent?.getStringExtra(FP_DEBUG_SCREEN)) {
-			"calendar" -> PhoneTab.CALENDAR
+		val openDay = intent?.getStringExtra(FP_OPEN_DAY)
+		val initialTab = when {
+			openDay != null || intent?.getStringExtra(FP_DEBUG_SCREEN) == "calendar" -> PhoneTab.CALENDAR
 			else -> PhoneTab.TASKS
 		}
 		setContent {
@@ -44,7 +56,8 @@ class MainActivity : ComponentActivity() {
 				val vm: AppViewModel = viewModel(factory = appViewModelFactory())
 				val calVm: CalendarViewModel = viewModel(factory = calendarViewModelFactory())
 				val quickVm: QuickAddViewModel = viewModel(factory = quickAddViewModelFactory())
-				FamilyPlanzHost(vm, calVm, quickVm, initialTab)
+				LaunchedEffect(openDay) { openDay?.let(calVm::openDay) }
+				FamilyPlanzHost(vm, calVm, quickVm, initialTab) { ReminderPermissionSlot() }
 			}
 		}
 	}
@@ -52,7 +65,8 @@ class MainActivity : ComponentActivity() {
 	private fun taskRepository(app: android.app.Application): NetworkTaskRepository {
 		val store = DataStoreTokenStore(app)
 		val api = ApiFactory.create(BuildConfig.API_BASE_URL) { runBlocking { store.token() } }
-		return NetworkTaskRepository(api, com.familyplanz.app.data.FileTaskCache(app.filesDir))
+		val cache = ReminderAwareCache(FileTaskCache(app.filesDir)) { Reminders.rescheduleFromCache(app) }
+		return NetworkTaskRepository(api, cache)
 	}
 
 	private fun appViewModelFactory() = viewModelFactory {

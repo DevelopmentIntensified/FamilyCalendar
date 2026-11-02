@@ -17,6 +17,7 @@ import com.familyplanz.app.data.EventDto
 import com.familyplanz.app.data.FileTaskCache
 import com.familyplanz.app.data.NetworkTaskRepository
 import com.familyplanz.app.data.TaskDto
+import com.familyplanz.app.reminders.Reminders
 import java.util.concurrent.TimeUnit
 
 /**
@@ -35,7 +36,10 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
 			override suspend fun monthEvents(year: Int, month: Int): ApiResult<List<EventDto>> =
 				repo.monthEvents(year, month)
 		}
-		return CacheRefresher(source, tokenProvider = { token }).refresh().toWorkResult()
+		val outcome = CacheRefresher(source, tokenProvider = { token }).refresh()
+		// #271: re-plan alarms from the fresh cache (current + next month when the horizon crosses).
+		if (outcome == RefreshOutcome.REFRESHED) Reminders.rescheduleFromCache(applicationContext)
+		return outcome.toWorkResult()
 	}
 }
 
