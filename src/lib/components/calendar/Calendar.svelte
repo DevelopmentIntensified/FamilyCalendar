@@ -187,7 +187,12 @@
 	const RANGE_CACHE_MAX = 12;
 	let rangeBusy: string[] = [];
 	let rangeLoaded: string[] = [];
-	let remoteEvents: Event[] = [];
+	/** #220: fetched rows PER MONTH, so a refetch replaces a month wholesale
+	 *  (edits/deletes land) instead of appending to a list nothing cleared. */
+	let remoteByMonth: Record<string, Event[]> = {};
+	/** #220: bumped when the page data reloads; fetches from an older
+	 *  generation are stale and discarded. */
+	let rangeGen = 0;
 
 	function occurrenceKey(e: Event): string {
 		const day = e.occurrenceDate
@@ -202,17 +207,37 @@
 	}
 
 	function rememberMonth(month: string) {
-		rangeLoaded = [...rangeLoaded, month];
+		rangeLoaded = [...rangeLoaded.filter((m) => m !== month), month];
 		if (rangeLoaded.length > RANGE_CACHE_MAX) {
+			const evicted = rangeLoaded.slice(0, -RANGE_CACHE_MAX);
 			rangeLoaded = rangeLoaded.slice(-RANGE_CACHE_MAX);
+			const next = { ...remoteByMonth };
+			for (const m of evicted) delete next[m];
+			remoteByMonth = next;
 		}
 	}
 
 	function mergeFetched(month: string, fetched: Event[]) {
+		remoteByMonth = { ...remoteByMonth, [month]: fetched };
 		rememberMonth(month);
-		const seen = new Set([...events, ...remoteEvents].map(occurrenceKey));
-		remoteEvents = [...remoteEvents, ...fetched.filter((e) => !seen.has(occurrenceKey(e)))];
 	}
+
+	// #220: every mutation ends in invalidateAll(), which hands this component
+	// a fresh `events` array. That is the signal the fetched months are stale:
+	// forget them (the month on screen keeps drawing its old rows until the
+	// refetch replaces them — no flash of empty) and let the guard refetch.
+	let lastEventsProp = events;
+	function invalidateRemote(next: Event[]) {
+		if (next === lastEventsProp) return;
+		lastEventsProp = next;
+		if (rangeLoaded.length === 0 && rangeBusy.length === 0) return;
+		rangeGen += 1;
+		rangeBusy = [];
+		rangeLoaded = [];
+		const keep = remoteByMonth[monthOnScreen];
+		remoteByMonth = keep ? { [monthOnScreen]: keep } : {};
+	}
+	$: invalidateRemote(events);
 
 	function scheduleRangeLoad(month: string) {
 		if (!loadRange) return;
@@ -222,9 +247,13 @@
 		}
 		rangeBusy = [...rangeBusy, month];
 		const [from, to] = monthBounds(month);
+		const gen = rangeGen;
 		loadRange(from, to)
-			.then((fetched) => mergeFetched(month, fetched))
+			.then((fetched) => {
+				if (gen === rangeGen) mergeFetched(month, fetched);
+			})
 			.catch(() => {
+				if (gen !== rangeGen) return;
 				// Mark the month attempted even on failure: the reactive guard
 				// would otherwise retry it in a hot loop. Revisiting after a
 				// reload is the retry path.
@@ -232,7 +261,7 @@
 				pushToast({ message: "Couldn't load that month's events — try again." });
 			})
 			.finally(() => {
-				rangeBusy = rangeBusy.filter((m) => m !== month);
+				if (gen === rangeGen) rangeBusy = rangeBusy.filter((m) => m !== month);
 			});
 	}
 
@@ -247,10 +276,23 @@
 	) {
 		scheduleRangeLoad(monthOnScreen);
 	}
-	$: mergedEvents = [
-		...events,
-		...remoteEvents.filter((e) => !events.some((row) => occurrenceKey(row) === occurrenceKey(e)))
-	];
+	$: mergedEvents = mergeRemote(events, remoteByMonth);
+
+	/** Page-load rows first; fetched rows only where no row already covers
+	 *  that occurrence (across months too — a multi-day span can repeat). */
+	function mergeRemote(base: Event[], byMonth: Record<string, Event[]>): Event[] {
+		const seen = new Set(base.map(occurrenceKey));
+		const out = [...base];
+		for (const rows of Object.values(byMonth)) {
+			for (const e of rows) {
+				const key = occurrenceKey(e);
+				if (seen.has(key)) continue;
+				seen.add(key);
+				out.push(e);
+			}
+		}
+		return out;
+	}
 
 	// ---- #069: per-calendar view filter ----
 	// A VIEW filter: it says what to draw, not where new events land. The

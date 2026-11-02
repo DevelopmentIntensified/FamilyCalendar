@@ -928,4 +928,42 @@ describe('Calendar — fetches the month it is about to show (#082)', () => {
 		// Not lying about success: no pending spinner, and the month stays unfetched.
 		expect(screen.queryByTestId('calendar-range-pending')).toBeNull();
 	});
+
+	// #220: a mutation reloads the page data (new `events` prop) but the
+	// fetched month stayed cached forever — edited/deleted chips went stale.
+	it.each([
+		['an edit', [{ ...octoberEvent, title: 'Harvest (moved)' }], 'Harvest (moved)'],
+		['a delete', [], null]
+	])('refetches the remote month on screen after %s reloads the page data', async (_l, next, shown) => {
+		const responses: Event[][] = [[octoberEvent], next];
+		const calls: string[] = [];
+		const currentDate = writable(DateTime.fromISO('2026-09-08T12:00:00'));
+		const api = render(Calendar, {
+			props: {
+				currentDate,
+				events: [standup],
+				removeEvent: vi.fn(),
+				calendarIds: [PERSONAL, FAMILY],
+				filterUserId: 'u1',
+				dueTasks,
+				loadedMonths: ['2026-09'],
+				loadRange: (from: string) => {
+					calls.push(from);
+					return Promise.resolve(responses[Math.min(calls.length - 1, 1)]);
+				}
+			}
+		});
+		currentDate.set(DateTime.fromISO('2026-10-14T12:00:00'));
+		await tick();
+		await tick();
+		expect(screen.getByText('Harvest')).toBeInTheDocument();
+		// invalidateAll() after the mutation hands Calendar a fresh events array.
+		await api.rerender({ events: [standup] });
+		await tick();
+		await tick();
+		await tick();
+		expect(calls).toEqual(['2026-10-01', '2026-10-01']);
+		expect(screen.queryByText('Harvest')).toBeNull();
+		if (shown) expect(screen.getByText(shown)).toBeInTheDocument();
+	});
 });
