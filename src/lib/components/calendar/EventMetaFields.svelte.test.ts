@@ -48,4 +48,27 @@ describe('EventMetaFields', () => {
 		await fireEvent.click(screen.getByText('Family'));
 		expect(p.form.selectedCalendarId).toBe('cal2');
 	});
+
+	it('#274: shows an invited member by name, not uid, when no roster is passed', () => {
+		const f = createEventForm({
+			calendars: [{ id: 'cal1', name: 'Mine' }],
+			familyMembers: [],
+			defaultCalendarId: 'cal1',
+			initialEvent: {
+				id: 'e1',
+				title: 'Yoga',
+				description: '',
+				location: '',
+				calendarId: 'cal1',
+				start: '2026-07-17T10:00:00Z',
+				allDay: false
+			}
+		});
+		f.prefillInvites([
+			{ userId: 'user-abc123', firstName: 'Alice', lastName: 'Smith', inviteType: 'optional' }
+		]);
+		render(EventMetaFields, { props: props({ form: f }) });
+		expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+		expect(screen.queryByText('user-abc123')).not.toBeInTheDocument();
+	});
 });

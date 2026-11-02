@@ -8,6 +8,7 @@ import type { EventInvite } from '$lib/server/db/actions/events';
  *   - "Jane"            → guest (name) invite, always optional
  *   - { value, isUser } → if `isUser` and the value is this user or a family
  *     member, a member invite (userId). `inviteType` may be 'required'.
+ * A guest value equal to a known member id is promoted to that member (#274).
  * Unrecognized user ids are skipped entirely (never stored as members and
  * never degraded to guest names — a raw id must not render as an attendee
  * name); member values are returned with their requested inviteType.
@@ -46,12 +47,18 @@ export async function resolveEventInvites(userId: string, raw: unknown): Promise
 		knownUserIds = new Set(roster.map((m) => m.userId));
 	}
 
+	const isKnown = (v: string) => v === userId || (knownUserIds !== null && knownUserIds.has(v));
+
 	const out: EventInvite[] = [];
 	for (const entry of raw) {
 		if (isNameEntry(entry)) {
 			const name = entry.trim();
 			if (!name) continue;
-			out.push({ name, inviteType: 'optional' });
+			// #274: a member id sent as a guest name is still that member —
+			// storing it as `name` rendered the raw uid as the attendee.
+			out.push(
+				isKnown(name) ? { userId: name, inviteType: 'optional' } : { name, inviteType: 'optional' }
+			);
 			continue;
 		}
 		if (!entry || !isObjectEntry(entry)) continue;
@@ -63,8 +70,10 @@ export async function resolveEventInvites(userId: string, raw: unknown): Promise
 			// Only the caller themself or a roster member becomes a member
 			// invite; an unrecognized id is dropped, NOT kept as a guest name
 			// (a raw id string would render as an attendee name).
-			const isKnown = v === userId || (knownUserIds !== null && knownUserIds.has(v));
-			if (isKnown) out.push({ userId: v, inviteType: type });
+			if (isKnown(v)) out.push({ userId: v, inviteType: type });
+		} else if (isKnown(v)) {
+			// #274: a rosterless edit form flagged a member as a guest.
+			out.push({ userId: v, inviteType: type });
 		} else {
 			out.push({ name: v, inviteType: 'optional' });
 		}

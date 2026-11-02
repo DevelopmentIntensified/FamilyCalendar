@@ -131,8 +131,22 @@ function mapRecurringToFrequency(
 	return null;
 }
 
+/** A member invitee known from attendance rows, shaped like a roster entry. */
+export interface InvitedUser {
+	userId: string;
+	firstName: string;
+	lastName: string;
+	email: string;
+}
+
 export function createEventForm(config: EventFormConfig) {
 	const familyMemberIds = new Set(config.familyMembers.map((m) => m.userId));
+	/** #274: member invitees learned from the event's own attendance rows.
+	 * EventModal opens the edit form without a roster, so without these a
+	 * member's chip showed the raw uid and a save re-sent it as a guest name. */
+	const invitedUserIds = new Set<string>();
+	let invitedUsers = $state<InvitedUser[]>([]);
+	const isMemberId = (value: string) => familyMemberIds.has(value) || invitedUserIds.has(value);
 
 	let title = $state('');
 	let date = $state('');
@@ -227,7 +241,9 @@ export function createEventForm(config: EventFormConfig) {
 			attendants = initialEvent.attendees.map((a) => a.value);
 			const types: Record<string, 'required' | 'optional'> = {};
 			for (const a of initialEvent.attendees) {
-				if (a.isUser) types[a.value] = a.inviteType === 'required' ? 'required' : 'optional';
+				if (!a.isUser) continue;
+				types[a.value] = a.inviteType === 'required' ? 'required' : 'optional';
+				invitedUserIds.add(a.value);
 			}
 			inviteTypes = types;
 		}
@@ -296,13 +312,16 @@ export function createEventForm(config: EventFormConfig) {
 
 	function saveRecentAttendants() {
 		const nonUserAtts = attendants.filter(
-			(a) => !a.includes('@') && a.length < 50 && !familyMemberIds.has(a)
+			(a) => !a.includes('@') && a.length < 50 && !isMemberId(a)
 		);
 		const existing = new Set(recentAttendants);
 		const toAdd = nonUserAtts.filter((a) => !existing.has(a));
 		if (toAdd.length > 0) {
 			recentAttendants = [...recentAttendants, ...toAdd].slice(-20);
-			saveRecentAttendantsToStorage(recentAttendants, familyMemberIds);
+			saveRecentAttendantsToStorage(
+				recentAttendants,
+				new Set([...familyMemberIds, ...invitedUserIds])
+			);
 		}
 	}
 
@@ -477,6 +496,11 @@ export function createEventForm(config: EventFormConfig) {
 			return recentAttendants;
 		},
 
+		/** Member invitees (from attendance rows) missing from the passed roster. */
+		get invitedUsers() {
+			return invitedUsers;
+		},
+
 		get isEditMode() {
 			return !!config.initialEvent;
 		},
@@ -501,7 +525,7 @@ export function createEventForm(config: EventFormConfig) {
 				inviteTypes = next;
 			} else {
 				attendants = [...attendants, value];
-				if (familyMemberIds.has(value)) {
+				if (isMemberId(value)) {
 					inviteTypes = { ...inviteTypes, [value]: 'optional' };
 				}
 			}
@@ -517,7 +541,13 @@ export function createEventForm(config: EventFormConfig) {
 		/** Seed attendants + invite types from an event's attendance rows
 		 * (used when the edit form opens and invite data isn't yet known). */
 		prefillInvites(
-			rows: Array<{ userId?: string | null; name?: string | null; inviteType?: string | null }>
+			rows: Array<{
+				userId?: string | null;
+				name?: string | null;
+				inviteType?: string | null;
+				firstName?: string | null;
+				lastName?: string | null;
+			}>
 		) {
 			if (!Array.isArray(rows)) return;
 			invitesLoaded = true;
@@ -529,6 +559,19 @@ export function createEventForm(config: EventFormConfig) {
 			for (const r of rows) {
 				if (r.userId) types[r.userId] = r.inviteType === 'required' ? 'required' : 'optional';
 			}
+			const learned: InvitedUser[] = [];
+			for (const r of rows) {
+				if (!r.userId || invitedUserIds.has(r.userId)) continue;
+				invitedUserIds.add(r.userId);
+				if (familyMemberIds.has(r.userId)) continue;
+				learned.push({
+					userId: r.userId,
+					firstName: r.firstName ?? '',
+					lastName: r.lastName ?? '',
+					email: ''
+				});
+			}
+			invitedUsers = [...invitedUsers, ...learned];
 			attendants = values;
 			inviteTypes = types;
 			userTouchedFields.attendants = true;
@@ -649,7 +692,7 @@ export function createEventForm(config: EventFormConfig) {
 				data.attendants = [...attendants];
 				data.attendees = attendants.map((value) => ({
 					value,
-					isUser: familyMemberIds.has(value),
+					isUser: isMemberId(value),
 					inviteType: inviteTypes[value] ?? 'optional'
 				}));
 			}

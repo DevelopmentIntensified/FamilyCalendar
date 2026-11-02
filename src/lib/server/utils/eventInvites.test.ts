@@ -94,4 +94,22 @@ describe('resolveEventInvites', () => {
 		]);
 		expect(out).toEqual([{ userId: SELF_ID, inviteType: 'required' }]);
 	});
+
+	// #274: an old/rosterless edit form sent member ids as guest values, and
+	// the uid was stored as the attendee's name. A known id is a member.
+	it('promotes a guest value that is a roster member id to a member invite', async () => {
+		const out = await resolveEventInvites(SELF_ID, [
+			{ value: MEMBER_ID, isUser: false, inviteType: 'required' },
+			MEMBER_ID
+		]);
+		expect(out).toEqual([
+			{ userId: MEMBER_ID, inviteType: 'required' },
+			{ userId: MEMBER_ID, inviteType: 'optional' }
+		]);
+	});
+
+	it('promotes a guest value that is the caller id to a member invite', async () => {
+		const out = await resolveEventInvites(SELF_ID, [{ value: SELF_ID, isUser: false }]);
+		expect(out).toEqual([{ userId: SELF_ID, inviteType: 'optional' }]);
+	});
 });

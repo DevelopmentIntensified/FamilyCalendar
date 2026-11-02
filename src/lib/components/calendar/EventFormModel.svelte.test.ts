@@ -160,6 +160,73 @@ describe('EventFormModel - invite prefill round-trip', () => {
 	});
 });
 
+describe('EventFormModel - #274 invitees outside the passed roster', () => {
+	// EventModal (Month/Week/Day/List/Dashboard) opens the edit form without a
+	// familyMembers roster, so member invitees are known only from the rows.
+	const bareConfig = {
+		calendars: [{ id: 'cal1', name: 'My Calendar' }],
+		familyMembers: [],
+		defaultCalendarId: 'cal1',
+		initialEvent: {
+			id: 'mstr1',
+			title: 'Yoga',
+			description: '',
+			location: '',
+			calendarId: 'cal1',
+			start: '2026-07-17T10:00:00Z',
+			allDay: false
+		}
+	};
+	const rows = [
+		{
+			userId: 'u1',
+			status: 'going',
+			firstName: 'Alice',
+			lastName: 'Smith',
+			inviteType: 'required'
+		},
+		{ userId: null, name: 'Grandma Rose', status: 'undecided', inviteType: 'optional' }
+	];
+
+	it('saves a prefilled member invite as a user, not a uid guest name', () => {
+		const form = createEventForm(bareConfig);
+		form.prefillInvites(rows);
+		expect(form.toEventData()!.attendees).toEqual([
+			{ value: 'u1', isUser: true, inviteType: 'required' },
+			{ value: 'Grandma Rose', isUser: false, inviteType: 'optional' }
+		]);
+	});
+
+	it('exposes prefilled member invitees with their names for the picker', () => {
+		const form = createEventForm(bareConfig);
+		form.prefillInvites(rows);
+		expect(form.invitedUsers).toEqual([
+			{ userId: 'u1', firstName: 'Alice', lastName: 'Smith', email: '' }
+		]);
+	});
+
+	it('does not duplicate invitees already in the passed roster', () => {
+		const form = createEventForm({
+			...bareConfig,
+			familyMembers: [{ userId: 'u1', firstName: 'Alice', email: 'a@x.com' }]
+		});
+		form.prefillInvites(rows);
+		expect(form.invitedUsers).toEqual([]);
+	});
+
+	it('keeps a member invite as a user after toggling it off and on again', () => {
+		const form = createEventForm(bareConfig);
+		form.prefillInvites(rows);
+		form.toggleAttendant('u1');
+		form.toggleAttendant('u1');
+		expect(form.toEventData()!.attendees).toContainEqual({
+			value: 'u1',
+			isUser: true,
+			inviteType: 'optional'
+		});
+	});
+});
+
 describe('EventFormModel - recurrence passthrough on edit', () => {
 	it('populates byDay/count/until from initialEvent and round-trips them', () => {
 		const form = createEventForm({

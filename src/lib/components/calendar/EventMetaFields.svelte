@@ -52,7 +52,7 @@
 		</div>
 		<AttendantPicker
 			selected={form.attendants}
-			{familyMembers}
+			familyMembers={[...familyMembers, ...form.invitedUsers]}
 			recent={form.recentAttendants}
 			selections={form.inviteTypes}
 			onChangeInviteType={(value, type) => form.setInviteType(value, type)}
