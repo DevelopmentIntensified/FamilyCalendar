@@ -20,6 +20,7 @@ import {
 } from '$lib/server/services/icsImportPreview';
 import { createEvent } from '$lib/server/db/actions/events';
 import { getUserZone } from '$lib/server/utils/userTimezone';
+import { nudgeEventsChanged } from '$lib/server/services/eventsChangedNudge';
 
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
@@ -150,6 +151,8 @@ export interface ImportDeps {
 	) => Promise<UndoCandidate[]>;
 	/** Remove exactly those rows, under the same scope. Returns rows deleted. */
 	deleteImportedEvents: (ids: string[], userId: string, calendarId: string) => Promise<number>;
+	/** #272 sync nudge — fire-and-forget, once per request that wrote rows. */
+	nudgeEventsChanged: (userId: string, calendarIds: string[]) => unknown;
 }
 
 const defaultDeps: ImportDeps = {
@@ -160,7 +163,8 @@ const defaultDeps: ImportDeps = {
 	createEvent,
 	getUserZone,
 	loadUndoCandidates: realUndoCandidates,
-	deleteImportedEvents: realDeleteImportedEvents
+	deleteImportedEvents: realDeleteImportedEvents,
+	nudgeEventsChanged
 };
 
 /** True for non-empty strings (form fields that must carry a value). */
@@ -330,6 +334,8 @@ export const actions: Actions = {
 			}
 		}
 
+		if (imported > 0) void deps.nudgeEventsChanged(userId, [target.calendarId]);
+
 		return {
 			calendarId: target.calendarId,
 			calendarName: target.name,
@@ -383,6 +389,7 @@ export const actions: Actions = {
 			plan.remove.length > 0
 				? await deps.deleteImportedEvents(plan.remove, userId, target.calendarId)
 				: 0;
+		if (removed > 0) void deps.nudgeEventsChanged(userId, [target.calendarId]);
 
 		return {
 			calendarName: target.name,

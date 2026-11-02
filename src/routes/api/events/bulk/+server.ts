@@ -19,6 +19,7 @@ import { getUserZone, zonedNow } from '$lib/server/utils/userTimezone';
 import { toDateTime } from '$lib/server/utils/eventTimes';
 import { resolveMasterId } from '$lib/server/utils/eventIds';
 import { requireUserJson } from '$lib/server/utils/requireUser';
+import { nudgeEventsChanged } from '$lib/server/services/eventsChangedNudge';
 
 type BulkItem = { id: string; occurrenceDate?: string };
 
@@ -107,11 +108,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'No editable events matched' }, { status: 403 });
 	}
 
+	// #272: ONE nudge per request (not per event), only when something applied;
+	// the audience covers every accessible calendar, so moves are included.
+	const nudgeIfApplied = (applied: number) => {
+		if (applied > 0) void nudgeEventsChanged(userId, accessibleCalIds);
+	};
+
 	try {
 		if (op.type === 'delete') {
 			const results = await applyPerItem(ownedIds, (id) =>
 				deleteEventInScope(id, userId, accessibleCalIds)
 			);
+			nudgeIfApplied(results.applied);
 			return json({ success: true, ...results });
 		}
 
@@ -122,6 +130,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			const results = await applyPerItem(ownedIds, (id) =>
 				updateEventById(id, { calendarId: op.calendarId }, userId)
 			);
+			nudgeIfApplied(results.applied);
 			return json({ success: true, ...results });
 		}
 
@@ -130,6 +139,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			const results = await applyPerItem(ownedIds, (id) =>
 				updateEventById(id, { location: location || null }, userId)
 			);
+			nudgeIfApplied(results.applied);
 			return json({ success: true, ...results });
 		}
 
@@ -170,6 +180,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				});
 				return true;
 			});
+			nudgeIfApplied(results.applied);
 			return json({ success: true, ...results });
 		}
 
@@ -242,6 +253,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 
 			const applied = await applyBulkPlan(plan, userId, accessibleCalIds, zone);
+			nudgeIfApplied(applied);
 			return json({ success: true, applied });
 		}
 

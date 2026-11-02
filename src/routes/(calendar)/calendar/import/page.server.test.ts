@@ -64,6 +64,7 @@ function makeDeps(over: Partial<ImportDeps> = {}) {
 		getUserZone: vi.fn(async () => 'utc'),
 		loadUndoCandidates: vi.fn(async (): Promise<UndoCandidate[]> => []),
 		deleteImportedEvents: vi.fn(async () => 0),
+		nudgeEventsChanged: vi.fn(),
 		...over
 	};
 	return deps;
@@ -748,5 +749,59 @@ describe('POST /calendar/import ?/undo', () => {
 
 		expect(failure.status).toBe(401);
 		expect(deps.deleteImportedEvents).not.toHaveBeenCalled();
+	});
+});
+
+describe('#272 events_changed nudge', () => {
+	it('preview writes nothing, so it never nudges', async () => {
+		const deps = makeDeps();
+		await callPreview(previewEvent(ics(SOCCER, CHOIR)), deps);
+		expect(deps.nudgeEventsChanged).not.toHaveBeenCalled();
+	});
+
+	it('a commit that wrote several rows nudges ONCE for the target calendar', async () => {
+		const deps = makeDeps();
+		await callCommit(
+			commitEvent([
+				row('Soccer practice', '2026-09-29T14:00:00.000Z'),
+				row('Choir', '2026-12-25T00:00:00.000Z')
+			]),
+			deps
+		);
+		expect(deps.createEvent).toHaveBeenCalledTimes(2);
+		expect(deps.nudgeEventsChanged).toHaveBeenCalledTimes(1);
+		expect(deps.nudgeEventsChanged).toHaveBeenCalledWith('user-1', ['cal-1']);
+	});
+
+	it('a commit where every write failed does not nudge', async () => {
+		const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const deps = makeDeps({
+			createEvent: vi.fn(async () => {
+				throw new Error('db down');
+			})
+		});
+		await callCommit(commitEvent([row('Soccer practice', '2026-09-29T14:00:00.000Z')]), deps);
+		expect(deps.nudgeEventsChanged).not.toHaveBeenCalled();
+		spy.mockRestore();
+	});
+
+	it('an undo that removed rows nudges once; one that removed nothing does not', async () => {
+		const live = vi.fn(
+			async (): Promise<UndoCandidate[]> => [
+				{ id: 'ev-1', title: 'Soccer practice', startIso: '2026-09-29T14:00:00.000Z' },
+				{ id: 'ev-2', title: 'Choir', startIso: '2026-12-25T00:00:00.000Z' }
+			]
+		);
+		const removed = makeDeps({
+			loadUndoCandidates: live,
+			deleteImportedEvents: vi.fn(async () => 2)
+		});
+		await callUndo(undoEvent(BATCH), removed);
+		expect(removed.nudgeEventsChanged).toHaveBeenCalledTimes(1);
+		expect(removed.nudgeEventsChanged).toHaveBeenCalledWith('user-1', ['cal-1']);
+
+		const none = makeDeps();
+		await callUndo(undoEvent(BATCH), none);
+		expect(none.nudgeEventsChanged).not.toHaveBeenCalled();
 	});
 });

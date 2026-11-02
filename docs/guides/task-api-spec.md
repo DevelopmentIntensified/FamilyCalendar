@@ -188,3 +188,51 @@ Phone → desktop start/stop, one FIFO queue per token owner. Same Bearer auth.
   **Idempotent: unknown / already-acked / another-user's id all return
   `204`, never `404`-only.** Each command is acked once, individually; with
   several phones enqueuing, the desktop consumes strictly in FIFO order.
+
+## Android push devices (`/api/devices`, #272)
+
+Registers the Android app's FCM registration token so the server can push to
+it. Same auth as everything above: `Authorization: Bearer fp_…` (or a session
+cookie). The token owner is the user who receives the pushes.
+
+- `POST /api/devices` — body `{"token":"<FCM registration token>","platform":"android"}`
+  (`platform` optional, defaults to `"android"`; any other value → 400).
+  Upsert: refreshes `last_seen_at`; a token already registered by another
+  account is re-owned to the caller (one phone, one account).
+  → `200 {"success":true}`. Call on every `onNewToken` and after the user
+  enters/changes their API token; repeat calls are harmless.
+- `DELETE /api/devices` — body `{"token":"<FCM registration token>"}`.
+  Removes only the caller's row (another user's token is silently untouched).
+  → `200 {"success":true}`. Call on sign-out / API-token clear.
+- `400 {"error":"token is required"}` — missing, empty or non-string token.
+- `400 {"error":"token is too long"}` — over 4096 chars.
+- `400 {"error":"platform must be 'android'"}`.
+- `401 {"error":"Unauthorized"}` — as everywhere.
+
+What the device receives (FCM HTTP v1; every `data` value is a string):
+
+| Kind | `notification` | `data` | `android` |
+|---|---|---|---|
+| Activity notification (same fan-out as Web Push: every `createNotification`) | `{title, body}` | `{"type":"notification","link":"/path"}` (`link` omitted when none) | `priority: high` |
+| Sync nudge, silent | none | `{"type":"events_changed"}` | `priority: high`, `collapse_key: events_changed`, `ttl: 600s` |
+
+`events_changed` is sent once per mutating request (create / update / move /
+delete / occurrence edit or cancel / bulk edit / .ics import + undo) to every
+user who can see an affected calendar (actor, calendar owners, family
+members). It carries no payload: refetch the events you cache and reschedule
+local reminders. RSVPs do not send it. Dead tokens (FCM 404 / `UNREGISTERED`
+/ invalid token) are pruned server-side; the app just re-POSTs on
+`onNewToken`.
+
+### Owner setup (one-time)
+
+1. Firebase console → create/choose the project, add the Android app
+   (package id) and download `google-services.json` for the app build (#273).
+2. Project settings → Service accounts → Generate new private key.
+3. Vercel → Project → Settings → Environment Variables:
+   `FCM_SERVICE_ACCOUNT_JSON` = the JSON, ideally base64
+   (`base64 -w0 key.json`), for Preview and Production; redeploy.
+   Unset = Android push silently skipped (Web Push unaffected).
+4. Create the table (also bundled for the cold-start runner):
+   `npx dotenv -e .env.preview -- node scripts/db-exec.mjs sql/migrations/023-device-tokens.sql`
+   then the same with `.env.prod`. Idempotent.

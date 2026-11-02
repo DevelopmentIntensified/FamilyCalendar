@@ -8,6 +8,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import { requireUser } from '$lib/server/utils/requireUser';
+import { nudgeEventsChanged } from '$lib/server/services/eventsChangedNudge';
 
 function isString(value: FormDataEntryValue | null): value is string {
 	return typeof value === 'string';
@@ -79,6 +80,7 @@ export const actions: Actions = {
 		}
 
 		await deleteEvent(eventId);
+		void nudgeEventsChanged(user.id, [eventData[0].calendarId]);
 		throw redirect(302, '/calendar');
 	}
 };

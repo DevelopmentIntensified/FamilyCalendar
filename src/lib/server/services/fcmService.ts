@@ -177,7 +177,10 @@ export function createFcmSender(
 		const body: { access_token?: unknown; expires_in?: unknown } = await res.json();
 		if (typeof body.access_token !== 'string') throw new Error('FCM token exchange: no token');
 		const ttlSec = typeof body.expires_in === 'number' ? body.expires_in : 3600;
-		cached = { token: body.access_token, expiresAt: deps.now() + ttlSec * 1000 - REFRESH_MARGIN_MS };
+		cached = {
+			token: body.access_token,
+			expiresAt: deps.now() + ttlSec * 1000 - REFRESH_MARGIN_MS
+		};
 		return body.access_token;
 	}
 

@@ -20,6 +20,7 @@ import {
 } from '$lib/server/services/eventDisplayService';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 import { eventRangeWindow, resolveEventRange } from '$lib/server/services/eventRange';
+import { nudgeEventsChanged } from '$lib/server/services/eventsChangedNudge';
 
 /**
  * GET /api/events?from=&to= — the ranged read (issue 082).
@@ -152,6 +153,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return createdEvent;
 		});
 
+		// #272: phones of everyone who sees this calendar resync (not awaited).
+		void nudgeEventsChanged(userId, [created?.calendarId]);
 		return json({ success: true, event: created }, { status: 201 });
 	} catch (error) {
 		console.error('Failed to create event:', error);

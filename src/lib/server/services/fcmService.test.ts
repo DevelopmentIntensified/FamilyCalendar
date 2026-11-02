@@ -91,7 +91,10 @@ describe('parseServiceAccount', () => {
 	});
 
 	it('unescapes \\n in a private key pasted as one line', () => {
-		const oneLine = JSON.stringify({ ...RAW_ACCOUNT, private_key: privateKey.replace(/\n/g, '\\n') });
+		const oneLine = JSON.stringify({
+			...RAW_ACCOUNT,
+			private_key: privateKey.replace(/\n/g, '\\n')
+		});
 		expect(parseServiceAccount(oneLine)?.privateKey).toBe(privateKey);
 	});
 });
@@ -215,7 +218,10 @@ describe('createFcmSender', () => {
 				error: {
 					status: 'NOT_FOUND',
 					details: [
-						{ '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError', errorCode: 'UNREGISTERED' }
+						{
+							'@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+							errorCode: 'UNREGISTERED'
+						}
 					]
 				}
 			})
@@ -234,7 +240,9 @@ describe('createFcmSender', () => {
 						},
 						{
 							'@type': 'type.googleapis.com/google.rpc.BadRequest',
-							fieldViolations: [{ field: 'message.token', description: 'Invalid registration token' }]
+							fieldViolations: [
+								{ field: 'message.token', description: 'Invalid registration token' }
+							]
 						}
 					]
 				}

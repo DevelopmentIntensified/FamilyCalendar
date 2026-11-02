@@ -15,6 +15,7 @@ import { getAccessibleCalendarIds, canTouchEvent } from '$lib/server/db/actions/
 import { resolveOccurrenceId, normalizeOccurrenceIso } from '$lib/server/utils/eventIds';
 import { normalizeEventRecurrence } from '$lib/server/services/eventRecurrence';
 import { eq } from 'drizzle-orm';
+import { nudgeEventsChanged } from '$lib/server/services/eventsChangedNudge';
 
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
 	if (!locals.user) {
@@ -79,6 +80,7 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 			if (hasInvites) {
 				await replaceEventInvites(id, invites ?? []);
 			}
+			void nudgeEventsChanged(userId, [existing.calendarId]);
 			return json({
 				success: true,
 				note: 'Attendee changes apply to the whole series.'
@@ -114,6 +116,8 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 		if (!updated) {
 			return json({ error: 'Event not found' }, { status: 404 });
 		}
+		// #272: old + new calendar on a move; not awaited.
+		void nudgeEventsChanged(userId, [existing.calendarId, updated.calendarId]);
 		return json({ success: true, event: updated });
 	} catch (error) {
 		console.error('Failed to update event:', error);
@@ -158,6 +162,7 @@ export const DELETE: RequestHandler = async ({ request, locals, params }) => {
 				if (deletedCount === 0) {
 					return json({ error: 'Event not found' }, { status: 404 });
 				}
+				void nudgeEventsChanged(userId, [existing.calendarId]);
 				return json({ success: true });
 			}
 
@@ -173,6 +178,7 @@ export const DELETE: RequestHandler = async ({ request, locals, params }) => {
 				originalDate,
 				isCancelled: true
 			});
+			void nudgeEventsChanged(userId, [existing.calendarId]);
 			return json({ success: true });
 		}
 
@@ -181,6 +187,7 @@ export const DELETE: RequestHandler = async ({ request, locals, params }) => {
 			return json({ error: 'Event not found' }, { status: 404 });
 		}
 		await db.delete(eventExceptions).where(eq(eventExceptions.eventId, id));
+		void nudgeEventsChanged(userId);
 		return json({ success: true });
 	} catch (error) {
 		console.error('Failed to delete event:', error);
