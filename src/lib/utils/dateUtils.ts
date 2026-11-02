@@ -20,7 +20,16 @@ export const getFirstDayOfNextMonth = (year: number, month: number): number => {
 	return DateTime.fromObject({ year, month, day: 1 }).weekday ?? 7;
 };
 
-export const getDaysInLastMonth = (year: number, month: number) => {
+/**
+ * First day (start of day) of the week containing `date` for a week-start
+ * preference: 'monday' → ISO week; anything else → Sunday-first (#221).
+ */
+export const startOfWeekFor = (date: DateTime, weekStart: string): DateTime =>
+	weekStart.toLowerCase() === 'monday'
+		? date.startOf('week')
+		: date.minus({ days: date.weekday % 7 }).startOf('day');
+
+export const getDaysInLastMonth =(year: number, month: number) => {
 	if (month === 1) {
 		year = year - 1;
 		month = 12;

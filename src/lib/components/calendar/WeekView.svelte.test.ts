@@ -41,6 +41,8 @@ const evt = {
 type CreateAtMock = ReturnType<typeof vi.fn<(start: DateTime, end?: DateTime) => void>>;
 
 type SetupOverrides = {
+	currentDate?: ReturnType<typeof writable<DateTime>>;
+	preferedFirstDayOfWeek?: string;
 	events?: Event[];
 	dueTasks?: never[];
 	selectionMode?: boolean;
@@ -216,10 +218,11 @@ describe('WeekView - slot create and drag move', () => {
 		const cols = screen.getAllByTestId('week-day-column');
 		// Realistic flow: dragstart stashes the id, drop reads it.
 		await fireEvent.dragStart(screen.getByText('Standup'));
-		// Column 0 of the Sep-7 week is Monday Sep 7; drop at 02:00.
+		// Sunday-first: column 0 is Sun Sep 6, column 1 is Monday Sep 7 (#221);
+		// drop at 02:00.
 		// (MouseEvent carries clientY reliably through jsdom; DragEvent init drops it.)
 		await fireEvent(
-			cols[0],
+			cols[1],
 			new MouseEvent('drop', { bubbles: true, cancelable: true, clientY: 120 })
 		);
 		expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
@@ -309,5 +312,31 @@ describe('WeekView #066 — cluster-local lane widths', () => {
 		await fireEvent.mouseMove(cols[0], { clientY: 1260 });
 		await fireEvent.mouseUp(cols[0]);
 		expect(screen.getByText('7:00 PM – 9:00 PM')).toBeInTheDocument();
+	});
+});
+
+describe('WeekView #221 — week start honours the setting', () => {
+	afterEach(cleanup);
+
+	function headerDays() {
+		return screen
+			.getAllByRole('button', { name: /^Open \w+day, / })
+			.map((b) => b.getAttribute('aria-label'));
+	}
+
+	it.each([
+		// [anchor date, pref, first header, last header]
+		['2026-09-07T12:00:00', 'sunday', 'Open Sunday, September 6', 'Open Saturday, September 12'],
+		['2026-09-06T12:00:00', 'sunday', 'Open Sunday, September 6', 'Open Saturday, September 12'],
+		['2026-09-12T12:00:00', 'sunday', 'Open Sunday, September 6', 'Open Saturday, September 12'],
+		['2026-09-07T12:00:00', 'monday', 'Open Monday, September 7', 'Open Sunday, September 13'],
+		['2026-09-13T12:00:00', 'monday', 'Open Monday, September 7', 'Open Sunday, September 13'],
+		['2026-09-06T12:00:00', 'monday', 'Open Monday, August 31', 'Open Sunday, September 6']
+	])('%s with %s-first shows %s … %s', (iso, pref, first, last) => {
+		setup({ currentDate: writable(DateTime.fromISO(iso)), preferedFirstDayOfWeek: pref });
+		const days = headerDays();
+		expect(days).toHaveLength(7);
+		expect(days[0]).toBe(first);
+		expect(days[6]).toBe(last);
 	});
 });

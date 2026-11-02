@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatDate } from '$lib/utils/dateUtils';
+	import { formatDate, startOfWeekFor } from '$lib/utils/dateUtils';
 	import { DateTime } from 'luxon';
 	import type { Writable } from 'svelte/store';
 	import type { Event } from '$lib/types';
@@ -72,15 +72,10 @@
 		selectedTask = task;
 	}
 
-	let dayOffset = 0;
-	$: {
-		if (preferedFirstDayOfWeek === 'monday') {
-			dayOffset = 1;
-		}
-	}
-
 	$: current = $currentDate;
-	$: startOfWeek = current.startOf('week').plus({ day: dayOffset });
+	// #221: Luxon's startOf('week') is ISO (Monday); Sunday-first steps back
+	// weekday % 7 days so the anchor date is always inside its week.
+	$: startOfWeek = startOfWeekFor(current, preferedFirstDayOfWeek);
 	$: weekDays = Array.from({ length: 7 }, (_, i) => startOfWeek.plus({ day: i }));
 
 	function getEventsForDay(day: DateTime): Event[] {
