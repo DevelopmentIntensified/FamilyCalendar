@@ -26,7 +26,7 @@ describe('(marketing) layout navbar', () => {
 					origin: 'http://localhost',
 					isLoggedIn: true,
 					user: { firstName: 'Sam', lastName: 'Lee', email: 'sam@example.com', roles: ['admin'] }
-				}
+				} as never
 			}
 		});
 		expect(screen.getByText('Sam')).toBeInTheDocument();
