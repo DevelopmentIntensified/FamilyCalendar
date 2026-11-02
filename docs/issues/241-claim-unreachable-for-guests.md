@@ -19,6 +19,9 @@ Guest taps 'Save your data with an email' -> bounced to /calendar. Claiming impo
 - Repo sweep of `user.email` truthiness / `!== null` "is registered" checks, same bug, fixed here:
   - `src/routes/(calendar)/calendar/+page.server.ts` guest-merge prompt (`email !== null`) — a guest with a stale stash cookie was bounced /calendar -> /merge-guest -> /claim. Test in `calendar/page.server.test.ts`.
   - `src/routes/(marketing)/signup/password/resend/+server.ts` (`!user.email`) — would mail a code to the placeholder address. Test in `resend/server.test.ts`.
+  - `src/routes/(marketing)/login/email/callback/+server.ts` (`if (locals.user) errorRedirect`) — every guest's magic-link login errored. Now only a registered session is refused. Tests in `login/email/callback/server.test.ts`.
+  - `src/routes/(marketing)/login/+page.server.ts` + `signup/+page.server.ts` `isLoggedIn: !!locals.user` — guests saw "You are already logged in" with no form. Now `isRegisteredAccount`. Table test `login/page.server.test.ts`.
+  - Left as-is (not my lane / not a registered-check bug): `(marketing)/+layout.server.ts` `isLoggedIn` (nav only), `family/join/[code]/+page.server.ts` `isLoggedIn` (family/** pages out of lane — likely same bug, guest sees "join" instead of "sign in"; worth a follow-up).
 - Fixed in sibling issues: `signup/email/callback` (#243), account page / sidebar / email section + navbar profile menu (#242).
 
 ## Needs doing

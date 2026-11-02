@@ -10,6 +10,7 @@ import { users } from '$lib/server/db/schema';
 import { db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 import { deleteCodesByEmail } from '$lib/server/db/actions/codes';
+import { isRegisteredAccount } from '$lib/utils/anonymous';
 
 /**
  * Collaborators GET needs, injectable so tests can pass fakes through a real
@@ -60,7 +61,9 @@ export const GET = async function (
 		return errorRedirect();
 	}
 
-	if (event.locals.user) {
+	// Only a registered account is "already signed in"; a guest session
+	// (placeholder email since #196) logs in and its data merges (#241).
+	if (isRegisteredAccount(event.locals.user)) {
 		return errorRedirect();
 	}
 

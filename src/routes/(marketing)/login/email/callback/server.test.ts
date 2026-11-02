@@ -34,14 +34,14 @@ const deps: EmailCallbackDeps = {
 	updateLastLogin
 };
 
-function mockEvent(token: string | null) {
+function mockEvent(token: string | null, user: { id: string; email: string } | null = null) {
 	const url = token
 		? `http://test.com/login/email/callback?token=${token}`
 		: 'http://test.com/login/email/callback';
 	// SAFETY: test double — the handler only reads the fields set below.
 		return {
 		url: new URL(url),
-		locals: { user: null },
+		locals: { user },
 		cookies: { get: () => undefined, set: vi.fn(), delete: vi.fn() }
 	} as never;
 }
@@ -72,6 +72,27 @@ describe('GET /login/email/callback', () => {
 		expect(location).toContain('/calendar');
 		expect(getUserByEmail).toHaveBeenCalledWith('pw@user.com');
 		expect(deleteCodesByEmail).toHaveBeenCalledWith('pw@user.com');
+	});
+
+	it('signs in from a guest session (#196 placeholder email) instead of erroring (#241)', async () => {
+		const response = await GET(
+			mockEvent('valid.jwt.token', { id: 'g1', email: 'g1@anonymous.placeholder.invalid' }),
+			deps
+		);
+
+		expect(response.status).toBe(302);
+		expect(response.headers.get('Location')).toContain('/calendar');
+		expect(response.headers.get('Set-Cookie')).toBe('better-auth.session_token=pw123.sig; Path=/');
+	});
+
+	it('still refuses when a registered account is already signed in', async () => {
+		const response = await GET(
+			mockEvent('valid.jwt.token', { id: 'u2', email: 'other@user.com' }),
+			deps
+		);
+
+		expect(response.headers.get('Location')).toContain('/login');
+		expect(sessionApi.createSession).not.toHaveBeenCalled();
 	});
 
 	it('redirects to /login?error for invalid token', async () => {
