@@ -17,7 +17,8 @@
 		return v === 'event_parse' || v === 'bulk_edit';
 	}
 
-	let exportText = formatUnmatchedPhrasesExport(data.phrases);
+	// Reactive: `use:enhance` on Resolve refreshes `data` (issue 262).
+	$: exportText = formatUnmatchedPhrasesExport(data.phrases);
 
 	function groupBySource(phrases: UnmatchedPhrase[]) {
 		const groups = new Map<string, UnmatchedPhrase[]>();

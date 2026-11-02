@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { downloadAsTxt } from './export';
+	import { pushToast } from '$lib/client/toasts';
 
 	/** Full pre-rendered export text (agent-ready). */
 	export let exportText: string;
@@ -13,8 +14,10 @@
 	async function copy() {
 		try {
 			await navigator.clipboard.writeText(exportText);
+			pushToast({ message: 'Export copied to clipboard — paste it into your agent.' });
 		} catch {
 			document.querySelector<HTMLTextAreaElement>(`#${textareaId}`)?.select();
+			pushToast({ message: "Couldn't copy — text is selected, press Ctrl/Cmd+C." });
 		}
 	}
 

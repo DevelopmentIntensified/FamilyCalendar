@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import Toaster from '$lib/components/Toaster.svelte';
 
 	export let data: { openBugs?: number; openPhrases?: number };
 
@@ -58,4 +59,5 @@
 		</div>
 	</header>
 	<slot />
+	<Toaster />
 </div>

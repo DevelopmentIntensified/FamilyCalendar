@@ -18,7 +18,8 @@
 		dashboard: 'Dashboard',
 		other: 'Other'
 	};
-	let exportText = formatBugReportsExport(data.open);
+	// Reactive: `use:enhance` on Resolve refreshes `data` (issue 262).
+	$: exportText = formatBugReportsExport(data.open);
 
 	function timeLabel(d: Date): string {
 		return new Date(d).toLocaleString(undefined, {
