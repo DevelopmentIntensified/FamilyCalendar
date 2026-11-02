@@ -39,35 +39,23 @@ import java.time.LocalDate
 fun CalendarScreen(
 	state: CalendarUiState,
 	quickAdd: QuickAddUiState,
-	onQuickAddParse: (String) -> Unit,
-	onQuickAddDismiss: () -> Unit,
-	onQuickAddConfirm: () -> Unit,
-	onQuickAddUpdate: (title: String?, date: String?, startTime: String?, endTime: String?, location: String?, allDay: Boolean?) -> Unit,
-	onPrevMonth: () -> Unit,
-	onNextMonth: () -> Unit,
-	onSelectDay: (String) -> Unit,
-	onClearDay: () -> Unit,
+	quickAddActions: QuickAddActions,
+	actions: CalendarActions,
 ) {
 	Scaffold(
 		topBar = {
 			TopAppBar(
 				title = { Text(calendarTitle(state)) },
 				actions = {
-					TextButton(onClick = onPrevMonth) { Text("Prev") }
-					TextButton(onClick = onNextMonth) { Text("Next") }
+					TextButton(onClick = actions.onPrevMonth) { Text("Prev") }
+					TextButton(onClick = actions.onNextMonth) { Text("Next") }
 				},
 			)
 		},
 	) { padding ->
 		Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-			QuickAddPanel(
-				state = quickAdd,
-				onParse = onQuickAddParse,
-				onDismiss = onQuickAddDismiss,
-				onConfirm = onQuickAddConfirm,
-				onUpdateDraft = onQuickAddUpdate,
-			)
-			CalendarBody(state, onSelectDay, onClearDay, onRetry = onPrevMonth)
+			QuickAddPanel(state = quickAdd, actions = quickAddActions)
+			CalendarBody(state, actions.onSelectDay, actions.onClearDay, onRetry = actions.onPrevMonth)
 		}
 	}
 }

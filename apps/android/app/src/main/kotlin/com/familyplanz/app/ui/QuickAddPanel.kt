@@ -29,10 +29,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun QuickAddPanel(
 	state: QuickAddUiState,
-	onParse: (String) -> Unit,
-	onDismiss: () -> Unit,
-	onConfirm: () -> Unit,
-	onUpdateDraft: (title: String?, date: String?, startTime: String?, endTime: String?, location: String?, allDay: Boolean?) -> Unit,
+	actions: QuickAddActions,
 ) {
 	var input by rememberSaveable { mutableStateOf("") }
 
@@ -48,7 +45,7 @@ fun QuickAddPanel(
 				singleLine = true,
 				placeholder = { Text("\"dinner Friday at 7 at the park\"") },
 			)
-			TextButton(onClick = { onParse(input) }) { Text("Parse") }
+			TextButton(onClick = { actions.onParse(input) }) { Text("Parse") }
 		}
 
 		when (state) {
@@ -64,10 +61,10 @@ fun QuickAddPanel(
 					color = MaterialTheme.colorScheme.error,
 					style = MaterialTheme.typography.bodySmall,
 				)
-				TextButton(onClick = onDismiss) { Text("Dismiss") }
+				TextButton(onClick = actions.onDismiss) { Text("Dismiss") }
 			}
 
-			is QuickAddUiState.Draft -> DraftCard(state, onDismiss, onConfirm, onUpdateDraft)
+			is QuickAddUiState.Draft -> DraftCard(state, actions)
 		}
 	}
 }
@@ -75,10 +72,9 @@ fun QuickAddPanel(
 @Composable
 private fun DraftCard(
 	state: QuickAddUiState.Draft,
-	onDismiss: () -> Unit,
-	onConfirm: () -> Unit,
-	onUpdateDraft: (title: String?, date: String?, startTime: String?, endTime: String?, location: String?, allDay: Boolean?) -> Unit,
+	actions: QuickAddActions,
 ) {
+	val edit = actions.onUpdateDraft
 	Column(modifier = Modifier.padding(top = 8.dp)) {
 		if (state.needsTitle) {
 			Text(
@@ -89,67 +85,82 @@ private fun DraftCard(
 		}
 		OutlinedTextField(
 			value = state.title,
-			onValueChange = { onUpdateDraft(it, null, null, null, null, null) },
+			onValueChange = { edit(DraftEdit.Title(it)) },
 			label = { Text("Title") },
 			modifier = Modifier.fillMaxWidth(),
 			singleLine = true,
 		)
-		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-			OutlinedTextField(
-				value = state.date ?: "",
-				onValueChange = { onUpdateDraft(null, it, null, null, null, null) },
-				label = { Text("Date (YYYY-MM-DD)") },
-				modifier = Modifier.weight(1f),
-				singleLine = true,
-			)
-			Row(verticalAlignment = Alignment.CenterVertically) {
-				Checkbox(
-					checked = state.allDay,
-					onCheckedChange = { onUpdateDraft(null, null, null, null, null, it) },
-				)
-				Text("All day")
-			}
-		}
+		DraftDateRow(state, edit)
 		if (!state.allDay) {
-			Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-				OutlinedTextField(
-					value = state.startTime ?: "",
-					onValueChange = { onUpdateDraft(null, null, it, null, null, null) },
-					label = { Text("Start (HH:MM)") },
-					modifier = Modifier.weight(1f),
-					singleLine = true,
-				)
-				OutlinedTextField(
-					value = state.endTime ?: "",
-					onValueChange = { onUpdateDraft(null, null, null, it, null, null) },
-					label = { Text("End (HH:MM)") },
-					modifier = Modifier.weight(1f),
-					singleLine = true,
-				)
-			}
+			DraftTimeRow(state, edit)
 		}
 		OutlinedTextField(
 			value = state.location ?: "",
-			onValueChange = { onUpdateDraft(null, null, null, null, it, null) },
+			onValueChange = { edit(DraftEdit.Location(it)) },
 			label = { Text("Location") },
 			modifier = Modifier.fillMaxWidth(),
 			singleLine = true,
 		)
-		Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-			Button(
-				onClick = onConfirm,
-				enabled = !state.needsTitle && !state.date.isNullOrBlank(),
-			) {
-				Text("Create event")
-			}
-			OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-		}
-		if (state.method.startsWith("regex")) {
-			Text(
-				"Parsed on-device rules — check the details before creating.",
-				style = MaterialTheme.typography.bodySmall,
-				color = MaterialTheme.colorScheme.onSurfaceVariant,
+		DraftButtons(state, actions)
+	}
+}
+
+@Composable
+private fun DraftDateRow(state: QuickAddUiState.Draft, edit: (DraftEdit) -> Unit) {
+	Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+		OutlinedTextField(
+			value = state.date ?: "",
+			onValueChange = { edit(DraftEdit.Date(it)) },
+			label = { Text("Date (YYYY-MM-DD)") },
+			modifier = Modifier.weight(1f),
+			singleLine = true,
+		)
+		Row(verticalAlignment = Alignment.CenterVertically) {
+			Checkbox(
+				checked = state.allDay,
+				onCheckedChange = { edit(DraftEdit.AllDay(it)) },
 			)
+			Text("All day")
 		}
+	}
+}
+
+@Composable
+private fun DraftTimeRow(state: QuickAddUiState.Draft, edit: (DraftEdit) -> Unit) {
+	Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+		OutlinedTextField(
+			value = state.startTime ?: "",
+			onValueChange = { edit(DraftEdit.StartTime(it)) },
+			label = { Text("Start (HH:MM)") },
+			modifier = Modifier.weight(1f),
+			singleLine = true,
+		)
+		OutlinedTextField(
+			value = state.endTime ?: "",
+			onValueChange = { edit(DraftEdit.EndTime(it)) },
+			label = { Text("End (HH:MM)") },
+			modifier = Modifier.weight(1f),
+			singleLine = true,
+		)
+	}
+}
+
+@Composable
+private fun DraftButtons(state: QuickAddUiState.Draft, actions: QuickAddActions) {
+	Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+		Button(
+			onClick = actions.onConfirm,
+			enabled = !state.needsTitle && !state.date.isNullOrBlank(),
+		) {
+			Text("Create event")
+		}
+		OutlinedButton(onClick = actions.onDismiss) { Text("Cancel") }
+	}
+	if (state.method.startsWith("regex")) {
+		Text(
+			"Parsed on-device rules — check the details before creating.",
+			style = MaterialTheme.typography.bodySmall,
+			color = MaterialTheme.colorScheme.onSurfaceVariant,
+		)
 	}
 }

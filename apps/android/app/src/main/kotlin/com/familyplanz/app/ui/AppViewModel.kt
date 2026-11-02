@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.familyplanz.app.data.ApiError
 import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.data.DataStoreTokenStore
+import com.familyplanz.app.data.TaskDto
 import com.familyplanz.app.data.TaskRepository
 import com.familyplanz.app.domain.Task
 import com.familyplanz.app.domain.TaskMapper
@@ -50,13 +51,6 @@ class AppViewModel(
 		}
 	}
 
-	private suspend fun loadMe(): String? {
-		return when (val result = repository.me()) {
-			is ApiResult.Ok -> result.value.id
-			else -> null
-		}
-	}
-
 	fun consumeSnack() {
 		_snack.value = null
 	}
@@ -79,7 +73,10 @@ class AppViewModel(
 	fun refresh() {
 		viewModelScope.launch {
 			_ui.value = AppUiState.Loading
-			val meId = loadMe()
+			val meId = when (val me = repository.me()) {
+				is ApiResult.Ok -> me.value.id
+				is ApiResult.Err -> null
+			}
 			when (val result = repository.allTasks()) {
 				is ApiResult.Ok -> _ui.value = AppUiState.Ready(result.value.map(TaskMapper::fromDto), meId)
 				is ApiResult.Err -> {
@@ -103,7 +100,7 @@ class AppViewModel(
 		viewModelScope.launch {
 			when (val result = repository.respondToAssignment(task.id, status)) {
 				is ApiResult.Ok -> {
-					replaceTask(result.value)
+					_ui.value = _ui.value.withTask(result.value)
 					_snack.value = UiSnack(
 						if (status == "accepted") {
 							"Task accepted - it moved to your list"
@@ -126,7 +123,7 @@ class AppViewModel(
 	fun toggleComplete(task: Task) {
 		viewModelScope.launch {
 			when (val result = repository.toggleComplete(task.id)) {
-				is ApiResult.Ok -> replaceTask(result.value)
+				is ApiResult.Ok -> _ui.value = _ui.value.withTask(result.value)
 				is ApiResult.Err -> presentError(result)
 			}
 		}
@@ -151,14 +148,6 @@ class AppViewModel(
 		}
 	}
 
-	private fun replaceTask(updatedDto: com.familyplanz.app.data.TaskDto) {
-		val updated = TaskMapper.fromDto(updatedDto)
-		val current = _ui.value
-		if (current is AppUiState.Ready) {
-			_ui.value = current.copy(tasks = current.tasks.map { if (it.id == updated.id) updated else it })
-		}
-	}
-
 	private fun presentError(result: ApiResult.Err) {
 		when (val error = result.error) {
 			ApiError.Unauthorized -> _ui.value = AppUiState.NeedToken(error.message)
@@ -168,4 +157,11 @@ class AppViewModel(
 			}
 		}
 	}
+}
+
+/** Swap one task in a Ready list by id; other states pass through. */
+internal fun AppUiState.withTask(updatedDto: TaskDto): AppUiState {
+	if (this !is AppUiState.Ready) return this
+	val updated = TaskMapper.fromDto(updatedDto)
+	return copy(tasks = tasks.map { if (it.id == updated.id) updated else it })
 }

@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.familyplanz.app.data.ApiError
 import com.familyplanz.app.data.ApiResult
-import com.familyplanz.app.data.TaskRepository
+import com.familyplanz.app.data.EventSource
 import com.familyplanz.app.domain.CalendarEvent
 import com.familyplanz.app.domain.EventMapper
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,7 +31,7 @@ data class CalendarUiState(
  * always refetches the whole month; 401 surfaces through `unauthorized`
  * so the host can swap to the token screen.
  */
-class CalendarViewModel(private val repository: TaskRepository) : ViewModel() {
+class CalendarViewModel(private val repository: EventSource) : ViewModel() {
 	private val _ui = MutableStateFlow(CalendarUiState(month = YearMonth.now()))
 	val ui: StateFlow<CalendarUiState> = _ui
 

@@ -3,7 +3,7 @@ package com.familyplanz.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.familyplanz.app.data.ApiResult
-import com.familyplanz.app.data.TaskRepository
+import com.familyplanz.app.data.EventSource
 import com.familyplanz.app.domain.EventDraft
 import com.familyplanz.app.domain.EventDraftMapper
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,7 +40,33 @@ sealed interface QuickAddUiState {
 	data class Failed(val reason: String) : QuickAddUiState
 }
 
-class QuickAddViewModel(private val repository: TaskRepository) : ViewModel() {
+/** One field edit on the quick-add draft (the UI edits one field at a time). */
+sealed interface DraftEdit {
+	data class Title(val value: String) : DraftEdit
+
+	data class Date(val value: String) : DraftEdit
+
+	data class StartTime(val value: String) : DraftEdit
+
+	data class EndTime(val value: String) : DraftEdit
+
+	data class Location(val value: String) : DraftEdit
+
+	data class AllDay(val value: Boolean) : DraftEdit
+}
+
+/** Any edit re-derives `needsTitle` from the (possibly new) title. */
+internal fun QuickAddUiState.Draft.applying(edit: DraftEdit): QuickAddUiState.Draft =
+	when (edit) {
+		is DraftEdit.Title -> copy(title = edit.value)
+		is DraftEdit.Date -> copy(date = edit.value)
+		is DraftEdit.StartTime -> copy(startTime = edit.value)
+		is DraftEdit.EndTime -> copy(endTime = edit.value)
+		is DraftEdit.Location -> copy(location = edit.value)
+		is DraftEdit.AllDay -> copy(allDay = edit.value)
+	}.let { it.copy(needsTitle = it.title.isBlank()) }
+
+class QuickAddViewModel(private val repository: EventSource) : ViewModel() {
 	private val _ui = MutableStateFlow<QuickAddUiState>(QuickAddUiState.Idle)
 	val ui: StateFlow<QuickAddUiState> = _ui
 
@@ -86,27 +112,9 @@ class QuickAddViewModel(private val repository: TaskRepository) : ViewModel() {
 		}
 	}
 
-	fun updateDraft(
-		title: String? = null,
-		date: String? = null,
-		startTime: String? = null,
-		endTime: String? = null,
-		location: String? = null,
-		allDay: Boolean? = null,
-	) {
+	fun updateDraft(edit: DraftEdit) {
 		val current = _ui.value as? QuickAddUiState.Draft ?: return
-		val newTitle = title ?: current.title
-		_ui.value = QuickAddUiState.Draft(
-			title = newTitle,
-			needsTitle = newTitle.isBlank(),
-			date = date ?: current.date,
-			startTime = startTime ?: current.startTime,
-			endTime = endTime ?: current.endTime,
-			location = location ?: current.location,
-			allDay = allDay ?: current.allDay,
-			attendants = current.attendants,
-			method = current.method,
-		)
+		_ui.value = current.applying(edit)
 	}
 
 	fun confirm() {

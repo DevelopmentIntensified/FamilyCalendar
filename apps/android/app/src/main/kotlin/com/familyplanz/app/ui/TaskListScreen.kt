@@ -36,20 +36,15 @@ import com.familyplanz.app.domain.TaskPriority
 @OptIn(ExperimentalMaterial3Api::class)
 fun TaskListScreen(
 	state: AppUiState,
-	onRefresh: () -> Unit,
-	onOpenSettings: () -> Unit,
-	onToggleComplete: (Task) -> Unit,
-	onStartFocus: (Task) -> Unit,
-	onStopFocus: () -> Unit,
-	onRespond: ((Task, String) -> Unit)? = null,
+	actions: TaskActions,
 ) {
 	Scaffold(
 		topBar = {
 			TopAppBar(
 				title = { Text("Family Planz") },
 				actions = {
-					TextButton(onClick = onStopFocus) { Text("Stop focus") }
-					IconButton(onClick = onOpenSettings) {
+					TextButton(onClick = actions.onStopFocus) { Text("Stop focus") }
+					IconButton(onClick = actions.onOpenSettings) {
 						Icon(Icons.Filled.Settings, contentDescription = "Settings")
 					}
 				},
@@ -65,7 +60,7 @@ fun TaskListScreen(
 				is AppUiState.Ready -> if (state.tasks.isEmpty()) {
 					EmptyTasks()
 				} else {
-					TaskRows(state, onToggleComplete, onStartFocus, onRespond)
+					TaskRows(state, actions)
 				}
 
 				is AppUiState.Failed -> Column(
@@ -74,7 +69,7 @@ fun TaskListScreen(
 					horizontalAlignment = Alignment.CenterHorizontally,
 				) {
 					Text(state.reason, style = MaterialTheme.typography.bodyMedium)
-					Button(onClick = onRefresh) { Text("Retry") }
+					Button(onClick = actions.onRefresh) { Text("Retry") }
 				}
 
 				is AppUiState.NeedToken -> {}
@@ -101,13 +96,11 @@ private fun EmptyTasks() {
 @Composable
 private fun TaskRows(
 	state: AppUiState.Ready,
-	onToggleComplete: (Task) -> Unit,
-	onStartFocus: (Task) -> Unit,
-	onRespond: ((Task, String) -> Unit)?,
+	actions: TaskActions,
 ) {
 	LazyColumn {
 		items(state.tasks, key = { it.id }) { task ->
-			TaskRow(state.meId, task, onToggleComplete, onStartFocus, onRespond)
+			TaskRow(state.meId, task, actions)
 			HorizontalDivider()
 		}
 	}
@@ -117,15 +110,14 @@ private fun TaskRows(
 fun TaskRow(
 	meId: String?,
 	task: Task,
-	onToggleComplete: (Task) -> Unit,
-	onStartFocus: (Task) -> Unit,
-	onRespond: ((Task, String) -> Unit)?,
+	actions: TaskActions,
 ) {
+	val onRespond = actions.onRespond
 	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
 		Row(verticalAlignment = Alignment.CenterVertically) {
 			Checkbox(
 				checked = task.completed,
-				onCheckedChange = { onToggleComplete(task) },
+				onCheckedChange = { actions.onToggleComplete(task) },
 			)
 			Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
 				Text(
@@ -144,10 +136,10 @@ fun TaskRow(
 				)
 			}
 			if (!task.completed) {
-				TextButton(onClick = { onStartFocus(task) }) { Text("Focus") }
+				TextButton(onClick = { actions.onStartFocus(task) }) { Text("Focus") }
 			}
 		}
-		if (meId != null && task.assignmentStatus == "pending" && task.assignedTo == meId && onRespond != null) {
+		if (onRespond != null && awaitsMyReply(meId, task)) {
 			Row(
 				horizontalArrangement = Arrangement.spacedBy(8.dp),
 				modifier = Modifier.padding(start = 48.dp, bottom = 8.dp),
@@ -158,6 +150,10 @@ fun TaskRow(
 		}
 	}
 }
+
+/** Pending assignment addressed to the signed-in member. */
+internal fun awaitsMyReply(meId: String?, task: Task): Boolean =
+	meId != null && task.assignmentStatus == "pending" && task.assignedTo == meId
 
 internal fun taskMeta(task: Task): String =
 	buildList {
