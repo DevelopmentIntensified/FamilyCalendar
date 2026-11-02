@@ -7,7 +7,7 @@ import { taskCompletions, taskTags, tasks, type Task } from '$lib/server/db/sche
 import { canMutateTask } from './auth';
 import { advanceRecurringTask } from './cursor';
 import { attachTags, normalizeTags } from './tags';
-import { normalizeTaskVisibility, type TaskWithTags } from './types';
+import { normalizeTaskVisibility, type TaskFieldPatch, type TaskWithTags } from './types';
 
 
 export async function createTask(data: {
@@ -58,23 +58,7 @@ export async function createTask(data: {
 export async function updateTask(
 	id: string,
 	userId: string,
-	data: Partial<
-		Pick<
-			Task,
-			| 'title'
-			| 'notes'
-			| 'dueDate'
-			| 'completedAt'
-			| 'recurrenceFrequency'
-			| 'recurrenceInterval'
-			| 'assignedTo'
-			| 'assignmentStatus'
-			| 'priority'
-			| 'visibility'
-			| 'focusMinutes'
-			| 'focusStartedAt'
-		>
-	> & { tags?: string[] | null }
+	data: TaskFieldPatch
 ): Promise<TaskWithTags | undefined> {
 	const hasTags = data.tags !== undefined;
 	const patch = Object.fromEntries(

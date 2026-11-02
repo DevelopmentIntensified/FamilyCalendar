@@ -47,6 +47,25 @@ export type TaskWithTags = Task & {
 };
 
 
+/** Writable task fields for a PUT-style patch (undefined = untouched). */
+export type TaskFieldPatch = Partial<
+	Pick<
+		Task,
+		| 'title'
+		| 'notes'
+		| 'dueDate'
+		| 'completedAt'
+		| 'recurrenceFrequency'
+		| 'recurrenceInterval'
+		| 'assignedTo'
+		| 'assignmentStatus'
+		| 'priority'
+		| 'visibility'
+		| 'focusMinutes'
+		| 'focusStartedAt'
+	>
+> & { tags?: string[] | null };
+
 /** Assignment-only patch for task reassignment responses. */
 export type AssignmentPatch = {
 	assignedTo?: string | null;

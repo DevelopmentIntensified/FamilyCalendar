@@ -335,6 +335,74 @@ describe('PUT /api/tasks/[id] — recurrence patch (#231)', () => {
 	}
 });
 
+/**
+ * #232: the spec lets any family member (and a live assignee) mutate a
+ * family task — plain-field edits included, not just assignment + tags.
+ * The owner-scoped updateTask misses for them; the collaborator path
+ * (updateTaskInFamily, scoped by the stored familyId) carries the fields.
+ */
+describe('PUT /api/tasks/[id] — non-owner plain-field edits (#232)', () => {
+	const familyPatch = () => mockedUpdateInFamily.mock.calls[0][2] as Record<string, unknown>;
+
+	beforeEach(() => {
+		mockedUpdateInFamily.mockResolvedValue(taskRow() as never);
+	});
+
+	const fieldCases: [string, Record<string, unknown>, Record<string, unknown>][] = [
+		['priority (Top-3 buttons)', { priority: 'high' }, { priority: 'high' }],
+		['title + tags', { title: ' Wash car ', tags: ['Yard'] }, { title: 'Wash car', tags: ['yard'] }],
+		['notes + due date', { notes: 'soap', dueDate: '2026-11-03T23:59:00.000Z' }, { notes: 'soap', dueDate: '2026-11-03T23:59:00.000Z' }],
+		['clear due date', { dueDate: null }, { dueDate: null }],
+		['recurrence', { recurrenceFrequency: 'weekly', recurrenceInterval: 2 }, { recurrenceFrequency: 'weekly', recurrenceInterval: 2 }],
+		['focus minutes', { focusMinutes: 30 }, { focusMinutes: 30 }]
+	];
+	for (const [label, body, expected] of fieldCases) {
+		it(`family member edits ${label}`, async () => {
+			state.queue.push([taskRow()]);
+
+			const res = await PUT(event('user-member', body));
+
+			expect(res.status).toBe(200);
+			expect(mockedUpdateInFamily).toHaveBeenCalledWith('t1', 'fam-1', expect.any(Object));
+			expect(familyPatch()).toMatchObject(expected);
+		});
+	}
+
+	it('live assignee of a PERSONAL task edits fields (familyId null scope)', async () => {
+		state.queue.push([taskRow({ familyId: null, assignmentStatus: 'accepted' })]);
+
+		const res = await PUT(event('user-assignee', { title: 'Renamed' }));
+
+		expect(res.status).toBe(200);
+		expect(mockedUpdateInFamily).toHaveBeenCalledWith('t1', null, expect.objectContaining({ title: 'Renamed' }));
+	});
+
+	it('never forwards visibility on the collaborator path', async () => {
+		state.queue.push([taskRow()]);
+
+		await PUT(event('user-member', { priority: 'low' }));
+
+		expect(familyPatch()).not.toHaveProperty('visibility');
+	});
+
+	it('404s (no write) when canMutateTask denies the caller', async () => {
+		state.queue.push([taskRow()]);
+		mockedCanMutate.mockResolvedValue(false);
+
+		const res = await PUT(event('user-stranger', { priority: 'high' }));
+
+		expect(res.status).toBe(404);
+		expect(mockedUpdateInFamily).not.toHaveBeenCalled();
+	});
+
+	it('404s an unknown id', async () => {
+		const res = await PUT(event('user-member', { priority: 'high' }));
+
+		expect(res.status).toBe(404);
+		expect(mockedUpdateInFamily).not.toHaveBeenCalled();
+	});
+});
+
 describe('PUT /api/tasks/[id] — visibility patch (issue 019)', () => {
 	it('lets the owner change visibility', async () => {
 		state.queue.push([taskRow()]); // owner pre-check loads the task

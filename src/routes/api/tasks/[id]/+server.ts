@@ -15,6 +15,7 @@ import {
 	TASK_FREQUENCIES,
 	TASK_VISIBILITIES,
 	type AssignmentPatch,
+	type TaskFieldPatch,
 	type TaskFrequency
 } from '$lib/server/db/actions/tasks';
 import { normalizeTaskPriority } from '$lib/server/db/actions/taskPriority';
@@ -200,12 +201,13 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 				return json({ error: 'Invalid focusStartedAt' }, { status: 400 });
 			}
 
-			updated = await updateTask(taskId, user.id, {
+			// Plain fields any permitted caller may edit (visibility and the
+			// assignment patch are layered per caller below).
+			const fieldPatch: Omit<TaskFieldPatch, 'visibility' | 'assignedTo' | 'assignmentStatus'> = {
 				title: isNonEmptyString(body.title) && body.title.trim() ? body.title.trim() : undefined,
 				notes: body.notes === undefined ? undefined : body.notes,
 				dueDate: body.dueDate === undefined ? undefined : body.dueDate || null,
 				priority,
-				visibility,
 				recurrenceFrequency: frequency,
 				recurrenceInterval,
 				completedAt:
@@ -214,25 +216,36 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 						: undefined,
 				focusMinutes,
 				focusStartedAt: focusStartedAt.value,
-				...assignmentPatch,
 				tags: body.tags === undefined ? undefined : normalizeTags(body.tags)
+			};
+
+			updated = await updateTask(taskId, user.id, {
+				...fieldPatch,
+				visibility,
+				...assignmentPatch
 			});
 
-			// Non-owner family members: assignment responses and tags only.
-			// Field scope stays narrow (owner-only above); the permission leg
-			// goes through the one task-mutation seam. Assignment authority is
-			// narrowed further: only the CURRENT assignee may accept or decline
-			// their own assignment — reassignment and clearing stay owner-only.
-			if (!updated && (Object.keys(assignmentPatch).length > 0 || body.tags !== undefined)) {
+			// Non-owner collaborators (#232): the spec lets any family member,
+			// or a live assignee, mutate the task — plain fields and tags via
+			// the collaborator write, permission through the one
+			// task-mutation seam. Visibility stays owner-only (403'd above);
+			// assignment authority is narrower still: only the CURRENT
+			// assignee may accept or decline — reassignment and clearing stay
+			// owner-only. No rights -> 404 (same as an unknown id).
+			if (!updated) {
 				const existing = await loadExisting();
-				if (existing?.familyId && (await canMutateTask(existing, user.id))) {
+				if (
+					existing &&
+					existing.userId !== user.id &&
+					(await canMutateTask(existing, user.id))
+				) {
 					const scoped = nonOwnerAssignmentPatch(existing, user.id, assignmentPatch);
 					if (!scoped) {
 						return json({ error: 'You can only respond to your own assignments' }, { status: 403 });
 					}
 					updated = await updateTaskInFamily(taskId, existing.familyId, {
-						...scoped,
-						tags: body.tags === undefined ? undefined : normalizeTags(body.tags)
+						...fieldPatch,
+						...scoped
 					});
 				}
 			}

@@ -6,7 +6,7 @@ import { db } from '$lib/server/db';
 import { familyMembers, taskTags, tasks, type Task } from '$lib/server/db/schema';
 import { attachTags, normalizeTags, withTags } from './tags';
 import { sectionQuery } from './queries';
-import type { AssignmentPatch, TaskWithTags } from './types';
+import type { AssignmentPatch, TaskFieldPatch, TaskWithTags } from './types';
 
 
 /**
@@ -82,17 +82,28 @@ export async function isValidAssignee(
 	return Boolean(member);
 }
 
-/** Family-scoped assignment responses (accept/decline/release) and tags. */
+/**
+ * Collaborator write (#232): a caller the route already cleared through
+ * canMutateTask — a family member, or a live assignee — edits the task's
+ * plain fields, tags, and (pre-scoped by nonOwnerAssignmentPatch) their
+ * own assignment response. Scoped by the STORED familyId so a moved row
+ * misses; `null` scopes to personal rows (live-assignee case). Visibility
+ * is owner-only and never written here.
+ */
 export async function updateTaskInFamily(
 	id: string,
-	familyId: string,
-	data: Partial<Pick<Task, 'assignmentStatus' | 'assignedTo' | 'priority'>> & {
-		tags?: string[] | null;
-	}
+	familyId: string | null,
+	data: Omit<TaskFieldPatch, 'visibility'>
 ): Promise<TaskWithTags | undefined> {
 	const hasTags = data.tags !== undefined;
 	const patch = Object.fromEntries(
-		Object.entries(data).filter(([k, v]) => k !== 'tags' && v !== undefined)
+		Object.entries(data).filter(
+			([k, v]) => k !== 'tags' && k !== 'visibility' && v !== undefined
+		)
+	);
+	const scope = and(
+		eq(tasks.id, id),
+		familyId === null ? isNull(tasks.familyId) : eq(tasks.familyId, familyId)
 	);
 	if (Object.keys(patch).length === 0 && !hasTags) return undefined;
 	return db.transaction(async (tx) => {
@@ -101,14 +112,11 @@ export async function updateTaskInFamily(
 			const [updated] = await tx
 				.update(tasks)
 				.set(patch)
-				.where(and(eq(tasks.id, id), eq(tasks.familyId, familyId)))
+				.where(scope)
 				.returning();
 			row = updated;
 		} else {
-			const [existing] = await tx
-				.select()
-				.from(tasks)
-				.where(and(eq(tasks.id, id), eq(tasks.familyId, familyId)));
+			const [existing] = await tx.select().from(tasks).where(scope);
 			row = existing;
 		}
 		if (!row) return undefined;

@@ -97,6 +97,9 @@ a family you belong to), `assignedTo` (defaults you),
 Partial update; send only the fields you change. Mutations:
 
 - Plain fields: `title`, `notes`, `dueDate` (null clears), `priority`, `tags`.
+  Anyone allowed to mutate the task (owner, live assignee, any member of a
+  family task) may edit these, plus recurrence and focus fields; visibility
+  and reassignment stay owner-only (see below).
 - `focusMinutes` (TaskFocus only): **absent or null leaves the stored minutes
   untouched — never send a guessed value** (the desktop is the only writer of
   focus time; wiping on phone edits would erase accrued time). An explicit

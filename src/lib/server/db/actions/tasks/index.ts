@@ -9,7 +9,8 @@ export {
 	normalizeTaskVisibility,
 	type TaskFrequency,
 	type TaskWithTags,
-	type AssignmentPatch
+	type AssignmentPatch,
+	type TaskFieldPatch
 } from './types';
 export {
 	advanceCursor,
