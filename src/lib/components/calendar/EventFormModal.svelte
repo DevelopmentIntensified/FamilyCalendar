@@ -51,6 +51,8 @@
 	// Task mode (issue 021): the viewer's family id, so @family can scope a
 	// task to the family (null when the user isn't in one).
 	export let familyId: string | null = null;
+	/** #282: the viewer's task category names, for the task tab's CategoryField. */
+	export let taskCategories: string[] = [];
 	export let initialDate: string | undefined = undefined;
 	export let initialTitle: string | undefined = undefined;
 	export let initialQuickAdd: string | undefined = undefined;
@@ -95,6 +97,7 @@
 	let taskDueDate = initialDate || DateTime.now().toISODate() || '';
 	// Task mode scoping (issue 021): explicit picker + parser override.
 	let taskVisibility: 'public' | 'private' = 'public';
+	let taskCategory = '';
 	let taskError = '';
 
 	/** Family roster the task quick-add can assign to (names required). */
@@ -339,7 +342,8 @@
 				dueDateFallback: taskDueDate || null,
 				visibilityFallback: taskVisibility,
 				familyId,
-				members: taskRoster
+				members: taskRoster,
+				category: taskCategory
 			});
 			if (!result.ok) {
 				taskError = result.error;
@@ -348,6 +352,7 @@
 			dispatch('createTask', result.task);
 			taskTitle = '';
 			taskVisibility = 'public';
+			taskCategory = '';
 			taskError = '';
 			taskDueDate = initialDate || DateTime.now().toISODate() || '';
 		} finally {
@@ -537,6 +542,7 @@
 			entryType = 'event';
 			taskTitle = '';
 			taskVisibility = 'public';
+			taskCategory = '';
 			taskError = '';
 		}, 250);
 	}
@@ -651,6 +657,9 @@
 						onTaskVisibilityChange={(v) => (taskVisibility = v)}
 						taskDueDate={taskDueDate}
 						onTaskDueDateChange={(v) => (taskDueDate = v)}
+						{taskCategory}
+						categories={taskCategories}
+						onTaskCategoryChange={(v) => (taskCategory = v)}
 						{taskError}
 					/>
 				{/if}

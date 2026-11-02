@@ -69,6 +69,11 @@ vi.mock('$lib/server/services/guestMergeService', async (importOriginal) => ({
 	isClaimableGuest: vi.fn(async () => false)
 }));
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- #282: the category read is a DB seam; only that the loader hands it on is under test.
+vi.mock('$lib/server/db/actions/taskCategories', () => ({
+	listCategoryOptions: vi.fn(async () => [{ id: 'c1', name: 'Errands' }])
+}));
+
 import { load } from './+page.server';
 import { getTodayVerse } from '$lib/server/services/verseService';
 import { isClaimableGuest } from '$lib/server/services/guestMergeService';
@@ -90,7 +95,21 @@ function settingsFor(over: Partial<SavedSettings> = {}): SavedSettings {
 }
 
 /** The load event, carrying the layout's already-loaded facts. */
-function loadEvent(settings: SavedSettings, familyId: string | null = 'f-rivera') {
+/** A layout roster row (`getFamilyRoster`), as `parent()` hands it on. */
+type RosterRow = {
+	userId: string;
+	firstName: string;
+	lastName: string;
+	email: string | null;
+	role: string | null;
+	memberType: string | null;
+};
+
+function loadEvent(
+	settings: SavedSettings,
+	familyId: string | null = 'f-rivera',
+	familyMembers: RosterRow[] = []
+) {
 	// SAFETY: the loader reads only `locals.user`, `url.searchParams`,
 	// `cookies.get` and `parent()` off the event; each is supplied above with
 	// the shape it is read as, and the rest of RequestEvent is irrelevant here.
@@ -117,7 +136,7 @@ function loadEvent(settings: SavedSettings, familyId: string | null = 'f-rivera'
 		},
 		url: { searchParams: new URLSearchParams() },
 		cookies: { get: () => undefined, delete: () => {} },
-		parent: async () => ({ userSettings: settings, familyId, familyMembers: [] })
+		parent: async () => ({ userSettings: settings, familyId, familyMembers })
 		// SAFETY: the loader reads four members off the event (see above); the
 		// partial mock is intentionally incomplete vs RequestEvent, so the cast
 		// goes through unknown by design.
@@ -225,5 +244,32 @@ describe('/calendar — guest-merge prompt only for registered accounts (#241)',
 
 	it('a registered account with a claimable stash is sent to /merge-guest', async () => {
 		expect(await outcome('sarah@example.com')).toBe('/merge-guest');
+	});
+});
+
+// #282: the views' EventModal edit form invites from this roster, so it must
+// keep the layout roster's names (it used to carry only `name`), and the task
+// tab suggests the viewer's categories from the same load.
+describe('/calendar — roster + task categories for the event modal (#282)', () => {
+	it('keeps first/last names on the roster and serves the category list', async () => {
+		const bob: RosterRow = {
+			userId: 'u-bob',
+			firstName: 'Bob',
+			lastName: 'Jones',
+			email: null,
+			role: 'member',
+			memberType: 'adult'
+		};
+		// SAFETY: the fake event carries a user and no `defaultView`, so the
+		// redirect arm cannot be reached and `load` returns its data bag.
+		const data = (await load(loadEvent(settingsFor(), 'f-rivera', [bob]))) as Exclude<
+			Awaited<ReturnType<typeof load>>,
+			void
+		>;
+		await data.calendarData;
+		expect(data.familyMembers).toEqual([
+			expect.objectContaining({ userId: 'u-bob', firstName: 'Bob', lastName: 'Jones', email: '' })
+		]);
+		expect(data.taskCategories).toEqual([{ id: 'c1', name: 'Errands' }]);
 	});
 });

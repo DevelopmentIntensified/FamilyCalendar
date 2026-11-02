@@ -1359,4 +1359,36 @@ describe('EventFormModal - task-mode scoping (issue 021)', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Quick-add shortcuts help' }));
 		expect(screen.getByText(/type these right in the title/i)).toBeInTheDocument();
 	});
+
+	// #282: the task tab gets the shared #280 CategoryField.
+	it('offers the caller’s categories and sends the chosen one (#282)', async () => {
+		vi.mocked(fetch).mockResolvedValue(stubFetchResponse({ task: { id: 't1' } }));
+		render(EventFormModal, {
+			props: {
+				show: true,
+				calendarIds: [{ id: 'cal1', name: 'My Calendar' }],
+				familyMembers: roster,
+				familyId: 'fam1',
+				taskCategories: ['Errands', 'School']
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Task' }));
+		const field = screen.getByLabelText('Category');
+		const options = [...document.querySelectorAll(`#${field.getAttribute('list')} option`)];
+		expect(options.map((o) => o.getAttribute('value'))).toEqual(['Errands', 'School']);
+		await fireEvent.input(field, { target: { value: 'Errands' } });
+		await typeTaskTitle('wash the car');
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Task' }));
+		await waitFor(() => expect(taskPosts()).toHaveLength(1));
+		expect(taskBody().category).toBe('Errands');
+	});
+
+	it('sends no category when none is set (#282)', async () => {
+		vi.mocked(fetch).mockResolvedValue(stubFetchResponse({ task: { id: 't1' } }));
+		await openTaskMode();
+		await typeTaskTitle('wash the car');
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Task' }));
+		await waitFor(() => expect(taskPosts()).toHaveLength(1));
+		expect('category' in taskBody()).toBe(false);
+	});
 });

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import TaskQuickAddHelp from '$lib/components/TaskQuickAddHelp.svelte';
+	import CategoryField from '$lib/components/tasks/CategoryField.svelte';
 
 	interface Props {
 		taskTitle: string;
@@ -9,6 +10,10 @@
 		onTaskTitleChange: (v: string) => void;
 		onTaskVisibilityChange: (v: string) => void;
 		onTaskDueDateChange: (v: string) => void;
+		/** #282: the shared #280 category combobox; blank is not sent. */
+		taskCategory?: string;
+		categories?: string[];
+		onTaskCategoryChange?: (v: string) => void;
 	}
 
 	let {
@@ -18,7 +23,10 @@
 		taskError,
 		onTaskTitleChange,
 		onTaskVisibilityChange,
-		onTaskDueDateChange
+		onTaskDueDateChange,
+		taskCategory = '',
+		categories = [],
+		onTaskCategoryChange = () => {}
 	}: Props = $props();
 </script>
 
@@ -71,3 +79,10 @@
 	/>
 	<p class="mt-1 text-xs text-slate-400">Optional — shows as a dashed chip on its due day.</p>
 </div>
+
+<CategoryField
+	id="task-category"
+	value={taskCategory}
+	{categories}
+	onChange={onTaskCategoryChange}
+/>

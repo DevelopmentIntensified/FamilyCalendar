@@ -579,7 +579,9 @@
 			filterUserId={data.user?.id ?? null}
 			familyMembers={(data.familyMembers ?? []).map((m) => ({
 				userId: m.userId,
-				firstName: m.name
+				firstName: m.firstName,
+				lastName: m.lastName,
+				email: m.email
 			}))}
 			dueTasks={cd.dueTasks || []}
 			defaultViewSetting={data.userSettings?.defaultView || 'monthView'}
@@ -697,6 +699,7 @@
 			calendarIds={data.calendarIds || []}
 			familyMembers={data.familyMembers || []}
 			familyId={data.familyId ?? null}
+			taskCategories={(data.taskCategories ?? []).map((c) => c.name)}
 			userSettings={data.userSettings}
 			initialDate={createInitialDate}
 			initialTitle={createInitialTitle}

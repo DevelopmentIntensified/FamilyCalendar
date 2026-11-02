@@ -15,6 +15,7 @@ import {
 	attachCreatorNames
 } from '$lib/server/services/eventDisplayService';
 import { getTasksForUser } from '$lib/server/db/actions/tasks';
+import { listCategoryOptions } from '$lib/server/db/actions/taskCategories';
 import { zoneFromSettings, zonedNow } from '$lib/server/utils/userTimezone';
 import { getTodayVerse } from '$lib/server/services/verseService';
 import { getFamilyModuleSwitches } from '$lib/server/db/actions/dashboardModules';
@@ -73,9 +74,13 @@ export const load: PageServerLoad = async (event) => {
 	const userSettings = parentData.userSettings;
 	// Family scope comes from the group layout (#041) — no refetch.
 	const familyId = parentData.familyId;
+	// #282: one roster for the person filter AND every view's EventModal edit
+	// form — so it keeps first/last names (the picker names members by them).
 	const familyMembersList = (parentData.familyMembers ?? []).map((m) => ({
 		id: m.userId,
 		name: m.firstName,
+		firstName: m.firstName,
+		lastName: m.lastName,
 		email: m.email ?? '',
 		userId: m.userId
 	}));
@@ -94,6 +99,10 @@ export const load: PageServerLoad = async (event) => {
 	) {
 		return redirect(302, '/calendar/dashboard');
 	}
+
+	// #282: the event modal's task tab suggests the viewer's categories.
+	// listCategoryOptions never throws (a failed read is []).
+	const taskCategoriesP = listCategoryOptions(userId);
 
 	// Wave 1 (#041): personal calendar, family scope, ads, verse are
 	// independent (settings/familyId/zone already in hand) — one wave.
@@ -314,6 +323,7 @@ export const load: PageServerLoad = async (event) => {
 		familyCalendarColor,
 		showAds,
 		familyMembers: familyMembersList,
+		taskCategories: await taskCategoriesP,
 		familyId,
 		calendarIds,
 		dailyVerse,
