@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { nudgeEventsChanged, type NudgeDeps } from './eventsChangedNudge';
+import type { EventsChangedData } from './devicePushService';
 
 function makeDeps(over: Partial<NudgeDeps> = {}) {
 	const deps = {
@@ -13,7 +14,7 @@ function makeDeps(over: Partial<NudgeDeps> = {}) {
 			};
 			return calendarIds.flatMap((id) => map[id] ?? []);
 		}),
-		sendDataToUsers: vi.fn(async (_users: string[], _data: { type: 'events_changed' }) => {}),
+		sendDataToUsers: vi.fn(async (_users: string[], _data: EventsChangedData) => {}),
 		...over
 	} satisfies NudgeDeps;
 	return deps;
@@ -33,14 +34,17 @@ describe('nudgeEventsChanged', () => {
 		const [users, data] = vi.mocked(deps.sendDataToUsers).mock.calls[0];
 		expect([...users].sort()).toEqual(['actor', 'kid', 'other-owner', 'spouse']);
 		expect(new Set(users).size).toBe(users.length);
-		expect(data).toEqual({ type: 'events_changed' });
+		expect(data).toEqual({ type: 'events_changed', actorId: 'actor' });
 	});
 
 	it("always includes the actor and the actor's accessible calendars (family mirrors)", async () => {
 		const deps = makeDeps({ calendarAudience: vi.fn(async () => []) });
 		await nudgeEventsChanged('actor', [], deps);
 		expect(deps.accessibleCalendarIds).toHaveBeenCalledWith('actor');
-		expect(deps.sendDataToUsers).toHaveBeenCalledWith(['actor'], { type: 'events_changed' });
+		expect(deps.sendDataToUsers).toHaveBeenCalledWith(['actor'], {
+			type: 'events_changed',
+			actorId: 'actor'
+		});
 	});
 
 	it('is a synchronous no-op when FCM is not configured (no db work)', async () => {

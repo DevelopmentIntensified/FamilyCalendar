@@ -92,6 +92,8 @@ class AppViewModel(
 				is ApiResult.Ok -> me.value.id
 				is ApiResult.Err -> null
 			}
+			// #281: the push worker reads it to keep the user's own edits silent.
+			meId?.let { tokenStore.saveUserId(it) }
 			when (val result = repository.allTasks()) {
 				is ApiResult.Ok -> _ui.value = AppUiState.Ready(result.value.map(TaskMapper::fromDto), meId)
 				is ApiResult.Err -> {

@@ -21,6 +21,7 @@ class FpMessagingService : FirebaseMessagingService() {
 			title = message.notification?.title ?: data["title"],
 			body = message.notification?.body ?: data["body"],
 			link = data["link"],
+			actorId = data["actorId"],
 		)
 		runBlocking { PushGraph.handler(applicationContext).handle(payload) }
 	}

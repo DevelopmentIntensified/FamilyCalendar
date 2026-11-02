@@ -94,14 +94,23 @@ export function sendNotificationToDevices(
 }
 
 /**
+ * The only data message today; widen the union (and add a builder) for more.
+ * `actorId` (#281) is the user whose edit caused the nudge, so the actor's own
+ * phone refreshes silently instead of announcing "Event updates".
+ */
+export interface EventsChangedData {
+	type: 'events_changed';
+	actorId: string;
+}
+
+/**
  * Data-only (silent) message to every device of every user. `events_changed`
  * is the sync nudge: the phone refetches events and reschedules reminders.
  */
 export function sendDataToUsers(
 	userIds: string[],
-	// The only data message today; widen the union (and add a builder) for more.
-	_data: { type: 'events_changed' },
+	data: EventsChangedData,
 	deps: DevicePushDeps = defaultDeps
 ): Promise<void> {
-	return fanOut(userIds, eventsChangedMessage(), deps);
+	return fanOut(userIds, eventsChangedMessage(data.actorId), deps);
 }

@@ -3,11 +3,12 @@ import { db } from '$lib/server/db';
 import { calendars, familyMembers } from '$lib/server/db/schema';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import { isFcmConfigured } from './fcmService';
-import { sendDataToUsers } from './devicePushService';
+import { sendDataToUsers, type EventsChangedData } from './devicePushService';
 
 /**
  * Silent sync nudge (#272): after any event mutation, every user who can see
- * an affected calendar gets one FCM data message `events_changed`, so their
+ * an affected calendar gets one FCM data message `events_changed` (carrying
+ * `actorId`, #281), so their
  * phone refetches events and reschedules local reminders (#271/#273).
  *
  * Contract for mutation paths: call ONCE per request, after the write, with
@@ -25,7 +26,7 @@ export interface NudgeDeps {
 	accessibleCalendarIds: (userId: string) => Promise<string[]>;
 	/** Every user who can read any of these calendars (duplicates allowed). */
 	calendarAudience: (calendarIds: string[]) => Promise<string[]>;
-	sendDataToUsers: (userIds: string[], data: { type: 'events_changed' }) => Promise<void>;
+	sendDataToUsers: (userIds: string[], data: EventsChangedData) => Promise<void>;
 }
 
 async function realCalendarAudience(calendarIds: string[]): Promise<string[]> {
@@ -66,7 +67,7 @@ export function nudgeEventsChanged(
 		const accessible = await deps.accessibleCalendarIds(actorId);
 		const audience = await deps.calendarAudience([...new Set([...touched, ...accessible])]);
 		const users = [...new Set([actorId, ...audience])];
-		await deps.sendDataToUsers(users, { type: 'events_changed' });
+		await deps.sendDataToUsers(users, { type: 'events_changed', actorId });
 	})().catch((error: unknown) => {
 		console.error('events_changed nudge failed:', error);
 	});

@@ -133,10 +133,10 @@ describe('message builders', () => {
 		});
 	});
 
-	it('events_changed is data-only, high priority, collapsed, short TTL', () => {
-		const msg = eventsChangedMessage();
+	it('events_changed is data-only (carries actorId, #281), high priority, collapsed, short TTL', () => {
+		const msg = eventsChangedMessage('actor-1');
 		expect(msg).toEqual({
-			data: { type: 'events_changed' },
+			data: { type: 'events_changed', actorId: 'actor-1' },
 			android: { priority: 'high', collapse_key: 'events_changed', ttl: '600s' }
 		});
 		expect(msg).not.toHaveProperty('notification');
@@ -148,7 +148,7 @@ describe('createFcmSender', () => {
 		const f = scriptedFetch();
 		const sender = createFcmSender(SA, { fetch: f.fn, now: () => 1_700_000_000_000 });
 
-		const result = await sender.send('device-token-1', eventsChangedMessage());
+		const result = await sender.send('device-token-1', eventsChangedMessage('actor-1'));
 
 		expect(result).toBe('sent');
 		const [tokenCall, sendCall] = f.calls;
@@ -168,7 +168,7 @@ describe('createFcmSender', () => {
 		expect(JSON.parse(String(sendCall.init.body))).toEqual({
 			message: {
 				token: 'device-token-1',
-				data: { type: 'events_changed' },
+				data: { type: 'events_changed', actorId: 'actor-1' },
 				android: { priority: 'high', collapse_key: 'events_changed', ttl: '600s' }
 			}
 		});
@@ -192,21 +192,21 @@ describe('createFcmSender', () => {
 		const f = scriptedFetch([], 3600);
 		const sender = createFcmSender(SA, { fetch: f.fn, now: () => nowMs });
 
-		await sender.send('a', eventsChangedMessage());
-		await sender.send('b', eventsChangedMessage());
+		await sender.send('a', eventsChangedMessage('actor-1'));
+		await sender.send('b', eventsChangedMessage('actor-1'));
 		nowMs += 3000 * 1000; // 50 min later — still valid
-		await sender.send('c', eventsChangedMessage());
+		await sender.send('c', eventsChangedMessage('actor-1'));
 		expect(f.tokenCount()).toBe(1);
 
 		nowMs += 590 * 1000; // within the 60s refresh margin of expiry
-		await sender.send('d', eventsChangedMessage());
+		await sender.send('d', eventsChangedMessage('actor-1'));
 		expect(f.tokenCount()).toBe(2);
 	});
 
 	it('shares one in-flight token exchange across parallel sends', async () => {
 		const f = scriptedFetch();
 		const sender = createFcmSender(SA, { fetch: f.fn, now: () => 0 });
-		await Promise.all(['a', 'b', 'c'].map((t) => sender.send(t, eventsChangedMessage())));
+		await Promise.all(['a', 'b', 'c'].map((t) => sender.send(t, eventsChangedMessage('actor-1'))));
 		expect(f.tokenCount()).toBe(1);
 	});
 
@@ -250,7 +250,7 @@ describe('createFcmSender', () => {
 		]
 	])('reports unregistered on %s', async (_label, reply) => {
 		const sender = createFcmSender(SA, { fetch: scriptedFetch([reply]).fn, now: () => 0 });
-		expect(await sender.send('dead', eventsChangedMessage())).toBe('unregistered');
+		expect(await sender.send('dead', eventsChangedMessage('actor-1'))).toBe('unregistered');
 	});
 
 	it('a 400 INVALID_ARGUMENT not about the token is a plain failure', async () => {
@@ -267,7 +267,7 @@ describe('createFcmSender', () => {
 			}
 		});
 		const sender = createFcmSender(SA, { fetch: scriptedFetch([reply]).fn, now: () => 0 });
-		expect(await sender.send('t', eventsChangedMessage())).toBe('failed');
+		expect(await sender.send('t', eventsChangedMessage('actor-1'))).toBe('failed');
 	});
 
 	it('5xx and network errors are failures, never throws', async () => {
@@ -275,7 +275,7 @@ describe('createFcmSender', () => {
 			fetch: scriptedFetch([jsonResponse(503, { error: { status: 'UNAVAILABLE' } })]).fn,
 			now: () => 0
 		});
-		expect(await s1.send('t', eventsChangedMessage())).toBe('failed');
+		expect(await s1.send('t', eventsChangedMessage('actor-1'))).toBe('failed');
 
 		const s2 = createFcmSender(SA, {
 			fetch: vi.fn(async () => {
@@ -283,21 +283,21 @@ describe('createFcmSender', () => {
 			}),
 			now: () => 0
 		});
-		expect(await s2.send('t', eventsChangedMessage())).toBe('failed');
+		expect(await s2.send('t', eventsChangedMessage('actor-1'))).toBe('failed');
 	});
 
 	it('drops the cached token after a 401 so the next send re-authenticates', async () => {
 		const f = scriptedFetch([jsonResponse(401, { error: { status: 'UNAUTHENTICATED' } })]);
 		const sender = createFcmSender(SA, { fetch: f.fn, now: () => 0 });
-		expect(await sender.send('t', eventsChangedMessage())).toBe('failed');
-		await sender.send('t', eventsChangedMessage());
+		expect(await sender.send('t', eventsChangedMessage('actor-1'))).toBe('failed');
+		await sender.send('t', eventsChangedMessage('actor-1'));
 		expect(f.tokenCount()).toBe(2);
 	});
 
 	it('a failed token exchange is a failure, not a throw', async () => {
 		const fetchFn = vi.fn(async () => jsonResponse(400, { error: 'invalid_grant' }));
 		const sender = createFcmSender(SA, { fetch: fetchFn, now: () => 0 });
-		expect(await sender.send('t', eventsChangedMessage())).toBe('failed');
+		expect(await sender.send('t', eventsChangedMessage('actor-1'))).toBe('failed');
 		expect(fetchFn).toHaveBeenCalledTimes(1);
 	});
 });

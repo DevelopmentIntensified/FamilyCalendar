@@ -84,14 +84,14 @@ describe('sendDataToUsers', () => {
 			{ userId: 'u3', token: 'c' }
 		]);
 
-		await sendDataToUsers(['u1', 'u2', 'u1'], { type: 'events_changed' }, deps);
+		await sendDataToUsers(['u1', 'u2', 'u1'], { type: 'events_changed', actorId: 'u1' }, deps);
 
 		expect(deps.listTokens).toHaveBeenCalledTimes(1);
 		expect(deps.listTokens).toHaveBeenCalledWith(['u1', 'u2']);
 		expect(sent.map((s) => s.token).sort()).toEqual(['a', 'b']);
 		for (const s of sent) {
 			expect(s.message).toEqual({
-				data: { type: 'events_changed' },
+				data: { type: 'events_changed', actorId: 'u1' },
 				android: { priority: 'high', collapse_key: 'events_changed', ttl: '600s' }
 			});
 		}
@@ -99,17 +99,17 @@ describe('sendDataToUsers', () => {
 
 	it('prunes unregistered tokens', async () => {
 		const { deps } = makeDeps([{ userId: 'u1', token: 'dead' }], { dead: 'unregistered' });
-		await sendDataToUsers(['u1'], { type: 'events_changed' }, deps);
+		await sendDataToUsers(['u1'], { type: 'events_changed', actorId: 'u1' }, deps);
 		expect(deps.pruneToken).toHaveBeenCalledWith('dead');
 	});
 
 	it('does nothing for an empty audience or when not configured', async () => {
 		const a = makeDeps([{ userId: 'u1', token: 'a' }]);
-		await sendDataToUsers([], { type: 'events_changed' }, a.deps);
+		await sendDataToUsers([], { type: 'events_changed', actorId: 'u1' }, a.deps);
 		expect(a.deps.listTokens).not.toHaveBeenCalled();
 
 		const b = makeDeps([{ userId: 'u1', token: 'a' }], {}, false);
-		await sendDataToUsers(['u1'], { type: 'events_changed' }, b.deps);
+		await sendDataToUsers(['u1'], { type: 'events_changed', actorId: 'u1' }, b.deps);
 		expect(b.deps.listTokens).not.toHaveBeenCalled();
 	});
 });

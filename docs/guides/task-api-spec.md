@@ -267,13 +267,16 @@ What the device receives (FCM HTTP v1; every `data` value is a string):
 | Kind | `notification` | `data` | `android` |
 |---|---|---|---|
 | Activity notification (same fan-out as Web Push: every `createNotification`) | `{title, body}` | `{"type":"notification","link":"/path"}` (`link` omitted when none) | `priority: high` |
-| Sync nudge, silent | none | `{"type":"events_changed"}` | `priority: high`, `collapse_key: events_changed`, `ttl: 600s` |
+| Sync nudge, silent | none | `{"type":"events_changed","actorId":"<user id>"}` | `priority: high`, `collapse_key: events_changed`, `ttl: 600s` |
 
 `events_changed` is sent once per mutating request (create / update / move /
 delete / occurrence edit or cancel / bulk edit / .ics import + undo) to every
 user who can see an affected calendar (actor, calendar owners, family
-members). It carries no payload: refetch the events you cache and reschedule
-local reminders. RSVPs do not send it. Dead tokens (FCM 404 / `UNREGISTERED`
+members). Its only field is `actorId` (#281): the id of the user whose edit
+caused it (same id as `GET /api/me` → `user.id`). Every recipient refetches
+the events it caches and reschedules local reminders; a device signed in as
+`actorId` does so silently (no "Event updates" notice — it was your own
+edit). Missing `actorId` (older server) → treat as someone else's edit. RSVPs do not send it. Dead tokens (FCM 404 / `UNREGISTERED`
 / invalid token) are pruned server-side; the app just re-POSTs on
 `onNewToken`.
 

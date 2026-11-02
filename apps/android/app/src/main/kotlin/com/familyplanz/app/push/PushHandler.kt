@@ -9,6 +9,8 @@ data class PushPayload(
 	val title: String?,
 	val body: String?,
 	val link: String?,
+	/** `events_changed` only (#281): who made the edit; null from older servers. */
+	val actorId: String? = null,
 )
 
 sealed interface PushAction {
@@ -19,9 +21,9 @@ sealed interface PushAction {
 	data object Ignore : PushAction
 }
 
-/** Expedited one-off cache refresh + reminder re-plan (WorkManager in prod). */
+/** Expedited one-off cache refresh + reminder re-plan (WorkManager in prod); [actorId] = whose edit. */
 fun interface EventsRefreshScheduler {
-	fun enqueue()
+	fun enqueue(actorId: String?)
 }
 
 /** Posts a 'Family activity' notification (NotificationManager in prod). */
@@ -38,7 +40,7 @@ class PushHandler(
 	suspend fun handle(payload: PushPayload): PushAction {
 		val action = if (signedIn()) route(payload) else PushAction.Ignore
 		when (action) {
-			PushAction.RefreshEvents -> refresh.enqueue()
+			PushAction.RefreshEvents -> refresh.enqueue(payload.actorId?.takeIf { it.isNotBlank() })
 			is PushAction.ShowActivity -> poster.post(action)
 			PushAction.Ignore -> Unit
 		}

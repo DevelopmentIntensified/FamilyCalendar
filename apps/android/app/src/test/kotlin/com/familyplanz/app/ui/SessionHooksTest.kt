@@ -53,4 +53,32 @@ class SessionHooksTest {
 		awaitCalls(listOf("out fp_old null"))
 		assertNull(runBlocking { store.token() })
 	}
+
+	private fun awaitUserId(expected: String?) {
+		val deadline = System.currentTimeMillis() + 5_000
+		while (runBlocking { store.userId() } != expected && System.currentTimeMillis() < deadline) {
+			shadowOf(Looper.getMainLooper()).idle()
+			Thread.sleep(10)
+		}
+		assertEquals(expected, runBlocking { store.userId() })
+	}
+
+	@Test
+	fun `GET me id is stored for the push worker (#281) and dropped on sign-out`() {
+		runBlocking { store.save("fp_me") }
+		val vm = AppViewModel(FakeRepository(), store, hooks)
+		awaitUserId(FakeRepository.ME)
+		vm.clearToken()
+		awaitUserId(null)
+	}
+
+	@Test
+	fun `a new token forgets the previous account's id until GET me answers`() {
+		runBlocking {
+			store.save("fp_a")
+			store.saveUserId("someone-else")
+			store.save("fp_b")
+		}
+		assertNull(runBlocking { store.userId() })
+	}
 }

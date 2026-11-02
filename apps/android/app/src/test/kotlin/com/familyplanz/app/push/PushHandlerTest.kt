@@ -10,23 +10,40 @@ import org.junit.Test
 /** Issue #273: FCM message → action (#272 payload shapes), via fake WorkManager/notifier seams. */
 class PushHandlerTest {
 	private var refreshes = 0
+	private val actors = mutableListOf<String?>()
 	private val posted = mutableListOf<PushAction.ShowActivity>()
 	private var signedIn = true
 
 	private val handler = PushHandler(
-		refresh = { refreshes++ },
+		refresh = {
+			refreshes++
+			actors += it
+		},
 		poster = { posted += it },
 		signedIn = { signedIn },
 	)
 
-	private fun payload(type: String?, title: String? = null, body: String? = null, link: String? = null) =
-		PushPayload(type = type, title = title, body = body, link = link)
+	private fun payload(
+		type: String?,
+		title: String? = null,
+		body: String? = null,
+		link: String? = null,
+		actorId: String? = null,
+	) = PushPayload(type = type, title = title, body = body, link = link, actorId = actorId)
 
 	@Test
 	fun `events_changed enqueues one refresh and posts nothing`() = runBlocking {
 		assertEquals(PushAction.RefreshEvents, handler.handle(payload("events_changed")))
 		assertEquals(1, refreshes)
 		assertTrue(posted.isEmpty())
+	}
+
+	@Test
+	fun `events_changed hands its actorId to the refresh (#281), null when blank or absent`() = runBlocking {
+		handler.handle(payload("events_changed", actorId = "me-1"))
+		handler.handle(payload("events_changed", actorId = " "))
+		handler.handle(payload("events_changed"))
+		assertEquals(listOf("me-1", null, null), actors)
 	}
 
 	@Test

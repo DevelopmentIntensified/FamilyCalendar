@@ -33,7 +33,7 @@ class PushWorkTest {
 	@Test
 	fun `events_changed bursts collapse into one network-bound refresh`() {
 		val scheduler = WorkManagerEventsRefresh(app)
-		repeat(3) { scheduler.enqueue() }
+		repeat(3) { scheduler.enqueue("actor-$it") }
 
 		val queued = pending(WorkManagerEventsRefresh.WORK_NAME)
 		assertEquals(1, queued.size)

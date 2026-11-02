@@ -110,10 +110,11 @@ export function notificationMessage(payload: {
  * The silent sync nudge: data-only (no notification block, so nothing shows),
  * high priority so a dozing phone wakes to reschedule reminders, collapsed so a
  * burst of edits delivers once, short TTL because a stale nudge is worthless.
+ * `actorId` (#281): the editor's own phone skips the "Event updates" notice.
  */
-export function eventsChangedMessage(): FcmMessage {
+export function eventsChangedMessage(actorId: string): FcmMessage {
 	return {
-		data: { type: 'events_changed' },
+		data: { type: 'events_changed', actorId },
 		android: { priority: 'high', collapse_key: 'events_changed', ttl: '600s' }
 	};
 }
