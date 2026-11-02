@@ -1,5 +1,7 @@
 import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { get } from 'svelte/store';
+import { toasts } from '$lib/client/toasts';
 import EventRsvpRow from './EventRsvpRow.svelte';
 
 function props(overrides = {}) {
@@ -55,5 +57,27 @@ describe('EventRsvpRow', () => {
 		const p = props({ currentUserRsvpStatus: 'maybe' });
 		render(EventRsvpRow, { props: p });
 		expect(screen.getByText('Maybe').closest('button')?.getAttribute('aria-pressed')).toBe('true');
+	});
+
+	// #227: a failed RSVP reverts AND says so.
+	it.each([
+		['server error', async () => ({ ok: false, status: 500, json: async () => ({}) })],
+		[
+			'network failure',
+			async () => {
+				throw new TypeError('Failed to fetch');
+			}
+		]
+	])('on %s reverts and toasts (#227)', async (_label, impl) => {
+		toasts.set([]);
+		vi.stubGlobal('fetch', vi.fn(impl));
+		const p = props({ currentUserRsvpStatus: 'maybe' });
+		render(EventRsvpRow, { props: p });
+		await fireEvent.click(screen.getByText('Going'));
+		await vi.waitFor(() =>
+			expect(p.onCurrentUserRsvpStatusChange).toHaveBeenLastCalledWith('maybe')
+		);
+		expect(get(toasts).map((t) => t.message)).toContain("Couldn't save your RSVP — try again.");
+		expect(p.onResponded).not.toHaveBeenCalled();
 	});
 });

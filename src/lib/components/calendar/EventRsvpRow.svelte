@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { pushToast } from '$lib/client/toasts';
+
 	interface Attendee {
 		userId: string | null;
 		status: string;
@@ -44,6 +46,8 @@
 		{ status: 'declined', label: "Can't go" }
 	] as const;
 
+	const RSVP_FAILED = "Couldn't save your RSVP — try again.";
+
 	async function handleRsvp(status: string) {
 		if (rsvpPending) return;
 		// Clicking the active choice again = "no answer yet".
@@ -72,10 +76,12 @@
 				await onResponded(next);
 			} else {
 				onCurrentUserRsvpStatusChange(previous);
+				pushToast({ message: RSVP_FAILED }); // #227: never revert silently
 			}
 		} catch (error) {
 			console.error('RSVP error:', error);
 			onCurrentUserRsvpStatusChange(previous);
+			pushToast({ message: RSVP_FAILED });
 		} finally {
 			rsvpPending = false;
 		}
