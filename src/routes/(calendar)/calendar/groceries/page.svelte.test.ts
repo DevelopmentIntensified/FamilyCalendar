@@ -865,3 +865,93 @@ describe('groceries.html — the layout and the `or` between primary and alterna
 		expect(one.querySelectorAll('[data-store-alternate-join]')).toHaveLength(0);
 	});
 });
+
+/**
+ * 239: a fetch that THROWS (offline, DNS, aborted) used to escape every
+ * mutation: the optimistic state stayed applied, no error showed, and the
+ * busy flag stuck so the row / colour pickers were dead until reload.
+ */
+describe('groceries page — network failures (239)', () => {
+	const list = () => screen.getByRole('region', { name: 'Items by store' });
+	const offline = () =>
+		vi.fn(async () => {
+			throw new TypeError('Failed to fetch');
+		});
+
+	it('check-off: reverts the hide and names the failure', async () => {
+		vi.stubGlobal('fetch', offline());
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Check off Eggs' }));
+		await vi.waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent(/Couldn't check that off/)
+		);
+		expect(within(list()).getByText('Eggs')).toBeInTheDocument();
+	});
+
+	it('uncheck: puts the item back in the rail, names the failure, frees the row', async () => {
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Check off Eggs' }));
+		vi.stubGlobal('fetch', offline());
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Uncheck Eggs' }));
+		await vi.waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent(/Couldn't put that back/)
+		);
+		const rail = screen.getByRole('region', { name: 'Checked off' });
+		expect(within(rail).getByRole('checkbox', { name: 'Uncheck Eggs' })).not.toBeDisabled();
+	});
+
+	it('colour flip: reverts, names the failure, and the picker still works', async () => {
+		vi.stubGlobal('fetch', offline());
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit colour for Aldi' }));
+		await fireEvent.change(screen.getByLabelText('Colour for Aldi'), {
+			target: { value: 'lilac' }
+		});
+		await vi.waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent(/Couldn't set that colour/)
+		);
+		expect(
+			screen.getByRole('region', { name: 'Aldi' }).querySelector('[data-store-bar]')
+		).not.toHaveClass(STORE_COLOURS.find((c) => c.key === 'lilac')!.bar);
+		// Not stuck busy: a second flip reaches the network.
+		await fireEvent.change(screen.getByLabelText('Colour for Aldi'), {
+			target: { value: 'sage' }
+		});
+		expect(vi.mocked(fetch).mock.calls).toHaveLength(2);
+	});
+
+	it('save stores: names the failure and the row is not stuck busy', async () => {
+		vi.stubGlobal('fetch', offline());
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit stores for Eggs' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save stores for Eggs' }));
+		await vi.waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent(/Couldn't save stores/)
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Save stores for Eggs' }));
+		expect(vi.mocked(fetch).mock.calls).toHaveLength(2);
+	});
+
+	it('move: names the failure and the row is not stuck busy', async () => {
+		vi.stubGlobal('fetch', offline());
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit stores for Sourdough' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Move Sourdough to Mine' }));
+		await vi.waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent(/Couldn't move that/)
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Move Sourdough to Mine' }));
+		expect(vi.mocked(fetch).mock.calls).toHaveLength(2);
+	});
+
+	it('delete: names the failure and the row is not stuck busy', async () => {
+		vi.stubGlobal('fetch', offline());
+		render(GroceriesPage, makeData());
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Dish soap' }));
+		await vi.waitFor(() =>
+			expect(screen.getByRole('alert')).toHaveTextContent(/Couldn't remove that/)
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Dish soap' }));
+		expect(vi.mocked(fetch).mock.calls).toHaveLength(2);
+	});
+});

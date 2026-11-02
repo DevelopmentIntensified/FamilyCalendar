@@ -200,34 +200,55 @@
 		);
 		// Optimistic repaint (<100ms ack); reverted below if the write fails.
 		colourOverrides = { ...colourOverrides, [overrideKey]: color };
-		const res = await fetch('/api/groceries/colours', {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ store, color, scope })
-		});
-		if (res.ok) {
-			const label =
-				color === 'auto'
-					? 'Auto — back to its own default'
-					: (STORE_COLOURS.find((c) => c.key === color)?.label ?? color);
-			pushToast({
-				message:
-					color === 'auto'
-						? `${store} is back to its own default colour.`
-						: `${store} is now ${label}${scope === 'personal' ? ' (just you)' : ''}.`
+		try {
+			const res = await send('/api/groceries/colours', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ store, color, scope })
 			});
-			colourStore = null;
-			await invalidateAll();
-		} else {
-			if (was) colourOverrides = { ...colourOverrides, [overrideKey]: was.color };
-			else {
-				const next = { ...colourOverrides };
-				delete next[overrideKey];
-				colourOverrides = next;
+			if (res?.ok) {
+				const label =
+					color === 'auto'
+						? 'Auto — back to its own default'
+						: (STORE_COLOURS.find((c) => c.key === color)?.label ?? color);
+				pushToast({
+					message:
+						color === 'auto'
+							? `${store} is back to its own default colour.`
+							: `${store} is now ${label}${scope === 'personal' ? ' (just you)' : ''}.`
+				});
+				colourStore = null;
+				await invalidateAll();
+			} else {
+				if (was) colourOverrides = { ...colourOverrides, [overrideKey]: was.color };
+				else {
+					const next = { ...colourOverrides };
+					delete next[overrideKey];
+					colourOverrides = next;
+				}
+				error = failure("Couldn't set that colour", res);
 			}
-			error = "Couldn't set that colour. Try again.";
+		} finally {
+			colourBusy = false;
 		}
-		colourBusy = false;
+	}
+
+	/**
+	 * 239: fetch that resolves `null` instead of throwing when the network is
+	 * down, so every mutation takes one failure path (revert + say so) and no
+	 * busy flag is left stuck by an escaped rejection.
+	 */
+	async function send(url: string, init?: RequestInit): Promise<Response | null> {
+		try {
+			return await fetch(url, init);
+		} catch {
+			return null;
+		}
+	}
+
+	/** Error copy naming the next step; offline (null) says to check the connection. */
+	function failure(what: string, res: Response | null): string {
+		return res ? `${what}. Try again.` : `${what} — check your connection and try again.`;
 	}
 
 	/** The `familyId` a scope writes. "Everyone" is not a place without a
@@ -309,12 +330,12 @@
 		const rowScope = scopeOf(item);
 		hiddenIds.add(item.id);
 		hiddenIds = hiddenIds;
-		const res = await fetch(`/api/groceries/${item.id}`, {
+		const res = await send(`/api/groceries/${item.id}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ scope: rowScope, op: 'check' })
 		});
-		if (res.ok) {
+		if (res?.ok) {
 			recentlyChecked = [...recentlyChecked, { item, scope: rowScope }];
 			pushToast({
 				message: `Checked off "${item.name}".`,
@@ -325,7 +346,7 @@
 		} else {
 			hiddenIds.delete(item.id);
 			hiddenIds = hiddenIds;
-			error = "Couldn't check that off. Try again.";
+			error = failure("Couldn't check that off", res);
 		}
 	}
 
@@ -335,40 +356,46 @@
 		recentlyChecked = recentlyChecked.filter((r) => r.item.id !== item.id);
 		hiddenIds.delete(item.id);
 		hiddenIds = hiddenIds;
-		const res = await fetch(`/api/groceries/${item.id}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ scope, op: 'uncheck' })
-		});
-		if (res.ok) {
-			pushToast({ message: `Put "${item.name}" back on the list.` });
-			await invalidateAll();
-		} else {
-			recentlyChecked = [...recentlyChecked, { item, scope }];
-			hiddenIds.add(item.id);
-			hiddenIds = hiddenIds;
-			error = "Couldn't put that back. Try again.";
+		try {
+			const res = await send(`/api/groceries/${item.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ scope, op: 'uncheck' })
+			});
+			if (res?.ok) {
+				pushToast({ message: `Put "${item.name}" back on the list.` });
+				await invalidateAll();
+			} else {
+				recentlyChecked = [...recentlyChecked, { item, scope }];
+				hiddenIds.add(item.id);
+				hiddenIds = hiddenIds;
+				error = failure("Couldn't put that back", res);
+			}
+		} finally {
+			busyId = null;
 		}
-		busyId = null;
 	}
 
 	async function saveStores(item: Item) {
 		if (busyId) return;
 		busyId = item.id;
 		const stores = uniqueStores(editStores.split(','));
-		const res = await fetch(`/api/groceries/${item.id}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ scope: scopeOf(item), op: 'stores', stores })
-		});
-		if (res.ok) {
-			pushToast({ message: `Stores updated for "${item.name}".` });
-			editingId = null;
-			await invalidateAll();
-		} else {
-			error = "Couldn't save stores. Try again.";
+		try {
+			const res = await send(`/api/groceries/${item.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ scope: scopeOf(item), op: 'stores', stores })
+			});
+			if (res?.ok) {
+				pushToast({ message: `Stores updated for "${item.name}".` });
+				editingId = null;
+				await invalidateAll();
+			} else {
+				error = failure("Couldn't save stores", res);
+			}
+		} finally {
+			busyId = null;
 		}
-		busyId = null;
 	}
 
 	async function move(item: Item) {
@@ -377,36 +404,42 @@
 		// A row moves to ITS other scope. The destination is derived from the
 		// row, not from the filter, so "To Family" is never a no-op.
 		const target: Scope = scopeOf(item) === 'mine' ? 'family' : 'mine';
-		const res = await fetch(`/api/groceries/${item.id}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ scope: scopeOf(item), op: 'move', target })
-		});
-		if (res.ok) {
-			pushToast({
-				message: `Moved "${item.name}" to ${target === 'mine' ? 'Mine' : 'Family'}.`
+		try {
+			const res = await send(`/api/groceries/${item.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ scope: scopeOf(item), op: 'move', target })
 			});
-			editingId = null;
-			await invalidateAll();
-		} else {
-			error = "Couldn't move that. Try again.";
+			if (res?.ok) {
+				pushToast({
+					message: `Moved "${item.name}" to ${target === 'mine' ? 'Mine' : 'Family'}.`
+				});
+				editingId = null;
+				await invalidateAll();
+			} else {
+				error = failure("Couldn't move that", res);
+			}
+		} finally {
+			busyId = null;
 		}
-		busyId = null;
 	}
 
 	async function remove(item: Item) {
 		if (busyId) return;
 		busyId = item.id;
-		const res = await fetch(`/api/groceries/${item.id}?scope=${scopeOf(item)}`, {
-			method: 'DELETE'
-		});
-		if (res.ok) {
-			pushToast({ message: `Removed "${item.name}" — store memory kept.` });
-			await invalidateAll();
-		} else {
-			error = "Couldn't remove that. Try again.";
+		try {
+			const res = await send(`/api/groceries/${item.id}?scope=${scopeOf(item)}`, {
+				method: 'DELETE'
+			});
+			if (res?.ok) {
+				pushToast({ message: `Removed "${item.name}" — store memory kept.` });
+				await invalidateAll();
+			} else {
+				error = failure("Couldn't remove that", res);
+			}
+		} finally {
+			busyId = null;
 		}
-		busyId = null;
 	}
 </script>
 
