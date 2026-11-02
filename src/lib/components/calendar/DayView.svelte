@@ -3,6 +3,7 @@
 	import { DateTime } from 'luxon';
 	import type { Writable } from 'svelte/store';
 	import type { Event } from '$lib/types';
+	import type { EventRosterMember } from '$lib/utils/eventRoster';
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { formatEventTime, toDate } from '$lib/utils/eventTime';
 	import { freqNoun } from '$lib/utils/taskDisplay';
@@ -37,6 +38,8 @@
 	export let selectedIds: string[] = [];
 	export let onToggleSelectionMode: (on: boolean) => void = () => {};
 	export let onToggleSelect: (event: Event) => void = () => {};
+	/** #282: the family roster the edit form can invite from (page data). */
+	export let familyMembers: EventRosterMember[] = [];
 
 	const isSelected = (event: Event) => selectedIds.includes(event.id);
 	let moveError = '';
@@ -392,6 +395,7 @@
 		event={selectedEvent}
 		show={true}
 		calendars={calendarIds}
+		{familyMembers}
 		onClose={closeModal}
 		on:update={() => refreshAll()}
 		on:delete={handleDelete}

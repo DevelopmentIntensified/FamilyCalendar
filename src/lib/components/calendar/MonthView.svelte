@@ -6,6 +6,7 @@
 		getDaysInLastMonth
 	} from '$lib/utils/dateUtils';
 	import type { Event } from '$lib/types';
+	import type { EventRosterMember } from '$lib/utils/eventRoster';
 	import type { Writable } from 'svelte/store';
 	import { DateTime } from 'luxon';
 	import MonthDays from './MonthDays.svelte';
@@ -20,6 +21,8 @@
 	export let selectionMode: boolean = false;
 	export let selectedIds: string[] = [];
 	export let onToggleSelect: (event: Event) => void = () => {};
+	/** #282: the family roster the edit form can invite from (page data). */
+	export let familyMembers: EventRosterMember[] = [];
 
 	//$: basically just makes the code revaluate each time the values change
 	let daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -66,6 +69,7 @@
 		{selectionMode}
 		{selectedIds}
 		{onToggleSelect}
+		{familyMembers}
 	/>
 	<MonthDays
 		{days}
@@ -78,6 +82,7 @@
 		{selectionMode}
 		{selectedIds}
 		{onToggleSelect}
+		{familyMembers}
 	/>
 	<MonthDays
 		days={nextMonthDays}
@@ -90,5 +95,6 @@
 		{selectionMode}
 		{selectedIds}
 		{onToggleSelect}
+		{familyMembers}
 	/>
 </div>

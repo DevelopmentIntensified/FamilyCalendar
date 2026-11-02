@@ -10,6 +10,7 @@
 	import KidsScheduleCard from './KidsScheduleCard.svelte';
 	import GroceriesCard, { type GroceryCardItem } from './GroceriesCard.svelte';
 	import EventModal from '$lib/components/calendar/EventModal.svelte';
+	import { toEventRoster } from '$lib/utils/eventRoster';
 
 	export let dateLabel: string;
 	export let isToday: boolean = true;
@@ -46,7 +47,12 @@
 		assigneeLastName?: string | null;
 		creatorFirstName?: string | null;
 	}[];
-	export let familyMembers: { userId: string; firstName: string; lastName: string }[];
+	export let familyMembers: {
+		userId: string;
+		firstName: string;
+		lastName: string;
+		email?: string | null;
+	}[];
 	export let kidsSchedule: {
 		id: string;
 		title: string;
@@ -164,6 +170,7 @@
 		event={selectedEvent}
 		show={true}
 		calendars={[]}
+		familyMembers={toEventRoster(familyMembers)}
 		on:close={() => (selectedEvent = null)}
 		on:update={() => invalidateAll()}
 	/>

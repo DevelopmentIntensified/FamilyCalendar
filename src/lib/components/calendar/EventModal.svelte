@@ -2,6 +2,7 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { Event } from '$lib/types';
+	import type { EventRosterMember } from '$lib/utils/eventRoster';
 	import { toDate } from '$lib/utils/eventTime';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { DateTime } from 'luxon';
@@ -38,12 +39,8 @@
 	export let currentUserRsvpStatus: string = 'undecided';
 	export let calendars: { id: string; name: string; color?: string }[] = [];
 	export let userSettings: { defaultCalendarId?: string | null } | null = null;
-	export let familyMembers: {
-		userId: string;
-		firstName: string;
-		lastName: string;
-		email: string;
-	}[] = [];
+	/** #282: the family roster the edit form can invite from (page data). */
+	export let familyMembers: EventRosterMember[] = [];
 
 	const dispatch = createEventDispatcher();
 

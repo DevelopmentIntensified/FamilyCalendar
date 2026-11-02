@@ -3,6 +3,7 @@
 	import { type Writable, get } from 'svelte/store';
 	import { DateTime, Info } from 'luxon';
 	import type { Event } from '$lib/types';
+	import { toEventRoster } from '$lib/utils/eventRoster';
 	import MonthView from './MonthView.svelte';
 	import ListView from './ListView.svelte';
 	import WeekView from './WeekView.svelte';
@@ -49,7 +50,14 @@
 	 *  list a member with nothing in this window (count 0) and can name one
 	 *  whose only rows are personal-calendar events. Absent = derive the roster
 	 *  from the rows alone, which is what the filter did before. */
-	export let familyMembers: { userId: string; firstName: string }[] = [];
+	export let familyMembers: {
+		userId: string;
+		firstName: string;
+		lastName?: string | null;
+		email?: string | null;
+	}[] = [];
+	// #282: the same roster, shaped for every view's EventModal edit form.
+	$: eventRoster = toEventRoster(familyMembers);
 	export let defaultViewSetting: string = 'monthView';
 	export let initialView: string | undefined = undefined;
 	/** #082: the ranged read for a month the page load did not cover.
@@ -658,6 +666,7 @@
 			{:else if view === 'month'}
 				<MonthView
 					{currentDate}
+					familyMembers={eventRoster}
 					events={visibleEvents}
 					{preferedFirstDayOfWeek}
 					{calendarIds}
@@ -671,6 +680,7 @@
 			{:else if view === 'week'}
 				<WeekView
 					{currentDate}
+					familyMembers={eventRoster}
 					events={visibleEvents}
 					{removeEvent}
 					{preferedFirstDayOfWeek}
@@ -687,6 +697,7 @@
 			{:else if view === 'day'}
 				<DayView
 					{currentDate}
+					familyMembers={eventRoster}
 					events={visibleEvents}
 					{calendarIds}
 					dueTasks={visibleTasks}
@@ -699,7 +710,13 @@
 					on:back={backFromDay}
 				/>
 			{:else if view === 'list'}
-				<ListView {currentDate} events={visibleEvents} {calendarIds} dueTasks={visibleTasks} />
+				<ListView
+					{currentDate}
+					events={visibleEvents}
+					{calendarIds}
+					dueTasks={visibleTasks}
+					familyMembers={eventRoster}
+				/>
 			{/if}
 
 			<!-- #128 gap 9 — E's Key strip, welded under the grid it explains. It is

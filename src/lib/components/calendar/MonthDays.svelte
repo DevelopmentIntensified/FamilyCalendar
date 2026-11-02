@@ -3,6 +3,7 @@
 	import { groupByDateKey } from '$lib/utils/eventDisplay';
 	import { DateTime } from 'luxon';
 	import type { Event } from '$lib/types';
+	import type { EventRosterMember } from '$lib/utils/eventRoster';
 	import EventModal from './EventModal.svelte';
 	import DayEventsModal from './DayEventsModal.svelte';
 	import DayActionSheet from './DayActionSheet.svelte';
@@ -24,6 +25,8 @@
 	export let selectionMode: boolean = false;
 	export let selectedIds: string[] = [];
 	export let onToggleSelect: (event: Event) => void = () => {};
+	/** #282: the family roster the edit form can invite from (page data). */
+	export let familyMembers: EventRosterMember[] = [];
 
 	let selectedTask: CalendarTask | null = null;
 	function openTask(task: CalendarTask) {
@@ -136,6 +139,7 @@
 		event={selectedEvent}
 		show={true}
 		{calendars}
+		{familyMembers}
 		on:close={closeModal}
 		on:update={() => invalidateAll()}
 		on:delete={handleDelete}

@@ -3,6 +3,7 @@
 	import type { Writable } from 'svelte/store';
 	import { formatDate } from '$lib/utils/dateUtils';
 	import type { Event } from '$lib/types';
+	import type { EventRosterMember } from '$lib/utils/eventRoster';
 	import EventModal from './EventModal.svelte';
 	import AttendanceBadge from './AttendanceBadge.svelte';
 	import CreatorBadge from './CreatorBadge.svelte';
@@ -20,6 +21,8 @@
 	export let events: Event[];
 	export let calendarIds: { id: string; name: string; color?: string }[] = [];
 	export let dueTasks: CalendarTask[] = [];
+	/** #282: the family roster the edit form can invite from (page data). */
+	export let familyMembers: EventRosterMember[] = [];
 
 	/** Recurrence noun via shared taskDisplay (falls back to raw code). */
 	function freqLabel(freq: string): string {
@@ -274,6 +277,7 @@
 		event={selectedEvent}
 		show={true}
 		calendars={calendarIds}
+		{familyMembers}
 		onClose={closeModal}
 		on:delete={handleDelete}
 	/>
