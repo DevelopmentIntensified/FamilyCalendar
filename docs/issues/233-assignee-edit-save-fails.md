@@ -1,6 +1,6 @@
 # 233 — Accepted assignee cannot save any edit to the task
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane C).
 
@@ -14,9 +14,13 @@ Accept a task Mom assigned you, edit title, Save -> 'You can only respond to you
 
 ## Done
 
-(none yet)
+- Client `src/lib/utils/taskEditPayload.ts`: `assignedTo` is sent only when the assignee changed (null when cleared); `EditPayload.assignedTo` is optional.
+- Server `src/routes/api/tasks/[id]/+server.ts` PUT: an `assignedTo` equal to the stored assignee is a no-op (no assignment patch). The accepted assignee's save no longer 403s, and an owner save no longer resets an accepted assignment to pending (with a stray re-notify). Field edits go through the #232 collaborator path.
+- Tests (red -> green):
+  - `taskEditPayload.test.ts` › `omits an unchanged assignedTo (...)` ×3, `sends assignedTo: null when an assignee is cleared`.
+  - `[id]/server.test.ts` › `unchanged assignedTo is a no-op (#233)`: assignee save (was 403), owner same-assignee save (was reset to pending), real reassign still pending + notified.
+  - `403s a family member reassigning` now reassigns to a *different* user; re-sending the current assignee is a no-op by design.
 
 ## Needs doing
 
-- Don't send unchanged `assignedTo`; let allowed callers edit fields (see #232) or make the dialog read-only for them.
-- Red test first where a seam exists (`tdd`).
+(none)

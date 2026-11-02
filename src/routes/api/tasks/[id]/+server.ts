@@ -158,6 +158,14 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 			let assignmentPatch: AssignmentPatch = {};
 			if (body.assignedTo === null) {
 				assignmentPatch = { assignedTo: null, assignmentStatus: 'none' };
+			} else if (
+				isNonEmptyString(body.assignedTo) &&
+				(await loadExisting())?.assignedTo === body.assignedTo
+			) {
+				// Unchanged assignee (#233): edit dialogs re-send the current
+				// value on every save. Not an assignment change — it must not
+				// 403 the accepted assignee, nor reset an accepted row to
+				// pending (and re-notify) when the owner saves.
 			} else if (isNonEmptyString(body.assignedTo)) {
 				// An assignee must be reachable — the creator themself or a
 				// member of the task's family — or the task strands as a

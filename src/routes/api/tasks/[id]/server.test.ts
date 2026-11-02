@@ -176,7 +176,8 @@ describe('PUT /api/tasks/[id] — assignment authorization', () => {
 		state.queue.push([taskRow()]); // reassign-target familyId check
 		state.queue.push([taskRow()]); // non-owner fallback loads the task
 
-		const res = await PUT(event('user-bystander', { assignedTo: 'user-assignee' }));
+		// A real change of assignee (re-sending the current one is a no-op, #233).
+		const res = await PUT(event('user-bystander', { assignedTo: 'user-b' }));
 
 		expect(res.status).toBe(403);
 		expect(mockedUpdateInFamily).not.toHaveBeenCalled();
@@ -400,6 +401,56 @@ describe('PUT /api/tasks/[id] — non-owner plain-field edits (#232)', () => {
 
 		expect(res.status).toBe(404);
 		expect(mockedUpdateInFamily).not.toHaveBeenCalled();
+	});
+});
+
+/**
+ * #233: the edit dialog re-sends the CURRENT assignee on every save. An
+ * unchanged assignedTo is not an assignment change — it must neither 403
+ * the accepted assignee nor reset an accepted assignment to pending.
+ */
+describe('PUT /api/tasks/[id] — unchanged assignedTo is a no-op (#233)', () => {
+	it('accepted assignee saves an edit carrying their own assignedTo', async () => {
+		state.queue.push([taskRow({ assignmentStatus: 'accepted' })]);
+		mockedUpdateInFamily.mockResolvedValue(taskRow({ title: 'Renamed' }) as never);
+
+		const res = await PUT(event('user-assignee', { title: 'Renamed', assignedTo: 'user-assignee' }));
+
+		expect(res.status).toBe(200);
+		const patch = mockedUpdateInFamily.mock.calls[0][2] as Record<string, unknown>;
+		expect(patch.title).toBe('Renamed');
+		expect(patch.assignedTo).toBeUndefined();
+		expect(patch.assignmentStatus).toBeUndefined();
+	});
+
+	it('owner save with the same (accepted) assignee keeps the assignment as is', async () => {
+		state.queue.push([taskRow({ assignmentStatus: 'accepted' })]);
+		mockedUpdateTask.mockResolvedValue(taskRow({ assignmentStatus: 'accepted' }) as never);
+
+		const res = await PUT(event('user-owner', { title: 'Renamed', assignedTo: 'user-assignee' }));
+
+		expect(res.status).toBe(200);
+		const patch = mockedUpdateTask.mock.calls[0][2] as Record<string, unknown>;
+		expect(patch.assignedTo).toBeUndefined();
+		expect(patch.assignmentStatus).toBeUndefined();
+		expect(createNotification).not.toHaveBeenCalled();
+	});
+
+	it('a real change still reassigns (owner -> new member is pending + notified)', async () => {
+		state.queue.push([taskRow({ assignmentStatus: 'accepted' })]);
+		state.queue.push([{ firstName: 'Mom' }]);
+		mockedUpdateTask.mockResolvedValue(taskRow({ assignedTo: 'user-b' }) as never);
+
+		const res = await PUT(event('user-owner', { assignedTo: 'user-b' }));
+
+		expect(res.status).toBe(200);
+		expect(mockedUpdateTask.mock.calls[0][2]).toMatchObject({
+			assignedTo: 'user-b',
+			assignmentStatus: 'pending'
+		});
+		expect(createNotification).toHaveBeenCalledWith(
+			expect.objectContaining({ userId: 'user-b', type: 'assignment_pending' })
+		);
 	});
 });
 

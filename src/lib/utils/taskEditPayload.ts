@@ -38,7 +38,8 @@ export interface EditPayload {
 	dueDate: string | null;
 	recurrenceFrequency: string | null;
 	recurrenceInterval: number | null;
-	assignedTo: string | null;
+	/** Present only when the assignee changed (#233); null clears. */
+	assignedTo?: string | null;
 	priority: string;
 	tags: string[];
 	visibility?: string;
@@ -52,8 +53,12 @@ export function buildEditPayload(
 ) {
 	const prevAssignee = editing.assignedTo ?? '';
 	const assignedTo: string | null = draft.assignedTo || null;
+	// #233: an unchanged assignee is not sent — the server would read it as
+	// an assignment change (403 for a non-owner assignee, pending reset for
+	// the owner).
+	const assigneeChanged = (assignedTo ?? '') !== prevAssignee;
 	let assignmentStatus: string | null = null;
-	if (assignedTo !== prevAssignee) {
+	if (assigneeChanged) {
 		assignmentStatus = assignedTo ? (assignedTo === currentUserId ? 'accepted' : 'pending') : null;
 	}
 	const payload: EditPayload = {
@@ -62,12 +67,12 @@ export function buildEditPayload(
 		dueDate: inputToIso(draft.due),
 		recurrenceFrequency: draft.freq || null,
 		recurrenceInterval: draft.freq ? Math.max(1, Math.floor(draft.interval)) : null,
-		assignedTo,
 		priority: draft.priority,
 		tags: parseEditTags(draft.tags),
 		// Owner-only: see module contract above.
 		visibility: editing.userId === currentUserId ? draft.visibility : undefined
 	};
+	if (assigneeChanged) payload.assignedTo = assignedTo;
 	if (assignmentStatus !== null) payload.assignmentStatus = assignmentStatus;
 	return { payload };
 }

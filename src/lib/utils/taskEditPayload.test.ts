@@ -61,6 +61,29 @@ describe('buildEditPayload', () => {
 		expect(others.payload.assignmentStatus).toBe('pending');
 	});
 
+	// #233: re-sending the current assignee made the server treat every save
+	// as an assignment change (403 for the accepted assignee).
+	const unchangedCases: [string, string | null, string][] = [
+		// label, stored assignee, draft assignee
+		['accepted assignee keeps themself', 'u2', 'u2'],
+		['owner keeps another member', 'u3', 'u3'],
+		['unassigned stays unassigned', null, '']
+	];
+	for (const [label, stored, drafted] of unchangedCases) {
+		it(`omits an unchanged assignedTo (${label})`, () => {
+			const editing = { id: 't1', userId: 'u1', assignedTo: stored };
+			const out = buildEditPayload(editing, { ...draft, assignedTo: drafted }, 'u2');
+			expect('assignedTo' in out.payload).toBe(false);
+			expect(JSON.stringify(out.payload)).not.toContain('assignedTo');
+		});
+	}
+
+	it('sends assignedTo: null when an assignee is cleared', () => {
+		const editing = { id: 't1', userId: 'u1', assignedTo: 'u2' };
+		const out = buildEditPayload(editing, { ...draft, assignedTo: '' }, 'u1');
+		expect(out.payload.assignedTo).toBeNull();
+	});
+
 	it('sends no assignmentStatus when the assignee is unchanged', () => {
 		const editing = { id: 't1', userId: 'u1', assignedTo: 'u1' };
 		const out = buildEditPayload(editing, draft, 'u1');
