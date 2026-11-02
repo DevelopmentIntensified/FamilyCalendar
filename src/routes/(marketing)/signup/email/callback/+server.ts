@@ -1,5 +1,6 @@
 import {
 	consumeMagicLink,
+	magicLinkRedirectPath,
 	magicLinkDeps,
 	sessionCookieFor,
 	type MagicLinkDeps
@@ -68,7 +69,8 @@ export const GET = async function (
 
 		const headers = new Headers();
 		headers.append('Set-Cookie', cookie.serialize());
-		headers.append('Location', deps.baseSiteUrl + '/calendar/');
+		// #284: land on the page that sent them to signup (invite, etc.).
+		headers.append('Location', deps.baseSiteUrl + magicLinkRedirectPath(consumed.payload));
 
 		return new Response(null, { status: 302, headers });
 	} catch {

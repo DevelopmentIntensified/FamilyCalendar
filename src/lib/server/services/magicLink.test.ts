@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createHash } from 'crypto';
 import { NOREPLYEMAIL } from '$env/static/private';
+import { createJWT, validateJWT } from 'oslo/jwt';
 import {
 	issueMagicLink,
 	issueVerificationCode,
@@ -238,49 +239,49 @@ describe('issueMagicLink', () => {
 	);
 });
 
-	describe('issueVerificationCode', () => {
-		const seamCases = [
-			{
-				name: 'with names',
-				input: { email: 'New@User.com', firstName: 'New', lastName: 'User' },
-				opts: { callbackPath: '/password/verify', gateKey: 'password-code:new@user.com' },
-				expectedNames: { firstName: 'New', lastName: 'User' },
-				expectedType: 'password-signup'
+describe('issueVerificationCode', () => {
+	const seamCases = [
+		{
+			name: 'with names',
+			input: { email: 'New@User.com', firstName: 'New', lastName: 'User' },
+			opts: { callbackPath: '/password/verify', gateKey: 'password-code:new@user.com' },
+			expectedNames: { firstName: 'New', lastName: 'User' },
+			expectedType: 'password-signup'
+		},
+		{
+			name: 'without names',
+			input: { email: 'noname@user.com' },
+			opts: { callbackPath: '/password/verify', gateKey: 'password-code:noname@user.com' },
+			expectedNames: { firstName: undefined, lastName: undefined },
+			expectedType: 'password-signup'
+		},
+		{
+			name: 'signup kind passthrough',
+			input: { email: 'kind@user.com', firstName: 'K', lastName: 'U' },
+			opts: {
+				callbackPath: '/signup/email/callback',
+				gateKey: 'signup-code:kind@user.com',
+				kind: 'signup' as const
 			},
-			{
-				name: 'without names',
-				input: { email: 'noname@user.com' },
-				opts: { callbackPath: '/password/verify', gateKey: 'password-code:noname@user.com' },
-				expectedNames: { firstName: undefined, lastName: undefined },
-				expectedType: 'password-signup'
+			expectedNames: { firstName: 'K', lastName: 'U' },
+			expectedType: 'signup'
+		},
+		{
+			name: 'login kind passthrough',
+			input: { email: 'kind@user.com' },
+			opts: {
+				callbackPath: '/login/email/callback',
+				gateKey: 'login-code:kind@user.com',
+				kind: 'login' as const
 			},
-			{
-				name: 'signup kind passthrough',
-				input: { email: 'kind@user.com', firstName: 'K', lastName: 'U' },
-				opts: {
-					callbackPath: '/signup/email/callback',
-					gateKey: 'signup-code:kind@user.com',
-					kind: 'signup' as const
-				},
-				expectedNames: { firstName: 'K', lastName: 'U' },
-				expectedType: 'signup'
-			},
-			{
-				name: 'login kind passthrough',
-				input: { email: 'kind@user.com' },
-				opts: {
-					callbackPath: '/login/email/callback',
-					gateKey: 'login-code:kind@user.com',
-					kind: 'login' as const
-				},
-				expectedNames: { firstName: undefined, lastName: undefined },
-				expectedType: 'login'
-			}
-		];
+			expectedNames: { firstName: undefined, lastName: undefined },
+			expectedType: 'login'
+		}
+	];
 
-		it.each(seamCases)(
-			'[$name] mints an 8-digit code, JWT, canonical email at the opts callbackPath, and persists the code',
-			async ({ input, opts, expectedNames, expectedType }) => {
+	it.each(seamCases)(
+		'[$name] mints an 8-digit code, JWT, canonical email at the opts callbackPath, and persists the code',
+		async ({ input, opts, expectedNames, expectedType }) => {
 			const before = Date.now();
 			const result = await issueVerificationCode(deps, input, passGate, opts);
 			const after = Date.now();
@@ -330,12 +331,10 @@ describe('issueMagicLink', () => {
 	);
 
 	it('does not validate email at this layer — the caller owns input rules', async () => {
-		const result = await issueVerificationCode(
-			deps,
-			{ email: 'not-an-email' },
-			passGate,
-			{ callbackPath: '/password/verify', gateKey: 'password-code:not-an-email' }
-		);
+		const result = await issueVerificationCode(deps, { email: 'not-an-email' }, passGate, {
+			callbackPath: '/password/verify',
+			gateKey: 'password-code:not-an-email'
+		});
 
 		expect(result.status).toBe('sent');
 		expect(sendEmail).toHaveBeenCalledTimes(1);
@@ -512,5 +511,67 @@ describe('sendClaimLinkEmail', () => {
 		});
 
 		expect(result).toEqual({ ok: false, reason: 'send-failed' });
+	});
+});
+
+describe('magic-link redirect target (#284)', () => {
+	const UNSAFE_REDIRECTS = [
+		'//evil.com',
+		'/\\evil.com',
+		'https://evil.com',
+		'/x%0d%0aSet-Cookie:a=b'
+	];
+
+	it.each(['signup', 'login'] as const)(
+		'[%s] signs the sanitised redirectTo into the emailed token',
+		async (kind) => {
+			if (kind === 'login')
+				getUserByEmail.mockResolvedValue({ id: 'u1', firstName: 'K', lastName: 'U' });
+			const result = await issueMagicLink(
+				deps,
+				kind,
+				{ email: 'a@b.com', firstName: 'A', lastName: 'B', redirectTo: '/invite/abc?x=1' },
+				passGate
+			);
+			expect(result.status).toBe('sent');
+			expect(createJwt.mock.calls[0][2]).toMatchObject({ redirectTo: '/invite/abc?x=1' });
+		}
+	);
+
+	it.each(UNSAFE_REDIRECTS)('drops an unsafe redirectTo (%s) from the token', async (raw) => {
+		getUserByEmail.mockResolvedValue({ id: 'u1', firstName: 'K', lastName: 'U' });
+		await issueMagicLink(deps, 'login', { email: 'a@b.com', redirectTo: raw }, passGate);
+		expect(createJwt.mock.calls[0][2]).not.toHaveProperty('redirectTo');
+	});
+
+	it('omits redirectTo when none is given (old wire shape)', async () => {
+		getUserByEmail.mockResolvedValue({ id: 'u1', firstName: 'K', lastName: 'U' });
+		await issueMagicLink(deps, 'login', { email: 'a@b.com' }, passGate);
+		expect(createJwt.mock.calls[0][2]).not.toHaveProperty('redirectTo');
+	});
+
+	it('round-trips redirectTo through a real signed token and the emailed link', async () => {
+		const real = { ...deps, createJwt: createJWT, verifyJwt: validateJWT };
+		getUserByEmail.mockResolvedValue({ id: 'u1', firstName: 'K', lastName: 'U' });
+		await issueMagicLink(
+			real,
+			'login',
+			{ email: 'a@b.com', redirectTo: '/invite/abc?x=1' },
+			passGate
+		);
+		const href = /href="([^"]+)"/.exec(sendEmail.mock.calls[0][0].html)![1];
+		const token = new URL(href).searchParams.get('token')!;
+		const consumed = await consumeMagicLink(real, token, 'login');
+		if (!consumed.ok) throw new Error(consumed.reason);
+		expect(consumed.payload.redirectTo).toBe('/invite/abc?x=1');
+	});
+
+	it('consumeMagicLink ignores a non-string redirectTo claim', async () => {
+		verifyJwt.mockResolvedValue({
+			payload: { kind: 'login', email: 'x@y.com', code: '12345678', redirectTo: 42 }
+		});
+		const consumed = await consumeMagicLink(deps, 't', 'login');
+		if (!consumed.ok) throw new Error(consumed.reason);
+		expect(consumed.payload.redirectTo).toBeUndefined();
 	});
 });

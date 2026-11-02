@@ -88,7 +88,7 @@
 			const res = await fetch('/signup/email', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email, firstName, lastName })
+				body: JSON.stringify({ email, firstName, lastName, redirectTo })
 			});
 
 			const json = await res.json();
@@ -143,7 +143,7 @@
 				: await fetch('/signup/email', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ email, firstName, lastName })
+						body: JSON.stringify({ email, firstName, lastName, redirectTo })
 					});
 
 			const json = await res.json();

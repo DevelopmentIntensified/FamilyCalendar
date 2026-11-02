@@ -8,6 +8,7 @@ import { createCode, hashEmailCode } from '$lib/server/db/actions/codes';
 import { getAccount } from '$lib/server/db/actions/accounts';
 import { getUser, getUserByEmail } from '$lib/server/db/actions/users';
 import { session, type SessionCookie } from '$lib/server/auth';
+import { safeRedirectPath } from '$lib/utils/safeRedirect';
 
 /**
  * Single source of truth for the magic-link lifecycle (email → code + JWT link
@@ -38,7 +39,20 @@ export type MagicLinkPayload = {
 	firstName?: string | null;
 	lastName?: string | null;
 	code: string;
+	/** #284: post-sign-in landing path, signed into the token at issue time.
+	 *  Untrusted on the way out too — callers re-sanitise via
+	 *  `magicLinkRedirectPath`. Absent on links issued without one. */
+	redirectTo?: string;
 };
+
+/**
+ * #284: the callback's post-sign-in Location path. Re-sanitises the token's
+ * `redirectTo` (defence in depth: it was sanitised at issue time and is
+ * signed) and falls back to the calendar.
+ */
+export function magicLinkRedirectPath(payload: Pick<MagicLinkPayload, 'redirectTo'>): string {
+	return safeRedirectPath(payload.redirectTo, '/calendar/');
+}
 
 /**
  * Collaborators of the magic-link lifecycle, injectable so tests can pass
@@ -104,6 +118,9 @@ export type IssueMagicLinkInput = {
 	email: string;
 	firstName?: string;
 	lastName?: string;
+	/** #284: raw `?redirect=` from the login/signup page; sanitised here and
+	 *  dropped when unsafe or absent. */
+	redirectTo?: unknown;
 };
 
 function rateLimitKey(kind: MagicLinkTokenKind, email: string): string {
@@ -154,6 +171,9 @@ export type IssueVerificationCodeOpts = {
 	/** Code-only email (no clickable link): for flows with no GET callback
 	 *  to land the link on. Defaults to the link email. */
 	emailVariant?: 'link' | 'code-only';
+	/** #284: already-sanitised landing path, signed into the JWT as
+	 *  `redirectTo`. Omit to keep the old wire shape. */
+	redirectTo?: string;
 };
 export type IssueVerificationCodeResult =
 	| { status: 'sent'; code: string }
@@ -192,7 +212,8 @@ export async function issueVerificationCode(
 			email,
 			firstName,
 			lastName,
-			code
+			code,
+			...(opts.redirectTo !== undefined ? { redirectTo: opts.redirectTo } : {})
 		},
 		{
 			headers: {
@@ -252,6 +273,9 @@ export async function issueMagicLink(
 	gate: MagicLinkGate
 ): Promise<IssueMagicLinkResult> {
 	const { email, firstName, lastName } = input;
+	// '' is the "unsafe or absent" sentinel: such links carry no redirectTo.
+	const redirectTo =
+		typeof input.redirectTo === 'string' ? safeRedirectPath(input.redirectTo, '') : '';
 
 	if (!email || !EMAIL_REGEX.test(email)) {
 		return { status: 'rejected', reason: 'invalid-email' };
@@ -285,7 +309,12 @@ export async function issueMagicLink(
 		deps,
 		{ email, firstName: codeNames.firstName, lastName: codeNames.lastName },
 		() => true,
-		{ callbackPath: `/${kind}/email/callback`, gateKey, kind }
+		{
+			callbackPath: `/${kind}/email/callback`,
+			gateKey,
+			kind,
+			...(redirectTo ? { redirectTo } : {})
+		}
 	);
 }
 
@@ -312,6 +341,7 @@ function parseMagicPayload(payload: unknown): {
 	code: string;
 	firstName: unknown;
 	lastName: unknown;
+	redirectTo?: string;
 } | null {
 	if (!isRecord(payload)) return null;
 	if (payload.kind !== 'signup' && payload.kind !== 'login') return null;
@@ -321,7 +351,8 @@ function parseMagicPayload(payload: unknown): {
 		email: payload.email,
 		code: payload.code,
 		firstName: payload.firstName,
-		lastName: payload.lastName
+		lastName: payload.lastName,
+		...(typeof payload.redirectTo === 'string' ? { redirectTo: payload.redirectTo } : {})
 	};
 }
 

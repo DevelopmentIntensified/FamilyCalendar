@@ -33,7 +33,7 @@ function mockEvent(token: string | null, user: { email?: string } | null = null)
 		? `http://test.com/signup/email/callback?token=${token}`
 		: 'http://test.com/signup/email/callback';
 	// SAFETY: test double — the handler only reads the fields set below.
-		return {
+	return {
 		url: new URL(url),
 		locals: { user },
 		cookies: { get: () => undefined, set: vi.fn(), delete: vi.fn() }
@@ -144,5 +144,59 @@ describe('GET /signup/email/callback', () => {
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get('Location')).toContain('/signup');
+	});
+
+	describe('redirect target from the token (#284)', () => {
+		const UNSAFE_REDIRECTS = [
+			'//evil.com',
+			'/\\evil.com',
+			'https://evil.com',
+			'/x%0d%0aSet-Cookie:a=b'
+		];
+
+		it('redirects to the signed redirectTo after sign-in', async () => {
+			verifyJwt.mockResolvedValue({
+				payload: {
+					...{
+						kind: 'signup',
+						email: 'new@user.com',
+						firstName: 'New',
+						lastName: 'User',
+						code: '12345678'
+					},
+					redirectTo: '/invite/abc?x=1'
+				}
+			});
+			const response = await GET(mockEvent('valid.jwt.token'), deps);
+			expect(response.status).toBe(302);
+			expect(response.headers.get('Location')).toBe('http://test.com/invite/abc?x=1');
+			expect(response.headers.get('Set-Cookie')).toContain('better-auth.session_token=');
+		});
+
+		it.each(UNSAFE_REDIRECTS)(
+			're-sanitises at the callback: %s falls back to /calendar',
+			async (raw) => {
+				verifyJwt.mockResolvedValue({
+					payload: {
+						...{
+							kind: 'signup',
+							email: 'new@user.com',
+							firstName: 'New',
+							lastName: 'User',
+							code: '12345678'
+						},
+						redirectTo: raw
+					}
+				});
+				const response = await GET(mockEvent('valid.jwt.token'), deps);
+				expect(response.status).toBe(302);
+				expect(response.headers.get('Location')).toBe('http://test.com/calendar/');
+			}
+		);
+
+		it('no redirectTo claim keeps the /calendar landing', async () => {
+			const response = await GET(mockEvent('valid.jwt.token'), deps);
+			expect(response.headers.get('Location')).toBe('http://test.com/calendar/');
+		});
 	});
 });

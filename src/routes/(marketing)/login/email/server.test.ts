@@ -30,9 +30,9 @@ const deps: LoginEmailDeps = {
 
 // SAFETY: test double — POST only reads request.json() and event.request
 // via clientKey (headers are optional-chained there).
-function mockEvent(body: { email: string }) {
+function mockEvent(body: { email: string; redirectTo?: string }) {
 	// SAFETY: test double — the handler only reads the fields set below.
-		return {
+	return {
 		request: {
 			json: () => Promise.resolve(body),
 			headers: { get: () => 'test-ip' }
@@ -111,5 +111,20 @@ describe('POST /login/email', () => {
 
 		expect(response.status).toBe(500);
 		expect(body.success).toBe(false);
+	});
+
+	it('carries the sanitised redirectTo into the emailed link token (#284)', async () => {
+		getUserByEmail.mockResolvedValue({ id: 'user-1', firstName: 'K', lastName: 'U' });
+		const body = { email: 'k@user.com', redirectTo: '/invite/abc' };
+		const response = await POST(mockEvent(body), deps);
+		expect(response.status).toBe(200);
+		expect(createJwt.mock.calls[0][2]).toMatchObject({ redirectTo: '/invite/abc' });
+	});
+
+	it('drops an off-site redirectTo before it reaches the token (#284)', async () => {
+		getUserByEmail.mockResolvedValue({ id: 'user-1', firstName: 'K', lastName: 'U' });
+		const body = { email: 'k@user.com', redirectTo: '//evil.com' };
+		await POST(mockEvent(body), deps);
+		expect(createJwt.mock.calls[0][2]).not.toHaveProperty('redirectTo');
 	});
 });

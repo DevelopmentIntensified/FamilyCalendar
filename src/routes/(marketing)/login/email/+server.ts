@@ -30,7 +30,12 @@ export const POST = async (
 				MAGIC_LINK_RATE_LIMIT.windowMs
 			));
 
-	const result = await issueMagicLink(deps, 'login', { email: data.email }, gate);
+	const result = await issueMagicLink(
+		deps,
+		'login',
+		{ email: data.email, redirectTo: data.redirectTo },
+		gate
+	);
 
 	switch (result.status) {
 		case 'sent':

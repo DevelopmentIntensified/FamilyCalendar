@@ -28,7 +28,12 @@ export const POST = async (
 	const result = await issueMagicLink(
 		deps,
 		'signup',
-		{ email: data.email, firstName: data.firstName, lastName: data.lastName },
+		{
+			email: data.email,
+			firstName: data.firstName,
+			lastName: data.lastName,
+			redirectTo: data.redirectTo
+		},
 		gate
 	);
 
