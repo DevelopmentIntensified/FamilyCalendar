@@ -1,12 +1,24 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { reportBugHref } from '$lib/utils/reportBug';
 
 	$: status = $page.status ?? 500;
 	$: isNotFound = status === 404;
-	$: title = isNotFound ? "We can't find that page" : 'Something went wrong';
+	// Issue 261: 4xx are expected outcomes (no access, bad link) — handleError
+	// never runs for them, so don't claim we were notified; show the reason.
+	$: isClientError = status >= 400 && status < 500 && !isNotFound;
+	$: isServerError = !isNotFound && !isClientError;
+	$: title = isNotFound
+		? "We can't find that page"
+		: isClientError
+			? "We can't open that"
+			: 'Something went wrong';
 	$: body = isNotFound
 		? 'The link may be mistyped, or the page moved. Your calendar and tasks are safe.'
-		: "We've been notified automatically and will look into it. Your data is safe — try going back to your calendar.";
+		: isClientError
+			? $page.error?.message || 'This page isn’t available to you.'
+			: "We've been notified automatically and will look into it. Your data is safe — try going back to your calendar.";
+	$: bugHref = reportBugHref($page.url ? $page.url.pathname + $page.url.search : '');
 </script>
 
 <svelte:head>
@@ -49,9 +61,9 @@
 			>
 				Back to calendar
 			</a>
-			{#if !isNotFound}
+			{#if isServerError}
 				<a
-					href="/report-bug"
+					href={bugHref}
 					class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
 				>
 					Add details to the report
