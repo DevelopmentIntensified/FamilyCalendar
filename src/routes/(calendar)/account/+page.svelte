@@ -20,7 +20,10 @@
 
 	$: user = data.user;
 	$: success = form?.success;
-	$: message = form?.message;
+	// #252: requireUserAction fails with `{ error }`, other actions with `{ message }`.
+	$: message =
+		(form && 'message' in form ? form.message : undefined) ??
+		(form && 'error' in form ? form.error : undefined);
 
 	// 105: the hash names a section from the one list the sidebar renders, so the
 	// nav and the page cannot disagree about which sections exist.
@@ -74,7 +77,7 @@
 					</div>
 				{:else if form && !form.success}
 					<div class="mb-4 rounded-xl bg-red-50 p-4 text-sm text-red-800">
-						{form.message}
+						{message ?? 'Something went wrong. Please try again.'}
 						{#if 'guestNeedsClaim' in form && form.guestNeedsClaim}
 							<a href="/claim" class="ml-1 font-semibold underline"
 								>Open the save-your-calendar flow →</a

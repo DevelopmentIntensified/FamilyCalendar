@@ -1,6 +1,6 @@
 # 252 — Signed-out account form posts show an empty red banner
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane E).
 
@@ -14,9 +14,8 @@ Session expired, submit any account form -> blank red banner.
 
 ## Done
 
-(none yet)
+- `account/+page.svelte`: banner text = `form.message ?? form.error`, with a generic fallback so the banner is never blank. New `account/page.svelte.test.ts` (`{error:'Not signed in'}` renders its text; `{message}` failures unchanged).
 
 ## Needs doing
 
-- Render `form.error ?? form.message`.
-- Red test first where a seam exists (`tdd`).
+(none)
