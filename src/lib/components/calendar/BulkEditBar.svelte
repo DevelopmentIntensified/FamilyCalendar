@@ -69,6 +69,13 @@
 		onToggleMoreTools,
 		onReportPhrase
 	}: Props = $props();
+
+	// #225: Enter shares the Set button's guard — an empty Location must not
+	// wipe every selected event's location.
+	function runLocation() {
+		if (bulkBusy || selectedIds.length === 0 || !bulkLocation.trim()) return;
+		onRunBulk({ type: 'location', location: bulkLocation });
+	}
 </script>
 
 <div
@@ -166,12 +173,11 @@
 					aria-label="Set location"
 					class="w-28 rounded-lg border border-slate-300 px-2 py-2 text-xs disabled:opacity-50 sm:py-1.5"
 					disabled={bulkBusy || selectedIds.length === 0}
-					onkeydown={(e) =>
-						e.key === 'Enter' && onRunBulk({ type: 'location', location: bulkLocation })}
+					onkeydown={(e) => e.key === 'Enter' && runLocation()}
 				/>
 				<button
 					type="button"
-					onclick={() => onRunBulk({ type: 'location', location: bulkLocation })}
+					onclick={runLocation}
 					disabled={bulkBusy || selectedIds.length === 0 || !bulkLocation.trim()}
 					class="rounded-lg border border-slate-300 px-2 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:py-1.5"
 				>

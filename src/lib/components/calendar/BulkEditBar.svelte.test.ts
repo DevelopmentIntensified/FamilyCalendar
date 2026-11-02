@@ -81,4 +81,19 @@ describe('BulkEditBar', () => {
 		await fireEvent.keyDown(screen.getByLabelText('Smart instruction'), { key: 'Enter' });
 		expect(p.onRunSmart).toHaveBeenCalledOnce();
 	});
+
+	// #225: Enter on an empty Location must not wipe every selected location.
+	it.each(['', '   '])('Enter in an empty Location (%j) does nothing (#225)', async (loc) => {
+		const p = props({ bulkLocation: loc });
+		render(BulkEditBar, { props: p });
+		await fireEvent.keyDown(screen.getByLabelText('Set location'), { key: 'Enter' });
+		expect(p.onRunBulk).not.toHaveBeenCalled();
+	});
+
+	it('Enter in a filled Location sets it (#225)', async () => {
+		const p = props({ bulkLocation: 'Park' });
+		render(BulkEditBar, { props: p });
+		await fireEvent.keyDown(screen.getByLabelText('Set location'), { key: 'Enter' });
+		expect(p.onRunBulk).toHaveBeenCalledWith({ type: 'location', location: 'Park' });
+	});
 });

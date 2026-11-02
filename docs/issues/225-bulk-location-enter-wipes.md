@@ -1,6 +1,6 @@
 # 225 — Bulk bar: Enter in empty Location clears location on all selected events
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane B).
 
@@ -14,9 +14,9 @@ Select 5 events, focus Location, press Enter -> all 5 locations wiped, success t
 
 ## Done
 
-(none yet)
+- `BulkEditBar.svelte`: Enter and the Set button both call `runLocation()`, which applies the button's guard (busy / no selection / `!bulkLocation.trim()`).
+- Tests (`BulkEditBar.svelte.test.ts`): `Enter in an empty Location ("") / ("   ") does nothing (#225)` red (onRunBulk called with location '') -> green; `Enter in a filled Location sets it (#225)` guard.
 
 ## Needs doing
 
-- Guard with `bulkLocation.trim()` like the button.
-- Red test first where a seam exists (`tdd`).
+(none)
