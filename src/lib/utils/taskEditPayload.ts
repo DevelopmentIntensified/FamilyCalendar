@@ -1,4 +1,5 @@
 import type { EditDraft } from '$lib/components/tasks/EditTaskDialog.svelte';
+import { normalizeCategoryInput } from './taskCategory';
 
 /** Edit-dialog save plumbing for the tasks page (#039): pure payload build.
  * Visibility is owner-only (issue 019): the server 403s anyone else, so a
@@ -9,6 +10,7 @@ export interface EditTarget {
 	id: string;
 	userId: string;
 	assignedTo?: string | null;
+	category?: string | null;
 }
 
 // Parse the comma-separated tags input from the edit dialog into a
@@ -44,6 +46,8 @@ export interface EditPayload {
 	tags: string[];
 	visibility?: string;
 	assignmentStatus?: string | null;
+	/** #280: present only when changed; null clears. */
+	category?: string | null;
 }
 
 export function buildEditPayload(
@@ -74,5 +78,8 @@ export function buildEditPayload(
 	};
 	if (assigneeChanged) payload.assignedTo = assignedTo;
 	if (assignmentStatus !== null) payload.assignmentStatus = assignmentStatus;
+	// #280: same rule as the assignee — absent = unchanged, null = clear.
+	const category = normalizeCategoryInput(draft.category ?? '');
+	if (category !== (editing.category ?? null)) payload.category = category;
 	return { payload };
 }

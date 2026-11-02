@@ -233,9 +233,12 @@ describe('FamilyTaskBoardCard — the complete roster (dashboard.html)', () => {
 				familyId: 'fam1'
 			}
 		});
-		const headings = screen
-			.getAllByRole('heading', { level: 3 })
-			.map((h) => h.textContent?.replace(/\s+/g, ' ').replace(/^[A-Z]\s+/, '').trim());
+		const headings = screen.getAllByRole('heading', { level: 3 }).map((h) =>
+			h.textContent
+				?.replace(/\s+/g, ' ')
+				.replace(/^[A-Z]\s+/, '')
+				.trim()
+		);
 		expect(headings).toEqual(['Dad Smith · 1', 'Maya Lopez · 0']);
 	});
 });
@@ -311,5 +314,35 @@ describe('FamilyTaskBoardCard - grouped by assignee', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+});
+
+describe('FamilyTaskBoardCard category chip (#280)', () => {
+	afterEach(cleanup);
+
+	it('shows the category chip on a board row, none when null', () => {
+		const row = {
+			id: 'a',
+			title: 'Rake leaves',
+			dueDate: null,
+			completedAt: null,
+			priority: 'normal',
+			assignedTo: 'u_dad',
+			assignmentStatus: 'accepted',
+			userId: 'u_dad'
+		};
+		render(FamilyTaskBoardCard, {
+			props: {
+				tasks: [
+					{ ...row, category: 'Yard' },
+					{ ...row, id: 'b', title: 'Sweep', category: null }
+				],
+				members,
+				meId: 'u_me',
+				familyId: 'fam1'
+			}
+		});
+		const chips = screen.getAllByTestId('category-chip');
+		expect(chips.map((c) => c.textContent?.trim())).toEqual(['Yard']);
 	});
 });

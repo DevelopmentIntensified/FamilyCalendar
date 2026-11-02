@@ -255,4 +255,17 @@ describe('TaskRow', () => {
 		// SAFETY: same — the delete affordance is a <button> in TaskRow.
 		expect((screen.getByLabelText('Delete task') as HTMLButtonElement).disabled).toBe(true);
 	});
+
+	describe('category chip (#280)', () => {
+		it('puts the category on the one meta line', () => {
+			render(TaskRow, { props: props({ task: { ...baseTask, category: 'Work', tags: ['x'] } }) });
+			const meta = screen.getByTestId('task-meta');
+			const chip = meta.querySelector('[data-slot="category"]');
+			expect(chip?.textContent?.trim()).toBe('Work');
+		});
+		it('has no chip when the category is null', () => {
+			render(TaskRow, { props: props({ task: { ...baseTask, category: null } }) });
+			expect(screen.getByTestId('task-meta').querySelector('[data-slot="category"]')).toBeNull();
+		});
+	});
 });

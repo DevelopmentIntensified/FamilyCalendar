@@ -30,4 +30,17 @@ describe('FamilyCompletedTaskList', () => {
 		expect(screen.getByText('#yard')).toBeInTheDocument();
 		expect(screen.getByText('Bo')).toBeInTheDocument();
 	});
+
+	it('shows a category chip per row (#280)', () => {
+		render(FamilyCompletedTaskList, {
+			props: {
+				tasks: [
+					{ id: 'a', title: 'A', tags: [], category: 'Home' },
+					{ id: 'b', title: 'B', tags: [], category: null }
+				]
+			}
+		});
+		const chips = screen.getAllByTestId('category-chip');
+		expect(chips.map((c) => c.textContent?.trim())).toEqual(['Home']);
+	});
 });

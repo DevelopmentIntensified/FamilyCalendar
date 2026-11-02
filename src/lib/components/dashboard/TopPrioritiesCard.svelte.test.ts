@@ -111,8 +111,12 @@ describe('TopPrioritiesCard - recurring vs one-off split (issue 203)', () => {
 
 	it('resolves both buckets into labelled groups with counts', () => {
 		render(TopPrioritiesCard, { props: board() });
-		expect(within(screen.getByTestId('top3-one-off')).getByTestId('top3-count')).toHaveTextContent('1');
-		expect(within(screen.getByTestId('top3-recurring')).getByTestId('top3-count')).toHaveTextContent('2');
+		expect(within(screen.getByTestId('top3-one-off')).getByTestId('top3-count')).toHaveTextContent(
+			'1'
+		);
+		expect(
+			within(screen.getByTestId('top3-recurring')).getByTestId('top3-count')
+		).toHaveTextContent('2');
 	});
 
 	it('a recurring row never lands in the one-off group, nor the reverse', () => {
@@ -127,7 +131,9 @@ describe('TopPrioritiesCard - recurring vs one-off split (issue 203)', () => {
 	});
 
 	it('the empty bucket never prints a label claiming rows', () => {
-		render(TopPrioritiesCard, { props: { tasks: [{ ...base, recurrenceFrequency: 'daily' }], meId: 'u_me' } });
+		render(TopPrioritiesCard, {
+			props: { tasks: [{ ...base, recurrenceFrequency: 'daily' }], meId: 'u_me' }
+		});
 		expect(screen.queryByTestId('top3-one-off')).toBeNull();
 		expect(screen.getByTestId('top3-recurring')).toBeInTheDocument();
 	});
@@ -158,5 +164,21 @@ describe('TopPrioritiesCard - charm empty state + toast voice', () => {
 				message: 'Priority for "Wash the car" set to High.'
 			})
 		);
+	});
+});
+
+describe('TopPrioritiesCard category chip (#280)', () => {
+	it('shows the category chip, none when null', () => {
+		render(TopPrioritiesCard, {
+			props: {
+				tasks: [
+					{ ...base, id: 'a', category: 'Work' },
+					{ ...base, id: 'b', title: 'Other', category: null }
+				],
+				meId: 'u_me'
+			}
+		});
+		const chips = screen.getAllByTestId('category-chip');
+		expect(chips.map((c) => c.textContent?.trim())).toEqual(['Work']);
 	});
 });

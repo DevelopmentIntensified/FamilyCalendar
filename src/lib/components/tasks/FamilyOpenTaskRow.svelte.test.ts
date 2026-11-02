@@ -82,4 +82,16 @@ describe('FamilyOpenTaskRow', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
 		expect(h.onDelete).toHaveBeenCalledOnce();
 	});
+
+	it('shows the category chip (#280), none when null', () => {
+		const { unmount } = render(FamilyOpenTaskRow, {
+			props: { ...base, ...handlers(), task: { ...task, category: 'Errands' } }
+		});
+		expect(screen.getByTestId('category-chip').textContent?.trim()).toBe('Errands');
+		unmount();
+		render(FamilyOpenTaskRow, {
+			props: { ...base, ...handlers(), task: { ...task, category: null } }
+		});
+		expect(screen.queryByTestId('category-chip')).toBeNull();
+	});
 });

@@ -11,7 +11,8 @@ const draft: EditDraft = {
 	assignedTo: 'u2',
 	priority: 'high',
 	visibility: 'public',
-	tags: 'Yard, #yard, , SHED'
+	tags: 'Yard, #yard, , SHED',
+	category: ''
 };
 
 describe('parseEditTags', () => {
@@ -24,9 +25,7 @@ describe('parseEditTags', () => {
 describe('inputToIso', () => {
 	it('maps empty to null and dates to end-of-day ISO', () => {
 		expect(inputToIso('')).toBeNull();
-		expect(inputToIso('2026-09-10')).toBe(
-			new Date(2026, 8, 10, 23, 59, 0, 0).toISOString()
-		);
+		expect(inputToIso('2026-09-10')).toBe(new Date(2026, 8, 10, 23, 59, 0, 0).toISOString());
 	});
 });
 
@@ -91,4 +90,31 @@ describe('buildEditPayload', () => {
 		const same = buildEditPayload({ ...editing, assignedTo: 'u2' }, draft, 'u1');
 		expect('assignmentStatus' in same.payload).toBe(false);
 	});
+
+	// #280: category follows the assignee rule — absent = unchanged,
+	// null = clear, string = set.
+	const categoryCases: [string, string | null | undefined, string, string | null | 'absent'][] = [
+		// label, stored, draft input, expected wire value
+		['unchanged set value is omitted', 'Work', 'Work', 'absent'],
+		['unchanged set value with padding is omitted', 'Work', '  Work ', 'absent'],
+		['unchanged empty is omitted', null, '', 'absent'],
+		['missing stored + blank draft is omitted', undefined, '   ', 'absent'],
+		['new value is sent trimmed', null, '  Deep Work ', 'Deep Work'],
+		['changed value is sent', 'Work', 'Home', 'Home'],
+		['case change is sent', 'work', 'Work', 'Work'],
+		['cleared value sends null', 'Work', '', null],
+		['whitespace-only clears to null', 'Work', '   ', null]
+	];
+	for (const [label, stored, drafted, expected] of categoryCases) {
+		it(`category: ${label}`, () => {
+			const editing = { id: 't1', userId: 'u1', assignedTo: 'u2', category: stored };
+			const out = buildEditPayload(editing, { ...draft, category: drafted }, 'u1');
+			if (expected === 'absent') {
+				expect('category' in out.payload).toBe(false);
+			} else {
+				expect(out.payload.category).toBe(expected);
+				expect(JSON.parse(JSON.stringify(out.payload)).category).toBe(expected);
+			}
+		});
+	}
 });

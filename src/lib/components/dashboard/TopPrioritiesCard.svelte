@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CategoryChip from '$lib/components/tasks/CategoryChip.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { showRecurringCompleteFeedback } from '$lib/client/taskFeedback';
 	import { pushToast } from '$lib/client/toasts';
@@ -20,6 +21,8 @@
 		// Issue 021 parity: scoping fields ride along in the task JSON.
 		familyId?: string | null;
 		visibility?: 'public' | 'private';
+		/** #280 category name. */
+		category?: string | null;
 	}[];
 	export let meId: string;
 
@@ -189,6 +192,7 @@
 								{task.visibility === 'private' ? '🔒 Private' : '🌐 Public'}
 							</span>
 						{/if}
+						<CategoryChip name={task.category} />
 					</div>
 				</div>
 				{#if task.dueDate}

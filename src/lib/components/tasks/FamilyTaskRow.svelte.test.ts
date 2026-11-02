@@ -101,4 +101,17 @@ describe('FamilyTaskRow', () => {
 		expect(screen.queryByLabelText('Complete task')).toBeNull();
 		expect(screen.queryByLabelText('Delete task')).toBeNull();
 	});
+
+	// #280: every variant carries the category chip; none when null.
+	for (const variant of ['open', 'completed', 'public'] as const) {
+		it(`${variant}: shows the category chip, none when null`, () => {
+			const { unmount } = render(FamilyTaskRow, {
+				props: props({ variant, task: { ...open, category: 'Yard work' } })
+			});
+			expect(screen.getByTestId('category-chip').textContent?.trim()).toBe('Yard work');
+			unmount();
+			render(FamilyTaskRow, { props: props({ variant, task: { ...open, category: null } }) });
+			expect(screen.queryByTestId('category-chip')).toBeNull();
+		});
+	}
 });

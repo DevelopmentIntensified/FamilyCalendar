@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CategoryChip from './CategoryChip.svelte';
 	import { formatDue, freqNoun } from '$lib/utils/taskDisplay';
 
 	/** Structural row shape — the family tasks page passes its local TaskItem. */
@@ -7,6 +8,7 @@
 		title: string;
 		notes: string | null;
 		tags?: string[];
+		category?: string | null;
 		dueDate: string | null;
 		completedAt?: string | null;
 		recurrenceFrequency?: string | null;
@@ -86,8 +88,9 @@
 				{/if}
 				<span>by {task.creatorFirstName ?? 'a family member'}</span>
 			</div>
-			{#if task.tags?.length}
+			{#if task.tags?.length || task.category}
 				<div class="mt-1 flex flex-wrap items-center gap-1">
+					<CategoryChip name={task.category} />
 					{#each task.tags as tag (tag)}
 						<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
 							>#{tag}</span
@@ -121,8 +124,9 @@
 		</button>
 		<div class="min-w-0 flex-1">
 			<p class="truncate text-sm text-slate-400 line-through">{task.title}</p>
-			{#if task.tags?.length}
+			{#if task.tags?.length || task.category}
 				<div class="mt-1 flex flex-wrap items-center gap-1">
+					<CategoryChip name={task.category} muted />
 					{#each task.tags as tag (tag)}
 						<span
 							class="rounded-full bg-sky-100/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-600"
@@ -197,8 +201,9 @@
 			{:else if task.notes}
 				<p class="truncate text-xs text-slate-500">{task.notes}</p>
 			{/if}
-			{#if task.tags?.length}
+			{#if task.tags?.length || task.category}
 				<div class="mt-1 flex flex-wrap items-center gap-1">
+					<CategoryChip name={task.category} />
 					{#each task.tags as tag (tag)}
 						<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
 							>#{tag}</span

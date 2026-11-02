@@ -22,6 +22,7 @@
 		userId: string;
 		eventTitle?: string | null;
 		tags?: string[];
+		category?: string | null;
 	}
 
 	interface Props {
@@ -83,7 +84,17 @@
 	 * ONE `flex-nowrap` element of ONE height, joined by the prototype's `·`.
 	 */
 	interface MetaSlot {
-		kind: 'due' | 'late' | 'recur' | 'event' | 'note' | 'tag' | 'priority' | 'family' | 'who';
+		kind:
+			| 'due'
+			| 'late'
+			| 'recur'
+			| 'event'
+			| 'note'
+			| 'category'
+			| 'tag'
+			| 'priority'
+			| 'family'
+			| 'who';
 		text: string;
 		/** Only the date grows and truncates; everything else is `flex: none`. */
 		grow?: boolean;
@@ -106,6 +117,8 @@
 		} else if (task.notes) {
 			out.push({ kind: 'note', text: task.notes, grow: true });
 		}
+		// #280: the category leads the chips; nothing when null/blank.
+		if (task.category?.trim()) out.push({ kind: 'category', text: task.category.trim() });
 		for (const tag of task.tags ?? []) out.push({ kind: 'tag', text: tag });
 		// Only a priority that is not normal, and the dot travels WITH the label
 		// as one slot so the dot cannot read as a stray separator.
@@ -159,9 +172,8 @@
 					<span data-slot="sep" class="shrink-0 text-slate-300" aria-hidden="true">·</span>
 				{/if}
 				{#if slot.kind === 'due'}
-					<span
-						data-slot="due"
-						class="min-w-0 truncate {late ? 'font-bold text-red-700' : ''}">{slot.text}</span
+					<span data-slot="due" class="min-w-0 truncate {late ? 'font-bold text-red-700' : ''}"
+						>{slot.text}</span
 					>
 				{:else if slot.kind === 'late'}
 					<span
@@ -197,6 +209,12 @@
 					>
 				{:else if slot.kind === 'note'}
 					<span data-slot="note" class="min-w-0 truncate text-slate-500">{slot.text}</span>
+				{:else if slot.kind === 'category'}
+					<span
+						data-slot="category"
+						class="inline-flex h-[1.125rem] max-w-[8rem] shrink-0 items-center truncate rounded-full bg-teal-100 px-[0.4375rem] text-[0.625rem] font-medium leading-none text-teal-800"
+						title="Category: {slot.text}">{slot.text}</span
+					>
 				{:else if slot.kind === 'tag'}
 					<span
 						data-slot="tag"
@@ -211,7 +229,8 @@
 					>
 						<span
 							class="h-2 w-2 shrink-0 rounded-full {priorityDot(task.priority ?? 'normal')}"
-							aria-hidden="true"></span>{slot.text}</span
+							aria-hidden="true"
+						></span>{slot.text}</span
 					>
 				{:else if slot.kind === 'family'}
 					<span
@@ -277,57 +296,57 @@
 				</span>
 			{/if}
 		{/if}
-	{#if task.recurrenceFrequency && !task.completedAt}
-		<button
-			type="button"
-			onclick={onAdvance}
-			disabled={busy}
-			class="pointer-fine:opacity-40 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500 focus-visible:opacity-100 active:bg-purple-100"
-			title="Skip this occurrence (rolls to next)"
-			aria-label="Skip to next occurrence"
-		>
-			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-			</svg>
-		</button>
-	{/if}
-	{#if confirmDelete}
-		<div class="flex shrink-0 items-center gap-1.5">
-			<span class="text-xs font-medium text-red-600">Delete?</span>
+		{#if task.recurrenceFrequency && !task.completedAt}
 			<button
 				type="button"
-				onclick={onDelete}
+				onclick={onAdvance}
 				disabled={busy}
-				class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+				class="pointer-fine:opacity-40 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-purple-100 hover:text-purple-500 focus-visible:opacity-100 active:bg-purple-100"
+				title="Skip this occurrence (rolls to next)"
+				aria-label="Skip to next occurrence"
 			>
-				{busy ? 'Deleting…' : 'Yes'}
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+				</svg>
 			</button>
+		{/if}
+		{#if confirmDelete}
+			<div class="flex shrink-0 items-center gap-1.5">
+				<span class="text-xs font-medium text-red-600">Delete?</span>
+				<button
+					type="button"
+					onclick={onDelete}
+					disabled={busy}
+					class="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+				>
+					{busy ? 'Deleting…' : 'Yes'}
+				</button>
+				<button
+					type="button"
+					onclick={onCancelDelete}
+					disabled={busy}
+					class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+				>
+					No
+				</button>
+			</div>
+		{:else}
 			<button
 				type="button"
-				onclick={onCancelDelete}
+				onclick={onAskDelete}
 				disabled={busy}
-				class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+				class="pointer-fine:opacity-40 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 focus-visible:opacity-100 active:bg-red-50"
+				aria-label="Delete task"
 			>
-				No
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+					/>
+				</svg>
 			</button>
-		</div>
-	{:else}
-		<button
-			type="button"
-			onclick={onAskDelete}
-			disabled={busy}
-			class="pointer-fine:opacity-40 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 focus-visible:opacity-100 active:bg-red-50"
-			aria-label="Delete task"
-		>
-			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-				/>
-			</svg>
-		</button>
 		{/if}
 	</div>
 </div>

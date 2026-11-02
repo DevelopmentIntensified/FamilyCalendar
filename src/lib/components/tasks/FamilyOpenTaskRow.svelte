@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CategoryChip from './CategoryChip.svelte';
 	import { formatDue } from '$lib/utils/taskDisplay';
 	import { isOverdue } from '$lib/utils/priorityTone';
 	import { nameOf } from '$lib/utils/familyTaskActions';
@@ -16,6 +17,7 @@
 		userId: string;
 		creatorFirstName?: string | null;
 		tags?: string[];
+		category?: string | null;
 	}
 
 	interface Props {
@@ -104,8 +106,9 @@
 			{/if}
 			<span>by {nameOf(task.creatorFirstName, null, 'family')}</span>
 		</div>
-		{#if task.tags?.length}
+		{#if task.tags?.length || task.category}
 			<div class="mt-1 flex flex-wrap items-center gap-1">
+				<CategoryChip name={task.category} />
 				{#each task.tags as tag (tag)}
 					<span class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
 						>#{tag}</span

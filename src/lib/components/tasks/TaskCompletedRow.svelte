@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CategoryChip from './CategoryChip.svelte';
 	import { formatDue, freqNoun } from '$lib/utils/taskDisplay';
 
 	interface Props {
@@ -9,6 +10,7 @@
 			recurrenceFrequency?: string | null;
 			eventTitle?: string | null;
 			tags?: string[];
+			category?: string | null;
 		};
 		busy: boolean;
 		confirmDelete: boolean;
@@ -56,8 +58,9 @@
 			every {freqNoun(task.recurrenceFrequency) ?? task.recurrenceFrequency}
 		</span>
 	{/if}
-	{#if (task.tags ?? []).length > 0}
+	{#if (task.tags ?? []).length > 0 || task.category}
 		<div class="flex flex-wrap gap-1">
+			<CategoryChip name={task.category} muted />
 			{#each task.tags ?? [] as tag (tag)}
 				<span class="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
 					>#{tag}</span

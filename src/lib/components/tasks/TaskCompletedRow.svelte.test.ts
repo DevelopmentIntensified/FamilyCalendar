@@ -53,4 +53,14 @@ describe('TaskCompletedRow', () => {
 		await fireEvent.click(screen.getByText('Yes'));
 		expect(confirm.onDelete).toHaveBeenCalledOnce();
 	});
+
+	it('shows the category chip (#280), none when null', () => {
+		const { unmount } = render(TaskCompletedRow, {
+			props: props({ task: { ...baseTask, category: 'Work' } })
+		});
+		expect(screen.getByTestId('category-chip').textContent?.trim()).toBe('Work');
+		unmount();
+		render(TaskCompletedRow, { props: props({ task: { ...baseTask, category: null } }) });
+		expect(screen.queryByTestId('category-chip')).toBeNull();
+	});
 });

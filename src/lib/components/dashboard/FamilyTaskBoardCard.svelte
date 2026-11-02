@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CategoryChip from '$lib/components/tasks/CategoryChip.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import MentionInput from '$lib/components/MentionInput.svelte';
 	import TaskQuickAddHelp from '$lib/components/TaskQuickAddHelp.svelte';
@@ -23,6 +24,8 @@
 		creatorFirstName?: string | null;
 		recurrenceFrequency?: string | null;
 		recurrenceInterval?: number | null;
+		/** #280 category name. */
+		category?: string | null;
 	}[];
 	export let members: { userId: string; firstName: string; lastName: string }[];
 	export let meId: string;
@@ -258,6 +261,7 @@
 									title="{task.priority} priority"
 								></span>
 								<p class="min-w-0 flex-1 truncate text-sm text-slate-800">{task.title}</p>
+								<CategoryChip name={task.category} />
 								{#if task.dueDate}
 									<span
 										class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium {dueTone(

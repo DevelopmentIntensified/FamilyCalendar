@@ -10,12 +10,15 @@
 		assignedTo: string;
 		priority: string;
 		visibility: 'public' | 'private';
+		/** #280: category name as typed ('' = none). */
+		category: string;
 	}
 </script>
 
 <script lang="ts">
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { freqNoun } from '$lib/utils/taskDisplay';
+	import CategoryField from './CategoryField.svelte';
 
 	interface TaskLike {
 		title: string;
@@ -27,6 +30,7 @@
 		assignedTo?: string | null;
 		priority?: string | null;
 		visibility?: string | null;
+		category?: string | null;
 		userId: string;
 	}
 
@@ -37,9 +41,19 @@
 		saving: boolean;
 		onSave: (draft: EditDraft) => void;
 		onClose: () => void;
+		/** #280: the viewer's category names (suggestions; free entry allowed). */
+		categories?: string[];
 	}
 
-	let { task, currentUserId, familyRoster, saving, onSave, onClose }: Props = $props();
+	let {
+		task,
+		currentUserId,
+		familyRoster,
+		saving,
+		onSave,
+		onClose,
+		categories = []
+	}: Props = $props();
 
 	const FREQ_OPTIONS = [
 		{ value: '', label: "Doesn't repeat" },
@@ -66,7 +80,8 @@
 		interval: task.recurrenceInterval ?? 1,
 		assignedTo: task.assignedTo ?? '',
 		priority: task.priority ?? 'normal',
-		visibility: task.visibility === 'private' ? 'private' : 'public'
+		visibility: task.visibility === 'private' ? 'private' : 'public',
+		category: task.category ?? ''
 	});
 
 	let isOwner = $derived(task.userId === currentUserId);
@@ -143,6 +158,13 @@
 				/>
 				<p class="mt-1 text-xs text-slate-400">Separate tags with commas.</p>
 			</div>
+
+			<CategoryField
+				id="edit-category"
+				value={draft.category}
+				{categories}
+				onChange={(v) => (draft.category = v)}
+			/>
 
 			<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
 				<div>

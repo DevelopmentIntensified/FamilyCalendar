@@ -1,4 +1,5 @@
 import { parseTaskQuickAdd } from '$lib/utils/taskQuickAdd';
+import { normalizeCategoryInput } from '$lib/utils/taskCategory';
 
 /**
  * Shared task quick-add submit (#039): the tasks page card and the event
@@ -19,6 +20,8 @@ export interface QuickAddInput {
 	visibilityFallback: string;
 	familyId: string | null;
 	members: RosterMember[];
+	/** #280: category name; blank/absent is not sent. */
+	category?: string | null;
 }
 
 export type QuickAddResult =
@@ -56,7 +59,9 @@ export async function submitTaskQuickAdd(input: QuickAddInput): Promise<QuickAdd
 				familyId: parsed.familyTask ? input.familyId : null,
 				tags: parsed.tags,
 				recurrenceFrequency: parsed.recurrenceFrequency,
-				recurrenceInterval: parsed.recurrenceInterval
+				recurrenceInterval: parsed.recurrenceInterval,
+				// Undefined is dropped by JSON.stringify — blank never reaches the wire.
+				category: normalizeCategoryInput(input.category ?? '') ?? undefined
 			})
 		});
 		if (!res.ok) {

@@ -91,4 +91,30 @@ describe('submitTaskQuickAdd', () => {
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error).toBe('Bad date');
 	});
+
+	describe('category (#280)', () => {
+		const base = {
+			title: 'Buy milk',
+			dueDateFallback: null,
+			visibilityFallback: 'public',
+			familyId: null,
+			members
+		};
+		const sent = () =>
+			// SAFETY: the stubbed fetch is called with (url, { body }) in submitTaskQuickAdd.
+			JSON.parse(vi.mocked(fetch).mock.calls[0]?.[1]?.body as string);
+
+		it('sends a set category trimmed', async () => {
+			await submitTaskQuickAdd({ ...base, category: '  Deep Work ' });
+			expect(sent().category).toBe('Deep Work');
+		});
+		it('omits a blank category', async () => {
+			await submitTaskQuickAdd({ ...base, category: '   ' });
+			expect('category' in sent()).toBe(false);
+		});
+		it('omits category when not given', async () => {
+			await submitTaskQuickAdd(base);
+			expect('category' in sent()).toBe(false);
+		});
+	});
 });

@@ -93,4 +93,51 @@ describe('EditTaskDialog on a short screen', () => {
 		// The Save row rides the scroll body, so it is always reachable.
 		expect(screen.getByText('Save').closest('form')).toBe(form);
 	});
+
+	describe('category field (#280)', () => {
+		it('prefills the task category and offers the viewer list as suggestions', () => {
+			render(EditTaskDialog, {
+				props: props({ task: { ...task, category: 'Work' }, categories: ['Errands', 'Work'] })
+			});
+			// SAFETY: the Category field is an <input> in EditTaskDialog.
+			const input = screen.getByLabelText('Category') as HTMLInputElement;
+			expect(input.value).toBe('Work');
+			const listId = input.getAttribute('list');
+			expect(listId).toBeTruthy();
+			const options = [...document.querySelectorAll(`datalist#${listId} option`)].map(
+				// SAFETY: datalist children are <option> elements.
+				(o) => (o as HTMLOptionElement).value
+			);
+			expect(options).toEqual(['Errands', 'Work']);
+		});
+
+		it('allows free entry', async () => {
+			const p = props({ categories: ['Work'] });
+			render(EditTaskDialog, { props: p });
+			await fireEvent.input(screen.getByLabelText('Category'), {
+				target: { value: 'Deep Work' }
+			});
+			await fireEvent.click(screen.getByText('Save'));
+			expect(p.onSave.mock.calls[0][0]).toMatchObject({ category: 'Deep Work' });
+		});
+
+		it('clear empties the field so the save payload sends null', async () => {
+			const p = props({ task: { ...task, category: 'Work' }, categories: ['Work'] });
+			render(EditTaskDialog, { props: p });
+			await fireEvent.click(screen.getByRole('button', { name: 'Clear category' }));
+			// SAFETY: the Category field is an <input> in EditTaskDialog.
+			expect((screen.getByLabelText('Category') as HTMLInputElement).value).toBe('');
+			await fireEvent.click(screen.getByText('Save'));
+			const draft = p.onSave.mock.calls[0][0];
+			expect(draft.category).toBe('');
+			const { buildEditPayload } = await import('$lib/utils/taskEditPayload');
+			const { payload } = buildEditPayload({ ...task, category: 'Work' }, draft, 'u1');
+			expect(payload.category).toBeNull();
+		});
+
+		it('hides the clear button when empty', () => {
+			render(EditTaskDialog, { props: props() });
+			expect(screen.queryByRole('button', { name: 'Clear category' })).toBeNull();
+		});
+	});
 });
