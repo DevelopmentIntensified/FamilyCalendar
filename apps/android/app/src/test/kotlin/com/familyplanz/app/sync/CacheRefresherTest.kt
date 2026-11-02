@@ -96,6 +96,14 @@ class CacheRefresherTest {
 	}
 
 	@Test
+	fun `horizon crossing a month boundary also refreshes next month (issue 271)`() = runBlocking {
+		val source = FakeSource()
+		val late = CacheRefresher(source, tokenProvider = { "fp_x" }, today = { LocalDate.of(2026, 12, 20) })
+		assertEquals(RefreshOutcome.REFRESHED, late.refresh())
+		assertEquals(listOf("tasks", "events-2026-12", "events-2027-1"), source.calls)
+	}
+
+	@Test
 	fun `tasks network failure still refreshes events`() = runBlocking {
 		val source = FakeSource(tasksResult = ApiResult.Err(ApiError.Network("down")))
 		assertEquals(RefreshOutcome.RETRY, refresher(source, "fp_x").refresh())

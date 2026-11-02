@@ -4,6 +4,7 @@ import com.familyplanz.app.data.ApiError
 import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.data.EventDto
 import com.familyplanz.app.data.TaskDto
+import com.familyplanz.app.reminders.ReminderPlanner
 import java.time.LocalDate
 
 /** The two repository reads the background job needs (write-through caches them). */
@@ -27,13 +28,16 @@ class CacheRefresher(
 	suspend fun refresh(): RefreshOutcome {
 		if (tokenProvider().isNullOrBlank()) return RefreshOutcome.SKIPPED_NO_TOKEN
 		val tasks = outcomeOf(source.allTasks())
-		val events = if (tasks == RefreshOutcome.UNAUTHORIZED) tasks else currentMonthOutcome()
+		val events = if (tasks == RefreshOutcome.UNAUTHORIZED) tasks else horizonMonthsOutcome()
 		return PRECEDENCE.first { it == tasks || it == events }
 	}
 
-	private suspend fun currentMonthOutcome(): RefreshOutcome {
-		val month = today()
-		return outcomeOf(source.monthEvents(month.year, month.monthValue))
+	/** Current month, plus next month when the 14-day reminder horizon crosses into it (#271). */
+	private suspend fun horizonMonthsOutcome(): RefreshOutcome {
+		val outcomes = ReminderPlanner.monthsToCover(today()).map {
+			outcomeOf(source.monthEvents(it.year, it.monthValue))
+		}
+		return PRECEDENCE.first { it in outcomes }
 	}
 
 	private fun outcomeOf(result: ApiResult<*>): RefreshOutcome = when (result) {
