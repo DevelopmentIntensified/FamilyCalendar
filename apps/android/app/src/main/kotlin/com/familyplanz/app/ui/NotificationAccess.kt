@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 
-/** Whether event reminders can reach the user (issue #271). */
+/** Whether reminders and push notifications can reach the user (issues #271, #273, #286). */
 enum class NotificationAccess { GRANTED, ASK, BLOCKED }
 
 /**
@@ -47,14 +47,14 @@ fun ReminderPermissionBanner(
 	Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
 		Column(modifier = Modifier.padding(12.dp)) {
 			Text(
-				text = if (blocked) "Event reminders are off" else "Get event reminders",
+				text = if (blocked) "Notifications are off" else "Get reminders and family updates",
 				style = MaterialTheme.typography.titleSmall,
 			)
 			Text(
 				text = if (blocked) {
-					"Notifications are blocked, so reminders won't show. Turn them on in Settings."
+					"Notifications are blocked, so event reminders and family updates won't show. Turn them on in Settings."
 				} else {
-					"Family Planz alerts you before events start, right on this phone."
+					"Family Planz alerts you before events start and when your family changes plans or hands you a task."
 				},
 				style = MaterialTheme.typography.bodyMedium,
 			)

@@ -1,6 +1,6 @@
 # 286 — Android: notification permission banner wording covers push, not just reminders
 
-Status: open
+Status: done
 
 Source: 2026-11-02 leftovers pass.
 
@@ -10,8 +10,8 @@ Source: 2026-11-02 leftovers pass.
 
 ## Done
 
-(none yet)
+- Banner now reads "Get reminders and family updates" / "Notifications are off", body names reminders + family plan changes + handed tasks (`ui/NotificationAccess.kt`). `ReminderPermissionUiTest` updated first (red), green after; `:app:mobileGate` green.
 
 ## Needs doing
 
-- Reword to cover reminders and family updates; update its UI test.
+(none)

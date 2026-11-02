@@ -36,7 +36,7 @@ class ReminderPermissionUiTest {
 	@Test
 	fun ask_state_explains_and_requests_permission() {
 		show(NotificationAccess.ASK)
-		rule.onNodeWithText("Get event reminders").assertExists()
+		rule.onNodeWithText("Get reminders and family updates").assertExists()
 		rule.onNodeWithText("Allow notifications").performClick()
 		assertEquals(listOf("allow"), taps)
 	}
@@ -44,7 +44,7 @@ class ReminderPermissionUiTest {
 	@Test
 	fun blocked_state_says_reminders_are_off_and_links_settings() {
 		show(NotificationAccess.BLOCKED)
-		rule.onNodeWithText("Event reminders are off").assertExists()
+		rule.onNodeWithText("Notifications are off").assertExists()
 		rule.onNodeWithText("Open settings").performClick()
 		rule.onNodeWithText("Not now").performClick()
 		assertEquals(listOf("settings", "dismiss"), taps)
