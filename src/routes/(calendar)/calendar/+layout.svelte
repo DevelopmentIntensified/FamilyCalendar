@@ -86,6 +86,12 @@
 	// /calendar GET (#200).
 	let offlineVisible = $state(false);
 	const bannerCount = $derived((offlineVisible ? 1 : 0) + (showTopNotice ? 1 : 0));
+	// Issue 259: banners wrap to several lines on phones (verify form, offline
+	// copy), so <main> is offset by the stack's measured height. bind: on a
+	// plain DOM element only — never on a component (#200). Before the first
+	// measurement (SSR / pre-hydration) fall back to the old one-line guess.
+	let bannerHeight = $state(0);
+	const bannerOffset = $derived(bannerHeight || (bannerCount > 0 ? 40 : 0));
 	async function submitVerifyCode() {
 		if (!verifyCode.trim() || verifyBusy) return;
 		verifyBusy = true;
@@ -136,6 +142,8 @@
 	offset so they can never overlap. -->
 	<div
 		class="fixed left-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 flex w-full flex-col print:hidden"
+		data-testid="calendar-banner-stack"
+		bind:clientHeight={bannerHeight}
 	>
 		<OfflineBanner stacked={true} onVisibleChange={(v) => (offlineVisible = v)} />
 		{#if justClaimed && !claimedDismissed}
@@ -256,9 +264,8 @@
 		{/if}
 	</div>
 	<main
-		class="flex-grow pb-28 pt-[calc(4rem+env(safe-area-inset-top))] md:pb-24 {bannerCount > 0
-			? 'mt-10'
-			: ''} print:!mt-0 print:min-h-0 print:!pb-0 print:!pt-0"
+		class="flex-grow pb-28 pt-[calc(4rem+env(safe-area-inset-top))] md:pb-24 print:!mt-0 print:min-h-0 print:!pb-0 print:!pt-0"
+		style:margin-top={bannerOffset ? `${bannerOffset}px` : undefined}
 	>
 		<div in:fade|local={{ duration: 100 }}>
 			{@render children?.()}

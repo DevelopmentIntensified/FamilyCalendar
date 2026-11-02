@@ -1,6 +1,6 @@
 # 259 — Calendar banners cover the toolbar (fixed mt-10 offset)
 
-Status: open
+Status: done
 
 Source: repo bug audit 2026-11-01 (lane G).
 
@@ -14,9 +14,10 @@ Unverified user / offline at 375px -> toolbar hidden under banner.
 
 ## Done
 
-(none yet)
+- `(calendar)/calendar/+layout.svelte`: banner stack (plain `<div>`, per #200) gets `bind:clientHeight={bannerHeight}`; `<main>` drops the fixed `mt-10` and uses `style:margin-top` = measured height (falls back to 40px pre-measure/SSR when a banner shows). `print:!mt-0` still wins on print.
+- SSR sanity: compiled server output has no settle loop (no component `bind:`).
+- Red-green: new `src/routes/(calendar)/calendar/layout.svelte.test.ts` (stubs ResizeObserver, sets stack clientHeight 132 -> main margin-top 132px, no `mt-10`).
 
 ## Needs doing
 
-- Measure stack (bind:clientHeight on a plain div, per #200) and use as margin-top.
-- Red test first where a seam exists (`tdd`).
+(none)
