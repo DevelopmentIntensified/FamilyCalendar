@@ -280,7 +280,8 @@ local reminders. RSVPs do not send it. Dead tokens (FCM 404 / `UNREGISTERED`
 ### Owner setup (one-time)
 
 1. Firebase console → create/choose the project, add the Android app
-   (package id) and download `google-services.json` for the app build (#273).
+   (package id `com.familyplanz.app`) and copy its four client values into
+   `apps/android/firebase.properties` (#273, see `docs/guides/android-push.md`).
 2. Project settings → Service accounts → Generate new private key.
 3. Vercel → Project → Settings → Environment Variables:
    `FCM_SERVICE_ACCOUNT_JSON` = the JSON, ideally base64
