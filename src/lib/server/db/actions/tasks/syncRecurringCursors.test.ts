@@ -212,6 +212,45 @@ describe('syncRecurringCursors', () => {
 		}
 	});
 
+	/**
+	 * #275 (prod report 2026-11-01 23:08Z): a Chicago user on Nov 1 evening
+	 * saw the daily task still dated Oct 31. Server is UTC, so the server day
+	 * (Nov 1 UTC, from 00:00Z = Oct 31 19:00 CDT) treated Oct 31 23:59 CDT as
+	 * not yet overdue. The user's day decides: pin to Nov 1 23:59 CDT.
+	 */
+	it('Chicago Nov 1 evening, server UTC: Oct 31 cursor pins to today = Nov 1 (#275)', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-11-01T23:08:00Z'));
+		try {
+			const zone = 'America/Chicago';
+			const oct31End = DateTime.fromISO('2026-10-31T23:59', { zone }).toUTC().toISO()!;
+			state.queue = [[{ id: 'daily-1', dueDate: oct31End }]];
+			await syncRecurringCursors('me-1', null, zone);
+
+			expect(state.updateCount).toBe(1);
+			const pinned = DateTime.fromISO(String(state.updatePatch!.dueDate)).setZone(zone);
+			expect(pinned.toISODate()).toBe('2026-11-01');
+			expect(pinned.toFormat('HH:mm')).toBe('23:59');
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('Chicago Nov 1 evening: a cursor already at Nov 1 23:59 CDT stays put (#275)', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-11-01T23:08:00Z'));
+		try {
+			const zone = 'America/Chicago';
+			const nov1End = DateTime.fromISO('2026-11-01T23:59', { zone }).toUTC().toISO()!;
+			state.queue = [[{ id: 'daily-1', dueDate: nov1End }]];
+			await syncRecurringCursors('me-1', null, zone);
+
+			expect(state.updateCount).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('issues no update when nothing is overdue', async () => {
 		state.queue = [[{ id: 'fresh-1', dueDate: '2099-09-02T23:59:00.000Z' }]];
 		await syncRecurringCursors('me-1', null);

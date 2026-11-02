@@ -9,6 +9,7 @@ import {
 	type UrgencyBucket,
 	type UrgencyTask
 } from './taskUrgency';
+import { formatDue } from './taskDisplay';
 
 /** A fixed local "now" (2026-09-30, 10:00) so every offset below is exact. */
 const NOW = new Date(2026, 8, 30, 10, 0, 0);
@@ -145,5 +146,40 @@ describe('bucketCounts', () => {
 
 	it('is all zeroes on an empty list', () => {
 		expect(bucketCounts([])).toEqual({ overdue: 0, today: 0, upnext: 0, done: 0 });
+	});
+});
+
+/**
+ * #275 client half: the row's date + late chip read the VIEWER's clock. At
+ * Nov 1 18:08 local (the prod report, 23:08Z in Chicago) a cursor pinned to
+ * tonight 23:59 local is today, not late, and prints Nov 1 — while one left
+ * at Oct 31 23:59 local is the "1 day late" row the user saw.
+ */
+describe('Nov 1 evening, cursor pinned to local end-of-day (#275)', () => {
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(2026, 10, 1, 18, 8, 0));
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	const nov1End = new Date(2026, 10, 1, 23, 59, 0).toISOString();
+	const oct31End = new Date(2026, 9, 31, 23, 59, 0).toISOString();
+
+	it('tonight 23:59 is today and not late', () => {
+		expect(urgencyBucket(task({ dueDate: nov1End }))).toBe('today');
+		expect(lateChip(nov1End)).toBeNull();
+	});
+
+	it('tonight 23:59 prints as Nov 1', () => {
+		expect(formatDue(nov1End)).toBe(
+			new Date(2026, 10, 1).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+		);
+	});
+
+	it('an unsynced Oct 31 23:59 cursor is the 1-day-late row', () => {
+		expect(urgencyBucket(task({ dueDate: oct31End }))).toBe('overdue');
+		expect(lateChip(oct31End)).toBe('1 day late');
 	});
 });
