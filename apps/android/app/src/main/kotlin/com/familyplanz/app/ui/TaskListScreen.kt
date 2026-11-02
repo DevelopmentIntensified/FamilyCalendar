@@ -57,10 +57,13 @@ fun TaskListScreen(
 					modifier = Modifier.fillMaxWidth().padding(16.dp),
 				)
 
-				is AppUiState.Ready -> if (state.tasks.isEmpty()) {
-					EmptyTasks()
-				} else {
-					TaskRows(state, actions)
+				is AppUiState.Ready -> Column {
+					actions.onCreate?.let { AddTaskBar(error = state.createError, onCreate = it) }
+					if (state.tasks.isEmpty()) {
+						EmptyTasks()
+					} else {
+						TaskRows(state, actions)
+					}
 				}
 
 				is AppUiState.Failed -> Column(
@@ -87,7 +90,7 @@ private fun EmptyTasks() {
 	) {
 		Text("No tasks yet", style = MaterialTheme.typography.titleMedium)
 		Text(
-			"Add tasks in the web app; they appear here once you sync.",
+			"Add one above, or in the web app; it appears here once you sync.",
 			style = MaterialTheme.typography.bodyMedium,
 		)
 	}
@@ -118,6 +121,7 @@ fun TaskRow(
 			Checkbox(
 				checked = task.completed,
 				onCheckedChange = { actions.onToggleComplete(task) },
+				enabled = !task.pending,
 			)
 			Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
 				Text(
@@ -135,7 +139,7 @@ fun TaskRow(
 					color = MaterialTheme.colorScheme.onSurfaceVariant,
 				)
 			}
-			if (!task.completed) {
+			if (!task.completed && !task.pending) {
 				TextButton(onClick = { actions.onStartFocus(task) }) { Text("Focus") }
 			}
 		}
@@ -157,6 +161,9 @@ internal fun awaitsMyReply(meId: String?, task: Task): Boolean =
 
 internal fun taskMeta(task: Task): String =
 	buildList {
+		if (task.pending) {
+			add("saving…")
+		}
 		if (task.priority != TaskPriority.NORMAL) {
 			add(task.priority.name.lowercase())
 		}

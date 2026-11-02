@@ -14,6 +14,10 @@ interface FamilyPlanzApi {
 	@GET("api/tasks")
 	suspend fun tasks(): TaskListResponse
 
+	/** Task creation (spec: 201 `{success, task}`; 400 carries `error`). */
+	@POST("api/tasks")
+	suspend fun createTask(@Body body: CreateTaskRequest): TaskMutationResponse
+
 	@PUT("api/tasks/{id}")
 	suspend fun updateTask(@Path("id") id: String, @Body body: JsonElement): TaskMutationResponse
 
@@ -36,6 +40,18 @@ interface FamilyPlanzApi {
 	@POST("api/events")
 	suspend fun createEvent(@Body body: CreateEventRequest): CreatedEventResponse
 }
+
+/**
+ * Phone-side POST body: only these fields are constructible, so the phone
+ * never sends focus time. Nulls are omitted on the wire (explicitNulls off).
+ * `dueDate` is `YYYY-MM-DD`; `priority` is `low|normal|high`.
+ */
+@Serializable
+data class CreateTaskRequest(
+	val title: String,
+	val dueDate: String? = null,
+	val priority: String? = null,
+)
 
 @Serializable
 data class CreateEventRequest(

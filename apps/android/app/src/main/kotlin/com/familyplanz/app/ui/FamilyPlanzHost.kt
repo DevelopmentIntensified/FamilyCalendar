@@ -114,9 +114,10 @@ private fun AppViewModel.taskActions() = TaskActions(
 	onRefresh = ::refresh,
 	onOpenSettings = ::clearToken,
 	onToggleComplete = ::toggleComplete,
-	onStartFocus = ::startFocus,
-	onStopFocus = ::stopFocus,
+	onStartFocus = ::queueFocus,
+	onStopFocus = { queueFocus(null) },
 	onRespond = ::respondAssignment,
+	onCreate = ::createTask,
 )
 
 @Composable

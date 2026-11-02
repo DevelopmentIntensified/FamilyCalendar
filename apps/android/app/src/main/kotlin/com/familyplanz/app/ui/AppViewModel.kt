@@ -18,7 +18,12 @@ sealed interface AppUiState {
 
 	data class NeedToken(val note: String? = null) : AppUiState
 
-	data class Ready(val tasks: List<Task>, val meId: String?) : AppUiState
+	/** `createError` = last add-task failure, shown inline under the add field. */
+	data class Ready(
+		val tasks: List<Task>,
+		val meId: String?,
+		val createError: String? = null,
+	) : AppUiState
 
 	data class Failed(val reason: String) : AppUiState
 }
@@ -40,6 +45,8 @@ class AppViewModel(
 
 	private val _snack = MutableStateFlow<UiSnack?>(null)
 	val snack: StateFlow<UiSnack?> = _snack
+
+	private val creator = TaskCreator(repository, _ui)
 
 	init {
 		viewModelScope.launch {
@@ -120,6 +127,18 @@ class AppViewModel(
 		_ui.value = AppUiState.NeedToken(note)
 	}
 
+	/** Optimistic add: pending row now, server row on success, inline error on failure. */
+	fun createTask(input: NewTaskInput) {
+		viewModelScope.launch {
+			when (val outcome = creator.create(input)) {
+				is CreateOutcome.Created ->
+					_snack.value = UiSnack("Added \"${outcome.title}\" to your tasks")
+				CreateOutcome.Unauthorized -> invalidateSession()
+				is CreateOutcome.Rejected, CreateOutcome.Invalid -> Unit
+			}
+		}
+	}
+
 	fun toggleComplete(task: Task) {
 		viewModelScope.launch {
 			when (val result = repository.toggleComplete(task.id)) {
@@ -129,20 +148,14 @@ class AppViewModel(
 		}
 	}
 
-	fun startFocus(task: Task) {
+	/** Enqueue a desktop focus command: start on [task], or stop when null. */
+	fun queueFocus(task: Task?) {
 		viewModelScope.launch {
-			when (val result = repository.requestFocusStart(task.id)) {
-				is ApiResult.Ok ->
-					_snack.value = UiSnack("Focus start queued for \"${task.title}\"")
-				is ApiResult.Err -> presentError(result)
-			}
-		}
-	}
-
-	fun stopFocus() {
-		viewModelScope.launch {
-			when (val result = repository.requestFocusStop()) {
-				is ApiResult.Ok -> _snack.value = UiSnack("Focus stop queued")
+			val result = if (task == null) repository.requestFocusStop() else repository.requestFocusStart(task.id)
+			when (result) {
+				is ApiResult.Ok -> _snack.value = UiSnack(
+					if (task == null) "Focus stop queued" else "Focus start queued for \"${task.title}\"",
+				)
 				is ApiResult.Err -> presentError(result)
 			}
 		}

@@ -1,10 +1,13 @@
 package com.familyplanz.app.data
 
-/** Task list, completion, assignment replies and focus command enqueue. */
+/** Task list, creation, completion, assignment replies and focus command enqueue. */
 interface TaskSource {
 	suspend fun allTasks(): ApiResult<List<TaskDto>>
 
 	suspend fun toggleComplete(id: String): ApiResult<TaskDto>
+
+	/** POST /api/tasks; Ok carries the server task (server-generated id). */
+	suspend fun createTask(request: CreateTaskRequest): ApiResult<TaskDto>
 
 	suspend fun requestFocusStart(taskId: String): ApiResult<Unit>
 
@@ -28,6 +31,9 @@ class NetworkTaskSource(
 
 	override suspend fun toggleComplete(id: String): ApiResult<TaskDto> =
 		apiCall { api.updateTask(id, TaskUpdatePatch.completeToggle().json).task }
+
+	override suspend fun createTask(request: CreateTaskRequest): ApiResult<TaskDto> =
+		apiCall { api.createTask(request).task }
 
 	override suspend fun requestFocusStart(taskId: String): ApiResult<Unit> =
 		apiCall {

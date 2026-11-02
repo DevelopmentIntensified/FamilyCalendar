@@ -2,7 +2,7 @@ package com.familyplanz.app.ui
 
 import com.familyplanz.app.domain.Task
 
-/** Task tab callbacks; `onRespond` null hides accept/decline. */
+/** Task tab callbacks; `onRespond` null hides accept/decline, `onCreate` null hides the add field. */
 data class TaskActions(
 	val onRefresh: () -> Unit,
 	val onOpenSettings: () -> Unit,
@@ -10,4 +10,5 @@ data class TaskActions(
 	val onStartFocus: (Task) -> Unit,
 	val onStopFocus: () -> Unit,
 	val onRespond: ((Task, String) -> Unit)? = null,
+	val onCreate: ((NewTaskInput) -> Unit)? = null,
 )

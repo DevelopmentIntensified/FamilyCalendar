@@ -33,6 +33,8 @@ data class Task(
 	val assignmentStatus: String?,
 	/** Raw assignee id; equals the token owner id when the task is assigned to me. */
 	val assignedTo: String?,
+	/** Optimistic row not yet confirmed by the server (temp id). */
+	val pending: Boolean = false,
 )
 
 object TaskMapper {
