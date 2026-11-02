@@ -19,6 +19,7 @@ import {
 	type TaskFrequency
 } from '$lib/server/db/actions/tasks';
 import { normalizeTaskPriority } from '$lib/server/db/actions/taskPriority';
+import { ensureTaskCategory, parseTaskCategory } from '$lib/server/db/actions/taskCategories';
 import { db } from '$lib/server/db';
 import { tasks, users, type Task } from '$lib/server/db/schema';
 import { createNotification } from '$lib/server/db/actions/notifications';
@@ -208,6 +209,19 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 			if (!focusStartedAt.ok) {
 				return json({ error: 'Invalid focusStartedAt' }, { status: 400 });
 			}
+			// #280: category — absent = unchanged, null/blank = clear, string =
+			// set. Validated before any mutation; a set name joins the CALLER's
+			// list (stored in the list's spelling for a case variant).
+			let category: string | null | undefined;
+			if (body.category !== undefined) {
+				const parsed = parseTaskCategory(body.category);
+				if (!parsed.ok) {
+					return json({ error: parsed.error }, { status: 400 });
+				}
+				category = parsed.value
+					? (await ensureTaskCategory(user.id, parsed.value)).name
+					: null;
+			}
 
 			// Plain fields any permitted caller may edit (visibility and the
 			// assignment patch are layered per caller below).
@@ -224,6 +238,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 						: undefined,
 				focusMinutes,
 				focusStartedAt: focusStartedAt.value,
+				category,
 				tags: body.tags === undefined ? undefined : normalizeTags(body.tags)
 			};
 

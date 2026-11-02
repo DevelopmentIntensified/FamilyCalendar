@@ -63,6 +63,7 @@ export type TaskFieldPatch = Partial<
 		| 'visibility'
 		| 'focusMinutes'
 		| 'focusStartedAt'
+		| 'category'
 	>
 > & { tags?: string[] | null };
 

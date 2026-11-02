@@ -12,6 +12,7 @@ import {
 	TASK_VISIBILITIES
 } from '$lib/server/db/actions/tasks';
 import { normalizeTaskPriority } from '$lib/server/db/actions/taskPriority';
+import { ensureTaskCategory, parseTaskCategory } from '$lib/server/db/actions/taskCategories';
 import { db } from '$lib/server/db';
 import { events, users } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -101,6 +102,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Invalid eventId' }, { status: 400 });
 	}
 	const eventId: string | null = isNonEmptyString(body.eventId) ? body.eventId : null;
+	// #280: category name (TaskFocus). Omitted / null / blank = uncategorized.
+	const categoryInput = parseTaskCategory(body.category === undefined ? null : body.category);
+	if (!categoryInput.ok) {
+		return json({ error: categoryInput.error }, { status: 400 });
+	}
 
 	try {
 		// The attached event's title/start are joined into the creator's
@@ -169,6 +175,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Invalid focusStartedAt' }, { status: 400 });
 		}
 
+		// #280: an unknown name joins the caller's list; a case variant of a
+		// listed name is stored in the list's spelling.
+		const category = categoryInput.value
+			? (await ensureTaskCategory(auth.user.id, categoryInput.value)).name
+			: null;
+
 		const created = await createTask({
 			title: body.title.trim(),
 			notes: body.notes || null,
@@ -184,7 +196,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			familyId,
 			userId: auth.user.id,
 			focusMinutes,
-			focusStartedAt: focusStartedAt.value ?? null
+			focusStartedAt: focusStartedAt.value ?? null,
+			category
 		});
 
 		// Assignment fan-out: tell the assignee there's a pending task.
