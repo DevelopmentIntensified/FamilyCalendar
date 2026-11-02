@@ -80,6 +80,12 @@ android {
 		targetCompatibility = JavaVersion.VERSION_17
 	}
 
+	testOptions {
+		unitTests.isIncludeAndroidResources = true
+		// Robolectric SDK 36 pokes FileDescriptor internals on JDK 17+ (issue 269).
+		unitTests.all { it.jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED") }
+	}
+
 	buildFeatures {
 		compose = true
 		buildConfig = true
@@ -112,4 +118,9 @@ dependencies {
 	debugImplementation(libs.androidx.compose.ui.tooling)
 	testImplementation(libs.okhttp.mockwebserver)
 	testImplementation(libs.junit.core)
+	// Issue 269: Compose UI tests on the JVM (Robolectric) inside testDebugUnitTest.
+	testImplementation(platform(libs.androidx.compose.bom))
+	testImplementation(libs.androidx.compose.ui.test.junit4)
+	testImplementation(libs.robolectric)
+	debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
