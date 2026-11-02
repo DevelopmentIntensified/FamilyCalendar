@@ -34,6 +34,41 @@ const base = {
 	kidsSchedule: []
 };
 
+describe('DayDashboard — the viewed day (240)', () => {
+	it('the glance card’s day-view link opens the viewed day, not today', () => {
+		render(DayDashboard, {
+			props: {
+				...base,
+				dateLabel: 'Thursday, November 5',
+				isToday: false,
+				dayDate: '2026-11-05',
+				modules: modulesFor([])
+			}
+		});
+		expect(screen.getByRole('link', { name: /open day view/i })).toHaveAttribute(
+			'href',
+			'/calendar?date=2026-11-05&view=day'
+		);
+	});
+
+	it('the board header counts the board’s open tasks, not glance.openToday', () => {
+		const t = (id: string) => ({
+			id,
+			title: `Task ${id}`,
+			dueDate: null,
+			completedAt: null,
+			priority: 'normal',
+			assignedTo: 'u-sarah',
+			assignmentStatus: 'none',
+			userId: 'u-sarah'
+		});
+		render(DayDashboard, {
+			props: { ...base, familyTasks: [t('a'), t('b')], modules: modulesFor([]) }
+		});
+		expect(screen.getByText(/^2 open ·/)).toBeInTheDocument();
+	});
+});
+
 describe('DayDashboard — the verse reads above the cards, not inside the band (080)', () => {
 	it('puts the verse in the info band, outside the card band', () => {
 		render(DayDashboard, {

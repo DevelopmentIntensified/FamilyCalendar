@@ -13,6 +13,8 @@
 
 	export let dateLabel: string;
 	export let isToday: boolean = true;
+	/** The viewed day, `YYYY-MM-DD` (240) — the glance card's day-view link opens it. */
+	export let dayDate: string | null = null;
 	export let meId: string;
 	export let familyId: string | null;
 	/** The Daily Verse, already gated server-side by `dashboardVisibility` (080).
@@ -106,7 +108,13 @@
 				class="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3"
 			>
 				{#if showsModule(modules, 'glance')}
-					<TodayGlanceCard {dateLabel} {isToday} events={dayEvents} onEventClick={openEvent} />
+					<TodayGlanceCard
+						{dateLabel}
+						{isToday}
+						{dayDate}
+						events={dayEvents}
+						onEventClick={openEvent}
+					/>
 				{/if}
 				{#if showsModule(modules, 'top3')}
 					<TopPrioritiesCard tasks={top3} {meId} />
@@ -131,7 +139,6 @@
 						members={familyMembers}
 						{meId}
 						{familyId}
-						openToday={glance.openToday}
 						weekStreak={glance.weekStreak}
 					/>
 				{/if}

@@ -32,7 +32,13 @@
 	export let events: GlanceEvent[];
 	export let onEventClick: (event: GlanceEvent) => void = () => {};
 	export let isToday: boolean = true;
+	/** The viewed day, `YYYY-MM-DD` (240). Absent = today, so the bare link is right. */
+	export let dayDate: string | null = null;
 
+	$: dayViewHref =
+		dayDate && /^\d{4}-\d{2}-\d{2}$/.test(dayDate)
+			? `/calendar?date=${dayDate}&view=day`
+			: '/calendar?view=day';
 	$: allDayEvents = events.filter((e) => e.allDay);
 	$: timedEvents = events
 		.filter((e) => !e.allDay)
@@ -137,7 +143,7 @@
 		>
 			<p>{isToday ? 'No events scheduled today' : 'No events scheduled on this day'}</p>
 			<a
-				href="/calendar?view=day"
+				href={dayViewHref}
 				class="mt-1 inline-block text-xs font-semibold text-primary-600 hover:text-primary-700 hover:underline"
 			>
 				Open day view →

@@ -28,7 +28,6 @@
 	export let meId: string;
 	/** Family that created tasks post to when added from the board. */
 	export let familyId: string;
-	export let openToday: number = 0;
 	export let weekStreak: number = 0;
 
 	let quickTitle = '';
@@ -169,7 +168,9 @@
 		class="mb-2.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-100 pb-2.5 sm:mb-3 sm:pb-3"
 	>
 		<span class="text-xs text-slate-500">
-			{openToday} open · {weekStreak > 0
+			<!-- 240: the BOARD's open total (the rows below), not the viewer's
+			     due-today count, which was a different number under the same words. -->
+			{openTotal} open · {weekStreak > 0
 				? `${weekStreak}-week streak`
 				: "Start a streak — check off today's tasks 🔥"}
 		</span>

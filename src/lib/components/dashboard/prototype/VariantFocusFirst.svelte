@@ -81,7 +81,7 @@
 			<h2 class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Household</h2>
 			<div class="grid items-start gap-4 md:grid-cols-2">
 				{#if familyId && showsModule(modules, 'board')}
-					<FamilyTaskBoardCard tasks={familyTasks} members={familyMembers} {meId} {familyId} openToday={glance.openToday} weekStreak={glance.weekStreak} />
+					<FamilyTaskBoardCard tasks={familyTasks} members={familyMembers} {meId} {familyId} weekStreak={glance.weekStreak} />
 				{/if}
 				{#if showsModule(modules, 'groceries')}
 					<GroceriesCard familyItems={familyGroceries} mineItems={mineGroceries} hasFamily={!!familyId} />

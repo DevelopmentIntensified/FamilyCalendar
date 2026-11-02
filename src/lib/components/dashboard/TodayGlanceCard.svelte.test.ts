@@ -70,6 +70,23 @@ describe('TodayGlanceCard all-day-only days', () => {
 			'/calendar?view=day'
 		);
 	});
+
+	// 240: a dashboard for another day must open THAT day, not today.
+	it('links the empty state to the viewed day when one is given', () => {
+		render(TodayGlanceCard, {
+			props: {
+				dateLabel: 'Thursday, November 5',
+				isToday: false,
+				dayDate: '2026-11-05',
+				onEventClick: () => {},
+				events: []
+			}
+		});
+		expect(screen.getByRole('link', { name: /open day view/i })).toHaveAttribute(
+			'href',
+			'/calendar?date=2026-11-05&view=day'
+		);
+	});
 });
 
 // #067 — the glance card is a WORD view, but it hand-rolled a colour dot and a

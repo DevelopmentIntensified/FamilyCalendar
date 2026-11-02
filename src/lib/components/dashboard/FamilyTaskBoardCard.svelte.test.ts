@@ -167,6 +167,25 @@ describe('FamilyTaskBoardCard — the complete roster (dashboard.html)', () => {
 
 	afterEach(cleanup);
 
+	// 240: the header count is the BOARD's open total, not the viewer's
+	// due-today count (which the old `openToday` prop carried).
+	it('header counts every open task on the board, not the viewer’s due-today', () => {
+		render(FamilyTaskBoardCard, {
+			props: {
+				tasks: [
+					openTask({ id: 'a', assignedTo: 'u_dad' }),
+					openTask({ id: 'b', assignedTo: 'u_dad' }),
+					openTask({ id: 'c', assignedTo: 'u_me', userId: 'u_me' })
+				],
+				members,
+				meId: 'u_me',
+				familyId: 'fam1'
+			}
+		});
+		expect(screen.getByText(/^3 open ·/)).toBeTruthy();
+		expect(screen.queryByText(/^1 open ·/)).toBeNull();
+	});
+
 	it('gives a member with nothing assigned a column that says so', () => {
 		render(FamilyTaskBoardCard, {
 			props: {
