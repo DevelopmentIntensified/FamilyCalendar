@@ -27,6 +27,7 @@ import { getTodayVerse } from '$lib/server/services/verseService';
 import { computeWeeklyStreak } from '$lib/server/services/streakService';
 import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
 import { DateTime } from 'luxon';
+import { pickDayEntries } from '$lib/utils/dayOverlap';
 
 /** One row for the Kids' Schedule card: a day event with child attendees. */
 type KidsScheduleEvent = {
@@ -162,21 +163,24 @@ export const load: PageServerLoad = async (event) => {
 			]);
 
 			const userSettingsColor = userSettings?.color || '#fa8072';
-			const dayEventsRaw = [
-				...userWithRsvp.map((e) => ({
-					...e,
-					color: userSettingsColor,
-					source: 'own' as const
-				})),
-				...familyWithRsvp.map((e) => ({
-					...e,
-					color: '#e0ffff',
-					source: 'family' as const
-				}))
-			].filter((e) => {
-				const d = e.date instanceof Date ? e.date : new Date(e.date);
-				return d >= dayStart.toJSDate() && d < dayEnd.toJSDate();
-			});
+			// #285: overlap, not start-on-day — a multi-day event shows on every
+			// local day it covers; one ending at exactly 00:00 does not reach it.
+			const dayEventsRaw = pickDayEntries(
+				[
+					...userWithRsvp.map((e) => ({
+						...e,
+						color: userSettingsColor,
+						source: 'own' as const
+					})),
+					...familyWithRsvp.map((e) => ({
+						...e,
+						color: '#e0ffff',
+						source: 'family' as const
+					}))
+				],
+				dayStart.toJSDate(),
+				dayStart.plus({ days: 1 }).toJSDate()
+			);
 
 			// Compact "who's going" summary per event so the glance rows can show
 			// family attendance.
