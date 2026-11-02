@@ -82,7 +82,7 @@ import { DateTime } from 'luxon';
 
 const mockedGetEventTasks = vi.mocked(getTasksForEvent);
 
-function event(userId: string, body: Record<string, string | number | null>) {
+function event(userId: string, body: Record<string, unknown>) {
 	// SAFETY: test double — the handler only reads locals.user and request.json().
 	return {
 		locals: { user: { id: userId } },
@@ -277,6 +277,101 @@ describe('GET /api/tasks?eventId= — event-task visibility (issue 164)', () => 
 
 		expect(res.status).toBe(200);
 		expect(body.tasks.map((t) => t.id)).toEqual(['t-priv-mine']);
+	});
+});
+
+/**
+ * #234: an eventId attaches the task to an event whose title/start the
+ * list then joins in — so the creator must be able to read that event,
+ * and an unknown id is a 400, not an FK 500. A garbage dueDate is a 400.
+ */
+describe('POST /api/tasks — eventId access + dueDate validation (#234)', () => {
+	it('attaches to an event the caller owns', async () => {
+		state.queue = [[{ id: 'ev-1', calendarId: null, ownerId: 'user-1' }]];
+
+		const res = await POST(event('user-1', { title: 'Pack', eventId: 'ev-1' }));
+
+		expect(res.status).toBe(201);
+		expect(mockedCreateTask.mock.calls[0][0]).toMatchObject({ eventId: 'ev-1' });
+	});
+
+	it('attaches to an event on a calendar the caller can read (family calendar)', async () => {
+		// event lookup, familyMembers (calendar scope), calendars
+		state.queue = [
+			[{ id: 'ev-1', calendarId: 'cal-fam', ownerId: 'user-2' }],
+			[{ familyId: 'fam-1' }],
+			[{ id: 'cal-fam' }]
+		];
+
+		const res = await POST(event('user-1', { title: 'Pack', eventId: 'ev-1' }));
+
+		expect(res.status).toBe(201);
+	});
+
+	it("403s another family's event (no title/start leak)", async () => {
+		state.queue = [[{ id: 'ev-x', calendarId: 'cal-other', ownerId: 'user-9' }], [], []];
+
+		const res = await POST(event('user-1', { title: 'Pack', eventId: 'ev-x' }));
+
+		expect(res.status).toBe(403);
+		expect(await res.json()).toEqual({ error: 'No access to this event' });
+		expect(mockedCreateTask).not.toHaveBeenCalled();
+	});
+
+	it('400s an unknown eventId instead of an FK 500', async () => {
+		state.queue = [[]];
+
+		const res = await POST(event('user-1', { title: 'Pack', eventId: 'ghost' }));
+
+		expect(res.status).toBe(400);
+		expect(await res.json()).toEqual({ error: 'Event not found' });
+		expect(mockedCreateTask).not.toHaveBeenCalled();
+	});
+
+	for (const bad of [42, { id: 'ev-1' }, true]) {
+		it(`400s a non-string eventId ${JSON.stringify(bad)}`, async () => {
+			const res = await POST(event('user-1', { title: 'Pack', eventId: bad }));
+
+			expect(res.status).toBe(400);
+			expect(mockedCreateTask).not.toHaveBeenCalled();
+		});
+	}
+
+	it('omitted / empty eventId stays a standalone task', async () => {
+		for (const eventId of [undefined, null, '']) {
+			mockedCreateTask.mockClear();
+			const res = await POST(event('user-1', { title: 'Pack', eventId }));
+			expect(res.status).toBe(201);
+			expect(mockedCreateTask.mock.calls[0][0]).toMatchObject({ eventId: null });
+		}
+	});
+
+	for (const bad of ['not-a-date', 'tomorrow', '2026-13-45', 12345, true]) {
+		it(`400s an invalid dueDate ${JSON.stringify(bad)}`, async () => {
+			const res = await POST(event('user-1', { title: 'Pack', dueDate: bad }));
+
+			expect(res.status).toBe(400);
+			expect(await res.json()).toEqual({ error: 'Invalid dueDate' });
+			expect(mockedCreateTask).not.toHaveBeenCalled();
+		});
+	}
+
+	for (const ok of ['2026-11-03T23:59:00.000Z', '2026-11-03', '2026-11-03T18:00:00-06:00']) {
+		it(`accepts a valid dueDate ${ok}`, async () => {
+			const res = await POST(event('user-1', { title: 'Pack', dueDate: ok }));
+
+			expect(res.status).toBe(201);
+			expect(mockedCreateTask.mock.calls[0][0]).toMatchObject({ dueDate: ok });
+		});
+	}
+
+	it('omitted / null / empty dueDate creates an undated task', async () => {
+		for (const dueDate of [undefined, null, '']) {
+			mockedCreateTask.mockClear();
+			const res = await POST(event('user-1', { title: 'Pack', dueDate }));
+			expect(res.status).toBe(201);
+			expect(mockedCreateTask.mock.calls[0][0]).toMatchObject({ dueDate: null });
+		}
 	});
 });
 

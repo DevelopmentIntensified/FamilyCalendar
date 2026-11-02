@@ -85,6 +85,12 @@ a family you belong to), `assignedTo` (defaults you),
 - `400 {"error":"Title is required"}` — empty/missing title.
 - `400 {"error":"Invalid focusMinutes"}` — not an integer ≥ 0.
 - `400 {"error":"Invalid focusStartedAt"}` — not null and not a parseable ISO datetime.
+- `400 {"error":"Invalid dueDate"}` — present (not null/empty) but not an ISO
+  date or datetime string.
+- `400 {"error":"Invalid eventId"}` — present but not a string.
+- `400 {"error":"Event not found"}` — `eventId` names no event.
+- `403 {"error":"No access to this event"}` — the event exists but you cannot
+  read it (not its owner, no access to its calendar).
 - `400 {"error":"Invalid visibility"}` — visibility not in the enum.
 - `400 {"error":"Assignee is not a member of this family"}` — assignedTo is
   neither you nor a member of the target family.

@@ -15,6 +15,7 @@ import { normalizeTaskPriority } from '$lib/server/db/actions/taskPriority';
 import { db } from '$lib/server/db';
 import { events, users } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { DateTime } from 'luxon';
 import { createNotification } from '$lib/server/db/actions/notifications';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
@@ -26,23 +27,34 @@ function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && value.trim().length > 0;
 }
 
+/**
+ * Read access to an event: its owner, or anyone who can read its calendar.
+ * Shared by the GET ?eventId= filter and the POST attach (#234) — attaching
+ * a task joins the event's title/start into the caller's lists.
+ */
+async function eventAccess(userId: string, eventId: string): Promise<'missing' | 'denied' | 'ok'> {
+	const [event] = await db
+		.select({ id: events.id, calendarId: events.calendarId, ownerId: events.ownerId })
+		.from(events)
+		.where(eq(events.id, eventId))
+		.limit(1);
+	if (!event) return 'missing';
+	if (event.ownerId === userId) return 'ok';
+	const calIds = await getAccessibleCalendarIds(userId);
+	return !!event.calendarId && calIds.includes(event.calendarId) ? 'ok' : 'denied';
+}
+
 export const GET: RequestHandler = async ({ locals, url }) => {
 	const auth = requireUserJson(locals);
 	if (auth.response) return auth.response;
 
 	const eventId = url.searchParams.get('eventId');
 	if (eventId) {
-		const [event] = await db
-			.select({ id: events.id, calendarId: events.calendarId, ownerId: events.ownerId })
-			.from(events)
-			.where(eq(events.id, eventId))
-			.limit(1);
-		if (!event) {
+		const access = await eventAccess(auth.user.id, eventId);
+		if (access === 'missing') {
 			return json({ tasks: [] });
 		}
-		const calIds = await getAccessibleCalendarIds(auth.user.id);
-		const hasCalendarAccess = !!event.calendarId && calIds.includes(event.calendarId);
-		if (event.ownerId !== auth.user.id && !hasCalendarAccess) {
+		if (access === 'denied') {
 			return json({ error: 'No access to this event' }, { status: 403 });
 		}
 		const eventTasks = (await getTasksForEvent(eventId)).filter(
@@ -70,7 +82,38 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Title is required' }, { status: 400 });
 	}
 
+	// #234: a garbage dueDate used to reach the INSERT and 500. Strict ISO
+	// (date or datetime); omitted / null / '' = undated.
+	let dueDate: string | null = null;
+	if (body.dueDate !== undefined && body.dueDate !== null && body.dueDate !== '') {
+		if (typeof body.dueDate !== 'string' || !DateTime.fromISO(body.dueDate).isValid) {
+			return json({ error: 'Invalid dueDate' }, { status: 400 });
+		}
+		dueDate = body.dueDate;
+	}
+	// #234: eventId must be text when present (omitted / null / '' = standalone).
+	if (
+		body.eventId !== undefined &&
+		body.eventId !== null &&
+		body.eventId !== '' &&
+		typeof body.eventId !== 'string'
+	) {
+		return json({ error: 'Invalid eventId' }, { status: 400 });
+	}
+	const eventId: string | null = isNonEmptyString(body.eventId) ? body.eventId : null;
+
 	try {
+		// The attached event's title/start are joined into the creator's
+		// lists, so they must be able to read it; an unknown id is a 400,
+		// not an FK-violation 500 (#234).
+		if (eventId) {
+			const access = await eventAccess(auth.user.id, eventId);
+			if (access === 'missing') return json({ error: 'Event not found' }, { status: 400 });
+			if (access === 'denied') {
+				return json({ error: 'No access to this event' }, { status: 403 });
+			}
+		}
+
 		let familyId: string | null = null;
 		if (body.familyId === undefined) {
 			familyId = await getUserFamilyId(auth.user.id);
@@ -129,7 +172,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const created = await createTask({
 			title: body.title.trim(),
 			notes: body.notes || null,
-			dueDate: body.dueDate || null,
+			dueDate,
 			recurrenceFrequency: frequency,
 			recurrenceInterval: frequency ? Math.max(1, Math.floor(body.recurrenceInterval ?? 1)) : null,
 			assignedTo,
@@ -137,7 +180,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			priority,
 			visibility,
 			tags: normalizeTags(body.tags),
-			eventId: body.eventId || null,
+			eventId,
 			familyId,
 			userId: auth.user.id,
 			focusMinutes,
