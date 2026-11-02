@@ -11,3 +11,6 @@ captures/
 keystore.properties
 *.jks
 *.keystore
+
+# Firebase client config (issue #273) - owner-local, never commit
+firebase.properties

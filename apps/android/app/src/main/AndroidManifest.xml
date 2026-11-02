@@ -12,6 +12,7 @@
 	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
 	<application
+		android:name=".FamilyPlanzApp"
 		android:allowBackup="true"
 		android:icon="@mipmap/ic_launcher"
 		android:roundIcon="@mipmap/ic_launcher_round"
@@ -43,5 +44,23 @@
 				<action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
 			</intent-filter>
 		</receiver>
+
+		<!-- Issue #273: FCM. Background-delivered `notification` pushes are
+		     shown by the system on this channel/icon; foreground ones and
+		     data-only `events_changed` reach FpMessagingService. -->
+		<service
+			android:name=".push.FpMessagingService"
+			android:exported="false">
+			<intent-filter>
+				<action android:name="com.google.firebase.MESSAGING_EVENT" />
+			</intent-filter>
+		</service>
+
+		<meta-data
+			android:name="com.google.firebase.messaging.default_notification_channel_id"
+			android:value="family_activity" />
+		<meta-data
+			android:name="com.google.firebase.messaging.default_notification_icon"
+			android:resource="@drawable/ic_stat_reminder" />
 	</application>
 </manifest>

@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.HTTP
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -39,6 +40,14 @@ interface FamilyPlanzApi {
 	/** Event creation (201 shape mirrors the spec's task POST). */
 	@POST("api/events")
 	suspend fun createEvent(@Body body: CreateEventRequest): CreatedEventResponse
+
+	/** FCM token upsert (#272; idempotent, 200 `{success}`). */
+	@POST("api/devices")
+	suspend fun registerDevice(@Body body: RegisterDeviceRequest): DeviceAck
+
+	/** DELETE with a JSON body (#272) — Retrofit needs @HTTP for that. */
+	@HTTP(method = "DELETE", path = "api/devices", hasBody = true)
+	suspend fun unregisterDevice(@Body body: UnregisterDeviceRequest): DeviceAck
 }
 
 /**

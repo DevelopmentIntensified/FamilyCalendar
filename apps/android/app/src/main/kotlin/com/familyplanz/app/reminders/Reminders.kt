@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.familyplanz.app.data.DataStoreTokenStore
 import com.familyplanz.app.data.EventDto
 import com.familyplanz.app.data.FileTaskCache
 import com.familyplanz.app.data.TaskCache
@@ -27,15 +28,16 @@ object Reminders {
 	suspend fun rescheduleFromCache(context: Context, force: Boolean = false) {
 		val app = context.applicationContext
 		lock.withLock {
-			runCatching { sync(app).rescheduleFromCache(force) }
+			runCatching { sync(app, signedIn = DataStoreTokenStore(app).token() != null).rescheduleFromCache(force) }
 				.onFailure { Log.w(TAG, "reminder reschedule failed", it) }
 		}
 	}
 
-	private fun sync(app: Context): ReminderSync {
+	/** Signed out (#273) → no events, so the re-plan cancels every alarm the old cache set. */
+	private fun sync(app: Context, signedIn: Boolean): ReminderSync {
 		val cache = FileTaskCache(app.filesDir)
 		return ReminderSync(
-			cachedEvents = { cache.loadEvents(it.year, it.monthValue) },
+			cachedEvents = { if (signedIn) cache.loadEvents(it.year, it.monthValue) else null },
 			store = FileScheduledReminderStore(app.filesDir),
 			scheduler = AndroidAlarmScheduler(app),
 		)

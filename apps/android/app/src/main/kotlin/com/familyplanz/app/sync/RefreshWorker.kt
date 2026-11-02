@@ -25,22 +25,28 @@ import java.util.concurrent.TimeUnit
  * through to the file cache, so a successful read is the whole job.
  */
 class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-	override suspend fun doWork(): Result {
-		val store = DataStoreTokenStore(applicationContext)
-		val token = store.token()
-		val api = ApiFactory.create(BuildConfig.API_BASE_URL) { token }
-		val repo = NetworkTaskRepository(api, FileTaskCache(applicationContext.filesDir))
-		val source = object : CacheRefreshSource {
-			override suspend fun allTasks(): ApiResult<List<TaskDto>> = repo.allTasks()
+	override suspend fun doWork(): Result = refreshAndReplan(applicationContext).toWorkResult()
+}
 
-			override suspend fun monthEvents(year: Int, month: Int): ApiResult<List<EventDto>> =
-				repo.monthEvents(year, month)
-		}
-		val outcome = CacheRefresher(source, tokenProvider = { token }).refresh()
-		// #271: re-plan alarms from the fresh cache (current + next month when the horizon crosses).
-		if (outcome == RefreshOutcome.REFRESHED) Reminders.rescheduleFromCache(applicationContext)
-		return outcome.toWorkResult()
+/**
+ * Network → cache for tasks and the reminder-horizon months, then (#271)
+ * re-plan alarms from the fresh cache. Shared by the 6h job and #273's
+ * `events_changed` push worker.
+ */
+suspend fun refreshAndReplan(context: Context): RefreshOutcome {
+	val app = context.applicationContext
+	val token = DataStoreTokenStore(app).token()
+	val api = ApiFactory.create(BuildConfig.API_BASE_URL) { token }
+	val repo = NetworkTaskRepository(api, FileTaskCache(app.filesDir))
+	val source = object : CacheRefreshSource {
+		override suspend fun allTasks(): ApiResult<List<TaskDto>> = repo.allTasks()
+
+		override suspend fun monthEvents(year: Int, month: Int): ApiResult<List<EventDto>> =
+			repo.monthEvents(year, month)
 	}
+	val outcome = CacheRefresher(source, tokenProvider = { token }).refresh()
+	if (outcome == RefreshOutcome.REFRESHED) Reminders.rescheduleFromCache(app)
+	return outcome
 }
 
 /** 401 and 4xx end the run quietly (no retry storm); network/5xx back off. */

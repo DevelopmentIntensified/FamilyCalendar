@@ -33,6 +33,16 @@ detekt {
 	}
 }
 
+// Firebase push (issue #273) WITHOUT the google-services plugin: the four
+// client values live in the uncommitted apps/android/firebase.properties and
+// become BuildConfig fields. Absent → blank fields → push stays disabled.
+val firebasePropsFile = rootProject.file("firebase.properties")
+val firebaseProps = Properties().apply {
+	if (firebasePropsFile.exists()) firebasePropsFile.inputStream().use { load(it) }
+}
+
+fun firebaseField(key: String): String = "\"" + firebaseProps.getProperty(key, "").trim() + "\""
+
 // Upload-key signing (issue #267): secrets live in the uncommitted
 // apps/android/keystore.properties; absent → release builds unsigned.
 val keystorePropsFile = rootProject.file("keystore.properties")
@@ -51,6 +61,10 @@ android {
 		versionCode = 1
 		versionName = "0.1.0"
 		buildConfigField("String", "API_BASE_URL", "\"https://familyplanz.com/\"")
+		buildConfigField("String", "FIREBASE_PROJECT_ID", firebaseField("projectId"))
+		buildConfigField("String", "FIREBASE_APPLICATION_ID", firebaseField("applicationId"))
+		buildConfigField("String", "FIREBASE_API_KEY", firebaseField("apiKey"))
+		buildConfigField("String", "FIREBASE_GCM_SENDER_ID", firebaseField("gcmSenderId"))
 	}
 
 	signingConfigs {
@@ -110,6 +124,8 @@ dependencies {
 	implementation(libs.okhttp.core)
 	implementation(libs.okhttp.logging.interceptor)
 	implementation(libs.kotlinx.serialization.json)
+	implementation(platform(libs.firebase.bom))
+	implementation(libs.firebase.messaging)
 	implementation(platform(libs.androidx.compose.bom))
 	implementation(libs.androidx.compose.ui)
 	implementation(libs.androidx.compose.ui.tooling.preview)
@@ -122,5 +138,6 @@ dependencies {
 	testImplementation(platform(libs.androidx.compose.bom))
 	testImplementation(libs.androidx.compose.ui.test.junit4)
 	testImplementation(libs.robolectric)
+	testImplementation(libs.androidx.work.testing)
 	debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

@@ -100,7 +100,8 @@ object ReminderNotifier {
 		return "$timeText · $dateText"
 	}
 
-	private fun canPost(context: Context): Boolean {
+	/** POST_NOTIFICATIONS granted (API 33+) and the app's notifications on; shared with #273 pushes. */
+	fun canPost(context: Context): Boolean {
 		val permitted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
 			ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
 			PackageManager.PERMISSION_GRANTED

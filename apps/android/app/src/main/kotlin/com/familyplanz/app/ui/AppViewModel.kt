@@ -9,9 +9,12 @@ import com.familyplanz.app.data.TaskDto
 import com.familyplanz.app.data.TaskRepository
 import com.familyplanz.app.domain.Task
 import com.familyplanz.app.domain.TaskMapper
+import com.familyplanz.app.push.SessionHooks
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed interface AppUiState {
 	data object Loading : AppUiState
@@ -39,6 +42,7 @@ data class UiSnack(val text: String)
 class AppViewModel(
 	private val repository: TaskRepository,
 	private val tokenStore: DataStoreTokenStore,
+	private val session: SessionHooks = SessionHooks.None,
 ) : ViewModel() {
 	private val _ui = MutableStateFlow<AppUiState>(AppUiState.Loading)
 	val ui: StateFlow<AppUiState> = _ui
@@ -66,14 +70,18 @@ class AppViewModel(
 		viewModelScope.launch {
 			tokenStore.save(value.trim())
 			refresh()
+			session.signedIn()
 		}
 	}
 
 	/** Mint a new token in the web app (Settings > API tokens). */
 	fun clearToken() {
 		viewModelScope.launch {
+			val previous = tokenStore.token()
 			tokenStore.clear()
 			_ui.value = AppUiState.NeedToken()
+			// #273: unregister + cancel reminders even if the screen goes away mid-call.
+			withContext(NonCancellable) { session.signedOut(previous) }
 		}
 	}
 

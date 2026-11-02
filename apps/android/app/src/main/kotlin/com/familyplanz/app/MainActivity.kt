@@ -15,6 +15,9 @@ import com.familyplanz.app.data.ApiFactory
 import com.familyplanz.app.data.DataStoreTokenStore
 import com.familyplanz.app.data.FileTaskCache
 import com.familyplanz.app.data.NetworkTaskRepository
+import com.familyplanz.app.push.ActivityNotifier
+import com.familyplanz.app.push.PushGraph
+import com.familyplanz.app.push.PushLinks
 import com.familyplanz.app.reminders.ReminderAwareCache
 import com.familyplanz.app.reminders.Reminders
 import com.familyplanz.app.sync.BackgroundRefresh
@@ -46,9 +49,13 @@ class MainActivity : ComponentActivity() {
 		if (debugToken != null) {
 			runBlocking { DataStoreTokenStore(applicationContext).save(debugToken) }
 		}
+		// #273: refresh this phone's FCM registration (idempotent; no-op when push is off or signed out).
+		lifecycleScope.launch { PushGraph.session(applicationContext).signedIn() }
 		val openDay = intent?.getStringExtra(FP_OPEN_DAY)
+		val pushTab = PushLinks.tabFor(intent?.getStringExtra(ActivityNotifier.EXTRA_LINK))
 		val initialTab = when {
 			openDay != null || intent?.getStringExtra(FP_DEBUG_SCREEN) == "calendar" -> PhoneTab.CALENDAR
+			pushTab != null -> pushTab
 			else -> PhoneTab.TASKS
 		}
 		setContent {
@@ -72,7 +79,7 @@ class MainActivity : ComponentActivity() {
 	private fun appViewModelFactory() = viewModelFactory {
 		initializer {
 			val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as android.app.Application
-			AppViewModel(taskRepository(app), DataStoreTokenStore(app))
+			AppViewModel(taskRepository(app), DataStoreTokenStore(app), PushGraph.session(app))
 		}
 	}
 
