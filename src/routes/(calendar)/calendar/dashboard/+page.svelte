@@ -17,7 +17,9 @@
 			(page.url.searchParams.get('variant') ?? '') !== ''
 	);
 
-	const dayDt = $derived(DateTime.fromISO(data.dayISO).setZone(data.zone).startOf('day'));
+	// #219: parse the day IN the user's zone. fromISO(...).setZone() read it as
+	// process-local midnight first, which is the previous day in a US zone.
+	const dayDt = $derived(DateTime.fromISO(data.dayISO, { zone: data.zone }).startOf('day'));
 	const dateLabel = $derived(dayDt.toFormat('cccc, LLLL d'));
 	const prevDayHref = $derived('/calendar/dashboard?date=' + dayDt.minus({ days: 1 }).toISODate());
 	const nextDayHref = $derived('/calendar/dashboard?date=' + dayDt.plus({ days: 1 }).toISODate());
