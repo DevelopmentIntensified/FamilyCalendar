@@ -42,7 +42,9 @@
 		{ length: firstDayOfMonth === 7 ? 0 : firstDayOfMonth }, // create an array with length of first day of the week that is in this month
 		(_, i) => i + daysInLastMonth - firstDayOfMonth + 1 // take each element in the array, add the ammount of days in last month, subtract the number that is the first day of the week that is in this month and then add 1 because arrays start at 0.
 	);
-	$: nextMonthDays = Array.from({ length: 7 - firstDayInNextMonth }, (_, i) => i + 1); //similar to above, but for next month
+	// #222: modulo 7 — next month starting ON the week start needs 0 trailing
+	// days, not a full extra row.
+	$: nextMonthDays = Array.from({ length: (7 - firstDayInNextMonth) % 7 }, (_, i) => i + 1);
 </script>
 
 <div data-testid="month-grid" class="grid min-w-0 grid-cols-7 overflow-hidden sm:gap-2">
