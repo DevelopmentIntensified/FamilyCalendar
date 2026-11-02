@@ -47,13 +47,15 @@ export const load: PageServerLoad = async (event) => {
 	// promise and stalled on some clients — the family page awaits and
 	// always renders, so this matches that contract.
 	const taskLists = await (async () => {
-		const [tasks, myTasks, pending, requested] = await Promise.all([
-			leg(
-				'tasks+cursor',
-				// Cursor pin (110; "cursor v3") now lives inside getTasksForUser.
-				async () => getTasksForUser(uid, familyId, userZone),
-				[]
-			),
+		// Cursor pin (110; "cursor v3") lives inside getTasksForUser; the
+		// section reads below don't sync, so they wait for it (#235) —
+		// in parallel they read yesterday's overdue cursor on first load.
+		const tasks = await leg(
+			'tasks+cursor',
+			async () => getTasksForUser(uid, familyId, userZone),
+			[]
+		);
+		const [myTasks, pending, requested] = await Promise.all([
 			// Sectioned task lists (issue 019): the main list is MY tasks
 			// (personal + accepted assignments); pending assignments feed the
 			// "To accept" tab, assigned-out rows the "Requested" tab.
