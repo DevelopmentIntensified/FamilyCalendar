@@ -4,6 +4,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **2026-11-02 push + categories + bug reports:** #271 on-device event reminders (exact alarms, reschedule on boot/zone/refresh), #272 server FCM HTTP v1 sender + `device_tokens` (migration 023) + silent `events_changed` nudge on every event mutation, #273 Android FCM client (manual Firebase init from gitignored firebase.properties; Family activity + Event updates channels), #281 no Event-updates notice for your own edit (actorId), #274-#279 user bug reports (attendee uid names fixed + hand-run repair SQL `sql/HAND-RUN-2026-11-02-attendee-uid-names.sql`; #276 POST / guard; #275/#277 already fixed, regression-pinned; #278/#279 dev-server artifacts, SSR tests added), #280 task categories (migration 024, `/api/task-categories`, web editor/chips/manager, Android chip + picker; TaskFocus side in its own repo #122). Owner: Firebase project + firebase.properties + `FCM_SERVICE_ACCOUNT_JSON`; run #274 repair SQL; give the TaskFocus session an fp_ token for the live round trip.
 - **#213-#264 repo bug audit (2026-11-02, all 52 done):** 7 fix lanes, test-first each. Zone math (#213-#216, #219: cursor, byDay, until, dashboard links now in user zone), calendar (#217 overlap window, #220 refetch other months, #221/#222 week start, #223 modal, #224 multi-day, #225/#226 bulk Enter, #227 RSVP toast, #228 drag keeps reminder), tasks API (#229-#235; #230 landed upstream 9f3852a), groceries/dashboard (#236-#240), auth (#241-#246, #251-#252: guests can Claim + log in, ?redirect= open-redirect-safe, no email enumeration), family (#247-#250), shell (#253-#263), #264 unit tests no longer hit a real DB. Open follow-ups: magic-link email drops ?redirect=; Day Dashboard filter still start-day-only for multi-day events; can an unclaimed Anonymous Account join a family (`family/join` treats any session as logged in) — owner call.
 - **#265 TaskFocus focus time actually reaches the phone (2026-11-01):** `GET /api/tasks`
   dropped `focusMinutes` (hand-listed select omitted it — PUT 200, GET absent on test);
@@ -391,7 +392,6 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
-- **#271-#273 Android notifications (2026-11-02, filed):** owner call: Firebase (FCM) for family-activity push; event reminders scheduled on-device with no server push. #271 local reminders, #272 server FCM sender + device tokens (migration 023, owner runs), #273 Android FCM client (needs owner Firebase config).
 - **#210 native Android app (2026-10-27, in-progress):** Capacitor wrap
   2026-11-01: SLICES 1-8 code/doc DONE (4 f4f966e, 5 bfd5962, 6 be1aba7 file
   cache scoped down, 7 c8a0786 detekt + `:app:mobileGate`, 8 plan doc banner).
