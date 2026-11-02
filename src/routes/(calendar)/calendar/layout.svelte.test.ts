@@ -80,3 +80,15 @@ describe('(calendar)/calendar layout banner offset', () => {
 		expect(main.style.marginTop).toBe('132px');
 	});
 });
+
+// Issue 260: the verify form's inline row (~322px) overflowed 288px at 320px.
+describe('(calendar)/calendar verify banner form', () => {
+	it('wraps and lets the code input shrink', () => {
+		render(Layout, { props: { data: unverified } });
+		const input = document.querySelector<HTMLInputElement>('input[aria-label="Verification code"]')!;
+		const form = input.closest('form')!;
+		expect(form.className).toMatch(/\bflex-wrap\b/);
+		expect(input.className).toMatch(/\bmin-w-0\b/);
+		expect(input.className).not.toMatch(/(^|\s)w-40(\s|$)/);
+	});
+});

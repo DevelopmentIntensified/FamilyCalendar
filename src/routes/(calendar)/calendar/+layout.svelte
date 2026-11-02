@@ -174,7 +174,7 @@
 						features like member search.
 					</span>
 					<form
-						class="flex w-full items-center justify-center gap-2"
+						class="flex w-full flex-wrap items-center justify-center gap-2"
 						onsubmit={(e) => {
 							e.preventDefault();
 							submitVerifyCode();
@@ -187,7 +187,7 @@
 							autocomplete="one-time-code"
 							inputmode="numeric"
 							aria-label="Verification code"
-							class="w-40 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-center text-sm tracking-[0.2em] text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none"
+							class="min-w-0 max-w-40 flex-1 basis-32 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-center text-sm tracking-[0.2em] text-slate-900 placeholder-slate-400 focus:border-primary-500 focus:outline-none"
 						/>
 						<button
 							type="submit"
