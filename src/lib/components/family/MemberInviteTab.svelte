@@ -3,7 +3,8 @@
 
 	interface Props {
 		familyId: string;
-		onSuccess: () => void;
+		/** An emailed invite adds nobody yet (issue 249) — report who was invited. */
+		onSuccess: (invitedEmail: string) => void;
 		onError: (message: string) => void;
 	}
 
@@ -36,7 +37,7 @@
 			if (json.error) {
 				onError(json.error);
 			} else {
-				onSuccess();
+				onSuccess(inviteEmail);
 			}
 		} catch {
 			onError('Network problem. Please try again.');

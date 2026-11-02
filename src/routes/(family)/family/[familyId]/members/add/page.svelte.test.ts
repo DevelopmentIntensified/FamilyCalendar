@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/svelte';
 import AddMemberPage from './+page.svelte';
 import type { PageData } from './$types';
@@ -82,5 +82,30 @@ describe('add a member — the approved three tabs (issue 124)', () => {
 			'Find someone',
 			'Create a child'
 		]);
+	});
+});
+
+describe('add a member — an emailed invite is not an added member (issue 249)', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	it('says the invite was sent to that address, not that a member was added', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ success: true }) }))
+		);
+		render(AddMemberPage, makeData());
+
+		await fireEvent.click(screen.getByRole('tab', { name: 'Invite by email' }));
+		await fireEvent.input(screen.getByLabelText('First Name'), { target: { value: 'Al' } });
+		await fireEvent.input(screen.getByLabelText('Last Name'), { target: { value: 'Admin' } });
+		await fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'al@x.com' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Send Invite' }));
+
+		expect(await screen.findByRole('heading', { name: /invite sent/i })).toBeInTheDocument();
+		expect(screen.getByText(/al@x\.com/)).toBeInTheDocument();
+		expect(screen.getByText(/they join when they open it/i)).toBeInTheDocument();
+		expect(screen.getByText(/24 ?h/i)).toBeInTheDocument();
+		expect(screen.queryByText(/member added/i)).toBeNull();
+		expect(screen.queryByText(/has been added/i)).toBeNull();
 	});
 });

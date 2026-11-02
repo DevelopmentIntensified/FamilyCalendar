@@ -10,6 +10,8 @@
 	let mode: 'search' | 'invite' | 'child' = 'search';
 	let error = '';
 	let success = false;
+	/** Set when an email invite went out — nobody has joined yet (issue 249). */
+	let invitedEmail = '';
 
 	/**
 	 * The approved tab strip (`family-members-add.html:18-20`).
@@ -54,8 +56,16 @@
 						/>
 					</svg>
 				</div>
-				<h2 class="mb-2 text-xl font-bold text-slate-900">Member Added!</h2>
-				<p class="mb-6 text-slate-500">The new member has been added to your family.</p>
+				{#if invitedEmail}
+					<h2 class="mb-2 text-xl font-bold text-slate-900">Invite sent</h2>
+					<p class="mb-6 text-slate-500">
+						Invite sent to <span class="font-medium text-slate-700">{invitedEmail}</span> — they join
+						when they open it (expires in 24h).
+					</p>
+				{:else}
+					<h2 class="mb-2 text-xl font-bold text-slate-900">Member Added!</h2>
+					<p class="mb-6 text-slate-500">The new member has been added to your family.</p>
+				{/if}
 				<a
 					href="/family/{data.familyId}"
 					class="inline-flex items-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
@@ -118,7 +128,10 @@
 					{:else if mode === 'invite' && data.canInviteByEmail}
 						<MemberInviteTab
 							familyId={data.familyId}
-							onSuccess={() => (success = true)}
+							onSuccess={(email) => {
+								invitedEmail = email;
+								success = true;
+							}}
 							onError={(message) => (error = message)}
 						/>
 					{:else}

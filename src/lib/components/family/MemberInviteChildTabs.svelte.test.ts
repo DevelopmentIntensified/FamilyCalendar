@@ -30,6 +30,8 @@ describe('MemberInviteTab', () => {
 		await fillInvite();
 		await fireEvent.click(screen.getByRole('button', { name: 'Send Invite' }));
 		await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
+		// Issue 249: the page names who was invited, so the tab reports it.
+		expect(onSuccess).toHaveBeenCalledWith('al@x.com');
 		expect(vi.mocked(fetch)).toHaveBeenCalledWith(
 			'/family/fam1/members/add/email',
 			expect.objectContaining({ method: 'POST' })
