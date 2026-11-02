@@ -20,6 +20,8 @@ export function isAnonymousAccount(user: { email?: string | null } | null | unde
  * never `user.email` truthiness — for "already claimed / registered" checks:
  * since #196 guests carry a placeholder email, so truthiness is always true.
  */
-export function isRegisteredAccount(user: { email?: string | null } | null | undefined): boolean {
+export function isRegisteredAccount<T extends { email?: string | null }>(
+	user: T | null | undefined
+): user is T & { email: string } {
 	return !!user?.email && !isAnonymousAccount(user);
 }

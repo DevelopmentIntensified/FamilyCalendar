@@ -10,6 +10,12 @@
 
 	let { data }: { data: PageData } = $props();
 
+	// #244: post-auth landing (already same-origin-sanitised by the load).
+	const redirectTo = $derived(data.redirectTo ?? '/calendar');
+	const signupHref = $derived(
+		redirectTo === '/calendar' ? '/signup' : `/signup?redirect=${encodeURIComponent(redirectTo)}`
+	);
+
 	let mode: 'password' | 'magic-link' = $state('password');
 	let email = $state('');
 	let password = $state('');
@@ -48,7 +54,7 @@
 			if (json.error) {
 				error = json.error;
 			} else {
-				await goto('/calendar', { invalidateAll: true });
+				await goto(redirectTo, { invalidateAll: true });
 			}
 		} catch {
 			error = 'Failed to login';
@@ -94,7 +100,7 @@
 			});
 
 			if (res.ok) {
-				await goto('/calendar', { invalidateAll: true });
+				await goto(redirectTo, { invalidateAll: true });
 			} else {
 				const json = await res.json();
 				error = json.error || 'Invalid code';
@@ -160,7 +166,7 @@
 				<p class="mt-2 text-pretty text-sm text-slate-600">
 					Don't have an account?
 					<a
-						href="/signup"
+						href={signupHref}
 						class="rounded font-medium text-primary-600 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
 						>Sign up</a
 					>
@@ -193,7 +199,9 @@
 		{/if}
 
 		{#if data.isLoggedIn && !data.mergeMode}
-			<a href="/calendar" class={submitClasses}>Go to Calendar</a>
+			<a href={redirectTo} class={submitClasses}
+				>{redirectTo === '/calendar' ? 'Go to Calendar' : 'Continue'}</a
+			>
 		{:else}
 			{#if error}
 				<div

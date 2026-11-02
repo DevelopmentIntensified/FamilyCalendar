@@ -27,3 +27,23 @@ describe('login/signup isLoggedIn is "registered", not "has a session" (#241)', 
 		expect(data.isLoggedIn).toBe(isLoggedIn);
 	});
 });
+
+describe('login/signup honour ?redirect= (same-origin only) (#244)', () => {
+	// SAFETY: test double — both loads read only locals.user and url.
+	const at = (qs: string) =>
+		({ locals: { user: null }, url: new URL(`http://test.com/login${qs}`) }) as never;
+
+	it.each([
+		['?redirect=/family/join/ABC123', '/family/join/ABC123'],
+		['?redirect=%2Fcheckout', '/checkout'],
+		['', '/calendar'],
+		['?redirect=//evil.com', '/calendar'],
+		['?redirect=https://evil.com', '/calendar'],
+		['?redirect=/%5Cevil.com', '/calendar']
+	])('%s -> %s', async (qs, expected) => {
+		const login = (await loginLoad(at(qs))) as { redirectTo: string };
+		const signup = (await signupLoad(at(qs))) as { redirectTo: string };
+		expect(login.redirectTo).toBe(expected);
+		expect(signup.redirectTo).toBe(expected);
+	});
+});
