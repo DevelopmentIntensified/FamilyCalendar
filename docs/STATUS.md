@@ -4,6 +4,7 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
+- **#213-#264 repo bug audit (2026-11-02, all 52 done):** 7 fix lanes, test-first each. Zone math (#213-#216, #219: cursor, byDay, until, dashboard links now in user zone), calendar (#217 overlap window, #220 refetch other months, #221/#222 week start, #223 modal, #224 multi-day, #225/#226 bulk Enter, #227 RSVP toast, #228 drag keeps reminder), tasks API (#229-#235; #230 landed upstream 9f3852a), groceries/dashboard (#236-#240), auth (#241-#246, #251-#252: guests can Claim + log in, ?redirect= open-redirect-safe, no email enumeration), family (#247-#250), shell (#253-#263), #264 unit tests no longer hit a real DB. Open follow-ups: magic-link email drops ?redirect=; Day Dashboard filter still start-day-only for multi-day events; can an unclaimed Anonymous Account join a family (`family/join` treats any session as logged in) — owner call.
 - **#265 TaskFocus focus time actually reaches the phone (2026-11-01):** `GET /api/tasks`
   dropped `focusMinutes` (hand-listed select omitted it — PUT 200, GET absent on test);
   list readers now carry it plus new `focusStartedAt` (migration 022, present-overwrites /
@@ -390,7 +391,6 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
-- **#213-#264 repo bug audit (2026-11-01, filed):** 52 visible bugs from 5 audit lanes (calendar UI, tasks/dashboard/groceries, family/auth, API/server, shell/nav). Highest impact: #241 guests can't Claim (placeholder email), #213/#214/#215/#216/#219 UTC-vs-user-zone day math, #217 multi-day events hidden, #220 other-month cache never refreshes, #221 week view week-start. Fix lanes A-G.
 - **#210 native Android app (2026-10-27, in-progress):** Capacitor wrap
   2026-11-01: SLICES 1-8 code/doc DONE (4 f4f966e, 5 bfd5962, 6 be1aba7 file
   cache scoped down, 7 c8a0786 detekt + `:app:mobileGate`, 8 plan doc banner).
