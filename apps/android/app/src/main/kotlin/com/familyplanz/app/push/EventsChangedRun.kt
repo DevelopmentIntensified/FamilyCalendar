@@ -28,11 +28,11 @@ class EventsChangedRun(
 		val before = months.associateWith { cache.loadEvents(it.year, it.monthValue) }
 		val outcome = refresh()
 		val snapshotted = months.filter { before[it] != null }
-		if (outcome != RefreshOutcome.REFRESHED || snapshotted.isEmpty()) return outcome
-		if (isOwnEdit(actorId, meId())) return outcome
-		val old = snapshotted.flatMap { before[it].orEmpty() }
-		val new = snapshotted.flatMap { cache.loadEvents(it.year, it.monthValue).orEmpty() }
-		EventUpdatePlanner.notice(old, new, clock.now(), clock.zone, clock.locale)?.let(post)
+		if (outcome == RefreshOutcome.REFRESHED && snapshotted.isNotEmpty() && !isOwnEdit(actorId, meId())) {
+			val old = snapshotted.flatMap { before[it].orEmpty() }
+			val new = snapshotted.flatMap { cache.loadEvents(it.year, it.monthValue).orEmpty() }
+			EventUpdatePlanner.notice(old, new, clock.now(), clock.zone, clock.locale)?.let(post)
+		}
 		return outcome
 	}
 
