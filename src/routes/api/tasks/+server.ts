@@ -20,6 +20,7 @@ import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { requireUserJson } from '$lib/server/utils/requireUser';
 import { parseFocusStartedAt } from '$lib/server/utils/focusStartedAt';
+import { getUserZone } from '$lib/server/utils/userTimezone';
 
 function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && value.trim().length > 0;
@@ -50,7 +51,13 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		return json({ tasks: eventTasks });
 	}
 
-	const userTasks = await getTasksForUser(auth.user.id, await getUserFamilyId(auth.user.id));
+	// The cursor pin writes the shared row: it must use the token owner's
+	// zone, like the page loaders do (#214), not the server's UTC day.
+	const [familyId, zone] = await Promise.all([
+		getUserFamilyId(auth.user.id),
+		getUserZone(auth.user.id)
+	]);
+	const userTasks = await getTasksForUser(auth.user.id, familyId, zone);
 	return json({ tasks: userTasks });
 };
 

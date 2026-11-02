@@ -70,8 +70,15 @@ vi.mock('$lib/server/db/actions/families', () => ({
 	getUserFamilyId: vi.fn(async () => 'fam-1')
 }));
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- scripted seam; the real module reads user_settings from the DB. Null = no stored zone.
+vi.mock('$lib/server/db/actions/userSettings', () => ({
+	getUserSettings: vi.fn(async () => null)
+}));
+
 import { POST, GET } from './+server';
 import { createTask, getTasksForEvent } from '$lib/server/db/actions/tasks';
+import { getUserSettings } from '$lib/server/db/actions/userSettings';
+import { DateTime } from 'luxon';
 
 const mockedGetEventTasks = vi.mocked(getTasksForEvent);
 
@@ -192,6 +199,28 @@ describe('GET /api/tasks — recurring cursor pin invariant (issue 110)', () => 
 		expect(body.tasks.map((t) => t.id)).toEqual(['stale-1']);
 		expect(state.updateCount).toBe(1);
 		expect(String(state.updatePatch?.dueDate)).toMatch(/T23:59:00/);
+	});
+
+	it("pins to 23:59 in the token owner's stored zone (#214)", async () => {
+		// 23:00Z Nov 1 = 08:00 Nov 2 in Tokyo — the user's today is Nov 2.
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-11-01T23:00:00Z'));
+		// SAFETY: getUserZone reads only timeZone off the settings row.
+		vi.mocked(getUserSettings).mockResolvedValue({ timeZone: 'Asia/Tokyo' } as never);
+		try {
+			state.queue = [[{ id: 'stale-1', dueDate: '2026-11-01T14:59:00.000Z' }], [], []];
+
+			const res = await GET(getEvent('user-1'));
+
+			expect(res.status).toBe(200);
+			expect(state.updateCount).toBe(1);
+			expect(DateTime.fromISO(String(state.updatePatch?.dueDate)).toMillis()).toBe(
+				DateTime.fromISO('2026-11-02T23:59', { zone: 'Asia/Tokyo' }).toMillis()
+			);
+		} finally {
+			vi.useRealTimers();
+			vi.mocked(getUserSettings).mockResolvedValue(null as never);
+		}
 	});
 
 	it('issues no UPDATE when nothing is overdue (idempotent no-op)', async () => {
