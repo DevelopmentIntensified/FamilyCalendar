@@ -178,8 +178,12 @@ describe('advanceCursor (Recurring Task cursor v3)', () => {
 
 	it('late/pinned completion slides from today', () => {
 		const overduePinned = iso('2026-08-22T23:59:00Z');
-		const next = DateTime.fromISO(advanceCursor(overduePinned, 'weekly', 1, NOW));
-		expect(next.toISODate()).toBe(iso('2026-08-29T23:59:00Z').slice(0, 10));
+		// NOW is a UTC "now" (#213: its offset IS the user's zone), so read
+		// the result back in that zone rather than the system one.
+		const next = DateTime.fromISO(advanceCursor(overduePinned, 'weekly', 1, NOW), {
+			setZone: true
+		});
+		expect(next.toISODate()).toBe('2026-08-29');
 	});
 
 	it('honors multi-step intervals', () => {
@@ -189,15 +193,16 @@ describe('advanceCursor (Recurring Task cursor v3)', () => {
 
 	it('anchors at the completion day, not the due weekday (monthly)', () => {
 		const next = DateTime.fromISO(
-			advanceCursor(iso('2026-01-31T12:00:00Z'), 'monthly', 1, '2026-01-15T12:00:00Z')
+			advanceCursor(iso('2026-01-31T12:00:00Z'), 'monthly', 1, '2026-01-15T12:00:00Z'),
+			{ setZone: true }
 		);
 		expect(next.month).toBe(2);
 		expect(next.day).toBe(15);
 	});
 
 	it('null due anchors at today + interval', () => {
-		const next = DateTime.fromISO(advanceCursor(null, 'daily', 1, NOW));
-		expect(next.toISODate()).toBe(DateTime.fromISO(NOW).plus({ days: 1 }).toISODate());
+		const next = DateTime.fromISO(advanceCursor(null, 'daily', 1, NOW), { setZone: true });
+		expect(next.toISODate()).toBe('2026-08-23');
 	});
 
 	it('treats non-positive intervals as one step', () => {
@@ -298,6 +303,46 @@ describe('needsOverduePin (sticky overdue)', () => {
 
 	it('never pins dateless rows', () => {
 		expect(needsOverduePin(null, NOW)).toBe(false);
+	});
+});
+
+/**
+ * #213: "today" is the USER's day. nowIso comes from zonedNow(zone).toISO(),
+ * which carries the zone offset — parsing must keep it, not re-project into
+ * the server's zone (UTC on Vercel, TZ under test).
+ */
+describe('cursor day boundaries follow the zoned now (#213)', () => {
+	const zoned = (s: string, zone: string) => DateTime.fromISO(s, { zone }).toISO()!;
+	const cases: [string, string, string, string | null, string, number, string][] = [
+		// label, zone, now (local wall), due (local wall | null), frequency, interval, expected next (local wall)
+		['LA evening daily lands local tomorrow midnight', 'America/Los_Angeles', '2026-11-01T20:00', null, 'daily', 1, '2026-11-02T00:00'],
+		['Chicago morning daily (repro) lands Nov 2 local', 'America/Chicago', '2026-11-01T10:00', '2026-11-01T09:00', 'daily', 1, '2026-11-02T00:00'],
+		['Tokyo early morning daily stays on the Tokyo day', 'Asia/Tokyo', '2026-11-02T08:00', '2026-11-01T23:59', 'daily', 1, '2026-11-03T00:00'],
+		['Auckland weekly anchors on the Auckland day', 'Pacific/Auckland', '2026-11-02T07:00', null, 'weekly', 1, '2026-11-09T00:00'],
+		['LA late-night every-2-days', 'America/Los_Angeles', '2026-11-01T23:30', null, 'daily', 2, '2026-11-03T00:00']
+	];
+	for (const [label, zone, now, due, frequency, interval, expected] of cases) {
+		it(label, () => {
+			const next = DateTime.fromISO(
+				advanceCursor(due ? zoned(due, zone) : null, frequency, interval, zoned(now, zone))
+			);
+			expect(next.toMillis()).toBe(DateTime.fromISO(expected, { zone }).toMillis());
+		});
+	}
+
+	it('pins a due that was yesterday in the user zone (Tokyo, still "today" in UTC)', () => {
+		const zone = 'Asia/Tokyo';
+		expect(needsOverduePin(zoned('2026-11-01T23:59', zone), zoned('2026-11-02T08:00', zone))).toBe(true);
+	});
+
+	it('does not pin a today-end pin in the user zone (Chicago after 6pm)', () => {
+		const zone = 'America/Chicago';
+		expect(needsOverduePin(zoned('2026-11-01T23:59', zone), zoned('2026-11-01T19:00', zone))).toBe(false);
+	});
+
+	it('does not pin a due later today in the user zone (Pacific/Auckland)', () => {
+		const zone = 'Pacific/Auckland';
+		expect(needsOverduePin(zoned('2026-11-02T00:30', zone), zoned('2026-11-02T07:00', zone))).toBe(false);
 	});
 });
 

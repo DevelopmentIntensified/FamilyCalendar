@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { DateTime } from 'luxon';
 
 /**
  * syncRecurringCursors pins overdue Recurring Task cursors to today's end.
@@ -192,6 +193,23 @@ describe('syncRecurringCursors', () => {
 
 		expect(state.updateCount).toBe(1);
 		expect(String(state.updatePatch!.dueDate)).toMatch(/T23:59:00/);
+	});
+
+	it("pins to 23:59 of the USER's day, not the server's (#213)", async () => {
+		// 23:00Z Nov 1 = 08:00 Nov 2 in Tokyo: the user's today is Nov 2.
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-11-01T23:00:00Z'));
+		try {
+			state.queue = [[{ id: 'stale-1', dueDate: '2026-11-01T14:59:00.000Z' }]];
+			await syncRecurringCursors('me-1', null, 'Asia/Tokyo');
+
+			expect(state.updateCount).toBe(1);
+			expect(DateTime.fromISO(String(state.updatePatch!.dueDate)).toMillis()).toBe(
+				DateTime.fromISO('2026-11-02T23:59', { zone: 'Asia/Tokyo' }).toMillis()
+			);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('issues no update when nothing is overdue', async () => {

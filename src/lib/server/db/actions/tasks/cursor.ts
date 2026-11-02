@@ -28,6 +28,18 @@ function plusInterval(dt: DateTime, frequency: string, step: number): DateTime {
 	return scheduleStep(dt, frequency as RecurrenceFrequency, step, 1);
 }
 
+/**
+ * Parse the zoned "now" KEEPING its offset (#213). Callers build it with
+ * zonedNow(zone).toISO(), so the offset IS the user's zone; a plain fromISO
+ * would re-project it into the server zone (UTC on Vercel) and every
+ * startOf('day') / 23:59 pin would land on the server's day instead.
+ * Date objects (driver shape) carry no zone and fall back to the system one.
+ */
+function parseNow(nowIso: string | Date): DateTime {
+	if (nowIso instanceof Date) return DateTime.fromJSDate(nowIso);
+	return DateTime.fromISO(String(nowIso).trim().replace(' ', 'T'), { setZone: true });
+}
+
 export function advanceCursor(
 	dueIso: string | Date | null,
 	frequency: string,
@@ -37,7 +49,7 @@ export function advanceCursor(
 	const step = Math.max(1, Math.floor(interval) || 1);
 	// postgres.js can return Date objects despite mode:'string', so
 	// normalize through toDateTime before comparing.
-	const now = (toDateTime(nowIso) ?? DateTime.fromISO(nowIso)).startOf('day');
+	const now = parseNow(nowIso).startOf('day');
 	const due = dueIso !== null ? toDateTime(dueIso) : null;
 
 	let n = 1;
@@ -54,7 +66,7 @@ export function needsOverduePin(dueIso: string | null, nowIso: string): boolean 
 	// toDateTime handles Date objects and odd string shapes from the driver.
 	const due = toDateTime(dueIso);
 	if (!due) return false;
-	const todayStart = (toDateTime(nowIso) ?? DateTime.fromISO(nowIso)).startOf('day');
+	const todayStart = parseNow(nowIso).startOf('day');
 	return due < todayStart;
 }
 /**
@@ -248,7 +260,7 @@ export async function syncRecurringCursors(
 	memberPersonal = false
 ) {
 	const nowIso = zone ? zonedNow(zone).toISO()! : new Date().toISOString();
-	const todayEnd = DateTime.fromISO(nowIso)
+	const todayEnd = parseNow(nowIso)
 		.set({ hour: 23, minute: 59, second: 0, millisecond: 0 })
 		.toISO()!;
 
