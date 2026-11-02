@@ -32,23 +32,26 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 
 /**
- * Tasks-tab add field: title (required) + optional due date and priority.
+ * Tasks-tab add field: title (required) + optional due date, priority and
+ * category (#280, from [categories] or free entry).
  * Submit clears the field at once; the pending row is the <100ms ack, the
  * server's error (if any) shows inline here.
  */
 @Composable
-fun AddTaskBar(error: String?, onCreate: (NewTaskInput) -> Unit) {
+fun AddTaskBar(error: String?, categories: List<String> = emptyList(), onCreate: (NewTaskInput) -> Unit) {
 	var title by rememberSaveable { mutableStateOf("") }
 	var due by rememberSaveable { mutableStateOf<String?>(null) }
 	var priority by rememberSaveable { mutableStateOf(TaskPriority.NORMAL) }
+	var category by rememberSaveable { mutableStateOf<String?>(null) }
 	var picking by rememberSaveable { mutableStateOf(false) }
 
 	val submit = {
-		onCreate(NewTaskInput(title, due?.let(LocalDate::parse), priority))
+		onCreate(NewTaskInput(title, due?.let(LocalDate::parse), priority, category))
 		if (title.isNotBlank()) {
 			title = ""
 			due = null
 			priority = TaskPriority.NORMAL
+			category = null
 		}
 	}
 
@@ -76,6 +79,7 @@ fun AddTaskBar(error: String?, onCreate: (NewTaskInput) -> Unit) {
 				onClearDue = { due = null },
 				onPriority = { priority = it },
 			)
+			CategoryControl(category, categories) { category = it }
 		}
 		error?.let {
 			Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)

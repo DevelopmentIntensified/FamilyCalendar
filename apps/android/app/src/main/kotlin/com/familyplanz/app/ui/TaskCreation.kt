@@ -17,6 +17,8 @@ data class NewTaskInput(
 	val title: String,
 	val dueDate: LocalDate? = null,
 	val priority: TaskPriority = TaskPriority.NORMAL,
+	/** Category name (#280); blank = none. */
+	val category: String? = null,
 )
 
 /** Wire body, or null when the trimmed title is empty. */
@@ -27,6 +29,7 @@ internal fun NewTaskInput.toRequest(): CreateTaskRequest? {
 		title = trimmed,
 		dueDate = dueDate?.toString(),
 		priority = priority.name.lowercase(),
+		category = category?.trim()?.takeIf { it.isNotEmpty() },
 	)
 }
 
@@ -89,6 +92,7 @@ class TaskCreator(
 		familyTask = false,
 		assignmentStatus = null,
 		assignedTo = null,
+		category = request.category,
 		pending = true,
 	)
 }

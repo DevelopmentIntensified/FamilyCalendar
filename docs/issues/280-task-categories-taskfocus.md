@@ -48,9 +48,13 @@ TaskFocus (desktop, repo DevelopmentIntensified/taskfocus) gives every task exac
   - `CategoryChip.svelte` (teal pill, same shape as `#tag` chips; nothing when null/blank) on `TaskRow` (as a `category` slot on the one meta line), `FamilyTaskRow` (all variants), `FamilyOpenTaskRow`, `TaskCompletedRow`, `FamilyCompletedTaskList`, dashboard `TopPrioritiesCard` and `FamilyTaskBoardCard`.
   - `TaskCategoryManager.svelte` ("Categories · N" disclosure under the tasks list): rename/delete via PATCH/DELETE (`$lib/client/taskCategories.ts`), optimistic list, toast naming the change, rollback + inline alert + toast with the server text on error (409 shown); DELETE 404 = already gone; blank/too-long names blocked client-side.
   - Tests: `taskCategory.test.ts` (10), `client/taskCategories.test.ts` (3), `taskEditPayload.test.ts` (+9 absent/null/set table), `taskSubmit.test.ts` (+3), `CategoryChip` (5), `EditTaskDialog` (+4), `AddTaskCard` (+3), `TaskCategoryManager` (8 incl. 409 rollback), row/dashboard chip tests (+8), loader tests (+2 actions, +1 per page), SSR `page.ssr.test.ts` (+2). Full vitest: all green except `*.real.test.ts` (no Postgres) and env-dependent `auth.test.ts` placeholder-secret case; `npm run build` green; svelte-check: no new errors in touched files.
+- **Android (lane 3)** — 2026-11-02, `feat(280): …`.
+  - `TaskDto.category` / `Task.category` (blank → null); `CreateTaskRequest.category` (key omitted when unset; explicitNulls off).
+  - `TaskCategorySource` + `TaskCategoryApi` (`GET /api/task-categories`, `TaskCategoryDto`/`TaskCategoryListResponse`), composed into `TaskRepository`; `TaskCategoryNames` holds the picker list (best-effort load on refresh, a name used on create is mirrored locally since the server auto-adds it).
+  - UI: `CategoryChip` on task rows (chip-shaped label beside the meta line); `CategoryControl`/`CategoryPanel` in the AddTaskBar options — inline (not a dialog: Compose dialogs never idle under the Robolectric harness), listed names filtered by what you type, free entry via "Use" (case variant → list spelling), "No category".
+  - Tests: `TaskCategoryContractTest` (4, MockWebServer: GET shape/auth/401, create body with/without category, list parse), `TaskCreatorTest` (+1), `TaskCategoryUiTest` (3, Robolectric: chip, pick listed, free entry + none).
 
 ## Needs doing
 
-- Android (lane 3): chip on rows; picker in #270 AddTaskBar from `GET /api/task-categories`.
 - TaskFocus side: messaged to its session (push/pull names, list sync by name, remember remote ids).
 - Owner: apply 024 to Neon (`.env.preview` then `.env.prod`) if not waiting for cold start.

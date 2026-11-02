@@ -6,6 +6,7 @@ import com.familyplanz.app.data.CreateTaskRequest
 import com.familyplanz.app.data.EventDto
 import com.familyplanz.app.data.MeDto
 import com.familyplanz.app.data.QuickParseResponse
+import com.familyplanz.app.data.TaskCategoryDto
 import com.familyplanz.app.data.TaskDto
 import com.familyplanz.app.data.TaskRepository
 import kotlinx.coroutines.CompletableDeferred
@@ -24,6 +25,7 @@ class FakeRepository : TaskRepository {
 	var events: ApiResult<List<EventDto>> = ApiResult.Ok(emptyList())
 	var cachedEvents: List<EventDto>? = null
 	var parse: ApiResult<QuickParseResponse> = ApiResult.Ok(QuickParseResponse())
+	var categories: ApiResult<List<TaskCategoryDto>> = ApiResult.Ok(emptyList())
 
 	/** When set, createTask suspends until completed (lets a test see the pending row). */
 	var createTaskGate: CompletableDeferred<Unit>? = null
@@ -57,8 +59,10 @@ class FakeRepository : TaskRepository {
 	override suspend fun createTask(request: CreateTaskRequest): ApiResult<TaskDto> {
 		createdTasks += request
 		createTaskGate?.await()
-		return ApiResult.Ok(TaskDto(id = "srv-${createdTasks.size}", title = request.title))
+		return ApiResult.Ok(TaskDto(id = "srv-${createdTasks.size}", title = request.title, category = request.category))
 	}
+
+	override suspend fun taskCategories(): ApiResult<List<TaskCategoryDto>> = categories
 
 	override suspend fun requestFocusStart(taskId: String): ApiResult<Unit> {
 		focusStarts += taskId
@@ -102,8 +106,10 @@ class FakeRepository : TaskRepository {
 	}
 }
 
-fun task(id: String, title: String, assignedTo: String? = null, status: String? = null) =
-	TaskDto(id = id, title = title, assignedTo = assignedTo, assignmentStatus = status)
+fun task(id: String, title: String, assignedTo: String? = null, status: String? = null, category: String? = null) =
+	TaskDto(id = id, title = title, assignedTo = assignedTo, assignmentStatus = status, category = category)
+
+fun category(name: String) = TaskCategoryDto(id = "cat-$name", name = name, createdAt = "", updatedAt = "")
 
 fun event(id: String, title: String, day: String) =
 	EventDto(id = id, title = title, start = "${day}T17:00:00Z", date = day)

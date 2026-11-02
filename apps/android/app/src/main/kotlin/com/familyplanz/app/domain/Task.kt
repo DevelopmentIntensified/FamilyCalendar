@@ -33,6 +33,8 @@ data class Task(
 	val assignmentStatus: String?,
 	/** Raw assignee id; equals the token owner id when the task is assigned to me. */
 	val assignedTo: String?,
+	/** Category name (#280); null = none. */
+	val category: String? = null,
 	/** Optimistic row not yet confirmed by the server (temp id). */
 	val pending: Boolean = false,
 )
@@ -52,5 +54,6 @@ object TaskMapper {
 		familyTask = dto.familyId != null,
 		assignmentStatus = dto.assignmentStatus?.takeIf { it.isNotBlank() && it != "none" },
 		assignedTo = dto.assignedTo,
+		category = dto.category?.trim()?.takeIf { it.isNotEmpty() },
 	)
 }

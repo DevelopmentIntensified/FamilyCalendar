@@ -53,6 +53,19 @@ class TaskCreatorTest {
 	}
 
 	@Test
+	fun `category (#280) is trimmed, blank means none, and shows on the pending row`() = runBlocking {
+		assertEquals("Work", NewTaskInput("Ship", category = "  Work ").toRequest()?.category)
+		assertNull(NewTaskInput("Ship", category = "   ").toRequest()?.category)
+		assertNull(NewTaskInput("Ship").toRequest()?.category)
+
+		val job = launch(start = CoroutineStart.UNDISPATCHED) { creator.create(NewTaskInput("Ship", category = " Work")) }
+		assertEquals("Work", ready().tasks.first().category)
+		source.answer.complete(ApiResult.Ok(TaskDto(id = "srv9", title = "Ship", category = "Work")))
+		job.join()
+		assertEquals("Work", ready().tasks.first().category)
+	}
+
+	@Test
 	fun `blank title never calls the server and says why inline`() = runBlocking {
 		val outcome = creator.create(NewTaskInput("  "))
 		assertEquals(CreateOutcome.Invalid, outcome)

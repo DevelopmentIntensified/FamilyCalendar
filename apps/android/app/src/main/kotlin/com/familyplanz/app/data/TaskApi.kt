@@ -11,7 +11,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 /** Slices of the /api/tasks surface the phone consumes (spec, 2026-10-29). */
-interface FamilyPlanzApi {
+interface FamilyPlanzApi : TaskCategoryApi {
 	@GET("api/tasks")
 	suspend fun tasks(): TaskListResponse
 
@@ -53,13 +53,15 @@ interface FamilyPlanzApi {
 /**
  * Phone-side POST body: only these fields are constructible, so the phone
  * never sends focus time. Nulls are omitted on the wire (explicitNulls off).
- * `dueDate` is `YYYY-MM-DD`; `priority` is `low|normal|high`.
+ * `dueDate` is `YYYY-MM-DD`; `priority` is `low|normal|high`; `category`
+ * is a category name (#280; null = none, key omitted).
  */
 @Serializable
 data class CreateTaskRequest(
 	val title: String,
 	val dueDate: String? = null,
 	val priority: String? = null,
+	val category: String? = null,
 )
 
 @Serializable

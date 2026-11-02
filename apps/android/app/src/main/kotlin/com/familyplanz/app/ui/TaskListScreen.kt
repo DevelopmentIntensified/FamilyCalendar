@@ -37,6 +37,7 @@ import com.familyplanz.app.domain.TaskPriority
 fun TaskListScreen(
 	state: AppUiState,
 	actions: TaskActions,
+	categories: List<String> = emptyList(),
 ) {
 	Scaffold(
 		topBar = {
@@ -58,7 +59,7 @@ fun TaskListScreen(
 				)
 
 				is AppUiState.Ready -> Column {
-					actions.onCreate?.let { AddTaskBar(error = state.createError, onCreate = it) }
+					actions.onCreate?.let { AddTaskBar(error = state.createError, categories = categories, onCreate = it) }
 					if (state.tasks.isEmpty()) {
 						EmptyTasks()
 					} else {
@@ -133,11 +134,7 @@ fun TaskRow(
 						MaterialTheme.colorScheme.onSurface
 					},
 				)
-				Text(
-					taskMeta(task),
-					style = MaterialTheme.typography.bodySmall,
-					color = MaterialTheme.colorScheme.onSurfaceVariant,
-				)
+				TaskMetaLine(task)
 			}
 			if (!task.completed && !task.pending) {
 				TextButton(onClick = { actions.onStartFocus(task) }) { Text("Focus") }
@@ -151,6 +148,18 @@ fun TaskRow(
 				TextButton(onClick = { onRespond(task, "accepted") }) { Text("Accept") }
 				TextButton(onClick = { onRespond(task, "declined") }) { Text("Decline") }
 			}
+		}
+	}
+}
+
+/** Meta text plus the category chip (#280) when the task has one. */
+@Composable
+private fun TaskMetaLine(task: Task) {
+	Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+		task.category?.let { CategoryChip(it) }
+		val meta = taskMeta(task)
+		if (meta.isNotEmpty() || task.category == null) {
+			Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 		}
 	}
 }

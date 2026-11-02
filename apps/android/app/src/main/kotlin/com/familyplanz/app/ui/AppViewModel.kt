@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.familyplanz.app.data.ApiError
 import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.data.DataStoreTokenStore
+import com.familyplanz.app.data.TaskCategoryNames
 import com.familyplanz.app.data.TaskDto
 import com.familyplanz.app.data.TaskRepository
 import com.familyplanz.app.domain.Task
@@ -50,6 +51,10 @@ class AppViewModel(
 	private val _snack = MutableStateFlow<UiSnack?>(null)
 	val snack: StateFlow<UiSnack?> = _snack
 
+	/** The caller's category names (#280) for the add-task picker; best effort, empty until loaded. */
+	private val categoryNames = TaskCategoryNames(repository)
+	val categories: StateFlow<List<String>> = categoryNames.names
+
 	private val creator = TaskCreator(repository, _ui)
 
 	init {
@@ -86,14 +91,15 @@ class AppViewModel(
 	}
 
 	fun refresh() {
+		viewModelScope.launch { categoryNames.load() }
 		viewModelScope.launch {
 			_ui.value = AppUiState.Loading
 			val meId = when (val me = repository.me()) {
 				is ApiResult.Ok -> me.value.id
 				is ApiResult.Err -> null
 			}
-			// #281: the push worker reads it to keep the user's own edits silent.
-			meId?.let { tokenStore.saveUserId(it) }
+			// #281: the push worker reads it to keep the user's own edits silent (off the list's path).
+			meId?.let { id -> viewModelScope.launch { tokenStore.saveUserId(id) } }
 			when (val result = repository.allTasks()) {
 				is ApiResult.Ok -> _ui.value = AppUiState.Ready(result.value.map(TaskMapper::fromDto), meId)
 				is ApiResult.Err -> {
@@ -141,8 +147,10 @@ class AppViewModel(
 	fun createTask(input: NewTaskInput) {
 		viewModelScope.launch {
 			when (val outcome = creator.create(input)) {
-				is CreateOutcome.Created ->
+				is CreateOutcome.Created -> {
+					input.category?.let(categoryNames::remember)
 					_snack.value = UiSnack("Added \"${outcome.title}\" to your tasks")
+				}
 				CreateOutcome.Unauthorized -> invalidateSession()
 				is CreateOutcome.Rejected, CreateOutcome.Invalid -> Unit
 			}

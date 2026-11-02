@@ -5,12 +5,13 @@ package com.familyplanz.app.data
  * on the narrowest slice (tasks / events / account). The network
  * implementation delegates each slice to its own small class.
  */
-interface TaskRepository : TaskSource, EventSource, AccountSource
+interface TaskRepository : TaskSource, TaskCategorySource, EventSource, AccountSource
 
 class NetworkTaskRepository(
 	api: FamilyPlanzApi,
 	cache: TaskCache? = null,
 ) : TaskRepository,
 	TaskSource by NetworkTaskSource(api, cache),
+	TaskCategorySource by NetworkTaskCategorySource(api),
 	EventSource by NetworkEventSource(api, cache),
 	AccountSource by NetworkAccountSource(api)

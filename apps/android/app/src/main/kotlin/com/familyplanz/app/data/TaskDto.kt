@@ -38,6 +38,8 @@ data class TaskDto(
 	val createdAt: String = "",
 	val focusMinutes: Int? = null,
 	val tags: List<String> = emptyList(),
+	/** Category name (#280, ≤80 chars); null/absent = none. */
+	val category: String? = null,
 )
 
 @Serializable
