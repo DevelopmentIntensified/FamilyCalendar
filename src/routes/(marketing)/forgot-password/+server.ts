@@ -7,6 +7,7 @@ import { getUrl } from '$lib/utils/getUrl';
 import { createJWT } from 'oslo/jwt';
 import { TimeSpan } from 'oslo';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
+import { isRegisteredAccount } from '$lib/utils/anonymous';
 
 /**
  * Collaborators POST needs, injectable so tests can pass fakes through a real
@@ -55,8 +56,10 @@ export const POST = async (
 		}
 
 		const user = await lookupUser(email);
-		if (!user) {
-			return json({ error: 'If an account exists, a reset link has been sent' }, { status: 200 });
+		// #245: unknown (or guest placeholder) emails get the exact success
+		// shape a real send returns — no enumeration oracle.
+		if (!user || !isRegisteredAccount(user)) {
+			return json({ success: true });
 		}
 
 		const token = await createJwt(

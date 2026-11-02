@@ -65,7 +65,18 @@ describe('POST /forgot-password', () => {
 		const body = await response.json();
 
 		expect(response.status).toBe(200);
-		expect(body.error).toContain('account exists');
+		// #245: identical shape to the known-email branch — no `error` oracle.
+		expect(body).toEqual({ success: true });
+		expect(sendEmail).not.toHaveBeenCalled();
+	});
+
+	it('treats an Anonymous Account placeholder address as unknown (#245)', async () => {
+		getUserByEmail.mockResolvedValue({ id: 'g1', email: 'g1@anonymous.placeholder.invalid' });
+
+		const response = await POST(mockEvent({ email: 'g1@anonymous.placeholder.invalid' }), deps);
+
+		expect(await response.json()).toEqual({ success: true });
+		expect(sendEmail).not.toHaveBeenCalled();
 	});
 
 	it('returns 400 for missing email', async () => {
