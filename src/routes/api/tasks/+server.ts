@@ -23,6 +23,7 @@ import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { requireUserJson } from '$lib/server/utils/requireUser';
 import { parseFocusStartedAt } from '$lib/server/utils/focusStartedAt';
 import { getUserZone } from '$lib/server/utils/userTimezone';
+import { withPhoneFocus } from '$lib/server/db/actions/taskfocusSessions';
 
 function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && value.trim().length > 0;
@@ -61,7 +62,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		const eventTasks = (await getTasksForEvent(eventId)).filter(
 			(t) => t.visibility !== 'private' || t.userId === auth.user.id
 		);
-		return json({ tasks: eventTasks });
+		return json({ tasks: await withPhoneFocus(auth.user.id, eventTasks) });
 	}
 
 	// The cursor pin writes the shared row: it must use the token owner's
@@ -71,7 +72,9 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		getUserZone(auth.user.id)
 	]);
 	const userTasks = await getTasksForUser(auth.user.id, familyId, zone);
-	return json({ tasks: userTasks });
+	// #293: the caller's unabsorbed phone sessions, beside (never inside)
+	// the desktop-owned focusMinutes / focusStartedAt.
+	return json({ tasks: await withPhoneFocus(auth.user.id, userTasks) });
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {

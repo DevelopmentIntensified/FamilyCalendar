@@ -67,6 +67,8 @@ Task shape (`Task`; `tags` present on the list endpoint only):
   "focusMinutes": "integer|null (TaskFocus: whole focus minutes, desktop-written)",
   "focusStartedAt": "ISO datetime string|null (TaskFocus: current focus began; null = idle)",
   "category": "text|null (#280: category NAME shared with TaskFocus; null = uncategorized)",
+  "phoneFocusMinutes": "integer ≥ 0 (#293: whole minutes of the CALLER's closed, unabsorbed phone sessions on this task; 0 when none)",
+  "phoneFocusStartedAt": "ISO datetime string|null (#293: start of the caller's open phone session on this task; null = none)",
   "tags": ["text", …]
 }
 ```
@@ -242,6 +244,64 @@ Phone → desktop start/stop, one FIFO queue per token owner. Same Bearer auth.
   **Idempotent: unknown / already-acked / another-user's id all return
   `204`, never `404`-only.** Each command is acked once, individually; with
   several phones enqueuing, the desktop consumes strictly in FIFO order.
+
+## TaskFocus phone focus sessions (`/api/taskfocus/sessions`, #293)
+
+The phone's own focus log (TaskFocus #124). One writer per field: the phone
+never writes `focusMinutes`; it writes sessions here. The desktop pulls
+closed sessions, imports them, PUTs the new `focusMinutes`, then **absorbs**
+(acks) them. Until absorbed, `GET /api/tasks` reports them as
+`phoneFocusMinutes` / `phoneFocusStartedAt` (`focusMinutes` /
+`focusStartedAt` stay desktop-owned and unchanged). Same Bearer `fp_…` /
+session auth as `/api/tasks`; everything is scoped to the caller — another
+user's session id behaves exactly like an unknown one (`404`).
+
+Session shape (`{session}` responses):
+`{"id","taskId","startedAt" ISO,"endedAt" ISO|null (null = running),"source":"phone","absorbedAt" ISO|null,"createdAt" ISO}`.
+
+Time rules (400 `{"error"}`): `startedAt` may be at most **5 min** ahead
+of the server clock; when ended, `endedAt > startedAt` and
+`endedAt − startedAt ≤ 12 h` (both bounds inclusive: exactly 5 min / 12 h
+pass). Timestamps are ISO strings.
+
+- `POST /api/taskfocus/sessions` `{"taskId","startedAt","endedAt"?}` →
+  `201 {session}`. No `endedAt` (absent or null) = start a running session;
+  with `endedAt` = a finished session recorded offline.
+  - The task must be one the caller can see — the same check as
+    `PUT /api/tasks/[id]`: owner, live (pending/accepted) assignee, or for a
+    family task any member of its family. Unknown / archived / not yours →
+    `404 {"error":"Task not found"}` (an offline queue can drop it).
+  - **One open phone session per user.** A start (no `endedAt`) while
+    another session is open → `409 {"error","openSessionId":"<id>"}`;
+    the phone PATCHes (or DELETEs) that one, then retries. A finished
+    (`endedAt`) POST is never refused for an open session. Enforced by a
+    partial unique index, so concurrent starts cannot both win.
+- `PATCH /api/taskfocus/sessions/:id` `{"endedAt"}` → `200 {session}`.
+  Closes an open session (rules above, measured from the stored
+  `startedAt`). A repeat PATCH on a closed, unabsorbed session overwrites
+  `endedAt` (a retried stop succeeds). `404` unknown / not yours; `409`
+  already absorbed. A session that ran past 12 h cannot be closed as-is:
+  PATCH `startedAt + 12h` or DELETE it.
+- `DELETE /api/taskfocus/sessions/:id` → `200 {"success":true}`. Discards an
+  unabsorbed session (open or closed; the user cancelled). `404` = unknown /
+  not yours / already deleted — **treat as done**. `409` = already absorbed
+  (it is desktop history now; nothing to discard).
+- `GET /api/taskfocus/sessions?unabsorbed=1` →
+  `200 {"sessions":[{"id","taskId","startedAt","endedAt","source"}]}`:
+  the caller's **closed and unabsorbed** sessions only, oldest `startedAt`
+  first, max 200 (page by absorbing). Without `?unabsorbed=1` → `400`. A
+  `404` means the server predates #293 — desktop skips quietly.
+- `POST /api/taskfocus/sessions/:id/absorb` → `200 {session}` with
+  `absorbedAt` set. Idempotent: already absorbed → `200` (original
+  `absorbedAt`); unknown / not yours → `404` (treat as done). An open session
+  cannot be absorbed → `409`. Absorb only **after** the `focusMinutes` PUT
+  that includes the session succeeded.
+
+`phoneFocusMinutes` on `GET /api/tasks` (list and `?eventId=`) =
+`floor(Σ(endedAt − startedAt) / 60 s)` over the caller's closed, unabsorbed
+sessions on that task — summed first, then floored (two 90 s sessions = 3).
+Display rule (phone, web):
+`live = focusMinutes + phoneFocusMinutes + (focusStartedAt ? now − focusStartedAt : 0) + (phoneFocusStartedAt ? now − phoneFocusStartedAt : 0)`.
 
 ## Android push devices (`/api/devices`, #272)
 

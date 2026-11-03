@@ -34,6 +34,7 @@ import m021 from '../../../../../sql/migrations/021-taskfocus-focus-minutes-comm
 import m022 from '../../../../../sql/migrations/022-taskfocus-focus-started-at.sql?raw';
 import m023 from '../../../../../sql/migrations/023-device-tokens.sql?raw';
 import m024 from '../../../../../sql/migrations/024-task-categories.sql?raw';
+import m025 from '../../../../../sql/migrations/025-taskfocus-sessions.sql?raw';
 
 export type BundledMigration = { name: string; sql: string };
 
@@ -63,7 +64,8 @@ const MIGRATIONS: BundledMigration[] = [
 	{ name: '021-taskfocus-focus-minutes-commands.sql', sql: m021 },
 	{ name: '022-taskfocus-focus-started-at.sql', sql: m022 },
 	{ name: '023-device-tokens.sql', sql: m023 },
-	{ name: '024-task-categories.sql', sql: m024 }
+	{ name: '024-task-categories.sql', sql: m024 },
+	{ name: '025-taskfocus-sessions.sql', sql: m025 }
 ];
 
 /** Sorted ascending by numeric prefix. */

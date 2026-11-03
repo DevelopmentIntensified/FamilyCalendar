@@ -237,6 +237,46 @@ describe('GET /api/tasks — recurring cursor pin invariant (issue 110)', () => 
 	});
 });
 
+describe('GET /api/tasks — phone focus overlay (#293)', () => {
+	it('adds phoneFocusMinutes / phoneFocusStartedAt per task, desktop fields unchanged', async () => {
+		// Queue order: (1) sync scope, (2) list, (3) tags, (4) the caller's
+		// unabsorbed taskfocus_sessions (SQL scoping: the .real.test).
+		const started = new Date('2026-11-03T09:00:00Z');
+		state.queue = [
+			[],
+			[
+				{ id: 't1', focusMinutes: 40, focusStartedAt: null },
+				{ id: 't2', focusMinutes: null, focusStartedAt: null },
+				{ id: 't3', focusMinutes: 5, focusStartedAt: null }
+			] as never,
+			[],
+			[
+				{ taskId: 't1', startedAt: new Date('2026-11-03T08:00:00Z'), endedAt: new Date('2026-11-03T08:10:59Z'), absorbedAt: null },
+				{ taskId: 't2', startedAt: started, endedAt: null, absorbedAt: null }
+			] as never
+		];
+
+		const res = await GET({
+			locals: { user: { id: 'user-1' } },
+			url: new URL('http://localhost/api/tasks')
+		} as never);
+		const body = (await res.json()) as { tasks: Record<string, unknown>[] };
+
+		expect(res.status).toBe(200);
+		expect(body.tasks.map(({ id, focusMinutes, focusStartedAt, phoneFocusMinutes, phoneFocusStartedAt }) => ({
+			id,
+			focusMinutes,
+			focusStartedAt,
+			phoneFocusMinutes,
+			phoneFocusStartedAt
+		}))).toEqual([
+			{ id: 't1', focusMinutes: 40, focusStartedAt: null, phoneFocusMinutes: 10, phoneFocusStartedAt: null },
+			{ id: 't2', focusMinutes: null, focusStartedAt: null, phoneFocusMinutes: 0, phoneFocusStartedAt: started.toISOString() },
+			{ id: 't3', focusMinutes: 5, focusStartedAt: null, phoneFocusMinutes: 0, phoneFocusStartedAt: null }
+		]);
+	});
+});
+
 describe('GET /api/tasks?eventId= — event-task visibility (issue 164)', () => {
 	function eventDetailEvent(userId: string) {
 		// SAFETY: test double — the eventId GET branch reads locals.user + url.

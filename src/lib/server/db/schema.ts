@@ -571,6 +571,47 @@ export const taskfocusCommands = pgTable(
 
 export type TaskfocusCommand = typeof taskfocusCommands.$inferSelect;
 
+/**
+ * Phone focus sessions (#293, TaskFocus #124): the phone's own focus log.
+ * The phone never writes tasks.focusMinutes; the desktop absorbs closed
+ * sessions into its history, PUTs the new total, then acks (absorbed_at).
+ * Until then GET /api/tasks reports them as phoneFocusMinutes /
+ * phoneFocusStartedAt. ended_at null = running; at most one running
+ * session per user (partial unique index).
+ */
+export const taskfocusSessions = pgTable(
+	'taskfocus_sessions',
+	{
+		id: text('id')
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => generateId(15)),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		taskId: text('task_id')
+			.notNull()
+			.references(() => tasks.id, { onDelete: 'cascade' }),
+		startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }).notNull(),
+		endedAt: timestamp('ended_at', { withTimezone: true, mode: 'date' }),
+		source: text('source').notNull().default('phone'),
+		absorbedAt: timestamp('absorbed_at', { withTimezone: true, mode: 'date' }),
+		createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
+	},
+	(table) => ({
+		userAbsorbedStartedIdx: index('taskfocus_sessions_user_absorbed_started_idx').on(
+			table.userId,
+			table.absorbedAt,
+			table.startedAt
+		),
+		userOpenUnique: uniqueIndex('taskfocus_sessions_user_open_unique')
+			.on(table.userId)
+			.where(sql`${table.endedAt} IS NULL`)
+	})
+);
+
+export type TaskfocusSession = typeof taskfocusSessions.$inferSelect;
+
 export const tasks = pgTable('tasks', {
 	id: text('id')
 		.notNull()
