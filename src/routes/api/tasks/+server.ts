@@ -35,15 +35,24 @@ function isNonEmptyString(value: unknown): value is string {
  * a task joins the event's title/start into the caller's lists.
  */
 async function eventAccess(userId: string, eventId: string): Promise<'missing' | 'denied' | 'ok'> {
+	return (await eventLookup(userId, eventId)).access;
+}
+
+/** eventAccess + the event's calendar (G5, #292: `eventCalendarId`). */
+async function eventLookup(
+	userId: string,
+	eventId: string
+): Promise<{ access: 'missing' | 'denied' | 'ok'; calendarId: string | null }> {
 	const [event] = await db
 		.select({ id: events.id, calendarId: events.calendarId, ownerId: events.ownerId })
 		.from(events)
 		.where(eq(events.id, eventId))
 		.limit(1);
-	if (!event) return 'missing';
-	if (event.ownerId === userId) return 'ok';
+	if (!event) return { access: 'missing', calendarId: null };
+	const calendarId = event.calendarId ?? null;
+	if (event.ownerId === userId) return { access: 'ok', calendarId };
 	const calIds = await getAccessibleCalendarIds(userId);
-	return !!event.calendarId && calIds.includes(event.calendarId) ? 'ok' : 'denied';
+	return { access: !!calendarId && calIds.includes(calendarId) ? 'ok' : 'denied', calendarId };
 }
 
 export const GET: RequestHandler = async ({ locals, url }) => {
@@ -52,16 +61,16 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
 	const eventId = url.searchParams.get('eventId');
 	if (eventId) {
-		const access = await eventAccess(auth.user.id, eventId);
+		const { access, calendarId } = await eventLookup(auth.user.id, eventId);
 		if (access === 'missing') {
 			return json({ tasks: [] });
 		}
 		if (access === 'denied') {
 			return json({ error: 'No access to this event' }, { status: 403 });
 		}
-		const eventTasks = (await getTasksForEvent(eventId)).filter(
-			(t) => t.visibility !== 'private' || t.userId === auth.user.id
-		);
+		const eventTasks = (await getTasksForEvent(eventId))
+			.filter((t) => t.visibility !== 'private' || t.userId === auth.user.id)
+			.map((t) => ({ ...t, eventCalendarId: calendarId }));
 		return json({ tasks: await withPhoneFocus(auth.user.id, eventTasks) });
 	}
 
@@ -73,8 +82,15 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	]);
 	const userTasks = await getTasksForUser(auth.user.id, familyId, zone);
 	// #293: the caller's unabsorbed phone sessions, beside (never inside)
-	// the desktop-owned focusMinutes / focusStartedAt.
-	return json({ tasks: await withPhoneFocus(auth.user.id, userTasks) });
+	// the desktop-owned focusMinutes / focusStartedAt. G5 (#292): the parent
+	// event's calendar, always present (null = a standalone task) so the phone
+	// can hide due chips per calendar.
+	return json({
+		tasks: await withPhoneFocus(
+			auth.user.id,
+			userTasks.map((t) => ({ ...t, eventCalendarId: t.eventCalendarId ?? null }))
+		)
+	});
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {

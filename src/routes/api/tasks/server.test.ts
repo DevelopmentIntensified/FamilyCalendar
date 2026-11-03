@@ -318,6 +318,42 @@ describe('GET /api/tasks?eventId= — event-task visibility (issue 164)', () => 
 		expect(res.status).toBe(200);
 		expect(body.tasks.map((t) => t.id)).toEqual(['t-priv-mine']);
 	});
+
+	it("G5 (#292): each event task carries the event's calendar as eventCalendarId", async () => {
+		state.queue = [[{ id: 'ev-1', calendarId: 'cal-9', ownerId: 'user-1' }]];
+		mockedGetEventTasks.mockResolvedValue([
+			{ id: 't-1', visibility: 'public', userId: 'user-1' }
+		] as never);
+
+		const res = await GET(eventDetailEvent('user-1'));
+		const body = (await res.json()) as { tasks: { eventCalendarId: string | null }[] };
+
+		expect(body.tasks[0].eventCalendarId).toBe('cal-9');
+	});
+});
+
+describe('GET /api/tasks — eventCalendarId per task (G5, #292)', () => {
+	it('always emits eventCalendarId: the joined calendar, or null for a standalone task', async () => {
+		state.queue = [
+			[],
+			[
+				{ id: 't-ev', dueDate: null, eventCalendarId: 'cal-fam' },
+				{ id: 't-solo', dueDate: null }
+			],
+			[]
+		];
+		// SAFETY: test double — the list GET reads locals.user + url.
+		const res = await GET({
+			locals: { user: { id: 'user-1' } },
+			url: new URL('http://localhost/api/tasks')
+		} as never);
+		const body = (await res.json()) as { tasks: { id: string; eventCalendarId: unknown }[] };
+
+		expect(body.tasks.map((t) => [t.id, t.eventCalendarId])).toEqual([
+			['t-ev', 'cal-fam'],
+			['t-solo', null]
+		]);
+	});
 });
 
 /**

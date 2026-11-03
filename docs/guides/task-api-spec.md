@@ -69,6 +69,7 @@ Task shape (`Task`; `tags` present on the list endpoint only):
   "category": "text|null (#280: category NAME shared with TaskFocus; null = uncategorized)",
   "phoneFocusMinutes": "integer ≥ 0 (#293: whole minutes of the CALLER's closed, unabsorbed phone sessions on this task; 0 when none)",
   "phoneFocusStartedAt": "ISO datetime string|null (#293: start of the caller's open phone session on this task; null = none)",
+  "eventCalendarId": "calendar id|null (#292 G5, GET only: the parent event's calendar; null = standalone task, which belongs to your personal calendar)",
   "tags": ["text", …]
 }
 ```
@@ -443,3 +444,23 @@ Header `Authorization: Bearer fp_…`, no body.
   user's other tokens and web sessions are untouched). Then run the local
   sign-out (FCM `DELETE /api/devices` first, while the token still works).
 - `401 {"error":"Unauthorized"}` — missing / unknown / already-revoked token.
+
+## App screen endpoints (#292, Lane L0)
+
+JSON twins of the website's page loads, so the Android app (Bearer `fp_`)
+reads the same data as the web's mobile view. Each one calls the **same
+server function** as its web page (no second query dialect). All take a
+Bearer token or a web session cookie; 401 / 500 as universal. A family
+another user belongs to is never readable: `403 {"error":"Not a member of this family"}`
+unless stated otherwise.
+
+### GET /api/me (G1)
+
+- `200 {"id","firstName","lastName","email","emailVerified","isAnonymous","roles","lastActiveAt","familyId"}`
+  - `email`: string, or `null` for an Anonymous Account (the placeholder
+    address is never sent).
+  - `emailVerified`: boolean. `isAnonymous`: boolean (guest banner).
+  - `roles`: string[] (`"admin"` shows the admin menu).
+  - `lastActiveAt`: ISO datetime | null.
+  - `familyId`: your family's id | null (no family → groceries "join a family" state).
+- Only your own row. No other fields (no hash, no phone).
