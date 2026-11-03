@@ -2,118 +2,16 @@
 // stat that answers "is this family actually in use" and the plan usage the
 // pill reads (issue 098: this loader used to answer with the member's FIRST
 // `familyMembers` row, so a two-family user only ever saw one of them).
-import {
-	generateInviteCode,
-	getFamilyMemberRole,
-	getUserFamilyMemberships
-} from '$lib/server/db/actions/families';
-import { getUserSubscriptionLimits } from '$lib/server/services/subscriptionService';
-import { db } from '$lib/server/db';
-import { familyInviteCodes, familyMembers, tasks, users } from '$lib/server/db/schema';
-import { and, count, eq, inArray, isNull } from 'drizzle-orm';
+import { generateInviteCode, getFamilyMemberRole } from '$lib/server/db/actions/families';
 import { fail } from '@sveltejs/kit';
 import { requireUser } from '$lib/server/utils/requireUser';
 import type { Actions, PageServerLoad } from './$types';
-
-// Minting an invite code is creator/admin-only — the same gate
-// `/api/family/invite` and `members/add/direct` use. The membership ROLE is
-// the permission; memberType (the personal profile) is not (ADR-0001).
-const INVITE_MANAGER_ROLES = new Set(['creator', 'admin']);
+import { INVITE_MANAGER_ROLES, loadFamiliesOverview } from '$lib/server/services/familyData';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const user = requireUser(locals);
-	const memberships = await getUserFamilyMemberships(user.id);
-	const familyIds = memberships.map((m) => m.family.id);
-
-	// The card's stat: open Family Tasks per family — ONE grouped query for the
-	// whole page, never one query per card (issue 078). "Open" is the Family
-	// Task Board's own definition: not completed, not archived. Tasks are one
-	// row each (Recurring Tasks included — no occurrence expansion), so the
-	// count is honest rather than a raw event-row artefact.
-	const openTaskRows = familyIds.length
-		? await db
-				.select({ familyId: tasks.familyId, openTasks: count() })
-				.from(tasks)
-				.where(
-					and(
-						inArray(tasks.familyId, familyIds),
-						isNull(tasks.completedAt),
-						isNull(tasks.archivedAt)
-					)
-				)
-				.groupBy(tasks.familyId)
-		: [];
-	const openTasksByFamily = new Map(openTaskRows.map((row) => [row.familyId, row.openTasks]));
-
-	// `family.html`'s side rail: a row per person — name, Member Type, role — and
-	// the join code. ONE roster read for the whole page across every family the
-	// viewer belongs to, so the rail costs the same for one family or five.
-	const roster = familyIds.length
-		? await db
-				.select({
-					familyId: familyMembers.familyId,
-					userId: users.id,
-					firstName: users.firstName,
-					lastName: users.lastName,
-					role: familyMembers.role,
-					memberType: familyMembers.memberType
-				})
-				.from(users)
-				.innerJoin(familyMembers, eq(users.id, familyMembers.userId))
-				.where(inArray(familyMembers.familyId, familyIds))
-				.orderBy(users.firstName)
-		: [];
-
-	// One code read for every family, filtered to the codes that can still be
-	// used. `family-detail.html`'s band established the rule and this page holds
-	// to it: an expired or used-up code is not an invitation, and presenting one
-	// as live is worse than showing none.
-	const codeRows = familyIds.length
-		? await db
-				.select({
-					familyId: familyInviteCodes.familyId,
-					code: familyInviteCodes.code,
-					useCount: familyInviteCodes.useCount,
-					maxUses: familyInviteCodes.maxUses,
-					expiresAt: familyInviteCodes.expiresAt
-				})
-				.from(familyInviteCodes)
-				.where(inArray(familyInviteCodes.familyId, familyIds))
-		: [];
-	const now = Date.now();
-	const activeInvites = codeRows.filter(
-		(row) =>
-			new Date(row.expiresAt).getTime() > now &&
-			(row.maxUses === null || (row.useCount ?? 0) < row.maxUses)
-	);
-
-	// Plan usage for the pill — the same familyLimit the create gate enforces,
-	// counted the same way (family Memberships, not families created).
-	const { familyLimit } = await getUserSubscriptionLimits(user.id);
-
-	return {
-		families: memberships.map((m) => ({
-			...m.family,
-			memberCount: m.memberCount,
-			openTasks: openTasksByFamily.get(m.family.id) ?? 0,
-			// The approved card's roster strip — first names, so the card can show
-			// WHO is in this family and not only how many (issue 124). The
-			// userId rides along so each avatar can carry that person's own
-			// colour, the way `family.html` draws `${m.tone}`.
-			members: (m.firstNames ?? []).map((firstName, i) => ({
-				firstName,
-				userId:
-					roster.find((r) => r.familyId === m.family.id && r.firstName === firstName)?.userId ??
-					`roster-${i}`
-			})),
-			createdLabel: m.family.createdAt.toLocaleDateString(),
-			// Whether THIS page offers "Invite by link" for the family (issue 091).
-			canInvite: m.role !== null && INVITE_MANAGER_ROLES.has(m.role)
-		})),
-		roster,
-		activeInvites,
-		plan: { used: familyIds.length, limit: familyLimit }
-	};
+	// Shared with GET /api/families (#292 G10a).
+	return await loadFamiliesOverview(user.id);
 };
 
 function formString(formData: FormData, key: string): string {

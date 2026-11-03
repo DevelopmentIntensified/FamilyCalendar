@@ -1,48 +1,17 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { getPublicTasksForFamily, getTasksForFamily } from '$lib/server/db/actions/tasks';
-import { getFamilyRoster, getUserFamilyMemberships } from '$lib/server/db/actions/families';
-import { listCategoryOptions } from '$lib/server/db/actions/taskCategories';
-import { getUserZone } from '$lib/server/utils/userTimezone';
+import { loadFamilyTasks } from '$lib/server/services/familyData';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user) {
 		return redirect(302, '/login');
 	}
-
-	const memberships = await getUserFamilyMemberships(locals.user.id);
-
 	// `?familyId=` addresses one family; without it the OLDEST family is chosen —
-	// defined, rather than whatever `familyMembers` row the database hands back.
-	// This used to take the user's FIRST membership row, so a user in two
-	// families got whichever one the database felt like, and the board could
-	// only ever be about one of them (issue 098's bug class, still here).
-	const requested = url.searchParams.get('familyId');
-	const chosen = memberships.find((m) => m.family.id === requested) ?? memberships[0] ?? null;
-
-	if (!chosen) {
+	// defined, rather than whatever `familyMembers` row the database hands back
+	// (issue 098's bug class). Shared with GET /api/families/{id}/tasks (#292 G11).
+	const board = await loadFamilyTasks(locals.user.id, url.searchParams.get('familyId'));
+	if (!board) {
 		return redirect(302, '/family');
 	}
-	const familyId = chosen.family.id;
-
-	const zone = await getUserZone(locals.user.id);
-
-	const [tasks, publicTasks, familyRoster, taskCategories] = await Promise.all([
-		// Cursor pin (110) now lives inside each list read (family scope,
-		// plus the member-personal leg for the public tab).
-		getTasksForFamily(familyId, zone),
-		getPublicTasksForFamily(familyId, zone),
-		getFamilyRoster(familyId),
-		// #280: the viewer's own category list (editor suggestions); never throws.
-		listCategoryOptions(locals.user.id)
-	]);
-
-	return {
-		tasks,
-		publicTasks,
-		familyRoster,
-		familyId,
-		userId: locals.user.id,
-		taskCategories
-	};
+	return board;
 };

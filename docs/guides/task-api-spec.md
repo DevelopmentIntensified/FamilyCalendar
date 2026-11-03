@@ -582,3 +582,69 @@ and the event edit form (`getFamilyRoster`, as the calendar layout reads it).
   — `familyId` omitted = your family.
 - `200 {"familyId":null,"members":[]}` — you have no family.
 - `403 {"error":"Not a member of this family"}` — a `familyId` you are not in.
+
+### Families (G10a–c, G11)
+
+All read/write through `src/lib/server/services/familyData.ts`, the same
+functions the `/family/**` pages use, so role checks and messages match the
+web. Roles: `creator` > `admin` > `member` (the permission); `memberType`
+(`parent|child|member`) is a profile label, not a permission. A family you
+are not a member of answers **404 `{"error":"Family not found"}`** on reads
+(missing and not-yours look the same) and **403** on writes.
+
+#### GET /api/families (G10a)
+
+- `200 {"families":[{"id","name","color","createdAt","memberCount","openTasks","members":[{"firstName","userId"}],"createdLabel","canInvite","role"}],"roster":[{"familyId","userId","firstName","lastName","role","memberType"}],"activeInvites":[{"familyId","code","useCount","maxUses","expiresAt"}],"plan":{"used","limit"}}`
+  — oldest family first; `activeInvites` only lists codes that can still be used.
+
+#### GET /api/families/{id} (G10b)
+
+- `200 {"family":{"id","name","color","createdAt"},"members":[<roster row>],"currentUserRole","currentUserId","activity":[…],"moduleSwitches":{"<module>":bool},"hiddenDashboardModules":[…],"activeInvite":{"code","useCount","maxUses","expiresAt"}|null,"inviteCreatedBy":"first name"|null,"planUsage":{"tierName","aiUsed","aiLimit","familiesUsed","familyLimit","members","memberLimit","archivedRetentionDays","exportImportEnabled"}}`
+- `404 {"error":"Family not found"}`.
+
+#### PATCH /api/families/{id}
+
+Body `{"name"?, "color"?: "#rrggbb"}` (admin+).
+
+- `200 {"success":true,"family":{…}}`
+- `400 {"error":"Invalid name"|"Invalid color"|"Invalid JSON"}`
+- `403 {"error":"You do not have permission to perform this action"}`
+
+#### PATCH /api/families/{id}/members/{userId}
+
+Body `{"role"?: "creator|admin|member", "memberType"?: "parent|child|member"}`;
+`role` applies first, the first refusal stops.
+
+- `200 {"success":true}`
+- `400 {"error":"role or memberType is required"}`, `"Role must be creator, admin, or member"`,
+  `"Member type must be parent, child, or member"`, `"Cannot change your own role"`, `"Member not found"`
+- `403 {"error":"You do not have permission"}` / `"You do not have permission to perform this action"`,
+  `"Cannot change the family creator's role"`, `"Only the creator can promote to creator"`
+
+#### DELETE /api/families/{id}/members/{userId}
+
+Admin+. Also un-assigns that member's family tasks.
+
+- `200 {"success":true}`; `403 {"error":"Cannot remove the family creator"}`;
+  `403 {"error":"You do not have permission to perform this action"}`.
+
+#### PUT /api/families/{id}/modules/{module}
+
+Body `{"enabled":boolean}` (admin+). A family Dashboard Module master switch.
+
+- `200 {"success":true}`; `400 {"error":"enabled must be a boolean"}`;
+  `400 {"error":"<unknown module message>"}`; `403` as above.
+
+#### GET /api/families/{id}/invite-codes (G10c)
+
+- `200 {"canManageInvites":true,"codes":[{"code","useCount","maxUses","expiresAt","createdBy"}]}`
+  — every code of that family (expired ones too; the app filters). A plain
+  member gets `{"canManageInvites":false,"codes":[]}`.
+- `404 {"error":"Family not found"}`.
+
+#### GET /api/families/{id}/tasks (G11)
+
+The Family Task Board (`/family/tasks`).
+
+- `200 {"tasks":[<Task+tags, creatorFirstName>],"publicTasks":[<Task>],"familyRoster":[<roster row>],"taskCategories":[{"id","name"}]}`
+- `404 {"error":"Family not found"}`.
