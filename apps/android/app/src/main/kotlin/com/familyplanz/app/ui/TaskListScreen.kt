@@ -46,7 +46,7 @@ fun TaskListScreen(
 				actions = {
 					TextButton(onClick = actions.onStopFocus) { Text("Stop focus") }
 					IconButton(onClick = actions.onOpenSettings) {
-						Icon(Icons.Filled.Settings, contentDescription = "Settings")
+						Icon(Icons.Filled.Settings, contentDescription = "Sign out")
 					}
 				},
 			)

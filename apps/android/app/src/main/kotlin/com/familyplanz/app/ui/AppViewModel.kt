@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.familyplanz.app.data.ApiError
 import com.familyplanz.app.data.ApiResult
+import com.familyplanz.app.data.AuthSource
 import com.familyplanz.app.data.DataStoreTokenStore
 import com.familyplanz.app.data.TaskCategoryNames
 import com.familyplanz.app.data.TaskDto
@@ -44,6 +45,7 @@ class AppViewModel(
 	private val repository: TaskRepository,
 	private val tokenStore: DataStoreTokenStore,
 	private val session: SessionHooks = SessionHooks.None,
+	private val auth: AuthSource? = null,
 ) : ViewModel() {
 	private val _ui = MutableStateFlow<AppUiState>(AppUiState.Loading)
 	val ui: StateFlow<AppUiState> = _ui
@@ -57,7 +59,11 @@ class AppViewModel(
 
 	private val creator = TaskCreator(repository, _ui)
 
+	/** #288 guest-account note on the Tasks tab. */
+	val guestNote = GuestNote(tokenStore, viewModelScope)
+
 	init {
+		guestNote.load()
 		viewModelScope.launch {
 			if (tokenStore.token() == null) {
 				_ui.value = AppUiState.NeedToken()
@@ -71,22 +77,33 @@ class AppViewModel(
 		_snack.value = null
 	}
 
-	fun saveToken(value: String) {
+	/**
+	 * Open a session from native sign-in (#288) or a pasted token: store the
+	 * bearer (+ me-id when the sign-in response named it), load, then the #273
+	 * signed-in hook - the same path whichever way the token arrived.
+	 */
+	fun signIn(credentials: SessionCredentials) {
 		viewModelScope.launch {
-			tokenStore.save(value.trim())
+			tokenStore.save(credentials.token.trim())
+			credentials.userId?.let { tokenStore.saveUserId(it) }
+			guestNote.signedIn(credentials.guest)
 			refresh()
 			session.signedIn()
 		}
 	}
 
-	/** Mint a new token in the web app (Settings > API tokens). */
+	/** Sign out: drop the token, then the #273 hooks and a best-effort server revoke (#288). */
 	fun clearToken() {
 		viewModelScope.launch {
 			val previous = tokenStore.token()
 			tokenStore.clear()
 			_ui.value = AppUiState.NeedToken()
 			// #273: unregister + cancel reminders even if the screen goes away mid-call.
-			withContext(NonCancellable) { session.signedOut(previous) }
+			// The device DELETE needs the bearer alive, so the revoke goes last.
+			withContext(NonCancellable) {
+				session.signedOut(previous)
+				previous?.let { auth?.logout(it) }
+			}
 		}
 	}
 
@@ -138,8 +155,8 @@ class AppViewModel(
 		}
 	}
 
-	/** Hand-hosted hook: any other screen's 401 swaps the host to token entry. */
-	fun invalidateSession(note: String = "Sign in again - mint a new token in the web app (Settings > API tokens).") {
+	/** Hand-hosted hook: any other screen's 401 swaps the host to the sign-in screen. */
+	fun invalidateSession(note: String = "Sign in again - your session ended.") {
 		_ui.value = AppUiState.NeedToken(note)
 	}
 

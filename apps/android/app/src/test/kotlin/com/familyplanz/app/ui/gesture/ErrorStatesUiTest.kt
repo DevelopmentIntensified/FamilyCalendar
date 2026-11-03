@@ -13,7 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Issue 269: error states render inline (401 -> token screen, offline -> snack/inline). */
+/** Issue 269: error states render inline (401 -> sign-in screen, offline -> snack/inline). */
 @RunWith(RobolectricTestRunner::class)
 class ErrorStatesUiTest {
 	@get:Rule
@@ -22,28 +22,28 @@ class ErrorStatesUiTest {
 	private val host = HostHarness(rule)
 
 	@Test
-	fun no_stored_token_starts_on_the_token_screen() {
+	fun no_stored_token_starts_on_the_sign_in_screen() {
 		host.launch(token = null)
 
-		host.waitForText("Save and sync")
+		host.waitForText("Email me a code")
 		assertTrue(host.repo.allTasksCalls == 0)
 	}
 
 	@Test
-	fun task_401_swaps_to_the_token_screen_with_the_reason() {
+	fun task_401_swaps_to_the_sign_in_screen_with_the_reason() {
 		host.repo.tasks = ApiResult.Err(ApiError.Unauthorized)
 		host.launch()
 
-		host.waitForText("Save and sync")
+		host.waitForText("Email me a code")
 		rule.onNodeWithText(ApiError.Unauthorized.message).assertExists()
 	}
 
 	@Test
-	fun calendar_401_swaps_to_the_token_screen() {
+	fun calendar_401_swaps_to_the_sign_in_screen() {
 		host.repo.events = ApiResult.Err(ApiError.Unauthorized)
 		host.launch(PhoneTab.CALENDAR)
 
-		host.waitForText("Save and sync")
+		host.waitForText("Email me a code")
 		host.waitForText("Sign in again", substring = true)
 	}
 

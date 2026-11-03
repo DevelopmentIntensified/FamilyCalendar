@@ -42,4 +42,13 @@ object ApiFactory {
 			.addConverterFactory(jsonConverterFactory)
 			.build()
 			.create(FamilyPlanzApi::class.java)
+
+	/** #288 sign-in calls: no stored bearer rides along (logout passes its own). */
+	fun createAuth(baseUrl: String): AuthApi =
+		Retrofit.Builder()
+			.baseUrl(baseUrl)
+			.client(createClient { null })
+			.addConverterFactory(jsonConverterFactory)
+			.build()
+			.create(AuthApi::class.java)
 }

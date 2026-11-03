@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.familyplanz.app.data.ApiFactory
 import com.familyplanz.app.data.DataStoreTokenStore
 import com.familyplanz.app.data.FileTaskCache
+import com.familyplanz.app.data.NetworkAuthSource
 import com.familyplanz.app.data.NetworkTaskRepository
 import com.familyplanz.app.push.ActivityNotifier
 import com.familyplanz.app.push.PushGraph
@@ -24,9 +25,11 @@ import com.familyplanz.app.sync.BackgroundRefresh
 import com.familyplanz.app.ui.AppViewModel
 import com.familyplanz.app.ui.CalendarViewModel
 import com.familyplanz.app.ui.FamilyPlanzHost
+import com.familyplanz.app.ui.HostViewModels
 import com.familyplanz.app.ui.PhoneTab
 import com.familyplanz.app.ui.QuickAddViewModel
 import com.familyplanz.app.ui.ReminderPermissionSlot
+import com.familyplanz.app.ui.SignInViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -63,8 +66,9 @@ class MainActivity : ComponentActivity() {
 				val vm: AppViewModel = viewModel(factory = appViewModelFactory())
 				val calVm: CalendarViewModel = viewModel(factory = calendarViewModelFactory())
 				val quickVm: QuickAddViewModel = viewModel(factory = quickAddViewModelFactory())
+				val signInVm: SignInViewModel = viewModel(factory = signInViewModelFactory())
 				LaunchedEffect(openDay) { openDay?.let(calVm::openDay) }
-				FamilyPlanzHost(vm, calVm, quickVm, initialTab) { ReminderPermissionSlot() }
+				FamilyPlanzHost(HostViewModels(vm, calVm, quickVm, signInVm), initialTab) { ReminderPermissionSlot() }
 			}
 		}
 	}
@@ -79,8 +83,15 @@ class MainActivity : ComponentActivity() {
 	private fun appViewModelFactory() = viewModelFactory {
 		initializer {
 			val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as android.app.Application
-			AppViewModel(taskRepository(app), DataStoreTokenStore(app), PushGraph.session(app))
+			AppViewModel(taskRepository(app), DataStoreTokenStore(app), PushGraph.session(app), authSource())
 		}
+	}
+
+	/** #288 native sign-in; also revokes the token on sign-out. */
+	private fun authSource() = NetworkAuthSource(ApiFactory.createAuth(BuildConfig.API_BASE_URL))
+
+	private fun signInViewModelFactory() = viewModelFactory {
+		initializer { SignInViewModel(authSource()) }
 	}
 
 	private fun calendarViewModelFactory() = viewModelFactory {

@@ -23,32 +23,34 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
- * Single host: token entry until a working session exists, then the tab
- * bar. Every 401 anywhere (any VM) swaps back to token entry. Snacks name
- * what happened + the next step (ack <100ms UI rule).
+ * Single host: the sign-in screen (#288) until a working session exists,
+ * then the tab bar. Every 401 anywhere (any VM) swaps back to sign-in.
+ * Snacks name what happened + the next step (ack <100ms UI rule).
  */
 @Composable
 fun FamilyPlanzHost(
-	vm: AppViewModel,
-	calVm: CalendarViewModel,
-	quickVm: QuickAddViewModel,
+	vms: HostViewModels,
 	initialTab: PhoneTab,
 	banner: @Composable () -> Unit = {},
 ) {
+	val vm = vms.app
+	val calVm = vms.calendar
+	val quickVm = vms.quickAdd
+	val signInVm = vms.signIn
 	val taskUi by vm.ui.collectAsStateWithLifecycle()
 	val categories by vm.categories.collectAsStateWithLifecycle()
+	val guestNote by vm.guestNote.visible.collectAsStateWithLifecycle()
 	val snackbarHostState = remember { SnackbarHostState() }
 	var tab by rememberSaveable { mutableIntStateOf(initialTab.ordinal) }
 
 	HostEffects(vm, calVm, quickVm, snackbarHostState)
+	SignInEffect(vm, signInVm)
 
 	when (val state = taskUi) {
-		is AppUiState.NeedToken ->
-			SettingsScreen(
-				note = state.note,
-				onSave = vm::saveToken,
-				onCancel = vm::refresh,
-			)
+		is AppUiState.NeedToken -> {
+			val signInUi by signInVm.ui.collectAsStateWithLifecycle()
+			SignInScreen(signInUi, state.note, signInVm.actions(vm))
+		}
 
 		else -> Scaffold(
 			snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -57,6 +59,7 @@ fun FamilyPlanzHost(
 			Column(modifier = Modifier.padding(padding)) {
 				banner()
 				if (tab == PhoneTab.TASKS.ordinal) {
+					if (guestNote) GuestAccountNote(vm.guestNote::dismiss)
 					TaskListScreen(state = state, actions = vm.taskActions(), categories = categories)
 				} else {
 					CalendarSlot(calVm, quickVm)
@@ -94,6 +97,29 @@ private fun HostEffects(
 		}
 	}
 }
+
+/** A finished sign-in opens the session through the same path as a pasted token. */
+@Composable
+private fun SignInEffect(vm: AppViewModel, signInVm: SignInViewModel) {
+	val signedIn by signInVm.signedIn.collectAsStateWithLifecycle()
+	LaunchedEffect(signedIn) {
+		signedIn?.let {
+			vm.signIn(it)
+			signInVm.consumeSignedIn()
+		}
+	}
+}
+
+private fun SignInViewModel.actions(vm: AppViewModel) = SignInActions(
+	onRequestCode = ::requestCode,
+	onVerifyCode = ::verifyCode,
+	onResendCode = ::resendCode,
+	onPassword = ::signInWithPassword,
+	onGuest = ::continueAsGuest,
+	onIntent = ::setIntent,
+	onStep = ::showStep,
+	onSaveToken = { vm.signIn(SessionCredentials(it)) },
+)
 
 @Composable
 private fun PhoneTabBar(tab: Int, onSelect: (PhoneTab) -> Unit) {

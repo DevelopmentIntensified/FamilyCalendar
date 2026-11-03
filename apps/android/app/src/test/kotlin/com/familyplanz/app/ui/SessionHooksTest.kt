@@ -2,7 +2,12 @@ package com.familyplanz.app.ui
 
 import android.os.Looper
 import com.familyplanz.app.data.DataStoreTokenStore
+import com.familyplanz.app.data.ApiError
+import com.familyplanz.app.data.ApiResult
+import com.familyplanz.app.data.AuthResult
+import com.familyplanz.app.data.AuthSource
 import com.familyplanz.app.push.SessionHooks
+import com.familyplanz.app.ui.gesture.FakeAuthSource
 import com.familyplanz.app.ui.gesture.FakeRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -41,7 +46,7 @@ class SessionHooksTest {
 	fun `saving a token reports sign-in after it is stored`() {
 		runBlocking { store.clear() }
 		val vm = AppViewModel(FakeRepository(), store, hooks)
-		vm.saveToken("  fp_new ")
+		vm.signIn(SessionCredentials("  fp_new "))
 		awaitCalls(listOf("in fp_new"))
 	}
 
@@ -80,5 +85,52 @@ class SessionHooksTest {
 			store.save("fp_b")
 		}
 		assertNull(runBlocking { store.userId() })
+	}
+
+	@Test
+	fun `native sign-in stores the token and the response's user id, then runs the sign-in hook`() {
+		runBlocking { store.clear() }
+		val offline = FakeRepository().apply { me = ApiResult.Err(ApiError.Network("x")) }
+		val vm = AppViewModel(offline, store, hooks)
+		vm.signIn(SessionCredentials("fp_native", userId = "u-native"))
+		awaitCalls(listOf("in fp_native"))
+		assertEquals("u-native", runBlocking { store.userId() })
+	}
+
+	@Test
+	fun `sign-out unregisters with the old bearer first, then revokes it at the server (#288)`() {
+		runBlocking { store.save("fp_old") }
+		val auth = object : AuthSource by FakeAuthSource() {
+			override suspend fun logout(bearer: String): AuthResult<Unit> {
+				calls += "logout $bearer"
+				return AuthResult.Ok(Unit)
+			}
+		}
+		val vm = AppViewModel(FakeRepository(), store, hooks, auth)
+		vm.clearToken()
+		awaitCalls(listOf("out fp_old null", "logout fp_old"))
+	}
+
+	@Test
+	fun `guest sign-in shows the guest note until dismissed, across a restart`() {
+		runBlocking { store.clear() }
+		val vm = AppViewModel(FakeRepository(), store, hooks)
+		vm.signIn(SessionCredentials("fp_guest", userId = "g1", guest = true))
+		awaitCalls(listOf("in fp_guest"))
+		assertEquals(true, vm.guestNote.visible.value)
+
+		val restarted = AppViewModel(FakeRepository(), store, hooks)
+		awaitTrue { restarted.guestNote.visible.value }
+		restarted.guestNote.dismiss()
+		awaitTrue { !runBlocking { store.guestNote() } }
+	}
+
+	private fun awaitTrue(condition: () -> Boolean) {
+		val deadline = System.currentTimeMillis() + 5_000
+		while (!condition() && System.currentTimeMillis() < deadline) {
+			shadowOf(Looper.getMainLooper()).idle()
+			Thread.sleep(10)
+		}
+		assertEquals(true, condition())
 	}
 }

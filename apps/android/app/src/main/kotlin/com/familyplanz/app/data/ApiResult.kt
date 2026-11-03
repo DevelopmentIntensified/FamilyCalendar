@@ -8,7 +8,7 @@ sealed interface ApiError {
 	val message: String
 
 	data object Unauthorized : ApiError {
-		override val message = "Token rejected - mint a new one in the web app (Settings > API tokens)."
+		override val message = "Your session ended - sign in again."
 	}
 
 	data class BadRequest(val errorText: String) : ApiError {
