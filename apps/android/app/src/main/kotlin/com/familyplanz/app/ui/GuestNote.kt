@@ -1,5 +1,6 @@
 package com.familyplanz.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -9,8 +10,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.familyplanz.app.data.DataStoreTokenStore
+import com.familyplanz.app.ui.theme.FpTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,13 +54,24 @@ class GuestNote(private val store: DataStoreTokenStore, private val scope: Corou
 
 const val GUEST_NOTE_TEXT = "You're using a guest account — save it with an email on the web"
 
+/** The login page's info card: `bg-[#BEDAE3]/40 rounded-xl`, slate-700 text. */
 @Composable
 fun GuestAccountNote(onDismiss: () -> Unit) {
 	Row(
-		modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+		modifier = Modifier
+			.fillMaxWidth()
+			.padding(start = 16.dp, end = 16.dp, top = 8.dp)
+			.clip(MaterialTheme.shapes.medium)
+			.background(FpTheme.colors.infoSurface)
+			.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		Text(GUEST_NOTE_TEXT, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+		Text(
+			GUEST_NOTE_TEXT,
+			style = MaterialTheme.typography.bodySmall,
+			color = FpTheme.colors.infoContent,
+			modifier = Modifier.weight(1f),
+		)
 		TextButton(onClick = onDismiss) { Text("Dismiss") }
 	}
 }

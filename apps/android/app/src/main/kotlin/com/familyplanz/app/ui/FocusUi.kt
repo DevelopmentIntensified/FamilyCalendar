@@ -3,7 +3,6 @@ package com.familyplanz.app.ui
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -18,6 +17,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import com.familyplanz.app.domain.Task
 import com.familyplanz.app.domain.isFocusing
+import com.familyplanz.app.ui.theme.FpTheme
 import kotlinx.coroutines.delay
 import java.time.Instant
 
@@ -44,23 +44,10 @@ fun rememberFocusNow(ticking: Boolean, tasks: List<Task>): Instant {
 	return now
 }
 
-/** "Focusing" label on the running task's row, chip-shaped like the category chip. */
+/** "Focusing" label on the running task's row: the web pill (#291), in the theme's focus tone. */
 @Composable
 fun FocusChip() {
-	val label = MaterialTheme.typography.labelSmall
-	val inset = typeInset()
-	Surface(
-		shape = MaterialTheme.shapes.small,
-		color = MaterialTheme.colorScheme.primaryContainer,
-		contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-	) {
-		Text(
-			"Focusing",
-			style = label,
-			maxLines = 1,
-			modifier = Modifier.padding(horizontal = inset, vertical = inset / 4).testTag("focusing-chip"),
-		)
-	}
+	FpChip("Focusing", FpTheme.colors.focus, Modifier.testTag("focusing-chip"), bold = true)
 }
 
 /**

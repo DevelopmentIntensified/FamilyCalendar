@@ -1,13 +1,27 @@
 package com.familyplanz.app.ui
 
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -19,8 +33,16 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.familyplanz.app.R
+import com.familyplanz.app.ui.theme.FpShape
+import com.familyplanz.app.ui.theme.FpTheme
 
 /**
  * Single host: the sign-in screen (#288) until a working session exists,
@@ -47,23 +69,36 @@ fun FamilyPlanzHost(
 	HostEffects(vm, calVm, quickVm, snackbarHostState)
 	SignInEffect(vm, signInVm)
 
-	when (val state = taskUi) {
-		is AppUiState.NeedToken -> {
-			val signInUi by signInVm.ui.collectAsStateWithLifecycle()
-			SignInScreen(signInUi, state.note, signInVm.actions(vm))
-		}
+	// #291: app.html theme-color behind the status bar (edge-to-edge draws
+	// under it), then the web app's slate-50 page canvas.
+	Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+		Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(FpTheme.colors.statusBar))
+		Box(Modifier.weight(1f).consumeWindowInsets(WindowInsets.statusBars)) {
+			when (val state = taskUi) {
+				is AppUiState.NeedToken -> {
+					val signInUi by signInVm.ui.collectAsStateWithLifecycle()
+					SignInScreen(signInUi, state.note, signInVm.actions(vm))
+				}
 
-		else -> Scaffold(
-			snackbarHost = { SnackbarHost(snackbarHostState) },
-			bottomBar = { PhoneTabBar(tab) { tab = it.ordinal } },
-		) { padding ->
-			Column(modifier = Modifier.padding(padding)) {
-				banner()
-				if (tab == PhoneTab.TASKS.ordinal) {
-					if (guestNote) GuestAccountNote(vm.guestNote::dismiss)
-					TaskListScreen(state = state, actions = vm.taskActions(), categories = categories, focusPending = focusPending)
-				} else {
-					CalendarSlot(calVm, quickVm)
+				else -> Scaffold(
+					containerColor = MaterialTheme.colorScheme.background,
+					snackbarHost = { SnackbarHost(snackbarHostState) { FpToast(it) } },
+					bottomBar = { PhoneTabBar(tab) { tab = it.ordinal } },
+				) { padding ->
+					Column(modifier = Modifier.padding(padding)) {
+						banner()
+						if (tab == PhoneTab.TASKS.ordinal) {
+							if (guestNote) GuestAccountNote(vm.guestNote::dismiss)
+							TaskListScreen(
+								state = state,
+								actions = vm.taskActions(),
+								categories = categories,
+								focusPending = focusPending,
+							)
+						} else {
+							CalendarSlot(calVm, quickVm)
+						}
+					}
 				}
 			}
 		}
@@ -122,20 +157,44 @@ private fun SignInViewModel.actions(vm: AppViewModel) = SignInActions(
 	onSaveToken = { vm.signIn(SessionCredentials(it)) },
 )
 
+/** BottomNav.svelte: white, slate-200 top rule, icon pill (primary-50/600 when on) + 11px label. */
 @Composable
 private fun PhoneTabBar(tab: Int, onSelect: (PhoneTab) -> Unit) {
-	NavigationBar {
-		NavigationBarItem(
-			selected = tab == PhoneTab.TASKS.ordinal,
-			onClick = { onSelect(PhoneTab.TASKS) },
-			icon = { Icon(Icons.Filled.Check, contentDescription = null) },
-			label = { Text("Tasks") },
-		)
-		NavigationBarItem(
-			selected = tab == PhoneTab.CALENDAR.ordinal,
-			onClick = { onSelect(PhoneTab.CALENDAR) },
-			icon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
-			label = { Text("Calendar") },
+	Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+		HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+		Row(modifier = Modifier.fillMaxWidth().navigationBarsPadding().selectableGroup()) {
+			TabItem("Tasks", R.drawable.ic_fp_tasks, tab == PhoneTab.TASKS.ordinal) { onSelect(PhoneTab.TASKS) }
+			TabItem("Calendar", R.drawable.ic_fp_calendar, tab == PhoneTab.CALENDAR.ordinal) {
+				onSelect(PhoneTab.CALENDAR)
+			}
+		}
+	}
+}
+
+@Composable
+private fun RowScope.TabItem(label: String, @DrawableRes icon: Int, selected: Boolean, onClick: () -> Unit) {
+	val tint = if (selected) MaterialTheme.colorScheme.primary else FpTheme.colors.textMuted
+	Column(
+		modifier = Modifier
+			.weight(1f)
+			.heightIn(min = 56.dp)
+			.selectable(selected = selected, onClick = onClick, role = Role.Tab)
+			.padding(vertical = 8.dp),
+		horizontalAlignment = Alignment.CenterHorizontally,
+		verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+	) {
+		Box(
+			modifier = Modifier
+				.clip(FpShape.Pill)
+				.background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+				.padding(horizontal = 16.dp, vertical = 4.dp),
+		) {
+			Icon(painterResource(icon), contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+		}
+		Text(
+			label,
+			style = MaterialTheme.typography.labelSmall,
+			color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
 		)
 	}
 }

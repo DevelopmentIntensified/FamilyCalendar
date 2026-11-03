@@ -3,7 +3,6 @@ package com.familyplanz.app.ui
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -18,7 +17,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.em
 import com.familyplanz.app.data.AuthIntent
+import com.familyplanz.app.ui.theme.FpShape
+import com.familyplanz.app.ui.theme.FpTheme
 
 /**
  * 8-digit code entry. Paste-friendly: anything pasted is reduced to its
@@ -31,6 +34,8 @@ internal fun CodeStep(state: SignInUiState, actions: SignInActions) {
 	Text(
 		"Enter the ${SignInViewModel.CODE_LENGTH}-digit code we sent to ${state.email}",
 		style = MaterialTheme.typography.bodyMedium,
+		color = FpTheme.colors.textBody,
+		textAlign = TextAlign.Center,
 	)
 	OutlinedTextField(
 		value = code,
@@ -46,9 +51,13 @@ internal fun CodeStep(state: SignInUiState, actions: SignInActions) {
 		keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
 		keyboardActions = KeyboardActions(onDone = { actions.onVerifyCode(code) }),
 		modifier = Modifier.fillMaxWidth().testTag(SignInTags.CODE),
+		// AuthInput `center`: text-lg, tracking-[0.3em], centred.
+		textStyle = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center, letterSpacing = 0.3.em),
+		shape = FpShape.Input,
+		colors = fpFieldColors(),
 	)
 	val verb = if (state.intent == AuthIntent.SIGNUP) "Create account" else "Sign in"
-	Button(onClick = { actions.onVerifyCode(code) }, enabled = idle, modifier = Modifier.fillMaxWidth()) {
+	FpPrimaryButton(onClick = { actions.onVerifyCode(code) }, enabled = idle, modifier = Modifier.fillMaxWidth()) {
 		Text(state.label(SignInPending.VERIFY, verb, "Checking code…"))
 	}
 	TextButton(onClick = actions.onResendCode, enabled = idle && state.resendInSeconds == 0) {
@@ -78,8 +87,10 @@ internal fun PasswordStep(state: SignInUiState, email: String, onEmail: (String)
 		keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
 		keyboardActions = KeyboardActions(onDone = { actions.onPassword(email, password) }),
 		modifier = Modifier.fillMaxWidth().testTag(SignInTags.PASSWORD),
+		shape = FpShape.Input,
+		colors = fpFieldColors(),
 	)
-	Button(onClick = { actions.onPassword(email, password) }, enabled = idle, modifier = Modifier.fillMaxWidth()) {
+	FpPrimaryButton(onClick = { actions.onPassword(email, password) }, enabled = idle, modifier = Modifier.fillMaxWidth()) {
 		Text(state.label(SignInPending.PASSWORD, "Sign in", "Signing in…"))
 	}
 	TextButton(onClick = { actions.onStep(SignInStep.EMAIL) }, enabled = idle) { Text("Email me a code instead") }

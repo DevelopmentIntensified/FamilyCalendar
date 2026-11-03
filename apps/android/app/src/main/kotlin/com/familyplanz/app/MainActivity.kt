@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.MaterialTheme
+import androidx.activity.SystemBarStyle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -30,6 +30,9 @@ import com.familyplanz.app.ui.PhoneTab
 import com.familyplanz.app.ui.QuickAddViewModel
 import com.familyplanz.app.ui.ReminderPermissionSlot
 import com.familyplanz.app.ui.SignInViewModel
+import com.familyplanz.app.ui.theme.FamilyPlanzTheme
+import com.familyplanz.app.ui.theme.STATUS_BAR_ARGB
+import com.familyplanz.app.ui.theme.SURFACE_ARGB
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -42,7 +45,11 @@ const val FP_OPEN_DAY = "fp_open_day"
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
-		enableEdgeToEdge()
+		// #291: light status-bar icons over the theme-color strip, dark nav-bar icons over the white tab bar.
+		enableEdgeToEdge(
+			statusBarStyle = SystemBarStyle.dark(STATUS_BAR_ARGB),
+			navigationBarStyle = SystemBarStyle.light(SURFACE_ARGB, SURFACE_ARGB),
+		)
 		BackgroundRefresh.schedule(applicationContext)
 		lifecycleScope.launch { Reminders.rescheduleFromCache(applicationContext) }
 		// Debug-only emulator bootstrap (issue #210): `--es fp_debug_token` seeds
@@ -62,7 +69,7 @@ class MainActivity : ComponentActivity() {
 			else -> PhoneTab.TASKS
 		}
 		setContent {
-			MaterialTheme {
+			FamilyPlanzTheme {
 				val vm: AppViewModel = viewModel(factory = appViewModelFactory())
 				val calVm: CalendarViewModel = viewModel(factory = calendarViewModelFactory())
 				val quickVm: QuickAddViewModel = viewModel(factory = quickAddViewModelFactory())

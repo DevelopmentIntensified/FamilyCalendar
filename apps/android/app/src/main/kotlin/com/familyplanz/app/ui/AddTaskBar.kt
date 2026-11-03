@@ -1,13 +1,12 @@
 package com.familyplanz.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.familyplanz.app.domain.TaskPriority
+import com.familyplanz.app.ui.theme.FpShape
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -55,7 +55,8 @@ fun AddTaskBar(error: String?, categories: List<String> = emptyList(), onCreate:
 		}
 	}
 
-	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+	// AddTaskCard.svelte: white rounded-2xl card on the slate-50 page.
+	FpCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), padding = PaddingValues(12.dp)) {
 		Row(
 			verticalAlignment = Alignment.CenterVertically,
 			horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -68,8 +69,10 @@ fun AddTaskBar(error: String?, categories: List<String> = emptyList(), onCreate:
 				placeholder = { Text("Add a task") },
 				keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
 				keyboardActions = KeyboardActions(onDone = { submit() }),
+				shape = FpShape.Input,
+				colors = fpFieldColors(),
 			)
-			Button(onClick = submit, enabled = title.isNotBlank()) { Text("Add") }
+			FpPrimaryButton(onClick = submit, enabled = title.isNotBlank()) { Text("Add") }
 		}
 		if (title.isNotBlank() || due != null) {
 			TaskOptionsRow(
@@ -114,6 +117,9 @@ private fun TaskOptionsRow(
 				selected = priority == option,
 				onClick = { onPriority(option) },
 				label = { Text(option.name.lowercase()) },
+				shape = FpShape.Pill,
+				colors = fpFilterChipColors(),
+				border = fpFilterChipBorder(priority == option),
 			)
 		}
 	}

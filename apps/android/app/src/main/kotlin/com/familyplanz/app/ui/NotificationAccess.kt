@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.familyplanz.app.ui.theme.FpTheme
 
 /** Whether reminders and push notifications can reach the user (issues #271, #273, #286). */
 enum class NotificationAccess { GRANTED, ASK, BLOCKED }
@@ -44,11 +47,20 @@ fun ReminderPermissionBanner(
 ) {
 	if (access == NotificationAccess.GRANTED) return
 	val blocked = access == NotificationAccess.BLOCKED
-	Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
-		Column(modifier = Modifier.padding(12.dp)) {
+	// TasksHeader-style card: white rounded-2xl for the ask, the amber notice tones when blocked.
+	val colors = FpTheme.colors
+	Surface(
+		modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+		shape = MaterialTheme.shapes.large,
+		color = if (blocked) colors.warnSurface else MaterialTheme.colorScheme.surface,
+		border = BorderStroke(1.dp, if (blocked) colors.warnBorder else MaterialTheme.colorScheme.outlineVariant),
+		shadowElevation = 1.dp,
+	) {
+		Column(modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)) {
 			Text(
 				text = if (blocked) "Notifications are off" else "Get reminders and family updates",
 				style = MaterialTheme.typography.titleSmall,
+				color = if (blocked) colors.warnContent else colors.textStrong,
 			)
 			Text(
 				text = if (blocked) {
@@ -57,9 +69,14 @@ fun ReminderPermissionBanner(
 					"Family Planz alerts you before events start and when your family changes plans or hands you a task."
 				},
 				style = MaterialTheme.typography.bodyMedium,
+				color = if (blocked) colors.warnContent else colors.textBody,
+				modifier = Modifier.padding(top = 2.dp, end = 8.dp),
 			)
 			Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-				TextButton(onClick = onDismiss) { Text("Not now") }
+				TextButton(
+					onClick = onDismiss,
+					colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+				) { Text("Not now") }
 				if (blocked) {
 					TextButton(onClick = onOpenSettings) { Text("Open settings") }
 				} else {

@@ -9,11 +9,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SuggestionChipDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,22 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.familyplanz.app.ui.theme.FpShape
+import com.familyplanz.app.ui.theme.FpTheme
 
-/** Non-interactive category label on a task row (#280), chip-shaped like the add bar's chips. */
+/** Non-interactive category label on a task row (#280): the web's teal CategoryChip pill. */
 @Composable
 fun CategoryChip(name: String) {
-	Surface(
-		shape = SuggestionChipDefaults.shape,
-		color = MaterialTheme.colorScheme.secondaryContainer,
-		contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-	) {
-		Text(
-			name,
-			style = MaterialTheme.typography.labelSmall,
-			modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp).testTag("category-chip"),
-			maxLines = 1,
-		)
-	}
+	FpChip(name, FpTheme.colors.category, Modifier.widthIn(max = 128.dp).testTag("category-chip"))
 }
 
 /** "Category" button, swapped for the inline [CategoryPanel] while picking. */
@@ -83,6 +72,8 @@ fun CategoryPanel(
 			onValueChange = { typed = it.take(MAX_CATEGORY_LENGTH) },
 			modifier = Modifier.fillMaxWidth().testTag("category-input"),
 			singleLine = true,
+			shape = FpShape.Input,
+			colors = fpFieldColors(),
 			placeholder = { Text("New or existing category") },
 			keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
 			keyboardActions = KeyboardActions(onDone = { use() }),
@@ -93,6 +84,9 @@ fun CategoryPanel(
 					selected = name.equals(current, ignoreCase = true),
 					onClick = { pick(name) },
 					label = { Text(name) },
+					shape = FpShape.Pill,
+					colors = fpFilterChipColors(),
+					border = fpFilterChipBorder(name.equals(current, ignoreCase = true)),
 				)
 			}
 		}

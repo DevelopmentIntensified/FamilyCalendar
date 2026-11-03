@@ -2,14 +2,14 @@ package com.familyplanz.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.familyplanz.app.ui.theme.FpShape
 
 /**
  * Quick-add affordance for the calendar tab: phrase in, editable draft out
@@ -33,7 +34,11 @@ fun QuickAddPanel(
 ) {
 	var input by rememberSaveable { mutableStateOf("") }
 
-	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+	// EventQuickAdd: the white rounded-2xl card the web puts above the calendar.
+	FpCard(
+		modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+		padding = PaddingValues(12.dp),
+	) {
 		Row(
 			verticalAlignment = Alignment.CenterVertically,
 			horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -43,6 +48,8 @@ fun QuickAddPanel(
 				onValueChange = { input = it },
 				modifier = Modifier.weight(1f),
 				singleLine = true,
+				shape = FpShape.Input,
+				colors = fpFieldColors(),
 				placeholder = { Text("\"dinner Friday at 7 at the park\"") },
 			)
 			TextButton(onClick = { actions.onParse(input) }) { Text("Parse") }
@@ -89,6 +96,8 @@ private fun DraftCard(
 			label = { Text("Title") },
 			modifier = Modifier.fillMaxWidth(),
 			singleLine = true,
+			shape = FpShape.Input,
+			colors = fpFieldColors(),
 		)
 		DraftDateRow(state, edit)
 		if (!state.allDay) {
@@ -100,6 +109,8 @@ private fun DraftCard(
 			label = { Text("Location") },
 			modifier = Modifier.fillMaxWidth(),
 			singleLine = true,
+			shape = FpShape.Input,
+			colors = fpFieldColors(),
 		)
 		DraftButtons(state, actions)
 	}
@@ -114,11 +125,14 @@ private fun DraftDateRow(state: QuickAddUiState.Draft, edit: (DraftEdit) -> Unit
 			label = { Text("Date (YYYY-MM-DD)") },
 			modifier = Modifier.weight(1f),
 			singleLine = true,
+			shape = FpShape.Input,
+			colors = fpFieldColors(),
 		)
 		Row(verticalAlignment = Alignment.CenterVertically) {
 			Checkbox(
 				checked = state.allDay,
 				onCheckedChange = { edit(DraftEdit.AllDay(it)) },
+				colors = CheckboxDefaults.colors(uncheckedColor = MaterialTheme.colorScheme.outline),
 			)
 			Text("All day")
 		}
@@ -134,6 +148,8 @@ private fun DraftTimeRow(state: QuickAddUiState.Draft, edit: (DraftEdit) -> Unit
 			label = { Text("Start (HH:MM)") },
 			modifier = Modifier.weight(1f),
 			singleLine = true,
+			shape = FpShape.Input,
+			colors = fpFieldColors(),
 		)
 		OutlinedTextField(
 			value = state.endTime ?: "",
@@ -141,6 +157,8 @@ private fun DraftTimeRow(state: QuickAddUiState.Draft, edit: (DraftEdit) -> Unit
 			label = { Text("End (HH:MM)") },
 			modifier = Modifier.weight(1f),
 			singleLine = true,
+			shape = FpShape.Input,
+			colors = fpFieldColors(),
 		)
 	}
 }
@@ -148,13 +166,13 @@ private fun DraftTimeRow(state: QuickAddUiState.Draft, edit: (DraftEdit) -> Unit
 @Composable
 private fun DraftButtons(state: QuickAddUiState.Draft, actions: QuickAddActions) {
 	Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-		Button(
+		FpPrimaryButton(
 			onClick = actions.onConfirm,
 			enabled = !state.needsTitle && !state.date.isNullOrBlank(),
 		) {
 			Text("Create event")
 		}
-		OutlinedButton(onClick = actions.onDismiss) { Text("Cancel") }
+		FpOutlineButton(onClick = actions.onDismiss) { Text("Cancel") }
 	}
 	if (state.method.startsWith("regex")) {
 		Text(

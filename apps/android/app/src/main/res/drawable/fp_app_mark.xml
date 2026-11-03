@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The website's app icon (static/brand/mark.svg, 512 viewport), ported 1:1:
+     terracotta tile gradient, paper page, blue-ink header band, peach date
+     cells with the terracotta "today" cell, slate-900 binder rings. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:aapt="http://schemas.android.com/aapt"
+	android:width="48dp"
+	android:height="48dp"
+	android:viewportWidth="512"
+	android:viewportHeight="512">
+	<path android:pathData="M116,0 h280 a116,116 0 0 1 116,116 v280 a116,116 0 0 1 -116,116 h-280 a116,116 0 0 1 -116,-116 v-280 a116,116 0 0 1 116,-116 z">
+		<aapt:attr name="android:fillColor">
+			<gradient
+				android:type="linear"
+				android:startX="0"
+				android:startY="0"
+				android:endX="0"
+				android:endY="512"
+				android:startColor="#FFC45E38"
+				android:endColor="#FFA14D32" />
+		</aapt:attr>
+	</path>
+	<group>
+		<clip-path android:pathData="M130,158 h252 a36,36 0 0 1 36,36 v234 a36,36 0 0 1 -36,36 h-252 a36,36 0 0 1 -36,-36 v-234 a36,36 0 0 1 36,-36 z" />
+		<path android:fillColor="#FFF8F6F3" android:pathData="M94,158 h324 v306 h-324 z" />
+		<path android:fillColor="#FF366D7E" android:pathData="M94,158 h324 v50 h-324 z" />
+		<path android:fillColor="#FFF1B598" android:pathData="M128,228 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+		<path android:fillColor="#FFF1B598" android:pathData="M204,228 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+		<path android:fillColor="#FFF1B598" android:pathData="M280,228 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+		<path android:fillColor="#FFF1B598" android:pathData="M356,228 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+		<path android:fillColor="#FFF1B598" android:pathData="M128,304 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+		<path android:fillColor="#FFC45E38" android:pathData="M204,304 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+		<path android:fillColor="#FFF1B598" android:pathData="M280,304 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+		<path android:fillColor="#FFF1B598" android:pathData="M356,304 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+		<path android:fillColor="#FFF1B598" android:pathData="M128,380 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+		<path android:fillColor="#FFF1B598" android:pathData="M204,380 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+		<path android:fillColor="#FFF1B598" android:pathData="M280,380 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+		<path android:fillColor="#FFF1B598" android:pathData="M356,380 h28 a14,14 0 0 1 14,14 v28 a14,14 0 0 1 -14,14 h-28 a14,14 0 0 1 -14,-14 v-28 a14,14 0 0 1 14,-14 z" />
+	</group>
+	<path android:fillColor="#FF0F172A" android:pathData="M180,112 h0 a22,22 0 0 1 22,22 v48 a22,22 0 0 1 -22,22 h-0 a22,22 0 0 1 -22,-22 v-48 a22,22 0 0 1 22,-22 z" />
+	<path android:fillColor="#FF0F172A" android:pathData="M332,112 h0 a22,22 0 0 1 22,22 v48 a22,22 0 0 1 -22,22 h-0 a22,22 0 0 1 -22,-22 v-48 a22,22 0 0 1 22,-22 z" />
+</vector>
