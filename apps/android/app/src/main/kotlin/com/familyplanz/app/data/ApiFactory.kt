@@ -22,6 +22,12 @@ object ApiFactory {
 		OkHttpClient.Builder()
 			.connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
 			.readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+			// Never follow redirects: OkHttp drops `Authorization` across hosts, so a
+			// redirected call reaches the server token-less, gets 401 and looks like
+			// "session ended" (apex -> www, 2026-11-03). A redirect is a config error,
+			// surfaced as ApiError.Server, never as Unauthorized.
+			.followRedirects(false)
+			.followSslRedirects(false)
 			.addInterceptor { chain ->
 				val token = tokenProvider()
 				val request = if (token.isNullOrBlank()) {

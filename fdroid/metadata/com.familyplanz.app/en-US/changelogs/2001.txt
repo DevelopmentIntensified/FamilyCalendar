@@ -1,0 +1,1 @@
+Fixes being signed out right after signing in.

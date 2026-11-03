@@ -69,7 +69,8 @@ android {
 		targetSdk = 36
 		versionCode = fpVersionCode
 		versionName = fpVersionName
-		buildConfigField("String", "API_BASE_URL", "\"https://familyplanz.com/\"")
+		// www is canonical: the apex 308-redirects there, which strips the bearer (#288).
+		buildConfigField("String", "API_BASE_URL", "\"https://www.familyplanz.com/\"")
 		buildConfigField("String", "FIREBASE_PROJECT_ID", firebaseField("projectId"))
 		buildConfigField("String", "FIREBASE_APPLICATION_ID", firebaseField("applicationId"))
 		buildConfigField("String", "FIREBASE_API_KEY", firebaseField("apiKey"))
