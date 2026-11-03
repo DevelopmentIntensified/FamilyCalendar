@@ -545,3 +545,30 @@ the current month in your zone.
 - `200 {"verse":null}` — hidden: `showDailyVerse` is off, or `verse` is in
   your hidden dashboard modules.
 - `400 {"error":"Invalid date"}` — not a real `YYYY-MM-DD` date.
+
+### GET /api/me/settings, PATCH /api/me/settings (G3)
+
+The `/account` calendar-settings card (`loadAccountSettings` /
+`saveCalendarSettings`, `src/lib/server/services/accountData.ts`).
+
+- `GET` → `200 {"settings":{…},"verseTranslations":[{"id","label","attribution"}],"consentHistory":[{"decision","recordedAt"}]}`
+  - `settings` fields: `weekStart` (`sunday|monday`), `timeZone` (IANA),
+    `color` (`#rrggbb`), `defaultView`
+    (`dayView|weekView|monthView|listView|dashboard` — the app opens on
+    the Dashboard tab when it is `dashboard`), `defaultCalendarId` (id|null),
+    `syncEventsToFamilyCalendar`, `autoParseEventDetails`, `showDailyVerse`,
+    `showAdsAsEvents`, `verseTranslation`, `hiddenDashboardModules`
+    (string[]|null). No row yet → the page defaults (`defaultView:"dayView"`, ads off).
+- `PATCH` body: any subset of `weekStart, timeZone, color, defaultView,
+  defaultCalendarId, syncEventsToFamilyCalendar, autoParseEventDetails,
+  showDailyVerse, showAdsAsEvents, verseTranslation`. Unsent fields keep
+  their stored value. `{"timeZone":"…"}` alone is the device-timezone
+  auto-set. Turning `showAdsAsEvents` on/off writes the consent trail.
+  - `200` → the same body as `GET` (after the save).
+  - `400 {"error":"Invalid <field>"}` — wrong type/value;
+    `400 {"error":"Unknown field: <name>"}`; `400 {"error":"Invalid JSON"}`;
+    `400 {"error":"Invalid body"}` (not an object).
+  - `400 {"error":"Selected default calendar is not available"}` — a
+    `defaultCalendarId` you sent that you cannot see (a stored one is not
+    re-checked on other changes).
+  - `500 {"error":"Failed to save calendar settings"}`.
