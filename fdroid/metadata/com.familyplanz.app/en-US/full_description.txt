@@ -1,0 +1,37 @@
+👪 Family Planz keeps your family on the same page — everything happening today, everything that needs doing, and everything to pick up on the way home. Mom and Dad plan the week; the kids always know what's due.
+
+<b>SHARED FAMILY CALENDAR</b>
+<ul>
+<li>Family events the whole household sees, with repeating schedules, times, and locations</li>
+<li>RSVP so everyone knows who is coming</li>
+<li>One calendar for the family: planning stays together, not split across apps</li>
+</ul>
+
+<b>TASKS THAT ACTUALLY MOVE</b>
+<ul>
+<li>Priorities and due dates, so the important work is sorted first</li>
+<li>Hand a task to another family member — they accept or decline, and it lands on their list</li>
+<li>Completion history, so "did that happen?" has an answer</li>
+</ul>
+
+<b>DAY DASHBOARD</b>
+<ul>
+<li>Today's events, the Top-3 Priorities for the family, and the Family Task Board on one screen — a good start to the day at breakfast.</li>
+</ul>
+
+<b>GROCERIES</b>
+<ul>
+<li>A check-off list sorted the way you shop — by store</li>
+<li>The app remembers which store you buy each item at and orders the list accordingly</li>
+<li>Checked-off items step aside until the next shopping run</li>
+</ul>
+
+<b>QUICK ADD</b>
+<ul>
+<li>Type a sentence and the app fills the form for you — you always confirm before it saves</li>
+</ul>
+
+<b>AND ON THE WEB</b>
+<ul>
+<li>Family Planz also runs in the browser — family data travels with the family account, on phones and computers alike.</li>
+</ul>

@@ -1,0 +1,14 @@
+# F-Droid app metadata (issue #287). Store texts live fastlane-style under
+# com.familyplanz.app/en-US/ (copy approved in docs/play-store-listing.md).
+# APKs are built and signed by the owner (scripts/fdroid-publish.sh), not by an
+# F-Droid build server, so there are no Builds: entries.
+Categories:
+  - Time
+License: Apache-2.0
+AuthorName: Family Planz
+WebSite: https://familyplanz.com/
+SourceCode: https://github.com/DevelopmentIntensified/FamilyCalendar
+IssueTracker: https://familyplanz.com/report-bug
+Changelog: https://familyplanz.com/changelog
+
+AutoName: Family Planz

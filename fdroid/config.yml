@@ -1,0 +1,23 @@
+# fdroidserver config for the self-hosted repo at https://familyplanz.com/fdroid/repo (issue #287).
+# NO SECRETS HERE: every key path and password comes from the environment, set by
+# scripts/fdroid-publish.sh (do not run `fdroid` against this file by hand).
+# Owner guide: docs/guides/fdroid-repo.md
+
+repo_url: https://familyplanz.com/fdroid/repo
+repo_name: Family Planz
+repo_description: >-
+  The official Family Planz app repository. Shared calendar, tasks, and groceries
+  that keep your family on one page. Same app as https://familyplanz.com.
+repo_icon: familyplanz.png
+# Keep the newest 3 versions in repo/, older ones move to archive/.
+archive_older: 3
+archive_url: https://familyplanz.com/fdroid/archive
+archive_name: Family Planz (archive)
+archive_description: Older Family Planz releases.
+archive_icon: familyplanz.png
+
+# Repo index signing key: a keystore OUTSIDE the git tree (the script refuses otherwise).
+repo_keyalias: { env: FDROID_REPO_KEY_ALIAS }
+keystore: { env: FDROID_REPO_KEYSTORE }
+keystorepass: { env: FDROID_REPO_KEYSTORE_PASSWORD }
+keypass: { env: FDROID_REPO_KEY_PASSWORD }

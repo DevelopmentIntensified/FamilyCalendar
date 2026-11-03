@@ -34,3 +34,12 @@ vite.config.ts.timestamp-*
 .env*
 
 .playwright-cli/
+
+# F-Droid repo (#287): signing keys never live in the tree; fdroid scratch output neither
+*.jks
+*.keystore
+*.p12
+fdroid/repo/
+fdroid/archive/
+fdroid/tmp/
+fdroid/keystore*

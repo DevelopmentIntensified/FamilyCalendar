@@ -45,7 +45,16 @@ fun firebaseField(key: String): String = "\"" + firebaseProps.getProperty(key, "
 
 // Upload-key signing (issue #267): secrets live in the uncommitted
 // apps/android/keystore.properties; absent → release builds unsigned.
-val keystorePropsFile = rootProject.file("keystore.properties")
+// FP_KEYSTORE_PROPERTIES (issue #287) points at a properties file OUTSIDE the
+// tree instead — scripts/fdroid-publish.sh env mode / the release workflow.
+val keystorePropsFile = System.getenv("FP_KEYSTORE_PROPERTIES")?.takeIf { it.isNotBlank() }?.let { file(it) }
+	?: rootProject.file("keystore.properties")
+
+// Release versioning (issue #287): scripts/fdroid-publish.sh derives these from
+// the android-vX.Y.Z tag (versionCode = X*1_000_000 + Y*1_000 + Z) so every
+// release strictly increases versionCode. Absent → the local defaults below.
+val fpVersionCode = (findProperty("fpVersionCode") as String?)?.toInt() ?: 1
+val fpVersionName = (findProperty("fpVersionName") as String?) ?: "0.1.0"
 val keystoreProps = Properties().apply {
 	if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
 }
@@ -58,8 +67,8 @@ android {
 		applicationId = "com.familyplanz.app"
 		minSdk = 26
 		targetSdk = 36
-		versionCode = 1
-		versionName = "0.1.0"
+		versionCode = fpVersionCode
+		versionName = fpVersionName
 		buildConfigField("String", "API_BASE_URL", "\"https://familyplanz.com/\"")
 		buildConfigField("String", "FIREBASE_PROJECT_ID", firebaseField("projectId"))
 		buildConfigField("String", "FIREBASE_APPLICATION_ID", firebaseField("applicationId"))
