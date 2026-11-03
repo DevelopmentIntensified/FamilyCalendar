@@ -464,3 +464,16 @@ unless stated otherwise.
   - `lastActiveAt`: ISO datetime | null.
   - `familyId`: your family's id | null (no family → groceries "join a family" state).
 - Only your own row. No other fields (no hash, no phone).
+
+### GET /api/tasks/sections (G9)
+
+The Tasks screen's three tabs, exactly as `/calendar/tasks` loads them
+(`loadTaskSections`, `src/lib/server/services/tasksData.ts`). Runs the
+Recurring Task cursor pin first, in your stored zone.
+
+- `200 {"myTasks":[<Task+tags>],"pendingAssignments":[<Task+tags>],"requestedByMe":[<Task+tags>],"warnings":["myTasks"|"pending"|"requested"|"tasks+cursor", …]}`
+  - `myTasks`: your personal tasks + accepted assignments.
+  - `pendingAssignments`: assigned to you, waiting for accept/decline ("To accept").
+  - `requestedByMe`: tasks you assigned to someone else ("Requested").
+  - `warnings`: a list that failed to load comes back `[]` and its label is
+    listed here (show a soft "couldn't load" note, never an error screen).
