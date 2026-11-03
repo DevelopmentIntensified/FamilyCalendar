@@ -1,20 +1,15 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { countOpenBugReports } from '$lib/server/db/actions/bugReports';
-import { countOpenUnmatchedPhrases } from '$lib/server/db/actions/unmatchedPhrases';
-import { guard } from '$lib/server/utils/guard';
+import { isAdminUser, loadAdminCounts } from '$lib/server/services/adminData';
 
+// Role check + badge counts are shared with /api/admin/** (#292 G19).
 export const load: LayoutServerLoad = async (event) => {
 	if (!event.locals.user) {
 		return redirect(302, '/login');
 	}
-	if (!event.locals.user.roles?.includes('admin')) {
+	if (!isAdminUser(event.locals.user)) {
 		return redirect(302, '/calendar');
 	}
 	// Nav badge counts degrade to 0 rather than 500ing every admin page.
-	const [bugs, phrases] = await Promise.all([
-		guard('admin-counts', 0, () => countOpenBugReports()),
-		guard('admin-counts', 0, () => countOpenUnmatchedPhrases())
-	]);
-	return { openBugs: bugs.data, openPhrases: phrases.data };
+	return await loadAdminCounts();
 };

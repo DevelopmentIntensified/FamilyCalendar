@@ -826,3 +826,22 @@ send big exports one per request.
   `400 "That selection could not be read — preview the file again."`,
   `400 "Tick at least one event before importing."`, `400 "Nothing to undo — import a file first."`,
   `400 "files must be an array"`, `400 "Each file needs contentBase64 (base64 text)"`, `400 "Invalid JSON"`.
+
+### Admin (G19)
+
+The `/admin` pages' data and actions (`src/lib/server/services/adminData.ts`),
+with the `(admin)` layout's own rule: the user row's `roles` contains `"admin"`.
+
+- With a Bearer token: no/invalid token → `401 {"error":"Unauthorized"}`; a
+  non-admin → **`403 {"error":"Forbidden"}`**.
+- With a cookie (web): `hooks.server.ts` already guards every path with an
+  `admin` segment, so an anonymous or non-admin cookie request gets the
+  hook's `302 /login` before the endpoint runs.
+
+| Endpoint | Success |
+|---|---|
+| `GET /api/admin` | `200 {"openBugs":n,"openPhrases":n}` (each degrades to 0) |
+| `GET /api/admin/bugs` | `200 {"open":[<report>],"resolved":[<report>],"exportText":"<the page's copyable register of open reports>"}` — `<report>` = `{"id","userId","area","description","url","status","resolvedAt","createdAt","updatedAt","reporterFirstName","reporterLastName"}` |
+| `POST /api/admin/bugs/{id}/resolve` | `200 {"success":true,"report":{…}}`; `404 {"error":"Bug report not found"}` |
+| `GET /api/admin/nlp` | `200 {"phrases":[<phrase>],"resolved":[<phrase>],"exportText":"…"}` — unmatched natural-language phrases |
+| `POST /api/admin/nlp/{id}/resolve` | `200 {"success":true,"phrase":{…}}`; `404 {"error":"Phrase not found"}` |
