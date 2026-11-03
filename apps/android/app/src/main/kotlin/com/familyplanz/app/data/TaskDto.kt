@@ -42,6 +42,10 @@ data class TaskDto(
 	val tags: List<String> = emptyList(),
 	/** Category name (#280, ≤80 chars); null/absent = none. */
 	val category: String? = null,
+	/** #293: whole minutes of the caller's closed, unabsorbed phone sessions (0 = none). */
+	val phoneFocusMinutes: Int? = null,
+	/** #293: start of the caller's open phone session on this task (ISO); null = none. */
+	val phoneFocusStartedAt: String? = null,
 )
 
 @Serializable

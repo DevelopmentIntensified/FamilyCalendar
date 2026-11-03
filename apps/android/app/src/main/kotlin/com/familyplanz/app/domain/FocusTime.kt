@@ -6,25 +6,52 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
 
 /*
- * TaskFocus focus time (#290). The desktop is the only clock: `focusMinutes`
- * holds closed spans only and `focusStartedAt` the start of the open span,
- * so adding the open span's whole minutes never double-counts.
- * Mirrors TaskFocus mobile/app.js liveMinutes / isRunning.
+ * TaskFocus focus time (#290, #293). Two clocks, one writer per field:
+ * the desktop owns `focusMinutes` / `focusStartedAt`; the phone's own
+ * sessions surface as `phoneFocusMinutes` (closed, not yet absorbed by the
+ * desktop) and `phoneFocusStartedAt` (the open phone session). Display rule
+ * (TaskFocus #124):
+ *
+ *   live = focusMinutes + phoneFocusMinutes
+ *        + (focusStartedAt      ? now − focusStartedAt      : 0)
+ *        + (phoneFocusStartedAt ? now − phoneFocusStartedAt : 0)
  */
 
-/** A task is focusing exactly while the desktop has an open span on it. */
-fun isFocusing(task: Task): Boolean = task.focusStartedAt != null
+/** Where a running task is being timed; the chip says "Focusing (desktop|phone)". */
+enum class FocusSource(val label: String) {
+	DESKTOP("desktop"),
+	PHONE("phone"),
+}
+
+/** Running = either start field set. */
+fun isFocusing(task: Task): Boolean = task.focusStartedAt != null || task.phoneFocusStartedAt != null
+
+/** The clock a running task is on; the phone wins when both run (it is the one in hand). */
+fun focusSource(task: Task): FocusSource? = when {
+	task.phoneFocusStartedAt != null -> FocusSource.PHONE
+	task.focusStartedAt != null -> FocusSource.DESKTOP
+	else -> null
+}
+
+private fun runningMinutes(started: Instant?, now: Instant): Int =
+	started?.let { Duration.between(it, now).toMinutes().coerceAtLeast(0).toInt() } ?: 0
 
 /**
- * Closed minutes plus whole minutes of the open span at [now]; closed minutes
- * alone when idle; null when the task has no focus time at all. A start
- * stamped after [now] (clock skew) adds nothing rather than subtracting.
+ * The #124 display rule at [now]; null when the task has no focus time at
+ * all. A start stamped after [now] (clock skew) adds nothing.
  */
 fun liveFocusMinutes(task: Task, now: Instant): Int? {
-	val started = task.focusStartedAt ?: return task.focusMinutes
-	val running = Duration.between(started, now).toMinutes().coerceAtLeast(0).toInt()
-	return (task.focusMinutes ?: 0) + running
+	val anyTime = task.focusMinutes != null || task.phoneFocusMinutes > 0 || isFocusing(task)
+	if (!anyTime) return null
+	return (task.focusMinutes ?: 0) +
+		task.phoneFocusMinutes +
+		runningMinutes(task.focusStartedAt, now) +
+		runningMinutes(task.phoneFocusStartedAt, now)
 }
+
+/** Phone-only share of [liveFocusMinutes]: closed unabsorbed minutes plus the open phone span. */
+fun phoneFocusMinutesLive(task: Task, now: Instant): Int =
+	task.phoneFocusMinutes + runningMinutes(task.phoneFocusStartedAt, now)
 
 /** Tolerant ISO-8601 read (`Z` or offset); anything else reads as not focusing. */
 internal fun parseFocusInstant(value: String?): Instant? {
