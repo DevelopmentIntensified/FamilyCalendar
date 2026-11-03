@@ -21,12 +21,22 @@ import {
 import { getRecentFamilyActivity } from '$lib/server/db/actions/familyActivity';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
 import {
+	canCreateFamily,
 	getAiUsageThisMonth,
 	getSubscriptionStatus,
 	getUserSubscriptionLimits
 } from '$lib/server/services/subscriptionService';
 import { db } from '$lib/server/db';
-import { families, familyInviteCodes, familyMembers, tasks, users } from '$lib/server/db/schema';
+import {
+	calendars,
+	families,
+	familyInviteCodes,
+	familyMembers,
+	tasks,
+	users
+} from '$lib/server/db/schema';
+import { generateId } from '$lib/server/utils/generateId';
+import { DEFAULT_FAMILY_COLOR, isFamilyColor } from '$lib/utils/familyPalette';
 import { and, count, eq, inArray, isNull } from 'drizzle-orm';
 import { getPublicTasksForFamily, getTasksForFamily } from '$lib/server/db/actions/tasks';
 import { listCategoryOptions } from '$lib/server/db/actions/taskCategories';
@@ -409,4 +419,90 @@ export async function loadFamilyTasks(userId: string, requested: string | null) 
 		listCategoryOptions(userId)
 	]);
 	return { tasks: tasksList, publicTasks, familyRoster, familyId, userId, taskCategories };
+}
+
+export type CreateFamilyInput = { name: string; color: string; memberIds: unknown[] };
+export type CreateFamilyResult =
+	| { ok: true; familyId: string }
+	| { ok: false; status: number; error: string; upgradeRequired?: boolean };
+
+/** The picked member ids, cleaned: no blanks, no repeats, and never the creator. */
+export function cleanMemberIds(values: unknown[], creatorId: string): string[] {
+	const seen = new Set<string>();
+	for (const value of values) {
+		if (typeof value !== 'string') continue;
+		const id = value.trim();
+		if (!id || id === creatorId) continue;
+		seen.add(id);
+	}
+	return [...seen];
+}
+
+/**
+ * G10d: create a family (+ its calendar + the picked members) — the
+ * /family/create action. The plan gate runs BEFORE `readInput` (the page
+ * reads its form only once the gate passes).
+ */
+export async function createFamilyWithMembers(
+	userId: string,
+	readInput: () => Promise<CreateFamilyInput>
+): Promise<CreateFamilyResult> {
+	const familyCheck = await canCreateFamily(userId);
+	if (!familyCheck.allowed) {
+		return { ok: false, status: 403, error: familyCheck.reason ?? '', upgradeRequired: true };
+	}
+	const { name, color, memberIds } = await readInput();
+
+	if (!name || name.trim().length === 0) return refuse(400, 'Family name is required');
+	if (name.trim().length > 50) return refuse(400, 'Family name must be 50 characters or less');
+	// The colour is free text in the column, so the guard is here (#099).
+	if (color && !isFamilyColor(color)) return refuse(400, 'Pick one of the offered family colours');
+	const familyColor = color || DEFAULT_FAMILY_COLOR;
+	const familyId = generateId(15);
+	// "Who is in it" (issue 076): the family does not exist yet, so this is
+	// the only place their membership can be written.
+	const picked = cleanMemberIds(memberIds, userId);
+
+	if (picked.length > 0) {
+		// A crafted post can name any id, so every pick is checked against a
+		// real, verified account.
+		const found = await db
+			.select({ id: users.id, emailVerified: users.emailVerified })
+			.from(users)
+			.where(inArray(users.id, picked));
+		const addable = new Set(found.filter((u) => u.emailVerified).map((u) => u.id));
+		if (picked.some((id) => !addable.has(id))) {
+			return refuse(
+				400,
+				'One of the people you picked cannot be added yet — send them an email invite instead.'
+			);
+		}
+		// The member limit is enforced here, not only in the picker. The
+		// creator counts as one member.
+		const { memberLimit } = await getUserSubscriptionLimits(userId);
+		if (1 + picked.length > memberLimit) {
+			return refuse(
+				403,
+				`Your plan allows ${memberLimit} member${memberLimit === 1 ? '' : 's'} in a family. Create the family first, then add the rest from the family page.`
+			);
+		}
+	}
+
+	try {
+		// One transaction: a failure half-way must not leave a family with no
+		// calendar and no members (issue 076).
+		await db.transaction(async (tx) => {
+			await tx.insert(families).values({ id: familyId, name: name.trim(), color: familyColor });
+			await tx.insert(familyMembers).values([
+				{ userId, familyId, role: 'creator', memberType: 'member' },
+				// role is the permission, memberType the personal profile (ADR-0001).
+				...picked.map((id) => ({ userId: id, familyId, role: 'member', memberType: 'member' }))
+			]);
+			await tx.insert(calendars).values({ familyId });
+		});
+	} catch (error) {
+		console.error('Error creating family:', error);
+		return refuse(500, 'Failed to create family');
+	}
+	return { ok: true, familyId };
 }

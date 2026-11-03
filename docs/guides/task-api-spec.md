@@ -648,3 +648,37 @@ The Family Task Board (`/family/tasks`).
 
 - `200 {"tasks":[<Task+tags, creatorFirstName>],"publicTasks":[<Task>],"familyRoster":[<roster row>],"taskCategories":[{"id","name"}]}`
 - `404 {"error":"Family not found"}`.
+
+#### POST /api/families (G10d)
+
+Body `{"name": "≤ 50 chars", "color"?: "<a palette colour>", "memberIds"?: ["userId", …]}`
+— the `/family/create` action (`createFamilyWithMembers`). You become the
+creator; each picked id must be a verified account; creator + picks must fit
+your plan's member limit. Family, memberships and calendar are written in one
+transaction.
+
+- `201 {"family":{"id","name","color","createdAt"}}`
+- `403 {"error":"<plan reason>","upgradeRequired":true}` — at your family limit.
+- `400 {"error":"Family name is required"|"Family name must be 50 characters or less"|"Pick one of the offered family colours"|"One of the people you picked cannot be added yet — send them an email invite instead."|"memberIds must be an array"|"Invalid JSON"}`
+- `403 {"error":"Your plan allows N members in a family. …"}`
+- `500 {"error":"Failed to create family"}`
+
+#### POST /api/families/{id}/members/{direct|email|email/link|child} (G10e)
+
+The web's `/family/{id}/members/add/*` JSON handlers themselves (same
+code, same bodies, same responses), reachable with a Bearer token. All are
+creator/admin only.
+
+| Path | Body | Success |
+|---|---|---|
+| `direct` | `{"userId"}` | `200 {"success":true}` (notifies them) |
+| `email` | `{"email","firstName","lastName"}` | `200 {"success":true}` (emails a 1-day single-use invite) |
+| `email/link` | `{"email","firstName","lastName"}` | `200 {"success":true,"link":"https://…/family/invite/email?token=…"}` |
+| `child` | `{"firstName","lastName","email","consentAcknowledged":true}` | `200 {"success":true,"user":{"id","firstName","lastName","email"}}` |
+
+Errors: `403 {"error":"You are not a member of this family"|"Not a member of this family"}`,
+`403 {"error":"Only the family creator or an admin can …"}`, `403` family full
+(plan reason), `400` field validation (`"User ID is required"`, `"Invalid email"`,
+`"First and last name are required"`, `"A valid email is required"`, consent
+missing, already a member, email in use), `404 {"error":"User not found"}`
+(direct), `429` (email / link: 10 per 15 min per IP).
