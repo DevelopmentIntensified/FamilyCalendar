@@ -40,6 +40,7 @@ fun FamilyPlanzHost(
 	val taskUi by vm.ui.collectAsStateWithLifecycle()
 	val categories by vm.categories.collectAsStateWithLifecycle()
 	val guestNote by vm.guestNote.visible.collectAsStateWithLifecycle()
+	val focusPending by vm.focusPending.collectAsStateWithLifecycle()
 	val snackbarHostState = remember { SnackbarHostState() }
 	var tab by rememberSaveable { mutableIntStateOf(initialTab.ordinal) }
 
@@ -60,7 +61,7 @@ fun FamilyPlanzHost(
 				banner()
 				if (tab == PhoneTab.TASKS.ordinal) {
 					if (guestNote) GuestAccountNote(vm.guestNote::dismiss)
-					TaskListScreen(state = state, actions = vm.taskActions(), categories = categories)
+					TaskListScreen(state = state, actions = vm.taskActions(), categories = categories, focusPending = focusPending)
 				} else {
 					CalendarSlot(calVm, quickVm)
 				}

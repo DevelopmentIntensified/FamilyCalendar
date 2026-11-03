@@ -31,6 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.familyplanz.app.domain.Task
 import com.familyplanz.app.domain.TaskPriority
+import com.familyplanz.app.domain.isFocusing
+import com.familyplanz.app.domain.liveFocusMinutes
+import java.time.Instant
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,13 +41,14 @@ fun TaskListScreen(
 	state: AppUiState,
 	actions: TaskActions,
 	categories: List<String> = emptyList(),
+	focusPending: FocusPending? = null,
 ) {
 	Scaffold(
 		topBar = {
 			TopAppBar(
 				title = { Text("Family Planz") },
 				actions = {
-					TextButton(onClick = actions.onStopFocus) { Text("Stop focus") }
+					TextButton(onClick = actions.onStopFocus, enabled = focusPending == null) { Text("Stop focus") }
 					IconButton(onClick = actions.onOpenSettings) {
 						Icon(Icons.Filled.Settings, contentDescription = "Sign out")
 					}
@@ -60,10 +64,11 @@ fun TaskListScreen(
 
 				is AppUiState.Ready -> Column {
 					actions.onCreate?.let { AddTaskBar(error = state.createError, categories = categories, onCreate = it) }
+					state.tasks.firstOrNull(::isFocusing)?.let { FocusingNowNote(it.title) }
 					if (state.tasks.isEmpty()) {
 						EmptyTasks()
 					} else {
-						TaskRows(state, actions)
+						TaskRows(state, actions, focusPending)
 					}
 				}
 
@@ -101,10 +106,12 @@ private fun EmptyTasks() {
 private fun TaskRows(
 	state: AppUiState.Ready,
 	actions: TaskActions,
+	focusPending: FocusPending?,
 ) {
+	val now = rememberFocusNow(ticking = state.tasks.any(::isFocusing), tasks = state.tasks)
 	LazyColumn {
 		items(state.tasks, key = { it.id }) { task ->
-			TaskRow(state.meId, task, actions)
+			TaskRow(state.meId, task, actions, now, focusPending)
 			HorizontalDivider()
 		}
 	}
@@ -115,6 +122,8 @@ fun TaskRow(
 	meId: String?,
 	task: Task,
 	actions: TaskActions,
+	now: Instant = Instant.now(),
+	focusPending: FocusPending? = null,
 ) {
 	val onRespond = actions.onRespond
 	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
@@ -134,10 +143,10 @@ fun TaskRow(
 						MaterialTheme.colorScheme.onSurface
 					},
 				)
-				TaskMetaLine(task)
+				TaskMetaLine(task, now)
 			}
 			if (!task.completed && !task.pending) {
-				TextButton(onClick = { actions.onStartFocus(task) }) { Text("Focus") }
+				FocusAction(task, focusPending, actions.onStartFocus, actions.onStopFocus)
 			}
 		}
 		if (onRespond != null && awaitsMyReply(meId, task)) {
@@ -154,10 +163,11 @@ fun TaskRow(
 
 /** Meta text plus the category chip (#280) when the task has one. */
 @Composable
-private fun TaskMetaLine(task: Task) {
+private fun TaskMetaLine(task: Task, now: Instant) {
 	Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+		if (isFocusing(task)) FocusChip()
 		task.category?.let { CategoryChip(it) }
-		val meta = taskMeta(task)
+		val meta = taskMeta(task, now)
 		if (meta.isNotEmpty() || task.category == null) {
 			Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 		}
@@ -168,7 +178,7 @@ private fun TaskMetaLine(task: Task) {
 internal fun awaitsMyReply(meId: String?, task: Task): Boolean =
 	meId != null && task.assignmentStatus == "pending" && task.assignedTo == meId
 
-internal fun taskMeta(task: Task): String =
+internal fun taskMeta(task: Task, now: Instant): String =
 	buildList {
 		if (task.pending) {
 			add("saving…")
@@ -183,5 +193,5 @@ internal fun taskMeta(task: Task): String =
 		task.assignedName?.let { add("→ $it") }
 		task.assignmentStatus?.let { add(it) }
 		task.recurringLabel?.let { add(it) }
-		task.focusMinutes?.let { add("${it}m focus") }
+		liveFocusMinutes(task, now)?.let { add("${it}m focus") }
 	}.joinToString(" · ")

@@ -36,12 +36,16 @@ class NetworkTaskSource(
 		apiCall { api.createTask(request).task }
 
 	override suspend fun requestFocusStart(taskId: String): ApiResult<Unit> =
-		apiCall {
-			api.enqueueFocusCommand(FocusCommandRequest(command = "start", taskId = taskId))
-		}
+		focusCommand(FocusCommandRequest(command = "start", taskId = taskId))
 
 	override suspend fun requestFocusStop(): ApiResult<Unit> =
-		apiCall { api.enqueueFocusCommand(FocusCommandRequest(command = "stop")) }
+		focusCommand(FocusCommandRequest(command = "stop"))
+
+	/** 404/405 on the command route = a server that predates it (#290), not a failure. */
+	private suspend fun focusCommand(body: FocusCommandRequest): ApiResult<Unit> =
+		apiCall(statusError = { code -> ApiError.Unsupported.takeIf { code == 404 || code == 405 } }) {
+			api.enqueueFocusCommand(body)
+		}
 
 	override suspend fun respondToAssignment(taskId: String, status: String): ApiResult<TaskDto> =
 		apiCall { api.updateTask(taskId, TaskUpdatePatch.respondAssignment(status).json).task }

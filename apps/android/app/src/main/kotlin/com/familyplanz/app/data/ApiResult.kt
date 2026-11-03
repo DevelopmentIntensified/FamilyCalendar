@@ -25,6 +25,11 @@ sealed interface ApiError {
 
 	data class Server(override val message: String) : ApiError
 
+	/** #290: a server without the TaskFocus command API (404/405 on that route only). */
+	data object Unsupported : ApiError {
+		override val message = "This FamilyPlanz server can't reach TaskFocus yet"
+	}
+
 	data class Network(val cause: String) : ApiError {
 		override val message = "Network problem ($cause)"
 	}
@@ -51,14 +56,18 @@ internal fun errorBodyText(body: String?): String =
 		}
 	}
 
-suspend fun <T> apiCall(block: suspend () -> T): ApiResult<T> =
+/** [statusError] lets one route claim a status before the universal table (null = table). */
+suspend fun <T> apiCall(
+	statusError: (Int) -> ApiError? = { null },
+	block: suspend () -> T,
+): ApiResult<T> =
 	try {
 		ApiResult.Ok(block())
 	} catch (e: HttpException) {
 		val text = errorBodyText(
 			e.response()?.errorBody()?.string()
 		)
-		val error = when (e.code()) {
+		val error = statusError(e.code()) ?: when (e.code()) {
 			401 -> ApiError.Unauthorized
 			400 -> ApiError.BadRequest(text)
 			403 -> ApiError.Forbidden(text)

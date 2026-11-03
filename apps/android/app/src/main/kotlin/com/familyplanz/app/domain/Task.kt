@@ -1,6 +1,7 @@
 package com.familyplanz.app.domain
 
 import com.familyplanz.app.data.TaskDto
+import java.time.Instant
 
 /** User-facing task view; unknown priority values normalize to NORMAL (spec). */
 enum class TaskPriority {
@@ -23,7 +24,7 @@ data class Task(
 	val title: String,
 	val completed: Boolean,
 	val priority: TaskPriority,
-	/** Accrued focus minutes; null = never had focus time (spec: absent or null). */
+	/** Closed focus spans in minutes; null = never had focus time (spec: absent or null). */
 	val focusMinutes: Int?,
 	val dueDate: String?,
 	val recurringLabel: String?,
@@ -37,6 +38,8 @@ data class Task(
 	val category: String? = null,
 	/** Optimistic row not yet confirmed by the server (temp id). */
 	val pending: Boolean = false,
+	/** Start of the desktop's open focus span; null = not focusing (#290). */
+	val focusStartedAt: Instant? = null,
 )
 
 object TaskMapper {
@@ -55,5 +58,6 @@ object TaskMapper {
 		assignmentStatus = dto.assignmentStatus?.takeIf { it.isNotBlank() && it != "none" },
 		assignedTo = dto.assignedTo,
 		category = dto.category?.trim()?.takeIf { it.isNotEmpty() },
+		focusStartedAt = parseFocusInstant(dto.focusStartedAt),
 	)
 }

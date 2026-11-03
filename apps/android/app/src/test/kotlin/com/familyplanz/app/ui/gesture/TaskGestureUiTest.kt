@@ -47,7 +47,7 @@ class TaskGestureUiTest {
 		rule.onNodeWithText("Focus").performClick()
 
 		host.waitFor { host.repo.focusStarts == listOf("t1") }
-		host.waitForText("Focus start queued for \"Walk the dog\"")
+		host.waitForText("Asked your desktop to start focus")
 	}
 
 	@Test
@@ -57,7 +57,7 @@ class TaskGestureUiTest {
 		rule.onNodeWithText("Stop focus").performClick()
 
 		host.waitFor { host.repo.focusStops == 1 }
-		host.waitForText("Focus stop queued")
+		host.waitForText("Asked your desktop to stop")
 		assertEquals(emptyList<String>(), host.repo.focusStarts)
 	}
 }

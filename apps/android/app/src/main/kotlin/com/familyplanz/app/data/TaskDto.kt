@@ -8,8 +8,8 @@ import kotlinx.serialization.json.put
 /**
  * Read model of GET /api/tasks. Mirrors docs/guides/task-api-spec.md:
  * every field is nullable-tolerated when absent, unknown extra fields are
- * ignored on parse. `focusMinutes` is READ here; the write path can never
- * carry it (see TaskUpdatePatch).
+ * ignored on parse. `focusMinutes` / `focusStartedAt` are READ here; the
+ * write path can never carry them (see TaskUpdatePatch).
  */
 @Serializable
 data class TaskDto(
@@ -37,6 +37,8 @@ data class TaskDto(
 	val eventStart: String? = null,
 	val createdAt: String = "",
 	val focusMinutes: Int? = null,
+	/** Start of the desktop's open focus span (ISO); null/absent = not focusing. Read-only here too. */
+	val focusStartedAt: String? = null,
 	val tags: List<String> = emptyList(),
 	/** Category name (#280, ≤80 chars); null/absent = none. */
 	val category: String? = null,

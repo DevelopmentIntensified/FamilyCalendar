@@ -27,6 +27,12 @@ class FakeRepository : TaskRepository {
 	var parse: ApiResult<QuickParseResponse> = ApiResult.Ok(QuickParseResponse())
 	var categories: ApiResult<List<TaskCategoryDto>> = ApiResult.Ok(emptyList())
 
+	/** Answer to both focus commands (#290). */
+	var focusResult: ApiResult<Unit> = ApiResult.Ok(Unit)
+
+	/** When set, focus commands suspend until completed (lets a test see the pending state). */
+	var focusGate: CompletableDeferred<Unit>? = null
+
 	/** When set, createTask suspends until completed (lets a test see the pending row). */
 	var createTaskGate: CompletableDeferred<Unit>? = null
 
@@ -66,12 +72,14 @@ class FakeRepository : TaskRepository {
 
 	override suspend fun requestFocusStart(taskId: String): ApiResult<Unit> {
 		focusStarts += taskId
-		return ApiResult.Ok(Unit)
+		focusGate?.await()
+		return focusResult
 	}
 
 	override suspend fun requestFocusStop(): ApiResult<Unit> {
 		focusStops++
-		return ApiResult.Ok(Unit)
+		focusGate?.await()
+		return focusResult
 	}
 
 	override suspend fun respondToAssignment(taskId: String, status: String): ApiResult<TaskDto> {
@@ -108,6 +116,10 @@ class FakeRepository : TaskRepository {
 
 fun task(id: String, title: String, assignedTo: String? = null, status: String? = null, category: String? = null) =
 	TaskDto(id = id, title = title, assignedTo = assignedTo, assignmentStatus = status, category = category)
+
+/** A task carrying TaskFocus read fields (#290). */
+fun focusTask(id: String, title: String, focusMinutes: Int? = null, focusStartedAt: String? = null) =
+	TaskDto(id = id, title = title, focusMinutes = focusMinutes, focusStartedAt = focusStartedAt)
 
 fun category(name: String) = TaskCategoryDto(id = "cat-$name", name = name, createdAt = "", updatedAt = "")
 

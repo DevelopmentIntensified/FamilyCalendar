@@ -46,12 +46,18 @@ class AppViewModel(
 	private val tokenStore: DataStoreTokenStore,
 	private val session: SessionHooks = SessionHooks.None,
 	private val auth: AuthSource? = null,
+	private val focusRefreshDelayMs: Long = FOCUS_REFRESH_DELAY_MS,
 ) : ViewModel() {
 	private val _ui = MutableStateFlow<AppUiState>(AppUiState.Loading)
 	val ui: StateFlow<AppUiState> = _ui
 
 	private val _snack = MutableStateFlow<UiSnack?>(null)
 	val snack: StateFlow<UiSnack?> = _snack
+
+	private val focus = FocusCommands(repository, viewModelScope, _ui, focusRefreshDelayMs)
+
+	/** The focus command in flight (#290); null = none, focus controls enabled. */
+	val focusPending: StateFlow<FocusPending?> = focus.pending
 
 	/** The caller's category names (#280) for the add-task picker; best effort, empty until loaded. */
 	private val categoryNames = TaskCategoryNames(repository)
@@ -183,15 +189,17 @@ class AppViewModel(
 		}
 	}
 
-	/** Enqueue a desktop focus command: start on [task], or stop when null. */
+	/** Ask the desktop to start focus on [task], or to stop when null (#290); see [FocusCommands]. */
 	fun queueFocus(task: Task?) {
 		viewModelScope.launch {
-			val result = if (task == null) repository.requestFocusStop() else repository.requestFocusStart(task.id)
-			when (result) {
-				is ApiResult.Ok -> _snack.value = UiSnack(
-					if (task == null) "Focus stop queued" else "Focus start queued for \"${task.title}\"",
-				)
-				is ApiResult.Err -> presentError(result)
+			when (val result = focus.send(task) ?: return@launch) {
+				is ApiResult.Ok -> _snack.value = UiSnack(if (task == null) FOCUS_STOP_ASKED else FOCUS_START_ASKED)
+				// Unsupported server, network or server error: say so, keep the list (only 401 leaves it).
+				is ApiResult.Err -> if (result.error is ApiError.Unauthorized) {
+					presentError(result)
+				} else {
+					_snack.value = UiSnack(result.error.message)
+				}
 			}
 		}
 	}
