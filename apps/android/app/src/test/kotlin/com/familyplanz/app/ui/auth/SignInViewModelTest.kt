@@ -22,7 +22,11 @@ import org.robolectric.Shadows.shadowOf
 class SignInViewModelTest {
 	private val auth = FakeAuthSource()
 	private val ticks = Channel<Unit>(Channel.UNLIMITED)
-	private val vm = SignInViewModel(auth) { ticks.receive() }
+	private val pauses = mutableListOf<Long>()
+	private val vm = SignInViewModel(auth) {
+		pauses += it
+		ticks.receive()
+	}
 
 	private fun idle() = shadowOf(Looper.getMainLooper()).idle()
 
@@ -36,7 +40,14 @@ class SignInViewModelTest {
 	}
 
 	@Test
+	fun `the card opens on the Password segment of Welcome Back`() {
+		assertEquals(SignInStep.PASSWORD, vm.ui.value.step)
+		assertEquals(AuthIntent.LOGIN, vm.ui.value.intent)
+	}
+
+	@Test
 	fun `email then code signs in with the response token and user id`() {
+		vm.showStep(SignInStep.EMAIL)
 		vm.requestCode(" ada@example.com ")
 		idle()
 		assertEquals(SignInStep.CODE, vm.ui.value.step)
@@ -68,7 +79,7 @@ class SignInViewModelTest {
 	fun `signup without both names is refused locally, login drops names`() {
 		vm.setIntent(AuthIntent.SIGNUP)
 		vm.requestCode("new@example.com", SignupNames("Ada", " "))
-		assertEquals("Enter your first and last name", vm.ui.value.error)
+		assertEquals("First and last name are required", vm.ui.value.error)
 		assertEquals(0, auth.codeRequests.size)
 
 		vm.setIntent(AuthIntent.LOGIN)
@@ -98,6 +109,7 @@ class SignInViewModelTest {
 	@Test
 	fun `server error text shows inline and the step stays put`() {
 		auth.codeResult = AuthResult.Err(AuthError.Rejected("Enter a valid email"))
+		vm.showStep(SignInStep.EMAIL)
 		vm.requestCode("nope")
 		idle()
 		assertEquals(SignInStep.EMAIL, vm.ui.value.step)
@@ -132,40 +144,97 @@ class SignInViewModelTest {
 	}
 
 	@Test
-	fun `resend unlocks after 30 ticks and restarts the countdown`() {
+	fun `resend sends again and flashes Sent again for three seconds`() {
 		vm.requestCode("ada@example.com")
 		idle()
-		assertEquals(30, vm.ui.value.resendInSeconds)
-		vm.resendCode()
-		idle()
-		assertEquals(1, auth.codeRequests.size)
-
-		repeat(29) { ticks.trySend(Unit) }
-		awaitUntil { vm.ui.value.resendInSeconds == 1 }
-		vm.resendCode()
-		idle()
-		assertEquals(1, auth.codeRequests.size)
-
-		ticks.trySend(Unit)
-		awaitUntil { vm.ui.value.resendInSeconds == 0 }
+		assertEquals(false, vm.ui.value.sentAgain)
 		vm.resendCode()
 		idle()
 		assertEquals(2, auth.codeRequests.size)
-		assertEquals(30, vm.ui.value.resendInSeconds)
+		assertEquals(true, vm.ui.value.sentAgain)
+		assertEquals(listOf(SignInViewModel.SENT_AGAIN_MS), pauses)
+
+		ticks.trySend(Unit)
+		awaitUntil { !vm.ui.value.sentAgain }
 	}
 
 	@Test
-	fun `wrong email goes back to the email step and stops the countdown`() {
+	fun `going back from the code step clears Sent again`() {
 		vm.requestCode("typo@example.com")
+		idle()
+		vm.resendCode()
 		idle()
 		vm.showStep(SignInStep.EMAIL)
 		assertEquals(SignInStep.EMAIL, vm.ui.value.step)
-		assertEquals(0, vm.ui.value.resendInSeconds)
+		assertEquals(false, vm.ui.value.sentAgain)
+	}
+
+	@Test
+	fun `password signup checks the confirmation and length, then creates the account`() {
+		vm.setIntent(AuthIntent.SIGNUP)
+		val names = SignupNames("Ada", "Lovelace")
+		vm.signInWithPassword("ada@example.com", "longenough", PasswordSignup(names, "different"))
+		assertEquals("Passwords do not match", vm.ui.value.error)
+		vm.signInWithPassword("ada@example.com", "short", PasswordSignup(names, "short"))
+		assertEquals("Password must be at least 8 characters", vm.ui.value.error)
+		vm.signInWithPassword("ada@example.com", "longenough", PasswordSignup(SignupNames("", "L"), "longenough"))
+		assertEquals("All fields are required", vm.ui.value.error)
+		assertEquals(0, auth.signups.size)
+
+		vm.signInWithPassword(" ada@example.com", "longenough", PasswordSignup(names, "longenough"))
+		idle()
+		assertEquals(listOf(Triple(names, "ada@example.com", "longenough")), auth.signups)
+		assertEquals(0, auth.passwords.size)
+		assertEquals("fp_signed_in", vm.signedIn.value?.token)
+	}
+
+	@Test
+	fun `signup server refusal shows inline`() {
+		vm.setIntent(AuthIntent.SIGNUP)
+		auth.session = AuthResult.Err(AuthError.Rejected("An account with this email already exists"))
+		vm.signInWithPassword("ada@example.com", "longenough", PasswordSignup(SignupNames("Ada", "L"), "longenough"))
+		idle()
+		assertEquals("An account with this email already exists", vm.ui.value.error)
+		assertNull(vm.signedIn.value)
+	}
+
+	@Test
+	fun `forgot password sends the reset email and shows Check Your Email`() {
+		vm.showStep(SignInStep.FORGOT)
+		vm.requestCode("")
+		assertEquals("Email is required", vm.ui.value.error)
+		vm.requestCode(" ada@example.com ")
+		idle()
+		assertEquals(listOf("ada@example.com"), auth.forgot)
+		assertEquals(0, auth.codeRequests.size)
+		assertEquals(true, vm.ui.value.resetSent)
+
+		vm.showStep(SignInStep.PASSWORD)
+		assertEquals(false, vm.ui.value.resetSent)
+	}
+
+	@Test
+	fun `forgot password rate limit text shows inline`() {
+		auth.forgotResult = AuthResult.Err(AuthError.RateLimited("Too many attempts. Try again shortly."))
+		vm.showStep(SignInStep.FORGOT)
+		vm.requestCode("ada@example.com")
+		idle()
+		assertEquals("Too many attempts. Try again shortly.", vm.ui.value.error)
+		assertEquals(false, vm.ui.value.resetSent)
+	}
+
+	@Test
+	fun `switching to signup keeps the toggle segment`() {
+		vm.showStep(SignInStep.EMAIL)
+		vm.setIntent(AuthIntent.SIGNUP)
+		assertEquals(SignInStep.EMAIL, vm.ui.value.step)
+		vm.showStep(SignInStep.FORGOT)
+		vm.setIntent(AuthIntent.LOGIN)
+		assertEquals(SignInStep.PASSWORD, vm.ui.value.step)
 	}
 
 	@Test
 	fun `password sign-in passes credentials and opens a session`() {
-		vm.showStep(SignInStep.PASSWORD)
 		vm.signInWithPassword("ada@example.com ", "hunter2")
 		idle()
 		assertEquals(listOf("ada@example.com" to "hunter2"), auth.passwords)

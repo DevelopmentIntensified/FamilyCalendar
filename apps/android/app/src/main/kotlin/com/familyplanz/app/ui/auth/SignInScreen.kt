@@ -1,7 +1,6 @@
 package com.familyplanz.app.ui.auth
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,6 +16,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,29 +35,39 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import com.familyplanz.app.R
 import com.familyplanz.app.data.AuthIntent
 import com.familyplanz.app.data.SignupNames
 import com.familyplanz.app.ui.FpCard
 import com.familyplanz.app.ui.FpOutlineButton
-import com.familyplanz.app.ui.FpPrimaryButton
 import com.familyplanz.app.ui.fpFieldColors
+import com.familyplanz.app.ui.theme.Accent
 import com.familyplanz.app.ui.theme.FpShape
 import com.familyplanz.app.ui.theme.FpTheme
+import com.familyplanz.app.ui.theme.Slate
 
 /** Sign-in screen callbacks (#288); each maps 1:1 onto [SignInViewModel]. */
 data class SignInActions(
-	/** Names are null on login; on signup they are what the user typed. */
+	/** Names are null on login; on signup they are what the user typed. On the forgot face: "Send Reset Link". */
 	val onRequestCode: (email: String, names: SignupNames?) -> Unit,
 	val onVerifyCode: (code: String) -> Unit,
 	val onResendCode: () -> Unit,
-	val onPassword: (email: String, password: String) -> Unit,
+	/** "Login"; on /signup "Create Account", with the names and confirmation in [PasswordSignup]. */
+	val onPassword: (email: String, password: String, signup: PasswordSignup?) -> Unit,
 	val onGuest: () -> Unit,
 	val onIntent: (AuthIntent) -> Unit,
 	val onStep: (SignInStep) -> Unit,
@@ -68,17 +79,20 @@ object SignInTags {
 	const val EMAIL = "signin-email"
 	const val CODE = "signin-code"
 	const val PASSWORD = "signin-password"
+	const val CONFIRM_PASSWORD = "signin-confirm-password"
 	const val TOKEN = "signin-token"
 	const val FIRST_NAME = "signin-first-name"
 	const val LAST_NAME = "signin-last-name"
+	const val SUBMIT = "signin-submit"
 }
 
 /**
- * Default unauthenticated destination (#288): email code, password, guest,
- * and the old paste-a-token entry under a collapsed "Advanced". [note] is
- * why the session ended (a 401 elsewhere), shown above the form.
- * Look (#291): the web /login page — slate-50 page, app mark + wordmark,
- * one white AuthCard, pill primary submit.
+ * The website's /login, /signup and /forgot-password at phone width
+ * (#292 §2.13): slate-50 page `px-4 pt-10 pb-16`, the 20dp Mark + "Family
+ * Planz" wordmark, one AuthCard. "Email Link" sends an 8-digit code on
+ * Android (the web labels stay). [note] is why the session ended (a 401
+ * elsewhere), shown above the form. The native "Advanced → paste token"
+ * fallback (#288, §0.5) stays under the card.
  */
 @Composable
 fun SignInScreen(state: SignInUiState, note: String?, actions: SignInActions) {
@@ -89,39 +103,39 @@ fun SignInScreen(state: SignInUiState, note: String?, actions: SignInActions) {
 			.verticalScroll(rememberScrollState())
 			.navigationBarsPadding()
 			.imePadding()
-			.padding(horizontal = 16.dp, vertical = 32.dp),
+			.padding(start = 16.dp, end = 16.dp, top = 40.dp, bottom = 64.dp),
 		horizontalAlignment = Alignment.CenterHorizontally,
 	) {
-		Image(painterResource(R.drawable.fp_app_mark), contentDescription = null, modifier = Modifier.size(56.dp))
-		Wordmark(modifier = Modifier.padding(top = 12.dp, bottom = 24.dp))
-		FpCard(modifier = Modifier.widthIn(max = 448.dp).fillMaxWidth(), padding = PaddingValues(24.dp)) {
-			Column(
-				verticalArrangement = Arrangement.spacedBy(12.dp),
-				horizontalAlignment = Alignment.CenterHorizontally,
-			) {
-				Text(
-					if (state.intent == AuthIntent.SIGNUP) "Create your account" else "Sign in or get started",
-					style = MaterialTheme.typography.headlineSmall,
-					color = FpTheme.colors.textStrong,
-					textAlign = TextAlign.Center,
-				)
-				note?.let { ErrorLine(it) }
-				// One address across the email and password steps.
-				var email by rememberSaveable { mutableStateOf(state.email) }
+		AuthWordmark(modifier = Modifier.padding(bottom = 32.dp))
+		FpCard(modifier = Modifier.widthIn(max = 448.dp).fillMaxWidth(), padding = PaddingValues(32.dp)) {
+			// One address across every face of the card.
+			var email by rememberSaveable { mutableStateOf(state.email) }
+			AuthHeader(state, actions)
+			Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+				note?.let { AuthAlert(it) }
+				state.error?.let { AuthAlert(it) }
 				when (state.step) {
-					SignInStep.EMAIL -> EmailStep(state, email, { email = it }, actions)
+					SignInStep.PASSWORD, SignInStep.EMAIL -> {
+						AuthModeToggle(state.step, enabled = state.pending == null, onSelect = actions.onStep)
+						if (state.step == SignInStep.PASSWORD) {
+							PasswordForm(state, email, { email = it }, actions)
+						} else {
+							EmailLinkForm(state, email, { email = it }, actions)
+						}
+					}
 					SignInStep.CODE -> CodeStep(state, actions)
-					SignInStep.PASSWORD -> PasswordStep(state, email, { email = it }, actions)
+					SignInStep.FORGOT -> ForgotForm(state, email, { email = it }) { actions.onRequestCode(it, null) }
 				}
-				state.error?.let { ErrorLine(it) }
 			}
+			if (state.step != SignInStep.FORGOT) GuestFooter(state, actions.onGuest)
 		}
+		AdvancedTokenEntry(actions.onSaveToken)
 	}
 }
 
-/** Navbar / login wordmark: primary calendar glyph + bold slate-800 "Family Planz". */
+/** `login/+page.svelte` brand link: Mark 20dp primary-600 + "Family Planz" 18/700 tight slate-800. */
 @Composable
-private fun Wordmark(modifier: Modifier = Modifier) {
+internal fun AuthWordmark(modifier: Modifier = Modifier) {
 	Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 		Icon(
 			painterResource(R.drawable.ic_fp_calendar),
@@ -129,119 +143,128 @@ private fun Wordmark(modifier: Modifier = Modifier) {
 			tint = MaterialTheme.colorScheme.primary,
 			modifier = Modifier.size(20.dp),
 		)
-		Text("Family Planz", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.inverseSurface)
-	}
-}
-
-/** The login page's error alert: red-50 fill, red-200 border, rounded-xl, red-700 text. */
-@Composable
-internal fun ErrorLine(text: String) {
-	Surface(
-		modifier = Modifier.fillMaxWidth(),
-		shape = MaterialTheme.shapes.medium,
-		color = MaterialTheme.colorScheme.errorContainer,
-		border = BorderStroke(1.dp, FpTheme.colors.lateRowBorder),
-	) {
 		Text(
-			text,
-			color = MaterialTheme.colorScheme.onErrorContainer,
-			style = MaterialTheme.typography.bodyMedium,
-			modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+			"Family Planz",
+			style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.025).em),
+			color = Slate.S800,
 		)
 	}
 }
+
+@Composable
+private fun AuthHeader(state: SignInUiState, actions: SignInActions) {
+	val signup = state.intent == AuthIntent.SIGNUP
+	val (title, lead, link, tail) = when {
+		state.step == SignInStep.FORGOT -> listOf("Reset Password", "Remember your password? ", "Log in", "")
+		signup -> listOf("Create Account", "Already have an account? ", "Sign in", "")
+		else -> listOf("Welcome Back", "Don't have an account? ", "Sign up", " or start planning with no account needed.")
+	}
+	val onLink = {
+		if (state.step == SignInStep.FORGOT) {
+			actions.onStep(SignInStep.PASSWORD)
+		} else {
+			actions.onIntent(if (signup) AuthIntent.LOGIN else AuthIntent.SIGNUP)
+		}
+	}
+	AuthTitle(title, lead, link, tail, onLink)
+}
+
+/** h1 30/36/700 tight slate-900, then the 14sp slate-600 subline with its primary-600 link. */
+@Composable
+internal fun AuthTitle(title: String, lead: String, link: String, tail: String, onLink: () -> Unit) {
+	Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+		Text(title, style = MaterialTheme.typography.headlineMedium, color = FpTheme.colors.textStrong, textAlign = TextAlign.Center)
+		val linkStyle = TextLinkStyles(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium))
+		Text(
+			buildAnnotatedString {
+				append(lead)
+				withLink(LinkAnnotation.Clickable(link, linkStyle) { onLink() }) { append(link) }
+				append(tail)
+			},
+			style = MaterialTheme.typography.bodyMedium,
+			color = FpTheme.colors.textBody,
+			textAlign = TextAlign.Center,
+			modifier = Modifier.padding(top = 8.dp),
+		)
+	}
+}
+
+/** The page's `role="alert"`: red-50, red-200 border, rounded-xl, red-700 14sp, alert icon. */
+@Composable
+internal fun AuthAlert(text: String) {
+	Surface(
+		modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+		shape = MaterialTheme.shapes.medium,
+		color = Accent.Red50,
+		border = BorderStroke(1.dp, Accent.Red200),
+	) {
+		Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+			Icon(Icons.Outlined.Info, contentDescription = null, tint = Accent.Red700, modifier = Modifier.padding(top = 2.dp).size(16.dp))
+			Text(text, color = Accent.Red700, style = MaterialTheme.typography.bodyMedium)
+		}
+	}
+}
+
+/** Kept for callers of the #288 name. */
+@Composable
+internal fun ErrorLine(text: String) = AuthAlert(text)
 
 /** Busy label for the button whose call is in flight, its idle label otherwise. */
 internal fun SignInUiState.label(button: SignInPending, idle: String, busy: String): String =
 	if (pending == button) busy else idle
 
+/** `login/+page.svelte` footer: slate-100 rule, the guest pill and its caption. */
 @Composable
-private fun EmailStep(state: SignInUiState, email: String, onEmail: (String) -> Unit, actions: SignInActions) {
-	val idle = state.pending == null
-	val signup = state.intent == AuthIntent.SIGNUP
-	var first by rememberSaveable { mutableStateOf("") }
-	var last by rememberSaveable { mutableStateOf("") }
-	if (signup) {
-		NameField("First name", first, idle, SignInTags.FIRST_NAME) { first = it }
-		NameField("Last name", last, idle, SignInTags.LAST_NAME) { last = it }
+private fun GuestFooter(state: SignInUiState, onGuest: () -> Unit) {
+	Column(modifier = Modifier.padding(top = 24.dp)) {
+		HorizontalDivider(color = FpTheme.colors.rowBorder)
+		FpOutlineButton(
+			onClick = onGuest,
+			enabled = state.pending == null,
+			modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+		) { Text(state.label(SignInPending.GUEST, GUEST_LABEL, "Starting…"), style = MaterialTheme.typography.bodyMedium) }
+		Text(
+			"Creates a private calendar on this device. Add an email later to sync.",
+			style = MaterialTheme.typography.bodySmall,
+			color = FpTheme.colors.textMuted,
+			textAlign = TextAlign.Center,
+			modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+		)
 	}
-	EmailField(email, idle, onEmail)
-	FpPrimaryButton(
-		onClick = { actions.onRequestCode(email, if (signup) SignupNames(first, last) else null) },
-		enabled = idle,
-		modifier = Modifier.fillMaxWidth(),
-	) { Text(state.label(SignInPending.SEND_CODE, "Email me a code", "Sending code…"), style = MaterialTheme.typography.bodyLarge) }
-	if (state.intent == AuthIntent.LOGIN) {
-		TextButton(onClick = { actions.onStep(SignInStep.PASSWORD) }, enabled = idle) { Text("Use password instead") }
-		TextButton(onClick = { actions.onIntent(AuthIntent.SIGNUP) }, enabled = idle) { Text("Create an account") }
-	} else {
-		TextButton(onClick = { actions.onIntent(AuthIntent.LOGIN) }, enabled = idle) { Text("I already have an account") }
-	}
-	HorizontalDivider(color = FpTheme.colors.rowBorder)
-	FpOutlineButton(onClick = actions.onGuest, enabled = idle, modifier = Modifier.fillMaxWidth()) {
-		Text(state.label(SignInPending.GUEST, "Continue without an account", "Starting guest session…"))
-	}
-	AdvancedTokenEntry(actions.onSaveToken)
 }
 
-@Composable
-private fun NameField(label: String, value: String, enabled: Boolean, tag: String, onChange: (String) -> Unit) {
-	OutlinedTextField(
-		value = value,
-		onValueChange = onChange,
-		label = { Text(label) },
-		enabled = enabled,
-		singleLine = true,
-		keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
-		modifier = Modifier.fillMaxWidth().testTag(tag),
-		shape = FpShape.Input,
-		colors = fpFieldColors(),
-	)
-}
+const val GUEST_LABEL = "Start planning — no account needed"
 
-@Composable
-internal fun EmailField(value: String, enabled: Boolean, onChange: (String) -> Unit) {
-	OutlinedTextField(
-		value = value,
-		onValueChange = onChange,
-		label = { Text("Email") },
-		enabled = enabled,
-		singleLine = true,
-		keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-		modifier = Modifier.fillMaxWidth().testTag(SignInTags.EMAIL),
-		shape = FpShape.Input,
-		colors = fpFieldColors(),
-	)
-}
-
-/** Developer fallback: the pre-#288 paste-a-token entry, collapsed by default. */
+/** Developer fallback: the pre-#288 paste-a-token entry, collapsed by default (native-only, §0.5). */
 @Composable
 private fun AdvancedTokenEntry(onSave: (String) -> Unit) {
 	var open by rememberSaveable { mutableStateOf(false) }
 	var token by rememberSaveable { mutableStateOf("") }
-	TextButton(
-		onClick = { open = !open },
-		colors = ButtonDefaults.textButtonColors(contentColor = FpTheme.colors.textMuted),
-	) { Text(if (open) "Hide advanced" else "Advanced") }
-	if (!open) return
-	Text(
-		"Paste a personal API token minted in the web app (Settings > API tokens).",
-		style = MaterialTheme.typography.bodySmall,
-		color = MaterialTheme.colorScheme.onSurfaceVariant,
-	)
-	OutlinedTextField(
-		value = token,
-		onValueChange = { token = it },
-		label = { Text("API token (fp_...)") },
-		modifier = Modifier.fillMaxWidth().testTag(SignInTags.TOKEN),
-		singleLine = true,
-		visualTransformation = PasswordVisualTransformation(),
-		keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-		shape = FpShape.Input,
-		colors = fpFieldColors(),
-	)
-	FpOutlineButton(
-		onClick = { if (token.isNotBlank()) onSave(token) },
-		modifier = Modifier.fillMaxWidth(),
-	) { Text("Save and sync") }
+	Column(modifier = Modifier.widthIn(max = 448.dp).fillMaxWidth().padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+		TextButton(
+			onClick = { open = !open },
+			colors = ButtonDefaults.textButtonColors(contentColor = FpTheme.colors.textMuted),
+		) { Text(if (open) "Hide advanced" else "Advanced") }
+		if (!open) return@Column
+		Text(
+			"Paste a personal API token minted in the web app (Settings > API tokens).",
+			style = MaterialTheme.typography.bodySmall,
+			color = MaterialTheme.colorScheme.onSurfaceVariant,
+		)
+		OutlinedTextField(
+			value = token,
+			onValueChange = { token = it },
+			label = { Text("API token (fp_...)") },
+			modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag(SignInTags.TOKEN),
+			singleLine = true,
+			visualTransformation = PasswordVisualTransformation(),
+			keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+			shape = FpShape.Input,
+			colors = fpFieldColors(),
+		)
+		FpOutlineButton(
+			onClick = { if (token.isNotBlank()) onSave(token) },
+			modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+		) { Text("Save and sync") }
+	}
 }
