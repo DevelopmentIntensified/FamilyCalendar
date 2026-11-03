@@ -682,3 +682,18 @@ Errors: `403 {"error":"You are not a member of this family"|"Not a member of thi
 `"First and last name are required"`, `"A valid email is required"`, consent
 missing, already a member, email in use), `404 {"error":"User not found"}`
 (direct), `429` (email / link: 10 per 15 min per IP).
+
+### POST /api/me/claim (G13)
+
+Body `{"email"}`. For an Anonymous Account (guest): emails the web claim
+link (`/claim/verify/{token}`); clicking it gives the guest that email, or
+merges the guest's data into an existing account at it. Same code as the
+`/claim` page (`requestClaimLink`).
+
+- `200 {"sent":true}` — the same answer whether or not the address is
+  already registered (no account oracle).
+- `400 {"error":"Account already has an email"}` — you are not a guest.
+- `400 {"error":"Please enter a valid email address"}`.
+- `429 {"error":"Too many attempts. Try again shortly."}` — 10 per 15 min
+  per IP, 3 per 15 min per address.
+- `500 {"error":"Failed to send email. Please try again."}`.
