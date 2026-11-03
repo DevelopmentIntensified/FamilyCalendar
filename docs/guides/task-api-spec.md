@@ -477,3 +477,41 @@ Recurring Task cursor pin first, in your stored zone.
   - `requestedByMe`: tasks you assigned to someone else ("Requested").
   - `warnings`: a list that failed to load comes back `[]` and its label is
     listed here (show a soft "couldn't load" note, never an error screen).
+
+### GET /api/dashboard?date=YYYY-MM-DD (G8)
+
+The Day Dashboard, exactly as `/calendar/dashboard` loads it
+(`loadDashboard`, `src/lib/server/services/dashboardData.ts`), with the
+page's streamed part resolved. `date` is read in your stored zone; omitted
+= today.
+
+- `200` body:
+
+  ```json
+  {
+    "zone": "IANA zone (UTC when unset)",
+    "dayISO": "start of the viewed day, ISO with offset",
+    "isToday": true,
+    "meId": "your user id",
+    "familyId": "id|null",
+    "modules": { "<moduleId>": true },
+    "dailyVerse": { "reference", "text", "attribution" } | null,
+    "taskCategories": [{ "id", "name" }],
+    "data": {
+      "userTasks": [<Task+tags>], "familyTasks": [<Task+tags, open only>],
+      "familyMembers": [{ "userId", "firstName", "lastName", "email", "role", "memberType" }],
+      "dayEvents": [<Event + color, source:"own"|"family", rsvp + attendance summary>],
+      "top3": [<Task>],
+      "glance": { "doneToday": 0, "openToday": 0, "weekStreak": 0 },
+      "completedToday": [{ "id", "title", "completedAt" }],
+      "kidsSchedule": [{ "id", "title", "start", "end", "allDay", "location", "kids": [{ "id", "name" }] }],
+      "familyGroceries": [{ "name", "stores": [] }], "mineGroceries": [{ "name", "stores": [] }]
+    },
+    "warnings": ["tasks"|"events"|"family"|"task-wins"|"streak"|"settings"|"today's verse", …]
+  }
+  ```
+
+  `modules` is the effective visibility (family switch AND your hidden list);
+  a module that is off has empty data. `warnings` names legs that failed and
+  came back empty.
+- `400 {"error":"Invalid date"}` — `date` present but not `YYYY-MM-DD`.

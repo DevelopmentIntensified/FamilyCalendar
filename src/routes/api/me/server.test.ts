@@ -1,4 +1,3 @@
-import type { RequestEvent } from '@sveltejs/kit';
 import { describe, expect, it, vi } from 'vitest';
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- scripted seam; the real module reads familyMembers from the DB.
@@ -25,7 +24,7 @@ describe('GET /api/me', () => {
 					passwordHash: 'secret-hash'
 				}
 			}
-		} as unknown as RequestEvent);
+		} as never);
 		expect(res.status).toBe(200);
 		expect(await res.json()).toEqual({
 			id: 'user-1',
@@ -53,7 +52,7 @@ describe('GET /api/me', () => {
 					lastActiveAt
 				}
 			}
-		} as unknown as RequestEvent);
+		} as never);
 		const body = await res.json();
 		expect(body.email).toBeNull();
 		expect(body.isAnonymous).toBe(true);
@@ -63,7 +62,7 @@ describe('GET /api/me', () => {
 	});
 
 	it('401s per the universal table when no user', async () => {
-		const res = await GET({ locals: { user: null } } as unknown as RequestEvent);
+		const res = await GET({ locals: { user: null } } as never);
 		expect(res.status).toBe(401);
 		expect(await res.json()).toEqual({ error: 'Unauthorized' });
 	});
