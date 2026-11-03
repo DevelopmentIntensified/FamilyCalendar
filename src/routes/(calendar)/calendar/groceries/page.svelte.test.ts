@@ -955,3 +955,18 @@ describe('groceries page — network failures (239)', () => {
 		expect(vi.mocked(fetch).mock.calls).toHaveLength(2);
 	});
 });
+describe('groceries page — style-guide tokens, no gray/black (#292)', () => {
+	it('uses slate/primary tokens on the key elements', () => {
+		const { container } = render(GroceriesPage, makeData());
+		const add = screen.getByRole('button', { name: 'Add' });
+		expect(add.className).toContain('bg-primary-600');
+		expect(add.className).not.toContain('bg-black');
+		const input = screen.getByLabelText('Add grocery item');
+		expect(input.className).toContain('border-slate-300');
+		expect(input.className).toContain('focus:border-primary-500');
+		expect(screen.getByTestId('store-colours').className).toContain('border-slate-200');
+		expect(screen.getByRole('region', { name: 'Aldi' }).className).toContain('border-slate-200');
+		expect(container.innerHTML).not.toMatch(/\bgray-\d/);
+		expect(container.innerHTML).not.toMatch(/\b(?:bg|border|text)-black\b|hover:border-black/);
+	});
+});

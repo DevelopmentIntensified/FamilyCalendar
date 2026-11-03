@@ -16,7 +16,7 @@ This is a **spec**. It changes no app code. It tells implementation lanes what t
    `docs/guides/android-design-tokens.md` (#291) is the current Kotlin mapping. Lane 1 **updates that guide** (§1.9). It does not fork a second guide. Every row in §1 cites its source. If a value cannot be cited, it does not ship.
 
 3. **Clone means structure, copy, states and behaviour, as well as look.** Copy strings are verbatim from the cited `file:line`. Where this spec quotes a string, the quote is authoritative. Where it says "copy from `X:n-m`", the implementer opens the file and copies every string in that range.
-4. **Where the web departs from its own style guide, clone the web literally and record the departure.** Examples: Groceries uses `gray-*` and `bg-black`; Alerts has dev-note side cards. Open questions Q2 and Q3 ask the owner whether to fix both platforms instead. A lane never "improves" the web design on Android alone.
+4. **Where the web departs from its own style guide, clone the web literally and record the departure.** The two known departures (Groceries `gray-*` / `bg-black`; Alerts developer-note side cards) are **fixed on the web (#292)**, so clone the fixed pages: Groceries uses the §1 slate/primary tokens and Alerts has no side cards. A lane never "improves" the web design on Android alone.
 5. **Keep native-only capabilities that already ship.** These have no web counterpart and stay where they are (Q1 asks whether to keep them):
    - TaskFocus Start/Stop focus (#290)
    - the notification-permission banner (#286)
@@ -901,7 +901,7 @@ Sources: `routes/(calendar)/calendar/groceries/+page.svelte`, `src/lib/data/groc
 Scope chips [All n][Family n][Mine n]          (slate-900 selected)
 [No family yet — join or create one to use the shared list.]
 Search "Search items or stores…" (+✕) → "Searching “q”"
-Add form:  [Quick-add, e.g. “milk 2”][Add (black)]   "Add to" [Family (shared)|Mine (private)]
+Add form:  [Quick-add, e.g. “milk 2”][Add (primary-600)]   "Add to" [Family (shared)|Mine (private)]
            "Store Memory: [Aldi]"   [Store (optional, comma = alternates)]
 CHECKED OFF (n) card (session-local)  ✓ rows + Mine/Family tag
 STORE COLOURS card  [Everyone|Just me]  rows: dot · store · colour select (6 swatches + Auto)
@@ -937,7 +937,7 @@ Items by store:  per store a rounded-2xl card
 - `GET /api/groceries?scope=mine|family`, `POST /api/groceries` `{scope,input,stores}`, `PATCH/DELETE /api/groceries/{id}` `{op,scope,stores,target}`, `GET/PATCH /api/groceries/colours`: all exist.
 - `hasFamily` → G1 (`familyId` in `/api/me`).
 
-**Style note (Q2)**: this page uses `gray-*`, `bg-black` and an unstyled `border` input (`rounded-lg border px-3 py-2`). Those are outside the slate/primary language the rest of the app uses. Clone literally, and add `Gray.*` + `Black` tokens marked "web departure, see Q2".
+**Style note (Q2, fixed in #292)**: the page used to use `gray-*`, `bg-black` and an unstyled `border` input. It now uses the §1 tokens: `slate-*` for text, hairlines and borders, `bg-primary-600` (hover `primary-700`) on the Add button, `border-slate-300 bg-white` inputs with `focus:border-primary-500`, `border-slate-200` cards, and `hover:border-primary-500` on checkboxes and chips. Do not add `Gray.*` or `Black` tokens.
 
 **Current Android gap**: the screen does not exist.
 
@@ -968,7 +968,7 @@ filter chips (h36, primary-600 selected): All n · Needs you n · Unread n
 section "Needs you n" — card list (divided, rounded-xl, shadow-sm)
 section "Just news n"
 row: unread dot 8 · glyph disc 32 (tone) · "**{actor}** {message}" · [type pill] · relative time
-side cards (below feed on phone): "Five types, one table" · "Never pruned" · "Where it is reachable"
+(no side cards: the three developer-note cards were removed on the web, #292)
 ```
 
 **Copy**:
@@ -977,7 +977,7 @@ side cards (below feed on phone): "Five types, one table" · "Never pruned" · "
 - Filter empty: "Nothing matches this filter."
 - Type labels (`notificationTypes.ts` `LABELS`): Asked you / Accepted / Declined / Completed / Added to family / Update.
 - Toasts: "Everything marked as read." / "Couldn't mark everything read — try again." / "Deleted {n} read alert(s)." / "Couldn't delete those alerts — try again." / "Couldn't mark that alert read — opening it anyway."
-- Side-card copy: `notifications/+page.svelte` sections "Five types, one table" / "Never pruned" / "Where it is reachable". **Q3**: clone or drop.
+- Side cards ("Five types, one table" / "Never pruned" / "Where it is reachable"): **removed on the web (#292, Q3 resolved as drop)**. Do not build them.
 
 **Interactions**:
 
@@ -1376,8 +1376,8 @@ Package root: `apps/android/app/src/main/kotlin/com/familyplanz/app/` (below: `a
 ## 5. Open questions for the owner
 
 - **Q1. Native-only features.** TaskFocus Start/Stop focus (#290), the notification-permission banner (#286), local reminders and push are not on the website. Keep them (this spec's default), or drop them for a strict clone?
-- **Q2. Web departures from the style guide.** Groceries uses `gray-*` / `bg-black`, and the guest/merge banners use emoji ✅ ⚠️. Clone them literally on Android (default), or fix both platforms to the slate/primary language first?
-- **Q3. Alerts side cards.** "Five types, one table", "Never pruned" and "Where it is reachable" read as developer notes, and they render below the feed on a phone. Clone or drop?
+- **Q2. Web departures from the style guide.** **Resolved (#292):** Groceries now uses slate/primary tokens on the web; clone the fixed page. (The guest/merge banner emoji ✅ ⚠️ are unchanged: clone literally.)
+- **Q3. Alerts side cards.** **Resolved (#292):** dropped on the web; Android does not build them.
 - **Q4. Logo tap.** On the web it goes to the marketing home `/`. On Android: Calendar tab (default), or open the website?
 - **Q5. Web-only pages.** Import (.ics upload), Print, Admin and Bug Reports: open in a Custom Tab (default), or build native? A Custom Tab needs a web session, and the `fp_` token cannot mint a cookie today, so the user would sign in again in the tab. Is that acceptable, or should L0 add a one-time token-to-session exchange?
 - **Q6. Default view = Dashboard.** On the web, `/calendar` redirects to the Dashboard for these users, but the Calendar _tab_ bypasses that (`?dashboardView=1`). Should the Android app _open_ on the Dashboard tab for these users (web first-visit behaviour), or always open on Calendar?

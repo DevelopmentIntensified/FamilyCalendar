@@ -485,7 +485,7 @@
 
 			<!-- A statement about the FAMILY scope, not about the page. -->
 			{#if !data.hasFamily && scope !== 'mine'}
-				<p class="text-sm text-gray-600">
+				<p class="text-sm text-slate-600">
 					No family yet — join or create one to use the shared list.
 				</p>
 			{/if}
@@ -495,7 +495,7 @@
 			     fetch. Same idiom as the tasks page's searchQuery. -->
 			<div class="relative">
 				<svg
-					class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+					class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -518,7 +518,7 @@
 				{#if searchQuery.trim()}
 					<button
 						type="button"
-						class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+						class="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
 						aria-label="Clear search"
 						onclick={() => (searchQuery = '')}
 					>
@@ -549,7 +549,7 @@
 			>
 				<div class="flex min-w-0 gap-2">
 					<input
-						class="min-w-0 flex-1 rounded-lg border px-3 py-2"
+						class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none px-3 py-2"
 						placeholder="Quick-add, e.g. “milk 2”"
 						bind:value={input}
 						oninput={onInput}
@@ -558,7 +558,7 @@
 					<button
 						type="submit"
 						disabled={adding || !input.trim()}
-						class="shrink-0 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+						class="shrink-0 rounded-lg bg-primary-600 px-4 hover:bg-primary-700 py-2 text-sm font-semibold text-white disabled:opacity-40"
 					>
 						{adding ? 'Adding…' : 'Add'}
 					</button>
@@ -566,7 +566,7 @@
 
 				<!-- The scope the new row will use is stated on the form, not
 				     inferred from a tab that no longer exists. -->
-				<label class="flex items-center gap-2 text-xs text-gray-500">
+				<label class="flex items-center gap-2 text-xs text-slate-500">
 					<span class="shrink-0">Add to</span>
 					<select
 						class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700"
@@ -579,11 +579,11 @@
 				</label>
 
 				{#if suggested && !storeInput}
-					<div class="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+					<div class="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
 						<span>Store Memory:</span>
 						<button
 							type="button"
-							class="rounded-full border border-gray-300 bg-white px-2.5 py-1 font-semibold text-gray-700 hover:border-black"
+							class="rounded-full border border-slate-300 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:border-primary-500"
 							aria-label="Use store {suggested}"
 							onclick={useSuggestion}>{suggested}</button
 						>
@@ -591,7 +591,7 @@
 				{/if}
 
 				<input
-					class="w-full min-w-0 rounded-lg border px-3 py-1.5 text-sm"
+					class="w-full min-w-0 rounded-lg border border-slate-300 bg-white text-slate-700 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none px-3 py-1.5 text-sm"
 					placeholder="Store (optional, comma = alternates)"
 					list="known-stores"
 					bind:value={storeInput}
@@ -611,8 +611,8 @@
 			{/if}
 
 			{#if checked.length}
-				<section aria-label="Checked off" class="rounded-xl border p-3">
-					<h2 class="text-xs font-bold uppercase tracking-wide text-gray-500">
+				<section aria-label="Checked off" class="rounded-xl border border-slate-200 p-3">
+					<h2 class="text-xs font-bold uppercase tracking-wide text-slate-500">
 						Checked off ({checked.length})
 					</h2>
 					<ul class="mt-1 space-y-1">
@@ -623,15 +623,15 @@
 									aria-checked="true"
 									aria-label="Uncheck {rec.item.name}"
 									disabled={busyId === rec.item.id}
-									class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-gray-400 text-xs leading-none text-gray-500 hover:border-black"
+									class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-slate-400 text-xs leading-none text-slate-500 hover:border-primary-500"
 									onclick={() => uncheck(rec.item, rec.scope)}>✓</button
 								>
-								<span class="min-w-0 truncate text-sm text-gray-400 line-through"
+								<span class="min-w-0 truncate text-sm text-slate-400 line-through"
 									>{rec.item.name}</span
 								>
 								<!-- Which list it went back to, in words. -->
 								<span
-									class="ml-auto shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-gray-500"
+									class="ml-auto shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-slate-500"
 									>{rec.scope === 'mine' ? 'Mine' : 'Family'}</span
 								>
 							</li>
@@ -651,9 +651,9 @@
 			     The card carries the collision disclosure the group header carries:
 			     six swatches over unbounded shops means two names CAN land on one,
 			     and a collision is permitted but never silent. -->
-			<section data-testid="store-colours" aria-label="Store colours" class="rounded-xl border p-3">
+			<section data-testid="store-colours" aria-label="Store colours" class="rounded-xl border border-slate-200 p-3">
 				<div class="flex items-center justify-between gap-2">
-					<h2 class="text-xs font-bold uppercase tracking-wide text-gray-500">Store colours</h2>
+					<h2 class="text-xs font-bold uppercase tracking-wide text-slate-500">Store colours</h2>
 					{#if data.hasFamily}
 						<!-- The card's OWN scope, not the group picker's: it says where a
 						     flip from THIS card lands, and moving one never retargets
@@ -661,7 +661,7 @@
 						<label class="sr-only" for="rail-colour-scope">Colour scope for the card</label>
 						<select
 							id="rail-colour-scope"
-							class="max-w-[6.5rem] rounded-lg border border-gray-300 bg-white px-1 py-0.5 text-[0.625rem] font-semibold text-gray-600"
+							class="max-w-[6.5rem] rounded-lg border border-slate-300 bg-white px-1 py-0.5 text-[0.625rem] font-semibold text-slate-600"
 							aria-label="Colour scope for the card"
 							bind:value={railScope}
 						>
@@ -671,7 +671,7 @@
 					{/if}
 				</div>
 				{#if colourStores.length === 0}
-					<p data-testid="store-colours-empty" class="mt-1 text-sm text-gray-500">
+					<p data-testid="store-colours-empty" class="mt-1 text-sm text-slate-500">
 						No shops yet. Type one on an item and it turns up here with a colour of its
 						own.
 					</p>
@@ -684,23 +684,23 @@
 								data-testid="store-colour-row"
 								data-store={store}
 								class="flex flex-wrap items-center gap-2 py-1.5 {index
-									? 'border-t border-gray-100'
+									? 'border-t border-slate-100'
 									: ''}"
 							>
 								<span
 									class="h-3 w-3 shrink-0 rounded-full {tint
 										? tint.dot
-										: 'bg-gray-400'}"
+										: 'bg-slate-400'}"
 									aria-hidden="true"
 								></span>
-								<span class="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800">
+								<span class="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800">
 									{store}
 								</span>
 								{#if colourStore === store}
 									<!-- One picker per shop. While its group is open for
 									     editing, that group owns the control, so the shop
 									     never answers to two selects with the same name. -->
-									<span class="text-[0.625rem] font-semibold text-gray-400">editing →</span>
+									<span class="text-[0.625rem] font-semibold text-slate-400">editing →</span>
 								{:else}
 									{@const choice = pickerValue(store, railScope)}
 									<label class="sr-only" for="rail-colour-{storeKey(store)}"
@@ -708,7 +708,7 @@
 									>
 									<select
 										id="rail-colour-{storeKey(store)}"
-										class="max-w-[7.5rem] rounded-lg border border-gray-300 bg-white px-1.5 py-1 text-xs font-semibold"
+										class="max-w-[7.5rem] rounded-lg border border-slate-300 bg-white px-1.5 py-1 text-xs font-semibold"
 										aria-label="Colour for {store}"
 										value={choice}
 										disabled={colourBusy}
@@ -722,14 +722,14 @@
 								{/if}
 								{#if twins.length > 0 && tint}
 									<!-- A collision is never silent. -->
-									<p class="w-full text-[0.6875rem] leading-snug text-gray-400">
+									<p class="w-full text-[0.6875rem] leading-snug text-slate-400">
 										shares {tint.label} with {twins.join(', ')}
 									</p>
 								{/if}
 							</li>
 						{/each}
 					</ul>
-					<p class="mt-2 text-[0.6875rem] leading-snug text-gray-400">
+					<p class="mt-2 text-[0.6875rem] leading-snug text-slate-400">
 						{colourStores.length}
 						{colourStores.length === 1 ? 'store' : 'stores'}, {STORE_COLOURS.length} swatches.
 						{#if sharedStores.length > 0}
@@ -747,7 +747,7 @@
 		<!-- ── the list, grouped by Store ── -->
 		<section aria-label="Items by store" class="min-w-0">
 			{#if items.length === 0}
-				<p class="py-10 text-center text-sm text-gray-500">
+				<p class="py-10 text-center text-sm text-slate-500">
 					{#if queryActive}
 						No items match “{searchQuery.trim()}”.
 					{:else if scope === 'mine'}
@@ -764,21 +764,21 @@
 				{#each groups as group (group.store)}
 					{@const tint = group.colour}
 					{@const twins = tint ? twinsOf(group.store) : []}
-					<section aria-label={group.store} class="mb-4 rounded-2xl border">
+					<section aria-label={group.store} class="mb-4 rounded-2xl border border-slate-200">
 						<div
 							data-store-bar={tint ? group.store : undefined}
 							class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-t-2xl px-3 py-2 {tint
 								? tint.bar
-								: 'bg-gray-50'}"
+								: 'bg-slate-50'}"
 						>
-							<h2 class="flex min-w-0 items-center gap-2 text-sm font-extrabold text-gray-900">
+							<h2 class="flex min-w-0 items-center gap-2 text-sm font-extrabold text-slate-900">
 								{#if tint}
 									<span aria-hidden="true" class="h-2.5 w-2.5 shrink-0 rounded-full {tint.dot}"
 									></span>
 								{/if}
 								<span class="truncate">{group.store}</span>
 							</h2>
-							<p class="text-xs text-gray-600">
+							<p class="text-xs text-slate-600">
 								{summary(group.items)}{#if twins.length}
 									· shares {tint?.label} with {twins.join(', ')}{/if}
 							</p>
@@ -792,7 +792,7 @@
 											>
 											<select
 												id="colour-{storeKey(group.store)}"
-												class="max-w-[9rem] rounded-lg border border-gray-300 bg-white px-1.5 py-1 text-xs font-semibold"
+												class="max-w-[9rem] rounded-lg border border-slate-300 bg-white px-1.5 py-1 text-xs font-semibold"
 												aria-label="Colour for {group.store}"
 												value={choice}
 												disabled={colourBusy}
@@ -804,7 +804,7 @@
 												<option value="auto" selected={choice === 'auto'}>Auto</option>
 											</select>
 											{#if data.hasFamily}
-												<label class="flex items-center gap-1 text-[0.6875rem] text-gray-600">
+												<label class="flex items-center gap-1 text-[0.6875rem] text-slate-600">
 													<input
 														type="radio"
 														name="colour-scope"
@@ -814,7 +814,7 @@
 														onchange={() => (colourScope = 'family')}
 													/>Everyone
 												</label>
-												<label class="flex items-center gap-1 text-[0.6875rem] text-gray-600">
+												<label class="flex items-center gap-1 text-[0.6875rem] text-slate-600">
 													<input
 														type="radio"
 														name="colour-scope"
@@ -827,7 +827,7 @@
 											{/if}
 											<button
 												type="button"
-												class="text-xs text-gray-500 underline"
+												class="text-xs text-slate-500 underline"
 												aria-label="Done editing colour for {group.store}"
 												onclick={() => (colourStore = null)}>Done</button
 											>
@@ -835,7 +835,7 @@
 									{:else}
 										<button
 											type="button"
-											class="rounded-full border border-gray-300 bg-white px-2 py-1 text-[0.6875rem] font-semibold text-gray-700 hover:border-black"
+											class="rounded-full border border-slate-300 bg-white px-2 py-1 text-[0.6875rem] font-semibold text-slate-700 hover:border-primary-500"
 											aria-label="Edit colour for {group.store}"
 											onclick={() => {
 												colourStore = group.store;
@@ -846,7 +846,7 @@
 								</div>
 							{/if}
 						</div>
-						<ul class="divide-y divide-gray-100">
+						<ul class="divide-y divide-slate-100">
 							{#each group.items as item (item.id)}
 								{@const rowScope = scopeOf(item)}
 								{@const destination = rowScope === 'mine' ? 'Family' : 'Mine'}
@@ -857,12 +857,12 @@
 											aria-checked="false"
 											aria-label="Check off {item.name}"
 											disabled={busyId === item.id}
-											class="h-5 w-5 shrink-0 rounded-md border-2 border-gray-300 hover:border-black"
+											class="h-5 w-5 shrink-0 rounded-md border-2 border-slate-300 hover:border-primary-500"
 											onclick={() => check(item)}
 										></button>
 										<div class="min-w-0 flex-1">
-											<p class="truncate text-sm font-semibold text-gray-800">
-												{item.name}<span class="ml-1 text-xs font-bold text-gray-500"
+											<p class="truncate text-sm font-semibold text-slate-800">
+												{item.name}<span class="ml-1 text-xs font-bold text-slate-500"
 													>×{item.quantity}</span
 												>
 											</p>
@@ -872,7 +872,7 @@
 												     "which store" — it must never mean "which
 												     scope" as well, so this is text, not a hue. -->
 												<span
-													class="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-gray-500"
+													class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-slate-500"
 													>{rowScope === 'mine' ? 'Mine' : 'Family'}</span
 												>
 												{#if item.stores[0]}
@@ -898,7 +898,7 @@
 															     primary/alternate rides on a 2px ring alone. -->
 															<span
 																data-store-alternate-join
-																class="shrink-0 text-[0.6875rem] text-gray-400">or</span
+																class="shrink-0 text-[0.6875rem] text-slate-400">or</span
 															>
 														{/if}
 														<span
@@ -912,7 +912,7 @@
 																	? 'font-bold ring-2 ring-current'
 																	: 'font-semibold ring-1 ring-current'} {tint
 																? tint.chip
-																: 'bg-gray-100 text-gray-700 ring-gray-300'}"
+																: 'bg-slate-100 text-slate-700 ring-slate-300'}"
 															>
 															{#if index === 0}
 																<!-- The second channel: this filled dot and the heavier ring
@@ -934,7 +934,7 @@
 											     delete — rather than hiding move behind an
 											     edit-mode the user has to find first. -->
 												<button
-													class="flex h-7 w-7 items-center justify-center rounded-lg text-sm text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+													class="flex h-7 w-7 items-center justify-center rounded-lg text-sm text-slate-400 hover:bg-slate-100 hover:text-slate-700"
 													aria-label="Edit stores for {item.name}"
 													title="Edit stores"
 													onclick={() => {
@@ -943,14 +943,14 @@
 													}}>✎</button
 												>
 												<button
-													class="flex h-7 w-7 items-center justify-center rounded-lg text-sm text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+													class="flex h-7 w-7 items-center justify-center rounded-lg text-sm text-slate-400 hover:bg-slate-100 hover:text-slate-700"
 													aria-label="Move {item.name} to {destination}"
 													title="Move to {destination}"
 													disabled={busyId === item.id}
 													onclick={() => move(item)}>⇄</button
 												>
 												<button
-													class="flex h-7 w-7 items-center justify-center rounded-lg text-sm text-gray-400 hover:bg-red-50 hover:text-red-600"
+													class="flex h-7 w-7 items-center justify-center rounded-lg text-sm text-slate-400 hover:bg-red-50 hover:text-red-600"
 													aria-label="Delete {item.name}"
 													title="Delete"
 													disabled={busyId === item.id}
@@ -961,10 +961,10 @@
 
 									{#if editingId === item.id}
 										<div
-											class="mt-2 flex w-full min-w-0 flex-wrap items-center gap-2 border-t border-gray-100 pt-2 text-xs"
+											class="mt-2 flex w-full min-w-0 flex-wrap items-center gap-2 border-t border-slate-100 pt-2 text-xs"
 										>
 											<input
-												class="min-w-0 flex-1 basis-32 rounded border px-2 py-1"
+												class="min-w-0 flex-1 basis-32 rounded border border-slate-300 bg-white text-slate-700 focus:border-primary-500 focus:outline-none px-2 py-1"
 												placeholder="stores, comma-separated"
 												bind:value={editStores}
 												aria-label="Stores for {item.name}"
@@ -975,7 +975,7 @@
 												onclick={() => saveStores(item)}>Save</button
 											>
 											<button
-												class="text-gray-500 underline"
+												class="text-slate-500 underline"
 												aria-label="Cancel editing {item.name}"
 												onclick={() => (editingId = null)}>Cancel</button
 											>
