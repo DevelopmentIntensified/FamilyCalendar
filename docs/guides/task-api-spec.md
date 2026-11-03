@@ -515,3 +515,33 @@ page's streamed part resolved. `date` is read in your stored zone; omitted
   a module that is off has empty data. `warnings` names legs that failed and
   came back empty.
 - `400 {"error":"Invalid date"}` — `date` present but not `YYYY-MM-DD`.
+
+### GET /api/calendars (G2)
+
+The calendars you see, named and coloured as `/calendar` shows them
+(`listCalendarsForUser`, `src/lib/server/services/calendarData.ts`).
+
+- `200 {"calendars":[{"id","name","color","kind":"personal"|"family"}]}`
+  - Personal first: `name` `"Personal Calendar"`, `color` = your settings
+    colour, else `#fa8072`. Created on first read if missing.
+  - Then your family's calendar (when you have a family and it has one):
+    `name` = family name, `color` = family colour, else `#e0ffff`.
+  - A task's `eventCalendarId` (G5) and an event's `calendarId` match these ids.
+
+### GET /api/sponsored-events?month=YYYY-MM (G6)
+
+The month's sponsored (ad) events the calendar shows. `month` omitted =
+the current month in your zone.
+
+- `200 {"events":[<Event> & {"isAd":true,"color":"#f59e0b"}]}` — all-day
+  rows; `title` starts with `📢 `.
+- `200 {"events":[]}` — you have not opted in (`showAdsAsEvents` off).
+- `400 {"error":"Invalid month"}` — `month` present but not `YYYY-MM` (01–12).
+
+### GET /api/daily-verse?date=YYYY-MM-DD (G7)
+
+- `200 {"verse":{"reference","text","attribution"}}` — that day's verse
+  (omitted `date` = today).
+- `200 {"verse":null}` — hidden: `showDailyVerse` is off, or `verse` is in
+  your hidden dashboard modules.
+- `400 {"error":"Invalid date"}` — not a real `YYYY-MM-DD` date.

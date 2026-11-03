@@ -2,10 +2,18 @@
 import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { calendars, events, families, type CalendarEvent } from '$lib/server/db/schema';
+import { events, type CalendarEvent } from '$lib/server/db/schema';
+import {
+	getFamilyCalendarInfo,
+	loadDailyVerse,
+	loadSponsoredEvents,
+	personalCalendarColor,
+	toSponsoredDisplay,
+	PERSONAL_CALENDAR_NAME
+} from '$lib/server/services/calendarData';
 import { and, eq, isNotNull, isNull, lte, or, gte } from 'drizzle-orm';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
-import { getAdEventsForUser, shouldServeAds, type AdDisplayEvent } from '$lib/server/services/adService';
+import { shouldServeAds } from '$lib/server/services/adService';
 import {
 	expandEventsForUser,
 	monthGridWindow,
@@ -17,24 +25,9 @@ import {
 import { getTasksForUser } from '$lib/server/db/actions/tasks';
 import { listCategoryOptions } from '$lib/server/db/actions/taskCategories';
 import { zoneFromSettings, zonedNow } from '$lib/server/utils/userTimezone';
-import { getTodayVerse } from '$lib/server/services/verseService';
-import { getFamilyModuleSwitches } from '$lib/server/db/actions/dashboardModules';
-import { dashboardVisibility } from '$lib/dashboardModules';
 import { GUEST_MERGE_COOKIE } from '$lib/server/services/guestMergeService';
 import { guard } from '$lib/server/utils/guard';
 import { isRegisteredAccount } from '$lib/utils/anonymous';
-
-/** Project an ad display event onto the stored event row shape (stored-only fields are null). */
-function toCalendarEvent(ad: AdDisplayEvent): CalendarEvent {
-	return {
-		...ad,
-		recurrenceByDay: null,
-		recurrenceCount: null,
-		recurrenceUntil: null,
-		reminderMinutes: null,
-		mirrorOf: null
-	};
-}
 
 export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
@@ -106,10 +99,9 @@ export const load: PageServerLoad = async (event) => {
 
 	// Wave 1 (#041): personal calendar, family scope, ads, verse are
 	// independent (settings/familyId/zone already in hand) — one wave.
-	const userCalendarColor = userSettings?.color || '#fa8072';
+	const userCalendarColor = personalCalendarColor(userSettings);
 	// Zone derives from the layout's settings row — no third SELECT (#041).
 	const userZone = zoneFromSettings(userSettings) ?? 'UTC';
-	const verseTranslation = userSettings?.verseTranslation ?? 'esv';
 	const [personalG, familyG, adsG, verseG] = await Promise.all([
 		guard('calendar', { userCalendar: null, userEvents: [] }, async () => {
 			const userCalendar = await ensurePersonalCalendar(userId);
@@ -145,22 +137,19 @@ export const load: PageServerLoad = async (event) => {
 					return { familyEventsData: [], familyCalendarColor: '#e0ffff', calendarIds: [] };
 				}
 				{
-					const [family] = await db.select().from(families).where(eq(families.id, familyId));
-					const color = family?.color || '#e0ffff';
+					// Name + colour + which calendar: shared with GET /api/calendars (#292 G2).
+					const famCal = await getFamilyCalendarInfo(familyId);
+					const color = famCal.color;
 
 					let evts: CalendarEvent[] = [];
 					const ids: { id: string; name: string; color: string }[] = [];
-					const familyCals = await db
-						.select()
-						.from(calendars)
-						.where(eq(calendars.familyId, familyId));
-					if (familyCals.length > 0) {
+					if (famCal.calendar) {
 						evts = await db
 							.select()
 							.from(events)
 							.where(
 								and(
-									eq(events.calendarId, familyCals[0].id),
+									eq(events.calendarId, famCal.calendar.id),
 									or(
 										isNotNull(events.recurrenceFrequency),
 										and(
@@ -174,7 +163,7 @@ export const load: PageServerLoad = async (event) => {
 								)
 							)
 							.orderBy(events.start);
-						ids.push({ id: familyCals[0].id, name: family?.name || 'Family Calendar', color });
+						ids.push({ id: famCal.calendar.id, name: famCal.name, color });
 					}
 
 					// Roster comes from the group layout (#041) — mapped once at the top.
@@ -188,29 +177,21 @@ export const load: PageServerLoad = async (event) => {
 		),
 		// The ad gate is one field on the settings row the layout already
 		// loaded — no second consent table, no extra SELECT (#088).
-		guard('ads', { adEventsData: [] }, async () => {
-			let adEventsData: CalendarEvent[] = [];
-			if (shouldServeAds(userSettings)) {
-				const now = zonedNow(userZone);
-				adEventsData = (await getAdEventsForUser(userId, now.month, now.year)).map(toCalendarEvent);
-			}
-			return { adEventsData };
+		// Shared with GET /api/sponsored-events (#292 G6).
+		guard('ads', { adEventsData: [] as CalendarEvent[] }, async () => {
+			const now = zonedNow(userZone);
+			return { adEventsData: await loadSponsoredEvents(userId, userSettings, now.month, now.year) };
 		}),
 		guard('verse', null, async () => {
 			// The verse's visibility is a function of BOTH persisted facts — the
 			// `showDailyVerse` setting and the Dashboard Module switch — so it
 			// asks the one shared answer rather than reading one of them (109).
 			// This loader used to read only the setting, and a user who hid the
-			// verse in /account was still served one here.
-			const switchesG = await guard('settings', {}, async () =>
-				familyId ? await getFamilyModuleSwitches(familyId) : {}
-			);
-			warn(switchesG.error);
-			const visibility = dashboardVisibility({
-				settings: userSettings,
-				familySwitches: switchesG.data
-			});
-			return visibility.needs('verse') ? await getTodayVerse(verseTranslation) : null;
+			// verse in /account was still served one here. Shared with
+			// GET /api/daily-verse (#292 G7).
+			const { verse, warning } = await loadDailyVerse(userSettings, familyId);
+			warn(warning);
+			return verse;
 		})
 	]);
 	warn(personalG.error);
@@ -223,7 +204,7 @@ export const load: PageServerLoad = async (event) => {
 	const familyCalendarColor: string = familyG.data.familyCalendarColor;
 	const calendarIds: { id: string; name: string; color: string }[] = [
 		...(userCalendar
-			? [{ id: userCalendar.id, name: 'Personal Calendar', color: userCalendarColor }]
+			? [{ id: userCalendar.id, name: PERSONAL_CALENDAR_NAME, color: userCalendarColor }]
 			: []),
 		...familyG.data.calendarIds
 	];
@@ -317,7 +298,7 @@ export const load: PageServerLoad = async (event) => {
 
 	return {
 		calendarData,
-		adEvents: parseEvents(adEventsData, userZone).map((e) => ({ ...e, color: '#f59e0b' })),
+		adEvents: toSponsoredDisplay(adEventsData, userZone),
 		userSettings,
 		userCalendarColor,
 		familyCalendarColor,
