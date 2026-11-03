@@ -796,3 +796,33 @@ family events, recurring ones expanded. Missing / unparseable `year` or
 
 - `200 {"year","month","monthName","weekStart":"sunday"|"monday","familyName":string|null,"grid":[{"day","iso":"YYYY-MM-DD","inMonth","isToday","items":[{"title","color","allDay","time":"9a"|"2:30p"|null}]}],"prev":{"year","month"},"next":{"year","month"},"isCurrentMonth"}`
   — `grid` is whole weeks (length a multiple of 7), first cell = your week start.
+
+### .ics import (G17)
+
+The `/calendar/import` page's three steps (`src/lib/server/services/icsImportFlow.ts`,
+through its `ImportDeps` seam), as JSON. **Files travel as base64 in JSON**
+(no multipart). Limits are the page's: ≤ 10 files, ≤ 5 MB each — and the
+whole request must stay under the host's body cap (~4.5 MB on Vercel), so
+send big exports one per request.
+
+- `GET /api/import` → `200 {"calendars":[{"id","name":"Personal Calendar"|"Family Calendar"}]}` — where you may import.
+- `POST /api/import/preview` `{"calendarId","files":[{"name":"kids.ics","contentBase64":"…"}]}`
+  → `200 {"preview":{"calendarId","calendarName","fileName","items":[<item>],"duplicates","files":[{"fileName",…}],"defaultSelection":["key",…]}}`.
+  Writes nothing. An `<item>` is an event draft (`title`, `startIso`, `endIso`,
+  `allDay`, `description`, `location`, `recurrence*`) plus `key`, `fileName`,
+  `whenText`, `duplicate`, `duplicateReason`. `defaultSelection` = the keys to
+  pre-tick (non-duplicates).
+- `POST /api/import/commit` `{"calendarId","picked":[<item>, …]}` — post back the
+  ticked items as received. Dedupe re-runs.
+  → `200 {"calendarId","calendarName","imported","selected","skipped","skippedDuplicates","failed":["title"],"importedEvents":[{"id","title","startIso"}]}`.
+  Keep `importedEvents`: it is the only record of the batch (for undo).
+- `POST /api/import/undo` `{"calendarId","batch":[{"id","title","startIso"}]}` →
+  `200 {"calendarName","removed","kept":[<rows edited since — kept>],"alreadyGone"}`.
+  Only rows you own on that calendar can be removed.
+- Errors (page messages): `400 "Choose a calendar to import into."`,
+  `403 "That calendar is not yours to import into."`, `400 "Choose an .ics file to import."`,
+  `400 "Choose up to 10 files at a time."`, `400 "<name> is larger than 5 MB."`,
+  `400 "No events found in that file. …"`, `400 "Pick the events you want to add."`,
+  `400 "That selection could not be read — preview the file again."`,
+  `400 "Tick at least one event before importing."`, `400 "Nothing to undo — import a file first."`,
+  `400 "files must be an array"`, `400 "Each file needs contentBase64 (base64 text)"`, `400 "Invalid JSON"`.
