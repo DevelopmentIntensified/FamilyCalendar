@@ -697,3 +697,51 @@ merges the guest's data into an existing account at it. Same code as the
 - `429 {"error":"Too many attempts. Try again shortly."}` — 10 per 15 min
   per IP, 3 per 15 min per address.
 - `500 {"error":"Failed to send email. Please try again."}`.
+
+### Sign-up, password reset, email verification (G12)
+
+Each is the web handler itself (or its extracted body), so throttles and
+messages match the website.
+
+#### POST /api/mobile/auth/signup
+
+No auth. Body `{"firstName","lastName","email","password","deviceName"?}`
+— the web's `/signup/password` (`createPasswordAccount`), but signed in
+with a token instead of a cookie.
+
+- `200 {"token":"fp_…","user":{"id","firstName","lastName","email","emailVerified":false},"emailVerification":"pending"}`
+  — a verification code is emailed (failure to send never fails sign-up;
+  use resend). Store `token` exactly as for `/api/mobile/auth/password`.
+- `400 {"error":"All fields are required"|"Password must be at least 8 characters"|"An account with this email already exists"|"Invalid JSON"}`
+- `429 {"error":"Too many attempts. Try again shortly."}` (30 / 5 min per IP; 10 / 5 min per email).
+
+#### POST /api/mobile/auth/forgot
+
+No auth. Body `{"email"}`. The web's `/forgot-password`.
+
+- `200 {"sent":true}` — always, for a registered, unknown or guest email
+  (#245: no enumeration). A registered account gets an email with the web
+  reset link `https://…/forgot-password/reset?token=<JWT>` (60 min).
+- `400 {"error":"Email is required"}`; `429` (5 / 15 min per email + IP).
+
+#### POST /api/mobile/auth/reset
+
+No auth. Body `{"token","password"}` — `token` is the `token` query value of
+the emailed link (the app can take it from an App Link to
+`/forgot-password/reset` or from a pasted link). The web's
+`/forgot-password/reset`: single use, signs out all web sessions.
+
+- `200 {"success":true}` — then sign in with `/api/mobile/auth/password`.
+- `400 {"error":"Token and password are required"|"Password must be at least 8 characters"|"Invalid or expired reset token. Please request a new one."|"Invalid reset token"|"This reset link has already been used. Please request a new one."|"Account not found"}`
+- `500 {"error":"Failed to reset password"}`
+
+#### POST /api/me/verify-email, POST /api/me/verify-email/resend
+
+Auth required. The web's `/signup/password/verify` and `/resend`.
+
+- verify body `{"code"}` — redeemed against **your own** email.
+  `200 {"success":true}`; `400 {"success":false,"error":"Unexpected error, please try again"}`
+  for any wrong / expired code (one generic message); `429` (10 / 15 min per IP).
+- resend (no body): `200 {"success":true}` (also when already verified);
+  `401` for a guest; `429 {"error":"Too many attempts. Try again shortly."}`;
+  `500 {"error":"There was an error. Please try again."}`.

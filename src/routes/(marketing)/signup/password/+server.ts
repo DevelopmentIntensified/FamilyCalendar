@@ -5,17 +5,15 @@ import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { createCode } from '$lib/server/db/actions/codes';
 import { hashPassword } from '$lib/server/utils/password';
 import { session, setSessionCookie } from '$lib/server/auth';
-import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
-import {
-	issueVerificationCode,
-	MAGIC_LINK_RATE_LIMIT,
-	type MagicLinkGate
-} from '$lib/server/services/magicLink';
+import type { MagicLinkGate } from '$lib/server/services/magicLink';
 import { sendEmail } from '$lib/utils/sendEmail';
 import { createJWT } from 'oslo/jwt';
 import { NOREPLYEMAIL, EMAILSECRET } from '$env/static/private';
 import { getUrl } from '$lib/utils/getUrl';
-import { PASSWORD_VERIFY_CALLBACK_PATH } from './verifyPath';
+import {
+	createPasswordAccount,
+	sendSignupVerification
+} from '$lib/server/services/passwordSignup';
 
 /**
  * Collaborators POST needs, injectable so tests can pass fakes through a real
@@ -62,73 +60,21 @@ export const POST = async (
 	await stashGuestFromCookies(cookies);
 
 	try {
-		const { email, password, firstName, lastName } = await request.json();
-
-		if (!email || !password || !firstName || !lastName) {
-			return json({ error: 'All fields are required' }, { status: 400 });
-		}
-
-		if (password.length < 8) {
-			return json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-		}
-
-		if (!rateLimit(clientKey(request, 'pw-signup-ip'), 30, 5 * 60 * 1000)) {
-			return json({ error: 'Too many attempts. Try again shortly.' }, { status: 429 });
-		}
-
-		if (!rateLimit(clientKey(request, `pw-signup:${email.toLowerCase()}`), 10, 5 * 60 * 1000)) {
-			return json({ error: 'Too many attempts. Try again shortly.' }, { status: 429 });
-		}
-
-		const existingUser = await deps.getUserByEmail(email);
-		if (existingUser) {
-			return json({ error: 'An account with this email already exists' }, { status: 400 });
-		}
-
-		const passwordHash = await deps.hashPassword(password);
-
-		const user = await deps.createUser({
-			email,
-			passwordHash,
-			firstName,
-			lastName,
-			emailVerified: false,
-			roles: []
-		});
-
-		await deps.ensurePersonalCalendar(user.id);
+		const body = await request.json();
+		// Validation, throttles and account creation are shared with
+		// POST /api/mobile/auth/signup (#292 G12).
+		const created = await createPasswordAccount(request, body, deps);
+		if (!created.ok) return created.response;
+		const { user } = created;
+		const { email, firstName, lastName } = body;
 
 		const newSession = await deps.session.createSession(user.id);
 		deps.setSessionCookie(cookies, await deps.session.createSessionCookie(newSession));
 
 		// The account already exists and is signed in at this point, so a
-		// verification-email failure must not fail the signup: log and keep
-		// the 201 pending shape. The resend path (slice 3) covers recovery.
-		const gate: MagicLinkGate =
-			deps.gate ??
-			((key) =>
-				rateLimit(
-					clientKey(request, key),
-					MAGIC_LINK_RATE_LIMIT.limit,
-					MAGIC_LINK_RATE_LIMIT.windowMs
-				));
-		try {
-			const issued = await issueVerificationCode(
-				deps,
-				{ email, firstName, lastName },
-				gate,
-				{
-					callbackPath: PASSWORD_VERIFY_CALLBACK_PATH,
-					gateKey: `pw-signup-code:${email.toLowerCase()}`,
-					emailVariant: 'code-only'
-				}
-			);
-			if (issued.status === 'rejected') {
-				console.error(`Verification email not sent for ${email}: ${issued.reason}`);
-			}
-		} catch (emailError) {
-			console.error(`Verification email not sent for ${email}:`, emailError);
-		}
+		// verification-email failure must not fail the signup: logged, and the
+		// 201 pending shape is kept. The resend path covers recovery.
+		await sendSignupVerification(request, deps, { email, firstName, lastName });
 
 		return json(
 			{
