@@ -1,5 +1,5 @@
-const CACHE_NAME = 'familyplanz-v3';
-const DATA_CACHE_NAME = 'familyplanz-data-v3';
+const CACHE_NAME = 'familyplanz-v4';
+const DATA_CACHE_NAME = 'familyplanz-data-v4';
 const DATA_CACHE_LIMIT = 60;
 /** Age cap for cached data (privacy audit #029 M2): 1 day. */
 const DATA_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -7,6 +7,9 @@ const CACHED_AT_HEADER = 'x-cached-at';
 const OFFLINE_URL = '/offline.html';
 const IMMUTABLE_PREFIX = '/_app/immutable/';
 const API_DATA_PREFIXES = ['/api/events', '/api/tasks'];
+/** Self-hosted F-Droid repo (#287): APKs and signed indexes go straight to the
+ *  network, never cached or wrapped, so clients always see the live index. */
+const FDROID_PREFIX = '/fdroid/';
 
 self.addEventListener('install', (event) => {
 	event.waitUntil(
@@ -108,6 +111,8 @@ self.addEventListener('fetch', (event) => {
 	if (request.method !== 'GET') return;
 
 	if (url.origin !== self.location.origin) return;
+
+	if (url.pathname.startsWith(FDROID_PREFIX)) return;
 
 	if (isDataUrl(url)) {
 		event.respondWith(

@@ -56,6 +56,9 @@
 		>
 		<a href="/roadmap" class="rounded px-3 py-2.5 transition-colors hover:text-slate-700">Roadmap</a
 		>
+		<a href="/android" class="rounded px-3 py-2.5 transition-colors hover:text-slate-700"
+			>Android app</a
+		>
 	</p>
 	<p class="text-sm text-slate-500">
 		&copy; {new Date().getFullYear()} FamilyPlanz. All rights reserved.

@@ -80,6 +80,11 @@ export const ROUTES: Record<string, SeoEntry> = {
 		title: 'Roadmap - Family Planz',
 		description: 'Where Family Planz is headed next, and what we are deliberately not building yet.'
 	},
+	'/android': {
+		title: 'Android App - Family Planz',
+		description:
+			'Install Family Planz on Android: add our F-Droid repository for automatic updates, or download the APK.'
+	},
 	'/contact': {
 		title: 'Contact Us - Family Planz',
 		description: 'Questions, bug reports, or an idea for the family calendar — get in touch.'
