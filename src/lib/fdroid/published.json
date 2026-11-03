@@ -1,12 +1,12 @@
 {
 	"fingerprint": "E59447D790A760573B59FA0769F7A073C91142F3FA61D3B775B2486824E571EF",
-	"repoUrl": "https://familyplanz.com/fdroid/repo",
+	"repoUrl": "https://www.familyplanz.com/fdroid/repo",
 	"latest": {
 		"apk": "com.familyplanz.app_1000.apk",
 		"versionName": "0.1.0",
 		"versionCode": 1000,
 		"sha256": "da5a019d9479b730d5743376614bd8ac083d00c21567fd6f95f88de5e52affdb",
 		"size": 2740192,
-		"publishedAt": "2026-11-03T02:49:23Z"
+		"publishedAt": "2026-11-03T03:10:53Z"
 	}
 }

@@ -1,6 +1,6 @@
 # Self-hosted F-Droid repo (owner guide)
 
-Issue #287. Users add `https://familyplanz.com/fdroid/repo` to the F-Droid app and get
+Issue #287. Users add `https://www.familyplanz.com/fdroid/repo` to the F-Droid app and get
 Family Planz plus every update. The site page is https://familyplanz.com/android.
 
 Moving parts:
@@ -159,9 +159,9 @@ tag, and the secrets must be present.
 On https://familyplanz.com/android:
 
 - On the phone, tap **Add to F-Droid**. It opens
-  `fdroidrepos://familyplanz.com/fdroid/repo?fingerprint=<FP>`. On a computer, scan the
+  `fdroidrepos://www.familyplanz.com/fdroid/repo?fingerprint=<FP>`. On a computer, scan the
   QR code with the phone.
-- Or in F-Droid: Settings → Repositories → + → enter `https://familyplanz.com/fdroid/repo`,
+- Or in F-Droid: Settings → Repositories → + → enter `https://www.familyplanz.com/fdroid/repo`,
   then check the fingerprint shown on the page.
 - Then search for "Family Planz" and install. Updates show up in F-Droid.
 - The page also offers a direct APK download. A direct install does not auto-update, but
@@ -184,4 +184,12 @@ switch, the user uninstalls first (family data lives on the server; they sign in
   - Everything else (indexes, `entry.jar`, QR): `max-age=300, must-revalidate`.
   - `*.jar`: `application/java-archive`.
 - After the first real deploy, check the headers:
-  `curl -sI https://familyplanz.com/fdroid/repo/entry.jar` and the same for the APK.
+  `curl -sI https://www.familyplanz.com/fdroid/repo/entry.jar` and the same for the APK.
+
+## Repo address: always `www`
+
+`familyplanz.com` 308-redirects to `www.familyplanz.com` (Vercel domain setting), and the F-Droid client does
+not follow redirects ("Unhandled redirect … 308"). The repo address — baked into the signed index — is therefore
+`https://www.familyplanz.com/fdroid/repo`. If the canonical host ever changes, update `fdroid/config.yml` +
+`scripts/fdroid-publish.sh` and run `scripts/fdroid-publish.sh --reindex` (repo key only, no build) to re-sign the
+index for the APKs already published.

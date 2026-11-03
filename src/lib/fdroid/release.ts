@@ -41,7 +41,7 @@ export type AndroidRelease = {
 
 const FINGERPRINT = /^[0-9A-F]{64}$/;
 
-/** `fdroidrepos://familyplanz.com/fdroid/repo?fingerprint=…`: opens the F-Droid
+/** `fdroidrepos://www.familyplanz.com/fdroid/repo?fingerprint=…`: opens the F-Droid
  *  client's "add repository" screen with the key pinned. */
 export function addRepoLink(repoUrl: string, fingerprint: string): string {
 	const fp = fingerprint.toUpperCase();

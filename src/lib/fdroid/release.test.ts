@@ -3,7 +3,7 @@ import { addRepoLink, androidRelease, groupFingerprint, type PublishedRepo } fro
 import committed from './published.json';
 
 const FP = '07E80321E4FDCC712E1E89B7F8532A180C951F698909A945E268930169164705';
-const REPO = 'https://familyplanz.com/fdroid/repo';
+const REPO = 'https://www.familyplanz.com/fdroid/repo';
 
 const publishedFixture: PublishedRepo = {
 	fingerprint: FP,
@@ -21,19 +21,19 @@ const publishedFixture: PublishedRepo = {
 describe('addRepoLink (#287)', () => {
 	it('is the fdroidrepos:// deep link with the key pinned', () => {
 		expect(addRepoLink(REPO, FP)).toBe(
-			`fdroidrepos://familyplanz.com/fdroid/repo?fingerprint=${FP}`
+			`fdroidrepos://www.familyplanz.com/fdroid/repo?fingerprint=${FP}`
 		);
 	});
 
 	it('upper-cases the fingerprint and drops a trailing slash', () => {
 		expect(addRepoLink(`${REPO}/`, FP.toLowerCase())).toBe(
-			`fdroidrepos://familyplanz.com/fdroid/repo?fingerprint=${FP}`
+			`fdroidrepos://www.familyplanz.com/fdroid/repo?fingerprint=${FP}`
 		);
 	});
 
 	it('refuses anything that is not a SHA-256 fingerprint or an https repo', () => {
 		expect(() => addRepoLink(REPO, 'AB:CD')).toThrow();
-		expect(() => addRepoLink('http://familyplanz.com/fdroid/repo', FP)).toThrow();
+		expect(() => addRepoLink('http://www.familyplanz.com/fdroid/repo', FP)).toThrow();
 	});
 });
 

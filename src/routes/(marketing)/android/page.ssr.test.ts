@@ -8,7 +8,7 @@ import { androidRelease, type PublishedRepo } from '$lib/fdroid/release';
 const FP = '07E80321E4FDCC712E1E89B7F8532A180C951F698909A945E268930169164705';
 const publishedFixture: PublishedRepo = {
 	fingerprint: FP,
-	repoUrl: 'https://familyplanz.com/fdroid/repo',
+	repoUrl: 'https://www.familyplanz.com/fdroid/repo',
 	latest: {
 		apk: 'com.familyplanz.app_1001.apk',
 		versionName: '0.1.1',
@@ -23,7 +23,7 @@ describe('/android SSR (#287)', () => {
 	it('renders "coming soon" and no download/F-Droid links before the first publish', () => {
 		const release = androidRelease({
 			fingerprint: null,
-			repoUrl: 'https://familyplanz.com/fdroid/repo',
+			repoUrl: 'https://www.familyplanz.com/fdroid/repo',
 			latest: null
 		});
 		const { body } = render(AndroidPage, { props: { data: { release } } });
@@ -37,7 +37,7 @@ describe('/android SSR (#287)', () => {
 		const release = androidRelease(publishedFixture);
 		const { body } = render(AndroidPage, { props: { data: { release } } });
 		expect(body).not.toContain('data-testid="no-release"');
-		expect(body).toContain(`href="fdroidrepos://familyplanz.com/fdroid/repo?fingerprint=${FP}"`);
+		expect(body).toContain(`href="fdroidrepos://www.familyplanz.com/fdroid/repo?fingerprint=${FP}"`);
 		expect(body).toContain('href="/fdroid/repo/com.familyplanz.app_1001.apk"');
 		expect(body).toContain('src="/fdroid/qr.svg"');
 		expect(body).toContain('07 E8 03 21');

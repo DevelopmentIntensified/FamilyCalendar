@@ -3,6 +3,9 @@
 #
 #   scripts/fdroid-publish.sh --version 0.2.0      # real release
 #   scripts/fdroid-publish.sh --dry-run            # pipeline proof (throwaway keys ok)
+#   scripts/fdroid-publish.sh --reindex            # re-sign the index for the APKs already
+#                                                  # published (repo URL/metadata change); no build,
+#                                                  # no upload key needed
 #
 # Builds :app:assembleRelease signed with the upload key, runs `fdroid update`
 # in a temp workdir seeded from the committed static/fdroid/, verifies the
@@ -33,11 +36,13 @@ log() { echo "fdroid-publish: $*"; }
 
 VERSION=""
 DRY_RUN=0
+REINDEX=0
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--version) VERSION="${2:-}"; shift 2 ;;
 		--version=*) VERSION="${1#--version=}"; shift ;;
 		--dry-run) DRY_RUN=1; shift ;;
+		--reindex) REINDEX=1; shift ;;
 		-h|--help) sed -n '2,26p' "$0"; exit 0 ;;
 		*) die "unknown argument: $1" ;;
 	esac
@@ -123,7 +128,7 @@ if [ -n "$VERSION" ]; then
 		die "--version must be X.Y.Z (minor, patch <= 999), got '$VERSION'"
 	VERSION_CODE=$((10#${BASH_REMATCH[1]} * 1000000 + 10#${BASH_REMATCH[2]} * 1000 + 10#${BASH_REMATCH[3]}))
 	GRADLE_VERSION_ARGS=("-PfpVersionCode=$VERSION_CODE" "-PfpVersionName=$VERSION")
-elif [ "$DRY_RUN" -eq 0 ]; then
+elif [ "$DRY_RUN" -eq 0 ] && [ "$REINDEX" -eq 0 ]; then
 	die "--version X.Y.Z is required for a real publish (versionCode must grow every release)"
 fi
 
@@ -143,7 +148,10 @@ fi
 
 # --- upload (APK) key --------------------------------------------------------
 
-if [ -n "${FP_UPLOAD_KEYSTORE_B64:-}" ]; then
+if [ "$REINDEX" -eq 1 ]; then
+	[ -z "$VERSION" ] || die "--reindex republishes existing APKs; drop --version"
+	log "reindex: no build, upload key not needed"
+elif [ -n "${FP_UPLOAD_KEYSTORE_B64:-}" ]; then
 	log "upload key: env mode"
 	require_env FP_UPLOAD_KEYSTORE_PASSWORD FP_UPLOAD_KEY_ALIAS FP_UPLOAD_KEY_PASSWORD
 	secrets_dir
@@ -168,10 +176,12 @@ else
 	FP_KEYSTORE_PROPERTIES="$(abspath "$props")"
 	export FP_KEYSTORE_PROPERTIES
 fi
-assert_outside_tree "upload keystore" "$(
-	store="$(prop "$FP_KEYSTORE_PROPERTIES" storeFile)"
-	case "$store" in /*) echo "$store" ;; *) echo "$ANDROID_DIR/$store" ;; esac
-)"
+if [ "$REINDEX" -eq 0 ]; then
+	assert_outside_tree "upload keystore" "$(
+		store="$(prop "$FP_KEYSTORE_PROPERTIES" storeFile)"
+		case "$store" in /*) echo "$store" ;; *) echo "$ANDROID_DIR/$store" ;; esac
+	)"
+fi
 
 # --- repo (index) key --------------------------------------------------------
 
@@ -213,12 +223,14 @@ log "repo key fingerprint: $REPO_FP"
 
 # --- build -------------------------------------------------------------------
 
-log "building :app:assembleRelease ${VERSION:+(versionName $VERSION, versionCode $VERSION_CODE)}"
-# shellcheck disable=SC2086 # FP_GRADLE_ARGS is intentionally word-split
-(cd "$ANDROID_DIR" && ./gradlew ${FP_GRADLE_ARGS:-} :app:assembleRelease ${GRADLE_VERSION_ARGS[@]+"${GRADLE_VERSION_ARGS[@]}"})
-APK="$ANDROID_DIR/app/build/outputs/apk/release/app-release.apk"
-[ -f "$APK" ] || die "no signed $APK (an unsigned build is app-release-unsigned.apk: check the upload key)"
-"$APKSIGNER" verify "$APK" || die "apksigner rejects $APK"
+if [ "$REINDEX" -eq 0 ]; then
+	log "building :app:assembleRelease ${VERSION:+(versionName $VERSION, versionCode $VERSION_CODE)}"
+	# shellcheck disable=SC2086 # FP_GRADLE_ARGS is intentionally word-split
+	(cd "$ANDROID_DIR" && ./gradlew ${FP_GRADLE_ARGS:-} :app:assembleRelease ${GRADLE_VERSION_ARGS[@]+"${GRADLE_VERSION_ARGS[@]}"})
+	APK="$ANDROID_DIR/app/build/outputs/apk/release/app-release.apk"
+	[ -f "$APK" ] || die "no signed $APK (an unsigned build is app-release-unsigned.apk: check the upload key)"
+	"$APKSIGNER" verify "$APK" || die "apksigner rejects $APK"
+fi
 
 # --- fdroid update in a throwaway workdir -------------------------------------
 
@@ -239,6 +251,12 @@ for section in repo archive; do
 		cp "$STATIC_FDROID/$section/"*.apk "$WORK_DIR/$section/"
 	fi
 done
+if [ "$REINDEX" -eq 1 ]; then
+	[ -n "$PUBLISHED_CODE" ] || die "--reindex: nothing published yet"
+	APK_NAME="${APP_ID}_${PUBLISHED_CODE}.apk"
+	[ -e "$WORK_DIR/repo/$APK_NAME" ] || die "--reindex: published $APK_NAME is missing from static/fdroid/repo"
+	log "reindex: re-signing the index for the published APKs (latest $APK_NAME)"
+else
 ACTUAL_CODE="$("$FDROID_PYTHON" -I -c '
 import sys
 from fdroidserver.common import get_apk_id_androguard
@@ -252,6 +270,7 @@ if [ -e "$WORK_DIR/repo/$APK_NAME" ] || [ -e "$WORK_DIR/archive/$APK_NAME" ]; th
 	warn "replacing already-published $APK_NAME (dry run)"
 fi
 cp "$APK" "$WORK_DIR/repo/$APK_NAME"
+fi
 
 log "fdroid update"
 (cd "$WORK_DIR" && "$FDROID_BIN" update)
@@ -264,7 +283,7 @@ OUT_STAGE="$WORK_DIR/out"
 mkdir -p "$OUT_STAGE"
 "$FDROID_PYTHON" -I "$ROOT/scripts/fdroid-verify.py" \
 	--repo "$WORK_DIR/repo" --fingerprint "$REPO_FP" --apk "$APK_NAME" \
-	--repo-url "https://familyplanz.com/fdroid/repo" \
+	--repo-url "https://www.familyplanz.com/fdroid/repo" \
 	--published-json "$OUT_STAGE/published.json" --qr-svg "$OUT_STAGE/qr.svg" \
 	${VERIFY_ARGS[@]+"${VERIFY_ARGS[@]}"}
 
