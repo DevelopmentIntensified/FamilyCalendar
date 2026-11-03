@@ -767,3 +767,22 @@ own code. Auth required on every one.
 
 API tokens are not sessions: `revoke-others` leaves every `fp_` token
 (TaskFocus, other phones) valid; list + revoke them individually.
+
+### GET /api/stats (G15)
+
+The `/calendar/stats` page (`loadStats`): every completion figure is
+counted from `taskCompletions` by the shared `getTaskStats`.
+
+- `200 {"stats":{…getTaskStats…},"streak":{"current",…},"completionIso":["ISO",…],"todayIso":"ISO","month":…,"doneBy":…,"roster":[{"firstName","memberType"}]}`
+  — `completionIso` are the instants behind the streak (draw the 7-day
+  squares from them); `month` / `doneBy` are `stats.month` / `stats.doneBy`.
+
+### GET /api/archive (G16)
+
+The `/calendar/archive` page (`loadArchive`): events older than your plan's
+`retentionDays`, personal + family calendar.
+
+- `200 {"events":[<Event> & {"start":ISO,"end":ISO,"calendar":"Personal calendar"|"<family name>"|null}],"archiveAllowed":true,"planName","familyCount","retentionDays","archivedRetentionDays"}`
+- `200 {"events":[],"archiveAllowed":false,"reason":"<plan reason>","planName",…}` —
+  your plan has no archive; show `reason` and the gate facts. An event with
+  no end has `end` = `1970-01-01T00:00:00.000Z` (as the page).
