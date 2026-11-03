@@ -52,6 +52,14 @@ export async function revokeToken(userId: string, id: string) {
 	await db.delete(apiTokens).where(and(eq(apiTokens.id, id), eq(apiTokens.userId, userId)));
 }
 
+/** #288 mobile logout: revokes exactly the presented token (by hash),
+ *  scoped to its owner — the caller's other tokens are untouched. */
+export async function revokeTokenByPlaintext(userId: string, token: string) {
+	await db
+		.delete(apiTokens)
+		.where(and(eq(apiTokens.tokenHash, hashApiToken(token)), eq(apiTokens.userId, userId)));
+}
+
 export async function touchLastUsed(id: string) {
 	await db.update(apiTokens).set({ lastUsedAt: new Date() }).where(eq(apiTokens.id, id));
 }
