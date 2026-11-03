@@ -1,1 +1,2 @@
 Focus: see TaskFocus focus time on your tasks and start or stop a focus session on your desktop.
+New look that matches the website.
