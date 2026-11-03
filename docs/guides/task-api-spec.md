@@ -786,3 +786,13 @@ The `/calendar/archive` page (`loadArchive`): events older than your plan's
 - `200 {"events":[],"archiveAllowed":false,"reason":"<plan reason>","planName",…}` —
   your plan has no archive; show `reason` and the gate facts. An event with
   no end has `end` = `1970-01-01T00:00:00.000Z` (as the page).
+
+### GET /api/print?year=YYYY&month=M (G18)
+
+The printable month ("fridge sheet") the `/calendar/print` page renders
+(`loadPrintMonth`), for the app to lay out and print natively. Personal +
+family events, recurring ones expanded. Missing / unparseable `year` or
+`month` = your current month; `month` is clamped to 1–12.
+
+- `200 {"year","month","monthName","weekStart":"sunday"|"monday","familyName":string|null,"grid":[{"day","iso":"YYYY-MM-DD","inMonth","isToday","items":[{"title","color","allDay","time":"9a"|"2:30p"|null}]}],"prev":{"year","month"},"next":{"year","month"},"isCurrentMonth"}`
+  — `grid` is whole weeks (length a multiple of 7), first cell = your week start.
