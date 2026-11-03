@@ -7,15 +7,21 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.familyplanz.app.AppModules
 import com.familyplanz.app.MainActivity
 import com.familyplanz.app.R
 import com.familyplanz.app.reminders.ReminderNotifier
+import com.familyplanz.app.ui.nav.AppRoute
+import com.familyplanz.app.ui.nav.DeepLinks
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 'Family activity' notifications from FCM (issue #273). The same channel id
  * is the manifest's FCM default, so a push that arrives while the app is in
  * the background (system-displayed) lands here too, with `link` as an extra.
+ *
+ * #292 L4: a tap only ever opens an in-app screen. A link no lane claims (or
+ * no link) opens Alerts, where the same activity is listed.
  */
 object ActivityNotifier {
 	const val CHANNEL_ID = "family_activity"
@@ -25,6 +31,10 @@ object ActivityNotifier {
 	const val EXTRA_LINK = "link"
 
 	private val nextId = AtomicInteger((System.currentTimeMillis() % Int.MAX_VALUE).toInt())
+
+	/** [link] when a screen in the app answers it, else the Alerts page. */
+	fun inAppLink(link: String?): String =
+		link?.takeIf { DeepLinks.resolve(it, AppModules.DEEP_LINKS) != null } ?: AppRoute.ALERTS.webPath
 
 	fun ensureChannel(context: Context) {
 		val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH).apply {
@@ -40,7 +50,7 @@ object ActivityNotifier {
 		val id = nextId.incrementAndGet()
 		val open = Intent(context, MainActivity::class.java)
 			.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-		notice.link?.let { open.putExtra(EXTRA_LINK, it) }
+		open.putExtra(EXTRA_LINK, inAppLink(notice.link))
 		val tap = PendingIntent.getActivity(context, id, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 		val notification = NotificationCompat.Builder(context, CHANNEL_ID)
 			.setSmallIcon(R.drawable.ic_stat_reminder)
