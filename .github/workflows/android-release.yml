@@ -1,0 +1,231 @@
+# Android release → self-hosted F-Droid repo + GitHub Release (issue #287).
+#
+# The ONE exception to the no-hosted-CI ruling (#184, CI stays a local gate):
+# the owner approved this RELEASE-ONLY workflow. It never runs on branch pushes
+# or pull requests — only on an `android-v*` tag push or a manual dispatch.
+#
+#   git tag android-v0.2.0 && git push origin android-v0.2.0
+#
+# Secrets (Settings → Secrets and variables → Actions, same names as the
+# publish script's env mode): FP_UPLOAD_KEYSTORE_B64, FP_UPLOAD_KEYSTORE_PASSWORD,
+# FP_UPLOAD_KEY_ALIAS, FP_UPLOAD_KEY_PASSWORD, FDROID_REPO_KEYSTORE_B64,
+# FDROID_REPO_KEYSTORE_PASSWORD, FDROID_REPO_KEY_PASSWORD; optional
+# FP_FIREBASE_PROPERTIES (contents of apps/android/firebase.properties).
+# Owner guide: docs/guides/fdroid-repo.md
+name: Android release
+
+on:
+  push:
+    tags:
+      - 'android-v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run: throwaway keys, nothing committed or released'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FDROIDSERVER_VERSION: '2.4.5'
+    steps:
+      - name: Check out (full history)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Decide mode
+        id: mode
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          DRY_INPUT: ${{ inputs.dry_run }}
+          S1: ${{ secrets.FP_UPLOAD_KEYSTORE_B64 }}
+          S2: ${{ secrets.FP_UPLOAD_KEYSTORE_PASSWORD }}
+          S3: ${{ secrets.FP_UPLOAD_KEY_ALIAS }}
+          S4: ${{ secrets.FP_UPLOAD_KEY_PASSWORD }}
+          S5: ${{ secrets.FDROID_REPO_KEYSTORE_B64 }}
+          S6: ${{ secrets.FDROID_REPO_KEYSTORE_PASSWORD }}
+          S7: ${{ secrets.FDROID_REPO_KEY_PASSWORD }}
+        run: |
+          set +x
+          have_secrets=true
+          for s in "$S1" "$S2" "$S3" "$S4" "$S5" "$S6" "$S7"; do [ -n "$s" ] || have_secrets=false; done
+          tag=""
+          if [ "$REF_TYPE" = tag ]; then tag="$REF_NAME"; fi
+          if [ -n "$tag" ] && ! [[ "$tag" =~ ^android-v[0-9]+\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo "::error::tag $tag is not android-vX.Y.Z"; exit 1
+          fi
+          if [ "$EVENT" = push ]; then
+            if [ "$have_secrets" != true ]; then
+              echo "::error::tag push $tag but one or more release secrets are missing (see docs/guides/fdroid-repo.md). Refusing to publish."
+              exit 1
+            fi
+            dry=false
+          elif [ "$DRY_INPUT" != true ] && [ "$have_secrets" = true ]; then
+            if [ -z "$tag" ]; then
+              echo "::error::a non-dry dispatch must run on an android-vX.Y.Z tag (pick the tag in 'Use workflow from')."
+              exit 1
+            fi
+            dry=false
+          else
+            [ "$have_secrets" = true ] || echo "::warning::release secrets missing: dry run with throwaway keys"
+            dry=true
+          fi
+          echo "dry=$dry" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Mode: dry=$dry tag=${tag:-none}"
+
+      - name: Set up Temurin 21
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+        with:
+          packages: 'platform-tools platforms;android-37 build-tools;36.0.0'
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Install fdroidserver
+        run: pip install "fdroidserver==${FDROIDSERVER_VERSION}"
+
+      - name: Firebase client config (optional)
+        env:
+          FP_FIREBASE_PROPERTIES: ${{ secrets.FP_FIREBASE_PROPERTIES }}
+        run: |
+          set +x
+          if [ -n "$FP_FIREBASE_PROPERTIES" ]; then
+            printf '%s\n' "$FP_FIREBASE_PROPERTIES" > apps/android/firebase.properties
+            echo "firebase.properties written (push enabled)"
+          else
+            echo "no FP_FIREBASE_PROPERTIES secret: push stays disabled in this build"
+          fi
+
+      - name: Mobile gate
+        working-directory: apps/android
+        run: ./gradlew --no-daemon :app:mobileGate
+
+      - name: Start from the published repo on main
+        run: |
+          # The committed static/fdroid/ is the source of truth for earlier APKs.
+          git fetch origin main
+          if git cat-file -e origin/main:src/lib/fdroid/published.json 2>/dev/null; then
+            git checkout origin/main -- src/lib/fdroid/published.json
+            if git cat-file -e origin/main:static/fdroid 2>/dev/null; then
+              rm -rf static/fdroid
+              git checkout origin/main -- static/fdroid
+            fi
+          fi
+
+      - name: Publish (real keys)
+        if: steps.mode.outputs.dry == 'false'
+        env:
+          FP_UPLOAD_KEYSTORE_B64: ${{ secrets.FP_UPLOAD_KEYSTORE_B64 }}
+          FP_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.FP_UPLOAD_KEYSTORE_PASSWORD }}
+          FP_UPLOAD_KEY_ALIAS: ${{ secrets.FP_UPLOAD_KEY_ALIAS }}
+          FP_UPLOAD_KEY_PASSWORD: ${{ secrets.FP_UPLOAD_KEY_PASSWORD }}
+          FDROID_REPO_KEYSTORE_B64: ${{ secrets.FDROID_REPO_KEYSTORE_B64 }}
+          FDROID_REPO_KEYSTORE_PASSWORD: ${{ secrets.FDROID_REPO_KEYSTORE_PASSWORD }}
+          FDROID_REPO_KEY_PASSWORD: ${{ secrets.FDROID_REPO_KEY_PASSWORD }}
+          FP_GRADLE_ARGS: --no-daemon
+          FP_RELEASE_TAG: ${{ steps.mode.outputs.tag }}
+        run: |
+          set +x
+          echo "::add-mask::$FP_UPLOAD_KEYSTORE_PASSWORD"
+          echo "::add-mask::$FP_UPLOAD_KEY_PASSWORD"
+          echo "::add-mask::$FDROID_REPO_KEYSTORE_PASSWORD"
+          echo "::add-mask::$FDROID_REPO_KEY_PASSWORD"
+          scripts/fdroid-publish.sh
+
+      - name: Publish (dry run, throwaway keys generated here)
+        if: steps.mode.outputs.dry == 'true'
+        env:
+          FP_GRADLE_ARGS: --no-daemon
+          TAG: ${{ steps.mode.outputs.tag }}
+        run: |
+          set +x
+          keys="$(mktemp -d)"
+          chmod 700 "$keys"
+          trap 'rm -rf "$keys"' EXIT
+          FP_UPLOAD_KEYSTORE_PASSWORD="$(openssl rand -hex 16)"
+          FDROID_REPO_KEYSTORE_PASSWORD="$(openssl rand -hex 16)"
+          echo "::add-mask::$FP_UPLOAD_KEYSTORE_PASSWORD"
+          echo "::add-mask::$FDROID_REPO_KEYSTORE_PASSWORD"
+          export FP_UPLOAD_KEYSTORE_PASSWORD FDROID_REPO_KEYSTORE_PASSWORD
+          export FP_UPLOAD_KEY_PASSWORD="$FP_UPLOAD_KEYSTORE_PASSWORD" FP_UPLOAD_KEY_ALIAS=upload
+          export FDROID_REPO_KEY_PASSWORD="$FDROID_REPO_KEYSTORE_PASSWORD"
+          keytool -genkeypair -keystore "$keys/upload.p12" -storetype PKCS12 -alias upload \
+            -keyalg RSA -keysize 2048 -validity 30 -dname "CN=Throwaway upload key" \
+            -storepass:env FP_UPLOAD_KEYSTORE_PASSWORD -keypass:env FP_UPLOAD_KEY_PASSWORD
+          keytool -genkeypair -keystore "$keys/repo.p12" -storetype PKCS12 -alias repokey \
+            -keyalg RSA -keysize 4096 -validity 30 -dname "CN=Throwaway F-Droid repo key" \
+            -storepass:env FDROID_REPO_KEYSTORE_PASSWORD -keypass:env FDROID_REPO_KEY_PASSWORD
+          FP_UPLOAD_KEYSTORE_B64="$(base64 -w0 "$keys/upload.p12")"
+          FDROID_REPO_KEYSTORE_B64="$(base64 -w0 "$keys/repo.p12")"
+          export FP_UPLOAD_KEYSTORE_B64 FDROID_REPO_KEYSTORE_B64
+          if [ -n "$TAG" ]; then
+            scripts/fdroid-publish.sh --dry-run --version "${TAG#android-v}"
+          else
+            scripts/fdroid-publish.sh --dry-run
+          fi
+          {
+            echo "### F-Droid dry run (throwaway keys, nothing committed)"
+            echo '```json'
+            cat src/lib/fdroid/published.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit the repo to test and main
+        if: steps.mode.outputs.dry == 'false'
+        env:
+          TAG: ${{ steps.mode.outputs.tag }}
+        run: |
+          out="$(mktemp -d)"
+          cp -R static/fdroid "$out/fdroid"
+          cp src/lib/fdroid/published.json "$out/published.json"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for branch in test main; do
+            git fetch origin "$branch"
+            git checkout -B "$branch" "origin/$branch"
+            rm -rf static/fdroid
+            cp -R "$out/fdroid" static/fdroid
+            cp "$out/published.json" src/lib/fdroid/published.json
+            git add -A static/fdroid src/lib/fdroid/published.json
+            if git diff --cached --quiet; then
+              echo "$branch already has this repo state"
+            else
+              git commit -m "chore(release): F-Droid repo for $TAG"
+              git push origin "HEAD:$branch"
+            fi
+          done
+
+      - name: GitHub Release with the signed APK
+        if: steps.mode.outputs.dry == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.mode.outputs.tag }}
+        run: |
+          apk="$(python3 -c 'import json; print(json.load(open("src/lib/fdroid/published.json"))["latest"]["apk"])')"
+          code="${apk##*_}"; code="${code%.apk}"
+          notes="fdroid/metadata/com.familyplanz.app/en-US/changelogs/${code}.txt"
+          [ -f "$notes" ] || { notes="$(mktemp)"; echo "Family Planz ${TAG#android-v}" > "$notes"; }
+          gh release create "$TAG" "static/fdroid/repo/$apk" \
+            --verify-tag --title "Family Planz ${TAG#android-v} (Android)" --notes-file "$notes"

@@ -38,7 +38,31 @@ From `apps/android/`:
 
 Check signing: `keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab`.
 
-Bump `versionCode` (and `versionName`) in `app/build.gradle.kts` before every upload.
+Versions come from the release tag, not from editing `app/build.gradle.kts` (#287).
+Pass `-PfpVersionName=0.2.0 -PfpVersionCode=2000`, where
+versionCode = X*1_000_000 + Y*1_000 + Z for tag `android-vX.Y.Z`. That way
+every release gets a strictly higher versionCode, as both Play and F-Droid require.
+Without them you get the defaults (1 / 0.1.0), which are only for local checks:
+```sh
+./gradlew :app:bundleRelease -PfpVersionName=0.2.0 -PfpVersionCode=2000
+```
+
+`keystore.properties` can also live outside the tree: set `FP_KEYSTORE_PROPERTIES=/path/to/it`.
+
+## F-Droid + GitHub release (#287)
+
+The self-hosted F-Droid repo, the publish script (file mode or env-var mode for cloud
+sessions), and the release-only GitHub workflow are covered in [fdroid-repo.md](fdroid-repo.md).
+
+GitHub → Settings → Secrets and variables → Actions holds the secrets. Use the same names
+as the script's env mode: `FP_UPLOAD_KEYSTORE_B64`, `FP_UPLOAD_KEYSTORE_PASSWORD`,
+`FP_UPLOAD_KEY_ALIAS`, `FP_UPLOAD_KEY_PASSWORD`, `FDROID_REPO_KEYSTORE_B64`,
+`FDROID_REPO_KEYSTORE_PASSWORD`, `FDROID_REPO_KEY_PASSWORD`. This workflow is the one
+exception to the no-hosted-CI ruling (#184). To release:
+
+```sh
+git tag android-v0.2.0 && git push origin android-v0.2.0
+```
 
 ## R8
 
