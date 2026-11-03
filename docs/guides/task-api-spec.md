@@ -8,7 +8,8 @@ below is what a client MUST be able to handle.
 
 - Mint a personal token in-app (Settings → API tokens): server returns the
   plaintext once, format `fp_<43 chars>`, stored hashed per user. Revocable;
-  revocation invalidates the old token at the next request.
+  revocation invalidates the old token at the next request. The Android app
+  instead signs in natively and receives one — see "Mobile sign-in" below.
 - Send on every request: `Authorization: Bearer <token>` on any `/api/*` path.
   The header must be exactly `Bearer ` + token; whitespace after `Bearer` is
   trimmed, token compared by SHA-256 — one lone token works, re-use is fine.
@@ -293,3 +294,92 @@ edit). Missing `actorId` (older server) → treat as someone else's edit. RSVPs 
 4. Create the table (also bundled for the cold-start runner):
    `npx dotenv -e .env.preview -- node scripts/db-exec.mjs sql/migrations/023-device-tokens.sql`
    then the same with `.env.prod`. Idempotent.
+
+## Mobile sign-in (`/api/mobile/auth/*`, #288)
+
+How the Android app gets its `fp_` token without the user pasting one. All
+endpoints are `POST`, JSON in / JSON out, **never set cookies, never need a
+session**, and mint the same personal API token as Settings → API tokens
+(named `Android — <deviceName>`, listed/revocable on /account; one row per
+sign-in). Store the returned `token` where a pasted token lived and use it as
+`Authorization: Bearer` everywhere above.
+
+Client rules:
+
+- Send `Content-Type: application/json` (SvelteKit's CSRF check rejects
+  Origin-less `text/plain` / form-encoded POSTs). Send no `Origin` header (a
+  cross-site browser `Origin` is 403'd by the API origin check).
+- Send **no** `Authorization` header on `email` / `verify` / `password` /
+  `guest`: a stale Bearer on any `/api/*` path is 401'd by the hook before
+  the route runs.
+- `deviceName`: optional everywhere; trimmed, cut to 60 chars, default
+  `"Android"`.
+- `user` (every 200 below): `{"id","firstName","lastName","email"}`.
+  `email` is `null` for an **Anonymous Account** (guest) — the placeholder
+  address is never returned.
+- Every 4xx/5xx body is `{"error":"<message>"}`; the message is user-facing.
+  Malformed / non-object JSON → `400 {"error":"Request body must be JSON"}`.
+  Unexpected faults → `500 {"error":"Something went wrong — try again"}`.
+- Rate limits are the web's (per client IP, keyed with the email where there
+  is one) and share the web's buckets: email 5 / 15 min, verify 10 / 15 min,
+  password 10 / 5 min, guest 10 / hour (per IP). Over the limit →
+  `429 {"error":"Too many attempts — try again in a few minutes"}`.
+
+### POST /api/mobile/auth/email
+
+Body `{"email","intent":"login"|"signup","firstName"?,"lastName"?}` —
+`firstName` + `lastName` are **required for `signup`** (stored with the code;
+the account is created from them at verify), ignored for `login`.
+
+- `200 {"sent":true}` for every well-formed email — including unknown emails
+  on `login` and already-registered emails on `signup`, where nothing is sent
+  (no account enumeration). Sends the web's verification email: an
+  **8-digit** numeric code (plus a web sign-in link), valid 15 minutes.
+- `400 {"error":"Enter a valid email"}`.
+- `400 {"error":"intent must be \"login\" or \"signup\""}`.
+- `400 {"error":"First and last name are required"}` — `signup` only.
+- `429`; `500 {"error":"Couldn't send the email — try again"}`.
+
+### POST /api/mobile/auth/verify
+
+Body `{"email","code","intent","deviceName"?}` (`intent` must match the one
+used at `/email`; whitespace around `code` is ignored).
+
+- `200 {"token":"fp_…","user":{…}}`. `login` signs into the existing
+  account; `signup` creates it (same as web code signup: email verified,
+  settings + personal calendar). The code is single-use.
+- `400 {"error":"That code is wrong or expired"}` — wrong, expired, already
+  used, or issued for the other intent. Missing `code` reads the same.
+- `400 {"error":"Enter a valid email"}`, `400` bad `intent`.
+- `409 {"error":"An account with this email already exists — sign in instead"}`
+  — `signup` race (email registered after the code was sent).
+- `429`.
+
+### POST /api/mobile/auth/password
+
+Body `{"email","password","deviceName"?}`.
+
+- `200 {"token":"fp_…","user":{…}}`. Never creates an account.
+- `401 {"error":"Email or password is incorrect"}` — wrong password, unknown
+  email, or an email-code-only account (no password set) all read the same.
+- `400 {"error":"Email and password are required"}`; `429`.
+
+### POST /api/mobile/auth/guest
+
+Body `{"deviceName"?}` (empty body allowed). Creates an **Anonymous Account**
+(same as the web's guest) and a token for it.
+
+- `200 {"token":"fp_…","user":{"id","firstName":"Guest","lastName":"","email":null}}`.
+- `429`.
+
+The guest keeps its data under that token; to keep it across devices the user
+Claims it on the web (no native claim flow yet).
+
+### POST /api/mobile/auth/logout
+
+Header `Authorization: Bearer fp_…`, no body.
+
+- `200 {"success":true}` — revokes **exactly the presented token** (the
+  user's other tokens and web sessions are untouched). Then run the local
+  sign-out (FCM `DELETE /api/devices` first, while the token still works).
+- `401 {"error":"Unauthorized"}` — missing / unknown / already-revoked token.
