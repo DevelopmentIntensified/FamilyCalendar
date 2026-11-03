@@ -6,8 +6,23 @@ Source: owner via TaskFocus session 2026-11-03 — "The mobile app should also h
 
 ## Needs doing
 
-- Server (this repo): `taskfocus_sessions` table (migration 025, idempotent/additive), `/api/taskfocus/sessions` routes, `phoneFocusMinutes` / `phoneFocusStartedAt` on GET /api/tasks — per the contract below. Notify the TaskFocus session when live on test.
+- Server (this repo): **Done** (see "Server — done" below). Notify the TaskFocus session when live on test.
 - Android: folded into #292 lane L3 (Tasks): Focus here / Stop / offline queue, live time formula, chip "Focusing (desktop|phone)", keep "Focus on desktop" (079 commands) as secondary.
+
+## Server — done
+
+- Migration `sql/migrations/025-taskfocus-sessions.sql` (CREATE TABLE / INDEX IF NOT EXISTS, FKs `ON DELETE CASCADE`), bundled in `src/lib/server/db/migrations/scripts.ts`; Drizzle `taskfocusSessions` in `schema.ts`.
+- Domain + store: `src/lib/server/db/actions/taskfocusSessions.ts`. Routes: `src/routes/api/taskfocus/sessions/{+server.ts,[id]/+server.ts,[id]/absorb/+server.ts}`. Overlay on `GET /api/tasks` (list and `?eventId=`).
+- Spec: `docs/guides/task-api-spec.md` → "TaskFocus phone focus sessions".
+- Evidence: `src/routes/api/taskfocus/sessions/server.test.ts` (every contract row), `src/lib/server/db/actions/taskfocusSessions.test.ts` (aggregation: closed+unabsorbed only, caller only, sum-then-floor), `src/routes/api/tasks/server.test.ts` (phoneFocus* on GET, desktop fields unchanged), `migrations/scripts.test.ts` parity; `taskfocusSessions.real.test.ts` for the harness DB (not run here: no Postgres). `npm run build` passes.
+
+Contract decisions (beyond the verbatim table):
+- **One open phone session per user**: POST without `endedAt` while one is open → `409 {error, openSessionId}`; enforced by a partial unique index `(user_id) WHERE ended_at IS NULL`. A finished (`endedAt`) POST is never refused for an open one.
+- POST for a task the caller can't see (same check as `PUT /api/tasks/[id]`: owner, live assignee, family member for family tasks; archived = gone) → `404`.
+- Time bounds inclusive (exactly +5 min / 12 h pass). PATCH applies the duration rules against the stored `startedAt`; re-PATCH of a closed, unabsorbed session overwrites `endedAt` (retry-safe).
+- DELETE of an absorbed session → `409`; success body `{success:true}`.
+- `GET` without `?unabsorbed=1` → `400`. Absorb of an open session → `409`.
+- `phoneFocusMinutes` = floor of the **summed** duration per task (not per-session floors); `0` (not null) when none.
 
 ## Contract (verbatim from TaskFocus docs/issues/124-phone-focus-sessions.md)
 
