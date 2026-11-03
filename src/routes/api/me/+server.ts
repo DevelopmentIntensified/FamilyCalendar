@@ -3,6 +3,8 @@ import type { RequestHandler } from './$types';
 import { requireUserJson } from '$lib/server/utils/requireUser';
 import { getUserFamilyId } from '$lib/server/db/actions/families';
 import { isAnonymousAccount } from '$lib/utils/anonymous';
+import { readJsonObject } from '$lib/server/utils/jsonBody';
+import { deleteAccount } from '$lib/server/services/accountData';
 
 /**
  * GET /api/me — the authenticated identity, for external clients:
@@ -30,4 +32,20 @@ export const GET: RequestHandler = async ({ locals }) => {
 		lastActiveAt: user.lastActiveAt ? new Date(user.lastActiveAt).toISOString() : null,
 		familyId: familyId ?? null
 	});
+};
+
+/**
+ * DELETE /api/me `{confirmation: <your user id>}` (#292 G14) — the account
+ * page's deleteAccount: signs out every session and deletes the user (API
+ * tokens cascade with the row, the caller's included).
+ */
+export const DELETE: RequestHandler = async ({ locals, request }) => {
+	const auth = requireUserJson(locals);
+	if (auth.response) return auth.response;
+	const body = await readJsonObject(request);
+	if (!body.ok) return body.response;
+	const confirmation = typeof body.value.confirmation === 'string' ? body.value.confirmation : '';
+	const r = await deleteAccount(auth.user.id, confirmation, locals.session?.id ?? null);
+	if (!r.ok) return json({ error: r.message }, { status: r.status });
+	return json({ success: true });
 };

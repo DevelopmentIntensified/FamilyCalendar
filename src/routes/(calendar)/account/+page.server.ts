@@ -11,11 +11,7 @@ import { NOREPLYEMAIL, EMAILSECRET } from '$env/static/private';
 import { getUrl } from '$lib/utils/getUrl';
 import { hiddenModulesFromForm } from '$lib/components/account/accountDashboardModules';
 import { familyCalendarEntries } from '$lib/components/account/accountCalendars';
-import {
-	createApiToken as mintApiToken,
-	listTokensForUser,
-	revokeToken
-} from '$lib/server/db/actions/apiTokens';
+import { listTokensForUser } from '$lib/server/db/actions/apiTokens';
 import { isNotificationPreferenceId } from '$lib/components/account/accountNotifications';
 import {
 	ACCOUNT_SETTINGS_DEFAULTS,
@@ -24,7 +20,9 @@ import {
 	loadConsentHistory,
 	loadNotificationPreferences,
 	loadSubscriptionSummary,
+	mintNamedApiToken,
 	requestEmailChange,
+	revokeApiToken,
 	revokeOtherSessions,
 	saveCalendarSettings,
 	saveDashboardModules,
@@ -219,39 +217,21 @@ export const actions: Actions = {
 		const auth = requireUserAction(locals);
 		if (auth.response) return auth.response;
 		const formData = await request.formData();
-		const name = formString(formData, 'name').trim();
-		if (!name) {
-			return fail(400, { success: false, message: 'Token name is required' });
-		}
-		try {
-			const { row, token } = await mintApiToken(auth.user.id, name.slice(0, 60));
-			return {
-				success: true,
-				message: `Token '${row.name}' created — copy it now, it won't be shown again.`,
-				apiToken: token,
-				apiTokenName: row.name
-			};
-		} catch (error) {
-			console.error('Failed to create API token:', error);
-			return fail(500, { success: false, message: 'Failed to create token' });
-		}
+		const result = await mintNamedApiToken(auth.user.id, formString(formData, 'name'));
+		if (!result.ok) return toActionResult(result);
+		return {
+			success: true,
+			message: result.message,
+			apiToken: result.token,
+			apiTokenName: result.record.name
+		};
 	},
 
 	revokeApiToken: async ({ request, locals }) => {
 		const auth = requireUserAction(locals);
 		if (auth.response) return auth.response;
 		const formData = await request.formData();
-		const tokenId = formString(formData, 'tokenId');
-		if (!tokenId) {
-			return fail(400, { success: false, message: 'Token id is required' });
-		}
-		try {
-			await revokeToken(auth.user.id, tokenId);
-			return { success: true, message: 'Token revoked' };
-		} catch (error) {
-			console.error('Failed to revoke API token:', error);
-			return fail(500, { success: false, message: 'Failed to revoke token' });
-		}
+		return toActionResult(await revokeApiToken(auth.user.id, formString(formData, 'tokenId')));
 	},
 
 	deleteAccount: async ({ request, locals }) => {

@@ -745,3 +745,25 @@ Auth required. The web's `/signup/password/verify` and `/resend`.
 - resend (no body): `200 {"success":true}` (also when already verified);
   `401` for a guest; `429 {"error":"Too many attempts. Try again shortly."}`;
   `500 {"error":"There was an error. Please try again."}`.
+
+### Account (G14)
+
+All through `src/lib/server/services/accountData.ts`, the `/account` page's
+own code. Auth required on every one.
+
+| Endpoint | Body | Success | Errors |
+|---|---|---|---|
+| `PATCH /api/me/profile` | `{"firstName","lastName"}` | `200 {"success":true,"user":{"id","firstName","lastName","email"}}` | `400 {"error":"First name and last name are required"}` |
+| `POST /api/me/email` | `{"email"}` | `200 {"success":true,"message":"Verification email sent. Please check your inbox."}` — a code + link goes to the NEW address; the change completes on the web `/account/verify-email` page | `400 "Valid email is required"`, `400 "New email must be different from current email"`, `400 {"error":"You're using a guest calendar — …","guestNeedsClaim":true}` (use `/api/me/claim`), `429` (3 / 15 min), `500` |
+| `POST /api/me/sessions/revoke-others` | — | `200 {"success":true,"revoked":n}` — every **web session** except the caller's own cookie session (a Bearer caller has none, so all go) | `500` |
+| `GET /api/me/api-tokens` | — | `200 {"tokens":[{"id","name","createdAt","lastUsedAt"}]}` (no hashes) | |
+| `POST /api/me/api-tokens` | `{"name"}` (≤ 60 chars kept) | `201 {"token":"fp_…","record":{"id","name","createdAt"}}` — plaintext shown only here | `400 {"error":"Token name is required"}`, `500` |
+| `DELETE /api/me/api-tokens/{id}` | — | `200 {"success":true}` (owner-scoped; another user's id deletes nothing, same answer) | `500` |
+| `DELETE /api/me` | `{"confirmation":"<your user id>"}` | `200 {"success":true}` — sessions killed, user deleted, every token (this one too) gone | `400 {"error":"Confirmation does not match"}` |
+| `PUT /api/me/dashboard-modules` | `{"hidden":["moduleId",…]}` | `200 {"success":true,"message","hidden":[canonical ids kept]}` | `400 {"error":"hidden must be an array of module ids"}`, `500` |
+| `GET /api/me/notification-preferences` | — | `200 {"preferences":{"taskAssigned":bool,"taskCompleted":bool,"familyJoined":bool,"aiSuggestions":bool},"options":[{"id","label","hint","default"}]}` | |
+| `PUT /api/me/notification-preferences/{id}` | `{"value":boolean}` | `200 {"success":true,"message":"<change> Saved."}` | `400 {"error":"Unknown notification preference"}`, `400 {"error":"Notification preference value is required"}`, `500 {"error":"<change> This did not save."}` |
+| `GET /api/me/subscription` | — | `200 {"subscription":{"tier","subscription"},"planLimits":{…},"aiUsage":{"used","limit","remaining"},"planPricing":{…}}` (degrades to free-plan defaults on a read failure) | |
+
+API tokens are not sessions: `revoke-others` leaves every `fp_` token
+(TaskFocus, other phones) valid; list + revoke them individually.

@@ -31,6 +31,7 @@ import { TRANSLATIONS } from '$lib/server/services/verseService';
 import { recordAdConsentChange, getAdConsentRecords } from '$lib/server/services/adConsentService';
 import { DASHBOARD_MODULES } from '$lib/dashboardModules';
 import { isRegisteredAccount } from '$lib/utils/anonymous';
+import { createApiToken, revokeToken } from '$lib/server/db/actions/apiTokens';
 import {
 	getNotificationPreferences,
 	setNotificationPreference
@@ -410,6 +411,41 @@ export async function revokeOtherSessions(
 	} catch (error) {
 		console.error('Failed to logout from all devices:', error);
 		return bad(500, 'Failed to logout from all devices');
+	}
+}
+
+/** Mints a named personal API token; the plaintext is shown once. */
+export async function mintNamedApiToken(
+	userId: string,
+	rawName: string
+): Promise<
+	AccountResult<{ token: string; record: { id: string; name: string; createdAt: Date } }>
+> {
+	const name = rawName.trim();
+	if (!name) return bad(400, 'Token name is required');
+	try {
+		const { row, token } = await createApiToken(userId, name.slice(0, 60));
+		return {
+			ok: true,
+			message: `Token '${row.name}' created — copy it now, it won't be shown again.`,
+			token,
+			record: { id: row.id, name: row.name, createdAt: row.createdAt }
+		};
+	} catch (error) {
+		console.error('Failed to create API token:', error);
+		return bad(500, 'Failed to create token');
+	}
+}
+
+/** Revokes one of the user's tokens (scoped: another user's id is a no-op). */
+export async function revokeApiToken(userId: string, tokenId: string): Promise<AccountResult> {
+	if (!tokenId) return bad(400, 'Token id is required');
+	try {
+		await revokeToken(userId, tokenId);
+		return { ok: true, message: 'Token revoked' };
+	} catch (error) {
+		console.error('Failed to revoke API token:', error);
+		return bad(500, 'Failed to revoke token');
 	}
 }
 
