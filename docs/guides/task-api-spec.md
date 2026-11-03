@@ -572,3 +572,13 @@ The `/account` calendar-settings card (`loadAccountSettings` /
     `defaultCalendarId` you sent that you cannot see (a stored one is not
     re-checked on other changes).
   - `500 {"error":"Failed to save calendar settings"}`.
+
+### GET /api/family/roster?familyId= (G4)
+
+The roster behind the calendar person filter, attendee picker, @mentions
+and the event edit form (`getFamilyRoster`, as the calendar layout reads it).
+
+- `200 {"familyId":"…","members":[{"userId","firstName","lastName","email","role":"creator|admin|member","memberType":"parent|child|member"|null}]}`
+  — `familyId` omitted = your family.
+- `200 {"familyId":null,"members":[]}` — you have no family.
+- `403 {"error":"Not a member of this family"}` — a `familyId` you are not in.
