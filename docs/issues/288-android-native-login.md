@@ -1,6 +1,6 @@
 # 288 — Android: real sign-in (no pasted API token)
 
-Status: in-progress (server lane done; Android lane open)
+Status: done (server + Android lanes)
 
 > **Server deviations from the contract below (Android: build against these):**
 > 1. **The code is 8 digits, not 6** — it is the web's existing `issueVerificationCode` code. Code entry must accept 8 digits.
@@ -38,6 +38,14 @@ Source: owner 2026-11-03 — "Shouldn't need a token in the app. Should be able 
   - Evidence: `npx vitest run src/routes/api/mobile` — 6 files / 40 tests green (happy paths, 400 validation, wrong code 400, wrong password 401, 429 at web limits per IP+email, signup creates / login doesn't, guest `email:null`, 60-char deviceName, logout revokes only the presented token scoped to owner, no `Set-Cookie` on every 200, real hooks chain: native POSTs pass with no cookie/guest, cross-site Origin 403, guest Bearer → `GET /api/tasks` 200). `hooks.server.test.ts` + `apiTokens.test.ts` green; svelte-check no new errors; `npm run build` green; oxlint/eslint/prettier clean on touched files.
   - Docs: `docs/guides/task-api-spec.md` → "Mobile sign-in".
 
+- **Android lane (2026-11-03).** Built against the deviations above (8-digit code, signup names on `/email`, verbatim error text, DELETE /api/devices before /logout, bearer-free auth client).
+  - `data/AuthApi.kt` (Retrofit + @Serializable DTOs, `AuthIntent` login|signup) + `data/AuthSource.kt` (`NetworkAuthSource`, `AuthError` Rejected 4xx / RateLimited 429 / Server / Network — every server `error` text verbatim; a non-JSON 200 is a Server error, not a crash; `DeviceNameProvider` = `Build.MODEL`, injectable). `ApiFactory.createAuth` = separate client with no bearer interceptor; logout passes its own `Authorization`.
+  - `ui/SignInViewModel.kt` (email → code → signed in; password; guest; 30 s resend countdown via injectable tick; pending per button, repeat taps ignored) + `ui/SignInScreen.kt`/`SignInSteps.kt` (email, "Email me a code", 8-digit code field that strips non-digits and auto-submits, "Resend code in N s", "Wrong email?", "Use password instead", "Create an account" with first/last name, "Continue without an account", paste-token under collapsed "Advanced"). Replaces `SettingsScreen.kt` as the `NeedToken` destination.
+  - Success → `AppViewModel.signIn(SessionCredentials)`: DataStore token + me-id from the response user, then refresh + the #273 `signedIn` hook (pasted token goes through the same call). Guest → dismissible "You're using a guest account — save it with an email on the web" note on the Tasks tab (flag in DataStore, survives restart, cleared by any new sign-in).
+  - Sign out (top-bar icon, now "Sign out"): token cleared → `SessionHooks.signedOut(old bearer)` (reminders replan, FCM `DELETE /api/devices` with the old bearer) → `POST /api/mobile/auth/logout` best-effort. 401 anywhere → sign-in screen with the reason (unchanged).
+  - Evidence: `:app:mobileGate :app:assembleRelease` BUILD SUCCESSFUL, 224 unit tests / 0 failures. New: `AuthApiContractTest` (12, MockWebServer: request bodies incl. deviceName + signup names, no Authorization/Origin, JSON content type, 200 parse incl. guest `email:null`, 400/401/409/429/500 text, non-JSON 200, dropped connection), `SignInViewModelTest` (12), `SessionHooksTest` +3 (native sign-in stores me-id; sign-out = unregister then logout; guest note across restart), `SignInUiTest` (9 Robolectric: code flow against MockWebServer into the Tasks tab, signup names, Advanced token, wrong password, 429, pending label, guest note dismiss, sign-out revoke, wrong email).
+
 ## Needs doing
 
-- Android lane (tests first; MockWebServer contract tests on Android; Robolectric UI tests for the sign-in flow).
+- Human: drive the flow on a real phone against test.familyplanz.com (code email arrives, token appears on /account as "Android — <model>").
+- Later: native Claiming for guests (the note points to the web for now).
