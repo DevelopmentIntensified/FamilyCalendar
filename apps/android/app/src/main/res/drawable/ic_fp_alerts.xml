@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Web BottomNav "Alerts" glyph (navItems.ts; heroicons bell). Tinted at use. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+	android:width="24dp"
+	android:height="24dp"
+	android:viewportWidth="24"
+	android:viewportHeight="24">
+	<path
+		android:pathData="M14.857,17.082 a23.848,23.848 0 0 0 5.454,-1.31 A8.967,8.967 0 0 1 18,9.75 V9 A6,6 0 0 0 6,9 v0.75 a8.967,8.967 0 0 1 -2.312,6.022 c1.733,0.64 3.56,1.085 5.455,1.31 m5.714,0 a24.255,24.255 0 0 1 -5.714,0 m5.714,0 a3,3 0 1 1 -5.714,0"
+		android:strokeColor="#FF000000"
+		android:strokeWidth="2"
+		android:strokeLineCap="round"
+		android:strokeLineJoin="round" />
+</vector>

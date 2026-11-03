@@ -1,7 +1,8 @@
 package com.familyplanz.app.push
 
+import com.familyplanz.app.AppModules
 import com.familyplanz.app.ui.PhoneTab
-import java.net.URI
+import com.familyplanz.app.ui.nav.DeepLinks
 
 /** The fields of an FCM message the app reads (#272: every data value is a string). */
 data class PushPayload(
@@ -67,14 +68,7 @@ class PushHandler(
 	}
 }
 
-/** Web paths from `data.link` → the phone tab showing the same thing; null = app default. */
+/** Web paths from `data.link` → the phone tab showing the same thing; null = app default (see [DeepLinks]). */
 object PushLinks {
-	fun tabFor(link: String?): PhoneTab? {
-		val path = link?.let { runCatching { URI(it.trim()).path }.getOrNull() }.orEmpty()
-		return when {
-			path.startsWith("/calendar/tasks") || path.startsWith("/tasks") -> PhoneTab.TASKS
-			path.startsWith("/calendar") -> PhoneTab.CALENDAR
-			else -> null
-		}
-	}
+	fun tabFor(link: String?): PhoneTab? = DeepLinks.resolve(link, AppModules.DEEP_LINKS)?.let(PhoneTab::of)
 }

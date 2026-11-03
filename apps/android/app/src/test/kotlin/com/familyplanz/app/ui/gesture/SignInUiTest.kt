@@ -12,8 +12,9 @@ import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.data.AuthError
 import com.familyplanz.app.data.AuthResult
 import com.familyplanz.app.data.NetworkAuthSource
-import com.familyplanz.app.ui.GUEST_NOTE_TEXT
-import com.familyplanz.app.ui.SignInTags
+import com.familyplanz.app.ui.auth.SignInTags
+import com.familyplanz.app.ui.shell.GUEST_NOTE_TEXT
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
@@ -24,7 +25,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.util.concurrent.TimeUnit
 
 /** Issue #288: the sign-in screen driven end to end into the Tasks tab. */
 @RunWith(RobolectricTestRunner::class)

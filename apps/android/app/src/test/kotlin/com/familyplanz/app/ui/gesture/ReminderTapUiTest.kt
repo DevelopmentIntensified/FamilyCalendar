@@ -5,7 +5,8 @@ import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.data.EventDto
 import com.familyplanz.app.data.FileTaskCache
 import com.familyplanz.app.reminders.ReminderAwareCache
-import com.familyplanz.app.ui.CalendarViewModel
+import com.familyplanz.app.ui.calendar.CalendarViewModel
+import java.time.YearMonth
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -14,7 +15,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
-import java.time.YearMonth
 
 /** Issue #271: reminder tap lands on that day's Day view; fresh event months re-plan alarms. */
 @RunWith(RobolectricTestRunner::class)

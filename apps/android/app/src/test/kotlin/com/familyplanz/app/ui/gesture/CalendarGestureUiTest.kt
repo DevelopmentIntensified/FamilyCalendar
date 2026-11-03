@@ -6,12 +6,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.ui.PhoneTab
-import com.familyplanz.app.ui.monthNameOf
+import com.familyplanz.app.ui.calendar.monthNameOf
+import java.time.YearMonth
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.time.YearMonth
 
 /** Issue 269: Calendar month navigation and the day filter. */
 @RunWith(RobolectricTestRunner::class)

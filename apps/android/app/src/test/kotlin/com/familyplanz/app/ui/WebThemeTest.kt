@@ -1,11 +1,18 @@
 package com.familyplanz.app.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.shape.RoundedCornerShape
 import com.familyplanz.app.domain.Task
 import com.familyplanz.app.domain.TaskPriority
+import com.familyplanz.app.ui.calendar.monthCells
+import com.familyplanz.app.ui.tasks.MetaSlot
+import com.familyplanz.app.ui.tasks.SlotKind
+import com.familyplanz.app.ui.tasks.lateLabel
+import com.familyplanz.app.ui.tasks.priorityDot
+import com.familyplanz.app.ui.tasks.taskMetaSlots
+import com.familyplanz.app.ui.tasks.toneFor
 import com.familyplanz.app.ui.theme.ChipTone
 import com.familyplanz.app.ui.theme.FpColors
 import com.familyplanz.app.ui.theme.FpLightColorScheme
@@ -14,11 +21,11 @@ import com.familyplanz.app.ui.theme.FpShapes
 import com.familyplanz.app.ui.theme.FpTypography
 import com.familyplanz.app.ui.theme.STATUS_BAR_ARGB
 import com.familyplanz.app.ui.theme.avatarTone
+import java.time.LocalDate
+import java.time.YearMonth
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import java.time.LocalDate
-import java.time.YearMonth
 
 /** Issue 291: the native theme is the website's palette, chip vocabulary and grid. */
 class WebThemeTest {

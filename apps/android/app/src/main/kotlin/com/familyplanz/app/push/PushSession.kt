@@ -4,7 +4,7 @@ import com.familyplanz.app.data.ApiError
 import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.data.DeviceSource
 
-/** Session edges AppViewModel reports (issue #273); the default does nothing. */
+/** Session edges SessionViewModel reports (issue #273); the default does nothing. */
 interface SessionHooks {
 	/** A bearer token was just saved. */
 	suspend fun signedIn()
