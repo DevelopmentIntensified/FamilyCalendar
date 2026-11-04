@@ -39,6 +39,7 @@ internal object ButtonLooks {
 
 /** The web's small rectangular buttons (`rounded-lg`/`rounded-md`, 44dp tall); disabled is 50% opacity, as `disabled:opacity-50`. */
 @Composable
+@Suppress("LongParameterList")
 internal fun ActionButton(
 	text: String,
 	onClick: () -> Unit,

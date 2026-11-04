@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.groceries
 
 import androidx.compose.foundation.background
@@ -39,6 +40,7 @@ import com.familyplanz.app.ui.theme.FpShape
 import com.familyplanz.app.ui.theme.Slate
 
 /** What the Groceries screen can ask for. */
+@Suppress("MatchingDeclarationName")
 data class GroceriesActions(
 	val onFilter: (GroceryScopeFilter) -> Unit = {},
 	val onSearch: (String) -> Unit = {},
@@ -247,6 +249,7 @@ internal fun LoadError(message: String, onRetry: () -> Unit) {
 		modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(Accent.Red50).padding(12.dp).testTag("groceries-error"),
 	) {
 		Text("Couldn't load your lists. $message", fontSize = 13.sp, color = Accent.Red700, modifier = Modifier.weight(1f))
-		Text("Retry", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Accent.Red700, modifier = Modifier.clickable(role = Role.Button, onClick = onRetry).padding(8.dp))
+		Text("Retry", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Accent.Red700,
+			modifier = Modifier.clickable(role = Role.Button, onClick = onRetry).padding(8.dp))
 	}
 }

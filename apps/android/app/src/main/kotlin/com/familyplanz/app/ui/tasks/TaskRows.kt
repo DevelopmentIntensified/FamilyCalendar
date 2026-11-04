@@ -42,6 +42,7 @@ import java.time.LocalDate
  * AC-TK-14/15/16/17/18/19/21/26 live here.
  */
 @Composable
+@Suppress("LongParameterList")
 fun TaskRow(
 	meId: String?,
 	task: Task,

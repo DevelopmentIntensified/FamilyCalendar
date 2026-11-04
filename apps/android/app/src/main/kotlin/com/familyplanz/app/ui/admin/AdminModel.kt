@@ -41,6 +41,7 @@ fun reporterName(report: BugReportDto): String {
  * scalar fields (arrays and objects as compact JSON), or null when there is
  * nothing to show / it will not parse.
  */
+@Suppress("ReturnCount")
 fun matchedSummary(matched: String?): Map<String, String>? {
 	if (matched.isNullOrBlank()) return null
 	val parsed = runCatching { Json.parseToJsonElement(matched) }.getOrNull() as? JsonObject ?: return null

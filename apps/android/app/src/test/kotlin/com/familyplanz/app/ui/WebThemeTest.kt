@@ -129,7 +129,7 @@ class WebThemeTest {
 
 	@Test
 	fun month_grid_is_monday_first_in_whole_weeks() {
-		val cells = monthCells(YearMonth.of(2026, 11)) // 1 Nov 2026 is a Sunday
+		val cells = monthCells(YearMonth.of(2026, 11), mondayFirst = true) // 1 Nov 2026 is a Sunday
 		assertEquals(0, cells.size % 7)
 		assertEquals(6, cells.indexOfFirst { it != null })
 		assertEquals(LocalDate.of(2026, 11, 1), cells[6])

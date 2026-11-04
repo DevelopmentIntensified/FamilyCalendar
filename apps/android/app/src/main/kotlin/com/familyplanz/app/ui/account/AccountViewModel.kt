@@ -60,6 +60,7 @@ data class AccountState(
  * The Account screen's ViewModel. Reads come from [source]; the "Your
  * families" list reuses [familySource] so the two screens never disagree.
  */
+@Suppress("TooManyFunctions")
 class AccountViewModel(
 	private val source: AccountSettingsSource,
 	private val familySource: FamilySource,

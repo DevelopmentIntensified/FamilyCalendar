@@ -32,8 +32,6 @@ fun TasksEntry(nav: AppNav) {
 	val focusPending by vm.focusPending.collectAsStateWithLifecycle()
 	val snack by vm.snack.collectAsStateWithLifecycle()
 	val ended by vm.sessionEnded.collectAsStateWithLifecycle()
-	val members by vm.members.collectAsStateWithLifecycle()
-	val memberNames by vm.memberNames.collectAsStateWithLifecycle()
 	val guestNote by shell.guestNoteVisible.collectAsStateWithLifecycle()
 
 	LaunchedEffect(snack) {
@@ -49,7 +47,7 @@ fun TasksEntry(nav: AppNav) {
 		if (guestNote) GuestAccountNote(shell::dismissGuestNote)
 		TaskListScreen(
 			state = state,
-			actions = vm.taskActions(shell, members, memberNames),
+			actions = vm.taskActions(shell),
 			categories = categories,
 			categoryRows = categoryRows,
 			focusPending = focusPending,
@@ -70,8 +68,6 @@ fun TasksEntry(nav: AppNav) {
 
 private fun TasksViewModel.taskActions(
 	shell: Shell,
-	members: List<com.familyplanz.app.domain.tasks.QuickAddMember>,
-	memberNames: Map<String, String>,
 ) = TaskActions(
 	onRefresh = ::refresh,
 	onOpenSettings = shell::signOut,

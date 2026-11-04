@@ -5,6 +5,7 @@ package com.familyplanz.app.data
  * focus command enqueue. The Tasks-screen reads added for #292 have default
  * bodies (a server or fake without them answers [ApiError.Unsupported]).
  */
+@Suppress("TooManyFunctions")
 interface TaskSource {
 	suspend fun allTasks(): ApiResult<List<TaskDto>>
 
@@ -36,6 +37,7 @@ interface TaskSource {
 	suspend fun clearCompleted(): ApiResult<Unit> = ApiResult.Err(ApiError.Unsupported)
 }
 
+@Suppress("TooManyFunctions")
 class NetworkTaskSource(
 	private val api: FamilyPlanzApi,
 	private val cache: TaskCache? = null,

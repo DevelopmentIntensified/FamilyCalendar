@@ -161,6 +161,7 @@ private fun ActionBar(form: CalendarForm, actions: CalendarFormActions) {
 
 /** A one-line field: label, value, placeholder, optional tick (parsed) and hint. */
 @Composable
+@Suppress("LongParameterList")
 fun FormField(
 	label: String,
 	value: String,

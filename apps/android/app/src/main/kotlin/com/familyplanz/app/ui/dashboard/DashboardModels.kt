@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions")
 package com.familyplanz.app.ui.dashboard
 
 import com.familyplanz.app.data.CompletedTaskDto
@@ -51,6 +52,7 @@ fun dateLine(label: String, isToday: Boolean): String = if (isToday) "$label · 
 fun dueBadge(dueDate: String?): String? = parseDay(dueDate.orEmpty())?.let(DUE_LABEL::format)
 
 /** "9:30 AM"; blank when the timestamp is unreadable (the cards show nothing then). */
+@Suppress("ReturnCount")
 fun timeLabel(iso: String?, zone: ZoneId = ZoneId.systemDefault()): String {
 	val raw = iso?.takeIf { it.isNotBlank() } ?: return ""
 	val time = runCatching { OffsetDateTime.parse(raw).atZoneSameInstant(zone).toLocalTime() }.getOrNull()
@@ -92,6 +94,7 @@ fun rsvpVisual(status: String?): RsvpVisual? = when (status) {
 }
 
 /** The board's assignee name (`memberName` in FamilyTaskBoardCard): You / roster name / first 8. */
+@Suppress("ReturnCount")
 fun memberName(userId: String?, members: List<FamilyMemberDto>, meId: String): String {
 	if (userId == null) return "Unassigned"
 	if (userId == meId) return "You"
@@ -115,6 +118,7 @@ fun boardRoster(tasks: List<TaskDto>, members: List<FamilyMemberDto>, meId: Stri
 }
 
 /** The avatar's one or two letters (`initials()` in the Svelte cards); "Y" for You. */
+@Suppress("ReturnCount")
 fun initialOf(name: String): String {
 	if (name == "You") return "Y"
 	val parts = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }

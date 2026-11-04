@@ -146,12 +146,12 @@ private fun WeekDayColumn(day: LocalDate, state: CalendarUiState, visible: Visib
 		for (hour in 1 until HOUR_ROWS) {
 			Box(Modifier.fillMaxWidth().height(1.dp).padding(top = (hour * WEEK_HOUR_DP - 1).dp).background(Slate.S100))
 		}
-		blocks.forEach { block -> WeekBlock(block, state, actions) }
+		blocks.forEach { block -> WeekBlock(block, actions) }
 	}
 }
 
 @Composable
-private fun WeekBlock(block: TimedBlock, state: CalendarUiState, actions: CalendarActions) {
+private fun WeekBlock(block: TimedBlock, actions: CalendarActions) {
 	val minuteDp = WEEK_HOUR_DP / 60f
 	val top = (block.startMin * minuteDp).dp
 	val height = ((block.endMin - block.startMin) * minuteDp).dp
@@ -170,7 +170,7 @@ private fun WeekBlock(block: TimedBlock, state: CalendarUiState, actions: Calend
 
 /** The all-day list line used by DayView too. */
 @Composable
-fun AllDayRow(event: CalendarEvent, zone: java.time.ZoneId, onClick: () -> Unit) {
+fun AllDayRow(event: CalendarEvent, onClick: () -> Unit) {
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
@@ -186,3 +186,4 @@ fun AllDayRow(event: CalendarEvent, zone: java.time.ZoneId, onClick: () -> Unit)
 		Text("All day", fontSize = 11.sp, color = FpTheme.colors.textMuted)
 	}
 }
+

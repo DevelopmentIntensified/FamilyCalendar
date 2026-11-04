@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.theme
 
 import androidx.compose.runtime.Immutable
@@ -10,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 
 /** One grocery store swatch (`groceries.ts` STORE_COLOURS): chip, header bar and dot. */
 @Immutable
+@Suppress("MatchingDeclarationName")
 data class StoreTone(val key: String, val label: String, val chip: ChipTone, val bar: Color, val dot: Color)
 
 /** `groceries.ts:156-200` STORE_COLOURS, same order and keys. */

@@ -75,7 +75,8 @@ fun DayActionSheet(day: LocalDate, state: CalendarUiState, visible: VisibleCalen
 					) {
 						com.familyplanz.app.ui.calendar.chips.ChipKindMark(chipKindOf(event), chipColor(event.color), ChipDensity.WORD)
 						Column(modifier = Modifier.weight(1f)) {
-							Text(event.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Slate.S800, maxLines = 1, overflow = TextOverflow.Ellipsis)
+							Text(event.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Slate.S800,
+								maxLines = 1, overflow = TextOverflow.Ellipsis)
 							Text(
 								eventWhen(event, state.zone) + (event.creatorName?.let { " - by $it" } ?: ""),
 								fontSize = 12.sp,

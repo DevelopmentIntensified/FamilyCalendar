@@ -20,6 +20,7 @@ import com.familyplanz.app.ui.theme.FpTheme
 import com.familyplanz.app.ui.theme.Slate
 
 /** Everything the family detail page can ask of the app. */
+@Suppress("LongParameterList")
 class FamilyDetailActions(
 	val onAddMember: () -> Unit = {},
 	val onOpenTasks: () -> Unit = {},

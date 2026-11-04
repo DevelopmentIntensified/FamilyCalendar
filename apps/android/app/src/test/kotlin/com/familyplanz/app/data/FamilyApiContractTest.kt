@@ -151,7 +151,9 @@ class FamilyApiContractTest {
 	@Test
 	fun `invite codes read the manager list and refuse a plain member`() = runBlocking {
 		ok(
-			"""{"canManageInvites":true,"codes":[{"code":"AB12","useCount":0,"maxUses":5,"expiresAt":"2026-02-01T00:00:00.000Z","createdBy":"u1"}]}""",
+			"""
+			{"canManageInvites":true,"codes":[{"code":"AB12","useCount":0,"maxUses":5,"expiresAt":"2026-02-01T00:00:00.000Z","createdBy":"u1"}]}
+			""".trimIndent(),
 		)
 		val codes = (families.inviteCodes("f1") as ApiResult.Ok).value
 		assertEquals("/api/families/f1/invite-codes", server.takeRequest().path)

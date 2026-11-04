@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions", "MatchingDeclarationName")
 package com.familyplanz.app.ui.calendar
 
 import androidx.compose.foundation.BorderStroke
@@ -55,6 +56,7 @@ import java.time.ZoneId
  * component owns the look and both lanes cannot drift.
  */
 
+@Suppress("MatchingDeclarationName")
 data class EventSheetActions(
 	val onClose: () -> Unit,
 	val onRsvp: (CalendarEvent, String) -> Unit,
@@ -77,7 +79,7 @@ fun EventSheet(
 	var checklistText by remember(event.id) { mutableStateOf("") }
 	CalendarSheetShell(onClose = actions.onClose, modifier = Modifier.testTag("event-sheet")) {
 		Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-			EventHeader(event, state, actions)
+			EventHeader(event, actions)
 			DetailRows(event, state)
 			if (event.isRecurring) RecurrenceCard(event)
 			RsvpControl(event, actions)
@@ -122,7 +124,7 @@ private fun eventsWarning(event: CalendarEvent): String =
 	if (event.isRecurring) "Repeating event - pick a scope below. " else ""
 
 @Composable
-private fun EventHeader(event: CalendarEvent, state: CalendarUiState, actions: EventSheetActions) {
+private fun EventHeader(event: CalendarEvent, actions: EventSheetActions) {
 	Row(
 		modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 8.dp),
 		verticalAlignment = Alignment.CenterVertically,
@@ -130,7 +132,8 @@ private fun EventHeader(event: CalendarEvent, state: CalendarUiState, actions: E
 	) {
 		Box(Modifier.size(12.dp).clip(FpShape.Pill).background(chipColor(event.color)))
 		Column(modifier = Modifier.weight(1f)) {
-			Text(event.title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = FpTheme.colors.textStrong, maxLines = 2, overflow = TextOverflow.Ellipsis)
+			Text(event.title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = FpTheme.colors.textStrong,
+				maxLines = 2, overflow = TextOverflow.Ellipsis)
 			if (event.isRecurring) {
 				Text("Repeats ${repeatRule(event)}", fontSize = 12.sp, color = Accent.Purple500)
 			}
@@ -195,7 +198,8 @@ private fun Detail(label: String, value: String) {
 
 @Composable
 private fun RecurrenceCard(event: CalendarEvent) {
-	Surface(shape = MaterialTheme.shapes.medium, color = Accent.Purple100, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+	Surface(shape = MaterialTheme.shapes.medium, color = Accent.Purple100, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp,
+		vertical = 6.dp)) {
 		Column(modifier = Modifier.padding(12.dp)) {
 			Text("This is a repeating event", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Accent.Purple500)
 			Text("Repeats ${repeatRule(event)}", fontSize = 12.sp, color = FpTheme.colors.textBody)
@@ -345,7 +349,8 @@ private fun FooterButton(
 
 @Composable
 private fun ConfirmPanel(question: String, body: String, confirm: String, onConfirm: () -> Unit, onCancel: () -> Unit) {
-	Surface(shape = MaterialTheme.shapes.medium, color = Accent.Red50, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+	Surface(shape = MaterialTheme.shapes.medium, color = Accent.Red50, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp,
+		vertical = 6.dp)) {
 		Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 			Text(question, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Accent.Red700)
 			Text(body, fontSize = 12.sp, color = FpTheme.colors.textBody, fontStyle = FontStyle.Normal)
@@ -364,3 +369,4 @@ fun EventKindMark(event: CalendarEvent) {
 }
 
 internal fun eventZone(state: CalendarUiState): ZoneId = state.zone
+

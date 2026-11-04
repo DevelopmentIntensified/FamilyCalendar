@@ -119,9 +119,14 @@ private fun TasksContent(
 	val completed = state.tasks.count { it.completed }
 	val ticking = anyFocusing(state.tasks)
 	val liveNow = rememberFocusNow(ticking, state.tasks)
-	LazyColumn(contentPadding = PaddingValues(vertical = 4.dp)) {
-		item { TasksHeaderCard(open, completed, state.warnings) }
-		item {
+	LazyColumn(modifier = Modifier.fillMaxSize().testTag("tasks-list"), contentPadding = PaddingValues(vertical = 4.dp)) {
+		if (match.rows.isEmpty()) {
+			item(key = "empty-list") { TaskEmptyList(match.total, state.query) }
+		}
+		if (match.rows.isNotEmpty()) {
+			item(key = "header") { TasksHeaderCard(open, completed, state.warnings) }
+		}
+		item(key = "add-task") {
 			actions.onCreate?.let { onCreate ->
 				AddTaskCard(
 					error = state.createError,
@@ -133,10 +138,10 @@ private fun TasksContent(
 				)
 			}
 		}
-		item {
+		item(key = "focusing-now") {
 			state.tasks.firstOrNull { com.familyplanz.app.domain.isFocusing(it) }?.let { FocusingNowNote(it.title) }
 		}
-		item {
+		item(key = "toolbar") {
 			TaskToolbar(
 				match = match,
 				query = state.query,
@@ -148,10 +153,7 @@ private fun TasksContent(
 				onTag = actions.onTag,
 			)
 		}
-		if (match.rows.isEmpty()) {
-			item { TaskEmptyList(match.total, state.query) }
-		}
-		groups.forEach { group ->
+ 		groups.forEach { group ->
 			item(key = "group-${group.label}") { GroupHeading(group.label, group.tasks.size) }
 			items(group.tasks, key = { "${group.label}-${it.id}" }) { task ->
 				if (task.completed) {

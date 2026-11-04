@@ -81,6 +81,7 @@ data class MetaSlot(val kind: SlotKind, val text: String, val tone: DueTone? = n
  * family, who), plus the native-only saving ack first and focus time last.
  * The category chip renders separately ([CategoryChip], tag `category-chip`).
  */
+@Suppress("CyclomaticComplexMethod")
 internal fun taskMetaSlots(
 	task: Task,
 	now: Instant = Instant.now(),
@@ -106,6 +107,7 @@ internal fun taskMetaSlots(
 }
 
 /** Chip tone per slot kind; null = plain meta text (slate-400). Pure, for tests. */
+@Suppress("CyclomaticComplexMethod")
 internal fun FpColors.toneFor(slot: MetaSlot): ChipTone? = when (slot.kind) {
 	SlotKind.DUE -> when (slot.tone) {
 		DueTone.OVERDUE -> late

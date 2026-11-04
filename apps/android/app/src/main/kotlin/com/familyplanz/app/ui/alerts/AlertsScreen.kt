@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.alerts
 
 import androidx.compose.foundation.BorderStroke
@@ -50,6 +51,7 @@ import com.familyplanz.app.ui.theme.Primary
 import com.familyplanz.app.ui.theme.Slate
 
 /** What the Alerts screen can ask for. */
+@Suppress("MatchingDeclarationName")
 data class AlertsActions(
 	val onFilter: (AlertFilter) -> Unit = {},
 	val onOpen: (NotificationDto) -> Unit = {},
@@ -313,7 +315,8 @@ private fun LoadError(message: String, onRetry: () -> Unit) {
 		modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(Accent.Red50)
 			.border(1.dp, Accent.Red200, MaterialTheme.shapes.medium).padding(horizontal = 12.dp, vertical = 8.dp),
 	) {
-		Text("Couldn't load your alerts. $message", style = MaterialTheme.typography.bodyMedium, color = Accent.Red700, modifier = Modifier.weight(1f))
+		Text("Couldn't load your alerts. $message", style = MaterialTheme.typography.bodyMedium,
+			color = Accent.Red700, modifier = Modifier.weight(1f))
 		Text(
 			"Retry",
 			style = MaterialTheme.typography.bodyMedium,

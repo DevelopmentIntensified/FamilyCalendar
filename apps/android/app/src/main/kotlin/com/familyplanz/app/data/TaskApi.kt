@@ -105,15 +105,6 @@ data class TaskSectionsDto(
 )
 
 @Serializable
-data class RosterMemberDto(
-	val userId: String,
-	val firstName: String = "",
-	val lastName: String = "",
-	val role: String? = null,
-	val memberType: String? = null,
-)
-
-@Serializable
 data class FamilyRosterDto(val familyId: String? = null, val members: List<RosterMemberDto> = emptyList())
 
 @Serializable

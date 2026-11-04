@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions")
 package com.familyplanz.app.ui.secondary
 
 import androidx.compose.foundation.BorderStroke
@@ -122,6 +123,7 @@ internal fun Modifier.dashedBorder(color: Color, shape: Shape): Modifier = drawB
 
 /** `rounded-xl border border-slate-200 bg-white p-5 shadow-sm`; [background] overrides the fill, [dashed] the outline. */
 @Composable
+@Suppress("LongParameterList")
 internal fun PageCard(
 	modifier: Modifier = Modifier,
 	padding: PaddingValues = PaddingValues(20.dp),
@@ -260,7 +262,8 @@ internal fun SelectField(
 				.testTag(testTag),
 			verticalAlignment = Alignment.CenterVertically,
 		) {
-			Text(current, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = FpTheme.colors.textStrong, maxLines = 1)
+			Text(current, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
+				color = FpTheme.colors.textStrong, maxLines = 1)
 			Text("▾", color = FpTheme.colors.textMuted)
 		}
 		DropdownMenu(expanded = open, onDismissRequest = { open = false }) {

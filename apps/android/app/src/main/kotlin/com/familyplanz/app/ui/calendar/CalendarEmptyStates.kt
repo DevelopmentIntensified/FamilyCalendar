@@ -81,6 +81,7 @@ fun CalendarEmptyCard(
 }
 
 @Composable
+@Suppress("LongParameterList")
 fun CalendarEmpty(
 	empty: CalendarEmpty,
 	query: String,
@@ -189,9 +190,9 @@ fun CalendarSkeleton(modifier: Modifier = Modifier) {
 	)
 	Column(modifier = modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 		Box(Modifier.height(40.dp).width(256.dp).clip(FpShape.Cell).background(Slate.S100).alpha(alpha))
-		for (week in 0 until 6) {
+		repeat(6) {
 			Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-				for (day in 0 until 7) {
+				repeat(7) {
 					Box(
 						Modifier
 							.weight(1f)

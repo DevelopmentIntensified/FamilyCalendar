@@ -154,10 +154,11 @@ internal fun AuthWordmark(modifier: Modifier = Modifier) {
 @Composable
 private fun AuthHeader(state: SignInUiState, actions: SignInActions) {
 	val signup = state.intent == AuthIntent.SIGNUP
-	val (title, lead, link, tail) = when {
-		state.step == SignInStep.FORGOT -> listOf("Reset Password", "Remember your password? ", "Log in", "")
-		signup -> listOf("Create Account", "Already have an account? ", "Sign in", "")
-		else -> listOf("Welcome Back", "Don't have an account? ", "Sign up", " or start planning with no account needed.")
+	val header = when {
+		state.step == SignInStep.FORGOT ->
+			HeaderCopy("Reset Password", "Remember your password? ", "Log in", "")
+		signup -> HeaderCopy("Create Account", "Already have an account? ", "Sign in", "")
+		else -> HeaderCopy("Welcome Back", "Don't have an account? ", "Sign up", " or start planning with no account needed.")
 	}
 	val onLink = {
 		if (state.step == SignInStep.FORGOT) {
@@ -166,7 +167,7 @@ private fun AuthHeader(state: SignInUiState, actions: SignInActions) {
 			actions.onIntent(if (signup) AuthIntent.LOGIN else AuthIntent.SIGNUP)
 		}
 	}
-	AuthTitle(title, lead, link, tail, onLink)
+	AuthTitle(header.title, header.lead, header.link, header.tail, onLink)
 }
 
 /** h1 30/36/700 tight slate-900, then the 14sp slate-600 subline with its primary-600 link. */
@@ -268,3 +269,6 @@ private fun AdvancedTokenEntry(onSave: (String) -> Unit) {
 		) { Text("Save and sync") }
 	}
 }
+
+
+private data class HeaderCopy(val title: String, val lead: String, val link: String, val tail: String)

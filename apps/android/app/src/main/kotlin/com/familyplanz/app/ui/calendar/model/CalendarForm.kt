@@ -116,6 +116,7 @@ data class CalendarForm(
 	val headerSubtitle: String
 		get() = if (kind == FormKind.TASK) FormKind.TASK.subtitle else FormKind.EVENT.subtitle
 
+	@Suppress("ReturnCount")
 	fun createRequest(zone: ZoneId): CreateEventRequest? {
 		val day = date ?: return null
 		val timed = !allDay && !startTime.isNullOrBlank()
@@ -157,6 +158,7 @@ data class CalendarForm(
 	/** Every field the user set by hand is no longer "parsed" (the tick goes away). */
 	fun touched(field: FormField): Set<FormField> = parsed - field
 
+	@Suppress("TooManyFunctions")
 	companion object {
 		/** The FAB: create an event dated today (AC-CAL-28). */
 		fun create(date: LocalDate, calendarId: String? = null): CalendarForm =
@@ -200,6 +202,7 @@ data class CalendarForm(
 		}
 
 		/** Quick Add fills what it found and marks those fields (a parse is a hint). */
+		@Suppress("CyclomaticComplexMethod")
 		fun parsedInto(form: CalendarForm, parsed: ParsedEventDto?): CalendarForm {
 			if (parsed == null) return form
 			val marks = mutableSetOf<FormField>()

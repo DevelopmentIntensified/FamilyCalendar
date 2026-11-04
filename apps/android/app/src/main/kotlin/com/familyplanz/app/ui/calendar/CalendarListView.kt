@@ -56,7 +56,7 @@ import java.time.LocalDate
 
 @Composable
 fun CalendarListView(state: CalendarUiState, visible: VisibleCalendar, actions: CalendarActions) {
-	val days = monthDaysWithRows(state.month, visible.events, visible.tasks, state.zone)
+	val days = monthDaysWithRows(state.month, visible.events, visible.tasks)
 	if (days.isEmpty()) {
 		Column(
 			modifier = Modifier.fillMaxWidth().padding(24.dp),
@@ -170,7 +170,8 @@ private fun MetaRow(event: CalendarEvent, state: CalendarUiState) {
 		ChipKindMark(com.familyplanz.app.ui.calendar.chips.chipKindOf(event), chipColor(event.color), ChipDensity.WORD)
 		Text(eventWhen(event, state.zone), fontSize = 12.sp, color = Slate.S500, maxLines = 1)
 		event.location?.takeIf { it.isNotBlank() }?.let {
-			Text(it, fontSize = 12.sp, color = FpTheme.colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(150.dp))
+			Text(it, fontSize = 12.sp, color = FpTheme.colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+				modifier = Modifier.width(150.dp))
 		}
 	}
 }
@@ -184,7 +185,8 @@ private fun TaskCard(task: CalendarTask, today: LocalDate, onTap: () -> Unit) {
 		border = BorderStroke(1.dp, com.familyplanz.app.ui.theme.FpTheme.colors.taskChipBorder),
 		modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clickable(onClick = onTap),
 	) {
-		Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+		Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+			horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 			Box(Modifier.size(9.dp).clip(com.familyplanz.app.ui.theme.FpShape.Pill).background(Slate.S400))
 			Text(task.title, fontSize = 14.sp, color = Slate.S700, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
 			ChipKindMark(ChipKind.TASK, Slate.S400, ChipDensity.WORD)

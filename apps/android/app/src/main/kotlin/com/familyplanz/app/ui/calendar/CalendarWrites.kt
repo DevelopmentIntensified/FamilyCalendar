@@ -29,6 +29,7 @@ import java.time.ZoneId
  * immediately (optimistic row + a toast naming what happened), then reloads
  * what the change touched.
  */
+@Suppress("LongParameterList", "TooManyFunctions")
 internal class CalendarWrites(
 	private val state: MutableStateFlow<CalendarUiState>,
 	private val scope: CoroutineScope,

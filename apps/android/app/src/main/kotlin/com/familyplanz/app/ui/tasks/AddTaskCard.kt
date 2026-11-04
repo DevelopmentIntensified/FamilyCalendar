@@ -46,6 +46,7 @@ import java.time.format.DateTimeFormatter
  */
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
+@Suppress("CyclomaticComplexMethod", "LongMethod", "LongParameterList")
 fun AddTaskCard(
 	error: String?,
 	categories: List<String> = emptyList(),

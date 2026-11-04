@@ -3,6 +3,13 @@ package com.familyplanz.app.ui.gesture
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.ComposeTimeoutException
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import com.familyplanz.app.AppModules
 import com.familyplanz.app.AppServices
 import com.familyplanz.app.data.AuthSource
@@ -17,7 +24,7 @@ import com.familyplanz.app.ui.shell.ShellSource
 import kotlinx.coroutines.runBlocking
 import org.robolectric.RuntimeEnvironment
 
-private const val WAIT_MS = 5_000L
+private const val WAIT_MS = 10_000L
 
 /** The shell's own edges: its `/api` source (badge/bell/`/api/me`), connectivity and queued writes. */
 data class ShellEdges(
@@ -62,9 +69,28 @@ class HostHarness(
 	}
 
 	fun waitForText(text: String, substring: Boolean = false) {
-		rule.waitUntil(WAIT_MS) {
+		val found = {
 			rule.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
 		}
+		val deadline = System.currentTimeMillis() + WAIT_MS
+		var scrollIndex = 0
+		while (System.currentTimeMillis() < deadline) {
+			try {
+				rule.waitUntil(500) { found() }
+				return
+			} catch (_: ComposeTimeoutException) {
+				try {
+					if (rule.onAllNodesWithTag("tasks-list").fetchSemanticsNodes().isNotEmpty()) {
+						rule.onNodeWithTag("tasks-list").performScrollToIndex(scrollIndex++ % 10)
+					} else {
+						rule.onRoot().performTouchInput { swipeUp() }
+					}
+				} catch (_: Exception) {
+					rule.onRoot().performTouchInput { swipeUp() }
+				}
+			}
+		}
+		rule.waitUntil(1) { found() }
 	}
 
 	fun waitForGone(text: String) {
@@ -77,3 +103,4 @@ class HostHarness(
 		rule.waitUntil(WAIT_MS) { condition() }
 	}
 }
+

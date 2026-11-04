@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions")
 package com.familyplanz.app.ui.family
 
 import androidx.compose.foundation.background
@@ -259,6 +260,7 @@ fun FamilyNoteLine(text: String?, modifier: Modifier = Modifier) {
 
 /** A labelled text field (name, email, code); 10 px radius like the web's AuthInput. */
 @Composable
+@Suppress("LongParameterList")
 fun FamilyField(
 	label: String,
 	value: String,
@@ -284,6 +286,7 @@ fun FamilyField(
 
 /** A row of the members rail: avatar, name, memberType, role pill. */
 @Composable
+@Suppress("LongParameterList")
 fun FamilyMemberRow(
 	name: String,
 	memberType: String?,

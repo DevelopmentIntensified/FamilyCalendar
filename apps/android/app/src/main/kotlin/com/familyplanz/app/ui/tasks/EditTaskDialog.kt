@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.tasks
 
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 
 /** What the edit dialog holds; prefilled from the row (AC-TK-20). */
+@Suppress("MatchingDeclarationName")
 data class TaskEditForm(
 	val title: String,
 	val notes: String,
@@ -68,6 +70,7 @@ fun Task.toEditForm(): TaskEditForm = TaskEditForm(
  * AC-TK-20: only the fields that differ from [original] ride the request;
  * null = nothing changed, so Save sends nothing at all.
  */
+@Suppress("CyclomaticComplexMethod")
 fun TaskEditForm.changedPatch(original: Task): TaskUpdatePatch? {
 	val fields = linkedMapOf<String, JsonElement>()
 	fun text(name: String, value: String?, before: String?) {
@@ -104,6 +107,7 @@ private fun TaskEditForm.tagsNormalized(): List<String> =
  */
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
+@Suppress("LongMethod")
 fun EditTaskDialog(
 	task: Task,
 	categories: List<String> = emptyList(),

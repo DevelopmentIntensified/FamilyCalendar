@@ -154,7 +154,8 @@ fun fixturesBugs(): AdminBugsDto = AdminBugsDto(
 
 fun fixturesNlp(): AdminNlpDto = AdminNlpDto(
 	phrases = listOf(
-		UnmatchedPhraseDto("p1", "event_parse", "meeting third tuesday", matched = """{"title":"meeting"}""", count = 4, createdAt = "2026-11-01T12:00:00Z"),
+		UnmatchedPhraseDto("p1", "event_parse", "meeting third tuesday", matched = """{"title":"meeting"}""",
+			count = 4, createdAt = "2026-11-01T12:00:00Z"),
 		UnmatchedPhraseDto("p2", "event_parse", "lunch every other week", matched = null, count = 2, createdAt = "2026-11-02T12:00:00Z"),
 		UnmatchedPhraseDto("p3", "bulk_edit", "move all to next friday", matched = null, count = 1, createdAt = "2026-11-03T12:00:00Z"),
 	),

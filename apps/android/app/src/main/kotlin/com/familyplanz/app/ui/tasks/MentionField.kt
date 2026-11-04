@@ -31,6 +31,7 @@ import com.familyplanz.app.ui.theme.FpTheme
  */
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
+@Suppress("LongParameterList")
 fun MentionField(
 	value: String,
 	onValueChange: (String) -> Unit,

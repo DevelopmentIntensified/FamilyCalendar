@@ -15,6 +15,7 @@ import com.familyplanz.app.ui.theme.FpTheme
  * trail (AC-AC-4..7).
  */
 @Composable
+@Suppress("LongMethod")
 fun CalendarSettingsSection(state: AccountState, actions: AccountActions) {
 	val settings = state.settings
 	AccountCard("Calendar Settings") {

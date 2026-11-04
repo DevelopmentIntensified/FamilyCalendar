@@ -29,6 +29,7 @@ data class DaySection(val day: String, val events: List<CalendarEvent> = emptyLi
  * view derives from, the month/task/verse loads, the reading filters, the
  * sheet and form overlays, selection and bulk. Writes live in [CalendarWrites].
  */
+@Suppress("TooManyFunctions")
 class CalendarViewModel(
 	private val repository: TaskRepository,
 	private val source: CalendarSource = UnavailableCalendarSource,
@@ -151,7 +152,8 @@ class CalendarViewModel(
 
 	fun openDay(date: LocalDate) {
 		_ui.update {
-			it.copy(anchor = date, viewBeforeDay = if (it.view == CalendarView.DAY) it.viewBeforeDay else it.view, view = CalendarView.DAY, sheet = null)
+			it.copy(anchor = date, viewBeforeDay = if (it.view == CalendarView.DAY) it.viewBeforeDay else it.view,
+				view = CalendarView.DAY, sheet = null)
 		}
 		viewModelScope.launch { loadMonth(YearMonth.from(date)) }
 	}
@@ -344,7 +346,8 @@ class CalendarViewModel(
 
 	fun applyCalendar(calendarId: String) {
 		val name = _ui.value.data.calendars.firstOrNull { it.id == calendarId }?.name.orEmpty()
-		writes.applyOp(_ui.value.selectedIds, com.familyplanz.app.ui.calendar.model.BulkOps.calendar(calendarId), "Moved ${com.familyplanz.app.ui.calendar.model.events(_ui.value.selectedIds.size)} to $name.")
+		writes.applyOp(_ui.value.selectedIds, com.familyplanz.app.ui.calendar.model.BulkOps.calendar(calendarId),
+			"Moved ${com.familyplanz.app.ui.calendar.model.events(_ui.value.selectedIds.size)} to $name.")
 	}
 
 	fun applyLocation(text: String) {

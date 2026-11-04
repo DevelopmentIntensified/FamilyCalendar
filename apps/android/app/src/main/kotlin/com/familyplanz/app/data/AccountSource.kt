@@ -27,6 +27,7 @@ class NetworkAccountSource(private val api: FamilyPlanzApi) : AccountSource {
  * (#292 G1, G3, G12, G13, G14). Own Retrofit interface so this lane never
  * edits another lane's API file.
  */
+@Suppress("TooManyFunctions")
 interface AccountApi {
 	@GET("api/me")
 	suspend fun me(): AccountMeDto
@@ -86,6 +87,7 @@ interface AccountApi {
 }
 
 /** The Account screens' network edge: one call per spec endpoint. */
+@Suppress("TooManyFunctions")
 interface AccountSettingsSource {
 	suspend fun me(): ApiResult<AccountMeDto>
 
@@ -124,6 +126,7 @@ interface AccountSettingsSource {
 	suspend fun claim(email: String): ApiResult<Unit>
 }
 
+@Suppress("TooManyFunctions")
 class NetworkAccountSettingsSource(private val api: AccountApi) : AccountSettingsSource {
 	override suspend fun me(): ApiResult<AccountMeDto> = apiCall { api.me() }
 

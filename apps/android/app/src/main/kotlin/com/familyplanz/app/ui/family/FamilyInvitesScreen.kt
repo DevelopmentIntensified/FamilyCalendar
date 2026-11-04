@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.family
 
 import androidx.compose.foundation.background
@@ -24,6 +25,7 @@ import com.familyplanz.app.ui.theme.FpTheme
 import com.familyplanz.app.ui.theme.Slate
 
 /** What the invitations page can ask of the app. */
+@Suppress("LongParameterList", "MatchingDeclarationName")
 class FamilyInvitesActions(
 	val onSelectFamily: (String) -> Unit = {},
 	val onBack: () -> Unit = {},

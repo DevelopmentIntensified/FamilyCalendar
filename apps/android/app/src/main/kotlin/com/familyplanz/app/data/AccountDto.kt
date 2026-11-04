@@ -29,21 +29,6 @@ data class AccountSettingsDto(
 )
 
 @Serializable
-data class CalendarSettingsDto(
-	val weekStart: String = "sunday",
-	val timeZone: String = "UTC",
-	val color: String = "#3b82f6",
-	val defaultView: String = "dayView",
-	val defaultCalendarId: String? = null,
-	val syncEventsToFamilyCalendar: Boolean = false,
-	val autoParseEventDetails: Boolean = true,
-	val showDailyVerse: Boolean = false,
-	val showAdsAsEvents: Boolean = false,
-	val verseTranslation: String = "esv",
-	val hiddenDashboardModules: List<String> = emptyList(),
-)
-
-@Serializable
 data class VerseTranslationDto(val id: String = "", val label: String = "", val attribution: String? = null)
 
 @Serializable

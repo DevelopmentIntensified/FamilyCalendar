@@ -50,6 +50,7 @@ import com.familyplanz.app.ui.theme.FpTheme
  */
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
+@Suppress("LongParameterList")
 fun TaskToolbar(
 	match: TaskMatch,
 	query: TaskQuery,

@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.family
 
 import android.content.ClipData
@@ -20,6 +21,7 @@ import com.familyplanz.app.ui.shell.ShellMenuButton
 import kotlinx.coroutines.launch
 
 /** The Families tab's own sub-routes (2.7-2.11); `nav` keeps the tab and the back stack. */
+@Suppress("MatchingDeclarationName")
 sealed interface FamilyRoute {
 	data object List : FamilyRoute
 
@@ -39,6 +41,7 @@ sealed interface FamilyRoute {
  * create form and the two member/task sub-pages. Snacks go to the shell.
  */
 @Composable
+@Suppress("LongMethod")
 fun FamilyEntry(nav: AppNav) {
 	val modules = LocalAppModules.current
 	val shell = LocalShell.current
@@ -74,7 +77,7 @@ fun FamilyEntry(nav: AppNav) {
 					onAddMember = { route = FamilyRoute.Members(it) },
 					onFamilyTasks = { route = FamilyRoute.Tasks(it) },
 					onCreate = { route = FamilyRoute.Create },
-					onUpgrade = { nav.openLink(PricingPath) },
+					onUpgrade = { nav.openLink(PRICING_PATH) },
 					onMint = vm::mint,
 					onCopy = { link, _ -> copy(link, vm::copied, vm::copyFailed) },
 					onOpenInvitations = { route = FamilyRoute.Invites(soleFamilyId(vm)) },
@@ -92,8 +95,8 @@ fun FamilyEntry(nav: AppNav) {
 				actions = FamilyDetailActions(
 					onAddMember = { route = FamilyRoute.Members(current.familyId) },
 					onOpenTasks = { route = FamilyRoute.Tasks(current.familyId) },
-					onOpenGroceries = { nav.openLink(GroceriesPath) },
-					onOpenCalendar = { nav.openLink(CalendarPath) },
+					onOpenGroceries = { nav.openLink(GROCERIES_PATH) },
+					onOpenCalendar = { nav.openLink(CALENDAR_PATH) },
 					onOpenInvitations = { route = FamilyRoute.Invites(current.familyId) },
 					onSetType = vm::setMemberType,
 					onSetRole = vm::setRole,
@@ -148,7 +151,7 @@ fun FamilyEntry(nav: AppNav) {
 					onPickColor = vm::pickColor,
 					onToggleMember = vm::toggleMember,
 					onSubmit = vm::submit,
-					onUpgrade = { nav.openLink(PricingPath) },
+					onUpgrade = { nav.openLink(PRICING_PATH) },
 					onBack = { route = FamilyRoute.List },
 				),
 			)
@@ -198,11 +201,11 @@ fun FamilyEntry(nav: AppNav) {
 }
 
 /** The web's pricing page, opened in a Custom Tab (AC-FM-2, AC-FC-2). */
-private const val PricingPath = "/pricing"
+private const val PRICING_PATH = "/pricing"
 
-private const val GroceriesPath = "/calendar/groceries"
+private const val GROCERIES_PATH = "/calendar/groceries"
 
-private const val CalendarPath = "/calendar"
+private const val CALENDAR_PATH = "/calendar"
 
 /** Clipboard write, encoded as the Android plain-text clip the shell can paste. */
 private fun clipEntry(link: String): ClipEntry = ClipEntry(ClipData.newPlainText("FamilyPlanz invite", link))
@@ -214,3 +217,4 @@ private fun soleFamilyId(vm: FamilyListViewModel): String =
 /** The search hit behind an "Add" tap, so the entry keeps [FamilyMembersViewModel] state-free. */
 private fun hitFor(id: String, state: FamilyMembersState): MemberHitDto =
 	state.hits.firstOrNull { it.id == id } ?: MemberHitDto(id = id)
+

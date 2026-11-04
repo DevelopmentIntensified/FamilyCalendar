@@ -42,7 +42,8 @@ class PrintModelTest {
 				monthName = "Nov <script>",
 				familyName = "A & B",
 				grid = base.grid.mapIndexed { i, cell ->
-					if (i == 0) cell.copy(items = listOf(cell.items.first().copy(title = "\"Milk\" & <b>bread</b>", color = "red; background:url(x)"))) else cell
+					if (i == 0) cell.copy(items = listOf(cell.items.first().copy(title = "\"Milk\" & <b>bread</b>",
+						color = "red; background:url(x)"))) else cell
 				},
 			)
 		}

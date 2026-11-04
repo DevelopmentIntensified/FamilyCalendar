@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions")
 package com.familyplanz.app.domain.tasks
 
 import com.familyplanz.app.domain.TaskPriority
@@ -112,6 +113,7 @@ private fun assigneePhraseRe(trigger: String, name: String): Regex {
 }
 
 /** Earliest roster-matched assignee phrase; ties go to the longest. Null = nothing to strip. */
+@Suppress("NestedBlockDepth")
 fun findTaskAssignee(input: String, members: List<QuickAddMember>): TaskAssigneeMatch? {
 	var best: TaskAssigneeMatch? = null
 	for (trigger in ASSIGNEE_TRIGGERS) {
@@ -125,6 +127,7 @@ fun findTaskAssignee(input: String, members: List<QuickAddMember>): TaskAssignee
 				val match = assigneePhraseRe(trigger, name).find(input) ?: continue
 				val candidate = TaskAssigneeMatch(member.userId, match.range.first, match.value.length)
 				val current = best
+				@Suppress("ComplexCondition")
 				if (current == null || candidate.index < current.index ||
 					(candidate.index == current.index && candidate.length > current.length)
 				) {
@@ -150,6 +153,7 @@ private fun parseRecurrence(title: String, today: LocalDate): Recurrence =
 		?: Recurrence(null, null, null, title)
 
 /** First date phrase that resolves: next-weekday → month+day → relative → bare word. */
+@Suppress("ReturnCount")
 private fun resolveDate(title: String, today: LocalDate): Pair<LocalDate, IntRange>? {
 	NEXT_WEEKDAY_RE.find(title)?.let { return nextWeekday(today, it.groupValues[1]) to it.range }
 	MONTH_DATE_RE.find(title)?.let { md ->

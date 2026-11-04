@@ -1,7 +1,9 @@
 package com.familyplanz.app.ui.family
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -264,6 +266,7 @@ fun ColourSwatch(hex: String, selected: Boolean, onPick: () -> Unit) {
 		modifier = Modifier
 			.size(32.dp)
 			.clip(CircleShape)
+			.clickable(role = Role.Button) { onPick() }
 			.background(parsed)
 			.border(if (selected) 3.dp else 1.dp, if (selected) FpTheme.colors.textStrong else Color.White, CircleShape)
 			.padding(2.dp)

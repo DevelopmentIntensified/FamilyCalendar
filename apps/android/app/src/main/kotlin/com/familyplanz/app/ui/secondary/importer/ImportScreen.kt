@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions")
 package com.familyplanz.app.ui.secondary.importer
 
 import androidx.compose.foundation.background
@@ -164,7 +165,14 @@ private fun DropZone(chosen: List<ChosenFile>, onPick: () -> Unit) {
 		horizontalAlignment = Alignment.CenterHorizontally,
 		verticalArrangement = Arrangement.spacedBy(8.dp),
 	) {
-		Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Slate.S700, maxLines = 1, overflow = TextOverflow.Ellipsis)
+		Text(
+			label,
+			style = MaterialTheme.typography.bodyMedium,
+			fontWeight = FontWeight.Medium,
+			color = Slate.S700,
+			maxLines = 1,
+			overflow = TextOverflow.Ellipsis,
+		)
 		Hint(if (chosen.isEmpty()) "Up to 500 events · max 5 MB each · 10 files" else "Ready to preview")
 		Hint("Files are read on your phone and sent as text — nothing is uploaded to a third party.")
 	}
@@ -183,7 +191,15 @@ private fun ChosenRow(file: ChosenFile, index: Int, onRemove: (Int) -> Unit) {
 		horizontalArrangement = Arrangement.spacedBy(8.dp),
 	) {
 		IcsTag(Slate.S100, Slate.S500)
-		Text(file.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Slate.S800, maxLines = 1, overflow = TextOverflow.Ellipsis)
+		Text(
+			file.name,
+			modifier = Modifier.weight(1f),
+			style = MaterialTheme.typography.bodyMedium,
+			fontWeight = FontWeight.Medium,
+			color = Slate.S800,
+			maxLines = 1,
+			overflow = TextOverflow.Ellipsis,
+		)
 		Text(sizeLabel(file.bytes.size), style = MaterialTheme.typography.bodySmall, color = FpTheme.colors.textMuted)
 		RemoveCross("Remove ${file.name}") { onRemove(index) }
 	}
@@ -279,7 +295,15 @@ private fun FilesCard(preview: ImportPreview, onPick: (Pick) -> Unit) {
 				horizontalArrangement = Arrangement.spacedBy(8.dp),
 			) {
 				IcsTag(Slate.S200, Slate.S600)
-				Text(file.fileName, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Slate.S800, maxLines = 1, overflow = TextOverflow.Ellipsis)
+				Text(
+					file.fileName,
+					modifier = Modifier.weight(1f),
+					style = MaterialTheme.typography.bodyMedium,
+					fontWeight = FontWeight.Medium,
+					color = Slate.S800,
+					maxLines = 1,
+					overflow = TextOverflow.Ellipsis,
+				)
 				Text(plural(file.events, "event"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 				if (file.duplicates > 0) {
 					Badge(plural(file.duplicates, "dupe"), PageTones.Rose100, PageTones.Rose700)
@@ -289,7 +313,11 @@ private fun FilesCard(preview: ImportPreview, onPick: (Pick) -> Unit) {
 				RemoveCross("Remove ${file.fileName} from this import") { onPick(Pick.DropFile(file.fileName)) }
 			}
 		}
-		Text("Nothing is written until you confirm.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+		Text(
+			"Nothing is written until you confirm.",
+			style = MaterialTheme.typography.bodySmall,
+			color = MaterialTheme.colorScheme.onSurfaceVariant,
+		)
 	}
 }
 
@@ -300,7 +328,8 @@ private fun DuplicateNote(preview: ImportPreview) {
 	val subject = if (n == 1) "it is" else "they are"
 	val them = if (n == 1) "it" else "them"
 	Text(
-		"$n $looks like $subject already on ${preview.calendarName} — same title, same start. Left unticked; tick $them only if you want a second copy.",
+		"$n $looks like $subject already on ${preview.calendarName} — same title, same start. " +
+			"Left unticked; tick $them only if you want a second copy.",
 		modifier = Modifier.fillMaxWidth().background(FpTheme.colors.warnSurface, MaterialTheme.shapes.small)
 			.border(1.dp, FpTheme.colors.warnBorder, MaterialTheme.shapes.small).padding(horizontal = 12.dp, vertical = 8.dp),
 		style = MaterialTheme.typography.bodySmall,
@@ -310,7 +339,11 @@ private fun DuplicateNote(preview: ImportPreview) {
 
 @Composable
 private fun SelectionBar(state: ImportUiState, preview: ImportPreview, onPick: (Pick) -> Unit) {
-	FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+	FlowRow(
+		horizontalArrangement = Arrangement.spacedBy(8.dp),
+		verticalArrangement = Arrangement.spacedBy(8.dp),
+		itemVerticalAlignment = Alignment.CenterVertically,
+	) {
 		ActionButton("Select all", { onPick(Pick.All) }, ButtonLooks.Outline)
 		ActionButton("Select none", { onPick(Pick.None) }, ButtonLooks.Outline)
 		if (!state.atDefault) ActionButton("Back to suggested", { onPick(Pick.Suggested) }, ButtonLooks.Amber)
@@ -347,13 +380,23 @@ private fun ItemRow(item: ImportItem, calendarName: String, ticked: Boolean, onT
 			)
 			Text(item.whenText, style = MaterialTheme.typography.bodySmall, color = Slate.S600)
 			item.location?.let {
-				Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+				Text(
+					it,
+					style = MaterialTheme.typography.bodySmall,
+					color = MaterialTheme.colorScheme.onSurfaceVariant,
+					maxLines = 1,
+					overflow = TextOverflow.Ellipsis,
+				)
 			}
 			item.reason?.let {
 				Text(it.note.format(calendarName), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = Accent.Amber700)
 			}
 		}
-		if (item.duplicate) Badge("already there", PageTones.Rose100, PageTones.Rose700) else Badge("new", PageTones.Emerald100, PageTones.Emerald700)
+		if (item.duplicate) {
+			Badge("already there", PageTones.Rose100, PageTones.Rose700)
+		} else {
+			Badge("new", PageTones.Emerald100, PageTones.Emerald700)
+		}
 	}
 }
 
@@ -370,7 +413,13 @@ private fun CommitBar(state: ImportUiState, preview: ImportPreview, actions: Imp
 		else -> "Add ${plural(picked, "event")}"
 	}
 	Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-		ActionButton(label, actions.onCommit, ButtonLooks.Primary, Modifier.fillMaxWidth().testTag("import-commit"), enabled = picked > 0 && state.pending == null)
+		ActionButton(
+			label,
+			actions.onCommit,
+			ButtonLooks.Primary,
+			Modifier.fillMaxWidth().testTag("import-commit"),
+			enabled = picked > 0 && state.pending == null,
+		)
 		ActionButton("Start over", actions.onStartOver, ButtonLooks.Outline, Modifier.fillMaxWidth())
 	}
 }
@@ -406,7 +455,8 @@ private fun Undone(undo: ImportUndoDto) {
 			color = PageTones.Green800,
 		)
 		if (undo.kept.isNotEmpty()) {
-			GreenLine("Kept ${undo.kept.size} you changed since the import: ${undo.kept.joinToString(", ") { it.title }}. Open it to undo that yourself.")
+			val keptTitles = undo.kept.joinToString(", ") { it.title }
+			GreenLine("Kept ${undo.kept.size} you changed since the import: $keptTitles. Open it to undo that yourself.")
 		}
 		if (undo.alreadyGone > 0) GreenLine("${undo.alreadyGone} were already off the calendar — nothing to remove.")
 		GreenLine("Your calendar is back to how it was before this import.")
@@ -468,7 +518,12 @@ private fun PickAndChoose(onOpenCalendar: () -> Unit) {
 			.background(FpTheme.colors.warnSurface, MaterialTheme.shapes.small)
 			.border(1.dp, FpTheme.colors.warnBorder, MaterialTheme.shapes.small).padding(12.dp),
 	) {
-		Text("Need to pick and choose instead?", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = FpTheme.colors.warnContent)
+		Text(
+			"Need to pick and choose instead?",
+			style = MaterialTheme.typography.bodyMedium,
+			fontWeight = FontWeight.Bold,
+			color = FpTheme.colors.warnContent,
+		)
 		Text(
 			"Open the calendar, tap Select in the toolbar, tick the events and delete them in bulk.",
 			modifier = Modifier.clickable(onClick = onOpenCalendar),

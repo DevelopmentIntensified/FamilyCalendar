@@ -50,7 +50,8 @@ fun AccountScreen(
 		) {
 			AccountBreadcrumb()
 			Column {
-				Text("Account Settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = FpTheme.colors.textStrong)
+				Text("Account Settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
+					color = FpTheme.colors.textStrong)
 				Text(ACCOUNT_SUBTITLE, style = MaterialTheme.typography.bodyMedium, color = FpTheme.colors.textBody)
 				Text(
 					BACK_TO_CALENDAR,
@@ -77,7 +78,8 @@ fun AccountScreen(
 private fun AccountBreadcrumb() {
 	Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
 		Text("Calendar \u203A", style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp), color = FpTheme.colors.textMuted)
-		Text("Account", style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp), fontWeight = FontWeight.SemiBold, color = FpTheme.colors.textBody)
+		Text("Account", style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+			fontWeight = FontWeight.SemiBold, color = FpTheme.colors.textBody)
 	}
 }
 
@@ -127,7 +129,8 @@ private fun IdentityCard(state: AccountState, actions: AccountActions) {
 		color = MaterialTheme.colorScheme.surface,
 		border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
 	) {
-		Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+		Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
+			horizontalArrangement = Arrangement.spacedBy(12.dp)) {
 			Column(
 				modifier = Modifier.size(40.dp).clip(CircleShape).background(BLUSH),
 				horizontalAlignment = Alignment.CenterHorizontally,

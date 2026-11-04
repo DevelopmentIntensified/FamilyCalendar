@@ -134,7 +134,8 @@ fun SheetTitle(text: String, subtitle: String? = null, closeLabel: String, onClo
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Column(modifier = Modifier.weight(1f)) {
-			Text(text, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = FpTheme.colors.textStrong, maxLines = 2, overflow = TextOverflow.Ellipsis)
+			Text(text, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = FpTheme.colors.textStrong,
+				maxLines = 2, overflow = TextOverflow.Ellipsis)
 			subtitle?.let {
 				Text(it, fontSize = 12.sp, color = FpTheme.colors.textMuted)
 			}

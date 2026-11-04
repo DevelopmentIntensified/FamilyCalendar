@@ -40,6 +40,7 @@ import com.familyplanz.app.ui.theme.Slate
  */
 
 @Composable
+@Suppress("LongMethod")
 fun CalendarFiltersSheet(state: CalendarUiState, visible: VisibleCalendar, actions: CalendarActions) {
 	val allHidden = state.data.calendars.isNotEmpty() && state.data.calendars.all { it.id in state.hiddenCalendars }
 	CalendarSheetShell(onClose = actions.sheets.onClose, maxHeightFraction = 0.88f, modifier = Modifier.testTag("filters-sheet")) {

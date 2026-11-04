@@ -50,6 +50,7 @@ class FakeNotificationSource(var rows: List<NotificationDto> = emptyList()) : No
 	override suspend fun pruneRead() = answer("""{"pruneRead":true}""") { rows = rows.filter { it.readAt == null } }
 }
 
+@Suppress("LongParameterList")
 fun alert(id: String, type: String, read: Boolean = false, link: String? = null, actor: String = "Dad", message: String = "did a thing") =
 	NotificationDto(
 		id = id, type = type, rawType = type, actorName = actor, message = message, link = link,
@@ -153,7 +154,8 @@ class AlertsUiTest {
 
 	@Test
 	fun ac_al_5_tapping_an_unread_row_marks_it_read_drops_the_badge_and_navigates() {
-		val source = FakeNotificationSource(listOf(alert("p", "assignment_pending", link = "/calendar/tasks?focus=t1"), alert("c", "task_completed")))
+		val source = FakeNotificationSource(listOf(alert("p", "assignment_pending", link = "/calendar/tasks?focus=t1"),
+			alert("c", "task_completed")))
 		launch(source)
 		assertEquals(2, badge.value)
 

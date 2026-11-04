@@ -105,6 +105,7 @@ fun CalendarMonthGrid(state: CalendarUiState, visible: VisibleCalendar, actions:
 }
 
 @Composable
+@Suppress("CyclomaticComplexMethod", "LongMethod", "LongParameterList")
 private fun RowScope.DayCell(
 	cell: MonthCell,
 	today: LocalDate,

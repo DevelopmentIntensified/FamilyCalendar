@@ -19,6 +19,7 @@ class TaskQueryTest {
 	private val clock = TaskClock(LocalDate.of(2026, 11, 4).atTime(12, 0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
 	private val me = "me-1"
 
+	@Suppress("LongParameterList")
 	private fun task(
 		id: String,
 		title: String = id,

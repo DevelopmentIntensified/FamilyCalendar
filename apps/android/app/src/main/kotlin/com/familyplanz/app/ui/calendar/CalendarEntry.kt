@@ -40,13 +40,14 @@ fun CalendarEntry(nav: AppNav) {
 	}
 	CalendarScreen(
 		state = ui,
-		actions = CalActions(calVm, nav),
+		actions = calActions(calVm, nav),
 		onBrowseTasks = { nav.open(AppRoute.TASKS) },
 		menu = { ShellMenuButton(nav) },
 	)
 }
 
-private fun CalActions(vm: CalendarViewModel, nav: AppNav) = CalendarActions(
+@Suppress("LongMethod")
+private fun calActions(vm: CalendarViewModel, nav: AppNav) = CalendarActions(
 	nav = CalendarNavActions(
 		onPrev = vm::prev,
 		onNext = vm::next,
@@ -117,3 +118,4 @@ private fun menu(vm: CalendarViewModel, nav: AppNav, action: CalendarMenuAction)
 		CalendarMenuAction.SETTINGS -> nav.open(AppRoute.ACCOUNT)
 	}
 }
+

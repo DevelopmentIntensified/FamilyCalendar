@@ -63,7 +63,11 @@ class AuthApiContractTest {
 
 	@Test
 	fun `G12 signup posts names, email, password and device name and parses the unverified session`() = runBlocking {
-		ok("""{"token":"fp_s","user":{"id":"u9","firstName":"Ada","lastName":"L","email":"a@b.co","emailVerified":false},"emailVerification":"pending"}""")
+		ok(
+			"""
+			{"token":"fp_s","user":{"id":"u9","firstName":"Ada","lastName":"L","email":"a@b.co","emailVerified":false},"emailVerification":"pending"}
+			""".trimIndent(),
+		)
 		val result = auth.signUpWithPassword(SignupNames(" Ada ", "L "), " a@b.co ", "longenough")
 
 		val recorded = server.takeRequest()

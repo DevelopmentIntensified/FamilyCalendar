@@ -161,7 +161,11 @@ class SignInUiTest {
 	@Test
 	fun password_signup_creates_the_account_and_lands_on_calendar() {
 		useServer()
-		json("""{"token":"fp_new","user":{"id":"u-new","firstName":"Ada","lastName":"Lovelace","email":"new@example.com","emailVerified":false},"emailVerification":"pending"}""")
+		json(
+			"""
+			{"token":"fp_new","user":{"id":"u-new","firstName":"Ada","lastName":"Lovelace","email":"new@example.com","emailVerified":false},"emailVerification":"pending"}
+			""".trimIndent(),
+		)
 		host.launch(tab = null, token = null)
 
 		host.waitForText("Welcome Back")

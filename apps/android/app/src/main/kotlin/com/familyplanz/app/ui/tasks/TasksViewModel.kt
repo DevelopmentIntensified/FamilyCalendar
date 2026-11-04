@@ -17,7 +17,6 @@ import com.familyplanz.app.domain.TaskMapper
 import com.familyplanz.app.domain.tasks.OwnerView
 import com.familyplanz.app.domain.tasks.QuickAddMember
 import com.familyplanz.app.domain.tasks.ScopeChip
-import com.familyplanz.app.domain.tasks.TaskClock
 import com.familyplanz.app.domain.tasks.TaskQuery
 import com.familyplanz.app.domain.tasks.TaskSortKey
 import com.familyplanz.app.domain.tasks.TimeFilter
@@ -36,13 +35,13 @@ import kotlinx.coroutines.launch
  * The desktop stays the only writer of `focusMinutes`; the phone times its
  * own sessions and flushes them from an offline queue (spec rule).
  */
+@Suppress("TooManyFunctions")
 class TasksViewModel(
 	private val repository: TaskRepository,
 	private val tokenStore: DataStoreTokenStore,
 	private val prefs: TasksPrefs = MemoryTasksPrefs(),
 	focusRefreshDelayMs: Long = FOCUS_REFRESH_DELAY_MS,
 	private val phoneFocusStore: PhoneFocusStore = MemoryPhoneFocusStore(),
-	private val clock: () -> TaskClock = TaskClock::system,
 ) : ViewModel() {
 	private val _ui = MutableStateFlow<TasksUiState>(TasksUiState.Loading)
 	val ui: StateFlow<TasksUiState> = _ui
@@ -102,9 +101,9 @@ class TasksViewModel(
 
 	private suspend fun loadRoster() {
 		val roster = (repository.familyRoster() as? ApiResult.Ok)?.value ?: return
-		_members.value = roster.members.map { QuickAddMember(it.userId, it.firstName, it.lastName) }
+		_members.value = roster.members.map { QuickAddMember(it.userId, it.firstName ?: "", it.lastName ?: "") }
 		_memberNames.value = roster.members.associate { member ->
-			member.userId to listOf(member.firstName, member.lastName).filter { it.isNotBlank() }.joinToString(" ")
+			member.userId to listOfNotNull(member.firstName, member.lastName).filter { it.isNotBlank() }.joinToString(" ")
 		}
 	}
 
@@ -308,7 +307,12 @@ class TasksViewModel(
 		// A refresh during an edit keeps the dialog open on the fresh row.
 		val editing = ready.editing
 		_ui.value = ready
-		editing?.let { open -> _ui.update { state -> state.withEditing((state as? TasksUiState.Ready)?.tasks?.firstOrNull { it.id == open.id }) } }
+		editing?.let { open ->
+			_ui.update { state ->
+				val fresh = (state as? TasksUiState.Ready)?.tasks?.firstOrNull { it.id == open.id }
+				state.withEditing(fresh)
+			}
+		}
 	}
 
 	/** The saved sort/tag plus whatever the toolbar already holds this session. */

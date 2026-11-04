@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions")
 package com.familyplanz.app.ui.calendar
 
 import androidx.compose.foundation.Canvas
@@ -51,7 +52,8 @@ import java.time.YearMonth
 
 @Composable
 fun CalendarToolbar(state: CalendarUiState, visible: VisibleCalendar, actions: CalendarActions, menu: @Composable () -> Unit = {}) {
-	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+		verticalArrangement = Arrangement.spacedBy(8.dp)) {
 		DateNav(state, actions)
 		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 			ViewToggle(state.view, actions.nav.onSetView)

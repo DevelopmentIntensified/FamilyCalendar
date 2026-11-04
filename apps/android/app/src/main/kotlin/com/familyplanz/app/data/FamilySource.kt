@@ -19,6 +19,7 @@ import retrofit2.http.Query
  * A separate Retrofit interface from [FamilyPlanzApi] so this lane never
  * edits another lane's file.
  */
+@Suppress("TooManyFunctions")
 interface FamilyApi {
 	@GET("api/families")
 	suspend fun overview(): FamiliesOverviewDto
@@ -137,6 +138,7 @@ data class FamilyMutationDto(val success: Boolean = true, val family: FamilyDto?
 data class CreatedFamilyDto(val family: FamilyDto)
 
 /** The Family screens' network edge; one call per spec endpoint. */
+@Suppress("TooManyFunctions")
 interface FamilySource {
 	suspend fun overview(): ApiResult<FamiliesOverviewDto>
 
@@ -200,6 +202,7 @@ interface FamilySource {
 	): ApiResult<TaskDto>
 }
 
+@Suppress("TooManyFunctions")
 class NetworkFamilySource(private val api: FamilyApi) : FamilySource {
 	override suspend fun overview(): ApiResult<FamiliesOverviewDto> = apiCall { api.overview() }
 

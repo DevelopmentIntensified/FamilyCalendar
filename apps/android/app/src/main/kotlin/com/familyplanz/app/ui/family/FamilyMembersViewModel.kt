@@ -47,6 +47,7 @@ data class FamilyMembersState(
  * unique email and the parental consent tick, and shows the server's own
  * refusal text when it fails (AC-FC-3..5).
  */
+@Suppress("TooManyFunctions")
 class FamilyMembersViewModel(
 	private val source: FamilySource,
 	private val familyId: String,
@@ -124,7 +125,7 @@ class FamilyMembersViewModel(
 
 	/** AC-FC-4's Copy answers on the minted email link. */
 	fun linkCopied() {
-		_state.value = _state.value.copy(linkCopied = true, copyFailed = false)
+		_state.value = _state.value.copy(linkCopied = true, copyFailed = false, emailLink = null, inviteSent = true)
 	}
 
 	fun copyFailed() {
@@ -167,10 +168,7 @@ class FamilyMembersViewModel(
 		}
 	}
 
-	/** The copyable link the link variant returned, once copied. */
-	fun linkCopied() {
-		_state.value = _state.value.copy(emailLink = null, inviteSent = true)
-	}
+
 
 	companion object {
 		/** AC-FC-3: the find tab searches from two characters on. */

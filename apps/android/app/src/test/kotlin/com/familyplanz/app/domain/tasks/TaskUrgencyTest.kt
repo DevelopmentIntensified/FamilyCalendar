@@ -19,6 +19,7 @@ class TaskUrgencyTest {
 	private fun localIso(days: Long, hour: Int = 9): String =
 		nowLocal.toLocalDate().plusDays(days).atTime(hour, 0).atZone(zone).toInstant().toString()
 
+	@Suppress("LongParameterList")
 	private fun task(
 		title: String = "Task",
 		due: String? = null,

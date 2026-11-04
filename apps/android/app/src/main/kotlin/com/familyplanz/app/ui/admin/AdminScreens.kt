@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions")
 package com.familyplanz.app.ui.admin
 
 import androidx.compose.foundation.background
@@ -59,7 +60,8 @@ enum class AdminTab { BUGS, NLP }
 @Composable
 fun AdminTabs(active: AdminTab?, badges: AdminBadges, onOpenAdmin: () -> Unit, onTab: (AdminTab) -> Unit, onBackToApp: () -> Unit) {
 	Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 16.dp, vertical = 8.dp)) {
-		FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+		FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+			itemVerticalAlignment = Alignment.CenterVertically) {
 			Text(
 				ADMIN_TITLE,
 				modifier = Modifier.testTag("admin-home").heightIn(min = 44.dp).clickable(onClick = onOpenAdmin).padding(end = 8.dp),
@@ -75,6 +77,7 @@ fun AdminTabs(active: AdminTab?, badges: AdminBadges, onOpenAdmin: () -> Unit, o
 }
 
 @Composable
+@Suppress("LongParameterList")
 private fun Tab(label: String, count: Int, selected: Boolean, badge: Pair<Color, Color>, tag: String, onClick: () -> Unit) {
 	Row(
 		modifier = Modifier.testTag(tag).heightIn(min = 44.dp)
@@ -83,7 +86,8 @@ private fun Tab(label: String, count: Int, selected: Boolean, badge: Pair<Color,
 		verticalAlignment = Alignment.CenterVertically,
 		horizontalArrangement = Arrangement.spacedBy(6.dp),
 	) {
-		Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = if (selected) Color.White else Slate.S600)
+		Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium,
+			color = if (selected) Color.White else Slate.S600)
 		if (selected) Badge(count.toString(), Color.White.copy(alpha = 0.2f), Color.White) else Badge(count.toString(), badge.first, badge.second)
 	}
 }
@@ -104,19 +108,30 @@ fun AdminHomeScreen(state: Load<AdminCountsDto>, onRetry: () -> Unit, onBugs: ()
 		PageLead("Triage user feedback and parser gaps.")
 	}
 	LoadGate(state, onRetry) { counts ->
-		HomeCard(BUGS_TITLE, "${counts.openBugs} open", Color(0xFFFEE2E2) to PageTones.Rose700, "User-submitted reports, newest first. Resolve what's fixed.", "admin-card-bugs", onBugs)
-		HomeCard(NLP_TITLE, "${counts.openPhrases} open", Slate.S200 to Slate.S600, "Instructions the parsers couldn't handle. Add patterns for frequent ones.", "admin-card-nlp", onNlp)
+		HomeCard(BUGS_TITLE, "${counts.openBugs} open", Color(0xFFFEE2E2) to PageTones.Rose700,
+			"User-submitted reports, newest first. Resolve what's fixed.", "admin-card-bugs", onBugs)
+		HomeCard(
+			NLP_TITLE,
+			"${counts.openPhrases} open",
+			Slate.S200 to Slate.S600,
+			"Instructions the parsers couldn't handle. Add patterns for frequent ones.",
+			"admin-card-nlp",
+			onNlp,
+		)
 	}
 }
 
 @Composable
+@Suppress("LongParameterList")
 private fun HomeCard(title: String, open: String, badge: Pair<Color, Color>, blurb: String, tag: String, onClick: () -> Unit) {
 	PageCard(modifier = Modifier.testTag(tag).clickable(onClick = onClick)) {
-		Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+		Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+			verticalAlignment = Alignment.CenterVertically) {
 			Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = FpTheme.colors.textStrong)
 			Badge(open, badge.first, badge.second)
 		}
-		Text(blurb, modifier = Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+		Text(blurb, modifier = Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium,
+			color = MaterialTheme.colorScheme.onSurfaceVariant)
 	}
 }
 
@@ -127,7 +142,8 @@ private fun HomeCard(title: String, open: String, badge: Pair<Color, Color>, blu
 fun ExportPanel(exportText: String, onCopy: (String) -> Unit, onDownload: (String) -> Unit) {
 	var open by remember { mutableStateOf(false) }
 	Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-		Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+		Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+			verticalAlignment = Alignment.CenterVertically) {
 			ActionButton(if (open) "Hide export" else "Export for agent", { open = !open }, ButtonLooks.Outline, Modifier.testTag("export-toggle"))
 			if (open) {
 				Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -139,7 +155,8 @@ fun ExportPanel(exportText: String, onCopy: (String) -> Unit, onDownload: (Strin
 		if (open) {
 			PageCard(modifier = Modifier.testTag("export-text"), padding = PaddingValues(16.dp), fill = Slate.S50) {
 				SelectionContainer {
-					Text(exportText, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp), color = Slate.S700)
+					Text(exportText, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace,
+						fontSize = 12.sp), color = Slate.S700)
 				}
 			}
 		}
@@ -157,11 +174,17 @@ private fun ResolvedList(count: Int, lines: List<String>, mono: Boolean) {
 			fontWeight = FontWeight.Medium,
 			color = MaterialTheme.colorScheme.onSurfaceVariant,
 		)
-		if (open) {
-			lines.forEach {
-				Text(it, modifier = Modifier.padding(vertical = 2.dp), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = if (mono) FontFamily.Monospace else FontFamily.Default), color = FpTheme.colors.textMuted)
+			if (open) {
+				val family = if (mono) FontFamily.Monospace else FontFamily.Default
+				lines.forEach {
+					Text(
+						it,
+						modifier = Modifier.padding(vertical = 2.dp),
+						style = MaterialTheme.typography.bodyMedium.copy(fontFamily = family),
+						color = FpTheme.colors.textMuted,
+					)
+				}
 			}
-		}
 	}
 }
 
@@ -199,19 +222,22 @@ fun AdminBugsScreen(state: Load<AdminBugsDto>, actions: BugActions) {
 @Composable
 private fun EmptyCard(text: String) {
 	PageCard(borderColor = Slate.S300, dashed = true) {
-		Text(text, modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), style = MaterialTheme.typography.bodyMedium, color = FpTheme.colors.textMuted, textAlign = TextAlign.Center)
+		Text(text, modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), style = MaterialTheme.typography.bodyMedium,
+			color = FpTheme.colors.textMuted, textAlign = TextAlign.Center)
 	}
 }
 
 @Composable
 private fun BugCard(report: BugReportDto, actions: BugActions) {
 	PageCard(modifier = Modifier.testTag("bug-card"), padding = PaddingValues(16.dp)) {
-		Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+		Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+			verticalAlignment = Alignment.CenterVertically) {
 			Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
 				Badge(bugAreaLabel(report.area), Color(0xFFFEE2E2), Color(0xFFB91C1C))
 				Text(reportedAtLabel(report.createdAt), style = MaterialTheme.typography.bodySmall, color = FpTheme.colors.textMuted)
 			}
-			ActionButton("Resolve", { actions.onResolve(report.id) }, ButtonLooks.Outline, Modifier.testTag("bug-resolve"), shape = MaterialTheme.shapes.extraSmall)
+			ActionButton("Resolve", { actions.onResolve(report.id) }, ButtonLooks.Outline,
+				Modifier.testTag("bug-resolve"), shape = MaterialTheme.shapes.extraSmall)
 		}
 		Text(report.description, modifier = Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyMedium, color = Slate.S800)
 		Row(modifier = Modifier.padding(top = 12.dp)) {
@@ -267,7 +293,8 @@ private fun PhraseCard(phrase: UnmatchedPhraseDto, onResolve: (String) -> Unit) 
 		if (summary != null) {
 			Column(modifier = Modifier.padding(top = 8.dp)) {
 				summary.forEach { (k, v) ->
-					Text("$k: $v", style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.onSurfaceVariant)
+					Text("$k: $v", style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+						color = MaterialTheme.colorScheme.onSurfaceVariant)
 				}
 			}
 		}
@@ -280,7 +307,8 @@ private fun PhraseCard(phrase: UnmatchedPhraseDto, onResolve: (String) -> Unit) 
 				Badge(phrase.count.toString(), Slate.S100, Slate.S600)
 				Text(firstSeenLabel(phrase.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 			}
-			ActionButton("Resolve", { onResolve(phrase.id) }, ButtonLooks.Outline, Modifier.testTag("phrase-resolve"), shape = MaterialTheme.shapes.extraSmall)
+			ActionButton("Resolve", { onResolve(phrase.id) }, ButtonLooks.Outline, Modifier.testTag("phrase-resolve"),
+				shape = MaterialTheme.shapes.extraSmall)
 		}
 	}
 }

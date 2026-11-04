@@ -197,11 +197,11 @@ class TaskQuickAddTest {
 			Cad("service car every 3 months", "monthly", 3, "service car"),
 			Cad("renew passport every year", "yearly", 1, "renew passport"),
 			Cad("test smoke alarms annually", "yearly", 1, "test smoke alarms"),
-		).forEach { (phrase, freq, interval, title) ->
-			val r = parse(phrase)
-			assertEquals(phrase, title, r.title)
-			assertRecurring(r, freq, interval)
-			assertNull(phrase, r.due)
+		).forEach { cad ->
+			val r = parse(cad.phrase)
+			assertEquals(cad.phrase, cad.title, r.title)
+			assertRecurring(r, cad.freq, cad.interval)
+			assertNull(cad.phrase, r.due)
 		}
 		parse("take out trash every friday").let {
 			assertEquals("take out trash", it.title)
@@ -354,9 +354,11 @@ class TaskQuickAddTest {
 	@Test
 	fun canvas_due_lines() {
 		listOf(
-			Triple("Discussion Thread: Biblical Inerrancy Due Sep 10 at 11:59pm", "Discussion Thread: Biblical Inerrancy", LocalDate.of(2026, 9, 10)),
+			Triple("Discussion Thread: Biblical Inerrancy Due Sep 10 at 11:59pm", "Discussion Thread: Biblical Inerrancy",
+				LocalDate.of(2026, 9, 10)),
 			Triple("Research Paper: Outline Assignment Due Sep 13 at 11:59pm", "Research Paper: Outline Assignment", LocalDate.of(2026, 9, 13)),
-			Triple("Due Oct 4 at 11:59pm Practical Theology: The Word of God Assignment", "Practical Theology: The Word of God Assignment", LocalDate.of(2026, 10, 4)),
+			Triple("Due Oct 4 at 11:59pm Practical Theology: The Word of God Assignment", "Practical Theology: The Word of God Assignment",
+				LocalDate.of(2026, 10, 4)),
 			Triple("due sept 20 at 11:59 pm Wonder of God", "Wonder of God", LocalDate.of(2026, 9, 20)),
 			Triple("Discussion Thread: The Trinity Due Sep 24 at 11:59PM", "Discussion Thread: The Trinity", LocalDate.of(2026, 9, 24)),
 		).forEach { (phrase, title, due) ->

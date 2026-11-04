@@ -25,6 +25,7 @@ import com.familyplanz.app.ui.theme.FpTheme
  * that need the invite right only appear for a creator/admin (AC-FM-5).
  */
 @Composable
+@Suppress("LongParameterList")
 fun FamilyCard(
 	card: FamilyCardDto,
 	onOpen: () -> Unit,

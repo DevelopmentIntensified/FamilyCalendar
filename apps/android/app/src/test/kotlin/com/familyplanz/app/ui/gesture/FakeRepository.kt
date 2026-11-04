@@ -9,6 +9,8 @@ import com.familyplanz.app.data.QuickParseResponse
 import com.familyplanz.app.data.TaskCategoryDto
 import com.familyplanz.app.data.TaskDto
 import com.familyplanz.app.data.TaskRepository
+import com.familyplanz.app.data.TaskSectionsDto
+import com.familyplanz.app.data.FamilyRosterDto
 import kotlinx.coroutines.CompletableDeferred
 import java.time.YearMonth
 
@@ -21,6 +23,11 @@ import java.time.YearMonth
 class FakeRepository : TaskRepository {
 	var me: ApiResult<MeDto> = ApiResult.Ok(MeDto(id = ME))
 	var tasks: ApiResult<List<TaskDto>> = ApiResult.Ok(emptyList())
+	var sections: TaskSectionsDto? = null
+	var roster: FamilyRosterDto = FamilyRosterDto(members = emptyList())
+	override suspend fun taskSections(): ApiResult<TaskSectionsDto> =
+		ApiResult.Ok(sections ?: TaskSectionsDto(myTasks = (tasks as? ApiResult.Ok)?.value.orEmpty()))
+	override suspend fun familyRoster(): ApiResult<FamilyRosterDto> = ApiResult.Ok(roster)
 	var cachedTasks: List<TaskDto>? = null
 	var events: ApiResult<List<EventDto>> = ApiResult.Ok(emptyList())
 	var cachedEvents: List<EventDto>? = null

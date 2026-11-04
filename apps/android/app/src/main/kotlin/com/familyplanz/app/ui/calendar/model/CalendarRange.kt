@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions")
 package com.familyplanz.app.ui.calendar.model
 
 import com.familyplanz.app.domain.CalendarEvent
@@ -29,7 +30,7 @@ fun weekDays(date: LocalDate, mondayFirst: Boolean): List<LocalDate> {
 }
 
 /** The day an event is bucketed to (`localDay`, else the server's `day` prefix). */
-fun eventDay(event: CalendarEvent, zone: ZoneId): LocalDate? =
+fun eventDay(event: CalendarEvent): LocalDate? =
 	event.localDay ?: event.day.take(10).let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
 /** All-day rows first, then by start time, then by title - the order every web view draws. */
@@ -39,23 +40,24 @@ fun sortedForDay(events: List<CalendarEvent>, zone: ZoneId): List<CalendarEvent>
 	)
 
 fun eventsOn(events: List<CalendarEvent>, day: LocalDate, zone: ZoneId): List<CalendarEvent> =
-	sortedForDay(events.filter { eventDay(it, zone) == day }, zone)
+	sortedForDay(events.filter { eventDay(it) == day }, zone)
 
 /** A task chip is dashed and red when overdue; recurring ones carry the ring. */
 fun tasksOn(tasks: List<CalendarTask>, day: LocalDate): List<CalendarTask> =
 	tasks.filter { it.dueDay == day && !it.completed }.sortedBy { it.title }
 
-fun eventsIn(events: List<CalendarEvent>, window: ClosedRange<LocalDate>, zone: ZoneId): List<CalendarEvent> =
-	events.filter { eventDay(it, zone)?.let { day -> day in window } == true }
+fun eventsIn(events: List<CalendarEvent>, window: ClosedRange<LocalDate>): List<CalendarEvent> =
+	events.filter { eventDay(it)?.let { day -> day in window } == true }
 
 fun tasksIn(tasks: List<CalendarTask>, window: ClosedRange<LocalDate>): List<CalendarTask> =
 	tasks.filter { !it.completed && it.dueDay in window }
 
 /** ListView groups the shown month by day; empty days are not drawn. */
-fun monthDaysWithRows(month: YearMonth, events: List<CalendarEvent>, tasks: List<CalendarTask>, zone: ZoneId): List<LocalDate> =
-	(events.mapNotNull { eventDay(it, zone) } + tasks.map { it.dueDay })
+fun monthDaysWithRows(month: YearMonth, events: List<CalendarEvent>, tasks: List<CalendarTask>): List<LocalDate> =
+	(events.mapNotNull { eventDay(it) } + tasks.map { it.dueDay })
 		.filter { YearMonth.from(it) == month }
 		.distinct()
 		.sorted()
 
 fun isOverdue(task: CalendarTask, today: LocalDate): Boolean = !task.completed && task.dueDay < today
+

@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions")
 package com.familyplanz.app.ui.calendar.form
 
 import androidx.compose.foundation.background

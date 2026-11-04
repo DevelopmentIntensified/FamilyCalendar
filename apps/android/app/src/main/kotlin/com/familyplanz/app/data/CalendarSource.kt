@@ -68,28 +68,7 @@ data class CalendarsResponse(val calendars: List<CalendarDto> = emptyList())
 
 /** G3 `settings`; absent fields keep the page defaults. */
 @Serializable
-data class CalendarSettingsDto(
-	val weekStart: String = "sunday",
-	val timeZone: String? = null,
-	val color: String? = null,
-	val defaultView: String? = null,
-	val defaultCalendarId: String? = null,
-	val autoParseEventDetails: Boolean = true,
-	val showDailyVerse: Boolean = false,
-	val showAdsAsEvents: Boolean = false,
-)
-
-@Serializable
 data class SettingsResponse(val settings: CalendarSettingsDto = CalendarSettingsDto())
-
-@Serializable
-data class RosterMemberDto(
-	val userId: String,
-	val firstName: String? = null,
-	val lastName: String? = null,
-	val role: String? = null,
-	val memberType: String? = null,
-)
 
 @Serializable
 data class RosterResponse(val familyId: String? = null, val members: List<RosterMemberDto> = emptyList())
@@ -131,9 +110,6 @@ data class CalendarTaskCreate(
 
 @Serializable
 data class SponsoredResponse(val events: List<EventDto> = emptyList())
-
-@Serializable
-data class VerseDto(val reference: String, val text: String, val attribution: String? = null)
 
 @Serializable
 data class VerseResponse(val verse: VerseDto? = null)

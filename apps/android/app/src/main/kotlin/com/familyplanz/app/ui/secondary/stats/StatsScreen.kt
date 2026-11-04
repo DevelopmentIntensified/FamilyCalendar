@@ -137,7 +137,8 @@ private fun RecentlyCompleted(data: StatsResponse) {
 		CardHeading("Recently completed", Modifier.padding(bottom = 12.dp))
 		val rows = data.stats.recentlyCompleted
 		if (rows.isEmpty()) {
-			Text(STATS_EMPTY_RECENT, modifier = Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = FpTheme.colors.textMuted)
+			Text(STATS_EMPTY_RECENT, modifier = Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyMedium,
+				color = FpTheme.colors.textMuted)
 		}
 		rows.forEachIndexed { index, row ->
 			if (index > 0) HorizontalDivider(color = Slate.S100)
@@ -146,7 +147,8 @@ private fun RecentlyCompleted(data: StatsResponse) {
 				verticalAlignment = Alignment.CenterVertically,
 				horizontalArrangement = Arrangement.spacedBy(8.dp),
 			) {
-				Text(row.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = Slate.S800, maxLines = 1, overflow = TextOverflow.Ellipsis)
+				Text(row.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+					color = Slate.S800, maxLines = 1, overflow = TextOverflow.Ellipsis)
 				if (row.recurring) {
 					Text(
 						"↻ repeating",
@@ -164,7 +166,9 @@ private fun RecentlyCompleted(data: StatsResponse) {
 			}
 		}
 		Text(
-			"The repeating tag is not a flag on the task — it is a recurrence on the same row, shown next to a timestamp that lives in a different table.",
+			"The repeating tag is not a flag on the task - it is a recurrence on the same row, " +
+				"shown next to a timestamp that lives in a different table.",
+				
 			modifier = Modifier.padding(top = 10.dp),
 			style = MaterialTheme.typography.bodySmall,
 			color = MaterialTheme.colorScheme.onSurfaceVariant,

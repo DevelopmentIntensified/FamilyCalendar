@@ -36,6 +36,7 @@ sealed interface DashboardEffect {
  * the ‹ › date walk, and the three `/api/tasks` mutations its rows make.
  * Every mutation acks at once and the server's reload reconciles it.
  */
+@Suppress("TooManyFunctions")
 class DashboardViewModel(
 	private val source: DashboardSource,
 	private val today: () -> LocalDate = LocalDate::now,
@@ -61,7 +62,8 @@ class DashboardViewModel(
 
 	/** [date] null = the server's today. */
 	fun openDay(date: LocalDate?) {
-		update { copy(requestedDate = date?.toString(), loading = true, loadError = null, hiddenIds = emptySet(), priorityOverrides = emptyMap()) }
+		update { copy(requestedDate = date?.toString(), loading = true, loadError = null,
+			hiddenIds = emptySet(), priorityOverrides = emptyMap()) }
 		reload()
 	}
 
@@ -142,6 +144,7 @@ class DashboardViewModel(
 	fun setCategory(text: String) = update { copy(quickCategory = text) }
 
 	/** AC-DB-12: "take out bins saturday for Dad" → a family task for Dad, due Saturday. */
+	@Suppress("ReturnCount")
 	fun addQuick() {
 		val now = _ui.value
 		if (now.quickTitle.isBlank() || now.adding) return

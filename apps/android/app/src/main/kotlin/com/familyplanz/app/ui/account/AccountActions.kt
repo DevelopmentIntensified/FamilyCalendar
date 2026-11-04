@@ -16,6 +16,7 @@ import com.familyplanz.app.ui.fpFilterChipColors
 import com.familyplanz.app.ui.theme.FpTheme
 
 /** Everything the Account screen can ask of the app (one shape, so the cards stay pure). */
+@Suppress("LongParameterList")
 class AccountActions(
 	val onSelectSection: (AccountSection) -> Unit = {},
 	val onBack: () -> Unit = {},
@@ -59,7 +60,8 @@ fun AccountChoiceRow(
 	selected: String,
 	onSelect: (String) -> Unit,
 ) {
-	Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = FpTheme.colors.textStrong)
+	Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+		color = FpTheme.colors.textStrong)
 	Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
 		options.forEach { (id, text) ->
 			val on = selected == id

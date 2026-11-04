@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.domain
 
 import java.time.Duration
@@ -18,6 +19,7 @@ import java.time.format.DateTimeParseException
  */
 
 /** Where a running task is being timed; the chip says "Focusing (desktop|phone)". */
+@Suppress("MatchingDeclarationName")
 enum class FocusSource(val label: String) {
 	DESKTOP("desktop"),
 	PHONE("phone"),

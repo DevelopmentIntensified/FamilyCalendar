@@ -55,6 +55,7 @@ data class PasswordSignup(val names: SignupNames, val confirmPassword: String)
  * stores it and calls [consumeSignedIn], which resets the screen.
  * [pause] waits out the "Sent again ✓" pill (tests drive it by hand).
  */
+@Suppress("TooManyFunctions")
 class SignInViewModel(
 	private val auth: AuthSource,
 	private val pause: suspend (Long) -> Unit = { delay(it) },

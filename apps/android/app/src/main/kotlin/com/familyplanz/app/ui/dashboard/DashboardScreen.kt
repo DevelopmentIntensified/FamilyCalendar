@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.dashboard
 
 import androidx.compose.foundation.background
@@ -32,6 +33,7 @@ import com.familyplanz.app.ui.theme.FpShape
 import com.familyplanz.app.ui.theme.Slate
 
 /** What the Dashboard screen can ask for. */
+@Suppress("MatchingDeclarationName")
 data class DashboardActions(
 	val onPrev: () -> Unit = {},
 	val onNext: () -> Unit = {},

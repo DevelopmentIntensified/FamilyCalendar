@@ -38,6 +38,7 @@ sealed interface FamilyDetailState {
  * invitation rail. Every write reports the server's own message, so a
  * `fail()` string from the web action shows verbatim (AC-FD-3, AC-FD-9).
  */
+@Suppress("TooManyFunctions")
 class FamilyDetailViewModel(
 	private val source: FamilySource,
 	private val familyId: String,

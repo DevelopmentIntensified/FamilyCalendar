@@ -100,7 +100,7 @@ fun CalendarDayView(state: CalendarUiState, visible: VisibleCalendar, actions: C
 			}
 		}
 		events.filter { it.allDay }.forEach { event ->
-			AllDayRow(event, state.zone) { actions.sheets.onOpen(CalendarSheet.Event(event)) }
+			AllDayRow(event) { actions.sheets.onOpen(CalendarSheet.Event(event)) }
 		}
 		if (events.isEmpty()) {
 			Column(
@@ -118,7 +118,8 @@ fun CalendarDayView(state: CalendarUiState, visible: VisibleCalendar, actions: C
 }
 
 @Composable
-private fun DayHourGrid(day: LocalDate, state: CalendarUiState, actions: CalendarActions, events: List<com.familyplanz.app.domain.CalendarEvent>) {
+private fun DayHourGrid(day: LocalDate, state: CalendarUiState, actions: CalendarActions,
+	events: List<com.familyplanz.app.domain.CalendarEvent>) {
 	val density = LocalDensity.current
 	val scroll = rememberScrollState()
 	val blocks = layoutDay(events, day, state.zone)
@@ -165,7 +166,7 @@ private fun DayHourGrid(day: LocalDate, state: CalendarUiState, actions: Calenda
 				}
 			}
 		}
-		blocks.forEach { block -> DayBlock(block, state, actions) }
+		blocks.forEach { block -> DayBlock(block, actions) }
 		NowLine(day, state)
 		state.range?.let { range -> RangeHighlight(range) }
 	}
@@ -174,7 +175,7 @@ private fun DayHourGrid(day: LocalDate, state: CalendarUiState, actions: Calenda
 private fun minuteAt(yPx: Float, hourPx: Float): Int = (yPx / hourPx * 60f).toInt().coerceIn(0, 24 * 60)
 
 @Composable
-private fun DayBlock(block: TimedBlock, state: CalendarUiState, actions: CalendarActions) {
+private fun DayBlock(block: TimedBlock, actions: CalendarActions) {
 	val minuteDp = DAY_HOUR_DP / 60f
 	Box(
 		modifier = Modifier
@@ -185,7 +186,8 @@ private fun DayBlock(block: TimedBlock, state: CalendarUiState, actions: Calenda
 			.background(MaterialTheme.colorScheme.surface)
 			.clickable { actions.sheets.onOpen(CalendarSheet.Event(block.event)) },
 	) {
-		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(4.dp)) {
+		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
+			modifier = Modifier.padding(4.dp)) {
 			Box(Modifier.width(3.dp).height(18.dp).clip(RoundedCornerShape(2.dp)).background(chipColor(block.event.color)))
 			Text(block.event.title, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
 		}
@@ -244,3 +246,4 @@ private fun PopoverButton(label: String, contentLabel: String? = null, onClick: 
 		Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Primary.P700)
 	}
 }
+

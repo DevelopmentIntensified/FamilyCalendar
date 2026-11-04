@@ -34,6 +34,7 @@ enum class DuplicateReason(val wire: String, val note: String) {
  * One previewed event. [raw] is the whole server object: commit posts the
  * ticked rows back exactly as received (`pickedJson()` on the web).
  */
+@Suppress("LongParameterList")
 class ImportItem(
 	val key: String,
 	val title: String,
@@ -59,6 +60,7 @@ fun importItemOf(raw: JsonObject): ImportItem = ImportItem(
 )
 
 /** The previewed file(s): everything the preview card draws. */
+@Suppress("LongParameterList")
 class ImportPreview(
 	val calendarId: String,
 	val calendarName: String,

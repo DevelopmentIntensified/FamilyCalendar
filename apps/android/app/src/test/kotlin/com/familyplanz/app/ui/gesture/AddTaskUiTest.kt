@@ -2,6 +2,7 @@ package com.familyplanz.app.ui.gesture
 
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -28,7 +29,7 @@ class AddTaskUiTest {
 		host.launch()
 		host.waitForText("No tasks yet")
 
-		rule.onNode(hasSetTextAction()).performImeAction()
+		rule.onNodeWithTag("mention-field").performImeAction()
 
 		host.waitForText("Title is required")
 		assertEquals(0, host.repo.createdTasks.size)
@@ -41,7 +42,7 @@ class AddTaskUiTest {
 		host.launch()
 		host.waitForText("No tasks yet")
 
-		rule.onNode(hasSetTextAction()).performTextInput("Buy milk")
+		rule.onNodeWithTag("mention-field").performTextInput("Buy milk")
 		rule.onNodeWithText("Add").performClick()
 
 		host.waitForText("saving…")

@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.alerts
 
 import com.familyplanz.app.ui.nav.AppRoute
@@ -6,6 +7,7 @@ import com.familyplanz.app.ui.nav.DeepLinks
 import java.net.URI
 
 /** Where an alert's web `link` goes on the phone (§2.6 "Map web links to native destinations"). */
+@Suppress("MatchingDeclarationName")
 sealed interface AlertTarget {
 	/** An in-app screen, plus its one-shot argument (the Calendar day, or `event:<id>`). */
 	data class InApp(val route: AppRoute, val arg: String? = null) : AlertTarget

@@ -75,7 +75,8 @@ fun ArchiveScreen(state: Load<ArchiveResponse>, actions: ArchiveActions) {
 		RetentionGate(data)
 		when {
 			!data.archiveAllowed -> PlanGate(data.reason, actions.onUpgrade)
-			data.events.isEmpty() -> PageCard { Text(ARCHIVE_EMPTY, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+			data.events.isEmpty() -> PageCard { Text(ARCHIVE_EMPTY, style = MaterialTheme.typography.bodyMedium,
+				color = MaterialTheme.colorScheme.onSurfaceVariant) }
 			else -> MonthCards(data.events, actions.onOpenEvent)
 		}
 	}
@@ -217,7 +218,8 @@ private fun EventRow(event: ArchiveEventDto, onClick: () -> Unit) {
 		}
 		// max-[419px]:w-full - at phone width the place gets its own line.
 		event.location?.takeIf { it.isNotBlank() }?.let {
-			Text(it, modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+			Text(it, modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodySmall,
+				color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
 		}
 	}
 }

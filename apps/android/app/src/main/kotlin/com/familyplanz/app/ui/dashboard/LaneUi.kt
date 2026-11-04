@@ -8,14 +8,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -26,10 +21,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.familyplanz.app.ui.FpToast
+import com.familyplanz.app.ui.shell.FpToaster
+import com.familyplanz.app.ui.shell.ToastQueue
 import com.familyplanz.app.ui.theme.Slate
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 /*
  * Lane 4's local stand-ins for L1 shell pieces that have not landed yet.
@@ -49,33 +43,22 @@ fun Modifier.dashedBorder(color: Color = Slate.S200, radius: Dp = 8.dp): Modifie
 	)
 }
 
-/** A screen-local toast host that carries an action (Undo); `Toaster.svelte` keeps toasts 6 s. */
+/** L1's toast queue (`Toaster.kt`), wrapped so entries can fire a toast with an action from a ViewModel. */
 @Stable
-class LaneToasts(private val scope: CoroutineScope) {
-	val host = SnackbarHostState()
+class LaneToasts {
+	val queue = ToastQueue()
 
 	fun show(text: String, action: String? = null, onAction: () -> Unit = {}) {
-		scope.launch {
-			host.currentSnackbarData?.dismiss()
-			val result = host.showSnackbar(
-				message = text,
-				actionLabel = action,
-				duration = if (action != null) SnackbarDuration.Long else SnackbarDuration.Short,
-			)
-			if (result == SnackbarResult.ActionPerformed) onAction()
-		}
+		queue.push(text, action, if (action != null) onAction else null)
 	}
 }
 
 @Composable
-fun rememberLaneToasts(): LaneToasts {
-	val scope = rememberCoroutineScope()
-	return remember(scope) { LaneToasts(scope) }
-}
+fun rememberLaneToasts(): LaneToasts = remember { LaneToasts() }
 
 @Composable
 fun LaneToastHost(toasts: LaneToasts, modifier: Modifier = Modifier) {
-	SnackbarHost(toasts.host, modifier = modifier.testTag("lane-toast")) { FpToast(it) }
+	FpToaster(toasts.queue, modifier)
 }
 
 /** `animate-pulse rounded-2xl bg-slate-100` skeleton blocks, [heights] in dp. */

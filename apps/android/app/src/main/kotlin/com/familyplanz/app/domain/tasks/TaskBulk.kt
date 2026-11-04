@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.domain.tasks
 
 /*
@@ -6,6 +7,7 @@ package com.familyplanz.app.domain.tasks
  * "Due …", score lines) join into single records with the term year pinned.
  */
 
+@Suppress("MatchingDeclarationName")
 data class TaskRecord(val text: String, val tag: String)
 
 private val BULLET_RE = Regex("""^[\s•\-*›]+""")

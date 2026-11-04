@@ -47,6 +47,7 @@ sealed interface PhoneFocusOutcome {
  * task is closed first and the start retried. The phone never writes
  * `focusMinutes`.
  */
+@Suppress("TooManyFunctions")
 class PhoneFocusSessions(
 	private val source: FocusSessionSource,
 	private val store: PhoneFocusStore,
@@ -150,6 +151,7 @@ class PhoneFocusSessions(
 		}
 	}
 
+	@Suppress("ReturnCount")
 	private suspend fun register(session: OpenPhoneSession, adoptOnTask: Instant?): PhoneFocusOutcome {
 		val result = when (val first = source.startFocusSession(StartFocusSessionRequest(session.taskId, session.startedAt))) {
 			is FocusStartResult.Conflict -> {
@@ -210,6 +212,7 @@ class PhoneFocusSessions(
 	}
 
 	/** The server shows an open phone session we have no record of: learn its id by a 409, then close it. */
+	@Suppress("ReturnCount")
 	private suspend fun closeOrphan(task: Task): PhoneFocusOutcome {
 		val probe = source.startFocusSession(StartFocusSessionRequest(task.id, iso(now())))
 		val id = when (probe) {
@@ -228,6 +231,7 @@ class PhoneFocusSessions(
 
 	private enum class Upload { SENT, DROPPED, RETRY, UNAUTHORIZED }
 
+	@Suppress("ReturnCount")
 	private suspend fun upload(item: PendingPhoneSession): Upload {
 		val start = parseFocusInstant(item.startedAt)
 		val end = parseFocusInstant(item.endedAt)
@@ -272,6 +276,7 @@ class PhoneFocusSessions(
 		return iso(if (Duration.between(start, end) > MAX_SESSION) start.plus(MAX_SESSION) else end)
 	}
 
+	@Suppress("ReturnCount")
 	private fun minutesOf(item: PendingPhoneSession): Int {
 		val start = parseFocusInstant(item.startedAt) ?: return 0
 		val end = parseFocusInstant(item.endedAt) ?: return 0

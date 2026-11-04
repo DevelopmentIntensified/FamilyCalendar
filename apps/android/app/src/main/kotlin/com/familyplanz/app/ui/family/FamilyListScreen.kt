@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.family
 
 import androidx.compose.foundation.background
@@ -24,6 +25,7 @@ import com.familyplanz.app.ui.theme.FpTheme
 import com.familyplanz.app.ui.theme.Slate
 
 /** Everything the Families tab can ask of the app (one place, so the screen stays pure). */
+@Suppress("LongParameterList", "MatchingDeclarationName")
 class FamilyListActions(
 	val onOpenFamily: (String) -> Unit = {},
 	val onOpenMembers: (String) -> Unit = {},

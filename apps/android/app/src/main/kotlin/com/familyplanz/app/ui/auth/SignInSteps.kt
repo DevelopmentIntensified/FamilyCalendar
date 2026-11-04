@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions")
 package com.familyplanz.app.ui.auth
 
 import androidx.compose.foundation.background
@@ -89,6 +90,7 @@ internal fun AuthModeToggle(step: SignInStep, enabled: Boolean, onSelect: (SignI
 
 /** AuthInput.svelte: 14sp medium slate-700 label above (optional right slot), white 10dp-radius field. */
 @Composable
+@Suppress("LongParameterList")
 internal fun AuthInput(
 	label: String,
 	value: String,

@@ -274,6 +274,7 @@ class DashboardUiTest {
 		rule.waitUntil(5_000) { source.calls.size >= 2 }
 	}
 
+	@Suppress("LongParameterList")
 	private fun payload(
 		isToday: Boolean = true,
 		familyId: String? = "fam-1",

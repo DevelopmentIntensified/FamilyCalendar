@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.groceries
 
 import androidx.compose.foundation.background
@@ -40,6 +41,7 @@ import com.familyplanz.app.ui.theme.Primary
 import com.familyplanz.app.ui.theme.Slate
 
 /** Visual spec of a [GroceryField]: placeholder, accessible name, padding and type size. */
+@Suppress("MatchingDeclarationName")
 data class FieldLook(val placeholder: String, val label: String, val vertical: Dp = 8.dp, val textSize: Int = 14)
 
 /**
@@ -47,6 +49,7 @@ data class FieldLook(val placeholder: String, val label: String, val vertical: D
  * `focus:border-primary-500` ring and slate-400 placeholder; [label] is its aria-label.
  */
 @Composable
+@Suppress("LongParameterList")
 fun GroceryField(
 	value: String,
 	onValueChange: (String) -> Unit,
@@ -88,6 +91,7 @@ private fun Modifier.onFocus(changed: (Boolean) -> Unit): Modifier =
 
 /** A native `<select>`: a bordered button that opens the option list. */
 @Composable
+@Suppress("LongParameterList")
 fun GrocerySelect(
 	selected: String,
 	options: List<Pair<String, String>>,

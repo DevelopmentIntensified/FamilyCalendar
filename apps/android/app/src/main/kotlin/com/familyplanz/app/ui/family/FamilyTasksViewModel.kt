@@ -152,6 +152,7 @@ data class ParsedFamilyTask(val title: String, val assignee: RosterRowDto?)
  * AC-FT-2: splits "mow lawn @Dad" into its title and the roster row for
  * "Dad"; an "@name" that matches nobody stays part of the title.
  */
+@Suppress("ReturnCount")
 fun parseFamilyTaskInput(text: String, roster: List<RosterRowDto>): ParsedFamilyTask? {
 	val trimmed = text.trim()
 	if (trimmed.isEmpty()) return null

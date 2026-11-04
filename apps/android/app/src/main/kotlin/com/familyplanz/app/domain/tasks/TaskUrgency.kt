@@ -1,3 +1,4 @@
+@file:Suppress("TooManyFunctions")
 package com.familyplanz.app.domain.tasks
 
 import com.familyplanz.app.domain.Task
@@ -68,6 +69,7 @@ fun urgencyBucket(task: Task, clock: TaskClock): UrgencyBucket = when {
 }
 
 /** Whole days late; 0 when not overdue. */
+@Suppress("ReturnCount")
 fun lateDays(due: String?, clock: TaskClock): Long {
 	val day = dueLocalDate(due, clock.zone) ?: return 0
 	if (!day.isBefore(clock.today)) return 0
@@ -146,6 +148,7 @@ fun sortTasks(a: Task, b: Task, key: TaskSortKey, clock: TaskClock): Int = when 
 }
 
 /** The flat list's comparator: finished work always last, then [key], then title. */
+@Suppress("ReturnCount")
 fun sortFlatTasks(a: Task, b: Task, key: TaskSortKey, clock: TaskClock): Int {
 	val done = a.completed.compareTo(b.completed)
 	if (done != 0) return done

@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.account
 
 /**
@@ -5,6 +6,7 @@ package com.familyplanz.app.ui.account
  * Report a Bug row the web keeps below the sections (AC-AC-1). [hash] is the
  * fragment the web addresses the section with (`/account#calendar`).
  */
+@Suppress("MatchingDeclarationName")
 enum class AccountSection(val label: String, val hash: String) {
 	PROFILE("Profile", "profile"),
 	FAMILIES("Your families", "families"),

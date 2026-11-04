@@ -163,6 +163,7 @@ private fun PlanReview(plan: SmartPlan, actions: CalendarBulkActions) {
 private fun applyLabel(n: Int): String = if (n == 1) "Apply 1 change" else "Apply $n changes"
 
 @Composable
+@Suppress("LongParameterList")
 private fun BulkInput(label: String, placeholder: String, value: String, onValue: (String) -> Unit, action: String, onAction: () -> Unit) {
 	Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
 		Text(label, fontSize = 11.sp, color = FpTheme.colors.textMuted)

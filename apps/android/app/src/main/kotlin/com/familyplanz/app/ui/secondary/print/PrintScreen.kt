@@ -129,7 +129,8 @@ private fun Sheet(month: PrintMonthDto) {
 			)
 		}
 		Grid(month)
-		Text("familyplanz.com", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Slate.S300)
+		Text("familyplanz.com", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+			style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Slate.S300)
 	}
 }
 
@@ -172,7 +173,8 @@ private fun Cell(cell: PrintCellDto, modifier: Modifier) {
 			.testTag("print-cell-${cell.iso}"),
 		verticalArrangement = Arrangement.spacedBy(2.dp),
 	) {
-		Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+		Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+			verticalAlignment = Alignment.CenterVertically) {
 			DayNumber(cell)
 			if (cell.items.size > PRINT_MAX_ITEMS) {
 				Text(
@@ -189,8 +191,13 @@ private fun Cell(cell: PrintCellDto, modifier: Modifier) {
 
 @Composable
 private fun DayNumber(cell: PrintCellDto) {
+	val todayModifier = if (cell.isToday) {
+		Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.primary)
+	} else {
+		Modifier
+	}
 	Box(
-		modifier = Modifier.size(20.dp).then(if (cell.isToday) Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.primary) else Modifier),
+		modifier = Modifier.size(20.dp).then(todayModifier),
 		contentAlignment = Alignment.Center,
 	) {
 		Text(

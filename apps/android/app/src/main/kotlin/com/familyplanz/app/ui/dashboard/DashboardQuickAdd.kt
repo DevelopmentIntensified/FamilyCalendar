@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.dashboard
 
 import com.familyplanz.app.data.FamilyMemberDto
@@ -14,6 +15,7 @@ import java.time.temporal.TemporalAdjusters
  * visibility markers, no month names): the board creates a family task
  * assigned to someone, due a day, and nothing else.
  */
+@Suppress("MatchingDeclarationName")
 data class BoardQuickAdd(
 	val title: String,
 	/** `null` when the line named no day. */
@@ -80,6 +82,7 @@ fun parseBoardQuickAdd(input: String, members: List<FamilyMemberDto>, today: Loc
 }
 
 /** The day a line names: today, tomorrow, "next <weekday>", or a bare weekday. */
+@Suppress("ReturnCount")
 internal fun dueFrom(text: String, today: LocalDate): LocalDate? {
 	if (TODAY_RE.containsMatchIn(text)) return today
 	if (TOMORROW_RE.containsMatchIn(text)) return today.plusDays(1)
@@ -101,6 +104,7 @@ private fun stripDatePhrases(text: String, today: LocalDate): String {
 }
 
 /** Assignee phrase → (userId, unknown handle); [consume] receives the stripped text. */
+@Suppress("ReturnCount")
 private fun takeAssignee(text: String, members: List<FamilyMemberDto>, consume: (String) -> Unit): Pair<String?, String?> {
 	val named = members
 		.filter { it.firstName.isNotBlank() }

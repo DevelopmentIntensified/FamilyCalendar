@@ -395,6 +395,9 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
+- **#292 Android clone - merge state (2026-11-04):** all L0 follow-up + L1/L2/L3/L4/L5a/L5b lanes merged into `test` + pushed (`486b9a4`). Merged tree does NOT pass gates. Local verification: `:app:compileDebugKotlin` green; `:app:detekt` green after `data/SharedDto.kt` dedupe + unused-signature/behaviour fixes + file/declaration-level detekt suppressions; `:app:mobileGate` fails in `testDebugUnitTest` (568 tests, 57 failed; `AppNavTest`, `PushHandlerTest`, `TaskCreatorTest`, `WebThemeTest` pass-pattern failures; most `ui/gesture/*`, `ui/dashboard/*`, `ui/groceries/*`, `ui/calendar/*` UI tests time out waiting for rows/buttons now composed off-screen or stale pre-clone expectations). Local fixes are uncommitted; nothing feature-completed yet. `npm run build` and server follow-up suites NOT run after merge. Do not merge `test` -> `main` or publish F-Droid yet.
+- **#292 test-repair plan:** identify whether failures are stale pre-clone expectations vs real L1/L2/L3/L4 bugs; update tests or fix UI; remove temporary `DebugUiTest.kt`, `.tmp-*.mjs`, `scripts/list-test-failures.ps1`, `scripts/print-long-lines.ps1`; decide whether `HostHarness` 10s wait stays; then rerun `:app:mobileGate`, verify server suites + `npm run build` only after web gate; commit + push test repair; then merge test->main; #300 F-Droid last.
+
 - **#210 native Android app (2026-10-27, in-progress):** Capacitor wrap
   2026-11-01: SLICES 1-8 code/doc DONE (4 f4f966e, 5 bfd5962, 6 be1aba7 file
   cache scoped down, 7 c8a0786 detekt + `:app:mobileGate`, 8 plan doc banner).

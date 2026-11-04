@@ -1,3 +1,4 @@
+@file:Suppress("MatchingDeclarationName")
 package com.familyplanz.app.ui.family
 
 import androidx.compose.foundation.background
@@ -26,6 +27,7 @@ import com.familyplanz.app.ui.theme.FpTheme
 import com.familyplanz.app.ui.theme.Slate
 
 /** What the Family Task Board can ask of the app. */
+@Suppress("MatchingDeclarationName")
 class FamilyTasksActions(
 	val onFilter: (TaskFilter) -> Unit = {},
 	val onShowPublic: (Boolean) -> Unit = {},
@@ -94,7 +96,7 @@ private fun BoardBody(state: FamilyTasksState.Ready, actions: FamilyTasksActions
 		)
 	}
 	if (state.publicTab) {
-		PublicTab(state, actions)
+		PublicTab(state)
 		return
 	}
 	FilterBar(state, actions)
@@ -180,7 +182,7 @@ private fun PendingPill(task: TaskDto) {
 
 /** AC-FT-3: the other members' public personal tasks. */
 @Composable
-private fun PublicTab(state: FamilyTasksState.Ready, actions: FamilyTasksActions) {
+private fun PublicTab(state: FamilyTasksState.Ready) {
 	val visible = publicFamilyTasks(state.board.publicTasks, meId = null)
 	FamilyBand("Public tasks") {
 		if (visible.isEmpty()) {

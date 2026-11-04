@@ -18,10 +18,6 @@ import retrofit2.http.Query
  * every mutation the screen makes goes through `/api/tasks`.
  */
 
-/** `dailyVerse`: gated server-side by `dashboardVisibility` (absent = hidden). */
-@Serializable
-data class VerseDto(val reference: String = "", val text: String = "", val attribution: String? = null)
-
 /** One `/api/tasks` category option (#283), for the board's quick-add. */
 @Serializable
 data class CategoryOptionDto(val id: String = "", val name: String = "")
