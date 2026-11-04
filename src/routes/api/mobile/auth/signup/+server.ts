@@ -41,6 +41,8 @@ function str(v: unknown): string {
  * (#292 G12) — the web's password sign-up (createPasswordAccount: same
  * checks, throttles and messages), signed in with an fp_ token instead of a
  * cookie. The account starts unverified; the code goes out as on the web.
+ * An address that already has an account gets the same 200 pending shape with
+ * `token: ""` — no account oracle, and no token minted for it.
  */
 export const POST = async (
 	event: RequestEvent,
@@ -57,6 +59,22 @@ export const POST = async (
 		};
 		const created = await createPasswordAccount(event.request, input, deps);
 		if (!created.ok) return created.response;
+		if (!created.created) {
+			// The address already has an account. Answer the same pending shape
+			// with an empty token and send nothing: no account oracle, and no
+			// token minted for an account this caller does not own.
+			return json({
+				token: '',
+				user: {
+					id: '',
+					firstName: input.firstName,
+					lastName: input.lastName,
+					email: input.email,
+					emailVerified: false
+				},
+				emailVerification: 'pending'
+			});
+		}
 		const { user } = created;
 		const { token } = await deps.createApiToken(
 			user.id,

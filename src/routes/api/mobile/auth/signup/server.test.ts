@@ -55,10 +55,25 @@ describe('POST /api/mobile/auth/signup (G12)', () => {
 		expect(deps.createUser).not.toHaveBeenCalled();
 	});
 
-	it('400 when the email is taken (same as the web sign-up)', async () => {
-		const res = await POST(ev(OK), makeDeps(true));
-		expect(res.status).toBe(400);
-		expect(await res.json()).toEqual({ error: 'An account with this email already exists' });
+	it('answers the same 200 pending shape for a taken email — no account, no token, no email', async () => {
+		const deps = makeDeps(true);
+		const res = await POST(ev(OK), deps);
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({
+			token: '',
+			user: {
+				id: '',
+				firstName: 'Ann',
+				lastName: 'Lee',
+				email: 'ann@x.com',
+				emailVerified: false
+			},
+			emailVerification: 'pending'
+		});
+		expect(deps.createUser).not.toHaveBeenCalled();
+		expect(deps.createApiToken).not.toHaveBeenCalled();
+		expect(deps.createCode).not.toHaveBeenCalled();
+		expect(deps.sendEmail).not.toHaveBeenCalled();
 	});
 
 	it('creates the unverified account, mints a device token, sends the code', async () => {
