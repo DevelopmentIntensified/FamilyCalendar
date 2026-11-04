@@ -4,10 +4,6 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Done
 
-- **#289-#291 Android fixes (2026-11-03, done; F-Droid 0.2.2):** #289 sessions ended right after sign-in (apex→www 308 stripped the bearer token): release base URL `https://www.familyplanz.com/`, OkHttp `followRedirects(false)`, RedirectSessionTest. #290 TaskFocus focus on Android. #291 app restyled toward the website tokens.
-- **#292 L0 server APIs (2026-11-03, merged a0fba80):** G1–G19 JSON endpoints for the native clone (shell flags, calendars, roster, dashboard, task sections, settings, families, signup/forgot, claim, account, stats, archive, .ics import, print, admin) via extracted shared loaders; web pages unchanged. Route/service suites green (DB-only `.real` tests need Postgres).
-- **#293 phone focus sessions — server (2026-11-03, live a0fba80/d67d541):** migration 025, `/api/taskfocus/sessions/**`, `phoneFocusMinutes`/`phoneFocusStartedAt` on GET /api/tasks; TaskFocus session notified. Android side → #296.
-
 - **#288 Android native sign-in (2026-11-03, done; F-Droid 0.2.0):** `/api/mobile/auth/{email,verify,password,guest,logout}` (8-digit code, names on /email for signup, no cookies, per-device fp_ token "Android — <device>"); Android Sign-in screen (email code, password, create account, guest; token paste under Advanced); sign-out unregisters FCM then revokes the token. F-Droid repo address moved to https://www.familyplanz.com/fdroid/repo (apex 308 broke the client); `fdroid-publish.sh --reindex`. 0.2.0 (versionCode 2000) published.
 - **#287 self-hosted F-Droid repo (2026-11-03, live):** https://familyplanz.com/fdroid/repo, fingerprint E59447D790A760573B59FA0769F7A073C91142F3FA61D3B775B2486824E571EF; 0.1.0 (versionCode 1000) published, APK signer 5d944cd7…8821; `/android` page; `scripts/fdroid-publish.sh` (file + env modes); release-only workflow `.github/workflows/android-release.yml` on `android-v*` tags (needs the 7 GitHub secrets — owner). Push disabled in 0.1.0 (no firebase.properties).
 - **#282-#286 leftovers (2026-11-02, done):** #282 family roster reaches every EventModal (add uninvited members from any view) + event task-tab category; #283 category on family add form + board quick-add, Saved/error toast on task edit; #284 emailed magic links carry the sanitised ?redirect= (signed in the JWT); #285 Day Dashboard shows events overlapping the day (00:00-end excluded); #286 Android banner covers reminders + family updates. Follow-ups noted in issues: FamilyTaskAddForm not mounted on /family/tasks; recurring multi-day occurrences starting >1 day before the dashboard day.
@@ -399,14 +395,6 @@ Rollup of `docs/issues/`. Done mirrors the tracker's `Status: done` entries.
 
 ## Open
 
-- **#292 Android app = clone of the website mobile view (in-progress, 2026-11-04):** spec `docs/specs/android-mobile-clone.md`. L0 server done. Lanes running in parallel agent worktrees, WIP pushed to `wip/292-*`:
-  - #294 shell + theme (L1) — in-progress, `wip/292-L1-shell`
-  - #295 Calendar (L2) — in-progress, `wip/292-L2-calendar`
-  - #296 Tasks + phone focus (L3, #293 Android) — in-progress, `wip/292-L3-tasks`
-  - #297 Dashboard/Groceries/Alerts (L4) — in-progress, `wip/292-L4-dash`
-  - #298 Family/Account/Auth (L5a) — in-progress, `wip/292-L5a-account`
-  - #299 Stats/Archive/Report a Bug/Import/Print/Admin (L5b) — in-progress, `wip/292-L5b-secondary`
-  - #300 F-Droid 0.3.0 — open, blocked by #294–#299 (owner approved publish)
 - **#210 native Android app (2026-10-27, in-progress):** Capacitor wrap
   2026-11-01: SLICES 1-8 code/doc DONE (4 f4f966e, 5 bfd5962, 6 be1aba7 file
   cache scoped down, 7 c8a0786 detekt + `:app:mobileGate`, 8 plan doc banner).

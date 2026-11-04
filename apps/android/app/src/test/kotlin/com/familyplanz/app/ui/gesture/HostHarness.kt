@@ -11,10 +11,20 @@ import com.familyplanz.app.ui.FamilyPlanzHost
 import com.familyplanz.app.ui.PhoneTab
 import com.familyplanz.app.ui.nav.StartRouteProvider
 import com.familyplanz.app.ui.nav.rememberAppNav
+import com.familyplanz.app.ui.shell.NetworkStatus
+import com.familyplanz.app.ui.shell.PendingWrites
+import com.familyplanz.app.ui.shell.ShellSource
 import kotlinx.coroutines.runBlocking
 import org.robolectric.RuntimeEnvironment
 
 private const val WAIT_MS = 5_000L
+
+/** The shell's own edges: its `/api` source (badge/bell/`/api/me`), connectivity and queued writes. */
+data class ShellEdges(
+	val shell: ShellSource = ShellSource.None,
+	val network: NetworkStatus = NetworkStatus.Online,
+	val pendingWrites: PendingWrites = PendingWrites.None,
+)
 
 /**
  * Mounts the real [FamilyPlanzHost] with the real lane modules over a
@@ -28,12 +38,24 @@ class HostHarness(
 	var auth: AuthSource = FakeAuthSource(),
 	/** The user's start-screen setting (G3); applies when [launch] names no tab. */
 	var startRoute: StartRouteProvider = StartRouteProvider.Calendar,
+	/** The shell chrome edges (G1/G12): badge, bell, `/api/me` banners, offline. */
+	var edges: ShellEdges = ShellEdges(),
 ) {
 	val store = DataStoreTokenStore(RuntimeEnvironment.getApplication())
 
 	fun launch(tab: PhoneTab? = PhoneTab.TASKS, token: String? = "fp_test") {
 		runBlocking { if (token == null) store.clear() else store.save(token) }
-		val modules = AppModules(AppServices(repo, store, auth, startRoute = startRoute))
+		val modules = AppModules(
+			AppServices(
+				repo,
+				store,
+				auth,
+				startRoute = startRoute,
+				shell = edges.shell,
+				network = edges.network,
+				pendingWrites = edges.pendingWrites,
+			),
+		)
 		rule.setContent {
 			MaterialTheme { FamilyPlanzHost(modules, rememberAppNav(tab?.route)) }
 		}

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FAB / add (calendar/+page.svelte:640, M12 4v16m8-8H4; stroke 2.5 on the FAB). 24-unit stroke icon, round caps/joins. Tinted at use. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+	android:width="24dp"
+	android:height="24dp"
+	android:viewportWidth="24"
+	android:viewportHeight="24">
+	<path
+		android:pathData="M12,4 v16 m8,-8 H4"
+		android:strokeColor="#FF000000"
+		android:strokeWidth="2.5"
+		android:strokeLineCap="round"
+		android:strokeLineJoin="round" />
+</vector>

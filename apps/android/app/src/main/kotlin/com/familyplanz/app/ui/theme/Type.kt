@@ -58,3 +58,29 @@ val FpChipText = style(10, 12, FontWeight.Medium)
 
 /** Month-cell day disc: `text-[13px] font-bold`. */
 val FpDayDiscText = style(13, 16, FontWeight.Bold)
+
+// ---- #292 §1.3 additions ----
+
+/** Family card name: `text-xl font-extrabold tracking-tight` 20/28/800. */
+val FpTitleLargeHeavy = style(20, 28, FontWeight.ExtraBold, TIGHT)
+
+/** Calendar month label: `text-lg font-bold tracking-tight` 18/28/700 (`CalendarToolbar.svelte`). */
+val FpTitleMediumBold = style(18, 28, FontWeight.Bold, TIGHT)
+
+/** TaskRow meta line: `text-[0.6875rem]` with `leading-5` (11/20/500). */
+val FpMetaText = style(11, 20, FontWeight.Medium)
+
+/** RSVP badge in a month chip, assignee initial: `text-[9px] font-bold`. */
+val FpMicroText = style(9, 12, FontWeight.Bold)
+
+/** Bottom-nav / bell badge: `text-[10px] font-semibold leading-none` (`BottomNav.svelte:164`). */
+val FpBadgeText = style(10, 10, FontWeight.SemiBold)
+
+/** Navbar wordmark: `text-xl font-bold` 20/28/700, no tracking (`Navbar.svelte:82`). */
+val FpWordmarkText = style(20, 28, FontWeight.Bold)
+
+/** Uppercase kicker: 11/700, `tracking-[0.08em]` (`AccountSidebar.svelte:67`). [FpKicker] upper-cases the text. */
+val FpKickerText = style(11, 16, FontWeight.Bold, 0.08)
+
+/** Kicker with `tracking-widest` (0.1em) (`family/+page.svelte` `dt`). */
+val FpKickerWideText = style(11, 16, FontWeight.Bold, 0.1)

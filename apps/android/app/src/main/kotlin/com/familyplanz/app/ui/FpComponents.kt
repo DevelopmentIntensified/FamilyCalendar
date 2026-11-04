@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,35 +12,24 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.SelectableChipColors
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarData
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.familyplanz.app.R
-import com.familyplanz.app.ui.theme.ChipTone
-import com.familyplanz.app.ui.theme.FpChipText
+import com.familyplanz.app.ui.theme.FpKickerText
+import com.familyplanz.app.ui.theme.FpKickerWideText
 import com.familyplanz.app.ui.theme.FpShape
 import com.familyplanz.app.ui.theme.FpTheme
 
@@ -50,21 +38,19 @@ import com.familyplanz.app.ui.theme.FpTheme
  * tokens. Each names the web component it copies.
  */
 
-/** Navbar.svelte: white bar, slate-200 bottom border, primary Mark glyph + bold title. */
+/**
+ * A page title row under the shell [com.familyplanz.app.ui.shell.FpNavbar]:
+ * white, slate-200 bottom rule, the page h1 (`text-xl font-bold`) and the
+ * page's own actions. The brand mark lives in the Navbar now (#292 §2.1).
+ */
 @Composable
 fun FpHeader(title: String, actions: @Composable RowScope.() -> Unit = {}) {
 	Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
 		Row(
-			modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 4.dp),
+			modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(start = 16.dp, end = 4.dp),
 			verticalAlignment = Alignment.CenterVertically,
 			horizontalArrangement = Arrangement.spacedBy(8.dp),
 		) {
-			Icon(
-				painterResource(R.drawable.ic_fp_calendar),
-				contentDescription = null,
-				tint = MaterialTheme.colorScheme.primary,
-				modifier = Modifier.size(24.dp),
-			)
 			Text(
 				title,
 				style = MaterialTheme.typography.titleLarge,
@@ -140,29 +126,6 @@ fun FpCard(
 	}
 }
 
-/** TaskRow meta-slot pill: rounded-full, h 18, px 7, 10px text in the tone's colours. */
-@Composable
-fun FpChip(text: String, tone: ChipTone, modifier: Modifier = Modifier, bold: Boolean = false) {
-	Text(
-		text,
-		style = FpChipText,
-		fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
-		color = tone.content,
-		maxLines = 1,
-		overflow = TextOverflow.Ellipsis,
-		modifier = modifier
-			.clip(FpShape.Pill)
-			.background(tone.container)
-			.heightIn(min = 18.dp)
-			.padding(horizontal = 7.dp, vertical = 3.dp),
-	)
-}
-
-/** Priority slot: a 8dp dot travelling with its label (priorityTone.ts PRIORITY_DOT). */
-@Composable
-fun FpDot(color: Color, size: Int = 8) {
-	Box(modifier = Modifier.size(size.dp).clip(FpShape.Pill).background(color))
-}
 
 /** AuthInput: white fill, slate-300 border, primary-500 focus ring, 10px radius. */
 @Composable
@@ -178,50 +141,20 @@ fun fpFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
 	focusedPlaceholderColor = FpTheme.colors.textMuted,
 )
 
-/** Web filter pills (TaskTagFilter): white/slate-200 off, primary-50/primary-700 on. */
-@Composable
-fun fpFilterChipColors(): SelectableChipColors = FilterChipDefaults.filterChipColors(
-	containerColor = MaterialTheme.colorScheme.surface,
-	labelColor = FpTheme.colors.textBody,
-	selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-	selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-	selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-)
-
-@Composable
-fun fpFilterChipBorder(selected: Boolean): BorderStroke =
-	BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.inversePrimary else MaterialTheme.colorScheme.outlineVariant)
-
 /**
- * Toaster.svelte: white, slate-200 border, rounded-xl, shadow-lg, slate-800
- * text, an optional primary action and a slate-300 dismiss cross.
+ * Uppercase kicker: `text-[11px] font-bold uppercase tracking-[0.08em]`
+ * slate-400 (`AccountSidebar.svelte:67`); [wide] = `tracking-widest`
+ * (`family/+page.svelte` `dt`). Pass slate-500 for AssignmentsCard headings.
  */
 @Composable
-fun FpToast(data: SnackbarData) {
-	Snackbar(
-		modifier = Modifier
-			.padding(horizontal = 16.dp, vertical = 8.dp)
-			.border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium),
-		shape = MaterialTheme.shapes.medium,
-		containerColor = MaterialTheme.colorScheme.surface,
-		contentColor = MaterialTheme.colorScheme.inverseSurface,
-		actionContentColor = MaterialTheme.colorScheme.primary,
-		dismissActionContentColor = MaterialTheme.colorScheme.outline,
-		action = data.visuals.actionLabel?.let { label ->
-			{
-				TextButton(onClick = data::performAction) { Text(label) }
-			}
-		},
-		dismissAction = {
-			IconButton(onClick = data::dismiss) {
-				Icon(
-					painterResource(R.drawable.ic_fp_close),
-					contentDescription = "Dismiss notification",
-					modifier = Modifier.size(14.dp),
-				)
-			}
-		},
-	) {
-		Text(data.visuals.message, style = MaterialTheme.typography.bodyMedium)
-	}
+fun FpKicker(text: String, modifier: Modifier = Modifier, wide: Boolean = false, color: Color = FpTheme.colors.kicker) {
+	Text(
+		text.uppercase(),
+		style = if (wide) FpKickerWideText else FpKickerText,
+		color = color,
+		maxLines = 1,
+		overflow = TextOverflow.Ellipsis,
+		modifier = modifier,
+	)
 }
+

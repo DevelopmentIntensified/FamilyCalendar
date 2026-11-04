@@ -63,6 +63,54 @@ object Accent {
 	val Amber800 = Color(0xFF92400E)
 	val Emerald100 = Color(0xFFD1FAE5)
 	val Emerald700 = Color(0xFF047857)
+
+	// #292 §1.2 additions (Tailwind 3.4.19 default palette).
+
+	/** red-800: urgent guest banner / error text (`calendar/+layout.svelte:250`). */
+	val Red800 = Color(0xFF991B1B)
+
+	/** amber-300 / -500 / -600 / -900: offline banner (`OfflineBanner.svelte:63`), sponsored events, guest hint. */
+	val Amber300 = Color(0xFFFCD34D)
+	val Amber500 = Color(0xFFF59E0B)
+	val Amber600 = Color(0xFFD97706)
+	val Amber900 = Color(0xFF78350F)
+
+	/** green-50/100/200/600/800: success banner (`calendar/+layout.svelte:151`), RSVP Going. */
+	val Green50 = Color(0xFFF0FDF4)
+	val Green100 = Color(0xFFDCFCE7)
+	val Green200 = Color(0xFFBBF7D0)
+	val Green600 = Color(0xFF16A34A)
+	val Green800 = Color(0xFF166534)
+
+	/** yellow-500: RSVP Maybe (`EventRsvpRow.svelte`). */
+	val Yellow500 = Color(0xFFEAB308)
+
+	/** blue-100/800, emerald-800, orange-800: notification tones (`notificationTypes.ts` TONES). */
+	val Blue100 = Color(0xFFDBEAFE)
+	val Blue800 = Color(0xFF1E40AF)
+	val Emerald50 = Color(0xFFECFDF5)
+	val Emerald500 = Color(0xFF10B981)
+	val Emerald800 = Color(0xFF065F46)
+	val Emerald900 = Color(0xFF064E3B)
+	val Orange50 = Color(0xFFFFF7ED)
+	val Orange500 = Color(0xFFF97316)
+	val Orange800 = Color(0xFF9A3412)
+	val Orange900 = Color(0xFF7C2D12)
+
+	/** sky / violet / amber steps for the grocery store swatches (`groceries.ts:156-200`). */
+	val Sky50 = Color(0xFFF0F9FF)
+	val Sky500 = Color(0xFF0EA5E9)
+	val Sky900 = Color(0xFF0C4A6E)
+	val Violet50 = Color(0xFFF5F3FF)
+	val Violet500 = Color(0xFF8B5CF6)
+	val Violet900 = Color(0xFF4C1D95)
+
+	/** cyan-50/600: Family source chip (`TodayGlanceCard.svelte`). */
+	val Cyan50 = Color(0xFFECFEFF)
+	val Cyan600 = Color(0xFF0891B2)
+
+	/** purple-400: recurring glyph (`MonthDayCell.svelte:276`). */
+	val Purple400 = Color(0xFFC084FC)
 	val Teal100 = Color(0xFFCCFBF1)
 	val Teal800 = Color(0xFF115E59)
 	val Sky100 = Color(0xFFE0F2FE)
@@ -110,6 +158,39 @@ object Brand {
 	val BlueInk = Color(0xFF366D7E)
 	val Mint = Color(0xFFC4E9DA)
 	val MintInk = Color(0xFF2D5866)
+
+	/** Account avatar wash `bg-[#FED5CF]` (`theme.css:62`; `AccountSidebar.svelte:120`). */
+	val Blush = Color(0xFFFED5CF)
+}
+
+/** Default calendar colours when a calendar has none (`calendar/+page.server.ts:106,145`). */
+object CalendarDefaults {
+	val Personal = Color(0xFFFA8072)
+	val Family = Color(0xFFE0FFFF)
+
+	/** Sponsored events (`calendar/+page.server.ts:320`, amber-500). */
+	val Sponsored = Accent.Amber500
+}
+
+/** One banner tone: `border-X bg-X text-X` (`calendar/+layout.svelte:149-263`, `OfflineBanner.svelte:63`). */
+@Immutable
+data class BannerTone(val border: Color, val surface: Color, val content: Color)
+
+/** `notificationTypes.ts` TONES, keyed by the raw `type` column; unknown → slate-100/600. */
+object NotifTones {
+	val pending = ChipTone(Accent.Blue100, Accent.Blue800)
+	val positive = ChipTone(Accent.Emerald100, Accent.Emerald800)
+	val declined = ChipTone(Accent.Red100, Accent.Red800)
+	val family = ChipTone(Accent.Orange100, Accent.Orange800)
+	val unknown = ChipTone(Slate.S100, Slate.S600)
+
+	fun of(type: String?): ChipTone = when (type) {
+		"assignment_pending" -> pending
+		"assignment_accepted", "task_completed" -> positive
+		"assignment_declined" -> declined
+		"added_to_family" -> family
+		else -> unknown
+	}
 }
 
 /** Material3 roles mapped from the web palette. Light only: the site has no dark mode. */
@@ -155,60 +236,6 @@ val FpLightColorScheme: ColorScheme = lightColorScheme(
 /** One chip/pill tone: fill + ink (web `bg-X-100 text-X-700`). */
 @Immutable
 data class ChipTone(val container: Color, val content: Color)
-
-/**
- * Roles the Material scheme has no slot for: the web chip vocabulary
- * (TaskRow.svelte meta slots), due/overdue tones (priorityTone.ts dueTone),
- * the priority dots, and the calendar chip rail (chipVocabulary.ts).
- */
-@Immutable
-data class FpColors(
-	val category: ChipTone = ChipTone(Accent.Teal100, Accent.Teal800),
-	val tag: ChipTone = ChipTone(Accent.Sky100, Accent.Sky700),
-	val family: ChipTone = ChipTone(Accent.Indigo100, Accent.Indigo700),
-	val late: ChipTone = ChipTone(Accent.Red100, Accent.Red700),
-	val dueToday: ChipTone = ChipTone(Accent.Amber100, Accent.Amber700),
-	val due: ChipTone = ChipTone(Slate.S100, Slate.S600),
-	val pending: ChipTone = ChipTone(Accent.Amber100, Accent.Amber700),
-	val assignee: ChipTone = ChipTone(Slate.S100, Slate.S600),
-	val recurring: ChipTone = ChipTone(Accent.Purple100, Accent.Purple500),
-	val focus: ChipTone = ChipTone(Primary.P50, Primary.P700),
-	val accept: ChipTone = ChipTone(Accent.Emerald100, Accent.Emerald700),
-	val decline: ChipTone = ChipTone(Accent.Red100, Accent.Red700),
-	val priorityHigh: Color = Accent.Red500,
-	val priorityNormal: Color = Slate.S300,
-	val priorityLow: Color = Slate.S200,
-	/** Row surface: `border-slate-100 bg-slate-50/60`; late rows `border-red-200 bg-red-50`. */
-	val rowSurface: Color = Slate.S50,
-	val rowBorder: Color = Slate.S100,
-	val lateRowSurface: Color = Accent.Red50,
-	val lateRowBorder: Color = Accent.Red200,
-	val lateText: Color = Accent.Red700,
-	/** chipColor() fallback when an event has no calendar colour. */
-	val chipRail: Color = Slate.S400,
-	val taskChipBorder: Color = Slate.S300,
-	val overdueChipBorder: Color = Accent.Red400,
-	/** MonthDayCell: today = primary-300 border on primary-50 wash; weekend = paper wash. */
-	val todayCellBorder: Color = Primary.P300,
-	val todayCellSurface: Color = Primary.P50,
-	val weekendCellSurface: Color = Brand.Paper,
-	val otherMonthCellSurface: Color = Slate.S50,
-	val otherMonthCellBorder: Color = Slate.S100,
-	/** Text ramp: titles slate-900, body slate-600, meta slate-400, separators slate-300. */
-	val textStrong: Color = Slate.S900,
-	val textBody: Color = Slate.S600,
-	val textMuted: Color = Slate.S400,
-	val separator: Color = Slate.S300,
-	/** Guest / info note: the login page's `bg-[#BEDAE3]/40` info card. */
-	val infoSurface: Color = Brand.Blue.copy(alpha = 0.4f),
-	val infoContent: Color = Slate.S700,
-	/** Warning card (TasksHeader: amber-50 / amber-200 / amber-800). */
-	val warnSurface: Color = Accent.Amber50,
-	val warnBorder: Color = Accent.Amber200,
-	val warnContent: Color = Accent.Amber800,
-	/** Status bar = app.html theme-color. */
-	val statusBar: Color = Primary.P600,
-)
 
 /** System-bar scrims (Activity code wants ARGB ints): app.html theme-color, and the white tab bar. */
 val STATUS_BAR_ARGB: Int = Primary.P600.toArgb()
