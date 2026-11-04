@@ -7,7 +7,6 @@ import android.app.NotificationManager
 import com.familyplanz.app.MainActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -43,13 +42,21 @@ class ActivityNotifierTest {
 	}
 
 	@Test
-	fun `two pushes stack as two notifications and a missing link stays null`() {
+	fun `two pushes stack as two notifications and a missing link opens Alerts`() {
 		ActivityNotifier.post(app, PushAction.ShowActivity("One", "a", null))
 		ActivityNotifier.post(app, PushAction.ShowActivity("Two", "b", null))
 
 		val all = shadowOf(notifications).allNotifications
 		assertEquals(2, all.size)
-		assertNull(shadowOf(all.first().contentIntent).savedIntent.getStringExtra(ActivityNotifier.EXTRA_LINK))
+		assertEquals("/calendar/notifications", shadowOf(all.first().contentIntent).savedIntent.getStringExtra(ActivityNotifier.EXTRA_LINK))
+	}
+
+	@Test
+	fun `a tap only opens in-app routes - an unclaimed link opens Alerts`() {
+		assertEquals("/calendar/tasks?x=1", ActivityNotifier.inAppLink("/calendar/tasks?x=1"))
+		assertEquals("/calendar/notifications", ActivityNotifier.inAppLink("https://evil.example/phish"))
+		assertEquals("/calendar/notifications", ActivityNotifier.inAppLink("/pricing"))
+		assertEquals("/calendar/notifications", ActivityNotifier.inAppLink(null))
 	}
 
 	@Test
