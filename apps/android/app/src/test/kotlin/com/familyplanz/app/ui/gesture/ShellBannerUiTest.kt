@@ -60,7 +60,7 @@ class ShellBannerUiTest {
 	private val shell = FakeShellSource()
 	private val network = FakeNetwork()
 	private val pending = MutablePendingWrites()
-	private val host = HostHarness(rule, shell = shell, network = network, pendingWrites = pending)
+	private val host = HostHarness(rule, edges = ShellEdges(shell = shell, network = network, pendingWrites = pending))
 
 	private fun entryShown(route: AppRoute) {
 		host.waitFor { rule.onAllNodesWithTag("entry-${route.name.lowercase()}").fetchSemanticsNodes().isNotEmpty() }

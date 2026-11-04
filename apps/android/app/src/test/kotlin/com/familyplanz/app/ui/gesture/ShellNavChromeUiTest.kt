@@ -39,7 +39,7 @@ class ShellNavChromeUiTest {
 	val rule = createComposeRule()
 
 	private val shell = FakeShellSource()
-	private val host = HostHarness(rule, shell = shell)
+	private val host = HostHarness(rule, edges = ShellEdges(shell = shell))
 
 	private fun entryShown(route: AppRoute) {
 		host.waitFor { rule.onAllNodesWithTag("entry-${route.name.lowercase()}").fetchSemanticsNodes().isNotEmpty() }

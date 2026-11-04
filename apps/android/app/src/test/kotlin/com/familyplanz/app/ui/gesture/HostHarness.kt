@@ -19,6 +19,13 @@ import org.robolectric.RuntimeEnvironment
 
 private const val WAIT_MS = 5_000L
 
+/** The shell's own edges: its `/api` source (badge/bell/`/api/me`), connectivity and queued writes. */
+data class ShellEdges(
+	val shell: ShellSource = ShellSource.None,
+	val network: NetworkStatus = NetworkStatus.Online,
+	val pendingWrites: PendingWrites = PendingWrites.None,
+)
+
 /**
  * Mounts the real [FamilyPlanzHost] with the real lane modules over a
  * [FakeRepository]; only the network edge is faked. The token store is the
@@ -31,11 +38,8 @@ class HostHarness(
 	var auth: AuthSource = FakeAuthSource(),
 	/** The user's start-screen setting (G3); applies when [launch] names no tab. */
 	var startRoute: StartRouteProvider = StartRouteProvider.Calendar,
-	/** The shell's own `/api` edge: badge, bell, `/api/me` banners and verify (G1/G12). */
-	var shell: ShellSource = ShellSource.None,
-	/** OfflineBanner edges: connectivity and queued writes. */
-	var network: NetworkStatus = NetworkStatus.Online,
-	var pendingWrites: PendingWrites = PendingWrites.None,
+	/** The shell chrome edges (G1/G12): badge, bell, `/api/me` banners, offline. */
+	var edges: ShellEdges = ShellEdges(),
 ) {
 	val store = DataStoreTokenStore(RuntimeEnvironment.getApplication())
 
@@ -47,9 +51,9 @@ class HostHarness(
 				store,
 				auth,
 				startRoute = startRoute,
-				shell = shell,
-				network = network,
-				pendingWrites = pendingWrites,
+				shell = edges.shell,
+				network = edges.network,
+				pendingWrites = edges.pendingWrites,
 			),
 		)
 		rule.setContent {
