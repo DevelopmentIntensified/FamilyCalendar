@@ -57,6 +57,7 @@ import com.familyplanz.app.ui.secondary.reportbug.ReportBugEntry
 import com.familyplanz.app.ui.secondary.stats.StatsEntry
 import com.familyplanz.app.ui.shell.BANNER_ROUTES
 import com.familyplanz.app.ui.shell.BANNER_STACK_TAG
+import com.familyplanz.app.ui.shell.BellActions
 import com.familyplanz.app.ui.shell.FpAccountBanner
 import com.familyplanz.app.ui.shell.FpBottomNav
 import com.familyplanz.app.ui.shell.FpMobileMenu
@@ -64,9 +65,11 @@ import com.familyplanz.app.ui.shell.FpNavbar
 import com.familyplanz.app.ui.shell.FpNotificationBell
 import com.familyplanz.app.ui.shell.FpOfflineBanner
 import com.familyplanz.app.ui.shell.FpToaster
-import com.familyplanz.app.ui.shell.KEYBOARD_THRESHOLD_DP
+import com.familyplanz.app.ui.shell.navHiddenByKeyboard
 import com.familyplanz.app.ui.shell.LocalAppModules
 import com.familyplanz.app.ui.shell.LocalShell
+import com.familyplanz.app.ui.shell.MenuActions
+import com.familyplanz.app.ui.shell.MenuState
 import com.familyplanz.app.ui.shell.SessionState
 import com.familyplanz.app.ui.shell.SessionViewModel
 import com.familyplanz.app.ui.shell.ShellChromeViewModel
@@ -160,21 +163,21 @@ private fun SignedInShell(
 		nav.open(route)
 	}
 	val density = LocalDensity.current
-	val imeOpen = WindowInsets.ime.getBottom(density) > with(density) { KEYBOARD_THRESHOLD_DP.dp.roundToPx() }
+	val imeOpen = navHiddenByKeyboard(with(density) { WindowInsets.ime.getBottom(this).toDp().value })
 
 	BoxWithConstraints(Modifier.fillMaxSize()) {
 		val menuMax = maxHeight * 0.8f
 		Column(Modifier.fillMaxSize()) {
 			FpNavbar(menuOpen, onLogo = { open(AppRoute.CALENDAR) }, onToggleMenu = { menuOpen = !menuOpen })
 			FpMobileMenu(
-				open = menuOpen,
-				active = nav.route,
-				admin = me?.roles?.contains("admin") == true,
-				onOpen = open,
-				onLogout = {
-					menuOpen = false
-					session.shell.signOut()
-				},
+				state = MenuState(open = menuOpen, active = nav.route, admin = me?.roles?.contains("admin") == true),
+				actions = MenuActions(
+					onOpen = open,
+					onLogout = {
+						menuOpen = false
+						session.shell.signOut()
+					},
+				),
 				bell = { ShellBell(chrome, unread, nav) { menuOpen = false } },
 				modifier = Modifier.heightIn(max = menuMax),
 			)
@@ -196,17 +199,19 @@ private fun ShellBell(chrome: ShellChromeViewModel, unread: Int, nav: AppNav, cl
 		unread = unread,
 		open = open,
 		list = list,
-		onToggle = {
-			open = !open
-			if (open) chrome.loadBell()
-		},
-		onRetry = chrome::loadBell,
-		onRow = { row ->
-			open = false
-			chrome.markRead(row)
-			if (nav.openLink(row.link)) closeMenu()
-		},
-		onMarkAll = chrome::markAllRead,
+		actions = BellActions(
+			onToggle = {
+				open = !open
+				if (open) chrome.loadBell()
+			},
+			onRetry = chrome::loadBell,
+			onRow = { row ->
+				open = false
+				chrome.markRead(row)
+				if (nav.openLink(row.link)) closeMenu()
+			},
+			onMarkAll = chrome::markAllRead,
+		),
 	)
 }
 
@@ -215,18 +220,18 @@ private fun ShellBell(chrome: ShellChromeViewModel, unread: Int, nav: AppNav, cl
 private fun BannerStack(chrome: ShellChromeViewModel, open: (AppRoute) -> Unit) {
 	val modules = LocalAppModules.current
 	val me by chrome.me.collectAsStateWithLifecycle()
-	val verify by chrome.verify.collectAsStateWithLifecycle()
+	val verify by chrome.verify.form.collectAsStateWithLifecycle()
 	Column(Modifier.fillMaxWidth().testTag(BANNER_STACK_TAG)) {
 		FpOfflineBanner(modules.session.network, modules.session.pendingWrites)
 		FpAccountBanner(
 			banner = accountBanner(me, Instant.now(), verify.dismissed),
 			verify = verify,
 			actions = VerifyActions(
-				onCode = chrome::setVerifyCode,
-				onSubmit = chrome::submitVerify,
-				onResend = chrome::resendVerify,
-				onDismiss = chrome::dismissVerify,
-				onResentShown = chrome::clearResent,
+				onCode = chrome.verify::setCode,
+				onSubmit = chrome.verify::submit,
+				onResend = chrome.verify::resend,
+				onDismiss = chrome.verify::dismiss,
+				onResentShown = chrome.verify::clearResent,
 			),
 			// G13 claim lives on the Account identity card (L5).
 			onClaim = { open(AppRoute.ACCOUNT) },

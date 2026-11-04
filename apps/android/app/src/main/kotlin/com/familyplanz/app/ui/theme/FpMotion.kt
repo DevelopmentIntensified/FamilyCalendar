@@ -20,8 +20,8 @@ import androidx.compose.ui.unit.dp
 
 /**
  * The website's motion values (spec §1.7). Every duration cites its source;
- * [reducedMotion] mirrors `app.css:13-21` (all animation → ~0) via the
- * system animator scale.
+ * [FpMotion.reducedMotion] mirrors `app.css:13-21` (all animation → ~0) via
+ * the system animator scale.
  */
 object FpMotion {
 	/** `--mp-motion` 150 ms (`theme.css:146`). */

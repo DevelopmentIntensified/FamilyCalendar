@@ -28,7 +28,11 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 /**
  * The shared edges every lane module builds on: the phone API, the token
  * store, sign-in/revoke, the #273 session hooks and the start-screen setting. Tests pass fakes here.
+ *
+ * The parameter count is the point: this is the one construction site where
+ * every lane's edge is wired, so it is a DI seam, not a function that grew.
  */
+@Suppress("LongParameterList")
 class AppServices(
 	val repository: TaskRepository,
 	val tokenStore: DataStoreTokenStore,

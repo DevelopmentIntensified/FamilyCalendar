@@ -113,6 +113,14 @@ fun FpCountBadge(count: Int, color: Color, modifier: Modifier = Modifier) {
 	}
 }
 
+/** What the bell can do (backed by [ShellChromeViewModel]). */
+data class BellActions(
+	val onToggle: () -> Unit,
+	val onRetry: () -> Unit,
+	val onRow: (NotificationDto) -> Unit,
+	val onMarkAll: () -> Unit,
+)
+
 /**
  * NotificationBell.svelte inside the mobile menu: a 44 dp round slate-600
  * button with a red-500 badge; tapping opens the `w-80 rounded-xl border
@@ -121,21 +129,13 @@ fun FpCountBadge(count: Int, color: Color, modifier: Modifier = Modifier) {
  * banner (§0.5), so it is not repeated here.
  */
 @Composable
-fun FpNotificationBell(
-	unread: Int,
-	open: Boolean,
-	list: BellList,
-	onToggle: () -> Unit,
-	onRetry: () -> Unit,
-	onRow: (NotificationDto) -> Unit,
-	onMarkAll: () -> Unit,
-) {
+fun FpNotificationBell(unread: Int, open: Boolean, list: BellList, actions: BellActions) {
 	Box {
 		Box(
 			modifier = Modifier
 				.size(44.dp)
 				.clip(FpShape.Pill)
-				.clickable(role = Role.Button, onClick = onToggle)
+				.clickable(role = Role.Button, onClick = actions.onToggle)
 				.semantics { contentDescription = bellLabel(unread) },
 			contentAlignment = Alignment.Center,
 		) {
@@ -154,23 +154,17 @@ fun FpNotificationBell(
 			Popup(
 				alignment = Alignment.TopEnd,
 				offset = IntOffset(0, dropY),
-				onDismissRequest = onToggle,
+				onDismissRequest = actions.onToggle,
 				properties = PopupProperties(focusable = true),
 			) {
-				BellPanel(unread, list, onRetry, onRow, onMarkAll)
+				BellPanel(unread, list, actions)
 			}
 		}
 	}
 }
 
 @Composable
-private fun BellPanel(
-	unread: Int,
-	list: BellList,
-	onRetry: () -> Unit,
-	onRow: (NotificationDto) -> Unit,
-	onMarkAll: () -> Unit,
-) {
+private fun BellPanel(unread: Int, list: BellList, actions: BellActions) {
 	Surface(
 		modifier = Modifier.widthIn(max = 320.dp).testTag(BELL_PANEL_TAG),
 		shape = MaterialTheme.shapes.medium,
@@ -199,14 +193,14 @@ private fun BellPanel(
 						style = MaterialTheme.typography.bodyMedium,
 						fontWeight = FontWeight.Medium,
 						color = MaterialTheme.colorScheme.primary,
-						modifier = Modifier.heightIn(min = 44.dp).clickable(role = Role.Button, onClick = onRetry).padding(8.dp),
+						modifier = Modifier.heightIn(min = 44.dp).clickable(role = Role.Button, onClick = actions.onRetry).padding(8.dp),
 					)
 				}
 				is BellList.Ready -> if (list.rows.isEmpty()) {
 					BellNote("No notifications yet — all quiet on the home front.")
 				} else {
 					LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
-						items(list.rows, key = { it.id }) { row -> BellRow(row) { onRow(row) } }
+						items(list.rows, key = { it.id }) { row -> BellRow(row) { actions.onRow(row) } }
 					}
 				}
 			}
@@ -221,7 +215,7 @@ private fun BellPanel(
 						.padding(top = 8.dp)
 						.fillMaxWidth()
 						.heightIn(min = 44.dp)
-						.clickable(role = Role.Button, onClick = onMarkAll)
+						.clickable(role = Role.Button, onClick = actions.onMarkAll)
 						.padding(horizontal = 16.dp, vertical = 12.dp),
 				)
 			}

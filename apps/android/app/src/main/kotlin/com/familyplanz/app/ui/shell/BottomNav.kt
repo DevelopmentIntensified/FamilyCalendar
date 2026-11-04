@@ -47,6 +47,12 @@ const val BOTTOM_NAV_TAG = "bottom-nav"
 /** The web's keyboard threshold: the viewport shrank by more than 150 px (`BottomNav.svelte:95`). */
 const val KEYBOARD_THRESHOLD_DP = 150
 
+/**
+ * AC-SH-5: the bar goes invisible (still laid out, like `opacity-0
+ * pointer-events-none`) while the IME covers more than [KEYBOARD_THRESHOLD_DP].
+ */
+fun navHiddenByKeyboard(imeBottomDp: Float): Boolean = imeBottomDp > KEYBOARD_THRESHOLD_DP
+
 /** Tab tones (`BottomNav.svelte:145,171`): icon pill on primary-50/600 or bare slate-400; label primary-600 / slate-500. */
 data class TabTone(val pill: ChipTone, val label: Color)
 
@@ -58,7 +64,7 @@ fun tabLabel(tab: PhoneTab, unread: Int): String =
 	if (tab == PhoneTab.ALERTS && unread > 0) "Alerts ($unread unread)" else tab.description
 
 /** `text-[11px] font-medium leading-none`. */
-private val TabLabelText = TextStyle(fontSize = 11.sp, lineHeight = 11.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+internal val TabLabelText = TextStyle(fontSize = 11.sp, lineHeight = 11.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
 
 /**
  * BottomNav.svelte: white, slate-200 top rule, six equal columns

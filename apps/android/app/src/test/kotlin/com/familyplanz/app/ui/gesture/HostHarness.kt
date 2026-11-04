@@ -11,6 +11,9 @@ import com.familyplanz.app.ui.FamilyPlanzHost
 import com.familyplanz.app.ui.PhoneTab
 import com.familyplanz.app.ui.nav.StartRouteProvider
 import com.familyplanz.app.ui.nav.rememberAppNav
+import com.familyplanz.app.ui.shell.NetworkStatus
+import com.familyplanz.app.ui.shell.PendingWrites
+import com.familyplanz.app.ui.shell.ShellSource
 import kotlinx.coroutines.runBlocking
 import org.robolectric.RuntimeEnvironment
 
@@ -28,12 +31,27 @@ class HostHarness(
 	var auth: AuthSource = FakeAuthSource(),
 	/** The user's start-screen setting (G3); applies when [launch] names no tab. */
 	var startRoute: StartRouteProvider = StartRouteProvider.Calendar,
+	/** The shell's own `/api` edge: badge, bell, `/api/me` banners and verify (G1/G12). */
+	var shell: ShellSource = ShellSource.None,
+	/** OfflineBanner edges: connectivity and queued writes. */
+	var network: NetworkStatus = NetworkStatus.Online,
+	var pendingWrites: PendingWrites = PendingWrites.None,
 ) {
 	val store = DataStoreTokenStore(RuntimeEnvironment.getApplication())
 
 	fun launch(tab: PhoneTab? = PhoneTab.TASKS, token: String? = "fp_test") {
 		runBlocking { if (token == null) store.clear() else store.save(token) }
-		val modules = AppModules(AppServices(repo, store, auth, startRoute = startRoute))
+		val modules = AppModules(
+			AppServices(
+				repo,
+				store,
+				auth,
+				startRoute = startRoute,
+				shell = shell,
+				network = network,
+				pendingWrites = pendingWrites,
+			),
+		)
 		rule.setContent {
 			MaterialTheme { FamilyPlanzHost(modules, rememberAppNav(tab?.route)) }
 		}

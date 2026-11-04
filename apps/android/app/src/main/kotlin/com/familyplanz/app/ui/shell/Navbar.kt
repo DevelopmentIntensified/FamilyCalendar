@@ -126,25 +126,28 @@ val MENU_ADMIN_ROWS: List<MenuRow> = listOf(
 	MenuRow("Bug Reports", AppRoute.ADMIN_BUGS),
 )
 
+/** What a menu row can do: go somewhere, or sign out. */
+data class MenuActions(val onOpen: (AppRoute) -> Unit, val onLogout: () -> Unit)
+
+/** Who the menu is showing for: is it open, which destination is current, is this an admin. */
+data class MenuState(val open: Boolean, val active: AppRoute, val admin: Boolean)
+
 /**
  * NavbarMobileMenu.svelte: slides open in 200 ms and pushes the content
  * down. Bell row, the nav rows (active `bg-primary-100 text-primary-700`),
  * a rule, the secondary rows (+ admin), a rule, and the full-width primary
- * "Logout". [onOpen] must also close the menu (the host does it).
+ * "Logout". [MenuActions.onOpen] must also close the menu (the host does it).
  */
 @Composable
 fun FpMobileMenu(
-	open: Boolean,
-	active: AppRoute,
-	admin: Boolean,
-	onOpen: (AppRoute) -> Unit,
-	onLogout: () -> Unit,
+	state: MenuState,
+	actions: MenuActions,
 	bell: @Composable () -> Unit,
 	modifier: Modifier = Modifier,
 ) {
 	val reduced = rememberReducedMotion()
 	AnimatedVisibility(
-		visible = open,
+		visible = state.open,
 		modifier = modifier,
 		enter = expandVertically(FpMotion.spec(FpMotion.MENU_SLIDE_MS, reduced)),
 		exit = shrinkVertically(FpMotion.spec(FpMotion.MENU_SLIDE_MS, reduced)),
@@ -162,11 +165,11 @@ fun FpMobileMenu(
 					horizontalArrangement = Arrangement.End,
 				) { bell() }
 				HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-				MENU_NAV_ROWS.forEach { row -> NavRow(row, row.route == active) { onOpen(row.route) } }
+				MENU_NAV_ROWS.forEach { row -> NavRow(row, row.route == state.active) { actions.onOpen(row.route) } }
 				HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-				val secondary = if (admin) MENU_SECONDARY_ROWS + MENU_ADMIN_ROWS else MENU_SECONDARY_ROWS
+				val secondary = if (state.admin) MENU_SECONDARY_ROWS + MENU_ADMIN_ROWS else MENU_SECONDARY_ROWS
 				Column(modifier = Modifier.padding(top = 8.dp)) {
-					secondary.forEach { row -> SecondaryRow(row) { onOpen(row.route) } }
+					secondary.forEach { row -> SecondaryRow(row) { actions.onOpen(row.route) } }
 				}
 				HorizontalDivider(Modifier.padding(top = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
 				Text(
@@ -181,7 +184,7 @@ fun FpMobileMenu(
 						.heightIn(min = 44.dp)
 						.clip(MaterialTheme.shapes.small)
 						.background(MaterialTheme.colorScheme.primary)
-						.clickable(role = Role.Button, onClick = onLogout)
+						.clickable(role = Role.Button, onClick = actions.onLogout)
 						.padding(horizontal = 12.dp, vertical = 10.dp),
 				)
 			}

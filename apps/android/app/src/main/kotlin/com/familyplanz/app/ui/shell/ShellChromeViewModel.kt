@@ -18,15 +18,7 @@ sealed interface BellList {
 	data class Ready(val rows: List<NotificationDto>) : BellList
 }
 
-/** The verify banner's form state (`calendar/+layout.svelte:66-136`). */
-data class VerifyForm(
-	val code: String = "",
-	val busy: Boolean = false,
-	val error: String? = null,
-	val dismissed: Boolean = false,
-	/** "Sent again ✓" pill; the banner clears it after 3 s. */
-	val resent: Boolean = false,
-)
+/** The verify banner's form state and calls live in [VerifyChrome]. */
 
 /**
  * Per-session shell chrome: the unread badge (BottomNav + bell), the bell
@@ -47,8 +39,11 @@ class ShellChromeViewModel(
 	private val _me = MutableStateFlow<ShellMeDto?>(null)
 	val me: StateFlow<ShellMeDto?> = _me
 
-	private val _verify = MutableStateFlow(VerifyForm())
-	val verify: StateFlow<VerifyForm> = _verify
+	/** The verify banner (`calendar/+layout.svelte:66-136`). */
+	val verify: VerifyChrome = VerifyChrome(source, viewModelScope) {
+		_me.update { m -> m?.copy(emailVerified = true) }
+		loadMe()
+	}
 
 	/** BottomNav `refreshBadge`: on mount, every route change and resume; silent (0) on failure. */
 	fun refreshBadge() {
@@ -110,54 +105,6 @@ class ShellChromeViewModel(
 	private fun setRead(id: String, readAt: String?) {
 		val ready = _bell.value as? BellList.Ready ?: return
 		_bell.value = BellList.Ready(ready.rows.map { if (it.id == id) it.copy(readAt = readAt) else it })
-	}
-
-	fun setVerifyCode(code: String) = _verify.update { it.copy(code = code) }
-
-	fun dismissVerify() = _verify.update { it.copy(dismissed = true) }
-
-	fun clearResent() = _verify.update { it.copy(resent = false) }
-
-	/** `submitVerifyCode`: success re-reads `/api/me`, which drops the banner. */
-	fun submitVerify() {
-		val form = _verify.value
-		if (form.code.isBlank() || form.busy) return
-		_verify.value = form.copy(busy = true, error = null)
-		viewModelScope.launch {
-			when (val r = source.verifyEmail(form.code.trim())) {
-				is ApiResult.Ok -> {
-					_me.update { it?.copy(emailVerified = true) }
-					_verify.value = VerifyForm()
-					loadMe()
-				}
-				is ApiResult.Err -> _verify.update {
-					it.copy(busy = false, error = verifyError(r.error, network = VerifyCopy.VERIFY_NETWORK, fallback = VerifyCopy.INVALID))
-				}
-			}
-		}
-	}
-
-	/** `resendVerifyCode`. */
-	fun resendVerify() {
-		if (_verify.value.busy) return
-		_verify.update { it.copy(busy = true, error = null) }
-		viewModelScope.launch {
-			when (val r = source.resendVerifyEmail()) {
-				is ApiResult.Ok -> _verify.update { it.copy(busy = false, resent = true) }
-				is ApiResult.Err -> _verify.update {
-					it.copy(busy = false, error = verifyError(r.error, network = VerifyCopy.RESEND_NETWORK, fallback = VerifyCopy.RESEND_FAILED))
-				}
-			}
-		}
-	}
-
-	private fun verifyError(error: ApiError, network: String, fallback: String): String = when (error) {
-		is ApiError.Network -> network
-		is ApiError.BadRequest -> error.errorText.ifBlank { fallback }
-		is ApiError.Forbidden -> error.errorText.ifBlank { fallback }
-		// 429 throttle and friends: the web shows `body.error` too.
-		is ApiError.Server -> error.message.takeUnless { it == "Unknown server error" } ?: fallback
-		else -> fallback
 	}
 
 	private companion object {
