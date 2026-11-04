@@ -1,6 +1,10 @@
 package com.familyplanz.app.data
 
-/** Task list, creation, completion, assignment replies and focus command enqueue. */
+/**
+ * Task list, creation, completion, edits, deletes, assignment replies and
+ * focus command enqueue. The Tasks-screen reads added for #292 have default
+ * bodies (a server or fake without them answers [ApiError.Unsupported]).
+ */
 interface TaskSource {
 	suspend fun allTasks(): ApiResult<List<TaskDto>>
 
@@ -17,6 +21,19 @@ interface TaskSource {
 
 	/** Offline fallback read (null = nothing cached yet). */
 	suspend fun cachedTasks(): List<TaskDto>?
+
+	/** G9 `GET /api/tasks/sections`. */
+	suspend fun taskSections(): ApiResult<TaskSectionsDto> = ApiResult.Err(ApiError.Unsupported)
+
+	/** G4 `GET /api/family/roster` (my family; empty when I have none). */
+	suspend fun familyRoster(): ApiResult<FamilyRosterDto> = ApiResult.Err(ApiError.Unsupported)
+
+	/** `PUT /api/tasks/{id}` with only the changed fields ([TaskUpdatePatch]). */
+	suspend fun updateTask(id: String, patch: TaskUpdatePatch): ApiResult<TaskDto> = ApiResult.Err(ApiError.Unsupported)
+
+	suspend fun deleteTask(id: String): ApiResult<Unit> = ApiResult.Err(ApiError.Unsupported)
+
+	suspend fun clearCompleted(): ApiResult<Unit> = ApiResult.Err(ApiError.Unsupported)
 }
 
 class NetworkTaskSource(
@@ -51,4 +68,26 @@ class NetworkTaskSource(
 		apiCall { api.updateTask(taskId, TaskUpdatePatch.respondAssignment(status).json).task }
 
 	override suspend fun cachedTasks(): List<TaskDto>? = cache?.loadTasks()
+
+	/** 404 = a server that predates G9: the caller falls back to `GET /api/tasks`. */
+	override suspend fun taskSections(): ApiResult<TaskSectionsDto> {
+		val result = apiCall(statusError = { code -> ApiError.Unsupported.takeIf { code == 404 } }) { api.taskSections() }
+		if (result is ApiResult.Ok) cache?.saveTasks(result.value.myTasks)
+		return result
+	}
+
+	override suspend fun familyRoster(): ApiResult<FamilyRosterDto> =
+		apiCall(statusError = { code -> ApiError.Unsupported.takeIf { code == 404 } }) { api.familyRoster() }
+
+	override suspend fun updateTask(id: String, patch: TaskUpdatePatch): ApiResult<TaskDto> =
+		apiCall { api.updateTask(id, patch.json).task }
+
+	override suspend fun deleteTask(id: String): ApiResult<Unit> = apiCall { api.deleteTask(id) }.unit()
+
+	override suspend fun clearCompleted(): ApiResult<Unit> = apiCall { api.clearCompleted() }.unit()
+
+	private fun ApiResult<TaskAck>.unit(): ApiResult<Unit> = when (this) {
+		is ApiResult.Ok -> ApiResult.Ok(Unit)
+		is ApiResult.Err -> this
+	}
 }

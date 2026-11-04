@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -20,33 +18,48 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.familyplanz.app.data.TaskCategoryDto
 import com.familyplanz.app.domain.Task
-import com.familyplanz.app.domain.isFocusing
-import com.familyplanz.app.ui.FpEmptyState
+import com.familyplanz.app.domain.tasks.TaskClock
+import com.familyplanz.app.domain.tasks.emptyState
+import com.familyplanz.app.domain.tasks.groupRows
 import com.familyplanz.app.ui.FpHeader
 import com.familyplanz.app.ui.FpPrimaryButton
-import com.familyplanz.app.ui.theme.ChipTone
-import com.familyplanz.app.ui.theme.FpShape
 import com.familyplanz.app.ui.theme.FpTheme
 import java.time.Instant
-import java.time.LocalDate
+import java.util.concurrent.TimeUnit
 
+/**
+ * The Tasks tab (spec 2.4): header card, add card, toolbar with the query,
+ * the two bands, the completed footer, the assignments card and the category
+ * manager. Every AC-TK rule is visible here or in the row/card composables.
+ */
 @Composable
 fun TaskListScreen(
 	state: TasksUiState,
 	actions: TaskActions,
 	categories: List<String> = emptyList(),
+	categoryRows: List<TaskCategoryDto> = emptyList(),
+	members: List<com.familyplanz.app.domain.tasks.QuickAddMember> = emptyList(),
+	memberNames: Map<String, String> = emptyMap(),
 	focusPending: FocusPending? = null,
+	now: Instant = Instant.now(),
+	onRenameCategory: (TaskCategoryDto, String) -> Unit = { _, _ -> },
+	onDeleteCategory: (TaskCategoryDto) -> Unit = {},
+	onSaveEdit: (Task, TaskEditForm) -> Unit = { _, _ -> },
 	menu: @Composable () -> Unit = {},
 ) {
 	Column(modifier = Modifier.fillMaxSize()) {
 		FpHeader("Family Planz") {
-			TextButton(onClick = actions.onStopFocus, enabled = focusPending == null) { Text("Stop focus") }
+			TextButton(onClick = { actions.onStopFocus(null) }, enabled = focusPending == null) { Text("Stop focus") }
 			IconButton(onClick = actions.onOpenSettings) {
 				Icon(Icons.Filled.Settings, contentDescription = "Sign out", tint = MaterialTheme.colorScheme.onSurfaceVariant)
 			}
@@ -58,15 +71,19 @@ fun TaskListScreen(
 					modifier = Modifier.fillMaxWidth().padding(16.dp),
 				)
 
-				is TasksUiState.Ready -> Column {
-					actions.onCreate?.let { AddTaskBar(error = state.createError, categories = categories, onCreate = it) }
-					state.tasks.firstOrNull(::isFocusing)?.let { FocusingNowNote(it.title) }
-					if (state.tasks.isEmpty()) {
-						EmptyTasks()
-					} else {
-						TaskRows(state, actions, focusPending)
-					}
-				}
+				is TasksUiState.Ready -> TasksContent(
+					state = state,
+					actions = actions,
+					categories = categories,
+					categoryRows = categoryRows,
+					members = members,
+					memberNames = memberNames,
+					focusPending = focusPending,
+					now = now,
+					onRenameCategory = onRenameCategory,
+					onDeleteCategory = onDeleteCategory,
+					onSaveEdit = onSaveEdit,
+				)
 
 				is TasksUiState.Failed -> Column(
 					modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -81,93 +98,174 @@ fun TaskListScreen(
 	}
 }
 
-/** calendar/EmptyState.svelte: primary-50 wash, rounded-2xl, bold slate-800 title + slate-500 hint. */
 @Composable
-private fun EmptyTasks() {
-	FpEmptyState(
-		title = "No tasks yet",
-		hint = "Add one above, or in the web app; it appears here once you sync.",
+private fun TasksContent(
+	state: TasksUiState.Ready,
+	actions: TaskActions,
+	categories: List<String>,
+	categoryRows: List<TaskCategoryDto>,
+	members: List<com.familyplanz.app.domain.tasks.QuickAddMember>,
+	memberNames: Map<String, String>,
+	focusPending: FocusPending?,
+	now: Instant,
+	onRenameCategory: (TaskCategoryDto, String) -> Unit,
+	onDeleteCategory: (TaskCategoryDto) -> Unit,
+	onSaveEdit: (Task, TaskEditForm) -> Unit,
+) {
+	val clock = TaskClock(now, java.time.ZoneId.systemDefault())
+	val match = state.match(clock)
+	val groups = groupRows(match.rows)
+	val open = state.tasks.count { !it.completed }
+	val completed = state.tasks.count { it.completed }
+	val ticking = anyFocusing(state.tasks)
+	val liveNow = rememberFocusNow(ticking, state.tasks)
+	LazyColumn(contentPadding = PaddingValues(vertical = 4.dp)) {
+		item { TasksHeaderCard(open, completed, state.warnings) }
+		item {
+			actions.onCreate?.let { onCreate ->
+				AddTaskCard(
+					error = state.createError,
+					categories = categories,
+					members = members,
+					memberNames = memberNames,
+					onCreate = onCreate,
+					onDismissError = actions.onDismissCreateError,
+				)
+			}
+		}
+		item {
+			state.tasks.firstOrNull { com.familyplanz.app.domain.isFocusing(it) }?.let { FocusingNowNote(it.title) }
+		}
+		item {
+			TaskToolbar(
+				match = match,
+				query = state.query,
+				onView = actions.onView,
+				onScope = actions.onScope,
+				onTime = actions.onTime,
+				onSearch = actions.onSearch,
+				onSort = actions.onSort,
+				onTag = actions.onTag,
+			)
+		}
+		if (match.rows.isEmpty()) {
+			item { TaskEmptyList(match.total, state.query) }
+		}
+		groups.forEach { group ->
+			item(key = "group-${group.label}") { GroupHeading(group.label, group.tasks.size) }
+			items(group.tasks, key = { "${group.label}-${it.id}" }) { task ->
+				if (task.completed) {
+					TaskCompletedRow(task, actions, liveNow, busy = task.id in state.busy)
+				} else {
+					TaskRow(
+						meId = state.meId,
+						task = task,
+						actions = actions,
+						now = liveNow,
+						focusPending = focusPending,
+						busy = task.id in state.busy,
+					)
+				}
+			}
+		}
+		item {
+			actions.onClearCompleted?.let { onClear ->
+				CompletedFooter(weeklyCompleted(state.tasks, clock), onClear)
+			}
+		}
+		item {
+			AssignmentsCard(
+				toAccept = state.pendingAssignments,
+				asked = state.requestedByMe,
+				onRespond = actions.onRespond,
+			)
+		}
+		item {
+			TaskCategoryManager(categoryRows, onRenameCategory, onDeleteCategory)
+		}
+	}
+	state.editing?.let { task ->
+		EditTaskDialog(
+			task = task,
+			categories = categories,
+			onDismiss = actions.onDismissEdit,
+			onSave = { form -> onSaveEdit(task, form) },
+		)
+	}
+}
+
+/** "ONE-OFF (n)" / "RECURRING (n)" (AC-TK-13). */
+@Composable
+private fun GroupHeading(label: String, count: Int) {
+	Text(
+		"$label ($count)",
+		style = MaterialTheme.typography.labelMedium,
+		color = FpTheme.colors.textMuted,
+		modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 4.dp)
+			.testTag("group-${label.lowercase()}"),
 	)
 }
 
+/** AC-TK-25: first run vs. filters that hid everything. */
 @Composable
-private fun TaskRows(
-	state: TasksUiState.Ready,
-	actions: TaskActions,
-	focusPending: FocusPending?,
-) {
-	val now = rememberFocusNow(ticking = state.tasks.any(::isFocusing), tasks = state.tasks)
-	LazyColumn(
-		contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-		verticalArrangement = Arrangement.spacedBy(6.dp),
+private fun TaskEmptyList(total: Int, query: com.familyplanz.app.domain.tasks.TaskQuery) {
+	val empty = emptyState(
+		com.familyplanz.app.domain.tasks.TaskMatch(emptyList(), total, emptyMap()),
+		query,
+	)
+	Column(
+		modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp).testTag("tasks-empty"),
+		horizontalAlignment = Alignment.CenterHorizontally,
 	) {
-		items(state.tasks, key = { it.id }) { task ->
-			TaskRow(state.meId, task, actions, now, focusPending)
+		Text(empty.title, style = MaterialTheme.typography.titleSmall, color = FpTheme.colors.textStrong)
+		Text(empty.hint, style = MaterialTheme.typography.bodySmall, color = FpTheme.colors.textMuted)
+	}
+}
+
+/** "· n completed this week" + Clear completed (AC-TK-23). */
+@Composable
+private fun CompletedFooter(completedThisWeek: Int, onClearCompleted: () -> Unit) {
+	Column(
+		modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("completed-footer"),
+	) {
+		Text(
+			"$completedThisWeek completed this week",
+			style = MaterialTheme.typography.bodySmall,
+			color = FpTheme.colors.textMuted,
+		)
+		var confirming by remember { mutableStateOf(false) }
+		TextButton(onClick = { confirming = true }, modifier = Modifier.testTag("clear-completed")) {
+			Text("Clear completed")
+		}
+		if (confirming) {
+			ClearCompletedDialog(
+				onYes = {
+					confirming = false
+					onClearCompleted()
+				},
+				onNo = { confirming = false },
+			)
 		}
 	}
 }
 
+/** The web's "Delete all completed?" prompt. */
 @Composable
-fun TaskRow(
-	meId: String?,
-	task: Task,
-	actions: TaskActions,
-	now: Instant = Instant.now(),
-	focusPending: FocusPending? = null,
-) {
-	val onRespond = actions.onRespond
-	val late = !task.completed && dueTone(task.dueDate, LocalDate.now()) == DueTone.OVERDUE
-	TaskRowSurface(late = late) {
-		Column(modifier = Modifier.fillMaxWidth().padding(end = 4.dp)) {
-			Row(verticalAlignment = Alignment.CenterVertically) {
-				TaskCheck(checked = task.completed, enabled = !task.pending) { actions.onToggleComplete(task) }
-				Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
-					Text(
-						task.title,
-						style = MaterialTheme.typography.bodyMedium,
-						fontWeight = FontWeight.Medium,
-						color = if (task.completed) FpTheme.colors.textMuted else FpTheme.colors.textStrong,
-						textDecoration = if (task.completed) TextDecoration.LineThrough else null,
-					)
-					TaskMetaLine(task, now)
-				}
-				if (!task.completed && !task.pending) {
-					FocusAction(task, focusPending, actions.onStartFocus, actions.onStopFocus)
-				}
-			}
-			if (onRespond != null && awaitsMyReply(meId, task)) {
-				Row(
-					horizontalArrangement = Arrangement.spacedBy(8.dp),
-					modifier = Modifier.padding(start = 40.dp, bottom = 8.dp),
-				) {
-					ReplyButton("Accept", FpTheme.colors.accept) { onRespond(task, "accepted") }
-					ReplyButton("Decline", FpTheme.colors.decline) { onRespond(task, "declined") }
-				}
-			}
-		}
+private fun ClearCompletedDialog(onYes: () -> Unit, onNo: () -> Unit) {
+	androidx.compose.material3.AlertDialog(
+		onDismissRequest = onNo,
+		title = { Text("Delete all completed?") },
+		confirmButton = { TextButton(onClick = onYes, modifier = Modifier.testTag("confirm-clear-yes")) { Text("Yes, delete") } },
+		dismissButton = { TextButton(onClick = onNo) { Text("No") } },
+	)
+}
+
+/** Completed rows whose `completedAt` falls in the last seven days. */
+internal fun weeklyCompleted(tasks: List<Task>, clock: TaskClock): Int {
+	val nowMillis = clock.now.toEpochMilli()
+	val window = TimeUnit.DAYS.toMillis(7)
+	return tasks.count { task ->
+		val stamp = com.familyplanz.app.domain.tasks.dueInstant(task.completedAt, clock.zone)?.toEpochMilli() ?: return@count false
+		task.completed && stamp >= nowMillis - window
 	}
 }
-
-/** TaskRow's labelled Accept / Decline: emerald-100 / red-100 pills, semibold xs. */
-@Composable
-private fun ReplyButton(label: String, tone: ChipTone, onClick: () -> Unit) {
-	TextButton(
-		onClick = onClick,
-		shape = FpShape.Pill,
-		colors = ButtonDefaults.textButtonColors(containerColor = tone.container, contentColor = tone.content),
-		contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-	) { Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold) }
-}
-
-/** Meta slots led by the Focusing chip (#290) and the category chip (#280) when present. */
-@Composable
-private fun TaskMetaLine(task: Task, now: Instant) {
-	TaskMetaSlots(task, now) {
-		if (isFocusing(task)) FocusChip()
-		task.category?.let { CategoryChip(it) }
-	}
-}
-
-/** Pending assignment addressed to the signed-in member. */
-internal fun awaitsMyReply(meId: String?, task: Task): Boolean =
-	meId != null && task.assignmentStatus == "pending" && task.assignedTo == meId

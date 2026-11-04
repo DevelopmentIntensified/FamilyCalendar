@@ -3,6 +3,7 @@ package com.familyplanz.app.data
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.HTTP
 import retrofit2.http.POST
@@ -10,8 +11,26 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
+/** The Tasks screen's own reads and deletes (#292 G9, G4). */
+interface TaskBoardApi {
+	/** G9: `/calendar/tasks`'s sectioned lists (My tasks / To accept / Requested). */
+	@GET("api/tasks/sections")
+	suspend fun taskSections(): TaskSectionsDto
+
+	/** G4: the roster behind @mentions and the edit dialog's "Assign to". */
+	@GET("api/family/roster")
+	suspend fun familyRoster(): FamilyRosterDto
+
+	@DELETE("api/tasks/{id}")
+	suspend fun deleteTask(@Path("id") id: String): TaskAck
+
+	/** Archives every completed task of the caller ("Clear completed"). */
+	@DELETE("api/tasks/completed")
+	suspend fun clearCompleted(): TaskAck
+}
+
 /** Slices of the /api/tasks surface the phone consumes (spec, 2026-10-29). */
-interface FamilyPlanzApi : TaskCategoryApi {
+interface FamilyPlanzApi : TaskCategoryApi, TaskBoardApi, FocusSessionApi {
 	@GET("api/tasks")
 	suspend fun tasks(): TaskListResponse
 
@@ -62,7 +81,40 @@ data class CreateTaskRequest(
 	val dueDate: String? = null,
 	val priority: String? = null,
 	val category: String? = null,
+	/** Roster user id (quick-add `@name`); null = the server's default (you). */
+	val assignedTo: String? = null,
+	/** `public|private`; null = server default (public). */
+	val visibility: String? = null,
+	/** `@family` → the caller's family id; null = personal. */
+	val familyId: String? = null,
+	val tags: List<String>? = null,
+	val recurrenceFrequency: String? = null,
+	val recurrenceInterval: Int? = null,
 )
+
+@Serializable
+data class TaskAck(val success: Boolean = true)
+
+/** G9 body; a list that failed server-side comes back empty and is named in [warnings]. */
+@Serializable
+data class TaskSectionsDto(
+	val myTasks: List<TaskDto> = emptyList(),
+	val pendingAssignments: List<TaskDto> = emptyList(),
+	val requestedByMe: List<TaskDto> = emptyList(),
+	val warnings: List<String> = emptyList(),
+)
+
+@Serializable
+data class RosterMemberDto(
+	val userId: String,
+	val firstName: String = "",
+	val lastName: String = "",
+	val role: String? = null,
+	val memberType: String? = null,
+)
+
+@Serializable
+data class FamilyRosterDto(val familyId: String? = null, val members: List<RosterMemberDto> = emptyList())
 
 @Serializable
 data class CreateEventRequest(

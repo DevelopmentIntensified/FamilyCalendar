@@ -59,9 +59,10 @@ internal fun TaskCheck(checked: Boolean, enabled: Boolean, onToggle: () -> Unit)
 
 /** TaskRow surface: rounded-lg, slate-100 border on slate-50; a late row goes red-200 on red-50. */
 @Composable
-internal fun TaskRowSurface(late: Boolean, content: @Composable () -> Unit) {
+internal fun TaskRowSurface(late: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
 	val colors = FpTheme.colors
 	Surface(
+		modifier = modifier,
 		shape = MaterialTheme.shapes.small,
 		color = if (late) colors.lateRowSurface else colors.rowSurface,
 		border = BorderStroke(1.dp, if (late) colors.lateRowBorder else colors.rowBorder),
