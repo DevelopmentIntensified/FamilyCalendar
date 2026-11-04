@@ -25,6 +25,14 @@ interface AuthApi {
 
 	@POST("api/mobile/auth/logout")
 	suspend fun logout(@Header("Authorization") authorization: String): LogoutResponse
+
+	/** G12: the web's `/signup/password`, answered with a token instead of a cookie. */
+	@POST("api/mobile/auth/signup")
+	suspend fun signup(@Body body: PasswordSignupRequest): AuthSessionDto
+
+	/** G12: the web's `/forgot-password`; `{sent:true}` for every address (#245, no enumeration). */
+	@POST("api/mobile/auth/forgot")
+	suspend fun forgot(@Body body: ForgotPasswordRequest): CodeSentResponse
 }
 
 /** `login` signs into an existing account; `signup` creates one (same rules as the web). */
@@ -56,6 +64,18 @@ data class PasswordSignInRequest(val email: String, val password: String, val de
 data class GuestSignInRequest(val deviceName: String)
 
 @Serializable
+data class PasswordSignupRequest(
+	val firstName: String,
+	val lastName: String,
+	val email: String,
+	val password: String,
+	val deviceName: String,
+)
+
+@Serializable
+data class ForgotPasswordRequest(val email: String)
+
+@Serializable
 data class CodeSentResponse(val sent: Boolean = false)
 
 @Serializable
@@ -68,6 +88,8 @@ data class AuthUserDto(
 	val firstName: String? = null,
 	val lastName: String? = null,
 	val email: String? = null,
+	/** G12 signup answers `false` (a code is on its way); other sign-ins omit it. */
+	val emailVerified: Boolean? = null,
 )
 
 @Serializable

@@ -55,6 +55,12 @@ interface AuthSource {
 
 	/** Revokes [bearer] server-side (that token only). */
 	suspend fun logout(bearer: String): AuthResult<Unit>
+
+	/** G12 password sign-up: creates the account (email unverified, code sent) and signs in. */
+	suspend fun signUpWithPassword(names: SignupNames, email: String, password: String): AuthResult<AuthSessionDto>
+
+	/** G12 forgot password: emails the web reset link when the account exists; Ok either way. */
+	suspend fun forgotPassword(email: String): AuthResult<Unit>
 }
 
 class NetworkAuthSource(
@@ -77,6 +83,16 @@ class NetworkAuthSource(
 
 	override suspend fun logout(bearer: String): AuthResult<Unit> =
 		authCall { api.logout("Bearer $bearer") }.unit()
+
+	override suspend fun signUpWithPassword(names: SignupNames, email: String, password: String): AuthResult<AuthSessionDto> =
+		authCall {
+			api.signup(
+				PasswordSignupRequest(names.firstName.trim(), names.lastName.trim(), email.trim(), password, device.deviceName()),
+			)
+		}
+
+	override suspend fun forgotPassword(email: String): AuthResult<Unit> =
+		authCall { api.forgot(ForgotPasswordRequest(email.trim())) }.unit()
 
 	private fun <T> AuthResult<T>.unit(): AuthResult<Unit> = when (this) {
 		is AuthResult.Ok -> AuthResult.Ok(Unit)

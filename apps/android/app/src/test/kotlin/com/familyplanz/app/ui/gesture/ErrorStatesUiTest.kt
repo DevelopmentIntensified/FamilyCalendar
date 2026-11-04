@@ -25,7 +25,7 @@ class ErrorStatesUiTest {
 	fun no_stored_token_starts_on_the_sign_in_screen() {
 		host.launch(token = null)
 
-		host.waitForText("Email me a code")
+		host.waitForText("Welcome Back")
 		assertTrue(host.repo.allTasksCalls == 0)
 	}
 
@@ -34,7 +34,7 @@ class ErrorStatesUiTest {
 		host.repo.tasks = ApiResult.Err(ApiError.Unauthorized)
 		host.launch()
 
-		host.waitForText("Email me a code")
+		host.waitForText("Welcome Back")
 		rule.onNodeWithText(ApiError.Unauthorized.message).assertExists()
 	}
 
@@ -43,7 +43,7 @@ class ErrorStatesUiTest {
 		host.repo.events = ApiResult.Err(ApiError.Unauthorized)
 		host.launch(PhoneTab.CALENDAR)
 
-		host.waitForText("Email me a code")
+		host.waitForText("Welcome Back")
 		host.waitForText("Sign in again", substring = true)
 	}
 

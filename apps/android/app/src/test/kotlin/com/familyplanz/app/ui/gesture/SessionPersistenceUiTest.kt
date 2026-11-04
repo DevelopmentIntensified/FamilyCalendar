@@ -1,5 +1,6 @@
 package com.familyplanz.app.ui.gesture
 
+import com.familyplanz.app.ui.auth.GUEST_LABEL
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -28,11 +29,11 @@ class SessionPersistenceUiTest {
 	fun a_pre_sign_in_calendar_401_does_not_end_the_new_session() {
 		host.repo.events = ApiResult.Err(ApiError.Unauthorized)
 		host.launch(token = null)
-		host.waitForText("Continue without an account")
+		host.waitForText(GUEST_LABEL)
 
 		host.repo.events = ApiResult.Ok(emptyList())
 		host.repo.tasks = ApiResult.Ok(listOf(task("t1", "Water the plants")))
-		rule.onNodeWithText("Continue without an account").performClick()
+		rule.onNodeWithText(GUEST_LABEL).performClick()
 		host.waitForText("Water the plants")
 
 		rule.mainClock.advanceTimeBy(5_000)

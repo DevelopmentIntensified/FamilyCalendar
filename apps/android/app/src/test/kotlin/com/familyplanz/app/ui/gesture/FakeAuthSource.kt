@@ -21,6 +21,11 @@ class FakeAuthSource : AuthSource {
 	var guests = 0
 	val loggedOut = mutableListOf<String>()
 
+	/** G12: password sign-ups (names, email, password) and forgot-password addresses. */
+	val signups = mutableListOf<Triple<SignupNames, String, String>>()
+	val forgot = mutableListOf<String>()
+	var forgotResult: AuthResult<Unit> = AuthResult.Ok(Unit)
+
 	override suspend fun requestCode(email: String, intent: AuthIntent, names: SignupNames?): AuthResult<Unit> {
 		codeRequests += email to intent
 		codeNames += names
@@ -49,5 +54,17 @@ class FakeAuthSource : AuthSource {
 	override suspend fun logout(bearer: String): AuthResult<Unit> {
 		loggedOut += bearer
 		return AuthResult.Ok(Unit)
+	}
+
+	override suspend fun signUpWithPassword(names: SignupNames, email: String, password: String): AuthResult<AuthSessionDto> {
+		signups += Triple(names, email, password)
+		gate?.await()
+		return session
+	}
+
+	override suspend fun forgotPassword(email: String): AuthResult<Unit> {
+		forgot += email
+		gate?.await()
+		return forgotResult
 	}
 }

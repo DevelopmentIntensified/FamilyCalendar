@@ -62,6 +62,39 @@ class AuthApiContractTest {
 	}
 
 	@Test
+	fun `G12 signup posts names, email, password and device name and parses the unverified session`() = runBlocking {
+		ok("""{"token":"fp_s","user":{"id":"u9","firstName":"Ada","lastName":"L","email":"a@b.co","emailVerified":false},"emailVerification":"pending"}""")
+		val result = auth.signUpWithPassword(SignupNames(" Ada ", "L "), " a@b.co ", "longenough")
+
+		val recorded = server.takeRequest()
+		assertEquals("/api/mobile/auth/signup", recorded.path)
+		assertNull(recorded.getHeader("Authorization"))
+		assertEquals(
+			"""{"firstName":"Ada","lastName":"L","email":"a@b.co","password":"longenough","deviceName":"Pixel 9"}""",
+			recorded.body.readUtf8(),
+		)
+		assertEquals(AuthResult.Ok(AuthSessionDto("fp_s", AuthUserDto("u9", "Ada", "L", "a@b.co", emailVerified = false))), result)
+	}
+
+	@Test
+	fun `G12 signup refusal keeps the server text`() = runBlocking {
+		fail(400, "Password must be at least 8 characters")
+		assertEquals(
+			AuthResult.Err(AuthError.Rejected("Password must be at least 8 characters")),
+			auth.signUpWithPassword(SignupNames("A", "B"), "a@b.co", "short"),
+		)
+	}
+
+	@Test
+	fun `G12 forgot posts only the trimmed email`() = runBlocking {
+		ok("""{"sent":true}""")
+		assertEquals(AuthResult.Ok(Unit), auth.forgotPassword(" a@b.co "))
+		val recorded = server.takeRequest()
+		assertEquals("/api/mobile/auth/forgot", recorded.path)
+		assertEquals("""{"email":"a@b.co"}""", recorded.body.readUtf8())
+	}
+
+	@Test
 	fun `a stored bearer never rides on sign-in calls`() = runBlocking {
 		// The auth client is separate from the bearer-carrying task client (stale Bearer = 401 at the server).
 		ok(sessionBody)
