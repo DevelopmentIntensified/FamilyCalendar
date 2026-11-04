@@ -7,8 +7,9 @@ import kotlinx.serialization.Serializable
  * pipeline as the calendar page). See docs/issues/210 slice 3: the server
  * expands recurring masters into per-day entries (composite occurrence
  * ids `{masterId}~{occISO}`) and splits multi-day events client-side.
- * `window` echoes the range. Attendance blobs stay undeclared (skipped)
- * until the UI needs them.
+ * `window` echoes the range. #292 L2 reads the recurrence rule and the
+ * attendance summary too (`src/lib/types.ts` Event). `color` / `isAd` only
+ * arrive on G6 sponsored rows; a calendar's colour comes from G2.
  */
 @Serializable
 data class EventDto(
@@ -29,6 +30,21 @@ data class EventDto(
 	val rsvpStatus: String? = null,
 	val creatorName: String? = null,
 	val createdAt: String? = null,
+	val recurrenceFrequency: String? = null,
+	val recurrenceInterval: Int? = null,
+	val attendance: AttendanceSummaryDto? = null,
+	val color: String? = null,
+	val isAd: Boolean = false,
+)
+
+/** `EventAttendanceSummary` (src/lib/types.ts): invited members only, never guests. */
+@Serializable
+data class AttendanceSummaryDto(
+	val going: Int = 0,
+	val invited: Int = 0,
+	val required: Int = 0,
+	val requiredPending: Int = 0,
+	val goingNames: List<String> = emptyList(),
 )
 
 @Serializable
