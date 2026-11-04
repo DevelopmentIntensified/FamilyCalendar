@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
@@ -83,10 +84,7 @@ fun GroceryField(
 }
 
 private fun Modifier.onFocus(changed: (Boolean) -> Unit): Modifier =
-	this.then(androidx.compose.ui.Modifier.onFocusChangedCompat(changed))
-
-private fun Modifier.Companion.onFocusChangedCompat(changed: (Boolean) -> Unit): Modifier =
-	androidx.compose.ui.focus.onFocusChanged(this) { changed(it.isFocused) }
+	onFocusChanged { changed(it.isFocused) }
 
 /** A native `<select>`: a bordered button that opens the option list. */
 @Composable
