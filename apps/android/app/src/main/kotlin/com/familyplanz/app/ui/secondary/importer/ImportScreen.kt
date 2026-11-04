@@ -32,6 +32,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +52,7 @@ import com.familyplanz.app.ui.secondary.PageTitle
 import com.familyplanz.app.ui.secondary.PageTones
 import com.familyplanz.app.ui.secondary.SelectField
 import com.familyplanz.app.ui.secondary.SelectOption
+import com.familyplanz.app.ui.theme.Accent
 import com.familyplanz.app.ui.theme.FpTheme
 import com.familyplanz.app.ui.theme.Slate
 
@@ -166,7 +172,7 @@ private fun DropZone(chosen: List<ChosenFile>, onPick: () -> Unit) {
 
 @Composable
 private fun Hint(text: String) {
-	Text(text, style = MaterialTheme.typography.bodySmall, color = FpTheme.colors.textMuted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+	Text(text, style = MaterialTheme.typography.bodySmall, color = FpTheme.colors.textMuted, textAlign = TextAlign.Center)
 }
 
 @Composable
@@ -344,7 +350,7 @@ private fun ItemRow(item: ImportItem, calendarName: String, ticked: Boolean, onT
 				Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
 			}
 			item.reason?.let {
-				Text(it.note.format(calendarName), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = com.familyplanz.app.ui.theme.Accent.Amber700)
+				Text(it.note.format(calendarName), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = Accent.Amber700)
 			}
 		}
 		if (item.duplicate) Badge("already there", PageTones.Rose100, PageTones.Rose700) else Badge("new", PageTones.Emerald100, PageTones.Emerald700)
@@ -430,7 +436,7 @@ private fun Added(state: ImportUiState, report: ImportCommitDto, actions: Import
 					modifier = Modifier.clickable { actions.onOpenDay(day) }.testTag("import-first-landed"),
 					style = MaterialTheme.typography.bodyMedium,
 					color = PageTones.Green700,
-					textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+					textDecoration = TextDecoration.Underline,
 				)
 				GreenLine(".")
 			}
@@ -500,8 +506,8 @@ private fun ExportHelp() {
 @Composable
 private fun Source(name: String, steps: String) {
 	Text(
-		androidx.compose.ui.text.buildAnnotatedString {
-			androidx.compose.ui.text.withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold, color = Slate.S800)) { append("$name ") }
+		buildAnnotatedString {
+			withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Slate.S800)) { append("$name ") }
 			append(steps)
 		},
 		style = MaterialTheme.typography.bodyMedium,

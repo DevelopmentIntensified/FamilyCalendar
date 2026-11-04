@@ -230,4 +230,4 @@ internal fun itemText(item: PrintItemDto): AnnotatedString = buildAnnotatedStrin
 }
 
 private fun parseColor(hex: String): Color =
-	runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(FpTheme.colors.chipRail)
+	runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(Slate.S400)
