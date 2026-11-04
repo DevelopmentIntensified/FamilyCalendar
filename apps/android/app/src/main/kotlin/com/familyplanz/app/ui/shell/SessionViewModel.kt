@@ -41,8 +41,8 @@ class SessionViewModel(
 	private val _state = MutableStateFlow<SessionState>(SessionState.Checking)
 	val state: StateFlow<SessionState> = _state
 
-	private val _snack = MutableStateFlow<UiSnack?>(null)
-	val snack: StateFlow<UiSnack?> = _snack
+	/** The shell's toaster stack (`toasts.ts`). */
+	val toasts = ToastQueue()
 
 	/** #288 guest-account note on the Tasks tab. */
 	val guestNote = GuestNote(tokenStore, viewModelScope)
@@ -52,7 +52,11 @@ class SessionViewModel(
 		override val guestNoteVisible: StateFlow<Boolean> = guestNote.visible
 
 		override fun showSnack(text: String) {
-			_snack.value = UiSnack(text)
+			toasts.push(text)
+		}
+
+		override fun showToast(text: String, actionLabel: String?, onAction: (() -> Unit)?) {
+			toasts.push(text, actionLabel, onAction)
 		}
 
 		override fun endSession(note: String) = invalidateSession(note)
@@ -67,10 +71,6 @@ class SessionViewModel(
 		viewModelScope.launch {
 			if (tokenStore.token() == null) leave(null) else open()
 		}
-	}
-
-	fun consumeSnack() {
-		_snack.value = null
 	}
 
 	/**
@@ -113,6 +113,7 @@ class SessionViewModel(
 
 	private fun leave(note: String?) {
 		closeLanes()
+		toasts.clear()
 		_state.value = SessionState.SignedOut(note)
 	}
 

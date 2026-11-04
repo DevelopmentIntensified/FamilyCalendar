@@ -1,51 +1,45 @@
 package com.familyplanz.app.ui
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.familyplanz.app.AppModules
 import com.familyplanz.app.ui.account.AccountEntry
+import com.familyplanz.app.ui.admin.AdminBugsEntry
+import com.familyplanz.app.ui.admin.AdminEntry
+import com.familyplanz.app.ui.admin.AdminNlpEntry
 import com.familyplanz.app.ui.alerts.AlertsEntry
+import com.familyplanz.app.ui.auth.ForgotPasswordEntry
 import com.familyplanz.app.ui.auth.SessionCredentials
 import com.familyplanz.app.ui.auth.SignInActions
 import com.familyplanz.app.ui.auth.SignInScreen
@@ -56,28 +50,48 @@ import com.familyplanz.app.ui.family.FamilyEntry
 import com.familyplanz.app.ui.groceries.GroceriesEntry
 import com.familyplanz.app.ui.nav.AppNav
 import com.familyplanz.app.ui.nav.AppRoute
-import com.familyplanz.app.ui.shell.LocalAppModules
-import com.familyplanz.app.ui.shell.LocalShell
-import com.familyplanz.app.ui.shell.SessionState
-import com.familyplanz.app.ui.shell.SessionViewModel
-import com.familyplanz.app.ui.tasks.TasksEntry
-import com.familyplanz.app.ui.admin.AdminBugsEntry
-import com.familyplanz.app.ui.admin.AdminEntry
-import com.familyplanz.app.ui.admin.AdminNlpEntry
-import com.familyplanz.app.ui.auth.ForgotPasswordEntry
 import com.familyplanz.app.ui.secondary.archive.ArchiveEntry
 import com.familyplanz.app.ui.secondary.importer.ImportEntry
 import com.familyplanz.app.ui.secondary.print.PrintEntry
 import com.familyplanz.app.ui.secondary.reportbug.ReportBugEntry
 import com.familyplanz.app.ui.secondary.stats.StatsEntry
-import com.familyplanz.app.ui.theme.FpShape
+import com.familyplanz.app.ui.shell.BANNER_ROUTES
+import com.familyplanz.app.ui.shell.BANNER_STACK_TAG
+import com.familyplanz.app.ui.shell.FpAccountBanner
+import com.familyplanz.app.ui.shell.FpBottomNav
+import com.familyplanz.app.ui.shell.FpMobileMenu
+import com.familyplanz.app.ui.shell.FpNavbar
+import com.familyplanz.app.ui.shell.FpNotificationBell
+import com.familyplanz.app.ui.shell.FpOfflineBanner
+import com.familyplanz.app.ui.shell.FpToaster
+import com.familyplanz.app.ui.shell.KEYBOARD_THRESHOLD_DP
+import com.familyplanz.app.ui.shell.LocalAppModules
+import com.familyplanz.app.ui.shell.LocalShell
+import com.familyplanz.app.ui.shell.SessionState
+import com.familyplanz.app.ui.shell.SessionViewModel
+import com.familyplanz.app.ui.shell.ShellChromeViewModel
+import com.familyplanz.app.ui.shell.VerifyActions
+import com.familyplanz.app.ui.shell.accountBanner
+import com.familyplanz.app.ui.tasks.TasksEntry
+import com.familyplanz.app.ui.theme.FpColors
+import com.familyplanz.app.ui.theme.FpMotion
 import com.familyplanz.app.ui.theme.FpTheme
+import com.familyplanz.app.ui.theme.rememberReducedMotion
+import java.time.Instant
+
+/** Routes that paint the slate-50 canvas (`tasks/+page.svelte:364`, family, account, login); the rest are white. */
+private val SLATE_CANVAS = setOf(AppRoute.TASKS, AppRoute.FAMILY, AppRoute.ACCOUNT, AppRoute.FORGOT_PASSWORD)
+
+/** Page canvas per screen (spec §1.1 / AC-SH-21). */
+fun canvasFor(route: AppRoute, colors: FpColors = FpColors()): Color =
+	if (route in SLATE_CANVAS) colors.canvasSlate else colors.canvasWhite
 
 /**
  * Single host: the sign-in screen (#288) until a working session exists,
- * then the tab bar over [nav]'s entry. Every lane reports a 401 through the
- * shell, which swaps back to sign-in and drops that session's ViewModels.
- * Snacks name what happened + the next step (ack <100ms UI rule).
+ * then the web shell (#292 §2.1): Navbar, mobile menu, banner stack, the
+ * entry, the six-tab bar and the toaster. Every lane reports a 401 through
+ * the shell, which swaps back to sign-in and drops that session's ViewModels.
+ * [banner] is the native permission banner (#286), kept on every screen.
  */
 @Composable
 fun FamilyPlanzHost(
@@ -88,14 +102,12 @@ fun FamilyPlanzHost(
 	val session = viewModel { modules.session.sessionViewModel() }
 	val signInVm = viewModel { modules.auth.signInViewModel() }
 	val sessionState by session.state.collectAsStateWithLifecycle()
-	val snackbarHostState = remember { SnackbarHostState() }
 
-	SnackEffect(session, snackbarHostState)
 	SignInEffect(session, signInVm)
 
-	// #291: app.html theme-color behind the status bar (edge-to-edge draws
-	// under it), then the web app's slate-50 page canvas.
-	Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+	val canvas = if (sessionState is SessionState.SignedIn) canvasFor(nav.route, FpTheme.colors) else FpTheme.colors.canvasSlate
+	Column(modifier = Modifier.fillMaxSize().background(canvas)) {
+		// #291: app.html theme-color behind the status bar (edge-to-edge draws under it).
 		Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(FpTheme.colors.statusBar))
 		Box(Modifier.weight(1f).consumeWindowInsets(WindowInsets.statusBars)) {
 			when (val state = sessionState) {
@@ -113,19 +125,127 @@ fun FamilyPlanzHost(
 				) {
 					// Owner 2026-11-03: open on the user's default view (Dashboard or Calendar).
 					LaunchedEffect(state) { nav.applyStart(modules.session.startRoute) }
-					Scaffold(
-						containerColor = MaterialTheme.colorScheme.background,
-						snackbarHost = { SnackbarHost(snackbarHostState) { FpToast(it) } },
-						bottomBar = { PhoneTabBar(nav.tab) { nav.open(it.route) } },
-					) { padding ->
-						Column(modifier = Modifier.padding(padding)) {
-							banner()
-							Box(Modifier.weight(1f).testTag("entry-${nav.route.name.lowercase()}")) { RouteEntry(nav) }
-						}
-					}
+					SignedInShell(modules, nav, session, banner)
 				}
 			}
 		}
+	}
+}
+
+@Composable
+private fun SignedInShell(
+	modules: AppModules,
+	nav: AppNav,
+	session: SessionViewModel,
+	banner: @Composable () -> Unit,
+) {
+	val chrome = viewModel { modules.session.chromeViewModel(session.toasts) { session.invalidateSession() } }
+	var menuOpen by rememberSaveable { mutableStateOf(false) }
+	val unread by chrome.unread.collectAsStateWithLifecycle()
+	val me by chrome.me.collectAsStateWithLifecycle()
+
+	LaunchedEffect(chrome) { chrome.loadMe() }
+	// BottomNav: refetch the badge on every route change (and close the menu, #253).
+	LaunchedEffect(nav.route) {
+		menuOpen = false
+		chrome.refreshBadge()
+	}
+	// ...and on app resume (`visibilitychange`).
+	LifecycleResumeEffect(chrome) {
+		chrome.refreshBadge()
+		onPauseOrDispose { }
+	}
+	val open: (AppRoute) -> Unit = { route ->
+		menuOpen = false
+		nav.open(route)
+	}
+	val density = LocalDensity.current
+	val imeOpen = WindowInsets.ime.getBottom(density) > with(density) { KEYBOARD_THRESHOLD_DP.dp.roundToPx() }
+
+	BoxWithConstraints(Modifier.fillMaxSize()) {
+		val menuMax = maxHeight * 0.8f
+		Column(Modifier.fillMaxSize()) {
+			FpNavbar(menuOpen, onLogo = { open(AppRoute.CALENDAR) }, onToggleMenu = { menuOpen = !menuOpen })
+			FpMobileMenu(
+				open = menuOpen,
+				active = nav.route,
+				admin = me?.roles?.contains("admin") == true,
+				onOpen = open,
+				onLogout = {
+					menuOpen = false
+					session.shell.signOut()
+				},
+				bell = { ShellBell(chrome, unread, nav) { menuOpen = false } },
+				modifier = Modifier.heightIn(max = menuMax),
+			)
+			if (nav.route in BANNER_ROUTES) BannerStack(chrome, open)
+			banner()
+			Box(Modifier.weight(1f).fillMaxWidth()) { FadingEntry(nav) }
+			FpBottomNav(nav.tab, unread, hidden = imeOpen) { open(it.route) }
+		}
+		FpToaster(session.toasts, Modifier.align(Alignment.BottomCenter))
+	}
+}
+
+/** The bell row at the top of the menu; a row tap marks it read and follows its link in-app. */
+@Composable
+private fun ShellBell(chrome: ShellChromeViewModel, unread: Int, nav: AppNav, closeMenu: () -> Unit) {
+	var open by remember { mutableStateOf(false) }
+	val list by chrome.bell.collectAsStateWithLifecycle()
+	FpNotificationBell(
+		unread = unread,
+		open = open,
+		list = list,
+		onToggle = {
+			open = !open
+			if (open) chrome.loadBell()
+		},
+		onRetry = chrome::loadBell,
+		onRow = { row ->
+			open = false
+			chrome.markRead(row)
+			if (nav.openLink(row.link)) closeMenu()
+		},
+		onMarkAll = chrome::markAllRead,
+	)
+}
+
+/** `calendar/+layout.svelte` banner stack: offline, then the one account notice. */
+@Composable
+private fun BannerStack(chrome: ShellChromeViewModel, open: (AppRoute) -> Unit) {
+	val modules = LocalAppModules.current
+	val me by chrome.me.collectAsStateWithLifecycle()
+	val verify by chrome.verify.collectAsStateWithLifecycle()
+	Column(Modifier.fillMaxWidth().testTag(BANNER_STACK_TAG)) {
+		FpOfflineBanner(modules.session.network, modules.session.pendingWrites)
+		FpAccountBanner(
+			banner = accountBanner(me, Instant.now(), verify.dismissed),
+			verify = verify,
+			actions = VerifyActions(
+				onCode = chrome::setVerifyCode,
+				onSubmit = chrome::submitVerify,
+				onResend = chrome::resendVerify,
+				onDismiss = chrome::dismissVerify,
+				onResentShown = chrome::clearResent,
+			),
+			// G13 claim lives on the Account identity card (L5).
+			onClaim = { open(AppRoute.ACCOUNT) },
+		)
+	}
+}
+
+/** `<div in:fade={{duration: 100}}>`: each new page fades in over 100 ms. */
+@Composable
+private fun FadingEntry(nav: AppNav) {
+	val reduced = rememberReducedMotion()
+	key(nav.route) {
+		val alpha = remember { Animatable(if (reduced) 1f else 0f) }
+		LaunchedEffect(Unit) { alpha.animateTo(1f, FpMotion.spec(FpMotion.PAGE_FADE_MS, reduced)) }
+		Box(
+			Modifier.fillMaxSize()
+				.graphicsLayer { this.alpha = alpha.value }
+				.testTag("entry-${nav.route.name.lowercase()}"),
+		) { RouteEntry(nav) }
 	}
 }
 
@@ -161,17 +281,6 @@ private fun MenuRouteEntry(nav: AppNav) {
 	}
 }
 
-@Composable
-private fun SnackEffect(session: SessionViewModel, snackbarHostState: SnackbarHostState) {
-	val snack by session.snack.collectAsStateWithLifecycle()
-	LaunchedEffect(snack) {
-		snack?.let {
-			snackbarHostState.showSnackbar(it.text)
-			session.consumeSnack()
-		}
-	}
-}
-
 /** A finished sign-in opens the session through the same path as a pasted token. */
 @Composable
 private fun SignInEffect(session: SessionViewModel, signInVm: SignInViewModel) {
@@ -194,45 +303,3 @@ private fun SignInViewModel.actions(session: SessionViewModel) = SignInActions(
 	onStep = ::showStep,
 	onSaveToken = { session.signIn(SessionCredentials(it)) },
 )
-
-/** BottomNav.svelte: white, slate-200 top rule, the six web tabs, icon pill (primary-50/600 when on) + 11px label. */
-@Composable
-private fun PhoneTabBar(selected: PhoneTab?, onSelect: (PhoneTab) -> Unit) {
-	Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-		HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-		Row(modifier = Modifier.fillMaxWidth().navigationBarsPadding().selectableGroup()) {
-			PhoneTab.entries.forEach { tab -> TabItem(tab, tab == selected) { onSelect(tab) } }
-		}
-	}
-}
-
-@Composable
-private fun RowScope.TabItem(tab: PhoneTab, selected: Boolean, onClick: () -> Unit) {
-	val tint = if (selected) MaterialTheme.colorScheme.primary else FpTheme.colors.textMuted
-	Column(
-		modifier = Modifier
-			.weight(1f)
-			.heightIn(min = 56.dp)
-			.selectable(selected = selected, onClick = onClick, role = Role.Tab)
-			.then(if (tab.description != tab.label) Modifier.semantics { contentDescription = tab.description } else Modifier)
-			.padding(vertical = 8.dp),
-		horizontalAlignment = Alignment.CenterHorizontally,
-		verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
-	) {
-		Box(
-			modifier = Modifier
-				.clip(FpShape.Pill)
-				.background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
-				.padding(horizontal = 16.dp, vertical = 4.dp),
-		) {
-			Icon(painterResource(tab.icon), contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
-		}
-		Text(
-			tab.label,
-			style = MaterialTheme.typography.labelSmall,
-			color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-			maxLines = 1,
-			overflow = TextOverflow.Ellipsis,
-		)
-	}
-}

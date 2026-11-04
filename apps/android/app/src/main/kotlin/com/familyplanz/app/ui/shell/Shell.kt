@@ -4,7 +4,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.familyplanz.app.AppModules
 import kotlinx.coroutines.flow.StateFlow
 
-/** One line for the shell's snackbar. */
+/** One line for the shell's toaster (lanes' ViewModels emit these). */
 data class UiSnack(val text: String)
 
 /** The sign-in screen's note when a lane's call comes back 401. */
@@ -19,7 +19,11 @@ interface Shell {
 	/** #288: show the guest-account note (Tasks tab). */
 	val guestNoteVisible: StateFlow<Boolean>
 
+	/** A plain toast (`pushToast({message})`): 6 s, up to 4 stacked. */
 	fun showSnack(text: String)
+
+	/** A toast with an action, e.g. "Undo" (`Toaster.svelte`): the action runs, then the toast goes. */
+	fun showToast(text: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) = showSnack(text)
 
 	/** Back to the sign-in screen with [note]; the token stays stored (the server said no). */
 	fun endSession(note: String = SESSION_ENDED_NOTE)

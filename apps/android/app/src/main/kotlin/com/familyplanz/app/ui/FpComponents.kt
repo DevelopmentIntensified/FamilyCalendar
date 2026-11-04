@@ -18,29 +18,34 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SelectableChipColors
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarData
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldColors
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.familyplanz.app.R
+import com.familyplanz.app.ui.theme.BannerTone
 import com.familyplanz.app.ui.theme.ChipTone
+import com.familyplanz.app.ui.theme.FpKickerText
+import com.familyplanz.app.ui.theme.FpKickerWideText
 import com.familyplanz.app.ui.theme.FpChipText
 import com.familyplanz.app.ui.theme.FpShape
 import com.familyplanz.app.ui.theme.FpTheme
@@ -50,21 +55,19 @@ import com.familyplanz.app.ui.theme.FpTheme
  * tokens. Each names the web component it copies.
  */
 
-/** Navbar.svelte: white bar, slate-200 bottom border, primary Mark glyph + bold title. */
+/**
+ * A page title row under the shell [com.familyplanz.app.ui.shell.FpNavbar]:
+ * white, slate-200 bottom rule, the page h1 (`text-xl font-bold`) and the
+ * page's own actions. The brand mark lives in the Navbar now (#292 §2.1).
+ */
 @Composable
 fun FpHeader(title: String, actions: @Composable RowScope.() -> Unit = {}) {
 	Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
 		Row(
-			modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 4.dp),
+			modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(start = 16.dp, end = 4.dp),
 			verticalAlignment = Alignment.CenterVertically,
 			horizontalArrangement = Arrangement.spacedBy(8.dp),
 		) {
-			Icon(
-				painterResource(R.drawable.ic_fp_calendar),
-				contentDescription = null,
-				tint = MaterialTheme.colorScheme.primary,
-				modifier = Modifier.size(24.dp),
-			)
 			Text(
 				title,
 				style = MaterialTheme.typography.titleLarge,
@@ -193,35 +196,91 @@ fun fpFilterChipBorder(selected: Boolean): BorderStroke =
 	BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.inversePrimary else MaterialTheme.colorScheme.outlineVariant)
 
 /**
- * Toaster.svelte: white, slate-200 border, rounded-xl, shadow-lg, slate-800
- * text, an optional primary action and a slate-300 dismiss cross.
+ * Uppercase kicker: `text-[11px] font-bold uppercase tracking-[0.08em]`
+ * slate-400 (`AccountSidebar.svelte:67`); [wide] = `tracking-widest`
+ * (`family/+page.svelte` `dt`). Pass slate-500 for AssignmentsCard headings.
  */
 @Composable
-fun FpToast(data: SnackbarData) {
-	Snackbar(
-		modifier = Modifier
-			.padding(horizontal = 16.dp, vertical = 8.dp)
-			.border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium),
-		shape = MaterialTheme.shapes.medium,
-		containerColor = MaterialTheme.colorScheme.surface,
-		contentColor = MaterialTheme.colorScheme.inverseSurface,
-		actionContentColor = MaterialTheme.colorScheme.primary,
-		dismissActionContentColor = MaterialTheme.colorScheme.outline,
-		action = data.visuals.actionLabel?.let { label ->
-			{
-				TextButton(onClick = data::performAction) { Text(label) }
+fun FpKicker(text: String, modifier: Modifier = Modifier, wide: Boolean = false, color: Color = FpTheme.colors.kicker) {
+	Text(
+		text.uppercase(),
+		style = if (wide) FpKickerWideText else FpKickerText,
+		color = color,
+		maxLines = 1,
+		overflow = TextOverflow.Ellipsis,
+		modifier = modifier,
+	)
+}
+
+/**
+ * TaskToolbar view / filter pill: `min-h-[44px] rounded-full border px-3.5
+ * text-sm font-medium`; on `border-slate-900 bg-slate-900 text-white`, off
+ * `border-slate-200 bg-white text-slate-600` (`TaskToolbar.svelte:115-118`).
+ */
+@Composable
+fun FpFilterChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+	val colors = FpTheme.colors
+	val tone = if (selected) colors.chipSelected else colors.chipIdle
+	val border = if (selected) colors.chipSelected.container else MaterialTheme.colorScheme.outlineVariant
+	Box(
+		modifier = modifier
+			.heightIn(min = 44.dp)
+			.clip(FpShape.Pill)
+			.background(tone.container)
+			.border(1.dp, border, FpShape.Pill)
+			.selectable(selected = selected, role = Role.Button, onClick = onClick)
+			.padding(horizontal = 14.dp),
+		contentAlignment = Alignment.Center,
+	) {
+		Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = tone.content, maxLines = 1)
+	}
+}
+
+const val BANNER_DISMISS_LABEL = "Dismiss"
+
+/**
+ * The calendar-group banner row (`calendar/+layout.svelte:149-263`): full
+ * width, a bottom rule in the tone's border, `px-4 py-2.5 text-sm`, centred
+ * copy, and an optional ✕ "Dismiss" (`rounded-full p-1 font-semibold`).
+ */
+@Composable
+fun FpBanner(
+	tone: BannerTone,
+	modifier: Modifier = Modifier,
+	onDismiss: (() -> Unit)? = null,
+	content: @Composable ColumnScope.() -> Unit,
+) {
+	Column(modifier = modifier.fillMaxWidth().background(tone.surface)) {
+		Row(
+			modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+			verticalAlignment = Alignment.CenterVertically,
+			horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+		) {
+			CompositionLocalProvider(LocalContentColor provides tone.content) {
+				ProvideTextStyle(MaterialTheme.typography.bodyMedium.copy(color = tone.content)) {
+					Column(
+						modifier = Modifier.weight(1f, fill = false),
+						horizontalAlignment = Alignment.CenterHorizontally,
+						verticalArrangement = Arrangement.spacedBy(8.dp),
+						content = content,
+					)
+				}
 			}
-		},
-		dismissAction = {
-			IconButton(onClick = data::dismiss) {
-				Icon(
-					painterResource(R.drawable.ic_fp_close),
-					contentDescription = "Dismiss notification",
-					modifier = Modifier.size(14.dp),
+			onDismiss?.let { dismiss ->
+				Text(
+					"✕",
+					style = MaterialTheme.typography.bodyMedium,
+					fontWeight = FontWeight.SemiBold,
+					color = tone.content,
+					modifier = Modifier
+						.minimumInteractiveComponentSize()
+						.clip(FpShape.Pill)
+						.clickable(role = Role.Button, onClick = dismiss)
+						.semantics { contentDescription = BANNER_DISMISS_LABEL }
+						.padding(4.dp),
 				)
 			}
-		},
-	) {
-		Text(data.visuals.message, style = MaterialTheme.typography.bodyMedium)
+		}
+		HorizontalDivider(color = tone.border)
 	}
 }
