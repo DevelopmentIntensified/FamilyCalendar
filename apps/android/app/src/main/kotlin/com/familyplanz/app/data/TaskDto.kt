@@ -78,8 +78,58 @@ class TaskUpdatePatch private constructor(val json: kotlinx.serialization.json.J
 				put("assignmentStatus", status)
 			}
 		)
+
+		/** Skip this occurrence of a recurring task (the server rolls the cursor). */
+		fun advanceToNext(): TaskUpdatePatch = TaskUpdatePatch(buildJsonObject { put("advanceToNext", true) })
+
+		/** Reverse a recurring check-off; [previousDueDate] is the due captured before completing. */
+		fun undoComplete(previousDueDate: String?): TaskUpdatePatch = TaskUpdatePatch(
+			buildJsonObject {
+				put("undoComplete", true)
+				put("previousDueDate", previousDueDate)
+			}
+		)
+
+		/** The edit dialog's save: only [TaskEdit]'s present fields reach the wire. */
+		fun edit(edit: TaskEdit): TaskUpdatePatch = TaskUpdatePatch(
+			buildJsonObject {
+				put("title", edit.title)
+				put("notes", edit.notes)
+				put("dueDate", edit.dueDate)
+				put("recurrenceFrequency", edit.recurrenceFrequency)
+				put("recurrenceInterval", edit.recurrenceInterval)
+				put("priority", edit.priority)
+				put("tags", kotlinx.serialization.json.JsonArray(edit.tags.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+				edit.visibility?.let { put("visibility", it) }
+				edit.assignedTo?.let { put("assignedTo", it.value) }
+				edit.assignmentStatus?.let { put("assignmentStatus", it) }
+				edit.category?.let { put("category", it.value) }
+			}
+		)
 	}
 }
+
+/** A nullable field that is sent only when changed: absent = unchanged, `Changed(null)` = clear. */
+data class Changed<T>(val value: T)
+
+/**
+ * The web's EditPayload (taskEditPayload.ts): the plain fields always ride,
+ * visibility only for the owner, assignee/category only when changed.
+ * There is deliberately no focus field.
+ */
+data class TaskEdit(
+	val title: String,
+	val notes: String?,
+	val dueDate: String?,
+	val recurrenceFrequency: String?,
+	val recurrenceInterval: Int?,
+	val priority: String,
+	val tags: List<String>,
+	val visibility: String? = null,
+	val assignedTo: Changed<String?>? = null,
+	val assignmentStatus: String? = null,
+	val category: Changed<String?>? = null,
+)
 
 @Serializable
 data class FocusCommandRequest(val command: String, val taskId: String? = null)
