@@ -27,22 +27,31 @@ fun describePlanOp(op: JsonObject, events: List<CalendarEvent>, calendars: List<
 	val ev = events.firstOrNull { it.serverId == id || it.id == id }
 	val name = ev?.title ?: op.str("title") ?: "Event"
 	if (op.bool("delete") == true) return "Delete \"$name\""
-	val parts = buildList {
-		op.str("title")?.takeIf { it != ev?.title }?.let { add("rename to \"$it\"") }
-		op.str("date")?.let { d ->
-			val day = runCatching { fmtPlanDay.format(LocalDate.parse(d.take(10))) }.getOrDefault(d)
-			add("move to $day" + if (isPastDate(d, today)) " (past)" else "")
-		}
-		op.str("startTime")?.let { add("start $it") }
-		op.str("endTime")?.let { add("end $it") }
-		op.str("location")?.let { add("at $it") }
-		op.bool("allDay")?.let { add(if (it) "all day" else "timed") }
-		op.str("calendarId")?.let { cid -> calendars.firstOrNull { it.first == cid }?.let { add("→ ${it.second}") } }
-	}
-	return if (parts.isEmpty()) name else "$name: ${parts.joinToString(", ")}"
+	val changes = describeChanges(op, ev, calendars, today)
+	return if (changes.isEmpty()) name else "$name: $changes"
 }
 
-fun planMovesToPast(ops: List<JsonObject>, today: LocalDate): Boolean = ops.any { op -> op.str("date")?.let { isPastDate(it, today) } == true }
+/** One op's bullet, comma-joined: only the fields the server sent change. */
+private fun describeChanges(
+	op: JsonObject,
+	ev: CalendarEvent?,
+	calendars: List<Pair<String, String>>,
+	today: LocalDate,
+): String = buildList {
+	op.str("title")?.takeIf { it != ev?.title }?.let { add("rename to \"$it\"") }
+	op.str("date")?.let { d ->
+		val day = runCatching { fmtPlanDay.format(LocalDate.parse(d.take(10))) }.getOrDefault(d)
+		add("move to $day" + if (isPastDate(d, today)) " (past)" else "")
+	}
+	op.str("startTime")?.let { add("start $it") }
+	op.str("endTime")?.let { add("end $it") }
+	op.str("location")?.let { add("at $it") }
+	op.bool("allDay")?.let { add(if (it) "all day" else "timed") }
+	op.str("calendarId")?.let { cid -> calendars.firstOrNull { it.first == cid }?.let { add("→ ${it.second}") } }
+}.joinToString(", ")
+
+fun planMovesToPast(ops: List<JsonObject>, today: LocalDate): Boolean =
+	ops.any { op -> op.str("date")?.let { isPastDate(it, today) } == true }
 
 /** `{n} event(s)` with the web's plural rule. */
 fun events(n: Int): String = if (n == 1) "1 event" else "$n events"

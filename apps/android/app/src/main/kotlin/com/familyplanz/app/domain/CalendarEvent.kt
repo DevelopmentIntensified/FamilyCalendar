@@ -96,25 +96,26 @@ object EventMapper {
 
 	/** Open tasks with a due date only, riding their parent event's calendar (or [personalCalendarId]). */
 	fun taskFromDto(dto: CalendarTaskDto, zone: ZoneId, personalCalendarId: String?): CalendarTask? {
-		val due = dto.dueDate ?: return null
-		val day = localDateOf(due, zone) ?: return null
-		return CalendarTask(
-			id = dto.id,
-			title = dto.title,
-			dueDate = due,
-			dueDay = day,
-			calendarId = dto.eventCalendarId ?: personalCalendarId,
-			recurrenceFrequency = dto.recurrenceFrequency,
-			recurrenceInterval = dto.recurrenceInterval,
-			assignedTo = dto.assignedTo,
-			assigneeFirstName = dto.assigneeFirstName,
-			priority = dto.priority,
-			visibility = dto.visibility,
-			familyId = dto.familyId,
-			notes = dto.notes,
-			eventTitle = dto.eventTitle,
-			completed = dto.completedAt != null,
-		)
+		val day = dto.dueDate?.let { localDateOf(it, zone) }
+		return day?.let {
+			CalendarTask(
+				id = dto.id,
+				title = dto.title,
+				dueDate = dto.dueDate,
+				dueDay = it,
+				calendarId = dto.eventCalendarId ?: personalCalendarId,
+				recurrenceFrequency = dto.recurrenceFrequency,
+				recurrenceInterval = dto.recurrenceInterval,
+				assignedTo = dto.assignedTo,
+				assigneeFirstName = dto.assigneeFirstName,
+				priority = dto.priority,
+				visibility = dto.visibility,
+				familyId = dto.familyId,
+				notes = dto.notes,
+				eventTitle = dto.eventTitle,
+				completed = dto.completedAt != null,
+			)
+		}
 	}
 }
 

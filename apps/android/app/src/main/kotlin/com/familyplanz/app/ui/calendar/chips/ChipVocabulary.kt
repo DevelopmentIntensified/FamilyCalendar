@@ -2,7 +2,6 @@ package com.familyplanz.app.ui.calendar.chips
 
 import androidx.compose.ui.graphics.Color
 import com.familyplanz.app.domain.CalendarEvent
-import com.familyplanz.app.ui.calendar.CalTone
 import com.familyplanz.app.ui.theme.Accent
 import com.familyplanz.app.ui.theme.ChipTone
 import com.familyplanz.app.ui.theme.Slate
@@ -67,20 +66,19 @@ fun chipColor(hex: String?): Color = parseHex(hex) ?: Slate.S400
 fun parseHex(hex: String?): Color? {
 	val raw = hex?.trim()?.removePrefix("#") ?: return null
 	val full = if (raw.length == 3) raw.map { "$it$it" }.joinToString("") else raw
-	if (full.length != 6) return null
-	return full.toLongOrNull(16)?.let { Color(0xFF000000 or it) }
+	return full.takeIf { it.length == 6 }?.toLongOrNull(16)?.let { Color(0xFF000000 or it) }
 }
 
 /** `calendarNameFor`: only when 2+ calendars make it worth naming. */
 fun calendarNameFor(calendarId: String, calendars: List<Pair<String, String>>): String =
 	if (calendars.size < 2) "" else calendars.firstOrNull { it.first == calendarId }?.second.orEmpty()
 
-/** `rsvpVisual`: null for undecided / unknown. */
-data class RsvpVisual(val label: String, val icon: String, val badge: ChipTone, val ring: Color?, val dim: Boolean)
+/** `rsvpVisual`: null for undecided / unknown. Labels are the web's; no glyphs (the pill carries the word). */
+data class RsvpVisual(val label: String, val tone: ChipTone, val dim: Boolean)
 
 fun rsvpVisual(status: String?): RsvpVisual? = when (status) {
-	"going" -> RsvpVisual("Going", "✓", ChipTone(Accent.Emerald100, Accent.Emerald700), CalTone.Emerald400.copy(alpha = 0.6f), false)
-	"maybe" -> RsvpVisual("Maybe", "?", ChipTone(Accent.Amber100, Accent.Amber700), CalTone.Amber400.copy(alpha = 0.6f), false)
-	"declined" -> RsvpVisual("Can't go", "✕", ChipTone(Slate.S200, Slate.S500), null, true)
+	"going" -> RsvpVisual("Going", ChipTone(Accent.Emerald100, Accent.Emerald700), false)
+	"maybe" -> RsvpVisual("Maybe", ChipTone(Accent.Amber100, Accent.Amber700), false)
+	"declined" -> RsvpVisual("Can't go", ChipTone(Slate.S200, Slate.S500), true)
 	else -> null
 }

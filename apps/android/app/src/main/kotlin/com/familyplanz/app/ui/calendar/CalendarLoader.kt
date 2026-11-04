@@ -25,6 +25,8 @@ data class CalendarBoot(
 	val calendars: List<CalendarDto>,
 	val roster: List<com.familyplanz.app.data.RosterMemberDto>,
 	val unauthorized: Boolean,
+	/** Any of G2-G4 failed for a reason other than 404/401 (an amber line, never an error screen). */
+	val readsFailed: Boolean = false,
 )
 
 /** One month's rows, or why not. `failed` with rows = served from the offline cache. */
@@ -41,17 +43,22 @@ class CalendarLoader(
 	private val account: AccountSource,
 ) {
 	suspend fun boot(): CalendarBoot = coroutineScope {
-		val me = async { account.me() }
-		val settings = async { calendar.settings() }
-		val calendars = async { calendar.calendars() }
-		val roster = async { calendar.roster() }
-		val results = listOf(me.await(), settings.await(), calendars.await(), roster.await())
+		val meDeferred = async { account.me() }
+		val settingsDeferred = async { calendar.settings() }
+		val calendarsDeferred = async { calendar.calendars() }
+		val rosterDeferred = async { calendar.roster() }
+		val me = meDeferred.await()
+		val settings = settingsDeferred.await()
+		val calendars = calendarsDeferred.await()
+		val roster = rosterDeferred.await()
+		val reads = listOf(me, settings, calendars, roster)
 		CalendarBoot(
-			meId = (me.await() as? ApiResult.Ok)?.value?.id,
-			settings = (settings.await() as? ApiResult.Ok)?.value ?: CalendarSettingsDto(),
-			calendars = (calendars.await() as? ApiResult.Ok)?.value.orEmpty(),
-			roster = (roster.await() as? ApiResult.Ok)?.value.orEmpty(),
-			unauthorized = results.any { (it as? ApiResult.Err)?.error == ApiError.Unauthorized },
+			meId = (me as? ApiResult.Ok)?.value?.id,
+			settings = (settings as? ApiResult.Ok)?.value ?: CalendarSettingsDto(),
+			calendars = (calendars as? ApiResult.Ok)?.value.orEmpty(),
+			roster = (roster as? ApiResult.Ok)?.value.orEmpty(),
+			unauthorized = (me as? ApiResult.Err)?.error is ApiError.Unauthorized,
+			readsFailed = reads.any { it is ApiResult.Err && it.error !is ApiError.NotFound },
 		)
 	}
 

@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -20,138 +20,210 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.familyplanz.app.domain.CalendarEvent
+import androidx.compose.ui.unit.sp
+import com.familyplanz.app.domain.CalendarTask
+import com.familyplanz.app.ui.calendar.model.MonthCell
+import com.familyplanz.app.ui.calendar.model.CalendarEmpty
+import com.familyplanz.app.ui.calendar.model.VisibleCalendar
+import com.familyplanz.app.ui.calendar.model.cellPlan
+import com.familyplanz.app.ui.calendar.model.eventsOn
+import com.familyplanz.app.ui.calendar.model.isWeekendWash
+import com.familyplanz.app.ui.calendar.model.monthCells
+import com.familyplanz.app.ui.calendar.model.tasksOn
+import com.familyplanz.app.ui.calendar.model.weekdayLabels
 import com.familyplanz.app.ui.theme.FpDayDiscText
 import com.familyplanz.app.ui.theme.FpShape
 import com.familyplanz.app.ui.theme.FpTheme
-import java.time.DayOfWeek
+import com.familyplanz.app.ui.theme.Primary
+import com.familyplanz.app.ui.theme.Slate
 import java.time.LocalDate
-import java.time.YearMonth
 
 /*
- * The web month grid (MonthView + MonthDayCell, issue 291): Monday-first
- * (MonthView preferedFirstDayOfWeek), 14dp-radius white cells on a
- * slate-200 border, today washed primary-50 with a primary-600 disc, the
- * weekend on the paper wash, and the chip vocabulary's glyph view — at a
- * phone's cell width the month is marks, not titles (#068).
+ * MonthView + MonthDays + MonthDayCell (#292 L2): weekday header rotated by
+ * weekStart, seven columns with no gap on a phone, every cell exactly 72 dp,
+ * up to three event chips and two task chips then "+N more".
  */
 
-private val WEEKDAYS = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-
-/** Monday-first grid for [month]: leading nulls, then every day, padded to whole weeks. */
-internal fun monthCells(month: YearMonth): List<LocalDate?> {
-	val lead = month.atDay(1).dayOfWeek.value - DayOfWeek.MONDAY.value
-	val days = (1..month.lengthOfMonth()).map(month::atDay)
-	val cells = List<LocalDate?>(lead) { null } + days
-	val trail = (7 - cells.size % 7) % 7
-	return cells + List(trail) { null }
-}
+/** The fixed cell height every row keeps whatever it holds (AC-CAL-4). */
+val CELL_HEIGHT = 72.dp
 
 @Composable
-internal fun MonthGrid(
-	month: YearMonth,
-	events: List<CalendarEvent>,
-	selectedDay: String?,
-	onSelectDay: (String) -> Unit,
-	today: LocalDate = LocalDate.now(),
-) {
-	val byDay = events.groupBy { it.day.take(10) }
-	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-		Row(modifier = Modifier.fillMaxWidth()) {
-			WEEKDAYS.forEach {
+fun CalendarMonthGrid(state: CalendarUiState, visible: VisibleCalendar, actions: CalendarActions) {
+	val zone = state.zone
+	val cells = monthCells(state.month, state.mondayFirst)
+	Column(modifier = Modifier.fillMaxWidth()) {
+		Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+			weekdayLabels(state.mondayFirst).forEach {
 				Text(
-					it,
-					style = MaterialTheme.typography.labelSmall,
-					color = FpTheme.colors.textMuted,
+					it.uppercase(),
+					fontSize = 12.sp,
+					fontWeight = FontWeight.SemiBold,
+					letterSpacing = 0.5.sp,
+					color = Slate.S500,
 					textAlign = TextAlign.Center,
-					modifier = Modifier.weight(1f),
+					modifier = Modifier.weight(1f).padding(vertical = 8.dp),
 				)
 			}
 		}
-		monthCells(month).chunked(7).forEach { week ->
-			Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-				week.forEach { date ->
-					if (date == null) {
-						Box(Modifier.weight(1f))
-					} else {
-						val iso = date.toString()
-						DayCell(date, byDay[iso].orEmpty(), date == today, iso == selectedDay) { onSelectDay(iso) }
-					}
+		cells.chunked(7).forEach { week ->
+			Row(modifier = Modifier.fillMaxWidth()) {
+				week.forEach { cell ->
+					DayCell(
+						cell = cell,
+						today = state.today,
+						selectionMode = state.selectionMode,
+						selectedIds = state.selectedIds,
+						events = eventsOn(visible.events, cell.date, zone),
+						tasks = tasksOn(visible.tasks, cell.date),
+						onTap = { actions.sheets.onCellTap(cell.date) },
+						onMore = { actions.sheets.onOpen(CalendarSheet.DayEvents(cell.date)) },
+						onToggle = actions.modes.onToggleSelect,
+						modifier = Modifier.weight(1f),
+					)
 				}
 			}
+		}
+		if (visible.empty == CalendarEmpty.NONE && visible.events.isEmpty() && visible.tasks.isEmpty()) {
+			Text(
+				"Nothing on this month yet.",
+				fontSize = 13.sp,
+				color = FpTheme.colors.textMuted,
+				modifier = Modifier.fillMaxWidth().padding(16.dp),
+				textAlign = TextAlign.Center,
+			)
 		}
 	}
 }
 
 @Composable
 private fun RowScope.DayCell(
-	date: LocalDate,
-	events: List<CalendarEvent>,
-	isToday: Boolean,
-	selected: Boolean,
-	onClick: () -> Unit,
+	cell: MonthCell,
+	today: LocalDate,
+	selectionMode: Boolean,
+	selectedIds: Set<String>,
+	events: List<com.familyplanz.app.domain.CalendarEvent>,
+	tasks: List<CalendarTask>,
+	onTap: () -> Unit,
+	onMore: () -> Unit,
+	onToggle: (String) -> Unit,
+	modifier: Modifier = Modifier,
 ) {
-	val colors = FpTheme.colors
-	val weekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
+	val isToday = cell.date == today
+	val plan = cellPlan(events.size, tasks.size)
 	val surface = when {
-		isToday -> colors.todayCellSurface
-		weekend -> colors.weekendCellSurface
+		cell.otherMonth -> FpTheme.colors.otherMonthCellSurface
+		isToday -> Primary.P50.copy(alpha = 0.4f)
 		else -> MaterialTheme.colorScheme.surface
 	}
 	val border = when {
-		selected -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-		isToday -> BorderStroke(1.dp, colors.todayCellBorder)
+		cell.otherMonth -> BorderStroke(1.dp, FpTheme.colors.otherMonthCellBorder)
+		isToday -> BorderStroke(1.dp, FpTheme.colors.todayCellBorder)
 		else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
 	}
 	Surface(
 		shape = FpShape.Cell,
-		color = surface,
+		color = Color.Transparent,
 		border = border,
-		modifier = Modifier
-			.weight(1f)
-			.height(56.dp)
+		modifier = modifier
+			.height(CELL_HEIGHT)
+			.testTag("cell-${cell.date}")
+			.semantics { contentDescription = "Open ${cell.date}" }
 			.clip(FpShape.Cell)
-			.then(if (events.isNotEmpty()) Modifier.clickable(onClick = onClick) else Modifier),
+			.then(
+				if (isWeekendWash(cell)) {
+					Modifier.background(Brush.verticalGradient(listOf(CalTone.WeekendTop, MaterialTheme.colorScheme.surface)))
+				} else {
+					Modifier.background(surface)
+				},
+			)
+			.clickable(onClick = onTap),
 	) {
-		Column(modifier = Modifier.padding(4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-			Box(
-				modifier = Modifier
-					.size(24.dp)
-					.clip(FpShape.Pill)
-					.background(if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent),
-				contentAlignment = Alignment.Center,
-			) {
+		Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+			Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+				Box(
+					modifier = Modifier
+						.size(28.dp)
+						.clip(FpShape.Pill)
+						.background(if (isToday) Primary.P600 else Color.Transparent),
+					contentAlignment = Alignment.Center,
+				) {
+					Text(
+						cell.date.dayOfMonth.toString(),
+						style = FpDayDiscText,
+						color = when {
+							isToday -> Color.White
+							cell.otherMonth -> Slate.S400
+							else -> Slate.S600
+						},
+					)
+				}
+			}
+			events.take(plan.eventChips).forEach { event ->
+				SelectionChip(
+					selected = selectionMode && event.id in selectedIds,
+					selectionMode = selectionMode,
+					onToggle = { onToggle(event.id) },
+				) {
+					EventChip(event)
+				}
+			}
+			tasks.take(plan.taskChips).forEach { task -> TaskChip(task, today) }
+			if (plan.more > 0) {
 				Text(
-					date.dayOfMonth.toString(),
-					style = FpDayDiscText,
-					color = if (isToday) MaterialTheme.colorScheme.onPrimary else colors.textBody,
+					"+${plan.more} more",
+					fontSize = 11.sp,
+					fontWeight = FontWeight.Medium,
+					color = Slate.S600,
+					maxLines = 1,
+					overflow = TextOverflow.Ellipsis,
+					modifier = Modifier
+						.height(16.dp)
+						.testTag("more-${cell.date}")
+						.clickable(onClick = onMore)
+						.padding(horizontal = 1.dp),
 				)
 			}
-			ChipMarks(events)
 		}
 	}
 }
 
-/** chipVocabulary glyphs: timed = 6dp dot, all-day = 10x5 bar, in the calendar colour (fallback slate-400). */
+/** In selection mode a chip is a toggle wearing a 12 dp checkbox square (AC-CAL-32). */
 @Composable
-private fun ChipMarks(events: List<CalendarEvent>) {
-	if (events.isEmpty()) return
-	val rail = FpTheme.colors.chipRail
-	Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-		events.take(MAX_MARKS).forEach { event ->
-			if (event.allDay) {
-				Box(Modifier.width(10.dp).height(5.dp).clip(MaterialTheme.shapes.extraSmall).background(rail))
-			} else {
-				Box(Modifier.size(6.dp).clip(FpShape.Pill).background(rail))
-			}
-		}
-		if (events.size > MAX_MARKS) {
-			Text("+${events.size - MAX_MARKS}", style = MaterialTheme.typography.labelSmall, color = FpTheme.colors.textMuted)
-		}
+private fun SelectionChip(
+	selected: Boolean,
+	selectionMode: Boolean,
+	onToggle: () -> Unit,
+	chip: @Composable () -> Unit,
+) {
+	if (!selectionMode) {
+		chip()
+		return
+	}
+	Row(
+		modifier = Modifier
+			.fillMaxWidth()
+			.clip(RoundedCornerShape(6.dp))
+			.then(if (selected) Modifier.background(Primary.P50) else Modifier)
+			.clickable(onClick = onToggle)
+			.padding(end = 1.dp),
+		verticalAlignment = Alignment.CenterVertically,
+		horizontalArrangement = Arrangement.spacedBy(2.dp),
+	) {
+		Box(
+			modifier = Modifier
+				.size(12.dp)
+				.clip(RoundedCornerShape(3.dp))
+				.background(if (selected) Primary.P600 else Slate.S200),
+		)
+		Box(modifier = Modifier.weight(1f)) { chip() }
 	}
 }
-
-private const val MAX_MARKS = 3
