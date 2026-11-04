@@ -52,6 +52,15 @@ export async function revokeToken(userId: string, id: string) {
 	await db.delete(apiTokens).where(and(eq(apiTokens.id, id), eq(apiTokens.userId, userId)));
 }
 
+/**
+ * Every token the user owns — password reset (#292 L0 follow-up: leaked
+ * credentials must not leave a phone or TaskFocus holding a live token) and
+ * account deletion. The caller's own token goes too.
+ */
+export async function revokeAllTokensForUser(userId: string) {
+	await db.delete(apiTokens).where(eq(apiTokens.userId, userId));
+}
+
 /** #288 mobile logout: revokes exactly the presented token (by hash),
  *  scoped to its owner — the caller's other tokens are untouched. */
 export async function revokeTokenByPlaintext(userId: string, token: string) {

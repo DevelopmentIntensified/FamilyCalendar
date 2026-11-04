@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestEvent } from './$types';
 import { getUserByEmail, setUserPasswordHash } from '$lib/server/db/actions/users';
 import { getCode, createCode } from '$lib/server/db/actions/codes';
+import { revokeAllTokensForUser } from '$lib/server/db/actions/apiTokens';
 import { hashPassword } from '$lib/server/utils/password';
 import { invalidateUserSessions } from '$lib/server/auth';
 import { EMAILSECRET } from '$env/static/private';
@@ -19,6 +20,7 @@ export type ResetPasswordDeps = {
 	createCode: typeof createCode;
 	hashPassword: typeof hashPassword;
 	invalidateUserSessions: typeof invalidateUserSessions;
+	revokeAllTokensForUser: typeof revokeAllTokensForUser;
 	jwtSecret: Uint8Array;
 	verifyJwt: typeof validateJWT;
 	parseJwt: typeof parseJWT;
@@ -40,6 +42,7 @@ const defaultDeps: ResetPasswordDeps = {
 	createCode,
 	hashPassword,
 	invalidateUserSessions: (userId: string) => invalidateUserSessions(userId),
+	revokeAllTokensForUser: (userId: string) => revokeAllTokensForUser(userId),
 	jwtSecret: new TextEncoder().encode(EMAILSECRET),
 	verifyJwt: validateJWT,
 	parseJwt: parseJWT
@@ -56,6 +59,7 @@ export const POST = async (
 		createCode,
 		hashPassword,
 		invalidateUserSessions,
+		revokeAllTokensForUser,
 		jwtSecret,
 		verifyJwt,
 		parseJwt
@@ -120,6 +124,9 @@ export const POST = async (
 		// A password reset means existing credentials were compromised;
 		// kill every live session so a hijacker cannot keep access.
 		await invalidateUserSessions(user.id);
+		// Same reason for the fp_ tokens: the phones and TaskFocus installs
+		// holding one are signed in with the old password's authority.
+		await revokeAllTokensForUser(user.id);
 
 		return json({ success: true });
 	} catch (error) {

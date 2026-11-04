@@ -9,6 +9,7 @@ const getCode = vi.fn();
 const createCode = vi.fn();
 const hashPassword = vi.fn();
 const invalidateUserSessions = vi.fn();
+const revokeAllTokensForUser = vi.fn();
 const verifyJwt = vi.fn();
 const parseJwt = vi.fn();
 
@@ -19,6 +20,7 @@ const deps: ResetPasswordDeps = {
 	createCode,
 	hashPassword,
 	invalidateUserSessions,
+	revokeAllTokensForUser,
 	jwtSecret: new TextEncoder().encode('test-secret-1234567890'),
 	verifyJwt,
 	parseJwt
@@ -57,6 +59,9 @@ describe('POST /forgot-password/reset', () => {
 		expect(createCode).toHaveBeenCalledTimes(1);
 		expect(createCode.mock.calls[0][0].code).toMatch(/^used:[0-9a-f]{64}$/);
 		expect(invalidateUserSessions).toHaveBeenCalledWith('user-1');
+		// A reset means the old credentials leaked: every phone / TaskFocus
+		// fp_ token goes too, not just the web sessions.
+		expect(revokeAllTokensForUser).toHaveBeenCalledWith('user-1');
 	});
 
 	it('returns 400 for invalid/expired token', async () => {
