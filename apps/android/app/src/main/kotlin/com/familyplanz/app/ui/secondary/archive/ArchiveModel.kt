@@ -34,7 +34,7 @@ fun groupEventsByMonth(events: List<ArchiveEventDto>, zone: ZoneId = ZoneId.syst
 				events = rows.sortedByDescending { (event, date) -> instantKey(event.start, date, zone) }.map { it.first },
 			)
 		}
-		.sortedByDescending { it.key }
+		.sortedWith(compareBy<ArchiveMonth> { it.key == UNKNOWN_KEY }.thenByDescending { it.key })
 }
 
 /** Full instant for ordering inside a month; falls back to the day when the string has no time. */
