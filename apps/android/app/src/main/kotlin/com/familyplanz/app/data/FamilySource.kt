@@ -79,6 +79,10 @@ interface FamilyApi {
 		@Query("q") query: String,
 		@Query("exclude") exclude: List<String>,
 	): MemberSearchDto
+
+	/** The Family Task Board writes through the same task door, naming the family (G11). */
+	@POST("api/tasks")
+	suspend fun createFamilyTask(@Body body: FamilyTaskBody): TaskMutationResponse
 }
 
 /** `null` fields are omitted on the wire (ApiFactory.json keeps explicitNulls off). */
@@ -113,6 +117,15 @@ data class MintInviteBody(val familyId: String, val expiresInDays: Int, val maxU
 
 @Serializable
 data class RevokeInviteBody(val code: String)
+
+/** A family task: the board's add form names the family and (optionally) who mows. */
+@Serializable
+data class FamilyTaskBody(
+	val title: String,
+	val familyId: String,
+	val assignedTo: String? = null,
+	val category: String? = null,
+)
 
 @Serializable
 data class AckDto(val success: Boolean = true)
@@ -177,6 +190,14 @@ interface FamilySource {
 	suspend fun tasks(familyId: String): ApiResult<FamilyTasksDto>
 
 	suspend fun searchMembers(query: String, exclude: List<String>): ApiResult<List<MemberHitDto>>
+
+	/** AC-FT-2: a board task lands on `assignedTo` (null = the caller) as a pending request. */
+	suspend fun createFamilyTask(
+		familyId: String,
+		title: String,
+		assignedTo: String?,
+		category: String?,
+	): ApiResult<TaskDto>
 }
 
 class NetworkFamilySource(private val api: FamilyApi) : FamilySource {
@@ -252,6 +273,14 @@ class NetworkFamilySource(private val api: FamilyApi) : FamilySource {
 
 	override suspend fun searchMembers(query: String, exclude: List<String>): ApiResult<List<MemberHitDto>> =
 		apiCall { api.searchMembers(query.trim(), exclude).users }
+
+	override suspend fun createFamilyTask(
+		familyId: String,
+		title: String,
+		assignedTo: String?,
+		category: String?,
+	): ApiResult<TaskDto> =
+		apiCall { api.createFamilyTask(FamilyTaskBody(title.trim(), familyId, assignedTo, category)).task }
 
 	private fun <T> ApiResult<T>.unit(): ApiResult<Unit> = when (this) {
 		is ApiResult.Ok -> ApiResult.Ok(Unit)
