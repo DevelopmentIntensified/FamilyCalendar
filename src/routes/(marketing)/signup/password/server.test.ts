@@ -100,7 +100,7 @@ describe('POST /signup/password', () => {
 		expect(createCode).toHaveBeenCalledTimes(1);
 	});
 
-	it('returns 400 for a duplicate email without creating or emailing', async () => {
+	it('answers the same 201 pending shape for a taken email — no session, no email', async () => {
 		getUserByEmail.mockResolvedValue({ id: 'user-1', email: 'taken@user.com' });
 
 		const response = await POST(
@@ -110,9 +110,15 @@ describe('POST /signup/password', () => {
 
 		const body = await response.json();
 
-		expect(response.status).toBe(400);
-		expect(body).toEqual({ error: 'An account with this email already exists' });
+		expect(response.status).toBe(201);
+		expect(body).toEqual({
+			success: true,
+			user: { id: '', email: 'taken@user.com', firstName: 'New' },
+			emailVerification: 'pending'
+		});
 		expect(createUser).not.toHaveBeenCalled();
+		expect(sessionApi.createSession).not.toHaveBeenCalled();
+		expect(setSessionCookie).not.toHaveBeenCalled();
 		expect(sendEmail).not.toHaveBeenCalled();
 	});
 

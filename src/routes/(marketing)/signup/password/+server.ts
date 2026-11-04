@@ -65,8 +65,20 @@ export const POST = async (
 		// POST /api/mobile/auth/signup (#292 G12).
 		const created = await createPasswordAccount(request, body, deps);
 		if (!created.ok) return created.response;
-		const { user } = created;
 		const { email, firstName, lastName } = body;
+
+		// An address that already has an account gets this same 201 pending
+		// shape, with no session and no email: account presence is not an
+		// oracle (the old 400 "An account with this email already exists" was).
+		// The client moves to verify-code either way; resend is the recovery
+		// path for the owner of the existing account.
+		if (!created.created) {
+			return json(
+				{ success: true, user: { id: '', email, firstName }, emailVerification: 'pending' },
+				{ status: 201 }
+			);
+		}
+		const { user } = created;
 
 		const newSession = await deps.session.createSession(user.id);
 		deps.setSessionCookie(cookies, await deps.session.createSessionCookie(newSession));

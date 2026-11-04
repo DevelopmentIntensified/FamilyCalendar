@@ -82,6 +82,15 @@ describe('POST /api/mobile/auth/reset (G12)', () => {
 			error: 'Invalid or expired reset token. Please request a new one.'
 		});
 	});
+
+	it('429 once the per-IP limit trips', async () => {
+		for (let i = 0; i < 10; i++) {
+			expect((await RESET(ev({ token: 't' }))).status).toBe(400);
+		}
+		const limited = await RESET(ev({ token: 't' }));
+		expect(limited.status).toBe(429);
+		expect(await limited.json()).toEqual({ error: 'Too many attempts. Try again shortly.' });
+	});
 });
 
 describe('POST /api/me/verify-email (G12)', () => {

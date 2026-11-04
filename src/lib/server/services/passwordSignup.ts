@@ -45,6 +45,17 @@ export type PasswordSignupInput = {
 type CreatedUser = Awaited<ReturnType<typeof createUser>>;
 
 /**
+ * `created: false` means the address already has an account: nothing was
+ * created, nothing was emailed, and no id is handed back — the caller answers
+ * with the same success shape as `created: true` (no account oracle, #292 L0
+ * follow-up). Validation and throttles run first and are identical either way.
+ */
+export type PasswordAccountResult =
+	| { ok: true; created: true; user: CreatedUser }
+	| { ok: true; created: false }
+	| { ok: false; response: Response };
+
+/**
  * Validates, rate-limits and creates the (unverified) account + its
  * personal calendar. A refusal comes back as the JSON Response to send.
  */
@@ -52,7 +63,7 @@ export async function createPasswordAccount(
 	request: Request,
 	input: Partial<PasswordSignupInput>,
 	deps: PasswordAccountDeps
-): Promise<{ ok: true; user: CreatedUser } | { ok: false; response: Response }> {
+): Promise<PasswordAccountResult> {
 	const { email, password, firstName, lastName } = input;
 	const refuse = (status: number, error: string) => ({
 		ok: false as const,
@@ -72,7 +83,10 @@ export async function createPasswordAccount(
 	}
 	const existingUser = await deps.getUserByEmail(email);
 	if (existingUser) {
-		return refuse(400, 'An account with this email already exists');
+		// Same success shape as a fresh sign-up, and the same work order up to
+		// here — no oracle for account presence. What was "An account with this
+		// email already exists" (a 400 that leaked membership) is now silence.
+		return { ok: true, created: false };
 	}
 	const passwordHash = await deps.hashPassword(password);
 	const user = await deps.createUser({
@@ -84,7 +98,7 @@ export async function createPasswordAccount(
 		roles: []
 	});
 	await deps.ensurePersonalCalendar(user.id);
-	return { ok: true, user };
+	return { ok: true, created: true, user };
 }
 
 /**

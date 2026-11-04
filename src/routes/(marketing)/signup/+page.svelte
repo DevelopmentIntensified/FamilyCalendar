@@ -65,9 +65,10 @@
 			if (json.error) {
 				error = json.error;
 			} else if (json.emailVerification === 'pending') {
-				// Account created (session set) but the email isn't verified:
-				// show the code screen instead of silently landing on the
-				// calendar — the banner there covers users who navigate away.
+				// Fresh account (session set) or an address that already had
+				// one (no session, no account oracle): both land on the code
+				// screen instead of silently going to the calendar — the
+				// banner there covers users who navigate away.
 				pwVerifyPending = true;
 				emailSent = true;
 			} else {
