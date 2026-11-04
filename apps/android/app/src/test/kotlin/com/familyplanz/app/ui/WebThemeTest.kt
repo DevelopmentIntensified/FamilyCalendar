@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import com.familyplanz.app.domain.Task
 import com.familyplanz.app.domain.TaskPriority
-import com.familyplanz.app.ui.calendar.monthCells
+import com.familyplanz.app.ui.calendar.model.monthCells
 import com.familyplanz.app.ui.tasks.MetaSlot
 import com.familyplanz.app.ui.tasks.SlotKind
 import com.familyplanz.app.ui.tasks.lateLabel
