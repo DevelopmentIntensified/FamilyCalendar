@@ -106,6 +106,13 @@ class TaskUpdatePatch private constructor(val json: kotlinx.serialization.json.J
 				edit.category?.let { put("category", it.value) }
 			}
 		)
+
+		/**
+		 * AC-TK-20: an edit that carries only the fields the user changed.
+		 * [fields] are wire names mapped to their new values.
+		 */
+		fun editChanged(fields: Map<String, kotlinx.serialization.json.JsonElement>): TaskUpdatePatch =
+			TaskUpdatePatch(buildJsonObject { fields.forEach { (name, value) -> put(name, value) } })
 	}
 }
 

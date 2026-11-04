@@ -151,23 +151,27 @@ class PhoneFocusSessions(
 	}
 
 	private suspend fun register(session: OpenPhoneSession, adoptOnTask: Instant?): PhoneFocusOutcome {
-		var result = source.startFocusSession(StartFocusSessionRequest(session.taskId, session.startedAt))
-		if (result is FocusStartResult.Conflict) {
-			if (adoptOnTask != null) {
-				// The server already times this very task (state lost on this phone): take it over as-is.
-				write { it.copy(open = OpenPhoneSession(session.taskId, iso(adoptOnTask), result.openSessionId)) }
-				return PhoneFocusOutcome.Synced(session.taskId)
+		val result = when (val first = source.startFocusSession(StartFocusSessionRequest(session.taskId, session.startedAt))) {
+			is FocusStartResult.Conflict -> {
+				val openSessionId = first.openSessionId
+				if (adoptOnTask != null) {
+					// The server already times this very task (state lost on this phone): take it over as-is.
+					write { it.copy(open = OpenPhoneSession(session.taskId, iso(adoptOnTask), openSessionId)) }
+					return PhoneFocusOutcome.Synced(session.taskId)
+				}
+				// Another open session (another task, or a lost record): close it, then start ours.
+				when (source.endFocusSession(openSessionId, iso(now()))) {
+					is FocusCloseResult.Failed -> return PhoneFocusOutcome.Queued(session.taskId)
+					else -> source.startFocusSession(StartFocusSessionRequest(session.taskId, session.startedAt))
+				}
 			}
-			// Another open session (another task, or a lost record): close it, then start ours.
-			when (source.endFocusSession(result.openSessionId, iso(now()))) {
-				is FocusCloseResult.Failed -> return PhoneFocusOutcome.Queued(session.taskId)
-				else -> Unit
-			}
-			result = source.startFocusSession(StartFocusSessionRequest(session.taskId, session.startedAt))
+
+			else -> first
 		}
 		return when (result) {
 			is FocusStartResult.Started -> {
-				write { s -> s.copy(open = s.open?.takeIf { it.startedAt == session.startedAt }?.copy(serverId = result.session.id) ?: s.open) }
+				val serverId = result.session.id
+				write { s -> s.copy(open = s.open?.takeIf { it.startedAt == session.startedAt }?.copy(serverId = serverId) ?: s.open) }
 				PhoneFocusOutcome.Synced(session.taskId)
 			}
 			is FocusStartResult.Failed -> startFailed(session, result.error)

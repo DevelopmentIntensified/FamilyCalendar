@@ -3,9 +3,9 @@ package com.familyplanz.app.ui.tasks
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -14,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.familyplanz.app.domain.Task
@@ -70,30 +72,35 @@ internal fun lateLabel(due: String?, today: LocalDate): String? {
 }
 
 /** One fact on the row's meta line, in TaskRow.svelte's slot vocabulary. */
-enum class SlotKind { SAVING, DUE, LATE, RECUR, PRIORITY, FAMILY, WHO, STATUS, FOCUS }
+enum class SlotKind { SAVING, DUE, LATE, RECUR, EVENT, TAG, PRIORITY, FAMILY, WHO, STATUS, FOCUS }
 
 data class MetaSlot(val kind: SlotKind, val text: String, val tone: DueTone? = null)
 
 /**
- * Web slot order (due, late, recurrence, [category], priority, family, who),
- * plus the native-only saving ack first and focus time last. The category
- * chip renders separately ([CategoryChip], tag `category-chip`).
+ * Web slot order (due, late, recurrence/event, [category], tags, priority,
+ * family, who), plus the native-only saving ack first and focus time last.
+ * The category chip renders separately ([CategoryChip], tag `category-chip`).
  */
 internal fun taskMetaSlots(
 	task: Task,
 	now: Instant = Instant.now(),
 	today: LocalDate = LocalDate.now(),
 ): List<MetaSlot> = buildList {
-	if (task.pending) add(MetaSlot(SlotKind.SAVING, "saving…"))
+	if (task.pending) add(MetaSlot(SlotKind.SAVING, "saving."))
 	val tone = if (task.completed) null else dueTone(task.dueDate, today)
 	task.dueDate?.let { add(MetaSlot(SlotKind.DUE, "due ${it.take(10)}", tone)) }
 	if (!task.completed) lateLabel(task.dueDate, today)?.let { add(MetaSlot(SlotKind.LATE, it)) }
-	task.recurringLabel?.let { add(MetaSlot(SlotKind.RECUR, "↻ $it")) }
+	task.recurringLabel?.let { add(MetaSlot(SlotKind.RECUR, task.recurringLabel)) }
+	task.eventTitle?.let { add(MetaSlot(SlotKind.EVENT, it)) }
+	task.tags.forEach { tag -> add(MetaSlot(SlotKind.TAG, "#${tag.removePrefix("#")}")) }
 	if (task.priority != TaskPriority.NORMAL) {
 		add(MetaSlot(SlotKind.PRIORITY, task.priority.name.lowercase().replaceFirstChar(Char::uppercase)))
 	}
 	if (task.familyTask) add(MetaSlot(SlotKind.FAMILY, "Family"))
-	task.assignedName?.let { add(MetaSlot(SlotKind.WHO, it)) }
+	when {
+		task.assignedName != null -> add(MetaSlot(SlotKind.WHO, task.assignedName))
+		task.familyTask -> add(MetaSlot(SlotKind.WHO, "unassigned"))
+	}
 	task.assignmentStatus?.let { add(MetaSlot(SlotKind.STATUS, it)) }
 	liveFocusMinutes(task, now)?.let { add(MetaSlot(SlotKind.FOCUS, "${it}m focus")) }
 }
@@ -110,6 +117,8 @@ internal fun FpColors.toneFor(slot: MetaSlot): ChipTone? = when (slot.kind) {
 	SlotKind.RECUR -> recurring
 	SlotKind.FAMILY -> family
 	SlotKind.STATUS -> if (slot.text == "pending") pending else assignee
+	SlotKind.TAG -> tag
+	SlotKind.EVENT -> focus
 	SlotKind.FOCUS -> focus
 	SlotKind.SAVING, SlotKind.PRIORITY, SlotKind.WHO -> null
 }
@@ -120,15 +129,18 @@ internal fun FpColors.priorityDot(priority: TaskPriority) = when (priority) {
 	TaskPriority.LOW -> priorityLow
 }
 
-/** The meta line: chips + plain slots, wrapping instead of hiding facts on a narrow phone. */
+/**
+ * The meta line, one 20 dp line, clipped (AC-TK-15, `TaskRow.svelte:168`):
+ * six tags push facts past the right edge instead of wrapping into a second
+ * line, so every row keeps one height.
+ */
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 internal fun TaskMetaSlots(task: Task, now: Instant, leading: @Composable () -> Unit = {}) {
 	val colors = FpTheme.colors
-	FlowRow(
+	Row(
+		modifier = Modifier.fillMaxWidth().heightIn(max = 20.dp).clipToBounds().testTag("task-meta"),
 		horizontalArrangement = Arrangement.spacedBy(4.dp),
-		verticalArrangement = Arrangement.spacedBy(2.dp),
-		itemVerticalAlignment = Alignment.CenterVertically,
+		verticalAlignment = Alignment.CenterVertically,
 	) {
 		leading()
 		taskMetaSlots(task, now).forEach { slot ->
@@ -145,7 +157,7 @@ internal fun TaskMetaSlots(task: Task, now: Instant, leading: @Composable () -> 
 
 @Composable
 private fun MetaText(text: String) {
-	Text(text, style = MaterialTheme.typography.labelSmall, color = FpTheme.colors.textMuted)
+	Text(text, style = MaterialTheme.typography.labelSmall, color = FpTheme.colors.textMuted, maxLines = 1)
 }
 
 @Composable

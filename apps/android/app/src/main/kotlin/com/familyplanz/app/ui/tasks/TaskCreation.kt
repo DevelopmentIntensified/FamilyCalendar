@@ -19,6 +19,13 @@ data class NewTaskInput(
 	val priority: TaskPriority = TaskPriority.NORMAL,
 	/** Category name (#280); blank = none. */
 	val category: String? = null,
+	/** Roster id from a quick-add `@name`; null = the server's default (me). */
+	val assignedTo: String? = null,
+	val tags: List<String> = emptyList(),
+	val recurrenceFrequency: String? = null,
+	val recurrenceInterval: Int? = null,
+	/** `public|private`. */
+	val visibility: String = "public",
 )
 
 /** Wire body, or null when the trimmed title is empty. */
@@ -30,6 +37,11 @@ internal fun NewTaskInput.toRequest(): CreateTaskRequest? {
 		dueDate = dueDate?.toString(),
 		priority = priority.name.lowercase(),
 		category = category?.trim()?.takeIf { it.isNotEmpty() },
+		assignedTo = assignedTo,
+		visibility = visibility,
+		tags = tags.takeIf { it.isNotEmpty() },
+		recurrenceFrequency = recurrenceFrequency,
+		recurrenceInterval = recurrenceInterval,
 	)
 }
 
@@ -87,13 +99,15 @@ class TaskCreator(
 		priority = input.priority,
 		focusMinutes = null,
 		dueDate = request.dueDate,
-		recurringLabel = null,
+		recurringLabel = request.recurrenceFrequency,
 		assignedName = null,
 		familyTask = false,
 		assignmentStatus = null,
-		assignedTo = null,
+		assignedTo = input.assignedTo,
 		category = request.category,
 		pending = true,
+		tags = input.tags,
+		visibility = input.visibility,
 	)
 }
 

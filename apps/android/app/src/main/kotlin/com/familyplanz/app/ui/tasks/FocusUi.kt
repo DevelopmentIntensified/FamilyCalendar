@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -15,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
+import com.familyplanz.app.domain.FocusSource
 import com.familyplanz.app.domain.Task
 import com.familyplanz.app.domain.isFocusing
 import com.familyplanz.app.ui.FpChip
@@ -23,9 +23,8 @@ import java.time.Instant
 import kotlinx.coroutines.delay
 
 /*
- * TaskFocus focus on the Tasks tab (#290), in FamilyPlanz's own look: every
- * color, shape and type size comes from MaterialTheme, so a row restyle
- * carries these pieces with it.
+ * TaskFocus focus on the Tasks tab (#290, #293), in FamilyPlanz's own look:
+ * every color, shape and type size comes from MaterialTheme.
  */
 
 /** Live time re-reads the clock this often while some task is focusing. */
@@ -45,38 +44,19 @@ fun rememberFocusNow(ticking: Boolean, tasks: List<Task>): Instant {
 	return now
 }
 
-/** "Focusing" label on the running task's row: the web pill (#291), in the theme's focus tone. */
-@Composable
-fun FocusChip() {
-	FpChip("Focusing", FpTheme.colors.focus, Modifier.testTag("focusing-chip"), bold = true)
-}
-
 /**
- * The row's focus control: "Focus" asks the desktop to start this task,
- * "Stop" (on the running task) asks it to stop. While any focus command is in
- * flight the control reads "Asking…" on the affected row and every focus
- * control is disabled.
+ * "Focusing (desktop)" / "Focusing (phone)" on the running task's row: one
+ * chip, so the phone's own timer and the desktop's are told apart at a glance
+ * (#293).
  */
 @Composable
-fun FocusAction(task: Task, pending: FocusPending?, onStart: (Task) -> Unit, onStop: () -> Unit) {
-	val focusing = isFocusing(task)
-	val asking = when (pending) {
-		is FocusPending.Start -> pending.taskId == task.id
-		FocusPending.Stop -> focusing
-		null -> false
-	}
-	TextButton(
-		onClick = { if (focusing) onStop() else onStart(task) },
-		enabled = pending == null,
-	) {
-		Text(
-			when {
-				asking -> "Asking…"
-				focusing -> "Stop"
-				else -> "Focus"
-			},
-		)
-	}
+fun FocusChip(source: FocusSource) {
+	FpChip(
+		text = "Focusing (${source.label})",
+		tone = FpTheme.colors.focus,
+		modifier = Modifier.testTag("focusing-chip"),
+		bold = true,
+	)
 }
 
 /** Subtle "Focusing now: <title>" line above the list while one task runs. */
@@ -90,6 +70,9 @@ fun FocusingNowNote(title: String) {
 		modifier = Modifier.fillMaxWidth().padding(horizontal = typeInset() * 2, vertical = typeInset() / 2),
 	)
 }
+
+/** Ticking only while something runs: [focusing] comes from the rows. */
+internal fun anyFocusing(tasks: List<Task>): Boolean = tasks.any(::isFocusing)
 
 /** Spacing derived from the theme's label size, so no fixed dp lives here. */
 @Composable
