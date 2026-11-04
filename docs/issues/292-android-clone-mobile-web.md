@@ -62,14 +62,15 @@ Spec: [`docs/specs/android-mobile-clone.md`](../specs/android-mobile-clone.md)
 ## Needs doing
 
 - [ ] Owner answers Q1–Q7 (spec §5)
-- [x] L0: G1–G19 server endpoints + `task-api-spec.md` (see "L0 — Done" below)
+- [x] L0: G1–G19 server endpoints + `task-api-spec.md` (see "L0 — Done" below). Merged to test + main a0fba80 (2026-11-03).
 - [ ] L0 follow-ups (found, not fixed — web behaviour): `/signup/password` (and so G12 signup) answers "An account with this email already exists" — an account oracle; a password reset kills web sessions but not fp_ API tokens.
 - [x] L1-S1a: split `AppViewModel` and add entry stubs. Done 2026-11-03; package map below.
-- [ ] L1: shell + tokens (§1, §2.1)
-- [ ] L2: Calendar (§2.2)
-- [ ] L3: Tasks (§2.4)
-- [ ] L4: Dashboard, Groceries, Alerts (§2.3, §2.5, §2.6)
-- [ ] L5: Family, Account, Auth, secondary pages (§2.7–§2.14)
+- [ ] L1: shell + tokens (§1, §2.1) → #294
+- [ ] L2: Calendar (§2.2) → #295
+- [ ] L3: Tasks (§2.4) + #293 Android → #296
+- [ ] L4: Dashboard, Groceries, Alerts (§2.3, §2.5, §2.6) → #297
+- [ ] L5: Family, Account, Auth → #298; secondary + admin pages → #299 (§2.7–§2.14)
+- [ ] F-Droid 0.3.0 release → #300
 - [ ] Owner reviews screenshots at 390 dp and 320 dp (#130 gate)
 
 ## S1a package map (2026-11-03)
