@@ -1,9 +1,12 @@
 package com.familyplanz.app.ui.gesture
 
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import com.familyplanz.app.data.ApiError
 import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.ui.PhoneTab
@@ -35,7 +38,7 @@ class ErrorStatesUiTest {
 		host.launch()
 
 		host.waitForText("Welcome Back")
-		rule.onNodeWithText(ApiError.Unauthorized.message).assertExists()
+		rule.onNodeWithText(com.familyplanz.app.ui.shell.SESSION_ENDED_NOTE).assertExists()
 	}
 
 	@Test
@@ -54,6 +57,7 @@ class ErrorStatesUiTest {
 		host.launch()
 
 		host.waitForText("Offline - showing the last synced tasks")
+		host.waitForText("Cached chore")
 		rule.onNodeWithText("Cached chore").assertExists()
 	}
 
@@ -65,7 +69,7 @@ class ErrorStatesUiTest {
 		assertTrue(rule.onAllNodesWithText("Network problem (timeout)").fetchSemanticsNodes().isNotEmpty())
 		val callsBefore = host.repo.allTasksCalls
 
-		rule.onNodeWithText("Retry").performClick()
+		rule.onNode(hasText("Retry") and hasClickAction()).performClick()
 
 		host.waitFor { host.repo.allTasksCalls > callsBefore }
 	}
@@ -75,7 +79,7 @@ class ErrorStatesUiTest {
 		host.repo.events = ApiResult.Err(ApiError.Network("timeout"))
 		host.launch(PhoneTab.CALENDAR)
 
-		host.waitForText("Network problem (timeout)")
+		host.waitForText("Couldn't load your events.")
 		rule.onNodeWithText("Retry").assertExists()
 	}
 }

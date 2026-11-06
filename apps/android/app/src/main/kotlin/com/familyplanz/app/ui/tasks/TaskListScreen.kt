@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit
  * manager. Every AC-TK rule is visible here or in the row/card composables.
  */
 @Composable
+@Suppress("LongParameterList")
 fun TaskListScreen(
 	state: TasksUiState,
 	actions: TaskActions,
@@ -99,6 +100,7 @@ fun TaskListScreen(
 }
 
 @Composable
+@Suppress("LongParameterList", "LongMethod")
 private fun TasksContent(
 	state: TasksUiState.Ready,
 	actions: TaskActions,

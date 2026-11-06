@@ -20,7 +20,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.familyplanz.app.ui.FpCard
@@ -40,10 +43,17 @@ fun CompletedCard(state: DashboardUiState, modifier: Modifier = Modifier) {
 			Text(state.completedEmpty, fontSize = 14.sp, color = Slate.S500, modifier = Modifier.padding(top = 8.dp))
 			return@FpCard
 		}
-		Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-			Text("${rows.size}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF059669))
-			Text(if (rows.size == 1) "win" else "wins", fontSize = 14.sp, color = Slate.S500)
-		}
+		Text(
+			text = buildAnnotatedString {
+				withStyle(SpanStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF059669))) {
+					append("${rows.size}")
+				}
+				append(" ")
+				withStyle(SpanStyle(fontSize = 14.sp, color = Slate.S500)) {
+					append(if (rows.size == 1) "win" else "wins")
+				}
+			},
+		)
 		rows.forEach { (task, time) -> CompletedRow(task.id, task.title, time) }
 	}
 }

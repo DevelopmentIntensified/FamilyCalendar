@@ -25,8 +25,10 @@ class FakeRepository : TaskRepository {
 	var tasks: ApiResult<List<TaskDto>> = ApiResult.Ok(emptyList())
 	var sections: TaskSectionsDto? = null
 	var roster: FamilyRosterDto = FamilyRosterDto(members = emptyList())
-	override suspend fun taskSections(): ApiResult<TaskSectionsDto> =
-		ApiResult.Ok(sections ?: TaskSectionsDto(myTasks = (tasks as? ApiResult.Ok)?.value.orEmpty()))
+	override suspend fun taskSections(): ApiResult<TaskSectionsDto> = when (val current = tasks) {
+		is ApiResult.Err -> current
+		is ApiResult.Ok -> ApiResult.Ok(sections ?: TaskSectionsDto(myTasks = current.value))
+	}
 	override suspend fun familyRoster(): ApiResult<FamilyRosterDto> = ApiResult.Ok(roster)
 	var cachedTasks: List<TaskDto>? = null
 	var events: ApiResult<List<EventDto>> = ApiResult.Ok(emptyList())
@@ -96,7 +98,12 @@ class FakeRepository : TaskRepository {
 
 	override suspend fun monthEvents(year: Int, month: Int): ApiResult<List<EventDto>> {
 		monthRequests += YearMonth.of(year, month)
-		return events
+		val current = events
+		if (current !is ApiResult.Ok) return current
+		return ApiResult.Ok(current.value.filter { dto ->
+			val day = dto.date ?: dto.start.take(10)
+			day.startsWith("%04d-%02d".format(year, month))
+		})
 	}
 
 	override suspend fun cachedEvents(year: Int, month: Int): List<EventDto>? = cachedEvents

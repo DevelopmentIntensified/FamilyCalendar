@@ -160,17 +160,19 @@ data class CalendarForm(
 
 	@Suppress("TooManyFunctions")
 	companion object {
-		/** The FAB: create an event dated today (AC-CAL-28). */
+		/** The FAB: create dated today, no seeded times (web opens empty so the
+		 *  quick-add parse never fights a stale "10:00" end; AC-CAL-28). */
 		fun create(date: LocalDate, calendarId: String? = null): CalendarForm =
-			CalendarForm(date = date.toString(), calendarId = calendarId, startTime = "09:00", endTime = "10:00")
+			CalendarForm(date = date.toString(), calendarId = calendarId)
 
-		/** The day sheet / day view: create dated that day, prefilled with a range. */
+		/** The day sheet / day view: create dated that day; a picked range seeds
+		 *  start/end, otherwise the times stay empty (web's openCreateAt). */
 		fun createAt(date: LocalDate, range: RangeSelection?, calendarId: String? = null): CalendarForm =
 			CalendarForm(
 				date = date.toString(),
 				calendarId = calendarId,
-				startTime = range?.let { hhmm(it.startMin) } ?: "09:00",
-				endTime = range?.let { hhmm(it.endMin) } ?: "10:00",
+				startTime = range?.let { hhmm(it.startMin) },
+				endTime = range?.let { hhmm(it.endMin) },
 			)
 
 		fun task(date: String?, calendarId: String? = null): CalendarForm =

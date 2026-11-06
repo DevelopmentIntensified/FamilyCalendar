@@ -65,7 +65,7 @@ class TaskFocusUiTest {
 		host.repo.focusGate = gate
 		launch(task("t1", "Walk the dog"))
 
-		rule.onNodeWithText("Focus").performClick()
+		rule.onNodeWithText("Focus on desktop").performClick()
 
 		host.waitFor { host.repo.focusStarts == listOf("t1") }
 		host.waitForText("Asking…")
@@ -75,7 +75,7 @@ class TaskFocusUiTest {
 		gate.complete(Unit)
 
 		host.waitForText("Asked your desktop to start focus")
-		rule.onNodeWithText("Focus").assertIsEnabled()
+		rule.onNodeWithText("Focus on desktop").assertIsEnabled()
 		assertEquals(0, rule.onAllNodesWithTag("focusing-chip").fetchSemanticsNodes().size)
 	}
 
@@ -84,7 +84,7 @@ class TaskFocusUiTest {
 		launch(task("t1", "Walk the dog"))
 		val readsBefore = host.repo.allTasksCalls
 
-		rule.onNodeWithText("Focus").performClick()
+		rule.onNodeWithText("Focus on desktop").performClick()
 		host.waitForText("Asked your desktop to start focus")
 		host.repo.tasks = ApiResult.Ok(listOf(focusTask("t1", "Walk the dog", focusStartedAt = startedMinutesAgo(0))))
 		assertEquals(readsBefore, host.repo.allTasksCalls)
@@ -112,7 +112,7 @@ class TaskFocusUiTest {
 		host.repo.focusResult = ApiResult.Err(ApiError.Unsupported)
 		launch(task("t1", "Walk the dog"))
 
-		rule.onNodeWithText("Focus").performClick()
+		rule.onNodeWithText("Focus on desktop").performClick()
 
 		host.waitForText("This FamilyPlanz server can't reach TaskFocus yet")
 		rule.onNodeWithText("Walk the dog").assertExists()
@@ -123,10 +123,13 @@ class TaskFocusUiTest {
 		host.repo.focusResult = ApiResult.Err(ApiError.Server("Database connection lost"))
 		launch(task("t1", "Walk the dog"))
 
-		rule.onNodeWithText("Focus").performClick()
+		rule.onNodeWithText("Focus on desktop").performClick()
 
 		host.waitForText("Database connection lost")
 		rule.onNodeWithText("Walk the dog").assertExists()
-		rule.onNodeWithText("Focus").assertIsEnabled()
+		rule.onNodeWithText("Focus on desktop").assertIsEnabled()
 	}
 }
+
+
+

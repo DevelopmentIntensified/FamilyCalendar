@@ -80,11 +80,15 @@ class PushHandlerTest {
 
 	@Test
 	fun `link picks the tab best effort`() {
+		// The Family lane claims its own web paths (`FamilyModule.deepLinks`,
+		// AppModules.DEEP_LINKS), so `/family/...` lands on the Family tab.
 		assertEquals(PhoneTab.TASKS, PushLinks.tabFor("/calendar/tasks"))
 		assertEquals(PhoneTab.TASKS, PushLinks.tabFor("https://familyplanz.com/calendar/tasks?x=1"))
 		assertEquals(PhoneTab.CALENDAR, PushLinks.tabFor("/calendar"))
 		assertEquals(PhoneTab.CALENDAR, PushLinks.tabFor("/calendar/2026-11-03"))
-		assertNull(PushLinks.tabFor("/family/abc"))
+		assertEquals(PhoneTab.FAMILY, PushLinks.tabFor("/family/abc"))
+		assertEquals(PhoneTab.FAMILY, PushLinks.tabFor("/family/invitations"))
+		assertNull(PushLinks.tabFor("/nope"))
 		assertNull(PushLinks.tabFor(null))
 		assertNull(PushLinks.tabFor(""))
 	}

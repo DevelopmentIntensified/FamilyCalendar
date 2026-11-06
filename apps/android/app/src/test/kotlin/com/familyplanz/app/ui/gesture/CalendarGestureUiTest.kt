@@ -2,6 +2,8 @@ package com.familyplanz.app.ui.gesture
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.familyplanz.app.data.ApiResult
@@ -29,7 +31,7 @@ class CalendarGestureUiTest {
 		host.launch(PhoneTab.CALENDAR)
 		host.waitForText(heading(now))
 
-		rule.onNodeWithText("Next").performClick()
+		rule.onNodeWithContentDescription("Next period").performClick()
 
 		host.waitForText(heading(now.plusMonths(1)))
 		host.waitFor { host.repo.monthRequests.lastOrNull() == now.plusMonths(1) }
@@ -40,7 +42,7 @@ class CalendarGestureUiTest {
 		host.launch(PhoneTab.CALENDAR)
 		host.waitForText(heading(now))
 
-		rule.onNodeWithText("Prev").performClick()
+		rule.onNodeWithContentDescription("Previous period").performClick()
 
 		host.waitForText(heading(now.minusMonths(1)))
 		host.waitFor { host.repo.monthRequests.lastOrNull() == now.minusMonths(1) }
@@ -54,15 +56,21 @@ class CalendarGestureUiTest {
 		host.launch(PhoneTab.CALENDAR)
 		host.waitForText("Soccer game")
 
-		rule.onAllNodesWithText("Day view")[0].performClick()
+		rule.onNodeWithTag("cell-$early").performClick()
+
+		// Cell tap opens the DayActionSheet (MonthDays.svelte:96-108); the day
+		// view is reached from the sheet's "Open Day View" row.
+		host.waitForText("Open Day View")
+		rule.onNodeWithText("Open Day View").performClick()
 
 		host.waitForGone("Soccer game")
 		rule.onNodeWithText("Piano lesson").assertExists()
-		host.waitForText("${monthNameOf(now.month)} 3, ${now.year}")
+		host.waitForText("Back")
 
-		rule.onNodeWithText("All days").performClick()
+		rule.onNodeWithText("Back").performClick()
 
 		host.waitForText("Soccer game")
 		host.waitForText(heading(now))
 	}
 }
+

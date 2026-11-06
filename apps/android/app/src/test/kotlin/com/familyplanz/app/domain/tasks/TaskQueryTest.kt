@@ -64,11 +64,13 @@ class TaskQueryTest {
 		task("recur-1", "Water garden", recurring = "weekly", due = "2026-11-09"),
 	)
 
+	/** The owner ruling: `Open` narrows nothing, finished work sorts last
+	 * (`TasksMainList.svelte:135,142-156`), so done-1 rides along last. */
 	@Test
-	fun open_chip_is_the_first_paint_and_shows_every_open_row() {
+	fun open_chip_shows_every_row_with_finished_work_last() {
 		val match = applyTaskQuery(rows, TaskQuery(), me, clock)
 		assertEquals(
-			listOf("overdue-1", "open-1", "recur-1", "created-1", "family-1", "mine-1", "private-1", "other-1"),
+			listOf("overdue-1", "open-1", "recur-1", "created-1", "family-1", "mine-1", "private-1", "other-1", "done-1"),
 			match.rows.map { it.id },
 		)
 	}
@@ -98,13 +100,15 @@ class TaskQueryTest {
 		assertTrue(!public.contains("private-1") && !public.contains("family-1"))
 	}
 
+	/** The open queue holds whole-suite place: the done row counts in its bucket
+	 * (`TasksMainList.svelte:153-158`: openRows + doneRows = matched). */
 	@Test
 	fun time_chips_carry_counts_and_today_keeps_only_todays_rows() {
 		val all = applyTaskQuery(rows, TaskQuery(), me, clock)
 		assertEquals(1, all.counts[UrgencyBucket.OVERDUE])
 		assertEquals(1, all.counts[UrgencyBucket.TODAY])
 		assertEquals(6, all.counts[UrgencyBucket.UPNEXT])
-		assertEquals(0, all.counts[UrgencyBucket.DONE])
+		assertEquals(1, all.counts[UrgencyBucket.DONE])
 
 		val today = applyTaskQuery(rows, TaskQuery(time = TimeFilter.TODAY), me, clock)
 		assertEquals(listOf("open-1"), today.rows.map { it.id })
@@ -115,8 +119,9 @@ class TaskQueryTest {
 		val match = applyTaskQuery(rows, TaskQuery(search = "milk"), me, clock)
 		assertEquals(listOf("open-1"), match.rows.map { it.id })
 		assertEquals(1, match.matched)
-		assertEquals(8, match.total)
-		assertEquals("1 of 8 match \u201cmilk\u201d", match.matchLine(TaskQuery(search = "milk")))
+		// Total counts the owner axis' universe (open + done, `TasksMainList.svelte:153-156`).
+		assertEquals(9, match.total)
+		assertEquals("1 of 9 match \u201cmilk\u201d", match.matchLine(TaskQuery(search = "milk")))
 	}
 
 	@Test
@@ -132,7 +137,7 @@ class TaskQueryTest {
 		val match = applyTaskQuery(tagged, TaskQuery(tag = "gro"), me, clock)
 		assertEquals(listOf("tagged-1"), match.rows.map { it.id })
 		assertTrue(applyTaskQuery(tagged, TaskQuery(tag = "#gro"), me, clock).rows.map { it.id } == listOf("tagged-1"))
-		assertEquals(9, applyTaskQuery(tagged, TaskQuery(tag = ""), me, clock).rows.size)
+		assertEquals(10, applyTaskQuery(tagged, TaskQuery(tag = ""), me, clock).rows.size)
 	}
 
 	@Test
@@ -145,7 +150,9 @@ class TaskQueryTest {
 		assertEquals(TaskSortKey.URGENCY, TaskSortKey.from("nonsense"))
 
 		val titles = applyTaskQuery(rows, TaskQuery(sort = TaskSortKey.TITLE), me, clock).rows.map { it.title }
-		assertEquals(titles.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it }), titles)
+		// Finished work sorts last under every key (taskUrgency.ts:90-96), so only the open prefix is A-Z.
+		assertEquals(titles.dropLast(1).sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it }), titles.dropLast(1))
+		assertEquals("Post letter", titles.last())
 	}
 
 	@Test
@@ -165,7 +172,7 @@ class TaskQueryTest {
 	fun rows_group_one_off_first_then_recurring_with_counts() {
 		val groups = groupRows(applyTaskQuery(rows, TaskQuery(), me, clock).rows)
 		assertEquals(listOf("ONE-OFF", "RECURRING"), groups.map { it.label })
-		assertEquals(7, groups[0].tasks.size)
+		assertEquals(8, groups[0].tasks.size)
 		assertEquals(listOf("recur-1"), groups[1].tasks.map { it.id })
 	}
 
@@ -189,7 +196,7 @@ class TaskQueryTest {
 	@Test
 	fun no_search_means_the_filter_line_counts_the_tasks() {
 		val all = applyTaskQuery(rows, TaskQuery(), me, clock)
-		assertEquals("8 tasks", all.matchLine(TaskQuery()))
+		assertEquals("9 tasks", all.matchLine(TaskQuery()))
 	}
 }
 

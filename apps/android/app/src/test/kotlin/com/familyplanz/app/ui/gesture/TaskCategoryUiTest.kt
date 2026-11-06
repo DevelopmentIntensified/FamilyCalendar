@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
 import com.familyplanz.app.data.ApiResult
 import org.junit.Assert.assertEquals
@@ -25,8 +26,14 @@ class TaskCategoryUiTest {
 
 	private val host = HostHarness(rule)
 
+	/** The add-task title field (a full plain input matches search/tag too). */
 	private fun typeTitle(title: String) {
-		rule.onNode(hasSetTextAction() and !hasTestTag("category-input")).performTextInput(title)
+		rule.onNodeWithTag("mention-field").performTextInput(title)
+	}
+
+	/** Due/category/visibility live behind the "More" toggle (AC-TK-6). */
+	private fun openMore() {
+		rule.onNodeWithTag("add-more").performClick()
 	}
 
 	@Test
@@ -47,6 +54,7 @@ class TaskCategoryUiTest {
 		host.waitForText("No tasks yet")
 
 		typeTitle("Ship it")
+		openMore()
 		rule.onNodeWithText("Category").performClick()
 		host.waitForText("Home")
 		rule.onNodeWithText("Work").performClick()
@@ -55,7 +63,11 @@ class TaskCategoryUiTest {
 
 		host.waitFor { host.repo.createdTasks.size == 1 }
 		assertEquals("Work", host.repo.createdTasks.single().category)
-		host.waitForText("Added \"Ship it\" to your tasks")
+		host.waitForText("Added \"Ship it\".")
+		// The row is below the fold (add card + toolbar fill the viewport);
+		// scroll the LazyColumn to the first group so the row composes.
+		rule.onNodeWithTag("tasks-list").performScrollToIndex(3)
+		host.waitFor { rule.onAllNodesWithTag("category-chip").fetchSemanticsNodes().isNotEmpty() }
 		rule.onNodeWithTag("category-chip").assertTextEquals("Work")
 	}
 
@@ -65,6 +77,7 @@ class TaskCategoryUiTest {
 		host.waitForText("No tasks yet")
 
 		typeTitle("Run errands")
+		openMore()
 		rule.onNodeWithText("Category").performClick()
 		rule.onNodeWithTag("category-input").performTextInput("  Errands ")
 		rule.onNodeWithText("Use").performClick()
@@ -73,8 +86,10 @@ class TaskCategoryUiTest {
 		host.waitFor { host.repo.createdTasks.size == 1 }
 		assertEquals("Errands", host.repo.createdTasks.single().category)
 
+		// The picker closes after Use; reopen it to clear for the no-category create.
+		rule.onNodeWithText("Category: Errands").performClick()
+		rule.onNodeWithText("No category").performClick()
 		typeTitle("Nap")
-		host.waitForText("Category")
 		rule.onNodeWithText("Add").performClick()
 		host.waitFor { host.repo.createdTasks.size == 2 }
 		assertNull(host.repo.createdTasks[1].category)

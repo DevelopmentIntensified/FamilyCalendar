@@ -1,6 +1,7 @@
 package com.familyplanz.app.ui.gesture
 
 import com.familyplanz.app.data.ApiResult
+import com.familyplanz.app.ui.auth.GUEST_LABEL
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -198,8 +199,18 @@ class ShellNavChromeUiTest {
 
 		rule.onNodeWithText(LOGOUT).performClick()
 
-		host.waitForText("Continue without an account")
-		assertTrue((host.auth as FakeAuthSource).loggedOut.contains("fp_test"))
+		// The sign-out pipeline hops dispatchers (Main read, IO clear, Main
+		// resume, NonCancellable revoke): only full-looper pumps
+		// (waitForIdle) advance the NonCancellable block; waitUntil polling
+		// never sees it. Then the sign-in surface (leave() precedes logout()).
+		val deadline = System.currentTimeMillis() + 20_000
+		var revoked = false
+		while (!revoked && System.currentTimeMillis() < deadline) {
+			rule.waitForIdle()
+			revoked = (host.auth as FakeAuthSource).loggedOut.contains("fp_test")
+		}
+		if (!revoked) throw AssertionError("revoke never landed: ${(host.auth as FakeAuthSource).loggedOut}")
+		host.waitFor { rule.onAllNodesWithText(GUEST_LABEL).fetchSemanticsNodes().isNotEmpty() }
 	}
 
 	@Test

@@ -8,7 +8,7 @@ import { POST as webReset } from '../../../../(marketing)/forgot-password/reset/
  * Bearer-less API route does need one, so it is added here rather than in the
  * shared handler. Mirrors the forgot-password window.
  */
-export const RESET_RATE_LIMIT = { limit: 10, windowMs: 15 * 60 * 1000 };
+export const _RESET_RATE_LIMIT = { limit: 10, windowMs: 15 * 60 * 1000 };
 
 /**
  * POST /api/mobile/auth/reset `{token, password}` (#292 G12) — the web's
@@ -21,8 +21,8 @@ export const POST = async (event: RequestEvent): Promise<Response> => {
 	if (
 		!rateLimit(
 			clientKey(event.request, 'pw-reset-ip'),
-			RESET_RATE_LIMIT.limit,
-			RESET_RATE_LIMIT.windowMs
+			_RESET_RATE_LIMIT.limit,
+			_RESET_RATE_LIMIT.windowMs
 		)
 	) {
 		return json({ error: 'Too many attempts. Try again shortly.' }, { status: 429 });

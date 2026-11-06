@@ -1,21 +1,17 @@
 package com.familyplanz.app.ui.groceries
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.familyplanz.app.ui.FpHeader
-import com.familyplanz.app.ui.dashboard.LaneToastHost
-import com.familyplanz.app.ui.dashboard.rememberLaneToasts
 import com.familyplanz.app.ui.nav.AppNav
 import com.familyplanz.app.ui.nav.AppRoute
 import com.familyplanz.app.ui.shell.LocalAppModules
@@ -37,7 +33,6 @@ fun GroceriesEntry(nav: AppNav) {
 @Composable
 fun GroceriesRoute(vm: GroceriesViewModel, nav: AppNav, scope: String? = null) {
 	val shell = LocalShell.current
-	val toasts = rememberLaneToasts()
 	val state by vm.ui.collectAsStateWithLifecycle()
 
 	LaunchedEffect(scope) { vm.applyScope(scope) }
@@ -45,13 +40,12 @@ fun GroceriesRoute(vm: GroceriesViewModel, nav: AppNav, scope: String? = null) {
 	LaunchedEffect(vm) {
 		vm.toasts.collect { toast ->
 			val undo = toast.undo
-			toasts.show(toast.text, if (undo != null) "Undo" else null) { undo?.invoke() }
+			if (undo != null) shell.showToast(toast.text, "Undo", undo) else shell.showSnack(toast.text)
 		}
 	}
-	Box(Modifier.fillMaxSize()) {
-		Column(Modifier.fillMaxSize().background(Color.White)) {
-			FpHeader("Family Planz") { ShellMenuButton(nav) }
-			GroceriesScreen(
+	Column(Modifier.fillMaxSize().background(Color.White)) {
+		FpHeader("Family Planz") { ShellMenuButton(nav) }
+		GroceriesScreen(
 				state = state,
 				actions = GroceriesActions(
 					onFilter = vm::setFilter,
@@ -78,7 +72,5 @@ fun GroceriesRoute(vm: GroceriesViewModel, nav: AppNav, scope: String? = null) {
 					onDismissError = vm::dismissError,
 				),
 			)
-		}
-		LaneToastHost(toasts, Modifier.align(Alignment.BottomCenter))
 	}
 }

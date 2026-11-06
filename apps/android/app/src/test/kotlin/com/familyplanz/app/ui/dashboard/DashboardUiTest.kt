@@ -3,6 +3,9 @@ package com.familyplanz.app.ui.dashboard
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -81,6 +84,7 @@ class FakeDashboardSource(var payload: DashboardDto) : DashboardSource {
 
 /** §2.3 AC-DB-1…15 over a scripted payload. */
 @RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp-h3400dp")
 class DashboardUiTest {
 	@get:Rule
 	val rule = createComposeRule()
@@ -166,8 +170,8 @@ class DashboardUiTest {
 	@Test
 	fun ac_db_7_a_timed_row_shows_start_over_end() {
 		launch(FakeDashboardSource(payload()))
-		rule.onNodeWithText("8:00 AM").assertIsDisplayed()
-		rule.onNodeWithText("9:00 AM").assertIsDisplayed()
+		rule.onNode(hasText("8:00 AM") and hasAnyAncestor(hasTestTag("card-glance"))).assertIsDisplayed()
+		rule.onNode(hasText("9:00 AM") and hasAnyAncestor(hasTestTag("card-glance"))).assertIsDisplayed()
 	}
 
 	@Test

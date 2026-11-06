@@ -161,7 +161,8 @@ class ShellBannerUiTest {
 		entryShown(AppRoute.TASKS)
 		host.waitForText(GuestCopy.NORMAL)
 
-		rule.onNodeWithText(PhoneTab.FAMILY.label).performClick()
+		// "Family" is ambiguous (tab vs scope chip); go by the tab's tag.
+		rule.onNodeWithTag("tab-family").performClick()
 		entryShown(AppRoute.FAMILY)
 		rule.onNodeWithTag(BANNER_STACK_TAG).assertDoesNotExist()
 

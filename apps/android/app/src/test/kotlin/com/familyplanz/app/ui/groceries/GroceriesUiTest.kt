@@ -12,6 +12,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import com.familyplanz.app.data.ApiError
 import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.data.GroceryChange
@@ -147,9 +149,10 @@ class GroceriesUiTest {
 				items = listOf(item("g1", "milk", "Aldi", qty = 2), item("g2", "eggs", "Aldi"), item("g3", "bread", "Kroger")),
 			),
 		)
-		rule.onNodeWithText("2 items · 3 total").assertIsDisplayed()
-		rule.onNodeWithText("1 item · 1 total").assertIsDisplayed()
+		rule.onNodeWithText("2 items · 3 total", substring = true).assertIsDisplayed()
 		rule.onNodeWithTag("store-group-aldi").assertExists()
+		rule.onNodeWithTag("groceries-screen").performTouchInput { swipeUp() }
+		rule.onNodeWithText("1 item · 1 total", substring = true).assertIsDisplayed()
 		rule.onNodeWithTag("store-group-kroger").assertExists()
 	}
 
@@ -227,7 +230,7 @@ class GroceriesUiTest {
 		rule.onNodeWithTag("store-colour-picker-aldi").performClick()
 		rule.onNodeWithText("Blue").performClick()
 		rule.waitUntil(5_000) { source.writes.any { it.startsWith("colour:") } }
-		assertTrue(source.writes.contains("colour:aldi:sky:family"))
+		assertTrue(source.writes.contains("colour:Aldi:sky:family"))
 	}
 
 	@Test
@@ -240,7 +243,7 @@ class GroceriesUiTest {
 		rule.onNodeWithTag("group-colour-picker").performClick()
 		rule.onNodeWithText("Blue").performClick()
 		rule.waitUntil(5_000) { source.writes.any { it.startsWith("colour:") } }
-		assertTrue(source.writes.contains("colour:aldi:sky:personal"))
+		assertTrue(source.writes.contains("colour:Aldi:sky:personal"))
 	}
 
 	@Test
@@ -285,6 +288,7 @@ class GroceriesUiTest {
 		rule.waitUntil(5_000) { rule.onAllNodesWithTag("store-group-kroger").fetchSemanticsNodes().isEmpty() }
 		rule.onNodeWithTag("store-group-aldi").assertExists()
 		rule.onNodeWithTag("clear-search").performClick()
+		rule.onNodeWithTag("groceries-screen").performTouchInput { swipeUp() }
 		rule.waitUntil(5_000) { rule.onAllNodesWithTag("store-group-kroger").fetchSemanticsNodes().isNotEmpty() }
 	}
 

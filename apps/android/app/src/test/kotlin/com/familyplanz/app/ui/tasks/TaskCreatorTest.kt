@@ -46,9 +46,15 @@ class TaskCreatorTest {
 
 	@Test
 	fun `request trims title and carries ISO date and lowercase priority`() {
-		val input = NewTaskInput("  Pay rent  ", LocalDate.of(2026, 11, 5), TaskPriority.HIGH)
-		assertEquals(CreateTaskRequest("Pay rent", "2026-11-05", "high"), input.toRequest())
-		assertEquals(CreateTaskRequest("Buy milk", null, "normal"), NewTaskInput("Buy milk").toRequest())
+		// visibility default "public" mirrors the server default (+server.ts:161).
+		assertEquals(
+			CreateTaskRequest("Pay rent", "2026-11-05", "high", visibility = "public"),
+			NewTaskInput("  Pay rent  ", LocalDate.of(2026, 11, 5), TaskPriority.HIGH).toRequest(),
+		)
+		assertEquals(
+			CreateTaskRequest("Buy milk", priority = "normal", visibility = "public"),
+			NewTaskInput("Buy milk").toRequest(),
+		)
 		assertNull(NewTaskInput("   ").toRequest())
 	}
 

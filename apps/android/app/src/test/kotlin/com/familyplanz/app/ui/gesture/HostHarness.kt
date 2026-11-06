@@ -48,6 +48,17 @@ class HostHarness(
 	/** The shell chrome edges (G1/G12): badge, bell, `/api/me` banners, offline. */
 	var edges: ShellEdges = ShellEdges(),
 ) {
+	private fun scrollStep(count: Int) {
+		try {
+			if (rule.onAllNodesWithTag("tasks-list").fetchSemanticsNodes().isNotEmpty()) {
+				rule.onNodeWithTag("tasks-list").performScrollToIndex(count % 10)
+			} else {
+				rule.onRoot().performTouchInput { swipeUp() }
+			}
+		} catch (_: Exception) {
+			rule.onRoot().performTouchInput { swipeUp() }
+		}
+	}
 	val store = DataStoreTokenStore(RuntimeEnvironment.getApplication())
 
 	fun launch(tab: PhoneTab? = PhoneTab.TASKS, token: String? = "fp_test") {
@@ -79,15 +90,7 @@ class HostHarness(
 				rule.waitUntil(500) { found() }
 				return
 			} catch (_: ComposeTimeoutException) {
-				try {
-					if (rule.onAllNodesWithTag("tasks-list").fetchSemanticsNodes().isNotEmpty()) {
-						rule.onNodeWithTag("tasks-list").performScrollToIndex(scrollIndex++ % 10)
-					} else {
-						rule.onRoot().performTouchInput { swipeUp() }
-					}
-				} catch (_: Exception) {
-					rule.onRoot().performTouchInput { swipeUp() }
-				}
+				scrollStep(scrollIndex++)
 			}
 		}
 		rule.waitUntil(1) { found() }

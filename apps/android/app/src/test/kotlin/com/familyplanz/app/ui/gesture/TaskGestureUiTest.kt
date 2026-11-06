@@ -4,8 +4,10 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import com.familyplanz.app.data.ApiResult
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -31,12 +33,14 @@ class TaskGestureUiTest {
 	fun tapping_the_checkbox_toggles_completion_and_the_row_updates() {
 		launchWithOneTask()
 		rule.onNode(isToggleable()).assertIsOff()
-		rule.onNodeWithText("Focus").assertExists()
+		rule.onNodeWithText("Focus here").assertExists()
 
 		rule.onNode(isToggleable()).performClick()
 
 		host.waitFor { host.repo.toggled == listOf("t1") }
-		host.waitForGone("Focus")
+		host.waitForGone("Focus here")
+		rule.onNodeWithTag("tasks-list").performScrollToIndex(6)
+		Thread.sleep(200)
 		rule.onNode(isToggleable()).assertIsOn()
 	}
 
@@ -44,7 +48,7 @@ class TaskGestureUiTest {
 	fun tapping_focus_queues_a_start_for_that_task_and_says_so() {
 		launchWithOneTask()
 
-		rule.onNodeWithText("Focus").performClick()
+		rule.onNodeWithText("Focus on desktop").performClick()
 
 		host.waitFor { host.repo.focusStarts == listOf("t1") }
 		host.waitForText("Asked your desktop to start focus")
@@ -61,3 +65,6 @@ class TaskGestureUiTest {
 		assertEquals(emptyList<String>(), host.repo.focusStarts)
 	}
 }
+
+
+

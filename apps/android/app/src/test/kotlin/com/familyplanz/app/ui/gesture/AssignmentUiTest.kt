@@ -30,7 +30,7 @@ class AssignmentUiTest {
 		rule.onNodeWithText("Accept").performClick()
 
 		host.waitFor { host.repo.responses == listOf("a1" to "accepted") }
-		host.waitForText("Task accepted - it moved to your list")
+		host.waitForText("Accepted \"Rake leaves\" — it's on your list.")
 		host.waitForGone("Decline")
 	}
 
@@ -41,7 +41,7 @@ class AssignmentUiTest {
 		rule.onNodeWithText("Decline").performClick()
 
 		host.waitFor { host.repo.responses == listOf("a1" to "declined") }
-		host.waitForText("Task declined - back to the assigner")
+		host.waitForText("Declined \"Rake leaves\" — sent back to the requester.")
 		host.waitForGone("Accept")
 	}
 

@@ -127,13 +127,15 @@ class WebThemeTest {
 		assertEquals(ChipTone(hex(0xFFE0F2FE), hex(0xFF0369A1)), avatarTone("ab"))
 	}
 
+	/** The web month grid fills whole weeks with dated other-month days,
+	 * not blanks (`MonthView.svelte:43-50` — lastMonthDays/nextMonthDays). */
 	@Test
 	fun month_grid_is_monday_first_in_whole_weeks() {
 		val cells = monthCells(YearMonth.of(2026, 11), mondayFirst = true) // 1 Nov 2026 is a Sunday
 		assertEquals(0, cells.size % 7)
-		assertEquals(6, cells.indexOfFirst { it != null })
-		assertEquals(LocalDate.of(2026, 11, 1), cells[6])
-		assertEquals(30, cells.count { it != null })
+		assertEquals(6, cells.indexOfFirst { !it.otherMonth })
+		assertEquals(LocalDate.of(2026, 11, 1), cells[6].date)
+		assertEquals(30, cells.count { !it.otherMonth })
 	}
 
 	// ---- #292 §1: the rows the clone added or fixed ----

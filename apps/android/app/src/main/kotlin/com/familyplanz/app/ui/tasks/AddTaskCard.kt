@@ -125,6 +125,14 @@ fun AddTaskCard(
 					},
 					members = members,
 					modifier = Modifier.weight(1f),
+					onDone = {
+						when {
+							blocked -> Unit
+							bulk && !confirmingBulk -> confirmingBulk = true
+							bulk -> submitAll()
+							else -> submit(text, parsed)
+						}
+					},
 				)
 				FpPrimaryButton(
 					onClick = {

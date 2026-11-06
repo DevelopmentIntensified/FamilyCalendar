@@ -46,7 +46,9 @@ import com.familyplanz.app.ui.theme.Slate
 fun EventFormSheet(form: CalendarForm, state: CalendarUiState, actions: CalendarFormActions) {
 	Column(modifier = Modifier.fillMaxWidth().testTag("event-form")) {
 		FormHeader(form, onClose = actions.onCancel())
-		Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+		// weight(fill=false) so a tall form scrolls inside the leftover space and
+		// the ActionBar below always keeps its 44 dp (0x0 footer on small screens).
+		Column(modifier = Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState())) {
 			if (!form.editing) KindToggle(form) { kind -> actions.onUpdate { it.copy(kind = kind) } }
 			EventFormFields(form, state, actions)
 		}

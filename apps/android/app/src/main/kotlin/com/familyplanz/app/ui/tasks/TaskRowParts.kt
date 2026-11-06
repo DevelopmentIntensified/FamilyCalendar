@@ -87,7 +87,7 @@ internal fun taskMetaSlots(
 	now: Instant = Instant.now(),
 	today: LocalDate = LocalDate.now(),
 ): List<MetaSlot> = buildList {
-	if (task.pending) add(MetaSlot(SlotKind.SAVING, "saving."))
+	if (task.pending) add(MetaSlot(SlotKind.SAVING, "saving…"))
 	val tone = if (task.completed) null else dueTone(task.dueDate, today)
 	task.dueDate?.let { add(MetaSlot(SlotKind.DUE, "due ${it.take(10)}", tone)) }
 	if (!task.completed) lateLabel(task.dueDate, today)?.let { add(MetaSlot(SlotKind.LATE, it)) }

@@ -53,8 +53,10 @@ class AddTaskUiTest {
 		gate.complete(Unit)
 
 		host.waitForGone("saving…")
-		host.waitForText("Added \"Buy milk\" to your tasks")
+		host.waitForText("Added \"Buy milk\".")
 		rule.onNodeWithText("Buy milk").assertExists()
-		rule.onNodeWithText("Focus").assertExists()
+		rule.onNodeWithText("Focus here").assertExists()
 	}
 }
+
+

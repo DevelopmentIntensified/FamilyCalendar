@@ -78,7 +78,9 @@ private fun matchesTag(task: Task, needle: String): Boolean {
 }
 
 private fun inOwnerView(task: Task, view: OwnerView, meId: String?): Boolean = when (view) {
-	OwnerView.OPEN -> !task.completed
+	// Web ruling (TasksMainList.svelte:135): Open is unfiltered, finished work sorts last;
+	// Done is the bucket that shows finished work alone.
+	OwnerView.OPEN -> true
 	// The prototype's own predicate (tasks.html:167); the label no longer lies (TaskToolbar.svelte:16-42).
 	OwnerView.MINE -> meId != null && task.assignedTo == meId
 	OwnerView.CREATED -> meId != null && task.userId == meId

@@ -65,14 +65,16 @@ class ShellNavUiTest {
 	}
 
 	@Test
-	fun new_tabs_show_the_coming_soon_placeholder() {
+	fun dashboard_and_groceries_tabs_show_their_real_entries_not_the_placeholder() {
 		host.launch(PhoneTab.DASHBOARD)
 		entryShown(AppRoute.DASHBOARD)
-		rule.onNodeWithText(COMING_SOON).assertExists()
+		rule.onNodeWithTag(entryTag(AppRoute.DASHBOARD)).assertExists()
+		rule.onNodeWithText(COMING_SOON).assertDoesNotExist()
 
 		rule.onNodeWithText("Shop").performClick()
 		entryShown(AppRoute.GROCERIES)
-		rule.onNodeWithText(COMING_SOON).assertExists()
+		rule.onNodeWithTag(entryTag(AppRoute.GROCERIES)).assertExists()
+		rule.onNodeWithText(COMING_SOON).assertDoesNotExist()
 	}
 
 	@Test

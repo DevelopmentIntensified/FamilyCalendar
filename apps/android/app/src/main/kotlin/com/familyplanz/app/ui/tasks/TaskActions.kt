@@ -16,6 +16,7 @@ data class TaskActions(
 	val onToggleComplete: (Task) -> Unit,
 	val onStartFocus: (Task) -> Unit,
 	val onStopFocus: (Task?) -> Unit,
+	val onStartFocusDesktop: ((Task) -> Unit)? = null,
 	val onRespond: ((Task, String) -> Unit)? = null,
 	val onCreate: ((NewTaskInput) -> Unit)? = null,
 	val onEdit: ((Task) -> Unit)? = null,

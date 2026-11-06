@@ -13,20 +13,24 @@ import org.junit.Test
 class AppNavTest {
 	private val links = AppModules.DEEP_LINKS
 
+	/** Per-lane deep links (`AppModules.DEEP_LINKS`) as the Family lane now declares
+	 * its own web paths (`FamilyModule.deepLinks`, c16d749 L5a); a path nobody
+	 * claims stays null. */
 	@Test
 	fun `deep links resolve by longest prefix`() {
 		assertEquals(AppRoute.TASKS, DeepLinks.resolve("/calendar/tasks", links))
 		assertEquals(AppRoute.TASKS, DeepLinks.resolve("https://familyplanz.com/calendar/tasks?x=1", links))
 		assertEquals(AppRoute.CALENDAR, DeepLinks.resolve("/calendar/2026-11-03", links))
 		assertEquals(AppRoute.ALERTS, DeepLinks.resolve("/calendar/notifications", links + DeepLink("/calendar/notifications", AppRoute.ALERTS)))
-		assertNull(DeepLinks.resolve("/family/abc", links))
+		assertEquals(AppRoute.FAMILY, DeepLinks.resolve("/family/abc", links))
 		assertNull(DeepLinks.resolve(null, links))
+		assertNull(DeepLinks.resolve("/nope", links))
 	}
 
 	@Test
 	fun `open link moves to the claiming lane, an unclaimed link stays put`() {
 		val nav = AppNav(AppRoute.CALENDAR, links)
-		assertFalse(nav.openLink("/family/abc"))
+		assertFalse(nav.openLink("/nope"))
 		assertEquals(AppRoute.CALENDAR, nav.route)
 		assertTrue(nav.openLink("/calendar/tasks"))
 		assertEquals(AppRoute.TASKS, nav.route)

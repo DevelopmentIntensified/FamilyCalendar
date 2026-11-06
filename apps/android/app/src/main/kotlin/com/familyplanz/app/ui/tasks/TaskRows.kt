@@ -161,6 +161,12 @@ private fun Trailing(
 		}
 		if (!task.completed && !task.pending) {
 			FocusAction(task, focusPending, actions.onStartFocus) { actions.onStopFocus(task) }
+			actions.onStartFocusDesktop?.let { onDesktop ->
+				TextButton(
+					onClick = { onDesktop(task) },
+					enabled = focusPending == null,
+				) { Text("Focus on desktop") }
+			}
 		}
 		if (actions.onDelete != null) {
 			IconButton(onClick = onAskDelete, enabled = !busy, modifier = Modifier.testTag("task-delete")) {
@@ -220,7 +226,7 @@ private fun FocusAction(task: Task, pending: FocusPending?, onStart: (Task) -> U
 	TextButton(onClick = { if (focusing) onStop() else onStart(task) }, enabled = pending == null) {
 		Text(
 			when {
-				asking -> "Asking."
+				asking -> "Asking…"
 				focusing -> "Stop"
 				else -> "Focus here"
 			},

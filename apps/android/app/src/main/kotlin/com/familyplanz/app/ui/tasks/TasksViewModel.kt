@@ -65,6 +65,8 @@ class TasksViewModel(
 	/** The phone's local record, for the "Focusing (phone)" chip and live minutes. */
 	val phoneFocus = phone.state
 
+	private var restoredUserId: String? = null
+
 	private val mutations = TaskMutations(repository, repository, _ui)
 
 	/** The caller's category names (#280) for the pickers; best effort, empty until loaded. */
@@ -256,7 +258,10 @@ class TasksViewModel(
 		}
 		meId?.let { id -> viewModelScope.launch { tokenStore.saveUserId(id) } }
 		val signedInId = meId ?: tokenStore.userId()
-		if (signedInId != null) restorePhone(signedInId)
+		if (signedInId != null && signedInId != restoredUserId) {
+			restorePhone(signedInId)
+			restoredUserId = signedInId
+		}
 		val mark = phone.refreshMark()
 		when (val sections = repository.taskSections()) {
 			is ApiResult.Ok -> {
@@ -274,7 +279,7 @@ class TasksViewModel(
 			}
 
 			is ApiResult.Err -> if (sections.error is ApiError.Unauthorized) {
-				presentError(sections.error.message)
+				sessionEnded()
 			} else {
 				loadLegacy(mark, meId)
 			}
@@ -288,16 +293,17 @@ class TasksViewModel(
 				phone.refreshed(mark)
 				publish(TasksUiState.Ready(phone.overlay(result.value.map(TaskMapper::fromDto)), meId, savedQuery()))
 			}
-
-			is ApiResult.Err -> if (result.error is ApiError.Unauthorized) {
-				presentError(result.error.message)
-			} else {
-				val cached = repository.cachedTasks()
-				if (cached != null) {
-					publish(TasksUiState.Ready(phone.overlay(cached.map(TaskMapper::fromDto)), meId, savedQuery()))
-					_snack.value = UiSnack("Offline - showing the last synced tasks")
+			is ApiResult.Err -> {
+				if (result.error is ApiError.Unauthorized) {
+					sessionEnded()
 				} else {
-					presentError(result.error.message)
+					val cached = repository.cachedTasks()
+					if (cached != null) {
+						publish(TasksUiState.Ready(phone.overlay(cached.map(TaskMapper::fromDto)), meId, savedQuery()))
+						_snack.value = UiSnack("Offline - showing the last synced tasks")
+					} else {
+						presentError(result.error.message)
+					}
 				}
 			}
 		}
@@ -335,6 +341,10 @@ class TasksViewModel(
 	private fun presentError(reason: String) {
 		_ui.value = TasksUiState.Failed(reason)
 		_snack.value = UiSnack(reason)
+	}
+
+	private fun sessionEnded() {
+		_sessionEnded.value = SESSION_ENDED_NOTE
 	}
 }
 

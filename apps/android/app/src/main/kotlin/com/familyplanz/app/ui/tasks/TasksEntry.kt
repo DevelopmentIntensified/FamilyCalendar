@@ -73,6 +73,7 @@ private fun TasksViewModel.taskActions(
 	onOpenSettings = shell::signOut,
 	onToggleComplete = ::toggleComplete,
 	onStartFocus = ::focusHere,
+	onStartFocusDesktop = ::queueFocus,
 	onStopFocus = ::stopFocus,
 	onRespond = ::respondAssignment,
 	onCreate = ::createTask,
