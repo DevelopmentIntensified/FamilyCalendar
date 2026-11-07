@@ -1,0 +1,19 @@
+Family Planz 0.3.0 is the full Android app, rewritten native in Kotlin + Compose: the whole 6-tab experience from familyplanz.com now lives on your phone.
+
+<b>NEW, NATIVE</b>
+<ul>
+<li>Dashboard: today's events, Top-3 Priorities, Family Task Board, and groceries at a glance in one screen</li>
+<li>Tasks: priorities, assignments your family accepts or declines, category chips, quick-add with date parsing ("Buy milk tomorrow") and bulk paste</li>
+<li>Calendar: month/week/day views, quick-add phrase parsing ("Family dinner on the 10th at 7"), reminders</li>
+<li>Groceries: lists scoped to your family or just you, grouped by store with a shared-store summary</li>
+<li>Sign-in: email code, password, guest account, and family management</li>
+</ul>
+
+<b>FIXES</b>
+<ul>
+<li>The create-event button no longer disappears on tall forms, and quick-add phrases like "at 7" create correctly instead of staying disabled</li>
+<li>Groceries confirmation messages now show as proper in-app toasts with Undo</li>
+<li>Day tile tap opens the day actions (Open Day View, View this day's events) instead of guessing</li>
+</ul>
+
+Same app as familyplanz.com — just in your pocket now.
