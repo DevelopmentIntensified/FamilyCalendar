@@ -2,9 +2,14 @@
 #
 # The ONE exception to the no-hosted-CI ruling (#184, CI stays a local gate):
 # the owner approved this RELEASE-ONLY workflow. It never runs on branch pushes
-# or pull requests — only on an `android-v*` tag push or a manual dispatch.
+# or pull requests — only on an android-v* tag push or a manual dispatch.
 #
 #   git tag android-v0.2.0 && git push origin android-v0.2.0
+#
+# Manual reindex (second-app add, no build): Actions → Android release →
+# Run workflow → dry_run=false, reindex=true. Runs scripts/fdroid-publish.sh
+# --reindex with the repo key and commits the re-signed index to test+main,
+# without creating a GitHub Release.
 #
 # Secrets (Settings → Secrets and variables → Actions, same names as the
 # publish script's env mode): FP_UPLOAD_KEYSTORE_B64, FP_UPLOAD_KEYSTORE_PASSWORD,
@@ -24,6 +29,10 @@ on:
         description: 'Dry run: throwaway keys, nothing committed or released'
         type: boolean
         default: true
+      reindex:
+        description: 'Re-sign the index for APKs already in static/fdroid (second-app add); no build, repo key only'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -51,6 +60,7 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
           DRY_INPUT: ${{ inputs.dry_run }}
+          REINDEX_INPUT: ${{ inputs.reindex }}
           S1: ${{ secrets.FP_UPLOAD_KEYSTORE_B64 }}
           S2: ${{ secrets.FP_UPLOAD_KEYSTORE_PASSWORD }}
           S3: ${{ secrets.FP_UPLOAD_KEY_ALIAS }}
@@ -73,6 +83,14 @@ jobs:
               exit 1
             fi
             dry=false
+            reindex=false
+          elif [ "$REINDEX_INPUT" = true ]; then
+            if [ "$have_secrets" != true ]; then
+              echo "::error::reindex needs the repo-key secrets (FDROID_REPO_KEYSTORE_B64 + passwords). Refusing."
+              exit 1
+            fi
+            dry=false
+            reindex=true
           elif [ "$DRY_INPUT" != true ] && [ "$have_secrets" = true ]; then
             if [ -z "$tag" ]; then
               echo "::error::a non-dry dispatch must run on an android-vX.Y.Z tag (pick the tag in 'Use workflow from')."
@@ -82,10 +100,12 @@ jobs:
           else
             [ "$have_secrets" = true ] || echo "::warning::release secrets missing: dry run with throwaway keys"
             dry=true
+            reindex=false
           fi
           echo "dry=$dry" >> "$GITHUB_OUTPUT"
+          echo "reindex=$reindex" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "Mode: dry=$dry tag=${tag:-none}"
+          echo "Mode: dry=$dry reindex=$reindex tag=${tag:-none}"
 
       - name: Set up Temurin 21
         uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
@@ -107,6 +127,7 @@ jobs:
         run: pip install "fdroidserver==${FDROIDSERVER_VERSION}"
 
       - name: Firebase client config (optional)
+        if: steps.mode.outputs.reindex != 'true'
         env:
           FP_FIREBASE_PROPERTIES: ${{ secrets.FP_FIREBASE_PROPERTIES }}
         run: |
@@ -119,6 +140,7 @@ jobs:
           fi
 
       - name: Mobile gate
+        if: steps.mode.outputs.reindex != 'true'
         working-directory: apps/android
         run: ./gradlew --no-daemon :app:mobileGate
 
@@ -146,13 +168,18 @@ jobs:
           FDROID_REPO_KEY_PASSWORD: ${{ secrets.FDROID_REPO_KEY_PASSWORD }}
           FP_GRADLE_ARGS: --no-daemon
           FP_RELEASE_TAG: ${{ steps.mode.outputs.tag }}
+          REINDEX: ${{ steps.mode.outputs.reindex }}
         run: |
           set +x
           echo "::add-mask::$FP_UPLOAD_KEYSTORE_PASSWORD"
           echo "::add-mask::$FP_UPLOAD_KEY_PASSWORD"
           echo "::add-mask::$FDROID_REPO_KEYSTORE_PASSWORD"
           echo "::add-mask::$FDROID_REPO_KEY_PASSWORD"
-          scripts/fdroid-publish.sh
+          if [ "$REINDEX" = true ]; then
+            scripts/fdroid-publish.sh --reindex
+          else
+            scripts/fdroid-publish.sh
+          fi
 
       - name: Publish (dry run, throwaway keys generated here)
         if: steps.mode.outputs.dry == 'true'
@@ -196,6 +223,7 @@ jobs:
         if: steps.mode.outputs.dry == 'false'
         env:
           TAG: ${{ steps.mode.outputs.tag }}
+          REINDEX: ${{ steps.mode.outputs.reindex }}
         run: |
           out="$(mktemp -d)"
           cp -R static/fdroid "$out/fdroid"
@@ -212,13 +240,17 @@ jobs:
             if git diff --cached --quiet; then
               echo "$branch already has this repo state"
             else
-              git commit -m "chore(release): F-Droid repo for $TAG"
+              if [ "$REINDEX" = true ]; then
+                git commit -m "chore(release): F-Droid reindex (Eruditio 1.0)"
+              else
+                git commit -m "chore(release): F-Droid repo for $TAG"
+              fi
               git push origin "HEAD:$branch"
             fi
           done
 
       - name: GitHub Release with the signed APK
-        if: steps.mode.outputs.dry == 'false'
+        if: steps.mode.outputs.dry == 'false' && steps.mode.outputs.reindex != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.mode.outputs.tag }}
