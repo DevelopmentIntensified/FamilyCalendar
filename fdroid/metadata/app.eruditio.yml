@@ -1,0 +1,13 @@
+# F-Droid app metadata (issue #287, Eruditio second app).
+# Store texts live fastlane-style under app.eruditio/en-US/.
+# APK is built from DevelopmentIntensified/eruditio (foss flavor) and added to
+# this repo without merging the two projects. No Builds: entries — this
+# repo is binary-only (owner-signed APKs + fdroid update).
+Categories:
+  - Reading
+License: GPL-3.0-or-later
+AuthorName: Eruditio
+SourceCode: https://github.com/DevelopmentIntensified/eruditio
+IssueTracker: https://github.com/DevelopmentIntensified/eruditio/issues
+
+AutoName: Eruditio

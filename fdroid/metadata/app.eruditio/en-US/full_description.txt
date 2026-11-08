@@ -1,0 +1,17 @@
+Eruditio stands between you and your most-opened scroll apps. When a target app opens, a
+brief friction screen appears: a short delay, a breathing moment, and an explicit choice —
+continue into the app, or take a learning session instead.
+
+Choosing the session opens a quiet, offline reading surface bundled with 30 public-domain
+classics (Plato, Marcus Aurelius, Epictetus, KJV selections, Spurgeon sermons, Augustine,
+missionary biographies). Completed sessions feed an on-device spaced-repetition review
+schedule with honest mastery levels (familiar / proficient / mastered), decay when
+neglected, and a daily streak kept strictly separate from mastery metrics.
+
+Privacy is the architecture, not a claim: no accounts, no sync, no ads, no trackers —
+zero third-party SDKs. All progress lives on the device. The app costs once; future
+content tracks arrive as optional packs. Never a subscription.
+
+Eruditio uses the standard app-usage access API to detect when a chosen target app opens.
+It never reads your browsing, never hard-blocks an app, and records only what you choose
+at the pause screen.

@@ -1,0 +1,14 @@
+Eruditio 1.0
+
+First release of the friction-plus-reading app:
+
+- Pause screen over chosen scroll apps (~10 s, breathing, explicit continue/replace)
+- 30 bundled public-domain classics with exact position memory
+- Reading sessions record check-ins; completed segments generate review cards
+- On-device spaced repetition with mastery levels, decay, and mastery challenges
+- Progress view: texts read, concepts by mastery, reviews due, weekly interceptions
+- Daily streak for completed sessions, displayed separately from mastery
+- Post-session handoff suggestions (Khan Academy / Exercism)
+- Theme picker (Paper, Ink, Sepia, Terminal)
+- One-time purchase unlocks the core loop; debug builds bypass
+- No accounts, no ads, no trackers
