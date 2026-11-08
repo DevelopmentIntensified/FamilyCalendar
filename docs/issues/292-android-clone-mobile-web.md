@@ -1,6 +1,6 @@
 # 292 — Android: make the app a clone of the website's mobile view
 
-Status: in-progress
+Status: done (2026-11-06 - merged to `main` e1559c3, 0.3.0 published to F-Droid, see #300)
 
 ## L0 contract changes
 
