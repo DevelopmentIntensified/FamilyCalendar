@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.familyplanz.app.data.TaskDto
@@ -92,9 +93,17 @@ private fun Top3Row(task: TaskDto, number: Int, state: DashboardUiState, actions
 		Text("$number", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate.S300, modifier = Modifier.width(16.dp))
 		CheckCircle("Mark done: ${task.title}", state.busyId != task.id) { actions.onToggleTask(task) }
 		Column(Modifier.weight(1f)) {
-			Text(task.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Slate.S900)
+			Text(
+				task.title,
+				fontSize = 14.sp,
+				fontWeight = FontWeight.Medium,
+				color = Slate.S900,
+				maxLines = 2,
+				overflow = TextOverflow.Ellipsis,
+			)
 			AssigneeLine(task, state)
 			FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+				dueBadge(task.dueDate)?.let { FpChip(it, dueToneChip(task.dueDate), Modifier.testTag("top3-due-${task.id}")) }
 				if (task.familyId != null) {
 					FpChip("Family", FpTheme.colors.family)
 				} else {
@@ -103,7 +112,6 @@ private fun Top3Row(task: TaskDto, number: Int, state: DashboardUiState, actions
 				task.category?.let { FpChip(it, FpTheme.colors.category) }
 			}
 		}
-		dueBadge(task.dueDate)?.let { FpChip(it, dueToneChip(task.dueDate), Modifier.testTag("top3-due-${task.id}")) }
 		PrioritySegments(task, state, actions)
 	}
 }
