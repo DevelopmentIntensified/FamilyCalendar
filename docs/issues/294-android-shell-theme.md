@@ -13,7 +13,7 @@ Blocked by: S1a (done)
 - Every `AC-*` for these screens covered by a Robolectric/Compose test; `:app:mobileGate :app:assembleRelease` green; detekt clean; screenshots at 390 dp and 320 dp for owner review.
 - Work in progress is pushed to `wip/292-L1-shell` (survives usage limits). Merged to `test` → `main` only when the gate is green.
 
-- Remaining: screenshots at 390 dp / 320 dp (owner review, #130) — the repo has no Android screenshot harness (no Paparazzi/Roborazzi); needs a device/emulator capture.
+- Remaining: owner review of the 380 dp shots (`apps/android/app/build/screenshots/380/`, `Review380Test`) and a device/emulator capture for the #130 mark; the repo has no Paparazzi/Roborazzi - the PNGs come from the drawn-window harness.
 
 ## Progress
 
@@ -21,6 +21,8 @@ Blocked by: S1a (done)
 - 2026-11-04: rebased cleanly onto `origin/test` (the earlier merge kept the substantive side of the three add/add paths: `ShellChromeViewModel.kt`, `ShellSource.kt`, `Motion.kt`; the branch tree was transplanted verbatim, nothing lost).
 
 ## Done
+
+- 2026-11-08 (380 dp pass, owner ask): added `ui/review/Review380Test` - sign-in, Tasks, Dashboard, Groceries, Calendar month + week shot at `w380dp-h2600dp` into `build/screenshots/380/` (drawn-window PNGs, same pattern as #299's `SecondaryScreenshotTest`). Found and fixed 2 narrow-width squeeze bugs: Top-3 rows let the Low/Normal/High segments + due pill measure at intrinsic width and starve the title to one word/line (due pill moved into the badge FlowRow, title capped at 2 lines with ellipsis); Kids' Schedule titles rendered vertically because time + place Texts ate the row (title now owns the line, `time · place` one meta line, ellipsis). `:app:mobileGate` green after - 577 tests, detekt clean.
 
 - §1 tokens: colour roles (canvas white/slate, wordmark, mint pill, offline / warn / error / success banner tones, notification tones, scrim + slate scrim, account avatar, chip selected/idle, tab + bell badges, toast text/dismiss, kicker, store swatches, calendar defaults), type steps (`FpTitleLargeHeavy`, `FpTitleMediumBold`, `FpMetaText`, `FpMicroText`, `FpBadgeText`, `FpWordmarkText`, `FpKickerText/WideText`), radii (`FpShape.Xs/Rail/SheetTop`), `FpElevation`, `FpMotion`.
 - §1.9: `docs/guides/android-design-tokens.md` updated (page canvases, banner/toast/badge rows, elevation, motion, spacing, icons, components); `WebThemeTest` grew four assertions-per-group tests covering every new/fix row.
