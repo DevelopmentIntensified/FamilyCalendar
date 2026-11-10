@@ -23,6 +23,10 @@
 		eventTitle?: string | null;
 		tags?: string[];
 		category?: string | null;
+		/** TaskFocus (#315): whole minutes of closed focus spans (desktop-written). */
+		focusMinutes?: number | null;
+		/** Start of the open focus span (ISO); null/absent = not focusing. */
+		focusStartedAt?: string | null;
 	}
 
 	interface Props {
@@ -31,9 +35,13 @@
 		/** Pre-resolved display name for task.assignedTo (parent owns roster). */
 		assigneeName: string;
 		busy: boolean;
+		/** A start/stop focus command is in flight for this row (#315). */
+		focusBusy: boolean;
 		celebrating: boolean;
 		confirmDelete: boolean;
 		onToggle: () => void;
+		/** Start focus, or stop it when this row is already focusing. */
+		onFocus: () => void;
 		onEdit: () => void;
 		onAccept: () => void;
 		onDecline: () => void;
@@ -48,9 +56,11 @@
 		currentUserId,
 		assigneeName,
 		busy,
+		focusBusy,
 		celebrating,
 		confirmDelete,
 		onToggle,
+		onFocus,
 		onEdit,
 		onAccept,
 		onDecline,
@@ -70,6 +80,38 @@
 			!(task.assignedTo === task.userId && task.assignmentStatus === 'accepted')
 	);
 
+	/* ── TaskFocus (#315) ─────────────────────────────────────────────────
+	 * The desktop clock writes `focusMinutes` (closed spans) and
+	 * `focusStartedAt` (the open span); this row only reports them, exactly
+	 * like the phone's `liveFocusMinutes` (domain/FocusTime.kt): closed
+	 * minutes plus whole minutes of the open span, never double-counted,
+	 * never negative on clock skew. One open span exists per user, so the
+	 * row that carries `focusStartedAt` IS the focus target.
+	 */
+	let focusing = $derived(!!task.focusStartedAt);
+	let now = $state(Date.now());
+	$effect(() => {
+		if (!focusing) return;
+		now = Date.now();
+		// The chip counts whole minutes; the phone ticks on the same cadence.
+		const ticker = setInterval(() => (now = Date.now()), 30_000);
+		return () => clearInterval(ticker);
+	});
+	function openMinutes(startedAt: string | null | undefined, at: number): number {
+		if (!startedAt) return 0;
+		const started = Date.parse(startedAt);
+		if (!Number.isFinite(started)) return 0;
+		return Math.max(0, Math.floor((at - started) / 60_000));
+	}
+	let loggedFocus = $derived(Math.max(0, Math.floor(task.focusMinutes ?? 0)));
+	let liveFocus = $derived(
+		focusing ? loggedFocus + openMinutes(task.focusStartedAt, now) : loggedFocus
+	);
+	/** Only the owner can be the command's target: POST start takes a task of
+	 *  the caller's own (device-channel contract), so assigned-out rows stay
+	 *  affordance-free instead of 400ing. */
+	let canFocus = $derived(task.userId === currentUserId && !task.completedAt);
+
 	/* ── THE ONE META LINE ────────────────────────────────────────────────
 	 * tasks.html and b-tasks-flat.html, both approved, say the same sentence
 	 * about the row: "ONE baseline, ONE separator, ONE height. The old meta
@@ -87,6 +129,7 @@
 		kind:
 			| 'due'
 			| 'late'
+			| 'focus'
 			| 'recur'
 			| 'event'
 			| 'note'
@@ -104,6 +147,17 @@
 		const out: MetaSlot[] = [];
 		if (task.dueDate) out.push({ kind: 'due', text: formatDue(task.dueDate), grow: true });
 		if (late) out.push({ kind: 'late', text: late });
+		// #315: accumulated focus sits right beside the date/late chips — the
+		// owner asked for time spent on each task, at a glance. A live span
+		// says so; a never-timed task prints no chip at all.
+		if (focusing) {
+			out.push({
+				kind: 'focus',
+				text: liveFocus > 0 ? `Focusing · ${liveFocus}m` : 'Focusing'
+			});
+		} else if (loggedFocus > 0) {
+			out.push({ kind: 'focus', text: `${loggedFocus}m focus` });
+		}
 		// One of recurrence / event / note, in that order — the same precedence
 		// the three separate lines had. Two of them would be a second line.
 		if (task.recurrenceFrequency) {
@@ -137,9 +191,12 @@
 
 <div
 	data-testid="task-row"
+	data-focusing={focusing ? 'true' : undefined}
 	class="group flex min-w-0 items-start gap-2.5 rounded-lg border px-2.5 py-2 transition-colors {late
 		? 'border-red-200 bg-red-50 hover:bg-red-100'
-		: 'border-slate-100 bg-slate-50/60 hover:bg-slate-100'} {celebrating ? 'celebrate' : ''}"
+		: 'border-slate-100 bg-slate-50/60 hover:bg-slate-100'} {focusing
+		? 'ring-1 ring-emerald-300'
+		: ''} {celebrating ? 'celebrate' : ''}"
 >
 	<button
 		type="button"
@@ -180,6 +237,20 @@
 						data-slot="late"
 						class="inline-flex h-[1.125rem] shrink-0 items-center rounded-full bg-red-100 px-[0.4375rem] text-[0.625rem] font-bold leading-none text-red-700"
 						title="Overdue">{slot.text}</span
+					>
+				{:else if slot.kind === 'focus'}
+					<span
+						data-testid="focus-chip"
+						data-slot="focus"
+						class="inline-flex h-[1.125rem] shrink-0 items-center gap-1 rounded-full px-[0.4375rem] text-[0.625rem] font-semibold leading-none {focusing
+							? 'bg-emerald-100 text-emerald-700'
+							: 'bg-emerald-50 text-emerald-600'}"
+						title={focusing ? 'Focusing now' : 'Focus time logged'}
+					>
+						{#if focusing}
+							<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" aria-hidden="true"
+							></span>
+						{/if}{slot.text}</span
 					>
 				{:else if slot.kind === 'recur'}
 					<span
@@ -295,6 +366,34 @@
 					{/if}
 				</span>
 			{/if}
+		{/if}
+		{#if canFocus}
+			<!-- #315: one tap starts the focus clock on this task; while it runs
+			     the same control stops it (the phone's one wrapper per task).
+			     The clock stays the writer: focusStartedAt/focusMinutes come
+			     back from the server after the command settles. -->
+			<button
+				type="button"
+				data-testid="focus-toggle"
+				onclick={onFocus}
+				disabled={busy || focusBusy}
+				class="pointer-fine:opacity-40 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 transition-all focus-visible:opacity-100 active:bg-emerald-100 disabled:opacity-40 {focusing
+					? 'text-emerald-600 hover:bg-emerald-100'
+					: 'text-slate-300 hover:bg-emerald-100 hover:text-emerald-600'}"
+				title={focusBusy ? 'Asking…' : focusing ? 'Stop focus' : 'Start focus'}
+				aria-label={focusBusy ? 'Asking…' : focusing ? 'Stop focus' : 'Start focus'}
+				aria-busy={focusBusy ? 'true' : undefined}
+			>
+				{#if focusing}
+					<svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<rect x="6.5" y="6.5" width="11" height="11" rx="1.5" />
+					</svg>
+				{:else}
+					<svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<path d="M8 5.5v13a1 1 0 0 0 1.53.85l10-6.5a1 1 0 0 0 0-1.7l-10-6.5A1 1 0 0 0 8 5.5Z" />
+					</svg>
+				{/if}
+			</button>
 		{/if}
 		{#if task.recurrenceFrequency && !task.completedAt}
 			<button

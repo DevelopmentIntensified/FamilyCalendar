@@ -204,7 +204,7 @@
 							? 'Private — only you and the assignee'
 							: 'Public — family can see it (read-only)'}
 					>
-						{task.visibility === 'private' ? '🔒 Private' : '🌐 Public'}
+						{task.visibility === 'private' ? 'Private' : 'Public'}
 					</span>
 				{/if}
 				{#each task.tags ?? [] as tag (tag)}

@@ -89,7 +89,7 @@ describe('AddTaskCard', () => {
 		await waitFor(() => expect(invalidateAll).toHaveBeenCalledOnce());
 	});
 
-	describe('category (#280)', () => {
+	describe('category dropdown (#319)', () => {
 		const bodies = () =>
 			// SAFETY: the stubbed fetch is called with (url, { body }) in submitTaskQuickAdd.
 			vi.mocked(fetch).mock.calls.map((c) => JSON.parse(c[1]?.body as string));
@@ -97,13 +97,15 @@ describe('AddTaskCard', () => {
 		it('offers the viewer categories under More and sends the chosen one', async () => {
 			render(AddTaskCard, { props: props({ categories: ['Errands', 'Work'] }) });
 			await fireEvent.click(screen.getByRole('button', { name: 'More' }));
-			// SAFETY: the Category field is an <input> in CategoryField.
-			const input = screen.getByLabelText('Category') as HTMLInputElement;
-			const options = [
-				...document.querySelectorAll(`datalist#${input.getAttribute('list')} option`)
-			];
-			expect(options).toHaveLength(2);
-			await fireEvent.input(input, { target: { value: 'Work' } });
+			// SAFETY: the Category control is a <select> in CategorySelect.
+			const select = screen.getByLabelText('Category') as HTMLSelectElement;
+			expect([...select.options].map((o) => o.textContent)).toEqual([
+				'No category',
+				'Errands',
+				'Work',
+				'+ Add new…'
+			]);
+			await fireEvent.change(select, { target: { value: 'Work' } });
 			await fireEvent.input(screen.getByPlaceholderText(/Buy milk tomorrow/), {
 				target: { value: 'Buy milk' }
 			});
@@ -111,7 +113,24 @@ describe('AddTaskCard', () => {
 			await waitFor(() => expect(invalidateAll).toHaveBeenCalled());
 			expect(bodies()[0].category).toBe('Work');
 			// Reset after a successful add, like the due date.
-			expect(input.value).toBe('');
+			expect(select.value).toBe('');
+		});
+
+		it('sends a brand-new name typed through the add-new field', async () => {
+			render(AddTaskCard, { props: props({ categories: ['Work'] }) });
+			await fireEvent.click(screen.getByRole('button', { name: 'More' }));
+			await fireEvent.change(screen.getByLabelText('Category'), {
+				target: { value: '__add_new__' }
+			});
+			await fireEvent.input(screen.getByLabelText('New category name'), {
+				target: { value: 'Deep Work' }
+			});
+			await fireEvent.input(screen.getByPlaceholderText(/Buy milk tomorrow/), {
+				target: { value: 'Buy milk' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+			await waitFor(() => expect(invalidateAll).toHaveBeenCalled());
+			expect(bodies()[0].category).toBe('Deep Work');
 		});
 
 		it('sends no category when none is set', async () => {
@@ -125,9 +144,9 @@ describe('AddTaskCard', () => {
 		});
 
 		it('applies the category to every task of a bulk add', async () => {
-			render(AddTaskCard, { props: props() });
+			render(AddTaskCard, { props: props({ categories: ['Home'] }) });
 			await fireEvent.click(screen.getByRole('button', { name: 'More' }));
-			await fireEvent.input(screen.getByLabelText('Category'), { target: { value: 'Home' } });
+			await fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'Home' } });
 			await fireEvent.input(screen.getByPlaceholderText(/Buy milk tomorrow/), {
 				target: { value: 'Buy milk\nWalk dog' }
 			});

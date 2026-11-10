@@ -1,6 +1,8 @@
 # 313 — Nav + theme prototype: decision note
 
-Status: awaiting owner pick
+**Owner pick (2026-11-10): variant A — keep the current look. Park the prototypes until after Wave 3 (#312/#311); no nav/theme code change now.** The four PNGs stay as decision artifacts, regenerable anytime.
+
+Status: decided (A)
 Prototype: `apps/android/app/src/test/kotlin/com/familyplanz/app/ui/review/ReviewThemeVariantsTest.kt`
 Screenshots: `apps/android/app/build/screenshots/380/theme-A.png` … `theme-D.png` (380 dp wide, 2600 dp tall, so the whole shell fits one PNG)
 
@@ -32,23 +34,21 @@ Effect: two competing lists become one list plus one overflow sheet. The menu ro
 Delta (structure identical to A):
 - Active tab pill + label and the pill's glyph: mint, `Brand.Mint` `#C4E9DA` on `Brand.MintInk` `#2D5866` (`src/lib/marketing/theme.css:67`) instead of primary-50/600.
 - Section header (kicker + title) carries mint ink over a mint wash band.
-- The month grid's today cell takes a mint wash instead of primary-50.
-- Orange stays where it means action: the navbar mark, the FAB, Logout, the selected menu row.
+- Orange stays where it means action: the navbar mark, the FAB, Logout, the selected menu row, the month grid's today cell.
 
-Cost noted for the build ticket: `tabTone()` (`ui/shell/BottomNav.kt:58`) and `menuRowTone()` (`ui/shell/Navbar.kt`) return `Primary.*` constants, so a third colour needs a real role (an `FpColors`/`colorScheme.tertiary` hook) rather than a call-site hex.
+Cost noted for the build ticket: the colour does not reach everything yet, and the shot shows that honestly. `tabTone()` (`ui/shell/BottomNav.kt:59`), `menuRowTone()` (`ui/shell/Navbar.kt:227`) and the today cell/disc (`ui/calendar/CalendarMonthGrid.kt:125,157`) return `Primary.*` constants, so a third colour needs a real role (an `FpColors`/`colorScheme.tertiary` hook) rather than a call-site hex.
 
 ## D — blush focal, orange only for actions
 
 Delta (structure identical to A):
-- `MaterialTheme.colorScheme.surface` is washed blush (`Brand.Blush` `#FED5CF`, `theme.css:62`, pulled ~70 % toward white), so navbar, menu sheet, cards and the tab bar stop being white; the section band is a deeper blush with terracotta ink.
-- The month grid's today cell is the blush wash.
-- Orange survives only on actions: Logout, the FAB, the selected tab.
+- `MaterialTheme.colorScheme.surface` is washed blush (`Brand.Blush` `#FED5CF`, `theme.css:62`, pulled ~70 % toward white), so navbar, menu sheet, cards, the tab bar and the month grid's cells (they take `colorScheme.surface`) stop being white; the section band is a deeper blush with terracotta ink.
+- Orange survives only on actions: Logout, the FAB, the selected tab, the today disc.
 
 Cost noted: contrast drops versus white (slate-400 meta and hairlines read softer), the card elevation cue weakens, and a large tinted area is the most opinionated change of the four — good "matches the style guide", risk of reading pink on a phone at arm's length.
 
 ## Recommendation: B, shipping C's mint on top
 
-B is the one variant that answers the owner's first complaint ("navigation feels busy") with structure rather than paint: it deletes the duplicated destination list, keeps every destination reachable, and promotes the bell to where it is already expected — with no new component, no new pattern, and a smaller menu. C is the cheapest answer to the second complaint: mint is already a ported token with its ink, it appears only where the palette was leaning on orange for state (active tab, section header, today cell), and orange keeps its brand/action role. D is a real alternative but it contradicts the shipped white-card system everywhere at once, so it is better revisited after the colour role exists.
+B is the one variant that answers the owner's first complaint ("navigation feels busy") with structure rather than paint: it deletes the duplicated destination list, keeps every destination reachable, and promotes the bell to where it is already expected — with no new component, no new pattern, and a smaller menu. C is the cheapest answer to the second complaint: mint is already a ported token with its ink, it appears only where the palette was leaning on orange for state (active tab, section header), and orange keeps its brand/action role. The month's today cell staying orange in C is the one visible gap, and closing it is a two-line change once the accent role exists. D is a real alternative but it contradicts the shipped white-card system everywhere at once, so it is better revisited after the colour role exists.
 
 Caveat before building B: the bell overlay in the screenshot is a harness composition (the real `FpNavbar` takes no bell slot), and B's reduced menu body is a harness composition because `FpMobileMenu` hard-codes `MENU_NAV_ROWS` — the follow-up ticket has to move both into the production shell (navbar trailing slot + a menu row set that depends on the route being tab-hosted).
 

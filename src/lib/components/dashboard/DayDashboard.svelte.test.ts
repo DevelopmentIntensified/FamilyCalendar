@@ -247,9 +247,11 @@ describe('DayDashboard — the Member strip is gone, the board stays (103)', () 
 // 118: three marks, one complaint — the card band did not know what deserves
 // the top row. "This doesn't need to be as wide" (the board), "bring this to
 // the layer above where the people box was" (kids), "move this up one layer"
-// (groceries). The band is two rows now: the day's own reading across the
-// full width, and the small family cards 3-up below it — the layer the Member
-// Strip vacated, where the board is one column rather than a banner.
+// (groceries). The band is two groups now: the day's own reading, and the
+// small family cards below it — the layer the Member Strip vacated, where the
+// board is one cell rather than a banner. 316 re-cuts the ≥1024px tier into
+// one two-column grid (below); the group structure and the 768–1023px
+// glance/top-3 pairing are unchanged.
 describe('DayDashboard — the band knows what deserves the top row (118)', () => {
 	const layered = {
 		...base,
@@ -259,19 +261,20 @@ describe('DayDashboard — the band knows what deserves the top row (118)', () =
 		modules: modulesFor([])
 	};
 
-	it('is two rows, not a stack of full-width blocks', () => {
+	it('is two groups, not a stack of full-width blocks', () => {
 		render(DayDashboard, { props: layered });
 		const band = screen.getByTestId('dashboard-card-band');
 		expect(band.children).toHaveLength(2);
 	});
 
-	it('gives the day cards the full-width band, and the board is not in it', () => {
+	it('gives the day cards their own group, and the board is not in it', () => {
 		render(DayDashboard, { props: layered });
 		const band = screen.getByTestId('dashboard-card-band');
 		const dayBand = within(band).getByTestId('dashboard-day-band');
-		// Full width on a wide screen; the glance/top-3 pairing is intact below it.
-		expect(dayBand.className).toContain('lg:grid-cols-3');
+		// 103's glance/top-3 pairing is the 768–1023px tier; at ≥1024px the
+		// group hands its cards to the band's two-column grid (316).
 		expect(dayBand.className).toContain('md:grid-cols-2');
+		expect(dayBand.className).toContain('lg:contents');
 		expect(within(dayBand).getByText('Today at a Glance')).toBeInTheDocument();
 		expect(within(dayBand).getByText('Completed today')).toBeInTheDocument();
 		expect(within(dayBand).queryByText('Family Task Board')).toBeNull();
@@ -279,12 +282,12 @@ describe('DayDashboard — the band knows what deserves the top row (118)', () =
 		expect(band.firstElementChild).toBe(dayBand);
 	});
 
-	it('the board is one column of the small-family row, beside kids and groceries', () => {
+	it('the board shares the small-family group with kids and groceries', () => {
 		render(DayDashboard, { props: layered });
 		const band = screen.getByTestId('dashboard-card-band');
 		const row = within(band).getByTestId('dashboard-family-row');
-		// "This doesn't need to be as wide": a third of the band at 1024px and up.
-		expect(row.className).toContain('lg:grid-cols-3');
+		// "This doesn't need to be as wide": never a full-width card again.
+		expect(row.className).toContain('lg:contents');
 		expect(within(row).getByText('Family Task Board')).toBeInTheDocument();
 		expect(within(row).getByText("Kids' Schedule")).toBeInTheDocument();
 		expect(within(row).getByTestId('groceries-card')).toBeInTheDocument();
@@ -301,6 +304,90 @@ describe('DayDashboard — the band knows what deserves the top row (118)', () =
 		// all — an empty grid would still cost a 16px gap in the band.
 		await rerender({ familyId: null, modules: modulesFor(['kids', 'groceries']) });
 		expect(screen.queryByTestId('dashboard-family-row')).toBeNull();
+	});
+});
+
+// 316 — the owner's screenshot: three-up rows left a vast blank column when a
+// card was hidden, the board sat at the bottom, and row heights never
+// reconciled. At ≥1024px the band is now ONE two-column grid: both groups go
+// `display: contents`, so their cards flow two-up (glance | top-3,
+// completed | board, kids | groceries) with no lane left empty, and the
+// band's `items-stretch` gives every row one height.
+describe('DayDashboard — the desktop band is one cohesive grid (316)', () => {
+	const all = {
+		...base,
+		...withBoard,
+		kidsSchedule: [],
+		familyGroceries: [{ name: 'Whole milk', stores: ['Costco'] }],
+		modules: modulesFor([])
+	};
+
+	const cardBand = (container: HTMLElement) =>
+		container.querySelector<HTMLElement>('[data-testid="dashboard-card-band"]')!;
+
+	it('flows six cards through a two-column grid at ≥1024px', () => {
+		const { container } = render(DayDashboard, { props: all });
+		const band = cardBand(container);
+		expect(band.className).toContain('lg:grid-cols-2');
+		expect(band.className).not.toContain('lg:grid-cols-3');
+		// Both groups stop generating a box at lg, so their cards are the
+		// grid's own items — in order, two per row, no dead third column.
+		const dayBand = within(band).getByTestId('dashboard-day-band');
+		const familyRow = within(band).getByTestId('dashboard-family-row');
+		expect(dayBand.className).toContain('lg:contents');
+		expect(familyRow.className).toContain('lg:contents');
+		expect(dayBand.children).toHaveLength(3);
+		expect(familyRow.children).toHaveLength(3);
+	});
+
+	it('shares one height per row (items-stretch), not items-start', () => {
+		const { container } = render(DayDashboard, { props: all });
+		const band = cardBand(container);
+		expect(band.className).toContain('lg:items-stretch');
+		expect(band.className).not.toContain('items-start');
+		const cards = [
+			...within(band).getByTestId('dashboard-day-band').children,
+			...within(band).getByTestId('dashboard-family-row').children
+		];
+		// Three full desktop rows of two: no half-empty row at the end.
+		expect(cards).toHaveLength(6);
+		expect(cards.length % 2).toBe(0);
+	});
+
+	it('pins the whole ≥1024px branch', () => {
+		// A snapshot the reader can diff: the band's classes and how many cells
+		// each group contributes to it. If the desktop grid is re-cut again,
+		// this fails on purpose.
+		const { container } = render(DayDashboard, { props: all });
+		const band = container.querySelector<HTMLElement>('[data-testid="dashboard-card-band"]')!;
+		const dayBand = container.querySelector<HTMLElement>('[data-testid="dashboard-day-band"]')!;
+		const familyRow = container.querySelector<HTMLElement>('[data-testid="dashboard-family-row"]')!;
+		expect({
+			band: { className: band.className.trim(), cells: band.children.length },
+			day: { className: dayBand.className.trim(), cells: dayBand.children.length },
+			family: { className: familyRow.className.trim(), cells: familyRow.children.length }
+		}).toEqual({
+			band: { className: 'grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch', cells: 2 },
+			day: {
+				className: 'grid grid-cols-1 items-start gap-4 md:grid-cols-2 lg:contents',
+				cells: 3
+			},
+			family: { className: 'grid grid-cols-1 items-start gap-4 lg:contents', cells: 3 }
+		});
+	});
+
+	it('keeps the ≤767px phone stack: one column, no desktop breakpoints', () => {
+		const { container } = render(DayDashboard, { props: all });
+		const band = cardBand(container);
+		expect(band.className).toContain('grid-cols-1');
+		expect(band.className).not.toContain('sm:grid-cols');
+		const dayBand = within(band).getByTestId('dashboard-day-band');
+		const familyRow = within(band).getByTestId('dashboard-family-row');
+		// At phone width both groups are single-column stacks; the only two-up
+		// tier below 1024px is 103's 768px glance/top-3 pairing.
+		expect(dayBand.className).not.toContain('sm:grid-cols');
+		expect(familyRow.className).not.toContain('sm:grid-cols');
+		expect(familyRow.className).not.toContain('md:grid-cols');
 	});
 });
 

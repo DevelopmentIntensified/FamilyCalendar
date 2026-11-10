@@ -18,7 +18,7 @@
 <script lang="ts">
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { freqNoun } from '$lib/utils/taskDisplay';
-	import CategoryField from './CategoryField.svelte';
+	import CategorySelect from './CategorySelect.svelte';
 
 	interface TaskLike {
 		title: string;
@@ -41,7 +41,7 @@
 		saving: boolean;
 		onSave: (draft: EditDraft) => void;
 		onClose: () => void;
-		/** #280: the viewer's category names (suggestions; free entry allowed). */
+		/** #319: the viewer's category names for the dropdown. */
 		categories?: string[];
 	}
 
@@ -159,7 +159,7 @@
 				<p class="mt-1 text-xs text-slate-400">Separate tags with commas.</p>
 			</div>
 
-			<CategoryField
+			<CategorySelect
 				id="edit-category"
 				value={draft.category}
 				{categories}
@@ -235,8 +235,8 @@
 						bind:value={draft.visibility}
 						class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 					>
-						<option value="public">🌐 Public — family can see it (read-only)</option>
-						<option value="private">🔒 Private — only you and the assignee</option>
+						<option value="public">Public — family can see it (read-only)</option>
+						<option value="private">Private — only you and the assignee</option>
 					</select>
 				</div>
 			{/if}

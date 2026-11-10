@@ -55,19 +55,19 @@ describe('TopPrioritiesCard - task scoping labels (issue 021)', () => {
 		expect(screen.getByText('Family')).toBeInTheDocument();
 	});
 
-	it('labels a personal public task with the 🌐 Public pill', () => {
+	it('labels a personal public task with the Public pill', () => {
 		render(TopPrioritiesCard, {
 			props: { tasks: [{ ...base, visibility: 'public' }], meId: 'u_me' }
 		});
-		expect(screen.getByText('🌐 Public')).toBeInTheDocument();
+		expect(screen.getByText('Public')).toBeInTheDocument();
 		expect(screen.queryByText('Family')).not.toBeInTheDocument();
 	});
 
-	it('labels a personal private task with the 🔒 Private pill', () => {
+	it('labels a personal private task with the Private pill', () => {
 		render(TopPrioritiesCard, {
 			props: { tasks: [{ ...base, visibility: 'private' }], meId: 'u_me' }
 		});
-		expect(screen.getByText('🔒 Private')).toBeInTheDocument();
+		expect(screen.getByText('Private')).toBeInTheDocument();
 	});
 
 	it('shows an assigned badge when the task is assigned to someone else', () => {

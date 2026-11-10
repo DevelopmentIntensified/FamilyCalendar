@@ -27,7 +27,7 @@
 				'Everything in Free',
 				'Unlimited family members',
 				'Unlimited calendars (kids, sports, work)',
-				'Unlimited smart algorithm event creations',
+				'Extra smart paste capacity',
 				'Full event history & search',
 				'Priority family support'
 			],

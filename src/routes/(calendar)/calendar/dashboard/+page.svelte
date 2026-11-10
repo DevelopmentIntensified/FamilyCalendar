@@ -67,15 +67,19 @@
 	</header>
 
 	{#await data.dashboardData}
-		<!-- Skeletons, in the two rows the band actually renders (118), so the
-		     page does not change shape when the data lands. -->
-		<div class="space-y-4" aria-hidden="true">
-			<div class="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
+		<!-- Skeletons, in the same grid the band actually renders (316), so the
+		     page does not change shape when the data lands: below 1024px two
+		     stacked groups, above it one two-column grid. -->
+		<div
+			class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch"
+			aria-hidden="true"
+		>
+			<div class="grid grid-cols-1 items-start gap-4 md:grid-cols-2 lg:contents">
 				{#each Array(3) as _, i (i)}
 					<div class="h-44 animate-pulse rounded-2xl bg-slate-100"></div>
 				{/each}
 			</div>
-			<div class="grid items-start gap-4 lg:grid-cols-3">
+			<div class="grid grid-cols-1 items-start gap-4 lg:contents">
 				{#each Array(3) as _, i (i)}
 					<div class="h-56 animate-pulse rounded-2xl bg-slate-100"></div>
 				{/each}
