@@ -71,6 +71,8 @@ data class EventSheetActions(
 	val onDuplicate: (CalendarEvent) -> Unit,
 	val onAddChecklist: (String, String) -> Unit,
 	val onCompleteTask: (CalendarTask) -> Unit,
+	/** #311: the sheet's text becomes a new event (on-device parse first, server fallback); no-op when not wired. */
+	val onCreateFromSelection: (String) -> Unit = {},
 )
 
 /** The full detail sheet: details, RSVP, attendees, checklist, footer (AC-CAL-24..27). */
@@ -87,6 +89,7 @@ fun EventSheet(
 		Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
 			EventHeader(event, actions)
 			DetailRows(event, state)
+			SelectionChip(event, actions)
 			if (event.isRecurring) RecurrenceCard(event)
 			RsvpControl(event, actions)
 			AttendeeGroup(event)
@@ -223,6 +226,41 @@ private fun Detail(kind: DetailKind, value: String) {
 		Column {
 			Text(kind.label, fontSize = 11.sp, color = FpTheme.colors.textMuted)
 			Text(value, fontSize = 14.sp, color = FpTheme.colors.textBody)
+		}
+	}
+}
+
+/**
+ * #311: the detail sheet offers its own text as the phrase for a new event.
+ * Compose exposes no selected-text read (unlike the web's `window.getSelection`),
+ * so the sheet's title and description stand in for the selection.
+ */
+@Composable
+private fun SelectionChip(event: CalendarEvent, actions: EventSheetActions) {
+	val phrase = listOfNotNull(event.title, event.description)
+		.map { it.trim() }
+		.filter { it.isNotEmpty() }
+		.joinToString(". ")
+	if (phrase.isEmpty()) return
+	Surface(
+		shape = FpShape.Pill,
+		color = Slate.S900,
+		modifier = Modifier
+			.fillMaxWidth()
+			.padding(horizontal = 16.dp, vertical = 6.dp)
+			.heightIn(min = 44.dp)
+			.clickable(role = Role.Button) { actions.onCreateFromSelection(phrase) }
+			.testTag("create-from-selection"),
+	) {
+		Box(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+			Text(
+				"Create event from selection",
+				fontSize = 13.sp,
+				fontWeight = FontWeight.SemiBold,
+				color = Slate.S50,
+				maxLines = 1,
+				overflow = TextOverflow.Ellipsis,
+			)
 		}
 	}
 }

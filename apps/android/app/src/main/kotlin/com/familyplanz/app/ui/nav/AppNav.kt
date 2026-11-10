@@ -40,6 +40,14 @@ class AppNav(
 	var forwardStack: List<AppRoute> by mutableStateOf(emptyList())
 		private set
 
+	/**
+	 * Counts the arguments [open] handed over, so a screen that is already
+	 * showing sees a new one arrive: `key(nav.route)` keeps its composition
+	 * alive for a share to the tab it is on (#312).
+	 */
+	var argSerial: Int by mutableStateOf(0)
+		private set
+
 	val canGoBack: Boolean get() = backStack.isNotEmpty()
 
 	val canGoForward: Boolean get() = forwardStack.isNotEmpty()
@@ -53,6 +61,7 @@ class AppNav(
 	fun open(route: AppRoute, arg: String? = null) {
 		startDecided = true
 		pending = arg?.let { route to it }
+		if (arg != null) argSerial++
 		if (route == this.route) return
 		backStack = (backStack + this.route).takeLast(HISTORY_LIMIT)
 		forwardStack = emptyList()
@@ -107,6 +116,9 @@ class AppNav(
 		pending = null
 		return waiting.second
 	}
+
+	/** A share opened the app while it was running: Calendar gets the text through the route argument slot. */
+	fun openShareText(text: String) = open(AppRoute.CALENDAR, SHARE_TEXT_PREFIX + text)
 
 	private fun encode(): String =
 		listOf(route.name, backStack.joinToString(",") { it.name }, forwardStack.joinToString(",") { it.name }).joinToString("|")

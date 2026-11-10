@@ -12,6 +12,8 @@ data class CalendarSettingsDto(
 	val defaultCalendarId: String? = null,
 	val syncEventsToFamilyCalendar: Boolean = false,
 	val autoParseEventDetails: Boolean = true,
+	/** The quick-add parser may hit the paid model; default matches the web's `settings` schema default. */
+	val useCloudAI: Boolean = true,
 	val showDailyVerse: Boolean = false,
 	val showAdsAsEvents: Boolean = false,
 	val verseTranslation: String = "esv",

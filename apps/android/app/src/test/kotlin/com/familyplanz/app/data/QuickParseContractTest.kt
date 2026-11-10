@@ -53,15 +53,15 @@ class QuickParseContractTest {
 	fun `regex-list multi response maps the results list`() = runBlocking {
 		server.enqueue(
 			MockResponse().setResponseCode(200).setBody(
-				"""{"results":[{"title":"Dinner","date":"2026-11-06"},
-				{"title":"Movie","date":"2026-11-07","allDay":true}],"method":"regex-list"}""",
+				"""{"results":[{"parsed":{"title":"Dinner","date":"2026-11-06"},"confidence":0.9},
+				{"parsed":{"title":"Movie","date":"2026-11-07","allDay":true},"confidence":0.55}],"method":"regex-list"}""",
 			),
 		)
 		val result = NetworkTaskRepository(api).parseQuickAdd("dinner friday and movie saturday")
 		result as ApiResult.Ok
 		assertEquals(2, result.value.results.size)
-		assertEquals("Movie", result.value.results[1].title)
-		assertTrue(result.value.results[1].allDay == true)
+		assertEquals("Movie", result.value.results[1].parsed?.title)
+		assertTrue(result.value.results[1].parsed?.allDay == true)
 	}
 
 	@Test

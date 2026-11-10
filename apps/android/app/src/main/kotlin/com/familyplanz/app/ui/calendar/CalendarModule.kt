@@ -4,8 +4,12 @@ import android.content.Context
 import com.familyplanz.app.AppServices
 import com.familyplanz.app.BuildConfig
 import com.familyplanz.app.data.CalendarSource
+import com.familyplanz.app.data.EventTextExtractorChain
 import com.familyplanz.app.data.NetworkCalendarSource
 import com.familyplanz.app.data.NetworkTaskRepository
+import com.familyplanz.app.data.OnDeviceEventExtractor
+import com.familyplanz.app.data.OnDeviceFirstExtractorChain
+import com.familyplanz.app.data.ServerEventExtractor
 import com.familyplanz.app.data.UnavailableCalendarSource
 import com.familyplanz.app.ui.nav.AppRoute
 import com.familyplanz.app.ui.nav.DeepLink
@@ -26,10 +30,18 @@ class CalendarModule(private val services: AppServices) {
 		}
 	}
 
-	fun calendarViewModel(context: Context) = CalendarViewModel(
+	fun calendarViewModel(
+		context: Context,
+		/** #311: the device-first chain production ships; a test can pass a fake chain through the same slot. */
+		selectionExtractor: EventTextExtractorChain = OnDeviceFirstExtractorChain(
+			OnDeviceEventExtractor(),
+			ServerEventExtractor(services.repository),
+		),
+	) = CalendarViewModel(
 		repository = services.repository,
 		source = source,
 		prefs = SharedCalendarPrefs(context.applicationContext),
+		selectionExtractor = selectionExtractor,
 	)
 
 	companion object {

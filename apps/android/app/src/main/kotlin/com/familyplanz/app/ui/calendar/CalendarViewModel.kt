@@ -5,6 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.familyplanz.app.data.ApiError
 import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.data.CalendarSource
+import com.familyplanz.app.data.EventTextExtractorChain
+import com.familyplanz.app.data.OnDeviceFirstExtractorChain
+import com.familyplanz.app.data.ParsedEventDto
+import com.familyplanz.app.data.ServerEventExtractor
 import com.familyplanz.app.data.TaskRepository
 import com.familyplanz.app.data.UnavailableCalendarSource
 import com.familyplanz.app.domain.CalendarEvent
@@ -29,7 +33,7 @@ data class DaySection(val day: String, val events: List<CalendarEvent> = emptyLi
  * view derives from, the month/task/verse loads, the reading filters, the
  * sheet and form overlays, selection and bulk. Writes live in [CalendarWrites].
  */
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LongParameterList")
 class CalendarViewModel(
 	private val repository: TaskRepository,
 	private val source: CalendarSource = UnavailableCalendarSource,
@@ -37,9 +41,14 @@ class CalendarViewModel(
 	private val zone: ZoneId = ZoneId.systemDefault(),
 	private val now: () -> LocalDate = { LocalDate.now(zone) },
 	private val loader: CalendarLoader = CalendarLoader(repository, source, repository),
+	/** #311's device-first parser; the default is server-only so a directly built ViewModel keeps its old path. */
+	private val selectionExtractor: EventTextExtractorChain = OnDeviceFirstExtractorChain(null, ServerEventExtractor(repository)),
 ) : ViewModel() {
 	private val _ui = MutableStateFlow(CalendarUiState(anchor = now(), today = now(), zone = zone))
 	val ui: StateFlow<CalendarUiState> = _ui
+
+	/** The Quick Add's debounced parse and phrase report (#302), kept out of this class's way. */
+	private val quickAdd: CalendarQuickAdd = CalendarQuickAdd(viewModelScope, repository, source)
 
 	/** Each month loads once (AC-CAL-35); a write clears what it invalidated. */
 	private val loaded = mutableSetOf<YearMonth>()
@@ -187,7 +196,8 @@ class CalendarViewModel(
 	}
 
 	fun closeSheet() {
-		_ui.update { it.copy(sheet = null, range = null, checklist = null, parseFailed = false) }
+		quickAdd.cancel()
+		_ui.update { it.copy(sheet = null, range = null, checklist = null, parsing = false, parseFailed = false) }
 	}
 
 	fun toggleCalendar(id: String) {
@@ -272,6 +282,26 @@ class CalendarViewModel(
 		openSheet(CalendarSheet.Form(CalendarForm.createAt(date ?: _ui.value.anchor, range, personalCalendarId())))
 	}
 
+	/** #312: a shared text lands in Quick Add exactly like the web's share_target, prefilled with the ack note. */
+	fun openCreateFromSharedText(text: String) {
+		openSheet(CalendarSheet.Form(CalendarForm.createAt(_ui.value.anchor, null, personalCalendarId())))
+		setQuickAdd(text)
+		_ui.update { it.copy(toast = SHARED_TARGET_ACK) }
+	}
+
+	/**
+	 * #311: a selection opens the create form like a share (same ack), then
+	 * [parseSelection] fills it - the phone first, the server for the rest.
+	 */
+	fun openCreateFromSelection(text: String) {
+		if (text.isBlank()) return
+		openCreateFromSharedText(text)
+		viewModelScope.launch { applyParsed(parseSelection(text)) }
+	}
+
+	/** #311's one seam: the on-device extractor runs first; the server answers when the phone found nothing. */
+	private suspend fun parseSelection(text: String): ParsedEventDto = selectionExtractor.parseSelected(text)
+
 	fun openTask(date: LocalDate? = null) =
 		openSheet(CalendarSheet.Form(CalendarForm.task(date?.toString() ?: _ui.value.anchor.toString(), personalCalendarId())))
 
@@ -296,35 +326,85 @@ class CalendarViewModel(
 		}
 	}
 
-	/* ---- Quick Add (inside the create form) ---- */
+	/* ---- Quick Add (inside the create form, #302) ---- */
 
 	fun setQuickAdd(text: String) {
-		_ui.update { it.copy(quickAdd = text, parseFailed = false) }
+		val settings = _ui.value.data.settings
+		quickAdd.cancel()
+		val auto = text.isNotBlank() && settings.autoParseEventDetails
+		_ui.update {
+			it.copy(
+				quickAdd = text,
+				parsing = auto,
+				parseFailed = false,
+				parseReportable = false,
+				parseReported = false,
+				quickAddList = null,
+			)
+		}
+		if (!auto) return
+		quickAdd.parse(
+			phrase = text,
+			useCloud = settings.useCloudAI,
+			auto = true,
+			onParsed = { parsed -> applyParsed(parsed) },
+			onParsedList = { list -> _ui.update { it.copy(parsing = false, quickAddList = list) } },
+			onFail = { _ui.update { s -> s.copy(parsing = false, parseFailed = s.quickAdd.isNotBlank()) } },
+		)
 	}
 
+	/** Manual Parse affordance; no setting check, the cloud flag rides straight from the settings. */
 	fun parseQuickAdd() {
+		val state = _ui.value
+		val phrase = state.quickAdd
+		if (phrase.isBlank()) return
+		quickAdd.cancel()
+		_ui.update { it.copy(parsing = true, parseReported = false, quickAddList = null) }
+		quickAdd.parse(
+			phrase = phrase,
+			useCloud = state.data.settings.useCloudAI,
+			auto = false,
+			onParsed = { parsed -> applyParsed(parsed) },
+			onParsedList = { list -> _ui.update { it.copy(parsing = false, quickAddList = list) } },
+			onFail = { _ui.update { s -> s.copy(parsing = false, parseFailed = s.quickAdd.isNotBlank()) } },
+		)
+	}
+
+	private fun applyParsed(parsed: com.familyplanz.app.data.ParsedEventDto) {
+		_ui.update { ui ->
+			val form = (ui.sheet as? CalendarSheet.Form)?.form ?: return@update ui.copy(parsing = false)
+			ui.copy(
+				parsing = false,
+				parseFailed = false,
+				quickAddList = null,
+				parseReportable = true,
+				sheet = CalendarSheet.Form(CalendarForm.parsedInto(form, parsed)),
+			)
+		}
+	}
+
+	/** The report affordance: hand the phrase over, settle the row, then show the ack line. */
+	fun reportQuickAdd() {
 		val phrase = _ui.value.quickAdd
 		if (phrase.isBlank()) return
-		_ui.update { it.copy(parsing = true, parseFailed = false) }
-		viewModelScope.launch {
-			when (val result = repository.parseQuickAdd(phrase)) {
-				is ApiResult.Ok -> {
-					val parsed = result.value.parsed ?: result.value.results.firstOrNull()
-					_ui.update { ui ->
-						val form = (ui.sheet as? CalendarSheet.Form)?.form ?: return@update ui
-						ui.copy(
-							parsing = false,
-							parseFailed = parsed == null,
-							sheet = CalendarSheet.Form(CalendarForm.parsedInto(form, parsed)),
-						)
-					}
-				}
+		quickAdd.report(
+			phrase = phrase,
+			onSettled = { _ui.update { it.copy(parseReported = true) } },
+			onFail = { _ui.update { it.copy(parseFailed = true) } },
+		)
+	}
 
-				is ApiResult.Err -> _ui.update {
-					it.copy(parsing = false, parseFailed = it.quickAdd.isNotBlank())
-				}
-			}
-		}
+	/** The multi panel's "Create N events": one create per parsed entry (#302). */
+	fun createParsedAll() {
+		val list = _ui.value.quickAddList ?: return
+		_ui.update { it.copy(quickAddList = null) }
+		list.map { CalendarForm.parsedInto(CalendarForm.create(_ui.value.anchor, null), it) }
+			.forEach { form -> form.createRequest(zone)?.let(writes::createEvent) }
+	}
+
+	/** The multi panel's "Just the first": keep nothing, the panel goes. */
+	fun dismissQuickAddList() {
+		_ui.update { it.copy(quickAddList = null) }
 	}
 
 	/* ---- Server writes (delegated) ---- */
@@ -380,6 +460,9 @@ class CalendarViewModel(
 		const val TASKS_WARNING = "Couldn't load tasks just now - everything else is up to date."
 		const val CALENDARS_WARNING = "Couldn't load your calendars just now - everything else is up to date."
 		const val EVENTS_ERROR = "Couldn't load your events."
+
+		/** The web's ack under a consumed PWA share (`calendar/+page.svelte:356`), copy verbatim (em dash). */
+		const val SHARED_TARGET_ACK = "Shared text loaded — review and add."
 	}
 }
 
