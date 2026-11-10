@@ -1,6 +1,7 @@
 package com.familyplanz.app.ui.nav
 
 import java.net.URI
+import java.time.LocalDate
 
 /**
  * Every signed-in destination. [webPath] is the website route the screen
@@ -56,4 +57,27 @@ object DeepLinks {
 		if (path.isEmpty()) return null
 		return links.filter { path.startsWith(it.pathPrefix) }.maxByOrNull { it.pathPrefix.length }?.route
 	}
+
+	/** The link's `#fragment` (`/account#calendar` → "calendar"): the section a lane opens on; null when none. */
+	fun fragment(link: String?): String? =
+		link?.let { runCatching { URI(it.trim()).fragment }.getOrNull() }?.takeIf { it.isNotBlank() }
+}
+
+/**
+ * The `AppNav` argument slot a route may hold, demuxed. Reminders pass a
+ * bare `2026-11-06`; a share target's text can be anything, so it rides a
+ * prefix — a friend sharing a date-like phrase can never collide with a
+ * real reminder day (#312).
+ */
+const val SHARE_TEXT_PREFIX = "shared:"
+
+/** A system text selection (`ACTION_PROCESS_TEXT`, #311) rides its own prefix, so it never reads as a share. */
+const val SELECTION_PREFIX = "sel:"
+
+/** A reminder tap's day and/or the `shared:`/`sel:` text of a share or selection, from one argument slot. */
+fun navArgText(arg: String?): Pair<LocalDate?, String?> = when {
+	arg == null -> null to null
+	arg.startsWith(SHARE_TEXT_PREFIX) -> null to arg.removePrefix(SHARE_TEXT_PREFIX)
+	arg.startsWith(SELECTION_PREFIX) -> null to arg.removePrefix(SELECTION_PREFIX)
+	else -> runCatching { LocalDate.parse(arg.take(10)) }.getOrNull() to null
 }

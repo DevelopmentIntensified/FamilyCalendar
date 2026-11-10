@@ -29,9 +29,11 @@ function props(overrides = {}) {
 		currentUserId: 'u1',
 		assigneeName: '',
 		busy: false,
+		focusBusy: false,
 		celebrating: false,
 		confirmDelete: false,
 		onToggle: vi.fn(),
+		onFocus: vi.fn(),
 		onEdit: vi.fn(),
 		onAccept: vi.fn(),
 		onDecline: vi.fn(),
@@ -266,6 +268,55 @@ describe('TaskRow', () => {
 		it('has no chip when the category is null', () => {
 			render(TaskRow, { props: props({ task: { ...baseTask, category: null } }) });
 			expect(screen.getByTestId('task-meta').querySelector('[data-slot="category"]')).toBeNull();
+		});
+	});
+
+	// #315: the row is the start-focus affordance and the logged-time chip.
+	// The desktop clock writes the numbers; the row reports and requests.
+	describe('focus (#315)', () => {
+		it('offers Start focus on a never-timed row, with no chip', async () => {
+			const p = props();
+			render(TaskRow, { props: p });
+			expect(screen.queryByTestId('focus-chip')).toBeNull();
+			await fireEvent.click(screen.getByLabelText('Start focus'));
+			expect(p.onFocus).toHaveBeenCalledOnce();
+		});
+
+		it('chips accumulated minutes on a timed row', () => {
+			render(TaskRow, { props: props({ task: { ...baseTask, focusMinutes: 25 } }) });
+			expect(screen.getByTestId('focus-chip').textContent?.trim()).toBe('25m focus');
+			expect(screen.getByLabelText('Start focus')).toBeTruthy();
+		});
+
+		it('a live span says Focusing and the same control stops it', async () => {
+			const startedAt = new Date(Date.now() - 12 * 60_000).toISOString();
+			const p = props({
+				task: { ...baseTask, focusMinutes: 5, focusStartedAt: startedAt }
+			});
+			render(TaskRow, { props: p });
+			expect(screen.getByTestId('focus-chip').textContent?.trim()).toMatch(
+				/^Focusing · \d+m$/
+			);
+			expect(screen.getByTestId('task-row').getAttribute('data-focusing')).toBe('true');
+			await fireEvent.click(screen.getByLabelText('Stop focus'));
+			expect(p.onFocus).toHaveBeenCalledOnce();
+		});
+
+		it('names the in-flight command and blocks a second tap', () => {
+			const p = props({ focusBusy: true });
+			render(TaskRow, { props: p });
+			// SAFETY: the focus affordance is a <button> in TaskRow.
+			const btn = screen.getByLabelText('Asking…') as HTMLButtonElement;
+			expect(btn.disabled).toBe(true);
+		});
+
+		it('does not offer focus on a task the command channel cannot act on', () => {
+			// POST start takes a task of the caller's own (device-channel
+			// contract); an assigned-out row would only 400.
+			render(TaskRow, {
+				props: props({ task: { ...baseTask, userId: 'u2' }, currentUserId: 'u1' })
+			});
+			expect(screen.queryByLabelText('Start focus')).toBeNull();
 		});
 	});
 });

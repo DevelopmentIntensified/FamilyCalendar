@@ -28,6 +28,8 @@ data class CalendarSheetActions(
 	val onOpen: (CalendarSheet) -> Unit,
 	val onClose: () -> Unit,
 	val onMenu: (CalendarMenuAction) -> Unit,
+	/** #311: a selected phrase opens the create form (on-device parse first, server fallback); no-op when not wired. */
+	val onCreateFromSelection: (String) -> Unit = {},
 )
 
 /** The actions menu rows (`+page.svelte:130-137`). */
@@ -68,6 +70,12 @@ data class CalendarFormActions(
 	val onSubmit: () -> Unit,
 	val onClose: () -> Unit,
 	val onQuickAdd: (String) -> Unit,
+	/** Report the phrase the parser failed on; then it shows its ack and stops. */
+	val onReportParse: () -> Unit = {},
+	/** A parsed list arrives: take them all (the web's `createAllEvents`). */
+	val onCreateAll: () -> Unit = {},
+	/** Change of mind on the multi panel. */
+	val onDismissMulti: () -> Unit = {},
 	val onParse: () -> Unit,
 )
 

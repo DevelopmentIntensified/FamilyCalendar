@@ -194,6 +194,8 @@ Every duration cites its source; `FpMotion.spec(ms, reduced)` snaps when the sys
 | Filters (`M3 5h18M6 12h12M10 19h4`) | `CalendarToolbar.svelte` | `ic_fp_filters` |
 | Chevrons | `DayNav.svelte` | `ic_fp_chevron_left/right` |
 | Recurring (purple-400) | `MonthDayCell.svelte:276` | `ic_fp_recurring` |
+| Event detail rows: date, calendar, creator, location, reminder | `calendar/EventDetailList.svelte:62,94,111,128-134,151` | `ic_fp_detail_date`, `ic_fp_detail_calendar`, `ic_fp_detail_creator`, `ic_fp_detail_location`, `ic_fp_detail_reminder` |
+| Event detail time (clock) | `LocationSearch.svelte:262`, `calendar/ListView.svelte:198` | `ic_fp_detail_time` |
 | App icon art | `static/brand/mark.svg` | `fp_app_mark.xml` |
 
 ## Components (`ui/FpComponents.kt` and screens)

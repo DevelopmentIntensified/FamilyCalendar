@@ -80,6 +80,7 @@ fun FamilyDetailScreen(
 					MemberActionsSheet(
 						member = member,
 						currentUserRole = state.detail.currentUserRole,
+						currentUserId = state.detail.currentUserId,
 						onSetType = actions.onSetType,
 						onSetRole = actions.onSetRole,
 						onRemove = actions.onAskRemove,

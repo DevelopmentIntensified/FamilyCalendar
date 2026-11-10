@@ -59,33 +59,72 @@
 		<p class="text-xs text-slate-400">{dateLabel}</p>
 	</div>
 
+	<!-- #314: every event is ONE line — time · kind mark · title · badges —
+	     the shape a calendar chip reads, so a glance row can never grow into a
+	     stacked block. The title is the only flexible cell (`min-w-0` +
+	     `truncate`); time and badges are `shrink-0`, and the row itself
+	     neither wraps nor overflows. The location rides in the button's
+	     tooltip rather than as a fifth inline cell, which is what used to
+	     squeeze the title out of its own row. -->
+	{#snippet eventRow(e: GlanceEvent, shell: string)}
+		{@const rv = rsvpVisual(e.rsvpStatus)}
+		{@const chip = chipShell({ event: e, density: 'word' })}
+		<button
+			type="button"
+			data-chip-kind={chip.kind}
+			data-testid="glance-event-row"
+			data-row-shape="single-line"
+			onclick={() => onEventClick(e)}
+			style={chip.style}
+			title={e.location ? `${e.title} · ${e.location}` : e.title}
+			class="flex w-full min-w-0 flex-nowrap items-center gap-2 overflow-hidden rounded-lg px-2 py-2 text-left whitespace-nowrap transition-colors {shell} {rv?.containerClass ??
+				''}"
+		>
+			{#if !e.allDay}
+				<!-- Start and end share the cell's one line: `w-16` holds a start
+				     time at every narrow width, and `lg:w-32` is the room the
+				     desktop grid's half-width column gives the "start – end" pair. -->
+				<span
+					data-testid="glance-event-time"
+					class="w-16 shrink-0 truncate text-right text-xs font-semibold tabular-nums text-slate-700 lg:w-32"
+				>
+					{timeLabel(e.start)}{#if e.end}<span class="hidden text-slate-400 lg:inline"
+							> – {timeLabel(e.end)}</span
+						>{/if}
+				</span>
+			{/if}
+			<!-- #067: a hand-rolled colour dot became the shared mark, so
+				the day dashboard says what every other view says. -->
+			<ChipKindMark kind={chip.kind} density={chip.markDensity} />
+			<span
+				data-testid="glance-event-title"
+				class="min-w-0 flex-1 truncate text-sm text-slate-700">{e.title}</span
+			>
+			{#if e.source === 'family'}
+				<span
+					class="shrink-0 rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-600"
+				>
+					Family
+				</span>
+			{/if}
+			{#if rv}
+				<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}"
+					>{rv.icon} {rv.label}</span
+				>
+			{/if}
+			{#if e.attendance && e.attendance.invited > 1}
+				<AttendanceBadge attendance={e.attendance} variant="row" />
+			{/if}
+		</button>
+	{/snippet}
+
 	{#if allDayEvents.length > 0}
 		<div class="mb-3 space-y-1.5">
 			{#each allDayEvents as e (e.id)}
-				{@const rv = rsvpVisual(e.rsvpStatus)}
-				{@const chip = chipShell({ event: e, density: 'word' })}
-				<button
-					type="button"
-					data-chip-kind={chip.kind}
-					onclick={() => onEventClick(e)}
-					style={chip.style}
-					class="flex w-full items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2 text-left transition-colors hover:border-slate-200 hover:bg-slate-100 {rv?.containerClass ??
-						''}"
-				>
-					<!-- #067: a hand-rolled colour dot became the shared mark, so
-						the day dashboard says what every other view says. -->
-					<ChipKindMark kind={chip.kind} density={chip.markDensity} />
-					<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{e.title}</span>
-					{#if rv}
-						<span
-							class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}"
-							>{rv.icon} {rv.label}</span
-						>
-					{/if}
-					{#if e.attendance && e.attendance.invited > 1}
-						<AttendanceBadge attendance={e.attendance} variant="row" />
-					{/if}
-				</button>
+				{@render eventRow(
+					e,
+					'border border-slate-100 bg-slate-50/60 hover:border-slate-200 hover:bg-slate-100'
+				)}
 			{/each}
 		</div>
 	{/if}
@@ -93,48 +132,7 @@
 	{#if timedEvents.length > 0}
 		<div class="space-y-1.5">
 			{#each timedEvents as e (e.id)}
-				{@const rv = rsvpVisual(e.rsvpStatus)}
-				{@const chip = chipShell({ event: e, density: 'word' })}
-				<button
-					type="button"
-					data-chip-kind={chip.kind}
-					onclick={() => onEventClick(e)}
-					style={chip.style}
-					class="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-50 {rv?.containerClass ??
-						''}"
-				>
-					<div class="w-14 shrink-0 text-right">
-						<span class="text-xs font-semibold tabular-nums text-slate-700"
-							>{timeLabel(e.start)}</span
-						>
-						{#if e.end}
-							<span class="block text-[10px] tabular-nums text-slate-400">{timeLabel(e.end)}</span>
-						{/if}
-					</div>
-					<ChipKindMark kind={chip.kind} density={chip.markDensity} />
-					<span class="min-w-0 flex-1 truncate text-sm text-slate-700">{e.title}</span>
-					{#if rv}
-						<span
-							class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold {rv.badgeClass}"
-							>{rv.icon} {rv.label}</span
-						>
-					{/if}
-					{#if e.attendance && e.attendance.invited > 1}
-						<AttendanceBadge attendance={e.attendance} variant="row" />
-					{/if}
-					{#if e.location}
-						<span class="hidden shrink-0 truncate text-xs text-slate-400 sm:block"
-							>📍 {e.location}</span
-						>
-					{/if}
-					{#if e.source === 'family'}
-						<span
-							class="shrink-0 rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-600"
-						>
-							Family
-						</span>
-					{/if}
-				</button>
+				{@render eventRow(e, 'hover:bg-slate-50')}
 			{/each}
 		</div>
 	{:else if allDayEvents.length === 0}

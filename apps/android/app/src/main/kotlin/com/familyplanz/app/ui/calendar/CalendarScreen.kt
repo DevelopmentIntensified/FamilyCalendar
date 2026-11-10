@@ -138,6 +138,7 @@ private fun SheetHost(state: CalendarUiState, visible: VisibleCalendar, actions:
 				onDuplicate = actions.form.onDuplicate,
 				onAddChecklist = actions.events.onAddChecklist,
 				onCompleteTask = actions.events.onCompleteTask,
+				onCreateFromSelection = actions.sheets.onCreateFromSelection,
 			),
 		)
 

@@ -108,7 +108,7 @@ class FakeRepository : TaskRepository {
 
 	override suspend fun cachedEvents(year: Int, month: Int): List<EventDto>? = cachedEvents
 
-	override suspend fun parseQuickAdd(input: String): ApiResult<QuickParseResponse> {
+	override suspend fun parseQuickAdd(input: String, useCloud: Boolean): ApiResult<QuickParseResponse> {
 		parsed += input
 		return parse
 	}

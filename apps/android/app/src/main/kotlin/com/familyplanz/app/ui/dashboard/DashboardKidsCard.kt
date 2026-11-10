@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.familyplanz.app.data.KidsEventDto
@@ -65,10 +66,24 @@ private fun KidsEventRow(event: KidsEventDto) {
 		verticalAlignment = Alignment.CenterVertically,
 		modifier = Modifier.fillMaxWidth().padding(top = 4.dp).testTag("kids-event-${event.id}"),
 	) {
-		Text(event.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Slate.S900, modifier = Modifier.weight(1f))
-		Text(kidsTimeLabel(event).uppercase(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Slate.S400)
-		event.location?.takeIf { it.isNotBlank() }?.let { place ->
-			Text("· $place", fontSize = 12.sp, color = Slate.S500, maxLines = 1)
+		Column(Modifier.weight(1f)) {
+			Text(
+				event.title,
+				fontSize = 14.sp,
+				fontWeight = FontWeight.Medium,
+				color = Slate.S900,
+				maxLines = 2,
+				overflow = TextOverflow.Ellipsis,
+			)
+			val place = event.location?.takeIf { it.isNotBlank() }
+			Text(
+				if (place != null) "${kidsTimeLabel(event).uppercase()} · $place" else kidsTimeLabel(event).uppercase(),
+				fontSize = 11.sp,
+				fontWeight = FontWeight.SemiBold,
+				color = Slate.S400,
+				maxLines = 1,
+				overflow = TextOverflow.Ellipsis,
+			)
 		}
 	}
 }

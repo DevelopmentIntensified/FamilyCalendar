@@ -6,8 +6,6 @@ import com.familyplanz.app.data.ParsedEventDto
 import com.familyplanz.app.domain.CalendarEvent
 import com.familyplanz.app.domain.localDateTimeOf
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -29,12 +27,13 @@ enum class FormKind(val title: String, val subtitle: String) {
 /** The fields a Quick Add parse filled; each wears a tick (AC-CAL-29). */
 enum class FormField { TITLE, DATE, START_TIME, END_TIME, LOCATION, DESCRIPTION }
 
-enum class RepeatOption(val label: String) {
-	NONE("Doesn't repeat"),
-	DAILY("Daily"),
-	WEEKLY("Weekly"),
-	MONTHLY("Monthly"),
-	YEARLY("Yearly"),
+/** [wire] is the server's `recurrenceFrequency`; null = no rule. */
+enum class RepeatOption(val label: String, val wire: String?) {
+	NONE("Doesn't repeat", null),
+	DAILY("Daily", "daily"),
+	WEEKLY("Weekly", "weekly"),
+	MONTHLY("Monthly", "monthly"),
+	YEARLY("Yearly", "yearly"),
 }
 
 /** MODALS_SPEC reminder select order. */
@@ -47,8 +46,15 @@ val REMINDER_OPTIONS = listOf(
 	1440 to "1 day before",
 )
 
+/** The server's series scopes (`PUT` / `DELETE /api/events/{id}`): one occurrence, or the whole series. */
+const val SCOPE_THIS = "this"
+const val SCOPE_ALL = "all"
+
 /** The tag the Task tab reads out of a title (#private / #public). */
 private val VISIBILITY_TAG = Regex("#(private|public)\\b", RegexOption.IGNORE_CASE)
+
+/** A 24-hour time as the form's fields write it (the web's `HH:mm`). */
+private val HH_MM = Regex("\\d{2}:\\d{2}")
 
 data class CalendarForm(
 	val kind: FormKind = FormKind.EVENT,
@@ -72,9 +78,48 @@ data class CalendarForm(
 	val parsed: Set<FormField> = emptySet(),
 	/** Set when editing: the event's server id and the series scope of the save. */
 	val editId: String? = null,
-	val scope: String = "all",
+	val scope: String = SCOPE_ALL,
+	/** The occurrence this edit opened on; the server keys a one-occurrence save on it. */
+	val occurrenceDate: String? = null,
+	/** Series-rule parts the form has no control for; sent back untouched so a save never drops them. */
+	val recurrenceByDay: List<String>? = null,
+	val recurrenceCount: Int? = null,
+	val recurrenceUntil: String? = null,
+	/** The rule and the date/time fields as the edit loaded them: tells an untouched value from an edited one. */
+	val loadedRepeat: RepeatOption = RepeatOption.NONE,
+	val loadedTimes: String? = null,
 ) {
 	val editing: Boolean get() = editId != null
+
+	/** Editing one occurrence of a repeating event (the web's `isRecurringOccurrence`): the save asks for a scope. */
+	val occurrenceEdit: Boolean get() = editing && occurrenceDate != null && loadedRepeat != RepeatOption.NONE
+
+	/** A date field holding text that is not a `YYYY-MM-DD` day. */
+	val dateInvalid: Boolean get() = !isDay(date) || (multiDay && !isDay(endDate))
+
+	/** A time field holding text that is not an `HH:mm` time (an all-day event has no times). */
+	val timeInvalid: Boolean get() = !allDay && (!isTime(startTime) || !isTime(endTime))
+
+	/** The end day falls before the start day (the web's `endDateBeforeStart`). */
+	val endDateBeforeStart: Boolean
+		get() {
+			val first = date.orEmpty()
+			val last = endDate.orEmpty()
+			val comparable = multiDay && first.isNotBlank() && last.isNotBlank()
+			return comparable && !dateInvalid && last < first
+		}
+
+	/** The event tab's rule: a title, a real date, times that parse, an end that is not before the start. */
+	private val eventValid: Boolean
+		get() {
+			val filled = title.isNotBlank() && !date.isNullOrBlank()
+			val parses = !dateInvalid && !timeInvalid
+			val ordered = !endBeforeStart && !endDateBeforeStart
+			return filled && parses && ordered
+		}
+
+	/** The date/time fields as one comparable value (see [loadedTimes]). */
+	fun timesKey(): String = listOf(date, endDate, startTime, endTime, allDay, multiDay).joinToString("|")
 
 	/** "End must be after start" (AC-CAL-30): same-day times that run backwards. */
 	val endBeforeStart: Boolean
@@ -87,8 +132,8 @@ data class CalendarForm(
 
 	val valid: Boolean
 		get() = when (kind) {
-			FormKind.TASK -> title.isNotBlank() || visibilityFromTag() != null
-			FormKind.EVENT -> title.isNotBlank() && date != null && !endBeforeStart
+			FormKind.TASK -> (title.isNotBlank() || visibilityFromTag() != null) && isDay(date)
+			FormKind.EVENT -> eventValid
 		}
 
 	/** `#private` in the title overrides the visibility select (AC-CAL-31). */
@@ -116,33 +161,11 @@ data class CalendarForm(
 	val headerSubtitle: String
 		get() = if (kind == FormKind.TASK) FormKind.TASK.subtitle else FormKind.EVENT.subtitle
 
-	@Suppress("ReturnCount")
-	fun createRequest(zone: ZoneId): CreateEventRequest? {
-		val day = date ?: return null
-		val timed = !allDay && !startTime.isNullOrBlank()
-		val start = iso(day, if (timed) startTime!! else "00:00", zone) ?: return null
-		val end = if (timed && !endTime.isNullOrBlank()) iso(day, endTime!!, zone) else null
-		return CreateEventRequest(
-			title = cleanTitle().ifBlank { "Event" },
-			start = start,
-			end = end,
-			allDay = allDay,
-			location = location.ifBlank { null },
-			description = description.ifBlank { null },
-		)
-	}
+	/** POST /api/events body; null only for a form that is not [valid]. */
+	fun createRequest(zone: ZoneId): CreateEventRequest? = EventWire.create(this, zone)
 
-	/** PUT /api/events/{id}: only the fields the form owns. */
-	fun updateBody(): JsonObject = buildJsonObject {
-		put("title", cleanTitle().ifBlank { "Event" })
-		date?.let { put("date", it) }
-		if (allDay) put("allDay", true) else startTime?.takeIf { it.isNotBlank() }?.let { put("startTime", it) }
-		if (!allDay) endTime?.takeIf { it.isNotBlank() }?.let { put("endTime", it) }
-		put("description", description)
-		put("location", location)
-		calendarId?.let { put("calendarId", it) }
-		put("scope", scope)
-	}
+	/** PUT /api/events/{id} body; null only for a form that is not [valid]. */
+	fun updateBody(zone: ZoneId): JsonObject? = EventWire.update(this, zone)
 
 	fun taskRequest(): CalendarTaskCreate? {
 		val name = cleanTitle()
@@ -178,13 +201,21 @@ data class CalendarForm(
 		fun task(date: String?, calendarId: String? = null): CalendarForm =
 			CalendarForm(kind = FormKind.TASK, date = date, calendarId = calendarId)
 
+		/** A copy is a new event: same fields and rule (the web's `buildDuplicateEventPayload`), no occurrence. */
 		fun duplicateOf(event: CalendarEvent, zone: ZoneId, calendarId: String?): CalendarForm =
-			fromEvent(event, zone, calendarId).copy(title = "${event.title} (copy)", editId = null)
+			fromEvent(event, zone, calendarId).copy(
+				title = "${event.title} (copy)",
+				editId = null,
+				occurrenceDate = null,
+				loadedTimes = null,
+			)
 
 		fun fromEvent(event: CalendarEvent, zone: ZoneId, calendarId: String?): CalendarForm {
 			val start = localDateTimeOf(event.startDate, zone)
 			val end = event.endDate?.takeIf { it.isNotBlank() }?.let { localDateTimeOf(it, zone) }
-			return CalendarForm(
+			val rule = repeatOf(event.recurrenceFrequency)
+			val occurrence = event.occurrenceDate.takeIf { rule != RepeatOption.NONE }
+			val form = CalendarForm(
 				title = event.title,
 				description = event.description.orEmpty(),
 				date = (event.localDay ?: start?.toLocalDate())?.toString(),
@@ -195,12 +226,20 @@ data class CalendarForm(
 				endDate = end?.toLocalDate()?.toString(),
 				location = event.location.orEmpty(),
 				calendarId = event.calendarId.ifBlank { calendarId },
-				repeat = repeatOf(event.recurrenceFrequency),
+				repeat = rule,
 				repeatEvery = event.recurrenceInterval ?: 1,
 				reminderMinutes = event.reminderMinutes,
 				reminderSet = event.reminderMinutes != null,
 				editId = event.serverId,
+				// The web opens an occurrence edit on "this event only" (EventFormModal.svelte `editScope`).
+				scope = if (occurrence != null) SCOPE_THIS else SCOPE_ALL,
+				occurrenceDate = occurrence,
+				recurrenceByDay = event.recurrenceByDay,
+				recurrenceCount = event.recurrenceCount,
+				recurrenceUntil = event.recurrenceUntil,
+				loadedRepeat = rule,
 			)
+			return form.copy(loadedTimes = form.timesKey())
 		}
 
 		/** Quick Add fills what it found and marks those fields (a parse is a hint). */
@@ -243,6 +282,22 @@ data class CalendarForm(
 			val plural = if (every == 1) unit else "${unit}s"
 			return if (every == 1) "Every ${option.label.lowercase()}" else "Every $every $plural"
 		}
+
+		/** Blank is "not set" (fine); anything else must be a real `YYYY-MM-DD` day. */
+		fun isDay(value: String?): Boolean = value.isNullOrBlank() || runCatching { LocalDate.parse(value) }.isSuccess
+
+		/** Blank is "not set" (fine); anything else must be a real `HH:mm` time. */
+		fun isTime(value: String?): Boolean =
+			value.isNullOrBlank() || (HH_MM.matches(value) && runCatching { LocalTime.parse(value) }.isSuccess)
+
+		/** One hour after [day] [time]: the web's end for a timed event that names none. */
+		fun hourAfter(day: String, time: String, zone: ZoneId): String? =
+			try {
+				val end = LocalDateTime.of(LocalDate.parse(day), LocalTime.parse(time)).plusHours(1)
+				iso(end.toLocalDate().toString(), hhmm(end.hour * 60 + end.minute), zone)
+			} catch (_: DateTimeParseException) {
+				null
+			}
 
 		/** A day's "YYYY-MM-DD" plus "HH:mm" as an offset-stamped ISO instant. */
 		fun iso(day: String, time: String, zone: ZoneId): String? =

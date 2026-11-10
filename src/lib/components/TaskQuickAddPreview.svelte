@@ -78,7 +78,7 @@
 		{/if}
 		{#if parsed.visibilityExplicit}
 			<span class="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600" title="Visibility">
-				{parsed.visibility === 'private' ? '🔒 Private' : '🌐 Public'}
+				{parsed.visibility === 'private' ? 'Private' : 'Public'}
 			</span>
 		{/if}
 		{#each parsed.tags as tag (tag)}

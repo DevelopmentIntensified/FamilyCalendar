@@ -28,12 +28,15 @@
 		filteredCompleted: TaskRowTask[];
 		currentUserId: string | undefined;
 		busyId: string | null;
+		/** The row whose start/stop focus command is in flight (#315). */
+		focusBusyId: string | null;
 		celebratingId: string | null;
 		confirmDeleteId: string | null;
 		confirmClear: boolean;
 		clearBusy: boolean;
 		assigneeName: (task: TaskRowTask) => string;
 		onToggle: (id: string) => void;
+		onFocus: (task: TaskRowTask) => void;
 		onEdit: (task: TaskRowTask) => void;
 		onRespond: (task: TaskRowTask, accept: boolean) => void;
 		onAdvance: (id: string) => void;
@@ -61,12 +64,14 @@
 		filteredCompleted,
 		currentUserId,
 		busyId,
+		focusBusyId,
 		celebratingId,
 		confirmDeleteId,
 		confirmClear,
 		clearBusy,
 		assigneeName,
 		onToggle,
+		onFocus,
 		onEdit,
 		onRespond,
 		onAdvance,
@@ -314,9 +319,11 @@
 									{currentUserId}
 									assigneeName={assigneeName(task)}
 									busy={busyId === task.id}
+									focusBusy={focusBusyId === task.id}
 									celebrating={celebratingId === task.id}
 									confirmDelete={confirmDeleteId === task.id}
 									onToggle={() => onToggle(task.id)}
+									onFocus={() => onFocus(task)}
 									onEdit={() => onEdit(task)}
 									onAccept={() => onRespond(task, true)}
 									onDecline={() => onRespond(task, false)}

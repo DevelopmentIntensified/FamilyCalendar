@@ -4,7 +4,8 @@ package com.familyplanz.app.data
 interface EventSource {
 	suspend fun monthEvents(year: Int, month: Int): ApiResult<List<EventDto>>
 
-	suspend fun parseQuickAdd(input: String): ApiResult<QuickParseResponse>
+	/** Quick-add parse; [useCloud] is the user's cloud-AI flag (#302). */
+	suspend fun parseQuickAdd(input: String, useCloud: Boolean = true): ApiResult<QuickParseResponse>
 
 	suspend fun createEvent(request: CreateEventRequest): ApiResult<EventDto>
 
@@ -25,8 +26,8 @@ class NetworkEventSource(
 		return result
 	}
 
-	override suspend fun parseQuickAdd(input: String): ApiResult<QuickParseResponse> =
-		apiCall { api.parseEvent(QuickParseRequest(input)) }
+	override suspend fun parseQuickAdd(input: String, useCloud: Boolean): ApiResult<QuickParseResponse> =
+		apiCall { api.parseEvent(QuickParseRequest(input, useCloud)) }
 
 	override suspend fun createEvent(request: CreateEventRequest): ApiResult<EventDto> =
 		apiCall { api.createEvent(request).event }

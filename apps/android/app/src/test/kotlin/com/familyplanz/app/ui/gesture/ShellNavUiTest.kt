@@ -86,7 +86,8 @@ class ShellNavUiTest {
 		rule.onNodeWithText("Settings").performClick()
 
 		entryShown(AppRoute.ACCOUNT)
-		rule.onNodeWithText(COMING_SOON).assertExists()
+		rule.onNodeWithText(COMING_SOON).assertDoesNotExist()
+		rule.onNodeWithText("Account Settings").assertExists()
 	}
 
 	@Test

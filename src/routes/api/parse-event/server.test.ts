@@ -8,16 +8,25 @@ vi.mock('$lib/server/utils/userTimezone', () => ({
 }));
 
 import { POST, type ParseEventDeps } from './+server';
+import { clearRateLimitState } from '$lib/server/utils/rateLimit';
 
 // Untyped vi.fn()s: fakes flow into the typed deps seam, so the SUT stays
 // type-checked while mocks accept any resolved value without casts.
 const chatJson = vi.fn();
 const llmConfigured = vi.fn();
 const canUseAiFeature = vi.fn();
+const getUserSubscription = vi.fn();
 const recordAiUsage = vi.fn();
 
 function makeDeps(overrides?: Partial<ParseEventDeps>): ParseEventDeps {
-	return { chatJson, llmConfigured, canUseAiFeature, recordAiUsage, ...overrides };
+	return {
+		chatJson,
+		llmConfigured,
+		canUseAiFeature,
+		getUserSubscription,
+		recordAiUsage,
+		...overrides
+	};
 }
 
 function mockEvent(body: { input: string; useCloud?: boolean }, user?: { id: string }) {
@@ -32,8 +41,13 @@ function mockEvent(body: { input: string; useCloud?: boolean }, user?: { id: str
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	// The limiter's buckets are module scope; a case that exhausts the window
+	// must not leak that state into the next one.
+	clearRateLimitState();
 	// Under-cap by default: the cap tests override this explicitly.
 	canUseAiFeature.mockResolvedValue({ allowed: true, remaining: 42 });
+	// No paid plan unless a case says otherwise: callers are on the free cap.
+	getUserSubscription.mockResolvedValue({ tierName: 'free' });
 	// One single-event input; regex path always parses it locally.
 });
 
@@ -152,6 +166,70 @@ describe('POST /api/parse-event', () => {
 		expect(recordAiUsage).toHaveBeenCalledTimes(1);
 		// A null vendor response falls through to the regex fallback.
 		expect(chatJson).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('POST /api/parse-event — plan-aware short-window cap (issue 317)', () => {
+	const send = (user = { id: 'user-1' }, useCloud?: boolean) =>
+		POST(mockEvent({ input: 'dinner tomorrow at 6pm', useCloud }, user), makeDeps());
+
+	function mockCloud(): void {
+		llmConfigured.mockReturnValue(true);
+		chatJson.mockResolvedValue({ title: 'Dinner', date: '2026-09-07' });
+	}
+
+	it('keeps the free tier at 20 cloud parses per 5 minutes, then falls back to regex', async () => {
+		mockCloud();
+		getUserSubscription.mockResolvedValue({ tierName: 'free' });
+
+		for (let i = 0; i < 20; i++) {
+			const body = await (await send()).json();
+			expect(body.method).toBe('cloud');
+		}
+
+		const over = await send();
+
+		// Over the short-window cap is silent: the local parser answers, no 429
+		// (the monthly AI cap is the only user-facing refusal).
+		expect(over.status).toBe(200);
+		expect((await over.json()).method).toBe('regex');
+		expect(chatJson).toHaveBeenCalledTimes(20);
+	});
+
+	it('gives a paid tier 3x the free cap (60 cloud parses per 5 minutes)', async () => {
+		mockCloud();
+		getUserSubscription.mockResolvedValue({ tierName: 'family_master' });
+
+		for (let i = 0; i < 60; i++) {
+			const body = await (await send()).json();
+			expect(body.method).toBe('cloud');
+		}
+
+		const over = await send();
+
+		expect(over.status).toBe(200);
+		expect((await over.json()).method).toBe('regex');
+		expect(chatJson).toHaveBeenCalledTimes(60);
+		expect(getUserSubscription).toHaveBeenCalledWith('user-1');
+	});
+
+	it('treats a caller with no subscription row as free', async () => {
+		mockCloud();
+		getUserSubscription.mockResolvedValue(null);
+
+		for (let i = 0; i < 20; i++) await send();
+
+		expect((await (await send()).json()).method).toBe('regex');
+		expect(chatJson).toHaveBeenCalledTimes(20);
+	});
+
+	it('never reads the plan for anonymous or cloud-opted-out callers', async () => {
+		mockCloud();
+
+		await POST(mockEvent({ input: 'dinner tomorrow at 6pm' }), makeDeps());
+		await send({ id: 'user-1' }, false);
+
+		expect(getUserSubscription).not.toHaveBeenCalled();
 	});
 });
 

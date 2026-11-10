@@ -10,11 +10,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -52,32 +58,43 @@ fun AccountTextField(label: String, value: String, onValueChange: (String) -> Un
 	)
 }
 
-/** A preference row: label, optional hint, trailing switch. */
+/**
+ * A text setting saved on purpose, not per keystroke (#310): the field keeps
+ * a local draft and "Save" shows once it differs from [value]. The server
+ * refuses half-typed values (a partial time zone, a partial colour), so
+ * sending every keystroke would make the field impossible to edit.
+ */
 @Composable
-fun AccountSwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, hint: String? = null) {
-	Row(modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
-		Column(modifier = Modifier.weight(1f)) {
-			Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = FpTheme.colors.textStrong)
-			hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = FpTheme.colors.textMuted) }
+fun AccountCommitField(label: String, value: String, onCommit: (String) -> Unit, placeholder: String? = null) {
+	var draft by remember(value) { mutableStateOf(value) }
+	Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+		OutlinedTextField(
+			value = draft,
+			onValueChange = { draft = it },
+			label = { Text(label) },
+			placeholder = placeholder?.let { { Text(it) } },
+			singleLine = true,
+			shape = FpShape.Input,
+			colors = fpFieldColors(),
+			modifier = Modifier.weight(1f),
+		)
+		if (draft.trim() != value) {
+			Text(
+				"Save",
+				style = MaterialTheme.typography.bodyMedium,
+				fontWeight = FontWeight.SemiBold,
+				color = MaterialTheme.colorScheme.primary,
+				modifier = Modifier
+					.clickable(role = Role.Button) { onCommit(draft.trim()) }
+					.semantics { contentDescription = "Save $label" }
+					.heightIn(min = 44.dp)
+					.padding(vertical = 12.dp),
+			)
 		}
-		Switch(checked = checked, onCheckedChange = onCheckedChange)
 	}
 }
 
-/** The section's submit: 48 dp primary pill, full width. */
-@Composable
-fun AccountSaveButton(label: String, onClick: () -> Unit) {
-	FpPrimaryButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-		Text(label, fontWeight = FontWeight.SemiBold)
-	}
-}
-
-/** A red refusal line under the control that caused it. */
-@Composable
-fun AccountInlineError(text: String?) {
-	if (text.isNullOrBlank()) return
-	Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-}
+/** The section's submit lives in AccountControls.kt alongside the other cross-card controls. */
 
 /** AC-AC-3: First Name and Last Name. */
 @Composable

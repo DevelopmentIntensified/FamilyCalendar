@@ -1,5 +1,6 @@
 package com.familyplanz.app.ui.gesture
 
+import android.os.Looper
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -10,13 +11,16 @@ import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.data.ParsedEventDto
 import com.familyplanz.app.data.QuickParseResponse
 import com.familyplanz.app.ui.PhoneTab
+import com.familyplanz.app.ui.calendar.CalendarQuickAdd
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.RobolectricTestRunner
+import java.time.Duration
 import java.time.YearMonth
 
 /** Issue 269: quick-add phrase -> parsed form fields -> confirm creates (AC-CAL-29..31). */
@@ -28,6 +32,12 @@ class QuickAddUiTest {
 
 	private val host = HostHarness(rule)
 	private val date = YearMonth.now().atDay(10).toString()
+
+	/** The auto-parse is debounced (#302); Robolectric's clock is frozen until a test advances it. */
+	private fun pastAutoparseDebounce() {
+		shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(CalendarQuickAdd.AUTOPARSE_DELAY_MS + 50))
+		rule.waitForIdle()
+	}
 
 	private fun parseToFilledForm() {
 		host.repo.parse = ApiResult.Ok(
@@ -41,9 +51,10 @@ class QuickAddUiTest {
 		host.waitForText("Parse")
 
 		rule.onNodeWithTag("quick-add").performTextInput("family dinner on the 10th at 7")
+		pastAutoparseDebounce()
 		rule.onNodeWithText("Parse").performClick()
 
-		host.waitFor { host.repo.parsed == listOf("family dinner on the 10th at 7") }
+		host.waitFor { host.repo.parsed.isNotEmpty() }
 		host.waitForText("Family dinner")
 	}
 
@@ -80,10 +91,19 @@ class QuickAddUiTest {
 		host.waitForText("Parse")
 
 		rule.onNodeWithTag("quick-add").performTextInput("zzz")
+		pastAutoparseDebounce()
 		rule.onNodeWithText("Parse").performClick()
 
 		host.waitForText("Parsed wrong? Report this phrase")
 		rule.onNodeWithText("Couldn't check that with the parser just now - fill the fields below manually.").assertExists()
+		assertEquals(0, host.repo.created.size)
+
+		// The report line stays as long as no report was sent (#302): a re-type keeps it offering.
+		val parsedBefore = host.repo.parsed.size
+		rule.onNodeWithTag("quick-add").performTextInput(" again")
+		pastAutoparseDebounce()
+		host.waitFor { host.repo.parsed.size > parsedBefore }
+		host.waitForText("Parsed wrong? Report this phrase")
 		assertEquals(0, host.repo.created.size)
 	}
 }

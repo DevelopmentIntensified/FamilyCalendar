@@ -107,6 +107,7 @@ data class TaskSectionsDto(
 @Serializable
 data class FamilyRosterDto(val familyId: String? = null, val members: List<RosterMemberDto> = emptyList())
 
+/** POST /api/events body (#301): every field the form collects. Nulls are omitted on the wire. */
 @Serializable
 data class CreateEventRequest(
 	val title: String,
@@ -115,6 +116,13 @@ data class CreateEventRequest(
 	val allDay: Boolean = false,
 	val location: String? = null,
 	val description: String? = null,
+	val calendarId: String? = null,
+	val reminderMinutes: Int? = null,
+	val recurrenceFrequency: String? = null,
+	val recurrenceInterval: Int? = null,
+	val recurrenceByDay: List<String>? = null,
+	val recurrenceCount: Int? = null,
+	val recurrenceUntil: String? = null,
 )
 
 @Serializable

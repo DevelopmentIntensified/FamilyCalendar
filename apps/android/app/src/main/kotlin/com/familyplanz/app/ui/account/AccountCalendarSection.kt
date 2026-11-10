@@ -9,10 +9,9 @@ import androidx.compose.ui.unit.dp
 import com.familyplanz.app.ui.theme.FpTheme
 
 /**
- * Calendar Settings (2.12): week start, zone, default view, default calendar
- * and colour, the family-sync switch, SMART EVENT CREATION, the DAILY VERSE
- * toggle with its translation and the SPONSORSHIP toggle with the consent
- * trail (AC-AC-4..7).
+ * Calendar Settings (2.12): week start, zone, default view and colour, the
+ * family-sync switch, SMART EVENT CREATION, the DAILY VERSE toggle with its
+ * translation and the SPONSORSHIP toggle with the consent trail (AC-AC-4..7).
  */
 @Composable
 @Suppress("LongMethod")
@@ -25,20 +24,14 @@ fun CalendarSettingsSection(state: AccountState, actions: AccountActions) {
 			selected = settings.weekStart,
 			onSelect = actions.onWeekStart,
 		)
-		AccountTextField("Time Zone", settings.timeZone, actions.onTimeZone)
+		AccountCommitField("Time Zone", settings.timeZone, actions.onTimeZone, placeholder = "America/Chicago")
 		AccountChoiceRow(
 			label = "Default view",
 			options = DEFAULT_VIEW_OPTIONS,
 			selected = settings.defaultView,
 			onSelect = actions.onDefaultView,
 		)
-		AccountTextField(
-			"Default calendar",
-			settings.defaultCalendarId.orEmpty(),
-			{ actions.onColour(settings.color) },
-			placeholder = "None (use first available)",
-		)
-		AccountTextField("Colour", settings.color, actions.onColour)
+		AccountCommitField("Colour", settings.color, actions.onColour, placeholder = "#3b82f6")
 		AccountSwitchRow(
 			label = "Sync to family calendar",
 			hint = "Events you add also land on your family's calendar.",

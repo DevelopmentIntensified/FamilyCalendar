@@ -94,27 +94,29 @@ describe('EditTaskDialog on a short screen', () => {
 		expect(screen.getByText('Save').closest('form')).toBe(form);
 	});
 
-	describe('category field (#280)', () => {
-		it('prefills the task category and offers the viewer list as suggestions', () => {
+	describe('category dropdown (#319)', () => {
+		it('prefills the task category and offers the viewer list in a dropdown', () => {
 			render(EditTaskDialog, {
 				props: props({ task: { ...task, category: 'Work' }, categories: ['Errands', 'Work'] })
 			});
-			// SAFETY: the Category field is an <input> in EditTaskDialog.
-			const input = screen.getByLabelText('Category') as HTMLInputElement;
-			expect(input.value).toBe('Work');
-			const listId = input.getAttribute('list');
-			expect(listId).toBeTruthy();
-			const options = [...document.querySelectorAll(`datalist#${listId} option`)].map(
-				// SAFETY: datalist children are <option> elements.
-				(o) => (o as HTMLOptionElement).value
-			);
-			expect(options).toEqual(['Errands', 'Work']);
+			// SAFETY: the Category control is a <select> in CategorySelect.
+			const select = screen.getByLabelText('Category') as HTMLSelectElement;
+			expect(select.value).toBe('Work');
+			expect([...select.options].map((o) => o.textContent)).toEqual([
+				'No category',
+				'Errands',
+				'Work',
+				'+ Add new…'
+			]);
 		});
 
-		it('allows free entry', async () => {
+		it('adds a brand-new name through the add-new field', async () => {
 			const p = props({ categories: ['Work'] });
 			render(EditTaskDialog, { props: p });
-			await fireEvent.input(screen.getByLabelText('Category'), {
+			await fireEvent.change(screen.getByLabelText('Category'), {
+				target: { value: '__add_new__' }
+			});
+			await fireEvent.input(screen.getByLabelText('New category name'), {
 				target: { value: 'Deep Work' }
 			});
 			await fireEvent.click(screen.getByText('Save'));
@@ -125,8 +127,8 @@ describe('EditTaskDialog on a short screen', () => {
 			const p = props({ task: { ...task, category: 'Work' }, categories: ['Work'] });
 			render(EditTaskDialog, { props: p });
 			await fireEvent.click(screen.getByRole('button', { name: 'Clear category' }));
-			// SAFETY: the Category field is an <input> in EditTaskDialog.
-			expect((screen.getByLabelText('Category') as HTMLInputElement).value).toBe('');
+			// SAFETY: the Category control is a <select> in CategorySelect.
+			expect((screen.getByLabelText('Category') as HTMLSelectElement).value).toBe('');
 			await fireEvent.click(screen.getByText('Save'));
 			const draft = p.onSave.mock.calls[0][0];
 			expect(draft.category).toBe('');

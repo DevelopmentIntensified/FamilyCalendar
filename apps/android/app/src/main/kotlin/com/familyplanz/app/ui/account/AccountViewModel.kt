@@ -8,8 +8,8 @@ import com.familyplanz.app.data.ApiResult
 import com.familyplanz.app.data.ApiTokenDto
 import com.familyplanz.app.data.CalendarSettingsDto
 import com.familyplanz.app.data.ConsentRowDto
+import com.familyplanz.app.data.FamiliesOverviewDto
 import com.familyplanz.app.data.FamilyCardDto
-import com.familyplanz.app.data.FamilySource
 import com.familyplanz.app.data.NotificationPreferencesDto
 import com.familyplanz.app.data.SubscriptionDto
 import com.familyplanz.app.data.VerseTranslationDto
@@ -22,6 +22,11 @@ import kotlinx.serialization.json.put
 
 /** The green/red banner under the identity card (AC-AC-9). */
 data class AccountBanner(val text: String, val success: Boolean = true)
+
+/** The data export's progress and outcome banners (`AccountDangerSection.svelte:19,30,33`). */
+const val EXPORT_PREPARING = "Preparing your data export\u2026"
+const val EXPORT_DONE = "Data export downloaded."
+const val EXPORT_FAILED = "Data export failed \u2014 please try again."
 
 /**
  * Everything the Account screen shows (2.12): the identity card, the twelve
@@ -53,17 +58,21 @@ data class AccountState(
 	val deleting: Boolean = false,
 	/** Set when the account was deleted: the entry returns to sign-in. */
 	val deleted: Boolean = false,
+	/** A data export is being fetched and written (#189). */
+	val exporting: Boolean = false,
 	val banner: AccountBanner? = null,
 )
 
 /**
  * The Account screen's ViewModel. Reads come from [source]; the "Your
- * families" list reuses [familySource] so the two screens never disagree.
+ * families" list is read through [families] (the Family screens' own edge)
+ * so the two screens never disagree.
  */
 @Suppress("TooManyFunctions")
 class AccountViewModel(
 	private val source: AccountSettingsSource,
-	private val familySource: FamilySource,
+	/** The "Your families" list, read through the Family screens' own edge so the two never disagree. */
+	private val families: suspend () -> ApiResult<FamiliesOverviewDto>,
 ) : ViewModel() {
 	private val _state = MutableStateFlow(AccountState())
 	val state: StateFlow<AccountState> = _state
@@ -80,7 +89,7 @@ class AccountViewModel(
 			val notifications = (source.notificationPreferences() as? ApiResult.Ok)?.value
 			val subscription = (source.subscription() as? ApiResult.Ok)?.value
 			val tokens = (source.apiTokens() as? ApiResult.Ok)?.value ?: emptyList()
-			val families = (familySource.overview() as? ApiResult.Ok)?.value?.families ?: emptyList()
+			val familyCards = (families() as? ApiResult.Ok)?.value?.families ?: emptyList()
 			_state.value = _state.value.copy(
 				loading = false,
 				me = me,
@@ -90,7 +99,7 @@ class AccountViewModel(
 				notifications = notifications ?: NotificationPreferencesDto(),
 				subscription = subscription,
 				tokens = tokens,
-				families = families,
+				families = familyCards,
 				firstName = me?.firstName.orEmpty(),
 				lastName = me?.lastName.orEmpty(),
 				emailDraft = me?.email.orEmpty(),
@@ -109,6 +118,10 @@ class AccountViewModel(
 
 	fun setLastName(value: String) {
 		_state.value = _state.value.copy(lastName = value)
+	}
+
+	fun setEmail(value: String) {
+		_state.value = _state.value.copy(emailDraft = value)
 	}
 
 	/** AC-AC-3: saves both names; the identity card reads them straight back. */
@@ -290,6 +303,24 @@ class AccountViewModel(
 					banner = AccountBanner(result.error.message, success = false),
 				)
 			}
+		}
+	}
+
+	/**
+	 * #189: fetch the caller's data and hand it to [write] (the file the user
+	 * picked). [write] gets null when the fetch failed, so it can remove the
+	 * empty file; it answers whether the file was saved. The banner names each step.
+	 */
+	fun exportData(write: suspend (json: String?) -> Boolean) {
+		if (_state.value.exporting) return
+		_state.value = _state.value.copy(exporting = true, banner = AccountBanner(EXPORT_PREPARING))
+		viewModelScope.launch {
+			val json = (source.exportData() as? ApiResult.Ok)?.value
+			val saved = write(json)
+			_state.value = _state.value.copy(
+				exporting = false,
+				banner = AccountBanner(if (saved) EXPORT_DONE else EXPORT_FAILED, success = saved),
+			)
 		}
 	}
 

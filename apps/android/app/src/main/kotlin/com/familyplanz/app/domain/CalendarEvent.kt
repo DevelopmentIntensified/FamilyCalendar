@@ -33,6 +33,10 @@ data class CalendarEvent(
 	val reminderMinutes: Int? = null,
 	val recurrenceFrequency: String? = null,
 	val recurrenceInterval: Int? = null,
+	/** The rest of the series rule, carried so an edit sends it back untouched (#301). */
+	val recurrenceByDay: List<String>? = null,
+	val recurrenceCount: Int? = null,
+	val recurrenceUntil: String? = null,
 	val attendance: Attendance? = null,
 	/** Calendar colour (G2) or the sponsored amber; null = chipColor fallback slate-400. */
 	val color: String? = null,
@@ -43,7 +47,11 @@ data class CalendarEvent(
 	/** The row a write targets: a recurring occurrence edits its master. */
 	val serverId: String get() = masterId ?: id.substringBefore('~')
 
-	val isRecurring: Boolean get() = recurrenceFrequency != null || occurrence
+	/**
+	 * A repeating event. The server stamps `masterId` / `occurrenceDate` on every display row,
+	 * one-offs included (`eventDisplayService.ts` expandEventsForUser), so only the rule tells (#301).
+	 */
+	val isRecurring: Boolean get() = recurrenceFrequency != null
 }
 
 /** A due task on the calendar (`dueTasks` in `calendar/+page.server.ts`): open, with a due date. */
@@ -87,6 +95,9 @@ object EventMapper {
 			reminderMinutes = dto.reminderMinutes,
 			recurrenceFrequency = dto.recurrenceFrequency,
 			recurrenceInterval = dto.recurrenceInterval,
+			recurrenceByDay = dto.recurrenceByDay,
+			recurrenceCount = dto.recurrenceCount,
+			recurrenceUntil = dto.recurrenceUntil,
 			attendance = dto.attendance?.let { Attendance(it.going, it.invited, it.requiredPending) },
 			color = dto.color,
 			isAd = dto.isAd,

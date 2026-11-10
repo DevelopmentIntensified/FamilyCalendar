@@ -1,5 +1,6 @@
 package com.familyplanz.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -148,13 +149,21 @@ private fun SignedInShell(
 		menuOpen = false
 		nav.open(route)
 	}
+	// #304: system back walks the route history. With none left the app does not intercept it, so the system closes the app.
+	BackHandler(enabled = nav.canGoBack) { nav.back() }
+	val goForward: () -> Unit = { nav.forward() }
 	val density = LocalDensity.current
 	val imeOpen = navHiddenByKeyboard(with(density) { WindowInsets.ime.getBottom(this).toDp().value })
 
 	BoxWithConstraints(Modifier.fillMaxSize()) {
 		val menuMax = maxHeight * 0.8f
 		Column(Modifier.fillMaxSize()) {
-			FpNavbar(menuOpen, onLogo = { open(AppRoute.CALENDAR) }, onToggleMenu = { menuOpen = !menuOpen })
+			FpNavbar(
+				menuOpen,
+				onLogo = { open(AppRoute.CALENDAR) },
+				onToggleMenu = { menuOpen = !menuOpen },
+				onForward = goForward.takeIf { nav.canGoForward },
+			)
 			FpMobileMenu(
 				state = MenuState(open = menuOpen, active = nav.route, admin = me?.roles?.contains("admin") == true),
 				actions = MenuActions(

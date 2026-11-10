@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.familyplanz.app.data.TaskDto
@@ -76,11 +77,16 @@ private fun Top3GroupBlock(group: Top3Group, state: DashboardUiState, actions: D
 	}
 }
 
+/**
+ * One ranked row (#303): the number and the check lead, the title owns the
+ * rest of the width, and the badges plus the priority controls flow under
+ * it, wrapping when they do not fit on one line.
+ */
 @Composable
 private fun Top3Row(task: TaskDto, number: Int, state: DashboardUiState, actions: DashboardActions) {
 	Row(
 		horizontalArrangement = Arrangement.spacedBy(12.dp),
-		verticalAlignment = Alignment.CenterVertically,
+		verticalAlignment = Alignment.Top,
 		modifier = Modifier
 			.fillMaxWidth()
 			.padding(vertical = 2.dp)
@@ -89,22 +95,38 @@ private fun Top3Row(task: TaskDto, number: Int, state: DashboardUiState, actions
 			.padding(horizontal = 8.dp, vertical = 8.dp)
 			.testTag("top3-row-${task.id}"),
 	) {
-		Text("$number", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate.S300, modifier = Modifier.width(16.dp))
-		CheckCircle("Mark done: ${task.title}", state.busyId != task.id) { actions.onToggleTask(task) }
-		Column(Modifier.weight(1f)) {
-			Text(task.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Slate.S900)
+		Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+			Text("$number", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate.S300, modifier = Modifier.width(16.dp))
+			CheckCircle("Mark done: ${task.title}", state.busyId != task.id) { actions.onToggleTask(task) }
+		}
+		// 12 dp lines the title's first line up with the centre of the 44 dp check target.
+		Column(Modifier.weight(1f).padding(top = 12.dp)) {
+			Text(
+				task.title,
+				fontSize = 14.sp,
+				fontWeight = FontWeight.Medium,
+				color = Slate.S900,
+				maxLines = 2,
+				overflow = TextOverflow.Ellipsis,
+				modifier = Modifier.fillMaxWidth().testTag("top3-title-${task.id}"),
+			)
 			AssigneeLine(task, state)
-			FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+			FlowRow(
+				horizontalArrangement = Arrangement.spacedBy(4.dp),
+				verticalArrangement = Arrangement.spacedBy(2.dp),
+				modifier = Modifier.fillMaxWidth(),
+			) {
+				val centred = Modifier.align(Alignment.CenterVertically)
+				dueBadge(task.dueDate)?.let { FpChip(it, dueToneChip(task.dueDate), centred.testTag("top3-due-${task.id}")) }
 				if (task.familyId != null) {
-					FpChip("Family", FpTheme.colors.family)
+					FpChip("Family", FpTheme.colors.family, centred)
 				} else {
-					FpChip(if (task.visibility == "private") "🔒 Private" else "🌐 Public", FpTheme.colors.due)
+					FpChip(if (task.visibility == "private") "🔒 Private" else "🌐 Public", FpTheme.colors.due, centred)
 				}
-				task.category?.let { FpChip(it, FpTheme.colors.category) }
+				task.category?.let { FpChip(it, FpTheme.colors.category, centred) }
+				PrioritySegments(task, state, actions, centred)
 			}
 		}
-		dueBadge(task.dueDate)?.let { FpChip(it, dueToneChip(task.dueDate), Modifier.testTag("top3-due-${task.id}")) }
-		PrioritySegments(task, state, actions)
 	}
 }
 
@@ -131,9 +153,9 @@ private fun memberLine(task: TaskDto, state: DashboardUiState): String = when {
 
 /** Low / Normal / High: 44 dp targets, the current one wearing its own tone. */
 @Composable
-private fun PrioritySegments(task: TaskDto, state: DashboardUiState, actions: DashboardActions) {
+private fun PrioritySegments(task: TaskDto, state: DashboardUiState, actions: DashboardActions, modifier: Modifier = Modifier) {
 	val current = state.priorityOf(task)
-	Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+	Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = modifier) {
 		listOf("low" to "Low", "normal" to "Normal", "high" to "High").forEach { (key, label) ->
 			val on = current == key
 			Text(

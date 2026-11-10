@@ -105,15 +105,24 @@
 		<DashboardInfoBand {dailyVerse} />
 	{/if}
 
-	<div data-testid="dashboard-card-band" class="space-y-4">
-		<!-- Row 1 — the day's own reading, across the full width (118). This is
-		     the band the Member Strip vacated, and it now says what it is for:
-		     three cards side by side instead of one card and a half-empty column.
-		     `md:grid-cols-2` is 103's pinned glance/top-3 pairing, still intact. -->
+	<!-- 316: on desktop the band is ONE two-column grid, not two three-up rows.
+	     Above 1024px both row groups go `display: contents`, so their cards
+	     become items of this grid and flow two-up: glance | top-3,
+	     completed | board, kids | groceries. Every row is full — hiding a card
+	     closes the gap instead of leaving a dead lane — and `items-stretch`
+	     makes the two cards of a row share one height. Below 1024px the band
+	     is the same single-column stack it has always been. -->
+	<div
+		data-testid="dashboard-card-band"
+		class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch"
+	>
+		<!-- Row 1 — the day's own reading (118). `md:grid-cols-2` is 103's
+		     pinned glance/top-3 pairing, still intact at the 768–1023px tier;
+		     at ≥1024px the group hands its cards to the band's two-column grid. -->
 		{#if showsModule(modules, 'glance') || showsModule(modules, 'top3') || showsModule(modules, 'completed')}
 			<div
 				data-testid="dashboard-day-band"
-				class="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3"
+				class="grid grid-cols-1 items-start gap-4 md:grid-cols-2 lg:contents"
 			>
 				{#if showsModule(modules, 'glance')}
 					<TodayGlanceCard
@@ -133,14 +142,15 @@
 			</div>
 		{/if}
 
-		<!-- Row 2 — the small family cards, three-up (118). "This doesn't need to
-		     be as wide": the board was one 876px card that read as the page. It is
-		     one column of a row now, and the two cells the Member Strip's row gave
-		     up hold Kids' Schedule and Groceries, which are day-scoped and small.
-		     Their internal grouping is 101's business and is untouched.
-		     `items-start` so a short card is not stretched into a tall empty one. -->
+		<!-- Row 2 — the small family cards (118). "This doesn't need to be as
+		     wide": the board was one 876px card that read as the page. Their
+		     internal grouping is 101's business and is untouched. Below
+		     1024px this is the single-column stack it always was; above it the
+		     group is `display: contents`, so the board shares a row with
+		     Completed Today and kids/groceries close the grid — no half-empty
+		     lane, and the band's `items-stretch` reconciles their heights. -->
 		{#if (familyId && showsModule(modules, 'board')) || (familyId && showsModule(modules, 'kids')) || showsModule(modules, 'groceries')}
-			<div data-testid="dashboard-family-row" class="grid items-start gap-4 lg:grid-cols-3">
+			<div data-testid="dashboard-family-row" class="grid grid-cols-1 items-start gap-4 lg:contents">
 				{#if familyId && showsModule(modules, 'board')}
 					<FamilyTaskBoardCard
 						tasks={familyTasks}

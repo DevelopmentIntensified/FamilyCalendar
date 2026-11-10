@@ -7,7 +7,7 @@ import type { PageData } from './$types';
 vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn(() => Promise.resolve()) }));
 vi.mock('$lib/client/toasts', () => ({ pushToast: vi.fn() }));
 
-function makeData() {
+function makeData(extraTasks: object[] = []) {
 	return {
 		data: {
 			user: { id: 'u1' },
@@ -26,7 +26,8 @@ function makeData() {
 						eventId: null,
 						createdAt: '2026-09-01T10:00:00.000Z',
 						tags: []
-					}
+					},
+					...extraTasks
 				]
 			}
 		} as unknown as PageData
@@ -83,7 +84,41 @@ describe('tasks page — clear completed', () => {
 	});
 });
 
-// #283: the edit dialog's save names what happened, both ways.
+// #315: the row messages the desktop clock through the same device command
+// body the phone enqueues; the tapped row flips to active and the SAME
+// control is the stop on the next tap.
+describe('tasks page — focus command (#315)', () => {
+	function withOpenTask() {
+		return makeData([
+			{
+				id: 't3',
+				title: 'Write the report',
+				notes: null,
+				dueDate: null,
+				completedAt: null,
+				userId: 'u1',
+				eventId: null,
+				createdAt: '2026-09-01T10:00:00.000Z',
+				tags: []
+			}
+		]);
+	}
+
+	const focusPosts = () =>
+		vi.mocked(fetch).mock.calls.filter(([u]) => String(u) === '/api/taskfocus/commands');
+
+	it('start flips the row; the second tap stops it', async () => {
+		render(TasksPage, withOpenTask());
+		await fireEvent.click(screen.getByLabelText('Start focus'));
+		await waitFor(() => expect(focusPosts()).toHaveLength(1));
+		expect(focusPosts()[0][1].body).toBe('{"command":"start","taskId":"t3"}');
+		await waitFor(() => expect(screen.getByLabelText('Stop focus')).toBeTruthy());
+		await fireEvent.click(screen.getByLabelText('Stop focus'));
+		await waitFor(() => expect(focusPosts()).toHaveLength(2));
+		expect(focusPosts()[1][1].body).toBe('{"command":"stop"}');
+	});
+});
+
 describe('tasks page — edit save feedback', () => {
 	function withOpenTask() {
 		const d = makeData();

@@ -13,7 +13,7 @@
 	import { splitTaskRecords } from '$lib/utils/taskBulk';
 	import { submitTaskQuickAdd } from '$lib/client/taskSubmit';
 	import { pushToast } from '$lib/client/toasts';
-	import CategoryField from './CategoryField.svelte';
+	import CategorySelect from './CategorySelect.svelte';
 
 	interface Props {
 		familyRoster: { userId: string; firstName: string; lastName: string }[];
@@ -23,7 +23,7 @@
 		onError: (message: string) => void;
 		/** Optimistic insert: page prepends the created task instantly (invalidateAll reconciles). */
 		onAdded?: (task: unknown) => void;
-		/** #280: the viewer's category names (suggestions; free entry allowed). */
+		/** #319: the viewer's category names for the dropdown. */
 		categories?: string[];
 	}
 
@@ -415,7 +415,7 @@
 
 		{#if showMore}
 			<div class="mt-2 max-w-xs">
-				<CategoryField
+				<CategorySelect
 					id="add-task-category"
 					value={newCategory}
 					{categories}

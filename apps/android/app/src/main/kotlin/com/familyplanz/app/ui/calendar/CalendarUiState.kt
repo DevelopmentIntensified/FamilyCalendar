@@ -2,6 +2,7 @@ package com.familyplanz.app.ui.calendar
 
 import com.familyplanz.app.data.CalendarDto
 import com.familyplanz.app.data.CalendarSettingsDto
+import com.familyplanz.app.data.ParsedEventDto
 import com.familyplanz.app.data.RosterMemberDto
 import com.familyplanz.app.data.VerseDto
 import com.familyplanz.app.domain.CalendarEvent
@@ -86,10 +87,16 @@ data class CalendarUiState(
 	val range: RangeSelection? = null,
 	val plan: SmartPlan? = null,
 	val checklist: List<CalendarTask>? = null,
-	/** Create form's Quick Add: the phrase, the in-flight spinner and the amber fallback line. */
+	/** Create form's Quick Add: the phrase, the in-flight spinner and the amber fallback line (#302). */
 	val quickAdd: String = "",
 	val parsing: Boolean = false,
 	val parseFailed: Boolean = false,
+	/** The phrase the parser failed on, for the report affordance; false = nothing to report. */
+	val parseReportable: Boolean = false,
+	/** Once reported, the affordance flips to its ack line. */
+	val parseReported: Boolean = false,
+	/** A multi-event phrase hangs the panel here until the user creates or dismisses. */
+	val quickAddList: List<ParsedEventDto>? = null,
 	val toast: String? = null,
 ) {
 	val month: YearMonth get() = YearMonth.from(anchor)

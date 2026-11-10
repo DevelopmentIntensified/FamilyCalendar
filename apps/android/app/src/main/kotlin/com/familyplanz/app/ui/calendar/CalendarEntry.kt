@@ -8,6 +8,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.familyplanz.app.ui.nav.AppNav
 import com.familyplanz.app.ui.nav.AppRoute
+import com.familyplanz.app.ui.nav.navArgText
 import com.familyplanz.app.ui.shell.LocalAppModules
 import com.familyplanz.app.ui.shell.LocalShell
 import com.familyplanz.app.ui.shell.ShellMenuButton
@@ -26,8 +27,13 @@ fun CalendarEntry(nav: AppNav) {
 	val calVm = viewModel { modules.calendar.calendarViewModel(context) }
 	val ui by calVm.ui.collectAsStateWithLifecycle()
 
-	LaunchedEffect(Unit) {
-		nav.takeArg(AppRoute.CALENDAR)?.let(calVm::openDay)
+	// Keyed on a new argument (not Unit): a share, selection or reminder tap that
+	// lands while this tab is already showing must open too (#312, #311).
+	LaunchedEffect(nav.argSerial) {
+		nav.takeArg(AppRoute.CALENDAR)?.let { arg ->
+			val (day, text) = navArgText(arg)
+			if (text != null) calVm.openCreateFromSharedText(text) else day?.let(calVm::openDay)
+		}
 	}
 	LaunchedEffect(ui.unauthorized) {
 		if (ui.unauthorized) shell.endSession()
@@ -63,6 +69,7 @@ private fun calActions(vm: CalendarViewModel, nav: AppNav) = CalendarActions(
 		onOpen = vm::openSheet,
 		onClose = vm::closeSheet,
 		onMenu = { action -> menu(vm, nav, action) },
+		onCreateFromSelection = vm::openCreateFromSelection,
 	),
 	filters = CalendarFilterActions(
 		onToggleCalendar = vm::toggleCalendar,
@@ -88,6 +95,9 @@ private fun calActions(vm: CalendarViewModel, nav: AppNav) = CalendarActions(
 		onSubmit = vm::submitForm,
 		onClose = vm::closeSheet,
 		onQuickAdd = vm::setQuickAdd,
+		onReportParse = vm::reportQuickAdd,
+		onCreateAll = vm::createParsedAll,
+		onDismissMulti = vm::dismissQuickAddList,
 		onParse = vm::parseQuickAdd,
 	),
 	events = CalendarEventActions(

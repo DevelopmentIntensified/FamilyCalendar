@@ -48,16 +48,19 @@ const val NAVBAR_LOGO_TAG = "navbar-logo"
 const val MOBILE_MENU_TAG = "mobile-menu"
 const val OPEN_MENU = "Open menu"
 const val CLOSE_MENU = "Close menu"
+const val GO_FORWARD = "Go forward"
+const val NAVBAR_FORWARD_TAG = "navbar-forward"
 const val LOGOUT = "Logout"
 
 /**
  * Navbar.svelte at < 768 px: white, slate-200 bottom rule, `px-6 py-4`, the
  * 32 dp primary-600 Mark + "Family Planz" (`text-xl font-bold
  * text-slate-800`), and the 44 dp `rounded-lg` slate-600 hamburger. 44 +
- * 2×16 = 76 dp. The logo opens Calendar (owner Q4 default).
+ * 2×16 = 76 dp. The logo opens Calendar (owner Q4 default). [onForward] adds
+ * the #304 forward button, shown only while a back step left something ahead.
  */
 @Composable
-fun FpNavbar(menuOpen: Boolean, onLogo: () -> Unit, onToggleMenu: () -> Unit) {
+fun FpNavbar(menuOpen: Boolean, onLogo: () -> Unit, onToggleMenu: () -> Unit, onForward: (() -> Unit)? = null) {
 	Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).testTag(NAVBAR_TAG)) {
 		Row(
 			modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
@@ -80,23 +83,50 @@ fun FpNavbar(menuOpen: Boolean, onLogo: () -> Unit, onToggleMenu: () -> Unit) {
 				)
 				Text("Family Planz", style = FpWordmarkText, color = FpTheme.colors.wordmark, maxLines = 1)
 			}
+			NavbarActions(menuOpen, onToggleMenu, onForward)
+		}
+		HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+	}
+}
+
+/** The trailing buttons: the #304 forward chevron when a back step left something ahead, then the hamburger. */
+@Composable
+private fun NavbarActions(menuOpen: Boolean, onToggleMenu: () -> Unit, onForward: (() -> Unit)?) {
+	Row(verticalAlignment = Alignment.CenterVertically) {
+		// #304: shown only while a back step left something ahead.
+		if (onForward != null) {
 			Box(
 				modifier = Modifier
 					.size(44.dp)
 					.clip(MaterialTheme.shapes.small)
-					.clickable(role = Role.Button, onClick = onToggleMenu)
-					.semantics { contentDescription = if (menuOpen) CLOSE_MENU else OPEN_MENU },
+					.clickable(role = Role.Button, onClick = onForward)
+					.semantics { contentDescription = GO_FORWARD }
+					.testTag(NAVBAR_FORWARD_TAG),
 				contentAlignment = Alignment.Center,
 			) {
 				Icon(
-					painterResource(if (menuOpen) R.drawable.ic_fp_close else R.drawable.ic_fp_menu),
+					painterResource(R.drawable.ic_fp_chevron_right),
 					contentDescription = null,
 					tint = FpTheme.colors.textBody,
 					modifier = Modifier.size(24.dp),
 				)
 			}
 		}
-		HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+		Box(
+			modifier = Modifier
+				.size(44.dp)
+				.clip(MaterialTheme.shapes.small)
+				.clickable(role = Role.Button, onClick = onToggleMenu)
+				.semantics { contentDescription = if (menuOpen) CLOSE_MENU else OPEN_MENU },
+			contentAlignment = Alignment.Center,
+		) {
+			Icon(
+				painterResource(if (menuOpen) R.drawable.ic_fp_close else R.drawable.ic_fp_menu),
+				contentDescription = null,
+				tint = FpTheme.colors.textBody,
+				modifier = Modifier.size(24.dp),
+			)
+		}
 	}
 }
 

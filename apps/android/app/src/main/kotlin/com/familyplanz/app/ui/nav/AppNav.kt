@@ -10,9 +10,10 @@ import androidx.compose.runtime.setValue
 import com.familyplanz.app.ui.PhoneTab
 
 /**
- * The app's one navigation state: which [AppRoute] shows, plus an optional
- * one-shot argument for it (e.g. the day a reminder tap opens). No nav
- * library: flat destinations, no back stack beyond the system's.
+ * The app's one navigation state: which [AppRoute] shows, the routes behind
+ * it (system back walks them, #304), the ones a back step left ahead (the
+ * navbar's forward button), and an optional one-shot argument for the shown
+ * route (e.g. the day a reminder tap opens). No nav library: flat destinations.
  *
  * [initial] null = "follow the user's start setting": Calendar shows until
  * [applyStart] lands the [StartRouteProvider]'s answer. An explicit route
@@ -31,29 +32,82 @@ class AppNav(
 	var startDecided: Boolean = initial != null
 		private set
 
+	/** Routes system back returns to, oldest first; empty on the start screen (back then closes the app). */
+	var backStack: List<AppRoute> by mutableStateOf(emptyList())
+		private set
+
+	/** Routes a back step left ahead, nearest last; any new [open] clears them. */
+	var forwardStack: List<AppRoute> by mutableStateOf(emptyList())
+		private set
+
+	/**
+	 * Counts the arguments [open] handed over, so a screen that is already
+	 * showing sees a new one arrive: `key(nav.route)` keeps its composition
+	 * alive for a share to the tab it is on (#312).
+	 */
+	var argSerial: Int by mutableStateOf(0)
+		private set
+
+	val canGoBack: Boolean get() = backStack.isNotEmpty()
+
+	val canGoForward: Boolean get() = forwardStack.isNotEmpty()
+
 	private var pending: Pair<AppRoute, String>? = arg?.let { route to it }
 
 	/** The bottom-bar tab for [route]; null on menu-only destinations. */
 	val tab: PhoneTab? get() = PhoneTab.of(route)
 
+	/** Show [route]; the screen being left joins the back history. Re-opening the shown route only hands over [arg]. */
 	fun open(route: AppRoute, arg: String? = null) {
 		startDecided = true
 		pending = arg?.let { route to it }
+		if (arg != null) argSerial++
+		if (route == this.route) return
+		backStack = (backStack + this.route).takeLast(HISTORY_LIMIT)
+		forwardStack = emptyList()
 		this.route = route
 	}
 
-	/** Open the lane that claims [link] (see [DeepLinks]); false = nobody does, stay put. */
-	fun openLink(link: String?, arg: String? = null): Boolean {
-		val target = DeepLinks.resolve(link, deepLinks) ?: return false
-		open(target, arg)
+	/** System back: the previous route. False = already on the start screen (the caller lets the app close). */
+	fun back(): Boolean {
+		val previous = backStack.lastOrNull() ?: return false
+		backStack = backStack.dropLast(1)
+		forwardStack = forwardStack + route
+		pending = null
+		route = previous
 		return true
 	}
 
-	/** The session's start screen from the user's setting; ignored once anything chose a screen. */
+	/** Redo the last [back]; false when nothing is ahead. */
+	fun forward(): Boolean {
+		val next = forwardStack.lastOrNull() ?: return false
+		forwardStack = forwardStack.dropLast(1)
+		backStack = backStack + route
+		pending = null
+		route = next
+		return true
+	}
+
+	/**
+	 * Open the lane that claims [link] (see [DeepLinks]); false = nobody does, stay put.
+	 * Without an explicit [arg] the link's `#fragment` rides along (`/account#calendar`).
+	 */
+	fun openLink(link: String?, arg: String? = null): Boolean {
+		val target = DeepLinks.resolve(link, deepLinks) ?: return false
+		open(target, arg ?: DeepLinks.fragment(link))
+		return true
+	}
+
+	/**
+	 * The session's start screen from the user's setting; ignored once anything chose a screen.
+	 * It replaces the Calendar placeholder, so it adds no history.
+	 */
 	suspend fun applyStart(provider: StartRouteProvider) {
 		if (startDecided) return
 		val start = provider.startRoute()
-		if (!startDecided) open(start)
+		if (startDecided) return
+		startDecided = true
+		route = start
 	}
 
 	/** The argument [open] passed for [route], once; null when none is waiting. */
@@ -63,12 +117,36 @@ class AppNav(
 		return waiting.second
 	}
 
+	/** A share opened the app while it was running: Calendar gets the text through the route argument slot. */
+	fun openShareText(text: String) = open(AppRoute.CALENDAR, SHARE_TEXT_PREFIX + text)
+
+	private fun encode(): String =
+		listOf(route.name, backStack.joinToString(",") { it.name }, forwardStack.joinToString(",") { it.name }).joinToString("|")
+
 	companion object {
-		/** Keeps the route across rotation/process death; a consumed argument is not replayed. */
+		/** Back steps kept; older ones fall off (bounds the saved state). */
+		const val HISTORY_LIMIT = 50
+
+		/**
+		 * Keeps the route and both histories across rotation/process death as
+		 * `route|back,back|forward,forward`; a consumed argument is not replayed.
+		 */
 		fun saver(deepLinks: List<DeepLink>): Saver<AppNav, String> = Saver(
-			save = { if (it.startDecided) it.route.name else "" },
-			restore = { saved -> AppNav(saved.takeIf { it.isNotEmpty() }?.let(AppRoute::valueOf), deepLinks) },
+			save = { if (it.startDecided) it.encode() else "" },
+			restore = { saved -> decode(saved, deepLinks) },
 		)
+
+		private fun decode(saved: String, deepLinks: List<DeepLink>): AppNav {
+			val parts = saved.split('|')
+			val nav = AppNav(routeOf(parts.first()), deepLinks)
+			nav.backStack = routesOf(parts.getOrNull(1))
+			nav.forwardStack = routesOf(parts.getOrNull(2))
+			return nav
+		}
+
+		private fun routeOf(name: String): AppRoute? = AppRoute.entries.firstOrNull { it.name == name }
+
+		private fun routesOf(names: String?): List<AppRoute> = names.orEmpty().split(',').mapNotNull(::routeOf)
 	}
 }
 

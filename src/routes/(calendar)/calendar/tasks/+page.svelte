@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import AssignmentsCard from '$lib/components/tasks/AssignmentsCard.svelte';
@@ -21,6 +21,7 @@
 	} from '$lib/client/taskFeedback';
 	import { pushToast } from '$lib/client/toasts';
 	import { saveTaskEdit } from '$lib/client/taskEditSave';
+	import { FOCUS_SETTLE_MS, sendFocusCommand } from '$lib/client/taskFocus';
 	import { respondToTask as respondToTaskAction } from '$lib/utils/familyTaskActions';
 
 	export let data: PageData;
@@ -52,6 +53,9 @@
 		tags?: string[];
 		/** #280 category name (null = uncategorized). */
 		category?: string | null;
+		/** TaskFocus (#315): closed whole minutes + the open span's start. */
+		focusMinutes?: number | null;
+		focusStartedAt?: string | null;
 	};
 
 	/** TaskId -> optimistic completion state while a toggle is in flight. */
@@ -61,6 +65,17 @@
 
 	let busyId: string | null = null;
 	let actionError = '';
+	/** TaskFocus (#315): the row whose start/stop command is in flight. */
+	let focusBusyId: string | null = null;
+	/**
+	 * The clock answers seconds after the command (the desktop client polls
+	 * its queue), so the tapped row flips now and this override is dropped
+	 * once the re-read lands — from then on the row shows server truth only.
+	 * One entry: TaskFocus runs one open span per user.
+	 */
+	let focusOverride: { id: string; startedAt: string | null } | null = null;
+	let focusSettleTimer: ReturnType<typeof setTimeout> | undefined;
+	onDestroy(() => clearTimeout(focusSettleTimer));
 	/** Inline delete confirmation — matches the family-member remove pattern. */
 	let confirmDeleteId: string | null = null;
 	let confirmClear = false;
@@ -159,7 +174,19 @@
 	/** Optimistic rows from AddTaskCard — shown instantly until the server list includes them. */
 	let addedTasks: TaskItem[] = [];
 	$: serverIds = new Set(serverTasks.map((t) => t.id));
-	$: allTasks = [...addedTasks.filter((t) => !serverIds.has(t.id)), ...serverTasks];
+	$: allTasks = [...addedTasks.filter((t) => !serverIds.has(t.id)), ...serverTasks].map(
+		(t): TaskItem => {
+			// The row only understands ISO: a timestamp column may still arrive
+			// as a Date from the loader (focusStartedAt has no mode: 'string').
+			const startedAt =
+				focusOverride && t.id === focusOverride.id ? focusOverride.startedAt : t.focusStartedAt;
+			const millis = startedAt ? new Date(startedAt).getTime() : NaN;
+			return {
+				...t,
+				focusStartedAt: Number.isNaN(millis) ? null : new Date(millis).toISOString()
+			};
+		}
+	);
 
 	function handleTaskAdded(task: unknown) {
 		const t = task as Partial<TaskItem>;
@@ -301,6 +328,37 @@
 	let celebratingId: string | null = null;
 	let celebrateTimer: ReturnType<typeof setTimeout> | undefined;
 
+	/**
+	 * #315: start/stop focus on a row through the same device command body the
+	 * phone enqueues (#290). The desktop clock is the only writer of focus
+	 * time, so this sends `start`/`stop` and re-reads after FOCUS_SETTLE_MS
+	 * instead of writing minutes. Until the re-read lands the tapped row
+	 * carries the request, which is also what makes the second tap a stop.
+	 */
+	async function toggleFocus(task: TaskItem) {
+		if (focusBusyId) return;
+		// `task` already carries the request (allTasks applies focusOverride).
+		const stop = !!task.focusStartedAt;
+		focusBusyId = task.id;
+		actionError = '';
+		try {
+			const out = await sendFocusCommand(task.id, stop);
+			if (!out.ok) {
+				actionError = out.error;
+				return;
+			}
+			pushToast({ message: out.message });
+			focusOverride = { id: task.id, startedAt: stop ? null : new Date().toISOString() };
+			clearTimeout(focusSettleTimer);
+			focusSettleTimer = setTimeout(async () => {
+				await invalidateAll();
+				if (focusOverride?.id === task.id) focusOverride = null;
+			}, FOCUS_SETTLE_MS);
+		} finally {
+			focusBusyId = null;
+		}
+	}
+
 	function clearOverride(id: string) {
 		const rest = { ...completedOverride };
 		delete rest[id];
@@ -412,11 +470,13 @@
 			filteredCompleted={filteredCompletedTasks}
 			currentUserId={data.user?.id}
 			{busyId}
+			{focusBusyId}
 			{celebratingId}
 			{confirmDeleteId}
 			{clearBusy}
 			assigneeName={(task) => (task.assignedTo ? memberName(task.assignedTo) : '')}
 			onToggle={(id) => toggleTask(id)}
+			onFocus={(task) => toggleFocus(task)}
 			onEdit={(task) => openEdit(task)}
 			onRespond={(task, accept) => respondAssignment(task, accept)}
 			onAdvance={(id) => advanceTask(id)}

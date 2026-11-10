@@ -59,8 +59,8 @@
 		onchange={(e) => onTaskVisibilityChange((e.currentTarget as HTMLSelectElement).value)}
 		class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
 	>
-		<option value="public">🌐 Public — family can see it (read-only)</option>
-		<option value="private">🔒 Private — only you and the assignee</option>
+		<option value="public">Public — family can see it (read-only)</option>
+		<option value="private">Private — only you and the assignee</option>
 	</select>
 	<p class="mt-1 text-xs text-slate-400">
 		A <span class="font-mono">#public</span>/<span class="font-mono">#private</span>

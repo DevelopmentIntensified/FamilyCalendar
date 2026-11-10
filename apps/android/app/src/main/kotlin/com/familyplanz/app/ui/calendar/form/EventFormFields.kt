@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,11 +32,14 @@ import com.familyplanz.app.ui.calendar.model.FormField as Field
 import com.familyplanz.app.ui.calendar.model.FormKind
 import com.familyplanz.app.ui.calendar.model.REMINDER_OPTIONS
 import com.familyplanz.app.ui.calendar.model.RepeatOption
+import com.familyplanz.app.ui.calendar.model.SCOPE_ALL
+import com.familyplanz.app.ui.calendar.model.SCOPE_THIS
 import com.familyplanz.app.ui.theme.Accent
 import com.familyplanz.app.ui.theme.FpShape
 import com.familyplanz.app.ui.theme.FpTheme
 import com.familyplanz.app.ui.theme.Primary
 import com.familyplanz.app.ui.theme.Slate
+import java.time.LocalDate
 
 /*
  * The EventFormModal body (#292 L2): Quick Add with its amber fallback, the
@@ -43,7 +50,10 @@ import com.familyplanz.app.ui.theme.Slate
 internal const val QUICK_ADD_PLACEHOLDER = "Lunch Friday at noon with John"
 internal const val QUICK_ADD_FALLBACK = "Couldn't check that with the parser just now - fill the fields below manually."
 internal const val QUICK_ADD_REPORT = "Parsed wrong? Report this phrase"
+internal const val QUICK_ADD_REPORTED = "Thanks — we'll teach the parser."
 internal const val END_HINT = "End must be after start"
+internal const val DATE_HINT = "Use a real date, like 2026-11-06"
+internal const val TIME_HINT = "Use a 24-hour time, like 18:30"
 private const val TASK_PLACEHOLDER = "e.g., Pay water bill - or try \"#private tomorrow @family\""
 
 @Composable
@@ -60,46 +70,79 @@ internal fun EventFormFields(form: CalendarForm, state: CalendarUiState, actions
 
 /* ---- Quick Add (AC-CAL-29) ---- */
 
+/** The input + its Parse/report row (the error/panel halves live in the two composables below). */
 @Composable
 private fun QuickAddBlock(state: CalendarUiState, actions: CalendarFormActions) {
 	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
 		SectionLabel("Quick Add", end = if (state.quickAdd.isBlank()) null else "Clear" to { actions.onQuickAdd("") })
-		Box(
-			modifier = Modifier
-				.fillMaxWidth()
-				.clip(FpShape.Input)
-				.background(Primary.P50)
-				.padding(horizontal = 12.dp, vertical = 10.dp),
-		) {
-			androidx.compose.foundation.text.BasicTextField(
-				value = state.quickAdd,
-				onValueChange = actions.onQuickAdd,
-				singleLine = true,
-				textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = FpTheme.colors.textStrong),
-				modifier = Modifier.fillMaxWidth().testTag("quick-add"),
-			)
-			if (state.quickAdd.isEmpty()) {
-				Text(QUICK_ADD_PLACEHOLDER, fontSize = 14.sp, color = FpTheme.colors.textMuted)
-			}
+		QuickAddField(state, actions)
+		QuickAddStatusRow(state, actions)
+		QuickAddNotices(state, actions)
+	}
+}
+
+/** The phrase field with its placeholder (the web's input row). */
+@Composable
+private fun QuickAddField(state: CalendarUiState, actions: CalendarFormActions) {
+	Box(
+		modifier = Modifier
+			.fillMaxWidth()
+			.clip(FpShape.Input)
+			.background(Primary.P50)
+			.padding(horizontal = 12.dp, vertical = 10.dp),
+	) {
+		androidx.compose.foundation.text.BasicTextField(
+			value = state.quickAdd,
+			onValueChange = actions.onQuickAdd,
+			singleLine = true,
+			textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = FpTheme.colors.textStrong),
+			modifier = Modifier.fillMaxWidth().testTag("quick-add"),
+		)
+		if (state.quickAdd.isEmpty()) {
+			Text(QUICK_ADD_PLACEHOLDER, fontSize = 14.sp, color = FpTheme.colors.textMuted)
 		}
-		Row(
-			modifier = Modifier.fillMaxWidth(),
-			horizontalArrangement = Arrangement.spacedBy(8.dp),
-			verticalAlignment = Alignment.CenterVertically,
-		) {
-			Text(
-				"Parse",
+	}
+}
+
+/** Parse affordance, the checking line, and the report toggle (an ack once reported). */
+@Composable
+private fun QuickAddStatusRow(state: CalendarUiState, actions: CalendarFormActions) {
+	Row(
+		modifier = Modifier.fillMaxWidth(),
+		horizontalArrangement = Arrangement.spacedBy(8.dp),
+		verticalAlignment = Alignment.CenterVertically,
+	) {
+		Text(
+			"Parse",
+			fontSize = 12.sp,
+			fontWeight = FontWeight.SemiBold,
+			color = Primary.P700,
+			modifier = Modifier
+				.clickable(enabled = state.quickAdd.isNotBlank() && !state.parsing, role = Role.Button, onClick = actions.onParse)
+				.testTag("quick-add-parse")
+				.padding(vertical = 8.dp),
+		)
+		if (state.parsing) Text("Checking...", fontSize = 12.sp, color = FpTheme.colors.textMuted)
+		val reportable = state.parseFailed || state.parseReportable
+		when {
+			reportable && !state.parseReported -> Text(
+				QUICK_ADD_REPORT,
 				fontSize = 12.sp,
-				fontWeight = FontWeight.SemiBold,
 				color = Primary.P700,
 				modifier = Modifier
-					.clickable(enabled = state.quickAdd.isNotBlank() && !state.parsing, role = Role.Button, onClick = actions.onParse)
-					.testTag("quick-add-parse")
-					.padding(vertical = 8.dp),
+					.clickable(role = Role.Button, onClick = actions.onReportParse)
+					.testTag("quick-add-report"),
 			)
-			if (state.parsing) Text("Checking...", fontSize = 12.sp, color = FpTheme.colors.textMuted)
-			if (state.parseFailed) Text(QUICK_ADD_REPORT, fontSize = 12.sp, color = Primary.P700)
+
+			reportable -> Text(QUICK_ADD_REPORTED, fontSize = 12.sp, color = FpTheme.colors.textMuted)
 		}
+	}
+}
+
+/** The amber fallback line and the multi-event panel. */
+@Composable
+private fun QuickAddNotices(state: CalendarUiState, actions: CalendarFormActions) {
+	Column {
 		if (state.parseFailed) {
 			Text(
 				QUICK_ADD_FALLBACK,
@@ -113,6 +156,7 @@ private fun QuickAddBlock(state: CalendarUiState, actions: CalendarFormActions) 
 					.testTag("quick-add-fallback"),
 			)
 		}
+		state.quickAddList?.takeIf { it.size > 1 }?.let { QuickAddMultiPanel(it, actions) }
 	}
 }
 
@@ -124,15 +168,20 @@ private fun EventFields(form: CalendarForm, state: CalendarUiState, actions: Cal
 	DescriptionField(form, actions)
 	ShowMoreToggle(form, actions)
 	if (form.showMore) {
-		PillRow(
+		FormDropdown(
 			label = "Repeat",
-			pills = RepeatOption.entries.map { it.label to (form.repeat == it) },
+			selected = form.repeat.label,
+			options = RepeatOption.entries.map { it.label },
+			tag = "form-repeat",
 			onPick = { index -> actions.onUpdate { it.copy(repeat = RepeatOption.entries[index]) } },
 		)
 		if (form.repeat != RepeatOption.NONE) StepperRow(form, actions)
-		PillRow(
+		FormDropdown(
 			label = "Reminder",
-			pills = REMINDER_OPTIONS.map { (minutes, label) -> label to (form.reminderMinutes == minutes && form.reminderSet) },
+			selected = REMINDER_OPTIONS.firstOrNull { (minutes, _) -> form.reminderMinutes == minutes && form.reminderSet }?.second
+				?: "No reminder",
+			options = REMINDER_OPTIONS.map { (_, label) -> label },
+			tag = "form-reminder",
 			onPick = { index ->
 				actions.onUpdate {
 					val minutes = REMINDER_OPTIONS[index].first
@@ -148,7 +197,7 @@ private fun EventFields(form: CalendarForm, state: CalendarUiState, actions: Cal
 	})
 	DateField(form, actions)
 	TimeFields(form, actions)
-	if (form.endBeforeStart) {
+	if (form.endBeforeStart || form.endDateBeforeStart) {
 		Text(
 			END_HINT,
 			fontSize = 12.sp,
@@ -156,7 +205,7 @@ private fun EventFields(form: CalendarForm, state: CalendarUiState, actions: Cal
 			modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp).testTag("form-end-hint"),
 		)
 	}
-	if (form.editing && form.repeat != RepeatOption.NONE) ScopeCard(form, actions)
+	if (form.occurrenceEdit) ScopeCard(form, actions)
 }
 
 /* ---- Task tab (AC-CAL-31) ---- */
@@ -182,7 +231,7 @@ private fun TaskFields(form: CalendarForm, actions: CalendarFormActions) {
 		value = form.date.orEmpty(),
 		placeholder = "YYYY-MM-DD",
 		parsed = Field.DATE in form.parsed,
-		hint = null,
+		hint = DATE_HINT.takeIf { !CalendarForm.isDay(form.date) },
 		tag = "form-date",
 		onValue = { text -> actions.onUpdate { it.copy(date = text.ifBlank { null }, parsed = it.touched(Field.DATE)) } },
 	)
@@ -230,49 +279,112 @@ private fun LocationField(form: CalendarForm, actions: CalendarFormActions) {
 }
 
 @Composable
-private fun DateField(form: CalendarForm, actions: CalendarFormActions) {	FormField(
+private fun DateField(form: CalendarForm, actions: CalendarFormActions) {
+	DateRow(
 		label = "Start Date",
 		value = form.date.orEmpty(),
-		placeholder = "YYYY-MM-DD",
 		parsed = Field.DATE in form.parsed,
-		hint = null,
 		tag = "form-date",
-		onValue = { text -> actions.onUpdate { it.copy(date = text.ifBlank { null }, parsed = it.touched(Field.DATE)) } },
-	)
+	) { day ->
+		actions.onUpdate { it.copy(date = day, parsed = it.touched(Field.DATE)) }
+	}
 	if (form.multiDay) {
-		FormField(
+		DateRow(
 			label = "End Date",
 			value = form.endDate.orEmpty(),
-			placeholder = "YYYY-MM-DD",
 			parsed = false,
-			hint = null,
 			tag = "form-end-date",
-			onValue = { text -> actions.onUpdate { it.copy(endDate = text.ifBlank { null }) } },
-		)
+		) { day ->
+			actions.onUpdate { it.copy(endDate = day) }
+		}
 	}
 }
 
 @Composable
 private fun TimeFields(form: CalendarForm, actions: CalendarFormActions) {
 	if (form.allDay) return
-	FormField(
+	TimeRow(
 		label = "Start Time",
 		value = form.startTime.orEmpty(),
-		placeholder = "HH:mm",
 		parsed = Field.START_TIME in form.parsed,
-		hint = null,
 		tag = "form-start-time",
-		onValue = { text -> actions.onUpdate { it.copy(startTime = text.ifBlank { null }, parsed = it.touched(Field.START_TIME)) } },
-	)
-	FormField(
+	) { time ->
+		actions.onUpdate { it.copy(startTime = time, parsed = it.touched(Field.START_TIME)) }
+	}
+	TimeRow(
 		label = "End Time",
 		value = form.endTime.orEmpty(),
-		placeholder = "HH:mm",
 		parsed = Field.END_TIME in form.parsed,
-		hint = null,
 		tag = "form-end-time",
-		onValue = { text -> actions.onUpdate { it.copy(endTime = text.ifBlank { null }, parsed = it.touched(Field.END_TIME)) } },
-	)
+	) { time ->
+		actions.onUpdate { it.copy(endTime = time, parsed = it.touched(Field.END_TIME)) }
+	}
+}
+
+/** A date field: the FormField's label/tick row over a box that opens the Material3 date picker. */
+@Composable
+private fun DateRow(label: String, value: String, parsed: Boolean, tag: String, onValue: (String) -> Unit) {
+	var open by remember { mutableStateOf(false) }
+	PickerRow(
+		label = label,
+		shown = dateLabelOf(value),
+		placeholder = "Add a date",
+		parsed = parsed,
+		hint = DATE_HINT.takeIf { !CalendarForm.isDay(value) },
+		tag = tag,
+	) { open = true }
+	if (open) FormDatePicker(label = label, value = value, tag = tag, onDay = onValue, onDismiss = { open = false })
+}
+
+/** A time field: the FormField's label/tick row over a box that opens the Material3 time picker. */
+@Composable
+private fun TimeRow(label: String, value: String, parsed: Boolean, tag: String, onValue: (String) -> Unit) {
+	var open by remember { mutableStateOf(false) }
+	PickerRow(
+		label = label,
+		shown = timeLabelOf(value),
+		placeholder = "Add a time",
+		parsed = parsed,
+		hint = TIME_HINT.takeIf { !CalendarForm.isTime(value) },
+		tag = tag,
+	) { open = true }
+	if (open) FormTimePicker(label = label, value = value, tag = tag, onTime = onValue, onDismiss = { open = false })
+}
+
+/** The tappable input box both picker rows wear (label + tick, value or placeholder, hint). */
+@Composable
+@Suppress("LongParameterList")
+private fun PickerRow(
+	label: String,
+	shown: String,
+	placeholder: String,
+	parsed: Boolean,
+	hint: String?,
+	tag: String,
+	onOpen: () -> Unit,
+) {
+	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+		Row(verticalAlignment = Alignment.CenterVertically) {
+			Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Slate.S600, modifier = Modifier.weight(1f))
+			if (parsed) Text("\u2713", fontSize = 12.sp, color = Primary.P600)
+		}
+		Box(
+			modifier = Modifier
+				.fillMaxWidth()
+				.clip(FpShape.Input)
+				.background(Slate.S50)
+				.clickable(role = Role.Button, onClick = onOpen)
+				.padding(horizontal = 12.dp, vertical = 10.dp)
+				.testTag(tag),
+		) {
+			Text(
+				shown.ifEmpty { placeholder },
+				fontSize = 14.sp,
+				color = if (shown.isEmpty()) FpTheme.colors.textMuted else FpTheme.colors.textStrong,
+			)
+		}
+		hint?.let { Text(it, fontSize = 11.sp, color = Accent.Red600) }
+	}
 }
 
 @Composable
@@ -353,16 +465,29 @@ private fun Stepper(glyph: String, onClick: () -> Unit) {
 	}
 }
 
-/** Only with 2+ calendars (the web hides a one-button picker). */
+/** Only with 2+ calendars (the web hides a one-button picker). Each row carries the calendar's color disc. */
 @Composable
 private fun CalendarPicker(form: CalendarForm, state: CalendarUiState, actions: CalendarFormActions) {
 	val calendars = state.data.calendars
 	if (calendars.size < 2) return
-	PillRow(
-		label = "Calendar",
-		pills = calendars.map { it.name to (it.id == form.calendarId) },
-		onPick = { index -> actions.onUpdate { it.copy(calendarId = calendars[index].id) } },
-	)
+	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+		Text("Calendar", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Slate.S600)
+		calendars.forEachIndexed { index, cal ->
+			Row(
+				modifier = Modifier
+					.fillMaxWidth()
+					.heightIn(min = 44.dp)
+					.clickable(role = Role.Button) { actions.onUpdate { it.copy(calendarId = cal.id) } }
+					.testTag("form-cal-$index"),
+				horizontalArrangement = Arrangement.spacedBy(8.dp),
+				verticalAlignment = Alignment.CenterVertically,
+			) {
+				CalendarDisc(cal.color, Modifier.testTag("form-cal-disc-$index"))
+				Text(cal.name, fontSize = 14.sp, color = FpTheme.colors.textStrong)
+				if (cal.id == form.calendarId) Text("\u2713", fontSize = 14.sp, color = Primary.P600)
+			}
+		}
+	}
 }
 
 /** "This event repeats - save changes for: ..." */
@@ -378,8 +503,8 @@ private fun ScopeCard(form: CalendarForm, actions: CalendarFormActions) {
 	) {
 		Text("This event repeats - save changes for:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Primary.P800)
 		Row(modifier = Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-			FormPill("This event only", form.scope == "single") { actions.onUpdate { it.copy(scope = "single") } }
-			FormPill("All events in series", form.scope == "all") { actions.onUpdate { it.copy(scope = "all") } }
+			FormPill("This event only", form.scope == SCOPE_THIS) { actions.onUpdate { it.copy(scope = SCOPE_THIS) } }
+			FormPill("All events in series", form.scope == SCOPE_ALL) { actions.onUpdate { it.copy(scope = SCOPE_ALL) } }
 		}
 	}
 }
