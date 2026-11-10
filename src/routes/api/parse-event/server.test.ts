@@ -196,20 +196,17 @@ describe('POST /api/parse-event — plan-aware short-window cap (issue 317)', ()
 		expect(chatJson).toHaveBeenCalledTimes(20);
 	});
 
-	it('gives a paid tier 3x the free cap (60 cloud parses per 5 minutes)', async () => {
+	it('never short-window caps a paid tier', async () => {
 		mockCloud();
 		getUserSubscription.mockResolvedValue({ tierName: 'family_master' });
 
-		for (let i = 0; i < 60; i++) {
+		// Well past the free cap of 20 and the old paid cap of 60.
+		for (let i = 0; i < 80; i++) {
 			const body = await (await send()).json();
 			expect(body.method).toBe('cloud');
 		}
 
-		const over = await send();
-
-		expect(over.status).toBe(200);
-		expect((await over.json()).method).toBe('regex');
-		expect(chatJson).toHaveBeenCalledTimes(60);
+		expect(chatJson).toHaveBeenCalledTimes(80);
 		expect(getUserSubscription).toHaveBeenCalledWith('user-1');
 	});
 

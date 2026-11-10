@@ -31,14 +31,14 @@ const defaultDeps: ParseEventDeps = {
 };
 
 /**
- * Short-window cloud-parse budget per client (issue 317). Free callers keep
- * today's 20/5min; paid tiers get 3x. Going over is silent — the request
- * falls back to the local regex parser, never a 429, so the monthly AI cap
- * below stays the only user-facing refusal.
+ * Short-window cloud-parse budget per client (issue 317). Free callers get
+ * 20 per 5 minutes; paid tiers have no short-window cap (owner call,
+ * 2026-11-10). Going over is silent: the request falls back to the local
+ * regex parser, never a 429, so the monthly AI cap below stays the only
+ * user-facing refusal, and it still applies to every tier.
  */
 const PARSE_RATE_WINDOW_MS = 5 * 60 * 1000;
 const FREE_PARSE_LIMIT = 20;
-const PAID_PARSE_LIMIT = FREE_PARSE_LIMIT * 3;
 
 const PARSE_SYSTEM_PROMPT = `Parse this calendar event. Return JSON with: title, date (YYYY-MM-DD), startTime (HH:MM), endTime (HH:MM), location, description, allDay (boolean), attendants (array of names).
 
@@ -78,14 +78,16 @@ export const POST = async (
 	// in-memory limit resets on deploy, so it is not a real ceiling). The
 	// cloud path stays available to logged-in users.
 	// The short-window budget is plan-aware (issue 317): the tier the
-	// subscription read model already returns decides free vs paid. The tier
-	// lookup runs only for a signed-in caller that asked for cloud parsing, so
-	// anonymous and opt-out requests add no query.
+	// subscription read model already returns decides free vs paid, and a
+	// paid tier skips the limiter. The tier lookup runs only for a signed-in
+	// caller that asked for cloud parsing, so anonymous and opt-out requests
+	// add no query.
 	let cloudAllowed = false;
 	if (locals.user && useCloud) {
 		const tier = await deps.getUserSubscription(locals.user.id);
-		const limit = tier && tier.tierName !== 'free' ? PAID_PARSE_LIMIT : FREE_PARSE_LIMIT;
-		cloudAllowed = rateLimit(clientKey(request, 'parse-event'), limit, PARSE_RATE_WINDOW_MS);
+		const paid = !!tier && tier.tierName !== 'free';
+		cloudAllowed =
+			paid || rateLimit(clientKey(request, 'parse-event'), FREE_PARSE_LIMIT, PARSE_RATE_WINDOW_MS);
 	}
 	// The cloud path is reachable only for authenticated callers (cloudAllowed
 	// above), so userId is non-null whenever the cap check / usage record runs.
