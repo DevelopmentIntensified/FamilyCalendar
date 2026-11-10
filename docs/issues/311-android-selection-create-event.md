@@ -42,7 +42,5 @@ Owner decision (grill 2026-11-10): on-device extraction first, server parse fall
 ## Done
 
 - Triaged 2026-11-10: zero selection/AI code confirmed; web reference + platform seams identified; owner picked on-device-first with fallback.
-
-## Done
-
 - Build per the brief; green `mobileGate` + detekt; push to `test`.
+- Built 2026-11-10 (92c213a, on `test` and `main`). Not in F-Droid 0.4.0, which was tagged at the wave-1 commit 297f0c0; no published APK contains this yet.

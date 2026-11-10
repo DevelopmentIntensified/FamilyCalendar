@@ -39,7 +39,4 @@ Source: owner mobile batch 2026-11-10 (M10: "add account settings" — owner rep
 ## Done
 
 - Triaged 2026-11-10: placeholder entry vs built-but-unwired screen confirmed; owner confirmed the Coming-soon symptom.
-
-## Done
-
 - Wire + export per the brief; green `mobileGate` + detekt; push to `test`.

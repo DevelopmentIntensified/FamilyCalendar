@@ -37,7 +37,4 @@ Source: owner mobile batch 2026-11-10 (M5: "Family members list should have a ed
 ## Done
 
 - Triaged 2026-11-10: inline-chips + duplicate-sheet deviation confirmed; spec §2.8 wants Edit/Cancel.
-
-## Done
-
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.

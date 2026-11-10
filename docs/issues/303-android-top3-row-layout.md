@@ -36,7 +36,4 @@ Source: owner mobile batch 2026-11-10 (M3: "dashboard top 3 priorities list is v
 ## Done
 
 - Triaged 2026-11-10: rigid-column layout confirmed; #294's partial fix noted.
-
-## Done
-
 - Restyle per the brief; green `mobileGate` + detekt; push to `test`.

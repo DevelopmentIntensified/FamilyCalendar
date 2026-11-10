@@ -38,7 +38,4 @@ Owner decision (grill 2026-11-10): family band only — the Alerts tab feed alre
 ## Done
 
 - Triaged 2026-11-10: raw-kind + ISO-date rows confirmed; web + Alerts patterns identified for reuse.
-
-## Done
-
 - Restyle per the brief; green `mobileGate` + detekt; push to `test`.

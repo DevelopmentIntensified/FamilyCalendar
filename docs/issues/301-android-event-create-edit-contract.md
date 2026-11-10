@@ -41,7 +41,4 @@ Source: owner mobile batch 2026-11-10 (M1: "Event creation is not working").
 ## Done
 
 - Triaged 2026-11-10: contract mismatch mapped (POST drops, PUT wrong keys, dead-tap on bad date).
-
-## Done
-
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.

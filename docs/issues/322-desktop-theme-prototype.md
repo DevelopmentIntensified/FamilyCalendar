@@ -42,7 +42,7 @@ Source: owner desktop batch 2026-11-10 (screenshot: the web app is white + prima
 
 - (nothing yet — filed open 2026-11-10)
 
-## Done
+## Needs doing
 
 - Build the variant switch (search param + floating bar) and the three variants over real components.
 - Map the `--mp-*` tokens onto the variants without editing production stylesheets (scope tokens inside the prototype route).

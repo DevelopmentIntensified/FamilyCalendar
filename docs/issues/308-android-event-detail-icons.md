@@ -35,7 +35,4 @@ Source: owner mobile batch 2026-11-10 (M8: "event view should have custom icons 
 ## Done
 
 - Triaged 2026-11-10: blank-tile-everywhere confirmed; web icons + pipeline identified.
-
-## Done
-
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.

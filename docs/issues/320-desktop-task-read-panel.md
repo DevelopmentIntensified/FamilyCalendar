@@ -1,6 +1,6 @@
 # 320 — Task detail (read) view on web beyond the edit dialog
 
-Status: in-progress
+Status: open
 Roles: enhancement · ready-for-agent
 Source: owner desktop batch 2026-11-10 (screenshot: edit dialog only; owner notes "not able to view task details other than in edit view", wants task log time, log effort, add details, add people).
 
@@ -43,7 +43,7 @@ Source: owner desktop batch 2026-11-10 (screenshot: edit dialog only; owner note
 
 - (nothing yet — filed open 2026-11-10)
 
-## Done
+## Needs doing
 
 - Extend `TaskDetailModal`'s `CalendarTask` with optional focus/category fields and default the new bands hidden when the data is absent.
 - Add the tasks-page read state (`viewing`) and row click; keep `onEdit` wired to `editing` for the panel's Edit button.

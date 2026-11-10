@@ -40,10 +40,6 @@ No emoji prefix anywhere in those four files.
 
 ## Done
 
-- (nothing yet — filed open 2026-11-10)
-
-## Done
-
 - Edit the two `<option>` labels in `EventTaskFields.svelte` without changing the option `value`s.
 - Simplify the three chip expressions to plain `Private` / `Public`.
 - Verify by grep that `🌐|🔒` returns zero hits in the four named components (the family-task surface two hits above are out of scope).

@@ -41,7 +41,4 @@ Owner decision (grill 2026-11-10): agent prototypes variants as review-harness s
 ## Done
 
 - Triaged 2026-11-10: spec-mandated duplication + unused third colors confirmed; prototype-as-screenshots approach decided.
-
-## Done
-
 - Prototype per the brief; push screenshots + note to `test`; owner picks.

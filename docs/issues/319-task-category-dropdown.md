@@ -41,10 +41,6 @@ Source: owner desktop batch 2026-11-10 (screenshot: category input is free text 
 
 ## Done
 
-- (nothing yet — filed open 2026-11-10)
-
-## Done
-
 - Build `CategorySelect.svelte` (one-way `value` + `onChange`, matching `CategoryField`'s contract so the callers' state stays untouched).
 - Swap both call sites and delete `CategoryField.svelte`.
 - New test: options render from `categories`, picking `+ Add new…` + typing a name emits it, saving keeps it.

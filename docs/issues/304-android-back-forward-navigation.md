@@ -42,7 +42,4 @@ Owner decision (grill 2026-11-10): back pops route history; forward is an in-app
 ## Done
 
 - Triaged 2026-11-10: zero back handling confirmed repo-wide (grep) and on-device.
-
-## Done
-
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.

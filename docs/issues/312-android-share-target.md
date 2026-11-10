@@ -39,7 +39,5 @@ Source: owner mobile batch 2026-11-10 (M12: "share to app should act like pwa").
 ## Done
 
 - Triaged 2026-11-10: missing registration confirmed in manifest + on-device; web #027 flow mapped for porting.
-
-## Done
-
 - Build per the brief; green `mobileGate` + detekt; push to `test`.
+- Built 2026-11-10 (92c213a, on `test` and `main`). Not in F-Droid 0.4.0, which was tagged at the wave-1 commit 297f0c0; no published APK contains this yet.

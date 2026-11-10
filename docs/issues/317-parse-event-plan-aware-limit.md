@@ -40,10 +40,6 @@ Source: owner desktop batch 2026-11-10 (screenshot: `POST /api/parse-event` → 
 
 ## Done
 
-- (nothing yet — filed open 2026-11-10)
-
-## Done
-
 - Resolve plan → multiplier from the subscription tier and thread it into the `rateLimit` call without adding a DB round-trip when no user is present.
 - Extend the route test: free tier at today's cap, paid tier at the raised cap, anonymous never calls the cloud path.
 - Re-grep the copy sweep; fix or confirm the pricing "Unlimited smart algorithm event creations" line against the new paid behavior.

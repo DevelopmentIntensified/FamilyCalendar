@@ -1,6 +1,6 @@
 # 309 — Android event form controls: dropdowns, pickers, location search, calendar colors
 
-Status: done
+Status: in-progress
 Roles: enhancement · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M9: "reminder needs to be dropdown. repeat should be dropdown for event create/edit. Location should have search like desktop. calendars should have family icons/color by them. dates should have date selectors and so should times").
 
@@ -45,7 +45,8 @@ Depends on: #301 (payload contract) — build the controls on top of the fixed s
 ## Done
 
 - Triaged 2026-11-10: per-control gap inventory vs web confirmed in code and on-device (0.3.0).
+- Built 2026-11-10 (92c213a, on `test` and `main`): reminder and repeat dropdowns, Material date and time pickers, calendar colour discs. Not in F-Droid 0.4.0, which was tagged at the wave-1 commit 297f0c0.
 
-## Done
+## Needs doing
 
-- Build per the brief (after/with #301); green `mobileGate` + detekt; push to `test`.
+- Location search: suggestions from `/api/location-search`, debounced, manual entry still allowed (acceptance criterion 2). Never built; this issue was flipped to done in error on 2026-11-10.

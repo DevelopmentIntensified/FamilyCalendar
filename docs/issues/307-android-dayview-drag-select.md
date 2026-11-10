@@ -38,7 +38,4 @@ Source: owner mobile batch 2026-11-10 (M7: "day view time selection doesn't seem
 ## Done
 
 - Triaged 2026-11-10: scroll/drag conflict + commit-only highlight confirmed in code.
-
-## Done
-
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.

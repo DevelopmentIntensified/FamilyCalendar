@@ -44,7 +44,5 @@ Source: owner mobile batch 2026-11-10 (M2: "Event parsing is not working. Also p
 ## Done
 
 - Triaged 2026-11-10: manual-only + dead report + missing flag confirmed in code and on-device (0.3.0).
-
-## Done
-
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.
+- Built 2026-11-10 (92c213a, on `test` and `main`). Not in F-Droid 0.4.0, which was tagged at the wave-1 commit 297f0c0; no published APK contains this yet.
