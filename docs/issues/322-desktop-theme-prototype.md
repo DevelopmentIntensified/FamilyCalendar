@@ -1,6 +1,6 @@
 # 322 — Web: theme/nav prototype, same ask as Android's #313
 
-Status: open
+Status: in-progress
 Roles: enhancement · ready-for-agent (prototype)
 Source: owner desktop batch 2026-11-10 (screenshot: the web app is white + primary orange only; "same issue as with mobile, too just orange and white. prototype how to make the app follow the marketing style better").
 
@@ -42,7 +42,7 @@ Source: owner desktop batch 2026-11-10 (screenshot: the web app is white + prima
 
 - (nothing yet — filed open 2026-11-10)
 
-## Needs doing
+## Done
 
 - Build the variant switch (search param + floating bar) and the three variants over real components.
 - Map the `--mp-*` tokens onto the variants without editing production stylesheets (scope tokens inside the prototype route).

@@ -1,6 +1,6 @@
 # 317 — Parse-event rate limit bites; plan gates unclear; marketing copy claims limits
 
-Status: open
+Status: done
 Roles: bug · enhancement · ready-for-agent
 Source: owner desktop batch 2026-11-10 (screenshot: `POST /api/parse-event` → `429 Too Many Requests`).
 
@@ -42,7 +42,7 @@ Source: owner desktop batch 2026-11-10 (screenshot: `POST /api/parse-event` → 
 
 - (nothing yet — filed open 2026-11-10)
 
-## Needs doing
+## Done
 
 - Resolve plan → multiplier from the subscription tier and thread it into the `rateLimit` call without adding a DB round-trip when no user is present.
 - Extend the route test: free tier at today's cap, paid tier at the raised cap, anonymous never calls the cloud path.

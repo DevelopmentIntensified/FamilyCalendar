@@ -1,6 +1,6 @@
 # 316 — Desktop dashboard: too much white space, non-cohesive card grid
 
-Status: open
+Status: done
 Roles: bug · ready-for-agent
 Source: owner desktop batch 2026-11-10 (screenshot: dashboard with vast blank column between glance + completed cards, board pushed to bottom, inconsistent bands).
 

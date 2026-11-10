@@ -1,6 +1,6 @@
 # 319 — Task category: dropdown of existing + add-new, not free text
 
-Status: open
+Status: done
 Roles: enhancement · ready-for-agent
 Source: owner desktop batch 2026-11-10 (screenshot: category input is free text with no list).
 
@@ -43,7 +43,7 @@ Source: owner desktop batch 2026-11-10 (screenshot: category input is free text 
 
 - (nothing yet — filed open 2026-11-10)
 
-## Needs doing
+## Done
 
 - Build `CategorySelect.svelte` (one-way `value` + `onChange`, matching `CategoryField`'s contract so the callers' state stays untouched).
 - Swap both call sites and delete `CategoryField.svelte`.

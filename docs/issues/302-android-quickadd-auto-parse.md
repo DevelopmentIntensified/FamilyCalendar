@@ -1,6 +1,6 @@
 # 302 — Android event quick-add: parse is manual-only, first-result-only, report is dead
 
-Status: in-progress
+Status: done
 Roles: bug · enhancement · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M2: "Event parsing is not working. Also parsing should happen automatically").
 
@@ -45,6 +45,6 @@ Source: owner mobile batch 2026-11-10 (M2: "Event parsing is not working. Also p
 
 - Triaged 2026-11-10: manual-only + dead report + missing flag confirmed in code and on-device (0.3.0).
 
-## Needs doing
+## Done
 
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.

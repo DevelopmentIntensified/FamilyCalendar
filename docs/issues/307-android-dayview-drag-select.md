@@ -1,6 +1,6 @@
 # 307 — Android day-view drag-select fights scrolling and shows no live feedback
 
-Status: in-progress
+Status: done
 Roles: bug · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M7: "day view time selection doesn't seem to work well and no visual feedback").
 
@@ -39,6 +39,6 @@ Source: owner mobile batch 2026-11-10 (M7: "day view time selection doesn't seem
 
 - Triaged 2026-11-10: scroll/drag conflict + commit-only highlight confirmed in code.
 
-## Needs doing
+## Done
 
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.

@@ -1,6 +1,6 @@
 # 305 — Android family members: Edit button instead of inline role chips
 
-Status: in-progress
+Status: done
 Roles: enhancement · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M5: "Family members list should have a edit member button for admin/creator rather than having the role buttons there").
 
@@ -38,6 +38,6 @@ Source: owner mobile batch 2026-11-10 (M5: "Family members list should have a ed
 
 - Triaged 2026-11-10: inline-chips + duplicate-sheet deviation confirmed; spec §2.8 wants Edit/Cancel.
 
-## Needs doing
+## Done
 
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.

@@ -1,6 +1,6 @@
 # 311 — Android text-selection actions: create event from selected dates/details
 
-Status: in-progress
+Status: done
 Roles: enhancement · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M11: "now, device ai features? look into adding to select menu when dates are selected or any event details").
 
@@ -43,6 +43,6 @@ Owner decision (grill 2026-11-10): on-device extraction first, server parse fall
 
 - Triaged 2026-11-10: zero selection/AI code confirmed; web reference + platform seams identified; owner picked on-device-first with fallback.
 
-## Needs doing
+## Done
 
 - Build per the brief; green `mobileGate` + detekt; push to `test`.

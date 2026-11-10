@@ -1,6 +1,6 @@
 # 315 — Desktop tasks: no way to start focus, no logged-time shown
 
-Status: open
+Status: done
 Roles: bug · ready-for-agent
 Source: owner desktop batch 2026-11-10 ("No indication of how much time spend on each task. / can't start tasks from desktop like you can on mobile").
 

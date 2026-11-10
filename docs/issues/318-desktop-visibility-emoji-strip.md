@@ -1,6 +1,6 @@
 # 318 — Desktop web: strip the emoji from visibility/privacy controls
 
-Status: open
+Status: done
 Roles: bug · ready-for-agent
 Source: owner desktop batch 2026-11-10 (screenshot: visibility select shows 🌐 / 🔒).
 
@@ -42,7 +42,7 @@ No emoji prefix anywhere in those four files.
 
 - (nothing yet — filed open 2026-11-10)
 
-## Needs doing
+## Done
 
 - Edit the two `<option>` labels in `EventTaskFields.svelte` without changing the option `value`s.
 - Simplify the three chip expressions to plain `Private` / `Public`.

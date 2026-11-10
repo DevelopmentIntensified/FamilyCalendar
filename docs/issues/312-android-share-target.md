@@ -1,6 +1,6 @@
 # 312 — Android share-to-app like the PWA share target
 
-Status: in-progress
+Status: done
 Roles: enhancement · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M12: "share to app should act like pwa").
 
@@ -40,6 +40,6 @@ Source: owner mobile batch 2026-11-10 (M12: "share to app should act like pwa").
 
 - Triaged 2026-11-10: missing registration confirmed in manifest + on-device; web #027 flow mapped for porting.
 
-## Needs doing
+## Done
 
 - Build per the brief; green `mobileGate` + detekt; push to `test`.

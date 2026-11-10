@@ -1,6 +1,6 @@
 # 308 — Android event detail rows need their distinct icons
 
-Status: in-progress
+Status: done
 Roles: bug · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M8: "event view should have custom icons for each date/time/location/etc").
 
@@ -36,6 +36,6 @@ Source: owner mobile batch 2026-11-10 (M8: "event view should have custom icons 
 
 - Triaged 2026-11-10: blank-tile-everywhere confirmed; web icons + pipeline identified.
 
-## Needs doing
+## Done
 
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.

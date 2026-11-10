@@ -1,6 +1,6 @@
 # 303 — Android Top-3 Priorities row: title full-width, controls wrap
 
-Status: in-progress
+Status: done
 Roles: enhancement · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M3: "dashboard top 3 priorities list is very ugly. Make the task title span the whole width and make the buttons flow around it").
 
@@ -37,6 +37,6 @@ Source: owner mobile batch 2026-11-10 (M3: "dashboard top 3 priorities list is v
 
 - Triaged 2026-11-10: rigid-column layout confirmed; #294's partial fix noted.
 
-## Needs doing
+## Done
 
 - Restyle per the brief; green `mobileGate` + detekt; push to `test`.

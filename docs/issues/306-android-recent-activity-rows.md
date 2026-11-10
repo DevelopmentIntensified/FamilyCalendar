@@ -1,6 +1,6 @@
 # 306 — Android family Recent Activity rows: composed text + pinned date
 
-Status: in-progress
+Status: done
 Roles: enhancement · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M6: "recent activities look ugly on mobile, clean up how the text and date looks and flows together").
 
@@ -39,6 +39,6 @@ Owner decision (grill 2026-11-10): family band only — the Alerts tab feed alre
 
 - Triaged 2026-11-10: raw-kind + ISO-date rows confirmed; web + Alerts patterns identified for reuse.
 
-## Needs doing
+## Done
 
 - Restyle per the brief; green `mobileGate` + detekt; push to `test`.

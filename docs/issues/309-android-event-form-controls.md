@@ -1,6 +1,6 @@
 # 309 — Android event form controls: dropdowns, pickers, location search, calendar colors
 
-Status: in-progress
+Status: done
 Roles: enhancement · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M9: "reminder needs to be dropdown. repeat should be dropdown for event create/edit. Location should have search like desktop. calendars should have family icons/color by them. dates should have date selectors and so should times").
 
@@ -46,6 +46,6 @@ Depends on: #301 (payload contract) — build the controls on top of the fixed s
 
 - Triaged 2026-11-10: per-control gap inventory vs web confirmed in code and on-device (0.3.0).
 
-## Needs doing
+## Done
 
 - Build per the brief (after/with #301); green `mobileGate` + detekt; push to `test`.

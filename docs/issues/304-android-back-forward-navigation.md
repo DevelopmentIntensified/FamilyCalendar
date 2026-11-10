@@ -1,6 +1,6 @@
 # 304 — Android system back closes the app; add back/forward navigation
 
-Status: in-progress
+Status: done
 Roles: bug · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M4: "go back shouldn't close app, but rather undo last navigation. Same with go forward going forward in navigation").
 
@@ -43,6 +43,6 @@ Owner decision (grill 2026-11-10): back pops route history; forward is an in-app
 
 - Triaged 2026-11-10: zero back handling confirmed repo-wide (grep) and on-device.
 
-## Needs doing
+## Done
 
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.

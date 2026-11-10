@@ -1,6 +1,6 @@
 # 313 — Android nav + theme prototype: dedup navigation, apply a third color
 
-Status: in-progress
+Status: done
 Roles: enhancement · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M13: "navigation in app feels busy, look into options for making it feel nicer. also app doesn't feel like it matches the style guide for the app. too strictly orange and white. no third color at all. create prototypes").
 
@@ -42,6 +42,6 @@ Owner decision (grill 2026-11-10): agent prototypes variants as review-harness s
 
 - Triaged 2026-11-10: spec-mandated duplication + unused third colors confirmed; prototype-as-screenshots approach decided.
 
-## Needs doing
+## Done
 
 - Prototype per the brief; push screenshots + note to `test`; owner picks.

@@ -1,6 +1,6 @@
 # 301 — Android event create/edit silently drops data
 
-Status: in-progress
+Status: done
 Roles: bug · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M1: "Event creation is not working").
 
@@ -42,6 +42,6 @@ Source: owner mobile batch 2026-11-10 (M1: "Event creation is not working").
 
 - Triaged 2026-11-10: contract mismatch mapped (POST drops, PUT wrong keys, dead-tap on bad date).
 
-## Needs doing
+## Done
 
 - Fix per the brief; green `mobileGate` + detekt; push to `test`.

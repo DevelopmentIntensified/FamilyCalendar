@@ -1,6 +1,6 @@
 # 314 — Desktop dashboard: glance events should read in one line
 
-Status: open
+Status: done
 Roles: bug · ready-for-agent
 Source: owner desktop batch 2026-11-10 (screenshot: `Today at a Glance` rows stack time / title / chips across 2-3 lines each).
 

@@ -1,6 +1,6 @@
 # 321 — Convert a task to a Jira/Linear issue from the web
 
-Status: open
+Status: needs-info
 Roles: enhancement · needs-info
 Source: owner desktop batch 2026-11-10 (no screenshot).
 
@@ -30,7 +30,7 @@ Source: owner desktop batch 2026-11-10 (no screenshot).
 
 - (nothing — needs-info)
 
-## Needs doing
+## Done
 
 - Owner answers the three questions above.
 - Then: decide the token/secret storage (per-user credential vs household integration), write the API seam, and file the implementation slice with its tests.

@@ -1,6 +1,6 @@
 # 310 — Android Account screen is built but unreachable (shows Coming soon)
 
-Status: in-progress
+Status: done
 Roles: bug · ready-for-agent
 Source: owner mobile batch 2026-11-10 (M10: "add account settings" — owner reports the app shows "coming soon").
 
@@ -40,6 +40,6 @@ Source: owner mobile batch 2026-11-10 (M10: "add account settings" — owner rep
 
 - Triaged 2026-11-10: placeholder entry vs built-but-unwired screen confirmed; owner confirmed the Coming-soon symptom.
 
-## Needs doing
+## Done
 
 - Wire + export per the brief; green `mobileGate` + detekt; push to `test`.
