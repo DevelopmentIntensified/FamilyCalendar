@@ -28,6 +28,8 @@ import com.familyplanz.app.ui.calendar.model.FormField as Field
 import com.familyplanz.app.ui.calendar.model.FormKind
 import com.familyplanz.app.ui.calendar.model.REMINDER_OPTIONS
 import com.familyplanz.app.ui.calendar.model.RepeatOption
+import com.familyplanz.app.ui.calendar.model.SCOPE_ALL
+import com.familyplanz.app.ui.calendar.model.SCOPE_THIS
 import com.familyplanz.app.ui.theme.Accent
 import com.familyplanz.app.ui.theme.FpShape
 import com.familyplanz.app.ui.theme.FpTheme
@@ -44,6 +46,8 @@ internal const val QUICK_ADD_PLACEHOLDER = "Lunch Friday at noon with John"
 internal const val QUICK_ADD_FALLBACK = "Couldn't check that with the parser just now - fill the fields below manually."
 internal const val QUICK_ADD_REPORT = "Parsed wrong? Report this phrase"
 internal const val END_HINT = "End must be after start"
+internal const val DATE_HINT = "Use a real date, like 2026-11-06"
+internal const val TIME_HINT = "Use a 24-hour time, like 18:30"
 private const val TASK_PLACEHOLDER = "e.g., Pay water bill - or try \"#private tomorrow @family\""
 
 @Composable
@@ -148,7 +152,7 @@ private fun EventFields(form: CalendarForm, state: CalendarUiState, actions: Cal
 	})
 	DateField(form, actions)
 	TimeFields(form, actions)
-	if (form.endBeforeStart) {
+	if (form.endBeforeStart || form.endDateBeforeStart) {
 		Text(
 			END_HINT,
 			fontSize = 12.sp,
@@ -156,7 +160,7 @@ private fun EventFields(form: CalendarForm, state: CalendarUiState, actions: Cal
 			modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp).testTag("form-end-hint"),
 		)
 	}
-	if (form.editing && form.repeat != RepeatOption.NONE) ScopeCard(form, actions)
+	if (form.occurrenceEdit) ScopeCard(form, actions)
 }
 
 /* ---- Task tab (AC-CAL-31) ---- */
@@ -182,7 +186,7 @@ private fun TaskFields(form: CalendarForm, actions: CalendarFormActions) {
 		value = form.date.orEmpty(),
 		placeholder = "YYYY-MM-DD",
 		parsed = Field.DATE in form.parsed,
-		hint = null,
+		hint = DATE_HINT.takeIf { !CalendarForm.isDay(form.date) },
 		tag = "form-date",
 		onValue = { text -> actions.onUpdate { it.copy(date = text.ifBlank { null }, parsed = it.touched(Field.DATE)) } },
 	)
@@ -235,7 +239,7 @@ private fun DateField(form: CalendarForm, actions: CalendarFormActions) {	FormFi
 		value = form.date.orEmpty(),
 		placeholder = "YYYY-MM-DD",
 		parsed = Field.DATE in form.parsed,
-		hint = null,
+		hint = DATE_HINT.takeIf { !CalendarForm.isDay(form.date) },
 		tag = "form-date",
 		onValue = { text -> actions.onUpdate { it.copy(date = text.ifBlank { null }, parsed = it.touched(Field.DATE)) } },
 	)
@@ -245,7 +249,7 @@ private fun DateField(form: CalendarForm, actions: CalendarFormActions) {	FormFi
 			value = form.endDate.orEmpty(),
 			placeholder = "YYYY-MM-DD",
 			parsed = false,
-			hint = null,
+			hint = DATE_HINT.takeIf { !CalendarForm.isDay(form.endDate) },
 			tag = "form-end-date",
 			onValue = { text -> actions.onUpdate { it.copy(endDate = text.ifBlank { null }) } },
 		)
@@ -260,7 +264,7 @@ private fun TimeFields(form: CalendarForm, actions: CalendarFormActions) {
 		value = form.startTime.orEmpty(),
 		placeholder = "HH:mm",
 		parsed = Field.START_TIME in form.parsed,
-		hint = null,
+		hint = TIME_HINT.takeIf { !CalendarForm.isTime(form.startTime) },
 		tag = "form-start-time",
 		onValue = { text -> actions.onUpdate { it.copy(startTime = text.ifBlank { null }, parsed = it.touched(Field.START_TIME)) } },
 	)
@@ -269,7 +273,7 @@ private fun TimeFields(form: CalendarForm, actions: CalendarFormActions) {
 		value = form.endTime.orEmpty(),
 		placeholder = "HH:mm",
 		parsed = Field.END_TIME in form.parsed,
-		hint = null,
+		hint = TIME_HINT.takeIf { !CalendarForm.isTime(form.endTime) },
 		tag = "form-end-time",
 		onValue = { text -> actions.onUpdate { it.copy(endTime = text.ifBlank { null }, parsed = it.touched(Field.END_TIME)) } },
 	)
@@ -378,8 +382,8 @@ private fun ScopeCard(form: CalendarForm, actions: CalendarFormActions) {
 	) {
 		Text("This event repeats - save changes for:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Primary.P800)
 		Row(modifier = Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-			FormPill("This event only", form.scope == "single") { actions.onUpdate { it.copy(scope = "single") } }
-			FormPill("All events in series", form.scope == "all") { actions.onUpdate { it.copy(scope = "all") } }
+			FormPill("This event only", form.scope == SCOPE_THIS) { actions.onUpdate { it.copy(scope = SCOPE_THIS) } }
+			FormPill("All events in series", form.scope == SCOPE_ALL) { actions.onUpdate { it.copy(scope = SCOPE_ALL) } }
 		}
 	}
 }

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,13 +22,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.familyplanz.app.data.FamilyDetailDto
 import com.familyplanz.app.data.RosterRowDto
 import com.familyplanz.app.ui.FpPrimaryButton
-import com.familyplanz.app.ui.fpFilterChipBorder
-import com.familyplanz.app.ui.fpFilterChipColors
 import com.familyplanz.app.ui.theme.FpTheme
 
 /** The band container: `rounded-2xl border p-4 shadow-sm` with a 12 sp uppercase title. */
@@ -56,7 +56,7 @@ fun FamilyDetailBody(state: FamilyDetailState.Ready, actions: FamilyDetailAction
 	val role = detail.currentUserRole
 	val manager = isManager(role)
 	FamilyHero(detail, role, manager, actions)
-	MembersBand(detail, manager, role, actions)
+	MembersBand(detail, manager, actions)
 	ActivityBand(detail)
 	if (manager) {
 		FamilySettingsBand(state, actions)
@@ -83,14 +83,9 @@ private fun FamilyHero(
 	}
 }
 
-/** Members band: the count, the quick links and one editable row per member. */
+/** Members band: the count, the quick links and one read-only row per member. */
 @Composable
-private fun MembersBand(
-	detail: FamilyDetailDto,
-	manager: Boolean,
-	role: String,
-	actions: FamilyDetailActions,
-) {
+private fun MembersBand(detail: FamilyDetailDto, manager: Boolean, actions: FamilyDetailActions) {
 	FamilyBand("Members") {
 		Row(verticalAlignment = Alignment.CenterVertically) {
 			Text(
@@ -102,87 +97,33 @@ private fun MembersBand(
 			FamilyTextLink("Family Tasks", actions.onOpenTasks)
 			FamilyTextLink("Groceries", actions.onOpenGroceries)
 		}
-		detail.members.forEach { member ->
-			MemberRow(member, detail.currentUserId, manager, role, actions)
-		}
+		detail.members.forEach { member -> MemberRow(member, manager, actions) }
 	}
 }
 
+/**
+ * One member (#305): read-only, with a single "Edit" button for a manager.
+ * The type and role editors and Remove live in the member sheet it opens;
+ * the creator's row has none (AC-FD-2, AC-FD-5).
+ */
 @Composable
-private fun MemberRow(
-	member: RosterRowDto,
-	currentUserId: String,
-	manager: Boolean,
-	role: String,
-	actions: FamilyDetailActions,
-) {
+private fun MemberRow(member: RosterRowDto, manager: Boolean, actions: FamilyDetailActions) {
 	val name = listOfNotNull(member.firstName, member.lastName).joinToString(" ").ifBlank { "Member" }
-	Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-		FamilyMemberRow(
-			name = name,
-			memberType = member.memberType,
-			role = member.role,
-			trailing = {
-				FamilyActionChip("Actions", { actions.onOpenSheet(member) })
-			},
-		)
-		if (manager && member.role != "creator") {
-			Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-				MEMBER_TYPES.forEach { type ->
-					FilterChip(
-						selected = member.memberType.equals(type, ignoreCase = true),
-						onClick = { actions.onSetType(member, type) },
-						label = { Text(type) },
-						colors = fpFilterChipColors(),
-						border = fpFilterChipBorder(member.memberType.equals(type, ignoreCase = true)),
-					)
-				}
-			}
-			Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-				roleOptions(role).forEach { option ->
-					FilterChip(
-						selected = member.role.equals(option, ignoreCase = true),
-						onClick = { actions.onSetRole(member, option) },
-						label = { Text(option.replaceFirstChar { it.uppercase() }) },
-						colors = fpFilterChipColors(),
-						border = fpFilterChipBorder(member.role.equals(option, ignoreCase = true)),
-					)
-				}
-				if (canRemove(member) && member.userId != currentUserId) {
-					FamilyTextLink("Remove", { actions.onAskRemove(member) })
-				}
-			}
-		}
-	}
-}
-
-/** AC-FD-10: the feed, or the page's empty line. */
-@Composable
-private fun ActivityBand(detail: FamilyDetailDto) {
-	FamilyBand("Recent Activity") {
-		if (detail.activity.isEmpty()) {
-			Text(
-				NO_ACTIVITY_COPY,
-				style = MaterialTheme.typography.bodyMedium,
-				color = FpTheme.colors.textBody,
-			)
-			return@FamilyBand
-		}
-		detail.activity.forEach { row ->
-			Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-				Text(row.actorName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-				Text(
-					"${row.kind} ${row.title}",
-					style = MaterialTheme.typography.bodyMedium,
-					color = FpTheme.colors.textBody,
-					modifier = Modifier.weight(1f),
+	FamilyMemberRow(
+		name = name,
+		memberType = member.memberType,
+		role = member.role,
+		modifier = Modifier.padding(vertical = 4.dp),
+		trailing = {
+			if (manager && member.role != "creator") {
+				FamilyActionChip(
+					"Edit",
+					{ actions.onOpenSheet(member) },
+					Modifier.semantics { contentDescription = "Edit $name" }.testTag("member-edit-${member.userId}"),
 				)
-				row.at?.let {
-					Text(it.substringBefore('T'), style = MaterialTheme.typography.bodySmall, color = FpTheme.colors.textMuted)
-				}
 			}
-		}
-	}
+		},
+	)
 }
 
 /** The rail: shared data links, the active invitation and the plan card (AC-FD-9). */
@@ -251,9 +192,6 @@ private fun FamilyPrimaryNote() {
 		color = FpTheme.colors.textMuted,
 	)
 }
-
-/** AC-FD-10 verbatim. */
-const val NO_ACTIVITY_COPY = "No activity yet \u2014 complete something to get things moving."
 
 /** The member types the inline editor offers (web `MemberChildTab` / role select). */
 val MEMBER_TYPES = listOf("Parent", "Child", "Member")

@@ -2,6 +2,7 @@ package com.familyplanz.app.data
 
 import kotlinx.serialization.json.JsonObject
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.Body
@@ -84,6 +85,10 @@ interface AccountApi {
 
 	@POST("api/me/claim")
 	suspend fun claim(@Body body: EmailBody): AckDto
+
+	/** #189: the caller's own data as one JSON document (an attachment on the web). */
+	@GET("api/account/export")
+	suspend fun exportData(): ResponseBody
 }
 
 /** The Account screens' network edge: one call per spec endpoint. */
@@ -124,6 +129,9 @@ interface AccountSettingsSource {
 
 	/** G13: emails the web claim link to a guest's address. */
 	suspend fun claim(email: String): ApiResult<Unit>
+
+	/** #189: the caller's data export, as the JSON text the server sent. */
+	suspend fun exportData(): ApiResult<String>
 }
 
 @Suppress("TooManyFunctions")
@@ -174,6 +182,8 @@ class NetworkAccountSettingsSource(private val api: AccountApi) : AccountSetting
 
 	override suspend fun claim(email: String): ApiResult<Unit> = apiCall { api.claim(EmailBody(email.trim())) }.unit()
 
+	override suspend fun exportData(): ApiResult<String> = apiCall { api.exportData().string() }
+
 	private fun <T> ApiResult<T>.unit(): ApiResult<Unit> = when (this) {
 		is ApiResult.Ok -> ApiResult.Ok(Unit)
 		is ApiResult.Err -> this
@@ -189,4 +199,46 @@ object AccountApis {
 			.addConverterFactory(ApiFactory.json.asConverterFactory("application/json".toMediaType()))
 			.build()
 			.create(AccountApi::class.java)
+}
+
+/** For a build with no account edge (UI fakes, previews): every call is refused, nothing reaches the network. */
+@Suppress("TooManyFunctions")
+object UnavailableAccountSettingsSource : AccountSettingsSource {
+	private val none = ApiResult.Err(ApiError.Unsupported)
+
+	override suspend fun me(): ApiResult<AccountMeDto> = none
+
+	override suspend fun settings(): ApiResult<AccountSettingsDto> = none
+
+	override suspend fun patchSettings(patch: JsonObject): ApiResult<AccountSettingsDto> = none
+
+	override suspend fun updateProfile(firstName: String, lastName: String): ApiResult<AccountUserDto?> = none
+
+	override suspend fun updateEmail(email: String): ApiResult<String> = none
+
+	override suspend fun revokeOtherSessions(): ApiResult<Int> = none
+
+	override suspend fun apiTokens(): ApiResult<List<ApiTokenDto>> = none
+
+	override suspend fun createApiToken(name: String): ApiResult<CreatedTokenDto> = none
+
+	override suspend fun revokeApiToken(id: String): ApiResult<Unit> = none
+
+	override suspend fun deleteAccount(confirmation: String): ApiResult<Unit> = none
+
+	override suspend fun saveDashboardModules(hidden: List<String>): ApiResult<List<String>> = none
+
+	override suspend fun notificationPreferences(): ApiResult<NotificationPreferencesDto> = none
+
+	override suspend fun setNotificationPreference(id: String, value: Boolean): ApiResult<String> = none
+
+	override suspend fun subscription(): ApiResult<SubscriptionDto> = none
+
+	override suspend fun verifyEmail(code: String): ApiResult<Unit> = none
+
+	override suspend fun resendVerification(): ApiResult<Unit> = none
+
+	override suspend fun claim(email: String): ApiResult<Unit> = none
+
+	override suspend fun exportData(): ApiResult<String> = none
 }

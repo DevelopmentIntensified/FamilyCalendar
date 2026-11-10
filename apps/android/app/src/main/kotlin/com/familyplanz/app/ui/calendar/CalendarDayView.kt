@@ -1,9 +1,14 @@
 package com.familyplanz.app.ui.calendar
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,12 +27,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -54,11 +61,13 @@ import com.familyplanz.app.ui.theme.Primary
 import com.familyplanz.app.ui.theme.Slate
 import java.time.LocalDate
 import java.time.LocalDateTime
+import kotlin.math.abs
 
 /*
  * DayView + DayHeader + DayAllDayList + DayHourGrid (#292 L2): Back, the
- * date, 56 dp hour rows scrolled to (now - 1 h) or 07:00, the red now-line,
- * a long-press (450 ms) or Add-mode drag range select with its popover.
+ * date, 56 dp hour rows scrolled to (now - 1 h) or 07:00, the red now-line.
+ * Add mode locks the scroll and draws a live range highlight under the finger,
+ * committing it on lift; outside Add mode a long-press (450 ms) selects an hour.
  */
 
 @Composable
@@ -124,7 +133,9 @@ private fun DayHourGrid(day: LocalDate, state: CalendarUiState, actions: Calenda
 	val scroll = rememberScrollState()
 	val blocks = layoutDay(events, day, state.zone)
 	val hourPx = with(density) { DAY_HOUR_DP.dp.toPx() }
-	var anchorMinute by remember(day) { mutableIntStateOf(-1) }
+	// The range the finger is drawing right now; the committed one is state.range (web: `selecting` vs `rangeSel`).
+	var draft by remember(day, state.addMode) { mutableStateOf<RangeSelection?>(null) }
+	val onRange by rememberUpdatedState(actions.modes.onRange)
 	LaunchedEffect(day) {
 		val hour = initialScrollHour(day, LocalDateTime.now())
 		scroll.scrollTo(with(density) { (hour * DAY_HOUR_DP).dp.roundToPx() })
@@ -133,20 +144,15 @@ private fun DayHourGrid(day: LocalDate, state: CalendarUiState, actions: Calenda
 		modifier = Modifier
 			.fillMaxWidth()
 			.height(360.dp)
-			.verticalScroll(scroll)
+			// Add mode locks the scroll so a drag only ever selects (`DayHourGrid.svelte:78` touch-action: none).
+			.verticalScroll(scroll, enabled = !state.addMode)
+			// Positions here are already in content coordinates: never add scroll.value (#307).
 			.pointerInput(day, state.addMode, hourPx) {
 				if (state.addMode) {
-					detectDragGestures(
-						onDragStart = { pos -> anchorMinute = minuteAt(pos.y + scroll.value, hourPx) },
-						onDrag = { change, _ ->
-							if (anchorMinute >= 0) {
-								actions.modes.onRange(RangeSelection.of(day, anchorMinute, minuteAt(change.position.y + scroll.value, hourPx)))
-							}
-						},
-					)
+					dragToSelect(day, hourPx, onDraft = { draft = it }, onCommit = { onRange(it) })
 				} else {
 					detectTapGestures(
-						onLongPress = { pos -> actions.modes.onRange(RangeSelection.longPress(day, minuteAt(pos.y + scroll.value, hourPx))) },
+						onLongPress = { pos -> onRange(RangeSelection.longPress(day, minuteAt(pos.y, hourPx))) },
 					)
 				}
 			}
@@ -168,23 +174,58 @@ private fun DayHourGrid(day: LocalDate, state: CalendarUiState, actions: Calenda
 		}
 		blocks.forEach { block -> DayBlock(block, actions) }
 		NowLine(day, state)
-		state.range?.let { range -> RangeHighlight(range) }
+		(draft ?: state.range)?.let { range -> RangeHighlight(range) }
 	}
 }
 
+/**
+ * Add mode (`rangeSelect.ts` touchStart/touchMove/touchEnd): the range starts
+ * under the finger at once, follows it, and commits on lift. A touch that
+ * moved [TAP_MINUTES] or less is a tap and selects nothing.
+ */
+private suspend fun PointerInputScope.dragToSelect(
+	day: LocalDate,
+	hourPx: Float,
+	onDraft: (RangeSelection?) -> Unit,
+	onCommit: (RangeSelection) -> Unit,
+) {
+	awaitEachGesture {
+		val down = awaitFirstDown(requireUnconsumed = false)
+		val anchor = minuteAt(down.position.y, hourPx)
+		var current = anchor
+		onDraft(RangeSelection.of(day, anchor, current))
+		val lifted = drag(down.id) { change ->
+			current = minuteAt(change.position.y, hourPx)
+			onDraft(RangeSelection.of(day, anchor, current))
+			change.consume()
+		}
+		onDraft(null)
+		if (lifted && abs(current - anchor) > TAP_MINUTES) onCommit(RangeSelection.of(day, anchor, current))
+	}
+}
+
+/** `rangeSelect.ts` dragTo: a touch must travel more than this to count as a drag. */
+private const val TAP_MINUTES = 2
+
+/** Content y (px from the top of 00:00) → minutes since midnight. */
 private fun minuteAt(yPx: Float, hourPx: Float): Int = (yPx / hourPx * 60f).toInt().coerceIn(0, 24 * 60)
 
 @Composable
 private fun DayBlock(block: TimedBlock, actions: CalendarActions) {
 	val minuteDp = DAY_HOUR_DP / 60f
+	val interaction = remember { MutableInteractionSource() }
+	val pressed by interaction.collectIsPressedAsState()
 	Box(
 		modifier = Modifier
 			.fillMaxWidth()
 			.padding(top = (block.startMin * minuteDp).dp, start = 36.dp, end = 4.dp)
 			.height(((block.endMin - block.startMin) * minuteDp).dp)
 			.clip(RoundedCornerShape(6.dp))
-			.background(MaterialTheme.colorScheme.surface)
-			.clickable { actions.sheets.onOpen(CalendarSheet.Event(block.event)) },
+			// Web: `hover:brightness-95` / press; here the block darkens while a finger is on it.
+			.background(if (pressed) Slate.S100 else MaterialTheme.colorScheme.surface)
+			.clickable(interactionSource = interaction, indication = LocalIndication.current) {
+				actions.sheets.onOpen(CalendarSheet.Event(block.event))
+			},
 	) {
 		Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
 			modifier = Modifier.padding(4.dp)) {
@@ -211,7 +252,8 @@ private fun RangeHighlight(range: RangeSelection) {
 			.padding(top = (range.startMin * minuteDp).dp, start = 36.dp, end = 4.dp)
 			.height(((range.endMin - range.startMin) * minuteDp).dp)
 			.fillMaxWidth()
-			.background(Primary.P100.copy(alpha = 0.7f)),
+			.background(Primary.P100.copy(alpha = 0.7f))
+			.testTag("range-highlight"),
 	)
 }
 

@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.familyplanz.app.data.FamilyDetailDto
@@ -94,14 +95,17 @@ fun InvitationsBand(detail: FamilyDetailDto, actions: FamilyDetailActions) {
 }
 
 /**
- * AC-FD-6: the member actions sheet. Tapping the scrim or the cross closes
- * it; the type and role selects write straight through (AC-FD-3, AC-FD-4).
+ * AC-FD-6: the member actions sheet, the only place with the type and role
+ * editors. Tapping the scrim or the cross closes it; the selects write
+ * straight through (AC-FD-3, AC-FD-4), and the viewer's own row offers no
+ * Remove.
  */
 @Composable
 @Suppress("LongParameterList")
 fun MemberActionsSheet(
 	member: RosterRowDto,
 	currentUserRole: String,
+	currentUserId: String,
 	onSetType: (RosterRowDto, String) -> Unit,
 	onSetRole: (RosterRowDto, String) -> Unit,
 	onRemove: (RosterRowDto) -> Unit,
@@ -110,7 +114,7 @@ fun MemberActionsSheet(
 	val name = listOfNotNull(member.firstName, member.lastName).joinToString(" ").ifBlank { "this member" }
 	Box(modifier = Modifier.fillMaxSize().background(Slate.S900.copy(alpha = 0.4f)).clickable(onClick = onClose)) {
 		Surface(
-			modifier = Modifier.fillMaxWidth().padding(top = 96.dp),
+			modifier = Modifier.fillMaxWidth().padding(top = 96.dp).testTag("member-sheet"),
 			shape = FpShape.Input,
 			color = MaterialTheme.colorScheme.surface,
 		) {
@@ -150,7 +154,7 @@ fun MemberActionsSheet(
 						)
 					}
 				}
-				if (canRemove(member)) {
+				if (canRemove(member) && member.userId != currentUserId) {
 					FamilyTextLink("Remove member", { onRemove(member) })
 				}
 			}

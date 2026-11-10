@@ -32,6 +32,10 @@ data class EventDto(
 	val createdAt: String? = null,
 	val recurrenceFrequency: String? = null,
 	val recurrenceInterval: Int? = null,
+	/** The rest of the series rule; the form has no control for these and sends them back untouched (#301). */
+	val recurrenceByDay: List<String>? = null,
+	val recurrenceCount: Int? = null,
+	val recurrenceUntil: String? = null,
 	val attendance: AttendanceSummaryDto? = null,
 	val color: String? = null,
 	val isAd: Boolean = false,

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Web EventDetailList.svelte:128,134 location row (heroicons location-marker). Tinted at use. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+	android:width="24dp"
+	android:height="24dp"
+	android:viewportWidth="24"
+	android:viewportHeight="24">
+	<path
+		android:pathData="M17.657,16.657 L13.414,20.9 a1.998,1.998 0 0 1 -2.827,0 l-4.244,-4.243 a8,8 0 1 1 11.314,0 z"
+		android:strokeColor="#FF000000"
+		android:strokeWidth="2"
+		android:strokeLineCap="round"
+		android:strokeLineJoin="round" />
+	<path
+		android:pathData="M15,11 a3,3 0 1 1 -6,0 a3,3 0 0 1 6,0 z"
+		android:strokeColor="#FF000000"
+		android:strokeWidth="2"
+		android:strokeLineCap="round"
+		android:strokeLineJoin="round" />
+</vector>

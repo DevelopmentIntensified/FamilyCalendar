@@ -291,7 +291,7 @@ class CalendarViewModel(
 		if (!form.valid) return
 		when {
 			form.kind == com.familyplanz.app.ui.calendar.model.FormKind.TASK -> form.taskRequest()?.let(writes::createTask)
-			form.editId != null -> writes.updateEvent(form.editId, form.updateBody())
+			form.editId != null -> form.updateBody(zone)?.let { writes.updateEvent(form.editId, it) }
 			else -> form.createRequest(zone)?.let(writes::createEvent)
 		}
 	}

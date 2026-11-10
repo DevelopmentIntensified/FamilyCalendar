@@ -1,6 +1,7 @@
 @file:Suppress("TooManyFunctions", "MatchingDeclarationName")
 package com.familyplanz.app.ui.calendar
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,12 +38,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.familyplanz.app.R
 import com.familyplanz.app.domain.CalendarEvent
 import com.familyplanz.app.domain.CalendarTask
 import com.familyplanz.app.ui.calendar.chips.ChipDensity
 import com.familyplanz.app.ui.calendar.chips.ChipKindMark
 import com.familyplanz.app.ui.calendar.chips.chipColor
 import com.familyplanz.app.ui.calendar.chips.chipKindOf
+import com.familyplanz.app.ui.calendar.model.SCOPE_ALL
+import com.familyplanz.app.ui.calendar.model.SCOPE_THIS
 import com.familyplanz.app.ui.calendar.model.dayFull
 import com.familyplanz.app.ui.calendar.model.timeRange
 import com.familyplanz.app.ui.theme.Accent
@@ -91,7 +97,7 @@ fun EventSheet(
 					question = if (event.isRecurring) "Delete just this one?" else "Delete this event?",
 					body = "${eventsWarning(event)}Delete an event and it is gone for everyone.",
 					confirm = "Delete",
-					onConfirm = { actions.onDelete(event, if (event.isRecurring) "single" else "all") },
+					onConfirm = { actions.onDelete(event, if (event.isRecurring) SCOPE_THIS else SCOPE_ALL) },
 					onCancel = { panel = Panel.NONE },
 				)
 
@@ -99,7 +105,7 @@ fun EventSheet(
 					question = "Delete the whole series?",
 					body = "${eventsWarning(event)}Every occurrence of this repeating event goes too.",
 					confirm = "Delete",
-					onConfirm = { actions.onDelete(event, "all") },
+					onConfirm = { actions.onDelete(event, SCOPE_ALL) },
 					onCancel = { panel = Panel.NONE },
 				)
 
@@ -160,12 +166,12 @@ private fun repeatRule(event: CalendarEvent): String {
 @Composable
 private fun DetailRows(event: CalendarEvent, state: CalendarUiState) {
 	Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-		Detail("Date", event.localDay?.let { dayFull(it) } ?: event.startDate.take(10))
-		Detail("Time", if (event.allDay) "All day" else timeRange(event, state.zone))
-		state.data.calendarRefs.firstOrNull { it.first == event.calendarId }?.let { Detail("Calendar", it.second) }
-		event.creatorName?.takeIf { it.isNotBlank() }?.let { Detail("Created by", it) }
-		event.location?.takeIf { it.isNotBlank() }?.let { Detail("Location", it) }
-		reminderLabel(event.reminderMinutes)?.let { Detail("Reminder", it) }
+		Detail(DetailKind.DATE, event.localDay?.let { dayFull(it) } ?: event.startDate.take(10))
+		Detail(DetailKind.TIME, if (event.allDay) "All day" else timeRange(event, state.zone))
+		state.data.calendarRefs.firstOrNull { it.first == event.calendarId }?.let { Detail(DetailKind.CALENDAR, it.second) }
+		event.creatorName?.takeIf { it.isNotBlank() }?.let { Detail(DetailKind.CREATOR, it) }
+		event.location?.takeIf { it.isNotBlank() }?.let { Detail(DetailKind.LOCATION, it) }
+		reminderLabel(event.reminderMinutes)?.let { Detail(DetailKind.REMINDER, it) }
 		event.description?.takeIf { it.isNotBlank() }?.let {
 			Surface(shape = MaterialTheme.shapes.medium, color = Slate.S50, modifier = Modifier.fillMaxWidth()) {
 				Text(it, fontSize = 13.sp, color = FpTheme.colors.textBody, modifier = Modifier.padding(16.dp))
@@ -185,12 +191,37 @@ fun reminderLabel(minutes: Int?): String? = when (minutes) {
 	else -> if (minutes % 60 == 0) "${minutes / 60} hours before" else "$minutes minutes before"
 }
 
+/** The detail rows, in order, each with the web's own stroke icon (`EventDetailList.svelte`); the clock is the web's time glyph. */
+private enum class DetailKind(val label: String, val tag: String, @DrawableRes val icon: Int) {
+	DATE("Date", "date", R.drawable.ic_fp_detail_date),
+	TIME("Time", "time", R.drawable.ic_fp_detail_time),
+	CALENDAR("Calendar", "calendar", R.drawable.ic_fp_detail_calendar),
+	CREATOR("Created by", "creator", R.drawable.ic_fp_detail_creator),
+	LOCATION("Location", "location", R.drawable.ic_fp_detail_location),
+	REMINDER("Reminder", "reminder", R.drawable.ic_fp_detail_reminder),
+}
+
+/** One row: the 32 dp `rounded-lg bg-slate-100` tile with the row's 16 dp slate-500 icon, then label over value. */
 @Composable
-private fun Detail(label: String, value: String) {
-	Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-		Box(Modifier.size(32.dp).clip(MaterialTheme.shapes.small).background(Slate.S100))
+private fun Detail(kind: DetailKind, value: String) {
+	Row(
+		verticalAlignment = Alignment.Top,
+		horizontalArrangement = Arrangement.spacedBy(8.dp),
+		modifier = Modifier.testTag("detail-row-${kind.tag}"),
+	) {
+		Box(
+			modifier = Modifier.size(32.dp).clip(MaterialTheme.shapes.small).background(Slate.S100),
+			contentAlignment = Alignment.Center,
+		) {
+			Icon(
+				painterResource(kind.icon),
+				contentDescription = null,
+				tint = Slate.S500,
+				modifier = Modifier.size(16.dp).testTag("detail-icon-${kind.tag}"),
+			)
+		}
 		Column {
-			Text(label, fontSize = 11.sp, color = FpTheme.colors.textMuted)
+			Text(kind.label, fontSize = 11.sp, color = FpTheme.colors.textMuted)
 			Text(value, fontSize = 14.sp, color = FpTheme.colors.textBody)
 		}
 	}

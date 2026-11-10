@@ -50,6 +50,7 @@ class AccountActions(
 	val onCreateFamily: () -> Unit = {},
 	val onClaim: () -> Unit = {},
 	val onReportBug: () -> Unit = {},
+	val onExport: () -> Unit = {},
 )
 
 /** A labelled radio-style row used by the calendar settings (one choice per group). */

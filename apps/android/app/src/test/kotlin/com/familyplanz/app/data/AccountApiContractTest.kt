@@ -227,4 +227,21 @@ class AccountApiContractTest {
 		assertEquals(ApiResult.Ok(Unit), account.claim("save@example.com"))
 		assertEquals("""{"email":"save@example.com"}""", server.takeRequest().body.readUtf8())
 	}
+
+	@Test
+	fun `the data export is fetched from the account export endpoint as text`() = runBlocking {
+		server.enqueue(
+			MockResponse()
+				.setResponseCode(200)
+				.setHeader("Content-Type", "application/json; charset=utf-8")
+				.setBody("""{"user":{"id":"u1"},"events":[]}"""),
+		)
+		val result = account.exportData()
+
+		val recorded = server.takeRequest()
+		assertEquals("GET", recorded.method)
+		assertEquals("/api/account/export", recorded.path)
+		assertEquals("Bearer fp_test", recorded.getHeader("Authorization"))
+		assertEquals("""{"user":{"id":"u1"},"events":[]}""", (result as ApiResult.Ok).value)
+	}
 }

@@ -56,4 +56,8 @@ object DeepLinks {
 		if (path.isEmpty()) return null
 		return links.filter { path.startsWith(it.pathPrefix) }.maxByOrNull { it.pathPrefix.length }?.route
 	}
+
+	/** The link's `#fragment` (`/account#calendar` → "calendar"): the section a lane opens on; null when none. */
+	fun fragment(link: String?): String? =
+		link?.let { runCatching { URI(it.trim()).fragment }.getOrNull() }?.takeIf { it.isNotBlank() }
 }

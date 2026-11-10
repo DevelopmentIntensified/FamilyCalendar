@@ -48,7 +48,8 @@ class MainActivity : ComponentActivity() {
 		// #273: refresh this phone's FCM registration (idempotent; no-op when push is off or signed out).
 		lifecycleScope.launch { PushGraph.session(applicationContext).signedIn() }
 		val openDay = intent?.getStringExtra(FP_OPEN_DAY)
-		val pushRoute = DeepLinks.resolve(intent?.getStringExtra(ActivityNotifier.EXTRA_LINK), AppModules.DEEP_LINKS)
+		val pushLink = intent?.getStringExtra(ActivityNotifier.EXTRA_LINK)
+		val pushRoute = DeepLinks.resolve(pushLink, AppModules.DEEP_LINKS)
 		// null = the user's start setting decides (Dashboard or Calendar).
 		val initialRoute = when {
 			openDay != null || intent?.getStringExtra(FP_DEBUG_SCREEN) == "calendar" -> AppRoute.CALENDAR
@@ -59,7 +60,8 @@ class MainActivity : ComponentActivity() {
 		val modules = (application as FamilyPlanzApp).modules
 		setContent {
 			FamilyPlanzTheme {
-				val nav = rememberAppNav(initialRoute, AppModules.DEEP_LINKS, arg = openDay)
+				// A push link's `#fragment` (`/account#calendar`) is the section its lane opens on.
+				val nav = rememberAppNav(initialRoute, AppModules.DEEP_LINKS, arg = openDay ?: DeepLinks.fragment(pushLink))
 				FamilyPlanzHost(modules, nav) { ReminderPermissionSlot() }
 			}
 		}
