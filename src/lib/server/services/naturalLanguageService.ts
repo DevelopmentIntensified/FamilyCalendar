@@ -18,6 +18,15 @@ import {
 	resolveMonthDay,
 	valueToCadence
 } from '$lib/utils/dateResolution';
+import {
+	DAYPART_TIMES,
+	ORDINAL_WORD_MAP,
+	ORDINAL_WORDS_PATTERN,
+	TOD_TIMES,
+	WEEKDAY_FULL,
+	fuzzyDayToken,
+	normalizeDayToken
+} from '$lib/utils/dateVocab';
 
 export interface ParsedEvent {
 	title: string;
@@ -48,54 +57,6 @@ export interface ParseResult {
 	parsed: Partial<ParsedEvent>;
 	confidence: number;
 }
-
-const ORDINAL_WORD_MAP = {
-	first: 1,
-	second: 2,
-	third: 3,
-	fourth: 4,
-	fifth: 5,
-	sixth: 6,
-	seventh: 7,
-	eighth: 8,
-	ninth: 9,
-	tenth: 10,
-	eleventh: 11,
-	twelfth: 12,
-	thirteenth: 13,
-	fourteenth: 14,
-	fifteenth: 15,
-	sixteenth: 16,
-	seventeenth: 17,
-	eighteenth: 18,
-	nineteenth: 19,
-	twentieth: 20,
-	'twenty-first': 21,
-	'twenty first': 21,
-	'twenty-second': 22,
-	'twenty second': 22,
-	'twenty-third': 23,
-	'twenty third': 23,
-	twentyfourth: 24,
-	'twenty-fourth': 24,
-	'twenty fourth': 24,
-	'twenty-fifth': 25,
-	'twenty fifth': 25,
-	'twenty-sixth': 26,
-	'twenty sixth': 26,
-	'twenty-seventh': 27,
-	'twenty seventh': 27,
-	'twenty-eighth': 28,
-	'twenty eighth': 28,
-	'twenty-ninth': 29,
-	'twenty ninth': 29,
-	thirtieth: 30,
-	'thirty-first': 31,
-	'thirty first': 31
-};
-
-const ORDINAL_WORDS_PATTERN =
-	'(?:twenty-(?:first|second|third|fifth|sixth|seventh|eighth|ninth)|thirty-first|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twentyfourth|twentyfifth|twentysixth|twentyseventh|twentyeighth|twentyninth|thirtieth|thirtyfirst)';
 
 function parseDayOfWeek(day: string): number | null {
 	return dayNumber(day.toLowerCase()) ?? null;
@@ -158,32 +119,11 @@ function withRolloverYear(
 	return DateTime.fromObject(resolved);
 }
 
-/** Weekday abbreviation/full name → RRULE code. Null when unrecognized. */
-function normalizeDayToken(t: string): string | null {
-	const s = t.toLowerCase();
-	if (s.startsWith('mon')) return 'MO';
-	if (s.startsWith('tue')) return 'TU';
-	if (s.startsWith('wed')) return 'WE';
-	if (s.startsWith('thu')) return 'TH';
-	if (s.startsWith('fri')) return 'FR';
-	if (s.startsWith('sat')) return 'SA';
-	if (s.startsWith('sun')) return 'SU';
-	return null;
-}
-
 /** String-keyed lookup for literal-key maps (keeps exact key types). */
 function lookup<K extends string, V>(map: Record<K, V>, key: string): V | undefined {
 	// SAFETY: the `in` check pins key to the map's own keys before indexing.
 	return key in map ? map[key as K] : undefined;
 }
-
-/** Part-of-day word → HH:mm anchor for "returning Sunday morning" phrasings. */
-const DAYPART_TIMES = {
-	morning: '09:00',
-	afternoon: '14:00',
-	evening: '18:00',
-	noon: '12:00'
-};
 
 /** Special time-of-day word → HH:mm. */
 const SPECIAL_TIMES = {
@@ -193,63 +133,7 @@ const SPECIAL_TIMES = {
 	dawn: '06:00'
 };
 
-/** Time-of-day phrase → HH:mm ("early morning", "afternoon", …). */
-const TOD_TIMES = {
-	'early morning': '06:00',
-	morning: '09:00',
-	afternoon: '14:00',
-	evening: '18:00'
-};
-
 const WEEK_ORDER = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
-
-const FULL_WEEKDAYS = [
-	'sunday',
-	'monday',
-	'tuesday',
-	'wednesday',
-	'thursday',
-	'friday',
-	'saturday'
-];
-
-/** Tiny edit distance for typo-tolerant weekday matching (7 words — trivial). */
-function editDistance(a: string, b: string): number {
-	const dp: number[] = Array.from({ length: b.length + 1 }, (_, i) => i);
-	for (let i = 1; i <= a.length; i++) {
-		let prev = dp[0];
-		dp[0] = i;
-		for (let j = 1; j <= b.length; j++) {
-			const next = dp[j];
-			dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
-			prev = next;
-		}
-	}
-	return dp[b.length];
-}
-
-/** Map a stray word to a weekday code within typo range. Exact names win
- * immediately (so "monday" never fuzzy-matches "sunday", 2 edits away);
- * otherwise the budget scales with length (≤1 below 7 chars, ≤2 above).
- * Short tokens and month names never qualify. */
-function fuzzyDayToken(word: string): string | null {
-	const s = word.toLowerCase();
-	if (s.length < 4) return null;
-	if (MONTH_MAP[s] !== undefined) return null;
-	const exact = FULL_WEEKDAYS.indexOf(s);
-	if (exact >= 0) return normalizeDayToken(FULL_WEEKDAYS[exact]);
-	// Adjacent transpositions ("mondya", "fridya") are single human typos.
-	for (let i = 0; i + 1 < s.length; i++) {
-		const swapped = s.slice(0, i) + s[i + 1] + s[i] + s.slice(i + 2);
-		const hit = FULL_WEEKDAYS.indexOf(swapped);
-		if (hit >= 0) return normalizeDayToken(FULL_WEEKDAYS[hit]);
-	}
-	const budget = s.length < 7 ? 1 : 2;
-	for (const name of FULL_WEEKDAYS) {
-		if (editDistance(s, name) <= budget) return normalizeDayToken(name);
-	}
-	return null;
-}
 
 export interface DayToken {
 	raw: string;
@@ -1307,7 +1191,7 @@ export function parseEventInput(input: string, zone?: string): ParseResult {
 		} else {
 			const fuzzy = extractDayTokens(maskedDayInput);
 			if (fuzzy.length > 0) {
-				const name = FULL_WEEKDAYS[(WEEK_ORDER.indexOf(fuzzy[0].code) + 1) % 7];
+				const name = WEEKDAY_FULL[(WEEK_ORDER.indexOf(fuzzy[0].code) + 1) % 7];
 				result.date = getNextDayOfWeek(name, zone).toFormat('yyyy-MM-dd');
 				confidence += 0.15;
 				stripSpans.push(fuzzy[0].raw);

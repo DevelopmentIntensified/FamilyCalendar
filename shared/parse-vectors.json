@@ -1,0 +1,908 @@
+{
+	"$comment": "Quick-add parse vectors shared by src/lib/utils/taskQuickAdd.test.ts and apps/android/.../TaskQuickAddTest.kt (issue 323, Lane B). Only the keys present in a vector are asserted. `due.days` is relative to `nowDate`; `due.date` is a local calendar date.",
+	"now": "2026-08-28T10:00:00.000Z",
+	"nowDate": "2026-08-28",
+	"rosters": {
+		"empty": [],
+		"default": [
+			{ "userId": "u-sam", "firstName": "Sam", "lastName": "Rivera" },
+			{ "userId": "u-mom", "firstName": "Mom", "lastName": "" },
+			{ "userId": "u-dad", "firstName": "Dad", "lastName": "Chen" }
+		],
+		"scoping": [
+			{ "userId": "u-maya", "firstName": "Maya", "lastName": "Lopez" },
+			{ "userId": "u-leo", "firstName": "Leo", "lastName": "" },
+			{ "userId": "u-samr", "firstName": "Sam", "lastName": "Rivera" }
+		],
+		"ambig": [
+			{ "userId": "u-sam1", "firstName": "Sam", "lastName": "One" },
+			{ "userId": "u-sam2", "firstName": "Sam", "lastName": "Two" }
+		],
+		"mixed": [
+			{ "userId": "u-maryann", "firstName": "Mary Ann", "lastName": "Smith" },
+			{ "userId": "u-mary", "firstName": "Mary", "lastName": "Jones" },
+			{ "userId": "u-aunty", "firstName": "Auntie May", "lastName": "" },
+			{ "userId": "u-leo", "firstName": "Leo", "lastName": "" },
+			{ "userId": "u-samr", "firstName": "Sam", "lastName": "Rivera" }
+		],
+		"tie": [
+			{ "userId": "u-maw", "firstName": "Mary Ann", "lastName": "Wu" },
+			{ "userId": "u-mas", "firstName": "Mary Ann", "lastName": "Smith" }
+		],
+		"mom": [{ "userId": "u-mom", "firstName": "Mom", "lastName": "" }]
+	},
+	"sections": [
+		{
+			"id": "dueDatePhrases",
+			"title": "parseTaskQuickAdd — due-date phrases",
+			"vectors": [
+				{
+					"phrase": "buy milk tomorrow",
+					"title": "buy milk",
+					"priority": "normal",
+					"due": { "days": 1 }
+				},
+				{
+					"phrase": "clean gutters saturday",
+					"title": "clean gutters",
+					"priority": "normal",
+					"due": { "days": 1 }
+				},
+				{
+					"phrase": "call mom mon",
+					"title": "call mom",
+					"priority": "normal",
+					"due": { "days": 3 }
+				},
+				{
+					"phrase": "call mom today",
+					"title": "call mom",
+					"priority": "normal",
+					"due": { "days": 0 }
+				},
+				{
+					"phrase": "review budget friday",
+					"title": "review budget",
+					"priority": "normal",
+					"due": { "days": 7 }
+				},
+				{
+					"phrase": "plan homemade sushi",
+					"title": "plan homemade sushi",
+					"priority": "normal",
+					"due": null
+				}
+			]
+		},
+		{
+			"id": "priorityKeywords",
+			"title": "parseTaskQuickAdd — priority keywords",
+			"vectors": [
+				{
+					"phrase": "high priority buy milk",
+					"title": "buy milk",
+					"priority": "high",
+					"due": null
+				},
+				{
+					"phrase": "urgent call dentist",
+					"title": "call dentist",
+					"priority": "high",
+					"due": null
+				},
+				{
+					"phrase": "asap pay the invoice",
+					"title": "pay the invoice",
+					"priority": "high",
+					"due": null
+				},
+				{
+					"phrase": "buy milk high priority",
+					"title": "buy milk",
+					"priority": "high",
+					"due": null
+				},
+				{
+					"phrase": "pay the invoice ASAP",
+					"title": "pay the invoice",
+					"priority": "high",
+					"due": null
+				},
+				{
+					"phrase": "urgent: call dentist",
+					"title": "call dentist",
+					"priority": "high",
+					"due": null
+				},
+				{
+					"phrase": "priority high file taxes",
+					"title": "file taxes",
+					"priority": "high",
+					"due": null
+				},
+				{
+					"phrase": "file taxes priority: high",
+					"title": "file taxes",
+					"priority": "high",
+					"due": null
+				},
+				{
+					"phrase": "high-priority deploy build",
+					"title": "deploy build",
+					"priority": "high",
+					"due": null
+				},
+				{
+					"phrase": "low priority tidy desk",
+					"title": "tidy desk",
+					"priority": "low",
+					"due": null
+				},
+				{
+					"phrase": "tidy desk low priority",
+					"title": "tidy desk",
+					"priority": "low",
+					"due": null
+				},
+				{
+					"phrase": "priority low water plants",
+					"title": "water plants",
+					"priority": "low",
+					"due": null
+				},
+				{
+					"phrase": "water the plants priority: low",
+					"title": "water the plants",
+					"priority": "low",
+					"due": null
+				},
+				{
+					"phrase": "file paperwork not urgent",
+					"title": "file paperwork",
+					"priority": "low",
+					"due": null
+				},
+				{ "phrase": "take out trash", "priority": "normal" }
+			]
+		},
+		{
+			"id": "dateAndPriority",
+			"title": "parseTaskQuickAdd — date + priority combined",
+			"vectors": [
+				{
+					"phrase": "buy milk high priority tomorrow",
+					"title": "buy milk",
+					"priority": "high",
+					"due": { "days": 1 }
+				},
+				{
+					"phrase": "tomorrow high priority buy milk",
+					"title": "buy milk",
+					"priority": "high",
+					"due": { "days": 1 }
+				},
+				{
+					"phrase": "clean gutters saturday low priority",
+					"title": "clean gutters",
+					"priority": "low",
+					"due": { "days": 1 }
+				},
+				{
+					"phrase": "urgent friday file taxes",
+					"title": "file taxes",
+					"priority": "high",
+					"due": { "days": 7 }
+				},
+				{
+					"phrase": "call dentist asap on monday",
+					"title": "call dentist on",
+					"priority": "high",
+					"due": { "days": 3 }
+				}
+			]
+		},
+		{
+			"id": "findAssignee",
+			"title": "findTaskAssignee — roster-scoped assignee matching",
+			"vectors": [
+				{ "phrase": "buy milk @sam", "roster": "empty", "findAssignee": null },
+				{ "phrase": "@sam buy milk", "roster": "default", "findAssignee": { "userId": "u-sam" } },
+				{
+					"phrase": "@sam rivera clean gutters",
+					"roster": "default",
+					"findAssignee": { "userId": "u-sam" }
+				},
+				{
+					"phrase": "assign to Sam Rivera clean gutters",
+					"roster": "default",
+					"findAssignee": { "userId": "u-sam", "length": 20 }
+				},
+				{
+					"phrase": "water plants for dad",
+					"roster": "default",
+					"findAssignee": { "userId": "u-dad" }
+				},
+				{
+					"phrase": "assign dad laundry",
+					"roster": "default",
+					"findAssignee": { "userId": "u-dad" }
+				},
+				{
+					"phrase": "task mom fold towels",
+					"roster": "default",
+					"findAssignee": { "userId": "u-mom" }
+				},
+				{ "phrase": "assign to Sammy take notes", "roster": "default", "findAssignee": null },
+				{ "phrase": "call @samitis", "roster": "default", "findAssignee": null },
+				{
+					"phrase": "FOR DAD pay bills",
+					"roster": "default",
+					"findAssignee": { "userId": "u-dad" }
+				},
+				{
+					"phrase": "water plants for DAD",
+					"roster": "default",
+					"findAssignee": { "userId": "u-dad" }
+				},
+				{ "phrase": "buy milk for grandma", "roster": "default", "findAssignee": null },
+				{ "phrase": "buy gift for the party", "roster": "default", "findAssignee": null },
+				{ "phrase": "send to the printer", "roster": "default", "findAssignee": null },
+				{
+					"phrase": "buy milk @mom and water plants for dad",
+					"roster": "default",
+					"findAssignee": { "userId": "u-mom" }
+				}
+			]
+		},
+		{
+			"id": "assigneePhrases",
+			"title": "parseTaskQuickAdd — assignee phrases",
+			"vectors": [
+				{
+					"phrase": "buy milk @sam",
+					"roster": "default",
+					"title": "buy milk",
+					"assignedTo": "u-sam"
+				},
+				{
+					"phrase": "@mom water plants",
+					"roster": "default",
+					"title": "water plants",
+					"assignedTo": "u-mom"
+				},
+				{
+					"phrase": "assign to Sam Rivera clean gutters",
+					"roster": "default",
+					"title": "clean gutters",
+					"assignedTo": "u-sam"
+				},
+				{
+					"phrase": "water plants for dad",
+					"roster": "default",
+					"title": "water plants",
+					"assignedTo": "u-dad"
+				},
+				{
+					"phrase": "assign dad laundry",
+					"roster": "default",
+					"title": "laundry",
+					"assignedTo": "u-dad"
+				},
+				{
+					"phrase": "task mom fold towels",
+					"roster": "default",
+					"title": "fold towels",
+					"assignedTo": "u-mom"
+				},
+				{
+					"phrase": "high priority buy milk for dad tomorrow",
+					"roster": "default",
+					"title": "buy milk",
+					"priority": "high",
+					"due": { "days": 1 },
+					"assignedTo": "u-dad"
+				},
+				{
+					"phrase": "for dad buy milk monday",
+					"roster": "default",
+					"title": "buy milk",
+					"due": { "days": 3 },
+					"assignedTo": "u-dad"
+				},
+				{
+					"phrase": "call vet tomorrow for mom",
+					"roster": "default",
+					"title": "call vet",
+					"due": { "days": 1 },
+					"assignedTo": "u-mom"
+				},
+				{ "phrase": "buy milk for dad", "title": "buy milk for dad", "assignedTo": null },
+				{
+					"phrase": "buy milk for grandma",
+					"roster": "default",
+					"title": "buy milk for grandma",
+					"assignedTo": null
+				},
+				{
+					"phrase": "assign to Sammy take notes",
+					"roster": "default",
+					"title": "assign to Sammy take notes",
+					"assignedTo": null
+				},
+				{
+					"phrase": "FOR DAD pay bills",
+					"roster": "default",
+					"title": "pay bills",
+					"assignedTo": "u-dad"
+				}
+			]
+		},
+		{
+			"id": "hashtags",
+			"title": "parseTaskQuickAdd — #tag parsing",
+			"vectors": [
+				{ "phrase": "buy milk #groceries", "title": "buy milk", "tags": ["groceries"] },
+				{ "phrase": "#home clean gutters", "title": "clean gutters", "tags": ["home"] },
+				{
+					"phrase": "call mom #phone #family today",
+					"title": "call mom",
+					"tags": ["family", "phone"]
+				},
+				{ "phrase": "file taxes#finance", "title": "file taxes", "tags": ["finance"] },
+				{
+					"phrase": "deploy build #v2_release #ci-cd",
+					"title": "deploy build",
+					"tags": ["ci-cd", "v2_release"]
+				},
+				{ "phrase": "#Groceries buy milk #GROCERIES", "title": "buy milk", "tags": ["groceries"] },
+				{ "phrase": "buy milk tomorrow", "tags": [] },
+				{
+					"phrase": "high priority buy milk #groceries tomorrow",
+					"title": "buy milk",
+					"priority": "high",
+					"due": { "days": 1 },
+					"tags": ["groceries"]
+				},
+				{ "phrase": "#plan", "title": "#plan", "tags": ["plan"] }
+			]
+		},
+		{
+			"id": "recurrence",
+			"title": "parseTaskQuickAdd — recurrence cadence",
+			"vectors": [
+				{
+					"phrase": "buy milk every day",
+					"title": "buy milk",
+					"recurrence": { "frequency": "daily", "interval": 1 },
+					"due": null
+				},
+				{
+					"phrase": "buy milk daily",
+					"title": "buy milk",
+					"recurrence": { "frequency": "daily", "interval": 1 },
+					"due": null
+				},
+				{
+					"phrase": "feed cat every 2 days",
+					"title": "feed cat",
+					"recurrence": { "frequency": "daily", "interval": 2 },
+					"due": null
+				},
+				{
+					"phrase": "gym every other day",
+					"title": "gym",
+					"recurrence": { "frequency": "daily", "interval": 2 },
+					"due": null
+				},
+				{
+					"phrase": "laundry weekly",
+					"title": "laundry",
+					"recurrence": { "frequency": "weekly", "interval": 1 },
+					"due": null
+				},
+				{
+					"phrase": "clean gutters every week",
+					"title": "clean gutters",
+					"recurrence": { "frequency": "weekly", "interval": 1 },
+					"due": null
+				},
+				{
+					"phrase": "take out trash every other week",
+					"title": "take out trash",
+					"recurrence": { "frequency": "weekly", "interval": 2 },
+					"due": null
+				},
+				{
+					"phrase": "pay rent every 2 weeks",
+					"title": "pay rent",
+					"recurrence": { "frequency": "weekly", "interval": 2 },
+					"due": null
+				},
+				{
+					"phrase": "file taxes monthly",
+					"title": "file taxes",
+					"recurrence": { "frequency": "monthly", "interval": 1 },
+					"due": null
+				},
+				{
+					"phrase": "water plants every month",
+					"title": "water plants",
+					"recurrence": { "frequency": "monthly", "interval": 1 },
+					"due": null
+				},
+				{
+					"phrase": "deep clean every other month",
+					"title": "deep clean",
+					"recurrence": { "frequency": "monthly", "interval": 2 },
+					"due": null
+				},
+				{
+					"phrase": "service car every 3 months",
+					"title": "service car",
+					"recurrence": { "frequency": "monthly", "interval": 3 },
+					"due": null
+				},
+				{
+					"phrase": "renew passport every year",
+					"title": "renew passport",
+					"recurrence": { "frequency": "yearly", "interval": 1 },
+					"due": null
+				},
+				{
+					"phrase": "test smoke alarms annually",
+					"title": "test smoke alarms",
+					"recurrence": { "frequency": "yearly", "interval": 1 },
+					"due": null
+				},
+				{
+					"phrase": "take out trash every friday",
+					"title": "take out trash",
+					"recurrence": { "frequency": "weekly", "interval": 1 },
+					"due": { "days": 7 }
+				},
+				{
+					"phrase": "mow lawn every saturday",
+					"title": "mow lawn",
+					"recurrence": { "frequency": "weekly", "interval": 1 },
+					"due": { "days": 1 }
+				},
+				{
+					"phrase": "every other saturday deep clean",
+					"title": "deep clean",
+					"recurrence": { "frequency": "weekly", "interval": 2 },
+					"due": { "days": 1 }
+				},
+				{
+					"phrase": "buy milk every 2 weeks",
+					"title": "buy milk",
+					"recurrence": { "frequency": "weekly", "interval": 2 }
+				},
+				{ "phrase": "buy milk tomorrow", "title": "buy milk", "recurrence": null },
+				{
+					"phrase": "high priority buy milk #groceries every 2 weeks tomorrow",
+					"title": "buy milk",
+					"priority": "high",
+					"due": { "days": 1 },
+					"tags": ["groceries"],
+					"recurrence": { "frequency": "weekly", "interval": 2 }
+				}
+			]
+		},
+		{
+			"id": "scoping",
+			"title": "parseTaskQuickAdd — scoping: #public/#private, @family, @name",
+			"vectors": [
+				{
+					"phrase": "@family #private clean the garage",
+					"roster": "scoping",
+					"title": "clean the garage",
+					"visibility": "private",
+					"visibilityExplicit": true,
+					"familyTask": true,
+					"assignedTo": null,
+					"unknownMember": null
+				},
+				{
+					"phrase": "clean the garage @family #private",
+					"roster": "scoping",
+					"title": "clean the garage",
+					"visibility": "private",
+					"visibilityExplicit": true,
+					"familyTask": true,
+					"assignedTo": null,
+					"unknownMember": null
+				},
+				{
+					"phrase": "#private clean the garage @family",
+					"roster": "scoping",
+					"title": "clean the garage",
+					"visibility": "private",
+					"visibilityExplicit": true,
+					"familyTask": true,
+					"assignedTo": null,
+					"unknownMember": null
+				},
+				{
+					"phrase": "@maya buy milk #private",
+					"roster": "scoping",
+					"title": "buy milk",
+					"visibility": "private",
+					"visibilityExplicit": true,
+					"familyTask": false,
+					"assignedTo": "u-maya",
+					"unknownMember": null
+				},
+				{
+					"phrase": "buy milk",
+					"roster": "scoping",
+					"title": "buy milk",
+					"visibility": "public",
+					"visibilityExplicit": false,
+					"familyTask": false,
+					"assignedTo": null,
+					"unknownMember": null
+				},
+				{
+					"phrase": "#public buy milk",
+					"roster": "scoping",
+					"title": "buy milk",
+					"visibility": "public",
+					"visibilityExplicit": true,
+					"familyTask": false,
+					"assignedTo": null,
+					"unknownMember": null
+				},
+				{
+					"phrase": "clean the #private garage",
+					"roster": "scoping",
+					"title": "clean the garage",
+					"visibility": "private",
+					"visibilityExplicit": true,
+					"familyTask": false,
+					"assignedTo": null,
+					"unknownMember": null
+				},
+				{
+					"phrase": "#PRIVATE buy milk",
+					"roster": "scoping",
+					"title": "buy milk",
+					"visibility": "private",
+					"visibilityExplicit": true,
+					"familyTask": false,
+					"assignedTo": null,
+					"unknownMember": null
+				},
+				{
+					"phrase": "clean gutters #public #private",
+					"roster": "scoping",
+					"title": "clean gutters",
+					"visibility": "private",
+					"visibilityExplicit": true,
+					"familyTask": false,
+					"assignedTo": null,
+					"unknownMember": null
+				},
+				{
+					"phrase": "buy milk #private #groceries",
+					"roster": "scoping",
+					"title": "buy milk",
+					"visibility": "private",
+					"visibilityExplicit": true,
+					"familyTask": false,
+					"assignedTo": null,
+					"unknownMember": null
+				},
+				{
+					"phrase": "@zoe buy milk",
+					"roster": "scoping",
+					"title": "buy milk",
+					"visibility": "public",
+					"visibilityExplicit": false,
+					"familyTask": false,
+					"assignedTo": null,
+					"unknownMember": "@zoe"
+				},
+				{
+					"phrase": "@MAYA buy milk",
+					"roster": "scoping",
+					"title": "buy milk",
+					"visibility": "public",
+					"visibilityExplicit": false,
+					"familyTask": false,
+					"assignedTo": "u-maya",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@sam rivera clean gutters",
+					"roster": "scoping",
+					"title": "clean gutters",
+					"visibility": "public",
+					"visibilityExplicit": false,
+					"familyTask": false,
+					"assignedTo": "u-samr",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@family #private @maya clean the garage",
+					"roster": "scoping",
+					"title": "clean the garage",
+					"visibility": "private",
+					"visibilityExplicit": true,
+					"familyTask": true,
+					"assignedTo": "u-maya",
+					"unknownMember": null
+				},
+				{ "phrase": "#private buy milk #groceries", "tags": ["groceries"] },
+				{
+					"phrase": "high priority @maya #private buy milk tomorrow",
+					"roster": "scoping",
+					"title": "buy milk",
+					"priority": "high",
+					"due": { "days": 1 },
+					"assignedTo": "u-maya",
+					"visibility": "private"
+				},
+				{
+					"phrase": "#private clean the garage @maya @family",
+					"roster": "scoping",
+					"title": "clean the garage",
+					"visibility": "private",
+					"familyTask": true,
+					"assignedTo": "u-maya"
+				},
+				{
+					"phrase": "@sam buy milk",
+					"roster": "ambig",
+					"title": "buy milk",
+					"assignedTo": null,
+					"unknownMember": "@sam"
+				},
+				{
+					"phrase": "@sam one buy milk",
+					"roster": "ambig",
+					"title": "buy milk",
+					"assignedTo": "u-sam1",
+					"unknownMember": null
+				},
+				{
+					"phrase": "buy milk @zoe",
+					"title": "buy milk @zoe",
+					"assignedTo": null,
+					"unknownMember": null
+				},
+				{ "phrase": "family movie night", "title": "family movie night", "familyTask": false },
+				{
+					"phrase": "#plan",
+					"tags": ["plan"],
+					"visibility": "public",
+					"visibilityExplicit": false
+				},
+				{
+					"phrase": "buy milk #privates",
+					"visibility": "public",
+					"visibilityExplicit": false,
+					"tags": ["privates"]
+				}
+			]
+		},
+		{
+			"id": "multiWordHandles",
+			"title": "parseTaskQuickAdd — @handle multi-word names",
+			"vectors": [
+				{
+					"phrase": "@mary ann buy milk",
+					"roster": "mixed",
+					"title": "buy milk",
+					"assignedTo": "u-maryann",
+					"unknownMember": null
+				},
+				{
+					"phrase": "Buy @Mary Ann cookies",
+					"roster": "mixed",
+					"title": "Buy cookies",
+					"assignedTo": "u-maryann",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@mary ann smith call vet",
+					"roster": "mixed",
+					"title": "call vet",
+					"assignedTo": "u-maryann",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@auntie may water plants",
+					"roster": "mixed",
+					"title": "water plants",
+					"assignedTo": "u-aunty",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@mary ann wash car",
+					"roster": "mixed",
+					"title": "wash car",
+					"assignedTo": "u-maryann",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@mary jones pay bills",
+					"roster": "mixed",
+					"title": "pay bills",
+					"assignedTo": "u-mary",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@jones pay bills",
+					"roster": "mixed",
+					"title": "pay bills",
+					"assignedTo": "u-mary",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@leo take out trash",
+					"roster": "mixed",
+					"title": "take out trash",
+					"assignedTo": "u-leo",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@sam rivera clean gutters",
+					"roster": "mixed",
+					"title": "clean gutters",
+					"assignedTo": "u-samr",
+					"unknownMember": null
+				},
+				{
+					"phrase": "buy milk @Mary Ann",
+					"roster": "mixed",
+					"title": "buy milk",
+					"assignedTo": "u-maryann",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@mary cookies",
+					"roster": "tie",
+					"title": "cookies",
+					"assignedTo": null,
+					"unknownMember": "@mary"
+				},
+				{
+					"phrase": "@mary ann buy milk",
+					"roster": "tie",
+					"title": "buy milk",
+					"assignedTo": null,
+					"unknownMember": "@mary"
+				},
+				{
+					"phrase": "@mary ann wu buy milk",
+					"roster": "tie",
+					"title": "buy milk",
+					"assignedTo": "u-maw",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@mary ann smith walk dog",
+					"roster": "tie",
+					"title": "walk dog",
+					"assignedTo": "u-mas",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@zoe buy milk",
+					"roster": "mixed",
+					"title": "buy milk",
+					"assignedTo": null,
+					"unknownMember": "@zoe"
+				},
+				{
+					"phrase": "@family clean the garage",
+					"roster": "mixed",
+					"title": "clean the garage",
+					"assignedTo": null,
+					"unknownMember": null,
+					"familyTask": true
+				},
+				{
+					"phrase": "@leo feed cat @mary ann",
+					"roster": "mixed",
+					"title": "feed cat",
+					"assignedTo": "u-maryann",
+					"unknownMember": null
+				},
+				{
+					"phrase": "@zoe buy milk @mary ann wash car",
+					"roster": "mixed",
+					"title": "buy milk wash car",
+					"assignedTo": "u-maryann",
+					"unknownMember": "@zoe"
+				}
+			]
+		},
+		{
+			"id": "richerDates",
+			"title": "parseTaskQuickAdd — richer date phrases",
+			"vectors": [
+				{ "phrase": "call vet next monday", "title": "call vet", "due": { "days": 3 } },
+				{ "phrase": "book flight next friday", "title": "book flight", "due": { "days": 7 } },
+				{ "phrase": "renew gym in 3 days", "title": "renew gym", "due": { "days": 3 } },
+				{ "phrase": "pay invoice in 2 weeks", "title": "pay invoice", "due": { "days": 14 } },
+				{ "phrase": "send reminder in a week", "title": "send reminder", "due": { "days": 7 } },
+				{ "phrase": "clean gutters next week", "title": "clean gutters", "due": { "days": 7 } },
+				{
+					"phrase": "water plants next month",
+					"title": "water plants",
+					"due": { "date": "2026-09-28" }
+				},
+				{
+					"phrase": "renew passport next year",
+					"title": "renew passport",
+					"due": { "date": "2027-08-28" }
+				},
+				{
+					"phrase": "wrap gifts december 25",
+					"title": "wrap gifts",
+					"due": { "date": "2026-12-25" }
+				},
+				{ "phrase": "buy gift jan 5", "title": "buy gift", "due": { "date": "2027-01-05" } },
+				{
+					"phrase": "clean gutters january 5, 2025",
+					"title": "clean gutters",
+					"due": { "date": "2025-01-05" }
+				},
+				{
+					"phrase": "plan party february 14th 2027",
+					"title": "plan party",
+					"due": { "date": "2027-02-14" }
+				},
+				{
+					"phrase": "water plants once a month",
+					"title": "water plants once a month",
+					"due": null,
+					"recurrence": null
+				},
+				{ "phrase": "plan a week long trip", "title": "plan a week long trip", "due": null }
+			]
+		},
+		{
+			"id": "canvasDueLines",
+			"title": "parseTaskQuickAdd — Canvas / LMS due lines",
+			"vectors": [
+				{
+					"phrase": "Discussion Thread: Biblical Inerrancy Due Sep 10 at 11:59pm",
+					"title": "Discussion Thread: Biblical Inerrancy",
+					"due": { "date": "2026-09-10" }
+				},
+				{
+					"phrase": "Research Paper: Outline Assignment Due Sep 13 at 11:59pm",
+					"title": "Research Paper: Outline Assignment",
+					"due": { "date": "2026-09-13" }
+				},
+				{
+					"phrase": "Due Oct 4 at 11:59pm Practical Theology: The Word of God Assignment",
+					"title": "Practical Theology: The Word of God Assignment",
+					"due": { "date": "2026-10-04" }
+				},
+				{
+					"phrase": "due sept 20 at 11:59 pm Wonder of God",
+					"title": "Wonder of God",
+					"due": { "date": "2026-09-20" }
+				},
+				{
+					"phrase": "Discussion Thread: The Trinity Due Sep 24 at 11:59PM",
+					"title": "Discussion Thread: The Trinity",
+					"due": { "date": "2026-09-24" }
+				},
+				{ "phrase": "call dentist at 3pm", "title": "call dentist at 3pm", "due": null },
+				{
+					"phrase": "high priority buy milk for mom #family in 3 days",
+					"roster": "mom",
+					"title": "buy milk",
+					"priority": "high",
+					"due": { "days": 3 },
+					"assignedTo": "u-mom",
+					"tags": ["family"]
+				}
+			]
+		}
+	]
+}

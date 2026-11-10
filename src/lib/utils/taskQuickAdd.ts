@@ -26,6 +26,7 @@
  * to import; that is gone.
  */
 import {
+	DAY_ALT,
 	MONTH_INDEX_0,
 	MONTH_NAME_TOKEN,
 	WEEKDAY_FULL,
@@ -305,17 +306,15 @@ interface RecurrenceResult {
 	remaining: string;
 }
 
-/** Weekday alternation for the quick-add's own anchor ("every saturday"). */
-const TASK_QUICK_ADD_DAY_ALT = 'sunday|monday|tuesday|wednesday|thursday|friday|saturday';
-
 /**
  * A weekday-anchored cadence: "every saturday" ⇒ weekly + that day's next
  * occurrence. It carries a DATE, so it cannot live in the shared cadence
  * table — but the interval and the frequency word come from the shared
- * cadence so "every other saturday" is biweekly here too.
+ * cadence so "every other saturday" is biweekly here too. The weekday
+ * alternation itself is the shared DAY_ALT.
  */
-const TASK_QUICK_ADD_EVERY_OTHER_DAY_RE = new RegExp(`\\bevery\\s+other\\s+(${TASK_QUICK_ADD_DAY_ALT})\\b`, 'i');
-const TASK_QUICK_ADD_EVERY_DAY_RE = new RegExp(`\\bevery\\s+(${TASK_QUICK_ADD_DAY_ALT})\\b`, 'i');
+const TASK_QUICK_ADD_EVERY_OTHER_DAY_RE = new RegExp(`\\bevery\\s+other\\s+(${DAY_ALT})\\b`, 'i');
+const TASK_QUICK_ADD_EVERY_DAY_RE = new RegExp(`\\bevery\\s+(${DAY_ALT})\\b`, 'i');
 
 function weekdayAnchor(title: string, re: RegExp, now: Date, every: number): RecurrenceResult | null {
 	const m = title.match(re);

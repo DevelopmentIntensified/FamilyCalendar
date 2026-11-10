@@ -111,11 +111,11 @@ describe('tasks page — focus command (#315)', () => {
 		render(TasksPage, withOpenTask());
 		await fireEvent.click(screen.getByLabelText('Start focus'));
 		await waitFor(() => expect(focusPosts()).toHaveLength(1));
-		expect(focusPosts()[0][1].body).toBe('{"command":"start","taskId":"t3"}');
+		expect(focusPosts()[0]?.[1]?.body).toBe('{"command":"start","taskId":"t3"}');
 		await waitFor(() => expect(screen.getByLabelText('Stop focus')).toBeTruthy());
 		await fireEvent.click(screen.getByLabelText('Stop focus'));
 		await waitFor(() => expect(focusPosts()).toHaveLength(2));
-		expect(focusPosts()[1][1].body).toBe('{"command":"stop"}');
+		expect(focusPosts()[1]?.[1]?.body).toBe('{"command":"stop"}');
 	});
 });
 
