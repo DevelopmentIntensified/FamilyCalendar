@@ -57,7 +57,7 @@ npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run gate
 4. Add `migrationRunner.db.test.ts`: running the runner on the already-migrated test DB applies 0 files and returns `ok: true`.
 5. Delete the stray `src/lib/server/db/migrations/0001_add_password_hash.sql` only if `git grep 0001_add_password_hash` finds no reference.
 
-**Done when:** `npm run gate` passes, and a deploy preview of the pushed commit serves `/api/health` (migrations ran at cold start without errors in Vercel logs).
+**Done when:** `npm run gate` passes, including step 4's test. Previews are blocked by [Q-004](../questions.md); once the owner answers, also confirm that the pushed commit's preview serves `/api/health` and its Vercel logs show migrations ran at cold start without errors. Until then, write "preview check pending Q-004" in the ledger note.
 
 ## k-06
 

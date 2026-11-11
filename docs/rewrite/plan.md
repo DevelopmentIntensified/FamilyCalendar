@@ -54,7 +54,7 @@ Rough size (legacy LOC still owned, from `npm run census` on 2026-11-11): calend
 | Long-lived branch diverges from `test` | Merge `origin/test` before each module; re-apply ported-module changes test-first. |
 | NLP regressions | Parsing is ported test-first; phrase suites stay the floor. Parse vectors stay in lockstep with Android (145). |
 | Tests touch production | Lane guards: unit tests have no database; db tests accept only `127.0.0.1:5433/familycalendar_v2_test`; config comes only through `ctx.config` (R6). |
-| Build breaks on deploy, or a local build touches production | `gate:push` runs `npm run build:safe` (placeholder secrets, local DB, migrations off). Vercel builds every pushed `rewrite/v2` commit as a preview with its own env. |
+| Build breaks on deploy, or a local build touches production | `gate:push` runs `npm run build:safe` (placeholder secrets, local DB, migrations off). Vercel previews of `rewrite/v2` currently fail before building ([Q-004](questions.md)), so `build:safe` is the only build proof until the owner answers. |
 
 ## Cutover
 
