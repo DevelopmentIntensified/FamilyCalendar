@@ -1,0 +1,4 @@
+{
+	"_comment": "svelte-check ERROR count outside v2 code. Only ever lowered by npm run typecheck -- --ratchet.",
+	"legacyErrors": 89
+}

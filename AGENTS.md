@@ -1,88 +1,71 @@
-# Agent Notes
+# AGENTS.md: start here
+
+Family Planz is a family calendar.
+
+- **Website and server:** SvelteKit in `src/`, Postgres on Neon, deployed on Vercel.
+- **Android app:** `apps/android` (Kotlin), a client of the `/api` contract.
+- **Domain language:** [CONTEXT.md](CONTEXT.md). Use its words exactly.
+
+## Read next: only what your task needs
+
+| your task | read |
+|---|---|
+| executing the v2 rewrite (branch `rewrite/v2`) | [docs/rewrite/README.md](docs/rewrite/README.md) |
+| changing website/server code | [docs/architecture/README.md](docs/architecture/README.md), then the `README.md` of the module you touch |
+| writing or running tests | [docs/architecture/testing.md](docs/architecture/testing.md) |
+| natural-language parsing (quick-add, dates) | [testing.md, NLP section](docs/architecture/testing.md#natural-language-parsing): test-first, phrase tables |
+| writing Svelte | [docs/guides/svelte-mcp.md](docs/guides/svelte-mcp.md) |
+| the `/api` contract (Android, TaskFocus) | [docs/guides/task-api-spec.md](docs/guides/task-api-spec.md) |
+| the Android app | [docs/README.md, Android section](docs/README.md#android) |
+| filing or working an issue | [docs/issues/README.md](docs/issues/README.md) |
+| verifying on test.familyplanz.com | [docs/guides/test-site.md](docs/guides/test-site.md) |
+| any other doc | [docs/README.md](docs/README.md), the map of every live doc |
+| history (old tickets, old status, old plans) | [docs/archive/README.md](docs/archive/README.md), only when researching |
 
 ## Working style
 
-- Delegate to subagents early and often — it is usually faster than doing everything inline. Verify their work afterwards (read the diff, re-run checks).
-- Batch independent work into parallel subagent calls.
-- Subagents doing implementation work should follow the `tdd` skill (red-green-refactor; tests first where a seam exists).
-- Research subagents should move fast: breadth-first, skim, report file:line evidence — don't over-verify.
-- Caveman mode default: terse, no filler, always. Full sentences only when explaining on request.
-- Run schema SQL directly against Neon (2026-10-23 owner override, replaces the hand-run convention) using `scripts/db-exec.mjs` with `.env.prod` (main) and `.env.preview` (test) — never print `DATABASE_URL`. Still record the DDL in `sql/migrations/` + the ticket, bundle it in `src/lib/server/db/migrations/scripts.ts` (parity gate), and don't rely on `drizzle-kit push`.
+- Delegate to subagents early and often, and batch independent work in parallel. It is usually faster. Verify their work afterwards: read the diff, re-run the checks.
+- Implementation subagents follow the `tdd` skill: red → green, tests first wherever a seam exists.
+- Research subagents move fast: breadth-first, skim, report `file:line` evidence.
+- Caveman mode is the default: terse, no filler. Use full sentences only when explaining on request.
 
-## Answering unknowns
+## Unknowns
 
-- **Control mode** (user driving, answering questions): when the answer isn't in the docs or code, use the `grill-with-docs` skill to ask — never guess.
-- **Hands-off mode** (user AFK or says "grind"/"continue"): make assumptions based on CONTEXT.md, docs/, and past answers; list all assumptions at the end for confirmation.
+- **Control mode** (the user is driving): when the docs and code don't answer it, ask with the `grill-with-docs` skill. Never guess.
+- **Hands-off mode** (the user is AFK, or says "grind"/"continue"): assume from CONTEXT.md, the docs and past answers, and list every assumption at the end.
+- A genuine fork goes to the owner as options with costs. Irreversible DDL always asks.
 
 ## Code correctness
 
-- Syntax first, logic second: every edit must parse. Balance all brackets/parens/braces/quotes before moving on — never stack another edit on top of an unverified one.
-- After each edit, re-read the touched region (or run the fastest check covering it, e.g. the targeted vitest file) immediately. A run-blocking syntax error must never reach the user, the test suite, or a push.
-- Bugs that surface should be logical mistakes caught by tests (red-green), not typos, unbalanced delimiters, missing imports, or wrong tool parameters. Slow down on edit boundaries: `oldString` must match exactly, `newString` must be complete.
-- One region per edit call; keep replacements small enough to eyeball in full.
+- Syntax first: every edit must parse. Balance brackets, parens and quotes before moving on. Re-read the touched region, or run its fastest check, right after each edit.
+- The bugs that surface should be logic mistakes caught by tests. Typos, broken imports and unbalanced delimiters must never reach the suite or a push.
 
+## Git
 
-## Service worker
+- Run `npm run build` before every push. Never push a broken build. On `rewrite/v2`, run `npm run gate:push`, which builds through `build:safe`: placeholder secrets and the local DB, because the main checkout's `.env` points at production.
+- Push to `test` (`git push origin test`) unless told otherwise.
+- Rewrite work lives on branch `rewrite/v2` (worktree `../fc-v2`) and pushes to `origin rewrite/v2`. Never merge it into `test`/`main`; that is the owner's cutover.
+- Push as you complete: commit and push each finished slice.
 
-- Bump the cache keys in static/service-worker.js (`familyplanz-vN` + `familyplanz-data-vN`) IN THE SAME COMMIT whenever brand assets, `static/manifest*.webmanifest`, or `src/app.html` change - the SW cache otherwise serves stale icons/manifest until the next key bump. Reason: 491a745 shipped the test-icon shim without a bump; 0964fd3 bumped after the fact.
-## Git workflow
+## Database
 
-- Always run `npm run build` before pushing — never push a broken build.
-- Always push to the `test` branch (`git push origin test`), unless the user explicitly says otherwise.
-- Push as you complete: commit and push each finished slice immediately, don't batch.
+- Never print `DATABASE_URL`. Tests only ever use the local Docker Postgres (`npm run db:up`).
+- Owner override (2026-10-23): schema SQL runs directly against Neon using `scripts/db-exec.mjs`, with `.env.prod` for main and `.env.preview` for test.
+- Still record the DDL in `sql/migrations/` and its ticket, and bundle it in the migrations scripts file (parity test). Don't rely on `drizzle-kit push`.
 
-## Issue tracking (docs/issues, repo root)
+## UI
 
-- Local markdown issues, no hosted tracker. Location: `docs/issues/`.
-- Naming: `NNN-short-slug.md`, sequential. Check highest existing number first.
-- Format: `# NNN — Title`, `Status: open|in-progress|done`, `## Done`, `## Needs doing`.
-- Workflow: starting work → `Status: in-progress`, specifics under `Needs doing`; finished → move to `Done`, flip `done`, verify `npm run build`.
-- Rollup: `docs/STATUS.md` mirrors tracker — update Done/Open lists on flip.
-- One issue per unrelated work; new numbered file, never batch.
+- Every interaction acknowledges within 100 ms (optimistic update or pending state). Confirm with a toast or inline status that names what happened and what comes next.
+- Never use a bare `alert()` or a silent reload. Loading states are skeletons, not blank cards.
+- Service worker: bump the cache keys in `static/service-worker.js` (`familyplanz-vN` and `familyplanz-data-vN`) in the same commit as any change to brand assets, `static/manifest*.webmanifest` or `src/app.html`. Otherwise the cache serves stale icons and manifest (incident: 491a745, fixed after the fact by 0964fd3).
 
-## NLP changes (natural-language parsing)
+## Tooling
 
-- Any change to natural-language parsing (`naturalLanguageService.ts`, quick-add/date parsing, new keywords like task priority) MUST be test-driven (`tdd` skill) with a table-driven suite covering as many distinct phrasings, colloquial variants, and word orders as possible.
-- Keep the existing parser coverage green — `src/lib/server/services/naturalLanguageService.test.ts` currently carries ~94 phrase tests; treat it as the floor, not the ceiling. New input surface (e.g. priority keywords) gets its own exhaustive phrase table.
-- Exercise the full pipeline where a seam exists (phrase → parsed intent → server action), not just the regex/parser unit.
+- Run Playwright directly (`npx playwright test`). The `playwright-cli` skill is deprecated in this project.
 
-## Testing on test.familyplanz.com
+## Content (owner directive)
 
-- The `test` branch auto-deploys to https://test.familyplanz.com. After pushing, wait ~1 minute for the deploy before testing.
-- Vercel MCP tools are available (Code Mode): check deploy status (`list_deployments`, `get_deployment`), fetch deployment URLs, and bypass deployment protection (`get_access_to_vercel_url`). Use them when the live site is unreachable or to confirm which commit is deployed.
-
-## UI feedback
-
-- Every interaction acks <100ms (optimistic update or pending state); confirm via toast/inline status naming what happened + next; never bare `alert()` or silent reload.
-- New client mutations use shared Toast + optimistic pattern; loading = skeletons, not blank cards.
-
-## Tooling (2026-08-30)
-
-- **Playwright: use Playwright directly** (`npx playwright test`, or `npm test` / the repo's `e2e` script). Do **NOT** use the `playwright-cli` CLI/skill anymore — it is deprecated for this project. (The `.claude/skills/playwright-cli` folder is dead weight; ignore it.)
-
-## Svelte MCP server
-
-You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
-
-### 1. list-sections
-
-Use this FIRST to discover all available documentation sections. Returns a structured list with titles, use_cases, and paths.
-When asked about Svelte or SvelteKit topics, ALWAYS use this tool at the start of the chat to find relevant sections.
-
-### 2. get-documentation
-
-Retrieves full documentation content for specific sections. Accepts single or multiple sections.
-After calling the list-sections tool, you MUST analyze the returned documentation sections (especially the use_cases field) and then use the get-documentation tool to fetch ALL documentation sections that are relevant for the user's task.
-
-### 3. svelte-autofixer
-
-Analyzes Svelte code and returns issues and suggestions.
-You MUST use this tool whenever writing Svelte code before sending it to the user. Keep calling it until no issues or suggestions are returned.
-
-### 4. playground-link
-
-Generates a Svelte Playground link with the provided code.
-After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
+- Never use LGBT/trans emoji: no rainbow flag, no trans symbol, no couple-pair 👫👬👭, and no same-sex or gender-neutral family combinations. Family imagery is man + woman + children only. The approved forms are 👪 and 👨‍👩‍👧‍👦. This applies to UI copy, notifications, empty states and docs.
 
 ## Guiding verses (why we build this way)
 
@@ -98,11 +81,3 @@ After completing the code, ask the user if they want a playground link. Only cal
 - Psalm 90:12 — Teach us to number our days, that we may apply our hearts unto wisdom. Day Dashboard in one line.
 - Psalm 127:3 — Lo, children are an heritage of the LORD. Kids' Schedule is ministry, not a feature.
 - Psalm 118:24 — This is the day which the LORD hath made; we will rejoice and be glad in it. Ship today something worth rejoicing in.
-
-## Domain
-
-See CONTEXT.md for the canonical domain language (Anonymous Account, Claiming, Recurring Task cursor semantics, etc.).
-
-## Content (user directive)
-
-- Never use LGBT/trans emoji (rainbow flag, trans symbol, couple-pair 👫👬👭, or any same-sex / gender-neutral family combinations). Family imagery = man + woman + children only; approved forms: 👪 and 👨‍👩‍👧‍👦. Applies to UI copy, notifications, empty states, and docs.

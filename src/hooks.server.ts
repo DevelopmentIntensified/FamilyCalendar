@@ -11,6 +11,8 @@ import { getUserForApiToken } from '$lib/server/db/actions/apiTokens';
 import { runMigrations } from '$lib/server/db/migrations/runner';
 import { createBugReport } from '$lib/server/db/actions/bugReports';
 import { buildAutoBugReport, shouldFileAutoReport } from '$lib/server/services/autoBugReport';
+import { appCtx } from '$lib/app/appCtx.server';
+import { actorFromUser } from '$lib/kernel/ctx/actor';
 
 // Apply pending SQL migrations once per cold start, in the background, on
 // whichever environment this code deploys (test or prod). Idempotent + locked.
@@ -54,6 +56,7 @@ const sessionHandle: Handle = async ({ event, resolve }) => {
 			}
 			event.locals.user = user;
 			event.locals.session = null;
+			event.locals.actor = actorFromUser(user, 'token');
 			return resolve(event);
 		}
 	}
@@ -62,6 +65,7 @@ const sessionHandle: Handle = async ({ event, resolve }) => {
 	if (!cookieValue) {
 		event.locals.user = null;
 		event.locals.session = null;
+		event.locals.actor = null;
 		// Admin routes must never be served anonymously — gate BEFORE the
 		// anonymous-account fallback below, otherwise POSTs would run ahead
 		// of the (admin) layout's role check.
@@ -86,6 +90,7 @@ const sessionHandle: Handle = async ({ event, resolve }) => {
 			setSessionCookie(event.cookies, await createSessionCookie(anonSession));
 			event.locals.user = anonUser;
 			event.locals.session = anonSession;
+			event.locals.actor = actorFromUser(anonUser, 'session');
 			return resolve(event);
 		}
 		return resolve(event);
@@ -109,6 +114,7 @@ const sessionHandle: Handle = async ({ event, resolve }) => {
 	}
 	event.locals.user = user;
 	event.locals.session = sessionRow;
+	event.locals.actor = user ? actorFromUser(user, 'session') : null;
 	if (isAdminRoute(event.url.pathname) && !event.locals.user?.roles?.includes('admin')) {
 		return redirect(302, '/login');
 	}
@@ -161,9 +167,12 @@ const apiOriginCheck: Handle = async ({ event, resolve }) => {
 // resolves hooks through an ALS request store that only exists inside a real
 // server, which breaks direct invocation (hooks.server.test.ts) and any
 // non-server harness. Nesting the resolves keeps the identical order:
-// security headers → API origin check → session.
-export const handle: Handle = async ({ event, resolve }) =>
-	securityHeaders({
+// security headers → API origin check → session. `locals.ctx` (the composition
+// root's dependency bag, src/lib/app) is set first so every handler sees it.
+export const handle: Handle = async ({ event, resolve }) => {
+	event.locals.ctx = appCtx;
+	event.locals.actor = null;
+	return securityHeaders({
 		event,
 		resolve: (event) =>
 			apiOriginCheck({
@@ -171,6 +180,7 @@ export const handle: Handle = async ({ event, resolve }) =>
 				resolve: (event) => sessionHandle({ event, resolve })
 			})
 	});
+};
 
 // Expected 404s (bot probes like /xmlrpc.php, mistyped URLs) shouldn't
 // spam the logs with stack traces — the styled error page still renders.

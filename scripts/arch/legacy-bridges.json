@@ -1,0 +1,4 @@
+{
+	"_comment": "Temporary imports from v2 code into legacy code (rule R14). Each entry is a debt: from, to, reason, removeBy (ledger task id). Prefer porting the dependency instead. `npm run census` lists open bridges.",
+	"bridges": []
+}

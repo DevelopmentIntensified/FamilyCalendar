@@ -1,6 +1,6 @@
 # Android = the website's mobile view — build spec
 
-Issue: [292](../issues/292-android-clone-mobile-web.md). Owner directive (2026-11-03): _"make the app a clone of the website mobile view for now. Be thorough. And follow the same style guide."_
+Issue: [292](../archive/issues/292-android-clone-mobile-web.md). Owner directive (2026-11-03): _"make the app a clone of the website mobile view for now. Be thorough. And follow the same style guide."_
 
 This is a **spec**. It changes no app code. It tells implementation lanes what to build, which value each token comes from, which JSON endpoint each screen reads, and how each screen is checked.
 

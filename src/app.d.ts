@@ -5,6 +5,10 @@ declare global {
 		interface Locals {
 			user: import('$lib/server/auth').SessionValidationResult['user'];
 			session: import('$lib/server/auth').SessionValidationResult['session'];
+			/** Dependency bag for new code; set first thing by src/hooks.server.ts. Optional only so legacy test doubles still type-check. */
+			ctx?: import('$lib/kernel/ctx/ctx.server').Ctx;
+			/** Who is calling (new code). Mirrors `user`; null when signed out. */
+			actor?: import('$lib/kernel/ctx/actor').Actor | null;
 		}
 	}
 }

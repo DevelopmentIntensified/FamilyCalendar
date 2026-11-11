@@ -1,0 +1,5449 @@
+{
+	"_comment": "GENERATED once by the v2 planning session (2026-11-11) from the real import graph. One entry per legacy file: the module that will own it after the port. Files are only ever deleted from this map, never added. Read by scripts/arch/census.mjs.",
+	"files": {
+		"e2e/account/AccountDeletion.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 166
+		},
+		"e2e/account/AccountSettings.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 188
+		},
+		"e2e/account/EmailChange.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 162
+		},
+		"e2e/account/ProfileEditing.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 147
+		},
+		"e2e/calendar/ArchivePage.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 92
+		},
+		"e2e/calendar/RecurringWins.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 106
+		},
+		"e2e/calendar/SettingsPage.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 128
+		},
+		"e2e/calendar/StatsPage.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 93
+		},
+		"e2e/conformance/account-known-bad.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 67
+		},
+		"e2e/conformance/helpers.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 49
+		},
+		"e2e/conformance/marketing.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 20
+		},
+		"e2e/events/EventCalendarChange.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 162
+		},
+		"e2e/events/EventCreation.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 110
+		},
+		"e2e/events/EventDeletion.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 122
+		},
+		"e2e/events/EventEditing.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 124
+		},
+		"e2e/events/NlpTimeParsing.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 26
+		},
+		"e2e/events/QuickCreateModal.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 257
+		},
+		"e2e/events/RecurringEvents.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 121
+		},
+		"e2e/family/FamilyCreation.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 234
+		},
+		"e2e/family/FamilySettings.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 123
+		},
+		"e2e/family/MemberRemoval.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 154
+		},
+		"e2e/family/MemberSearch.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 145
+		},
+		"e2e/family/MobileLayout.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 191
+		},
+		"e2e/globals.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 7
+		},
+		"e2e/login/EmailLoginWithCode.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 89
+		},
+		"e2e/login/EmailLoginWithLink.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 89
+		},
+		"e2e/marketing/AboutPage.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 28
+		},
+		"e2e/marketing/ContactForm.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 43
+		},
+		"e2e/marketing/PricingPage.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 63
+		},
+		"e2e/marketing/WaitlistPage.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 46
+		},
+		"e2e/mobile/DayTap.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 116
+		},
+		"e2e/mobile/MobileSmoke.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 89
+		},
+		"e2e/navigation/Navigation.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 239
+		},
+		"e2e/pageObjects/event.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 62
+		},
+		"e2e/pageObjects/login.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 27
+		},
+		"e2e/pageObjects/signup.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 33
+		},
+		"e2e/signup/EmailSignupWithAlreadyRegisteredEmail.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 53
+		},
+		"e2e/signup/EmailSignupWithCode.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 88
+		},
+		"e2e/signup/EmailSignupWithInvalidEmail.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 30
+		},
+		"e2e/signup/EmailSignupWithLink.test.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 82
+		},
+		"e2e/testUtils.ts": {
+			"module": "app",
+			"kind": "e2e",
+			"loc": 104
+		},
+		"src/lib/admin/AdminExport.svelte": {
+			"module": "feedback",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 68
+		},
+		"src/lib/admin/AdminExport.svelte.test.ts": {
+			"module": "feedback",
+			"kind": "test",
+			"loc": 66,
+			"subject": "src/lib/admin/AdminExport.svelte"
+		},
+		"src/lib/admin/export.test.ts": {
+			"module": "feedback",
+			"kind": "test",
+			"loc": 132,
+			"subject": "src/lib/admin/export.ts"
+		},
+		"src/lib/admin/export.ts": {
+			"module": "feedback",
+			"kind": "source",
+			"layer": "client",
+			"loc": 206
+		},
+		"src/lib/client/share.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 131,
+			"subject": "src/lib/client/share.ts"
+		},
+		"src/lib/client/share.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "client",
+			"loc": 90
+		},
+		"src/lib/client/taskCategories.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 48,
+			"subject": "src/lib/client/taskCategories.ts"
+		},
+		"src/lib/client/taskCategories.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "client",
+			"loc": 44
+		},
+		"src/lib/client/taskEditSave.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 81,
+			"subject": "src/lib/client/taskEditSave.ts"
+		},
+		"src/lib/client/taskEditSave.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "client",
+			"loc": 46
+		},
+		"src/lib/client/taskFeedback.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 51,
+			"subject": "src/lib/client/taskFeedback.ts"
+		},
+		"src/lib/client/taskFeedback.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "client",
+			"loc": 99
+		},
+		"src/lib/client/taskFocus.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 66,
+			"subject": "src/lib/client/taskFocus.ts"
+		},
+		"src/lib/client/taskFocus.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "client",
+			"loc": 44
+		},
+		"src/lib/client/taskSubmit.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 121,
+			"subject": "src/lib/client/taskSubmit.ts"
+		},
+		"src/lib/client/taskSubmit.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "client",
+			"loc": 83
+		},
+		"src/lib/client/toasts.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "client",
+			"loc": 26
+		},
+		"src/lib/components/BottomNav.svelte": {
+			"module": "shell",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 181
+		},
+		"src/lib/components/BottomNav.svelte.test.ts": {
+			"module": "shell",
+			"kind": "test",
+			"loc": 84,
+			"subject": "src/lib/components/BottomNav.svelte"
+		},
+		"src/lib/components/Breadcrumbs.svelte": {
+			"module": "shell",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 32
+		},
+		"src/lib/components/DayNav.svelte": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 126
+		},
+		"src/lib/components/DayNav.svelte.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 142,
+			"subject": "src/lib/components/DayNav.svelte"
+		},
+		"src/lib/components/LocationSearch.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 273
+		},
+		"src/lib/components/LocationSearch.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 72,
+			"subject": "src/lib/components/LocationSearch.svelte"
+		},
+		"src/lib/components/MentionInput.svelte": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 280
+		},
+		"src/lib/components/MentionInput.svelte.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 228,
+			"subject": "src/lib/components/MentionInput.svelte"
+		},
+		"src/lib/components/MentionInputHarness.svelte": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 17
+		},
+		"src/lib/components/Navbar.svelte": {
+			"module": "shell",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 183
+		},
+		"src/lib/components/Navbar.svelte.test.ts": {
+			"module": "shell",
+			"kind": "test",
+			"loc": 59,
+			"subject": "src/lib/components/Navbar.svelte"
+		},
+		"src/lib/components/NavbarMobileMenu.svelte": {
+			"module": "shell",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 116
+		},
+		"src/lib/components/NavbarMobileMenu.svelte.test.ts": {
+			"module": "shell",
+			"kind": "test",
+			"loc": 52,
+			"subject": "src/lib/components/NavbarMobileMenu.svelte"
+		},
+		"src/lib/components/NavbarProfileMenu.svelte": {
+			"module": "shell",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 96
+		},
+		"src/lib/components/NavbarProfileMenu.svelte.test.ts": {
+			"module": "shell",
+			"kind": "test",
+			"loc": 52,
+			"subject": "src/lib/components/NavbarProfileMenu.svelte"
+		},
+		"src/lib/components/NotificationBell.svelte": {
+			"module": "alerts",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 311
+		},
+		"src/lib/components/NotificationBell.svelte.test.ts": {
+			"module": "alerts",
+			"kind": "test",
+			"loc": 118,
+			"subject": "src/lib/components/NotificationBell.svelte"
+		},
+		"src/lib/components/OfflineBanner.svelte": {
+			"module": "shell",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 86
+		},
+		"src/lib/components/OfflineBanner.svelte.test.ts": {
+			"module": "shell",
+			"kind": "test",
+			"loc": 34,
+			"subject": "src/lib/components/OfflineBanner.svelte"
+		},
+		"src/lib/components/PlanTypeSelector.svelte": {
+			"module": "billing",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 90
+		},
+		"src/lib/components/TaskQuickAddHelp.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 57
+		},
+		"src/lib/components/TaskQuickAddPreview.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 94
+		},
+		"src/lib/components/Toaster.svelte": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 51
+		},
+		"src/lib/components/account/AccountApiTokensSection.svelte": {
+			"module": "account",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 139
+		},
+		"src/lib/components/account/AccountCalendarSection.svelte": {
+			"module": "account",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 329
+		},
+		"src/lib/components/account/AccountCalendarSection.svelte.test.ts": {
+			"module": "account",
+			"kind": "test",
+			"loc": 96,
+			"subject": "src/lib/components/account/AccountCalendarSection.svelte"
+		},
+		"src/lib/components/account/AccountDangerSection.svelte": {
+			"module": "account",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 120
+		},
+		"src/lib/components/account/AccountDashboardSection.svelte": {
+			"module": "account",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 95
+		},
+		"src/lib/components/account/AccountDashboardSection.svelte.test.ts": {
+			"module": "account",
+			"kind": "test",
+			"loc": 86,
+			"subject": "src/lib/components/account/AccountDashboardSection.svelte"
+		},
+		"src/lib/components/account/AccountEmailSection.svelte": {
+			"module": "account",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 76
+		},
+		"src/lib/components/account/AccountEmailSection.svelte.test.ts": {
+			"module": "account",
+			"kind": "test",
+			"loc": 25,
+			"subject": "src/lib/components/account/AccountEmailSection.svelte"
+		},
+		"src/lib/components/account/AccountFamiliesSection.svelte": {
+			"module": "account",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 72
+		},
+		"src/lib/components/account/AccountFamiliesSection.svelte.test.ts": {
+			"module": "account",
+			"kind": "test",
+			"loc": 56,
+			"subject": "src/lib/components/account/AccountFamiliesSection.svelte"
+		},
+		"src/lib/components/account/AccountNotificationsSection.svelte": {
+			"module": "account",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 191
+		},
+		"src/lib/components/account/AccountNotificationsSection.svelte.test.ts": {
+			"module": "account",
+			"kind": "test",
+			"loc": 213,
+			"subject": "src/lib/components/account/AccountNotificationsSection.svelte"
+		},
+		"src/lib/components/account/AccountProfileSection.svelte": {
+			"module": "account",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 62
+		},
+		"src/lib/components/account/AccountSecuritySection.svelte": {
+			"module": "account",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 33
+		},
+		"src/lib/components/account/AccountSidebar.svelte": {
+			"module": "account",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 140
+		},
+		"src/lib/components/account/AccountSidebar.svelte.test.ts": {
+			"module": "account",
+			"kind": "test",
+			"loc": 141,
+			"subject": "src/lib/components/account/AccountSidebar.svelte"
+		},
+		"src/lib/components/account/AccountSubscriptionSection.svelte": {
+			"module": "account",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 219
+		},
+		"src/lib/components/account/accountCalendars.test.ts": {
+			"module": "account",
+			"kind": "test",
+			"loc": 35,
+			"subject": "src/lib/components/account/accountCalendars.ts"
+		},
+		"src/lib/components/account/accountCalendars.ts": {
+			"module": "account",
+			"kind": "source",
+			"layer": "model",
+			"loc": 17
+		},
+		"src/lib/components/account/accountDashboardModules.test.ts": {
+			"module": "account",
+			"kind": "test",
+			"loc": 54,
+			"subject": "src/lib/components/account/accountDashboardModules.ts"
+		},
+		"src/lib/components/account/accountDashboardModules.ts": {
+			"module": "account",
+			"kind": "source",
+			"layer": "model",
+			"loc": 56
+		},
+		"src/lib/components/account/accountNotifications.test.ts": {
+			"module": "alerts",
+			"kind": "test",
+			"loc": 207,
+			"subject": "src/lib/components/account/accountNotifications.ts"
+		},
+		"src/lib/components/account/accountNotifications.ts": {
+			"module": "alerts",
+			"kind": "source",
+			"layer": "model",
+			"loc": 210
+		},
+		"src/lib/components/account/accountSections.ts": {
+			"module": "account",
+			"kind": "source",
+			"layer": "model",
+			"loc": 41
+		},
+		"src/lib/components/account/accountSubscription.test.ts": {
+			"module": "account",
+			"kind": "test",
+			"loc": 125,
+			"subject": "src/lib/components/account/accountSubscription.ts"
+		},
+		"src/lib/components/account/accountSubscription.ts": {
+			"module": "account",
+			"kind": "source",
+			"layer": "model",
+			"loc": 96
+		},
+		"src/lib/components/archive/archiveMonths.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 112,
+			"subject": "src/lib/components/archive/archiveMonths.ts"
+		},
+		"src/lib/components/archive/archiveMonths.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 144
+		},
+		"src/lib/components/auth/AuthCard.svelte": {
+			"module": "access",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 10
+		},
+		"src/lib/components/auth/AuthInput.svelte": {
+			"module": "access",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 63
+		},
+		"src/lib/components/auth/ModeToggle.svelte": {
+			"module": "access",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 31
+		},
+		"src/lib/components/brand/Mark.svelte": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 57
+		},
+		"src/lib/components/brand/Mark.svelte.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 66,
+			"subject": "src/lib/components/brand/Mark.svelte"
+		},
+		"src/lib/components/calendar/AttendanceBadge.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 33
+		},
+		"src/lib/components/calendar/AttendantPicker.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 227
+		},
+		"src/lib/components/calendar/BottomSheetHandle.svelte": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 22
+		},
+		"src/lib/components/calendar/BottomSheetHandle.svelte.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 31,
+			"subject": "src/lib/components/calendar/BottomSheetHandle.svelte"
+		},
+		"src/lib/components/calendar/BulkEditBar.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 313
+		},
+		"src/lib/components/calendar/BulkEditBar.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 121,
+			"subject": "src/lib/components/calendar/BulkEditBar.svelte"
+		},
+		"src/lib/components/calendar/Calendar.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 733
+		},
+		"src/lib/components/calendar/Calendar.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 970,
+			"subject": "src/lib/components/calendar/Calendar.svelte"
+		},
+		"src/lib/components/calendar/CalendarKey.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 132
+		},
+		"src/lib/components/calendar/CalendarSelector.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 93
+		},
+		"src/lib/components/calendar/CalendarToolbar.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 808
+		},
+		"src/lib/components/calendar/CalendarToolbar.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 757,
+			"subject": "src/lib/components/calendar/CalendarToolbar.svelte"
+		},
+		"src/lib/components/calendar/ChecklistSection.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 269
+		},
+		"src/lib/components/calendar/ChipKindMark.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 64
+		},
+		"src/lib/components/calendar/CreatorBadge.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 19
+		},
+		"src/lib/components/calendar/DailyVerseCard.svelte": {
+			"module": "verse",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 21
+		},
+		"src/lib/components/calendar/DayActionSheet.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 296
+		},
+		"src/lib/components/calendar/DayActionSheet.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 82,
+			"subject": "src/lib/components/calendar/DayActionSheet.svelte"
+		},
+		"src/lib/components/calendar/DayAllDayList.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 119
+		},
+		"src/lib/components/calendar/DayAllDayList.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 134,
+			"subject": "src/lib/components/calendar/DayAllDayList.svelte"
+		},
+		"src/lib/components/calendar/DayEventsModal.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 211
+		},
+		"src/lib/components/calendar/DayEventsModal.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 144,
+			"subject": "src/lib/components/calendar/DayEventsModal.svelte"
+		},
+		"src/lib/components/calendar/DayHeader.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 37
+		},
+		"src/lib/components/calendar/DayHeader.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 25,
+			"subject": "src/lib/components/calendar/DayHeader.svelte"
+		},
+		"src/lib/components/calendar/DayHourGrid.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 247
+		},
+		"src/lib/components/calendar/DayHourGrid.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 166,
+			"subject": "src/lib/components/calendar/DayHourGrid.svelte"
+		},
+		"src/lib/components/calendar/DayView.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 409
+		},
+		"src/lib/components/calendar/DayView.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 215,
+			"subject": "src/lib/components/calendar/DayView.svelte"
+		},
+		"src/lib/components/calendar/EmptyState.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 17
+		},
+		"src/lib/components/calendar/EventActionBar.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 87
+		},
+		"src/lib/components/calendar/EventActionBar.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 56,
+			"subject": "src/lib/components/calendar/EventActionBar.svelte"
+		},
+		"src/lib/components/calendar/EventAttendeeGroups.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 316
+		},
+		"src/lib/components/calendar/EventAttendeeGroups.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 225,
+			"subject": "src/lib/components/calendar/EventAttendeeGroups.svelte"
+		},
+		"src/lib/components/calendar/EventDateTimeFields.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 133
+		},
+		"src/lib/components/calendar/EventDateTimeFields.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 39,
+			"subject": "src/lib/components/calendar/EventDateTimeFields.svelte"
+		},
+		"src/lib/components/calendar/EventDeleteConfirm.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 69
+		},
+		"src/lib/components/calendar/EventDeleteConfirm.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 39,
+			"subject": "src/lib/components/calendar/EventDeleteConfirm.svelte"
+		},
+		"src/lib/components/calendar/EventDetailList.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 167
+		},
+		"src/lib/components/calendar/EventDetailList.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 53,
+			"subject": "src/lib/components/calendar/EventDetailList.svelte"
+		},
+		"src/lib/components/calendar/EventExportMenu.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 102
+		},
+		"src/lib/components/calendar/EventExportMenu.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 52,
+			"subject": "src/lib/components/calendar/EventExportMenu.svelte"
+		},
+		"src/lib/components/calendar/EventFormModal.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 759,
+			"note": "Calendar keeps the event form. Task mode (taskSubmit, TaskQuickAddHelp, EventTaskFields, ChecklistSection) moves to the calendarPage screen as a wrapper that composes the event form with tasks' quick-add."
+		},
+		"src/lib/components/calendar/EventFormModal.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 1395,
+			"subject": "src/lib/components/calendar/EventFormModal.svelte"
+		},
+		"src/lib/components/calendar/EventFormModel.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 488,
+			"subject": "src/lib/components/calendar/EventFormModel.svelte.ts"
+		},
+		"src/lib/components/calendar/EventFormModel.svelte.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "client",
+			"loc": 732
+		},
+		"src/lib/components/calendar/EventGuestNote.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 34
+		},
+		"src/lib/components/calendar/EventGuestNote.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 36,
+			"subject": "src/lib/components/calendar/EventGuestNote.svelte"
+		},
+		"src/lib/components/calendar/EventMetaFields.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 139
+		},
+		"src/lib/components/calendar/EventMetaFields.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 75,
+			"subject": "src/lib/components/calendar/EventMetaFields.svelte"
+		},
+		"src/lib/components/calendar/EventModal.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 443,
+			"note": "Drop the direct ChecklistSection import: give EventModal a `checklist?: Snippet` prop; screens pass tasks' checklist component."
+		},
+		"src/lib/components/calendar/EventModal.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 746,
+			"subject": "src/lib/components/calendar/EventModal.svelte"
+		},
+		"src/lib/components/calendar/EventModalBar.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 176
+		},
+		"src/lib/components/calendar/EventModalBar.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 78,
+			"subject": "src/lib/components/calendar/EventModalBar.svelte"
+		},
+		"src/lib/components/calendar/EventModalHeader.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 62,
+			"note": "Recurrence label (freqNoun) becomes calendar rule `describeRecurrence`; tasks imports it from calendar (dedupes taskDisplay.freqNoun, taskFeedback copy, TaskQuickAddPreview FREQ_NOUN)."
+		},
+		"src/lib/components/calendar/EventModalHeader.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 67,
+			"subject": "src/lib/components/calendar/EventModalHeader.svelte"
+		},
+		"src/lib/components/calendar/EventModalShell.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 82
+		},
+		"src/lib/components/calendar/EventModalShell.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 49,
+			"subject": "src/lib/components/calendar/EventModalShell.svelte"
+		},
+		"src/lib/components/calendar/EventQuickAdd.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 137
+		},
+		"src/lib/components/calendar/EventQuickAdd.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 70,
+			"subject": "src/lib/components/calendar/EventQuickAdd.svelte"
+		},
+		"src/lib/components/calendar/EventRecurrenceCard.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 144,
+			"note": "Same as EventModalHeader: use calendar's `describeRecurrence`, not tasks' taskDisplay."
+		},
+		"src/lib/components/calendar/EventRecurrenceCard.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 144,
+			"subject": "src/lib/components/calendar/EventRecurrenceCard.svelte"
+		},
+		"src/lib/components/calendar/EventRecurrenceFields.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 101
+		},
+		"src/lib/components/calendar/EventRecurrenceFields.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 37,
+			"subject": "src/lib/components/calendar/EventRecurrenceFields.svelte"
+		},
+		"src/lib/components/calendar/EventRsvpList.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 63
+		},
+		"src/lib/components/calendar/EventRsvpList.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 29,
+			"subject": "src/lib/components/calendar/EventRsvpList.svelte"
+		},
+		"src/lib/components/calendar/EventRsvpRow.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 165
+		},
+		"src/lib/components/calendar/EventRsvpRow.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 84,
+			"subject": "src/lib/components/calendar/EventRsvpRow.svelte"
+		},
+		"src/lib/components/calendar/EventTaskFields.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 89
+		},
+		"src/lib/components/calendar/EventTaskFields.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 43,
+			"subject": "src/lib/components/calendar/EventTaskFields.svelte"
+		},
+		"src/lib/components/calendar/EventTitleFields.svelte": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 58
+		},
+		"src/lib/components/calendar/EventTitleFields.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 41,
+			"subject": "src/lib/components/calendar/EventTitleFields.svelte"
+		},
+		"src/lib/components/calendar/ExitSelectionAsk.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 38
+		},
+		"src/lib/components/calendar/ExitSelectionAsk.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 22,
+			"subject": "src/lib/components/calendar/ExitSelectionAsk.svelte"
+		},
+		"src/lib/components/calendar/FirstRunCard.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 41
+		},
+		"src/lib/components/calendar/FirstRunCard.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 22,
+			"subject": "src/lib/components/calendar/FirstRunCard.svelte"
+		},
+		"src/lib/components/calendar/ListView.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 290
+		},
+		"src/lib/components/calendar/ListView.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 77,
+			"subject": "src/lib/components/calendar/ListView.svelte"
+		},
+		"src/lib/components/calendar/MODALS_SPEC.md": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 250
+		},
+		"src/lib/components/calendar/MonthDayCell.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 308
+		},
+		"src/lib/components/calendar/MonthDayCell.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 493,
+			"subject": "src/lib/components/calendar/MonthDayCell.svelte"
+		},
+		"src/lib/components/calendar/MonthDays.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 179
+		},
+		"src/lib/components/calendar/MonthDays.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 158,
+			"subject": "src/lib/components/calendar/MonthDays.svelte"
+		},
+		"src/lib/components/calendar/MonthView.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 101
+		},
+		"src/lib/components/calendar/MonthView.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 33,
+			"subject": "src/lib/components/calendar/MonthView.svelte"
+		},
+		"src/lib/components/calendar/TaskDetailBar.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 75
+		},
+		"src/lib/components/calendar/TaskDetailBar.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 49,
+			"subject": "src/lib/components/calendar/TaskDetailBar.svelte"
+		},
+		"src/lib/components/calendar/TaskDetailModal.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 295
+		},
+		"src/lib/components/calendar/TaskDetailModal.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 52,
+			"subject": "src/lib/components/calendar/TaskDetailModal.svelte"
+		},
+		"src/lib/components/calendar/WeekAllDayRow.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 111
+		},
+		"src/lib/components/calendar/WeekAllDayRow.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 172,
+			"subject": "src/lib/components/calendar/WeekAllDayRow.svelte"
+		},
+		"src/lib/components/calendar/WeekHeader.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 40
+		},
+		"src/lib/components/calendar/WeekHeader.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 32,
+			"subject": "src/lib/components/calendar/WeekHeader.svelte"
+		},
+		"src/lib/components/calendar/WeekHourGrid.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 238
+		},
+		"src/lib/components/calendar/WeekHourGrid.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 194,
+			"subject": "src/lib/components/calendar/WeekHourGrid.svelte"
+		},
+		"src/lib/components/calendar/WeekView.svelte": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 405
+		},
+		"src/lib/components/calendar/WeekView.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 343,
+			"subject": "src/lib/components/calendar/WeekView.svelte"
+		},
+		"src/lib/components/calendar/__diag2.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 35
+		},
+		"src/lib/components/calendar/bottomSheetSwipe.svelte.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 49,
+			"subject": "src/lib/components/calendar/bottomSheetSwipe.ts"
+		},
+		"src/lib/components/calendar/bottomSheetSwipe.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 29,
+			"subject": "src/lib/components/calendar/bottomSheetSwipe.ts"
+		},
+		"src/lib/components/calendar/bottomSheetSwipe.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 74
+		},
+		"src/lib/components/calendar/calendarView.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 206,
+			"subject": "src/lib/components/calendar/calendarView.ts"
+		},
+		"src/lib/components/calendar/calendarView.ts": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "model",
+			"loc": 122
+		},
+		"src/lib/components/calendar/eventModalRoster.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 190
+		},
+		"src/lib/components/dashboard/CompletedTodayCard.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 58
+		},
+		"src/lib/components/dashboard/CompletedTodayCard.svelte.test.ts": {
+			"module": "dayDashboard",
+			"kind": "test",
+			"loc": 36,
+			"subject": "src/lib/components/dashboard/CompletedTodayCard.svelte"
+		},
+		"src/lib/components/dashboard/DashboardInfoBand.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 33
+		},
+		"src/lib/components/dashboard/DashboardInfoBand.svelte.test.ts": {
+			"module": "dayDashboard",
+			"kind": "test",
+			"loc": 60,
+			"subject": "src/lib/components/dashboard/DashboardInfoBand.svelte"
+		},
+		"src/lib/components/dashboard/DashboardModuleRow.svelte": {
+			"module": "dashboardModules",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 84
+		},
+		"src/lib/components/dashboard/DashboardModuleRow.svelte.test.ts": {
+			"module": "dashboardModules",
+			"kind": "test",
+			"loc": 157,
+			"subject": "src/lib/components/dashboard/DashboardModuleRow.svelte"
+		},
+		"src/lib/components/dashboard/DayDashboard.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 191
+		},
+		"src/lib/components/dashboard/DayDashboard.svelte.test.ts": {
+			"module": "dayDashboard",
+			"kind": "test",
+			"loc": 423,
+			"subject": "src/lib/components/dashboard/DayDashboard.svelte"
+		},
+		"src/lib/components/dashboard/FamilyTaskBoardCard.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 300
+		},
+		"src/lib/components/dashboard/FamilyTaskBoardCard.svelte.test.ts": {
+			"module": "dayDashboard",
+			"kind": "test",
+			"loc": 388,
+			"subject": "src/lib/components/dashboard/FamilyTaskBoardCard.svelte"
+		},
+		"src/lib/components/dashboard/GroceriesCard.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 84
+		},
+		"src/lib/components/dashboard/GroceriesCard.svelte.test.ts": {
+			"module": "dayDashboard",
+			"kind": "test",
+			"loc": 116,
+			"subject": "src/lib/components/dashboard/GroceriesCard.svelte"
+		},
+		"src/lib/components/dashboard/KidsScheduleCard.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 129
+		},
+		"src/lib/components/dashboard/KidsScheduleCard.svelte.test.ts": {
+			"module": "dayDashboard",
+			"kind": "test",
+			"loc": 111,
+			"subject": "src/lib/components/dashboard/KidsScheduleCard.svelte"
+		},
+		"src/lib/components/dashboard/MealsCard.svelte": {
+			"module": "meals",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 166
+		},
+		"src/lib/components/dashboard/MealsCard.svelte.test.ts": {
+			"module": "meals",
+			"kind": "test",
+			"loc": 17,
+			"subject": "src/lib/components/dashboard/MealsCard.svelte"
+		},
+		"src/lib/components/dashboard/TodayGlanceCard.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 152
+		},
+		"src/lib/components/dashboard/TodayGlanceCard.svelte.test.ts": {
+			"module": "dayDashboard",
+			"kind": "test",
+			"loc": 209,
+			"subject": "src/lib/components/dashboard/TodayGlanceCard.svelte"
+		},
+		"src/lib/components/dashboard/TopPrioritiesCard.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 257
+		},
+		"src/lib/components/dashboard/TopPrioritiesCard.svelte.test.ts": {
+			"module": "dayDashboard",
+			"kind": "test",
+			"loc": 185,
+			"subject": "src/lib/components/dashboard/TopPrioritiesCard.svelte"
+		},
+		"src/lib/components/dashboard/prototype/DashboardPrototype.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 38
+		},
+		"src/lib/components/dashboard/prototype/PrototypeDock.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 313
+		},
+		"src/lib/components/dashboard/prototype/VariantBoardFirst.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 480
+		},
+		"src/lib/components/dashboard/prototype/VariantFocusFirst.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 93
+		},
+		"src/lib/components/dashboard/prototype/VariantMorningRead.svelte": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 76
+		},
+		"src/lib/components/dashboard/prototype/prototypeProps.ts": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "model",
+			"loc": 62
+		},
+		"src/lib/components/family/CreateFamilyMemberPicker.svelte": {
+			"module": "family",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 225
+		},
+		"src/lib/components/family/CreateFamilyMemberPicker.svelte.test.ts": {
+			"module": "family",
+			"kind": "test",
+			"loc": 188,
+			"subject": "src/lib/components/family/CreateFamilyMemberPicker.svelte"
+		},
+		"src/lib/components/family/MemberChildTab.svelte": {
+			"module": "family",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 132
+		},
+		"src/lib/components/family/MemberInviteChildTabs.svelte.test.ts": {
+			"module": "family",
+			"kind": "test",
+			"loc": 266
+		},
+		"src/lib/components/family/MemberInviteTab.svelte": {
+			"module": "family",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 186
+		},
+		"src/lib/components/family/MemberSearchTab.svelte": {
+			"module": "family",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 170
+		},
+		"src/lib/components/family/MemberSearchTab.svelte.test.ts": {
+			"module": "family",
+			"kind": "test",
+			"loc": 111,
+			"subject": "src/lib/components/family/MemberSearchTab.svelte"
+		},
+		"src/lib/components/family/responseError.ts": {
+			"module": "family",
+			"kind": "source",
+			"layer": "model",
+			"loc": 20
+		},
+		"src/lib/components/marketing/FeatureCard.svelte": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 31
+		},
+		"src/lib/components/marketing/GalleryCard.svelte": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 29
+		},
+		"src/lib/components/marketing/MomentCard.svelte": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 43
+		},
+		"src/lib/components/marketing/PricingCard.svelte": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 92
+		},
+		"src/lib/components/marketing/PricingCard.svelte.test.ts": {
+			"module": "marketing",
+			"kind": "test",
+			"loc": 41,
+			"subject": "src/lib/components/marketing/PricingCard.svelte"
+		},
+		"src/lib/components/marketing/StrugglePanel.svelte": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 55
+		},
+		"src/lib/components/marketing/TestimonialCard.svelte": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 39
+		},
+		"src/lib/components/marketing/featureIcons.ts": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "model",
+			"loc": 74
+		},
+		"src/lib/components/marketing/marketingCards.svelte.test.ts": {
+			"module": "marketing",
+			"kind": "test",
+			"loc": 68
+		},
+		"src/lib/components/propsDestructure.test.ts": {
+			"module": "shell",
+			"kind": "test",
+			"loc": 56
+		},
+		"src/lib/components/tasks/AddTaskCard.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 500
+		},
+		"src/lib/components/tasks/AddTaskCard.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 160,
+			"subject": "src/lib/components/tasks/AddTaskCard.svelte"
+		},
+		"src/lib/components/tasks/AssignmentsCard.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 134
+		},
+		"src/lib/components/tasks/AssignmentsCard.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 122,
+			"subject": "src/lib/components/tasks/AssignmentsCard.svelte"
+		},
+		"src/lib/components/tasks/CategoryChip.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 24
+		},
+		"src/lib/components/tasks/CategoryChip.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 22,
+			"subject": "src/lib/components/tasks/CategoryChip.svelte"
+		},
+		"src/lib/components/tasks/CategoryField.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 57
+		},
+		"src/lib/components/tasks/CategorySelect.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 141
+		},
+		"src/lib/components/tasks/CategorySelect.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 81,
+			"subject": "src/lib/components/tasks/CategorySelect.svelte"
+		},
+		"src/lib/components/tasks/EditTaskDialog.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 291
+		},
+		"src/lib/components/tasks/EditTaskDialog.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 146,
+			"subject": "src/lib/components/tasks/EditTaskDialog.svelte"
+		},
+		"src/lib/components/tasks/FamilyCompletedTaskList.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 61
+		},
+		"src/lib/components/tasks/FamilyCompletedTaskList.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 47,
+			"subject": "src/lib/components/tasks/FamilyCompletedTaskList.svelte"
+		},
+		"src/lib/components/tasks/FamilyOpenTaskRow.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 215
+		},
+		"src/lib/components/tasks/FamilyOpenTaskRow.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 98,
+			"subject": "src/lib/components/tasks/FamilyOpenTaskRow.svelte"
+		},
+		"src/lib/components/tasks/FamilyTaskAddForm.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 156
+		},
+		"src/lib/components/tasks/FamilyTaskAddForm.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 112,
+			"subject": "src/lib/components/tasks/FamilyTaskAddForm.svelte"
+		},
+		"src/lib/components/tasks/FamilyTaskFilterBar.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 88
+		},
+		"src/lib/components/tasks/FamilyTaskFilterBar.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 26,
+			"subject": "src/lib/components/tasks/FamilyTaskFilterBar.svelte"
+		},
+		"src/lib/components/tasks/FamilyTaskRow.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 298
+		},
+		"src/lib/components/tasks/FamilyTaskRow.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 118,
+			"subject": "src/lib/components/tasks/FamilyTaskRow.svelte"
+		},
+		"src/lib/components/tasks/FamilyTasksList.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 141
+		},
+		"src/lib/components/tasks/FamilyTasksList.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 63,
+			"subject": "src/lib/components/tasks/FamilyTasksList.svelte"
+		},
+		"src/lib/components/tasks/TaskCategoryManager.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 205
+		},
+		"src/lib/components/tasks/TaskCategoryManager.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 148,
+			"subject": "src/lib/components/tasks/TaskCategoryManager.svelte"
+		},
+		"src/lib/components/tasks/TaskCompletedRow.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 110
+		},
+		"src/lib/components/tasks/TaskCompletedRow.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 67,
+			"subject": "src/lib/components/tasks/TaskCompletedRow.svelte"
+		},
+		"src/lib/components/tasks/TaskRow.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 452
+		},
+		"src/lib/components/tasks/TaskRow.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 323,
+			"subject": "src/lib/components/tasks/TaskRow.svelte"
+		},
+		"src/lib/components/tasks/TaskTagFilter.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 59
+		},
+		"src/lib/components/tasks/TaskTagFilter.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 35,
+			"subject": "src/lib/components/tasks/TaskTagFilter.svelte"
+		},
+		"src/lib/components/tasks/TaskToolbar.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 222
+		},
+		"src/lib/components/tasks/TaskToolbar.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 184,
+			"subject": "src/lib/components/tasks/TaskToolbar.svelte"
+		},
+		"src/lib/components/tasks/TasksHeader.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 33
+		},
+		"src/lib/components/tasks/TasksHeader.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 25,
+			"subject": "src/lib/components/tasks/TasksHeader.svelte"
+		},
+		"src/lib/components/tasks/TasksMainList.svelte": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 402
+		},
+		"src/lib/components/tasks/TasksMainList.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 335,
+			"subject": "src/lib/components/tasks/TasksMainList.svelte"
+		},
+		"src/lib/conformance/collect.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "testing/conformance",
+			"loc": 57
+		},
+		"src/lib/conformance/rules.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 75,
+			"subject": "src/lib/conformance/rules.ts"
+		},
+		"src/lib/conformance/rules.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "testing/conformance",
+			"loc": 154
+		},
+		"src/lib/conformance/tokens.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 124,
+			"subject": "src/lib/conformance/tokens.ts"
+		},
+		"src/lib/conformance/tokens.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "testing/conformance",
+			"loc": 97
+		},
+		"src/lib/dashboardModules.test.ts": {
+			"module": "dashboardModules",
+			"kind": "test",
+			"loc": 365,
+			"subject": "src/lib/dashboardModules.ts"
+		},
+		"src/lib/dashboardModules.ts": {
+			"module": "dashboardModules",
+			"kind": "source",
+			"layer": "model",
+			"loc": 168
+		},
+		"src/lib/data/categories.test.ts": {
+			"module": "bills",
+			"kind": "test",
+			"loc": 188,
+			"subject": "src/lib/data/categories.ts"
+		},
+		"src/lib/data/categories.ts": {
+			"module": "bills",
+			"kind": "source",
+			"layer": "model",
+			"loc": 175
+		},
+		"src/lib/data/changelog.ts": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "model",
+			"loc": 79
+		},
+		"src/lib/data/groceries.test.ts": {
+			"module": "groceries",
+			"kind": "test",
+			"loc": 513,
+			"subject": "src/lib/data/groceries.ts"
+		},
+		"src/lib/data/groceries.ts": {
+			"module": "groceries",
+			"kind": "source",
+			"layer": "model",
+			"loc": 430
+		},
+		"src/lib/data/roadmap.ts": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "model",
+			"loc": 70
+		},
+		"src/lib/data/smartEventTemplates.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 277
+		},
+		"src/lib/marketing/seo.test.ts": {
+			"module": "marketing",
+			"kind": "test",
+			"loc": 176,
+			"subject": "src/lib/marketing/seo.ts"
+		},
+		"src/lib/marketing/seo.ts": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "model",
+			"loc": 171
+		},
+		"src/lib/marketing/theme.css": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 244
+		},
+		"src/lib/server/auth.test.ts": {
+			"module": "identity",
+			"kind": "test",
+			"loc": 101,
+			"subject": "src/lib/server/auth.ts"
+		},
+		"src/lib/server/auth.ts": {
+			"module": "identity",
+			"kind": "source",
+			"layer": "server",
+			"loc": 241
+		},
+		"src/lib/server/db/actions/accounts.ts": {
+			"module": "identity",
+			"kind": "source",
+			"layer": "server",
+			"loc": 35
+		},
+		"src/lib/server/db/actions/adEvents.prune.test.ts": {
+			"module": "sponsored",
+			"kind": "test",
+			"loc": 125,
+			"subject": "src/lib/server/db/actions/adEvents.ts"
+		},
+		"src/lib/server/db/actions/adEvents.ts": {
+			"module": "sponsored",
+			"kind": "source",
+			"layer": "server",
+			"loc": 39
+		},
+		"src/lib/server/db/actions/apiTokens.test.ts": {
+			"module": "identity",
+			"kind": "test",
+			"loc": 138,
+			"subject": "src/lib/server/db/actions/apiTokens.ts"
+		},
+		"src/lib/server/db/actions/apiTokens.ts": {
+			"module": "identity",
+			"kind": "source",
+			"layer": "server",
+			"loc": 92
+		},
+		"src/lib/server/db/actions/bugReports.prune.test.ts": {
+			"module": "feedback",
+			"kind": "test",
+			"loc": 86,
+			"subject": "src/lib/server/db/actions/bugReports.ts"
+		},
+		"src/lib/server/db/actions/bugReports.ts": {
+			"module": "feedback",
+			"kind": "source",
+			"layer": "server",
+			"loc": 114
+		},
+		"src/lib/server/db/actions/calendar.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 122,
+			"subject": "src/lib/server/db/actions/calendar.ts"
+		},
+		"src/lib/server/db/actions/calendar.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 91
+		},
+		"src/lib/server/db/actions/calendarScope.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 220,
+			"subject": "src/lib/server/db/actions/calendarScope.ts"
+		},
+		"src/lib/server/db/actions/calendarScope.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 80
+		},
+		"src/lib/server/db/actions/codes.ts": {
+			"module": "identity",
+			"kind": "source",
+			"layer": "server",
+			"loc": 83
+		},
+		"src/lib/server/db/actions/completionAttribution.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 18
+		},
+		"src/lib/server/db/actions/dashboard.db.test.ts": {
+			"module": "dayDashboard",
+			"kind": "test",
+			"loc": 288,
+			"subject": "src/lib/server/db/actions/dashboard.ts"
+		},
+		"src/lib/server/db/actions/dashboard.test.ts": {
+			"module": "dayDashboard",
+			"kind": "test",
+			"loc": 141,
+			"subject": "src/lib/server/db/actions/dashboard.ts"
+		},
+		"src/lib/server/db/actions/dashboard.ts": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "server",
+			"loc": 235,
+			"note": "SPLIT: rankTop3/RankableTask/RankOpts -> tasks rules; getCompletionTimestamps/getRecurringDayCompletions/mergeDayCompletions -> tasks repo/service; getUserDayCalendar/getFamilyDayEvents/getKidsScheduleAttendance -> calendar repo/service; dayDashboard screen only composes."
+		},
+		"src/lib/server/db/actions/dashboardModules.test.ts": {
+			"module": "dashboardModules",
+			"kind": "test",
+			"loc": 186,
+			"subject": "src/lib/server/db/actions/dashboardModules.ts"
+		},
+		"src/lib/server/db/actions/dashboardModules.ts": {
+			"module": "dashboardModules",
+			"kind": "source",
+			"layer": "server",
+			"loc": 48
+		},
+		"src/lib/server/db/actions/events.creatorNames.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 62,
+			"subject": "src/lib/server/db/actions/events.ts"
+		},
+		"src/lib/server/db/actions/events.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 463,
+			"subject": "src/lib/server/db/actions/events.ts"
+		},
+		"src/lib/server/db/actions/events.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 508,
+			"note": "SPLIT: normalizeInvites/shiftException -> calendar rules; queries -> calendar repo; createEvent/updateEventById/deleteEventInScope/upsertException orchestration + access checks -> calendar service."
+		},
+		"src/lib/server/db/actions/export.test.ts": {
+			"module": "account",
+			"kind": "test",
+			"loc": 222,
+			"subject": "src/lib/server/db/actions/export.ts"
+		},
+		"src/lib/server/db/actions/export.ts": {
+			"module": "account",
+			"kind": "source",
+			"layer": "server",
+			"loc": 215
+		},
+		"src/lib/server/db/actions/families.test.ts": {
+			"module": "family",
+			"kind": "test",
+			"loc": 503,
+			"subject": "src/lib/server/db/actions/families.ts"
+		},
+		"src/lib/server/db/actions/families.ts": {
+			"module": "family",
+			"kind": "source",
+			"layer": "server",
+			"loc": 364
+		},
+		"src/lib/server/db/actions/familyActivity.ts": {
+			"module": "familyHub",
+			"kind": "source",
+			"layer": "server",
+			"loc": 91
+		},
+		"src/lib/server/db/actions/groceries.test.ts": {
+			"module": "groceries",
+			"kind": "test",
+			"loc": 217,
+			"subject": "src/lib/server/db/actions/groceries.ts"
+		},
+		"src/lib/server/db/actions/groceries.ts": {
+			"module": "groceries",
+			"kind": "source",
+			"layer": "server",
+			"loc": 305
+		},
+		"src/lib/server/db/actions/meals.test.ts": {
+			"module": "meals",
+			"kind": "test",
+			"loc": 31,
+			"subject": "src/lib/server/db/actions/meals.ts"
+		},
+		"src/lib/server/db/actions/meals.ts": {
+			"module": "meals",
+			"kind": "source",
+			"layer": "server",
+			"loc": 61
+		},
+		"src/lib/server/db/actions/memberSearch.test.ts": {
+			"module": "family",
+			"kind": "test",
+			"loc": 213,
+			"subject": "src/lib/server/db/actions/memberSearch.ts"
+		},
+		"src/lib/server/db/actions/memberSearch.ts": {
+			"module": "family",
+			"kind": "source",
+			"layer": "server",
+			"loc": 125
+		},
+		"src/lib/server/db/actions/notificationMethods.test.ts": {
+			"module": "alerts",
+			"kind": "test",
+			"loc": 234,
+			"subject": "src/lib/server/db/actions/notificationMethods.ts"
+		},
+		"src/lib/server/db/actions/notificationMethods.ts": {
+			"module": "alerts",
+			"kind": "source",
+			"layer": "server",
+			"loc": 98
+		},
+		"src/lib/server/db/actions/notifications.test.ts": {
+			"module": "alerts",
+			"kind": "test",
+			"loc": 121,
+			"subject": "src/lib/server/db/actions/notifications.ts"
+		},
+		"src/lib/server/db/actions/notifications.ts": {
+			"module": "alerts",
+			"kind": "source",
+			"layer": "server",
+			"loc": 101
+		},
+		"src/lib/server/db/actions/taskCategories.real.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 81,
+			"subject": "src/lib/server/db/actions/taskCategories.ts"
+		},
+		"src/lib/server/db/actions/taskCategories.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 267,
+			"subject": "src/lib/server/db/actions/taskCategories.ts"
+		},
+		"src/lib/server/db/actions/taskCategories.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 216
+		},
+		"src/lib/server/db/actions/taskPriority.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 32
+		},
+		"src/lib/server/db/actions/taskStats.attribution.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 139,
+			"subject": "src/lib/server/db/actions/taskStats.ts"
+		},
+		"src/lib/server/db/actions/taskStats.completions.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 136,
+			"subject": "src/lib/server/db/actions/taskStats.ts"
+		},
+		"src/lib/server/db/actions/taskStats.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 26,
+			"subject": "src/lib/server/db/actions/taskStats.ts"
+		},
+		"src/lib/server/db/actions/taskStats.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 156
+		},
+		"src/lib/server/db/actions/taskfocusSessions.memoryStore.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 80
+		},
+		"src/lib/server/db/actions/taskfocusSessions.real.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 108,
+			"subject": "src/lib/server/db/actions/taskfocusSessions.ts"
+		},
+		"src/lib/server/db/actions/taskfocusSessions.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 123,
+			"subject": "src/lib/server/db/actions/taskfocusSessions.ts"
+		},
+		"src/lib/server/db/actions/taskfocusSessions.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 376
+		},
+		"src/lib/server/db/actions/tasks/advanceTaskToNext.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 160
+		},
+		"src/lib/server/db/actions/tasks/assignment.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 133
+		},
+		"src/lib/server/db/actions/tasks/auth.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 47
+		},
+		"src/lib/server/db/actions/tasks/cursor.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 307
+		},
+		"src/lib/server/db/actions/tasks/familyTaskSeam.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 178
+		},
+		"src/lib/server/db/actions/tasks/index.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 47
+		},
+		"src/lib/server/db/actions/tasks/mutations.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 220
+		},
+		"src/lib/server/db/actions/tasks/queries.category.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 55,
+			"subject": "src/lib/server/db/actions/tasks/queries.ts"
+		},
+		"src/lib/server/db/actions/tasks/queries.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 225
+		},
+		"src/lib/server/db/actions/tasks/syncRecurringCursors.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 261
+		},
+		"src/lib/server/db/actions/tasks/tags.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 51
+		},
+		"src/lib/server/db/actions/tasks/taskMutation.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 242
+		},
+		"src/lib/server/db/actions/tasks/tasks.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 632
+		},
+		"src/lib/server/db/actions/tasks/toggleTaskComplete.real.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 168
+		},
+		"src/lib/server/db/actions/tasks/toggleTaskComplete.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 205
+		},
+		"src/lib/server/db/actions/tasks/types.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 75
+		},
+		"src/lib/server/db/actions/tasks/undoRecurringCompletion.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 292
+		},
+		"src/lib/server/db/actions/unmatchedPhrases.prune.test.ts": {
+			"module": "feedback",
+			"kind": "test",
+			"loc": 88,
+			"subject": "src/lib/server/db/actions/unmatchedPhrases.ts"
+		},
+		"src/lib/server/db/actions/unmatchedPhrases.test.ts": {
+			"module": "feedback",
+			"kind": "test",
+			"loc": 48,
+			"subject": "src/lib/server/db/actions/unmatchedPhrases.ts"
+		},
+		"src/lib/server/db/actions/unmatchedPhrases.ts": {
+			"module": "feedback",
+			"kind": "source",
+			"layer": "server",
+			"loc": 125
+		},
+		"src/lib/server/db/actions/userSettings.test.ts": {
+			"module": "identity",
+			"kind": "test",
+			"loc": 59,
+			"subject": "src/lib/server/db/actions/userSettings.ts"
+		},
+		"src/lib/server/db/actions/userSettings.ts": {
+			"module": "identity",
+			"kind": "source",
+			"layer": "server",
+			"loc": 54
+		},
+		"src/lib/server/db/actions/users.test.ts": {
+			"module": "identity",
+			"kind": "test",
+			"loc": 196,
+			"subject": "src/lib/server/db/actions/users.ts"
+		},
+		"src/lib/server/db/actions/users.ts": {
+			"module": "identity",
+			"kind": "source",
+			"layer": "server",
+			"loc": 166
+		},
+		"src/lib/server/db/index.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "db",
+			"loc": 9
+		},
+		"src/lib/server/db/migrations/0001_add_password_hash.sql": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "db/migrations",
+			"loc": 5
+		},
+		"src/lib/server/db/migrations/runner.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "db/migrations",
+			"loc": 123
+		},
+		"src/lib/server/db/migrations/scripts.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 47,
+			"subject": "src/lib/server/db/migrations/scripts.ts"
+		},
+		"src/lib/server/db/migrations/scripts.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "db/migrations",
+			"loc": 75
+		},
+		"src/lib/server/db/schema.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "db",
+			"loc": 1227,
+			"note": "Only re-exports BILL_CATEGORIES (no table uses it). Task K-04 splits tables into src/lib/kernel/db/tables/<module>.tables.ts and drops the re-export; bills owns the vocabulary."
+		},
+		"src/lib/server/db/testHarness.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "testing",
+			"loc": 52
+		},
+		"src/lib/server/emails/family-invite.test.ts": {
+			"module": "family",
+			"kind": "test",
+			"loc": 37,
+			"subject": "src/lib/server/emails/family-invite.ts"
+		},
+		"src/lib/server/emails/family-invite.ts": {
+			"module": "family",
+			"kind": "source",
+			"layer": "server",
+			"loc": 20
+		},
+		"src/lib/server/emails/waitlist-confirmation.ts": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "server",
+			"loc": 78
+		},
+		"src/lib/server/seed.ts": {
+			"module": "billing",
+			"kind": "source",
+			"layer": "server",
+			"loc": 216
+		},
+		"src/lib/server/services/accountData.ts": {
+			"module": "account",
+			"kind": "source",
+			"layer": "server",
+			"loc": 467,
+			"note": "SPLIT per section: settings/profile/sessions/api tokens -> identity; notification prefs -> alerts; subscription summary -> billing; dashboard module hides -> dashboardModules; consent history -> sponsored; account screen composes."
+		},
+		"src/lib/server/services/adConsentService.test.ts": {
+			"module": "sponsored",
+			"kind": "test",
+			"loc": 180,
+			"subject": "src/lib/server/services/adConsentService.ts"
+		},
+		"src/lib/server/services/adConsentService.ts": {
+			"module": "sponsored",
+			"kind": "source",
+			"layer": "server",
+			"loc": 65
+		},
+		"src/lib/server/services/adService.test.ts": {
+			"module": "sponsored",
+			"kind": "test",
+			"loc": 178,
+			"subject": "src/lib/server/services/adService.ts"
+		},
+		"src/lib/server/services/adService.ts": {
+			"module": "sponsored",
+			"kind": "source",
+			"layer": "server",
+			"loc": 335
+		},
+		"src/lib/server/services/adminData.ts": {
+			"module": "admin",
+			"kind": "source",
+			"layer": "server",
+			"loc": 55
+		},
+		"src/lib/server/services/analyticsService.ts": {
+			"module": "billing",
+			"kind": "source",
+			"layer": "server",
+			"loc": 64
+		},
+		"src/lib/server/services/archiveData.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 138
+		},
+		"src/lib/server/services/autoBugReport.test.ts": {
+			"module": "feedback",
+			"kind": "test",
+			"loc": 78,
+			"subject": "src/lib/server/services/autoBugReport.ts"
+		},
+		"src/lib/server/services/autoBugReport.ts": {
+			"module": "feedback",
+			"kind": "source",
+			"layer": "model",
+			"loc": 55,
+			"note": "feedback S5/S8: becomes the feedback fault-filing rules + service; then point src/lib/app/appCtx.server.ts faults and the hooks handleError at the feedback service, and delete this file."
+		},
+		"src/lib/server/services/blobService.ts": {
+			"module": "sponsored",
+			"kind": "source",
+			"layer": "server",
+			"loc": 74
+		},
+		"src/lib/server/services/bulkAiService.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 458,
+			"subject": "src/lib/server/services/bulkAiService.ts"
+		},
+		"src/lib/server/services/bulkAiService.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 392
+		},
+		"src/lib/server/services/bulkApplyService.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 90
+		},
+		"src/lib/server/services/calendarData.ts": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "server",
+			"loc": 141,
+			"note": "SPLIT: personal-calendar provisioning + family calendar info + event window reads -> calendar service; sponsored/verse/dashboard-module composition -> calendarPage screen load."
+		},
+		"src/lib/server/services/checkoutService.ts": {
+			"module": "billing",
+			"kind": "source",
+			"layer": "server",
+			"loc": 199
+		},
+		"src/lib/server/services/claimRequest.ts": {
+			"module": "access",
+			"kind": "source",
+			"layer": "server",
+			"loc": 87
+		},
+		"src/lib/server/services/claimService.test.ts": {
+			"module": "access",
+			"kind": "test",
+			"loc": 125,
+			"subject": "src/lib/server/services/claimService.ts"
+		},
+		"src/lib/server/services/claimService.ts": {
+			"module": "access",
+			"kind": "source",
+			"layer": "server",
+			"loc": 149
+		},
+		"src/lib/server/services/dashboardData.ts": {
+			"module": "dayDashboard",
+			"kind": "source",
+			"layer": "server",
+			"loc": 421,
+			"note": "Composition stays in dayDashboard screen; every SQL query inside moves to the owning domain's repo."
+		},
+		"src/lib/server/services/devicePushService.test.ts": {
+			"module": "alerts",
+			"kind": "test",
+			"loc": 116,
+			"subject": "src/lib/server/services/devicePushService.ts"
+		},
+		"src/lib/server/services/devicePushService.ts": {
+			"module": "alerts",
+			"kind": "source",
+			"layer": "server",
+			"loc": 117
+		},
+		"src/lib/server/services/discountService.test.ts": {
+			"module": "billing",
+			"kind": "test",
+			"loc": 115,
+			"subject": "src/lib/server/services/discountService.ts"
+		},
+		"src/lib/server/services/discountService.ts": {
+			"module": "billing",
+			"kind": "source",
+			"layer": "server",
+			"loc": 148
+		},
+		"src/lib/server/services/emailService.ts": {
+			"module": "marketing",
+			"kind": "source",
+			"layer": "server",
+			"loc": 41
+		},
+		"src/lib/server/services/eventDisplayService.creators.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 63,
+			"subject": "src/lib/server/services/eventDisplayService.ts"
+		},
+		"src/lib/server/services/eventDisplayService.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 87,
+			"subject": "src/lib/server/services/eventDisplayService.ts"
+		},
+		"src/lib/server/services/eventDisplayService.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 176
+		},
+		"src/lib/server/services/eventRange.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 68,
+			"subject": "src/lib/server/services/eventRange.ts"
+		},
+		"src/lib/server/services/eventRange.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 80
+		},
+		"src/lib/server/services/eventRecurrence.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 153,
+			"subject": "src/lib/server/services/eventRecurrence.ts"
+		},
+		"src/lib/server/services/eventRecurrence.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 91
+		},
+		"src/lib/server/services/eventsChangedNudge.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 85,
+			"subject": "src/lib/server/services/eventsChangedNudge.ts"
+		},
+		"src/lib/server/services/eventsChangedNudge.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 75
+		},
+		"src/lib/server/services/familyData.ts": {
+			"module": "familyHub",
+			"kind": "source",
+			"layer": "server",
+			"loc": 509,
+			"note": "SPLIT: member/role/member-type/invite/create use-cases -> family service; loadFamilyDetail/loadFamilyTasks read models -> familyHub screen; loadFamiliesOverview/loadInvitations -> family http."
+		},
+		"src/lib/server/services/fcmService.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 317,
+			"subject": "src/lib/server/services/fcmService.ts"
+		},
+		"src/lib/server/services/fcmService.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "push",
+			"loc": 250
+		},
+		"src/lib/server/services/guestMergeService.ts": {
+			"module": "access",
+			"kind": "source",
+			"layer": "server",
+			"loc": 93
+		},
+		"src/lib/server/services/icsImportApi.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 58
+		},
+		"src/lib/server/services/icsImportFlow.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 414
+		},
+		"src/lib/server/services/icsImportPreview.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 531,
+			"subject": "src/lib/server/services/icsImportPreview.ts"
+		},
+		"src/lib/server/services/icsImportPreview.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 449
+		},
+		"src/lib/server/services/icsImportService.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 245,
+			"subject": "src/lib/server/services/icsImportService.ts"
+		},
+		"src/lib/server/services/icsImportService.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 278
+		},
+		"src/lib/server/services/llm.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ai",
+			"loc": 64
+		},
+		"src/lib/server/services/logger.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 80,
+			"subject": "src/lib/server/services/logger.ts"
+		},
+		"src/lib/server/services/logger.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "log",
+			"loc": 59
+		},
+		"src/lib/server/services/magicLink.test.ts": {
+			"module": "access",
+			"kind": "test",
+			"loc": 578,
+			"subject": "src/lib/server/services/magicLink.ts"
+		},
+		"src/lib/server/services/magicLink.ts": {
+			"module": "access",
+			"kind": "source",
+			"layer": "server",
+			"loc": 471
+		},
+		"src/lib/server/services/mobileAuth.ts": {
+			"module": "access",
+			"kind": "source",
+			"layer": "server",
+			"loc": 373
+		},
+		"src/lib/server/services/naturalLanguageService.test.ts": {
+			"module": "parsing",
+			"kind": "test",
+			"loc": 2354,
+			"subject": "src/lib/server/services/naturalLanguageService.ts"
+		},
+		"src/lib/server/services/naturalLanguageService.ts": {
+			"module": "parsing",
+			"kind": "source",
+			"layer": "server",
+			"loc": 2569,
+			"note": "SPLIT inside parsing by grammar family (event, bill, segment, place, time) around the existing claim book. NLP rule: phrase tables stay green, test-first."
+		},
+		"src/lib/server/services/parserClaimGuards.test.ts": {
+			"module": "parsing",
+			"kind": "test",
+			"loc": 208
+		},
+		"src/lib/server/services/passwordSignup.ts": {
+			"module": "access",
+			"kind": "source",
+			"layer": "server",
+			"loc": 130
+		},
+		"src/lib/server/services/printData.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 167
+		},
+		"src/lib/server/services/pushService.test.ts": {
+			"module": "alerts",
+			"kind": "test",
+			"loc": 63,
+			"subject": "src/lib/server/services/pushService.ts"
+		},
+		"src/lib/server/services/pushService.ts": {
+			"module": "alerts",
+			"kind": "source",
+			"layer": "server",
+			"loc": 147
+		},
+		"src/lib/server/services/recurrenceService.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 691,
+			"subject": "src/lib/server/services/recurrenceService.ts"
+		},
+		"src/lib/server/services/recurrenceService.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 280
+		},
+		"src/lib/server/services/statsData.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 46,
+			"note": "Uses dashboard.ts getCompletionTimestamps: that reader moves into tasks (it reads taskCompletions)."
+		},
+		"src/lib/server/services/streakService.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 125,
+			"subject": "src/lib/server/services/streakService.ts"
+		},
+		"src/lib/server/services/streakService.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 95
+		},
+		"src/lib/server/services/subscriptionService.test.ts": {
+			"module": "billing",
+			"kind": "test",
+			"loc": 322,
+			"subject": "src/lib/server/services/subscriptionService.ts"
+		},
+		"src/lib/server/services/subscriptionService.ts": {
+			"module": "billing",
+			"kind": "source",
+			"layer": "server",
+			"loc": 436
+		},
+		"src/lib/server/services/tasksData.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "server",
+			"loc": 61
+		},
+		"src/lib/server/services/userScope.ts": {
+			"module": "family",
+			"kind": "source",
+			"layer": "server",
+			"loc": 24
+		},
+		"src/lib/server/services/verseService.test.ts": {
+			"module": "verse",
+			"kind": "test",
+			"loc": 110,
+			"subject": "src/lib/server/services/verseService.ts"
+		},
+		"src/lib/server/services/verseService.ts": {
+			"module": "verse",
+			"kind": "source",
+			"layer": "server",
+			"loc": 216
+		},
+		"src/lib/server/services/web-push.d.ts": {
+			"module": "alerts",
+			"kind": "source",
+			"layer": "server",
+			"loc": 16
+		},
+		"src/lib/server/utils/apiError.test.ts": {
+			"module": "app",
+			"kind": "test",
+			"loc": 45,
+			"subject": "src/lib/server/utils/apiError.ts"
+		},
+		"src/lib/server/utils/apiError.ts": {
+			"module": "app",
+			"kind": "source",
+			"layer": "server",
+			"loc": 39,
+			"note": "Used by ~22 legacy routes across modules. feedback S8: make it delegate to appCtx.faults.report (the feedback service) instead of building reports itself; delete it in APP-05 when the last legacy route using it is ported."
+		},
+		"src/lib/server/utils/clampCount.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "http",
+			"loc": 14
+		},
+		"src/lib/server/utils/createNewUser.ts": {
+			"module": "access",
+			"kind": "source",
+			"layer": "server",
+			"loc": 36
+		},
+		"src/lib/server/utils/dateParsing.ts": {
+			"module": "parsing",
+			"kind": "source",
+			"layer": "model",
+			"loc": 61
+		},
+		"src/lib/server/utils/eventIds.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 123,
+			"subject": "src/lib/server/utils/eventIds.ts"
+		},
+		"src/lib/server/utils/eventIds.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 65
+		},
+		"src/lib/server/utils/eventInvites.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 116,
+			"subject": "src/lib/server/utils/eventInvites.ts"
+		},
+		"src/lib/server/utils/eventInvites.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "server",
+			"loc": 83
+		},
+		"src/lib/server/utils/eventTimes.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 20
+		},
+		"src/lib/server/utils/focusStartedAt.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 21
+		},
+		"src/lib/server/utils/generateId.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ids",
+			"loc": 22
+		},
+		"src/lib/server/utils/guard.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 35,
+			"subject": "src/lib/server/utils/guard.ts"
+		},
+		"src/lib/server/utils/guard.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "http",
+			"loc": 21
+		},
+		"src/lib/server/utils/jsonBody.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "http",
+			"loc": 29
+		},
+		"src/lib/server/utils/password.ts": {
+			"module": "identity",
+			"kind": "source",
+			"layer": "server",
+			"loc": 12
+		},
+		"src/lib/server/utils/pickWritableFields.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "http",
+			"loc": 12
+		},
+		"src/lib/server/utils/rateLimit.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ratelimit",
+			"loc": 42
+		},
+		"src/lib/server/utils/requireUser.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "http",
+			"loc": 54
+		},
+		"src/lib/server/utils/svixVerify.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 85,
+			"subject": "src/lib/server/utils/svixVerify.ts"
+		},
+		"src/lib/server/utils/svixVerify.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "http",
+			"loc": 68
+		},
+		"src/lib/server/utils/userTimezone.test.ts": {
+			"module": "identity",
+			"kind": "test",
+			"loc": 16,
+			"subject": "src/lib/server/utils/userTimezone.ts"
+		},
+		"src/lib/server/utils/userTimezone.ts": {
+			"module": "identity",
+			"kind": "source",
+			"layer": "server",
+			"loc": 24
+		},
+		"src/lib/types.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 69
+		},
+		"src/lib/utils/actionError.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 56,
+			"subject": "src/lib/utils/actionError.ts"
+		},
+		"src/lib/utils/actionError.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "client",
+			"loc": 31
+		},
+		"src/lib/utils/anonymous.test.ts": {
+			"module": "identity",
+			"kind": "test",
+			"loc": 22,
+			"subject": "src/lib/utils/anonymous.ts"
+		},
+		"src/lib/utils/anonymous.ts": {
+			"module": "identity",
+			"kind": "source",
+			"layer": "model",
+			"loc": 28
+		},
+		"src/lib/utils/attendance.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 78,
+			"subject": "src/lib/utils/attendance.ts"
+		},
+		"src/lib/utils/attendance.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 91
+		},
+		"src/lib/utils/avatarColor.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 19,
+			"subject": "src/lib/utils/avatarColor.ts"
+		},
+		"src/lib/utils/avatarColor.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "util",
+			"loc": 17
+		},
+		"src/lib/utils/bulkPlan.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 42,
+			"subject": "src/lib/utils/bulkPlan.ts"
+		},
+		"src/lib/utils/bulkPlan.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 64
+		},
+		"src/lib/utils/calendarAssignees.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 281,
+			"subject": "src/lib/utils/calendarAssignees.ts"
+		},
+		"src/lib/utils/calendarAssignees.ts": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "client",
+			"loc": 278
+		},
+		"src/lib/utils/calendarMatch.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 25,
+			"subject": "src/lib/utils/calendarMatch.ts"
+		},
+		"src/lib/utils/calendarMatch.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 25
+		},
+		"src/lib/utils/calendarSearch.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 88,
+			"subject": "src/lib/utils/calendarSearch.ts"
+		},
+		"src/lib/utils/calendarSearch.ts": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "model",
+			"loc": 53
+		},
+		"src/lib/utils/calendarVisibility.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 208,
+			"subject": "src/lib/utils/calendarVisibility.ts"
+		},
+		"src/lib/utils/calendarVisibility.ts": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "client",
+			"loc": 133
+		},
+		"src/lib/utils/chipVocabulary.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 147,
+			"subject": "src/lib/utils/chipVocabulary.ts"
+		},
+		"src/lib/utils/chipVocabulary.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 276
+		},
+		"src/lib/utils/contactColors.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "util",
+			"loc": 32
+		},
+		"src/lib/utils/dateResolution.parsers.test.ts": {
+			"module": "parsing",
+			"kind": "test",
+			"loc": 262,
+			"subject": "src/lib/utils/dateResolution.ts"
+		},
+		"src/lib/utils/dateResolution.test.ts": {
+			"module": "parsing",
+			"kind": "test",
+			"loc": 274,
+			"subject": "src/lib/utils/dateResolution.ts"
+		},
+		"src/lib/utils/dateResolution.ts": {
+			"module": "parsing",
+			"kind": "source",
+			"layer": "model",
+			"loc": 281
+		},
+		"src/lib/utils/dateUtils.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 268,
+			"subject": "src/lib/utils/dateUtils.ts"
+		},
+		"src/lib/utils/dateUtils.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "time",
+			"loc": 92
+		},
+		"src/lib/utils/dateVocab.test.ts": {
+			"module": "parsing",
+			"kind": "test",
+			"loc": 258,
+			"subject": "src/lib/utils/dateVocab.ts"
+		},
+		"src/lib/utils/dateVocab.ts": {
+			"module": "parsing",
+			"kind": "source",
+			"layer": "model",
+			"loc": 272
+		},
+		"src/lib/utils/dayOverlap.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 97,
+			"subject": "src/lib/utils/dayOverlap.ts"
+		},
+		"src/lib/utils/dayOverlap.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 55
+		},
+		"src/lib/utils/dayViewLayout.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 171,
+			"subject": "src/lib/utils/dayViewLayout.ts"
+		},
+		"src/lib/utils/dayViewLayout.ts": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "model",
+			"loc": 105
+		},
+		"src/lib/utils/eventChip.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 78
+		},
+		"src/lib/utils/eventDisplay.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 136,
+			"subject": "src/lib/utils/eventDisplay.ts"
+		},
+		"src/lib/utils/eventDisplay.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 75
+		},
+		"src/lib/utils/eventDuplicate.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 45,
+			"subject": "src/lib/utils/eventDuplicate.ts"
+		},
+		"src/lib/utils/eventDuplicate.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 69
+		},
+		"src/lib/utils/eventMove.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 141,
+			"subject": "src/lib/utils/eventMove.ts"
+		},
+		"src/lib/utils/eventMove.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 105
+		},
+		"src/lib/utils/eventRoster.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 30
+		},
+		"src/lib/utils/eventTime.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "time",
+			"loc": 24
+		},
+		"src/lib/utils/familyDisplay.test.ts": {
+			"module": "family",
+			"kind": "test",
+			"loc": 41,
+			"subject": "src/lib/utils/familyDisplay.ts"
+		},
+		"src/lib/utils/familyDisplay.ts": {
+			"module": "family",
+			"kind": "source",
+			"layer": "model",
+			"loc": 54
+		},
+		"src/lib/utils/familyPalette.test.ts": {
+			"module": "family",
+			"kind": "test",
+			"loc": 67,
+			"subject": "src/lib/utils/familyPalette.ts"
+		},
+		"src/lib/utils/familyPalette.ts": {
+			"module": "family",
+			"kind": "source",
+			"layer": "model",
+			"loc": 46
+		},
+		"src/lib/utils/familyTaskActions.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 124,
+			"subject": "src/lib/utils/familyTaskActions.ts"
+		},
+		"src/lib/utils/familyTaskActions.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 144
+		},
+		"src/lib/utils/familyTaskGroups.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 155,
+			"subject": "src/lib/utils/familyTaskGroups.ts"
+		},
+		"src/lib/utils/familyTaskGroups.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 62
+		},
+		"src/lib/utils/familyTaskList.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 122,
+			"subject": "src/lib/utils/familyTaskList.ts"
+		},
+		"src/lib/utils/familyTaskList.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 93
+		},
+		"src/lib/utils/focusTrap.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 51
+		},
+		"src/lib/utils/getUrl.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "env",
+			"loc": 12
+		},
+		"src/lib/utils/hashName.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 23,
+			"subject": "src/lib/utils/hashName.ts"
+		},
+		"src/lib/utils/hashName.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "util",
+			"loc": 14
+		},
+		"src/lib/utils/ics.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 257,
+			"subject": "src/lib/utils/ics.ts"
+		},
+		"src/lib/utils/ics.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 197
+		},
+		"src/lib/utils/listGroup.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 40,
+			"subject": "src/lib/utils/listGroup.ts"
+		},
+		"src/lib/utils/listGroup.ts": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "model",
+			"loc": 31
+		},
+		"src/lib/utils/mentionFilter.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 97,
+			"subject": "src/lib/utils/mentionFilter.ts"
+		},
+		"src/lib/utils/mentionFilter.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 28
+		},
+		"src/lib/utils/moduleRowState.test.ts": {
+			"module": "dashboardModules",
+			"kind": "test",
+			"loc": 92,
+			"subject": "src/lib/utils/moduleRowState.ts"
+		},
+		"src/lib/utils/moduleRowState.ts": {
+			"module": "dashboardModules",
+			"kind": "source",
+			"layer": "model",
+			"loc": 56
+		},
+		"src/lib/utils/navItems.test.ts": {
+			"module": "shell",
+			"kind": "test",
+			"loc": 86,
+			"subject": "src/lib/utils/navItems.ts"
+		},
+		"src/lib/utils/navItems.ts": {
+			"module": "shell",
+			"kind": "source",
+			"layer": "model",
+			"loc": 92
+		},
+		"src/lib/utils/notificationTypes.test.ts": {
+			"module": "alerts",
+			"kind": "test",
+			"loc": 222,
+			"subject": "src/lib/utils/notificationTypes.ts"
+		},
+		"src/lib/utils/notificationTypes.ts": {
+			"module": "alerts",
+			"kind": "source",
+			"layer": "model",
+			"loc": 187
+		},
+		"src/lib/utils/offline.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 392,
+			"subject": "src/lib/utils/offline.ts"
+		},
+		"src/lib/utils/offline.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "client",
+			"loc": 225
+		},
+		"src/lib/utils/priorityTone.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 57,
+			"subject": "src/lib/utils/priorityTone.ts"
+		},
+		"src/lib/utils/priorityTone.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 72
+		},
+		"src/lib/utils/pushClient.test.ts": {
+			"module": "alerts",
+			"kind": "test",
+			"loc": 140,
+			"subject": "src/lib/utils/pushClient.ts"
+		},
+		"src/lib/utils/pushClient.ts": {
+			"module": "alerts",
+			"kind": "source",
+			"layer": "client",
+			"loc": 191
+		},
+		"src/lib/utils/rangeSelect.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 136,
+			"subject": "src/lib/utils/rangeSelect.ts"
+		},
+		"src/lib/utils/rangeSelect.ts": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "model",
+			"loc": 184
+		},
+		"src/lib/utils/reportBug.test.ts": {
+			"module": "feedback",
+			"kind": "test",
+			"loc": 43,
+			"subject": "src/lib/utils/reportBug.ts"
+		},
+		"src/lib/utils/reportBug.ts": {
+			"module": "feedback",
+			"kind": "source",
+			"layer": "model",
+			"loc": 43
+		},
+		"src/lib/utils/safeRedirect.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 40,
+			"subject": "src/lib/utils/safeRedirect.ts"
+		},
+		"src/lib/utils/safeRedirect.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "util",
+			"loc": 21
+		},
+		"src/lib/utils/sendEmail.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "mail",
+			"loc": 23
+		},
+		"src/lib/utils/shareTarget.test.ts": {
+			"module": "calendar",
+			"kind": "test",
+			"loc": 51,
+			"subject": "src/lib/utils/shareTarget.ts"
+		},
+		"src/lib/utils/shareTarget.ts": {
+			"module": "calendar",
+			"kind": "source",
+			"layer": "model",
+			"loc": 28
+		},
+		"src/lib/utils/taskBulk.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 53,
+			"subject": "src/lib/utils/taskBulk.ts"
+		},
+		"src/lib/utils/taskBulk.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 65
+		},
+		"src/lib/utils/taskCategory.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 54,
+			"subject": "src/lib/utils/taskCategory.ts"
+		},
+		"src/lib/utils/taskCategory.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 39
+		},
+		"src/lib/utils/taskDisplay.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 53,
+			"subject": "src/lib/utils/taskDisplay.ts"
+		},
+		"src/lib/utils/taskDisplay.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 40
+		},
+		"src/lib/utils/taskEditPayload.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 121,
+			"subject": "src/lib/utils/taskEditPayload.ts"
+		},
+		"src/lib/utils/taskEditPayload.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 86
+		},
+		"src/lib/utils/taskQuickAdd.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 153,
+			"subject": "src/lib/utils/taskQuickAdd.ts"
+		},
+		"src/lib/utils/taskQuickAdd.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 599
+		},
+		"src/lib/utils/taskRecurrence.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 63,
+			"subject": "src/lib/utils/taskRecurrence.ts"
+		},
+		"src/lib/utils/taskRecurrence.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 35
+		},
+		"src/lib/utils/taskSort.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 64,
+			"subject": "src/lib/utils/taskSort.ts"
+		},
+		"src/lib/utils/taskSort.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 79
+		},
+		"src/lib/utils/taskUrgency.test.ts": {
+			"module": "tasks",
+			"kind": "test",
+			"loc": 186,
+			"subject": "src/lib/utils/taskUrgency.ts"
+		},
+		"src/lib/utils/taskUrgency.ts": {
+			"module": "tasks",
+			"kind": "source",
+			"layer": "model",
+			"loc": 106
+		},
+		"src/lib/utils/testDom.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "testing",
+			"loc": 51
+		},
+		"src/lib/utils/touchTarget.test.ts": {
+			"module": "kernel",
+			"kind": "test",
+			"loc": 43,
+			"subject": "src/lib/utils/touchTarget.ts"
+		},
+		"src/lib/utils/touchTarget.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "ui",
+			"loc": 115
+		},
+		"src/lib/utils/typeGuards.ts": {
+			"module": "kernel",
+			"kind": "source",
+			"layer": "util",
+			"loc": 17
+		},
+		"src/lib/utils/weekView.test.ts": {
+			"module": "calendarPage",
+			"kind": "test",
+			"loc": 39,
+			"subject": "src/lib/utils/weekView.ts"
+		},
+		"src/lib/utils/weekView.ts": {
+			"module": "calendarPage",
+			"kind": "source",
+			"layer": "model",
+			"loc": 24
+		},
+		"src/routes/(admin)/+layout.server.ts": {
+			"module": "admin",
+			"kind": "route",
+			"url": "/",
+			"loc": 16
+		},
+		"src/routes/(admin)/+layout.svelte": {
+			"module": "admin",
+			"kind": "route",
+			"url": "/",
+			"loc": 64
+		},
+		"src/routes/(admin)/admin/+page.svelte": {
+			"module": "admin",
+			"kind": "route",
+			"url": "/admin",
+			"loc": 45
+		},
+		"src/routes/(admin)/admin/bugs/+page.server.ts": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/admin/bugs",
+			"loc": 28
+		},
+		"src/routes/(admin)/admin/bugs/+page.svelte": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/admin/bugs",
+			"loc": 105
+		},
+		"src/routes/(admin)/admin/bugs/page.svelte.test.ts": {
+			"module": "feedback",
+			"kind": "route-test",
+			"url": "/admin/bugs",
+			"loc": 76
+		},
+		"src/routes/(admin)/admin/nlp/+page.server.ts": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/admin/nlp",
+			"loc": 30
+		},
+		"src/routes/(admin)/admin/nlp/+page.svelte": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/admin/nlp",
+			"loc": 122
+		},
+		"src/routes/(calendar)/account/+layout.server.ts": {
+			"module": "account",
+			"kind": "route",
+			"url": "/account",
+			"loc": 10
+		},
+		"src/routes/(calendar)/account/+layout.svelte": {
+			"module": "account",
+			"kind": "route",
+			"url": "/account",
+			"loc": 19
+		},
+		"src/routes/(calendar)/account/+page.server.ts": {
+			"module": "account",
+			"kind": "route",
+			"url": "/account",
+			"loc": 250
+		},
+		"src/routes/(calendar)/account/+page.svelte": {
+			"module": "account",
+			"kind": "route",
+			"url": "/account",
+			"loc": 129
+		},
+		"src/routes/(calendar)/account/layout.svelte.test.ts": {
+			"module": "account",
+			"kind": "route-test",
+			"url": "/account",
+			"loc": 40
+		},
+		"src/routes/(calendar)/account/page.server.test.ts": {
+			"module": "account",
+			"kind": "route-test",
+			"url": "/account",
+			"loc": 337
+		},
+		"src/routes/(calendar)/account/page.svelte.test.ts": {
+			"module": "account",
+			"kind": "route-test",
+			"url": "/account",
+			"loc": 33
+		},
+		"src/routes/(calendar)/account/verify-email/+page.server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/account/verify-email",
+			"loc": 176
+		},
+		"src/routes/(calendar)/account/verify-email/+page.svelte": {
+			"module": "access",
+			"kind": "route",
+			"url": "/account/verify-email",
+			"loc": 95
+		},
+		"src/routes/(calendar)/account/verify-email/page.server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/account/verify-email",
+			"loc": 234
+		},
+		"src/routes/(calendar)/calendar/+layout.server.ts": {
+			"module": "shell",
+			"kind": "route",
+			"url": "/calendar",
+			"loc": 23
+		},
+		"src/routes/(calendar)/calendar/+layout.svelte": {
+			"module": "shell",
+			"kind": "route",
+			"url": "/calendar",
+			"loc": 288
+		},
+		"src/routes/(calendar)/calendar/+page.server.ts": {
+			"module": "calendarPage",
+			"kind": "route",
+			"url": "/calendar",
+			"loc": 314,
+			"note": "Two raw event SELECTs -> calendar repo; the rest is calendarPage screen composition."
+		},
+		"src/routes/(calendar)/calendar/+page.svelte": {
+			"module": "calendarPage",
+			"kind": "route",
+			"url": "/calendar",
+			"loc": 734,
+			"note": "Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines."
+		},
+		"src/routes/(calendar)/calendar/archive/+page.server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/calendar/archive",
+			"loc": 12
+		},
+		"src/routes/(calendar)/calendar/archive/+page.svelte": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/calendar/archive",
+			"loc": 241
+		},
+		"src/routes/(calendar)/calendar/archive/page.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/calendar/archive",
+			"loc": 217
+		},
+		"src/routes/(calendar)/calendar/dashboard/+page.server.ts": {
+			"module": "dayDashboard",
+			"kind": "route",
+			"url": "/calendar/dashboard",
+			"loc": 27
+		},
+		"src/routes/(calendar)/calendar/dashboard/+page.svelte": {
+			"module": "dayDashboard",
+			"kind": "route",
+			"url": "/calendar/dashboard",
+			"loc": 144
+		},
+		"src/routes/(calendar)/calendar/dashboard/page.server.categories.test.ts": {
+			"module": "dayDashboard",
+			"kind": "route-test",
+			"url": "/calendar/dashboard",
+			"loc": 68
+		},
+		"src/routes/(calendar)/calendar/dashboard/page.ssr.test.ts": {
+			"module": "dayDashboard",
+			"kind": "route-test",
+			"url": "/calendar/dashboard",
+			"loc": 189
+		},
+		"src/routes/(calendar)/calendar/dashboard/page.svelte.test.ts": {
+			"module": "dayDashboard",
+			"kind": "route-test",
+			"url": "/calendar/dashboard",
+			"loc": 107
+		},
+		"src/routes/(calendar)/calendar/event/[id]/+page.server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/calendar/event/[id]",
+			"loc": 87,
+			"note": "Raw select + duplicated visibility rule -> calendar service getEventForViewer."
+		},
+		"src/routes/(calendar)/calendar/event/[id]/+page.svelte": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/calendar/event/[id]",
+			"loc": 436,
+			"note": "Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines."
+		},
+		"src/routes/(calendar)/calendar/groceries/+page.server.ts": {
+			"module": "groceries",
+			"kind": "route",
+			"url": "/calendar/groceries",
+			"loc": 31
+		},
+		"src/routes/(calendar)/calendar/groceries/+page.svelte": {
+			"module": "groceries",
+			"kind": "route",
+			"url": "/calendar/groceries",
+			"loc": 993,
+			"note": "Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines."
+		},
+		"src/routes/(calendar)/calendar/groceries/page.svelte.test.ts": {
+			"module": "groceries",
+			"kind": "route-test",
+			"url": "/calendar/groceries",
+			"loc": 973
+		},
+		"src/routes/(calendar)/calendar/import/+page.server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/calendar/import",
+			"loc": 57
+		},
+		"src/routes/(calendar)/calendar/import/+page.svelte": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/calendar/import",
+			"loc": 769,
+			"note": "Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines."
+		},
+		"src/routes/(calendar)/calendar/import/page.server.test.ts": {
+			"module": "calendar",
+			"kind": "route-test",
+			"url": "/calendar/import",
+			"loc": 808
+		},
+		"src/routes/(calendar)/calendar/import/page.svelte.test.ts": {
+			"module": "calendar",
+			"kind": "route-test",
+			"url": "/calendar/import",
+			"loc": 524
+		},
+		"src/routes/(calendar)/calendar/layout.svelte.test.ts": {
+			"module": "calendarPage",
+			"kind": "route-test",
+			"url": "/calendar",
+			"loc": 95
+		},
+		"src/routes/(calendar)/calendar/notifications/+page.server.ts": {
+			"module": "alerts",
+			"kind": "route",
+			"url": "/calendar/notifications",
+			"loc": 29
+		},
+		"src/routes/(calendar)/calendar/notifications/+page.svelte": {
+			"module": "alerts",
+			"kind": "route",
+			"url": "/calendar/notifications",
+			"loc": 318
+		},
+		"src/routes/(calendar)/calendar/notifications/page.server.test.ts": {
+			"module": "alerts",
+			"kind": "route-test",
+			"url": "/calendar/notifications",
+			"loc": 127
+		},
+		"src/routes/(calendar)/calendar/notifications/page.svelte.test.ts": {
+			"module": "alerts",
+			"kind": "route-test",
+			"url": "/calendar/notifications",
+			"loc": 244
+		},
+		"src/routes/(calendar)/calendar/page.server.test.ts": {
+			"module": "calendarPage",
+			"kind": "route-test",
+			"url": "/calendar",
+			"loc": 276
+		},
+		"src/routes/(calendar)/calendar/print/+page.server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/calendar/print",
+			"loc": 16
+		},
+		"src/routes/(calendar)/calendar/print/+page.svelte": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/calendar/print",
+			"loc": 170
+		},
+		"src/routes/(calendar)/calendar/setUserDefaultTimeZone/+server.ts": {
+			"module": "identity",
+			"kind": "route",
+			"url": "/calendar/setUserDefaultTimeZone",
+			"loc": 19
+		},
+		"src/routes/(calendar)/calendar/settings/+page.server.ts": {
+			"module": "account",
+			"kind": "route",
+			"url": "/calendar/settings",
+			"loc": 8
+		},
+		"src/routes/(calendar)/calendar/stats/+page.server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/calendar/stats",
+			"loc": 17
+		},
+		"src/routes/(calendar)/calendar/stats/+page.svelte": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/calendar/stats",
+			"loc": 181
+		},
+		"src/routes/(calendar)/calendar/stats/page.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/calendar/stats",
+			"loc": 198
+		},
+		"src/routes/(calendar)/calendar/stats/statsPageModel.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/calendar/stats",
+			"loc": 147
+		},
+		"src/routes/(calendar)/calendar/stats/statsPageModel.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/calendar/stats",
+			"loc": 130
+		},
+		"src/routes/(calendar)/calendar/tasks/+page.server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/calendar/tasks",
+			"loc": 43
+		},
+		"src/routes/(calendar)/calendar/tasks/+page.svelte": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/calendar/tasks",
+			"loc": 541,
+			"note": "Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines."
+		},
+		"src/routes/(calendar)/calendar/tasks/page.server.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/calendar/tasks",
+			"loc": 92
+		},
+		"src/routes/(calendar)/calendar/tasks/page.ssr.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/calendar/tasks",
+			"loc": 239
+		},
+		"src/routes/(calendar)/calendar/tasks/page.svelte.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/calendar/tasks",
+			"loc": 172
+		},
+		"src/routes/(calendar)/claim/+page.server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/claim",
+			"loc": 38
+		},
+		"src/routes/(calendar)/claim/+page.svelte": {
+			"module": "access",
+			"kind": "route",
+			"url": "/claim",
+			"loc": 86
+		},
+		"src/routes/(calendar)/claim/page.server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/claim",
+			"loc": 211
+		},
+		"src/routes/(calendar)/claim/verify/[token]/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/claim/verify/[token]",
+			"loc": 71
+		},
+		"src/routes/(calendar)/claim/verify/[token]/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/claim/verify/[token]",
+			"loc": 115
+		},
+		"src/routes/(calendar)/merge-guest/+page.server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/merge-guest",
+			"loc": 58
+		},
+		"src/routes/(calendar)/merge-guest/+page.svelte": {
+			"module": "access",
+			"kind": "route",
+			"url": "/merge-guest",
+			"loc": 160
+		},
+		"src/routes/(family)/+layout.server.ts": {
+			"module": "shell",
+			"kind": "route",
+			"url": "/",
+			"loc": 15
+		},
+		"src/routes/(family)/+layout.svelte": {
+			"module": "shell",
+			"kind": "route",
+			"url": "/",
+			"loc": 29
+		},
+		"src/routes/(family)/family/+page.server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family",
+			"loc": 57
+		},
+		"src/routes/(family)/family/+page.svelte": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family",
+			"loc": 716,
+			"note": "Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines."
+		},
+		"src/routes/(family)/family/[familyId]/+page.server.ts": {
+			"module": "familyHub",
+			"kind": "route",
+			"url": "/family/[familyId]",
+			"loc": 120
+		},
+		"src/routes/(family)/family/[familyId]/+page.svelte": {
+			"module": "familyHub",
+			"kind": "route",
+			"url": "/family/[familyId]",
+			"loc": 1091,
+			"note": "Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines."
+		},
+		"src/routes/(family)/family/[familyId]/links.test.ts": {
+			"module": "familyHub",
+			"kind": "route-test",
+			"url": "/family/[familyId]",
+			"loc": 209
+		},
+		"src/routes/(family)/family/[familyId]/members/add/+page.server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/[familyId]/members/add",
+			"loc": 34
+		},
+		"src/routes/(family)/family/[familyId]/members/add/+page.svelte": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/[familyId]/members/add",
+			"loc": 166
+		},
+		"src/routes/(family)/family/[familyId]/members/add/child/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/[familyId]/members/add/child",
+			"loc": 124
+		},
+		"src/routes/(family)/family/[familyId]/members/add/child/server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family/[familyId]/members/add/child",
+			"loc": 175
+		},
+		"src/routes/(family)/family/[familyId]/members/add/direct/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/[familyId]/members/add/direct",
+			"loc": 87
+		},
+		"src/routes/(family)/family/[familyId]/members/add/email/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/[familyId]/members/add/email",
+			"loc": 160
+		},
+		"src/routes/(family)/family/[familyId]/members/add/email/link/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/[familyId]/members/add/email/link",
+			"loc": 124
+		},
+		"src/routes/(family)/family/[familyId]/members/add/email/link/server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family/[familyId]/members/add/email/link",
+			"loc": 118
+		},
+		"src/routes/(family)/family/[familyId]/members/add/email/server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family/[familyId]/members/add/email",
+			"loc": 160
+		},
+		"src/routes/(family)/family/[familyId]/members/add/page.svelte.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family/[familyId]/members/add",
+			"loc": 112
+		},
+		"src/routes/(family)/family/[familyId]/page.server.test.ts": {
+			"module": "familyHub",
+			"kind": "route-test",
+			"url": "/family/[familyId]",
+			"loc": 71
+		},
+		"src/routes/(family)/family/[familyId]/page.svelte.test.ts": {
+			"module": "familyHub",
+			"kind": "route-test",
+			"url": "/family/[familyId]",
+			"loc": 330
+		},
+		"src/routes/(family)/family/[familyId]/tasks/+page.server.ts": {
+			"module": "familyHub",
+			"kind": "route",
+			"url": "/family/[familyId]/tasks",
+			"loc": 26
+		},
+		"src/routes/(family)/family/[familyId]/tasks/page.server.test.ts": {
+			"module": "familyHub",
+			"kind": "route-test",
+			"url": "/family/[familyId]/tasks",
+			"loc": 69
+		},
+		"src/routes/(family)/family/create/+page.server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/create",
+			"loc": 59
+		},
+		"src/routes/(family)/family/create/+page.svelte": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/create",
+			"loc": 266
+		},
+		"src/routes/(family)/family/create/members.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family/create",
+			"loc": 229
+		},
+		"src/routes/(family)/family/create/page.server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family/create",
+			"loc": 151
+		},
+		"src/routes/(family)/family/create/page.svelte.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family/create",
+			"loc": 228
+		},
+		"src/routes/(family)/family/invitations/+page.server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/invitations",
+			"loc": 13
+		},
+		"src/routes/(family)/family/invitations/+page.svelte": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/invitations",
+			"loc": 458,
+			"note": "Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines."
+		},
+		"src/routes/(family)/family/invitations/page.svelte.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family/invitations",
+			"loc": 227
+		},
+		"src/routes/(family)/family/inviteLink.svelte.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family",
+			"loc": 195
+		},
+		"src/routes/(family)/family/inviteLink.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family",
+			"loc": 107
+		},
+		"src/routes/(family)/family/page.server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family",
+			"loc": 442
+		},
+		"src/routes/(family)/family/page.svelte.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family",
+			"loc": 363
+		},
+		"src/routes/(family)/family/tasks/+page.server.ts": {
+			"module": "familyHub",
+			"kind": "route",
+			"url": "/family/tasks",
+			"loc": 18
+		},
+		"src/routes/(family)/family/tasks/+page.svelte": {
+			"module": "familyHub",
+			"kind": "route",
+			"url": "/family/tasks",
+			"loc": 431,
+			"note": "Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines."
+		},
+		"src/routes/(family)/family/tasks/page.server.test.ts": {
+			"module": "familyHub",
+			"kind": "route-test",
+			"url": "/family/tasks",
+			"loc": 151
+		},
+		"src/routes/(family)/family/tasks/page.svelte.test.ts": {
+			"module": "familyHub",
+			"kind": "route-test",
+			"url": "/family/tasks",
+			"loc": 310
+		},
+		"src/routes/(marketing)/+layout.server.ts": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/",
+			"loc": 21
+		},
+		"src/routes/(marketing)/+layout.svelte": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/",
+			"loc": 69
+		},
+		"src/routes/(marketing)/+page.server.ts": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/",
+			"loc": 22
+		},
+		"src/routes/(marketing)/+page.svelte": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/",
+			"loc": 458,
+			"note": "Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines."
+		},
+		"src/routes/(marketing)/about/+page.svelte": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/about",
+			"loc": 115
+		},
+		"src/routes/(marketing)/android/+page.server.ts": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/android",
+			"loc": 5
+		},
+		"src/routes/(marketing)/android/+page.svelte": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/android",
+			"loc": 103
+		},
+		"src/routes/(marketing)/android/page.ssr.test.ts": {
+			"module": "marketing",
+			"kind": "route-test",
+			"url": "/android",
+			"loc": 54
+		},
+		"src/routes/(marketing)/changelog/+page.svelte": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/changelog",
+			"loc": 66
+		},
+		"src/routes/(marketing)/changelog/+page.ts": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/changelog",
+			"loc": 8
+		},
+		"src/routes/(marketing)/checkout/+page.server.ts": {
+			"module": "billing",
+			"kind": "route",
+			"url": "/checkout",
+			"loc": 75
+		},
+		"src/routes/(marketing)/checkout/+page.svelte": {
+			"module": "billing",
+			"kind": "route",
+			"url": "/checkout",
+			"loc": 128
+		},
+		"src/routes/(marketing)/contact/+page.server.ts": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/contact",
+			"loc": 95
+		},
+		"src/routes/(marketing)/contact/+page.svelte": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/contact",
+			"loc": 229
+		},
+		"src/routes/(marketing)/contact/page.server.test.ts": {
+			"module": "marketing",
+			"kind": "route-test",
+			"url": "/contact",
+			"loc": 166
+		},
+		"src/routes/(marketing)/family/invite/email/+page.server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/family/invite/email",
+			"loc": 232
+		},
+		"src/routes/(marketing)/family/invite/email/+page.svelte": {
+			"module": "access",
+			"kind": "route",
+			"url": "/family/invite/email",
+			"loc": 87
+		},
+		"src/routes/(marketing)/family/invite/email/page.server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/family/invite/email",
+			"loc": 181
+		},
+		"src/routes/(marketing)/family/join/[code]/+page.server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/join/[code]",
+			"loc": 35
+		},
+		"src/routes/(marketing)/family/join/[code]/+page.svelte": {
+			"module": "family",
+			"kind": "route",
+			"url": "/family/join/[code]",
+			"loc": 144
+		},
+		"src/routes/(marketing)/family/join/[code]/page.server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family/join/[code]",
+			"loc": 75
+		},
+		"src/routes/(marketing)/family/join/[code]/page.svelte.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/family/join/[code]",
+			"loc": 94
+		},
+		"src/routes/(marketing)/features/+page.svelte": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/features",
+			"loc": 274
+		},
+		"src/routes/(marketing)/forgot-password/+page.svelte": {
+			"module": "access",
+			"kind": "route",
+			"url": "/forgot-password",
+			"loc": 88
+		},
+		"src/routes/(marketing)/forgot-password/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/forgot-password",
+			"loc": 94
+		},
+		"src/routes/(marketing)/forgot-password/reset/+page.svelte": {
+			"module": "access",
+			"kind": "route",
+			"url": "/forgot-password/reset",
+			"loc": 130
+		},
+		"src/routes/(marketing)/forgot-password/reset/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/forgot-password/reset",
+			"loc": 137
+		},
+		"src/routes/(marketing)/forgot-password/reset/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/forgot-password/reset",
+			"loc": 99
+		},
+		"src/routes/(marketing)/forgot-password/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/forgot-password",
+			"loc": 91
+		},
+		"src/routes/(marketing)/layout.svelte.test.ts": {
+			"module": "marketing",
+			"kind": "route-test",
+			"url": "/",
+			"loc": 38
+		},
+		"src/routes/(marketing)/login/+page.server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/login",
+			"loc": 17
+		},
+		"src/routes/(marketing)/login/+page.svelte": {
+			"module": "access",
+			"kind": "route",
+			"url": "/login",
+			"loc": 396
+		},
+		"src/routes/(marketing)/login/email/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/login/email",
+			"loc": 68
+		},
+		"src/routes/(marketing)/login/email/callback/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/login/email/callback",
+			"loc": 103
+		},
+		"src/routes/(marketing)/login/email/callback/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/login/email/callback",
+			"loc": 175
+		},
+		"src/routes/(marketing)/login/email/code/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/login/email/code",
+			"loc": 129
+		},
+		"src/routes/(marketing)/login/email/code/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/login/email/code",
+			"loc": 157
+		},
+		"src/routes/(marketing)/login/email/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/login/email",
+			"loc": 131
+		},
+		"src/routes/(marketing)/login/loginMessages.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/login",
+			"loc": 14
+		},
+		"src/routes/(marketing)/login/page.server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/login",
+			"loc": 50
+		},
+		"src/routes/(marketing)/login/page.svelte.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/login",
+			"loc": 124
+		},
+		"src/routes/(marketing)/login/password/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/login/password",
+			"loc": 68
+		},
+		"src/routes/(marketing)/page.server.test.ts": {
+			"module": "marketing",
+			"kind": "route-test",
+			"url": "/",
+			"loc": 59
+		},
+		"src/routes/(marketing)/page.svelte.test.ts": {
+			"module": "marketing",
+			"kind": "route-test",
+			"url": "/",
+			"loc": 12
+		},
+		"src/routes/(marketing)/pricing/+page.server.ts": {
+			"module": "billing",
+			"kind": "route",
+			"url": "/pricing",
+			"loc": 79
+		},
+		"src/routes/(marketing)/pricing/+page.svelte": {
+			"module": "billing",
+			"kind": "route",
+			"url": "/pricing",
+			"loc": 127
+		},
+		"src/routes/(marketing)/privacy/+page.svelte": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/privacy",
+			"loc": 130
+		},
+		"src/routes/(marketing)/roadmap/+page.svelte": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/roadmap",
+			"loc": 55
+		},
+		"src/routes/(marketing)/roadmap/+page.ts": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/roadmap",
+			"loc": 8
+		},
+		"src/routes/(marketing)/signup/+page.server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/signup",
+			"loc": 14
+		},
+		"src/routes/(marketing)/signup/+page.svelte": {
+			"module": "access",
+			"kind": "route",
+			"url": "/signup",
+			"loc": 423,
+			"note": "Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines."
+		},
+		"src/routes/(marketing)/signup/email/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/signup/email",
+			"loc": 70
+		},
+		"src/routes/(marketing)/signup/email/callback/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/signup/email/callback",
+			"loc": 80
+		},
+		"src/routes/(marketing)/signup/email/callback/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/signup/email/callback",
+			"loc": 203
+		},
+		"src/routes/(marketing)/signup/email/code/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/signup/email/code",
+			"loc": 118
+		},
+		"src/routes/(marketing)/signup/email/code/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/signup/email/code",
+			"loc": 154
+		},
+		"src/routes/(marketing)/signup/email/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/signup/email",
+			"loc": 170
+		},
+		"src/routes/(marketing)/signup/password/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/signup/password",
+			"loc": 104
+		},
+		"src/routes/(marketing)/signup/password/resend/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/signup/password/resend",
+			"loc": 107
+		},
+		"src/routes/(marketing)/signup/password/resend/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/signup/password/resend",
+			"loc": 136
+		},
+		"src/routes/(marketing)/signup/password/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/signup/password",
+			"loc": 188
+		},
+		"src/routes/(marketing)/signup/password/verify/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/signup/password/verify",
+			"loc": 81
+		},
+		"src/routes/(marketing)/signup/password/verify/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/signup/password/verify",
+			"loc": 143
+		},
+		"src/routes/(marketing)/signup/password/verifyPath.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/signup/password",
+			"loc": 6
+		},
+		"src/routes/(marketing)/waitlist/+page.server.ts": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/waitlist",
+			"loc": 99
+		},
+		"src/routes/(marketing)/waitlist/+page.svelte": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/waitlist",
+			"loc": 178
+		},
+		"src/routes/(marketing)/waitlist/page.server.real.test.ts": {
+			"module": "marketing",
+			"kind": "route-test",
+			"url": "/waitlist",
+			"loc": 163
+		},
+		"src/routes/+error.svelte": {
+			"module": "shell",
+			"kind": "route",
+			"url": "/",
+			"loc": 77
+		},
+		"src/routes/+layout.svelte": {
+			"module": "shell",
+			"kind": "route",
+			"url": "/",
+			"loc": 15
+		},
+		"src/routes/api/account/export/+server.ts": {
+			"module": "account",
+			"kind": "route",
+			"url": "/api/account/export",
+			"loc": 36
+		},
+		"src/routes/api/account/export/server.test.ts": {
+			"module": "account",
+			"kind": "route-test",
+			"url": "/api/account/export",
+			"loc": 75
+		},
+		"src/routes/api/admin/+server.ts": {
+			"module": "admin",
+			"kind": "route",
+			"url": "/api/admin",
+			"loc": 11
+		},
+		"src/routes/api/admin/bugs/+server.ts": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/api/admin/bugs",
+			"loc": 17
+		},
+		"src/routes/api/admin/bugs/[id]/resolve/+server.ts": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/api/admin/bugs/[id]/resolve",
+			"loc": 14
+		},
+		"src/routes/api/admin/nlp/+server.ts": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/api/admin/nlp",
+			"loc": 17
+		},
+		"src/routes/api/admin/nlp/[id]/resolve/+server.ts": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/api/admin/nlp/[id]/resolve",
+			"loc": 14
+		},
+		"src/routes/api/admin/server.test.ts": {
+			"module": "admin",
+			"kind": "route-test",
+			"url": "/api/admin",
+			"loc": 98
+		},
+		"src/routes/api/archive/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/archive",
+			"loc": 12
+		},
+		"src/routes/api/bug-report/+server.ts": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/api/bug-report",
+			"loc": 70
+		},
+		"src/routes/api/calendars/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/calendars",
+			"loc": 23
+		},
+		"src/routes/api/calendars/server.test.ts": {
+			"module": "calendar",
+			"kind": "route-test",
+			"url": "/api/calendars",
+			"loc": 85
+		},
+		"src/routes/api/contact/+page.server.ts": {
+			"module": "marketing",
+			"kind": "route",
+			"url": "/api/contact",
+			"loc": 80
+		},
+		"src/routes/api/cron/cleanup/+server.ts": {
+			"module": "app",
+			"kind": "route",
+			"url": "/api/cron/cleanup",
+			"loc": 81
+		},
+		"src/routes/api/daily-verse/+server.ts": {
+			"module": "verse",
+			"kind": "route",
+			"url": "/api/daily-verse",
+			"loc": 36
+		},
+		"src/routes/api/daily-verse/server.test.ts": {
+			"module": "verse",
+			"kind": "route-test",
+			"url": "/api/daily-verse",
+			"loc": 76
+		},
+		"src/routes/api/dashboard/+server.ts": {
+			"module": "dayDashboard",
+			"kind": "route",
+			"url": "/api/dashboard",
+			"loc": 37
+		},
+		"src/routes/api/dashboard/server.test.ts": {
+			"module": "dayDashboard",
+			"kind": "route-test",
+			"url": "/api/dashboard",
+			"loc": 142
+		},
+		"src/routes/api/devices/+server.ts": {
+			"module": "alerts",
+			"kind": "route",
+			"url": "/api/devices",
+			"loc": 65
+		},
+		"src/routes/api/devices/server.test.ts": {
+			"module": "alerts",
+			"kind": "route-test",
+			"url": "/api/devices",
+			"loc": 98
+		},
+		"src/routes/api/events/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/events",
+			"loc": 169,
+			"note": "Inline SELECT + db.transaction + family mirror -> calendar service createEvent / listEventsInWindow."
+		},
+		"src/routes/api/events/[id]/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/events/[id]",
+			"loc": 202
+		},
+		"src/routes/api/events/[id]/ics/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/events/[id]/ics",
+			"loc": 95
+		},
+		"src/routes/api/events/[id]/rsvp/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/events/[id]/rsvp",
+			"loc": 102
+		},
+		"src/routes/api/events/[id]/server.test.ts": {
+			"module": "calendar",
+			"kind": "route-test",
+			"url": "/api/events/[id]",
+			"loc": 299
+		},
+		"src/routes/api/events/bulk/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/events/bulk",
+			"loc": 271,
+			"note": "Inline attendance-merge transaction + per-item loop -> calendar service bulk operations."
+		},
+		"src/routes/api/events/nudge.test.ts": {
+			"module": "calendar",
+			"kind": "route-test",
+			"url": "/api/events",
+			"loc": 242
+		},
+		"src/routes/api/events/server.test.ts": {
+			"module": "calendar",
+			"kind": "route-test",
+			"url": "/api/events",
+			"loc": 200
+		},
+		"src/routes/api/families/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/families",
+			"loc": 46
+		},
+		"src/routes/api/families/[id]/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/families/[id]",
+			"loc": 43
+		},
+		"src/routes/api/families/[id]/invite-codes/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/families/[id]/invite-codes",
+			"loc": 31
+		},
+		"src/routes/api/families/[id]/members/[userId]/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/families/[id]/members/[userId]",
+			"loc": 50
+		},
+		"src/routes/api/families/[id]/members/add.server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/api/families/[id]/members",
+			"loc": 110
+		},
+		"src/routes/api/families/[id]/members/child/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/families/[id]/members/child",
+			"loc": 12
+		},
+		"src/routes/api/families/[id]/members/direct/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/families/[id]/members/direct",
+			"loc": 13
+		},
+		"src/routes/api/families/[id]/members/email/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/families/[id]/members/email",
+			"loc": 12
+		},
+		"src/routes/api/families/[id]/members/email/link/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/families/[id]/members/email/link",
+			"loc": 12
+		},
+		"src/routes/api/families/[id]/modules/[module]/+server.ts": {
+			"module": "dashboardModules",
+			"kind": "route",
+			"url": "/api/families/[id]/modules/[module]",
+			"loc": 23
+		},
+		"src/routes/api/families/[id]/server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/api/families/[id]",
+			"loc": 232
+		},
+		"src/routes/api/families/[id]/tasks/+server.ts": {
+			"module": "familyHub",
+			"kind": "route",
+			"url": "/api/families/[id]/tasks",
+			"loc": 24
+		},
+		"src/routes/api/families/create.server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/api/families",
+			"loc": 108
+		},
+		"src/routes/api/families/lists.server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/api/families",
+			"loc": 132
+		},
+		"src/routes/api/family/invite/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/family/invite",
+			"loc": 135,
+			"note": "Inline selects on familyMembers/familyInviteCodes -> family repo."
+		},
+		"src/routes/api/family/invite/server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/api/family/invite",
+			"loc": 130
+		},
+		"src/routes/api/family/join/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/family/join",
+			"loc": 44
+		},
+		"src/routes/api/family/member-search/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/family/member-search",
+			"loc": 81
+		},
+		"src/routes/api/family/member-search/server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/api/family/member-search",
+			"loc": 116
+		},
+		"src/routes/api/family/roster/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/family/roster",
+			"loc": 32
+		},
+		"src/routes/api/family/roster/server.test.ts": {
+			"module": "family",
+			"kind": "route-test",
+			"url": "/api/family/roster",
+			"loc": 60
+		},
+		"src/routes/api/family/search/+server.ts": {
+			"module": "family",
+			"kind": "route",
+			"url": "/api/family/search",
+			"loc": 27
+		},
+		"src/routes/api/groceries/+server.ts": {
+			"module": "groceries",
+			"kind": "route",
+			"url": "/api/groceries",
+			"loc": 77
+		},
+		"src/routes/api/groceries/[id]/+server.ts": {
+			"module": "groceries",
+			"kind": "route",
+			"url": "/api/groceries/[id]",
+			"loc": 89
+		},
+		"src/routes/api/groceries/colours/+server.ts": {
+			"module": "groceries",
+			"kind": "route",
+			"url": "/api/groceries/colours",
+			"loc": 64
+		},
+		"src/routes/api/health/+server.ts": {
+			"module": "app",
+			"kind": "route",
+			"url": "/api/health",
+			"loc": 35
+		},
+		"src/routes/api/health/server.test.ts": {
+			"module": "app",
+			"kind": "route-test",
+			"url": "/api/health",
+			"loc": 65
+		},
+		"src/routes/api/import/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/import",
+			"loc": 12
+		},
+		"src/routes/api/import/commit/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/import/commit",
+			"loc": 25
+		},
+		"src/routes/api/import/preview/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/import/preview",
+			"loc": 28
+		},
+		"src/routes/api/import/server.test.ts": {
+			"module": "calendar",
+			"kind": "route-test",
+			"url": "/api/import",
+			"loc": 106
+		},
+		"src/routes/api/import/undo/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/import/undo",
+			"loc": 26
+		},
+		"src/routes/api/location-search/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/location-search",
+			"loc": 46
+		},
+		"src/routes/api/logout/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/logout",
+			"loc": 15
+		},
+		"src/routes/api/me/+server.ts": {
+			"module": "account",
+			"kind": "route",
+			"url": "/api/me",
+			"loc": 52
+		},
+		"src/routes/api/me/account.server.test.ts": {
+			"module": "account",
+			"kind": "route-test",
+			"url": "/api/me",
+			"loc": 244
+		},
+		"src/routes/api/me/api-tokens/+server.ts": {
+			"module": "identity",
+			"kind": "route",
+			"url": "/api/me/api-tokens",
+			"loc": 28
+		},
+		"src/routes/api/me/api-tokens/[id]/+server.ts": {
+			"module": "identity",
+			"kind": "route",
+			"url": "/api/me/api-tokens/[id]",
+			"loc": 18
+		},
+		"src/routes/api/me/claim/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/me/claim",
+			"loc": 28
+		},
+		"src/routes/api/me/claim/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/api/me/claim",
+			"loc": 71
+		},
+		"src/routes/api/me/dashboard-modules/+server.ts": {
+			"module": "dashboardModules",
+			"kind": "route",
+			"url": "/api/me/dashboard-modules",
+			"loc": 27
+		},
+		"src/routes/api/me/email/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/me/email",
+			"loc": 42
+		},
+		"src/routes/api/me/notification-preferences/+server.ts": {
+			"module": "alerts",
+			"kind": "route",
+			"url": "/api/me/notification-preferences",
+			"loc": 25
+		},
+		"src/routes/api/me/notification-preferences/[id]/+server.ts": {
+			"module": "alerts",
+			"kind": "route",
+			"url": "/api/me/notification-preferences/[id]",
+			"loc": 28
+		},
+		"src/routes/api/me/profile/+server.ts": {
+			"module": "identity",
+			"kind": "route",
+			"url": "/api/me/profile",
+			"loc": 29
+		},
+		"src/routes/api/me/server.test.ts": {
+			"module": "account",
+			"kind": "route-test",
+			"url": "/api/me",
+			"loc": 70
+		},
+		"src/routes/api/me/sessions/revoke-others/+server.ts": {
+			"module": "identity",
+			"kind": "route",
+			"url": "/api/me/sessions/revoke-others",
+			"loc": 20
+		},
+		"src/routes/api/me/settings/+server.ts": {
+			"module": "identity",
+			"kind": "route",
+			"url": "/api/me/settings",
+			"loc": 132
+		},
+		"src/routes/api/me/settings/server.test.ts": {
+			"module": "identity",
+			"kind": "route-test",
+			"url": "/api/me/settings",
+			"loc": 157
+		},
+		"src/routes/api/me/subscription/+server.ts": {
+			"module": "billing",
+			"kind": "route",
+			"url": "/api/me/subscription",
+			"loc": 15
+		},
+		"src/routes/api/me/verify-email/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/me/verify-email",
+			"loc": 29
+		},
+		"src/routes/api/me/verify-email/resend/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/me/verify-email/resend",
+			"loc": 12
+		},
+		"src/routes/api/meals/+server.ts": {
+			"module": "meals",
+			"kind": "route",
+			"url": "/api/meals",
+			"loc": 115
+		},
+		"src/routes/api/mobile/auth/email/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/mobile/auth/email",
+			"loc": 15
+		},
+		"src/routes/api/mobile/auth/email/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/api/mobile/auth/email",
+			"loc": 95
+		},
+		"src/routes/api/mobile/auth/fakes.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/mobile/auth",
+			"loc": 72
+		},
+		"src/routes/api/mobile/auth/forgot/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/mobile/auth/forgot",
+			"loc": 17
+		},
+		"src/routes/api/mobile/auth/forgot/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/api/mobile/auth/forgot",
+			"loc": 123
+		},
+		"src/routes/api/mobile/auth/guest/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/mobile/auth/guest",
+			"loc": 15
+		},
+		"src/routes/api/mobile/auth/guest/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/api/mobile/auth/guest",
+			"loc": 53
+		},
+		"src/routes/api/mobile/auth/hooks.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/api/mobile/auth",
+			"loc": 144
+		},
+		"src/routes/api/mobile/auth/logout/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/mobile/auth/logout",
+			"loc": 15
+		},
+		"src/routes/api/mobile/auth/logout/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/api/mobile/auth/logout",
+			"loc": 37
+		},
+		"src/routes/api/mobile/auth/password/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/mobile/auth/password",
+			"loc": 15
+		},
+		"src/routes/api/mobile/auth/password/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/api/mobile/auth/password",
+			"loc": 77
+		},
+		"src/routes/api/mobile/auth/reset/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/mobile/auth/reset",
+			"loc": 33
+		},
+		"src/routes/api/mobile/auth/signup/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/mobile/auth/signup",
+			"loc": 90
+		},
+		"src/routes/api/mobile/auth/signup/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/api/mobile/auth/signup",
+			"loc": 95
+		},
+		"src/routes/api/mobile/auth/verify/+server.ts": {
+			"module": "access",
+			"kind": "route",
+			"url": "/api/mobile/auth/verify",
+			"loc": 15
+		},
+		"src/routes/api/mobile/auth/verify/server.test.ts": {
+			"module": "access",
+			"kind": "route-test",
+			"url": "/api/mobile/auth/verify",
+			"loc": 132
+		},
+		"src/routes/api/notifications/+server.ts": {
+			"module": "alerts",
+			"kind": "route",
+			"url": "/api/notifications",
+			"loc": 72
+		},
+		"src/routes/api/notifications/server.test.ts": {
+			"module": "alerts",
+			"kind": "route-test",
+			"url": "/api/notifications",
+			"loc": 62
+		},
+		"src/routes/api/parse-event/+server.ts": {
+			"module": "parsing",
+			"kind": "route",
+			"url": "/api/parse-event",
+			"loc": 140
+		},
+		"src/routes/api/parse-event/server.test.ts": {
+			"module": "parsing",
+			"kind": "route-test",
+			"url": "/api/parse-event",
+			"loc": 267
+		},
+		"src/routes/api/print/+server.ts": {
+			"module": "calendar",
+			"kind": "route",
+			"url": "/api/print",
+			"loc": 18
+		},
+		"src/routes/api/print/server.test.ts": {
+			"module": "calendar",
+			"kind": "route-test",
+			"url": "/api/print",
+			"loc": 61
+		},
+		"src/routes/api/push/public-key/+server.ts": {
+			"module": "alerts",
+			"kind": "route",
+			"url": "/api/push/public-key",
+			"loc": 8
+		},
+		"src/routes/api/push/subscribe/+server.ts": {
+			"module": "alerts",
+			"kind": "route",
+			"url": "/api/push/subscribe",
+			"loc": 44
+		},
+		"src/routes/api/push/unsubscribe/+server.ts": {
+			"module": "alerts",
+			"kind": "route",
+			"url": "/api/push/unsubscribe",
+			"loc": 44
+		},
+		"src/routes/api/push/unsubscribe/server.test.ts": {
+			"module": "alerts",
+			"kind": "route-test",
+			"url": "/api/push/unsubscribe",
+			"loc": 52
+		},
+		"src/routes/api/report-phrase/+server.ts": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/api/report-phrase",
+			"loc": 58
+		},
+		"src/routes/api/sponsored-events/+server.ts": {
+			"module": "sponsored",
+			"kind": "route",
+			"url": "/api/sponsored-events",
+			"loc": 37
+		},
+		"src/routes/api/sponsored-events/server.test.ts": {
+			"module": "sponsored",
+			"kind": "route-test",
+			"url": "/api/sponsored-events",
+			"loc": 68
+		},
+		"src/routes/api/stats/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/stats",
+			"loc": 12
+		},
+		"src/routes/api/stats/server.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/api/stats",
+			"loc": 114
+		},
+		"src/routes/api/task-categories/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/task-categories",
+			"loc": 46
+		},
+		"src/routes/api/task-categories/[id]/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/task-categories/[id]",
+			"loc": 53
+		},
+		"src/routes/api/task-categories/server.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/api/task-categories",
+			"loc": 170
+		},
+		"src/routes/api/taskfocus/commands/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/taskfocus/commands",
+			"loc": 107,
+			"note": "Inline drizzle on taskfocusCommands -> tasks repo (focus commands)."
+		},
+		"src/routes/api/taskfocus/commands/[id]/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/taskfocus/commands/[id]",
+			"loc": 32
+		},
+		"src/routes/api/taskfocus/commands/[id]/server.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/api/taskfocus/commands/[id]",
+			"loc": 54
+		},
+		"src/routes/api/taskfocus/commands/server.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/api/taskfocus/commands",
+			"loc": 162
+		},
+		"src/routes/api/taskfocus/sessions/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/taskfocus/sessions",
+			"loc": 74
+		},
+		"src/routes/api/taskfocus/sessions/[id]/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/taskfocus/sessions/[id]",
+			"loc": 79
+		},
+		"src/routes/api/taskfocus/sessions/[id]/absorb/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/taskfocus/sessions/[id]/absorb",
+			"loc": 34
+		},
+		"src/routes/api/taskfocus/sessions/server.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/api/taskfocus/sessions",
+			"loc": 316
+		},
+		"src/routes/api/tasks/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/tasks",
+			"loc": 252
+		},
+		"src/routes/api/tasks/[id]/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/tasks/[id]",
+			"loc": 354,
+			"note": "353-line PUT: each branch (undo, advance, toggle, assignment response, field patch) becomes its own tasks service function; the endpoint dispatches by body shape. Keep the focusMinutes never-wipe rule."
+		},
+		"src/routes/api/tasks/[id]/bearer.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/api/tasks/[id]",
+			"loc": 144
+		},
+		"src/routes/api/tasks/[id]/category.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/api/tasks/[id]",
+			"loc": 162
+		},
+		"src/routes/api/tasks/[id]/server.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/api/tasks/[id]",
+			"loc": 670
+		},
+		"src/routes/api/tasks/category.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/api/tasks",
+			"loc": 147
+		},
+		"src/routes/api/tasks/completed/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/tasks/completed",
+			"loc": 14
+		},
+		"src/routes/api/tasks/sections/+server.ts": {
+			"module": "tasks",
+			"kind": "route",
+			"url": "/api/tasks/sections",
+			"loc": 26
+		},
+		"src/routes/api/tasks/sections/server.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/api/tasks/sections",
+			"loc": 88
+		},
+		"src/routes/api/tasks/server.test.ts": {
+			"module": "tasks",
+			"kind": "route-test",
+			"url": "/api/tasks",
+			"loc": 509
+		},
+		"src/routes/error.svelte.test.ts": {
+			"module": "shell",
+			"kind": "route-test",
+			"url": "/",
+			"loc": 51
+		},
+		"src/routes/report-bug/+page.server.ts": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/report-bug",
+			"loc": 64
+		},
+		"src/routes/report-bug/+page.svelte": {
+			"module": "feedback",
+			"kind": "route",
+			"url": "/report-bug",
+			"loc": 151
+		},
+		"src/routes/report-bug/page.server.test.ts": {
+			"module": "feedback",
+			"kind": "route-test",
+			"url": "/report-bug",
+			"loc": 68
+		},
+		"src/routes/report-bug/page.svelte.test.ts": {
+			"module": "feedback",
+			"kind": "route-test",
+			"url": "/report-bug",
+			"loc": 80
+		},
+		"src/routes/share-target/+page.server.ts": {
+			"module": "calendarPage",
+			"kind": "route",
+			"url": "/share-target",
+			"loc": 13
+		},
+		"src/routes/share-target/+page.svelte": {
+			"module": "calendarPage",
+			"kind": "route",
+			"url": "/share-target",
+			"loc": 3
+		}
+	}
+}
