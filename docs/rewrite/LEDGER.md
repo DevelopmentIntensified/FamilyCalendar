@@ -13,9 +13,9 @@ Steps inside a module task (S1–S9) are ticked in that module's port sheet. Her
 
 | id | task | playbook | sheet | status | commit | notes |
 |---|---|---|---|---|---|---|
-| K-01 | Kernel core: ctx/actor, AppError, validators, clock, ids, rate limiter, json log, db helpers, `endpoint`/`pageLoad`/`formAction`, test harness (testCtx, invoke, rollback DB rebuilt from migrations) | — | [kernel](modules/kernel.md) | done | (first rewrite commit) | 74 tests; the golden approach was verified against legacy handlers |
-| K-02 | Composition root `src/lib/app/appCtx.server.ts`; hooks set `locals.ctx` / `locals.actor` | — | [app](modules/app.md) | done | (first rewrite commit) | Bridges listed in appCtx |
-| K-03 | Tooling: `arch`, `census`, `docs:check`, `docs:gen`, `test:mod`, `test:affected`, `typecheck`, `new:module`, `build:safe`, `gate` | — | [kernel](modules/kernel.md) | done | (first rewrite commit) | typecheck baseline: 89 legacy errors; gate measured at ~3 min (typecheck ~40 s, test:v2 ~8 s, test:affected ~22 s, build:safe ~72 s) |
+| K-01 | Kernel core: ctx/actor, AppError, validators, clock, ids, rate limiter, json log, db helpers, `endpoint`/`pageLoad`/`formAction`, test harness (testCtx, invoke, rollback DB rebuilt from migrations) | — | [kernel](modules/kernel.md) | done | 75066d6 | 74 tests; the golden approach was verified against legacy handlers |
+| K-02 | Composition root `src/lib/app/appCtx.server.ts`; hooks set `locals.ctx` / `locals.actor` | — | [app](modules/app.md) | done | 75066d6 | Bridges listed in appCtx |
+| K-03 | Tooling: `arch`, `census`, `docs:check`, `docs:gen`, `test:mod`, `test:affected`, `typecheck`, `new:module`, `build:safe`, `gate` | — | [kernel](modules/kernel.md) | done | 75066d6 | typecheck baseline: 89 legacy errors; gate measured at ~3 min (typecheck ~40 s, test:v2 ~8 s, test:affected ~22 s, build:safe ~72 s) |
 | K-04 | Split `schema.ts` into `kernel/db/tables/<module>.tables.server.ts` | [kernel-tasks › K-04](playbooks/kernel-tasks.md#k-04) | [kernel](modules/kernel.md) | todo | | |
 | K-05 | Migration runner + bundle into `kernel/db/migrations` | [kernel-tasks › K-05](playbooks/kernel-tasks.md#k-05) | [kernel](modules/kernel.md) | todo | | |
 | K-06 | `kernel/time` dates: formats, day keys, month math | [kernel-tasks › K-06](playbooks/kernel-tasks.md#k-06) | [kernel](modules/kernel.md) | todo | | |
