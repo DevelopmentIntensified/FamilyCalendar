@@ -101,11 +101,60 @@ The module owns no `+server.ts`; `/api/contact` is a form-action file (see "Prob
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+Files in `src/lib/domains/marketing/`, in build order. Roles per [conventions.md](../../architecture/conventions.md); every new export is listed in the README's Public interface.
+
+| new file | role | contents |
+|---|---|---|
+| `marketing.contract.ts` | contract | zod for the contact form (`name`/`email`/`message`/`website`, absent → `''`), the waitlist join (trimmed name/email, optional `consent`) and both response bodies. The seven legacy error messages are constants here so the golden and the 400 copy cannot drift. |
+| `marketing.seo.rules.ts` | rules | `SITE`, `MARKETING_PAGES` (the table), a private `canonicalUrl`, `seoFor`, `pageSeo(origin, pathname)`. Replaces `src/lib/marketing/seo.ts`; `absolute` and `seoTags` fold into `pageSeo`. |
+| `marketing.pageOptions.rules.ts` | rules | `marketingPageOptions(adapter)` and `CONTENT_PAGE_OPTIONS`; replaces the `ADAPTER === 'static'` expressions in the layout and the two `+page.ts` files. The route reads the adapter from `app`, because a v2 domain may not touch `$env` (R6). |
+| `marketing.content.rules.ts` | rules | `MARKETING_NAV` (the fixed four links), `CHANGELOG_ENTRIES`, `ROADMAP_SECTIONS`, `changelogNewestFirst`, `formatChangelogDate` (en-US, UTC, long date). Replaces `src/lib/data/changelog.ts`, `src/lib/data/roadmap.ts`, the marketing half of `src/lib/utils/navItems.ts` and the changelog page's `Intl` script; shell consumes `MARKETING_NAV`. |
+| `marketing.android.rules.ts` | rules | `androidRelease(published)`, `addRepoLink`, `groupFingerprint` and their types. Replaces the logic in `src/lib/fdroid/release.ts`; `src/lib/fdroid/published.json` must not move. |
+| `marketing.icons.rules.ts` | rules | the private SVG map and `featureIcon(name)` — the closed set from `src/lib/components/marketing/featureIcons.ts`. |
+| `marketing.mail.rules.ts` | rules | `waitlistConfirmationHtml({name})`, `contactMessageHtml({name,email,message})` and the escape rule. Replaces `src/lib/server/emails/waitlist-confirmation.ts` and the inline contact HTML. |
+| `marketing.waitlist.rules.ts` | rules | `splitName`, `isConsentGiven(value)`, `waitlistProblem(fields)` — the validation order and messages (`Email is required` → `Name is required` → address shape). |
+| `marketing.repo.server.ts` | repo | `insertWaitlistEntry(db, row)` (`onConflictDoNothing().returning()`), `findWaitlistByEmail(db, email)`. |
+| `marketing.fixtures.server.ts` | fixtures | `waitlistRow(overrides)`. |
+| `marketing.service.server.ts` | service | `joinWaitlist(ctx, actor \| null, input)` and `sendContactMessage(ctx, actor \| null, input)`; the surface is public, so they only map refusals to `AppError` and use `ctx.limiter`, `ctx.clock`, `ctx.ids` and the mail port. |
+| `marketing.http.server.ts` | http | `contactEndpoint`, `contactFormAction`, `waitlistJoinAction`, `marketingLayoutLoad`, `androidPageLoad`, `strayRootPostAction`. |
+| `marketing.seo.rules.test.ts`, `marketing.pageOptions.rules.test.ts`, `marketing.content.rules.test.ts`, `marketing.android.rules.test.ts`, `marketing.icons.rules.test.ts`, `marketing.waitlist.rules.test.ts` | tests | table tests from the Invariants; the SEO one carries the legacy route-scanning test. |
+| `marketing.repo.db.test.ts`, `marketing.service.db.test.ts` | tests | `rollbackTest`; the address conflict, the consent stamps, the mail-failure 500. |
+| `marketing.pageActions.test.ts` | tests (S6) | the two page actions, `POST /` PRG and the Android load — page routes, so no goldens. |
+| `marketing.http.db.test.ts` | tests (S2) | exists: the `/api/contact` golden. |
+| `marketing.theme.css`, `ui/*.svelte` | ui (S7) | the theme plus one section component per page and the six cards; the legacy `src/lib/components/marketing/*` are their visual baseline. |
+
+Where each legacy export goes:
+
+- `src/lib/marketing/seo.ts` → `seoFor`/`seoTags`/`absolute` collapse into `pageSeo`; `ROUTES` becomes `MARKETING_PAGES`; `SITE` stays.
+- `src/lib/data/changelog.ts`, `src/lib/data/roadmap.ts` → `marketing.content.rules.ts` (same data, new names).
+- `src/lib/components/marketing/featureIcons.ts` → `marketing.icons.rules.ts`; the map goes private.
+- `src/lib/server/emails/waitlist-confirmation.ts` → `marketing.mail.rules.ts`.
+- `src/lib/server/services/emailService.ts` → dies; `joinWaitlist` calls the mail port and maps a refusal to the fixed 500 copy.
+- `src/lib/fdroid/release.ts` → `marketing.android.rules.ts` (outside the census prefixes; S8 deletes it once `git grep` shows the Android route was its only importer).
+- `src/lib/marketing/theme.css` → `marketing.theme.css` at S7; the `--mp-*` tokens survive, the dead ones are #194.
+- Route files become wiring only. `src/routes/api/contact/+page.server.ts` keeps its path and shape — `export const actions = { default: contactEndpoint.handler }` — because the S2 golden imports that exact file and must not change at S6.
+- `// +page.server.ts` at `(marketing)/+layout.server.ts:1` is a copy-paste artifact; it dies with the file.
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
+- **`/api/contact` is the module's one `/api` route, and it is a form-action file** (`+page.server.ts`), not `+server.ts`. The golden stays on it: same POST path, form-encoded body, JSON answers. S6 wires it as `export const actions = { default: contactEndpoint.handler }` so the test's import never changes.
+- **S2 goldens are wire-only.** The legacy action sends through Resend and has no injection seam, so the test sets a dummy `RESEND_API_KEY` before a dynamic import and stubs `fetch` at the provider boundary. It asserts status/body/messages; the sent mail's recipient, subject and escaping are pinned by the S5 service test. The provider-failure 500 is therefore **not** a golden — it needs a failing mailer, which exists only once the mail port does; `marketing.service.db.test.ts` pins it. The 3-per-15-min budget and the absent/empty/whitespace differences are goldens.
+- **Probably accidental — waitlist `use:enhance`** (`src/routes/(marketing)/waitlist/+page.svelte:68-77`) sets `submitted = true` regardless of `result.type`, so every 400/429/500 replaces the form with the success card and the `form.error` box at `:103-107` can never be seen. It is UI-only: **S7 rebuilds the submit handler to branch on `result.type === 'success'` before showing the card, and to render `result.data.error` otherwise.** Not an owner question.
+- **Probably accidental — `/reset`** (`src/lib/marketing/seo.ts:111-115`) matches no route: the page lives at `(marketing)/forgot-password/reset`, so it gets the site default title and stays indexable. Fold into #095's og/twitter/canonical audit at S7 — add the real path as a noindex row and delete `/reset`.
+- **Probably accidental — old names**: the waitlist email and page still say "FamilyPlanner"/"Family Master" (`src/lib/server/emails/waitlist-confirmation.ts:14,27,63`, `src/lib/server/services/emailService.ts:23`, `waitlist/+page.svelte:62,143`). S7 copy pass; the rebuilt mail template in `marketing.mail.rules.ts` is where it dies.
+- **Probably accidental — hotlinked imagery**: home and features load Pexels images at render time (`(marketing)/+page.svelte:82`, `features/+page.svelte:72-84`). S7 serves them locally (perf budget, privacy) and follows the owner's content rule — family imagery is man + woman + children; the current hero alt is "Father and son". The dead theme tokens are #194.
+- **`/pricing` is not in this census.** `(marketing)/pricing/+page.server.ts` imports billing's `checkoutService` and `analyticsService` and computes discounts, so the page belongs to billing; marketing keeps the nav link and the `/pricing` SEO row only. S7 coordinates with billing instead of duplicating the load.
+- **Rate limits are in-memory and per instance** (`src/lib/server/utils/rateLimit.ts:1-3`), so the budgets are per process, not per cluster. The port keeps that shape through `ctx.limiter`; a distributed limiter is a separate ticket.
+- **`ROUTES['/']` vs the home `<title>`**: the SEO test scans child directories only, so the root never has to match its row. Owner question below.
+- **Census gaps**: `src/lib/fdroid/release.ts` and `src/lib/utils/sendEmail.ts` are outside the module's census list, so S8 must find their remaining importers with `git grep` before deleting them. `emailService.ts` also serves other modules today; it is deleted only after the last of them is ported.
+- **S2 sha**: the orchestrator commits this step; fill the sha in the Steps list from that commit (`rewrite(marketing): S2 api goldens (legacy green)`).
+
+### Questions for the owner
+
+1. **Is `/api/contact` live?** It duplicates `/contact` with a different budget (3/15 min vs 5/10 min) and a different 500 (`Failed to send message. Please try again later.` vs `Something went wrong. Please try again.`), and it has no page component and no in-repo importer. Options: (a) keep the `/api` wire and retire the `/contact` action, (b) keep `/contact` and delete the `/api` route at S8, (c) keep both as two fixed wires over one service. Recommendation: (a) — installed clients may call it, it is the module's only `/api` route, and the golden already pins it.
+2. **Which home title wins?** `ROUTES['/']` says `Family Planz — the shared family calendar` (written for search) while `(marketing)/+page.svelte:5` says `Family Planz - The Family Calendar That Brings Everyone Together`, so the share card advertises copy the page does not show. Options: (a) make the page `<title>` match the row and extend the SEO test to `/`, (b) change the row to the page's copy, (c) leave both. Recommendation: (a) — the row is the copy written for the SERP, and a test over the root stops the drift.
+3. **Waitlist consent** — the action accepts `consent` (`on`/`true`/`yes`) and stamps `consentedAt`/`optedInAt`, but no surface collects it, so both columns are always null today. Options: (a) add the checkbox at S7 and keep the stamps, (b) drop `consent` from the contract in S3. Recommendation: (a) only if the owner needs a consent record; otherwise (b) — the rewrite should not carry a field nothing writes.
+4. **Waitlist success copy** promises a verification link and "double opt-in" (`waitlist/+page.svelte:35-42`), but the confirmation email carries neither a link nor a code and no double opt-in flow exists. Options: (a) rewrite the card to "we'll email you when a place opens" (what actually happens), (b) build the double opt-in flow. Recommendation: (a) — the flow is outside this rebuild, and the current copy is false.
 
 ## Census
 
