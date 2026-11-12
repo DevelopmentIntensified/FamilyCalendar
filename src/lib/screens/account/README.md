@@ -40,7 +40,8 @@ Designed at S1; implemented in the named files (see the sheet's Plan).
     unknown. One home for "which section is showing".
   - `AccountSectionId` — the union of the ten ids.
   - `AccountSectionModel` — the discriminated union one section's endpoint returns: only that
-    section's data, typed from the owning domain's model (never hand-mirrored).
+    section's data, typed from each owning domain's section model and reconciled at their S1s
+    (never hand-mirrored).
   - `AccountMe` / `AccountExportDocument` — the two `/api` response shapes.
 - `index.server.ts`:
   - `accountPageLoad` — the `/account` load: auth guard, the signed-in-as identity and the default
@@ -51,7 +52,8 @@ Designed at S1; implemented in the named files (see the sheet's Plan).
     delegates to the owning domain's service and returns the legacy `{success, message}` /
     `{success:false, error}` shape.
   - `accountSectionEndpoint` — `GET /account/section/[section]`: the lazy per-section model. Internal
-    page data, deliberately outside `/api`.
+    page data, deliberately outside `/api`; it runs no group layout, so a signed-out caller gets the
+    house `401 {"error":"Unauthorized"}` JSON rather than a `/login` redirect.
   - `accountMeGetEndpoint`, `accountMeDeleteEndpoint` — the identity and account-deletion wire.
   - `accountExportEndpoint` — the export document as an attachment.
   - `accountCalendarSettingsRedirect` — `/calendar/settings` → `/account#calendar`.
@@ -65,8 +67,10 @@ Designed at S1; implemented in the named files (see the sheet's Plan).
   input → expected output, no setup.
 - Database + services: `account.service.db.test.ts` using `rollbackTest` and `testCtx({ db })`
   (needs Postgres: `docker start familycalendar-db`).
-- HTTP contract: `account.http.db.test.ts` pins status + body of every endpoint the sheet lists
-  (golden tests; committed mode, because the legacy handlers write through the `db` singleton).
+- HTTP contract: `account.http.db.test.ts` pins status + body of the three `/api` route-methods
+  (`GET /api/me`, `DELETE /api/me`, `GET /api/account/export`) only — committed mode, because the
+  legacy handlers write through the `db` singleton. The page actions, the page load and the internal
+  section endpoint get no goldens; the service tests cover them.
 - UI: `ui/*.svelte.test.ts` render with props; `account.state.test.ts` drives the state class with a
   fake api and no DOM.
 - Fixtures: none in this folder — a screen owns no tables, so row builders live in the owning
@@ -87,6 +91,12 @@ exist now; `planned:` tests are written in S3–S7 against the new files in the 
 - `/calendar/settings` is only a 302 to `/account#calendar`. Evidence:
   `src/routes/(calendar)/calendar/settings/+page.server.ts:5-7`. Pin: `planned:
   account.http.db.test.ts › redirects /calendar/settings to /account#calendar`.
+- The internal section endpoint (`GET /account/section/[section]`) answers a signed-out caller with
+  `401 {"error":"Unauthorized"}` — a JSON body, never a `/login` redirect, because it runs no group
+  layout and the service guard answers through the house JSON 401. Evidence for the shape:
+  `src/lib/server/utils/requireUser.ts:47-53`. Pin: `planned: account.service.db.test.ts › the
+  section service refuses a signed-out caller`, with the 401 mapping already pinned by
+  `kernel/http/endpoint.test.ts › answers 401 …`.
 - Both the account layout and the page 302 `/login` without a user. Evidence:
   `src/routes/(calendar)/account/+layout.server.ts:4-9`,
   `src/routes/(calendar)/account/+page.server.ts:58-61`. Pin: `planned: account.service.db.test.ts
@@ -217,7 +227,9 @@ exist now; `planned:` tests are written in S3–S7 against the new files in the 
   JSON". Evidence: `src/routes/api/me/+server.ts:42-51`,
   `src/lib/server/services/accountData.ts:453-467`. Pin: `account.http.db.test.ts › DELETE /api/me
   › rejects an absent confirmation with the same message`, `› rejects a null confirmation with the
-  same message`, `› answers 400 {"error":"Invalid JSON"} for a malformed body`.
+  same message`, `› rejects a non-string confirmation with the same message`, `› answers 400
+  {"error":"Invalid JSON"} for a malformed body`, `› answers 400 {"error":"Invalid JSON"} for a
+  non-object body`.
 
 ## Depends on
 

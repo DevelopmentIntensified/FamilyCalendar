@@ -116,8 +116,8 @@ The `/api/me/settings|profile|email|sessions/revoke-others|api-tokens|dashboard-
 
 | file | role | contents |
 |---|---|---|
-| `account.contract.ts` | contract | zod + types for the two `/api` bodies (`AccountMe`, `AccountDeleteBody`, `AccountExportDocument`) and the internal section parameter (`AccountSectionParam`); `AccountSectionModel` is a discriminated union typed from each domain's model (alerts `NotificationPreferences`, billing `PlanSummary`, calendar `AccountCalendarOption`, identity `AccountIdentity`, …), never hand-mirrored. |
-| `account.sections.rules.ts` | rules | `ACCOUNT_SECTIONS` (moved out of `accountSections.ts`), `isAccountSectionId`, `resolveAccountSection`, `accountSectionHref`. The one list the rail, page and endpoint read. |
+| `account.contract.ts` | contract | zod + types for the two `/api` bodies (`AccountMe`, `AccountDeleteBody`, `AccountExportDocument`) and the internal section parameter: `AccountSectionParam` is a `z.enum` built from `ACCOUNT_SECTIONS`, so the enum is the one id check (`isAccountSectionId` has no non-zod consumer and dies). `AccountSectionModel` is a discriminated union over the section ids, typed from each owning domain's section model and reconciled at their S1s — never hand-mirrored. |
+| `account.sections.rules.ts` | rules | `ACCOUNT_SECTIONS` (moved out of `accountSections.ts`), its `AccountSectionId` union, `resolveAccountSection`, `accountSectionHref`. The one list the rail, page and endpoint read; ids are never re-listed. |
 | `account.sections.rules.test.ts` | test | order, hash resolution, fallback, unknown id. |
 | `account.export.rules.ts` | rules | `exportFileName(now)`: `familyplanz-export-YYYY-MM-DD.json` from a passed-in instant (R5); the document's top-level key order. |
 | `account.export.rules.test.ts` | test | filename format, padding, one document. |

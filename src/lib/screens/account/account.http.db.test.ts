@@ -214,6 +214,20 @@ describe('DELETE /api/me', () => {
 		expect(res.body).toEqual({ error: 'Confirmation does not match' });
 	});
 
+	it('rejects a non-string confirmation with the same message', async () => {
+		const user = await seedUser(testDb());
+		const res = await invoke(deleteMe, {
+			ctx: ctx(),
+			user,
+			method: 'DELETE',
+			path: '/api/me',
+			body: { confirmation: 42 }
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error: 'Confirmation does not match' });
+		expect(await testDb().select().from(users).where(eq(users.id, user.id))).toHaveLength(1);
+	});
+
 	it('answers 400 {"error":"Invalid JSON"} for a malformed body', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(deleteMe, {
