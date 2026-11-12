@@ -12,8 +12,12 @@
 	 * the dropdown targets the LAST `@fragment` in the text, Escape and an
 	 * insert lock it for that fragment, and a plain Enter picks the highlighted
 	 * row or submits. Shift+Enter is always a newline.
+	 *
+	 * Enter is only ever the picker's when the dropdown is open: with it closed
+	 * the key is left alone, so a multi-line caller (the quick-add paste box)
+	 * gets its newline and no submit. An IME composition's Enter (isComposing)
+	 * belongs to the IME, not to us.
 	 */
-	import { untrack } from 'svelte';
 	import { idColor } from './colorHash';
 	import {
 		filterMentions,
@@ -31,7 +35,7 @@
 		people?: MentionPerson[];
 		/** The optional "whole group" row, pinned above the people (e.g. `@family`). */
 		everyone?: MentionEveryoneOption | null;
-		/** Plain Enter while no dropdown row is available. */
+		/** Plain Enter while the dropdown has nothing to pick. */
 		onsubmit?: (() => void) | null;
 		/** Every edit: typing, and each inserted mention. */
 		onchange?: ((value: string) => void) | null;
@@ -62,16 +66,13 @@
 	const uid = $props.id();
 	const listboxId = `mention-${uid}-list`;
 
-	/** The textarea's text: local, because an insertion must paint without a round-trip. */
-	let text = $state(untrack(() => value));
-	/** Last `value` prop seen, so a caller-driven reset is followed but our own echo is not fought. */
-	let lastValue = untrack(() => value);
-	$effect(() => {
-		if (value !== lastValue) {
-			lastValue = value;
-			text = value;
-		}
-	});
+	/**
+	 * The textarea's text: a WRITABLE derived (Svelte 5.57). Our own insertions
+	 * and keystrokes write it locally, so they paint without a round-trip, and a
+	 * caller-driven `value` reset recomputes it — the old `untrack` + `$effect`
+	 * mirror is gone.
+	 */
+	let text = $derived(value);
 
 	/** Whether the dropdown is open at all: focus opens it, Escape/insert/blur close it. */
 	let open = $state(false);
@@ -126,16 +127,18 @@
 
 	const show = $derived(options.length > 0);
 
-	/** The row Enter/Tab would pick: the highlight, kept inside the list. */
-	const activeOption = $derived(
-		show && highlight >= 0 && highlight < options.length ? (options[highlight] ?? null) : null
-	);
+	/**
+	 * The index read as highlighted: the old "auto-highlight the first row" effect,
+	 * folded into a derived so nothing writes state from an effect. An explicitly
+	 * empty highlight (-1) reads as the first row; an index the list no longer has
+	 * stays empty, so Enter falls through to `onsubmit`.
+	 */
+	const activeIndex = $derived(show && highlight === -1 ? 0 : highlight);
+	/** Does the highlight still name a row the list has? */
+	const inRange = $derived(show && activeIndex >= 0 && activeIndex < options.length);
+	/** The row Enter/Tab would pick; null when there is nothing to pick. */
+	const activeOption = $derived(inRange ? (options[activeIndex] ?? null) : null);
 	const activeDescendant = $derived(activeOption ? optionId(activeOption) : undefined);
-
-	// Auto-highlight the first row so Enter/Tab always has something to pick.
-	$effect(() => {
-		if (show && highlight === -1) highlight = 0;
-	});
 
 	$effect(() => {
 		void text;
@@ -210,6 +213,9 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
+		// An IME is composing the text; Enter and the arrows are its, not ours.
+		if (event.isComposing) return;
+
 		if (event.key === 'Escape') {
 			if (show) {
 				event.preventDefault();
@@ -221,22 +227,14 @@
 		}
 
 		if (event.key === 'Enter' && !event.shiftKey) {
-			// Plain Enter picks the highlighted row — the group row assigns the
-			// whole group — or submits; Shift+Enter is always a newline.
-			if (show) {
-				event.preventDefault();
-				const target = highlight >= 0 && highlight < options.length ? options[highlight] : null;
-				if (target) pick(target);
-				else onsubmit?.();
-				return;
-			}
-			// Nothing to pick: the legacy component left this to the surrounding
-			// form, which a textarea never submits. A caller that passes
-			// `onsubmit` gets that Enter, and we swallow the stray newline.
-			if (onsubmit) {
-				event.preventDefault();
-				onsubmit();
-			}
+			// Enter is the picker's only while the list is open: it picks the
+			// highlighted row — the group row assigns the whole group — or, with
+			// nothing highlighted, submits. Closed, the key is left to the
+			// textarea, which types the newline (Shift+Enter is always a newline).
+			if (!show) return;
+			event.preventDefault();
+			if (activeOption) pick(activeOption);
+			else onsubmit?.();
 			return;
 		}
 
@@ -244,15 +242,14 @@
 
 		if (event.key === 'ArrowDown') {
 			event.preventDefault();
-			highlight = highlight >= options.length - 1 ? 0 : highlight + 1;
+			highlight = activeIndex >= options.length - 1 ? 0 : activeIndex + 1;
 		} else if (event.key === 'ArrowUp') {
 			event.preventDefault();
-			highlight = highlight <= 0 ? options.length - 1 : highlight - 1;
+			highlight = activeIndex <= 0 ? options.length - 1 : activeIndex - 1;
 		} else if (event.key === 'Tab') {
-			const target = highlight >= 0 && highlight < options.length ? options[highlight] : null;
-			if (target) {
+			if (activeOption) {
 				event.preventDefault();
-				pick(target);
+				pick(activeOption);
 			}
 		}
 	}
@@ -293,12 +290,13 @@
 				</p>
 			{/if}
 			{#each options as option, i (option.kind === 'everyone' ? 'everyone' : option.person.id)}
-				{@const selected = i === highlight}
+				{@const selected = i === activeIndex}
 				{#if option.kind === 'everyone'}
 					<button
 						id={optionId(option)}
 						type="button"
 						role="option"
+						data-testid="mention-option"
 						aria-selected={selected}
 						onmousedown={(e) => e.preventDefault()}
 						onclick={() => pick(option)}
@@ -324,6 +322,7 @@
 						id={optionId(option)}
 						type="button"
 						role="option"
+						data-testid="mention-option"
 						aria-selected={selected}
 						onmousedown={(e) => e.preventDefault()}
 						onclick={() => pick(option)}

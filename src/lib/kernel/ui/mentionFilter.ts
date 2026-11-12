@@ -31,8 +31,8 @@ export interface MentionEveryoneOption {
 	glyph: string;
 }
 
-/** Max suggestion rows the mention dropdown shows. */
-export const MENTION_SUGGESTION_LIMIT = 8;
+/** Max suggestion rows the mention dropdown shows; the tests pin the 8. */
+const MENTION_SUGGESTION_LIMIT = 8;
 
 /**
  * Case-insensitive prefix filter over a roster for the mention dropdown.

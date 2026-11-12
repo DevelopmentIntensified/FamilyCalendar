@@ -98,7 +98,7 @@ Tests use fake fetch, fake storage and a manual scheduler. There are no real tim
 Create `src/lib/kernel/ui/` with these components, each with `*.svelte.test.ts`. Port the legacy markup and `data-testid`s so screens look the same.
 
 - `Sheet.svelte`: modal and bottom sheet with focus trap, Esc, backdrop click and swipe-to-close. Folds `EventModalShell`, `BottomSheetHandle`, `bottomSheetSwipe.ts` and `focusTrap.ts` (as the `trapFocus` action inside kernel/ui).
-- `ConfirmAction.svelte`: the two-step "Delete?" → "Yes, delete" / "Cancel" control. Folds 8 copies.
+- `ConfirmAction.svelte`: the two-step "Delete?" → "Yes, delete" / "Cancel" control, plus the row's icon trigger with compact Yes/No and the family page's form POST. Folds 5 copies: TaskRow, TaskCompletedRow, FamilyOpenTaskRow, TaskDetailBar, and the family page's member-remove row.
 - `Pill.svelte`, `Skeleton.svelte`, and `Toaster.svelte` (renders K-07 toasts).
 - `BrandMark.svelte` (from `brand/Mark.svelte`), `DayNav.svelte`, `MentionInput.svelte` (with `mentionFilter` as a rules file).
 - `colorHash.ts`:
