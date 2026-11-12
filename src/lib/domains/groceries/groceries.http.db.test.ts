@@ -19,6 +19,7 @@ import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
+import type { JsonValue } from '$lib/kernel/validation/validators';
 import { GET as getGroceries, POST as postGroceries } from '../../../routes/api/groceries/+server';
 import {
 	DELETE as deleteGrocery,
@@ -864,7 +865,7 @@ describe('PATCH /api/groceries/[id]', () => {
 		const user = await seedUser(testDb());
 		const item = await seedItem({ userId: user.id, name: 'Milk' });
 		const path = `/api/groceries/${item.id}`;
-		const bodies = [
+		const bodies: JsonValue[] = [
 			{ scope: 'mine' },
 			{ scope: 'mine', op: 'explode' },
 			{ scope: 'mine', op: 'stores' },
@@ -1275,7 +1276,11 @@ describe('PATCH /api/groceries/colours', () => {
 
 	it('answers 400 "store and color are required" for a missing or non-string field', async () => {
 		const user = await seedUser(testDb());
-		const bodies = [{ color: 'sky' }, { store: 'Aldi' }, { store: 'Aldi', color: 5 }];
+		const bodies: JsonValue[] = [
+			{ color: 'sky' },
+			{ store: 'Aldi' },
+			{ store: 'Aldi', color: 5 }
+		];
 
 		for (const body of bodies) {
 			const res = await invoke(patchColours, {
