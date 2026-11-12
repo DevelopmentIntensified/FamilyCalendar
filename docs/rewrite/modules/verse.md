@@ -4,6 +4,8 @@
 
 Daily Verse: fetch, cache, translation, the verse card.
 
+DELETE-ONLY (owner, 2026-11-12, Q-031/Q-032 in [questions](../questions.md)): the verse feature goes everywhere — `/api/daily-verse`, `dailyVerse` on `/api/dashboard`, `verseTranslation`/`verseTranslations` on `/api/me/settings`, the card, the picker and the bundled text. The Android app tolerates it (its readers are optional or defaulted). The `user_settings.verse_translation` column stays (no DDL). The S1 inventory and S2 goldens below are superseded.
+
 - **May import:** kernel, identity, billing, alerts, family, dashboardModules, bills, parsing, calendar, tasks, groceries.
 - **Owns tables:** none.
 - **Must be ported first:** nothing (from the legacy import graph; see the ledger).

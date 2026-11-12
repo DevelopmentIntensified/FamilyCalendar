@@ -101,7 +101,7 @@ B. Move the cap after normalization (accept the report, store `a b`). Cost: an o
 
 Recommendation: B — normalization, not the raw text, is the field's contract. Applied default until answered: A, pinned by `feedback.http.db.test.ts › refuses a whitespace-heavy phrase over 280 chars before normalizing it (Q-006)`.
 
-Answer:
+Answer (owner, 2026-11-12): **B.** Cap after normalizing; the whitespace-heavy phrase is accepted and stored normalized. Lands after M-feedback S6 as `fix(feedback): Q-006 …`, golden first.
 
 ## Q-007 A second resolve moves the closed-at stamp — for bug reports and for phrases (M-feedback S2, 2026-11-11)
 
@@ -118,7 +118,7 @@ C. Fix one kind only (say phrases, whose `updatedAt` also tracks later sample re
 
 Recommendation: B, as one rule. "Resolve" means the first close: a repeat click answers `200` and changes nothing, which is what the registers, the export and the 180-day retention all assume. "A second resolve answers 200" stays under every option. Applied default until answered: A, pinned by the two goldens named above.
 
-Answer:
+Answer (owner, 2026-11-12): **A.** Keep both: a repeat resolve keeps re-stamping, as the two goldens pin.
 
 ## Q-008 Singular weekday abbreviations read as plurals (M-parsing S2, 2026-11-12)
 
@@ -130,7 +130,7 @@ B. Treat only full names and the canonical plurals ("tuesdays", "thursdays", …
 
 Recommendation: B — the "s" suffix is a poor plural signal for these abbreviations. Applied default until answered: A, pinned by the golden named above.
 
-Answer:
+Answer (owner, 2026-11-12): **B.** Only full weekday names and the canonical plurals are plural; the parse vectors change in the same commit (Android lockstep).
 
 ## Q-009 `MM/DD` with an impossible month writes `"Invalid DateTime"` into `date` (M-parsing S2, 2026-11-12)
 
@@ -142,7 +142,7 @@ B. Treat it as unmatched, so the date falls back to today (the sweep's behaviour
 
 Recommendation: B, as its own wire-change ticket. Applied default until answered: A, pinned by the golden named above.
 
-Answer:
+Answer (owner, 2026-11-12): **B.** An impossible `MM/DD` is unmatched and the date falls back to today; its own wire-change commit, approved with Android.
 
 ## Q-010 Time rules scan the raw input, URLs included (M-parsing S2, 2026-11-12)
 
@@ -154,7 +154,7 @@ B. Run the time rules on `nonUrlText`, like the date rules. Cost: fix-in-port af
 
 Recommendation: B, after S6, golden first. Applied default until answered: A, pinned by the golden named above.
 
-Answer:
+Answer (owner, 2026-11-12): **B.** Time rules skip URLs; after S6, golden first.
 
 ## Q-011 A throw after a successful parse answers 200 `regex-fallback` (M-parsing S2, 2026-11-12)
 
@@ -166,7 +166,7 @@ B. Answer 500 with the standard error shape for every throw. Cost: a parse bug b
 
 Recommendation: A — keep the wire, make the failure visible through `ctx.faults`. Applied default until answered: A, pinned in S5.
 
-Answer:
+Answer (owner, 2026-11-12): **A** (recorded default). Keep the 200 wire and report the failure through `ctx.faults`.
 
 ## Q-012 Malformed JSON and a JSON `null` body escape the error boundary (M-parsing S2, 2026-11-12)
 
@@ -178,7 +178,7 @@ B. Move body parsing and the zone/subscription reads inside the boundary so bad 
 
 Recommendation: B, fix-in-port. Applied default until answered: A, pinned by the goldens named above.
 
-Answer:
+Answer (owner, 2026-11-12): **B.** Bad bodies answer the 400 shape and infrastructure failures the standard error JSON; Android sign-off with the commit.
 
 ## Q-013 Multi-event phrases bypass the cloud path for signed-in callers (M-parsing S2, 2026-11-12)
 
@@ -190,4 +190,4 @@ B. Cloud-first when the caller is allowed. Cost: every multi-event phrase spends
 
 Recommendation: A, and keep the golden. Applied default until answered: A, pinned by the golden named above.
 
-Answer:
+Answer (owner, 2026-11-12): **A** (recorded default). The local multi-event shortcut stays first.
