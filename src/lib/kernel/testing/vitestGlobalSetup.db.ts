@@ -21,6 +21,10 @@ export default async function setup(): Promise<void> {
 	try {
 		await admin.unsafe(`DROP DATABASE IF EXISTS ${TEST_DATABASE_NAME} WITH (FORCE)`);
 		await admin.unsafe(`CREATE DATABASE ${TEST_DATABASE_NAME}`);
+		// Throwaway database: skipping the commit-time WAL flush only means a
+		// crash could lose the last test writes, which does not matter here. It
+		// makes every committed-mode `truncateAll()` commit cheap.
+		await admin.unsafe(`ALTER DATABASE ${TEST_DATABASE_NAME} SET synchronous_commit = off`);
 	} catch (cause) {
 		throw new Error(
 			`db tests need the local Postgres on 127.0.0.1:5433 — run \`docker start familycalendar-db\` (or \`npm run db:up\` from the main checkout) first. (${String(cause)})`
