@@ -114,11 +114,114 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+Every new file, its role, and what it holds. After S1/S2 only the README, the three entry files, `family.fixtures.server.ts` and `family.http.db.test.ts` exist; the rest are the S3–S7 plan.
+
+| file | role | contents |
+|---|---|---|
+| `README.md` | docs | this module's purpose, files, interface, invariants, dependencies. Done in S1. |
+| `family.http.db.test.ts` | test | Goldens for all 18 `/api` methods, committed mode, legacy handlers. The emailed-invite `describe` is a spec golden (handler imports `$env/static/private` and sends mail). Done in S2. |
+| `index.ts` | entry | Contract types, palette/role/invite/search rules, display helpers (see README Public interface). |
+| `index.server.ts` | entry | The port contracts (`FamilyCalendarPort`, `MemberTasksPort`, `FamilyPorts`, `FamilyCtx`), the 15 services and 18 endpoint objects; no logic of its own. |
+| `family.contract.ts` | contract | Zod bodies/queries/params/responses for every endpoint (legacy messages), plus the page/action input shapes designed fresh. |
+| `family.roles.rules.ts` + `.test.ts` | rules | `FamilyRole`, `MemberType`, role rank, `canManageInvites`, `canManageMembers`, `canPromoteToCreator`, `canChangeRole`, `canSetMemberType`, `requireRole`. Table tests. |
+| `family.palette.rules.ts` + `.test.ts` | rules | `FAMILY_PALETTE`, `DEFAULT_FAMILY_COLOR`, `RETIRED_FAMILY_COLOR`, `isFamilyColor`. Carries the legacy pure palette cases. |
+| `family.invites.rules.ts` + `.test.ts` | rules | `DEFAULT_INVITE_MAX_USES`, `clampInviteDays` (1–30, default 7), `clampInviteUses` (1–50, default 10), `isInviteUsable`, `isEmailInvite`/`isLinkInvite` caps, `isInviteRefusal`. |
+| `family.search.rules.ts` + `.test.ts` | rules | `MEMBER_SEARCH_MIN_QUERY/MAX_QUERY/ROW_CAP`, `maskEmail`, `escapeIlike`, `searchTermProblem`, `isInviteFlowMatch` (the two doors' matching rules stay separate predicates). |
+| `family.display.rules.ts` + `.test.ts` | rules | `canEditRole`, `canRemove`, `memberDisplayName`, `rolePillClass`; carried from `familyDisplay.ts` unchanged in behaviour. |
+| `family.fixtures.server.ts` | fixtures | `seedFamily`, `seedMembership`, `seedInvite`, `seedFamilyRoster`, `seedFullFamily`, `FamilyTestUser`. Family-owned rows only; task rows stay in the test (`tasks` owns task fixtures). Created in the S2 corrective. |
+| `family.families.repo.server.ts` + `.repo.db.test.ts` | repo | `listMemberships` (roster count+names, one query), `findFamilyById`, `insertFamilyWithRoster` (no calendar — see the port), `updateFamilyRow`, `countOpenFamilyTasks` (read-only tasks join), `findMembershipFamilyId`. |
+| `family.members.repo.server.ts` + `.repo.db.test.ts` | repo | `findMemberRole`, `listRoster`, `insertMembership`, `updateMemberRole`, `updateMemberType`, `deleteMembership` (no task write — see the port), `findMembership`, `findUserForAdd`, `insertChildConsent`. |
+| `family.invites.repo.server.ts` + `.repo.db.test.ts` | repo | `listInviteCodes`, `findInviteCode`, `findInviteCodeForUpdate`, `insertInviteCode`, `deleteInviteCode`, `incrementInviteUse`, `countFamilyMembers`. |
+| `family.search.repo.server.ts` + `.repo.db.test.ts` | repo | `findVerifiedUsersByPrefix` (no ORDER BY, cap), `findInvitableUsers` (exact email/name legs), `listMemberUserIds`. |
+| `family.families.service.server.ts` + `.service.db.test.ts` | service | `listFamilies`, `getFamily`, `createFamily` (calls `ports.calendar.createFamilyCalendar(txCtx, familyId)` inside the family transaction), `updateFamily`; plan gates through billing; fixed query count. |
+| `family.members.service.server.ts` + `.service.db.test.ts` | service | `addFamilyMember` (direct/email/link/child modes), `changeMember`, `removeFamilyMember` (calls `ports.tasks.unassignMemberTasks(txCtx, familyId, userId)` in the same transaction), child consent; alerts on direct add. |
+| `family.invites.service.server.ts` + `.service.db.test.ts` | service | `listInvites`, `mintInvite`, `revokeInvite`, `previewInvite`, `joinFamily` (locked transaction, DB-side increment). |
+| `family.search.service.server.ts` + `.service.db.test.ts` | service | `listRoster`, `searchMembers`, `findInvitableMembers`; authorization per family id. |
+| `family.inviteEmail.server.ts` | service | The invite email body (from `family-invite.ts`), rendered by the send use-case. |
+| `family.families.http.server.ts` | http | `listFamiliesEndpoint`, `createFamilyEndpoint`, `getFamilyEndpoint`, `updateFamilyEndpoint`, `listInviteCodesEndpoint`. |
+| `family.members.http.server.ts` | http | `changeMemberEndpoint`, `removeMemberEndpoint`, `addDirectEndpoint`, `addChildEndpoint`, `sendInviteEmailEndpoint`, `mintInviteLinkEndpoint`. |
+| `family.invites.http.server.ts` | http | `mintInviteEndpoint`, `previewInviteEndpoint`, `revokeInviteEndpoint`, `joinFamilyEndpoint`. |
+| `family.search.http.server.ts` | http | `memberSearchEndpoint`, `rosterEndpoint`, `searchFamilyEndpoint`. |
+| `family.api.ts` | api | Browser client for the module's endpoints on the kernel api client; returns typed results. |
+| `familyHome.state.svelte.ts` + `.state.test.ts` | state | `/family` list: optimistic invite mint, copy/share ladder, per-family link. |
+| `familyCreate.state.svelte.ts` + `.state.test.ts` | state | `/family/create`: picker search (debounced), palette, plan banner, toast. |
+| `familyInvitations.state.svelte.ts` + `.state.test.ts` | state | `/family/invitations`: family switcher, new-code band, revoke. |
+| `familyAddMember.state.svelte.ts` + `.state.test.ts` | state | `/family/{id}/members/add`: three tabs, consent, `{error}`-first failure copy. |
+| `familyJoin.state.svelte.ts` + `.state.test.ts` | state | `/family/join/{code}`: usable/unusable answer in place, join then 1.5 s redirect. |
+| `ui/FamilyCard.svelte`, `ui/FamilyRosterRail.svelte`, `ui/FamilyPalettePicker.svelte`, `ui/InviteLinkBand.svelte` (+ `.svelte.test.ts`) | ui | The list/detail pieces. |
+| `ui/MemberSearchTab.svelte`, `ui/MemberInviteTab.svelte`, `ui/MemberChildTab.svelte`, `ui/JoinInviteCard.svelte` (+ `.svelte.test.ts`) | ui | The add-member tabs and the join card. |
+| route files | wiring | `/family`, `/family/create`, `/family/invitations`, `/family/[familyId]/members/add`, `/family/join/[code]` pages plus the 13 `/api` route files become re-exports of the http endpoints. |
+
+S5 needs a kernel `mail` port (docs/rewrite/playbooks/add-a-port.md) so the email-invite use-case is testable without Resend; that is the prerequisite for unskipping the spec golden at S6.
+
+The two cross-module writes are ports, not repo queries (R1/R3): `FamilyCalendarPort.createFamilyCalendar(ctx, familyId)` is implemented by `calendar` (owner of `calendars`) and `MemberTasksPort.unassignMemberTasks(ctx, familyId, userId)` by `tasks` (owner of `tasks`); `src/lib/app` wires both adapters into the family ctx. Family services call them with `withTx`'s `txCtx`, so each write joins the family transaction instead of opening a second one. S4 repo tests must show no `calendars` insert and no `tasks` write; S5 tests substitute memory port adapters and assert the port was called with the tx ctx.
+
+Where each legacy export goes:
+
+- `src/lib/server/db/actions/families.ts`: `getFamilies`, `getFamiliesCount`, `deleteFamilies` die (no caller, see Notes). `getFamily` → `findFamilyById`; `getUserFamilyMemberships` → `listMemberships`; `createFamily` → `insertFamilyWithRoster` + `FamilyCalendarPort`; `updateFamilies` → `updateFamilyRow`; `DEFAULT_INVITE_MAX_USES` → `family.invites.rules.ts`; `generateInviteCode`/`verifyInviteCode`/`acceptInvite` → invites service/repo (the accept transaction stays one function); `getUserFamilyId` → `findMembershipFamilyId` (Q-F2); `getFamilyMemberRole` → `findMemberRole`; `getFamilyRoster` → `listRoster`; `getFamilyInviteCodes` → `listInviteCodes`; `removeFamilyMember` → `deleteMembership` + `MemberTasksPort`; `searchUsers` → `findInvitableUsers`.
+- `src/lib/server/services/familyData.ts`: `loadFamiliesOverview` → `listFamilies`; `pickActiveInvite` → `isInviteUsable`; `loadFamilyDetail` → `getFamily`; `getMemberRole`/`roleRank`/`requireMinRole` → `family.roles.rules.ts`; `removeMember` → `removeFamilyMember`; `updateMemberRole`/`setMemberType` → `changeMember`; `updateFamilyDetails` → `updateFamily`; `loadInvitations` → `listInvites`; `createFamilyWithMembers`/`cleanMemberIds` → `createFamily`. `toggleDashboardModule` moves to `dashboardModules`; `loadFamilyTasks` stays in `familyHub` (not this module).
+- `src/lib/server/db/actions/memberSearch.ts`: constants and `maskEmail` → `family.search.rules.ts`; `findVerifiedUsersByPrefix` → `family.search.repo.server.ts`.
+- `src/lib/utils/familyPalette.ts` → `family.palette.rules.ts`; `src/lib/utils/familyDisplay.ts` → `family.display.rules.ts`; `src/lib/server/emails/family-invite.ts` → `family.inviteEmail.server.ts`.
+- `src/lib/components/family/responseError.ts` dies: the `*.api.ts` client and kernel error mapping own it; the tabs read `{error}` from typed results.
+- `src/lib/components/family/*.svelte` → the `ui/*` components above (rebuilt, not copied).
+- `src/lib/server/services/userScope.ts` stays with calendar/dashboard until they port; family exposes `listRoster` and `findMembershipFamilyId` for them.
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
+### Inventory corrections (verified against the code, 2026-11-11)
+
+- Two route files sitting under `/api/families/**` are **not** this module's: `GET /api/families/{id}/tasks` is `familyHub` (`docs/rewrite/modules/familyHub.md`) and `PUT /api/families/{id}/modules/{module}` is `dashboardModules`. They are absent from this sheet's table and from `family.http.db.test.ts`; their goldens belong to those modules.
+- The sheet's "invite-flow search matches an exact first+last pair" is wrong. `searchUsers` ANDs `ilike(firstName, wholeQuery)` with `ilike(lastName, wholeQuery)` (`families.ts:356-359`), so a full name like "Ann Lee" matches nothing; only an exact email, or a user whose first and last names both equal the query, matches. The golden pins today's behaviour; Q-F6 asks the owner which behaviour is wanted.
+- `GET /api/families/{id}` returns `moduleSwitches` for the four **family-scoped** modules only (`board`, `kids`, `groceries`, `meals`), all `true` unless a switch row exists.
+- The child route's "already a member" guard (`child/+server.ts:95-102`) is unreachable: `createNewUser` always makes a new id, and the unique-email check rejects first. Dropped; no behaviour changes.
+- `familyInviteCodes.maxUses` has a DB default of 1 while every minting path writes the action default 10 (`schema.ts:309`, `families.ts:142,159`). No DDL is allowed and every insert specifies `maxUses`, so this is internal only: dropped as a rule, pinned instead by the mint goldens' inserted values.
+- `getFamilies`, `getFamiliesCount`, `deleteFamilies` have no caller left in `src/`: dropped.
+
+### Probably accidental — decisions
+
+| item (sheet) | visible on `/api`? | decision |
+|---|---|---|
+| invite page copy "a use is spent when the link is opened" | no (page copy) | Fix the copy in S7 ("when somebody joins"). The wire golden proves preview does not increment `useCount`. |
+| card avatar `userId` recovered by first-name match, `roster-${i}` fallback | yes | Kept as an Invariant + owner question Q-F1. |
+| `PATCH /api/families/{id}` accepts any `#rrggbb` | yes | Kept as an Invariant + owner question Q-F3. |
+| `/api/family/search` answers 200 `{users:[]}` on missing `q`/`familyId` | yes | Kept as an Invariant + owner question Q-F4. |
+| `removeMember` on a non-member answers success | yes | Kept as an Invariant + owner question Q-F5. |
+| `getUserFamilyId` unordered first membership | yes (roster default) | Kept as an Invariant (single-family pin) + owner question Q-F2. |
+| `maxUses` DB default 1 | no | Dropped (above). |
+| child route existing-member guard | no | Dropped (dead branch). |
+| dead exports `getFamilies`/`getFamiliesCount`/`deleteFamilies` | no | Dropped. |
+| exact-name search leg | yes | Kept as an Invariant + owner question Q-F6. |
+
+### Owner questions (local labels, not the questions.md register)
+
+**Q-F1 — Family-card `members[].userId` is matched by first name.** Context: `loadFamiliesOverview` recovers each avatar's user id with `roster.find(r => r.familyId === … && r.firstName === firstName)`, falling back to `roster-${i}` (`familyData.ts:125-131`), so two members sharing a first name can show the wrong person's colour. Options: (a) keep (wire values unchanged, wrong colour possible); (b) return the real ids by aggregating `userId` alongside `firstName` in `getUserFamilyMemberships` (same shape, same length, values become correct — the card is currently the only consumer of `members[].userId`). Recommendation: (b), because two "Sam"s in one family is ordinary and the payload already promises a user id; confirm the Android/calendar consumers only use it for colour. Wire shape does not change.
+
+**Q-F2 — Which family does `GET /api/family/roster` default to?** Context: without `familyId` the route calls `getUserFamilyId`, which returns whichever `familyMembers` row Postgres hands back first (`families.ts:251-258`). Every multi-family read elsewhere deliberately picks the **oldest** family (#098). Options: (a) keep the unordered row (not reproducible, may differ between calls); (b) order by `families.createdAt` and pick the oldest, matching the rest of the app; (c) require `familyId` (breaking for installed clients). Recommendation: (b) — deterministic, matches #098, and the single-family answer (the only deterministic one today) is unchanged. This is a wire-visible behaviour change, so it needs the owner before S6.
+
+**Q-F3 — Two colour rules.** Context: create accepts only the six palette values (`familyData.ts:459`), while `PATCH /api/families/{id}` accepts any `#rrggbb` (`api/families/[id]/+server.ts:31`). Options: (a) keep both, documenting that PATCH is the escape hatch; (b) make PATCH palette-only (new 400 for existing custom colours); (c) widen create too. Recommendation: (a) for this port — installed clients may send stored colours, and tightening a 200 into a 400 is a breaking wire change; file a follow-up to unify the UI's offer with the stored value.
+
+**Q-F4 — `/api/family/search` refuses silently.** Context: missing `q` or `familyId` returns `200 {users:[]}`, while `/api/family/member-search` returns 400 with a message for the same kind of mistake (`api/family/search/+server.ts:13-15`). Options: (a) keep 200 (clients can call it while a box is empty); (b) return the sibling 400. Recommendation: (a) — the endpoint is a type-ahead for the invite flow, and an empty box is a normal state, not a client error.
+
+**Q-F5 — `DELETE` a non-member answers success.** Context: `removeMember` never checks the target membership, so removing someone who is not in the family returns `{success:true}` and writes nothing (`familyData.ts:270-282`). Options: (a) keep (idempotent delete); (b) `404`/`400 Member not found`. Recommendation: (a) — DELETE is idempotent elsewhere in the app, and the UI only offers the action on roster rows; document it rather than add a new refusal.
+
+**Q-F6 — The invite-flow name search matches nothing.** Context: `searchUsers` compares BOTH `firstName` and `lastName` to the whole query, so "Ann Lee" is not found; only an exact email works (`families.ts:345-355`). Options: (a) keep (pin today; email-only lookup); (b) split the query into two tokens and match `firstName`+`lastName` exactly (restores the documented intent); (c) match the whole query against a concatenated name. Recommendation: (b) — the add-member flow's copy asks for a name or an email, and (b) keeps exact-match (no enumeration oracle). Wire-visible, so it needs the owner before S6.
+
+### Spec golden
+
+`POST /api/families/{id}/members/email` cannot run in the db project: the legacy handler imports `$env/static/private` (`NOREPLYEMAIL`, `EMAILSECRET`, and `sendEmail`'s `RESEND_API_KEY`, which `.env.test` does not provide) and sends through Resend. Its golden is written from `docs/guides/task-api-spec.md` (G10e) and the legacy route test (`members/add/email/server.test.ts`), and the `describe` is skipped with the required marker comment. It becomes runnable when S6 replaces the route with the new handler; the skip must be removed then (and only then).
+
+### Cross-module writes and fixtures (S2 review fixes)
+
+- `calendars` and `tasks` are not family tables. The two writes family needs are **ports** declared in `index.server.ts` (`FamilyCalendarPort.createFamilyCalendar(ctx, familyId)`, `MemberTasksPort.unassignMemberTasks(ctx, familyId, userId)`), implemented by their owning modules and wired in `src/lib/app`; family repos touch only the four owned tables plus the declared read-only `tasks` join for open counts. Each service calls its port with `withTx`'s `txCtx`, so the work stays in the one transaction the Invariants require. The goldens do not change: they observe the legacy handler's rows, which the ports must reproduce at S6.
+- Family row builders live once in `family.fixtures.server.ts`; the golden keeps only a local `seedTask` because `tasks` owns task fixtures.
+- `RETIRED_FAMILY_COLOR` stays module-internal (its only consumer is the palette rules test); it is not exported from `index.ts`.
+
+### Files kept for unported importers
+
+- `src/lib/server/db/actions/families.ts` — 38 importers (calendar, dashboard, familyHub, tasks, groceries, …). S8 rewires them to family's public entries where they are already migrated and leaves the rest until those modules port.
+- `src/lib/server/services/familyData.ts` — also owns `loadFamilyTasks` (familyHub) and `toggleDashboardModule` (dashboardModules); those functions stay until their modules port, then the file goes.
+- `src/lib/server/services/userScope.ts` — not a family file: it belongs to the calendar group layout and `/api/dashboard`; it calls family's roster/default-family read. Kept until calendar/dashboard port.
+- `src/lib/utils/familyPalette.ts` and `familyDisplay.ts` — 3 and 2 importers; rewire or fold in S8, they die with the pages.
 
 ## Census
 
