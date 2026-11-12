@@ -4,9 +4,10 @@
  * Runs today against the legacy route on the v2 test database, and unchanged
  * after the port (S6): clients keep the same status, body, and the rule that a
  * failing count leg reads 0 instead of failing the endpoint. The failing leg is
- * made observable by dropping the column its query filters on for one request:
- * module mocking is banned (rule R9), the legacy handler writes through the `db`
- * singleton, and a rename would not invalidate a pooled prepared statement.
+ * made observable by dropping the column its query filters on for one request —
+ * that leg's read fails while the other leg still counts real rows — then
+ * restoring the exact column definition; module mocking is banned (rule R9) and
+ * the legacy handler writes through the `db` singleton.
  *
  * Doc: ./README.md#invariants
  */
