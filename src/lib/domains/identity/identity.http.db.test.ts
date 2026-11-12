@@ -45,8 +45,6 @@ import {
 /** ISO instant matcher: generated timestamps are asserted by shape only. */
 const iso = () => expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 
-const VERSE_TRANSLATIONS = [{ id: 'esv', label: 'ESV', attribution: 'Public domain.' }];
-
 beforeEach(truncateAll);
 
 describe('GET /api/me/api-tokens', () => {
@@ -417,15 +415,13 @@ describe('GET /api/me/settings', () => {
 				defaultView: 'dayView',
 				defaultCalendarId: null,
 				syncEventsToFamilyCalendar: false,
-				showAdsAsEvents: false,
-				verseTranslation: 'esv'
+				showAdsAsEvents: false
 			},
-			verseTranslations: VERSE_TRANSLATIONS,
 			consentHistory: []
 		});
 	});
 
-	it('answers the stored row, the translation options and the consent trail', async () => {
+	it('answers the stored row and the consent trail', async () => {
 		const user = await seedUser(testDb());
 		await seedCalendar(user.id, 'cal-mine');
 		await seedCalendarSettings(user.id, { defaultCalendarId: 'cal-mine' });
@@ -449,13 +445,11 @@ describe('GET /api/me/settings', () => {
 				autoParseEventDetails: false,
 				showDailyVerse: true,
 				showAdsAsEvents: false,
-				verseTranslation: 'esv',
 				hiddenDashboardModules: ['board'],
 				useCloudAI: true,
 				useLocalAI: true,
 				updatedAt: iso()
 			},
-			verseTranslations: VERSE_TRANSLATIONS,
 			consentHistory: [{ decision: 'granted', recordedAt: iso() }]
 		});
 	});
@@ -498,13 +492,11 @@ describe('PATCH /api/me/settings', () => {
 				autoParseEventDetails: false,
 				showDailyVerse: true,
 				showAdsAsEvents: false,
-				verseTranslation: 'esv',
 				hiddenDashboardModules: ['board'],
 				useCloudAI: true,
 				useLocalAI: true,
 				updatedAt: iso()
 			},
-			verseTranslations: VERSE_TRANSLATIONS,
 			consentHistory: []
 		});
 		const [row] = await testDb().select().from(userSettings).where(eq(userSettings.userId, user.id));
@@ -534,13 +526,11 @@ describe('PATCH /api/me/settings', () => {
 				autoParseEventDetails: true,
 				showDailyVerse: false,
 				showAdsAsEvents: false,
-				verseTranslation: 'esv',
 				hiddenDashboardModules: null,
 				useCloudAI: true,
 				useLocalAI: true,
 				updatedAt: iso()
 			},
-			verseTranslations: VERSE_TRANSLATIONS,
 			consentHistory: []
 		});
 		const rows = await testDb().select().from(userSettings).where(eq(userSettings.userId, user.id));
@@ -572,13 +562,11 @@ describe('PATCH /api/me/settings', () => {
 				autoParseEventDetails: false,
 				showDailyVerse: true,
 				showAdsAsEvents: false,
-				verseTranslation: 'esv',
 				hiddenDashboardModules: ['board'],
 				useCloudAI: true,
 				useLocalAI: true,
 				updatedAt: iso()
 			},
-			verseTranslations: VERSE_TRANSLATIONS,
 			consentHistory: []
 		});
 		const [row] = await testDb().select().from(userSettings).where(eq(userSettings.userId, user.id));
@@ -626,13 +614,11 @@ describe('PATCH /api/me/settings', () => {
 				autoParseEventDetails: false,
 				showDailyVerse: true,
 				showAdsAsEvents: true,
-				verseTranslation: 'esv',
 				hiddenDashboardModules: ['board'],
 				useCloudAI: true,
 				useLocalAI: true,
 				updatedAt: iso()
 			},
-			verseTranslations: VERSE_TRANSLATIONS,
 			consentHistory: [{ decision: 'granted', recordedAt: iso() }]
 		});
 		const rows = await testDb()
@@ -665,13 +651,11 @@ describe('PATCH /api/me/settings', () => {
 				autoParseEventDetails: false,
 				showDailyVerse: true,
 				showAdsAsEvents: false,
-				verseTranslation: 'esv',
 				hiddenDashboardModules: ['board'],
 				useCloudAI: true,
 				useLocalAI: true,
 				updatedAt: iso()
 			},
-			verseTranslations: VERSE_TRANSLATIONS,
 			consentHistory: []
 		});
 		const rows = await testDb()
@@ -704,13 +688,11 @@ describe('PATCH /api/me/settings', () => {
 				autoParseEventDetails: false,
 				showDailyVerse: true,
 				showAdsAsEvents: false,
-				verseTranslation: 'esv',
 				hiddenDashboardModules: ['board'],
 				useCloudAI: true,
 				useLocalAI: true,
 				updatedAt: iso()
 			},
-			verseTranslations: VERSE_TRANSLATIONS,
 			consentHistory: []
 		});
 	});
@@ -720,7 +702,7 @@ describe('PATCH /api/me/settings', () => {
 		[{ timeZone: 'Mars/Base' }, 'Invalid timeZone'],
 		[{ color: 'red' }, 'Invalid color'],
 		[{ defaultView: 'yearView' }, 'Invalid defaultView'],
-		[{ verseTranslation: 'xyz' }, 'Invalid verseTranslation'],
+		[{ verseTranslation: 'esv' }, 'Unknown field: verseTranslation'],
 		[{ showAdsAsEvents: 'yes' }, 'Invalid showAdsAsEvents'],
 		[{ syncEventsToFamilyCalendar: 1 }, 'Invalid syncEventsToFamilyCalendar'],
 		[{ autoParseEventDetails: 'yes' }, 'Invalid autoParseEventDetails'],
@@ -756,13 +738,11 @@ describe('PATCH /api/me/settings', () => {
 				autoParseEventDetails: false,
 				showDailyVerse: true,
 				showAdsAsEvents: false,
-				verseTranslation: 'esv',
 				hiddenDashboardModules: ['board'],
 				useCloudAI: true,
 				useLocalAI: true,
 				updatedAt: iso()
 			},
-			verseTranslations: VERSE_TRANSLATIONS,
 			consentHistory: []
 		});
 	});

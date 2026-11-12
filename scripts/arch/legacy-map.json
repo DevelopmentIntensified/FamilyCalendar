@@ -740,12 +740,6 @@
 			"layer": "ui",
 			"loc": 19
 		},
-		"src/lib/components/calendar/DailyVerseCard.svelte": {
-			"module": "verse",
-			"kind": "source",
-			"layer": "ui",
-			"loc": 21
-		},
 		"src/lib/components/calendar/DayActionSheet.svelte": {
 			"module": "calendarPage",
 			"kind": "source",
@@ -2427,7 +2421,7 @@
 			"kind": "source",
 			"layer": "server",
 			"loc": 141,
-			"note": "SPLIT: personal-calendar provisioning + family calendar info + event window reads -> calendar service; sponsored/verse/dashboard-module composition -> calendarPage screen load."
+			"note": "SPLIT: personal-calendar provisioning + family calendar info + event window reads -> calendar service; sponsored/dashboard-module composition -> calendarPage screen load."
 		},
 		"src/lib/server/services/checkoutService.ts": {
 			"module": "billing",
@@ -2737,18 +2731,6 @@
 			"kind": "source",
 			"layer": "server",
 			"loc": 24
-		},
-		"src/lib/server/services/verseService.test.ts": {
-			"module": "verse",
-			"kind": "test",
-			"loc": 110,
-			"subject": "src/lib/server/services/verseService.ts"
-		},
-		"src/lib/server/services/verseService.ts": {
-			"module": "verse",
-			"kind": "source",
-			"layer": "server",
-			"loc": 216
 		},
 		"src/lib/server/services/web-push.d.ts": {
 			"module": "alerts",
@@ -4653,18 +4635,6 @@
 			"kind": "route",
 			"url": "/api/cron/cleanup",
 			"loc": 81
-		},
-		"src/routes/api/daily-verse/+server.ts": {
-			"module": "verse",
-			"kind": "route",
-			"url": "/api/daily-verse",
-			"loc": 36
-		},
-		"src/routes/api/daily-verse/server.test.ts": {
-			"module": "verse",
-			"kind": "route-test",
-			"url": "/api/daily-verse",
-			"loc": 76
 		},
 		"src/routes/api/dashboard/+server.ts": {
 			"module": "dayDashboard",

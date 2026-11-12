@@ -115,11 +115,6 @@ function ssrDashboard(dashboardData: DashboardResult | Promise<DashboardResult>,
 		meId: 'u-sarah',
 		modules,
 		dashboardData,
-		dailyVerse: {
-			reference: 'Psalm 127:1',
-			text: 'Except the LORD build the house, they labour in vain.',
-			attribution: 'ESV'
-		},
 		loadWarnings: []
 	};
 	const page = {

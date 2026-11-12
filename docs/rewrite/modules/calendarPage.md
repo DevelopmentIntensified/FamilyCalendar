@@ -6,7 +6,7 @@ The main calendar page: month/week/day/list views, toolbar and filters, selectio
 
 - **May import:** kernel + any domain (public entries); never another screen.
 - **Owns tables:** none.
-- **Must be ported first:** dashboardModules, calendar, tasks, verse, sponsored (from the legacy import graph; see the ledger).
+- **Must be ported first:** dashboardModules, calendar, tasks, sponsored (from the legacy import graph; see the ledger).
 - **Playbook:** [port-a-module.md](../playbooks/port-a-module.md).
 
 ## Steps
@@ -61,7 +61,6 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 - Bulk posts `{ ids: [{ id }], op }`; delete is a two-step inline confirm (no `window.confirm`); smart mode is dry-run → review list → apply, and a plan moving events into the past needs "Apply anyway"; server `error` is shown verbatim, default `Hmm, that didn't take. Try again.` — `+page.svelte:190-296` · `BulkEditBar.svelte:118-160` · test "arms the delete confirm instead of deleting directly"
 - Deep links, read once: `?date=YYYY-MM-DD` seeds the date store, `?view=` the view, `?edit=<id>` opens the edit modal when rows land (else an "Event not found" banner), `?quickadd=` / share-target params open the create modal pre-parsed in Quick Add and then strip the params — `+page.svelte:93-107,333-356,508-521`
 - `/share-target` 302s to `/calendar?quickadd=<text||title + url>` — `src/routes/share-target/+page.server.ts:5-11`
-- Daily Verse on /calendar requires BOTH `showDailyVerse` and the `verse` Dashboard Module; a hidden verse adds no warning and costs no verse read — the switches read is what discovers the module-off case, and turning the setting off skips the call entirely — `+page.server.ts:186-200` · test: `page.server.test.ts` › "setting on, module hidden in /account — the reported bug" / "hiding the verse carries no warning — a hidden module is not a failure"
 - Guest-merge prompt only for a registered account with a claimable stash cookie; an Anonymous Account is never sent to `/merge-guest` — `+page.server.ts:49-66` · test "an Anonymous Account (placeholder email) with a stale stash cookie is not sent to /merge-guest"
 - The calendar list is the viewer's Personal Calendar first (`Personal Calendar`, settings colour else `#fa8072`) then the family calendar (`families.name` else `Family Calendar`, colour else `#e0ffff`); the personal calendar is provisioned on load — `calendarData.ts:19-20,36-58,120-141` · `+page.server.ts:205-210`
 - Sponsored events are served only when the ad gate (`showAdsAsEvents`) is on, render amber `#f59e0b`, and sit on no calendar so no filter can hide them — `calendarData.ts:62-92` · `+page.server.ts:181-185,211-212`
@@ -134,7 +133,7 @@ Designed at S1 (2026-11-11). New paths are under `src/lib/screens/calendarPage/`
 | file | role | contents |
 |---|---|---|
 | `calendarPage.contract.ts` | contract | zod for the page's search params (`date`, `view`, `quickadd`, `title`, `text`, `url`, `edit`, `dashboardView`), the client action inputs the state classes take (bulk op passthrough, phrase report), and the `CalendarPageModel` types — shell, `grid`, and row shapes carrying only the fields the screen renders. |
-| `calendarPage.service.server.ts` | service | `getCalendarPage(ctx, actor, input)`: the one use-case. Owns the section list, the degrade-to-fallback + warning per section (labels `calendar`, `events`, `tasks`, `ads`, `verse`, `merge-check`), the roster mapping (id + first + last), the viewer's `today`/zone and the `window` (month grid), and starts the `grid` promise before returning the shell. Calls domains only through their `index.server.ts`. |
+| `calendarPage.service.server.ts` | service | `getCalendarPage(ctx, actor, input)`: the one use-case. Owns the section list, the degrade-to-fallback + warning per section (labels `calendar`, `events`, `tasks`, `ads`, `merge-check`), the roster mapping (id + first + last), the viewer's `today`/zone and the `window` (month grid), and starts the `grid` promise before returning the shell. Calls domains only through their `index.server.ts`. |
 | `calendarPage.http.server.ts` | http | `calendarPageLoad = pageLoad({ auth: 'user', handle })` and `shareTargetLoad = pageLoad({ auth: 'optional', handle })`. No form actions: every write goes through a domain's `/api` route. |
 
 ### Pure rules (S3)
@@ -227,7 +226,7 @@ Designed at S1 (2026-11-11). New paths are under `src/lib/screens/calendarPage/`
 | `src/lib/components/calendar/FirstRunCard.svelte` | `ui/FirstRunCard.svelte` |
 | `src/lib/components/calendar/ExitSelectionAsk.svelte` | `ui/SelectionExitAsk.svelte` |
 | `src/lib/components/calendar/EventTaskFields.svelte` | `ui/TaskFields.svelte` inside `ui/CreateAnythingModal.svelte` |
-| `src/lib/server/services/calendarData.ts` | split: calendars + provisioning → the `calendar` module (its census note); verse/ads composition → `calendarPage.service.server.ts` calling verse + sponsored + dashboardModules. The file itself stays after our S8 because `/api/calendars`, `/api/daily-verse` and `/api/sponsored-events` still import it |
+| `src/lib/server/services/calendarData.ts` | split: calendars + provisioning → the `calendar` module (its census note); ads composition → `calendarPage.service.server.ts` calling sponsored + dashboardModules. The file itself stays after our S8 because `/api/calendars` and `/api/sponsored-events` still import it |
 | `src/routes/(calendar)/calendar/+page.server.ts` | `calendarPage.http.server.ts` + `calendarPage.service.server.ts`; the route becomes wiring |
 | `src/routes/(calendar)/calendar/+page.svelte` | `ui/CalendarPage.svelte` + the two state classes; the route becomes wiring |
 | `src/routes/share-target/+page.server.ts` | `calendarPage.http.server.ts` (`shareTargetLoad`); the route becomes wiring; its `+page.svelte` frame stays with shell |
@@ -241,7 +240,7 @@ Targets: desktop ready 300 ms (fail 1000), first visit 500 ms (fail 1000), mobil
 
 The K-10 catalog gets four pages for this route — `/calendar` (month), `/calendar?view=week`, `?view=day`, `?view=list` — because each opening view is its own lazy chunk. Ready selector: the mounted view's first real cell — `[data-testid="month-day-cell"]` for month (`MonthDayCell.svelte:82`), `[data-testid="week-day-column"]` for week (`WeekHourGrid.svelte:95`), `[data-testid="day-grid"]` for day (`DayHourGrid.svelte:79`), and a NEW `[data-testid="calendar-list-day"]` for list — introduced for the K-10 catalog because `ListView.svelte` carries no testid today. The measurement therefore waits for rows, never for the skeleton. A `data-testid` is kept only where a spec uses it, and for calendarPage that spec is the catalog.
 
-**Above the fold (shell, no stream):** the toolbar (view toggle, date pill, Filters trigger, search row), the card frame, the Daily Verse card when visible, and either the grid or its skeleton. Seed params (`?date`, `?view`, `?edit`, `?quickadd`) resolve in the shell, so the first render is already the right view and date.
+**Above the fold (shell, no stream):** the toolbar (view toggle, date pill, Filters trigger, search row), the card frame, and either the grid or its skeleton. Seed params (`?date`, `?view`, `?edit`, `?quickadd`) resolve in the shell, so the first render is already the right view and date.
 
 **Reads.** The shell waits for two small reads; the grid promise starts before the shell is returned.
 
@@ -251,7 +250,6 @@ The K-10 catalog gets four pages for this route — `/calendar` (month), `/calen
 | 0 | guest-merge check | identity | 0–1, only with the stash cookie | the cookie |
 | 1 | settings, `familyId`, roster | `parent()` (shell layout) | 0 | already loaded once per group entry |
 | 1 | calendars + personal provisioning | `calendar` | 1–2 | the viewer |
-| 1 | Daily Verse visibility + verse | `dashboardModules` + `verse` | 0 when `showDailyVerse` is off (the screen skips the call); 1 switches read when it is on — hidden or not, because that read is what discovers the module-off case — plus 0 for the verse content (bundled list) | the viewer's setting, then the module answer |
 | 2 | Event range (personal + family, Occurrences with RSVP/attendance/creator) | `calendar` | ≤5, the ids-dependent pair inside the module | the month grid window (~42 days) |
 | 2 | due Tasks in the window | `tasks` | 1 (+1 batched cursor UPDATE owned by the module) | the month grid window |
 | 2 | Sponsored Events for the month | `sponsored` | 0 when the gate is off, else 1 | the viewer's month |
@@ -259,7 +257,7 @@ The K-10 catalog gets four pages for this route — `/calendar` (month), `/calen
 
 Shell = waves 0–1; `grid` = wave 2. Total 3–11 queries per page load, plus the cursor UPDATE when it finds stale rows (0–1); one more read (categories) lands later, only when the create modal's task tab opens. Legacy ran roughly 15–20, including two Event SELECTs that read every recurring master in full, one unbounded Task SELECT and a per-load cursor write.
 
-**What streams with a skeleton:** `grid` only. The card renders at once with 42 skeleton cells at the same 72/92/104px heights inside the same 80rem card, and the real toolbar stays usable while it fills. The Daily Verse is shell, so it never pops in above the grid. Warnings appear under the toolbar as they arrive. A rejected `grid` draws `Couldn't load your events.` + Retry.
+**What streams with a skeleton:** `grid` only. The card renders at once with 42 skeleton cells at the same 72/92/104px heights inside the same 80rem card, and the real toolbar stays usable while it fills. Warnings appear under the toolbar as they arrive. A rejected `grid` draws `Couldn't load your events.` + Retry.
 
 **What loads on demand (`import()`), and when it is prefetched:**
 
@@ -284,7 +282,7 @@ Shell = waves 0–1; `grid` = wave 2. Total 3–11 queries per page load, plus t
 2. Two event pipelines, each re-reading exceptions, RSVP, attendance and creator names (`eventDisplayService.ts:130-176` over `+page.server.ts:256-285`) — about 7 queries for a 42-day grid.
 3. Full Event rows serialised (`db.select().from(events)`, `+page.server.ts:110-130,140-160`) although the grid renders ~10 fields.
 4. The client range fetch asks for month bounds, not the grid window (`+page.svelte:44-54`), so adjacent-month cells can stay empty after a hop; the response also colours rows with `calendarIds.slice(1)` (`:50`).
-5. Statically imported views and modals: `Calendar.svelte:1-12` (four views + toolbar + verse card + key), `MonthDays.svelte:1-14` (three modals + EventModal + TaskDetailModal), `WeekView.svelte:1-30`, `DayView.svelte:1-30`, `ListView.svelte:1-22`.
+5. Statically imported views and modals: `Calendar.svelte:1-12` (four views + toolbar + key), `MonthDays.svelte:1-14` (three modals + EventModal + TaskDetailModal), `WeekView.svelte:1-30`, `DayView.svelte:1-30`, `ListView.svelte:1-22`.
 6. Per-day scans: `WeekView.svelte:73-100` (7 + 7 + 7 passes), `WeekAllDayRow.svelte:74-77`, `WeekHourGrid.svelte:83-95` (filter + sort + layout per day), `DayView.svelte:57-68`.
 7. Luxon parse/format inside those loops: `formatDate`/`toDate` per row in `WeekView.svelte:73-87`, `ListView.svelte:44-67`, `MonthDays.svelte:54-55`.
 8. `selectedIds.includes` per chip (`MonthDays.svelte:36-38`).
@@ -292,7 +290,7 @@ Shell = waves 0–1; `grid` = wave 2. Total 3–11 queries per page load, plus t
 10. The category read is awaited for a modal that may never open (`+page.server.ts:98,307`).
 11. A reactive side-effect hack plus an optimistic row list cleared after `invalidateAll()` (`+page.svelte:314-317,443-456`) — the double-draw risk.
 
-Kept as-is because they are already right: the ads and verse gates return before their reads (`calendarData.ts:78-81,104-111`), and the loader streams the heavy half (`+page.server.ts:203-300`).
+Kept as-is because they are already right: the ads gate returns before its read (`calendarData.ts:78-81`), and the loader streams the heavy half (`+page.server.ts:203-300`).
 
 #### `/share-target`
 
@@ -309,7 +307,7 @@ No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`);
 - Task categories move off the page load into the create modal's first task-tab open: the load stops paying for a modal that may never open, and that modal is a lazy chunk anyway (one extra read on a rare path). Owner question 5.
 - `getTasksForUser`'s cursor pin is a write in the read path. The screen does not own it: it calls tasks' window-bounded due-task read, and the pin must stay inside that domain (it is one batched UPDATE, `src/lib/server/db/actions/tasks/cursor.ts:285-303`). If tasks' S5 exposes no bounded read, that is a dependency ask, not a file to edit here.
 - Personal-calendar provisioning (`ensurePersonalCalendar`) is likewise calendar's write-on-read; the screen only asks for the calendar list.
-- Warning labels: legacy sections are `calendar`, `family`, `events`, `tasks`, `ads`, `verse`, `merge-check`; the new section list folds `family` into `calendar`. Owner question 2.
+- Warning labels: legacy sections are `calendar`, `family`, `events`, `tasks`, `ads`, `merge-check`; the new section list folds `family` into `calendar`. Owner question 2.
 - Smart bulk phase 2 echoes the client's dry-run plan back to `/api/events/bulk` (`+page.svelte:253-259`). That trust boundary is calendar's wire, not a screen decision: this screen keeps sending the plan it reviewed until calendar's contract changes (its sheet owns that question).
 - The screen adds no client dependency of its own: it uses what kernel/time (luxon) and the domain chunks already ship, and the four views plus every modal are dynamic imports. Initial JS may only shrink against the legacy ceiling.
 
@@ -329,8 +327,9 @@ No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`);
 
 ### Kept for unported importers
 
-- `src/lib/server/services/calendarData.ts` stays after our S8: `/api/calendars`, `/api/daily-verse` and `/api/sponsored-events` still import it (calendar, verse and sponsored). This module stops importing it at S8.
-- `DailyVerseCard.svelte` and `EventModal`/`EventFormModal` stay with verse and calendar until their ports; this screen reaches them through their public entries.
+- Verse deleted 2026-11-12 (Q-031/Q-032): `/api/daily-verse` and the verse card left the page, so the loader no longer composes a verse and its section warning label is gone. The `verse` Dashboard Module id stays (the family switches and `/api/dashboard` are unchanged).
+- `src/lib/server/services/calendarData.ts` stays after our S8: `/api/calendars` and `/api/sponsored-events` still import it (calendar and sponsored). This module stops importing it at S8.
+- `EventModal`/`EventFormModal` stay with calendar until its port; this screen reaches them through its public entries.
 
 ### Questions for the owner
 
@@ -371,8 +370,8 @@ legacy source files left (32/32, 6326 LOC):
   - src/lib/components/calendar/WeekHourGrid.svelte (238 LOC, ui) importers: 1
   - src/lib/components/calendar/WeekView.svelte (405 LOC, ui) importers: 1
   - src/lib/components/calendar/calendarView.ts (122 LOC, model) importers: 3
-  - src/lib/server/services/calendarData.ts (141 LOC, server) importers: 4
-      NOTE: SPLIT: personal-calendar provisioning + family calendar info + event window reads -> calendar service; sponsored/verse/dashboard-module composition -> calendarPage screen load.
+  - src/lib/server/services/calendarData.ts (141 LOC, server) importers: 3
+      NOTE: SPLIT: personal-calendar provisioning + family calendar info + event window reads -> calendar service; sponsored/dashboard-module composition -> calendarPage screen load.
   - src/lib/utils/calendarAssignees.ts (278 LOC, client) importers: 2
   - src/lib/utils/calendarSearch.ts (53 LOC, model) importers: 1
   - src/lib/utils/calendarVisibility.ts (133 LOC, client) importers: 2
@@ -420,6 +419,6 @@ legacy test files left (31/31) — reference only, kinds explained in docs/archi
   - src/lib/utils/rangeSelect.test.ts [pure, 13 tests]
   - src/lib/utils/weekView.test.ts [pure, 1 tests]
   - src/routes/(calendar)/calendar/layout.svelte.test.ts [component, 2 tests]
-  - src/routes/(calendar)/calendar/page.server.test.ts [route, 4 tests]
+  - src/routes/(calendar)/calendar/page.server.test.ts [route, 3 tests]
 ```
 <!-- census:end -->

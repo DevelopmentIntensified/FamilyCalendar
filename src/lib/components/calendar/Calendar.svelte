@@ -8,8 +8,7 @@
 	import ListView from './ListView.svelte';
 	import WeekView from './WeekView.svelte';
 	import DayView from './DayView.svelte';
-	import DailyVerseCard from './DailyVerseCard.svelte';
-	import CalendarKey from './CalendarKey.svelte';
+		import CalendarKey from './CalendarKey.svelte';
 	import CalendarToolbar from './CalendarToolbar.svelte';
 	import {
 		resolveInitialView,
@@ -93,11 +92,6 @@
 	export let selectedIds: string[] = [];
 	export let onToggleSelectionMode: (on: boolean) => void = () => {};
 	export let onToggleSelect: (event: Event) => void = () => {};
-	export let dailyVerse: {
-		reference: string;
-		text: string;
-		attribution?: string;
-	} | null = null;
 
 	type View = CalendarView;
 
@@ -513,15 +507,6 @@
 				<p class="mb-2 text-center text-sm text-slate-500" role="status" data-testid="calendar-range-pending">
 					Downloading this month&hellip;
 				</p>
-			{/if}
-			{#if dailyVerse}
-				<div class="mb-3">
-					<DailyVerseCard
-						reference={dailyVerse.reference}
-						text={dailyVerse.text}
-						attribution={dailyVerse.attribution}
-					/>
-				</div>
 			{/if}
 			<!-- #119: these hover arrows sit over the grid, and below `md` a cell tap
 		     opens the day-action sheet instead. `md`, so they never land on a cell

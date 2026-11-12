@@ -2,7 +2,6 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { Event } from '$lib/types';
 	import { showsModule } from '$lib/dashboardModules';
-	import DashboardInfoBand from './DashboardInfoBand.svelte';
 	import TodayGlanceCard, { type GlanceEvent } from './TodayGlanceCard.svelte';
 	import TopPrioritiesCard from './TopPrioritiesCard.svelte';
 	import CompletedTodayCard from './CompletedTodayCard.svelte';
@@ -18,9 +17,6 @@
 	export let dayDate: string | null = null;
 	export let meId: string;
 	export let familyId: string | null;
-	/** The Daily Verse, already gated server-side by `dashboardVisibility` (080).
-	 * It renders in the quiet info band above the cards, not as a band card. */
-	export let dailyVerse: { reference: string; text: string; attribution?: string } | null = null;
 	export let glance: { doneToday: number; openToday: number; weekStreak: number };
 	export let dayEvents: GlanceEvent[];
 	export let top3: {
@@ -98,13 +94,6 @@
 			Couldn't load {loadWarnings.join(', ')} just now — everything else is up to date.
 		</div>
 	{/if}
-	<!-- Info band (080): readings, above the cards and out of the module band.
-	     Still gated on the verse's own saved switch, so a user who hid it
-	     before the move is still hidden. -->
-	{#if showsModule(modules, 'verse')}
-		<DashboardInfoBand {dailyVerse} />
-	{/if}
-
 	<!-- 316: on desktop the band is ONE two-column grid, not two three-up rows.
 	     Above 1024px both row groups go `display: contents`, so their cards
 	     become items of this grid and flow two-up: glance | top-3,

@@ -90,11 +90,6 @@ test.describe('Settings Page - Calendar Settings', () => {
 		await expect(page.locator('input[name="autoParseEventDetails"]')).toBeVisible();
 	});
 
-	test('shows daily verse and translation settings', async ({ page }) => {
-		await expect(page.locator('input[name="showDailyVerse"]')).toBeVisible();
-		await expect(page.getByLabel('Translation')).toBeVisible();
-	});
-
 	test('shows dashboard module toggles', async ({ page }) => {
 		await expect(page.locator('text=Dashboard modules')).toBeVisible();
 		await expect(page.locator('input[name="module_verse"]')).toBeVisible();

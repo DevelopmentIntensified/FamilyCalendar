@@ -11,7 +11,7 @@ import { getUser, updateUser } from '$lib/server/db/actions/users';
 import { getUserSettings, updateUserSettings } from '$lib/server/db/actions/userSettings';
 import { invalidateSession, invalidateUserSessions } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { authSession } from '$lib/server/db/schema';
+import { authSession, type UserSettings } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 import {
@@ -27,7 +27,6 @@ import { TimeSpan } from 'oslo';
 import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
-import { TRANSLATIONS } from '$lib/server/services/verseService';
 import { recordAdConsentChange, getAdConsentRecords } from '$lib/server/services/adConsentService';
 import { DASHBOARD_MODULES } from '$lib/dashboardModules';
 import { isRegisteredAccount } from '$lib/utils/anonymous';
@@ -57,16 +56,20 @@ export const ACCOUNT_SETTINGS_DEFAULTS = {
 	defaultCalendarId: null,
 	syncEventsToFamilyCalendar: false,
 	// Ads are opt-in (#088): no settings row means no ads.
-	showAdsAsEvents: false,
-	verseTranslation: 'esv'
+	showAdsAsEvents: false
 };
 
-export function verseTranslationOptions() {
-	return Object.values(TRANSLATIONS).map(({ id, label, attribution }) => ({
-		id,
-		label,
-		attribution
-	}));
+/**
+ * The settings the web and `/api/me/settings` expose. `verse_translation` is
+ * a stored column no reader has since the verse feature left (owner,
+ * 2026-11-12, Q-031/Q-032): strip it here so it never reaches a client. The
+ * column itself stays — no DDL.
+ */
+export function accountSettingsView(row: UserSettings | null | undefined) {
+	if (!row) return ACCOUNT_SETTINGS_DEFAULTS;
+	const { verseTranslation: _dropped, ...settings } = row;
+	void _dropped;
+	return settings;
 }
 
 /**
@@ -91,8 +94,7 @@ export async function loadAccountSettings(userId: string) {
 		loadConsentHistory(userId)
 	]);
 	return {
-		settings: userSettings ?? ACCOUNT_SETTINGS_DEFAULTS,
-		verseTranslations: verseTranslationOptions(),
+		settings: accountSettingsView(userSettings),
 		consentHistory
 	};
 }
@@ -144,11 +146,15 @@ export type CalendarSettingsInput = {
 	defaultCalendarId: string | null;
 	syncEventsToFamilyCalendar: boolean;
 	autoParseEventDetails: boolean;
-	showDailyVerse: boolean;
+	/**
+	 * Verse visibility, persisted for the Android app and the `verse` Dashboard
+	 * Module. The /account form has no control for it any more (owner,
+	 * 2026-11-12, Q-031/Q-032): only `PATCH /api/me/settings` writes it, so a
+	 * form save leaves the stored value alone.
+	 */
+	showDailyVerse?: boolean;
 	/** The ad gate (#088) — the one field that decides whether ads render. */
 	showAdsAsEvents: boolean;
-	/** Unknown ids are stored as 'esv' (the form's rule). */
-	verseTranslation: string;
 };
 
 export async function saveCalendarSettings(
@@ -156,8 +162,7 @@ export async function saveCalendarSettings(
 	input: CalendarSettingsInput,
 	opts: { checkDefaultCalendar?: boolean } = {}
 ): Promise<AccountResult> {
-	const verseTranslation = input.verseTranslation in TRANSLATIONS ? input.verseTranslation : 'esv';
-	const values = { ...input, verseTranslation };
+	const values = input;
 	// 167: the create-event POST re-validates its target calendar the same
 	// way (api/events/+server.ts) — a saved default must point at a calendar
 	// this user can actually see, or it is not saved at all.
@@ -223,7 +228,6 @@ export async function saveDashboardModules(
 				defaultCalendarId: null,
 				syncEventsToFamilyCalendar: false,
 				showAdsAsEvents: false,
-				verseTranslation: 'esv',
 				hiddenDashboardModules
 			});
 		} else {
