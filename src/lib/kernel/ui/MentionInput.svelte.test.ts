@@ -60,6 +60,16 @@ describe('MentionInput', () => {
 		expect(wrapper?.classList.contains('harness-input')).toBe(false);
 	});
 
+	it('takes an optional test id, so two pickers on one page never collide', () => {
+		const quickAdd = render(MentionInput, { props: { testid: 'quick-add' } });
+		const editTask = render(MentionInput, { props: { testid: 'edit-task' } });
+		expect(quickAdd.getByTestId('quick-add').tagName).toBe('TEXTAREA');
+		expect(editTask.getByTestId('edit-task').tagName).toBe('TEXTAREA');
+		// The default keeps a single picker addressable without passing anything.
+		cleanup();
+		expect(render(MentionInput).getByTestId('mention-input').tagName).toBe('TEXTAREA');
+	});
+
 	it('never shows suggestions when there is no roster', async () => {
 		const { container } = render(MentionInput, { props: { value: '@', people: [] } });
 		const input = inputElement(container);

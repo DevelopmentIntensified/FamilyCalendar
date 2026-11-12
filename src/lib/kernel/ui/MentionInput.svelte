@@ -41,8 +41,8 @@
 		id?: string;
 		/** Accessible name; the legacy quick-add callers pass "Quick add". */
 		'aria-label'?: string;
-		/** Row count before auto-grow takes over. */
-		rows?: number;
+		/** `data-testid` for the textarea, so two pickers on one page never collide. */
+		testid?: string;
 	}
 
 	let {
@@ -55,7 +55,7 @@
 		class: klass = DEFAULT_CLASS,
 		id = undefined,
 		'aria-label': ariaLabel = undefined,
-		rows = 2
+		testid = 'mention-input'
 	}: Props = $props();
 
 	/** Per-instance ids so two pickers on a page never collide (legacy used Math.random). */
@@ -260,11 +260,11 @@
 
 <div class="relative">
 	<textarea
-		data-testid="mention-input"
+		data-testid={testid}
 		class={klass + ' resize-none overflow-y-auto'}
 		{id}
 		{placeholder}
-		{rows}
+		rows={2}
 		aria-label={ariaLabel}
 		bind:this={area}
 		value={text}
