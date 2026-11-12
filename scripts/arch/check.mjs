@@ -10,6 +10,7 @@ import {
 	ROOT,
 	isCode,
 	isLegacy,
+	isModuleCode,
 	isTest,
 	isV2,
 	listFiles,
@@ -66,11 +67,12 @@ for (const file of files) {
 	const here = locate(file);
 	const test = isTest(file);
 	const imports = parseImports(text);
-	let importsV2 = false;
+	let importsModuleCode = false;
 
 	for (const imp of imports) {
 		const target = resolveSpec(file, imp.spec, fileSet);
-		if (target && !target.startsWith('?') && isV2(target) && !imp.typeOnly) importsV2 = true;
+		if (target && !target.startsWith('?') && isModuleCode(target) && !imp.typeOnly)
+			importsModuleCode = true;
 		if (!inV2) continue;
 
 		// R9 — module mocking
@@ -261,15 +263,15 @@ for (const file of files) {
 		}
 	}
 
-	// R8 — routes that use v2 code are wiring only
-	if (isRoute && importsV2 && !test) {
+	// R8 — routes that use module code are wiring only (kernel imports alone don't count)
+	if (isRoute && importsModuleCode && !test) {
 		const problem = file.endsWith('.svelte') ? svelteRouteProblem(raw) : tsRouteProblem(text);
 		if (problem)
 			add(
 				'R8',
 				file,
 				1,
-				`route file uses v2 code but is not wiring-only (${problem}) — move logic into the module, keep only imports/exports here`
+				`route file uses module code but is not wiring-only (${problem}) — move logic into the module, keep only imports/exports here`
 			);
 	}
 }

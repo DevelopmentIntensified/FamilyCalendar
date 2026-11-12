@@ -15,7 +15,7 @@ import {
 	ROOT,
 	isCode,
 	isTest,
-	isV2,
+	isModuleCode,
 	listFiles,
 	parseImports,
 	readJson,
@@ -48,7 +48,7 @@ const isRouteWiring = (file) => {
 	if (!fileSet.has(file) || !isCode(file)) return false;
 	return parseImports(readText(file)).some((imp) => {
 		const target = resolveSpec(file, imp.spec, fileSet);
-		return target && !target.startsWith('?') && isV2(target);
+		return target && !target.startsWith('?') && isModuleCode(target);
 	});
 };
 

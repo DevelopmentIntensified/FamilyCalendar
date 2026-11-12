@@ -37,6 +37,8 @@ export const CODE_EXT = /\.(ts|js|mjs|svelte)$/;
 export const isCode = (file) => CODE_EXT.test(file);
 export const isTest = (file) => /\.(test|spec)\.[jt]s$/.test(file);
 export const isV2 = (file) => V2_ROOTS.some((root) => file.startsWith(root));
+/** v2 code outside the shared kernel. A route that imports it counts as ported (R8, census). */
+export const isModuleCode = (file) => isV2(file) && !file.startsWith('src/lib/kernel/');
 export const isRouteFile = (file) => file.startsWith('src/routes/');
 export const isLegacy = (file) =>
 	LEGACY_PREFIXES.some((prefix) => file === prefix || file.startsWith(prefix));
