@@ -17,7 +17,6 @@ import {
 	adConsentRecords,
 	apiTokens,
 	authSession,
-	calendars,
 	userSettings,
 	users
 } from '$lib/kernel/db/tables.server';
@@ -26,6 +25,12 @@ import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
+import {
+	seedApiToken,
+	seedCalendar,
+	seedCalendarSettings,
+	seedSession
+} from './identity.fixtures.server';
 // The ROUTE modules, not the legacy services: after the port these files
 // re-export the new handlers, so this import never changes.
 import { GET as listTokens, POST as createToken } from '../../../routes/api/me/api-tokens/+server';
@@ -37,72 +42,10 @@ import {
 	PATCH as patchSettings
 } from '../../../routes/api/me/settings/+server';
 
-const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 /** ISO instant matcher: generated timestamps are asserted by shape only. */
 const iso = () => expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 
 const VERSE_TRANSLATIONS = [{ id: 'esv', label: 'ESV', attribution: 'Public domain.' }];
-
-/** The stored settings row the settings tests merge onto. */
-async function seedSettings(
-	userId: string,
-	overrides: Partial<typeof userSettings.$inferInsert> = {}
-) {
-	const [row] = await testDb()
-		.insert(userSettings)
-		.values({
-			id: 'settings-a',
-			userId,
-			weekStart: 'monday',
-			timeZone: 'America/Chicago',
-			color: '#112233',
-			defaultView: 'dashboard',
-			// A stored default calendar must be a real calendars row (FK): tests
-			// that need one seed it explicitly with seedCalendar().
-			defaultCalendarId: null,
-			syncEventsToFamilyCalendar: true,
-			autoParseEventDetails: false,
-			showDailyVerse: true,
-			showAdsAsEvents: false,
-			verseTranslation: 'esv',
-			hiddenDashboardModules: ['board'],
-			useCloudAI: true,
-			useLocalAI: true,
-			...overrides
-		})
-		.returning();
-	return row;
-}
-
-async function seedToken(userId: string, overrides: Partial<typeof apiTokens.$inferInsert> = {}) {
-	const [row] = await testDb()
-		.insert(apiTokens)
-		.values({
-			id: 'tok-a',
-			userId,
-			name: 'Phone',
-			tokenHash: sha256('fp_seedTokenValueForTestsOnly'),
-			...overrides
-		})
-		.returning();
-	return row;
-}
-
-async function seedSession(userId: string, id: string) {
-	await testDb()
-		.insert(authSession)
-		.values({
-			id,
-			token: `token-${id}`,
-			userId,
-			expiresAt: new Date('2030-01-01T00:00:00.000Z')
-		});
-}
-
-/** A real calendars row: `defaultCalendarId` has a FK, so a dangling id cannot be stored. */
-async function seedCalendar(ownerId: string, id: string) {
-	await testDb().insert(calendars).values({ id, ownerId });
-}
 
 beforeEach(truncateAll);
 
@@ -117,7 +60,7 @@ describe('GET /api/me/api-tokens', () => {
 
 	it('lists your tokens with id, name, createdAt and lastUsedAt — never the hash', async () => {
 		const user = await seedUser(testDb());
-		await seedToken(user.id);
+		await seedApiToken(user.id);
 		const res = await invoke(listTokens, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -132,7 +75,7 @@ describe('GET /api/me/api-tokens', () => {
 	it('never returns another person’s tokens', async () => {
 		const user = await seedUser(testDb());
 		const other = await seedUser(testDb());
-		await seedToken(other.id, { id: 'tok-b', name: 'Their phone' });
+		await seedApiToken(other.id, { id: 'tok-b', name: 'Their phone' });
 		const res = await invoke(listTokens, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -171,7 +114,7 @@ describe('POST /api/me/api-tokens', () => {
 		expect(rows).toHaveLength(1);
 		expect(rows[0].id).toBe(body.record.id);
 		expect(rows[0].name).toBe('My phone');
-		expect(rows[0].tokenHash).toBe(sha256(body.token));
+		expect(rows[0].tokenHash).toBe(createHash('sha256').update(body.token).digest('hex'));
 		expect(rows[0].tokenHash).not.toContain(body.token);
 		expect(rows[0].lastUsedAt).toBeNull();
 	});
@@ -264,7 +207,7 @@ describe('DELETE /api/me/api-tokens/:id', () => {
 
 	it('revokes your own token and answers {success:true}', async () => {
 		const user = await seedUser(testDb());
-		await seedToken(user.id);
+		await seedApiToken(user.id);
 		const res = await invoke(revokeToken, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -280,7 +223,7 @@ describe('DELETE /api/me/api-tokens/:id', () => {
 	it('is owner-scoped: another person’s id deletes nothing and still answers {success:true}', async () => {
 		const user = await seedUser(testDb());
 		const other = await seedUser(testDb());
-		await seedToken(other.id, { id: 'tok-b', name: 'Their phone' });
+		await seedApiToken(other.id, { id: 'tok-b', name: 'Their phone' });
 		const res = await invoke(revokeToken, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -416,8 +359,8 @@ describe('POST /api/me/sessions/revoke-others', () => {
 		await seedSession(user.id, 'sess-a');
 		await seedSession(user.id, 'sess-b');
 		await seedSession(other.id, 'sess-other');
-		await seedToken(user.id, { id: 'tok-a' });
-		await seedToken(other.id, { id: 'tok-b', tokenHash: sha256('fp_otherSeedValueForTestsOnly') });
+		await seedApiToken(user.id, { id: 'tok-a' });
+		await seedApiToken(other.id, { id: 'tok-b', tokenHash: 'other-token-hash' });
 
 		const res = await invoke(revokeOtherSessions, {
 			ctx: testCtx({ db: testDb() }),
@@ -485,7 +428,7 @@ describe('GET /api/me/settings', () => {
 	it('answers the stored row, the translation options and the consent trail', async () => {
 		const user = await seedUser(testDb());
 		await seedCalendar(user.id, 'cal-mine');
-		await seedSettings(user.id, { defaultCalendarId: 'cal-mine' });
+		await seedCalendarSettings(user.id, { defaultCalendarId: 'cal-mine' });
 		await testDb().insert(adConsentRecords).values({ userId: user.id, decision: 'granted' });
 		const res = await invoke(getSettings, {
 			ctx: testCtx({ db: testDb() }),
@@ -534,7 +477,7 @@ describe('PATCH /api/me/settings', () => {
 		// Owned by another person, in no family of the caller: a real but
 		// inaccessible default calendar — the stale id this test must keep.
 		await seedCalendar(other.id, 'cal-their-calendar');
-		await seedSettings(user.id, { defaultCalendarId: 'cal-their-calendar' });
+		await seedCalendarSettings(user.id, { defaultCalendarId: 'cal-their-calendar' });
 		const res = await invoke(patchSettings, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -608,7 +551,7 @@ describe('PATCH /api/me/settings', () => {
 	it('accepts defaultCalendarId:null and stores null', async () => {
 		const user = await seedUser(testDb());
 		await seedCalendar(user.id, 'cal-mine');
-		await seedSettings(user.id, { defaultCalendarId: 'cal-mine' });
+		await seedCalendarSettings(user.id, { defaultCalendarId: 'cal-mine' });
 		const res = await invoke(patchSettings, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -616,8 +559,28 @@ describe('PATCH /api/me/settings', () => {
 			body: { defaultCalendarId: null }
 		});
 		expect(res.status).toBe(200);
-		const body = res.body as { settings: { defaultCalendarId: string | null } };
-		expect(body.settings.defaultCalendarId).toBeNull();
+		expect(res.body).toEqual({
+			settings: {
+				id: 'settings-a',
+				userId: user.id,
+				weekStart: 'monday',
+				timeZone: 'America/Chicago',
+				color: '#112233',
+				defaultView: 'dashboard',
+				defaultCalendarId: null,
+				syncEventsToFamilyCalendar: true,
+				autoParseEventDetails: false,
+				showDailyVerse: true,
+				showAdsAsEvents: false,
+				verseTranslation: 'esv',
+				hiddenDashboardModules: ['board'],
+				useCloudAI: true,
+				useLocalAI: true,
+				updatedAt: iso()
+			},
+			verseTranslations: VERSE_TRANSLATIONS,
+			consentHistory: []
+		});
 		const [row] = await testDb().select().from(userSettings).where(eq(userSettings.userId, user.id));
 		expect(row.defaultCalendarId).toBeNull();
 	});
@@ -627,7 +590,7 @@ describe('PATCH /api/me/settings', () => {
 		const other = await seedUser(testDb());
 		await seedCalendar(user.id, 'cal-mine');
 		await seedCalendar(other.id, 'cal-their-calendar');
-		await seedSettings(user.id, { defaultCalendarId: 'cal-mine' });
+		await seedCalendarSettings(user.id, { defaultCalendarId: 'cal-mine' });
 		const res = await invoke(patchSettings, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -642,7 +605,7 @@ describe('PATCH /api/me/settings', () => {
 
 	it('records the ad-consent transition when showAdsAsEvents turns on', async () => {
 		const user = await seedUser(testDb());
-		await seedSettings(user.id, { showAdsAsEvents: false });
+		await seedCalendarSettings(user.id, { showAdsAsEvents: false });
 		const res = await invoke(patchSettings, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -650,7 +613,28 @@ describe('PATCH /api/me/settings', () => {
 			body: { showAdsAsEvents: true }
 		});
 		expect(res.status).toBe(200);
-		expect(res.body).toMatchObject({ consentHistory: [{ decision: 'granted' }] });
+		expect(res.body).toEqual({
+			settings: {
+				id: 'settings-a',
+				userId: user.id,
+				weekStart: 'monday',
+				timeZone: 'America/Chicago',
+				color: '#112233',
+				defaultView: 'dashboard',
+				defaultCalendarId: null,
+				syncEventsToFamilyCalendar: true,
+				autoParseEventDetails: false,
+				showDailyVerse: true,
+				showAdsAsEvents: true,
+				verseTranslation: 'esv',
+				hiddenDashboardModules: ['board'],
+				useCloudAI: true,
+				useLocalAI: true,
+				updatedAt: iso()
+			},
+			verseTranslations: VERSE_TRANSLATIONS,
+			consentHistory: [{ decision: 'granted', recordedAt: iso() }]
+		});
 		const rows = await testDb()
 			.select()
 			.from(adConsentRecords)
@@ -660,7 +644,7 @@ describe('PATCH /api/me/settings', () => {
 
 	it('writes no consent record when the ad setting does not change', async () => {
 		const user = await seedUser(testDb());
-		await seedSettings(user.id, { showAdsAsEvents: false });
+		await seedCalendarSettings(user.id, { showAdsAsEvents: false });
 		const res = await invoke(patchSettings, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -668,7 +652,28 @@ describe('PATCH /api/me/settings', () => {
 			body: { showAdsAsEvents: false }
 		});
 		expect(res.status).toBe(200);
-		expect(res.body).toMatchObject({ consentHistory: [] });
+		expect(res.body).toEqual({
+			settings: {
+				id: 'settings-a',
+				userId: user.id,
+				weekStart: 'monday',
+				timeZone: 'America/Chicago',
+				color: '#112233',
+				defaultView: 'dashboard',
+				defaultCalendarId: null,
+				syncEventsToFamilyCalendar: true,
+				autoParseEventDetails: false,
+				showDailyVerse: true,
+				showAdsAsEvents: false,
+				verseTranslation: 'esv',
+				hiddenDashboardModules: ['board'],
+				useCloudAI: true,
+				useLocalAI: true,
+				updatedAt: iso()
+			},
+			verseTranslations: VERSE_TRANSLATIONS,
+			consentHistory: []
+		});
 		const rows = await testDb()
 			.select()
 			.from(adConsentRecords)
@@ -678,7 +683,7 @@ describe('PATCH /api/me/settings', () => {
 
 	it('an empty object changes nothing and answers the stored row', async () => {
 		const user = await seedUser(testDb());
-		await seedSettings(user.id);
+		await seedCalendarSettings(user.id);
 		const res = await invoke(patchSettings, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -686,8 +691,28 @@ describe('PATCH /api/me/settings', () => {
 			body: {}
 		});
 		expect(res.status).toBe(200);
-		const body = res.body as { settings: { timeZone: string; weekStart: string } };
-		expect([body.settings.weekStart, body.settings.timeZone]).toEqual(['monday', 'America/Chicago']);
+		expect(res.body).toEqual({
+			settings: {
+				id: 'settings-a',
+				userId: user.id,
+				weekStart: 'monday',
+				timeZone: 'America/Chicago',
+				color: '#112233',
+				defaultView: 'dashboard',
+				defaultCalendarId: null,
+				syncEventsToFamilyCalendar: true,
+				autoParseEventDetails: false,
+				showDailyVerse: true,
+				showAdsAsEvents: false,
+				verseTranslation: 'esv',
+				hiddenDashboardModules: ['board'],
+				useCloudAI: true,
+				useLocalAI: true,
+				updatedAt: iso()
+			},
+			verseTranslations: VERSE_TRANSLATIONS,
+			consentHistory: []
+		});
 	});
 
 	it.each<[Record<string, JsonValue>, string]>([
@@ -698,11 +723,13 @@ describe('PATCH /api/me/settings', () => {
 		[{ verseTranslation: 'xyz' }, 'Invalid verseTranslation'],
 		[{ showAdsAsEvents: 'yes' }, 'Invalid showAdsAsEvents'],
 		[{ syncEventsToFamilyCalendar: 1 }, 'Invalid syncEventsToFamilyCalendar'],
+		[{ autoParseEventDetails: 'yes' }, 'Invalid autoParseEventDetails'],
+		[{ showDailyVerse: 'yes' }, 'Invalid showDailyVerse'],
 		[{ defaultCalendarId: 5 }, 'Invalid defaultCalendarId'],
 		[{ hiddenDashboardModules: [] }, 'Unknown field: hiddenDashboardModules']
 	])('answers 400 for %j', async (body, error) => {
 		const user = await seedUser(testDb());
-		await seedSettings(user.id);
+		await seedCalendarSettings(user.id);
 		const res = await invoke(patchSettings, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -711,13 +738,33 @@ describe('PATCH /api/me/settings', () => {
 		});
 		expect(res.status).toBe(400);
 		expect(res.body).toEqual({ error });
-		const [row] = await testDb().select().from(userSettings).where(eq(userSettings.userId, user.id));
-		expect([row.weekStart, row.timeZone, row.color, row.defaultView]).toEqual([
-			'monday',
-			'America/Chicago',
-			'#112233',
-			'dashboard'
-		]);
+		const after = await invoke(getSettings, {
+			ctx: testCtx({ db: testDb() }),
+			user,
+			path: '/api/me/settings'
+		});
+		expect(after.body).toEqual({
+			settings: {
+				id: 'settings-a',
+				userId: user.id,
+				weekStart: 'monday',
+				timeZone: 'America/Chicago',
+				color: '#112233',
+				defaultView: 'dashboard',
+				defaultCalendarId: null,
+				syncEventsToFamilyCalendar: true,
+				autoParseEventDetails: false,
+				showDailyVerse: true,
+				showAdsAsEvents: false,
+				verseTranslation: 'esv',
+				hiddenDashboardModules: ['board'],
+				useCloudAI: true,
+				useLocalAI: true,
+				updatedAt: iso()
+			},
+			verseTranslations: VERSE_TRANSLATIONS,
+			consentHistory: []
+		});
 	});
 
 	it('answers 400 {"error":"Invalid body"} when the body is not an object', async () => {
