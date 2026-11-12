@@ -23,6 +23,7 @@ import { invoke, type InvokeResult } from '$lib/kernel/testing/invokeHandlers.se
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
+import type { JsonValue } from '$lib/kernel/validation/validators';
 // The ROUTE module, not the legacy loader: after the port this import still
 // names the same file, so the golden runs unchanged on both sides.
 import { GET } from '../../../routes/api/dashboard/+server';
@@ -35,17 +36,32 @@ type Wire = {
 	meId: string;
 	familyId: string | null;
 	modules: Record<string, boolean>;
-	dailyVerse: Record<string, unknown> | null;
-	taskCategories: unknown;
-	data: Record<string, unknown>;
-	warnings: unknown;
+	dailyVerse: Record<string, JsonValue> | null;
+	taskCategories: JsonValue;
+	data: Record<string, JsonValue>;
+	warnings: JsonValue;
 };
 
 const ctx = () => testCtx({ db: testDb() });
 
+/**
+ * `timestamptz` columns declared `mode: 'string'` reach the wire as the
+ * Postgres text render (`2026-11-02 08:00:00+00`), NOT ISO — the client sees
+ * the driver's string. Pin that render; the fractional-second digits are the
+ * server's to print (verification runs TZ=UTC, so the offset is `+00`).
+ */
+function postgresInstant(iso: string): RegExp {
+	const at = new Date(iso);
+	const pad = (part: number) => String(part).padStart(2, '0');
+	const date = `${at.getUTCFullYear()}-${pad(at.getUTCMonth() + 1)}-${pad(at.getUTCDate())}`;
+	const time = `${pad(at.getUTCHours())}:${pad(at.getUTCMinutes())}:${pad(at.getUTCSeconds())}`;
+	return new RegExp(`^${date} ${time}(?:\\.\\d{1,6})?\\+00$`);
+}
+
 const readWire = (res: InvokeResult): Wire => {
-	// SAFETY: this route answers JSON; every assertion below pins the shape key by key.
-	return JSON.parse(res.text) as Wire;
+	// SAFETY: this route always answers the JSON object the assertions below pin
+	// field by field; the wire type names it rather than re-guarding it per call.
+	return res.body as Wire;
 };
 
 /** Every canonical Dashboard Module id, visible: no switch off, nothing hidden. */
@@ -371,13 +387,15 @@ describe('GET /api/dashboard (G8)', () => {
 
 		// The viewer's list: own Tasks + every Family Task, completed included,
 		// newest first. This is the payload the phone reads (spec's `<Task+tags>`).
+		// `dueDate`/`completedAt` are timestamptz `mode: 'string'`: the wire carries
+		// the driver's Postgres render (space, `+00`), not ISO.
 		expect(wire.data.userTasks).toEqual([
 			userTaskRow({
 				id: 'task-chore',
 				title: 'Done chore',
 				userId: 'user-mia',
 				familyId: 'family-chen',
-				completedAt: '2026-11-01T10:00:00.000Z'
+				completedAt: expect.stringMatching(postgresInstant('2026-11-01T10:00:00.000Z'))
 			}),
 			userTaskRow({
 				id: 'task-cat',
@@ -392,7 +410,7 @@ describe('GET /api/dashboard (G8)', () => {
 				userId: 'user-mia',
 				familyId: 'family-chen',
 				priority: 'high',
-				dueDate: '2026-11-01T09:00:00.000Z',
+				dueDate: expect.stringMatching(postgresInstant('2026-11-01T09:00:00.000Z')),
 				assignedTo: 'user-mia',
 				assignmentStatus: 'accepted',
 				assigneeFirstName: 'Mia',
@@ -403,13 +421,13 @@ describe('GET /api/dashboard (G8)', () => {
 				title: 'Pay rent',
 				userId: 'user-me',
 				priority: 'high',
-				dueDate: '2026-11-02T08:00:00.000Z'
+				dueDate: expect.stringMatching(postgresInstant('2026-11-02T08:00:00.000Z'))
 			}),
 			userTaskRow({
 				id: 'task-plants',
 				title: 'Water plants',
 				userId: 'user-me',
-				completedAt: '2026-11-02T12:00:00.000Z'
+				completedAt: expect.stringMatching(postgresInstant('2026-11-02T12:00:00.000Z'))
 			}),
 			userTaskRow({
 				id: 'task-piano',
@@ -447,7 +465,7 @@ describe('GET /api/dashboard (G8)', () => {
 				userId: 'user-mia',
 				familyId: 'family-chen',
 				priority: 'high',
-				dueDate: '2026-11-01T09:00:00.000Z',
+				dueDate: expect.stringMatching(postgresInstant('2026-11-01T09:00:00.000Z')),
 				assignedTo: 'user-mia',
 				assignmentStatus: 'accepted',
 				assigneeFirstName: 'Mia',
@@ -509,8 +527,11 @@ describe('GET /api/dashboard (G8)', () => {
 		);
 
 		// Overlap, not start-on-day: the overnight event ending at 00:00 is out.
+		// The wire row is the whole Event (all 17 columns) plus the expansion and
+		// dashboard fields; `created_at` is timestamp WITHOUT time zone, so the
+		// driver's rendering is not the client contract.
 		// SAFETY: the wire field is an array of event rows; the projection below pins every field read.
-		const dayEvents = wire.data.dayEvents as Record<string, unknown>[];
+		const dayEvents = wire.data.dayEvents as Record<string, JsonValue>[];
 		expect(dayEvents.map((e) => e.title)).toEqual(['Dentist', 'Soccer']);
 		expect(
 			dayEvents.map((e) => ({
@@ -519,10 +540,21 @@ describe('GET /api/dashboard (G8)', () => {
 				calendarId: e.calendarId,
 				ownerId: e.ownerId,
 				title: e.title,
+				description: e.description,
 				location: e.location,
 				allDay: e.allDay,
 				start: e.start,
 				end: e.end,
+				occurrenceDate: e.occurrenceDate,
+				date: e.date,
+				recurrenceFrequency: e.recurrenceFrequency,
+				recurrenceInterval: e.recurrenceInterval,
+				recurrenceByDay: e.recurrenceByDay,
+				recurrenceCount: e.recurrenceCount,
+				recurrenceUntil: e.recurrenceUntil,
+				reminderMinutes: e.reminderMinutes,
+				mirrorOf: e.mirrorOf,
+				created_at: e.created_at,
 				color: e.color,
 				source: e.source,
 				rsvpStatus: e.rsvpStatus,
@@ -535,10 +567,21 @@ describe('GET /api/dashboard (G8)', () => {
 				calendarId: 'cal-own',
 				ownerId: 'user-me',
 				title: 'Dentist',
+				description: null,
 				location: 'Clinic',
 				allDay: false,
 				start: '2026-11-02T09:00:00.000Z',
 				end: '2026-11-02T10:00:00.000Z',
+				occurrenceDate: '2026-11-02T09:00:00.000Z',
+				date: '2026-11-02T09:00:00.000Z',
+				recurrenceFrequency: null,
+				recurrenceInterval: null,
+				recurrenceByDay: null,
+				recurrenceCount: null,
+				recurrenceUntil: null,
+				reminderMinutes: null,
+				mirrorOf: null,
+				created_at: expect.any(String),
 				// Personal colour falls back to the settings colour, then #fa8072.
 				color: '#fa8072',
 				source: 'own',
@@ -551,10 +594,21 @@ describe('GET /api/dashboard (G8)', () => {
 				calendarId: 'cal-family',
 				ownerId: 'user-me',
 				title: 'Soccer',
+				description: null,
 				location: 'Field 2',
 				allDay: false,
 				start: '2026-11-02T15:00:00.000Z',
 				end: '2026-11-02T16:00:00.000Z',
+				occurrenceDate: '2026-11-02T15:00:00.000Z',
+				date: '2026-11-02T15:00:00.000Z',
+				recurrenceFrequency: null,
+				recurrenceInterval: null,
+				recurrenceByDay: null,
+				recurrenceCount: null,
+				recurrenceUntil: null,
+				reminderMinutes: null,
+				mirrorOf: null,
+				created_at: expect.any(String),
 				// The family colour is hard-coded, not read from the family.
 				color: '#e0ffff',
 				source: 'family',
@@ -578,6 +632,9 @@ describe('GET /api/dashboard (G8)', () => {
 			// The streak is computed against the REAL clock: shape only.
 			weekStreak: expect.any(Number)
 		});
+		// `completedToday` is rebuilt to ISO on the way out — the one-off rows via
+		// `new Date(row.completedAt).toISOString()`, the recurring history via
+		// `toIsoTimestamp` — so this card carries ISO whatever the driver rendered.
 		expect(wire.data.completedToday).toEqual([
 			{ id: 'task-plants', title: 'Water plants', completedAt: '2026-11-02T12:00:00.000Z' },
 			{ id: 'completion-piano', title: 'Practice piano', completedAt: '2026-11-02T07:00:00.000Z' }
@@ -753,10 +810,14 @@ describe('GET /api/dashboard (G8)', () => {
 		const after = new Date().toISOString().slice(0, 10);
 		expect(wire.zone).toBe('UTC');
 		expect(wire.isToday).toBe(true);
-		// Midnight of the REAL clock's UTC day: assert the instant, not a rendering.
-		expect([before, after].map((day) => Date.parse(`${day}T00:00:00.000Z`))).toContain(
-			Date.parse(wire.dayISO)
-		);
+		// On legacy the day is the REAL clock's; after the port it is ctx.clock's
+		// (testCtx's fixed clock). Accept either source and assert the instant.
+		const testClockDay = testCtx().clock.now().toISOString().slice(0, 10);
+		expect(
+			[...new Set([before, after, testClockDay])].map((day) =>
+				Date.parse(`${day}T00:00:00.000Z`)
+			)
+		).toContain(Date.parse(wire.dayISO));
 		expect(wire.familyId).toBeNull();
 		// No settings row: the verse is off, the other modules keep their default.
 		expect(wire.modules).toEqual({ ...ALL_VISIBLE, verse: false });
@@ -788,8 +849,12 @@ describe('GET /api/dashboard (G8)', () => {
 		const wire = readWire(res);
 		const after = new Date().toISOString().slice(0, 10);
 		expect(wire.isToday).toBe(true);
-		expect([before, after].map((day) => Date.parse(`${day}T00:00:00.000Z`))).toContain(
-			Date.parse(wire.dayISO)
-		);
+		// The fallback day is the real clock's on legacy, ctx.clock's after the port.
+		const testClockDay = testCtx().clock.now().toISOString().slice(0, 10);
+		expect(
+			[...new Set([before, after, testClockDay])].map((day) =>
+				Date.parse(`${day}T00:00:00.000Z`)
+			)
+		).toContain(Date.parse(wire.dayISO));
 	});
 });
