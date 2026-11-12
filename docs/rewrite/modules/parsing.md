@@ -116,16 +116,86 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+All filenames are unique v2 basenames (R10) and follow `<module>.<topic>.<role>` (R15). No repo and
+no fixtures: the module owns no tables, and every read (zone, plan, AI usage) goes through identity
+and billing's public server entries (R1/R3). No UI: no component is user-visible parsing.
+
+### S3 — contract + rules (one test file per rules file, R13)
+
+| new file | role | what goes in it, and where the legacy export lands |
+|---|---|---|
+| `parsing.contract.ts` | contract | zod `ParseEventBody` (`input: string`, `useCloud?: boolean` — absent ⇒ cloud on) and the two response unions (single `{parsed, confidence, method}`, list `{results, method}`); `ParsedEvent` and `EventQuickAddResult` (legacy `ParsedEvent`/`ParseResult` + `hasInfo`/`summaryLabel`), `TaskQuickAddResult`/`TaskQuickAddMember`/`TaskQuickAddOptions` (legacy `TaskQuickAddResult`/`…Member`/`…Options` + `hasInfo`/`summaryLabel`), `QuickAddPriority` (legacy `TaskPriority` import; the tone map stays in tasks), `CadenceFrequency` re-export from `parsing.dates.rules.ts`. |
+| `parsing.vocabulary.rules.ts` | rules | THE vocabulary (review #1/#5): `MONTH_INDEX_0/1`, `MONTH_ALT`, `MONTH_NAME_TOKEN`, `ORDINAL_WORD_MAP` + pattern, `WEEKDAY_FULL`/`WEEKDAY_SHORT`/`WEEKDAY_TOKEN`, `DAY_ALT`, `DAY_MAP` + `dayNumber`, `normalizeDayToken`, `extractDayTokens`/`DayToken`, `fuzzyDayToken`, `DAYPART_TIMES`, `TOD_TIMES`, `RECURRENCE_UNITS`, `escapeRegExp`, `normalizeMeridiem` — i.e. all of `dateVocab.ts` plus the token half of `dateParsing.ts`. Longest-first ordering lives here once. |
+| `parsing.dates.rules.ts` | rules | all of `dateResolution.ts`: `CalendarDate`, `daysInMonth`, `resolveMonthDay`, `daysUntilWeekday`, `Cadence`, `cadenceUnit`, `cadenceToValue`, `valueToCadence`, `cadenceFrequency`, `CADENCE_FREQUENCIES`, `matchCadence`/`CadenceMatch` and the ordered phrase table. |
+| `parsing.claims.rules.ts` | rules | the claim book as a pure value: `createClaimBook()` with `claim(span, index)`, `mask(text)` (same offsets, newlines kept) and overlap rejection — today's closures `claimText`/`maskClaims` inside `parseEventInput`. |
+| `parsing.event-dates.rules.ts` | rules | the date chain (`this/next <weekday>`, today/tomorrow, `in N …`, weekend, next month, returning, month-day, day-first, ISO, ordinal digit/word/weekday, `MM/DD`) plus the explicit-date sweep, continuations and 2+-date chains (legacy `naturalLanguageService.ts:543-941`). |
+| `parsing.event-times.rules.ts` | rules | time ranges (colon, `from`, `between`, bare hyphen), single times, colloquial/military times, end cues and durations, plus `normalizeTime`/`applyPeriod` from `dateParsing.ts` (legacy `:948-1032,1242-1608`). |
+| `parsing.event-recurrence.rules.ts` | rules | the ordered event recurrence table, the shared-cadence fallback, weekly day lists, `weekdays`/`weekends`/`twice a week`, recurrence ends, reminders (legacy `:1044-1239`). |
+| `parsing.event-place.rules.ts` | rules | location priority, the five-word place grammar, calendar targeting and the attendant priority ladder (legacy `:309-470,1612-1901`). |
+| `parsing.event-title.rules.ts` | rules | the title rebuild (strip recurrence/claimed spans, 50-char cut, word snap, connector/punctuation trim, raw-window fallback, relative-duration sentence) and the defaults (`@ Location`, today, 09:00–17:00, confidence cap) — legacy `:1905-2033`. |
+| `parsing.event-segment.rules.ts` | rules | multi-event segmentation: semicolon/newline, comma signal, `and` signal with the weekday-pair/date-chain/with-list vetoes, the 0.3 gate, head-title/attendant inheritance — legacy `:2038-2197`. |
+| `parsing.event.rules.ts` | rules | `parseEventQuickAdd` (the orchestrator: URL strip, early `until` blanking, claim book, the five families in order, title, defaults, `hasInfo`/`summaryLabel`) and `parseEventQuickAddList` — replaces `parseEventInput`/`parseEventList`. |
+| `parsing.task.rules.ts` | rules | the Task quick-add grammar moved out of `src/lib/utils/taskQuickAdd.ts`: strip order, due-date priority, roster scoping, `#public/#private`, `@family`, tags, `unknownMember`, `hasInfo`/`summaryLabel`. Tasks keeps the preview/editor and the due-cursor mapping. |
+| `parsing.vocabulary.rules.test.ts` | test | carries `dateVocab.test.ts` (36 cases) + day-token/fuzzy-word tables. |
+| `parsing.dates.rules.test.ts` | test | carries `dateResolution.test.ts` (rollover, clamp, leap-year, weekday) + the parser-independent cadence rows of `dateResolution.parsers.test.ts`. |
+| `parsing.claims.rules.test.ts` | test | carries `parserClaimGuards.test.ts` (12 disjointness cases). |
+| `parsing.event-dates.rules.test.ts` | test | the date phrase tables of `naturalLanguageService.test.ts`. |
+| `parsing.event-times.rules.test.ts` | test | the time/range/end/duration tables of `naturalLanguageService.test.ts`. |
+| `parsing.event-recurrence.rules.test.ts` | test | the recurrence/reminder tables of `naturalLanguageService.test.ts`. |
+| `parsing.event-place.rules.test.ts` | test | the location/attendant/calendar tables of `naturalLanguageService.test.ts`. |
+| `parsing.event-title.rules.test.ts` | test | the `Clean titles` table and the title-span cases. |
+| `parsing.event-segment.rules.test.ts` | test | the segmentation suites of `naturalLanguageService.test.ts`. |
+| `parsing.event.rules.test.ts` | test | the integrated phrase suite: every remaining `naturalLanguageService.test.ts` case (URL fidelity, `until`, defaults, real-world examples, performance corpus). |
+| `parsing.task.rules.test.ts` | test | `taskQuickAdd.test.ts` cases + `shared/parse-vectors.json` (145 vectors, `EXPECTED_VECTORS = 145`), parser-independent and client-safe. |
+
+### S5–S6 — service + http
+
+| new file | role | what goes in it |
+|---|---|---|
+| `parsing.service.server.ts` | service | `parseEventRequest(ctx, actor, input)`: the local list/single parse first; a signed-in caller additionally gets the zone (identity), the plan (billing), the monthly cap before any vendor call, the vendor call, and the usage record (even on an empty answer); a thrown parse is logged through `ctx.faults` and answered as `regex-fallback`. Replaces the route's `ParseEventDeps` seam: collaborators come from `ctx`/lower modules and the vendor call is a ctx port, never a module mock (R9). |
+| `parsing.service.db.test.ts` | test | 429 with the cap reason, the 429 fallback copy, free 20/5 min silent fallback, paid uncapped, usage recorded, anonymous never gated, zone used only when signed in — `rollbackTest` + `testCtx({ db, now })`. |
+| `parsing.http.server.ts` | http | `submitParseEventEndpoint`: `endpoint()` with auth mode (anonymous allowed), `body` schema, `400 {error:'Input required'}` and the service's `429`. |
+| `src/routes/api/parse-event/+server.ts` | route | wiring only: `export const POST = submitParseEventEndpoint.handler;` (S6; goldens unchanged since S2). |
+
+### S7–S8
+
+- S7: no UI work — parsing owns no page or component (the event and task editors stay in their modules).
+- S8: `git rm` the four legacy sources (`naturalLanguageService.ts`, `dateParsing.ts`, `dateResolution.ts`, `dateVocab.ts`) and the six legacy tests (`naturalLanguageService.test.ts`, `parserClaimGuards.test.ts`, `dateResolution.test.ts`, `dateResolution.parsers.test.ts`, `dateVocab.test.ts`, `src/routes/api/parse-event/server.test.ts`); rewire `EventFormModel.svelte.ts` (type), `e2e/events/NlpTimeParsing.test.ts` and the route. `src/lib/utils/taskQuickAdd.ts` and `taskQuickAdd.test.ts` stay until the tasks port wires `parsing.task.rules.ts` in (its census row belongs to tasks); `bulkAiService.ts` stops importing `dateParsing` when its owning module ports.
 
 ## Notes
-
-(Surprises, decisions, files kept for unported importers.)
 
 - 2026-11-11 (owner, [Q-002](../questions.md)): M-bills deletes the bill grammar (`parseBillQuickAdd`, bill cues, merchant keywords) before this port. Ignore the bill rows in the inventory above.
 - Architecture review 2026-11-10 ([report](../../archive/review/architecture-review-2026-11-10.html)), candidates for this module's design:
   - #1 and #5, one vocabulary: `dateVocab` owns the weekday, month and ordinal codes, and every grammar reads them. No second `MONTH_MAP`, `WEEK_ORDER` or `ORDINAL_WORD_MAP`.
   - #4, the parse result carries its own summary: the task quick-add result type exposes `hasInfo` and `summaryLabel`, so previews stop re-deriving them with an 8-way OR.
+- **Bill grammar (Q-002):** the inventory's four bill rules (`parseBillQuickAdd`, bill due cues, bill recurrence, bill amount/title) are dropped, not ported; `ParsedBill`, `BillRecurrenceFrequency` and `parseBillQuickAdd` die with `naturalLanguageService.ts` in S8. The README omits them on purpose.
+- **S1 design (2026-11-11):** one `index.ts` function per quick-add use-case (event single, event list, task), not one per grammar family; the grammar files are internal so their phrase tables can move without touching callers. The result types carry `hasInfo`/`summaryLabel` (review #4). `ParsedEvent` is re-exported because calendar's `EventFormModel` types its prefill from it.
+- **Task grammar ownership:** `src/lib/utils/taskQuickAdd.ts` is censused under tasks because its importers are Task UI, but the grammar belongs to parsing (rank 7 < tasks 9; the tasks sheet says the preview reads parsing's result type). S3 moves the grammar into `parsing.task.rules.ts` and the tasks port deletes the legacy copy; until then the legacy file and its test stay (S8 keeps unported importers working).
+- **Task priority vocabulary:** `TaskPriority` today lives in `src/lib/utils/priorityTone.ts` (tasks). Parsing cannot import tasks (R1), so `parsing.contract.ts` owns `QuickAddPriority` (the parsed value) and tasks keeps the tone mapping; tasks maps one to the other when it ports.
+- **Golden-test decisions (S2):**
+  - `confidence` is asserted as `expect.any(Number)`, not a float: it is a sum of ~80 branch increments across two thousand lines, and even the legacy tests only assert ranges. The wire key and type are pinned; the exact float is not, so a faithful port cannot fail on arithmetic ordering.
+  - Every phrase expectation is copied from a legacy assertion (`naturalLanguageService.test.ts`, its tables, or the route's own `server.test.ts`); no NLP output was derived by hand.
+  - The 429 AI cap and the plan-aware short-window fallback are not drivable from the db project: the cap needs `llmConfigured()` (a `CEREBRAS_API_KEY`) and the free-tier overflow is deliberately indistinguishable from a normal regex answer (issue 317: silent fallback, never a 429). Both are pinned today by `src/routes/api/parse-event/server.test.ts` and will be pinned in S5 (`parsing.service.db.test.ts`) through `testCtx` plus seeded billing rows, with the vendor call behind a ctx port — which is why the goldens do not cover them.
+  - There is no 401: the route is anonymous-allowed by design (Must survive), and a signed-in caller with `useCloud:false` is pinned so the anonymous/signed-in split keeps its observable shape.
+- **Probably accidental — kept as Invariants, no golden, owner question below** (all are wire-visible; pinning them would block the fix, and Q-answers are pending):
+  - "birthday" ⇒ `allDay` regardless of a stated time (`naturalLanguageService.ts:1035-1039`).
+  - Any weekday token ending in "s" reads plural, so "tues"/"thurs" turn one event weekly (`:1120,1126`). The intended plural rule is pinned by the golden for "yoga on tuesdays".
+  - `31/12` writes the literal `"Invalid DateTime"` into `date` (`:765-771`: `withRolloverYear` returns `DateTime.invalid`, `.toFormat` stringifies it) although the sweep guards `isValid`.
+  - Time rules scan the raw input, URLs included, so a clock-like substring in a link can set `startTime` (`:948-1608` vs `:483-487`).
+  - The catch-all answers `200 {…, method:"regex-fallback"}`, hiding a parse failure (`+server.ts:135-137`).
+  - `await request.json()` sits before the `try`, so a malformed body escapes as an unhandled 500 instead of the 400 shape (`+server.ts:67,96`).
+  - The multi-event shortcut runs before the cloud path, so a signed-in multi-event phrase never spends vendor money (pinned as a golden; owner question on intent).
+- **Dropped as internal (no owner question):** the claim book is consulted only by some consumers (`:505-526`; recurrence/count/reminder/time read the unmasked text). That is ticket [#112](../../archive/issues/112-parser-claims-cannot-overlap.md)'s known gap, carried as STRUCTURE work after this port, not a wire behaviour. Likewise the three duplicated date/unit tables (`dateParsing`, `taskQuickAdd`, NLP) fold into `parsing.vocabulary.rules.ts` per review #1/#5.
+
+### Questions for the owner
+
+1. **"birthday" forces an all-day event.** Context: `birthday` is treated as an all-day cue, so "birthday party at 6pm" loses its time (09:00–17:00). Options: (a) keep the noun cue; (b) only `all day`/`all-day`/`whole day` set `allDay`, so a stated time wins. Recommendation: (b), fix-in-port after S6 with the golden changed first; the Android parser must match.
+2. **Singular abbreviations read as plurals.** Context: the weekday scan treats any token ending in "s" as plural, so "tues"/"thurs" make one event weekly (`recurringByDay`), while "mon"/"wed" stay one-off. Options: (a) keep; (b) treat only full names and the canonical plural forms as plural. Recommendation: (b); keep the parse vectors in the same commit.
+3. **`MM/DD` with an impossible month writes `"Invalid DateTime"` into `date`.** Context: the primary `MM/DD` rule does not check validity, so "party 31/12" returns `date:"Invalid DateTime"` on the wire; every other impossible date is skipped. Options: (a) keep (Android may already ship the string); (b) treat it as unmatched (falls back to today, the sweep's behaviour). Recommendation: (b) as a wire-change ticket approved with Android, not folded into this port.
+4. **Time scans read URLs.** Context: a clock-like substring inside a URL can set `startTime`, though the URL is excluded from the title and date scans. Options: (a) keep; (b) run the time rules on `nonUrlText` like the date rules. Recommendation: (b), fix-in-port after S6 (golden first).
+5. **A parse failure answers 200 `regex-fallback`.** Context: the catch-all hides the failure from callers and only logs. Options: (a) keep 200 (client always gets a prefill); (b) 500 with the standard error shape. Recommendation: keep (a) for the client, but report through `ctx.faults` in the service so it is visible (no wire change).
+6. **Malformed JSON escapes as a 500.** Context: `request.json()` runs before the `try`. Options: (a) keep; (b) move it inside the boundary so it answers `400 {"error":"Input required"}` like every other bad body. Recommendation: (b), fix-in-port (wire-visible, needs Android sign-off since it turns a 500 into a 400).
+7. **Multi-event phrases bypass the cloud path for signed-in callers.** Context: segmenting locally is instant and free, so a signed-in caller's "dinner Friday and movie Saturday" never reaches the model. Options: (a) keep the shortcut first; (b) cloud-first when allowed. Recommendation: (a), and keep the golden.
 
 ## Census
 
