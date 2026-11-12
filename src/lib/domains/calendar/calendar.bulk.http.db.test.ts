@@ -33,13 +33,20 @@ const FAMILY = 'fam-riveras01';
 
 type JsonObject = Record<string, JsonValue>;
 
+/** A JSON object as a plain record (spreading the union body would keep its readonly shape). */
+function toObject(source: object): JsonObject {
+	const out: JsonObject = {};
+	for (const [key, value] of Object.entries(source)) out[key] = value;
+	return out;
+}
+
 /** The response body as an object; a non-object body says what came back instead. */
 function objectBody(res: InvokeResult): JsonObject {
 	const body = res.body;
 	if (body === null || typeof body !== 'object' || Array.isArray(body)) {
 		throw new Error(`expected a JSON object body, got: ${res.text.slice(0, 200)}`);
 	}
-	return { ...body };
+	return toObject(body);
 }
 
 function arrayField(body: JsonObject, key: string): JsonValue[] {
@@ -395,6 +402,15 @@ describe('POST /api/events/bulk', () => {
 		});
 		expect(noneEditable.status).toBe(403);
 		expect(noneEditable.body).toEqual({ error: 'No editable events matched' });
+
+		const noInstruction = await invoke(bulkEdit, {
+			ctx: ctx(),
+			user,
+			path: '/api/events/bulk',
+			body: { ids: [{ id: 'evtoneoff01' }], op: { type: 'smart' } }
+		});
+		expect(noInstruction.status).toBe(400);
+		expect(noInstruction.body).toEqual({ error: 'instruction required' });
 
 		const unknownOp = await invoke(bulkEdit, {
 			ctx: ctx(),

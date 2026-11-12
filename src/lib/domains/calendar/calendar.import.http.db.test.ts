@@ -32,13 +32,20 @@ const FAMILY = 'fam-riveras01';
 
 type JsonObject = Record<string, JsonValue>;
 
+/** A JSON object as a plain record (spreading the union body would keep its readonly shape). */
+function toObject(source: object): JsonObject {
+	const out: JsonObject = {};
+	for (const [key, value] of Object.entries(source)) out[key] = value;
+	return out;
+}
+
 /** The response body as an object; a non-object body says what came back instead. */
 function objectBody(res: InvokeResult): JsonObject {
 	const body = res.body;
 	if (body === null || typeof body !== 'object' || Array.isArray(body)) {
 		throw new Error(`expected a JSON object body, got: ${res.text.slice(0, 200)}`);
 	}
-	return { ...body };
+	return toObject(body);
 }
 
 /** A nested object field, or a failure naming it. */
@@ -46,7 +53,7 @@ function objectValue(value: JsonValue | undefined, label: string): JsonObject {
 	if (value === null || value === undefined || typeof value !== 'object' || Array.isArray(value)) {
 		throw new Error(`expected '${label}' to be an object`);
 	}
-	return { ...value };
+	return toObject(value);
 }
 
 function arrayField(body: JsonObject, key: string): JsonValue[] {
@@ -67,7 +74,11 @@ const ICS_ONE = [
 	'END:VCALENDAR'
 ].join('\r\n');
 
-/** What the preview describes for ICS_ONE (the draft the commit posts back). */
+/**
+ * What the preview describes for ICS_ONE (the draft the commit posts back).
+ * The parser initialises `recurrenceInterval` to 1 and only rewrites it from an
+ * RRULE, so a non-recurring row still carries 1 (icsImportService.ts:220,233).
+ */
 const DRAFT = {
 	title: 'Soccer practice',
 	startIso: '2026-09-29T14:00:00.000Z',
@@ -76,7 +87,7 @@ const DRAFT = {
 	location: null,
 	description: null,
 	recurrenceFrequency: null,
-	recurrenceInterval: null,
+	recurrenceInterval: 1,
 	recurrenceByDay: null,
 	recurrenceCount: null,
 	recurrenceUntil: null
@@ -372,7 +383,7 @@ describe('POST /api/import/commit', () => {
 				location: null,
 				reminderMinutes: null,
 				recurrenceFrequency: null,
-				recurrenceInterval: null,
+				recurrenceInterval: 1,
 				recurrenceByDay: null,
 				recurrenceCount: null,
 				recurrenceUntil: null

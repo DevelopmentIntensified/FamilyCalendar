@@ -161,8 +161,15 @@ Written in S1 before any code. Files are named by role (R15); every rule file st
 | `calendar.ics.http.server.ts` | http | `exportEventIcsEndpoint` (text response + attachment headers) and `listImportTargetsEndpoint`, `previewImportEndpoint`, `commitImportEndpoint`, `undoImportEndpoint`. |
 | `calendar.bulk.http.server.ts` | http | `bulkEditEventsEndpoint`. |
 | `calendar.surfaces.http.server.ts` | http | `listCalendarsEndpoint`, `printMonthEndpoint`, `searchLocationsEndpoint` (rate-limited through the endpoint's `rateLimit`). |
+
+### Client state (S7) — re-exported from `index.ts`
+
+| file | role | what goes in it |
+|---|---|---|
 | `calendar.event.state.svelte.ts` | state | The event modal's client state (create/edit/delete/duplicate, optimistic RSVP, toasts) — replaces `EventFormModel.svelte.ts`. |
 | `calendar.import.state.svelte.ts` | state | The import page's state (files, preview, selection, commit, undo, counts). |
+
+State classes are browser-side, so they are not in `index.server.ts`. `index.ts` is their door: rule R2 forbids a screen reaching into the module folder, and `ui/index.ts` is for components, so the isomorphic entry re-exports the two classes and `calendarPage` imports them from `$lib/domains/calendar` at S7.
 
 ### UI (S7) — exported from `ui/index.ts`
 
@@ -246,6 +253,7 @@ Written in S1 before any code. Files are named by role (R15); every rule file st
   - `DELETE`/`PUT` composite ids and `GET` occurrence ids are exact strings because the fixtures give their rows explicit ids.
   - Attendance arrays are asserted with `toHaveLength` + `arrayContaining`, because the legacy attendance reads have no `ORDER BY`.
 - 500s are pinned only where they are deterministic (a missing `title` on create, `title: null` on update). `apiError` files a bug report for them; `truncateAll` clears it.
+- Verification runs with `TZ=UTC` against Postgres in UTC (production parity). Two wire facts fell out of the first run and are now pinned: `POST`/`PUT` answer the raw drizzle row, so `start`/`end` are Postgres's text render (`2026-10-07 13:00:00+00`) while only the displayed reads convert to ISO; and the ICS parser leaves `recurrenceInterval` at `1` when the VEVENT has no RRULE. Both are in the README Invariants, so the port must not "clean them up".
 - The `events_changed` nudge is not asserted in the goldens: it is fire-and-forget through FCM (a no-op when unconfigured) and has no `ctx` seam yet. Its one-nudge-per-request contract is pinned by the legacy `src/routes/api/events/nudge.test.ts`, which moves to `alerts` when the push fan-out does.
 - S2 commit sha: filled by the orchestrator after it commits (this step writes no implementation).
 

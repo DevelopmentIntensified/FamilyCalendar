@@ -38,13 +38,20 @@ const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 type JsonObject = Record<string, JsonValue>;
 
+/** A JSON object as a plain record (spreading the union body would keep its readonly shape). */
+function toObject(source: object): JsonObject {
+	const out: JsonObject = {};
+	for (const [key, value] of Object.entries(source)) out[key] = value;
+	return out;
+}
+
 /** The response body as an object; a non-object body says what came back instead. */
 function objectBody(res: InvokeResult): JsonObject {
 	const body = res.body;
 	if (body === null || typeof body !== 'object' || Array.isArray(body)) {
 		throw new Error(`expected a JSON object body, got: ${res.text.slice(0, 200)}`);
 	}
-	return { ...body };
+	return toObject(body);
 }
 
 /** A nested object field, or a failure naming it. */
@@ -52,7 +59,7 @@ function objectValue(value: JsonValue | undefined, label: string): JsonObject {
 	if (value === null || value === undefined || typeof value !== 'object' || Array.isArray(value)) {
 		throw new Error(`expected '${label}' to be an object`);
 	}
-	return { ...value };
+	return toObject(value);
 }
 
 function arrayField(body: JsonObject, key: string): JsonValue[] {
@@ -340,6 +347,8 @@ describe('POST /api/events', () => {
 		});
 
 		expect(res.status).toBe(201);
+		// The response is the raw drizzle row: timestamptz columns come back in
+		// Postgres's own text render, not as ISO (mode:'string' passes it through).
 		expect(res.body).toEqual({
 			success: true,
 			event: {
@@ -347,7 +356,7 @@ describe('POST /api/events', () => {
 				calendarId: PERSONAL_CAL,
 				ownerId: user.id,
 				title: 'Dentist',
-				start: '2026-10-07T13:00:00.000Z',
+				start: '2026-10-07 13:00:00+00',
 				end: null,
 				description: null,
 				location: null,
@@ -546,8 +555,9 @@ describe('PUT /api/events/[id]', () => {
 				calendarId: PERSONAL_CAL,
 				ownerId: user.id,
 				title: 'Dentist',
-				start: START,
-				end: END,
+				// raw row again: the stored instants in Postgres's text render
+				start: '2026-10-07 13:00:00+00',
+				end: '2026-10-07 14:00:00+00',
 				description: null,
 				location: null,
 				allDay: false,
@@ -582,8 +592,8 @@ describe('PUT /api/events/[id]', () => {
 				title: 'Dentist',
 				location: 'Clinic',
 				description: 'Bring forms',
-				start: '2026-10-08T13:00:00.000Z',
-				end: '2026-10-08T14:00:00.000Z',
+				start: '2026-10-08 13:00:00+00',
+				end: '2026-10-08 14:00:00+00',
 				reminderMinutes: 30
 			})
 		});
@@ -720,13 +730,18 @@ describe('PUT /api/events/[id]', () => {
 			success: true,
 			note: 'Attendee changes apply to the whole series.'
 		});
+		// The event was seeded directly, so there is no creator RSVP row; a
+		// replace-all leaves exactly the posted guest.
 		const attendance = await testDb().select().from(eventAttendance);
-		expect(attendance).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ eventId: EVENT, userId: user.id, status: 'going' }),
-				expect.objectContaining({ eventId: EVENT, name: 'Grandma' })
-			])
-		);
+		expect(attendance).toEqual([
+			expect.objectContaining({
+				eventId: EVENT,
+				userId: null,
+				name: 'Grandma',
+				status: 'undecided',
+				inviteType: 'optional'
+			})
+		]);
 	});
 
 	it("scope 'this' on a recurring master with a bare id needs an occurrenceDate", async () => {
@@ -1191,7 +1206,7 @@ describe('GET /api/events/[id]/rsvp', () => {
 describe('POST /api/events/[id]/rsvp', () => {
 	const EVENT = 'evtoneoff01';
 
-	async function seedEvent() {
+	async function seedRsvpEvent() {
 		const user = await seedUser(testDb(), { firstName: 'Mia', lastName: 'Rivera' });
 		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
 		await seedEvent({
@@ -1217,7 +1232,7 @@ describe('POST /api/events/[id]/rsvp', () => {
 	});
 
 	it('upserts the viewer RSVP and answers the attendance (rsvpStatus carries the same rows)', async () => {
-		const user = await seedEvent();
+		const user = await seedRsvpEvent();
 
 		const res = await invoke(postRsvp, {
 			ctx: ctx(),
@@ -1252,7 +1267,7 @@ describe('POST /api/events/[id]/rsvp', () => {
 	});
 
 	it('clearing the answer stores undecided', async () => {
-		const user = await seedEvent();
+		const user = await seedRsvpEvent();
 
 		await invoke(postRsvp, {
 			ctx: ctx(),
@@ -1276,7 +1291,7 @@ describe('POST /api/events/[id]/rsvp', () => {
 	});
 
 	it("answers 400 'Invalid RSVP status' for anything outside the vocabulary", async () => {
-		const user = await seedEvent();
+		const user = await seedRsvpEvent();
 
 		const res = await invoke(postRsvp, {
 			ctx: ctx(),
@@ -1291,7 +1306,7 @@ describe('POST /api/events/[id]/rsvp', () => {
 	});
 
 	it('invites a named guest once, answering the attendance without an rsvpStatus', async () => {
-		const user = await seedEvent();
+		const user = await seedRsvpEvent();
 
 		const first = await invoke(postRsvp, {
 			ctx: ctx(),
@@ -1328,7 +1343,7 @@ describe('POST /api/events/[id]/rsvp', () => {
 	});
 
 	it("answers 400 'Guest name is required' for a blank or non-string guest", async () => {
-		const user = await seedEvent();
+		const user = await seedRsvpEvent();
 
 		for (const guest of ['   ', 5]) {
 			const res = await invoke(postRsvp, {
@@ -1344,7 +1359,7 @@ describe('POST /api/events/[id]/rsvp', () => {
 	});
 
 	it("answers 404 'Event not found' and 403 'No access to this event'", async () => {
-		await seedEvent();
+		await seedRsvpEvent();
 		const stranger = await seedUser(testDb());
 
 		const missing = await invoke(postRsvp, {
