@@ -41,6 +41,16 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [testing/vitestSetup.unit.ts](testing/vitestSetup.unit.ts) | test infra | Points `DATABASE_URL` at a closed port, so unit tests fail fast if they touch a database. | every unit run |
 | [time/clock.ts](time/clock.ts) | infra | `Clock` port, `systemClock`, `fixedClock` (set/advance). The only source of "now" (rule R5). | [clock.test.ts](time/clock.test.ts) |
 | [time/clock.test.ts](time/clock.test.ts) | test | default instant, advance/set, copy semantics | — |
+| [ui/BrandMark.svelte](ui/BrandMark.svelte) | ui | The calendar wordmark glyph, one copy (issue 095): sized by prop, `currentColor` so call sites keep their text colour, hidden from assistive tech unless given a label. | [BrandMark.svelte.test.ts](ui/BrandMark.svelte.test.ts) |
+| [ui/BrandMark.svelte.test.ts](ui/BrandMark.svelte.test.ts) | test | glyph geometry, size/class/label props | — |
+| [ui/DayNav.svelte](ui/DayNav.svelte) | ui | One date navigator for the dashboard header and the calendar toolbar (118, #119): links when given hrefs, buttons with callbacks when the caller navigates in place, and an optional leading period label inside the same pill. No `$app/*`. | [DayNav.svelte.test.ts](ui/DayNav.svelte.test.ts) |
+| [ui/DayNav.svelte.test.ts](ui/DayNav.svelte.test.ts) | test | one pill, labelled links/buttons, `aria-current`, leading segment | — |
+| [ui/MentionInput.svelte](ui/MentionInput.svelte) | ui | Textarea offering `@` suggestions from a roster prop plus the caller's optional group row; inserts the picked name as text, Escape/insert lock the list, Enter picks or submits. Props in, callbacks out; no fetch, no group words. | [MentionInput.svelte.test.ts](ui/MentionInput.svelte.test.ts) |
+| [ui/MentionInput.svelte.test.ts](ui/MentionInput.svelte.test.ts) | test | open/close, insert by Enter/Tab/click, Escape lock, submit | — |
+| [ui/colorHash.ts](ui/colorHash.ts) | rules | `nameColor` (the one #115 name hash store and contact colours take modulo their palette), `idColor` (the avatar hash, deliberately different), `initials`. | [colorHash.test.ts](ui/colorHash.test.ts) |
+| [ui/colorHash.test.ts](ui/colorHash.test.ts) | test | pinned legacy outputs per name/id, initial rules | — |
+| [ui/mentionFilter.ts](ui/mentionFilter.ts) | rules | The pure mention suggestion filter (prefix, case-insensitive, capped) plus the prop types `MentionPerson` and `MentionEveryoneOption`. | [mentionFilter.test.ts](ui/mentionFilter.test.ts) |
+| [ui/mentionFilter.test.ts](ui/mentionFilter.test.ts) | test | prefix/case/full-name matches, caps, empty cases | — |
 | [validation/validators.ts](validation/validators.ts) | rules | zod plus shared fields: `requiredText`, `optionalText`, `isoDate`, `yearMonth`, `isoInstant`, `emailAddress`, `oneOf`, `wholeNumber`, `formList`, `clampedInt`, `firstIssueMessage`, `JsonValue`. | [validators.test.ts](validation/validators.test.ts) |
 | [validation/validators.test.ts](validation/validators.test.ts) | test | one table per helper | — |
 
