@@ -12,7 +12,7 @@ Natural-language grammars: event quick-add, task quick-add (shared parse vectors
 ## Steps
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `35f105a`
+- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `8ecff4e`
 - [ ] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
