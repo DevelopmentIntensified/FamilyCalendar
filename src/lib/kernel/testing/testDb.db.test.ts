@@ -77,7 +77,7 @@ describe('truncateAll (committed mode)', () => {
 		expect(row.n).toBe(0);
 	});
 
-	it('resets in under 50 ms', async () => {
+	it('resets in under 250 ms', async () => {
 		const db = testDb();
 		const seedFiveTables = async () => {
 			const user = await seedUser(db);
@@ -105,9 +105,11 @@ describe('truncateAll (committed mode)', () => {
 			durations.push(performance.now() - started);
 		}
 
-		// Median of five, so one slow commit (checkpoint, noise) cannot fail the run.
+		// Median of five, so one slow commit (checkpoint, noise) cannot fail the run. The bound
+		// sits between this reset on a saturated machine (~110 ms) and the old TRUNCATE reset on an
+		// idle one (~500 ms): load cannot fail it, a slide back to TRUNCATE still does.
 		const median = [...durations].sort((a, b) => a - b)[2];
-		expect(median).toBeLessThan(50);
+		expect(median).toBeLessThan(250);
 
 		const counts = await Promise.all([
 			db.select({ n: count() }).from(users),
