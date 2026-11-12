@@ -9,6 +9,7 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+	calendars,
 	eventAttendance,
 	eventExceptions,
 	events,
@@ -738,11 +739,13 @@ describe('POST /api/events', () => {
 	});
 
 	// Q-043 (flip-ready), the other half: an Event created ON a family calendar
-	// is copied to `familyCals[0]` when that is a different calendar. The
-	// fixtures insert `cal-family02` first because the handler has no ORDER BY;
-	// the assertion is the count (one copy, which the fix turns into none), and
-	// the copy is never the Event's own calendar (the `familyCal.id !==
-	// calendarId` guard at `+server.ts:142`).
+	// is copied onto `familyCals[0]` — the first row of an UNORDERED select —
+	// unless that row is the Event's own calendar (`+server.ts:136-142`). Both
+	// whether a copy exists and where it lands are therefore heap facts, not
+	// contract, so the golden re-derives `[0]` with the same query and pins the
+	// RULE: own calendar → no copy; anything else → exactly one copy on it.
+	// Usual heap order puts `cal-family02` first, so the copy exists today and
+	// Q-043 (never mirror a family-calendar Event) must make this fail visibly.
 	it('mirrors an event created on another family calendar onto familyCals[0] (Q-043)', async () => {
 		const user = await seedUser(testDb(), { firstName: 'Mia' });
 		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
@@ -767,11 +770,25 @@ describe('POST /api/events', () => {
 
 		expect(res.status).toBe(201);
 		const rows = await testDb().select().from(events);
-		expect(rows).toHaveLength(2);
 		const master = rows.find((row) => row.calendarId === FAMILY_CAL);
+		expect(master).toEqual(expect.objectContaining({ title: 'Practice', mirrorOf: null }));
 		const mirrors = rows.filter((row) => row.mirrorOf !== null);
+
+		// The handler's own pick, read the same way: no ORDER BY.
+		const [firstFamilyCalendar] = await testDb()
+			.select()
+			.from(calendars)
+			.where(eq(calendars.familyId, FAMILY));
+
+		if (firstFamilyCalendar?.id === FAMILY_CAL) {
+			// The pick landed on the Event's own calendar: the guard skips the copy.
+			expect(rows).toHaveLength(1);
+			expect(mirrors).toEqual([]);
+			return;
+		}
+		expect(rows).toHaveLength(2);
 		expect(mirrors).toHaveLength(1);
-		expect(mirrors[0]?.calendarId).toBe('cal-family02');
+		expect(mirrors[0]?.calendarId).toBe(firstFamilyCalendar?.id);
 		expect(mirrors[0]?.mirrorOf).toBe(master?.id);
 		expect(mirrors[0]?.title).toBe('Practice');
 	});

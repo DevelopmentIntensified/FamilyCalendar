@@ -372,7 +372,9 @@ describe('POST /api/import/preview', () => {
 						endIso: '2026-10-05T19:00:00.000Z',
 						key: 'e0',
 						fileName: 'kids.ics',
-						whenText: 'Mon, Oct 5, 2026 · 2:00 PM–3:00 PM',
+						// No settings row, so the preview renders in UTC: the 18:00Z
+						// instant reads 6:00 PM (icsImportFlow.ts:283-285).
+						whenText: 'Mon, Oct 5, 2026 · 6:00 PM–7:00 PM',
 						duplicate: false,
 						duplicateReason: null
 					},
