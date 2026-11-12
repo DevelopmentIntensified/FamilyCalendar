@@ -31,12 +31,11 @@ import {
 import { GET as getPushPublicKey } from '../../../routes/api/push/public-key/+server';
 import { POST as postPushSubscribe } from '../../../routes/api/push/subscribe/+server';
 import { POST as postPushUnsubscribe } from '../../../routes/api/push/unsubscribe/+server';
+import { seedAlert, seedAlertPreferencesRow, seedDeviceToken } from './alerts.fixtures.server';
 
 const ctx = () => testCtx({ db: testDb() });
 
-type AlertInsert = typeof notifications.$inferInsert;
 type AlertRow = typeof notifications.$inferSelect;
-type SubscriptionMethods = typeof subscriptions.$inferInsert.notificationMethods;
 /** A refused input: a parsed body, or raw text for unparseable JSON. */
 type BadBody = { label: string; body?: JsonValue; raw?: string };
 
@@ -45,41 +44,8 @@ const ENDPOINT = 'https://push.example.test/subscription/1';
 
 beforeEach(truncateAll);
 
-async function seedAlert(overrides: Partial<AlertInsert> & { userId: string }): Promise<AlertRow> {
-	const [row] = await testDb()
-		.insert(notifications)
-		.values({
-			type: 'task_completed',
-			actorName: 'Sam',
-			message: 'completed the bins',
-			...overrides
-		})
-		.returning();
-	return row;
-}
-
 async function readAlerts(userId: string): Promise<AlertRow[]> {
 	return testDb().select().from(notifications).where(eq(notifications.userId, userId));
-}
-
-async function seedDeviceToken(userId: string, token: string): Promise<void> {
-	await testDb().insert(deviceTokens).values({ userId, token });
-}
-
-async function seedSubscription(
-	userId: string,
-	notificationMethods: SubscriptionMethods,
-	overrides: Partial<typeof subscriptions.$inferInsert> = {}
-): Promise<void> {
-	await testDb()
-		.insert(subscriptions)
-		.values({
-			userId,
-			notificationMethods,
-			subscriptionTypeId: null,
-			endDate: new Date('9999-12-31T00:00:00.000Z'),
-			...overrides
-		});
 }
 
 /** The four switches exactly as the account page declares them. */
@@ -393,7 +359,6 @@ describe('POST /api/notifications', () => {
 	});
 
 	const invalidBodies: BadBody[] = [
-		{ label: 'an array body', body: [] },
 		{ label: 'a string body', body: 'tasks' },
 		{ label: 'a null body', body: null },
 		{ label: 'malformed JSON', raw: '{' },
@@ -414,24 +379,29 @@ describe('POST /api/notifications', () => {
 		}
 	);
 
-	it.each([
+	const badActions: { label: string; body: JsonValue }[] = [
 		{ label: 'no action at all', body: {} },
+		{ label: 'an empty array body', body: [] },
 		{ label: 'an empty id', body: { id: '' } },
 		{ label: 'a non-string id', body: { id: 42 } },
 		{ label: 'a null id', body: { id: null } },
 		{ label: 'all as a string', body: { all: 'true' } },
 		{ label: 'pruneRead as a string', body: { pruneRead: 'yes' } }
-	])('answers 400 {"error":"Notification id is required"} for $label', async ({ body }) => {
-		const user = await seedUser(testDb());
-		const res = await invoke(postNotifications, {
-			ctx: ctx(),
-			user,
-			path: '/api/notifications',
-			body
-		});
-		expect(res.status).toBe(400);
-		expect(res.body).toEqual({ error: 'Notification id is required' });
-	});
+	];
+	it.each(badActions)(
+		'answers 400 {"error":"Notification id is required"} for $label',
+		async ({ body }) => {
+			const user = await seedUser(testDb());
+			const res = await invoke(postNotifications, {
+				ctx: ctx(),
+				user,
+				path: '/api/notifications',
+				body
+			});
+			expect(res.status).toBe(400);
+			expect(res.body).toEqual({ error: 'Notification id is required' });
+		}
+	);
 
 	it('answers 401 {"error":"Unauthorized"} when signed out', async () => {
 		const res = await invoke(postNotifications, {
@@ -648,14 +618,15 @@ describe('DELETE /api/devices', () => {
 		expect(res.body).toEqual({ error: "platform must be 'android'" });
 	});
 
-	it.each([
+	const badDeleteBodies: { label: string; body: JsonValue; error: string }[] = [
 		{ label: 'a missing token', body: {}, error: 'token is required' },
 		{
 			label: 'a token over 4096 characters',
 			body: { token: 'x'.repeat(4097) },
 			error: 'token is too long'
 		}
-	])('answers 400 for $label', async ({ body, error }) => {
+	];
+	it.each(badDeleteBodies)('answers 400 for $label', async ({ body, error }) => {
 		const user = await seedUser(testDb());
 		const res = await invoke(deleteDevice, {
 			ctx: ctx(),
@@ -913,7 +884,7 @@ describe.skipIf(!preferencesRoute)(
 		it('reads the stored switches of the newest unexpired row', async () => {
 			if (!preferencesRoute) throw new Error('preferences route did not load');
 			const user = await seedUser(testDb());
-			await seedSubscription(
+			await seedAlertPreferencesRow(
 				user.id,
 				{
 					email: true,
@@ -927,7 +898,7 @@ describe.skipIf(!preferencesRoute)(
 				},
 				{ createdAt: new Date('2026-01-01T00:00:00.000Z') }
 			);
-			await seedSubscription(
+			await seedAlertPreferencesRow(
 				user.id,
 				{
 					email: false,
@@ -963,7 +934,7 @@ describe.skipIf(!preferencesRoute)(
 		it('ignores an expired row and falls back to the defaults', async () => {
 			if (!preferencesRoute) throw new Error('preferences route did not load');
 			const user = await seedUser(testDb());
-			await seedSubscription(
+			await seedAlertPreferencesRow(
 				user.id,
 				{
 					email: true,
@@ -1029,7 +1000,7 @@ describe.skipIf(!preferenceRoute)(
 		it('keeps the legacy {email,sms} half of the row untouched', async () => {
 			if (!preferenceRoute) throw new Error('preference route did not load');
 			const user = await seedUser(testDb());
-			await seedSubscription(user.id, { email: true, sms: true });
+			await seedAlertPreferencesRow(user.id, { email: true, sms: true });
 
 			const res = await invoke(preferenceRoute.PUT, {
 				ctx: ctx(),
@@ -1114,12 +1085,13 @@ describe.skipIf(!preferenceRoute)(
 			expect(await testDb().select().from(subscriptions)).toHaveLength(0);
 		});
 
-		it.each([
+		const badValues: { label: string; body: JsonValue }[] = [
 			{ label: 'a missing value', body: {} },
 			{ label: 'a string value', body: { value: 'true' } },
 			{ label: 'a null value', body: { value: null } },
 			{ label: 'a numeric value', body: { value: 1 } }
-		])(
+		];
+		it.each(badValues)(
 			'answers 400 {"error":"Notification preference value is required"} for $label',
 			async ({ body }) => {
 				if (!preferenceRoute) throw new Error('preference route did not load');

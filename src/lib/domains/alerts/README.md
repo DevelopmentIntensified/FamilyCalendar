@@ -18,6 +18,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [index.server.ts](index.server.ts) | entry | Public server interface: the Alert/preference/device/push use-cases and this module's `endpoint()` handlers. | — |
 | [ui/index.ts](ui/index.ts) | entry | Public components: the bell, the feed, its rows and toolbar, the push toggle. | — |
 | [alerts.http.db.test.ts](alerts.http.db.test.ts) | test | Golden contract tests for every `/api` route the module owns. The two preference routes are spec goldens: their legacy handlers import `$env/static/private`, so they are loaded dynamically and skip until S6 removes that import. | — |
+| [alerts.fixtures.server.ts](alerts.fixtures.server.ts) | fixtures | Row builders for this module's db tests: an Alert, a device token, a preference row (tierless and unexpired). They insert directly because a real Alert write fires push. | — |
 
 ## Public interface
 
@@ -47,7 +48,7 @@ Designed in S1; every name below lands in one of the three entry files. Everythi
 - HTTP contract: `alerts.http.db.test.ts` runs in committed mode (`beforeEach(truncateAll)`) and pins status + full body of every endpoint. The two `/api/me/notification-preferences` describes are marked `golden from spec`: their legacy route imports `accountData → sendEmail → $env/static/private`, so the file imports them dynamically and skips today; they run unedited from S6 on.
 - Push never runs in tests: no `/api` route sends push, and the service tests drive the channel seam with fakes. FCM and web-push are never contacted.
 - UI: `ui/*.svelte.test.ts` render with props; the state classes are tested without a DOM.
-- Fixtures (S4): `alerts.fixtures.server.ts` — `seedAlert`, `seedPushSubscription`, `seedDeviceToken`, `seedPreferencesRow`.
+- Fixtures: `alerts.fixtures.server.ts` — `seedAlert`, `seedDeviceToken`, `seedAlertPreferencesRow` (direct inserts, never through the services, so no push is sent).
 
 ## Invariants
 
@@ -62,7 +63,7 @@ Behaviour that must not change. Wire rules name the golden in `alerts.http.db.te
 - Mark-read and mark-all are scoped to the caller's `userId`; mark-all touches only `readAt IS NULL` rows — `src/lib/server/db/actions/notifications.ts:61` — `POST /api/notifications › marks one row read, scoped to the caller`, `› marks every unread row read, scoped to the caller`, `› does not mark another persons row read`, `› is visible in the next GET: the row is read and the unread count drops`.
 - Pruning deletes only read rows and returns the count; unread Alerts are never pruned — `src/lib/server/db/actions/notifications.ts:81` — `POST /api/notifications › prunes only the caller read rows and returns the count`.
 - The feed's write actions are ordered `all` → `pruneRead` → `id`; an unknown id is a silent no-op with `200 {success:true}` — `src/routes/api/notifications/+server.ts:40` — `POST /api/notifications › lets {all:true} win over {pruneRead:true}`, `› answers {success:true} for an unknown id and changes nothing`.
-- `POST /api/notifications` refusals are exactly `Invalid request body` (non-object) and `Notification id is required` (no action) — `src/routes/api/notifications/+server.ts:46,66` — the two `400` goldens in `POST /api/notifications`.
+- `POST /api/notifications` answers `Invalid request body` only for a string, `null`, malformed JSON or empty body (the `isNotificationBody` guard is `typeof value === 'object' && value !== null`, so an array passes it and reaches the id check); an object with no usable action answers `Notification id is required` — `src/routes/api/notifications/+server.ts:29-33,46,66` — the `Invalid request body` and `Notification id is required` goldens in `POST /api/notifications` (the id-required table includes an empty array).
 - Creating an Alert inserts, then fires a push with title = actor name, body = message and tap target `link` (default `/calendar/tasks`) without awaiting it; a failed write is logged, never thrown — `src/lib/server/db/actions/notifications.ts:6` — `alerts.service.db.test.ts › logs a failed Alert write instead of failing the caller` (S5). Push is not contactable in tests; the row and the channel seam are asserted.
 - The weekly cron prunes read Alerts older than 90 days; unread Alerts stay forever. The cutoff is the `app` cron's 90-day constant, the delete is this module's `pruneReadAlertsOlderThan` — `src/lib/server/db/actions/notifications.ts:94`; `src/routes/api/cron/cleanup/+server.ts:15,41` — `alerts.service.db.test.ts › prunes only read Alerts before the cutoff` (S5).
 - Preference switches are four, in this order: Task assigned to me (In-app and push, on), Task completed (In-app and push, on), Someone joined the family (In-app only, off), AI event suggestions (Uses your AI allowance, on) — `src/lib/components/account/accountNotifications.ts:37` — `GET /api/me/notification-preferences › answers the four defaults for an account with no subscription row, and writes nothing` (spec golden) and `alerts.preferences.rules.test.ts › keeps the approved order and the one off-by-default` (S3).
