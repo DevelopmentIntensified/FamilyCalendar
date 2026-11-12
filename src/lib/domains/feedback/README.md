@@ -14,7 +14,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 
 | file | role | what it does — and why it exists | tested by |
 |---|---|---|---|
-| [index.ts](index.ts) | entry | Public isomorphic interface: contract types, the area/source vocabularies and labels, phrase normalization, the reported-path rule (issue 257) and the two register exporters. | `feedback.rules.test.ts`, `feedback.export.rules.test.ts` |
+| [index.ts](index.ts) | entry | Public isomorphic interface: the three contract types (`BugArea`, `UnmatchedSource`, `FeedbackKind`), `reportBugHref` and the two register exporters. The vocabularies and their labels, phrase normalization, `safeReportedPath` and the display reductions stay module-internal in `feedback.rules.ts` / `feedback.export.rules.ts`. | `feedback.rules.test.ts`, `feedback.export.rules.test.ts` |
 | [index.server.ts](index.server.ts) | entry | Public server interface: the services (`fileBugReport`, `fileAutoBugReport`, `reportUnmatchedPhrase`, `listFeedback`, `resolveFeedback`, `countOpenFeedback`, `pruneResolvedFeedback`), the six `/api` endpoint handlers and the `/report-bug` page handlers. | `feedback.service.db.test.ts`, [feedback.http.db.test.ts](feedback.http.db.test.ts) |
 | [ui/index.ts](ui/index.ts) | entry | Public components: the bug report form, one feedback register (open + resolved) and the export widget. | `ui/*.svelte.test.ts` |
 | [feedback.http.db.test.ts](feedback.http.db.test.ts) | test | Golden `/api` contract for the six routes: status, full body, error copy, absent-vs-null, rate limits and the rows written. Runs committed, driving the legacy route modules, so it must stay unchanged after S6. | — |
@@ -26,12 +26,8 @@ Planned by the port (S3–S7; not created yet): `feedback.contract.ts`, `feedbac
 Everything other modules and routes may use, grouped by entry file. One line each: `name` — what it does.
 
 - `index.ts`:
-  - `BUG_AREAS` / `type BugArea` — the closed, ordered area list (calendar, tasks, account, payments, dashboard, other). Inlining it into the endpoint, the form and the exporter is what produced three drifting copies in legacy.
-  - `BUG_AREA_LABEL` / `UNMATCHED_SOURCE_LABEL` — the one label map; the export text is wire (`GET /api/admin/**`), so the labels cannot fork.
-  - `type UnmatchedSource`, `type FeedbackKind` (`'bug' | 'phrase'`) — the two closed vocabularies the services switch on.
-  - `normalizePhrase(phrase)` — lowercase, collapse whitespace, trim, cap 280: the dedup key of an unmatched phrase.
-  - `safeReportedPath(raw, origin?)` / `reportBugHref(currentPath)` — issue 257: the reported page must be the page the bug was on, not `/report-bug`; rejects other origins, `//`, `/\`, bare paths, `javascript:` and the form itself.
-  - `matchedSummary(matched)` / `reporterName(row)` — the two display reductions used by the register pages and the exports.
+  - `type BugArea`, `type UnmatchedSource`, `type FeedbackKind` (`'bug' | 'phrase'`) — the three closed vocabularies the services, the endpoints and the register switch on.
+  - `reportBugHref(currentPath)` — issue 257: the "report this page" link, carrying the current page as `from` (or `/report-bug` when there is no usable page).
   - `formatBugReportsExport(open)` / `formatUnmatchedPhrasesExport(open)` — the agent-ready text; lives here because the API and the page must produce byte-identical text.
 - `index.server.ts`:
   - `fileBugReport(ctx, actor, input)` — validate, trim/cap, store a user-filed report; the one write path for both `POST /api/bug-report` and the `/report-bug` action.
@@ -39,14 +35,18 @@ Everything other modules and routes may use, grouped by entry file. One line eac
   - `reportUnmatchedPhrase(ctx, actor, input)` — normalize + upsert on `(source, phrase)`; never fails the caller.
   - `listFeedback(ctx, actor, kind)` — one admin register as `{ open, resolved }`; the admin gate lives here, so the screen cannot forget it.
   - `resolveFeedback(ctx, actor, kind, id)` — close one row of either register; `kind` picks the 404 copy.
-  - `countOpenFeedback(ctx)` — `{ bugs, phrases }` open counts for the admin nav badge (one call, two counts).
+  - `countOpenFeedback(ctx)` — `{ bugs, phrases }` open counts for the admin nav badge (one call, two counts). The admin layout (the caller) owns the degrade-to-zero guard: a failing count renders 0, as legacy `guard('admin-counts', 0, …)` did (`src/lib/server/services/adminData.ts:36-37`), so the badge never fails the page.
   - `pruneResolvedFeedback(ctx, cutoff)` — 180-day retention for both tables; called by the cleanup cron in `app`.
-  - `submitBugReportEndpoint`, `reportUnmatchedPhraseEndpoint`, `listBugReportsEndpoint`, `listUnmatchedPhrasesEndpoint`, `resolveBugReportEndpoint`, `resolveUnmatchedPhraseEndpoint` — the six route handlers; one name per route keeps the routes wiring-only (R8) and the names unique (R10).
+  - `submitBugReportEndpoint`, `reportUnmatchedPhraseEndpoint`, `listBugReportsEndpoint`, `listUnmatchedPhrasesEndpoint`, `resolveBugReportEndpoint`, `resolveUnmatchedPhraseEndpoint` — the six route handlers; one name per route keeps the routes wiring-only (R8) and the names unique (R11).
   - `reportBugPageLoad` / `submitBugReportAction` — the `/report-bug` page's load (302 to `/login` when signed out, resolves `from`) and its `fail(…)` action.
 - `ui/index.ts`:
   - `ReportBugForm` — area select, description, hidden `from`, inline error, pending submit; takes data and a submit callback.
   - `FeedbackRegister` — one register: open items (cards for bugs, tables per source for phrases) plus a collapsible Resolved list and a resolve callback.
   - `FeedbackExport` — the readonly export textarea with Copy and Download, and the two toasts (copied / select-and-copy).
+
+Module-internal, exported from no entry file: `BUG_AREAS`, `isBugArea`, `isUnmatchedSource`, `normalizePhrase`, `safeReportedPath` and `BUG_AREA_LABEL` / `UNMATCHED_SOURCE_LABEL` in `feedback.rules.ts`; `matchedSummary` / `reporterName` in `feedback.export.rules.ts`. No other module or route calls them — the services and the exporters are their only callers — so they stay internal, each tested by the `*.test.ts` next to its stem.
+
+Two label sets, two homes, on purpose: the plain `BUG_AREA_LABEL` set (`calendar: 'Calendar'`, `tasks: 'Tasks'`, …) serves the export text and the register chips, and lives in `feedback.rules.ts` because the export is wire; the `/report-bug` select uses its own friendlier labels (`calendar: 'Calendar / events'`, `account: 'Account / settings'`, `payments: 'Payments / subscription'`, `other: 'Something else'`), which live in `ui/ReportBugForm.svelte` because they are only ever read by a person. Neither set may be used for the other purpose.
 
 ## How to test
 
@@ -78,7 +78,7 @@ Behaviour that must not change, each with the test that pins it (`file › test 
 - Both exports cover **open items only** and the empty register still prints the header and `Open: 0`: bug reports render `[Area] description  (page: <url or n/a> · <YYYY-MM-DD HH:MM>)` with newlines collapsed and never a reporter name; phrases group by source as `## <Source> (N)` with `"phrase" — Nx, first seen YYYY-MM-DD` (+ ` matched: <json>`) and a `Open: N unique (M occurrences)` header — `src/lib/admin/export.ts:136-193` — `feedback.http.db.test.ts › lists open and resolved reports …`, `› lists open and resolved phrases …`, `› answers an empty register and an empty export` (both registers).
 - `POST /api/admin/bugs/[id]/resolve` answers `200 {success, report}` with `status:"resolved"` and `resolvedAt` now, `404 {"error":"Bug report not found"}` for an unknown id — `src/routes/api/admin/bugs/[id]/resolve/+server.ts:7-12`, `src/lib/server/db/actions/bugReports.ts:79-86` — `feedback.http.db.test.ts › marks the report resolved and returns the updated row`, `› answers 404 {"error":"Bug report not found"} for an unknown id`.
 - Resolving an already-resolved report answers 200 again and moves `resolvedAt` forward — `src/lib/server/db/actions/bugReports.ts:82` — `feedback.http.db.test.ts › answers 200 for an already-resolved report and re-stamps resolvedAt (Q-007)`; question [Q-007](../../../../docs/rewrite/questions.md).
-- `POST /api/admin/nlp/[id]/resolve` answers `200 {success, phrase}` with `resolved:true`, `404 {"error":"Phrase not found"}`, and a second resolve is a 200 no-op — `src/routes/api/admin/nlp/[id]/resolve/+server.ts:7-12`, `src/lib/server/db/actions/unmatchedPhrases.ts:93-100` — `feedback.http.db.test.ts › marks the phrase resolved and returns the updated row`, `› answers 404 {"error":"Phrase not found"} for an unknown id`, `› answers 200 again for an already-resolved phrase`.
+- `POST /api/admin/nlp/[id]/resolve` answers `200 {success, phrase}` with `resolved:true`, `404 {"error":"Phrase not found"}`, and a second resolve answers 200 again while re-stamping `updatedAt` — the column's `$onUpdate` runs in every UPDATE — which moves the phrase's retention anchor with it — `src/routes/api/admin/nlp/[id]/resolve/+server.ts:7-12`, `src/lib/server/db/actions/unmatchedPhrases.ts:93-100`, `src/lib/server/db/schema.ts:1033-1036` — `feedback.http.db.test.ts › marks the phrase resolved and returns the updated row`, `› answers 404 {"error":"Phrase not found"} for an unknown id`, `› answers 200 again for an already-resolved phrase`, `› re-stamps updatedAt when an already-resolved phrase is resolved again (Q-007)`; question [Q-007](../../../../docs/rewrite/questions.md).
 
 **Domain rules (pinned by the S3/S5 tests named here)**
 
@@ -106,4 +106,4 @@ Behaviour that must not change, each with the test that pins it (`file › test 
 - Owns tables: `bugReports`, `unmatchedPhrases`.
 - Reads (join only): `users` — the reporter's first/last name on the bug register.
 - Calls: kernel only — `clock`, `ids`, `limiter`, the http builders, `AppError`, and (after K-06) the `kernel/time` date helpers the exports need. No other module's services.
-- Called by: `app` (`Ctx.faults` → `fileAutoBugReport`, cleanup cron → `pruneResolvedFeedback`), `admin` screen (`listFeedback`, `countOpenFeedback`, `resolveFeedback`, export rules, the register/export components), `shell` (`Navbar`, `+error` → `reportBugHref`), `parsing` and `calendarPage` (browser → `reportUnmatchedPhrase`), and the `/api/bug-report`, `/api/report-phrase`, `/api/admin/**` and `/report-bug` route files.
+- Called by: `app` (`Ctx.faults` → `fileAutoBugReport`, cleanup cron → `pruneResolvedFeedback`), `admin` screen (`listFeedback`, `countOpenFeedback` — under its own degrade-to-zero guard — `resolveFeedback`, the two `format*Export` text builders, and the register/export components), `shell` (`Navbar`, `+error` → `reportBugHref`), `parsing` and `calendarPage` (browser → `reportUnmatchedPhrase`), and the `/api/bug-report`, `/api/report-phrase`, `/api/admin/**` and `/report-bug` route files.

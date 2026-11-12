@@ -12,7 +12,7 @@ Bug reports (user-filed and auto-filed faults), unmatched NLP phrases, the admin
 ## Steps
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `________`
+- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `2ec6835`
 - [ ] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
@@ -134,13 +134,13 @@ Every new file lives in `src/lib/domains/feedback/`. Roles follow [conventions.m
 | `autoBugReport.shouldFileAutoReport`, `__resetAutoReportThrottle` | Die with the module-scope `Map`; the 10-minute window becomes `ctx.limiter.allow(key, 1, 10 * 60 * 1000)`. |
 | `apiError` (5xx auto-file) | Dies: `endpoint()` files faults through `Ctx.faults`, wired to `fileAutoBugReport` in `app`. |
 | `adminData.isAdminUser` / `requireAdminJson` | Dies: `endpoint({ auth: 'admin' })` (401 / 403 with the same bodies). |
-| `adminData.loadAdminCounts` | `countOpenFeedback(ctx)`. |
+| `adminData.loadAdminCounts` | `countOpenFeedback(ctx)`; the admin layout (the caller) owns the degrade-to-zero guard — a failing count renders 0, as legacy `guard('admin-counts', 0, …)` did (`src/lib/server/services/adminData.ts:36-37`). |
 | `adminData.loadBugReports` / `loadUnmatchedPhrases` | `listFeedback(ctx, actor, kind)`. |
 | `admin/export.matchedSummary`, `reporterName`, `format*Export` | `feedback.export.rules.ts`. |
 | `admin/export.isoDate`, `humanDate`, `pad`, `groupBy` | `kernel/time` (K-06) / inlined into the exporters; no second date formatter. |
 | `admin/export.downloadAsTxt` | `ui/FeedbackExport.svelte` (one caller). |
 | `admin/AdminExport.svelte` | `ui/FeedbackExport.svelte`. |
-| `utils/reportBug.ts` | `feedback.rules.ts`, re-exported from `index.ts` (`shell` keeps calling it). |
+| `utils/reportBug.ts` | `feedback.rules.ts`; only `reportBugHref` is re-exported from `index.ts` (`shell` keeps calling it), `safeReportedPath` stays module-internal. |
 | `/report-bug` `load` + `submit` action | `reportBugPageLoad` / `submitBugReportAction` in `feedback.http.server.ts`. |
 | `/report-bug` page | Route file wires `ui/ReportBugForm` (S7). |
 | `/admin/bugs`, `/admin/nlp` pages + actions | Move to the `admin` screen; they compose `listFeedback` / `resolveFeedback` / `countOpenFeedback`, `FeedbackRegister` and `FeedbackExport`. |

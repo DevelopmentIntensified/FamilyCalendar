@@ -52,6 +52,20 @@ function exportTextOf(body: unknown): string {
 	return text;
 }
 
+/** The `phrase.updatedAt` the phrase-resolve route echoes back. */
+function phraseUpdatedAtOf(body: unknown): string {
+	if (typeof body !== 'object' || body === null || !('phrase' in body)) {
+		throw new Error('expected a {success, phrase} body');
+	}
+	const { phrase } = body;
+	if (typeof phrase !== 'object' || phrase === null || !('updatedAt' in phrase)) {
+		throw new Error('expected phrase.updatedAt in the body');
+	}
+	const stamp = phrase.updatedAt;
+	if (typeof stamp !== 'string') throw new Error('expected phrase.updatedAt in the body');
+	return stamp;
+}
+
 function first<T>(rows: readonly T[]): T {
 	const [row] = rows;
 	if (row === undefined) throw new Error('expected at least one row');
@@ -872,5 +886,42 @@ describe('POST /api/admin/nlp/[id]/resolve', () => {
 				updatedAt: isoStamp()
 			}
 		});
+	});
+
+	it('re-stamps updatedAt when an already-resolved phrase is resolved again (Q-007)', async () => {
+		const admin = await seedUser(testDb(), { roles: ['admin'] });
+		// A fixed past instant makes the re-stamp observable: `unmatchedPhrases.updatedAt`
+		// carries `$onUpdate(() => new Date())`, which Drizzle puts in every UPDATE.
+		const seededAt = new Date('2026-01-01T00:00:00.000Z');
+		const [phrase] = await testDb()
+			.insert(unmatchedPhrases)
+			.values({
+				source: 'event_parse',
+				phrase: 'call mom',
+				sample: 'call mom',
+				count: 4,
+				resolved: true,
+				createdAt: seededAt,
+				updatedAt: seededAt
+			})
+			.returning();
+		const res = await invoke(postResolvePhrase, {
+			ctx: ctx(),
+			user: admin,
+			method: 'POST',
+			path: `/api/admin/nlp/${phrase.id}/resolve`,
+			params: { id: phrase.id }
+		});
+		expect(res.status).toBe(200);
+		expect(res.body).toMatchObject({
+			success: true,
+			phrase: { id: phrase.id, resolved: true, updatedAt: isoStamp() }
+		});
+		expect(Date.parse(phraseUpdatedAtOf(res.body))).toBeGreaterThan(seededAt.getTime());
+		const row = first(
+			await testDb().select().from(unmatchedPhrases).where(eq(unmatchedPhrases.id, phrase.id))
+		);
+		expect(row.resolved).toBe(true);
+		expect(row.updatedAt.getTime()).toBeGreaterThan(seededAt.getTime());
 	});
 });
