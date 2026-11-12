@@ -500,6 +500,35 @@ describe('POST /api/taskfocus/sessions', () => {
 		expect(await db.select().from(taskfocusSessions)).toEqual([]);
 	});
 
+	it('accepts a start exactly 5 minutes ahead and a span of exactly 12 hours (both bounds inclusive)', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
+		const at = Date.now();
+
+		const fiveAhead = await invoke(postSession, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/taskfocus/sessions',
+			method: 'POST',
+			body: { taskId: task.id, startedAt: new Date(at + 5 * MINUTE).toISOString() }
+		});
+		expect(fiveAhead.status).toBe(201);
+
+		const twelveHours = await invoke(postSession, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/taskfocus/sessions',
+			method: 'POST',
+			body: {
+				taskId: task.id,
+				startedAt: new Date(at - 13 * HOUR).toISOString(),
+				endedAt: new Date(at - HOUR).toISOString()
+			}
+		});
+		expect(twelveHours.status).toBe(201);
+	});
+
 	const badSessionBodies: {
 		label: string;
 		body: (taskId: string, startedAt: string) => JsonValue;
