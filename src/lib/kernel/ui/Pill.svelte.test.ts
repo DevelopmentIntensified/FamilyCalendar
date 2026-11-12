@@ -31,6 +31,27 @@ describe('Pill', () => {
 		expect(screen.getByText('Done')).toHaveClass('bg-emerald-100', 'text-emerald-700');
 	});
 
+	it('keeps a category teal, never tag-coloured (#280)', () => {
+		const { unmount } = render(Pill, {
+			props: { tone: 'category', testid: 'category-chip', children: label('school') }
+		});
+		expect(screen.getByTestId('category-chip')).toHaveClass('bg-teal-100', 'text-teal-800');
+		unmount();
+
+		render(Pill, { props: { tone: 'categoryMuted', children: label('school') } });
+		expect(screen.getByText('school')).toHaveClass('bg-teal-100/60', 'text-teal-700/70');
+	});
+
+	it('uses the TaskDetailModal indigo for the Family span', () => {
+		render(Pill, { props: { tone: 'family', children: label('Family') } });
+		expect(screen.getByText('Family')).toHaveClass('bg-indigo-100', 'text-indigo-700');
+	});
+
+	it('uses the orange count pill for the done count', () => {
+		render(Pill, { props: { tone: 'doneCount', children: label('🔥 3×') } });
+		expect(screen.getByText('🔥 3×')).toHaveClass('bg-orange-100', 'text-orange-600');
+	});
+
 	it('passes the title through for the hover hint', () => {
 		render(Pill, { props: { title: 'Category: school', children: label('school') } });
 		expect(screen.getByText('school')).toHaveAttribute('title', 'Category: school');

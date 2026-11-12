@@ -9,7 +9,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 - **Owns:** the dependency bag (`Ctx`) and caller identity (`Actor`); the one error type; boundary validation; the HTTP builders (`endpoint`, `pageLoad`, `formAction`); clock, ids and hashing; the rate limiter; structured logs; db/transaction helpers; the test harness.
 - **Does not own:** any business rule. Something like "who may edit a task" belongs in the module that owns the concept (`tasks`), even when several modules need it.
 - **Also owns:** the shared UI primitives in `kernel/ui` (sheet, confirm action, pill, skeleton, toaster). Screens and domains import them by path; they never import a domain or `$app/*`.
-- **Later kernel tasks** (see [LEDGER](../../../docs/rewrite/LEDGER.md)) add the rest of the shared primitives: brand mark, day nav, mention input, colour hashes.
+- **Later kernel tasks** (see [LEDGER](../../../docs/rewrite/LEDGER.md)) add the rest of the platform: the api client, the toast store and date formatting (K-06/K-07), then the remaining shared primitives — brand mark, day nav, mention input, colour hashes.
 
 ## Files
 
@@ -42,16 +42,16 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [testing/vitestSetup.unit.ts](testing/vitestSetup.unit.ts) | test infra | Points `DATABASE_URL` at a closed port, so unit tests fail fast if they touch a database. | every unit run |
 | [time/clock.ts](time/clock.ts) | infra | `Clock` port, `systemClock`, `fixedClock` (set/advance). The only source of "now" (rule R5). | [clock.test.ts](time/clock.test.ts) |
 | [time/clock.test.ts](time/clock.test.ts) | test | default instant, advance/set, copy semantics | — |
-| [ui/ConfirmAction.svelte](ui/ConfirmAction.svelte) | component | Two-step destructive control: first click asks, cancel returns, confirm fires once. Folds the eight legacy copies. | [ConfirmAction.svelte.test.ts](ui/ConfirmAction.svelte.test.ts) |
-| [ui/ConfirmAction.svelte.test.ts](ui/ConfirmAction.svelte.test.ts) | test | ask → cancel → confirm, caller labels/testid, disabled | — |
-| [ui/Pill.svelte](ui/Pill.svelte) | component | The one rounded chip for tags, categories and status words, with the legacy tone colours. | [Pill.svelte.test.ts](ui/Pill.svelte.test.ts) |
-| [ui/Pill.svelte.test.ts](ui/Pill.svelte.test.ts) | test | base shape, neutral default, tone colours, title hint | — |
-| [ui/Sheet.svelte](ui/Sheet.svelte) | component | Modal / bottom-sheet shell: focus trap, Esc, backdrop close, swipe-down close, parent-owned `open`. Folds `EventModalShell` + `BottomSheetHandle`. | [Sheet.svelte.test.ts](ui/Sheet.svelte.test.ts) |
-| [ui/Sheet.svelte.test.ts](ui/Sheet.svelte.test.ts) | test | closed/open, Esc, backdrop vs inside click, footer, swipe, focus return | — |
+| [ui/ConfirmAction.svelte](ui/ConfirmAction.svelte) | component | Two-step destructive control: first click asks (`ask`, default `${label}?`), cancel returns, confirm fires once; focus moves to Cancel while asking and back to the trigger after. Optional `testid` (`-confirm`/`-cancel` on the buttons). Folds the five legacy copies. | [ConfirmAction.svelte.test.ts](ui/ConfirmAction.svelte.test.ts) |
+| [ui/ConfirmAction.svelte.test.ts](ui/ConfirmAction.svelte.test.ts) | test | ask → cancel → confirm, custom/default ask copy, focus round-trip, caller labels/testid, disabled | — |
+| [ui/Pill.svelte](ui/Pill.svelte) | component | The one rounded chip for tags, categories and status words, with the legacy tone colours: `neutral`, `accent`, `warning`, `danger`, `success`, plus `category`/`categoryMuted` (teal, #280), `family` (indigo) and `doneCount` (orange 🔥). Optional `testid`. | [Pill.svelte.test.ts](ui/Pill.svelte.test.ts) |
+| [ui/Pill.svelte.test.ts](ui/Pill.svelte.test.ts) | test | base shape, neutral default, tone colours, category/family/done-count legacy pairs, title hint | — |
+| [ui/Sheet.svelte](ui/Sheet.svelte) | component | Modal / bottom-sheet shell: required `title` names the dialog, optional `subtitle`, focus trap, Esc, backdrop close, swipe-down close (`swipeToClose={false}` vetoes it), parent-owned `open`, optional `testid` (`-close` on the button). Folds `EventModalShell` + `BottomSheetHandle`. | [Sheet.svelte.test.ts](ui/Sheet.svelte.test.ts) |
+| [ui/Sheet.svelte.test.ts](ui/Sheet.svelte.test.ts) | test | closed/open, Esc, backdrop vs inside click, footer, subtitle, swipe and its veto, testids, focus return | — |
 | [ui/Skeleton.svelte](ui/Skeleton.svelte) | component | Animated placeholder rows, so a loading section keeps its height (skeletons, not blank cards). | [Skeleton.svelte.test.ts](ui/Skeleton.svelte.test.ts) |
 | [ui/Skeleton.svelte.test.ts](ui/Skeleton.svelte.test.ts) | test | default line count, custom count, pulse + hidden, caller class | — |
-| [ui/Toaster.svelte](ui/Toaster.svelte) | component | Renders the K-07 toast list in one polite live region with the legacy card look and a dismiss button. | [Toaster.svelte.test.ts](ui/Toaster.svelte.test.ts) |
-| [ui/Toaster.svelte.test.ts](ui/Toaster.svelte.test.ts) | test | empty list, every item, dismiss by id | — |
+| [ui/Toaster.svelte](ui/Toaster.svelte) | component | Renders the K-07 toast list in one polite live region with the legacy card look, a dismiss button, and the legacy action button (`action.label` → `action.run()` then dismiss). | [Toaster.svelte.test.ts](ui/Toaster.svelte.test.ts) |
+| [ui/Toaster.svelte.test.ts](ui/Toaster.svelte.test.ts) | test | empty list, every item, dismiss by id, action runs once then dismisses | — |
 | [ui/sheetSwipe.ts](ui/sheetSwipe.ts) | rules | Pure swipe-to-close maths (legacy 100 px threshold, upward drags clamp at 0), so the sheet component holds no transitions. | [sheetSwipe.test.ts](ui/sheetSwipe.test.ts) |
 | [ui/sheetSwipe.test.ts](ui/sheetSwipe.test.ts) | test | legacy threshold table, clamping, idle state | — |
 | [ui/trapFocus.ts](ui/trapFocus.ts) | action | `use:trapFocus` Svelte action: Tab/Shift+Tab cycle inside the node, focus returns on destroy. Moved from `utils/focusTrap.ts`. | [trapFocus.svelte.test.ts](ui/trapFocus.svelte.test.ts) |

@@ -5,6 +5,11 @@
 	the bottom variant — the grab handle that closes on a downward swipe past
 	the legacy 100 px threshold (sheetSwipe).
 
+	`title` is required: it names the dialog through aria-label. `subtitle` is
+	EventModalShell's second header line. `swipeToClose={false}` ports the
+	legacy `canStart` veto, so a sheet whose edit form is open cannot be
+	dismissed by dragging.
+
 	The parent owns `open`; this component only reports `onclose`, so a state
 	class can keep the optimistic update in one place.
 
@@ -23,14 +28,26 @@
 	interface Props {
 		open: boolean;
 		onclose: () => void;
-		title?: string;
+		title: string;
+		subtitle?: string;
 		variant?: 'modal' | 'bottom';
+		swipeToClose?: boolean;
 		testid?: string;
 		children: Snippet;
 		footer?: Snippet;
 	}
 
-	let { open, onclose, title, variant = 'modal', testid, children, footer }: Props = $props();
+	let {
+		open,
+		onclose,
+		title,
+		subtitle,
+		variant = 'modal',
+		swipeToClose = true,
+		testid,
+		children,
+		footer
+	}: Props = $props();
 
 	let swipe = $state(createSheetSwipe());
 
@@ -45,7 +62,7 @@
 	}
 
 	function handleTouchStart(event: TouchEvent) {
-		if (variant !== 'bottom' || event.touches.length !== 1) return;
+		if (variant !== 'bottom' || !swipeToClose || event.touches.length !== 1) return;
 		swipe = startSheetSwipe(event.touches[0].clientY);
 	}
 
@@ -103,14 +120,18 @@
 			<div
 				class="sticky top-0 z-10 flex shrink-0 items-center justify-between bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4"
 			>
-				{#if title}
+				<div>
 					<h2 class="text-lg font-semibold text-white">{title}</h2>
-				{/if}
+					{#if subtitle}
+						<p class="mt-0.5 text-xs text-primary-100">{subtitle}</p>
+					{/if}
+				</div>
 				<button
 					type="button"
 					onclick={onclose}
 					class="ml-auto rounded-full p-1.5 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
 					aria-label="Close modal"
+					data-testid={testid && `${testid}-close`}
 				>
 					<svg
 						class="h-4 w-4"

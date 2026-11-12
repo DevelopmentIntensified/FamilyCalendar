@@ -1,8 +1,9 @@
 /**
- * The two-step delete control (folded from eight legacy copies, e.g. the
- * "Delete" → "Delete this task?" + "Yes, delete" / "Cancel" row in
- * TaskDetailBar): the first click only asks, cancel returns, confirm fires
- * exactly once.
+ * The two-step delete control (folded from five legacy copies, e.g. the
+ * "Delete" → ask → "Yes, delete" / "Cancel" row in TaskDetailBar, where the
+ * ask line is the caller's own copy such as "Delete this task?"): the first
+ * click only asks, cancel returns, confirm fires exactly once, and focus
+ * follows the ask.
  *
  * Doc: src/lib/kernel/README.md
  */
@@ -67,9 +68,41 @@ describe('ConfirmAction', () => {
 		expect(screen.getByTestId('remove-member')).toHaveTextContent('Remove');
 		await fireEvent.click(ask('Remove'));
 
-		expect(screen.getByTestId('remove-member')).toHaveTextContent('Remove?');
-		expect(ask('Remove them')).toBeInTheDocument();
-		expect(ask('Keep them')).toBeInTheDocument();
+		expect(screen.getByText('Remove?')).toBeInTheDocument();
+		expect(screen.getByTestId('remove-member-confirm')).toHaveTextContent('Remove them');
+		expect(screen.getByTestId('remove-member-cancel')).toHaveTextContent('Keep them');
+	});
+
+	it('takes a custom ask line, defaulting to the label plus a question mark', async () => {
+		const { unmount } = render(ConfirmAction, {
+			props: { label: 'Delete', ask: 'Delete this task?', onconfirm: vi.fn() }
+		});
+
+		expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+		await fireEvent.click(ask('Delete'));
+		expect(screen.getByText('Delete this task?')).toBeInTheDocument();
+		unmount();
+
+		render(ConfirmAction, { props: { label: 'Delete', onconfirm: vi.fn() } });
+		await fireEvent.click(ask('Delete'));
+		expect(screen.getByText('Delete?')).toBeInTheDocument();
+	});
+
+	it('moves focus to Cancel while asking and back to the trigger afterwards', async () => {
+		const onconfirm = vi.fn();
+		render(ConfirmAction, { props: { label: 'Delete', onconfirm } });
+
+		await fireEvent.click(ask('Delete'));
+		expect(ask('Cancel')).toHaveFocus();
+
+		await fireEvent.click(ask('Cancel'));
+		expect(ask('Delete')).toHaveFocus();
+
+		await fireEvent.click(ask('Delete'));
+		expect(ask('Cancel')).toHaveFocus();
+		await fireEvent.click(ask('Yes, delete'));
+		expect(onconfirm).toHaveBeenCalledTimes(1);
+		expect(ask('Delete')).toHaveFocus();
 	});
 
 	it('disables its first button while the caller is busy', () => {
