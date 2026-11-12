@@ -10,7 +10,7 @@
  */
 import { DateTime } from 'luxon';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
+import { invoke, type InvokeResult } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
@@ -23,23 +23,28 @@ const PATH = '/api/parse-event';
 const ctx = () => testCtx({ db: testDb() });
 
 /**
- * The parse fields these goldens pin; the route returns a few more. Required,
- * JSON-safe members only, so the `res.body as …` assertions stay comparable
- * with the kernel's `JsonValue` (a field the route omits reads as undefined).
+ * The parse fields these goldens read. Every member is optional: the route
+ * omits an unset field, so this reading view must not claim it is present.
  */
 type WireEvent = {
-	title: string;
-	date: string;
-	startTime: string;
-	endTime: string;
-	location: string;
-	attendants: string[];
-	recurring: string;
-	recurringByDay: string[];
+	title?: string;
+	date?: string;
+	startTime?: string;
+	endTime?: string;
+	location?: string;
+	attendants?: string[];
+	recurring?: string;
+	recurringByDay?: string[];
 };
 
-type SingleBody = { method: string; confidence: number; parsed: WireEvent };
-type ListBody = { method: string; results: Array<{ parsed: WireEvent; confidence: number }> };
+type SingleBody = { method?: string; confidence?: number; parsed?: WireEvent };
+type ListBody = { method?: string; results?: Array<{ parsed?: WireEvent; confidence?: number }> };
+
+/** The response body as this file's reading view (never as the wire contract). */
+function bodyOf<T>(res: InvokeResult): T {
+	// SAFETY: the route answers JSON; T only names the fields a test reads.
+	return JSON.parse(res.text) as T;
+}
 
 /** Weekday of an ISO date (1 = Monday … 7 = Sunday), like the legacy tests. */
 function weekday(iso: string): number {
@@ -49,7 +54,7 @@ function weekday(iso: string): number {
 async function parseAnonymously(input: string): Promise<SingleBody> {
 	const res = await invoke(postParseEvent, { ctx: ctx(), path: PATH, body: { input } });
 	expect(res.status).toBe(200);
-	return res.body as SingleBody;
+	return bodyOf<SingleBody>(res);
 }
 
 describe('POST /api/parse-event — refusals', () => {
@@ -97,14 +102,14 @@ describe('POST /api/parse-event — local regex parse (anonymous callers)', () =
 		const body = await parseAnonymously('dinner friday');
 		expect(body.method).toBe('regex');
 		expect(body.confidence).toEqual(expect.any(Number));
-		expect(body.parsed.title).toBe('dinner');
-		expect(weekday(body.parsed.date ?? '')).toBe(5);
+		expect(body.parsed?.title).toBe('dinner');
+		expect(weekday(body.parsed?.date ?? '')).toBe(5);
 	});
 
 	it('reads a plural weekday as a weekly series ("yoga on tuesdays at 6pm")', async () => {
 		const body = await parseAnonymously('yoga on tuesdays at 6pm');
 		expect(body.parsed).toMatchObject({ recurring: 'weekly', startTime: '18:00' });
-		expect(weekday(body.parsed.date ?? '')).toBe(2);
+		expect(weekday(body.parsed?.date ?? '')).toBe(2);
 	});
 
 	it('parses the priced event card: title, short location, leading meridiem time', async () => {
@@ -123,12 +128,12 @@ describe('POST /api/parse-event — local regex parse (anonymous callers)', () =
 
 	it('keeps the explicit year on a day-first date ("launch 21 Mar 2027")', async () => {
 		const body = await parseAnonymously('launch 21 Mar 2027');
-		expect(body.parsed.date).toBe('2027-03-21');
+		expect(body.parsed?.date).toBe('2027-03-21');
 	});
 
 	it('keeps the explicit year after a month and ordinal ("reunion July 12th 2027")', async () => {
 		const body = await parseAnonymously('reunion July 12th 2027');
-		expect(body.parsed.date).toBe('2027-07-12');
+		expect(body.parsed?.date).toBe('2027-07-12');
 	});
 
 	it('propagates the end meridiem across a hyphen range ("meeting 5:30-6:30pm")', async () => {
@@ -138,22 +143,22 @@ describe('POST /api/parse-event — local regex parse (anonymous callers)', () =
 
 	it('stores "every other week" as the canonical biweekly cadence', async () => {
 		const body = await parseAnonymously('payday every other week');
-		expect(body.parsed.recurring).toBe('biweekly');
+		expect(body.parsed?.recurring).toBe('biweekly');
 	});
 
 	it('keeps every-N days distinct from biweekly ("medication every 3 days")', async () => {
 		const body = await parseAnonymously('medication every 3 days');
-		expect(body.parsed.recurring).toBe('every_3_days');
+		expect(body.parsed?.recurring).toBe('every_3_days');
 	});
 
 	it('reads a "with" list as attendants ("coffee with John")', async () => {
 		const body = await parseAnonymously('coffee with John');
-		expect(body.parsed.attendants).toContain('John');
+		expect(body.parsed?.attendants).toContain('John');
 	});
 
 	it('reads "at my <place>" as the location ("game night at my apartment")', async () => {
 		const body = await parseAnonymously('game night at my apartment');
-		expect(body.parsed.location).toBe('Apartment');
+		expect(body.parsed?.location).toBe('Apartment');
 	});
 });
 
@@ -172,7 +177,7 @@ describe('POST /api/parse-event — cloud gating', () => {
 			body: { input: 'dinner tomorrow at 6pm', useCloud: true }
 		});
 		expect(res.status).toBe(200);
-		expect((res.body as SingleBody).method).toBe('regex');
+		expect(bodyOf<SingleBody>(res).method).toBe('regex');
 	});
 
 	it('keeps a signed-in caller on the local parser when useCloud is false', async () => {
@@ -184,7 +189,7 @@ describe('POST /api/parse-event — cloud gating', () => {
 			body: { input: 'dinner tomorrow at 6pm', useCloud: false }
 		});
 		expect(res.status).toBe(200);
-		expect((res.body as SingleBody).method).toBe('regex');
+		expect(bodyOf<SingleBody>(res).method).toBe('regex');
 	});
 });
 
@@ -199,9 +204,9 @@ describe('POST /api/parse-event — multi-event shortcut answers {results, metho
 		});
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({ results: expect.any(Array), method: 'regex-list' });
-		const results = (res.body as ListBody).results;
-		expect(results).toHaveLength(3);
-		expect(results.map((r) => weekday(r.parsed.date))).toEqual([1, 2, 3]);
+		const body = bodyOf<ListBody>(res);
+		expect(body.results).toHaveLength(3);
+		expect((body.results ?? []).map((r) => weekday(r.parsed?.date ?? ''))).toEqual([1, 2, 3]);
 	});
 
 	it('splits "dinner Friday and movie Saturday" into the two named weekdays', async () => {
@@ -210,10 +215,10 @@ describe('POST /api/parse-event — multi-event shortcut answers {results, metho
 			path: PATH,
 			body: { input: 'dinner Friday and movie Saturday' }
 		});
-		const results = (res.body as ListBody).results;
-		expect((res.body as ListBody).method).toBe('regex-list');
-		expect(results).toHaveLength(2);
-		expect(results.map((r) => weekday(r.parsed.date))).toEqual([5, 6]);
+		const body = bodyOf<ListBody>(res);
+		expect(body.method).toBe('regex-list');
+		expect(body.results).toHaveLength(2);
+		expect((body.results ?? []).map((r) => weekday(r.parsed?.date ?? ''))).toEqual([5, 6]);
 	});
 
 	it('does not split an "and" list without schedule words ("fish and chips Friday")', async () => {
@@ -230,7 +235,8 @@ describe('POST /api/parse-event — multi-event shortcut answers {results, metho
 			path: PATH,
 			body: { input: 'dinner Friday and movie Saturday' }
 		});
-		expect((res.body as ListBody).method).toBe('regex-list');
-		expect((res.body as ListBody).results).toHaveLength(2);
+		const body = bodyOf<ListBody>(res);
+		expect(body.method).toBe('regex-list');
+		expect(body.results).toHaveLength(2);
 	});
 });
