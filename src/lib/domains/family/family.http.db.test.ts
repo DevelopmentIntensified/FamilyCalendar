@@ -1174,7 +1174,8 @@ describe('DELETE /api/family/invite (revoke)', () => {
 
 	it('answers Invite code is required for an absent, empty or null code', async () => {
 		const { ann } = await seedFamilyRoster();
-		for (const body of [{}, { code: '' }, { code: null }]) {
+		const bodies: JsonValue[] = [{}, { code: '' }, { code: null }];
+		for (const body of bodies) {
 			const res = await revoke(ann, body);
 			expect(res.status).toBe(400);
 			expect(res.body).toEqual({ error: 'Invite code is required' });
@@ -1230,7 +1231,8 @@ describe('POST /api/family/join', () => {
 
 	it('answers Invite code is required for an absent or empty code', async () => {
 		const user = await seedUser(testDb());
-		for (const body of [{}, { code: '' }, { code: null }]) {
+		const bodies: JsonValue[] = [{}, { code: '' }, { code: null }];
+		for (const body of bodies) {
 			const res = await join(user, body);
 			expect(res.status).toBe(400);
 			expect(res.body).toEqual({ error: 'Invite code is required' });
