@@ -93,3 +93,26 @@ Answer (owner, 2026-11-11): **both.** The phone sends `familyId: null` for perso
 ### Q-005c Repair rows already filed wrongly (outside the rewrite)
 
 Parked with Q-005b. It is an owner decision about production data, not rewrite work.
+## Q-006 `POST /api/report-phrase` caps the raw phrase before normalizing it (M-feedback S2, 2026-11-11)
+
+Context: the route trims the phrase and refuses `phrase.length > 280` (`src/routes/api/report-phrase/+server.ts:42,48`); the action then normalizes it — lowercase, collapse whitespace runs, trim, cap at 280 (`src/lib/server/db/actions/unmatchedPhrases.ts:33-39`). A phrase that normalizes down to a few characters (for example `a` + 280 spaces + `b`) is refused with `400 {"error":"phrase (string) and source (event_parse | bulk_edit) are required"}`, even though the value that would be stored is `a b`. One field, two different caps.
+
+Options:
+A. Keep today's wire: the 400 stays. Cost: an occasional lost parser signal, and the two caps stay in two files.
+B. Move the cap after normalization (accept the report, store `a b`). Cost: an owner-approved wire change after S6 (`fix(feedback): Q-006 …`), and the golden changes with it.
+
+Recommendation: B — normalization, not the raw text, is the field's contract. Applied default until answered: A, pinned by `feedback.http.db.test.ts › refuses a whitespace-heavy phrase over 280 chars before normalizing it (Q-006)`.
+
+Answer:
+
+## Q-007 Re-resolving a resolved bug report moves `resolvedAt` forward (M-feedback S2, 2026-11-11)
+
+Context: `resolveBugReport` always writes `{ status: 'resolved', resolvedAt: new Date() }` (`src/lib/server/db/actions/bugReports.ts:79-86`), so a second `POST /api/admin/bugs/{id}/resolve` answers `200` again and replaces the resolution timestamp — the register then claims the report was closed later than it was, and a report resolved twice inside the 180-day window moves its retention anchor too. `resolveUnmatchedPhrase` has the same shape but only re-sets `resolved: true`, so nothing observable changes there.
+
+Options:
+A. Keep it (the golden pins it). Cost: `resolvedAt` stops being the time the item was closed.
+B. Keep the first `resolvedAt` when the row is already resolved; still answer `200` with the unchanged row. Cost: an owner-approved wire change after S6 (`fix(feedback): Q-007 …`).
+
+Recommendation: B for bug reports; "a second resolve answers 200" stays either way. Applied default until answered: A, pinned by `feedback.http.db.test.ts › answers 200 for an already-resolved report and re-stamps resolvedAt (Q-007)`.
+
+Answer:

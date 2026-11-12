@@ -94,11 +94,76 @@ None.
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+Every new file lives in `src/lib/domains/feedback/`. Roles follow [conventions.md](../../architecture/conventions.md#file-roles).
+
+| file | role | what goes in it |
+|---|---|---|
+| `feedback.contract.ts` | contract | zod `BugReportBody` (area enum, description trimmed 1..5000, url optional/nullable), `UnmatchedPhraseBody` (phrase, source enum, `matched` JSON optional/nullable), `FeedbackKind = 'bug' \| 'phrase'`, `FeedbackResolveParams`; inferred types + response types, with the legacy error copy. |
+| `feedback.rules.ts` | rules | `BUG_AREAS`, `isBugArea`, `isUnmatchedSource`, `normalizePhrase`, `BUG_AREA_LABEL`, `UNMATCHED_SOURCE_LABEL`, `areaForPath`, `buildAutoBugReport`, `safeReportedPath`, `reportBugHref`. "Now" and the origin are parameters (R5); no map, no `Date.now()` — the throttle is `ctx.limiter`. |
+| `feedback.export.rules.ts` | rules | `matchedSummary`, `reporterName`, `formatBugReportsExport`, `formatUnmatchedPhrasesExport`; dates from `kernel/time` (K-06) instead of the private `isoDate`/`humanDate`. |
+| `feedback.repo.server.ts` | repo | `insertBugReport`, `listBugReportsWithReporter(db, resolved)`, `resolveBugReportRow`, `countOpenBugReports`, `pruneClosedBugReports(cutoff)`, `upsertUnmatchedPhrase`, `listUnmatchedPhrases(db, resolved)`, `resolveUnmatchedPhraseRow`, `countOpenUnmatchedPhrases`, `pruneResolvedUnmatchedPhrases(cutoff)`. Tables from `$lib/kernel/db/tables.server`; the one join reads `users`. |
+| `feedback.service.server.ts` | service | `fileBugReport`, `fileAutoBugReport`, `reportUnmatchedPhrase`, `listFeedback(kind)`, `resolveFeedback(kind, id)`, `countOpenFeedback`, `pruneResolvedFeedback(ctx, cutoff)`. Authorization, the 404 copy per kind and the never-throw rule live here; `AppError` for expected failures. |
+| `feedback.http.server.ts` | http | `submitBugReportEndpoint`, `reportUnmatchedPhraseEndpoint`, `listBugReportsEndpoint`, `listUnmatchedPhrasesEndpoint`, `resolveBugReportEndpoint`, `resolveUnmatchedPhraseEndpoint` (auth `user` / `admin`, `rateLimit` 5/5 min and 20/5 min with the legacy messages), plus `reportBugPageLoad` / `submitBugReportAction` for the page. No SQL, no rules. |
+| `feedback.api.ts` | api | Browser client on the K-07 api client: `reportUnmatchedPhrase` (the parser buttons), `listFeedback` / `resolveFeedback` (the admin register). |
+| `feedback.register.state.svelte.ts` | state | The admin register: rows, `resolve(id)`, the export text, pending/error; takes the api client and toasts in its constructor. |
+| `feedback.fixtures.server.ts` | fixtures | `bugReportRow`, `unmatchedPhraseRow`, reusing `uniqueSuffix`. |
+| `feedback.rules.test.ts` | test | Tables for the areas, phrase normalization, `areaForPath`, `buildAutoBugReport`, `safeReportedPath` / `reportBugHref`. |
+| `feedback.export.rules.test.ts` | test | `matchedSummary`, `reporterName`, both exporters (header, grouping, order, open-only, empty register). |
+| `feedback.repo.db.test.ts` | test | A `rollbackTest` per query with a filter, ordering, join or upsert; the prune cutoffs. |
+| `feedback.service.db.test.ts` | test | One test per IO invariant: filing, auto-file skip/throttle rules, phrase upsert, registers + admin gate, resolve + 404 copy, retention. |
+| `feedback.http.db.test.ts` | test | Done in S2: golden `/api` contract of the six routes (must not change after S2). |
+| `feedback.page.db.test.ts` | test | The `/report-bug` page handlers via `invokeLoad` / `invokeAction`: the 302 to `/login`, the `from` resolution (query → GET referer, hidden field → POST referer), and the five `fail(...)` copies. Not a golden: page data is internal and is redesigned with the UI. |
+| `ui/ReportBugForm.svelte` | ui | The `/report-bug` form: areas, hidden `from`, Back link, error banner, "Submitting…", success panel. Props in, submit callback out. |
+| `ui/FeedbackRegister.svelte` | ui | One register for either kind: open bug cards / phrase tables, collapsible Resolved list, resolve callback. |
+| `ui/FeedbackExport.svelte` | ui | The `AdminExport` replacement: readonly textarea, Copy + toast, Download `.txt`; `downloadAsTxt` dies here (one caller). |
+| `ui/*.svelte.test.ts` | test | Render with props and snippets; assert copy, disabled/pending states and the export/toast behaviour. |
+
+### Where each legacy export goes
+
+| legacy | new home |
+|---|---|
+| `BUG_AREAS`, `BugArea`, `NewBugReport` (`bugReports.ts`) | contract (`BugArea`) + rules (`BUG_AREAS`); `NewBugReport` becomes the contract input type. |
+| `createBugReport` | `fileBugReport` (service) → `insertBugReport` (repo). |
+| `getBugReportsWithReporter` / `getUnmatchedPhrases` | `listFeedback(ctx, actor, kind)` → repo `listBugReportsWithReporter` / `listUnmatchedPhrases`. |
+| `resolveBugReport` / `resolveUnmatchedPhrase` | `resolveFeedback(ctx, actor, kind, id)` → repo `resolve*Row`. |
+| `countOpenBugReports` + `countOpenUnmatchedPhrases` | one `countOpenFeedback(ctx)`. |
+| `pruneResolvedBugReports` + `pruneResolvedUnmatchedPhrases` | one `pruneResolvedFeedback(ctx, cutoff)`; the cleanup cron in `app` calls it. |
+| `normalizePhrase`, `buildUnmatchedReport` | `normalizePhrase` (rules) + the upsert shape folded into `upsertUnmatchedPhrase`. |
+| `reportUnmatchedPhrase` (action) | `reportUnmatchedPhrase` (service) → `upsertUnmatchedPhrase` (repo). |
+| `autoBugReport.buildAutoBugReport`, `areaForPath` | `feedback.rules.ts`. |
+| `autoBugReport.shouldFileAutoReport`, `__resetAutoReportThrottle` | Die with the module-scope `Map`; the 10-minute window becomes `ctx.limiter.allow(key, 1, 10 * 60 * 1000)`. |
+| `apiError` (5xx auto-file) | Dies: `endpoint()` files faults through `Ctx.faults`, wired to `fileAutoBugReport` in `app`. |
+| `adminData.isAdminUser` / `requireAdminJson` | Dies: `endpoint({ auth: 'admin' })` (401 / 403 with the same bodies). |
+| `adminData.loadAdminCounts` | `countOpenFeedback(ctx)`. |
+| `adminData.loadBugReports` / `loadUnmatchedPhrases` | `listFeedback(ctx, actor, kind)`. |
+| `admin/export.matchedSummary`, `reporterName`, `format*Export` | `feedback.export.rules.ts`. |
+| `admin/export.isoDate`, `humanDate`, `pad`, `groupBy` | `kernel/time` (K-06) / inlined into the exporters; no second date formatter. |
+| `admin/export.downloadAsTxt` | `ui/FeedbackExport.svelte` (one caller). |
+| `admin/AdminExport.svelte` | `ui/FeedbackExport.svelte`. |
+| `utils/reportBug.ts` | `feedback.rules.ts`, re-exported from `index.ts` (`shell` keeps calling it). |
+| `/report-bug` `load` + `submit` action | `reportBugPageLoad` / `submitBugReportAction` in `feedback.http.server.ts`. |
+| `/report-bug` page | Route file wires `ui/ReportBugForm` (S7). |
+| `/admin/bugs`, `/admin/nlp` pages + actions | Move to the `admin` screen; they compose `listFeedback` / `resolveFeedback` / `countOpenFeedback`, `FeedbackRegister` and `FeedbackExport`. |
+| `/api/**` routes | Wiring only: `export const POST = submitBugReportEndpoint.handler;` and so on. |
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
+- **S1/S2 verification (2026-11-11).** Every draft inventory line used in the README was re-read against the cited code. Two corrections to the draft: the description is trimmed by the route *and* again (and capped) by `createBugReport`; and `resolveBugReport` is not a no-op on a second call — it always re-stamps `resolvedAt` (pinned, Q-007).
+- **No golden for the bug-report 500.** `POST /api/bug-report` answers `500 {"error":"Could not save report. Please try again."}` only when `createBugReport` returns `null`, which happens for a blank description (already a 400) or a database error. Neither is reachable in the db lane without breaking the schema, so the copy stays in the contract and the S5 service test; the goldens pin the 200/400/401/429 paths.
+- **Probably accidental — dropped as invariants (not visible on any `/api` handler in this module):**
+  - `areaForPath` match order (`/calendar` before `/tasks`, so `/calendar/tasks` → calendar) — auto-filing runs from `hooks.handleError`/`Ctx.faults`, never inside an endpoint, and the goldens seed rows, so no `/api` test can observe the order. The documented mapping stays a rule; the quirk is not pinned.
+  - The over-broad `/abort/i` test — internal to the fault filer; the new rule detects the abort error itself (`name === 'AbortError'`), which no wire can see.
+  - The module-scope throttle `Map` (unbounded, resets on deploy, same class as #186) — internal; replaced by `ctx.limiter`, so the window is bounded and clock-driven.
+  - Area labels in three copies — duplication, not behaviour. One home in `feedback.rules.ts`; the label *text* is wire-visible through `exportText` and pinned by the admin goldens; the third copy (the `/report-bug` page) dies in S7.
+  - The redundant `and(eq(...))` in both resolve queries — internal; dies with the repo rewrite.
+  - `downloadAsTxt` revoking the object URL in the same tick — browser-only; dies with the component into one helper (S7).
+  - The success panel linking "Back to Calendar" instead of the recorded origin — UI only, no `/api`; the visual check keeps or fixes it in S7.
+- **Probably accidental — kept and raised as a question (visible on the `/api` wire):**
+  - `report-phrase` checks `phrase.length > 280` before normalizing, so a whitespace-heavy phrase that would normalize short gets a 400 — pinned, Q-006.
+  - Resolving an already-resolved bug report moves `resolvedAt` forward — pinned, Q-007.
+- **Golden mechanics.** `feedback.http.db.test.ts` runs committed (`beforeEach(truncateAll)`) because the legacy handlers use the `db` singleton. The rate limiter is module scope, so every test claims its own `x-real-ip`. Export timestamps are generated by the real clock, so the tests mask only `Generated: YYYY-MM-DD HH:MM` and the per-row date, and derive the phrase `first seen` date from the row the query returned (the DB session and Node may disagree on timezone).
+- **Legacy tests kept as reference** until S8 deletes them; the pure ones (`export.test.ts`, `unmatchedPhrases.test.ts`, `autoBugReport.test.ts`, `reportBug.test.ts`) carry cases the S3 rule tables should reuse.
+
 
 ## Census
 
