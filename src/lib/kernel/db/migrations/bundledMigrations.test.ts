@@ -1,15 +1,17 @@
 /**
  * Bundled-migration parity gate (#196 slice 2, materializes #050's lesson).
  *
- * The cold-start runner only applies what `scripts.ts` imports. A migration
- * file added to `sql/migrations/` but not bundled silently never runs on
- * deployed databases — the exact prod drift that caused #050/#051. This test
- * fails when a file exists in `sql/migrations/` without a matching bundle
- * entry, so the omission can never be silent again.
+ * The cold-start runner only applies what bundledMigrations.server.ts imports.
+ * A migration file added to `sql/migrations/` but not bundled silently never
+ * runs on deployed databases — the exact prod drift that caused #050/#051.
+ * This test fails when a file exists in `sql/migrations/` without a matching
+ * bundle entry, so the omission can never be silent again.
+ *
+ * Doc: src/lib/kernel/README.md#database
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
-import { bundledMigrations } from './scripts.js';
+import { bundledMigrations } from './bundledMigrations.server';
 
 describe('bundled migrations', () => {
 	let dirFiles: string[];

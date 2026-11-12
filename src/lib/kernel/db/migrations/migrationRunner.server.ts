@@ -1,13 +1,12 @@
 /**
  * Runtime migration runner.
  *
- * Applies any pending bundled SQL migrations against this environment's DB
- * (reads DATABASE_URL). It runs at serverless cold start — the first time a
- * function executes after a deploy — so the schema for a new commit is applied
- * automatically on whichever environment (test or prod) the code reaches,
- * with no manual step.
+ * Applies any pending bundled SQL migrations against the `db` it is given. It
+ * runs at serverless cold start — the first time a function executes after a
+ * deploy — so the schema for a new commit is applied automatically on
+ * whichever environment (test or prod) the code reaches, with no manual step.
  *
- * Safety:
+ * Safety (production depends on every one of these):
  *  - `__schema_migrations` tracks which files have been applied (exactly once).
  *  - A Postgres advisory lock serializes concurrent cold starts, so parallel
  *    serverless instances never race to run the same DDL.
@@ -15,16 +14,22 @@
  *  - All files are idempotent (IF NOT EXISTS), and a failure logs loudly but
  *    never crashes the caller's request — a transient/mid-migration crash is
  *    retried on the next cold start.
+ *
+ * The same blank-line statement split drives vitestGlobalSetup.db.ts, so db
+ * tests are built exactly the way production applies migrations.
+ *
+ * Doc: src/lib/kernel/README.md#database
  */
 import { sql } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { bundledMigrations } from './scripts';
+import type { Db } from '../database.server';
+import { bundledMigrations } from './bundledMigrations.server';
 
 const TRACKING = '__schema_migrations';
-let lastRun: { key: string; ok: boolean; applied: string[]; error?: string } | null = null;
+const LOCK_KEY = `hashtext('family-calendar:migrate')`;
+
 let inFlight: Promise<{ ok: boolean; applied: string[] }> | null = null;
 
-async function createTrackingTable() {
+async function createTrackingTable(db: Db) {
 	await db.execute(sql`
 		CREATE TABLE IF NOT EXISTS ${sql.raw(TRACKING)} (
 			name text PRIMARY KEY,
@@ -35,14 +40,15 @@ async function createTrackingTable() {
 
 /**
  * Apply pending migrations. Safe to call many times per request and from many
- * cold starts — shared `inFlight` dedupes concurrent calls and the advisory
- * lock + tracking table handle multi-instance races.
+ * cold starts — shared `inFlight` dedupes concurrent calls (one pool per
+ * deployment) and the advisory lock + tracking table handle multi-instance
+ * races.
  */
-export async function runMigrations(): Promise<{ ok: boolean; applied: string[] }> {
+export async function runMigrations(db: Db): Promise<{ ok: boolean; applied: string[] }> {
 	if (inFlight) return inFlight;
 	inFlight = (async () => {
 		try {
-			return await runInLock();
+			return await runInLock(db);
 		} catch (error) {
 			console.error('[migrate] Failed to run migrations:', error);
 			return { ok: false, applied: [] };
@@ -53,7 +59,7 @@ export async function runMigrations(): Promise<{ ok: boolean; applied: string[] 
 	return inFlight;
 }
 
-async function runInLock(): Promise<{ ok: boolean; applied: string[] }> {
+async function runInLock(db: Db): Promise<{ ok: boolean; applied: string[] }> {
 	// The first query after a cold start can hit a pooled socket the platform
 	// already dropped (CONNECT_TIMEOUT mid-handshake). Retry the lock a few
 	// times before giving up — a one-shot failure leaves the schema missing
@@ -61,7 +67,7 @@ async function runInLock(): Promise<{ ok: boolean; applied: string[] }> {
 	let locked = false;
 	for (let attempt = 1; attempt <= 3; attempt++) {
 		try {
-			await db.execute(sql`SELECT pg_advisory_lock(${sql.raw(`hashtext('family-calendar:migrate')`)})`);
+			await db.execute(sql`SELECT pg_advisory_lock(${sql.raw(LOCK_KEY)})`);
 			locked = true;
 			break;
 		} catch (error) {
@@ -74,7 +80,7 @@ async function runInLock(): Promise<{ ok: boolean; applied: string[] }> {
 	}
 	if (!locked) throw new Error('[migrate] could not acquire the advisory lock');
 	try {
-		await createTrackingTable();
+		await createTrackingTable(db);
 
 		const rows = await db.execute<{ name: string }>(sql`SELECT name FROM ${sql.raw(TRACKING)}`);
 		const applied = new Set(rows.map((r) => r.name));
@@ -100,23 +106,16 @@ async function runInLock(): Promise<{ ok: boolean; applied: string[] }> {
 			}
 		}
 
-		lastRun = { key: `${newlyApplied.length}:${pending.length}`, ok: true, applied: newlyApplied };
 		return { ok: true, applied: newlyApplied };
 	} finally {
-		await db.execute(
-			sql`SELECT pg_advisory_unlock(${sql.raw(`hashtext('family-calendar:migrate')`)})`
-		);
+		await db.execute(sql`SELECT pg_advisory_unlock(${sql.raw(LOCK_KEY)})`);
 	}
 }
 
 /** Split a SQL file into individual statements on blank-line-separated blocks. */
-function splitStatements(sqlText: string): string[] {
+export function splitStatements(sqlText: string): string[] {
 	return sqlText
 		.split(/\n\s*\n/)
 		.map((s) => s.trim())
 		.filter(Boolean);
-}
-
-export function getLastMigrationRun() {
-	return lastRun;
 }

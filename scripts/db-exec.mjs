@@ -38,6 +38,7 @@ const db = postgres(url, { max: 1, prepare: false });
 
 for (const file of files) {
 	const text = readFileSync(file, 'utf8');
+	// Same split as src/lib/kernel/db/migrations/migrationRunner.server.ts (splitStatements); keep them in sync.
 	const statements = text
 		.split(/\n\s*\n/)
 		.map((s) => s.trim())
