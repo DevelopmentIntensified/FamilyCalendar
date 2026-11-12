@@ -45,7 +45,7 @@ Everything other modules and routes may use, grouped by entry file. One line eac
   - `deleteGroceryItem(ctx, actor, { id, scope })` — remove the row, keep Store Memory.
   - `listGroceryStoreColours(ctx, actor)` — every colour row the viewer can resolve against (`{ colours, palette }`).
   - `setGroceryStoreColour(ctx, actor, input)` — write or clear one store's colour in one scope.
-  - `loadGroceriesPage(ctx, actor)` — the page's whole read: mine + family + colour rows in one call, each leg degrading to `[]`.
+  - `loadGroceriesPage(ctx, actor)` — the page's whole read in one call: the two item legs (`mine`, `family`) and the colour rows, each degrading to `[]`, plus the rail's own fields — `hasFamily` (drives the "Add to" Family option and the "No family yet…" line) and `viewer` (`userId`, `familyId`); mirrors the legacy load at `src/routes/(calendar)/calendar/groceries/+page.server.ts:13-29`.
   - Endpoints: `listGroceryItemsEndpoint`, `createGroceryItemEndpoint`, `updateGroceryItemEndpoint`, `deleteGroceryItemEndpoint`, `listGroceryColoursEndpoint`, `setGroceryColourEndpoint`.
 - `ui/index.ts`:
   - `GroceryRow` — checkbox, name ×quantity, the Mine/Family badge, every store as its own coloured chip ("or" before alternates, primary ringed), edit/move/delete.
@@ -81,7 +81,7 @@ Behaviour that must not change, each with its test that pins it (`file › test 
 
 - Open = `checkedAt` NULL, `createdAt` ascending; Mine reads `userId` AND `familyId IS NULL`, Family reads `familyId` — `src/lib/server/db/actions/groceries.ts:121-136` · pinned by golden `GET /api/groceries › answers {items} with the open Mine items, oldest first` and `› answers the Family list only from the viewer's own family`.
 - Quick-add parses an optional leading OR trailing 1–4 digit integer as the quantity; blank → `{ name: '', quantity: 1 }` — `src/lib/data/groceries.ts:16-24` · pinned by golden `POST /api/groceries › reads a leading quantity and a trailing quantity …` and by `groceries.items.rules.test.ts › parseGroceryQuickAdd`.
-- Quantity is floored and clamped to at least 1 — `src/lib/server/db/actions/groceries.ts:97` · pinned by golden `POST /api/groceries › clamps a zero quantity up to 1`.
+- Quantity is floored and clamped to at least 1 — `src/lib/server/db/actions/groceries.ts:98` · pinned by golden `POST /api/groceries › clamps a zero quantity up to 1`.
 - History key = item name trimmed + lowercased, and a blank name is refused — `src/lib/data/groceries.ts:11-13`, `src/lib/server/db/actions/groceries.ts:95-96` · pinned by golden `POST /api/groceries › answers 400 "Name is required" …` and `groceries.items.rules.test.ts › normalizeGroceryName`.
 - Stores are cleaned on every write: trimmed, blanks dropped, case-insensitively de-duplicated, first spelling and first position kept (`[0]` is the primary store) — `src/lib/server/db/actions/groceries.ts:76-87`, `src/lib/data/groceries.ts:90-102` · pinned by golden `POST /api/groceries › cleans the stores it is given …` and `PATCH /api/groceries/[id] › replaces the stores …`, plus `groceries.items.rules.test.ts › cleanGroceryStores`.
 - Adding with NO stores auto-fills the single most-frequent Store Memory store and does not train memory; adding WITH stores trains memory instead (count + 1 for a case-insensitive match, else a new row at 1) — `src/lib/server/db/actions/groceries.ts:52-119` · pinned by goldens `POST /api/groceries › auto-fills the remembered store …` and `› cleans the stores it is given and trains Store Memory with them`.
