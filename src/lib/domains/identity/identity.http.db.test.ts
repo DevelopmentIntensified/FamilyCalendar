@@ -17,6 +17,7 @@ import {
 	adConsentRecords,
 	apiTokens,
 	authSession,
+	calendars,
 	userSettings,
 	users
 } from '$lib/kernel/db/tables.server';
@@ -56,7 +57,9 @@ async function seedSettings(
 			timeZone: 'America/Chicago',
 			color: '#112233',
 			defaultView: 'dashboard',
-			defaultCalendarId: 'cal-gone',
+			// A stored default calendar must be a real calendars row (FK): tests
+			// that need one seed it explicitly with seedCalendar().
+			defaultCalendarId: null,
 			syncEventsToFamilyCalendar: true,
 			autoParseEventDetails: false,
 			showDailyVerse: true,
@@ -94,6 +97,11 @@ async function seedSession(userId: string, id: string) {
 			userId,
 			expiresAt: new Date('2030-01-01T00:00:00.000Z')
 		});
+}
+
+/** A real calendars row: `defaultCalendarId` has a FK, so a dangling id cannot be stored. */
+async function seedCalendar(ownerId: string, id: string) {
+	await testDb().insert(calendars).values({ id, ownerId });
 }
 
 beforeEach(truncateAll);
@@ -476,7 +484,8 @@ describe('GET /api/me/settings', () => {
 
 	it('answers the stored row, the translation options and the consent trail', async () => {
 		const user = await seedUser(testDb());
-		await seedSettings(user.id);
+		await seedCalendar(user.id, 'cal-mine');
+		await seedSettings(user.id, { defaultCalendarId: 'cal-mine' });
 		await testDb().insert(adConsentRecords).values({ userId: user.id, decision: 'granted' });
 		const res = await invoke(getSettings, {
 			ctx: testCtx({ db: testDb() }),
@@ -492,7 +501,7 @@ describe('GET /api/me/settings', () => {
 				timeZone: 'America/Chicago',
 				color: '#112233',
 				defaultView: 'dashboard',
-				defaultCalendarId: 'cal-gone',
+				defaultCalendarId: 'cal-mine',
 				syncEventsToFamilyCalendar: true,
 				autoParseEventDetails: false,
 				showDailyVerse: true,
@@ -521,7 +530,11 @@ describe('PATCH /api/me/settings', () => {
 
 	it('timeZone alone keeps every other stored field (and skips the stale default-calendar check)', async () => {
 		const user = await seedUser(testDb());
-		await seedSettings(user.id);
+		const other = await seedUser(testDb());
+		// Owned by another person, in no family of the caller: a real but
+		// inaccessible default calendar — the stale id this test must keep.
+		await seedCalendar(other.id, 'cal-their-calendar');
+		await seedSettings(user.id, { defaultCalendarId: 'cal-their-calendar' });
 		const res = await invoke(patchSettings, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -537,7 +550,7 @@ describe('PATCH /api/me/settings', () => {
 				timeZone: 'Asia/Tokyo',
 				color: '#112233',
 				defaultView: 'dashboard',
-				defaultCalendarId: 'cal-gone',
+				defaultCalendarId: 'cal-their-calendar',
 				syncEventsToFamilyCalendar: true,
 				autoParseEventDetails: false,
 				showDailyVerse: true,
@@ -553,7 +566,7 @@ describe('PATCH /api/me/settings', () => {
 		});
 		const [row] = await testDb().select().from(userSettings).where(eq(userSettings.userId, user.id));
 		expect(row.timeZone).toBe('Asia/Tokyo');
-		expect(row.defaultCalendarId).toBe('cal-gone');
+		expect(row.defaultCalendarId).toBe('cal-their-calendar');
 	});
 
 	it('creates the row from the page defaults plus the patch when none exists', async () => {
@@ -594,7 +607,8 @@ describe('PATCH /api/me/settings', () => {
 
 	it('accepts defaultCalendarId:null and stores null', async () => {
 		const user = await seedUser(testDb());
-		await seedSettings(user.id);
+		await seedCalendar(user.id, 'cal-mine');
+		await seedSettings(user.id, { defaultCalendarId: 'cal-mine' });
 		const res = await invoke(patchSettings, {
 			ctx: testCtx({ db: testDb() }),
 			user,
@@ -610,17 +624,20 @@ describe('PATCH /api/me/settings', () => {
 
 	it('keeps the stored row when a newly set default calendar is not accessible', async () => {
 		const user = await seedUser(testDb());
-		await seedSettings(user.id);
+		const other = await seedUser(testDb());
+		await seedCalendar(user.id, 'cal-mine');
+		await seedCalendar(other.id, 'cal-their-calendar');
+		await seedSettings(user.id, { defaultCalendarId: 'cal-mine' });
 		const res = await invoke(patchSettings, {
 			ctx: testCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
-			body: { defaultCalendarId: 'cal-foreign' }
+			body: { defaultCalendarId: 'cal-their-calendar' }
 		});
 		expect(res.status).toBe(400);
 		expect(res.body).toEqual({ error: 'Selected default calendar is not available' });
 		const [row] = await testDb().select().from(userSettings).where(eq(userSettings.userId, user.id));
-		expect(row.defaultCalendarId).toBe('cal-gone');
+		expect(row.defaultCalendarId).toBe('cal-mine');
 	});
 
 	it('records the ad-consent transition when showAdsAsEvents turns on', async () => {
