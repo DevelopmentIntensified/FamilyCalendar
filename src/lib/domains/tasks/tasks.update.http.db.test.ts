@@ -20,7 +20,7 @@ import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
-import { addMember, seedFamily, seedTask } from './tasks.fixtures.server';
+import { addMember, seedTaskFamily, seedTask } from './tasks.fixtures.server';
 // Route module, not the action: after the port this re-exports the new handler.
 import {
 	DELETE as deleteTask,
@@ -535,7 +535,7 @@ describe('PUT /api/tasks/[id] — visibility, assignment and collaboration', () 
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
 		const task = await seedTask(db, {
@@ -592,7 +592,7 @@ describe('PUT /api/tasks/[id] — visibility, assignment and collaboration', () 
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
 		const task = await seedTask(db, {
@@ -629,7 +629,7 @@ describe('PUT /api/tasks/[id] — visibility, assignment and collaboration', () 
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
 		const task = await seedTask(db, {
@@ -732,7 +732,7 @@ describe('PUT /api/tasks/[id] — visibility, assignment and collaboration', () 
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
 		const task = await seedTask(db, {
@@ -786,7 +786,7 @@ describe('PUT /api/tasks/[id] — visibility, assignment and collaboration', () 
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		const task = await seedTask(db, {
 			title: 'Family chore',
@@ -811,7 +811,7 @@ describe('PUT /api/tasks/[id] — visibility, assignment and collaboration', () 
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
 		const lee = await seedUser(db, { firstName: 'Lee' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
 		await addMember(db, lee.id, family.id);
@@ -839,7 +839,7 @@ describe('PUT /api/tasks/[id] — visibility, assignment and collaboration', () 
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
 		const familyTask = await seedTask(db, {
@@ -1061,7 +1061,7 @@ describe('DELETE /api/tasks/[id]', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
 		const familyTask = await seedTask(db, {

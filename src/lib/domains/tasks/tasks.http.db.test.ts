@@ -26,7 +26,7 @@ import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
-import { addMember, seedCategory, seedFamily, seedTask } from './tasks.fixtures.server';
+import { addMember, seedCategory, seedTaskFamily, seedTask } from './tasks.fixtures.server';
 // Route modules, not actions: after the port these re-export the new handlers,
 // so the imports never change (characterize-endpoints.md).
 import { GET as getTasks, POST as postTask } from '../../../routes/api/tasks/+server';
@@ -184,7 +184,7 @@ describe('GET /api/tasks', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
 		const secret = await seedTask(db, {
@@ -243,7 +243,7 @@ describe('GET /api/tasks', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		const calendar = await seedCalendar(db, { familyId: family.id });
 		const event = await seedEvent(db, {
@@ -340,7 +340,7 @@ describe('GET /api/tasks', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
 		const familyTask = await seedTask(db, {
@@ -369,7 +369,7 @@ describe('POST /api/tasks', () => {
 	it('creates a task with normalized tags, defaults and an auto-added category', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 
 		const res = await invoke(postTask, {
@@ -427,7 +427,7 @@ describe('POST /api/tasks', () => {
 	it('reads an absent familyId as the caller`s family and an explicit null as personal', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 
 		await invoke(postTask, {
@@ -504,7 +504,7 @@ describe('POST /api/tasks', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
 
@@ -542,9 +542,9 @@ describe('POST /api/tasks', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
-		const otherFamily = await seedFamily(db, 'Other');
+		const otherFamily = await seedTaskFamily(db, 'Other');
 
 		const notMember = await invoke(postTask, {
 			ctx: ctx(),
@@ -624,7 +624,7 @@ describe('POST /api/tasks', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		const calendar = await seedCalendar(db, { familyId: family.id });
 		const event = await seedEvent(db, {
@@ -779,7 +779,7 @@ describe('GET /api/tasks/sections', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
 		const mine = await seedTask(db, {
@@ -956,7 +956,7 @@ describe('GET /api/stats', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const family = await seedFamily(db);
+		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id, 'member', 'child');
 		const first = await seedTask(db, {

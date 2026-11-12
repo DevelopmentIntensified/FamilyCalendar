@@ -17,7 +17,7 @@ import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
-import { addMember, seedFamily, seedSession, seedTask } from './tasks.fixtures.server';
+import { addMember, seedTaskFamily, seedTaskFocusSession, seedTask } from './tasks.fixtures.server';
 // Route modules, not actions: after the port these re-export the new handlers.
 import {
 	GET as getCommands,
@@ -239,14 +239,14 @@ describe('GET /api/taskfocus/sessions', () => {
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
-		const first = await seedSession(db, {
+		const first = await seedTaskFocusSession(db, {
 			id: 'ses-first',
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: new Date('2026-01-01T09:00:00.000Z'),
 			endedAt: new Date('2026-01-01T09:10:00.000Z')
 		});
-		const second = await seedSession(db, {
+		const second = await seedTaskFocusSession(db, {
 			id: 'ses-second',
 			userId: mia.id,
 			taskId: task.id,
@@ -254,13 +254,13 @@ describe('GET /api/taskfocus/sessions', () => {
 			endedAt: new Date('2026-01-01T10:05:00.000Z')
 		});
 		// Open, absorbed and another user's rows are all excluded.
-		await seedSession(db, {
+		await seedTaskFocusSession(db, {
 			id: 'ses-open',
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: new Date('2026-01-01T11:00:00.000Z')
 		});
-		await seedSession(db, {
+		await seedTaskFocusSession(db, {
 			id: 'ses-absorbed',
 			userId: mia.id,
 			taskId: task.id,
@@ -268,7 +268,7 @@ describe('GET /api/taskfocus/sessions', () => {
 			endedAt: new Date('2026-01-01T08:05:00.000Z'),
 			absorbedAt: new Date('2026-01-02T08:00:00.000Z')
 		});
-		await seedSession(db, {
+		await seedTaskFocusSession(db, {
 			id: 'ses-sams',
 			userId: sam.id,
 			taskId: task.id,
@@ -368,7 +368,7 @@ describe('POST /api/taskfocus/sessions', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
-		const open = await seedSession(db, {
+		const open = await seedTaskFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - HOUR)
@@ -518,7 +518,7 @@ describe('POST /api/taskfocus/sessions', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const home = await seedFamily(db);
+		const home = await seedTaskFamily(db);
 		await addMember(db, mia.id, home.id);
 		await addMember(db, sam.id, home.id);
 		const samsPersonal = await seedTask(db, { title: 'Sam only', userId: sam.id });
@@ -564,7 +564,7 @@ describe('PATCH /api/taskfocus/sessions/[id]', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
-		const session = await seedSession(db, {
+		const session = await seedTaskFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - 2 * HOUR)
@@ -607,7 +607,7 @@ describe('PATCH /api/taskfocus/sessions/[id]', () => {
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
 		const startedAt = new Date(Date.now() - 20 * HOUR);
-		const session = await seedSession(db, {
+		const session = await seedTaskFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt
@@ -654,14 +654,14 @@ describe('PATCH /api/taskfocus/sessions/[id]', () => {
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
-		const absorbed = await seedSession(db, {
+		const absorbed = await seedTaskFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - 3 * HOUR),
 			endedAt: new Date(Date.now() - 2 * HOUR),
 			absorbedAt: new Date(Date.now() - HOUR)
 		});
-		const sams = await seedSession(db, {
+		const sams = await seedTaskFocusSession(db, {
 			userId: sam.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - 2 * HOUR)
@@ -699,7 +699,7 @@ describe('DELETE /api/taskfocus/sessions/[id]', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
-		const open = await seedSession(db, {
+		const open = await seedTaskFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - HOUR)
@@ -714,7 +714,7 @@ describe('DELETE /api/taskfocus/sessions/[id]', () => {
 		expect(first.status).toBe(200);
 		expect(first.body).toEqual({ success: true });
 
-		const closed = await seedSession(db, {
+		const closed = await seedTaskFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - 3 * HOUR),
@@ -736,14 +736,14 @@ describe('DELETE /api/taskfocus/sessions/[id]', () => {
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
-		const absorbed = await seedSession(db, {
+		const absorbed = await seedTaskFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - 3 * HOUR),
 			endedAt: new Date(Date.now() - 2 * HOUR),
 			absorbedAt: new Date(Date.now() - HOUR)
 		});
-		const sams = await seedSession(db, {
+		const sams = await seedTaskFocusSession(db, {
 			userId: sam.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - HOUR)
@@ -779,7 +779,7 @@ describe('POST /api/taskfocus/sessions/[id]/absorb', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
-		const session = await seedSession(db, {
+		const session = await seedTaskFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - 3 * HOUR),
@@ -820,12 +820,12 @@ describe('POST /api/taskfocus/sessions/[id]/absorb', () => {
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
-		const open = await seedSession(db, {
+		const open = await seedTaskFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - HOUR)
 		});
-		const sams = await seedSession(db, {
+		const sams = await seedTaskFocusSession(db, {
 			userId: sam.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - 3 * HOUR),

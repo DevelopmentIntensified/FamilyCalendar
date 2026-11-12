@@ -13,7 +13,7 @@ import {
 	tasks
 } from '$lib/kernel/db/tables.server';
 
-export async function seedFamily(db: Db, name = 'Home') {
+export async function seedTaskFamily(db: Db, name = 'Home') {
 	const [row] = await db.insert(families).values({ name }).returning();
 	return row;
 }
@@ -41,7 +41,7 @@ export async function seedCategory(db: Db, userId: string, name: string) {
 	return row;
 }
 
-export async function seedSession(
+export async function seedTaskFocusSession(
 	db: Db,
 	values: Omit<typeof taskfocusSessions.$inferInsert, 'userId' | 'taskId'> & {
 		userId: string;
