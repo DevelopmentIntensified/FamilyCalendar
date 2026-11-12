@@ -10,19 +10,17 @@ import { eq } from 'drizzle-orm';
 import { DateTime } from 'luxon';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-	families,
-	familyMembers,
 	notifications,
 	taskCategories,
 	taskCompletions,
 	taskTags,
 	tasks
 } from '$lib/kernel/db/tables.server';
-import type { Db } from '$lib/kernel/db/database.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
+import { addMember, seedFamily, seedTask } from './tasks.fixtures.server';
 // Route module, not the action: after the port this re-exports the new handler.
 import {
 	DELETE as deleteTask,
@@ -31,23 +29,11 @@ import {
 
 const ctx = () => testCtx({ db: testDb() });
 const ISO = /^\d{4}-\d{2}-\d{2}T/;
+// timestamptz mode:'string' fields are rendered by Postgres, not ISO-serialized.
+const PG_TIMESTAMP = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d+)?\+00$/;
 
-async function seedFamily(db: Db, name = 'Home') {
-	const [row] = await db.insert(families).values({ name }).returning();
-	return row;
-}
-
-async function addMember(db: Db, userId: string, familyId: string) {
-	await db.insert(familyMembers).values({ userId, familyId });
-}
-
-async function seedTask(
-	db: Db,
-	values: Omit<typeof tasks.$inferInsert, 'title' | 'userId'> & { title: string; userId: string }
-) {
-	const [row] = await db.insert(tasks).values(values).returning();
-	return row;
-}
+/** The day legacy uses when the caller has no stored zone: UTC (`new Date().toISOString()`). */
+const utcToday = () => DateTime.now().toUTC().startOf('day');
 
 describe('PUT /api/tasks/[id] — field patches', () => {
 	beforeEach(truncateAll);
@@ -103,6 +89,26 @@ describe('PUT /api/tasks/[id] — field patches', () => {
 				createdAt: expect.stringMatching(ISO),
 				tags: ['alpha', 'zed']
 			}
+		});
+	});
+
+	it('falls back to normal for an unknown priority', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		const task = await seedTask(db, { title: 'Plain', priority: 'high', userId: mia.id });
+
+		const res = await invoke(putTask, {
+			ctx: ctx(),
+			user: mia,
+			path: `/api/tasks/${task.id}`,
+			method: 'PUT',
+			body: { priority: 'urgent' }
+		});
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({
+			success: true,
+			task: expect.objectContaining({ priority: 'normal' })
 		});
 	});
 
@@ -330,7 +336,7 @@ describe('PUT /api/tasks/[id] — completion, cursor and undo', () => {
 				title: 'Mine',
 				notes: null,
 				dueDate: null,
-				completedAt: expect.stringMatching(ISO),
+				completedAt: expect.stringMatching(PG_TIMESTAMP),
 				archivedAt: null,
 				recurrenceFrequency: null,
 				recurrenceInterval: null,
@@ -388,8 +394,8 @@ describe('PUT /api/tasks/[id] — completion, cursor and undo', () => {
 		});
 		expect(first.status).toBe(200);
 		const [afterFirst] = await db.select().from(tasks).where(eq(tasks.id, stale.id));
-		expect(DateTime.fromJSDate(new Date(afterFirst.dueDate ?? '')).toISODate()).toBe(
-			DateTime.now().startOf('day').plus({ days: 1 }).toISODate()
+		expect(DateTime.fromJSDate(new Date(afterFirst.dueDate ?? '')).toUTC().toISODate()).toBe(
+			utcToday().plus({ days: 1 }).toISODate()
 		);
 		expect(afterFirst.completionCount).toBe(1);
 		expect(afterFirst.completedAt).toBeNull();
@@ -399,10 +405,10 @@ describe('PUT /api/tasks/[id] — completion, cursor and undo', () => {
 		]);
 
 		// Due exactly one interval out pushes the next check two intervals out.
-		const tomorrow = DateTime.now().startOf('day').plus({ days: 1 });
+		const utcTomorrow = utcToday().plus({ days: 1 });
 		const dueTomorrow = await seedTask(db, {
 			title: 'Due tomorrow',
-			dueDate: tomorrow.toISO() ?? undefined,
+			dueDate: utcTomorrow.toISO() ?? undefined,
 			recurrenceFrequency: 'daily',
 			recurrenceInterval: 1,
 			userId: mia.id
@@ -415,8 +421,8 @@ describe('PUT /api/tasks/[id] — completion, cursor and undo', () => {
 			body: { toggleComplete: true }
 		});
 		const [afterTomorrow] = await db.select().from(tasks).where(eq(tasks.id, dueTomorrow.id));
-		expect(DateTime.fromJSDate(new Date(afterTomorrow.dueDate ?? '')).toISODate()).toBe(
-			tomorrow.plus({ days: 1 }).toISODate()
+		expect(DateTime.fromJSDate(new Date(afterTomorrow.dueDate ?? '')).toUTC().toISODate()).toBe(
+			utcTomorrow.plus({ days: 1 }).toISODate()
 		);
 	});
 
@@ -444,8 +450,8 @@ describe('PUT /api/tasks/[id] — completion, cursor and undo', () => {
 
 		expect(res.status).toBe(200);
 		const [row] = await db.select().from(tasks).where(eq(tasks.id, task.id));
-		expect(DateTime.fromJSDate(new Date(row.dueDate ?? '')).toISODate()).toBe(
-			DateTime.now().startOf('day').plus({ days: 1 }).toISODate()
+		expect(DateTime.fromJSDate(new Date(row.dueDate ?? '')).toUTC().toISODate()).toBe(
+			utcToday().plus({ days: 1 }).toISODate()
 		);
 		expect(row.completionCount).toBe(2);
 		expect(await db.select().from(taskCompletions)).toHaveLength(1);
@@ -487,7 +493,7 @@ describe('PUT /api/tasks/[id] — completion, cursor and undo', () => {
 
 		expect(res.status).toBe(200);
 		const [row] = await db.select().from(tasks).where(eq(tasks.id, task.id));
-		expect(DateTime.fromJSDate(new Date(row.dueDate ?? '')).toISODate()).toBe('2025-12-25');
+		expect(DateTime.fromJSDate(new Date(row.dueDate ?? '')).toUTC().toISODate()).toBe('2025-12-25');
 		expect(row.completionCount).toBe(0);
 		expect(await db.select().from(taskCompletions)).toEqual([]);
 
@@ -720,6 +726,84 @@ describe('PUT /api/tasks/[id] — visibility, assignment and collaboration', () 
 				message: "Mia declined 'Not mine'"
 			})
 		]);
+	});
+
+	it('alerts the owner once when someone else completes their task, never on un-check or self', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		const sam = await seedUser(db, { firstName: 'Sam' });
+		const family = await seedFamily(db);
+		await addMember(db, mia.id, family.id);
+		await addMember(db, sam.id, family.id);
+		const task = await seedTask(db, {
+			title: 'Shared chore',
+			familyId: family.id,
+			userId: sam.id
+		});
+
+		const done = await invoke(putTask, {
+			ctx: ctx(),
+			user: mia,
+			path: `/api/tasks/${task.id}`,
+			method: 'PUT',
+			body: { toggleComplete: true }
+		});
+		expect(done.status).toBe(200);
+		expect(await db.select().from(notifications)).toEqual([
+			expect.objectContaining({
+				userId: sam.id,
+				type: 'task_completed',
+				actorName: 'Mia',
+				message: "Mia completed 'Shared chore'",
+				link: '/calendar/tasks',
+				readAt: null
+			})
+		]);
+
+		// Only the open -> done transition notifies: the un-check is silent.
+		await invoke(putTask, {
+			ctx: ctx(),
+			user: mia,
+			path: `/api/tasks/${task.id}`,
+			method: 'PUT',
+			body: { toggleComplete: true }
+		});
+		expect(await db.select().from(notifications)).toHaveLength(1);
+
+		// Checking off your OWN task never notifies yourself.
+		const own = await seedTask(db, { title: 'Mine', userId: mia.id });
+		await invoke(putTask, {
+			ctx: ctx(),
+			user: mia,
+			path: `/api/tasks/${own.id}`,
+			method: 'PUT',
+			body: { toggleComplete: true }
+		});
+		expect(await db.select().from(notifications)).toHaveLength(1);
+	});
+
+	it('answers 400 when the new assignee is not a member of the task`s family', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		const sam = await seedUser(db, { firstName: 'Sam' });
+		const family = await seedFamily(db);
+		await addMember(db, mia.id, family.id);
+		const task = await seedTask(db, {
+			title: 'Family chore',
+			familyId: family.id,
+			userId: mia.id
+		});
+
+		const res = await invoke(putTask, {
+			ctx: ctx(),
+			user: mia,
+			path: `/api/tasks/${task.id}`,
+			method: 'PUT',
+			body: { assignedTo: sam.id }
+		});
+
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error: 'Assignee is not a member of this family' });
 	});
 
 	it('answers 403 when a non-assignee collaborator tries to reassign', async () => {

@@ -9,18 +9,15 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-	families,
-	familyMembers,
 	taskfocusCommands,
-	taskfocusSessions,
-	tasks
+	taskfocusSessions
 } from '$lib/kernel/db/tables.server';
-import type { Db } from '$lib/kernel/db/database.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
+import { addMember, seedFamily, seedSession, seedTask } from './tasks.fixtures.server';
 // Route modules, not actions: after the port these re-export the new handlers.
 import {
 	GET as getCommands,
@@ -41,25 +38,6 @@ const ctx = () => testCtx({ db: testDb() });
 const ISO = /^\d{4}-\d{2}-\d{2}T/;
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
-
-async function seedTask(
-	db: Db,
-	values: Omit<typeof tasks.$inferInsert, 'title' | 'userId'> & { title: string; userId: string }
-) {
-	const [row] = await db.insert(tasks).values(values).returning();
-	return row;
-}
-
-async function seedSession(
-	db: Db,
-	values: Omit<typeof taskfocusSessions.$inferInsert, 'userId' | 'taskId'> & {
-		userId: string;
-		taskId: string;
-	}
-) {
-	const [row] = await db.insert(taskfocusSessions).values(values).returning();
-	return row;
-}
 
 describe('GET /api/taskfocus/commands', () => {
 	beforeEach(truncateAll);
@@ -328,7 +306,8 @@ describe('GET /api/taskfocus/sessions', () => {
 
 	it('answers 400 unless the query is exactly ?unabsorbed=1', async () => {
 		const mia = await seedUser(testDb(), { firstName: 'Mia' });
-		for (const query of [{}, { unabsorbed: '2' }]) {
+		const queries: Readonly<Record<string, string>>[] = [{}, { unabsorbed: '2' }];
+		for (const query of queries) {
 			const res = await invoke(getSessions, {
 				ctx: ctx(),
 				user: mia,
@@ -539,11 +518,9 @@ describe('POST /api/taskfocus/sessions', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const [home] = await db.insert(families).values({ name: 'Home' }).returning();
-		await db.insert(familyMembers).values([
-			{ userId: mia.id, familyId: home.id },
-			{ userId: sam.id, familyId: home.id }
-		]);
+		const home = await seedFamily(db);
+		await addMember(db, mia.id, home.id);
+		await addMember(db, sam.id, home.id);
 		const samsPersonal = await seedTask(db, { title: 'Sam only', userId: sam.id });
 		const archived = await seedTask(db, {
 			title: 'Archived',

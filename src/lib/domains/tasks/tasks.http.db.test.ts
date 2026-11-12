@@ -12,8 +12,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
 	calendars,
 	events,
-	families,
-	familyMembers,
 	notifications,
 	taskCategories,
 	taskCompletions,
@@ -28,6 +26,7 @@ import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
+import { addMember, seedCategory, seedFamily, seedTask } from './tasks.fixtures.server';
 // Route modules, not actions: after the port these re-export the new handlers,
 // so the imports never change (characterize-endpoints.md).
 import { GET as getTasks, POST as postTask } from '../../../routes/api/tasks/+server';
@@ -46,21 +45,6 @@ import {
 const ctx = () => testCtx({ db: testDb() });
 const ISO = /^\d{4}-\d{2}-\d{2}T/;
 
-async function seedFamily(db: Db, name = 'Home') {
-	const [row] = await db.insert(families).values({ name }).returning();
-	return row;
-}
-
-async function addMember(
-	db: Db,
-	userId: string,
-	familyId: string,
-	role = 'member',
-	memberType = 'member'
-) {
-	await db.insert(familyMembers).values({ userId, familyId, role, memberType });
-}
-
 async function seedCalendar(db: Db, values: typeof calendars.$inferInsert) {
 	const [row] = await db.insert(calendars).values(values).returning();
 	return row;
@@ -68,19 +52,6 @@ async function seedCalendar(db: Db, values: typeof calendars.$inferInsert) {
 
 async function seedEvent(db: Db, values: typeof events.$inferInsert) {
 	const [row] = await db.insert(events).values(values).returning();
-	return row;
-}
-
-async function seedTask(
-	db: Db,
-	values: Omit<typeof tasks.$inferInsert, 'title' | 'userId'> & { title: string; userId: string }
-) {
-	const [row] = await db.insert(tasks).values(values).returning();
-	return row;
-}
-
-async function seedCategory(db: Db, userId: string, name: string) {
-	const [row] = await db.insert(taskCategories).values({ userId, name }).returning();
 	return row;
 }
 
@@ -384,9 +355,11 @@ describe('GET /api/tasks', () => {
 		await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
 
 		const [row] = await db.select().from(tasks).where(eq(tasks.id, familyTask.id));
-		const pinned = DateTime.fromJSDate(new Date(row.dueDate ?? ''));
-		expect(pinned.toISODate()).toBe(DateTime.now().startOf('day').toISODate());
-		expect(pinned.hour).toBe(23);
+		// No stored zone, so legacy falls back to `new Date().toISOString()`:
+		// the pin is 23:59 in UTC, never in the process zone.
+		const pinned = DateTime.fromJSDate(new Date(row.dueDate ?? '')).toUTC();
+		expect(pinned.toISODate()).toBe(DateTime.now().toUTC().startOf('day').toISODate());
+		expect([pinned.hour, pinned.minute]).toEqual([23, 59]);
 	});
 });
 
@@ -506,6 +479,25 @@ describe('POST /api/tasks', () => {
 			expect(res.status).toBe(400);
 			expect(res.body).toEqual({ error: 'Invalid visibility' });
 		}
+	});
+
+	it('falls back to normal for an unknown priority', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+
+		const res = await invoke(postTask, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/tasks',
+			method: 'POST',
+			body: { title: 'Urgent-ish', priority: 'urgent' }
+		});
+
+		expect(res.status).toBe(201);
+		expect(res.body).toEqual({
+			success: true,
+			task: expect.objectContaining({ priority: 'normal' })
+		});
 	});
 
 	it('assigning another family member starts a pending handoff and alerts them', async () => {
@@ -873,14 +865,20 @@ describe('DELETE /api/tasks/completed', () => {
 		const completed = await seedTask(db, {
 			title: 'Done of mine',
 			completedAt: '2026-01-01T00:00:00.000Z',
+			createdAt: new Date('2026-01-01T00:00:00.000Z'),
 			userId: mia.id
 		});
-		const open = await seedTask(db, { title: 'Still open', userId: mia.id });
+		const open = await seedTask(db, {
+			title: 'Still open',
+			createdAt: new Date('2026-01-02T00:00:00.000Z'),
+			userId: mia.id
+		});
 		const assigned = await seedTask(db, {
 			title: 'Done, assigned to me',
 			completedAt: '2026-01-02T00:00:00.000Z',
 			assignedTo: mia.id,
 			assignmentStatus: 'accepted',
+			createdAt: new Date('2026-01-03T00:00:00.000Z'),
 			userId: sam.id
 		});
 
@@ -906,8 +904,13 @@ describe('DELETE /api/tasks/completed', () => {
 			user: mia,
 			path: '/api/tasks/sections'
 		});
+		// Legacy getMyTasks is the OR of the caller's personal rows and their
+		// accepted assignments, so the untouched open row is still listed.
 		expect(sections.body).toEqual({
-			myTasks: [expect.objectContaining({ id: assigned.id })],
+			myTasks: [
+				expect.objectContaining({ id: assigned.id }),
+				expect.objectContaining({ id: open.id })
+			],
 			pendingAssignments: [],
 			requestedByMe: [],
 			warnings: []
@@ -1218,6 +1221,15 @@ describe('task categories', () => {
 		expect(foreign.status).toBe(404);
 		expect(foreign.body).toEqual({ error: 'Category not found' });
 		expect(await db.select().from(taskCategories)).toHaveLength(1);
+
+		const unknownDelete = await invoke(deleteCategory, {
+			ctx: ctx(),
+			user: mia,
+			params: { id: 'no-such-category' },
+			method: 'DELETE'
+		});
+		expect(unknownDelete.status).toBe(404);
+		expect(unknownDelete.body).toEqual({ error: 'Category not found' });
 
 		const badNames: { name?: string; error: string }[] = [
 			{ error: 'name is required' },
