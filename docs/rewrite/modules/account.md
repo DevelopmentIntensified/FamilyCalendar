@@ -112,11 +112,192 @@ The `/api/me/settings|profile|email|sessions/revoke-others|api-tokens|dashboard-
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+### Files (new, `src/lib/screens/account/`)
+
+| file | role | contents |
+|---|---|---|
+| `account.contract.ts` | contract | zod + types for the two `/api` bodies (`AccountMe`, `AccountDeleteBody`, `AccountExportDocument`) and the internal section parameter: `AccountSectionParam` is a `z.enum` built from `ACCOUNT_SECTIONS`, so the enum is the one id check (`isAccountSectionId` has no non-zod consumer and dies). `AccountSectionModel` is a discriminated union over the section ids, typed from each owning domain's section model and reconciled at their S1s — never hand-mirrored. |
+| `account.sections.rules.ts` | rules | `ACCOUNT_SECTIONS` (moved out of `accountSections.ts`), its `AccountSectionId` union, `resolveAccountSection`, `accountSectionHref`. The one list the rail, page and endpoint read; ids are never re-listed. |
+| `account.sections.rules.test.ts` | test | order, hash resolution, fallback, unknown id. |
+| `account.export.rules.ts` | rules | `exportFileName(now)`: `familyplanz-export-YYYY-MM-DD.json` from a passed-in instant (R5); the document's top-level key order. |
+| `account.export.rules.test.ts` | test | filename format, padding, one document. |
+| `account.service.server.ts` | service | `getAccountIdentity(ctx, actor)`; `getAccountSection(ctx, actor, sectionId)` — the lazy per-section composition, one `switch` over the ten ids calling identity/alerts/billing/dashboardModules/calendar/verse/sponsored/family through their `index.server.ts`. Authorization: signed-in actor only (the page guard). |
+| `account.export.service.server.ts` | service | `getAccountExport(ctx, actor)` — composes the fixed document: identity slice (users minus `passwordHash` + settings) → billing/family/tasks/groceries/alerts slices in parallel → calendar slice (events by owner/attendance/exported-task event ids) → bills slice (bills + receipt items); throws `notFound` when the user row is gone. |
+| `account.service.db.test.ts` | test | every IO invariant in the README: defaults read, foreign default calendar, consent transition/failure, dashboard hides, notification defaults + `email`/`sms` preservation, email-change bindings/throttle/self-loop, session revocation, profile names, plan degrade, section models, export scope. |
+| `account.http.server.ts` | http | `accountPageLoad`, `accountFormActions` (the nine mutations the page owns; export is a GET), `accountSectionEndpoint` (`GET /account/section/[section]`), `accountMeGetEndpoint`, `accountMeDeleteEndpoint`, `accountExportEndpoint`, `accountCalendarSettingsRedirect`. Legacy wording kept verbatim. |
+| `account.api.ts` | api | `fetchAccountSection(section)` (typed against `AccountSectionModel`), `downloadAccountExport()` (blob + object URL; toasts stay in the state). |
+| `account.state.svelte.ts` | state | The screen's client state: hash → active section, per-section model cache + pending/skeleton, action banner (green/red, `message` or `error`, `guestNeedsClaim` link), optimistic notification toggle with revert, export toasts. Takes the api client and toasts in its constructor. |
+| `account.state.test.ts` | test | hash changes fetch once and cache; failed section fetch shows retry; failed toggle reverts; export toasts. |
+| `ui/AccountScreen.svelte` | ui | chrome (breadcrumbs, header, back link) + rail + mounted section; skeleton while a section model is pending. |
+| `ui/AccountScreen.svelte.test.ts` | test | section switch, banner fallback copy, guest claim link. |
+| `ui/AccountSidebar.svelte` | ui | section links from `ACCOUNT_SECTIONS`, signed-in-as card (no placeholder email). |
+| `ui/AccountSidebar.svelte.test.ts` | test | links, fallback section, guest card. |
+| `ui/AccountProfileSection.svelte` | ui | name form, `update({reset:false})`, "Saving..." → "Update Profile". |
+| `ui/AccountFamiliesSection.svelte` | ui | one row per family (`/family/<id>`, initial, `N members · role`, "Manage →"), empty state, "+ Create a family". |
+| `ui/AccountNotificationsSection.svelte` | ui | skeleton rows, native `role="switch"` submit per row, `aria-describedby` hints, `role="status"` receipt, "See the alerts". |
+| `ui/AccountNotificationsSection.svelte.test.ts` | test | optimistic flip, receipt text, revert on failure, skeletons. |
+| `ui/AccountCalendarSection.svelte` | ui | week start, IANA zone list (UTC fallback), default view, default calendar, colour, family sync, auto-parse, Daily Verse + translation, sponsored opt-in + consent history, save, ICS import link. Loaded with dynamic `import()` on first mount. |
+| `ui/AccountCalendarSection.svelte.test.ts` | test | reload sync, consent labels, `kjv` coercion. |
+| `ui/AccountDashboardSection.svelte` | ui | "Above your cards" / "Cards" groups, scope + meaning, parked badge, `module_<id>` checkboxes, footer. |
+| `ui/AccountSubscriptionSection.svelte` | ui | plan card, limits table, AI usage bar + reset date, upgrade block. Display helpers move to billing rules; this component only formats from billing's model. |
+| `ui/AccountEmailSection.svelte` | ui | Verified/Not Verified, change form, guest Claim CTA. |
+| `ui/AccountEmailSection.svelte.test.ts` | test | guest CTA vs real form. |
+| `ui/AccountSecuritySection.svelte` | ui | one "Log out all other devices" action. |
+| `ui/AccountApiTokensSection.svelte` | ui | create form (plaintext once, copy button), token rows (relative last-used label from identity's rule), revoke, empty state. |
+| `ui/AccountDangerSection.svelte` | ui | export card (state toasts), two-step delete with typed user id (kernel `ConfirmAction` when K-08 lands). |
+| `ui/AccountDangerSection.svelte.test.ts` | test | reveal/cancel shape, export toasts wired to state. |
+
+`README.md` (this folder) is updated with every row above as it lands. No repo, no fixtures: the
+screen owns no tables, so fixtures belong to the owning domains.
+
+### Route wiring (S6; outside the module folder)
+
+| file | becomes |
+|---|---|
+| `src/routes/(calendar)/account/+page.server.ts` | `export const load = accountPageLoad; export const actions = accountFormActions;` |
+| `src/routes/(calendar)/account/+page.svelte` | ≤25 lines rendering `AccountScreen`. |
+| `src/routes/(calendar)/account/+layout.server.ts` | deleted: the app shell layout owns the `/login` guard and the signed-in identity (called out under Notes). |
+| `src/routes/(calendar)/account/+layout.svelte` | deleted: the app shell layout owns Navbar/Toaster/BottomNav. |
+| `src/routes/(calendar)/account/section/[section]/+server.ts` | new, internal page-data route: `export const GET = accountSectionEndpoint.handler;` — the lazy per-section fetch. Deliberately outside `/api` so the fixed Android wire does not grow. |
+| `src/routes/(calendar)/calendar/settings/+page.server.ts` | `export const load = accountCalendarSettingsRedirect;` |
+| `src/routes/api/me/+server.ts` | `export const GET = accountMeGetEndpoint.handler; export const DELETE = accountMeDeleteEndpoint.handler;` |
+| `src/routes/api/account/export/+server.ts` | `export const GET = accountExportEndpoint.handler;` |
+
+### Where each legacy export goes
+
+| legacy file | destination | why |
+|---|---|---|
+| `accountSections.ts` | `account.sections.rules.ts` | the section list is the screen's one owned rule; its tests move with it. |
+| `accountData.ts` | split, then dies | settings/profile/sessions/API tokens/deletion → identity services; notification preferences → alerts; subscription summary → billing; dashboard hides → dashboardModules; consent history → sponsored; the screen keeps only `getAccountSection`/`getAccountExport` composition. |
+| `export.ts` | `account.export.service.server.ts` + per-domain export slices | the document key order and envelope stay here; each SELECT moves to the domain that owns the table (R3). |
+| `accountDashboardModules.ts` | dashboardModules domain rules | canonical ids, show-based form, mounted/unmounted fact; the screen renders the result. |
+| `accountNotifications.ts` | alerts domain rules | labels, defaults, stored-row parsing, outcome/receipt wording. |
+| `accountSubscription.ts` | billing domain rules | period/usage/renewal and relative last-used labels; AI usage wording. |
+| `accountCalendars.ts` | calendar domain rules | family-calendar naming (one entry per family). |
+| `AccountSidebar.svelte` | `ui/AccountSidebar.svelte` | rebuilt on kernel ui; icons stay local. |
+| `AccountProfileSection.svelte` | `ui/AccountProfileSection.svelte` | same form, runes, `data-testid`s. |
+| `AccountFamiliesSection.svelte` | `ui/AccountFamiliesSection.svelte` | same rows, typed from family's model. |
+| `AccountNotificationsSection.svelte` | `ui/AccountNotificationsSection.svelte` + `account.state.svelte.ts` | optimistic toggle moves into the state class. |
+| `AccountCalendarSection.svelte` | `ui/AccountCalendarSection.svelte` | 329 lines → split its field groups; stays ≤400 with the zone list as data. |
+| `AccountDashboardSection.svelte` | `ui/AccountDashboardSection.svelte` | same grouping; module list from dashboardModules. |
+| `AccountSubscriptionSection.svelte` | `ui/AccountSubscriptionSection.svelte` | 219 lines; renders billing's model, no local calculations. |
+| `AccountEmailSection.svelte` | `ui/AccountEmailSection.svelte` | same two states (guest CTA / form). |
+| `AccountSecuritySection.svelte` | `ui/AccountSecuritySection.svelte` | one action. |
+| `AccountApiTokensSection.svelte` | `ui/AccountApiTokensSection.svelte` | create/revoke; plaintext only from the create response. |
+| `AccountDangerSection.svelte` | `ui/AccountDangerSection.svelte` | export via `account.api.ts`; delete via kernel `ConfirmAction`. |
+| `calendar/settings/+page.server.ts` | wiring only | the redirect handler moves into `account.http.server.ts`. |
+
+### PERFORMANCE (ADR 0010) — load plan
+
+**Page `/account`.** First paint needs only chrome and one section body:
+
+- **Above the fold:** header/breadcrumbs, the rail (static `ACCOUNT_SECTIONS` + identity from the
+  app shell's parent load), and the section a hash names. The server never sees a fragment, so the
+  first load renders the default section (profile — needs only the identity row the shell already
+  loaded) and sends no section-specific query.
+- **On mount:** `AccountScreen` reads `location.hash` through `account.state.svelte.ts`. Any other
+  section triggers one `GET /account/section/<id>`; the body renders skeleton rows meanwhile. The
+  model is cached per section for the visit, so switching back is instant.
+- **Per section (all inside one service call, independent reads in `Promise.all`):**
+  - profile / email / security / danger — the identity row from the shell, no query;
+  - families — one memberships query (role + member count);
+  - notifications — one preferences read, defaults when no row;
+  - calendar — settings + the user's calendars + family calendars, then the verse catalogue and the
+    consent trail in parallel (verse is static data);
+  - dashboard — the settings row's hidden list + the static module list;
+  - plan & usage — billing's subscription, limits and AI usage in parallel, plus static pricing;
+  - api — one bounded token list.
+- **On demand:** every section component loads with dynamic `import()`; only the mounted one (and
+  its test) is in the initial bundle. The calendar section — the biggest, with the time-zone list —
+  is the main win.
+- **Legacy costs found:** the loader runs eleven sequential round trips
+  (`+page.server.ts:63-124` — user, settings, calendars, memberships, family calendars, three
+  subscription reads, notification prefs, consent history, token list), and it runs all of them on
+  every visit whichever section the hash names; all eleven section components are statically
+  imported; the calendar list and token list are unbounded; the export route builds the whole
+  document string in memory (`export/+server.ts:19-27`) before pretending to stream. Target: one
+  query for the default paint, one small batch on the first section change, and a section body
+  visible well inside 300 ms desktop.
+
+**Page `/calendar/settings`.** A 302 only: no HTML, no data, no budget to measure.
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
+### Corrections to the draft inventory (code wins)
+
+- Dashboard save receipt is `Dashboard modules saved — <n> of <total> cards on.` /
+  `… all <total> cards on.`, not the sheet's `"<n> of <total> cards on."`
+  (`src/lib/server/services/accountData.ts:236-238`).
+- The page has ten sections; the sheet's intro says "one section per domain … + data export", but
+  export is a card inside the danger section, not a section of its own
+  (`src/lib/components/account/AccountDangerSection.svelte:41-55`).
+- `/api/me` `roles` is always an array (`user.roles ?? []`), never absent
+  (`src/routes/api/me/+server.ts:31`).
+- `DELETE /api/me` with an absent/null/non-string confirmation is not a different message: all
+  become `''` and answer 400 "Confirmation does not match"
+  (`src/routes/api/me/+server.ts:47`).
+- The export document carries `version: 1` and `generatedAt`; both are wire fields the goldens pin
+  (`src/lib/server/db/actions/export.ts:197-198`).
+
+### "Probably accidental" dispositions
+
+- **Personal calendars all named "Personal Calendar" with the settings colour** — dropped: the page
+  load shape is open, and calendar's model carries each row's real name/colour. The rule that
+  survives is "a default calendar must be one the user can see" (README Invariant).
+- **Export card copy overstates the download** — kept as copy for now; owner question 3 below.
+- **Rail "Report a Bug" drops `?from=`** — owner question 4; the new rail should use the same
+  helper as the navbar.
+- **"Plan & usage" label vs "Subscription" heading** — owner question 5.
+- **Account layout uses Svelte 4 `export let` / `<slot />`** — dropped: the layout dies; the app
+  shell layout renders Navbar/Toaster/BottomNav and owns the guard (README lists where).
+- **`showAdsAsEvents` parser only accepts the literal `'true'`** — dropped: form parsing is
+  redesigned in the contract; the surviving rule is opt-in + consent-on-transition.
+- **Export builds the whole JSON string then enqueues one chunk** — dropped: internal; the wire
+  contract is the document and its headers, which stay.
+- **Non-null assertions in the loader and `deleteAccount` action** — dropped: typed builders
+  (`pageLoad`, `formAction`) reject the signed-out caller instead.
+
+### Files kept for unported importers
+
+None. The four legacy files under `src/lib/components/account/` are imported only by the account
+route (census: importers 1) and the screen's own components; `accountData.ts` interns (`identity`,
+`billing`, `alerts`, `dashboardModules`, `sponsored`) must export their replacements before S8
+deletes it. `export.ts` is imported only by the export route.
+
+### S2 environment note
+
+The `/api/me` route module imports `accountData.ts`, which imports `sendEmail.ts`, which reads
+`RESEND_API_KEY` from `$env/static/private`. The db run therefore needs that key in the environment
+(it resolves from the developer's `.env`); without it, the route import fails before any assertion.
+The export route has no such dependency.
+
+### Questions for the owner
+
+1. **Lazy section route.** Context: the page's section is a URL fragment, which the server never
+   receives, so "load only the visible section" needs a client fetch. Options: (a) a new internal
+   `GET /account/section/[section]` page-data route; (b) all section data streamed in the page load;
+   (c) `?section=` search-param reloads, which change the visible URL. Recommendation: (a); it keeps
+   the first paint to one cheap section and does not add a path to the `/api` wire.
+2. **Export crosses eight domains.** Context: the fixed document holds rows of eight domains, and a
+   screen owns no tables. Options: (a) each domain exports a slice service, composed here; (b) an
+   `app`-level exporter, which breaks the screen's ownership. Recommendation: (a), accepting the
+   wide-but-thin per-domain export entry.
+3. **Export card copy.** Context: the card says "everything your account stores", while
+   `adConsentRecords` and `aiUsageTracking` are deliberately excluded. Options: (a) reword to name
+   what is included/omitted; (b) include the two tables on the wire. Recommendation: (a) —
+   (b) changes a fixed wire.
+4. **Rail Report a Bug link.** Context: the navbar carries `?from=` and the rail does not
+   (`AccountSidebar.svelte:93-108` vs `src/lib/utils/reportBug.ts`). Recommendation: share the
+   helper, adding `?from=/account#<section>`.
+5. **Plan & usage heading.** Context: rail label "Plan & usage" (`accountSections.ts:21`), section
+   heading "Subscription" (`AccountSubscriptionSection.svelte:63`). Recommendation: make both
+   "Plan & usage".
+6. **Personal-calendar names.** Context: the default-calendar select lists every owned calendar as
+   "Personal Calendar" with one colour, so two rows are indistinguishable. Recommendation: calendar
+   exposes real names; no owner action unless the placeholder was intentional.
+7. **Who owns the `/account` guard.** Context: both the group layout and the page redirect `/login`
+   today. Recommendation: the app shell layout takes the guard when this screen is ported; the page
+   load keeps a defensive check only if the shell cannot guarantee it.
 
 ## Census
 
