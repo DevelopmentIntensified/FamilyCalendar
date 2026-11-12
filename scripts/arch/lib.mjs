@@ -37,8 +37,11 @@ export const CODE_EXT = /\.(ts|js|mjs|svelte)$/;
 export const isCode = (file) => CODE_EXT.test(file);
 export const isTest = (file) => /\.(test|spec)\.[jt]s$/.test(file);
 export const isV2 = (file) => V2_ROOTS.some((root) => file.startsWith(root));
-/** v2 code outside the shared kernel. A route that imports it counts as ported (R8, census). */
-export const isModuleCode = (file) => isV2(file) && !file.startsWith('src/lib/kernel/');
+/** Kernel's shared browser helpers: a legacy page may use them and still count as unported (R8). */
+const SHARED_HELPER_ROOTS = ['src/lib/kernel/client/', 'src/lib/kernel/ui/', 'src/lib/kernel/time/'];
+/** v2 code whose import makes a route count as ported: everything v2 except the shared helpers. */
+export const marksRoutePorted = (file) =>
+	isV2(file) && !SHARED_HELPER_ROOTS.some((root) => file.startsWith(root));
 export const isRouteFile = (file) => file.startsWith('src/routes/');
 export const isLegacy = (file) =>
 	LEGACY_PREFIXES.some((prefix) => file === prefix || file.startsWith(prefix));
@@ -134,6 +137,18 @@ export function resolveSpec(fromFile, spec, fileSet) {
 	if (base.endsWith('.js') && fileSet.has(base.slice(0, -3) + '.ts'))
 		return base.slice(0, -3) + '.ts';
 	return `?${base}`;
+}
+
+/**
+ * The one test R8 and the census share: does a route import (comments stripped,
+ * type-only imports ignored) v2 code that makes it count as ported?
+ */
+export function importsPortedCode(file, text, fileSet) {
+	return parseImports(stripComments(text)).some((imp) => {
+		if (imp.typeOnly) return false;
+		const target = resolveSpec(file, imp.spec, fileSet);
+		return Boolean(target) && !target.startsWith('?') && marksRoutePorted(target);
+	});
 }
 
 /**

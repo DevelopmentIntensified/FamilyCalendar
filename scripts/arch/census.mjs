@@ -15,7 +15,7 @@ import {
 	ROOT,
 	isCode,
 	isTest,
-	isModuleCode,
+	importsPortedCode,
 	listFiles,
 	parseImports,
 	readJson,
@@ -44,13 +44,8 @@ const entries = Object.entries(map).map(([file, info]) => ({
 	...info,
 	exists: fileSet.has(file)
 }));
-const isRouteWiring = (file) => {
-	if (!fileSet.has(file) || !isCode(file)) return false;
-	return parseImports(readText(file)).some((imp) => {
-		const target = resolveSpec(file, imp.spec, fileSet);
-		return target && !target.startsWith('?') && isModuleCode(target);
-	});
-};
+const isRouteWiring = (file) =>
+	fileSet.has(file) && isCode(file) && importsPortedCode(file, readText(file), fileSet);
 
 function summary(module) {
 	const own = entries.filter((entry) => entry.module === module);

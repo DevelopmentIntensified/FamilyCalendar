@@ -60,9 +60,9 @@ To fix a violation, change the code. Never weaken a check: `scripts/arch/*` chan
 
 **R8: Routes are wiring only.**
 
-- A `+server.ts`, `+page.server.ts`, `+layout.server.ts`, `+page.ts` or `+layout.ts` file that uses module code (`domains/`, `screens/` or `app/`) may contain only imports and `export const X = …`, with no functions, `await`, `if`, `return` or `new`.
-- A `+page.svelte` or `+layout.svelte` file that uses module code stays at 25 lines or fewer, with no `fetch`, runes state or `<style>`. It renders one screen component.
-- Kernel imports alone don't count: an unported legacy route may use kernel helpers (e.g. `kernel/client`) until its screen is ported. The census counts a route as ported by the same test.
+- A `+server.ts`, `+page.server.ts`, `+layout.server.ts`, `+page.ts` or `+layout.ts` file that imports ported code may contain only imports and `export const X = …`, with no functions, `await`, `if`, `return` or `new`.
+- A `+page.svelte` or `+layout.svelte` file that imports ported code stays at 25 lines or fewer, with no `fetch`, runes state or `<style>`. It renders one screen component.
+- Ported code is any v2 code except kernel's shared browser helpers (`kernel/client`, `kernel/ui`, `kernel/time`): an unported legacy page may use those until its screen is ported. Server pieces such as `kernel/http` do count. Type-only imports and comments don't. The census counts a route as ported by the same test (`importsPortedCode` in [lib.mjs](../../scripts/arch/lib.mjs)).
 
 - *Why:* all behaviour lives in modules where it is tested and documented. Routes only map URLs to modules.
 - *Fix:* move the logic into the module's `*.http.server.ts` or its screen component.
