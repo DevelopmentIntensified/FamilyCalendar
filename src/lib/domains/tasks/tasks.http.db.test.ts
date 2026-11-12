@@ -1388,8 +1388,8 @@ describe('GET /api/stats', () => {
 	it('ranks assigners/assignees, keeps ten recent and every completion instant', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia', lastName: 'Diaz' });
-		// Sam has no lastName, so the `first || ' ' || last` name column is NULL.
-		const sam = await seedUser(db, { firstName: 'Sam', lastName: null });
+		// users.lastName is NOT NULL, so the realistic edge is an empty last name: `first || ' ' || last` keeps the trailing space.
+		const sam = await seedUser(db, { firstName: 'Sam', lastName: '' });
 		const lee = await seedUser(db, { firstName: 'Lee', lastName: 'Kai' });
 
 		// Top assigners: what OTHER people gave Mia (userId <> Mia).
@@ -1428,12 +1428,12 @@ describe('GET /api/stats', () => {
 			recurringTasks: 0,
 			recurringCompletions: 0,
 			topAssigners: [
-				{ name: null, total: 2 },
+				{ name: 'Sam ', total: 2 },
 				{ name: 'Lee Kai', total: 1 }
 			],
 			topAssignees: [
 				{ name: 'Lee Kai', total: 2 },
-				{ name: null, total: 1 }
+				{ name: 'Sam ', total: 1 }
 			],
 			recentlyCompleted: instants
 				.slice()

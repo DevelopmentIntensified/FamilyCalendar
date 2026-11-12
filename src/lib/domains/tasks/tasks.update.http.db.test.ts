@@ -1722,6 +1722,7 @@ describe('PUT /api/tasks/[id] — recurrence and the accidental wire', () => {
 				recurrenceFrequency: null,
 				recurrenceInterval: null,
 				completionCount: 0,
+				tags: [],
 				assignedTo: null,
 				assignmentStatus: 'none',
 				priority: 'normal',
