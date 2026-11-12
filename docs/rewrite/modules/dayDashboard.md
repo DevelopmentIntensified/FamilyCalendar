@@ -12,7 +12,7 @@ The Day Dashboard: composes events, Top-3 Priorities, Family Task Board, Kids Sc
 ## Steps
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `________`
+- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `6e7ab08`
 - [ ] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service

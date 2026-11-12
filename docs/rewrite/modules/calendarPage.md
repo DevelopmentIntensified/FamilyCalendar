@@ -12,7 +12,7 @@ The main calendar page: month/week/day/list views, toolbar and filters, selectio
 ## Steps
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `________`
+- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: n/a (no `/api` route; see Notes)
 - [ ] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service

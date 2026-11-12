@@ -12,7 +12,7 @@ Users, sessions and session cookies, personal API tokens (fp_), user settings in
 ## Steps
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `________`
+- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `4e6d125`
 - [ ] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
