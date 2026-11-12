@@ -1,27 +1,30 @@
 /**
  * Runes toast list for optimistic UI: a screen reports success, error or info
- * and the kernel Toaster renders it. Keeps the legacy rules (max four visible,
- * oldest dropped, six-second auto-dismiss) from `client/toasts.ts` (task K-07).
+ * and kernel/ui's Toaster (K-08a) renders it. Keeps the legacy rules (max four
+ * visible, oldest dropped, six-second auto-dismiss, optional action button) from
+ * `client/toasts.ts` (task K-07).
  *
  * Doc: src/lib/kernel/README.md#client
  */
+import { systemScheduler, type Scheduler } from '../time/scheduler';
 
 export type ToastKind = 'success' | 'error' | 'info';
-export type ToastItem = { id: number; kind: ToastKind; text: string };
 
-/** Runs `fn` after `ms`; the returned function cancels it. Tests pass a manual one. */
-export type Scheduler = (fn: () => void, ms: number) => () => void;
+/** The optional button a caller attaches, for example "Undo". */
+export type ToastAction = { label: string; run: () => void };
+
+export type ToastItem = {
+	id: number;
+	kind: ToastKind;
+	text: string;
+	action?: ToastAction;
+};
 
 export interface Toasts {
-	success(text: string): void;
-	error(text: string): void;
-	info(text: string): void;
+	success(text: string, action?: ToastAction): void;
+	error(text: string, action?: ToastAction): void;
+	info(text: string, action?: ToastAction): void;
 }
-
-export const systemScheduler: Scheduler = (fn, ms) => {
-	const handle = setTimeout(fn, ms);
-	return () => clearTimeout(handle);
-};
 
 const MAX_VISIBLE = 4;
 const AUTO_DISMISS_MS = 6000;
@@ -38,9 +41,10 @@ export function createToasts(opts: { schedule?: Scheduler } = {}): Toasts & {
 		items = items.filter((toast) => toast.id !== id);
 	}
 
-	function push(kind: ToastKind, text: string): void {
+	function push(kind: ToastKind, text: string, action?: ToastAction): void {
 		const id = nextId++;
-		items = [...items.slice(-(MAX_VISIBLE - 1)), { id, kind, text }];
+		const item: ToastItem = action ? { id, kind, text, action } : { id, kind, text };
+		items = [...items.slice(-(MAX_VISIBLE - 1)), item];
 		schedule(() => dismiss(id), AUTO_DISMISS_MS);
 	}
 
@@ -49,16 +53,16 @@ export function createToasts(opts: { schedule?: Scheduler } = {}): Toasts & {
 			return items;
 		},
 		dismiss,
-		success: (text) => push('success', text),
-		error: (text) => push('error', text),
-		info: (text) => push('info', text)
+		success: (text, action) => push('success', text, action),
+		error: (text, action) => push('error', text, action),
+		info: (text, action) => push('info', text, action)
 	};
 }
 
 /** A plain recorder for state-class tests: no runes, no timers. */
 export function memoryToasts(): Toasts & { items: { kind: ToastKind; text: string }[] } {
 	const items: { kind: ToastKind; text: string }[] = [];
-	const record = (kind: ToastKind) => (text: string) => {
+	const record = (kind: ToastKind) => (text: string, _action?: ToastAction) => {
 		items.push({ kind, text });
 	};
 	return { items, success: record('success'), error: record('error'), info: record('info') };

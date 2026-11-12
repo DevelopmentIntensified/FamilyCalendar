@@ -1,27 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createToasts, memoryToasts, type Scheduler } from './toasts.svelte.js';
-
-/** A scheduler the test fires by hand; nothing depends on real timers. */
-function manualScheduler(): {
-	schedule: Scheduler;
-	tasks: { fn: () => void; ms: number; cancelled: boolean }[];
-	fireAll: () => void;
-} {
-	const tasks: { fn: () => void; ms: number; cancelled: boolean }[] = [];
-	const schedule: Scheduler = (fn, ms) => {
-		const task = { fn, ms, cancelled: false };
-		tasks.push(task);
-		return () => {
-			task.cancelled = true;
-		};
-	};
-	const fireAll = () => {
-		for (const task of tasks.splice(0)) {
-			if (!task.cancelled) task.fn();
-		}
-	};
-	return { schedule, tasks, fireAll };
-}
+import { manualScheduler } from '$lib/kernel/testing/manualScheduler';
+import { createToasts, memoryToasts } from './toasts.svelte.js';
 
 describe('createToasts', () => {
 	it('adds success, error and info toasts with increasing ids', () => {
@@ -82,6 +61,23 @@ describe('createToasts', () => {
 
 		expect(toasts.items).toEqual([{ id: 2, kind: 'info', text: 'two' }]);
 	});
+
+	it('keeps the action a caller attached and still dismisses on time', () => {
+		const scheduler = manualScheduler();
+		const toasts = createToasts({ schedule: scheduler.schedule });
+		const action = { label: 'Undo', run: () => {} };
+
+		toasts.success('Task completed', action);
+
+		expect(toasts.items).toEqual([
+			{ id: 1, kind: 'success', text: 'Task completed', action }
+		]);
+		expect(toasts.items[0].action).toBe(action);
+		expect(scheduler.tasks[0].ms).toBe(6000);
+
+		scheduler.fireAll();
+		expect(toasts.items).toEqual([]);
+	});
 });
 
 describe('memoryToasts', () => {
@@ -97,5 +93,13 @@ describe('memoryToasts', () => {
 			{ kind: 'error', text: 'Not yours' },
 			{ kind: 'info', text: 'Saved offline' }
 		]);
+	});
+
+	it('accepts an action without changing the recorded shape', () => {
+		const toasts = memoryToasts();
+
+		toasts.success('Task completed', { label: 'Undo', run: () => {} });
+
+		expect(toasts.items).toEqual([{ kind: 'success', text: 'Task completed' }]);
 	});
 });

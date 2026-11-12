@@ -30,14 +30,14 @@ export type ReplayDisposition = 'applied' | 'discarded' | 'retry';
 
 /** The slice of `IDBRequest` the queue uses. */
 export interface OfflineRequest<T> {
-	onsuccess: (() => void) | null;
+	onsuccess: ((event: Event) => void) | null;
 	result?: T;
 }
 
 /** The slice of `IDBOpenDBRequest` the queue uses. */
 export interface OfflineOpenRequest extends OfflineRequest<OfflineDatabase> {
-	onupgradeneeded: (() => void) | null;
-	onerror: (() => void) | null;
+	onupgradeneeded: ((event: IDBVersionChangeEvent) => void) | null;
+	onerror: ((event: Event) => void) | null;
 	error: unknown;
 }
 
@@ -53,9 +53,9 @@ export interface OfflineObjectStore {
 /** The slice of `IDBTransaction` the queue uses. */
 export interface OfflineTransaction {
 	objectStore(name: string): OfflineObjectStore;
-	oncomplete: (() => void) | null;
-	onerror: (() => void) | null;
-	onabort: (() => void) | null;
+	oncomplete: ((event: Event) => void) | null;
+	onerror: ((event: Event) => void) | null;
+	onabort: ((event: Event) => void) | null;
 	error: unknown;
 }
 

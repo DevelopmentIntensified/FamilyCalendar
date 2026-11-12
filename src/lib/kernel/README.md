@@ -25,8 +25,8 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [client/searchBox.test.ts](client/searchBox.test.ts) | test | debounce, replaced debounce, abort, late reply, minimum length, clear, failed search — manual scheduler | — |
 | [client/shareText.ts](client/shareText.ts) | client | `copyOrShare` ladder (share sheet → clipboard → selection → failed), moved from legacy `client/share.ts`; navigator and document are injectable. | [shareText.test.ts](client/shareText.test.ts) |
 | [client/shareText.test.ts](client/shareText.test.ts) | test | the legacy nine cases, driven through an injected navigator/document | — |
-| [client/toasts.svelte.ts](client/toasts.svelte.ts) | client | `createToasts({schedule})`: runes toast list, max four visible (oldest dropped), 6 s auto-dismiss; `memoryToasts()` records for state-class tests. | [toasts.test.ts](client/toasts.test.ts) |
-| [client/toasts.test.ts](client/toasts.test.ts) | test | ids, four-toast cap, six-second dismissal, timers for dropped toasts, memory recorder — manual scheduler | — |
+| [client/toasts.svelte.ts](client/toasts.svelte.ts) | client | `createToasts({schedule})`: runes toast list, max four visible (oldest dropped), 6 s auto-dismiss, optional `action` (`{label, run}`) for Undo-style buttons; `memoryToasts()` records for state-class tests. `Scheduler` lives in `time/scheduler.ts`. | [toasts.test.ts](client/toasts.test.ts) |
+| [client/toasts.test.ts](client/toasts.test.ts) | test | ids, four-toast cap, six-second dismissal, timers for dropped toasts, action kept, memory recorder — shared manual scheduler | — |
 | [ctx/actor.ts](ctx/actor.ts) | type | `Actor` (who is calling: id, email, isAdmin, via) + `actorFromUser`. Small on purpose: anything else about the person is asked of `identity`. | [endpoint.test.ts](http/endpoint.test.ts) |
 | [ctx/ctx.server.ts](ctx/ctx.server.ts) | type | `Ctx`: db, clock, ids, log, limiter, faults, config. Services take it as their first argument, so tests swap any dependency without `vi.mock`. | via every test that uses `testCtx` |
 | [db/database.server.ts](db/database.server.ts) | infra | `Db` (pool or transaction), `connectDb`, `withTx`. Nested transactions become savepoints. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
@@ -44,6 +44,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [ratelimit/rateLimiter.ts](ratelimit/rateLimiter.ts) | infra | `RateLimiter` port, in-memory sliding window driven by the clock, `clientKeyOf` (same keys as legacy). | [rateLimiter.test.ts](ratelimit/rateLimiter.test.ts) |
 | [ratelimit/rateLimiter.test.ts](ratelimit/rateLimiter.test.ts) | test | window edges, independent buckets, key derivation | — |
 | [testing/invokeHandlers.server.ts](testing/invokeHandlers.server.ts) | test infra | `invoke`, `invokeLoad`, `invokeAction`: call route handlers without a server; sets `locals.user` (legacy) and `locals.actor` (v2), so one golden test covers both. | used by every http test |
+| [testing/manualScheduler.ts](testing/manualScheduler.ts) | test infra | `manualScheduler()`: a `Scheduler` that records its callbacks and a `fireAll()` the test calls, so no unit test waits on real timers. One copy for every kernel client/time test. | used by [toasts.test.ts](client/toasts.test.ts), [searchBox.test.ts](client/searchBox.test.ts), [ticker.test.ts](time/ticker.test.ts) |
 | [testing/seedRows.server.ts](testing/seedRows.server.ts) | test infra | `seedUser`, `uniqueSuffix`. Module-specific builders live in `<module>.fixtures.server.ts`. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
 | [testing/testCtx.server.ts](testing/testCtx.server.ts) | test infra | `testCtx({ db?, now?, cronSecret? })`: fixed clock, sequential ids, memory log/faults/limiter; no-db guard. | used by every test |
 | [testing/testDb.server.ts](testing/testDb.server.ts) | test infra | `rollbackTest` (default: one rolled-back transaction per test), `inRollback`, `testDb`, `truncateAll` (committed mode), lane guard. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
@@ -54,6 +55,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [testing/vitestSetup.unit.ts](testing/vitestSetup.unit.ts) | test infra | Points `DATABASE_URL` at a closed port, so unit tests fail fast if they touch a database. | every unit run |
 | [time/clock.ts](time/clock.ts) | infra | `Clock` port, `systemClock`, `fixedClock` (set/advance). The only source of "now" (rule R5). | [clock.test.ts](time/clock.test.ts) |
 | [time/clock.test.ts](time/clock.test.ts) | test | default instant, advance/set, copy semantics | — |
+| [time/scheduler.ts](time/scheduler.ts) | infra | `Scheduler` port and `systemScheduler` (setTimeout/clearTimeout): the one home for client timers — toasts, debounced search and the ticker; tests inject `manualScheduler` instead. | through [toasts.test.ts](client/toasts.test.ts) |
 | [time/ticker.svelte.ts](time/ticker.svelte.ts) | client | `Ticker`: reactive `now` refreshed from a `Clock` every N ms for countdowns and elapsed-time bands; injectable `Scheduler`, idempotent `start`/`stop`. | [ticker.test.ts](time/ticker.test.ts) |
 | [time/ticker.test.ts](time/ticker.test.ts) | test | initial instant, a tick per interval, repeated ticks, stop, start twice — manual scheduler | — |
 | [validation/validators.ts](validation/validators.ts) | rules | zod plus shared fields: `requiredText`, `optionalText`, `isoDate`, `yearMonth`, `isoInstant`, `emailAddress`, `oneOf`, `wholeNumber`, `formList`, `clampedInt`, `firstIssueMessage`, `JsonValue`. | [validators.test.ts](validation/validators.test.ts) |
@@ -88,6 +90,8 @@ Route files stay wiring-only (rule R8). Auth modes: `public`, `optional`, `user`
 
 Read `ctx.clock.now()`. Pass "now" into rules as a parameter. Date formatting helpers arrive in task K-06.
 
+Client timers (toasts, debounced search, the ticker) go through the `Scheduler` port in `time/scheduler.ts`: `systemScheduler` in real code, `manualScheduler()` (kernel/testing) in tests. Never `setInterval` in a component.
+
 ### Ids
 
 - `ctx.ids.id()` for new rows.
@@ -109,19 +113,19 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 
 ### Testing
 
-`testCtx`, `invoke*`, `rollbackTest`, `truncateAll`, `seedUser`. The full guide is [docs/architecture/testing.md](../../../docs/architecture/testing.md).
+`testCtx`, `invoke*`, `rollbackTest`, `truncateAll`, `seedUser`, `manualScheduler`. The full guide is [docs/architecture/testing.md](../../../docs/architecture/testing.md).
 
 ### Client
 
-Browser-side pieces in `kernel/client`, plus `Ticker` in `kernel/time`. They take their browser globals as injectable parameters with real defaults, so tests need no DOM and no `vi.mock`.
+Browser-side pieces in `kernel/client`, plus `Ticker` and the `Scheduler` in `kernel/time`. They take their browser globals as injectable parameters with real defaults, so tests need no DOM and no `vi.mock`.
 
 - `createApiClient(fetcher)` → `{ request(method, path, body?) }` returning `ApiResult<T>`; a module's `*.api.ts` wraps it with typed methods.
-- `createToasts({ schedule })` → `success/error/info`; pass it to a state class, render `items` with the kernel Toaster. `memoryToasts()` records for tests.
+- `createToasts({ schedule })` → `success/error/info(text, action?)`, where `action` is `{ label, run }` for an Undo button; pass it to a state class and render `items` with kernel/ui's `Toaster` (K-08a). `memoryToasts()` records for tests.
 - `localPref({ key, version, fallback, parse, storage? })` → `read/write/clear` for one device preference.
 - `new SearchBox(search, { debounceMs?, minLength?, schedule? })` → `query`, `results`, `pending`, `setQuery`, `clear`.
 - `new Ticker(clock, everyMs, schedule?)` → reactive `now`; call `start()` on mount and `stop()` on destroy.
 - `copyOrShare(text, options, env?)` → `'shared' | 'copied' | 'cancelled' | 'failed'`.
-- `queueMutation/getPendingCount/replayPending/isOnline/subscribeToOnlineStatus/initOfflineSync` for the offline mutation queue.
+- The offline mutation queue: `queueMutation`, `getPendingCount`, `replayPending`, `isOnline`, `subscribeToOnlineStatus`, `initOfflineSync`, plus its replay-policy helpers `sortReplayQueue`, `getReplayDisposition` and `shouldDropAfterReplay`.
 
 ## How to test
 

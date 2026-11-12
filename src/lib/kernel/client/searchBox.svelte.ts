@@ -6,7 +6,7 @@
  *
  * Doc: src/lib/kernel/README.md#client
  */
-import { systemScheduler, type Scheduler } from './toasts.svelte.js';
+import { systemScheduler, type Scheduler } from '../time/scheduler';
 
 const DEFAULT_DEBOUNCE_MS = 250;
 const DEFAULT_MIN_LENGTH = 2;

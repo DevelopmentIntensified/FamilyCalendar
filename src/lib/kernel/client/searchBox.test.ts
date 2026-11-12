@@ -1,24 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { manualScheduler } from '$lib/kernel/testing/manualScheduler';
 import { SearchBox } from './searchBox.svelte.js';
-import type { Scheduler } from './toasts.svelte.js';
-
-/** A scheduler the test fires by hand; nothing depends on real timers. */
-function manualScheduler() {
-	const tasks: { fn: () => void; ms: number; cancelled: boolean }[] = [];
-	const schedule: Scheduler = (fn, ms) => {
-		const task = { fn, ms, cancelled: false };
-		tasks.push(task);
-		return () => {
-			task.cancelled = true;
-		};
-	};
-	const fireAll = () => {
-		for (const task of tasks.splice(0)) {
-			if (!task.cancelled) task.fn();
-		}
-	};
-	return { schedule, tasks, fireAll };
-}
 
 interface SearchCall {
 	q: string;

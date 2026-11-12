@@ -5,7 +5,7 @@
  *
  * Doc: src/lib/kernel/README.md#client
  */
-import { systemScheduler, type Scheduler } from '../client/toasts.svelte.js';
+import { systemScheduler, type Scheduler } from './scheduler';
 import type { Clock } from './clock';
 
 /** Placeholder until the constructor reads the clock; never rendered. */

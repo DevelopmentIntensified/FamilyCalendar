@@ -1,29 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { manualScheduler } from '$lib/kernel/testing/manualScheduler';
 import { fixedClock } from './clock';
 import { Ticker } from './ticker.svelte.js';
-import type { Scheduler } from '../client/toasts.svelte.js';
-
-/** A scheduler the test fires by hand; nothing depends on real timers. */
-function manualScheduler() {
-	const tasks: { fn: () => void; ms: number; cancelled: boolean }[] = [];
-	const schedule: Scheduler = (fn, ms) => {
-		const task = { fn, ms, cancelled: false };
-		tasks.push(task);
-		return () => {
-			task.cancelled = true;
-		};
-	};
-	const fireAll = () => {
-		for (const task of tasks.splice(0)) {
-			if (!task.cancelled) task.fn();
-		}
-	};
-	return { schedule, tasks, fireAll };
-}
 
 describe('Ticker', () => {
 	it('starts at the clock instant', () => {
-		const ticker = new Ticker(fixedClock('2026-01-15T12:00:00.000Z'), 1000, manualScheduler().schedule);
+		const ticker = new Ticker(
+			fixedClock('2026-01-15T12:00:00.000Z'),
+			1000,
+			manualScheduler().schedule
+		);
 
 		expect(ticker.now.toISOString()).toBe('2026-01-15T12:00:00.000Z');
 	});
