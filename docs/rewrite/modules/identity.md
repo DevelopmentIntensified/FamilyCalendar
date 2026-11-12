@@ -97,11 +97,63 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+New files, all under `src/lib/domains/identity/` (S3–S6 unless marked S7). Roles follow
+[conventions.md](../../architecture/conventions.md#file-roles).
+
+| file | role | contents |
+|---|---|---|
+| `identity.contract.ts` | contract | zod for the seven endpoint bodies/params and the response shapes (person, token row/mint, settings view), with the legacy messages as schema messages. |
+| `identity.settings.rules.ts` | rules | `ACCOUNT_SETTINGS_DEFAULTS`, the PATCH allowlist, week-start/view/colour/verse vocabularies, merge-over-stored, canonical verse translation, the default-calendar decision. |
+| `identity.person.rules.ts` | rules | `isAnonymousAccount`, `isRegisteredAccount`, `maskEmail`, `displayName`, `profilePatch` (privilege drop), `touchDue(lastActiveAt, now)`, `zoneFromStored`. |
+| `identity.session.rules.ts` | rules | lifetime/update constants, cookie attribute policy, `isSessionExpired`, `sessionRenewalDue`. |
+| `identity.token.rules.ts` | rules | `fp_` format guard, `apiTokenName` (trim + 60 cap); hashing stays kernel `sha256Hex`. |
+| `identity.code.rules.ts` | rules | code TTL, type vocabulary and the `(hash, email, type)` lookup key. |
+| `identity.repo.server.ts` | repo | person/settings/session/token/code/account queries; `db: Db` first; own tables only. |
+| `identity.fixtures.server.ts` | fixtures | `seedPerson`, `seedCalendarSettings`, `seedApiToken`, `seedSession`, `seedEmailCode`. |
+| `identity.person.service.server.ts` | service | `getPerson`, `updatePersonProfile`, `createAnonymousAccount`, `touchLastActive`, `resolveTimeZone`, `createPersonWithPassword`, `deletePerson`. |
+| `identity.session.service.server.ts` | service | `startSession`, `validateSession`, `endSession`, `endOtherSessions` + cookie signing/verification (node:crypto; the secret comes from `ctx.config`). |
+| `identity.tokens.service.server.ts` | service | `listApiTokens`, `mintApiToken`, `revokeApiToken`, `resolveApiToken`. |
+| `identity.settings.service.server.ts` | service | `readCalendarSettings`, `updateCalendarSettings` with the injected `CalendarSettingsConsentPort` and the default-calendar access check. |
+| `identity.credentials.service.server.ts` | service | `hashPassword`, `verifyPassword`, `issueEmailCode`, `redeemEmailCode`. |
+| `identity.http.server.ts` | http | the seven `endpoint()` definitions, wire-exact. |
+| `identity.http.db.test.ts` | test | S2 goldens (written). |
+| `identity.{settings,person,session,token,code}.rules.test.ts` | test | input → output tables per rule topic. |
+| `identity.{repo,person.service,session.service,tokens.service,settings.service,credentials.service}.db.test.ts` | test | R3/R13 coverage; `rollbackTest`. |
+| `identity.api.ts`, `identity.settings.state.svelte.ts` (S7) | api / state | browser client for the settings/profile/token endpoints and the account cards' state. |
+| `ui/AccountProfileCard.svelte`, `ui/AccountApiTokensCard.svelte`, `ui/AccountSessionsCard.svelte`, `ui/AccountCalendarSettingsCard.svelte` (S7) | ui | the account page's identity sections, data + callbacks in. |
+| `index.ts`, `index.server.ts`, [ui/index.ts](../../../src/lib/domains/identity/ui/index.ts) | entry | the public interfaces listed in the README. |
+
+Where the legacy exports go:
+
+- `src/lib/server/auth.ts:27-240` → session rules (constants, attributes, renewal) + session service (HMAC, DB, cookie); the `session` facade and `invalidateStaleAnonymousSession` die (the latter is a login-flow rule → access, built on `endSession`).
+- `src/lib/server/db/actions/apiTokens.ts` → token rules (`API_TOKEN_PREFIX`, format) + tokens service/repo; `hashApiToken` becomes kernel `sha256Hex` (byte-identical, pinned by `ids.test.ts`); `getUserForApiToken` → `resolveApiToken` (app hooks).
+- `src/lib/server/db/actions/userSettings.ts` → settings repo + the allowlist in settings rules.
+- `src/lib/server/db/actions/users.ts` → person repo/service (`createUser`, `updateUser`, `verifyUserEmail`, `setUserPasswordHash`, `claimEmailForUser`, `createAnonymousUser`, `touchLastActiveAt`, `deleteUser`, `getStaleAnonymousUsers`); `getUsers`/`getUserByEmail`/`emailExists`/`deleteUserByEmail` become named repo reads when their callers port.
+- `src/lib/server/db/actions/codes.ts` → code rules + credentials service/repo; dead `getCodes`/`getCodesByEmail` die, `hashEmailCode` becomes kernel `sha256Hex`.
+- `src/lib/server/db/actions/accounts.ts` → accounts repo; dead `getAccounts`/`updateAccount`/`deleteAccount` die (`getAccount` becomes `findAccountBinding` with a real `| undefined`).
+- `src/lib/utils/anonymous.ts` → `identity.person.rules.ts` (one predicate for everyone).
+- `src/lib/server/utils/password.ts` → credentials service (bcrypt cost 10 stays).
+- `src/lib/server/utils/userTimezone.ts` → `zoneFromStored` rule + `resolveTimeZone` service.
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
+**S1**
+
+- The API table has 7 rows: six `/api` route files carrying **seven methods** (`GET`/`POST` tokens, `DELETE` token, `PATCH` profile, `POST` revoke-others, `GET`/`PATCH` settings). The seventh row, `/calendar/setUserDefaultTimeZone`, is not `/api`, so it gets no golden (playbook: goldens are `/api` only). Mobile auth belongs to [access](access.md), not here.
+- No spec-goldens were needed: every identity route handler runs in the `db` project. The only `$env/static/private` read in the graph is `src/lib/utils/sendEmail.ts:6` (`new Resend(RESEND_API_KEY)` at import), reached through `accountData.ts`; `RESEND_API_KEY` is present in the repository's test environment (it is in the generated `.svelte-kit/ambient.d.ts`), and none of these handlers sends email. If a runner ever lacks it, the file fails at import and the goldens must be re-labelled per the characterize playbook — noted so nobody debugs the wire tests.
+- Inventory omission found while reading the handler: `PATCH /api/me/settings` also answers `400 {"error":"Invalid defaultCalendarId"}` for a non-string, non-null id (`src/routes/api/me/settings/+server.ts:99-103`). It is pinned in the goldens (`› answers 400 for {"defaultCalendarId":5}`) as today's behaviour.
+- "Probably accidental", internal only → dropped: dead exports `getCodes`, `getCodesByEmail`, `getAccounts`, `updateAccount`, `deleteAccount` (accounts action), `deleteUserByEmail` (no importers); the `getAccount(): Promise<Account>` type lie (the new repo read is `Account | undefined`); `createSession`'s fabricated `createdAt`/`updatedAt`/`ipAddress`/`userAgent` (the new service returns the inserted row); the N+1 `revokeOtherSessions` loop (one owner-scoped `DELETE`; behaviour identical, pinned by the golden).
+- "Probably accidental", wire-visible → `/calendar/setUserDefaultTimeZone` (no IANA validation, unguarded JSON → 500). It is not on the `/api` contract and its own comment says `PATCH /api/me/settings` replaces it; it is dropped from identity, and the web caller must move to the PATCH when the route is deleted (S8). `useCloudAI`/`useLocalAI` stay as schema columns but no write path exists; see the owner question below.
+- The ad-consent trail (`adConsentRecords`) is sponsored's table (rank 12, R1 forbids importing it here). Identity takes a `CalendarSettingsConsentPort` (`listConsentHistory`, `recordConsentChange`) as a service argument; the `/api/me/settings` route file and the account page pass sponsored's implementation. The legacy rule that a consent write failure is logged and never fails the settings save is kept inside `updateCalendarSettings`. Agreed with the sponsored owner during S1.
+- Account deletion crosses modules: `subscriptions.userId` is the only non-cascading user FK. Identity's `deletePerson` deletes the users row (sessions/settings/tokens cascade); the caller (account's `DELETE /api/me`) clears billing rows first inside one `withTx`, so both writes share the transaction. `tasks.assignmentStatus` is cleared through the same transaction by the tasks module (or an injected callback) — identity must not write tasks' table (R3).
+- Golden coverage (S2, `identity.http.db.test.ts`): all seven methods across the six route files, each with its 401; success with the full body; every 400 the handlers can produce (incl. the absent/blank/non-string name trio, empty-body `{}` vs malformed JSON vs JSON array, and `Invalid defaultCalendarId`); owner-scoped DELETE; `defaultCalendarId:null` vs inaccessible id; consent transition vs no-op; and side effects read back from `api_tokens`, `auth_session`, `user_settings`, `ad_consent_records` and `users`. One legacy rule cannot be reached through the handler in this harness: `invoke` always sets `locals.session = null`, so the "cookie caller keeps its own session" branch is only pinnable at the S5 service level (`endOtherSessions(ctx, actor, keepSessionId)`); the goldens pin the observable Bearer/keep-nothing result.
+- Legacy files kept for unported importers: every identity legacy file still has importers outside the module (`auth.ts` 15, `users.ts` 22, `userTimezone.ts` 16, `anonymous.ts` 21, `password.ts` 7, `codes.ts` 14, `apiTokens.ts` 7, `userSettings.ts` 22, `accounts.ts` 7 — `npm run census -- identity`). They stay until access/account/calendar/etc. are ported; S8 deletes only what has zero importers. `anonymous.ts` is the interesting one: its 20 importers (components included) make it the last file to move.
+
+**Questions for the owner**
+
+1. **`userSettings.useCloudAI` / `useLocalAI`.** Context: the columns exist with defaults but no code path writes them (`SETTING_UPDATE_FIELDS` excludes them; the settings PATCH rejects them as unknown). Options: leave them dead until a schema ticket, expose them as writable settings (changes the wire), or drop them by migration. Recommendation: leave them (schema is fixed) and do not expose them; record in the ticket that removes them. No wire change now.
+2. **Deleting `/calendar/setUserDefaultTimeZone`.** Context: it is the web-only duplicate of `PATCH /api/me/settings`, stores unvalidated zones and 500s on malformed JSON. Options: delete it and move the web caller to the PATCH (S7/S8), or keep a shim. Recommendation: delete it; the sheet's own comment says the PATCH replaces it, and no Android client calls it.
+3. **Carry-overs.** #169 (token expiry + scopes, session idle timeout, PII log scrub) and #174 (email normalization) are unchanged: the goldens pin today's "tokens live until revoked" behaviour, so #169 stays a separate ticket. No action in this port.
 
 ## Census
 
