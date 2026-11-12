@@ -154,9 +154,9 @@ Cross-module ports (the R8-legal seam): identity declares `CalendarAccessPort` a
 
 **Questions for the owner**
 
-1. **`userSettings.useCloudAI` / `useLocalAI`.** Context: the columns exist with defaults but no code path writes them (`SETTING_UPDATE_FIELDS` excludes them; the settings PATCH rejects them as unknown). Options: leave them dead until a schema ticket, expose them as writable settings (changes the wire), or drop them by migration. Recommendation: leave them (schema is fixed) and do not expose them; record in the ticket that removes them. No wire change now.
-2. **Deleting `/calendar/setUserDefaultTimeZone`.** Context: it is the web-only duplicate of `PATCH /api/me/settings`, stores unvalidated zones and 500s on malformed JSON. Options: delete it and move the web caller to the PATCH (S7/S8), or keep a shim. Recommendation: delete it; the sheet's own comment says the PATCH replaces it, and no Android client calls it.
-3. **Carry-overs.** #169 (token expiry + scopes, session idle timeout, PII log scrub) and #174 (email normalization) are unchanged: the goldens pin today's "tokens live until revoked" behaviour, so #169 stays a separate ticket. No action in this port.
+1. **`userSettings.useCloudAI` / `useLocalAI`.** (Q-014) Context: the columns exist with defaults but no code path writes them (`SETTING_UPDATE_FIELDS` excludes them; the settings PATCH rejects them as unknown). Options: leave them dead until a schema ticket, expose them as writable settings (changes the wire), or drop them by migration. Recommendation: leave them (schema is fixed) and do not expose them; record in the ticket that removes them. No wire change now.
+2. **Deleting `/calendar/setUserDefaultTimeZone`.** (Q-015) Context: it is the web-only duplicate of `PATCH /api/me/settings`, stores unvalidated zones and 500s on malformed JSON. Options: delete it and move the web caller to the PATCH (S7/S8), or keep a shim. Recommendation: delete it; the sheet's own comment says the PATCH replaces it, and no Android client calls it.
+3. **Carry-overs.** (Q-016) #169 (token expiry + scopes, session idle timeout, PII log scrub) and #174 (email normalization) are unchanged: the goldens pin today's "tokens live until revoked" behaviour, so #169 stays a separate ticket. No action in this port.
 
 ## Census
 
