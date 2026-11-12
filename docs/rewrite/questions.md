@@ -119,3 +119,75 @@ C. Fix one kind only (say phrases, whose `updatedAt` also tracks later sample re
 Recommendation: B, as one rule. "Resolve" means the first close: a repeat click answers `200` and changes nothing, which is what the registers, the export and the 180-day retention all assume. "A second resolve answers 200" stays under every option. Applied default until answered: A, pinned by the two goldens named above.
 
 Answer:
+
+## Q-008 Singular weekday abbreviations read as plurals (M-parsing S2, 2026-11-12)
+
+Context: the weekly scan treats any raw weekday token ending in "s" as plural (`src/lib/server/services/naturalLanguageService.ts:1120,1126`), so "lunch tues" comes back as `recurring:"weekly"` + `recurringByDay:["TU"]` with the date anchored on the next Tuesday, while "mon"/"wed" stay one-off. Wire-visible: the phone reads `recurring`/`recurringByDay` (`QuickParseDto.kt`). Pinned by `parsing.http.db.test.ts › "reads the singular abbreviation \"tues\" as a plural weekday…"`.
+
+Options:
+A. Keep: a stated abbreviation means a series. Cost: a one-off "lunch tues" silently becomes a weekly prefill on both clients.
+B. Treat only full names and the canonical plurals ("tuesdays", "thursdays", …) as plural; "tues"/"thurs" stay singular. Cost: an owner-approved wire change after S6 (`fix(parsing): Q-008 …`), the golden changes with it, and the Android parse vectors must land in the same commit.
+
+Recommendation: B — the "s" suffix is a poor plural signal for these abbreviations. Applied default until answered: A, pinned by the golden named above.
+
+Answer:
+
+## Q-009 `MM/DD` with an impossible month writes `"Invalid DateTime"` into `date` (M-parsing S2, 2026-11-12)
+
+Context: the primary `MM/DD` rule does not check validity (`src/lib/server/services/naturalLanguageService.ts:765-771`): `withRolloverYear` returns `DateTime.invalid` and `.toFormat` stringifies it, so "party 31/12" answers `date:"Invalid DateTime"`. Every other impossible date is skipped because the explicit sweep guards `isValid`. Pinned by `parsing.http.db.test.ts › "writes the literal \"Invalid DateTime\"…"`.
+
+Options:
+A. Keep (Android may already ship the string). Cost: a calendar client gets a date it cannot parse.
+B. Treat it as unmatched, so the date falls back to today (the sweep's behaviour). Cost: an owner-approved wire change after S6, approved with Android; not folded into the port.
+
+Recommendation: B, as its own wire-change ticket. Applied default until answered: A, pinned by the golden named above.
+
+Answer:
+
+## Q-010 Time rules scan the raw input, URLs included (M-parsing S2, 2026-11-12)
+
+Context: URLs are captured whole and removed from the title and date scans (`src/lib/server/services/naturalLanguageService.ts:483-487`), but the time rules read the raw `input` (`:948-1608`), so a clock-like substring inside a link can set `startTime` (for example `https://meet.example.com/standup-5:30pm` yields `17:30`). Pinned by `parsing.http.db.test.ts › "reads a clock-like time inside a URL…"`.
+
+Options:
+A. Keep: a pasted meeting link sometimes carries the real time. Cost: a link can invent a start time the phrase never stated.
+B. Run the time rules on `nonUrlText`, like the date rules. Cost: fix-in-port after S6 (golden first) and an Android parser change.
+
+Recommendation: B, after S6, golden first. Applied default until answered: A, pinned by the golden named above.
+
+Answer:
+
+## Q-011 A throw after a successful parse answers 200 `regex-fallback` (M-parsing S2, 2026-11-12)
+
+Context: the catch-all (`src/routes/api/parse-event/+server.ts:135-137`) answers `200 {…, method:"regex-fallback"}` only when the throw happens AFTER the parse succeeded — a `canUseAiFeature` throw (before the vendor call) or a `recordAiUsage` throw (after it: the vendor call was billed, the usage record is lost) — and the cloud result, if any, is discarded. A thrown parse is different: the catch re-runs `parseEventInput`, which throws again, so the request fails (500) and the client gets no prefill. The 200 case is pinned in S5 (`parsing.service.db.test.ts`).
+
+Options:
+A. Keep the 200 wire (the client always gets a prefill when the parse itself succeeded) and report the failure through `ctx.faults` so it is visible in logs. Cost: the usage record can still be lost after a billed vendor call.
+B. Answer 500 with the standard error shape for every throw. Cost: a parse bug becomes a hard failure with no prefill; an owner-approved wire change after S6.
+
+Recommendation: A — keep the wire, make the failure visible through `ctx.faults`. Applied default until answered: A, pinned in S5.
+
+Answer:
+
+## Q-012 Malformed JSON and a JSON `null` body escape the error boundary (M-parsing S2, 2026-11-12)
+
+Context: `await request.json()` and the destructure sit before the `try` (`src/routes/api/parse-event/+server.ts:66-67`), so malformed JSON and a JSON `null` body reject the request instead of answering `400 {"error":"Input required"}`. The `getUserZone`/`getUserSubscription` reads are outside the `try` too, so a settings or billing failure also escapes as a 500. Pinned by `parsing.http.db.test.ts › "lets malformed JSON escape…"` and `"lets a JSON null body throw…"`.
+
+Options:
+A. Keep. Cost: a client sending a bad body gets an opaque 500 instead of the documented 400 shape.
+B. Move body parsing and the zone/subscription reads inside the boundary so bad bodies answer the 400 shape and infrastructure failures the standard error JSON. Cost: an owner-approved wire change after S6; Android sign-off because a 500 becomes a 400.
+
+Recommendation: B, fix-in-port. Applied default until answered: A, pinned by the goldens named above.
+
+Answer:
+
+## Q-013 Multi-event phrases bypass the cloud path for signed-in callers (M-parsing S2, 2026-11-12)
+
+Context: the local multi-event shortcut runs before the cloud branch (`src/routes/api/parse-event/+server.ts:99-104`), so a signed-in caller's "dinner Friday and movie Saturday" never reaches the model — segmenting locally is instant and free. The golden pins the list answer (`parsing.http.db.test.ts › "answers the list for a signed-in caller"`); the ordering itself is pinned in S5, because `llmConfigured()` is false in the db project.
+
+Options:
+A. Keep the shortcut first. Cost: a signed-in caller's multi-event phrase never gets the model's parse.
+B. Cloud-first when the caller is allowed. Cost: every multi-event phrase spends a vendor call, and the free tier's 20/5 min budget starts applying.
+
+Recommendation: A, and keep the golden. Applied default until answered: A, pinned by the golden named above.
+
+Answer:
