@@ -1,6 +1,6 @@
 /**
  * #086 ground-truth probe: does the DB pointed at by DATABASE_URL match the
- * shapes declared in src/lib/server/db/schema.ts, column by column?
+ * shapes declared in src/lib/kernel/db/tables.server.ts, column by column?
  *
  * Expected side: every pgTable export, keyed by PHYSICAL name (getTableName).
  * Live side: information_schema.columns.
@@ -15,7 +15,7 @@
 import postgres from 'postgres';
 import { getTableColumns, getTableName, Table } from 'drizzle-orm';
 import { type PgTable } from 'drizzle-orm/pg-core';
-import * as schema from '../src/lib/server/db/schema';
+import * as schema from '../src/lib/kernel/db/tables.server';
 
 type ColInfo = { name: string; type: string; notNull: boolean };
 
