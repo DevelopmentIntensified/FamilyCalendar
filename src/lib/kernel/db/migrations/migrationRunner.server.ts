@@ -22,12 +22,21 @@
  */
 import { sql } from 'drizzle-orm';
 import type { Db } from '../database.server';
-import { bundledMigrations } from './bundledMigrations.server';
+import { bundledMigrations, type BundledMigration } from './bundledMigrations.server';
 
 const TRACKING = '__schema_migrations';
 const LOCK_KEY = `hashtext('family-calendar:migrate')`;
 
-let inFlight: Promise<{ ok: boolean; applied: string[] }> | null = null;
+/**
+ * What a run did: `applied` lists the files committed, in order. `failed` names
+ * the file that stopped the run, or is `null` when the run failed outside a
+ * file (advisory lock, tracking table, unlock).
+ */
+export type MigrationResult =
+	| { ok: true; applied: string[] }
+	| { ok: false; applied: string[]; failed: string | null };
+
+let inFlight: Promise<MigrationResult> | null = null;
 
 async function createTrackingTable(db: Db) {
 	await db.execute(sql`
@@ -40,18 +49,25 @@ async function createTrackingTable(db: Db) {
 
 /**
  * Apply pending migrations. Safe to call many times per request and from many
- * cold starts — shared `inFlight` dedupes concurrent calls (one pool per
- * deployment) and the advisory lock + tracking table handle multi-instance
- * races.
+ * cold starts — shared `inFlight` dedupes concurrent calls per process (a
+ * later caller joins the first run whatever `db` it passes) and the advisory
+ * lock + tracking table handle multi-instance races.
+ *
+ * Never throws, and never claims success it did not have: a file that fails is
+ * rolled back and reported in the result. `migrations` is a test seam;
+ * production calls `runMigrations(db)`.
  */
-export async function runMigrations(db: Db): Promise<{ ok: boolean; applied: string[] }> {
+export async function runMigrations(
+	db: Db,
+	migrations: BundledMigration[] = bundledMigrations
+): Promise<MigrationResult> {
 	if (inFlight) return inFlight;
 	inFlight = (async () => {
 		try {
-			return await runInLock(db);
+			return await runInLock(db, migrations);
 		} catch (error) {
 			console.error('[migrate] Failed to run migrations:', error);
-			return { ok: false, applied: [] };
+			return { ok: false, applied: [], failed: null };
 		} finally {
 			inFlight = null;
 		}
@@ -59,7 +75,7 @@ export async function runMigrations(db: Db): Promise<{ ok: boolean; applied: str
 	return inFlight;
 }
 
-async function runInLock(db: Db): Promise<{ ok: boolean; applied: string[] }> {
+async function runInLock(db: Db, migrations: BundledMigration[]): Promise<MigrationResult> {
 	// The first query after a cold start can hit a pooled socket the platform
 	// already dropped (CONNECT_TIMEOUT mid-handshake). Retry the lock a few
 	// times before giving up — a one-shot failure leaves the schema missing
@@ -85,16 +101,16 @@ async function runInLock(db: Db): Promise<{ ok: boolean; applied: string[] }> {
 		const rows = await db.execute<{ name: string }>(sql`SELECT name FROM ${sql.raw(TRACKING)}`);
 		const applied = new Set(rows.map((r) => r.name));
 
-		const pending = bundledMigrations.filter((m) => !applied.has(m.name));
+		const pending = migrations.filter((m) => !applied.has(m.name));
 		const newlyApplied: string[] = [];
 
 		for (const migration of pending) {
 			try {
 				await db.transaction(async (tx) => {
-					// Some files contain multiple statements separated by newlines.
-					// Execute each non-empty statement in sequence inside one tx.
+					// Some files hold several statements separated by blank lines.
+					// Execute each one in sequence inside one transaction.
 					for (const statement of splitStatements(migration.sql)) {
-						if (statement) await tx.execute(sql.raw(statement));
+						await tx.execute(sql.raw(statement));
 					}
 					await tx.execute(sql`INSERT INTO ${sql.raw(TRACKING)} (name) VALUES (${migration.name})`);
 				});
@@ -102,7 +118,7 @@ async function runInLock(db: Db): Promise<{ ok: boolean; applied: string[] }> {
 				console.log(`[migrate] applied ${migration.name}`);
 			} catch (error) {
 				console.error(`[migrate] failed to apply ${migration.name}:`, error);
-				break;
+				return { ok: false, applied: newlyApplied, failed: migration.name };
 			}
 		}
 

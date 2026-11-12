@@ -7,15 +7,18 @@
  * cold-start safety property production relies on — every deploy re-runs the
  * runner and only pending files touch the schema.
  *
- * `splitStatements` is pinned as a table because replay depends on it: a blank
- * line separates statements, lines inside a statement stay whole, and only
- * blank chunks are dropped (a comments-only chunk is a statement to Postgres).
+ * The failing case drives the runner's migration-list seam, so it needs no new
+ * file under `sql/migrations`: the file's transaction rolls back, nothing is
+ * tracked, and the result names the file that broke instead of claiming
+ * success.
  *
  * Doc: src/lib/kernel/README.md#database
  */
+import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { uniqueSuffix } from '../../testing/seedRows.server';
 import { testDb } from '../../testing/testDb.server';
-import { runMigrations, splitStatements } from './migrationRunner.server';
+import { runMigrations } from './migrationRunner.server';
 
 describe('runMigrations', () => {
 	it('applies nothing to the already-migrated test database and reports success', async () => {
@@ -23,36 +26,25 @@ describe('runMigrations', () => {
 
 		expect(result).toEqual({ ok: true, applied: [] });
 	});
-});
 
-describe('splitStatements', () => {
-	it.each([
-		{
-			label: 'splits statements separated by a blank line',
-			sqlText: 'SELECT 1;\n\nSELECT 2;',
-			expected: ['SELECT 1;', 'SELECT 2;']
-		},
-		{
-			label: 'keeps a multi-line statement whole when no blank line separates its lines',
-			sqlText: 'CREATE TABLE t (\n\ta int,\n\tb int\n);',
-			expected: ['CREATE TABLE t (\n\ta int,\n\tb int\n);']
-		},
-		{
-			label: 'drops trailing blank lines instead of yielding an empty statement',
-			sqlText: 'SELECT 1;\n\n\n\nSELECT 2;\n\n',
-			expected: ['SELECT 1;', 'SELECT 2;']
-		},
-		{
-			label: 'trims leading blank lines and surrounding whitespace',
-			sqlText: '\n\n  SELECT 1;\n\n',
-			expected: ['SELECT 1;']
-		},
-		{
-			label: 'keeps a comments-only chunk — only blank chunks are dropped',
-			sqlText: '-- just a comment\n\nSELECT 1;',
-			expected: ['-- just a comment', 'SELECT 1;']
-		}
-	])('$label', ({ sqlText, expected }) => {
-		expect(splitStatements(sqlText)).toEqual(expected);
+	it('rolls back a failing file and reports it instead of claiming success', async () => {
+		const name = `__failing_${uniqueSuffix()}.sql`;
+
+		const result = await runMigrations(testDb(), [
+			{
+				name,
+				sql: 'CREATE TABLE __failing_migration_probe (id integer);\n\nSELECT * FROM __no_such_table;'
+			}
+		]);
+
+		expect(result).toEqual({ ok: false, applied: [], failed: name });
+		const [leaked] = await testDb().execute<{ relation: string | null }>(
+			sql`SELECT to_regclass('public.__failing_migration_probe')::text AS relation`
+		);
+		expect(leaked.relation).toBeNull();
+		const tracked = await testDb().execute<{ name: string }>(
+			sql`SELECT name FROM __schema_migrations WHERE name = ${name}`
+		);
+		expect(tracked).toHaveLength(0);
 	});
 });

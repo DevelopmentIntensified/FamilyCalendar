@@ -4,8 +4,9 @@
  *
  * New code imports '$lib/kernel/db/tables.server' instead (arch rule R3). This
  * file stays so the unported legacy code compiles unchanged: every table
- * object and constant comes through the barrel, and every row type is aliased
- * back to the name this module used to export.
+ * object comes through the barrel, every row type is aliased back to the name
+ * this module used to export, and the two domain vocabularies no table uses
+ * (`BILL_CATEGORIES`, `TASK_VISIBILITIES`) are exported from here.
  */
 import type { EventRow } from '$lib/kernel/db/tables.server';
 
@@ -52,5 +53,16 @@ export type { WaitlistEntryRow as WaitlistEntry } from '$lib/kernel/db/tables.se
 export type CalendarEvent = Omit<EventRow, 'mirrorOf'> & {
 	mirrorOf?: string | null;
 };
+
+/**
+ * Task scoping (issue 019) — visibility of a personal task to the rest of the
+ * owner's family. 'public' = family-readable (read-only), 'private' = owner +
+ * assignee only. The `tasks.visibility` column is plain text, so no table uses
+ * this vocabulary; it is defined here for unported importers until `tasks`
+ * owns the word at its S3.
+ */
+export const TASK_VISIBILITIES = ['public', 'private'] as const;
+
+export type TaskVisibility = (typeof TASK_VISIBILITIES)[number];
 
 export { BILL_CATEGORIES, type BillCategory } from '$lib/data/categories';

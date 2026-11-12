@@ -166,7 +166,7 @@ legacy source files left (41/44, 3727 LOC):
   - src/lib/conformance/tokens.ts (97 LOC, testing/conformance) importers: 2
   - src/lib/server/db/index.ts (9 LOC, db) importers: 5
   - src/lib/server/db/schema.ts (1227 LOC, db) importers: 87
-      NOTE: Only re-exports BILL_CATEGORIES (no table uses it). Task K-04 splits tables into src/lib/kernel/db/tables/<module>.tables.ts and drops the re-export; bills owns the vocabulary.
+      NOTE: Re-exports BILL_CATEGORIES (no table uses it) and defines TASK_VISIBILITIES for legacy importers. Task K-04 split the tables into src/lib/kernel/db/tables/<module>.tables.server.ts and kept this compat re-export; bills owns the BILL_CATEGORIES vocabulary.
   - src/lib/server/db/testHarness.ts (52 LOC, testing) importers: 0
   - src/lib/server/services/fcmService.ts (250 LOC, push) importers: 2
   - src/lib/server/services/llm.ts (64 LOC, ai) importers: 4

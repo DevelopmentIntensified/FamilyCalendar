@@ -10,7 +10,7 @@
  * Doc: src/lib/kernel/README.md#database
  */
 import { index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
-import { systemIds } from '$lib/kernel/ids/ids';
+import { systemIds } from '../../ids/ids';
 import { users } from './identity.tables.server';
 
 export const adEvents = pgTable('adEvents', {

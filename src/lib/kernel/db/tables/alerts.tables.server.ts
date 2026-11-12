@@ -9,7 +9,7 @@
  * Doc: src/lib/kernel/README.md#database
  */
 import { index, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
-import { systemIds } from '$lib/kernel/ids/ids';
+import { systemIds } from '../../ids/ids';
 import { users } from './identity.tables.server';
 
 /**

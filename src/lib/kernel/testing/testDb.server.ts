@@ -63,9 +63,11 @@ export function rollbackTest(
  * Empty every table (committed-mode tests). Table list is discovered, so new tables are covered.
  *
  * One transaction: `SET LOCAL session_replication_role = replica` silences the
- * foreign-key triggers, then one `DELETE FROM` per table, sent as a single
- * simple-protocol batch. Deleting ~45 tables this way resets in a few
- * milliseconds; `TRUNCATE ... CASCADE` took about 0.5 s (measured 2026-11-11).
+ * foreign-key triggers, then one `DELETE FROM` per table. The SET and the
+ * DELETEs go over the simple protocol in a single batch, so the reset sends one
+ * batch rather than one query per table: a few milliseconds when idle, 70–110 ms
+ * measured on a saturated machine. `TRUNCATE ... CASCADE` took about 0.5 s
+ * (measured 2026-11-11).
  */
 export async function truncateAll(): Promise<void> {
 	const db = testDb();
@@ -74,12 +76,15 @@ export async function truncateAll(): Promise<void> {
 		    WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name <> '__schema_migrations'`
 	);
 	if (rows.length === 0) return;
-	const deletes = rows.map((row) => `DELETE FROM "${row.table_name}"`).join(';\n');
+	// `replica` turns off FK triggers and ON DELETE CASCADE for this
+	// transaction only, so FK enforcement is back for the next test. Every
+	// table is emptied anyway, so no row is left dangling, and the reset needs
+	// no knowledge of the FK graph.
+	const batch = [
+		'SET LOCAL session_replication_role = replica',
+		...rows.map((row) => `DELETE FROM "${row.table_name.replace(/"/g, '""')}"`)
+	].join(';\n');
 	await db.transaction(async (tx) => {
-		// `replica` turns off FK triggers and ON DELETE CASCADE for this
-		// transaction only. Every table is emptied anyway, so no row is left
-		// dangling, and the reset needs no knowledge of the FK graph.
-		await tx.execute(sql.raw('SET LOCAL session_replication_role = replica'));
-		await tx.execute(sql.raw(deletes));
+		await tx.execute(sql.raw(batch));
 	});
 }

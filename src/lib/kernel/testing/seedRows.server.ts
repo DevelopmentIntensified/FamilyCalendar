@@ -10,21 +10,14 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/database.server';
-import { users } from '../db/tables.server';
-
-// Local (not exported): K-04 introduces the canonical `UserRow` / `NewUserRow` in the tables files.
-type SeededUser = typeof users.$inferSelect;
-type SeedUserInput = typeof users.$inferInsert;
+import { users, type NewUserRow, type UserRow } from '../db/tables.server';
 
 /** Short random suffix for unique emails/names across tests. */
 export function uniqueSuffix(): string {
 	return randomUUID().slice(0, 8);
 }
 
-export async function seedUser(
-	db: Db,
-	overrides: Partial<SeedUserInput> = {}
-): Promise<SeededUser> {
+export async function seedUser(db: Db, overrides: Partial<NewUserRow> = {}): Promise<UserRow> {
 	const suffix = uniqueSuffix();
 	const [row] = await db
 		.insert(users)
