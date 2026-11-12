@@ -135,7 +135,7 @@ Where the legacy exports go:
 - `src/lib/server/utils/password.ts` → credentials service (bcrypt cost 10 stays).
 - `src/lib/server/utils/userTimezone.ts` → `zoneFromStored` rule + `getTimeZone` service.
 
-Cross-module ports (the R8-legal seam): identity declares `CalendarAccessPort` and `AdConsentPort` in `index.ts`; `calendar` and `sponsored` implement them; a small kernel/app change (not this module's files) adds `ctx.calendarAccess` / `ctx.adConsent` to `Ctx`, `testCtx` fakes and the `appCtx.server.ts` wiring per [add-a-port.md](../../rewrite/playbooks/add-a-port.md). Routes stay `export const PATCH = patchAccountSettingsEndpoint.handler`; no route or endpoint composes a port.
+Cross-module ports (the R8-legal seam): identity declares `CalendarAccessPort` and `AdConsentPort` in `index.ts`; `calendar` and `sponsored` implement them; a small kernel/app change (not this module's files) adds `ctx.calendarAccess` / `ctx.adConsent` to `Ctx`, `testCtx` fakes and the `appCtx.server.ts` wiring per [add-a-port.md](../../rewrite/playbooks/add-a-port.md). Routes stay `export const PATCH = patchSettingsEndpoint.handler`; no route or endpoint composes a port.
 
 ## Notes
 
