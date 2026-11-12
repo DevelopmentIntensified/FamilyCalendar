@@ -7,8 +7,12 @@
 //
 // Doc: e2e/pages/README.md
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const [mode, moduleName] = process.argv.slice(2);
+
+/** The repo root: this file lives in scripts/, one level down. */
+const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 if ((mode !== 'baseline' && mode !== 'check') || !moduleName) {
 	console.error('usage: node scripts/pages-run.mjs <baseline|check> <module>');
@@ -28,6 +32,8 @@ if (mode === 'baseline') playwrightArgs.push('--update-snapshots');
 
 const result = spawnSync('npx', playwrightArgs, {
 	stdio: 'inherit',
+	// The config, the spec and the snapshots are all resolved from here.
+	cwd: REPO_ROOT,
 	// npx is a .cmd shim on Windows.
 	shell: true,
 	env: { ...process.env, PAGES_MODULE: moduleName }

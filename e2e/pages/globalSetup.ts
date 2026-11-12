@@ -12,16 +12,24 @@
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
-import type { FullConfig } from '@playwright/test';
 import { PAGES_BASE_URL, PAGES_DATABASE_URL } from './serve';
+
+/**
+ * The repo root. NOT Playwright's `rootDir` (that is the resolved testDir,
+ * i.e. e2e/pages — `node_modules/playwright/lib/common/config.js` sets
+ * `rootDir: pathResolve(configDir, testDir)`), and not `process.cwd()`: this
+ * file is loaded from where it lives, so climb out of e2e/pages.
+ */
+const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 const TIMEOUT_MS = 60_000;
 const POLL_MS = 500;
 
 /** How many migrations the schema must end up with: the .sql files on disk. */
-function migrationFileCount(rootDir: string): number {
-	return readdirSync(path.join(rootDir, 'sql/migrations')).filter((name) =>
+function migrationFileCount(): number {
+	return readdirSync(path.join(REPO_ROOT, 'sql/migrations')).filter((name) =>
 		name.endsWith('.sql')
 	).length;
 }
@@ -43,13 +51,13 @@ async function appliedCount(sql: postgres.Sql): Promise<number> {
 	}
 }
 
-export default async function globalSetup(config: FullConfig): Promise<void> {
+export default async function globalSetup(): Promise<void> {
 	// One request, so the server has certainly loaded its hooks module (and
 	// therefore started the migration run). Playwright already waited on the
 	// port; this is the first request that exercises the app's own path.
 	await fetch(PAGES_BASE_URL, { redirect: 'manual' }).catch(() => undefined);
 
-	const expected = migrationFileCount(config.rootDir);
+	const expected = migrationFileCount();
 	const sql = postgres(PAGES_DATABASE_URL, { max: 1, onnotice: () => {} });
 	try {
 		const deadline = Date.now() + TIMEOUT_MS;

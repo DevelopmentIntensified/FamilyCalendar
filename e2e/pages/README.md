@@ -24,6 +24,13 @@ Outside this folder: `playwright.pages.config.ts` (repo root) is the config —
 its own `testDir`, its own server, its own baselines — and
 `scripts/pages-run.mjs` is the two-line runner behind the npm scripts.
 
+Paths are resolved from the **repo root**, never from the cwd or from
+Playwright's `rootDir`: `rootDir` is the resolved `testDir` (`e2e/pages`), so
+`globalSetup.ts` and `serve.ts` climb two levels with
+`fileURLToPath(new URL('../../', import.meta.url))`, and the runner passes
+`cwd: <repo root>` (one level up from `scripts/`) to Playwright. Anything that
+opens `sql/migrations` or `.svelte-kit/output` must do the same.
+
 ## Running it
 
 ```bash

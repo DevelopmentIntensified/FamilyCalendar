@@ -16,7 +16,7 @@
 // Doc: e2e/pages/README.md
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
 
 /** Everything in this harness uses one database name; nothing else may use it. */
@@ -64,6 +64,9 @@ function startPreview(): ChildProcess {
 		{
 			stdio: 'inherit',
 			env: serverEnv,
+			// `vite preview` must find vite.config.ts and .svelte-kit/output, so
+			// run it from the repo root whatever the caller's cwd was.
+			cwd: fileURLToPath(new URL('../../', import.meta.url)),
 			// Windows resolves npx through the shell; the tree kill on shutdown
 			// is Playwright's job (it owns this process group).
 			shell: process.platform === 'win32'
@@ -72,7 +75,10 @@ function startPreview(): ChildProcess {
 }
 
 async function main(): Promise<void> {
-	if (!existsSync(path.resolve(process.cwd(), '.svelte-kit/output'))) {
+	// The build lands at <repo>/.svelte-kit/output: this file is compiled where
+	// it lives (e2e/pages), so climb two levels rather than trusting the cwd.
+	const buildOutput = fileURLToPath(new URL('../../.svelte-kit/output', import.meta.url));
+	if (!existsSync(buildOutput)) {
 		throw new Error('No build found. Run `npm run pages:build` before the pages harness.');
 	}
 
