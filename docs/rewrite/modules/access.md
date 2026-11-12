@@ -137,11 +137,98 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+### Files by role
+
+| file | role | what goes in it |
+|---|---|---|
+| `index.ts` | entry | Re-exports the contract types, `authApi` and `authRedirectTarget`. |
+| `index.server.ts` | entry | Re-exports the services, the 13 `/api` endpoint handlers and the page handlers. |
+| `access.contract.ts` | contract | Zod schemas for every `/api` request/response in this module (mobile bodies, `{email}`, `{code}`, `{token,password}`) plus the exact legacy error copy as constants; internal page/action inputs designed fresh. |
+| `access.email.rules.ts` | rules | Magic-link payload shape (kind/email/names/code/redirect), `code`/`email` pairing, the 15-minute TTL and the 8-digit shape; pure. |
+| `access.redirect.rules.ts` | rules | `authRedirectTarget`: path-only same-origin landing (`safeRedirectPath` logic), fallbacks `/calendar/` and `/calendar`. |
+| `access.password.rules.ts` | rules | Signup/password validation (four required fields, at least 8 characters, email format) and the token name rule. |
+| `access.password.rules.test.ts` | rules test | Tables of input → message/valid. |
+| `access.device.rules.ts` | rules | `mobileTokenName` (`Android — <deviceName>`, trimmed, 60-char cap, `Android` default) and the `toMobileUser` mask. |
+| `access.device.rules.test.ts` | rules test | Device-name tables (empty, padded, 60/61/70 chars) and the guest email mask. |
+| `access.claim.rules.ts` | rules | Claim-token shape (32 random bytes hex, 15-minute TTL), the guests-only rule and the uniform answer. |
+| `access.claim.rules.test.ts` | rules test | Token/email validation and the no-oracle answer. |
+| `access.email.rules.test.ts`, `access.redirect.rules.test.ts` | rules test | Kind-mismatch/legacy-token tables and the unsafe-redirect table (from the legacy `magicLink` unit tests). |
+| `access.repo.server.ts` | repo | Claim-token queries only (access owns `claimTokens`): insert, peek by hash, atomic `DELETE … RETURNING`, delete expired. |
+| `access.fixtures.server.ts` | fixtures | `seedGuest`, `seedPasswordUser`, `seedApiToken`, `seedEmailCode`, `seedClaimToken`. |
+| `access.repo.db.test.ts` | repo test | A `rollbackTest` per query (peek does not burn, consume is exactly once, expired is gone). |
+| `access.email.service.server.ts` | service | `startEmailLink` (validation → gate and suppression → mint → email → code row), `completeEmailLink`, `verifySignupCode`, `resendSignupCode`. |
+| `access.password.service.server.ts` | service | `signInWithPassword` (dummy-compare defence, generic 401, shared by web and Android), `signUpWithPassword`, `requestPasswordReset`, `resetPassword` (single-use marker, revoke sessions + tokens). |
+| `access.claim.service.server.ts` | service | `requestClaim` (guests only, 10/15 per IP + 3/15 per address, uniform answer) and `confirmClaim` (peek → ownership → atomic consume → claim or Claim Conflict merge). |
+| `access.guestMerge.service.server.ts` | service | `mergeGuest` in one `withTx`: personal calendar via calendar's entry, move Events (ids preserved) and Tasks via tasks' entry, delete sessions, delete the guest; same-person/non-guest is a no-op. |
+| `access.emailChange.service.server.ts` | service | `requestEmailChange` (3/15 per person, guest refusal, code+link to the NEW address, identity-bound row) and `verifyEmailChange` (token or code path, 10/15 per IP). |
+| `access.session.service.server.ts` | service | `signOut` (cookie session or exactly the presented `fp_` token) and `createGuestAccount`. |
+| `access.email.service.db.test.ts` | service test | Send-before-persist, suppression, guest-session kill, signup creation. |
+| `access.claim.service.db.test.ts` | service test | Preview without burn, atomic consume, Claim Conflict merge, verify POST signs into the merged target. |
+| `access.emailChange.service.db.test.ts` | service test | Identity binding, single use, pending address in use. |
+| `access.guestMerge.service.db.test.ts` | service test | Merge transaction, cookie-not-enough, no-op cases. |
+| `access.http.server.ts` | http | All 13 `/api` endpoints (`endpoint()`), byte-for-byte the goldens: the eight `/api/mobile/auth/*` plus `/api/logout` and the four `/api/me/*`. |
+| `access.http.db.test.ts` | test | This slice's goldens (13 routes); unchanged after S6. |
+| `access.http.server.test.ts` | http test | The throw→JSON-500 guard and the wiring-only route contract. |
+| `access.pages.http.server.ts` | http | `pageLoad`/`formAction` for `/login`, `/signup`, `/forgot-password(+/reset)`, `/claim`, `/account/verify-email`, `/merge-guest`, `/family/invite/email`, and the email-link callbacks. |
+| `access.pages.http.db.test.ts` | http test | The page flows' observable results (redirect targets, form failures, the code row each flow writes). |
+| `access.api.ts` | api | `authApi`: the browser calls the auth pages make (`requestLoginLink`, `submitLoginCode`, `signInWithPassword`, `requestSignupCode`, `submitSignupCode`, `signUpWithPassword`, `resendVerification`, `requestPasswordReset`, `resetPassword`). |
+| `access.login.state.svelte.ts` | state | The `/login` and `/signup` code-screen state (mode, sent, error, resend countdown, redirect target). |
+| `ui/AuthCard.svelte`, `ui/AuthInput.svelte`, `ui/ModeToggle.svelte` (+ `.svelte.test.ts`) | ui | The shared auth shell, the labelled input with `aria-invalid`/`aria-describedby`, the Password / Email Link group. |
+
+### Where the legacy exports go
+
+| legacy file | destination |
+|---|---|
+| `services/magicLink.ts` — `issueMagicLink`, `issueVerificationCode`, `consumeMagicLink`, `sendClaimLinkEmail`, `magicLinkRedirectPath` | `access.email.service.server.ts` (+ `access.email.rules.ts`); the JWT mint/verify and the send go through `ctx` ports (no `$env` in the module, R6). |
+| `services/magicLink.ts` — `sessionCookieFor`, `magicLinkDeps.session` | identity's session service (identity owns sessions); access calls it. |
+| `services/mobileAuth.ts` — `mobileEmail`, `mobileVerify`, `mobilePassword`, `mobileGuest`, `mobileLogout`, `guarded` | `access.http.server.ts` (thin) over `access.email`/`access.password`/`access.session` services; `guarded` becomes `endpoint()`'s 500 + fault filing. |
+| `services/mobileAuth.ts` — `mobileTokenName`, `toMobileUser`, `MOBILE_ERRORS`, limits | `access.device.rules.ts` and `access.contract.ts` (the copy is the wire). |
+| `services/passwordSignup.ts` | `access.password.service.server.ts`; `PASSWORD_VERIFY_CALLBACK_PATH` becomes a contract constant. |
+| `services/claimService.ts` — token functions | `access.repo.server.ts` + `access.claim.rules.ts`; `verifyClaimToken` → `confirmClaim`. `findActiveTokenForUser` dies (no importers). |
+| `services/claimRequest.ts` | `access.claim.service.server.ts`. |
+| `services/guestMergeService.ts` | `access.guestMerge.service.server.ts` (cookie stash moves into the sign-in flows, after success). |
+| `services/accountData.ts` — `requestEmailChange` + `UpdateEmailDeps` | `access.emailChange.service.server.ts`; the rest of `accountData` stays with the account screen/identity. |
+| `utils/createNewUser.ts` | identity (user + provider account + settings); the personal-calendar call is composed in `access.password.service.server.ts` through calendar's entry. |
+| `components/auth/{AuthCard,AuthInput,ModeToggle}.svelte` | `ui/`, rebuilt on kernel/ui primitives. |
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
+### Verified, corrected inventory
+
+Every wire line below was re-read against the legacy code on 2026-11-11.
+
+- `/api/mobile/auth/signup` for a taken address answers **200** with `{token:"", user:{id:"",…}, emailVerification:"pending"}` (`src/routes/api/mobile/auth/signup/+server.ts:62-77`). `docs/guides/task-api-spec.md:711` still lists `400 "An account with this email already exists"`; the sheet's API table and the golden are right, the spec line is stale. The port must keep 200 (no account oracle) — the spec needs a doc fix, not the wire.
+- `/api/me/verify-email` 429 body carries `success:false` (`src/routes/(marketing)/signup/password/verify/+server.ts:47-52`), unlike the bare `{error}` the sheet's error column implies. Pinned by the golden.
+- `/api/mobile/auth/forgot` with a malformed body answers **500** `Failed to send reset email`, not 400: the web handler's unguarded `request.json()` throws inside its own `try` (`src/routes/(marketing)/forgot-password/+server.ts:47-92`). Pinned as today's wire; see the owner question.
+- `/api/mobile/auth/reset` with a malformed body answers **500** `Failed to reset password` for the same reason (`src/routes/(marketing)/forgot-password/reset/+server.ts:68-135`). Pinned.
+- The mobile routes: a **non-string but truthy** `email` (e.g. `123`) throws in `.toLowerCase()` and lands in the same 500 (`forgot`). Not pinned: it is a defect, and pinning it would bless the TypeError.
+- `/api/logout`'s "delete the session row and clear `locals`" half cannot be driven through `invoke` — the harness pins `locals.session` to `null` — so the golden pins the signed-out 302 only; the S5 service test pins the deletion.
+- `/api/me/claim`'s rate limits cannot be reached without sending real emails: the per-address allowance is 3, so the fourth request both fills and trips it. That one 429 case (per-address bucket) is in the skipped spec-golden block; the per-IP bucket (10) is the same test ten times over.
+- The 8 spec-goldens at the bottom of `access.http.db.test.ts` (claim fresh address, claim registered address, claim 429, me/email success, resend send, mobile email send, mobile signup create, forgot send) are `it.skip` with the required marker: the legacy handlers send through the module-scope Resend client, so running them would hit the network. They assert the spec (and the legacy unit tests' expectations). **S6 must delete the `.skip`s** in the same commit that makes the ported handler take its sender from `ctx` — that is the one sanctioned edit to this golden file.
+- `POST /api/mobile/auth/verify` login looks up `accounts` first (`src/lib/server/db/schema.ts:197`, via `getAccount`) and falls back to `users` (`src/lib/server/services/mobileAuth.ts:291-295`); a person with only a `users` row signs in. Pinned.
+
+### Probably accidental, and what happens to it
+
+- **Wire-visible, kept + owner questions:** the mobile/forgot and mobile/reset 500-on-malformed-JSON (pinned); the 200-vs-201 drift between mobile and web signup (kept, question); the `signup/email/code` 500 "Account with this email already Exists" and `login/email/code` 500 "No Account found" membership/state signals (page routes, no goldens — question).
+- **Internal, dropped (reasons):** `findActiveTokenForUser` has no importers → dies; the duplicated `sessionCookieFor` JSDoc → dies with the file; the three copy-pasted email validators and forgot-password's weaker `includes('@')` → one `emailAddress` rule in `access.email.rules.ts` (the dot requirement wins; `task-api-spec` and every `/api` golden already assume it); the `guest_merge` cookie stored *before* the token is validated → stashed after success; email-change codes stored in plaintext (`accountData.ts:375-383`, #162) → hashed like every other code row (internal, no wire change); the reset single-use marker written before hashing → written after the password update so a failed hash cannot burn the link (internal, wire unchanged: still 500).
+
+### Questions for the owner
+
+1. **Malformed JSON on the web-forwarded routes.** Context: `forgot` and `reset` answer 500 (not the house 400 `Invalid JSON`) because they forward to the web handlers, which parse unguarded. Options: keep 500 for these two (golden as-is), or return the house 400 like the `/api/me/*` routes and change the goldens with a `fix-in-port` commit. Recommendation: fix in port, ticket it — the Android client already treats `{"error"}` uniformly and a 500 pollutes the fault register.
+2. **Mobile signup 200 vs web signup 201.** Same event, two statuses. Options: keep both (golden pins 200), or align the web to 200 behind an answered question. Recommendation: keep 200 for the app (it is installed and expects it), align the web page's response only if a client needs it — no change in this port.
+3. **The two membership signals on the page-code routes** (`signup/email/code` → 500 "Account with this email already Exists", `login/email/code` → 500 "No Account found"). They leak account state on the wire. Options: leave (page-only, no installed client), or make both the generic 500 `Unexpected error, please try again`. Recommendation: make both generic in the port; the goldens cover no page routes, so nothing breaks.
+4. **Email-change codes in plaintext (#162).** Options: leave until #162's ticket, or hash on write now (the codes are internal to the flow and burned on use). Recommendation: hash now; no wire change.
+5. **Carry-over #175:** the web `/forgot-password/reset` has no throttle of its own (only the mobile wrapper adds 10/15 per IP). Options: port as-is with the wrapper throttle, or move the throttle into the shared service. Recommendation: move it into the service when porting; the mobile golden's 429 stays valid and the web form gains the cap.
+6. **Spec-golden activation (S6).** These 8 tests cannot run until the ported handler takes its email sender from `ctx` (there is no kernel email port yet). Recommendation: add the port in this module's S5 (a `ctx.mail` port in kernel, per add-a-port.md) so S6 unskips them rather than deferring again.
+
+### Files kept for unported importers
+
+None of the 10 legacy source files is kept: every importer is inside this module's own routes, which S8 rewires. `npm run census -- access` after S8 should show 0.
+
+### Running the golden in the db project
+
+The module graph of nine of the thirteen route modules reaches the legacy `$env/static/private` chain (`utils/sendEmail.ts` reads `RESEND_API_KEY`, `magicLink.ts` reads `NOREPLYEMAIL`/`EMAILSECRET`). SvelteKit bakes those at vite startup from `.env.test` merged with `process.env`; `RESEND_API_KEY` is not in `.env.test`, so the whole file fails to import unless the shell provides it (it does in this worktree). That is the same constraint the legacy `server`-project route tests already live with; it disappears when S8 deletes the legacy send path.
+
 
 ## Census
 
