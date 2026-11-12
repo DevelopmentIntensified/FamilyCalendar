@@ -95,6 +95,7 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 - Repos take `db: Db`.
 - Services pass `ctx.db` and use `withTx(ctx, (txCtx) => ...)` for atomic work.
 - Tables come from `$lib/kernel/db/tables.server`.
+- `runMigrations(db)` brings a database up to date at cold start (`hooks.server.ts`). `splitStatements(sql)` is the one statement split; `scripts/db-apply.mjs` and `db-exec.mjs` mirror it.
 
 ### Testing
 
@@ -115,6 +116,7 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 - New row ids keep the legacy 15-char a-z0-9 format. Pinned by `ids.test.ts › keeps the existing row-id format …`.
 - db tests can only reach `127.0.0.1:5433/familycalendar_v2_test` (or `familycalendar_v2_test_<id>` via `V2_TEST_DB`), and unit tests can't reach any database (lane guards in `testDbConfig.ts`, `vitestSetup.unit.ts`).
 - Every `rollbackTest` leaves no rows behind, and service transactions inside it are savepoints. Pinned by `testDb.db.test.ts`.
+- The migration runner is a no-op on an up-to-date database: `{ ok: true, applied: [] }`. Pinned by `migrationRunner.db.test.ts › applies nothing to the already-migrated test database …`.
 
 ## Depends on
 
