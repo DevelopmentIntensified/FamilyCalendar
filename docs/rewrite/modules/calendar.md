@@ -124,11 +124,147 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+Written in S1 before any code. Files are named by role (R15); every rule file stays under ~300 lines, so the big legacy modules split by topic. Paths are relative to `src/lib/domains/calendar/`.
+
+### Isomorphic (contract + rules + client api) — exported from `index.ts`
+
+| file | role | what goes in it |
+|---|---|---|
+| `calendar.contract.ts` | contract | zod schemas + inferred types for every `/api` body and response: event create/update (absent vs `null` matters), rsvp status/guest, bulk (ids + the five ops + plan), import preview/commit/undo, the ranged-read query, print query, location query; plus `CalendarSummary`, `DisplayEvent`, `Occurrence`, `AttendanceRow`, `ImportPreviewItem`, `BulkOp`. Also the closed vocabularies as zod enums (`rsvpStatus`, `inviteType`, `recurrenceFrequency`, `bulkOpType`, `duplicateReason`). |
+| `calendar.recurrence.rules.ts` | rules | `expandRecurrence`, `scheduleStep`, `recurrenceUntilInstant`, `MAX_OCCURRENCES`, `normalizeEventRecurrence`, `sanitizeRecurrenceByDay`, `sanitizeRecurrenceCount`, `describeRecurrence` (the ONE recurrence vocabulary, which now also serves tasks). Carried over from `recurrenceService.ts`, `eventRecurrence.ts`, and `icsImportPreview.describeRecurrence`. |
+| `calendar.occurrence.rules.ts` | rules | `buildOccurrenceId`, `resolveOccurrenceId`, `resolveMasterId`, `normalizeOccurrenceIso` (from `eventIds.ts`), `shiftException` (from `events.ts`), and the pure half of `expandEventsForUser`: apply the Exception Override map to the slots, derive the end from the master duration, produce the occurrence list. IO moves to the repo. |
+| `calendar.range.rules.ts` | rules | `resolveEventRange`, `eventRangeWindow`, `MAX_RANGE_DAYS`, the three range messages — carried from `eventRange.ts`. |
+| `calendar.scope.rules.ts` | rules | `canMutateEventRow`, `eventAccessFilter` (as an id predicate), `isEventVisibleTo`; the per-request scope load stays in the repo/service. From `calendarScope.ts` minus the queries. |
+| `calendar.invites.rules.ts` | rules | `normalizeInvites` (from `events.ts`), `resolveInvites(raw, roster)` — the pure part of `resolveEventInvites`, with the roster passed in instead of fetched; `isKnownInvitee`. |
+| `calendar.ics.rules.ts` | rules | Both directions of RFC 5545: `parseIcs` (from `icsImportService.ts`) and `escapeIcsText`, `formatIcsUtc`, `formatIcsDate`, `buildRrule`, `buildIcsEvent`, `buildIcsCalendar`, `icsFilename` (from `src/lib/utils/ics.ts`). Ordinal-prefixed BYDAY is handled once, here. |
+| `calendar.import.rules.ts` | rules | `dedupeKey`, `describeWhen`, `buildFilePreview`, `defaultSelection`, `planCommit`, `planUndo`, `MAX_IMPORT_EVENTS` — from `icsImportPreview.ts`. No DB, no FormData. |
+| `calendar.bulkPlan.rules.ts` | rules | `planBulkEdits`, `parseBulkPlan`, `resolveBulkDate`, `resolveBulkTime`, `resolveBulkCalendar` — from `bulkAiService.ts`. The cloud-AI fallback does not come here (see Notes). |
+| `calendar.move.rules.ts` | rules | The drag/duplicate arithmetic now scattered in `utils/eventMove.ts`, `utils/eventDuplicate.ts`, `utils/dayOverlap.ts`, `utils/calendarMatch.ts`: `moveEventByDays`, `resizeEvent`, `duplicateEvent` (title suffix `… (copy)`), `overlapsDay`, `matchesCalendarFilter`. |
+| `calendar.chips.rules.ts` | rules | One chip vocabulary: `describeEventChip`, `chipKind`, `chipClass`, the sponsored label, and `groupEventsByDay` (folded from `chipVocabulary.ts`, `eventChip.ts`, `utils/eventDisplay.ts`, `eventRoster.ts`, `shareTarget.ts`). |
+| `calendar.print.rules.ts` | rules | `printGrid({year, month, weekStart, todayIso, items})` → cells; `shortTime` (`9a`, `2:30p`); `MONTH_NAMES`; `monthBounds`. Extracted from `printData.ts` so the month arithmetic is table-testable. |
+| `calendar.api.ts` | api | Browser client over `kernel/client`: `listEvents(from, to)`, `createEvent`, `updateEvent`, `deleteEvent(id, {scope, occurrenceDate})`, `getRsvp`, `setRsvp`, `inviteGuest`, `icsUrl`, `bulkEdit`, `listCalendars`, `importPreview/Commit/Undo`, `printMonth`, `searchLocations`. Replaces the 20+ `fetch('/api/…')` calls in the legacy components. |
+
+### Server (repo, service, http) — exported from `index.server.ts`
+
+| file | role | what goes in it |
+|---|---|---|
+| `calendar.repo.server.ts` | repo | Every query: `findAccessibleCalendarIds`, `findOwnedCalendarIds`, `ensurePersonalCalendarRow`, `findCalendar`, `listFamilyCalendars`, `listOwnedCalendars`, `findEvent`, `listEventsInWindow`, `listEventsByCalendar`, `findExceptions`, `findException`, `upsertExceptionRow`, `insertEventRow`, `updateEventRow`, `deleteEventRow`, `deleteMirrorRows`, `replaceAttendance`, `listAttendance`, `upsertRsvp`, `listInviteRows`, `deleteGuestRows`, `deleteUndecidedMembers`, `attendanceSummaries`, `listCreatorNames`, `listExistingDedupeKeys`, `listUndoCandidates`, `deleteImportedRows`, `listCalendarEventsForPrint`. Tables: the module's four, plus throws nothing. |
+| `calendar.fixtures.server.ts` | fixtures | `seedCalendar`, `seedEvent`, `seedRecurringEvent`, `seedException`, `seedAttendance`, `seedFamilyWithCalendar`, `seedImportedEvent` — reused by the repo/service tests and the goldens (the goldens currently inline their own, see Notes). |
+| `calendar.events.service.server.ts` | service | `listEventsInWindow`, `createEvent`, `updateEvent`, `deleteEvent`, `getEventForViewer`: authorization, `withTx`, personal-calendar fallback, mirror + propagation, exception shift, invite replacement, one nudge per request. |
+| `calendar.rsvp.service.server.ts` | service | `getEventAttendance`, `rsvpEvent`, `inviteEventGuest` (guest dedupe, member rows untouched). |
+| `calendar.ics.service.server.ts` | service | `exportEventIcs` (master / series / one occurrence), `listImportTargets`, `previewImport`, `commitImport`, `undoImport` — the flow with its caps and its messages. |
+| `calendar.bulk.service.server.ts` | service | `bulkEditEvents`: resolve ids → editable set → per-item apply → results; the attendance merge under one transaction; the smart plan path. |
+| `calendar.calendars.service.server.ts` | service | `listCalendars` (personal first, settings colour, family name/colour) and `getPrintMonth` (viewer zone, `weekStart`, family name, grid). |
+| `calendar.locations.service.server.ts` | service | `searchLocations`: the query rule, the 5-result map, the empty-list fallback, the 60/min limit through `ctx.limiter`. |
+| `calendar.events.http.server.ts` | http | `listEventsEndpoint`, `createEventEndpoint`, `updateEventEndpoint`, `deleteEventEndpoint` — auth `user`, bodies/schemas, the route's exact statuses and messages, `failMessage`. |
+| `calendar.rsvp.http.server.ts` | http | `getEventRsvpEndpoint`, `setEventRsvpEndpoint`. |
+| `calendar.ics.http.server.ts` | http | `exportEventIcsEndpoint` (text response + attachment headers) and `listImportTargetsEndpoint`, `previewImportEndpoint`, `commitImportEndpoint`, `undoImportEndpoint`. |
+| `calendar.bulk.http.server.ts` | http | `bulkEditEventsEndpoint`. |
+| `calendar.surfaces.http.server.ts` | http | `listCalendarsEndpoint`, `printMonthEndpoint`, `searchLocationsEndpoint` (rate-limited through the endpoint's `rateLimit`). |
+
+### Client state (S7) — re-exported from `index.ts`
+
+| file | role | what goes in it |
+|---|---|---|
+| `calendar.event.state.svelte.ts` | state | The event modal's client state (create/edit/delete/duplicate, optimistic RSVP, toasts) — replaces `EventFormModel.svelte.ts`. |
+| `calendar.import.state.svelte.ts` | state | The import page's state (files, preview, selection, commit, undo, counts). |
+
+State classes are browser-side, so they are not in `index.server.ts`. `index.ts` is their door: rule R2 forbids a screen reaching into the module folder, and `ui/index.ts` is for components, so the isomorphic entry re-exports the two classes and `calendarPage` imports them from `$lib/domains/calendar` at S7.
+
+### UI (S7) — exported from `ui/index.ts`
+
+`EventModal.svelte` (takes `checklist?: Snippet`), `EventFormModal.svelte`, `EventTitleFields.svelte`, `EventMetaFields.svelte`, `EventDateTimeFields.svelte`, `EventRecurrenceFields.svelte`, `EventRecurrenceCard.svelte`, `EventQuickAdd.svelte`, `EventModalShell.svelte`, `EventModalHeader.svelte`, `EventModalBar.svelte`, `EventRsvpRow.svelte`, `EventRsvpList.svelte`, `EventAttendeeGroups.svelte`, `EventGuestNote.svelte`, `EventDeleteConfirm.svelte`, `EventExportMenu.svelte`, `EventActionBar.svelte`, `EventDetailList.svelte`, `AttendantPicker.svelte`, `AttendanceBadge.svelte`, `CreatorBadge.svelte`, `ChipKindMark.svelte`, `LocationSearch.svelte`.
+
+### Where each legacy export goes
+
+| legacy file | destination |
+|---|---|
+| `server/utils/eventIds.ts` | `calendar.occurrence.rules.ts` (all four exports) |
+| `server/services/recurrenceService.ts` | `calendar.recurrence.rules.ts`; `scheduleStep` is the cross-module home, so tasks/bills/parsers call calendar's entry instead of their copies |
+| `server/services/eventRecurrence.ts` | `calendar.recurrence.rules.ts` |
+| `server/services/eventDisplayService.ts` | pure merge → `calendar.occurrence.rules.ts`; `parseEvents`/`deriveEventProps` → `calendar.chips.rules.ts` (`groupEventsByDay`); `attachRsvpStatus`/`attachAttendanceSummaries`/`attachCreatorNames` become three repo reads composed inside `listEventsInWindow`; `monthGridWindow` dies (the ranged window and `printGrid` cover it) |
+| `server/services/eventRange.ts` | `calendar.range.rules.ts` |
+| `server/db/actions/calendarScope.ts` | predicates → `calendar.scope.rules.ts`; queries → `calendar.repo.server.ts` |
+| `server/db/actions/events.ts` | rules (`normalizeInvites`, `shiftException`) → their rule files; queries → `calendar.repo.server.ts`; `createEvent`/`updateEventById`/`deleteEventInScope`/`updateRsvp` orchestration → the services; `getEventAttendanceSummaries` → repo query + the service's map |
+| `server/db/actions/calendar.ts` | `calendar.repo.server.ts` (`ensurePersonalCalendarRow`, `findCalendar`, `listOwnedCalendars`) |
+| `server/services/calendarData.ts` | `listCalendars` + its colours → `calendar.calendars.service.server.ts`; `loadSponsoredEvents`/`toSponsoredDisplay` are `sponsored`'s (the screen composes them); `loadDailyVerse` is `verse`'s; `PERSONAL_CALENDAR_NAME`/`DEFAULT_*_COLOR` → the calendars service |
+| `server/services/printData.ts` | grid arithmetic → `calendar.print.rules.ts`; the rest → `calendar.calendars.service.server.ts` |
+| `server/services/icsImportService.ts` + `utils/ics.ts` | `calendar.ics.rules.ts` (parse + build) |
+| `server/services/icsImportPreview.ts` | `calendar.import.rules.ts` |
+| `server/services/icsImportFlow.ts` | `calendar.ics.service.server.ts` + repo reads (`listExistingDedupeKeys`, `listUndoCandidates`, `deleteImportedRows`) |
+| `server/services/icsImportApi.ts` | dies: it exists only to translate JSON into the page's FormData. The new contract parses JSON directly and the page posts through `calendar.api.ts` |
+| `server/services/bulkAiService.ts` | deterministic planner → `calendar.bulkPlan.rules.ts`; date vocabulary stays in `parsing`; the cloud-AI fallback (`chatJson`, `planBulkEdits`'s AI branch) is dropped (see Notes) |
+| `server/services/bulkApplyService.ts` | `calendar.bulk.service.server.ts` (one code path, not two) |
+| `server/services/eventsChangedNudge.ts` | dies here: `alerts` owns the push fan-out; the services call `alerts.notifyEventsChanged(ctx, actor, calendarIds)` once per mutating request. The legacy test `src/routes/api/events/nudge.test.ts` moves with it |
+| `server/services/archiveData.ts` | not calendar's: the archive page's read model belongs to the `calendarPage`/archive screen (it composes plans + events). Kept for S8's inventory |
+| `utils/attendance.ts` | `calendar.rsvp.service.server.ts` (summary) + `calendar.chips.rules.ts` (names) |
+| `utils/eventChip.ts`, `utils/chipVocabulary.ts`, `utils/eventRoster.ts`, `utils/eventDisplay.ts`, `utils/shareTarget.ts` | `calendar.chips.rules.ts` |
+| `utils/eventMove.ts`, `utils/eventDuplicate.ts`, `utils/dayOverlap.ts`, `utils/calendarMatch.ts` | `calendar.move.rules.ts` |
+| `utils/bulkPlan.ts` | `calendar.contract.ts` (the `BulkPlanOp` type) + `calendar.bulkPlan.rules.ts` |
+| `lib/types.ts` (`EventAttendanceSummary`, `RSVPStatus`, …) | `calendar.contract.ts`; the module-shaped parts of `types.ts` move to their owning modules and the file dies at APP-05 |
+| `components/archive/archiveMonths.ts` | the archive screen (S7) |
+| `data/smartEventTemplates.ts` | the `calendarPage` screen (quick-add templates are UI content over `parsing`) |
+| `components/calendar/*.svelte`, `components/LocationSearch.svelte`, `EventFormModel.svelte.ts`, `MODALS_SPEC.md` | rebuilt as `ui/*` + the two state classes; the spec's copy is the visual baseline |
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
+### S1 — what the inventory got right, and what it did not
+
+- The sheet's API table matched the code on all 15 routes and methods. Corrections and additions found while verifying:
+  - `resolveEventRange` and `eventRangeWindow` live in `src/lib/server/services/eventRange.ts` (not in the route) and are pure; the three messages are exact.
+  - `POST /api/events/[id]/rsvp` does **not** answer a status string: `getEventRsvpStatus` selects rows and the route returns them as `rsvpStatus` (Q4).
+  - `PUT /api/events/[id]` is partial for the plain fields (#228) but **not** for recurrence: `normalizeEventRecurrence(body)` runs on every body, so an omitted recurrence clears the series (Q5). This is pinned in the goldens.
+  - `GET /api/events` returns `created_at`, `date`, `masterId` and `occurrenceDate` in addition to the columns; `rsvpStatus`/`attendance` are omitted (not null) when absent.
+  - The import routes answer `400 Invalid JSON` for a non-object body (`readJsonObject`); the events routes still throw on a malformed body (a framework 500). Only the import behaviour is pinned — the Android spec tells clients to send valid JSON.
+- `calendar.repo.server.ts` touches only the four owned tables; the reads it needs from `identity` (settings, first names) and `family` (family, roster) go through the service calls described in Depends on, so no `FOREIGN_READS` entry is needed.
+
+### Probably accidental — outcome
+
+| item | visible on the `/api` wire? | outcome |
+|---|---|---|
+| event detail page's `deleteEvent` action bypasses the calendar-owner leg and leaves mirrors/exceptions | no (page action) | **dropped**: the page calls the module's `deleteEvent` service; no golden (page actions get none) |
+| `printData` expands with the legacy ±2-year window to print a month | **edge case, yes**: the 500-occurrence cap fills over two years, so a dense long series can stop before the printed month | reclassified as **Q7**; the goldens do not assert the month's items (the window would rot them), S5's service test pins the month after the answer |
+| the family mirror targets `familyCals[0]` and is created for any non-family calendar | **yes** (which calendar carries the copy) | kept as an Invariant + **Q1** |
+| `EventRecurrenceCard` imports `freqNoun` from tasks, preview has its own `describeRecurrence` | no (two labels for the same thing) | **dropped**: calendar owns one `describeRecurrence`, tasks imports it (already the one-home rule) |
+| `upsertException` select-then-write can duplicate a slot's exception rows | **yes** (two rows change what renders) | behaviour kept as an Invariant + **Q2** (waits on #014) |
+| the ICS parser stops at 500 VEVENTs and drops BYDAY when an ordinal prefix is present (`2TU`) | **yes** (preview rows) | 500 cap kept as an Invariant; the ordinal rule is **Q3** |
+| *new:* `rsvpStatus` is an array of attendance rows | **yes** | pin + **Q4** |
+| *new:* a partial PUT clears recurrence | **yes** | pin + **Q5** |
+| *new:* an exception occurrence exports the MASTER's end, not start+duration, so DTEND can precede DTSTART | **yes** (inside the .ics) | pin the normal case, **Q6** |
+
+### Questions for the owner
+
+1. **Which family calendar receives the mirror?** Context: `POST /api/events` copies an Event onto `familyCals[0]` — the first row of `select from calendars where familyId = …` with no `ORDER BY` — and does it for any calendar that is not that one, although the comment says personal-calendar creations only. Options: (a) keep (nondeterministic target, possible duplicate copies); (b) mirror only when the Event lands on the viewer's personal calendar and the family has exactly one calendar, else skip; (c) introduce a designated family calendar (schema/settings change). Recommendation: (b) now, (c) as a later ticket — (b) removes the nondeterminism without DDL.
+2. **Duplicate Exception Override rows.** Context: `upsertException` selects then writes; two concurrent `scope:'this'` edits can create two rows for one slot (#014 has the unique index + sweep, which needs DDL approval). Options: keep (today's behaviour, pinned), or add the index now. Recommendation: keep for the port; the index is its own ticket.
+3. **RRULE BYDAY with an ordinal (`2TU`).** Context: the parser strips the ordinal then requires the remaining string to equal the raw value, so an ordinal day is dropped entirely (`BYDAY` becomes null and the series expands on the anchor weekday). Options: (a) keep; (b) strip the ordinal per item and keep plain codes (`2TU,4TH` → `TU,TH`), which is what `sanitizeRecurrenceByDay` already does for writes. Recommendation: (b) — one rule, no wire shape change beyond importing those days as asked; own commit, golden first.
+4. **`POST /api/events/[id]/rsvp` answers rows in `rsvpStatus`.** Context: the field carries `eventAttendance` rows, not the caller's status, which reads like a bug but is what clients have seen. Options: (a) keep; (b) return the caller's status string in `rsvpStatus` and leave `attendance` as the list (wire change, needs the Android contract); (c) add `status` beside the rows and deprecate. Recommendation: (a) for the rebuild, (c) as a follow-up ticket — adding a field cannot break a reader.
+5. **A partial `PUT` clears a Recurring Event's recurrence.** Context: `normalizeEventRecurrence(body)` covers every write, so a drag-move (`{start, end}`) or a title edit turns a series into a one-off, silently. Options: (a) keep (pinned golden); (b) give `recurrenceFrequency` the #228 absent-vs-null rule (absent → unchanged, explicit `null` → clear) — a wire change needing owner approval and a golden named `fix-in-port`. Recommendation: (b) as a separate, owner-approved wire change; it is data loss today.
+6. **An exported occurrence can have DTEND before DTSTART.** Context: for a `scope:'this'` Exception Override the export uses `exception.end ?? event.end` (the MASTER's end). Options: (a) keep; (b) derive the end from the master duration exactly as the display pipeline does; (c) omit DTEND when the exception has none (RFC allows it). Recommendation: (b), same rule as the calendar; owner-approved because the .ics file changes.
+7. **The print sheet expands through the legacy ±2-year window.** Context: `printData` calls `expandEventsForUser(rows, undefined, …)`, so the window is ±2 years; the month's visible rows normally match a month window, but the 500-occurrence cap fills over two years, so a dense long series can stop expanding before the printed month and silently lose rows. Options: (a) keep the wide window and pin its edge case (a clock-dependent golden cannot); (b) bound it to the printed month plus a week's padding, like every other read — the rows for a normal month are identical and the work is bounded. Recommendation: (b) as a fix-in-port with its evidence in the S5 service test (controlled `now`, no client-visible change except the removed edge case).
+
+### S2 — goldens
+
+- Three files, the maximum the step allows (the events surface alone is ~1.5k lines, so the cap decides the grouping): `calendar.events.http.db.test.ts` (events CRUD, rsvp, .ics), `calendar.bulk.http.db.test.ts` (bulk, calendars, print, location search), `calendar.import.http.db.test.ts` (import preview/commit/undo + picker).
+- They import the ROUTE modules by relative path (`../../../routes/api/…/+server`), so S6's wiring (`export const POST = …handler`) does not touch them. They seed with the kernel tables and `seedUser`; **no** fixture helpers, because S2 may not create the module's `fixtures` file (S4 extracts `calendar.fixtures.server.ts` and the goldens may then use it — a mechanical change, not a golden change).
+- Committed mode (`beforeEach(truncateAll)`), because the legacy handlers write through the `db` singleton. `vitestSetup.db.ts` points that singleton at the test database, and nothing in the reachable legacy graph imports `$env` (checked: the only `$env` users are the email modules, which the calendar routes never reach), so every handler runs for real.
+- Deliberate assertions that are shapes rather than values, because the legacy code reads the real clock or a remote service:
+  - `GET /api/print`: the requested month's grid, names, `prev`/`next` are exact; `isCurrentMonth` and each cell's `isToday` are `expect.any(Boolean)`. The month's ITEMS are not asserted: `printData` expands through the legacy ±2-year window, so a fixed-month fixture would rot once that month ages out (the S5 service test pins the items with a controlled `now` instead).
+  - `location-search`: the success case stubs the global `fetch` (Nominatim is in the legacy handler's critical path); the mapping, the empty-list fallback, the 2–100 rule and the 429 are pinned. The 429 test sends 60 invalid queries so only the limiter is exercised, not the network.
+  - `DELETE`/`PUT` composite ids and `GET` occurrence ids are exact strings because the fixtures give their rows explicit ids.
+  - Attendance arrays are asserted with `toHaveLength` + `arrayContaining`, because the legacy attendance reads have no `ORDER BY`.
+- 500s are pinned only where they are deterministic (a missing `title` on create, `title: null` on update). `apiError` files a bug report for them; `truncateAll` clears it.
+- Verification runs with `TZ=UTC` against Postgres in UTC (production parity). Two wire facts fell out of the first run and are now pinned: `POST`/`PUT` answer the raw drizzle row, so `start`/`end` are Postgres's text render (`2026-10-07 13:00:00+00`) while only the displayed reads convert to ISO; and the ICS parser leaves `recurrenceInterval` at `1` when the VEVENT has no RRULE. Both are in the README Invariants, so the port must not "clean them up".
+- The `events_changed` nudge is not asserted in the goldens: it is fire-and-forget through FCM (a no-op when unconfigured) and has no `ctx` seam yet. Its one-nudge-per-request contract is pinned by the legacy `src/routes/api/events/nudge.test.ts`, which moves to `alerts` when the push fan-out does.
+- S2 commit sha: filled by the orchestrator after it commits (this step writes no implementation).
+
+### Files kept for unported importers
+
+- `src/lib/utils/ics.ts` has three legacy importers (`EventExportMenu.svelte`, `/calendar/event/[id]/+page.server.ts`, the ics route) — it dies at S8 with them.
+- `src/lib/server/services/archiveData.ts`, `src/lib/components/archive/archiveMonths.ts` and `src/lib/data/smartEventTemplates.ts` travel with the archive/calendar screens, not with this module.
+- `src/lib/types.ts` has 29 importers across unported modules; it dies at APP-05, and each module takes the types it owns (calendar takes `RSVPStatus`, `EventAttendanceSummary` and the display shapes into `calendar.contract.ts`).
+- The cloud-AI bulk fallback (`chatJson`) is dropped from this module: it needs a provider port on `ctx` and its own consent/settings story. Until that port exists, `smart` bulk edits use the deterministic planner only, and the endpoint's `422 Could not match that instruction…` is the honest answer. Flagged for the owner in Q-list terms if they want it back.
+
+
 
 ## Census
 
