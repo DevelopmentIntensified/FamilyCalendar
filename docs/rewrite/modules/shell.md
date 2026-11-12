@@ -88,11 +88,242 @@ None.
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+### Load plan (ADR 0010) — every navigation pays for this module
+
+Shell owns no page; it owns the layouts every page pays for. This section records what the root
+layout and the two group layouts load today, verified, and what leaves the critical path.
+
+**Per document request (legacy), before any page code runs**
+
+| # | cost | evidence |
+|---|---|---|
+| 1 | session validation: 2 queries (`authSession` row, then `users` row) plus a sliding-renewal UPDATE at most once a day | `src/lib/server/auth.ts:191,197-207,210-213` |
+| 2 | `lastActiveAt` UPDATE at most once an hour, inside the request | `src/hooks.server.ts:108-113` |
+| 3 | calendar group: 3 queries, serial (settings → family id → roster) | `src/lib/server/services/userScope.ts:12-22`, `src/routes/(calendar)/calendar/+layout.server.ts:13` |
+| 4 | group data serialises the **whole `users` row** — including `passwordHash`, `receiptIngestToken`, `phonenumber` | `src/routes/(calendar)/calendar/+layout.server.ts:17`, `src/lib/server/db/schema.ts:26,38,44` |
+| 5 | both group loads return `pathname: event.url.pathname`; reading `url` in a server load makes SvelteKit re-run that load on **every** navigation, so #3 is 3 queries per navigation, not per group entry | `src/routes/(calendar)/calendar/+layout.server.ts:15`, `src/routes/(family)/+layout.server.ts:10` |
+
+#1 and #2 belong to the session pipeline (APP-03), not to shell; shell only reads the summary it
+hands over, and adds no query and no write of its own.
+
+**Per app page after hydration (legacy)**
+
+| # | cost | evidence |
+|---|---|---|
+| 6 | `GET /api/notifications` from the bell — 50 rows **and** the count — then the same 50-row feed every 60 s just to poll a number | `src/lib/components/NotificationBell.svelte:31-45,151-158`, `src/lib/server/db/actions/notifications.ts:39-51` |
+| 7 | the same GET again from the tab bar on mount, on every route change and on `visibilitychange` — while the bar is `md:hidden`, so desktop pays for it too | `src/lib/components/BottomNav.svelte:53-76,122` |
+| 8 | `GET /api/push/public-key` on every page load, only to know whether "Enable push" can render | `src/lib/components/NotificationBell.svelte:161-168`, `src/lib/utils/pushClient.ts:64-70` |
+| 9 | two IndexedDB opens per group entry: the offline replay (`initOfflineSync`) and the banner's pending count | `src/routes/(calendar)/calendar/+layout.svelte:48`, `src/routes/(family)/+layout.svelte:13-15`, `src/lib/utils/offline.ts:207-224`, `src/lib/components/OfflineBanner.svelte:17,48-50` |
+| 10 | first visit per user/browser while settings are still `'UTC'`: probe POST then `invalidateAll()` — a full second data load | `src/routes/(calendar)/calendar/+layout.svelte:28-46` |
+| 11 | statically imported into the initial chunk on every chrome render: bell 310 LOC + push client 190 + notification label tables 186 + **luxon** through `relativeTime` + focus trap + both menus + inline icon strings | `src/lib/components/Navbar.svelte:5-10`, `src/lib/utils/dateUtils.ts:1`, `src/lib/utils/notificationTypes.ts`, `src/lib/utils/pushClient.ts` |
+
+**Assets, checked and deliberately unchanged**
+
+- No webfonts: `src/app.css` has no `@font-face`, no `fonts.googleapis` link, no icon font — Tailwind's system stack only. Keep it: a font is a render-blocking request on every page.
+- One global stylesheet: `src/app.css` (29 lines: Tailwind directives plus the motion/tap/selection base rules) imported only by the root layout (`src/routes/+layout.svelte:12`, #062). The 243-line `src/lib/marketing/theme.css` is marketing's page cost, not shell's.
+- Icons are inline SVG literals in the destination list (`src/lib/utils/navItems.ts:36-69`) — no sprite or network request.
+- `src/app.html` carries two tiny inline scripts (test-brand swap `:18-30`, service-worker registration `:31-42`) and the manifest/icon/theme-colour links (`:5-11`). The service worker precaches only `/offline.html` and caches `_app/immutable` at runtime (`static/service-worker.js:11-19,147-160`); `CACHE_NAME`/`DATA_CACHE_NAME` (`:1-2`) bump in the same commit as any change to `app.html`, `static/manifest*.webmanifest` or brand assets (AGENTS.md:61).
+- PWA: `start_url` and share target are `/calendar` (`static/manifest.webmanifest:5,42-50`); the manifest is browser-fetched after first paint, so it is not in the critical path.
+
+**Target load plan — root layout (every page)**
+
+- Above the fold: wordmark, desktop links or hamburger, bell slot (app), avatar or Sign In/Get Started.
+- Server: **0 queries**. `shellRootLoad` maps `locals.actor`/`locals.user` into `ShellRootModel` (id, names, email, isAdmin, emailVerified, lastActiveAt) plus the server year from `ctx.clock.now()`. It never reads `event.url` and never returns the raw user row.
+- New `src/routes/+layout.server.ts` (one wiring line) — no query, no serialised credential, no `url` dependency.
+- Chrome mode: `shellChromeForRoute(page.route.id)` = `'app'` for `/(calendar)/calendar/**` and `/(family)/**`, `'none'` for marketing, admin, `/report-bug`, `/share-target`. Marketing's own header is marketing's (a domain cannot import a screen); account (#18) and admin (#19) widen the rule when they port instead of copying chrome.
+- Client: **no fetch on mount and none on navigation**. The profile menu and mobile menu `import()` on first open; the bell panel is alerts' lazy component; the unread badge is one count per chrome mount, refreshed on `visibilitychange` only when it is older than 60 s, then updated optimistically on mark-read. That replaces #6, #7 and #8.
+- The same chrome subtree survives calendar ↔ family transitions (no navbar/tab-bar remount, no badge flicker, one `initOfflineSync` instead of one per group mount).
+- Degradation: a group load that threw leaves the chrome without a model; `ShellRoot` then renders `children` only (the error page still stands).
+
+**Target load plan — calendar group (`/(calendar)/calendar/**`, every signed-in page)**
+
+- Above the fold: chrome (root) + at most one notice + the first screenful of the page.
+- Server: `shellCalendarGroupLoad` reads identity settings and the family id in parallel, then the roster (2 round trips instead of the legacy 3 serial queries), passes the root summary through with `event.parent()` (no second query, no `url` read), and returns no `pathname` → it runs once per group entry rather than once per navigation (#3, #5). The whitelisted model removes #4.
+- After paint (none of it blocks first paint): time-zone probe on idle behind the localStorage gate → save → targeted `invalidate('shell:scope')` instead of `invalidateAll()` (#10); offline replay + pending count read on idle (#9); badge count (#6/#7/#8 replaced).
+- On demand: the verify form renders only when the notice says so; menus and the bell panel are lazy (#11 shrinks to the chrome shell + wordmark).
+- Rendering: the notice is decided once by a pure rule over (searchParams, user, daysLeft, dismissals); the single banner stack is measured with `ResizeObserver`; `<main>` offset comes from `shell.frame.rules` (40 px guess before the first measurement); icons stay inline.
+
+**Target load plan — family group (`/(family)/**`)**
+
+- Same frame as calendar, without the footer. The group load is a `pageLoad({ auth: 'user' })` guard that returns nothing: the user already comes from the root load, so the legacy user-only load and its `pathname` dependency die.
+
+### Files (S3–S7)
+
+| file | role | contents |
+|---|---|---|
+| `shell.contract.ts` | contract | zod models with inferred types: `ShellRootModel` (whitelisted user summary + year), `ShellScopeModel` (the passed-through root summary + settings, familyId, roster, anonymous days left), `ShellNoticeModel`, `ShellErrorModel`; and the narrow ports `ShellBadgePort`, `ShellVerifyPort`, `ShellTimezonePort`, `ShellOfflinePort`. `.strict()` so a leaking field (e.g. `passwordHash`) fails a test instead of shipping. |
+| `shell.nav.rules.ts` | rules | `shellNavItems` (the six destinations, labels, short labels, inline icons, `bellInstead`), `ShellNavItem`, `shellActiveHref`. `marketingNavItems` is not here — it goes to marketing. |
+| `shell.frame.rules.ts` | rules | `shellChromeForRoute(routeId)`, `shellBannerOffset(measuredHeight, bannerCount)` (the 40 px fallback), `shellKeyboardOpen(innerHeight, visualViewportHeight)` (the 150 px threshold). |
+| `shell.notices.rules.ts` | rules | `shellDaysLeft(lastActiveAt, now)` (Inactivity Window 90, ceil, floor 0), `shellNoticeFor({ searchParams, user, daysLeft, dismissed })` (the one precedence chain), `shellMergeSummary(events, tasks)` (pluralisation, tasks only when > 0). |
+| `shell.error.rules.ts` | rules | `shellErrorView(status, message)` → `{ tone, title, body, showReport }` for 404 / other 4xx / 5xx. |
+| `shell.api.ts` | api | `createShellPorts()`: the single wiring point for the four ports over alerts' count, access' verify/resend, identity's time-zone save and kernel/client's offline queue. Layouts pass `ports` in; tests pass fakes. |
+| `shell.service.server.ts` | service | `loadShellRoot(ctx, actor, viewer)` (whitelist from the session row + the year from `ctx.clock.now()`; no query) and `loadCalendarGroup(ctx, actor)` (identity settings ∥ family id, then roster; `Promise.allSettled` around the family half so a broken family read is `null`/`[]`). |
+| `shell.http.server.ts` | http | `pageLoad()` wrappers: root (`optional`), calendar group (`user`), family group (`user`). No `event.url`. |
+| `shell.badge.state.svelte.ts` | state | unread count: fetch once per mount, stale-gated visibility refresh (60 s), `99+` cap, optimistic decrement on mark-read, failure → 0. |
+| `shell.timezone.state.svelte.ts` | state | localStorage gate per user, probe only while `timeZone === 'UTC'`, save via the port, set the flag **after** success (retry on failure), report "probed" so the frame can invalidate the scope. |
+| `shell.verify.state.svelte.ts` | state | code input, busy, inline server error, resend with the 3 s "Sent again ✓" receipt. |
+| `shell.offline.state.svelte.ts` | state | online/pending/synced from the offline port: visible = offline ∨ pending ∨ receipt; 4 s receipt; 2 s pending re-read after reconnect. |
+| `shell.*.rules.test.ts`, `shell.*.state.test.ts` | tests | table tests and state tests with fake ports + manual scheduler; titles carried from the legacy suites where the rule is the same. |
+| `shell.service.db.test.ts`, `shell.http.db.test.ts` | tests | db project: whitelisted model, degrade-to-null/[], 302 `/login` from both groups, no `pathname`, settings/family/roster from seeded rows. |
+| `shell.styles.test.ts` | test | repo scans: one `app.css` importer, no `bind:` on a component in shell `ui/`, manifest `start_url`/share target, safe-area padding, service-worker cache keys unchanged. |
+| `ui/ShellRoot.svelte` | ui | chrome mode + navbar + tab bar + toast host + `children`; owns the badge/timezone/offline state instances; no fetch. |
+| `ui/ShellNavbar.svelte` | ui | wordmark, desktop links, bell slot, avatar button, hamburger; menus open/close on pathname change, Escape, outside click; menus `import()`ed on first open. |
+| `ui/ShellProfileMenu.svelte` | ui | registered-only header, admin links, Settings/Family/Task Stats/Archive/Report a Bug, logout form; required `reportBugHref`. |
+| `ui/ShellMobileMenu.svelte` | ui | bell row, destination list with active highlight, account rows + admin links, Logout or Sign In/Get Started; focus-trapped. |
+| `ui/ShellTabBar.svelte` | ui | six tabs, `99+` badge, `Alerts (n unread)` accessible name, class-only keyboard hiding, safe-area padding. |
+| `ui/ShellGroupFrame.svelte` | ui | banner stack + `<main>` offset + footer variant (`calendar`/`family`) + `children`. |
+| `ui/ShellNotices.svelte` | ui | the four notice rows and the self-sufficient verify form, driven by `ShellNoticeModel` + dismiss/submit callbacks. |
+| `ui/ShellOfflineBanner.svelte` | ui | offline paragraph / pending count / 4 s receipt from `ShellOfflinePort`. |
+| `ui/ShellErrorView.svelte` | ui | renders `shellErrorView()`; "Back to calendar" always, bug CTA on 5xx only. |
+| `ui/*.svelte.test.ts` | tests | one per component, props only (no `$app/*`), fake ports, fake scheduler. |
+
+### Route files
+
+| file | change |
+|---|---|
+| `src/routes/+layout.svelte` | keep the single `app.css` import; render `<ShellRoot>` with `routeId={page.route.id}` and data. |
+| `src/routes/+layout.server.ts` | **new**: `export const load = shellRootLoad;` |
+| `src/routes/(calendar)/calendar/+layout.svelte` | wiring: `<ShellGroupFrame variant="calendar">` with data, `url` and `ports`. |
+| `src/routes/(calendar)/calendar/+layout.server.ts` | wiring: `export const load = shellCalendarGroupLoad;` (file comment dropped). |
+| `src/routes/(family)/+layout.svelte` | wiring: `<ShellGroupFrame variant="family">`. |
+| `src/routes/(family)/+layout.server.ts` | wiring: `export const load = shellFamilyGroupLoad;` |
+| `src/routes/+error.svelte` | wiring: `<ShellErrorView status={page.status} message={page.error?.message} url={page.url} />`. |
+
+No S2: shell owns no `/api/**` route, so there is no `shell.http.db.test.ts` golden file and no S2
+sha. Its db tests in S5/S6 pin the layout loads, not a wire.
+
+### Where each legacy export goes
+
+| legacy | new home |
+|---|---|
+| `NavItem`, `loggedInNavItems`, `bottomNavItems`, `resolveActiveHref` (`src/lib/utils/navItems.ts`) | `shell.nav.rules.ts`: `ShellNavItem`, `shellNavItems`, `shellActiveHref` (the two derived lists are `filter`/all inside the components — pinned by the shared-list test). |
+| `marketingNavItems` (`navItems.ts:29-34`) | marketing: its ported public header owns the four public links. Not shell. |
+| `Navbar.svelte` | `ui/ShellRoot.svelte` + `ui/ShellNavbar.svelte`; its `NotificationBell` import dies (alerts owns the bell, shell owns the slot); `Mark` → kernel/ui `BrandMark` (K-08); `reportBugHref` → feedback. |
+| `NavbarProfileMenu.svelte` | `ui/ShellProfileMenu.svelte`; the `reportBugHref = '/report-bug'` default dies (prop required); `trapFocusAction` → kernel/ui `trapFocus`. |
+| `NavbarMobileMenu.svelte` | `ui/ShellMobileMenu.svelte`, now focus-trapped. |
+| `BottomNav.svelte` | `ui/ShellTabBar.svelte` + `shell.badge.state.svelte.ts`; the `currentPath` test seam dies (pathname is a prop everywhere). |
+| `OfflineBanner.svelte` | `ui/ShellOfflineBanner.svelte` + `shell.offline.state.svelte.ts` over kernel/client `offlineQueue` (K-07). |
+| `Breadcrumbs.svelte` | kernel/ui `Breadcrumbs` (K-08 scope addition, see Notes); **kept** until account (#18) and familyHub (#20) migrate (7 route pages import it). |
+| `(calendar)/calendar/+layout.svelte` | `ui/ShellGroupFrame.svelte` + `ui/ShellNotices.svelte` + `shell.notices.rules.ts` + `shell.timezone/verify/offline.state.svelte.ts`. |
+| `(calendar)/calendar/+layout.server.ts` | `shell.service.server.ts` (`loadCalendarGroup`) + `shell.http.server.ts`; `loadUserScope`'s three reads become the shell composition (settings ∥ family id → roster). |
+| `(family)/+layout.svelte` / `+layout.server.ts` | `ShellGroupFrame variant="family"` + `shellFamilyGroupLoad`; the duplicate `initOfflineSync` mount dies. |
+| `+error.svelte` | `ui/ShellErrorView.svelte` + `shell.error.rules.ts`. |
+| `src/lib/utils/reportBug.ts` | feedback (their sheet already lists it). |
+| `src/lib/utils/anonymous.ts` | identity's rules (`isAnonymousAccount`/`isRegisteredAccount`); shell imports them. |
+| `src/lib/utils/offline.ts`, `src/lib/client/toasts.ts`, `brand/Mark.svelte`, `focusTrap.ts` | kernel/client (K-07), kernel/ui (K-08). |
+| `NotificationBell.svelte`, `pushClient.ts`, `notificationTypes.ts` | alerts. |
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
+### Decisions
+
+- **The chrome lives in the root layout, not in each group layout.** `account`, `familyHub` and
+  `calendarPage` are screens and screens may not import each other (R1), so a chrome component owned
+  by shell could never be reused by them; the root layout is the only host every screen already has.
+  `shellChromeForRoute` keeps it app-only for now (calendar + family groups). This also stops the
+  navbar/tab bar remounting on a calendar ↔ family jump.
+- **Marketing keeps its own header.** Marketing is a domain (rank 16), so it may not import shell.
+  Its ported public header owns the four public links and the Sign In/Get Started CTAs; `shellNavItems`
+  is the signed-in app's list only.
+- **The bell is alerts'.** Shell renders a slot and consumes a `ShellBadgePort`; the panel, push
+  permission and the feed stay in alerts. That keeps the 310-line bell and the push client out of the
+  chrome chunk until the panel opens.
+- **The count is fetched once per chrome mount, not per navigation.** With the root chrome remaining
+  mounted across app routes, a per-navigation fetch has nothing to update; a stale-gated
+  `visibilitychange` refresh plus optimistic mark-read covers the live cases.
+- **Ports, not mocks.** The four ports come in as constructor/prop arguments (R9). Layout files wire
+  `createShellPorts()`; tests pass fakes.
+- **The shared scope is composed here for now.** `loadCalendarGroup` calls identity's settings read
+  and family's id/roster reads itself (a screen may compose domains). If `family` later exports a
+  viewer-scope reader, shell calls it instead: same data, one call site fewer, and no rule changes.
+
+### Bugs found while verifying (fixed in this port, none is a fixed external contract)
+
+- **The whole `users` row reaches the browser.** Both group loads return `event.locals.user`
+  (`(calendar)/calendar/+layout.server.ts:17`, `(family)/+layout.server.ts:12`), which includes
+  `passwordHash`, `receiptIngestToken` and `phonenumber` (`schema.ts:26,38,44`). The new
+  `ShellRootModel` is a whitelist and a `.strict()` test keeps it that way.
+- **The group scope reloads on every navigation.** `pathname: event.url.pathname` in a server load
+  registers a `url` dependency, so the "once per group entry" comment (`+layout.server.ts:9-12`) is
+  false: settings + family + roster are re-read on every in-group navigation. The v2 load reads no
+  `url` and returns no `pathname`.
+- **The footer builds the year from `new Date()`** in the component (`+layout.svelte:280`), an R5
+  violation and a hydration hazard around midnight; the year now comes from `ctx.clock.now()` in the
+  root load.
+- **The once-per-user probe never retries.** The flag is written before the POST
+  (`+layout.svelte:28-46`); v2 writes it only after a successful save, and the refresh is a targeted
+  `invalidate('shell:scope')` instead of `invalidateAll()`.
+- **The `(family)` banner can cover content**: it is fixed at `top: calc(4rem + safe-area)` while
+  `<main>` only gets static padding (`(family)/+layout.svelte:20-21`). Both groups now use the one
+  measured stack.
+- **The tab bar fetches while hidden** on desktop (`md:hidden`, `BottomNav.svelte:122`) and the bell
+  fetches the 50-row feed every 60 s to read one number (`NotificationBell.svelte:31-45,151-158`).
+  Both are gone with the single badge source.
+- **Push setup runs on every page load** (`GET /api/push/public-key`, `NotificationBell.svelte:161-168`);
+  it moves behind opening the bell panel.
+
+### Probably accidental — dispositions
+
+| item | disposition |
+|---|---|
+| `NavbarMobileMenu` imports `trapFocusAction` but never applies it | internal (not on the wire): **fix** — both menus trap focus. |
+| layouts mix `runes`/`children` with `export let`/`<slot />` | internal: gone; all three frames are components. |
+| `(family)` banner overlaps page content | internal, user-visible: **fix** with the measured stack. |
+| probe flag written before the request | internal: **fix** (flag after success) + test. |
+| menus default `reportBugHref` to `/report-bug` | internal: **drop the default**, make the prop required. |
+| stale `// +page.server.ts` comment | dies with the file. |
+| `marketingNavItems` in the shared nav module | moved to marketing (their pages render it). |
+
+Nothing in the "probably accidental" list is visible on the `/api` wire, so no owner question is
+needed to change it: no `/api` behaviour changes in this port.
+
+### Files kept for unported importers
+
+- `src/lib/components/{Navbar,NavbarMobileMenu,NavbarProfileMenu,BottomNav,OfflineBanner}.svelte` and
+  the legacy `Toaster`/`Mark`: `(calendar)/account/+layout.svelte` (account, #18),
+  `(admin)/+layout.svelte` (#19) and `(family)/family/**` (familyHub, #20) still import them when
+  shell lands. `/account` therefore keeps its own chrome (and does not get the root chrome, whose rule
+  is app-only) until account widens the rule at #18 — no double navbar in the meantime. Delete the
+  files as those ports land, or immediately if shell's S8 finds no importers.
+- `src/lib/components/Breadcrumbs.svelte`: 7 route pages in account and familyHub use it. It moves to
+  kernel/ui (K-08) and is deleted after those ports, not before.
+- `src/lib/utils/reportBug.ts` and `src/lib/utils/offline.ts`: owned by feedback and K-07; shell does
+  not delete them.
+
+### Questions for the owner
+
+1. **Unread-count source (`/api` adjacent).** Today the bell re-fetches the 50-row feed just to poll a
+   number (alerts' sheet lists this as a known gap). Options: (a) keep the existing `GET
+   /api/notifications` but call it once per chrome mount (no wire change; recommended), (b) add
+   `GET /api/notifications/count` (new path; a contract addition, needs alerts + approval and an
+   Android check), (c) return the count from the layout load (one server query per page load).
+   Recommendation: (a) now; revisit (b) if `perf:check` shows the 50-row payload.
+2. **Chrome in the root layout + app-only mode.** Confirm the direction: root renders chrome for
+   `/(calendar)/calendar/**` and `/(family)/**`; account and admin widen the rule at their ports; each
+   screen never renders a second navbar. Recommendation: yes (R1 leaves no alternative that avoids
+   duplication).
+3. **Marketing's public header.** Confirm the marketing port owns the guest header (four links +
+   Sign In/Get Started) and `marketingNavItems` moves there, so shell's root chrome never renders on
+   marketing pages. Recommendation: yes — R1 forbids the alternative (a domain importing a screen),
+   and the marketing page's own `mp-canvas`/skip-link wrapper already lives there.
+4. **Breadcrumbs to kernel/ui.** This is a small K-08 scope addition (a 30-line, `$app`-free
+   component): account and familyHub render it on 7 pages and screens cannot share. Recommendation:
+   add it to K-08; otherwise the alternative is one copy per screen (account, familyHub).
+5. **Security backport.** The password hash / receipt token / phone number are serialised to the
+   browser on every legacy app page today. Shell's port fixes it in v2. Does the owner want a separate
+   ticket (and a backport to the legacy branch still serving production) before the rewrite merges?
+   Recommendation: file the ticket now, fix in v2 as planned.
+6. **Fixes and load-plan changes inside the port.** Confirm the seven internal fixes above and the
+   load-plan changes may land in shell's commits (none touches the schema, the `/api` wire, or a
+   Must-keep rule). Recommendation: yes; they are listed here so the visual check at S7 expects them.
+
+### Verification needed at S6/S7
+
+- `page.route.id` must be populated during SSR so the first paint already has the chrome (SvelteKit
+  does; if not, `shellRootLoad` returns `event.route.id` as the initial value).
+- The new root `+layout.server.ts` must not break the marketing static-adapter path: the root load
+  reads only `locals`, and marketing's `prerender` is already `false` under adapter-vercel
+  (`(marketing)/+layout.server.ts:5-6`). Confirm with `build:safe`.
 
 ## Census
 
