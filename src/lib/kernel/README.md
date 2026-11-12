@@ -9,12 +9,25 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 - **Owns:** the dependency bag (`Ctx`) and caller identity (`Actor`); the one error type; boundary validation; the HTTP builders (`endpoint`, `pageLoad`, `formAction`); clock, ids and hashing; the rate limiter; structured logs; db/transaction helpers; the test harness.
 - **Does not own:** any business rule. Something like "who may edit a task" belongs in the module that owns the concept (`tasks`), even when several modules need it.
 - **Also owns:** the date formatting and month math in `kernel/time` (K-06), and the shared UI primitives in `kernel/ui`: sheet, confirm action, pill, skeleton, toaster, brand mark, day nav, mention input, colour hashes. Screens and domains import them by path; they never import a domain or `$app/*`.
-- **Later kernel tasks** (see [LEDGER](../../../docs/rewrite/LEDGER.md)) add the browser client pieces (K-07: api client, toast store, local preferences, search box, offline queue) and the page and perf harnesses (K-10/K-11).
+- **Client pieces** (K-07) live in `client/`: the api client, toasts, device preferences, debounced search and the offline queue; `time/ticker` is the reactive "now" for countdowns.
+- **Later kernel tasks** (see [LEDGER](../../../docs/rewrite/LEDGER.md)) add the page and perf harnesses (K-10/K-11).
 
 ## Files
 
 | file | role | what it does, and why it exists | tested by |
 |---|---|---|---|
+| [client/apiClient.ts](client/apiClient.ts) | client | `createApiClient(fetcher)`: one JSON request shape returning `ApiResult<T>` instead of throwing. Error copy: the server's `error`, else the legacy `actionErrorCopy` per-status text; a rejected fetch is "Network problem. Try again.". | [apiClient.test.ts](client/apiClient.test.ts) |
+| [client/apiClient.test.ts](client/apiClient.test.ts) | test | JSON body/content-type, 204 → `data: undefined`, server copy, 401/403, 5xx, unexplained 4xx, network rejection, non-JSON error body | — |
+| [client/localPref.ts](client/localPref.ts) | client | Versioned device preference over an injectable `Storage` (`{v, value}`). Wrong version, junk JSON, a `parse` rejection, SSR or a refusing storage all fall back; never throws. Legacy `calendarVisibility.ts:31` stores a raw array under `familyplanz:hiddenCalendars:<id>`, so the calendar port must read that shape once (or accept a one-time reset — owner call). | [localPref.test.ts](client/localPref.test.ts) |
+| [client/localPref.test.ts](client/localPref.test.ts) | test | round trip, version mismatch, junk JSON, rejected parse, refusing storage, absent storage, clear | — |
+| [client/offlineQueue.ts](client/offlineQueue.ts) | client | IndexedDB mutation queue and replay policy (2xx drop, 401/403 keep for re-auth, other 4xx drop, 5xx/network keep). IndexedDB, navigator, window, fetch and `now` are injectable; defaults are the globals plus `systemClock`. Window-listener state is module-level: the first subscribed environment wins (one window per app). | [offlineQueue.test.ts](client/offlineQueue.test.ts) |
+| [client/offlineQueue.test.ts](client/offlineQueue.test.ts) | test | replay order and conflict policy, wire format, no-IndexedDB guards, online subscription — fake IndexedDB, fake fetch, fixed `now` | — |
+| [client/searchBox.svelte.ts](client/searchBox.svelte.ts) | client | `SearchBox<T>` runes class: debounced query (250 ms, min two trimmed characters) with an AbortController stale-response guard; reports `failed` and `searchedFor` so a picker can tell "the search broke" from "no match", folding the three hand-rolled pickers. | [searchBox.test.ts](client/searchBox.test.ts) |
+| [client/searchBox.test.ts](client/searchBox.test.ts) | test | debounce, replaced debounce, abort, late reply, trimmed minimum length, clear, failure state and clearing, `searchedFor`, whitespace-only — shared manual scheduler | — |
+| [client/shareText.ts](client/shareText.ts) | client | `copyOrShare` ladder (share sheet → clipboard → selection → failed), moved from legacy `client/share.ts`; navigator and document are injectable. | [shareText.test.ts](client/shareText.test.ts) |
+| [client/shareText.test.ts](client/shareText.test.ts) | test | the legacy nine cases, driven through an injected navigator/document | — |
+| [client/toasts.svelte.ts](client/toasts.svelte.ts) | client | `createToasts({schedule})`: runes toast list, max four visible (oldest dropped), 6 s auto-dismiss, optional `action` (`{label, run}`) for Undo-style buttons; `memoryToasts()` records `{kind, text, action?}` for state-class tests. `Scheduler` lives in `time/scheduler.ts`. | [toasts.test.ts](client/toasts.test.ts) |
+| [client/toasts.test.ts](client/toasts.test.ts) | test | ids, four-toast cap, six-second dismissal, timers for dropped toasts, action kept, memory recorder — shared manual scheduler | — |
 | [ctx/actor.ts](ctx/actor.ts) | type | `Actor` (who is calling: id, email, isAdmin, via) + `actorFromUser`. Small on purpose: anything else about the person is asked of `identity`. | [endpoint.test.ts](http/endpoint.test.ts) |
 | [ctx/ctx.server.ts](ctx/ctx.server.ts) | type | `Ctx`: db, clock, ids, log, limiter, faults, config. Services take it as their first argument, so tests swap any dependency without `vi.mock`. | via every test that uses `testCtx` |
 | [db/database.server.ts](db/database.server.ts) | infra | `Db` (pool or transaction), `connectDb`, `withTx`. Nested transactions become savepoints. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
@@ -50,6 +63,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [ratelimit/rateLimiter.ts](ratelimit/rateLimiter.ts) | infra | `RateLimiter` port, in-memory sliding window driven by the clock, `clientKeyOf` (same keys as legacy). | [rateLimiter.test.ts](ratelimit/rateLimiter.test.ts) |
 | [ratelimit/rateLimiter.test.ts](ratelimit/rateLimiter.test.ts) | test | window edges, independent buckets, key derivation | — |
 | [testing/invokeHandlers.server.ts](testing/invokeHandlers.server.ts) | test infra | `invoke`, `invokeLoad`, `invokeAction`: call route handlers without a server; sets `locals.user` (legacy) and `locals.actor` (v2), so one golden test covers both. | used by every http test |
+| [testing/manualScheduler.ts](testing/manualScheduler.ts) | test infra | `manualScheduler()`: a `Scheduler` that records its callbacks and a `fireAll()` the test calls, so no unit test waits on real timers. One copy for every kernel client/time test. | used by [toasts.test.ts](client/toasts.test.ts), [searchBox.test.ts](client/searchBox.test.ts), [ticker.test.ts](time/ticker.test.ts) |
 | [testing/seedRows.server.ts](testing/seedRows.server.ts) | test infra | `seedUser`, `uniqueSuffix`. Module-specific builders live in `<module>.fixtures.server.ts`. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
 | [testing/testCtx.server.ts](testing/testCtx.server.ts) | test infra | `testCtx({ db?, now?, cronSecret? })`: fixed clock, sequential ids, memory log/faults/limiter; no-db guard. | used by every test |
 | [testing/testDb.server.ts](testing/testDb.server.ts) | test infra | `rollbackTest` (default: one rolled-back transaction per test), `inRollback`, `testDb`, `truncateAll` (committed mode: one transaction with FK triggers off, one `DELETE FROM` per table — a few ms), lane guard. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
@@ -62,6 +76,9 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [time/clock.test.ts](time/clock.test.ts) | test | default instant, advance/set, copy semantics | — |
 | [time/dates.test.ts](time/dates.test.ts) | test | format tables, DST in New York and London, month ends, leap years, UTC+14, grouping, month math, timestamp normalisation | — |
 | [time/dates.ts](time/dates.ts) | rules | `formatUsDate`, `formatClockTime`, `formatDayMonth`, `formatLongDate`, `formatShortDate`, `dayKey`, `formatDateTimeMinute`, `relativeFromNow`, `groupByDay`, `addMonthsClamped`, `startOfDayIn`, `isValidZone`, `toInstantString`. Every legacy date formatter's one home; the zone (and `now` when relative) is always a parameter, so nothing reads the clock. | [dates.test.ts](time/dates.test.ts) |
+| [time/scheduler.ts](time/scheduler.ts) | infra | `Scheduler` port and `systemScheduler` (setTimeout/clearTimeout): the one home for client timers — toasts, debounced search and the ticker; tests inject `manualScheduler` instead. | through [toasts.test.ts](client/toasts.test.ts) |
+| [time/ticker.svelte.ts](time/ticker.svelte.ts) | client | `Ticker`: reactive `now` refreshed from a `Clock` every N ms for countdowns and elapsed-time bands; injectable `Scheduler`, idempotent `start`/`stop`. | [ticker.test.ts](time/ticker.test.ts) |
+| [time/ticker.test.ts](time/ticker.test.ts) | test | initial instant, a tick per interval, repeated ticks, stop, start twice — manual scheduler | — |
 | [ui/BrandMark.svelte](ui/BrandMark.svelte) | ui | The calendar wordmark glyph, one copy (issue 095): sized by prop, `currentColor` so call sites keep their text colour, hidden from assistive tech unless given a label. | [BrandMark.svelte.test.ts](ui/BrandMark.svelte.test.ts) |
 | [ui/BrandMark.svelte.test.ts](ui/BrandMark.svelte.test.ts) | test | glyph geometry, size/class/label props | — |
 | [ui/DayNav.svelte](ui/DayNav.svelte) | ui | One date navigator for the dashboard header and the calendar toolbar (118, #119): links when given hrefs, buttons with callbacks when the caller navigates in place, and an optional leading period label inside the same pill. No `$app/*`. | [DayNav.svelte.test.ts](ui/DayNav.svelte.test.ts) |
@@ -118,6 +135,8 @@ Route files stay wiring-only (rule R8). Auth modes: `public`, `optional`, `user`
 
 Read `ctx.clock.now()`. Pass "now" into rules as a parameter. Format, key and group dates with [time/dates.ts](time/dates.ts) — pass the user's IANA zone (and `now` where the output is relative) explicitly; never write another formatter.
 
+Client timers (toasts, debounced search, the ticker) go through the `Scheduler` port in `time/scheduler.ts`: `systemScheduler` in real code, `manualScheduler()` (kernel/testing) in tests. Never `setInterval` in a component.
+
 ### Ids
 
 - `ctx.ids.id()` for new rows.
@@ -140,7 +159,19 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 
 ### Testing
 
-`testCtx`, `invoke*`, `rollbackTest`, `truncateAll`, `seedUser`. The full guide is [docs/architecture/testing.md](../../../docs/architecture/testing.md).
+`testCtx`, `invoke*`, `rollbackTest`, `truncateAll`, `seedUser`, `manualScheduler`. The full guide is [docs/architecture/testing.md](../../../docs/architecture/testing.md).
+
+### Client
+
+Browser-side pieces in `kernel/client`, plus `Ticker` and the `Scheduler` in `kernel/time`. They take their browser globals as injectable parameters with real defaults, so tests need no DOM and no `vi.mock`.
+
+- `createApiClient(fetcher)` → `{ request(method, path, body?) }` returning `ApiResult<T>`; a module's `*.api.ts` wraps it with typed methods.
+- `createToasts({ schedule })` → `success/error/info(text, action?)`, where `action` is `{ label, run }` for an Undo button; pass it to a state class and render `items` with kernel/ui's `Toaster` (K-08a). `memoryToasts()` records `{kind, text, action?}` for tests.
+- `localPref({ key, version, fallback, parse, storage? })` → `read/write/clear` for one device preference.
+- `new SearchBox(search, { debounceMs?, minLength?, schedule? })` → `query`, `results`, `failed`, `searchedFor`, `pending`, `setQuery`, `clear`.
+- `new Ticker(clock, everyMs, schedule?)` → reactive `now`; call `start()` on mount and `stop()` on destroy.
+- `copyOrShare(text, options, env?)` → `'shared' | 'copied' | 'cancelled' | 'failed'`.
+- The offline mutation queue: `queueMutation`, `getPendingCount`, `replayPending`, `isOnline`, `subscribeToOnlineStatus`, `initOfflineSync`, plus its replay-policy helpers `sortReplayQueue`, `getReplayDisposition` and `shouldDropAfterReplay`.
 
 ## How to test
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import { getPendingCount, isOnline, subscribeToOnlineStatus } from '$lib/utils/offline';
+	import { getPendingCount, isOnline, subscribeToOnlineStatus } from '$lib/kernel/client/offlineQueue';
 
 	let online = $state(isOnline());
 	let pendingCount = $state(0);

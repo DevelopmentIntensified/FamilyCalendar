@@ -12,7 +12,7 @@
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { formatDue } from '$lib/utils/taskDisplay';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
-	import { queueMutation } from '$lib/utils/offline';
+	import { queueMutation } from '$lib/kernel/client/offlineQueue';
 	import { dueTone, priorityDot, priorityLabel } from '$lib/utils/priorityTone';
 	import { type TaskSortKey } from '$lib/utils/taskSort';
 	import {

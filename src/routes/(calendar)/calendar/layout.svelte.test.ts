@@ -18,8 +18,8 @@ vi.mock('$app/navigation', () => ({
 	invalidateAll: vi.fn(() => Promise.resolve()),
 	afterNavigate: vi.fn()
 }));
-// oxlint-disable-next-line anti-slop/no-module-mocking -- offline utils touch IndexedDB/navigator at import; the layout has no injection seam.
-vi.mock('$lib/utils/offline', () => ({
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the layout calls initOfflineSync directly and has no injection seam, so the queue module is stubbed (the real one resolves browser globals per call).
+vi.mock('$lib/kernel/client/offlineQueue', () => ({
 	initOfflineSync: () => () => {},
 	isOnline: () => true,
 	getPendingCount: () => Promise.resolve(0),

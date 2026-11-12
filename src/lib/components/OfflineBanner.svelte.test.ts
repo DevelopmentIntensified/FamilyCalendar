@@ -4,8 +4,8 @@ import OfflineBanner from './OfflineBanner.svelte';
 
 const offline = vi.hoisted(() => ({ online: true, pending: 0 }));
 
-// oxlint-disable-next-line anti-slop/no-module-mocking -- offline utils read navigator.onLine + IndexedDB at import; OfflineBanner has no injection seam.
-vi.mock('$lib/utils/offline', () => ({
+// oxlint-disable-next-line anti-slop/no-module-mocking -- OfflineBanner calls isOnline/getPendingCount directly and has no injection seam, so the queue module is stubbed (the real one resolves browser globals per call).
+vi.mock('$lib/kernel/client/offlineQueue', () => ({
 	isOnline: () => offline.online,
 	getPendingCount: () => Promise.resolve(offline.pending),
 	subscribeToOnlineStatus: () => () => {}

@@ -112,8 +112,8 @@ Before writing a helper, find its concept below and use (or build) the one home.
 | browser fetch + error copy | module `*.api.ts` on kernel api client (K-07) | 43 `fetch('/api/…')` calls in components, `client/task*.ts`, "That didn't work. Try again." ×5 |
 | toasts | kernel client toasts (K-07) | `client/toasts.ts` store |
 | device-local preferences | kernel client `localPref` (K-07) | `calendarVisibility.ts` + `calendarAssignees.ts` KeyValueStorage boilerplate |
-| debounced search + stale guard | kernel client `createSearch` (K-07) | CreateFamilyMemberPicker, MemberSearchTab, LocationSearch |
-| ticking "now" in UI | kernel client `ticker` (K-07) | TaskRow + TaskLoggedTimeBand `setInterval` copies |
+| debounced search + stale guard | kernel client `SearchBox` (K-07) | CreateFamilyMemberPicker, MemberSearchTab, LocationSearch |
+| ticking "now" in UI | kernel/time `Ticker` (K-07) | TaskRow + TaskLoggedTimeBand `setInterval` copies |
 | modal / sheet shell | kernel ui `Sheet` (K-08) | TaskDetailModal, EditTaskDialog, DayEventsModal, EventModal hand-rolled shells |
 | delete / confirm two-step | kernel ui `ConfirmAction` (K-08) | 8 copies (TaskRow, TaskCompletedRow, FamilyOpenTaskRow, TaskDetailBar, EventModalBar, EventDeleteConfirm, AccountDangerSection, MemberChildTab) |
 | chips / pills | kernel ui `Pill` + calendar `chipVocabulary` | TaskRow slot pills, CategoryChip, CategorySelect, TaskDetailModal spans |

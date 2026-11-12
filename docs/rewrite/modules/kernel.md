@@ -47,7 +47,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 - Toast is `{ id, message, actionLabel?, onAction? }`; the action runs first, then the toast is dismissed — `toasts.ts:3-9`, `src/lib/components/Toaster.svelte:4-7`
 - `dismissToast(id)` filters by id from the Svelte `writable<Toast[]>` — `toasts.ts:11,23-25`
 
-**Offline mutation queue (IndexedDB)**
+**Offline mutation queue (IndexedDB)** — moved by K-07 to `src/lib/kernel/client/offlineQueue.ts`; line refs below cite the pre-move `src/lib/utils/offline.ts` at a88c086
 - Storage: db `familyplanz-offline` v1, store `mutationQueue`, `keyPath: 'id'` autoIncrement, `createdAt` index; record `{ id?, url, method, body, createdAt }` — `src/lib/utils/offline.ts:1-11,54-62`
 - Replay is oldest-first by `id` (missing id sorts as 0, input not mutated) — `offline.ts:21-23` · test: `src/lib/utils/offline.test.ts` › "sortReplayQueue replays oldest-first by id"
 - Status policy: 2xx `applied` (drop); 401/403 `retry` (keep for re-auth); other 4xx `discarded` (drop, never retried); 3xx/5xx `retry`; network throw counts failed and keeps the record — `offline.ts:36-46,130-163` · tests › "getReplayDisposition treats 401/403 as retry (auth failure, not permanent)", "network errors keep the record for a later attempt"
@@ -56,7 +56,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 - `isOnline()` is true when `navigator` is absent, else `navigator.onLine`; `subscribeToOnlineStatus` calls back immediately then on every online/offline change, returning an unsubscribe — `offline.ts:166-196` · test › "reflects navigator.onLine and calls back immediately"
 - `initOfflineSync` registers one `online` listener, replays once at startup, and calls `onChange` after each replay — `offline.ts:207-224`
 
-**Share / copy ladder**
+**Share / copy ladder** — moved by K-07 to `src/lib/kernel/client/shareText.ts`; line refs below cite the pre-move `src/lib/client/share.ts` at a88c086
 - `copyOrShare(text, {share?,title?,text?})` returns `'shared' | 'copied' | 'cancelled' | 'failed'`: share sheet only when `share` is true and present; a dismissed sheet (`AbortError`) is `'cancelled'`, not failure; any other share throw falls through to the clipboard — `src/lib/client/share.ts:26,64-77` · test: `src/lib/client/share.test.ts` › "reports a share the person cancelled as cancelled, not as a failure"
 - Clipboard path uses `navigator.clipboard.writeText`; denied/absent falls to a throwaway fixed, opacity-0, readonly textarea + `execCommand('copy')`, always removed; otherwise `'failed'` — `share.ts:46-61,79-89` · tests › "does not leave the throwaway field behind when the copy is refused", "says it failed rather than claiming a copy it did not make"
 
@@ -106,11 +106,11 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ### Page and UI behaviour worth keeping
 - Toaster renders only when non-empty: fixed bottom bar (`bottom-20`, `md:bottom-6`), `z-[70]`, `print:hidden`, `role="region"` + `aria-label="Notifications"`; each toast is `role="status"` with the message, an optional action button (e.g. "Undo") and a close button labelled "Dismiss notification" — `src/lib/components/Toaster.svelte:9-40`
-- Toast messaging (including Undo) is caller-owned; the toast layer owns mechanics and the 6 s dismissal — `src/lib/client/toasts.ts:1-2`, `share.ts:9-12` (same principle for copy outcomes)
+- Toast messaging (including Undo) is caller-owned; the toast layer owns mechanics and the 6 s dismissal — `src/lib/client/toasts.ts:1-2`, `share.ts:9-12` (share moved by K-07 to `src/lib/kernel/client/shareText.ts`; line refs cite the pre-move files at a88c086; same principle for copy outcomes)
 
 ### Probably accidental (candidates to drop, owner to confirm)
 - `formatDate` treats every string as an ISO date, so a junk string renders the literal `Invalid DateTime` instead of `''` — `src/lib/utils/dateUtils.ts:46-49` — inconsistent with `relativeTime`/`formatEventTime`, which guard for `''`
-- `initOfflineSync` returns a no-op cleanup and never removes its `online` listener; `syncInitialized` makes later calls only sync, so a caller cannot unsubscribe — `src/lib/utils/offline.ts:207-224` — cleanup contract implied by the return type
+- `initOfflineSync` returns a no-op cleanup and never removes its `online` listener; `syncInitialized` makes later calls only sync, so a caller cannot unsubscribe — `src/lib/utils/offline.ts:207-224` (moved by K-07 to `src/lib/kernel/client/offlineQueue.ts`; line refs cite the pre-move file at a88c086) — cleanup contract implied by the return type
 - `pushToast` keeps only the last 4 toasts but still schedules a dismissal timer for every dropped toast — `src/lib/client/toasts.ts:17-19` — timers for objects no longer rendered
 - `rateLimit` mutates the stored array in place and never evicts a key whose traffic stopped — `src/lib/server/utils/rateLimit.ts:8-21` — unbounded map growth per distinct IP
 - `runInLock` logs a failed migration, skips all remaining files, yet returns `{ok:true}` and records `lastRun.ok = true` — `src/lib/server/db/migrations/runner.ts:97-103` — a partial schema reports success

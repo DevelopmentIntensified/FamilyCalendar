@@ -2,7 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
-	import { copyOrShare } from '$lib/client/share';
+	import { copyOrShare } from '$lib/kernel/client/shareText';
 	import { pushToast } from '$lib/client/toasts';
 
 	export let data: PageData;
