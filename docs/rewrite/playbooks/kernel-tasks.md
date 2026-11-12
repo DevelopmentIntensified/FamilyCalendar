@@ -137,8 +137,8 @@ kernel/ui components never import `$app/*` or any domain.
 3. `e2e/pages/session.ts`: `openAs(page, seedName)` runs the seed and signs in by session cookie. Reuse `getSessionCookie` from `e2e/testUtils.ts`.
 4. `e2e/pages/serve.ts` (run with `npx tsx`):
    - drop and create the database `familycalendar_pages` on 127.0.0.1:5433;
-   - apply migrations with the kernel `runMigrations` (K-05);
-   - start `vite preview --port 4174` on the existing build with `DATABASE_URL` pointing at that database and `DATABASE_DISABLE_MIGRATIONS=1`.
+   - start `vite preview --port 4174` on the existing build with `DATABASE_URL` pointing at that database and migrations **enabled** (no `DATABASE_DISABLE_MIGRATIONS`), so the built server's hooks (`src/hooks.server.ts`) run the kernel `runMigrations` exactly as a production cold start does. Do not import `runMigrations` here: `bundledMigrations.server.ts` loads its SQL through Vite `?raw` imports, which plain `tsx` cannot resolve.
+   - `e2e/pages/globalSetup.ts`, wired as the config's `globalSetup`, requests `baseURL` once (so the server loads its hooks), then polls `select count(*) from "__schema_migrations"` until it equals the number of `sql/migrations/*.sql` files — 60 s timeout, and the error names both counts — before any test seeds.
 5. `playwright.pages.config.ts`: a separate config (the main `playwright.config.ts` stays as it is). `testDir: 'e2e/pages'`, webServer `npx tsx e2e/pages/serve.ts`, baseURL `http://localhost:4174`, and two projects: desktop (1280×800) and mobile (Pixel 7, 390 px wide). The test process gets the same `DATABASE_URL`.
 6. `e2e/pages/visual.spec.ts`: for each catalog page of the module named by the `PAGES_MODULE` env (all pages when it is unset): `openAs`, wait for `ready`, then `expect(page).toHaveScreenshot()` with the masks, animations disabled and `maxDiffPixelRatio: 0.01`. Baselines live in `e2e/pages/__screenshots__/` and are committed.
 7. npm scripts:
