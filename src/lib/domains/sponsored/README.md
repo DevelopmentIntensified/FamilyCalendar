@@ -36,9 +36,8 @@ Designed small and deep: a handful of exports carry the whole behaviour, and eac
 - `recordSponsoredConsentChange(ctx, actor, { previous, next })` — appends one record on a real transition only (`granted` / `withdrawn`), returns the decision or `null`. Deletion test: the transition rule is the whole point of the trail; a caller-side compare would fabricate "declined" rows for users who never touched the setting.
 - `listSponsoredConsentHistory(ctx, actor)` — the user's whole trail, newest first. Deletion test: the read also promises "writes nothing"; a hand-written select forgets the order and invites a serve-log, which is what this table is deliberately not.
 - `pruneSponsoredEventsOlderThan(ctx, cutoff)` — retention: deletes ad rows created before the cutoff, returns the count. Called by `app`'s weekly cron. Deletion test: the anchor (`createdAt`, not `scheduledFor`) is the rule.
-- `countSponsoredEventsByTargetPlan(ctx, cutoff)` — reporting read: ad rows created inside the window, grouped by `targetPlan`. Deletion test: move it into a future reporting caller and that caller owns a column name and the window rule. No consumer today (see Notes).
-- `recordSponsoredEngagement(ctx, { adEventId, kind: 'impression' | 'click' })` — increments the matching counter on one `adEvents` row by id. Deletion test: two column names, the increment direction and the "missing row is a no-op" rule would be duplicated at each future call site. No route calls it yet (see Notes).
 - `listSponsoredEventsEndpoint` — the `GET /api/sponsored-events` handler (auth, month parsing, body). `+server.ts` stays wiring only.
+- Deliberately absent: an engagement write (`trackAdImpression`/`trackAdClick` in legacy) and a target-plan reporting read. Neither is on the wire, neither has a consumer, and `adEvents` has no writer in v2 — they die with `injectAdEvent` and a future ad-inventory ticket designs them together (see the sheet Notes). The `adEvents` columns and the prune stay.
 
 ### `ui/index.ts`
 
@@ -72,8 +71,6 @@ Each line is a behaviour the port must keep, with the legacy evidence and the te
 - Sponsored Events are always labelled: the row carries `isAd`, and the calendar chip wears the word "Ad" and the accessible name "Sponsored" over a neutral hatch — `src/lib/utils/chipVocabulary.ts:135,145-146,157`, `src/lib/components/calendar/CalendarKey.svelte:52-53,105`. Pinned on the wire by the golden (`isAd: true` on every row) and by the calendar's chip test + visual check.
 - An ad offers no export/menu actions: the event modal and its header hide them when `isAd` — `src/lib/components/calendar/EventModalHeader.svelte:42`, `src/lib/components/calendar/EventModal.svelte:405`. Pinned by the calendar's `EventModal` tests + visual check.
 - Ad events are pruned weekly at 90 days, anchored on `adEvents.createdAt`, and the count removed is returned — `src/lib/server/db/actions/adEvents.ts:19-26`, `src/routes/api/cron/cleanup/+server.ts:18,46-48`, `vercel.json:5`. Pinned by `sponsored.service.db.test.ts` › "deletes ad rows created before the cutoff and returns the count" and `sponsored.repo.db.test.ts` › "keeps rows created at or after the cutoff".
-- Ad rows created inside a window are counted per `targetPlan` (reporting only) — `src/lib/server/db/actions/adEvents.ts:27-38`. Pinned by `sponsored.repo.db.test.ts` › "groups rows created inside the window by target plan".
-- Impression and click counters increment the matching column on one `adEvents` row by id, and only that row — `src/lib/server/services/adService.ts:223-240`. Pinned by `sponsored.service.db.test.ts` › "increments impressions by row id and leaves other rows alone" (and the same for clicks).
 
 ## Depends on
 
