@@ -12,7 +12,7 @@ Grocery List (one list, scope filter), Grocery Items, Store Memory, Store Colour
 ## Steps
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `________`
+- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `ffe9c94`
 - [ ] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
