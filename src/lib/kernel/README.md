@@ -1,12 +1,12 @@
 # kernel
 
-**kernel**: the platform toolkit every module builds on. It contains no domain words: no Tasks, Events or Families. Use it instead of re-solving a cross-cutting problem inside a module.
+**kernel**: the platform toolkit every module builds on. It holds no business rules: no Tasks, Events or Families logic. Data shape is the one domain-worded exception: the table definitions live in [db/tables](db/tables), one file per owning module (ownership in [scripts/arch/registry.mjs](../../../scripts/arch/registry.mjs) `TABLE_OWNERS`), because Drizzle needs a single schema. Use the kernel instead of re-solving a cross-cutting problem inside a module.
 
 Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [docs/architecture/rules.md](../../../docs/architecture/rules.md).
 
 ## Purpose
 
-- **Owns:** the dependency bag (`Ctx`) and caller identity (`Actor`); the one error type; boundary validation; the HTTP builders (`endpoint`, `pageLoad`, `formAction`); clock, ids and hashing; the rate limiter; structured logs; db/transaction helpers; the test harness.
+- **Owns:** the dependency bag (`Ctx`) and caller identity (`Actor`); the one error type; boundary validation; the HTTP builders (`endpoint`, `pageLoad`, `formAction`); clock, ids and hashing; the rate limiter; structured logs; db/transaction helpers; the Drizzle table definitions in `db/tables` (one file per owning module, `TABLE_OWNERS` in `scripts/arch/registry.mjs`) with their row types; the test harness.
 - **Does not own:** any business rule. Something like "who may edit a task" belongs in the module that owns the concept (`tasks`), even when several modules need it.
 - **Also owns:** the date formatting and month math in `kernel/time` (K-06), and the shared UI primitives in `kernel/ui`: sheet, confirm action, pill, skeleton, toaster, brand mark, day nav, mention input, colour hashes. Screens and domains import them by path; they never import a domain or `$app/*`.
 - **Later kernel tasks** (see [LEDGER](../../../docs/rewrite/LEDGER.md)) add the browser client pieces (K-07: api client, toast store, local preferences, search box, offline queue) and the page and perf harnesses (K-10/K-11).
@@ -20,8 +20,9 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [db/database.server.ts](db/database.server.ts) | infra | `Db` (pool or transaction), `connectDb`, `withTx`. Nested transactions become savepoints. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
 | [db/migrations/bundledMigrations.server.ts](db/migrations/bundledMigrations.server.ts) | infra | The `sql/migrations/*.sql` files imported as `?raw`, sorted by numeric prefix: the exact set the cold-start runner replays. Must equal the files on disk. | [bundledMigrations.test.ts](db/migrations/bundledMigrations.test.ts) |
 | [db/migrations/bundledMigrations.test.ts](db/migrations/bundledMigrations.test.ts) | test | parity gate: every `sql/migrations/` file is bundled, byte-identical, ascending numeric order | — |
-| [db/migrations/migrationRunner.db.test.ts](db/migrations/migrationRunner.db.test.ts) | test | runner is a no-op on the already-migrated test DB; `splitStatements` table | — |
-| [db/migrations/migrationRunner.server.ts](db/migrations/migrationRunner.server.ts) | infra | `runMigrations(db)` at cold start: `__schema_migrations` tracking, `hashtext('family-calendar:migrate')` advisory lock with a 3-attempt retry, one transaction per file, stop on first failure. Exports `splitStatements`, the split `vitestGlobalSetup.db.ts` and the db scripts follow. | [migrationRunner.db.test.ts](db/migrations/migrationRunner.db.test.ts) |
+| [db/migrations/migrationRunner.db.test.ts](db/migrations/migrationRunner.db.test.ts) | test | runner is a no-op on the already-migrated test DB; a failing file rolls back and is reported by name | — |
+| [db/migrations/migrationRunner.test.ts](db/migrations/migrationRunner.test.ts) | test | `splitStatements` table: blank-line split, multi-line statements kept whole, comments-only chunks kept, blanks dropped | — |
+| [db/migrations/migrationRunner.server.ts](db/migrations/migrationRunner.server.ts) | infra | `runMigrations(db, migrations?)` at cold start: `__schema_migrations` tracking, `hashtext('family-calendar:migrate')` advisory lock with a 3-attempt retry, one transaction per file, stop on first failure. Returns `{ ok: true, applied }` or `{ ok: false, applied, failed }` and never throws. Exports `splitStatements`, the split `vitestGlobalSetup.db.ts` and the db scripts follow. | [migrationRunner.db.test.ts](db/migrations/migrationRunner.db.test.ts) |
 | [db/tables.server.ts](db/tables.server.ts) | barrel | The one import path for Drizzle tables: one `export *` per module table file, in `TABLE_OWNERS` order. Importers did not change. | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
 | [db/tables/access.tables.server.ts](db/tables/access.tables.server.ts) | schema | `access`'s tables, moved verbatim from the legacy schema; row types `ClaimTokenRow`/`NewClaimTokenRow`. | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
 | [db/tables/alerts.tables.server.ts](db/tables/alerts.tables.server.ts) | schema | `alerts`'s tables, moved verbatim from the legacy schema; row types `NotificationRow`, `PushSubscriptionRow`, `DeviceTokenRow`. | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
@@ -36,7 +37,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [db/tables/marketing.tables.server.ts](db/tables/marketing.tables.server.ts) | schema | `marketing`'s table, moved verbatim from the legacy schema; row types `WaitlistEntryRow`/`NewWaitlistEntryRow`. | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
 | [db/tables/meals.tables.server.ts](db/tables/meals.tables.server.ts) | schema | `meals`'s table, moved verbatim from the legacy schema; row types `MealRow`/`NewMealRow`. | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
 | [db/tables/sponsored.tables.server.ts](db/tables/sponsored.tables.server.ts) | schema | `sponsored`'s tables, moved verbatim from the legacy schema; row types `AdEventRow`, `AdConsentRecordRow` (plus `AdConsentDecision`). | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
-| [db/tables/tasks.tables.server.ts](db/tables/tasks.tables.server.ts) | schema | `tasks`'s tables, moved verbatim from the legacy schema; row types `TaskRow`, `TaskTagRow`, `TaskCompletionRow`, `TaskCategoryRow`, `TaskfocusCommandRow`, `TaskfocusSessionRow` (plus `TASK_VISIBILITIES`/`TaskVisibility`). | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
+| [db/tables/tasks.tables.server.ts](db/tables/tasks.tables.server.ts) | schema | `tasks`'s tables, moved verbatim from the legacy schema; row types `TaskRow`, `TaskTagRow`, `TaskCompletionRow`, `TaskCategoryRow`, `TaskfocusCommandRow`, `TaskfocusSessionRow`. | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
 | [errors/appError.ts](errors/appError.ts) | rules | `AppError` with codes mapped to HTTP status; constructors `invalid`, `notFound`, `forbidden`, `conflict(msg, extra)`, and so on. Expected failures only. | [appError.test.ts](errors/appError.test.ts) |
 | [errors/appError.test.ts](errors/appError.test.ts) | test | status mapping, extra fields cannot override `error` | — |
 | [http/endpoint.server.ts](http/endpoint.server.ts) | infra | `endpoint({ auth, query, body, params, rateLimit, failMessage, handle })` → `{ handler }` for `+server.ts`. Owns auth, parsing, the `{error}` shape, 429/500 and fault filing. | [endpoint.test.ts](http/endpoint.test.ts) |
@@ -52,8 +53,8 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [testing/invokeHandlers.server.ts](testing/invokeHandlers.server.ts) | test infra | `invoke`, `invokeLoad`, `invokeAction`: call route handlers without a server; sets `locals.user` (legacy) and `locals.actor` (v2), so one golden test covers both. | used by every http test |
 | [testing/seedRows.server.ts](testing/seedRows.server.ts) | test infra | `seedUser`, `uniqueSuffix`. Module-specific builders live in `<module>.fixtures.server.ts`. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
 | [testing/testCtx.server.ts](testing/testCtx.server.ts) | test infra | `testCtx({ db?, now?, cronSecret? })`: fixed clock, sequential ids, memory log/faults/limiter; no-db guard. | used by every test |
-| [testing/testDb.server.ts](testing/testDb.server.ts) | test infra | `rollbackTest` (default: one rolled-back transaction per test), `inRollback`, `testDb`, `truncateAll` (committed mode: one transaction with FK triggers off, one `DELETE FROM` per table — a few ms), lane guard. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
-| [testing/testDb.db.test.ts](testing/testDb.db.test.ts) | test | migrations applied, rollback isolation, savepoints, truncate, reset under 250 ms | — |
+| [testing/testDb.server.ts](testing/testDb.server.ts) | test infra | `rollbackTest` (default: one rolled-back transaction per test), `inRollback`, `testDb`, `truncateAll` (committed mode: one transaction, FK triggers off, one `DELETE FROM` per table in one batch — a few ms idle, 70–110 ms measured on a saturated machine), lane guard. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
+| [testing/testDb.db.test.ts](testing/testDb.db.test.ts) | test | migrations applied, rollback isolation, savepoints, truncate, reset under 250 ms, FKs enforced after a reset | — |
 | [testing/testDbConfig.ts](testing/testDbConfig.ts) | test infra | Test DB URL + lane guard (kept apart from testDb because globalSetup must not import vitest). `V2_TEST_DB` picks a per-worktree database (`familycalendar_v2_test_<id>`) for parallel runs. | — |
 | [testing/vitestGlobalSetup.db.ts](testing/vitestGlobalSetup.db.ts) | test infra | Rebuilds `familycalendar_v2_test` from `sql/migrations` each run, the way production's runner does, and sets `synchronous_commit = off` on the throwaway database so reset commits are cheap. | every db run |
 | [testing/vitestSetup.db.ts](testing/vitestSetup.db.ts) | test infra | Points `DATABASE_URL` (and so the legacy singleton) at the test DB; closes the pool. | every db run |
@@ -118,6 +119,14 @@ Route files stay wiring-only (rule R8). Auth modes: `public`, `optional`, `user`
 
 Read `ctx.clock.now()`. Pass "now" into rules as a parameter. Format, key and group dates with [time/dates.ts](time/dates.ts) — pass the user's IANA zone (and `now` where the output is relative) explicitly; never write another formatter.
 
+Every function parses strings by one rule (shared by the formatters and `toInstantString`):
+
+- `yyyy-MM-dd` is that calendar day in the zone (its local midnight).
+- A date-time **without** an offset is a UTC instant — Postgres `timestamp` without time zone stores UTC — then converted into the zone. `2026-10-07 13:00:00+00` and `2026-10-07T13:00:00` mean the same moment.
+- A date-time **with** an offset keeps it, then converts into the zone.
+
+`relativeFromNow` counts calendar days in the zone, so the legacy `lastUsedLabel` wording does not survive: it said "last used yesterday" for one day and bucketed elapsed 24 h blocks. The account port must keep its own legacy copy of that wording.
+
 ### Ids
 
 - `ctx.ids.id()` for new rows.
@@ -137,6 +146,8 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 - Services pass `ctx.db` and use `withTx(ctx, (txCtx) => ...)` for atomic work.
 - Tables come from `$lib/kernel/db/tables.server`.
 - `runMigrations(db)` brings a database up to date at cold start (`hooks.server.ts`). `splitStatements(sql)` is the one statement split; `scripts/db-apply.mjs` and `db-exec.mjs` mirror it.
+- `runMigrations` never throws. It returns `{ ok: true, applied }` when every pending file applied, or `{ ok: false, applied, failed }` when one failed: `applied` lists the files committed before it, and `failed` names the file that broke — or is `null` when the run failed outside a file (advisory lock, tracking table, unlock). A failed file is rolled back, and the next cold start retries it.
+- One in-flight run is shared process-wide: a concurrent `runMigrations` call joins the first run's promise whatever `db` it passes, so only the first caller's connection is used.
 
 ### Testing
 
@@ -157,11 +168,12 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 - New row ids keep the legacy 15-char a-z0-9 format. Pinned by `ids.test.ts › keeps the existing row-id format …`.
 - db tests can only reach `127.0.0.1:5433/familycalendar_v2_test` (or `familycalendar_v2_test_<id>` via `V2_TEST_DB`), and unit tests can't reach any database (lane guards in `testDbConfig.ts`, `vitestSetup.unit.ts`).
 - Every `rollbackTest` leaves no rows behind, and service transactions inside it are savepoints. Pinned by `testDb.db.test.ts`.
-- truncateAll resets in under 250 ms (median of 5), even on a loaded machine; pinned by `testDb.db.test.ts › resets in under 250 ms`.
+- truncateAll resets in under 250 ms (median of 5); pinned by `testDb.db.test.ts › resets in under 250 ms`.
+- truncateAll switches FK checks off only for its own transaction, so the next test's inserts are enforced again. Pinned by `testDb.db.test.ts › leaves foreign keys enforced …`.
 - The migration runner is a no-op on an up-to-date database: `{ ok: true, applied: [] }`. Pinned by `migrationRunner.db.test.ts › applies nothing to the already-migrated test database …`.
 
 ## Depends on
 
-- **May import:** kernel only (rule R1). The [db/tables.server.ts](db/tables.server.ts) barrel is no exception any more: the tables live under `db/tables/` and import their siblings plus the id and clock ports.
-- **Owns tables:** none. Table ownership is in [scripts/arch/registry.mjs](../../../scripts/arch/registry.mjs).
+- **May import:** kernel only (rule R1). The table files under `db/tables/` follow it too: they import their sibling tables plus the id and clock ports by relative path; [db/tables.server.ts](db/tables.server.ts) stays the one public import path.
+- **Owns tables:** none: each table belongs to the module named for it in [scripts/arch/registry.mjs](../../../scripts/arch/registry.mjs) `TABLE_OWNERS`, even though its definition lives under `db/tables/`.
 - **Called by:** every module, `src/lib/app`, and route files.

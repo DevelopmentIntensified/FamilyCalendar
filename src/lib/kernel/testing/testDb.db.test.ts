@@ -2,7 +2,7 @@ import { count, eq, sql } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { withTx } from '../db/database.server';
 import { families, groceryItems, meals, notifications, users } from '../db/tables.server';
-import { seedUser } from './seedRows.server';
+import { seedUser, uniqueSuffix } from './seedRows.server';
 import { testCtx } from './testCtx.server';
 import { inRollback, rollbackTest, testDb, truncateAll } from './testDb.server';
 
@@ -75,6 +75,17 @@ describe('truncateAll (committed mode)', () => {
 		await truncateAll();
 		const [row] = await testDb().select({ n: count() }).from(users);
 		expect(row.n).toBe(0);
+	});
+
+	it('leaves foreign keys enforced for the next test', async () => {
+		// `SET LOCAL` is transaction-scoped. A session-level `SET` would leave
+		// `replica` on this pooled connection and swallow this violation.
+		await truncateAll();
+		await expect(
+			testDb()
+				.insert(groceryItems)
+				.values({ userId: `missing-${uniqueSuffix()}`, name: 'Orphan', nameKey: 'orphan' })
+		).rejects.toThrow(/foreign key/i);
 	});
 
 	it('resets in under 250 ms', async () => {

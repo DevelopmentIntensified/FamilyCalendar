@@ -10,8 +10,8 @@
  * Doc: src/lib/kernel/README.md#database
  */
 import { boolean, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
-import { systemIds } from '$lib/kernel/ids/ids';
-import { systemClock } from '$lib/kernel/time/clock';
+import { systemIds } from '../../ids/ids';
+import { systemClock } from '../../time/clock';
 import { families } from './family.tables.server';
 
 // Family-level master switches for Day Dashboard modules. A row exists only

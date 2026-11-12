@@ -9,7 +9,7 @@
  * that order by migrationRunner.server.ts. Each is idempotent (uses
  * IF NOT EXISTS) so re-runs are safe. The bundle must equal the files on disk;
  * bundledMigrations.test.ts fails otherwise, so a migration added to
- * `sql/migrations/` can never silently never run on deployed databases.
+ * `sql/migrations/` cannot be missing from the deployed bundle.
  *
  * Doc: src/lib/kernel/README.md#database
  */

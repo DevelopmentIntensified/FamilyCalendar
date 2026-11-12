@@ -11,55 +11,67 @@
  * Every function takes the IANA zone explicitly, plus `now` when the output is
  * relative, so nothing here reads the clock (rule R5) and tests pin any zone.
  *
+ * One rule parses every string, for every function here (formatters and
+ * `toInstantString` alike):
+ * - `yyyy-MM-dd` is that calendar day in the zone (its local midnight);
+ * - a date-time WITHOUT an offset is a UTC instant — Postgres `timestamp`
+ *   without time zone stores UTC — then converted into the zone;
+ * - a date-time WITH an offset keeps it, then converts into the zone.
+ *
  * Doc: src/lib/kernel/README.md#time
  */
 import { DateTime, IANAZone } from 'luxon';
+import { isoDate } from '../validation/validators';
 
 // Formatting must not depend on the host locale: tests and servers pin English.
 const LOCALE = 'en-US';
 
-const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * The value as a luxon DateTime in `zone`. A `yyyy-MM-dd` string is that day's
- * local midnight; an ISO instant is converted (never re-interpreted) into the
- * zone. Null for empty/invalid input or an unknown zone.
+ * The value as a luxon DateTime in `zone`, by the one offset rule in the file
+ * header. A `Date` is already an instant, so it only changes zone. Null for
+ * empty/invalid input or an unknown zone.
  */
-function inZone(value: Date | string | null | undefined, zone: string): DateTime | null {
+function parseInstant(value: Date | string | null | undefined, zone: string): DateTime | null {
 	if (!IANAZone.isValidZone(zone)) return null;
-	let dt: DateTime;
 	if (value instanceof Date) {
 		if (Number.isNaN(value.getTime())) return null;
-		dt = DateTime.fromJSDate(value, { zone }).setLocale(LOCALE);
-	} else if (typeof value === 'string') {
-		// Postgres hands out `YYYY-MM-DD HH:MM:SS`; luxon's ISO parser wants `T`.
-		const text = value.trim().replace(' ', 'T');
-		if (!text) return null;
-		dt = DateTime.fromISO(text, { zone, locale: LOCALE });
-	} else {
-		return null;
+		return DateTime.fromJSDate(value, { zone }).setLocale(LOCALE);
 	}
-	// fromISO/fromJSDate with `zone` already convert into it, offset-bearing strings included.
-	return dt.isValid ? dt : null;
+	if (typeof value !== 'string') return null;
+	// Postgres hands out `YYYY-MM-DD HH:MM:SS`; luxon's ISO parser wants `T`.
+	const text = value.trim().replace(' ', 'T');
+	if (!text) return null;
+	// Date-only means that calendar day in the zone; a date-time is parsed as
+	// UTC (or by its own offset) and only then converted into the zone.
+	const parsed = DATE_ONLY.test(text)
+		? DateTime.fromISO(text, { zone, locale: LOCALE })
+		: DateTime.fromISO(text, { zone: 'utc', locale: LOCALE }).setZone(zone);
+	return parsed.isValid ? parsed : null;
 }
 
-function isLeapYear(year: number): boolean {
-	return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-}
-
-function daysInMonth(year: number, month: number): number {
-	return month === 2 && isLeapYear(year) ? 29 : MONTH_LENGTHS[month - 1];
+/** The date in one of two shapes, taking the year-bearing one when it differs from `now`'s. */
+function formatWithYear(
+	dt: DateTime,
+	nowYear: number | undefined,
+	withoutYear: string,
+	withYear: string
+): string {
+	return nowYear !== undefined && dt.year !== nowYear
+		? dt.toFormat(withYear)
+		: dt.toFormat(withoutYear);
 }
 
 /** `MM-dd-yyyy`, e.g. `11-11-2026` (legacy `dateUtils.formatDate`). `''` when empty or invalid. */
 export function formatUsDate(instant: Date | string, zone: string): string {
-	const dt = inZone(instant, zone);
+	const dt = parseInstant(instant, zone);
 	return dt ? dt.toFormat('MM-dd-yyyy') : '';
 }
 
 /** `h:mm a`, e.g. `9:30 PM` (legacy `eventTime.formatEventTime`). `''` when empty or invalid. */
 export function formatClockTime(instant: Date | string, zone: string): string {
-	const dt = inZone(instant, zone);
+	const dt = parseInstant(instant, zone);
 	return dt ? dt.toFormat('h:mm a') : '';
 }
 
@@ -70,12 +82,9 @@ export function formatClockTime(instant: Date | string, zone: string): string {
  * `''` when the instant is empty or invalid.
  */
 export function formatDayMonth(instant: Date | string, now: Date | string, zone: string): string {
-	const dt = inZone(instant, zone);
+	const dt = parseInstant(instant, zone);
 	if (!dt) return '';
-	const nowYear = inZone(now, zone)?.year;
-	return nowYear !== undefined && dt.year !== nowYear
-		? dt.toFormat('MMM d, yyyy')
-		: dt.toFormat('MMM d');
+	return formatWithYear(dt, parseInstant(now, zone)?.year, 'MMM d', 'MMM d, yyyy');
 }
 
 /**
@@ -83,7 +92,7 @@ export function formatDayMonth(instant: Date | string, now: Date | string, zone:
  * `''` when empty or invalid.
  */
 export function formatLongDate(instant: Date | string, zone: string): string {
-	const dt = inZone(instant, zone);
+	const dt = parseInstant(instant, zone);
 	return dt ? dt.toFormat('MMMM d, yyyy') : '';
 }
 
@@ -93,12 +102,9 @@ export function formatLongDate(instant: Date | string, zone: string): string {
  * `''` when the instant is empty or invalid.
  */
 export function formatShortDate(instant: Date | string, now: Date | string, zone: string): string {
-	const dt = inZone(instant, zone);
+	const dt = parseInstant(instant, zone);
 	if (!dt) return '';
-	const nowYear = inZone(now, zone)?.year;
-	return nowYear !== undefined && dt.year !== nowYear
-		? dt.toFormat('ccc, MMM d, yyyy')
-		: dt.toFormat('ccc, MMM d');
+	return formatWithYear(dt, parseInstant(now, zone)?.year, 'ccc, MMM d', 'ccc, MMM d, yyyy');
 }
 
 /**
@@ -107,7 +113,7 @@ export function formatShortDate(instant: Date | string, now: Date | string, zone
  * `''` when empty or invalid.
  */
 export function dayKey(instant: Date | string, zone: string): string {
-	const dt = inZone(instant, zone);
+	const dt = parseInstant(instant, zone);
 	return dt?.toISODate() ?? '';
 }
 
@@ -116,7 +122,7 @@ export function dayKey(instant: Date | string, zone: string): string {
  * `''` when empty or invalid.
  */
 export function formatDateTimeMinute(instant: Date | string, zone: string): string {
-	const dt = inZone(instant, zone);
+	const dt = parseInstant(instant, zone);
 	return dt ? dt.toFormat('yyyy-MM-dd HH:mm') : '';
 }
 
@@ -125,12 +131,13 @@ export function formatDateTimeMinute(instant: Date | string, zone: string): stri
  * `10 days ago`, `4 weeks ago`, `2 months ago`. Under 14 days stays days,
  * under 60 days is weeks (`floor(days / 7)`), beyond is months
  * (`floor(days / 30)`) — the thresholds of the existing relative copy
- * (`accountSubscription.lastUsedLabel`). `''` when the instant is empty or
+ * (`accountSubscription.lastUsedLabel`), but counted in calendar days in the
+ * zone, and with no "yesterday" word. `''` when the instant is empty or
  * invalid.
  */
 export function relativeFromNow(instant: Date | string, now: Date | string, zone: string): string {
-	const dt = inZone(instant, zone);
-	const base = inZone(now, zone);
+	const dt = parseInstant(instant, zone);
+	const base = parseInstant(now, zone);
 	if (!dt || !base) return '';
 	const days = Math.round(dt.startOf('day').diff(base.startOf('day'), 'days').days);
 	if (days === 0) return 'today';
@@ -175,21 +182,10 @@ export function groupByDay<T>(
  * not a real `yyyy-MM-dd` or `months` is not an integer.
  */
 export function addMonthsClamped(date: string, months: number): string {
-	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-	if (!match || !Number.isInteger(months)) return '';
-	const year = Number(match[1]);
-	const month = Number(match[2]);
-	const day = Number(match[3]);
-	if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) return '';
-	const total = year * 12 + (month - 1) + months;
-	const nextYear = Math.floor(total / 12);
-	const nextMonth = total - nextYear * 12 + 1;
-	if (nextYear < 1 || nextYear > 9999) return '';
-	const nextDay = Math.min(day, daysInMonth(nextYear, nextMonth));
-	const yearText = String(nextYear).padStart(4, '0');
-	const monthText = String(nextMonth).padStart(2, '0');
-	const dayText = String(nextDay).padStart(2, '0');
-	return `${yearText}-${monthText}-${dayText}`;
+	if (!isoDate().safeParse(date).success || !Number.isInteger(months)) return '';
+	const shifted = DateTime.fromISO(date, { zone: 'utc' }).plus({ months });
+	if (!shifted.isValid || shifted.year < 1 || shifted.year > 9999) return '';
+	return shifted.toISODate() ?? '';
 }
 
 /**
@@ -197,7 +193,7 @@ export function addMonthsClamped(date: string, months: number): string {
  * instant or zone yields an invalid Date (`Number.isNaN(date.getTime())`).
  */
 export function startOfDayIn(zone: string, instant: Date | string): Date {
-	const dt = inZone(instant, zone);
+	const dt = parseInstant(instant, zone);
 	return dt ? dt.startOf('day').toJSDate() : new Date(NaN);
 }
 
@@ -213,18 +209,11 @@ export function isValidZone(zone: string): boolean {
  * Normalize the timestamp shapes rows arrive in — ISO strings, Postgres
  * `YYYY-MM-DD HH:MM:SS` (space separator, offset optional) and `Date`
  * instances — to a UTC ISO string (legacy `toDateTime`, `parseTimestamp`,
- * `isoOrNull`, `toIsoTimestamp`, `toIso`). Strings without an offset are read
- * as UTC, never in the host zone, so the result does not depend on the server.
- * `null` when the value is empty, not a string/Date, or invalid.
+ * `isoOrNull`, `toIsoTimestamp`, `toIso`). It parses by the same rule as the
+ * formatters: an offset-less date-time is UTC (never the host zone), a
+ * date-only string is that day's UTC midnight. `null` when the value is empty,
+ * not a string/Date, or invalid.
  */
 export function toInstantString(value: Date | string | null | undefined): string | null {
-	if (value instanceof Date) {
-		return Number.isNaN(value.getTime()) ? null : value.toISOString();
-	}
-	if (typeof value !== 'string') return null;
-	// Postgres hands out `YYYY-MM-DD HH:MM:SS`; luxon's ISO parser wants `T`.
-	const text = value.trim().replace(' ', 'T');
-	if (!text) return null;
-	const dt = DateTime.fromISO(text, { zone: 'utc', locale: LOCALE });
-	return dt.isValid ? dt.toISO() : null;
+	return parseInstant(value, 'utc')?.toISO() ?? null;
 }

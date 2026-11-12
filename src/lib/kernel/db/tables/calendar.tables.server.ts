@@ -19,7 +19,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { systemIds } from '$lib/kernel/ids/ids';
+import { systemIds } from '../../ids/ids';
 import { users } from './identity.tables.server';
 import { families } from './family.tables.server';
 

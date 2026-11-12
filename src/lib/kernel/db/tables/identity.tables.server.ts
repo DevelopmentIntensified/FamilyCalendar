@@ -10,8 +10,8 @@
  * Doc: src/lib/kernel/README.md#database
  */
 import { boolean, integer, json, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core';
-import { systemIds } from '$lib/kernel/ids/ids';
-import { systemClock } from '$lib/kernel/time/clock';
+import { systemIds } from '../../ids/ids';
+import { systemClock } from '../../time/clock';
 import { calendars } from './calendar.tables.server';
 
 export const users = pgTable('users', {

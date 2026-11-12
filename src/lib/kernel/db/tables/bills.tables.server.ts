@@ -10,8 +10,8 @@
  */
 import { index, integer, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { systemIds } from '$lib/kernel/ids/ids';
-import { systemClock } from '$lib/kernel/time/clock';
+import { systemIds } from '../../ids/ids';
+import { systemClock } from '../../time/clock';
 import { users } from './identity.tables.server';
 import { families } from './family.tables.server';
 
@@ -21,7 +21,8 @@ import { families } from './family.tables.server';
  *
  * BILL_CATEGORIES/BillCategory live in `$lib/data/categories` (arch audit
  * #4) so client modules can share the vocabulary without importing this
- * server-only schema — schema re-exports them as the single source.
+ * server-only schema. Only the legacy compat `src/lib/server/db/schema.ts`
+ * re-exports them; this table file does not.
  */
 export const bills = pgTable('bills', {
 	id: text('id')

@@ -18,8 +18,8 @@ import {
 	timestamp,
 	uniqueIndex
 } from 'drizzle-orm/pg-core';
-import { systemIds } from '$lib/kernel/ids/ids';
-import { systemClock } from '$lib/kernel/time/clock';
+import { systemIds } from '../../ids/ids';
+import { systemClock } from '../../time/clock';
 import { users } from './identity.tables.server';
 
 export const unmatchedPhrases = pgTable(

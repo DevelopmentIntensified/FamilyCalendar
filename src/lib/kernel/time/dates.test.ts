@@ -57,7 +57,7 @@ describe('formatters', () => {
 		['2026-01-01T03:00:00Z', '2026-01-01T12:00:00Z', 'America/New_York', 'Dec 31, 2025'],
 		['2026-09-05T12:00:00Z', NOW, 'UTC', 'Sep 5'],
 		['', NOW, 'UTC', '']
-	])('formatDayMonth(%j, …) → %j', (instant, now, zone, expected) => {
+	])('formatDayMonth(%j, now %j, %s) → %j', (instant, now, zone, expected) => {
 		expect(formatDayMonth(instant, now, zone)).toBe(expected);
 	});
 
@@ -66,7 +66,7 @@ describe('formatters', () => {
 		['2026-09-05T12:00:00Z', '2027-01-01T00:00:00Z', 'UTC', 'Sat, Sep 5, 2026'],
 		['2026-11-11T12:00:00Z', NOW, 'UTC', 'Wed, Nov 11'],
 		['bad', NOW, 'UTC', '']
-	])('formatShortDate(%j, …) → %j', (instant, now, zone, expected) => {
+	])('formatShortDate(%j, now %j, %s) → %j', (instant, now, zone, expected) => {
 		expect(formatShortDate(instant, now, zone)).toBe(expected);
 	});
 
@@ -82,6 +82,13 @@ describe('formatters', () => {
 		['2026-11-11T09:30:00Z', 'UTC', '2026-11-11 09:30'],
 		['2026-11-11T23:30:00Z', 'Europe/London', '2026-11-11 23:30'],
 		['2026-11-11T12:00:00Z', 'Pacific/Kiritimati', '2026-11-12 02:00'],
+		// No offset means UTC: 13:00Z is 09:00 in New York, the same as the Postgres render.
+		['2026-10-07T13:00:00', 'America/New_York', '2026-10-07 09:00'],
+		['2026-10-07 13:00:00+00', 'America/New_York', '2026-10-07 09:00'],
+		['2026-10-07 13:00:00.123456+00', 'America/New_York', '2026-10-07 09:00'],
+		// An offset on the string wins; a date-only string is local midnight.
+		['2026-10-07T09:00:00-04:00', 'America/New_York', '2026-10-07 09:00'],
+		['2026-10-07', 'America/New_York', '2026-10-07 00:00'],
 		['', 'UTC', '']
 	])('formatDateTimeMinute(%j, %s) → %j', (instant, zone, expected) => {
 		expect(formatDateTimeMinute(instant, zone)).toBe(expected);
@@ -92,6 +99,11 @@ describe('formatters', () => {
 		expect(formatDayMonth('2026-11-11', '2026-11-11T12:00:00Z', 'Pacific/Kiritimati')).toBe(
 			'Nov 11'
 		);
+	});
+
+	it('accepts a Date instance', () => {
+		expect(formatLongDate(new Date('2026-11-11T09:30:00Z'), 'UTC')).toBe('November 11, 2026');
+		expect(dayKey(new Date('2026-11-11T12:00:00Z'), 'Pacific/Kiritimati')).toBe('2026-11-12');
 	});
 
 	it('returns empty strings for an unknown zone', () => {
@@ -145,6 +157,9 @@ describe('month math', () => {
 	const rows: Array<[string, number, string]> = [
 		['2026-01-31', 1, '2026-02-28'],
 		['2028-01-31', 1, '2028-02-29'],
+		// Century rule: 2100 is not a leap year, 2000 is.
+		['2100-01-31', 1, '2100-02-28'],
+		['2000-01-31', 1, '2000-02-29'],
 		['2026-03-31', -1, '2026-02-28'],
 		['2028-02-29', 12, '2029-02-28'],
 		['2026-12-31', 2, '2027-02-28'],
@@ -170,6 +185,12 @@ describe('relative dates', () => {
 		['2026-11-11T15:00:00Z', 'today'],
 		['2026-11-12T15:00:00Z', 'in 1 day'],
 		['2026-11-14T15:00:00Z', 'in 3 days'],
+		// Bucket edges: 13 calendar days still reads days, 14 switches to weeks.
+		['2026-11-24T15:00:00Z', 'in 13 days'],
+		['2026-11-25T15:00:00Z', 'in 2 weeks'],
+		// 59 calendar days still reads weeks, 60 switches to months.
+		['2027-01-09T15:00:00Z', 'in 8 weeks'],
+		['2027-01-10T15:00:00Z', 'in 2 months'],
 		['2026-11-10T15:00:00Z', '1 day ago'],
 		['2026-11-01T15:00:00Z', '10 days ago'],
 		['2026-10-14T15:00:00Z', '4 weeks ago'],
@@ -223,6 +244,7 @@ describe('zones and instants', () => {
 		[new Date('2026-11-11T09:30:00Z'), '2026-11-11T09:30:00.000Z'],
 		['2026-11-11 09:30:00', '2026-11-11T09:30:00.000Z'],
 		['2026-11-11 09:30:00+00', '2026-11-11T09:30:00.000Z'],
+		['2026-11-11 09:30:00.123456+00', '2026-11-11T09:30:00.123Z'],
 		['2026-11-11T09:30:00-05:00', '2026-11-11T14:30:00.000Z'],
 		['2026-11-11', '2026-11-11T00:00:00.000Z'],
 		[null, null],

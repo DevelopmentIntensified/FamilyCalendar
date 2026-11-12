@@ -11,7 +11,7 @@
  */
 import { index, integer, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { systemIds } from '$lib/kernel/ids/ids';
+import { systemIds } from '../../ids/ids';
 import { users } from './identity.tables.server';
 import { families } from './family.tables.server';
 

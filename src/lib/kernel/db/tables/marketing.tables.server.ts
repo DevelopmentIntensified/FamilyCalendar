@@ -8,7 +8,7 @@
  * Doc: src/lib/kernel/README.md#database
  */
 import { jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
-import { systemIds } from '$lib/kernel/ids/ids';
+import { systemIds } from '../../ids/ids';
 
 export const waitlist = pgTable(
 	'waitlist',

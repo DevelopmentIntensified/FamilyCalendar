@@ -19,7 +19,7 @@ import {
 	uniqueIndex
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { systemIds } from '$lib/kernel/ids/ids';
+import { systemIds } from '../../ids/ids';
 import { users } from './identity.tables.server';
 import { families } from './family.tables.server';
 import { events } from './calendar.tables.server';
@@ -172,15 +172,6 @@ export const taskCategories = pgTable(
 );
 export type TaskCategoryRow = typeof taskCategories.$inferSelect;
 export type NewTaskCategoryRow = typeof taskCategories.$inferInsert;
-
-/**
- * Task scoping (issue 019) — visibility of a personal task to the rest of
- * the owner's family. 'public' = family-readable (read-only), 'private' =
- * owner + assignee only. Plain-text enum, same style as BILL_CATEGORIES.
- */
-export const TASK_VISIBILITIES = ['public', 'private'] as const;
-
-export type TaskVisibility = (typeof TASK_VISIBILITIES)[number];
 
 /**
  * Task tags — many-to-many-ish join keyed by task + lowercase tag name.
