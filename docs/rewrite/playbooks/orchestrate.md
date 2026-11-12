@@ -39,6 +39,11 @@ How an orchestrator (a strong model) runs the ledger with cheap implementation a
    | middle | `grok-reviewer` (grok-4.7), one combined pass | sparingly: the medium-risk modules (family, groceries, alerts, billing) and the speed-critical screens (account, dayDashboard, familyHub, shell, calendarPage) at their implementation merge, and as a tie-break when a gate finding is disputed |
    | high | `opus-reviewer` (Opus), Standards and Spec | kernel tasks and the high-risk modules (tasks, calendar, identity, access, parsing). At most two at a time: Opus shares the account rate limit with the orchestrator. Findings land as fix-forward commits |
 
+   Rate limits and load (owner decisions, 2026-11-12):
+   - When `deepseek-flash` answers 429, rerun the same brief on `sonnet-impl` (Claude Sonnet); when the gate `reviewer` does, rerun it on `haiku-reviewer` (Claude Haiku).
+   - At most four subagents run at once, Opus reviewers included.
+   - Heavy local checks (typecheck, test runs, builds, Playwright) run one at a time at below-normal CPU priority, so the owner's machine stays responsive.
+
    - **Standards:** [rules.md](../../architecture/rules.md), [conventions.md](../../architecture/conventions.md) (including Depth and Performance), [testing.md](../../architecture/testing.md), the module README template, AGENTS.md, plus the `code-review` skill's smell baseline. **Depth** is checked explicitly: does each new public export earn its place (deletion test), and does every invariant live behind the interface rather than at a call site?
    - **Spec:** the brief, the playbook section, the module sheet (Must survive, inventory, Notes) and the answered questions.
 
