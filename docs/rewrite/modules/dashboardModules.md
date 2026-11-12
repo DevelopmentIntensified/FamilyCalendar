@@ -80,7 +80,7 @@ Every file lives in `src/lib/domains/dashboardModules/`. Roles per [conventions]
 
 **S2 (this step):**
 
-- `dashboardModules.http.db.test.ts` (test) — golden contract tests for both `/api` routes in committed mode, imported from the route files. Done; both legacy handlers run in the `db` project (no `$env` or email imports), so no spec-golden marker is needed.
+- `dashboardModules.http.db.test.ts` (test) — golden contract tests for both `/api` routes in committed mode, imported from the route files. Done. Both handlers run in the `db` project, but the me-route chain is env-dependent: `accountData.ts:24` imports `$lib/utils/sendEmail`, which imports `$env/static/private` and constructs `new Resend(RESEND_API_KEY)` at module load. That golden therefore needs `RESEND_API_KEY` in the test environment (it is set on this machine, and it is the only static private var that chain names), so no spec-golden marker is needed while it stays set. If a clean environment lacks it, the me-route describe must switch to the `// golden from spec: legacy handler not runnable here (…)` marker.
 
 **S3 — contract and rules:**
 
