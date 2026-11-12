@@ -12,7 +12,7 @@ Grocery List (one list, scope filter), Grocery Items, Store Memory, Store Colour
 ## Steps
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `________`
+- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `ffe9c94`
 - [ ] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
@@ -112,11 +112,79 @@ All routes need a signed-in user via `requireUserJson`; missing session → 401 
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+Everything below lives in `src/lib/domains/groceries/` unless it says otherwise. `index.ts`, `index.server.ts` and `ui/index.ts` are the only entries; they re-export the files below.
+
+| file | role | what goes in it |
+|---|---|---|
+| `groceries.contract.ts` | contract | zod schemas + types for the wire the goldens pin: `GroceryListQuery` (`scope`, `suggest`, `name`), `GroceryAddBody`, `GroceryChangeBody` (op union, `stores` array, `target`), `GroceryColourBody`, the item/colour/palette response shapes, and the page model. Legacy wording (`Invalid JSON body`, `scope must be mine or family`, `Name is required`, `Item ID required`, `Item not found`, `op must be …`, `No family to move to`, `store and color are required`, `No family to set a family colour on`, `That store or colour cannot take a colour`) stays as the endpoint `failMessage`s / `invalid()` messages, not as schema text. |
+| `groceries.items.rules.ts` | rules | `parseGroceryQuickAdd`, `normalizeGroceryName`, `cleanGroceryStores` (the one clean + dedupe home), `mostFrequentGroceryStore`, `matchesGrocerySearch`, `NO_STORE_LABEL`. |
+| `groceries.colours.rules.ts` | rules | `STORE_COLOURS`, `isStoreColourKey`, `groceryStoreKey`, `defaultGroceryStoreColour` (`hashName(key) % 6`), `resolveGroceryStoreColour` (personal → family → name), `groupGroceryItems` (grouping + colour as one concept, #115), `groceryStoresSharingColour`, `groceriesColourOverrideKey`, `hasGroceryColourOverride`, `applyGroceryColourOverrides`. |
+| `groceries.scope.rules.ts` | rules | `GROCERY_SCOPE_FILTERS` (All / Family / Mine), `groceryScopeFromParam`, `groceryScopeOf`. |
+| `groceries.repo.server.ts` | repo | `listOpenGroceryItems(db, scope)`, `insertGroceryItem`, `setGroceryItemStores`, `moveGroceryItem`, `checkGroceryItem`, `uncheckGroceryItem`, `removeGroceryItem` (each scoped by `userId`/`familyId`), `listGroceryMemoryRows`, `incrementGroceryMemory`, `insertGroceryMemory`, `listGroceryColourRows(db, viewer)`, `upsertGroceryColour`, `deleteGroceryColour`. `db: Db` first, no authorization. |
+| `groceries.fixtures.server.ts` | fixtures | item / memory / colour / family builders over `seedUser` + `uniqueSuffix`. |
+| `groceries.service.server.ts` | service | the seven use-cases plus `loadGroceriesPage`: scope resolution through `family`, the add (quick-add → clean → auto-fill or train memory), the op switch, move re-owning, colour write validation, and the page's three legs degraded to `[]`. |
+| `groceries.http.server.ts` | http | six `endpoint()` handlers reproducing the golden wire (`user` auth, no rate limit today, 201 on add, scope in body for PATCH / query for DELETE) and `pageLoad()` for `loadGroceriesPage`. |
+| `groceries.api.ts` | api | `createGroceryApi(fetch)`: `list`, `suggest`, `add`, `change`, `remove`, `colours`, `setColour` on the kernel api client, typed from the contract. |
+| `groceries.state.svelte.ts` | state | the page's runes class: filter, search, quick-add + "Add to" scope, optimistic check-off with rollback and Undo, optimistic store edits, optimistic colour overrides keyed `scope:storeKey`, error region and toast copy. |
+| `ui/GroceryRow.svelte` | ui | checkbox, name ×quantity, Mine/Family badge, coloured store chips with "or" and the primary ring, edit/move/delete, inline store editor. |
+| `ui/GroceryGroup.svelte` | ui | colour bar + dot, `<n> items · <total> total`, collision line, inline Colour picker (Everyone / Just me, Done). |
+| `ui/GrocerySideRail.svelte` | ui | scope chips + counts, search + hint + clear, quick-add with the visible "Add to" select, Store Memory chip, `known-stores` datalist. |
+| `ui/GroceryCheckedRail.svelte` | ui | the checked-off-this-session list with its badges and uncheck. |
+| `ui/StoreColoursCard.svelte` | ui | one row per shop with its dot, palette + Auto, Everyone / Just me, collision line, empty state. |
+| `ui/index.ts` | entry | re-exports the five components. |
+| `groceries.items.rules.test.ts` | test | tables for quick-add, name key, store cleaning, memory pick, search. |
+| `groceries.colours.rules.test.ts` | test | palette guard, default hash, three-tier precedence, collision disclosure, grouping, overrides. |
+| `groceries.scope.rules.test.ts` | test | filter vocabulary, `?scope=` fallback, row scope. |
+| `groceries.repo.db.test.ts` | test | `rollbackTest` per query with a filter/order/upsert; one row per scope key. |
+| `groceries.service.db.test.ts` | test | every IO invariant above, titled after the rule; page-leg degradation and the `/login` redirect. |
+| `groceries.state.test.ts` | test | filter→add-form, optimistic check-off + rollback, colour overrides, toast and failure copy. |
+| `groceries.http.db.test.ts` | test | **already written in S2** — do not edit it; S6 must make it pass unchanged (except the #086 fix-in-port test, see Notes). |
+| `ui/*.svelte.test.ts` | test | one per component. |
+
+Page routes stay in `src/routes/` and become wiring only: `src/routes/api/groceries/**/+server.ts` re-export the handlers, `src/routes/(calendar)/calendar/groceries/+page.server.ts` re-exports `loadGroceriesPage`, and `+page.svelte` composes the state class + components.
+
+Where each legacy export goes:
+
+| legacy | destination |
+|---|---|
+| `normalizeGroceryName`, `parseGroceryQuickAdd`, `mostFrequentStore`, `uniqueStores`, `matchesGrocerySearch`, `NO_STORE_LABEL` | `groceries.items.rules.ts` (`uniqueStores` folds into `cleanGroceryStores`) |
+| `STORE_COLOURS`, `isStoreColourKey`, `storeKey`, `defaultStoreColourKey`, `colourFor`, `storesSharingColour`, `groupGroceriesByStore`, `groceryStoreGroups`, `colourOverrideKey`, `hasColourOverride`, `optimisticColourRow`, `withColourOverrides` | `groceries.colours.rules.ts` (grouping + colour stay ONE function) |
+| `SCOPE_FILTERS`, `scopeFromParam`, `scopeOf` | `groceries.scope.rules.ts` |
+| `memoryRows`, `trainMemory`, `cleanStores` | `groceries.repo.server.ts` + `groceries.items.rules.ts` (`cleanGroceryStores`) |
+| `addGroceryItem`, `getOpenGroceries`, `setGroceryStores`, `moveGroceryItem`, `checkGroceryItem`, `uncheckGroceryItem`, `deleteGroceryItem` | `groceries.service.server.ts` (use-case) over `groceries.repo.server.ts` (query); `scopeFilter` dies into per-query scope filters |
+| `getStoreColours`, `setStoreColour` | repo reads/writes + `groceries.service.server.ts` (`listGroceryStoreColours`, `setGroceryStoreColour`) |
+| the page loader's `leg()` wrapper | `loadGroceriesPage` in the service |
+| `requireUserJson` / `apiError` / `isString` in the three route files | kernel `endpoint()` (auth, parsing, error mapping, fault filing) |
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
+**Surprises found while verifying the inventory.**
+
+- **The family Store Colour write is broken today (#086).** `setStoreColour` upserts with `on conflict ("family_id","store_key")` and no conflict predicate, but the only matching unique index is partial (`family_id IS NOT NULL`), so Postgres cannot infer it and the statement faults. Verified directly against the test Postgres with a temp-table probe: `ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification`. So `PATCH /api/groceries/colours {scope:'family'}` answers 500 `Failed to set the colour` for every user with a family and writes nothing; the personal branch is fine (it passes `targetWhere: family_id IS NULL`) and both `auto` deletes are fine. The S2 golden pins today's 500 on purpose. **S6 must fix it in its own `rewrite(groceries): fix-in-port #086` commit and flip that one golden to `200 {ok:true}`** — that is the only permitted golden change.
+- **There is no 403 on this wire.** Authorization is the scope filter itself: a row outside the requested scope (another person's Mine row, another family's row, an unknown id) is indistinguishable from a missing one and answers `404 {"error":"Item not found"}`; a family-scoped action without a family answers 400. So the goldens prove the wrong-person / wrong-family paths with 404s (a second user and a second family), not 403s, and the port must not start leaking existence.
+- **Two reads rely on physical row order.** Store Memory (`memoryRows`) and the colour read (`getStoreColours`) have no `ORDER BY`, so "ties → first row seen" and the colour-row order are heap order today. The goldens pin the order produced by fresh inserts; S4 must not add an `ORDER BY` that reorders them without an owner decision (the tie rule needs one to be stable).
+- The route refuses a blank name before `addGroceryItem`, so the action's `null` return is unreachable — dropped (internal dead branch; the port validates once in the contract).
+- `hiddenIds = hiddenIds` in `+page.svelte` exists only to trip Svelte reactivity — dropped; the state class owns the set.
+- `scope` really does travel differently per verb (PATCH body vs DELETE query) and the Android client sends exactly that; the goldens pin both (question 2). The `[id]` trailing-slash 400 is a `pathname.split('/')` artifact, but it is visible on the wire, so it is pinned and questioned (question 1).
+
+**Decisions.**
+
+- Grouping and colour stay ONE function (`groupGroceryItems`), and the store key is the trim+lowercase key at every layer — the #115 rule.
+- `uniqueStores` and `cleanStores` become one rule (`cleanGroceryStores`) because they are the same rule applied on read and on write; keeping two homes is how the `each_key_duplicate` crash happened.
+- The page has no form actions today (everything is `/api` + optimistic UI), so the module exposes a `pageLoad` and endpoints only; the state class keeps the optimistic/rollback behaviour.
+- The colour palette travels on the `GET /colours` response (Android reads it nowhere but the page does), so it stays part of the wire.
+
+**Questions for the owner.**
+
+1. **Trailing slash on `/api/groceries/<id>/`.** Context: today the id is `url.pathname.split('/').pop()`, so a trailing slash answers `400 {"error":"Item ID required"}`. Options: (a) keep the 400 by rejecting an empty route param; (b) let the route 404. Recommendation: (a) — one line, keeps today's answer for a client that double-slashes.
+2. **Scope per verb.** Context: PATCH takes `scope` in the body, DELETE in `?scope`, GET in `?scope`; Android sends each exactly. Options: (a) keep the asymmetry; (b) unify into the query (breaks the installed Android client). Recommendation: (a), note it in the contract.
+3. **The family colour row's `userId`.** Context: the column is NOT NULL, so a family write records the writer, but the family tier never reads it — every flip rewrites it to the last writer. Options: (a) keep writing the actor and never read it; (b) read it for nothing; (c) drop the column (DDL, out of scope). Recommendation: (a), documented as "the writer, not the owner".
+4. **The store-colours card's shop list.** Context: it is built from the open items across both loaded lists, so a shop whose items are all checked off disappears from the card although its colour row survives. Options: (a) keep today's read path; (b) feed the card from the colour rows too, so a shop with a colour is always offered. Recommendation: (b) after S7, as its own ticket — it is a visible improvement, not a port.
+5. **`stores: []` clears every store.** Context: the row editor can post an empty list and the server accepts it, so a row loses all its stores (and its group). Options: (a) keep it (an empty field honestly means "no store"); (b) reject with 400. Recommendation: (a); the UI already treats the empty field as "no store".
+6. **The add toast's store mismatch.** Context: the toast appends the remembered store only when the user typed none, even though the server may have auto-filled a different one. Options: (a) keep the legacy copy logic; (b) print the store the created item actually carries (the response has it). Recommendation: (b) — same copy shape, truthful value.
+7. **#086 family colour upsert.** Context and recommendation in "Surprises" above: fix in port and flip the golden in its own commit. Owner approval needed only for the golden change; the wire intent (`Everyone` writes work) is already shown by the UI.
+
+**Files kept for unported importers.** Both legacy source files must stay until the dashboard is rebuilt: `src/lib/components/dashboard/GroceriesCard.svelte` imports `groupGroceriesByStore` from `$lib/data/groceries`, and `src/lib/server/services/dashboardData.ts` imports `getOpenGroceries` from `$lib/server/db/actions/groceries`. S8 rewires those two importers at the module entries listed above (legacy may import v2) and then deletes the legacy files and their three legacy test files.
 
 ## Census
 
