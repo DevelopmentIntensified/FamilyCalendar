@@ -72,13 +72,76 @@ None.
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+Every file lives in `src/lib/domains/dashboardModules/`. Roles per [conventions](../../architecture/conventions.md#file-roles); the visibility answer is the centre, and everything else is either its registry, its persistence, or the row that renders it.
+
+**S1 (this step):**
+
+- `README.md` — done: purpose, files, public interface, invariants with legacy evidence, depends on.
+
+**S2 (this step):**
+
+- `dashboardModules.http.db.test.ts` (test) — golden contract tests for both `/api` routes in committed mode, imported from the route files. Done; both legacy handlers run in the `db` project (no `$env` or email imports), so no spec-golden marker is needed.
+
+**S3 — contract and rules:**
+
+- `dashboardModules.contract.ts` (contract) — zod for the two PUT bodies and their responses, with the legacy wording: `{enabled: boolean}` → `{success: true}`; `{hidden: string[]}` → `{success, message, hidden}`. The registry-entry type `DashboardModule` lives with the registry, not here.
+- `dashboardModules.registry.rules.ts` (rules) — `DASHBOARD_MODULES`, the `DashboardModule` entry type, `DashboardModuleId`/`DashboardBand`/`ModuleScope`/`ModuleSwitchMap`, `selectDashboardModules`, `isDashboardModule`, `showsModule`. Pure; no reads, no "now".
+- `dashboardModules.visibility.rules.ts` (rules) — `DashboardRead`, private `DASHBOARD_READS`, `DashboardVisibility`, `dashboardVisibility` (the one composition: total map, family-off outranks, verse needs `showDailyVerse === true`, `needs`).
+- `dashboardModules.row.rules.ts` (rules) — `ModuleRowState`, `describeDashboardModuleRow` (state + labels + tone + submit value in one answer).
+- `dashboardModules.registry.rules.test.ts`, `dashboardModules.visibility.rules.test.ts`, `dashboardModules.row.rules.test.ts` (tests) — table-driven, carrying over the legacy pure cases that encode a real rule (id × persisted fact matrix, needs matrix, retired-id inertness).
+
+**S4 — repo and fixtures:**
+
+- `dashboardModules.repo.server.ts` (repo) — `listFamilyModuleSwitches(db, familyId)` (seeds family ids `true`, applies rows) and `setFamilyModuleSwitch(db, familyId, module, enabled)` (delete on enable, insert on disable — a row exists only while OFF). No authorization, no rules.
+- `dashboardModules.fixtures.server.ts` (fixtures) — `seedFamilyWithRole`, `seedFamilySwitch`, `seedHiddenModules`; reuse `seedUser`/`uniqueSuffix`.
+- `dashboardModules.repo.db.test.ts` (test) — switch map defaults, OFF rows applied, delete-on-enable, insert-on-disable, family scoping.
+
+**S5 — service:**
+
+- `dashboardModules.service.server.ts` (service) — `getDashboardVisibility(ctx, actor, {familyId})` (identity settings + own repo, composed by the pure answer), `listFamilyModuleSwitches(ctx, familyId)`, `setFamilyModuleSwitch(ctx, actor, …)` (family admin check, legacy messages), `saveHiddenModules(ctx, actor, {hidden})` (canonicalize, persist through identity, return the wire message).
+- `dashboardModules.service.db.test.ts` (test) — one test per invariant that involves IO, titled after the rule; refusals asserted by `AppError` code.
+
+**S6 — http:**
+
+- `dashboardModules.http.server.ts` (http) — `putFamilyModuleSwitchEndpoint` and `putMyDashboardModulesEndpoint` through `endpoint()`: same auth, statuses, bodies and messages as today; re-exported from `index.server.ts`; the two route files become wiring only.
+- No page loads or form actions: this module owns no page. The family and account pages keep their own `formAction`s and call the services.
+
+**S7 — UI and client:**
+
+- `dashboardModules.api.ts` (api) — browser client for the two endpoints, on the kernel api client: `saveHiddenModules`, `setFamilyModuleSwitch`.
+- `ui/DashboardModuleRow.svelte` (ui) — the family-hub switch row on kernel/ui primitives (chips, `Pill`, confirm tone): label (truncating), scope chip, state chip, `aria-pressed`/`aria-busy`, optimistic override + acknowledge callback, plain-form fallback.
+- `ui/DashboardModuleRow.svelte.test.ts` (test) — the three legacy behavioural pins (acknowledge same tick, plain form, no widening at 320px).
+- No state class here: both call sites are page-level saves owned by the `account` and `familyHub` screens; the row is stateless by design, so a module state class would be a second source of truth.
+
+**S8 — delete:** all four legacy source files and their four legacy test files (see the census block), after their importers move to the entries above.
+
+### Where each legacy export goes
+
+| legacy export | home / fate |
+|---|---|
+| `DASHBOARD_MODULES`, `DashboardModuleId`, `DashboardBand` | `dashboardModules.registry.rules.ts`, unchanged meaning |
+| `FAMILY_DASHBOARD_MODULES`, `INFO_DASHBOARD_MODULES`, `CARD_DASHBOARD_MODULES` | die: one `selectDashboardModules({ scope, band })` replaces three filters, so a page cannot filter on the wrong axis |
+| `isDashboardModule`, `ModuleSwitchMap`, `showsModule` | `dashboardModules.registry.rules.ts` (absent-is-visible reader stays public: three components read a payload map with it) |
+| `DASHBOARD_READS` | stays private inside `dashboardModules.visibility.rules.ts`; `needs()` is its only reader, so exporting it would freeze a table nobody may read |
+| `DashboardRead`, `DashboardVisibility`, `dashboardVisibility` | `dashboardModules.visibility.rules.ts` (`DashboardModuleId` stays the registry's type and is imported) |
+| `ModuleScope`, `ModuleRowState`, `moduleRowState`, `moduleScopeLabel`, `moduleStateLabel`, `moduleStateClass`, `moduleToggleValue` | `dashboardModules.row.rules.ts` as one `describeDashboardModuleRow`; the seven exports die because the one caller wants all of them at once |
+| `getFamilyModuleSwitches` | `listFamilyModuleSwitches` in the repo, re-exposed by the service; the name changes because it reads a family's switches, not the viewer's |
+| `setFamilyModuleSwitch` | service (admin check) + repo (row write); same rule, now split by authorization and SQL |
+| `DashboardModuleRow.svelte` | `ui/DashboardModuleRow.svelte`, rebuilt on kernel/ui; legacy markup and its 11 component tests die in S8 |
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
-
 - 2026-11-11 (owner, [Q-002](../questions.md)): `meals` stays in the registry (family scope) although its card and endpoint are deleted; `UNMOUNTED_MODULES` keeps its switch off `/account`. Do not retire the id: `/api/dashboard` and the family switches would change.
+- **S1 dispositions of "probably accidental" items.**
+  - *`moduleRowState` answers `hidden-for-me` only for family modules.* Internal only — its sole caller lists family modules, so the personal branch is unreachable. Dropped: `describeDashboardModuleRow` answers `hidden-for-me` for any module the viewer hid, so the vocabulary has one rule instead of a dead branch with a misleading answer.
+  - *`top3` / `completed` declare no reads.* Internal, and not a defect: both consume the viewer's own tasks, and `src/lib/server/services/dashboardData.ts:129-130` fetches `userTasks` unconditionally for every viewer. Read tokens exist to guard **skippable** reads, so an entry for tasks would describe a token that never gates anything. Kept as-is and stated in the README invariant.
+  - *`setFamilyModuleSwitch` inserts with `onConflictDoNothing` and deletes instead of updating.* Internal: the wire only ever sees "a row exists only while OFF", which is the Must-survive rule. The conflict clause is a no-op guard for rows written outside the action, not a second write shape; the port keeps one write pair (insert-off / delete-on).
+  - *`/api/me/dashboard-modules` tolerates unknown ids with `200` while the family route `400`s.* Visible on the wire → kept as an Invariant, with owner question O-1 below.
+
+### Questions for the owner
+
+- **O-1 — Should `/api/me/dashboard-modules` reject unknown module ids like the family switch route does?** Context: the per-user save silently drops an id it does not recognise and answers `200` (`src/routes/api/me/dashboard-modules/+server.ts:22`), while a family switch for the same unknown id is `400 {"error":"Unknown dashboard module: …"}` (`src/lib/server/services/familyData.ts:361-366`). Installed clients post back the list they were given, so a retired id after an app update is exactly the case the tolerance covers. Options: (a) keep today's tolerance — no client can break, junk never persists; (b) `400` like the family route — consistent, but any client holding a retired id starts failing; (c) keep `200` and add the dropped ids to the body — a wire addition for no client benefit today. Recommendation: (a), and pin it with the golden that already exists.
+- **O-2 — `GET /api/families/{id}` returns `moduleSwitches`, but `family` (rank 4) may not import `dashboardModules` (rank 5).** Context: the families payload carries the family's master-switch map (`docs/guides/task-api-spec.md`, G10b) and the only owner of that fact is this module; R3 forbids `family` reading `dashboardModuleSwitches` and R1 forbids the upward import. Options: (a) record a rank exception in the registry for this one read (`listFamilyModuleSwitches` through this module's public entry) — the rule stays in one place; (b) move the field to a dashboardModules route fragment — a `/api` wire change for Android, needs its own ticket; (c) duplicate the seeding rule in `family` — rejected by R3 and the one-home convention. Recommendation: (a). This belongs to the `family` module's port, not this one; noted here so it is decided before S6 of that module.
 
 ## Census
 
