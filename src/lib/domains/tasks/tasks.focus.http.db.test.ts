@@ -17,7 +17,13 @@ import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
-import { addMember, seedTaskFamily, seedTaskFocusSession, seedTask } from './tasks.fixtures.server';
+import {
+	addMember,
+	seedTask,
+	seedTaskFamily,
+	seedTaskFocusCommands,
+	seedTaskFocusSession
+} from './tasks.fixtures.server';
 // Route modules, not actions: after the port these re-export the new handlers.
 import {
 	GET as getCommands,
@@ -48,7 +54,7 @@ describe('GET /api/taskfocus/commands', () => {
 		const now = Date.now();
 		const older = new Date(now - 5000);
 		const newer = new Date(now - 1000);
-		await db.insert(taskfocusCommands).values([
+		await seedTaskFocusCommands(db, [
 			{
 				id: 'cmd-stale',
 				userId: mia.id,
@@ -87,7 +93,7 @@ describe('GET /api/taskfocus/commands', () => {
 			taskId: null,
 			issuedAt: new Date(base + index * 1000)
 		}));
-		await db.insert(taskfocusCommands).values(rows);
+		await seedTaskFocusCommands(db, rows);
 
 		const res = await invoke(getCommands, {
 			ctx: ctx(),
@@ -146,31 +152,58 @@ describe('POST /api/taskfocus/commands', () => {
 		expect(await db.select().from(taskfocusCommands)).toHaveLength(2);
 	});
 
-	it('rejects a bad command, a missing start task and an unusable taskId', async () => {
+	// The two taskId cases must carry a real id, so each row builds its body.
+	const badCommands: {
+		label: string;
+		body: (samsTaskId: string) => JsonValue;
+		error: string;
+	}[] = [
+		{
+			label: 'an unknown command',
+			body: () => ({ command: 'pause' }),
+			error: "Command must be 'start' or 'stop'"
+		},
+		{
+			label: 'a start without a task',
+			body: () => ({ command: 'start' }),
+			error: 'taskId is required for start'
+		},
+		{
+			label: 'an empty taskId',
+			body: () => ({ command: 'stop', taskId: '' }),
+			error: 'Invalid taskId'
+		},
+		{
+			label: 'a numeric taskId',
+			body: () => ({ command: 'stop', taskId: 7 }),
+			error: 'Invalid taskId'
+		},
+		{
+			label: 'an unknown start task',
+			body: () => ({ command: 'start', taskId: 'no-such-task' }),
+			error: 'Task not found'
+		},
+		{
+			label: 'another user`s start task',
+			body: (samsTaskId) => ({ command: 'start', taskId: samsTaskId }),
+			error: 'Task not found'
+		}
+	];
+	it.each(badCommands)('answers 400 $error for $label, enqueueing nothing', async ({ body, error }) => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
 		const samsTask = await seedTask(db, { title: 'Sam`s', userId: sam.id });
 
-		const cases: { body: JsonValue; error: string }[] = [
-			{ body: { command: 'pause' }, error: "Command must be 'start' or 'stop'" },
-			{ body: { command: 'start' }, error: 'taskId is required for start' },
-			{ body: { command: 'stop', taskId: '' }, error: 'Invalid taskId' },
-			{ body: { command: 'stop', taskId: 7 }, error: 'Invalid taskId' },
-			{ body: { command: 'start', taskId: 'no-such-task' }, error: 'Task not found' },
-			{ body: { command: 'start', taskId: samsTask.id }, error: 'Task not found' }
-		];
-		for (const testCase of cases) {
-			const res = await invoke(postCommand, {
-				ctx: ctx(),
-				user: mia,
-				path: '/api/taskfocus/commands',
-				method: 'POST',
-				body: testCase.body
-			});
-			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: testCase.error });
-		}
+		const res = await invoke(postCommand, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/taskfocus/commands',
+			method: 'POST',
+			body: body(samsTask.id)
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error });
 		expect(await db.select().from(taskfocusCommands)).toEqual([]);
 	});
 
@@ -198,36 +231,44 @@ describe('POST /api/taskfocus/commands', () => {
 describe('DELETE /api/taskfocus/commands/[id]', () => {
 	beforeEach(truncateAll);
 
-	it('acks a command with 204 and is idempotent for unknown or foreign ids', async () => {
+	const ackCases: { label: string; id: string }[] = [
+		{ label: 'the caller`s own id', id: 'cmd-mine' },
+		{ label: 'another user`s id', id: 'cmd-sams' },
+		{ label: 'an unknown id', id: 'no-such-command' }
+	];
+	it.each(ackCases)('acks $label with 204 and is idempotent', async ({ id }) => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		await db.insert(taskfocusCommands).values([
+		await seedTaskFocusCommands(db, [
 			{ id: 'cmd-mine', userId: mia.id, command: 'start', taskId: null },
 			{ id: 'cmd-sams', userId: sam.id, command: 'start', taskId: null }
 		]);
 
-		const acked = await invoke(ackCommand, {
+		const first = await invoke(ackCommand, {
 			ctx: ctx(),
 			user: mia,
-			params: { id: 'cmd-mine' },
+			params: { id },
 			method: 'DELETE'
 		});
-		expect(acked.status).toBe(204);
-		expect(acked.text).toBe('');
-		expect(acked.body).toBeNull();
+		expect(first.status).toBe(204);
+		expect(first.text).toBe('');
+		expect(first.body).toBeNull();
 
-		for (const id of ['cmd-mine', 'cmd-sams', 'no-such-command']) {
-			const res = await invoke(ackCommand, {
-				ctx: ctx(),
-				user: mia,
-				params: { id },
-				method: 'DELETE'
-			});
-			expect(res.status).toBe(204);
-		}
+		const again = await invoke(ackCommand, {
+			ctx: ctx(),
+			user: mia,
+			params: { id },
+			method: 'DELETE'
+		});
+		expect(again.status).toBe(204);
+		expect(again.text).toBe('');
+
 		const rows = await db.select().from(taskfocusCommands);
-		expect(rows.map((row) => row.id)).toEqual(['cmd-sams']);
+		// Only the caller's own row is ever deleted.
+		expect(rows.map((row) => row.id).sort()).toEqual(
+			id === 'cmd-mine' ? ['cmd-sams'] : ['cmd-mine', 'cmd-sams']
+		);
 	});
 });
 
@@ -304,19 +345,21 @@ describe('GET /api/taskfocus/sessions', () => {
 		});
 	});
 
-	it('answers 400 unless the query is exactly ?unabsorbed=1', async () => {
+	const badQueries: { label: string; query: Readonly<Record<string, string>> }[] = [
+		{ label: 'no query', query: {} },
+		{ label: 'unabsorbed=2', query: { unabsorbed: '2' } }
+	];
+	it.each(badQueries)('answers 400 for $label', async ({ query }) => {
 		const mia = await seedUser(testDb(), { firstName: 'Mia' });
-		const queries: Readonly<Record<string, string>>[] = [{}, { unabsorbed: '2' }];
-		for (const query of queries) {
-			const res = await invoke(getSessions, {
-				ctx: ctx(),
-				user: mia,
-				path: '/api/taskfocus/sessions',
-				query
-			});
-			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: 'Only ?unabsorbed=1 is supported' });
-		}
+
+		const res = await invoke(getSessions, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/taskfocus/sessions',
+			query
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error: 'Only ?unabsorbed=1 is supported' });
 	});
 });
 
@@ -357,10 +400,19 @@ describe('POST /api/taskfocus/sessions', () => {
 			method: 'POST',
 			body: { taskId: task.id, startedAt, endedAt }
 		});
-		// A finished POST is never refused while an open session exists.
+		// A finished POST is never refused while an open session exists — and
+		// its whole row is the answer, not a subset.
 		expect(finished.status).toBe(201);
 		expect(finished.body).toEqual({
-			session: expect.objectContaining({ taskId: task.id, startedAt, endedAt })
+			session: {
+				id: expect.any(String),
+				taskId: task.id,
+				startedAt,
+				endedAt,
+				source: 'phone',
+				absorbedAt: null,
+				createdAt: expect.stringMatching(ISO)
+			}
 		});
 	});
 
@@ -389,132 +441,142 @@ describe('POST /api/taskfocus/sessions', () => {
 		});
 	});
 
-	it('enforces the time rules, both bounds inclusive', async () => {
+	// Built per row from the real clock: a collected-at `now` would drift into
+	// the 5-minute window while the file runs.
+	const timeRuleRefusals: {
+		label: string;
+		body: (taskId: string) => JsonValue;
+		error: string;
+	}[] = [
+		{
+			label: 'a start 6 minutes ahead',
+			body: (taskId) => ({
+				taskId,
+				startedAt: new Date(Date.now() + 6 * MINUTE).toISOString()
+			}),
+			error: 'startedAt is more than 5 minutes in the future'
+		},
+		{
+			label: 'an endedAt equal to startedAt',
+			body: (taskId) => {
+				const started = new Date(Date.now() - 2 * HOUR).toISOString();
+				return { taskId, startedAt: started, endedAt: started };
+			},
+			error: 'endedAt must be after startedAt'
+		},
+		{
+			label: 'an endedAt before startedAt',
+			body: (taskId) => ({
+				taskId,
+				startedAt: new Date(Date.now() - 2 * HOUR).toISOString(),
+				endedAt: new Date(Date.now() - 2 * HOUR - 1).toISOString()
+			}),
+			error: 'endedAt must be after startedAt'
+		},
+		{
+			label: 'a span just over 12 hours',
+			body: (taskId) => ({
+				taskId,
+				startedAt: new Date(Date.now() - 20 * HOUR).toISOString(),
+				endedAt: new Date(Date.now() - 7 * HOUR + 1).toISOString()
+			}),
+			error: 'Session is longer than 12 hours'
+		}
+	];
+	it.each(timeRuleRefusals)('answers 400 $error for $label', async ({ body, error }) => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
-		const now = Date.now();
 
-		const refusals: { body: JsonValue; error: string }[] = [
-			{
-				body: {
-					taskId: task.id,
-					startedAt: new Date(now + 6 * MINUTE).toISOString()
-				},
-				error: 'startedAt is more than 5 minutes in the future'
-			},
-			{
-				body: {
-					taskId: task.id,
-					startedAt: new Date(now - 2 * HOUR).toISOString(),
-					endedAt: new Date(now - 2 * HOUR).toISOString()
-				},
-				error: 'endedAt must be after startedAt'
-			},
-			{
-				body: {
-					taskId: task.id,
-					startedAt: new Date(now - 2 * HOUR).toISOString(),
-					endedAt: new Date(now - 2 * HOUR - 1).toISOString()
-				},
-				error: 'endedAt must be after startedAt'
-			},
-			{
-				body: {
-					taskId: task.id,
-					startedAt: new Date(now - 20 * HOUR).toISOString(),
-					endedAt: new Date(now - 7 * HOUR + 1).toISOString()
-				},
-				error: 'Session is longer than 12 hours'
-			}
-		];
-		for (const testCase of refusals) {
-			const res = await invoke(postSession, {
-				ctx: ctx(),
-				user: mia,
-				path: '/api/taskfocus/sessions',
-				method: 'POST',
-				body: testCase.body
-			});
-			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: testCase.error });
-		}
-
-		// Exactly 5 minutes ahead and exactly 12 hours long both pass.
-		const fiveAhead = await invoke(postSession, {
+		const res = await invoke(postSession, {
 			ctx: ctx(),
 			user: mia,
 			path: '/api/taskfocus/sessions',
 			method: 'POST',
-			body: { taskId: task.id, startedAt: new Date(now + 5 * MINUTE).toISOString() }
+			body: body(task.id)
 		});
-		expect(fiveAhead.status).toBe(201);
-
-		const twelveHours = await invoke(postSession, {
-			ctx: ctx(),
-			user: mia,
-			path: '/api/taskfocus/sessions',
-			method: 'POST',
-			body: {
-				taskId: task.id,
-				startedAt: new Date(now - 13 * HOUR).toISOString(),
-				endedAt: new Date(now - HOUR).toISOString()
-			}
-		});
-		expect(twelveHours.status).toBe(201);
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error });
+		expect(await db.select().from(taskfocusSessions)).toEqual([]);
 	});
 
-	it('answers the legacy 400s for missing, invalid or malformed input', async () => {
+	const badSessionBodies: {
+		label: string;
+		body: (taskId: string, startedAt: string) => JsonValue;
+		error: string;
+	}[] = [
+		{
+			label: 'a missing taskId',
+			body: (_taskId, startedAt) => ({ startedAt }),
+			error: 'taskId is required'
+		},
+		{
+			label: 'an empty taskId',
+			body: (_taskId, startedAt) => ({ taskId: '', startedAt }),
+			error: 'taskId is required'
+		},
+		{
+			label: 'a missing startedAt',
+			body: (taskId) => ({ taskId }),
+			error: 'startedAt is required'
+		},
+		{
+			label: 'an empty startedAt',
+			body: (taskId) => ({ taskId, startedAt: '' }),
+			error: 'startedAt is required'
+		},
+		{
+			label: 'an unparseable startedAt',
+			body: (taskId) => ({ taskId, startedAt: 'nope' }),
+			error: 'Invalid startedAt'
+		},
+		{
+			label: 'an unparseable endedAt',
+			body: (taskId, startedAt) => ({ taskId, startedAt, endedAt: 'nope' }),
+			error: 'Invalid endedAt'
+		}
+	];
+	it.each(badSessionBodies)('answers 400 $error for $label', async ({ body, error }) => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
 		const startedAt = new Date(Date.now() - HOUR).toISOString();
 
-		const cases: { body: JsonValue; error: string }[] = [
-			{ body: { startedAt }, error: 'taskId is required' },
-			{ body: { taskId: '', startedAt }, error: 'taskId is required' },
-			{ body: { taskId: task.id }, error: 'startedAt is required' },
-			{ body: { taskId: task.id, startedAt: '' }, error: 'startedAt is required' },
-			{ body: { taskId: task.id, startedAt: 'nope' }, error: 'Invalid startedAt' },
-			{
-				body: { taskId: task.id, startedAt, endedAt: 'nope' },
-				error: 'Invalid endedAt'
-			}
-		];
-		for (const testCase of cases) {
-			const res = await invoke(postSession, {
-				ctx: ctx(),
-				user: mia,
-				path: '/api/taskfocus/sessions',
-				method: 'POST',
-				body: testCase.body
-			});
-			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: testCase.error });
-		}
-
-		const malformed = await invoke(postSession, {
+		const res = await invoke(postSession, {
 			ctx: ctx(),
 			user: mia,
 			path: '/api/taskfocus/sessions',
 			method: 'POST',
-			rawBody: '{'
+			body: body(task.id, startedAt)
 		});
-		expect(malformed.status).toBe(400);
-		expect(malformed.body).toEqual({ error: 'Invalid JSON body' });
-
-		const arrayBody = await invoke(postSession, {
-			ctx: ctx(),
-			user: mia,
-			path: '/api/taskfocus/sessions',
-			method: 'POST',
-			body: []
-		});
-		expect(arrayBody.status).toBe(400);
-		expect(arrayBody.body).toEqual({ error: 'Invalid JSON body' });
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error });
 	});
 
-	it('answers 404 for a task the caller cannot see and accepts a family member`s task', async () => {
+	const malformedBodies: { label: string; raw?: string; body?: JsonValue }[] = [
+		{ label: 'malformed JSON', raw: '{' },
+		{ label: 'an array body', body: [] }
+	];
+	it.each(malformedBodies)('answers 400 Invalid JSON body for $label', async ({ raw, body }) => {
+		const mia = await seedUser(testDb(), { firstName: 'Mia' });
+
+		const res = await invoke(postSession, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/taskfocus/sessions',
+			method: 'POST',
+			...(raw === undefined ? { body: body as JsonValue } : { rawBody: raw })
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error: 'Invalid JSON body' });
+	});
+
+	const unusableTasks: { label: string; pick: 'unknown' | 'personal' | 'archived' }[] = [
+		{ label: 'an unknown task', pick: 'unknown' },
+		{ label: 'another user`s personal task', pick: 'personal' },
+		{ label: 'an archived task', pick: 'archived' }
+	];
+	it.each(unusableTasks)('answers 404 Task not found for $label', async ({ pick }) => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
@@ -527,24 +589,34 @@ describe('POST /api/taskfocus/sessions', () => {
 			archivedAt: '2026-01-01T00:00:00.000Z',
 			userId: mia.id
 		});
+		const taskId =
+			pick === 'unknown' ? 'no-such-task' : pick === 'personal' ? samsPersonal.id : archived.id;
+		const startedAt = new Date(Date.now() - HOUR).toISOString();
+
+		const res = await invoke(postSession, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/taskfocus/sessions',
+			method: 'POST',
+			body: { taskId, startedAt }
+		});
+		expect(res.status).toBe(404);
+		expect(res.body).toEqual({ error: 'Task not found' });
+	});
+
+	it('accepts a family member`s task', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		const sam = await seedUser(db, { firstName: 'Sam' });
+		const home = await seedTaskFamily(db);
+		await addMember(db, mia.id, home.id);
+		await addMember(db, sam.id, home.id);
 		const samsFamily = await seedTask(db, {
 			title: 'Family task',
 			familyId: home.id,
 			userId: sam.id
 		});
 		const startedAt = new Date(Date.now() - HOUR).toISOString();
-
-		for (const taskId of ['no-such-task', samsPersonal.id, archived.id]) {
-			const res = await invoke(postSession, {
-				ctx: ctx(),
-				user: mia,
-				path: '/api/taskfocus/sessions',
-				method: 'POST',
-				body: { taskId, startedAt }
-			});
-			expect(res.status).toBe(404);
-			expect(res.body).toEqual({ error: 'Task not found' });
-		}
 
 		const familyTask = await invoke(postSession, {
 			ctx: ctx(),
@@ -580,7 +652,15 @@ describe('PATCH /api/taskfocus/sessions/[id]', () => {
 		});
 		expect(closed.status).toBe(200);
 		expect(closed.body).toEqual({
-			session: expect.objectContaining({ id: session.id, endedAt: firstEnd })
+			session: {
+				id: session.id,
+				taskId: task.id,
+				startedAt: session.startedAt.toISOString(),
+				endedAt: firstEnd,
+				source: 'phone',
+				absorbedAt: null,
+				createdAt: session.createdAt.toISOString()
+			}
 		});
 
 		const secondEnd = new Date(Date.now() - 30 * MINUTE).toISOString();
@@ -593,7 +673,15 @@ describe('PATCH /api/taskfocus/sessions/[id]', () => {
 		});
 		expect(again.status).toBe(200);
 		expect(again.body).toEqual({
-			session: expect.objectContaining({ endedAt: secondEnd })
+			session: {
+				id: session.id,
+				taskId: task.id,
+				startedAt: session.startedAt.toISOString(),
+				endedAt: secondEnd,
+				source: 'phone',
+				absorbedAt: null,
+				createdAt: session.createdAt.toISOString()
+			}
 		});
 		const [row] = await db
 			.select()
@@ -602,41 +690,79 @@ describe('PATCH /api/taskfocus/sessions/[id]', () => {
 		expect(row.endedAt?.toISOString()).toBe(secondEnd);
 	});
 
-	it('answers the legacy 400s and the 12-hour bound', async () => {
+	// Each row seeds its own session 20 hours back and builds its body from the
+	// real clock, so the 12-hour bound and "after startedAt" stay unambiguous.
+	const badPatchBodies: {
+		label: string;
+		create: () => { startedAt: Date; body: JsonValue };
+		error: string;
+	}[] = [
+		{
+			label: 'a missing endedAt',
+			create: () => ({ startedAt: new Date(Date.now() - 20 * HOUR), body: {} }),
+			error: 'endedAt is required'
+		},
+		{
+			label: 'an empty endedAt',
+			create: () => ({ startedAt: new Date(Date.now() - 20 * HOUR), body: { endedAt: '' } }),
+			error: 'endedAt is required'
+		},
+		{
+			label: 'an unparseable endedAt',
+			create: () => ({ startedAt: new Date(Date.now() - 20 * HOUR), body: { endedAt: 'nope' } }),
+			error: 'Invalid endedAt'
+		},
+		{
+			label: 'an endedAt equal to startedAt',
+			create: () => {
+				const startedAt = new Date(Date.now() - 20 * HOUR);
+				return { startedAt, body: { endedAt: startedAt.toISOString() } };
+			},
+			error: 'endedAt must be after startedAt'
+		},
+		{
+			label: 'a span over 12 hours',
+			create: () => {
+				const startedAt = new Date(Date.now() - 20 * HOUR);
+				return {
+					startedAt,
+					body: { endedAt: new Date(startedAt.getTime() + 12 * HOUR + 1).toISOString() }
+				};
+			},
+			error: 'Session is longer than 12 hours'
+		}
+	];
+	it.each(badPatchBodies)('answers 400 $error for $label', async ({ create, error }) => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
-		const startedAt = new Date(Date.now() - 20 * HOUR);
+		const { startedAt, body } = create();
 		const session = await seedTaskFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt
 		});
 
-		const cases: { body: JsonValue; error: string }[] = [
-			{ body: {}, error: 'endedAt is required' },
-			{ body: { endedAt: '' }, error: 'endedAt is required' },
-			{ body: { endedAt: 'nope' }, error: 'Invalid endedAt' },
-			{
-				body: { endedAt: startedAt.toISOString() },
-				error: 'endedAt must be after startedAt'
-			},
-			{
-				body: { endedAt: new Date(startedAt.getTime() + 12 * HOUR + 1).toISOString() },
-				error: 'Session is longer than 12 hours'
-			}
-		];
-		for (const testCase of cases) {
-			const res = await invoke(patchSession, {
-				ctx: ctx(),
-				user: mia,
-				params: { id: session.id },
-				method: 'PATCH',
-				body: testCase.body
-			});
-			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: testCase.error });
-		}
+		const res = await invoke(patchSession, {
+			ctx: ctx(),
+			user: mia,
+			params: { id: session.id },
+			method: 'PATCH',
+			body
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error });
+	});
+
+	it('answers 400 Invalid JSON body for malformed JSON', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
+		const session = await seedTaskFocusSession(db, {
+			userId: mia.id,
+			taskId: task.id,
+			startedAt: new Date(Date.now() - 20 * HOUR)
+		});
 
 		const malformed = await invoke(patchSession, {
 			ctx: ctx(),
@@ -649,10 +775,36 @@ describe('PATCH /api/taskfocus/sessions/[id]', () => {
 		expect(malformed.body).toEqual({ error: 'Invalid JSON body' });
 	});
 
-	it('answers 404 for an unknown or foreign session and 409 once absorbed', async () => {
+	const foreignPatchIds: { label: string; pick: 'unknown' | 'foreign' }[] = [
+		{ label: 'an unknown session', pick: 'unknown' },
+		{ label: 'another user`s session', pick: 'foreign' }
+	];
+	it.each(foreignPatchIds)('answers 404 Session not found for $label', async ({ pick }) => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
+		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
+		const sams = await seedTaskFocusSession(db, {
+			userId: sam.id,
+			taskId: task.id,
+			startedAt: new Date(Date.now() - 2 * HOUR)
+		});
+		const endedAt = new Date(Date.now() - MINUTE).toISOString();
+
+		const res = await invoke(patchSession, {
+			ctx: ctx(),
+			user: mia,
+			params: { id: pick === 'unknown' ? 'no-such-session' : sams.id },
+			method: 'PATCH',
+			body: { endedAt }
+		});
+		expect(res.status).toBe(404);
+		expect(res.body).toEqual({ error: 'Session not found' });
+	});
+
+	it('answers 409 Session already absorbed once absorbed', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
 		const absorbed = await seedTaskFocusSession(db, {
 			userId: mia.id,
@@ -661,24 +813,7 @@ describe('PATCH /api/taskfocus/sessions/[id]', () => {
 			endedAt: new Date(Date.now() - 2 * HOUR),
 			absorbedAt: new Date(Date.now() - HOUR)
 		});
-		const sams = await seedTaskFocusSession(db, {
-			userId: sam.id,
-			taskId: task.id,
-			startedAt: new Date(Date.now() - 2 * HOUR)
-		});
 		const endedAt = new Date(Date.now() - MINUTE).toISOString();
-
-		for (const id of ['no-such-session', sams.id]) {
-			const res = await invoke(patchSession, {
-				ctx: ctx(),
-				user: mia,
-				params: { id },
-				method: 'PATCH',
-				body: { endedAt }
-			});
-			expect(res.status).toBe(404);
-			expect(res.body).toEqual({ error: 'Session not found' });
-		}
 
 		const refused = await invoke(patchSession, {
 			ctx: ctx(),
@@ -731,7 +866,32 @@ describe('DELETE /api/taskfocus/sessions/[id]', () => {
 		expect(await db.select().from(taskfocusSessions)).toEqual([]);
 	});
 
-	it('answers 404 for gone, unknown or foreign ids and 409 once absorbed', async () => {
+	const foreignDeleteIds: { label: string; pick: 'unknown' | 'foreign' }[] = [
+		{ label: 'an unknown session', pick: 'unknown' },
+		{ label: 'another user`s session', pick: 'foreign' }
+	];
+	it.each(foreignDeleteIds)('answers 404 Session not found for $label', async ({ pick }) => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		const sam = await seedUser(db, { firstName: 'Sam' });
+		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
+		const sams = await seedTaskFocusSession(db, {
+			userId: sam.id,
+			taskId: task.id,
+			startedAt: new Date(Date.now() - HOUR)
+		});
+
+		const res = await invoke(deleteSession, {
+			ctx: ctx(),
+			user: mia,
+			params: { id: pick === 'unknown' ? 'no-such-session' : sams.id },
+			method: 'DELETE'
+		});
+		expect(res.status).toBe(404);
+		expect(res.body).toEqual({ error: 'Session not found' });
+	});
+
+	it('answers 409 Session already absorbed once absorbed', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
@@ -743,22 +903,11 @@ describe('DELETE /api/taskfocus/sessions/[id]', () => {
 			endedAt: new Date(Date.now() - 2 * HOUR),
 			absorbedAt: new Date(Date.now() - HOUR)
 		});
-		const sams = await seedTaskFocusSession(db, {
+		await seedTaskFocusSession(db, {
 			userId: sam.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - HOUR)
 		});
-
-		for (const id of ['no-such-session', sams.id]) {
-			const res = await invoke(deleteSession, {
-				ctx: ctx(),
-				user: mia,
-				params: { id },
-				method: 'DELETE'
-			});
-			expect(res.status).toBe(404);
-			expect(res.body).toEqual({ error: 'Session not found' });
-		}
 
 		const refused = await invoke(deleteSession, {
 			ctx: ctx(),
@@ -794,7 +943,15 @@ describe('POST /api/taskfocus/sessions/[id]/absorb', () => {
 		});
 		expect(first.status).toBe(200);
 		expect(first.body).toEqual({
-			session: expect.objectContaining({ id: session.id, absorbedAt: expect.stringMatching(ISO) })
+			session: {
+				id: session.id,
+				taskId: task.id,
+				startedAt: session.startedAt.toISOString(),
+				endedAt: session.endedAt?.toISOString(),
+				source: 'phone',
+				absorbedAt: expect.stringMatching(ISO),
+				createdAt: session.createdAt.toISOString()
+			}
 		});
 		const [row] = await db
 			.select()
@@ -811,25 +968,26 @@ describe('POST /api/taskfocus/sessions/[id]/absorb', () => {
 		});
 		expect(again.status).toBe(200);
 		expect(again.body).toEqual({
-			session: expect.objectContaining({ id: session.id, absorbedAt: stamp })
+			session: {
+				id: session.id,
+				taskId: task.id,
+				startedAt: session.startedAt.toISOString(),
+				endedAt: session.endedAt?.toISOString(),
+				source: 'phone',
+				absorbedAt: stamp,
+				createdAt: session.createdAt.toISOString()
+			}
 		});
 	});
 
-	it('answers 409 for an open session and 404 for unknown or foreign ids', async () => {
+	it('answers 409 Only closed sessions can be absorbed for an open session', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
-		const sam = await seedUser(db, { firstName: 'Sam' });
 		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
 		const open = await seedTaskFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: new Date(Date.now() - HOUR)
-		});
-		const sams = await seedTaskFocusSession(db, {
-			userId: sam.id,
-			taskId: task.id,
-			startedAt: new Date(Date.now() - 3 * HOUR),
-			endedAt: new Date(Date.now() - 2 * HOUR)
 		});
 
 		const refused = await invoke(absorbSession, {
@@ -840,66 +998,101 @@ describe('POST /api/taskfocus/sessions/[id]/absorb', () => {
 		});
 		expect(refused.status).toBe(409);
 		expect(refused.body).toEqual({ error: 'Only closed sessions can be absorbed' });
+	});
 
-		for (const id of ['no-such-session', sams.id]) {
-			const res = await invoke(absorbSession, {
-				ctx: ctx(),
-				user: mia,
-				params: { id },
-				method: 'POST'
-			});
-			expect(res.status).toBe(404);
-			expect(res.body).toEqual({ error: 'Session not found' });
-		}
+	const foreignAbsorbIds: { label: string; pick: 'unknown' | 'foreign' }[] = [
+		{ label: 'an unknown session', pick: 'unknown' },
+		{ label: 'another user`s session', pick: 'foreign' }
+	];
+	it.each(foreignAbsorbIds)('answers 404 Session not found for $label', async ({ pick }) => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		const sam = await seedUser(db, { firstName: 'Sam' });
+		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
+		const sams = await seedTaskFocusSession(db, {
+			userId: sam.id,
+			taskId: task.id,
+			startedAt: new Date(Date.now() - 3 * HOUR),
+			endedAt: new Date(Date.now() - 2 * HOUR)
+		});
+
+		const res = await invoke(absorbSession, {
+			ctx: ctx(),
+			user: mia,
+			params: { id: pick === 'unknown' ? 'no-such-session' : sams.id },
+			method: 'POST'
+		});
+		expect(res.status).toBe(404);
+		expect(res.body).toEqual({ error: 'Session not found' });
 	});
 });
 
 describe('signed out', () => {
 	beforeEach(truncateAll);
 
-	it('answers 401 {"error":"Unauthorized"} on every TaskFocus route', async () => {
-		const calls = [
-			() => invoke(getCommands, { ctx: ctx(), path: '/api/taskfocus/commands' }),
-			() =>
+	const calls: {
+		label: string;
+		call: () => Promise<{ status: number; body: JsonValue | null }>;
+	}[] = [
+		{
+			label: 'GET /api/taskfocus/commands',
+			call: () => invoke(getCommands, { ctx: ctx(), path: '/api/taskfocus/commands' })
+		},
+		{
+			label: 'POST /api/taskfocus/commands',
+			call: () =>
 				invoke(postCommand, {
 					ctx: ctx(),
 					path: '/api/taskfocus/commands',
 					method: 'POST',
 					body: { command: 'stop' }
-				}),
-			() =>
-				invoke(ackCommand, {
-					ctx: ctx(),
-					params: { id: 'x' },
-					method: 'DELETE'
-				}),
-			() =>
+				})
+		},
+		{
+			label: 'DELETE /api/taskfocus/commands/[id]',
+			call: () => invoke(ackCommand, { ctx: ctx(), params: { id: 'x' }, method: 'DELETE' })
+		},
+		{
+			label: 'GET /api/taskfocus/sessions',
+			call: () =>
 				invoke(getSessions, {
 					ctx: ctx(),
 					path: '/api/taskfocus/sessions',
 					query: { unabsorbed: '1' }
-				}),
-			() =>
+				})
+		},
+		{
+			label: 'POST /api/taskfocus/sessions',
+			call: () =>
 				invoke(postSession, {
 					ctx: ctx(),
 					path: '/api/taskfocus/sessions',
 					method: 'POST',
 					body: {}
-				}),
-			() =>
+				})
+		},
+		{
+			label: 'PATCH /api/taskfocus/sessions/[id]',
+			call: () =>
 				invoke(patchSession, {
 					ctx: ctx(),
 					params: { id: 'x' },
 					method: 'PATCH',
 					body: {}
-				}),
-			() => invoke(deleteSession, { ctx: ctx(), params: { id: 'x' }, method: 'DELETE' }),
-			() => invoke(absorbSession, { ctx: ctx(), params: { id: 'x' }, method: 'POST' })
-		];
-		for (const call of calls) {
-			const res = await call();
-			expect(res.status).toBe(401);
-			expect(res.body).toEqual({ error: 'Unauthorized' });
+				})
+		},
+		{
+			label: 'DELETE /api/taskfocus/sessions/[id]',
+			call: () => invoke(deleteSession, { ctx: ctx(), params: { id: 'x' }, method: 'DELETE' })
+		},
+		{
+			label: 'POST /api/taskfocus/sessions/[id]/absorb',
+			call: () => invoke(absorbSession, { ctx: ctx(), params: { id: 'x' }, method: 'POST' })
 		}
+	];
+	it.each(calls)('answers 401 {"error":"Unauthorized"} on $label', async ({ call }) => {
+		const res = await call();
+		expect(res.status).toBe(401);
+		expect(res.body).toEqual({ error: 'Unauthorized' });
 	});
 });
