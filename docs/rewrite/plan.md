@@ -33,8 +33,8 @@ Rough size (legacy LOC still owned, from `npm run census` on 2026-11-11): calend
 
 | topic | default the plan uses |
 |---|---|
-| Changes on `test` during the rewrite | `test` stays live. The rewrite merges `origin/test` before each module port. A change to an already-ported module is re-applied to the v2 module, test-first ([sync-with-test.md](playbooks/sync-with-test.md)). |
-| Parked modules (`bills`, `meals`) | Ported as-is, no new behaviour. bills keeps only its tables and vocabulary. |
+| Changes on `test` during the rewrite | Frozen for website and server code until cutover, except urgent fixes (owner, [Q-001](questions.md)). Android work continues on `test`. The rewrite still merges `origin/test` before each module port. An urgent fix that touches an already-rebuilt module is redone in the v2 module, test-first ([sync-with-test.md](playbooks/sync-with-test.md)). |
+| Parked modules (`bills`, `meals`) | Delete the unused code (owner, [Q-002](questions.md)): `/api/meals`, `MealsCard`, the meal queries, `parseBillQuickAdd` and the bill category list. The `bills`, `receiptItems`, `itemTags` and `meals` tables stay (no DDL). `meals` stays in the Dashboard Module list, so `/api/dashboard` and the family switches are unchanged. |
 | Bugs inside a module | Fix them during its rebuild: failing test first, ticket named in the commit. Anything that would change the `/api` wire, the schema or a CONTEXT.md rule stays a ticket for the owner. |
 | Legacy code and legacy tests | Reference only. Each module is redesigned from its behaviour inventory. Copy code only where it is correct and pure. Legacy tests are not a gate and are deleted with their module (S8). |
 | Legacy markup | Rebuilt on `kernel/ui` primitives. The approved look is pinned by the visual check (K-10), not by copying markup. |

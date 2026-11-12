@@ -13,5 +13,5 @@ About 57k lines of tests, a production database and the Android/TaskFocus HTTP c
 ## Consequences
 
 - During the rewrite, legacy and v2 code live side by side. v2 code may not import legacy code (rule R14). Legacy code may import v2 code.
-- `test` keeps moving while the rewrite runs. `rewrite/v2` merges `origin/test` regularly ([sync-with-test.md](../rewrite/playbooks/sync-with-test.md)).
+- Website and server code on `test` is frozen until cutover, except urgent fixes (owner, 2026-11-11, [Q-001](../rewrite/questions.md)). Android work continues on `test`. `rewrite/v2` still merges `origin/test` before each module ([sync-with-test.md](../rewrite/playbooks/sync-with-test.md)).
 - Nothing reaches `test` or `main` until the census is zero and the owner signs off ([plan.md](../rewrite/plan.md#cutover)).

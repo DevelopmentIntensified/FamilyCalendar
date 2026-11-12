@@ -2,7 +2,7 @@
 
 **domain** · rank 13 · port #11 · home: `src/lib/domains/meals/` · README after the port: `src/lib/domains/meals/README.md` (written in S1)
 
-PARKED (meals parked by owner): meals table, endpoint and card, ported as-is.
+PARKED (meals parked by owner). Owner answer [Q-002](../questions.md): delete-only. The endpoint, card and queries go; the table and the module id stay.
 
 - **May import:** kernel, identity, billing, alerts, family, dashboardModules, bills, parsing, calendar, tasks, groceries, verse, sponsored.
 - **Owns tables:** `meals`.
@@ -25,7 +25,7 @@ PARKED (meals parked by owner): meals table, endpoint and card, ported as-is.
 
 Behaviour the port must keep (each becomes an Invariant in the README, pinned by a test):
 
-- PARKED: port as-is (`/api/meals` GET/POST/DELETE, MealsCard). Module id `meals` stays stable in dashboard settings.
+- DELETE-ONLY (Q-002). Remove `src/routes/api/meals/+server.ts`, `src/lib/components/dashboard/MealsCard.svelte` with its test, and `src/lib/server/db/actions/meals.ts` with its test. No golden: deleting the route is owner-approved. Keep the `meals` table (no DDL) and the `meals` Dashboard Module id (`src/lib/dashboardModules.ts`), so `/api/dashboard` and the family switches don't change; `UNMOUNTED_MODULES` keeps its switch off `/account`.
 
 ## Behaviour inventory (draft — verify in S1)
 

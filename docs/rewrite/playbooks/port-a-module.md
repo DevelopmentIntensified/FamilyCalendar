@@ -95,11 +95,22 @@ Follow [characterize-endpoints.md](characterize-endpoints.md). Every `/api/**` r
 
 Commit.
 
+**Owner-approved wire changes.** An answered question in [questions.md](../questions.md) may change this module's `/api` behaviour (for example Q-005a for `tasks`). Apply it only after the S6 check above has passed, as its own commit `fix(<m>): Q-NNN <summary>`:
+
+1. Change the golden first, so it fails.
+2. Change the code.
+3. Name the question in the test title.
+
+Never fold such a change into S6, and never change a golden without an answered question.
+
 ## S7: UI
 
-Follow [port-ui.md](port-ui.md): rebuild the pages and components on kernel/ui primitives and state classes. Do not copy the legacy markup. Acceptance is the **visual check** for each page the module owns (K-10 harness, `npm run visual:check -- <m>`): it matches the legacy baseline captured before the rebuild, or every difference is intentional and listed in the sheet.
+Follow [port-ui.md](port-ui.md): rebuild the pages and components on kernel/ui primitives and state classes. Do not copy the legacy markup. Acceptance has two parts:
 
-**Check:** `npm run test:mod -- <m> && npm run arch && npm run typecheck && npm run visual:check -- <m>`. Commit.
+- the **visual check** for each page the module owns (K-10 harness, `npm run visual:check -- <m>`): it matches the legacy baseline captured before the rebuild, or every difference is intentional and listed in the sheet;
+- the **perf check** (K-11, `npm run perf:check -- <m>`): every page is within its load budget ([ADR 0010](../../adr/0010-performance-budget.md)).
+
+**Check:** `npm run test:mod -- <m> && npm run arch && npm run typecheck && npm run visual:check -- <m> && npm run perf:check -- <m>`. Commit.
 
 ## S8: Rewire, delete legacy
 

@@ -89,7 +89,7 @@ Read your module's section in S1.
 |---|---|---|---|
 | [#079](../archive/issues/079-tasks-page-spacing.md) | DESIGN | Filter-row, inbox and row-meta spacing polish. | keep markup; do not regress |
 | [#113](../archive/issues/113-tasks-ts-six-modules-in-one-file.md) | STRUCTURE | tasks.ts split, shared section select, eventCalendarId on every list query, merge the 7 visibility queries. | FIX-IN-PORT for structure (the tasks port supersedes it); adding eventCalendarId to other lists is additive and stays a ticket |
-| [#320](../archive/issues/320-desktop-task-read-panel.md) | BEHAVIOUR | Desktop task read panel (feature in progress on test). | arrives through sync-with-test; port what has landed |
+| [#320](../archive/issues/320-desktop-task-read-panel.md) | BEHAVIOUR | Desktop task read panel (feature in progress on test). | port what has landed on `test`; the unfinished part is frozen there (Q-001) and waits for the owner |
 | [#321](../archive/issues/321-convert-task-to-jira-linear.md) | OWNER | Convert task to Jira/Linear. | owner |
 
 ## access

@@ -44,6 +44,7 @@ Family Planz is a family calendar.
 
 - Run `npm run build` before every push. Never push a broken build. On `rewrite/v2`, run `npm run gate:push`, which builds through `build:safe`: placeholder secrets and the local DB, because the main checkout's `.env` points at production.
 - Push to `test` (`git push origin test`) unless told otherwise.
+- Website and server code on `test` is frozen until the rewrite's cutover, except urgent fixes (owner, 2026-11-11). Android work continues on `test`.
 - Rewrite work lives on branch `rewrite/v2` (worktree `../fc-v2`) and pushes to `origin rewrite/v2`. Never merge it into `test`/`main`; that is the owner's cutover.
 - Push as you complete: commit and push each finished slice.
 

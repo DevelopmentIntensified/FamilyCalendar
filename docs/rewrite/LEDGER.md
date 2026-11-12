@@ -22,18 +22,19 @@ Steps inside a module task (S1–S9) are ticked in that module's port sheet. Her
 | K-07 | `kernel/client`: api client, toasts, localPref, searchBox, ticker, share, offline | [kernel-tasks › K-07](playbooks/kernel-tasks.md#k-07) | [kernel](modules/kernel.md) | todo | | |
 | K-08 | `kernel/ui`: Sheet, ConfirmAction, Pill, Skeleton, Toaster, BrandMark, DayNav, MentionInput, colorHash | [kernel-tasks › K-08](playbooks/kernel-tasks.md#k-08) | [kernel](modules/kernel.md) | todo | | |
 | K-09 | Test speed: fast committed-mode reset, `synchronous_commit=off` on the v2 test DB | [kernel-tasks › K-09](playbooks/kernel-tasks.md#k-09) | [kernel](modules/kernel.md) | todo | | |
-| K-10 | Visual baseline harness: `visual:baseline` / `visual:check` per module (Playwright, 390 px + 1280 px) | [kernel-tasks › K-10](playbooks/kernel-tasks.md#k-10) | [kernel](modules/kernel.md) | todo | | |
+| K-10 | Page harness (after K-05): shared page catalog, seeded users, session login, local build + preview on its own database; `visual:baseline` / `visual:check` per module (390 px + 1280 px) | [kernel-tasks › K-10](playbooks/kernel-tasks.md#k-10) | [kernel](modules/kernel.md) | todo | | |
+| K-11 | Perf harness (after K-10): `perf:check` per page (desktop + mobile profiles), legacy baseline report, budgets ([ADR 0010](../adr/0010-performance-budget.md)) | [kernel-tasks › K-11](playbooks/kernel-tasks.md#k-11) | [kernel](modules/kernel.md) | todo | | |
 | M-feedback | Port **feedback**, the worked example. Also replaces the app faults bridge | [port-a-module](playbooks/port-a-module.md) | [feedback](modules/feedback.md) | todo | | |
 | M-identity | Port **identity** | [port-a-module](playbooks/port-a-module.md) | [identity](modules/identity.md) | todo | | |
 | M-billing | Port **billing** | [port-a-module](playbooks/port-a-module.md) | [billing](modules/billing.md) | todo | | |
 | M-alerts | Port **alerts** (adds the `push` port) | [port-a-module](playbooks/port-a-module.md) | [alerts](modules/alerts.md) | todo | | |
 | M-family | Port **family** (adds the `mail` port if invites need it first) | [port-a-module](playbooks/port-a-module.md) | [family](modules/family.md) | todo | | |
 | M-dashboardModules | Port **dashboardModules** | [port-a-module](playbooks/port-a-module.md) | [dashboardModules](modules/dashboardModules.md) | todo | | |
-| M-bills | Port **bills** (parked: tables + vocabulary) | [port-a-module](playbooks/port-a-module.md) | [bills](modules/bills.md) | todo | | |
+| M-bills | **bills**, delete-only ([Q-002](questions.md)): remove `parseBillQuickAdd`, the bill grammar and the bill category list; the tables stay in kernel (K-04) | [port-a-module › S8](playbooks/port-a-module.md#s8-rewire-delete-legacy) only | [bills](modules/bills.md) | todo | | |
 | M-parsing | Port **parsing**, test-first (adds the `ai` port) | [port-a-module](playbooks/port-a-module.md) | [parsing](modules/parsing.md) | todo | | |
 | M-verse | Port **verse** (adds the `http` port) | [port-a-module](playbooks/port-a-module.md) | [verse](modules/verse.md) | todo | | |
 | M-groceries | Port **groceries** | [port-a-module](playbooks/port-a-module.md) | [groceries](modules/groceries.md) | todo | | |
-| M-meals | Port **meals** (parked: as-is) | [port-a-module](playbooks/port-a-module.md) | [meals](modules/meals.md) | todo | | |
+| M-meals | **meals**, delete-only ([Q-002](questions.md)): remove `/api/meals`, `MealsCard` and the meal queries; keep the `meals` table and the `meals` Dashboard Module id | [port-a-module › S8](playbooks/port-a-module.md#s8-rewire-delete-legacy) only | [meals](modules/meals.md) | todo | | |
 | M-sponsored | Port **sponsored** (blob: owner decision #180 first) | [port-a-module](playbooks/port-a-module.md) | [sponsored](modules/sponsored.md) | todo | | |
 | M-calendar | Port **calendar** | [port-a-module](playbooks/port-a-module.md) | [calendar](modules/calendar.md) | todo | | |
 | M-tasks | Port **tasks** | [port-a-module](playbooks/port-a-module.md) | [tasks](modules/tasks.md) | todo | | |

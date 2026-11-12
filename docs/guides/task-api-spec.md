@@ -81,8 +81,8 @@ Unknown/extra fields may appear; read fields optionally.
 JSON body (examples of accepted values): `title` (required, non-empty),
 `notes`, `dueDate`, `recurrenceFrequency`/`recurrenceInterval`,
 `priority`, `visibility` (`public` default), `tags` (array, normalized),
-`eventId`, `familyId` (omit/null → your own family; explicit id → must be
-a family you belong to), `assignedTo` (defaults you),
+`eventId`, `familyId` (omit → your own family; `null` → a personal task; explicit id → must be
+a family you belong to; the omit rule is changing, see Q-005 in `docs/rewrite/questions.md`), `assignedTo` (defaults you),
 `focusMinutes` (TaskFocus only: whole focus minutes, ≥ 0; omit → `null`),
 `focusStartedAt` (TaskFocus only: ISO datetime; omit/null → `null` = idle),
 `category` (#280: name string, trimmed, ≤ 80 chars; omit/null/blank → `null`.

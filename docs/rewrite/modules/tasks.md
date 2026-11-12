@@ -129,7 +129,7 @@ Auth for every row is the same session cookie or Bearer `fp_…` token resolved 
 |---|---|---|
 | [#079](../../archive/issues/079-tasks-page-spacing.md) Filter-row, inbox and row-meta spacing polish. | DESIGN | keep markup; do not regress |
 | [#113](../../archive/issues/113-tasks-ts-six-modules-in-one-file.md) tasks.ts split, shared section select, eventCalendarId on every list query, merge the 7 vi… | STRUCTURE | FIX-IN-PORT for structure (the tasks port supersedes it); adding eventCalendarId to other lists is additive and stays a ticket |
-| [#320](../../archive/issues/320-desktop-task-read-panel.md) Desktop task read panel (feature in progress on test). | BEHAVIOUR | arrives through sync-with-test; port what has landed |
+| [#320](../../archive/issues/320-desktop-task-read-panel.md) Desktop task read panel (feature in progress on test). | BEHAVIOUR | port what has landed on `test`; the unfinished part is frozen there (Q-001) and waits for the owner |
 | [#321](../../archive/issues/321-convert-task-to-jira-linear.md) Convert task to Jira/Linear. | OWNER | owner |
 
 ## Plan
@@ -140,7 +140,8 @@ Auth for every row is the same session cookie or Bearer `fp_…` token resolved 
 
 (Surprises, decisions, files kept for unported importers.)
 
-- 2026-11-11 (plan): `GET /api/tasks` serves other members' private and unassigned Family Tasks. This is [Q-005](../questions.md). The S2 goldens pin today's wire unless the owner has answered; if the fix lands on `test` first, it arrives through sync-with-test before S2.
+- 2026-11-11 (owner, [Q-005a](../questions.md)): private Tasks leak through `GET /api/tasks` and the Family Task Board read (`getTasksForFamily`). M-tasks fixes it: both reads hide a private Task from everyone except its owner and, while it is assigned, its assignee. S2 pins today's wire; the fix follows S6 as `fix(tasks): Q-005a hide private tasks from family reads`, with the golden changed first. Do not also apply the CONTEXT list-placement rule for unassigned Family Tasks: the owner did not choose it.
+- Architecture review 2026-11-10 #4 ([report](../../archive/review/architecture-review-2026-11-10.html)): the quick-add preview reads `hasInfo` / `summaryLabel` from the parsing module's result type; no derived 8-way OR in components.
 
 ## Census
 

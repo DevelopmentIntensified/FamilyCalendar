@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>familyCalendar — architecture review (2026-11-10)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+<style>
+	.badge{border-radius:9999px;font-size:11px;padding:2px 10px;font-weight:600}
+	.strong{background:#dcfce7;color:#166534}.worth{background:#fef9c3;color:#854d0e}.spec{background:#f1f5f9;color:#475569}
+	.callout{border-left:4px solid #e2e8f0;padding:8px 12px;background:#f8fafc;font-size:13px}
+</style>
+</head>
+<body class="bg-white text-slate-800 max-w-6xl mx-auto p-8 font-sans">
+<h1 class="text-2xl font-bold mb-1">familyCalendar — Architecture Review</h1>
+<p class="text-slate-500 mb-6">2026-11-10 · scout: read-only walk over GLOSSARY-less corpus, 30+ issue files as churn proxy, hotspot inference. Findings order: the parse vocabulary is duplicated 3×, the Android "back" concept splits across three owners, and 3 more.</p>
+
+<!-- 1 -->
+<section class="border rounded-xl p-6 mb-8 shadow-sm">
+	<div class="flex items-center justify-between mb-3">
+		<h2 class="text-xl font-semibold">1 · The parse vocabulary is hand-duplicated 3×</h2>
+		<span class="badge strong">Strong</span>
+	</div>
+	<p class="text-sm mb-3"><b>Files:</b> <code>src/lib/server/services/naturalLanguageService.ts</code> (2684 ln) · <code>src/lib/utils/taskQuickAdd.ts</code> (599) · <code>apps/android/.../domain/tasks/TaskQuickAdd.kt</code> (309, header says "<i>Port of src/lib/utils/taskQuickAdd.ts… Test vectors mirror taskQuickAdd.test.ts</i>") · support: <code>dateParsing.ts</code>, <code>dateResolution.ts</code>, <code>dateVocab.ts</code>.</p>
+	<p class="text-sm mb-3"><b>Problem:</b> the same day-phrase/roster/priority vocabulary is maintained three times by hand; <code>MONTH_INDEX</code> is rebuilt inside Kotlin even though <code>dateVocab.ts</code> is nominally the source of truth. <code>naturalLanguageService.ts</code> carries ~150 lines of <code>ORDINAL_WORD_MAP</code> plus an inline <code>editDistance</code> — a shallow module: the interface is about as complex as the implementation, everything is one-off plumbing around compromise + regex.</p>
+	<p class="text-sm mb-3"><b>Solution:</b> make the <b>test-vector file</b> the seam, not the code: one shared JSON of parse cases consumed by <code>taskQuickAdd.test.ts</code>, <code>TaskQuickAddTest.kt</code> and <code>QuickParseContractTest.kt</code>; the Kotlin port shrinks to an interpreter over shared vectors; fold ORDINAL_*, TOD_TIMES, fuzzyDayToken into <code>dateVocab.ts</code> so "all three parsers" have one address.</p>
+	<p class="text-sm mb-3"><b>Benefits:</b> highest <i>leverage</i> in the repo: a parse regression can't resurface per-platform; every affected test already exists (contract tests are the seam, guarded today). Plus AI-navigability: one vocabulary file instead of three synchronized constants.</p>
+	<div class="grid grid-cols-2 gap-4">
+			MONTH_INDEX (Kotlin) ← re-implements dateVocab.ts
+</div>
+	Expected [x] coordinates keep    raw [x,z] and unwrap (x,z) to n   wrong [w,h]
+	<pre class="mermaid">flowchart LR
+	subgraph today[" Today: 3 hand-kept copies "]
+	A[a. naturalLanguageService.ts<br/>ORDINAL_WORD_MAP ~150 ln] --> styled
+	X[dateVocab.ts<br/>'source of truth'] -.- styled
+	B[b. taskQuickAdd.ts<br/>own day tables]
+	C[c. TaskQuickAdd.kt<br/>MONTH_INDEX, js day mapping<br/>+ its own port adapters]
+	end
+	subgraph after["After: vectors + vocab as the module "]
+	D[shared parse vectors JSON<br/>one file] --> E[taskQuickAdd.test.ts]
+	D --> F[TaskQuickAddTest.kt]
+	D --> G[QuickParseContractTest.kt]
+	H[dateVocab.ts<br/>+ WEEKDAY/MONTH/ORDINAL codes] --> A2[nlService]
+	H --> B2[taskQuickAdd]
+	H --> C2[Kotlin port =<br/>interpreter]
+	end</pre>
+	</div>
+	<div class="callout mb-2"><b>Deletion test:</b> the port <i>file</i> stays (offline-parse need); the deletion sink is the per-port vocab constants — deleting the duplication concentrates complexity in one shared vocabulary.</div>
+</section>
+
+<!-- 2 -->
+<section class="border rounded-xl p-6 mb-8 shadow-sm">
+	<div class="flex items-center justify-between mb-3">
+		<h2 class="text-xl font-semibold">2 · Two back-stacks, one "back" concept (Android route vs sheet)</h2>
+		<span class="badge worth">Worth exploring</span>
+	</div>
+	<p class="text-sm mb-3"><b>Files:</b> <code>apps/android/…/ui/nav/AppNav.kt</code> · <code>apps/android/…/ui/calendar/CalendarViewModel.kt</code> (~21 public functions, <code>@Suppress("TooManyFunctions")</code>).</p>
+	<p class="text-sm mb-3"><b>Problem:</b> "Back" is split over three owners: <code>AppNav.back()</code> (screen), <code>CalendarViewModel.back()/viewBeforeDay</code> (view), and system-back wiring in <code>FamilyPlanzHost</code>. The <code>sheet: CalendarSheet</code> overlay machine re-implements navigation inside the VM without participating in back history. The VM's interface mirrors its fields — shallow god-module.</p>
+	<p class="text-sm mb-3"><b>Solution:</b> deepen <code>CalendarUiState</code> into a small <code>overlay: Stack&lt;CalendarOverlay&gt;</code>: <code>cellTap/openSheet/closeSheet/back/setSelectionMode</code> collapse into push/pop; <code>viewBeforeDay</code> dies; AppNav stays a real <i>seam</i> (it is already test-driven standalone).</p>
+	<p class="text-sm mb-3"><b>Benefits:</b> one back concept, one set of tests: <code>AppNavTest</code>, <code>BackNavUiTest</code>, <code>ShellNavUiTest</code>, <code>DayViewRangeSelectTest</code> all survive nearly unchanged because they pin contracts, not field placement. #292/test-suite floor keeps working.</p>
+	<pre class="mermaid">flowchart LR
+	subgraph current["Today"]
+	A[user taps cell] --> B[openSheet: sheet field]
+	B --> C[system back = AppNav.back screen]
+	D[viewBeforeDay + back() view] -.->|2nd back concept| C
+	E[sheet ignores history] -.->|3rd| C
+	end
+	subgraph deepened["After: one overlay stack"]
+	F[cellTap] --> G[push CalendarOverlay.Sheet]
+	G --> H[system back pops overlay;<br/>then route back;<br/>one stack drives AppNav]
+	end</pre>
+	<div class="callout mb-2"><b>Deletion test:</b> <code>viewBeforeDay</code> is deletable against a pushed view entry in one stack — a deletion that concentrates the back concept into one module.</div>
+</section>
+
+<!-- 3 -->
+<section class="border rounded-xl p-6 mb-8 shadow-sm">
+	<div class="flex items-center justify-between mb-3">
+		<h2 class="text-xl font-semibold">3 · Day Dashboard: one good seam — stop wide-mirroring the wires into props</h2>
+		<span class="badge worth">Worth exploring</span>
+	</div>
+	<p class="text-sm mb-3"><b>Files:</b> <code>src/lib/server/db/actions/dashboard.ts</code> · <code>src/lib/server/services/dashboardData.ts</code> (deep: one composition seam serving <code>+page</code> and <code>GET /api/dashboard</code> — keep it) · <code>src/lib/components/dashboard/DayDashboard.svelte</code>.</p>
+	<p class="text-sm mb-3"><b>Problem:</b> the leak is downstream: DayDashboard re-declares the full wire shape (tasks 8 fields, watch out for the assignment gaps), and <code>openEvent</code> needs a chained <code>as unknown as Event</code> cast + oxlint suppression because GlanceEvent ⊄ Event.</p>
+	<p class="text-sm mb-3"><b>Solution:</b> let <code>loadDashboard</code> return a typed DashboardModel and have cards type props as <code>DashboardModel['kidsSchedule']</code> — one definition, zero casts; <code>RankableTask</code>'s drift goes back to <code>taskPriority.ts</code>.</p>
+	<p class="text-sm mb-3"><b>Benefits:</b> empathy not needed: pure type-level, all 6 card tests + 2 server tests survive. The next card addition stops needing a bounce across 4 files.</p>
+	<pre class="mermaid">flowchart LR
+	subgraph today["Today: wires duplicated as props"]
+	R[loadDashboard] --> W[hand-mirrored TS types<br/>x3, cast chains]
+	W --> C[DayDashboard + cards]
+	end
+	subgraph deepened["After"]
+	R2[DashboardModel type] --> C2[cards consumer]
+	C2 -.->|styles via DashboardModel[x]| C3[+page]
+	end</pre>
+	<div class="callout mb-2"><b>Deletion test:</b> deleting dashboardData.ts would push ~200 guarded lines into the route — keep. Delete the hand-mirrored prop types instead; that is the concentration.</div>
+</section>
+
+<!-- 4 -->
+<section class="border rounded-xl p-6 mb-8 shadow-sm">
+	<div class="flex items-center justify-between mb-3">
+		<h2 class="text-xl font-semibold">4 · hasInfo pasted in 3 places (web + Kotlin + failure paths)</h2>
+		<span class="badge worth">Worth exploring</span>
+	</div>
+	<p class="text-sm mb-3"><b>Files:</b> <code>TaskQuickAddPreview.svelte</code> ($derived 8-OR predicate), <code>TaskQuickAdd.kt</code> (getter, same 8 ORs), the AddTaskCard / QuickAddPanel consumers.</p>
+	<p class="text-sm mb-3"><b>Problem:</b> classic "predicates pasted, not a module": next parsed field (reminderMinutes, recurringCount) must update 3 sites, and the preview's display strings exist in two dialects.</p>
+	<p class="text-sm mb-3"><b>Solution:</b> put hasInfo/summaryLabel ON the result type (TS) / data class (Kotlin) and drop the derived copies; commit under the vector tests.</p>
+	<pre class="mermaid">flowchart LR
+	subgraph today
+	P[ParsedTaskResult] --> Q[component $derived x2<br/>Kotlin getter x1]
+	end
+	subgraph deepened
+	R[TaskQuickAddResult<br/>+.hasInfo +.summaryLabel] --> S[components = dumb renders]
+	T[vector tests] -.guard.-> R
+	end</pre>
+	<div class="callout mb-2"><b>Deletion test:</b> deleting the derived predicate changes UX (no); but as duplicate it is deletable and re-centered on the result type.</div>
+</section>
+
+<!-- 5 -->
+<section class="border rounded-xl p-6 mb-8 shadow-sm">
+	<div class="flex items-center justify-between mb-3">
+		<h2 class="text-xl font-semibold">5 · Recurrence/rollover vocabulary furcated (3 weekday enums)</h2>
+		<span class="badge spec">Speculative</span>
+	</div>
+	<p class="text-sm mb-3"><b>Files:</b> naturalLanguageService.ts (`MONTH_MAP`, `WEEK_ORDER`), taskQuickAdd.ts/dateResolution.ts (resolver), dateVocab.ts ("source of truth" that isn't), Kotlin takeover.</p>
+	<p class="text-sm mb-3"><b>Problem:</b> three weekday/mo-day token tables coexist, and the Kotlin lookup matches by 3-letter prefix — a rule that silently diverges. The rollover rule itself is centralized (good); the vocabulary around it isn't.</p>
+	<p class="text-sm mb-3"><b>Solution:</b> extend dateVocab.ts to own WEEKDAY + MONTH codes; the port keeps ONE vocab block. Merge the typo-distance family behind resolveWeekdayToken.</p>
+	<pre class="mermaid">flowchart LR
+	subgraph today
+	A[nlService WEEK_ORDER MO-first]
+	B[taskQuickAdd weekday facts]
+	C[Kotlin take-3 prefix match]
+	end
+	subgraph deepened
+	V[dateVocab.ts + WEEKDAY/MONTH codes] --> A2[nlService]
+	V --> B2[resolvers]
+	V --> C2[Kotlin vocab block]
+	end</pre>
+	<div class="callout mb-2"><b>Deletion test:</b> WEEK_ORDER likely deletable by reusing WEEKDAY_FULL order; keep resolveMonthDay (deep, tested). Merging concentrates the rollover-vocabulary.</div>
+</section>
+
+<!-- 6 -->
+<section class="border rounded-xl p-6 mb-8 shadow-sm">
+	<div class="flex items-center justify-between mb-3">
+		<h2 class="text-xl font-semibold">6 · Form-write dispatch lives only in VM wiring</h2>
+		<span class="badge spec">Speculative</span>
+	</div>
+	<p class="text-sm mb-3"><b>Files:</b> <code>CalendarViewModel.kt:submitForm()</code> (TASK/edit/create 3-way dispatch), web twins <code>EventFormModal</code>/<code>EditTaskDialog.svelte</code>.</p>
+	<p class="text-sm mb-3"><b>Problem:</b> the bug surface of the whole-call-wired dispatch lives at the call site; the whole form model is contract-tested but the <i>submit</i> path only runs under UI tests.</p>
+	<p class="text-sm mb-3"><b>Solution:</b> <code>CalendarForm.submitPlan(zone): FormSubmit?</code> sealed plan → the VM's branch collapses to <code>writes.submit(plan)</code>; the same shape lands on the web form over time.</p>
+	<pre class="mermaid">flowchart LR
+	subgraph today
+	V[VM.submitForm, 3way when] --> W[createTask]
+	V --> X[updateEvent]
+	V --> Y[createEvent]
+	end
+	subgraph deepened
+	F[CalendarForm.submitPlan<br/>Sealed FormSubmit] --> VM[writes.submit] --> O[one branch each]
+	end</pre>
+	<div class="callout mb-2"><b>Deletion test:</b> deleting the three-branch when only leaves the writes module; the deletion concentrates the dispatch under the model's contract tests.</div>
+</section>
+
+<div class="border-t-2 border-slate-200 mt-10 pt-6">
+	<h2 class="text-lg font-bold mb-3">Top recommendation</h2>
+	<p class="text-sm">Do <b>#1, the shared parse vectors + one dateVocab</b> first: 3 languages of the same grammar are the highest <i>leverage</i> (a parse regression stops being triple-dangerous) at the lowest risk — it's purely additive wrappers over already-tested code paths, no semantic risk, and contract tests around the wire IO already exist. Immediately after, take however much #2 you need to keep working on overlays — since the Android VM is under <code>@Suppress("TooManyFunctions")</code>, the overlay stack has a forcing function now.</p>
+	<p class="text-sm mt-2"><b>Bundle note:</b> every candidate leaves overlapping tests intact; no ADRs exist that would forbid any of them; the corpus has no GLOSSARY.md — after the owner picks, I'd add a GLOSSARY file as a follow-up that captures any new name (e.g. "Date vocabulary" or "Overlay stack") realized by their chosen candidate.</p>
+</div>
+</body>
+</html>

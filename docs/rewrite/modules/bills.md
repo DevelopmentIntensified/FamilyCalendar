@@ -2,7 +2,7 @@
 
 **domain** · rank 6 · port #7 · home: `src/lib/domains/bills/` · README after the port: `src/lib/domains/bills/README.md` (written in S1)
 
-PARKED (bills archived 2026-09-25): bill category vocabulary + bills/receiptItems/itemTags tables only.
+PARKED (bills archived 2026-09-25). Owner answer [Q-002](../questions.md): delete-only. The bill parser and the category list go; only the tables remain (in kernel after K-04).
 
 - **May import:** kernel, identity, billing, alerts, family, dashboardModules.
 - **Owns tables:** `bills`, `receiptItems`, `itemTags`.
@@ -25,7 +25,7 @@ PARKED (bills archived 2026-09-25): bill category vocabulary + bills/receiptItem
 
 Behaviour the port must keep (each becomes an Invariant in the README, pinned by a test):
 
-- PARKED: only the tables and the closed category vocabulary (housing, utilities, subscriptions, insurance, tax, fees, other) move. No new behaviour.
+- DELETE-ONLY (Q-002). Remove `parseBillQuickAdd` and the bill grammar from `src/lib/server/services/naturalLanguageService.ts` (the `BILL_CATEGORY_SET` block through the end of `parseBillQuickAdd`) with their tests, `src/lib/data/categories.ts` with `categories.test.ts`, and the `BILL_CATEGORIES` re-export in the legacy schema file. Afterwards `git grep -n "data/categories\|BILL_CATEGORIES\|parseBillQuickAdd" -- src e2e` finds nothing outside `_attic/`. The `bills`, `receiptItems` and `itemTags` tables stay exactly as they are (no DDL).
 
 ## Behaviour inventory (draft — verify in S1)
 

@@ -1,6 +1,6 @@
 # Playbook: rebuild pages, components and client state (step S7)
 
-S7 rebuilds the UI of a module; legacy UI files are reference only. Kernel tasks K-07 (client: api client, toasts), K-08 (ui primitives) and K-10 (visual check) must be `done` first.
+S7 rebuilds the UI of a module; legacy UI files are reference only. Kernel tasks K-07 (client: api client, toasts), K-08 (ui primitives), K-10 (page harness, visual check) and K-11 (perf check) must be `done` first.
 
 What must survive is **what users see on approved pages**: layout, copy, the interactions and their feedback. The legacy markup, component split, Tailwind classes and test ids are not contracts. Keep a `data-testid` only where an e2e spec uses it (`git grep data-testid=\"x\" -- e2e`).
 
@@ -92,6 +92,7 @@ src/routes/…/+page.svelte     wiring only: passes data + framework functions i
    ```
 
 8. **Visual check:** `npm run visual:check -- <m>` compares with the baseline from step 1 at 390 px and 1280 px. Fix every difference, or list it in the sheet's Notes as intentional (for example an approved design ticket implemented on purpose, named by number).
+9. **Perf check:** `npm run perf:check -- <m>`. Every page of the module must be within its load budget ([ADR 0010](../../adr/0010-performance-budget.md)); follow [conventions › Performance](../../architecture/conventions.md#performance). A page over a hard limit is a failing step. A page that misses a target gets a line in the sheet's Notes saying why.
 
 ## Tests
 
@@ -101,6 +102,7 @@ src/routes/…/+page.svelte     wiring only: passes data + framework functions i
 | state classes | `*.state.test.ts` | unit (node) | fake api + `memoryToasts()`; no DOM |
 | components | `ui/*.svelte.test.ts` | ui (jsdom) | few, synchronous; what the user sees + which callback fired; pass `enhance = () => ({})` where needed |
 | look | `npm run visual:check -- <m>` | Playwright | approved pages only |
+| speed | `npm run perf:check -- <m>` | Playwright | every page the module owns |
 
 No snapshot dumps and no `vi.mock` (rule R9).
 

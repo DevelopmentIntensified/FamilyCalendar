@@ -1,6 +1,6 @@
 # Playbook: merge `test` into `rewrite/v2`
 
-`test` stays live during the rewrite (bug fixes, Android work). Bring its changes in before each module port, and whenever `git log --oneline HEAD..origin/test` is non-empty.
+Website and server code on `test` is frozen until cutover, except urgent fixes (owner, [Q-001](../questions.md)). Android work continues there. So a merge usually brings `apps/android/**` changes and, rarely, an urgent fix. An urgent fix to a module this branch has already rebuilt is the "deleted" row in the conflict table below. Merge before each module port, and whenever `git log --oneline HEAD..origin/test` is non-empty.
 
 1. Start clean: `git status` shows nothing to commit.
 2. Fetch and merge:

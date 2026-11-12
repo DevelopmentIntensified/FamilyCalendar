@@ -7,7 +7,7 @@ Tests sit at seams (public interfaces), so a change can be checked one section a
 | file name | project | environment | has a database? |
 |---|---|---|---|
 | `src/lib/{kernel,domains,screens,app}/**/*.test.ts` | `unit` | node | no. `DATABASE_URL` points at a closed port, so a stray query fails fast |
-| `…/**/*.db.test.ts` | `db` | node | yes: `familycalendar_v2_test` on the local Docker Postgres, rebuilt from `sql/migrations` at the start of every run, one file at a time |
+| `…/**/*.db.test.ts` | `db` | node | yes: `familycalendar_v2_test` on the local Docker Postgres (or `familycalendar_v2_test_<id>` when `V2_TEST_DB` is set, one per parallel worktree), rebuilt from `sql/migrations` at the start of every run, one file at a time |
 | `…/**/*.svelte.test.ts` | `ui` | jsdom | no; kept for component rendering only (jsdom costs ~0.3–0.7 s per legacy component test) |
 | anything else under `src/` | `server` / `client` | legacy suites | the legacy harness (`familycalendar_test`) |
 
@@ -93,8 +93,11 @@ Any change to a parser (event quick-add, task quick-add, date vocabulary, new ke
 | `npm run arch` | rules R1–R15 | after every edit batch (about 5 s) |
 | `npm run docs:check` | module READMEs cover their files, and links resolve | after every edit batch |
 | `npm run test:mod -- <m>` | the module you touched | after every edit batch (seconds) |
-| `npm run typecheck` | zero type errors in v2 code; legacy count ≤ baseline | before commit (~90 s) |
-| `npm run gate` | arch + docs + typecheck + all v2 tests + legacy tests affected by the change (`test:affected`) | before commit |
+| `npm run test:affected [-- <base>]` | only the tests whose imports reach a changed file: the changed module's tests and everything downstream of it. Without a base it looks at uncommitted changes; with one, at everything since that commit | after every edit batch |
+| `npm run typecheck` | zero type errors in v2 code; legacy count ≤ baseline | before commit (~40 s) |
+| `npm run gate` | arch + docs + typecheck + `test:affected`. It never runs the whole suite (owner directive 2026-11-11) | before commit |
 | `npm run gate:push` | gate + `npm run build:safe` (placeholder secrets, local DB, migrations off) | before push (never push a broken build) |
+| `npm run perf:check -- <m>` | the module's pages within their load budgets ([ADR 0010](../adr/0010-performance-budget.md)) | S7, before the module is done |
+| `npm run test:v2` | every v2 test | rarely: after changing sql/migrations or the db test infrastructure (not import-reachable), and before cutover |
 
 Playwright: run it directly (`npx playwright test`). Don't use the deprecated `playwright-cli` skill.

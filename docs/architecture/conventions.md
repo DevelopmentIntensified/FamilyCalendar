@@ -64,6 +64,27 @@ export function nextCursorDue(due: string, schedule: Schedule, now: Date): strin
 - When writing Svelte, follow the Svelte MCP workflow in [docs/guides/svelte-mcp.md](../guides/svelte-mcp.md) and run the autofixer until it is clean.
 - Content rule (owner directive, also in [AGENTS.md](../../AGENTS.md)): family imagery is man + woman + children only (👪, 👨‍👩‍👧‍👦).
 
+## Depth
+
+A module earns its place by hiding a lot of behaviour behind a small interface.
+
+- Each entry file exports few things. Before adding an export, try to fold it into an existing one: one `listTasks(ctx, actor, filter)` beats seven visibility queries.
+- Use the deletion test: if deleting a function only moves its body, unchanged, into each caller, it is a pass-through. Inline it.
+- Invariants live behind the interface, never at the call site. The 2026-09-30 and 2026-11-10 architecture reviews ([report](../archive/review/architecture-review-2026-11-10.html)) kept finding the same bug class: a rule pasted into several callers.
+- The interface is the test surface: tests call the entry files, not internal helpers.
+- Types flow from their source. A screen's load returns one typed model, and components type their props from it (`DashboardModel['kidsSchedule']`). Never hand-mirror a wire shape.
+
+## Performance
+
+Budgets and how they are measured: [ADR 0010](../adr/0010-performance-budget.md). Check with `npm run perf:check -- <m>`.
+
+- **Queries:** a page load runs a small, fixed number of queries, in parallel where they are independent, and never one per row. Every list is bounded by what the page shows (a date window, a limit). No writes in the read path.
+- **Shared scope loads once:** user settings, family and roster come from the layout. Pages read them with `parent()`.
+- **No remote calls in the critical path.** Slow or optional sections stream: return the promise and render a skeleton.
+- **Small payloads:** send only the fields the screen renders.
+- **Small bundles:** modals, sheets, editors and rarely used views load with dynamic `import()` on first use. Server-only libraries never reach the client. A new client dependency needs a line in the module README saying what it costs.
+- **Cheap rendering:** group rows once (a `Map` by day or key) instead of filtering per cell. No luxon parsing or formatting inside per-cell loops. Key every `{#each}`.
+
 ## Comments
 
 - Explain *why*: the domain rule, the incident, the ticket (`#214`; old tickets are in [docs/archive/issues/](../archive/issues/)). Do not restate the code.

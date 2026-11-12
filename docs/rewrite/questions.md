@@ -22,21 +22,22 @@ Options:
 A. Keep `test` live; the rewrite merges it before each module ([sync-with-test.md](playbooks/sync-with-test.md)). Cost: re-applying ported-module changes.
 B. Freeze web/server changes on `test` except urgent fixes. Cost: no web features until cutover.
 
-Default applied: **A**.
+Default applied before the answer: **A**.
 
-Answer:
+Answer (owner, 2026-11-11): **B.** Website and server code on `test` is frozen until cutover, except urgent fixes. Android work continues on `test`. The rewrite still merges `origin/test` before each module, which now brings in mostly Android changes and the odd urgent fix.
 
 ## Q-002 Parked modules: port or delete (plan, 2026-11-11)
 
-Context: `meals` (owner-parked) and `bills` (archived to `_attic/money`) still have code, tables and one endpoint (`/api/meals`).
+Context: `meals` (owner-parked) and `bills` (archived to `_attic/money`) still have code, tables and one endpoint (`/api/meals`). `MealsCard` is mounted nowhere (only its own test imports it), Android never calls `/api/meals`, and `parseBillQuickAdd` has no caller outside its tests.
 
-Options:
-A. Port as-is: tables and vocabulary for bills; the endpoint and card for meals. Cost: about 400 LOC carried along.
-B. Delete the meals endpoint and card; keep only the tables. Cost: removes a parked feature (reversible from git).
+Options asked:
+A. Delete the unused code: the meals endpoint, card and queries, plus the bill parser and category list. Keep both tables (no database changes), and keep `meals` in the Dashboard Module list so the API the phone sees is unchanged.
+B. Port everything as it is.
+C. Delete the bill code; port meals as it is.
 
-Default applied: **A**.
+Default applied before the answer: port as-is (option B above).
 
-Answer:
+Answer (owner, 2026-11-11): **A.** M-bills and M-meals become delete-only tasks. Removing `/api/meals` (GET/POST/DELETE) is an owner-approved wire change; no client calls it.
 
 ## Q-003 Blob store (#180) before the `sponsored` port (plan, 2026-11-11)
 
@@ -63,14 +64,32 @@ Default applied: **C**. K-05's preview check waits for this answer.
 
 Answer:
 
-## Q-005 `GET /api/tasks` serves private and unassigned Family Tasks to every member (plan, 2026-11-11)
+## Q-005 Private Tasks reach the whole family (plan, 2026-11-11)
 
-Context: `POST /api/tasks` with `familyId` absent stores the Task under the caller's family, whatever its `visibility` (`src/routes/api/tasks/+server.ts:142-166`). `GET /api/tasks` returns `userId = me OR familyId = myFamily` with no visibility or assignment filter (`src/lib/server/db/actions/tasks/queries.ts:27-30,66`). Only the `?eventId=` branch drops other people's private rows (`+server.ts:72`). Result: a member's private Task created through the API without `familyId: null` reaches every family member's phone. It also breaks CONTEXT's rule that a Family Task "appears on an individual's list only when assigned to them". This is live on `test` and `main`, not only in the rewrite. Whether any such rows exist in production is unchecked.
+Context (verified in code, live on `test` and `main`):
 
-Options:
-A. Fix it on `test` now as a normal ticket: filter `GET /api/tasks` to the CONTEXT rules (own rows, live assignments, Family Tasks assigned to me, no private rows of others). The rewrite picks it up through [sync-with-test.md](playbooks/sync-with-test.md). Cost: Android lists change shape (fewer rows); check the phone's Family tab, which may rely on the extra rows.
-B. Keep the wire through the port and fix after cutover. Cost: the leak stays open meanwhile.
+- The phone leaves `familyId` out for personal Tasks: `ApiFactory.json` has `explicitNulls = false` and `encodeDefaults = false`, and `CreateTaskRequest.familyId` defaults to null (`apps/android/app/src/main/kotlin/com/familyplanz/app/data/TaskApi.kt:79-93`).
+- `POST /api/tasks` reads an absent `familyId` as the caller's family (`src/routes/api/tasks/+server.ts:142-150`). So every Task a family member creates on the phone is a Family Task, `#private` ones included.
+- The web sends `familyId: null` on purpose (`src/lib/client/taskSubmit.ts:57-59`). The event checklist and the event form send only `{title, eventId}` (`ChecklistSection.svelte:76-79`, `EventFormModal.svelte:455-458`), so those Tasks are Family Tasks too.
+- Neither reader of family rows checks visibility: the phone list `GET /api/tasks` (`src/lib/server/db/actions/tasks/queries.ts:27-30,66`) and the web Family Task Board (`getTasksForFamily`, `queries.ts:118`). Only the `?eventId=` branch drops other people's private rows (`+server.ts:72`).
 
-Recommendation: **A** (privacy). Default applied: none. M-tasks keeps today's behaviour in its S2 goldens until answered.
+### Q-005a Stop the leak: how and when
 
-Answer:
+Options asked:
+A. Now on `test`: both readers hide other members' private Tasks.
+B. Now on `test`: the full CONTEXT list rules.
+C. In the rewrite's tasks module.
+
+Answer (owner, 2026-11-11): **C.** M-tasks fixes it with the read-side rule only (option A's content, not B's). Both readers hide a private Task from everyone except its owner and, while it is assigned, its assignee (CONTEXT "Private Task"). The S2 goldens pin today's wire first. The fix lands after S6 as an owner-approved wire change ([port-a-module.md › S6](playbooks/port-a-module.md#s6-http-and-route-wiring)). The leak stays open on `test` and `main` until cutover.
+
+### Q-005b Which side fixes the filing (outside the rewrite)
+
+Answer (owner, 2026-11-11): **both.** The phone sends `familyId: null` for personal Tasks, and the server reads a missing `familyId` as personal.
+
+- Both are ordinary fixes outside the rewrite, scheduled by the owner. The Android part can land on `test` at any time. Under the Q-001 freeze, the server part lands on `test` only if the owner treats it as an urgent fix.
+- The rewrite does not make the server change on its own. If the change reaches `test` before M-tasks S2, the goldens pin it like any other wire.
+- `docs/guides/task-api-spec.md` wrongly said `null` also means "your family". It was corrected on this branch on 2026-11-11.
+
+### Q-005c Repair rows already filed wrongly (outside the rewrite)
+
+Parked with Q-005b. It is an owner decision about production data, not rewrite work.

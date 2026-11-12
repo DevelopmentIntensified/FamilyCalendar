@@ -2,7 +2,7 @@
 
 You are executing the v2 rewrite of the Family Planz website and server. The Android app (`apps/android`) is out of scope: never edit it. Its HTTP contract is sacred.
 
-The design is in [docs/architecture/README.md](../architecture/README.md). The why is in the ADRs (0003–0009) in [docs/adr/](../adr/). This folder is the plan. Execute it one task at a time.
+The design is in [docs/architecture/README.md](../architecture/README.md). The why is in the ADRs (0003–0010) in [docs/adr/](../adr/). This folder is the plan. Execute it one task at a time. The rewrite's goals: readable code, deep modules ([conventions › Depth](../architecture/conventions.md#depth)) and fast pages ([ADR 0010](../adr/0010-performance-budget.md)).
 
 ## Setup (once per machine)
 
@@ -23,7 +23,7 @@ The design is in [docs/architecture/README.md](../architecture/README.md). The w
 
    Read nothing else unless the playbook points to it.
 4. **Do.** Follow the playbook steps in order. Each step ends with a check command; do not start the next step until it is green.
-5. **Verify.** Run `npm run gate`: arch, docs, types, the v2 tests, and only the legacy tests affected by your change. Never run the whole legacy suite; it is reference material, not a gate (see [testing.md](../architecture/testing.md#legacy-tests-are-reference-not-a-gate)). Before pushing, run `npm run gate:push`, which adds `npm run build:safe`: a build with placeholder secrets and the local DB. Never build this worktree with a copied `.env`, because the main checkout's `.env` points at production.
+5. **Verify.** Run `npm run gate`: arch, docs, types, and only the tests affected by your change, meaning the changed module's tests and everything downstream of it. Never run the whole suite, legacy or v2 (see [testing.md](../architecture/testing.md#gates)). Before pushing, run `npm run gate:push`, which adds `npm run build:safe`: a build with placeholder secrets and the local DB. Never build this worktree with a copied `.env`, because the main checkout's `.env` points at production.
 6. **Record.**
    - Tick the step in the module sheet.
    - Set the ledger row to `done` and fill in the commit sha and a short note.
@@ -46,6 +46,7 @@ The design is in [docs/architecture/README.md](../architecture/README.md). The w
 |---|---|
 | the task list and progress | [LEDGER.md](LEDGER.md), `npm run census` |
 | phases, order, risks, cutover | [plan.md](plan.md) |
+| running the ledger with subagents (orchestrator) | [playbooks/orchestrate.md](playbooks/orchestrate.md) |
 | how to port one module | [playbooks/port-a-module.md](playbooks/port-a-module.md) |
 | golden contract tests | [playbooks/characterize-endpoints.md](playbooks/characterize-endpoints.md) |
 | pages, components, client state | [playbooks/port-ui.md](playbooks/port-ui.md) |

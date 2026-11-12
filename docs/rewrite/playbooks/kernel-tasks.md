@@ -1,4 +1,4 @@
-# Playbook: kernel tasks (K-04 … K-10)
+# Playbook: kernel tasks (K-04 … K-11)
 
 Kernel tasks build shared pieces once, before the modules that need them. Each new kernel file gets a test and a row in the [kernel README](../../../src/lib/kernel/README.md) Files table, in the same commit.
 
@@ -127,15 +127,52 @@ kernel/ui components never import `$app/*` or any domain.
 
 ## k-10
 
-**K-10: visual baseline harness**, the acceptance tool for every UI rebuild (S7).
+**K-10: page harness**, shared by the visual check (here) and the perf check (K-11). It needs K-05's `runMigrations`.
 
-1. Add `e2e/visual/visual.spec.ts`. It is a Playwright spec that, for each page listed in `e2e/visual/pages.ts` (`{ module, path, seed }`), signs in a seeded user and screenshots the page at 390×844 and 1280×800. For login it reuses the session-cookie fixture in `e2e/testUtils.ts`. Seeds create deterministic data: fixed names and dates via a fixed clock, so screenshots are stable.
-2. Add npm scripts:
-   - `visual:baseline -- <module>` runs the spec with `--update-snapshots`, filtered to the module's pages, against a local build of the current code (`npm run build:safe && npm run preview` against the local DB).
-   - `visual:check -- <module>` runs the same pages and compares with `maxDiffPixelRatio: 0.01`.
+1. `e2e/pages/catalog.ts` lists every page route from `npm run census`, grouped by module. Each entry is `{ module, name, path, seed, ready, mask? }`:
+   - `seed` names a function in `e2e/pages/seeds.ts`;
+   - `ready` is the selector that appears when the page is usable, for example `[data-testid="calendar-grid"]`;
+   - `mask` lists selectors of regions that change on their own (clocks, "today", relative dates), which screenshots hide.
+2. `e2e/pages/seeds.ts`: each seed creates a fresh user (unique email per run, fixed names, zone `America/New_York`) and the rows the page shows. Dates are relative to today in that zone. Seeds write rows through the kernel test fixtures or plain inserts; they never call legacy services.
+3. `e2e/pages/session.ts`: `openAs(page, seedName)` runs the seed and signs in by session cookie. Reuse `getSessionCookie` from `e2e/testUtils.ts`.
+4. `e2e/pages/serve.ts` (run with `npx tsx`):
+   - drop and create the database `familycalendar_pages` on 127.0.0.1:5433;
+   - apply migrations with the kernel `runMigrations` (K-05);
+   - start `vite preview --port 4174` on the existing build with `DATABASE_URL` pointing at that database and `DATABASE_DISABLE_MIGRATIONS=1`.
+5. `playwright.pages.config.ts`: a separate config (the main `playwright.config.ts` stays as it is). `testDir: 'e2e/pages'`, webServer `npx tsx e2e/pages/serve.ts`, baseURL `http://localhost:4174`, and two projects: desktop (1280×800) and mobile (Pixel 7, 390 px wide). The test process gets the same `DATABASE_URL`.
+6. `e2e/pages/visual.spec.ts`: for each catalog page of the module named by the `PAGES_MODULE` env (all pages when it is unset): `openAs`, wait for `ready`, then `expect(page).toHaveScreenshot()` with the masks, animations disabled and `maxDiffPixelRatio: 0.01`. Baselines live in `e2e/pages/__screenshots__/` and are committed.
+7. npm scripts:
+   - `pages:build` runs `npm run build:safe`;
+   - `visual:baseline -- <module>` and `visual:check -- <module>` run the spec for that module, with `--update-snapshots` for the baseline. They go through a small node script that sets `PAGES_MODULE`.
+8. `e2e/pages/README.md` lists every file (what, why, how it is tested). Add the harness to [testing.md](../../architecture/testing.md#what-to-test-where).
 
-   Baselines live in `e2e/visual/__screenshots__/<module>/` and are committed.
-3. Seed `pages.ts` with every page in the census route lists, grouped by module.
-4. Document it in [testing.md](../../architecture/testing.md#what-to-test-where) and add the scripts to the kernel README.
+Baseline and check must run on the same day, because pages show today's date. If more time passes, recreate the baseline from the module's S2 commit in a temporary worktree.
 
-**Done when:** `npm run visual:baseline -- feedback` then `npm run visual:check -- feedback` passes twice in a row on an unchanged tree (stable screenshots).
+**Done when:**
+- `npx playwright test -c playwright.pages.config.ts --list` lists every catalog page in both projects;
+- after `npm run pages:build`, `npm run visual:baseline -- groceries` and then `npm run visual:check -- groceries` pass twice in a row on an unchanged tree.
+
+## k-11
+
+**K-11: perf harness** ([ADR 0010](../../adr/0010-performance-budget.md)), on the K-10 page harness.
+
+1. `e2e/pages/perf.spec.ts`: for each catalog page of `PAGES_MODULE` (all pages when it is unset), in two profiles:
+   - desktop: 1280×800, no CPU throttle, network 50 Mbps down / 10 Mbps up / 20 ms RTT (CDP `Network.emulateNetworkConditions`);
+   - mobile: Pixel 7 emulation, CPU 4× slowdown (CDP `Emulation.setCPUThrottlingRate`), 12 Mbps / 4 Mbps / 50 ms RTT.
+
+   For each page and profile, take the median of 5 runs of:
+   - **first visit:** a fresh browser context, so the cache is empty. Record ready time, TTFB (navigation timing), LCP (`PerformanceObserver`), and transferred bytes for initial JS, HTML and page data;
+   - **repeat visit:** a second `page.goto` in the same context. Record ready time and LCP.
+2. `e2e/pages/budgets.ts`: the ADR 0010 targets and hard limits, plus per-page JS ceilings read from `e2e/pages/perf-baseline.json`.
+3. Output: a table per page on the console and `e2e/pages/perf-results/<module>.json` (gitignored). The run fails when a hard limit is exceeded:
+   - desktop ready, first or repeat visit, above 1000 ms;
+   - mobile ready, repeat visit, above 1000 ms;
+   - TTFB above 300 ms;
+   - initial JS above the page's baseline ceiling.
+4. npm scripts:
+   - `perf:check -- <module>`;
+   - `perf:baseline`, which measures all pages and writes `e2e/pages/perf-baseline.json` plus `docs/rewrite/perf-baseline.md`: every page's numbers, slowest first, with the targets beside them.
+5. Run `perf:baseline` on the current (legacy) code and commit both files. Legacy pages may already exceed the hard limits; that is what the rebuilds fix. Hard limits apply from each module's S7.
+6. Document it in `e2e/pages/README.md` and [testing.md](../../architecture/testing.md#gates).
+
+**Done when:** the baseline covers every catalog page, and two runs of `npm run perf:check -- groceries` give medians within 15% of each other.
