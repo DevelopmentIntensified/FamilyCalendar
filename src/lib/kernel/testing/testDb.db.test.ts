@@ -85,7 +85,7 @@ describe('truncateAll (committed mode)', () => {
 			testDb()
 				.insert(groceryItems)
 				.values({ userId: `missing-${uniqueSuffix()}`, name: 'Orphan', nameKey: 'orphan' })
-		).rejects.toThrow(/foreign key/i);
+		).rejects.toMatchObject({ cause: { code: '23503' } }); // foreign_key_violation; drizzle wraps the driver error
 	});
 
 	it('resets in under 250 ms', async () => {
