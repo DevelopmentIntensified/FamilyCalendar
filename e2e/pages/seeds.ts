@@ -8,13 +8,16 @@
 // Identity is FIXED per seed, not random per run: the account rail, the family
 // roster and every avatar colour hash the user id (kernel/ui colourHash), so a
 // random id or address changes the pixels and the committed baseline could
-// never match on the next run. "Fresh" comes from deleting the seed's previous
-// rows before inserting: every run starts from the same, clean state.
+// never match on the next run. "Fresh" has two parts: deleting the seed user
+// cascades every row that hangs off it, and the rows of a table that does not
+// cascade (no user FK, or `onDelete: 'set null'`) are deleted by primary key
+// before they are inserted again. Every run starts from the same, clean state.
 //
 // Doc: e2e/pages/README.md
 import { createHash } from 'node:crypto';
 import { DateTime } from 'luxon';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
+import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { createJWT } from 'oslo/jwt';
 import { TimeSpan } from 'oslo';
 import { connectDb, type Db } from '$lib/kernel/db/database.server';
@@ -68,6 +71,22 @@ type SeedContext = { db: Db; now: DateTime; seed: string };
 /** Stable row id: 15 hex chars, derived from the seed-relative name. */
 function pageId(name: string): string {
 	return createHash('sha256').update(`family-planz:pages:${name}`).digest('hex').slice(0, 15);
+}
+
+/**
+ * Delete exactly the rows a seed is about to insert again, by primary key.
+ * Only tables whose rows do not cascade from the seed user's delete need it:
+ * `bugReports` keeps its rows (`onDelete: 'set null'`) and `unmatchedPhrases`
+ * has no user FK, so the previous run's rows would survive the user delete and
+ * the second insert would hit the primary key.
+ */
+async function deleteByIds(
+	ctx: SeedContext,
+	table: PgTable,
+	idColumn: PgColumn,
+	ids: readonly string[]
+): Promise<void> {
+	await ctx.db.delete(table).where(inArray(idColumn, ids));
 }
 
 /** Stable address per seed (see the header note on why it is not random). */
@@ -141,7 +160,6 @@ async function insertUser(ctx: SeedContext, options: NewUserOptions = {}) {
 
 async function insertPersonalCalendar(ctx: SeedContext, userId: string, suffix = 'user') {
 	const id = pageId(`${ctx.seed}:${suffix}:calendar`);
-	await ctx.db.delete(calendars).where(eq(calendars.id, id));
 	await ctx.db.insert(calendars).values({ id, ownerId: userId });
 	return id;
 }
@@ -230,7 +248,6 @@ async function insertCalendarEvents(ctx: SeedContext, userId: string, calendarId
 		recurrenceCount: event.recurrenceCount ?? null
 	}));
 
-	await ctx.db.delete(events).where(eq(events.id, rows[0].id));
 	await ctx.db.insert(events).values(rows);
 	return rows[0].id;
 }
@@ -287,11 +304,9 @@ async function insertTasks(ctx: SeedContext, userId: string) {
 			userId
 		}
 	];
-	await ctx.db.delete(tasks).where(eq(tasks.id, rows[0].id));
 	await ctx.db.insert(tasks).values(rows);
 
 	// Completion history: the streak hero and the recent-completions list.
-	await ctx.db.delete(taskCompletions).where(eq(taskCompletions.id, pageId(`${ctx.seed}:done:1`)));
 	await ctx.db.insert(taskCompletions).values([
 		{
 			id: pageId(`${ctx.seed}:done:1`),
@@ -311,9 +326,6 @@ async function insertTasks(ctx: SeedContext, userId: string) {
 }
 
 async function insertNotifications(ctx: SeedContext, userId: string) {
-	await ctx.db
-		.delete(notifications)
-		.where(eq(notifications.id, pageId(`${ctx.seed}:notification:1`)));
 	await ctx.db.insert(notifications).values([
 		{
 			id: pageId(`${ctx.seed}:notification:1`),
@@ -362,6 +374,8 @@ async function insertFamily(ctx: SeedContext, options: NewFamilyOptions = {}) {
 /** A valid, unexpired invite code for the family. */
 async function insertInviteCode(ctx: SeedContext, familyId: string, createdBy: string | null) {
 	const code = 'VISUALFAMILY01';
+	// Kept even though `familyId` cascades: two seeds share this fixed code, so
+	// the row left by the other seed belongs to a family this seed never deletes.
 	await ctx.db.delete(familyInviteCodes).where(eq(familyInviteCodes.code, code));
 	await ctx.db.insert(familyInviteCodes).values({
 		code,
@@ -385,8 +399,9 @@ async function publicPages(): Promise<SeedResult> {
 async function adminRegisters(ctx: SeedContext): Promise<SeedResult> {
 	const user = await insertUser(ctx, { admin: true });
 
-	await ctx.db.delete(bugReports).where(eq(bugReports.id, pageId(`${ctx.seed}:bug:1`)));
-	await ctx.db.insert(bugReports).values([
+	// Primary keys that must be reinserted: `bugReports.userId` is
+	// `onDelete: 'set null'`, so the user delete keeps these rows.
+	const bugs = [
 		{
 			id: pageId(`${ctx.seed}:bug:1`),
 			userId: user.id,
@@ -403,12 +418,13 @@ async function adminRegisters(ctx: SeedContext): Promise<SeedResult> {
 			url: '/calendar/tasks',
 			status: 'open'
 		}
-	]);
+	];
+	await deleteByIds(ctx, bugReports, bugReports.id, bugs.map((bug) => bug.id));
+	await ctx.db.insert(bugReports).values(bugs);
 
-	await ctx.db
-		.delete(unmatchedPhrases)
-		.where(eq(unmatchedPhrases.id, pageId(`${ctx.seed}:phrase:1`)));
-	await ctx.db.insert(unmatchedPhrases).values([
+	// `unmatchedPhrases` has no user FK at all, so the user delete keeps
+	// these too; the delete covers the same ids the insert writes.
+	const phrases = [
 		{
 			id: pageId(`${ctx.seed}:phrase:1`),
 			source: 'event_parse',
@@ -427,7 +443,14 @@ async function adminRegisters(ctx: SeedContext): Promise<SeedResult> {
 			count: 2,
 			resolved: false
 		}
-	]);
+	];
+	await deleteByIds(
+		ctx,
+		unmatchedPhrases,
+		unmatchedPhrases.id,
+		phrases.map((phrase) => phrase.id)
+	);
+	await ctx.db.insert(unmatchedPhrases).values(phrases);
 
 	return { email: user.email ?? undefined };
 }
@@ -498,12 +521,8 @@ async function groceriesUser(ctx: SeedContext): Promise<SeedResult> {
 		createdAt: ctx.now.minus({ minutes: row.minutesAgo }).toJSDate()
 	}));
 
-	await ctx.db.delete(groceryItems).where(eq(groceryItems.id, rows[0].id));
 	await ctx.db.insert(groceryItems).values(rows);
 
-	await ctx.db
-		.delete(groceryStoreColours)
-		.where(eq(groceryStoreColours.id, pageId(`${ctx.seed}:colour:trader-joes`)));
 	await ctx.db.insert(groceryStoreColours).values([
 		{
 			id: pageId(`${ctx.seed}:colour:trader-joes`),
@@ -571,7 +590,6 @@ async function familyUser(ctx: SeedContext): Promise<SeedResult> {
 
 	// Shared family calendar + a family event and two board tasks.
 	const familyCalendarId = pageId(`${ctx.seed}:family-calendar`);
-	await ctx.db.delete(calendars).where(eq(calendars.id, familyCalendarId));
 	await ctx.db
 		.insert(calendars)
 		.values({ id: familyCalendarId, ownerId: user.id, familyId: family.id });

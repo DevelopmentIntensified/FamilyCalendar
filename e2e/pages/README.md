@@ -70,11 +70,14 @@ route list and the rest of the harness are exactly as specified.
 
 1. **Identity is fixed per seed, not random per run.** Users get a stable
    address (`visual+<seed>-<suffix>@example.invalid`) and stable row ids
-   (`pageId()`), and each seed deletes its own previous rows first. The account
-   rail, the family roster and every avatar colour hash the user id
-   (`kernel/ui` `colorHash`), so a random id or address would change pixels the
-   harness cannot mask, and a committed baseline could never match on the next
-   run. "Fresh" comes from the delete: every run starts from one user, not two.
+   (`pageId()`). Freshness comes from two deletes: deleting the seed user
+   cascades every row that hangs off it, and the rows of a table that does not
+   cascade (`bugReports` is `onDelete: 'set null'`; `unmatchedPhrases` has no
+   user FK) are deleted by primary key — the same ids the seed is about to
+   insert. The account rail, the family roster and every avatar colour hash the
+   user id (`kernel/ui` `colorHash`), so a random id or address would change
+   pixels the harness cannot mask, and a committed baseline could never match
+   on the next run. Every run starts from one user, not two.
 2. **`resolvePath` fills `[token]` in the query, not in a path segment.** The
    invited-by-email page (`/family/invite/email?token=…`) validates a signed
    JWT from the query string, so the seed mints one with the placeholder
