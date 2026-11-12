@@ -49,7 +49,7 @@ Auth for every row is the same session cookie or Bearer `fp_…` token resolved 
 | route | method | auth | input (fields; absent vs null rules) | success | errors (status: exact message) | evidence |
 |---|---|---|---|---|---|---|
 | `/api/tasks` | GET | session/Bearer | no body; optional `?eventId=` | `200 {tasks:[Task+tags]}` — newest `createdAt` first; every row carries `eventCalendarId` (`null` = standalone) + `phoneFocusMinutes`/`phoneFocusStartedAt` | `?eventId=` unknown → `200 {tasks:[]}`; `403: No access to this event` | `src/routes/api/tasks/+server.ts:58-93`; `src/lib/server/db/actions/tasks/queries.ts:21-70` |
-| `/api/tasks` | POST | session/Bearer | `title` required; `dueDate`/`eventId` absent·null·`''` = none; `familyId` absent = caller's family, `null` = personal; `assignedTo` absent = self; `visibility` absent = `public`; `focusMinutes` absent/null = `null`; `focusStartedAt` absent/null = idle; `category` absent/null/blank = `null`; bad/missing `recurrenceFrequency` → silently `null` | `201 {success:true,task}` (task + tags) | `400: Title is required`, `400: Invalid dueDate`, `400: Invalid eventId`, `400: Event not found`, `400: Invalid visibility`, `400: Invalid focusMinutes`, `400: Invalid focusStartedAt`, `400: category must be a string`, `400: category is too long`, `400: Assignee is not a member of this family`, `403: No access to this event`, `403: Not a member of this family` | `src/routes/api/tasks/+server.ts:96-245`; `docs/guides/task-api-spec.md:79` |
+| `/api/tasks` | POST | session/Bearer | `title` required; `dueDate`/`eventId` absent·null·`''` = none; `familyId` absent = caller's family, `null` = personal; `assignedTo` absent = self; `visibility` absent = `public`; `priority` absent/unknown = `normal`; `focusMinutes` absent/null = `null`; `focusStartedAt` absent/null = idle; `category` absent/null/blank = `null`; bad/missing `recurrenceFrequency` → silently `null` | `201 {success:true,task}` (task + tags) | `400: Title is required`, `400: Invalid dueDate`, `400: Invalid eventId`, `400: Event not found`, `400: Invalid visibility`, `400: Invalid focusMinutes`, `400: Invalid focusStartedAt`, `400: category must be a string`, `400: category is too long`, `400: Assignee is not a member of this family`, `403: No access to this event`, `403: Not a member of this family` | `src/routes/api/tasks/+server.ts:96-245`; `docs/guides/task-api-spec.md:79` |
 | `/api/tasks/[id]` | PUT | session/Bearer | dispatch by body shape: `undoComplete` (+ optional `previousDueDate`) → `advanceToNext` → `toggleComplete` → field patch (`title`,`notes`,`dueDate`,`priority`,`tags`,`recurrenceFrequency`,`recurrenceInterval`,`visibility`,`assignedTo`,`assignmentStatus`,`focusMinutes`,`focusStartedAt`,`category`,`completedAt`). `focusMinutes` absent/null = unchanged; `focusStartedAt` absent = unchanged, `null` = clear; `category` absent = unchanged, `null`/blank = clear; `assignedTo` absent = unchanged, `assignmentStatus:'declined'` = clear assignee | `200 {success:true,task}` | `404: Task not found`, `404: Nothing to undo` (any undo failure), `400: Invalid recurrenceFrequency`, `400: Invalid recurrenceInterval`, `400: Invalid visibility`, `400: Invalid focusMinutes`, `400: Invalid focusStartedAt`, `400: category must be a string`, `400: category is too long`, `400: Assignee is not a member of this family`, `403: Only the task owner can change visibility`, `403: You can only respond to your own assignments` | `src/routes/api/tasks/[id]/+server.ts:40-321`; `docs/guides/task-api-spec.md:111` |
 | `/api/tasks/[id]` | DELETE | session/Bearer | no body | `200 {success:true}` — open Task hard-deleted, completed Task archived | `404: Task not found` (unknown id **or** no mutation right) | `src/routes/api/tasks/[id]/+server.ts:325-352`; `src/lib/server/db/actions/tasks/mutations.ts:180-193` |
 | `/api/tasks/completed` | DELETE | session/Bearer | no body | `200 {success:true}` — archives the caller's completed rows | `401` only | `src/routes/api/tasks/completed/+server.ts:8-16` |
@@ -134,7 +134,76 @@ Auth for every row is the same session cookie or Bearer `fp_…` token resolved 
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+S1/S2 (this pass): `src/lib/domains/tasks/README.md` (purpose, files, public interface, invariants, depends on) and the three golden files
+`tasks.http.db.test.ts` (GET/POST `/api/tasks`, `/api/tasks/sections`, `/api/tasks/completed`, the category CRUD, `/api/stats`),
+`tasks.update.http.db.test.ts` (PUT/DELETE `/api/tasks/[id]`) and
+`tasks.focus.http.db.test.ts` (`/api/taskfocus/commands`, `/api/taskfocus/sessions` incl. absorb).
+
+S3 — contract + rules (pure; `now`/zone passed in):
+
+| file | role | contents |
+|---|---|---|
+| `tasks.contract.ts` | contract | zod bodies/queries/params for every endpoint above, `TaskWire` / `TaskCategoryWire` / `FocusCommandWire` / `FocusSessionWire` / `TaskStatsWire`, and the legacy messages as schema messages. Absent vs `null` modelled explicitly (`focusMinutes`, `focusStartedAt`, `category`, `familyId`, `assignedTo`, `visibility`). |
+| `tasks.task.rules.ts` | rules | `normalizeTags`, `normalizeTaskPriority`, `normalizeTaskVisibility`, `TASK_FREQUENCIES`, `canMutateTask` (membership flag in), `nextAssignmentPatch` (accept/decline/reassign/no-op table). Legacy homes: `tasks/types.ts`, `tasks/tags.ts`, `tasks/auth.ts`, `tasks/assignment.ts` (`nonOwnerAssignmentPatch`), `taskPriority.ts`. |
+| `tasks.cursor.rules.ts` | rules | `nextCursorDue`, `pinnedDueFor`, `needsOverduePin`, `derivePreviousDue` and the day-start helper. Legacy home: the pure half of `tasks/cursor.ts`. |
+| `tasks.focus.rules.ts` | rules | `sessionTimesError` (+ the two bounds), `summarizePhoneFocus`, `focusStartedAt` parse. Legacy homes: `taskfocusSessions.ts:70-84,336-355`, `utils/focusStartedAt.ts`. |
+| `tasks.stats.rules.ts` | rules | `isoWeekKey`, `computeWeeklyStreak`. Legacy home: `services/streakService.ts`. |
+| `tasks.ranking.rules.ts` | rules | `rankTasks` (mine-first → priority → overdue → due-today → next-due → title) and the Top-3 slice. Legacy homes: `server/db/actions/dashboard.ts:61-100`, `utils/taskSort.ts`, `taskPriority.PRIORITY_WEIGHT`. |
+| `*.rules.test.ts` | test | one table-driven file per rules file; the cursor table carries the four worked examples (early check, exactly-one-interval-out, late check, month-end clamp). |
+
+S4 — repo + fixtures:
+
+| file | role | contents |
+|---|---|---|
+| `tasks.repo.server.ts` | repo | task rows by scope (own + family, event, sections ×3, family board), insert/update/delete/archive, tag attach/replace, completion insert/delete/list, cursor pin (batched UPDATE) and the guarded cursor UPDATEs. |
+| `tasks.category.repo.server.ts` | repo | per-user list/find/insert-on-conflict/rename+propagate/delete+clear in one transaction. |
+| `tasks.focus.repo.server.ts` | repo | commands (insert, FIFO read with cap, stale delete, ack) and sessions (insert, find, open, set ended, delete unabsorbed, absorb, list closed unabsorbed, list unabsorbed). |
+| `tasks.stats.repo.server.ts` | repo | the completion-counting queries and the `attributedToViewer` predicate (its one home). |
+| `tasks.fixtures.server.ts` | fixtures | `seedTask`, `seedFamilyTask`, `seedCompletion`, `seedCategory`, `seedCommand`, `seedFocusSession` (reuses `seedUser`/`uniqueSuffix`). |
+| `tasks.repo.db.test.ts`, `tasks.category.repo.db.test.ts`, `tasks.focus.repo.db.test.ts` | test | a `rollbackTest` per query with a filter, ordering, join or conflict. |
+
+S5 — services (atomic work via `withTx`, time via `ctx.clock`, ids via `ctx.ids`):
+
+| file | role | contents |
+|---|---|---|
+| `tasks.task.service.server.ts` | service | `listTasks`, `listTaskSections`, `createTask`, `updateTask` (undo/skip/toggle/patch dispatch), `deleteTask`, `clearCompletedTasks`; authorization + event access + assignee validation + category auto-add + the assignment/completion Alert calls. The toggle's guarded cursor update and its history row move into one transaction (fixes the split in `cursor.ts:99-113` without changing the wire). |
+| `tasks.category.service.server.ts` | service | list/add/rename/delete, case-insensitive resolution, propagation scope. |
+| `tasks.focus.service.server.ts` | service | command FIFO use-cases; session start/stop/discard/absorb/list with the one-open invariant; the phone-focus overlay used by `listTasks`. |
+| `tasks.stats.service.server.ts` | service | `getTaskStats`, `listCompletionInstants`, `getStatsPage` (roster through family). |
+| `tasks.task.service.db.test.ts`, `tasks.category.service.db.test.ts`, `tasks.focus.service.db.test.ts`, `tasks.stats.service.db.test.ts` | test | one test per Invariant that involves IO; the sections warning path with a failing repo stub, the concurrent double-toggle with two real connections, the 200-row session page cap. |
+
+S6 — http + route wiring:
+
+| file | role | contents |
+|---|---|---|
+| `tasks.http.server.ts` | http | `endpoint()` handlers for `/api/tasks` (GET/POST), `/api/tasks/[id]` (PUT/DELETE), `/api/tasks/sections`, `/api/tasks/completed`. No rate limits today; the parsers come from the contract. |
+| `tasks.category.http.server.ts` | http | `/api/task-categories` (GET/POST) and `/[id]` (PATCH/DELETE). |
+| `tasks.focus.http.server.ts` | http | `/api/taskfocus/commands` (GET/POST/DELETE :id) and `/api/taskfocus/sessions` (GET/POST/PATCH :id/DELETE :id/absorb). |
+| `tasks.stats.http.server.ts` | http | `GET /api/stats` (the page twin composed by the stats screen later; the counting lives in the service). |
+| `src/routes/api/**` (18 sheet routes + `/api/stats`) | route | wiring only: `export const PUT = updateTaskEndpoint.handler;` (S6 diff keeps the goldens byte-identical). |
+
+S7 — client + UI:
+
+| file | role | contents |
+|---|---|---|
+| `tasks.api.ts` | api | `createTasksApi(kernel api client)`: list/create/update/delete/sections/completed/categories/commands/sessions/stats with typed results and the legacy error copy. Replaces the 43 raw `fetch` calls in `client/task*.ts` and the components. |
+| `tasks.page.state.svelte.ts` | state | the `/calendar/tasks` page: chips + search + sort, optimistic completion (per-id override), focus start/stop with the 4 s settle and the unsupported-server message, category rollback, toasts; takes the api client. |
+| `tasks.editor.state.svelte.ts` | state | the edit sheet's draft: PUT payload (owner-only `visibility`), save/close-on-success, `Saved "<title>".` / failure copy. |
+| `ui/TaskList.svelte`, `ui/TaskRow.svelte`, `ui/TaskSections.svelte`, `ui/TaskToolbar.svelte`, `ui/TaskEditor.svelte`, `ui/TaskQuickAdd.svelte`, `ui/TaskCategoryManager.svelte`, `ui/TaskTagFilter.svelte`, `ui/TaskPriorityPill.svelte`, `ui/EventTaskChecklist.svelte` | ui | built on kernel/ui (`Sheet`, `ConfirmAction`, `Pill`, `Skeleton`, `ticker`) and the parsing module's quick-add result; the checklist is what calendar's event modal embeds. |
+
+Where the legacy exports go, or why they die:
+
+- `tasks/queries.ts` (`getTasksForUser`, `getTasksForEvent`, `getMyTasks`, `getPendingAssignments`, `getRequestedByMe`, `getPublicTasksForFamily`, `getTasksForFamily`) → `listTasks` / `listTaskSections` (one read behind the interface; the query shapes are internal).
+- `tasks/mutations.ts` → `createTask` / `updateTask` / `deleteTask` / `clearCompletedTasks`; `toggleTaskCompleteFamily` dies (no caller; the membership leg lives in `canMutateTask`).
+- `tasks/cursor.ts` → the rules file (pure math) + repo/service internals; `syncRecurringCursors` becomes the pin inside `listTasks`.
+- `tasks/auth.ts`, `tasks/assignment.ts`, `tasks/tags.ts`, `tasks/types.ts`, `taskPriority.ts` → rules; `updateTaskInFamily` becomes the collaborator branch of `updateTask` (the repo update scoped by family id).
+- `taskCategories.ts` → category rules/service/repo; `drizzleTaskCategoryStore`, `listCategoryOptions` (page read, folds into the service) and the `TaskCategoryDeps` seam die.
+- `taskfocusSessions.ts` → focus rules (dto/parsers/time math/overlay) + focus repo/service; `taskfocusSessions.memoryStore.ts` has 0 importers and is deleted.
+- `taskStats.ts`, `completionAttribution.ts`, `statsData.ts`, `streakService.ts` → stats service/repo/rules; `tasksData.ts` → `listTaskSections`.
+- `taskDisplay.ts`, `taskUrgency.ts`, `taskSort.ts`, `taskRecurrence.ts`, `taskCategory.ts`, `taskBulk.ts`, `familyTaskGroups.ts`, `familyTaskList.ts`, `familyTaskActions.ts` → ranking/display rules (date formatting goes to `kernel/time`); `taskQuickAdd.ts` moves to the parsing module (S8 keeps it for unported importers until parsing lands); `taskEditPayload.ts` → the editor state's payload; `priorityTone.ts` → kernel/ui colour vocabulary with the pill.
+- `client/taskCategories.ts`, `taskEditSave.ts`, `taskFeedback.ts`, `taskFocus.ts`, `taskSubmit.ts` → `tasks.api.ts` + the two state classes (the toast copy stays as tests pin it).
+- `components/tasks/*`, `components/calendar/ChecklistSection.svelte`, `TaskDetailModal`, `TaskDetailBar`, `TaskQuickAdd*` → `ui/`.
+- Page routes `/calendar/tasks`, `/calendar/stats` stay wiring + one composition component each (the state classes hold the behaviour).
 
 ## Notes
 
@@ -142,6 +211,37 @@ Auth for every row is the same session cookie or Bearer `fp_…` token resolved 
 
 - 2026-11-11 (owner, [Q-005a](../questions.md)): private Tasks leak through `GET /api/tasks` and the Family Task Board read (`getTasksForFamily`). M-tasks fixes it: both reads hide a private Task from everyone except its owner and, while it is assigned, its assignee. S2 pins today's wire; the fix follows S6 as `fix(tasks): Q-005a hide private tasks from family reads`, with the golden changed first. Do not also apply the CONTEXT list-placement rule for unassigned Family Tasks: the owner did not choose it.
 - Architecture review 2026-11-10 #4 ([report](../../archive/review/architecture-review-2026-11-10.html)): the quick-add preview reads `hasInfo` / `summaryLabel` from the parsing module's result type; no derived 8-way OR in components.
+- 2026-11-11 (S1/S2): the Invariants in `src/lib/domains/tasks/README.md` were verified line by line against the cited legacy code; the sheet's draft table was corrected where the code disagrees:
+  - `POST /api/taskfocus/commands` with `taskId: ''` is `400 Invalid taskId`, not "none" (`src/routes/api/taskfocus/commands/+server.ts:73-77`). Pinned.
+  - The `?eventId=` branch DOES map `eventCalendarId` and the phone overlay (`src/routes/api/tasks/+server.ts:72-74`); what it lacks is `tags` and the assignee/creator names. Pinned as the raw-shape golden.
+  - `/api/stats` is not in the sheet's API table (18 rows) but is listed in the census and named in the task brief; it reads only this module's completion data (`loadStats` → `getTaskStats` + streak + roster), so it is pinned here. `/api/archive` in the same census is `archiveData` (Events + plan retention) — calendar's route, no goldens here; it must be claimed by the calendar sheet.
+- 2026-11-11 (S2): 19 route+method pairs pinned by `tasks.http.db.test.ts`, `tasks.update.http.db.test.ts`, `tasks.focus.http.db.test.ts`; all written against the legacy handlers, committed mode. Not pinned through HTTP, with the reason:
+  - the sections `warnings` path (needs a repo fault seam; S5 service test with a failing stub),
+  - the concurrent double-toggle "exactly one history row" (needs a real race; legacy `toggleTaskComplete.real.test.ts` + S5 test on two connections),
+  - the `?unabsorbed=1` 200-row cap (needs 201 rows; S5 repo test),
+  - the Family Task Board read's visibility (no `/api` surface; Q-005a and the dashboard screen's tests),
+  - `POST /api/tasks` `notes` passthrough of a non-string: the outcome depends on the driver's parameter serialization, which cannot be read from the code; not pinned, S3 should reject it with a 400.
+- 2026-11-11 (S2, probably-accidental items): the ones visible on the `/api` wire stay as Invariants, pinned by a golden and listed as owner questions below; internal-only ones are dropped with the reason. Dropped: `advanceRecurringTask` writes the history row after the guarded UPDATE outside a transaction (`src/lib/server/db/actions/tasks/cursor.ts:99-113`) — internal, and S5 wraps the pair in `withTx` without changing the wire; `toggleTaskCompleteFamily` (no caller); the `TaskCategoryDeps` + `memoryStore` seams (no production caller).
+
+- 2026-11-11 (S2 review round): added goldens for the `task_completed` owner alert (open → done only, never on un-check, never to self), an unknown `priority` on POST and PUT (falls back to `normal`), PUT's `400 Assignee is not a member of this family`, and DELETE of an unknown category. Corrected the "clear completed" golden: legacy `getMyTasks` is the OR of personal rows + accepted assignments, so the caller's untouched open row stays listed beside the accepted assignment. Test row builders now live in `tasks.fixtures.server.ts` (one home; imported by all three golden files). Designed service names corrected to `listTaskSections` / `listCompletionInstants` (conventions Signatures). The POST inventory row now lists `priority`.
+
+- 2026-11-11 (S2 review round 2, TZ=UTC parity): every expected day is now computed the way legacy does — `cursor.ts` falls back to `new Date().toISOString()` when the caller has no stored zone, so the goldens pin UTC days (23:59 UTC for the overdue pin, UTC today + n×interval for the cursor), using `.toUTC()`, and only the `#214` test uses a stored zone. `mode:'string'` columns (`tasks.completedAt`) are asserted in Postgres render shape (`YYYY-MM-DD HH:mm:ss[.fff]+00`), not ISO; date-mode columns stay ISO. The `?unabsorbed=` case table is explicitly typed for `invoke`'s query shape.
+
+### Questions for the owner
+
+1. **`PUT` accepts a raw `completedAt`** (`src/routes/api/tasks/[id]/+server.ts:234-238`). Context: it writes the column directly, skipping the cursor and the history row, so stats and the cursor diverge; the spec tells clients not to send it. Options: (a) `400 completedAt cannot be set directly`, (b) honour it and also write history, (c) keep. Recommend (a).
+2. **`PUT` never validates `dueDate`** (`[id]/+server.ts:231`) while `POST` answers `400 Invalid dueDate` for the same input; garbage reaches the UPDATE and the route answers `500 Failed to update task` (golden pins the 500). Options: validate like POST (`400 Invalid dueDate`), or keep. Recommend validate; it is the same wording and removes a 500.
+3. **`assignmentStatus: 'declined'` is never stored** — the route rewrites it to `{assignedTo:null, assignmentStatus:'none'}` (`[id]/+server.ts:186-188`) while the UI badges `Declined`. Options: (a) keep the release-and-`none` behaviour and fix the UI badge, (b) store `declined` (wire change: clients would see a value they never see today). Recommend (a).
+4. **A whitespace-only `title` on PUT is silently ignored** (`[id]/+server.ts:229`) while POST answers `400 Title is required`. Options: reject with the POST message, or keep. Recommend reject.
+5. **`?eventId=` returns a second Task shape** — raw rows, no `tags`, no assignee/creator names, no `eventTitle` (`+server.ts:71-74`; `queries.ts:72-79`). Options: make it the list shape (additive fields; installed clients ignore extras), or keep. Recommend unify on the list shape.
+6. **Command `stop` validates `taskId` ownership** (`src/routes/api/taskfocus/commands/+server.ts:73-84`), so a stop carrying a foreign id is a 400 even though stop ignores the id and the spec says it may carry none. Options: skip validation for `stop`, or keep. Recommend skip.
+7. **The command queue caps reads at 25 with no cursor** (`commands/+server.ts:19,46`), so a backlog beyond 25 waits for acks. Options: add `?after=`/paging, or keep (the spec says "a small FIFO list"). Recommend keep until a client reports it.
+8. **Skip writes `completedAt: null`** (`cursor.ts:144`), reopening a completed Recurring Task. Options: stop writing it (skip ≠ complete), or keep. Recommend stop.
+9. **`DELETE /api/tasks/completed` archives only rows the caller owns** (`mutations.ts:196-201`), leaving completed accepted assignments the page shows. Options: also archive the caller's accepted assignments, or keep. Recommend include them.
+10. **Focus is offered only to the owner in the row UI** while any mutator can complete (`src/lib/components/tasks/TaskRow.svelte:113`). Options: offer focus to every `canMutateTask` viewer, or keep. Recommend offer.
+11. **`POST` `notes` has no type check** — a truthy non-string reaches the text column (`src/routes/api/tasks/+server.ts:205`). Recommend a `400` in S3; the observable outcome today depends on driver serialization and is not pinned.
+
+- 2026-11-11 (S1/S2): outside my targets, a change is likely needed later — `scripts/arch/registry.mjs` `FOREIGN_READS` may need a tasks entry once S4 reads `events` from a v2 repo for `eventCalendarId`/`eventTitle` (today's joins are legacy reads).
 
 ## Census
 
