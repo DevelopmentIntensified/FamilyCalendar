@@ -75,11 +75,11 @@ Every rule below must not change, with the test that pins it. `path:line` is the
 ### Sections, degrade and what the page reads
 
 - Each section degrades to its fallback plus a warning label instead of a 500, and a rejected grid draws `Couldn't load your events.` with Retry — `+page.server.ts:42-47`, `+page.svelte:546-556,603-612` · tests: `calendarPage.service.db.test.ts › "a failing section degrades to its fallback and names itself"`, `ui/CalendarPage.svelte.test.ts › "draws Couldn't load your events with Retry when the grid rejects"`.
-- The Daily Verse needs BOTH `showDailyVerse` and the `verse` Dashboard Module; a hidden verse costs no read and adds no warning — `src/lib/server/services/calendarData.ts:96-117`, `+page.server.ts:181-200` · tests: `calendarPage.service.db.test.ts › "setting on, module hidden in /account — the reported bug"`, `› "hiding the verse carries no warning"`.
+- The Daily Verse needs BOTH `showDailyVerse` and the `verse` Dashboard Module; a hidden verse adds no warning and costs no verse read — the switches read is what discovers the module-off case, and turning the setting off skips the call entirely — `src/lib/server/services/calendarData.ts:96-117`, `+page.server.ts:181-200` · tests: `calendarPage.service.db.test.ts › "setting on, module hidden in /account — the reported bug"`, `› "hiding the verse carries no warning"`.
 - The guest-merge prompt is only for a registered account with a claimable stash cookie; an Anonymous Account is never sent to `/merge-guest`, and a failing check degrades to "no merge" — `+page.server.ts:49-66` · test: `calendarPage.service.db.test.ts › "an Anonymous Account with a stale stash cookie is not sent to /merge-guest"`.
 - The calendar list is the viewer's Personal Calendar first (`Personal Calendar`, settings colour else `#fa8072`) then the family calendar (`families.name` else `Family Calendar`, colour else `#e0ffff`); the personal calendar is provisioned on load — `calendarData.ts:23-58,118-135` · test: `calendarPage.service.db.test.ts › "lists Personal Calendar first, then the family calendar"`.
 - Sponsored Events are served only when `showAdsAsEvents` is on, render amber `#f59e0b`, and sit on no calendar — `calendarData.ts:57-92`, `+page.server.ts:181-212` · tests: `calendarPage.service.db.test.ts › "serves no Sponsored Events when the gate is off"`, `calendarPage.calendars.rules.test.ts › "keeps an event that belongs to no calendar (an ad)"`.
-- The edit modal's roster keeps first and last names; the task tab offers the viewer's categories when it opens — `+page.server.ts:72-79,87,98` · tests: `calendarPage.service.db.test.ts › "keeps first/last names on the roster"`, `ui/CreateAnythingModal.svelte.test.ts › "loads the viewer's categories when the task tab opens"`.
+- The edit modal's roster keeps first and last names; the task tab offers the viewer's categories when it opens — `+page.server.ts:72-79,98,307` · tests: `calendarPage.service.db.test.ts › "keeps first/last names on the roster"`, `ui/CreateAnythingModal.svelte.test.ts › "loads the viewer's categories when the task tab opens"`.
 
 ### Chips, colour and the Key
 
@@ -137,7 +137,7 @@ Every rule below must not change, with the test that pins it. `path:line` is the
   - **tasks** — due Tasks inside the window, categories on demand, `TaskDetailModal`, quick-add help and the checklist snippet, and the client api. Why: the grid draws due Tasks on their due day, and the create modal's task tab is a tasks form.
   - **sponsored** — the month's Sponsored Events behind their serve gate. Why: the gate is that module's rule, not a screen read of the settings row.
   - **verse** — the Daily Verse, already gated by dashboardModules. Why: the card and its visibility rule are verse's.
-  - **dashboardModules** — the one visibility answer (`needs('verse')`), so a hidden verse costs no read.
+  - **dashboardModules** — the one visibility answer (`needs('verse')`): a verse the setting turned off costs no read at all, and while the setting is on one switches read decides whether the verse is shown.
   - **feedback** — report a misparsed phrase from the bulk bar.
   - **shell / app layout** — settings, `familyId` and the roster arrive through `parent()`; the page never re-reads them.
   - **kernel** — `pageLoad`, `localPref`, toasts, `apiClient`, `Sheet`/`ConfirmAction`/`Pill`/`Skeleton`/`DayNav`, time day keys/grouping/formatting/zone, and the ticker.

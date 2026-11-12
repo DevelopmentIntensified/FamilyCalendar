@@ -61,7 +61,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 - Bulk posts `{ ids: [{ id }], op }`; delete is a two-step inline confirm (no `window.confirm`); smart mode is dry-run → review list → apply, and a plan moving events into the past needs "Apply anyway"; server `error` is shown verbatim, default `Hmm, that didn't take. Try again.` — `+page.svelte:190-296` · `BulkEditBar.svelte:118-160` · test "arms the delete confirm instead of deleting directly"
 - Deep links, read once: `?date=YYYY-MM-DD` seeds the date store, `?view=` the view, `?edit=<id>` opens the edit modal when rows land (else an "Event not found" banner), `?quickadd=` / share-target params open the create modal pre-parsed in Quick Add and then strip the params — `+page.svelte:93-107,333-356,508-521`
 - `/share-target` 302s to `/calendar?quickadd=<text||title + url>` — `src/routes/share-target/+page.server.ts:5-11`
-- Daily Verse on /calendar requires BOTH `showDailyVerse` and the `verse` Dashboard Module; a hidden verse costs no read and adds no warning — `+page.server.ts:186-200` · test: `page.server.test.ts` › "setting on, module hidden in /account — the reported bug" / "hiding the verse carries no warning — a hidden module is not a failure"
+- Daily Verse on /calendar requires BOTH `showDailyVerse` and the `verse` Dashboard Module; a hidden verse adds no warning and costs no verse read — the switches read is what discovers the module-off case, and turning the setting off skips the call entirely — `+page.server.ts:186-200` · test: `page.server.test.ts` › "setting on, module hidden in /account — the reported bug" / "hiding the verse carries no warning — a hidden module is not a failure"
 - Guest-merge prompt only for a registered account with a claimable stash cookie; an Anonymous Account is never sent to `/merge-guest` — `+page.server.ts:49-66` · test "an Anonymous Account (placeholder email) with a stale stash cookie is not sent to /merge-guest"
 - The calendar list is the viewer's Personal Calendar first (`Personal Calendar`, settings colour else `#fa8072`) then the family calendar (`families.name` else `Family Calendar`, colour else `#e0ffff`); the personal calendar is provisioned on load — `calendarData.ts:19-20,36-58,120-141` · `+page.server.ts:205-210`
 - Sponsored events are served only when the ad gate (`showAdsAsEvents`) is on, render amber `#f59e0b`, and sit on no calendar so no filter can hide them — `calendarData.ts:62-92` · `+page.server.ts:181-185,211-212`
@@ -142,9 +142,9 @@ Designed at S1 (2026-11-11). New paths are under `src/lib/screens/calendarPage/`
 | file | role | contents — legacy source |
 |---|---|---|
 | `calendarPage.url.rules.ts` | rules | `parseCalendarUrl(search)` (date/view/quickadd/edit/dashboardView; invalid params ignored), `dashboardRedirect(search, settings)`, `shareTargetText(title, text, url)` (folds calendar's `buildSharedTargetText`), `createSeedFromUrl(search)`. From `+page.svelte:89-107,333-356` and `src/routes/share-target/+page.server.ts:5-11`. |
-| `calendarPage.view.rules.ts` | rules | `CalendarView`, `VIEW_BREAKPOINT_PX`, `resolveCalendarLayout`, `resolveCalendarInitialView`, `isCalendarCurrentPeriod`, `shouldSwipeNavigate`, `viewFromSettingKey`/`viewFromName`. From `calendarView.ts` (whole file). |
-| `calendarPage.calendars.rules.ts` | rules | `isCalendarHidden`, `toggleCalendarVisibility`, `setAllCalendarsHidden`, `hiddenCalendarNames`, `visibleByCalendar`, plus the stored-shape parse/serialize the kernel `localPref` codec uses. From `calendarVisibility.ts` (its `KeyValueStorage` boilerplate dies into `localPref`). |
-| `calendarPage.people.rules.ts` | rules | `assigneeRoster`, `assigneeCounts`, `isAssigneeHidden`, `toggleAssigneeVisibility`, `visibleByAssignee`, `hiddenAssigneeNames`, storage codec. From `calendarAssignees.ts`. |
+| `calendarPage.view.rules.ts` | rules | `CalendarView`, `VIEW_BREAKPOINT_PX`, `resolveCalendarLayout`, `resolveCalendarInitialView`, `isCalendarCurrentPeriod`, `canSwipeNavigate`, `viewFromSettingKey`/`viewFromName`. From `calendarView.ts` (whole file). |
+| `calendarPage.calendars.rules.ts` | rules | `isCalendarHidden`, `toggleCalendarVisibility`, `setAllCalendarsHidden`, `hiddenCalendarNames`, `isVisibleByCalendar`, plus the stored-shape parse/serialize the kernel `localPref` codec uses. From `calendarVisibility.ts` (its `KeyValueStorage` boilerplate dies into `localPref`). |
+| `calendarPage.people.rules.ts` | rules | `assigneeRoster`, `assigneeCounts`, `isAssigneeHidden`, `toggleAssigneeVisibility`, `isVisibleByAssignee`, `hiddenAssigneeNames`, storage codec. From `calendarAssignees.ts`. |
 | `calendarPage.search.rules.ts` | rules | `normaliseCalendarQuery`, `byCalendarSearch`, `countCalendarMatches`. From `calendarSearch.ts`. |
 | `calendarPage.lanes.rules.ts` | rules | `layoutCalendarDaySlots` (greedy lanes, per-overlap-cluster lane counts) and `nowLinePercent(now)`. From `dayViewLayout.ts`; `nowPositionPct()`'s own `new Date()` dies (R5). |
 | `calendarPage.grid.rules.ts` | rules | The month matrix (`monthGridCells(date, weekStart)` incl. leading/trailing days — replaces MonthView's hand-rolled `firstDayOfMonth - dayOffset` math), the week span, `gridWindow(date, weekStart)`, `groupCalendarRowsByDay` (delegates to kernel/time `groupByDay`), per-day counts, and `chipRowOf(event, calendars)` (kind + colour + labels resolved once). `listGroup.ts` and `weekView.ts` die here. |
@@ -239,7 +239,7 @@ Targets: desktop ready 300 ms (fail 1000), first visit 500 ms (fail 1000), mobil
 
 #### `/calendar` — one route, four catalog entries
 
-The K-10 catalog gets four pages for this route — `/calendar` (month), `/calendar?view=week`, `?view=day`, `?view=list` — because each opening view is its own lazy chunk. Ready selector: the mounted view's first real cell — `[data-testid="calendar-month-cell"]` for month, with `calendar-week-day`, `calendar-day-grid` and `calendar-list-day` for the other three — so the measurement waits for rows, never for the skeleton. The legacy `data-testid`s are kept.
+The K-10 catalog gets four pages for this route — `/calendar` (month), `/calendar?view=week`, `?view=day`, `?view=list` — because each opening view is its own lazy chunk. Ready selector: the mounted view's first real cell — `[data-testid="month-day-cell"]` for month (`MonthDayCell.svelte:82`), `[data-testid="week-day-column"]` for week (`WeekHourGrid.svelte:95`), `[data-testid="day-grid"]` for day (`DayHourGrid.svelte:79`), and a NEW `[data-testid="calendar-list-day"]` for list — introduced for the K-10 catalog because `ListView.svelte` carries no testid today. The measurement therefore waits for rows, never for the skeleton. A `data-testid` is kept only where a spec uses it, and for calendarPage that spec is the catalog.
 
 **Above the fold (shell, no stream):** the toolbar (view toggle, date pill, Filters trigger, search row), the card frame, the Daily Verse card when visible, and either the grid or its skeleton. Seed params (`?date`, `?view`, `?edit`, `?quickadd`) resolve in the shell, so the first render is already the right view and date.
 
@@ -251,13 +251,13 @@ The K-10 catalog gets four pages for this route — `/calendar` (month), `/calen
 | 0 | guest-merge check | identity | 0–1, only with the stash cookie | the cookie |
 | 1 | settings, `familyId`, roster | `parent()` (shell layout) | 0 | already loaded once per group entry |
 | 1 | calendars + personal provisioning | `calendar` | 1–2 | the viewer |
-| 1 | Daily Verse visibility + verse | `dashboardModules` + `verse` | 0 when hidden, 1 otherwise (+0: the verse list is local) | the viewer's one visibility answer |
+| 1 | Daily Verse visibility + verse | `dashboardModules` + `verse` | 0 when `showDailyVerse` is off (the screen skips the call); 1 switches read when it is on — hidden or not, because that read is what discovers the module-off case — plus 0 for the verse content (bundled list) | the viewer's setting, then the module answer |
 | 2 | Event range (personal + family, Occurrences with RSVP/attendance/creator) | `calendar` | ≤5, the ids-dependent pair inside the module | the month grid window (~42 days) |
 | 2 | due Tasks in the window | `tasks` | 1 (+1 batched cursor UPDATE owned by the module) | the month grid window |
 | 2 | Sponsored Events for the month | `sponsored` | 0 when the gate is off, else 1 | the viewer's month |
 | on demand | task categories | `tasks` | 1, when the create modal's task tab first opens | the viewer |
 
-Shell = waves 0–1; `grid` = wave 2. Total 3–9 queries per page load; legacy ran roughly 15–20, including two Event SELECTs that read every recurring master in full, one unbounded Task SELECT and a per-load cursor write.
+Shell = waves 0–1; `grid` = wave 2. Total 3–11 queries per page load, plus the cursor UPDATE when it finds stale rows (0–1); one more read (categories) lands later, only when the create modal's task tab opens. Legacy ran roughly 15–20, including two Event SELECTs that read every recurring master in full, one unbounded Task SELECT and a per-load cursor write.
 
 **What streams with a skeleton:** `grid` only. The card renders at once with 42 skeleton cells at the same 72/92/104px heights inside the same 80rem card, and the real toolbar stays usable while it fills. The Daily Verse is shell, so it never pops in above the grid. Warnings appear under the toolbar as they arrive. A rejected `grid` draws `Couldn't load your events.` + Retry.
 
@@ -281,15 +281,15 @@ Shell = waves 0–1; `grid` = wave 2. Total 3–9 queries per page load; legacy 
 **Legacy costs found (each becomes a slice with a before/after measurement):**
 
 1. Unbounded Task read plus a write in the read path: `getTasksForUser` selects every non-archived Task in scope with no due filter and no limit, plus a tags read (`src/lib/server/db/actions/tasks/queries.ts:21-70`), the loader then filters due/undone in JS (`+page.server.ts:214-247`), and the same call runs a cursor SELECT + UPDATE (`src/lib/server/db/actions/tasks/cursor.ts:256-303`).
-2. Two event pipelines, each re-reading exceptions, RSVP, attendance and creator names (`eventDisplayService.ts:130-176` over `+page.server.ts:150-200`) — about 7 queries for a 42-day grid.
+2. Two event pipelines, each re-reading exceptions, RSVP, attendance and creator names (`eventDisplayService.ts:130-176` over `+page.server.ts:256-285`) — about 7 queries for a 42-day grid.
 3. Full Event rows serialised (`db.select().from(events)`, `+page.server.ts:110-130,140-160`) although the grid renders ~10 fields.
 4. The client range fetch asks for month bounds, not the grid window (`+page.svelte:44-54`), so adjacent-month cells can stay empty after a hop; the response also colours rows with `calendarIds.slice(1)` (`:50`).
 5. Statically imported views and modals: `Calendar.svelte:1-12` (four views + toolbar + verse card + key), `MonthDays.svelte:1-14` (three modals + EventModal + TaskDetailModal), `WeekView.svelte:1-30`, `DayView.svelte:1-30`, `ListView.svelte:1-22`.
 6. Per-day scans: `WeekView.svelte:73-100` (7 + 7 + 7 passes), `WeekAllDayRow.svelte:74-77`, `WeekHourGrid.svelte:83-95` (filter + sort + layout per day), `DayView.svelte:57-68`.
 7. Luxon parse/format inside those loops: `formatDate`/`toDate` per row in `WeekView.svelte:73-87`, `ListView.svelte:44-67`, `MonthDays.svelte:54-55`.
-8. `selectedIds.includes` per chip (`MonthDays.svelte:46-48`).
+8. `selectedIds.includes` per chip (`MonthDays.svelte:36-38`).
 9. Real clock read in render: `DayHourGrid.svelte:53-63`, `dayViewLayout.ts:101-104`, `MonthDays.svelte:51`, `DayView.svelte:50`.
-10. The category read is awaited for a modal that may never open (`+page.server.ts:87,305`).
+10. The category read is awaited for a modal that may never open (`+page.server.ts:98,307`).
 11. A reactive side-effect hack plus an optimistic row list cleared after `invalidateAll()` (`+page.svelte:314-317,443-456`) — the double-draw risk.
 
 Kept as-is because they are already right: the ads and verse gates return before their reads (`calendarData.ts:78-81,104-111`), and the loader streams the heavy half (`+page.server.ts:203-300`).
@@ -338,7 +338,7 @@ No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`);
 2. **Warning label for a family-calendar failure.** Context: the loader warns per section and the banner joins the labels (legacy: `calendar`, `family`, …). The new calendar list is one read, so `family` has nowhere to come from. Options: A. Fold `family` into `calendar` (banner copy changes only when a section fails). B. Keep a separate `family` label by splitting the read. Recommendation: A — the split exists only to serve an old degrade path, and the banner is a failure state, not approved content.
 3. **The legacy colour bug (`calendarIds.slice(1)`).** Context: with no personal calendar in the list, index 0 is the family calendar, so every family Event is tinted with the personal colour. Options: A. Fix in the port by resolving colour from `calendarId` (no wire change). B. Keep the positional rule and file a ticket. Recommendation: A; the invariant above pins it.
 4. **`?edit=` for an Event outside the loaded window.** Context: the deep link only finds rows in the month window or the fetch cache, so a notification link to a far month shows "Event not found" (`+page.svelte:506-521`). Options: A. Keep today's behaviour and the banner. B. Add a one-Event read (calendar has no `GET /api/events/[id]` on the wire today) before deciding. Recommendation: A for this port; B is a wire addition and needs its own ticket.
-5. **Categories: load or on demand.** Context: legacy reads them on every page load for a modal that may never open (`+page.server.ts:87,305`). Options: A. Fetch when the create modal's task tab opens (one read on a rare path, one roundtrip there). B. Keep them in the page payload (no roundtrip, a few hundred bytes on every load). Recommendation: A; the modal is already a lazy chunk, so it has a pending state anyway.
+5. **Categories: load or on demand.** Context: legacy reads them on every page load for a modal that may never open (`+page.server.ts:98,307`). Options: A. Fetch when the create modal's task tab opens (one read on a rare path, one roundtrip there). B. Keep them in the page payload (no roundtrip, a few hundred bytes on every load). Recommendation: A; the modal is already a lazy chunk, so it has a pending state anyway.
 
 ## Census
 
