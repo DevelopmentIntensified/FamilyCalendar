@@ -19,7 +19,7 @@ vi.mock('$app/navigation', () => ({
 	afterNavigate: vi.fn()
 }));
 // oxlint-disable-next-line anti-slop/no-module-mocking -- offline utils touch IndexedDB/navigator at import; the layout has no injection seam.
-vi.mock('$lib/utils/offline', () => ({
+vi.mock('$lib/kernel/client/offlineQueue', () => ({
 	initOfflineSync: () => () => {},
 	isOnline: () => true,
 	getPendingCount: () => Promise.resolve(0),

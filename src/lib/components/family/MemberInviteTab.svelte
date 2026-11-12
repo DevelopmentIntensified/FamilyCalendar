@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { copyOrShare } from '$lib/client/share';
+	import { copyOrShare } from '$lib/kernel/client/shareText';
 	import { responseError } from './responseError';
 
 	interface Props {

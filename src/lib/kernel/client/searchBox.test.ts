@@ -1,0 +1,173 @@
+import { describe, expect, it } from 'vitest';
+import { SearchBox } from './searchBox.svelte.js';
+import type { Scheduler } from './toasts.svelte.js';
+
+/** A scheduler the test fires by hand; nothing depends on real timers. */
+function manualScheduler() {
+	const tasks: { fn: () => void; ms: number; cancelled: boolean }[] = [];
+	const schedule: Scheduler = (fn, ms) => {
+		const task = { fn, ms, cancelled: false };
+		tasks.push(task);
+		return () => {
+			task.cancelled = true;
+		};
+	};
+	const fireAll = () => {
+		for (const task of tasks.splice(0)) {
+			if (!task.cancelled) task.fn();
+		}
+	};
+	return { schedule, tasks, fireAll };
+}
+
+interface SearchCall {
+	q: string;
+	signal: AbortSignal;
+	resolve: (rows: string[]) => void;
+	reject: (reason: unknown) => void;
+}
+
+/** A search whose replies the test sends when it wants to. */
+function pendingSearch() {
+	const calls: SearchCall[] = [];
+	const search = (q: string, signal: AbortSignal) =>
+		new Promise<string[]>((resolve, reject) => {
+			calls.push({ q, signal, resolve, reject });
+		});
+	return { search, calls };
+}
+
+/** Let the promise chain behind a fired debounce run to completion. */
+async function flush() {
+	for (let i = 0; i < 5; i++) await Promise.resolve();
+}
+
+describe('SearchBox', () => {
+	it('waits for the debounce before searching', async () => {
+		const scheduler = manualScheduler();
+		const { search, calls } = pendingSearch();
+		const box = new SearchBox(search, { schedule: scheduler.schedule });
+
+		box.setQuery('ann');
+
+		expect(calls).toHaveLength(0);
+		expect(scheduler.tasks[0].ms).toBe(250);
+
+		scheduler.fireAll();
+		expect(calls.map((call) => call.q)).toEqual(['ann']);
+
+		calls[0].resolve(['Anna']);
+		await flush();
+
+		expect(box.results).toEqual(['Anna']);
+		expect(box.pending).toBe(false);
+	});
+
+	it('cancels a debounce that a newer query replaced', () => {
+		const scheduler = manualScheduler();
+		const { search, calls } = pendingSearch();
+		const box = new SearchBox(search, { schedule: scheduler.schedule });
+
+		box.setQuery('ann');
+		box.setQuery('anna');
+		expect(scheduler.tasks).toHaveLength(2);
+		expect(scheduler.tasks[0].cancelled).toBe(true);
+		scheduler.fireAll();
+
+		expect(calls.map((call) => call.q)).toEqual(['anna']);
+	});
+
+	it('aborts the older request when a newer query arrives', async () => {
+		const scheduler = manualScheduler();
+		const { search, calls } = pendingSearch();
+		const box = new SearchBox(search, { schedule: scheduler.schedule });
+
+		box.setQuery('ann');
+		scheduler.fireAll();
+		const first = calls[0];
+		box.setQuery('anna');
+		scheduler.fireAll();
+
+		expect(first.signal.aborted).toBe(true);
+		expect(calls.map((call) => call.q)).toEqual(['ann', 'anna']);
+	});
+
+	it('never lets a late reply for an old query replace newer results', async () => {
+		const scheduler = manualScheduler();
+		const { search, calls } = pendingSearch();
+		const box = new SearchBox(search, { schedule: scheduler.schedule });
+
+		box.setQuery('ann');
+		scheduler.fireAll();
+		box.setQuery('anna');
+		scheduler.fireAll();
+
+		calls[1].resolve(['Anna Bell']);
+		await flush();
+		expect(box.results).toEqual(['Anna Bell']);
+
+		calls[0].resolve(['Anna from the old query']);
+		await flush();
+		expect(box.results).toEqual(['Anna Bell']);
+	});
+
+	it('clears results below the minimum length without searching', () => {
+		const scheduler = manualScheduler();
+		const { search, calls } = pendingSearch();
+		const box = new SearchBox(search, { schedule: scheduler.schedule });
+		box.results = ['stale'];
+
+		box.setQuery('a');
+
+		expect(box.results).toEqual([]);
+		expect(box.pending).toBe(false);
+		expect(scheduler.tasks).toHaveLength(0);
+		expect(calls).toHaveLength(0);
+	});
+
+	it('defaults to a 250 ms debounce and two characters', () => {
+		const scheduler = manualScheduler();
+		const { search, calls } = pendingSearch();
+		const box = new SearchBox(search, { schedule: scheduler.schedule });
+
+		box.setQuery('a');
+		expect(calls).toHaveLength(0);
+		expect(scheduler.tasks).toHaveLength(0);
+
+		box.setQuery('ab');
+		expect(scheduler.tasks[0].ms).toBe(250);
+	});
+
+	it('clear resets the box and drops an answer still in flight', async () => {
+		const scheduler = manualScheduler();
+		const { search, calls } = pendingSearch();
+		const box = new SearchBox(search, { schedule: scheduler.schedule });
+
+		box.setQuery('ann');
+		scheduler.fireAll();
+		box.clear();
+
+		expect(box.query).toBe('');
+		expect(box.results).toEqual([]);
+		expect(box.pending).toBe(false);
+		expect(calls[0].signal.aborted).toBe(true);
+
+		calls[0].resolve(['Anna']);
+		await flush();
+		expect(box.results).toEqual([]);
+	});
+
+	it('reports a failed search as no results instead of throwing', async () => {
+		const scheduler = manualScheduler();
+		const { search, calls } = pendingSearch();
+		const box = new SearchBox(search, { schedule: scheduler.schedule });
+
+		box.setQuery('ann');
+		scheduler.fireAll();
+		calls[0].reject(new Error('offline'));
+		await flush();
+
+		expect(box.results).toEqual([]);
+		expect(box.pending).toBe(false);
+	});
+});

@@ -21,7 +21,7 @@
 	import EventRsvpList from './EventRsvpList.svelte';
 	import EventTaskFields from './EventTaskFields.svelte';
 	import EventModalShell from './EventModalShell.svelte';
-	import { queueMutation } from '$lib/utils/offline';
+	import { queueMutation } from '$lib/kernel/client/offlineQueue';
 	import { matchCalendarByName } from '$lib/utils/calendarMatch';
 	import { actionErrorCopy } from '$lib/utils/actionError';
 

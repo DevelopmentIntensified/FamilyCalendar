@@ -3,7 +3,7 @@
 	import type { ActionData, PageData } from './$types';
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte';
 	import { pushToast } from '$lib/client/toasts';
-	import { copyOrShare } from '$lib/client/share';
+	import { copyOrShare } from '$lib/kernel/client/shareText';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import { rolePillClass } from '$lib/utils/familyDisplay';
 	export let data: PageData;

@@ -6,7 +6,7 @@
 	import OfflineBanner from '$lib/components/OfflineBanner.svelte';
 	import BottomNav from '$lib/components/BottomNav.svelte';
 	import Toaster from '$lib/components/Toaster.svelte';
-	import { initOfflineSync } from '$lib/utils/offline';
+	import { initOfflineSync } from '$lib/kernel/client/offlineQueue';
 
 	export let data: LayoutData;
 
