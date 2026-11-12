@@ -346,7 +346,7 @@ describe('PUT /api/me/dashboard-modules', () => {
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({
 			success: true,
-			message: 'Dashboard modules saved — 7 of 8 cards on.',
+			message: 'Dashboard modules saved — 6 of 8 cards on.',
 			hidden: ['verse', 'groceries']
 		});
 	});
