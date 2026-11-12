@@ -2304,7 +2304,7 @@
 			"kind": "source",
 			"layer": "db",
 			"loc": 1227,
-			"note": "Only re-exports BILL_CATEGORIES (no table uses it). Task K-04 splits tables into src/lib/kernel/db/tables/<module>.tables.ts and drops the re-export; bills owns the vocabulary."
+			"note": "Re-exports BILL_CATEGORIES (no table uses it) and defines TASK_VISIBILITIES for legacy importers. Task K-04 split the tables into src/lib/kernel/db/tables/<module>.tables.server.ts and kept this compat re-export; bills owns the BILL_CATEGORIES vocabulary."
 		},
 		"src/lib/server/db/testHarness.ts": {
 			"module": "kernel",

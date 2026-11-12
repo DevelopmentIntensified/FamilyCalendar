@@ -103,7 +103,7 @@ export const MODULES = [
 		kind: 'domain',
 		rank: 12,
 		purpose:
-			'Sponsored Events: serve gate (showAdsAsEvents), month generation, impressions/clicks, consent records, blob assets.'
+			'Sponsored Events: serve gate (showAdsAsEvents), month generation, impressions/clicks, consent records.'
 	},
 	{
 		name: 'meals',
