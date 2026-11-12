@@ -1276,18 +1276,6 @@
 			"loc": 36,
 			"subject": "src/lib/components/dashboard/CompletedTodayCard.svelte"
 		},
-		"src/lib/components/dashboard/DashboardInfoBand.svelte": {
-			"module": "dayDashboard",
-			"kind": "source",
-			"layer": "ui",
-			"loc": 33
-		},
-		"src/lib/components/dashboard/DashboardInfoBand.svelte.test.ts": {
-			"module": "dayDashboard",
-			"kind": "test",
-			"loc": 60,
-			"subject": "src/lib/components/dashboard/DashboardInfoBand.svelte"
-		},
 		"src/lib/components/dashboard/DashboardModuleRow.svelte": {
 			"module": "dashboardModules",
 			"kind": "source",

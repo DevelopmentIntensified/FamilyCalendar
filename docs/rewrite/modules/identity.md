@@ -170,7 +170,7 @@ legacy source files left (9/9, 735 LOC):
   - src/lib/server/db/actions/accounts.ts (35 LOC, server) importers: 7
   - src/lib/server/db/actions/apiTokens.ts (92 LOC, server) importers: 7
   - src/lib/server/db/actions/codes.ts (83 LOC, server) importers: 14
-  - src/lib/server/db/actions/userSettings.ts (54 LOC, server) importers: 22
+  - src/lib/server/db/actions/userSettings.ts (54 LOC, server) importers: 21
   - src/lib/server/db/actions/users.ts (166 LOC, server) importers: 22
   - src/lib/server/utils/password.ts (12 LOC, server) importers: 7
   - src/lib/server/utils/userTimezone.ts (24 LOC, server) importers: 16

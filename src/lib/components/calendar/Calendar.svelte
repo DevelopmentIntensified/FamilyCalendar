@@ -8,7 +8,7 @@
 	import ListView from './ListView.svelte';
 	import WeekView from './WeekView.svelte';
 	import DayView from './DayView.svelte';
-		import CalendarKey from './CalendarKey.svelte';
+	import CalendarKey from './CalendarKey.svelte';
 	import CalendarToolbar from './CalendarToolbar.svelte';
 	import {
 		resolveInitialView,
