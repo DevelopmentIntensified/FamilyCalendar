@@ -295,7 +295,7 @@ describe('GET /api/families/{id}/tasks', () => {
 		]);
 	});
 
-	it('is a read: the same GET twice answers the same body', async () => {
+	it('answers the same body to the same GET twice', async () => {
 		const { ann } = await seedBoard();
 		const path = '/api/families/fam-old/tasks';
 		const first = await invoke(getFamilyTasks, {

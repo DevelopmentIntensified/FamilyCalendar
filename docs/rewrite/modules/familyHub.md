@@ -103,7 +103,7 @@ The two fat legacy pages are split the way [port-ui.md › Fat pages](../../play
 | `familyHub.contract.ts` | contract | `FamilyBoardResponse` (tasks/family/category schemas taken from the owning domains' contracts), and the five form schemas: `RemoveMemberForm {userId}`, `UpdateRoleForm {userId, role}`, `SetMemberTypeForm {userId, memberType}`, `UpdateFamilyForm {name?, color?}` (both may be empty = unchanged), `ToggleModuleForm {module, enabled: 'true' or 'false'}`. |
 | `familyHub.detail.rules.ts` | rules | `seedFamilySettings(previousKey, family, current)` (re-seed only when `id\|name\|color` changes; colour fallback is the palette default), `inviteUsesLabel(invite)`, `aiUsagePercent(used, limit)` (0 when the limit is 0), `activityLine(item)` (the ✅/📋 copy). |
 | `familyHub.board.rules.ts` | rules | `boardEmptyState({open, completed, publicCount, tagFilter})` → which of the five empty states shows, `pendingForViewer(tasks, viewerId)`, `publicTabLabel(count)`. Grouping itself is `tasks`' rule: this screen calls `groupFamilyBoard(open, nameFor, viewerId)` and renders `{columns, unassigned}`. |
-| `familyHub.service.server.ts` | service | `loadFamilyHub(ctx, actor, {familyId})` → `FamilyHubModel`, `notFound('Family not found')` for a non-member and a missing family; `loadFamilyBoard(ctx, actor, {familyId, completedLimit})` → `FamilyBoardModel` (chosen family, `notFound`/`null` rules as today). Reads run in parallel, bounded and with no writes. |
+| `familyHub.service.server.ts` | service | `getFamilyHub(ctx, actor, {familyId})` → `FamilyHubModel`, `notFound('Family not found')` for a non-member and a missing family; `getFamilyBoard(ctx, actor, {familyId, completedLimit})` → `FamilyBoardModel` (chosen family, `notFound`/`null` rules as today). Reads run in parallel, bounded and with no writes. |
 | `familyHub.http.server.ts` | http | `familyHubPageLoad` (`pageLoad` auth `user`), `familyHubActions` (`formAction` × 5, auth `user`, mapping `AppError` onto the legacy `fail(status,{error})` contract), `familyBoardPageLoad` (redirects `/family` when no family), `familyBoardEndpoint` (`endpoint` auth `user`, params `{id}`, 404 `Family not found`, body `{tasks,publicTasks,familyRoster,taskCategories}`), `legacyFamilyBoardPathLoad` (302 `/login`, else 308 `/family/tasks`). |
 | `familyHub.detail.state.svelte.ts` | state | `FamilyHubState`: remove confirm, editing role, sheet member, per-member pending flags, saving flag, name/colour inputs + seed key, module optimistic map + pending id; methods `seed`, `begin*`/`settle*` per action, `flipModule`/`settleModule`, toasts in the constructor. No `$effect`. |
 | `familyHub.board.state.svelte.ts` | state | `FamilyBoardState`: tab, tag filter, busy id, editing task, saving flag, confirm-delete id; `toggle`, `advance`, `respond(accept)`, `openEdit`, `saveEdit`, `remove` through the `tasks` api client + toasts, rollback and pending flags. |
@@ -130,8 +130,8 @@ Legacy exports that die or move (each destination is a v2 module; nothing new is
 
 | legacy symbol | destination |
 |---|---|
-| `familyData.loadFamilyDetail` | split: `familyHub.service.loadFamilyHub` composes; the sub-reads become `family`/`billing`/`dashboardModules`/`identity` services. |
-| `familyData.loadFamilyTasks` | split: `familyHub.service.loadFamilyBoard` composes `tasks`' family/public reads, roster and categories. |
+| `familyData.loadFamilyDetail` | split: `familyHub.service.getFamilyHub` composes; the sub-reads become `family`/`billing`/`dashboardModules`/`identity` services. |
+| `familyData.loadFamilyTasks` | split: `familyHub.service.getFamilyBoard` composes `tasks`' family/public reads, roster and categories. |
 | `familyData.pickActiveInvite` | `family` rules, now taking `now` as a parameter (R5). |
 | `familyData.getMemberRole`, `roleRank`, `PRIVILEGE`, `requireMinRole`, `FamilyResult`, `refuse` | `family` service/rules; refusals become `AppError` with the same messages. |
 | `familyData.removeMember`, `updateMemberRole`, `setMemberType`, `updateFamilyDetails` | `family` service use-cases; the screen's actions call them. |
@@ -157,13 +157,14 @@ Deliberate changes to log at S7 (visual baseline + Notes): the colourless-family
 
 ### S1 verification
 
-- Every inventory line used in the README was checked against the cited code on 2026-11-11. Three refinements: (a) the board's per-column order is `compareUrgency` from `familyTaskGroups.ts:46-48` and then a stable overdue-first re-sort (`family/tasks/+page.svelte:114-121,306`) — the second pass is redundant but harmless, so it is dropped rather than pinned; (b) the census lists `src/routes/(family)/family/[familyId]/tasks/+page.svelte`, which does not exist (only `+page.server.ts`); the route really is redirect-only; (c) `getRecentFamilyActivity` filters `assignmentStatus = 'accepted'` and `assignedTo ≠ userId` (`familyActivity.ts:57-66`), so a pending handoff never reaches the feed — the inventory's "UNSURE" stands.
+- Every inventory line used in the README was checked against the cited code on 2026-11-11. Three refinements: (a) the board's per-column order is `compareUrgency` from `familyTaskGroups.ts:54` and then a stable overdue-first re-sort at render (`family/tasks/+page.svelte:119,318`) — the second pass is redundant but harmless, so it is dropped rather than pinned; (b) the census lists `src/routes/(family)/family/[familyId]/tasks/+page.svelte`, which does not exist (only `+page.server.ts`); the route really is redirect-only; (c) `getRecentFamilyActivity` filters `assignmentStatus = 'accepted'` and `assignedTo ≠ userId` (`familyActivity.ts:57-66`), so a pending handoff never reaches the feed — the inventory's "UNSURE" stands.
 - The detail loader is 6 sequential reads then 5 parallel (`familyData.ts:172-201`), and `/family/tasks` runs `syncRecurringCursors` inside a read (`tasks/queries.ts:84,208`). Both are the main cost items recorded in the Plan.
 - `pickActiveInvite` and the invite read live in the family service today; the screen must not decide "active" itself after the port (one home).
 
 ### Goldens
 
-- `familyHub.http.db.test.ts` (S2) pins `GET /api/families/{id}/tasks`: the exact four-key 200 body (with a family Task + tag, a public personal Task, a private personal Task that must stay out, and the viewer's categories), 401, 404 parity for non-member/missing family, the two-family selection (#098) and GET idempotence.
+- `familyHub.http.db.test.ts` (S2) pins `GET /api/families/{id}/tasks`: the exact four-key 200 body (with a family Task + tag, a public personal Task, a private personal Task that must stay out, and the viewer's categories), 401, 404 parity for non-member/missing family, the two-family selection (#098) and the same GET twice answering the same body.
+- No recurring-task cursor advance is pinned on purpose: the fixtures carry no recurring rows, so the golden never expects a cursor to move. Pinning one would freeze the write-before-read behaviour that Q7 (`tasks`) moves out of the read path.
 - Carry-over ticket [#098](../../archive/issues/098-first-family-is-a-guess.md) asked for two-family API tests; the "reads the family named by the id, never the oldest (#098)" golden covers this route. No behaviour fix is needed on this route — it already refuses to fall back.
 
 ### Probably accidental — dispositions
