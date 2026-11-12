@@ -8,7 +8,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 
 - **Owns:** the dependency bag (`Ctx`) and caller identity (`Actor`); the one error type; boundary validation; the HTTP builders (`endpoint`, `pageLoad`, `formAction`); clock, ids and hashing; the rate limiter; structured logs; db/transaction helpers; the test harness.
 - **Does not own:** any business rule. Something like "who may edit a task" belongs in the module that owns the concept (`tasks`), even when several modules need it.
-- **Later kernel tasks** (see [LEDGER](../../../docs/rewrite/LEDGER.md)) add the shared client and UI primitives: the api client, toasts, sheet, confirm button, pill, skeleton, date formatting.
+- **Later kernel tasks** (see [LEDGER](../../../docs/rewrite/LEDGER.md)) add the shared client and UI primitives: the api client, toasts, sheet, confirm button, pill, skeleton.
 
 ## Files
 
@@ -55,6 +55,8 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [testing/vitestSetup.unit.ts](testing/vitestSetup.unit.ts) | test infra | Points `DATABASE_URL` at a closed port, so unit tests fail fast if they touch a database. | every unit run |
 | [time/clock.ts](time/clock.ts) | infra | `Clock` port, `systemClock`, `fixedClock` (set/advance). The only source of "now" (rule R5). | [clock.test.ts](time/clock.test.ts) |
 | [time/clock.test.ts](time/clock.test.ts) | test | default instant, advance/set, copy semantics | — |
+| [time/dates.test.ts](time/dates.test.ts) | test | format tables, DST in New York and London, month ends, leap years, UTC+14, grouping, month math, timestamp normalisation | — |
+| [time/dates.ts](time/dates.ts) | rules | `formatUsDate`, `formatClockTime`, `formatDayMonth`, `formatLongDate`, `formatShortDate`, `dayKey`, `formatDateTimeMinute`, `relativeFromNow`, `groupByDay`, `addMonthsClamped`, `startOfDayIn`, `isValidZone`, `toInstantString`. Every legacy date formatter's one home; the zone (and `now` when relative) is always a parameter, so nothing reads the clock. | [dates.test.ts](time/dates.test.ts) |
 | [validation/validators.ts](validation/validators.ts) | rules | zod plus shared fields: `requiredText`, `optionalText`, `isoDate`, `yearMonth`, `isoInstant`, `emailAddress`, `oneOf`, `wholeNumber`, `formList`, `clampedInt`, `firstIssueMessage`, `JsonValue`. | [validators.test.ts](validation/validators.test.ts) |
 | [validation/validators.test.ts](validation/validators.test.ts) | test | one table per helper | — |
 
@@ -85,7 +87,7 @@ Route files stay wiring-only (rule R8). Auth modes: `public`, `optional`, `user`
 
 ### Time
 
-Read `ctx.clock.now()`. Pass "now" into rules as a parameter. Date formatting helpers arrive in task K-06.
+Read `ctx.clock.now()`. Pass "now" into rules as a parameter. Format, key and group dates with [time/dates.ts](time/dates.ts) — pass the user's IANA zone (and `now` where the output is relative) explicitly; never write another formatter.
 
 ### Ids
 
