@@ -30,7 +30,7 @@ function inZone(value: Date | string | null | undefined, zone: string): DateTime
 	let dt: DateTime;
 	if (value instanceof Date) {
 		if (Number.isNaN(value.getTime())) return null;
-		dt = DateTime.fromJSDate(value, { zone, locale: LOCALE });
+		dt = DateTime.fromJSDate(value, { zone }).setLocale(LOCALE);
 	} else if (typeof value === 'string') {
 		// Postgres hands out `YYYY-MM-DD HH:MM:SS`; luxon's ISO parser wants `T`.
 		const text = value.trim().replace(' ', 'T');
