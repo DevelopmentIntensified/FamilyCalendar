@@ -17,35 +17,35 @@ Steps inside a module task (S1–S9) are ticked in that module's port sheet. Her
 | K-02 | Composition root `src/lib/app/appCtx.server.ts`; hooks set `locals.ctx` / `locals.actor` | — | [app](modules/app.md) | done | 75066d6 | Bridges listed in appCtx |
 | K-03 | Tooling: `arch`, `census`, `docs:check`, `docs:gen`, `test:mod`, `test:affected`, `typecheck`, `new:module`, `build:safe`, `gate` | — | [kernel](modules/kernel.md) | done | 75066d6 | typecheck baseline: 89 legacy errors; gate measured at ~3 min (typecheck ~40 s, test:v2 ~8 s, test:affected ~22 s, build:safe ~72 s) |
 | K-04 | Split `schema.ts` into `kernel/db/tables/<module>.tables.server.ts` | [kernel-tasks › K-04](playbooks/kernel-tasks.md#k-04) | [kernel](modules/kernel.md) | done | 1c2d294 | 44 tables verbatim, schema diff NO DRIFT; `schema.ts` keeps 33 compat type aliases until the modules port |
-| K-05 | Migration runner + bundle into `kernel/db/migrations` | [kernel-tasks › K-05](playbooks/kernel-tasks.md#k-05) | [kernel](modules/kernel.md) | done | 25e0307 | stray `0001_add_password_hash.sql` deleted; unused `getLastMigrationRun()` removed |
+| K-05 | Migration runner + bundle into `kernel/db/migrations` | [kernel-tasks › K-05](playbooks/kernel-tasks.md#k-05) | [kernel](modules/kernel.md) | done | 25e0307 | stray `0001_add_password_hash.sql` deleted; unused `getLastMigrationRun()` removed; Vercel preview check pending [Q-004](questions.md) |
 | K-06 | `kernel/time` dates: formats, day keys, month math | [kernel-tasks › K-06](playbooks/kernel-tasks.md#k-06) | [kernel](modules/kernel.md) | done | ba4ecdf | 13 functions, 96 hand-worked cases (DST, leap years, UTC+14); legacy callers switch at their module's port |
-| K-07 | `kernel/client`: api client, toasts, localPref, searchBox, ticker, share, offline | [kernel-tasks › K-07](playbooks/kernel-tasks.md#k-07) | [kernel](modules/kernel.md) | todo | | |
-| K-08 | `kernel/ui`: Sheet, ConfirmAction, Pill, Skeleton, Toaster, BrandMark, DayNav, MentionInput, colorHash | [kernel-tasks › K-08](playbooks/kernel-tasks.md#k-08) | [kernel](modules/kernel.md) | todo | | |
+| K-07 | `kernel/client`: api client, toasts, localPref, searchBox, ticker, share, offline | [kernel-tasks › K-07](playbooks/kernel-tasks.md#k-07) | [kernel](modules/kernel.md) | done | 5192237 | toasts carry actions; searchBox has `failed`/`searchedFor`; `Ticker` and `Scheduler` live in kernel/time; R8 ignores imports of kernel/client, kernel/ui and kernel/time |
+| K-08 | `kernel/ui`: Sheet, ConfirmAction, Pill, Skeleton, Toaster, BrandMark, DayNav, MentionInput, colorHash | [kernel-tasks › K-08](playbooks/kernel-tasks.md#k-08) | [kernel](modules/kernel.md) | doing | | K-08a `4e37cd7` and K-08b `b16ff32` merged; Opus fix-forward B (kernel/ui) in progress |
 | K-09 | Test speed: fast committed-mode reset, `synchronous_commit=off` on the v2 test DB | [kernel-tasks › K-09](playbooks/kernel-tasks.md#k-09) | [kernel](modules/kernel.md) | done | 3e24dda | reset median 70–110 ms on a saturated machine (TRUNCATE took 10–12 s there); bound 250 ms |
-| K-10 | Page harness (after K-05): shared page catalog, seeded users, session login, local build + preview on its own database; `visual:baseline` / `visual:check` per module (390 px + 1280 px) | [kernel-tasks › K-10](playbooks/kernel-tasks.md#k-10) | [kernel](modules/kernel.md) | todo | | |
+| K-10 | Page harness (after K-05): shared page catalog, seeded users, session login, local build + preview on its own database; `visual:baseline` / `visual:check` per module (390 px + 1280 px) | [kernel-tasks › K-10](playbooks/kernel-tasks.md#k-10) | [kernel](modules/kernel.md) | doing | | built on `rewrite/k10`; review fixes, then the Opus pair |
 | K-11 | Perf harness (after K-10): `perf:check` per page (desktop + mobile profiles), legacy baseline report, budgets ([ADR 0010](../adr/0010-performance-budget.md)) | [kernel-tasks › K-11](playbooks/kernel-tasks.md#k-11) | [kernel](modules/kernel.md) | todo | | |
-| M-feedback | Port **feedback**, the worked example. Also replaces the app faults bridge | [port-a-module](playbooks/port-a-module.md) | [feedback](modules/feedback.md) | todo | | |
-| M-identity | Port **identity** | [port-a-module](playbooks/port-a-module.md) | [identity](modules/identity.md) | todo | | |
-| M-billing | Port **billing** | [port-a-module](playbooks/port-a-module.md) | [billing](modules/billing.md) | todo | | |
-| M-alerts | Port **alerts** (adds the `push` port) | [port-a-module](playbooks/port-a-module.md) | [alerts](modules/alerts.md) | todo | | |
-| M-family | Port **family** (adds the `mail` port if invites need it first) | [port-a-module](playbooks/port-a-module.md) | [family](modules/family.md) | todo | | |
-| M-dashboardModules | Port **dashboardModules** | [port-a-module](playbooks/port-a-module.md) | [dashboardModules](modules/dashboardModules.md) | todo | | |
+| M-feedback | Port **feedback**, the worked example. Also replaces the app faults bridge | [port-a-module](playbooks/port-a-module.md) | [feedback](modules/feedback.md) | doing | | S1+S2 merged; S2 sha `c20b8f1` |
+| M-identity | Port **identity** | [port-a-module](playbooks/port-a-module.md) | [identity](modules/identity.md) | doing | | S1+S2 merged; S2 sha `4e6d125` |
+| M-billing | Port **billing** | [port-a-module](playbooks/port-a-module.md) | [billing](modules/billing.md) | doing | | S1+S2 merged; S2 sha `a3dfdb0` |
+| M-alerts | Port **alerts** (adds the `push` port) | [port-a-module](playbooks/port-a-module.md) | [alerts](modules/alerts.md) | doing | | S1+S2 merged; S2 sha `169ba91` |
+| M-family | Port **family** (adds the `mail` port if invites need it first) | [port-a-module](playbooks/port-a-module.md) | [family](modules/family.md) | doing | | S1+S2 merged; S2 sha `440ba0a` |
+| M-dashboardModules | Port **dashboardModules** | [port-a-module](playbooks/port-a-module.md) | [dashboardModules](modules/dashboardModules.md) | doing | | S1+S2 merged; S2 sha `8779688` |
 | M-bills | **bills**, delete-only ([Q-002](questions.md)): remove `parseBillQuickAdd`, the bill grammar and the bill category list; the tables stay in kernel (K-04) | [port-a-module › S8](playbooks/port-a-module.md#s8-rewire-delete-legacy) only | [bills](modules/bills.md) | todo | | |
-| M-parsing | Port **parsing**, test-first (adds the `ai` port) | [port-a-module](playbooks/port-a-module.md) | [parsing](modules/parsing.md) | todo | | |
-| M-verse | Port **verse** (adds the `http` port) | [port-a-module](playbooks/port-a-module.md) | [verse](modules/verse.md) | todo | | |
-| M-groceries | Port **groceries** | [port-a-module](playbooks/port-a-module.md) | [groceries](modules/groceries.md) | todo | | |
+| M-parsing | Port **parsing**, test-first (adds the `ai` port) | [port-a-module](playbooks/port-a-module.md) | [parsing](modules/parsing.md) | doing | | S1+S2 merged; S2 sha `35f105a`, moves with the Opus fix-forward |
+| M-verse | Port **verse** (adds the `http` port) | [port-a-module](playbooks/port-a-module.md) | [verse](modules/verse.md) | doing | | S1+S2 merged; S2 sha `2c2c797` |
+| M-groceries | Port **groceries** | [port-a-module](playbooks/port-a-module.md) | [groceries](modules/groceries.md) | doing | | S1+S2 merged; S2 sha `ffe9c94` |
 | M-meals | **meals**, delete-only ([Q-002](questions.md)): remove `/api/meals`, `MealsCard` and the meal queries; keep the `meals` table and the `meals` Dashboard Module id | [port-a-module › S8](playbooks/port-a-module.md#s8-rewire-delete-legacy) only | [meals](modules/meals.md) | done | (this commit) | Done inline by the orchestrator (trivial deletion); census 100%. |
-| M-sponsored | Port **sponsored**; S8 also deletes the blob store and `@vercel/blob` ([Q-003](questions.md): delete) | [port-a-module](playbooks/port-a-module.md) | [sponsored](modules/sponsored.md) | todo | | |
-| M-calendar | Port **calendar** | [port-a-module](playbooks/port-a-module.md) | [calendar](modules/calendar.md) | todo | | |
-| M-tasks | Port **tasks** | [port-a-module](playbooks/port-a-module.md) | [tasks](modules/tasks.md) | todo | | |
-| M-access | Port **access** | [port-a-module](playbooks/port-a-module.md) | [access](modules/access.md) | todo | | |
-| M-marketing | Port **marketing** | [port-a-module](playbooks/port-a-module.md) | [marketing](modules/marketing.md) | todo | | |
-| S-shell | Port screen **shell** | [port-a-module](playbooks/port-a-module.md) | [shell](modules/shell.md) | todo | | |
-| S-account | Port screen **account** | [port-a-module](playbooks/port-a-module.md) | [account](modules/account.md) | todo | | |
-| S-admin | Port screen **admin** | [port-a-module](playbooks/port-a-module.md) | [admin](modules/admin.md) | todo | | |
-| S-familyHub | Port screen **familyHub** | [port-a-module](playbooks/port-a-module.md) | [familyHub](modules/familyHub.md) | todo | | |
-| S-dayDashboard | Port screen **dayDashboard** | [port-a-module](playbooks/port-a-module.md) | [dayDashboard](modules/dayDashboard.md) | todo | | |
-| S-calendarPage | Port screen **calendarPage** | [port-a-module](playbooks/port-a-module.md) | [calendarPage](modules/calendarPage.md) | todo | | |
+| M-sponsored | Port **sponsored**; S8 also deletes the blob store and `@vercel/blob` ([Q-003](questions.md): delete) | [port-a-module](playbooks/port-a-module.md) | [sponsored](modules/sponsored.md) | doing | | S1+S2 merged; S2 sha `c37f078` |
+| M-calendar | Port **calendar** | [port-a-module](playbooks/port-a-module.md) | [calendar](modules/calendar.md) | doing | | S1+S2 merged; S2 sha `2b7d6ae` |
+| M-tasks | Port **tasks** | [port-a-module](playbooks/port-a-module.md) | [tasks](modules/tasks.md) | doing | | S1+S2 merged; S2 sha `a4e41f2`, moves with the Opus fix-forward |
+| M-access | Port **access** | [port-a-module](playbooks/port-a-module.md) | [access](modules/access.md) | doing | | S1+S2 merged; S2 sha `8ab8ff7` |
+| M-marketing | Port **marketing** | [port-a-module](playbooks/port-a-module.md) | [marketing](modules/marketing.md) | doing | | S1+S2 merged; S2 sha `c33c078` |
+| S-shell | Port screen **shell** | [port-a-module](playbooks/port-a-module.md) | [shell](modules/shell.md) | doing | | S1 merged; no S2 (shell owns no `/api` route) |
+| S-account | Port screen **account** | [port-a-module](playbooks/port-a-module.md) | [account](modules/account.md) | doing | | S1+S2 merged; S2 sha `299a5b1` |
+| S-admin | Port screen **admin** | [port-a-module](playbooks/port-a-module.md) | [admin](modules/admin.md) | doing | | S1+S2 merged; S2 sha `95c9edb` |
+| S-familyHub | Port screen **familyHub** | [port-a-module](playbooks/port-a-module.md) | [familyHub](modules/familyHub.md) | doing | | S1+S2 merged; S2 sha `c933b70` |
+| S-dayDashboard | Port screen **dayDashboard** | [port-a-module](playbooks/port-a-module.md) | [dayDashboard](modules/dayDashboard.md) | doing | | S1+S2 merged; S2 sha `6e7ab08` |
+| S-calendarPage | Port screen **calendarPage** | [port-a-module](playbooks/port-a-module.md) | [calendarPage](modules/calendarPage.md) | doing | | S1 merged; no S2 (calendarPage owns no `/api` route) |
 | APP-01 | Cron cleanup + health into app | [app-tasks › APP-01](playbooks/app-tasks.md#app-01) | [app](modules/app.md) | todo | | |
 | APP-02 | Limiter swap to the kernel memory limiter | [app-tasks › APP-02](playbooks/app-tasks.md#app-02) | [app](modules/app.md) | todo | | |
 | APP-03 | Session pipeline into app; hooks become wiring | [app-tasks › APP-03](playbooks/app-tasks.md#app-03) | [app](modules/app.md) | todo | | |

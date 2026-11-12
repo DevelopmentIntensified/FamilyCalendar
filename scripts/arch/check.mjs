@@ -162,7 +162,6 @@ for (const file of files) {
 		if (
 			isLegacy(target) &&
 			here.area !== 'app' &&
-			file !== 'src/lib/kernel/db/tables.server.ts' &&
 			!isBridged(file, target)
 		) {
 			add(
