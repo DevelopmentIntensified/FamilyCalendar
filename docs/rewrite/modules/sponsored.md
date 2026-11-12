@@ -56,7 +56,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 - Ad rows are pruned weekly (Mondays 04:00) at 90 days, anchored on `adEvents.createdAt`; the count removed is returned — `src/lib/server/db/actions/adEvents.ts:19-26`, `src/routes/api/cron/cleanup/+server.ts:18, 46-48`, `vercel.json:2-7` · test: `src/lib/server/db/actions/adEvents.prune.test.ts` › "deletes only ad rows created before the cutoff", "keeps the rule even when nothing matched"
 - `countRecentAdEventsByTargetPlan` groups ad rows created inside the window by `targetPlan` (reporting only; no UI consumer) — `src/lib/server/db/actions/adEvents.ts:27-38` · test: `src/lib/server/db/actions/adEvents.prune.test.ts` › "groups ad rows created inside the window by target plan"
 - Impression and click counters increment on the `adEvents` row by id — `src/lib/server/services/adService.ts:223-240`
-- Blob assets live under prefix `family-master/ads`, are uploaded with `access: 'public'`, resolved by prefix listing, and deleted by resolved URL — `src/lib/server/services/blobService.ts:3, 19-61`
+- ~~Blob assets live under prefix `family-master/ads` …~~ Owner [Q-003](../questions.md): the blob store is deleted, not ported (`src/lib/server/services/blobService.ts`, the unwired helpers at `adService.ts:247-273`, and the `@vercel/blob` dependency go in S8).
 - The month parameter is strict: `2026-13`, `2026-1`, `nov` and `2026-11-01` are all rejected, while an absent parameter uses the user zone's current month — `src/routes/api/sponsored-events/+server.ts:19-33` · test: `src/routes/api/sponsored-events/server.test.ts` › "400 for month=%s"
 - Sponsored rows survive every calendar/assignee filter because they belong to no calendar — `src/lib/utils/calendarAssignees.ts:128-135`
 
@@ -87,7 +87,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 | ticket | class | policy |
 |---|---|---|
-| [#180](../../archive/issues/180-blob-store-public-unmetered.md) Blob store public/unmetered: harden or delete the unwired code. | SECURITY | owner decides before the sponsored port wires a blob port |
+| [#180](../../archive/issues/180-blob-store-public-unmetered.md) Blob store public/unmetered: harden or delete the unwired code. | SECURITY | owner answered Q-003: delete it in S8 (code + `@vercel/blob`) |
 
 ## Plan
 

@@ -41,15 +41,13 @@ Answer (owner, 2026-11-11): **A.** M-bills and M-meals become delete-only tasks.
 
 ## Q-003 Blob store (#180) before the `sponsored` port (plan, 2026-11-11)
 
-Context: `blobService` is public, unmetered and unsniffed. The security audit asked for "harden or delete" before anything wires it further.
+Context: `blobService` uploads to a public, unmetered Vercel Blob prefix (`family-master/ads`). The security audit asked for "harden or delete" before anything wires it further. Nothing calls it: the upload, list and delete helpers in `adService.ts` have no callers, so sponsored events serve without blob assets today.
 
-Options:
-A. Delete the blob code during the sponsored port; ads serve without blob assets. Cost: re-adding it later.
-B. Port it behind a `blob` port, private and size-capped. Cost: extra work in M-sponsored.
+Options asked:
+A. Delete it: `blobService.ts`, the unwired helpers in `adService.ts`, and the `@vercel/blob` dependency. Users see no change; it can be restored from git.
+B. Keep it behind a `blob` port in the rebuilt sponsored module: private, size- and type-capped, admin-only upload.
 
-Default applied: none. **M-sponsored is blocked on this answer.**
-
-Answer:
+Answer (owner, 2026-11-11): **A.** M-sponsored deletes the blob code and the dependency in its S8; it is no longer blocked.
 
 ## Q-004 Vercel previews fail for every branch except `test` and `main` (plan, 2026-11-11)
 

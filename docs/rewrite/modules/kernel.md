@@ -153,7 +153,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 legacy source files left (44/44, 3930 LOC):
   - src/lib/client/share.ts (90 LOC, client) importers: 3
-  - src/lib/client/toasts.ts (26 LOC, client) importers: 25
+  - src/lib/client/toasts.ts (26 LOC, client) importers: 24
   - src/lib/components/DayNav.svelte (126 LOC, ui) importers: 2
   - src/lib/components/MentionInput.svelte (280 LOC, ui) importers: 4
   - src/lib/components/MentionInputHarness.svelte (17 LOC, ui) importers: 0
@@ -168,7 +168,7 @@ legacy source files left (44/44, 3930 LOC):
   - src/lib/server/db/migrations/0001_add_password_hash.sql (5 LOC, db/migrations) importers: 0
   - src/lib/server/db/migrations/runner.ts (123 LOC, db/migrations) importers: 1
   - src/lib/server/db/migrations/scripts.ts (75 LOC, db/migrations) importers: 1
-  - src/lib/server/db/schema.ts (1227 LOC, db) importers: 90
+  - src/lib/server/db/schema.ts (1227 LOC, db) importers: 89
       NOTE: Only re-exports BILL_CATEGORIES (no table uses it). Task K-04 splits tables into src/lib/kernel/db/tables/<module>.tables.ts and drops the re-export; bills owns the vocabulary.
   - src/lib/server/db/testHarness.ts (52 LOC, testing) importers: 0
   - src/lib/server/services/fcmService.ts (250 LOC, push) importers: 2
@@ -180,7 +180,7 @@ legacy source files left (44/44, 3930 LOC):
   - src/lib/server/utils/jsonBody.ts (29 LOC, http) importers: 16
   - src/lib/server/utils/pickWritableFields.ts (12 LOC, http) importers: 2
   - src/lib/server/utils/rateLimit.ts (42 LOC, ratelimit) importers: 28
-  - src/lib/server/utils/requireUser.ts (54 LOC, http) importers: 62
+  - src/lib/server/utils/requireUser.ts (54 LOC, http) importers: 61
   - src/lib/server/utils/svixVerify.ts (68 LOC, http) importers: 1
   - src/lib/utils/actionError.ts (31 LOC, client) importers: 2
   - src/lib/utils/avatarColor.ts (17 LOC, util) importers: 11

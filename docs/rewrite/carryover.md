@@ -70,7 +70,7 @@ Read your module's section in S1.
 
 | ticket | class | what remains | policy |
 |---|---|---|---|
-| [#180](../archive/issues/180-blob-store-public-unmetered.md) | SECURITY | Blob store public/unmetered: harden or delete the unwired code. | owner decides before the sponsored port wires a blob port |
+| [#180](../archive/issues/180-blob-store-public-unmetered.md) | SECURITY | Blob store public/unmetered: harden or delete the unwired code. | owner answered [Q-003](questions.md): delete `blobService.ts`, the unwired `adService` helpers and `@vercel/blob` in the sponsored port (S8) |
 
 ## calendar
 

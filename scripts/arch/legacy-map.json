@@ -1354,18 +1354,6 @@
 			"loc": 111,
 			"subject": "src/lib/components/dashboard/KidsScheduleCard.svelte"
 		},
-		"src/lib/components/dashboard/MealsCard.svelte": {
-			"module": "meals",
-			"kind": "source",
-			"layer": "ui",
-			"loc": 166
-		},
-		"src/lib/components/dashboard/MealsCard.svelte.test.ts": {
-			"module": "meals",
-			"kind": "test",
-			"loc": 17,
-			"subject": "src/lib/components/dashboard/MealsCard.svelte"
-		},
 		"src/lib/components/dashboard/TodayGlanceCard.svelte": {
 			"module": "dayDashboard",
 			"kind": "source",
@@ -2036,18 +2024,6 @@
 			"kind": "source",
 			"layer": "server",
 			"loc": 305
-		},
-		"src/lib/server/db/actions/meals.test.ts": {
-			"module": "meals",
-			"kind": "test",
-			"loc": 31,
-			"subject": "src/lib/server/db/actions/meals.ts"
-		},
-		"src/lib/server/db/actions/meals.ts": {
-			"module": "meals",
-			"kind": "source",
-			"layer": "server",
-			"loc": 61
 		},
 		"src/lib/server/db/actions/memberSearch.test.ts": {
 			"module": "family",
@@ -5076,12 +5052,6 @@
 			"kind": "route",
 			"url": "/api/me/verify-email/resend",
 			"loc": 12
-		},
-		"src/routes/api/meals/+server.ts": {
-			"module": "meals",
-			"kind": "route",
-			"url": "/api/meals",
-			"loc": 115
 		},
 		"src/routes/api/mobile/auth/email/+server.ts": {
 			"module": "access",

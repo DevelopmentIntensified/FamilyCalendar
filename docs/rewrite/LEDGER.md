@@ -34,8 +34,8 @@ Steps inside a module task (S1–S9) are ticked in that module's port sheet. Her
 | M-parsing | Port **parsing**, test-first (adds the `ai` port) | [port-a-module](playbooks/port-a-module.md) | [parsing](modules/parsing.md) | todo | | |
 | M-verse | Port **verse** (adds the `http` port) | [port-a-module](playbooks/port-a-module.md) | [verse](modules/verse.md) | todo | | |
 | M-groceries | Port **groceries** | [port-a-module](playbooks/port-a-module.md) | [groceries](modules/groceries.md) | todo | | |
-| M-meals | **meals**, delete-only ([Q-002](questions.md)): remove `/api/meals`, `MealsCard` and the meal queries; keep the `meals` table and the `meals` Dashboard Module id | [port-a-module › S8](playbooks/port-a-module.md#s8-rewire-delete-legacy) only | [meals](modules/meals.md) | todo | | |
-| M-sponsored | Port **sponsored** (blob: owner decision #180 first) | [port-a-module](playbooks/port-a-module.md) | [sponsored](modules/sponsored.md) | todo | | |
+| M-meals | **meals**, delete-only ([Q-002](questions.md)): remove `/api/meals`, `MealsCard` and the meal queries; keep the `meals` table and the `meals` Dashboard Module id | [port-a-module › S8](playbooks/port-a-module.md#s8-rewire-delete-legacy) only | [meals](modules/meals.md) | done | (this commit) | Done inline by the orchestrator (trivial deletion); census 100%. |
+| M-sponsored | Port **sponsored**; S8 also deletes the blob store and `@vercel/blob` ([Q-003](questions.md): delete) | [port-a-module](playbooks/port-a-module.md) | [sponsored](modules/sponsored.md) | todo | | |
 | M-calendar | Port **calendar** | [port-a-module](playbooks/port-a-module.md) | [calendar](modules/calendar.md) | todo | | |
 | M-tasks | Port **tasks** | [port-a-module](playbooks/port-a-module.md) | [tasks](modules/tasks.md) | todo | | |
 | M-access | Port **access** | [port-a-module](playbooks/port-a-module.md) | [access](modules/access.md) | todo | | |

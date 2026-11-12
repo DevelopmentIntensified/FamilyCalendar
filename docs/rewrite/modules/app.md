@@ -90,7 +90,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 # app: 0% ported
 
 legacy source files left (1/1, 39 LOC):
-  - src/lib/server/utils/apiError.ts (39 LOC, server) importers: 22
+  - src/lib/server/utils/apiError.ts (39 LOC, server) importers: 21
       NOTE: Used by ~22 legacy routes across modules. feedback S8: make it delegate to appCtx.faults.report (the feedback service) instead of building reports itself; delete it in APP-05 when the last legacy route using it is ported.
 
 route files not yet wiring-only (2/2):

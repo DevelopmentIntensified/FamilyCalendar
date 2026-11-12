@@ -132,7 +132,7 @@ legacy source files left (11/11, 1366 LOC):
   - src/lib/components/family/MemberInviteTab.svelte (186 LOC, ui) importers: 1
   - src/lib/components/family/MemberSearchTab.svelte (170 LOC, ui) importers: 1
   - src/lib/components/family/responseError.ts (20 LOC, model) importers: 3
-  - src/lib/server/db/actions/families.ts (364 LOC, server) importers: 38
+  - src/lib/server/db/actions/families.ts (364 LOC, server) importers: 37
   - src/lib/server/db/actions/memberSearch.ts (125 LOC, server) importers: 1
   - src/lib/server/emails/family-invite.ts (20 LOC, server) importers: 1
   - src/lib/server/services/userScope.ts (24 LOC, server) importers: 2

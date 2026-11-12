@@ -1,13 +1,14 @@
 import { DASHBOARD_MODULES } from '$lib/dashboardModules';
 
 /**
- * Modules whose Dashboard card exists in the tree but is mounted nowhere.
+ * Modules that have no Dashboard card mounted anywhere.
  *
  * 105 rerun: the approved page badges these rows "parked · not mounted
  * anywhere", because a switch that switches nothing is a lie the reader cannot
- * see through. `MealsCard.svelte` is the case — it is imported by nothing
- * except its own test, and no loader reads the `meals` table — but the module
- * is still in `DASHBOARD_MODULES`, so its row still writes a saved value.
+ * see through. `meals` is the case: its card and endpoint were deleted (owner
+ * Q-002, 2026-11-11) and no loader reads the `meals` table, but the module is
+ * still in `DASHBOARD_MODULES` (so `/api/dashboard` keeps its key) and its row
+ * still writes a saved value.
  *
  * Deliberately NOT derived from `DASHBOARD_READS`: `glance`, `top3` and
  * `completed` all read `[]` there too, and all three ARE mounted. An empty
