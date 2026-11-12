@@ -3,7 +3,7 @@
  * [../README.md](../README.md).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import MentionInput from './MentionInput.svelte';
 import type { MentionEveryoneOption, MentionPerson } from './mentionFilter';
@@ -203,7 +203,7 @@ describe('MentionInput', () => {
 		expect(container.querySelector('[role="listbox"]')).not.toBeNull();
 	});
 
-	it('a plain Enter with no dropdown submits instead of adding a newline', async () => {
+	it('leaves a plain Enter alone with no dropdown, so a multi-line caller types its newline', async () => {
 		const onsubmit = vi.fn();
 		const { container } = render(MentionInput, {
 			props: { value: 'buy milk', people: PEOPLE, onsubmit }
@@ -212,8 +212,85 @@ describe('MentionInput', () => {
 		await fireEvent.focus(input);
 		await flush();
 		expect(container.querySelector('[role="listbox"]')).toBeNull();
-		await fireEvent.keyDown(input, { key: 'Enter' });
+
+		// Legacy Enter: closed, the key is not ours. No preventDefault (the
+		// textarea types the newline) and no submit — what the quick-add bulk
+		// paste box needs.
+		const enter = new KeyboardEvent('keydown', {
+			key: 'Enter',
+			bubbles: true,
+			cancelable: true
+		});
+		input.dispatchEvent(enter);
+
+		expect(enter.defaultPrevented).toBe(false);
+		expect(onsubmit).not.toHaveBeenCalled();
+	});
+
+	it('leaves Enter and the arrows to the IME while a composition is in progress', async () => {
+		const onsubmit = vi.fn();
+		const { container } = render(MentionInput, {
+			props: { value: 'buy @sa', people: PEOPLE, onsubmit }
+		});
+		const input = inputElement(container);
+		await fireEvent.focus(input);
+		await flush();
+		expect(container.querySelector('[role="listbox"]')).not.toBeNull();
+
+		// jsdom ignores `isComposing` in KeyboardEventInit, so set the flag the
+		// way a real IME keydown carries it.
+		const composing = new KeyboardEvent('keydown', {
+			key: 'Enter',
+			bubbles: true,
+			cancelable: true
+		});
+		Object.defineProperty(composing, 'isComposing', { value: true });
+		input.dispatchEvent(composing);
+		await flush();
+
+		expect(composing.defaultPrevented).toBe(false);
+		expect(input.value).toBe('buy @sa');
+		expect(onsubmit).not.toHaveBeenCalled();
+		expect(container.querySelector('[role="listbox"]')).not.toBeNull();
+	});
+
+	it('submits on Enter when the open list no longer has the highlighted row', async () => {
+		const onsubmit = vi.fn();
+		const { container, rerender } = render(MentionInput, {
+			props: {
+				value: 'buy @sa',
+				people: [
+					{ id: 'u-sam', firstName: 'Sam', lastName: '' },
+					{ id: 'u-sara', firstName: 'Sara', lastName: '' }
+				],
+				onsubmit
+			}
+		});
+		const input = inputElement(container);
+		await fireEvent.focus(input);
+		await flush();
+		// Highlight the second row, then let the roster shrink underneath it.
+		await fireEvent.keyDown(input, { key: 'ArrowDown' });
+		await rerender({
+			value: 'buy @sa',
+			people: [{ id: 'u-sam', firstName: 'Sam', lastName: '' }],
+			onsubmit
+		});
+		await flush();
+		expect(container.querySelectorAll('[role="option"]')).toHaveLength(1);
+
+		const enter = new KeyboardEvent('keydown', {
+			key: 'Enter',
+			bubbles: true,
+			cancelable: true
+		});
+		input.dispatchEvent(enter);
+
+		// Nothing highlighted to pick: the key still belongs to the picker, so the
+		// newline is swallowed and the caller's submit runs.
+		expect(enter.defaultPrevented).toBe(true);
 		expect(onsubmit).toHaveBeenCalledTimes(1);
+		expect(input.value).toBe('buy @sa');
 	});
 
 	it('Shift+Enter stays a newline', async () => {
@@ -272,5 +349,18 @@ describe('MentionInput', () => {
 		await fireEvent.focus(input);
 		await flush();
 		expect(container.querySelector('[role="listbox"]')).toBeNull();
+	});
+
+	it('gives the dropdown rows a test id', async () => {
+		const { container } = render(MentionInput, {
+			props: { value: 'buy @', people: PEOPLE, everyone: FAMILY }
+		});
+		const input = inputElement(container);
+		await fireEvent.focus(input);
+		await flush();
+
+		const options = screen.getAllByTestId('mention-option');
+		expect(options).toHaveLength(container.querySelectorAll('[role="option"]').length);
+		expect(options[0]).toHaveAttribute('role', 'option');
 	});
 });
