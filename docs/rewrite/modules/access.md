@@ -203,9 +203,9 @@ Every wire line below was re-read against the legacy code on 2026-11-11.
 - `/api/mobile/auth/reset` with a malformed body answers **500** `Failed to reset password` for the same reason (`src/routes/(marketing)/forgot-password/reset/+server.ts:68-135`). Pinned.
 - The mobile routes: a **non-string but truthy** `email` (e.g. `123`) throws in `.toLowerCase()` and lands in the same 500 (`forgot`). Not pinned: it is a defect, and pinning it would bless the TypeError.
 - `/api/logout`'s "delete the session row and clear `locals`" half cannot be driven through `invoke` — the harness pins `locals.session` to `null` — so the golden pins the signed-out 302 only; the S5 service test pins the deletion.
-- `/api/me/claim`'s rate limits (10/15 per IP, 3/15 per address) cannot be reached without sending up to 10 real emails, so the 429 case (per-address bucket; the per-IP bucket is the same test with ten hits) is in the skipped spec-golden block.
+- `/api/me/claim`'s rate limits cannot be reached without sending real emails: the per-address allowance is 3, so the fourth request both fills and trips it. That one 429 case (per-address bucket) is in the skipped spec-golden block; the per-IP bucket (10) is the same test ten times over.
 - The 8 spec-goldens at the bottom of `access.http.db.test.ts` (claim fresh address, claim registered address, claim 429, me/email success, resend send, mobile email send, mobile signup create, forgot send) are `it.skip` with the required marker: the legacy handlers send through the module-scope Resend client, so running them would hit the network. They assert the spec (and the legacy unit tests' expectations). **S6 must delete the `.skip`s** in the same commit that makes the ported handler take its sender from `ctx` — that is the one sanctioned edit to this golden file.
-- `POST /api/mobile/auth/verify` login looks up `auth_account` first and falls back to `users` (`src/lib/server/services/mobileAuth.ts:291-295`); a person with only a `users` row signs in. Pinned.
+- `POST /api/mobile/auth/verify` login looks up `accounts` first (`src/lib/server/db/schema.ts:197`, via `getAccount`) and falls back to `users` (`src/lib/server/services/mobileAuth.ts:291-295`); a person with only a `users` row signs in. Pinned.
 
 ### Probably accidental, and what happens to it
 
@@ -219,7 +219,7 @@ Every wire line below was re-read against the legacy code on 2026-11-11.
 3. **The two membership signals on the page-code routes** (`signup/email/code` → 500 "Account with this email already Exists", `login/email/code` → 500 "No Account found"). They leak account state on the wire. Options: leave (page-only, no installed client), or make both the generic 500 `Unexpected error, please try again`. Recommendation: make both generic in the port; the goldens cover no page routes, so nothing breaks.
 4. **Email-change codes in plaintext (#162).** Options: leave until #162's ticket, or hash on write now (the codes are internal to the flow and burned on use). Recommendation: hash now; no wire change.
 5. **Carry-over #175:** the web `/forgot-password/reset` has no throttle of its own (only the mobile wrapper adds 10/15 per IP). Options: port as-is with the wrapper throttle, or move the throttle into the shared service. Recommendation: move it into the service when porting; the mobile golden's 429 stays valid and the web form gains the cap.
-6. **Spec-golden activation (S6).** These 7 tests cannot run until the ported handler takes its email sender from `ctx` (there is no kernel email port yet). Recommendation: add the port in this module's S5 (a `ctx.mail` port in kernel, per add-a-port.md) so S6 unskips them rather than deferring again.
+6. **Spec-golden activation (S6).** These 8 tests cannot run until the ported handler takes its email sender from `ctx` (there is no kernel email port yet). Recommendation: add the port in this module's S5 (a `ctx.mail` port in kernel, per add-a-port.md) so S6 unskips them rather than deferring again.
 
 ### Files kept for unported importers
 

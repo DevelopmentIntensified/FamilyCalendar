@@ -30,6 +30,7 @@ import {
 import { seedUser, uniqueSuffix } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
+import type { JsonValue } from '$lib/kernel/validation/validators';
 // The ROUTE modules, not the legacy services: after the port these files
 // re-export the new handlers, so this import never changes.
 import { POST as postLogout } from '../../../routes/api/logout/+server';
@@ -209,7 +210,7 @@ describe('POST /api/me/claim', () => {
 
 	it('reads an absent, null or non-string email as "" and asks for a valid address', async () => {
 		const guest = await seedGuest();
-		const bodies = [{}, { email: null }, { email: 42 }];
+		const bodies: JsonValue[] = [{}, { email: null }, { email: 42 }];
 		for (const [index, body] of bodies.entries()) {
 			const res = await invoke(postClaim, {
 				ctx: ctx(),
@@ -391,7 +392,8 @@ describe('POST /api/me/verify-email', () => {
 
 	it('answers the same generic 400 for an absent or non-string code', async () => {
 		const user = await seedUser(db(), { email: 'verify-absent@example.test' });
-		for (const [index, body] of [{}, { code: null }, { code: 7 }].entries()) {
+		const bodies: JsonValue[] = [{}, { code: null }, { code: 7 }];
+		for (const [index, body] of bodies.entries()) {
 			const res = await invoke(postVerifyEmail, {
 				ctx: ctx(),
 				user,
@@ -620,10 +622,11 @@ describe('POST /api/mobile/auth/verify', () => {
 	});
 
 	it('reads an absent or non-string code as "That code is wrong or expired"', async () => {
-		for (const [index, body] of [
+		const bodies: JsonValue[] = [
 			{ email: 'nocode@example.test', intent: 'login' },
 			{ email: 'nocode@example.test', intent: 'login', code: null }
-		].entries()) {
+		];
+		for (const [index, body] of bodies.entries()) {
 			const res = await invoke(postMobileVerify, {
 				ctx: ctx(),
 				path: '/api/mobile/auth/verify',
@@ -794,12 +797,13 @@ describe('POST /api/mobile/auth/password', () => {
 	});
 
 	it('requires both fields (absent, null and "" all read the same)', async () => {
-		for (const [index, body] of [
+		const bodies: JsonValue[] = [
 			{},
 			{ email: 'a@example.test' },
 			{ password: 'correct-horse-battery' },
 			{ email: null, password: 'correct-horse-battery' }
-		].entries()) {
+		];
+		for (const [index, body] of bodies.entries()) {
 			const res = await invoke(postMobilePassword, {
 				ctx: ctx(),
 				path: '/api/mobile/auth/password',
@@ -1236,10 +1240,8 @@ describe('POST /api/mobile/auth/forgot', () => {
 
 describe('POST /api/mobile/auth/reset', () => {
 	it('requires a token and a password (null reads as absent)', async () => {
-		for (const [index, body] of [
-			{},
-			{ token: null, password: 'long-enough-password' }
-		].entries()) {
+		const bodies: JsonValue[] = [{}, { token: null, password: 'long-enough-password' }];
+		for (const [index, body] of bodies.entries()) {
 			const res = await invoke(postMobileReset, {
 				ctx: ctx(),
 				path: '/api/mobile/auth/reset',
@@ -1403,7 +1405,7 @@ describe('success paths that send email (spec-goldens, skipped until S6)', () =>
 		expect(res.body).toEqual({ sent: true });
 	});
 
-	it.skip('POST /api/me/claim — throttles at 10 per 15 min per IP and 3 per 15 min per address', async () => {
+	it.skip('POST /api/me/claim — answers 429 on the fourth request for the same address within 15 minutes', async () => {
 		const guest = await seedGuest();
 		const send = () =>
 			invoke(postClaim, {

@@ -60,9 +60,9 @@ Everything other modules and routes may use, grouped by entry file. One line eac
 ## How to test
 
 - Whole module: `npm run test:mod -- access` (add `--legacy` while legacy tests remain).
-- Pure rules: `*.rules.test.ts`, plain tables of input → expected output, no setup (`access.email.rules.test.ts`, `access.redirect.rules.test.ts`, `access.claim.rules.test.ts`, `access.device.rules.test.ts`).
+- Pure rules: `*.rules.test.ts`, plain tables of input → expected output, no setup (`access.email.rules.test.ts`, `access.redirect.rules.test.ts`, `access.password.rules.test.ts`, `access.claim.rules.test.ts`, `access.device.rules.test.ts`).
 - Database + services: `*.db.test.ts` using `rollbackTest` and `testCtx({ db })` (needs Postgres: `docker start familycalendar-db`) — one test per Invariant that touches rows, titled after the rule.
-- HTTP contract: `access.http.db.test.ts` pins status + body of every `/api` route (golden tests, committed mode). Refusals and side effects run against the legacy handlers today; the seven flows whose success really sends email (plus the two Claim 429s that need ten sends) are `it.skip` spec-goldens (see the sheet's Notes) — unskip them in S6, when the ported handler takes its email sender from `ctx`.
+- HTTP contract: `access.http.db.test.ts` pins status + body of every `/api` route (golden tests, committed mode). Refusals and side effects run against the legacy handlers today; the 8 `it.skip` spec-goldens at the bottom cover the seven flows whose success really sends email plus the Claim 429 (the per-address bucket, which needs three sends). Unskip them in S6, when the ported handler takes its email sender from `ctx` — see the sheet's Notes.
 - Rate-limit cases drive the real request N times against one IP/email rather than pre-filling buckets: the legacy limiter is module state, so the golden keeps working when the port moves it into `ctx.limiter`.
 - UI: `ui/*.svelte.test.ts` render with props; state classes are tested without a DOM.
 - Fixtures: `access.fixtures.server.ts` (`seedGuest`, `seedPasswordUser`, `seedApiToken`, `seedHashedCode`, `seedClaimToken`).
