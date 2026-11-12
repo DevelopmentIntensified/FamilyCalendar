@@ -14,7 +14,7 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
-import { PAGES_BASE_URL, PAGES_DATABASE_URL } from './serve';
+import { PAGES_BASE_URL, PAGES_DATABASE_URL } from './env';
 
 /**
  * The repo root. NOT Playwright's `rootDir` (that is the resolved testDir,

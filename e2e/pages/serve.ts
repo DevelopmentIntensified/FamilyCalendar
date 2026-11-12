@@ -14,25 +14,24 @@
 // Playwright starts this before globalSetup and kills it afterwards.
 //
 // Doc: e2e/pages/README.md
-import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
+import {
+	PAGES_ADMIN_URL,
+	PAGES_AUTH_SECRET,
+	PAGES_DATABASE_NAME,
+	PAGES_DATABASE_URL,
+	PAGES_PORT
+} from './env';
 
-/** Everything in this harness uses one database name; nothing else may use it. */
-export const PAGES_DATABASE_NAME = 'familycalendar_pages';
-export const PAGES_ADMIN_URL = 'postgres://postgres:postgres@127.0.0.1:5433/postgres';
-export const PAGES_DATABASE_URL = `postgres://postgres:postgres@127.0.0.1:5433/${PAGES_DATABASE_NAME}`;
-export const PAGES_PORT = 4174;
-export const PAGES_BASE_URL = `http://localhost:${PAGES_PORT}`;
+/** The repo root: this file lives in e2e/pages, two levels down. */
+const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
-/**
- * Session signing key for the pages server. It is not a secret — it only ever
- * signs sessions for the throwaway database — but it MUST be the same value in
- * the preview server and the test process, or a cookie minted by a seed would
- * not validate. playwright.pages.config.ts sets it from here.
- */
-export const PAGES_AUTH_SECRET = 'family-planz-pages-harness-not-a-secret';
+/** The build this server previews, and the HEAD stamp `pages:build` writes. */
+const BUILD_OUTPUT = fileURLToPath(new URL('../../.svelte-kit/output', import.meta.url));
+const BUILD_HEAD = fileURLToPath(new URL('../../.svelte-kit/pages-build-head', import.meta.url));
 
 /** Drop and recreate the pages database, disconnecting anything still on it. */
 async function resetDatabase(): Promise<void> {
@@ -46,41 +45,72 @@ async function resetDatabase(): Promise<void> {
 	console.log(`[pages] recreated ${PAGES_DATABASE_NAME}`);
 }
 
+/**
+ * Warn (never fail) when the build was made from a different commit than HEAD:
+ * a stale preview screenshots old code, and the fix is to rebuild, not to
+ * abort a run that is otherwise sound.
+ */
+function warnIfBuildMoved(): void {
+	let recorded: string;
+	try {
+		recorded = readFileSync(BUILD_HEAD, 'utf8').trim();
+	} catch {
+		console.warn(
+			'[pages] no build HEAD recorded (.svelte-kit/pages-build-head) — run `npm run pages:build` to stamp it.'
+		);
+		return;
+	}
+	let head: string;
+	try {
+		head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO_ROOT, encoding: 'utf8' }).trim();
+	} catch {
+		// Not a git checkout (packaged copy): nothing to compare against.
+		return;
+	}
+	if (recorded && head && recorded !== head) {
+		console.warn(
+			`[pages] build is from ${recorded.slice(0, 12)} but HEAD is ${head.slice(0, 12)} — ` +
+				'run `npm run pages:build` for a fresh preview.'
+		);
+	}
+}
+
 /** The built app's preview server; migrations run on its first cold start. */
 function startPreview(): ChildProcess {
 	const serverEnv: NodeJS.ProcessEnv = {
 		...process.env,
 		DATABASE_URL: PAGES_DATABASE_URL,
 		BETTER_AUTH_SECRET: PAGES_AUTH_SECRET,
-		NODE_ENV: 'production'
+		NODE_ENV: 'production',
+		// Production parity, and host-independence: the preview's clock and
+		// `Intl` defaults are UTC whatever the machine is set to. Dates that
+		// matter to a page are rendered in the user's zone (seeded settings).
+		TZ: 'UTC'
 	};
 	// The production cold-start path must run: hooks.server.ts skips migrations
 	// only when this is set, and the harness needs a migrated schema.
 	delete serverEnv.DATABASE_DISABLE_MIGRATIONS;
 
-	return spawn(
-		'npx',
-		['vite', 'preview', '--port', String(PAGES_PORT), '--strictPort'],
-		{
-			stdio: 'inherit',
-			env: serverEnv,
-			// `vite preview` must find vite.config.ts and .svelte-kit/output, so
-			// run it from the repo root whatever the caller's cwd was.
-			cwd: fileURLToPath(new URL('../../', import.meta.url)),
-			// Windows resolves npx through the shell; the tree kill on shutdown
-			// is Playwright's job (it owns this process group).
-			shell: process.platform === 'win32'
-		}
-	);
+	// One command string + `shell: true`: the form the other repo scripts use.
+	// `npx` is a .cmd shim on Windows, and a bare `spawn('npx', args)` without
+	// the shell fails there with ENOENT.
+	return spawn(`npx vite preview --port ${PAGES_PORT} --strictPort`, {
+		stdio: 'inherit',
+		env: serverEnv,
+		// `vite preview` must find vite.config.ts and .svelte-kit/output, so
+		// run it from the repo root whatever the caller's cwd was.
+		cwd: REPO_ROOT,
+		// The tree kill on shutdown is Playwright's job (it owns this process
+		// group).
+		shell: true
+	});
 }
 
 async function main(): Promise<void> {
-	// The build lands at <repo>/.svelte-kit/output: this file is compiled where
-	// it lives (e2e/pages), so climb two levels rather than trusting the cwd.
-	const buildOutput = fileURLToPath(new URL('../../.svelte-kit/output', import.meta.url));
-	if (!existsSync(buildOutput)) {
+	if (!existsSync(BUILD_OUTPUT)) {
 		throw new Error('No build found. Run `npm run pages:build` before the pages harness.');
 	}
+	warnIfBuildMoved();
 
 	await resetDatabase();
 	const child = startPreview();
@@ -107,8 +137,8 @@ function invokedAsScript(): boolean {
 }
 
 if (invokedAsScript()) {
-	// Explicit call + catch: this module is also imported by the Playwright
-	// config for its constants, so starting the server must never be an import
+	// Explicit call + catch: the constants live in ./env, but this module is
+	// also loadable by tooling, so starting the server must never be an import
 	// side effect, and a failed start must not become an unhandled rejection.
 	main().catch((error: unknown) => {
 		console.error('[pages] failed to start:', error);

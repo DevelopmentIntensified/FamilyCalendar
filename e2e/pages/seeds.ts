@@ -257,8 +257,12 @@ async function insertTasks(ctx: SeedContext, userId: string) {
 		{
 			id: pageId(`${ctx.seed}:task:recycling`),
 			title: 'Take out the recycling',
-			notes: 'Blue bin, before 7am.',
-			dueDate: at(ctx.now, 0, 7),
+			notes: 'Blue bin night.',
+			// 23:59 today, not a morning hour: MonthDayCell compares a task's
+			// due time with the exact current time (MonthDayCell.svelte:245-247),
+			// so an open "today" item must stay in one state for the whole day
+			// a baseline/check pair runs on.
+			dueDate: at(ctx.now, 0, 23, 59),
 			completedAt: null,
 			archivedAt: null,
 			priority: 'high',
@@ -301,6 +305,21 @@ async function insertTasks(ctx: SeedContext, userId: string) {
 			priority: 'normal',
 			category: null,
 			completionCount: 1,
+			userId
+		},
+		{
+			// The explicit overdue example: open, and on an earlier day, so
+			// the red overdue styling is always shown without any of today's
+			// open items changing state as the day advances.
+			id: pageId(`${ctx.seed}:task:library`),
+			title: 'Return the library books',
+			notes: null,
+			dueDate: at(ctx.now, -2, 9),
+			completedAt: null,
+			archivedAt: null,
+			priority: 'normal',
+			category: null,
+			completionCount: 0,
 			userId
 		}
 	];
@@ -408,7 +427,10 @@ async function adminRegisters(ctx: SeedContext): Promise<SeedResult> {
 			area: 'calendar',
 			description: 'Dragging an event to next week moved it a day early.',
 			url: '/calendar',
-			status: 'open'
+			status: 'open',
+			// The bugs list prints this to the minute: a fixed hour on an
+			// earlier day keeps that label identical for every run on a day.
+			createdAt: new Date(at(ctx.now, -2, 9))
 		},
 		{
 			id: pageId(`${ctx.seed}:bug:2`),
@@ -416,7 +438,8 @@ async function adminRegisters(ctx: SeedContext): Promise<SeedResult> {
 			area: 'tasks',
 			description: 'The clear-completed button did nothing on the phone.',
 			url: '/calendar/tasks',
-			status: 'open'
+			status: 'open',
+			createdAt: new Date(at(ctx.now, -3, 11))
 		}
 	];
 	await deleteByIds(ctx, bugReports, bugReports.id, bugs.map((bug) => bug.id));
@@ -432,7 +455,9 @@ async function adminRegisters(ctx: SeedContext): Promise<SeedResult> {
 			sample: 'Dentist next Tuesday at noonish',
 			matched: JSON.stringify({ title: 'Dentist' }),
 			count: 4,
-			resolved: false
+			resolved: false,
+			// Date-only on the page, but pinned like every other past row.
+			createdAt: new Date(at(ctx.now, -4, 8))
 		},
 		{
 			id: pageId(`${ctx.seed}:phrase:2`),
@@ -441,7 +466,8 @@ async function adminRegisters(ctx: SeedContext): Promise<SeedResult> {
 			sample: 'Push everything at the weekend back an hour',
 			matched: null,
 			count: 2,
-			resolved: false
+			resolved: false,
+			createdAt: new Date(at(ctx.now, -5, 14))
 		}
 	];
 	await deleteByIds(
@@ -470,11 +496,19 @@ async function calendarUser(ctx: SeedContext): Promise<SeedResult> {
 	return { email: user.email ?? undefined, params: { id: eventId } };
 }
 
-/** Groceries: two stores, five open items, one already checked off. */
-async function groceriesUser(ctx: SeedContext): Promise<SeedResult> {
-	const { user } = await seedPersonalAccount(ctx);
+/**
+ * Groceries in one scope (`familyId` null = personal): two stores, five open
+ * items, one already checked off. Shared by the groceries page and the day
+ * dashboard's grocery card.
+ */
+async function insertGroceryList(
+	ctx: SeedContext,
+	userId: string,
+	familyId: string | null
+): Promise<void> {
 	const traderJoes = "Trader Joe's";
 	const wholeFoods = 'Whole Foods Market';
+	const scope = familyId ? 'family' : 'mine';
 
 	// Distinct `createdAt` per row and a fixed insert order: the list reads
 	// `order by created_at`, and rows inserted in one statement would otherwise
@@ -510,9 +544,9 @@ async function groceriesUser(ctx: SeedContext): Promise<SeedResult> {
 			minutesAgo: 10
 		}
 	].map((row) => ({
-		id: pageId(`${ctx.seed}:grocery:${row.name}`),
-		userId: user.id,
-		familyId: null,
+		id: pageId(`${ctx.seed}:grocery:${scope}:${row.name}`),
+		userId,
+		familyId,
 		name: row.name,
 		nameKey: normalizeGroceryName(row.name),
 		quantity: row.quantity,
@@ -525,22 +559,84 @@ async function groceriesUser(ctx: SeedContext): Promise<SeedResult> {
 
 	await ctx.db.insert(groceryStoreColours).values([
 		{
-			id: pageId(`${ctx.seed}:colour:trader-joes`),
-			userId: user.id,
-			familyId: null,
+			id: pageId(`${ctx.seed}:colour:${scope}:trader-joes`),
+			userId,
+			familyId,
 			storeKey: normalizeGroceryName(traderJoes),
 			color: 'terracotta'
 		},
 		{
-			id: pageId(`${ctx.seed}:colour:whole-foods`),
-			userId: user.id,
-			familyId: null,
+			id: pageId(`${ctx.seed}:colour:${scope}:whole-foods`),
+			userId,
+			familyId,
 			storeKey: normalizeGroceryName(wholeFoods),
 			color: 'sage'
 		}
 	]);
+}
 
+/** Groceries: two stores, five open items, one already checked off. */
+async function groceriesUser(ctx: SeedContext): Promise<SeedResult> {
+	const { user } = await seedPersonalAccount(ctx);
+	await insertGroceryList(ctx, user.id, null);
 	return { email: user.email ?? undefined };
+}
+
+/**
+ * The day dashboard: personal events/tasks and a family (membership, family
+ * calendar, family task) plus grocery rows, so every card in the seeded band
+ * renders populated instead of an empty state.
+ */
+async function dashboardUser(ctx: SeedContext): Promise<SeedResult> {
+	const { user, calendarId } = await seedPersonalAccount(ctx);
+	const eventId = await insertCalendarEvents(ctx, user.id, calendarId);
+	await insertTasks(ctx, user.id);
+
+	const family = await insertFamily(ctx);
+	await ctx.db.insert(familyMembers).values({
+		userId: user.id,
+		familyId: family.id,
+		role: 'creator',
+		memberType: 'parent'
+	});
+
+	// The family calendar and one family event: Day at a Glance lists both
+	// scopes, and the family rows prove the roster reached the page.
+	const familyCalendarId = pageId(`${ctx.seed}:family-calendar`);
+	await ctx.db
+		.insert(calendars)
+		.values({ id: familyCalendarId, ownerId: user.id, familyId: family.id });
+	await ctx.db.insert(events).values({
+		id: pageId(`${ctx.seed}:event:family-lunch`),
+		calendarId: familyCalendarId,
+		ownerId: user.id,
+		title: 'Sunday lunch',
+		description: null,
+		location: 'Home',
+		start: at(ctx.now, 0, 12),
+		end: at(ctx.now, 0, 14),
+		allDay: false
+	});
+
+	// The Family Task Board card reads open family tasks; 23:59 today keeps it
+	// out of the "overdue" state for the whole day the shot is compared on.
+	await ctx.db.insert(tasks).values({
+		id: pageId(`${ctx.seed}:task:family-hoover`),
+		title: 'Hoover the stairs',
+		notes: null,
+		dueDate: at(ctx.now, 0, 23, 59),
+		completedAt: null,
+		archivedAt: null,
+		priority: 'normal',
+		category: 'Home',
+		completionCount: 0,
+		userId: user.id,
+		familyId: family.id
+	});
+
+	await insertGroceryList(ctx, user.id, null);
+
+	return { email: user.email ?? undefined, params: { id: eventId } };
 }
 
 /** The family group: creator membership, a roster, an invite code, family tasks. */
@@ -611,7 +707,9 @@ async function familyUser(ctx: SeedContext): Promise<SeedResult> {
 			id: pageId(`${ctx.seed}:task:family-hoover`),
 			title: 'Hoover the stairs',
 			notes: null,
-			dueDate: at(ctx.now, 0, 18),
+			// 23:59 today: an open "today" item that never turns overdue
+			// mid-day (see MonthDayCell.svelte:245-247).
+			dueDate: at(ctx.now, 0, 23, 59),
 			completedAt: null,
 			archivedAt: null,
 			priority: 'normal',
@@ -702,6 +800,7 @@ export const seeds = {
 	adminRegisters,
 	accountUser,
 	calendarUser,
+	dashboardUser,
 	groceriesUser,
 	familyUser,
 	familyInvite,

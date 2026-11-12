@@ -7,10 +7,13 @@
 // `+page.svelte`. Keep this file a list of routes, not of components: a page
 // that stops being a route leaves the catalog with it.
 //
-// `ready` is the selector that means the page is usable — an existing
-// data-testid wherever the page has one, else its heading. `mask` hides
-// regions that change on their own; today every clock-derived value a page
-// can show is pinned by its seed, so no entry needs one (see README.md).
+// `ready` is the selector that means the page is usable AND its data arrived —
+// a data-testid inside the page's data-dependent content wherever the page has
+// one (the dashboard's `h1` renders above its streaming `{#await}`), else its
+// heading. `mask` hides regions that change on their own; today every
+// clock-derived *state* a page can show is pinned by its seed, so no entry
+// needs one. The date itself still moves at midnight: baselines and checks
+// must run on the same day (see README.md).
 //
 // Doc: e2e/pages/README.md
 import type { SeedName } from './seeds';
@@ -21,8 +24,14 @@ export type PageEntry = {
 	name: string;
 	/** The route, with `[param]` fill-ins taken from the seed's params. */
 	path: string;
+	/**
+	 * Where the route ends up when it redirects (a server `redirect(302)` or a
+	 * client `goto`, e.g. `/share-target` → `/calendar`). `gotoReady` asserts
+	 * the landing path against this; absent, it asserts against `path`.
+	 */
+	landsOn?: string;
 	seed: SeedName;
-	/** Selector that appears once the page is usable. */
+	/** Selector that appears once the page is usable and its data arrived. */
 	ready: string;
 	/** Selectors of self-changing regions, hidden before the screenshot. */
 	mask?: string[];
@@ -109,7 +118,10 @@ export const PAGES: PageEntry[] = [
 	{
 		module: 'access',
 		name: 'reset-password',
-		path: '/forgot-password/reset',
+		// The page renders the form (rather than the missing-token error) only
+		// when a token is present; it validates the token on submit, not on
+		// load, so a placeholder shows the same form a real link does.
+		path: '/forgot-password/reset?token=x',
 		seed: 'publicPages',
 		ready: 'h1'
 	},
@@ -137,13 +149,16 @@ export const PAGES: PageEntry[] = [
 		ready: '[data-testid="calendar-card"]'
 	},
 	{
-		// Redirect-only route: it hands the shared text to /calendar and lands
-		// there, so the screenshot is the calendar the share produced.
+		// Redirect-only route: the server hands the shared text to /calendar,
+		// which opens the Quick Add modal prefilled. The modal (its Quick Add
+		// field is the only stable hook the legacy markup offers) is ready
+		// after the redirect, so the shot differs from calendar-month.
 		module: 'calendarPage',
 		name: 'share-target',
-		path: '/share-target',
+		path: '/share-target?text=Book%20the%20dentist%20on%20Friday',
+		landsOn: '/calendar',
 		seed: 'calendarUser',
-		ready: '[data-testid="calendar-card"]'
+		ready: '#nl-input'
 	},
 
 	// --- tasks -------------------------------------------------------------
@@ -174,8 +189,10 @@ export const PAGES: PageEntry[] = [
 		module: 'dayDashboard',
 		name: 'dashboard',
 		path: '/calendar/dashboard',
-		seed: 'calendarUser',
-		ready: 'h1'
+		// A family + grocery rows: the cards render populated, and the band
+		// (below the page's `{#await}`) is the page's own data-dependent signal.
+		seed: 'dashboardUser',
+		ready: '[data-testid="dashboard-card-band"]'
 	},
 
 	// --- calendar ----------------------------------------------------------
@@ -224,8 +241,10 @@ export const PAGES: PageEntry[] = [
 		module: 'family',
 		name: 'families',
 		path: '/family',
+		// The roster in the members rail: it only exists once the seeded
+		// family reached the page (the h1 is static).
 		seed: 'familyUser',
-		ready: 'h1'
+		ready: '[data-testid="rail-member"]'
 	},
 	{
 		module: 'family',

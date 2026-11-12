@@ -129,20 +129,21 @@ kernel/ui components never import `$app/*` or any domain.
 
 **K-10: page harness**, shared by the visual check (here) and the perf check (K-11). It needs K-05's `runMigrations`.
 
-1. `e2e/pages/catalog.ts` lists every page route from `npm run census`, grouped by module. Each entry is `{ module, name, path, seed, ready, mask? }`:
+1. `e2e/pages/catalog.ts` lists every page route from `npm run census`, grouped by module. Each entry is `{ module, name, path, landsOn?, seed, ready, mask? }`:
    - `seed` names a function in `e2e/pages/seeds.ts`;
-   - `ready` is the selector that appears when the page is usable, for example `[data-testid="calendar-grid"]`;
+   - `ready` is the selector that appears when the page is usable **and its data arrived** — a `data-testid` inside the page's data-dependent content wherever the page has one (the dashboard's `h1` renders above its streaming `{#await}`, so it waits on the card band instead), for example `[data-testid="calendar-grid"]`;
+   - `landsOn` is the landing path of a redirecting route (`/share-target` → `/calendar`);
    - `mask` lists selectors of regions that change on their own (clocks, "today", relative dates), which screenshots hide.
-2. `e2e/pages/seeds.ts`: each seed creates a fresh user (unique email per run, fixed names, zone `America/New_York`) and the rows the page shows. Dates are relative to today in that zone. Seeds write rows through the kernel test fixtures or plain inserts; they never call legacy services.
-3. `e2e/pages/session.ts`: `openAs(page, seedName)` runs the seed and signs in by session cookie. Reuse `getSessionCookie` from `e2e/testUtils.ts`.
+2. `e2e/pages/seeds.ts`: each seed creates its own user with a **fixed identity** (a stable address `visual+<seed>-<suffix>@example.invalid` and stable row ids, fixed names, zone `America/New_York`) and the rows the page shows. Dates are relative to today in that zone; open items due today sit at 23:59 so they never change state during the day, and explicit overdue examples sit on earlier days. Seeds write rows through the kernel test fixtures or plain inserts; they never call legacy services.
+3. `e2e/pages/session.ts`: `openAs(page, seedName)` runs the seed and signs in by session cookie. Reuse `loginWithSession` from `e2e/testUtils.ts`. `gotoReady(page, entry, seed)` is the one navigation path for this harness and K-11: it navigates, waits for `ready`, asserts the landing path (`landsOn` when set) and asserts `GET /api/me` returns the seed's identity — a broken cookie does not redirect a protected route to `/login`, hooks.server.ts creates an anonymous user instead.
 4. `e2e/pages/serve.ts` (run with `npx tsx`):
    - drop and create the database `familycalendar_pages` on 127.0.0.1:5433;
    - start `vite preview --port 4174` on the existing build with `DATABASE_URL` pointing at that database and migrations **enabled** (no `DATABASE_DISABLE_MIGRATIONS`), so the built server's hooks (`src/hooks.server.ts`) run the kernel `runMigrations` exactly as a production cold start does. Do not import `runMigrations` here: `bundledMigrations.server.ts` loads its SQL through Vite `?raw` imports, which plain `tsx` cannot resolve.
    - `e2e/pages/globalSetup.ts`, wired as the config's `globalSetup`, requests `baseURL` once (so the server loads its hooks), then polls `select count(*) from "__schema_migrations"` until it equals the number of `sql/migrations/*.sql` files — 60 s timeout, and the error names both counts — before any test seeds.
-5. `playwright.pages.config.ts`: a separate config (the main `playwright.config.ts` stays as it is). `testDir: 'e2e/pages'`, webServer `npx tsx e2e/pages/serve.ts`, baseURL `http://localhost:4174`, and two projects: desktop (1280×800) and mobile (Pixel 7, 390 px wide). The test process gets the same `DATABASE_URL`.
-6. `e2e/pages/visual.spec.ts`: for each catalog page of the module named by the `PAGES_MODULE` env (all pages when it is unset): `openAs`, wait for `ready`, then `expect(page).toHaveScreenshot()` with the masks, animations disabled and `maxDiffPixelRatio: 0.01`. Baselines live in `e2e/pages/__screenshots__/` and are committed.
+5. `playwright.pages.config.ts`: a separate config (the main `playwright.config.ts` stays as it is). `testDir: 'e2e/pages'`, webServer `npx tsx e2e/pages/serve.ts`, baseURL `http://localhost:4174`, and two projects: desktop (1280×800) and mobile (Pixel 7, 390 px wide). `use` pins `timezoneId: 'America/New_York'` and `locale: 'en-US'`, and the preview server runs with `TZ=UTC`, so neither depends on the host. The test process gets the same `DATABASE_URL`; the shared constants live in `e2e/pages/env.ts`.
+6. `e2e/pages/visual.spec.ts`: for each catalog page of the module named by the `PAGES_MODULE` env (all pages when it is unset): `openAs`, `gotoReady`, `waitForLoadState('networkidle')` (here only — K-11 must not wait for idle), then `expect(page).toHaveScreenshot()` with the masks, animations disabled and `maxDiffPixelRatio: 0.01`. Baselines live in `e2e/pages/__screenshots__/` and are committed.
 7. npm scripts:
-   - `pages:build` runs `npm run build:safe`;
+   - `pages:build` runs `npm run build:safe` and records `git rev-parse HEAD` next to the build output (`.svelte-kit/pages-build-head`; `serve.ts` warns when HEAD has moved since);
    - `visual:baseline -- <module>` and `visual:check -- <module>` run the spec for that module, with `--update-snapshots` for the baseline. They go through a small node script that sets `PAGES_MODULE`.
 8. `e2e/pages/README.md` lists every file (what, why, how it is tested). Add the harness to [testing.md](../../architecture/testing.md#what-to-test-where).
 

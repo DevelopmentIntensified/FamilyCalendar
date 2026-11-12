@@ -30,13 +30,45 @@ const playwrightArgs = [
 ];
 if (mode === 'baseline') playwrightArgs.push('--update-snapshots');
 
-const result = spawnSync('npx', playwrightArgs, {
+/**
+ * `NO_PROXY` with loopback added. Playwright probes the preview server through
+ * the host's proxy settings; an `HTTP(S)_PROXY` without `NO_PROXY` answers that
+ * probe with a 502 and Playwright reports the port as already used. This
+ * mirrors `withLoopbackNoProxy` in e2e/pages/env.ts (a plain .mjs runner cannot
+ * import the TS module), and the config repeats it for its own process.
+ */
+function withLoopbackNoProxy(value) {
+	const entries = (value ?? '')
+		.split(',')
+		.map((entry) => entry.trim())
+		.filter(Boolean);
+	if (entries.includes('*')) return entries.join(',');
+	for (const host of ['localhost', '127.0.0.1', '::1']) {
+		if (!entries.includes(host)) entries.push(host);
+	}
+	return entries.join(',');
+}
+
+// One command string + `shell: true`, the form the other repo scripts use:
+// `npx` is a .cmd shim on Windows, and a bare `spawnSync('npx', args)` fails
+// there with ENOENT.
+const command = `npx ${playwrightArgs.join(' ')}`;
+const result = spawnSync(command, {
 	stdio: 'inherit',
 	// The config, the spec and the snapshots are all resolved from here.
 	cwd: REPO_ROOT,
-	// npx is a .cmd shim on Windows.
 	shell: true,
-	env: { ...process.env, PAGES_MODULE: moduleName }
+	env: {
+		...process.env,
+		PAGES_MODULE: moduleName,
+		NO_PROXY: withLoopbackNoProxy(process.env.NO_PROXY),
+		no_proxy: withLoopbackNoProxy(process.env.no_proxy)
+	}
 });
+
+if (result.error) {
+	console.error('pages-run: could not start Playwright:', result.error);
+	process.exit(1);
+}
 
 process.exit(result.status ?? 1);

@@ -8,13 +8,27 @@
 //
 // Doc: e2e/pages/README.md
 import { defineConfig, devices } from '@playwright/test';
-import { PAGES_AUTH_SECRET, PAGES_BASE_URL, PAGES_DATABASE_URL } from './e2e/pages/serve';
+import {
+	PAGES_AUTH_SECRET,
+	PAGES_BASE_URL,
+	PAGES_DATABASE_URL,
+	withLoopbackNoProxy
+} from './e2e/pages/env';
 
 // The test process (seeds, session cookies) and the preview server must agree
 // on the database and the session-signing key. Workers inherit this env; the
 // server gets the same values from serve.ts.
 process.env.DATABASE_URL = PAGES_DATABASE_URL;
 process.env.BETTER_AUTH_SECRET = PAGES_AUTH_SECRET;
+
+// Playwright probes `baseURL` through the host's proxy settings: an HTTP(S)_PROXY
+// without NO_PROXY answers that probe with a 502 and Playwright reports the
+// port as "already used". The harness only talks to loopback, so bypass the
+// proxy for it — in this process (Playwright's probe + the tests) and in the
+// webServer below.
+for (const name of ['NO_PROXY', 'no_proxy'] as const) {
+	process.env[name] = withLoopbackNoProxy(process.env[name]);
+}
 
 export default defineConfig({
 	testDir: 'e2e/pages',
@@ -32,7 +46,10 @@ export default defineConfig({
 	expect: {
 		timeout: 15_000
 	},
-	// Baselines are committed, one directory per project.
+	// Baselines live in the repo, one directory per project. Deliberately no
+	// `{platform}`: a baseline is only valid on the machine that wrote it
+	// (font rasterisation differs between OSes), so it is regenerated locally
+	// rather than shared with CI or a teammate on another platform.
 	snapshotPathTemplate: '{testDir}/__screenshots__/{projectName}/{arg}{ext}',
 	webServer: {
 		command: 'npx tsx e2e/pages/serve.ts',
@@ -42,11 +59,21 @@ export default defineConfig({
 		reuseExistingServer: false,
 		timeout: 180_000,
 		stdout: 'pipe',
-		stderr: 'pipe'
+		stderr: 'pipe',
+		// Same loopback bypass as this process (serve.ts also inherits it when
+		// it spawns `vite preview`).
+		env: {
+			NO_PROXY: process.env.NO_PROXY ?? '',
+			no_proxy: process.env.no_proxy ?? ''
+		}
 	},
 	use: {
 		baseURL: PAGES_BASE_URL,
 		headless: true,
+		// Host-independence: the browser renders in the seeded users' zone and
+		// the UI's locale, whatever the machine running the harness is set to.
+		timezoneId: 'America/New_York',
+		locale: 'en-US',
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 		video: 'off'

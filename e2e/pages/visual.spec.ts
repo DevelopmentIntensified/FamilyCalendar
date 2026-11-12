@@ -7,15 +7,25 @@
 //
 // Doc: e2e/pages/README.md
 import { test, expect } from '@playwright/test';
-import { pagesForModule, resolvePath } from './catalog';
-import { openAs } from './session';
+import { pagesForModule } from './catalog';
+import { gotoReady, openAs } from './session';
+import { closeSessionDb } from '../testUtils';
+
+// The cookie helpers run on the app's module-level pool; a worker that used
+// them ends it before exiting so the open socket cannot keep it alive.
+test.afterAll(async () => {
+	await closeSessionDb();
+});
 
 for (const entry of pagesForModule(process.env.PAGES_MODULE)) {
 	test(`${entry.module} / ${entry.name}`, async ({ page }) => {
 		const seed = await openAs(page, entry.seed);
+		await gotoReady(page, entry, seed);
 
-		await page.goto(resolvePath(entry.path, seed.params));
-		await page.locator(entry.ready).first().waitFor({ state: 'visible' });
+		// Settle every late fetch before the pixels are compared. Deliberately
+		// NOT part of gotoReady: K-11 times the arrival and must not wait for
+		// idle.
+		await page.waitForLoadState('networkidle');
 
 		await expect(page).toHaveScreenshot(`${entry.module}-${entry.name}.png`, {
 			fullPage: true,
