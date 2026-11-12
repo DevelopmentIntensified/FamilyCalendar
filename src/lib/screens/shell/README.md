@@ -10,6 +10,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly (A
   - the chrome every signed-in page pays for: the wordmark, desktop nav links, avatar/profile menu, the Alerts bell **slot**, the phone tab bar, the toast host, and the one `app.css` import;
   - the one destination list (`shellNavItems`, six entries) and the active-tab rule both navs read;
   - the group frame: the fixed banner stack (OfflineBanner + at most one notice), the measured `<main>` offset, the md-only app footer;
+  - the app-chrome guard — an app-chrome route without a user is a 302 `/login` — applied in the root load, so the `(family)` group needs no load of its own;
   - the calendar group's shared scope (settings, family id, roster), loaded once per group entry for pages to read with `parent()`, and the anonymous countdown / unverified-email / guest-merge / claimed notices;
   - the once-per-user time-zone probe and the error page's copy (404 vs 4xx vs 5xx).
 - Does not own:
@@ -25,7 +26,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly (A
 | file | role | what it does — and why it exists | tested by |
 |---|---|---|---|
 | [index.ts](index.ts) | entry | Public isomorphic interface: `ShellNavItem`, `shellNavItems`, `shellActiveHref`, `shellChromeForRoute`, `shellErrorView`, and the layout model types from the contract. | through `shell.nav.rules.test.ts`, `shell.frame.rules.test.ts`, `shell.error.rules.test.ts` |
-| [index.server.ts](index.server.ts) | entry | Public server interface: `shellRootLoad`, `shellCalendarGroupLoad`, `shellFamilyGroupLoad` (the three `pageLoad()` handlers the layouts wire). | `shell.http.db.test.ts` |
+| [index.server.ts](index.server.ts) | entry | Public server interface: `shellRootLoad` and `shellCalendarGroupLoad` (the `pageLoad()` handlers the root and calendar layouts wire; the `(family)` group needs no load of its own — see the guard note below). | `shell.http.db.test.ts` |
 | [ui/index.ts](ui/index.ts) | entry | Public components: `ShellRoot`, `ShellGroupFrame`, `ShellErrorView`. | `ui/ShellRoot.svelte.test.ts` |
 
 Every file the port adds (rules, contract, api/ports, four state classes, service/http, nine components and their tests) is listed in the port sheet's Plan: [docs/rewrite/modules/shell.md](../../../../docs/rewrite/modules/shell.md).
@@ -39,16 +40,17 @@ Small on purpose: the root layout, the two group layouts and `+error.svelte` are
   - `ShellNavItem` — `{ href, label, shortLabel?, icon?, bellInstead? }`. Deleting it means every consumer redeclares the icon/label contract.
   - `shellActiveHref(pathname)` — longest-prefix match, pathname-only, returns the full href. The rule is subtle (query-carrying hrefs, `/calendars` ≠ `/calendar`); two navs must not implement it twice.
   - `shellChromeForRoute(routeId)` — `'app' | 'none'`. One place decides which route groups get the app chrome; widening it when account/admin land is a one-line rule change with a test, not a second copy of the navbar.
-  - `shellErrorView(status, message)` — `{ tone, title, body, showReport }` for 404 / other 4xx / 5xx. The copy is checked by a table test; the component only renders it.
-  - `ShellRootModel`, `ShellScopeModel`, `ShellNoticeModel`, `ShellErrorModel` — types re-exported from `shell.contract.ts`, so components type props from the live model and never mirror it by hand.
+  - `shellErrorView(status, message)` — the copy, tone and `showReport` flag for 404 / other 4xx / 5xx. The component types its props from `ReturnType<typeof shellErrorView>`; there is no separate model because the view has one consumer.
+  - `ShellRootModel`, `ShellScopeModel`, `ShellNoticeModel` — types re-exported from `shell.contract.ts`, so components type props from the live model and never mirror it by hand.
 - `index.server.ts`:
-  - `shellRootLoad` — `pageLoad({ auth: 'optional' })` returning the user summary (no queries; `locals.actor` is already there) and the server year.
+  - `shellRootLoad` — `pageLoad({ auth: 'optional' })` returning the user summary (no queries; `locals.actor` is already there) and the server year, and redirecting 302 `/login` when the route is an app-chrome route with no actor (the one guard, above).
   - `shellCalendarGroupLoad` — `pageLoad({ auth: 'user' })` returning the calendar group's shared scope (identity settings ∥ family id, then the roster; the family half is `allSettled` so a broken family read is `null`/`[]`) + the anonymous days left, and passing the root summary through with `event.parent()` (no second query) so the frame never reads `page.data`. Never returns `pathname` (see Plan: that makes the load re-run on every navigation) and never the raw `users` row.
-  - `shellFamilyGroupLoad` — `pageLoad({ auth: 'user' })` for the `(family)` group, which needs no scope of its own; it exists so the group keeps its 302 `/login` guard.
 - `ui/index.ts`:
   - `ShellRoot` — chrome + `children`: decides `shellChromeForRoute`, renders the navbar, the tab bar and the toast host; menus and the bell panel are `import()`ed on first open.
   - `ShellGroupFrame` — the frame below the chrome: one fixed banner stack (offline + at most one notice) measured with `ResizeObserver`, the `<main>` offset, and the footer variant (`calendar` has the md-only footer, `family` does not).
   - `ShellErrorView` — renders `shellErrorView()`; the only CTA that links the bug form is the 5xx one.
+
+`shell.api.ts` is internal, not a public entry: it exists so the four ports (alerts' count, access' verify/resend, identity's time-zone save, kernel/client's offline queue) are wired to other modules' clients in exactly one place, and the layouts pass that one `ports` object in. The two server exports keep the `…Load` suffix because they are SvelteKit `load` handlers wired straight into `+layout.server.ts`, not services.
 
 ## How to test
 
@@ -81,7 +83,7 @@ Behaviour that must not change, each with the legacy evidence and the v2 test th
 - The root layout is the single `app.css` import for the whole app (#062); no group imports it again (marketing's `theme.css` is marketing's own, imported by its layout) — `src/routes/+layout.svelte:1-14` · `shell.styles.test.ts › is the only app.css importer in src/routes`
 - Never `bind:` a component prop (#200): the offline banner reports visibility through `onVisibleChange`, and only the banner-stack `<div>` uses `bind:clientHeight` — `src/routes/(calendar)/calendar/+layout.svelte:81-94,143-148` · `shell.styles.test.ts › never binds to a child component`
 - `<main>` is offset by the measured banner-stack height, with a 40 px one-line guess before the first measurement (#259) — `src/routes/(calendar)/calendar/+layout.svelte:89-94,266-269` · `shell.frame.rules.test.ts › falls back to 40 px per banner before the first measurement` and `ui/ShellGroupFrame.svelte.test.ts › offsets main by the measured stack height`
-- `(calendar)` and `(family)` require a user: both redirect 302 `/login` when there is no actor — `src/routes/(calendar)/calendar/+layout.server.ts:5-8`, `src/routes/(family)/+layout.server.ts:5-8` · `shell.http.db.test.ts › redirects a guest to /login from both app groups`
+- Every app-chrome route requires a user: a guest navigating to the calendar or family group gets 302 `/login` (one guard in the root load; the calendar group load keeps its own `pageLoad({ auth: 'user' })` for the scope, `(family)` has no load left) — `src/routes/(calendar)/calendar/+layout.server.ts:5-8`, `src/routes/(family)/+layout.server.ts:5-8` · `shell.http.db.test.ts › redirects a guest to /login from an app-chrome route`
 - The calendar group's shared scope loads once per group entry (settings, family id, roster) and a failed family read degrades to `null`/`[]`, never a 500 — `src/routes/(calendar)/calendar/+layout.server.ts:9-21`, `src/lib/server/services/userScope.ts:9-22` · `shell.service.db.test.ts › reads settings, family and roster and degrades a failed family read to null/[]`
 - Layout data carries a user **summary** only — id, names, email, isAdmin, emailVerified, lastActiveAt — never `passwordHash`, `receiptIngestToken` or `phonenumber` (all three are in the row the legacy layouts serialise), and never `pathname` (which would make the load re-run on every navigation) — `src/routes/(calendar)/calendar/+layout.server.ts:14-21`, `src/lib/server/db/schema.ts:18-45` · `shell.service.db.test.ts › returns a whitelisted user summary, never credentials`
 - Time-zone probe: at most once per user per browser, only while settings timeZone is still `'UTC'`, gated by `localStorage['familyplanz:tzProbed:<userId>']`, then `POST` with `keepalive`, and the flag is set only after the save succeeds (the legacy code sets it first — fix, see Notes) — `src/routes/(calendar)/calendar/+layout.svelte:17-49` · `shell.timezone.state.test.ts › probes once per user, only while the zone is UTC, and retries after a failed save`
@@ -109,4 +111,4 @@ Behaviour that must not change, each with the legacy evidence and the v2 test th
   - `access` — verify-code and resend endpoints behind `ShellVerifyPort`; Claiming and the guest merge produce the `?claimed`/`?merged` URL flags the notices read.
   - `feedback` — `reportBugHref` for both menus and the error page.
   - kernel: `pageLoad`, `AppError` (read only), `testCtx` in tests; kernel/client `offlineQueue` + toasts (K-07); kernel/ui `BrandMark`, `Toaster`, `trapFocus` (K-08).
-- Called by: `src/routes/+layout.svelte` + `src/routes/+layout.server.ts`, `src/routes/(calendar)/calendar/+layout.svelte` + `+layout.server.ts`, `src/routes/(family)/+layout.svelte` + `+layout.server.ts`, `src/routes/+error.svelte`. Later, account (#18) and admin (#19) widen `shellChromeForRoute` instead of copying chrome.
+- Called by: `src/routes/+layout.svelte` + `src/routes/+layout.server.ts`, `src/routes/(calendar)/calendar/+layout.svelte` + `+layout.server.ts`, `src/routes/(family)/+layout.svelte` (no server file), `src/routes/+error.svelte`. Later, account (#18) and admin (#19) widen `shellChromeForRoute` instead of copying chrome.

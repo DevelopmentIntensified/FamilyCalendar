@@ -145,20 +145,20 @@ hands over, and adds no query and no write of its own.
 
 **Target load plan — family group (`/(family)/**`)**
 
-- Same frame as calendar, without the footer. The group load is a `pageLoad({ auth: 'user' })` guard that returns nothing: the user already comes from the root load, so the legacy user-only load and its `pathname` dependency die.
+- Same frame as calendar, without the footer, and **no group load at all**: the user comes from the root load and the auth guard is the root load's (see Decisions), so `(family)/+layout.server.ts` is deleted and nothing has to wire `pageLoad` there. The legacy user-only load and its `pathname` dependency die with it.
 
 ### Files (S3–S7)
 
 | file | role | contents |
 |---|---|---|
-| `shell.contract.ts` | contract | zod models with inferred types: `ShellRootModel` (whitelisted user summary + year), `ShellScopeModel` (the passed-through root summary + settings, familyId, roster, anonymous days left), `ShellNoticeModel`, `ShellErrorModel`; and the narrow ports `ShellBadgePort`, `ShellVerifyPort`, `ShellTimezonePort`, `ShellOfflinePort`. `.strict()` so a leaking field (e.g. `passwordHash`) fails a test instead of shipping. |
+| `shell.contract.ts` | contract | zod models with inferred types: `ShellRootModel` (whitelisted user summary + year), `ShellScopeModel` (the passed-through root summary + settings, familyId, roster, anonymous days left), `ShellNoticeModel`; plus the narrow ports `ShellBadgePort`, `ShellVerifyPort`, `ShellTimezonePort`, `ShellOfflinePort`. `shellErrorView`'s return is inferred in `shell.error.rules.ts` (one consumer), so there is no error model here. `.strict()` so a leaking field (e.g. `passwordHash`) fails a test instead of shipping. |
 | `shell.nav.rules.ts` | rules | `shellNavItems` (the six destinations, labels, short labels, inline icons, `bellInstead`), `ShellNavItem`, `shellActiveHref`. `marketingNavItems` is not here — it goes to marketing. |
-| `shell.frame.rules.ts` | rules | `shellChromeForRoute(routeId)`, `shellBannerOffset(measuredHeight, bannerCount)` (the 40 px fallback), `shellKeyboardOpen(innerHeight, visualViewportHeight)` (the 150 px threshold). |
+| `shell.frame.rules.ts` | rules | `shellChromeForRoute(routeId)`, `shellBannerOffset(measuredHeight, bannerCount)` (the 40 px fallback), `shellIsKeyboardOpen(innerHeight, visualViewportHeight)` (the 150 px threshold). |
 | `shell.notices.rules.ts` | rules | `shellDaysLeft(lastActiveAt, now)` (Inactivity Window 90, ceil, floor 0), `shellNoticeFor({ searchParams, user, daysLeft, dismissed })` (the one precedence chain), `shellMergeSummary(events, tasks)` (pluralisation, tasks only when > 0). |
 | `shell.error.rules.ts` | rules | `shellErrorView(status, message)` → `{ tone, title, body, showReport }` for 404 / other 4xx / 5xx. |
 | `shell.api.ts` | api | `createShellPorts()`: the single wiring point for the four ports over alerts' count, access' verify/resend, identity's time-zone save and kernel/client's offline queue. Layouts pass `ports` in; tests pass fakes. |
 | `shell.service.server.ts` | service | `loadShellRoot(ctx, actor, viewer)` (whitelist from the session row + the year from `ctx.clock.now()`; no query) and `loadCalendarGroup(ctx, actor)` (identity settings ∥ family id, then roster; `Promise.allSettled` around the family half so a broken family read is `null`/`[]`). |
-| `shell.http.server.ts` | http | `pageLoad()` wrappers: root (`optional`), calendar group (`user`), family group (`user`). No `event.url`. |
+| `shell.http.server.ts` | http | `pageLoad()` wrappers: root (`optional`, and the one app-chrome guard) and calendar group (`user`). No `event.url`. |
 | `shell.badge.state.svelte.ts` | state | unread count: fetch once per mount, stale-gated visibility refresh (60 s), `99+` cap, optimistic decrement on mark-read, failure → 0. |
 | `shell.timezone.state.svelte.ts` | state | localStorage gate per user, probe only while `timeZone === 'UTC'`, save via the port, set the flag **after** success (retry on failure), report "probed" so the frame can invalidate the scope. |
 | `shell.verify.state.svelte.ts` | state | code input, busy, inline server error, resend with the 3 s "Sent again ✓" receipt. |
@@ -186,7 +186,7 @@ hands over, and adds no query and no write of its own.
 | `src/routes/(calendar)/calendar/+layout.svelte` | wiring: `<ShellGroupFrame variant="calendar">` with data, `url` and `ports`. |
 | `src/routes/(calendar)/calendar/+layout.server.ts` | wiring: `export const load = shellCalendarGroupLoad;` (file comment dropped). |
 | `src/routes/(family)/+layout.svelte` | wiring: `<ShellGroupFrame variant="family">`. |
-| `src/routes/(family)/+layout.server.ts` | wiring: `export const load = shellFamilyGroupLoad;` |
+| `src/routes/(family)/+layout.server.ts` | **deleted**: the root load's app-chrome guard covers the group, and a guard-only export would be a `pageLoad` passthrough (`pageLoad` requires a `handle`, which R8 forbids as an inline arrow), so there is nothing legitimate to wire. |
 | `src/routes/+error.svelte` | wiring: `<ShellErrorView status={page.status} message={page.error?.message} url={page.url} />`. |
 
 No S2: shell owns no `/api/**` route, so there is no `shell.http.db.test.ts` golden file and no S2
@@ -206,7 +206,7 @@ sha. Its db tests in S5/S6 pin the layout loads, not a wire.
 | `Breadcrumbs.svelte` | kernel/ui `Breadcrumbs` (K-08 scope addition, see Notes); **kept** until account (#18) and familyHub (#20) migrate (7 route pages import it). |
 | `(calendar)/calendar/+layout.svelte` | `ui/ShellGroupFrame.svelte` + `ui/ShellNotices.svelte` + `shell.notices.rules.ts` + `shell.timezone/verify/offline.state.svelte.ts`. |
 | `(calendar)/calendar/+layout.server.ts` | `shell.service.server.ts` (`loadCalendarGroup`) + `shell.http.server.ts`; `loadUserScope`'s three reads become the shell composition (settings ∥ family id → roster). |
-| `(family)/+layout.svelte` / `+layout.server.ts` | `ShellGroupFrame variant="family"` + `shellFamilyGroupLoad`; the duplicate `initOfflineSync` mount dies. |
+| `(family)/+layout.svelte` | `ShellGroupFrame variant="family"`; the duplicate `initOfflineSync` mount dies. `(family)/+layout.server.ts` is deleted: its 302 guard moves to the root load (same behaviour, no passthrough export). |
 | `+error.svelte` | `ui/ShellErrorView.svelte` + `shell.error.rules.ts`. |
 | `src/lib/utils/reportBug.ts` | feedback (their sheet already lists it). |
 | `src/lib/utils/anonymous.ts` | identity's rules (`isAnonymousAccount`/`isRegisteredAccount`); shell imports them. |
@@ -233,23 +233,32 @@ sha. Its db tests in S5/S6 pin the layout loads, not a wire.
   `visibilitychange` refresh plus optimistic mark-read covers the live cases.
 - **Ports, not mocks.** The four ports come in as constructor/prop arguments (R9). Layout files wire
   `createShellPorts()`; tests pass fakes.
+- **One auth guard, in the root load.** `shellRootLoad` redirects 302 `/login` when
+  `shellChromeForRoute(event.route.id)` is `'app'` and there is no actor, so the calendar group's load
+  only reads scope and `(family)` needs no load at all. A `shellFamilyGroupLoad` would have been a
+  one-line `pageLoad({ auth: 'user' })` passthrough — and `pageLoad` requires a `handle`, which R8
+  forbids as an inline arrow in a route file — so it fails the deletion test; the guard moved up
+  instead. The calendar group keeps `auth: 'user'` for its actor type and scope read.
 - **The shared scope is composed here for now.** `loadCalendarGroup` calls identity's settings read
   and family's id/roster reads itself (a screen may compose domains). If `family` later exports a
   viewer-scope reader, shell calls it instead: same data, one call site fewer, and no rule changes.
 
 ### Bugs found while verifying (fixed in this port, none is a fixed external contract)
 
-- **The whole `users` row reaches the browser.** Both group loads return `event.locals.user`
-  (`(calendar)/calendar/+layout.server.ts:17`, `(family)/+layout.server.ts:12`), which includes
-  `passwordHash`, `receiptIngestToken` and `phonenumber` (`schema.ts:26,38,44`). The new
-  `ShellRootModel` is a whitelist and a `.strict()` test keeps it that way.
+- **The whole `users` row reaches the browser.** The calendar and family group layouts return
+  `event.locals.user` (`(calendar)/calendar/+layout.server.ts:17`, `(family)/+layout.server.ts:12`),
+  and three more legacy loads do the same (`(marketing)/+layout.server.ts:18`,
+  `(calendar)/account/+layout.server.ts:8`, `(family)/family/create/+page.server.ts:20`). The row
+  includes `passwordHash`, `receiptIngestToken` and `phonenumber` (`schema.ts:26,38,44`). Shell's
+  models are whitelists with a `.strict()` test; marketing, account and familyHub do the same for
+  their loads at their ports, and the backport question is in the owner list.
 - **The group scope reloads on every navigation.** `pathname: event.url.pathname` in a server load
   registers a `url` dependency, so the "once per group entry" comment (`+layout.server.ts:9-12`) is
   false: settings + family + roster are re-read on every in-group navigation. The v2 load reads no
   `url` and returns no `pathname`.
-- **The footer builds the year from `new Date()`** in the component (`+layout.svelte:280`), an R5
-  violation and a hydration hazard around midnight; the year now comes from `ctx.clock.now()` in the
-  root load.
+- **The footer builds the year from `new Date()`** in the component (`+layout.svelte:280`) — a
+  hydration hazard around midnight, and the pattern v2 forbids (R5 governs v2 code, not this legacy
+  line). The year now comes from `ctx.clock.now()` in the root load.
 - **The once-per-user probe never retries.** The flag is written before the POST
   (`+layout.svelte:28-46`); v2 writes it only after a successful save, and the refresh is a targeted
   `invalidate('shell:scope')` instead of `invalidateAll()`.
