@@ -120,7 +120,7 @@ kernel/ui components never import `$app/*` or any domain.
    - then `DELETE FROM` each discovered table except `__schema_migrations`.
 
    Keep the discovery query.
-3. Add `testDb.db.test.ts` › "resets in under 50 ms": seed one row in five tables, time `truncateAll()`, assert under 50 ms (median of 5).
+3. Add `testDb.db.test.ts` › "resets in under 250 ms": seed one row in five tables, time `truncateAll()`, assert under 250 ms (median of 5). The DELETE reset measured 70–110 ms on a saturated machine, and the old TRUNCATE about 500 ms idle, so the bound survives load and still catches a regression.
 4. In the kernel README, update the testing row and the Invariants.
 
 **Done when:** `npm run test:mod -- kernel` is green and the timing test passes.

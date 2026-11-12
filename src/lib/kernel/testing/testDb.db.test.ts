@@ -1,7 +1,7 @@
 import { count, eq, sql } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { withTx } from '../db/database.server';
-import { users } from '../db/tables.server';
+import { families, groceryItems, meals, notifications, users } from '../db/tables.server';
 import { seedUser } from './seedRows.server';
 import { testCtx } from './testCtx.server';
 import { inRollback, rollbackTest, testDb, truncateAll } from './testDb.server';
@@ -75,5 +75,49 @@ describe('truncateAll (committed mode)', () => {
 		await truncateAll();
 		const [row] = await testDb().select({ n: count() }).from(users);
 		expect(row.n).toBe(0);
+	});
+
+	it('resets in under 250 ms', async () => {
+		const db = testDb();
+		const seedFiveTables = async () => {
+			const user = await seedUser(db);
+			const [family] = await db.insert(families).values({ name: 'Reset family' }).returning();
+			await db.insert(meals).values({
+				familyId: family.id,
+				date: '2026-11-11',
+				kind: 'dinner',
+				label: 'Pasta'
+			});
+			await db.insert(notifications).values({
+				userId: user.id,
+				type: 'generic',
+				actorName: 'Test',
+				message: 'reset me'
+			});
+			await db.insert(groceryItems).values({ userId: user.id, name: 'Milk', nameKey: 'milk' });
+		};
+
+		const durations: number[] = [];
+		for (let run = 0; run < 5; run += 1) {
+			await seedFiveTables();
+			const started = performance.now();
+			await truncateAll();
+			durations.push(performance.now() - started);
+		}
+
+		// Median of five, so one slow commit (checkpoint, noise) cannot fail the run. The bound
+		// sits between this reset on a saturated machine (~110 ms) and the old TRUNCATE reset on an
+		// idle one (~500 ms): load cannot fail it, a slide back to TRUNCATE still does.
+		const median = [...durations].sort((a, b) => a - b)[2];
+		expect(median).toBeLessThan(250);
+
+		const counts = await Promise.all([
+			db.select({ n: count() }).from(users),
+			db.select({ n: count() }).from(families),
+			db.select({ n: count() }).from(meals),
+			db.select({ n: count() }).from(notifications),
+			db.select({ n: count() }).from(groceryItems)
+		]);
+		expect(counts.map((rows) => rows[0].n)).toEqual([0, 0, 0, 0, 0]);
 	});
 });
