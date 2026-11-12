@@ -98,11 +98,18 @@ describe('SearchBox', () => {
 		const { search, calls } = pendingSearch();
 		const box = new SearchBox(search, { schedule: scheduler.schedule });
 		box.results = ['stale'];
+		box.searchedFor = 'stale';
 
 		box.setQuery('a');
 
 		expect(box.results).toEqual([]);
+		expect(box.searchedFor).toBe('');
 		expect(box.pending).toBe(false);
+		expect(scheduler.tasks).toHaveLength(0);
+		expect(calls).toHaveLength(0);
+
+		// Padding is not length: " a " is still one character of query.
+		box.setQuery(' a ');
 		expect(scheduler.tasks).toHaveLength(0);
 		expect(calls).toHaveLength(0);
 	});
@@ -131,6 +138,8 @@ describe('SearchBox', () => {
 
 		expect(box.query).toBe('');
 		expect(box.results).toEqual([]);
+		expect(box.failed).toBe(false);
+		expect(box.searchedFor).toBe('');
 		expect(box.pending).toBe(false);
 		expect(calls[0].signal.aborted).toBe(true);
 
@@ -139,7 +148,24 @@ describe('SearchBox', () => {
 		expect(box.results).toEqual([]);
 	});
 
-	it('reports a failed search as no results instead of throwing', async () => {
+	it('a failed search sets failed and keeps no stale results', async () => {
+		const scheduler = manualScheduler();
+		const { search, calls } = pendingSearch();
+		const box = new SearchBox(search, { schedule: scheduler.schedule });
+		box.results = ['stale'];
+
+		box.setQuery('ann');
+		scheduler.fireAll();
+		calls[0].reject(new Error('offline'));
+		await flush();
+
+		expect(box.failed).toBe(true);
+		expect(box.results).toEqual([]);
+		expect(box.searchedFor).toBe('ann');
+		expect(box.pending).toBe(false);
+	});
+
+	it('the next query clears a failure', async () => {
 		const scheduler = manualScheduler();
 		const { search, calls } = pendingSearch();
 		const box = new SearchBox(search, { schedule: scheduler.schedule });
@@ -148,8 +174,53 @@ describe('SearchBox', () => {
 		scheduler.fireAll();
 		calls[0].reject(new Error('offline'));
 		await flush();
+		expect(box.failed).toBe(true);
+
+		box.setQuery('anna');
+		expect(box.failed).toBe(false);
+		expect(box.searchedFor).toBe('ann');
+
+		scheduler.fireAll();
+		calls[1].resolve([]);
+		await flush();
+		expect(box.failed).toBe(false);
+	});
+
+	it('searchedFor tracks the query the current results belong to', async () => {
+		const scheduler = manualScheduler();
+		const { search, calls } = pendingSearch();
+		const box = new SearchBox(search, { schedule: scheduler.schedule });
+
+		box.setQuery('  ann  ');
+		expect(box.searchedFor).toBe('');
+		scheduler.fireAll();
+		expect(calls[0].q).toBe('ann');
+
+		calls[0].resolve(['Anna']);
+		await flush();
+		expect(box.searchedFor).toBe('ann');
+
+		// Old results still belong to "ann" until the new answer arrives.
+		box.setQuery('anna');
+		expect(box.searchedFor).toBe('ann');
+		scheduler.fireAll();
+		calls[1].resolve(['Anna Bell']);
+		await flush();
+		expect(box.searchedFor).toBe('anna');
+	});
+
+	it('whitespace-only input never searches', () => {
+		const scheduler = manualScheduler();
+		const { search, calls } = pendingSearch();
+		const box = new SearchBox(search, { schedule: scheduler.schedule });
+
+		box.setQuery('   ');
 
 		expect(box.results).toEqual([]);
+		expect(box.searchedFor).toBe('');
+		expect(box.failed).toBe(false);
 		expect(box.pending).toBe(false);
+		expect(scheduler.tasks).toHaveLength(0);
+		expect(calls).toHaveLength(0);
 	});
 });

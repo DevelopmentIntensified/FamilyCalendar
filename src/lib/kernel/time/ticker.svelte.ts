@@ -8,11 +8,8 @@
 import { systemScheduler, type Scheduler } from './scheduler';
 import type { Clock } from './clock';
 
-/** Placeholder until the constructor reads the clock; never rendered. */
-const EPOCH = new Date(0);
-
 export class Ticker {
-	now = $state<Date>(EPOCH);
+	now: Date;
 
 	private readonly clock: Clock;
 	private readonly everyMs: number;
@@ -21,10 +18,10 @@ export class Ticker {
 	private cancel: (() => void) | null = null;
 
 	constructor(clock: Clock, everyMs: number, schedule: Scheduler = systemScheduler) {
+		this.now = $state(clock.now());
 		this.clock = clock;
 		this.everyMs = everyMs;
 		this.schedule = schedule;
-		this.now = clock.now();
 	}
 
 	start(): void {

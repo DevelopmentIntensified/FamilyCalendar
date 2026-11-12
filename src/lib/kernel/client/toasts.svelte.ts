@@ -60,10 +60,12 @@ export function createToasts(opts: { schedule?: Scheduler } = {}): Toasts & {
 }
 
 /** A plain recorder for state-class tests: no runes, no timers. */
-export function memoryToasts(): Toasts & { items: { kind: ToastKind; text: string }[] } {
-	const items: { kind: ToastKind; text: string }[] = [];
-	const record = (kind: ToastKind) => (text: string, _action?: ToastAction) => {
-		items.push({ kind, text });
+export function memoryToasts(): Toasts & {
+	items: { kind: ToastKind; text: string; action?: ToastAction }[];
+} {
+	const items: { kind: ToastKind; text: string; action?: ToastAction }[] = [];
+	const record = (kind: ToastKind) => (text: string, action?: ToastAction) => {
+		items.push(action ? { kind, text, action } : { kind, text });
 	};
 	return { items, success: record('success'), error: record('error'), info: record('info') };
 }

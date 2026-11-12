@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { manualScheduler } from '$lib/kernel/testing/manualScheduler';
 import { createToasts, memoryToasts } from './toasts.svelte.js';
 
@@ -95,11 +95,16 @@ describe('memoryToasts', () => {
 		]);
 	});
 
-	it('accepts an action without changing the recorded shape', () => {
+	it('records an action so a state test can assert and run it', () => {
 		const toasts = memoryToasts();
+		const run = vi.fn();
 
-		toasts.success('Task completed', { label: 'Undo', run: () => {} });
+		toasts.success('Task completed', { label: 'Undo', run });
 
-		expect(toasts.items).toEqual([{ kind: 'success', text: 'Task completed' }]);
+		expect(toasts.items).toEqual([
+			{ kind: 'success', text: 'Task completed', action: { label: 'Undo', run } }
+		]);
+		toasts.items[0].action?.run();
+		expect(run).toHaveBeenCalled();
 	});
 });
