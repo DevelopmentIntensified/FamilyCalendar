@@ -8,7 +8,8 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 
 - **Owns:** the dependency bag (`Ctx`) and caller identity (`Actor`); the one error type; boundary validation; the HTTP builders (`endpoint`, `pageLoad`, `formAction`); clock, ids and hashing; the rate limiter; structured logs; db/transaction helpers; the test harness.
 - **Does not own:** any business rule. Something like "who may edit a task" belongs in the module that owns the concept (`tasks`), even when several modules need it.
-- **Later kernel tasks** (see [LEDGER](../../../docs/rewrite/LEDGER.md)) add the shared client and UI primitives: the api client, toasts, sheet, confirm button, pill, skeleton, date formatting.
+- **Also owns:** the shared UI primitives in `kernel/ui` (sheet, confirm action, pill, skeleton, toaster). Screens and domains import them by path; they never import a domain or `$app/*`.
+- **Later kernel tasks** (see [LEDGER](../../../docs/rewrite/LEDGER.md)) add the rest of the shared primitives: brand mark, day nav, mention input, colour hashes.
 
 ## Files
 
@@ -41,6 +42,20 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [testing/vitestSetup.unit.ts](testing/vitestSetup.unit.ts) | test infra | Points `DATABASE_URL` at a closed port, so unit tests fail fast if they touch a database. | every unit run |
 | [time/clock.ts](time/clock.ts) | infra | `Clock` port, `systemClock`, `fixedClock` (set/advance). The only source of "now" (rule R5). | [clock.test.ts](time/clock.test.ts) |
 | [time/clock.test.ts](time/clock.test.ts) | test | default instant, advance/set, copy semantics | — |
+| [ui/ConfirmAction.svelte](ui/ConfirmAction.svelte) | component | Two-step destructive control: first click asks, cancel returns, confirm fires once. Folds the eight legacy copies. | [ConfirmAction.svelte.test.ts](ui/ConfirmAction.svelte.test.ts) |
+| [ui/ConfirmAction.svelte.test.ts](ui/ConfirmAction.svelte.test.ts) | test | ask → cancel → confirm, caller labels/testid, disabled | — |
+| [ui/Pill.svelte](ui/Pill.svelte) | component | The one rounded chip for tags, categories and status words, with the legacy tone colours. | [Pill.svelte.test.ts](ui/Pill.svelte.test.ts) |
+| [ui/Pill.svelte.test.ts](ui/Pill.svelte.test.ts) | test | base shape, neutral default, tone colours, title hint | — |
+| [ui/Sheet.svelte](ui/Sheet.svelte) | component | Modal / bottom-sheet shell: focus trap, Esc, backdrop close, swipe-down close, parent-owned `open`. Folds `EventModalShell` + `BottomSheetHandle`. | [Sheet.svelte.test.ts](ui/Sheet.svelte.test.ts) |
+| [ui/Sheet.svelte.test.ts](ui/Sheet.svelte.test.ts) | test | closed/open, Esc, backdrop vs inside click, footer, swipe, focus return | — |
+| [ui/Skeleton.svelte](ui/Skeleton.svelte) | component | Animated placeholder rows, so a loading section keeps its height (skeletons, not blank cards). | [Skeleton.svelte.test.ts](ui/Skeleton.svelte.test.ts) |
+| [ui/Skeleton.svelte.test.ts](ui/Skeleton.svelte.test.ts) | test | default line count, custom count, pulse + hidden, caller class | — |
+| [ui/Toaster.svelte](ui/Toaster.svelte) | component | Renders the K-07 toast list in one polite live region with the legacy card look and a dismiss button. | [Toaster.svelte.test.ts](ui/Toaster.svelte.test.ts) |
+| [ui/Toaster.svelte.test.ts](ui/Toaster.svelte.test.ts) | test | empty list, every item, dismiss by id | — |
+| [ui/sheetSwipe.ts](ui/sheetSwipe.ts) | rules | Pure swipe-to-close maths (legacy 100 px threshold, upward drags clamp at 0), so the sheet component holds no transitions. | [sheetSwipe.test.ts](ui/sheetSwipe.test.ts) |
+| [ui/sheetSwipe.test.ts](ui/sheetSwipe.test.ts) | test | legacy threshold table, clamping, idle state | — |
+| [ui/trapFocus.ts](ui/trapFocus.ts) | action | `use:trapFocus` Svelte action: Tab/Shift+Tab cycle inside the node, focus returns on destroy. Moved from `utils/focusTrap.ts`. | [trapFocus.svelte.test.ts](ui/trapFocus.svelte.test.ts) |
+| [ui/trapFocus.svelte.test.ts](ui/trapFocus.svelte.test.ts) | test | forward/backward wrap, native Tab, focus restore and listener removal | — |
 | [validation/validators.ts](validation/validators.ts) | rules | zod plus shared fields: `requiredText`, `optionalText`, `isoDate`, `yearMonth`, `isoInstant`, `emailAddress`, `oneOf`, `wholeNumber`, `formList`, `clampedInt`, `firstIssueMessage`, `JsonValue`. | [validators.test.ts](validation/validators.test.ts) |
 | [validation/validators.test.ts](validation/validators.test.ts) | test | one table per helper | — |
 
@@ -98,7 +113,7 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 
 ## How to test
 
-- `npm run test:mod -- kernel` runs the unit and db projects for this folder.
+- `npm run test:mod -- kernel` runs the unit, ui and db projects for this folder (ui tests are the `*.svelte.test.ts` files, in jsdom).
 - The db tests need Postgres: run `docker start familycalendar-db` (127.0.0.1:5433). The test database is rebuilt from `sql/migrations` on every run.
 
 ## Invariants
