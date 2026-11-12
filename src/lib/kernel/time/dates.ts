@@ -39,8 +39,8 @@ function inZone(value: Date | string | null | undefined, zone: string): DateTime
 	} else {
 		return null;
 	}
-	// An ISO string that carries its own offset keeps that offset; convert it.
-	return dt.isValid ? dt.setZone(zone) : null;
+	// fromISO/fromJSDate with `zone` already convert into it, offset-bearing strings included.
+	return dt.isValid ? dt : null;
 }
 
 function isLeapYear(year: number): boolean {
@@ -226,5 +226,5 @@ export function toInstantString(value: Date | string | null | undefined): string
 	const text = value.trim().replace(' ', 'T');
 	if (!text) return null;
 	const dt = DateTime.fromISO(text, { zone: 'utc', locale: LOCALE });
-	return dt.isValid ? dt.toUTC().toISO() : null;
+	return dt.isValid ? dt.toISO() : null;
 }
