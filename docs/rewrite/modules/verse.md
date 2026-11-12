@@ -82,12 +82,12 @@ New files below `src/lib/domains/verse/` (designed in S1; contract/rules in S3, 
 
 | file | role | what goes in it |
 |---|---|---|
-| `verse.contract.ts` | contract | `DailyVerse` (`reference`, `text`, `attribution`, `translation: 'esv'`), `DailyVerseBody` (`{ verse: {reference,text,attribution} \| null }`), `DailyVerseQuery` (`date` absent-or-strict-`YYYY-MM-DD`, message `Invalid date`). |
+| `verse.contract.ts` | contract | `DailyVerse` (`reference`, `text`, `attribution`, `translation: 'esv'`), `DailyVerseQuery` (`date` absent-or-strict-`YYYY-MM-DD`, message `Invalid date`). A `DailyVerseBody` wire schema may live here **unexported** as documentation; the interface exports neither (invariant 8 + the goldens pin the body). |
 | `verse.selection.rules.ts` | rules | the 40 curated verses (private), `pickDailyVerse(isoDate)`, `VERSE_TRANSLATIONS` (one entry) and the `Public domain.` attribution. |
 | `verse.selection.rules.test.ts` | rules test | day → verse table (Jan 1, ordinal 40, Dec 31), whole-year coverage, the `esv` label on every verse, one vocabulary entry. |
-| `verse.service.server.ts` | service | `getDailyVerse(ctx, actor, { date? })`: the viewer's settings, the composed `dashboardModules` visibility, then selection; a failed switch read degrades to the setting and reports a fault. |
+| `verse.service.server.ts` | service | `findDailyVerse(ctx, actor, { date? })`: the viewer's settings, the composed `dashboardModules` visibility, then selection; a failed switch read degrades to the setting and reports a fault. |
 | `verse.service.db.test.ts` | service test | the gate matrix over real rows, the clock-injected "today", the degrade, and invariant 12 (one composition). |
-| `verse.http.server.ts` | http | `getDailyVerseEndpoint`: `endpoint({ auth: 'user', query })`, 401 before the date, 400 `Invalid date`, 200 three-field body. |
+| `verse.http.server.ts` | http | `findDailyVerseEndpoint`: `endpoint({ auth: 'user', query })`, 401 before the date, 400 `Invalid date`, 200 three-field body. |
 | `verse.http.db.test.ts` | http golden | written in S2 against the legacy route; frozen at its S2 content through S6. |
 | `ui/DailyVerseCard.svelte` | ui | the strip, rebuilt on `kernel/ui` primitives; props `verse: DailyVerse`; no fetch. |
 | `ui/DailyVerseCard.svelte.test.ts` | ui test | label, italic text, reference, attribution hidden below `sm`. |
@@ -105,10 +105,10 @@ Where each legacy export goes:
 | `TRANSLATIONS` / `VerseTranslationInfo` / `TranslationId` (`:16-32`) | `VERSE_TRANSLATIONS` in `verse.selection.rules.ts` (one entry, `as const`); `identity` keeps serving it as `/api/me/settings.verseTranslations`. |
 | `DAILY_VERSES` and `export { DAILY_VERSES }` (`:34-194`) | private constant in `verse.selection.rules.ts`. The export dies: it existed "for tests" and widened the surface to the data table. |
 | `bundledVerseForDate` (`:196-205`) | `pickDailyVerse`. |
-| `getVerseForDate` / `getTodayVerse` (`:207-215`) | one `getDailyVerse(ctx, actor, { date? })`; the `_translation` parameter dies and "today" comes from `ctx.clock`. |
-| `loadDailyVerse` (`src/lib/server/services/calendarData.ts:100-116`) | `getDailyVerse`. Its `warning` string becomes a kernel fault report; the dashboard screen keeps its own "today's verse" warning label. |
+| `getVerseForDate` / `getTodayVerse` (`:207-215`) | one `findDailyVerse(ctx, actor, { date? })`; the `_translation` parameter dies and "today" comes from `ctx.clock`. |
+| `loadDailyVerse` (`src/lib/server/services/calendarData.ts:100-116`) | `findDailyVerse`. Its `warning` string becomes a kernel fault report; the dashboard screen keeps its own "today's verse" warning label. |
 | `DailyVerseCard.svelte` (`src/lib/components/calendar/DailyVerseCard.svelte`) | `ui/DailyVerseCard.svelte`, rebuilt from the rule in invariant 13. |
-| `GET` in `src/routes/api/daily-verse/+server.ts` | wiring only: `export const GET = getDailyVerseEndpoint.handler;` (R8). |
+| `GET` in `src/routes/api/daily-verse/+server.ts` | wiring only: `export const GET = findDailyVerseEndpoint.handler;` (R8). |
 
 ## Notes
 
@@ -121,8 +121,10 @@ Where each legacy export goes:
   - `DailyVerse.fallback` — internal, never left the service → dies.
   - Unvalidated date inside the service (bad ISO → `NaN` ordinal → `undefined` fields) — internal, the route guards it → dies: the contract validates and the rule is typed to a validated date.
   - `DAILY_VERSES` exported "for tests" — internal → dies; the rules test walks whole years.
+  - `VerseTranslationInfo.bundled` — internal, never reaches the wire (`verseTranslationOptions` projects `id`/`label`/`attribution`) → dies; the local constant makes "no network" structural, and invariant 3 says so.
   - A family-switch read on every verse request although the verse is personal — internal (an extra SELECT) → dissolves: the verse asks `dashboardModules` for the composed answer and stops reading switches itself.
-- One composition (invariant 12): the calendar strip will call `getDailyVerse` from the calendar screen's loader; the `calendar` module owns that call site.
+- Naming: the service is `findDailyVerse`, not `getDailyVerse`, because it returns the verse or `null` and never throws ([conventions.md](../../architecture/conventions.md), Signatures); the endpoint follows as `findDailyVerseEndpoint`. The wire body type is not exported (`DailyVerseBody` may stay unexported in `verse.contract.ts` as documentation) — `endpoint()` takes no response schema and the goldens pin the body literally.
+- One composition (invariant 12): the calendar strip will call `findDailyVerse` from the calendar screen's loader; the `calendar` module owns that call site.
 
 ### Questions for the owner
 
