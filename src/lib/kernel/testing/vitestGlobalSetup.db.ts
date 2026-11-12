@@ -12,6 +12,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import postgres from 'postgres';
+import { splitStatements } from '../db/migrations/migrationRunner.server';
 import { TEST_ADMIN_URL, TEST_DATABASE_NAME, TEST_DATABASE_URL } from './testDbConfig';
 
 const MIGRATIONS_DIR = join(process.cwd(), 'sql', 'migrations');
@@ -39,10 +40,7 @@ export default async function setup(): Promise<void> {
 			'CREATE TABLE IF NOT EXISTS __schema_migrations (name text PRIMARY KEY, appliedAt timestamptz NOT NULL DEFAULT now())'
 		);
 		for (const name of migrationFileNames()) {
-			const statements = readFileSync(join(MIGRATIONS_DIR, name), 'utf8')
-				.split(/\n\s*\n/)
-				.map((statement) => statement.trim())
-				.filter(Boolean);
+			const statements = splitStatements(readFileSync(join(MIGRATIONS_DIR, name), 'utf8'));
 			try {
 				await db.begin(async (tx) => {
 					for (const statement of statements) await tx.unsafe(statement);
@@ -57,7 +55,7 @@ export default async function setup(): Promise<void> {
 	}
 }
 
-/** Same order as src/lib/server/db/migrations/scripts.ts (bundled list == files on disk, pinned by its parity test). */
+/** Same order as src/lib/kernel/db/migrations/bundledMigrations.server.ts (bundled list == files on disk, pinned by its parity test). */
 function migrationFileNames(): string[] {
 	return readdirSync(MIGRATIONS_DIR)
 		.filter((name) => name.endsWith('.sql'))

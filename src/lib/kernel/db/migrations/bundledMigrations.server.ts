@@ -6,7 +6,12 @@
  * runtime on whatever environment the code deploys to (test or prod).
  *
  * Names are sorted by their numeric prefix (001_, 002_, ...) and applied in
- * that order. Each is idempotent (uses IF NOT EXISTS) so re-runs are safe.
+ * that order by migrationRunner.server.ts. Each is idempotent (uses
+ * IF NOT EXISTS) so re-runs are safe. The bundle must equal the files on disk;
+ * bundledMigrations.test.ts fails otherwise, so a migration added to
+ * `sql/migrations/` can never silently never run on deployed databases.
+ *
+ * Doc: src/lib/kernel/README.md#database
  */
 import m0000 from '../../../../../sql/migrations/0000-baseline-tables.sql?raw';
 import m001 from '../../../../../sql/migrations/001_add_ads_columns.sql?raw';

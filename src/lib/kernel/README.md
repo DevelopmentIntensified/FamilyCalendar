@@ -17,6 +17,10 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [ctx/actor.ts](ctx/actor.ts) | type | `Actor` (who is calling: id, email, isAdmin, via) + `actorFromUser`. Small on purpose: anything else about the person is asked of `identity`. | [endpoint.test.ts](http/endpoint.test.ts) |
 | [ctx/ctx.server.ts](ctx/ctx.server.ts) | type | `Ctx`: db, clock, ids, log, limiter, faults, config. Services take it as their first argument, so tests swap any dependency without `vi.mock`. | via every test that uses `testCtx` |
 | [db/database.server.ts](db/database.server.ts) | infra | `Db` (pool or transaction), `connectDb`, `withTx`. Nested transactions become savepoints. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
+| [db/migrations/bundledMigrations.server.ts](db/migrations/bundledMigrations.server.ts) | infra | The `sql/migrations/*.sql` files imported as `?raw`, sorted by numeric prefix: the exact set the cold-start runner replays. Must equal the files on disk. | [bundledMigrations.test.ts](db/migrations/bundledMigrations.test.ts) |
+| [db/migrations/bundledMigrations.test.ts](db/migrations/bundledMigrations.test.ts) | test | parity gate: every `sql/migrations/` file is bundled, byte-identical, ascending numeric order | — |
+| [db/migrations/migrationRunner.db.test.ts](db/migrations/migrationRunner.db.test.ts) | test | runner is a no-op on the already-migrated test DB; `splitStatements` table | — |
+| [db/migrations/migrationRunner.server.ts](db/migrations/migrationRunner.server.ts) | infra | `runMigrations(db)` at cold start: `__schema_migrations` tracking, `hashtext('family-calendar:migrate')` advisory lock with a 3-attempt retry, one transaction per file, stop on first failure. Exports `splitStatements`, the split `vitestGlobalSetup.db.ts` and the db scripts follow. | [migrationRunner.db.test.ts](db/migrations/migrationRunner.db.test.ts) |
 | [db/tables.server.ts](db/tables.server.ts) | barrel | The one import path for Drizzle tables: one `export *` per module table file, in `TABLE_OWNERS` order. Importers did not change. | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
 | [db/tables/access.tables.server.ts](db/tables/access.tables.server.ts) | schema | `access`'s tables, moved verbatim from the legacy schema; row types `ClaimTokenRow`/`NewClaimTokenRow`. | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
 | [db/tables/alerts.tables.server.ts](db/tables/alerts.tables.server.ts) | schema | `alerts`'s tables, moved verbatim from the legacy schema; row types `NotificationRow`, `PushSubscriptionRow`, `DeviceTokenRow`. | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
@@ -107,6 +111,7 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 - Repos take `db: Db`.
 - Services pass `ctx.db` and use `withTx(ctx, (txCtx) => ...)` for atomic work.
 - Tables come from `$lib/kernel/db/tables.server`.
+- `runMigrations(db)` brings a database up to date at cold start (`hooks.server.ts`). `splitStatements(sql)` is the one statement split; `scripts/db-apply.mjs` and `db-exec.mjs` mirror it.
 
 ### Testing
 
@@ -128,6 +133,7 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 - db tests can only reach `127.0.0.1:5433/familycalendar_v2_test` (or `familycalendar_v2_test_<id>` via `V2_TEST_DB`), and unit tests can't reach any database (lane guards in `testDbConfig.ts`, `vitestSetup.unit.ts`).
 - Every `rollbackTest` leaves no rows behind, and service transactions inside it are savepoints. Pinned by `testDb.db.test.ts`.
 - truncateAll resets in under 250 ms (median of 5), even on a loaded machine; pinned by `testDb.db.test.ts › resets in under 250 ms`.
+- The migration runner is a no-op on an up-to-date database: `{ ok: true, applied: [] }`. Pinned by `migrationRunner.db.test.ts › applies nothing to the already-migrated test database …`.
 
 ## Depends on
 

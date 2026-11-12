@@ -8,7 +8,7 @@ import {
 import { redirect, type Handle } from '@sveltejs/kit';
 import { createAnonymousUser, touchLastActiveAt } from '$lib/server/db/actions/users';
 import { getUserForApiToken } from '$lib/server/db/actions/apiTokens';
-import { runMigrations } from '$lib/server/db/migrations/runner';
+import { runMigrations } from '$lib/kernel/db/migrations/migrationRunner.server';
 import { createBugReport } from '$lib/server/db/actions/bugReports';
 import { buildAutoBugReport, shouldFileAutoReport } from '$lib/server/services/autoBugReport';
 import { appCtx } from '$lib/app/appCtx.server';
@@ -17,7 +17,7 @@ import { actorFromUser } from '$lib/kernel/ctx/actor';
 // Apply pending SQL migrations once per cold start, in the background, on
 // whichever environment this code deploys (test or prod). Idempotent + locked.
 if (!process.env.DATABASE_DISABLE_MIGRATIONS) {
-	void runMigrations();
+	void runMigrations(appCtx.db);
 }
 
 const adminProtectedRoutes = ['admin'];
