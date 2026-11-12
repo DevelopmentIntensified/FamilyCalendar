@@ -92,14 +92,83 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Plan
 
-(S1: list every new file with its role, and where each legacy export goes.)
+### Files (S3–S7)
+
+- `dayDashboard.contract.ts` — `DashboardDayQuery`: `date` optional and **regex-only** `^\d{4}-\d{2}-\d{2}$`, rejecting everything else with `Invalid date` (NOT kernel `isoDate`, which also calendar-validates and would 400 the impossible date the golden pins as a 200 today-fallback; that fallback lives in the service). Plus the wire types `DashboardModel` / `DashboardData` / `DashboardPageData`, built from each owning domain's contract type (`Task`, `Event`, `FamilyMember`, `DailyVerse`, `ModuleSwitchMap`). It is the type the golden pins; no logic, no hand-mirrored rows.
+- `dayDashboard.cards.rules.ts` + `dayDashboard.cards.rules.test.ts` — the two card rules no domain owns: `orderGlanceEvents` (all-day rows first, then by start) and `groupKidsSchedule` (one group per child in first-event order; an event shared by two children appears under both; initials from the name). Pure tables.
+- `dayDashboard.service.server.ts` — `loadDayDashboard(ctx, actor, { date })`: zone + day window from identity's settings, `dashboardVisibility` from dashboardModules (after its switches read), then the legs. An impossible (well-formed) date falls back to today, exactly as today. Skips per `DASHBOARD_READS.needs`; each leg recovers to its fallback and its warning label; returns the header plus a `data` promise. No SQL.
+- `dayDashboard.service.db.test.ts` — one test per leg and per warning label (the only place a failing leg can be forced without `vi.mock`, rule R9), the skip matrix, the zone/day-window and `isToday` rules with `testCtx({ now })`, the verse gate.
+- `dayDashboard.http.server.ts` — `loadDayDashboardPage` (`pageLoad({ auth: 'user' })`: takes settings/family/roster from `parent()`, starts the category read before it, returns header + streamed `data` + `loadWarnings`) and `getDayDashboard` (`endpoint({ method: 'GET', auth: 'user', query: DashboardDayQuery })`: awaits `data`, merges `loadWarnings` then the legs' warnings in the legacy order). Exported from `index.server.ts`.
+- `dayDashboard.fixtures.server.ts` — builders: a family day, a hidden-module/switch-off day, a solo account, a Chicago-zone account.
+- `ui/index.ts` — export `DayDashboardPage` only.
+- `ui/DayDashboardPage.svelte` — `<svelte:head>` title, header (label · today, DayNav URLs, Open Day View, Back to Calendar), warning banner, info band, then the streamed band: skeleton grid in the final shape → cards, or the retry card. The event sheet is a `dynamic import()` on first use.
+- `ui/DashboardBand.svelte` — the two-group/one-grid band; `showsModule` gates; a hidden card leaves its row instead of holding an empty lane.
+- `ui/TodayGlanceCard.svelte`, `ui/TopPrioritiesCard.svelte`, `ui/CompletedTodayCard.svelte`, `ui/FamilyTaskBoardCard.svelte`, `ui/KidsScheduleCard.svelte`, `ui/GroceriesCard.svelte`, `ui/DashboardInfoBand.svelte` — props typed `DashboardModel['data'][…]`; no `fetch`, no wire copies; writes go through the state class.
+- `ui/dayDashboard.state.svelte.ts` + `ui/dayDashboard.state.test.ts` — one runes class for the four card writes (quick-add, toggle complete, set priority, open/save the event sheet): optimistic rows, rollback, toasts; injected api clients and toast port, tested in node with a fake api.
+- `ui/*.svelte.test.ts` — one per card plus a page test (header URLs, banner labels, skeleton shape, retry, the ≥1024 grid, hidden-module gates, the glance → sheet hand-off).
+
+### Where each legacy export goes
+
+| legacy | destination | why |
+|---|---|---|
+| `services/dashboardData.ts` `loadDashboard`, `DashboardScope` | this screen's `loadDayDashboard` | it is the composition; the SQL inside leaves |
+| `actions/dashboard.ts` `rankTop3`, `RankableTask`, `RankOpts` | tasks rules (`rankTopPriorities`) | the ranking is a Task rule, not a screen rule |
+| `actions/dashboard.ts` `getUserDayCalendar` / `getFamilyDayEvents` | calendar's day-events read (own / family legs) | events + their calendar are calendar's |
+| `actions/dashboard.ts` `getKidsScheduleAttendance` | calendar's attendance read | attendance rows belong to events |
+| `actions/dashboard.ts` `getCompletionTimestamps` | tasks (`listCompletionInstants`) | completion history is tasks' |
+| `actions/dashboard.ts` `getRecurringDayCompletions` | tasks (`listDayCompletions`) | same |
+| `actions/dashboard.ts` `mergeDayCompletions` | tasks rules | one-off ∪ recurring ordering is a Task rule |
+| `actions/dashboard.ts` `PRIORITY_*` re-exports | tasks contract (already there) | drops the duplicate export |
+| `lib/dashboardModules.ts` | dashboardModules domain | its own module |
+| `components/dashboard/*.svelte` | `ui/` rebuilt on kernel/ui + state class | S7; cards type from the model |
+| `components/dashboard/prototype/*` | deleted with #208 | dev-only, never on the wire |
+| three route files | wiring only | R8 |
+
+### Performance load plan — `/calendar/dashboard` (and the `/api/dashboard` twin)
+
+- Above the fold: the header needs only the layout's scope (zone, Default View) plus the day window, so it paints without waiting on any leg.
+- One `Promise.all` after the visibility answer: viewer task list, family board rows (when needed), own day events, family day events (when needed), the attendance join (Kids' on), day completions, streak, groceries (≤2 reads), verse (when on), categories (already started before `parent()`). A leg no visible module needs is never issued (`DASHBOARD_READS`).
+- Streams: `data` returns as a promise; the skeleton is in the band's own grid (3 + 3 blocks) so the page does not reflow when data lands; the header and banner paint first.
+- On demand: calendar's event sheet via `dynamic import()` on the first glance-row click (legacy statically imports `EventModal`, so it sits in the initial JS of this page).
+- Bounded: the event window is the viewed day (±1 day pad, as today); every list is what its card renders; no per-row query.
+- Legacy costs found, to remove without changing the wire:
+  - `getUserDayCalendar` selects every row of the personal calendar before the ±1-day window filters (`actions/dashboard.ts:110-125`) — unbounded read.
+  - `eventLeg` chains six awaits (calendar → family → expand → parse → rsvp → attendance) (`dashboardData.ts:152-217`).
+  - The Kids attendance join runs after the `Promise.all`, serialized behind every other leg (`dashboardData.ts:342-353`).
+  - The verse read is awaited before the loader returns, so it delays the shell, not just the band (`dashboardData.ts:397-405`).
+  - `getCompletionTimestamps` reads up to 365 rows for the weekly streak (`actions/dashboard.ts:160-173`).
+  - Two `syncRecurringCursors` sweeps (a SELECT + UPDATE) sit in the read path of the two task lists (`queries.ts:28,83`).
+  - The payload carries full `userTasks` rows that no card renders (`dashboardData.ts:377`).
+- Budget: ADR 0010 (desktop ready 300 ms, fail 1000 ms). The ready selector is the header plus skeleton; `perf:check -- dayDashboard` runs at S7.
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
-
-- 2026-11-11 (owner, [Q-005a](../questions.md)): the Family Task Board must not show other members' private Tasks. The tasks module's family read applies the filter; this screen just uses it.
+- 2026-11-11 (owner, [Q-005a](../questions.md)): the Family Task Board must not show other members' private Tasks. The tasks module's family read applies the filter; this screen just uses it. The S2 golden pins today's leak first (`task-diary` on the board); the wire changes only after S6 as its own `fix(dayDashboard)`/M-tasks commit.
 - Architecture review 2026-11-10 #3 ([report](../../archive/review/architecture-review-2026-11-10.html)): the screen's load returns one typed `DashboardModel`, and cards type their props as `DashboardModel['…']`. No hand-mirrored wire types, no `as unknown as Event` casts.
+- 2026-11-11 (S1): verified the inventory against the code. Two draft lines were imprecise and are recorded correctly in the README: the glance empty copy for a past day is `No events scheduled on this day` (`TodayGlanceCard.svelte:142`), and `glance.openToday` counts every open Task due before the day's end, overdue included (`dashboardData.ts:373-376`).
+- 2026-11-11 (S1): "probably accidental" dispositions.
+  - Deleted: `components/dashboard/prototype/*` (dev-only `?variant=`, never on the wire; #208 deletes it).
+  - Dropped: the `getFamilyDayEvents` doc drift ("fetched regardless of visibility") — a comment; the loader gate is the behaviour and stays.
+  - Dropped: `getUserDayCalendar`'s unbounded read — internal; the visible contract is the day window, and the Plan bounds it.
+  - Fixed at S7: the glance row's event sheet gets `calendars={[]}` today, so its calendar picker can never list one. That is UI-only, so calendar's own sheet gets its calendar list at S7.
+  - Kept as Invariants (visible on the wire) with an owner question: `glance.openToday` has no lower bound; family event colour is hard-coded `#e0ffff`; the payload's full `userTasks` rows that no card renders.
+- 2026-11-11 (S2): the golden runs the real legacy route in committed mode; no `vi.mock` (R9). The route's whole chain imports no `$env`, so it runs in the `db` project. Corrected after the first verification run (TZ=UTC, production parity):
+  - `tasks.dueDate` / `tasks.completedAt` are timestamptz declared `mode: 'string'`, and the wire carries the **driver's Postgres render** (`2026-11-02 08:00:00+00` — space, no `T`/`Z`), not ISO. The golden pins that render with `postgresInstant()` (accepting the server's fractional-second digits) for both task lists. `completedToday` is the exception on purpose: `dashboardData.ts` rebuilds those two instants to ISO (`new Date(row.completedAt).toISOString()` / `toIsoTimestamp`), so that card is asserted as ISO.
+  - `dayEvents` rows are pinned in full — all 17 Event columns plus `masterId`, `occurrenceDate`, `date`, `color`, `source`, `rsvpStatus` and `attendance`; `created_at` is timestamp WITHOUT time zone, so it is `expect.any(String)` and never an exact instant.
+  - The two "day = today" goldens (`?date=` absent, impossible date) accept both clock sources: the REAL clock on legacy and `ctx.clock` (`testCtx`'s fixed `2026-01-15T12:00:00.000Z`) after the port, so they stay green through S6.
+  - `readWire` reads `res.body` (the invoke helper already parses JSON) and asserts the named `Wire` type at that boundary; no second `JSON.parse`.
+  - The verse and the weekly streak are the two real-clock values in the payload: the verse is asserted by shape with its fixed `attribution`/`translation`/`fallback`, and `weekStreak` by `expect.any(Number)`.
+  - Refusals on this route are only 401 and 400(`Invalid date`); there is no 403/404/409/429 branch, so no golden claims one.
+  - Warning labels: a failing leg cannot be produced in the golden without mocks, so the label order (page labels first: `settings`, `today's verse`; then legs: `tasks`, `events`, `task-wins`, `streak`, `family`) is pinned at S5 in `dayDashboard.service.db.test.ts`. `groceries` has no label — it degrades silently.
+
+### Questions for the owner
+
+1. **`glance.openToday` has no lower bound.** Context: `openToday` counts every open Task whose due date is before the viewed day's end (`dashboardData.ts:373-376`), so long-overdue work inflates it and a past day counts its whole backlog, while the card says "today". Options: (a) keep today's wire and fix only the label; (b) bound it to `[dayStart, dayEnd)`; (c) keep the count and add a separate overdue field. Recommendation: (b), which matches the words — but it changes a G8 field, so it needs the owner and a spec bump.
+2. **Family event colour is hard-coded.** Context: own events use the settings colour else `#fa8072`, family events are always `#e0ffff` (`dashboardData.ts:178-192`) even when the family has a configured colour that `GET /api/calendars` already returns. Options: (a) keep the wire; (b) send the family calendar's configured colour, falling back to `#e0ffff`. Recommendation: (b) — same field, clients already render it, and the fallback is unchanged.
+3. **Full `userTasks` rows on the wire.** Context: the payload carries every own + family Task with all columns (`dashboardData.ts:377`) while no card in this module renders that list; G8 lists it as `<Task+tags>`, and TaskFocus reads task fields from other lists. Is Android reading `data.userTasks`? Options: (a) keep it (phone parity); (b) slim it to the fields the phone uses; (c) drop it. Recommendation: (a) for the rewrite, with a ticket after the phone confirms — shrinking a documented field is a wire change.
+4. **`data.warnings` for groceries.** Context: the groceries leg degrades to empty lists with no label (`dashboardData.ts:320-337`), so a failed grocery read is invisible to the client while the card says "Nothing on the list yet." Options: (a) keep (a card that cannot load says nothing); (b) add a `groceries` label. Recommendation: (a) unless the owner wants the banner to name it; either way it is a wire change to the label set.
+
+- Kept for unported importers: none. The three legacy route files are rewired at S6/S7, and the legacy dashboard tree is deleted with them at S8 (`dashboardModules.ts` is the dashboardModules module's file, not this screen's).
 
 ## Census
 
