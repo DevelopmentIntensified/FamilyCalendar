@@ -56,8 +56,8 @@ function fakeIndexedDb(seed: FakeRow[] = []) {
 			};
 			const finish = (completed: FakeRequest<unknown>) => {
 				queueMicrotask(() => {
-					completed.onsuccess?.();
-					tx.oncomplete?.();
+					completed.onsuccess?.(new Event('success'));
+					tx.oncomplete?.(new Event('complete'));
 				});
 			};
 			const store: OfflineObjectStore = {
@@ -95,7 +95,7 @@ function fakeIndexedDb(seed: FakeRow[] = []) {
 			const opened = request<OfflineDatabase>();
 			queueMicrotask(() => {
 				opened.result = database;
-				opened.onsuccess?.();
+				opened.onsuccess?.(new Event('success'));
 			});
 			return opened;
 		}
