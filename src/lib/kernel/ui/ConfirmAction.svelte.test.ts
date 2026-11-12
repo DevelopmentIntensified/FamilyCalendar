@@ -1,9 +1,9 @@
 /**
- * The two-step delete control (folded from five legacy copies, e.g. the
- * "Delete" → ask → "Yes, delete" / "Cancel" row in TaskDetailBar, where the
- * ask line is the caller's own copy such as "Delete this task?"): the first
- * click only asks, cancel returns, confirm fires exactly once, and focus
- * follows the ask.
+ * The two-step delete control (folded from five legacy copies: TaskDetailBar's
+ * "Delete" → ask → "Yes, delete" / "Cancel" row, and the family page's
+ * "Remove?" → "Yes" / "No" member row, where the ask line is the caller's own
+ * copy such as "Delete this task?"): the first click only asks, cancel
+ * returns, confirm fires exactly once, and focus follows the ask.
  *
  * Doc: src/lib/kernel/README.md
  */

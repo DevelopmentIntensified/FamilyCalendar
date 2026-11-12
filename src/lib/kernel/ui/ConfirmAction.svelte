@@ -2,7 +2,9 @@
 	Two-step destructive action: the first click only asks (`Delete?` plus the
 	confirm and cancel buttons), so one stray tap can never delete anything.
 	Folds five hand-written copies (TaskRow, TaskCompletedRow, FamilyOpenTaskRow,
-	TaskDetailBar, MemberChildTab); the look is TaskDetailBar's row.
+	TaskDetailBar, and the family member-remove row in
+	routes/(family)/family/[familyId]/+page.svelte); the look is TaskDetailBar's
+	row.
 
 	`ask` is the question line, defaulting to `${label}?`; a caller that wants
 	"Delete this task?" passes `ask="Delete this task?"`. While the ask is open
