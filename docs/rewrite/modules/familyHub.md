@@ -96,7 +96,7 @@ Public interface (details and deletion-test justifications in the README):
 
 ### New files
 
-The two fat legacy pages are split the way [port-ui.md › Fat pages](../../playbooks/port-ui.md#fat-pages) prescribes: pure rules first (`familyHub.detail.rules.ts`, `familyHub.board.rules.ts`), then one state class per page, then one component per visual section, then a screen that is layout only. `family/[familyId]/+page.svelte` (1,090 lines) yields `FamilyHubScreen` plus the `ui/` section components below; `family/tasks/+page.svelte` yields `FamilyBoardScreen` plus `BoardColumn`/`NobodyCard` and `tasks`' own rows and dialog.
+The two fat legacy pages are split the way [port-ui.md › Fat pages](../playbooks/port-ui.md#fat-pages) prescribes: pure rules first (`familyHub.detail.rules.ts`, `familyHub.board.rules.ts`), then one state class per page, then one component per visual section, then a screen that is layout only. `family/[familyId]/+page.svelte` (1,090 lines) yields `FamilyHubScreen` plus the `ui/` section components below; `family/tasks/+page.svelte` yields `FamilyBoardScreen` plus `BoardColumn`/`NobodyCard` and `tasks`' own rows and dialog.
 
 | file | role | contents |
 |---|---|---|
