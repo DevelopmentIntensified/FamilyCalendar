@@ -15,8 +15,9 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | file | role | what it does — and why it exists | tested by |
 |---|---|---|---|
 | [index.ts](index.ts) | entry | Public isomorphic interface: contract types, role/palette/invite/search rules, display helpers. | — |
-| [index.server.ts](index.server.ts) | entry | Public server interface: family services and `/api` handlers. | — |
+| [index.server.ts](index.server.ts) | entry | Public server interface: the `FamilyCalendarPort`/`MemberTasksPort` contracts, family services and `/api` handlers. | — |
 | [ui/index.ts](ui/index.ts) | entry | Public components (family card, roster rail, palette picker, invite/member tabs, join card). | — |
+| [family.fixtures.server.ts](family.fixtures.server.ts) | fixtures | Family-row builders for db tests: `seedFamily`, `seedMembership`, `seedInvite`, `seedFamilyRoster`, `seedFullFamily`, `FamilyTestUser`. Task rows stay in the test because `tasks` owns task fixtures. | — |
 | [family.http.db.test.ts](family.http.db.test.ts) | test | Golden contract for all 18 `/api` methods this module owns, run against the legacy handlers on the real test database. The emailed-invite method is a spec golden (its handler imports `$env/static/private` and sends mail). | itself |
 
 ## Public interface
@@ -26,7 +27,7 @@ Everything other modules and routes may use, grouped by entry file. One line eac
 ### `index.ts`
 
 - `FamilyRole`, `MemberType`, `RosterMember`, `FamilySummary`, `FamilyDetail`, `InviteCode`, `InvitePreview`, `InviteUsable`, `MemberSearchHit`, `FamilyCreateInput`, `FamilyMemberInput` — contract types; `role` and `memberType` are separate fields everywhere and never interchangeable.
-- `FAMILY_PALETTE`, `DEFAULT_FAMILY_COLOR`, `isFamilyColor` — the six-colour family palette, its default and the exact membership guard (create only; see Invariants for PATCH).
+- `FAMILY_PALETTE`, `DEFAULT_FAMILY_COLOR`, `isFamilyColor` — the six-colour family palette, its default and the exact membership guard (create only; see Invariants for PATCH). `RETIRED_FAMILY_COLOR` stays module-internal: it exists only for the palette rules test, so it is not re-exported here.
 - `canEditRole`, `canRemove`, `memberDisplayName`, `rolePillClass` — shared, pure UI permission and display helpers (the deletion test fails: every caller would otherwise re-implement "creator on anyone but self").
 - `DEFAULT_INVITE_MAX_USES`, `clampInviteDays`, `clampInviteUses`, `isInviteUsable` — the invite defaults and clamps, and the one "can this code still be used" predicate.
 - `MEMBER_SEARCH_MIN_QUERY`, `MEMBER_SEARCH_MAX_QUERY`, `MEMBER_SEARCH_ROW_CAP`, `maskEmail` — the picker search bounds and the one email-masking rule.
@@ -37,8 +38,9 @@ Everything other modules and routes may use, grouped by entry file. One line eac
 Services (each hides a whole use-case; no pass-throughs):
 
 - `listFamilies(ctx, actor)` — the `/family` list payload (cards, roster, live codes, plan usage) in a fixed number of queries.
+- `FamilyCalendarPort`, `MemberTasksPort`, `FamilyPorts`, `FamilyCtx` — the two cross-module **ports** this module declares and `src/lib/app` wires. `FamilyCalendarPort.createFamilyCalendar(ctx, familyId)` is implemented by `calendar` (it owns `calendars`); `MemberTasksPort.unassignMemberTasks(ctx, familyId, userId)` by `tasks` (it owns `tasks`). `FamilyCtx` is `Ctx & { ports: FamilyPorts }`; only the two services below need it. Each port method takes the `withTx` transaction ctx, so the cross-module write stays inside the one transaction the Invariants require. Family repos never touch `calendars` or write `tasks`.
 - `getFamily(ctx, actor, familyId)` — the family detail payload; non-member and unknown id are one `notFound`.
-- `createFamily(ctx, actor, input)` — plan gate, name/colour/pick validation, family + memberships + calendar in one transaction.
+- `createFamily(ctx: FamilyCtx, actor, input)` — plan gate, name/colour/pick validation; family + memberships written by the family repo and the family calendar through `ports.calendar.createFamilyCalendar(txCtx, familyId)`, all in one transaction.
 - `updateFamily(ctx, actor, input)` — rename/recolour (admin+).
 - `listInvites(ctx, actor, familyId)` — `canManageInvites` plus that family's codes (member gets an empty list, not a refusal).
 - `mintInvite(ctx, actor, input)` — one code, clamped validity and uses.
@@ -48,7 +50,7 @@ Services (each hides a whole use-case; no pass-throughs):
 - `listRoster(ctx, actor, familyId?)` — the roster the calendar person filter/attendee picker reads.
 - `addFamilyMember(ctx, actor, input)` — one use-case with a `mode` (`direct | email | invite-link | child`), hiding the four doors' shared gates, validation and invite minting.
 - `changeMember(ctx, actor, input)` — role and/or Member Type, with the creator-untouchable rules.
-- `removeFamilyMember(ctx, actor, input)` — roster delete plus task un-assignment in one transaction.
+- `removeFamilyMember(ctx: FamilyCtx, actor, input)` — roster delete plus `ports.tasks.unassignMemberTasks(txCtx, familyId, userId)` in one transaction.
 - `searchMembers(ctx, actor, input)` — the picker's prefix search (verified only, bounded, masked, unordered).
 - `findInvitableMembers(ctx, actor, input)` — the invite flow's exact-match directory search (a separate service on purpose: it must never become the picker).
 
@@ -70,7 +72,7 @@ Endpoints (thin `endpoint()` definitions exported for the route files): `listFam
 - Database + services: `*.db.test.ts` using `rollbackTest` and `testCtx({ db })` (needs Postgres: `docker start familycalendar-db`).
 - HTTP contract: `family.http.db.test.ts` pins status + body of every endpoint (golden tests, committed mode). Its emailed-invite `describe` is a spec golden, skipped until S6: the legacy handler imports `$env/static/private` and sends mail through Resend, so it cannot run in the db project.
 - UI: `ui/*.svelte.test.ts` render with props; state classes are tested without a DOM.
-- Fixtures: `family.fixtures.server.ts` (family, member, invite-code, consent builders).
+- Fixtures: `family.fixtures.server.ts` — `seedFamily`, `seedMembership`, `seedInvite`, `seedFamilyRoster`, `seedFullFamily`, `FamilyTestUser`. Task rows stay local to the test that needs them (`tasks` owns task fixtures).
 
 ## Invariants
 
@@ -87,12 +89,12 @@ Behaviour that must not change, each with the test that pins it (`file › test 
 - An unusable invite is one refusal: unknown, expired, used up and already-a-member answer `400 Invalid, expired, or already used invite code`; only the size cap is `403 This family is full…` — `src/lib/server/db/actions/families.ts:200-249`, `src/routes/api/family/join/+server.ts:21-31`. Pinned by the four join refusals in `family.http.db.test.ts`.
 - Picker member search: verified accounts only, prefix match on first/last/email, 2–60 characters, 10-row cap, **no `ORDER BY`**, caller and `exclude` ids removed, ILIKE wildcards escaped, emails masked — `src/lib/server/db/actions/memberSearch.ts:24-31,42-52,81-124`. Pinned by `family.http.db.test.ts › matches verified prefixes, masks the email and keeps the caller out`, `› refuses a missing, one-character or blank term before any query`, `› answers 429 after twenty searches from the same IP`, `› caps the result at ten rows` and `› escapes ILIKE wildcards so they cannot become a scan`.
 - Invite-flow directory search stays exact-match on email, verified only, current members excluded, 10-row cap, full emails returned — `src/lib/server/db/actions/families.ts:334-363`. Pinned by `family.http.db.test.ts › matches an exact email only, excluding members, unverified accounts and substrings` (the name leg compares both columns to the whole query; owner question Q-F6).
-- Removing a Family Member un-assigns that person's Family Tasks (`assignedTo = null`, `assignmentStatus = 'none'`) in the same transaction as the roster delete — `src/lib/server/db/actions/families.ts:300-317`. Pinned by `family.http.db.test.ts › removes the roster row and un-assigns that person's family tasks`.
+- Removing a Family Member un-assigns that person's Family Tasks (`assignedTo = null`, `assignmentStatus = 'none'`) in the same transaction as the roster delete; the un-assignment is `MemberTasksPort.unassignMemberTasks(txCtx, familyId, userId)` (implemented by `tasks`, wired in `src/lib/app`), so family never writes `tasks` — `src/lib/server/db/actions/families.ts:300-317`. Pinned by `family.http.db.test.ts › removes the roster row and un-assigns that person's family tasks` and, in S5, `family.members.service.db.test.ts › calls the tasks port with the transaction ctx`.
 - The creator is untouchable: cannot be removed, its role cannot change; a user cannot change their own role; only the creator promotes to `creator` — `src/lib/server/services/familyData.ts:270-311`. Pinned by the five `PATCH/DELETE members` refusals in `family.http.db.test.ts`.
 - Setting Member Type is admin+, accepts only `parent|child|member`, and never changes the role — `src/lib/server/services/familyData.ts:313-340`. Pinned by `family.http.db.test.ts › makes Member Type admin-only and leaves the role alone`.
-- Creating a family: the plan gate runs before the body is read; name required and ≤50 chars; colour must be a palette member (absent → first); every pick a verified account; the creator counts against the member limit; family + memberships + calendar in one transaction — `src/lib/server/services/familyData.ts:446-509`. Pinned by `family.http.db.test.ts › creates the family with the default palette colour, deduped picks and a calendar` and `› answers 403 with the plan reason and upgradeRequired at the family limit`.
+- Creating a family: the plan gate runs before the body is read; name required and ≤50 chars; colour must be a palette member (absent → first); every pick a verified account; the creator counts against the member limit; family + memberships are written by the family repo and the family calendar row by `FamilyCalendarPort.createFamilyCalendar(txCtx, familyId)` (implemented by `calendar`, wired in `src/lib/app`), all in one transaction — `src/lib/server/services/familyData.ts:446-509`. Pinned by `family.http.db.test.ts › creates the family with the default palette colour, deduped picks and a calendar` and `› answers 403 with the plan reason and upgradeRequired at the family limit`; in S5, `family.families.service.db.test.ts › writes the calendar through the port inside the family transaction`.
 - Child creation requires `consentAcknowledged === true`; it creates a real verified user, a `memberType:'child'` membership and an append-only `childConsentRecords` row in one transaction — `src/routes/(family)/family/[familyId]/members/add/child/+server.ts:78-117`, `src/lib/server/db/schema.ts:965-995`. Pinned by `family.http.db.test.ts › creates a verified child account, a child membership and an append-only consent record` and, in S5, `family.members.service.db.test.ts › appends consent, never updates it`.
-- The family palette is six named earthy colours; the default is its first entry; `isFamilyColor` is exact and case-sensitive; `#3B82F6` is retired — `src/lib/utils/familyPalette.ts:23-46`. Pinned by `family.http.db.test.ts › creates the family with the default palette colour, deduped picks and a calendar` and, in S3, `family.palette.rules.test.ts › rejects the retired blue`.
+- The family palette is six named earthy colours; the default is its first entry; `isFamilyColor` is exact and case-sensitive; `#3B82F6` is retired (`RETIRED_FAMILY_COLOR` stays module-internal — its only consumer is the rules test, so it is not exported from `index.ts`) — `src/lib/utils/familyPalette.ts:23-46`. Pinned by `family.http.db.test.ts › creates the family with the default palette colour, deduped picks and a calendar` and, in S3, `family.palette.rules.test.ts › rejects the retired blue`.
 - UI permission helpers are pure and shared: creators may act on anyone but themselves, admins only on plain members; nobody removes themselves or a creator — `src/lib/utils/familyDisplay.ts:9-36`. Pinned by, in S3, `family.display.rules.test.ts › creator on anyone but self, admin on members only`.
 - Multi-family reads fall back to the **oldest** family (memberships ordered by the family's `createdAt`) — `src/lib/server/db/actions/families.ts:96`, `src/lib/server/services/familyData.ts:376-379`. Pinned by `family.http.db.test.ts › orders families oldest first and builds each card from one read` and, in S5, `family.families.service.db.test.ts › picks the oldest family`.
 - The `/family` list costs a fixed number of queries regardless of family count — `src/lib/server/services/familyData.ts:54-140`. Pinned by, in S5, `family.families.service.db.test.ts › costs the same query count for 1 and 3 families`.
@@ -109,6 +111,7 @@ Behaviour that must not change, each with the test that pins it (`file › test 
 
 - May import: kernel, identity, billing, alerts (public entries only).
 - Owns tables: `families`, `familyMembers`, `familyInviteCodes`, `childConsentRecords`.
-- Reads (join only): `users` (roster names/emails, picker search, verified-account check), `userSettings` (hidden Dashboard Modules on the detail payload), `dashboardModuleSwitches` (read for the detail payload), `tasks` (open-task counts and the removal un-assignment), `calendars` (the family calendar row written on create).
+- Reads (join only): `users` (roster names/emails, picker search, verified-account check), `userSettings` (hidden Dashboard Modules on the detail payload), `dashboardModuleSwitches` (the detail payload), `tasks` (**open-task counts only** — a read-only join declared in `FOREIGN_READS` at S4).
+- Writes through ports (never through family repos; adapters live in the owning module, wired in `src/lib/app`): `FamilyCalendarPort.createFamilyCalendar(txCtx, familyId)` — `calendar` inserts the family `calendars` row inside the family-create transaction; `MemberTasksPort.unassignMemberTasks(txCtx, familyId, userId)` — `tasks` clears `assignedTo`/`assignmentStatus` inside the removal transaction.
 - Calls: `billing` — `canCreateFamily`, `canAddFamilyMember`, `getUserSubscriptionLimits`, subscription status and AI usage for the detail payload; `identity` — account creation for a child (`createNewUser`) and email-uniqueness check; `alerts` — `createNotification` for `added_to_family`.
 - Called by: `calendar` (roster), `familyHub` (family detail and its tasks board), `dashboardModules` (family switch state), `dayDashboard` (roster/kids), and the `/family`, `/family/create`, `/family/invitations`, `/family/{id}/members/add` and `/family/join/{code}` routes.

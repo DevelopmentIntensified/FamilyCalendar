@@ -25,7 +25,6 @@ import {
 	familyMembers,
 	notifications,
 	tasks,
-	users,
 	userSettings
 } from '$lib/kernel/db/tables.server';
 import { invoke, type InvokeResult } from '$lib/kernel/testing/invokeHandlers.server';
@@ -33,6 +32,14 @@ import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
+import {
+	seedFamily,
+	seedFamilyRoster,
+	seedFullFamily,
+	seedInvite,
+	seedMembership,
+	type FamilyTestUser
+} from './family.fixtures.server';
 import { GET as listFamilies, POST as createFamily } from '../../../routes/api/families/+server';
 import {
 	GET as getFamily,
@@ -68,53 +75,7 @@ function daysBetween(fromIso: string, toIso: string): number {
 	return (Date.parse(toIso) - Date.parse(fromIso)) / 86_400_000;
 }
 
-type SeededUser = typeof users.$inferSelect;
-
-async function seedFamily(
-	id: string,
-	overrides: { name?: string; color?: string | null; createdAt?: string } = {}
-) {
-	const [row] = await testDb()
-		.insert(families)
-		.values({
-			id,
-			name: overrides.name ?? id,
-			color: overrides.color ?? null,
-			...(overrides.createdAt ? { createdAt: new Date(overrides.createdAt) } : {})
-		})
-		.returning();
-	return row;
-}
-
-async function seedMembership(
-	familyId: string,
-	userId: string,
-	role = 'member',
-	memberType = 'member'
-) {
-	await testDb().insert(familyMembers).values({ familyId, userId, role, memberType });
-}
-
-async function seedInvite(overrides: {
-	code: string;
-	familyId: string;
-	expiresAt?: string;
-	maxUses?: number | null;
-	useCount?: number | null;
-	createdBy?: string | null;
-}) {
-	await testDb()
-		.insert(familyInviteCodes)
-		.values({
-			code: overrides.code,
-			familyId: overrides.familyId,
-			expiresAt: new Date(overrides.expiresAt ?? '2099-01-01T00:00:00.000Z'),
-			maxUses: overrides.maxUses === undefined ? 10 : overrides.maxUses,
-			useCount: overrides.useCount === undefined ? 0 : overrides.useCount,
-			createdBy: overrides.createdBy ?? null
-		});
-}
-
+/** Task rows stay local: `tasks` owns task fixtures; family only observes the removal side effect. */
 async function seedTask(overrides: {
 	title: string;
 	userId: string;
@@ -135,37 +96,6 @@ async function seedTask(overrides: {
 			completedAt: overrides.completedAt ?? null,
 			archivedAt: overrides.archivedAt ?? null
 		});
-}
-
-/** ann (creator), bob (admin), cid (member), dee (member), out (not in the family). */
-async function seedRoster() {
-	const ann = await seedUser(testDb(), { firstName: 'Ann', lastName: 'Rivera' });
-	const bob = await seedUser(testDb(), { firstName: 'Bob', lastName: 'Stone' });
-	const cid = await seedUser(testDb(), { firstName: 'Cid', lastName: 'Vale' });
-	const dee = await seedUser(testDb(), { firstName: 'Dee', lastName: 'Wren' });
-	const out = await seedUser(testDb(), { firstName: 'Out', lastName: 'Sider' });
-	await seedFamily('fam-1', { name: 'Riveras', color: '#c45e38' });
-	await seedMembership('fam-1', ann.id, 'creator', 'parent');
-	await seedMembership('fam-1', bob.id, 'admin', 'parent');
-	await seedMembership('fam-1', cid.id, 'member');
-	await seedMembership('fam-1', dee.id, 'member');
-	return { ann, bob, cid, dee, out };
-}
-
-/** A family already at the default plan's 6-member cap (creator + 5, bob is the admin). */
-async function seedFullFamily() {
-	const ann = await seedUser(testDb(), { firstName: 'Ann', lastName: 'Rivera' });
-	const bob = await seedUser(testDb(), { firstName: 'Bob', lastName: 'Stone' });
-	const members: SeededUser[] = [];
-	for (let i = 0; i < 4; i += 1) {
-		members.push(await seedUser(testDb(), { firstName: `Member${i}`, lastName: 'Stone' }));
-	}
-	const out = await seedUser(testDb(), { firstName: 'Out', lastName: 'Sider' });
-	await seedFamily('fam-full', { name: 'Full House' });
-	await seedMembership('fam-full', ann.id, 'creator', 'parent');
-	await seedMembership('fam-full', bob.id, 'admin', 'parent');
-	for (const member of members) await seedMembership('fam-full', member.id, 'member');
-	return { ann, bob, members, out };
 }
 
 async function memberRows(familyId: string) {
@@ -435,7 +365,7 @@ describe('PATCH /api/families/{id}', () => {
 	});
 
 	it('answers 400 Invalid JSON for a malformed or non-object body', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		const malformed = await invoke(patchFamily, {
 			ctx: ctx(),
 			user: ann,
@@ -460,7 +390,7 @@ describe('PATCH /api/families/{id}', () => {
 	});
 
 	it('answers 400 for a blank or non-string name, and for a malformed colour', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		const blank = await invoke(patchFamily, {
 			ctx: ctx(),
 			user: bob,
@@ -496,7 +426,7 @@ describe('PATCH /api/families/{id}', () => {
 	});
 
 	it('answers 403 for a plain member and for a non-member', async () => {
-		const { cid, out } = await seedRoster();
+		const { cid, out } = await seedFamilyRoster();
 		const member = await invoke(patchFamily, {
 			ctx: ctx(),
 			user: cid,
@@ -521,7 +451,7 @@ describe('PATCH /api/families/{id}', () => {
 	});
 
 	it('renames for an admin, trimming the name and leaving the colour alone', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		const res = await invoke(patchFamily, {
 			ctx: ctx(),
 			user: bob,
@@ -543,7 +473,7 @@ describe('PATCH /api/families/{id}', () => {
 	});
 
 	it('leaves both fields untouched when the body carries neither', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		const res = await invoke(patchFamily, {
 			ctx: ctx(),
 			user: bob,
@@ -558,7 +488,7 @@ describe('PATCH /api/families/{id}', () => {
 	});
 
 	it('accepts a hex colour outside the palette (create offers six)', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		const res = await invoke(patchFamily, {
 			ctx: ctx(),
 			user: bob,
@@ -575,7 +505,7 @@ describe('PATCH /api/families/{id}', () => {
 });
 
 describe('PATCH /api/families/{id}/members/{userId}', () => {
-	const patch = async (actor: SeededUser, userId: string, body: JsonValue) =>
+	const patch = async (actor: FamilyTestUser, userId: string, body: JsonValue) =>
 		invoke(patchMember, {
 			ctx: ctx(),
 			user: actor,
@@ -586,7 +516,7 @@ describe('PATCH /api/families/{id}/members/{userId}', () => {
 		});
 
 	it('answers 401 Unauthorized when signed out', async () => {
-		const { cid } = await seedRoster();
+		const { cid } = await seedFamilyRoster();
 		const res = await invoke(patchMember, {
 			ctx: ctx(),
 			method: 'PATCH',
@@ -598,7 +528,7 @@ describe('PATCH /api/families/{id}/members/{userId}', () => {
 	});
 
 	it('requires at least one field, and treats null differently from absent', async () => {
-		const { bob, cid } = await seedRoster();
+		const { bob, cid } = await seedFamilyRoster();
 		const neither = await patch(bob, cid.id, {});
 		expect(neither.status).toBe(400);
 		expect(neither.body).toEqual({ error: 'role or memberType is required' });
@@ -613,7 +543,7 @@ describe('PATCH /api/families/{id}/members/{userId}', () => {
 	});
 
 	it('answers 400 Invalid JSON for a malformed body', async () => {
-		const { bob, cid } = await seedRoster();
+		const { bob, cid } = await seedFamilyRoster();
 		const res = await invoke(patchMember, {
 			ctx: ctx(),
 			user: bob,
@@ -627,14 +557,14 @@ describe('PATCH /api/families/{id}/members/{userId}', () => {
 	});
 
 	it('validates the role vocabulary', async () => {
-		const { bob, cid } = await seedRoster();
+		const { bob, cid } = await seedFamilyRoster();
 		const res = await patch(bob, cid.id, { role: 'owner' });
 		expect(res.status).toBe(400);
 		expect(res.body).toEqual({ error: 'Role must be creator, admin, or member' });
 	});
 
 	it('answers 403 for a non-member and for a plain member', async () => {
-		const { cid, dee, out } = await seedRoster();
+		const { cid, dee, out } = await seedFamilyRoster();
 		const stranger = await patch(out, cid.id, { role: 'admin' });
 		expect(stranger.status).toBe(403);
 		expect(stranger.body).toEqual({ error: 'You do not have permission' });
@@ -645,21 +575,21 @@ describe('PATCH /api/families/{id}/members/{userId}', () => {
 	});
 
 	it('refuses to let anyone change their own role', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		const res = await patch(ann, ann.id, { role: 'admin' });
 		expect(res.status).toBe(400);
 		expect(res.body).toEqual({ error: 'Cannot change your own role' });
 	});
 
 	it('answers Member not found for an unknown target', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		const res = await patch(bob, 'ghost', { role: 'member' });
 		expect(res.status).toBe(400);
 		expect(res.body).toEqual({ error: 'Member not found' });
 	});
 
 	it("leaves the creator's role untouchable", async () => {
-		const { bob, ann } = await seedRoster();
+		const { bob, ann } = await seedFamilyRoster();
 		const res = await patch(bob, ann.id, { role: 'member' });
 		expect(res.status).toBe(403);
 		expect(res.body).toEqual({ error: "Cannot change the family creator's role" });
@@ -671,14 +601,14 @@ describe('PATCH /api/families/{id}/members/{userId}', () => {
 	});
 
 	it('lets only the creator promote to creator', async () => {
-		const { bob, cid } = await seedRoster();
+		const { bob, cid } = await seedFamilyRoster();
 		const res = await patch(bob, cid.id, { role: 'creator' });
 		expect(res.status).toBe(403);
 		expect(res.body).toEqual({ error: 'Only the creator can promote to creator' });
 	});
 
 	it('applies the role first and stops at its first refusal', async () => {
-		const { bob, cid } = await seedRoster();
+		const { bob, cid } = await seedFamilyRoster();
 		const res = await patch(bob, cid.id, { role: 'owner', memberType: 'parent' });
 		expect(res.status).toBe(400);
 		expect(res.body).toEqual({ error: 'Role must be creator, admin, or member' });
@@ -690,7 +620,7 @@ describe('PATCH /api/families/{id}/members/{userId}', () => {
 	});
 
 	it('updates role and Member Type as separate columns', async () => {
-		const { bob, cid } = await seedRoster();
+		const { bob, cid } = await seedFamilyRoster();
 		const res = await patch(bob, cid.id, { role: 'admin', memberType: 'parent' });
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({ success: true });
@@ -702,7 +632,7 @@ describe('PATCH /api/families/{id}/members/{userId}', () => {
 	});
 
 	it('validates Member Type and keeps the role when it refuses', async () => {
-		const { bob, cid } = await seedRoster();
+		const { bob, cid } = await seedFamilyRoster();
 		const res = await patch(bob, cid.id, { role: 'admin', memberType: 'adult' });
 		expect(res.status).toBe(400);
 		expect(res.body).toEqual({ error: 'Member type must be parent, child, or member' });
@@ -714,7 +644,7 @@ describe('PATCH /api/families/{id}/members/{userId}', () => {
 	});
 
 	it('makes Member Type admin-only and leaves the role alone', async () => {
-		const { bob, cid, dee } = await seedRoster();
+		const { bob, cid, dee } = await seedFamilyRoster();
 		const plain = await patch(cid, dee.id, { memberType: 'parent' });
 		expect(plain.status).toBe(403);
 		expect(plain.body).toEqual({ error: 'You do not have permission to perform this action' });
@@ -735,7 +665,7 @@ describe('PATCH /api/families/{id}/members/{userId}', () => {
 });
 
 describe('DELETE /api/families/{id}/members/{userId}', () => {
-	const remove = async (actor: SeededUser, familyId: string, userId: string) =>
+	const remove = async (actor: FamilyTestUser, familyId: string, userId: string) =>
 		invoke(deleteMember, {
 			ctx: ctx(),
 			user: actor,
@@ -745,7 +675,7 @@ describe('DELETE /api/families/{id}/members/{userId}', () => {
 		});
 
 	it('answers 401 Unauthorized when signed out', async () => {
-		const { cid } = await seedRoster();
+		const { cid } = await seedFamilyRoster();
 		const res = await invoke(deleteMember, {
 			ctx: ctx(),
 			method: 'DELETE',
@@ -756,14 +686,14 @@ describe('DELETE /api/families/{id}/members/{userId}', () => {
 	});
 
 	it('answers User ID is required for an empty path id', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		const res = await remove(bob, 'fam-1', '');
 		expect(res.status).toBe(400);
 		expect(res.body).toEqual({ error: 'User ID is required' });
 	});
 
 	it('refuses the creator before it even checks who is asking', async () => {
-		const { ann, out } = await seedRoster();
+		const { ann, out } = await seedFamilyRoster();
 		const res = await remove(out, 'fam-1', ann.id);
 		expect(res.status).toBe(403);
 		expect(res.body).toEqual({ error: 'Cannot remove the family creator' });
@@ -771,7 +701,7 @@ describe('DELETE /api/families/{id}/members/{userId}', () => {
 	});
 
 	it('refuses a plain member and a non-member', async () => {
-		const { cid, dee, out } = await seedRoster();
+		const { cid, dee, out } = await seedFamilyRoster();
 		const plain = await remove(cid, 'fam-1', dee.id);
 		expect(plain.status).toBe(403);
 		expect(plain.body).toEqual({ error: 'You do not have permission to perform this action' });
@@ -782,7 +712,7 @@ describe('DELETE /api/families/{id}/members/{userId}', () => {
 	});
 
 	it("removes the roster row and un-assigns that person's family tasks", async () => {
-		const { bob, cid } = await seedRoster();
+		const { bob, cid } = await seedFamilyRoster();
 		await seedTask({
 			title: 'Cid task',
 			userId: bob.id,
@@ -816,7 +746,7 @@ describe('DELETE /api/families/{id}/members/{userId}', () => {
 	});
 
 	it('answers a no-op success for a target who is not a member', async () => {
-		const { bob, out } = await seedRoster();
+		const { bob, out } = await seedFamilyRoster();
 		const res = await remove(bob, 'fam-1', out.id);
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({ success: true });
@@ -825,7 +755,7 @@ describe('DELETE /api/families/{id}/members/{userId}', () => {
 });
 
 describe('POST /api/families', () => {
-	const create = async (user: SeededUser, body: JsonValue) =>
+	const create = async (user: FamilyTestUser, body: JsonValue) =>
 		invoke(createFamily, { ctx: ctx(), user, path: '/api/families', method: 'POST', body });
 
 	it('answers 401 Unauthorized when signed out', async () => {
@@ -918,7 +848,7 @@ describe('POST /api/families', () => {
 
 	it('refuses more picks than the plan allows in one family', async () => {
 		const ann = await seedUser(testDb());
-		const picks: SeededUser[] = [];
+		const picks: FamilyTestUser[] = [];
 		for (let i = 0; i < 6; i += 1) picks.push(await seedUser(testDb()));
 		const res = await create(ann, { name: 'Riveras', memberIds: picks.map((user) => user.id) });
 		expect(res.status).toBe(403);
@@ -988,7 +918,7 @@ describe('GET /api/families/{id}/invite-codes', () => {
 	});
 
 	it('answers 404 for a family you are not in and for one that does not exist', async () => {
-		const { ann, out } = await seedRoster();
+		const { ann, out } = await seedFamilyRoster();
 		await seedFamily('fam-2', { name: 'Other House' });
 
 		// ann belongs to fam-1; asking for fam-2 must not fall back to fam-1.
@@ -1021,7 +951,7 @@ describe('GET /api/families/{id}/invite-codes', () => {
 	});
 
 	it('hides the codes from a plain member', async () => {
-		const { cid } = await seedRoster();
+		const { cid } = await seedFamilyRoster();
 		await seedInvite({ code: 'SECRET0001', familyId: 'fam-1' });
 		const res = await invoke(listInviteCodes, {
 			ctx: ctx(),
@@ -1034,7 +964,7 @@ describe('GET /api/families/{id}/invite-codes', () => {
 	});
 
 	it('lists every code, expired ones included, for the creator', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		await seedInvite({ code: 'AAA', familyId: 'fam-1', createdBy: ann.id });
 		await seedInvite({
 			code: 'BBB',
@@ -1071,7 +1001,7 @@ describe('GET /api/families/{id}/invite-codes', () => {
 });
 
 describe('POST /api/family/invite (mint)', () => {
-	const mint = async (user: SeededUser, body: JsonValue) =>
+	const mint = async (user: FamilyTestUser, body: JsonValue) =>
 		invoke(mintInvite, { ctx: ctx(), user, path: '/api/family/invite', method: 'POST', body });
 
 	it('answers 401 Unauthorized when signed out', async () => {
@@ -1085,7 +1015,7 @@ describe('POST /api/family/invite (mint)', () => {
 	});
 
 	it('refuses a non-member, a null family id and a plain member', async () => {
-		const { cid, out } = await seedRoster();
+		const { cid, out } = await seedFamilyRoster();
 		const stranger = await mint(out, { familyId: 'fam-1' });
 		expect(stranger.status).toBe(403);
 		expect(stranger.body).toEqual({ error: 'You are not a member of this family' });
@@ -1102,7 +1032,7 @@ describe('POST /api/family/invite (mint)', () => {
 	});
 
 	it('mints a 10-use, 7-day code by default and returns its join url', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		const res = await mint(ann, { familyId: 'fam-1' });
 		expect(res.status).toBe(200);
 		const body = bodyOf<{ code: string; expiresAt: string; inviteUrl: string }>(res);
@@ -1116,7 +1046,7 @@ describe('POST /api/family/invite (mint)', () => {
 	});
 
 	it('clamps validity to 1–30 days and uses to 1–50', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		const base = bodyOf<{ expiresAt: string }>(await mint(ann, { familyId: 'fam-1' }));
 		const max = bodyOf<{ code: string; expiresAt: string }>(
 			await mint(ann, { familyId: 'fam-1', expiresInDays: 100, maxUses: 999 })
@@ -1136,7 +1066,7 @@ describe('POST /api/family/invite (mint)', () => {
 	});
 
 	it('reads numeric strings through the same clamp', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		const res = await mint(ann, { familyId: 'fam-1', expiresInDays: '3', maxUses: '3' });
 		const body = bodyOf<{ code: string }>(res);
 		const [row] = (await inviteRows('fam-1')).filter((invite) => invite.code === body.code);
@@ -1162,7 +1092,7 @@ describe('GET /api/family/invite (preview)', () => {
 	});
 
 	it('answers the family and isAlreadyMember, signed in or out', async () => {
-		const { ann, out } = await seedRoster();
+		const { ann, out } = await seedFamilyRoster();
 		await seedInvite({ code: 'LIVE000001', familyId: 'fam-1', createdBy: ann.id });
 
 		const anonymous = await invoke(previewInvite, {
@@ -1226,7 +1156,7 @@ describe('GET /api/family/invite (preview)', () => {
 });
 
 describe('DELETE /api/family/invite (revoke)', () => {
-	const revoke = async (user: SeededUser | null, body: JsonValue) =>
+	const revoke = async (user: FamilyTestUser | null, body: JsonValue) =>
 		invoke(revokeInvite, {
 			ctx: ctx(),
 			...(user ? { user } : {}),
@@ -1243,7 +1173,7 @@ describe('DELETE /api/family/invite (revoke)', () => {
 	});
 
 	it('answers Invite code is required for an absent, empty or null code', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		for (const body of [{}, { code: '' }, { code: null }]) {
 			const res = await revoke(ann, body);
 			expect(res.status).toBe(400);
@@ -1252,14 +1182,14 @@ describe('DELETE /api/family/invite (revoke)', () => {
 	});
 
 	it('answers 404 for an unknown code', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		const res = await revoke(ann, { code: 'NOPE' });
 		expect(res.status).toBe(404);
 		expect(res.body).toEqual({ error: 'Invite code not found' });
 	});
 
 	it('refuses a non-member and a plain member of the code\'s family', async () => {
-		const { cid, out } = await seedRoster();
+		const { cid, out } = await seedFamilyRoster();
 		await seedInvite({ code: 'LIVE000001', familyId: 'fam-1' });
 
 		const stranger = await revoke(out, { code: 'LIVE000001' });
@@ -1274,7 +1204,7 @@ describe('DELETE /api/family/invite (revoke)', () => {
 	});
 
 	it('deletes the code for an admin', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		await seedInvite({ code: 'LIVE000001', familyId: 'fam-1' });
 		const res = await revoke(bob, { code: 'LIVE000001' });
 		expect(res.status).toBe(200);
@@ -1284,7 +1214,7 @@ describe('DELETE /api/family/invite (revoke)', () => {
 });
 
 describe('POST /api/family/join', () => {
-	const join = async (user: SeededUser | null, body: JsonValue) =>
+	const join = async (user: FamilyTestUser | null, body: JsonValue) =>
 		invoke(joinFamily, {
 			ctx: ctx(),
 			...(user ? { user } : {}),
@@ -1308,7 +1238,7 @@ describe('POST /api/family/join', () => {
 	});
 
 	it('refuses an unknown, expired, used-up or already-joined code with one answer', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		await seedInvite({
 			code: 'EXPIRED001',
 			familyId: 'fam-1',
@@ -1345,7 +1275,7 @@ describe('POST /api/family/join', () => {
 	});
 
 	it('the next roster read and the use count both reflect the new member', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		const joiner = await seedUser(testDb(), { firstName: 'Joiner', lastName: 'Nine' });
 		await seedInvite({ code: 'LIVE000001', familyId: 'fam-1', useCount: 2, maxUses: 5 });
 
@@ -1583,7 +1513,7 @@ describe('GET /api/family/roster', () => {
 	});
 
 	it('reads one named family and refuses someone else\'s', async () => {
-		const { ann, bob, cid, dee, out } = await seedRoster();
+		const { ann, bob, cid, dee, out } = await seedFamilyRoster();
 		const res = await invoke(getRoster, {
 			ctx: ctx(),
 			user: bob,
@@ -1641,7 +1571,7 @@ describe('GET /api/family/search', () => {
 	});
 
 	it('answers 403 for a family you are not in, even when you belong to another', async () => {
-		const { out } = await seedRoster();
+		const { out } = await seedFamilyRoster();
 		await seedFamily('fam-2');
 		await seedMembership('fam-2', out.id, 'creator');
 		const res = await invoke(searchFamily, {
@@ -1654,7 +1584,7 @@ describe('GET /api/family/search', () => {
 	});
 
 	it('matches an exact email only, excluding members, unverified accounts and substrings', async () => {
-		const { ann, cid } = await seedRoster();
+		const { ann, cid } = await seedFamilyRoster();
 		const target = await seedUser(testDb(), {
 			firstName: 'Bob',
 			lastName: 'Stone',
@@ -1698,7 +1628,7 @@ describe('GET /api/family/search', () => {
 	});
 
 	it('does not find a full name: both name columns are compared to the whole query', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		await seedUser(testDb(), { firstName: 'Ann', lastName: 'Lee', email: 'ann.lee@example.test' });
 		const sameBoth = await seedUser(testDb(), {
 			firstName: 'Sam',
@@ -1726,7 +1656,7 @@ describe('GET /api/family/search', () => {
 	});
 
 	it('caps the name match at ten rows and escapes wildcards', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		for (let i = 0; i < 12; i += 1) {
 			await seedUser(testDb(), { firstName: 'Same', lastName: 'Same' });
 		}
@@ -1747,7 +1677,7 @@ describe('GET /api/family/search', () => {
 });
 
 describe('POST /api/families/{id}/members/direct', () => {
-	const add = async (actor: SeededUser, familyId: string, body: JsonValue) =>
+	const add = async (actor: FamilyTestUser, familyId: string, body: JsonValue) =>
 		invoke(addDirect, {
 			ctx: ctx(),
 			user: actor,
@@ -1769,7 +1699,7 @@ describe('POST /api/families/{id}/members/direct', () => {
 	});
 
 	it('answers User ID is required and Family ID is required', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		expect(await add(bob, 'fam-1', {})).toMatchObject({
 			status: 400,
 			body: { error: 'User ID is required' }
@@ -1785,7 +1715,7 @@ describe('POST /api/families/{id}/members/direct', () => {
 	});
 
 	it('refuses a non-member and a plain member', async () => {
-		const { cid, dee, out } = await seedRoster();
+		const { cid, dee, out } = await seedFamilyRoster();
 		const stranger = await add(out, 'fam-1', { userId: dee.id });
 		expect(stranger.status).toBe(403);
 		expect(stranger.body).toEqual({ error: 'You are not a member of this family' });
@@ -1798,7 +1728,7 @@ describe('POST /api/families/{id}/members/direct', () => {
 	});
 
 	it('answers 404 for an unknown user and 400 for an existing member', async () => {
-		const { bob, cid } = await seedRoster();
+		const { bob, cid } = await seedFamilyRoster();
 		const missing = await add(bob, 'fam-1', { userId: 'ghost' });
 		expect(missing.status).toBe(404);
 		expect(missing.body).toEqual({ error: 'User not found' });
@@ -1818,7 +1748,7 @@ describe('POST /api/families/{id}/members/direct', () => {
 	});
 
 	it('adds the member and writes an added_to_family Alert', async () => {
-		const { bob, out } = await seedRoster();
+		const { bob, out } = await seedFamilyRoster();
 		const res = await add(bob, 'fam-1', { userId: out.id });
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({ success: true });
@@ -1843,7 +1773,7 @@ describe('POST /api/families/{id}/members/direct', () => {
 });
 
 describe('POST /api/families/{id}/members/child', () => {
-	const add = async (actor: SeededUser, familyId: string, body: JsonValue) =>
+	const add = async (actor: FamilyTestUser, familyId: string, body: JsonValue) =>
 		invoke(addChild, {
 			ctx: ctx(),
 			user: actor,
@@ -1872,14 +1802,14 @@ describe('POST /api/families/{id}/members/child', () => {
 	});
 
 	it('answers Family ID is required for an empty path id', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		const res = await add(bob, '', valid);
 		expect(res.status).toBe(400);
 		expect(res.body).toEqual({ error: 'Family ID is required' });
 	});
 
 	it('refuses a non-member and a plain member', async () => {
-		const { cid, out } = await seedRoster();
+		const { cid, out } = await seedFamilyRoster();
 		const stranger = await add(out, 'fam-1', valid);
 		expect(stranger.status).toBe(403);
 		expect(stranger.body).toEqual({ error: 'You are not a member of this family' });
@@ -1901,7 +1831,7 @@ describe('POST /api/families/{id}/members/child', () => {
 	});
 
 	it('validates the name fields and the email address', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		const cases: [JsonValue, string][] = [
 			[{ ...valid, firstName: '' }, 'First name is required'],
 			[{ ...valid, firstName: '   ' }, 'First name is required'],
@@ -1917,7 +1847,7 @@ describe('POST /api/families/{id}/members/child', () => {
 	});
 
 	it('refuses an email another account already uses', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		await seedUser(testDb(), { email: 'taken@example.test' });
 		const res = await add(bob, 'fam-1', { ...valid, email: 'TAKEN@example.test' });
 		expect(res.status).toBe(400);
@@ -1927,7 +1857,7 @@ describe('POST /api/families/{id}/members/child', () => {
 	});
 
 	it('requires an explicit consent acknowledgment', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		const missing = await add(bob, 'fam-1', {
 			firstName: 'Mia',
 			lastName: 'Nakamura',
@@ -1948,7 +1878,7 @@ describe('POST /api/families/{id}/members/child', () => {
 	});
 
 	it('creates a verified child account, a child membership and an append-only consent record', async () => {
-		const { bob } = await seedRoster();
+		const { bob } = await seedFamilyRoster();
 		const res = await add(bob, 'fam-1', {
 			firstName: ' Mia ',
 			lastName: ' Nakamura ',
@@ -2009,7 +1939,7 @@ describe('POST /api/families/{id}/members/child', () => {
 });
 
 describe('POST /api/families/{id}/members/email/link', () => {
-	const mint = async (actor: SeededUser, familyId: string, body: JsonValue, ip: string) =>
+	const mint = async (actor: FamilyTestUser, familyId: string, body: JsonValue, ip: string) =>
 		invoke(mintInviteLink, {
 			ctx: ctx(),
 			user: actor,
@@ -2035,7 +1965,7 @@ describe('POST /api/families/{id}/members/email/link', () => {
 	});
 
 	it('refuses a non-member and a plain member', async () => {
-		const { cid, out } = await seedRoster();
+		const { cid, out } = await seedFamilyRoster();
 		const stranger = await invoke(mintInviteLink, {
 			ctx: ctx(),
 			user: out,
@@ -2064,7 +1994,7 @@ describe('POST /api/families/{id}/members/email/link', () => {
 	});
 
 	it('validates the email and the names with success:false bodies', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		const badEmail = await mint(ann, 'fam-1', { ...valid, email: 'not-an-email' }, '10.1.0.4');
 		expect(badEmail.status).toBe(400);
 		expect(badEmail.body).toEqual({ success: false, error: 'Invalid email' });
@@ -2078,7 +2008,7 @@ describe('POST /api/families/{id}/members/email/link', () => {
 	});
 
 	it('mints a 10-use, 1-day code and returns the token link', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		const res = await mint(ann, 'fam-1', valid, '10.1.0.8');
 		expect(res.status).toBe(200);
 		const body = bodyOf<{ success: boolean; link: string }>(res);
@@ -2102,7 +2032,7 @@ describe('POST /api/families/{id}/members/email/link', () => {
 	});
 
 	it('answers 429 after ten mints from one IP, before the membership check', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		for (let i = 0; i < 10; i += 1) {
 			const res = await invoke(mintInviteLink, {
 				ctx: ctx(),
@@ -2130,7 +2060,7 @@ describe('POST /api/families/{id}/members/email/link', () => {
 	});
 
 	it('counts a non-member toward the same limit, proving the check runs first', async () => {
-		const { out } = await seedRoster();
+		const { out } = await seedFamilyRoster();
 		for (let i = 0; i < 10; i += 1) {
 			const res = await invoke(mintInviteLink, {
 				ctx: ctx(),
@@ -2162,7 +2092,7 @@ describe('POST /api/families/{id}/members/email/link', () => {
 // Unskip at S6: family S5 adds the kernel `mail` port, so testCtx can hand the
 // handler a fake and the success case can assert the minted row without mail.
 describe.skip('POST /api/families/{id}/members/email (golden from spec)', () => {
-	const invokeSend = async (actor: SeededUser | null, familyId: string, body: JsonValue, ip: string) => {
+	const invokeSend = async (actor: FamilyTestUser | null, familyId: string, body: JsonValue, ip: string) => {
 		// Loaded lazily, not imported at the top: a static import evaluates the
 		// legacy module (and its env/Resend imports) while this file loads, which
 		// would break every other suite in it.
@@ -2188,7 +2118,7 @@ describe.skip('POST /api/families/{id}/members/email (golden from spec)', () => 
 	});
 
 	it('refuses a non-member and a plain member', async () => {
-		const { cid, out } = await seedRoster();
+		const { cid, out } = await seedFamilyRoster();
 		const stranger = await invokeSend(out, 'fam-1', valid, '10.2.0.2');
 		expect(stranger.status).toBe(403);
 		expect(stranger.body).toEqual({ error: 'Not a member of this family' });
@@ -2201,7 +2131,7 @@ describe.skip('POST /api/families/{id}/members/email (golden from spec)', () => 
 	});
 
 	it('validates the email and the names with success:false bodies', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		const badEmail = await invokeSend(ann, 'fam-1', { ...valid, email: 'not-an-email' }, '10.2.0.4');
 		expect(badEmail.status).toBe(400);
 		expect(badEmail.body).toEqual({ success: false, error: 'Invalid email' });
@@ -2215,7 +2145,7 @@ describe.skip('POST /api/families/{id}/members/email (golden from spec)', () => 
 	});
 
 	it('answers 429 after ten sends from one IP', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		for (let i = 0; i < 10; i += 1) {
 			const res = await invokeSend(ann, 'fam-1', { ...valid, email: 'bad' }, '10.2.0.6');
 			expect(res.status).toBe(400);
@@ -2226,7 +2156,7 @@ describe.skip('POST /api/families/{id}/members/email (golden from spec)', () => 
 	});
 
 	it('mints one single-use, 1-day code and answers {success:true}', async () => {
-		const { ann } = await seedRoster();
+		const { ann } = await seedFamilyRoster();
 		const res = await invokeSend(ann, 'fam-1', valid, '10.2.0.7');
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({ success: true });

@@ -114,27 +114,27 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Plan
 
-Every new file, its role, and what it holds. After S1/S2 only the README, the three entry files and `family.http.db.test.ts` exist; the rest are the S3–S7 plan.
+Every new file, its role, and what it holds. After S1/S2 only the README, the three entry files, `family.fixtures.server.ts` and `family.http.db.test.ts` exist; the rest are the S3–S7 plan.
 
 | file | role | contents |
 |---|---|---|
 | `README.md` | docs | this module's purpose, files, interface, invariants, dependencies. Done in S1. |
 | `family.http.db.test.ts` | test | Goldens for all 18 `/api` methods, committed mode, legacy handlers. The emailed-invite `describe` is a spec golden (handler imports `$env/static/private` and sends mail). Done in S2. |
 | `index.ts` | entry | Contract types, palette/role/invite/search rules, display helpers (see README Public interface). |
-| `index.server.ts` | entry | The 15 services and 18 endpoint objects; no logic of its own. |
+| `index.server.ts` | entry | The port contracts (`FamilyCalendarPort`, `MemberTasksPort`, `FamilyPorts`, `FamilyCtx`), the 15 services and 18 endpoint objects; no logic of its own. |
 | `family.contract.ts` | contract | Zod bodies/queries/params/responses for every endpoint (legacy messages), plus the page/action input shapes designed fresh. |
 | `family.roles.rules.ts` + `.test.ts` | rules | `FamilyRole`, `MemberType`, role rank, `canManageInvites`, `canManageMembers`, `canPromoteToCreator`, `canChangeRole`, `canSetMemberType`, `requireRole`. Table tests. |
 | `family.palette.rules.ts` + `.test.ts` | rules | `FAMILY_PALETTE`, `DEFAULT_FAMILY_COLOR`, `RETIRED_FAMILY_COLOR`, `isFamilyColor`. Carries the legacy pure palette cases. |
 | `family.invites.rules.ts` + `.test.ts` | rules | `DEFAULT_INVITE_MAX_USES`, `clampInviteDays` (1–30, default 7), `clampInviteUses` (1–50, default 10), `isInviteUsable`, `isEmailInvite`/`isLinkInvite` caps, `isInviteRefusal`. |
 | `family.search.rules.ts` + `.test.ts` | rules | `MEMBER_SEARCH_MIN_QUERY/MAX_QUERY/ROW_CAP`, `maskEmail`, `escapeIlike`, `searchTermProblem`, `isInviteFlowMatch` (the two doors' matching rules stay separate predicates). |
 | `family.display.rules.ts` + `.test.ts` | rules | `canEditRole`, `canRemove`, `memberDisplayName`, `rolePillClass`; carried from `familyDisplay.ts` unchanged in behaviour. |
-| `family.fixtures.server.ts` | fixtures | `seedFamily`, `seedMembership`, `seedInviteCode`, `seedChildConsent`, `seedFamilyWithRoster`. |
-| `family.families.repo.server.ts` + `.repo.db.test.ts` | repo | `listMemberships` (roster count+names, one query), `findFamilyById`, `insertFamilyWithRosterAndCalendar`, `updateFamilyRow`, `countOpenFamilyTasks`, `findMembershipFamilyId`. |
-| `family.members.repo.server.ts` + `.repo.db.test.ts` | repo | `findMemberRole`, `listRoster`, `insertMembership`, `updateMemberRole`, `updateMemberType`, `deleteMembershipUnassigningTasks`, `findMembership`, `findUserForAdd`, `insertChildConsent`. |
+| `family.fixtures.server.ts` | fixtures | `seedFamily`, `seedMembership`, `seedInvite`, `seedFamilyRoster`, `seedFullFamily`, `FamilyTestUser`. Family-owned rows only; task rows stay in the test (`tasks` owns task fixtures). Created in the S2 corrective. |
+| `family.families.repo.server.ts` + `.repo.db.test.ts` | repo | `listMemberships` (roster count+names, one query), `findFamilyById`, `insertFamilyWithRoster` (no calendar — see the port), `updateFamilyRow`, `countOpenFamilyTasks` (read-only tasks join), `findMembershipFamilyId`. |
+| `family.members.repo.server.ts` + `.repo.db.test.ts` | repo | `findMemberRole`, `listRoster`, `insertMembership`, `updateMemberRole`, `updateMemberType`, `deleteMembership` (no task write — see the port), `findMembership`, `findUserForAdd`, `insertChildConsent`. |
 | `family.invites.repo.server.ts` + `.repo.db.test.ts` | repo | `listInviteCodes`, `findInviteCode`, `findInviteCodeForUpdate`, `insertInviteCode`, `deleteInviteCode`, `incrementInviteUse`, `countFamilyMembers`. |
 | `family.search.repo.server.ts` + `.repo.db.test.ts` | repo | `findVerifiedUsersByPrefix` (no ORDER BY, cap), `findInvitableUsers` (exact email/name legs), `listMemberUserIds`. |
-| `family.families.service.server.ts` + `.service.db.test.ts` | service | `listFamilies`, `getFamily`, `createFamily`, `updateFamily`; plan gates through billing; fixed query count. |
-| `family.members.service.server.ts` + `.service.db.test.ts` | service | `addFamilyMember` (direct/email/link/child modes), `changeMember`, `removeFamilyMember`, child consent; alerts on direct add. |
+| `family.families.service.server.ts` + `.service.db.test.ts` | service | `listFamilies`, `getFamily`, `createFamily` (calls `ports.calendar.createFamilyCalendar(txCtx, familyId)` inside the family transaction), `updateFamily`; plan gates through billing; fixed query count. |
+| `family.members.service.server.ts` + `.service.db.test.ts` | service | `addFamilyMember` (direct/email/link/child modes), `changeMember`, `removeFamilyMember` (calls `ports.tasks.unassignMemberTasks(txCtx, familyId, userId)` in the same transaction), child consent; alerts on direct add. |
 | `family.invites.service.server.ts` + `.service.db.test.ts` | service | `listInvites`, `mintInvite`, `revokeInvite`, `previewInvite`, `joinFamily` (locked transaction, DB-side increment). |
 | `family.search.service.server.ts` + `.service.db.test.ts` | service | `listRoster`, `searchMembers`, `findInvitableMembers`; authorization per family id. |
 | `family.inviteEmail.server.ts` | service | The invite email body (from `family-invite.ts`), rendered by the send use-case. |
@@ -154,9 +154,11 @@ Every new file, its role, and what it holds. After S1/S2 only the README, the th
 
 S5 needs a kernel `mail` port (docs/rewrite/playbooks/add-a-port.md) so the email-invite use-case is testable without Resend; that is the prerequisite for unskipping the spec golden at S6.
 
+The two cross-module writes are ports, not repo queries (R1/R3): `FamilyCalendarPort.createFamilyCalendar(ctx, familyId)` is implemented by `calendar` (owner of `calendars`) and `MemberTasksPort.unassignMemberTasks(ctx, familyId, userId)` by `tasks` (owner of `tasks`); `src/lib/app` wires both adapters into the family ctx. Family services call them with `withTx`'s `txCtx`, so each write joins the family transaction instead of opening a second one. S4 repo tests must show no `calendars` insert and no `tasks` write; S5 tests substitute memory port adapters and assert the port was called with the tx ctx.
+
 Where each legacy export goes:
 
-- `src/lib/server/db/actions/families.ts`: `getFamilies`, `getFamiliesCount`, `deleteFamilies` die (no caller, see Notes). `getFamily` → `findFamilyById`; `getUserFamilyMemberships` → `listMemberships`; `createFamily` → create service's repo write; `updateFamilies` → `updateFamilyRow`; `DEFAULT_INVITE_MAX_USES` → `family.invites.rules.ts`; `generateInviteCode`/`verifyInviteCode`/`acceptInvite` → invites service/repo (the accept transaction stays one function); `getUserFamilyId` → `findMembershipFamilyId` (Q-F2); `getFamilyMemberRole` → `findMemberRole`; `getFamilyRoster` → `listRoster`; `getFamilyInviteCodes` → `listInviteCodes`; `removeFamilyMember` → `deleteMembershipUnassigningTasks`; `searchUsers` → `findInvitableUsers`.
+- `src/lib/server/db/actions/families.ts`: `getFamilies`, `getFamiliesCount`, `deleteFamilies` die (no caller, see Notes). `getFamily` → `findFamilyById`; `getUserFamilyMemberships` → `listMemberships`; `createFamily` → `insertFamilyWithRoster` + `FamilyCalendarPort`; `updateFamilies` → `updateFamilyRow`; `DEFAULT_INVITE_MAX_USES` → `family.invites.rules.ts`; `generateInviteCode`/`verifyInviteCode`/`acceptInvite` → invites service/repo (the accept transaction stays one function); `getUserFamilyId` → `findMembershipFamilyId` (Q-F2); `getFamilyMemberRole` → `findMemberRole`; `getFamilyRoster` → `listRoster`; `getFamilyInviteCodes` → `listInviteCodes`; `removeFamilyMember` → `deleteMembership` + `MemberTasksPort`; `searchUsers` → `findInvitableUsers`.
 - `src/lib/server/services/familyData.ts`: `loadFamiliesOverview` → `listFamilies`; `pickActiveInvite` → `isInviteUsable`; `loadFamilyDetail` → `getFamily`; `getMemberRole`/`roleRank`/`requireMinRole` → `family.roles.rules.ts`; `removeMember` → `removeFamilyMember`; `updateMemberRole`/`setMemberType` → `changeMember`; `updateFamilyDetails` → `updateFamily`; `loadInvitations` → `listInvites`; `createFamilyWithMembers`/`cleanMemberIds` → `createFamily`. `toggleDashboardModule` moves to `dashboardModules`; `loadFamilyTasks` stays in `familyHub` (not this module).
 - `src/lib/server/db/actions/memberSearch.ts`: constants and `maskEmail` → `family.search.rules.ts`; `findVerifiedUsersByPrefix` → `family.search.repo.server.ts`.
 - `src/lib/utils/familyPalette.ts` → `family.palette.rules.ts`; `src/lib/utils/familyDisplay.ts` → `family.display.rules.ts`; `src/lib/server/emails/family-invite.ts` → `family.inviteEmail.server.ts`.
@@ -207,6 +209,12 @@ Where each legacy export goes:
 ### Spec golden
 
 `POST /api/families/{id}/members/email` cannot run in the db project: the legacy handler imports `$env/static/private` (`NOREPLYEMAIL`, `EMAILSECRET`, and `sendEmail`'s `RESEND_API_KEY`, which `.env.test` does not provide) and sends through Resend. Its golden is written from `docs/guides/task-api-spec.md` (G10e) and the legacy route test (`members/add/email/server.test.ts`), and the `describe` is skipped with the required marker comment. It becomes runnable when S6 replaces the route with the new handler; the skip must be removed then (and only then).
+
+### Cross-module writes and fixtures (S2 review fixes)
+
+- `calendars` and `tasks` are not family tables. The two writes family needs are **ports** declared in `index.server.ts` (`FamilyCalendarPort.createFamilyCalendar(ctx, familyId)`, `MemberTasksPort.unassignMemberTasks(ctx, familyId, userId)`), implemented by their owning modules and wired in `src/lib/app`; family repos touch only the four owned tables plus the declared read-only `tasks` join for open counts. Each service calls its port with `withTx`'s `txCtx`, so the work stays in the one transaction the Invariants require. The goldens do not change: they observe the legacy handler's rows, which the ports must reproduce at S6.
+- Family row builders live once in `family.fixtures.server.ts`; the golden keeps only a local `seedTask` because `tasks` owns task fixtures.
+- `RETIRED_FAMILY_COLOR` stays module-internal (its only consumer is the palette rules test); it is not exported from `index.ts`.
 
 ### Files kept for unported importers
 
