@@ -91,3 +91,31 @@ Answer (owner, 2026-11-11): **both.** The phone sends `familyId: null` for perso
 ### Q-005c Repair rows already filed wrongly (outside the rewrite)
 
 Parked with Q-005b. It is an owner decision about production data, not rewrite work.
+## Q-006 `POST /api/report-phrase` caps the raw phrase before normalizing it (M-feedback S2, 2026-11-11)
+
+Context: the route trims the phrase and refuses `phrase.length > 280` (`src/routes/api/report-phrase/+server.ts:42,48`); the action then normalizes it — lowercase, collapse whitespace runs, trim, cap at 280 (`src/lib/server/db/actions/unmatchedPhrases.ts:33-39`). A phrase that normalizes down to a few characters (for example `a` + 280 spaces + `b`) is refused with `400 {"error":"phrase (string) and source (event_parse | bulk_edit) are required"}`, even though the value that would be stored is `a b`. One field, two different caps.
+
+Options:
+A. Keep today's wire: the 400 stays. Cost: an occasional lost parser signal, and the two caps stay in two files.
+B. Move the cap after normalization (accept the report, store `a b`). Cost: an owner-approved wire change after S6 (`fix(feedback): Q-006 …`), and the golden changes with it.
+
+Recommendation: B — normalization, not the raw text, is the field's contract. Applied default until answered: A, pinned by `feedback.http.db.test.ts › refuses a whitespace-heavy phrase over 280 chars before normalizing it (Q-006)`.
+
+Answer:
+
+## Q-007 A second resolve moves the closed-at stamp — for bug reports and for phrases (M-feedback S2, 2026-11-11)
+
+Context (verified in code, 2026-11-11): a second `POST …/resolve` answers `200` for both registers, and each kind re-stamps a field.
+
+- Bug reports: `resolveBugReport` always writes `{ status: 'resolved', resolvedAt: new Date() }` (`src/lib/server/db/actions/bugReports.ts:79-86`), so a second `POST /api/admin/bugs/{id}/resolve` replaces `resolvedAt` — the register then claims the report was closed later than it was, and the retention anchor moves: `pruneResolvedBugReports` deletes closed rows whose `coalesce(resolvedAt, createdAt)` is before the cutoff (`bugReports.ts:102-112`). Pinned by `feedback.http.db.test.ts › answers 200 for an already-resolved report and re-stamps resolvedAt (Q-007)`.
+- Unmatched phrases: `resolveUnmatchedPhrase` only sets `{ resolved: true }` (`src/lib/server/db/actions/unmatchedPhrases.ts:93-100`), which reads like a no-op — it is not. `unmatchedPhrases.updatedAt` carries `.$onUpdate(() => new Date())` (`src/lib/server/db/schema.ts:1033-1036`), and Drizzle puts every `$onUpdate` column in the `UPDATE` set even when it is absent from `.set(…)`, so the same second resolve re-stamps `updatedAt`: the `200` body's `phrase.updatedAt` moves, and so does the retention anchor, because `pruneResolvedUnmatchedPhrases` keeps resolved rows by `lt(updatedAt, cutoff)` (`unmatchedPhrases.ts:116-124`). Pinned by `feedback.http.db.test.ts › re-stamps updatedAt when an already-resolved phrase is resolved again (Q-007)`.
+- Both tables carry `.$onUpdate` on `updatedAt` (`schema.ts:1063-1066` for `bugReports`), so no resolve of either kind leaves the row untouched. The stamp the register and the retention read is `resolvedAt` for a bug report and `updatedAt` for a phrase.
+
+Options:
+A. Keep both as they are (the goldens pin them). Cost: neither stamp means "when this was closed": each reports the last click, and a repeat resolve restarts the 180-day retention window for both kinds.
+B. One rule, both kinds: keep the first closed-at stamp. When the row is already resolved, write nothing and answer `200` with the unchanged row — a skipped write also stops the `$onUpdate` on `updatedAt`. Cost: one owner-approved wire change after S6 (`fix(feedback): Q-007 …`), and both goldens named above change with it.
+C. Fix one kind only (say phrases, whose `updatedAt` also tracks later sample refreshes). Cost: one gesture, two rules; an admin has to remember which register keeps its stamp, and the retention anchor stays wrong for the other kind.
+
+Recommendation: B, as one rule. "Resolve" means the first close: a repeat click answers `200` and changes nothing, which is what the registers, the export and the 180-day retention all assume. "A second resolve answers 200" stays under every option. Applied default until answered: A, pinned by the two goldens named above.
+
+Answer:
