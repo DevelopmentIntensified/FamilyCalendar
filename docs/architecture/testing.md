@@ -11,6 +11,15 @@ Tests sit at seams (public interfaces), so a change can be checked one section a
 | `…/**/*.svelte.test.ts` | `ui` | jsdom | no; kept for component rendering only (jsdom costs ~0.3–0.7 s per legacy component test) |
 | anything else under `src/` | `server` / `client` | legacy suites | the legacy harness (`familycalendar_test`) |
 
+## Time zone
+
+The `unit`, `db` and `ui` projects pin UTC themselves, for parity with production, where Node runs in UTC and Postgres renders `timestamptz` as `'2026-10-07 13:00:00+00'`:
+
+- `vite.config.ts` sets `test.env: { TZ: 'UTC' }` on those three projects. Vitest writes `test.env` into the worker at the top of its run, before setup files and test imports, and Node re-reads `process.env.TZ` when it is assigned, so the first `Date` a v2 test touches already sees UTC on any machine.
+- The db project's `vitestGlobalSetup.db.ts` sets the rebuilt test database's default `timezone` to UTC right after `synchronous_commit = off`, so every connection the tests open renders `timestamptz` with `+00` — the strings the `/api` goldens assert — instead of a `+01`-style local render.
+
+The legacy `client`/`server` projects are untouched: they keep the developer's zone. Pinned by `utcEnvironment.test.ts › runs in UTC, like production` (project `unit`) and `testDb.db.test.ts › renders timestamptz in UTC, the way production does` (project `db`).
+
 ## Legacy tests are reference, not a gate
 
 This is a near-rewrite, so the ~3,700 legacy tests do not gate v2 work. A full legacy run took over 15 minutes on 2026-11-11, and the groceries page test file alone takes 12 s. Legacy tests have exactly two jobs:

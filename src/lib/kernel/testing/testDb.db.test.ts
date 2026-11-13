@@ -13,6 +13,17 @@ describe('test database', () => {
 		);
 		expect(rows[0].n).toBeGreaterThanOrEqual(27);
 	});
+
+	it('renders timestamptz in UTC, the way production does', async () => {
+		// Postgres formats `timestamptz` text through the session TimeZone, which
+		// comes from the database default that vitestGlobalSetup.db.ts pins to
+		// UTC. The /api goldens assert this production rendering, so a local
+		// Postgres in another zone must not change it.
+		const rows = await testDb().execute<{ rendered: string }>(
+			sql`SELECT '2026-10-07T13:00:00Z'::timestamptz::text AS rendered`
+		);
+		expect(rows[0].rendered).toBe('2026-10-07 13:00:00+00');
+	});
 });
 
 describe('rollbackTest', () => {

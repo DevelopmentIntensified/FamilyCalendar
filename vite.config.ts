@@ -9,6 +9,19 @@ import Icons from 'unplugin-icons/vite';
 // legacy census reaches zero (task APP-05).
 const V2 = 'src/lib/{kernel,domains,screens,app}';
 
+/**
+ * v2 goldens and day boundaries assume production's zone: Node runs in UTC
+ * there and Postgres renders `timestamptz` as '2026-10-07 13:00:00+00'. Vitest
+ * writes `test.env` into each worker at the top of its run (setupCommonEnv),
+ * before setup files and test imports, and Node re-reads `process.env.TZ` when
+ * it is assigned, so every Date in a v2 test sees UTC on any machine. The
+ * legacy `client`/`server` projects keep the developer's zone.
+ *
+ * The db project gets Postgres too: vitestGlobalSetup.db.ts sets the test
+ * database's default `timezone = 'UTC'`, matching that render.
+ */
+const V2_ENV = { TZ: 'UTC' };
+
 export default defineConfig({
 	plugins: [
 		sveltekit(),
@@ -53,6 +66,7 @@ export default defineConfig({
 				test: {
 					name: 'unit',
 					environment: 'node',
+					env: V2_ENV,
 					include: [`${V2}/**/*.test.ts`],
 					exclude: [`${V2}/**/*.db.test.ts`, `${V2}/**/*.svelte.test.ts`],
 					setupFiles: ['./src/lib/kernel/testing/vitestSetup.unit.ts']
@@ -64,6 +78,7 @@ export default defineConfig({
 				test: {
 					name: 'db',
 					environment: 'node',
+					env: V2_ENV,
 					include: [`${V2}/**/*.db.test.ts`],
 					setupFiles: ['./src/lib/kernel/testing/vitestSetup.db.ts'],
 					globalSetup: ['./src/lib/kernel/testing/vitestGlobalSetup.db.ts'],
@@ -81,6 +96,7 @@ export default defineConfig({
 					name: 'ui',
 					environment: 'jsdom',
 					clearMocks: true,
+					env: V2_ENV,
 					include: [`${V2}/**/*.svelte.test.ts`],
 					setupFiles: ['./vitest-setup-client.ts']
 				}

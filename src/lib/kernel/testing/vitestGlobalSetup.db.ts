@@ -7,6 +7,10 @@
  * So db tests always run against the schema production actually has, and a
  * migration that does not apply to an empty database fails the run.
  *
+ * It also makes the throwaway database cheap (`synchronous_commit = off`) and
+ * pins its default time zone to UTC, so `timestamptz` renders as production's
+ * '2026-10-07 13:00:00+00' on any machine.
+ *
  * Needs the local Docker Postgres: `docker start familycalendar-db` (created by `npm run db:up`).
  */
 import { readdirSync, readFileSync } from 'node:fs';
@@ -36,6 +40,20 @@ export default async function setup(): Promise<void> {
 		} catch (cause) {
 			throw new Error(
 				`${TEST_DATABASE_NAME} was rebuilt, but turning synchronous_commit off on it failed: ${String(cause)}`
+			);
+		}
+		try {
+			// Postgres renders `timestamptz` text through the session's TimeZone.
+			// Production's server runs in UTC, so goldens assert strings like
+			// '2026-10-07 13:00:00+00'; without this, a local Postgres in another
+			// zone renders '+02' and every such golden fails for the wrong reason.
+			// A database-level default applies to the connections the tests open
+			// next (globalSetup finishes before any worker connects). The name is
+			// validated in testDbConfig.ts; quote it as an identifier regardless.
+			await admin.unsafe(`ALTER DATABASE "${TEST_DATABASE_NAME}" SET timezone = 'UTC'`);
+		} catch (cause) {
+			throw new Error(
+				`${TEST_DATABASE_NAME} was rebuilt, but setting its timezone to UTC failed: ${String(cause)}`
 			);
 		}
 	} finally {
