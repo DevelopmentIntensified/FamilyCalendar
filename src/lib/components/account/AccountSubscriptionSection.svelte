@@ -201,18 +201,9 @@
 			>
 				See Plans & Pricing
 			</a>
-			{#if !isPaidPlan}
-				<a
-					href="/checkout?plan=monthly"
-					class="rounded-full border border-amber-300 px-6 py-2.5 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
-				>
-					Join Waitlist
-				</a>
-			{/if}
 		</div>
 		<p class="mt-3 text-xs text-amber-700">
-			Checkout opens soon — purchases aren't live yet, but joining the waitlist secures early
-			access.
+			Checkout opens soon — purchases aren't live yet.
 		</p>
 	</div>
 </div>

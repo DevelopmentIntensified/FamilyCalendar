@@ -8,7 +8,6 @@ export interface KPIStats {
 	activeSubscriptions: number;
 	freeUsers: number;
 	paidUsers: number;
-	waitlistSignups: number;
 	adConsentEnabled: number;
 	adConsentDisabled: number;
 }
@@ -36,7 +35,6 @@ export async function getKPIMetrics(): Promise<KPIStats> {
 		activeSubscriptions: Number(activeSubs?.count || 0),
 		freeUsers: Number(totalUsers?.count || 0) - Number(paidSubs?.count || 0),
 		paidUsers: Number(paidSubs?.count || 0),
-		waitlistSignups: 0,
 		adConsentEnabled: 0,
 		adConsentDisabled: 0
 	};
@@ -52,10 +50,6 @@ export async function trackCheckoutStart(userId: string, planType: string): Prom
 
 export async function trackSubscriptionUpgrade(userId: string, planType: string): Promise<void> {
 	logEvent('info', 'subscription_upgrade', { userId, planType });
-}
-
-export async function trackWaitlistSignup(email: string): Promise<void> {
-	logEvent('info', 'waitlist_signup', { email });
 }
 
 export async function trackAdConsentChange(userId: string, enabled: boolean): Promise<void> {

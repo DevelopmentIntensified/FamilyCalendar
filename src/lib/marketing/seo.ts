@@ -113,11 +113,6 @@ export const ROUTES: Record<string, SeoEntry> = {
 		description: 'Choose a new password for your Family Planz account.',
 		noindex: true
 	},
-	'/waitlist': {
-		title: 'Join the Waitlist - Family Planz',
-		description: 'Get an email when a place opens up.',
-		noindex: true
-	},
 	'/checkout': {
 		title: 'Checkout - Family Planz',
 		description: 'Finish setting up your plan.',
