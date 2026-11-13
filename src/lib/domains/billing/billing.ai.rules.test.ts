@@ -44,6 +44,10 @@ describe('aiLimitRefusal', () => {
 		);
 	});
 
+	it('allows a NaN allowance, like legacy (every comparison is false)', () => {
+		expect(aiLimitRefusal({ used: Number.NaN, limit: 10, remaining: Number.NaN })).toBeNull();
+	});
+
 	it('never lets a paid tier read as unlimited in the copy', () => {
 		// The paid seed tier's 999999 is still a real ceiling for this counter.
 		expect(aiLimitRefusal({ used: 999999, limit: 999999, remaining: 0 })).toBe(

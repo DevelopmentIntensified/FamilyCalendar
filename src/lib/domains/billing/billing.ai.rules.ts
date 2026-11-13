@@ -21,10 +21,12 @@ export function aiAllowance(used: number, limit: number): AiUsage {
 	return { used, limit, remaining: Math.max(0, limit - used) };
 }
 
-/** A spent allowance refuses with the monthly cap copy; a positive one is null. */
+/** A spent allowance refuses with the monthly cap copy; anything else is null (legacy refuses on `remaining <= 0`). */
 export function aiLimitRefusal(allowance: AiUsage): string | null {
-	if (allowance.remaining > 0) return null;
-	return `AI feature limit reached (${allowance.limit} per month). Upgrade to unlock unlimited AI.`;
+	if (allowance.remaining <= 0) {
+		return `AI feature limit reached (${allowance.limit} per month). Upgrade to unlock unlimited AI.`;
+	}
+	return null;
 }
 
 /** Paid = any active tier that is not the free tier; no subscription row is free. */
