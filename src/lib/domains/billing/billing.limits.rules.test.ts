@@ -68,6 +68,10 @@ describe('resolvePlanLimits', () => {
 		});
 	});
 
+	it('free policy literal is frozen, so no caller can edit the one policy', () => {
+		expect(Object.isFrozen(FREE_PLAN_LIMITS)).toBe(true);
+	});
+
 	it('row overrides win for the five overridable limits', () => {
 		const limits = resolvePlanLimits(
 			{
@@ -127,7 +131,8 @@ describe('memberLimitRefusal', () => {
 		['empty family under free-tier limit allows add', 0, 1, null],
 		['single member at free-tier limit refuses add', 1, 1, full(1)],
 		['free default: five of six allows add', 5, 6, null],
-		['free default: six of six refuses add', 6, 6, full(6)]
+		['free default: six of six refuses add', 6, 6, full(6)],
+		['an unknown count is not at the limit', Number.NaN, 6, null]
 	])('member limit refuses at the limit, allows one below: %s', (_label, count, limit, expected) => {
 		expect(memberLimitRefusal(limitsWith({ memberLimit: limit }), count)).toBe(expected);
 	});
@@ -139,7 +144,8 @@ describe('familyCreationRefusal', () => {
 	it.each<[number, string | null]>([
 		[0, null],
 		[1, 'Family limit reached (1). Upgrade to create more families.'],
-		[4, 'Family limit reached (1). Upgrade to create more families.']
+		[4, 'Family limit reached (1). Upgrade to create more families.'],
+		[Number.NaN, null]
 	])('family creation refuses at the family limit: %i used → %j', (familiesUsed, expected) => {
 		expect(familyCreationRefusal(limits, familiesUsed)).toBe(expected);
 	});
@@ -163,7 +169,8 @@ describe('retentionRefusal', () => {
 		['inside the window', '2026-03-10T12:00:00Z', null],
 		['ten days old', '2026-03-21T12:00:00Z', null],
 		['forty-five days old', '2026-02-14T12:00:00Z', refused],
-		['sixty days old', '2026-01-30T12:00:00Z', refused]
+		['sixty days old', '2026-01-30T12:00:00Z', refused],
+		['an invalid date (legacy: no comparison is true)', 'not a date', null]
 	])('retention refuses an event older than the window: %s', (_label, eventDate, expected) => {
 		expect(retentionRefusal(limits, new Date(eventDate), now)).toBe(expected);
 	});
@@ -174,7 +181,8 @@ describe('archiveRefusal', () => {
 		[90, null],
 		[3650, null],
 		[0, 'Archive view not available on your plan'],
-		[-1, 'Archive view not available on your plan']
+		[-1, 'Archive view not available on your plan'],
+		[Number.NaN, null]
 	])('archive needs a plan with archived days: %i days → %j', (archivedRetentionDays, expected) => {
 		expect(archiveRefusal(limitsWith({ archivedRetentionDays }))).toBe(expected);
 	});
@@ -208,6 +216,10 @@ describe('attachmentRefusal', () => {
 		expect(attachmentRefusal(limitsWith({ attachmentLimitBytes: 1.5 * MIB }), 1.5 * MIB + 1)).toBe(
 			'File too large. Max 2MB on your plan.'
 		);
+	});
+
+	it('allows a NaN size: legacy `size > limit` is false for NaN, so nothing refuses', () => {
+		expect(attachmentRefusal(FREE_PLAN_LIMITS, Number.NaN)).toBeNull();
 	});
 });
 

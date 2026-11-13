@@ -11,6 +11,7 @@ import type { CheckoutQuote } from './billing.pricing.rules';
 import {
 	checkoutQuote,
 	familyDiscountRate,
+	holdsLifetimeDiscount,
 	isPlanType,
 	lifetimeDiscountRate,
 	PLAN_PRICES,
@@ -88,6 +89,30 @@ describe('lifetimeDiscountRate', () => {
 		[0, true, 20]
 	])('lifetime discount, held and unheld: %i%%, holds %s → %i%%', (rate, holds, expected) => {
 		expect(lifetimeDiscountRate(rate, holds)).toBe(expected);
+	});
+});
+
+describe('holdsLifetimeDiscount', () => {
+	const lifetime = { id: 'lifetime', enabled: true, appliesToLifetime: true };
+	const family = { id: 'family', enabled: true, appliesToLifetime: false };
+	const disabledLifetime = { id: 'old', enabled: false, appliesToLifetime: true };
+
+	// Legacy (discountService.ts:49-70): the person's claimed ids must include an
+	// enabled discount that applies to lifetime; the claim's own `expiresAt` is
+	// never read.
+	it.each<[string, readonly string[], boolean]>([
+		['holds the enabled lifetime discount', ['lifetime'], true],
+		['holds it among other claims', ['family', 'lifetime'], true],
+		['holds nothing', [], false],
+		['holds only a discount that is not for lifetime', ['family'], false],
+		['holds only a disabled lifetime discount', ['old'], false],
+		['holds a discount that no longer exists', ['gone'], false]
+	])('lifetime discount is held only via an enabled lifetime row: %s', (_label, held, expected) => {
+		expect(holdsLifetimeDiscount([lifetime, family, disabledLifetime], held)).toBe(expected);
+	});
+
+	it('is false when there is no discount row at all', () => {
+		expect(holdsLifetimeDiscount([], ['lifetime'])).toBe(false);
 	});
 });
 
@@ -175,8 +200,33 @@ describe('checkoutQuote', () => {
 				finalPrice: 67,
 				lines: [{ source: 'family', percentage: 33, amount: 33 }]
 			}
+		],
+		[
+			'rounds to whole cents: 33.33% of 90 is 29.997, shown as 30',
+			{ plan: 'annual', basePrice: 90, familyRate: 33.33, lifetimeRate: 0 },
+			{
+				originalPrice: 90,
+				discountPercentage: 33.33,
+				discountAmount: 30,
+				finalPrice: 60,
+				lines: [{ source: 'family', percentage: 33.33, amount: 30 }]
+			}
+		],
+		[
+			'rounds each line and the total: 13.333% of 150 is 19.9995, 53.333% is 79.9995',
+			{ plan: 'lifetime', basePrice: 150, familyRate: 40, lifetimeRate: 13.333 },
+			{
+				originalPrice: 150,
+				discountPercentage: 53.333,
+				discountAmount: 80,
+				finalPrice: 70,
+				lines: [
+					{ source: 'family', percentage: 40, amount: 60 },
+					{ source: 'lifetime', percentage: 13.333, amount: 20 }
+				]
+			}
 		]
-	])('sums discounts, caps at 100, never goes negative — %s', (_label, input, expected) => {
+	])('sums discounts, caps at 100, never goes negative (line amounts are display-only) — %s', (_label, input, expected) => {
 		expect(checkoutQuote(input)).toEqual(expected);
 	});
 });

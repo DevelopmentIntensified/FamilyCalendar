@@ -28,6 +28,7 @@ import {
 	type UserDiscountRow,
 	userDiscounts
 } from '$lib/kernel/db/tables.server';
+import type { AiUsagePeriod } from './billing.contract';
 
 /**
  * The person's active subscription row: tied to a tier and not expired.
@@ -69,9 +70,6 @@ export async function findTier(db: Db, tierId: string): Promise<SubscriptionType
 export async function listEnabledTiers(db: Db): Promise<SubscriptionTypeRow[]> {
 	return await db.select().from(subscriptionTypes).where(eq(subscriptionTypes.enabled, true));
 }
-
-/** The AI counter's identity: one row per person, month and calendar year. */
-export type AiUsagePeriod = { readonly month: number; readonly year: number };
 
 /** This period's counter row, or null before the first billed creation. */
 export async function findAiUsage(

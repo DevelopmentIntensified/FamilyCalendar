@@ -15,9 +15,10 @@ import type { PlanLimits, PlanSubscription, PlanTierView } from './billing.contr
 /**
  * The free policy in one literal: 1 family, 6 members, 30 retention-view days,
  * 90 archived days, 10 MiB attachments, 10 AI creations a month, export/import
- * on. An account with no active subscription row gets exactly this.
+ * on. An account with no active subscription row gets exactly this. Frozen, so
+ * no caller can edit the one policy.
  */
-export const FREE_PLAN_LIMITS: PlanLimits = {
+export const FREE_PLAN_LIMITS: Readonly<PlanLimits> = Object.freeze({
 	familyLimit: 1,
 	memberLimit: 6,
 	retentionViewDays: 30,
@@ -25,7 +26,7 @@ export const FREE_PLAN_LIMITS: PlanLimits = {
 	attachmentLimitBytes: 10485760,
 	aiEventCreationsPerMonth: 10,
 	exportImportEnabled: true
-};
+});
 
 /**
  * The one merge rule: the row's override beats the tier for the five
@@ -55,40 +56,52 @@ export function resolvePlanLimits(
  * The member limit is the family creator's, resolved by the caller.
  */
 export function memberLimitRefusal(limits: PlanLimits, memberCount: number): string | null {
-	if (memberCount < limits.memberLimit) return null;
-	return `Family is full (${limits.memberLimit} member limit). Upgrade to add more members.`;
+	if (memberCount >= limits.memberLimit) {
+		return `Family is full (${limits.memberLimit} member limit). Upgrade to add more members.`;
+	}
+	return null;
 }
 
 /** At or over the family limit refuses; the caller supplies the distinct count. */
 export function familyCreationRefusal(limits: PlanLimits, familiesUsed: number): string | null {
-	if (familiesUsed < limits.familyLimit) return null;
-	return `Family limit reached (${limits.familyLimit}). Upgrade to create more families.`;
+	if (familiesUsed >= limits.familyLimit) {
+		return `Family limit reached (${limits.familyLimit}). Upgrade to create more families.`;
+	}
+	return null;
 }
 
 /**
  * An event older than the retention window refuses; an event exactly on the
- * cutoff is still visible (the legacy strict `<`).
+ * cutoff is still visible (the legacy strict `eventDate < cutoff`). Written in
+ * that direction, so an Invalid Date, where every comparison is false, is
+ * allowed exactly as before.
  */
 export function retentionRefusal(limits: PlanLimits, eventDate: Date, now: Date): string | null {
 	const cutoff = new Date(now.getTime() - limits.retentionViewDays * 86_400_000);
-	if (eventDate >= cutoff) return null;
-	return 'Event is older than your retention limit. Upgrade to view archived events.';
+	if (eventDate < cutoff) {
+		return 'Event is older than your retention limit. Upgrade to view archived events.';
+	}
+	return null;
 }
 
-/** Archive access is a tier capability: no archived days means no archive. */
+/** Archive access is a tier capability: no archived days (`<= 0`) means no archive. */
 export function archiveRefusal(limits: PlanLimits): string | null {
-	if (limits.archivedRetentionDays > 0) return null;
-	return 'Archive view not available on your plan';
+	if (limits.archivedRetentionDays <= 0) return 'Archive view not available on your plan';
+	return null;
 }
 
 /**
  * Over the byte limit refuses, printing the limit in whole MiB (the legacy
- * `Math.round(bytes / 1048576)`), never in bytes.
+ * `Math.round(bytes / 1048576)`), never in bytes. Written in the legacy
+ * direction (`size > limit` refuses), so a NaN size, where every comparison is
+ * false, is allowed exactly as before.
  */
 export function attachmentRefusal(limits: PlanLimits, fileSizeBytes: number): string | null {
-	if (fileSizeBytes <= limits.attachmentLimitBytes) return null;
-	const maxMegabytes = Math.round(limits.attachmentLimitBytes / 1048576);
-	return `File too large. Max ${maxMegabytes}MB on your plan.`;
+	if (fileSizeBytes > limits.attachmentLimitBytes) {
+		const maxMegabytes = Math.round(limits.attachmentLimitBytes / 1048576);
+		return `File too large. Max ${maxMegabytes}MB on your plan.`;
+	}
+	return null;
 }
 
 /** The tier flag decides export/import, never a row override. */

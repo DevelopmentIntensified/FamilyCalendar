@@ -45,24 +45,47 @@ export function planPricing(): PlanPricing {
 }
 
 /**
- * The family-size discount: 40% from four memberships up (`>= 4`, the legacy
- * threshold, which its own copy described as "5+ members"). The count is the
- * caller's; Q-017 decides which count that is, post-S6.
+ * The family-size discount: 40% from four memberships up (`>= 4`), today's
+ * legacy rule, which its own copy described as "5+ members". The count is the
+ * caller's. Q-017 (owner, B) decided the post-S6 fix: count the members of one
+ * family and start at five; that fix changes this rule's tests, so S3+S4 keep it.
+ * The 40 is a literal: the family discount row's `discountRate` is never read.
  */
 export function familyDiscountRate(membershipCount: number): number {
 	return membershipCount >= 4 ? 40 : 0;
 }
 
+/** A discount row as far as "does this person hold the lifetime discount" reads it. */
+export type LifetimeDiscountCandidate = {
+	readonly id: string;
+	readonly enabled: boolean;
+	readonly appliesToLifetime: boolean;
+};
+
+/**
+ * Whether the person has claimed an enabled lifetime discount: one of their
+ * claimed ids is a row that is enabled and applies to lifetime. Legacy
+ * quirk kept: a claim's own `expiresAt` is never read, so an expired claim
+ * still counts.
+ */
+export function holdsLifetimeDiscount(
+	discounts: readonly LifetimeDiscountCandidate[],
+	heldDiscountIds: readonly string[]
+): boolean {
+	return discounts.some(
+		(discount) =>
+			discount.enabled && discount.appliesToLifetime && heldDiscountIds.includes(discount.id)
+	);
+}
+
 /**
  * The lifetime discount: 20% when the person already holds an enabled lifetime
- * discount, otherwise the configured row's rate. Eligibility itself (an enabled
- * lifetime row exists) is the caller's read.
+ * discount (`holdsLifetimeDiscount`), otherwise the configured row's rate. The
+ * 20 is a literal, like the family 40: only an unheld person's rate comes from
+ * the row. Eligibility itself (an enabled lifetime row exists) is the caller's read.
  */
-export function lifetimeDiscountRate(
-	configuredRate: number,
-	holdsLifetimeDiscount: boolean
-): number {
-	return holdsLifetimeDiscount ? 20 : configuredRate;
+export function lifetimeDiscountRate(configuredRate: number, holdsDiscount: boolean): number {
+	return holdsDiscount ? 20 : configuredRate;
 }
 
 /** One discount line the checkout page shows; `source` picks its repo row. */

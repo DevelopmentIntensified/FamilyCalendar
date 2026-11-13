@@ -5,14 +5,14 @@
  *
  * Doc: ./README.md#invariants
  */
-import type { AiUsage } from './billing.contract';
+import type { AiUsage, AiUsagePeriod } from './billing.contract';
 
 /**
  * The counter's period: month 1-12 and the calendar year, in UTC. The legacy
  * code used the process-local getters on a UTC server; naming UTC keeps the
  * period independent of wherever the process runs.
  */
-export function aiPeriod(now: Date): { readonly month: number; readonly year: number } {
+export function aiPeriod(now: Date): AiUsagePeriod {
 	return { month: now.getUTCMonth() + 1, year: now.getUTCFullYear() };
 }
 

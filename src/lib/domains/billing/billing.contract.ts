@@ -11,8 +11,8 @@
  *
  * Doc: ./README.md#invariants
  */
-import { isoInstant, oneOf, z } from '$lib/kernel/validation/validators';
-import { PLAN_TYPES, planTypeOrDefault, type PlanType } from './billing.pricing.rules';
+import { isoInstant, z } from '$lib/kernel/validation/validators';
+import { planTypeOrDefault, type PlanType } from './billing.pricing.rules';
 
 /** One plan's price cadence (`monthly`, `annual`, `lifetime`). */
 export type { PlanType };
@@ -105,13 +105,17 @@ export type SubscriptionSummary = z.infer<typeof SubscriptionSummary>;
 /**
  * `?plan` on `/checkout`: an absent, null or unrecognized value is the monthly
  * plan, so a checkout URL never 400s (the legacy page coerced it the same way).
+ * One transform, so there is no second validation whose message could fire.
  */
 export const CheckoutPlanInput = z.object({
-	plan: z.preprocess(planTypeOrDefault, oneOf(PLAN_TYPES, 'Unknown plan'))
+	plan: z.unknown().transform(planTypeOrDefault)
 });
 export type CheckoutPlanInput = z.infer<typeof CheckoutPlanInput>;
 
 // --- Server-side row shapes ------------------------------------------------
+
+/** The AI counter's identity: one row per person, month and calendar year (UTC). */
+export type AiUsagePeriod = { readonly month: number; readonly year: number };
 
 /**
  * What the repo and the service pass around: the same tier row with real
