@@ -239,4 +239,14 @@ describe('formatUnmatchedPhrasesExport', () => {
 		// 2026-09-01T10:30Z is 2026-09-02 00:30 in UTC+14.
 		expect(text).toContain('Generated: 2026-09-02 00:30');
 	});
+
+	it('prints first seen in the zone it is given', () => {
+		const text = formatUnmatchedPhrasesExport(
+			[phrase({ createdAt: new Date('2026-03-02T02:00:00Z') })],
+			NOW,
+			'America/New_York'
+		);
+		// 02:00Z on 2 March is still 1 March in New York (EST, UTC-5).
+		expect(text).toContain('first seen 2026-03-01');
+	});
 });

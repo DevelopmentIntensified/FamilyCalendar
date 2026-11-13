@@ -12,15 +12,15 @@
 import type { Db } from '$lib/kernel/db/database.server';
 import {
 	bugReports,
-	unmatchedPhrases,
 	type BugReportRow,
 	type NewBugReportRow,
 	type NewUnmatchedPhraseRow,
-	type UnmatchedPhraseRow
+	type UnmatchedPhraseRow,
+	unmatchedPhrases
 } from '$lib/kernel/db/tables.server';
 
 /** One bug report; `createdAt`/`updatedAt` stay the database defaults unless overridden. */
-export async function seedFeedbackBugReport(
+export async function seedBugReport(
 	db: Db,
 	overrides: Partial<NewBugReportRow> = {}
 ): Promise<BugReportRow> {
@@ -33,12 +33,12 @@ export async function seedFeedbackBugReport(
 			...overrides
 		})
 		.returning();
-	if (!row) throw new Error('seedFeedbackBugReport: insert returned no row');
+	if (!row) throw new Error('seedBugReport: insert returned no row');
 	return row;
 }
 
 /** One unmatched phrase; pass `phrase`/`source` whenever a test seeds more than one. */
-export async function seedFeedbackPhrase(
+export async function seedUnmatchedPhrase(
 	db: Db,
 	overrides: Partial<NewUnmatchedPhraseRow> = {}
 ): Promise<UnmatchedPhraseRow> {
@@ -52,6 +52,6 @@ export async function seedFeedbackPhrase(
 			phrase
 		})
 		.returning();
-	if (!row) throw new Error('seedFeedbackPhrase: insert returned no row');
+	if (!row) throw new Error('seedUnmatchedPhrase: insert returned no row');
 	return row;
 }

@@ -7,6 +7,7 @@
  * Doc: ./README.md#invariants
  */
 import { describe, expect, it } from 'vitest';
+import type { JsonValue } from '$lib/kernel/validation/validators';
 import type { BugArea } from './feedback.contract';
 import {
 	areaForPath,
@@ -20,6 +21,7 @@ import {
 	normalizePhrase,
 	reportBugHref,
 	safeReportedPath,
+	unmatchedPhraseUpsert,
 	UNMATCHED_SOURCE_LABEL,
 	UNMATCHED_SOURCES
 } from './feedback.rules';
@@ -90,6 +92,42 @@ describe('normalizePhrase', () => {
 	});
 });
 
+describe('unmatchedPhraseUpsert', () => {
+	it('returns null for a phrase that is blank after normalization', () => {
+		expect(unmatchedPhraseUpsert('event_parse', '   ')).toBeNull();
+	});
+
+	it('normalizes the phrase and keeps a stringified sample', () => {
+		// Legacy cases, unmatchedPhrases.test.ts › "packs values for insert with stringified matches".
+		expect(
+			unmatchedPhraseUpsert('event_parse', '  Launch   Sept 23 ', {
+				title: 'Launch',
+				date: '2026-09-23'
+			})
+		).toEqual({
+			source: 'event_parse',
+			phrase: 'launch sept 23',
+			matched: '{"title":"Launch","date":"2026-09-23"}'
+		});
+	});
+
+	it.each<[string, JsonValue | null | undefined, string | null]>([
+		[
+			'a nested sample',
+			{ ops: [{ id: 'e1', date: '2026-09-04' }] },
+			'{"ops":[{"id":"e1","date":"2026-09-04"}]}'
+		],
+		['an array sample', [{ id: 'e1' }], '[{"id":"e1"}]'],
+		['zero', 0, null],
+		['false', false, null],
+		['an empty string', '', null],
+		['null', null, null],
+		['undefined', undefined, null]
+	])('stores %s as %j (legacy `if (matched)`)', (_label, matched, expected) => {
+		expect(unmatchedPhraseUpsert('bulk_edit', 'Move to Friday', matched)?.matched).toBe(expected);
+	});
+});
+
 describe('bugAreaOf', () => {
 	it('maps an unknown area to other', () => {
 		expect(bugAreaOf('calendar')).toBe('calendar');
@@ -153,33 +191,20 @@ describe('maps paths to areas', () => {
 
 describe('buildAutoBugReport', () => {
 	it.each<[string, AutoBugReportInput]>([
-		[
-			'a 404',
-			{ status: 404, name: 'Error', message: 'Not found', path: '/nope' }
-		],
-		['an empty message', { status: 500, name: 'Error', message: '  ', path: '/calendar' }],
-		[
-			'a client abort (#049)',
-			{
-				status: 500,
-				name: 'AbortError',
-				message: 'The operation was aborted',
-				path: '/calendar'
-			}
-		]
+		['a 404', { status: 404, message: 'Not found', path: '/nope' }],
+		['an empty message', { status: 500, message: '  ', path: '/calendar' }]
 	])('files nothing for %s', (_label, input) => {
 		expect(buildAutoBugReport(input)).toBeNull();
 	});
 
-	// The legacy /abort/i message test was over-broad; the abort is now the error itself.
-	it('files a real fault whose message merely mentions abort', () => {
-		const report = buildAutoBugReport({
-			status: 500,
-			name: 'Error',
-			message: 'relation "abortions" does not exist',
-			path: '/calendar'
-		});
-		expect(report?.area).toBe('calendar');
+	// Legacy #049 table, autoBugReport.test.ts › "returns null for client-abort messages".
+	it.each<[string]>([
+		['aborted'],
+		['AbortError: aborted'],
+		['The operation was aborted'],
+		['fetch aborted']
+	])('files nothing for a client-abort message: %j', (message) => {
+		expect(buildAutoBugReport({ status: 500, message, path: '/calendar' })).toBeNull();
 	});
 
 	it('prefixes the status and caps the description at 5000', () => {

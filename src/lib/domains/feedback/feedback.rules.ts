@@ -10,6 +10,7 @@
  *
  * Doc: ./README.md#invariants
  */
+import type { JsonValue } from '$lib/kernel/validation/validators';
 import type { BugArea, BugReportInput, UnmatchedSource } from './feedback.contract';
 
 /**
@@ -48,7 +49,7 @@ export function isBugArea(area: string): area is BugArea {
 }
 
 export function isUnmatchedSource(source: string): source is UnmatchedSource {
-	return source === 'event_parse' || source === 'bulk_edit';
+	return UNMATCHED_SOURCES.some((candidate) => candidate === source);
 }
 
 /**
@@ -57,6 +58,31 @@ export function isUnmatchedSource(source: string): source is UnmatchedSource {
  */
 export function normalizePhrase(phrase: string): string {
 	return phrase.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, MAX_PHRASE);
+}
+
+/** The deduplicated write shape of a reported phrase. */
+export type UnmatchedPhraseUpsert = {
+	readonly source: UnmatchedSource;
+	/** Already normalized: the dedup key with `source`, and the first sample. */
+	readonly phrase: string;
+	/** JSON text of the parse sample, or null when there is no usable sample. */
+	readonly matched: string | null;
+};
+
+/**
+ * What to store for one reported phrase, or null when the phrase is blank
+ * after normalization. Legacy `if (matched)`: a falsy sample — `null`, `0`,
+ * `false` and `''` — is "no sample", so it stores `NULL` and a repeat leaves
+ * any previously stored sample alone.
+ */
+export function unmatchedPhraseUpsert(
+	source: UnmatchedSource,
+	phrase: string,
+	matched?: JsonValue | null
+): UnmatchedPhraseUpsert | null {
+	const normalized = normalizePhrase(phrase);
+	if (!normalized) return null;
+	return { source, phrase: normalized, matched: matched ? JSON.stringify(matched) : null };
 }
 
 /** An area the writer can store: anything outside the vocabulary becomes `other`. */
@@ -84,8 +110,6 @@ export function bugReportDraft(input: {
 /** What the fault port knows about the failure that was caught. */
 export type AutoBugReportInput = {
 	readonly status: number;
-	/** The thrown error's `name`; `AbortError` is a client cancel, never filed (#049). */
-	readonly name: string | null;
 	readonly message: string;
 	readonly path: string;
 };
@@ -98,9 +122,12 @@ export type AutoBugReportInput = {
  */
 export function buildAutoBugReport(input: AutoBugReportInput): BugReportInput | null {
 	if (input.status === 404) return null;
-	if (input.name === 'AbortError') return null;
 	const message = input.message.trim();
 	if (!message) return null;
+	// Client-cancelled navigations/fetches surface as errors mentioning "abort"
+	// with status 500 — not app bugs. Never file them (#049). Legacy parity:
+	// the match is the message, because #049's noise came through as `Error`.
+	if (/abort/i.test(message)) return null;
 	return bugReportDraft({
 		area: areaForPath(input.path),
 		description: `[auto-filed ${input.status}] ${message}`,

@@ -1,6 +1,7 @@
 /**
- * feedback contract: the zod schemas and types for every `/api` body and for
- * the `/report-bug` form, plus the response shapes the endpoints return.
+ * feedback contract: the zod schemas and types for every `/api` body and
+ * response (dates on the wire are ISO strings), and for the `/report-bug`
+ * form. Server-side row shapes with real `Date`s live at the bottom.
  *
  * The error copy is the wire: the golden tests pin it
  * (`feedback.http.db.test.ts`). Keep the legacy wording.
@@ -11,8 +12,14 @@
  *
  * Doc: ./README.md#invariants
  */
-import { oneOf, optionalText, requiredText, z } from '$lib/kernel/validation/validators';
-import { BUG_AREAS, isBugArea, UNMATCHED_SOURCES } from './feedback.rules';
+import {
+	isoInstant,
+	oneOf,
+	optionalText,
+	requiredText,
+	z
+} from '$lib/kernel/validation/validators';
+import { BUG_AREAS, UNMATCHED_SOURCES } from './feedback.rules';
 
 // --- Vocabularies -----------------------------------------------------------
 
@@ -36,9 +43,16 @@ export const PHRASE_INVALID_MESSAGE =
 
 // --- `/api/bug-report` ------------------------------------------------------
 
+/** A non-string url is "no url": the legacy route turned it into '' and stored null. */
+const wireUrl = z.preprocess(
+	(value) => (typeof value === 'string' ? value : null),
+	optionalText()
+);
+
 /**
  * `POST /api/bug-report`. The description is trimmed and must be 1..5000; an
- * absent, null or blank url all become `null` (the writer caps it at 2000).
+ * absent, null, blank or non-string url all become `null` (the writer caps a
+ * string url at 2000).
  */
 export const BugReportBody = z.object(
 	{
@@ -46,7 +60,7 @@ export const BugReportBody = z.object(
 		description: requiredText(BUG_REPORT_INVALID_MESSAGE).max(5000, {
 			error: BUG_REPORT_INVALID_MESSAGE
 		}),
-		url: optionalText()
+		url: wireUrl
 	},
 	{ error: BUG_REPORT_INVALID_MESSAGE }
 );
@@ -60,10 +74,8 @@ export type BugReportInput = {
 };
 
 /** `200 {success, id}`. */
-export type BugReportFiledResponse = {
-	readonly success: true;
-	readonly id: string;
-};
+export const BugReportFiledResponse = z.object({ success: z.literal(true), id: z.string() });
+export type BugReportFiledResponse = z.infer<typeof BugReportFiledResponse>;
 
 // --- `/api/report-phrase` ---------------------------------------------------
 
@@ -83,9 +95,8 @@ export const UnmatchedPhraseBody = z.object(
 export type UnmatchedPhraseBody = z.infer<typeof UnmatchedPhraseBody>;
 
 /** `200 {success:true}`. */
-export type PhraseReportedResponse = {
-	readonly success: true;
-};
+export const PhraseReportedResponse = z.object({ success: z.literal(true) });
+export type PhraseReportedResponse = z.infer<typeof PhraseReportedResponse>;
 
 // --- `/report-bug` page and action -----------------------------------------
 
@@ -94,18 +105,13 @@ export type PhraseReportedResponse = {
  * a person gets one message per field, not the single wire body, and the
  * hidden `from` never crosses `/api`.
  */
-export const BugReportFormBody = z.object(
-	{
-		area: z
-			.string({ error: 'Please choose a category.' })
-			.refine(isBugArea, { error: 'Please choose a category.' }),
-		description: requiredText('Please describe the bug.').max(5000, {
-			error: 'Description is too long (max 5000 characters).'
-		}),
-		from: optionalText()
-	},
-	{ error: 'Please describe the bug.' }
-);
+export const BugReportFormBody = z.object({
+	area: oneOf(BUG_AREAS, 'Please choose a category.'),
+	description: requiredText('Please describe the bug.').max(5000, {
+		error: 'Description is too long (max 5000 characters).'
+	}),
+	from: optionalText()
+});
 export type BugReportFormBody = z.infer<typeof BugReportFormBody>;
 
 // --- Admin registers and resolve -------------------------------------------
@@ -114,10 +120,84 @@ export type BugReportFormBody = z.infer<typeof BugReportFormBody>;
 export const FeedbackResolveParams = z.object({ id: z.string() });
 export type FeedbackResolveParams = z.infer<typeof FeedbackResolveParams>;
 
+// --- Wire rows and responses -----------------------------------------------
+
 /**
- * A bug report as the registers return it. `area` and `status` stay strings:
- * the columns are text, and a row outside the vocabulary still renders (the
- * export falls back to the raw area).
+ * A bug report as JSON: every timestamp is an ISO string, which is what the
+ * wire and the goldens carry. `area` and `status` stay strings because the
+ * columns are text: a row outside the vocabulary still renders (the export
+ * falls back to the raw area).
+ */
+export const BugReportResponse = z.object({
+	id: z.string(),
+	userId: z.string().nullable(),
+	area: z.string(),
+	description: z.string(),
+	url: z.string().nullable(),
+	status: z.string(),
+	resolvedAt: isoInstant().nullable(),
+	createdAt: isoInstant(),
+	updatedAt: isoInstant()
+});
+export type BugReportResponse = z.infer<typeof BugReportResponse>;
+
+/** A register row on the wire: the report plus the reporter's names. */
+export const BugReportWithReporterResponse = BugReportResponse.extend({
+	reporterFirstName: z.string().nullable(),
+	reporterLastName: z.string().nullable()
+});
+export type BugReportWithReporterResponse = z.infer<typeof BugReportWithReporterResponse>;
+
+/** An unmatched phrase on the wire (`matched` is the stored JSON text). */
+export const UnmatchedPhraseResponse = z.object({
+	id: z.string(),
+	source: z.string(),
+	phrase: z.string(),
+	sample: z.string(),
+	matched: z.string().nullable(),
+	count: z.number().int(),
+	resolved: z.boolean(),
+	createdAt: isoInstant(),
+	updatedAt: isoInstant()
+});
+export type UnmatchedPhraseResponse = z.infer<typeof UnmatchedPhraseResponse>;
+
+/** `GET /api/admin/bugs`; `exportText` covers the open rows only. */
+export const BugReportsRegisterResponse = z.object({
+	open: z.array(BugReportWithReporterResponse),
+	resolved: z.array(BugReportWithReporterResponse),
+	exportText: z.string()
+});
+export type BugReportsRegisterResponse = z.infer<typeof BugReportsRegisterResponse>;
+
+/** `GET /api/admin/nlp`; `exportText` covers the open rows only. */
+export const UnmatchedPhrasesRegisterResponse = z.object({
+	phrases: z.array(UnmatchedPhraseResponse),
+	resolved: z.array(UnmatchedPhraseResponse),
+	exportText: z.string()
+});
+export type UnmatchedPhrasesRegisterResponse = z.infer<typeof UnmatchedPhrasesRegisterResponse>;
+
+/** `POST /api/admin/bugs/[id]/resolve`. */
+export const BugReportResolvedResponse = z.object({
+	success: z.literal(true),
+	report: BugReportResponse
+});
+export type BugReportResolvedResponse = z.infer<typeof BugReportResolvedResponse>;
+
+/** `POST /api/admin/nlp/[id]/resolve`. */
+export const UnmatchedPhraseResolvedResponse = z.object({
+	success: z.literal(true),
+	phrase: UnmatchedPhraseResponse
+});
+export type UnmatchedPhraseResolvedResponse = z.infer<typeof UnmatchedPhraseResolvedResponse>;
+
+// --- Server-side row shapes ------------------------------------------------
+
+/**
+ * What the repo and the exporters pass around: the same rows with real
+ * `Date`s. Never sent directly — the endpoint builders' `ok()` serializes the
+ * dates, and the `*Response` schemas above describe the resulting JSON.
  */
 export type BugReportView = {
 	readonly id: string;
@@ -148,30 +228,4 @@ export type UnmatchedPhraseView = {
 	readonly resolved: boolean;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
-};
-
-/** `GET /api/admin/bugs`; `exportText` covers the open rows only. */
-export type BugReportsRegisterResponse = {
-	readonly open: BugReportWithReporter[];
-	readonly resolved: BugReportWithReporter[];
-	readonly exportText: string;
-};
-
-/** `GET /api/admin/nlp`; `exportText` covers the open rows only. */
-export type UnmatchedPhrasesRegisterResponse = {
-	readonly phrases: UnmatchedPhraseView[];
-	readonly resolved: UnmatchedPhraseView[];
-	readonly exportText: string;
-};
-
-/** `POST /api/admin/bugs/[id]/resolve`. */
-export type BugReportResolvedResponse = {
-	readonly success: true;
-	readonly report: BugReportView;
-};
-
-/** `POST /api/admin/nlp/[id]/resolve`. */
-export type UnmatchedPhraseResolvedResponse = {
-	readonly success: true;
-	readonly phrase: UnmatchedPhraseView;
 };

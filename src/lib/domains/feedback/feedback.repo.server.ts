@@ -7,8 +7,10 @@
  * read-only join into `users` for the reporter name (rule R3,
  * `FOREIGN_READS.feedback` in scripts/arch/registry.mjs).
  *
- * No function reads the clock (rule R5): a resolve takes its `resolvedAt`, an
- * upsert its `updatedAt`, a prune its `cutoff`.
+ * Writes that stamp a row take the caller's `now` for `updatedAt` (both
+ * resolves and the phrase upsert); nothing here reads the process clock (rule
+ * R5). An insert's `createdAt` comes from the database `now()` unless the
+ * write supplies it — the phrase upsert does, so its row is deterministic.
  *
  * Doc: ./README.md#invariants
  */
@@ -32,16 +34,9 @@ export async function insertBugReport(db: Db, values: NewBugReportRow): Promise<
 	return row;
 }
 
-/**
- * One register: the resolved reports when `resolved`, else the open ones,
- * newest first, with the reporter's names from a left join (`null` when the
- * reporter is gone or the report was anonymous).
- */
-export async function listBugReportsWithReporter(
-	db: Db,
-	resolved: boolean
-): Promise<BugReportWithReporter[]> {
-	return await db
+/** The report columns plus the reporter's names, newest first once filtered. */
+function bugReportsWithReporter(db: Db) {
+	return db
 		.select({
 			id: bugReports.id,
 			userId: bugReports.userId,
@@ -56,27 +51,48 @@ export async function listBugReportsWithReporter(
 			reporterLastName: users.lastName
 		})
 		.from(bugReports)
-		.leftJoin(users, eq(users.id, bugReports.userId))
-		.where(resolved ? isNotNull(bugReports.resolvedAt) : isNull(bugReports.resolvedAt))
+		.leftJoin(users, eq(users.id, bugReports.userId));
+}
+
+/**
+ * The open register (`resolvedAt IS NULL`), newest first, with the reporter's
+ * names from a left join (`null` when the reporter is gone or the report was
+ * anonymous).
+ */
+export async function listOpenBugReportsWithReporter(
+	db: Db
+): Promise<BugReportWithReporter[]> {
+	return await bugReportsWithReporter(db)
+		.where(isNull(bugReports.resolvedAt))
+		.orderBy(desc(bugReports.createdAt));
+}
+
+/** The resolved register (`resolvedAt IS NOT NULL`), newest first. */
+export async function listResolvedBugReportsWithReporter(
+	db: Db
+): Promise<BugReportWithReporter[]> {
+	return await bugReportsWithReporter(db)
+		.where(isNotNull(bugReports.resolvedAt))
 		.orderBy(desc(bugReports.createdAt));
 }
 
 /**
- * Close one report: status `resolved` and the given `resolvedAt` (always
- * re-stamped, Q-007). The row keeps the reporter's `userId`; the register's
- * join supplies the names. Undefined when no row has that id.
+ * Close one report: status `resolved`, the given `resolvedAt`, and `updatedAt`
+ * stamped with the same instant (always re-stamped, Q-007). The row keeps the
+ * reporter's `userId`; the register's join supplies the names. Null when no
+ * row has that id.
  */
-export async function resolveBugReportRow(
+export async function resolveBugReport(
 	db: Db,
 	id: string,
-	resolvedAt: Date
-): Promise<BugReportRow | undefined> {
+	now: Date
+): Promise<BugReportRow | null> {
 	const [row] = await db
 		.update(bugReports)
-		.set({ status: 'resolved', resolvedAt })
+		.set({ status: 'resolved', resolvedAt: now, updatedAt: now })
 		.where(eq(bugReports.id, id))
 		.returning();
-	return row;
+	return row ?? null;
 }
 
 /** Open reports for the admin nav badge: open = never resolved. */
@@ -106,14 +122,14 @@ export async function pruneClosedBugReports(db: Db, cutoff: Date): Promise<numbe
 	return deleted.length;
 }
 
-/** The upsert shape for a reported phrase; the caller normalizes and serializes. */
-export type UnmatchedPhraseUpsert = {
+/** The upsert shape for a reported phrase; `unmatchedPhraseUpsert` builds the first three. */
+export type UnmatchedPhraseWrite = {
 	readonly source: UnmatchedSource;
 	/** Already normalized by `normalizePhrase`; the dedup key with `source`. */
 	readonly phrase: string;
 	/** JSON text of the parse sample, or null to leave any prior sample alone. */
 	readonly matched: string | null;
-	readonly updatedAt: Date;
+	readonly now: Date;
 };
 
 /**
@@ -125,57 +141,62 @@ export type UnmatchedPhraseUpsert = {
  */
 export async function upsertUnmatchedPhrase(
 	db: Db,
-	input: UnmatchedPhraseUpsert
+	values: UnmatchedPhraseWrite
 ): Promise<void> {
-	const values: NewUnmatchedPhraseRow = {
-		source: input.source,
-		phrase: input.phrase,
-		sample: input.phrase,
-		updatedAt: input.updatedAt
+	const row: NewUnmatchedPhraseRow = {
+		source: values.source,
+		phrase: values.phrase,
+		sample: values.phrase,
+		createdAt: values.now,
+		updatedAt: values.now
 	};
-	if (input.matched !== null) values.matched = input.matched;
-	await db.insert(unmatchedPhrases).values(values).onConflictDoUpdate({
+	if (values.matched !== null) row.matched = values.matched;
+	await db.insert(unmatchedPhrases).values(row).onConflictDoUpdate({
 		target: [unmatchedPhrases.source, unmatchedPhrases.phrase],
 		// `undefined` is dropped from the update set, so a null sample leaves the
 		// stored one alone while count/sample/updatedAt always refresh.
 		set: {
 			count: sql`${unmatchedPhrases.count} + 1`,
-			sample: input.phrase,
-			updatedAt: input.updatedAt,
-			matched: input.matched ?? undefined
+			sample: values.phrase,
+			updatedAt: values.now,
+			matched: values.matched ?? undefined
 		}
 	});
 }
 
-/**
- * One phrase register: resolved or open rows, busiest first, then newest first.
- */
-export async function listUnmatchedPhrases(
-	db: Db,
-	resolved: boolean
-): Promise<UnmatchedPhraseRow[]> {
+/** The open phrase register: busiest first, then newest first. */
+export async function listOpenUnmatchedPhrases(db: Db): Promise<UnmatchedPhraseRow[]> {
 	return await db
 		.select()
 		.from(unmatchedPhrases)
-		.where(eq(unmatchedPhrases.resolved, resolved))
+		.where(eq(unmatchedPhrases.resolved, false))
+		.orderBy(desc(unmatchedPhrases.count), desc(unmatchedPhrases.createdAt));
+}
+
+/** The resolved phrase register, same order as the open one. */
+export async function listResolvedUnmatchedPhrases(db: Db): Promise<UnmatchedPhraseRow[]> {
+	return await db
+		.select()
+		.from(unmatchedPhrases)
+		.where(eq(unmatchedPhrases.resolved, true))
 		.orderBy(desc(unmatchedPhrases.count), desc(unmatchedPhrases.createdAt));
 }
 
 /**
- * Resolve one phrase. `updatedAt` is re-stamped by the column's `$onUpdate`
- * in every update, which also moves the row's retention anchor (Q-007).
- * Undefined when no row has that id.
+ * Resolve one phrase, stamping `updatedAt` with the caller's `now` (which also
+ * moves the row's retention anchor, Q-007). Null when no row has that id.
  */
-export async function resolveUnmatchedPhraseRow(
+export async function resolveUnmatchedPhrase(
 	db: Db,
-	id: string
-): Promise<UnmatchedPhraseRow | undefined> {
+	id: string,
+	now: Date
+): Promise<UnmatchedPhraseRow | null> {
 	const [row] = await db
 		.update(unmatchedPhrases)
-		.set({ resolved: true })
+		.set({ resolved: true, updatedAt: now })
 		.where(eq(unmatchedPhrases.id, id))
 		.returning();
-	return row;
+	return row ?? null;
 }
 
 /** Open phrases for the admin nav badge. */
