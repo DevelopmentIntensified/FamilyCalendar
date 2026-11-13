@@ -26,9 +26,11 @@ const AVATAR_COLOURS = [
 ];
 
 /**
- * The name hash: a charCode sum with `hash << 5` mixing. `<<` truncates to
- * int32 on every step, which is part of today's pinned output — do not
- * "improve" it without repainting every store and contact.
+ * The name hash: a charCode sum with `hash << 5` mixing. Each shift truncates
+ * to int32; the charCode added after it does not, so a name can land past
+ * int32 ("anna brooks" → 3194812696) or below zero ("Rivera"). That shape is
+ * part of today's pinned output — do not "improve" it without repainting every
+ * store and contact.
  */
 function nameHash(name: string): number {
 	let hash = 0;
@@ -56,13 +58,11 @@ export function idColor(id: string): string {
 /**
  * The initials a person's avatar shows. Legacy shape kept on purpose: with a
  * last name it is `first[0] + last[0]` as typed (no re-capitalising); without
- * one it is the first letter upper-cased. Missing names are empty strings, so
- * a person with only a last name still gets `R`.
+ * one — or with no last name given at all — it is the first letter
+ * upper-cased. Missing names are empty strings, so a person with only a last
+ * name still gets `R`.
  */
-export function initials(
-	first: string | null | undefined,
-	last: string | null | undefined
-): string {
+export function initials(first: string | null | undefined, last?: string | null): string {
 	const firstPart = first ?? '';
 	const lastPart = last ?? '';
 	if (lastPart) return `${firstPart.charAt(0)}${lastPart.charAt(0)}`;

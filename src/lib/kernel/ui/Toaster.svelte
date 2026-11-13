@@ -1,7 +1,7 @@
 <!--
-	Renders the K-07 toast list. The shared `ToastItem` type arrives with
-	kernel/client; this declares the same shape locally so kernel/ui keeps
-	working without importing client code. White card and dismiss button are the
+	Renders the K-07 toast list. `ToastItem` is the type `createToasts` hands
+	back (kernel/client/toasts.svelte.ts), imported rather than mirrored, so the
+	list and the renderer cannot drift. White card and dismiss button are the
 	legacy renderer's look ($lib/components/Toaster.svelte), and an `action` is
 	that renderer's action button: it runs the callback, then dismisses.
 	`data-kind` is the hook a later visual pass can style without changing the
@@ -14,15 +14,7 @@
 	Doc: src/lib/kernel/README.md
 -->
 <script lang="ts">
-	type ToastKind = 'success' | 'error' | 'info';
-
-	// Same shape as ToastItem in kernel/client/toasts.svelte.ts (K-07); switch to the import once K-07 merges.
-	type ToastItem = {
-		id: number;
-		kind: ToastKind;
-		text: string;
-		action?: { label: string; run: () => void };
-	};
+	import type { ToastItem } from '../client/toasts.svelte';
 
 	interface Props {
 		items: ToastItem[];

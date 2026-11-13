@@ -11,14 +11,24 @@
  */
 
 const FOCUSABLE_SELECTOR =
-	'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+	'a[href], button:not([disabled]), textarea, input:not([type="hidden"]), select, [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Subtrees that cannot take focus but whose controls still match the selector:
+ * a disabled fieldset, a `hidden` block, an `inert` panel. Asked of the DOM tree
+ * on purpose — layout APIs (`offsetParent`, `getClientRects`) tell nothing in
+ * jsdom, where these tests run.
+ */
+const UNFOCUSABLE_SUBTREE = '[disabled], [hidden], [inert]';
 
 export function trapFocus(node: HTMLElement): { destroy(): void } {
 	const previouslyFocused =
 		document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
 	const focusables = (): HTMLElement[] =>
-		Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+		Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+			(element) => element.closest(UNFOCUSABLE_SUBTREE) === null
+		);
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key !== 'Tab') return;

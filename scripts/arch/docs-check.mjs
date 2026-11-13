@@ -2,7 +2,7 @@
 // `npm run docs:check` — keeps the documentation graph honest:
 //  D1 every module folder with code has a README.md with the required sections
 //  D2 a module README links every file in its folder (and nothing that is gone)
-//  D3 every relative link in AGENTS.md, docs/ (except docs/archive/) and module READMEs resolves
+//  D3 every relative link in AGENTS.md, docs/ (except docs/archive/), module READMEs and e2e READMEs resolves
 //  D4 AGENTS.md stays a short hub (<= 120 lines)
 // Doc: docs/architecture/module-readme-template.md, docs/README.md
 import { existsSync } from 'node:fs';
@@ -72,7 +72,9 @@ const docFiles = files.filter(
 		file === 'AGENTS.md' ||
 		file === 'CONTEXT.md' ||
 		(file.startsWith('docs/') && file.endsWith('.md') && !file.startsWith('docs/archive/')) ||
-		(file.startsWith('src/lib/') && file.endsWith('/README.md'))
+		(file.startsWith('src/lib/') && file.endsWith('/README.md')) ||
+		// Harness docs live outside docs/ and src/lib/ but link into both (K-10).
+		(file.startsWith('e2e/') && file.endsWith('/README.md'))
 );
 for (const doc of docFiles) {
 	for (const link of markdownLinks(readText(doc))) {

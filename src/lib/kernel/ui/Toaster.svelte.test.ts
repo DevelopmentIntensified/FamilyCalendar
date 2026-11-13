@@ -8,6 +8,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import Toaster from './Toaster.svelte';
+import { createToasts } from '../client/toasts.svelte.js';
+import { manualScheduler } from '$lib/kernel/testing/manualScheduler';
 
 afterEach(cleanup);
 
@@ -63,5 +65,17 @@ describe('Toaster', () => {
 		expect(run).toHaveBeenCalledTimes(1);
 		expect(ondismiss).toHaveBeenCalledTimes(1);
 		expect(ondismiss).toHaveBeenCalledWith(3);
+	});
+
+	it('renders the list kernel/client hands it, action and all', () => {
+		// The item type is kernel/client's `ToastItem`, not a local mirror.
+		const toasts = createToasts({ schedule: manualScheduler().schedule });
+		toasts.success('Task saved.');
+		toasts.error('Could not save the task.', { label: 'Retry', run: () => {} });
+
+		render(Toaster, { props: { items: toasts.items, ondismiss: (id) => toasts.dismiss(id) } });
+
+		expect(screen.getByText('Task saved.')).toBeInTheDocument();
+		expect(screen.getByTestId('toast-action')).toHaveTextContent('Retry');
 	});
 });

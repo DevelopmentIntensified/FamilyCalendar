@@ -57,6 +57,8 @@
 		/** Tooltip; the arrows carry one, Today does not. */
 		title?: string;
 		isCurrent?: boolean;
+		/** `daynav-today|prev|next`, so a page can address each member. */
+		testid: string;
 	}
 
 	let {
@@ -124,6 +126,7 @@
 			href={control.href}
 			aria-label={control.label}
 			title={control.title}
+			data-testid={control.testid}
 			aria-current={control.isCurrent ? 'date' : undefined}
 			class={control.kind === 'today'
 				? `${base} ${control.isCurrent ? 'opacity-50' : ''}`
@@ -136,6 +139,7 @@
 			type="button"
 			onclick={() => control.onPress?.()}
 			disabled={!control.onPress}
+			data-testid={control.testid}
 			aria-label={control.label}
 			title={control.title}
 			aria-current={control.isCurrent ? 'date' : undefined}
@@ -160,14 +164,23 @@
 		href: todayHref,
 		onPress: onToday,
 		label: 'Go to today',
-		isCurrent: isToday
+		isCurrent: isToday,
+		testid: 'daynav-today'
 	})}
 	{@render step({
 		kind: 'previous',
 		href: previousHref,
 		onPress: onPrevious,
 		label: previousLabel,
-		title: previousLabel
+		title: previousLabel,
+		testid: 'daynav-prev'
 	})}
-	{@render step({ kind: 'next', href: nextHref, onPress: onNext, label: nextLabel, title: nextLabel })}
+	{@render step({
+		kind: 'next',
+		href: nextHref,
+		onPress: onNext,
+		label: nextLabel,
+		title: nextLabel,
+		testid: 'daynav-next'
+	})}
 </nav>

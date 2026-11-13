@@ -98,6 +98,31 @@ describe('DayNav — one date navigator, two callers', () => {
 			'date'
 		);
 	});
+
+	it('gives every member a test id, so a page can address Today and the arrows', () => {
+		render(DayNav, { props: { todayHref: '/t', previousHref: '/p', nextHref: '/n' } });
+		expect(screen.getByTestId('daynav-today')).toHaveAttribute('href', '/t');
+		expect(screen.getByTestId('daynav-prev')).toHaveAttribute('href', '/p');
+		expect(screen.getByTestId('daynav-next')).toHaveAttribute('href', '/n');
+	});
+
+	it('prefers the href when it is given both an href and a callback', () => {
+		const onPrevious = vi.fn();
+		render(DayNav, { props: { previousHref: '/p', onPrevious } });
+
+		// An href wins: the step is a link that opens in a new tab, not a button.
+		const previous = screen.getByTestId('daynav-prev');
+		expect(previous.tagName).toBe('A');
+		expect(previous).toHaveAttribute('href', '/p');
+		expect(screen.queryByRole('button', { name: 'Previous day' })).toBeNull();
+	});
+
+	it('disables a control it was given no callback for', () => {
+		render(DayNav, { props: { onToday: vi.fn() } });
+		expect(screen.getByTestId('daynav-today')).toBeEnabled();
+		expect(screen.getByTestId('daynav-prev')).toBeDisabled();
+		expect(screen.getByTestId('daynav-next')).toBeDisabled();
+	});
 });
 
 /**

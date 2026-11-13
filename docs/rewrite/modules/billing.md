@@ -197,8 +197,8 @@ contract these files deliver.
 
 ### Questions for the owner
 
-1. **Family-size discount: which count?** Context: `discountService.ts:19-34` counts the user's `familyMembers` rows (so four *different* families qualify) and its 40% threshold disagrees with the checkout copy "5+ members". Options: (a) keep the legacy count and threshold exactly (0 behavioural change, but rewards the wrong thing); (b) count members of one family, threshold 5, matching the copy; (c) count distinct families, threshold 4. Recommendation: (b) — the discount is described and priced as a family-size benefit, and checkout is still a stub, so nothing can be mis-charged today. No wire change.
-2. **Pricing card copy: "Up to 5 family members" vs the free tier's 6.** Context: `pricing/+page.svelte:12` vs `seed.ts:19`. Options: (a) raise the copy to 6, (b) lower the free `memberLimit` to 5 (a plan-policy change for every family). Recommendation: (a) — the limit is a live rule and 6 is what an existing family already has.
+1. **Family-size discount: which count?** (Q-017) Context: `discountService.ts:19-34` counts the user's `familyMembers` rows (so four *different* families qualify) and its 40% threshold disagrees with the checkout copy "5+ members". Options: (a) keep the legacy count and threshold exactly (0 behavioural change, but rewards the wrong thing); (b) count members of one family, threshold 5, matching the copy; (c) count distinct families, threshold 4. Recommendation: (b) — the discount is described and priced as a family-size benefit, and checkout is still a stub, so nothing can be mis-charged today. No wire change.
+2. **Pricing card copy: "Up to 5 family members" vs the free tier's 6.** (Q-018) Context: `pricing/+page.svelte:12` vs `seed.ts:19`. Options: (a) raise the copy to 6, (b) lower the free `memberLimit` to 5 (a plan-policy change for every family). Recommendation: (a) — the limit is a live rule and 6 is what an existing family already has.
 
 ### S2 — goldens
 

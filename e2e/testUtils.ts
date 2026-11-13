@@ -68,7 +68,13 @@ export async function loginWithSession(page: Page, email: string) {
 			domain: 'localhost',
 			path: '/',
 			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
+			// Both e2e servers are plain http on localhost (4173 main, 4174
+			// pages), while the app's cookie policy marks the session Secure
+			// whenever the *server* runs with NODE_ENV=production — which the
+			// pages harness does. A Secure cookie is not stored for an http
+			// origin, so the browser would silently drop the session: never
+			// copy the attribute here, the harness is http by construction.
+			secure: false,
 			sameSite: 'Lax'
 		}
 	]);
@@ -100,4 +106,14 @@ export async function getSessionCookie(email: string) {
 	const session = await createSession(user[0].id);
 	const cookie = await createSessionCookie({ token: session.token });
 	return cookie;
+}
+
+/**
+ * End the pool the cookie helpers above run on (the app's module-level
+ * `db`). A Playwright worker that used GET session cookies must call this
+ * before it is done or the open socket keeps the process alive; test files
+ * call it from `test.afterAll`.
+ */
+export async function closeSessionDb(): Promise<void> {
+	await db.$client.end({ timeout: 5 });
 }

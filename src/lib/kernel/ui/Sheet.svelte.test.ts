@@ -5,11 +5,16 @@
  * (unless `swipeToClose` is false), and focus returns to the trigger when the
  * sheet goes away.
  *
+ * Esc belongs to the innermost handler: a child that already called
+ * `preventDefault()` (a ConfirmAction ask) keeps the sheet open. Test ids are
+ * derived from the sheet's own (`sheet`, `sheet-close`, `sheet-backdrop`), so
+ * two sheets on one page never answer to the same id.
+ *
  * Doc: src/lib/kernel/README.md
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
-import { createRawSnippet } from 'svelte';
+import { createRawSnippet, tick } from 'svelte';
 import Sheet from './Sheet.svelte';
 
 const children = createRawSnippet(() => ({ render: () => '<p>Sheet body</p>' }));
@@ -132,20 +137,103 @@ describe('Sheet', () => {
 		expect(screen.getByTestId('settings-sheet-close')).toHaveAccessibleName('Close modal');
 	});
 
-	it('returns focus to the previously focused element when it goes away', async () => {
+	it('returns focus to the previously focused element when it closes', async () => {
 		const trigger = document.createElement('button');
 		trigger.textContent = 'Open settings';
 		document.body.appendChild(trigger);
 		trigger.focus();
 
-		const { unmount } = render(Sheet, {
-			props: { open: true, onclose: vi.fn(), title: 'Settings', children }
+		// The parent owns `open`: closing is a prop change, not an unmount.
+		const onclose = vi.fn();
+		const { rerender } = render(Sheet, {
+			props: { open: true, onclose, title: 'Settings', children }
 		});
 		const dialog = screen.getByRole('dialog');
 		expect(dialog.contains(document.activeElement)).toBe(true);
 
-		await unmount();
+		await rerender({ open: false, onclose, title: 'Settings', children });
+		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(document.activeElement).toBe(trigger);
 		trigger.remove();
+	});
+
+	it('names the dialog, close button and backdrop from a default test id', () => {
+		render(Sheet, { props: { open: true, onclose: vi.fn(), title: 'Settings', children } });
+		expect(screen.getByTestId('sheet')).toBe(screen.getByRole('dialog'));
+		expect(screen.getByTestId('sheet-close')).toHaveAccessibleName('Close modal');
+		expect(screen.getByTestId('sheet-backdrop')).toHaveAccessibleName('Close sheet');
+	});
+
+	it('derives the backdrop from the sheet’s test id, so two sheets never share one', () => {
+		const first = render(Sheet, {
+			props: {
+				open: true,
+				onclose: vi.fn(),
+				title: 'Settings',
+				testid: 'settings-sheet',
+				children
+			}
+		});
+		const second = render(Sheet, {
+			props: { open: true, onclose: vi.fn(), title: 'Day', testid: 'day-sheet', children }
+		});
+		// One backdrop each, named after its own sheet: neither container grew a
+		// shared `sheet-backdrop`.
+		const backdrops = (container: HTMLElement) =>
+			container.querySelectorAll('[data-testid$="-backdrop"]');
+		expect(backdrops(first.container)).toHaveLength(1);
+		expect(backdrops(first.container)[0]).toHaveAttribute(
+			'data-testid',
+			'settings-sheet-backdrop'
+		);
+		expect(backdrops(second.container)).toHaveLength(1);
+		expect(backdrops(second.container)[0]).toHaveAttribute('data-testid', 'day-sheet-backdrop');
+	});
+
+	it('leaves Escape to a child that already handled it', () => {
+		const footer = createRawSnippet(() => ({
+			render: () => '<button type="button">Save</button>'
+		}));
+		const onclose = vi.fn();
+		render(Sheet, { props: { open: true, onclose, title: 'Settings', children, footer } });
+
+		// A confirm inside the sheet handles Esc first and claims the key.
+		const child = screen.getByRole('button', { name: 'Save' });
+		child.addEventListener('keydown', (event) => event.preventDefault());
+		const handled = new KeyboardEvent('keydown', {
+			key: 'Escape',
+			bubbles: true,
+			cancelable: true
+		});
+		child.dispatchEvent(handled);
+
+		expect(handled.defaultPrevented).toBe(true);
+		expect(onclose).not.toHaveBeenCalled();
+	});
+
+	it('reopens at rest after being closed mid-swipe', async () => {
+		const onclose = vi.fn();
+		const { container, rerender } = render(Sheet, {
+			props: { open: true, onclose, title: 'Day', variant: 'bottom', children }
+		});
+		const handle = container.querySelector<HTMLElement>('[data-drag-handle]');
+		if (!handle) throw new Error('bottom sheet has no drag handle');
+
+		// The panel's own inline style is the observable: 180 - 100 px of drag.
+		const panelStyle = () => screen.getByRole('dialog').getAttribute('style');
+		handle.dispatchEvent(touch('touchstart', [100]));
+		handle.dispatchEvent(touch('touchmove', [180]));
+		// A raw dispatch does not flush like fireEvent does.
+		await tick();
+		expect(panelStyle()).toContain('translateY(80px)');
+
+		await fireEvent.keyDown(window, { key: 'Escape' });
+		expect(onclose).toHaveBeenCalledTimes(1);
+		// The close dropped the drag, so even before the parent reopens it the
+		// panel is back at rest.
+		expect(panelStyle()).toContain('translateY(0px)');
+
+		await rerender({ open: true, onclose, title: 'Day', variant: 'bottom', children });
+		expect(panelStyle()).toContain('translateY(0px)');
 	});
 });

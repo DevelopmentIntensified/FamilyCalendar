@@ -11,7 +11,15 @@
 	dismissed by dragging.
 
 	The parent owns `open`; this component only reports `onclose`, so a state
-	class can keep the optimistic update in one place.
+	class can keep the optimistic update in one place. Every close path (Esc,
+	backdrop, header button, swipe) drops the drag offset, so a sheet dismissed
+	mid-swipe reopens at rest.
+
+	`testid` defaults to `sheet` and names the dialog, the close button
+	(`${testid}-close`) and the backdrop (`${testid}-backdrop`) — two open sheets
+	pass different ones and never share an id. Esc yields to a child that already
+	handled the key (`defaultPrevented`), so a confirm inside a sheet cancels
+	without closing the sheet too.
 
 	Doc: src/lib/kernel/README.md
 -->
@@ -44,21 +52,23 @@
 		subtitle,
 		variant = 'modal',
 		swipeToClose = true,
-		testid,
+		testid = 'sheet',
 		children,
 		footer
 	}: Props = $props();
 
 	let swipe = $state(createSheetSwipe());
 
-	// A sheet closed mid-drag must not reopen still translated.
-	$effect(() => {
-		if (!open) swipe = createSheetSwipe();
-	});
+	// Every close path resets the drag, so a sheet dismissed mid-swipe reopens at
+	// rest instead of still translated.
+	function close() {
+		swipe = createSheetSwipe();
+		onclose();
+	}
 
 	function handleKeydown(event: KeyboardEvent) {
-		if (!open || event.key !== 'Escape') return;
-		onclose();
+		if (!open || event.key !== 'Escape' || event.defaultPrevented) return;
+		close();
 	}
 
 	function handleTouchStart(event: TouchEvent) {
@@ -75,7 +85,7 @@
 		if (variant !== 'bottom') return;
 		const result = endSheetSwipe(swipe);
 		swipe = result.state;
-		if (result.closed) onclose();
+		if (result.closed) close();
 	}
 </script>
 
@@ -88,8 +98,8 @@
 			class="absolute inset-0 bg-black/40 backdrop-blur-sm"
 			aria-label="Close sheet"
 			tabindex="-1"
-			data-testid="sheet-backdrop"
-			onclick={onclose}
+			data-testid="{testid}-backdrop"
+			onclick={close}
 		></button>
 
 		<div
@@ -128,10 +138,10 @@
 				</div>
 				<button
 					type="button"
-					onclick={onclose}
+					onclick={close}
 					class="ml-auto rounded-full p-1.5 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
 					aria-label="Close modal"
-					data-testid={testid && `${testid}-close`}
+					data-testid="{testid}-close"
 				>
 					<svg
 						class="h-4 w-4"

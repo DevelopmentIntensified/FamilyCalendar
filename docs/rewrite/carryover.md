@@ -29,6 +29,7 @@ Read your module's section in S1.
 | [#192](../archive/issues/192-muted-text-contrast.md) | DESIGN | Muted text contrast ≥ 4.5:1, 12px floor. | keep markup |
 | [#193](../archive/issues/193-emoji-as-ui.md) | OWNER | Emoji as meaning-bearing UI. | owner |
 | [#322](../archive/issues/322-desktop-theme-prototype.md) | DESIGN | Desktop theme prototype variants. | prototype branch only |
+| — (kernel/ui `MentionInput`, no ticket) | A11Y | The mention picker keeps the legacy ARIA for parity: `role="combobox"` on a `<textarea>`, and the `<p>` header and footer rows sitting inside `role="listbox"` where only `role="option"` children are valid. Ported as-is by K-08b; fixing it is an accessibility ticket of its own (a real combobox pattern is not a textarea). | keep markup (legacy parity; `components/MentionInput.svelte` is the reference) |
 
 ## identity
 

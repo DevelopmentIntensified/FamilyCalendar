@@ -115,8 +115,8 @@ Before writing a helper, find its concept below and use (or build) the one home.
 | debounced search + stale guard | kernel client `SearchBox` (K-07) | CreateFamilyMemberPicker, MemberSearchTab, LocationSearch |
 | ticking "now" in UI | kernel/time `Ticker` (K-07) | TaskRow + TaskLoggedTimeBand `setInterval` copies |
 | modal / sheet shell | kernel ui `Sheet` (K-08) | TaskDetailModal, EditTaskDialog, DayEventsModal, EventModal hand-rolled shells |
-| delete / confirm two-step | kernel ui `ConfirmAction` (K-08) | 8 copies (TaskRow, TaskCompletedRow, FamilyOpenTaskRow, TaskDetailBar, EventModalBar, EventDeleteConfirm, AccountDangerSection, MemberChildTab) |
-| chips / pills | kernel ui `Pill` + calendar `chipVocabulary` | TaskRow slot pills, CategoryChip, CategorySelect, TaskDetailModal spans |
+| delete / confirm two-step | kernel ui `ConfirmAction` (K-08) | 5 copies: TaskRow, TaskCompletedRow, FamilyOpenTaskRow (icon trigger + Yes/No), TaskDetailBar (default row), and the family page's member-remove form |
+| chips / pills | kernel ui `Pill` + calendar `chipVocabulary` | TaskRow slot pills, CategoryChip, TaskDetailModal spans (CategorySelect is a native `<select>`, no chip) |
 | skeleton rows | kernel ui `Skeleton` (K-08) | AccountNotificationsSection, ChecklistSection, EventModal |
 | colour from a name / id | kernel ui `colorHash` (K-08): `nameColor` (the #115 single name hash) and `idColor` (avatar, deliberately different) | `hashName`, `contactColors`, `avatarColor` |
 | person display name | identity rules `displayName` | `${firstName} ${lastName}`.trim() fallbacks in 5+ components |

@@ -301,28 +301,28 @@ needed to change it: no `/api` behaviour changes in this port.
 
 ### Questions for the owner
 
-1. **Unread-count source (`/api` adjacent).** Today the bell re-fetches the 50-row feed just to poll a
+1. **Unread-count source (`/api` adjacent).** (Q-072) Today the bell re-fetches the 50-row feed just to poll a
    number (alerts' sheet lists this as a known gap). Options: (a) keep the existing `GET
    /api/notifications` but call it once per chrome mount (no wire change; recommended), (b) add
    `GET /api/notifications/count` (new path; a contract addition, needs alerts + approval and an
    Android check), (c) return the count from the layout load (one server query per page load).
    Recommendation: (a) now; revisit (b) if `perf:check` shows the 50-row payload.
-2. **Chrome in the root layout + app-only mode.** Confirm the direction: root renders chrome for
+2. **Chrome in the root layout + app-only mode.** (Q-073) Confirm the direction: root renders chrome for
    `/(calendar)/calendar/**` and `/(family)/**`; account and admin widen the rule at their ports; each
    screen never renders a second navbar. Recommendation: yes (R1 leaves no alternative that avoids
    duplication).
-3. **Marketing's public header.** Confirm the marketing port owns the guest header (four links +
+3. **Marketing's public header.** (Q-074) Confirm the marketing port owns the guest header (four links +
    Sign In/Get Started) and `marketingNavItems` moves there, so shell's root chrome never renders on
    marketing pages. Recommendation: yes — R1 forbids the alternative (a domain importing a screen),
    and the marketing page's own `mp-canvas`/skip-link wrapper already lives there.
-4. **Breadcrumbs to kernel/ui.** This is a small K-08 scope addition (a 30-line, `$app`-free
+4. **Breadcrumbs to kernel/ui.** (Q-075) This is a small K-08 scope addition (a 30-line, `$app`-free
    component): account and familyHub render it on 7 pages and screens cannot share. Recommendation:
    add it to K-08; otherwise the alternative is one copy per screen (account, familyHub).
 5. **Security backport.** The password hash / receipt token / phone number are serialised to the
    browser on every legacy app page today. Shell's port fixes it in v2. Does the owner want a separate
    ticket (and a backport to the legacy branch still serving production) before the rewrite merges?
    Recommendation: file the ticket now, fix in v2 as planned.
-6. **Fixes and load-plan changes inside the port.** Confirm the seven internal fixes above and the
+6. **Fixes and load-plan changes inside the port.** (Q-076) Confirm the seven internal fixes above and the
    load-plan changes may land in shell's commits (none touches the schema, the `/api` wire, or a
    Must-keep rule). Recommendation: yes; they are listed here so the visual check at S7 expects them.
 

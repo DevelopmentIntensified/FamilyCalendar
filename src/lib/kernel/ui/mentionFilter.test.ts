@@ -6,7 +6,7 @@
  * only decides what to surface while typing.
  */
 import { describe, it, expect } from 'vitest';
-import { filterMentions, MENTION_SUGGESTION_LIMIT, type MentionPerson } from './mentionFilter';
+import { filterMentions, type MentionPerson } from './mentionFilter';
 
 const ROSTER: MentionPerson[] = [
 	{ id: 'u-sam', firstName: 'Sam', lastName: 'Rivera' },
@@ -62,7 +62,7 @@ describe('filterMentions', () => {
 			firstName: `Member ${i}`,
 			lastName: ''
 		}));
-		expect(filterMentions('', big)).toHaveLength(MENTION_SUGGESTION_LIMIT);
+		expect(filterMentions('', big)).toHaveLength(8);
 	});
 
 	it('caps large match sets too', () => {
@@ -71,7 +71,7 @@ describe('filterMentions', () => {
 			firstName: `Alex ${i}`,
 			lastName: 'Stern'
 		}));
-		expect(filterMentions('alex', big)).toHaveLength(MENTION_SUGGESTION_LIMIT);
+		expect(filterMentions('alex', big)).toHaveLength(8);
 	});
 
 	it('returns [] when nothing matches', () => {

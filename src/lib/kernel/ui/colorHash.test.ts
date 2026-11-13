@@ -21,10 +21,11 @@ const AVATAR_COLOURS = [
 ];
 
 /**
- * `hashName` mixes with `hash << 5`, so it truncates to int32 every step:
- * "anna brooks" wraps positive, "Rivera" wraps negative. `nameColor` takes
- * the absolute value, which is why the store and contact palettes can index
- * with a plain `% length`.
+ * `hashName` mixes with `hash << 5`: each shift truncates to int32 while the
+ * charCode added after it does not, so "anna brooks" ends above int32
+ * (3194812696) and "Rivera" ends negative. `nameColor` takes the absolute
+ * value, which is why the store and contact palettes can index with a plain
+ * `% length`.
  */
 const NAME_CASES: [string, number][] = [
 	['', 0],
@@ -116,5 +117,11 @@ const INITIAL_CASES: [string | null | undefined, string | null | undefined, stri
 describe('initials', () => {
 	it.each(INITIAL_CASES)('initials(%j, %j) is %j', (first, last, expected) => {
 		expect(initials(first, last)).toBe(expected);
+	});
+
+	it('takes the last name as optional, so a single-name caller passes one argument', () => {
+		expect(initials('Sam')).toBe('S');
+		expect(initials('sam')).toBe('S');
+		expect(initials(null)).toBe('');
 	});
 });
