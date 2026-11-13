@@ -53,7 +53,7 @@ Two label sets, two homes, on purpose: the plain `BUG_AREA_LABEL` set (`calendar
 - Whole module: `npm run test:mod -- feedback` (add `--legacy` while legacy tests remain).
 - Pure rules: `*.rules.test.ts`, plain tables of input → expected output, no setup.
 - Database + services: `*.db.test.ts` using `rollbackTest` and `testCtx({ db })` (needs Postgres: `docker start familycalendar-db`).
-- HTTP contract: `feedback.http.db.test.ts` pins status + body of every endpoint (golden tests). Committed mode (`beforeEach(truncateAll)`, legacy handlers write outside a transaction); each test claims its own `x-real-ip` because the legacy limiter shares one bucket map per file.
+- HTTP contract: `feedback.http.db.test.ts` pins status + body of every endpoint (golden tests). Committed mode (`beforeEach(truncateAll)`, legacy handlers write outside a transaction); each test claims its own `x-real-ip`, and a test that counts a rate-limit budget shares one `ctx` across every request of the burst — after the port the limiter lives on `ctx.limiter`, so a fresh `ctx` per request would start every bucket empty.
 - UI: `ui/*.svelte.test.ts` render with props; state classes are tested without a DOM.
 - Fixtures: `feedback.fixtures.server.ts` (planned: `bugReportRow`, `unmatchedPhraseRow`).
 

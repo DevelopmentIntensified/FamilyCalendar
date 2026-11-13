@@ -1346,9 +1346,12 @@ describe('GET /api/family/member-search', () => {
 
 	it('answers 429 after twenty searches from the same IP', async () => {
 		const user = await seedUser(testDb());
+		// One ctx for the whole burst: after the port the limiter lives on it,
+		// so a fresh ctx per request would start every bucket empty.
+		const c = ctx();
 		for (let i = 0; i < 20; i += 1) {
 			const res = await invoke(memberSearch, {
-				ctx: ctx(),
+				ctx: c,
 				user,
 				path: '/api/family/member-search?q=an',
 				headers: { 'x-real-ip': '10.0.0.42' }
@@ -1356,7 +1359,7 @@ describe('GET /api/family/member-search', () => {
 			expect(res.status).toBe(200);
 		}
 		const limited = await invoke(memberSearch, {
-			ctx: ctx(),
+			ctx: c,
 			user,
 			path: '/api/family/member-search?q=an',
 			headers: { 'x-real-ip': '10.0.0.42' }
@@ -2035,9 +2038,11 @@ describe('POST /api/families/{id}/members/email/link', () => {
 
 	it('answers 429 after ten mints from one IP, before the membership check', async () => {
 		const { ann } = await seedFamilyRoster();
+		// One ctx for the whole burst: after the port the limiter lives on it.
+		const c = ctx();
 		for (let i = 0; i < 10; i += 1) {
 			const res = await invoke(mintInviteLink, {
-				ctx: ctx(),
+				ctx: c,
 				user: ann,
 				method: 'POST',
 				params: { id: 'fam-1' },
@@ -2048,7 +2053,7 @@ describe('POST /api/families/{id}/members/email/link', () => {
 			expect(res.status).toBe(200);
 		}
 		const limited = await invoke(mintInviteLink, {
-			ctx: ctx(),
+			ctx: c,
 			user: ann,
 			method: 'POST',
 			params: { id: 'fam-1' },
@@ -2063,9 +2068,11 @@ describe('POST /api/families/{id}/members/email/link', () => {
 
 	it('counts a non-member toward the same limit, proving the check runs first', async () => {
 		const { out } = await seedFamilyRoster();
+		// The refusals still spend the budget, so they share the burst ctx.
+		const c = ctx();
 		for (let i = 0; i < 10; i += 1) {
 			const res = await invoke(mintInviteLink, {
-				ctx: ctx(),
+				ctx: c,
 				user: out,
 				method: 'POST',
 				params: { id: 'fam-1' },
@@ -2076,7 +2083,7 @@ describe('POST /api/families/{id}/members/email/link', () => {
 			expect(res.status).toBe(403);
 		}
 		const limited = await invoke(mintInviteLink, {
-			ctx: ctx(),
+			ctx: c,
 			user: out,
 			method: 'POST',
 			params: { id: 'fam-1' },
@@ -2094,7 +2101,15 @@ describe('POST /api/families/{id}/members/email/link', () => {
 // Unskip at S6: family S5 adds the kernel `mail` port, so testCtx can hand the
 // handler a fake and the success case can assert the minted row without mail.
 describe.skip('POST /api/families/{id}/members/email (golden from spec)', () => {
-	const invokeSend = async (actor: FamilyTestUser | null, familyId: string, body: JsonValue, ip: string) => {
+	// A caller that counts the rate-limit budget passes its own `c`; every
+	// other caller gets a fresh ctx per request, as before.
+	const invokeSend = async (
+		actor: FamilyTestUser | null,
+		familyId: string,
+		body: JsonValue,
+		ip: string,
+		c = ctx()
+	) => {
 		// Loaded lazily, not imported at the top: a static import evaluates the
 		// legacy module (and its env/Resend imports) while this file loads, which
 		// would break every other suite in it.
@@ -2102,7 +2117,7 @@ describe.skip('POST /api/families/{id}/members/email (golden from spec)', () => 
 			'../../../routes/api/families/[id]/members/email/+server'
 		);
 		return invoke(POST, {
-			ctx: ctx(),
+			ctx: c,
 			...(actor ? { user: actor } : {}),
 			method: 'POST',
 			params: { id: familyId },
@@ -2148,11 +2163,13 @@ describe.skip('POST /api/families/{id}/members/email (golden from spec)', () => 
 
 	it('answers 429 after ten sends from one IP', async () => {
 		const { ann } = await seedFamilyRoster();
+		// One ctx for the whole burst: after the port the limiter lives on it.
+		const c = ctx();
 		for (let i = 0; i < 10; i += 1) {
-			const res = await invokeSend(ann, 'fam-1', { ...valid, email: 'bad' }, '10.2.0.6');
+			const res = await invokeSend(ann, 'fam-1', { ...valid, email: 'bad' }, '10.2.0.6', c);
 			expect(res.status).toBe(400);
 		}
-		const limited = await invokeSend(ann, 'fam-1', valid, '10.2.0.6');
+		const limited = await invokeSend(ann, 'fam-1', valid, '10.2.0.6', c);
 		expect(limited.status).toBe(429);
 		expect(limited.body).toEqual({ error: 'Too many requests. Try again later.' });
 	});
