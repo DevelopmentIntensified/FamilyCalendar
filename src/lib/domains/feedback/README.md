@@ -17,9 +17,17 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [index.ts](index.ts) | entry | Public isomorphic interface: the three contract types (`BugArea`, `UnmatchedSource`, `FeedbackKind`), `reportBugHref` and the two register exporters. The vocabularies and their labels, phrase normalization, `safeReportedPath` and the display reductions stay module-internal in `feedback.rules.ts` / `feedback.export.rules.ts`. | `feedback.rules.test.ts`, `feedback.export.rules.test.ts` |
 | [index.server.ts](index.server.ts) | entry | Public server interface: the services (`fileBugReport`, `fileAutoBugReport`, `reportUnmatchedPhrase`, `listFeedback`, `resolveFeedback`, `countOpenFeedback`, `pruneResolvedFeedback`), the six `/api` endpoint handlers and the `/report-bug` page handlers. | `feedback.service.db.test.ts`, [feedback.http.db.test.ts](feedback.http.db.test.ts) |
 | [ui/index.ts](ui/index.ts) | entry | Public components: the bug report form, one feedback register (open + resolved) and the export widget. | `ui/*.svelte.test.ts` |
+| [feedback.contract.ts](feedback.contract.ts) | contract | The wire: zod schemas and types for `POST /api/bug-report` (`BugReportBody`), `POST /api/report-phrase` (`UnmatchedPhraseBody`), the resolve `id` parameter, the `/report-bug` form (`BugReportFormBody`), the register/resolve response shapes and the write input (`BugReportInput`). The 400 copy is the legacy wording, verbatim. | `feedback.http.db.test.ts` once the handlers use it (S6) |
+| [feedback.rules.ts](feedback.rules.ts) | rules | `BUG_AREAS` / `UNMATCHED_SOURCES` and their labels, `isBugArea`, `isUnmatchedSource`, `normalizePhrase`, `bugAreaOf`, `bugReportDraft` (trim/cap/blank), `areaForPath`, `buildAutoBugReport` and the issue-257 `safeReportedPath` / `reportBugHref`. Every input is a parameter; no clock, no map. | [feedback.rules.test.ts](feedback.rules.test.ts) |
+| [feedback.export.rules.ts](feedback.export.rules.ts) | rules | The two "Export for agent" texts with dates from `kernel/time`, plus `matchedSummary` and `reporterName`. Covers open items only and never prints a reporter name. | [feedback.export.rules.test.ts](feedback.export.rules.test.ts) |
+| [feedback.repo.server.ts](feedback.repo.server.ts) | repo | The ten queries over this module's two tables, `db` first: the bug insert/register/resolve/count/prune, the phrase upsert/register/resolve/count/prune, and the one declared left join into `users` for the reporter name. | [feedback.repo.db.test.ts](feedback.repo.db.test.ts) |
+| [feedback.fixtures.server.ts](feedback.fixtures.server.ts) | fixtures | Row builders for the db tests: `seedFeedbackBugReport`, `seedFeedbackPhrase`. | used by `*.db.test.ts` |
+| [feedback.rules.test.ts](feedback.rules.test.ts) | test | Tables for the vocabularies, phrase normalization, the draft caps, the path→area mapping, the auto-file skips/caps and the issue-257 normalizer. | — |
+| [feedback.export.rules.test.ts](feedback.export.rules.test.ts) | test | `matchedSummary` / `reporterName` tables and the exact text of both exports (header, grouping, order, empty register, zone). | — |
+| [feedback.repo.db.test.ts](feedback.repo.db.test.ts) | test | One `rollbackTest` per query: filters, ordering, the reporter join, the upsert counters and both prune cutoffs. | — |
 | [feedback.http.db.test.ts](feedback.http.db.test.ts) | test | Golden `/api` contract for the six routes: status, full body, error copy, absent-vs-null, rate limits and the rows written. Runs committed, driving the legacy route modules, so it must stay unchanged after S6. | — |
 
-Planned by the port (S3–S7; not created yet): `feedback.contract.ts`, `feedback.rules.ts`, `feedback.export.rules.ts`, `feedback.repo.server.ts`, `feedback.service.server.ts`, `feedback.http.server.ts`, `feedback.api.ts`, `feedback.register.state.svelte.ts`, `feedback.fixtures.server.ts` and their tests, plus `ui/ReportBugForm.svelte`, `ui/FeedbackRegister.svelte`, `ui/FeedbackExport.svelte`.
+Planned by the port (S5–S7; not created yet): `feedback.service.server.ts`, `feedback.http.server.ts`, `feedback.api.ts`, `feedback.register.state.svelte.ts`, `feedback.service.db.test.ts`, `feedback.page.db.test.ts`, plus `ui/ReportBugForm.svelte`, `ui/FeedbackRegister.svelte`, `ui/FeedbackExport.svelte` and their tests.
 
 ## Public interface
 
@@ -55,7 +63,7 @@ Two label sets, two homes, on purpose: the plain `BUG_AREA_LABEL` set (`calendar
 - Database + services: `*.db.test.ts` using `rollbackTest` and `testCtx({ db })` (needs Postgres: `docker start familycalendar-db`).
 - HTTP contract: `feedback.http.db.test.ts` pins status + body of every endpoint (golden tests). Committed mode (`beforeEach(truncateAll)`, legacy handlers write outside a transaction); each test claims its own `x-real-ip`, and a test that counts a rate-limit budget shares one `ctx` across every request of the burst — after the port the limiter lives on `ctx.limiter`, so a fresh `ctx` per request would start every bucket empty.
 - UI: `ui/*.svelte.test.ts` render with props; state classes are tested without a DOM.
-- Fixtures: `feedback.fixtures.server.ts` (planned: `bugReportRow`, `unmatchedPhraseRow`).
+- Fixtures: `feedback.fixtures.server.ts` (`seedFeedbackBugReport`, `seedFeedbackPhrase`).
 
 ## Invariants
 
