@@ -19,7 +19,6 @@ function makeData(isToday: boolean) {
 		userSettings: { defaultView: 'calendar' },
 		familyId: null,
 		modules: {},
-		dailyVerse: null,
 		loadWarnings: [],
 		dashboardData: Promise.resolve({
 			glance: { doneToday: 0, openToday: 0, weekStreak: 0 },

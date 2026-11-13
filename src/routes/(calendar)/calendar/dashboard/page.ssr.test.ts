@@ -115,11 +115,6 @@ function ssrDashboard(dashboardData: DashboardResult | Promise<DashboardResult>,
 		meId: 'u-sarah',
 		modules,
 		dashboardData,
-		dailyVerse: {
-			reference: 'Psalm 127:1',
-			text: 'Except the LORD build the house, they labour in vain.',
-			attribution: 'ESV'
-		},
 		loadWarnings: []
 	};
 	const page = {
@@ -169,7 +164,6 @@ describe('/calendar/dashboard server render (#278, #279)', () => {
 		expect(body).toContain('Soccer practice');
 		expect(body).toContain('Task a');
 		expect(body).toContain('Milk');
-		expect(body).toContain('Except the LORD build the house');
 	});
 
 	// The dev-only prototype reflow (208) renders under `vite dev` (PROD

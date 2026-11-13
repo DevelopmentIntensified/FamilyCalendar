@@ -151,8 +151,8 @@ Every file lives in `src/lib/domains/dashboardModules/`. Roles per [conventions]
 
 legacy source files left (4/4, 356 LOC):
   - src/lib/components/dashboard/DashboardModuleRow.svelte (84 LOC, ui) importers: 1
-  - src/lib/dashboardModules.ts (168 LOC, model) importers: 13
-  - src/lib/server/db/actions/dashboardModules.ts (48 LOC, server) importers: 3
+  - src/lib/dashboardModules.ts (168 LOC, model) importers: 12
+  - src/lib/server/db/actions/dashboardModules.ts (48 LOC, server) importers: 2
   - src/lib/utils/moduleRowState.ts (56 LOC, model) importers: 2
 
 route files not yet wiring-only (2/2):

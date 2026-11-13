@@ -37,10 +37,6 @@ vi.mock('$lib/server/services/eventDisplayService', () => ({
 	attachRsvpStatus: vi.fn(async () => []),
 	attachAttendanceSummaries: vi.fn(async () => [])
 }));
-// oxlint-disable-next-line anti-slop/no-module-mocking -- network/DB-backed read; not under test here.
-vi.mock('$lib/server/services/verseService', () => ({
-	getTodayVerse: vi.fn(async () => null)
-}));
 
 const { load } = await import('./+page.server');
 

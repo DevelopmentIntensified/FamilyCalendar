@@ -114,17 +114,17 @@ _Avoid_: store tag colour, category colour
 ### Day Dashboard
 
 **Day Dashboard**:
-A per-day, at-a-glance page answering "what do I need to know — and do — about today": today's events, the Top-3 Priorities, the Family Task Board, Kids' Schedule, Groceries, and the Daily Verse. Meals is parked. Phase 1 covers today; a `?date=` parameter extends it to any day. A composition layer over Tasks/events/family — not a new data model.
+A per-day, at-a-glance page answering "what do I need to know — and do — about today": today's events, the Top-3 Priorities, the Family Task Board, Kids' Schedule, Groceries, and the Daily Verse (removed 2026-11-12). Meals is parked. Phase 1 covers today; a `?date=` parameter extends it to any day. A composition layer over Tasks/events/family — not a new data model.
 _Avoid_: home screen, overview, dashboard widget page
 
-**Daily Verse**:
-A scripture verse rendered on the calendar (compact strip) and/or the Day Dashboard, one per day, gated by the per-user `showDailyVerse` setting and displayed in the user's `verseTranslation` (ESV by default). A future saved-verses "Verse Vault" is a separate, unbuilt feature.
+**Daily Verse** (removed, owner 2026-11-12):
+A scripture verse rendered on the calendar (compact strip) and/or the Day Dashboard, one per day, gated by the per-user `showDailyVerse` setting and displayed in the user's `verseTranslation` (ESV by default). **Removed 2026-11-12** (owner, Q-031/Q-032): the strip, the dashboard band, the translation picker, `/api/daily-verse` and the bundled text are gone; the `verse` Dashboard Module id and the `user_settings.verse_translation` column stay (no DDL). A future saved-verses "Verse Vault" is a separate, unbuilt feature.
 _Avoid_: vault verse, verse of the day strip
 
 **Dashboard Module**:
-One card on the Day Dashboard (Today at a Glance, Top-3 Priorities, Completed Today, Family Task Board, Kids' Schedule, Groceries, Meals, Daily Verse). Each family-level module has a master enable switch controlled by an admin; each user may hide a module for themselves alone. A family-level switch off hides the module for everyone.
+One card on the Day Dashboard (Today at a Glance, Top-3 Priorities, Completed Today, Family Task Board, Kids' Schedule, Groceries, Meals, Daily Verse — the last two undeletable ids: no card renders either). Each family-level module has a master enable switch controlled by an admin; each user may hide a module for themselves alone. A family-level switch off hides the module for everyone.
 
-The Daily Verse is the exception that proves the rule: it is a Dashboard Module **and** gated by its own `showDailyVerse` setting, because it also renders on the calendar. Two persisted facts, one visibility answer.
+The Daily Verse is the exception that proves the rule: it is a Dashboard Module **and** gated by its own `showDailyVerse` setting. Two persisted facts, one visibility answer. Its UI is gone (2026-11-12) but the id and the gate stay, because the Android dashboard reads `shows("verse")`.
 _Avoid_: widget, tile, panel
 
 ### Family
