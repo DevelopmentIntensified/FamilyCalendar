@@ -18,7 +18,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [index.server.ts](index.server.ts) | entry | Public server interface: the person, session, token, settings and credential use-cases plus the seven endpoint handlers. | — |
 | [ui/index.ts](ui/index.ts) | entry | Public components: the account page's profile, tokens, sessions and calendar-settings cards. | — |
 | [identity.http.db.test.ts](identity.http.db.test.ts) | test | Golden contract tests for the five `/api/me` route files carrying seven methods, written against today's legacy handlers; they must stay green, unchanged, after the port. | — |
-| [identity.fixtures.server.ts](identity.fixtures.server.ts) | fixtures | Legal row builders for the db tests (`seedIdentitySettings`, `seedIdentitySparseSettings`, `seedIdentityApiToken`, `seedIdentitySession`, `seedIdentityCalendar`, `seedIdentityFamily`, `seedIdentityConsent`) plus `IDENTITY_SEEDED_AT`, the instant they all write. `seedIdentityCalendar` exists because `defaultCalendarId` is a real FK; `seedIdentityFamily` because the access check reads family membership; `seedIdentitySparseSettings` reproduces the `{userId, timeZone}` row every sign-up path writes. | used by the golden |
+| [identity.fixtures.server.ts](identity.fixtures.server.ts) | fixtures | Legal row builders for the db tests (`seedIdentitySettings`, `seedIdentitySparseSettings`, `seedIdentityApiToken`, `seedIdentitySession`, `seedIdentityCalendar`, `seedIdentityFamily`, `seedIdentityConsent`) plus `IDENTITY_SEEDED_AT`, the instant the settings, token and consent builders write. `seedIdentityCalendar` exists because `defaultCalendarId` is a real FK; `seedIdentityFamily` because the access check reads family membership; `seedIdentitySparseSettings` reproduces the `{userId, timeZone}` row every sign-up path writes. | used by the golden |
 
 ## Public interface
 
@@ -60,7 +60,7 @@ Deferred access primitives: `createPersonWithPassword` (the atomic users + `auth
 - Database + services: `*.db.test.ts` using `rollbackTest` and `testCtx({ db })` (needs Postgres: `docker start familycalendar-db`).
 - HTTP contract: `identity.http.db.test.ts` pins status + body of every endpoint (golden tests). Committed mode (`beforeEach(truncateAll)`) because legacy handlers write through the `db` singleton.
 - UI: `ui/*.svelte.test.ts` render with props; state classes are tested without a DOM.
-- Fixtures: `identity.fixtures.server.ts` (`seedIdentitySettings`, `seedIdentitySparseSettings`, `seedIdentityApiToken`, `seedIdentitySession`, `seedIdentityCalendar`, `seedIdentityFamily`, `seedIdentityConsent`; `seedIdentityPerson` / `seedIdentityEmailCode` join when the service tests need them). Every builder writes `IDENTITY_SEEDED_AT` so a golden pins exact timestamp strings.
+- Fixtures: `identity.fixtures.server.ts` (`seedIdentitySettings`, `seedIdentitySparseSettings`, `seedIdentityApiToken`, `seedIdentitySession`, `seedIdentityCalendar`, `seedIdentityFamily`, `seedIdentityConsent`; `seedIdentityPerson` / `seedIdentityEmailCode` join when the service tests need them). The settings, token and consent builders write `IDENTITY_SEEDED_AT` so a golden pins exact timestamp strings.
 
 ## Invariants
 

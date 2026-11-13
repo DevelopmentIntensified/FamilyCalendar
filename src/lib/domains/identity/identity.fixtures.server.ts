@@ -7,8 +7,10 @@
  * (`seedIdentityFamily`), and a sign-up creates a sparse settings row that a
  * plain default-carrying insert cannot reproduce (`seedIdentitySparseSettings`).
  *
- * Every builder writes `IDENTITY_SEEDED_AT`, so a golden pins the exact wire
- * rendering of `updatedAt`/`createdAt`/`lastUsedAt` instead of a shape.
+ * The settings, token and consent builders write `IDENTITY_SEEDED_AT`, so a
+ * golden pins the exact wire rendering of `updatedAt`/`createdAt`/`lastUsedAt`/
+ * `recordedAt` instead of a shape; the session, calendar and family builders
+ * leave their timestamps to the column defaults (`defaultNow()`).
  *
  * Doc: ./README.md#how-to-test
  */
@@ -24,7 +26,7 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { testDb } from '$lib/kernel/testing/testDb.server';
 
-/** The instant every builder writes; goldens assert this exact string. */
+/** The instant the settings, token and consent builders write; goldens assert this exact string. */
 export const IDENTITY_SEEDED_AT = '2026-10-07T13:00:00.000Z';
 const seededAt = new Date(IDENTITY_SEEDED_AT);
 
