@@ -3,6 +3,10 @@
  * receives them through `ctx` (kernel/ctx). `src/hooks.server.ts` puts
  * `appCtx` on `event.locals.ctx` for every request.
  *
+ * Cross-module ports (a domain reading another domain's rows) are attached by
+ * `wirePorts` (./ports.server.ts), the one place they are chosen; the `/api`
+ * goldens get the same adapters through `goldenCtx` (./testing/goldenCtx.server.ts).
+ *
  * TRANSITION BRIDGES (each line names the task that removes it — see
  * docs/rewrite/LEDGER.md):
  * - db       legacy pooled singleton, so ported and unported code share one
@@ -25,6 +29,7 @@ import { rateLimit } from '$lib/server/utils/rateLimit';
 import type { Ctx, Fault } from '$lib/kernel/ctx/ctx.server';
 import { systemIds } from '$lib/kernel/ids/ids';
 import { systemClock } from '$lib/kernel/time/clock';
+import { wirePorts } from './ports.server';
 
 function fileFault(fault: Fault): void {
 	try {
@@ -40,7 +45,7 @@ function fileFault(fault: Fault): void {
 	}
 }
 
-export const appCtx: Ctx = {
+export const appCtx = wirePorts({
 	db,
 	clock: systemClock,
 	ids: systemIds,
@@ -52,4 +57,4 @@ export const appCtx: Ctx = {
 	limiter: { allow: (key, limit, windowMs) => rateLimit(key, limit, windowMs) },
 	faults: { report: fileFault },
 	config: { cronSecret: process.env.CRON_SECRET ?? null }
-};
+} satisfies Ctx);

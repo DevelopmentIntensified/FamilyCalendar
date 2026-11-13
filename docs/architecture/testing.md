@@ -65,6 +65,8 @@ Every `/api/**` endpoint is a public contract. The Android app and TaskFocus par
 
 The test must pass on legacy code before the port starts, and must keep passing, unchanged, after the route file points at the new module. The full procedure is in [characterize-endpoints.md](../rewrite/playbooks/characterize-endpoints.md).
 
+Golden tests build their ctx with `goldenCtx` from `$lib/app/testing/goldenCtx.server`, not `testCtx`: it is `testCtx` plus the real cross-module adapters wired in [ports.server.ts](../../src/lib/app/ports.server.ts), so a ported handler's `ctx.calendarAccess` reads and writes the rows the other module owns, exactly as production does. Create one ctx per test; a rate-budget test reuses one ctx for its whole burst.
+
 ## Test doubles
 
 - **Database:** real Postgres, never a query-builder stub (rule R9 bans `vi.mock`).

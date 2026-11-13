@@ -1,4 +1,4 @@
-# Playbook: kernel tasks (K-04 … K-11)
+# Playbook: kernel tasks (K-04 … K-12)
 
 Kernel tasks build shared pieces once, before the modules that need them. Each new kernel file gets a test and a row in the [kernel README](../../../src/lib/kernel/README.md) Files table, in the same commit.
 
@@ -177,3 +177,15 @@ Baseline and check must run on the same day, because pages show today's date. If
 6. Document it in `e2e/pages/README.md` and [testing.md](../../architecture/testing.md#gates).
 
 **Done when:** the baseline covers every catalog page, and two runs of `npm run perf:check -- groceries` give medians within 15% of each other.
+
+## k-12
+
+**K-12: golden ctx.** Several domains declare cross-module ports in their own `index.server.ts` (family: `FamilyCalendarPort`, `MemberTasksPort`; identity: `CalendarAccessPort`, `AdConsentPort`): the module that needs the work declares the port, and the owning, higher-ranked module exports the adapter. After S6 a ported handler reads `ctx.calendarAccess`, and a frozen golden must still see the real effect — the rows the other module wrote. `testCtx` (kernel) cannot import domains, and R1 forbids a domain test importing app, so the goldens need ONE factory that attaches the real adapters, and they must switch to it inside their S2 window, before the freeze.
+
+1. Add `src/lib/app/ports.server.ts`: `wirePorts<C extends Ctx>(ctx: C): C & AppPorts`, the one place cross-module ports are attached. `AppPorts` is empty today; each owning module's S5 adds its adapter here.
+2. Build `appCtx` through it: `export const appCtx = wirePorts({ … } satisfies Ctx)`. It stays assignable to `Ctx` for every caller (`src/hooks.server.ts` and others).
+3. Add `src/lib/app/testing/goldenCtx.server.ts`: `goldenCtx(overrides)` returns `wirePorts(testCtx(overrides))`, typed `TestCtx & AppPorts`. `/api` goldens build their ctx with it (one per test; a budget test reuses one for its burst); S5 service tests keep `testCtx` and pass a memory fake per port.
+4. Extend R1 in `scripts/arch/check.mjs`: a **test** file in a domain or screen may import `src/lib/app/testing/` and nothing else from `app`. Non-test files and every other app path keep today's error.
+5. Docs: the R1 test exception in [rules.md](../../architecture/rules.md#r1), `goldenCtx` in [testing.md](../../architecture/testing.md#golden-contract-tests-characterization) and the [characterize-endpoints](characterize-endpoints.md) template, the "Domain ports" section in [add-a-port.md](add-a-port.md#domain-ports), and the two new files in the [app README](../../../src/lib/app/README.md). Do not edit any `*.http.db.test.ts`, the LEDGER or [questions.md](../questions.md): the orchestrator sweeps the goldens once in-flight work merges.
+
+**Check:** `npm run arch && npm run docs:check && npm run typecheck`.

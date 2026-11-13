@@ -9,6 +9,7 @@ To fix a violation, change the code. Never weaken a check: `scripts/arch/*` chan
 **R1: Layering.** Kernel imports only kernel. A domain imports only domains with a lower rank (see [modules.md](modules.md)). A screen imports domains and kernel, never another screen. Only `app` imports everything.
 
 - *Why:* there can be no import cycles, and a module's dependencies are visible from its rank.
+- *Test exception:* a test file in a domain or screen may import `src/lib/app/testing/` (and nothing else from `app`) — that is where `goldenCtx` attaches the real cross-module ports a frozen `/api` golden has to see.
 - *Fix:* if a lower module needs something from a higher one, invert the dependency:
   - the caller passes a callback or a value;
   - the dependency becomes a ctx port ([add-a-port.md](../rewrite/playbooks/add-a-port.md));

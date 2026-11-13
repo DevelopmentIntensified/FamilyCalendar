@@ -13,16 +13,16 @@ On 2026-11-11 this was verified to work against legacy handlers: `POST /api/bug-
 ```ts
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { bugReports } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 // Import the ROUTE module, not the legacy action: the route is what clients hit,
 // and after the port it re-exports the new handler, so this import never changes.
 import { POST as postBugReport } from '../../../routes/api/bug-report/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 describe('POST /api/bug-report', () => {
 	beforeEach(truncateAll);
@@ -73,7 +73,7 @@ describe('POST /api/bug-report', () => {
 
 ## Gotchas
 
-- **Rate-limited legacy routes** share one bucket map across the whole test file. Give each test its own `x-real-ip` header. After the port the limiter comes from the ctx, and `testCtx()` builds a fresh limiter on every call, so a budget test creates ONE ctx and passes it to every request of its burst: a ctx per request never reaches the limit once the handler is ported, and the golden cannot be fixed after S2.
+- **Rate-limited legacy routes** share one bucket map across the whole test file. Give each test its own `x-real-ip` header. After the port the limiter comes from the ctx, and `goldenCtx()` builds a fresh limiter on every call, so a budget test creates ONE ctx and passes it to every request of its burst: a ctx per request never reaches the limit once the handler is ported, and the golden cannot be fixed after S2.
 - **Bearer callers:** pass `via: 'token'`. That sets `actor.via` (legacy `locals.session` is already null in `invoke`).
 - **Admin routes:** seed the user with `roles: ['admin']`.
 - **Time-dependent legacy code** reads the real clock, so assert shapes, not exact dates. Pin exact dates only in S5 service tests, where `testCtx({ now })` controls time.
