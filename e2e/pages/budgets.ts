@@ -27,30 +27,65 @@ export const TARGETS = {
 	desktopRepeatReady: 300,
 	/** mobile ready, repeat visit. The mobile first visit has no target. */
 	mobileRepeatReady: 600,
-	/** server TTFB on the local database. */
+	/** server TTFB on the local database, desktop profile. */
 	ttfb: 100,
 	/** initial JS, gzip. */
 	js: 100 * 1024
 } as const;
 
 /**
- * The four hard limits `perf:check` fails on (spec step 3). Hard limits apply
- * from a module's S7: the legacy baseline may already exceed them.
+ * The hard limits `perf:check` fails on (spec step 3). Hard limits apply from a
+ * module's S7: the legacy baseline may already exceed them.
  */
 export const HARD_LIMITS = {
 	desktopReady: 1000,
 	mobileRepeatReady: 1000,
+	/**
+	 * Desktop profile only: the ADR row means server TTFB, and the mobile
+	 * profile adds 50 ms of emulated latency, so its TTFB is reported as
+	 * information rather than failed.
+	 */
 	ttfb: 300
 } as const;
 
-/** One page's committed ceiling: it may only shrink. */
+/**
+ * The initial-JS ceiling is checked with 2% slack: response headers add ~300 B
+ * per request and gzip output moves a little between builds, neither of which
+ * is the page shipping more code.
+ */
+export const JS_CEILING_TOLERANCE = 0.02;
+
+/**
+ * The numbers committed per page: what each profile measured, then the single
+ * ceiling the next runs must not exceed. Mirrors `perf-report.ts`'s `Visit` /
+ * `RepeatVisit`; repeated here so this module stays importable on its own.
+ */
+export type BaselineVisit = {
+	/** Navigation start → the `ready` selector visible, ms. */
+	ready: number;
+	/** Time to first byte from navigation timing, ms. */
+	ttfb: number;
+	/** Largest Contentful Paint, ms from navigation start. */
+	lcp: number;
+	/** Transferred bytes up to the load event: initial JS, gzip. */
+	js: number;
+	/** Transferred bytes up to the load event: the HTML document, gzip. */
+	html: number;
+	/** Transferred bytes up to the load event: page data, gzip. */
+	data: number;
+};
+
+export type BaselineRepeat = { ready: number; lcp: number };
+
+export type BaselineProfile = { first: BaselineVisit; repeat: BaselineRepeat };
+
+/** One page's committed numbers: it may only shrink. */
 export type BaselinePage = {
 	module: string;
 	name: string;
 	path: string;
-	/** Initial JS (gzip, median) the legacy page transferred, per profile. */
-	js: { desktop: number; mobile: number };
-	/** The larger of the two: one ceiling per page, whichever profile measured it. */
+	profiles: Record<'desktop' | 'mobile', BaselineProfile>;
+	/** The larger profile's initial JS: one ceiling per page, may only shrink. */
 	ceiling: number;
 };
 
@@ -58,7 +93,7 @@ export type BaselinePage = {
 export type Baseline = {
 	generatedAt: string;
 	runs: number;
-	/** Keyed by `<module>/<name>` (`baselineKey`). */
+	/** Keyed by `baselineKey()`. */
 	pages: Record<string, BaselinePage>;
 };
 
@@ -81,7 +116,7 @@ export function loadBaseline(path: string = BASELINE_PATH): Baseline | undefined
 	return JSON.parse(text) as Baseline;
 }
 
-/** The baseline's page key: a name is unique within its module only. */
+/** The one page key: a name is unique within its module only. */
 export function baselineKey(page: { module: string; name: string }): string {
 	return `${page.module}/${page.name}`;
 }

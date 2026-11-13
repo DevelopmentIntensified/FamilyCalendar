@@ -43,12 +43,6 @@ export async function openAs(page: Page, seed: SeedName): Promise<SeedResult> {
 }
 
 /**
- * Pages whose `navigator.onLine` is already pinned: the getter is
- * non-configurable, so a second init script on the same page would throw.
- */
-const ONLINE_PINNED = new WeakSet<Page>();
-
-/**
  * The subset of GET /api/me this helper asserts against.
  */
 type MePayload = { email: string | null; isAnonymous: boolean };
@@ -65,12 +59,14 @@ type MePayload = { email: string | null; isAnonymous: boolean };
  * here and run `expectSignedIn` afterwards without the check counting.
  */
 export async function gotoPage(page: Page, entry: PageEntry, seed: SeedResult): Promise<void> {
-	if (!ONLINE_PINNED.has(page)) {
-		ONLINE_PINNED.add(page);
-		await page.addInitScript(() => {
-			Object.defineProperty(Navigator.prototype, 'onLine', { get: () => true });
+	// `configurable: true`: gotoPage may run twice on one page (first and repeat
+	// visit), and each navigation re-runs every init script.
+	await page.addInitScript(() => {
+		Object.defineProperty(Navigator.prototype, 'onLine', {
+			configurable: true,
+			get: () => true
 		});
-	}
+	});
 
 	await page.goto(resolvePath(entry.path, seed.params));
 	await page.locator(entry.ready).first().waitFor({ state: 'visible' });

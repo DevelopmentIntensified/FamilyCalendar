@@ -51,7 +51,10 @@ export default defineConfig({
 		{
 			name: 'chromium',
 			use: { ...devices['Desktop Chrome'] },
-			testIgnore: '**/mobile/*'
+			// e2e/pages is the K-10/K-11 harness: it has its own config, server
+			// and database (playwright.pages.config.ts), so the main run must not
+			// pick its specs up against the dev database.
+			testIgnore: ['**/mobile/*', '**/pages/**']
 		},
 		{
 			name: 'mobile-chromium',

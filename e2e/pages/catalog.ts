@@ -31,7 +31,12 @@ export type PageEntry = {
 	 */
 	landsOn?: string;
 	seed: SeedName;
-	/** Selector that appears once the page is usable and its data arrived. */
+	/**
+	 * Selector that appears once the page is usable and its data arrived. A
+	 * plain CSS selector: the perf probe matches it with
+	 * `document.querySelector` and the visual spec with `page.locator`, so a
+	 * Playwright-only selector (`:has-text()`, `text=`) would never mark.
+	 */
 	ready: string;
 	/** Selectors of self-changing regions, hidden before the screenshot. */
 	mask?: string[];

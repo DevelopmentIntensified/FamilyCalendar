@@ -14,7 +14,7 @@ import {
 	type CDPSession,
 	type Page
 } from '@playwright/test';
-import { RUNS } from './budgets';
+import { RUNS, baselineKey } from './budgets';
 import type { PageEntry } from './catalog';
 import { PAGES_BASE_URL } from './env';
 import {
@@ -137,12 +137,19 @@ async function measureRun(
 		await installReadyProbe(page, entry.ready);
 
 		await gotoPage(page, entry, seed);
-		const first = await readVisit(page, bytes);
-		// A network round trip, deliberately after the measurement window closed.
+		const marks = await readMarks(page, entry);
+		// One fixed byte cut-off: everything transferred up to the load event is
+		// "initial"; lazy chunks after it do not count.
+		await page.waitForLoadState('load');
+		const first: Visit = { ...marks, ...bytes.snapshot() };
+		// A network round trip, deliberately outside the measured window.
 		await expectSignedIn(page, entry, seed);
 
+		// A same-URL goto is a reload in Chromium; every page gets an ordinary
+		// navigation, starting from a blank document.
+		await page.goto('about:blank');
 		await gotoPage(page, entry, seed);
-		const again = await readVisit(page, bytes);
+		const again = await readMarks(page, entry);
 		return { first, repeat: { ready: again.ready, lcp: again.lcp } };
 	} finally {
 		await context.close();
@@ -179,82 +186,101 @@ function createByteCounter(cdp: CDPSession, origin: string): ByteCounter {
 		requests.delete(event.requestId);
 		// Only the app's own origin counts; the harness never loads a CDN.
 		if (!request.url.startsWith(origin)) return;
+		// Page data: SvelteKit's `__data.json`, or any same-origin Fetch/XHR
+		// (an SSR first visit inlines its data, so `__data.json` alone reads 0).
+		if (request.url.includes('__data.json') || request.type === 'Fetch' || request.type === 'XHR') {
+			bytes.data += event.encodedDataLength;
+			return;
+		}
 		if (request.type === 'Document') bytes.html += event.encodedDataLength;
 		if (request.type === 'Script') bytes.js += event.encodedDataLength;
-		if (request.url.includes('__data.json')) bytes.data += event.encodedDataLength;
 	});
 
 	return { snapshot: () => ({ ...bytes }) };
 }
 
+/** The marks a visit is judged on, read from the document itself. */
+type Marks = Pick<Visit, 'ready' | 'lcp' | 'ttfb'>;
+
 /**
  * Mark the moment the catalog entry's `ready` selector becomes visible, and
  * keep the latest LCP entry, inside the document — Playwright's own wait adds
  * IPC latency, and the checks after the arrival must not stretch the window.
- * Init scripts run on every navigation, so the repeat visit gets its own mark.
+ * The probe matches the selector with `document.querySelector`, so a catalog
+ * entry must use a plain CSS selector. Init scripts run on every navigation,
+ * so the repeat visit gets its own mark.
  */
 async function installReadyProbe(page: Page, selector: string): Promise<void> {
 	await page.addInitScript((readySelector: string) => {
-		const state: { readyAt: number | null; lcp: number } = { readyAt: null, lcp: 0 };
+		const state: { readyAt: number | null; lcp: number | null } = { readyAt: null, lcp: null };
+		const observer = new PerformanceObserver((entries) => {
+			for (const entry of entries.getEntries()) {
+				state.lcp = Math.max(state.lcp ?? 0, entry.startTime);
+			}
+		});
+		observer.observe({ type: 'largest-contentful-paint', buffered: true });
 		// A named boundary rather than an inline cast: the probe is ours, the
 		// window type is the browser's.
-		const scope = window as unknown as { __pagePerf?: typeof state };
-		scope.__pagePerf = state;
-
-		new PerformanceObserver((entries) => {
-			for (const entry of entries.getEntries()) state.lcp = Math.max(state.lcp, entry.startTime);
-		}).observe({ type: 'largest-contentful-paint', buffered: true });
-
-		const mark = () => {
-			if (state.readyAt !== null) return true;
-			const element = document.querySelector(readySelector);
-			if (!element) return false;
-			const rect = element.getBoundingClientRect();
-			// The same visible test Playwright's waitFor uses: a box, not hidden.
-			if (rect.width === 0 || rect.height === 0) return false;
-			if (getComputedStyle(element).visibility === 'hidden') return false;
-			state.readyAt = performance.now();
-			return true;
+		const scope = window as unknown as {
+			__pagePerf?: { state: typeof state; observer: PerformanceObserver };
 		};
+		scope.__pagePerf = { state, observer };
 
-		if (mark()) return;
-		// Data arriving is a DOM mutation; a layout-only appearance is a frame.
-		const observer = new MutationObserver(() => {
-			if (mark()) observer.disconnect();
-		});
-		observer.observe(document, {
-			childList: true,
-			subtree: true,
-			attributes: true,
-			characterData: true
-		});
+		// rAF only, deliberately: it does not run while rendering is blocked, so
+		// the mark lands on a frame the ready element could actually paint.
 		const tick = () => {
-			if (!mark()) requestAnimationFrame(tick);
+			if (state.readyAt === null) {
+				const element = document.querySelector(readySelector);
+				if (element) {
+					const rect = element.getBoundingClientRect();
+					const hidden = getComputedStyle(element).visibility === 'hidden';
+					if (rect.width > 0 && rect.height > 0 && !hidden) state.readyAt = performance.now();
+				}
+			}
+			if (state.readyAt === null) requestAnimationFrame(tick);
 		};
 		requestAnimationFrame(tick);
 	}, selector);
 }
 
-/** The current document's marks and navigation timing, plus the byte totals. */
-async function readVisit(page: Page, bytes: ByteCounter): Promise<Visit> {
-	const timing = await page.evaluate(async () => {
-		// One frame, so the LCP observer's callback for the ready paint ran.
+/**
+ * Read the visit's marks after two animation frames and a task, so the LCP
+ * observer has delivered the ready paint; `takeRecords()` catches anything
+ * still queued. Every value must exist: a missing mark is a harness bug, not a
+ * zero to average.
+ */
+async function readMarks(page: Page, entry: PageEntry): Promise<Marks> {
+	return page.evaluate(async (pageName: string) => {
 		await new Promise(requestAnimationFrame);
+		await new Promise(requestAnimationFrame);
+		// A task boundary: PerformanceObserver records queued for the frame land.
+		await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
 		// A named boundary rather than an inline cast: the probe is ours.
 		const scope = window as unknown as {
-			__pagePerf?: { readyAt: number | null; lcp: number };
+			__pagePerf?: {
+				state: { readyAt: number | null; lcp: number | null };
+				observer: PerformanceObserver;
+			};
 		};
 		const probe = scope.__pagePerf;
+		if (!probe) throw new Error(`${pageName}: the perf probe did not run`);
+
+		for (const record of probe.observer.takeRecords()) {
+			probe.state.lcp = Math.max(probe.state.lcp ?? 0, record.startTime);
+		}
+		const { readyAt, lcp } = probe.state;
+		if (readyAt === null) {
+			throw new Error(`${pageName}: the ready selector never became visible`);
+		}
+		if (lcp === null) {
+			throw new Error(`${pageName}: no largest-contentful-paint entry`);
+		}
 		const navigation = performance.getEntriesByType('navigation')[0] as
 			| PerformanceNavigationTiming
 			| undefined;
-		return {
-			// A probe that never marked means our visible test and Playwright's
-			// disagreed; report now rather than a hole.
-			ready: probe?.readyAt ?? performance.now(),
-			lcp: probe?.lcp ?? 0,
-			ttfb: navigation?.responseStart ?? 0
-		};
-	});
-	return { ...timing, ...bytes.snapshot() };
+		if (!navigation) throw new Error(`${pageName}: no navigation timing entry`);
+
+		return { ready: readyAt, lcp, ttfb: navigation.responseStart };
+	}, baselineKey(entry));
 }

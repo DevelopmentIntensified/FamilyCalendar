@@ -1,10 +1,12 @@
-// Playwright config for the page harness (K-10): the visual baseline/check that
-// later powers the perf harness (K-11). The main playwright.config.ts is
-// untouched — this config runs its own server, its own database and its own
-// baselines, so an e2e run and a visual run never share state.
+// Playwright config for the page harness (K-10 visual, K-11 perf). The main
+// playwright.config.ts ignores e2e/pages — this config runs its own server, its
+// own database and its own baselines, so an e2e run and a harness run never
+// share state.
 //
 //   npm run visual:baseline -- groceries   (writes e2e/pages/__screenshots__)
 //   npm run visual:check -- groceries      (compares)
+//   npm run perf:check -- groceries        (fails on an ADR 0010 hard limit)
+//   npm run perf:baseline                  (all pages; writes the perf baseline)
 //
 // Doc: e2e/pages/README.md
 import { defineConfig, devices } from '@playwright/test';
