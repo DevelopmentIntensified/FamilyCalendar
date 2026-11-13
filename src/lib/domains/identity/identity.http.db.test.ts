@@ -50,11 +50,19 @@ import {
 const iso = () => expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 
 /**
+ * `Array.isArray` narrows to `any[]`, which leaves `readonly JsonValue[]` in a
+ * JSON union; this guard takes it out.
+ */
+function isJsonArray(value: JsonValue | null | undefined): value is readonly JsonValue[] {
+	return Array.isArray(value);
+}
+
+/**
  * Narrow a JSON body without a cast: a wrong shape fails the test with the
  * value it read, which is what a golden should say when the wire moves.
  */
 function jsonObject(value: JsonValue | null): { readonly [key: string]: JsonValue } {
-	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+	if (typeof value !== 'object' || value === null || isJsonArray(value)) {
 		throw new Error(`expected a JSON object, got ${JSON.stringify(value)}`);
 	}
 	return value;
