@@ -34,3 +34,24 @@ A **port** is a side-effect dependency that services reach through `ctx`, so tes
 7. **Docs:** add both files to the kernel README Files table, and add the port to "Ctx and actor". Mention the new config field in the app README.
 
 **Check:** `npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run typecheck`. Commit `rewrite(kernel): add mail port`, as part of the module task that needed it.
+
+## Domain ports
+
+The table above is for dependencies kernel owns. A port between **domains** is different: the module that *needs* the work declares it, in its own `index.server.ts`, because it may not import the owning module (R1):
+
+```ts
+// src/lib/domains/identity/index.server.ts
+export type CalendarAccessPort = { ... };
+export type AdConsentPort = { ... };
+export type IdentityPorts = {
+	readonly calendarAccess: CalendarAccessPort;
+	readonly adConsent: AdConsentPort;
+};
+export type IdentityCtx = Ctx & IdentityPorts;
+```
+
+- **Declared by the needing module:** `<M>Ports` and `<M>Ctx = Ctx & <M>Ports`; its services take `<M>Ctx`. family plans `FamilyCalendarPort` / `MemberTasksPort`, identity plans `CalendarAccessPort` / `AdConsentPort`.
+- **Adapter exported by the owning module:** the higher-ranked domain implements the type over its own services and exports the factory from its `index.server.ts`.
+- **Wired once:** [src/lib/app/ports.server.ts](../../../src/lib/app/ports.server.ts) — its `wirePorts(ctx)` returns the ctx plus `AppPorts`, and an owning module's S5 adds its adapter there. Nothing else chooses it.
+- **S5 service tests** keep `testCtx` and pass a memory fake for each port they exercise (`{ ...testCtx({ db }), calendarAccess: memoryCalendarAccess() }`), asserting on what the fake recorded.
+- **`/api` goldens** call `goldenCtx` ([goldenCtx.server.ts](../../../src/lib/app/testing/goldenCtx.server.ts)), which is `testCtx` plus every real adapter, so a frozen golden sees the rows the other module actually wrote.

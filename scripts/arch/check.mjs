@@ -174,7 +174,10 @@ for (const file of files) {
 
 		if (!isV2(target)) continue;
 
-		// R1 — layering
+		// R1 — layering. A TEST file in a domain or screen may import the app
+		// testing factory (goldenCtx attaches the real cross-module ports);
+		// nothing else in app.
+		const appTesting = test && target.startsWith('src/lib/app/testing/');
 		if (here.area === 'kernel' && there.area !== 'kernel') {
 			add('R1', file, imp.line, `kernel imports '${target}' — kernel may import only kernel`);
 		} else if (here.area === 'domain' && there.area === 'domain' && there.module !== here.module) {
@@ -186,7 +189,11 @@ for (const file of files) {
 					`domain '${here.module}' (rank ${RANK[here.module]}) imports '${there.module}' (rank ${RANK[there.module]}) — domains import only LOWER ranks; invert with a ctx port, a callback, or a Svelte snippet`
 				);
 			}
-		} else if (here.area === 'domain' && (there.area === 'screen' || there.area === 'app')) {
+		} else if (
+			here.area === 'domain' &&
+			(there.area === 'screen' || there.area === 'app') &&
+			!appTesting
+		) {
 			add(
 				'R1',
 				file,
@@ -195,7 +202,8 @@ for (const file of files) {
 			);
 		} else if (
 			here.area === 'screen' &&
-			(there.area === 'app' || (there.area === 'screen' && there.module !== here.module))
+			(there.area === 'app' || (there.area === 'screen' && there.module !== here.module)) &&
+			!appTesting
 		) {
 			add(
 				'R1',

@@ -17,6 +17,8 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | file | role | what it does, and why it exists | tested by |
 |---|---|---|---|
 | [appCtx.server.ts](appCtx.server.ts) | composition | Builds the process-wide `Ctx`. Each bridge to legacy code is listed with the ledger task that removes it: the limiter must keep sharing legacy buckets until `access` is ported, and fault filing moves to the `feedback` service. | `src/hooks.server.test.ts` (legacy suite) runs the hooks that install it |
+| [ports.server.ts](ports.server.ts) | composition | `wirePorts(ctx)` is the ONE place a domain's cross-module port is attached to a ctx: a domain declares the port in its `index.server.ts` and the owning module exports the adapter (family's and identity's planned first). `AppPorts` is empty today; each owning module's S5 adds its adapter here. | exercised through `goldenCtx` and the goldens that read a ported handler's effect |
+| [testing/goldenCtx.server.ts](testing/goldenCtx.server.ts) | test harness | `goldenCtx(overrides)` = `testCtx` plus the real adapters, so a frozen `/api` golden sees the rows the other module writes. S5 service tests keep `testCtx` with memory fakes. | `src/lib/{domains,screens}/*/*.http.db.test.ts` (the goldens) |
 
 ## Public interface
 
