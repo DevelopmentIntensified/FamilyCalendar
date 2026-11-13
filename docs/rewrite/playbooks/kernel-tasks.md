@@ -144,7 +144,7 @@ kernel/ui components never import `$app/*` or any domain.
 6. `e2e/pages/visual.spec.ts`: for each catalog page of the module named by the `PAGES_MODULE` env (all pages when it is unset): `openAs`, `gotoReady`, `waitForLoadState('networkidle')` (here only — K-11 must not wait for idle), then `expect(page).toHaveScreenshot()` with the masks, animations disabled and `maxDiffPixelRatio: 0.002`. Baselines live in `e2e/pages/__screenshots__/` and are committed.
 7. npm scripts:
    - `pages:build` runs `npm run build:safe` and records `git rev-parse HEAD` next to the build output (`.svelte-kit/pages-build-head`; `serve.ts` warns when HEAD has moved since);
-   - `visual:baseline -- <module>` and `visual:check -- <module>` run the spec for that module, with `--update-snapshots` for the baseline. They go through a small node script that sets `PAGES_MODULE`.
+   - `visual:baseline -- <module>` and `visual:check -- <module>` run the spec for that module, with `--update-snapshots=all` for the baseline (every snapshot rewritten). They go through a small node script that sets `PAGES_MODULE`.
 8. `e2e/pages/README.md` lists every file (what, why, how it is tested). Add the harness to [testing.md](../../architecture/testing.md#what-to-test-where).
 
 Baseline and check must run on the same day, because pages show today's date. If more time passes, recreate the baseline from the module's S2 commit in a temporary worktree.
