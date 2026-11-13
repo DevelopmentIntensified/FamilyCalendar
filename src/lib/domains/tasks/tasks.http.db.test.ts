@@ -15,10 +15,7 @@ import {
 	notifications,
 	taskCategories,
 	taskCompletions,
-	taskfocusSessions,
-	tasks,
-	taskTags,
-	userSettings
+	tasks
 } from '$lib/kernel/db/tables.server';
 import type { Db } from '$lib/kernel/db/database.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
@@ -26,7 +23,16 @@ import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
-import { addMember, seedCategory, seedTaskFamily, seedTask } from './tasks.fixtures.server';
+import {
+	addMember,
+	seedTaskCategory,
+	seedTask,
+	seedTaskCompletion,
+	seedTaskFamily,
+	seedTaskFocusSession,
+	seedTaskTags,
+	seedUserZone
+} from './tasks.fixtures.server';
 // Route modules, not actions: after the port these re-export the new handlers,
 // so the imports never change (characterize-endpoints.md).
 import { GET as getTasks, POST as postTask } from '../../../routes/api/tasks/+server';
@@ -44,6 +50,21 @@ import {
 
 const ctx = () => testCtx({ db: testDb() });
 const ISO = /^\d{4}-\d{2}-\d{2}T/;
+/** The day legacy uses when the caller has no stored zone: UTC (`new Date().toISOString()`). */
+const utcToday = () => DateTime.now().toUTC().startOf('day');
+/**
+ * A `mode:'string'` timestamptz exactly as Postgres renders it. The `+00`
+ * depends on the Postgres session TimeZone, which docker and production both
+ * set to UTC (docs/rewrite/modules/tasks.md).
+ */
+const pgTime = (instant: DateTime) => `${instant.toUTC().toFormat('yyyy-MM-dd HH:mm:ss')}+00`;
+
+function jsonObject(value: unknown): Record<string, unknown> {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		throw new Error(`expected a JSON object, got ${JSON.stringify(value)}`);
+	}
+	return value as Record<string, unknown>;
+}
 
 async function seedCalendar(db: Db, values: typeof calendars.$inferInsert) {
 	const [row] = await db.insert(calendars).values(values).returning();
@@ -60,7 +81,7 @@ describe('GET /api/tasks', () => {
 
 	it('returns the caller`s task with tags, event calendar and phone focus', async () => {
 		const db = testDb();
-		const mia = await seedUser(db, { firstName: 'Mia' });
+		const mia = await seedUser(db, { firstName: 'Mia', lastName: 'Diaz' });
 		const task = await seedTask(db, {
 			title: 'Buy milk',
 			notes: '2 litres',
@@ -72,40 +93,37 @@ describe('GET /api/tasks', () => {
 			createdAt: new Date('2026-01-02T00:00:00.000Z'),
 			userId: mia.id
 		});
-		await db.insert(taskTags).values([
-			{ taskId: task.id, name: 'milk' },
-			{ taskId: task.id, name: 'shopping' }
-		]);
+		// Written out of alphabetical order: the wire sorts tags, it never
+		// echoes the write order.
+		await seedTaskTags(db, task.id, ['shopping', 'milk']);
 		// Two closed 90 s phone sessions floor to 3 minutes (#293), an absorbed
 		// one and another user's one are ignored.
-		const sam = await seedUser(db, { firstName: 'Sam' });
-		await db.insert(taskfocusSessions).values([
-			{
-				userId: mia.id,
-				taskId: task.id,
-				startedAt: new Date('2026-01-03T10:00:00.000Z'),
-				endedAt: new Date('2026-01-03T10:01:30.000Z')
-			},
-			{
-				userId: mia.id,
-				taskId: task.id,
-				startedAt: new Date('2026-01-04T10:00:00.000Z'),
-				endedAt: new Date('2026-01-04T10:01:30.000Z')
-			},
-			{
-				userId: mia.id,
-				taskId: task.id,
-				startedAt: new Date('2026-01-05T10:00:00.000Z'),
-				endedAt: new Date('2026-01-05T10:05:00.000Z'),
-				absorbedAt: new Date('2026-01-06T10:00:00.000Z')
-			},
-			{
-				userId: sam.id,
-				taskId: task.id,
-				startedAt: new Date('2026-01-07T10:00:00.000Z'),
-				endedAt: new Date('2026-01-07T10:09:00.000Z')
-			}
-		]);
+		const sam = await seedUser(db, { firstName: 'Sam', lastName: 'Roy' });
+		await seedTaskFocusSession(db, {
+			userId: mia.id,
+			taskId: task.id,
+			startedAt: new Date('2026-01-03T10:00:00.000Z'),
+			endedAt: new Date('2026-01-03T10:01:30.000Z')
+		});
+		await seedTaskFocusSession(db, {
+			userId: mia.id,
+			taskId: task.id,
+			startedAt: new Date('2026-01-04T10:00:00.000Z'),
+			endedAt: new Date('2026-01-04T10:01:30.000Z')
+		});
+		await seedTaskFocusSession(db, {
+			userId: mia.id,
+			taskId: task.id,
+			startedAt: new Date('2026-01-05T10:00:00.000Z'),
+			endedAt: new Date('2026-01-05T10:05:00.000Z'),
+			absorbedAt: new Date('2026-01-06T10:00:00.000Z')
+		});
+		await seedTaskFocusSession(db, {
+			userId: sam.id,
+			taskId: task.id,
+			startedAt: new Date('2026-01-07T10:00:00.000Z'),
+			endedAt: new Date('2026-01-07T10:09:00.000Z')
+		});
 
 		const res = await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
 
@@ -116,7 +134,7 @@ describe('GET /api/tasks', () => {
 					id: task.id,
 					title: 'Buy milk',
 					notes: '2 litres',
-					dueDate: expect.stringMatching(/^2026-02-01/),
+					dueDate: '2026-02-01 10:00:00+00',
 					completedAt: null,
 					archivedAt: null,
 					recurrenceFrequency: null,
@@ -134,13 +152,77 @@ describe('GET /api/tasks', () => {
 					userId: mia.id,
 					familyId: null,
 					eventId: null,
-					createdAt: expect.stringMatching(ISO),
+					createdAt: '2026-01-02T00:00:00.000Z',
 					eventTitle: null,
 					eventStart: null,
 					eventCalendarId: null,
 					tags: ['milk', 'shopping'],
 					phoneFocusMinutes: 3,
 					phoneFocusStartedAt: null
+				}
+			]
+		});
+	});
+
+	it('attributes the parent event and starts the phone overlay from an open session', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia', lastName: 'Diaz' });
+		const calendar = await seedCalendar(db, { ownerId: mia.id });
+		const event = await seedEvent(db, {
+			ownerId: mia.id,
+			calendarId: calendar.id,
+			title: 'Dentist',
+			start: '2026-03-01T09:00:00.000Z'
+		});
+		const task = await seedTask(db, {
+			title: 'Bring forms',
+			eventId: event.id,
+			createdAt: new Date('2026-02-02T00:00:00.000Z'),
+			userId: mia.id
+		});
+		await seedTaskFocusSession(db, {
+			userId: mia.id,
+			taskId: task.id,
+			startedAt: new Date('2026-12-01T09:00:00.000Z')
+		});
+
+		const res = await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
+
+		expect(res.status).toBe(200);
+		// eventTitle/eventStart come from the joined Event row (both
+		// `mode:'string'`); an open phone session contributes the start and no
+		// minutes yet.
+		expect(res.body).toEqual({
+			tasks: [
+				{
+					id: task.id,
+					title: 'Bring forms',
+					notes: null,
+					dueDate: null,
+					completedAt: null,
+					archivedAt: null,
+					recurrenceFrequency: null,
+					recurrenceInterval: null,
+					completionCount: 0,
+					assignedTo: null,
+					assignmentStatus: 'none',
+					priority: 'normal',
+					visibility: 'public',
+					focusMinutes: null,
+					focusStartedAt: null,
+					category: null,
+					assigneeFirstName: null,
+					assigneeLastName: null,
+					userId: mia.id,
+					familyId: null,
+					eventId: event.id,
+					createdAt: '2026-02-02T00:00:00.000Z',
+					eventTitle: 'Dentist',
+					eventStart: '2026-03-01 09:00:00+00',
+					eventCalendarId: calendar.id,
+					tags: [],
+					phoneFocusMinutes: 0,
+					phoneFocusStartedAt: '2026-12-01T09:00:00.000Z'
 				}
 			]
 		});
@@ -314,25 +396,67 @@ describe('GET /api/tasks', () => {
 		});
 	});
 
-	it('pins overdue recurring rows to today-end in the token owner`s stored zone (#214)', async () => {
+	it('leaves a stale recurring event task`s cursor alone on the ?eventId= read', async () => {
+		// The event shape reads getTasksForEvent, which does NOT run the overdue
+		// pin (queries.ts:72-78): the row keeps its stored due date.
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
-		await db.insert(userSettings).values({ userId: mia.id, timeZone: 'Pacific/Kiritimati' });
+		const family = await seedTaskFamily(db);
+		await addMember(db, mia.id, family.id);
+		const calendar = await seedCalendar(db, { familyId: family.id });
+		const event = await seedEvent(db, {
+			ownerId: mia.id,
+			calendarId: calendar.id,
+			title: 'Dentist',
+			start: '2026-03-01T09:00:00.000Z'
+		});
 		const stale = await seedTask(db, {
 			title: 'Water plants',
 			dueDate: '2020-01-01T00:00:00.000Z',
 			recurrenceFrequency: 'daily',
 			recurrenceInterval: 1,
+			eventId: event.id,
+			createdAt: new Date('2026-01-01T00:00:00.000Z'),
 			userId: mia.id
 		});
 
-		await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
+		const res = await invoke(getTasks, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/tasks',
+			query: { eventId: event.id }
+		});
 
-		const [row] = await db.select().from(tasks).where(eq(tasks.id, stale.id));
-		const pinned = DateTime.fromJSDate(new Date(row.dueDate ?? '')).setZone('Pacific/Kiritimati');
-		expect(pinned.toISODate()).toBe(DateTime.now().setZone('Pacific/Kiritimati').toISODate());
-		expect([pinned.hour, pinned.minute]).toEqual([23, 59]);
-		expect(row.completionCount).toBe(0);
+		expect(res.status).toBe(200);
+		const rows = jsonObject(res.body).tasks as { dueDate: string }[];
+		expect(rows.map((row) => row.dueDate)).toEqual(['2020-01-01 00:00:00+00']);
+		const [stored] = await db.select().from(tasks).where(eq(tasks.id, stale.id));
+		expect(stored.dueDate).toBe('2020-01-01 00:00:00+00');
+	});
+
+	it('pins overdue recurring rows to today-end in the token owner`s stored zone (#214)', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		await seedUserZone(db, mia.id, 'Pacific/Kiritimati');
+		const stale = await seedTask(db, {
+			title: 'Water plants',
+			dueDate: '2020-01-01T00:00:00.000Z',
+			recurrenceFrequency: 'daily',
+			recurrenceInterval: 1,
+			createdAt: new Date('2026-01-01T00:00:00.000Z'),
+			userId: mia.id
+		});
+		const todayEnd = DateTime.now()
+			.setZone('Pacific/Kiritimati')
+			.startOf('day')
+			.set({ hour: 23, minute: 59, second: 0, millisecond: 0 });
+
+		const res = await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
+
+		expect(res.status).toBe(200);
+		const rows = jsonObject(res.body).tasks as { dueDate: string; completionCount: number }[];
+		expect(rows.map((row) => row.dueDate)).toEqual([pgTime(todayEnd)]);
+		expect(rows[0].completionCount).toBe(0);
 		expect(await db.select().from(taskCompletions)).toEqual([]);
 	});
 
@@ -343,23 +467,71 @@ describe('GET /api/tasks', () => {
 		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
-		const familyTask = await seedTask(db, {
+		await seedTask(db, {
 			title: 'Family plants',
 			dueDate: '2020-01-01T00:00:00.000Z',
 			recurrenceFrequency: 'weekly',
 			recurrenceInterval: 1,
 			familyId: family.id,
+			createdAt: new Date('2026-01-01T00:00:00.000Z'),
 			userId: sam.id
 		});
-
-		await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
-
-		const [row] = await db.select().from(tasks).where(eq(tasks.id, familyTask.id));
 		// No stored zone, so legacy falls back to `new Date().toISOString()`:
 		// the pin is 23:59 in UTC, never in the process zone.
-		const pinned = DateTime.fromJSDate(new Date(row.dueDate ?? '')).toUTC();
-		expect(pinned.toISODate()).toBe(DateTime.now().toUTC().startOf('day').toISODate());
-		expect([pinned.hour, pinned.minute]).toEqual([23, 59]);
+		const todayEnd = utcToday().set({ hour: 23, minute: 59, second: 0, millisecond: 0 });
+
+		const res = await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
+
+		expect(res.status).toBe(200);
+		const rows = jsonObject(res.body).tasks as { dueDate: string }[];
+		expect(rows.map((row) => row.dueDate)).toEqual([pgTime(todayEnd)]);
+	});
+
+	it('reads one family`s rows for a user in two families, never both (#098)', async () => {
+		// getUserFamilyId takes the first familyMembers row and has no ORDER BY
+		// (families.ts:251-257), so WHICH family is pinned by neither side today.
+		// Pinned here: the read returns one family's rows, never a merge, and the
+		// same GET answers the same body twice.
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		const sam = await seedUser(db, { firstName: 'Sam' });
+		const lee = await seedUser(db, { firstName: 'Lee' });
+		const first = await seedTaskFamily(db, 'First');
+		const second = await seedTaskFamily(db, 'Second');
+		await addMember(db, mia.id, first.id);
+		await addMember(db, mia.id, second.id);
+		await addMember(db, sam.id, first.id);
+		await addMember(db, lee.id, second.id);
+		await seedTask(db, { title: 'First chore', familyId: first.id, userId: sam.id });
+		await seedTask(db, { title: 'Second chore', familyId: second.id, userId: lee.id });
+
+		const once = await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
+		const twice = await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
+
+		expect(once.status).toBe(200);
+		expect(twice.body).toEqual(once.body);
+		const rows = jsonObject(once.body).tasks as { familyId: string }[];
+		expect(rows).toHaveLength(1);
+		expect([first.id, second.id]).toContain(rows[0].familyId);
+	});
+
+	it('answers a token caller the same list as a session caller', async () => {
+		// A Bearer `fp_…` request is the same handler with actor.via 'token':
+		// nothing in the read may branch on how the caller signed in.
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia', lastName: 'Diaz' });
+		await seedTask(db, { title: 'Phone task', userId: mia.id });
+
+		const session = await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
+		const token = await invoke(getTasks, {
+			ctx: ctx(),
+			user: mia,
+			via: 'token',
+			path: '/api/tasks'
+		});
+
+		expect(token.status).toBe(200);
+		expect(token.body).toEqual(session.body);
 	});
 });
 
@@ -368,7 +540,7 @@ describe('POST /api/tasks', () => {
 
 	it('creates a task with normalized tags, defaults and an auto-added category', async () => {
 		const db = testDb();
-		const mia = await seedUser(db, { firstName: 'Mia' });
+		const mia = await seedUser(db, { firstName: 'Mia', lastName: 'Diaz' });
 		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 
@@ -397,7 +569,7 @@ describe('POST /api/tasks', () => {
 				id: expect.any(String),
 				title: 'Buy milk',
 				notes: ' 2 litres ',
-				dueDate: expect.stringMatching(/^2026-02-01/),
+				dueDate: '2026-02-01 10:00:00+00',
 				completedAt: null,
 				archivedAt: null,
 				recurrenceFrequency: 'weekly',
@@ -451,7 +623,7 @@ describe('POST /api/tasks', () => {
 		expect(familyByTitle.get('Personal chore')).toBeNull();
 	});
 
-	it('defaults visibility to public and rejects an explicit null or unknown value', async () => {
+	it('defaults visibility to public', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 
@@ -467,8 +639,17 @@ describe('POST /api/tasks', () => {
 			success: true,
 			task: expect.objectContaining({ visibility: 'public', assignmentStatus: 'accepted' })
 		});
+	});
 
-		for (const visibility of [null, 'secret']) {
+	const invalidVisibilities: { label: string; visibility: JsonValue }[] = [
+		{ label: 'an explicit null', visibility: null },
+		{ label: 'an unknown value', visibility: 'secret' }
+	];
+	it.each(invalidVisibilities)(
+		'answers 400 Invalid visibility for $label',
+		async ({ visibility }) => {
+			const mia = await seedUser(testDb(), { firstName: 'Mia' });
+
 			const res = await invoke(postTask, {
 				ctx: ctx(),
 				user: mia,
@@ -479,7 +660,7 @@ describe('POST /api/tasks', () => {
 			expect(res.status).toBe(400);
 			expect(res.body).toEqual({ error: 'Invalid visibility' });
 		}
-	});
+	);
 
 	it('falls back to normal for an unknown priority', async () => {
 		const db = testDb();
@@ -502,8 +683,8 @@ describe('POST /api/tasks', () => {
 
 	it('assigning another family member starts a pending handoff and alerts them', async () => {
 		const db = testDb();
-		const mia = await seedUser(db, { firstName: 'Mia' });
-		const sam = await seedUser(db, { firstName: 'Sam' });
+		const mia = await seedUser(db, { firstName: 'Mia', lastName: 'Diaz' });
+		const sam = await seedUser(db, { firstName: 'Sam', lastName: 'Roy' });
 		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
@@ -567,26 +748,29 @@ describe('POST /api/tasks', () => {
 		expect(notMyFamily.body).toEqual({ error: 'Not a member of this family' });
 	});
 
-	it('rejects a bad title, dueDate and non-string eventId with the legacy 400s', async () => {
+	const badCreateBodies: { label: string; body: JsonValue; error: string }[] = [
+		{ label: 'a missing title', body: {}, error: 'Title is required' },
+		{ label: 'a blank title', body: { title: '   ' }, error: 'Title is required' },
+		{
+			label: 'an unparseable dueDate',
+			body: { title: 'X', dueDate: 'not-a-date' },
+			error: 'Invalid dueDate'
+		},
+		{ label: 'a numeric dueDate', body: { title: 'X', dueDate: 7 }, error: 'Invalid dueDate' },
+		{ label: 'a numeric eventId', body: { title: 'X', eventId: 7 }, error: 'Invalid eventId' }
+	];
+	it.each(badCreateBodies)('answers 400 $error for $label', async ({ body, error }) => {
 		const mia = await seedUser(testDb(), { firstName: 'Mia' });
-		const cases: { body: JsonValue; error: string }[] = [
-			{ body: {}, error: 'Title is required' },
-			{ body: { title: '   ' }, error: 'Title is required' },
-			{ body: { title: 'X', dueDate: 'not-a-date' }, error: 'Invalid dueDate' },
-			{ body: { title: 'X', dueDate: 7 }, error: 'Invalid dueDate' },
-			{ body: { title: 'X', eventId: 7 }, error: 'Invalid eventId' }
-		];
-		for (const testCase of cases) {
-			const res = await invoke(postTask, {
-				ctx: ctx(),
-				user: mia,
-				path: '/api/tasks',
-				method: 'POST',
-				body: testCase.body
-			});
-			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: testCase.error });
-		}
+
+		const res = await invoke(postTask, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/tasks',
+			method: 'POST',
+			body
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error });
 	});
 
 	it('answers 400 Event not found and 403 No access for an unreadable event', async () => {
@@ -677,27 +861,34 @@ describe('POST /api/tasks', () => {
 		});
 	});
 
-	it('rejects invalid focus values before writing anything', async () => {
+	const badFocusBodies: { label: string; body: JsonValue; error: string }[] = [
+		{ label: 'a negative focusMinutes', body: { title: 'X', focusMinutes: -1 }, error: 'Invalid focusMinutes' },
+		{ label: 'a fractional focusMinutes', body: { title: 'X', focusMinutes: 1.5 }, error: 'Invalid focusMinutes' },
+		{ label: 'a string focusMinutes', body: { title: 'X', focusMinutes: '30' }, error: 'Invalid focusMinutes' },
+		{
+			label: 'an unparseable focusStartedAt',
+			body: { title: 'X', focusStartedAt: 'not-a-date' },
+			error: 'Invalid focusStartedAt'
+		},
+		{
+			label: 'a numeric focusStartedAt',
+			body: { title: 'X', focusStartedAt: 42 },
+			error: 'Invalid focusStartedAt'
+		}
+	];
+	it.each(badFocusBodies)('answers 400 $error for $label, writing nothing', async ({ body, error }) => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
-		const cases: { body: JsonValue; error: string }[] = [
-			{ body: { title: 'X', focusMinutes: -1 }, error: 'Invalid focusMinutes' },
-			{ body: { title: 'X', focusMinutes: 1.5 }, error: 'Invalid focusMinutes' },
-			{ body: { title: 'X', focusMinutes: '30' }, error: 'Invalid focusMinutes' },
-			{ body: { title: 'X', focusStartedAt: 'not-a-date' }, error: 'Invalid focusStartedAt' },
-			{ body: { title: 'X', focusStartedAt: 42 }, error: 'Invalid focusStartedAt' }
-		];
-		for (const testCase of cases) {
-			const res = await invoke(postTask, {
-				ctx: ctx(),
-				user: mia,
-				path: '/api/tasks',
-				method: 'POST',
-				body: testCase.body
-			});
-			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: testCase.error });
-		}
+
+		const res = await invoke(postTask, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/tasks',
+			method: 'POST',
+			body
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error });
 		expect(await db.select().from(tasks)).toEqual([]);
 	});
 
@@ -730,25 +921,32 @@ describe('POST /api/tasks', () => {
 		});
 	});
 
-	it('rejects a bad category and stores a case variant in the list`s spelling', async () => {
+	const badCategoryBodies: { label: string; body: JsonValue; error: string }[] = [
+		{ label: 'a numeric category', body: { title: 'X', category: 7 }, error: 'category must be a string' },
+		{
+			label: 'an over-long category',
+			body: { title: 'X', category: 'x'.repeat(81) },
+			error: 'category is too long'
+		}
+	];
+	it.each(badCategoryBodies)('answers 400 $error for $label', async ({ body, error }) => {
+		const mia = await seedUser(testDb(), { firstName: 'Mia' });
+
+		const res = await invoke(postTask, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/tasks',
+			method: 'POST',
+			body
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error });
+	});
+
+	it('stores a case variant in the list`s spelling and a blank category as null', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
-		await seedCategory(db, mia.id, 'Work');
-		const cases: { body: JsonValue; error: string }[] = [
-			{ body: { title: 'X', category: 7 }, error: 'category must be a string' },
-			{ body: { title: 'X', category: 'x'.repeat(81) }, error: 'category is too long' }
-		];
-		for (const testCase of cases) {
-			const res = await invoke(postTask, {
-				ctx: ctx(),
-				user: mia,
-				path: '/api/tasks',
-				method: 'POST',
-				body: testCase.body
-			});
-			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: testCase.error });
-		}
+		await seedTaskCategory(db, mia.id, 'Work');
 
 		const res = await invoke(postTask, {
 			ctx: ctx(),
@@ -775,15 +973,21 @@ describe('POST /api/tasks', () => {
 describe('GET /api/tasks/sections', () => {
 	beforeEach(truncateAll);
 
-	it('returns the three queues with warnings', async () => {
+	it('returns the three queues as whole rows, without the list-only fields', async () => {
 		const db = testDb();
-		const mia = await seedUser(db, { firstName: 'Mia' });
-		const sam = await seedUser(db, { firstName: 'Sam' });
+		const mia = await seedUser(db, { firstName: 'Mia', lastName: 'Diaz' });
+		const sam = await seedUser(db, { firstName: 'Sam', lastName: 'Roy' });
 		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
+		const event = await seedEvent(db, {
+			ownerId: sam.id,
+			title: 'Dentist',
+			start: '2026-03-01T09:00:00.000Z'
+		});
 		const mine = await seedTask(db, {
 			title: 'Mine',
+			eventId: event.id,
 			createdAt: new Date('2026-01-02T00:00:00.000Z'),
 			userId: mia.id
 		});
@@ -811,26 +1015,176 @@ describe('GET /api/tasks/sections', () => {
 			createdAt: new Date('2026-01-05T00:00:00.000Z'),
 			userId: mia.id
 		});
+		// A stale recurring row: the hidden getUserFamilyId/getTasksForUser leg
+		// inside loadTaskSections (tasksData.ts:37) pins it BEFORE the section
+		// reads, so the row myTasks returns already carries today-end.
+		const stale = await seedTask(db, {
+			title: 'Water plants',
+			dueDate: '2020-01-01T00:00:00.000Z',
+			recurrenceFrequency: 'daily',
+			recurrenceInterval: 1,
+			createdAt: new Date('2026-01-01T00:00:00.000Z'),
+			userId: mia.id
+		});
+		// An open phone session would show up in the LIST shape; the section
+		// shape never carries the phone overlay.
+		await seedTaskFocusSession(db, {
+			userId: mia.id,
+			taskId: mine.id,
+			startedAt: new Date('2026-12-01T09:00:00.000Z')
+		});
+		const todayEnd = utcToday().set({ hour: 23, minute: 59, second: 0, millisecond: 0 });
 
 		const res = await invoke(getSections, { ctx: ctx(), user: mia, path: '/api/tasks/sections' });
 
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({
 			myTasks: [
-				expect.objectContaining({
+				{
 					id: accepted.id,
 					title: 'Assigned to me',
+					notes: null,
+					dueDate: null,
+					completedAt: null,
+					archivedAt: null,
+					recurrenceFrequency: null,
+					recurrenceInterval: null,
+					completionCount: 0,
+					assignedTo: mia.id,
+					assignmentStatus: 'accepted',
+					priority: 'normal',
+					visibility: 'public',
+					focusMinutes: null,
+					focusStartedAt: null,
+					category: null,
+					assigneeFirstName: 'Mia',
+					assigneeLastName: 'Diaz',
+					userId: sam.id,
+					familyId: family.id,
+					eventId: null,
+					createdAt: '2026-01-03T00:00:00.000Z',
+					eventTitle: null,
+					eventStart: null,
 					creatorFirstName: 'Sam',
 					tags: []
-				}),
-				expect.objectContaining({
+				},
+				{
 					id: mine.id,
 					title: 'Mine',
-					creatorFirstName: 'Mia'
-				})
+					notes: null,
+					dueDate: null,
+					completedAt: null,
+					archivedAt: null,
+					recurrenceFrequency: null,
+					recurrenceInterval: null,
+					completionCount: 0,
+					assignedTo: null,
+					assignmentStatus: 'none',
+					priority: 'normal',
+					visibility: 'public',
+					focusMinutes: null,
+					focusStartedAt: null,
+					category: null,
+					assigneeFirstName: null,
+					assigneeLastName: null,
+					userId: mia.id,
+					familyId: null,
+					eventId: event.id,
+					createdAt: '2026-01-02T00:00:00.000Z',
+					eventTitle: 'Dentist',
+					eventStart: '2026-03-01 09:00:00+00',
+					creatorFirstName: 'Mia',
+					tags: []
+				},
+				{
+					id: stale.id,
+					title: 'Water plants',
+					notes: null,
+					dueDate: pgTime(todayEnd),
+					completedAt: null,
+					archivedAt: null,
+					recurrenceFrequency: 'daily',
+					recurrenceInterval: 1,
+					completionCount: 0,
+					assignedTo: null,
+					assignmentStatus: 'none',
+					priority: 'normal',
+					visibility: 'public',
+					focusMinutes: null,
+					focusStartedAt: null,
+					category: null,
+					assigneeFirstName: null,
+					assigneeLastName: null,
+					userId: mia.id,
+					familyId: null,
+					eventId: null,
+					createdAt: '2026-01-01T00:00:00.000Z',
+					eventTitle: null,
+					eventStart: null,
+					creatorFirstName: 'Mia',
+					tags: []
+				}
 			],
-			pendingAssignments: [expect.objectContaining({ id: pending.id, title: 'Please accept' })],
-			requestedByMe: [expect.objectContaining({ id: requested.id, title: 'Asked of Sam' })],
+			pendingAssignments: [
+				{
+					id: pending.id,
+					title: 'Please accept',
+					notes: null,
+					dueDate: null,
+					completedAt: null,
+					archivedAt: null,
+					recurrenceFrequency: null,
+					recurrenceInterval: null,
+					completionCount: 0,
+					assignedTo: mia.id,
+					assignmentStatus: 'pending',
+					priority: 'normal',
+					visibility: 'public',
+					focusMinutes: null,
+					focusStartedAt: null,
+					category: null,
+					assigneeFirstName: 'Mia',
+					assigneeLastName: 'Diaz',
+					userId: sam.id,
+					familyId: family.id,
+					eventId: null,
+					createdAt: '2026-01-04T00:00:00.000Z',
+					eventTitle: null,
+					eventStart: null,
+					creatorFirstName: 'Sam',
+					tags: []
+				}
+			],
+			requestedByMe: [
+				{
+					id: requested.id,
+					title: 'Asked of Sam',
+					notes: null,
+					dueDate: null,
+					completedAt: null,
+					archivedAt: null,
+					recurrenceFrequency: null,
+					recurrenceInterval: null,
+					completionCount: 0,
+					assignedTo: sam.id,
+					assignmentStatus: 'pending',
+					priority: 'normal',
+					visibility: 'public',
+					focusMinutes: null,
+					focusStartedAt: null,
+					category: null,
+					assigneeFirstName: 'Sam',
+					assigneeLastName: 'Roy',
+					userId: mia.id,
+					familyId: family.id,
+					eventId: null,
+					createdAt: '2026-01-05T00:00:00.000Z',
+					eventTitle: null,
+					eventStart: null,
+					creatorFirstName: 'Mia',
+					tags: []
+				}
+			],
 			warnings: []
 		});
 	});
@@ -954,8 +1308,8 @@ describe('GET /api/stats', () => {
 
 	it('counts completions by actor with the legacy owner fallback (#092/#146)', async () => {
 		const db = testDb();
-		const mia = await seedUser(db, { firstName: 'Mia' });
-		const sam = await seedUser(db, { firstName: 'Sam' });
+		const mia = await seedUser(db, { firstName: 'Mia', lastName: 'Diaz' });
+		const sam = await seedUser(db, { firstName: 'Sam', lastName: 'Roy' });
 		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id, 'member', 'child');
@@ -977,12 +1331,25 @@ describe('GET /api/stats', () => {
 			completedAt: '2026-01-02T00:00:00.000Z',
 			userId: mia.id
 		});
-		await db.insert(taskCompletions).values([
-			{ taskId: first.id, userId: mia.id, actorId: mia.id, familyId: family.id },
-			{ taskId: recurring.id, userId: mia.id, actorId: mia.id, familyId: family.id },
-			{ taskId: legacy.id, userId: mia.id, actorId: null, familyId: null },
-			{ taskId: bySam.id, userId: mia.id, actorId: sam.id, familyId: family.id }
-		]);
+		await seedTaskCompletion(db, {
+			taskId: first.id,
+			userId: mia.id,
+			actorId: mia.id,
+			familyId: family.id
+		});
+		await seedTaskCompletion(db, {
+			taskId: recurring.id,
+			userId: mia.id,
+			actorId: mia.id,
+			familyId: family.id
+		});
+		await seedTaskCompletion(db, { taskId: legacy.id, userId: mia.id, actorId: null, familyId: null });
+		await seedTaskCompletion(db, {
+			taskId: bySam.id,
+			userId: mia.id,
+			actorId: sam.id,
+			familyId: family.id
+		});
 
 		const res = await invoke(getStats, { ctx: ctx(), user: mia, path: '/api/stats' });
 
@@ -1017,6 +1384,81 @@ describe('GET /api/stats', () => {
 			])
 		});
 	});
+
+	it('ranks assigners/assignees, keeps ten recent and every completion instant', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia', lastName: 'Diaz' });
+		// users.lastName is NOT NULL, so the realistic edge is an empty last name: `first || ' ' || last` keeps the trailing space.
+		const sam = await seedUser(db, { firstName: 'Sam', lastName: '' });
+		const lee = await seedUser(db, { firstName: 'Lee', lastName: 'Kai' });
+
+		// Top assigners: what OTHER people gave Mia (userId <> Mia).
+		await seedTask(db, { title: 'From Sam 1', assignedTo: mia.id, userId: sam.id });
+		await seedTask(db, { title: 'From Sam 2', assignedTo: mia.id, userId: sam.id });
+		await seedTask(db, { title: 'From Lee', assignedTo: mia.id, userId: lee.id });
+		// Top assignees: what Mia gave others (assignedTo <> Mia).
+		await seedTask(db, { title: 'To Lee 1', assignedTo: lee.id, userId: mia.id });
+		await seedTask(db, { title: 'To Lee 2', assignedTo: lee.id, userId: mia.id });
+		await seedTask(db, { title: 'To Sam', assignedTo: sam.id, userId: mia.id });
+
+		// Eleven check-offs in ONE ISO week (2026-W37), explicit instants, so the
+		// recent list has to drop the oldest and the streak has one week.
+		const instants = Array.from({ length: 11 }, (_, index) =>
+			new Date(Date.UTC(2026, 8, 7, index, 0, 0)).toISOString()
+		);
+		for (const [index, completedAt] of instants.entries()) {
+			const task = await seedTask(db, {
+				title: `Done ${String(index + 1).padStart(2, '0')}`,
+				userId: mia.id
+			});
+			await seedTaskCompletion(db, {
+				taskId: task.id,
+				userId: mia.id,
+				actorId: mia.id,
+				completedAt
+			});
+		}
+
+		const res = await invoke(getStats, { ctx: ctx(), user: mia, path: '/api/stats' });
+
+		expect(res.status).toBe(200);
+		const body = jsonObject(res.body);
+		expect(body.stats).toEqual({
+			completedOnce: 11,
+			recurringTasks: 0,
+			recurringCompletions: 0,
+			topAssigners: [
+				{ name: 'Sam ', total: 2 },
+				{ name: 'Lee Kai', total: 1 }
+			],
+			topAssignees: [
+				{ name: 'Lee Kai', total: 2 },
+				{ name: 'Sam ', total: 1 }
+			],
+			recentlyCompleted: instants
+				.slice()
+				.reverse()
+				.slice(0, 10)
+				.map((completedAt, index) => ({
+					title: `Done ${String(11 - index).padStart(2, '0')}`,
+					completedAt,
+					recurring: false
+				})),
+			month: { completed: 0, recurring: 0 },
+			doneBy: [{ name: 'Mia', count: 11 }]
+		});
+		expect(body.streak).toEqual({
+			current: 0,
+			best: 1,
+			freezeUsedInCurrentGap: false,
+			lastCompletedWeek: '2026-W37'
+		});
+		expect(body.completionIso).toEqual(instants.slice().reverse());
+		expect(body.todayIso).toEqual(expect.stringMatching(ISO));
+		expect(body.month).toEqual({ completed: 0, recurring: 0 });
+		expect(body.doneBy).toEqual([{ name: 'Mia', count: 11 }]);
+		expect(body.roster).toEqual([]);
+	});
 });
 
 describe('task categories', () => {
@@ -1026,10 +1468,10 @@ describe('task categories', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const other = await seedUser(db, { firstName: 'Other' });
-		const zebra = await seedCategory(db, mia.id, 'zebra');
-		const home = await seedCategory(db, mia.id, 'home');
-		const work = await seedCategory(db, mia.id, 'Work');
-		await seedCategory(db, other.id, 'apple');
+		const zebra = await seedTaskCategory(db, mia.id, 'zebra');
+		const home = await seedTaskCategory(db, mia.id, 'home');
+		const work = await seedTaskCategory(db, mia.id, 'Work');
+		await seedTaskCategory(db, other.id, 'apple');
 
 		const res = await invoke(getCategories, { ctx: ctx(), user: mia, path: '/api/task-categories' });
 
@@ -1061,7 +1503,7 @@ describe('task categories', () => {
 	it('adds a category idempotently, reusing the stored spelling for any case', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
-		const existing = await seedCategory(db, mia.id, 'Work');
+		const existing = await seedTaskCategory(db, mia.id, 'Work');
 
 		const created = await invoke(postCategory, {
 			ctx: ctx(),
@@ -1099,25 +1541,28 @@ describe('task categories', () => {
 		expect(await db.select().from(taskCategories)).toHaveLength(2);
 	});
 
-	it('rejects a missing, blank, non-string or over-long name (and malformed JSON)', async () => {
+	const badCategoryNames: { label: string; name?: string | number; error: string }[] = [
+		{ label: 'a missing name', error: 'name is required' },
+		{ label: 'a blank name', name: '   ', error: 'name is required' },
+		{ label: 'a numeric name', name: 7, error: 'name is required' },
+		{ label: 'an over-long name', name: 'x'.repeat(81), error: 'name is too long' }
+	];
+	it.each(badCategoryNames)('answers 400 $error for $label', async ({ name, error }) => {
 		const mia = await seedUser(testDb(), { firstName: 'Mia' });
-		const cases: { name?: string | number; error: string }[] = [
-			{ error: 'name is required' },
-			{ name: '   ', error: 'name is required' },
-			{ name: 7, error: 'name is required' },
-			{ name: 'x'.repeat(81), error: 'name is too long' }
-		];
-		for (const testCase of cases) {
-			const res = await invoke(postCategory, {
-				ctx: ctx(),
-				user: mia,
-				path: '/api/task-categories',
-				method: 'POST',
-				body: testCase.name === undefined ? {} : { name: testCase.name }
-			});
-			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: testCase.error });
-		}
+
+		const res = await invoke(postCategory, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/task-categories',
+			method: 'POST',
+			body: name === undefined ? {} : { name }
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error });
+	});
+
+	it('answers 400 name is required for malformed JSON', async () => {
+		const mia = await seedUser(testDb(), { firstName: 'Mia' });
 
 		const malformed = await invoke(postCategory, {
 			ctx: ctx(),
@@ -1134,7 +1579,7 @@ describe('task categories', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const category = await seedCategory(db, mia.id, 'Work');
+		const category = await seedTaskCategory(db, mia.id, 'Work');
 		const owned = await seedTask(db, { title: 'Owned', category: 'work', userId: mia.id });
 		const assigned = await seedTask(db, {
 			title: 'Assigned',
@@ -1172,8 +1617,8 @@ describe('task categories', () => {
 	it('allows a case-only rename and 409s when another category owns the name', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
-		const category = await seedCategory(db, mia.id, 'Work');
-		await seedCategory(db, mia.id, 'Home');
+		const category = await seedTaskCategory(db, mia.id, 'Work');
+		await seedTaskCategory(db, mia.id, 'Home');
 
 		const caseOnly = await invoke(patchCategory, {
 			ctx: ctx(),
@@ -1200,7 +1645,7 @@ describe('task categories', () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const sams = await seedCategory(db, sam.id, 'Sam`s');
+		const sams = await seedTaskCategory(db, sam.id, 'Sam`s');
 
 		const unknown = await invoke(patchCategory, {
 			ctx: ctx(),
@@ -1230,30 +1675,35 @@ describe('task categories', () => {
 		});
 		expect(unknownDelete.status).toBe(404);
 		expect(unknownDelete.body).toEqual({ error: 'Category not found' });
+	});
 
-		const badNames: { name?: string; error: string }[] = [
-			{ error: 'name is required' },
-			{ name: '', error: 'name is required' },
-			{ name: 'x'.repeat(81), error: 'name is too long' }
-		];
-		for (const testCase of badNames) {
-			const res = await invoke(patchCategory, {
-				ctx: ctx(),
-				user: mia,
-				params: { id: sams.id },
-				method: 'PATCH',
-				body: testCase.name === undefined ? {} : { name: testCase.name }
-			});
-			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: testCase.error });
-		}
+	const badRenameNames: { label: string; name?: string; error: string }[] = [
+		{ label: 'a missing name', error: 'name is required' },
+		{ label: 'an empty name', name: '', error: 'name is required' },
+		{ label: 'an over-long name', name: 'x'.repeat(81), error: 'name is too long' }
+	];
+	it.each(badRenameNames)('answers 400 $error for $label on PATCH', async ({ name, error }) => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		const sam = await seedUser(db, { firstName: 'Sam' });
+		const sams = await seedTaskCategory(db, sam.id, 'Sam`s');
+
+		const res = await invoke(patchCategory, {
+			ctx: ctx(),
+			user: mia,
+			params: { id: sams.id },
+			method: 'PATCH',
+			body: name === undefined ? {} : { name }
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error });
 	});
 
 	it('deletes a category and clears it from the caller`s owned and assigned tasks', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
-		const category = await seedCategory(db, mia.id, 'Work');
+		const category = await seedTaskCategory(db, mia.id, 'Work');
 		const owned = await seedTask(db, { title: 'Owned', category: 'Work', userId: mia.id });
 		const foreign = await seedTask(db, { title: 'Foreign', category: 'Work', userId: sam.id });
 
@@ -1277,35 +1727,58 @@ describe('task categories', () => {
 describe('signed out', () => {
 	beforeEach(truncateAll);
 
-	it('answers 401 {"error":"Unauthorized"} on every route', async () => {
-		const calls = [
-			() => invoke(getTasks, { ctx: ctx(), path: '/api/tasks' }),
-			() => invoke(postTask, { ctx: ctx(), path: '/api/tasks', method: 'POST', body: { title: 'X' } }),
-			() => invoke(getSections, { ctx: ctx(), path: '/api/tasks/sections' }),
-			() =>
-				invoke(clearCompleted, { ctx: ctx(), path: '/api/tasks/completed', method: 'DELETE' }),
-			() => invoke(getStats, { ctx: ctx(), path: '/api/stats' }),
-			() => invoke(getCategories, { ctx: ctx(), path: '/api/task-categories' }),
-			() =>
+	const calls: {
+		label: string;
+		call: () => Promise<{ status: number; body: JsonValue | null }>;
+	}[] = [
+		{ label: 'GET /api/tasks', call: () => invoke(getTasks, { ctx: ctx(), path: '/api/tasks' }) },
+		{
+			label: 'POST /api/tasks',
+			call: () =>
+				invoke(postTask, { ctx: ctx(), path: '/api/tasks', method: 'POST', body: { title: 'X' } })
+		},
+		{
+			label: 'GET /api/tasks/sections',
+			call: () => invoke(getSections, { ctx: ctx(), path: '/api/tasks/sections' })
+		},
+		{
+			label: 'DELETE /api/tasks/completed',
+			call: () =>
+				invoke(clearCompleted, { ctx: ctx(), path: '/api/tasks/completed', method: 'DELETE' })
+		},
+		{ label: 'GET /api/stats', call: () => invoke(getStats, { ctx: ctx(), path: '/api/stats' }) },
+		{
+			label: 'GET /api/task-categories',
+			call: () => invoke(getCategories, { ctx: ctx(), path: '/api/task-categories' })
+		},
+		{
+			label: 'POST /api/task-categories',
+			call: () =>
 				invoke(postCategory, {
 					ctx: ctx(),
 					path: '/api/task-categories',
 					method: 'POST',
 					body: { name: 'Work' }
-				}),
-			() =>
+				})
+		},
+		{
+			label: 'PATCH /api/task-categories/[id]',
+			call: () =>
 				invoke(patchCategory, {
 					ctx: ctx(),
 					params: { id: 'x' },
 					method: 'PATCH',
 					body: { name: 'Work' }
-				}),
-			() => invoke(deleteCategory, { ctx: ctx(), params: { id: 'x' }, method: 'DELETE' })
-		];
-		for (const call of calls) {
-			const res = await call();
-			expect(res.status).toBe(401);
-			expect(res.body).toEqual({ error: 'Unauthorized' });
+				})
+		},
+		{
+			label: 'DELETE /api/task-categories/[id]',
+			call: () => invoke(deleteCategory, { ctx: ctx(), params: { id: 'x' }, method: 'DELETE' })
 		}
+	];
+	it.each(calls)('answers 401 {"error":"Unauthorized"} on $label', async ({ call }) => {
+		const res = await call();
+		expect(res.status).toBe(401);
+		expect(res.body).toEqual({ error: 'Unauthorized' });
 	});
 });
