@@ -834,6 +834,57 @@ Recommendation: B (the sheet's). Applied default until answered: A, not pinned b
 
 Answer (owner, 2026-11-12): **B.** Task categories load on the task tab's first open.
 
+## Q-102 A sign-in magic link can reset a password (access S1+S2 review, 2026-11-12; modules: access)
+
+Context: the reset handler accepts any JWT signed with `EMAILSECRET` whose payload carries an `email` (`src/routes/(marketing)/forgot-password/reset/+server.ts:88-96`, `parseJwt` + `isResetPayload`). Nothing marks a token as a reset token, so an emailed sign-in link also sets a new password; today that request answers 200.
+
+Options:
+A. Keep. Cost: whoever holds a sign-in link can also replace the password without knowing the old one.
+B. Mint reset tokens with a purpose claim and refuse tokens without it. Cost: reset links mailed before the change stop working (they expire within the hour anyway).
+
+Recommendation: B, after S6 as `fix(access)` with the golden changed first. Applied default until answered: A, pinned by the access fix-forward.
+
+## Q-103 An email-change request revives a used reset link (access S1+S2 review, 2026-11-12; modules: access)
+
+Context: requesting an email change deletes every code row for the current address (`src/lib/server/services/accountData.ts:374`, `deleteCodesByEmail`), including the `reset_used` marker that makes a reset link single-use (`src/routes/(marketing)/forgot-password/reset/+server.ts:98-119`). After such a request a used reset link works again until it expires.
+
+Options:
+A. Keep. Cost: a leaked, already-used reset link becomes usable again for the rest of its hour.
+B. Delete only the `email_change` codes. Cost: none a client can see.
+
+Recommendation: B. Applied default until answered: A, pinned by the access fix-forward.
+
+## Q-104 Password reset leaves `auth_account.password` stale (access S1+S2 review, 2026-11-12; modules: access, identity)
+
+Context: reset writes only `users.passwordHash` (`setUserPasswordHash`, `src/routes/(marketing)/forgot-password/reset/+server.ts:121-122`). `auth_account.password` was seeded from `users.passwordHash` by migration 018 for Better Auth's credential provider (`src/lib/kernel/db/tables/identity.tables.server.ts:149-163`); no sign-in path reads it today, so it drifts silently after every reset.
+
+Options:
+A. Keep. Cost: once a Better Auth sign-in reads the column (#176), an old password works again.
+B. Write both on every password change. Cost: one more UPDATE per change.
+C. Stop treating the column as a password store and drop it at a schema cleanup. Cost: DDL, and #176 re-seeds.
+
+Recommendation: B. Applied default until answered: A, pinned by the access fix-forward.
+
+## Q-105 Logout leaves the session cookie in the browser (access S1+S2 review, 2026-11-12; modules: access)
+
+Context: `POST /api/logout` deletes the session row and redirects 302 to `/` without a `Set-Cookie` (`src/routes/api/logout/+server.ts:5-13`). The dead cookie is harmless (the next protected navigation mints a guest either way, `src/hooks.server.ts:84-93`) but stays until it expires.
+
+Options:
+A. Keep. Cost: a dead cookie lingers in the browser.
+B. Clear it with an expired `Set-Cookie`. Cost: none; the response gains one header.
+
+Recommendation: B. Applied default until answered: A, pinned by the access fix-forward.
+
+## Q-106 A date-only `recurrenceUntil` drops its own day (calendar S1+S2 review, 2026-11-12; modules: calendar)
+
+Context: create and update pass the client's `recurrenceUntil` string straight to a `timestamp with time zone` column (`src/lib/server/services/eventRecurrence.ts:67`, `src/lib/kernel/db/tables/calendar.tables.server.ts:110-115`), so `2026-10-20` is stored as 2026-10-20T00:00Z. The read-side rule that stretches a date-only UNTIL to the end of that day in the viewer's zone (#216, `src/lib/server/services/recurrenceService.ts:160-192`) only fires for a value that is still date-only, which a stored row never is. The UNTIL day's own occurrence is therefore dropped for every viewer unless it starts at 00:00 UTC.
+
+Options:
+A. Keep. Cost: "repeat until Oct 20" ends on Oct 19.
+B. The contract turns a date-only UNTIL into the end of that day in the creator's zone before it is stored. Cost: rows already stored keep the old cutoff unless a data backfill runs.
+
+Recommendation: B, after S6 as `fix(calendar)` with the golden changed first. Applied default until answered: A, pinned by `calendar.events.http.db.test.ts › cuts at a date-only recurrenceUntil stored as a UTC-midnight instant`.
+
 ## Recorded defaults (the sheets recommend keeping legacy)
 
 Every row below is a question the module sheets raised and answered themselves: keep today's behaviour. The owner has not overridden any of them, so each stands as `A (recorded default)` and the sheet may cite its id. Each is filed with its own id so a later sheet or ticket can point at it, and the owner may reverse any of them.

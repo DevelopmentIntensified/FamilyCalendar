@@ -90,7 +90,7 @@ Follow [characterize-endpoints.md](characterize-endpoints.md). Every `/api/**` r
 
 **Check:**
 - `npm run test:mod -- <m>`: goldens green.
-- `git diff <S2 sha> -- src/lib/<domains|screens>/<m>/<m>.http.db.test.ts` prints nothing.
+- `git diff <S2 sha> -- 'src/lib/<domains|screens>/<m>/*.http.db.test.ts'` prints nothing, or only the removal of `.skip` from spec-goldens skipped at S2.
 - `npm run arch`: R8 confirms wiring-only routes.
 
 Commit.

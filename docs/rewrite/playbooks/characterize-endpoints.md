@@ -73,9 +73,9 @@ describe('POST /api/bug-report', () => {
 
 ## Gotchas
 
-- **Rate-limited legacy routes** share one bucket map across the whole test file. Give each test its own `x-real-ip` header. After the port the limiter comes from `testCtx`, so it is fresh per test.
+- **Rate-limited legacy routes** share one bucket map across the whole test file. Give each test its own `x-real-ip` header. After the port the limiter comes from the ctx, and `testCtx()` builds a fresh limiter on every call, so a budget test creates ONE ctx and passes it to every request of its burst: a ctx per request never reaches the limit once the handler is ported, and the golden cannot be fixed after S2.
 - **Bearer callers:** pass `via: 'token'`. That sets `actor.via` (legacy `locals.session` is already null in `invoke`).
 - **Admin routes:** seed the user with `roles: ['admin']`.
 - **Time-dependent legacy code** reads the real clock, so assert shapes, not exact dates. Pin exact dates only in S5 service tests, where `testCtx({ now })` controls time.
 - **A legacy handler can't run** in the db project (import or env errors from `$env/static/private`): write the golden from [task-api-spec.md](../../guides/task-api-spec.md) and the legacy route's unit test expectations instead, mark the `describe` with `// golden from spec: legacy handler not runnable here (<reason>)`, and note it in the sheet. It must be green at S6.
-- **Never edit a golden after S2.** If S6 makes one fail, the port is wrong. If the legacy behaviour itself is the bug and the sheet marks it FIX-IN-PORT, update the golden in a separate commit named `rewrite(<m>): fix-in-port #NNN`, with the ticket in the message.
+- **Never edit a golden after S2.** If S6 makes one fail, the port is wrong. If the legacy behaviour itself is the bug and the sheet marks it FIX-IN-PORT, update the golden in a separate commit named `rewrite(<m>): fix-in-port #NNN`, with the ticket in the message. The one exception is a spec-golden skipped at S2 (`it.skip`, waiting on a port such as `ctx.mail`): S6 removes its `.skip` and nothing else, so its assertions, the rows written included, are complete at S2.

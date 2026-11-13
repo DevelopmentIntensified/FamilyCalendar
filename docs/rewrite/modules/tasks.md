@@ -12,7 +12,7 @@ Tasks: visibility, priority, assignment handoff, Recurring Task cursor, tags, ca
 ## Steps
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `a4e41f2`
+- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `7246883`
 - [ ] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
