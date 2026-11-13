@@ -2,7 +2,9 @@
 // `npm run visual:baseline -- <module>` / `npm run visual:check -- <module>`
 //
 // One module's page screenshots: sets PAGES_MODULE and runs the pages config's
-// visual spec, with `--update-snapshots` for a baseline. Stdio and the exit code
+// visual spec, with `--update-snapshots=all` for a baseline (the bare flag only
+// rewrites snapshots that fail the comparison, so a wrong baseline inside the
+// diff tolerance would survive a re-baseline). Stdio and the exit code
 // pass straight through, so the npm script fails exactly when Playwright does.
 //
 // Doc: e2e/pages/README.md
@@ -28,7 +30,7 @@ const playwrightArgs = [
 	'playwright.pages.config.ts',
 	'e2e/pages/visual.spec.ts'
 ];
-if (mode === 'baseline') playwrightArgs.push('--update-snapshots');
+if (mode === 'baseline') playwrightArgs.push('--update-snapshots=all');
 
 /**
  * `NO_PROXY` with loopback added. Playwright probes the preview server through

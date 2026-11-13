@@ -30,7 +30,11 @@ for (const entry of pagesForModule(process.env.PAGES_MODULE)) {
 		await expect(page).toHaveScreenshot(`${entry.module}-${entry.name}.png`, {
 			fullPage: true,
 			animations: 'disabled',
-			maxDiffPixelRatio: 0.01,
+			// Two runs on one machine are byte-identical, so the tolerance only
+			// absorbs rasteriser noise. At 1% a fixed banner laid over the page
+			// heading (light fill, ~0.5% of a 1280×800 page in changed text
+			// pixels) passed unnoticed; 0.2% catches it.
+			maxDiffPixelRatio: 0.002,
 			mask: (entry.mask ?? []).map((selector) => page.locator(selector))
 		});
 	});
