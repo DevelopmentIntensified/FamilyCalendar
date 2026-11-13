@@ -211,9 +211,12 @@ describe('POST /api/bug-report', () => {
 	it('checks the session before the rate limit and throttles the sixth report per IP', async () => {
 		const user = await seedUser(testDb());
 		const headers = { 'x-real-ip': '10.1.0.9' };
+		// One ctx for the whole test: after the port the limiter lives on it, so
+		// a fresh ctx per request would start every bucket empty.
+		const c = ctx();
 		for (let i = 0; i < 5; i++) {
 			const res = await invoke(postBugReport, {
-				ctx: ctx(),
+				ctx: c,
 				user,
 				headers,
 				body: { area: 'tasks', description: `report ${i}` }
@@ -221,7 +224,7 @@ describe('POST /api/bug-report', () => {
 			expect(res.status).toBe(200);
 		}
 		const throttled = await invoke(postBugReport, {
-			ctx: ctx(),
+			ctx: c,
 			user,
 			headers,
 			body: { area: 'tasks', description: 'report 5' }
@@ -230,7 +233,7 @@ describe('POST /api/bug-report', () => {
 		expect(throttled.body).toEqual({ error: 'Too many reports. Try again shortly.' });
 		// Auth runs first, so an anonymous sixth call is still a 401, not a 429.
 		const anonymous = await invoke(postBugReport, {
-			ctx: ctx(),
+			ctx: c,
 			headers,
 			body: { area: 'tasks', description: 'report 6' }
 		});
@@ -379,9 +382,11 @@ describe('POST /api/report-phrase', () => {
 	it('throttles to 20 reports per IP per 5 minutes with 429', async () => {
 		const user = await seedUser(testDb());
 		const headers = { 'x-real-ip': '10.2.0.8' };
+		// One ctx for the whole burst: after the port the limiter lives on it.
+		const c = ctx();
 		for (let i = 0; i < 20; i++) {
 			const res = await invoke(postReportPhrase, {
-				ctx: ctx(),
+				ctx: c,
 				user,
 				headers,
 				body: { phrase: `phrase ${i}`, source: 'event_parse' }
@@ -389,7 +394,7 @@ describe('POST /api/report-phrase', () => {
 			expect(res.status).toBe(200);
 		}
 		const throttled = await invoke(postReportPhrase, {
-			ctx: ctx(),
+			ctx: c,
 			user,
 			headers,
 			body: { phrase: 'phrase 20', source: 'event_parse' }
