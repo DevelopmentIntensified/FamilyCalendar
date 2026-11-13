@@ -210,7 +210,6 @@ describe('buildAutoBugReport', () => {
 	it('prefixes the status and caps the description at 5000', () => {
 		const report = buildAutoBugReport({
 			status: 500,
-			name: 'Error',
 			message: 'x'.repeat(6000),
 			path: '/'
 		});
@@ -226,7 +225,7 @@ describe('buildAutoBugReport', () => {
 		['/account', 'account'],
 		['/weird', 'other']
 	])('files %s under %s and records the path', (path, area) => {
-		const report = buildAutoBugReport({ status: 500, name: 'Error', message: 'boom', path });
+		const report = buildAutoBugReport({ status: 500, message: 'boom', path });
 		expect(report?.area).toBe(area);
 		expect(report?.url).toBe(path);
 	});
@@ -234,12 +233,11 @@ describe('buildAutoBugReport', () => {
 	it('caps the recorded path at 2000 and stores an empty one as null', () => {
 		const long = buildAutoBugReport({
 			status: 500,
-			name: 'Error',
 			message: 'boom',
 			path: `/${'a'.repeat(2100)}`
 		});
 		expect(long?.url).toHaveLength(2000);
-		const blank = buildAutoBugReport({ status: 500, name: 'Error', message: 'boom', path: '' });
+		const blank = buildAutoBugReport({ status: 500, message: 'boom', path: '' });
 		expect(blank?.url).toBeNull();
 	});
 });
