@@ -68,9 +68,10 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [testing/seedRows.server.ts](testing/seedRows.server.ts) | test infra | `seedUser`, `uniqueSuffix`. Module-specific builders live in `<module>.fixtures.server.ts`. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
 | [testing/testCtx.server.ts](testing/testCtx.server.ts) | test infra | `testCtx({ db?, now?, cronSecret? })`: fixed clock, sequential ids, memory log/faults/limiter; no-db guard. | used by every test |
 | [testing/testDb.server.ts](testing/testDb.server.ts) | test infra | `rollbackTest` (default: one rolled-back transaction per test), `inRollback`, `testDb`, `truncateAll` (committed mode: one transaction, FK triggers off, one `DELETE FROM` per table in one batch — a few ms idle, 70–110 ms measured on a saturated machine), lane guard. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
-| [testing/testDb.db.test.ts](testing/testDb.db.test.ts) | test | migrations applied, rollback isolation, savepoints, truncate, reset under 250 ms, FKs enforced after a reset | — |
+| [testing/testDb.db.test.ts](testing/testDb.db.test.ts) | test | migrations applied, rollback isolation, savepoints, truncate, reset under 250 ms, FKs enforced after a reset, `timestamptz` rendered in UTC | — |
 | [testing/testDbConfig.ts](testing/testDbConfig.ts) | test infra | Test DB URL + lane guard (kept apart from testDb because globalSetup must not import vitest). `V2_TEST_DB` picks a per-worktree database (`familycalendar_v2_test_<id>`) for parallel runs. | — |
-| [testing/vitestGlobalSetup.db.ts](testing/vitestGlobalSetup.db.ts) | test infra | Rebuilds `familycalendar_v2_test` from `sql/migrations` each run, the way production's runner does, and sets `synchronous_commit = off` on the throwaway database so reset commits are cheap. | every db run |
+| [testing/utcEnvironment.test.ts](testing/utcEnvironment.test.ts) | test | the unit/db/ui workers run in UTC (July offset 0 and `TZ=UTC`), the zone production's Node runs in | — |
+| [testing/vitestGlobalSetup.db.ts](testing/vitestGlobalSetup.db.ts) | test infra | Rebuilds `familycalendar_v2_test` from `sql/migrations` each run, the way production's runner does, sets `synchronous_commit = off` on the throwaway database so reset commits are cheap, and pins its default `timezone = 'UTC'` so `timestamptz` renders like production on any machine. | every db run |
 | [testing/vitestSetup.db.ts](testing/vitestSetup.db.ts) | test infra | Points `DATABASE_URL` (and so the legacy singleton) at the test DB; closes the pool. | every db run |
 | [testing/vitestSetup.unit.ts](testing/vitestSetup.unit.ts) | test infra | Points `DATABASE_URL` at a closed port, so unit tests fail fast if they touch a database. | every unit run |
 | [time/clock.ts](time/clock.ts) | infra | `Clock` port, `systemClock`, `fixedClock` (set/advance). The only source of "now" (rule R5). | [clock.test.ts](time/clock.test.ts) |
@@ -171,6 +172,8 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 
 `testCtx`, `invoke*`, `rollbackTest`, `truncateAll`, `seedUser`, `manualScheduler`. The full guide is [docs/architecture/testing.md](../../../docs/architecture/testing.md).
 
+The v2 projects pin UTC themselves: `unit`, `db` and `ui` set `test.env: { TZ: 'UTC' }` in [vite.config.ts](../../../vite.config.ts), which vitest writes into each worker before any test file loads, and the db project's globalSetup makes the test database's default time zone UTC. That is production parity (Node there runs in UTC, so Postgres renders `timestamptz` as `'2026-10-07 13:00:00+00'`), so a `npm run gate` or `npx vitest --project db` on a non-UTC machine behaves the same.
+
 ### Client
 
 Browser-side pieces in `kernel/client`, plus `Ticker` and the `Scheduler` in `kernel/time`. They take their browser globals as injectable parameters with real defaults, so tests need no DOM and no `vi.mock`.
@@ -214,6 +217,7 @@ Components and helpers in `kernel/ui`, imported by path. Props in, callbacks out
 - Stored-secret hashes are byte-identical to the legacy ones. Pinned by `ids.test.ts › hashes UTF-8 bytes exactly like the legacy …`.
 - New row ids keep the legacy 15-char a-z0-9 format. Pinned by `ids.test.ts › keeps the existing row-id format …`.
 - db tests can only reach `127.0.0.1:5433/familycalendar_v2_test` (or `familycalendar_v2_test_<id>` via `V2_TEST_DB`), and unit tests can't reach any database (lane guards in `testDbConfig.ts`, `vitestSetup.unit.ts`).
+- `unit`, `db` and `ui` run in UTC (production's Node zone), and the test database's default `timezone` is UTC, so `timestamptz` renders as `'2026-10-07 13:00:00+00'` on any machine. Pinned by `utcEnvironment.test.ts › runs in UTC, like production` and `testDb.db.test.ts › renders timestamptz in UTC, the way production does`.
 - Every `rollbackTest` leaves no rows behind, and service transactions inside it are savepoints. Pinned by `testDb.db.test.ts`.
 - truncateAll resets in under 250 ms (median of 5); pinned by `testDb.db.test.ts › resets in under 250 ms`.
 - truncateAll switches FK checks off only for its own transaction, so the next test's inserts are enforced again. Pinned by `testDb.db.test.ts › leaves foreign keys enforced …`.
