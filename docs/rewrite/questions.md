@@ -210,10 +210,10 @@ Context: `calculateFamilyMemberDiscount` counts the caller's `familyMembers` row
 
 Options:
 A. Keep the row count and the `>= 4` threshold. Cost: the benefit rewards belonging to many families, and the description keeps disagreeing with the rule.
-B. Count the members of one family, threshold 5. Cost: a `/api/me/subscription` value change for a user in several small families; the priced copy and the rule finally agree.
+B. Count the members of one family, threshold 5. Cost: no `/api` change (the subscription summary carries no discount); the checkout quote, a stub today, changes for a user in several small families; the priced copy and the rule finally agree.
 C. Count distinct families, threshold 4. Cost: wording has to change again ("4+ families"), and a four-person family gets nothing.
 
-Recommendation: B (the sheet's) — the discount is described and priced as a family-size benefit, and checkout is a stub so nothing can be mis-charged. Applied default until answered: A, pinned by `billing.http.db.test.ts › reports the active tier, its overrides and the AI cap from that tier`.
+Recommendation: B (the sheet's) — the discount is described and priced as a family-size benefit, and checkout is a stub so nothing can be mis-charged. Applied default until answered: A, pinned by the S3 rule tests (`billing.pricing.rules.test.ts`); no golden covers it, because the subscription summary carries no discount.
 
 Answer (owner, 2026-11-12): **B.** The discount counts members of one family, threshold 5.
 
@@ -943,6 +943,16 @@ Recommendation: B. Applied default until answered: A; the goldens compare the li
 
 Answer (owner, 2026-11-12): **B.** Newest first (`createdAt DESC, id`); lands after S6 as `fix(identity)`.
 
+## Q-111 A `null` JSON body crashes the groceries routes with 500 (groceries S3+S4, 2026-11-13; modules: groceries)
+
+Context: the legacy groceries handlers read fields off the parsed body without a null check, so a request whose body is the JSON literal `null` throws and answers 500. No golden pins the case. The S3 contract validates the body first, so the port would answer the route's existing 400 (`scope must be mine or family`, or the colour route's 400) instead.
+
+Options:
+A. Keep the 500. Cost: S6 has to reproduce a crash on purpose.
+B. Answer the existing 400 for a `null` body. Cost: a malformed request gets a 400 instead of a 500; no well-formed client is affected.
+
+Recommendation: B, as the contract already does; lands with S6 and gets its own golden row then. Applied default until answered: A.
+
 ## Recorded defaults (the sheets recommend keeping legacy)
 
 Every row below is a question the module sheets raised and answered themselves: keep today's behaviour. The owner has not overridden any of them, so each stands as `A (recorded default)` and the sheet may cite its id. Each is filed with its own id so a later sheet or ticket can point at it, and the owner may reverse any of them.
@@ -960,7 +970,7 @@ Every row below is a question the module sheets raised and answered themselves: 
 | Q-030 | dashboardModules | How does `GET /api/families/{id}` keep returning `moduleSwitches` across the rank boundary? | The families payload carries the master-switch map | A fixed wire; the exception is declared in the registry, so the rule stays in one home | A (recorded default) | `family.http.db.test.ts › answers the whole detail payload for a member` |
 | Q-033 | groceries | Keep the trailing-slash `400 Item ID required`? | `POST /api/groceries/<id>/` → 400 | One line keeps today's answer | A (recorded default) | `groceries.http.db.test.ts › answers 400 "Item ID required" for a trailing slash` |
 | Q-034 | groceries | Keep scope travelling per verb (PATCH body, GET/DELETE `?scope`)? | Asymmetric, and Android sends exactly that | The installed client is the contract | A (recorded default) | `groceries.http.db.test.ts › answers 400 "scope must be mine or family" when body scope is absent or junk` |
-| Q-035 | groceries | Keep writing the actor's `userId` on family colour rows? | Every flip rewrites it to the last writer | The family tier never reads it, and the column is NOT NULL | A (recorded default) | `groceries.http.db.test.ts › answers the viewer's own colour rows plus the palette` |
+| Q-035 | groceries | Keep the first writer's `userId` on family colour rows? | A colour flip updates only `color` and `updatedAt` (`src/lib/server/db/actions/groceries.ts:290-300`), so the row keeps whoever wrote it first | The family tier never reads it, and the column is NOT NULL | A (recorded default) | `groceries.http.db.test.ts › answers the viewer's own colour rows plus the palette` |
 | Q-037 | groceries | Keep `stores: []` clearing every store on a row? | The row loses all its stores | An empty field honestly means "no store"; the UI already treats it so | A (recorded default) | `groceries.http.db.test.ts › accepts an empty store list and so clears every store on the row` |
 | Q-044 | calendar | Add the `event_exceptions` unique index now, or keep the duplicate risk until #014? | Select-then-write, no unique index | The index is DDL and #014's ticket | A (recorded default) | `calendar.events.http.db.test.ts › scope 'this' writes an Exception Override and answers the series note` |
 | Q-046 | calendar | Keep `rsvpStatus` carrying attendance rows? | The field holds rows, not the caller's status | Clients have only ever seen rows; adding a field cannot break a reader | A (recorded default) | `calendar.events.http.db.test.ts › upserts the viewer RSVP and answers the attendance (rsvpStatus carries the same rows)` |
@@ -984,4 +994,5 @@ Every row below is a question the module sheets raised and answered themselves: 
 | Q-095 | dayDashboard | Keep the full `userTasks` rows that no card renders? | Every own and family Task with all columns | Phone parity; shrinking a documented field is a wire change | A (recorded default) | `dayDashboard.http.db.test.ts › returns the full contract for a family day, resolved, in the viewer zone` |
 | Q-096 | dayDashboard | Add a `groceries` warning label, or keep the failed read invisible? | The leg degrades to empty lists and the card says "Nothing on the list yet." | A card that cannot load says nothing; a label is a wire change | A (recorded default) | `dayDashboard.http.db.test.ts › skips the reads no visible module needs, and still answers 200` |
 | Q-100 | calendarPage | Keep `?edit=` failing with "Event not found" outside the loaded window? | The deep link finds rows in the month window or the fetch cache only | A one-Event read is a wire addition needing its own ticket | A (recorded default) | not pinned by a golden yet |
+| Q-112 | alerts | Keep marking an already-read Alert re-stamping `readAt`? | A repeat mark moves `readAt`, and with it the 90-day retention anchor | Same rule as feedback's Q-007 (re-stamping kept); no client reads the first-read time | A (recorded default) | `alerts.repo.db.test.ts` (S4), no golden |
 | — (answered, no id) | shell | Backport the `passwordHash`/`receiptIngestToken`/phonenumber leak fix to legacy before cutover? | `(calendar)/calendar/+layout.server.ts:17` serialises the whole `users` row to the browser on every app page | **Not a default: the owner chose the hotfix** — issue #324, branch `hotfix/user-page-data`, commit `be915320`; v2 fixes it in shell's port too | hotfix #324 | not pinned by a golden yet |
