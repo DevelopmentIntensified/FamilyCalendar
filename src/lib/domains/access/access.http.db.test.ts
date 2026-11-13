@@ -1135,7 +1135,9 @@ describe('POST /api/mobile/auth/verify', () => {
 			.select()
 			.from(userSettings)
 			.where(eq(userSettings.userId, created.id));
-		expect(settings.map((row) => row.color)).toEqual([expect.stringMatching(/^#[0-9a-f]{6}$/)]);
+		// falso's randHex is `#${Math.random().toString(16).substr(2, 6)}`, so a dyadic
+		// draw can yield fewer than six digits (createNewUser.ts:29).
+		expect(settings.map((row) => row.color)).toEqual([expect.stringMatching(/^#[0-9a-f]{1,6}$/)]);
 		const personalCalendar = await db()
 			.select()
 			.from(calendars)
