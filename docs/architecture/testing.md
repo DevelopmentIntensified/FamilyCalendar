@@ -106,7 +106,8 @@ Any change to a parser (event quick-add, task quick-add, date vocabulary, new ke
 | `npm run typecheck` | zero type errors in v2 code; legacy count ≤ baseline | before commit (~40 s) |
 | `npm run gate` | arch + docs + typecheck + `test:affected`. It never runs the whole suite (owner directive 2026-11-11) | before commit |
 | `npm run gate:push` | gate + `npm run build:safe` (placeholder secrets, local DB, migrations off) | before push (never push a broken build) |
-| `npm run perf:check -- <m>` | the module's pages within their load budgets ([ADR 0010](../adr/0010-performance-budget.md)) | S7, before the module is done |
+| `npm run perf:check -- <m>` | the module's pages within their load budgets ([ADR 0010](../adr/0010-performance-budget.md)): ready time in the desktop and mobile profiles, TTFB, and initial JS against the page's recorded ceiling. Five runs, medians; fails on the four hard limits only | S7, before the module is done; on an otherwise idle machine (build + Playwright, so not after every edit) |
+| `npm run perf:baseline` | measures every catalog page and writes `e2e/pages/perf-baseline.json` plus `docs/rewrite/perf-baseline.md` (slowest first, targets beside the numbers). Legacy pages may miss the hard limits; this run never fails on them | once on the legacy code (K-11), and again when the machine changes — it is the ceiling each page's initial JS may only shrink from |
 | `npm run test:v2` | every v2 test | rarely: after changing sql/migrations or the db test infrastructure (not import-reachable), and before cutover |
 
 Playwright: run it directly (`npx playwright test`). Don't use the deprecated `playwright-cli` skill.

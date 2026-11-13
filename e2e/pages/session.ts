@@ -42,28 +42,35 @@ export async function openAs(page: Page, seed: SeedName): Promise<SeedResult> {
 	return result;
 }
 
-/** The subset of GET /api/me this helper asserts against. */
+/**
+ * Pages whose `navigator.onLine` is already pinned: the getter is
+ * non-configurable, so a second init script on the same page would throw.
+ */
+const ONLINE_PINNED = new WeakSet<Page>();
+
+/**
+ * The subset of GET /api/me this helper asserts against.
+ */
 type MePayload = { email: string | null; isAnonymous: boolean };
 
 /**
- * Navigate to `entry` and prove the harness is looking at the right page as
- * the right person. The shared path for the visual check (here) and the perf
- * harness (K-11): both must time the same arrival.
+ * Navigate to `entry` and stop at the measurement point:
  *
  * 1. the host's network state does not reach the page: the offline banner keys
  *    off `navigator.onLine`, and an offline machine would change the pixels;
  * 2. the entry's `ready` selector is visible (the page's data arrived);
- * 3. the landing path is the resolved route (or its `landsOn`);
- * 4. the signed-in user is the seed's. A broken cookie does NOT redirect a
- *    protected route to /login: hooks.server.ts creates an anonymous user
- *    instead (src/hooks.server.ts:84-93), so a redirect check alone would pass
- *    and every screenshot would be a guest's. Compare GET /api/me with the
- *    seed's own identity instead.
+ * 3. the landing path is the resolved route (or its `landsOn`).
+ *
+ * Nothing after step 2 does network work, so a perf run can read its marks
+ * here and run `expectSignedIn` afterwards without the check counting.
  */
-export async function gotoReady(page: Page, entry: PageEntry, seed: SeedResult): Promise<void> {
-	await page.addInitScript(() => {
-		Object.defineProperty(Navigator.prototype, 'onLine', { get: () => true });
-	});
+export async function gotoPage(page: Page, entry: PageEntry, seed: SeedResult): Promise<void> {
+	if (!ONLINE_PINNED.has(page)) {
+		ONLINE_PINNED.add(page);
+		await page.addInitScript(() => {
+			Object.defineProperty(Navigator.prototype, 'onLine', { get: () => true });
+		});
+	}
 
 	await page.goto(resolvePath(entry.path, seed.params));
 	await page.locator(entry.ready).first().waitFor({ state: 'visible' });
@@ -71,8 +78,21 @@ export async function gotoReady(page: Page, entry: PageEntry, seed: SeedResult):
 	const landed = new URL(page.url());
 	const expected = new URL(resolvePath(entry.landsOn ?? entry.path, seed.params), landed);
 	expect(landed.pathname, `${entry.name} landed on ${landed.pathname}`).toBe(expected.pathname);
+}
 
-	const response = await page.request.get(new URL('/api/me', landed).toString());
+/**
+ * The identity check, after the arrival is measured. A broken cookie does NOT
+ * redirect a protected route to /login: hooks.server.ts creates an anonymous
+ * user instead (src/hooks.server.ts:84-93), so a redirect check alone would
+ * pass and every screenshot would be a guest's. Compare GET /api/me with the
+ * seed's own identity instead.
+ */
+export async function expectSignedIn(
+	page: Page,
+	entry: PageEntry,
+	seed: SeedResult
+): Promise<void> {
+	const response = await page.request.get(new URL('/api/me', new URL(page.url())).toString());
 	if (seed.email === undefined) {
 		// A page a signed-out visitor sees: the seed created no user, so no
 		// session may exist either.
@@ -90,4 +110,16 @@ export async function gotoReady(page: Page, entry: PageEntry, seed: SeedResult):
 		expect(me.email, `${entry.name} should be signed in as the seeded user`).toBe(seed.email);
 		expect(me.isAnonymous, `${entry.name} should not be a guest`).toBe(false);
 	}
+}
+
+/**
+ * Navigate to `entry` and prove the harness is looking at the right page as
+ * the right person. The shared path for the visual check (here) and the perf
+ * harness (K-11): both must time the same arrival — the perf run calls
+ * `gotoPage`, reads its marks, then `expectSignedIn`, so the check never lands
+ * inside the measurement.
+ */
+export async function gotoReady(page: Page, entry: PageEntry, seed: SeedResult): Promise<void> {
+	await gotoPage(page, entry, seed);
+	await expectSignedIn(page, entry, seed);
 }

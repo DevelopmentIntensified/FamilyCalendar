@@ -81,6 +81,11 @@ export default defineConfig({
 	projects: [
 		{
 			name: 'desktop',
+			// The perf harness is opt-in: perf.spec.ts makes its own contexts
+			// and runs 5 × 2 visits × 2 profiles per page, far too slow for a
+			// bare `npx playwright test`. Only scripts/pages-run.mjs sets
+			// PERF_MODE, and then the `perf` project below runs it once.
+			testIgnore: '**/perf.spec.ts',
 			use: {
 				...devices['Desktop Chrome'],
 				viewport: { width: 1280, height: 800 }
@@ -88,6 +93,7 @@ export default defineConfig({
 		},
 		{
 			name: 'mobile',
+			testIgnore: '**/perf.spec.ts',
 			use: {
 				...devices['Pixel 7'],
 				// The harness compares at 390 px (docs/architecture/testing.md).
@@ -97,6 +103,17 @@ export default defineConfig({
 				viewport: { width: 390, height: 844 },
 				deviceScaleFactor: 1
 			}
-		}
+		},
+		...(process.env.PERF_MODE === 'check' || process.env.PERF_MODE === 'baseline'
+			? [
+					{
+						// One project so the spec runs once: it iterates the two
+						// profiles itself, each with a context it creates.
+						name: 'perf',
+						testMatch: '**/perf.spec.ts',
+						use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } }
+					}
+				]
+			: [])
 	]
 });
