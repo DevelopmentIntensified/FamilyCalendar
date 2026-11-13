@@ -885,6 +885,46 @@ B. The contract turns a date-only UNTIL into the end of that day in the creator'
 
 Recommendation: B, after S6 as `fix(calendar)` with the golden changed first. Applied default until answered: A, pinned by `calendar.events.http.db.test.ts › cuts at a date-only recurrenceUntil stored as a UTC-midnight instant`.
 
+## Q-107 `timeZone` accepts Luxon pseudo-zones (identity S1+S2 review, 2026-11-12; modules: identity)
+
+Context: settings validate a zone with `DateTime.local().setZone(value).isValid` (`src/routes/api/me/settings/+server.ts:56-57`), which also accepts `local`, `system`, `default`, `utc+5` and `gmt`. They are stored as typed, and every reader resolves them the same way, so `local`/`system` follow the server's zone rather than the user's.
+
+Options:
+A. Keep. Cost: a client that sends `local` gets the server's zone everywhere (UTC in production).
+B. Accept IANA names plus `UTC` only; refuse the rest with today's `400 Invalid timeZone`. Cost: a client sending a pseudo-zone gets a 400 instead of a silent wrong zone.
+
+Recommendation: B, after S6 as `fix(identity)` with the golden changed first. Applied default until answered: A, pinned by the identity fix-forward.
+
+## Q-108 A sparse settings row answers nulls, and the first PATCH backfills defaults (identity S1+S2 review, 2026-11-12; modules: identity)
+
+Context: sign-up paths create `{ userId, timeZone: 'UTC' }` only (`src/lib/server/db/actions/users.ts:138`, `src/lib/server/services/mobileAuth.ts:327`, claim, password sign-in). For that row `GET /api/me/settings` answers `color: null` and `syncEventsToFamilyCalendar: null`, while a user with no row gets the defaults; the first PATCH fills every null from `ACCOUNT_SETTINGS_DEFAULTS` (`settings/+server.ts:100-116`), so `{ timeZone }` alone changes `color` from `null` to `#3b82f6`.
+
+Options:
+A. Keep. Cost: two answers for "never set", and a PATCH writes fields the client did not send.
+B. GET answers the defaults for null columns (one merged view), and PATCH writes only the fields sent. Cost: Android sees defaults where it saw `null` (it already handles the no-row case with the same values).
+
+Recommendation: B, after S6 as `fix(identity)` with the golden changed first. Applied default until answered: A, pinned by the identity fix-forward.
+
+## Q-109 API token names are cut at 60 UTF-16 units (identity S1+S2 review, 2026-11-12; modules: identity)
+
+Context: `createApiToken(userId, name.slice(0, 60))` (`src/lib/server/services/accountData.ts:427`) can split an emoji into a lone surrogate, and whitespace before the cut survives it.
+
+Options:
+A. Keep. Cost: a rare garbled last character in a token label.
+B. Cut at 60 code points and trim after the cut. Cost: none a client relies on.
+
+Recommendation: B. Applied default until answered: A, pinned by the identity fix-forward.
+
+## Q-110 The API token list has no order (identity S1+S2 review, 2026-11-12; modules: identity)
+
+Context: `listTokensForUser` selects without `ORDER BY` (`src/lib/server/db/actions/apiTokens.ts:38-47`), so the list order is whatever Postgres returns and can change after an update.
+
+Options:
+A. Keep. Cost: the account page's token list can reorder between visits.
+B. Order newest first (`createdAt DESC, id`). Cost: none; clients render the list as given.
+
+Recommendation: B. Applied default until answered: A; the goldens compare the list order-insensitively until answered.
+
 ## Recorded defaults (the sheets recommend keeping legacy)
 
 Every row below is a question the module sheets raised and answered themselves: keep today's behaviour. The owner has not overridden any of them, so each stands as `A (recorded default)` and the sheet may cite its id. Each is filed with its own id so a later sheet or ticket can point at it, and the owner may reverse any of them.
