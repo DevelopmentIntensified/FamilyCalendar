@@ -94,10 +94,13 @@ export function isStoreColourKey(value: unknown): value is StoreColourKey {
 export const groceryStoreKey = normalizeGroceryName;
 
 /**
- * The colour key a store name is stored under, or `null` when it has no store.
- * "Any store" is the ABSENCE of a store, not a shop, so it is never tinted.
+ * The colour key a store name is stored under, or `null` when it has no store:
+ * blank, or exactly "Any store" (the ABSENCE of a store, not a shop, so never
+ * tinted and never written). The read path (`resolveGroceryStoreColour`) and the
+ * write path (the S5 colour write's refusal) share this one guard. Legacy
+ * compares the label case-sensitively, so a lowercase "any store" is a real shop.
  */
-function colourKeyOf(name: string | null | undefined): string | null {
+export function groceryColourKeyOf(name: string | null | undefined): string | null {
 	if (!name) return null;
 	const label = name.trim();
 	if (!label || label === NO_STORE_LABEL) return null;
@@ -105,9 +108,9 @@ function colourKeyOf(name: string | null | undefined): string | null {
 }
 
 /**
- * The declared swatch for a key. Every caller has already checked
- * `isStoreColourKey`, so the fall back to the first swatch (the legacy
- * answer for an unknown key) is unreachable on real rows.
+ * The declared swatch for a key. `resolveGroceryStoreColour` filters out
+ * undeclared keys with `isStoreColourKey` before any tier runs, so the fall
+ * back to the first swatch only satisfies the type; it is never reached.
  */
 function colourSwatch(key: string): StoreColour {
 	return STORE_COLOURS.find((colour) => colour.key === key) ?? STORE_COLOURS[0];
@@ -138,7 +141,7 @@ export function resolveGroceryStoreColour(
 	rows: readonly StoreColourRow[],
 	scope: GroceryScope
 ): StoreColour | null {
-	const key = colourKeyOf(name);
+	const key = groceryColourKeyOf(name);
 	if (!key) return null;
 	const forStore = rows.filter((row) => row.storeKey === key && isStoreColourKey(row.color));
 	const personal = forStore.find((row) => row.familyId === null && row.userId === scope.userId);

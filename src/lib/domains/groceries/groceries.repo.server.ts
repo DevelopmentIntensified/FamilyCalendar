@@ -180,7 +180,11 @@ export async function listGroceryMemoryRows(
 		.where(and(memoryInScope(scope), eq(groceryStoreMemory.nameKey, nameKey)));
 }
 
-/** Confirm a remembered store once more: `count` + 1, `updatedAt` = `now`. */
+/**
+ * Confirm a remembered store once more: `count` + 1, `updatedAt` = `now`. The
+ * `id` must come from the scoped `listGroceryMemoryRows` read; memory ids never
+ * reach the wire, so there is no scope check here.
+ */
 export async function incrementGroceryMemory(db: Db, id: string, now: Date): Promise<void> {
 	await db
 		.update(groceryStoreMemory)

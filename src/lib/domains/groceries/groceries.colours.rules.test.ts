@@ -20,6 +20,7 @@ import {
 	defaultGroceryStoreColour,
 	groceryColourOverrideKey,
 	groceryColourScopeOf,
+	groceryColourKeyOf,
 	groceryStoreKey,
 	groceryStoresSharingColour,
 	groupGroceryItems,
@@ -85,6 +86,22 @@ describe('isStoreColourKey', () => {
 
 	it('accepts every declared key', () => {
 		for (const colour of STORE_COLOURS) expect(isStoreColourKey(colour.key)).toBe(true);
+	});
+});
+
+describe('groceryColourKeyOf', () => {
+	it.each<[string, string | null | undefined, string | null]>([
+		['a shop is its trim + lowercase key', '  Aldi ', 'aldi'],
+		['the no-store label is not a shop', NO_STORE_LABEL, null],
+		['the no-store label with padding is not a shop', '  Any store  ', null],
+		// Legacy compares the label case-sensitively: a lowercase "any store" is a real shop.
+		['a lowercase "any store" is a real shop', 'any store', 'any store'],
+		['blank is no store', '   ', null],
+		['the empty string is no store', '', null],
+		['null is no store', null, null],
+		['undefined is no store', undefined, null]
+	])('%s', (_label, name, expected) => {
+		expect(groceryColourKeyOf(name)).toBe(expected);
 	});
 });
 
