@@ -59,13 +59,25 @@ export const ACCOUNT_SETTINGS_DEFAULTS = {
 	showAdsAsEvents: false
 };
 
+/** A stored settings row as clients see it: everything but `verse_translation`. */
+type StoredSettingsView = Omit<UserSettings, 'verseTranslation'>;
+/**
+ * The no-row view: only the defaults /account shows; every other stored field
+ * reads as absent, so callers can probe it (`?.hiddenDashboardModules`) on
+ * either branch without a type guard.
+ */
+type DefaultSettingsView = typeof ACCOUNT_SETTINGS_DEFAULTS & {
+	[K in Exclude<keyof StoredSettingsView, keyof typeof ACCOUNT_SETTINGS_DEFAULTS>]?: undefined;
+};
+export type AccountSettingsView = StoredSettingsView | DefaultSettingsView;
+
 /**
  * The settings the web and `/api/me/settings` expose. `verse_translation` is
  * a stored column no reader has since the verse feature left (owner,
  * 2026-11-12, Q-031/Q-032): strip it here so it never reaches a client. The
  * column itself stays — no DDL.
  */
-export function accountSettingsView(row: UserSettings | null | undefined) {
+export function accountSettingsView(row: UserSettings | null | undefined): AccountSettingsView {
 	if (!row) return ACCOUNT_SETTINGS_DEFAULTS;
 	const { verseTranslation: _dropped, ...settings } = row;
 	void _dropped;
