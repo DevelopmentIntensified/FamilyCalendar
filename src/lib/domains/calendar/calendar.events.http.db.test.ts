@@ -496,7 +496,7 @@ describe('GET /api/events', () => {
 
 	// A date-only `recurrenceUntil` never reaches the end-of-day branch on the
 	// wire: the column is `timestamp with time zone` with `mode:'string'`
-	// (calendar.tables.server.ts:110-115), so Postgres stores `2026-10-20` as
+	// (calendar.tables.server.ts:99-102), so Postgres stores `2026-10-20` as
 	// the INSTANT 2026-10-20T00:00Z (UTC session) and reads it back as a full
 	// timestamp. `recurrenceUntil()` only takes its date-only branch when the
 	// value still matches /^\d{4}-\d{2}-\d{2}$/ on the raw row
