@@ -130,10 +130,10 @@ Where each legacy export goes:
 
 ### Questions for the owner
 
-1. **ESV label on public-domain text.** `CONTEXT.md` says the verse renders "in the user's `verseTranslation` (ESV by default)" and `/api/me/settings` exposes `verseTranslations:[{id:'esv',label:'ESV',attribution:'Public domain.'}]`, but the bundled text is KJV wording ("begotten", "thou", "saith the LORD") — ESV is copyrighted, so this is not ESV text.
+1. **ESV label on public-domain text.** (Q-031) `CONTEXT.md` says the verse renders "in the user's `verseTranslation` (ESV by default)" and `/api/me/settings` exposes `verseTranslations:[{id:'esv',label:'ESV',attribution:'Public domain.'}]`, but the bundled text is KJV wording ("begotten", "thou", "saith the LORD") — ESV is copyrighted, so this is not ESV text.
    Options: (a) keep as-is, no wire change; (b) relabel the entry `KJV` / attribution `Public domain (King James Version).` — a `/api/me/settings.verseTranslations` wire change, Android reads `label` only; (c) fetch real ESV text, which needs a Crossway key and kills the no-network rule.
    *Recommendation:* (b) as its own owner-approved change after the port; the port keeps (a) exactly, because invariants 2/3 are the installed contract.
-2. **"Today" ignores the viewer's zone.** An absent `date` uses the server's local day, so a viewer in another zone can be shown yesterday's or tomorrow's verse. Options: (a) keep, no wire change, calendar strip and API always agree; (b) use the viewer's `timeZone` setting for an absent `date`, which matches the rest of their dashboard but can differ between server and client around midnight. *Recommendation:* (b) as a follow-up ticket; it changes the absent-`date` contract, so it must not be folded into S6.
+2. **"Today" ignores the viewer's zone.** (Q-032) An absent `date` uses the server's local day, so a viewer in another zone can be shown yesterday's or tomorrow's verse. Options: (a) keep, no wire change, calendar strip and API always agree; (b) use the viewer's `timeZone` setting for an absent `date`, which matches the rest of their dashboard but can differ between server and client around midnight. *Recommendation:* (b) as a follow-up ticket; it changes the absent-`date` contract, so it must not be folded into S6.
 
 ## Census
 

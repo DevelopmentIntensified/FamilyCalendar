@@ -273,29 +273,29 @@ The export route has no such dependency.
 
 ### Questions for the owner
 
-1. **Lazy section route.** Context: the page's section is a URL fragment, which the server never
+1. **Lazy section route.** (Q-077) Context: the page's section is a URL fragment, which the server never
    receives, so "load only the visible section" needs a client fetch. Options: (a) a new internal
    `GET /account/section/[section]` page-data route; (b) all section data streamed in the page load;
    (c) `?section=` search-param reloads, which change the visible URL. Recommendation: (a); it keeps
    the first paint to one cheap section and does not add a path to the `/api` wire.
-2. **Export crosses eight domains.** Context: the fixed document holds rows of eight domains, and a
+2. **Export crosses eight domains.** (Q-078) Context: the fixed document holds rows of eight domains, and a
    screen owns no tables. Options: (a) each domain exports a slice service, composed here; (b) an
    `app`-level exporter, which breaks the screen's ownership. Recommendation: (a), accepting the
    wide-but-thin per-domain export entry.
-3. **Export card copy.** Context: the card says "everything your account stores", while
+3. **Export card copy.** (Q-079) Context: the card says "everything your account stores", while
    `adConsentRecords` and `aiUsageTracking` are deliberately excluded. Options: (a) reword to name
    what is included/omitted; (b) include the two tables on the wire. Recommendation: (a) —
    (b) changes a fixed wire.
-4. **Rail Report a Bug link.** Context: the navbar carries `?from=` and the rail does not
+4. **Rail Report a Bug link.** (Q-080) Context: the navbar carries `?from=` and the rail does not
    (`AccountSidebar.svelte:93-108` vs `src/lib/utils/reportBug.ts`). Recommendation: share the
    helper, adding `?from=/account#<section>`.
-5. **Plan & usage heading.** Context: rail label "Plan & usage" (`accountSections.ts:21`), section
+5. **Plan & usage heading.** (Q-081) Context: rail label "Plan & usage" (`accountSections.ts:21`), section
    heading "Subscription" (`AccountSubscriptionSection.svelte:63`). Recommendation: make both
    "Plan & usage".
-6. **Personal-calendar names.** Context: the default-calendar select lists every owned calendar as
+6. **Personal-calendar names.** (Q-082) Context: the default-calendar select lists every owned calendar as
    "Personal Calendar" with one colour, so two rows are indistinguishable. Recommendation: calendar
    exposes real names; no owner action unless the placeholder was intentional.
-7. **Who owns the `/account` guard.** Context: both the group layout and the page redirect `/login`
+7. **Who owns the `/account` guard.** (Q-083) Context: both the group layout and the page redirect `/login`
    today. Recommendation: the app shell layout takes the guard when this screen is ported; the page
    load keeps a defensive check only if the shell cannot guarantee it.
 
