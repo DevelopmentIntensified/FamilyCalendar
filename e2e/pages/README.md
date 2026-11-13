@@ -52,7 +52,7 @@ accept the warning).
 `visual:baseline` and `visual:check` take the module argument after `--`; the
 runner sets `PAGES_MODULE` and calls
 `npx playwright test -c playwright.pages.config.ts e2e/pages/visual.spec.ts`
-(plus `--update-snapshots` for a baseline). To run every page, call the spec
+(plus `--update-snapshots=all` for a baseline, so every snapshot is rewritten). To run every page, call the spec
 directly without `PAGES_MODULE`:
 
 ```bash
