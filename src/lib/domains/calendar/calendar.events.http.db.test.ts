@@ -22,6 +22,14 @@ import type { JsonValue } from '$lib/kernel/validation/validators';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
+import {
+	seedAttendanceRow,
+	seedCalendarRow,
+	seedEventRow,
+	seedExceptionRow,
+	seedRecurringEventRow,
+	type CalendarEventSeed
+} from './calendar.fixtures.server';
 import { DELETE as deleteEvent, PUT as putEvent } from '../../../routes/api/events/[id]/+server';
 import { GET as getEventIcs } from '../../../routes/api/events/[id]/ics/+server';
 import { GET as getRsvp, POST as postRsvp } from '../../../routes/api/events/[id]/rsvp/+server';
@@ -68,37 +76,7 @@ function arrayField(body: JsonObject, key: string): JsonValue[] {
 	return [...value];
 }
 
-type EventSeed = {
-	id: string;
-	ownerId: string;
-	calendarId?: string | null;
-	title: string;
-	start: string;
-	end?: string | null;
-	description?: string | null;
-	location?: string | null;
-	allDay?: boolean;
-	recurrenceFrequency?: string | null;
-	recurrenceInterval?: number | null;
-	recurrenceByDay?: string[] | null;
-	recurrenceCount?: number | null;
-	recurrenceUntil?: string | null;
-	reminderMinutes?: number | null;
-	mirrorOf?: string | null;
-};
-
-async function seedCalendar(id: string, input: { ownerId?: string; familyId?: string } = {}) {
-	const [row] = await testDb()
-		.insert(calendars)
-		.values({ id, ownerId: input.ownerId ?? null, familyId: input.familyId ?? null })
-		.returning();
-	return row;
-}
-
-async function seedEvent(seed: EventSeed) {
-	const [row] = await testDb().insert(events).values(seed).returning();
-	return row;
-}
+type EventSeed = Partial<CalendarEventSeed>;
 
 async function seedMembership(familyId: string, userId: string) {
 	await testDb().insert(familyMembers).values({ familyId, userId, role: 'member' });
@@ -123,8 +101,8 @@ describe('GET /api/events', () => {
 
 	it('serves the expanded occurrences of the requested window with rsvp, attendance and creator', async () => {
 		const user = await seedUser(testDb(), { firstName: 'Mia' });
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
-		await seedEvent({
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedEventRow({
 			id: 'evtoneoff01',
 			ownerId: user.id,
 			calendarId: PERSONAL_CAL,
@@ -132,7 +110,7 @@ describe('GET /api/events', () => {
 			start: '2026-10-05T09:00:00.000Z',
 			end: '2026-10-05T10:00:00.000Z'
 		});
-		await seedEvent({
+		await seedEventRow({
 			id: 'evtweekly01',
 			ownerId: user.id,
 			calendarId: PERSONAL_CAL,
@@ -228,17 +206,17 @@ describe('GET /api/events', () => {
 		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
 		await seedMembership(FAMILY, viewer.id);
 		await seedMembership(FAMILY, partner.id);
-		await seedCalendar(PERSONAL_CAL, { ownerId: viewer.id });
-		await seedCalendar(FAMILY_CAL, { familyId: FAMILY });
-		await seedCalendar('cal-stranger1', { ownerId: stranger.id });
-		await seedEvent({
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: viewer.id });
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY });
+		await seedCalendarRow('cal-stranger1', { ownerId: stranger.id });
+		await seedEventRow({
 			id: 'evtpartner1',
 			ownerId: partner.id,
 			calendarId: FAMILY_CAL,
 			title: 'Family dinner',
 			start: '2026-10-09T18:00:00.000Z'
 		});
-		await seedEvent({
+		await seedEventRow({
 			id: 'evtstrange1',
 			ownerId: stranger.id,
 			calendarId: 'cal-stranger1',
@@ -317,6 +295,256 @@ describe('GET /api/events', () => {
 		expect(wider.status).toBe(400);
 		expect(wider.body).toEqual({ error: 'That range is wider than 62 days.' });
 	});
+
+	// The expansion window is `from 00:00Z − 7d` through `to 23:59:59.999Z + 7d`
+	// (eventRange.ts:76-77), so the grid week straddling the range still renders.
+	it('serves the ±7-day padding around the range and drops what lies beyond it', async () => {
+		const user = await seedUser(testDb());
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		// Ends the day before the padded window opens.
+		await seedEventRow({
+			id: 'evtoutside01',
+			ownerId: user.id,
+			calendarId: PERSONAL_CAL,
+			title: 'Before the padding',
+			start: '2026-09-23T22:00:00.000Z',
+			end: '2026-09-23T23:00:00.000Z'
+		});
+		// Exactly on the padded window's first instant.
+		await seedEventRow({
+			id: 'evtpadding01',
+			ownerId: user.id,
+			calendarId: PERSONAL_CAL,
+			title: 'On the padding edge',
+			start: '2026-09-24T00:00:00.000Z',
+			end: '2026-09-24T01:00:00.000Z'
+		});
+		await seedEventRow({
+			id: 'evtpadding02',
+			ownerId: user.id,
+			calendarId: PERSONAL_CAL,
+			title: 'Inside the padding',
+			start: '2026-09-28T09:00:00.000Z',
+			end: '2026-09-28T10:00:00.000Z'
+		});
+
+		const res = await invoke(getEvents, {
+			ctx: ctx(),
+			user,
+			query: { from: '2026-10-01', to: '2026-10-31' }
+		});
+
+		expect(res.status).toBe(200);
+		const body = objectBody(res);
+		expect(body.window).toEqual({ from: '2026-10-01', to: '2026-10-31' });
+		expect(
+			arrayField(body, 'events').map((event) => String(objectValue(event, 'event')['id']))
+		).toEqual([
+			'evtpadding01~2026-09-24T00:00:00.000Z',
+			'evtpadding02~2026-09-28T09:00:00.000Z'
+		]);
+	});
+
+	// Response order is the masters' start order (`orderBy(events.start)`) and,
+	// inside a master, its occurrences in order (eventDisplayService.ts:91-126) —
+	// NOT chronology: a series' second slot comes before a one-off that falls
+	// between the two slots.
+	it('orders by master start then by occurrence, not chronologically', async () => {
+		const user = await seedUser(testDb());
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		// Inserted first, so the order cannot be the insertion order.
+		await seedEventRow({
+			id: 'evtlater001',
+			ownerId: user.id,
+			calendarId: PERSONAL_CAL,
+			title: 'Dentist',
+			start: '2026-10-08T12:00:00.000Z',
+			end: '2026-10-08T13:00:00.000Z'
+		});
+		await seedRecurringEventRow({
+			id: 'evtseries01',
+			ownerId: user.id,
+			calendarId: PERSONAL_CAL,
+			title: 'Piano',
+			start: '2026-10-05T09:00:00.000Z',
+			end: '2026-10-05T10:00:00.000Z',
+			count: 2
+		});
+
+		const res = await invoke(getEvents, {
+			ctx: ctx(),
+			user,
+			query: { from: '2026-10-01', to: '2026-10-31' }
+		});
+
+		expect(res.status).toBe(200);
+		expect(
+			arrayField(objectBody(res), 'events').map((event) =>
+				String(objectValue(event, 'event')['id'])
+			)
+		).toEqual([
+			'evtseries01~2026-10-05T09:00:00.000Z',
+			'evtseries01~2026-10-12T09:00:00.000Z',
+			'evtlater001~2026-10-08T12:00:00.000Z'
+		]);
+	});
+
+	// A multi-day Event becomes one row per calendar day with the SAME composite
+	// id and the same end; each row's `date`/`start` is that day's shifted start
+	// (eventDisplay.ts:49-73, #224).
+	it('splits a multi-day event into one entry per day, all carrying the same id', async () => {
+		const user = await seedUser(testDb());
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedEventRow({
+			id: 'evtmulti0001',
+			ownerId: user.id,
+			calendarId: PERSONAL_CAL,
+			title: 'Camping',
+			start: '2026-10-05T22:00:00.000Z',
+			end: '2026-10-07T02:00:00.000Z'
+		});
+
+		const res = await invoke(getEvents, {
+			ctx: ctx(),
+			user,
+			query: { from: '2026-10-01', to: '2026-10-31' }
+		});
+
+		expect(res.status).toBe(200);
+		const days = arrayField(objectBody(res), 'events').map((event) => {
+			const row = objectValue(event, 'event');
+			return {
+				id: row['id'],
+				masterId: row['masterId'],
+				occurrenceDate: row['occurrenceDate'],
+				start: row['start'],
+				end: row['end'],
+				date: row['date']
+			};
+		});
+		expect(days).toEqual([
+			{
+				id: 'evtmulti0001~2026-10-05T22:00:00.000Z',
+				masterId: 'evtmulti0001',
+				occurrenceDate: '2026-10-05T22:00:00.000Z',
+				start: '2026-10-05T22:00:00.000Z',
+				end: '2026-10-07T02:00:00.000Z',
+				date: '2026-10-05T22:00:00.000Z'
+			},
+			{
+				id: 'evtmulti0001~2026-10-05T22:00:00.000Z',
+				masterId: 'evtmulti0001',
+				occurrenceDate: '2026-10-05T22:00:00.000Z',
+				start: '2026-10-06T22:00:00.000Z',
+				end: '2026-10-07T02:00:00.000Z',
+				date: '2026-10-06T22:00:00.000Z'
+			},
+			{
+				id: 'evtmulti0001~2026-10-05T22:00:00.000Z',
+				masterId: 'evtmulti0001',
+				occurrenceDate: '2026-10-05T22:00:00.000Z',
+				start: '2026-10-07T22:00:00.000Z',
+				end: '2026-10-07T02:00:00.000Z',
+				date: '2026-10-07T22:00:00.000Z'
+			}
+		]);
+	});
+
+	// #215: BYDAY is a LOCAL weekday. 02:00Z on Oct 6 is Monday 19:00 in Los
+	// Angeles, so BYDAY=MO starts there; read in UTC it is a Tuesday and the
+	// first slot would be a week later. Instants step in UTC, so 02:00Z holds
+	// across the Nov 1 DST change (19:00 PDT becomes 18:00 PST).
+	it("reads BYDAY in the viewer's zone while stepping instants in UTC (DST drift)", async () => {
+		const user = await seedUser(testDb());
+		await testDb()
+			.insert(userSettings)
+			.values({ userId: user.id, timeZone: 'America/Los_Angeles' });
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedEventRow({
+			id: 'evtbyday001',
+			ownerId: user.id,
+			calendarId: PERSONAL_CAL,
+			title: 'Piano',
+			start: '2026-10-06T02:00:00.000Z',
+			end: '2026-10-06T03:00:00.000Z',
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			recurrenceByDay: ['MO'],
+			recurrenceCount: 6
+		});
+
+		const res = await invoke(getEvents, {
+			ctx: ctx(),
+			user,
+			query: { from: '2026-10-01', to: '2026-11-30' }
+		});
+
+		expect(res.status).toBe(200);
+		expect(
+			arrayField(objectBody(res), 'events').map((event) =>
+				String(objectValue(event, 'event')['id'])
+			)
+		).toEqual([
+			'evtbyday001~2026-10-06T02:00:00.000Z',
+			'evtbyday001~2026-10-13T02:00:00.000Z',
+			'evtbyday001~2026-10-20T02:00:00.000Z',
+			'evtbyday001~2026-10-27T02:00:00.000Z',
+			'evtbyday001~2026-11-03T02:00:00.000Z',
+			'evtbyday001~2026-11-10T02:00:00.000Z'
+		]);
+	});
+
+	// A date-only `recurrenceUntil` never reaches the end-of-day branch on the
+	// wire: the column is `timestamp with time zone` with `mode:'string'`
+	// (calendar.tables.server.ts:99-102), so Postgres stores `2026-10-20` as
+	// the INSTANT 2026-10-20T00:00Z (UTC session) and reads it back as a full
+	// timestamp. `recurrenceUntil()` only takes its date-only branch when the
+	// value still matches /^\d{4}-\d{2}-\d{2}$/ on the raw row
+	// (recurrenceService.ts:160-192), so here it is an exact cutoff: the Oct 20
+	// slot is dropped and the Oct 19 one is kept. Read as end-of-day in the
+	// viewer's zone the cutoff would be 2026-10-21T06:59:59.999Z and BOTH slots
+	// would survive, so this fixture tells the two rules apart. (The slot is
+	// 11:00–12:00 in Los Angeles, i.e. inside one calendar day, so the
+	// multi-day split in eventDisplay.ts:49-73 does not add rows.)
+	it('cuts at a date-only recurrenceUntil stored as a UTC-midnight instant', async () => {
+		const user = await seedUser(testDb());
+		await testDb()
+			.insert(userSettings)
+			.values({ userId: user.id, timeZone: 'America/Los_Angeles' });
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedEventRow({
+			id: 'evtuntil001',
+			ownerId: user.id,
+			calendarId: PERSONAL_CAL,
+			title: 'Wind down',
+			start: '2026-10-19T18:00:00.000Z',
+			end: '2026-10-19T19:00:00.000Z',
+			recurrenceFrequency: 'daily',
+			recurrenceInterval: 1,
+			recurrenceUntil: '2026-10-20'
+		});
+
+		const res = await invoke(getEvents, {
+			ctx: ctx(),
+			user,
+			query: { from: '2026-10-15', to: '2026-10-31' }
+		});
+
+		expect(res.status).toBe(200);
+		expect(
+			arrayField(objectBody(res), 'events').map((event) => {
+				const row = objectValue(event, 'event');
+				return { id: row['id'], start: row['start'], end: row['end'], date: row['date'] };
+			})
+		).toEqual([
+			{
+				id: 'evtuntil001~2026-10-19T18:00:00.000Z',
+				start: '2026-10-19T18:00:00.000Z',
+				end: '2026-10-19T19:00:00.000Z',
+				date: '2026-10-19T18:00:00.000Z'
+			}
+		]);
+	});
 });
 
 describe('POST /api/events', () => {
@@ -332,7 +560,7 @@ describe('POST /api/events', () => {
 
 	it('creates on the personal calendar, auto-RSVPs the creator and stores guest names', async () => {
 		const user = await seedUser(testDb(), { firstName: 'Mia' });
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
 
 		const res = await invoke(postEvents, {
 			ctx: ctx(),
@@ -388,7 +616,7 @@ describe('POST /api/events', () => {
 		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
 		await seedMembership(FAMILY, user.id);
 		await seedMembership(FAMILY, partner.id);
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
 
 		const res = await invoke(postEvents, {
 			ctx: ctx(),
@@ -421,8 +649,8 @@ describe('POST /api/events', () => {
 		const user = await seedUser(testDb(), { firstName: 'Mia' });
 		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
 		await seedMembership(FAMILY, user.id);
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
-		await seedCalendar(FAMILY_CAL, { familyId: FAMILY });
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY });
 		await testDb()
 			.insert(userSettings)
 			.values({ userId: user.id, syncEventsToFamilyCalendar: true });
@@ -452,9 +680,135 @@ describe('POST /api/events', () => {
 		expect(storedIso(mirror?.start)).toBe('2026-10-09T16:00:00.000Z');
 	});
 
+	// Q-043 (flip-ready): the copy is made even when the family has TWO
+	// calendars, and the handler takes `familyCals[0]` from an unordered select
+	// (`src/routes/api/events/+server.ts:133-148`). Only ONE copy exists, so the
+	// target is whichever calendar came first — not part of the contract. The
+	// owner's fix (mirror only a personal-calendar Event when the family has
+	// exactly one calendar) must flip this to a single row.
+	it('mirrors a personal-calendar creation once when the family has two calendars (Q-043)', async () => {
+		const user = await seedUser(testDb(), { firstName: 'Mia' });
+		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
+		await seedMembership(FAMILY, user.id);
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY });
+		await seedCalendarRow('cal-family02', { familyId: FAMILY });
+		await testDb()
+			.insert(userSettings)
+			.values({ userId: user.id, syncEventsToFamilyCalendar: true });
+
+		const res = await invoke(postEvents, {
+			ctx: ctx(),
+			user,
+			path: '/api/events',
+			body: {
+				title: 'Recital',
+				start: '2026-10-09T16:00:00.000Z',
+				attendants: ['Grandma']
+			}
+		});
+
+		expect(res.status).toBe(201);
+		const rows = await testDb().select().from(events);
+		expect(rows).toHaveLength(2);
+		const master = rows.find((row) => row.mirrorOf === null);
+		const mirrors = rows.filter((row) => row.mirrorOf !== null);
+		expect(mirrors).toHaveLength(1);
+		const [mirror] = mirrors;
+		expect([FAMILY_CAL, 'cal-family02']).toContain(mirror?.calendarId);
+		expect(mirror).toEqual(
+			expect.objectContaining({
+				ownerId: user.id,
+				title: 'Recital',
+				mirrorOf: master?.id,
+				recurrenceFrequency: null
+			})
+		);
+		expect(storedIso(mirror?.start)).toBe('2026-10-09T16:00:00.000Z');
+
+		// The copy is a full Event write: its own creator RSVP plus the same
+		// guest invite (createEvent runs for the mirror with the master's invites).
+		const mirrorAttendance = await testDb()
+			.select()
+			.from(eventAttendance)
+			.where(eq(eventAttendance.eventId, String(mirror?.id)));
+		expect(mirrorAttendance).toHaveLength(2);
+		expect(mirrorAttendance).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					userId: user.id,
+					name: null,
+					status: 'going',
+					inviteType: 'optional'
+				}),
+				expect.objectContaining({
+					userId: null,
+					name: 'Grandma',
+					status: 'undecided',
+					inviteType: 'optional'
+				})
+			])
+		);
+	});
+
+	// Q-043 (flip-ready), the other half: an Event created ON a family calendar
+	// is copied onto `familyCals[0]` — the first row of an UNORDERED select —
+	// unless that row is the Event's own calendar (`+server.ts:136-142`). Both
+	// whether a copy exists and where it lands are therefore heap facts, not
+	// contract, so the golden re-derives `[0]` with the same query and pins the
+	// RULE: own calendar → no copy; anything else → exactly one copy on it.
+	// Usual heap order puts `cal-family02` first, so the copy exists today and
+	// Q-043 (never mirror a family-calendar Event) must make this fail visibly.
+	it('mirrors an event created on another family calendar onto familyCals[0] (Q-043)', async () => {
+		const user = await seedUser(testDb(), { firstName: 'Mia' });
+		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
+		await seedMembership(FAMILY, user.id);
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedCalendarRow('cal-family02', { familyId: FAMILY });
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY });
+		await testDb()
+			.insert(userSettings)
+			.values({ userId: user.id, syncEventsToFamilyCalendar: true });
+
+		const res = await invoke(postEvents, {
+			ctx: ctx(),
+			user,
+			path: '/api/events',
+			body: {
+				title: 'Practice',
+				start: '2026-10-09T16:00:00.000Z',
+				calendarId: FAMILY_CAL
+			}
+		});
+
+		expect(res.status).toBe(201);
+		const rows = await testDb().select().from(events);
+		const master = rows.find((row) => row.calendarId === FAMILY_CAL);
+		expect(master).toEqual(expect.objectContaining({ title: 'Practice', mirrorOf: null }));
+		const mirrors = rows.filter((row) => row.mirrorOf !== null);
+
+		// The handler's own pick, read the same way: no ORDER BY.
+		const [firstFamilyCalendar] = await testDb()
+			.select()
+			.from(calendars)
+			.where(eq(calendars.familyId, FAMILY));
+
+		if (firstFamilyCalendar?.id === FAMILY_CAL) {
+			// The pick landed on the Event's own calendar: the guard skips the copy.
+			expect(rows).toHaveLength(1);
+			expect(mirrors).toEqual([]);
+			return;
+		}
+		expect(rows).toHaveLength(2);
+		expect(mirrors).toHaveLength(1);
+		expect(mirrors[0]?.calendarId).toBe(firstFamilyCalendar?.id);
+		expect(mirrors[0]?.mirrorOf).toBe(master?.id);
+		expect(mirrors[0]?.title).toBe('Practice');
+	});
+
 	it('does not mirror when the setting is off', async () => {
 		const user = await seedUser(testDb());
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
 
 		await invoke(postEvents, {
 			ctx: ctx(),
@@ -469,8 +823,8 @@ describe('POST /api/events', () => {
 	it("refuses a calendar the viewer cannot see with 403 'Calendar not accessible'", async () => {
 		const user = await seedUser(testDb());
 		const stranger = await seedUser(testDb());
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
-		await seedCalendar('cal-stranger1', { ownerId: stranger.id });
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedCalendarRow('cal-stranger1', { ownerId: stranger.id });
 
 		const res = await invoke(postEvents, {
 			ctx: ctx(),
@@ -484,9 +838,22 @@ describe('POST /api/events', () => {
 		expect(await testDb().select({ id: events.id }).from(events)).toEqual([]);
 	});
 
+	// Pinned as today: this handler reads `request.json()` unguarded, so a body
+	// that is not JSON raises out of it (a framework 500) instead of the import
+	// routes' `400 {"error":"Invalid JSON"}`.
+	it('raises on a body that is not JSON instead of answering 400', async () => {
+		const user = await seedUser(testDb());
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+
+		await expect(
+			invoke(postEvents, { ctx: ctx(), user, path: '/api/events', rawBody: '{' })
+		).rejects.toThrow();
+		expect(await testDb().select({ id: events.id }).from(events)).toEqual([]);
+	});
+
 	it('answers 500 {"error":"Failed to create event"} when the row cannot be written', async () => {
 		const user = await seedUser(testDb());
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
 
 		const res = await invoke(postEvents, {
 			ctx: ctx(),
@@ -508,8 +875,8 @@ describe('PUT /api/events/[id]', () => {
 
 	async function seedOwnedEvent(overrides: Partial<EventSeed> = {}) {
 		const user = await seedUser(testDb(), { firstName: 'Mia' });
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
-		await seedEvent({
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedEventRow({
 			id: EVENT,
 			ownerId: user.id,
 			calendarId: PERSONAL_CAL,
@@ -587,15 +954,25 @@ describe('PUT /api/events/[id]', () => {
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({
 			success: true,
-			event: expect.objectContaining({
+			event: {
 				id: EVENT,
+				calendarId: PERSONAL_CAL,
+				ownerId: user.id,
 				title: 'Dentist',
-				location: 'Clinic',
-				description: 'Bring forms',
 				start: '2026-10-08 13:00:00+00',
 				end: '2026-10-08 14:00:00+00',
-				reminderMinutes: 30
-			})
+				description: 'Bring forms',
+				location: 'Clinic',
+				allDay: false,
+				recurrenceFrequency: null,
+				recurrenceInterval: null,
+				recurrenceByDay: null,
+				recurrenceCount: null,
+				recurrenceUntil: null,
+				reminderMinutes: 30,
+				mirrorOf: null,
+				created_at: expect.stringMatching(ISO)
+			}
 		});
 
 		const read = await invoke(getEvents, {
@@ -631,14 +1008,25 @@ describe('PUT /api/events/[id]', () => {
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({
 			success: true,
-			event: expect.objectContaining({
+			event: {
+				id: EVENT,
+				calendarId: PERSONAL_CAL,
+				ownerId: user.id,
 				title: 'Piano lesson',
+				start: '2026-10-07 13:00:00+00',
+				end: '2026-10-07 14:00:00+00',
+				description: 'Bring forms',
+				location: 'Clinic',
+				allDay: false,
 				recurrenceFrequency: null,
 				recurrenceInterval: null,
 				recurrenceByDay: null,
 				recurrenceCount: null,
-				recurrenceUntil: null
-			})
+				recurrenceUntil: null,
+				reminderMinutes: 30,
+				mirrorOf: null,
+				created_at: expect.stringMatching(ISO)
+			}
 		});
 	});
 
@@ -775,10 +1163,19 @@ describe('PUT /api/events/[id]', () => {
 			recurrenceInterval: 1,
 			recurrenceCount: 3
 		});
-		await testDb().insert(eventExceptions).values({
+		await seedExceptionRow({
 			eventId: EVENT,
 			originalDate: '2026-10-13T15:00:00.000Z',
 			isCancelled: true
+		});
+		// An edited slot carries its own start/end, shifted by the same delta as
+		// the slot key (events.ts:316-321) or it would render at the old time.
+		await seedExceptionRow({
+			eventId: EVENT,
+			originalDate: '2026-10-20T15:00:00.000Z',
+			start: '2026-10-20T17:00:00.000Z',
+			end: '2026-10-20T18:30:00.000Z',
+			title: 'Piano (moved)'
 		});
 
 		const res = await invoke(putEvent, {
@@ -790,8 +1187,325 @@ describe('PUT /api/events/[id]', () => {
 		});
 
 		expect(res.status).toBe(200);
-		const exceptions = await testDb().select().from(eventExceptions);
+		const exceptions = await testDb()
+			.select()
+			.from(eventExceptions)
+			.orderBy(eventExceptions.originalDate);
+		expect(exceptions).toHaveLength(2);
 		expect(storedIso(exceptions[0]?.originalDate)).toBe('2026-10-15T15:00:00.000Z');
+		expect(storedIso(exceptions[1]?.originalDate)).toBe('2026-10-22T15:00:00.000Z');
+		expect(storedIso(exceptions[1]?.start)).toBe('2026-10-22T17:00:00.000Z');
+		expect(storedIso(exceptions[1]?.end)).toBe('2026-10-22T18:30:00.000Z');
+		expect(exceptions[1]?.title).toBe('Piano (moved)');
+	});
+
+	// events.ts:345-364: a whole-series edit propagates the fixed field set to
+	// the mirror row; `calendarId` is deliberately not in it.
+	it('propagates a master edit to its family mirror and leaves the mirror calendar alone', async () => {
+		const user = await seedUser(testDb(), { firstName: 'Mia' });
+		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
+		await seedMembership(FAMILY, user.id);
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY });
+		await seedEventRow({
+			id: EVENT,
+			ownerId: user.id,
+			calendarId: PERSONAL_CAL,
+			title: 'Piano',
+			start: '2026-10-06T15:00:00.000Z',
+			end: '2026-10-06T16:00:00.000Z',
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			recurrenceCount: 3
+		});
+		await seedEventRow({
+			id: 'evtmirror001',
+			ownerId: user.id,
+			calendarId: FAMILY_CAL,
+			title: 'Piano',
+			start: '2026-10-06T15:00:00.000Z',
+			end: '2026-10-06T16:00:00.000Z',
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			recurrenceCount: 3,
+			mirrorOf: EVENT
+		});
+
+		const res = await invoke(putEvent, {
+			ctx: ctx(),
+			user,
+			method: 'PUT',
+			params: { id: EVENT },
+			body: {
+				title: 'Piano lesson',
+				start: '2026-10-06T17:00:00.000Z',
+				end: '2026-10-06T18:30:00.000Z',
+				location: 'Studio',
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceCount: 4
+			}
+		});
+
+		expect(res.status).toBe(200);
+		const [mirror] = await testDb()
+			.select()
+			.from(events)
+			.where(eq(events.id, 'evtmirror001'));
+		expect(mirror).toEqual(
+			expect.objectContaining({
+				calendarId: FAMILY_CAL,
+				ownerId: user.id,
+				mirrorOf: EVENT,
+				title: 'Piano lesson',
+				location: 'Studio',
+				allDay: false,
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceCount: 4
+			})
+		);
+		expect(storedIso(mirror?.start)).toBe('2026-10-06T17:00:00.000Z');
+		expect(storedIso(mirror?.end)).toBe('2026-10-06T18:30:00.000Z');
+		// The master stayed on its own calendar: the mirror is what moves calendars.
+		const [master] = await testDb().select().from(events).where(eq(events.id, EVENT));
+		expect(master?.calendarId).toBe(PERSONAL_CAL);
+	});
+
+	// events.ts:72-86: an edit merges only the fields it defines, so a second
+	// scope-'this' write keeps what the first one set.
+	it('merges a second scope-this edit over the fields the first one wrote', async () => {
+		const user = await seedOwnedEvent({
+			title: 'Piano',
+			start: '2026-10-06T15:00:00.000Z',
+			end: '2026-10-06T16:00:00.000Z',
+			description: null,
+			location: null,
+			reminderMinutes: null,
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			recurrenceCount: 3
+		});
+
+		const first = await invoke(putEvent, {
+			ctx: ctx(),
+			user,
+			method: 'PUT',
+			params: { id: `${EVENT}~2026-10-13T15:00:00.000Z` },
+			body: { scope: 'this', title: 'Piano (moved)', location: 'Studio' }
+		});
+		expect(first.status).toBe(200);
+
+		const second = await invoke(putEvent, {
+			ctx: ctx(),
+			user,
+			method: 'PUT',
+			params: { id: `${EVENT}~2026-10-13T15:00:00.000Z` },
+			body: { scope: 'this', start: '2026-10-13T17:00:00.000Z' }
+		});
+		expect(second.status).toBe(200);
+		expect(second.body).toEqual({
+			success: true,
+			note: 'Attendee changes apply to the whole series.'
+		});
+
+		const exceptions = await testDb().select().from(eventExceptions);
+		expect(exceptions).toHaveLength(1);
+		expect(exceptions[0]).toEqual(
+			expect.objectContaining({
+				eventId: EVENT,
+				isCancelled: false,
+				title: 'Piano (moved)',
+				location: 'Studio'
+			})
+		);
+		expect(storedIso(exceptions[0]?.originalDate)).toBe('2026-10-13T15:00:00.000Z');
+		expect(storedIso(exceptions[0]?.start)).toBe('2026-10-13T17:00:00.000Z');
+		expect(exceptions[0]?.end).toBeNull();
+
+		// The slot still renders with the master's one-hour duration.
+		const read = await invoke(getEvents, {
+			ctx: ctx(),
+			user,
+			query: { from: '2026-10-01', to: '2026-10-31' }
+		});
+		expect(arrayField(objectBody(read), 'events')[1]).toEqual(
+			expect.objectContaining({
+				id: `${EVENT}~2026-10-13T15:00:00.000Z`,
+				occurrenceDate: '2026-10-13T15:00:00.000Z',
+				start: '2026-10-13T17:00:00.000Z',
+				end: '2026-10-13T18:00:00.000Z',
+				title: 'Piano (moved)',
+				location: 'Studio'
+			})
+		);
+	});
+
+	// events.ts:72-86 defaults `isCancelled` to false, so a scope-'this' PUT on
+	// a cancelled slot brings the occurrence back.
+	it('un-cancels a cancelled slot when a scope-this PUT edits it', async () => {
+		const user = await seedOwnedEvent({
+			title: 'Piano',
+			start: '2026-10-06T15:00:00.000Z',
+			end: '2026-10-06T16:00:00.000Z',
+			description: null,
+			location: null,
+			reminderMinutes: null,
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			recurrenceCount: 3
+		});
+		await seedExceptionRow({
+			eventId: EVENT,
+			originalDate: '2026-10-13T15:00:00.000Z',
+			isCancelled: true
+		});
+
+		const res = await invoke(putEvent, {
+			ctx: ctx(),
+			user,
+			method: 'PUT',
+			params: { id: `${EVENT}~2026-10-13T15:00:00.000Z` },
+			body: { scope: 'this', title: 'Piano (back)' }
+		});
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({
+			success: true,
+			note: 'Attendee changes apply to the whole series.'
+		});
+		const exceptions = await testDb().select().from(eventExceptions);
+		expect(exceptions).toHaveLength(1);
+		expect(exceptions[0]).toEqual(
+			expect.objectContaining({ eventId: EVENT, isCancelled: false, title: 'Piano (back)' })
+		);
+
+		const read = await invoke(getEvents, {
+			ctx: ctx(),
+			user,
+			query: { from: '2026-10-01', to: '2026-10-31' }
+		});
+		const events = arrayField(objectBody(read), 'events');
+		expect(events).toHaveLength(3);
+		expect(events[1]).toEqual(
+			expect.objectContaining({
+				id: `${EVENT}~2026-10-13T15:00:00.000Z`,
+				start: '2026-10-13T15:00:00.000Z',
+				end: '2026-10-13T16:00:00.000Z',
+				title: 'Piano (back)'
+			})
+		);
+	});
+
+	// Access gap pinned as today: a scope-'this' write checks `canTouchEvent`
+	// — READ access — not the #165 owner leg (calendarScope.ts:65-79,
+	// [id]/+server.ts:55,156), so a family member may rewrite or cancel another
+	// member's occurrence. A whole-series PUT is still refused.
+	it("lets a family member rewrite and cancel another member's occurrence (scope 'this' needs read access only)", async () => {
+		const owner = await seedUser(testDb(), { firstName: 'Mia' });
+		const partner = await seedUser(testDb(), { firstName: 'Sam' });
+		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
+		await seedMembership(FAMILY, owner.id);
+		await seedMembership(FAMILY, partner.id);
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY });
+		await seedRecurringEventRow({
+			id: EVENT,
+			ownerId: owner.id,
+			calendarId: FAMILY_CAL,
+			title: 'Piano',
+			start: '2026-10-06T15:00:00.000Z',
+			end: '2026-10-06T16:00:00.000Z',
+			count: 3
+		});
+
+		const rewrite = await invoke(putEvent, {
+			ctx: ctx(),
+			user: partner,
+			method: 'PUT',
+			params: { id: `${EVENT}~2026-10-13T15:00:00.000Z` },
+			body: { scope: 'this', title: 'Piano (partner)' }
+		});
+		expect(rewrite.status).toBe(200);
+		expect(rewrite.body).toEqual({
+			success: true,
+			note: 'Attendee changes apply to the whole series.'
+		});
+
+		const cancel = await invoke(deleteEvent, {
+			ctx: ctx(),
+			user: partner,
+			method: 'DELETE',
+			params: { id: `${EVENT}~2026-10-20T15:00:00.000Z` },
+			body: { scope: 'this' }
+		});
+		expect(cancel.status).toBe(200);
+		expect(cancel.body).toEqual({ success: true });
+
+		// The owner leg still holds for the series itself.
+		const series = await invoke(putEvent, {
+			ctx: ctx(),
+			user: partner,
+			method: 'PUT',
+			params: { id: EVENT },
+			body: { title: 'Hijacked' }
+		});
+		expect(series.status).toBe(404);
+		expect(series.body).toEqual({ error: 'Event not found' });
+
+		const exceptions = await testDb()
+			.select()
+			.from(eventExceptions)
+			.orderBy(eventExceptions.originalDate);
+		expect(exceptions).toHaveLength(2);
+		expect(exceptions[0]).toEqual(
+			expect.objectContaining({
+				eventId: EVENT,
+				isCancelled: false,
+				title: 'Piano (partner)'
+			})
+		);
+		expect(exceptions[1]).toEqual(
+			expect.objectContaining({ eventId: EVENT, isCancelled: true })
+		);
+	});
+
+	// A scope-'this' PUT only special-cases a RECURRING master, so on a one-off
+	// it falls through to the ordinary partial update (no note in the answer).
+	it("treats scope 'this' on a one-off as a full update", async () => {
+		const user = await seedOwnedEvent();
+
+		const res = await invoke(putEvent, {
+			ctx: ctx(),
+			user,
+			method: 'PUT',
+			params: { id: EVENT },
+			body: { scope: 'this', title: 'Dentist (moved)' }
+		});
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({
+			success: true,
+			event: {
+				id: EVENT,
+				calendarId: PERSONAL_CAL,
+				ownerId: user.id,
+				title: 'Dentist (moved)',
+				start: '2026-10-07 13:00:00+00',
+				end: '2026-10-07 14:00:00+00',
+				description: 'Bring forms',
+				location: 'Clinic',
+				allDay: false,
+				recurrenceFrequency: null,
+				recurrenceInterval: null,
+				recurrenceByDay: null,
+				recurrenceCount: null,
+				recurrenceUntil: null,
+				reminderMinutes: 30,
+				mirrorOf: null,
+				created_at: expect.stringMatching(ISO)
+			}
+		});
+		expect(await testDb().select().from(eventExceptions)).toEqual([]);
 	});
 
 	it("answers 404 'Event not found' for an unknown id", async () => {
@@ -814,8 +1528,8 @@ describe('PUT /api/events/[id]', () => {
 		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
 		await seedMembership(FAMILY, owner.id);
 		await seedMembership(FAMILY, partner.id);
-		await seedCalendar(FAMILY_CAL, { familyId: FAMILY });
-		await seedEvent({
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY });
+		await seedEventRow({
 			id: EVENT,
 			ownerId: owner.id,
 			calendarId: FAMILY_CAL,
@@ -841,7 +1555,7 @@ describe('PUT /api/events/[id]', () => {
 	it("answers 403 'Calendar not accessible' for a move onto a calendar the viewer cannot see", async () => {
 		const user = await seedOwnedEvent();
 		const stranger = await seedUser(testDb());
-		await seedCalendar('cal-stranger1', { ownerId: stranger.id });
+		await seedCalendarRow('cal-stranger1', { ownerId: stranger.id });
 
 		const res = await invoke(putEvent, {
 			ctx: ctx(),
@@ -855,9 +1569,16 @@ describe('PUT /api/events/[id]', () => {
 		expect(res.body).toEqual({ error: 'Calendar not accessible' });
 	});
 
-	it("answers 400 'Invalid event id' for an id that is not a master id", async () => {
-		const user = await seedUser(testDb());
-		for (const id of ['no', 'abc~2026-10-07T13:00:00.000Z', 'evtoneoff01~nope']) {
+	const INVALID_EVENT_IDS: readonly string[] = [
+		'no',
+		'abc~2026-10-07T13:00:00.000Z',
+		'evtoneoff01~nope'
+	];
+
+	it.each(INVALID_EVENT_IDS)(
+		"answers 400 'Invalid event id' for %s",
+		async (id) => {
+			const user = await seedUser(testDb());
 			const res = await invoke(putEvent, {
 				ctx: ctx(),
 				user,
@@ -868,7 +1589,7 @@ describe('PUT /api/events/[id]', () => {
 			expect(res.status).toBe(400);
 			expect(res.body).toEqual({ error: 'Invalid event id' });
 		}
-	});
+	);
 
 	it('answers 500 {"error":"Failed to update event"} when the row cannot be written', async () => {
 		const user = await seedOwnedEvent();
@@ -893,9 +1614,9 @@ describe('DELETE /api/events/[id]', () => {
 	async function seedSeries(input: { mirror?: boolean; cancelledSlot?: boolean } = {}) {
 		const user = await seedUser(testDb(), { firstName: 'Mia' });
 		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
-		await seedCalendar(FAMILY_CAL, { familyId: FAMILY });
-		await seedEvent({
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY });
+		await seedEventRow({
 			id: EVENT,
 			ownerId: user.id,
 			calendarId: PERSONAL_CAL,
@@ -907,7 +1628,7 @@ describe('DELETE /api/events/[id]', () => {
 			recurrenceCount: 3
 		});
 		if (input.mirror) {
-			await seedEvent({
+			await seedEventRow({
 				id: 'evtmirror001',
 				ownerId: user.id,
 				calendarId: FAMILY_CAL,
@@ -921,7 +1642,7 @@ describe('DELETE /api/events/[id]', () => {
 			});
 		}
 		if (input.cancelledSlot) {
-			await testDb().insert(eventExceptions).values({
+			await seedExceptionRow({
 				eventId: EVENT,
 				originalDate: '2026-10-13T15:00:00.000Z',
 				isCancelled: true
@@ -955,8 +1676,8 @@ describe('DELETE /api/events/[id]', () => {
 
 	it("a scope 'this' DELETE on a one-off removes that event", async () => {
 		const user = await seedUser(testDb());
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
-		await seedEvent({
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedEventRow({
 			id: 'evtoneoff01',
 			ownerId: user.id,
 			calendarId: PERSONAL_CAL,
@@ -1104,20 +1825,18 @@ describe('GET /api/events/[id]/rsvp', () => {
 
 	async function seedEventWithGuests() {
 		const user = await seedUser(testDb(), { firstName: 'Mia', lastName: 'Rivera' });
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
-		await seedEvent({
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedEventRow({
 			id: EVENT,
 			ownerId: user.id,
 			calendarId: PERSONAL_CAL,
 			title: 'Dentist',
 			start: '2026-10-07T13:00:00.000Z'
 		});
-		await testDb()
-			.insert(eventAttendance)
-			.values([
-				{ eventId: EVENT, userId: user.id, status: 'going', inviteType: 'optional' },
-				{ eventId: EVENT, name: 'Grandma', status: 'undecided', inviteType: 'optional' }
-			]);
+		await seedAttendanceRow([
+			{ eventId: EVENT, userId: user.id, status: 'going', inviteType: 'optional' },
+			{ eventId: EVENT, name: 'Grandma', status: 'undecided', inviteType: 'optional' }
+		]);
 		return user;
 	}
 
@@ -1170,8 +1889,8 @@ describe('GET /api/events/[id]/rsvp', () => {
 		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
 		await seedMembership(FAMILY, owner.id);
 		await seedMembership(FAMILY, partner.id);
-		await seedCalendar(FAMILY_CAL, { familyId: FAMILY });
-		await seedEvent({
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY });
+		await seedEventRow({
 			id: EVENT,
 			ownerId: owner.id,
 			calendarId: FAMILY_CAL,
@@ -1201,6 +1920,42 @@ describe('GET /api/events/[id]/rsvp', () => {
 		expect(denied.status).toBe(403);
 		expect(denied.body).toEqual({ error: 'No access to this event' });
 	});
+
+	// Pinned as today: the rsvp pair looks `params.id` up in `events` with no
+	// occurrence resolution, so the composite id every display row carries is
+	// "not found" (rsvp/+server.ts:18,79) — unlike PUT/DELETE/ics.
+	it('answers 404 for a composite occurrence id (rsvp only knows master ids)', async () => {
+		const owner = await seedUser(testDb(), { firstName: 'Mia' });
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: owner.id });
+		await seedRecurringEventRow({
+			id: 'evtrecurring1',
+			ownerId: owner.id,
+			calendarId: PERSONAL_CAL,
+			title: 'Piano',
+			start: '2026-10-06T15:00:00.000Z',
+			end: '2026-10-06T16:00:00.000Z',
+			count: 3
+		});
+
+		const occurrenceId = 'evtrecurring1~2026-10-13T15:00:00.000Z';
+		const read = await invoke(getRsvp, {
+			ctx: ctx(),
+			user: owner,
+			params: { id: occurrenceId }
+		});
+		expect(read.status).toBe(404);
+		expect(read.body).toEqual({ error: 'Event not found' });
+
+		const write = await invoke(postRsvp, {
+			ctx: ctx(),
+			user: owner,
+			method: 'POST',
+			params: { id: occurrenceId },
+			body: { status: 'going' }
+		});
+		expect(write.status).toBe(404);
+		expect(write.body).toEqual({ error: 'Event not found' });
+	});
 });
 
 describe('POST /api/events/[id]/rsvp', () => {
@@ -1208,8 +1963,8 @@ describe('POST /api/events/[id]/rsvp', () => {
 
 	async function seedRsvpEvent() {
 		const user = await seedUser(testDb(), { firstName: 'Mia', lastName: 'Rivera' });
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
-		await seedEvent({
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedEventRow({
 			id: EVENT,
 			ownerId: user.id,
 			calendarId: PERSONAL_CAL,
@@ -1243,23 +1998,34 @@ describe('POST /api/events/[id]/rsvp', () => {
 		});
 
 		expect(res.status).toBe(200);
-		const body = objectBody(res);
-		expect(body.success).toBe(true);
-		// Legacy quirk kept on purpose: `rsvpStatus` is the raw attendance rows,
-		// not a single status (getEventRsvpStatus selects every row).
-		expect(arrayField(body, 'rsvpStatus')).toHaveLength(1);
-		expect(arrayField(body, 'rsvpStatus')[0]).toEqual(
-			expect.objectContaining({
-				eventId: EVENT,
-				userId: user.id,
-				name: null,
-				status: 'maybe',
-				inviteType: 'optional'
-			})
-		);
-		expect(arrayField(body, 'attendance')[0]).toEqual(
-			expect.objectContaining({ userId: user.id, status: 'maybe', firstName: 'Mia' })
-		);
+		// Legacy quirk kept on purpose: `rsvpStatus` is the raw attendance ROWS,
+		// not a single status (getEventRsvpStatus selects every row), while
+		// `attendance` is the same rows joined to the member's names.
+		expect(res.body).toEqual({
+			success: true,
+			rsvpStatus: [
+				{
+					id: expect.any(String),
+					eventId: EVENT,
+					userId: user.id,
+					name: null,
+					status: 'maybe',
+					inviteType: 'optional'
+				}
+			],
+			attendance: [
+				{
+					id: expect.any(String),
+					eventId: EVENT,
+					userId: user.id,
+					name: null,
+					status: 'maybe',
+					inviteType: 'optional',
+					firstName: 'Mia',
+					lastName: 'Rivera'
+				}
+			]
+		});
 
 		const rows = await testDb().select().from(eventAttendance);
 		expect(rows).toHaveLength(1);
@@ -1342,10 +2108,12 @@ describe('POST /api/events/[id]/rsvp', () => {
 		expect(arrayField(objectBody(again), 'attendance')).toHaveLength(1);
 	});
 
-	it("answers 400 'Guest name is required' for a blank or non-string guest", async () => {
-		const user = await seedRsvpEvent();
+	const BLANK_GUESTS: readonly { guest: string | number }[] = [{ guest: '   ' }, { guest: 5 }];
 
-		for (const guest of ['   ', 5]) {
+	it.each(BLANK_GUESTS)(
+		"answers 400 'Guest name is required' for guest $guest",
+		async ({ guest }) => {
+			const user = await seedRsvpEvent();
 			const res = await invoke(postRsvp, {
 				ctx: ctx(),
 				user,
@@ -1356,7 +2124,7 @@ describe('POST /api/events/[id]/rsvp', () => {
 			expect(res.status).toBe(400);
 			expect(res.body).toEqual({ error: 'Guest name is required' });
 		}
-	});
+	);
 
 	it("answers 404 'Event not found' and 403 'No access to this event'", async () => {
 		await seedRsvpEvent();
@@ -1389,8 +2157,8 @@ describe('GET /api/events/[id]/ics', () => {
 
 	async function seedCalendarAndEvent(overrides: Partial<EventSeed> = {}) {
 		const user = await seedUser(testDb(), { firstName: 'Mia' });
-		await seedCalendar(PERSONAL_CAL, { ownerId: user.id });
-		await seedEvent({
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		await seedEventRow({
 			id: EVENT,
 			ownerId: user.id,
 			calendarId: PERSONAL_CAL,
@@ -1488,7 +2256,7 @@ describe('GET /api/events/[id]/ics', () => {
 			recurrenceInterval: 1,
 			recurrenceCount: 3
 		});
-		await testDb().insert(eventExceptions).values({
+		await seedExceptionRow({
 			eventId: EVENT,
 			originalDate: '2026-10-13T15:00:00.000Z',
 			isCancelled: false,
@@ -1511,13 +2279,139 @@ describe('GET /api/events/[id]/ics', () => {
 		expect(res.text).not.toContain('RRULE:');
 	});
 
+	// Q-048 (flip-ready): an Exception Override exports `exception.end ?? event.end`,
+	// so a START-ONLY override carries the MASTER's end — here an hour BEFORE its
+	// own DTSTART. The owner's fix derives the end from the master duration.
+	it('exports a start-only override with the MASTER end, even before its DTSTART (Q-048)', async () => {
+		const user = await seedCalendarAndEvent({
+			title: 'Piano',
+			start: '2026-10-06T15:00:00.000Z',
+			end: '2026-10-06T16:00:00.000Z',
+			description: null,
+			location: null,
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			recurrenceCount: 3
+		});
+		await seedExceptionRow({
+			eventId: EVENT,
+			originalDate: '2026-10-13T15:00:00.000Z',
+			isCancelled: false,
+			start: '2026-10-13T17:00:00.000Z'
+		});
+
+		const res = await invoke(getEventIcs, {
+			ctx: ctx(),
+			user,
+			params: { id: `${EVENT}~2026-10-13T15:00:00.000Z` }
+		});
+
+		expect(res.status).toBe(200);
+		expect(res.text.split('\r\n')).toEqual([
+			'BEGIN:VCALENDAR',
+			'VERSION:2.0',
+			'CALSCALE:GREGORIAN',
+			'BEGIN:VEVENT',
+			'UID:evtoneoff01@familyplanz.com',
+			expect.stringMatching(/^DTSTAMP:\d{8}T\d{6}Z$/),
+			'DTSTART:20261013T170000Z',
+			// The master's end, one week earlier than this occurrence's start.
+			'DTEND:20261006T160000Z',
+			'SUMMARY:Piano',
+			'END:VEVENT',
+			'END:VCALENDAR',
+			''
+		]);
+	});
+
+	// Q-048 (flip-ready), the other half: a TITLE-ONLY override exports the
+	// MASTER's DTSTART, not the occurrence slot it belongs to.
+	it("exports a title-only override with the master's DTSTART (Q-048)", async () => {
+		const user = await seedCalendarAndEvent({
+			title: 'Piano',
+			start: '2026-10-06T15:00:00.000Z',
+			end: '2026-10-06T16:00:00.000Z',
+			description: null,
+			location: null,
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			recurrenceCount: 3
+		});
+		await seedExceptionRow({
+			eventId: EVENT,
+			originalDate: '2026-10-13T15:00:00.000Z',
+			isCancelled: false,
+			title: 'Piano (renamed)'
+		});
+
+		const res = await invoke(getEventIcs, {
+			ctx: ctx(),
+			user,
+			params: { id: `${EVENT}~2026-10-13T15:00:00.000Z` }
+		});
+
+		expect(res.status).toBe(200);
+		expect(res.text.split('\r\n')).toEqual([
+			'BEGIN:VCALENDAR',
+			'VERSION:2.0',
+			'CALSCALE:GREGORIAN',
+			'BEGIN:VEVENT',
+			'UID:evtoneoff01@familyplanz.com',
+			expect.stringMatching(/^DTSTAMP:\d{8}T\d{6}Z$/),
+			'DTSTART:20261006T150000Z',
+			'DTEND:20261006T160000Z',
+			'SUMMARY:Piano (renamed)',
+			'END:VEVENT',
+			'END:VCALENDAR',
+			''
+		]);
+	});
+
+	// A COUNT-only rule has no INTERVAL (calendar interval is 1) and no UNTIL.
+	it('writes a COUNT-only RRULE and omits INTERVAL=1', async () => {
+		const user = await seedCalendarAndEvent({
+			title: 'Piano',
+			start: '2026-10-05T15:00:00.000Z',
+			end: '2026-10-05T16:00:00.000Z',
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			recurrenceCount: 5
+		});
+
+		const res = await invoke(getEventIcs, { ctx: ctx(), user, params: { id: EVENT } });
+
+		expect(res.status).toBe(200);
+		expect(res.text).toContain('RRULE:FREQ=WEEKLY;COUNT=5');
+		expect(res.text).not.toContain('INTERVAL=');
+	});
+
+	// A missing end becomes +1 hour for a timed Event, and the SUMMARY is never
+	// folded — one long line even past RFC 5545's 75 octets.
+	it('defaults a missing end to +1 hour and never folds a long SUMMARY line', async () => {
+		const longTitle =
+			'Soccer practice with the whole extended family and the neighbours from next door';
+		const user = await seedCalendarAndEvent({
+			title: longTitle,
+			start: '2026-10-05T09:00:00.000Z',
+			end: null
+		});
+
+		const res = await invoke(getEventIcs, { ctx: ctx(), user, params: { id: EVENT } });
+
+		expect(res.status).toBe(200);
+		const lines = res.text.split('\r\n');
+		expect(lines).toContain('DTEND:20261005T100000Z');
+		expect(lines).toContain(`SUMMARY:${longTitle}`);
+		expect(lines.filter((line) => line.startsWith(' '))).toEqual([]);
+	});
+
 	it("answers 404 for a cancelled occurrence and for an unknown event", async () => {
 		const user = await seedCalendarAndEvent({
 			recurrenceFrequency: 'weekly',
 			recurrenceInterval: 1,
 			recurrenceCount: 3
 		});
-		await testDb().insert(eventExceptions).values({
+		await seedExceptionRow({
 			eventId: EVENT,
 			originalDate: '2026-10-12T09:00:00.000Z',
 			isCancelled: true
