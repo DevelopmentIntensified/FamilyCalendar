@@ -24,7 +24,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [feedback.fixtures.server.ts](feedback.fixtures.server.ts) | fixtures | Row builders for the db tests: `seedBugReport`, `seedUnmatchedPhrase`. | used by `*.db.test.ts` |
 | [feedback.rules.test.ts](feedback.rules.test.ts) | test | Tables for the vocabularies, phrase normalization and the dedup write shape, the draft caps, the path→area mapping, the auto-file skips/caps and the issue-257 normalizer. | — |
 | [feedback.export.rules.test.ts](feedback.export.rules.test.ts) | test | `matchedSummary` / `reporterName` tables and the exact text of both exports (header, grouping, order, empty register, zone). | — |
-| [feedback.repo.db.test.ts](feedback.repo.db.test.ts) | test | One `rollbackTest` per query: filters, ordering, the reporter join, the upsert counters/timestamps and both prune cutoffs (including `coalesce` resolving `resolvedAt` first). | — |
+| [feedback.repo.db.test.ts](feedback.repo.db.test.ts) | test | One `rollbackTest` per query: filters, ordering, the reporter join, the upsert counters/timestamps and both prune cutoffs (`resolvedAt` anchors first, `createdAt` only when it is null). | — |
 | [feedback.contract.test.ts](feedback.contract.test.ts) | test | The body schemas (absent-vs-null url, the two 400 copies, Q-006) and the response schemas (ISO timestamps, no `Date`). | — |
 | [feedback.http.db.test.ts](feedback.http.db.test.ts) | test | Golden `/api` contract for the six routes: status, full body, error copy, absent-vs-null, rate limits and the rows written. Runs committed, driving the legacy route modules, so it must stay unchanged after S6. | — |
 
