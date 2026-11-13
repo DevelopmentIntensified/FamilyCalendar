@@ -40,7 +40,7 @@ Steps inside a module task (S1–S9) are ticked in that module's port sheet. Her
 | M-calendar | Port **calendar** | [port-a-module](playbooks/port-a-module.md) | [calendar](modules/calendar.md) | doing | | S1+S2 merged; S2 sha `54bc85b` (after the Opus fix-forward) |
 | M-tasks | Port **tasks** | [port-a-module](playbooks/port-a-module.md) | [tasks](modules/tasks.md) | doing | | S1+S2 merged; S2 sha `7246883` (after the Opus fix-forward) |
 | M-access | Port **access** | [port-a-module](playbooks/port-a-module.md) | [access](modules/access.md) | doing | | S1+S2 merged; S2 sha `4fdb71b` (after the Opus fix-forward) |
-| M-marketing | Port **marketing**; the waitlist leaves the website (owner, Q-070): page, form and pricing links go, the `waitlist` table stays | [port-a-module](playbooks/port-a-module.md) | [marketing](modules/marketing.md) | doing | | S1+S2 merged; S2 sha `c33c078` |
+| M-marketing | Port **marketing**; the waitlist leaves the website (owner, Q-070): page, form and pricing links go, the `waitlist` table stays | [port-a-module](playbooks/port-a-module.md) | [marketing](modules/marketing.md) | doing | | S1+S2 merged; S2 sha `c33c078`; the waitlist left the website `7c50772` (table kept) |
 | S-shell | Port screen **shell** | [port-a-module](playbooks/port-a-module.md) | [shell](modules/shell.md) | doing | | S1 merged; no S2 (shell owns no `/api` route) |
 | S-account | Port screen **account** | [port-a-module](playbooks/port-a-module.md) | [account](modules/account.md) | doing | | S1+S2 merged; S2 sha `299a5b1` |
 | S-admin | Port screen **admin** | [port-a-module](playbooks/port-a-module.md) | [admin](modules/admin.md) | doing | | S1+S2 merged; S2 sha `95c9edb` |
