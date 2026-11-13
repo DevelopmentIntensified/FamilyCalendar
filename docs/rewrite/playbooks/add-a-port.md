@@ -4,7 +4,7 @@ A **port** is a side-effect dependency that services reach through `ctx`, so tes
 
 | port | first needed by | real adapter wraps | memory adapter records |
 |---|---|---|---|
-| `mail` | access (magic links, codes), family (invites), marketing (waitlist) | Resend (legacy `utils/sendEmail.ts`) | `outbox: MailMessage[]` |
+| `mail` | access (magic links, codes), family (invites), marketing (contact) | Resend (legacy `utils/sendEmail.ts`) | `outbox: MailMessage[]` |
 | `push` | alerts (web push + FCM device fan-out) | `web-push`, legacy `fcmService` | `sent: PushMessage[]` |
 | `ai` | parsing (`/api/parse-event`), calendar bulk smart edits | legacy `services/llm.ts` (Cerebras JSON chat) | scripted replies, `calls[]` |
 | `http` | verse (Crossway), calendar (Nominatim location search) | global `fetch` with a timeout | scripted responses by URL |

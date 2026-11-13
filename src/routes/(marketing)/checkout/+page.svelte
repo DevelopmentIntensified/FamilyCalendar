@@ -97,7 +97,7 @@
 							Coming Soon
 						</button>
 						<p class="mt-4 text-center text-sm text-slate-600">
-							Checkout is not yet available. Join the waitlist to get early access.
+							Checkout is not yet available.
 						</p>
 					</form>
 				</div>

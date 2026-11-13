@@ -146,11 +146,6 @@
 			"kind": "e2e",
 			"loc": 63
 		},
-		"e2e/marketing/WaitlistPage.test.ts": {
-			"module": "app",
-			"kind": "e2e",
-			"loc": 46
-		},
 		"e2e/mobile/DayTap.test.ts": {
 			"module": "app",
 			"kind": "e2e",
@@ -1835,7 +1830,7 @@
 			"module": "marketing",
 			"kind": "source",
 			"layer": "model",
-			"loc": 171
+			"loc": 166
 		},
 		"src/lib/marketing/theme.css": {
 			"module": "marketing",
@@ -2324,12 +2319,6 @@
 			"layer": "server",
 			"loc": 20
 		},
-		"src/lib/server/emails/waitlist-confirmation.ts": {
-			"module": "marketing",
-			"kind": "source",
-			"layer": "server",
-			"loc": 78
-		},
 		"src/lib/server/seed.ts": {
 			"module": "billing",
 			"kind": "source",
@@ -2483,12 +2472,6 @@
 			"kind": "source",
 			"layer": "server",
 			"loc": 148
-		},
-		"src/lib/server/services/emailService.ts": {
-			"module": "marketing",
-			"kind": "source",
-			"layer": "server",
-			"loc": 41
 		},
 		"src/lib/server/services/eventDisplayService.creators.test.ts": {
 			"module": "calendar",
@@ -4539,24 +4522,6 @@
 			"kind": "route",
 			"url": "/signup/password",
 			"loc": 6
-		},
-		"src/routes/(marketing)/waitlist/+page.server.ts": {
-			"module": "marketing",
-			"kind": "route",
-			"url": "/waitlist",
-			"loc": 99
-		},
-		"src/routes/(marketing)/waitlist/+page.svelte": {
-			"module": "marketing",
-			"kind": "route",
-			"url": "/waitlist",
-			"loc": 178
-		},
-		"src/routes/(marketing)/waitlist/page.server.real.test.ts": {
-			"module": "marketing",
-			"kind": "route-test",
-			"url": "/waitlist",
-			"loc": 163
 		},
 		"src/routes/+error.svelte": {
 			"module": "shell",

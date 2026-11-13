@@ -99,7 +99,7 @@ Before writing a helper, find its concept below and use (or build) the one home.
 | auth guard for JSON / pages / actions | `endpoint` / `pageLoad` / `formAction` auth modes (kernel/http) | `requireUser`, `requireUserAction`, `requireUserJson`, `requireAdminJson`, ~16 hand-rolled `if (!locals.user)` in api routes, ~20 `redirect(302,'/login')` in loaders |
 | error JSON + 5xx auto-filing | `AppError` + endpoint error mapping (kernel) | `server/utils/apiError.ts`, `hooks.server.ts` handleError copy, `utils/actionError.ts`, `components/family/responseError.ts` |
 | request body / form parsing | builder `body`/`form` schemas + kernel `validators` | `readJsonObject`, `isString`/`isNonEmptyString` (10+ files), `clampCount`, `pickWritableFields`, `typeGuards.ts`, `focusStartedAt.ts` |
-| email address rule | `validators.emailAddress` / `isEmailAddress` | `EMAIL_REGEX` in magicLink.ts, mobileAuth.ts; contact/waitlist regex |
+| email address rule | `validators.emailAddress` / `isEmailAddress` | `EMAIL_REGEX` in magicLink.ts, mobileAuth.ts; contact regex |
 | YYYY-MM(-DD) params | `validators.isoDate` / `yearMonth` | sponsored-events, daily-verse, dashboard, meals regexes |
 | "now", ids, hashing | `ctx.clock`, `ctx.ids`, `sha256Hex` (kernel) | `Date.now()` in ~20 modules, `generateId`, `hashApiToken`, `hashEmailCode`, claim-token hash |
 | rate limiting | endpoint `rateLimit` / `ctx.limiter` + `clientKeyOf` | `rateLimit()` + `clientKey()` triple-call idioms in claimRequest, passwordSignup, mobileAuth |

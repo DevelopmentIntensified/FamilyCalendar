@@ -68,7 +68,7 @@ export const actions: Actions = {
 
 		return {
 			success: false,
-			message: 'Checkout is not yet available. Join the waitlist to get early access.'
+			message: 'Checkout is not yet available.'
 		};
 	}
 };

@@ -131,7 +131,7 @@ export const MODULES = [
 		kind: 'domain',
 		rank: 16,
 		purpose:
-			'Public site: home, features, pricing display, roadmap/changelog, contact, waitlist, SEO tags, Android/F-Droid page.'
+			'Public site: home, features, pricing display, roadmap/changelog, contact, SEO tags, Android/F-Droid page.'
 	},
 	{
 		name: 'shell',

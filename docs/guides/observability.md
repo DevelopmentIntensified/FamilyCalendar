@@ -14,7 +14,7 @@ single line of parseable JSON per call:
 
 - Levels: `debug` → `console.log`, `info` → `console.log`, `warn` → `console.warn`, `error` → `console.error`.
 - On Vercel each line is a searchable JSON record — filter by `event`.
-- Callers: `analyticsService.ts` (pricing_view, checkout_start, subscription_upgrade, waitlist_signup, ad_consent_change) and the non-prod `tasks_debug_getMyTasks` trace.
+- Callers: `analyticsService.ts` (pricing_view, checkout_start, subscription_upgrade, ad_consent_change) and the non-prod `tasks_debug_getMyTasks` trace.
 - Do NOT log request bodies — PII scrubbing is issue #169, staying separate.
 
 ### Error-capture seam

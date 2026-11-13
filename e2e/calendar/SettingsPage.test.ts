@@ -120,8 +120,4 @@ test.describe('Settings Page - Subscription', () => {
 		await expect(page.locator('text=Family Master')).toBeVisible();
 		await expect(page.locator('a[href="/pricing"]')).toBeVisible();
 	});
-
-	test('has join waitlist link', async ({ page }) => {
-		await expect(page.locator('a[href="/checkout?plan=monthly"]')).toBeVisible();
-	});
 });

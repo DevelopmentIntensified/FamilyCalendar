@@ -348,13 +348,6 @@ export const PAGES: PageEntry[] = [
 		seed: 'publicPages',
 		ready: 'h1'
 	},
-	{
-		module: 'marketing',
-		name: 'waitlist',
-		path: '/waitlist',
-		seed: 'publicPages',
-		ready: 'h1'
-	},
 
 	// --- billing -----------------------------------------------------------
 	{

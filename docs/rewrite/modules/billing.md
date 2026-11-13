@@ -61,14 +61,14 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 - Family discount: any user holding ≥4 `familyMembers` rows is eligible for 40% — `src/lib/server/services/discountService.ts:19-33`
 - Lifetime discount: eligible only when an enabled lifetime `discounts` row exists; a user who already holds that discount gets 20%, otherwise the row's `discountRate` — `src/lib/server/services/discountService.ts:36-79`
 - `applyDiscount` is idempotent per user+discount and answers `{applied:false, message:'Discount already applied'}` or `{applied:true, message:'Discount applied successfully'}` — `src/lib/server/services/discountService.ts:130-147`
-- Checkout is a stub: the purchase action validates plan + price then always reports `Checkout is not yet available. Join the waitlist to get early access.` — `src/routes/(marketing)/checkout/+page.server.ts:53-73`
+- Checkout is a stub: the purchase action validates plan + price then always reports `Checkout is not yet available.` — `src/routes/(marketing)/checkout/+page.server.ts:53-73`
 - Only enabled tiers and discounts are listed — `src/lib/server/services/subscriptionService.ts:327-329`; `src/lib/server/services/discountService.ts:126-128`
 - The seed defines six idempotent tiers (free, cal-master monthly/annual, family-master monthly/annual/lifetime) and two discounts (lifetime 20%, family-member 40%) — `src/lib/server/seed.ts:11-142`
 
 ### Page and UI behaviour worth keeping
 - `/pricing` renders three marketing cards — Free $0, Family $9/mo, Lifetime $150 one-time — each with a feature list and CTA, plus a four-question FAQ and a contact link — `src/routes/(marketing)/pricing/+page.svelte:4-48,88-110`
 - `/checkout` redirects anonymous visitors 302 to `/login?redirect=/checkout`, defaults `?plan` to monthly when absent/invalid, and shows the selected plan, its price, applied and eligible discounts, and a base/discount/total breakdown — `src/routes/(marketing)/checkout/+page.server.ts:14-47`; `src/routes/(marketing)/checkout/+page.svelte:21-120`
-- The checkout CTA is disabled and reads "Coming Soon" with the waitlist copy underneath — `src/routes/(marketing)/checkout/+page.svelte:90-99`
+- The checkout CTA is disabled and reads "Coming Soon" with the stub note "Checkout is not yet available." underneath — `src/routes/(marketing)/checkout/+page.svelte:90-99`
 - A signed-in pricing visit logs a `pricing_view` event — `src/routes/(marketing)/pricing/+page.server.ts:12-15`; `src/lib/server/services/analyticsService.ts:45-47`
 - `PlanTypeSelector` is a two-card radio group (Cal Master / Family Master) that shows "You're on the Free plan" with a `/pricing` link when `currentPlan === 'free'` — `src/lib/components/PlanTypeSelector.svelte:2-6,44,77,82-86`
 
@@ -166,7 +166,7 @@ contract these files deliver.
 | `calculateDiscounts` | `listEligibleDiscounts`. |
 | `getAvailableDiscounts` | repo `listEnabledDiscounts` (no export: the pages never listed them). |
 | `applyDiscount` | `applyUserDiscount`. |
-| `analyticsService.trackPricingView` | `recordPlanView` → `ctx.log.info('pricing_view', …)`; `logEvent`/`analyticsService` dies. `getKPIMetrics`, `trackCheckoutStart`, `trackSubscriptionUpgrade`, `trackWaitlistSignup`, `trackAdConsentChange` die (0 importers); the KPI read and the waitlist/ads events belong to `admin`/`marketing`/`sponsored` when they are ported. |
+| `analyticsService.trackPricingView` | `recordPlanView` → `ctx.log.info('pricing_view', …)`; `logEvent`/`analyticsService` dies. `getKPIMetrics`, `trackCheckoutStart`, `trackSubscriptionUpgrade`, `trackAdConsentChange` die (0 importers); the KPI read and the ads event belong to `admin`/`sponsored` when they are ported. |
 | `seed.ts` (`seed()`) | `ensureBillingDefaults(ctx)` — six tiers + two discounts, idempotent; the five random ad events move to `sponsored`. |
 | `PlanTypeSelector.svelte` | dies: 0 importers and hardcoded prices that contradict `PLAN_PRICES`. |
 | `pricing/+page.server.ts`, `pricing/+page.svelte`, `checkout/+page.server.ts`, `checkout/+page.svelte` | S7 page wiring over the billing services; `marketing` owns the copy and the routes when it is ported. |
