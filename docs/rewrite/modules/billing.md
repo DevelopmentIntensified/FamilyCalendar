@@ -98,19 +98,31 @@ contract these files deliver.
 
 | file | role | what goes in it |
 |---|---|---|
-| `billing.contract.ts` | contract | zod schemas + types for the plan card wire (`SubscriptionSummary`, `PlanTier`, `SubscriptionRow`, `PlanLimits`, `PlanPricing`) matching the golden bodies; `PlanType`; `checkoutPlanInput`. Error messages stay in rules. |
-| `billing.limits.rules.ts` | rules | `FREE_PLAN_LIMITS`, `resolvePlanLimits(row, tier)` (override merge), the six plan refusals (`memberLimitRefusal`, `familyCreationRefusal`, `retentionRefusal`, `archiveRefusal`, `attachmentRefusal`, `exportImportRefusal`) with the legacy wording, `isUnlimitedLimit`. |
+| `billing.contract.ts` | contract | zod schemas + types for the plan card wire (`SubscriptionSummary`, `PlanTier`, `SubscriptionWindow`, `PlanLimits`, `PlanPricing`, `AiUsage`) matching the golden bodies; `PlanType` (re-exported from the pricing rules); `CheckoutPlanInput`. Error messages stay in rules. |
+| `billing.limits.rules.ts` | rules | `FREE_PLAN_LIMITS`, `resolvePlanLimits(row, tier)` (override merge; no row or no tier → free), the six plan refusals (`memberLimitRefusal`, `familyCreationRefusal`, `retentionRefusal`, `archiveRefusal`, `attachmentRefusal`, `exportImportRefusal`) with the legacy wording, `isUnlimitedLimit`. |
 | `billing.ai.rules.ts` | rules | `aiPeriod(now)` (month/year), `aiAllowance(used, limit)` (`max(0, …)`), `aiLimitRefusal`, `isPaidTier(tierName)`. |
-| `billing.pricing.rules.ts` | rules | `PLAN_PRICES` (9/90/150), `planPricing()`, `familyDiscountRate(membershipCount)` (≥4 → 40), `lifetimeDiscountRate(configuredRate, holdsLifetimeDiscount)` (20 when held), `checkoutQuote({ plan, basePrice, familyRate, lifetimeRate })` (sum, cap 100, round2, never negative). |
+| `billing.pricing.rules.ts` | rules | `PLAN_TYPES`/`PlanType`, `PLAN_PRICES` (9/90/150), `planPricing()`, `isPlanType`/`planTypeOrDefault`, `familyDiscountRate(membershipCount)` (≥4 → 40), `lifetimeDiscountRate(configuredRate, holdsLifetimeDiscount)` (20 when held), `checkoutQuote({ plan, basePrice, familyRate, lifetimeRate })` (sum, cap 100, round2, never negative) plus its `CheckoutQuote`/`CheckoutLine` types. |
 | `billing.limits.rules.test.ts`, `billing.ai.rules.test.ts`, `billing.pricing.rules.test.ts` | tests | table-driven; expected values come from the Invariants, not from running the code. |
+| `billing.contract.test.ts` | test | the worked example's contract test: the golden free/paid bodies parse, a `Date` never passes the wire schema, and the `?plan` coercion defaults to monthly. |
 
 ### S4 — repo + fixtures
 
 | file | role | what goes in it |
 |---|---|---|
-| `billing.repo.server.ts` | repo | `findActiveSubscription`, `findTier`, `listEnabledTiers`, `findAiUsage`, `incrementAiUsage` (upsert on user+month+year), `listUserDiscounts`, `listEnabledDiscounts`, `insertUserDiscount`, `upsertTiers`, `upsertDiscounts`. `db` first, own tables only, no rules. |
+| `billing.repo.server.ts` | repo | `findActiveSubscription(db, userId, now)`, `findTier`, `listEnabledTiers`, `findAiUsage`, `incrementAiUsage` (upsert on user+month+year; answers the period's new total), `listUserDiscounts`, `listEnabledDiscounts`, `insertUserDiscount(db, { userId, discountId, now })` (stamps `appliedAt`), `insertTiersIfAbsent(db, rows, now)`, `insertDiscountsIfAbsent(db, rows, now)` (both insert-if-absent, like the legacy `.onConflictDoNothing()` seed). `db` first, own tables only, no rules. |
 | `billing.fixtures.server.ts` | fixtures | `seedTier`, `seedSubscription`, `seedDiscount`, `seedUserDiscount`, `seedAiUsage` builders over `uniqueSuffix()`. |
 | `billing.repo.db.test.ts` | test | `rollbackTest` for each query with a filter, ordering or upsert (active row newest-first, usage upsert keeps one row, enabled-only lists). |
+
+Implemented differences from the rows above, with their reasons:
+
+- `resolvePlanLimits(row, tier)` takes `null` for either argument and answers `FREE_PLAN_LIMITS`: that is the legacy pair of branches (no row → defaults; a row without a tier → defaults, *without* applying overrides) in one rule, so the S5 service cannot pick the wrong one.
+- The wire window type is `SubscriptionWindow`, not `SubscriptionRow`: `SubscriptionRow` is already exported by the kernel tables (`billing.tables.server.ts`) and R11 forbids a second definition. The override-bearing shape is `PlanSubscription` (structurally a `subscriptions` row).
+- `checkoutQuote` also returns `lines` (`CheckoutLine[]`: source, percentage, per-line cent amount) and `discountPercentage`. The legacy page prints one line per applied discount; keeping the per-line rounding here means S5 only attaches the discount row's id/name.
+- `incrementAiUsage` returns the new total (`used`) instead of a boolean, and is one atomic upsert rather than the legacy read-then-write: the count cannot be lost under two concurrent calls, and the service gets `remaining` without re-reading.
+- The repo's `insertTiersIfAbsent`/`insertDiscountsIfAbsent` are "insert if the id is absent" (the legacy seed's `.onConflictDoNothing()`), and they stamp `createdAt`/`updatedAt` from the caller's `now` (R5) rather than the column defaults.
+- `findActiveSubscription` drops the legacy `endDate IS NULL` branch: the column is `NOT NULL` (S1), so the branch could never match; the `endDate > now` comparison is strict, so a row ending exactly at `now` is expired.
+- `aiPeriod(now)` reads the month and year in UTC; the legacy code used the process-local getters. Owner-accepted: production runs in UTC and the v2 test environment pins `TZ=UTC`, so this is production parity and no wire value changes.
+- `checkoutQuote` takes the two rates as numbers; the legacy rule that a line needs a matching enabled `discounts` row is the S5 service's read (it passes rate 0 when no such row exists), not the rule's.
 
 ### S5 — service
 
