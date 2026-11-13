@@ -55,6 +55,14 @@ function objectBody(res: InvokeResult): JsonObject {
 	return toObject(body);
 }
 
+/** A nested object field, or a failure naming it. */
+function objectValue(value: JsonValue | undefined, label: string): JsonObject {
+	if (value === null || value === undefined || typeof value !== 'object' || Array.isArray(value)) {
+		throw new Error(`expected '${label}' to be an object`);
+	}
+	return toObject(value);
+}
+
 function arrayField(body: JsonObject, key: string): JsonValue[] {
 	const value = body[key];
 	if (!Array.isArray(value)) throw new Error(`expected '${key}' to be an array`);
@@ -904,24 +912,6 @@ describe('GET /api/location-search', () => {
 			ctx: ctx(),
 			user,
 			headers: { 'x-real-ip': '10.3.0.6' },
-			query: { q: 'park' }
-		});
-
-		expect(res.status).toBe(200);
-		expect(res.body).toEqual({ results: [] });
-	});
-		const user = await seedUser(testDb());
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(async () => {
-				throw new Error('upstream down');
-			})
-		);
-
-		const res = await invoke(searchLocations, {
-			ctx: ctx(),
-			user,
-			headers: { 'x-real-ip': '10.3.0.2' },
 			query: { q: 'park' }
 		});
 

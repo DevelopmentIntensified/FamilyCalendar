@@ -494,10 +494,19 @@ describe('GET /api/events', () => {
 		]);
 	});
 
-	// #216: a DATE-ONLY UNTIL is inclusive to the end of that day in the viewer's
-	// zone. 06:30Z is 23:30 the previous evening in Los Angeles, so the Oct 20
-	// cutoff keeps the instant that UTC would have dropped.
-	it("reads a date-only recurrenceUntil as end-of-day in the viewer's zone", async () => {
+	// A date-only `recurrenceUntil` never reaches the end-of-day branch on the
+	// wire: the column is `timestamp with time zone` with `mode:'string'`
+	// (calendar.tables.server.ts:110-115), so Postgres stores `2026-10-20` as
+	// the INSTANT 2026-10-20T00:00Z (UTC session) and reads it back as a full
+	// timestamp. `recurrenceUntil()` only takes its date-only branch when the
+	// value still matches /^\d{4}-\d{2}-\d{2}$/ on the raw row
+	// (recurrenceService.ts:160-192), so here it is an exact cutoff: the Oct 20
+	// slot is dropped and the Oct 19 one is kept. Read as end-of-day in the
+	// viewer's zone the cutoff would be 2026-10-21T06:59:59.999Z and BOTH slots
+	// would survive, so this fixture tells the two rules apart. (The slot is
+	// 11:00–12:00 in Los Angeles, i.e. inside one calendar day, so the
+	// multi-day split in eventDisplay.ts:49-73 does not add rows.)
+	it('cuts at a date-only recurrenceUntil stored as a UTC-midnight instant', async () => {
 		const user = await seedUser(testDb());
 		await testDb()
 			.insert(userSettings)
@@ -508,8 +517,8 @@ describe('GET /api/events', () => {
 			ownerId: user.id,
 			calendarId: PERSONAL_CAL,
 			title: 'Wind down',
-			start: '2026-10-19T06:30:00.000Z',
-			end: '2026-10-19T07:00:00.000Z',
+			start: '2026-10-19T18:00:00.000Z',
+			end: '2026-10-19T19:00:00.000Z',
 			recurrenceFrequency: 'daily',
 			recurrenceInterval: 1,
 			recurrenceUntil: '2026-10-20'
@@ -523,13 +532,17 @@ describe('GET /api/events', () => {
 
 		expect(res.status).toBe(200);
 		expect(
-			arrayField(objectBody(res), 'events').map((event) =>
-				String(objectValue(event, 'event')['id'])
-			)
+			arrayField(objectBody(res), 'events').map((event) => {
+				const row = objectValue(event, 'event');
+				return { id: row['id'], start: row['start'], end: row['end'], date: row['date'] };
+			})
 		).toEqual([
-			'evtuntil001~2026-10-19T06:30:00.000Z',
-			'evtuntil001~2026-10-20T06:30:00.000Z',
-			'evtuntil001~2026-10-21T06:30:00.000Z'
+			{
+				id: 'evtuntil001~2026-10-19T18:00:00.000Z',
+				start: '2026-10-19T18:00:00.000Z',
+				end: '2026-10-19T19:00:00.000Z',
+				date: '2026-10-19T18:00:00.000Z'
+			}
 		]);
 	});
 });
