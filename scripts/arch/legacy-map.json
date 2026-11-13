@@ -1830,7 +1830,7 @@
 			"module": "marketing",
 			"kind": "source",
 			"layer": "model",
-			"loc": 171
+			"loc": 166
 		},
 		"src/lib/marketing/theme.css": {
 			"module": "marketing",

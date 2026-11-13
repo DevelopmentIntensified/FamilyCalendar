@@ -48,10 +48,10 @@ The module owns no `+server.ts`; `/api/contact` is a form-action file (see "Prob
 - Prerender/SSR follow `ADAPTER === 'static'` for the whole `(marketing)` group — `src/routes/(marketing)/+layout.server.ts:5-6`
 - `/changelog` and `/roadmap` override the group to `prerender = true` and `ssr = true` (exported from `+page.ts`, not the component) — `src/routes/(marketing)/roadmap/+page.ts:4-6`, `src/routes/(marketing)/changelog/+page.ts:4-6`
 - The loader returns the request's own `origin` and `pathname`, never a hardcoded domain, plus `isLoggedIn` and `user` — `src/routes/(marketing)/+layout.server.ts:8-20` · test: `src/lib/marketing/seo.test.ts` › "self-references the origin it was given, on every environment"
-- SEO is one table keyed by pathname: the layout emits `<meta name="description">`, `<link rel="canonical">`, og/twitter tags; every page emits only its own `<title>` and never a description — `src/routes/(marketing)/+layout.svelte:24-47`, `src/lib/marketing/seo.ts:50-169` · test: `src/lib/marketing/seo.test.ts` › "/%s has a row, and the row says what the page says" and "/%s does not emit its own description"
-- Every `<title>`-setting marketing route has a row whose title matches the page exactly; an indexed row's description is > 40 chars — `src/lib/marketing/seo.ts:50-127` · test: `src/lib/marketing/seo.test.ts` › "/%s has a row, and the row says what the page says"
-- `noindex` rows emit `robots: noindex, follow`; `/checkout`, `/signup`, `/login`, `/forgot-password`, `/reset` are noindex, `/`, `/features` are not — `src/lib/marketing/seo.ts:95-125,168`
-- `og:image` and `og:url` are absolute, built by trimming trailing slashes off the origin; `seoFor` tolerates a trailing slash and falls back to the site defaults instead of throwing — `src/lib/marketing/seo.ts:129-144` · test: `src/lib/marketing/seo.test.ts` › "points og:image at an absolute URL", "falls back to the site default rather than throwing on a new route"
+- SEO is one table keyed by pathname: the layout emits `<meta name="description">`, `<link rel="canonical">`, og/twitter tags; every page emits only its own `<title>` and never a description — `src/routes/(marketing)/+layout.svelte:24-47`, `src/lib/marketing/seo.ts:50-164` · test: `src/lib/marketing/seo.test.ts` › "/%s has a row, and the row says what the page says" and "/%s does not emit its own description"
+- Every `<title>`-setting marketing route has a row whose title matches the page exactly; an indexed row's description is > 40 chars — `src/lib/marketing/seo.ts:50-121` · test: `src/lib/marketing/seo.test.ts` › "/%s has a row, and the row says what the page says"
+- `noindex` rows emit `robots: noindex, follow`; `/checkout`, `/signup`, `/login`, `/forgot-password`, `/reset` are noindex, `/`, `/features` are not — `src/lib/marketing/seo.ts:95-120,163`
+- `og:image` and `og:url` are absolute, built by trimming trailing slashes off the origin; `seoFor` tolerates a trailing slash and falls back to the site defaults instead of throwing — `src/lib/marketing/seo.ts:124-139` · test: `src/lib/marketing/seo.test.ts` › "points og:image at an absolute URL", "falls back to the site default rather than throwing on a new route"
 - `static/brand/og.png` must exist at the declared 1200×630 — `src/lib/marketing/seo.ts:23-32` · test: `src/lib/marketing/seo.test.ts` › "exists, and is the size the tags claim"
 - Contact: 5 sends / 10 min per IP scope (`contact`), honeypot `website` filled → 400 `Invalid submission`, all three fields required, email regex, user HTML escaped, recipient `hello@familyplanz.com` — `src/routes/(marketing)/contact/+page.server.ts:10-46,49-107` · test: `src/routes/(marketing)/contact/page.server.test.ts` › "rejects honeypot filled with 400", "escapes user-supplied HTML in the email body"
 - Contact sends the subject `New Contact Form Submission from <name>` and checks the provider result before claiming success — `src/routes/(marketing)/contact/+page.server.ts:79-107` · test: `src/routes/(marketing)/contact/page.server.test.ts` › "sends the contact email for full valid form", "returns failure when the email provider rejects the send"
@@ -144,7 +144,7 @@ Where each legacy export goes:
 ```text
 # marketing: 0% ported
 
-legacy source files left (11/11, 927 LOC):
+legacy source files left (11/11, 922 LOC):
   - src/lib/components/marketing/FeatureCard.svelte (31 LOC, ui) importers: 1
   - src/lib/components/marketing/GalleryCard.svelte (29 LOC, ui) importers: 1
   - src/lib/components/marketing/MomentCard.svelte (43 LOC, ui) importers: 1
@@ -154,7 +154,7 @@ legacy source files left (11/11, 927 LOC):
   - src/lib/components/marketing/featureIcons.ts (74 LOC, model) importers: 3
   - src/lib/data/changelog.ts (79 LOC, model) importers: 1
   - src/lib/data/roadmap.ts (70 LOC, model) importers: 1
-  - src/lib/marketing/seo.ts (171 LOC, model) importers: 1
+  - src/lib/marketing/seo.ts (166 LOC, model) importers: 1
   - src/lib/marketing/theme.css (244 LOC, ui) importers: 1
 
 route files not yet wiring-only (16/16):
