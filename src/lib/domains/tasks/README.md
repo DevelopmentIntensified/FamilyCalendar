@@ -33,7 +33,7 @@ Everything other modules and routes may use, grouped by entry file. One line eac
   - `TaskCreateBody`, `TaskUpdateBody`, `TaskCategoryNameBody`, `FocusCommandBody`, `FocusSessionStartBody`, `FocusSessionEndBody` — zod schemas for every request body, with the legacy error wording.
   - `normalizeTags`, `normalizeTaskVisibility` — the tag and visibility rules.
   - `normalizeTaskPriority` — returns parsing's `QuickAddPriority` (the quick-add result's own type; the tone map stays with the pill in `kernel/ui`), so a Task's priority and a parsed title's priority are ONE concept.
-  - the recurrence frequency has NO home here: it is calendar's `RecurrenceFrequency` (`scheduleStep`'s closed set), which parsing re-exports as `CadenceFrequency` for quick add — a Task's `recurrenceFrequency`, an Event's and a parsed cadence are one vocabulary.
+  - the recurrence frequency has NO home here: it is kernel/time's `RecurrenceFrequency` (`scheduleStep`'s closed set), the one type calendar and parsing use too — a Task's `recurrenceFrequency`, an Event's and a parsed cadence are one vocabulary.
   - `nextCursorDue` — the Recurring Task cursor advance (today + n×interval strictly past the current due), used by the completion, skip and undo. The pin (`needsOverduePin`, `pinnedDueFor`) stays inside the module: it is a read-side service concern, not an interface other modules call.
   - `canMutateTask`, `nextAssignmentPatch` — the two rules that decide what a caller may do to a Task and how an assignment moves (pure; membership arrives as a flag).
   - `computeWeeklyStreak` — the one streak definition, shared with the Day Dashboard (`isoWeekKey` and the cursor's day-start helper live in `kernel/time`, task K-06, with every other date key).

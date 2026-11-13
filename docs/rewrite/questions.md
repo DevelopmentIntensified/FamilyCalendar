@@ -844,6 +844,8 @@ B. Mint reset tokens with a purpose claim and refuse tokens without it. Cost: re
 
 Recommendation: B, after S6 as `fix(access)` with the golden changed first. Applied default until answered: A, pinned by the access fix-forward.
 
+Answer (owner, 2026-11-12): **B.** Reset tokens carry a purpose claim and reset refuses tokens without it; lands after S6 as `fix(access)`, golden changed first.
+
 ## Q-103 An email-change request revives a used reset link (access S1+S2 review, 2026-11-12; modules: access)
 
 Context: requesting an email change deletes every code row for the current address (`src/lib/server/services/accountData.ts:374`, `deleteCodesByEmail`), including the `reset_used` marker that makes a reset link single-use (`src/routes/(marketing)/forgot-password/reset/+server.ts:98-119`). After such a request a used reset link works again until it expires.
@@ -853,6 +855,8 @@ A. Keep. Cost: a leaked, already-used reset link becomes usable again for the re
 B. Delete only the `email_change` codes. Cost: none a client can see.
 
 Recommendation: B. Applied default until answered: A, pinned by the access fix-forward.
+
+Answer (owner, 2026-11-12): **B.** An email-change request deletes only the `email_change` codes; lands after S6 as `fix(access)`.
 
 ## Q-104 Password reset leaves `auth_account.password` stale (access S1+S2 review, 2026-11-12; modules: access, identity)
 
@@ -865,6 +869,8 @@ C. Stop treating the column as a password store and drop it at a schema cleanup.
 
 Recommendation: B. Applied default until answered: A, pinned by the access fix-forward.
 
+Answer (owner, 2026-11-12): **C.** `auth_account.password` stops being a password store: no code writes it, and the column is dropped at a schema cleanup (owner-run DDL); #176 re-seeds when it needs one.
+
 ## Q-105 Logout leaves the session cookie in the browser (access S1+S2 review, 2026-11-12; modules: access)
 
 Context: `POST /api/logout` deletes the session row and redirects 302 to `/` without a `Set-Cookie` (`src/routes/api/logout/+server.ts:5-13`). The dead cookie is harmless (the next protected navigation mints a guest either way, `src/hooks.server.ts:84-93`) but stays until it expires.
@@ -875,15 +881,19 @@ B. Clear it with an expired `Set-Cookie`. Cost: none; the response gains one hea
 
 Recommendation: B. Applied default until answered: A, pinned by the access fix-forward.
 
+Answer (owner, 2026-11-12): **B.** Logout clears the session cookie with an expired `Set-Cookie`; lands after S6 as `fix(access)`.
+
 ## Q-106 A date-only `recurrenceUntil` drops its own day (calendar S1+S2 review, 2026-11-12; modules: calendar)
 
-Context: create and update pass the client's `recurrenceUntil` string straight to a `timestamp with time zone` column (`src/lib/server/services/eventRecurrence.ts:67`, `src/lib/kernel/db/tables/calendar.tables.server.ts:110-115`), so `2026-10-20` is stored as 2026-10-20T00:00Z. The read-side rule that stretches a date-only UNTIL to the end of that day in the viewer's zone (#216, `src/lib/server/services/recurrenceService.ts:160-192`) only fires for a value that is still date-only, which a stored row never is. The UNTIL day's own occurrence is therefore dropped for every viewer unless it starts at 00:00 UTC.
+Context: create and update pass the client's `recurrenceUntil` string straight to a `timestamp with time zone` column (`src/lib/server/services/eventRecurrence.ts:67`, `src/lib/kernel/db/tables/calendar.tables.server.ts:99-102`), so `2026-10-20` is stored as 2026-10-20T00:00Z. The read-side rule that stretches a date-only UNTIL to the end of that day in the viewer's zone (#216, `src/lib/server/services/recurrenceService.ts:160-192`) only fires for a value that is still date-only, which a stored row never is. The UNTIL day's own occurrence is therefore dropped for every viewer unless it starts at 00:00 UTC.
 
 Options:
 A. Keep. Cost: "repeat until Oct 20" ends on Oct 19.
 B. The contract turns a date-only UNTIL into the end of that day in the creator's zone before it is stored. Cost: rows already stored keep the old cutoff unless a data backfill runs.
 
 Recommendation: B, after S6 as `fix(calendar)` with the golden changed first. Applied default until answered: A, pinned by `calendar.events.http.db.test.ts › cuts at a date-only recurrenceUntil stored as a UTC-midnight instant`.
+
+Answer (owner, 2026-11-12): **B.** The contract stores a date-only UNTIL as the end of that day in the creator's zone; lands after S6 as `fix(calendar)`, golden changed first. Rows already stored keep their cutoff (no backfill decided).
 
 ## Q-107 `timeZone` accepts Luxon pseudo-zones (identity S1+S2 review, 2026-11-12; modules: identity)
 
@@ -895,6 +905,8 @@ B. Accept IANA names plus `UTC` only; refuse the rest with today's `400 Invalid 
 
 Recommendation: B, after S6 as `fix(identity)` with the golden changed first. Applied default until answered: A, pinned by the identity fix-forward.
 
+Answer (owner, 2026-11-12): **B.** IANA names plus `UTC` only; anything else answers today's `400 Invalid timeZone`; lands after S6 as `fix(identity)`.
+
 ## Q-108 A sparse settings row answers nulls, and the first PATCH backfills defaults (identity S1+S2 review, 2026-11-12; modules: identity)
 
 Context: sign-up paths create `{ userId, timeZone: 'UTC' }` only (`src/lib/server/db/actions/users.ts:138`, `src/lib/server/services/mobileAuth.ts:327`, claim, password sign-in). For that row `GET /api/me/settings` answers `color: null` and `syncEventsToFamilyCalendar: null`, while a user with no row gets the defaults; the first PATCH fills every null from `ACCOUNT_SETTINGS_DEFAULTS` (`settings/+server.ts:100-116`), so `{ timeZone }` alone changes `color` from `null` to `#3b82f6`.
@@ -904,6 +916,8 @@ A. Keep. Cost: two answers for "never set", and a PATCH writes fields the client
 B. GET answers the defaults for null columns (one merged view), and PATCH writes only the fields sent. Cost: Android sees defaults where it saw `null` (it already handles the no-row case with the same values).
 
 Recommendation: B, after S6 as `fix(identity)` with the golden changed first. Applied default until answered: A, pinned by the identity fix-forward.
+
+Answer (owner, 2026-11-12): **B.** GET answers the defaults for null columns and PATCH writes only the fields sent; lands after S6 as `fix(identity)`, golden changed first.
 
 ## Q-109 API token names are cut at 60 UTF-16 units (identity S1+S2 review, 2026-11-12; modules: identity)
 
@@ -915,6 +929,8 @@ B. Cut at 60 code points and trim after the cut. Cost: none a client relies on.
 
 Recommendation: B. Applied default until answered: A, pinned by the identity fix-forward.
 
+Answer (owner, 2026-11-12): **B.** Cut at 60 code points, then trim; lands after S6 as `fix(identity)`.
+
 ## Q-110 The API token list has no order (identity S1+S2 review, 2026-11-12; modules: identity)
 
 Context: `listTokensForUser` selects without `ORDER BY` (`src/lib/server/db/actions/apiTokens.ts:38-47`), so the list order is whatever Postgres returns and can change after an update.
@@ -924,6 +940,8 @@ A. Keep. Cost: the account page's token list can reorder between visits.
 B. Order newest first (`createdAt DESC, id`). Cost: none; clients render the list as given.
 
 Recommendation: B. Applied default until answered: A; the goldens compare the list order-insensitively until answered.
+
+Answer (owner, 2026-11-12): **B.** Newest first (`createdAt DESC, id`); lands after S6 as `fix(identity)`.
 
 ## Recorded defaults (the sheets recommend keeping legacy)
 
