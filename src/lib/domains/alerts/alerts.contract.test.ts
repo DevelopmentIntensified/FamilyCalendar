@@ -255,7 +255,7 @@ describe('response schemas', () => {
 	it.each<[string, string, boolean]>([
 		['the Postgres render', '2026-03-04 10:00:00+00', true],
 		['the Postgres render with fractional seconds', '2026-03-04 10:00:00.123456+00', true],
-		['the Postgres render with a minute offset', '2026-03-04 10:00:00+01:00', true],
+		['the Postgres render with an hours:minutes offset', '2026-03-04 10:00:00+01:00', true],
 		['an ISO instant', '2026-03-04T10:00:00.000Z', false],
 		['an ISO instant with an offset', '2026-03-04T10:00:00+01:00', false],
 		['a Postgres render ending in Z', '2026-03-04 10:00:00Z', false],
