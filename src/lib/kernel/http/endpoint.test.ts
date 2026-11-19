@@ -174,6 +174,27 @@ describe('endpoint body modes', () => {
 		const empty = await invoke(byDefault.handler, { ctx: testCtx(), rawBody: '' });
 		expect(empty.body).toEqual({ error: 'Bad a' });
 	});
+
+	// The table above refuses every non-object with 'Bad body', which a reader
+	// that turned everything into null would also pass. Echoing what reached the
+	// schema proves lenient passes parseable bodies through untouched.
+	it.each<[string, string, unknown]>([
+		['a string', '"x"', 'x'],
+		['an array', '[1]', [1]],
+		['the literal null', 'null', null],
+		['malformed JSON', '{"a":', null],
+		['an empty body', '', null]
+	])('lenient mode hands %s to the schema as: %j', async (_name, rawBody, expected) => {
+		const echo = endpoint({
+			auth: 'public',
+			body: z.json(),
+			bodyMode: 'lenient',
+			handle: async ({ body }) => ok({ got: body })
+		});
+		const res = await invoke(echo.handler, { ctx: testCtx(), rawBody });
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ got: expected });
+	});
 });
 
 describe('endpoint errors', () => {
