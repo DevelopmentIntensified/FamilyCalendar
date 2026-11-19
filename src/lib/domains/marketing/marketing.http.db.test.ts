@@ -12,7 +12,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 
 type ContactAction = (event: never) => Response | Promise<Response>;
@@ -28,7 +28,7 @@ let postContact: ContactAction = () => {
  * limiter lives on `ctx`, so a fresh ctx per request would start every bucket
  * empty (legacy ignores `ctx` and shares one module-scope map).
  */
-function send(ip: string, fields: Record<string, string>, ctx = testCtx({ db: testDb() })) {
+function send(ip: string, fields: Record<string, string>, ctx = goldenCtx({ db: testDb() })) {
 	return invoke(postContact, {
 		ctx,
 		path: '/api/contact',
@@ -148,7 +148,7 @@ describe('POST /api/contact', () => {
 	});
 
 	it('limits each client IP to 3 submits, then 429 Too many attempts', async () => {
-		const ctx = testCtx({ db: testDb() });
+		const ctx = goldenCtx({ db: testDb() });
 		const ip = '203.0.113.13';
 		const honeypot = {
 			name: 'Alex',
@@ -173,7 +173,7 @@ describe('POST /api/contact', () => {
 	});
 
 	it('keeps a separate budget per client IP', async () => {
-		const ctx = testCtx({ db: testDb() });
+		const ctx = goldenCtx({ db: testDb() });
 		const honeypot = {
 			name: 'Alex',
 			email: 'alex@example.com',

@@ -18,7 +18,7 @@ import {
 import { invoke, type InvokeResult } from '$lib/kernel/testing/invokeHandlers.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import {
 	seedAttendanceRow,
@@ -31,7 +31,7 @@ import { POST as bulkEdit } from '../../../routes/api/events/bulk/+server';
 import { GET as searchLocations } from '../../../routes/api/location-search/+server';
 import { GET as printMonth } from '../../../routes/api/print/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 const PERSONAL_CAL = 'cal-personal01';
 const FAMILY_CAL = 'cal-family01';
@@ -944,7 +944,7 @@ describe('GET /api/location-search', () => {
 	it('rate limits a client after 60 searches a minute', async () => {
 		const user = await seedUser(testDb());
 		// ONE ctx for the whole burst: after the port the limiter comes from
-		// testCtx, and a fresh ctx per request would reset its window.
+		// goldenCtx, and a fresh ctx per request would reset its window.
 		const context = ctx();
 		const ip = '10.3.0.5';
 		for (let attempt = 0; attempt < 60; attempt += 1) {

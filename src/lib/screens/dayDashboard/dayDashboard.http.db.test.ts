@@ -21,7 +21,7 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { invoke, type InvokeResult } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 // The ROUTE module, not the legacy loader: after the port this import still
@@ -41,7 +41,7 @@ type Wire = {
 	warnings: JsonValue;
 };
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 /**
  * `timestamptz` columns declared `mode: 'string'` reach the wire as the
@@ -793,8 +793,8 @@ describe('GET /api/dashboard (G8)', () => {
 		expect(wire.zone).toBe('UTC');
 		expect(wire.isToday).toBe(true);
 		// On legacy the day is the REAL clock's; after the port it is ctx.clock's
-		// (testCtx's fixed clock). Accept either source and assert the instant.
-		const testClockDay = testCtx().clock.now().toISOString().slice(0, 10);
+		// (goldenCtx's fixed clock). Accept either source and assert the instant.
+		const testClockDay = goldenCtx().clock.now().toISOString().slice(0, 10);
 		expect(
 			[...new Set([before, after, testClockDay])].map((day) =>
 				Date.parse(`${day}T00:00:00.000Z`)
@@ -832,7 +832,7 @@ describe('GET /api/dashboard (G8)', () => {
 		const after = new Date().toISOString().slice(0, 10);
 		expect(wire.isToday).toBe(true);
 		// The fallback day is the real clock's on legacy, ctx.clock's after the port.
-		const testClockDay = testCtx().clock.now().toISOString().slice(0, 10);
+		const testClockDay = goldenCtx().clock.now().toISOString().slice(0, 10);
 		expect(
 			[...new Set([before, after, testClockDay])].map((day) =>
 				Date.parse(`${day}T00:00:00.000Z`)

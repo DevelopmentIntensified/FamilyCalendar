@@ -14,14 +14,14 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 // Import the ROUTE modules, not the legacy services: the route is what clients
 // hit, and after the port it re-exports the new handler, so this import stays.
 import { PUT as putFamilyModuleSwitch } from '../../../routes/api/families/[id]/modules/[module]/+server';
 import { PUT as putMyDashboardModules } from '../../../routes/api/me/dashboard-modules/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 type FamilyRole = 'creator' | 'admin' | 'member' | null;
 

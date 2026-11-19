@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { bugReports, unmatchedPhrases } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 // Import the ROUTE modules, not the legacy actions: the route is what clients
@@ -26,7 +26,7 @@ import { POST as postResolvePhrase } from '../../../routes/api/admin/nlp/[id]/re
 import { POST as postBugReport } from '../../../routes/api/bug-report/+server';
 import { POST as postReportPhrase } from '../../../routes/api/report-phrase/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 /** The one 400 body both report endpoints use; the wording is the wire. */
 const BUG_REPORT_INVALID =

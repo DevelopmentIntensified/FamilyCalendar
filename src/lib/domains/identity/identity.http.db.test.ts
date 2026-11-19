@@ -22,7 +22,7 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 import {
@@ -89,7 +89,7 @@ beforeEach(truncateAll);
 describe('GET /api/me/api-tokens', () => {
 	it('answers 401 {"error":"Unauthorized"} when signed out', async () => {
 		const res = await invoke(listTokens, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			path: '/api/me/api-tokens'
 		});
 		expect({ status: res.status, body: res.body }).toEqual(unauthorized);
@@ -99,7 +99,7 @@ describe('GET /api/me/api-tokens', () => {
 		const user = await seedUser(testDb());
 		await seedIdentityApiToken(user.id);
 		const res = await invoke(listTokens, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens'
 		});
@@ -130,7 +130,7 @@ describe('GET /api/me/api-tokens', () => {
 			lastUsedAt: new Date('2026-10-08T09:30:00.000Z')
 		});
 		const res = await invoke(listTokens, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens'
 		});
@@ -155,7 +155,7 @@ describe('GET /api/me/api-tokens', () => {
 		const other = await seedUser(testDb());
 		await seedIdentityApiToken(other.id, { id: 'tok-b', name: 'Their phone' });
 		const res = await invoke(listTokens, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens'
 		});
@@ -169,7 +169,7 @@ describe('GET /api/me/api-tokens', () => {
 describe('POST /api/me/api-tokens', () => {
 	it('answers 401 {"error":"Unauthorized"} when signed out', async () => {
 		const res = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			path: '/api/me/api-tokens',
 			body: { name: 'Phone' }
 		});
@@ -179,7 +179,7 @@ describe('POST /api/me/api-tokens', () => {
 	it('mints an fp_ token, answers 201 with the plaintext once and stores only its SHA-256', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens',
 			body: { name: '  My phone  ' }
@@ -204,7 +204,7 @@ describe('POST /api/me/api-tokens', () => {
 	it('keeps at most 60 characters of the name', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens',
 			body: { name: 'x'.repeat(70) }
@@ -222,7 +222,7 @@ describe('POST /api/me/api-tokens', () => {
 	it('cuts the name at 60 UTF-16 units, splitting an emoji on the boundary', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens',
 			body: { name: `${'a'.repeat(59)}😀tail` }
@@ -238,7 +238,7 @@ describe('POST /api/me/api-tokens', () => {
 	it('keeps whitespace that sits before the cut (only the ends are trimmed)', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens',
 			body: { name: `${'w'.repeat(58)}   more` }
@@ -253,7 +253,7 @@ describe('POST /api/me/api-tokens', () => {
 	it('refuses an absent name with the legacy message (an empty body reads as {})', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens',
 			rawBody: ''
@@ -267,7 +267,7 @@ describe('POST /api/me/api-tokens', () => {
 	it('refuses a whitespace-only name with the legacy message', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens',
 			body: { name: '   ' }
@@ -281,7 +281,7 @@ describe('POST /api/me/api-tokens', () => {
 	it('refuses a non-string name with the legacy message', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens',
 			body: { name: 42 }
@@ -295,7 +295,7 @@ describe('POST /api/me/api-tokens', () => {
 	it('answers 400 {"error":"Invalid JSON"} for a malformed body', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens',
 			rawBody: '{nope'
@@ -309,7 +309,7 @@ describe('POST /api/me/api-tokens', () => {
 	it('answers 400 {"error":"Invalid JSON"} for a JSON array (not an object)', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens',
 			body: [1]
@@ -323,7 +323,7 @@ describe('POST /api/me/api-tokens', () => {
 	it('answers 400 {"error":"Invalid JSON"} for a JSON null or a JSON string body', async () => {
 		const user = await seedUser(testDb());
 		const nul = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens',
 			body: null
@@ -333,7 +333,7 @@ describe('POST /api/me/api-tokens', () => {
 			body: { error: 'Invalid JSON' }
 		});
 		const text = await invoke(createToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens',
 			body: 'nope'
@@ -350,7 +350,7 @@ describe('POST /api/me/api-tokens', () => {
 describe('DELETE /api/me/api-tokens/:id', () => {
 	it('answers 401 {"error":"Unauthorized"} when signed out', async () => {
 		const res = await invoke(revokeToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			path: '/api/me/api-tokens/tok-a',
 			params: { id: 'tok-a' }
 		});
@@ -361,7 +361,7 @@ describe('DELETE /api/me/api-tokens/:id', () => {
 		const user = await seedUser(testDb());
 		await seedIdentityApiToken(user.id);
 		const res = await invoke(revokeToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens/tok-a',
 			params: { id: 'tok-a' }
@@ -379,7 +379,7 @@ describe('DELETE /api/me/api-tokens/:id', () => {
 		const other = await seedUser(testDb());
 		await seedIdentityApiToken(other.id, { id: 'tok-b', name: 'Their phone' });
 		const res = await invoke(revokeToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens/tok-b',
 			params: { id: 'tok-b' }
@@ -395,7 +395,7 @@ describe('DELETE /api/me/api-tokens/:id', () => {
 	it('an unknown id is the same 200, so ids cannot be probed', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(revokeToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens/nope',
 			params: { id: 'nope' }
@@ -409,7 +409,7 @@ describe('DELETE /api/me/api-tokens/:id', () => {
 	it('answers 400 {"error":"Token id is required"} for an empty id', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(revokeToken, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/api-tokens/',
 			params: { id: '' }
@@ -424,7 +424,7 @@ describe('DELETE /api/me/api-tokens/:id', () => {
 describe('PATCH /api/me/profile', () => {
 	it('answers 401 {"error":"Unauthorized"} when signed out', async () => {
 		const res = await invoke(patchProfile, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			path: '/api/me/profile',
 			body: { firstName: 'Mia', lastName: 'Lopez' }
 		});
@@ -434,7 +434,7 @@ describe('PATCH /api/me/profile', () => {
 	it('trims both names, writes them and echoes them with the email', async () => {
 		const user = await seedUser(testDb(), { firstName: 'Old', lastName: 'Name' });
 		const res = await invoke(patchProfile, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/profile',
 			body: { firstName: '  Mia  ', lastName: '  Lopez  ' }
@@ -455,7 +455,7 @@ describe('PATCH /api/me/profile', () => {
 			email: 'guest@anonymous.placeholder.invalid'
 		});
 		const res = await invoke(patchProfile, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user: guest,
 			path: '/api/me/profile',
 			body: { firstName: 'Guest', lastName: 'Person' }
@@ -472,7 +472,7 @@ describe('PATCH /api/me/profile', () => {
 	it('refuses an absent last name with the legacy message', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(patchProfile, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/profile',
 			body: { firstName: 'Mia' }
@@ -486,7 +486,7 @@ describe('PATCH /api/me/profile', () => {
 	it('refuses a non-string name and writes nothing', async () => {
 		const user = await seedUser(testDb(), { firstName: 'Unchanged', lastName: 'Person' });
 		const res = await invoke(patchProfile, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/profile',
 			body: { firstName: 5, lastName: 'Lopez' }
@@ -502,7 +502,7 @@ describe('PATCH /api/me/profile', () => {
 	it('refuses a spaces-only name and an empty body, writing nothing', async () => {
 		const user = await seedUser(testDb(), { firstName: 'Unchanged', lastName: 'Person' });
 		const blank = await invoke(patchProfile, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/profile',
 			body: { firstName: '   ', lastName: 'Lopez' }
@@ -512,7 +512,7 @@ describe('PATCH /api/me/profile', () => {
 			body: { error: 'First name and last name are required' }
 		});
 		const empty = await invoke(patchProfile, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/profile',
 			rawBody: ''
@@ -528,7 +528,7 @@ describe('PATCH /api/me/profile', () => {
 	it('answers 400 {"error":"Invalid JSON"} for a malformed body', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(patchProfile, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/profile',
 			rawBody: '{nope'
@@ -542,7 +542,7 @@ describe('PATCH /api/me/profile', () => {
 	it('answers 400 {"error":"Invalid JSON"} for a JSON null or a JSON string body', async () => {
 		const user = await seedUser(testDb());
 		const nul = await invoke(patchProfile, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/profile',
 			body: null
@@ -552,7 +552,7 @@ describe('PATCH /api/me/profile', () => {
 			body: { error: 'Invalid JSON' }
 		});
 		const text = await invoke(patchProfile, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/profile',
 			body: 'nope'
@@ -567,7 +567,7 @@ describe('PATCH /api/me/profile', () => {
 describe('POST /api/me/sessions/revoke-others', () => {
 	it('answers 401 {"error":"Unauthorized"} when signed out', async () => {
 		const res = await invoke(revokeOtherSessions, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			path: '/api/me/sessions/revoke-others'
 		});
 		expect({ status: res.status, body: res.body }).toEqual(unauthorized);
@@ -583,7 +583,7 @@ describe('POST /api/me/sessions/revoke-others', () => {
 		await seedIdentityApiToken(other.id, { id: 'tok-b', tokenHash: 'other-token-hash' });
 
 		const res = await invoke(revokeOtherSessions, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/sessions/revoke-others'
 		});
@@ -602,7 +602,7 @@ describe('POST /api/me/sessions/revoke-others', () => {
 		const user = await seedUser(testDb());
 		await seedIdentitySession(user.id, 'sess-a');
 		const res = await invoke(revokeOtherSessions, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			via: 'token',
 			path: '/api/me/sessions/revoke-others'
@@ -619,7 +619,7 @@ describe('POST /api/me/sessions/revoke-others', () => {
 describe('GET /api/me/settings', () => {
 	it('answers 401 {"error":"Unauthorized"} when signed out', async () => {
 		const res = await invoke(getSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			path: '/api/me/settings'
 		});
 		expect({ status: res.status, body: res.body }).toEqual(unauthorized);
@@ -628,7 +628,7 @@ describe('GET /api/me/settings', () => {
 	it('answers the page defaults when the person has no settings row', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(getSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings'
 		});
@@ -658,7 +658,7 @@ describe('GET /api/me/settings', () => {
 		await seedIdentityConsent(user.id, 'granted', '2026-10-01T10:00:00.000Z');
 		await seedIdentityConsent(user.id, 'withdrawn', '2026-10-03T18:30:00.000Z');
 		const res = await invoke(getSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings'
 		});
@@ -694,7 +694,7 @@ describe('GET /api/me/settings', () => {
 describe('PATCH /api/me/settings', () => {
 	it('answers 401 {"error":"Unauthorized"} when signed out', async () => {
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			path: '/api/me/settings',
 			body: { timeZone: 'UTC' }
 		});
@@ -709,7 +709,7 @@ describe('PATCH /api/me/settings', () => {
 		await seedIdentityCalendar(other.id, 'cal-their-calendar');
 		await seedIdentitySettings(user.id, { defaultCalendarId: 'cal-their-calendar' });
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { timeZone: 'Asia/Tokyo' }
@@ -745,7 +745,7 @@ describe('PATCH /api/me/settings', () => {
 	it('creates the row from the page defaults plus the patch when none exists', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { defaultView: 'monthView' }
@@ -785,7 +785,7 @@ describe('PATCH /api/me/settings', () => {
 		const user = await seedUser(testDb());
 		await seedIdentitySparseSettings(user.id);
 		const before = await invoke(getSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings'
 		});
@@ -814,7 +814,7 @@ describe('PATCH /api/me/settings', () => {
 		});
 
 		const after = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { timeZone: 'America/Denver' }
@@ -852,7 +852,7 @@ describe('PATCH /api/me/settings', () => {
 		await seedIdentityCalendar(user.id, 'cal-mine-two');
 		await seedIdentitySettings(user.id, { defaultCalendarId: 'cal-mine' });
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { defaultCalendarId: 'cal-mine-two' }
@@ -890,7 +890,7 @@ describe('PATCH /api/me/settings', () => {
 		await seedIdentityCalendar(null, 'cal-family', { familyId: 'fam-home' });
 		await seedIdentitySettings(user.id);
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { defaultCalendarId: 'cal-family' }
@@ -927,7 +927,7 @@ describe('PATCH /api/me/settings', () => {
 		await seedIdentityCalendar(user.id, 'cal-mine');
 		await seedIdentitySettings(user.id, { defaultCalendarId: 'cal-mine' });
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { defaultCalendarId: null }
@@ -964,7 +964,7 @@ describe('PATCH /api/me/settings', () => {
 		await seedIdentityCalendar(user.id, 'cal-mine');
 		await seedIdentitySettings(user.id, { defaultCalendarId: 'cal-mine' });
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { defaultCalendarId: '' }
@@ -1004,7 +1004,7 @@ describe('PATCH /api/me/settings', () => {
 		await seedIdentityCalendar(other.id, 'cal-their-calendar');
 		await seedIdentitySettings(user.id, { defaultCalendarId: 'cal-mine' });
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { defaultCalendarId: 'cal-their-calendar' }
@@ -1021,7 +1021,7 @@ describe('PATCH /api/me/settings', () => {
 		const user = await seedUser(testDb());
 		await seedIdentitySettings(user.id, { showDailyVerse: true });
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: {
@@ -1069,7 +1069,7 @@ describe('PATCH /api/me/settings', () => {
 		const user = await seedUser(testDb());
 		await seedIdentitySettings(user.id, { showAdsAsEvents: false });
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { showAdsAsEvents: true }
@@ -1108,7 +1108,7 @@ describe('PATCH /api/me/settings', () => {
 		const user = await seedUser(testDb());
 		await seedIdentitySettings(user.id, { showAdsAsEvents: true });
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { showAdsAsEvents: false }
@@ -1147,7 +1147,7 @@ describe('PATCH /api/me/settings', () => {
 		const user = await seedUser(testDb());
 		await seedIdentitySettings(user.id, { showAdsAsEvents: false });
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { showAdsAsEvents: false }
@@ -1186,7 +1186,7 @@ describe('PATCH /api/me/settings', () => {
 		const user = await seedUser(testDb());
 		await seedIdentitySettings(user.id);
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: {}
@@ -1225,7 +1225,7 @@ describe('PATCH /api/me/settings', () => {
 		const user = await seedUser(testDb());
 		await seedIdentitySettings(user.id);
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: { timeZone: sent }
@@ -1280,7 +1280,7 @@ describe('PATCH /api/me/settings', () => {
 		const user = await seedUser(testDb());
 		await seedIdentitySettings(user.id);
 		const res = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body
@@ -1290,7 +1290,7 @@ describe('PATCH /api/me/settings', () => {
 			body: { error }
 		});
 		const after = await invoke(getSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings'
 		});
@@ -1319,7 +1319,7 @@ describe('PATCH /api/me/settings', () => {
 	it('answers 400 {"error":"Invalid body"} when the body is not an object', async () => {
 		const user = await seedUser(testDb());
 		const array = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: [1]
@@ -1329,7 +1329,7 @@ describe('PATCH /api/me/settings', () => {
 			body: { error: 'Invalid body' }
 		});
 		const nul = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: null
@@ -1339,7 +1339,7 @@ describe('PATCH /api/me/settings', () => {
 			body: { error: 'Invalid body' }
 		});
 		const text = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			body: 'nope'
@@ -1353,7 +1353,7 @@ describe('PATCH /api/me/settings', () => {
 	it('answers 400 {"error":"Invalid JSON"} for a malformed or an empty body', async () => {
 		const user = await seedUser(testDb());
 		const malformed = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			rawBody: '{nope'
@@ -1363,7 +1363,7 @@ describe('PATCH /api/me/settings', () => {
 			body: { error: 'Invalid JSON' }
 		});
 		const empty = await invoke(patchSettings, {
-			ctx: testCtx({ db: testDb() }),
+			ctx: goldenCtx({ db: testDb() }),
 			user,
 			path: '/api/me/settings',
 			rawBody: ''
