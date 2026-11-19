@@ -48,46 +48,47 @@ export function alertGroup(type: string): AlertGroup {
 	return DECISION_TYPES.some((decision) => decision === type) ? 'needs_you' : 'news';
 }
 
-const LABELS: Record<AlertType, string> = {
-	assignment_pending: 'Asked you',
-	assignment_accepted: 'Accepted',
-	assignment_declined: 'Declined',
-	task_completed: 'Completed',
-	added_to_family: 'Added to family'
+type AlertLook = {
+	readonly label: string;
+	/** Tailwind classes for the badge. */
+	readonly tone: string;
+	readonly glyph: string;
+};
+
+/** What each of the five looks like, declared once so a sixth type cannot miss a column. */
+const LOOK: Record<AlertType, AlertLook> = {
+	assignment_pending: { label: 'Asked you', tone: 'bg-blue-100 text-blue-800', glyph: '?' },
+	assignment_accepted: { label: 'Accepted', tone: 'bg-emerald-100 text-emerald-800', glyph: '✓' },
+	assignment_declined: { label: 'Declined', tone: 'bg-red-100 text-red-800', glyph: '✕' },
+	task_completed: { label: 'Completed', tone: 'bg-emerald-100 text-emerald-800', glyph: '✓' },
+	added_to_family: { label: 'Added to family', tone: 'bg-orange-100 text-orange-800', glyph: '+' }
 };
 
 /** Shown instead of a raw column value, so an unknown type reads as an update. */
 export const UNKNOWN_ALERT_LABEL = 'Update';
 
-export function alertLabel(type: string): string {
+/** What an unrecognised type looks like: neutral, never the raw column value. */
+const UNKNOWN_LOOK: AlertLook = {
+	label: UNKNOWN_ALERT_LABEL,
+	tone: 'bg-slate-100 text-slate-600',
+	glyph: '•'
+};
+
+function lookOf(type: string): AlertLook {
 	// oxlint-disable-next-line anti-slop/no-known-value-widening -- this IS the I/O boundary; free text is what the guard exists for.
-	return isAlertType(type) ? LABELS[type] : UNKNOWN_ALERT_LABEL;
+	return isAlertType(type) ? LOOK[type] : UNKNOWN_LOOK;
 }
 
-const TONES: Record<AlertType, string> = {
-	assignment_pending: 'bg-blue-100 text-blue-800',
-	assignment_accepted: 'bg-emerald-100 text-emerald-800',
-	assignment_declined: 'bg-red-100 text-red-800',
-	task_completed: 'bg-emerald-100 text-emerald-800',
-	added_to_family: 'bg-orange-100 text-orange-800'
-};
-
-const GLYPHS: Record<AlertType, string> = {
-	assignment_pending: '?',
-	assignment_accepted: '✓',
-	assignment_declined: '✕',
-	task_completed: '✓',
-	added_to_family: '+'
-};
+export function alertLabel(type: string): string {
+	return lookOf(type).label;
+}
 
 export function alertTone(type: string): string {
-	// oxlint-disable-next-line anti-slop/no-known-value-widening -- this IS the I/O boundary; free text is what the guard exists for.
-	return isAlertType(type) ? TONES[type] : 'bg-slate-100 text-slate-600';
+	return lookOf(type).tone;
 }
 
 export function alertGlyph(type: string): string {
-	// oxlint-disable-next-line anti-slop/no-known-value-widening -- this IS the I/O boundary; free text is what the guard exists for.
-	return isAlertType(type) ? GLYPHS[type] : '•';
+	return lookOf(type).glyph;
 }
 
 /**

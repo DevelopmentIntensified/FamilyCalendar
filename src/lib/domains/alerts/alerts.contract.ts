@@ -15,8 +15,8 @@
  * Timestamps: `notifications.readAt` / `createdAt` are `timestamptz` columns
  * declared `mode: 'string'`, so the wire carries the driver's Postgres text
  * render (`2026-03-04 10:00:00+00`, no `T`), not ISO. `wireInstant` accepts
- * both spellings and the golden pins the render; normalising it to ISO is a
- * wire change and an owner question.
+ * exactly that render and rejects ISO, so a later switch to ISO (a wire
+ * change and an owner question) fails the contract instead of slipping by.
  *
  * Doc: ./README.md#invariants
  */
@@ -78,16 +78,22 @@ export const INVALID_JSON_MESSAGE = 'Invalid JSON';
 // --- Wire pieces ------------------------------------------------------------
 
 /**
- * A timestamp as the wire carries it: ISO (`2026-03-04T10:00:00.000Z`) or the
- * Postgres text render (`2026-03-04 10:00:00+00`) a `mode: 'string'` column
- * hands the driver. Shape only; nothing parses it into a `Date` here.
+ * A timestamp exactly as the wire carries it: the Postgres text render
+ * (`2026-03-04 10:00:00+00`) a `mode: 'string'` column hands the driver, with
+ * optional fractional seconds and a `+HH` / `+HH:MM` offset. Shape only;
+ * nothing parses it into a `Date` here.
  */
-const WIRE_INSTANT = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}(:?\d{2})?)$/;
+const WIRE_INSTANT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d+)?[+-]\d{2}(:?\d{2})?$/;
 
 function wireInstant() {
 	return z.string().regex(WIRE_INSTANT, { error: 'Invalid date' });
 }
 
+/**
+ * Non-empty, NOT trimmed: legacy checks `length > 0` on the raw string, so a
+ * whitespace-only id or endpoint is valid. That is why this is not the
+ * kernel's trimming `requiredText`.
+ */
 function nonEmptyText(message: string) {
 	return z.string({ error: message }).min(1, { error: message });
 }

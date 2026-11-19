@@ -204,7 +204,7 @@ describe('withPreference: the write must not cost the billing shape', () => {
 });
 
 describe('preferenceChangeLabel: the receipt names the row', () => {
-	// accountNotifications.test.ts:166 "says which switch changed and which way"
+	// accountNotifications.test.ts:167 "says which switch changed and which way"
 	it.each<[AlertPreferenceId, boolean, string]>([
 		['familyJoined', true, 'Someone joined the family alerts are on.'],
 		['taskAssigned', false, 'Task assigned to me alerts are off.'],

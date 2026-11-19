@@ -17,11 +17,13 @@ export const ALERT_PAGE_SIZE = 50;
 /** The three filter chips, in the order the toolbar renders them. */
 export const ALERT_FILTERS = ['all', 'needs_you', 'unread'] as const;
 
+const needsYou = (row: AlertRow) => row.group === 'needs_you';
+const isUnread = (row: AlertRow) => !row.readAt;
+
 /** The rows a chip shows; `all` keeps source order. */
 export function filterAlerts(rows: readonly AlertRow[], filter: AlertFilter): AlertRow[] {
 	if (filter === 'all') return [...rows];
-	if (filter === 'needs_you') return rows.filter((row) => row.group === 'needs_you');
-	return rows.filter((row) => !row.readAt);
+	return rows.filter(filter === 'needs_you' ? needsYou : isUnread);
 }
 
 export type AlertGroups = {
@@ -32,7 +34,7 @@ export type AlertGroups = {
 /** Split a filtered feed into the two sections the page renders, order kept. */
 export function groupAlerts(rows: readonly AlertRow[]): AlertGroups {
 	return {
-		needsYou: rows.filter((row) => row.group === 'needs_you'),
+		needsYou: rows.filter(needsYou),
 		news: rows.filter((row) => row.group === 'news')
 	};
 }
@@ -47,7 +49,7 @@ export type AlertCounts = {
 export function alertCounts(rows: readonly AlertRow[]): AlertCounts {
 	return {
 		all: rows.length,
-		needsYou: rows.filter((row) => row.group === 'needs_you').length,
-		unread: rows.filter((row) => !row.readAt).length
+		needsYou: rows.filter(needsYou).length,
+		unread: rows.filter(isUnread).length
 	};
 }
