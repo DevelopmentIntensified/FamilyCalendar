@@ -25,7 +25,7 @@ function messageOf(schema: z.ZodType, value: unknown): string | null {
 }
 
 describe('FamilyModuleSwitchBody', () => {
-	it.each([true, false])('parses enabled: %s', (enabled) => {
+	it.each<boolean>([true, false])('parses enabled: %s', (enabled) => {
 		expect(FamilyModuleSwitchBody.parse({ enabled })).toEqual({ enabled });
 	});
 

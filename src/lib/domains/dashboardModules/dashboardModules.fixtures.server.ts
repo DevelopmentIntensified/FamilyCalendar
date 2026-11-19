@@ -1,8 +1,7 @@
 /**
  * Row builders for dashboardModules' db tests: a family with one member at a
- * given role, a persisted switch row, and a viewer's settings row carrying
- * hidden ids. Kernel seeds only users; a dashboard-modules test never writes
- * `familyMembers` or `userSettings` by hand.
+ * given role and a persisted switch row. Kernel seeds only users; a
+ * dashboard-modules test never writes `familyMembers` by hand.
  *
  * `seedFamilySwitch` inserts directly (not through the repo) so a test can
  * start from the OFF state the read is supposed to apply.
@@ -10,13 +9,7 @@
  * Doc: ./README.md#how-to-test
  */
 import type { Db } from '$lib/kernel/db/database.server';
-import {
-	dashboardModuleSwitches,
-	families,
-	familyMembers,
-	type UserSettingsRow,
-	userSettings
-} from '$lib/kernel/db/tables.server';
+import { dashboardModuleSwitches, families, familyMembers } from '$lib/kernel/db/tables.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 
 /** A family member's role — the only three the switch route can see. */
@@ -48,22 +41,5 @@ export async function seedFamilySwitch(
 		})
 		.returning();
 	if (!row) throw new Error('seedFamilySwitch: insert returned no row');
-	return row;
-}
-
-/** A viewer's settings row carrying their hidden module ids and verse switch. */
-export async function seedHiddenModules(
-	db: Db,
-	values: { userId: string; hidden: readonly string[]; showDailyVerse?: boolean }
-): Promise<UserSettingsRow> {
-	const [row] = await db
-		.insert(userSettings)
-		.values({
-			userId: values.userId,
-			hiddenDashboardModules: [...values.hidden],
-			showDailyVerse: values.showDailyVerse ?? false
-		})
-		.returning();
-	if (!row) throw new Error('seedHiddenModules: insert returned no row');
 	return row;
 }

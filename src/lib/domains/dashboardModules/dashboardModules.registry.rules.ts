@@ -111,6 +111,16 @@ export function isDashboardModule(id: string): id is DashboardModuleId {
 	return DASHBOARD_MODULES.some((module) => module.id === id);
 }
 
+/**
+ * The saved hidden list for a posted one: canonical ids only, in registry
+ * order, each once. Unknown and retired ids are dropped silently (Q-029) and
+ * posted order and duplicates cannot stick, so the stored list is a pure
+ * function of which canonical ids were named.
+ */
+export function canonicalHiddenModules(ids: readonly string[]): DashboardModuleId[] {
+	return DASHBOARD_MODULES.map((module) => module.id).filter((id) => ids.includes(id));
+}
+
 /** Module id → visible. Only canonical ids appear; anything unlisted is
  * defaulted to visible by {@link showsModule}. */
 export type ModuleSwitchMap = Record<string, boolean>;

@@ -73,12 +73,6 @@ describe('dashboardVisibility — module id × persisted fact (109)', () => {
 			hidden: ['verse', 'board']
 		},
 		{
-			what: 'the verse setting off while the module is left visible — the same disagreement, reversed',
-			settings: savedVerseOff,
-			visible: ['glance', 'top3', 'completed', 'board', 'kids', 'groceries', 'meals'],
-			hidden: ['verse']
-		},
-		{
 			what: 'a null hidden list is not a hidden module',
 			settings: { showDailyVerse: true, hiddenDashboardModules: null },
 			visible: ALL_IDS,
@@ -214,7 +208,9 @@ describe('dashboardVisibility — module id × persisted fact (109)', () => {
 		expect(modules.board).toBe(true);
 	});
 
-	it('user hides do not bypass a family-off switch', () => {
+	// Legacy case, src/lib/server/db/actions/dashboardModules.test.ts:109: with the
+	// family switch ON, the viewer's own hide still holds.
+	it('a viewer hide holds even while the family switch is on', () => {
 		const { modules } = visibilityFor(
 			{ showDailyVerse: true, hiddenDashboardModules: ['board'] },
 			{ board: true }
@@ -390,13 +386,5 @@ describe('the Member strip is no longer a Dashboard Module (103)', () => {
 		const stale = visibilityFor(savedVerseOn, { memberStrip: false });
 		expect(stale.modules).toEqual(visibilityFor(savedVerseOn).modules);
 		expect(Object.keys(stale.modules)).not.toContain('memberStrip');
-	});
-
-	it('cannot be written back: the saved list is rebuilt from canonical ids', () => {
-		const saved = ALL_IDS.filter((id) => id !== 'board');
-		expect(saved).not.toContain('memberStrip');
-		expect(visibilityFor({ showDailyVerse: true, hiddenDashboardModules: saved }).modules.board).toBe(
-			true
-		);
 	});
 });

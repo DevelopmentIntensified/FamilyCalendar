@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+	canonicalHiddenModules,
 	DASHBOARD_MODULES,
 	type DashboardBand,
 	isDashboardModule,
@@ -117,14 +118,6 @@ describe('isDashboardModule', () => {
 
 describe('showsModule — the stated default is visible (109)', () => {
 	// Legacy cases, src/lib/dashboardModules.test.ts:220-234.
-	it('treats an absent map, an absent entry and an unknown id as visible', () => {
-		expect(showsModule(undefined, 'verse')).toBe(true);
-		expect(showsModule(null, 'board')).toBe(true);
-		expect(showsModule({}, 'board')).toBe(true);
-		expect(showsModule({ board: false }, 'kids')).toBe(true);
-		expect(showsModule({ board: false }, 'widget')).toBe(true);
-	});
-
 	it.each<[string, Record<string, boolean> | undefined | null, string, boolean]>([
 		['an absent map', undefined, 'verse', true],
 		['a null map', null, 'board', true],
@@ -135,5 +128,29 @@ describe('showsModule — the stated default is visible (109)', () => {
 		['an unknown id', { board: false }, 'widget', true]
 	])('%s: showsModule(%j, %j) → %s', (_label, map, id, expected) => {
 		expect(showsModule(map, id)).toBe(expected);
+	});
+});
+
+describe('canonicalHiddenModules', () => {
+	// Legacy: `DASHBOARD_MODULES.map(id).filter((id) => hidden.includes(id))` in
+	// src/routes/api/me/dashboard-modules/+server.ts:22-25. Goldens: `saves
+	// canonical ids only…`, `rebuilds the list in canonical order and collapses
+	// duplicates`, `drops every unknown id and answers 200` (Q-029).
+	it.each<[string, string[], string[]]>([
+		['an empty list', [], []],
+		['canonical ids unchanged', ['board', 'kids'], ['board', 'kids']],
+		[
+			'posted order is rebuilt as the canonical order',
+			['kids', 'board', 'verse'],
+			['verse', 'board', 'kids']
+		],
+		['duplicates collapse', ['kids', 'board', 'kids', 'board'], ['board', 'kids']],
+		['unknown ids are dropped', ['widget', 'board', 'nope'], ['board']],
+		['a retired id is dropped (103)', ['memberStrip', 'board'], ['board']],
+		['ids are case-sensitive', ['BOARD', 'Board'], []],
+		['only unknown ids leave nothing', ['widget'], []],
+		['every id is kept, in registry order', [...ALL_IDS].reverse(), ALL_IDS]
+	])('%s', (_label, posted, expected) => {
+		expect(canonicalHiddenModules(posted)).toEqual(expected);
 	});
 });

@@ -51,9 +51,11 @@ const STATE_CLASS: Record<ModuleRowState, string> = {
 /**
  * One row's whole story. Family-off outranks the viewer's preference: the
  * master switch is the louder fact, and a row must never say two things at
- * once. Otherwise a module the viewer hid reads `hidden-for-me`, whatever its
- * scope (S1 disposition: the legacy family-only branch was unreachable and is
- * dropped, so the vocabulary has one rule).
+ * once. Otherwise a family module the viewer hid reads `hidden-for-me`; a
+ * personal module has no family switch, so a stale hidden-list entry cannot
+ * downgrade it (legacy `moduleRowState`, ported exactly — the personal branch
+ * is unreachable from today's callers, and whether it should ever read
+ * `hidden-for-me` is an S7 design question).
  *
  * The submit value is the opposite of the current family switch: it flips the
  * row away from where it is now.
@@ -65,7 +67,7 @@ export function describeDashboardModuleRow(input: {
 }): DashboardModuleRowInfo {
 	const state: ModuleRowState = !input.enabled
 		? 'off'
-		: input.hiddenForViewer
+		: input.scope === 'family' && input.hiddenForViewer
 			? 'hidden-for-me'
 			: 'on';
 	return {

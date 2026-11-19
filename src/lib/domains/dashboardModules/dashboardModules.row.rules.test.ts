@@ -43,16 +43,21 @@ describe('describeDashboardModuleRow — state', () => {
 			{ scope: 'family', enabled: false, hiddenForViewer: true },
 			'off'
 		],
-		// S1 disposition: the legacy family-only branch was unreachable and is
-		// dropped, so the vocabulary has ONE rule — any module the viewer hid
-		// reads hidden-for-me.
+		// Legacy table, src/lib/utils/moduleRowState.test.ts:28-35: a personal module
+		// has no family switch, so a stale hidden-list entry cannot downgrade it
+		// here. (Unreachable from today's callers: the family page lists only
+		// family modules. Whether /account should ever show hidden-for-me for a
+		// personal module is an S7 design question.)
 		[
-			'a personal module the viewer hid',
+			'a personal module the viewer hid still reads on',
 			{ scope: 'personal', enabled: true, hiddenForViewer: true },
-			'hidden-for-me'
+			'on'
 		],
-		// A personal module has no family switch, so `enabled` is the row's
-		// current family state (always on for personal).
+		[
+			'a personal module that is off',
+			{ scope: 'personal', enabled: false, hiddenForViewer: false },
+			'off'
+		],
 		[
 			'a personal module that is on',
 			{ scope: 'personal', enabled: true, hiddenForViewer: false },
@@ -87,12 +92,6 @@ describe('describeDashboardModuleRow — vocabulary', () => {
 		expect(rowFor('on').stateLabel).toBe('On');
 		expect(rowFor('off').stateLabel).toBe('Off');
 		expect(rowFor('hidden-for-me').stateLabel).toBe('Hidden for you');
-	});
-
-	it('family-off outranks hidden-for-me — one row, one truth', () => {
-		expect(
-			describeDashboardModuleRow({ scope: 'family', enabled: false, hiddenForViewer: true }).state
-		).toBe('off');
 	});
 
 	it('names each state once and submits the opposite of the current switch', () => {
