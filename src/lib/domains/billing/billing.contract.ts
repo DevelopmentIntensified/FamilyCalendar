@@ -108,7 +108,9 @@ export type SubscriptionSummary = z.infer<typeof SubscriptionSummary>;
  * One transform, so there is no second validation whose message could fire.
  */
 export const CheckoutPlanInput = z.object({
-	plan: z.unknown().transform(planTypeOrDefault)
+	// `.optional()` first: in zod 4 a bare `z.unknown()` key is required, so an
+	// absent `?plan` would 400 instead of defaulting.
+	plan: z.unknown().optional().transform(planTypeOrDefault)
 });
 export type CheckoutPlanInput = z.infer<typeof CheckoutPlanInput>;
 
