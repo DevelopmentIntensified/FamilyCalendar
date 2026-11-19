@@ -84,17 +84,18 @@ Every file lives in `src/lib/domains/dashboardModules/`. Roles per [conventions]
 
 **S3 — contract and rules:**
 
-- `dashboardModules.contract.ts` (contract) — zod for the two PUT bodies and their responses, with the legacy wording: `{enabled: boolean}` → `{success: true}`; `{hidden: string[]}` → `{success, message, hidden}`. The registry-entry type `DashboardModule` lives with the registry, not here.
-- `dashboardModules.registry.rules.ts` (rules) — `DASHBOARD_MODULES`, the `DashboardModule` entry type, `DashboardModuleId`/`DashboardBand`/`ModuleScope`/`ModuleSwitchMap`, `selectDashboardModules`, `isDashboardModule`, `showsModule`. Pure; no reads, no "now".
-- `dashboardModules.visibility.rules.ts` (rules) — `DashboardRead`, private `DASHBOARD_READS`, `DashboardVisibility`, `dashboardVisibility` (the one composition: total map, family-off outranks, verse needs `showDailyVerse === true`, `needs`).
-- `dashboardModules.row.rules.ts` (rules) — `ModuleRowState`, `describeDashboardModuleRow` (state + labels + tone + submit value in one answer).
+- `dashboardModules.contract.ts` (contract) — zod for the two PUT bodies and their responses, with the legacy wording: `{enabled: boolean}` → `{success: true}`; `{hidden: string[]}` → `{success, message, hidden}`. The registry-entry type `DashboardModule` lives with the registry, not here. It also exports `dashboardModulesSavedMessage(hiddenCount)` — the response `message` is wire copy, and leaving it in the S5 service would put copy in two homes once the account page's form action shares the save. (S3 deviation: one exported formatter added beyond zod.)
+- `dashboardModules.registry.rules.ts` (rules) — `DASHBOARD_MODULES`, the `DashboardModule` entry type, `DashboardModuleId`/`DashboardBand`/`ModuleScope`/`ModuleSwitchMap`/`DashboardModuleFilter`, `selectDashboardModules`, `isDashboardModule`, `showsModule`. Pure; no reads, no "now".
+- `dashboardModules.visibility.rules.ts` (rules) — `DashboardRead`, private `DASHBOARD_READS`, `DashboardSettingsFacts`, `DashboardVisibility`, `dashboardVisibility` (the one composition: total map, family-off outranks, verse needs `showDailyVerse === true`, `needs`).
+- `dashboardModules.row.rules.ts` (rules) — `ModuleRowState`, `ModuleToggleValue`, `DashboardModuleRowInfo`, `describeDashboardModuleRow` (state + labels + tone + submit value in one answer).
 - `dashboardModules.registry.rules.test.ts`, `dashboardModules.visibility.rules.test.ts`, `dashboardModules.row.rules.test.ts` (tests) — table-driven, carrying over the legacy pure cases that encode a real rule (id × persisted fact matrix, needs matrix, retired-id inertness).
+- `dashboardModules.contract.test.ts` (test) — parse tables for both bodies and responses (the one 400 copy per route; absent, `null`, wrong type and bad element all refused alike; unknown ids accepted, Q-029) and the saved-message copy. (S3 addition, after the feedback example's `feedback.contract.test.ts`.)
 
 **S4 — repo and fixtures:**
 
-- `dashboardModules.repo.server.ts` (repo) — `listFamilyModuleSwitches(db, familyId)` (seeds family ids `true`, applies rows) and `setFamilyModuleSwitch(db, familyId, module, enabled)` (delete on enable, insert on disable — a row exists only while OFF). No authorization, no rules.
-- `dashboardModules.fixtures.server.ts` (fixtures) — `seedFamilyWithRole`, `seedFamilySwitch`, `seedHiddenModules`; reuse `seedUser`/`uniqueSuffix`.
-- `dashboardModules.repo.db.test.ts` (test) — switch map defaults, OFF rows applied, delete-on-enable, insert-on-disable, family scoping.
+- `dashboardModules.repo.server.ts` (repo) — `readFamilyModuleSwitches(db, familyId)` (seeds family ids `true`, applies rows) and `writeFamilyModuleSwitch(db, { familyId, module, enabled, now })` (delete on enable, insert on disable — a row exists only while OFF). Two deviations from the S4 outline: (1) the write takes one named object rather than four positional arguments, so the boolean never sits in a bare positional slot (conventions: no positional booleans) and the insert can stamp `createdAt`/`updatedAt` from the caller's `now` (R5) instead of leaving both to `defaultNow()`/`$onUpdate`; (2) the repo says `read`/`write` where the S5 service says `list`/`set`, because R11 allows one exported function name per home and the service re-exposes both under the outline's names. No authorization, no rules.
+- `dashboardModules.repo.db.test.ts` (test) — switch map defaults, OFF rows applied, stale row read verbatim, delete-on-enable (only that module, only that family), insert-on-disable stamped with `now`, the conflict clause keeping the first row, family scoping.
+- `dashboardModules.fixtures.server.ts` (fixtures) — `seedFamilyWithRole`, `seedFamilySwitch`, `seedHiddenModules`; reuse `seedUser`. They take `db` first so they run inside `rollbackTest`; `family`'s fixtures use the `testDb()` singleton and fixed ids, so they cannot.
 
 **S5 — service:**
 
@@ -125,13 +126,14 @@ Every file lives in `src/lib/domains/dashboardModules/`. Roles per [conventions]
 | `DASHBOARD_READS` | stays private inside `dashboardModules.visibility.rules.ts`; `needs()` is its only reader, so exporting it would freeze a table nobody may read |
 | `DashboardRead`, `DashboardVisibility`, `dashboardVisibility` | `dashboardModules.visibility.rules.ts` (`DashboardModuleId` stays the registry's type and is imported) |
 | `ModuleScope`, `ModuleRowState`, `moduleRowState`, `moduleScopeLabel`, `moduleStateLabel`, `moduleStateClass`, `moduleToggleValue` | `dashboardModules.row.rules.ts` as one `describeDashboardModuleRow`; the seven exports die because the one caller wants all of them at once |
-| `getFamilyModuleSwitches` | `listFamilyModuleSwitches` in the repo, re-exposed by the service; the name changes because it reads a family's switches, not the viewer's |
-| `setFamilyModuleSwitch` | service (admin check) + repo (row write); same rule, now split by authorization and SQL |
+| `getFamilyModuleSwitches` | `readFamilyModuleSwitches` in the repo, re-exposed by the service as `listFamilyModuleSwitches`; the names change because it reads a family's switches, not the viewer's, and the repo and the service may not share an exported name (R11) |
+| `setFamilyModuleSwitch` | service (admin check, id validation) + repo `writeFamilyModuleSwitch` (row write); same rule, now split by authorization and SQL |
 | `DashboardModuleRow.svelte` | `ui/DashboardModuleRow.svelte`, rebuilt on kernel/ui; legacy markup and its 11 component tests die in S8 |
 
 ## Notes
 
 - 2026-11-11 (owner, [Q-002](../questions.md)): `meals` stays in the registry (family scope) although its card and endpoint are deleted; `UNMOUNTED_MODULES` keeps its switch off `/account`. Do not retire the id: `/api/dashboard` and the family switches would change.
+- 2026-11-12 ([Q-031/Q-032](../questions.md), module `verse`): the Daily Verse feature and its endpoint are deleted, but the `verse` id stays in the registry and in the visibility vocabulary — it is saved state (a viewer's hidden list may name it) and `showDailyVerse` still gates `modules.verse` on the wire, so retiring the id would change `/api/dashboard` and the saved lists. The `verse` read token stays in `DashboardRead` for the same reason; whoever removes the dashboard's verse payload field retires the id in the same change.
 - **S1 dispositions of "probably accidental" items.**
   - *`moduleRowState` answers `hidden-for-me` only for family modules.* Internal only — its sole caller lists family modules, so the personal branch is unreachable. Dropped: `describeDashboardModuleRow` answers `hidden-for-me` for any module the viewer hid, so the vocabulary has one rule instead of a dead branch with a misleading answer.
   - *`top3` / `completed` declare no reads.* Internal, and not a defect: both consume the viewer's own tasks, and `src/lib/server/services/dashboardData.ts:129-130` fetches `userTasks` unconditionally for every viewer. Read tokens exist to guard **skippable** reads, so an entry for tasks would describe a token that never gates anything. Kept as-is and stated in the README invariant.
