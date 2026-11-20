@@ -79,6 +79,7 @@ Follow [characterize-endpoints.md](characterize-endpoints.md). Every `/api/**` r
 
 1. `<m>.http.server.ts`:
    - `/api` handlers use `endpoint()` and reproduce the wire exactly: auth mode, rate limit, status codes, bodies, messages.
+   - When legacy refused malformed or empty JSON with its own sentence (the one it gives a non-object body) and a golden pins it, set `bodyMode: 'lenient'` on that endpoint: such a body reaches the contract's body schema as `null`, so the contract refuses it with that wording. Do not set it elsewhere; the default (`Invalid JSON`, empty body = `{}`) is what most legacy routes do.
    - Page loads and actions use `pageLoad()` / `formAction()`, shaped for the new UI.
 2. Export them from `index.server.ts` and list them in the README.
 3. Replace each route file with wiring only:
