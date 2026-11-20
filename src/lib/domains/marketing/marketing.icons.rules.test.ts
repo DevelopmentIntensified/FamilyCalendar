@@ -1,11 +1,10 @@
 /**
- * The feature icon vocabulary: closed at nine names, every one with markup, and
- * every icon the pages name is in it (read off the route, not a list kept here).
+ * The feature icon vocabulary: closed at nine names, every one with markup. That
+ * every icon the features page names is in it is read off the route in
+ * marketing.pages.http.test.ts (reading files keeps it out of this pure test, R4).
  *
  * Doc: ./README.md#invariants
  */
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FEATURE_ICON_NAMES, featureIcon } from './marketing.icons.rules';
 
@@ -42,21 +41,5 @@ describe('the icon set', () => {
 		const icon = featureIcon(name);
 		expect(icon.strokeWidth).toBe(strokeWidth);
 		expect(icon.filled).toBe(filled);
-	});
-});
-
-describe('the pages', () => {
-	it('every icon name in the pages is in the set', () => {
-		const source = readFileSync(
-			join(process.cwd(), 'src', 'routes', '(marketing)', 'features', '+page.svelte'),
-			'utf8'
-		);
-		const used = [...source.matchAll(/\bicon:\s*'([a-z]+)'/g)].map((match) => match[1]);
-		// The scan must find the page's icons at all, or the loop below proves nothing.
-		expect(used.length).toBeGreaterThan(0);
-		for (const name of used) {
-			const known = FEATURE_ICON_NAMES.some((candidate) => candidate === name);
-			expect(known, `${name} is not an icon`).toBe(true);
-		}
 	});
 });
