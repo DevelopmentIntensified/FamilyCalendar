@@ -84,7 +84,7 @@ export function hasUnaddablePick(picked: readonly string[], verifiedIds: Readonl
  * one, so `1 + picked` may fill the limit but not pass it. With nobody picked
  * the empty shell is always allowed.
  */
-export function memberLimitRefusal(memberLimit: number, pickedCount: number): FamilyRefusal | null {
+export function dayOneRosterRefusal(memberLimit: number, pickedCount: number): FamilyRefusal | null {
 	if (pickedCount === 0 || 1 + pickedCount <= memberLimit) return null;
 	return {
 		status: 403,
@@ -138,8 +138,8 @@ export function cardMembers(
 }
 
 /**
- * The card's "Created" label: `M/D/YYYY` in the viewer's zone, the shape the
- * legacy server printed with `toLocaleDateString()`.
+ * The card's "Created" label: `M/D/YYYY` in the zone it is given. S5 passes
+ * `UTC`, the zone the legacy server printed `toLocaleDateString()` in on Vercel.
  */
 export function familyCreatedLabel(createdAt: Date, zone: string): string {
 	return new Intl.DateTimeFormat('en-US', {

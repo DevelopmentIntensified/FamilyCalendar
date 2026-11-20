@@ -19,7 +19,7 @@ import {
 	FAMILY_NAME_MAX,
 	firstNameOf,
 	hasUnaddablePick,
-	memberLimitRefusal,
+	dayOneRosterRefusal,
 	type CardRosterRow,
 	type FamilyDraftResult,
 	type FamilyPatch
@@ -91,7 +91,7 @@ describe('hasUnaddablePick', () => {
 	});
 });
 
-describe('memberLimitRefusal: the creator counts as one', () => {
+describe('dayOneRosterRefusal: the creator counts as one', () => {
 	// Legacy create/members.test.ts:205-221 and the golden "refuses more picks than the plan allows".
 	it.each<[string, number, number, boolean]>([
 		['nobody picked, however low the limit', 1, 0, false],
@@ -101,16 +101,16 @@ describe('memberLimitRefusal: the creator counts as one', () => {
 		['six picks against the default limit of 6', 6, 6, true],
 		['five picks against the default limit of 6', 6, 5, false]
 	])('%s', (_what, memberLimit, picked, refused) => {
-		expect(memberLimitRefusal(memberLimit, picked) !== null).toBe(refused);
+		expect(dayOneRosterRefusal(memberLimit, picked) !== null).toBe(refused);
 	});
 
 	it('names the limit, pluralised, in the legacy copy', () => {
-		expect(memberLimitRefusal(6, 6)).toEqual({
+		expect(dayOneRosterRefusal(6, 6)).toEqual({
 			status: 403,
 			message:
 				'Your plan allows 6 members in a family. Create the family first, then add the rest from the family page.'
 		});
-		expect(memberLimitRefusal(1, 1)).toEqual({
+		expect(dayOneRosterRefusal(1, 1)).toEqual({
 			status: 403,
 			message:
 				'Your plan allows 1 member in a family. Create the family first, then add the rest from the family page.'

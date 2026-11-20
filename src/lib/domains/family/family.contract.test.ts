@@ -20,7 +20,6 @@ import {
 	FamilyOverviewResponse,
 	FamilySearchQuery,
 	FamilySearchResponse,
-	INVALID_JSON_MESSAGE,
 	InvitableUserResponse,
 	InviteCodeBody,
 	InviteCodesResponse,
@@ -448,9 +447,5 @@ describe('response schemas', () => {
 		expect(
 			InviteEmailErrorResponse.parse({ success: false, error: INVITE_NAMES_MESSAGE })
 		).toEqual({ success: false, error: 'First and last name are required' });
-	});
-
-	it('names the shared invalid-JSON copy verbatim', () => {
-		expect(INVALID_JSON_MESSAGE).toBe('Invalid JSON');
 	});
 });

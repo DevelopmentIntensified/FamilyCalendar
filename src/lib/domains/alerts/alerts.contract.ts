@@ -20,7 +20,7 @@
  *
  * Doc: ./README.md#invariants
  */
-import { oneOf, wholeNumber, z } from '$lib/kernel/validation/validators';
+import { INVALID_JSON_MESSAGE, oneOf, wholeNumber, z } from '$lib/kernel/validation/validators';
 import { ALERT_FILTERS } from './alerts.feed.rules';
 import { ALERT_PREFERENCE_IDS } from './alerts.preferences.rules';
 import { ALERT_GROUPS, ALERT_TYPES } from './alerts.vocabulary.rules';
@@ -71,9 +71,6 @@ export const UNKNOWN_PREFERENCE_MESSAGE = 'Unknown notification preference';
 
 /** `PUT /api/me/notification-preferences/[id]`: `value` is not a boolean. */
 export const PREFERENCE_VALUE_REQUIRED_MESSAGE = 'Notification preference value is required';
-
-/** `PUT /api/me/notification-preferences/[id]`: the body is not a JSON object. */
-export const INVALID_JSON_MESSAGE = 'Invalid JSON';
 
 // --- Wire pieces ------------------------------------------------------------
 

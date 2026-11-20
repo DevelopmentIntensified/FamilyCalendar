@@ -105,7 +105,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [ui/sheetSwipe.test.ts](ui/sheetSwipe.test.ts) | test | legacy threshold table, clamping, idle state | — |
 | [ui/trapFocus.ts](ui/trapFocus.ts) | action | `use:trapFocus` Svelte action: Tab/Shift+Tab cycle inside the node, focus returns on destroy. Disabled, `hidden` and `inert` subtrees and `input[type=hidden]` are skipped by walking the DOM (no layout APIs). Moved from `utils/focusTrap.ts`. | [trapFocus.svelte.test.ts](ui/trapFocus.svelte.test.ts) |
 | [ui/trapFocus.svelte.test.ts](ui/trapFocus.svelte.test.ts) | test | forward/backward wrap, native Tab, focus restore and listener removal, unreachable controls skipped | — |
-| [validation/validators.ts](validation/validators.ts) | rules | zod plus shared fields: `requiredText`, `optionalText`, `isoDate`, `yearMonth`, `isoInstant`, `emailAddress`, `oneOf`, `wholeNumber`, `formList`, `clampedInt`, `firstIssueMessage`, `JsonValue`. | [validators.test.ts](validation/validators.test.ts) |
+| [validation/validators.ts](validation/validators.ts) | rules | zod plus shared fields: `requiredText`, `optionalText`, `isoDate`, `yearMonth`, `isoInstant`, `emailAddress`, `oneOf`, `wholeNumber`, `formList`, `clampedInt`, `firstIssueMessage`, `JsonValue`, and `INVALID_JSON_MESSAGE` (the one `Invalid JSON` copy: `endpoint()`'s malformed-body 400 and the object-level error of contracts that reproduce legacy `readJsonObject`). | [validators.test.ts](validation/validators.test.ts) |
 | [validation/validators.test.ts](validation/validators.test.ts) | test | one table per helper | — |
 
 ## Public interface

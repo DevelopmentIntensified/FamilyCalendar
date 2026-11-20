@@ -18,9 +18,6 @@
  */
 import { formList, isoInstant, z } from '$lib/kernel/validation/validators';
 
-/** The one 400 `readJsonObject` answers for a malformed or non-object body. */
-export const INVALID_JSON_MESSAGE = 'Invalid JSON';
-
 /** The one 400 for a `memberIds` field that is present but not a list. */
 export const MEMBER_IDS_NOT_ARRAY_MESSAGE = 'memberIds must be an array';
 

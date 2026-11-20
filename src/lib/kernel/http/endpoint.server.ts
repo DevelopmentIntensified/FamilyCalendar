@@ -41,7 +41,7 @@ import {
 	unauthorized
 } from '../errors/appError';
 import { clientKeyOf } from '../ratelimit/rateLimiter';
-import { firstIssueMessage, type JsonValue } from '../validation/validators';
+import { firstIssueMessage, INVALID_JSON_MESSAGE, type JsonValue } from '../validation/validators';
 
 export type EndpointAuth = 'public' | 'optional' | 'user' | 'admin' | 'cron';
 
@@ -227,7 +227,7 @@ async function readJsonBody(request: Request, mode: BodyMode): Promise<JsonValue
 		text = await request.text();
 	} catch {
 		if (lenient) return null;
-		throw invalid('Invalid JSON');
+		throw invalid(INVALID_JSON_MESSAGE);
 	}
 	if (!text.trim()) return lenient ? null : {};
 	try {
@@ -235,7 +235,7 @@ async function readJsonBody(request: Request, mode: BodyMode): Promise<JsonValue
 		return JSON.parse(text) as JsonValue;
 	} catch {
 		if (lenient) return null;
-		throw invalid('Invalid JSON');
+		throw invalid(INVALID_JSON_MESSAGE);
 	}
 }
 
