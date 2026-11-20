@@ -1,4 +1,4 @@
-# Playbook: kernel tasks (K-04 … K-13)
+# Playbook: kernel tasks (K-04 … K-14)
 
 Kernel tasks build shared pieces once, before the modules that need them. Each new kernel file gets a test and a row in the [kernel README](../../../src/lib/kernel/README.md) Files table, in the same commit.
 
@@ -197,5 +197,19 @@ Baseline and check must run on the same day, because pages show today's date. If
 1. Add one `endpoint()` option, `bodyMode: 'lenient'`, under which a malformed or empty body reaches the module's schema as `null`, so the contract decides the refusal and its wording. The default stays as today.
 2. Unit tests for both modes: malformed JSON, an empty body, the JSON literal `null`, a non-object, a valid object.
 3. Document the option in the kernel README and in [port-a-module](port-a-module.md)'s S6 notes.
+
+**Check:** `npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run typecheck`.
+
+## k-14
+
+**K-14: mail port.** marketing (contact), family (invites), identity (email codes) and access (magic links) send mail from services, and their S5 tests must assert what went out. A module may not import Resend, and `$env`/`process.env` stay in [src/lib/app](../../../src/lib/app) (R6), so they need a port on `ctx` — "one adapter is a guess, two is a seam", and memory plus Resend is already two.
+
+1. Add `src/lib/kernel/mail/mailer.ts`, isomorphic: `MailMessage` (`to`, `subject`, `html`, optional `text`, `from`, `replyTo`), the `Mailer` port (`send` one message; resolves when the provider accepted it, rejects when it did not), and `createMemoryMailer()` recording into `outbox`. The fields are the ones every legacy `utils/sendEmail.ts` caller passes.
+2. Add `src/lib/kernel/mail/resendMailer.server.ts`: `createResendMailer({ apiKey, from }, fetcher = fetch)` posts the legacy `resend.emails.send` body to `https://api.resend.com/emails`. `from` is the adapter's default sender; a message may override it. A non-2xx rejects with the provider's message, which a caller maps to the legacy `send-failed` branch. Config is a parameter — the adapter never reads the environment (R6).
+3. Add `readonly mail: Mailer` to `Ctx`, and `mailFrom: string` to `AppConfig` (`NOREPLYEMAIL`), so a service that must pass `from` explicitly has one source; the adapter default and `ctx.config.mailFrom` are the same value.
+4. `testCtx` provides `createMemoryMailer()` and widens `TestCtx.mail` to `MemoryMailer`, so S5 tests assert `ctx.mail.outbox`.
+5. [appCtx.server.ts](../../../src/lib/app/appCtx.server.ts) builds the real adapter from `RESEND_API_KEY`/`NOREPLYEMAIL` — the only place allowed to read them. Legacy callers keep using `utils/sendEmail.ts` until their module ports; both paths coexist.
+6. Tests: the memory adapter's recording (order, optional fields) and the `testCtx` wiring; the Resend adapter through a fake `fetcher` (URL, headers, body, a 422 and a non-JSON refusal).
+7. Docs: four files in the kernel README Files table, the "Mail" note under Ctx and actor, and the composition line in the [app README](../../../src/lib/app/README.md).
 
 **Check:** `npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run typecheck`.
