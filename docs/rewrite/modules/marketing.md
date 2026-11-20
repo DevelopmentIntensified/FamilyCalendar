@@ -13,8 +13,8 @@ Public site: home, features, pricing display, roadmap/changelog, contact, SEO ta
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
 - [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
-- [ ] S3 contract + rules
-- [ ] S4 repo (+ fixtures)
+- [x] S3 contract + rules
+- [x] S4 repo (+ fixtures) — empty by design: no v2 code reads a marketing table (Notes)
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
