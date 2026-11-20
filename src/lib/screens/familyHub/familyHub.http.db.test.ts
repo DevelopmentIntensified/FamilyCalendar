@@ -19,13 +19,13 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 // Import the ROUTE module, not the legacy service: after the port the route
 // re-exports the new handler, so this import never changes.
 import { GET as getFamilyTasks } from '../../../routes/api/families/[id]/tasks/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 /** Legacy timestamp columns serialize through `json()` as ISO strings. */
 const isoDate = () => expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/);

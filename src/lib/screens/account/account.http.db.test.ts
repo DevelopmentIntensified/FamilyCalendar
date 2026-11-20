@@ -33,13 +33,13 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser, uniqueSuffix } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 // The ROUTE modules, not the legacy actions: these imports survive the port.
 import { GET as getExport } from '../../../routes/api/account/export/+server';
 import { DELETE as deleteMe, GET as getMe } from '../../../routes/api/me/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 /** A row as the JSON body carries it: dates become ISO strings. */
 function asJson<T>(value: T) {

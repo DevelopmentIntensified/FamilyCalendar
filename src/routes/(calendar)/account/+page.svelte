@@ -97,7 +97,6 @@
 						<AccountCalendarSection
 							userSettings={data.userSettings}
 							calendars={data.calendars ?? []}
-							verseTranslations={data.verseTranslations ?? []}
 							consentHistory={data.consentHistory ?? []}
 						/>
 					{:else if activeSection === 'dashboard'}

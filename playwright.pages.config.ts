@@ -1,10 +1,12 @@
-// Playwright config for the page harness (K-10): the visual baseline/check that
-// later powers the perf harness (K-11). The main playwright.config.ts is
-// untouched — this config runs its own server, its own database and its own
-// baselines, so an e2e run and a visual run never share state.
+// Playwright config for the page harness (K-10 visual, K-11 perf). The main
+// playwright.config.ts ignores e2e/pages — this config runs its own server, its
+// own database and its own baselines, so an e2e run and a harness run never
+// share state.
 //
 //   npm run visual:baseline -- groceries   (writes e2e/pages/__screenshots__)
 //   npm run visual:check -- groceries      (compares)
+//   npm run perf:check -- groceries        (fails on an ADR 0010 hard limit)
+//   npm run perf:baseline                  (all pages; writes the perf baseline)
 //
 // Doc: e2e/pages/README.md
 import { defineConfig, devices } from '@playwright/test';
@@ -81,6 +83,11 @@ export default defineConfig({
 	projects: [
 		{
 			name: 'desktop',
+			// The perf harness is opt-in: perf.spec.ts makes its own contexts
+			// and runs 5 × 2 visits × 2 profiles per page, far too slow for a
+			// bare `npx playwright test`. Only scripts/pages-run.mjs sets
+			// PERF_MODE, and then the `perf` project below runs it once.
+			testIgnore: '**/perf.spec.ts',
 			use: {
 				...devices['Desktop Chrome'],
 				viewport: { width: 1280, height: 800 }
@@ -88,6 +95,7 @@ export default defineConfig({
 		},
 		{
 			name: 'mobile',
+			testIgnore: '**/perf.spec.ts',
 			use: {
 				...devices['Pixel 7'],
 				// The harness compares at 390 px (docs/architecture/testing.md).
@@ -97,6 +105,17 @@ export default defineConfig({
 				viewport: { width: 390, height: 844 },
 				deviceScaleFactor: 1
 			}
-		}
+		},
+		...(process.env.PERF_MODE === 'check' || process.env.PERF_MODE === 'baseline'
+			? [
+					{
+						// One project so the spec runs once: it iterates the two
+						// profiles itself, each with a context it creates.
+						name: 'perf',
+						testMatch: '**/perf.spec.ts',
+						use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } }
+					}
+				]
+			: [])
 	]
 });

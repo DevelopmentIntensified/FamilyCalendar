@@ -255,10 +255,8 @@ describe('saveCalendarSettings — defaultCalendarId access check (issue 167)', 
 		formData.set('timeZone', 'UTC');
 		formData.set('color', '#3b82f6');
 		formData.set('defaultView', 'dayView');
-		formData.set('verseTranslation', 'esv');
 		formData.set('syncEventsToFamilyCalendar', 'false');
 		formData.set('autoParseEventDetails', 'false');
-		formData.set('showDailyVerse', 'false');
 		formData.set('showAdsAsEvents', 'false');
 		for (const [key, value] of Object.entries(fields)) formData.set(key, value);
 		// SAFETY: test double — the action only reads request.formData() and locals.user.

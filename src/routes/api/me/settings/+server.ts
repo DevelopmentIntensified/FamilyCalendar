@@ -3,7 +3,6 @@ import { DateTime } from 'luxon';
 import type { RequestHandler } from './$types';
 import { requireUserJson } from '$lib/server/utils/requireUser';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
-import { TRANSLATIONS } from '$lib/server/services/verseService';
 import {
 	ACCOUNT_SETTINGS_DEFAULTS,
 	loadAccountSettings,
@@ -26,7 +25,6 @@ const PATCHABLE = new Set<string>([
 	'color',
 	'defaultView',
 	'defaultCalendarId',
-	'verseTranslation',
 	...BOOLEAN_FIELDS
 ]);
 
@@ -72,11 +70,6 @@ function parsePatch(body: unknown): { patch: Partial<CalendarSettingsInput> } | 
 			return { error: 'Invalid defaultCalendarId' };
 		patch.defaultCalendarId = b.defaultCalendarId || null;
 	}
-	if ('verseTranslation' in b) {
-		if (typeof b.verseTranslation !== 'string' || !(b.verseTranslation in TRANSLATIONS))
-			return { error: 'Invalid verseTranslation' };
-		patch.verseTranslation = b.verseTranslation;
-	}
 	for (const key of BOOLEAN_FIELDS) {
 		if (key in b) {
 			if (typeof b[key] !== 'boolean') return { error: `Invalid ${key}` };
@@ -118,7 +111,6 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 		autoParseEventDetails: existing?.autoParseEventDetails ?? true,
 		showDailyVerse: existing?.showDailyVerse ?? false,
 		showAdsAsEvents: base.showAdsAsEvents ?? false,
-		verseTranslation: base.verseTranslation ?? 'esv',
 		...parsed.patch
 	};
 	// Only a default calendar this PATCH sets is re-checked: a stored one is

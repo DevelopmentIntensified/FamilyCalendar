@@ -93,12 +93,6 @@ export const MODULES = [
 		purpose: 'Grocery List (one list, scope filter), Grocery Items, Store Memory, Store Colours.'
 	},
 	{
-		name: 'verse',
-		kind: 'domain',
-		rank: 11,
-		purpose: 'Daily Verse: fetch, cache, translation, the verse card.'
-	},
-	{
 		name: 'sponsored',
 		kind: 'domain',
 		rank: 12,
@@ -186,7 +180,6 @@ export const PORT_ORDER = [
 	'dashboardModules',
 	'bills',
 	'parsing',
-	'verse',
 	'groceries',
 	'meals',
 	'sponsored',

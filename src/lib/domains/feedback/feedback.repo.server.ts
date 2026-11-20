@@ -12,9 +12,15 @@
  * R5). An insert's `createdAt` comes from the database `now()` unless the
  * write supplies it — the phrase upsert does, so its row is deterministic.
  *
+ * Timestamp rule: every timestamp column is `mode: 'date'`, so the repo takes
+ * and returns `Date`s and binds one only as a column value or against a column
+ * (`values`, `set`, `eq`/`lt`/...), where the column's encoder serializes it.
+ * A `Date` is never interpolated into a raw `sql` fragment: it skips the
+ * encoder and the driver rejects it.
+ *
  * Doc: ./README.md#invariants
  */
-import { and, count, desc, eq, isNotNull, isNull, lt, ne, sql } from 'drizzle-orm';
+import { and, count, desc, eq, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import type { Db } from '$lib/kernel/db/database.server';
 import {
 	bugReports,
@@ -108,6 +114,10 @@ export async function countOpenBugReports(db: Db): Promise<number> {
  * Retention: closed reports older than the cutoff are deleted. The anchor is
  * `resolvedAt`, falling back to `createdAt` for rows closed without a stamp;
  * open reports never match. Returns the number of rows removed.
+ *
+ * Both anchors are compared as columns, not through `coalesce(...)`: a Date
+ * bound inside a raw `sql` fragment skips the column's encoder and the driver
+ * rejects it, while a column comparison is serialized by the column.
  */
 export async function pruneClosedBugReports(db: Db, cutoff: Date): Promise<number> {
 	const deleted = await db
@@ -115,7 +125,10 @@ export async function pruneClosedBugReports(db: Db, cutoff: Date): Promise<numbe
 		.where(
 			and(
 				ne(bugReports.status, 'open'),
-				lt(sql`coalesce(${bugReports.resolvedAt}, ${bugReports.createdAt})`, cutoff)
+				or(
+					and(isNotNull(bugReports.resolvedAt), lt(bugReports.resolvedAt, cutoff)),
+					and(isNull(bugReports.resolvedAt), lt(bugReports.createdAt, cutoff))
+				)
 			)
 		)
 		.returning({ id: bugReports.id });

@@ -4,21 +4,11 @@
  * and `GET /api/calendars` agree on one answer.
  */
 import { db } from '$lib/server/db';
-import {
-	calendars,
-	families,
-	type Calendar,
-	type CalendarEvent,
-	type UserSettings
-} from '$lib/server/db/schema';
+import { calendars, families, type Calendar, type CalendarEvent } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { getAdEventsForUser, shouldServeAds, type AdDisplayEvent } from '$lib/server/services/adService';
 import { parseEvents } from '$lib/server/services/eventDisplayService';
-import { getTodayVerse, getVerseForDate, type DailyVerse } from '$lib/server/services/verseService';
-import { getFamilyModuleSwitches } from '$lib/server/db/actions/dashboardModules';
-import { dashboardVisibility } from '$lib/dashboardModules';
-import { guard } from '$lib/server/utils/guard';
 
 export const PERSONAL_CALENDAR_NAME = 'Personal Calendar';
 export const DEFAULT_PERSONAL_COLOR = '#fa8072';
@@ -88,30 +78,6 @@ export async function loadSponsoredEvents(
 /** The display projection the calendar renders ad rows with. */
 export function toSponsoredDisplay(rows: CalendarEvent[], zone: string) {
 	return parseEvents(rows, zone).map((e) => ({ ...e, color: SPONSORED_EVENT_COLOR }));
-}
-
-/**
- * G7: the Daily Verse, or null when it is hidden. Visibility is a function
- * of BOTH persisted facts — the `showDailyVerse` setting and the Dashboard
- * Module switch — so it asks the one shared answer (109). `dateIso` picks
- * the day (default: today). `warning` = the switch read failed (the verse
- * then follows the setting alone, the loader's degrade).
- */
-export async function loadDailyVerse(
-	settings: UserSettings | null | undefined,
-	familyId: string | null,
-	dateIso?: string
-): Promise<{ verse: DailyVerse | null; warning: string | null }> {
-	const switchesG = await guard('settings', {}, async () =>
-		familyId ? await getFamilyModuleSwitches(familyId) : {}
-	);
-	const visibility = dashboardVisibility({ settings, familySwitches: switchesG.data });
-	if (!visibility.needs('verse')) return { verse: null, warning: switchesG.error };
-	const translation = settings?.verseTranslation ?? 'esv';
-	const verse = dateIso
-		? await getVerseForDate(dateIso, translation)
-		: await getTodayVerse(translation);
-	return { verse, warning: switchesG.error };
 }
 
 /** Personal first, then the family calendar (when the viewer has one). */

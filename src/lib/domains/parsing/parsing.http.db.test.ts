@@ -26,7 +26,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { userSettings } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 // Import the ROUTE module, not the parser: the route is what clients hit, and
@@ -35,7 +35,7 @@ import { POST as postParseEvent } from '../../../routes/api/parse-event/+server'
 
 const PATH = '/api/parse-event';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 /** A single parse answer: the whole body the wire carries. */
 type SingleBody = {

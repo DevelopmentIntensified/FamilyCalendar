@@ -41,10 +41,6 @@ vi.mock('$lib/server/services/eventDisplayService', () => ({
 	attachRsvpStatus: vi.fn(async () => []),
 	attachAttendanceSummaries: vi.fn(async () => [])
 }));
-// oxlint-disable-next-line anti-slop/no-module-mocking -- network/DB-backed read; scripted.
-vi.mock('$lib/server/services/verseService', () => ({
-	getTodayVerse: vi.fn(async () => ({ reference: 'Ps 118:24', text: 'This is the day', attribution: 'KJV' }))
-}));
 // oxlint-disable-next-line anti-slop/no-module-mocking -- scripted seam; reads user_settings.
 vi.mock('$lib/server/db/actions/userSettings', () => ({
 	getUserSettings: vi.fn(async () => ({ timeZone: 'America/Chicago', showDailyVerse: true }))
@@ -90,7 +86,6 @@ describe('GET /api/dashboard (G8)', () => {
 				'meId',
 				'familyId',
 				'modules',
-				'dailyVerse',
 				'taskCategories',
 				'data',
 				'warnings'
@@ -100,7 +95,6 @@ describe('GET /api/dashboard (G8)', () => {
 		expect(body.dayISO).toBe('2026-11-02T00:00:00.000-06:00');
 		expect(body.meId).toBe('user-1');
 		expect(body.familyId).toBe('fam-1');
-		expect(body.dailyVerse.reference).toBe('Ps 118:24');
 		expect(body.taskCategories).toEqual([{ id: 'c1', name: 'Errands' }]);
 		expect(Object.keys(body.data).sort()).toEqual(
 			[

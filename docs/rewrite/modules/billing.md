@@ -12,7 +12,7 @@ Plans, subscriptions, plan limits (family size, archive), discounts, checkout st
 ## Steps
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `a3dfdb0`
+- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [ ] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service

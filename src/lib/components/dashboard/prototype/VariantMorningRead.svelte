@@ -5,7 +5,6 @@
 	 *  it removes nothing. */
 	import { showsModule } from '$lib/dashboardModules';
 	import type { PrototypeProps } from './prototypeProps';
-	import DashboardInfoBand from '../DashboardInfoBand.svelte';
 	import TodayGlanceCard from '../TodayGlanceCard.svelte';
 	import TopPrioritiesCard from '../TopPrioritiesCard.svelte';
 	import CompletedTodayCard from '../CompletedTodayCard.svelte';
@@ -18,7 +17,6 @@
 		isToday,
 		meId,
 		familyId,
-		dailyVerse,
 		glance,
 		dayEvents,
 		top3,
@@ -39,10 +37,6 @@
 		<div class="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="alert">
 			Couldn't load {loadWarnings.join(', ')} just now — everything else is up to date.
 		</div>
-	{/if}
-
-	{#if dailyVerse && showsModule(modules, 'verse')}
-		<DashboardInfoBand {dailyVerse} />
 	{/if}
 
 	<div class="grid items-start gap-4 lg:grid-cols-3">

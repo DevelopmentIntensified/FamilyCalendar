@@ -28,7 +28,6 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		meId: page.meId,
 		familyId: page.familyId,
 		modules: page.modules,
-		dailyVerse: page.dailyVerse,
 		taskCategories: page.taskCategories,
 		data,
 		warnings: [...page.loadWarnings, ...dataWarnings]

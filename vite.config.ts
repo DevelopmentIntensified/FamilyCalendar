@@ -100,6 +100,19 @@ export default defineConfig({
 					include: [`${V2}/**/*.svelte.test.ts`],
 					setupFiles: ['./vitest-setup-client.ts']
 				}
+			},
+			{
+				extends: './vite.config.ts',
+
+				test: {
+					// The page harness's pure logic (K-11). Its tests end in
+					// `.unit.ts`, not `.test.ts`: Playwright's default matcher takes
+					// `.spec.ts` and `.test.ts`, and nothing in e2e/pages may join a
+					// browser run by accident. Plain node — no database, no browser.
+					name: 'pages',
+					environment: 'node',
+					include: ['e2e/pages/**/*.unit.ts']
+				}
 			}
 		]
 	}

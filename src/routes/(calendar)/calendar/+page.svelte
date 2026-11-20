@@ -587,7 +587,6 @@
 			defaultViewSetting={data.userSettings?.defaultView || 'monthView'}
 			initialView={initialViewParam}
 			createAt={openCreateAt}
-			dailyVerse={data.dailyVerse}
 			{selectionMode}
 			{selectedIds}
 			onToggleSelectionMode={setSelectionMode}

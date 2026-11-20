@@ -1,4 +1,4 @@
-# Playbook: kernel tasks (K-04 … K-12)
+# Playbook: kernel tasks (K-04 … K-13)
 
 Kernel tasks build shared pieces once, before the modules that need them. Each new kernel file gets a test and a row in the [kernel README](../../../src/lib/kernel/README.md) Files table, in the same commit.
 
@@ -189,3 +189,13 @@ Baseline and check must run on the same day, because pages show today's date. If
 5. Docs: the R1 test exception in [rules.md](../../architecture/rules.md#r1), `goldenCtx` in [testing.md](../../architecture/testing.md#golden-contract-tests-characterization) and the [characterize-endpoints](characterize-endpoints.md) template, the "Domain ports" section in [add-a-port.md](add-a-port.md#domain-ports), and the two new files in the [app README](../../../src/lib/app/README.md). Do not edit any `*.http.db.test.ts`, the LEDGER or [questions.md](../questions.md): the orchestrator sweeps the goldens once in-flight work merges.
 
 **Check:** `npm run arch && npm run docs:check && npm run typecheck`.
+
+## k-13
+
+**K-13: endpoint body modes.** Some legacy routes refuse malformed JSON and an empty body with the same sentence they give a non-object body, and their frozen goldens pin it: alerts' `POST /api/notifications`, `POST /api/devices`, `POST /api/push/subscribe` and `POST /api/push/unsubscribe`. `endpoint()` answers malformed JSON with `Invalid JSON` and reads an empty body as `{}` before the schema runs, so those four routes cannot be reproduced at S6. Needed before alerts' S6; groceries' `null`-body question (Q-111) may use it too.
+
+1. Add one `endpoint()` option (e.g. `body: 'raw'`) under which a malformed or empty body reaches the module's schema as `null`, so the contract decides the refusal and its wording. The default stays as today.
+2. Unit tests for both modes: malformed JSON, an empty body, the JSON literal `null`, a non-object, a valid object.
+3. Document the option in the kernel README and in [port-a-module](port-a-module.md)'s S6 notes.
+
+**Check:** `npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run typecheck`.
