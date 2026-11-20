@@ -254,6 +254,11 @@ export const FOREIGN_READS = {
 	alerts: {
 		subscriptions:
 			'notification preferences live in activeSubscriptions.notificationMethods (legacy storage, no DDL)'
+	},
+	family: {
+		users:
+			'roster names/emails, picker + invite-flow search, verified-account check, direct-add lookup',
+		tasks: 'open-task counts on the /family list (read-only grouped count)'
 	}
 };
 
