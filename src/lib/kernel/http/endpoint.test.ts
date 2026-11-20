@@ -114,6 +114,89 @@ describe('endpoint input parsing', () => {
 	});
 });
 
+describe('endpoint body modes', () => {
+	// Distinct copy per layer: 'Bad a' comes from the field, 'Bad body' from the object itself.
+	const schema = z.object({ a: z.string({ error: 'Bad a' }) }, { error: 'Bad body' });
+	const modes = {
+		json: endpoint({
+			auth: 'public',
+			body: schema,
+			bodyMode: 'json',
+			handle: async ({ body }) => ok({ a: body.a })
+		}),
+		lenient: endpoint({
+			auth: 'public',
+			body: schema,
+			bodyMode: 'lenient',
+			handle: async ({ body }) => ok({ a: body.a })
+		})
+	};
+
+	type BodyCase = {
+		readonly mode: keyof typeof modes;
+		readonly name: string;
+		readonly rawBody: string;
+		readonly want: { readonly status: number; readonly body: { readonly [key: string]: string } };
+	};
+	const refused = (error: string): BodyCase['want'] => ({ status: 400, body: { error } });
+	const accepted: BodyCase['want'] = { status: 200, body: { a: 'ok' } };
+	const cases: readonly BodyCase[] = [
+		{ mode: 'json', name: 'malformed JSON', rawBody: '{"a":', want: refused('Invalid JSON') },
+		{ mode: 'json', name: 'an empty body', rawBody: '', want: refused('Bad a') },
+		{ mode: 'json', name: 'a whitespace body', rawBody: ' \n\t ', want: refused('Bad a') },
+		{ mode: 'json', name: 'the literal null', rawBody: 'null', want: refused('Bad body') },
+		{ mode: 'json', name: 'a string', rawBody: '"x"', want: refused('Bad body') },
+		{ mode: 'json', name: 'an array', rawBody: '[1]', want: refused('Bad body') },
+		{ mode: 'json', name: 'a valid object', rawBody: '{"a":"ok"}', want: accepted },
+		{ mode: 'lenient', name: 'malformed JSON', rawBody: '{"a":', want: refused('Bad body') },
+		{ mode: 'lenient', name: 'an empty body', rawBody: '', want: refused('Bad body') },
+		{ mode: 'lenient', name: 'a whitespace body', rawBody: ' \n\t ', want: refused('Bad body') },
+		{ mode: 'lenient', name: 'the literal null', rawBody: 'null', want: refused('Bad body') },
+		{ mode: 'lenient', name: 'a string', rawBody: '"x"', want: refused('Bad body') },
+		{ mode: 'lenient', name: 'an array', rawBody: '[1]', want: refused('Bad body') },
+		{ mode: 'lenient', name: 'a valid object', rawBody: '{"a":"ok"}', want: accepted }
+	];
+
+	it.each(cases)('$mode mode: $name -> $want.status', async ({ mode, rawBody, want }) => {
+		const res = await invoke(modes[mode].handler, { ctx: testCtx(), rawBody });
+		expect(res.status).toBe(want.status);
+		expect(res.body).toEqual(want.body);
+	});
+
+	it('keeps the default mode identical to json', async () => {
+		const byDefault = endpoint({
+			auth: 'public',
+			body: schema,
+			handle: async ({ body }) => ok({ a: body.a })
+		});
+		const malformed = await invoke(byDefault.handler, { ctx: testCtx(), rawBody: '{"a":' });
+		expect(malformed.body).toEqual({ error: 'Invalid JSON' });
+		const empty = await invoke(byDefault.handler, { ctx: testCtx(), rawBody: '' });
+		expect(empty.body).toEqual({ error: 'Bad a' });
+	});
+
+	// The table above refuses every non-object with 'Bad body', which a reader
+	// that turned everything into null would also pass. Echoing what reached the
+	// schema proves lenient passes parseable bodies through untouched.
+	it.each<[string, string, unknown]>([
+		['a string', '"x"', 'x'],
+		['an array', '[1]', [1]],
+		['the literal null', 'null', null],
+		['malformed JSON', '{"a":', null],
+		['an empty body', '', null]
+	])('lenient mode hands %s to the schema as: %j', async (_name, rawBody, expected) => {
+		const echo = endpoint({
+			auth: 'public',
+			body: z.json(),
+			bodyMode: 'lenient',
+			handle: async ({ body }) => ok({ got: body })
+		});
+		const res = await invoke(echo.handler, { ctx: testCtx(), rawBody });
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ got: expected });
+	});
+});
+
 describe('endpoint errors', () => {
 	it('maps AppError to its status and merges extra fields (409 openSessionId contract)', async () => {
 		const busy = endpoint({

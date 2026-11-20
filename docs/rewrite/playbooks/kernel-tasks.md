@@ -194,7 +194,7 @@ Baseline and check must run on the same day, because pages show today's date. If
 
 **K-13: endpoint body modes.** Some legacy routes refuse malformed JSON and an empty body with the same sentence they give a non-object body, and their frozen goldens pin it: alerts' `POST /api/notifications`, `POST /api/devices`, `POST /api/push/subscribe` and `POST /api/push/unsubscribe`. `endpoint()` answers malformed JSON with `Invalid JSON` and reads an empty body as `{}` before the schema runs, so those four routes cannot be reproduced at S6. Needed before alerts' S6; groceries' `null`-body question (Q-111) may use it too.
 
-1. Add one `endpoint()` option (e.g. `body: 'raw'`) under which a malformed or empty body reaches the module's schema as `null`, so the contract decides the refusal and its wording. The default stays as today.
+1. Add one `endpoint()` option, `bodyMode: 'lenient'`, under which a malformed or empty body reaches the module's schema as `null`, so the contract decides the refusal and its wording. The default stays as today.
 2. Unit tests for both modes: malformed JSON, an empty body, the JSON literal `null`, a non-object, a valid object.
 3. Document the option in the kernel README and in [port-a-module](port-a-module.md)'s S6 notes.
 
