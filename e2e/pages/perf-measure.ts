@@ -137,11 +137,12 @@ async function measureRun(
 		await installReadyProbe(page, entry.ready);
 
 		await gotoPage(page, entry, seed);
-		const marks = await readMarks(page, entry);
 		// One fixed byte cut-off: everything transferred up to the load event is
 		// "initial"; lazy chunks after it do not count.
 		await page.waitForLoadState('load');
-		const first: Visit = { ...marks, ...bytes.snapshot() };
+		const transferred = bytes.snapshot();
+		const marks = await readSettledMarks(page, entry);
+		const first: Visit = { ...marks, ...transferred };
 		// A network round trip, deliberately outside the measured window.
 		await expectSignedIn(page, entry, seed);
 
@@ -149,11 +150,26 @@ async function measureRun(
 		// navigation, starting from a blank document.
 		await page.goto('about:blank');
 		await gotoPage(page, entry, seed);
-		const again = await readMarks(page, entry);
+		const again = await readSettledMarks(page, entry);
 		return { first, repeat: { ready: again.ready, lcp: again.lcp } };
 	} finally {
 		await context.close();
 	}
+}
+
+/**
+ * Read the marks once the page has settled. On some pages the first paint
+ * lands well after the load event (the (marketing) layout, measured
+ * 2026-11-18: 350–480 ms after load on desktop, up to 1.6 s on throttled
+ * mobile), so an LCP entry read at load may not exist yet, and a larger
+ * candidate (a hero image) can paint later still. Ready and LCP are timestamps
+ * the page records itself, so a later read never inflates them; it only lets
+ * the paints that belong to this load arrive. No page holds a long-lived
+ * connection, so network idle always comes.
+ */
+async function readSettledMarks(page: Page, entry: PageEntry): Promise<Marks> {
+	await page.waitForLoadState('networkidle');
+	return readMarks(page, entry);
 }
 
 /** The profile's network and CPU conditions, applied before anything loads. */

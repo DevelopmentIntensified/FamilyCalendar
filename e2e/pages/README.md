@@ -94,7 +94,9 @@ same seed and the same `ready` selector the screenshot waits for:
 
 A run is one fresh browser context. The **first visit** records ready time
 (navigation start → the `ready` selector visible), TTFB (navigation timing), LCP
-(`PerformanceObserver`, read after two animation frames and a task) and the
+(`PerformanceObserver`, read once the page has settled: network idle, then two
+animation frames and a task; on the (marketing) pages the first paint lands well
+after the load event, so a read at load would miss it) and the
 transferred bytes of the initial JS, the HTML and the page data (CDP
 `encodedDataLength`). The byte cut-off is one fixed point: everything that
 finished by the load event; lazy chunks after it do not count. The **repeat
