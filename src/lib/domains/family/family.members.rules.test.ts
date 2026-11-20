@@ -346,13 +346,13 @@ describe('inviteTargetRefusal: the email then the two names', () => {
 		expect(inviteTargetRefusal(target())).toBeNull();
 	});
 
-	it.each<[string, string, string, FamilyRefusal]>([
-		['a malformed email', 'not-an-email', 'Guest', refusal(400, 'Invalid email')],
-		['a missing local part', '@example.test', 'Guest', refusal(400, 'Invalid email')],
-		['a missing first name', 'guest@example.test', '', refusal(400, 'First and last name are required')],
-		['a missing last name', 'guest@example.test', 'Guest', refusal(400, 'First and last name are required')]
-	])('%s', (_what, email, firstName, expected) => {
-		expect(inviteTargetRefusal(target({ email, firstName }))).toEqual(expected);
+	it.each<[string, string, string, string, FamilyRefusal]>([
+		['a malformed email', 'not-an-email', 'Guest', 'User', refusal(400, 'Invalid email')],
+		['a missing local part', '@example.test', 'Guest', 'User', refusal(400, 'Invalid email')],
+		['a missing first name', 'guest@example.test', '', 'User', refusal(400, 'First and last name are required')],
+		['a missing last name', 'guest@example.test', 'Guest', '', refusal(400, 'First and last name are required')]
+	])('%s', (_what, email, firstName, lastName, expected) => {
+		expect(inviteTargetRefusal(target({ email, firstName, lastName }))).toEqual(expected);
 	});
 
 	it('checks the email before the names', () => {

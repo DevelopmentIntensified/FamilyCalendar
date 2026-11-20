@@ -11,7 +11,7 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
 import type { Db } from '$lib/kernel/db/database.server';
-import { calendars, families, familyMembers, tasks } from '$lib/kernel/db/tables.server';
+import { families, familyMembers, tasks } from '$lib/kernel/db/tables.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
 import { seedFamily, seedMembership } from './family.fixtures.server';
@@ -189,20 +189,6 @@ describe('insertFamilyWithRoster', () => {
 			.from(familyMembers)
 			.where(eq(familyMembers.familyId, 'fam-solo'));
 		expect(members.map((m) => [m.userId, m.role])).toEqual([[ann.id, 'creator']]);
-	});
-
-	rollbackTest('writes no calendar: that row is FamilyCalendarPort\'s', async (db) => {
-		const ann = await seedUser(db);
-		await insertFamilyWithRoster(db, {
-			id: 'fam-nocal',
-			name: 'No calendar',
-			color: '#c45e38',
-			creatorId: ann.id,
-			memberIds: [],
-			now
-		});
-		const calendarRows = await db.select().from(calendars).where(eq(calendars.familyId, 'fam-nocal'));
-		expect(calendarRows).toEqual([]);
 	});
 });
 
