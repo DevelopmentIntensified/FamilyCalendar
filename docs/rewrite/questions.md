@@ -963,6 +963,16 @@ B. Answer each door's existing missing-name 400. Cost: a malformed request the i
 
 Recommendation: B, as the contract already does; lands with S6 with its own golden rows. Applied default until answered: A.
 
+## Q-116 Email-change codes and the password-reset marker are stored in plaintext (identity S3+S4, 2026-11-18; modules: identity)
+
+Context: `codes.code` holds the three sign-in kinds (`login`, `signup`, `password-signup`) as SHA-256 digests (#162), but `email_change` codes and the `reset_used` single-use marker are stored as plaintext (`forgot-password/reset/+server.ts:101-119`). Anyone who can read the table, through a leaked backup or a read-only credential, can use a live email-change code until it expires. No golden reads the stored value; the S4 repo ports today's split (`isHashedEmailCodeType`).
+
+Options:
+A. Keep plaintext for those two kinds.
+B. Store them as digests like the sign-in kinds. Cost: codes issued before the deploy stop working, and they expire soon anyway; no `/api` response changes.
+
+Recommendation: B, as its own commit after identity's S6 (`fix(identity): Q-116 …`). Applied default until answered: A.
+
 ## Recorded defaults (the sheets recommend keeping legacy)
 
 Every row below is a question the module sheets raised and answered themselves: keep today's behaviour. The owner has not overridden any of them, so each stands as `A (recorded default)` and the sheet may cite its id. Each is filed with its own id so a later sheet or ticket can point at it, and the owner may reverse any of them.
