@@ -17,7 +17,7 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 import {
@@ -35,7 +35,7 @@ import {
 	PUT as putTask
 } from '../../../routes/api/tasks/[id]/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 const ISO = /^\d{4}-\d{2}-\d{2}T/;
 // timestamptz mode:'string' fields are rendered by Postgres, not ISO-serialized.
 const PG_TIMESTAMP = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d+)?\+00$/;

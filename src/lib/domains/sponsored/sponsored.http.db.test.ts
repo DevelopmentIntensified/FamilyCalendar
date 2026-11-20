@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { adConsentRecords, events, userSettings } from '$lib/kernel/db/tables.server';
 import { invoke, type LegacyUser } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 // The ROUTE is what clients hit, and after the port it re-exports the new
@@ -54,7 +54,7 @@ function getSponsoredEventsFor(
 	query: Readonly<Record<string, string>> = {}
 ) {
 	return invoke(getSponsoredEvents, {
-		ctx: testCtx({ db: testDb() }),
+		ctx: goldenCtx({ db: testDb() }),
 		user,
 		path: '/api/sponsored-events',
 		query

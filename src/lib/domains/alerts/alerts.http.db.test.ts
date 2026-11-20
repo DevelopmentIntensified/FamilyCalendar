@@ -20,7 +20,7 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 import { DELETE as deleteDevice, POST as postDevice } from '../../../routes/api/devices/+server';
@@ -33,7 +33,7 @@ import { POST as postPushSubscribe } from '../../../routes/api/push/subscribe/+s
 import { POST as postPushUnsubscribe } from '../../../routes/api/push/unsubscribe/+server';
 import { seedAlert, seedAlertPreferencesRow, seedDeviceToken } from './alerts.fixtures.server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 type AlertRow = typeof notifications.$inferSelect;
 /** A refused input: a parsed body, or raw text for unparseable JSON. */
