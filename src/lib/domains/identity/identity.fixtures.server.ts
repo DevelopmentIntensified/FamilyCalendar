@@ -10,19 +10,32 @@
  * The settings, token and consent builders write `IDENTITY_SEEDED_AT`, so a
  * golden pins the exact wire rendering of `updatedAt`/`createdAt`/`lastUsedAt`/
  * `recordedAt` instead of a shape; the session, calendar and family builders
- * leave their timestamps to the column defaults (`defaultNow()`).
+ * leave their timestamps to the column defaults (`defaultNow()`) unless a test
+ * overrides them.
+ *
+ *   await seedIdentitySettings(user.id);                         // committed goldens
+ *   await seedIdentitySettings(user.id, { timeZone: 'UTC' }, db); // inside rollbackTest
+ *
+ * Every builder takes an optional trailing `db` (the family precedent). It
+ * defaults to the committed test database, which is what the golden's calls
+ * rely on; a `rollbackTest` passes its transaction so the rows vanish with it.
  *
  * Doc: ./README.md#how-to-test
  */
+import type { Db } from '$lib/kernel/db/database.server';
 import {
+	accounts,
 	adConsentRecords,
 	apiTokens,
 	authSession,
 	calendars,
+	codes,
 	families,
 	familyMembers,
 	userSettings,
-	type AdConsentDecision
+	type AdConsentDecision,
+	type NewAuthSessionRow,
+	type NewCodeRow
 } from '$lib/kernel/db/tables.server';
 import { testDb } from '$lib/kernel/testing/testDb.server';
 
@@ -33,9 +46,10 @@ const seededAt = new Date(IDENTITY_SEEDED_AT);
 /** The stored settings row the settings tests merge onto. */
 export async function seedIdentitySettings(
 	userId: string,
-	overrides: Partial<typeof userSettings.$inferInsert> = {}
+	overrides: Partial<typeof userSettings.$inferInsert> = {},
+	db: Db = testDb()
 ) {
-	const [row] = await testDb()
+	const [row] = await db
 		.insert(userSettings)
 		.values({
 			id: 'settings-a',
@@ -70,9 +84,10 @@ export async function seedIdentitySettings(
  */
 export async function seedIdentitySparseSettings(
 	userId: string,
-	overrides: Partial<typeof userSettings.$inferInsert> = {}
+	overrides: Partial<typeof userSettings.$inferInsert> = {},
+	db: Db = testDb()
 ) {
-	const [row] = await testDb()
+	const [row] = await db
 		.insert(userSettings)
 		.values({ userId, timeZone: 'UTC', updatedAt: seededAt, ...overrides })
 		.returning();
@@ -81,9 +96,10 @@ export async function seedIdentitySparseSettings(
 
 export async function seedIdentityApiToken(
 	userId: string,
-	overrides: Partial<typeof apiTokens.$inferInsert> = {}
+	overrides: Partial<typeof apiTokens.$inferInsert> = {},
+	db: Db = testDb()
 ) {
-	const [row] = await testDb()
+	const [row] = await db
 		.insert(apiTokens)
 		.values({
 			id: 'tok-a',
@@ -97,15 +113,24 @@ export async function seedIdentityApiToken(
 	return row;
 }
 
-export async function seedIdentitySession(userId: string, id: string) {
-	await testDb()
+/** A live web session (expires 2030); `token` defaults to `token-<id>`. */
+export async function seedIdentitySession(
+	userId: string,
+	id: string,
+	overrides: Partial<NewAuthSessionRow> = {},
+	db: Db = testDb()
+) {
+	const [row] = await db
 		.insert(authSession)
 		.values({
 			id,
 			token: `token-${id}`,
 			userId,
-			expiresAt: new Date('2030-01-01T00:00:00.000Z')
-		});
+			expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+			...overrides
+		})
+		.returning();
+	return row;
 }
 
 /**
@@ -116,26 +141,61 @@ export async function seedIdentitySession(userId: string, id: string) {
 export async function seedIdentityCalendar(
 	ownerId: string | null,
 	id: string,
-	options: { familyId?: string } = {}
+	options: { familyId?: string } = {},
+	db: Db = testDb()
 ) {
-	await testDb()
-		.insert(calendars)
-		.values({ id, ownerId, familyId: options.familyId ?? null });
+	await db.insert(calendars).values({ id, ownerId, familyId: options.familyId ?? null });
 }
 
 /** The family row plus the membership the default-calendar access check reads. */
-export async function seedIdentityFamily(userId: string, familyId: string, name = 'Home') {
-	await testDb().insert(families).values({ id: familyId, name });
-	await testDb().insert(familyMembers).values({ userId, familyId });
+export async function seedIdentityFamily(
+	userId: string,
+	familyId: string,
+	name = 'Home',
+	db: Db = testDb()
+) {
+	await db.insert(families).values({ id: familyId, name });
+	await db.insert(familyMembers).values({ userId, familyId });
 }
 
 /** One consent-trail row at an explicit instant — the trail is append-only and read newest-first. */
 export async function seedIdentityConsent(
 	userId: string,
 	decision: AdConsentDecision,
-	recordedAt: string
+	recordedAt: string,
+	db: Db = testDb()
 ) {
-	await testDb()
+	await db
 		.insert(adConsentRecords)
 		.values({ userId, decision, recordedAt: new Date(recordedAt) });
+}
+
+/**
+ * One `codes` row exactly as given: pass `code` already hashed for a sign-in
+ * kind (`sha256Hex`), plain for `email_change` / `reset_used`. Expires in 2099
+ * unless overridden.
+ */
+export async function seedIdentityEmailCode(
+	values: Pick<NewCodeRow, 'code' | 'email'> & Partial<NewCodeRow>,
+	db: Db = testDb()
+) {
+	const [row] = await db
+		.insert(codes)
+		.values({ expiresAt: new Date('2099-01-01T00:00:00.000Z'), ...values })
+		.returning();
+	return row;
+}
+
+/** A provider `accounts` row: the email-keyed binding a sign-in looks up first. */
+export async function seedIdentityAccountBinding(
+	userId: string,
+	providerAccountId: string,
+	provider = 'email',
+	db: Db = testDb()
+) {
+	const [row] = await db
+		.insert(accounts)
+		.values({ userId, provider, providerAccountId })
+		.returning();
+	return row;
 }
