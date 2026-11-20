@@ -17,7 +17,7 @@ import {
 import { invoke, type InvokeResult } from '$lib/kernel/testing/invokeHandlers.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import { seedCalendarRow, seedEventRow } from './calendar.fixtures.server';
 import { GET as getEvents } from '../../../routes/api/events/+server';
@@ -26,7 +26,7 @@ import { POST as commitImport } from '../../../routes/api/import/commit/+server'
 import { POST as previewImport } from '../../../routes/api/import/preview/+server';
 import { POST as undoImport } from '../../../routes/api/import/undo/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 const PERSONAL_CAL = 'cal-personal01';
 const FAMILY_CAL = 'cal-family01';

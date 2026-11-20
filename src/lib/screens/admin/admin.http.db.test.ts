@@ -16,12 +16,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { bugReports, unmatchedPhrases } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 // The ROUTE module, not the legacy service: this import survives the port.
 import { GET } from '../../../routes/api/admin/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 type NewBugReport = typeof bugReports.$inferInsert;
 type NewPhrase = typeof unmatchedPhrases.$inferInsert;

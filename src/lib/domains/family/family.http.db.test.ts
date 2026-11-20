@@ -29,7 +29,7 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { invoke, type InvokeResult } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 import {
@@ -63,7 +63,7 @@ import { GET as memberSearch } from '../../../routes/api/family/member-search/+s
 import { GET as getRoster } from '../../../routes/api/family/roster/+server';
 import { GET as searchFamily } from '../../../routes/api/family/search/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 /** SAFETY: the golden asserts or destructures the exact shape right after; this only narrows the kernel's JsonValue. */
 function bodyOf<T>(res: InvokeResult): T {
@@ -2098,7 +2098,7 @@ describe('POST /api/families/{id}/members/email/link', () => {
 // golden from spec: legacy handler not runnable here (imports `$env/static/private` and sends email through Resend).
 // Written from docs/guides/task-api-spec.md (G10e) and the legacy route test
 // src/routes/(family)/family/[familyId]/members/add/email/server.test.ts.
-// Unskip at S6: family S5 adds the kernel `mail` port, so testCtx can hand the
+// Unskip at S6: family S5 adds the kernel `mail` port, so goldenCtx can hand the
 // handler a fake and the success case can assert the minted row without mail.
 describe.skip('POST /api/families/{id}/members/email (golden from spec)', () => {
 	// A caller that counts the rate-limit budget passes its own `c`; every

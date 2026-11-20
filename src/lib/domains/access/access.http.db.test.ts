@@ -12,7 +12,7 @@
  *
  * Two rules keep this file green through the port:
  * - one ctx per test (`const c = ctx()`), passed to every request the test
- *   makes, the refusal and the control requests included. `testCtx()` builds a
+ *   makes, the refusal and the control requests included. `goldenCtx()` builds a
  *   fresh limiter per call, so a budget test that built one per request would
  *   stop reaching its limit once the legacy module-scope limiter moves into
  *   `ctx.limiter` — and a golden may only change by losing a `.skip` after S2.
@@ -57,7 +57,7 @@ import {
 	type InvokeOptions
 } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 // The ROUTE modules, not the legacy services: after the port these files
@@ -92,7 +92,7 @@ import {
 } from './access.fixtures.server';
 
 const db = () => testDb();
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 /**
  * The secret SvelteKit bakes into `$env/static/private` for this project: the
